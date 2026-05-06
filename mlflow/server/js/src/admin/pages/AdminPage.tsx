@@ -44,18 +44,32 @@ import { CreateRoleModal } from '../components/CreateRoleModal';
 // elsewhere in the admin UI (e.g. the Account page's permission lines like
 // `experiment:* → READ`). Each row issues its own request — React Query
 // caches per-username so subsequent re-renders don't re-fetch.
-const UserRolesCell = ({ username }: { username: string }) => {
+// ``enabled`` lets the parent suppress the per-row request for workspace
+// managers, where ``validate_can_view_user_roles`` would 403 for any user
+// outside a workspace they manage — an N+1 burst of mostly-403 requests
+// per page load. Workspace managers see ``—`` for everyone in this column
+// and drill into a user's detail page for scoped role info instead.
+const UserRolesCell = ({ username, enabled }: { username: string; enabled: boolean }) => {
   const { theme } = useDesignSystemTheme();
-  const { data, isLoading, error } = useUserRolesQuery(username);
+  const { data, isLoading, error } = useUserRolesQuery(username, { enabled });
+  if (!enabled) {
+    return <Typography.Text color="secondary">—</Typography.Text>;
+  }
   if (isLoading) {
     return <Spinner size="small" />;
   }
-  // Render the same muted ``—`` for "no roles assigned", "you can't see this
-  // user's roles" (403 — a workspace admin viewing an outside-workspace
-  // target), and other fetch failures. Surfacing a per-row red error reads as
-  // breakage in workspace-manager mode where 403s are expected and harmless
-  // (the visible role data lives elsewhere in the page).
-  const roles = error ? [] : (data?.roles ?? []);
+  if (error) {
+    // Distinguish "no roles assigned" from "we couldn't load roles" — only
+    // platform admins reach this branch (workspace managers short-circuit
+    // above), so a red signal is appropriate; an admin reviewing user state
+    // should know when a fetch genuinely failed.
+    return (
+      <Typography.Text color="error" size="sm">
+        Failed to load
+      </Typography.Text>
+    );
+  }
+  const roles = data?.roles ?? [];
   if (roles.length === 0) {
     return <Typography.Text color="secondary">—</Typography.Text>;
   }
@@ -260,7 +274,7 @@ const UsersTab = () => {
               </Link>
             </TableCell>
             <TableCell css={{ flex: 2 }}>
-              <UserRolesCell username={user.username} />
+              <UserRolesCell username={user.username} enabled={isAdmin} />
             </TableCell>
             <TableCell css={{ flex: 1 }}>
               {user.is_admin ? (

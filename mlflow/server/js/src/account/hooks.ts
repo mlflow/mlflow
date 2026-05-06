@@ -31,6 +31,11 @@ export const useCurrentUserIsAdmin = () => {
  * Manage entry off and back on. We hold the last computed set in a ref
  * and reuse it whenever ``rolesData`` is missing, so the UI gate stays
  * stable across refetches.
+ *
+ * Identity changes (e.g. dev-user-switcher swapping the Basic Auth
+ * cookie without a full reload) reset the cached set so we never serve a
+ * previous user's admin-workspace set during the new user's first
+ * refetch.
  */
 export const useCurrentUserAdminWorkspaces = (): Set<string> => {
   const { data: currentUser } = useCurrentUserQuery();
@@ -51,11 +56,19 @@ export const useCurrentUserAdminWorkspaces = (): Set<string> => {
   }, [rolesData]);
 
   const previous = useRef<Set<string>>(new Set());
+  const lastUsername = useRef(username);
   useEffect(() => {
+    if (lastUsername.current !== username) {
+      // Identity changed — drop the stale set before any new role-list
+      // refetch lands so we don't briefly show the previous user's
+      // admin-workspace gate.
+      previous.current = new Set();
+      lastUsername.current = username;
+    }
     if (computed) {
       previous.current = computed;
     }
-  }, [computed]);
+  }, [computed, username]);
 
   return computed ?? previous.current;
 };
@@ -102,13 +115,17 @@ export const useUpdatePassword = () => {
   });
 };
 
-export const useUserRolesQuery = (username: string) => {
+export const useUserRolesQuery = (username: string, options: { enabled?: boolean } = {}) => {
   return useQuery({
     queryKey: AccountQueryKeys.userRoles(username),
     queryFn: () => AccountApi.listUserRoles(username),
     retry: false,
     refetchOnWindowFocus: false,
-    enabled: Boolean(username),
+    // Default-on. Callers pass ``enabled: false`` to skip the request when
+    // they know it would be wasted (e.g. the AdminPage Users tab skipping
+    // per-row fetches for workspace managers — many would 403, and the
+    // visible cell collapses to ``—`` anyway).
+    enabled: Boolean(username) && options.enabled !== false,
   });
 };
 
