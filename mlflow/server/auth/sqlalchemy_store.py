@@ -330,21 +330,27 @@ class SqlAlchemyStore:
                 )
                 .first()
             )
-            if existing is not None:
-                raise MlflowException(
-                    f"Experiment permission (experiment_id={experiment_id}, "
-                    f"username={username}) already exists.",
-                    RESOURCE_ALREADY_EXISTS,
-                )
-            session.add(
-                SqlRolePermission(
-                    role_id=role.id,
-                    resource_type=RESOURCE_TYPE_EXPERIMENT,
-                    resource_pattern=experiment_id,
-                    permission=permission,
-                )
+            duplicate_message = (
+                f"Experiment permission (experiment_id={experiment_id}, "
+                f"username={username}) already exists."
             )
-            session.flush()
+            if existing is not None:
+                raise MlflowException(duplicate_message, RESOURCE_ALREADY_EXISTS)
+            try:
+                with session.begin_nested():
+                    session.add(
+                        SqlRolePermission(
+                            role_id=role.id,
+                            resource_type=RESOURCE_TYPE_EXPERIMENT,
+                            resource_pattern=experiment_id,
+                            permission=permission,
+                        )
+                    )
+                    session.flush()
+            except IntegrityError as e:
+                # Concurrent create lost the unique-constraint race. Surface as
+                # a clean RESOURCE_ALREADY_EXISTS instead of a 500.
+                raise MlflowException(duplicate_message, RESOURCE_ALREADY_EXISTS) from e
             return ExperimentPermission(
                 experiment_id=experiment_id, user_id=user.id, permission=permission
             )
@@ -453,22 +459,28 @@ class SqlAlchemyStore:
                 )
                 .first()
             )
-            if existing is not None:
-                raise MlflowException(
-                    "Registered model permission "
-                    f"with workspace={workspace_name}, name={name} and username={username} "
-                    "already exists.",
-                    RESOURCE_ALREADY_EXISTS,
-                )
-            session.add(
-                SqlRolePermission(
-                    role_id=role.id,
-                    resource_type=RESOURCE_TYPE_REGISTERED_MODEL,
-                    resource_pattern=name,
-                    permission=permission,
-                )
+            duplicate_message = (
+                "Registered model permission "
+                f"with workspace={workspace_name}, name={name} and username={username} "
+                "already exists."
             )
-            session.flush()
+            if existing is not None:
+                raise MlflowException(duplicate_message, RESOURCE_ALREADY_EXISTS)
+            try:
+                with session.begin_nested():
+                    session.add(
+                        SqlRolePermission(
+                            role_id=role.id,
+                            resource_type=RESOURCE_TYPE_REGISTERED_MODEL,
+                            resource_pattern=name,
+                            permission=permission,
+                        )
+                    )
+                    session.flush()
+            except IntegrityError as e:
+                # Concurrent create lost the unique-constraint race. Surface as
+                # a clean RESOURCE_ALREADY_EXISTS instead of a 500.
+                raise MlflowException(duplicate_message, RESOURCE_ALREADY_EXISTS) from e
             return RegisteredModelPermission(
                 workspace=workspace_name, name=name, user_id=user.id, permission=permission
             )
@@ -762,10 +774,10 @@ class SqlAlchemyStore:
           (admin-created, no permissions or otherwise) confers visibility on
           its workspace. Matches #22864's "any role assignment counts".
         - **Synthetic ``__user_<id>__`` roles**: only confer visibility if their
-          ``resource_type='*', resource_pattern='*'`` grant has ``can_read``.
-          This preserves the legacy ``workspace_permissions`` semantic where a
-          row with ``permission='NO_PERMISSIONS'`` hides the workspace; those
-          rows now live as the ``(*, *)`` grant on the synthetic role.
+          ``('workspace', '*')`` grant has ``can_read``. This preserves the legacy
+          ``workspace_permissions`` semantic where a row with
+          ``permission='NO_PERMISSIONS'`` hides the workspace; those rows now
+          live as the ``('workspace', '*')`` grant on the synthetic role.
         """
         if username is None:
             return set()
@@ -1079,15 +1091,21 @@ class SqlAlchemyStore:
             )
             if existing is not None:
                 raise MlflowException(duplicate_message, RESOURCE_ALREADY_EXISTS)
-            session.add(
-                SqlRolePermission(
-                    role_id=role.id,
-                    resource_type=resource_type,
-                    resource_pattern=resource_pattern,
-                    permission=permission,
-                )
-            )
-            session.flush()
+            try:
+                with session.begin_nested():
+                    session.add(
+                        SqlRolePermission(
+                            role_id=role.id,
+                            resource_type=resource_type,
+                            resource_pattern=resource_pattern,
+                            permission=permission,
+                        )
+                    )
+                    session.flush()
+            except IntegrityError as e:
+                # Concurrent create lost the unique-constraint race. Surface as
+                # a clean RESOURCE_ALREADY_EXISTS instead of a 500.
+                raise MlflowException(duplicate_message, RESOURCE_ALREADY_EXISTS) from e
             return entity_factory(user=user, permission=permission)
 
     def _get_per_resource_permission_row(
@@ -1801,9 +1819,9 @@ class SqlAlchemyStore:
             for role in roles:
                 for rp in role.permissions:
                     # Workspace-wide permission — applies to every resource type.
-                    # ``resource_type='workspace'`` = workspace admin;
-                    # ``resource_type='*'`` = default per-user grant on every resource
-                    # type (mirrors the former workspace_permissions semantics).
+                    # The unified ``('workspace', '*')`` slot accepts either USE
+                    # (regular workspace member) or MANAGE (workspace admin); the
+                    # permission tier alone distinguishes the two.
                     if rp.resource_type == RESOURCE_TYPE_WORKSPACE and rp.resource_pattern == "*":
                         best_permission_name = (
                             max_permission(best_permission_name, rp.permission)

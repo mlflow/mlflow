@@ -517,10 +517,10 @@ def _get_role_permission_or_default(
 
     In the unified RBAC model (post-``e5f6a7b8c9d0`` migration), ``role_permissions`` is
     the sole source of truth: per-user grants live under synthetic ``__user_<id>__``
-    roles, workspace-wide grants live under either admin-assigned roles or the
-    ``resource_type='*'`` form the migration emits for legacy ``workspace_permissions``
-    rows. ``get_role_permission_for_resource`` walks all of those and returns the max,
-    or ``None`` when nothing matches.
+    roles, workspace-wide grants live in the unified ``('workspace', '*')`` slot
+    (USE for regular workspace members, MANAGE for workspace admins).
+    ``get_role_permission_for_resource`` walks all of the user's role grants and
+    returns the max, or ``None`` when nothing matches.
 
     ``NO_PERMISSIONS`` is no longer accepted as a new grant value (validators reject it
     on resource-scoped writes; the migration drops legacy ``NO_PERMISSIONS`` rows).
