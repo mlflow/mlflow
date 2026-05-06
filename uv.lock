@@ -10,7 +10,7 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "2026-04-20T04:06:21.793640847Z"
+exclude-newer = "2026-04-22T00:34:50.57042884Z"
 exclude-newer-span = "P14D"
 
 [options.exclude-newer-package]
@@ -4211,7 +4211,7 @@ wheels = [
 
 [[package]]
 name = "mlflow"
-version = "3.11.2.dev0"
+version = "3.12.1.dev0"
 source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
