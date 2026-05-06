@@ -47,7 +47,7 @@ export const RoleAssignmentForm = ({ value, onChange, disabled }: RoleAssignment
   const activeWorkspace = useActiveWorkspace();
   const queryWorkspace = isAdmin ? undefined : (activeWorkspace ?? undefined);
   const queryEnabled = isAdmin || Boolean(activeWorkspace);
-  const { data: rolesData, isLoading } = useRolesQuery(queryWorkspace, { enabled: queryEnabled });
+  const { data: rolesData, isLoading, error } = useRolesQuery(queryWorkspace, { enabled: queryEnabled });
   const roles = useMemo(() => rolesData?.roles ?? [], [rolesData]);
 
   // Pin "default" workspace's roles first; sort the rest alphabetically
@@ -88,10 +88,16 @@ export const RoleAssignmentForm = ({ value, onChange, disabled }: RoleAssignment
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
       <div>
         <FieldLabel>Roles</FieldLabel>
-        {isLoading ? (
+        {!queryEnabled ? (
+          <Typography.Text color="secondary">
+            Select a workspace from the workspace selector to choose roles.
+          </Typography.Text>
+        ) : isLoading ? (
           <div css={{ padding: theme.spacing.sm }}>
             <Spinner size="small" />
           </div>
+        ) : error ? (
+          <Typography.Text color="error">Failed to load roles for this workspace.</Typography.Text>
         ) : roles.length === 0 ? (
           <Typography.Text color="secondary">No roles available. Create a role first.</Typography.Text>
         ) : (

@@ -25,6 +25,7 @@ import { ConfirmationModal } from '../ConfirmationModal';
 import AdminRoutes from '../routes';
 import { useTableSelection } from '../useTableSelection';
 import {
+  useCurrentUserAdminWorkspaces,
   useCurrentUserIsAdmin,
   useCurrentUserIsWorkspaceAdmin,
   useCurrentUserQuery,
@@ -300,15 +301,15 @@ const UsersTab = () => {
 
 const RolesTab = () => {
   const { theme } = useDesignSystemTheme();
-  // Workspace admins must scope to a workspace they manage
-  // (``validate_can_list_roles`` rejects unscoped non-admin requests).
-  // Bulk-delete is open to both groups — the listing is already
-  // server-scoped, so every visible row is one ``validate_can_manage_roles``
-  // will accept a delete for.
+  // Mutations are authorized per-target-workspace by ``validate_can_manage_roles``,
+  // so ``canManageRoles`` checks the *active* workspace, not just whether the
+  // user admins something somewhere. A wp-admin of A who is currently in B
+  // (member only) would otherwise see Create / bulk-delete CTAs that 403 on
+  // submit.
   const isAdmin = useCurrentUserIsAdmin();
-  const isWorkspaceAdmin = useCurrentUserIsWorkspaceAdmin();
-  const canManageRoles = isAdmin || isWorkspaceAdmin;
+  const adminWorkspaces = useCurrentUserAdminWorkspaces();
   const activeWorkspace = useActiveWorkspace();
+  const canManageRoles = isAdmin || (activeWorkspace !== null && adminWorkspaces.has(activeWorkspace));
   const queryWorkspace = isAdmin ? undefined : (activeWorkspace ?? undefined);
   const queryEnabled = isAdmin || Boolean(activeWorkspace);
   const { data: rolesData, isLoading, error: queryError } = useRolesQuery(queryWorkspace, { enabled: queryEnabled });
