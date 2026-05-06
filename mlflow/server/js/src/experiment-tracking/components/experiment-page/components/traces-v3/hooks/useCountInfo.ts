@@ -76,11 +76,11 @@ export function useCountInfo({
 
   return useMemo(() => {
     const loadedSessionCount = getUniqueSessionCount(traceInfos);
-    const currentCount = countSessions ? loadedSessionCount : traceInfos?.length ?? traceInfosCount ?? 0;
+    const currentCount = countSessions ? loadedSessionCount : (traceInfos?.length ?? traceInfosCount ?? 0);
     const maxAllowedCount = usingInfinitePagination ? Infinity : getEvalTabTotalTracesLimit();
 
     if (usingInfinitePagination) {
-      const fallbackTotal = countSessions ? loadedSessionCount : traceInfos?.length ?? traceInfosCount ?? 0;
+      const fallbackTotal = countSessions ? loadedSessionCount : (traceInfos?.length ?? traceInfosCount ?? 0);
       return {
         currentCount,
         logCountLoading: traceInfosLoading || countLoading,
