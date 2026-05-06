@@ -11,8 +11,13 @@ Backfills the pre-RBAC per-resource permission tables
 ``role_permissions`` rows hung off a synthetic ``__user_<id>__`` role per
 ``(user, workspace)`` pair. The legacy tables are intentionally **not** dropped —
 they remain in place as a paused snapshot so operators can roll back manually
-without restoring from backup; a future migration will retire them once the
-simplified RBAC model has bedded in.
+without restoring from backup. A follow-up migration
+(``f6a7b8c9d0e1_drop_legacy_permission_tables``, scheduled for MLflow 3.X+2 —
+tracking: https://github.com/mlflow/mlflow/issues/23087) will retire them once
+the simplified RBAC model has bedded in. Until then, ``SqlAlchemyStore.delete_user``
+scrubs each user's rows from these tables on delete to satisfy the non-cascading
+FKs from earlier migrations — see ``_RETAINED_LEGACY_PERMISSION_TABLES`` in
+``sqlalchemy_store.py`` for the runtime side of this contract.
 
 After this migration, ``role_permissions`` is the sole source of truth that the
 auth server reads and writes; the legacy tables are no longer consulted.
