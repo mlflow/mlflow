@@ -1482,8 +1482,20 @@ def validate_can_list_users():
 
 
 def validate_can_create_user():
-    # only admins can create user, but admins won't reach this validator
-    return False
+    """
+    Authorization for the ``/mlflow/users/create`` endpoint. Platform admins
+    always pass (handled by ``_before_request``). Workspace admins are also
+    allowed: they may need to add a user before assigning that user a role
+    in one of the workspaces they manage. Creating a user does not by itself
+    grant the new account any access — they have no roles or permissions
+    until an authorized requester explicitly assigns them. Deletion stays
+    platform-admin-only (see ``validate_can_delete_user``).
+    """
+    username = authenticate_request().username
+    user = store.get_user(username)
+    if user.is_admin:
+        return True
+    return bool(store.list_workspace_admin_workspaces(user.id))
 
 
 def validate_can_update_user_password():

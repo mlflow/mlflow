@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useMutation, useQuery } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { AccountApi } from './api';
 import { isWorkspaceAdminRole } from './types';
@@ -22,23 +22,42 @@ export const useCurrentUserIsAdmin = () => {
  * The set of workspaces in which the current user holds a workspace-admin
  * role (``(workspace, *, MANAGE)``). Mirrors the backend
  * ``store.list_workspace_admin_workspaces``. Composes self-authorized
- * queries — no admin-only endpoint required. Returns an empty set while
- * the underlying queries are still loading so auth-gated UI doesn't flash
- * visible before we know the answer.
+ * queries — no admin-only endpoint required.
+ *
+ * ``WorkspaceSelector`` blanket-invalidates the query cache after a
+ * workspace switch, so this hook can briefly observe ``rolesData ===
+ * undefined`` while the refetch is in-flight. Without protection that
+ * would flip ``canManage`` to false in the sidebar and flicker the
+ * Manage entry off and back on. We hold the last computed set in a ref
+ * and reuse it whenever ``rolesData`` is missing, so the UI gate stays
+ * stable across refetches.
  */
 export const useCurrentUserAdminWorkspaces = (): Set<string> => {
   const { data: currentUser } = useCurrentUserQuery();
   const username = currentUser?.user?.username ?? '';
   const { data: rolesData } = useUserRolesQuery(username);
-  return useMemo(() => {
+
+  const computed = useMemo(() => {
+    if (!rolesData) {
+      return null;
+    }
     const result = new Set<string>();
-    for (const role of rolesData?.roles ?? []) {
+    for (const role of rolesData.roles ?? []) {
       if (isWorkspaceAdminRole(role)) {
         result.add(role.workspace);
       }
     }
     return result;
   }, [rolesData]);
+
+  const previous = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (computed) {
+      previous.current = computed;
+    }
+  }, [computed]);
+
+  return computed ?? previous.current;
 };
 
 /**

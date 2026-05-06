@@ -26,6 +26,7 @@ import AdminRoutes from '../routes';
 import { useTableSelection } from '../useTableSelection';
 import {
   useCurrentUserIsAdmin,
+  useCurrentUserIsWorkspaceAdmin,
   useCurrentUserQuery,
   useUsersQuery,
   useDeleteUser,
@@ -77,11 +78,14 @@ const UsersTab = () => {
   const currentUsername = currentUserData?.user?.username;
   const deleteUser = useDeleteUser();
   const withReturnTo = useWithSettingsReturnTo();
-  // Create / bulk-delete are platform-admin-only operations. Workspace
-  // admins still see the table (so they can pick users to assign to roles
-  // they manage) but the platform-only controls and the row-selection
-  // affordance fold away.
+  // Workspace admins can create users (so they can seed an account before
+  // assigning it a role in a workspace they manage), but deletion stays
+  // super-admin-only — so the row-selection checkbox column and the bulk
+  // delete button only render for platform admins. The Create User button
+  // renders for both groups.
   const isAdmin = useCurrentUserIsAdmin();
+  const isWorkspaceAdmin = useCurrentUserIsWorkspaceAdmin();
+  const canCreateUser = isAdmin || isWorkspaceAdmin;
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
@@ -166,7 +170,7 @@ const UsersTab = () => {
       {error && (
         <Alert componentId="admin.users.error" type="error" message={error} closable onClose={() => setError(null)} />
       )}
-      {isAdmin && (
+      {canCreateUser && (
         <div
           css={{
             display: 'flex',
@@ -175,25 +179,27 @@ const UsersTab = () => {
             gap: theme.spacing.sm,
           }}
         >
-          <Button
-            componentId="admin.users.bulk_delete_button"
-            danger
-            disabled={visibleSelectedUsernames.size === 0}
-            onClick={() => setBulkDeleteOpen(true)}
-          >
-            {visibleSelectedUsernames.size === 0 ? (
-              <FormattedMessage
-                defaultMessage="Delete"
-                description="Bulk-delete button on the users table (no rows selected)"
-              />
-            ) : (
-              <FormattedMessage
-                defaultMessage="Delete ({count})"
-                description="Bulk-delete button on the users table"
-                values={{ count: visibleSelectedUsernames.size }}
-              />
-            )}
-          </Button>
+          {isAdmin && (
+            <Button
+              componentId="admin.users.bulk_delete_button"
+              danger
+              disabled={visibleSelectedUsernames.size === 0}
+              onClick={() => setBulkDeleteOpen(true)}
+            >
+              {visibleSelectedUsernames.size === 0 ? (
+                <FormattedMessage
+                  defaultMessage="Delete"
+                  description="Bulk-delete button on the users table (no rows selected)"
+                />
+              ) : (
+                <FormattedMessage
+                  defaultMessage="Delete ({count})"
+                  description="Bulk-delete button on the users table"
+                  values={{ count: visibleSelectedUsernames.size }}
+                />
+              )}
+            </Button>
+          )}
           <Button componentId="admin.users.create_button" type="primary" onClick={() => setShowCreateModal(true)}>
             <FormattedMessage defaultMessage="Create User" description="Button to create a new user" />
           </Button>
@@ -294,7 +300,13 @@ const RolesTab = () => {
   // workspace param for non-platform-admins). When a workspace admin lands
   // on /admin without an active workspace selected we suppress the query
   // and surface an info state, since the request would 403.
+  //
+  // Bulk-delete renders for either group — for workspace admins the listing
+  // is already scoped server-side to workspaces they manage, so every row
+  // they see is one ``validate_can_manage_roles`` will accept a delete for.
   const isAdmin = useCurrentUserIsAdmin();
+  const isWorkspaceAdmin = useCurrentUserIsWorkspaceAdmin();
+  const canDeleteRoles = isAdmin || isWorkspaceAdmin;
   const activeWorkspace = useActiveWorkspace();
   const queryWorkspace = isAdmin ? undefined : (activeWorkspace ?? undefined);
   const queryEnabled = isAdmin || Boolean(activeWorkspace);
@@ -402,7 +414,7 @@ const RolesTab = () => {
           gap: theme.spacing.sm,
         }}
       >
-        {isAdmin && (
+        {canDeleteRoles && (
           <Button
             componentId="admin.roles.bulk_delete_button"
             danger
@@ -438,7 +450,7 @@ const RolesTab = () => {
         }}
       >
         <TableRow isHeader>
-          {isAdmin && (
+          {canDeleteRoles && (
             <TableHeader componentId="admin.roles.select_header" css={{ flex: 0, minWidth: 40, maxWidth: 40 }}>
               <Checkbox
                 componentId="admin.roles.select_all"
@@ -466,7 +478,7 @@ const RolesTab = () => {
         </TableRow>
         {roles.map((role) => (
           <TableRow key={role.id}>
-            {isAdmin && (
+            {canDeleteRoles && (
               <TableCell css={{ flex: 0, minWidth: 40, maxWidth: 40 }}>
                 <Checkbox
                   componentId="admin.roles.select_row"

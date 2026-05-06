@@ -2153,6 +2153,35 @@ def test_validate_can_list_users(role_auth_setup, actor, expected):
         assert auth_module.validate_can_list_users() is expected
 
 
+@pytest.mark.parametrize(
+    ("actor", "expected"),
+    [
+        # Same matrix as ``list_users``: workspace admins may need to seed a
+        # user before assigning a role to them in a workspace they manage.
+        # Deletion stays super-admin-only (see ``validate_can_delete_user``).
+        ("super_admin", True),
+        ("ws_admin_foo", True),
+        ("ws_admin_bar", True),
+        ("ws_member_foo", False),
+        ("outsider", False),
+    ],
+)
+def test_validate_can_create_user(role_auth_setup, actor, expected):
+    role_auth_setup["login_as"](actor)
+    with auth_module.app.test_request_context("/api/2.0/mlflow/users/create", method="POST"):
+        assert auth_module.validate_can_create_user() is expected
+
+
+def test_validate_can_delete_user_stays_super_admin_only(role_auth_setup):
+    # Workspace admins explicitly do NOT get delete; the only path to True is
+    # the ``_before_request`` super-admin bypass. Smoke-check by exercising a
+    # workspace admin and a non-member; both must return False.
+    for actor in ("ws_admin_foo", "outsider"):
+        role_auth_setup["login_as"](actor)
+        with auth_module.app.test_request_context("/api/2.0/mlflow/users/delete", method="DELETE"):
+            assert auth_module.validate_can_delete_user() is False
+
+
 def test_validate_can_view_user_roles_self_always_allowed(role_auth_setup):
     # A user can always read their own role list, even one with no roles.
     # Using ``outsider`` (zero roles) exercises the self-short-circuit without
