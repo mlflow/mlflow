@@ -74,9 +74,9 @@ await mlflow.withSpan(
 
 Every span, whether created manually or by an autolog integration (`mlflow.openai.autolog()`, `mlflow.langchain.autolog()`, etc.), is assigned a default level based on its span type. This ensures the verbosity filter works out of the box without you annotating anything. The default is applied in the span constructor, and can be overridden by passing an explicit `log_level` keyword argument.
 
-| Span type                                              | Default |
-| ------------------------------------------------------ | ------- |
-| `LLM`, `CHAT_MODEL`, `TOOL`, `RETRIEVER`, `AGENT`, `EMBEDDING` | `INFO`  |
+| Span type                                                                                                           | Default |
+| ------------------------------------------------------------------------------------------------------------------- | ------- |
+| `LLM`, `CHAT_MODEL`, `TOOL`, `RETRIEVER`, `AGENT`, `EMBEDDING`                                                      | `INFO`  |
 | Everything else (`CHAIN`, `PARSER`, `RERANKER`, `MEMORY`, `WORKFLOW`, `TASK`, `EVALUATOR`, `UNKNOWN`, custom types) | `DEBUG` |
 
 So at the default UI threshold (`DEBUG`) you see everything, at `INFO` you see the user-visible operations and lose the chain plumbing, and at `WARNING`+ you only see spans you've explicitly marked above that level.
@@ -84,6 +84,7 @@ So at the default UI threshold (`DEBUG`) you see everything, at `INFO` you see t
 ### Spans with an exception event are bumped to `ERROR`
 
 When a span records an exception event, MLflow automatically elevates its level to `ERROR` (unless it is already at a higher severity). Exception events may arise from:
+
 - An unhandled exception captured by the @mlflow.trace decorator
 - An explicit call to span.record_exception(...)
 - A tracer-level error handler
