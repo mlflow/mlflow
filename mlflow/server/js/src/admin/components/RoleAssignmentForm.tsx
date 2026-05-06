@@ -11,7 +11,8 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FieldLabel } from './FieldLabel';
-import { useRolesQuery } from '../hooks';
+import { useCurrentUserIsAdmin, useRolesQuery } from '../hooks';
+import { useActiveWorkspace } from '../../workspaces/utils/WorkspaceUtils';
 import type { Role } from '../types';
 
 export interface RoleAssignmentValue {
@@ -40,8 +41,15 @@ const formatRoleLabel = (role: Role): string =>
 export const RoleAssignmentForm = ({ value, onChange, disabled }: RoleAssignmentFormProps) => {
   const { theme } = useDesignSystemTheme();
   const [search, setSearch] = useState('');
-  // Pass undefined to fetch roles across every workspace.
-  const { data: rolesData, isLoading } = useRolesQuery(undefined);
+  // Platform admins fetch roles across every workspace; workspace admins
+  // are scoped to a single workspace by ``validate_can_list_roles`` and
+  // pass the active workspace explicitly. When neither applies (no active
+  // workspace yet), suppress the request — it would 403 anyway.
+  const isAdmin = useCurrentUserIsAdmin();
+  const activeWorkspace = useActiveWorkspace();
+  const queryWorkspace = isAdmin ? undefined : (activeWorkspace ?? undefined);
+  const queryEnabled = isAdmin || Boolean(activeWorkspace);
+  const { data: rolesData, isLoading } = useRolesQuery(queryWorkspace, { enabled: queryEnabled });
   const roles = useMemo(() => rolesData?.roles ?? [], [rolesData]);
 
   // Pin "default" workspace's roles first; sort the rest alphabetically
