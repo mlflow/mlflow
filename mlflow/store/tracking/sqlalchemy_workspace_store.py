@@ -58,10 +58,10 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
     Workspace-aware variant of the SQLAlchemy tracking store.
     """
 
-    def __init__(self, db_uri, default_artifact_root):
+    def __init__(self, db_uri, default_artifact_root, read_db_uri=None):
         self._workspace_provider = None
         self._workspace_store_uri = workspace_utils.resolve_workspace_store_uri(tracking_uri=db_uri)
-        super().__init__(db_uri, default_artifact_root)
+        super().__init__(db_uri, default_artifact_root, read_db_uri=read_db_uri)
 
     def _get_query(self, session, model):
         query = super()._get_query(session, model)
@@ -425,7 +425,7 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
 
         with workspace_context.WorkspaceContext(default_workspace.name):
             if self.get_experiment_by_name(Experiment.DEFAULT_EXPERIMENT_NAME) is None:
-                with self.ManagedSessionMaker() as session:
+                with self.ManagedSessionMaker(read_only=False) as session:
                     self._create_default_experiment(
                         session, workspace_override=default_workspace.name
                     )

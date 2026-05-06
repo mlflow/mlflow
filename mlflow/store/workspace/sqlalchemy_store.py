@@ -90,7 +90,7 @@ class SqlAlchemyStore(AbstractStore):
 
     def create_workspace(self, workspace: Workspace) -> Workspace:
         WorkspaceNameValidator.validate(workspace.name)
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             try:
                 entity = SqlWorkspace(
                     name=workspace.name,
@@ -113,7 +113,7 @@ class SqlAlchemyStore(AbstractStore):
         return workspace_entity
 
     def update_workspace(self, workspace: Workspace) -> Workspace:
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             entity = self._get_workspace(session, workspace.name)
             if workspace.description is not None:
                 entity.description = workspace.description
@@ -141,7 +141,7 @@ class SqlAlchemyStore(AbstractStore):
                 INVALID_STATE,
             )
 
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             entity = self._get_workspace(session, workspace_name)
             try:
                 if mode == WorkspaceDeletionMode.RESTRICT:

@@ -393,15 +393,17 @@ class TrackingStoreRegistryWrapper(TrackingStoreRegistry):
 
     @classmethod
     def _get_sqlalchemy_store(cls, store_uri, artifact_uri):
+        from mlflow.server.constants import READ_REPLICA_BACKEND_STORE_URI_ENV_VAR
         from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
         from mlflow.store.tracking.sqlalchemy_workspace_store import (
             WorkspaceAwareSqlAlchemyStore,
         )
 
+        read_db_uri = os.environ.get(READ_REPLICA_BACKEND_STORE_URI_ENV_VAR, None)
         store_cls = (
             WorkspaceAwareSqlAlchemyStore if MLFLOW_ENABLE_WORKSPACES.get() else SqlAlchemyStore
         )
-        return store_cls(store_uri, artifact_uri)
+        return store_cls(store_uri, artifact_uri, read_db_uri=read_db_uri)
 
     @classmethod
     def _get_databricks_rest_store(cls, store_uri, artifact_uri):
@@ -428,15 +430,17 @@ class ModelRegistryStoreRegistryWrapper(ModelRegistryStoreRegistry):
 
     @classmethod
     def _get_sqlalchemy_store(cls, store_uri):
+        from mlflow.server.constants import READ_REPLICA_BACKEND_STORE_URI_ENV_VAR
         from mlflow.store.model_registry.sqlalchemy_store import SqlAlchemyStore
         from mlflow.store.model_registry.sqlalchemy_workspace_store import (
             WorkspaceAwareSqlAlchemyStore,
         )
 
+        read_db_uri = os.environ.get(READ_REPLICA_BACKEND_STORE_URI_ENV_VAR, None)
         store_cls = (
             WorkspaceAwareSqlAlchemyStore if MLFLOW_ENABLE_WORKSPACES.get() else SqlAlchemyStore
         )
-        return store_cls(store_uri)
+        return store_cls(store_uri, read_db_uri=read_db_uri)
 
     @classmethod
     def _get_databricks_rest_store(cls, store_uri):
@@ -676,7 +680,14 @@ def initialize_backend_stores(
     registry_store_uri: str | None = None,
     default_artifact_root: str | None = None,
     workspace_store_uri: str | None = None,
+    read_replica_backend_store_uri: str | None = None,
 ) -> None:
+    from mlflow.server.constants import READ_REPLICA_BACKEND_STORE_URI_ENV_VAR
+
+    # Set the read backend store URI env var so _get_sqlalchemy_store can pick it up
+    if read_replica_backend_store_uri:
+        os.environ[READ_REPLICA_BACKEND_STORE_URI_ENV_VAR] = read_replica_backend_store_uri
+
     tracking_store = _get_tracking_store(backend_store_uri, default_artifact_root)
     registry_store = None
     try:

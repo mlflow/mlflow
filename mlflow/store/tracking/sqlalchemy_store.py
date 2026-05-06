@@ -293,7 +293,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     )
         return cls._engine_map[db_uri]
 
-    def __init__(self, db_uri, default_artifact_root):
+    def __init__(self, db_uri, default_artifact_root, read_db_uri=None):
         """
         Create a database backed store.
 
@@ -305,6 +305,10 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 ``mssql``, ``sqlite``, and ``postgresql``.
             default_artifact_root: Path/URI to location suitable for large data (such as a blob
                 store object, DBFS path, or shared NFS file system).
+            read_db_uri: Optional SQLAlchemy database URI for a read replica. When provided,
+                read operations (e.g. search_runs, get_experiment) are routed to this URI
+                while write operations use ``db_uri``. If not provided, all operations
+                use ``db_uri``.
         """
         super().__init__()
         self.db_uri = db_uri
@@ -316,11 +320,31 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         # DB migrations
         if not mlflow.store.db.utils._all_tables_exist(self.engine):
             mlflow.store.db.utils._initialize_tables(self.engine)
-        SessionMaker = sqlalchemy.orm.sessionmaker(bind=self.engine)
-        self.ManagedSessionMaker = mlflow.store.db.utils._get_managed_session_maker(
-            SessionMaker, self.db_type
-        )
+
+        # Set up read replica engine if provided
+        if read_db_uri and read_db_uri != db_uri:
+            self.read_engine = self._get_or_create_engine(read_db_uri)
+            WriteSessionMaker = sqlalchemy.orm.sessionmaker(bind=self.engine)
+            ReadSessionMaker = sqlalchemy.orm.sessionmaker(bind=self.read_engine)
+            self.ManagedSessionMaker = mlflow.store.db.utils._get_routing_session_maker(
+                WriteSessionMaker, ReadSessionMaker, self.db_type
+            )
+        else:
+            if read_db_uri and read_db_uri == db_uri:
+                _logger.warning(
+                    "read_db_uri is the same as the primary db_uri; "
+                    "read replica routing will not be enabled. "
+                    "This is likely a configuration mistake."
+                )
+            self.read_engine = None
+            SessionMaker = sqlalchemy.orm.sessionmaker(bind=self.engine)
+            self.ManagedSessionMaker = mlflow.store.db.utils._get_managed_session_maker(
+                SessionMaker, self.db_type
+            )
+
         mlflow.store.db.utils._verify_schema(self.engine)
+        if self.read_engine is not None:
+            mlflow.store.db.utils._verify_schema(self.read_engine)
 
         # Note: We intentionally do NOT create the artifact root directory here.
         # The LocalArtifactRepository creates it lazily when the first artifact is logged.
@@ -389,7 +413,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             if exc.error_code and exc.error_code != ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
                 raise
             # Default experiment doesn't exist, create it
-            with self.ManagedSessionMaker() as session:
+            with self.ManagedSessionMaker(read_only=False) as session:
                 self._create_default_experiment(session)
 
     def _get_dialect(self):
@@ -475,7 +499,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         if artifact_location:
             artifact_location = resolve_uri_if_local(artifact_location)
             _validate_experiment_artifact_location_length(artifact_location)
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             try:
                 creation_time = get_current_time_millis()
                 experiment = self._with_workspace_field(
@@ -705,7 +729,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             return experiment.to_mlflow_entity() if experiment is not None else None
 
     def delete_experiment(self, experiment_id):
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             experiment = self._get_experiment(session, experiment_id, ViewType.ACTIVE_ONLY)
             experiment.lifecycle_stage = LifecycleStage.DELETED
             experiment.last_update_time = get_current_time_millis()
@@ -719,7 +743,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         Permanently delete a experiment (metadata and metrics, tags, parameters).
         This is used by the ``mlflow gc`` command line and is not intended to be used elsewhere.
         """
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             experiment = self._get_experiment(
                 experiment_id=experiment_id,
                 session=session,
@@ -754,7 +778,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         )
 
     def restore_experiment(self, experiment_id):
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             experiment = self._get_experiment(session, experiment_id, ViewType.DELETED_ONLY)
             experiment.lifecycle_stage = LifecycleStage.ACTIVE
             experiment.last_update_time = get_current_time_millis()
@@ -765,7 +789,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
     def rename_experiment(self, experiment_id, new_name):
         _validate_experiment_name(new_name)
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             experiment = self._get_experiment(session, experiment_id, ViewType.ALL)
             if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
                 raise MlflowException("Cannot rename a non-active experiment.", INVALID_STATE)
@@ -775,7 +799,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             session.add(experiment)
 
     def create_run(self, experiment_id, user_id, start_time, tags, run_name):
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             experiment = self.get_experiment(experiment_id)
             self._check_experiment_is_active(experiment)
 
@@ -924,7 +948,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             )
 
     def update_run_info(self, run_id, run_status, end_time, run_name):
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
             if run_status is not None:
@@ -974,14 +998,14 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             )
 
     def restore_run(self, run_id):
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             run = self._get_run(run_uuid=run_id, session=session)
             run.lifecycle_stage = LifecycleStage.ACTIVE
             run.deleted_time = None
             session.add(run)
 
     def delete_run(self, run_id):
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             run = self._get_run(run_uuid=run_id, session=session)
             self._mark_run_deleted(session, run)
 
@@ -990,7 +1014,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         Permanently delete a run (metadata and metrics, tags, parameters).
         This is used by the ``mlflow gc`` command line and is not intended to be used elsewhere.
         """
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             run = self._get_run(run_uuid=run_id, session=session)
             session.delete(run)
 
@@ -1072,7 +1096,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 )
             seen.add(metric)
 
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
 
@@ -1154,7 +1178,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         if not sanitized_metrics:
             return
 
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             metric_instances = [
                 SqlLoggedModelMetric(
                     model_id=metric.model_id,
@@ -1582,7 +1606,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
     def log_param(self, run_id, param):
         param = _validate_param(param.key, param.value)
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
             # if we try to update the value of an existing param this will fail
@@ -1632,7 +1656,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         if not params:
             return
 
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
             existing_params = {p.key: p.value for p in run.params}
@@ -1670,7 +1694,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             tag: ExperimentRunTag instance to log
         """
         _validate_experiment_tag(tag.key, tag.value)
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             tag = _validate_tag(tag.key, tag.value)
             experiment = self._get_experiment(
                 session, experiment_id, ViewType.ALL
@@ -1688,7 +1712,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             experiment_id: String ID of the experiment
             key: String name of the tag to be deleted
         """
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             experiment = self._get_experiment(
                 session, experiment_id, ViewType.ALL
             ).to_mlflow_entity()
@@ -1721,7 +1745,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             run_id: String ID of the run.
             tag: RunTag instance to log.
         """
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             tag = _validate_tag(tag.key, tag.value)
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
@@ -1746,7 +1770,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
         tags = [_validate_tag(t.key, t.value, path=f"tags[{idx}]") for (idx, t) in enumerate(tags)]
 
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
 
@@ -1820,7 +1844,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             run_id: String ID of the run
             key: Name of the tag
         """
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
             filtered_tags = session.query(SqlTag).filter_by(run_uuid=run_id, key=key).all()
@@ -1936,7 +1960,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         _validate_batch_log_limits(metrics, params, tags)
         _validate_param_keys_unique(params)
 
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
             try:
@@ -1957,7 +1981,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 f"Argument 'mlflow_model' should be mlflow.models.Model, got '{type(mlflow_model)}'"
             )
         model_dict = mlflow_model.get_tags_dict()
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
             if previous_tag := [t for t in run.tags if t.key == MLFLOW_LOGGED_MODELS]:
@@ -1992,7 +2016,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 raise TypeError(f"Argument 'datasets' should be a list, got '{type(datasets)}'")
             _validate_dataset_inputs(datasets)
 
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             run = self._get_run(run_uuid=run_id, session=session)
             experiment_id = run.experiment_id
             self._check_run_is_active(run)
@@ -2027,7 +2051,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 name_digest_keys[key] = dataset_input
         dataset_inputs = list(name_digest_keys.values())
 
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             dataset_names_to_check = [
                 dataset_input.dataset.name for dataset_input in dataset_inputs
             ]
@@ -2137,7 +2161,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             session.add_all(objs_to_write)
 
     def log_outputs(self, run_id: str, models: list[LoggedModelOutput]):
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
             session.add_all(
@@ -2230,7 +2254,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         model_type: str | None = None,
     ) -> LoggedModel:
         _validate_logged_model_name(name)
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             experiment = self.get_experiment(experiment_id)
             self._check_experiment_is_active(experiment)
             model_id = f"m-{str(uuid.uuid4()).replace('-', '')}"
@@ -2282,7 +2306,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             return logged_model.to_mlflow_entity()
 
     def log_logged_model_params(self, model_id: str, params: list[LoggedModelParameter]):
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             logged_model = self._get_logged_model_record(session, model_id)
             session.add_all(
                 SqlLoggedModelParam(
@@ -2326,14 +2350,14 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             return logged_model.to_mlflow_entity()
 
     def delete_logged_model(self, model_id):
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             logged_model = self._get_logged_model_record(session, model_id)
             logged_model.lifecycle_stage = LifecycleStage.DELETED
             logged_model.last_updated_timestamp_ms = get_current_time_millis()
             session.commit()
 
     def _hard_delete_logged_model(self, model_id):
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             logged_model = session.get(SqlLoggedModel, model_id)
             if not logged_model:
                 self._raise_model_not_found(model_id)
@@ -2354,7 +2378,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             return [m.model_id for m in models]
 
     def finalize_logged_model(self, model_id: str, status: LoggedModelStatus) -> LoggedModel:
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             logged_model = self._get_logged_model_record(session, model_id)
             logged_model.status = status.to_int()
             logged_model.last_updated_timestamp_ms = get_current_time_millis()
@@ -2362,7 +2386,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             return logged_model.to_mlflow_entity()
 
     def set_logged_model_tags(self, model_id: str, tags: list[LoggedModelTag]) -> None:
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             logged_model = self._get_logged_model_record(session, model_id)
             # TODO: Consider upserting tags in a single transaction for performance
             for tag in tags:
@@ -2376,7 +2400,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 )
 
     def delete_logged_model_tag(self, model_id: str, key: str) -> None:
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             self._get_logged_model_record(session, model_id)
             count = (
                 session
@@ -2414,7 +2438,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         # Validate scorer name
         validate_scorer_name(name)
 
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             # Validate experiment exists and is active
             experiment = self.get_experiment(experiment_id)
             self._check_experiment_is_active(experiment)
@@ -2689,7 +2713,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         Raises:
             MlflowException: If scorer is not found.
         """
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             # Validate experiment exists and is active
             experiment = self.get_experiment(experiment_id)
             self._check_experiment_is_active(experiment)
@@ -2886,7 +2910,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             # Validate the filter string syntax before storing
             SearchTraceUtils.parse_search_filter_for_search_traces(filter_string)
 
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             experiment = self.get_experiment(experiment_id)
             self._check_experiment_is_active(experiment)
 
@@ -3287,7 +3311,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         Returns:
             The created TraceInfo object from the backend.
         """
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             experiment = self.get_experiment(trace_info.experiment_id)
             self._check_experiment_is_active(experiment)
 
@@ -3961,7 +3985,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             value: The string value of the tag.
         """
         key, value = _validate_trace_tag(key, value)
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             self._validate_trace_accessible(session, trace_id)
             session.merge(SqlTraceTag(request_id=trace_id, key=key, value=value))
 
@@ -3973,7 +3997,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             trace_id: The ID of the trace.
             key: The string key of the tag.
         """
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             self._validate_trace_accessible(session, trace_id)
             deleted = (
                 session
@@ -4007,7 +4031,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         Returns:
             The number of traces deleted.
         """
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             filters = [SqlTraceInfo.experiment_id == int(experiment_id)]
             if max_timestamp_millis:
                 filters.append(SqlTraceInfo.timestamp_ms <= max_timestamp_millis)
@@ -4046,7 +4070,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             The created Assessment object with backend-generated metadata.
         """
 
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             self._validate_trace_accessible(session, assessment.trace_id)
             sql_assessment = SqlAssessments.from_mlflow_entity(assessment)
 
@@ -4119,7 +4143,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             MlflowException: If the assessment doesn't exist, if immutable fields have
                             changed, or if there's an error saving the assessment.
         """
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             existing_sql = self._get_sql_assessment(session, trace_id, assessment_id)
             existing = existing_sql.to_mlflow_entity()
 
@@ -4226,7 +4250,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             trace_id: The ID of the trace containing the assessment.
             assessment_id: The ID of the assessment to delete.
         """
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             self._validate_trace_accessible(session, trace_id)
 
             assessment_to_delete = (
@@ -4297,7 +4321,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             self._validate_run_accessible(session, run_id)
 
             trace_ids = self._filter_entity_ids(
@@ -4343,7 +4367,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         if not prompt_versions:
             return
 
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             self._validate_trace_accessible(session, trace_id)
 
             # Build list of prompt version IDs (format: "name/version")
@@ -4668,7 +4692,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 trace_tags=trace_tags_from_root_attr,
             )
 
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             # --- Phase 1: Batch-fetch all existing trace infos (1 query) ---
             existing_traces = {
                 t.request_id: t
@@ -5345,7 +5369,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         Returns:
             The created EvaluationDataset object with backend-generated metadata.
         """
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             dataset_id = f"{self.EVALUATION_DATASET_ID_PREFIX}{uuid.uuid4().hex}"
 
             current_time = get_current_time_millis()
@@ -5440,7 +5464,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             dataset_id: The ID of the dataset to delete.
         """
 
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             sql_dataset = (
                 self
                 ._dataset_query(session)
@@ -5713,7 +5737,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             dataset_id: The ID of the dataset.
             key: The tag key to delete.
         """
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             dataset = self._dataset_query(session).filter_by(dataset_id=dataset_id).first()
             if not dataset:
                 _logger.debug(
@@ -5749,7 +5773,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             Dictionary with counts of inserted and updated records.
         """
 
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             self._validate_dataset_accessible(session, dataset_id)
 
             inserted_count = 0
@@ -5858,7 +5882,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         Returns:
             The number of records deleted.
         """
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             self._validate_dataset_accessible(session, dataset_id)
 
             deleted_count = (
@@ -5922,7 +5946,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         Raises:
             MlflowException: If the dataset doesn't exist.
         """
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             # NB: Checking that the dataset exists within this API avoids
             # very confusing error messages regarding foreign key constraint
             # violations that are different for various RDBMS backends and
@@ -5978,7 +6002,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         Returns:
             The created TraceInfo object.
         """
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             experiment = self.get_experiment(experiment_id)
             self._check_experiment_is_active(experiment)
 
@@ -6027,7 +6051,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         Returns:
             The updated TraceInfo object.
         """
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             sql_trace_info = self._get_sql_trace_info(session, request_id)
             trace_start_time_ms = sql_trace_info.timestamp_ms
             execution_time_ms = timestamp_ms - trace_start_time_ms
@@ -6048,7 +6072,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         """
         from mlflow.entities.entity_type import EntityAssociationType
 
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             dataset = self._dataset_query(session).filter_by(dataset_id=dataset_id).first()
             if not dataset:
                 raise MlflowException(
@@ -6120,7 +6144,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         """
         from mlflow.entities.entity_type import EntityAssociationType
 
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             dataset = self._dataset_query(session).filter_by(dataset_id=dataset_id).first()
             if not dataset:
                 raise MlflowException(
@@ -6197,7 +6221,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         Returns:
             The created Issue entity.
         """
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             # Verify experiment exists
             self._get_experiment(session, experiment_id, ViewType.ACTIVE_ONLY)
 
@@ -6276,7 +6300,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         Returns:
             The updated Issue entity.
         """
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             # Fetch the existing issue
             sql_issue = (
                 self._get_query(session, SqlIssue).filter(SqlIssue.issue_id == issue_id).first()

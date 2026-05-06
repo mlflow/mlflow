@@ -108,6 +108,7 @@ def test_server_uvicorn_options():
         CliRunner().invoke(server)
         run_server_mock.assert_called_once_with(
             file_store_path=mock.ANY,
+            read_replica_backend_store_uri=mock.ANY,
             registry_store_uri=mock.ANY,
             default_artifact_root=mock.ANY,
             serve_artifacts=mock.ANY,
@@ -132,6 +133,7 @@ def test_server_uvicorn_options():
         CliRunner().invoke(server, ["--uvicorn-opts", "--loop asyncio --limit-concurrency 100"])
         run_server_mock.assert_called_once_with(
             file_store_path=mock.ANY,
+            read_replica_backend_store_uri=mock.ANY,
             registry_store_uri=mock.ANY,
             default_artifact_root=mock.ANY,
             serve_artifacts=mock.ANY,
@@ -159,6 +161,7 @@ def test_server_dev_mode():
         CliRunner().invoke(server, ["--dev"])
         run_server_mock.assert_called_once_with(
             file_store_path=mock.ANY,
+            read_replica_backend_store_uri=mock.ANY,
             registry_store_uri=mock.ANY,
             default_artifact_root=mock.ANY,
             serve_artifacts=mock.ANY,
@@ -186,6 +189,7 @@ def test_server_gunicorn_options():
         CliRunner().invoke(server, ["--gunicorn-opts", "--timeout 120 --max-requests 1000"])
         run_server_mock.assert_called_once_with(
             file_store_path=mock.ANY,
+            read_replica_backend_store_uri=mock.ANY,
             registry_store_uri=mock.ANY,
             default_artifact_root=mock.ANY,
             serve_artifacts=mock.ANY,
@@ -225,7 +229,7 @@ def test_server_initializes_backend_store_when_tracking_enabled():
             result = runner.invoke(server)
     assert result.exit_code == 0
     init_backend_mock.assert_called_once_with(
-        mock.ANY, mock.ANY, mock.ANY, workspace_store_uri=None
+        mock.ANY, mock.ANY, mock.ANY, workspace_store_uri=None, read_replica_backend_store_uri=None
     )
     run_server_mock.assert_called_once()
 
@@ -319,6 +323,7 @@ def test_server_workspace_uri_sets_env_when_workspaces_enabled(tmp_path):
             backend_uri,
             artifact_root,
             workspace_store_uri=workspace_uri,
+            read_replica_backend_store_uri=None,
         )
         assert MLFLOW_WORKSPACE_STORE_URI.get() == workspace_uri
         assert MLFLOW_ENABLE_WORKSPACES.get() is True

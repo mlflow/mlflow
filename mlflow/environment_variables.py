@@ -1541,3 +1541,13 @@ MLFLOW_ALLOW_FILE_STORE = _BooleanEnvironmentVariable("MLFLOW_ALLOW_FILE_STORE",
 MLFLOW_SKIP_PIP_REQUIREMENTS_CHECK = _BooleanEnvironmentVariable(
     "MLFLOW_SKIP_PIP_REQUIREMENTS_CHECK", False
 )
+
+#: Specifies a read-only backend store URI for reader/writer instance routing.
+#: When set, the MLflow tracking server will route read operations (e.g. search_runs,
+#: get_experiment) to this URI and write operations to the primary ``--backend-store-uri``.
+#: This enables horizontal scaling via database read replicas.
+#: If not set, all operations use the primary backend store URI.
+#: (default: ``None``)
+MLFLOW_READ_REPLICA_BACKEND_STORE_URI = _EnvironmentVariable(
+    "MLFLOW_READ_REPLICA_BACKEND_STORE_URI", str, None
+)

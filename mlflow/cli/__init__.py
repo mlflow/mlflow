@@ -376,6 +376,19 @@ def _validate_static_prefix(ctx, param, value):
     "to the ./mlruns directory.",
 )
 @click.option(
+    "--read-replica-backend-store-uri",
+    envvar="MLFLOW_READ_REPLICA_BACKEND_STORE_URI",
+    metavar="URI",
+    default=None,
+    help="URI for a read-only database replica. When specified, read operations "
+    "(e.g. search_runs, get_experiment) are routed to this URI while write operations "
+    "use --backend-store-uri. Enables horizontal scaling via database read replicas. "
+    "If not specified, all operations use --backend-store-uri. "
+    "Note: there is no automatic failover to the primary if the replica becomes "
+    "unavailable. Cloud-managed databases (Aurora, RDS) handle this at the DNS level. "
+    "For self-hosted setups, use a connection proxy (PgBouncer, HAProxy) for failover.",
+)
+@click.option(
     "--registry-store-uri",
     envvar="MLFLOW_REGISTRY_STORE_URI",
     metavar="URI",
@@ -515,6 +528,7 @@ def _validate_static_prefix(ctx, param, value):
 def server(
     ctx,
     backend_store_uri,
+    read_replica_backend_store_uri,
     registry_store_uri,
     default_artifact_root,
     serve_artifacts,
@@ -650,6 +664,7 @@ def server(
                 registry_store_uri,
                 default_artifact_root,
                 workspace_store_uri=workspace_store_uri,
+                read_replica_backend_store_uri=read_replica_backend_store_uri,
             )
         except Exception as e:
             _logger.error("Error initializing backend store")
@@ -701,6 +716,7 @@ def server(
     try:
         _run_server(
             file_store_path=backend_store_uri,
+            read_replica_backend_store_uri=read_replica_backend_store_uri,
             registry_store_uri=registry_store_uri,
             default_artifact_root=default_artifact_root,
             serve_artifacts=serve_artifacts,
