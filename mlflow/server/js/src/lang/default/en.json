@@ -5853,7 +5853,7 @@
   },
   "Y/1i4Y": {
     "defaultMessage": "{label}: {behavior}",
-    "description": "Helper text under the log-level slider explaining how the currently selected level filters the trace view.",
+    "description": "Helper text under the log-level slider explaining how the currently selected level filters the trace view."
   },
   "Y+dLul": {
     "defaultMessage": "Choose your integration. Install the {code} package for automatic tracing, or use {trace} for custom functions.",
