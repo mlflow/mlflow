@@ -48,12 +48,15 @@ const ShowArtifactVideoView = ({
       overflow: 'hidden',
       background: 'black',
       minHeight: '100%',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     hidden: { display: 'none' },
     video: {
       maxWidth: '100%',
       maxHeight: '62.5vh',
-      objectFit: 'fit',
+      objectFit: 'contain' as const,
       display: 'block',
     },
   };
