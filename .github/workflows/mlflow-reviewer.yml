@@ -1,4 +1,4 @@
-name: mlflow-reviewer
+name: NaiLaOpus
 
 on:
   issue_comment:
@@ -26,8 +26,8 @@ jobs:
         id: app_token
         uses: actions/create-github-app-token@v1
         with:
-          app-id: ${{ vars.MLFLOW_REVIEWER_APP_ID }}
-          private-key: ${{ secrets.MLFLOW_REVIEWER_APP_KEY }}
+          app-id: ${{ vars.NAILAOPUS_APP_ID }}
+          private-key: ${{ secrets.NAILAOPUS_APP_KEY }}
           owner: mlflow
 
       - name: React eyes on trigger comment
@@ -46,7 +46,7 @@ jobs:
           PR=${{ github.event.issue.number }}
           since=$(date -u -d '24 hours ago' '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || date -u -v-24H '+%Y-%m-%dT%H:%M:%SZ')
           count=$(gh api "repos/${{ github.repository }}/issues/$PR/comments" --paginate \
-            --jq "[.[] | select(.user.login == \"mlflow-reviewer[bot]\") | select(.created_at > \"$since\")] | length")
+            --jq "[.[] | select(.user.login == \"NaiLaOpus[bot]\") | select(.created_at > \"$since\")] | length")
           if [ "$count" -ge 5 ]; then
             echo "Rate limit hit: $count bot comments in the last 24h on PR $PR (max 5)."
             exit 1
@@ -92,7 +92,7 @@ jobs:
           if echo "$BODY" | grep -q -- '--hybrid'; then flags="$flags --hybrid"; fi
           echo "flags=$flags" >> "$GITHUB_OUTPUT"
 
-      - name: Run mlflow-reviewer (dry-run; activation PR flips this)
+      - name: Run NaiLaOpus (dry-run; activation PR flips this)
         working-directory: mlflow
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -122,6 +122,6 @@ jobs:
           run_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           gh api \
             "repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/comments" \
-            -X POST -f body="\`mlflow-reviewer\` failed. See [run logs]($run_url).
+            -X POST -f body="\`NaiLaOpus\` failed. See [run logs]($run_url).
 ---
-Posted by \`mlflow-reviewer\` (auto-generated)." || true
+Posted by \`NaiLaOpus\` (auto-generated)." || true
