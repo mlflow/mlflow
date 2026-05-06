@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1778029806860,
+  "lastUpdate": 1778042109132,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -863,6 +863,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 50.97342299999923,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "168796509+lavaFreak@users.noreply.github.com",
+            "name": "Garion Milazzo",
+            "username": "lavaFreak"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "92d951a179508647798d4d44c2282c28a974ec65",
+          "message": "Add `session_count` trace metric for grouped traces (#23011)\n\nSigned-off-by: lavafreak <gemilazzo@gmail.com>",
+          "timestamp": "2026-05-06T12:33:33+08:00",
+          "tree_id": "7c6cd75e9da1b95748b3a23f3866f4063bc4c4b8",
+          "url": "https://github.com/mlflow/mlflow/commit/92d951a179508647798d4d44c2282c28a974ec65"
+        },
+        "date": 1778042108479,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 39.58780530000112,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 24.880883914286755,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 22.89466143548244,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 17.272508666669257,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 23.949618913793472,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 6.83331580000015,
             "unit": "ms"
           }
         ]
