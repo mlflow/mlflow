@@ -1466,14 +1466,8 @@ def validate_can_read_user():
 
 
 def validate_can_list_users():
-    """
-    Authorization for the ``/mlflow/users/list`` endpoint. Platform admins always
-    pass (handled by ``_before_request``). Workspace admins (users holding
-    ``(workspace, *, MANAGE)`` in at least one workspace) are also allowed: the
-    ``users`` payload (``id``, ``username``, ``is_admin``) carries no per-workspace
-    data, and workspace admins need to see all usernames so they can assign
-    outside users to roles in the workspaces they manage.
-    """
+    # Workspace admins are allowed: the payload has no per-workspace data, and
+    # they need all usernames to assign outsiders to roles in workspaces they manage.
     username = authenticate_request().username
     user = store.get_user(username)
     if user.is_admin:
@@ -1482,15 +1476,9 @@ def validate_can_list_users():
 
 
 def validate_can_create_user():
-    """
-    Authorization for the ``/mlflow/users/create`` endpoint. Platform admins
-    always pass (handled by ``_before_request``). Workspace admins are also
-    allowed: they may need to add a user before assigning that user a role
-    in one of the workspaces they manage. Creating a user does not by itself
-    grant the new account any access — they have no roles or permissions
-    until an authorized requester explicitly assigns them. Deletion stays
-    platform-admin-only (see ``validate_can_delete_user``).
-    """
+    # Workspace admins may need to seed an account before assigning it a role
+    # in a workspace they manage; creating a user grants no access on its own.
+    # Deletion stays super-admin-only (see ``validate_can_delete_user``).
     username = authenticate_request().username
     user = store.get_user(username)
     if user.is_admin:

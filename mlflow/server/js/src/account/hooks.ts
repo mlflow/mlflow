@@ -19,23 +19,13 @@ export const useCurrentUserIsAdmin = () => {
 };
 
 /**
- * The set of workspaces in which the current user holds a workspace-admin
- * role (``(workspace, *, MANAGE)``). Mirrors the backend
- * ``store.list_workspace_admin_workspaces``. Composes self-authorized
- * queries — no admin-only endpoint required.
+ * Workspaces in which the current user holds ``(workspace, *, MANAGE)``.
  *
- * ``WorkspaceSelector`` blanket-invalidates the query cache after a
- * workspace switch, so this hook can briefly observe ``rolesData ===
- * undefined`` while the refetch is in-flight. Without protection that
- * would flip ``canManage`` to false in the sidebar and flicker the
- * Manage entry off and back on. We hold the last computed set in a ref
- * and reuse it whenever ``rolesData`` is missing, so the UI gate stays
- * stable across refetches.
- *
- * Identity changes (e.g. dev-user-switcher swapping the Basic Auth
- * cookie without a full reload) reset the cached set so we never serve a
- * previous user's admin-workspace set during the new user's first
- * refetch.
+ * Holds the last computed set in a ref so the gate stays stable across
+ * the cache invalidation ``WorkspaceSelector`` triggers on workspace
+ * switch (without it the Manage entry flickers off and back on). Resets
+ * on username change so a dev-user-switcher cookie swap can't briefly
+ * serve the previous identity's set during the new user's first refetch.
  */
 export const useCurrentUserAdminWorkspaces = (): Set<string> => {
   const { data: currentUser } = useCurrentUserQuery();
@@ -59,9 +49,6 @@ export const useCurrentUserAdminWorkspaces = (): Set<string> => {
   const lastUsername = useRef(username);
   useEffect(() => {
     if (lastUsername.current !== username) {
-      // Identity changed — drop the stale set before any new role-list
-      // refetch lands so we don't briefly show the previous user's
-      // admin-workspace gate.
       previous.current = new Set();
       lastUsername.current = username;
     }
@@ -73,11 +60,6 @@ export const useCurrentUserAdminWorkspaces = (): Set<string> => {
   return computed ?? previous.current;
 };
 
-/**
- * True when the current user is a workspace admin in at least one
- * workspace. Thin wrapper over ``useCurrentUserAdminWorkspaces`` for
- * call sites that only need the boolean.
- */
 export const useCurrentUserIsWorkspaceAdmin = (): boolean => {
   return useCurrentUserAdminWorkspaces().size > 0;
 };
@@ -121,10 +103,7 @@ export const useUserRolesQuery = (username: string, options: { enabled?: boolean
     queryFn: () => AccountApi.listUserRoles(username),
     retry: false,
     refetchOnWindowFocus: false,
-    // Default-on. Callers pass ``enabled: false`` to skip the request when
-    // they know it would be wasted (e.g. the AdminPage Users tab skipping
-    // per-row fetches for workspace managers — many would 403, and the
-    // visible cell collapses to ``—`` anyway).
+    // Callers pass ``enabled: false`` to skip a fetch they know will 403.
     enabled: Boolean(username) && options.enabled !== false,
   });
 };

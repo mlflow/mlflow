@@ -2134,16 +2134,10 @@ def test_validate_can_list_roles_blank_workspace_denied_for_non_admin(role_auth_
 @pytest.mark.parametrize(
     ("actor", "expected"),
     [
-        # Super admin always passes — also bypasses _before_request in production,
-        # but we exercise the validator's defensive `is_admin` short-circuit here.
         ("super_admin", True),
-        # Workspace admins (in any workspace) need to see all usernames so they
-        # can grant roles to outsiders into the workspaces they manage.
         ("ws_admin_foo", True),
         ("ws_admin_bar", True),
-        # A bare member of a workspace is not a workspace admin.
         ("ws_member_foo", False),
-        # A user with no presence anywhere stays denied.
         ("outsider", False),
     ],
 )
@@ -2156,9 +2150,6 @@ def test_validate_can_list_users(role_auth_setup, actor, expected):
 @pytest.mark.parametrize(
     ("actor", "expected"),
     [
-        # Same matrix as ``list_users``: workspace admins may need to seed a
-        # user before assigning a role to them in a workspace they manage.
-        # Deletion stays super-admin-only (see ``validate_can_delete_user``).
         ("super_admin", True),
         ("ws_admin_foo", True),
         ("ws_admin_bar", True),
@@ -2173,9 +2164,7 @@ def test_validate_can_create_user(role_auth_setup, actor, expected):
 
 
 def test_validate_can_delete_user_stays_super_admin_only(role_auth_setup):
-    # Workspace admins explicitly do NOT get delete; the only path to True is
-    # the ``_before_request`` super-admin bypass. Smoke-check by exercising a
-    # workspace admin and a non-member; both must return False.
+    # Regression: the create-user widening must not have leaked into delete.
     for actor in ("ws_admin_foo", "outsider"):
         role_auth_setup["login_as"](actor)
         with auth_module.app.test_request_context("/api/2.0/mlflow/users/delete", method="DELETE"):

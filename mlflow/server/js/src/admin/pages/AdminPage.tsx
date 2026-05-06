@@ -44,11 +44,8 @@ import { CreateRoleModal } from '../components/CreateRoleModal';
 // elsewhere in the admin UI (e.g. the Account page's permission lines like
 // `experiment:* → READ`). Each row issues its own request — React Query
 // caches per-username so subsequent re-renders don't re-fetch.
-// ``enabled`` lets the parent suppress the per-row request for workspace
-// managers, where ``validate_can_view_user_roles`` would 403 for any user
-// outside a workspace they manage — an N+1 burst of mostly-403 requests
-// per page load. Workspace managers see ``—`` for everyone in this column
-// and drill into a user's detail page for scoped role info instead.
+// ``enabled`` is false for workspace managers to avoid an N+1 burst of
+// mostly-403 requests (one fetch per visible user row).
 const UserRolesCell = ({ username, enabled }: { username: string; enabled: boolean }) => {
   const { theme } = useDesignSystemTheme();
   const { data, isLoading, error } = useUserRolesQuery(username, { enabled });
@@ -59,10 +56,7 @@ const UserRolesCell = ({ username, enabled }: { username: string; enabled: boole
     return <Spinner size="small" />;
   }
   if (error) {
-    // Distinguish "no roles assigned" from "we couldn't load roles" — only
-    // platform admins reach this branch (workspace managers short-circuit
-    // above), so a red signal is appropriate; an admin reviewing user state
-    // should know when a fetch genuinely failed.
+    // Only platform admins reach this branch; surface real fetch failures.
     return (
       <Typography.Text color="error" size="sm">
         Failed to load
@@ -92,11 +86,8 @@ const UsersTab = () => {
   const currentUsername = currentUserData?.user?.username;
   const deleteUser = useDeleteUser();
   const withReturnTo = useWithSettingsReturnTo();
-  // Workspace admins can create users (so they can seed an account before
-  // assigning it a role in a workspace they manage), but deletion stays
-  // super-admin-only — so the row-selection checkbox column and the bulk
-  // delete button only render for platform admins. The Create User button
-  // renders for both groups.
+  // Bulk-delete + row checkboxes are platform-admin-only; Create User is
+  // open to workspace admins.
   const isAdmin = useCurrentUserIsAdmin();
   const isWorkspaceAdmin = useCurrentUserIsWorkspaceAdmin();
   const canCreateUser = isAdmin || isWorkspaceAdmin;
@@ -309,15 +300,11 @@ const UsersTab = () => {
 
 const RolesTab = () => {
   const { theme } = useDesignSystemTheme();
-  // Platform admins can list every role; workspace admins must scope to a
-  // workspace they manage (``validate_can_list_roles`` requires a non-empty
-  // workspace param for non-platform-admins). When a workspace admin lands
-  // on /admin without an active workspace selected we suppress the query
-  // and surface an info state, since the request would 403.
-  //
-  // Bulk-delete renders for either group — for workspace admins the listing
-  // is already scoped server-side to workspaces they manage, so every row
-  // they see is one ``validate_can_manage_roles`` will accept a delete for.
+  // Workspace admins must scope to a workspace they manage
+  // (``validate_can_list_roles`` rejects unscoped non-admin requests).
+  // Bulk-delete is open to both groups — the listing is already
+  // server-scoped, so every visible row is one ``validate_can_manage_roles``
+  // will accept a delete for.
   const isAdmin = useCurrentUserIsAdmin();
   const isWorkspaceAdmin = useCurrentUserIsWorkspaceAdmin();
   const canDeleteRoles = isAdmin || isWorkspaceAdmin;
@@ -353,8 +340,7 @@ const RolesTab = () => {
     setBulkDeleteOpen(false);
   };
 
-  // Workspace admin landed on /admin without an active workspace selected:
-  // skip the (guaranteed-403) request and tell them how to proceed instead.
+  // No active workspace + non-admin: skip the guaranteed 403, prompt instead.
   if (!queryEnabled) {
     return (
       <Empty
@@ -547,10 +533,6 @@ const AdminPage = () => {
   const tabFromUrl = searchParams.get('tab');
   const activeTab = tabFromUrl === 'roles' ? 'roles' : 'users';
 
-  // Title and subtitle differ for platform admins vs. workspace managers.
-  // For workspace managers we show the active workspace by name so the
-  // page makes the scope explicit; the body of the page is already scoped
-  // server-side via ``validate_can_list_roles`` and friends.
   const isAdmin = useCurrentUserIsAdmin();
   const activeWorkspace = useActiveWorkspace();
 

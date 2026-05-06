@@ -41,10 +41,8 @@ const formatRoleLabel = (role: Role): string =>
 export const RoleAssignmentForm = ({ value, onChange, disabled }: RoleAssignmentFormProps) => {
   const { theme } = useDesignSystemTheme();
   const [search, setSearch] = useState('');
-  // Platform admins fetch roles across every workspace; workspace admins
-  // are scoped to a single workspace by ``validate_can_list_roles`` and
-  // pass the active workspace explicitly. When neither applies (no active
-  // workspace yet), suppress the request — it would 403 anyway.
+  // Workspace admins must pass a workspace; suppress when none is active
+  // to avoid a guaranteed 403.
   const isAdmin = useCurrentUserIsAdmin();
   const activeWorkspace = useActiveWorkspace();
   const queryWorkspace = isAdmin ? undefined : (activeWorkspace ?? undefined);

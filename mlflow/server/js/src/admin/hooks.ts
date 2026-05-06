@@ -116,10 +116,7 @@ export const useRolesQuery = (workspace?: string, options: { enabled?: boolean }
     queryFn: () => AdminApi.listRoles(workspace),
     retry: false,
     refetchOnWindowFocus: false,
-    // Default-on. Callers pass ``enabled: false`` to skip the request when
-    // they know it would 403 (e.g. a workspace admin without an active
-    // workspace selected — ``validate_can_list_roles`` rejects unscoped
-    // requests for non-platform-admins).
+    // Callers pass ``enabled: false`` to skip a fetch they know will 403.
     enabled: options.enabled !== false,
   });
 };

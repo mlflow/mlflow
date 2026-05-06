@@ -147,13 +147,8 @@ export function MlflowSidebar({
   const showNestedExperimentItems = Boolean(activeExperimentId) && shouldEnableWorkflowBasedNavigation();
   const showNestedSettingsItems = isSettingsActive(location);
 
-  // Show the Manage entry to platform admins always, and to workspace
-  // admins only when their currently-active workspace is one they manage
-  // — otherwise /admin's Roles tab can't fetch anything they're allowed
-  // to see (``validate_can_list_roles`` rejects unscoped non-admin
-  // requests). Falling out of the dropdown when context shifts is less
-  // confusing than offering a destination that immediately lands on a
-  // "select a workspace" empty state.
+  // Hide Manage for workspace admins when the active workspace isn't one
+  // they manage — otherwise /admin's Roles tab would 403 and dead-end them.
   const isAdmin = useCurrentUserIsAdmin();
   const adminWorkspaces = useCurrentUserAdminWorkspaces();
   const activeWorkspace = useActiveWorkspace();
@@ -286,8 +281,7 @@ export function MlflowSidebar({
   const workspaceFromUrl = extractWorkspaceFromSearchParams(searchParams);
   // Global routes (e.g. /account) don't carry ``?workspace=`` in the URL but
   // preserve the in-memory active workspace so the sidebar's workspace-scoped
-  // links resume in the same workspace. Fall back to the active workspace
-  // (``activeWorkspace`` is already pulled in above for the Manage gate).
+  // links resume in the same workspace. Fall back to the active workspace.
   const effectiveWorkspace = workspaceFromUrl ?? activeWorkspace;
   // Only show workspace-specific menu items when: workspaces are disabled OR a workspace is selected
   const showWorkspaceMenuItems = !workspacesEnabled || effectiveWorkspace !== null;

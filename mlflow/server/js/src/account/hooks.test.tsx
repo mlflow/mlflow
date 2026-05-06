@@ -136,8 +136,7 @@ describe('useUserRolesQuery (gated on truthy username)', () => {
 });
 
 describe('useCurrentUserIsWorkspaceAdmin', () => {
-  // A workspace-admin role carries (resource_type='workspace',
-  // resource_pattern='*', permission='MANAGE') in its permissions list.
+  // (workspace, *, MANAGE) → workspace-admin role.
   const wsAdminRole = {
     id: 1,
     name: 'wp-admin-foo',
@@ -154,7 +153,6 @@ describe('useCurrentUserIsWorkspaceAdmin', () => {
   };
 
   it('returns false while the queries are still loading', () => {
-    // Pending current-user promise: rolesData stays absent.
     mockedApi.getCurrentUser.mockReturnValueOnce(new Promise(() => {}));
     const { result } = renderHook(() => useCurrentUserIsWorkspaceAdmin(), {
       wrapper: makeWrapper(),
@@ -187,7 +185,6 @@ describe('useCurrentUserIsWorkspaceAdmin', () => {
     const { result } = renderHook(() => useCurrentUserIsWorkspaceAdmin(), {
       wrapper: makeWrapper(),
     });
-    // Wait for the role-list query to settle, then assert the derived value.
     await waitFor(() => expect(mockedApi.listUserRoles).toHaveBeenCalledTimes(1));
     expect(result.current).toBe(false);
   });
@@ -236,9 +233,6 @@ describe('useCurrentUserAdminWorkspaces', () => {
       is_basic_auth: true,
     });
     mockedApi.listUserRoles.mockResolvedValueOnce({
-      // Mix of admin roles in two workspaces and a non-admin role —
-      // ``foo-member`` should not pull ``foo`` into the set on its own,
-      // but ``admin-foo`` does. Only the admin grant matters per workspace.
       roles: [adminFooRole, memberRole, adminBarRole],
     });
 
