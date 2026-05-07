@@ -887,6 +887,10 @@
     "defaultMessage": "Appearance, product feedback, telemetry, and workspace demo data.",
     "description": "Settings content section subtitle for general preferences including demo data"
   },
+  "3Q8nGH": {
+    "defaultMessage": "Playground",
+    "description": "Title of the LLM playground page"
+  },
   "3Rb4sG": {
     "defaultMessage": "Delete",
     "description": "String for the delete button to delete a particular experiment run"
@@ -3443,6 +3447,10 @@
     "defaultMessage": "Last 24 hours",
     "description": "Option for the start select dropdown to filter runs from the last 24 hours"
   },
+  "JD0saW": {
+    "defaultMessage": "New",
+    "description": "Sidebar > Playground > New feature tag"
+  },
   "JDpv0G": {
     "defaultMessage": "Operator",
     "description": "Tag filter input for operator field in the tags filter popover for experiments page search by tags"
@@ -4346,6 +4354,10 @@
   "OimAJb": {
     "defaultMessage": "Scatter Plot",
     "description": "Tab pane title for scatterplots on the compare runs page"
+  },
+  "OjUChs": {
+    "defaultMessage": "Playground coming soon",
+    "description": "Title shown on the Playground page placeholder before its features are wired up"
   },
   "OjWQ39": {
     "defaultMessage": "Human feedback",
@@ -5719,6 +5731,10 @@
     "defaultMessage": "Off",
     "description": "Usage tracking disabled state"
   },
+  "X3nbpN": {
+    "defaultMessage": "Playground",
+    "description": "Sidebar link for playground tab"
+  },
   "X6P8tX": {
     "defaultMessage": "No models found",
     "description": "Empty state title displayed when all models are filtered out in the logged models list page"
@@ -5851,10 +5867,6 @@
     "defaultMessage": "Scanning <tracesLink>{totalTraces} traces</tracesLink>, <issuesLink>{identifiedIssues} issues</issuesLink> identified so far",
     "description": "Issue detection progress > Progress summary while running"
   },
-  "Y/1i4Y": {
-    "defaultMessage": "{label}: {behavior}",
-    "description": "Helper text under the log-level slider explaining how the currently selected level filters the trace view."
-  },
   "Y+dLul": {
     "defaultMessage": "Choose your integration. Install the {code} package for automatic tracing, or use {trace} for custom functions.",
     "description": "Step 2 description for TypeScript traces onboarding"
@@ -5862,6 +5874,10 @@
   "Y+nCpQ": {
     "defaultMessage": "Pending",
     "description": "Label indicating this onboarding step is not yet completed"
+  },
+  "Y/1i4Y": {
+    "defaultMessage": "{label}: {behavior}",
+    "description": "Helper text under the log-level slider explaining how the currently selected level filters the trace view."
   },
   "Y1eg9D": {
     "defaultMessage": "In progress",
@@ -8246,6 +8262,10 @@
   "lQ2nDn": {
     "defaultMessage": "This assessment is produced by a custom metric.",
     "description": "Custom judge assessment description"
+  },
+  "lQq0YT": {
+    "defaultMessage": "Soon you'll be able to test AI Gateway endpoints and registered prompts here.",
+    "description": "Placeholder description shown on the Playground page before its features are wired up"
   },
   "lRO4km": {
     "defaultMessage": "Quality",
