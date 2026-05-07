@@ -223,9 +223,9 @@ def test_create_workspace_seeds_default_roles(workspace_client, monkeypatch):
         admin_perms = client.list_role_permissions(by_name["admin"].id)
         user_perms = client.list_role_permissions(by_name["user"].id)
 
-    # Both roles use resource_type='workspace' (the workspace-wide grant form).
-    # MANAGE additionally grants workspace admin capability; USE is the
-    # workspace-membership level — read every resource and create new ones.
+    # The simplified two-tier model: ``admin`` carries the workspace-admin grant
+    # (resource_type='workspace', MANAGE), while ``user`` carries the
+    # workspace-wide access+create grant (resource_type='workspace', USE).
     assert [(p.resource_type, p.resource_pattern, p.permission) for p in admin_perms] == [
         ("workspace", "*", "MANAGE")
     ]
@@ -269,7 +269,7 @@ def test_workspace_permission_list_requires_manage_permission(workspace_setup, m
 
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
         client.set_workspace_permission(workspace_name, manager_username, "MANAGE")
-        client.set_workspace_permission(workspace_name, target_username, "READ")
+        client.set_workspace_permission(workspace_name, target_username, "USE")
 
     with User(other_username, other_password, monkeypatch), assert_unauthorized():
         client.list_workspace_permissions(workspace_name)
@@ -292,16 +292,16 @@ def test_workspace_permission_set_requires_manage_permission(workspace_client, m
         client.set_workspace_permission(workspace_name, manager_username, "MANAGE")
 
     with User(manager_username, manager_password, monkeypatch):
-        perm = client.set_workspace_permission(workspace_name, target_username, "READ")
-        assert perm.permission == "READ"
+        perm = client.set_workspace_permission(workspace_name, target_username, "USE")
+        assert perm.permission == "USE"
         client.delete_workspace_permission(workspace_name, target_username)
 
     with User(manager_username, manager_password, monkeypatch):
-        perm = client.set_workspace_permission(workspace_name, target_username, "READ")
-        assert perm.permission == "READ"
+        perm = client.set_workspace_permission(workspace_name, target_username, "USE")
+        assert perm.permission == "USE"
 
     with User(target_username, target_password, monkeypatch), assert_unauthorized():
-        client.set_workspace_permission(workspace_name, manager_username, "READ")
+        client.set_workspace_permission(workspace_name, manager_username, "USE")
 
     with User(target_username, target_password, monkeypatch), assert_unauthorized():
         client.delete_workspace_permission(workspace_name, manager_username)
@@ -325,7 +325,7 @@ def test_run_access_controls_across_workspaces(workspace_setup, monkeypatch):
     # Use a separate limited user who only has access to workspace A.
     limited_user, limited_password = create_user(tracking_uri)
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
-        client.set_workspace_permission(workspace_a, limited_user, "READ")
+        client.set_workspace_permission(workspace_a, limited_user, "USE")
 
     # Positive: limited user can read run in workspace A.
     resp_ok = requests.get(
@@ -387,7 +387,7 @@ def test_registered_model_access_controls_across_workspaces(workspace_setup, mon
 
     limited_user, limited_password = create_user(tracking_uri)
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
-        client.set_workspace_permission(workspace_a, limited_user, "READ")
+        client.set_workspace_permission(workspace_a, limited_user, "USE")
 
     # Positive: limited user can read model in authorized workspace.
     resp_ok = requests.get(

@@ -795,6 +795,10 @@
     "defaultMessage": "Text",
     "description": "Label for the text render mode of the prompt"
   },
+  "2ifJXM": {
+    "defaultMessage": "Delete ({count})",
+    "description": "Bulk-delete button on the users table"
+  },
   "2igs1f": {
     "defaultMessage": "Compare",
     "description": "Compare evaluation runs action"
@@ -1075,6 +1079,10 @@
     "defaultMessage": "After your script runs, open the MLflow UI to review the recorded traces.",
     "description": "Introductory text for viewing traces in the MLflow UI"
   },
+  "4YBr1I": {
+    "defaultMessage": "Name",
+    "description": "Roles table name header"
+  },
   "4a2Kqx": {
     "defaultMessage": "View trace",
     "description": "Link text for navigating to the corresponding judge trace"
@@ -1082,6 +1090,10 @@
   "4g2H7S": {
     "defaultMessage": "Prompt content is required",
     "description": "A validation state for the chat prompt content in the prompt creation modal"
+  },
+  "4iVjvu": {
+    "defaultMessage": "Create a user to get started.",
+    "description": "Empty state description for users table"
   },
   "4idqpX": {
     "defaultMessage": "Add",
@@ -1267,6 +1279,10 @@
     "defaultMessage": "Cost",
     "description": "Label for the cost section"
   },
+  "62puUb": {
+    "defaultMessage": "Run your application and traces will appear here automatically. For more information, visit the <a>MLflow Tracing documentation</a>.",
+    "description": "Step 3 description for traces onboarding"
+  },
   "64SfR8": {
     "defaultMessage": "enter a model identifier",
     "description": "Link text to switch to direct model identifier input"
@@ -1374,10 +1390,6 @@
   "6csnxr": {
     "defaultMessage": "Delete",
     "description": "Gateway > Endpoints list > Delete button"
-  },
-  "6d5JTO": {
-    "defaultMessage": "No traces recorded",
-    "description": "Message displayed when there are no traces logged to the experiment"
   },
   "6ejdmD": {
     "defaultMessage": "Requests",
@@ -1494,6 +1506,10 @@
   "7FI4Hp": {
     "defaultMessage": "View full trace",
     "description": "Button to view a full trace within a chat session"
+  },
+  "7FcqHP": {
+    "defaultMessage": "Configure your Python environment to send traces to this MLflow server.",
+    "description": "Step 1 description for Python traces onboarding"
   },
   "7FvLl2": {
     "defaultMessage": "Ignore outliers",
@@ -2019,6 +2035,10 @@
     "defaultMessage": "Endpoints",
     "description": "Gateway side nav > Endpoints tab"
   },
+  "ABM9Yz": {
+    "defaultMessage": "Create User",
+    "description": "Button to create a new user"
+  },
   "ACNZd9": {
     "defaultMessage": "GenAI apps & agents",
     "description": "Label for experiments automatically identified as generative AI development"
@@ -2242,6 +2262,10 @@
   "BWpQZ7": {
     "defaultMessage": "You have <strong>{unsyncedDataEntriesCount}</strong> unsaved evaluated {unsyncedDataEntriesCount, plural, =1 {value} other {values}}. Click \"Save\" button or press {keyCombination} keys to synchronize the artifact data.",
     "description": "Experiment page > artifact compare view > prompt lab artifact synchronization > pending changes indicator"
+  },
+  "BXkADi": {
+    "defaultMessage": "Install the OpenTelemetry SDK and instrument your application. Spans will be exported to MLflow via OTLP using the env vars set above.",
+    "description": "Step 2 description for OpenTelemetry traces onboarding"
   },
   "BY1k4W": {
     "defaultMessage": "Original logged model: {originalModelLink}",
@@ -2927,6 +2951,10 @@
     "defaultMessage": "Compare",
     "description": "Text for compare button to compare versions under details tab\n                       on the model view page"
   },
+  "Fs6pF+": {
+    "defaultMessage": "Create Role",
+    "description": "Button to create a new role"
+  },
   "Ft2NsS": {
     "defaultMessage": "High",
     "description": "Issue severity tag label for high severity"
@@ -2994,6 +3022,10 @@
   "GKVTw4": {
     "defaultMessage": "JSON",
     "description": "JSON select menu option for assessment data type"
+  },
+  "GKXuD6": {
+    "defaultMessage": "Platform Admin",
+    "description": "Admin page title"
   },
   "GKiPV1": {
     "defaultMessage": "Start Time:",
@@ -3182,6 +3214,10 @@
   "Hem4uh": {
     "defaultMessage": "Compare this run with other evaluation runs",
     "description": "Tooltip for the compare button on the run detail page"
+  },
+  "HfHGT4": {
+    "defaultMessage": "Start tracing your LLM application",
+    "description": "Title for the empty state when no traces are recorded"
   },
   "HfcIG/": {
     "defaultMessage": "Does the assistant follow the provided guidelines throughout the conversation?",
@@ -3498,6 +3534,10 @@
   "Jp79WH": {
     "defaultMessage": "X-axis",
     "description": "Experiment page > view controls > global settings for line chart view > settings for x-axis section label"
+  },
+  "Jq+dzd": {
+    "defaultMessage": "Delete",
+    "description": "Bulk-delete button on the users table (no rows selected)"
   },
   "Jrri/Y": {
     "defaultMessage": "Temperature",
@@ -4435,6 +4475,10 @@
     "defaultMessage": "Clear selection",
     "description": "Clear model selection"
   },
+  "PYGkI3": {
+    "defaultMessage": "Install the <a>MLflow tracing SDK</a> for TypeScript using npm, then initialize it in your application.",
+    "description": "Step 1 description for TypeScript traces onboarding"
+  },
   "PZGZHV": {
     "defaultMessage": "Experiment ID",
     "description": "Label for displaying the current experiment in view"
@@ -4579,6 +4623,10 @@
     "defaultMessage": "No experiments found",
     "description": "Label for the empty state in the experiments table when no experiments are found"
   },
+  "QSrkjY": {
+    "defaultMessage": "Workspace Manager",
+    "description": "Roles table column flagging roles that grant workspace-level MANAGE"
+  },
   "QTlkBW": {
     "defaultMessage": "Path",
     "description": "Table header for the JSON property path column in the collapsible JSON viewer"
@@ -4686,6 +4734,10 @@
   "R3TrL7": {
     "defaultMessage": "Provider",
     "description": "Provider label"
+  },
+  "R6dCZ5": {
+    "defaultMessage": "View your traces",
+    "description": "Step 3 title for traces onboarding"
   },
   "R7s1xC": {
     "defaultMessage": "Provider is required",
@@ -4879,6 +4931,10 @@
     "defaultMessage": "Time",
     "description": "Label for the time axis on the runs compare chart"
   },
+  "SOHtlg": {
+    "defaultMessage": "Delete ({count})",
+    "description": "Bulk-delete button on the roles table"
+  },
   "SQUVnW": {
     "defaultMessage": "Dataset",
     "description": "Label for the dataset column in the evaluation runs table"
@@ -5030,6 +5086,10 @@
   "TQ3N+4": {
     "defaultMessage": "Select",
     "description": "Label for the checkbox column in the evaluation runs table"
+  },
+  "TQeU/X": {
+    "defaultMessage": "Username",
+    "description": "Users table username header"
   },
   "TRutFE": {
     "defaultMessage": "Click a graph node to navigate spans",
@@ -5206,6 +5266,10 @@
   "UbXw8O": {
     "defaultMessage": "Expectations",
     "description": "Label for the expectations section in the assessments pane"
+  },
+  "UbY9E3": {
+    "defaultMessage": "Choose your framework and add one line to enable automatic tracing, or use the {code} decorator for custom functions.",
+    "description": "Step 2 description for Python traces onboarding"
   },
   "Uf0z53": {
     "defaultMessage": "Cancel",
@@ -5479,6 +5543,10 @@
     "defaultMessage": "Search chat sessions by input",
     "description": "Placeholder text for the search input in the chat sessions table"
   },
+  "W8A4OF": {
+    "defaultMessage": "Configure OpenTelemetry export",
+    "description": "Step 1 title for OpenTelemetry traces onboarding"
+  },
   "W8bOkn": {
     "defaultMessage": "250",
     "description": "Label for 250 first runs visible in run count selector within runs compare configuration modal"
@@ -5546,6 +5614,10 @@
   "WWv3EQ": {
     "defaultMessage": "Options",
     "description": "Label for categorical options input"
+  },
+  "Wbpp7P": {
+    "defaultMessage": "Create a role to assign permissions to users.",
+    "description": "Empty state description for roles table"
   },
   "WcHytj": {
     "defaultMessage": "Total Cost",
@@ -5778,6 +5850,18 @@
   "Y+bHa1": {
     "defaultMessage": "Scanning <tracesLink>{totalTraces} traces</tracesLink>, <issuesLink>{identifiedIssues} issues</issuesLink> identified so far",
     "description": "Issue detection progress > Progress summary while running"
+  },
+  "Y/1i4Y": {
+    "defaultMessage": "{label}: {behavior}",
+    "description": "Helper text under the log-level slider explaining how the currently selected level filters the trace view."
+  },
+  "Y+dLul": {
+    "defaultMessage": "Choose your integration. Install the {code} package for automatic tracing, or use {trace} for custom functions.",
+    "description": "Step 2 description for TypeScript traces onboarding"
+  },
+  "Y+nCpQ": {
+    "defaultMessage": "Pending",
+    "description": "Label indicating this onboarding step is not yet completed"
   },
   "Y1eg9D": {
     "defaultMessage": "In progress",
@@ -6114,6 +6198,10 @@
   "ZwAzmu": {
     "defaultMessage": "Create Model",
     "description": "Create button to register a new model"
+  },
+  "ZwyDx6": {
+    "defaultMessage": "Users",
+    "description": "Admin users tab"
   },
   "a+uNeX": {
     "defaultMessage": "Next",
@@ -6698,6 +6786,10 @@
   "d8cdYc": {
     "defaultMessage": "Source run",
     "description": "Label for the source run name of a logged model on the logged model details page"
+  },
+  "d9VoXo": {
+    "defaultMessage": "Don't see your framework? <a>Browse all integrations</a>.",
+    "description": "Link to MLflow tracing integrations doc page above the framework selector"
   },
   "dEGUt+": {
     "defaultMessage": "Use this button to automatically detect quality issues in your traces using AI. This feature helps you identify problems like correctness, latency, and other quality concerns in your agent.",
@@ -7427,6 +7519,10 @@
     "defaultMessage": "Delete ({count})",
     "description": "Gateway > Endpoints list > Delete button with count"
   },
+  "hPDXO7": {
+    "defaultMessage": "Add tracing to your application",
+    "description": "Step 2 title for traces onboarding"
+  },
   "hR27A2": {
     "defaultMessage": "View full dashboard",
     "description": "Link to view full usage dashboard"
@@ -7727,6 +7823,10 @@
     "defaultMessage": "Learn more",
     "description": "Learn more link text"
   },
+  "j/BF11": {
+    "defaultMessage": "Connect to the tracking server",
+    "description": "Step 1 title for Python traces onboarding"
+  },
   "j/pJM6": {
     "defaultMessage": "Last Modified",
     "description": "Label name for the last modified time under details tab on the model view page"
@@ -7755,6 +7855,10 @@
     "defaultMessage": "Enter issue description",
     "description": "Placeholder text for issue description field"
   },
+  "jClVwe": {
+    "defaultMessage": "Point the OTLP exporter at this MLflow server by setting these environment variables. See the <a>OpenTelemetry export docs</a> for the full reference.",
+    "description": "Step 1 description for OpenTelemetry traces onboarding"
+  },
   "jFk49l": {
     "defaultMessage": "Quick-start with a popular model below, or create an endpoint from 60+ providers and all their supported models.",
     "description": "Gateway > Endpoints > Quick start call to action"
@@ -7770,6 +7874,10 @@
   "jI22Qu": {
     "defaultMessage": "Gateway returned the following error: \"{errorMessage}\"",
     "description": "Experiment page > gateway error message"
+  },
+  "jINNng": {
+    "defaultMessage": "Roles",
+    "description": "Admin roles tab"
   },
   "jIrCsp": {
     "defaultMessage": "Knowledge retention",
@@ -7830,6 +7938,10 @@
   "jhjCgW": {
     "defaultMessage": "Agent versions",
     "description": "Label for the agent versions tab in the MLflow experiment navbar"
+  },
+  "ji3A2G": {
+    "defaultMessage": "Install and initialize the MLflow TypeScript SDK",
+    "description": "Step 1 title for TypeScript traces onboarding"
   },
   "jiIft9": {
     "defaultMessage": "Settings",
@@ -8183,9 +8295,17 @@
     "defaultMessage": "Cost Over Time",
     "description": "Title for the cost over time by model chart"
   },
+  "ljrrDi": {
+    "defaultMessage": "Admin",
+    "description": "Users table admin header"
+  },
   "llVQ2r": {
     "defaultMessage": "Outputs ({numOutputs})",
     "description": "Input section header for schema table in model version page"
+  },
+  "lnxy2u": {
+    "defaultMessage": "Workspace",
+    "description": "Roles table workspace header"
   },
   "lo4NN3": {
     "defaultMessage": "This model will be deprecated on {date}",
@@ -8335,6 +8455,10 @@
     "defaultMessage": "Artifact Location",
     "description": "Label for create experiment modal to enter a artifact location"
   },
+  "mgWd3Q": {
+    "defaultMessage": "Minimum log level",
+    "description": "Section label for the minimum span log level filter in the trace explorer."
+  },
   "mi7FdJ": {
     "defaultMessage": "Summary",
     "description": "Summary sidebar title"
@@ -8390,10 +8514,6 @@
   "ms+6Z2": {
     "defaultMessage": "Value",
     "description": "Field label for assessment value in a creation form"
-  },
-  "msYDmK": {
-    "defaultMessage": "This tab displays all the traces logged to this {isRun, select, true {run} other {experiment}}. Follow the steps below to log your first trace. For more information about MLflow Tracing, visit the <a>MLflow documentation</a>.",
-    "description": "Message that explains the function of the 'Traces' tab in the MLflow UI. This message is followed by a tutorial explaining how to get started with MLflow Tracing."
   },
   "msllnR": {
     "defaultMessage": "Datasets used",
@@ -8727,6 +8847,10 @@
     "defaultMessage": "Model",
     "description": "Section title for model configuration"
   },
+  "oooj//": {
+    "defaultMessage": "Select your development language",
+    "description": "Language selector heading for traces onboarding"
+  },
   "opUoF8": {
     "defaultMessage": "Retrieval relevance",
     "description": "Evaluation results > known type of evaluation result assessment > retrieval relevance assessment. Used to indicate if the result is relevant to source data chunk in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Retrieval relevance: moderate\""
@@ -8946,6 +9070,10 @@
   "qEq4S6": {
     "defaultMessage": "You need another endpoint to use guardrails.",
     "description": "Guidance shown when no alternate endpoint exists for guardrail model selection"
+  },
+  "qGqURi": {
+    "defaultMessage": "Manage",
+    "description": "Sidebar account dropdown item linking to admin pages"
   },
   "qH2cN+": {
     "defaultMessage": "Experiment id copied",
@@ -9283,6 +9411,10 @@
     "defaultMessage": "Used by {runNames} {hasMore, select, true {and other runs} other {}}",
     "description": "Experiment page > artifact compare view > label indicating which runs are using particular input field"
   },
+  "s3t5pu": {
+    "defaultMessage": "Hide low-severity spans. Each span gets a level based on its type. Spans with an exception event are promoted to Error. Spans recorded before MLflow 3.13 don't carry a level and are treated as Debug. <link>Learn more</link>.",
+    "description": "Tooltip explaining the minimum log level filter, including the autolog default mapping, exception-bump rule, and pre-3.13 backwards-compat note."
+  },
   "s3vONV": {
     "defaultMessage": "{count, plural, one {# API key is} other {# API keys are}} currently in use by endpoints. Deleting will require attaching different keys to continue using those endpoints.",
     "description": "Gateway > Bulk delete API keys modal > Endpoints warning"
@@ -9390,6 +9522,10 @@
   "sXyBDU": {
     "defaultMessage": "Model Configuration",
     "description": "Section header for model configuration in prompt creation"
+  },
+  "sYKPid": {
+    "defaultMessage": "Description",
+    "description": "Roles table description header"
   },
   "sYkXR1": {
     "defaultMessage": "JSON body for the MLflow Invocations API. Use \"messages\" for chat or \"input\" for embeddings.",
@@ -9518,6 +9654,10 @@
   "tM4Ge6": {
     "defaultMessage": "Evaluation",
     "description": "Feature card title for evaluation"
+  },
+  "tMlCTg": {
+    "defaultMessage": "Roles",
+    "description": "Users table roles header — roles render as multiple <workspace> → <role_name> lines per user"
   },
   "tNL+F4": {
     "defaultMessage": "Full trace with an agent using the right part of the trace to use to judge",
@@ -9738,6 +9878,10 @@
   "v8UFxB": {
     "defaultMessage": "No datasets were recorded for this experiment's runs.",
     "description": "Message to indicate that no datasets were recorded for this experiment's runs."
+  },
+  "v9fbSW": {
+    "defaultMessage": "Delete",
+    "description": "Bulk-delete button on the roles table (no rows selected)"
   },
   "vBKFgp": {
     "defaultMessage": "X axis",
@@ -10303,6 +10447,10 @@
     "defaultMessage": "State",
     "description": "Column label for state"
   },
+  "yWRwlk": {
+    "defaultMessage": "Traces show you how your LLM calls behave: what they cost, how they perform, and where things go wrong. Get started in a few minutes.",
+    "description": "Subtitle for the empty state when no traces are recorded"
+  },
   "ydoHrJ": {
     "defaultMessage": "Output",
     "description": "Experiment page > new run modal > evaluation output field label"
@@ -10362,6 +10510,10 @@
   "z2Gyuw": {
     "defaultMessage": "MLflow Model",
     "description": "Heading text for mlflow model artifact"
+  },
+  "z3xE99": {
+    "defaultMessage": "No roles",
+    "description": "Empty state title for roles table"
   },
   "z42Rsj": {
     "defaultMessage": "Source run",
@@ -10442,6 +10594,10 @@
   "zRwy1a": {
     "defaultMessage": "An error occurred while updating the API key. Please try again.",
     "description": "Generic error message for API key update"
+  },
+  "zRxidQ": {
+    "defaultMessage": "No users",
+    "description": "Empty state title for users table"
   },
   "zUePVd": {
     "defaultMessage": "Inputs of the trace, derived from the root span's inputs",

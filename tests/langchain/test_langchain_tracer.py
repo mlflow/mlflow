@@ -24,7 +24,7 @@ from langchain_text_splitters.character import CharacterTextSplitter
 
 import mlflow
 from mlflow.entities import Document as MlflowDocument
-from mlflow.entities import Trace
+from mlflow.entities import SpanLogLevel, Trace
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatus, SpanStatusCode
 from mlflow.exceptions import MlflowException
@@ -109,6 +109,8 @@ def test_llm_success():
     assert llm_span.name == "test_llm"
 
     assert llm_span.span_type == "LLM"
+    # LLM spans default to INFO (user-visible semantic operation).
+    assert llm_span.log_level == SpanLogLevel.INFO
     assert llm_span.start_time_ns is not None
     assert llm_span.end_time_ns is not None
     assert llm_span.status == SpanStatus(SpanStatusCode.OK)
@@ -423,6 +425,8 @@ def test_multiple_components():
     assert chain_span.end_time_ns is not None
     assert chain_span.name == "test_chain"
     assert chain_span.span_type == "CHAIN"
+    # CHAIN spans default to DEBUG (internal/glue work).
+    assert chain_span.log_level == SpanLogLevel.DEBUG
     assert chain_span.parent_id is None
     assert chain_span.status.status_code == SpanStatusCode.OK
     assert chain_span.inputs == {"input": "test input"}

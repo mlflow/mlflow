@@ -23,6 +23,16 @@ export enum ModelSpanType {
   UNKNOWN = 'UNKNOWN',
 }
 
+// Numeric values mirror Python's logging module so a value sourced from
+// the `mlflow.spanLogLevel` span attribute can be compared directly.
+export enum SpanLogLevel {
+  DEBUG = 10,
+  INFO = 20,
+  WARNING = 30,
+  ERROR = 40,
+  CRITICAL = 50,
+}
+
 export enum ModelIconType {
   MODELS = 'models',
   DOCUMENT = 'document',
@@ -315,6 +325,10 @@ export interface ModelTraceSpanNode extends TimelineTreeNode, Pick<ModelTraceSpa
   modelName?: string;
   cost?: SpanCostInfo;
   linkedGatewayTraceId?: string;
+  // Severity classification, sourced from `mlflow.spanLogLevel`. Spans without
+  // an explicit level have this undefined; the trace-explorer filter treats
+  // missing as DEBUG so old/unclassified spans stay visible by default.
+  logLevel?: SpanLogLevel;
 }
 
 export type ModelTraceExplorerTab = 'chat' | 'content' | 'attributes' | 'events';
@@ -334,6 +348,10 @@ export type SpanFilterState = {
   showExceptions: boolean;
   // record of span_type: whether to show it
   spanTypeDisplayState: Record<string, boolean>;
+  // hide spans whose `mlflow.spanLogLevel` is below this threshold.
+  // Spans without an explicit level are treated as DEBUG so old/unclassified
+  // spans remain visible at the default threshold.
+  minLogLevel: SpanLogLevel;
 };
 
 export interface RetrieverDocument {

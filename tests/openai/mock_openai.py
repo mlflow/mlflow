@@ -11,6 +11,7 @@ from mlflow.types.chat import ChatCompletionRequest
 
 EMPTY_CHOICES = "EMPTY_CHOICES"
 LIST_CONTENT = "LIST_CONTENT"
+AZURE_ANNOTATIONS = "AZURE_ANNOTATIONS"
 
 app = fastapi.FastAPI()
 
@@ -89,6 +90,34 @@ def _make_chat_stream_chunk_empty_choices():
     }
 
 
+def _make_chat_stream_annotation_chunk():
+    return {
+        "id": "",
+        "object": "",
+        "created": 0,
+        "model": "",
+        "system_fingerprint": None,
+        "choices": [],
+        "usage": None,
+    }
+
+
+def _make_chat_stream_usage_chunk():
+    return {
+        "id": "chatcmpl-123",
+        "object": "chat.completion.chunk",
+        "created": 1677652288,
+        "model": "gpt-4o-mini",
+        "system_fingerprint": "fp_44709d6fcb",
+        "choices": [],
+        "usage": {
+            "prompt_tokens": 9,
+            "completion_tokens": 12,
+            "total_tokens": 21,
+        },
+    }
+
+
 def _make_chat_stream_chunk_with_list_content(content_list, include_usage: bool = False):
     # Create a streaming chunk with list content (Databricks format).
     return {
@@ -132,6 +161,15 @@ async def chat_response_stream_empty_choices():
     yield _make_chat_stream_chunk("Hello")
 
 
+async def chat_response_stream_with_azure_annotations(include_usage: bool = False):
+    yield _make_chat_stream_annotation_chunk()
+    yield _make_chat_stream_chunk("Hello")
+    yield _make_chat_stream_chunk(" world")
+    if include_usage:
+        yield _make_chat_stream_usage_chunk()
+    yield _make_chat_stream_annotation_chunk()
+
+
 async def chat_response_stream_with_list_content(include_usage: bool = False):
     # Simulate Databricks streaming format with list content.
     yield _make_chat_stream_chunk_with_list_content(
@@ -149,6 +187,13 @@ async def chat(payload: ChatCompletionRequest):
         if EMPTY_CHOICES == payload.messages[0].content:
             content = (
                 f"data: {json.dumps(d)}\n\n" async for d in chat_response_stream_empty_choices()
+            )
+        elif AZURE_ANNOTATIONS == payload.messages[0].content:
+            content = (
+                f"data: {json.dumps(d)}\n\n"
+                async for d in chat_response_stream_with_azure_annotations(
+                    include_usage=(payload.stream_options or {}).get("include_usage", False)
+                )
             )
         elif LIST_CONTENT == payload.messages[0].content:
             content = (

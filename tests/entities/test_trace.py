@@ -125,6 +125,7 @@ def test_json_deserialization(monkeypatch):
                     "attributes": {
                         "mlflow.traceRequestId": json.dumps(trace.info.request_id),
                         "mlflow.spanType": '"UNKNOWN"',
+                        "mlflow.spanLogLevel": "10",
                         "mlflow.spanFunctionName": '"predict"',
                         "mlflow.spanInputs": '{"x": 2, "y": 5}',
                         "mlflow.spanOutputs": "8",
@@ -145,6 +146,7 @@ def test_json_deserialization(monkeypatch):
                     "attributes": {
                         "mlflow.traceRequestId": json.dumps(trace.info.request_id),
                         "mlflow.spanType": '"LLM"',
+                        "mlflow.spanLogLevel": "20",
                         "mlflow.spanFunctionName": '"add_one"',
                         "mlflow.spanInputs": '{"z": 7}',
                         "mlflow.spanOutputs": "8",

@@ -155,6 +155,11 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'tracing/app-instrumentation/logging',
+                  label: 'Setting Log Levels',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/track-environments-context/index',
                   label: 'Track Application Versions',
                 },

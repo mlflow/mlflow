@@ -379,10 +379,16 @@ const TracesV3LogsImpl = React.memo(
     const countInfo = useCountInfo({
       experimentIds,
       timeRange,
-      traceInfosCount: traceInfos?.length,
+      traceInfos,
+      metadataTraceInfos: evaluatedTraces
+        .map((trace) => trace.traceInfo)
+        .filter((traceInfo): traceInfo is NonNullable<(typeof evaluatedTraces)[number]['traceInfo']> =>
+          Boolean(traceInfo),
+        ),
       traceInfosLoading,
       metadataTotalCount: totalCount,
       disabled: isQueryDisabled,
+      countSessions: forceGroupBySession,
     });
 
     const logTelemetryEvent = useLogTelemetryEvent();
@@ -442,8 +448,7 @@ const TracesV3LogsImpl = React.memo(
     const renderMainContent = () => {
       if (!enableTraceInsights && isTableEmpty) {
         return (
-          <>
-            <Spacer />
+          <div css={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
             <TracesV3EmptyState
               experimentIds={experimentIds}
               loggedModelId={loggedModelId}
@@ -474,7 +479,7 @@ const TracesV3LogsImpl = React.memo(
                 assessmentCountMetrics={assessmentCountMetrics}
               />
             </div>
-          </>
+          </div>
         );
       }
       // Default traces view

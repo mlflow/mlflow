@@ -9,7 +9,7 @@ from pydantic_ai.usage import Usage
 
 import mlflow
 import mlflow.pydantic_ai  # ensure the integration module is importable
-from mlflow.entities import SpanType
+from mlflow.entities import SpanLogLevel, SpanType
 from mlflow.pydantic_ai.autolog import (
     _get_agent_attributes,
     _get_mcp_server_attributes,
@@ -137,6 +137,7 @@ def test_agent_run_sync_enable_disable_autolog(simple_agent, mock_litellm_cost):
 
     assert spans[0].name == "Agent.run_sync"
     assert spans[0].span_type == SpanType.AGENT
+    assert spans[0].log_level == SpanLogLevel.INFO
     assert spans[0].get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "pydantic_ai"
     outputs_0 = spans[0].get_attribute(SpanAttributeKey.OUTPUTS)
     assert outputs_0 is not None
@@ -154,6 +155,7 @@ def test_agent_run_sync_enable_disable_autolog(simple_agent, mock_litellm_cost):
     span2 = spans[2]
     assert span2.name == "InstrumentedModel.request"
     assert span2.span_type == SpanType.LLM
+    assert span2.log_level == SpanLogLevel.INFO
     assert span2.parent_id == spans[1].span_id
     assert span2.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "pydantic_ai"
 

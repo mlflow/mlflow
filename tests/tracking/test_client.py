@@ -28,6 +28,7 @@ from mlflow.entities import (
     RunTag,
     SourceType,
     Span,
+    SpanLogLevel,
     SpanStatusCode,
     SpanType,
     Trace,
@@ -818,6 +819,7 @@ def test_start_and_end_trace(tracking_uri, with_active_run, async_logging_enable
         "mlflow.experimentId": experiment_id,
         "mlflow.traceRequestId": trace.info.trace_id,
         "mlflow.spanType": "UNKNOWN",
+        "mlflow.spanLogLevel": SpanLogLevel.DEBUG,
         "mlflow.spanInputs": {"x": 1, "y": 2},
         "mlflow.spanOutputs": {"output": 25},
     }
@@ -827,6 +829,7 @@ def test_start_and_end_trace(tracking_uri, with_active_run, async_logging_enable
     assert child_span_1.attributes == {
         "mlflow.traceRequestId": trace.info.trace_id,
         "mlflow.spanType": "LLM",
+        "mlflow.spanLogLevel": SpanLogLevel.INFO,
         "mlflow.spanInputs": {"z": 3},
         "mlflow.spanOutputs": {"output": 5},
         "delta": 2,
@@ -837,6 +840,7 @@ def test_start_and_end_trace(tracking_uri, with_active_run, async_logging_enable
     assert child_span_2.attributes == {
         "mlflow.traceRequestId": trace.info.trace_id,
         "mlflow.spanType": "UNKNOWN",
+        "mlflow.spanLogLevel": SpanLogLevel.DEBUG,
         "mlflow.spanInputs": {"t": 5},
         "mlflow.spanOutputs": {"output": 25},
     }

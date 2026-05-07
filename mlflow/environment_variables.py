@@ -1475,6 +1475,11 @@ MLFLOW_SERVER_ENABLE_GRAPHQL_AUTH = _BooleanEnvironmentVariable(
     "MLFLOW_SERVER_ENABLE_GRAPHQL_AUTH", True
 )
 
+#: Whether to show the Unity Catalog trace upsell message when calling set_experiment
+#: on a Databricks-backed experiment without a UC trace destination.
+#: (default: ``True``)
+_MLFLOW_ENABLE_UC_TRACE_UPSELL = _BooleanEnvironmentVariable("_MLFLOW_ENABLE_UC_TRACE_UPSELL", True)
+
 
 #: Specifies whether to allow unsafe pickle deserialization for loading model
 MLFLOW_ALLOW_PICKLE_DESERIALIZATION = _BooleanEnvironmentVariable(
