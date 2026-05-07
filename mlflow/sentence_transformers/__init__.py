@@ -538,8 +538,9 @@ class _SentenceTransformerModelWrapper:
             # Wrap the output to OpenAI format only when the input is dict `{"input": ... }`
             if self.task and list(sentences.columns)[0] == _LLM_V1_EMBEDDING_INPUT_KEY:
                 convert_output_to_llm_v1_format = True
-            sentences = sentences.iloc[:, 0]
-            if type(sentences[0]) == list:
+            # sentence-transformers >= 5.4 rejects pd.Series inputs, so convert to a list
+            sentences = sentences.iloc[:, 0].tolist()
+            if sentences and type(sentences[0]) == list:
                 sentences = sentences[0]
 
         # The encode API has additional parameters that we can add as kwargs.

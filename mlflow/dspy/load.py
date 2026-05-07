@@ -76,7 +76,8 @@ def _load_model(model_uri, dst_path=None):
         model = dspy.load(os.path.join(local_model_path, model_path), allow_pickle=True)
 
         dspy_settings = dspy.load_settings(
-            os.path.join(local_model_path, _MODEL_DATA_PATH, _DSPY_SETTINGS_FILE_NAME)
+            os.path.join(local_model_path, _MODEL_DATA_PATH, _DSPY_SETTINGS_FILE_NAME),
+            allow_pickle=True,
         )
 
         model_config_file = os.path.join(

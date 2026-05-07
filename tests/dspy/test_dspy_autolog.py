@@ -199,7 +199,12 @@ def test_mlflow_callback_exception():
     assert trace.info.execution_time_ms > 0
 
     spans = trace.data.spans
-    assert len(spans) == 4
+    # dspy >= 3.2.0 falls back to JSONAdapter on ContextWindowExceededError, producing
+    # extra JSONAdapter.format spans on top of the original four.
+    if _DSPY_VERSION >= Version("3.2.0"):
+        assert len(spans) >= 4
+    else:
+        assert len(spans) == 4
     assert spans[0].name == "ChainOfThought.forward"
     assert spans[0].inputs == {"question": "How are you?"}
     assert spans[0].outputs is None
