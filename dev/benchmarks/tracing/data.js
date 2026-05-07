@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1778127246311,
+  "lastUpdate": 1778129198446,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -1133,6 +1133,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 7.060376600003337,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "90125084+Genmin@users.noreply.github.com",
+            "name": "Joey Roth",
+            "username": "Genmin"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "143cf828ac88b14b28e8fdfef90891d16a311bc6",
+          "message": "Fix Azure OpenAI streaming usage tracing (#23036)\n\nSigned-off-by: Genmin <joey@joeyroth.com>",
+          "timestamp": "2026-05-07T13:44:53+09:00",
+          "tree_id": "27ae5e732f2bed073c205adc2ba42f52855912f5",
+          "url": "https://github.com/mlflow/mlflow/commit/143cf828ac88b14b28e8fdfef90891d16a311bc6"
+        },
+        "date": 1778129197532,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 39.5314711499978,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 22.929834277781598,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 22.82611281250002,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 22.64775324999643,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 22.001509728813378,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 6.863853599992353,
             "unit": "ms"
           }
         ]
