@@ -132,12 +132,15 @@ jobs:
           if echo "$BODY" | grep -q -- '--hybrid'; then flags="$flags --hybrid"; fi
           echo "flags=$flags" >> "$GITHUB_OUTPUT"
 
-      - name: Run NaiLaOpus (dry-run; activation PR flips this)
+      - name: Run NaiLaOpus (dry-run by default; Bridge 2 adds --no-dry-run to enable posting)
         working-directory: mlflow
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GH_TOKEN: ${{ steps.app_token.outputs.token }}
         run: |
+          # FLAGS is empty on auto-triggered runs by design: the flags step
+          # only runs for /review comments, and there is no comment body to
+          # parse on a pull_request event.
           mlflow-reviewer ${{ steps.ctx.outputs.pr }} \
             --repo ${{ github.repository }} \
             ${{ steps.flags.outputs.flags }}
@@ -162,8 +165,10 @@ jobs:
               -X POST -f content=-1 || true
           fi
           run_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          # printf with a single-quoted format string keeps backticks literal
+          # (no command substitution) and avoids the multi-line YAML quoting
+          # bug where embedded backticks broke shell parsing.
+          body=$(printf '`NaiLaOpus` failed. See [run logs](%s).\n\n---\nPosted by `NaiLaOpus` (auto-generated).' "$run_url")
           gh api \
             "repos/${{ github.repository }}/issues/${{ steps.ctx.outputs.pr }}/comments" \
-            -X POST -f body="\`NaiLaOpus\` failed. See [run logs]($run_url).
----
-Posted by \`NaiLaOpus\` (auto-generated)." || true
+            -X POST -f body="$body" || true
