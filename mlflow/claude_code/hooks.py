@@ -47,10 +47,8 @@ def _detect_mlflow_cmd() -> str:
     if "UV" in os.environ:
         return "uv run mlflow"
 
-    pixi_exe = os.environ.get("PIXI_EXE")
-    pixi_env = os.environ.get("PIXI_ENVIRONMENT")
-    if pixi_exe and pixi_env:
-        return f"{shlex.quote(pixi_exe)} run -e {shlex.quote(pixi_env)} mlflow"
+    if pixi_env_name := os.environ.get("PIXI_ENVIRONMENT_NAME"):
+        return f"pixi run -e {shlex.quote(pixi_env_name)} mlflow"
 
     return "mlflow"
 

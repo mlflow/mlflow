@@ -62,7 +62,7 @@ def _get_hook_command_from_settings() -> str:
 
 def test_claude_setup_with_uv_env_var(runner, monkeypatch):
     monkeypatch.setenv("UV", "/path/to/uv")
-    monkeypatch.delenv("PIXI_EXE", raising=False)
+    monkeypatch.delenv("PIXI_ENVIRONMENT_NAME", raising=False)
 
     with runner.isolated_filesystem():
         result = runner.invoke(commands, ["claude"])
@@ -74,8 +74,7 @@ def test_claude_setup_with_uv_env_var(runner, monkeypatch):
 
 def test_claude_setup_without_uv_env_var(runner, monkeypatch):
     monkeypatch.delenv("UV", raising=False)
-    monkeypatch.delenv("PIXI_EXE", raising=False)
-    monkeypatch.delenv("PIXI_ENVIRONMENT", raising=False)
+    monkeypatch.delenv("PIXI_ENVIRONMENT_NAME", raising=False)
 
     with runner.isolated_filesystem():
         result = runner.invoke(commands, ["claude"])
@@ -87,36 +86,31 @@ def test_claude_setup_without_uv_env_var(runner, monkeypatch):
 
 def test_claude_setup_with_pixi_env_vars(runner, monkeypatch):
     monkeypatch.delenv("UV", raising=False)
-    monkeypatch.setenv("PIXI_EXE", "/usr/local/bin/pixi")
-    monkeypatch.setenv("PIXI_ENVIRONMENT", "tracing")
+    monkeypatch.setenv("PIXI_ENVIRONMENT_NAME", "tracing")
 
     with runner.isolated_filesystem():
         result = runner.invoke(commands, ["claude"])
         assert result.exit_code == 0
 
         hook_command = _get_hook_command_from_settings()
-        assert hook_command == "/usr/local/bin/pixi run -e tracing mlflow autolog claude stop-hook"
+        assert hook_command == "pixi run -e tracing mlflow autolog claude stop-hook"
 
 
-def test_claude_setup_with_pixi_exe_path_containing_spaces(runner, monkeypatch):
+def test_claude_setup_with_pixi_env_name_containing_spaces(runner, monkeypatch):
     monkeypatch.delenv("UV", raising=False)
-    monkeypatch.setenv("PIXI_EXE", "/path with spaces/pixi")
-    monkeypatch.setenv("PIXI_ENVIRONMENT", "my env")
+    monkeypatch.setenv("PIXI_ENVIRONMENT_NAME", "my env")
 
     with runner.isolated_filesystem():
         result = runner.invoke(commands, ["claude"])
         assert result.exit_code == 0
 
         hook_command = _get_hook_command_from_settings()
-        assert (
-            hook_command
-            == "'/path with spaces/pixi' run -e 'my env' mlflow autolog claude stop-hook"
-        )
+        assert hook_command == "pixi run -e 'my env' mlflow autolog claude stop-hook"
 
 
 def test_claude_setup_with_mlflow_cmd_option(runner, monkeypatch):
     monkeypatch.delenv("UV", raising=False)
-    monkeypatch.delenv("PIXI_EXE", raising=False)
+    monkeypatch.delenv("PIXI_ENVIRONMENT_NAME", raising=False)
 
     with runner.isolated_filesystem():
         result = runner.invoke(commands, ["claude", "--mlflow-cmd", "pixi run -e tracing mlflow"])
@@ -142,8 +136,7 @@ def test_mlflow_cmd_whitespace_only_raises_error(runner):
 
 def test_mlflow_cmd_option_overrides_env_vars(runner, monkeypatch):
     monkeypatch.setenv("UV", "/path/to/uv")
-    monkeypatch.setenv("PIXI_EXE", "/usr/local/bin/pixi")
-    monkeypatch.setenv("PIXI_ENVIRONMENT", "default")
+    monkeypatch.setenv("PIXI_ENVIRONMENT_NAME", "default")
 
     with runner.isolated_filesystem():
         result = runner.invoke(commands, ["claude", "--mlflow-cmd", "custom run mlflow"])
@@ -155,8 +148,7 @@ def test_mlflow_cmd_option_overrides_env_vars(runner, monkeypatch):
 
 def test_upsert_hook_uses_cli_command(monkeypatch):
     monkeypatch.delenv("UV", raising=False)
-    monkeypatch.delenv("PIXI_EXE", raising=False)
-    monkeypatch.delenv("PIXI_ENVIRONMENT", raising=False)
+    monkeypatch.delenv("PIXI_ENVIRONMENT_NAME", raising=False)
     config = {HOOK_FIELD_HOOKS: {}}
     upsert_hook(config, "Stop", "stop-hook")
 
