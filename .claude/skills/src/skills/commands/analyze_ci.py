@@ -31,6 +31,7 @@ class JobLogs:
     failed_step: str | None
     logs: str
     raw_log_path: Path
+    package_versions_path: Path | None
     conclusion: str | None
 
 
@@ -58,10 +59,9 @@ def prune_old_cached_logs() -> None:
     if not LOG_CACHE_DIR.exists():
         return
     cutoff = time.time() - LOG_CACHE_TTL_SECONDS
-    # Glob also catches partial `*.log.tmp` files left by interrupted downloads
-    for log_file in LOG_CACHE_DIR.rglob("*.log*"):
-        if log_file.stat().st_mtime < cutoff:
-            log_file.unlink()
+    for cached_file in LOG_CACHE_DIR.rglob("*"):
+        if cached_file.is_file() and cached_file.stat().st_mtime < cutoff:
+            cached_file.unlink()
     for run_dir in LOG_CACHE_DIR.iterdir():
         if run_dir.is_dir() and not any(run_dir.iterdir()):
             run_dir.rmdir()
@@ -109,6 +109,41 @@ def iter_step_lines(log_path: Path, failed_step: JobStep) -> Iterator[str]:
                 _, _, line = line.partition(" ")
             if in_range:
                 yield line
+
+
+PACKAGE_VERSIONS_BEGIN_MARKER = ">>> package versions"
+PACKAGE_VERSIONS_END_MARKER = "<<< package versions"
+
+
+def extract_package_versions(log_path: Path) -> Path | None:
+    """Save the show-versions action's package list block next to the raw log."""
+    out_path = log_path.with_suffix(".package-versions.txt")
+    if out_path.exists():
+        log(f"Using cached package versions at {out_path}")
+        return out_path
+
+    captured: list[str] = []
+    capturing = False
+    terminated = False
+    with log_path.open("r", encoding="utf-8", errors="replace") as f:
+        for line in f:
+            line = line.rstrip("\r\n")
+            content = TIMESTAMP_PATTERN.sub("", line)
+            if not capturing:
+                if content == PACKAGE_VERSIONS_BEGIN_MARKER:
+                    capturing = True
+                continue
+            if content == PACKAGE_VERSIONS_END_MARKER:
+                terminated = True
+                break
+            captured.append(content)
+
+    if not terminated or not captured:
+        return None
+    with out_path.open("w", encoding="utf-8") as f:
+        f.write("\n".join(captured) + "\n")
+    log(f"Saved package versions to {out_path}")
+    return out_path
 
 
 ANSI_PATTERN = re.compile(r"\x1b\[[0-9;]*m")
@@ -215,6 +250,7 @@ async def resolve_urls(client: GitHubClient, urls: list[str]) -> list[Job]:
 async def fetch_single_job_logs(client: GitHubClient, job: Job) -> JobLogs:
     log(f"Fetching logs for '{job.workflow_name} / {job.name}'")
     raw_log_path = await download_raw_log(client, job)
+    package_versions_path = extract_package_versions(raw_log_path)
 
     failed_step = next((s for s in job.steps if s.conclusion == "failure"), None)
     if not failed_step:
@@ -225,6 +261,7 @@ async def fetch_single_job_logs(client: GitHubClient, job: Job) -> JobLogs:
             failed_step=None,
             logs="",
             raw_log_path=raw_log_path,
+            package_versions_path=package_versions_path,
             conclusion=job.conclusion,
         )
     cleaned_logs = compact_logs(iter_step_lines(raw_log_path, failed_step))
@@ -237,6 +274,7 @@ async def fetch_single_job_logs(client: GitHubClient, job: Job) -> JobLogs:
         failed_step=failed_step.name,
         logs=truncated_logs,
         raw_log_path=raw_log_path,
+        package_versions_path=package_versions_path,
         conclusion=job.conclusion,
     )
 
@@ -282,6 +320,8 @@ async def analyze_single_job(job: JobLogs) -> AnalysisResult:
             f"Conclusion: {job.conclusion}\n\n"
             f"Job has no failure to analyze. Raw log cached at {job.raw_log_path}"
         )
+        if job.package_versions_path:
+            text = f"{text}\nPackage versions: {job.package_versions_path}"
         return AnalysisResult(text=text, total_cost_usd=None, usage=None)
 
     formatted_logs = format_single_job_for_analysis(job)
@@ -316,6 +356,8 @@ async def analyze_single_job(job: JobLogs) -> AnalysisResult:
     text = data.get("result", "")
     # Surface the raw log path so downstream agents can grep it for deeper analysis
     text = f"{text}\n\nRaw log: {job.raw_log_path}"
+    if job.package_versions_path:
+        text = f"{text}\nPackage versions: {job.package_versions_path}"
     return AnalysisResult(
         text=text,
         total_cost_usd=data.get("total_cost_usd"),

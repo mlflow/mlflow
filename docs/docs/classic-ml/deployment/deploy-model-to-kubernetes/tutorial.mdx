@@ -4,6 +4,16 @@ import { APILink } from "@site/src/components/APILink";
 
 # Develop ML model with MLflow and deploy to Kubernetes
 
+:::warning[MLServer integration is deprecated]
+
+This tutorial uses MLflow's MLServer integration (`--enable-mlserver` / `enable_mlserver=True`), which is deprecated and will be removed in
+**MLflow 3.13**. Seldon, the company that maintained MLServer, is in [liquidation](https://github.com/SeldonIO/MLServer/issues/2404#issuecomment-4210286631),
+and the [MLServer project is no longer actively maintained](https://github.com/SeldonIO/MLServer/commits/master/). The tutorial is preserved for
+existing MLServer-based workflows; for new deployments, drop the `--enable-mlserver` flag (and `enable_mlserver=True`) to use the default FastAPI
+scoring server, or use a managed serving platform.
+
+:::
+
 :::note
 This tutorial assumes that you have access to a Kubernetes cluster. However, you can also complete this tutorial on your local machine
 by using local cluster emulation tools such as [Kind](https://kind.sigs.k8s.io/docs/user/quick-start) or [Minikube](https://minikube.sigs.k8s.io/docs/start).

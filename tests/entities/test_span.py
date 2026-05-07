@@ -55,6 +55,9 @@ def test_create_live_span():
         non_serializable = datetime.now()
         span.set_attribute("non_serializable", non_serializable)
         assert span.get_attribute("non_serializable") == str(non_serializable)
+        # NB: `mlflow.spanLogLevel` is intentionally absent here — the live
+        # span hasn't ended yet, and log-level resolution happens in `end()`.
+        # Persisted spans always carry the attribute (covered elsewhere).
         assert parent_span._attributes == {
             "mlflow.traceRequestId": json.dumps(trace_id),
             "mlflow.spanInputs": '{"input": 1}',

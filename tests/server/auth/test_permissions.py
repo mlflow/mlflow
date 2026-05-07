@@ -8,9 +8,12 @@ from mlflow.server.auth.permissions import (
     NO_PERMISSIONS,
     PERMISSION_PRIORITY,
     READ,
+    RESOURCE_GRANTABLE_PERMISSIONS,
     USE,
     VALID_RESOURCE_TYPES,
+    WORKSPACE_GRANTABLE_PERMISSIONS,
     _validate_permission,
+    _validate_permission_for_resource_type,
     _validate_resource_type,
     get_permission,
     max_permission,
@@ -141,3 +144,68 @@ def test_workspace_is_a_valid_resource_type():
     VALID_RESOURCE_TYPES, the UI and the role-resolution logic both break.
     """
     assert "workspace" in VALID_RESOURCE_TYPES
+
+
+# ---- Scope-aware validator --------------------------------------------------
+
+
+def test_grantable_permission_sets_pin_simplified_model():
+    """Pin the two-tier workspace model and the resource-grant set.
+
+    Workspace grants accept only USE / MANAGE; resource grants accept any of
+    READ / USE / EDIT / MANAGE (no NO_PERMISSIONS). These sets gate every
+    permission write through the store, so a regression here would silently
+    re-enable the old five-value-anywhere model.
+    """
+    assert WORKSPACE_GRANTABLE_PERMISSIONS == {USE.name, MANAGE.name}
+    assert RESOURCE_GRANTABLE_PERMISSIONS == {READ.name, USE.name, EDIT.name, MANAGE.name}
+
+
+@pytest.mark.parametrize(
+    "permission",
+    [p.name for p in (READ, USE, EDIT, MANAGE)],
+)
+def test_validate_resource_grant_accepts_grantable(permission):
+    _validate_permission_for_resource_type(permission, "experiment")
+    _validate_permission_for_resource_type(permission, "registered_model")
+    _validate_permission_for_resource_type(permission, "scorer")
+
+
+@pytest.mark.parametrize(
+    "resource_type",
+    ["experiment", "registered_model", "scorer", "gateway_endpoint"],
+)
+def test_validate_resource_grant_rejects_no_permissions(resource_type):
+    with pytest.raises(MlflowException, match="NO_PERMISSIONS"):
+        _validate_permission_for_resource_type(NO_PERMISSIONS.name, resource_type)
+
+
+@pytest.mark.parametrize("permission", [USE.name, MANAGE.name])
+def test_validate_workspace_grant_accepts_use_or_manage(permission):
+    """The unified workspace slot accepts USE (regular member) and MANAGE
+    (admin); the permission tier distinguishes the two without needing a
+    separate ``resource_type`` discriminant.
+    """
+    _validate_permission_for_resource_type(permission, "workspace")
+
+
+@pytest.mark.parametrize("permission", [READ.name, EDIT.name, NO_PERMISSIONS.name])
+def test_validate_workspace_grant_rejects_other_tiers(permission):
+    with pytest.raises(MlflowException, match="resource_type='workspace'"):
+        _validate_permission_for_resource_type(permission, "workspace")
+
+
+def test_validate_resource_type_rejects_legacy_any_discriminant():
+    """The legacy ``resource_type='*'`` slot was retired in favor of the
+    unified ``'workspace'`` slot. Any write attempting the old shape should be
+    rejected at the validator level so stale callers fail loudly.
+    """
+    with pytest.raises(MlflowException, match="Invalid resource type"):
+        _validate_permission_for_resource_type(USE.name, "*")
+
+
+def test_validate_permission_for_resource_type_rejects_unknown():
+    with pytest.raises(MlflowException, match="Invalid permission"):
+        _validate_permission_for_resource_type("ADMIN", "experiment")
+    with pytest.raises(MlflowException, match="Invalid resource type"):
+        _validate_permission_for_resource_type(USE.name, "trace")

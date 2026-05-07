@@ -17,6 +17,7 @@ from opentelemetry.trace import StatusCode as OTelStatusCode
 
 import mlflow
 from mlflow.entities.span_event import SpanEvent
+from mlflow.entities.span_log_level import SpanLogLevel
 from mlflow.entities.span_status import SpanStatus, SpanStatusCode
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -34,6 +35,7 @@ from mlflow.tracing.utils import (
     set_span_cost_attribute,
     should_compute_cost_client_side,
 )
+from mlflow.tracing.utils.default_log_level import default_log_level_for_span_type
 from mlflow.tracing.utils.otlp import (
     _decode_otel_proto_anyvalue,
     _otel_proto_bytes_to_id,
@@ -172,6 +174,22 @@ class Span:
     def span_type(self) -> str:
         """The type of the span."""
         return self.get_attribute(SpanAttributeKey.SPAN_TYPE)
+
+    @property
+    def log_level(self) -> SpanLogLevel | None:
+        """
+        The severity level of the span, or ``None`` if it was not classified.
+
+        Set on a :py:class:`LiveSpan <mlflow.entities.LiveSpan>` via
+        :py:meth:`set_log_level <mlflow.entities.LiveSpan.set_log_level>`,
+        the ``log_level`` argument of :py:func:`mlflow.start_span`,
+        :py:func:`mlflow.start_span_no_context`, or :py:func:`mlflow.trace`,
+        or by an autologging integration on the user's behalf.
+        """
+        raw = self.get_attribute(SpanAttributeKey.LOG_LEVEL)
+        if raw is None:
+            return None
+        return SpanLogLevel(raw)
 
     @property
     def model_name(self) -> str | None:
@@ -557,6 +575,17 @@ class LiveSpan(Span):
         """Set the type of the span."""
         self.set_attribute(SpanAttributeKey.SPAN_TYPE, span_type)
 
+    def set_log_level(self, level: SpanLogLevel | str):
+        """
+        Set the severity level of the span.
+
+        Args:
+            level: A :py:class:`SpanLogLevel <mlflow.entities.SpanLogLevel>` or
+                its name (e.g. ``"INFO"``).
+        """
+        normalized = SpanLogLevel.from_value(level)
+        self.set_attribute(SpanAttributeKey.LOG_LEVEL, int(normalized))
+
     def set_inputs(self, inputs: Any):
         """Set the input values to the span."""
         extract_base64 = self._should_extract_base64()
@@ -847,6 +876,14 @@ class LiveSpan(Span):
                 :py:class:`SpanEvent <mlflow.entities.SpanEvent>` object.
         """
         self._span.add_event(event.name, event.attributes, event.timestamp)
+        # OTel reserves the event name "exception" for exception events
+        # (`SpanEvent.from_exception`). Bump the span's level so users with the
+        # filter set above DEBUG/INFO still see anything that blew up. Preserve
+        # user-set CRITICAL.
+        if event.name == "exception":
+            current = self._attributes.get(SpanAttributeKey.LOG_LEVEL)
+            if current is None or int(current) < SpanLogLevel.ERROR:
+                self._attributes.set(SpanAttributeKey.LOG_LEVEL, int(SpanLogLevel.ERROR))
 
     def record_exception(self, exception: str | Exception):
         """
@@ -913,6 +950,18 @@ class LiveSpan(Span):
 
             if should_compute_cost_client_side():
                 set_span_cost_attribute(self)
+
+            # Resolve the log level from the final span_type if neither
+            # set_log_level nor an exception bump set it during the lifetime.
+            # Done here (rather than in __init__/set_span_type) so the
+            # resolution sees the canonical span_type without re-stamping
+            # logic, and so manual `start_span` and autolog flows behave
+            # identically.
+            if self._attributes.get(SpanAttributeKey.LOG_LEVEL) is None:
+                self._attributes.set(
+                    SpanAttributeKey.LOG_LEVEL,
+                    int(default_log_level_for_span_type(self.span_type)),
+                )
 
             # Apply span processors
             apply_span_processors(self)
@@ -1098,6 +1147,9 @@ class NoOpSpan(Span):
         pass
 
     def set_attribute(self, key: str, value: Any):
+        pass
+
+    def set_log_level(self, level: SpanLogLevel | int | str):
         pass
 
     def set_status(self, status: SpanStatus):

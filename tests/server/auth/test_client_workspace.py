@@ -223,9 +223,9 @@ def test_create_workspace_seeds_default_roles(workspace_client, monkeypatch):
         admin_perms = client.list_role_permissions(by_name["admin"].id)
         user_perms = client.list_role_permissions(by_name["user"].id)
 
-    # Both roles use resource_type='workspace' (the workspace-wide grant form).
-    # MANAGE additionally grants workspace admin capability; USE is the
-    # workspace-membership level — read every resource and create new ones.
+    # The simplified two-tier model: ``admin`` carries the workspace-admin grant
+    # (resource_type='workspace', MANAGE), while ``user`` carries the
+    # workspace-wide access+create grant (resource_type='workspace', USE).
     assert [(p.resource_type, p.resource_pattern, p.permission) for p in admin_perms] == [
         ("workspace", "*", "MANAGE")
     ]
@@ -269,7 +269,7 @@ def test_workspace_permission_list_requires_manage_permission(workspace_setup, m
 
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
         client.set_workspace_permission(workspace_name, manager_username, "MANAGE")
-        client.set_workspace_permission(workspace_name, target_username, "READ")
+        client.set_workspace_permission(workspace_name, target_username, "USE")
 
     with User(other_username, other_password, monkeypatch), assert_unauthorized():
         client.list_workspace_permissions(workspace_name)
@@ -292,16 +292,16 @@ def test_workspace_permission_set_requires_manage_permission(workspace_client, m
         client.set_workspace_permission(workspace_name, manager_username, "MANAGE")
 
     with User(manager_username, manager_password, monkeypatch):
-        perm = client.set_workspace_permission(workspace_name, target_username, "READ")
-        assert perm.permission == "READ"
+        perm = client.set_workspace_permission(workspace_name, target_username, "USE")
+        assert perm.permission == "USE"
         client.delete_workspace_permission(workspace_name, target_username)
 
     with User(manager_username, manager_password, monkeypatch):
-        perm = client.set_workspace_permission(workspace_name, target_username, "READ")
-        assert perm.permission == "READ"
+        perm = client.set_workspace_permission(workspace_name, target_username, "USE")
+        assert perm.permission == "USE"
 
     with User(target_username, target_password, monkeypatch), assert_unauthorized():
-        client.set_workspace_permission(workspace_name, manager_username, "READ")
+        client.set_workspace_permission(workspace_name, manager_username, "USE")
 
     with User(target_username, target_password, monkeypatch), assert_unauthorized():
         client.delete_workspace_permission(workspace_name, manager_username)
@@ -325,7 +325,7 @@ def test_run_access_controls_across_workspaces(workspace_setup, monkeypatch):
     # Use a separate limited user who only has access to workspace A.
     limited_user, limited_password = create_user(tracking_uri)
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
-        client.set_workspace_permission(workspace_a, limited_user, "READ")
+        client.set_workspace_permission(workspace_a, limited_user, "USE")
 
     # Positive: limited user can read run in workspace A.
     resp_ok = requests.get(
@@ -387,7 +387,7 @@ def test_registered_model_access_controls_across_workspaces(workspace_setup, mon
 
     limited_user, limited_password = create_user(tracking_uri)
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
-        client.set_workspace_permission(workspace_a, limited_user, "READ")
+        client.set_workspace_permission(workspace_a, limited_user, "USE")
 
     # Positive: limited user can read model in authorized workspace.
     resp_ok = requests.get(
@@ -413,3 +413,55 @@ def test_registered_model_access_controls_across_workspaces(workspace_setup, mon
     )
     assert resp.status_code == 403
     assert "Permission denied" in resp.text
+
+
+def test_list_current_user_permissions_no_active_workspace(workspace_client, monkeypatch):
+    # ``/users/current/permissions`` backs the global ``/account`` page,
+    # which has no active workspace - it must list registered-model
+    # grants across every workspace the user has them in. The
+    # active-workspace-aware ``list_registered_model_permissions`` would
+    # raise here, so the handler uses the cross-workspace variant.
+    client, tracking_uri = workspace_client
+
+    workspace_a = f"ws-a-{random_str()}"
+    workspace_b = f"ws-b-{random_str()}"
+    _create_workspace(tracking_uri, workspace_a)
+    _create_workspace(tracking_uri, workspace_b)
+    username, password = create_user(tracking_uri)
+
+    model_a = f"model-a-{random_str()}"
+    model_b = f"model-b-{random_str()}"
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        # Create one registered-model permission per workspace. We go
+        # through the REST endpoint directly because the typed client
+        # method doesn't accept a workspace header - the server reads it
+        # from the request to set the row's ``workspace`` column.
+        for workspace_name, model_name in [(workspace_a, model_a), (workspace_b, model_b)]:
+            resp = requests.post(
+                f"{tracking_uri}/api/2.0/mlflow/registered-models/permissions/create",
+                json={"name": model_name, "username": username, "permission": "READ"},
+                auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
+                headers={WORKSPACE_HEADER_NAME: workspace_name},
+            )
+            assert resp.ok, (
+                f"create_registered_model_permission failed: {resp.status_code} {resp.text}"
+            )
+
+    url = f"{tracking_uri}/api/3.0/mlflow/users/current/permissions"
+
+    # Critical assertion: no ``X-MLFLOW-WORKSPACE`` header. On a
+    # workspaces-enabled deployment, ``list_registered_model_permissions``
+    # would raise here ("Active workspace is required"); the
+    # cross-workspace path must succeed and span both workspaces.
+    resp = requests.get(url, auth=(username, password))
+    assert resp.status_code == 200, resp.text
+    grants = resp.json()["permissions"]
+
+    # Each workspace's grant should be present, attributed correctly.
+    rm_grants = [g for g in grants if g["resource_type"] == "registered_model"]
+    assert {(g["resource_pattern"], g["workspace"]) for g in rm_grants} == {
+        (model_a, workspace_a),
+        (model_b, workspace_b),
+    }
+    for g in rm_grants:
+        assert g["permission"] == "READ"

@@ -22,8 +22,10 @@ defaults:
 
 jobs:
   uv:
-    # Skip scheduled runs on forks
-    if: github.event_name != 'schedule' || github.repository == 'mlflow/mlflow'
+    # Skip scheduled runs on forks, and PR runs from fork branches (no access to secrets)
+    if: |
+      (github.event_name != 'schedule' || github.repository == 'mlflow/mlflow') &&
+      (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:

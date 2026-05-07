@@ -77,7 +77,7 @@ jobs:
           git push -u origin "$branch"
           gh pr create \
             --title "Update model catalog from upstream sources" \
-            --body "Weekday refresh of model pricing and context window data from LiteLLM, transformed to MLflow-native schema." \
+            --body "Daily refresh of model pricing and context window data from LiteLLM, transformed to MLflow-native schema." \
             --reviewer "TomeHirata"
 
       - name: Publish to GitHub Releases
