@@ -19,7 +19,7 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { Link } from '../../common/utils/RoutingUtils';
-import { useCurrentUserAdminWorkspaces } from '../../account/hooks';
+import { useCurrentUserAdminWorkspaces, useCurrentUserIsAdmin } from '../../account/hooks';
 import { useWorkspaces, type Workspace } from '../../workspaces/hooks/useWorkspaces';
 import {
   getLastUsedWorkspace,
@@ -379,8 +379,15 @@ export const WorkspacesHomeView = ({ onCreateWorkspace }: WorkspacesHomeViewProp
   // ``/admin?workspace=<name>`` for them. Platform admins navigate via the
   // sidebar ``Manage`` entry instead, since the admin page ignores the
   // workspace param for them anyway.
+  //
+  // ``useCurrentUserAdminWorkspaces`` already short-circuits to an empty set
+  // for admins (it skips the role fetch when ``is_admin`` is true), so the
+  // ``adminWorkspaces.size`` check alone would suffice — but explicitly
+  // gating on ``!isAdmin`` is defense-in-depth so the gear stays hidden for
+  // admins even if that short-circuit ever changes.
+  const isAdmin = useCurrentUserIsAdmin();
   const adminWorkspaces = useCurrentUserAdminWorkspaces();
-  const showManageColumn = adminWorkspaces.size > 0;
+  const showManageColumn = !isAdmin && adminWorkspaces.size > 0;
 
   const shouldShowEmptyState = !isLoading && !isError && workspaces.length === 0;
 
@@ -503,7 +510,7 @@ export const WorkspacesHomeView = ({ onCreateWorkspace }: WorkspacesHomeViewProp
                   key={workspace.name}
                   workspace={workspace}
                   isLastUsed={workspace.name === lastUsedWorkspace}
-                  canManage={adminWorkspaces.has(workspace.name)}
+                  canManage={!isAdmin && adminWorkspaces.has(workspace.name)}
                   showManageColumn={showManageColumn}
                 />
               ))
