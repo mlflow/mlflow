@@ -501,19 +501,25 @@ const AdminPage = () => {
   const tabFromUrl = searchParams.get('tab');
   const activeTab = tabFromUrl === 'roles' ? 'roles' : 'users';
 
-  const isAdmin = useCurrentUserIsAdmin();
   const activeWorkspace = useActiveWorkspace();
+  // Header / browser-tab title are URL-driven: ``/admin`` (no workspace
+  // param) is the cross-workspace platform-admin view; ``/admin?workspace=…``
+  // is the per-workspace management view. Keying off the URL rather than
+  // the viewer's ``is_admin`` flag means a deep link reads the same way for
+  // anyone authorized to follow it. (A separate route for the per-workspace
+  // view is the natural follow-up; deferred for now.)
+  const isWorkspaceScoped = activeWorkspace !== null;
 
   // The route definition's static ``getPageTitle`` is set by ``MlflowRootRoute``
   // *after* this component's effects (parent effects run after children's), so
-  // we override on a microtask to land last and reflect the workspace-manager
+  // we override on a microtask to land last and reflect the per-workspace
   // header in the browser tab.
   useEffect(() => {
-    const desired = isAdmin ? 'Platform Admin - MLflow' : 'Workspace Manager - MLflow';
+    const desired = isWorkspaceScoped ? 'Workspace Manager - MLflow' : 'Platform Admin - MLflow';
     queueMicrotask(() => {
       document.title = desired;
     });
-  }, [isAdmin]);
+  }, [isWorkspaceScoped]);
 
   return (
     <ScrollablePageWrapper>
@@ -531,21 +537,24 @@ const AdminPage = () => {
               <UserIcon />
             </div>
             <Typography.Title withoutMargins level={2}>
-              {isAdmin ? (
-                <FormattedMessage defaultMessage="Platform Admin" description="Admin page title for platform admins" />
-              ) : (
+              {isWorkspaceScoped ? (
                 <FormattedMessage
                   defaultMessage="Workspace Manager"
-                  description="Admin page title for non-platform-admins (workspace admins)"
+                  description="Admin page title shown when the URL is scoped to a single workspace via ?workspace=…"
+                />
+              ) : (
+                <FormattedMessage
+                  defaultMessage="Platform Admin"
+                  description="Admin page title shown when the URL has no ?workspace=… (cross-workspace platform-admin view)"
                 />
               )}
             </Typography.Title>
           </div>
-          {!isAdmin && activeWorkspace && (
+          {isWorkspaceScoped && (
             <Typography.Text color="secondary">
               <FormattedMessage
                 defaultMessage="Workspace: {workspace}"
-                description="Subtitle on the admin page identifying the active workspace for workspace managers"
+                description="Subtitle on the admin page identifying the active workspace when the URL is per-workspace scoped"
                 values={{ workspace: <code>{activeWorkspace}</code> }}
               />
             </Typography.Text>
