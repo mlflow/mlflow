@@ -4355,6 +4355,10 @@
     "defaultMessage": "Scatter Plot",
     "description": "Tab pane title for scatterplots on the compare runs page"
   },
+  "OjUChs": {
+    "defaultMessage": "Playground coming soon",
+    "description": "Title shown on the Playground page placeholder before its features are wired up"
+  },
   "OjWQ39": {
     "defaultMessage": "Human feedback",
     "description": "Tooltip content for human feedback"
@@ -4746,10 +4750,6 @@
   "R6dCZ5": {
     "defaultMessage": "View your traces",
     "description": "Step 3 title for traces onboarding"
-  },
-  "R4Cwx7": {
-    "defaultMessage": "The Playground is being assembled. Soon you'll be able to test AI Gateway endpoints and registered prompts here.",
-    "description": "Placeholder description shown on the Playground page before its features are wired up"
   },
   "R7s1xC": {
     "defaultMessage": "Provider is required",
@@ -5867,10 +5867,6 @@
     "defaultMessage": "Scanning <tracesLink>{totalTraces} traces</tracesLink>, <issuesLink>{identifiedIssues} issues</issuesLink> identified so far",
     "description": "Issue detection progress > Progress summary while running"
   },
-  "Y/1i4Y": {
-    "defaultMessage": "{label}: {behavior}",
-    "description": "Helper text under the log-level slider explaining how the currently selected level filters the trace view."
-  },
   "Y+dLul": {
     "defaultMessage": "Choose your integration. Install the {code} package for automatic tracing, or use {trace} for custom functions.",
     "description": "Step 2 description for TypeScript traces onboarding"
@@ -5878,6 +5874,10 @@
   "Y+nCpQ": {
     "defaultMessage": "Pending",
     "description": "Label indicating this onboarding step is not yet completed"
+  },
+  "Y/1i4Y": {
+    "defaultMessage": "{label}: {behavior}",
+    "description": "Helper text under the log-level slider explaining how the currently selected level filters the trace view."
   },
   "Y1eg9D": {
     "defaultMessage": "In progress",
@@ -8262,6 +8262,10 @@
   "lQ2nDn": {
     "defaultMessage": "This assessment is produced by a custom metric.",
     "description": "Custom judge assessment description"
+  },
+  "lQq0YT": {
+    "defaultMessage": "Soon you'll be able to test AI Gateway endpoints and registered prompts here.",
+    "description": "Placeholder description shown on the Playground page before its features are wired up"
   },
   "lRO4km": {
     "defaultMessage": "Quality",
