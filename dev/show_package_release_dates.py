@@ -5,7 +5,7 @@ import subprocess
 import sys
 import traceback
 from collections.abc import Sequence
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import aiohttp
@@ -60,8 +60,8 @@ def get_longest_string_length(array: Sequence[str]) -> int:
 def format_age_past_cooldown(release_date: datetime | None, cooldown_days: int) -> str:
     if release_date is None:
         return ""
-    days = (datetime.now(timezone.utc) - release_date).days - cooldown_days
-    return f"{days}d"
+    delta = datetime.now(timezone.utc) - release_date - timedelta(days=cooldown_days)
+    return f"{delta.total_seconds() / 86400:.1f}d"
 
 
 async def main() -> None:
