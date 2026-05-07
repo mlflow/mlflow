@@ -3487,7 +3487,7 @@ def test_trace_search_permission(client, monkeypatch):
         params={"experiment_ids": [experiment_id]},
         auth=(user1, password1),
     )
-    assert resp.status_code != 403
+    assert resp.status_code == 200
 
     # user2 is denied
     resp = requests.get(
@@ -3508,7 +3508,7 @@ def test_trace_search_permission(client, monkeypatch):
         params={"experiment_ids": [experiment_id]},
         auth=(user2, password2),
     )
-    assert resp.status_code != 403
+    assert resp.status_code == 200
 
 
 def test_trace_delete_permission(client, monkeypatch):
@@ -3533,7 +3533,7 @@ def test_trace_delete_permission(client, monkeypatch):
     assert delete_traces((user2, password2)).status_code == 403
 
     # user1 (MANAGE) can delete
-    assert delete_traces((user1, password1)).status_code != 403
+    assert delete_traces((user1, password1)).status_code == 200
 
     # Upgrade user2 to MANAGE; now allowed
     requests.patch(
@@ -3541,7 +3541,7 @@ def test_trace_delete_permission(client, monkeypatch):
         json={"experiment_id": experiment_id, "username": user2, "permission": "MANAGE"},
         auth=(user1, password1),
     ).raise_for_status()
-    assert delete_traces((user2, password2)).status_code != 403
+    assert delete_traces((user2, password2)).status_code == 200
 
 
 def test_trace_tag_permission(client, monkeypatch):
@@ -3581,8 +3581,8 @@ def test_trace_tag_permission(client, monkeypatch):
         json={"experiment_id": experiment_id, "username": user2, "permission": "EDIT"},
         auth=(user1, password1),
     ).raise_for_status()
-    assert set_tag((user2, password2)).status_code != 403
-    assert delete_tag((user2, password2)).status_code != 403
+    assert set_tag((user2, password2)).status_code == 200
+    assert delete_tag((user2, password2)).status_code == 200
 
 
 def test_trace_get_info_permission(client, monkeypatch):
@@ -3608,7 +3608,7 @@ def test_trace_get_info_permission(client, monkeypatch):
     assert get_info((user2, password2)).status_code == 403
 
     # user1 can read
-    assert get_info((user1, password1)).status_code != 403
+    assert get_info((user1, password1)).status_code == 200
 
     # Grant READ; user2 can now read
     requests.patch(
@@ -3616,4 +3616,134 @@ def test_trace_get_info_permission(client, monkeypatch):
         json={"experiment_id": experiment_id, "username": user2, "permission": "READ"},
         auth=(user1, password1),
     ).raise_for_status()
-    assert get_info((user2, password2)).status_code != 403
+    assert get_info((user2, password2)).status_code == 200
+
+
+def test_trace_get_v3_permission(client, monkeypatch):
+    user1, password1 = create_user(client.tracking_uri)
+    user2, password2 = create_user(client.tracking_uri)
+
+    with User(user1, password1, monkeypatch):
+        experiment_id = client.create_experiment("trace_get_v3_test")
+
+    trace_id = _create_trace(client.tracking_uri, experiment_id, (user1, password1))
+
+    _grant_experiment_permission(
+        client.tracking_uri, experiment_id, user2, "NO_PERMISSIONS", (user1, password1)
+    )
+
+    def get_trace_v3(auth):
+        return requests.get(
+            url=client.tracking_uri + f"/api/3.0/mlflow/traces/{trace_id}",
+            auth=auth,
+        )
+
+    assert get_trace_v3((user2, password2)).status_code == 403
+    assert get_trace_v3((user1, password1)).status_code == 200
+
+    requests.patch(
+        url=client.tracking_uri + "/api/2.0/mlflow/experiments/permissions/update",
+        json={"experiment_id": experiment_id, "username": user2, "permission": "READ"},
+        auth=(user1, password1),
+    ).raise_for_status()
+    assert get_trace_v3((user2, password2)).status_code == 200
+
+
+def test_trace_batch_get_permission(client, monkeypatch):
+    user1, password1 = create_user(client.tracking_uri)
+    user2, password2 = create_user(client.tracking_uri)
+
+    with User(user1, password1, monkeypatch):
+        experiment_id = client.create_experiment("trace_batch_get_test")
+
+    trace_id = _create_trace(client.tracking_uri, experiment_id, (user1, password1))
+
+    _grant_experiment_permission(
+        client.tracking_uri, experiment_id, user2, "NO_PERMISSIONS", (user1, password1)
+    )
+
+    def batch_get(auth):
+        return requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/traces/batchGetInfos",
+            json={"trace_ids": [trace_id]},
+            auth=auth,
+        )
+
+    assert batch_get((user2, password2)).status_code == 403
+    assert batch_get((user1, password1)).status_code == 200
+
+    requests.patch(
+        url=client.tracking_uri + "/api/2.0/mlflow/experiments/permissions/update",
+        json={"experiment_id": experiment_id, "username": user2, "permission": "READ"},
+        auth=(user1, password1),
+    ).raise_for_status()
+    assert batch_get((user2, password2)).status_code == 200
+
+
+def test_trace_link_to_run_permission(client, monkeypatch):
+    user1, password1 = create_user(client.tracking_uri)
+    user2, password2 = create_user(client.tracking_uri)
+
+    with User(user1, password1, monkeypatch):
+        exp_a = client.create_experiment("link_test_exp_a")
+        exp_b = client.create_experiment("link_test_exp_b")
+
+    trace_id = _create_trace(client.tracking_uri, exp_b, (user1, password1))
+
+    with User(user1, password1, monkeypatch):
+        run = client.create_run(exp_a)
+    run_id = run.info.run_id
+
+    # user2: UPDATE on exp_a but NO_PERMISSIONS on exp_b → denied (can't read traces in B)
+    _grant_experiment_permission(client.tracking_uri, exp_a, user2, "EDIT", (user1, password1))
+    _grant_experiment_permission(
+        client.tracking_uri, exp_b, user2, "NO_PERMISSIONS", (user1, password1)
+    )
+
+    def link(auth):
+        return requests.post(
+            url=client.tracking_uri + "/api/2.0/mlflow/traces/link-to-run",
+            json={"trace_ids": [trace_id], "run_id": run_id},
+            auth=auth,
+        )
+
+    assert link((user2, password2)).status_code == 403
+
+    # Grant READ on exp_b → now allowed
+    requests.patch(
+        url=client.tracking_uri + "/api/2.0/mlflow/experiments/permissions/update",
+        json={"experiment_id": exp_b, "username": user2, "permission": "READ"},
+        auth=(user1, password1),
+    ).raise_for_status()
+    assert link((user2, password2)).status_code == 200
+
+
+def test_trace_search_v3_permission(client, monkeypatch):
+    user1, password1 = create_user(client.tracking_uri)
+    user2, password2 = create_user(client.tracking_uri)
+
+    with User(user1, password1, monkeypatch):
+        experiment_id = client.create_experiment("trace_search_v3_test")
+
+    _grant_experiment_permission(
+        client.tracking_uri, experiment_id, user2, "NO_PERMISSIONS", (user1, password1)
+    )
+
+    def search_v3(auth):
+        return requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/traces/search",
+            json={
+                "locations": [{"mlflow_experiment": {"experiment_id": experiment_id}}],
+            },
+            auth=auth,
+        )
+
+    assert search_v3((user2, password2)).status_code == 403
+    assert search_v3((user1, password1)).status_code == 200
+
+    requests.patch(
+        url=client.tracking_uri + "/api/2.0/mlflow/experiments/permissions/update",
+        json={"experiment_id": experiment_id, "username": user2, "permission": "READ"},
+        auth=(user1, password1),
+    ).raise_for_status()
+    assert search_v3((user2, password2)).status_code == 200

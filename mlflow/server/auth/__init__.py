@@ -88,6 +88,7 @@ from mlflow.protos.service_pb2 import (
     BatchGetTraces,
     CalculateTraceFilterCorrelation,
     CancelPromptOptimizationJob,
+    CreateAssessment,
     CreateExperiment,
     CreateGatewayBudgetPolicy,
     CreateGatewayEndpoint,
@@ -98,6 +99,7 @@ from mlflow.protos.service_pb2 import (
     CreatePromptOptimizationJob,
     CreateRun,
     CreateWorkspace,
+    DeleteAssessment,
     DeleteExperiment,
     DeleteExperimentTag,
     DeleteGatewayBudgetPolicy,
@@ -118,7 +120,9 @@ from mlflow.protos.service_pb2 import (
     DeleteTraceTagV3,
     DeleteWorkspace,
     DetachModelFromGatewayEndpoint,
+    EndTrace,
     FinalizeLoggedModel,
+    GetAssessmentRequest,
     GetExperiment,
     GetExperimentByName,
     GetGatewayEndpoint,
@@ -146,6 +150,7 @@ from mlflow.protos.service_pb2 import (
     LogMetric,
     LogModel,
     LogParam,
+    QueryTraceMetrics,
     RegisterScorer,
     RestoreExperiment,
     RestoreRun,
@@ -160,6 +165,9 @@ from mlflow.protos.service_pb2 import (
     SetTag,
     SetTraceTag,
     SetTraceTagV3,
+    StartTrace,
+    StartTraceV3,
+    UpdateAssessment,
     UpdateExperiment,
     UpdateGatewayBudgetPolicy,
     UpdateGatewayEndpoint,
@@ -1748,30 +1756,14 @@ def validate_can_read_model_version_artifact():
 
 
 def _get_permission_from_trace_request_id() -> Permission:
-    """
-    Get permission for trace artifacts.
-    Traces inherit permissions from their parent run/experiment.
-    """
     request_id = request.args.get("request_id")
     if not request_id:
         raise MlflowException(
             "Request must specify request_id parameter",
             INVALID_PARAMETER_VALUE,
         )
-    # Get the trace to find its experiment
     trace = _get_tracking_store().get_trace_info(request_id)
-    experiment_id = trace.experiment_id
-    username = authenticate_request().username
-    return _get_role_permission_or_default(
-        _role_permission_for(
-            username=username,
-            resource_type="experiment",
-            resource_key=experiment_id,
-            workspace_lookup_id=experiment_id,
-            workspace_fetcher=_get_tracking_store().get_experiment,
-            workspace_label="experiment",
-        ),
-    )
+    return _get_experiment_permission(trace.experiment_id, authenticate_request().username)
 
 
 def validate_can_read_trace_artifact():
@@ -1780,25 +1772,27 @@ def validate_can_read_trace_artifact():
 
 
 def _get_permission_from_trace(trace_id: str, username: str) -> Permission:
-    trace = _get_tracking_store().get_trace_info(trace_id)
+    try:
+        trace = _get_tracking_store().get_trace_info(trace_id)
+    except MlflowException as e:
+        if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+            return NO_PERMISSIONS
+        raise
     return _get_experiment_permission(trace.experiment_id, username)
 
 
-# Traces: single-trace read (GetTraceInfo — deprecated, uses request_id path param)
 def validate_can_read_trace_by_request_id():
     return _get_permission_from_trace(
         _get_request_param("request_id"), authenticate_request().username
     ).can_read
 
 
-# Traces: single-trace read (GetTraceInfoV3 / GetTrace — use trace_id path/query param)
 def validate_can_read_trace_by_trace_id():
     return _get_permission_from_trace(
         _get_request_param("trace_id"), authenticate_request().username
     ).can_read
 
 
-# Traces: search by experiment_ids (SearchTraces — deprecated, GET with repeated params)
 def validate_can_search_traces():
     experiment_ids = request.args.to_dict(flat=False).get("experiment_ids", [])
     username = authenticate_request().username
@@ -1807,13 +1801,18 @@ def validate_can_search_traces():
     )
 
 
-# Traces: search by locations (SearchTracesV3 — locations is a list of TraceLocation objects)
 def validate_can_search_traces_v3():
     locations = (request.json or {}).get("locations", [])
+    # Only mlflow_experiment locations carry an experiment_id we can permission-check;
+    # inference_table and other future location types don't map to a local experiment so
+    # they are intentionally excluded and requests containing only those locations are
+    # denied (fail-closed) via the bool(experiment_ids) guard below.
     experiment_ids = [
-        loc["mlflow_experiment"]["experiment_id"]
+        eid
         for loc in locations
-        if isinstance(loc, dict) and "mlflow_experiment" in loc
+        if isinstance(loc, dict)
+        if isinstance(ml_exp := loc.get("mlflow_experiment"), dict)
+        if (eid := ml_exp.get("experiment_id"))
     ]
     username = authenticate_request().username
     return bool(experiment_ids) and all(
@@ -1821,7 +1820,6 @@ def validate_can_search_traces_v3():
     )
 
 
-# Traces: batch read by trace_ids (BatchGetTraces=GET, BatchGetTraceInfos=POST)
 def validate_can_batch_get_traces():
     if request.method == "GET":
         trace_ids = request.args.to_dict(flat=False).get("trace_ids", [])
@@ -1840,28 +1838,24 @@ def validate_can_batch_get_traces():
     )
 
 
-# Traces: delete by experiment_id (DeleteTraces / DeleteTracesV3)
 def validate_can_delete_traces():
     return _get_experiment_permission(
         _get_request_param("experiment_id"), authenticate_request().username
     ).can_delete
 
 
-# Traces: tag mutation by trace_id (SetTraceTagV3 / LinkPromptsToTrace)
 def validate_can_update_trace_by_trace_id():
     return _get_permission_from_trace(
         _get_request_param("trace_id"), authenticate_request().username
     ).can_update
 
 
-# Traces: tag mutation by request_id (SetTraceTag / DeleteTraceTag — deprecated)
 def validate_can_update_trace_by_request_id():
     return _get_permission_from_trace(
         _get_request_param("request_id"), authenticate_request().username
     ).can_update
 
 
-# Traces: read access check from JSON body experiment_ids (CalculateTraceFilterCorrelation)
 def validate_can_read_traces_by_experiment_ids():
     experiment_ids = (request.json or {}).get("experiment_ids", [])
     username = authenticate_request().username
@@ -1870,12 +1864,29 @@ def validate_can_read_traces_by_experiment_ids():
     )
 
 
-# Traces: link to run — UPDATE on run's experiment + READ on each trace's experiment
+def validate_can_start_trace_v3():
+    body = request.json or {}
+    match body:
+        case {
+            "trace": {
+                "trace_info": {"trace_location": {"mlflow_experiment": {"experiment_id": str(eid)}}}
+            }
+        } if eid:
+            return _get_experiment_permission(eid, authenticate_request().username).can_update
+        case _:
+            return False
+
+
 def validate_can_link_traces_to_run():
     tracking_store = _get_tracking_store()
     username = authenticate_request().username
     run_id = _get_request_param("run_id")
-    run = tracking_store.get_run(run_id)
+    try:
+        run = tracking_store.get_run(run_id)
+    except MlflowException as e:
+        if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+            return False
+        raise
     if not _get_experiment_permission(run.info.experiment_id, username).can_update:
         return False
     trace_ids = (request.json or {}).get("trace_ids", [])
@@ -1887,7 +1898,9 @@ def validate_can_link_traces_to_run():
         if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
             return False
         raise
-    return all(_get_experiment_permission(eid, username).can_read for eid in trace_experiment_ids)
+    return bool(trace_experiment_ids) and all(
+        _get_experiment_permission(eid, username).can_read for eid in trace_experiment_ids
+    )
 
 
 def validate_can_read_metric_history_bulk(run_ids=None):
@@ -2089,6 +2102,9 @@ BEFORE_REQUEST_HANDLERS = {
     CancelPromptOptimizationJob: validate_can_update_prompt_optimization_job,
     DeletePromptOptimizationJob: validate_can_delete_prompt_optimization_job,
     # Routes for traces
+    StartTrace: validate_can_update_experiment,
+    StartTraceV3: validate_can_start_trace_v3,
+    EndTrace: validate_can_update_trace_by_request_id,
     GetTraceInfo: validate_can_read_trace_by_request_id,
     GetTraceInfoV3: validate_can_read_trace_by_trace_id,
     GetTrace: validate_can_read_trace_by_trace_id,
@@ -2105,6 +2121,11 @@ BEFORE_REQUEST_HANDLERS = {
     LinkTracesToRun: validate_can_link_traces_to_run,
     LinkPromptsToTrace: validate_can_update_trace_by_trace_id,
     CalculateTraceFilterCorrelation: validate_can_read_traces_by_experiment_ids,
+    QueryTraceMetrics: validate_can_read_traces_by_experiment_ids,
+    CreateAssessment: validate_can_update_trace_by_trace_id,
+    GetAssessmentRequest: validate_can_read_trace_by_trace_id,
+    UpdateAssessment: validate_can_update_trace_by_trace_id,
+    DeleteAssessment: validate_can_update_trace_by_trace_id,
     # Workspace routes
     ListWorkspaces: None,
     CreateWorkspace: sender_is_admin,
@@ -2423,8 +2444,9 @@ def _find_validator(req: Request) -> Callable[[], bool] | None:
         return validator
 
     # Trace routes with path parameters (e.g. /mlflow/traces/<request_id>/tags).
+    # Unknown paths under this prefix are denied (fail-closed) rather than skipped.
     if "/mlflow/traces/" in req.path:
-        return next(
+        validator = next(
             (
                 v
                 for (pat, method), v in TRACE_PARAMETERIZED_BEFORE_REQUEST_VALIDATORS.items()
@@ -2432,6 +2454,7 @@ def _find_validator(req: Request) -> Callable[[], bool] | None:
             ),
             None,
         )
+        return validator if validator is not None else lambda: False
 
     # Workspace permission routes use parameterized path matching (e.g., workspace_name).
     # Only check these when workspaces are enabled to avoid unnecessary regex matching.
