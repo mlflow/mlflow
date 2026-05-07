@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1778122275997,
+  "lastUpdate": 1778127246311,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -1079,6 +1079,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 10.482255799999507,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "pdifranc@users.noreply.github.com",
+            "name": "pdifranc",
+            "username": "pdifranc"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8d75782b100873415d5f870a001e82a17bd95cb8",
+          "message": "Feature/sagemaker build network option (#22996)\n\nSigned-off-by: Paolo Di Francesco <frpaolo@amazon.at>\nCo-authored-by: Kris Concepcion <84737625+kriscon-db@users.noreply.github.com>",
+          "timestamp": "2026-05-07T04:08:28Z",
+          "tree_id": "537c5cf9c462a735a486aac2a52a31387ec653af",
+          "url": "https://github.com/mlflow/mlflow/commit/8d75782b100873415d5f870a001e82a17bd95cb8"
+        },
+        "date": 1778127245665,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 45.939873999998326,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 24.55336240000341,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 22.67251249180459,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 22.07698212000082,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 23.649271830507967,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 7.060376600003337,
             "unit": "ms"
           }
         ]
