@@ -1899,6 +1899,10 @@
     "defaultMessage": "An error occurred while rendering this component.",
     "description": "Description for default error message in experiment datasets UI"
   },
+  "9JbHw8": {
+    "defaultMessage": "Manage",
+    "description": "Workspaces table column header for the per-row admin entry point"
+  },
   "9KLNi5": {
     "defaultMessage": "Delete",
     "description": "Experiments page list, delete bulk experiments modal primary button"
@@ -3290,6 +3294,10 @@
   "I9bJ/T": {
     "defaultMessage": "Select All",
     "description": "Option to select all items in the item selector"
+  },
+  "IARcQx": {
+    "defaultMessage": "Manage workspace {name}",
+    "description": "Aria label on the gear icon for managing a workspace"
   },
   "IAyAgH": {
     "defaultMessage": "Move up",
@@ -5867,10 +5875,6 @@
     "defaultMessage": "Scanning <tracesLink>{totalTraces} traces</tracesLink>, <issuesLink>{identifiedIssues} issues</issuesLink> identified so far",
     "description": "Issue detection progress > Progress summary while running"
   },
-  "Y/1i4Y": {
-    "defaultMessage": "{label}: {behavior}",
-    "description": "Helper text under the log-level slider explaining how the currently selected level filters the trace view."
-  },
   "Y+dLul": {
     "defaultMessage": "Choose your integration. Install the {code} package for automatic tracing, or use {trace} for custom functions.",
     "description": "Step 2 description for TypeScript traces onboarding"
@@ -5878,6 +5882,10 @@
   "Y+nCpQ": {
     "defaultMessage": "Pending",
     "description": "Label indicating this onboarding step is not yet completed"
+  },
+  "Y/1i4Y": {
+    "defaultMessage": "{label}: {behavior}",
+    "description": "Helper text under the log-level slider explaining how the currently selected level filters the trace view."
   },
   "Y1eg9D": {
     "defaultMessage": "In progress",
@@ -8938,6 +8946,10 @@
   "pEpexK": {
     "defaultMessage": "Clear filters",
     "description": "Label for a button that clears all filters, visible on a experiment runs page next to a empty state when all runs have been filtered out"
+  },
+  "pJ4Oqm": {
+    "defaultMessage": "Manage workspace",
+    "description": "Tooltip on the gear icon that links to /admin scoped to this workspace"
   },
   "pMb1cg": {
     "defaultMessage": "Download {contentType} ({size})",
