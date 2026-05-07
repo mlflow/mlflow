@@ -2,12 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Button,
-  FormUI,
   GearIcon,
   Modal,
   Pagination,
   PencilIcon,
-  RHFControlledComponents,
   Spacer,
   Table,
   TableCell,
@@ -22,6 +20,13 @@ import { FormProvider, useForm } from 'react-hook-form';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { Link } from '../../common/utils/RoutingUtils';
 import { useCurrentUserAdminWorkspaces, useCurrentUserIsAdmin, useIsAuthAvailable } from '../../account/hooks';
+import {
+  DEFAULT_TRACE_ARCHIVAL_RETENTION_UNIT,
+  formatTraceArchivalRetention,
+  getTraceArchivalRetentionValidationError,
+  parseTraceArchivalRetention,
+  type TraceArchivalRetentionUnit,
+} from '../../common/utils/traceArchival';
 import { useWorkspaces, type Workspace } from '../../workspaces/hooks/useWorkspaces';
 import {
   getLastUsedWorkspace,
@@ -29,6 +34,7 @@ import {
   WORKSPACE_QUERY_PARAM,
 } from '../../workspaces/utils/WorkspaceUtils';
 import { useUpdateWorkspace } from '../../workspaces/hooks/useUpdateWorkspace';
+import { WorkspaceSettingsFields } from './WorkspaceSettingsFields';
 
 type WorkspacesHomeViewProps = {
   onCreateWorkspace: () => void;
@@ -37,6 +43,7 @@ type WorkspacesHomeViewProps = {
 type EditWorkspaceFormData = {
   description: string;
   defaultArtifactRoot: string;
+  traceArchivalLocation: string;
 };
 
 const WorkspacesEmptyState = ({ onCreateWorkspace }: { onCreateWorkspace: () => void }) => {
@@ -91,12 +98,32 @@ const WorkspaceRow = ({
   const { mutate: updateWorkspace, isLoading: isPending } = useUpdateWorkspace();
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
+  const [traceArchivalRetentionAmount, setTraceArchivalRetentionAmount] = useState('');
+  const [traceArchivalRetentionUnit, setTraceArchivalRetentionUnit] = useState<TraceArchivalRetentionUnit>(
+    DEFAULT_TRACE_ARCHIVAL_RETENTION_UNIT,
+  );
+  const [traceArchivalRetentionError, setTraceArchivalRetentionError] = useState<string | undefined>();
+  const [initialTraceArchivalRetention, setInitialTraceArchivalRetention] = useState('');
+  const [didEditTraceArchivalRetention, setDidEditTraceArchivalRetention] = useState(false);
   const form = useForm<EditWorkspaceFormData>({
     defaultValues: {
       description: '',
       defaultArtifactRoot: '',
+      traceArchivalLocation: '',
     },
   });
+
+  const updateTraceArchivalRetention = ({
+    amount = traceArchivalRetentionAmount,
+    unit = traceArchivalRetentionUnit,
+  }: {
+    amount?: string;
+    unit?: TraceArchivalRetentionUnit;
+  }) => {
+    setTraceArchivalRetentionAmount(amount);
+    setTraceArchivalRetentionUnit(unit);
+    setTraceArchivalRetentionError(getTraceArchivalRetentionValidationError(amount, unit, intl));
+  };
 
   const handleNameClick = () => {
     // Persist to localStorage for UI hints then hard reload to cleanly switch workspace
@@ -121,17 +148,44 @@ const WorkspaceRow = ({
     form.reset({
       description: workspace.description ?? '',
       defaultArtifactRoot: workspace.default_artifact_root ?? '',
+      traceArchivalLocation: workspace.trace_archival_config?.location ?? '',
     });
+    const rawTraceArchivalRetention = workspace.trace_archival_config?.retention?.trim() ?? '';
+    const { amount, unit } = parseTraceArchivalRetention(rawTraceArchivalRetention);
+    setInitialTraceArchivalRetention(rawTraceArchivalRetention);
+    setDidEditTraceArchivalRetention(false);
+    updateTraceArchivalRetention({ amount, unit });
     setIsEditModalVisible(true);
   };
 
   const handleSave = form.handleSubmit((values) => {
     const currentDescription = workspace.description ?? '';
     const currentDefaultArtifactRoot = workspace.default_artifact_root ?? '';
+    const currentTraceArchivalLocation = workspace.trace_archival_config?.location?.trim() ?? '';
+    const currentTraceArchivalRetention = initialTraceArchivalRetention;
+    const trimmedTraceArchivalLocation = values.traceArchivalLocation.trim();
+    const trimmedTraceArchivalRetention = didEditTraceArchivalRetention
+      ? formatTraceArchivalRetention(traceArchivalRetentionAmount, traceArchivalRetentionUnit)
+      : currentTraceArchivalRetention;
+    const nextTraceArchivalRetentionError = didEditTraceArchivalRetention
+      ? getTraceArchivalRetentionValidationError(traceArchivalRetentionAmount, traceArchivalRetentionUnit, intl)
+      : undefined;
+    setTraceArchivalRetentionError(nextTraceArchivalRetentionError);
+    if (nextTraceArchivalRetentionError) {
+      return;
+    }
+
     const hasDescriptionChanged = values.description !== currentDescription;
     const hasDefaultArtifactRootChanged = values.defaultArtifactRoot !== currentDefaultArtifactRoot;
+    const hasTraceArchivalLocationChanged = trimmedTraceArchivalLocation !== currentTraceArchivalLocation;
+    const hasTraceArchivalRetentionChanged = trimmedTraceArchivalRetention !== currentTraceArchivalRetention;
 
-    if (!hasDescriptionChanged && !hasDefaultArtifactRootChanged) {
+    if (
+      !hasDescriptionChanged &&
+      !hasDefaultArtifactRootChanged &&
+      !hasTraceArchivalLocationChanged &&
+      !hasTraceArchivalRetentionChanged
+    ) {
       setIsEditModalVisible(false);
       setEditError(null);
       return;
@@ -143,6 +197,14 @@ const WorkspaceRow = ({
         name: workspace.name,
         ...(hasDescriptionChanged ? { description: values.description } : {}),
         ...(hasDefaultArtifactRootChanged ? { default_artifact_root: values.defaultArtifactRoot } : {}),
+        ...(hasTraceArchivalLocationChanged || hasTraceArchivalRetentionChanged
+          ? {
+              trace_archival_config: {
+                ...(hasTraceArchivalLocationChanged ? { location: trimmedTraceArchivalLocation } : {}),
+                ...(hasTraceArchivalRetentionChanged ? { retention: trimmedTraceArchivalRetention } : {}),
+              },
+            }
+          : {}),
       },
       {
         onSuccess: () => {
@@ -164,6 +226,8 @@ const WorkspaceRow = ({
 
   const handleCancel = () => {
     setEditError(null);
+    setTraceArchivalRetentionError(undefined);
+    setDidEditTraceArchivalRetention(false);
     setIsEditModalVisible(false);
   };
 
@@ -335,40 +399,30 @@ const WorkspaceRow = ({
                 type="error"
               />
             )}
-            <div>
-              <FormUI.Label htmlFor={`mlflow.home.workspaces.edit.${workspace.name}.description`}>
-                <FormattedMessage defaultMessage="Description" description="Label for workspace description field" />
-              </FormUI.Label>
-              <RHFControlledComponents.Input
-                control={form.control}
-                id={`mlflow.home.workspaces.edit.${workspace.name}.description`}
-                componentId="mlflow.home.workspaces.edit.description_input"
-                name="description"
-                placeholder={intl.formatMessage({
-                  defaultMessage: 'Enter workspace description',
-                  description: 'Placeholder for workspace description input',
-                })}
-                autoFocus
-              />
-            </div>
-            <div>
-              <FormUI.Label htmlFor={`mlflow.home.workspaces.edit.${workspace.name}.artifact_root`}>
-                <FormattedMessage
-                  defaultMessage="Default Artifact Root"
-                  description="Label for workspace artifact root field"
-                />
-              </FormUI.Label>
-              <RHFControlledComponents.Input
-                control={form.control}
-                id={`mlflow.home.workspaces.edit.${workspace.name}.artifact_root`}
-                componentId="mlflow.home.workspaces.edit.artifact_root_input"
-                name="defaultArtifactRoot"
-                placeholder={intl.formatMessage({
-                  defaultMessage: 'Enter default artifact root URI',
-                  description: 'Placeholder for workspace artifact root input',
-                })}
-              />
-            </div>
+            <WorkspaceSettingsFields<EditWorkspaceFormData>
+              idPrefix={`mlflow.home.workspaces.edit.${workspace.name}`}
+              componentId="mlflow.home.workspaces.edit"
+              fieldNames={{
+                description: 'description',
+                artifactRoot: 'defaultArtifactRoot',
+                traceArchivalLocation: 'traceArchivalLocation',
+              }}
+              traceArchivalRetention={{
+                amount: traceArchivalRetentionAmount,
+                error: traceArchivalRetentionError,
+                onAmountChange: (amount) => {
+                  setDidEditTraceArchivalRetention(true);
+                  updateTraceArchivalRetention({ amount });
+                },
+                onUnitChange: (unit) => {
+                  setDidEditTraceArchivalRetention(true);
+                  updateTraceArchivalRetention({ unit });
+                },
+                unit: traceArchivalRetentionUnit,
+              }}
+              descriptionAutoFocus
+              showClearHint
+            />
           </div>
         </Modal>
       </FormProvider>
@@ -381,7 +435,6 @@ const WORKSPACES_PER_PAGE = 10;
 export const WorkspacesHomeView = ({ onCreateWorkspace }: WorkspacesHomeViewProps) => {
   const { theme } = useDesignSystemTheme();
   const { workspaces, isLoading, isError, refetch } = useWorkspaces(true);
-  // Get last used workspace from localStorage for the "Last used" badge
   const lastUsedWorkspace = getLastUsedWorkspace();
   const [currentPage, setCurrentPage] = useState(1);
   // Manage column: shown only to workspace managers — gear icon links to
@@ -403,14 +456,12 @@ export const WorkspacesHomeView = ({ onCreateWorkspace }: WorkspacesHomeViewProp
 
   const shouldShowEmptyState = !isLoading && !isError && workspaces.length === 0;
 
-  // Calculate paginated workspaces
   const paginatedWorkspaces = useMemo(() => {
     const startIndex = (currentPage - 1) * WORKSPACES_PER_PAGE;
     const endIndex = startIndex + WORKSPACES_PER_PAGE;
     return workspaces.slice(startIndex, endIndex);
   }, [workspaces, currentPage]);
 
-  // Reset to page 1 when workspaces change
   useEffect(() => {
     if (currentPage > 1 && paginatedWorkspaces.length === 0 && workspaces.length > 0) {
       setCurrentPage(1);

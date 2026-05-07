@@ -359,6 +359,10 @@
     "defaultMessage": "or",
     "description": "Divider between model list and custom input"
   },
+  "015x8a": {
+    "defaultMessage": "Days",
+    "description": "Trace archival retention unit option for days"
+  },
   "02+DX/": {
     "defaultMessage": "Provider cannot be changed.",
     "description": "Tooltip explaining why provider field is disabled"
@@ -462,6 +466,10 @@
   "0ja5l/": {
     "defaultMessage": "No tags found.",
     "description": "Text for no tags found in editable form table in MLflow"
+  },
+  "0ktvTS": {
+    "defaultMessage": "Trace archival retention unit",
+    "description": "Label for trace archival retention unit selector"
   },
   "0pY/4R": {
     "defaultMessage": "Usage",
@@ -675,6 +683,10 @@
     "defaultMessage": "LLM judge",
     "description": "Section header for LLM judge selection"
   },
+  "26uApn": {
+    "defaultMessage": "Trace archival retention updated",
+    "description": "Partial save status message when experiment trace archival retention update succeeds"
+  },
   "27XMby": {
     "defaultMessage": "Missing",
     "description": "Missing assessment label"
@@ -767,6 +779,10 @@
     "defaultMessage": "Edit",
     "description": "Text for the edit button next to the description section title on the experiment view page"
   },
+  "2YYEux": {
+    "defaultMessage": "Hours",
+    "description": "Trace archival retention unit option for hours"
+  },
   "2a/rR8": {
     "defaultMessage": "Cancel",
     "description": "Key-value tag editor modal > Manage Tag cancel button"
@@ -854,6 +870,10 @@
   "2zy+D5": {
     "defaultMessage": "Add new tag",
     "description": "Experiment tracking > experiment page > runs > add new tag button"
+  },
+  "3253th": {
+    "defaultMessage": "Trace archival retention update failed",
+    "description": "Partial save status message when experiment trace archival retention update fails"
   },
   "32GwrT": {
     "defaultMessage": "Share",
@@ -1591,6 +1611,10 @@
     "defaultMessage": "Link prompts to your traces by loading your registered prompts inside the traced function.",
     "description": "Helper text describing how to link prompts when no prompt records are available"
   },
+  "7cd+cQ": {
+    "defaultMessage": "Trace Archival Retention",
+    "description": "Label for displaying the experiment trace archival retention"
+  },
   "7hHw+R": {
     "defaultMessage": "Instructions",
     "description": "Section header for judge instructions"
@@ -1795,6 +1819,10 @@
     "defaultMessage": "3. Access the MLflow UI",
     "description": "Section title explaining how to access traces in the MLflow UI"
   },
+  "8v0vur": {
+    "defaultMessage": "Archive after: {retention}",
+    "description": "Badge showing the active trace archival retention for the experiment"
+  },
   "8wnmuq": {
     "defaultMessage": "2. Trace your code",
     "description": "Section title introducing the tracing quickstart example"
@@ -1818,6 +1846,10 @@
   "90mZic": {
     "defaultMessage": "Budget",
     "description": "Budget amount column header"
+  },
+  "917MAH": {
+    "defaultMessage": "Trace archival retention must be at most {maxLength} characters.",
+    "description": "Validation error for trace archival retention exceeding the maximum length"
   },
   "93BFzC": {
     "defaultMessage": "Outputs",
@@ -1974,6 +2006,10 @@
   "9qUuQ6": {
     "defaultMessage": "Average of {count} values",
     "description": "Tooltip for numeric assessment average in session header"
+  },
+  "9tg3Dx": {
+    "defaultMessage": "Description not updated",
+    "description": "Partial save status message when experiment description update was not attempted"
   },
   "9ut1Fj": {
     "defaultMessage": "Create",
@@ -2142,10 +2178,6 @@
   "AmLGSf": {
     "defaultMessage": "Apply filters",
     "description": "Usage overview > apply filters button"
-  },
-  "AoDwev": {
-    "defaultMessage": "Description (optional)",
-    "description": "Label for description field"
   },
   "Aqq08o": {
     "defaultMessage": "HTTP",
@@ -3051,10 +3083,6 @@
     "defaultMessage": "Start Time:",
     "description": "Text for start time row header in the main table in the model comparison\n                page"
   },
-  "GOdou5": {
-    "defaultMessage": "Default Artifact Root (optional)",
-    "description": "Label for artifact root field"
-  },
   "GRaplV": {
     "defaultMessage": "Context sufficiency",
     "description": "Evaluation results > known type of evaluation result assessment > context sufficiency assessment. Used to indicate if the retrieved context is sufficient to generate the expected response. Label displayed if user provided custom value, e.g. \"Context Sufficiency: mostly sufficient\""
@@ -3110,6 +3138,10 @@
   "H+4gFh": {
     "defaultMessage": "Show diff only",
     "description": "Toggle text that determines whether to show diff only in the model\n                      comparison page"
+  },
+  "H+NXDb": {
+    "defaultMessage": "Trace archival retention not updated",
+    "description": "Partial save status message when experiment trace archival retention update was not attempted"
   },
   "H+tV5c": {
     "defaultMessage": "Coding Agents",
@@ -3367,6 +3399,10 @@
     "defaultMessage": "No common artifacts to display.",
     "description": "Text shown when there are no common artifacts between the runs"
   },
+  "IV37H1": {
+    "defaultMessage": "Description update failed",
+    "description": "Partial save status message when experiment description update fails"
+  },
   "IWNUE0": {
     "defaultMessage": "Failed to load roles",
     "description": "Alert title shown when the roles query fails on the account page"
@@ -3427,6 +3463,10 @@
     "defaultMessage": "Error loading shared view state: share key is invalid",
     "description": "Experiment page > share viewstate > error > share key is invalid"
   },
+  "J+Q9dW": {
+    "defaultMessage": "Trace Archival Location",
+    "description": "Label for workspace trace archival location field"
+  },
   "J/srtP": {
     "defaultMessage": "{count} {count, plural, one {value} other {values}}",
     "description": "Tag showing the number of unique string values in session assessment"
@@ -3470,6 +3510,10 @@
   "JDpv0G": {
     "defaultMessage": "Operator",
     "description": "Tag filter input for operator field in the tags filter popover for experiments page search by tags"
+  },
+  "JE+Ubm": {
+    "defaultMessage": "Trace archival settings",
+    "description": "Accordion title for trace archival workspace settings"
   },
   "JGQ5B2": {
     "defaultMessage": "Add",
@@ -3598,6 +3642,10 @@
   "K5rmCE": {
     "defaultMessage": "S3",
     "description": "Experiment dataset drawer > source type > S3 source type label"
+  },
+  "K7sH7k": {
+    "defaultMessage": "Experiment renamed",
+    "description": "Partial save status message when experiment rename succeeds"
   },
   "K8JcAN": {
     "defaultMessage": "Datasets",
@@ -4003,6 +4051,10 @@
     "defaultMessage": "Inputs",
     "description": "Label for inputs variable option"
   },
+  "MgWR3B": {
+    "defaultMessage": "Archived traces remain accessible, but searching within span content no longer works after archival.",
+    "description": "Tooltip explaining the trace archival badge behavior"
+  },
   "MgfSs1": {
     "defaultMessage": "Budget amount (USD)",
     "description": "Budget amount label"
@@ -4266,6 +4318,10 @@
   "O3RheJ": {
     "defaultMessage": "Link prompts to traces",
     "description": "Heading describing how to add prompts when no prompt records are available"
+  },
+  "O4KXrW": {
+    "defaultMessage": "Enter the retention",
+    "description": "Placeholder for trace archival retention amount input"
   },
   "O9Awk8": {
     "defaultMessage": "Failed to invoke webhook",
@@ -4931,6 +4987,10 @@
     "defaultMessage": "Visualizations",
     "description": "Tabs title for plots on the compare runs page"
   },
+  "S8TR/J": {
+    "defaultMessage": "Optional. Override where archived trace payloads are stored for this workspace. Leave blank to use the server default.",
+    "description": "Hint for workspace trace archival location field"
+  },
   "SAFAXp": {
     "defaultMessage": "Only run on traces matching this filter; leave blank to run on all. Uses MLflow {link}.",
     "description": "Hint text for filter string input"
@@ -5338,10 +5398,6 @@
   "UhdPmo": {
     "defaultMessage": "Transition to",
     "description": "Text for transitioning a model version to a different stage under\n                 dropdown menu in model version page"
-  },
-  "UjInB0": {
-    "defaultMessage": "Enter workspace description",
-    "description": "Input placeholder for workspace description in create workspace modal"
   },
   "UkVgwL": {
     "defaultMessage": "Create endpoint",
@@ -6423,6 +6479,10 @@
     "defaultMessage": "Create Gateway endpoint",
     "description": "Option to create a new AI Gateway endpoint"
   },
+  "ah+wNZ": {
+    "defaultMessage": "{count} {count, plural, one {minute} other {minutes}}",
+    "description": "Formatted trace archival retention in minutes"
+  },
   "akmaST": {
     "defaultMessage": "Irrelevant",
     "description": "Evaluation results > retrieval relevancy assessment > negative value label. Displayed if evaluation result is considered as irrelevant to the query."
@@ -6867,6 +6927,10 @@
     "defaultMessage": "Don't see your framework? <a>Browse all integrations</a>.",
     "description": "Link to MLflow tracing integrations doc page above the framework selector"
   },
+  "dDbfnY": {
+    "defaultMessage": "{count} {count, plural, one {hour} other {hours}}",
+    "description": "Formatted trace archival retention in hours"
+  },
   "dEGUt+": {
     "defaultMessage": "Use this button to automatically detect quality issues in your traces using AI. This feature helps you identify problems like correctness, latency, and other quality concerns in your agent.",
     "description": "Detect issues guidance popover message"
@@ -7215,6 +7279,10 @@
     "defaultMessage": "Aggregation: {value}",
     "description": "Experiment page > group by runs control > current aggregation function tooltip"
   },
+  "fMDibn": {
+    "defaultMessage": "Optional. Set an experiment-specific archival retention override. Leave blank to inherit the workspace or server default.",
+    "description": "experiment page > edit experiment modal > trace archival retention hint"
+  },
   "fMepK0": {
     "defaultMessage": "Create model version",
     "description": "Button for creating a new classic ML model version"
@@ -7398,6 +7466,10 @@
   "gIc8Lp": {
     "defaultMessage": "Stages have been deprecated in the new Model Registry UI. Learn how to migrate models <link>here</link>.",
     "description": "Tooltip content for the disabled stage metadata in model version page"
+  },
+  "gKb5eO": {
+    "defaultMessage": "Minutes",
+    "description": "Trace archival retention unit option for minutes"
   },
   "gLj8lU": {
     "defaultMessage": "<strong>{length}</strong> matching {length, plural, =0 {runs} =1 {run} other {runs}}",
@@ -7779,6 +7851,10 @@
     "defaultMessage": "Auth Type",
     "description": "Auth type label"
   },
+  "iNVXhw": {
+    "defaultMessage": "{count} {count, plural, one {day} other {days}}",
+    "description": "Formatted trace archival retention in days"
+  },
   "iPTAj8": {
     "defaultMessage": "Retrieval",
     "description": "Evaluation review > Retrieval section > title"
@@ -7942,6 +8018,10 @@
   "jFk49l": {
     "defaultMessage": "Quick-start with a popular model below, or create an endpoint from 60+ providers and all their supported models.",
     "description": "Gateway > Endpoints > Quick start call to action"
+  },
+  "jG99hF": {
+    "defaultMessage": "Clear any optional field and save to remove the workspace override.",
+    "description": "Hint for clearing optional values in edit workspace modal"
   },
   "jH0+gA": {
     "defaultMessage": "Metrics",
@@ -8122,6 +8202,10 @@
   "kCsAho": {
     "defaultMessage": "Correctness",
     "description": "LLM template option"
+  },
+  "kEmVw4": {
+    "defaultMessage": "Trace Archival Retention",
+    "description": "Label for workspace trace archival retention field"
   },
   "kHDQiE": {
     "defaultMessage": "Analyze the '{{ conversation }}' and determine if the agent maintains a polite and professional tone throughout all interactions.{br}Rate as 'consistently_polite', 'mostly_polite', or 'impolite'.",
@@ -8683,6 +8767,10 @@
     "defaultMessage": "At least one event must be selected",
     "description": "Form validation error message informing the user that at least one event must be selected"
   },
+  "nMttkN": {
+    "defaultMessage": "Enter trace archival location URI",
+    "description": "Placeholder for workspace trace archival location input"
+  },
   "nNIors": {
     "defaultMessage": "Error when fetching related runs data: {error}",
     "description": "Error message displayed when logged model details page couldn't fetch related runs data"
@@ -8758,6 +8846,10 @@
   "nme251": {
     "defaultMessage": "Test failed with no error message",
     "description": "Message informing the user that the webhook test failed with no error message"
+  },
+  "no89vN": {
+    "defaultMessage": "Trace archival retention must use the format '<int><unit>', where unit is one of 'm', 'h', or 'd'.",
+    "description": "Validation error for invalid trace archival retention format"
   },
   "npHb2a": {
     "defaultMessage": "Show more columns {count, select, 0 {} other {({count} total)}}",
@@ -9807,6 +9899,10 @@
     "defaultMessage": "Evaluation criteria",
     "description": "Accordion section header for evaluation criteria (judge type, guidelines/instructions, and output type)"
   },
+  "tr/qgA": {
+    "defaultMessage": "Trace archival location must look like a URI, for example s3://bucket/path.",
+    "description": "Validation error for invalid trace archival location URI"
+  },
   "tsYxhE": {
     "defaultMessage": "Search judges",
     "description": "Placeholder for scorer search input"
@@ -10083,6 +10179,10 @@
     "defaultMessage": "Confirm",
     "description": "OK button text for confirmation pop-up to delete a tag from table\n                     in MLflow"
   },
+  "vmOx/B": {
+    "defaultMessage": "Description updated",
+    "description": "Partial save status message when experiment description update succeeds"
+  },
   "vmiE+n": {
     "defaultMessage": "Add description",
     "description": "Run page > Overview > Description section > Add description button"
@@ -10238,10 +10338,6 @@
   "wjOGl2": {
     "defaultMessage": "Columns",
     "description": "Evaluation review > evaluations list > filter dropdown button"
-  },
-  "wnN8R0": {
-    "defaultMessage": "Enter default artifact root URI",
-    "description": "Input placeholder for artifact root in create workspace modal"
   },
   "womPSY": {
     "defaultMessage": "Session",
@@ -10426,6 +10522,10 @@
   "xgypqc": {
     "defaultMessage": "Copied to clipboard",
     "description": "Success message for the notification"
+  },
+  "xh4RpT": {
+    "defaultMessage": "Optional. Override how long traces stay in the tracking store before archival. Leave blank to use the server default.",
+    "description": "Hint for workspace trace archival retention field"
   },
   "xhAFcl": {
     "defaultMessage": "Failed to cancel job: {error}",
@@ -10634,6 +10734,10 @@
   "z6qX4/": {
     "defaultMessage": "This endpoint may have been deleted",
     "description": "Tooltip for deleted endpoint"
+  },
+  "z8srAp": {
+    "defaultMessage": "Trace archival retention",
+    "description": "experiment page > edit experiment modal > trace archival retention label"
   },
   "z94r4F": {
     "defaultMessage": "This assessment is produced by a human judge.",

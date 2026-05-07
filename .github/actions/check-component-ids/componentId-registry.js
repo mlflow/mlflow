@@ -1060,6 +1060,7 @@ module.exports = {
   "mlflow.experiment.chat-session.metrics.tokens-tag": "",
   "mlflow.experiment.chat-session.view-trace": "",
   "mlflow.experiment.edit.name": "",
+  "mlflow.experiment.edit.trace-archival-retention": "",
   "mlflow.experiment.evaluations.ai-judge-tag": "",
   "mlflow.experiment.evaluations.human-judge-tag": "",
   "mlflow.experiment.list.tag.add": "",
@@ -1274,6 +1275,8 @@ module.exports = {
   "mlflow.experiment_view.header.experiment_kind_inference_popover.dismiss": "",
   "mlflow.experiment_view.header.experiment_kind_selector": "",
   "mlflow.experiment_view.header.experiment_kind_selector.tooltip": "",
+  "mlflow.experiment_view.header.trace_archival_badge": "",
+  "mlflow.experiment_view.header.trace_archival_badge_tooltip": "",
 
   // -- mlflow.experiment_view_runs_table --
   "mlflow.experiment_view_runs_table.column_header.models.tooltip": "",
@@ -1565,9 +1568,8 @@ module.exports = {
   // -- mlflow.home --
   "mlflow.home.create_workspace_modal": "",
   "mlflow.home.create_workspace_modal.error": "",
-  "mlflow.home.create_workspace_modal.workspace_artifact_root_input": "",
-  "mlflow.home.create_workspace_modal.workspace_description_input": "",
   "mlflow.home.create_workspace_modal.workspace_name_input": "",
+  "mlflow.home.create_workspace_modal.workspace_settings": "",
   "mlflow.home.demo-banner.launch": "",
   "mlflow.home.experiments.create": "",
   "mlflow.home.experiments.error": "",
@@ -1595,8 +1597,7 @@ module.exports = {
   "mlflow.home.telemetry-alert": "",
   "mlflow.home.workspaces.create": "",
   "mlflow.home.workspaces.create_button": "",
-  "mlflow.home.workspaces.edit.artifact_root_input": "",
-  "mlflow.home.workspaces.edit.description_input": "",
+  "mlflow.home.workspaces.edit": "",
   "mlflow.home.workspaces.edit_modal": "",
   "mlflow.home.workspaces.edit_modal.error": "",
   "mlflow.home.workspaces.edit_workspace": "",
