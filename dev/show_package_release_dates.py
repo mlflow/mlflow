@@ -20,7 +20,7 @@ def get_cooldown_days() -> int:
 
 
 class ReleaseFile(BaseModel):
-    upload_time: str
+    upload_time_iso_8601: str
 
 
 class PyPIResponse(BaseModel):
@@ -34,7 +34,7 @@ def get_distributions() -> list[tuple[str, str]]:
 
 def extract_upload_time(response: PyPIResponse, version: str) -> datetime | None:
     for f in response.releases.get(version, []):
-        return datetime.fromisoformat(f.upload_time).replace(tzinfo=timezone.utc)
+        return datetime.fromisoformat(f.upload_time_iso_8601.replace("Z", "+00:00"))
     return None
 
 
