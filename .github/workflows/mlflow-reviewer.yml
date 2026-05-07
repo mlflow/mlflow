@@ -29,6 +29,7 @@ jobs:
       ||
       (github.event_name == 'pull_request' &&
        github.event.pull_request.draft == false &&
+       github.event.pull_request.head.repo.full_name == github.repository &&
        contains(fromJSON('["MEMBER", "COLLABORATOR", "OWNER"]'), github.event.pull_request.author_association))
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -50,7 +51,7 @@ jobs:
 
       - name: Generate App installation token (multi-repo)
         id: app_token
-        uses: actions/create-github-app-token@v1
+        uses: actions/create-github-app-token@f8d387b68d61c58ab83c6c016672934102569859 # v3.0.0
         with:
           app-id: ${{ vars.NAILAOPUS_APP_ID }}
           private-key: ${{ secrets.NAILAOPUS_APP_KEY }}
@@ -65,14 +66,35 @@ jobs:
             "repos/${{ github.repository }}/issues/comments/${{ github.event.comment.id }}/reactions" \
             -X POST -f content=eyes || true
 
+      - name: Reject fork PRs (comment-triggered only)
+        if: steps.ctx.outputs.trigger == 'comment'
+        env:
+          GH_TOKEN: ${{ steps.app_token.outputs.token }}
+          PR: ${{ steps.ctx.outputs.pr }}
+          REPO: ${{ github.repository }}
+        run: |
+          # The pull_request branch of the job-level `if:` already requires
+          # head.repo.full_name == github.repository. The issue_comment payload
+          # does not carry head_repo, so we fetch it here and refuse to run if
+          # the PR head is on a fork: the subsequent checkout + uv pip install
+          # would execute fork-controlled build hooks with App-token + Anthropic
+          # secrets in scope.
+          set -e
+          head_repo=$(gh api "repos/$REPO/pulls/$PR" --jq .head.repo.full_name)
+          if [ "$head_repo" != "$REPO" ]; then
+            echo "Refusing to run on fork PR (head=$head_repo, expected=$REPO)."
+            exit 1
+          fi
+
       - name: Enforce per-PR daily rate limit
         env:
           GH_TOKEN: ${{ steps.app_token.outputs.token }}
+          PR: ${{ steps.ctx.outputs.pr }}
+          REPO: ${{ github.repository }}
         run: |
           set -e
-          PR=${{ steps.ctx.outputs.pr }}
           since=$(date -u -d '24 hours ago' '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || date -u -v-24H '+%Y-%m-%dT%H:%M:%SZ')
-          count=$(gh api "repos/${{ github.repository }}/issues/$PR/comments" --paginate \
+          count=$(gh api "repos/$REPO/issues/$PR/comments" --paginate \
             --jq "[.[] | select(.user.login == \"NaiLaOpus[bot]\") | select(.created_at > \"$since\")] | length")
           if [ "$count" -ge 5 ]; then
             echo "Rate limit hit: $count bot comments in the last 24h on PR $PR (max 5)."
@@ -82,18 +104,20 @@ jobs:
       - name: Tag PR as reviewed by NaiLaOpus
         env:
           GH_TOKEN: ${{ steps.app_token.outputs.token }}
+          PR: ${{ steps.ctx.outputs.pr }}
+          REPO: ${{ github.repository }}
         run: |
           gh label create nailaopus-reviewed \
-            --repo ${{ github.repository }} \
+            --repo "$REPO" \
             --color ededed \
             --description "PR was reviewed by NaiLaOpus[bot] at least once" \
             2>/dev/null || true
-          gh issue edit ${{ steps.ctx.outputs.pr }} \
-            --repo ${{ github.repository }} \
+          gh issue edit "$PR" \
+            --repo "$REPO" \
             --add-label nailaopus-reviewed || true
 
       - name: Checkout PR head
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           repository: ${{ github.repository }}
           ref: refs/pull/${{ steps.ctx.outputs.pr }}/head
@@ -102,19 +126,19 @@ jobs:
           token: ${{ steps.app_token.outputs.token }}
 
       - name: Checkout mlflow/internal (orchestrator code)
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           repository: mlflow/internal
           path: internal
           token: ${{ steps.app_token.outputs.token }}
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         with:
           python-version: "3.11"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v3
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
 
       - name: Install orchestrator
         working-directory: internal/mlflow-reviewer
@@ -137,13 +161,19 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GH_TOKEN: ${{ steps.app_token.outputs.token }}
-        run: |
+          PR: ${{ steps.ctx.outputs.pr }}
+          REPO: ${{ github.repository }}
           # FLAGS is empty on auto-triggered runs by design: the flags step
           # only runs for /review comments, and there is no comment body to
           # parse on a pull_request event.
-          mlflow-reviewer ${{ steps.ctx.outputs.pr }} \
-            --repo ${{ github.repository }} \
-            ${{ steps.flags.outputs.flags }}
+          FLAGS: ${{ steps.flags.outputs.flags }}
+        # Inputs flow through env vars rather than `${{ }}` interpolation
+        # directly into the shell, so an unexpected character in any value
+        # (today none reach here, but the pattern is hardening for drift)
+        # is treated as data, not as code. $FLAGS is intentionally unquoted
+        # so it word-splits into separate argv entries.
+        run: |
+          mlflow-reviewer "$PR" --repo "$REPO" $FLAGS
 
       - name: React +1 on success (comment-triggered only)
         if: success() && steps.ctx.outputs.trigger == 'comment'
