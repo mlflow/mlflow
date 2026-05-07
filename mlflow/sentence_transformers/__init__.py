@@ -541,7 +541,7 @@ class _SentenceTransformerModelWrapper:
             # `model.encode` rejects `pd.Series`/`DataFrame` since sentence-transformers v5.4
             # (https://github.com/huggingface/sentence-transformers/pull/3554)
             sentences = sentences.iloc[:, 0].tolist()
-            if type(sentences[0]) == list:
+            if sentences and type(sentences[0]) == list:
                 sentences = sentences[0]
         elif type(sentences) == pd.Series:
             sentences = sentences.tolist()
