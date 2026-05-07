@@ -5,9 +5,10 @@ from mlflow.server.auth.entities import Role, RolePermission, UserRoleAssignment
 from mlflow.server.auth.permissions import EDIT, MANAGE, READ, USE, VALID_RESOURCE_TYPES
 
 # Every concrete resource type the resolver accepts, excluding the special
-# ``"workspace"`` bucket which is exercised separately (it's not a real resource
-# type — it's the workspace-wide grant form).
-_CONCRETE_RESOURCE_TYPES = sorted(VALID_RESOURCE_TYPES - {"workspace"})
+# ``"workspace"`` (admin-only grant form) and ``"*"`` (workspace-wide grant
+# form). Those two carry their own validation rules and are exercised by
+# scope-specific tests rather than the shared parametrised matrix below.
+_CONCRETE_RESOURCE_TYPES = sorted(VALID_RESOURCE_TYPES - {"workspace", "*"})
 from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
 
 from tests.helper_functions import random_str
@@ -396,26 +397,26 @@ def test_get_role_permission_workspace_admin(store, user):
 
 
 def test_workspace_permission_applies_across_resource_types(store, user):
-    role = store.create_role(name="reader", workspace="ws1")
-    store.add_role_permission(role.id, "workspace", "*", "READ")
+    role = store.create_role(name="user", workspace="ws1")
+    store.add_role_permission(role.id, "workspace", "*", "USE")
     store.assign_role_to_user(user.id, role.id)
 
-    # READ at the workspace level grants READ on every resource type in the workspace.
-    assert store.get_role_permission_for_resource(user.id, "experiment", "1", "ws1") == READ
-    assert store.get_role_permission_for_resource(user.id, "registered_model", "m1", "ws1") == READ
-    assert store.get_role_permission_for_resource(user.id, "gateway_endpoint", "e1", "ws1") == READ
+    # USE on the workspace-wide grant form propagates to every resource type.
+    assert store.get_role_permission_for_resource(user.id, "experiment", "1", "ws1") == USE
+    assert store.get_role_permission_for_resource(user.id, "registered_model", "m1", "ws1") == USE
+    assert store.get_role_permission_for_resource(user.id, "gateway_endpoint", "e1", "ws1") == USE
 
 
 def test_workspace_permission_respects_union_with_specific(store, user):
     role = store.create_role(name="mixed", workspace="ws1")
-    store.add_role_permission(role.id, "workspace", "*", "READ")
+    store.add_role_permission(role.id, "workspace", "*", "USE")
     store.add_role_permission(role.id, "experiment", "42", "EDIT")
     store.assign_role_to_user(user.id, role.id)
 
-    # Experiment 42: max(workspace READ, specific EDIT) = EDIT
+    # Experiment 42: max(workspace USE, specific EDIT) = EDIT
     assert store.get_role_permission_for_resource(user.id, "experiment", "42", "ws1") == EDIT
-    # Other experiments: just workspace READ
-    assert store.get_role_permission_for_resource(user.id, "experiment", "99", "ws1") == READ
+    # Other experiments: just workspace USE
+    assert store.get_role_permission_for_resource(user.id, "experiment", "99", "ws1") == USE
 
 
 def test_is_workspace_admin(store, user):
@@ -428,9 +429,9 @@ def test_is_workspace_admin(store, user):
 
 
 def test_is_workspace_admin_requires_manage(store, user):
-    # A non-MANAGE workspace permission does not make the user a WP admin.
-    role = store.create_role(name="ws-reader", workspace="ws1")
-    store.add_role_permission(role.id, "workspace", "*", "READ")
+    # A non-MANAGE workspace-wide grant does not make the user a WP admin.
+    role = store.create_role(name="ws-user", workspace="ws1")
+    store.add_role_permission(role.id, "workspace", "*", "USE")
     store.assign_role_to_user(user.id, role.id)
 
     assert store.is_workspace_admin(user.id, "ws1") is False
@@ -441,7 +442,7 @@ def test_list_role_grants_for_user_in_workspace(store, user):
     role = store.create_role(name="multi", workspace="ws1")
     store.add_role_permission(role.id, "experiment", "42", "EDIT")
     store.add_role_permission(role.id, "experiment", "*", "READ")
-    store.add_role_permission(role.id, "workspace", "*", "READ")
+    store.add_role_permission(role.id, "workspace", "*", "USE")
     # Unrelated grant on another resource type.
     store.add_role_permission(role.id, "registered_model", "*", "MANAGE")
     store.assign_role_to_user(user.id, role.id)
@@ -449,7 +450,7 @@ def test_list_role_grants_for_user_in_workspace(store, user):
     grants = store.list_role_grants_for_user_in_workspace(user.id, "ws1", "experiment")
     # Should include specific experiment grant, wildcard experiment grant,
     # and the workspace-wide grant. Should NOT include the registered_model grant.
-    assert sorted(grants) == sorted([("42", "EDIT"), ("*", "READ"), ("*", "READ")])
+    assert sorted(grants) == sorted([("42", "EDIT"), ("*", "READ"), ("*", "USE")])
 
 
 def test_list_role_grants_for_user_in_workspace_cross_workspace(store, user):
@@ -486,9 +487,9 @@ def test_list_workspace_admin_workspaces(store, user):
 
 
 def test_list_workspace_admin_workspaces_ignores_non_manage(store, user):
-    # A workspace-scope grant with a non-MANAGE permission should not count.
-    role = store.create_role(name="reader", workspace="ws1")
-    store.add_role_permission(role.id, "workspace", "*", "READ")
+    # A workspace-wide grant with a non-MANAGE permission should not count.
+    role = store.create_role(name="user", workspace="ws1")
+    store.add_role_permission(role.id, "workspace", "*", "USE")
     store.assign_role_to_user(user.id, role.id)
 
     assert store.list_workspace_admin_workspaces(user.id) == set()
@@ -525,16 +526,38 @@ def test_resolver_role_assignment_in_other_workspace_doesnt_leak(store, user):
     assert store.get_role_permission_for_resource(user.id, "experiment", "1", "ws3") is None
 
 
+def _insert_raw_role_permission(store, role_id, resource_type, resource_pattern, permission):
+    """Bypass ``add_role_permission``'s scope-aware validator to seed a row that
+    pre-dates the simplified model. ``NO_PERMISSIONS`` rows can no longer be
+    created through the public API, but legacy databases may still carry them
+    from when the early RBAC API accepted any value — the resolver continues to
+    honour them as explicit denies for backwards compatibility.
+    """
+    from sqlalchemy import text
+
+    with store.ManagedSessionMaker() as session:
+        session.execute(
+            text(
+                "INSERT INTO role_permissions"
+                " (role_id, resource_type, resource_pattern, permission)"
+                " VALUES (:role_id, :resource_type, :resource_pattern, :permission)"
+            ),
+            {
+                "role_id": role_id,
+                "resource_type": resource_type,
+                "resource_pattern": resource_pattern,
+                "permission": permission,
+            },
+        )
+
+
 def test_resolver_returns_no_permissions_when_role_only_has_no_permissions(store, user):
-    """If a user's only grant is NO_PERMISSIONS, ``get_role_permission_for_resource``
-    returns that permission object — not ``None``. Documents the distinction at the
-    store layer between 'no role grant found' (None) and 'role grant resolved to an
-    explicit NO_PERMISSIONS' without implying different fallback behavior in the
-    outer resolver — at that layer (_get_permission_from_store_or_default) both
-    cases fall through to the direct grant / workspace / default chain identically.
+    """Backwards-compat: a pre-existing ``NO_PERMISSIONS`` row from the early RBAC
+    API is still honoured by the resolver as an explicit deny — the function
+    returns the ``NO_PERMISSIONS`` Permission object rather than ``None``.
     """
     role = store.create_role(name="locked", workspace="ws1")
-    store.add_role_permission(role.id, "experiment", "*", "NO_PERMISSIONS")
+    _insert_raw_role_permission(store, role.id, "experiment", "*", "NO_PERMISSIONS")
     store.assign_role_to_user(user.id, role.id)
 
     result = store.get_role_permission_for_resource(user.id, "experiment", "1", "ws1")
@@ -543,12 +566,12 @@ def test_resolver_returns_no_permissions_when_role_only_has_no_permissions(store
 
 
 def test_resolver_no_permissions_loses_to_any_positive_grant(store, user):
-    """When a user has both NO_PERMISSIONS and a positive grant (from different
-    roles or the same role), the positive grant wins. Reflects the
-    ``max_permission`` policy where explicit grants outrank explicit denies.
+    """Backwards-compat: when a user has both a legacy ``NO_PERMISSIONS`` row and
+    a positive grant (from different roles), the positive grant wins. Mirrors
+    the ``max_permission`` policy where explicit grants outrank explicit denies.
     """
     r_deny = store.create_role(name="deny", workspace="ws1")
-    store.add_role_permission(r_deny.id, "experiment", "*", "NO_PERMISSIONS")
+    _insert_raw_role_permission(store, r_deny.id, "experiment", "*", "NO_PERMISSIONS")
     store.assign_role_to_user(user.id, r_deny.id)
 
     r_read = store.create_role(name="reader", workspace="ws1")
@@ -627,17 +650,15 @@ def test_resolver_workspace_grant_promotes_to_every_resource_type(store, user, r
 @pytest.mark.parametrize(
     ("granted", "expected"),
     [
-        ("READ", READ),
         ("USE", USE),
-        ("EDIT", EDIT),
         ("MANAGE", MANAGE),
     ],
 )
 def test_resolver_workspace_grant_propagates_at_every_level(store, user, granted, expected):
-    """``(workspace, *, X)`` where X ∈ {READ, USE, EDIT, MANAGE} promotes X to
-    every resource type — not just MANAGE. This ensures workspace-wide grants
-    work as a blanket baseline permission, which the UI relies on (e.g. the
-    seeded ``viewer`` and ``editor`` roles use this form).
+    """``(*, *, X)`` where X ∈ {USE, MANAGE} (the workspace-grantable tiers in
+    the simplified model) promotes X to every concrete resource type. This is
+    the blanket-baseline form the seeded ``user`` role uses for read+create
+    access across the workspace.
     """
     role = store.create_role(name=f"ws-{granted}", workspace="ws1")
     store.add_role_permission(role.id, "workspace", "*", granted)
@@ -729,19 +750,19 @@ def test_resolver_union_picks_max_across_roles(store, user):
 
 
 def test_resolver_union_mixes_workspace_and_resource_grants(store, user):
-    """A workspace-wide EDIT + a specific experiment READ → resolver still
-    surfaces EDIT for that experiment, because the workspace grant already
+    """A workspace-wide USE + a specific experiment READ → resolver still
+    surfaces USE for that experiment, because the workspace grant already
     covers it. Specific grants only promote, never downgrade.
     """
-    r_ws = store.create_role(name="ws-editor", workspace="ws1")
-    store.add_role_permission(r_ws.id, "workspace", "*", "EDIT")
+    r_ws = store.create_role(name="ws-user", workspace="ws1")
+    store.add_role_permission(r_ws.id, "workspace", "*", "USE")
     store.assign_role_to_user(user.id, r_ws.id)
 
     r_specific = store.create_role(name="one-reader", workspace="ws1")
     store.add_role_permission(r_specific.id, "experiment", "42", "READ")
     store.assign_role_to_user(user.id, r_specific.id)
 
-    assert store.get_role_permission_for_resource(user.id, "experiment", "42", "ws1") == EDIT
+    assert store.get_role_permission_for_resource(user.id, "experiment", "42", "ws1") == USE
 
 
 # ---- Legacy workspace_permissions as workspace admin source ----
@@ -760,18 +781,18 @@ def test_is_workspace_admin_honors_legacy_workspace_permissions(store, user):
 
 
 def test_is_workspace_admin_ignores_non_manage_legacy(store, user):
-    store.set_workspace_permission("ws1", user.username, "READ")
+    store.set_workspace_permission("ws1", user.username, "USE")
 
     assert store.is_workspace_admin(user.id, "ws1") is False
 
 
 def test_list_workspace_admin_workspaces_unions_role_and_legacy(store, user):
-    # Role admin in ws1, legacy MANAGE in ws2, legacy READ in ws3 (should not count).
+    # Role admin in ws1, legacy MANAGE in ws2, legacy USE in ws3 (should not count).
     role = store.create_role(name="wa1", workspace="ws1")
     store.add_role_permission(role.id, "workspace", "*", "MANAGE")
     store.assign_role_to_user(user.id, role.id)
     store.set_workspace_permission("ws2", user.username, "MANAGE")
-    store.set_workspace_permission("ws3", user.username, "READ")
+    store.set_workspace_permission("ws3", user.username, "USE")
 
     assert store.list_workspace_admin_workspaces(user.id) == {"ws1", "ws2"}
 
@@ -791,7 +812,7 @@ def test_is_workspace_admin_of_any_of_users_workspaces_legacy_target(store, user
     admin_role = store.create_role(name="wa", workspace="ws1")
     store.add_role_permission(admin_role.id, "workspace", "*", "MANAGE")
     store.assign_role_to_user(user.id, admin_role.id)
-    store.set_workspace_permission("ws1", user2.username, "READ")
+    store.set_workspace_permission("ws1", user2.username, "USE")
 
     assert store.is_workspace_admin_of_any_of_users_workspaces(user.id, user2.id) is True
 
@@ -799,7 +820,7 @@ def test_is_workspace_admin_of_any_of_users_workspaces_legacy_target(store, user
 def test_is_workspace_admin_of_any_of_users_workspaces_no_overlap(store, user, user2):
     # Admin in ws1, target present only in ws2 → no intersection.
     store.set_workspace_permission("ws1", user.username, "MANAGE")
-    store.set_workspace_permission("ws2", user2.username, "READ")
+    store.set_workspace_permission("ws2", user2.username, "USE")
 
     assert store.is_workspace_admin_of_any_of_users_workspaces(user.id, user2.id) is False
 

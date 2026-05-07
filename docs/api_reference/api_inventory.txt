@@ -454,6 +454,7 @@ mlflow.entities.LiveSpan.record_exception
 mlflow.entities.LiveSpan.set_attribute
 mlflow.entities.LiveSpan.set_attributes
 mlflow.entities.LiveSpan.set_inputs
+mlflow.entities.LiveSpan.set_log_level
 mlflow.entities.LiveSpan.set_outputs
 mlflow.entities.LiveSpan.set_span_type
 mlflow.entities.LiveSpan.set_status
@@ -497,6 +498,7 @@ mlflow.entities.NoOpSpan.record_exception
 mlflow.entities.NoOpSpan.set_attribute
 mlflow.entities.NoOpSpan.set_attributes
 mlflow.entities.NoOpSpan.set_inputs
+mlflow.entities.NoOpSpan.set_log_level
 mlflow.entities.NoOpSpan.set_outputs
 mlflow.entities.NoOpSpan.set_status
 mlflow.entities.Param
@@ -553,6 +555,8 @@ mlflow.entities.SpanEvent
 mlflow.entities.SpanEvent.from_exception
 mlflow.entities.SpanEvent.json
 mlflow.entities.SpanEvent.to_otel_proto
+mlflow.entities.SpanLogLevel
+mlflow.entities.SpanLogLevel.from_value
 mlflow.entities.SpanStatus
 mlflow.entities.SpanStatusCode
 mlflow.entities.SpanStatusCode.from_otel_proto_status_code_name
@@ -738,6 +742,7 @@ mlflow.entities.span.NoOpSpan
 mlflow.entities.span.Span
 mlflow.entities.span.SpanType
 mlflow.entities.span_event.SpanEvent
+mlflow.entities.span_log_level.SpanLogLevel
 mlflow.entities.span_status.SpanStatus
 mlflow.entities.span_status.SpanStatusCode
 mlflow.entities.trace.Trace

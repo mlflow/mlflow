@@ -10,6 +10,7 @@ from packaging.version import Version
 from pydantic import BaseModel
 
 import mlflow
+from mlflow.entities import SpanLogLevel
 from mlflow.entities.span import SpanType
 from mlflow.exceptions import MlflowException
 from mlflow.openai.utils.chat_schema import _parse_tools
@@ -117,6 +118,7 @@ async def test_chat_completions_autolog(client, mock_litellm_cost):
     assert len(trace.data.spans) == 1
     span = trace.data.spans[0]
     assert span.span_type == SpanType.CHAT_MODEL
+    assert span.log_level == SpanLogLevel.INFO
     assert span.inputs == {"messages": messages, "model": "gpt-4o-mini", "temperature": 0}
     assert span.outputs["id"] == "chatcmpl-123"
     assert span.attributes["model"] == "gpt-4o-mini"
@@ -574,6 +576,7 @@ async def test_embeddings_autolog(client):
     assert len(trace.data.spans) == 1
     span = trace.data.spans[0]
     assert span.span_type == SpanType.EMBEDDING
+    assert span.log_level == SpanLogLevel.INFO
     assert span.inputs == {"input": "test", "model": "text-embedding-ada-002"}
     assert span.outputs["data"][0]["embedding"] == list(range(1536))
     assert span.model_name == "text-embedding-ada-002"
