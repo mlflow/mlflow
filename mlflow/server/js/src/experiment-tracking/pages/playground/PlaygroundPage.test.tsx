@@ -30,10 +30,9 @@ describe('PlaygroundPage', () => {
       expect(screen.getByText('Playground')).toBeInTheDocument();
     });
 
+    expect(screen.getByText('Playground coming soon')).toBeInTheDocument();
     expect(
-      screen.getByText(
-        "The Playground is being assembled. Soon you'll be able to test AI Gateway endpoints and registered prompts here.",
-      ),
+      screen.getByText("Soon you'll be able to test AI Gateway endpoints and registered prompts here."),
     ).toBeInTheDocument();
   });
 });

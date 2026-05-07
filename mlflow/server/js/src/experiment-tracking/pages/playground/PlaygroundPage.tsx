@@ -28,32 +28,20 @@ const PlaygroundPage = () => {
         }
       />
       <Spacer shrinks={false} />
-      <div
-        css={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          height: '100%',
-          minHeight: 400,
-          width: '100%',
-          '& > div': {
-            height: '100%',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'center',
-            alignItems: 'center',
-          },
-        }}
-      >
-        <Empty
-          description={
-            <FormattedMessage
-              defaultMessage="The Playground is being assembled. Soon you'll be able to test AI Gateway endpoints and registered prompts here."
-              description="Placeholder description shown on the Playground page before its features are wired up"
-            />
-          }
-        />
-      </div>
+      <Empty
+        title={
+          <FormattedMessage
+            defaultMessage="Playground coming soon"
+            description="Title shown on the Playground page placeholder before its features are wired up"
+          />
+        }
+        description={
+          <FormattedMessage
+            defaultMessage="Soon you'll be able to test AI Gateway endpoints and registered prompts here."
+            description="Placeholder description shown on the Playground page before its features are wired up"
+          />
+        }
+      />
     </ScrollablePageWrapper>
   );
 };
