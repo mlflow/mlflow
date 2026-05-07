@@ -1547,20 +1547,14 @@ class SqlAlchemyStore:
         with self.ManagedSessionMaker() as session:
             return self._get_role_by_name(session, workspace, name).to_mlflow_entity()
 
-    def list_roles(self, workspace: str) -> list[Role]:
-        with self.ManagedSessionMaker() as session:
-            roles = (
-                session
-                .query(SqlRole)
-                .options(selectinload(SqlRole.permissions))
-                .filter(SqlRole.workspace == workspace)
-                .all()
-            )
-            return [r.to_mlflow_entity() for r in roles]
-
-    def list_roles_in_workspaces(self, workspaces: Iterable[str]) -> list[Role]:
-        # Empty input returns nothing — callers must use ``list_all_roles`` for
-        # the unscoped admin path.
+    def list_roles(self, workspaces: Iterable[str] | None = None) -> list[Role]:
+        # ``None`` lists every role across the system (admin path); an explicit
+        # iterable scopes the listing to those workspaces. An empty iterable is
+        # interpreted literally and returns no roles.
+        if workspaces is None:
+            with self.ManagedSessionMaker() as session:
+                roles = session.query(SqlRole).options(selectinload(SqlRole.permissions)).all()
+                return [r.to_mlflow_entity() for r in roles]
         names = list(workspaces)
         if not names:
             return []
@@ -1572,11 +1566,6 @@ class SqlAlchemyStore:
                 .filter(SqlRole.workspace.in_(names))
                 .all()
             )
-            return [r.to_mlflow_entity() for r in roles]
-
-    def list_all_roles(self) -> list[Role]:
-        with self.ManagedSessionMaker() as session:
-            roles = session.query(SqlRole).options(selectinload(SqlRole.permissions)).all()
             return [r.to_mlflow_entity() for r in roles]
 
     def update_role(
@@ -1811,6 +1800,15 @@ class SqlAlchemyStore:
                 .first()
                 is not None
             )
+
+    def list_user_present_workspaces(self, user_id: int) -> set[str]:
+        """
+        Return every workspace where the user has at least one role assignment.
+        Bulk membership check used by validators that need to authorize a request
+        spanning multiple workspaces in a single query.
+        """
+        with self.ManagedSessionMaker() as session:
+            return self._user_present_workspaces(session, user_id)
 
     def list_role_users(self, role_id: int) -> list[UserRoleAssignment]:
         with self.ManagedSessionMaker() as session:

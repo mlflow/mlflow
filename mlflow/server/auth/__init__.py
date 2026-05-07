@@ -1358,10 +1358,14 @@ def validate_can_list_roles():
     user = store.get_user(username)
     if user.is_admin:
         return True
-    workspaces = [w for w in request.args.getlist("workspace") if isinstance(w, str) and w.strip()]
-    if not workspaces:
+    requested = {
+        w.strip() for w in request.args.getlist("workspace") if isinstance(w, str) and w.strip()
+    }
+    if not requested:
         return False
-    return all(store.user_has_any_role_in_workspace(user.id, w) for w in workspaces)
+    # Single batch query — avoids N round-trips when multiple workspaces are
+    # requested and dedups duplicates implicitly via the set.
+    return requested <= store.list_user_present_workspaces(user.id)
 
 
 def validate_can_view_user_roles():
@@ -2449,12 +2453,7 @@ def list_roles():
             raise MlflowException.invalid_parameter_value(
                 "Parameter 'workspace' must be a non-empty string when provided."
             )
-    if not workspaces:
-        roles = store.list_all_roles()
-    elif len(workspaces) == 1:
-        roles = store.list_roles(workspaces[0])
-    else:
-        roles = store.list_roles_in_workspaces(workspaces)
+    roles = store.list_roles(workspaces) if workspaces else store.list_roles()
     return jsonify({"roles": [r.to_json() for r in roles]})
 
 

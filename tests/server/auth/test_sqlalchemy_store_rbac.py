@@ -85,42 +85,31 @@ def test_list_roles(store):
     store.create_role(name="viewer", workspace="ws1")
     store.create_role(name="editor", workspace="ws1")
     store.create_role(name="viewer", workspace="ws2")
-
-    ws1_roles = store.list_roles("ws1")
-    assert len(ws1_roles) == 2
-    assert {r.name for r in ws1_roles} == {"viewer", "editor"}
-
-    ws2_roles = store.list_roles("ws2")
-    assert len(ws2_roles) == 1
-
-
-def test_list_all_roles(store):
-    store.create_role(name="viewer", workspace="ws1")
-    store.create_role(name="editor", workspace="ws2")
-    all_roles = store.list_all_roles()
-    assert len(all_roles) == 2
-
-
-def test_list_roles_in_workspaces(store):
-    store.create_role(name="viewer", workspace="ws1")
-    store.create_role(name="editor", workspace="ws1")
-    store.create_role(name="viewer", workspace="ws2")
     store.create_role(name="other", workspace="ws3")
 
+    # Single workspace.
+    ws1_roles = store.list_roles(["ws1"])
+    assert {r.name for r in ws1_roles} == {"viewer", "editor"}
+
     # Subset across two workspaces.
-    roles = store.list_roles_in_workspaces(["ws1", "ws2"])
+    roles = store.list_roles(["ws1", "ws2"])
     assert {(r.workspace, r.name) for r in roles} == {
         ("ws1", "viewer"),
         ("ws1", "editor"),
         ("ws2", "viewer"),
     }
 
-    # Single-element list matches ``list_roles`` behavior.
-    assert {r.name for r in store.list_roles_in_workspaces(["ws3"])} == {"other"}
+    # Empty iterable is interpreted literally — no roles.
+    assert store.list_roles([]) == []
 
-    # Empty input returns nothing — callers must use ``list_all_roles`` for
-    # the unscoped admin path.
-    assert store.list_roles_in_workspaces([]) == []
+    # ``None`` (default) lists across the whole system — the admin path.
+    all_roles = store.list_roles()
+    assert {(r.workspace, r.name) for r in all_roles} == {
+        ("ws1", "viewer"),
+        ("ws1", "editor"),
+        ("ws2", "viewer"),
+        ("ws3", "other"),
+    }
 
 
 def test_update_role(store):
@@ -165,8 +154,8 @@ def test_delete_roles_for_workspace(store):
     store.create_role(name="r3", workspace="ws2")
 
     store.delete_roles_for_workspace("ws1")
-    assert store.list_roles("ws1") == []
-    assert len(store.list_roles("ws2")) == 1
+    assert store.list_roles(["ws1"]) == []
+    assert len(store.list_roles(["ws2"])) == 1
 
 
 def test_delete_roles_for_workspace_cascades(store, user):
@@ -176,7 +165,7 @@ def test_delete_roles_for_workspace_cascades(store, user):
 
     store.delete_roles_for_workspace("ws1")
 
-    assert store.list_roles("ws1") == []
+    assert store.list_roles(["ws1"]) == []
     assert store.list_user_roles(user.id) == []
 
 
