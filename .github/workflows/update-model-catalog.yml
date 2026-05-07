@@ -63,22 +63,27 @@ jobs:
           git tag -f model-catalog/latest origin/master
           git push -f origin refs/tags/model-catalog/latest
 
-      - name: Create pull request
+      - name: Create or update pull request
         if: steps.diff.outputs.changed == 'true'
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           git config user.name 'mlflow-app[bot]'
           git config user.email 'mlflow-app[bot]@users.noreply.github.com'
-          branch="update-model-catalog-$(date +%Y%m%d-%H%M%S)"
+          branch="update-model-catalog"
           git checkout -b "$branch"
           git add mlflow/utils/model_catalog/
           git commit -m "Update model catalog from upstream sources"
-          git push -u origin "$branch"
-          gh pr create \
-            --title "Update model catalog from upstream sources" \
-            --body "Weekday refresh of model pricing and context window data from LiteLLM, transformed to MLflow-native schema." \
-            --reviewer "TomeHirata"
+          git push -f -u origin "$branch"
+          existing_pr=$(gh pr list --head "$branch" --state open --json number --jq '.[0].number')
+          if [ -n "$existing_pr" ]; then
+            echo "Existing open PR #$existing_pr found for branch $branch — skipping PR creation."
+          else
+            gh pr create \
+              --title "Update model catalog from upstream sources" \
+              --body "Weekday refresh of model pricing and context window data from LiteLLM, transformed to MLflow-native schema." \
+              --reviewer "TomeHirata"
+          fi
 
       - name: Publish to GitHub Releases
         if: steps.diff.outputs.changed == 'true'
