@@ -19,7 +19,7 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { Link } from '../../common/utils/RoutingUtils';
-import { useCurrentUserAdminWorkspaces, useCurrentUserIsAdmin } from '../../account/hooks';
+import { useCurrentUserAdminWorkspaces } from '../../account/hooks';
 import { useWorkspaces, type Workspace } from '../../workspaces/hooks/useWorkspaces';
 import {
   getLastUsedWorkspace,
@@ -375,12 +375,12 @@ export const WorkspacesHomeView = ({ onCreateWorkspace }: WorkspacesHomeViewProp
   // Get last used workspace from localStorage for the "Last used" badge
   const lastUsedWorkspace = getLastUsedWorkspace();
   const [currentPage, setCurrentPage] = useState(1);
-  // Manage column: shown only to users with admin reach somewhere (platform
-  // admin sees it on every row; workspace managers see it only on rows for
-  // workspaces they administer).
-  const isAdmin = useCurrentUserIsAdmin();
+  // Manage column: shown only to workspace managers — gear icon scopes
+  // ``/admin?workspace=<name>`` for them. Platform admins navigate via the
+  // sidebar ``Manage`` entry instead, since the admin page ignores the
+  // workspace param for them anyway.
   const adminWorkspaces = useCurrentUserAdminWorkspaces();
-  const showManageColumn = isAdmin || adminWorkspaces.size > 0;
+  const showManageColumn = adminWorkspaces.size > 0;
 
   const shouldShowEmptyState = !isLoading && !isError && workspaces.length === 0;
 
@@ -503,7 +503,7 @@ export const WorkspacesHomeView = ({ onCreateWorkspace }: WorkspacesHomeViewProp
                   key={workspace.name}
                   workspace={workspace}
                   isLastUsed={workspace.name === lastUsedWorkspace}
-                  canManage={isAdmin || adminWorkspaces.has(workspace.name)}
+                  canManage={adminWorkspaces.has(workspace.name)}
                   showManageColumn={showManageColumn}
                 />
               ))

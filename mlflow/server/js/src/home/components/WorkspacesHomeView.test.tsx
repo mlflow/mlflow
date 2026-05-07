@@ -5,12 +5,18 @@ import userEvent from '@testing-library/user-event';
 import { WorkspacesHomeView } from './WorkspacesHomeView';
 import { useWorkspaces } from '../../workspaces/hooks/useWorkspaces';
 import { getLastUsedWorkspace } from '../../workspaces/utils/WorkspaceUtils';
-import { renderWithIntl, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
+import { useCurrentUserAdminWorkspaces } from '../../account/hooks';
+import { renderWithDesignSystem, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { MemoryRouter } from '../../common/utils/RoutingUtils';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 
 jest.mock('../../workspaces/hooks/useWorkspaces');
 jest.mock('../../workspaces/utils/WorkspaceUtils');
+jest.mock('../../account/hooks', () => ({
+  useCurrentUserAdminWorkspaces: jest.fn<() => Set<string>>(() => new Set()),
+}));
+
+const mockedAdminWorkspaces = jest.mocked(useCurrentUserAdminWorkspaces);
 
 const reloadMock = jest.fn();
 
@@ -27,6 +33,9 @@ describe('WorkspacesHomeView', () => {
     jest.clearAllMocks();
     // Mock last used workspace for "Last used" badge
     jest.mocked(getLastUsedWorkspace).mockReturnValue('ml-research');
+    // Default: no admin reach. Individual cases override for the
+    // workspace-manager column-visibility tests.
+    mockedAdminWorkspaces.mockReturnValue(new Set());
 
     Object.defineProperty(window, 'location', {
       value: { ...window.location, reload: reloadMock },
@@ -45,7 +54,7 @@ describe('WorkspacesHomeView', () => {
         mutations: { retry: false },
       },
     });
-    return renderWithIntl(
+    return renderWithDesignSystem(
       <QueryClientProvider client={queryClient}>
         <MemoryRouter>
           <WorkspacesHomeView onCreateWorkspace={mockOnCreateWorkspace} />
@@ -194,5 +203,44 @@ describe('WorkspacesHomeView', () => {
     const retryButton = screen.getByText('Retry');
     await userEvent.click(retryButton);
     expect(mockRefetch).toHaveBeenCalledTimes(1);
+  });
+
+  test('hides Manage column when the user has no admin workspaces', () => {
+    // Covers both platform admins (``useCurrentUserAdminWorkspaces`` short-
+    // circuits to an empty set for them) and regular users. Platform admins
+    // navigate via the sidebar Manage entry, not this gear column.
+    mockedAdminWorkspaces.mockReturnValue(new Set());
+    jest.mocked(useWorkspaces).mockReturnValue({
+      workspaces: [
+        { name: 'ml-research', description: 'Research experiments' },
+        { name: 'production-models', description: 'Production-ready models' },
+      ],
+      isLoading: false,
+      isError: false,
+      refetch: jest.fn() as any,
+    });
+
+    renderComponent();
+    expect(screen.queryByText('Manage')).not.toBeInTheDocument();
+    expect(screen.queryAllByLabelText(/Manage workspace/)).toHaveLength(0);
+  });
+
+  test('shows Manage column with gear icon only on workspaces the user administers', () => {
+    mockedAdminWorkspaces.mockReturnValue(new Set(['ml-research']));
+    jest.mocked(useWorkspaces).mockReturnValue({
+      workspaces: [
+        { name: 'ml-research', description: 'Research experiments' },
+        { name: 'production-models', description: 'Production-ready models' },
+      ],
+      isLoading: false,
+      isError: false,
+      refetch: jest.fn() as any,
+    });
+
+    renderComponent();
+    expect(screen.getByText('Manage')).toBeInTheDocument();
+    const gears = screen.getAllByLabelText(/Manage workspace/);
+    expect(gears).toHaveLength(1);
+    expect(gears[0]).toHaveAttribute('aria-label', 'Manage workspace ml-research');
   });
 });
