@@ -2,8 +2,8 @@ name: Update Model Catalog
 
 on:
   schedule:
-    # Run weekly on Monday at 00:00 UTC
-    - cron: "0 0 * * 1"
+    # Run every weekday (Mon-Fri) at 00:00 UTC
+    - cron: "0 0 * * 1-5"
   workflow_dispatch:
 
 defaults:
@@ -77,8 +77,8 @@ jobs:
           git push -u origin "$branch"
           gh pr create \
             --title "Update model catalog from upstream sources" \
-            --body "Weekly refresh of model pricing and context window data from LiteLLM, transformed to MLflow-native schema." \
-            --label "team-review"
+            --body "Weekday refresh of model pricing and context window data from LiteLLM, transformed to MLflow-native schema." \
+            --reviewer "TomeHirata"
 
       - name: Publish to GitHub Releases
         if: steps.diff.outputs.changed == 'true'

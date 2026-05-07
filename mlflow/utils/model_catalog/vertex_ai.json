@@ -2619,6 +2619,90 @@
       },
       "last_updated_at": "2026-04-24"
     },
+    "xai/grok-4.1-fast-non-reasoning": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 2000000,
+        "max_output": 2000000,
+        "max_tokens": 2000000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.2,
+        "output_per_million_tokens": 0.5,
+        "cache_read_per_million_tokens": 0.05
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-05-06"
+    },
+    "xai/grok-4.1-fast-reasoning": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 2000000,
+        "max_output": 2000000,
+        "max_tokens": 2000000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.2,
+        "output_per_million_tokens": 0.5,
+        "cache_read_per_million_tokens": 0.05
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-05-06"
+    },
+    "xai/grok-4.20-non-reasoning": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 2000000,
+        "max_output": 2000000,
+        "max_tokens": 2000000
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.0,
+        "output_per_million_tokens": 6.0,
+        "cache_read_per_million_tokens": 0.2
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-05-06"
+    },
+    "xai/grok-4.20-reasoning": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 2000000,
+        "max_output": 2000000,
+        "max_tokens": 2000000
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.0,
+        "output_per_million_tokens": 6.0,
+        "cache_read_per_million_tokens": 0.2
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-05-06"
+    },
     "zai-org/glm-4.7-maas": {
       "mode": "chat",
       "context_window": {

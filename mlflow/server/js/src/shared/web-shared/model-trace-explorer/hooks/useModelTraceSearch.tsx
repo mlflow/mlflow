@@ -8,6 +8,7 @@ import type {
   SpanFilterState,
   ModelTrace,
 } from '../ModelTrace.types';
+import { SpanLogLevel } from '../ModelTrace.types';
 import { searchTree } from '../ModelTraceExplorer.utils';
 import {
   getSpanNodeParentIds,
@@ -31,6 +32,8 @@ const getDefaultSpanFilterState = (treeNodes: ModelTraceSpanNode[]): SpanFilterS
     showParents: true,
     showExceptions: true,
     spanTypeDisplayState,
+    // DEBUG is the lowest level, so the default threshold shows every span.
+    minLogLevel: SpanLogLevel.DEBUG,
   };
 };
 
