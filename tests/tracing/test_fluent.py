@@ -17,6 +17,7 @@ from opentelemetry.sdk.trace.export import SpanExporter
 import mlflow
 from mlflow.entities import (
     SpanEvent,
+    SpanLogLevel,
     SpanStatusCode,
     SpanType,
     Trace,
@@ -238,6 +239,7 @@ def test_trace(wrap_sync_func, with_active_run, async_logging_enabled):
         "mlflow.traceRequestId": trace.info.trace_id,
         "mlflow.spanFunctionName": "predict",
         "mlflow.spanType": "UNKNOWN",
+        "mlflow.spanLogLevel": SpanLogLevel.DEBUG,
         "mlflow.spanInputs": {"x": 2, "y": 5},
         "mlflow.spanOutputs": 64,
     }
@@ -249,6 +251,7 @@ def test_trace(wrap_sync_func, with_active_run, async_logging_enabled):
         "mlflow.traceRequestId": trace.info.trace_id,
         "mlflow.spanFunctionName": "add_one",
         "mlflow.spanType": "LLM",
+        "mlflow.spanLogLevel": SpanLogLevel.INFO,
         "mlflow.spanInputs": {"z": 7},
         "mlflow.spanOutputs": 8,
     }
@@ -260,6 +263,7 @@ def test_trace(wrap_sync_func, with_active_run, async_logging_enabled):
         "mlflow.traceRequestId": trace.info.trace_id,
         "mlflow.spanFunctionName": "square",
         "mlflow.spanType": "UNKNOWN",
+        "mlflow.spanLogLevel": SpanLogLevel.DEBUG,
         "mlflow.spanInputs": {"t": 8},
         "mlflow.spanOutputs": 64,
     }
@@ -432,6 +436,7 @@ def test_trace_in_databricks_model_serving(
     assert root_span.attributes == {
         "mlflow.traceRequestId": trace.info.trace_id,
         "mlflow.spanType": SpanType.UNKNOWN,
+        "mlflow.spanLogLevel": SpanLogLevel.DEBUG,
         "mlflow.spanFunctionName": "predict",
         "mlflow.spanInputs": {"x": 2, "y": 5},
         "mlflow.spanOutputs": 64,
@@ -444,6 +449,7 @@ def test_trace_in_databricks_model_serving(
         "delta": 1,
         "mlflow.traceRequestId": trace.info.trace_id,
         "mlflow.spanType": SpanType.LLM,
+        "mlflow.spanLogLevel": SpanLogLevel.INFO,
         "mlflow.spanFunctionName": "add_one",
         "mlflow.spanInputs": {"z": 7},
         "mlflow.spanOutputs": 8,
@@ -455,6 +461,7 @@ def test_trace_in_databricks_model_serving(
     assert child_span_2.attributes == {
         "mlflow.traceRequestId": trace.info.trace_id,
         "mlflow.spanType": SpanType.UNKNOWN,
+        "mlflow.spanLogLevel": SpanLogLevel.DEBUG,
     }
     assert asdict(child_span_2.events[0]) == {
         "name": "event",
@@ -733,6 +740,7 @@ def test_start_span_context_manager(async_logging_enabled):
     assert root_span.attributes == {
         "mlflow.traceRequestId": trace.info.trace_id,
         "mlflow.spanType": "UNKNOWN",
+        "mlflow.spanLogLevel": SpanLogLevel.DEBUG,
         "mlflow.spanInputs": {"x": 1, "y": 2},
         "mlflow.spanOutputs": 25,
     }
@@ -745,6 +753,7 @@ def test_start_span_context_manager(async_logging_enabled):
         "time": str(datetime_now),
         "mlflow.traceRequestId": trace.info.trace_id,
         "mlflow.spanType": "LLM",
+        "mlflow.spanLogLevel": SpanLogLevel.INFO,
         "mlflow.spanInputs": 3,
         "mlflow.spanOutputs": 5,
     }
@@ -755,6 +764,7 @@ def test_start_span_context_manager(async_logging_enabled):
     assert child_span_2.attributes == {
         "mlflow.traceRequestId": trace.info.trace_id,
         "mlflow.spanType": "UNKNOWN",
+        "mlflow.spanLogLevel": SpanLogLevel.DEBUG,
         "mlflow.spanInputs": {"t": 5},
         "mlflow.spanOutputs": 25,
     }
@@ -815,6 +825,7 @@ def test_start_span_context_manager_with_imperative_apis(async_logging_enabled):
     assert root_span.attributes == {
         "mlflow.traceRequestId": trace.info.trace_id,
         "mlflow.spanType": "UNKNOWN",
+        "mlflow.spanLogLevel": SpanLogLevel.DEBUG,
         "mlflow.spanInputs": {"x": 1, "y": 2},
         "mlflow.spanOutputs": 5,
     }
@@ -825,6 +836,7 @@ def test_start_span_context_manager_with_imperative_apis(async_logging_enabled):
         "delta": 2,
         "mlflow.traceRequestId": trace.info.trace_id,
         "mlflow.spanType": "LLM",
+        "mlflow.spanLogLevel": SpanLogLevel.INFO,
         "mlflow.spanInputs": 3,
         "mlflow.spanOutputs": 5,
     }
