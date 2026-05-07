@@ -48,8 +48,20 @@ import { CreateRoleModal } from '../components/CreateRoleModal';
 // parent ask for a red signal on real fetch failures (platform admins
 // reviewing user state) while workspace managers silently fall back to
 // ``—`` when ``validate_can_view_user_roles`` 403s for users outside
-// their workspaces.
-const UserRolesCell = ({ username, showErrorOnFailure }: { username: string; showErrorOnFailure: boolean }) => {
+// their workspaces. ``scopeWorkspace`` (when set) filters the result to
+// roles in that workspace only — keeps the per-user cell aligned with
+// the page's per-workspace scope (the backend self-check returns global
+// roles, and a wp-admin viewing another user gets every workspace they
+// administer, which is broader than the active page's scope).
+const UserRolesCell = ({
+  username,
+  showErrorOnFailure,
+  scopeWorkspace,
+}: {
+  username: string;
+  showErrorOnFailure: boolean;
+  scopeWorkspace: string | null;
+}) => {
   const { theme } = useDesignSystemTheme();
   const { data, isLoading, error } = useUserRolesQuery(username);
   if (isLoading) {
@@ -62,7 +74,8 @@ const UserRolesCell = ({ username, showErrorOnFailure }: { username: string; sho
       </Typography.Text>
     );
   }
-  const roles = error ? [] : (data?.roles ?? []);
+  const allRoles = error ? [] : (data?.roles ?? []);
+  const roles = scopeWorkspace ? allRoles.filter((r) => r.workspace === scopeWorkspace) : allRoles;
   if (roles.length === 0) {
     return <Typography.Text color="secondary">—</Typography.Text>;
   }
@@ -86,10 +99,15 @@ const UsersTab = () => {
   const deleteUser = useDeleteUser();
   const withReturnTo = useWithSettingsReturnTo();
   // Bulk-delete + row checkboxes are platform-admin-only; Create User is
-  // open to workspace admins.
+  // open to workspace admins. ``rolesScopeWorkspace`` keeps the per-row
+  // Roles cell aligned with the page's per-workspace scope: workspace
+  // managers should only see roles in the active workspace, including for
+  // their own row (the backend self-check returns global roles).
   const isAdmin = useCurrentUserIsAdmin();
   const isWorkspaceAdmin = useCurrentUserIsWorkspaceAdmin();
   const canCreateUser = isAdmin || isWorkspaceAdmin;
+  const activeWorkspace = useActiveWorkspace();
+  const rolesScopeWorkspace = isAdmin ? null : activeWorkspace;
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
@@ -264,7 +282,11 @@ const UsersTab = () => {
               </Link>
             </TableCell>
             <TableCell css={{ flex: 2 }}>
-              <UserRolesCell username={user.username} showErrorOnFailure={isAdmin} />
+              <UserRolesCell
+                username={user.username}
+                showErrorOnFailure={isAdmin}
+                scopeWorkspace={rolesScopeWorkspace}
+              />
             </TableCell>
             <TableCell css={{ flex: 1 }}>
               {user.is_admin ? (

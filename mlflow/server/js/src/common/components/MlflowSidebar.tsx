@@ -29,12 +29,7 @@ import { ModelRegistryRoutes } from '../../model-registry/routes';
 import GatewayRoutes from '../../gateway/routes';
 import AccountRoutes from '../../account/routes';
 import AdminRoutes from '../../admin/routes';
-import {
-  useCurrentUserAdminWorkspaces,
-  useCurrentUserIsAdmin,
-  useCurrentUserQuery,
-  useIsBasicAuth,
-} from '../../account/hooks';
+import { useCurrentUserIsAdmin, useCurrentUserQuery, useIsBasicAuth } from '../../account/hooks';
 import { performLogout } from '../../account/auth-utils';
 import { GatewayLabel, GatewayNewTag } from './GatewayNewTag';
 import { FormattedMessage } from 'react-intl';
@@ -147,13 +142,12 @@ export function MlflowSidebar({
   const showNestedExperimentItems = Boolean(activeExperimentId) && shouldEnableWorkflowBasedNavigation();
   const showNestedSettingsItems = isSettingsActive(location);
 
-  // Manage is per-workspace: visible to platform admins always, and to
-  // workspace admins only when the active workspace is one they manage.
-  // /admin scopes its content to the active workspace.
+  // Manage in the avatar dropdown is platform-admin-only — a fast-path
+  // they can hit from anywhere. Workspace managers reach /admin via the
+  // gear icon in the workspaces table on the home page instead, which
+  // ties the entry point to a specific workspace they administer.
   const isAdmin = useCurrentUserIsAdmin();
-  const adminWorkspaces = useCurrentUserAdminWorkspaces();
-  const activeWorkspace = useActiveWorkspace();
-  const canManage = isAdmin || (activeWorkspace !== null && adminWorkspaces.has(activeWorkspace));
+  const canManage = isAdmin;
 
   const { openPanel, closePanel, isPanelOpen, isLocalServer } = useAssistant();
   const [isAssistantHovered, setIsAssistantHovered] = useState(false);
@@ -282,8 +276,8 @@ export function MlflowSidebar({
   const workspaceFromUrl = extractWorkspaceFromSearchParams(searchParams);
   // Global routes (e.g. /account) don't carry ``?workspace=`` in the URL but
   // preserve the in-memory active workspace so the sidebar's workspace-scoped
-  // links resume in the same workspace. Fall back to the active workspace
-  // (already pulled in above for the Manage gate).
+  // links resume in the same workspace. Fall back to the active workspace.
+  const activeWorkspace = useActiveWorkspace();
   const effectiveWorkspace = workspaceFromUrl ?? activeWorkspace;
   // Only show workspace-specific menu items when: workspaces are disabled OR a workspace is selected
   const showWorkspaceMenuItems = !workspacesEnabled || effectiveWorkspace !== null;
