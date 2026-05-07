@@ -698,25 +698,29 @@ def test_embedder_batch_size(sample_judge, sample_traces, embedding_model, expec
 
 
 def test_realign_on_same_traces_does_not_duplicate_memory(sample_judge, sample_traces):
-    with mock_apis(guidelines=["Guideline A"]):
+    with mock_apis(guidelines=["Guideline A"]) as mocks:
         optimizer = MemAlignOptimizer()
         judge_v1 = optimizer.align(sample_judge, sample_traces[:3])
 
         v1_episodic_count = len(judge_v1._episodic_memory)
         v1_trace_ids = sorted(judge_v1._episodic_trace_ids)
         v1_semantic_count = len(judge_v1._semantic_memory)
+        v1_lm_calls = mocks["lm"].call_count
 
         judge_v2 = optimizer.align(judge_v1, sample_traces[:3])
 
         assert len(judge_v2._episodic_memory) == v1_episodic_count
         assert sorted(judge_v2._episodic_trace_ids) == v1_trace_ids
         assert len(judge_v2._semantic_memory) == v1_semantic_count
+        # No additional reflection-LM calls — the all-skipped path short-circuits.
+        assert mocks["lm"].call_count == v1_lm_calls
 
 
 def test_realign_replaces_changed_trace_content(sample_judge, sample_traces):
-    with mock_apis(guidelines=[]):
+    with mock_apis(guidelines=[]) as mocks:
         optimizer = MemAlignOptimizer()
         judge_v1 = optimizer.align(sample_judge, sample_traces[:3])
+        v1_lm_calls = mocks["lm"].call_count
 
         target = sample_traces[0]
         [original] = target.info.assessments
@@ -739,14 +743,16 @@ def test_realign_replaces_changed_trace_content(sample_judge, sample_traces):
         assert len(examples_for_t0) == 1
         assert examples_for_t0[0].result == "no"
         assert examples_for_t0[0].rationale == "Updated reason"
+        # One additional reflection-LM call: the refreshed example was re-distilled.
+        assert mocks["lm"].call_count == v1_lm_calls + 1
 
 
 def test_realign_updates_majority_resolution(sample_judge):
     trace_id = _start_test_trace("majority_trace")
     _log_human_feedback(trace_id, value="yes", rationale="ra")
     _log_human_feedback(trace_id, value="yes", rationale="rb")
-    c = _log_human_feedback(trace_id, value="yes", rationale="rc")
-    d = _log_human_feedback(trace_id, value="no", rationale="rd")
+    feedback_c = _log_human_feedback(trace_id, value="yes", rationale="rc")
+    feedback_d = _log_human_feedback(trace_id, value="no", rationale="rd")
     _log_human_feedback(trace_id, value="no", rationale="re")
     trace = mlflow.get_trace(trace_id)
 
@@ -762,13 +768,13 @@ def test_realign_updates_majority_resolution(sample_judge):
         # Edit: c flips to "no", d flips to "yes". Majority is still "yes" (a, b, d).
         _update_human_feedback(
             trace_id=trace_id,
-            assessment_id=c.assessment_id,
+            assessment_id=feedback_c.assessment_id,
             value="no",
             rationale="rc-updated",
         )
         _update_human_feedback(
             trace_id=trace_id,
-            assessment_id=d.assessment_id,
+            assessment_id=feedback_d.assessment_id,
             value="yes",
             rationale="rd-updated",
         )
@@ -790,7 +796,7 @@ def test_realign_after_assessment_removal(sample_judge):
     trace_id = _start_test_trace("removal_trace")
     _log_human_feedback(trace_id, value="yes", rationale="ra")
     _log_human_feedback(trace_id, value="yes", rationale="rb")
-    c = _log_human_feedback(trace_id, value="yes", rationale="rc")
+    feedback_c = _log_human_feedback(trace_id, value="yes", rationale="rc")
     trace = mlflow.get_trace(trace_id)
 
     with mock_apis(guidelines=[]):
@@ -798,7 +804,7 @@ def test_realign_after_assessment_removal(sample_judge):
         judge_v1 = optimizer.align(sample_judge, [trace])
         assert len(judge_v1._episodic_memory) == 3
 
-        mlflow.delete_assessment(trace_id=trace_id, assessment_id=c.assessment_id)
+        mlflow.delete_assessment(trace_id=trace_id, assessment_id=feedback_c.assessment_id)
         trace = mlflow.get_trace(trace_id)
 
         judge_v2 = optimizer.align(judge_v1, [trace])
@@ -882,12 +888,15 @@ def test_realign_after_unalign_roundtrip(sample_judge, sample_traces):
 
 
 def test_align_dedupes_traces_within_a_single_call(sample_judge, sample_traces):
-    with mock_apis(guidelines=[]):
+    with mock_apis(guidelines=[]) as mocks:
         optimizer = MemAlignOptimizer()
         judge = optimizer.align(sample_judge, [sample_traces[0], sample_traces[0]])
 
         assert len(judge._episodic_memory) == 1
         assert judge._episodic_trace_ids == [sample_traces[0].info.trace_id]
+        # In-batch dedup: distillation runs once for the single resolved example,
+        # not twice for the duplicate trace.
+        assert mocks["lm"].call_count == 1
 
 
 def test_realign_with_all_empty_assessments_raises(sample_judge, sample_traces):

@@ -757,9 +757,14 @@ class MemAlignOptimizer(AlignmentOptimizer):
 
             if not examples_to_align:
                 # Reachable only when every incoming trace was a no-op skip; the
-                # raises above already cover all empty-example paths.
+                # raises above already cover all empty-example paths. Skip can
+                # only fire when ``judge`` is already a MemoryAugmentedJudge — a
+                # vanilla Judge has no in-memory fingerprints to match against —
+                # so returning the input is type-safe and avoids handing back the
+                # freshly-built ``memory_judge`` whose retriever is uninitialized.
+                assert isinstance(judge, MemoryAugmentedJudge)
                 _logger.debug("MemAlign alignment skipped: all traces unchanged in memory.")
-                return memory_judge
+                return judge
 
             if trace_ids_to_refresh:
                 memory_judge._apply_unalign_inplace(trace_ids_to_refresh)
