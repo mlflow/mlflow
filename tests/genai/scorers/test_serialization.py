@@ -361,6 +361,7 @@ def test_builtin_scorer_round_trip():
         ),
         name="relevance_to_query",
         model=None,
+        prior_conversation=None,
     )
 
     assert isinstance(result, Feedback)
