@@ -268,4 +268,22 @@ describe('WorkspacesHomeView', () => {
     expect(gears).toHaveLength(1);
     expect(gears[0]).toHaveAttribute('aria-label', 'Manage workspace ml-research');
   });
+
+  test('Manage gear navigates to the per-workspace admin route', async () => {
+    mockedAdminWorkspaces.mockReturnValue(new Set(['ml-research']));
+    jest.mocked(useWorkspaces).mockReturnValue({
+      workspaces: [{ name: 'ml-research', description: 'Research experiments' }],
+      isLoading: false,
+      isError: false,
+      refetch: jest.fn() as any,
+    });
+
+    renderComponent();
+    const gear = screen.getByLabelText('Manage workspace ml-research');
+    await userEvent.click(gear);
+
+    // Hard reload onto ``/admin/ws?workspace=…`` — the per-workspace mode.
+    expect(window.location.hash).toBe('#/admin/ws?workspace=ml-research');
+    expect(window.location.reload).toHaveBeenCalled();
+  });
 });

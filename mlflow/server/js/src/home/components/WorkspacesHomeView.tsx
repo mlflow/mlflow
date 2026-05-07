@@ -92,9 +92,12 @@ const WorkspaceRow = ({
 
   const handleManageClick = () => {
     // Same hard-reload pattern as handleNameClick — flushes any stale auth /
-    // workspace context before landing on /admin scoped to this workspace.
+    // workspace context before landing on the per-workspace management view.
+    // ``/admin/ws`` is the workspace-mode pathname; the workspace value still
+    // travels in ``?workspace=`` so ``WorkspaceRouterSync`` keeps the global
+    // ``activeWorkspace`` in sync.
     setLastUsedWorkspace(workspace.name);
-    window.location.hash = `#/admin?${WORKSPACE_QUERY_PARAM}=${encodeURIComponent(workspace.name)}`;
+    window.location.hash = `#/admin/ws?${WORKSPACE_QUERY_PARAM}=${encodeURIComponent(workspace.name)}`;
     window.location.reload();
   };
 
@@ -278,13 +281,13 @@ const WorkspaceRow = ({
                 componentId="mlflow.home.workspaces.manage_tooltip"
                 content={intl.formatMessage({
                   defaultMessage: 'Manage workspace',
-                  description: 'Tooltip on the gear icon that links to /admin scoped to this workspace',
+                  description: 'Tooltip on the gear icon that links to /admin/ws scoped to this workspace',
                 })}
               >
                 <Link
                   componentId="mlflow.home.workspaces.manage_link"
                   disableWorkspacePrefix
-                  to={`/admin?${WORKSPACE_QUERY_PARAM}=${encodeURIComponent(workspace.name)}`}
+                  to={`/admin/ws?${WORKSPACE_QUERY_PARAM}=${encodeURIComponent(workspace.name)}`}
                   onClick={(e) => {
                     e.preventDefault();
                     handleManageClick();
@@ -375,10 +378,10 @@ export const WorkspacesHomeView = ({ onCreateWorkspace }: WorkspacesHomeViewProp
   // Get last used workspace from localStorage for the "Last used" badge
   const lastUsedWorkspace = getLastUsedWorkspace();
   const [currentPage, setCurrentPage] = useState(1);
-  // Manage column: shown only to workspace managers — gear icon scopes
-  // ``/admin?workspace=<name>`` for them. Platform admins navigate via the
-  // sidebar ``Manage`` entry instead, since the admin page ignores the
-  // workspace param for them anyway.
+  // Manage column: shown only to workspace managers — gear icon links to
+  // ``/admin/ws?workspace=<name>`` (the per-workspace management view).
+  // Platform admins navigate via the sidebar ``Manage`` entry instead,
+  // which lands on ``/admin`` (the cross-workspace platform-admin view).
   //
   // ``useCurrentUserAdminWorkspaces`` already short-circuits to an empty set
   // for admins (it skips the role fetch when ``is_admin`` is true), so the

@@ -18,11 +18,11 @@ import {
 import { FormattedMessage } from 'react-intl';
 import { ScrollablePageWrapper } from '@mlflow/mlflow/src/common/components/ScrollablePageWrapper';
 import { useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
-import { Link, useSearchParams } from '../../common/utils/RoutingUtils';
+import { Link, useLocation, useSearchParams } from '../../common/utils/RoutingUtils';
 import { useActiveWorkspace } from '../../workspaces/utils/WorkspaceUtils';
 import { performLogout } from '../auth-utils';
 import { ConfirmationModal } from '../ConfirmationModal';
-import AdminRoutes from '../routes';
+import AdminRoutes, { AdminRoutePaths } from '../routes';
 import { useTableSelection } from '../useTableSelection';
 import {
   useCurrentUserAdminWorkspaces,
@@ -502,13 +502,14 @@ const AdminPage = () => {
   const activeTab = tabFromUrl === 'roles' ? 'roles' : 'users';
 
   const activeWorkspace = useActiveWorkspace();
-  // Header / browser-tab title are URL-driven: ``/admin`` (no workspace
-  // param) is the cross-workspace platform-admin view; ``/admin?workspace=…``
-  // is the per-workspace management view. Keying off the URL rather than
-  // the viewer's ``is_admin`` flag means a deep link reads the same way for
-  // anyone authorized to follow it. (A separate route for the per-workspace
-  // view is the natural follow-up; deferred for now.)
-  const isWorkspaceScoped = activeWorkspace !== null;
+  // Mode is path-driven, not role-driven: ``/admin`` is the cross-workspace
+  // platform-admin view; ``/admin/ws`` (with the workspace name in the
+  // ``?workspace=`` query param) is the per-workspace management view. A
+  // deep link reads the same way for anyone authorized to follow it, and
+  // the ``?workspace=`` value is still picked up by ``WorkspaceRouterSync``
+  // to keep the global ``activeWorkspace`` in sync.
+  const { pathname } = useLocation();
+  const isWorkspaceScoped = pathname === AdminRoutePaths.workspaceManagementPage;
 
   // The route definition's static ``getPageTitle`` is set by ``MlflowRootRoute``
   // *after* this component's effects (parent effects run after children's), so

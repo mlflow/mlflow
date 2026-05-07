@@ -2,6 +2,7 @@ import { createMLflowRoutePath, generatePath } from '../common/utils/RoutingUtil
 
 export enum AdminPageId {
   adminPage = 'mlflow.admin',
+  workspaceManagementPage = 'mlflow.admin.workspace',
   roleDetailPage = 'mlflow.admin.role-detail',
   userDetailPage = 'mlflow.admin.user-detail',
 }
@@ -10,6 +11,14 @@ export enum AdminPageId {
 export class AdminRoutePaths {
   static get adminPage() {
     return createMLflowRoutePath('/admin');
+  }
+
+  // Per-workspace management view. Same component as ``adminPage``; the
+  // pathname is the discriminator and the workspace value still travels in
+  // the ``?workspace=`` query param so ``WorkspaceRouterSync`` keeps the
+  // global ``activeWorkspace`` in sync.
+  static get workspaceManagementPage() {
+    return createMLflowRoutePath('/admin/ws');
   }
 
   static get roleDetailPage() {
@@ -25,6 +34,12 @@ export class AdminRoutePaths {
 class AdminRoutes {
   static get adminPageRoute() {
     return AdminRoutePaths.adminPage;
+  }
+
+  static getWorkspaceManagementRoute(workspaceName: string) {
+    // Workspace name validation runs upstream; URL-encode anyway so a name
+    // containing ``&`` or ``=`` doesn't corrupt the query string.
+    return `${AdminRoutePaths.workspaceManagementPage}?workspace=${encodeURIComponent(workspaceName)}`;
   }
 
   static getRoleDetailRoute(roleId: number) {
