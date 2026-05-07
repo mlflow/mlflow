@@ -1381,6 +1381,9 @@ class SqlAlchemyGatewayStoreMixin:
         created_by: str | None = None,
     ) -> GatewayGuardrail:
         with self.ManagedSessionMaker() as session:
+            # Ensure the scorer is valid and in the current workspace
+            self._get_scorer_version(session, scorer_id, scorer_version)
+
             guardrail_id = f"gr-{uuid.uuid4().hex}"
             current_time = get_current_time_millis()
 
