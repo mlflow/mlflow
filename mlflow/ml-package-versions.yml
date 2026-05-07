@@ -766,9 +766,10 @@ llama_index:
     minimum: "0.12.35"
     maximum: "0.14.20"
     unsupported: [
-        # llama-index >= 0.14.21 requires llama-index-llms-openai>=0.7, but
-        # llama-index-llms-databricks pins llama-index-llms-openai<0.7
-        ">= 0.14.21",
+        # llama-index 0.14.x requires llama-index-llms-openai>=0.7, but
+        # llama-index-llms-databricks pins llama-index-llms-openai<0.7, leaving the
+        # resolver no compatible combination
+        ">= 0.14.0",
       ]
     requirements:
       ">= 0.0.0": [
@@ -792,8 +793,9 @@ llama_index:
     minimum: "0.12.35"
     maximum: "0.14.20"
     unsupported: [
-        # Streaming chat engine traces are not captured by mlflow's tracer in 0.14.21+
-        ">= 0.14.21",
+        # Streaming chat engine on 0.14.x uses CondensePlusContextChatEngine; its trace
+        # is emitted asynchronously and isn't captured by mlflow's tracer
+        ">= 0.14.0",
       ]
     requirements:
       ">= 0.0.0": [

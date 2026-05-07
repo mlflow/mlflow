@@ -1,8 +1,10 @@
+import importlib.metadata
 import json
 import logging
 import os
 
 import cloudpickle
+from packaging.version import Version
 
 from mlflow.dspy.save import (
     _DSPY_SETTINGS_FILE_NAME,
@@ -75,9 +77,13 @@ def _load_model(model_uri, dst_path=None):
     else:
         model = dspy.load(os.path.join(local_model_path, model_path), allow_pickle=True)
 
+        # `allow_pickle` was added to `dspy.load_settings` in 3.2.0
+        load_settings_kwargs = {}
+        if Version(importlib.metadata.version("dspy")) >= Version("3.2.0"):
+            load_settings_kwargs["allow_pickle"] = True
         dspy_settings = dspy.load_settings(
             os.path.join(local_model_path, _MODEL_DATA_PATH, _DSPY_SETTINGS_FILE_NAME),
-            allow_pickle=True,
+            **load_settings_kwargs,
         )
 
         model_config_file = os.path.join(
