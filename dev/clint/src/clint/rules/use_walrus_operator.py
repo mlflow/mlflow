@@ -122,51 +122,68 @@ class WalrusOperatorVisitor(ast.NodeVisitor):
                 if UseWalrusOperator.check(stmt, prev_stmt, following_stmts):
                     self.violations.append(prev_stmt)
 
+    def _visit_stmts(self, stmts: list[ast.stmt]) -> None:
+        for stmt in stmts:
+            self.visit(stmt)
+
+    # Walrus opportunities only exist inside statement blocks, so skip descent into
+    # expressions, decorators, args, etc. This trims the AST walk dramatically on
+    # expression-heavy functions.
+    def generic_visit(self, node: ast.AST) -> None:
+        return
+
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
         self._check_stmts(node.body)
-        self.generic_visit(node)
+        self._visit_stmts(node.body)
 
     def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
         self._check_stmts(node.body)
-        self.generic_visit(node)
+        self._visit_stmts(node.body)
 
     def visit_If(self, node: ast.If) -> None:
         self._check_stmts(node.body)
         self._check_stmts(node.orelse)
-        self.generic_visit(node)
+        self._visit_stmts(node.body)
+        self._visit_stmts(node.orelse)
 
     def visit_For(self, node: ast.For) -> None:
         self._check_stmts(node.body)
         self._check_stmts(node.orelse)
-        self.generic_visit(node)
+        self._visit_stmts(node.body)
+        self._visit_stmts(node.orelse)
 
     def visit_AsyncFor(self, node: ast.AsyncFor) -> None:
         self._check_stmts(node.body)
         self._check_stmts(node.orelse)
-        self.generic_visit(node)
+        self._visit_stmts(node.body)
+        self._visit_stmts(node.orelse)
 
     def visit_While(self, node: ast.While) -> None:
         self._check_stmts(node.body)
         self._check_stmts(node.orelse)
-        self.generic_visit(node)
+        self._visit_stmts(node.body)
+        self._visit_stmts(node.orelse)
 
     def visit_With(self, node: ast.With) -> None:
         self._check_stmts(node.body)
-        self.generic_visit(node)
+        self._visit_stmts(node.body)
 
     def visit_AsyncWith(self, node: ast.AsyncWith) -> None:
         self._check_stmts(node.body)
-        self.generic_visit(node)
+        self._visit_stmts(node.body)
 
     def visit_Try(self, node: ast.Try) -> None:
         self._check_stmts(node.body)
-        for handler in node.handlers:
-            self._check_stmts(handler.body)
         self._check_stmts(node.orelse)
         self._check_stmts(node.finalbody)
-        self.generic_visit(node)
+        self._visit_stmts(node.body)
+        for handler in node.handlers:
+            self._check_stmts(handler.body)
+            self._visit_stmts(handler.body)
+        self._visit_stmts(node.orelse)
+        self._visit_stmts(node.finalbody)
 
     def visit_Match(self, node: ast.Match) -> None:
         for case in node.cases:
             self._check_stmts(case.body)
-        self.generic_visit(node)
+            self._visit_stmts(case.body)

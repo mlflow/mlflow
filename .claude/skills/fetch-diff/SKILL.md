@@ -2,7 +2,7 @@
 name: fetch-diff
 description: Fetch PR diff with filtering and line numbers for code review.
 allowed-tools:
-  - Bash(uv run skills fetch-diff:*)
+  - Bash(uv run --package skills skills fetch-diff:*)
 ---
 
 # Fetch PR Diff
@@ -12,23 +12,23 @@ Fetches a pull request diff and adds line numbers for easier review comment plac
 ## Usage
 
 ```bash
-uv run skills fetch-diff <pr_url> [--files <pattern> ...]
+uv run --package skills skills fetch-diff <pr_url> [--files <pattern> ...]
 ```
 
 Examples:
 
 ```bash
 # Fetch the full diff
-uv run skills fetch-diff https://github.com/mlflow/mlflow/pull/123
+uv run --package skills skills fetch-diff https://github.com/mlflow/mlflow/pull/123
 
 # Fetch only Python files
-uv run skills fetch-diff https://github.com/mlflow/mlflow/pull/123 --files '*.py'
+uv run --package skills skills fetch-diff https://github.com/mlflow/mlflow/pull/123 --files '*.py'
 
 # Fetch only frontend files
-uv run skills fetch-diff https://github.com/mlflow/mlflow/pull/123 --files 'mlflow/server/js/*'
+uv run --package skills skills fetch-diff https://github.com/mlflow/mlflow/pull/123 --files 'mlflow/server/js/*'
 
 # Multiple patterns
-uv run skills fetch-diff https://github.com/mlflow/mlflow/pull/123 --files '*.py' '*.ts'
+uv run --package skills skills fetch-diff https://github.com/mlflow/mlflow/pull/123 --files '*.py' '*.ts'
 ```
 
 Token is auto-detected from `GH_TOKEN` env var or `gh auth token`.

@@ -11,6 +11,7 @@ from botocore.response import StreamingBody
 from packaging.version import Version
 
 import mlflow
+from mlflow.entities import SpanLogLevel
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.version import IS_TRACING_SDK_ONLY
 
@@ -230,6 +231,7 @@ def test_bedrock_autolog_invoke_model_llm(model_id, llm_request, llm_response, e
     span = traces[0].data.spans[0]
     assert span.name == "BedrockRuntime.invoke_model"
     assert span.span_type == "LLM"
+    assert span.log_level == SpanLogLevel.INFO
     assert span.inputs == {"body": request_body, "modelId": model_id}
     assert span.outputs == {
         "body": llm_response,

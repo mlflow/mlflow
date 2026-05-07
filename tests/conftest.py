@@ -652,7 +652,7 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
             "To run tests with additional packages, use:\n"
             "  uv run --with <package> pytest ...\n\n"
             "For multiple packages:\n"
-            "  uv run --with <package1> --with <package2> pytest ...\n\n",
+            "  uv run --with '<package1>,<package2>' pytest ...\n\n",
             yellow=True,
         )
 
@@ -1215,6 +1215,12 @@ def db_uri(cached_db: Path) -> Iterator[str]:
             shutil.copy2(cached_db, db_path)
 
         yield f"sqlite:///{db_path}"
+
+
+@pytest.fixture(scope="module")
+def monkeypatch_module():
+    with pytest.MonkeyPatch.context() as mp:
+        yield mp
 
 
 @pytest.fixture(autouse=True)

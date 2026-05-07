@@ -124,9 +124,14 @@ export function ModelTraceExplorerCodeSnippetBody({
           )}
         </div>
         {expandable && (
-          <div css={{ backgroundColor: theme.colors.backgroundSecondary }}>
+          <div
+            css={{ backgroundColor: theme.colors.backgroundSecondary, borderTop: `1px solid ${theme.colors.border}` }}
+          >
             <Button
-              css={{ width: '100%', padding: 0 }}
+              css={{
+                width: '100%',
+                padding: 0,
+              }}
               componentId={
                 expanded
                   ? 'shared.model-trace-explorer.snippet-see-less'

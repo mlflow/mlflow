@@ -16,7 +16,7 @@ from dspy.utils.dummies import DummyLM
 from packaging.version import Version
 
 import mlflow
-from mlflow.entities import Feedback, LoggedModelOutput, SpanType, Trace
+from mlflow.entities import Feedback, LoggedModelOutput, SpanLogLevel, SpanType, Trace
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey, TraceMetadataKey
 from mlflow.version import IS_TRACING_SDK_ONLY
 
@@ -125,6 +125,8 @@ def test_autolog_cot():
     assert len(spans) == 7
     assert spans[0].name == "ChainOfThought.forward"
     assert spans[0].span_type == SpanType.CHAIN
+    # CHAIN spans default to DEBUG; LLM children to INFO (asserted below).
+    assert spans[0].log_level == SpanLogLevel.DEBUG
     assert spans[0].status.status_code == "OK"
     assert spans[0].inputs == {"question": "How are you?"}
     assert spans[0].outputs == {"answer": "test output", "reasoning": "No more responses"}
@@ -141,6 +143,7 @@ def test_autolog_cot():
         }
     assert spans[1].name == "Predict.forward"
     assert spans[1].span_type == SpanType.LLM
+    assert spans[1].log_level == SpanLogLevel.INFO
     assert spans[1].inputs["question"] == "How are you?"
     assert spans[1].outputs == {"answer": "test output", "reasoning": "No more responses"}
     assert spans[2].name == "ChatAdapter.format"

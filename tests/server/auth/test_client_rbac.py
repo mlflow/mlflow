@@ -1,4 +1,3 @@
-import os
 from contextlib import contextmanager
 
 import pytest
@@ -6,6 +5,7 @@ import requests
 
 from mlflow import MlflowException
 from mlflow.environment_variables import (
+    MLFLOW_AUTH_CONFIG_PATH,
     MLFLOW_FLASK_SERVER_SECRET_KEY,
     MLFLOW_TRACKING_PASSWORD,
     MLFLOW_TRACKING_USERNAME,
@@ -17,7 +17,6 @@ from mlflow.protos.databricks_pb2 import (
     UNAUTHENTICATED,
     ErrorCode,
 )
-from mlflow.server.auth import auth_config
 from mlflow.server.auth.client import AuthServiceClient
 from mlflow.utils.os import is_windows
 
@@ -26,6 +25,7 @@ from tests.server.auth.auth_test_utils import (
     ADMIN_PASSWORD,
     ADMIN_USERNAME,
     User,
+    write_isolated_auth_config,
 )
 from tests.tracking.integration_test_utils import _init_server
 
@@ -38,10 +38,7 @@ def clear_credentials(monkeypatch):
 
 @pytest.fixture
 def client(tmp_path):
-    db_file = os.path.abspath(os.path.basename(auth_config.database_uri))
-    if os.path.exists(db_file):
-        os.remove(db_file)
-
+    auth_config_path = write_isolated_auth_config(tmp_path)
     path = tmp_path.joinpath("sqlalchemy.db").as_uri()
     backend_uri = ("sqlite://" if is_windows() else "sqlite:////") + path[len("file://") :]
 
@@ -49,7 +46,10 @@ def client(tmp_path):
         backend_uri=backend_uri,
         root_artifact_uri=tmp_path.joinpath("artifacts").as_uri(),
         app="mlflow.server.auth:create_app",
-        extra_env={MLFLOW_FLASK_SERVER_SECRET_KEY.name: "my-secret-key"},
+        extra_env={
+            MLFLOW_FLASK_SERVER_SECRET_KEY.name: "my-secret-key",
+            MLFLOW_AUTH_CONFIG_PATH.name: str(auth_config_path),
+        },
         server_type="flask",
     ) as url:
         yield AuthServiceClient(url)
