@@ -31,7 +31,6 @@ import {
   useUsersQuery,
   useDeleteUser,
   useRolesQuery,
-  useRolesInWorkspacesQuery,
   useDeleteRole,
   useUserRolesQuery,
   useWithSettingsReturnTo,
@@ -299,17 +298,17 @@ const UsersTab = () => {
 
 const RolesTab = () => {
   const { theme } = useDesignSystemTheme();
-  // Platform admins fetch roles unscoped; workspace managers fan out one
-  // query per workspace they administer and merge. Every visible row is
+  // Platform admins fetch unscoped (every workspace); workspace managers
+  // pass the list of workspaces they administer. Every visible row is
   // therefore in a workspace the user can manage, so bulk-delete is safe.
   const isAdmin = useCurrentUserIsAdmin();
   const adminWorkspaces = useCurrentUserAdminWorkspaces();
   const canManageRoles = isAdmin || adminWorkspaces.size > 0;
-  const adminRolesQuery = useRolesQuery(undefined, { enabled: isAdmin });
-  const workspaceRolesQuery = useRolesInWorkspacesQuery(isAdmin ? new Set<string>() : adminWorkspaces);
-  const rolesData = isAdmin ? adminRolesQuery.data : workspaceRolesQuery.data;
-  const isLoading = isAdmin ? adminRolesQuery.isLoading : workspaceRolesQuery.isLoading;
-  const queryError = isAdmin ? adminRolesQuery.error : workspaceRolesQuery.error;
+  const queryWorkspaces = useMemo(
+    () => (isAdmin ? undefined : Array.from(adminWorkspaces)),
+    [isAdmin, adminWorkspaces],
+  );
+  const { data: rolesData, isLoading, error: queryError } = useRolesQuery(queryWorkspaces);
   const deleteRole = useDeleteRole();
   const withReturnTo = useWithSettingsReturnTo();
 

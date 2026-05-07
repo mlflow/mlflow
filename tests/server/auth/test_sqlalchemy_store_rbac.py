@@ -101,6 +101,28 @@ def test_list_all_roles(store):
     assert len(all_roles) == 2
 
 
+def test_list_roles_in_workspaces(store):
+    store.create_role(name="viewer", workspace="ws1")
+    store.create_role(name="editor", workspace="ws1")
+    store.create_role(name="viewer", workspace="ws2")
+    store.create_role(name="other", workspace="ws3")
+
+    # Subset across two workspaces.
+    roles = store.list_roles_in_workspaces(["ws1", "ws2"])
+    assert {(r.workspace, r.name) for r in roles} == {
+        ("ws1", "viewer"),
+        ("ws1", "editor"),
+        ("ws2", "viewer"),
+    }
+
+    # Single-element list matches ``list_roles`` behavior.
+    assert {r.name for r in store.list_roles_in_workspaces(["ws3"])} == {"other"}
+
+    # Empty input returns nothing — callers must use ``list_all_roles`` for
+    # the unscoped admin path.
+    assert store.list_roles_in_workspaces([]) == []
+
+
 def test_update_role(store):
     role = store.create_role(name="old-name", workspace="ws1", description="old desc")
     updated = store.update_role(role.id, name="new-name", description="new desc")

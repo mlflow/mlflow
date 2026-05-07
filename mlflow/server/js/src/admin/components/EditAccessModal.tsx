@@ -19,7 +19,6 @@ import {
   useCurrentUserIsAdmin,
   useGrantUserPermission,
   useRevokeUserPermission,
-  useRolesInWorkspacesQuery,
   useRolesQuery,
   useUserPermissionsQuery,
   useUserRolesQuery,
@@ -76,12 +75,14 @@ export const EditAccessModal = ({ open, onClose, username, onCreateRoleForAllOfT
   const { data: usersData, isLoading: usersLoading } = useUsersQuery();
   // Roles list for the Review step's name lookup (the form uses the
   // dropdown's own label, but the Review step renders by id). Platform
-  // admins fetch unscoped; workspace managers fan out across the
-  // workspaces they administer.
+  // admins fetch unscoped; workspace managers pass the list of workspaces
+  // they administer.
   const adminWorkspaces = useCurrentUserAdminWorkspaces();
-  const adminRolesQuery = useRolesQuery(undefined, { enabled: isCurrentUserAdmin });
-  const workspaceRolesQuery = useRolesInWorkspacesQuery(isCurrentUserAdmin ? new Set<string>() : adminWorkspaces);
-  const rolesListData = isCurrentUserAdmin ? adminRolesQuery.data : workspaceRolesQuery.data;
+  const rolesListWorkspaces = useMemo(
+    () => (isCurrentUserAdmin ? undefined : Array.from(adminWorkspaces)),
+    [isCurrentUserAdmin, adminWorkspaces],
+  );
+  const { data: rolesListData } = useRolesQuery(rolesListWorkspaces);
 
   const currentRoleIds = useMemo<number[]>(() => (rolesData?.roles ?? []).map((r) => r.id), [rolesData]);
   const currentDirectPerms = useMemo<StagedDirectPermission[]>(

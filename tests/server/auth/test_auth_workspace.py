@@ -2132,9 +2132,38 @@ def test_validate_can_list_roles_blank_workspace_denied_for_non_admin(role_auth_
 
 
 @pytest.mark.parametrize(
+    ("actor", "workspaces", "expected"),
+    [
+        # Super admin lists across any combination unconditionally.
+        ("super_admin", ["foo", "bar"], True),
+        # Workspace admin must hold a role in *every* requested workspace.
+        ("ws_admin_foo", ["foo"], True),
+        ("ws_admin_foo", ["foo", "bar"], False),  # not present in bar
+        ("ws_admin_foo", ["foo", "foo"], True),  # duplicate is fine
+        # Member of foo can list foo, but not foo + bar.
+        ("ws_member_foo", ["foo"], True),
+        ("ws_member_foo", ["foo", "bar"], False),
+        # Outsider can list nothing.
+        ("outsider", ["foo"], False),
+        ("outsider", ["foo", "bar"], False),
+    ],
+)
+def test_validate_can_list_roles_multi_workspace(role_auth_setup, actor, workspaces, expected):
+    role_auth_setup["login_as"](actor)
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/roles/list",
+        method="GET",
+        query_string=[("workspace", w) for w in workspaces],
+    ):
+        assert auth_module.validate_can_list_roles() is expected
+
+
+# Super admin is omitted from these parametrizations: ``_before_request``
+# short-circuits via ``sender_is_admin`` before the validator is reached, so
+# the validator is unreachable for them in production.
+@pytest.mark.parametrize(
     ("actor", "expected"),
     [
-        ("super_admin", True),
         ("ws_admin_foo", True),
         ("ws_admin_bar", True),
         ("ws_member_foo", False),
@@ -2150,7 +2179,6 @@ def test_validate_can_list_users(role_auth_setup, actor, expected):
 @pytest.mark.parametrize(
     ("actor", "expected"),
     [
-        ("super_admin", True),
         ("ws_admin_foo", True),
         ("ws_admin_bar", True),
         ("ws_member_foo", False),

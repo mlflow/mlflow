@@ -1,4 +1,5 @@
 import re
+from collections.abc import Iterable
 from urllib.parse import quote, unquote
 
 from sqlalchemy import and_, or_, select, text
@@ -1553,6 +1554,22 @@ class SqlAlchemyStore:
                 .query(SqlRole)
                 .options(selectinload(SqlRole.permissions))
                 .filter(SqlRole.workspace == workspace)
+                .all()
+            )
+            return [r.to_mlflow_entity() for r in roles]
+
+    def list_roles_in_workspaces(self, workspaces: Iterable[str]) -> list[Role]:
+        # Empty input returns nothing — callers must use ``list_all_roles`` for
+        # the unscoped admin path.
+        names = list(workspaces)
+        if not names:
+            return []
+        with self.ManagedSessionMaker() as session:
+            roles = (
+                session
+                .query(SqlRole)
+                .options(selectinload(SqlRole.permissions))
+                .filter(SqlRole.workspace.in_(names))
                 .all()
             )
             return [r.to_mlflow_entity() for r in roles]

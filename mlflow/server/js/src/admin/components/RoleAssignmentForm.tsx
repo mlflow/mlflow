@@ -11,12 +11,7 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FieldLabel } from './FieldLabel';
-import {
-  useCurrentUserAdminWorkspaces,
-  useCurrentUserIsAdmin,
-  useRolesInWorkspacesQuery,
-  useRolesQuery,
-} from '../hooks';
+import { useCurrentUserAdminWorkspaces, useCurrentUserIsAdmin, useRolesQuery } from '../hooks';
 import type { Role } from '../types';
 
 export interface RoleAssignmentValue {
@@ -46,15 +41,15 @@ export const RoleAssignmentForm = ({ value, onChange, disabled }: RoleAssignment
   const { theme } = useDesignSystemTheme();
   const [search, setSearch] = useState('');
   // Platform admins fetch unscoped (every workspace); workspace managers
-  // fan out to one query per workspace they administer and merge.
+  // pass the list of workspaces they administer.
   const isAdmin = useCurrentUserIsAdmin();
   const adminWorkspaces = useCurrentUserAdminWorkspaces();
-  const adminRolesQuery = useRolesQuery(undefined, { enabled: isAdmin });
-  const workspaceRolesQuery = useRolesInWorkspacesQuery(isAdmin ? new Set<string>() : adminWorkspaces);
-  const rolesData = isAdmin ? adminRolesQuery.data : workspaceRolesQuery.data;
-  const isLoading = isAdmin ? adminRolesQuery.isLoading : workspaceRolesQuery.isLoading;
-  const error = isAdmin ? adminRolesQuery.error : workspaceRolesQuery.error;
+  const queryWorkspaces = useMemo(
+    () => (isAdmin ? undefined : Array.from(adminWorkspaces)),
+    [isAdmin, adminWorkspaces],
+  );
   const queryEnabled = isAdmin || adminWorkspaces.size > 0;
+  const { data: rolesData, isLoading, error } = useRolesQuery(queryWorkspaces);
   const roles = useMemo(() => rolesData?.roles ?? [], [rolesData]);
 
   // Pin "default" workspace's roles first; sort the rest alphabetically
