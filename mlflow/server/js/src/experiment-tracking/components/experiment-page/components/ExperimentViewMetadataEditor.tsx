@@ -23,15 +23,30 @@ import {
   getMarkdownConverter,
   sanitizeConvertedHtml,
 } from '../../../../common/utils/MarkdownUtils';
+import { TraceArchivalRetentionInput } from '../../../../common/components/TraceArchivalRetentionInput';
 import { ThemeAwareReactMde } from '../../../../common/components/EditableNote';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { getExperimentApi, setExperimentTagApi, updateExperimentApi } from '../../../actions';
 import { getExperimentNameValidator } from '../../../../common/forms/validations';
 import { useInvalidateExperimentList } from '../hooks/useExperimentListQuery';
 import { canModifyExperiment, canRenameExperiment } from '../utils/experimentPage.common-utils';
+import {
+  DEFAULT_TRACE_ARCHIVAL_RETENTION_UNIT,
+  decodeTraceArchivalRetentionTag,
+  encodeTraceArchivalRetentionTag,
+  formatTraceArchivalRetention,
+  getTraceArchivalRetentionValidationError,
+  parseTraceArchivalRetention,
+  TRACE_ARCHIVAL_RETENTION_TAG_KEY,
+  type TraceArchivalRetentionUnit,
+} from '../../../../common/utils/traceArchival';
+import { MlflowService } from '../../../sdk/MlflowService';
 
 const extractNoteFromTags = (tags: Record<string, KeyValueEntity>) =>
   Object.values(tags).find((t) => t.key === NOTE_CONTENT_TAG)?.value;
+
+const extractTraceArchivalRetentionFromTags = (tags: KeyValueEntity[]) =>
+  decodeTraceArchivalRetentionTag(tags.find((t) => t.key === TRACE_ARCHIVAL_RETENTION_TAG_KEY)?.value);
 
 const toolbarCommands = [
   ['header', 'bold', 'italic', 'strikethrough'],
@@ -47,6 +62,77 @@ const getSanitizedHtmlContent = (markdown: string | undefined) => {
     return forceAnchorTagNewTab(sanitized);
   }
   return null;
+};
+
+const getPartialSaveErrorMessage = ({
+  didRename,
+  didUpdateNote,
+  didUpdateRetention,
+  didAttemptNoteUpdate,
+  didAttemptRetentionUpdate,
+  hasNoteChanged,
+  hasRetentionChanged,
+  intl,
+}: {
+  didRename: boolean;
+  didUpdateNote: boolean;
+  didUpdateRetention: boolean;
+  didAttemptNoteUpdate: boolean;
+  didAttemptRetentionUpdate: boolean;
+  hasNoteChanged: boolean;
+  hasRetentionChanged: boolean;
+  intl: ReturnType<typeof useIntl>;
+}) => {
+  const noteFailureMessage = didAttemptNoteUpdate
+    ? intl.formatMessage({
+        defaultMessage: 'Description update failed',
+        description: 'Partial save status message when experiment description update fails',
+      })
+    : intl.formatMessage({
+        defaultMessage: 'Description not updated',
+        description: 'Partial save status message when experiment description update was not attempted',
+      });
+  const retentionFailureMessage = didAttemptRetentionUpdate
+    ? intl.formatMessage({
+        defaultMessage: 'Trace archival retention update failed',
+        description: 'Partial save status message when experiment trace archival retention update fails',
+      })
+    : intl.formatMessage({
+        defaultMessage: 'Trace archival retention not updated',
+        description: 'Partial save status message when experiment trace archival retention update was not attempted',
+      });
+
+  const successfulActions = [
+    didRename
+      ? intl.formatMessage({
+          defaultMessage: 'Experiment renamed',
+          description: 'Partial save status message when experiment rename succeeds',
+        })
+      : undefined,
+    didUpdateNote
+      ? intl.formatMessage({
+          defaultMessage: 'Description updated',
+          description: 'Partial save status message when experiment description update succeeds',
+        })
+      : undefined,
+    didUpdateRetention
+      ? intl.formatMessage({
+          defaultMessage: 'Trace archival retention updated',
+          description: 'Partial save status message when experiment trace archival retention update succeeds',
+        })
+      : undefined,
+  ].filter(Boolean);
+
+  const failedActions = [
+    hasNoteChanged && !didUpdateNote ? noteFailureMessage : undefined,
+    hasRetentionChanged && !didUpdateRetention ? retentionFailureMessage : undefined,
+  ].filter(Boolean);
+
+  if (successfulActions.length === 0 || failedActions.length === 0) {
+    return undefined;
+  }
+
+  return `${[...successfulActions, ...failedActions].join('. ')}.`;
 };
 
 export const ExperimentViewMetadataEditor = ({
@@ -73,9 +159,16 @@ export const ExperimentViewMetadataEditor = ({
   );
 
   const effectiveNote = storedNote ?? defaultValue;
+  const currentTraceArchivalRetention = extractTraceArchivalRetentionFromTags(experiment.tags);
+  const initialTraceArchivalRetentionState = parseTraceArchivalRetention(currentTraceArchivalRetention);
   const [tmpName, setTmpName] = useState(experiment.name);
   const [tmpNote, setTmpNote] = useState(effectiveNote);
   const [nameError, setNameError] = useState<string | undefined>();
+  const [tmpRetentionAmount, setTmpRetentionAmount] = useState(initialTraceArchivalRetentionState.amount);
+  const [tmpRetentionUnit, setTmpRetentionUnit] = useState<TraceArchivalRetentionUnit>(
+    initialTraceArchivalRetentionState.unit,
+  );
+  const [retentionError, setRetentionError] = useState<string | undefined>();
   const [saveError, setSaveError] = useState<string | undefined>();
   const [isSaving, setIsSaving] = useState(false);
   const [selectedTab, setSelectedTab] = useState<'write' | 'preview'>('write');
@@ -95,6 +188,21 @@ export const ExperimentViewMetadataEditor = ({
   const canEditMetadata = canModifyExperiment(experiment);
   const canRename = canRenameExperiment(experiment);
 
+  const updateTmpRetention = useCallback(
+    ({
+      amount = tmpRetentionAmount,
+      unit = tmpRetentionUnit,
+    }: {
+      amount?: string;
+      unit?: TraceArchivalRetentionUnit;
+    }) => {
+      setTmpRetentionAmount(amount);
+      setTmpRetentionUnit(unit);
+      setRetentionError(getTraceArchivalRetentionValidationError(amount, unit, intl));
+    },
+    [intl, tmpRetentionAmount, tmpRetentionUnit],
+  );
+
   const validateExperimentName = useCallback(
     async (experimentName: string) =>
       new Promise<string | undefined>((resolve) => {
@@ -104,12 +212,24 @@ export const ExperimentViewMetadataEditor = ({
   );
 
   const handleSubmitEditExperiment = useCallback(
-    async (updatedName?: string, updatedNote?: string) => {
+    async (
+      updatedName?: string,
+      updatedNote?: string,
+      updatedRetentionAmount?: string,
+      updatedRetentionUnit: TraceArchivalRetentionUnit = DEFAULT_TRACE_ARCHIVAL_RETENTION_UNIT,
+    ) => {
       const trimmedName = updatedName?.trim() ?? '';
       const currentNote = effectiveNote ?? '';
       const updatedNoteValue = updatedNote ?? '';
       const hasNoteChanged = canEditMetadata && updatedNoteValue !== currentNote;
       const shouldRename = canRename && trimmedName !== experiment.name;
+      const trimmedRetention = formatTraceArchivalRetention(updatedRetentionAmount ?? '', updatedRetentionUnit);
+      const hasRetentionChanged = canEditMetadata && trimmedRetention !== currentTraceArchivalRetention;
+      const retentionValidationError = getTraceArchivalRetentionValidationError(
+        updatedRetentionAmount ?? '',
+        updatedRetentionUnit,
+        intl,
+      );
       if (canRename && !trimmedName) {
         setNameError(
           intl.formatMessage({
@@ -117,6 +237,10 @@ export const ExperimentViewMetadataEditor = ({
             description: 'experiment page > edit experiment modal > empty experiment name validation error',
           }),
         );
+        return;
+      }
+      if (canEditMetadata && retentionValidationError) {
+        setRetentionError(retentionValidationError);
         return;
       }
 
@@ -129,28 +253,76 @@ export const ExperimentViewMetadataEditor = ({
       }
 
       setNameError(undefined);
+      setRetentionError(undefined);
       setSaveError(undefined);
       setIsSaving(true);
+      let didRename = false;
+      let didUpdateNote = false;
+      let didUpdateRetention = false;
+      let didAttemptNoteUpdate = false;
+      let didAttemptRetentionUpdate = false;
 
       try {
         if (shouldRename) {
           await dispatch(updateExperimentApi(experiment.experimentId, trimmedName));
-          invalidateExperimentList();
+          didRename = true;
         }
 
         if (hasNoteChanged) {
+          didAttemptNoteUpdate = true;
           await dispatch(setExperimentTagApi(experiment.experimentId, NOTE_CONTENT_TAG, updatedNote));
+          didUpdateNote = true;
         }
 
-        if (shouldRename) {
+        if (hasRetentionChanged) {
+          didAttemptRetentionUpdate = true;
+          if (trimmedRetention) {
+            await MlflowService.setExperimentTag({
+              experiment_id: experiment.experimentId,
+              key: TRACE_ARCHIVAL_RETENTION_TAG_KEY,
+              value: encodeTraceArchivalRetentionTag(trimmedRetention),
+            });
+          } else {
+            await MlflowService.deleteExperimentTag({
+              experiment_id: experiment.experimentId,
+              key: TRACE_ARCHIVAL_RETENTION_TAG_KEY,
+            });
+          }
+          didUpdateRetention = true;
+        }
+
+        if (didRename || didUpdateRetention) {
           await dispatch(getExperimentApi(experiment.experimentId)).catch(() => undefined);
         }
-
-        onNoteUpdated?.();
+        if (didRename) {
+          invalidateExperimentList();
+        }
+        if (didRename || didUpdateNote || didUpdateRetention) {
+          onNoteUpdated?.();
+        }
         setEditing(false);
       } catch (e: any) {
+        if (didRename || didUpdateRetention) {
+          await dispatch(getExperimentApi(experiment.experimentId)).catch(() => undefined);
+        }
+        if (didRename) {
+          invalidateExperimentList();
+        }
+        if (didRename || didUpdateNote || didUpdateRetention) {
+          onNoteUpdated?.();
+        }
         setSaveError(
-          e?.message ||
+          getPartialSaveErrorMessage({
+            didRename,
+            didUpdateNote,
+            didUpdateRetention,
+            didAttemptNoteUpdate,
+            didAttemptRetentionUpdate,
+            hasNoteChanged,
+            hasRetentionChanged,
+            intl,
+          }) ||
+            e?.message ||
             intl.formatMessage({
               defaultMessage: 'Failed to update experiment. Please try again.',
               description: 'experiment page > edit experiment modal > generic save error',
@@ -165,6 +337,7 @@ export const ExperimentViewMetadataEditor = ({
       experiment.experimentId,
       experiment.name,
       effectiveNote,
+      currentTraceArchivalRetention,
       invalidateExperimentList,
       intl,
       onNoteUpdated,
@@ -195,9 +368,13 @@ export const ExperimentViewMetadataEditor = ({
       setTmpName(experiment.name);
       setTmpNote(effectiveNote);
       setNameError(undefined);
+      const nextTraceArchivalRetentionState = parseTraceArchivalRetention(currentTraceArchivalRetention);
+      setTmpRetentionAmount(nextTraceArchivalRetentionState.amount);
+      setTmpRetentionUnit(nextTraceArchivalRetentionState.unit);
+      setRetentionError(undefined);
       setSaveError(undefined);
     }
-  }, [editing, effectiveNote, experiment.name]);
+  }, [editing, effectiveNote, experiment.name, currentTraceArchivalRetention]);
 
   return (
     <div
@@ -286,11 +463,15 @@ export const ExperimentViewMetadataEditor = ({
             description="experiment page > edit experiment modal > cancel button"
           />
         }
-        onOk={() => handleSubmitEditExperiment(tmpName, tmpNote)}
+        onOk={() => handleSubmitEditExperiment(tmpName, tmpNote, tmpRetentionAmount, tmpRetentionUnit)}
         onCancel={() => {
           setTmpName(experiment.name);
           setTmpNote(effectiveNote);
           setNameError(undefined);
+          const nextTraceArchivalRetentionState = parseTraceArchivalRetention(currentTraceArchivalRetention);
+          setTmpRetentionAmount(nextTraceArchivalRetentionState.amount);
+          setTmpRetentionUnit(nextTraceArchivalRetentionState.unit);
+          setRetentionError(undefined);
           setSaveError(undefined);
           setEditing(false);
         }}
@@ -334,7 +515,7 @@ export const ExperimentViewMetadataEditor = ({
           )}
           {canEditMetadata && (
             <div>
-              <FormUI.Label htmlFor="mlflow.experiment.edit.description">
+              <FormUI.Label id="mlflow.experiment.edit.description-label" htmlFor="mlflow.experiment.edit.description">
                 <FormattedMessage
                   defaultMessage="Description"
                   description="experiment page > edit experiment modal > description label"
@@ -351,7 +532,40 @@ export const ExperimentViewMetadataEditor = ({
                 onTabChange={(newTab) => setSelectedTab(newTab)}
                 generateMarkdownPreview={() => Promise.resolve(getSanitizedHtmlContent(tmpNote))}
                 getIcon={getIcon}
+                childProps={{
+                  textArea: {
+                    id: 'mlflow.experiment.edit.description',
+                    'aria-labelledby': 'mlflow.experiment.edit.description-label',
+                  },
+                }}
               />
+            </div>
+          )}
+          {canEditMetadata && (
+            <div>
+              <FormUI.Label htmlFor="mlflow.experiment.edit.trace-archival-retention-amount">
+                <FormattedMessage
+                  defaultMessage="Trace archival retention"
+                  description="experiment page > edit experiment modal > trace archival retention label"
+                />
+              </FormUI.Label>
+              <FormUI.Hint>
+                <FormattedMessage
+                  defaultMessage="Optional. Set an experiment-specific archival retention override. Leave blank to inherit the workspace or server default."
+                  description="experiment page > edit experiment modal > trace archival retention hint"
+                />
+              </FormUI.Hint>
+              <TraceArchivalRetentionInput
+                amount={tmpRetentionAmount}
+                amountInputId="mlflow.experiment.edit.trace-archival-retention-amount"
+                componentId="mlflow.experiment.edit.trace-archival-retention"
+                error={Boolean(retentionError)}
+                onAmountChange={(amount) => updateTmpRetention({ amount })}
+                onUnitChange={(unit) => updateTmpRetention({ unit })}
+                unitSelectorId="mlflow.experiment.edit.trace-archival-retention-unit"
+                unit={tmpRetentionUnit}
+              />
+              {retentionError && <FormUI.Message type="error" message={retentionError} />}
             </div>
           )}
         </div>
