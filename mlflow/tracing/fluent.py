@@ -1072,8 +1072,10 @@ def search_traces(
         _logger.debug("Searching traces in the current active experiment")
         locations = _get_search_locations(locations)
 
-    if locations and any("." in loc for loc in locations) and (
-        not filter_string or "trace.timestamp_ms" not in filter_string.lower()
+    if (
+        locations
+        and any("." in loc for loc in locations)
+        and (not filter_string or "trace.timestamp_ms" not in filter_string.lower())
     ):
         warnings.warn(
             "Searching traces without a time range constraint on UC table locations can be slow "
