@@ -11,7 +11,8 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FieldLabel } from './FieldLabel';
-import { useCurrentUserAdminWorkspaces, useCurrentUserIsAdmin, useRolesQuery } from '../hooks';
+import { useCurrentUserIsAdmin, useRolesQuery } from '../hooks';
+import { useActiveWorkspace } from '../../workspaces/utils/WorkspaceUtils';
 import type { Role } from '../types';
 
 export interface RoleAssignmentValue {
@@ -40,16 +41,13 @@ const formatRoleLabel = (role: Role): string =>
 export const RoleAssignmentForm = ({ value, onChange, disabled }: RoleAssignmentFormProps) => {
   const { theme } = useDesignSystemTheme();
   const [search, setSearch] = useState('');
-  // Platform admins fetch unscoped (every workspace); workspace managers
-  // pass the list of workspaces they administer.
+  // Per-workspace scope: platform admins fetch unscoped; workspace
+  // managers pass the active workspace. Suppress when none is active.
   const isAdmin = useCurrentUserIsAdmin();
-  const adminWorkspaces = useCurrentUserAdminWorkspaces();
-  const queryWorkspaces = useMemo(
-    () => (isAdmin ? undefined : Array.from(adminWorkspaces)),
-    [isAdmin, adminWorkspaces],
-  );
-  const queryEnabled = isAdmin || adminWorkspaces.size > 0;
-  const { data: rolesData, isLoading, error } = useRolesQuery(queryWorkspaces);
+  const activeWorkspace = useActiveWorkspace();
+  const queryWorkspace = isAdmin ? undefined : (activeWorkspace ?? undefined);
+  const queryEnabled = isAdmin || Boolean(activeWorkspace);
+  const { data: rolesData, isLoading, error } = useRolesQuery(queryWorkspace, { enabled: queryEnabled });
   const roles = useMemo(() => rolesData?.roles ?? [], [rolesData]);
 
   // Pin "default" workspace's roles first; sort the rest alphabetically
@@ -91,7 +89,9 @@ export const RoleAssignmentForm = ({ value, onChange, disabled }: RoleAssignment
       <div>
         <FieldLabel>Roles</FieldLabel>
         {!queryEnabled ? (
-          <Typography.Text color="secondary">No roles available.</Typography.Text>
+          <Typography.Text color="secondary">
+            Select a workspace from the workspace selector to choose roles.
+          </Typography.Text>
         ) : isLoading ? (
           <div css={{ padding: theme.spacing.sm }}>
             <Spinner size="small" />

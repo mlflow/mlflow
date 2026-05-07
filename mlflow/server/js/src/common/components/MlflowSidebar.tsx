@@ -30,8 +30,8 @@ import GatewayRoutes from '../../gateway/routes';
 import AccountRoutes from '../../account/routes';
 import AdminRoutes from '../../admin/routes';
 import {
+  useCurrentUserAdminWorkspaces,
   useCurrentUserIsAdmin,
-  useCurrentUserIsWorkspaceAdmin,
   useCurrentUserQuery,
   useIsBasicAuth,
 } from '../../account/hooks';
@@ -147,12 +147,13 @@ export function MlflowSidebar({
   const showNestedExperimentItems = Boolean(activeExperimentId) && shouldEnableWorkflowBasedNavigation();
   const showNestedSettingsItems = isSettingsActive(location);
 
-  // Manage is globally accessible to platform admins and to anyone holding
-  // a workspace-admin role anywhere — /admin lists roles across all
-  // workspaces the user manages, not just the active one.
+  // Manage is per-workspace: visible to platform admins always, and to
+  // workspace admins only when the active workspace is one they manage.
+  // /admin scopes its content to the active workspace.
   const isAdmin = useCurrentUserIsAdmin();
-  const isWorkspaceAdmin = useCurrentUserIsWorkspaceAdmin();
-  const canManage = isAdmin || isWorkspaceAdmin;
+  const adminWorkspaces = useCurrentUserAdminWorkspaces();
+  const activeWorkspace = useActiveWorkspace();
+  const canManage = isAdmin || (activeWorkspace !== null && adminWorkspaces.has(activeWorkspace));
 
   const { openPanel, closePanel, isPanelOpen, isLocalServer } = useAssistant();
   const [isAssistantHovered, setIsAssistantHovered] = useState(false);
@@ -281,8 +282,8 @@ export function MlflowSidebar({
   const workspaceFromUrl = extractWorkspaceFromSearchParams(searchParams);
   // Global routes (e.g. /account) don't carry ``?workspace=`` in the URL but
   // preserve the in-memory active workspace so the sidebar's workspace-scoped
-  // links resume in the same workspace. Fall back to the active workspace.
-  const activeWorkspace = useActiveWorkspace();
+  // links resume in the same workspace. Fall back to the active workspace
+  // (already pulled in above for the Manage gate).
   const effectiveWorkspace = workspaceFromUrl ?? activeWorkspace;
   // Only show workspace-specific menu items when: workspaces are disabled OR a workspace is selected
   const showWorkspaceMenuItems = !workspacesEnabled || effectiveWorkspace !== null;

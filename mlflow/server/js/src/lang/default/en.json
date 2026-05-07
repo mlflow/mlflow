@@ -795,6 +795,10 @@
     "defaultMessage": "Process {evaluableRowCount} rows without evaluation output",
     "description": "Experiment page > artifact compare view > run column header > \"Evaluate all\" button tooltip"
   },
+  "2gvIco": {
+    "defaultMessage": "Workspace: {workspace}",
+    "description": "Subtitle on the admin page identifying the active workspace for workspace managers"
+  },
   "2gxV/O": {
     "defaultMessage": "Evaluation not available when grouping is enabled",
     "description": "Experiment page > artifact compare view > disabled due to run grouping > title"
@@ -5315,6 +5319,10 @@
     "defaultMessage": "Ground truth values annotated to the trace",
     "description": "Tooltip description for the Expectation column group in the traces table"
   },
+  "UsvDLH": {
+    "defaultMessage": "Select a workspace",
+    "description": "Roles tab empty state shown to workspace admins without an active workspace"
+  },
   "UtUq/x": {
     "defaultMessage": "Registered models",
     "description": "Header title for the registered models column in the logged model list table"
@@ -5767,6 +5775,10 @@
     "defaultMessage": "Session ID",
     "description": "Label for the session id section"
   },
+  "XJP2Uv": {
+    "defaultMessage": "Pick a workspace from the workspace selector to see its roles.",
+    "description": "Roles tab empty state body when no workspace is selected"
+  },
   "XK+0na": {
     "defaultMessage": "Reset period",
     "description": "Budget reset period column header"
@@ -6122,10 +6134,6 @@
   "Zb6BqS": {
     "defaultMessage": "Relative Time",
     "description": "Label for the relative axis on the runs compare chart"
-  },
-  "ZbEDiu": {
-    "defaultMessage": "Workspace: {workspaces}",
-    "description": "Subtitle on the admin page identifying the single workspace a workspace manager administers"
   },
   "Zbff/R": {
     "defaultMessage": "Unified interface for accessing multiple LLM providers.",
@@ -7366,10 +7374,6 @@
   "gUhc5g": {
     "defaultMessage": "You need to evaluate the resulting output first",
     "description": "Experiment page > new run modal > invalid state - result not evaluated"
-  },
-  "gUnBuA": {
-    "defaultMessage": "Workspaces: {workspaces}",
-    "description": "Subtitle on the admin page listing all workspaces a workspace manager administers"
   },
   "gVxisd": {
     "defaultMessage": "Tag \"{value}\" already exists.",
