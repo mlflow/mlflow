@@ -22,6 +22,57 @@ AJAX_DELETE_USER = _get_ajax_path("/mlflow/users/delete")
 LIST_USERS = _get_rest_path("/mlflow/users/list")
 AJAX_LIST_USERS = _get_ajax_path("/mlflow/users/list")
 
+# Legacy per-resource permission routes. Retained for backward compatibility
+# with pre-RBAC clients; the handlers route to the synthetic per-user role's
+# grants in ``role_permissions`` (see migration ``e5f6a7b8c9d0``). New callers
+# should use the role API (``add_role_permission`` + ``assign_role``).
+CREATE_EXPERIMENT_PERMISSION = _get_rest_path("/mlflow/experiments/permissions/create")
+GET_EXPERIMENT_PERMISSION = _get_rest_path("/mlflow/experiments/permissions/get")
+UPDATE_EXPERIMENT_PERMISSION = _get_rest_path("/mlflow/experiments/permissions/update")
+DELETE_EXPERIMENT_PERMISSION = _get_rest_path("/mlflow/experiments/permissions/delete")
+CREATE_REGISTERED_MODEL_PERMISSION = _get_rest_path("/mlflow/registered-models/permissions/create")
+GET_REGISTERED_MODEL_PERMISSION = _get_rest_path("/mlflow/registered-models/permissions/get")
+UPDATE_REGISTERED_MODEL_PERMISSION = _get_rest_path("/mlflow/registered-models/permissions/update")
+DELETE_REGISTERED_MODEL_PERMISSION = _get_rest_path("/mlflow/registered-models/permissions/delete")
+CREATE_SCORER_PERMISSION = _get_rest_path("/mlflow/scorers/permissions/create", version=3)
+GET_SCORER_PERMISSION = _get_rest_path("/mlflow/scorers/permissions/get", version=3)
+UPDATE_SCORER_PERMISSION = _get_rest_path("/mlflow/scorers/permissions/update", version=3)
+DELETE_SCORER_PERMISSION = _get_rest_path("/mlflow/scorers/permissions/delete", version=3)
+CREATE_GATEWAY_SECRET_PERMISSION = _get_rest_path(
+    "/mlflow/gateway/secrets/permissions/create", version=3
+)
+GET_GATEWAY_SECRET_PERMISSION = _get_rest_path("/mlflow/gateway/secrets/permissions/get", version=3)
+UPDATE_GATEWAY_SECRET_PERMISSION = _get_rest_path(
+    "/mlflow/gateway/secrets/permissions/update", version=3
+)
+DELETE_GATEWAY_SECRET_PERMISSION = _get_rest_path(
+    "/mlflow/gateway/secrets/permissions/delete", version=3
+)
+CREATE_GATEWAY_ENDPOINT_PERMISSION = _get_rest_path(
+    "/mlflow/gateway/endpoints/permissions/create", version=3
+)
+GET_GATEWAY_ENDPOINT_PERMISSION = _get_rest_path(
+    "/mlflow/gateway/endpoints/permissions/get", version=3
+)
+UPDATE_GATEWAY_ENDPOINT_PERMISSION = _get_rest_path(
+    "/mlflow/gateway/endpoints/permissions/update", version=3
+)
+DELETE_GATEWAY_ENDPOINT_PERMISSION = _get_rest_path(
+    "/mlflow/gateway/endpoints/permissions/delete", version=3
+)
+CREATE_GATEWAY_MODEL_DEFINITION_PERMISSION = _get_rest_path(
+    "/mlflow/gateway/model-definitions/permissions/create", version=3
+)
+GET_GATEWAY_MODEL_DEFINITION_PERMISSION = _get_rest_path(
+    "/mlflow/gateway/model-definitions/permissions/get", version=3
+)
+UPDATE_GATEWAY_MODEL_DEFINITION_PERMISSION = _get_rest_path(
+    "/mlflow/gateway/model-definitions/permissions/update", version=3
+)
+DELETE_GATEWAY_MODEL_DEFINITION_PERMISSION = _get_rest_path(
+    "/mlflow/gateway/model-definitions/permissions/delete", version=3
+)
+
 # Flask routes (not part of Protobuf API)
 GET_ARTIFACT = _add_static_prefix("/get-artifact")
 UPLOAD_ARTIFACT = _get_ajax_path("/mlflow/upload-artifact")

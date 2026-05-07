@@ -147,32 +147,52 @@ def test_get_current_user(client, monkeypatch):
     assert resp.status_code == 401
 
 
-def test_legacy_permission_endpoints_are_removed(client):
-    """Regression guard: the pre-RBAC ``/permissions`` REST endpoints are
-    permanently removed. Restoring any of them would silently re-introduce
-    the old per-resource permission API surface that this PR retires.
-    """
-    legacy_paths = [
-        "/api/2.0/mlflow/experiments/permissions/get",
-        "/api/2.0/mlflow/experiments/permissions/create",
-        "/api/2.0/mlflow/experiments/permissions/update",
-        "/api/2.0/mlflow/experiments/permissions/delete",
-        "/api/2.0/mlflow/registered-models/permissions/get",
-        "/api/2.0/mlflow/registered-models/permissions/create",
-        "/api/2.0/mlflow/registered-models/permissions/update",
-        "/api/2.0/mlflow/registered-models/permissions/delete",
-        "/api/2.0/mlflow/scorers/permissions/get",
-        "/api/2.0/mlflow/scorers/permissions/create",
-        "/api/2.0/mlflow/gateway/secrets/permissions/get",
-        "/api/2.0/mlflow/gateway/secrets/permissions/create",
-        "/api/2.0/mlflow/gateway/endpoints/permissions/get",
-        "/api/2.0/mlflow/gateway/endpoints/permissions/create",
-        "/api/2.0/mlflow/gateway/model-definitions/permissions/get",
-        "/api/2.0/mlflow/gateway/model-definitions/permissions/create",
-    ]
-    for path in legacy_paths:
-        resp = requests.get(client.tracking_uri + path, auth=(ADMIN_USERNAME, ADMIN_PASSWORD))
-        assert resp.status_code == 404, f"{path} unexpectedly served (status {resp.status_code})"
+@pytest.mark.parametrize(
+    ("path", "method"),
+    [
+        ("/api/2.0/mlflow/experiments/permissions/get", "GET"),
+        ("/api/2.0/mlflow/experiments/permissions/create", "POST"),
+        ("/api/2.0/mlflow/experiments/permissions/update", "PATCH"),
+        ("/api/2.0/mlflow/experiments/permissions/delete", "DELETE"),
+        ("/api/2.0/mlflow/registered-models/permissions/get", "GET"),
+        ("/api/2.0/mlflow/registered-models/permissions/create", "POST"),
+        ("/api/2.0/mlflow/registered-models/permissions/update", "PATCH"),
+        ("/api/2.0/mlflow/registered-models/permissions/delete", "DELETE"),
+        ("/api/3.0/mlflow/scorers/permissions/get", "GET"),
+        ("/api/3.0/mlflow/scorers/permissions/create", "POST"),
+        ("/api/3.0/mlflow/scorers/permissions/update", "PATCH"),
+        ("/api/3.0/mlflow/scorers/permissions/delete", "DELETE"),
+        ("/api/3.0/mlflow/gateway/secrets/permissions/get", "GET"),
+        ("/api/3.0/mlflow/gateway/secrets/permissions/create", "POST"),
+        ("/api/3.0/mlflow/gateway/secrets/permissions/update", "PATCH"),
+        ("/api/3.0/mlflow/gateway/secrets/permissions/delete", "DELETE"),
+        ("/api/3.0/mlflow/gateway/endpoints/permissions/get", "GET"),
+        ("/api/3.0/mlflow/gateway/endpoints/permissions/create", "POST"),
+        ("/api/3.0/mlflow/gateway/endpoints/permissions/update", "PATCH"),
+        ("/api/3.0/mlflow/gateway/endpoints/permissions/delete", "DELETE"),
+        ("/api/3.0/mlflow/gateway/model-definitions/permissions/get", "GET"),
+        ("/api/3.0/mlflow/gateway/model-definitions/permissions/create", "POST"),
+        ("/api/3.0/mlflow/gateway/model-definitions/permissions/update", "PATCH"),
+        ("/api/3.0/mlflow/gateway/model-definitions/permissions/delete", "DELETE"),
+    ],
+)
+def test_legacy_permission_endpoints_remain_registered(client, path, method):
+    resp = requests.request(
+        method, client.tracking_uri + path, auth=(ADMIN_USERNAME, ADMIN_PASSWORD)
+    )
+    assert resp.status_code != 404, (
+        f"{method} {path} unexpectedly returned 404 — legacy permission endpoints "
+        "must remain registered for backward compatibility"
+    )
+
+
+def test_legacy_client_methods_emit_deprecation_warning(client, monkeypatch):
+    username = random_str()
+    password = random_str()
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        client.create_user(username, password)
+        with pytest.warns(FutureWarning, match="create_experiment_permission"):
+            client.create_experiment_permission("exp-deprecation", username, "READ")
 
 
 def test_update_user_password(client, monkeypatch):
