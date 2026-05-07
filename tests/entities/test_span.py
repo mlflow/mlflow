@@ -548,11 +548,8 @@ def test_span_from_otel_proto_with_location():
     request_id = mlflow_span.get_attribute("mlflow.traceRequestId")
     assert request_id == expected_trace_id
 
-    # Verify link trace_id also uses v4 format with location
-    assert len(mlflow_span.links) == 1
-    expected_link_trace_id = f"{TRACE_ID_V4_PREFIX}{location}/aabbccddeeff00112233445566778899"
-    assert mlflow_span.links[0].trace_id == expected_link_trace_id
-    assert mlflow_span.links[0].span_id == "1122334455667788"
+    # Links are skipped for v4 UC traces
+    assert len(mlflow_span.links) == 0
 
 
 def test_otel_roundtrip_conversion(sample_otel_span_for_conversion):

@@ -463,31 +463,28 @@ class Span:
             else generate_mlflow_trace_id_from_otel_trace_id(trace_id)
         )
 
-        # Extract links from OTLP proto
+        # Skip links for v4 UC traces since linked trace IDs cannot be resolved
+        # via UC trace APIs yet.
         links = []
-        for proto_link in otel_proto_span.links:
-            link_trace_id = _otel_proto_bytes_to_id(proto_link.trace_id)
-            link_span_id = _otel_proto_bytes_to_id(proto_link.span_id)
+        if not location_id:
+            for proto_link in otel_proto_span.links:
+                link_trace_id = _otel_proto_bytes_to_id(proto_link.trace_id)
+                link_span_id = _otel_proto_bytes_to_id(proto_link.span_id)
 
-            # Convert to MLflow trace ID format, preserving location for v4 environments
-            mlflow_link_trace_id = (
-                generate_trace_id_v4_from_otel_trace_id(link_trace_id, location_id)
-                if location_id
-                else generate_mlflow_trace_id_from_otel_trace_id(link_trace_id)
-            )
-            mlflow_link_span_id = encode_span_id(link_span_id)
+                mlflow_link_trace_id = generate_mlflow_trace_id_from_otel_trace_id(link_trace_id)
+                mlflow_link_span_id = encode_span_id(link_span_id)
 
-            # Extract link attributes
-            link_attrs = {
-                attr.key: _decode_otel_proto_anyvalue(attr.value) for attr in proto_link.attributes
-            }
+                link_attrs = {
+                    attr.key: _decode_otel_proto_anyvalue(attr.value)
+                    for attr in proto_link.attributes
+                }
 
-            link = Link(
-                trace_id=mlflow_link_trace_id,
-                span_id=mlflow_link_span_id,
-                attributes=link_attrs or None,
-            )
-            links.append(link)
+                link = Link(
+                    trace_id=mlflow_link_trace_id,
+                    span_id=mlflow_link_span_id,
+                    attributes=link_attrs or None,
+                )
+                links.append(link)
 
         otel_span = OTelReadableSpan(
             name=otel_proto_span.name,
