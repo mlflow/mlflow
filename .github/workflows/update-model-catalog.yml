@@ -75,7 +75,7 @@ jobs:
           git add mlflow/utils/model_catalog/
           git commit -m "Update model catalog from upstream sources"
           git push -f -u origin "$branch"
-          existing_pr=$(gh pr list --head "$branch" --state open --json number --jq '.[0].number')
+          existing_pr=$(gh pr list --head "$branch" --state open --json number --jq '.[0].number // empty')
           if [ -n "$existing_pr" ]; then
             echo "Existing open PR #$existing_pr found for branch $branch — skipping PR creation."
           else
