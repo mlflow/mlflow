@@ -76,11 +76,32 @@ class TokenUsageKey:
 
 
 class CostKey:
-    """Key for the cost information in the `mlflow.llm.cost` span attribute."""
+    """Key for the cost information in cost attributes.
+
+    For LLM spans: uses input_cost, output_cost, and total_cost.
+    For non-LLM spans: uses span-type-specific cost key plus total_cost.
+    """
 
     INPUT_COST = "input_cost"
     OUTPUT_COST = "output_cost"
     TOTAL_COST = "total_cost"
+    # Span-type-specific cost keys for non-LLM operations
+    TOOL_COST = "tool_cost"
+    EMBEDDING_COST = "embedding_cost"
+    RETRIEVAL_COST = "retrieval_cost"
+    OTHER_COST = "other_cost"  # For generic/unknown spans
+
+    @classmethod
+    def all_keys(cls):
+        return [
+            cls.INPUT_COST,
+            cls.OUTPUT_COST,
+            cls.TOTAL_COST,
+            cls.TOOL_COST,
+            cls.EMBEDDING_COST,
+            cls.RETRIEVAL_COST,
+            cls.OTHER_COST,
+        ]
 
 
 class TraceSizeStatsKey:
@@ -112,6 +133,14 @@ class SpanAttributeKey:
     # This attribute stores cost information calculated from token usage and model pricing.
     # Stored in {"input_cost": float, "output_cost": float, "total_cost": float} format (USD).
     LLM_COST = "mlflow.llm.cost"
+    # Cost attributes for non-LLM operations. These can be stored as either:
+    # - A simple float value representing the total cost
+    # - A JSON object with {"total_cost": float} or full breakdown structure
+    TOOL_COST = "mlflow.tool.cost"
+    EMBEDDING_COST = "mlflow.embedding.cost"
+    RETRIEVAL_COST = "mlflow.retrieval.cost"
+    # Generic fallback cost attribute for any operation not covered by specific types above
+    SPAN_COST = "mlflow.span.cost"
     # This attribute stores the model name extracted from span inputs/attributes.
     MODEL = "mlflow.llm.model"
     MODEL_PROVIDER = "mlflow.llm.provider"
@@ -137,6 +166,17 @@ class SpanAttributeKey:
     # https://opentelemetry.io/docs/specs/semconv/registry/attributes/session/#session-id
     USER_ID = "user.id"
     SESSION_ID = "session.id"
+
+    @classmethod
+    def get_cost_attribute_keys(cls):
+        """Returns cost attribute keys in priority order."""
+        return [
+            cls.LLM_COST,
+            cls.TOOL_COST,
+            cls.EMBEDDING_COST,
+            cls.RETRIEVAL_COST,
+            cls.SPAN_COST,
+        ]
 
 
 class AssessmentMetadataKey:

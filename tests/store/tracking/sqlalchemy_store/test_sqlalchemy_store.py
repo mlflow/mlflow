@@ -12942,11 +12942,15 @@ def test_log_spans_cost(store: SqlAlchemyStore) -> None:
 
     # verify cost is stored in the trace info
     trace_info = store.get_trace_info(trace_id)
-    assert trace_info.cost == {
-        "input_cost": 0.01,
-        "output_cost": 0.02,
-        "total_cost": 0.03,
-    }
+    assert trace_info.cost is not None
+    assert trace_info.cost["input_cost"] == 0.01
+    assert trace_info.cost["output_cost"] == 0.02
+    assert trace_info.cost["total_cost"] == 0.03
+    # Verify non-LLM cost keys are 0 or not present
+    assert trace_info.cost.get("tool_cost", 0) == 0
+    assert trace_info.cost.get("embedding_cost", 0) == 0
+    assert trace_info.cost.get("retrieval_cost", 0) == 0
+    assert trace_info.cost.get("other_cost", 0) == 0
 
     # verify loaded trace has same cost
     traces = store.batch_get_traces([trace_id])
@@ -12956,6 +12960,11 @@ def test_log_spans_cost(store: SqlAlchemyStore) -> None:
     assert trace.info.cost["input_cost"] == 0.01
     assert trace.info.cost["output_cost"] == 0.02
     assert trace.info.cost["total_cost"] == 0.03
+    # Verify non-LLM cost keys are 0 or not present
+    assert trace.info.cost.get("tool_cost", 0) == 0
+    assert trace.info.cost.get("embedding_cost", 0) == 0
+    assert trace.info.cost.get("retrieval_cost", 0) == 0
+    assert trace.info.cost.get("other_cost", 0) == 0
 
 
 def test_log_spans_update_cost_incrementally(store: SqlAlchemyStore) -> None:
@@ -12987,6 +12996,11 @@ def test_log_spans_update_cost_incrementally(store: SqlAlchemyStore) -> None:
     assert trace.info.cost["input_cost"] == 0.01
     assert trace.info.cost["output_cost"] == 0.02
     assert trace.info.cost["total_cost"] == 0.03
+    # Verify non-LLM cost keys are 0 or not present
+    assert trace.info.cost.get("tool_cost", 0) == 0
+    assert trace.info.cost.get("embedding_cost", 0) == 0
+    assert trace.info.cost.get("retrieval_cost", 0) == 0
+    assert trace.info.cost.get("other_cost", 0) == 0
 
     otel_span2 = create_test_otel_span(
         trace_id=trace_id,
@@ -13013,6 +13027,11 @@ def test_log_spans_update_cost_incrementally(store: SqlAlchemyStore) -> None:
     assert trace.info.cost["input_cost"] == 0.015
     assert trace.info.cost["output_cost"] == 0.03
     assert trace.info.cost["total_cost"] == 0.045
+    # Verify non-LLM cost keys are 0 or not present
+    assert trace.info.cost.get("tool_cost", 0) == 0
+    assert trace.info.cost.get("embedding_cost", 0) == 0
+    assert trace.info.cost.get("retrieval_cost", 0) == 0
+    assert trace.info.cost.get("other_cost", 0) == 0
 
 
 def test_log_spans_does_not_overwrite_finalized_trace_info(store: SqlAlchemyStore) -> None:
@@ -13417,6 +13436,113 @@ def test_log_spans_creates_span_metrics(store: SqlAlchemyStore) -> None:
         )
         assert sql_span.dimension_attributes[SpanAttributeKey.MODEL] == "gpt-4-turbo"
         assert sql_span.dimension_attributes[SpanAttributeKey.MODEL_PROVIDER] == "openai"
+
+
+def test_log_spans_float_cost_values(store: SqlAlchemyStore) -> None:
+    experiment_id = store.create_experiment("test_log_spans_float_cost")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    # Create spans with float cost values for different cost attribute types
+    spans = []
+
+    # Tool span with float cost
+    otel_span1 = create_test_otel_span(
+        trace_id=trace_id,
+        name="database_query",
+        start_time=1_000_000_000,
+        end_time=2_000_000_000,
+        trace_id_num=12345,
+        span_id_num=111,
+    )
+    otel_span1._attributes = {
+        "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
+        SpanAttributeKey.TOOL_COST: json.dumps(0.001),  # Float value
+    }
+    spans.append(create_mlflow_span(otel_span1, trace_id, "TOOL"))
+
+    # Embedding span with float cost
+    otel_span2 = create_test_otel_span(
+        trace_id=trace_id,
+        name="generate_embedding",
+        start_time=3_000_000_000,
+        end_time=4_000_000_000,
+        trace_id_num=12345,
+        span_id_num=222,
+    )
+    otel_span2._attributes = {
+        "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
+        SpanAttributeKey.EMBEDDING_COST: json.dumps(0.0005),  # Float value
+    }
+    spans.append(create_mlflow_span(otel_span2, trace_id, "EMBEDDING"))
+
+    # Retrieval span with float cost
+    otel_span3 = create_test_otel_span(
+        trace_id=trace_id,
+        name="vector_search",
+        start_time=5_000_000_000,
+        end_time=6_000_000_000,
+        trace_id_num=12345,
+        span_id_num=333,
+    )
+    otel_span3._attributes = {
+        "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
+        SpanAttributeKey.RETRIEVAL_COST: json.dumps(0.0003),  # Float value
+    }
+    spans.append(create_mlflow_span(otel_span3, trace_id, "RETRIEVER"))
+
+    # Generic span with float cost
+    otel_span4 = create_test_otel_span(
+        trace_id=trace_id,
+        name="custom_processing",
+        start_time=7_000_000_000,
+        end_time=8_000_000_000,
+        trace_id_num=12345,
+        span_id_num=444,
+    )
+    otel_span4._attributes = {
+        "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
+        SpanAttributeKey.SPAN_COST: json.dumps(0.005),  # Float value
+    }
+    spans.append(create_mlflow_span(otel_span4, trace_id, "UNKNOWN"))
+
+    # Log all spans at once
+    store.log_spans(experiment_id, spans)
+
+    # Verify span metrics were created correctly for each span
+    with store.ManagedSessionMaker() as session:
+        # Verify span metrics: each span should have both total_cost and span-type-specific cost
+        expected_span_data = [
+            (0.001, CostKey.TOOL_COST),
+            (0.0005, CostKey.EMBEDDING_COST),
+            (0.0003, CostKey.RETRIEVAL_COST),
+            (0.005, CostKey.OTHER_COST),
+        ]
+
+        for span, (expected_cost, expected_type_key) in zip(spans, expected_span_data):
+            metrics = (
+                session
+                .query(SqlSpanMetrics)
+                .filter(SqlSpanMetrics.trace_id == trace_id, SqlSpanMetrics.span_id == span.span_id)
+                .all()
+            )
+            # Float costs should be normalized to have both total_cost and span-type-specific cost
+            assert len(metrics) == 2
+            metrics_by_key = {m.key: m.value for m in metrics}
+            assert metrics_by_key[CostKey.TOTAL_COST] == expected_cost
+            assert metrics_by_key[expected_type_key] == expected_cost
+
+    # Verify trace-level cost aggregation
+    trace_info = store.get_trace_info(trace_id)
+    assert trace_info.cost is not None
+    # Verify individual cost components
+    assert trace_info.cost[CostKey.TOOL_COST] == 0.001
+    assert trace_info.cost[CostKey.EMBEDDING_COST] == 0.0005
+    assert trace_info.cost[CostKey.RETRIEVAL_COST] == 0.0003
+    assert trace_info.cost[CostKey.OTHER_COST] == 0.005
+    assert trace_info.cost["total_cost"] == 0.001 + 0.0005 + 0.0003 + 0.005
+    # Input and output costs should be 0 since we only used float values
+    assert trace_info.cost.get("input_cost", 0) == 0
+    assert trace_info.cost.get("output_cost", 0) == 0
 
 
 def test_log_spans_updates_trace_metrics_incrementally(store: SqlAlchemyStore) -> None:

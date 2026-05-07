@@ -19,6 +19,10 @@ export const MLFLOW_TRACE_USER_KEY = 'mlflow.trace.user';
 // Span attribute keys for model and cost info
 export const SPAN_ATTRIBUTE_MODEL_KEY = 'mlflow.llm.model';
 export const SPAN_ATTRIBUTE_COST_KEY = 'mlflow.llm.cost';
+export const SPAN_ATTRIBUTE_TOOL_COST_KEY = 'mlflow.tool.cost';
+export const SPAN_ATTRIBUTE_EMBEDDING_COST_KEY = 'mlflow.embedding.cost';
+export const SPAN_ATTRIBUTE_RETRIEVAL_COST_KEY = 'mlflow.retrieval.cost';
+export const SPAN_ATTRIBUTE_SPAN_COST_KEY = 'mlflow.span.cost';
 
 // Query parameter for selected trace ID in session pages
 export const SELECTED_TRACE_ID_QUERY_PARAM = 'selectedTraceId';

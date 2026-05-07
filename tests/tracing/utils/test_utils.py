@@ -249,9 +249,13 @@ def test_aggregate_cost_from_spans():
 
     cost = aggregate_cost_from_spans(spans)
     assert cost == {
-        CostKey.INPUT_COST: 15,
-        CostKey.OUTPUT_COST: 45,
-        CostKey.TOTAL_COST: 60,
+        CostKey.INPUT_COST: 15.0,
+        CostKey.OUTPUT_COST: 45.0,
+        CostKey.TOTAL_COST: 60.0,
+        CostKey.TOOL_COST: 0.0,
+        CostKey.EMBEDDING_COST: 0.0,
+        CostKey.RETRIEVAL_COST: 0.0,
+        CostKey.OTHER_COST: 0.0,
     }
 
 
@@ -301,10 +305,243 @@ def test_aggregate_cost_from_spans_skips_descendant_cost():
     cost = aggregate_cost_from_spans(spans)
 
     assert cost == {
-        CostKey.INPUT_COST: 13,
-        CostKey.OUTPUT_COST: 26,
-        CostKey.TOTAL_COST: 39,
+        CostKey.INPUT_COST: 13.0,
+        CostKey.OUTPUT_COST: 26.0,
+        CostKey.TOTAL_COST: 39.0,
+        CostKey.TOOL_COST: 0.0,
+        CostKey.EMBEDDING_COST: 0.0,
+        CostKey.RETRIEVAL_COST: 0.0,
+        CostKey.OTHER_COST: 0.0,
     }
+
+
+def test_aggregate_cost_from_spans_with_generic_cost_attributes():
+    spans = [
+        LiveSpan(create_mock_otel_span("trace_id", span_id=1, name="llm"), trace_id="tr-123"),
+        LiveSpan(create_mock_otel_span("trace_id", span_id=2, name="tool"), trace_id="tr-123"),
+        LiveSpan(create_mock_otel_span("trace_id", span_id=3, name="embedding"), trace_id="tr-123"),
+        LiveSpan(create_mock_otel_span("trace_id", span_id=4, name="retrieval"), trace_id="tr-123"),
+        LiveSpan(create_mock_otel_span("trace_id", span_id=5, name="generic"), trace_id="tr-123"),
+    ]
+
+    # LLM cost with full breakdown
+    spans[0].set_attribute(
+        SpanAttributeKey.LLM_COST,
+        {
+            CostKey.INPUT_COST: 0.01,
+            CostKey.OUTPUT_COST: 0.02,
+            CostKey.TOTAL_COST: 0.03,
+        },
+    )
+
+    # Tool cost as simple float
+    spans[1].set_attribute(SpanAttributeKey.TOOL_COST, 0.001)
+
+    # Embedding cost as dict with both embedding_cost and total_cost
+    spans[2].set_attribute(
+        SpanAttributeKey.EMBEDDING_COST,
+        {CostKey.EMBEDDING_COST: 0.0005, CostKey.TOTAL_COST: 0.0005},
+    )
+
+    # Retrieval cost as dict with both retrieval_cost and total_cost
+    spans[3].set_attribute(
+        SpanAttributeKey.RETRIEVAL_COST,
+        {CostKey.RETRIEVAL_COST: 0.0006, CostKey.TOTAL_COST: 0.0006},
+    )
+
+    # Generic span cost as simple float
+    spans[4].set_attribute(SpanAttributeKey.SPAN_COST, 0.005)
+
+    cost = aggregate_cost_from_spans(spans)
+
+    # Total should be sum of all costs
+    # LLM: 0.03 (input: 0.01, output: 0.02, total: 0.03)
+    # Tool: 0.001 (added to both tool_cost and total_cost)
+    # Embedding: 0.0005 (added to both embedding_cost and total_cost)
+    # Retrieval: 0.0006 (added to both retrieval_cost and total_cost)
+    # Span: 0.005 (added to both other_cost and total_cost)
+    assert cost == {
+        CostKey.INPUT_COST: 0.01,  # Only from LLM
+        CostKey.OUTPUT_COST: 0.02,  # Only from LLM
+        CostKey.TOTAL_COST: 0.03 + 0.001 + 0.0005 + 0.0006 + 0.005,  # All costs
+        CostKey.TOOL_COST: 0.001,
+        CostKey.EMBEDDING_COST: 0.0005,
+        CostKey.RETRIEVAL_COST: 0.0006,
+        CostKey.OTHER_COST: 0.005,
+    }
+
+
+def test_aggregate_cost_from_spans_mixed_formats():
+    spans = [
+        LiveSpan(create_mock_otel_span("trace_id", span_id=1, name="span1"), trace_id="tr-123"),
+        LiveSpan(create_mock_otel_span("trace_id", span_id=2, name="span2"), trace_id="tr-123"),
+    ]
+
+    # One span with structured cost
+    spans[0].set_attribute(
+        SpanAttributeKey.LLM_COST,
+        {
+            CostKey.INPUT_COST: 1.0,
+            CostKey.OUTPUT_COST: 2.0,
+            CostKey.TOTAL_COST: 3.0,
+        },
+    )
+
+    # Another span with simple float cost
+    spans[1].set_attribute(SpanAttributeKey.TOOL_COST, 0.5)
+
+    cost = aggregate_cost_from_spans(spans)
+    assert cost == {
+        CostKey.INPUT_COST: 1.0,
+        CostKey.OUTPUT_COST: 2.0,
+        CostKey.TOTAL_COST: 3.5,
+        CostKey.TOOL_COST: 0.5,
+        CostKey.EMBEDDING_COST: 0.0,
+        CostKey.RETRIEVAL_COST: 0.0,
+        CostKey.OTHER_COST: 0.0,
+    }
+
+
+def test_aggregate_cost_from_spans_no_double_counting():
+    spans = [
+        LiveSpan(create_mock_otel_span("trace_id", span_id=1, name="root"), trace_id="tr-123"),
+        LiveSpan(
+            create_mock_otel_span("trace_id", span_id=2, name="child", parent_id=1),
+            trace_id="tr-123",
+        ),
+    ]
+
+    # Parent has tool cost
+    spans[0].set_attribute(SpanAttributeKey.TOOL_COST, 1.0)
+
+    # Child has embedding cost
+    spans[1].set_attribute(SpanAttributeKey.EMBEDDING_COST, 0.5)
+
+    cost = aggregate_cost_from_spans(spans)
+
+    # Both costs should be counted (no deduplication for non-LLM costs)
+    assert cost == {
+        CostKey.INPUT_COST: 0.0,
+        CostKey.OUTPUT_COST: 0.0,
+        CostKey.TOOL_COST: 1.0,
+        CostKey.EMBEDDING_COST: 0.5,
+        CostKey.RETRIEVAL_COST: 0.0,
+        CostKey.OTHER_COST: 0.0,
+        CostKey.TOTAL_COST: 1.5,  # 1.0 + 0.5
+    }
+
+
+def test_aggregate_cost_deduplication_by_cost_type():
+    """Test that LLM costs are deduplicated but non-LLM costs are not.
+
+    This verifies the core deduplication behavior:
+    - LLM costs: Deduplicated when parent/child both have LLM costs (autologging scenario)
+    - Non-LLM costs: NOT deduplicated, all costs counted (manual span scenario)
+    """
+    # Test 1: LLM costs ARE deduplicated
+    llm_spans = [
+        LiveSpan(create_mock_otel_span("trace_id", span_id=1, name="parent"), trace_id="tr-123"),
+        LiveSpan(
+            create_mock_otel_span("trace_id", span_id=2, name="child", parent_id=1),
+            trace_id="tr-123",
+        ),
+    ]
+
+    # Parent has LLM cost
+    llm_spans[0].set_attribute(
+        SpanAttributeKey.LLM_COST,
+        {
+            CostKey.INPUT_COST: 10.0,
+            CostKey.OUTPUT_COST: 20.0,
+            CostKey.TOTAL_COST: 30.0,
+        },
+    )
+
+    # Child also has LLM cost (simulating LangChain + OpenAI both reporting same cost)
+    llm_spans[1].set_attribute(
+        SpanAttributeKey.LLM_COST,
+        {
+            CostKey.INPUT_COST: 10.0,  # Same costs (duplicate)
+            CostKey.OUTPUT_COST: 20.0,
+            CostKey.TOTAL_COST: 30.0,
+        },
+    )
+
+    llm_cost = aggregate_cost_from_spans(llm_spans)
+
+    # Child cost should be skipped (deduplicated) - only parent's cost counted
+    assert llm_cost[CostKey.INPUT_COST] == 10.0  # Not 20.0
+    assert llm_cost[CostKey.OUTPUT_COST] == 20.0  # Not 40.0
+    assert llm_cost[CostKey.TOTAL_COST] == 30.0  # Not 60.0
+
+    # Test 2: Non-LLM costs are NOT deduplicated
+    non_llm_spans = [
+        LiveSpan(create_mock_otel_span("trace_id", span_id=3, name="parent"), trace_id="tr-456"),
+        LiveSpan(
+            create_mock_otel_span("trace_id", span_id=4, name="child", parent_id=3),
+            trace_id="tr-456",
+        ),
+    ]
+
+    # Parent has tool cost
+    non_llm_spans[0].set_attribute(SpanAttributeKey.TOOL_COST, 5.0)
+
+    # Child has tool cost (different operation, should both be counted)
+    non_llm_spans[1].set_attribute(SpanAttributeKey.TOOL_COST, 3.0)
+
+    non_llm_cost = aggregate_cost_from_spans(non_llm_spans)
+
+    # Both costs should be counted (no deduplication for manual non-LLM costs)
+    assert non_llm_cost[CostKey.TOOL_COST] == 8.0  # 5.0 + 3.0
+    assert non_llm_cost[CostKey.TOTAL_COST] == 8.0  # 5.0 + 3.0
+
+    # Test 3: Mixed scenario - LLM deduplicated, non-LLM not deduplicated
+    mixed_spans = [
+        LiveSpan(create_mock_otel_span("trace_id", span_id=5, name="root"), trace_id="tr-789"),
+        LiveSpan(
+            create_mock_otel_span("trace_id", span_id=6, name="llm_child", parent_id=5),
+            trace_id="tr-789",
+        ),
+        LiveSpan(
+            create_mock_otel_span("trace_id", span_id=7, name="tool_child", parent_id=5),
+            trace_id="tr-789",
+        ),
+    ]
+
+    # Root has LLM cost
+    mixed_spans[0].set_attribute(
+        SpanAttributeKey.LLM_COST,
+        {
+            CostKey.INPUT_COST: 1.0,
+            CostKey.OUTPUT_COST: 2.0,
+            CostKey.TOTAL_COST: 3.0,
+        },
+    )
+
+    # One child also has LLM cost (will be deduplicated)
+    mixed_spans[1].set_attribute(
+        SpanAttributeKey.LLM_COST,
+        {
+            CostKey.INPUT_COST: 0.5,
+            CostKey.OUTPUT_COST: 1.0,
+            CostKey.TOTAL_COST: 1.5,
+        },
+    )
+
+    # Another child has tool cost (will NOT be deduplicated)
+    mixed_spans[2].set_attribute(SpanAttributeKey.TOOL_COST, 0.25)
+
+    mixed_cost = aggregate_cost_from_spans(mixed_spans)
+
+    # LLM cost from child should be skipped (only root's LLM cost)
+    assert mixed_cost[CostKey.INPUT_COST] == 1.0  # Not 1.5
+    assert mixed_cost[CostKey.OUTPUT_COST] == 2.0  # Not 3.0
+
+    # Tool cost should be included (no deduplication)
+    assert mixed_cost[CostKey.TOOL_COST] == 0.25
+
+    # Total is root's LLM total (3.0) + tool cost (0.25)
+    assert mixed_cost[CostKey.TOTAL_COST] == 3.25
 
 
 def test_maybe_get_request_id():

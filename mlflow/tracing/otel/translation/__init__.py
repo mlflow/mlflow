@@ -425,14 +425,18 @@ def update_token_usage(
 
 
 def update_cost(
-    current_cost: str | dict[str, Any], new_cost: str | dict[str, Any]
+    current_cost: str | dict[str, Any], new_cost: str | dict[str, Any] | float
 ) -> str | dict[str, Any]:
     """
     Update current cost in-place by adding the new cost.
 
     Args:
         current_cost: Current cost, dictionary or JSON string
-        new_cost: New cost, dictionary or JSON string
+        new_cost: New cost, can be:
+            - Dictionary with full breakdown (input_cost, output_cost, total_cost)
+            - Dictionary with only total_cost
+            - Simple float representing total_cost
+            - JSON string of any of the above
 
     Returns:
         Updated cost dictionary or JSON string
@@ -442,13 +446,17 @@ def update_cost(
             current_cost = json.loads(current_cost) or {}
         if isinstance(new_cost, str):
             new_cost = json.loads(new_cost) or {}
-        if new_cost:
-            for key in [
-                CostKey.INPUT_COST,
-                CostKey.OUTPUT_COST,
-                CostKey.TOTAL_COST,
-            ]:
-                current_cost[key] = current_cost.get(key, 0.0) + new_cost.get(key, 0.0)
+
+        if new_cost is not None:
+            # Handle simple float format (just total cost)
+            if isinstance(new_cost, (int, float)):
+                current_cost[CostKey.TOTAL_COST] = current_cost.get(
+                    CostKey.TOTAL_COST, 0.0
+                ) + float(new_cost)
+            # Handle dictionary format
+            elif isinstance(new_cost, dict):
+                for key in CostKey.all_keys():
+                    current_cost[key] = current_cost.get(key, 0.0) + new_cost.get(key, 0.0)
     except Exception:
         _logger.debug(
             f"Failed to update cost with current_cost: {current_cost}, new_cost: {new_cost}",
@@ -456,6 +464,50 @@ def update_cost(
         )
 
     return current_cost
+
+
+def normalize_cost_value(
+    cost_value: str, cost_attr_key: str, span_cost_key_mapping: dict[str, str]
+) -> dict[str, float] | None:
+    """
+    Normalize cost value to ensure proper structure with both total_cost
+    and span-type-specific keys.
+
+    Args:
+        cost_value: JSON-encoded cost value (float or dict)
+        cost_attr_key: The cost attribute key (e.g., SpanAttributeKey.TOOL_COST)
+        span_cost_key_mapping: Mapping from attribute keys to cost keys
+
+    Returns:
+        Normalized cost as a dict, or None if parsing fails
+    """
+    try:
+        parsed_cost = json.loads(cost_value)
+
+        if isinstance(parsed_cost, (int, float)):
+            # Float: create dict with total & span-type key
+            if span_type_key := span_cost_key_mapping.get(cost_attr_key):
+                return {
+                    CostKey.TOTAL_COST: float(parsed_cost),
+                    span_type_key: float(parsed_cost),
+                }
+            return {CostKey.TOTAL_COST: float(parsed_cost)}
+
+        elif isinstance(parsed_cost, dict):
+            if CostKey.TOTAL_COST in parsed_cost:
+                # Dict: ensure span-type key is set if applicable
+                span_type_key = span_cost_key_mapping.get(cost_attr_key)
+                if span_type_key and span_type_key not in parsed_cost:
+                    parsed_cost[span_type_key] = parsed_cost[CostKey.TOTAL_COST]
+            return parsed_cost
+
+    except (json.JSONDecodeError, TypeError):
+        _logger.debug(
+            f"Failed to normalize cost value: {cost_value} for attribute: {cost_attr_key}",
+            exc_info=True,
+        )
+
+    return None
 
 
 def sanitize_attributes(attributes: dict[str, Any]) -> dict[str, Any]:
