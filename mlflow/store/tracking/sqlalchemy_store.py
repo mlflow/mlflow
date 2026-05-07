@@ -3534,7 +3534,9 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             )
 
             attribute_filters, non_attribute_filters, span_filters, run_id_filter = (
-                _get_filter_clauses_for_search_traces(filter_string, session, self._get_dialect())
+                _get_filter_clauses_for_search_traces(
+                    filter_string, session, self._get_dialect(), self._trace_query(session)
+                )
             )
 
             stmt = self._apply_trace_filter_clauses(
@@ -3721,7 +3723,9 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
         # Parse the filter string to get filter clauses
         attribute_filters, non_attribute_filters, span_filters, run_id_filter = (
-            _get_filter_clauses_for_search_traces(filter_string, session, self._get_dialect())
+            _get_filter_clauses_for_search_traces(
+                filter_string, session, self._get_dialect(), self._trace_query(session)
+            )
         )
 
         # Subquery: first trace timestamp for each session
@@ -3959,6 +3963,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     f"No trace tag with key '{key}' for trace with ID '{trace_id}'",
                     RESOURCE_DOES_NOT_EXIST,
                 )
+            session.commit()
 
     def _delete_traces(
         self,
@@ -4416,7 +4421,9 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
         if filter_string:
             attribute_filters, non_attribute_filters, span_filters, run_id_filter = (
-                _get_filter_clauses_for_search_traces(filter_string, session, self._get_dialect())
+                _get_filter_clauses_for_search_traces(
+                    filter_string, session, self._get_dialect(), self._trace_query(session)
+                )
             )
 
             for non_attr_filter in non_attribute_filters:
@@ -6828,14 +6835,14 @@ def _get_orderby_clauses_for_search_traces(order_by_list: list[str], session):
     return select_clauses, clauses, ordering_joins
 
 
-def _get_session_scoped_trace_ids(session, assessment_filters):
+def _get_session_scoped_trace_ids(session, assessment_filters, traces_query=None):
     """Find all trace IDs covered by session-scoped assessments matching the given filters.
 
     Two-step approach:
     1. Find session IDs that have a matching session-scoped assessment.
     2. Find all trace IDs belonging to those sessions.
     """
-    session_ids = (
+    session_ids_query = (
         session
         .query(SqlTraceMetadata.value)
         .join(SqlAssessments, SqlAssessments.trace_id == SqlTraceMetadata.request_id)
@@ -6846,13 +6853,27 @@ def _get_session_scoped_trace_ids(session, assessment_filters):
             SqlAssessments.assessment_metadata.contains(f'"{TraceMetadataKey.TRACE_SESSION}":'),
         )
     )
-    return session.query(SqlTraceMetadata.request_id).filter(
+
+    if traces_query is not None:
+        valid_trace_ids = traces_query.with_entities(SqlTraceInfo.request_id).subquery()
+        session_ids_query = session_ids_query.filter(
+            SqlTraceMetadata.request_id.in_(select(valid_trace_ids.c.request_id))
+        )
+
+    result_query = session.query(SqlTraceMetadata.request_id).filter(
         SqlTraceMetadata.key == TraceMetadataKey.TRACE_SESSION,
-        SqlTraceMetadata.value.in_(session_ids),
+        SqlTraceMetadata.value.in_(session_ids_query),
     )
 
+    if traces_query is not None:
+        result_query = result_query.filter(
+            SqlTraceMetadata.request_id.in_(select(valid_trace_ids.c.request_id))
+        )
 
-def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
+    return result_query
+
+
+def _get_filter_clauses_for_search_traces(filter_string, session, dialect, traces_query=None):
     """
     Creates trace attribute filters and subqueries that will be inner-joined
     to SqlTraceInfo to act as multi-clause filters and return them as a tuple.
@@ -7035,7 +7056,9 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
                         SqlAssessments.trace_id == SqlTraceInfo.request_id,
                         *assessment_filters,
                     )
-                    session_covered = _get_session_scoped_trace_ids(session, assessment_filters)
+                    session_covered = _get_session_scoped_trace_ids(
+                        session, assessment_filters, traces_query
+                    )
 
                     if comparator == "IS NULL":
                         exists_clause = assessment_exists_subquery.exists()
@@ -7068,7 +7091,7 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
                     .distinct()
                 )
                 session_siblings = _get_session_scoped_trace_ids(
-                    session, assessment_filters_with_value
+                    session, assessment_filters_with_value, traces_query
                 )
                 feedback_subquery = direct_matches.union(session_siblings).subquery()
                 span_filters.append(feedback_subquery)
