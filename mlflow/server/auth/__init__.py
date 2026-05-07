@@ -18,6 +18,7 @@ import logging
 import re
 import secrets
 import threading
+from dataclasses import asdict, dataclass
 from http import HTTPStatus
 from typing import Any, Awaitable, Callable
 
@@ -180,10 +181,9 @@ from mlflow.server.auth.config import DEFAULT_AUTHORIZATION_FUNCTION, read_auth_
 from mlflow.server.auth.entities import User
 from mlflow.server.auth.logo import MLFLOW_LOGO
 from mlflow.server.auth.permissions import (
-    EDIT,
     MANAGE,
     NO_PERMISSIONS,
-    READ,
+    USE,
     Permission,
     get_permission,
     max_permission,
@@ -193,17 +193,25 @@ from mlflow.server.auth.routes import (
     AJAX_ADD_ROLE_PERMISSION,
     AJAX_ASSIGN_ROLE,
     AJAX_CREATE_ROLE,
+    AJAX_CREATE_USER,
     AJAX_DELETE_ROLE,
+    AJAX_DELETE_USER,
+    AJAX_GET_CURRENT_USER,
     AJAX_GET_ROLE,
+    AJAX_GET_USER,
+    AJAX_LIST_CURRENT_USER_PERMISSIONS,
     AJAX_LIST_ROLE_PERMISSIONS,
     AJAX_LIST_ROLE_USERS,
     AJAX_LIST_ROLES,
+    AJAX_LIST_USER_PERMISSIONS,
     AJAX_LIST_USER_ROLES,
     AJAX_LIST_USERS,
     AJAX_REMOVE_ROLE_PERMISSION,
     AJAX_UNASSIGN_ROLE,
     AJAX_UPDATE_ROLE,
     AJAX_UPDATE_ROLE_PERMISSION,
+    AJAX_UPDATE_USER_ADMIN,
+    AJAX_UPDATE_USER_PASSWORD,
     ASSIGN_ROLE,
     CREATE_EXPERIMENT_PERMISSION,
     CREATE_GATEWAY_ENDPOINT_PERMISSION,
@@ -229,6 +237,7 @@ from mlflow.server.auth.routes import (
     GATEWAY_SUPPORTED_MODELS,
     GATEWAY_SUPPORTED_PROVIDERS,
     GET_ARTIFACT,
+    GET_CURRENT_USER,
     GET_EXPERIMENT_PERMISSION,
     GET_GATEWAY_ENDPOINT_PERMISSION,
     GET_GATEWAY_MODEL_DEFINITION_PERMISSION,
@@ -243,9 +252,11 @@ from mlflow.server.auth.routes import (
     GET_USER,
     HOME,
     INVOKE_SCORER,
+    LIST_CURRENT_USER_PERMISSIONS,
     LIST_ROLE_PERMISSIONS,
     LIST_ROLE_USERS,
     LIST_ROLES,
+    LIST_USER_PERMISSIONS,
     LIST_USER_ROLES,
     LIST_USER_WORKSPACE_PERMISSIONS,
     LIST_USERS,
@@ -269,6 +280,7 @@ from mlflow.server.auth.routes import (
 from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
 from mlflow.server.fastapi_app import create_fastapi_app
 from mlflow.server.handlers import (
+    _add_static_prefix,
     _disable_if_workspaces_disabled,
     _get_ajax_path,
     _get_model_registry_store,
@@ -389,8 +401,16 @@ def _invalidate_user_auth_cache(username: str) -> None:
             _USER_AUTH_CACHE.pop(key, None)
 
 
+_UNPROTECTED_PATH_PREFIXES = ("/static", "/favicon.ico", "/health")
+
+
 def is_unprotected_route(path: str) -> bool:
-    return path.startswith(("/static", "/favicon.ico", "/health"))
+    # When ``_MLFLOW_STATIC_PREFIX`` is set, the health/static routes are
+    # actually served from e.g. ``/mlflow/health``, not ``/health``. Match
+    # both the unprefixed and the prefixed forms so health checks don't end
+    # up requiring auth on prefixed deployments.
+    prefixed = tuple(_add_static_prefix(p) for p in _UNPROTECTED_PATH_PREFIXES)
+    return path.startswith(_UNPROTECTED_PATH_PREFIXES) or path.startswith(prefixed)
 
 
 def make_basic_auth_response() -> Response:
@@ -414,9 +434,16 @@ def _get_request_param(param: str) -> str:
     if request.method == "GET":
         args = request.args
     elif request.method in ("POST", "PATCH"):
-        args = request.json
+        # Coerce null/empty/non-dict JSON bodies to {} so callers get a 400, not
+        # a 500 from the dict-merge below.
+        body = request.get_json(silent=True)
+        args = body if isinstance(body, dict) else {}
     elif request.method == "DELETE":
-        args = request.json if request.is_json else request.args
+        if request.is_json:
+            body = request.get_json(silent=True)
+            args = body if isinstance(body, dict) else {}
+        else:
+            args = request.args
     else:
         raise MlflowException(
             f"Unsupported HTTP method '{request.method}'",
@@ -461,59 +488,48 @@ def _coerce_int_param(param: str, raw: object) -> int:
         )
 
 
-def _get_permission_from_store_or_default(
-    store_permission_func: Callable[[], str],
-    workspace_level_permission_func: Callable[[], Permission | None] | None = None,
-    role_permission_func: Callable[[], Permission | None] | None = None,
+def _user_inherits_default_workspace_grant(workspace_name: str) -> bool:
+    """
+    True if the request workspace is the configured default workspace *and* the
+    auth server is opted into auto-granting ``default_permission`` there
+    (``auth_config.grant_default_workspace_access``). Used as a fallback for the
+    resource-permission resolver and create-gate so deployments that relied on
+    the pre-simplification implicit "default workspace is open" behavior keep
+    working when configured.
+    """
+    if not auth_config.grant_default_workspace_access:
+        return False
+    default_workspace, _ = get_default_workspace_optional(_get_workspace_store())
+    return default_workspace is not None and workspace_name == default_workspace.name
+
+
+def _get_role_permission_or_default(
+    role_permission_func: Callable[[], Permission | None],
 ) -> Permission:
     """
-    Resolve a permission from the auth store, with optional role-based and workspace fallbacks.
+    Resolve a user's permission on a resource by consulting role_permissions via the
+    provided ``role_permission_func`` (see ``_role_permission_for``).
 
-    Resolution order:
-    1. If role_permission_func is provided and returns a non-None/non-NO_PERMISSIONS result,
-       combine it with any direct resource permission (take the higher of the two).
-    2. If a direct (resource-level) permission exists, it is returned.
-    3. If no direct permission exists and workspaces are enabled, check workspace-level permission.
-    4. Fall back to auth_config.default_permission.
+    Returns whatever ``role_permission_func`` produces if non-None — including
+    ``NO_PERMISSIONS``, which acts as an explicit deny. Falls back to
+    ``auth_config.default_permission`` only when ``role_permission_func`` returns
+    ``None`` (no matching grant at all).
+
+    In the unified RBAC model (post-``e5f6a7b8c9d0`` migration), ``role_permissions`` is
+    the sole source of truth: per-user grants live under synthetic ``__user_<id>__``
+    roles, workspace-wide grants live in the unified ``('workspace', '*')`` slot
+    (USE for regular workspace members, MANAGE for workspace admins).
+    ``get_role_permission_for_resource`` walks all of the user's role grants and
+    returns the max, or ``None`` when nothing matches.
+
+    ``NO_PERMISSIONS`` is no longer accepted as a new grant value (validators reject it
+    on resource-scoped writes; the migration drops legacy ``NO_PERMISSIONS`` rows).
+    Any pre-existing ``NO_PERMISSIONS`` row in ``role_permissions`` from the early RBAC
+    API still resolves correctly via the explicit-deny semantics described above.
     """
-    # Check the direct resource permission first. A direct MANAGE grant is already the
-    # ceiling — a role grant can't raise it — so we can skip the role lookup (one DB
-    # query) in the common admin/owner case. For any lower permission we still need to
-    # consult roles so the `max(direct, role)` semantics below hold.
-    direct_perm = None
-    try:
-        direct_perm = get_permission(store_permission_func())
-    except MlflowException as e:
-        if e.error_code != ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
-            raise
-
-    if direct_perm is not None and direct_perm.name == MANAGE.name:
-        return direct_perm
-
-    # Check role-based permissions
-    role_perm = None
-    if role_permission_func is not None:
-        role_perm = role_permission_func()
-
-    # If we have both, take the higher
-    if role_perm is not None and role_perm != NO_PERMISSIONS and direct_perm is not None:
-        return get_permission(max_permission(role_perm.name, direct_perm.name))
-
-    # If only role permission, use it
-    if role_perm is not None and role_perm != NO_PERMISSIONS:
-        return role_perm
-
-    # If only direct permission, use it
-    if direct_perm is not None:
-        return direct_perm
-
-    # Fall back to workspace permission
-    if workspace_level_permission_func is not None:
-        workspace_permission = workspace_level_permission_func()
-        if workspace_permission is not None:
-            return workspace_permission
-
-    # Final fallback to default
+    perm = role_permission_func()
+    if perm is not None:
+        return perm
     return get_permission(auth_config.default_permission)
 
 
@@ -551,7 +567,7 @@ def _workspace_permission(
         # path needs to do the same to stay consistent.
         direct = store.get_workspace_permission(workspace_name, username)
         # MANAGE is the ceiling — a role grant can't raise it, so skip the
-        # extra DB round-trip in the common workspace-admin case. Mirrors
+        # extra DB round-trip in the common workspace admin case. Mirrors
         # the optimization in ``_get_permission_from_store_or_default``.
         if direct is not None and direct.name == MANAGE.name:
             return direct
@@ -580,15 +596,47 @@ def _workspace_permission(
         return NO_PERMISSIONS
 
 
+def _user_can_create_in_workspace() -> bool:
+    """
+    True if the current request can create new resources in the request's
+    workspace. Always allows when workspaces are disabled. Otherwise requires
+    a workspace-wide grant whose level has ``can_use`` (i.e. USE or MANAGE under
+    the simplified two-tier workspace model). Resource-specific grants don't
+    confer create rights — only workspace-wide grants do.
+
+    ``_workspace_permission`` already max-merges every grant on the unified
+    ``('workspace', '*')`` slot — across the user's own synthetic role
+    (where migrated legacy ``workspace_permissions`` rows and seeded
+    workspace-member grants live) and any admin-managed roles the user is
+    assigned to — so a single lookup is sufficient.
+    """
+    if not MLFLOW_ENABLE_WORKSPACES.get():
+        return True
+
+    workspace_name = workspace_context.get_request_workspace()
+    if workspace_name is None:
+        return False
+
+    workspace_perm = _workspace_permission(authenticate_request().username, workspace_name)
+    return workspace_perm is not None and workspace_perm.can_use
+
+
 def _get_resource_workspace(
     resource_id: str,
     fetcher: Callable[[str], Any],
     resource_label: str,
+    silent: bool = False,
 ) -> str | None:
     """
     Get the workspace name for a resource, using a cache to avoid repeated lookups.
 
-    The resource→workspace relationship is immutable, so caching is safe.
+    The resource->workspace relationship is immutable, so caching is safe.
+
+    Args:
+        silent: When True, suppress the lookup-failure warning. Set by
+            non-authorization callers (e.g. listing endpoints) where a
+            ``None`` return is an expected outcome for deleted resources
+            rather than a security-relevant error.
     """
     # Use a cache key that includes the resource_label to avoid collisions between
     # experiments and registered models that might have the same ID/name.
@@ -606,12 +654,13 @@ def _get_resource_workspace(
         resource = fetcher(resource_id)
         workspace_name = getattr(resource, "workspace", None)
     except MlflowException as e:
-        _logger.warning(
-            "Failed to determine workspace for %s '%s': %s. Denying access for security.",
-            resource_label,
-            resource_id,
-            e,
-        )
+        if not silent:
+            _logger.warning(
+                "Failed to determine workspace for %s '%s': %s. Denying access for security.",
+                resource_label,
+                resource_id,
+                e,
+            )
         workspace_name = None
 
     if cache_key is None:
@@ -759,12 +808,12 @@ def _role_permission_for(
 ) -> Callable[[], Permission | None]:
     """
     Build a callable that resolves a user's role-based permission on a specific resource,
-    for use as ``role_permission_func`` in ``_get_permission_from_store_or_default``.
+    for use as ``role_permission_func`` in ``_get_role_permission_or_default``.
 
     ``resource_key`` is the lookup key for ``role_permissions`` (may differ from the
     workspace-resolution id for composite resources, e.g. scorers use
-    ``f"{experiment_id}/{scorer_name}"`` as the role key but resolve the workspace via
-    the parent experiment).
+    ``SqlAlchemyStore._scorer_pattern(experiment_id, scorer_name)`` as the role key
+    but resolve the workspace via the parent experiment).
     """
 
     def _role_perm() -> Permission | None:
@@ -773,21 +822,33 @@ def _role_permission_for(
             workspace_lookup_id, workspace_fetcher, workspace_label
         )
         if workspace_name is None:
-            return None
-        return store.get_role_permission_for_resource(
+            # Workspace lookup failed — when workspaces are enabled, deny by returning
+            # NO_PERMISSIONS (security: don't let resource_not_found silently become a
+            # default-permission grant). When disabled, fall through to the default.
+            return NO_PERMISSIONS if MLFLOW_ENABLE_WORKSPACES.get() else None
+        perm = store.get_role_permission_for_resource(
             user.id, resource_type, resource_key, workspace_name
         )
+        if perm is not None:
+            return perm
+        # No grant in the resolved workspace. With workspaces disabled, fall through
+        # to the configured default. With workspaces enabled, deny — *unless* the
+        # operator opted into ``grant_default_workspace_access`` and this is the
+        # default workspace, in which case the user inherits ``default_permission``
+        # so deployments that relied on the implicit auto-grant pre-simplification
+        # don't lose resource-level access.
+        if not MLFLOW_ENABLE_WORKSPACES.get():
+            return None
+        if _user_inherits_default_workspace_grant(workspace_name):
+            return get_permission(auth_config.default_permission)
+        return NO_PERMISSIONS
 
     return _role_perm
 
 
 def _get_experiment_permission(experiment_id: str, username: str) -> Permission:
-    return _get_permission_from_store_or_default(
-        lambda: store.get_experiment_permission(experiment_id, username).permission,
-        workspace_level_permission_func=lambda: _workspace_permission_for_experiment(
-            username, experiment_id
-        ),
-        role_permission_func=_role_permission_for(
+    return _get_role_permission_or_default(
+        _role_permission_for(
             username=username,
             resource_type="experiment",
             resource_key=experiment_id,
@@ -814,18 +875,26 @@ def _get_permission_from_experiment_id_artifact_proxy() -> Permission:
     username = authenticate_request().username
 
     if experiment_id := _get_experiment_id_from_view_args():
-        return _get_permission_from_store_or_default(
-            lambda: store.get_experiment_permission(experiment_id, username).permission,
-            workspace_level_permission_func=lambda: _workspace_permission_for_experiment(
-                username, experiment_id
+        return _get_role_permission_or_default(
+            _role_permission_for(
+                username=username,
+                resource_type="experiment",
+                resource_key=experiment_id,
+                workspace_lookup_id=experiment_id,
+                workspace_fetcher=_get_tracking_store().get_experiment,
+                workspace_label="experiment",
             ),
         )
 
     if MLFLOW_ENABLE_WORKSPACES.get():
         if workspace_name := workspace_context.get_request_workspace():
-            permission = _workspace_permission(username, workspace_name)
-            if permission is not None:
-                return permission
+            user = store.get_user(username)
+            perm = store.get_role_permission_for_resource(user.id, "workspace", "*", workspace_name)
+            if perm is not None:
+                return perm
+            # Honor the default-workspace auto-grant when configured.
+            if _user_inherits_default_workspace_grant(workspace_name):
+                return get_permission(auth_config.default_permission)
         return NO_PERMISSIONS
 
     return get_permission(auth_config.default_permission)
@@ -841,10 +910,14 @@ def _get_permission_from_experiment_name() -> Permission:
         )
     username = authenticate_request().username
 
-    return _get_permission_from_store_or_default(
-        lambda: store.get_experiment_permission(store_exp.experiment_id, username).permission,
-        workspace_level_permission_func=lambda: _workspace_permission_for_experiment(
-            username, store_exp.experiment_id
+    return _get_role_permission_or_default(
+        _role_permission_for(
+            username=username,
+            resource_type="experiment",
+            resource_key=store_exp.experiment_id,
+            workspace_lookup_id=store_exp.experiment_id,
+            workspace_fetcher=_get_tracking_store().get_experiment,
+            workspace_label="experiment",
         ),
     )
 
@@ -856,10 +929,14 @@ def _get_permission_from_run_id() -> Permission:
     run = _get_tracking_store().get_run(run_id)
     experiment_id = run.info.experiment_id
     username = authenticate_request().username
-    return _get_permission_from_store_or_default(
-        lambda: store.get_experiment_permission(experiment_id, username).permission,
-        workspace_level_permission_func=lambda: _workspace_permission_for_experiment(
-            username, experiment_id
+    return _get_role_permission_or_default(
+        _role_permission_for(
+            username=username,
+            resource_type="experiment",
+            resource_key=experiment_id,
+            workspace_lookup_id=experiment_id,
+            workspace_fetcher=_get_tracking_store().get_experiment,
+            workspace_label="experiment",
         ),
     )
 
@@ -870,10 +947,14 @@ def _get_permission_from_model_id() -> Permission:
     model = _get_tracking_store().get_logged_model(model_id)
     experiment_id = model.experiment_id
     username = authenticate_request().username
-    return _get_permission_from_store_or_default(
-        lambda: store.get_experiment_permission(experiment_id, username).permission,
-        workspace_level_permission_func=lambda: _workspace_permission_for_experiment(
-            username, experiment_id
+    return _get_role_permission_or_default(
+        _role_permission_for(
+            username=username,
+            resource_type="experiment",
+            resource_key=experiment_id,
+            workspace_lookup_id=experiment_id,
+            workspace_fetcher=_get_tracking_store().get_experiment,
+            workspace_label="experiment",
         ),
     )
 
@@ -885,10 +966,14 @@ def _get_permission_from_prompt_optimization_job_id() -> Permission:
     params = json.loads(job_entity.params)
     experiment_id = params.get("experiment_id")
     username = authenticate_request().username
-    return _get_permission_from_store_or_default(
-        lambda: store.get_experiment_permission(experiment_id, username).permission,
-        workspace_level_permission_func=lambda: _workspace_permission_for_experiment(
-            username, experiment_id
+    return _get_role_permission_or_default(
+        _role_permission_for(
+            username=username,
+            resource_type="experiment",
+            resource_key=experiment_id,
+            workspace_lookup_id=experiment_id,
+            workspace_fetcher=_get_tracking_store().get_experiment,
+            workspace_label="experiment",
         ),
     )
 
@@ -896,12 +981,8 @@ def _get_permission_from_prompt_optimization_job_id() -> Permission:
 def _get_permission_from_registered_model_name() -> Permission:
     name = _get_request_param("name")
     username = authenticate_request().username
-    return _get_permission_from_store_or_default(
-        lambda: store.get_registered_model_permission(name, username).permission,
-        workspace_level_permission_func=lambda: _workspace_permission_for_registered_model(
-            username, name
-        ),
-        role_permission_func=_role_permission_for(
+    return _get_role_permission_or_default(
+        _role_permission_for(
             username=username,
             resource_type="registered_model",
             resource_key=name,
@@ -916,15 +997,11 @@ def _get_permission_from_scorer_name() -> Permission:
     experiment_id = _get_request_param("experiment_id")
     name = _get_request_param("name")
     username = authenticate_request().username
-    return _get_permission_from_store_or_default(
-        lambda: store.get_scorer_permission(experiment_id, name, username).permission,
-        workspace_level_permission_func=lambda: _workspace_permission_for_experiment(
-            username, experiment_id
-        ),
-        role_permission_func=_role_permission_for(
+    return _get_role_permission_or_default(
+        _role_permission_for(
             username=username,
             resource_type="scorer",
-            resource_key=f"{experiment_id}/{name}",
+            resource_key=store._scorer_pattern(experiment_id, name),
             workspace_lookup_id=experiment_id,
             workspace_fetcher=_get_tracking_store().get_experiment,
             workspace_label="experiment",
@@ -936,15 +1013,11 @@ def _get_permission_from_scorer_permission_request() -> Permission:
     experiment_id = _get_request_param("experiment_id")
     scorer_name = _get_request_param("scorer_name")
     username = authenticate_request().username
-    return _get_permission_from_store_or_default(
-        lambda: store.get_scorer_permission(experiment_id, scorer_name, username).permission,
-        workspace_level_permission_func=lambda: _workspace_permission_for_experiment(
-            username, experiment_id
-        ),
-        role_permission_func=_role_permission_for(
+    return _get_role_permission_or_default(
+        _role_permission_for(
             username=username,
             resource_type="scorer",
-            resource_key=f"{experiment_id}/{scorer_name}",
+            resource_key=store._scorer_pattern(experiment_id, scorer_name),
             workspace_lookup_id=experiment_id,
             workspace_fetcher=_get_tracking_store().get_experiment,
             workspace_label="experiment",
@@ -952,72 +1025,11 @@ def _get_permission_from_scorer_permission_request() -> Permission:
     )
 
 
-def _workspace_permission_for_gateway_secret(
-    username: str | None, secret_id: str
-) -> Permission | None:
-    """
-    Get workspace-level permission for accessing a gateway secret.
-
-    Returns:
-        Permission object if workspace permissions apply, None if workspace permissions
-        are not supported. Returns NO_PERMISSIONS if the secret lookup fails
-        (security: deny on error).
-    """
-    return _workspace_permission_for_resource(
-        username,
-        secret_id,
-        lambda sid: _get_tracking_store().get_secret_info(secret_id=sid),
-        "gateway secret",
-    )
-
-
-def _workspace_permission_for_gateway_endpoint(
-    username: str | None, endpoint_id: str
-) -> Permission | None:
-    """
-    Get workspace-level permission for accessing a gateway endpoint.
-
-    Returns:
-        Permission object if workspace permissions apply, None if workspace permissions
-        are not supported. Returns NO_PERMISSIONS if the endpoint lookup fails
-        (security: deny on error).
-    """
-    return _workspace_permission_for_resource(
-        username,
-        endpoint_id,
-        lambda eid: _get_tracking_store().get_gateway_endpoint(endpoint_id=eid),
-        "gateway endpoint",
-    )
-
-
-def _workspace_permission_for_gateway_model_definition(
-    username: str | None, model_definition_id: str
-) -> Permission | None:
-    """
-    Get workspace-level permission for accessing a gateway model definition.
-
-    Returns:
-        Permission object if workspace permissions apply, None if workspace permissions
-        are not supported. Returns NO_PERMISSIONS if the model definition lookup fails
-        (security: deny on error).
-    """
-    return _workspace_permission_for_resource(
-        username,
-        model_definition_id,
-        lambda mdid: _get_tracking_store().get_gateway_model_definition(model_definition_id=mdid),
-        "gateway model definition",
-    )
-
-
 def _get_permission_from_gateway_secret_id() -> Permission:
     secret_id = _get_request_param("secret_id")
     username = authenticate_request().username
-    return _get_permission_from_store_or_default(
-        lambda: store.get_gateway_secret_permission(secret_id, username).permission,
-        workspace_level_permission_func=lambda: _workspace_permission_for_gateway_secret(
-            username, secret_id
-        ),
-        role_permission_func=_role_permission_for(
+    return _get_role_permission_or_default(
+        _role_permission_for(
             username=username,
             resource_type="gateway_secret",
             resource_key=secret_id,
@@ -1031,12 +1043,8 @@ def _get_permission_from_gateway_secret_id() -> Permission:
 def _get_permission_from_gateway_endpoint_id() -> Permission:
     endpoint_id = _get_request_param("endpoint_id")
     username = authenticate_request().username
-    return _get_permission_from_store_or_default(
-        lambda: store.get_gateway_endpoint_permission(endpoint_id, username).permission,
-        workspace_level_permission_func=lambda: _workspace_permission_for_gateway_endpoint(
-            username, endpoint_id
-        ),
-        role_permission_func=_role_permission_for(
+    return _get_role_permission_or_default(
+        _role_permission_for(
             username=username,
             resource_type="gateway_endpoint",
             resource_key=endpoint_id,
@@ -1052,14 +1060,8 @@ def _get_permission_from_gateway_endpoint_id() -> Permission:
 def _get_permission_from_gateway_model_definition_id() -> Permission:
     model_definition_id = _get_request_param("model_definition_id")
     username = authenticate_request().username
-    return _get_permission_from_store_or_default(
-        lambda: (
-            store.get_gateway_model_definition_permission(model_definition_id, username).permission
-        ),
-        workspace_level_permission_func=lambda: _workspace_permission_for_gateway_model_definition(
-            username, model_definition_id
-        ),
-        role_permission_func=_role_permission_for(
+    return _get_role_permission_or_default(
+        _role_permission_for(
             username=username,
             resource_type="gateway_model_definition",
             resource_key=model_definition_id,
@@ -1169,33 +1171,11 @@ def validate_can_manage_registered_model():
 
 
 def validate_can_create_experiment() -> bool:
-    # Historically, experiment creation has always been allowed when workspaces are
-    # disabled. We keep returning True here to preserve that behavior even if
-    # auth_config.default_permission is READ/NO_PERMISSIONS.
-    if not MLFLOW_ENABLE_WORKSPACES.get():
-        return True
-
-    workspace_name = workspace_context.get_request_workspace()
-    if workspace_name is None:
-        return False
-
-    perm = _workspace_permission(authenticate_request().username, workspace_name)
-    return perm is not None and perm.can_manage
+    return _user_can_create_in_workspace()
 
 
 def validate_can_create_registered_model() -> bool:
-    # Historically, registered model creation has always been allowed when workspaces are
-    # disabled. We keep returning True here to preserve that behavior even if
-    # auth_config.default_permission is READ/NO_PERMISSIONS.
-    if not MLFLOW_ENABLE_WORKSPACES.get():
-        return True
-
-    workspace_name = workspace_context.get_request_workspace()
-    if workspace_name is None:
-        return False
-
-    perm = _workspace_permission(authenticate_request().username, workspace_name)
-    return perm is not None and perm.can_manage
+    return _user_can_create_in_workspace()
 
 
 def validate_can_view_workspace() -> bool:
@@ -1561,10 +1541,14 @@ def validate_can_create_gateway_model_definition():
         return True
 
     username = authenticate_request().username
-    permission = _get_permission_from_store_or_default(
-        lambda: store.get_gateway_secret_permission(secret_id, username).permission,
-        workspace_level_permission_func=lambda: _workspace_permission_for_gateway_secret(
-            username, secret_id
+    permission = _get_role_permission_or_default(
+        _role_permission_for(
+            username=username,
+            resource_type="gateway_secret",
+            resource_key=secret_id,
+            workspace_lookup_id=secret_id,
+            workspace_fetcher=lambda sid: _get_tracking_store().get_secret_info(secret_id=sid),
+            workspace_label="gateway secret",
         ),
     )
     return permission.can_use
@@ -1588,10 +1572,14 @@ def validate_can_update_gateway_model_definition():
         return True
 
     username = authenticate_request().username
-    permission = _get_permission_from_store_or_default(
-        lambda: store.get_gateway_secret_permission(secret_id, username).permission,
-        workspace_level_permission_func=lambda: _workspace_permission_for_gateway_secret(
-            username, secret_id
+    permission = _get_role_permission_or_default(
+        _role_permission_for(
+            username=username,
+            resource_type="gateway_secret",
+            resource_key=secret_id,
+            workspace_lookup_id=secret_id,
+            workspace_fetcher=lambda sid: _get_tracking_store().get_secret_info(secret_id=sid),
+            workspace_label="gateway secret",
         ),
     )
     return permission.can_use
@@ -1615,14 +1603,18 @@ def _validate_can_use_model_definitions(model_configs: list[dict[str, Any]]) -> 
         return True
 
     username = authenticate_request().username
-    # Reassign to a shorter name for line length limits
-    ws_func = _workspace_permission_for_gateway_model_definition
     for model_def_id in model_def_ids:
-        permission = _get_permission_from_store_or_default(
-            lambda md_id=model_def_id: (
-                store.get_gateway_model_definition_permission(md_id, username).permission
+        permission = _get_role_permission_or_default(
+            _role_permission_for(
+                username=username,
+                resource_type="gateway_model_definition",
+                resource_key=model_def_id,
+                workspace_lookup_id=model_def_id,
+                workspace_fetcher=lambda mdid: _get_tracking_store().get_gateway_model_definition(
+                    model_definition_id=mdid
+                ),
+                workspace_label="gateway model definition",
             ),
-            workspace_level_permission_func=lambda md_id=model_def_id: ws_func(username, md_id),
         )
         if not permission.can_use:
             return False
@@ -1642,7 +1634,10 @@ def _validate_can_use_model_definitions_for_create(model_configs: list[dict[str,
         if workspace_name is None:
             return False
         username = authenticate_request().username
-        workspace_perm = _workspace_permission(username, workspace_name)
+        user = store.get_user(username)
+        workspace_perm = store.get_role_permission_for_resource(
+            user.id, "workspace", "*", workspace_name
+        )
         return workspace_perm is not None and workspace_perm.can_use
 
     return _validate_can_use_model_definitions(model_configs)
@@ -1685,10 +1680,14 @@ def _get_permission_from_run_id_or_uuid() -> Permission:
     run = _get_tracking_store().get_run(run_id)
     experiment_id = run.info.experiment_id
     username = authenticate_request().username
-    return _get_permission_from_store_or_default(
-        lambda: store.get_experiment_permission(experiment_id, username).permission,
-        workspace_level_permission_func=lambda: _workspace_permission_for_experiment(
-            username, experiment_id
+    return _get_role_permission_or_default(
+        _role_permission_for(
+            username=username,
+            resource_type="experiment",
+            resource_key=experiment_id,
+            workspace_lookup_id=experiment_id,
+            workspace_fetcher=_get_tracking_store().get_experiment,
+            workspace_label="experiment",
         ),
     )
 
@@ -1715,10 +1714,14 @@ def _get_permission_from_model_version() -> Permission:
             INVALID_PARAMETER_VALUE,
         )
     username = authenticate_request().username
-    return _get_permission_from_store_or_default(
-        lambda: store.get_registered_model_permission(name, username).permission,
-        workspace_level_permission_func=lambda: _workspace_permission_for_registered_model(
-            username, name
+    return _get_role_permission_or_default(
+        _role_permission_for(
+            username=username,
+            resource_type="registered_model",
+            resource_key=name,
+            workspace_lookup_id=name,
+            workspace_fetcher=_get_model_registry_store().get_registered_model,
+            workspace_label="registered model",
         ),
     )
 
@@ -1743,10 +1746,14 @@ def _get_permission_from_trace_request_id() -> Permission:
     trace = _get_tracking_store().get_trace_info(request_id)
     experiment_id = trace.experiment_id
     username = authenticate_request().username
-    return _get_permission_from_store_or_default(
-        lambda: store.get_experiment_permission(experiment_id, username).permission,
-        workspace_level_permission_func=lambda: _workspace_permission_for_experiment(
-            username, experiment_id
+    return _get_role_permission_or_default(
+        _role_permission_for(
+            username=username,
+            resource_type="experiment",
+            resource_key=experiment_id,
+            workspace_lookup_id=experiment_id,
+            workspace_fetcher=_get_tracking_store().get_experiment,
+            workspace_label="experiment",
         ),
     )
 
@@ -1777,13 +1784,15 @@ def validate_can_read_metric_history_bulk(run_ids=None):
     for run_id in run_ids:
         run = tracking_store.get_run(run_id)
         experiment_id = run.info.experiment_id
-
-        def get_workspace_perm(eid=experiment_id):
-            return _workspace_permission_for_experiment(username, eid)
-
-        permission = _get_permission_from_store_or_default(
-            lambda eid=experiment_id: store.get_experiment_permission(eid, username).permission,
-            workspace_level_permission_func=get_workspace_perm,
+        permission = _get_role_permission_or_default(
+            _role_permission_for(
+                username=username,
+                resource_type="experiment",
+                resource_key=experiment_id,
+                workspace_lookup_id=experiment_id,
+                workspace_fetcher=_get_tracking_store().get_experiment,
+                workspace_label="experiment",
+            ),
         )
         if not permission.can_read:
             return False
@@ -1820,13 +1829,15 @@ def validate_can_search_datasets():
 
     # Check permission for each experiment
     for experiment_id in experiment_ids:
-
-        def get_workspace_perm(eid=experiment_id):
-            return _workspace_permission_for_experiment(username, eid)
-
-        permission = _get_permission_from_store_or_default(
-            lambda eid=experiment_id: store.get_experiment_permission(eid, username).permission,
-            workspace_level_permission_func=get_workspace_perm,
+        permission = _get_role_permission_or_default(
+            _role_permission_for(
+                username=username,
+                resource_type="experiment",
+                resource_key=experiment_id,
+                workspace_lookup_id=experiment_id,
+                workspace_fetcher=_get_tracking_store().get_experiment,
+                workspace_label="experiment",
+            ),
         )
         if not permission.can_read:
             return False
@@ -1845,10 +1856,14 @@ def validate_can_create_promptlab_run():
         )
 
     username = authenticate_request().username
-    permission = _get_permission_from_store_or_default(
-        lambda: store.get_experiment_permission(experiment_id, username).permission,
-        workspace_level_permission_func=lambda: _workspace_permission_for_experiment(
-            username, experiment_id
+    permission = _get_role_permission_or_default(
+        _role_permission_for(
+            username=username,
+            resource_type="experiment",
+            resource_key=experiment_id,
+            workspace_lookup_id=experiment_id,
+            workspace_fetcher=_get_tracking_store().get_experiment,
+            workspace_label="experiment",
         ),
     )
     return permission.can_update
@@ -1979,12 +1994,24 @@ BEFORE_REQUEST_VALIDATORS = {
 BEFORE_REQUEST_VALIDATORS.update({
     (SIGNUP, "GET"): validate_can_create_user,
     (GET_USER, "GET"): validate_can_read_user,
+    (AJAX_GET_USER, "GET"): validate_can_read_user,
+    # /current returns only the authenticated user's own identity — any
+    # authenticated user may read it.
+    (GET_CURRENT_USER, "GET"): lambda: True,
+    (AJAX_GET_CURRENT_USER, "GET"): lambda: True,
+    # Same goes for /current/permissions.
+    (LIST_CURRENT_USER_PERMISSIONS, "GET"): lambda: True,
+    (AJAX_LIST_CURRENT_USER_PERMISSIONS, "GET"): lambda: True,
     (LIST_USERS, "GET"): validate_can_list_users,
     (AJAX_LIST_USERS, "GET"): validate_can_list_users,
     (CREATE_USER, "POST"): validate_can_create_user,
+    (AJAX_CREATE_USER, "POST"): validate_can_create_user,
     (UPDATE_USER_PASSWORD, "PATCH"): validate_can_update_user_password,
+    (AJAX_UPDATE_USER_PASSWORD, "PATCH"): validate_can_update_user_password,
     (UPDATE_USER_ADMIN, "PATCH"): validate_can_update_user_admin,
+    (AJAX_UPDATE_USER_ADMIN, "PATCH"): validate_can_update_user_admin,
     (DELETE_USER, "DELETE"): validate_can_delete_user,
+    (AJAX_DELETE_USER, "DELETE"): validate_can_delete_user,
     (GET_EXPERIMENT_PERMISSION, "GET"): validate_can_manage_experiment,
     (CREATE_EXPERIMENT_PERMISSION, "POST"): validate_can_manage_experiment,
     (UPDATE_EXPERIMENT_PERMISSION, "PATCH"): validate_can_manage_experiment,
@@ -2052,6 +2079,11 @@ BEFORE_REQUEST_VALIDATORS.update({
     (AJAX_UNASSIGN_ROLE, "DELETE"): validate_can_manage_roles,
     (LIST_USER_ROLES, "GET"): validate_can_view_user_roles,
     (AJAX_LIST_USER_ROLES, "GET"): validate_can_view_user_roles,
+    # Same authorization shape as ``LIST_USER_ROLES``: super admins
+    # bypass; self can view their own grants; workspace admins can
+    # view grants for users in workspaces they administer.
+    (LIST_USER_PERMISSIONS, "GET"): validate_can_view_user_roles,
+    (AJAX_LIST_USER_PERMISSIONS, "GET"): validate_can_view_user_roles,
     (LIST_ROLE_USERS, "GET"): validate_can_manage_roles,
     (AJAX_LIST_ROLE_USERS, "GET"): validate_can_manage_roles,
 })
@@ -2546,18 +2578,37 @@ def filter_list_workspaces(resp: Response) -> None:
 # ``MLFLOW_RBAC_SEED_DEFAULT_ROLES`` is on. ``CreateWorkspace`` is gated to
 # ``sender_is_admin``, so the creator is always a super-admin whose ``is_admin``
 # flag already bypasses RBAC checks — we therefore don't assign the creator to
-# any of these roles. The three roles exist as ready-made scaffolding for the
+# any of these roles. The two roles exist as ready-made scaffolding for the
 # admin to hand out to other users.
 #
-# All three roles use ``(resource_type='workspace', resource_pattern='*')`` — the
-# workspace-wide grant form supported by ``VALID_RESOURCE_TYPES``. The permission
-# level differentiates them: only ``MANAGE`` additionally grants workspace-admin
-# capability (role/user management within the workspace); ``EDIT`` / ``READ`` give
-# workspace-wide resource access without admin authority.
+# Workspace permissions in the simplified model collapse to two tiers, both
+# stored in the unified ``resource_type='workspace'`` slot:
+# - ``admin`` (MANAGE on ``('workspace', '*')``): full authority, including
+#   role/user management within the workspace.
+# - ``user`` (USE on ``('workspace', '*')``): read every resource in the workspace
+#   plus the ability to create new experiments / registered models. The
+#   creator-as-owner mechanism then grants the creator MANAGE on what they
+#   create — so users manage their own resources without gaining write or
+#   delete on resources owned by others.
+_WORKSPACE_GRANT = ("workspace", "*")
 _DEFAULT_WORKSPACE_ROLES = (
-    ("workspace-admin", MANAGE.name, "Full MANAGE authority over the workspace."),
-    ("editor", EDIT.name, "EDIT access to every resource in the workspace."),
-    ("viewer", READ.name, "READ access to every resource in the workspace."),
+    (
+        "admin",
+        _WORKSPACE_GRANT,
+        MANAGE.name,
+        "Full MANAGE authority over the workspace.",
+    ),
+    (
+        "user",
+        _WORKSPACE_GRANT,
+        USE.name,
+        (
+            "Read every resource in the workspace and create new experiments "
+            "and registered models; the creator-as-owner mechanism grants "
+            "MANAGE on what you create, with no write or delete access to "
+            "resources owned by other users."
+        ),
+    ),
 )
 
 
@@ -2579,7 +2630,10 @@ def _seed_default_workspace_roles(resp: Response) -> None:
     parse_dict(resp.json, response_message)
     workspace_name = response_message.workspace.name
 
-    for role_name, permission, description in _DEFAULT_WORKSPACE_ROLES:
+    for role_name, (
+        resource_type,
+        resource_pattern,
+    ), permission, description in _DEFAULT_WORKSPACE_ROLES:
         try:
             role = store.create_role(
                 name=role_name, workspace=workspace_name, description=description
@@ -2593,7 +2647,7 @@ def _seed_default_workspace_roles(resp: Response) -> None:
             )
             continue
         try:
-            store.add_role_permission(role.id, "workspace", "*", permission)
+            store.add_role_permission(role.id, resource_type, resource_pattern, permission)
         except MlflowException as e:
             _logger.error(
                 "Failed to add permission to default role '%s' for workspace '%s': %s. "
@@ -3134,20 +3188,17 @@ def create_user_ui(csrf):
 
 @catch_mlflow_exception
 def create_user():
-    content_type = request.headers.get("Content-Type")
-    if content_type == "application/json":
-        username = _get_request_param("username")
-        password = _get_request_param("password")
+    if not request.is_json:
+        return make_response("Invalid content type. Must be application/json", 400)
 
-        if not username or not password:
-            message = "Username and password cannot be empty."
-            return make_response(message, 400)
+    username = _get_request_param("username")
+    password = _get_request_param("password")
 
-        user = store.create_user(username, password)
-        return jsonify({"user": user.to_json()})
-    else:
-        message = "Invalid content type. Must be application/json"
-        return make_response(message, 400)
+    if not username or not password:
+        return make_response("Username and password cannot be empty.", 400)
+
+    user = store.create_user(username, password)
+    return jsonify({"user": user.to_json()})
 
 
 @catch_mlflow_exception
@@ -3160,13 +3211,183 @@ def get_user():
 @catch_mlflow_exception
 def list_users():
     users = store.list_users()
-    return jsonify({"users": [{"id": u.id, "username": u.username} for u in users]})
+    return jsonify({
+        "users": [{"id": u.id, "username": u.username, "is_admin": u.is_admin} for u in users]
+    })
+
+
+@catch_mlflow_exception
+def get_current_user():
+    # HTTP Basic Auth doesn't set any identifying cookie, so the frontend has
+    # no way to know *which* user the browser authenticated as. This endpoint
+    # returns minimal identity info (no password hash, no permission arrays)
+    # for the currently authenticated user.
+    #
+    # ``is_basic_auth`` lets the frontend gate Basic-Auth-only affordances
+    # (the logout XHR trick and the change-password modal) on deployments
+    # that swap in a custom ``authorization_function``.
+    username = authenticate_request().username
+    user = store.get_user(username)
+    is_basic_auth = auth_config.authorization_function == DEFAULT_AUTHORIZATION_FUNCTION
+    return jsonify({
+        "user": {"id": user.id, "username": user.username, "is_admin": user.is_admin},
+        "is_basic_auth": is_basic_auth,
+    })
+
+
+@dataclass
+class _UserDirectPermission:
+    """Wire schema for one row of ``GET /users/current/permissions``."""
+
+    resource_type: str
+    resource_pattern: str
+    permission: str
+    workspace: str | None
+
+
+def _list_user_direct_permissions(username: str) -> list[_UserDirectPermission]:
+    # Returns each grant under ``resource_pattern`` (matching
+    # ``RolePermission``), enriched with the resource's workspace.
+    # ``workspace`` is ``None`` when the resource has been deleted -
+    # ``silent=True`` on the workspace lookup so deleted-resource grants
+    # don't flood logs with security warnings on this listing endpoint.
+    #
+    # Drift risk: this helper iterates ``store.list_*_permissions(username)``
+    # for every resource type. The four id-based listings (experiment,
+    # gateway_*) only filter by ``user_id`` today;
+    # ``list_all_registered_model_permissions`` is the explicit
+    # cross-workspace variant (the workspace-aware
+    # ``list_registered_model_permissions`` would raise on workspaces-enabled
+    # deployments without an active workspace, since ``/account`` is a
+    # global route). If any of the id-based methods gains a workspace filter
+    # in the future, this endpoint will silently break the same way. Follow-up:
+    # add a regression test or runtime assertion that walks every list method
+    # invoked here and proves it works when the active workspace is unset.
+    grants: list[_UserDirectPermission] = [
+        _UserDirectPermission(
+            resource_type="experiment",
+            resource_pattern=p.experiment_id,
+            permission=p.permission,
+            workspace=_get_resource_workspace(
+                p.experiment_id,
+                _get_tracking_store().get_experiment,
+                "experiment",
+                silent=True,
+            ),
+        )
+        for p in store.list_experiment_permissions(username)
+    ]
+    # Use the cross-workspace variant: ``/account`` is a global route
+    # (no ``X-MLFLOW-WORKSPACE`` header), so the active-workspace-aware
+    # ``list_registered_model_permissions`` would raise on
+    # workspaces-enabled deployments. ``list_all_registered_model_permissions``
+    # returns one row per (workspace, model) grant; each carries its own
+    # ``workspace`` value.
+    grants.extend(
+        _UserDirectPermission(
+            resource_type="registered_model",
+            resource_pattern=p.name,
+            permission=p.permission,
+            workspace=p.workspace,
+        )
+        for p in store.list_all_registered_model_permissions(username)
+    )
+    grants.extend(
+        _UserDirectPermission(
+            resource_type="gateway_secret",
+            resource_pattern=p.secret_id,
+            permission=p.permission,
+            workspace=_get_resource_workspace(
+                p.secret_id,
+                lambda sid: _get_tracking_store().get_secret_info(secret_id=sid),
+                "gateway_secret",
+                silent=True,
+            ),
+        )
+        for p in store.list_gateway_secret_permissions(username)
+    )
+    grants.extend(
+        _UserDirectPermission(
+            resource_type="gateway_endpoint",
+            resource_pattern=p.endpoint_id,
+            permission=p.permission,
+            workspace=_get_resource_workspace(
+                p.endpoint_id,
+                lambda eid: _get_tracking_store().get_gateway_endpoint(endpoint_id=eid),
+                "gateway_endpoint",
+                silent=True,
+            ),
+        )
+        for p in store.list_gateway_endpoint_permissions(username)
+    )
+    grants.extend(
+        _UserDirectPermission(
+            resource_type="gateway_model_definition",
+            resource_pattern=p.model_definition_id,
+            permission=p.permission,
+            workspace=_get_resource_workspace(
+                p.model_definition_id,
+                lambda mdid: _get_tracking_store().get_gateway_model_definition(
+                    model_definition_id=mdid
+                ),
+                "gateway_model_definition",
+                silent=True,
+            ),
+        )
+        for p in store.list_gateway_model_definition_permissions(username)
+    )
+    return grants
+
+
+@catch_mlflow_exception
+def list_current_user_permissions():
+    # Sender == target, no admin gate. Roles + role permissions are exposed
+    # separately via /users/roles/list - the frontend unions both views.
+    username = authenticate_request().username
+    return jsonify({
+        "permissions": [asdict(grant) for grant in _list_user_direct_permissions(username)]
+    })
+
+
+@catch_mlflow_exception
+def list_user_permissions():
+    # Admin / self / workspace-admin-of-target view of one user's direct
+    # grants. Mirrors ``list_user_roles``'s response-scoping: workspace
+    # admins see only grants whose ``workspace`` they administer; super
+    # admins and the user themselves see everything.
+    username = _get_request_param("username")
+    grants = _list_user_direct_permissions(username)
+
+    requester = authenticate_request().username
+    requester_user = store.get_user(requester)
+    if not (requester_user.is_admin or requester == username):
+        admin_workspaces = store.list_workspace_admin_workspaces(requester_user.id)
+        grants = [g for g in grants if g.workspace in admin_workspaces]
+
+    return jsonify({"permissions": [asdict(g) for g in grants]})
 
 
 @catch_mlflow_exception
 def update_user_password():
     username = _get_request_param("username")
     password = _get_request_param("password")
+    # Self-service flows re-assert current_password so a hijacked browser
+    # session can't silently rotate it. Admin paths skip this check.
+    sender = authenticate_request()
+    sender_username = getattr(sender, "username", None)
+    if sender_username == username:
+        body = request.get_json(silent=True) or {}
+        current_password = body.get("current_password")
+        if not current_password:
+            raise MlflowException(
+                "Current password is required when changing your own password.",
+                INVALID_PARAMETER_VALUE,
+            )
+        if not store.authenticate_user(username, current_password):
+            raise MlflowException(
+                "Current password does not match.",
+                INVALID_PARAMETER_VALUE,
+            )
     store.update_user(username, password=password)
     _invalidate_user_auth_cache(username)
     return make_response({})
@@ -3416,10 +3637,14 @@ def is_auth_enabled() -> bool:
 
 
 def _graphql_get_permission_for_experiment(experiment_id: str, username: str) -> Permission:
-    return _get_permission_from_store_or_default(
-        lambda: store.get_experiment_permission(experiment_id, username).permission,
-        workspace_level_permission_func=lambda: _workspace_permission_for_experiment(
-            username, experiment_id
+    return _get_role_permission_or_default(
+        _role_permission_for(
+            username=username,
+            resource_type="experiment",
+            resource_key=experiment_id,
+            workspace_lookup_id=experiment_id,
+            workspace_fetcher=_get_tracking_store().get_experiment,
+            workspace_label="experiment",
         ),
     )
 
@@ -3427,19 +3652,27 @@ def _graphql_get_permission_for_experiment(experiment_id: str, username: str) ->
 def _graphql_get_permission_for_run(run_id: str, username: str) -> Permission:
     run = _get_tracking_store().get_run(run_id)
     experiment_id = run.info.experiment_id
-    return _get_permission_from_store_or_default(
-        lambda: store.get_experiment_permission(experiment_id, username).permission,
-        workspace_level_permission_func=lambda: _workspace_permission_for_experiment(
-            username, experiment_id
+    return _get_role_permission_or_default(
+        _role_permission_for(
+            username=username,
+            resource_type="experiment",
+            resource_key=experiment_id,
+            workspace_lookup_id=experiment_id,
+            workspace_fetcher=_get_tracking_store().get_experiment,
+            workspace_label="experiment",
         ),
     )
 
 
 def _graphql_get_permission_for_model(model_name: str, username: str) -> Permission:
-    return _get_permission_from_store_or_default(
-        lambda: store.get_registered_model_permission(model_name, username).permission,
-        workspace_level_permission_func=lambda: _workspace_permission_for_registered_model(
-            username, model_name
+    return _get_role_permission_or_default(
+        _role_permission_for(
+            username=username,
+            resource_type="registered_model",
+            resource_key=model_name,
+            workspace_lookup_id=model_name,
+            workspace_fetcher=_get_model_registry_store().get_registered_model,
+            workspace_label="registered model",
         ),
     )
 
@@ -3685,12 +3918,8 @@ def _validate_gateway_use_permission(endpoint_name: str, username: str) -> bool:
         endpoint = tracking_store.get_gateway_endpoint(name=endpoint_name)
         endpoint_id = endpoint.endpoint_id
 
-        permission = _get_permission_from_store_or_default(
-            lambda: store.get_gateway_endpoint_permission(endpoint_id, username).permission,
-            workspace_level_permission_func=lambda: _workspace_permission_for_gateway_endpoint(
-                username, endpoint_id
-            ),
-            role_permission_func=_role_permission_for(
+        permission = _get_role_permission_or_default(
+            _role_permission_for(
                 username=username,
                 resource_type="gateway_endpoint",
                 resource_key=endpoint_id,
@@ -3948,37 +4177,60 @@ def create_app(app: Flask = app):
         view_func=lambda: create_user_ui(csrf),
         methods=["POST"],
     )
-    app.add_url_rule(
-        rule=CREATE_USER,
-        view_func=create_user,
-        methods=["POST"],
-    )
-    app.add_url_rule(
-        rule=GET_USER,
-        view_func=get_user,
-        methods=["GET"],
-    )
+    for rule in [CREATE_USER, AJAX_CREATE_USER]:
+        app.add_url_rule(
+            rule=rule,
+            view_func=create_user,
+            methods=["POST"],
+        )
+    for rule in [GET_USER, AJAX_GET_USER]:
+        app.add_url_rule(
+            rule=rule,
+            view_func=get_user,
+            methods=["GET"],
+        )
     for rule in [LIST_USERS, AJAX_LIST_USERS]:
         app.add_url_rule(
             rule=rule,
             view_func=list_users,
             methods=["GET"],
         )
-    app.add_url_rule(
-        rule=UPDATE_USER_PASSWORD,
-        view_func=update_user_password,
-        methods=["PATCH"],
-    )
-    app.add_url_rule(
-        rule=UPDATE_USER_ADMIN,
-        view_func=update_user_admin,
-        methods=["PATCH"],
-    )
-    app.add_url_rule(
-        rule=DELETE_USER,
-        view_func=delete_user,
-        methods=["DELETE"],
-    )
+    for rule in [GET_CURRENT_USER, AJAX_GET_CURRENT_USER]:
+        app.add_url_rule(
+            rule=rule,
+            view_func=get_current_user,
+            methods=["GET"],
+        )
+    for rule in [LIST_CURRENT_USER_PERMISSIONS, AJAX_LIST_CURRENT_USER_PERMISSIONS]:
+        app.add_url_rule(
+            rule=rule,
+            view_func=list_current_user_permissions,
+            methods=["GET"],
+        )
+    for rule in [LIST_USER_PERMISSIONS, AJAX_LIST_USER_PERMISSIONS]:
+        app.add_url_rule(
+            rule=rule,
+            view_func=list_user_permissions,
+            methods=["GET"],
+        )
+    for rule in [UPDATE_USER_PASSWORD, AJAX_UPDATE_USER_PASSWORD]:
+        app.add_url_rule(
+            rule=rule,
+            view_func=update_user_password,
+            methods=["PATCH"],
+        )
+    for rule in [UPDATE_USER_ADMIN, AJAX_UPDATE_USER_ADMIN]:
+        app.add_url_rule(
+            rule=rule,
+            view_func=update_user_admin,
+            methods=["PATCH"],
+        )
+    for rule in [DELETE_USER, AJAX_DELETE_USER]:
+        app.add_url_rule(
+            rule=rule,
+            view_func=delete_user,
+            methods=["DELETE"],
+        )
     app.add_url_rule(
         rule=CREATE_EXPERIMENT_PERMISSION,
         view_func=create_experiment_permission,

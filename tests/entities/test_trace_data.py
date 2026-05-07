@@ -53,6 +53,8 @@ def test_json_deserialization():
                 "attributes": {
                     "mlflow.traceRequestId": json.dumps(trace.info.trace_id),
                     "mlflow.spanType": '"UNKNOWN"',
+                    # Bumped to ERROR (40) because the span recorded an exception event.
+                    "mlflow.spanLogLevel": "40",
                     "mlflow.spanFunctionName": '"predict"',
                     "mlflow.spanInputs": '{"x": 2, "y": 5}',
                 },
@@ -82,6 +84,7 @@ def test_json_deserialization():
                 "attributes": {
                     "mlflow.traceRequestId": json.dumps(trace.info.trace_id),
                     "mlflow.spanType": '"UNKNOWN"',
+                    "mlflow.spanLogLevel": "10",
                 },
                 "events": [
                     {
@@ -106,6 +109,8 @@ def test_json_deserialization():
                     "delta": "1",
                     "mlflow.traceRequestId": json.dumps(trace.info.trace_id),
                     "mlflow.spanType": '"LLM"',
+                    # Bumped to ERROR (40) because the span recorded an exception event.
+                    "mlflow.spanLogLevel": "40",
                     "mlflow.spanFunctionName": '"always_fail"',
                     "mlflow.spanInputs": "{}",
                 },
