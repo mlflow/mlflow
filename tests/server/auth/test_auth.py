@@ -3470,6 +3470,11 @@ def _grant_experiment_permission(
     )
 
 
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "tests/server/auth/fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
 def test_trace_search_permission(client, monkeypatch):
     user1, password1 = create_user(client.tracking_uri)
     user2, password2 = create_user(client.tracking_uri)
@@ -3477,9 +3482,7 @@ def test_trace_search_permission(client, monkeypatch):
     with User(user1, password1, monkeypatch):
         experiment_id = client.create_experiment("trace_search_test")
 
-    _grant_experiment_permission(
-        client.tracking_uri, experiment_id, user2, "NO_PERMISSIONS", (user1, password1)
-    )
+    # user2 has no grant; default_permission=NO_PERMISSIONS denies access
 
     # user1 can search traces
     resp = requests.get(
@@ -3498,11 +3501,9 @@ def test_trace_search_permission(client, monkeypatch):
     assert resp.status_code == 403
 
     # Grant READ; user2 can now search
-    requests.patch(
-        url=client.tracking_uri + "/api/2.0/mlflow/experiments/permissions/update",
-        json={"experiment_id": experiment_id, "username": user2, "permission": "READ"},
-        auth=(user1, password1),
-    ).raise_for_status()
+    _grant_experiment_permission(
+        client.tracking_uri, experiment_id, user2, "READ", (user1, password1)
+    )
     resp = requests.get(
         url=client.tracking_uri + "/api/2.0/mlflow/traces",
         params={"experiment_ids": [experiment_id]},
@@ -3585,6 +3586,11 @@ def test_trace_tag_permission(client, monkeypatch):
     assert delete_tag((user2, password2)).status_code == 200
 
 
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "tests/server/auth/fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
 def test_trace_get_info_permission(client, monkeypatch):
     user1, password1 = create_user(client.tracking_uri)
     user2, password2 = create_user(client.tracking_uri)
@@ -3594,9 +3600,7 @@ def test_trace_get_info_permission(client, monkeypatch):
 
     request_id = _create_trace(client.tracking_uri, experiment_id, (user1, password1))
 
-    _grant_experiment_permission(
-        client.tracking_uri, experiment_id, user2, "NO_PERMISSIONS", (user1, password1)
-    )
+    # user2 has no grant; default_permission=NO_PERMISSIONS denies access
 
     def get_info(auth):
         return requests.get(
@@ -3604,21 +3608,24 @@ def test_trace_get_info_permission(client, monkeypatch):
             auth=auth,
         )
 
-    # user2 with NO_PERMISSIONS is denied
+    # user2 with no grant is denied
     assert get_info((user2, password2)).status_code == 403
 
     # user1 can read
     assert get_info((user1, password1)).status_code == 200
 
     # Grant READ; user2 can now read
-    requests.patch(
-        url=client.tracking_uri + "/api/2.0/mlflow/experiments/permissions/update",
-        json={"experiment_id": experiment_id, "username": user2, "permission": "READ"},
-        auth=(user1, password1),
-    ).raise_for_status()
+    _grant_experiment_permission(
+        client.tracking_uri, experiment_id, user2, "READ", (user1, password1)
+    )
     assert get_info((user2, password2)).status_code == 200
 
 
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "tests/server/auth/fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
 def test_trace_get_v3_permission(client, monkeypatch):
     user1, password1 = create_user(client.tracking_uri)
     user2, password2 = create_user(client.tracking_uri)
@@ -3628,9 +3635,7 @@ def test_trace_get_v3_permission(client, monkeypatch):
 
     trace_id = _create_trace(client.tracking_uri, experiment_id, (user1, password1))
 
-    _grant_experiment_permission(
-        client.tracking_uri, experiment_id, user2, "NO_PERMISSIONS", (user1, password1)
-    )
+    # user2 has no grant; default_permission=NO_PERMISSIONS denies access
 
     def get_trace_v3(auth):
         return requests.get(
@@ -3641,14 +3646,17 @@ def test_trace_get_v3_permission(client, monkeypatch):
     assert get_trace_v3((user2, password2)).status_code == 403
     assert get_trace_v3((user1, password1)).status_code == 200
 
-    requests.patch(
-        url=client.tracking_uri + "/api/2.0/mlflow/experiments/permissions/update",
-        json={"experiment_id": experiment_id, "username": user2, "permission": "READ"},
-        auth=(user1, password1),
-    ).raise_for_status()
+    _grant_experiment_permission(
+        client.tracking_uri, experiment_id, user2, "READ", (user1, password1)
+    )
     assert get_trace_v3((user2, password2)).status_code == 200
 
 
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "tests/server/auth/fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
 def test_trace_batch_get_permission(client, monkeypatch):
     user1, password1 = create_user(client.tracking_uri)
     user2, password2 = create_user(client.tracking_uri)
@@ -3658,9 +3666,7 @@ def test_trace_batch_get_permission(client, monkeypatch):
 
     trace_id = _create_trace(client.tracking_uri, experiment_id, (user1, password1))
 
-    _grant_experiment_permission(
-        client.tracking_uri, experiment_id, user2, "NO_PERMISSIONS", (user1, password1)
-    )
+    # user2 has no grant; default_permission=NO_PERMISSIONS denies access
 
     def batch_get(auth):
         return requests.post(
@@ -3672,14 +3678,17 @@ def test_trace_batch_get_permission(client, monkeypatch):
     assert batch_get((user2, password2)).status_code == 403
     assert batch_get((user1, password1)).status_code == 200
 
-    requests.patch(
-        url=client.tracking_uri + "/api/2.0/mlflow/experiments/permissions/update",
-        json={"experiment_id": experiment_id, "username": user2, "permission": "READ"},
-        auth=(user1, password1),
-    ).raise_for_status()
+    _grant_experiment_permission(
+        client.tracking_uri, experiment_id, user2, "READ", (user1, password1)
+    )
     assert batch_get((user2, password2)).status_code == 200
 
 
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "tests/server/auth/fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
 def test_trace_link_to_run_permission(client, monkeypatch):
     user1, password1 = create_user(client.tracking_uri)
     user2, password2 = create_user(client.tracking_uri)
@@ -3694,11 +3703,9 @@ def test_trace_link_to_run_permission(client, monkeypatch):
         run = client.create_run(exp_a)
     run_id = run.info.run_id
 
-    # user2: UPDATE on exp_a but NO_PERMISSIONS on exp_b → denied (can't read traces in B)
+    # user2: UPDATE on exp_a but no grant on exp_b → denied (can't read traces in B)
+    # default_permission=NO_PERMISSIONS means absence of a grant on exp_b is a deny
     _grant_experiment_permission(client.tracking_uri, exp_a, user2, "EDIT", (user1, password1))
-    _grant_experiment_permission(
-        client.tracking_uri, exp_b, user2, "NO_PERMISSIONS", (user1, password1)
-    )
 
     def link(auth):
         return requests.post(
@@ -3710,14 +3717,17 @@ def test_trace_link_to_run_permission(client, monkeypatch):
     assert link((user2, password2)).status_code == 403
 
     # Grant READ on exp_b → now allowed
-    requests.patch(
-        url=client.tracking_uri + "/api/2.0/mlflow/experiments/permissions/update",
-        json={"experiment_id": exp_b, "username": user2, "permission": "READ"},
-        auth=(user1, password1),
-    ).raise_for_status()
+    _grant_experiment_permission(
+        client.tracking_uri, exp_b, user2, "READ", (user1, password1)
+    )
     assert link((user2, password2)).status_code == 200
 
 
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "tests/server/auth/fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
 def test_trace_search_v3_permission(client, monkeypatch):
     user1, password1 = create_user(client.tracking_uri)
     user2, password2 = create_user(client.tracking_uri)
@@ -3725,9 +3735,7 @@ def test_trace_search_v3_permission(client, monkeypatch):
     with User(user1, password1, monkeypatch):
         experiment_id = client.create_experiment("trace_search_v3_test")
 
-    _grant_experiment_permission(
-        client.tracking_uri, experiment_id, user2, "NO_PERMISSIONS", (user1, password1)
-    )
+    # user2 has no grant; default_permission=NO_PERMISSIONS denies access
 
     def search_v3(auth):
         return requests.post(
@@ -3741,9 +3749,7 @@ def test_trace_search_v3_permission(client, monkeypatch):
     assert search_v3((user2, password2)).status_code == 403
     assert search_v3((user1, password1)).status_code == 200
 
-    requests.patch(
-        url=client.tracking_uri + "/api/2.0/mlflow/experiments/permissions/update",
-        json={"experiment_id": experiment_id, "username": user2, "permission": "READ"},
-        auth=(user1, password1),
-    ).raise_for_status()
+    _grant_experiment_permission(
+        client.tracking_uri, experiment_id, user2, "READ", (user1, password1)
+    )
     assert search_v3((user2, password2)).status_code == 200
