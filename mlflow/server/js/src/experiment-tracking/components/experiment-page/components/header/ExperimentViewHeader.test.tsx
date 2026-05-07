@@ -1,6 +1,6 @@
 import { jest, describe, beforeEach, it, expect } from '@jest/globals';
 import { ExperimentViewHeader, ExperimentViewHeaderSkeleton } from './ExperimentViewHeader';
-import { renderWithIntl, act, screen, waitFor } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
+import { renderWithIntl, act, screen, waitFor, within } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import type { ExperimentEntity } from '@mlflow/mlflow/src/experiment-tracking/types';
 import userEvent from '@testing-library/user-event';
 import { DesignSystemProvider } from '@databricks/design-system';
@@ -11,6 +11,8 @@ import configureStore from 'redux-mock-store';
 import promiseMiddleware from 'redux-promise-middleware';
 import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-client';
 import { TestRouter, setupTestRouter, testRoute } from '../../../../../common/utils/RoutingTestUtils';
+import { ExperimentKind } from '../../../../constants';
+import { EXPERIMENT_KIND_TAG_KEY } from '../../../../utils/ExperimentKindUtils';
 
 const mockNavigate = jest.fn();
 
@@ -102,13 +104,35 @@ describe('ExperimentViewHeader', () => {
       expect(screen.getByText('name')).toBeInTheDocument();
     });
 
-    it('shows info tooltip with experiment details', async () => {
-      await userEvent.click(screen.getByRole('button', { name: 'Info' }));
+    it('hides trace archival retention when the experiment does not return an effective value', async () => {
+      const infoButtons = screen.getAllByRole('button', { name: 'Info' });
+      await userEvent.click(infoButtons[infoButtons.length - 1]);
 
       const tooltip = await screen.findByTestId('experiment-view-header-info-tooltip-content');
       expect(tooltip).toHaveTextContent('Path: test/experiment/name');
       expect(tooltip).toHaveTextContent('Experiment ID: 123');
       expect(tooltip).toHaveTextContent('Artifact Location: file:/tmp/mlruns');
+      expect(tooltip).not.toHaveTextContent('Trace Archival Retention');
+    });
+
+    it('shows effective trace archival retention in the info popover and badge for GenAI experiments', async () => {
+      let renderedHeader: ReturnType<typeof renderComponent> | undefined;
+      await act(async () => {
+        renderedHeader = renderComponent(
+          {
+            ...defaultExperiment,
+            effectiveTraceArchivalRetention: '30d',
+            tags: [{ key: EXPERIMENT_KIND_TAG_KEY, value: ExperimentKind.GENAI_DEVELOPMENT }],
+          },
+          '/experiments/1/traces',
+        );
+      });
+
+      expect(screen.getByText('Archive after: 30 days')).toBeInTheDocument();
+      await userEvent.click(within(renderedHeader!.container).getByRole('button', { name: 'Info' }));
+
+      const tooltip = await screen.findByTestId('experiment-view-header-info-tooltip-content');
+      expect(tooltip).toHaveTextContent('Trace Archival Retention: 30 days');
     });
 
     it('displays share and management buttons', () => {
