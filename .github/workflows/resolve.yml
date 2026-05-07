@@ -55,12 +55,12 @@ jobs:
             let message;
             if (isAllowed) {
               const workflowUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}?pr=${context.issue.number}`;
-              message = `🚀 [Resolve workflow started](${workflowUrl})`;
+              message = `🚀 [Resolve running...](${workflowUrl})`;
             } else {
               message = `⚠️ Only repository maintainers and collaborators are allowed to trigger this workflow. Your association: ${authorAssociation}`;
             }
 
-            const updatedBody = `${comment.body}\n\n---\n${message}`;
+            const updatedBody = `${comment.body}\n\n---\n\n${message}`;
 
             await github.rest.issues.updateComment({
               owner: context.repo.owner,
@@ -84,7 +84,7 @@ jobs:
             const isFork = pr.head.repo && pr.head.repo.full_name !== pr.base.repo.full_name;
             if (isFork && !pr.maintainer_can_modify) {
               const forkMessage = `⚠️ This PR does not allow maintainers to push changes. Please enable "Allow edits by maintainers" in the PR settings and re-trigger the workflow.`;
-              const forkUpdatedBody = `${updatedBody}\n\n---\n${forkMessage}`;
+              const forkUpdatedBody = `${updatedBody}\n\n---\n\n${forkMessage}`;
 
               await github.rest.issues.updateComment({
                 owner: context.repo.owner,
@@ -244,11 +244,11 @@ jobs:
             const fs = require('fs');
 
             const resolveJobStatus = process.env.RESOLVE_JOB_STATUS;
-            const statusMessage = resolveJobStatus !== 'success'
-              ? `⚠️ Workflow encountered an error.`
-              : `✅ Workflow completed successfully.`;
+            const workflowUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}?pr=${context.issue.number}`;
 
-            let resultMessage = statusMessage;
+            let resultLine = resolveJobStatus !== 'success'
+              ? `⚠️ [Resolve](${workflowUrl}) encountered an error`
+              : `✅ [Resolve](${workflowUrl}) completed`;
 
             // Read Claude output from file instead of environment variable
             const outputPath = '/tmp/output.json';
@@ -261,20 +261,24 @@ jobs:
               console.log('Failed to read Claude output file:', e);
             }
 
-            // Extract and display Claude's result and raw output
+            // Extract and display Claude's result from JSON output
             if (claudeOutput) {
               try {
                 const events = claudeOutput.trim().split('\n').filter(Boolean).map(JSON.parse);
-                const resultEvent = events.find(({ type }) => type === 'result');
+                const resultEvent = events.findLast(({ type }) => type === 'result');
                 if (resultEvent) {
-                  resultMessage += `\n\n<details>\n<summary>Claude Output</summary>\n\n${resultEvent.result}\n\n</details>`;
+                  const seconds = (resultEvent.duration_ms / 1000).toFixed(1);
+                  const tokens = (resultEvent.usage?.input_tokens ?? 0) + (resultEvent.usage?.output_tokens ?? 0);
+                  const cost = (Math.round(resultEvent.total_cost_usd * 100) / 100).toFixed(2);
+                  resultLine += ` (${seconds}s, ${resultEvent.num_turns} turns, ${tokens} tokens, $${cost})`;
+                  resultLine += `\n<details><summary>Resolve Output</summary>\n\n${resultEvent.result}\n\n</details>`;
                 }
               } catch (e) {
                 console.log('Failed to parse Claude output as JSON:', e);
               }
             }
 
-            console.log('Result message to post:', resultMessage);
+            console.log('Result line to post:', resultLine);
 
             if (process.env.COMMENT_ID) {
               const commentId = parseInt(process.env.COMMENT_ID, 10);
@@ -284,7 +288,8 @@ jobs:
                 comment_id: commentId,
               });
 
-              const updatedBody = `${currentComment.body}\n\n---\n${resultMessage}`;
+              const originalBody = currentComment.body.split('\n\n---\n\n🚀 ')[0];
+              const updatedBody = `${originalBody}\n\n---\n\n${resultLine}`;
 
               await github.rest.issues.updateComment({
                 owner: context.repo.owner,

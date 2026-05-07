@@ -14,6 +14,7 @@ on:
       - ".github/workflows/preview-docs.yml"
       - "mlflow/server/js/**"
       - ".github/workflows/js.yml"
+      - ".claude/**"
   workflow_dispatch:
     inputs:
       repository:
@@ -189,7 +190,6 @@ jobs:
         run: |
           eval "$MATRIX_INSTALL"
       - uses: ./.github/actions/show-versions
-      - uses: ./.github/actions/pipdeptree
       - name: Pre-test
         if: matrix.pre_test
         env:

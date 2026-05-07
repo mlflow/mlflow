@@ -1,0 +1,267 @@
+# MLflow container image.
+image:
+  repository: ghcr.io/mlflow/mlflow
+  # Defaults to chart appVersion when empty
+  tag: ""
+  pullPolicy: IfNotPresent
+
+# List of image pull secrets for pulling from private or mirrored registries.
+# Example:
+#   imagePullSecrets:
+#     - name: my-registry-secret
+imagePullSecrets: []
+
+# Override the full name of all resources created by this chart (overrides
+# the default "<release>-<chart>" pattern). Useful when the release name
+# would produce an undesirable resource name.
+fullnameOverride: ""
+
+# Number of MLflow server replicas. Use 1 when storage.enabled is true and
+# the PVC access mode is ReadWriteOnce, as only one pod can mount the volume.
+replicaCount: 1
+
+# Deployment update strategy. When not set, defaults to Recreate if the storage
+# PVC access mode is ReadWriteOnce or a SQLite backend store URI is configured;
+# otherwise defaults to RollingUpdate.
+# deploymentStrategy:
+#   type: Recreate
+deploymentStrategy: {}
+
+# MLflow server CLI options.
+# Run `mlflow server --help` for the full list.
+server:
+  # value_options: key/value pairs rendered as --key=value.
+  # Key names match MLflow CLI flags (hyphens replaced with underscores).
+  # Empty-string values are omitted.
+  value_options:
+    host: "0.0.0.0"
+    port: 5000
+
+    # Number of gunicorn worker processes.
+    workers: 4
+
+  # flag_options: bare flags rendered as --flag (no value).
+  # Each item is a CLI flag name (hyphens or underscores both accepted).
+  # Example: [serve_artifacts, no_serve_artifacts]
+  flag_options: []
+
+  # staticPrefix: path prefix when MLflow is served under a subpath (e.g. /mlflow).
+  # Aligns the --static-prefix server arg and liveness/readiness probe paths.
+  staticPrefix: ""
+
+# Garbage collection via a CronJob that runs `mlflow gc`.
+# Permanently removes soft-deleted runs, experiments, and logged models
+# along with their artifacts. Resources must be soft-deleted first
+# (e.g. via the UI or API) before garbage collection will remove them.
+garbageCollection:
+  # Set to true to create the CronJob. Default: false (no garbage collection).
+  enabled: false
+  # Cron schedule expression (e.g. "0 2 * * 0" for weekly at 2 AM on Sunday).
+  # Required when enabled.
+  schedule: "0 2 * * 0"
+  # Optional. Restrict deletion to resources that have been soft-deleted for
+  # at least this duration (e.g. "30d", "7d12h"). If not specified, all
+  # soft-deleted resources are permanently removed regardless of age.
+  # olderThan: "30d"
+  # Set to true to pass --all-workspaces to `mlflow gc`, which collects
+  # garbage across all workspaces instead of only the default one.
+  allWorkspaces: false
+  # Extra volumes added to the GC pod. Useful for mounting a custom CA bundle
+  # when the MLflow tracking server uses a TLS certificate from an untrusted CA.
+  # Example:
+  #   extraVolumes:
+  #     - name: ca-bundle
+  #       configMap:
+  #         name: my-ca-bundle
+  extraVolumes: []
+  # Extra volume mounts added to the GC container.
+  # Example:
+  #   extraVolumeMounts:
+  #     - name: ca-bundle
+  #       mountPath: /etc/ssl/certs/ca-bundle.crt
+  #       subPath: ca-bundle.crt
+  #       readOnly: true
+  extraVolumeMounts: []
+  # Resources for the garbage collection Job container.
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# Kubernetes Service exposing the MLflow server.
+service:
+  # Service type: ClusterIP, NodePort, or LoadBalancer.
+  type: ClusterIP
+  annotations: {}
+
+# Ingress for external access to the MLflow server.
+ingress:
+  enabled: false
+  # IngressClass to use (e.g. "nginx", "traefik"). Leave empty to use the
+  # cluster default.
+  className: ""
+  annotations: {}
+  hosts:
+    - host: mlflow.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+mlflow:
+  # URI of the database or file store used to record runs and metadata.
+  # Examples: "sqlite:////mlflow/mlflow.db", "postgresql://user:pass@host/db"
+  backendStoreUri: ""
+  # Alternative to backendStoreUri: read the URI from a Secret or ConfigMap.
+  # Example (Secret):
+  #   backendStoreUriFrom:
+  #     secretKeyRef:
+  #       name: mlflow-db-secret
+  #       key: uri
+  backendStoreUriFrom: {}
+  # URI of the model registry store. Defaults to backendStoreUri when not set.
+  registryStoreUri: ""
+  # Alternative to registryStoreUri: read the URI from a Secret or ConfigMap.
+  # Example (Secret):
+  #   registryStoreUriFrom:
+  #     secretKeyRef:
+  #       name: mlflow-registry-secret
+  #       key: uri
+  registryStoreUriFrom: {}
+  # Root location for storing artifacts (runs). Used when MLflow manages artifact serving.
+  # Examples: "s3://my-bucket/mlflow", "/mlflow/artifacts"
+  defaultArtifactRoot: ""
+  # Directory where MLflow proxies artifact uploads and downloads.
+  # Required when using --serve-artifacts.
+  artifactsDestination: ""
+
+# Extra environment variables injected into both init and main containers.
+# Useful for database passwords, S3 credentials, etc.
+# env:
+#   - name: MLFLOW_DATABASE_PASSWORD
+#     valueFrom:
+#       secretKeyRef:
+#         name: mlflow-db-secret
+#         key: password
+env: []
+
+# Extra envFrom sources (ConfigMaps, Secrets) injected into all containers.
+envFrom: []
+
+# Extra volumes added to the pod.
+extraVolumes: []
+# Extra volume mounts added to the mlflow container.
+extraVolumeMounts: []
+# Extra init containers added to the pod.
+extraInitContainers: []
+# Extra sidecar containers added to the pod.
+extraContainers: []
+
+# TLS configuration for the MLflow server. When enabled, the server is served
+# over HTTPS using the certificate stored in the referenced Secret.
+tls:
+  enabled: false
+  # Name of the TLS Secret containing tls.crt and tls.key.
+  secretName: mlflow-tls
+
+# NetworkPolicy restricting ingress and egress traffic for the MLflow pod.
+# Egress rules allow DNS, HTTPS, Kubernetes API, common databases, and S3.
+networkPolicy:
+  enabled: false
+  # Additional egress rules appended to the default set.
+  additionalEgressRules: []
+
+# Prometheus metrics configuration. When enabled, the MLflow server exposes
+# metrics at the specified HTTP path.
+metrics:
+  enabled: false
+
+# Prometheus ServiceMonitor for metrics scraping (requires the Prometheus
+# Operator CRD to be installed in the cluster).
+serviceMonitor:
+  enabled: false
+  # TLS configuration passed through to the ServiceMonitor endpoint.
+  # Only applies when tls.enabled is true. Supports any field from the
+  # Prometheus Operator TLSConfig spec, e.g.:
+  #   tlsConfig:
+  #     insecureSkipVerify: true
+  #     ca:
+  #       secret:
+  #         name: my-ca-secret
+  #         key: ca.crt
+  tlsConfig: {}
+
+# Pod-level security context applied to all containers in the pod.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+  seccompProfile:
+    type: RuntimeDefault
+
+# Container-level security context applied to the mlflow container.
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+# ServiceAccount used by the MLflow server pod.
+serviceAccount:
+  # Set to true to create the ServiceAccount. Set to false to use an existing one.
+  create: true
+  # Name of the ServiceAccount. Defaults to the full chart name when empty.
+  name: ""
+  annotations: {}
+  # Set to false to disable automounting of the service account token into the
+  # pod. Recommended when MLflow does not need direct Kubernetes API access.
+  automountServiceAccountToken: false
+
+# RBAC resources (Role/ClusterRole and binding) for the MLflow ServiceAccount.
+# Namespace-scoped RBAC. A Role and RoleBinding are created when extraRules is non-empty.
+namespace_rbac:
+  extraRules: []
+
+# Cluster-scoped RBAC. A ClusterRole and ClusterRoleBinding are created when extraRules is non-empty.
+# Use this when rules reference cluster-scoped resources (e.g. namespaces, nodes).
+cluster_rbac:
+  extraRules: []
+
+# Persistent storage for MLflow artifacts and the SQLite database.
+# Required when using a file-based or SQLite backend store.
+storage:
+  enabled: false
+  size: 10Gi
+  # Access mode for the PersistentVolumeClaim. Use ReadWriteOnce for single-node
+  # deployments and ReadWriteMany for multi-replica setups.
+  accessMode: ReadWriteOnce
+  # StorageClass to use. Defaults to the cluster default when empty.
+  storageClassName: ""
+  # Path where the PVC is mounted inside the container.
+  mountPath: /mlflow
+
+# CPU and memory resource requests and limits for the mlflow container.
+resources:
+  {}
+  # limits:
+  #   cpu: 500m
+  #   memory: 512Mi
+  # requests:
+  #   cpu: 250m
+  #   memory: 256Mi
+
+# Annotations added to the MLflow pod.
+podAnnotations: {}
+# Labels added to the MLflow pod.
+podLabels: {}
+
+# Node selector for pod scheduling.
+nodeSelector: {}
+# Tolerations for pod scheduling.
+tolerations: []
+# Affinity rules for pod scheduling.
+affinity: {}

@@ -82,7 +82,7 @@ from mlflow.exceptions import (
     _UnsupportedPresignedUploadException,
 )
 from mlflow.gateway.budget import maybe_refresh_budget_policies
-from mlflow.gateway.budget_tracker import get_budget_tracker
+from mlflow.gateway.budget_tracker import _policy_applies, get_budget_tracker
 from mlflow.gateway.utils import is_valid_endpoint_name
 from mlflow.genai.scorers.scorer_utils import DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR
 from mlflow.models import Model
@@ -5615,13 +5615,30 @@ def _list_budget_policies():
     return _wrap_response(response_message)
 
 
+def _get_request_workspace_for_budget_windows():
+    workspace = workspace_context.get_request_workspace()
+    if not MLFLOW_ENABLE_WORKSPACES.get():
+        return workspace
+
+    if not workspace_context.is_request_workspace_resolved():
+        raise MlflowException(
+            "A request workspace must be provided when workspaces are enabled.",
+            BAD_REQUEST,
+        )
+
+    return workspace
+
+
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _list_budget_windows():
     _get_request_message(ListGatewayBudgetWindows())
+    workspace = _get_request_workspace_for_budget_windows()
     store = _get_tracking_store()
     maybe_refresh_budget_policies(store)
     windows = get_budget_tracker().get_all_windows()
+    if workspace is not None:
+        windows = [w for w in windows if _policy_applies(w.policy, workspace)]
     response_message = ListGatewayBudgetWindows.Response()
     for w in windows:
         window_msg = ListGatewayBudgetWindows.BudgetWindow(

@@ -7,7 +7,7 @@ import { IntlProvider } from '@databricks/i18n';
 
 import { ModelTraceExplorerChatTab } from './ModelTraceExplorerChatTab';
 import { ModelTraceExplorerContentTab } from './ModelTraceExplorerContentTab';
-import type { ModelTraceSpan } from '../ModelTrace.types';
+import type { ModelTraceSpan, ModelTraceSpanNode } from '../ModelTrace.types';
 import {
   mockSpans,
   MOCK_RETRIEVER_SPAN,
@@ -55,7 +55,17 @@ describe('ModelTraceExplorerRightPane', () => {
   });
 
   it('should render conversations if possible', async () => {
-    render(<ModelTraceExplorerChatTab chatMessages={MOCK_CHAT_MESSAGES} chatTools={MOCK_CHAT_TOOLS} />, {
+    const MOCK_SPAN: ModelTraceSpanNode = {
+      ...DEFAULT_SPAN,
+      start: DEFAULT_SPAN.start_time,
+      end: DEFAULT_SPAN.end_time,
+      key: DEFAULT_SPAN.context.span_id,
+      assessments: [],
+      traceId: DEFAULT_SPAN.context.trace_id,
+      chatMessages: MOCK_CHAT_MESSAGES,
+      chatTools: MOCK_CHAT_TOOLS,
+    };
+    render(<ModelTraceExplorerChatTab activeSpan={MOCK_SPAN} />, {
       wrapper: Wrapper,
     });
 
