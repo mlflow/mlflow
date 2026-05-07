@@ -196,16 +196,18 @@ export const useRemovePermission = (roleId: number) => {
 };
 
 // Role assignment mutations
+//
+// Invalidate both the per-user ``userRoles`` query (UserDetailPage, Account
+// page) and the bulk ``users`` query (Admin Users tab eager-loads roles per
+// user) so the new assignment is reflected everywhere on the next render.
 export const useAssignRole = (roleId: number) => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (username: string) => AdminApi.assignRole(username, roleId),
     onSuccess: (_data, username) => {
       queryClient.invalidateQueries({ queryKey: AdminQueryKeys.roleUsers(roleId) });
-      // The Admin Users tab renders a per-user roles cell from
-      // ``useUserRolesQuery(username)``; refetch it so the new role shows up
-      // immediately after the modal closes.
       queryClient.invalidateQueries({ queryKey: AccountQueryKeys.userRoles(username) });
+      queryClient.invalidateQueries({ queryKey: AdminQueryKeys.users });
     },
   });
 };
@@ -217,6 +219,7 @@ export const useUnassignRole = (roleId: number) => {
     onSuccess: (_data, username) => {
       queryClient.invalidateQueries({ queryKey: AdminQueryKeys.roleUsers(roleId) });
       queryClient.invalidateQueries({ queryKey: AccountQueryKeys.userRoles(username) });
+      queryClient.invalidateQueries({ queryKey: AdminQueryKeys.users });
     },
   });
 };

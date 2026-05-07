@@ -33,48 +33,26 @@ import {
   useDeleteUser,
   useRolesQuery,
   useDeleteRole,
-  useUserRolesQuery,
   useWithSettingsReturnTo,
 } from '../hooks';
 import { isWorkspaceAdminRole } from '../types';
+import type { Role } from '../types';
 import { CreateUserModal } from '../components/CreateUserModal';
 import { CreateRoleModal } from '../components/CreateRoleModal';
 
-// One ``useUserRolesQuery`` per row. Produces an N+1 burst on the Users
-// tab — accepted as a v1 trade-off since the per-row signal is genuinely
-// useful for both platform admins and workspace managers; a backend
-// "list users with my visible roles" endpoint would fold this into one
-// request and is the natural follow-up. ``showErrorOnFailure`` lets the
-// parent ask for a red signal on real fetch failures (platform admins
-// reviewing user state) while workspace managers silently fall back to
-// ``—`` when ``validate_can_view_user_roles`` 403s for users outside
-// their workspaces. ``scopeWorkspace`` (when set) filters the result to
-// roles in that workspace only — keeps the per-user cell aligned with
-// the page's per-workspace scope (the backend self-check returns global
-// roles, and a wp-admin viewing another user gets every workspace they
-// administer, which is broader than the active page's scope).
+// Reads roles from the user object eager-loaded by ``useUsersQuery`` —
+// no per-row request. The backend already scopes the list per requester
+// (admin sees all; workspace managers see only roles in workspaces they
+// administer). ``scopeWorkspace`` further narrows to the active workspace
+// for the per-workspace admin page, so the cell matches the page scope.
 const UserRolesCell = ({
-  username,
-  showErrorOnFailure,
+  roles: allRoles,
   scopeWorkspace,
 }: {
-  username: string;
-  showErrorOnFailure: boolean;
+  roles: readonly Role[];
   scopeWorkspace: string | null;
 }) => {
   const { theme } = useDesignSystemTheme();
-  const { data, isLoading, error } = useUserRolesQuery(username);
-  if (isLoading) {
-    return <Spinner size="small" />;
-  }
-  if (error && showErrorOnFailure) {
-    return (
-      <Typography.Text color="error" size="sm">
-        Failed to load
-      </Typography.Text>
-    );
-  }
-  const allRoles = error ? [] : (data?.roles ?? []);
   const roles = scopeWorkspace ? allRoles.filter((r) => r.workspace === scopeWorkspace) : allRoles;
   if (roles.length === 0) {
     return <Typography.Text color="secondary">—</Typography.Text>;
@@ -282,11 +260,7 @@ const UsersTab = () => {
               </Link>
             </TableCell>
             <TableCell css={{ flex: 2 }}>
-              <UserRolesCell
-                username={user.username}
-                showErrorOnFailure={isAdmin}
-                scopeWorkspace={rolesScopeWorkspace}
-              />
+              <UserRolesCell roles={user.roles ?? []} scopeWorkspace={rolesScopeWorkspace} />
             </TableCell>
             <TableCell css={{ flex: 1 }}>
               {user.is_admin ? (

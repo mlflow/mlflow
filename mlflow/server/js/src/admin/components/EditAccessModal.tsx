@@ -213,6 +213,9 @@ export const EditAccessModal = ({ open, onClose, username, onCreateRoleForAllOfT
     }
     if (roleIdsTouched.size > 0) {
       queryClient.invalidateQueries({ queryKey: AccountQueryKeys.userRoles(username) });
+      // The Admin Users tab eager-loads each user's roles via
+      // ``useUsersQuery``; invalidate so the per-row Roles cell refreshes.
+      queryClient.invalidateQueries({ queryKey: AdminQueryKeys.users });
       for (const roleId of roleIdsTouched) {
         queryClient.invalidateQueries({ queryKey: AdminQueryKeys.roleUsers(roleId) });
       }

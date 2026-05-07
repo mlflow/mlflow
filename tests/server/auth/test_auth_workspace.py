@@ -2176,6 +2176,44 @@ def test_validate_can_list_users(role_auth_setup, actor, expected):
         assert auth_module.validate_can_list_users() is expected
 
 
+def test_list_users_handler_eager_loads_scoped_roles(role_auth_setup):
+    # Workspace admin: bulk response includes per-user roles, scoped to
+    # workspaces the requester administers (plus self, unscoped).
+    role_auth_setup["login_as"]("ws_admin_foo")
+    with auth_module.app.test_request_context("/api/2.0/mlflow/users/list", method="GET"):
+        response = auth_module.list_users()
+    by_username = {u["username"]: u for u in response.get_json()["users"]}
+
+    # Self: own admin role visible.
+    assert {(r["workspace"], r["name"]) for r in by_username["ws_admin_foo"]["roles"]} == {
+        ("foo", "admin-foo")
+    }
+    # Cross-user in foo: filtered to foo only (member-foo lives in foo).
+    assert {(r["workspace"], r["name"]) for r in by_username["ws_member_foo"]["roles"]} == {
+        ("foo", "member-foo")
+    }
+    # Cross-user outside requester's admin set: roles hidden.
+    assert by_username["ws_admin_bar"]["roles"] == []
+    assert by_username["outsider"]["roles"] == []
+
+
+def test_list_users_handler_super_admin_sees_every_role(role_auth_setup):
+    role_auth_setup["login_as"]("super_admin")
+    with auth_module.app.test_request_context("/api/2.0/mlflow/users/list", method="GET"):
+        response = auth_module.list_users()
+    by_username = {u["username"]: u for u in response.get_json()["users"]}
+
+    assert {(r["workspace"], r["name"]) for r in by_username["ws_admin_foo"]["roles"]} == {
+        ("foo", "admin-foo")
+    }
+    assert {(r["workspace"], r["name"]) for r in by_username["ws_admin_bar"]["roles"]} == {
+        ("bar", "admin-bar")
+    }
+    assert {(r["workspace"], r["name"]) for r in by_username["ws_member_foo"]["roles"]} == {
+        ("foo", "member-foo")
+    }
+
+
 @pytest.mark.parametrize(
     ("actor", "expected"),
     [

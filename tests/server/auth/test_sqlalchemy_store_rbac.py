@@ -112,6 +112,43 @@ def test_list_roles(store):
     }
 
 
+def test_list_users_with_roles_eager_loads_in_one_batch(store, user, user2):
+    # Two roles for the first user, one for the second; one extra unassigned
+    # role just to confirm we only return roles tied to a user.
+    r1 = store.create_role(name="viewer", workspace="ws1")
+    r2 = store.create_role(name="editor", workspace="ws2")
+    r3 = store.create_role(name="other", workspace="ws3")
+    store.create_role(name="unassigned", workspace="ws1")
+
+    store.assign_role_to_user(user.id, r1.id)
+    store.assign_role_to_user(user.id, r2.id)
+    store.assign_role_to_user(user2.id, r3.id)
+
+    users_with_roles = store.list_users_with_roles()
+    by_username = {u.username: roles for u, roles in users_with_roles}
+
+    assert {(r.workspace, r.name) for r in by_username[user.username]} == {
+        ("ws1", "viewer"),
+        ("ws2", "editor"),
+    }
+    assert {(r.workspace, r.name) for r in by_username[user2.username]} == {("ws3", "other")}
+
+
+def test_list_user_present_workspaces(store, user):
+    # No assignments → empty set.
+    assert store.list_user_present_workspaces(user.id) == set()
+
+    r1 = store.create_role(name="viewer", workspace="ws1")
+    r2 = store.create_role(name="editor", workspace="ws2")
+    r3 = store.create_role(name="other", workspace="ws2")
+
+    store.assign_role_to_user(user.id, r1.id)
+    store.assign_role_to_user(user.id, r2.id)
+    store.assign_role_to_user(user.id, r3.id)
+
+    assert store.list_user_present_workspaces(user.id) == {"ws1", "ws2"}
+
+
 def test_update_role(store):
     role = store.create_role(name="old-name", workspace="ws1", description="old desc")
     updated = store.update_role(role.id, name="new-name", description="new desc")
