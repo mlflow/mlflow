@@ -4,8 +4,8 @@ import { FormattedMessage } from 'react-intl';
 import { ScrollablePageWrapper } from '../../../common/components/ScrollablePageWrapper';
 import ErrorUtils from '../../../common/utils/ErrorUtils';
 import { withErrorBoundary } from '../../../common/utils/withErrorBoundary';
+import { EndpointSelector } from '../../components/EndpointSelector';
 import { CompletionOutputPanel } from './components/CompletionOutputPanel';
-import { EndpointPicker } from './components/EndpointPicker';
 import { PromptInputPanel } from './components/PromptInputPanel';
 import { useChatCompletionMutation } from './hooks/useChatCompletionMutation';
 import type { ChatMessage } from './types';
@@ -58,7 +58,12 @@ const PlaygroundPage = () => {
         }}
       >
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
-          <EndpointPicker value={endpointName} onChange={setEndpointName} />
+          <EndpointSelector
+            componentIdPrefix="mlflow.playground.endpoint-selector"
+            currentEndpointName={endpointName}
+            onEndpointSelect={setEndpointName}
+            showCreateButton={false}
+          />
         </div>
 
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md, minHeight: 0 }}>

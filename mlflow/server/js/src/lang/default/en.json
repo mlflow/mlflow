@@ -3639,10 +3639,6 @@
     "defaultMessage": "Commit message:",
     "description": "A label for the commit message in the prompt details page"
   },
-  "KGvWGW": {
-    "defaultMessage": "Endpoint",
-    "description": "Label for the AI gateway endpoint picker on the playground page"
-  },
   "KIlp8v": {
     "defaultMessage": "No models selected",
     "description": "Label for selector when no models are selected"
@@ -10646,10 +10642,6 @@
   "zEXwQL": {
     "defaultMessage": "Error",
     "description": "Label for an assessment with an error"
-  },
-  "zJUIKx": {
-    "defaultMessage": "Select a gateway endpoint",
-    "description": "Placeholder for the AI gateway endpoint picker on the playground page"
   },
   "zLTdCZ": {
     "defaultMessage": "Reviewed",
