@@ -197,6 +197,16 @@ deny_interpolation_in_run contains msg if {
 	)
 }
 
+deny_interpolation_in_run contains msg if {
+	not input.jobs
+	some step in input.runs.steps
+	regex.match(`\$\{\{`, step.run)
+	msg := concat("", [
+		"Direct ${{ }} interpolation in run block of composite action step. ",
+		"Use env: to pass the value and reference it as $VAR in the script.",
+	])
+}
+
 deny_interpolation_in_github_script contains msg if {
 	some job_id, job in input.jobs
 	some step in job.steps
@@ -209,6 +219,17 @@ deny_interpolation_in_github_script contains msg if {
 		]),
 		[job_id],
 	)
+}
+
+deny_interpolation_in_github_script contains msg if {
+	not input.jobs
+	some step in input.runs.steps
+	startswith(step.uses, "actions/github-script@")
+	regex.match(`\$\{\{`, step["with"].script)
+	msg := concat("", [
+		"Direct ${{ }} interpolation in github-script of composite action step. ",
+		"Use env: to pass the value and reference it as process.env.VAR in the script.",
+	])
 }
 
 deny_interpolation_in_job_if contains msg if {

@@ -7,7 +7,7 @@ runs:
       run: |
         # Activate the virtual environment if .venv exists
         if [ -d .venv ]; then
-          if [ ${{ runner.os }} == "Windows" ]; then
+          if [ "$RUNNER_OS" == "Windows" ]; then
             source .venv/Scripts/activate
           else
             source .venv/bin/activate
