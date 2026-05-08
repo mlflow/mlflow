@@ -199,6 +199,7 @@ deny_interpolation_in_run contains msg if {
 
 deny_interpolation_in_run contains msg if {
 	not input.jobs
+	input.runs.steps
 	some i, step in input.runs.steps
 	regex.match(`\$\{\{`, step.run)
 	msg := sprintf(
@@ -226,6 +227,7 @@ deny_interpolation_in_github_script contains msg if {
 
 deny_interpolation_in_github_script contains msg if {
 	not input.jobs
+	input.runs.steps
 	some i, step in input.runs.steps
 	startswith(step.uses, "actions/github-script@")
 	regex.match(`\$\{\{`, step["with"].script)
