@@ -10,7 +10,7 @@ if [ "${CI:-}" != "true" ]; then
   exit 1
 fi
 
-GCS_BUCKET="https://storage.googleapis.com/claude-code-dist-86c565f3-f756-42ad-8dfa-d59b1c096819/claude-code-releases"
+GCS_BUCKET="https://downloads.claude.ai/claude-code-releases"
 PLATFORM="linux-x64"
 
 VERSION="$(curl -fsSL --retry 3 --retry-delay 2 "$GCS_BUCKET/stable")"
