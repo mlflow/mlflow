@@ -39,3 +39,21 @@ class Link(_MlflowObject):
             span_id=data["span_id"],
             attributes=data.get("attributes"),
         )
+
+    @classmethod
+    def from_otel_proto(cls, proto_link) -> "Link":
+        from mlflow.tracing.utils import encode_span_id, generate_mlflow_trace_id_from_otel_trace_id
+        from mlflow.tracing.utils.otlp import _decode_otel_proto_anyvalue, _otel_proto_bytes_to_id
+
+        link_trace_id = _otel_proto_bytes_to_id(proto_link.trace_id)
+        link_span_id = _otel_proto_bytes_to_id(proto_link.span_id)
+
+        attrs = {
+            attr.key: _decode_otel_proto_anyvalue(attr.value) for attr in proto_link.attributes
+        }
+
+        return cls(
+            trace_id=generate_mlflow_trace_id_from_otel_trace_id(link_trace_id),
+            span_id=encode_span_id(link_span_id),
+            attributes=attrs or None,
+        )
