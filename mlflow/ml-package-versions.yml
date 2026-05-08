@@ -522,6 +522,9 @@ transformers:
       "< 4.41": ["huggingface_hub<0.24.0", "datasets<=2.4.0", "evaluate<0.4.3", "pyarrow<21.0.0"]
       # sentence-transformers 5.1.2 introduces breaking changes with AcceleratorConfig
       "< 4.42": ["sentence-transformers<5.1.2"]
+      # sentence-transformers 5.4 passes `processing_class` to transformers Trainer,
+      # which was added in transformers 4.46.0
+      "< 4.46": ["sentence-transformers<5.4"]
       "< 4.52.0.dev0": ["accelerate<1"]
       # transformers 5.x requires accelerate>=1.1.0 for Trainer
       ">= 5.0": ["accelerate>=1.1.0"]
