@@ -186,6 +186,7 @@ lint = [
   "ty==0.0.24",
   "pydantic>=2.0",
   "clint",
+  "pypi",
   "pyyaml>=6.0.2",
   "types-PyYAML",
   "packaging>=25.0",
@@ -265,10 +266,16 @@ exclude-dependencies = ["uv"]
 torch-backend = "cpu"
 
 [tool.uv.workspace]
-members = ["dev/clint", "tests/resources/mlflow-test-plugin", ".claude/skills"]
+members = [
+  "dev/clint",
+  "dev/pypi",
+  "tests/resources/mlflow-test-plugin",
+  ".claude/skills",
+]
 
 [tool.uv.sources]
 clint = { workspace = true }
+pypi = { workspace = true }
 mlflow-test-plugin = { workspace = true }
 skills = { workspace = true }
 torch = { index = "pytorch-cpu" }

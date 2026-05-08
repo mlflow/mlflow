@@ -10,7 +10,7 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "2026-04-23T09:07:07.487337192Z"
+exclude-newer = "2026-04-24T16:07:07.638534Z"
 exclude-newer-span = "P14D"
 
 [options.exclude-newer-package]
@@ -22,6 +22,7 @@ members = [
     "clint",
     "mlflow",
     "mlflow-test-plugin",
+    "pypi",
     "skills",
 ]
 constraints = [
@@ -4362,6 +4363,7 @@ dev = [
     { name = "pre-commit" },
     { name = "psutil" },
     { name = "pydantic" },
+    { name = "pypi" },
     { name = "pyspark" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
@@ -4418,6 +4420,7 @@ lint = [
     { name = "packaging" },
     { name = "pre-commit" },
     { name = "pydantic" },
+    { name = "pypi" },
     { name = "pytest" },
     { name = "pyyaml" },
     { name = "ruff" },
@@ -4553,6 +4556,7 @@ dev = [
     { name = "pre-commit", specifier = "==4.0.1" },
     { name = "psutil" },
     { name = "pydantic", specifier = ">=2.0" },
+    { name = "pypi", editable = "dev/pypi" },
     { name = "pyspark" },
     { name = "pytest" },
     { name = "pytest", specifier = "==9.0.2" },
@@ -4607,6 +4611,7 @@ lint = [
     { name = "packaging", specifier = ">=25.0" },
     { name = "pre-commit", specifier = "==4.0.1" },
     { name = "pydantic", specifier = ">=2.0" },
+    { name = "pypi", editable = "dev/pypi" },
     { name = "pytest" },
     { name = "pyyaml", specifier = ">=6.0.2" },
     { name = "ruff", specifier = "==0.15.10" },
@@ -6858,6 +6863,17 @@ sdist = { url = "https://files.pythonhosted.org/packages/e8/52/d87eba7cb129b8156
 wheels = [
     { url = "https://files.pythonhosted.org/packages/df/80/fc9d01d5ed37ba4c42ca2b55b4339ae6e200b456be3a1aaddf4a9fa99b8c/pyperclip-1.11.0-py3-none-any.whl", hash = "sha256:299403e9ff44581cb9ba2ffeed69c7aa96a008622ad0c46cb575ca75b5b84273", size = 11063, upload-time = "2025-09-26T14:40:36.069Z" },
 ]
+
+[[package]]
+name = "pypi"
+version = "0.1.0"
+source = { editable = "dev/pypi" }
+dependencies = [
+    { name = "packaging" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "packaging" }]
 
 [[package]]
 name = "pyproject-hooks"
