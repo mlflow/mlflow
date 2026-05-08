@@ -1200,11 +1200,14 @@ def _role_based_read_predicate(username: str, resource_type: str) -> Callable[[s
     Build a ``p(resource_id) -> bool`` predicate that decides if ``username`` can read a
     resource of ``resource_type`` in the active workspace, based on their role grants.
 
-    - Wildcard workspace-wide grant (resource_pattern='*') → returns True for every id.
-    - Specific-resource grant (resource_pattern=<id>) → True for that id.
-    - Otherwise, falls back to ``auth_config.default_permission.can_read`` when
-      workspaces are disabled; with workspaces enabled, absence of a grant in the
-      resolved workspace is a deny (matches the pre-simplification semantics).
+    Max-style resolution: a positive grant (specific or wildcard) wins; rows that
+    don't grant read are ignored (the simplified RBAC model rejects
+    ``NO_PERMISSIONS`` as a grantable role permission at write time, so these
+    rows aren't expected, but skipping them keeps the resolver consistent with
+    the rest of the codebase's max-permission semantics). Falls back to
+    ``auth_config.default_permission.can_read`` when workspaces are disabled;
+    with workspaces enabled, absence of a grant in the resolved workspace is a
+    deny.
     """
     workspace_name = (
         workspace_context.get_request_workspace()
@@ -1216,45 +1219,22 @@ def _role_based_read_predicate(username: str, resource_type: str) -> Callable[[s
 
     user = store.get_user(username)
     readable: set[str] = set()
-    denied: set[str] = set()
     wildcard_can_read = False
-    wildcard_deny = False
     for resource_pattern, permission in store.list_role_grants_for_user_in_workspace(
         user.id, workspace_name, resource_type
     ):
-        can_read = get_permission(permission).can_read
+        if not get_permission(permission).can_read:
+            continue
         if resource_pattern == "*":
-            if can_read:
-                wildcard_can_read = True
-            else:
-                # Wildcard ``NO_PERMISSIONS`` (or any ``can_read=False`` wildcard)
-                # is an explicit deny-all — overrides the workspace-disabled
-                # fallback but still loses to a specific positive grant (handled
-                # below by the ``readable`` membership check). The simplified RBAC
-                # model rejects wildcard ``NO_PERMISSIONS`` at write time and the
-                # ``e5f6a7b8c9d0`` migration drops legacy wildcard
-                # ``NO_PERMISSIONS`` rows, so this branch is defensive: it pins
-                # the semantics for any row that lands via manual DB edit or a
-                # future relaxation of the validators.
-                wildcard_deny = True
-        elif can_read:
-            readable.add(resource_pattern)
+            wildcard_can_read = True
         else:
-            # Explicit NO_PERMISSIONS (or other can_read=False) on a specific
-            # resource_pattern is a deny — takes precedence over wildcard or default.
-            denied.add(resource_pattern)
+            readable.add(resource_pattern)
 
     default_can_read = get_permission(auth_config.default_permission).can_read
     fallback = default_can_read if not MLFLOW_ENABLE_WORKSPACES.get() else False
-    if wildcard_deny:
-        fallback = False
 
     def predicate(resource_id: str) -> bool:
-        if resource_id in denied:
-            return False
-        if resource_id in readable:
-            return True
-        return wildcard_can_read or fallback
+        return resource_id in readable or wildcard_can_read or fallback
 
     return predicate
 

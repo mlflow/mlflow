@@ -2511,15 +2511,12 @@ def test_user_cannot_create_via_autogrant_when_default_permission_lacks_use(monk
         assert not auth_module._user_can_create_in_workspace()
 
 
-def test_role_based_read_predicate_wildcard_no_permissions_blocks_default(monkeypatch):
-    """``_role_based_read_predicate`` must treat a wildcard ``NO_PERMISSIONS``
-    grant as a deny-all that overrides the ``default_permission`` fallback when
-    workspaces are disabled. (Specific positive grants still win.)
-
-    Defense-in-depth: the simplified validators reject wildcard
-    ``NO_PERMISSIONS`` and the migration drops legacy rows of that shape, so
-    this branch is unreachable through the normal API surface today. The test
-    exists so a future relaxation doesn't silently change the semantics.
+def test_role_based_read_predicate_ignores_no_permissions_grants(monkeypatch):
+    """``_role_based_read_predicate`` is max-style: ``NO_PERMISSIONS`` rows
+    (whether wildcard or per-resource) are ignored; a positive grant wins and
+    the ``default_permission`` fallback applies to anything else. Operators
+    that want a deny-by-default posture should set
+    ``default_permission=NO_PERMISSIONS``, not write per-user denies.
     """
     monkeypatch.delenv(MLFLOW_ENABLE_WORKSPACES.name, raising=False)
     monkeypatch.setattr(
@@ -2534,16 +2531,18 @@ def test_role_based_read_predicate_wildcard_no_permissions_blocks_default(monkey
             return SimpleNamespace(id=42, username=username)
 
         def list_role_grants_for_user_in_workspace(self, *args, **kwargs):
-            # Wildcard NO_PERMISSIONS deny + a specific positive grant.
             return [
                 ("*", NO_PERMISSIONS.name),
                 ("exp-allowed", READ.name),
+                ("exp-explicit-deny", NO_PERMISSIONS.name),
             ]
 
     monkeypatch.setattr(auth_module, "store", DummyStore(), raising=False)
 
     predicate = auth_module._role_based_read_predicate("alice", "experiment")
-    # Specific positive grant survives.
+    # Specific positive grant wins.
     assert predicate("exp-allowed")
-    # Wildcard deny blocks the fallback that would otherwise grant READ.
-    assert not predicate("exp-other")
+    # NO_PERMISSIONS wildcard is ignored; default READ fallback applies.
+    assert predicate("exp-other")
+    # Per-resource NO_PERMISSIONS is ignored; default READ fallback applies.
+    assert predicate("exp-explicit-deny")
