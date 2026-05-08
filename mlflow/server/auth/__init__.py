@@ -1842,14 +1842,17 @@ BEFORE_REQUEST_VALIDATORS.update({
     (CREATE_SCORER_PERMISSION, "POST"): validate_can_manage_scorer_permission,
     (UPDATE_SCORER_PERMISSION, "PATCH"): validate_can_manage_scorer_permission,
     (DELETE_SCORER_PERMISSION, "DELETE"): validate_can_manage_scorer_permission,
+    # Gateway secret permissions (deprecated)
     (GET_GATEWAY_SECRET_PERMISSION, "GET"): validate_can_manage_gateway_secret,
     (CREATE_GATEWAY_SECRET_PERMISSION, "POST"): validate_can_manage_gateway_secret,
     (UPDATE_GATEWAY_SECRET_PERMISSION, "PATCH"): validate_can_manage_gateway_secret,
     (DELETE_GATEWAY_SECRET_PERMISSION, "DELETE"): validate_can_manage_gateway_secret,
+    # Gateway endpoint permissions (deprecated)
     (GET_GATEWAY_ENDPOINT_PERMISSION, "GET"): validate_can_manage_gateway_endpoint,
     (CREATE_GATEWAY_ENDPOINT_PERMISSION, "POST"): validate_can_manage_gateway_endpoint,
     (UPDATE_GATEWAY_ENDPOINT_PERMISSION, "PATCH"): validate_can_manage_gateway_endpoint,
     (DELETE_GATEWAY_ENDPOINT_PERMISSION, "DELETE"): validate_can_manage_gateway_endpoint,
+    # Gateway model definition permissions (deprecated)
     (
         GET_GATEWAY_MODEL_DEFINITION_PERMISSION,
         "GET",
@@ -3254,6 +3257,11 @@ def delete_scorer_permission():
     return make_response({})
 
 
+# =============================================================================
+# Gateway Permission API Endpoints (deprecated)
+# =============================================================================
+
+
 @catch_mlflow_exception
 def create_gateway_secret_permission():
     _log_legacy_permission_deprecation("create_gateway_secret_permission")
@@ -4032,6 +4040,7 @@ def create_app(app: Flask = app):
         view_func=delete_scorer_permission,
         methods=["DELETE"],
     )
+    # Gateway secret permission routes (deprecated)
     app.add_url_rule(
         rule=CREATE_GATEWAY_SECRET_PERMISSION,
         view_func=create_gateway_secret_permission,
@@ -4052,6 +4061,7 @@ def create_app(app: Flask = app):
         view_func=delete_gateway_secret_permission,
         methods=["DELETE"],
     )
+    # Gateway endpoint permission routes (deprecated)
     app.add_url_rule(
         rule=CREATE_GATEWAY_ENDPOINT_PERMISSION,
         view_func=create_gateway_endpoint_permission,
@@ -4072,6 +4082,7 @@ def create_app(app: Flask = app):
         view_func=delete_gateway_endpoint_permission,
         methods=["DELETE"],
     )
+    # Gateway model definition permission routes (deprecated)
     app.add_url_rule(
         rule=CREATE_GATEWAY_MODEL_DEFINITION_PERMISSION,
         view_func=create_gateway_model_definition_permission,

@@ -525,6 +525,8 @@ class AuthServiceClient:
             },
         )
 
+    # Gateway secret permission methods (deprecated)
+
     def create_gateway_secret_permission(
         self, secret_id: str, username: str, permission: str
     ) -> GatewaySecretPermission:
@@ -565,6 +567,8 @@ class AuthServiceClient:
             json={"secret_id": secret_id, "username": username},
         )
 
+    # Gateway endpoint permission methods (deprecated)
+
     def create_gateway_endpoint_permission(
         self, endpoint_id: str, username: str, permission: str
     ) -> GatewayEndpointPermission:
@@ -604,6 +608,8 @@ class AuthServiceClient:
             "DELETE",
             json={"endpoint_id": endpoint_id, "username": username},
         )
+
+    # Gateway model definition permission methods (deprecated)
 
     def create_gateway_model_definition_permission(
         self, model_definition_id: str, username: str, permission: str
