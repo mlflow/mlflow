@@ -124,3 +124,34 @@ def test_runs_artifact_repo_tracking_uri_passed_as_keyword():
         )
         assert isinstance(runs_repo.repo, S3ArtifactRepository)
         mock_get_artifact_uri.assert_called_once()
+
+
+def test_get_logged_model_artifact_repo_uses_models_uri():
+    runs_repo = object.__new__(RunsArtifactRepository)
+    runs_repo.artifact_uri = "runs:/some-run-id/model"
+    runs_repo.tracking_uri = "http://test-tracking-server:5000"
+    runs_repo.registry_uri = "sqlite:///mlflow.db"
+
+    with (
+        mock.patch("mlflow.store.artifact.runs_artifact_repo.mlflow.tracking.MlflowClient") as mfc,
+        mock.patch(
+            "mlflow.store.artifact.artifact_repository_registry.get_artifact_repository"
+        ) as gar,
+    ):
+        run = Mock()
+        run.info.experiment_id = "123"
+        mfc.return_value.get_run.return_value = run
+
+        matched_model = Mock()
+        matched_model.source_run_id = "some-run-id"
+        matched_model.model_id = "m-123456"
+        mfc.return_value.search_logged_models.return_value = [matched_model]
+
+        repo = runs_repo._get_logged_model_artifact_repo(run_id="some-run-id", name="model")
+
+        assert repo == gar.return_value
+        gar.assert_called_once_with(
+            "models:/m-123456",
+            tracking_uri="http://test-tracking-server:5000",
+            registry_uri="sqlite:///mlflow.db",
+        )
