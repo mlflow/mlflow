@@ -79,11 +79,62 @@ jobs:
       - name: Run type-check
         run: |
           yarn type-check
+      - name: Start resource sampler
+        run: |
+          nohup bash -c '
+            PREV_TOTAL=0; PREV_IDLE=0
+            while true; do
+              read _ U N S I IO IRQ SI ST _ < /proc/stat
+              T=$((U+N+S+I+IO+IRQ+SI+ST))
+              if [ "$PREV_TOTAL" -ne 0 ]; then
+                DT=$((T-PREV_TOTAL))
+                DI=$(( (I+IO)-PREV_IDLE ))
+                CPU=$(( DT>0 ? 100*(DT-DI)/DT : 0 ))
+              else
+                CPU=0
+              fi
+              PREV_TOTAL=$T
+              PREV_IDLE=$((I+IO))
+              MEM=$(awk "/MemTotal/{t=\$2}/MemAvailable/{a=\$2}END{print int((t-a)/1024)}" /proc/meminfo)
+              printf "%s,%s,%s\n" "$(date +%s)" "$CPU" "$MEM"
+              sleep 2
+            done' > /tmp/metrics.csv 2>&1 &
+          echo $! > /tmp/sampler.pid
       - name: Run tests
         env:
           MATRIX_OPTION: ${{ matrix.option }}
         run: |
           yarn test --silent --verbose $MATRIX_OPTION src/experiment-tracking/components
+      - name: Stop sampler and post resource chart
+        if: always()
+        run: |
+          kill "$(cat /tmp/sampler.pid)" 2>/dev/null || true
+          if [ ! -s /tmp/metrics.csv ]; then
+            exit 0
+          fi
+          N=$(wc -l < /tmp/metrics.csv)
+          STEP=$(( N / 30 + 1 ))
+          awk -v step="$STEP" 'NR % step == 0' /tmp/metrics.csv > /tmp/s.csv
+          LABELS=$(awk -F, 'BEGIN{p="["} {p=p"\"T" NR "\","} END{sub(/,$/,"",p); print p"]"}' /tmp/s.csv)
+          CPU=$(awk -F, '{printf "%s,",$2}' /tmp/s.csv | sed 's/,$//')
+          MEM=$(awk -F, '{printf "%s,",$3}' /tmp/s.csv | sed 's/,$//')
+          {
+            echo '## CPU usage (%)'
+            echo '```mermaid'
+            echo 'xychart-beta'
+            echo "  x-axis $LABELS"
+            echo '  y-axis "CPU %" 0 --> 100'
+            echo "  line [$CPU]"
+            echo '```'
+            echo
+            echo '## Memory used (MB)'
+            echo '```mermaid'
+            echo 'xychart-beta'
+            echo "  x-axis $LABELS"
+            echo '  y-axis "Memory MB"'
+            echo "  line [$MEM]"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
       - name: Run build
         env:
           # Prevent warnings (emitted from react-pdf) from being treated as errors
