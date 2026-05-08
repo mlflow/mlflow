@@ -6,15 +6,15 @@
 # Usage: dev/profile.sh <command> [args...]
 #
 # Environment overrides:
-#   PROFILE_INTERVAL   sampling interval in seconds (default: 2)
-#   PROFILE_DATA_FILE  path to write raw CSV samples (default: /tmp/profile-metrics.csv)
+#   PROFILE_INTERVAL_SECONDS  sampling interval in seconds (default: 2)
+#   PROFILE_DATA_FILE         path to write raw CSV samples (default: /tmp/profile-metrics.csv)
 #
 # Linux-only: reads /proc/stat and /proc/meminfo.
 
 set -uo pipefail
 
 SAMPLE_FILE=${PROFILE_DATA_FILE:-/tmp/profile-metrics.csv}
-SAMPLE_INTERVAL=${PROFILE_INTERVAL:-2}
+SAMPLE_INTERVAL_SECONDS=${PROFILE_INTERVAL_SECONDS:-2}
 SUMMARY_FILE=${GITHUB_STEP_SUMMARY:-/dev/stdout}
 
 if [ ! -r /proc/stat ] || [ ! -r /proc/meminfo ]; then
@@ -39,7 +39,7 @@ fi
     prev_idle=$((i + io))
     mem=$(awk '/MemTotal/{T=$2} /MemAvailable/{A=$2} END{printf "%.2f", (T-A)/1024/1024}' /proc/meminfo)
     printf '%s,%s,%s\n' "$(date +%s)" "$cpu" "$mem"
-    sleep "$SAMPLE_INTERVAL"
+    sleep "$SAMPLE_INTERVAL_SECONDS"
   done
 ) >"$SAMPLE_FILE" 2>&1 &
 sampler_pid=$!
