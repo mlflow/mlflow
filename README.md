@@ -102,7 +102,7 @@ MLflow provides everything you need to build, debug, evaluate, and deploy produc
         <div>Run systematic evaluations, track quality metrics over time, and catch regressions before they reach production. Choose from 50+ built-in metrics and LLM judges, or define your own.</div><br>
         <a href="https://mlflow.org/docs/latest/genai/eval-monitor/">Getting Started →</a>
         <br>
-        <a href="https://demo.mlflow.org/#/experiments/1/evaluation-runs">Try Demo →</a>
+        <a href="https://demo.mlflow.org/#/experiments/1/runs/d690ad8bb7a546c5a74b79691bb32b27/evaluations">Try Demo →</a>
         <br><br>
     </div>
     </td>
@@ -117,7 +117,7 @@ MLflow provides everything you need to build, debug, evaluate, and deploy produc
         <div>Version, test, and deploy prompts with full lineage tracking. <a href="https://mlflow.org/prompt-optimization">Automatically optimize prompts</a> with state-of-the-art algorithms to improve performance.</div><br>
         <a href="https://mlflow.org/docs/latest/genai/prompt-registry/create-and-edit-prompts/">Getting Started →</a>
         <br>
-        <a href="https://demo.mlflow.org/#/prompts">Try Demo →</a>
+        <a href="https://demo.mlflow.org/#/experiments/1/prompts/mlflow-demo.prompts.code-reviewer?promptVersion=4">Try Demo →</a>
         <br><br>
     </div>
     </td>
