@@ -1,11 +1,31 @@
-import { Empty, Header, PlayIcon, Spacer, useDesignSystemTheme } from '@databricks/design-system';
+import { Button, Header, PlayIcon, Spacer, useDesignSystemTheme } from '@databricks/design-system';
+import { useState } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { ScrollablePageWrapper } from '../../../common/components/ScrollablePageWrapper';
 import ErrorUtils from '../../../common/utils/ErrorUtils';
 import { withErrorBoundary } from '../../../common/utils/withErrorBoundary';
+import { EndpointSelector } from '../../components/EndpointSelector';
+import { CompletionOutputPanel } from './components/CompletionOutputPanel';
+import { PromptInputPanel } from './components/PromptInputPanel';
+import { useChatCompletionMutation } from './hooks/useChatCompletionMutation';
+import type { ChatMessage } from './types';
 
 const PlaygroundPage = () => {
   const { theme } = useDesignSystemTheme();
+  const [endpointName, setEndpointName] = useState<string>('');
+  const [messages, setMessages] = useState<ChatMessage[]>([{ role: 'user', content: '' }]);
+
+  const { mutate, data, error, isLoading } = useChatCompletionMutation();
+
+  const canSubmit =
+    Boolean(endpointName) && messages.length > 0 && messages.some((m) => m.content.trim().length > 0) && !isLoading;
+
+  const handleSubmit = () => {
+    if (!canSubmit) {
+      return;
+    }
+    mutate({ model: endpointName, messages });
+  };
 
   return (
     <ScrollablePageWrapper css={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
@@ -28,20 +48,45 @@ const PlaygroundPage = () => {
         }
       />
       <Spacer shrinks={false} />
-      <Empty
-        title={
-          <FormattedMessage
-            defaultMessage="Playground coming soon"
-            description="Title shown on the Playground page placeholder before its features are wired up"
+      <div
+        css={{
+          display: 'grid',
+          gridTemplateColumns: '320px 1fr',
+          gap: theme.spacing.lg,
+          flex: 1,
+          minHeight: 0,
+        }}
+      >
+        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+          <EndpointSelector
+            componentIdPrefix="mlflow.playground.endpoint-selector"
+            currentEndpointName={endpointName}
+            onEndpointSelect={setEndpointName}
+            showCreateButton={false}
           />
-        }
-        description={
-          <FormattedMessage
-            defaultMessage="Soon you'll be able to test AI Gateway endpoints and registered prompts here."
-            description="Placeholder description shown on the Playground page before its features are wired up"
-          />
-        }
-      />
+        </div>
+
+        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md, minHeight: 0 }}>
+          <PromptInputPanel messages={messages} onChange={setMessages} />
+          <div css={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <Button
+              componentId="mlflow.playground.submit"
+              type="primary"
+              icon={<PlayIcon />}
+              disabled={!canSubmit}
+              loading={isLoading}
+              onClick={handleSubmit}
+            >
+              <FormattedMessage
+                defaultMessage="Submit"
+                description="Label for the submit button on the playground page that runs the chat completion request"
+              />
+            </Button>
+          </div>
+          <Spacer size="sm" />
+          <CompletionOutputPanel response={data} error={error ?? undefined} isLoading={isLoading} />
+        </div>
+      </div>
     </ScrollablePageWrapper>
   );
 };

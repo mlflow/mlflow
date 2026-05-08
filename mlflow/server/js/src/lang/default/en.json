@@ -155,6 +155,10 @@
     "defaultMessage": "Expand graph",
     "description": "Tooltip for the button that expands the graph view"
   },
+  "//TrDV": {
+    "defaultMessage": "Output",
+    "description": "Section header for the completion output panel on the playground page"
+  },
   "/2InJv": {
     "defaultMessage": "Grounded",
     "description": "Evaluation results > grounded assessment > positive value label. Displayed if evaluation result is considered as grounded."
@@ -487,6 +491,10 @@
     "defaultMessage": "Alerts",
     "description": "Tab label for budget alerts"
   },
+  "0vwlO5": {
+    "defaultMessage": "Each message has a role that tells the model who is speaking:",
+    "description": "Intro line for the playground role-selector help popover"
+  },
   "0wxgDJ": {
     "defaultMessage": "Add tags",
     "description": "Add new prompt version tags button"
@@ -803,6 +811,10 @@
     "defaultMessage": "Compare",
     "description": "Compare evaluation runs action"
   },
+  "2ikLTU": {
+    "defaultMessage": "Type a message",
+    "description": "Placeholder for a message textarea on the playground page"
+  },
   "2kNo2y": {
     "defaultMessage": "Tool Error Rates",
     "description": "Title for the tool error rates section"
@@ -878,6 +890,10 @@
   "3JAJtl": {
     "defaultMessage": "Current password",
     "description": "Label for the current-password field"
+  },
+  "3MZ6H+": {
+    "defaultMessage": "Submit",
+    "description": "Label for the submit button on the playground page that runs the chat completion request"
   },
   "3N1zOb": {
     "defaultMessage": "Disabled",
@@ -1062,6 +1078,10 @@
   "4OcdLd": {
     "defaultMessage": "This version",
     "description": "Model registry > model version alias select > Indicator for alias of selected version"
+  },
+  "4PquPn": {
+    "defaultMessage": "Add a message to send to the endpoint.",
+    "description": "Empty-state hint for the playground messages panel"
   },
   "4Qft47": {
     "defaultMessage": "{nodeCount, plural, =0 {} one {# node} other {# nodes}}",
@@ -2859,6 +2879,10 @@
     "defaultMessage": "Overview",
     "description": "Label for the overview tab on the logged model details page"
   },
+  "FBlbEZ": {
+    "defaultMessage": "Remove message",
+    "description": "Aria label for the button that removes a message from the playground messages panel"
+  },
   "FC9mcS": {
     "defaultMessage": "Parallel coordinates",
     "description": "Experiment tracking > runs charts > add chart menu > parallel coordinates"
@@ -3286,6 +3310,10 @@
   "I9bJ/T": {
     "defaultMessage": "Select All",
     "description": "Option to select all items in the item selector"
+  },
+  "IADRYy": {
+    "defaultMessage": "Message content",
+    "description": "Hidden label for the message content textarea on the playground page"
   },
   "IAyAgH": {
     "defaultMessage": "Move up",
@@ -3863,6 +3891,10 @@
     "defaultMessage": "Please configure at least one model in traffic split",
     "description": "Tooltip shown when save button is disabled due to incomplete form"
   },
+  "Lwk6Dz": {
+    "defaultMessage": "— what the human is asking. This is the typical input.",
+    "description": "Description of the user role in the playground role-selector help popover"
+  },
   "LxUEVH": {
     "defaultMessage": "No resources connected to this endpoint",
     "description": "Gateway > Endpoint bindings drawer > Empty state"
@@ -4354,10 +4386,6 @@
   "OimAJb": {
     "defaultMessage": "Scatter Plot",
     "description": "Tab pane title for scatterplots on the compare runs page"
-  },
-  "OjUChs": {
-    "defaultMessage": "Playground coming soon",
-    "description": "Title shown on the Playground page placeholder before its features are wired up"
   },
   "OjWQ39": {
     "defaultMessage": "Human feedback",
@@ -4910,6 +4938,10 @@
   "SCYMXw": {
     "defaultMessage": "Cancel",
     "description": "Cancel button text for creating model in the model registry"
+  },
+  "SG4oPe": {
+    "defaultMessage": "— instructions or persona for the model (e.g. {example}).",
+    "description": "Description of the system role in the playground role-selector help popover"
   },
   "SHoy6d": {
     "defaultMessage": "Open full trace viewer",
@@ -5615,6 +5647,10 @@
     "defaultMessage": "Cancel",
     "description": "A label for the cancel button in the prompt creation modal in the prompt management UI"
   },
+  "WPM8Ok": {
+    "defaultMessage": "Submit a message to see the response here.",
+    "description": "Empty state for the playground completion output panel"
+  },
   "WQwCH6": {
     "defaultMessage": "Aliased versions",
     "description": "Column title for aliased versions in the registered model page"
@@ -5842,6 +5878,10 @@
   "XuzIWs": {
     "defaultMessage": "Some traces are hidden by your time range filter: \"{filterLabel}\"",
     "description": "Message shown when traces are hidden by time filter"
+  },
+  "Xv4NpC": {
+    "defaultMessage": "Messages",
+    "description": "Section header for the chat input on the playground page"
   },
   "XvzXs3": {
     "defaultMessage": "The parallel coordinates chart shows runs with columns that are either numbers or strings. If a column has string entries, the runs corresponding to the 30 most recent unique values will be shown. Only runs with all relevant metrics and/or parameters will be displayed.",
@@ -7327,6 +7367,10 @@
     "defaultMessage": "View starter code",
     "description": "Title for starter code card on endpoint overview"
   },
+  "gF1WQp": {
+    "defaultMessage": "Add message",
+    "description": "Label for the button that appends a new chat message on the playground page"
+  },
   "gFYM0j": {
     "defaultMessage": "Cancel",
     "description": "Delete assessment modal cancel button text"
@@ -8263,10 +8307,6 @@
     "defaultMessage": "This assessment is produced by a custom metric.",
     "description": "Custom judge assessment description"
   },
-  "lQq0YT": {
-    "defaultMessage": "Soon you'll be able to test AI Gateway endpoints and registered prompts here.",
-    "description": "Placeholder description shown on the Playground page before its features are wired up"
-  },
   "lRO4km": {
     "defaultMessage": "Quality",
     "description": "Label for the quality tab in the experiment overview page"
@@ -8666,6 +8706,10 @@
   "nYSJgH": {
     "defaultMessage": "Show all parent spans",
     "description": "Checkbox label for a setting that enables showing all parent spans in the trace explorer regardless of filter conditions."
+  },
+  "nZow1J": {
+    "defaultMessage": "Tokens — prompt: {prompt}, completion: {completion}, total: {total}",
+    "description": "Token usage footer on the playground completion output panel"
   },
   "naivho": {
     "defaultMessage": "of",
@@ -10179,6 +10223,10 @@
     "defaultMessage": "Load more",
     "description": "Run page > Overview > Child runs load more"
   },
+  "wuhLAU": {
+    "defaultMessage": "— what the model has previously said. Useful for priming with example responses.",
+    "description": "Description of the assistant role in the playground role-selector help popover"
+  },
   "wuqL/Y": {
     "defaultMessage": "Group by session",
     "description": "Label for the group by session button in the traces table toolbar"
@@ -10474,6 +10522,10 @@
   "ydoHrJ": {
     "defaultMessage": "Output",
     "description": "Experiment page > new run modal > evaluation output field label"
+  },
+  "ye3pSE": {
+    "defaultMessage": "About message roles",
+    "description": "Aria label for the info popover that explains chat roles on the playground page"
   },
   "yjerKR": {
     "defaultMessage": "<link>Version {versionNumber}</link>",
