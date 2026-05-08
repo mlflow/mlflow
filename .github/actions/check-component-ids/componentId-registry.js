@@ -1917,6 +1917,14 @@ module.exports = {
   "mlflow.overview.usage.trace_cost_over_time.item_selector": "",
   "mlflow.overview.usage.traces.view_traces_link": "",
 
+  // -- mlflow.playground --
+  "mlflow.playground.output.error": "",
+  "mlflow.playground.prompt_input.content": "",
+  "mlflow.playground.prompt_input.remove": "",
+  "mlflow.playground.prompt_input.role": "",
+  "mlflow.playground.prompt_input.role_help": "",
+  "mlflow.playground.submit": "",
+
   // -- mlflow.prompts --
   "mlflow.prompts.chat_creator.add_after": "",
   "mlflow.prompts.chat_creator.content": "",
