@@ -6,10 +6,11 @@ import ErrorUtils from '../../../common/utils/ErrorUtils';
 import { withErrorBoundary } from '../../../common/utils/withErrorBoundary';
 import { EndpointSelector } from '../../components/EndpointSelector';
 import { CompletionOutputPanel } from './components/CompletionOutputPanel';
+import { ParametersPanel } from './components/ParametersPanel';
 import { PromptInputPanel } from './components/PromptInputPanel';
 import { PromptRegistryPicker } from './components/PromptRegistryPicker';
 import { useChatCompletionMutation } from './hooks/useChatCompletionMutation';
-import type { ChatMessage } from './types';
+import type { ChatMessage, PlaygroundParams } from './types';
 
 const EMPTY_USER_MESSAGE: ChatMessage = { role: 'user', content: '' };
 
@@ -17,6 +18,7 @@ const PlaygroundPage = () => {
   const { theme } = useDesignSystemTheme();
   const [endpointName, setEndpointName] = useState<string>('');
   const [messages, setMessages] = useState<ChatMessage[]>([{ ...EMPTY_USER_MESSAGE }]);
+  const [params, setParams] = useState<PlaygroundParams>({});
   const [showRegistryPicker, setShowRegistryPicker] = useState(false);
 
   const { mutate, data, error, isLoading } = useChatCompletionMutation();
@@ -28,7 +30,13 @@ const PlaygroundPage = () => {
     if (!canSubmit) {
       return;
     }
-    mutate({ model: endpointName, messages });
+    mutate({
+      model: endpointName,
+      messages,
+      ...(params.temperature !== undefined && { temperature: params.temperature }),
+      ...(params.max_tokens !== undefined && { max_tokens: params.max_tokens }),
+      ...(params.top_p !== undefined && { top_p: params.top_p }),
+    });
   };
 
   return (
@@ -68,6 +76,7 @@ const PlaygroundPage = () => {
             onEndpointSelect={setEndpointName}
             showCreateButton={false}
           />
+          <ParametersPanel value={params} onChange={setParams} />
           <Button componentId="mlflow.playground.load_from_registry" onClick={() => setShowRegistryPicker(true)}>
             <FormattedMessage
               defaultMessage="Load prompt from registry"

@@ -127,6 +127,10 @@
     "defaultMessage": "Max",
     "description": "Column title for the column displaying the maximum metric values for a metric"
   },
+  "+j0g4V": {
+    "defaultMessage": "Leave a field blank to use the provider's default.",
+    "description": "Help text in the playground parameters panel popover"
+  },
   "+khKtf": {
     "defaultMessage": "None",
     "description": "A short label for experiments with no experiment kind"
@@ -154,6 +158,10 @@
   "+yb3Nl": {
     "defaultMessage": "Expand graph",
     "description": "Tooltip for the button that expands the graph view"
+  },
+  "+yzGfp": {
+    "defaultMessage": "e.g. 0.7",
+    "description": "Placeholder for the temperature input on the playground parameters panel"
   },
   "//TrDV": {
     "defaultMessage": "Output",
@@ -306,6 +314,10 @@
   "/icjNP": {
     "defaultMessage": "Logged in as <strong>{username}</strong>",
     "description": "Subtitle showing the currently authenticated username"
+  },
+  "/jSBSV": {
+    "defaultMessage": "Temperature",
+    "description": "Label for the temperature input on the playground parameters panel"
   },
   "/jhw7T": {
     "defaultMessage": "Clear filter",
@@ -2839,6 +2851,10 @@
     "defaultMessage": "Capture and debug LLM interactions and agent workflows.",
     "description": "Feature card summary for tracing"
   },
+  "Ev4S86": {
+    "defaultMessage": "e.g. 512",
+    "description": "Placeholder for the max-tokens input on the playground parameters panel"
+  },
   "EwAZgg": {
     "defaultMessage": "Edit tags",
     "description": "Run page > Overview > Tags cell > 'Edit' button label"
@@ -3351,6 +3367,10 @@
     "defaultMessage": "Prompt tag deleted",
     "description": "Webhook event label"
   },
+  "IJBkro": {
+    "defaultMessage": "Parameters",
+    "description": "Section header for the model sampling parameters panel on the playground page"
+  },
   "IJLNaN": {
     "defaultMessage": "Name of the trace, derived from the root span's name",
     "description": "Tooltip description for the Trace Name column in the traces table"
@@ -3610,6 +3630,10 @@
   "K2IAP7": {
     "defaultMessage": "Success",
     "description": "Column header for success rate"
+  },
+  "K38TFe": {
+    "defaultMessage": "Max tokens",
+    "description": "Label for the max-tokens input on the playground parameters panel"
   },
   "K5rmCE": {
     "defaultMessage": "S3",
@@ -4607,6 +4631,10 @@
     "defaultMessage": "Not an issue",
     "description": "Issue severity tag label for not an issue"
   },
+  "Q2cgUx": {
+    "defaultMessage": "About sampling parameters",
+    "description": "Aria label for the info popover next to the playground parameters header"
+  },
   "Q5CR/y": {
     "defaultMessage": "Create a new key if a different name is needed.",
     "description": "Tooltip suggestion to create new key for different name"
@@ -4822,6 +4850,10 @@
   "RWVGkL": {
     "defaultMessage": "Columns",
     "description": "Columns label for the chat sessions table column selector"
+  },
+  "RXI71h": {
+    "defaultMessage": "Top P",
+    "description": "Label for the top-p input on the playground parameters panel"
   },
   "RXL0a5": {
     "defaultMessage": "All {groupLabel}",
@@ -8914,6 +8946,10 @@
   "odkg7W": {
     "defaultMessage": "Compact view",
     "description": "Run page > artifact view > logged table view > compact view toggle button"
+  },
+  "ofL8Me": {
+    "defaultMessage": "e.g. 1.0",
+    "description": "Placeholder for the top-p input on the playground parameters panel"
   },
   "ofr72S": {
     "defaultMessage": "Version",

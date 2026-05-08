@@ -1781,6 +1781,10 @@ module.exports = {
   // -- mlflow.playground --
   "mlflow.playground.load_from_registry": "",
   "mlflow.playground.output.error": "",
+  "mlflow.playground.params.help": "",
+  "mlflow.playground.params.max_tokens": "",
+  "mlflow.playground.params.temperature": "",
+  "mlflow.playground.params.top_p": "",
   "mlflow.playground.prompt_input.content": "",
   "mlflow.playground.prompt_input.remove": "",
   "mlflow.playground.prompt_input.role": "",

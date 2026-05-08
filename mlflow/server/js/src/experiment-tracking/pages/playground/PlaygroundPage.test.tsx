@@ -12,6 +12,22 @@ import { PlaygroundApi } from './api';
 import PlaygroundPage from './PlaygroundPage';
 import { useChatCompletionMutation } from './hooks/useChatCompletionMutation';
 
+jest.mock('../../components/EndpointSelector', () => ({
+  EndpointSelector: ({
+    currentEndpointName,
+    onEndpointSelect,
+  }: {
+    currentEndpointName?: string;
+    onEndpointSelect: (name: string) => void;
+  }) => (
+    <input
+      data-testid="endpoint-selector-test-input"
+      value={currentEndpointName ?? ''}
+      onChange={(event) => onEndpointSelect(event.target.value)}
+    />
+  ),
+}));
+
 const renderPlayground = () => {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(<PlaygroundPage />, {
@@ -75,6 +91,32 @@ describe('PlaygroundPage', () => {
 
     // Endpoint is still empty, so submit stays disabled.
     expect(submit).toBeDisabled();
+  });
+
+  it('forwards typed sampling parameters into the chat completion request', async () => {
+    const chatCompletionSpy = jest.spyOn(PlaygroundApi, 'chatCompletion').mockResolvedValue({
+      choices: [{ index: 0, message: { role: 'assistant', content: 'ok' }, finish_reason: 'stop' }],
+    });
+
+    renderPlayground();
+
+    const endpointInput = await screen.findByTestId('endpoint-selector-test-input');
+    await userEvent.type(endpointInput, 'my-endpoint');
+
+    await userEvent.type(screen.getByPlaceholderText('Type a message'), 'Hello there');
+    await userEvent.type(screen.getByLabelText('Temperature'), '1.5');
+
+    await userEvent.click(screen.getByRole('button', { name: /submit/i }));
+
+    await waitFor(() => {
+      expect(chatCompletionSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          model: 'my-endpoint',
+          temperature: 1.5,
+          messages: [{ role: 'user', content: 'Hello there' }],
+        }),
+      );
+    });
   });
 
   it('exposes a hook that posts to the chat completions API', async () => {
