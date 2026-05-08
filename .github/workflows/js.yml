@@ -82,7 +82,6 @@ jobs:
       - name: Run tests
         env:
           MATRIX_OPTION: ${{ matrix.option }}
-          PROFILE_DATA_FILE: /tmp/profile-metrics-${{ strategy.job-index }}.csv
         run: |
           "$GITHUB_WORKSPACE/dev/profile.sh" \
             yarn test --silent $MATRIX_OPTION src/experiment-tracking/components
@@ -90,8 +89,11 @@ jobs:
         if: always()
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
-          path: /tmp/profile-metrics-${{ strategy.job-index }}.csv
-          archive: false
+          name: profile-metrics-${{ strategy.job-index }}
+          path: /tmp/profile-metrics.csv
+          # TODO: Uncomment once `gh run download` supports non-zipped artifacts.
+          # https://github.com/cli/cli/issues/13012
+          # archive: false
           retention-days: 3
           if-no-files-found: ignore
       - name: Run build
