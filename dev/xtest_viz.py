@@ -324,10 +324,20 @@ class XTestViz:
 
         return "\n".join(lines)
 
+    def filter_latest_not_success(self, data_rows: list[JobResult]) -> list[JobResult]:
+        """Keep only jobs whose latest run for each name was not a success."""
+        latest_per_name: dict[str, JobResult] = {}
+        for r in data_rows:
+            cur = latest_per_name.get(r.name)
+            if cur is None or r.started_at > cur.started_at:
+                latest_per_name[r.name] = r
+        keep = {name for name, r in latest_per_name.items() if r.conclusion != "success"}
+        return [r for r in data_rows if r.name in keep]
+
     def render_results_table(self, data_rows: list[JobResult]) -> str:
         """Render job data as a markdown table."""
         if not data_rows:
-            return "No test jobs found."
+            return "All latest cross-version tests succeeded."
 
         pivot_data, sorted_dates, sorted_names = self._pivot_job_results(data_rows)
         return self._build_markdown_table(pivot_data, sorted_dates, sorted_names)
@@ -363,6 +373,7 @@ async def main() -> None:
 
     visualizer = XTestViz(github_token=token, repo=args.repo)
     data_rows = await visualizer.fetch_all_jobs(args.days)
+    data_rows = visualizer.filter_latest_not_success(data_rows)
     if args.json_output:
         Path(args.json_output).write_text(visualizer.render_json(data_rows))
     if not data_rows:
