@@ -15,7 +15,8 @@ class Link(_MlflowObject):
 
     Args:
         trace_id: The trace ID of the linked span. Accepted formats include
-            MLflow trace IDs (``tr-xxx``) and v4 trace IDs (``trace:/<location>/<hex>``).
+            MLflow trace IDs (``tr-xxx``), v4 trace IDs (``trace:/<location>/<hex>``),
+            and bare hex strings.
         span_id: The span ID within that trace (16-character hex string).
         attributes: Optional attributes describing the link relationship.
             Values must be JSON-serializable (``str``, ``int``, ``float``,
