@@ -1,3 +1,4 @@
+import base64
 from dataclasses import dataclass
 from typing import Any
 
@@ -48,9 +49,12 @@ class Link(_MlflowObject):
         link_trace_id = _otel_proto_bytes_to_id(proto_link.trace_id)
         link_span_id = _otel_proto_bytes_to_id(proto_link.span_id)
 
-        attrs = {
-            attr.key: _decode_otel_proto_anyvalue(attr.value) for attr in proto_link.attributes
-        }
+        attrs = {}
+        for attr in proto_link.attributes:
+            value = _decode_otel_proto_anyvalue(attr.value)
+            if isinstance(value, bytes):
+                value = base64.b64encode(value).decode("ascii")
+            attrs[attr.key] = value
 
         return cls(
             trace_id=generate_mlflow_trace_id_from_otel_trace_id(link_trace_id),
