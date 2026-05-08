@@ -37,7 +37,7 @@ fi
     fi
     prev_total=$t
     prev_idle=$((i + io))
-    mem=$(awk '/MemTotal/{T=$2} /MemAvailable/{A=$2} END{print int((T-A)/1024)}' /proc/meminfo)
+    mem=$(awk '/MemTotal/{T=$2} /MemAvailable/{A=$2} END{printf "%.2f", (T-A)/1024/1024}' /proc/meminfo)
     printf '%s,%s,%s\n' "$(date +%s)" "$cpu" "$mem"
     sleep "$SAMPLE_INTERVAL"
   done
@@ -70,11 +70,11 @@ cleanup() {
     echo "  line [$cpu_list]"
     echo '```'
     echo
-    echo '## Memory used (MB)'
+    echo '## Memory used (GB)'
     echo '```mermaid'
     echo 'xychart-beta'
     echo "  x-axis \"Elapsed (s)\" 0 --> $total"
-    echo '  y-axis "Memory MB"'
+    echo '  y-axis "Memory GB"'
     echo "  line [$mem_list]"
     echo '```'
   } >>"$SUMMARY_FILE"
