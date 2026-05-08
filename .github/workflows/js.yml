@@ -85,6 +85,14 @@ jobs:
         run: |
           "$GITHUB_WORKSPACE/dev/profile.sh" \
             yarn test --silent $MATRIX_OPTION src/experiment-tracking/components
+      - name: Upload profile metrics
+        if: always()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: profile-metrics-${{ strategy.job-index }}
+          path: /tmp/profile-metrics.csv
+          retention-days: 3
+          if-no-files-found: ignore
       - name: Run build
         env:
           # Prevent warnings (emitted from react-pdf) from being treated as errors
