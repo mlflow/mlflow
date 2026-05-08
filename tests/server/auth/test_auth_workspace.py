@@ -2131,6 +2131,112 @@ def test_validate_can_list_roles_blank_workspace_denied_for_non_admin(role_auth_
         assert auth_module.validate_can_list_roles() is False
 
 
+@pytest.mark.parametrize(
+    ("actor", "workspaces", "expected"),
+    [
+        # Super admin lists across any combination unconditionally.
+        ("super_admin", ["foo", "bar"], True),
+        # Workspace admin must hold a role in *every* requested workspace.
+        ("ws_admin_foo", ["foo"], True),
+        ("ws_admin_foo", ["foo", "bar"], False),  # not present in bar
+        ("ws_admin_foo", ["foo", "foo"], True),  # duplicate is fine
+        # Member of foo can list foo, but not foo + bar.
+        ("ws_member_foo", ["foo"], True),
+        ("ws_member_foo", ["foo", "bar"], False),
+        # Outsider can list nothing.
+        ("outsider", ["foo"], False),
+        ("outsider", ["foo", "bar"], False),
+    ],
+)
+def test_validate_can_list_roles_multi_workspace(role_auth_setup, actor, workspaces, expected):
+    role_auth_setup["login_as"](actor)
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/roles/list",
+        method="GET",
+        query_string=[("workspace", w) for w in workspaces],
+    ):
+        assert auth_module.validate_can_list_roles() is expected
+
+
+# Super admin is omitted from these parametrizations: ``_before_request``
+# short-circuits via ``sender_is_admin`` before the validator is reached, so
+# the validator is unreachable for them in production.
+@pytest.mark.parametrize(
+    ("actor", "expected"),
+    [
+        ("ws_admin_foo", True),
+        ("ws_admin_bar", True),
+        ("ws_member_foo", False),
+        ("outsider", False),
+    ],
+)
+def test_validate_can_list_users(role_auth_setup, actor, expected):
+    role_auth_setup["login_as"](actor)
+    with auth_module.app.test_request_context("/api/2.0/mlflow/users/list", method="GET"):
+        assert auth_module.validate_can_list_users() is expected
+
+
+def test_list_users_handler_eager_loads_scoped_roles(role_auth_setup):
+    # Workspace admin: bulk response includes per-user roles, scoped to
+    # workspaces the requester administers (plus self, unscoped).
+    role_auth_setup["login_as"]("ws_admin_foo")
+    with auth_module.app.test_request_context("/api/2.0/mlflow/users/list", method="GET"):
+        response = auth_module.list_users()
+    by_username = {u["username"]: u for u in response.get_json()["users"]}
+
+    # Self: own admin role visible.
+    assert {(r["workspace"], r["name"]) for r in by_username["ws_admin_foo"]["roles"]} == {
+        ("foo", "admin-foo")
+    }
+    # Cross-user in foo: filtered to foo only (member-foo lives in foo).
+    assert {(r["workspace"], r["name"]) for r in by_username["ws_member_foo"]["roles"]} == {
+        ("foo", "member-foo")
+    }
+    # Cross-user outside requester's admin set: roles hidden.
+    assert by_username["ws_admin_bar"]["roles"] == []
+    assert by_username["outsider"]["roles"] == []
+
+
+def test_list_users_handler_super_admin_sees_every_role(role_auth_setup):
+    role_auth_setup["login_as"]("super_admin")
+    with auth_module.app.test_request_context("/api/2.0/mlflow/users/list", method="GET"):
+        response = auth_module.list_users()
+    by_username = {u["username"]: u for u in response.get_json()["users"]}
+
+    assert {(r["workspace"], r["name"]) for r in by_username["ws_admin_foo"]["roles"]} == {
+        ("foo", "admin-foo")
+    }
+    assert {(r["workspace"], r["name"]) for r in by_username["ws_admin_bar"]["roles"]} == {
+        ("bar", "admin-bar")
+    }
+    assert {(r["workspace"], r["name"]) for r in by_username["ws_member_foo"]["roles"]} == {
+        ("foo", "member-foo")
+    }
+
+
+@pytest.mark.parametrize(
+    ("actor", "expected"),
+    [
+        ("ws_admin_foo", True),
+        ("ws_admin_bar", True),
+        ("ws_member_foo", False),
+        ("outsider", False),
+    ],
+)
+def test_validate_can_create_user(role_auth_setup, actor, expected):
+    role_auth_setup["login_as"](actor)
+    with auth_module.app.test_request_context("/api/2.0/mlflow/users/create", method="POST"):
+        assert auth_module.validate_can_create_user() is expected
+
+
+def test_validate_can_delete_user_stays_super_admin_only(role_auth_setup):
+    # Regression: the create-user widening must not have leaked into delete.
+    for actor in ("ws_admin_foo", "outsider"):
+        role_auth_setup["login_as"](actor)
+        with auth_module.app.test_request_context("/api/2.0/mlflow/users/delete", method="DELETE"):
+            assert auth_module.validate_can_delete_user() is False
+
+
 def test_validate_can_view_user_roles_self_always_allowed(role_auth_setup):
     # A user can always read their own role list, even one with no roles.
     # Using ``outsider`` (zero roles) exercises the self-short-circuit without

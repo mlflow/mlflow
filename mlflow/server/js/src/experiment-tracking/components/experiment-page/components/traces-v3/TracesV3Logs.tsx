@@ -379,10 +379,16 @@ const TracesV3LogsImpl = React.memo(
     const countInfo = useCountInfo({
       experimentIds,
       timeRange,
-      traceInfosCount: traceInfos?.length,
+      traceInfos,
+      metadataTraceInfos: evaluatedTraces
+        .map((trace) => trace.traceInfo)
+        .filter((traceInfo): traceInfo is NonNullable<(typeof evaluatedTraces)[number]['traceInfo']> =>
+          Boolean(traceInfo),
+        ),
       traceInfosLoading,
       metadataTotalCount: totalCount,
       disabled: isQueryDisabled,
+      countSessions: forceGroupBySession,
     });
 
     const logTelemetryEvent = useLogTelemetryEvent();

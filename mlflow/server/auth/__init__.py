@@ -84,7 +84,11 @@ from mlflow.protos.model_registry_pb2 import (
 )
 from mlflow.protos.service_pb2 import (
     AttachModelToGatewayEndpoint,
+    BatchGetTraceInfos,
+    BatchGetTraces,
+    CalculateTraceFilterCorrelation,
     CancelPromptOptimizationJob,
+    CreateAssessment,
     CreateExperiment,
     CreateGatewayBudgetPolicy,
     CreateGatewayEndpoint,
@@ -95,6 +99,7 @@ from mlflow.protos.service_pb2 import (
     CreatePromptOptimizationJob,
     CreateRun,
     CreateWorkspace,
+    DeleteAssessment,
     DeleteExperiment,
     DeleteExperimentTag,
     DeleteGatewayBudgetPolicy,
@@ -109,9 +114,15 @@ from mlflow.protos.service_pb2 import (
     DeleteRun,
     DeleteScorer,
     DeleteTag,
+    DeleteTraces,
+    DeleteTracesV3,
+    DeleteTraceTag,
+    DeleteTraceTagV3,
     DeleteWorkspace,
     DetachModelFromGatewayEndpoint,
+    EndTrace,
     FinalizeLoggedModel,
+    GetAssessmentRequest,
     GetExperiment,
     GetExperimentByName,
     GetGatewayEndpoint,
@@ -122,7 +133,12 @@ from mlflow.protos.service_pb2 import (
     GetPromptOptimizationJob,
     GetRun,
     GetScorer,
+    GetTrace,
+    GetTraceInfo,
+    GetTraceInfoV3,
     GetWorkspace,
+    LinkPromptsToTrace,
+    LinkTracesToRun,
     ListArtifacts,
     ListGatewayEndpointBindings,
     ListLoggedModelArtifacts,
@@ -134,16 +150,24 @@ from mlflow.protos.service_pb2 import (
     LogMetric,
     LogModel,
     LogParam,
+    QueryTraceMetrics,
     RegisterScorer,
     RestoreExperiment,
     RestoreRun,
     SearchExperiments,
     SearchLoggedModels,
     SearchPromptOptimizationJobs,
+    SearchTraces,
+    SearchTracesV3,
     SetExperimentTag,
     SetGatewayEndpointTag,
     SetLoggedModelTags,
     SetTag,
+    SetTraceTag,
+    SetTraceTagV3,
+    StartTrace,
+    StartTraceV3,
+    UpdateAssessment,
     UpdateExperiment,
     UpdateGatewayBudgetPolicy,
     UpdateGatewayEndpoint,
@@ -1348,20 +1372,24 @@ def validate_can_view_roles():
 
 def validate_can_list_roles():
     """
-    Authorization for the ``/mlflow/roles/list`` endpoint. The endpoint accepts an
-    optional ``workspace`` param: if provided, returns roles in that workspace; if
-    omitted, returns all roles across workspaces. Non-admins must scope the request to
-    a workspace where they hold a role; only super admins can list across workspaces.
+    Authorization for the ``/mlflow/roles/list`` endpoint. The endpoint accepts a
+    repeated ``workspace`` query param: zero workspaces lists across the system
+    (admin-only), one or more scopes the listing to those workspaces. Non-admins
+    must hold a role in *every* workspace they request; only super admins can list
+    unscoped.
     """
     username = authenticate_request().username
     user = store.get_user(username)
     if user.is_admin:
         return True
-    params = _request_params()
-    workspace = params.get("workspace")
-    if not isinstance(workspace, str) or not workspace.strip():
+    requested = {
+        w.strip() for w in request.args.getlist("workspace") if isinstance(w, str) and w.strip()
+    }
+    if not requested:
         return False
-    return store.user_has_any_role_in_workspace(user.id, workspace)
+    # Single batch query — avoids N round-trips when multiple workspaces are
+    # requested and dedups duplicates implicitly via the set.
+    return requested <= store.list_user_present_workspaces(user.id)
 
 
 def validate_can_view_user_roles():
@@ -1466,13 +1494,20 @@ def validate_can_read_user():
 
 
 def validate_can_list_users():
-    # only admins can list all users, but admins won't reach this validator
-    return False
+    # Workspace admins are allowed: the payload has no per-workspace data, and
+    # they need all usernames to assign outsiders to roles in workspaces they manage.
+    # (Super admins short-circuit in ``_before_request`` and never reach this validator.)
+    user = store.get_user(authenticate_request().username)
+    return bool(store.list_workspace_admin_workspaces(user.id))
 
 
 def validate_can_create_user():
-    # only admins can create user, but admins won't reach this validator
-    return False
+    # Workspace admins may need to seed an account before assigning it a role
+    # in a workspace they manage; creating a user grants no access on its own.
+    # Deletion stays super-admin-only (see ``validate_can_delete_user``).
+    # (Super admins short-circuit in ``_before_request`` and never reach this validator.)
+    user = store.get_user(authenticate_request().username)
+    return bool(store.list_workspace_admin_workspaces(user.id))
 
 
 def validate_can_update_user_password():
@@ -1732,35 +1767,151 @@ def validate_can_read_model_version_artifact():
 
 
 def _get_permission_from_trace_request_id() -> Permission:
-    """
-    Get permission for trace artifacts.
-    Traces inherit permissions from their parent run/experiment.
-    """
     request_id = request.args.get("request_id")
     if not request_id:
         raise MlflowException(
             "Request must specify request_id parameter",
             INVALID_PARAMETER_VALUE,
         )
-    # Get the trace to find its experiment
     trace = _get_tracking_store().get_trace_info(request_id)
-    experiment_id = trace.experiment_id
-    username = authenticate_request().username
-    return _get_role_permission_or_default(
-        _role_permission_for(
-            username=username,
-            resource_type="experiment",
-            resource_key=experiment_id,
-            workspace_lookup_id=experiment_id,
-            workspace_fetcher=_get_tracking_store().get_experiment,
-            workspace_label="experiment",
-        ),
-    )
+    return _get_experiment_permission(trace.experiment_id, authenticate_request().username)
 
 
 def validate_can_read_trace_artifact():
     """Checks READ permission on trace artifacts."""
     return _get_permission_from_trace_request_id().can_read
+
+
+def _get_permission_from_trace(trace_id: str, username: str) -> Permission:
+    try:
+        trace = _get_tracking_store().get_trace_info(trace_id)
+    except MlflowException as e:
+        if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+            return NO_PERMISSIONS
+        raise
+    return _get_experiment_permission(trace.experiment_id, username)
+
+
+def validate_can_read_trace_by_request_id():
+    return _get_permission_from_trace(
+        _get_request_param("request_id"), authenticate_request().username
+    ).can_read
+
+
+def validate_can_read_trace_by_trace_id():
+    return _get_permission_from_trace(
+        _get_request_param("trace_id"), authenticate_request().username
+    ).can_read
+
+
+def validate_can_search_traces():
+    experiment_ids = request.args.to_dict(flat=False).get("experiment_ids", [])
+    username = authenticate_request().username
+    return bool(experiment_ids) and all(
+        _get_experiment_permission(eid, username).can_read for eid in experiment_ids
+    )
+
+
+def validate_can_search_traces_v3():
+    locations = (request.json or {}).get("locations", [])
+    # Only mlflow_experiment locations carry an experiment_id we can permission-check;
+    # inference_table and other future location types don't map to a local experiment so
+    # they are intentionally excluded and requests containing only those locations are
+    # denied (fail-closed) via the bool(experiment_ids) guard below.
+    experiment_ids = [
+        eid
+        for loc in locations
+        if isinstance(loc, dict)
+        if isinstance(ml_exp := loc.get("mlflow_experiment"), dict)
+        if (eid := ml_exp.get("experiment_id"))
+    ]
+    username = authenticate_request().username
+    return bool(experiment_ids) and all(
+        _get_experiment_permission(eid, username).can_read for eid in experiment_ids
+    )
+
+
+def validate_can_batch_get_traces():
+    if request.method == "GET":
+        trace_ids = request.args.to_dict(flat=False).get("trace_ids", [])
+    else:
+        trace_ids = (request.json or {}).get("trace_ids", [])
+    username = authenticate_request().username
+    tracking_store = _get_tracking_store()
+    try:
+        experiment_ids = {tracking_store.get_trace_info(tid).experiment_id for tid in trace_ids}
+    except MlflowException as e:
+        if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+            return False
+        raise
+    return bool(experiment_ids) and all(
+        _get_experiment_permission(eid, username).can_read for eid in experiment_ids
+    )
+
+
+def validate_can_delete_traces():
+    return _get_experiment_permission(
+        _get_request_param("experiment_id"), authenticate_request().username
+    ).can_delete
+
+
+def validate_can_update_trace_by_trace_id():
+    return _get_permission_from_trace(
+        _get_request_param("trace_id"), authenticate_request().username
+    ).can_update
+
+
+def validate_can_update_trace_by_request_id():
+    return _get_permission_from_trace(
+        _get_request_param("request_id"), authenticate_request().username
+    ).can_update
+
+
+def validate_can_read_traces_by_experiment_ids():
+    experiment_ids = (request.json or {}).get("experiment_ids", [])
+    username = authenticate_request().username
+    return bool(experiment_ids) and all(
+        _get_experiment_permission(eid, username).can_read for eid in experiment_ids
+    )
+
+
+def validate_can_start_trace_v3():
+    body = request.json or {}
+    match body:
+        case {
+            "trace": {
+                "trace_info": {"trace_location": {"mlflow_experiment": {"experiment_id": str(eid)}}}
+            }
+        } if eid:
+            return _get_experiment_permission(eid, authenticate_request().username).can_update
+        case _:
+            return False
+
+
+def validate_can_link_traces_to_run():
+    tracking_store = _get_tracking_store()
+    username = authenticate_request().username
+    run_id = _get_request_param("run_id")
+    try:
+        run = tracking_store.get_run(run_id)
+    except MlflowException as e:
+        if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+            return False
+        raise
+    if not _get_experiment_permission(run.info.experiment_id, username).can_update:
+        return False
+    trace_ids = (request.json or {}).get("trace_ids", [])
+    try:
+        trace_experiment_ids = {
+            tracking_store.get_trace_info(tid).experiment_id for tid in trace_ids
+        }
+    except MlflowException as e:
+        if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+            return False
+        raise
+    return bool(trace_experiment_ids) and all(
+        _get_experiment_permission(eid, username).can_read for eid in trace_experiment_ids
+    )
 
 
 def validate_can_read_metric_history_bulk(run_ids=None):
@@ -1961,6 +2112,31 @@ BEFORE_REQUEST_HANDLERS = {
     SearchPromptOptimizationJobs: validate_can_read_experiment,
     CancelPromptOptimizationJob: validate_can_update_prompt_optimization_job,
     DeletePromptOptimizationJob: validate_can_delete_prompt_optimization_job,
+    # Routes for traces
+    StartTrace: validate_can_update_experiment,
+    StartTraceV3: validate_can_start_trace_v3,
+    EndTrace: validate_can_update_trace_by_request_id,
+    GetTraceInfo: validate_can_read_trace_by_request_id,
+    GetTraceInfoV3: validate_can_read_trace_by_trace_id,
+    GetTrace: validate_can_read_trace_by_trace_id,
+    SearchTraces: validate_can_search_traces,
+    SearchTracesV3: validate_can_search_traces_v3,
+    BatchGetTraces: validate_can_batch_get_traces,
+    BatchGetTraceInfos: validate_can_batch_get_traces,
+    DeleteTraces: validate_can_delete_traces,
+    DeleteTracesV3: validate_can_delete_traces,
+    SetTraceTag: validate_can_update_trace_by_request_id,
+    SetTraceTagV3: validate_can_update_trace_by_trace_id,
+    DeleteTraceTag: validate_can_update_trace_by_request_id,
+    DeleteTraceTagV3: validate_can_update_trace_by_trace_id,
+    LinkTracesToRun: validate_can_link_traces_to_run,
+    LinkPromptsToTrace: validate_can_update_trace_by_trace_id,
+    CalculateTraceFilterCorrelation: validate_can_read_traces_by_experiment_ids,
+    QueryTraceMetrics: validate_can_read_traces_by_experiment_ids,
+    CreateAssessment: validate_can_update_trace_by_trace_id,
+    GetAssessmentRequest: validate_can_read_trace_by_trace_id,
+    UpdateAssessment: validate_can_update_trace_by_trace_id,
+    DeleteAssessment: validate_can_update_trace_by_trace_id,
     # Workspace routes
     ListWorkspaces: None,
     CreateWorkspace: sender_is_admin,
@@ -2112,6 +2288,15 @@ WORKSPACE_PARAMETERIZED_BEFORE_REQUEST_VALIDATORS = {
     (_re_compile_path(path), method): handler
     for (path, method), handler in BEFORE_REQUEST_VALIDATORS.items()
     if "<" in path and "/workspaces/" in path
+}
+
+# Trace endpoints with path parameters (e.g. /mlflow/traces/<request_id>/tags) require
+# regex matching — the BEFORE_REQUEST_VALIDATORS exact-match lookup won't find them when
+# the real request path contains an actual trace/request ID instead of the template name.
+TRACE_PARAMETERIZED_BEFORE_REQUEST_VALIDATORS = {
+    (_re_compile_path(path), method): handler
+    for (path, method), handler in BEFORE_REQUEST_VALIDATORS.items()
+    if "<" in path and "/mlflow/traces/" in path
 }
 
 LOGGED_MODEL_BEFORE_REQUEST_HANDLERS = {
@@ -2268,6 +2453,19 @@ def _find_validator(req: Request) -> Callable[[], bool] | None:
 
     if validator := BEFORE_REQUEST_VALIDATORS.get((req.path, req.method)):
         return validator
+
+    # Trace routes with path parameters (e.g. /mlflow/traces/<request_id>/tags).
+    # Unknown paths under this prefix are denied (fail-closed) rather than skipped.
+    if "/mlflow/traces/" in req.path:
+        validator = next(
+            (
+                v
+                for (pat, method), v in TRACE_PARAMETERIZED_BEFORE_REQUEST_VALIDATORS.items()
+                if pat.fullmatch(req.path) and method == req.method
+            ),
+            None,
+        )
+        return validator if validator is not None else lambda: False
 
     # Workspace permission routes use parameterized path matching (e.g., workspace_name).
     # Only check these when workspaces are enabled to avoid unnecessary regex matching.
@@ -2434,18 +2632,15 @@ def get_role():
 
 @catch_mlflow_exception
 def list_roles():
-    # Optional ``workspace`` scopes the listing. When omitted, fall back to cross-
+    # Repeated ``workspace`` scopes the listing. When omitted, fall back to cross-
     # workspace listing (admin-only — enforced by validate_can_list_roles).
-    params = _request_params()
-    workspace = params.get("workspace")
-    if workspace is None:
-        roles = store.list_all_roles()
-    else:
-        if not isinstance(workspace, str) or not workspace.strip():
+    workspaces = request.args.getlist("workspace")
+    for w in workspaces:
+        if not isinstance(w, str) or not w.strip():
             raise MlflowException.invalid_parameter_value(
                 "Parameter 'workspace' must be a non-empty string when provided."
             )
-        roles = store.list_roles(workspace)
+    roles = store.list_roles(workspaces) if workspaces else store.list_roles()
     return jsonify({"roles": [r.to_json() for r in roles]})
 
 
@@ -3210,10 +3405,32 @@ def get_user():
 
 @catch_mlflow_exception
 def list_users():
-    users = store.list_users()
-    return jsonify({
-        "users": [{"id": u.id, "username": u.username, "is_admin": u.is_admin} for u in users]
-    })
+    # Eager-load each user's roles in one batch so the admin Users tab doesn't
+    # have to fan out per-user requests. Per-user roles are scoped to what the
+    # caller is allowed to see, mirroring ``list_user_roles``:
+    # - super admin / self → every role
+    # - workspace admin → roles in workspaces they administer
+    users_with_roles = store.list_users_with_roles()
+    requester = authenticate_request().username
+    requester_user = store.get_user(requester)
+    admin_workspaces: set[str] | None = (
+        None
+        if requester_user.is_admin
+        else store.list_workspace_admin_workspaces(requester_user.id)
+    )
+    response_users = []
+    for u, roles in users_with_roles:
+        if admin_workspaces is None or u.username == requester:
+            visible_roles = roles
+        else:
+            visible_roles = [r for r in roles if r.workspace in admin_workspaces]
+        response_users.append({
+            "id": u.id,
+            "username": u.username,
+            "is_admin": u.is_admin,
+            "roles": [r.to_json() for r in visible_roles],
+        })
+    return jsonify({"users": response_users})
 
 
 @catch_mlflow_exception

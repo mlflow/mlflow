@@ -3435,3 +3435,319 @@ def test_invalidate_user_auth_cache_drops_only_matching_username(
     _authenticate_fastapi_request(_make_request("/x", f"Basic {alice_alt}"))
     _authenticate_fastapi_request(_make_request("/x", f"Basic {bob}"))
     assert mock_auth_store.authenticate_user.call_count == 5
+
+
+def _create_trace(tracking_uri: str, experiment_id: str, auth: tuple[str, str]) -> str:
+    """Create a trace and return its request_id."""
+    resp = requests.post(
+        url=tracking_uri + "/api/2.0/mlflow/traces",
+        json={
+            "experiment_id": experiment_id,
+            "timestamp_ms": int(time.time() * 1000),
+            "execution_time_ms": 10,
+            "status": "OK",
+            "request_metadata": [],
+            "tags": [],
+        },
+        auth=auth,
+    )
+    resp.raise_for_status()
+    return resp.json()["trace_info"]["request_id"]
+
+
+def _grant_experiment_permission(
+    tracking_uri: str, experiment_id: str, username: str, permission: str, auth: tuple[str, str]
+) -> None:
+    _send_rest_tracking_post_request(
+        tracking_uri,
+        "/api/2.0/mlflow/experiments/permissions/create",
+        json_payload={
+            "experiment_id": experiment_id,
+            "username": username,
+            "permission": permission,
+        },
+        auth=auth,
+    )
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "tests/server/auth/fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_trace_search_permission(client, monkeypatch):
+    user1, password1 = create_user(client.tracking_uri)
+    user2, password2 = create_user(client.tracking_uri)
+
+    with User(user1, password1, monkeypatch):
+        experiment_id = client.create_experiment("trace_search_test")
+
+    # user2 has no grant; default_permission=NO_PERMISSIONS denies access
+
+    # user1 can search traces
+    resp = requests.get(
+        url=client.tracking_uri + "/api/2.0/mlflow/traces",
+        params={"experiment_ids": [experiment_id]},
+        auth=(user1, password1),
+    )
+    assert resp.status_code == 200
+
+    # user2 is denied
+    resp = requests.get(
+        url=client.tracking_uri + "/api/2.0/mlflow/traces",
+        params={"experiment_ids": [experiment_id]},
+        auth=(user2, password2),
+    )
+    assert resp.status_code == 403
+
+    # Grant READ; user2 can now search
+    _grant_experiment_permission(
+        client.tracking_uri, experiment_id, user2, "READ", (user1, password1)
+    )
+    resp = requests.get(
+        url=client.tracking_uri + "/api/2.0/mlflow/traces",
+        params={"experiment_ids": [experiment_id]},
+        auth=(user2, password2),
+    )
+    assert resp.status_code == 200
+
+
+def test_trace_delete_permission(client, monkeypatch):
+    user1, password1 = create_user(client.tracking_uri)
+    user2, password2 = create_user(client.tracking_uri)
+
+    with User(user1, password1, monkeypatch):
+        experiment_id = client.create_experiment("trace_delete_test")
+
+    _grant_experiment_permission(
+        client.tracking_uri, experiment_id, user2, "READ", (user1, password1)
+    )
+
+    def delete_traces(auth):
+        return requests.post(
+            url=client.tracking_uri + "/api/2.0/mlflow/traces/delete-traces",
+            json={"experiment_id": experiment_id, "max_timestamp_millis": 9999999999999},
+            auth=auth,
+        )
+
+    # user2 with READ is denied
+    assert delete_traces((user2, password2)).status_code == 403
+
+    # user1 (MANAGE) can delete
+    assert delete_traces((user1, password1)).status_code == 200
+
+    # Upgrade user2 to MANAGE; now allowed
+    requests.patch(
+        url=client.tracking_uri + "/api/2.0/mlflow/experiments/permissions/update",
+        json={"experiment_id": experiment_id, "username": user2, "permission": "MANAGE"},
+        auth=(user1, password1),
+    ).raise_for_status()
+    assert delete_traces((user2, password2)).status_code == 200
+
+
+def test_trace_tag_permission(client, monkeypatch):
+    user1, password1 = create_user(client.tracking_uri)
+    user2, password2 = create_user(client.tracking_uri)
+
+    with User(user1, password1, monkeypatch):
+        experiment_id = client.create_experiment("trace_tag_test")
+
+    request_id = _create_trace(client.tracking_uri, experiment_id, (user1, password1))
+
+    _grant_experiment_permission(
+        client.tracking_uri, experiment_id, user2, "READ", (user1, password1)
+    )
+
+    def set_tag(auth):
+        return requests.patch(
+            url=client.tracking_uri + f"/api/2.0/mlflow/traces/{request_id}/tags",
+            json={"key": "env", "value": "test"},
+            auth=auth,
+        )
+
+    def delete_tag(auth):
+        return requests.delete(
+            url=client.tracking_uri + f"/api/2.0/mlflow/traces/{request_id}/tags",
+            json={"key": "env"},
+            auth=auth,
+        )
+
+    # READ is not enough for tag mutation
+    assert set_tag((user2, password2)).status_code == 403
+    assert delete_tag((user2, password2)).status_code == 403
+
+    # Upgrade to EDIT; tag operations now allowed
+    requests.patch(
+        url=client.tracking_uri + "/api/2.0/mlflow/experiments/permissions/update",
+        json={"experiment_id": experiment_id, "username": user2, "permission": "EDIT"},
+        auth=(user1, password1),
+    ).raise_for_status()
+    assert set_tag((user2, password2)).status_code == 200
+    assert delete_tag((user2, password2)).status_code == 200
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "tests/server/auth/fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_trace_get_info_permission(client, monkeypatch):
+    user1, password1 = create_user(client.tracking_uri)
+    user2, password2 = create_user(client.tracking_uri)
+
+    with User(user1, password1, monkeypatch):
+        experiment_id = client.create_experiment("trace_get_info_test")
+
+    request_id = _create_trace(client.tracking_uri, experiment_id, (user1, password1))
+
+    # user2 has no grant; default_permission=NO_PERMISSIONS denies access
+
+    def get_info(auth):
+        return requests.get(
+            url=client.tracking_uri + f"/api/2.0/mlflow/traces/{request_id}/info",
+            auth=auth,
+        )
+
+    # user2 with no grant is denied
+    assert get_info((user2, password2)).status_code == 403
+
+    # user1 can read
+    assert get_info((user1, password1)).status_code == 200
+
+    # Grant READ; user2 can now read
+    _grant_experiment_permission(
+        client.tracking_uri, experiment_id, user2, "READ", (user1, password1)
+    )
+    assert get_info((user2, password2)).status_code == 200
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "tests/server/auth/fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_trace_get_v3_permission(client, monkeypatch):
+    user1, password1 = create_user(client.tracking_uri)
+    user2, password2 = create_user(client.tracking_uri)
+
+    with User(user1, password1, monkeypatch):
+        experiment_id = client.create_experiment("trace_get_v3_test")
+
+    trace_id = _create_trace(client.tracking_uri, experiment_id, (user1, password1))
+
+    # user2 has no grant; default_permission=NO_PERMISSIONS denies access
+
+    def get_trace_v3(auth):
+        return requests.get(
+            url=client.tracking_uri + f"/api/3.0/mlflow/traces/{trace_id}",
+            auth=auth,
+        )
+
+    assert get_trace_v3((user2, password2)).status_code == 403
+    assert get_trace_v3((user1, password1)).status_code == 200
+
+    _grant_experiment_permission(
+        client.tracking_uri, experiment_id, user2, "READ", (user1, password1)
+    )
+    assert get_trace_v3((user2, password2)).status_code == 200
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "tests/server/auth/fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_trace_batch_get_permission(client, monkeypatch):
+    user1, password1 = create_user(client.tracking_uri)
+    user2, password2 = create_user(client.tracking_uri)
+
+    with User(user1, password1, monkeypatch):
+        experiment_id = client.create_experiment("trace_batch_get_test")
+
+    trace_id = _create_trace(client.tracking_uri, experiment_id, (user1, password1))
+
+    # user2 has no grant; default_permission=NO_PERMISSIONS denies access
+
+    def batch_get(auth):
+        return requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/traces/batchGetInfos",
+            json={"trace_ids": [trace_id]},
+            auth=auth,
+        )
+
+    assert batch_get((user2, password2)).status_code == 403
+    assert batch_get((user1, password1)).status_code == 200
+
+    _grant_experiment_permission(
+        client.tracking_uri, experiment_id, user2, "READ", (user1, password1)
+    )
+    assert batch_get((user2, password2)).status_code == 200
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "tests/server/auth/fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_trace_link_to_run_permission(client, monkeypatch):
+    user1, password1 = create_user(client.tracking_uri)
+    user2, password2 = create_user(client.tracking_uri)
+
+    with User(user1, password1, monkeypatch):
+        exp_a = client.create_experiment("link_test_exp_a")
+        exp_b = client.create_experiment("link_test_exp_b")
+
+    trace_id = _create_trace(client.tracking_uri, exp_b, (user1, password1))
+
+    with User(user1, password1, monkeypatch):
+        run = client.create_run(exp_a)
+    run_id = run.info.run_id
+
+    # user2: UPDATE on exp_a but no grant on exp_b → denied (can't read traces in B)
+    # default_permission=NO_PERMISSIONS means absence of a grant on exp_b is a deny
+    _grant_experiment_permission(client.tracking_uri, exp_a, user2, "EDIT", (user1, password1))
+
+    def link(auth):
+        return requests.post(
+            url=client.tracking_uri + "/api/2.0/mlflow/traces/link-to-run",
+            json={"trace_ids": [trace_id], "run_id": run_id},
+            auth=auth,
+        )
+
+    assert link((user2, password2)).status_code == 403
+
+    # Grant READ on exp_b → now allowed
+    _grant_experiment_permission(client.tracking_uri, exp_b, user2, "READ", (user1, password1))
+    assert link((user2, password2)).status_code == 200
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "tests/server/auth/fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_trace_search_v3_permission(client, monkeypatch):
+    user1, password1 = create_user(client.tracking_uri)
+    user2, password2 = create_user(client.tracking_uri)
+
+    with User(user1, password1, monkeypatch):
+        experiment_id = client.create_experiment("trace_search_v3_test")
+
+    # user2 has no grant; default_permission=NO_PERMISSIONS denies access
+
+    def search_v3(auth):
+        return requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/traces/search",
+            json={
+                "locations": [{"mlflow_experiment": {"experiment_id": experiment_id}}],
+            },
+            auth=auth,
+        )
+
+    assert search_v3((user2, password2)).status_code == 403
+    assert search_v3((user1, password1)).status_code == 200
+
+    _grant_experiment_permission(
+        client.tracking_uri, experiment_id, user2, "READ", (user1, password1)
+    )
+    assert search_v3((user2, password2)).status_code == 200

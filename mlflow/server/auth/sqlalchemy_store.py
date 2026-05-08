@@ -1,4 +1,5 @@
 import re
+from collections.abc import Iterable
 from urllib.parse import quote, unquote
 
 from sqlalchemy import and_, or_, select, text
@@ -159,6 +160,28 @@ class SqlAlchemyStore:
         with self.ManagedSessionMaker() as session:
             users = session.query(SqlUser).all()
             return [u.to_mlflow_entity() for u in users]
+
+    def list_users_with_roles(self) -> list[tuple[User, list[Role]]]:
+        """
+        Return every user paired with their role assignments. Eager-loads
+        assignments / roles / role-permissions in batched queries so the admin
+        Users tab can render per-user role info without N per-row requests.
+        """
+        with self.ManagedSessionMaker() as session:
+            users = (
+                session
+                .query(SqlUser)
+                .options(
+                    selectinload(SqlUser.user_role_assignments)
+                    .selectinload(SqlUserRoleAssignment.role)
+                    .selectinload(SqlRole.permissions)
+                )
+                .all()
+            )
+            return [
+                (u.to_mlflow_entity(), [a.role.to_mlflow_entity() for a in u.user_role_assignments])
+                for u in users
+            ]
 
     def update_user(
         self, username: str, password: str | None = None, is_admin: bool | None = None
@@ -1546,20 +1569,25 @@ class SqlAlchemyStore:
         with self.ManagedSessionMaker() as session:
             return self._get_role_by_name(session, workspace, name).to_mlflow_entity()
 
-    def list_roles(self, workspace: str) -> list[Role]:
+    def list_roles(self, workspaces: Iterable[str] | None = None) -> list[Role]:
+        # ``None`` lists every role across the system (admin path); an explicit
+        # iterable scopes the listing to those workspaces. An empty iterable is
+        # interpreted literally and returns no roles.
+        if workspaces is None:
+            with self.ManagedSessionMaker() as session:
+                roles = session.query(SqlRole).options(selectinload(SqlRole.permissions)).all()
+                return [r.to_mlflow_entity() for r in roles]
+        names = list(workspaces)
+        if not names:
+            return []
         with self.ManagedSessionMaker() as session:
             roles = (
                 session
                 .query(SqlRole)
                 .options(selectinload(SqlRole.permissions))
-                .filter(SqlRole.workspace == workspace)
+                .filter(SqlRole.workspace.in_(names))
                 .all()
             )
-            return [r.to_mlflow_entity() for r in roles]
-
-    def list_all_roles(self) -> list[Role]:
-        with self.ManagedSessionMaker() as session:
-            roles = session.query(SqlRole).options(selectinload(SqlRole.permissions)).all()
             return [r.to_mlflow_entity() for r in roles]
 
     def update_role(
@@ -1794,6 +1822,15 @@ class SqlAlchemyStore:
                 .first()
                 is not None
             )
+
+    def list_user_present_workspaces(self, user_id: int) -> set[str]:
+        """
+        Return every workspace where the user has at least one role assignment.
+        Bulk membership check used by validators that need to authorize a request
+        spanning multiple workspaces in a single query.
+        """
+        with self.ManagedSessionMaker() as session:
+            return self._user_present_workspaces(session, user_id)
 
     def list_role_users(self, role_id: int) -> list[UserRoleAssignment]:
         with self.ManagedSessionMaker() as session:

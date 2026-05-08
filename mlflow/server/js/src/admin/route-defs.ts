@@ -11,6 +11,15 @@ export const getAdminRouteDefs = () => {
       handle: { getPageTitle: () => 'Platform Admin' } satisfies DocumentTitleHandle,
     },
     {
+      // Per-workspace management view; same ``AdminPage`` element, the
+      // pathname is the mode discriminator. Workspace value lives in
+      // ``?workspace=`` (read by ``WorkspaceRouterSync``).
+      path: AdminRoutePaths.workspaceManagementPage,
+      element: createLazyRouteElement(() => import('./pages/AdminPage')),
+      pageId: AdminPageId.workspaceManagementPage,
+      handle: { getPageTitle: () => 'Workspace Manager' } satisfies DocumentTitleHandle,
+    },
+    {
       path: AdminRoutePaths.roleDetailPage,
       element: createLazyRouteElement(() => import('./pages/RoleDetailPage')),
       pageId: AdminPageId.roleDetailPage,
