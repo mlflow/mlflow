@@ -82,18 +82,8 @@ jobs:
       - name: Run tests
         env:
           MATRIX_OPTION: ${{ matrix.option }}
-          JOB_INDEX: ${{ strategy.job-index }}
         run: |
-          yarn test --silent $MATRIX_OPTION src/experiment-tracking/components \
-            --json --outputFile=/tmp/jest-results-${JOB_INDEX}.json
-      - name: Upload Jest results
-        if: always()
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
-        with:
-          name: jest-results-${{ strategy.job-index }}
-          path: /tmp/jest-results-${{ strategy.job-index }}.json
-          retention-days: 7
-          if-no-files-found: ignore
+          yarn test --silent --verbose $MATRIX_OPTION src/experiment-tracking/components
       - name: Run build
         env:
           # Prevent warnings (emitted from react-pdf) from being treated as errors
