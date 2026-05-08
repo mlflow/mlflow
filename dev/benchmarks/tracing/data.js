@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1778249648276,
+  "lastUpdate": 1778250947476,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -1889,6 +1889,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 50.89755519999244,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "shyamprasad.miryala@databricks.com",
+            "name": "Shyamprasad Miryala",
+            "username": "shyamspr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2c7cae599d51d923ec8db042ae1ab527cd3162b9",
+          "message": "Fix nested array items being stripped from function tool schemas (#23053)\n\nSigned-off-by: Shyamprasad Reddy <shyamspr@live.com>",
+          "timestamp": "2026-05-08T22:32:49+08:00",
+          "tree_id": "055afd3a18797c826dc8b3de46d48a0c69f3d78e",
+          "url": "https://github.com/mlflow/mlflow/commit/2c7cae599d51d923ec8db042ae1ab527cd3162b9"
+        },
+        "date": 1778250945909,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 85.44189985000088,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 21.65148131110944,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 17.269781383561945,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 18.982604242423513,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 21.24118987500228,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 36.00335240000163,
             "unit": "ms"
           }
         ]
