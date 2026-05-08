@@ -8,6 +8,7 @@ import {
   Popover,
   SegmentedControlButton,
   SegmentedControlGroup,
+  Space,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
@@ -43,7 +44,7 @@ export const PromptInputPanel = ({ messages, onChange }: Props) => {
   };
 
   return (
-    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
+    <Space direction="vertical" size="small" css={{ width: '100%' }}>
       <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
         <Typography.Title level={4} withoutMargins>
           <FormattedMessage
@@ -172,6 +173,6 @@ export const PromptInputPanel = ({ messages, onChange }: Props) => {
           description="Label for the button that appends a new chat message on the playground page"
         />
       </Button>
-    </div>
+    </Space>
   );
 };
