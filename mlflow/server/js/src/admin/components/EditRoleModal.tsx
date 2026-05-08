@@ -35,7 +35,7 @@ export interface EditRoleModalProps {
 const permTripleKey = (p: { resourceType: string; resourcePattern: string; permission: string }) =>
   `${p.resourceType}::${p.resourcePattern}::${p.permission}`;
 
-interface RoleDiff {
+export interface RoleDiff {
   nameChange: string | null;
   descriptionChange: string | null;
   permissionsToAdd: StagedRolePermission[];
@@ -43,6 +43,46 @@ interface RoleDiff {
   usersToAssign: string[];
   usersToUnassign: string[];
 }
+
+interface RoleSnapshot {
+  name: string;
+  description: string;
+  permissions: StagedRolePermission[];
+  /** Sorted list of usernames assigned to the role. */
+  usernames: string[];
+}
+
+/**
+ * Pure diff between the role's current backend state and the staged
+ * desired state. Exported for unit testing; called by the modal via
+ * ``useMemo`` on every form change.
+ *
+ * - ``nameChange`` is non-null only when the trimmed name differs from
+ *   the current and is non-empty (the modal blocks empty-name submit).
+ * - ``descriptionChange`` is non-null whenever it differs — empty string
+ *   is meaningful (clears the description).
+ * - ``permissionsToAdd`` is the staged permissions whose ``id`` is null
+ *   (newly added in the form). ``permissionIdsToRemove`` is the current
+ *   permission ids that no longer match any staged triple.
+ */
+export const computeRoleDiff = (current: RoleSnapshot, desired: RoleSnapshot): RoleDiff => {
+  const trimmedName = desired.name.trim();
+  const nameChange = trimmedName !== current.name.trim() && trimmedName.length > 0 ? trimmedName : null;
+  const descriptionChange = desired.description !== current.description ? desired.description : null;
+
+  const desiredKeys = new Set(desired.permissions.map(permTripleKey));
+  const permissionsToAdd = desired.permissions.filter((p) => p.id == null);
+  const permissionIdsToRemove = current.permissions
+    .filter((p) => p.id != null && !desiredKeys.has(permTripleKey(p)))
+    .map((p) => p.id as number);
+
+  const desiredUsernameSet = new Set(desired.usernames);
+  const currentUsernameSet = new Set(current.usernames);
+  const usersToAssign = desired.usernames.filter((u) => !currentUsernameSet.has(u));
+  const usersToUnassign = current.usernames.filter((u) => !desiredUsernameSet.has(u));
+
+  return { nameChange, descriptionChange, permissionsToAdd, permissionIdsToRemove, usersToAssign, usersToUnassign };
+};
 
 /**
  * Edit-style modal for managing one role end-to-end. Pre-fills name,
@@ -121,35 +161,20 @@ export const EditRoleModal = ({ open, onClose, roleId }: EditRoleModalProps) => 
     setError(null);
   }, [open, currentName, currentDescription, currentPermissions, currentUsernames]);
 
-  // --- Diff ---
-  const diff = useMemo<RoleDiff>(() => {
-    const trimmedName = name.trim();
-    const nameChange = trimmedName !== currentName.trim() && trimmedName.length > 0 ? trimmedName : null;
-    // Empty description is meaningful (clears it); only ``null`` means "no change".
-    const descriptionChange = description !== currentDescription ? description : null;
-
-    const desiredKeys = new Set(permissions.map(permTripleKey));
-    const permissionsToAdd = permissions.filter((p) => p.id == null);
-    const permissionIdsToRemove = currentPermissions
-      .filter((p) => p.id != null && !desiredKeys.has(permTripleKey(p)))
-      .map((p) => p.id as number);
-
-    const desiredUsernameSet = new Set(usernames);
-    const currentUsernameSet = new Set(currentUsernames);
-    const usersToAssign = usernames.filter((u) => !currentUsernameSet.has(u));
-    const usersToUnassign = currentUsernames.filter((u) => !desiredUsernameSet.has(u));
-
-    return { nameChange, descriptionChange, permissionsToAdd, permissionIdsToRemove, usersToAssign, usersToUnassign };
-  }, [
-    name,
-    description,
-    permissions,
-    usernames,
-    currentName,
-    currentDescription,
-    currentPermissions,
-    currentUsernames,
-  ]);
+  // --- Diff (delegates to the pure ``computeRoleDiff``) ---
+  const diff = useMemo<RoleDiff>(
+    () =>
+      computeRoleDiff(
+        {
+          name: currentName,
+          description: currentDescription,
+          permissions: currentPermissions,
+          usernames: currentUsernames,
+        },
+        { name, description, permissions, usernames },
+      ),
+    [name, description, permissions, usernames, currentName, currentDescription, currentPermissions, currentUsernames],
+  );
 
   const hasAnyChange =
     diff.nameChange !== null ||

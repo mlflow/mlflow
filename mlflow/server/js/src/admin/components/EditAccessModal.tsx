@@ -47,13 +47,46 @@ const isDirectGrantResourceType = (rt: string): rt is DirectGrantResourceType =>
   rt === 'gateway_endpoint' ||
   rt === 'gateway_model_definition';
 
-interface AccessDiff {
+export interface AccessDiff {
   rolesToAssign: number[];
   rolesToUnassign: number[];
   directToGrant: StagedDirectPermission[];
   directToRevoke: StagedDirectPermission[];
   adminChange: boolean;
 }
+
+interface AccessSnapshot {
+  roleIds: number[];
+  directPermissions: StagedDirectPermission[];
+  isAdmin: boolean;
+}
+
+/**
+ * Pure diff between the user's current backend access and the desired
+ * staged state. Exported for unit testing; called by the modal via
+ * ``useMemo`` on every form change. ``isCurrentUserAdmin`` gates the
+ * admin-status diff so workspace managers (who can't toggle ``is_admin``)
+ * never see an admin change in the review step.
+ */
+export const computeAccessDiff = (
+  current: AccessSnapshot,
+  desired: AccessSnapshot,
+  isCurrentUserAdmin: boolean,
+): AccessDiff => {
+  const currentRoleIdSet = new Set(current.roleIds);
+  const desiredRoleIdSet = new Set(desired.roleIds);
+  const rolesToAssign = desired.roleIds.filter((id) => !currentRoleIdSet.has(id));
+  const rolesToUnassign = current.roleIds.filter((id) => !desiredRoleIdSet.has(id));
+
+  const currentDirectKeys = new Set(current.directPermissions.map(directPermKey));
+  const desiredDirectKeys = new Set(desired.directPermissions.map(directPermKey));
+  const directToGrant = desired.directPermissions.filter((p) => !currentDirectKeys.has(directPermKey(p)));
+  const directToRevoke = current.directPermissions.filter((p) => !desiredDirectKeys.has(directPermKey(p)));
+
+  const adminChange = isCurrentUserAdmin && desired.isAdmin !== current.isAdmin;
+
+  return { rolesToAssign, rolesToUnassign, directToGrant, directToRevoke, adminChange };
+};
 
 /**
  * Edit-style modal for managing one user's access. Pre-fills role
@@ -122,30 +155,24 @@ export const EditAccessModal = ({ open, onClose, username, onCreateRoleForAllOfT
     setError(null);
   }, [open, currentRoleIds, currentDirectPerms, currentIsAdmin]);
 
-  // --- Diff computation ---
-  const diff = useMemo<AccessDiff>(() => {
-    const currentRoleIdSet = new Set(currentRoleIds);
-    const desiredRoleIdSet = new Set(roleValue.roleIds);
-    const rolesToAssign = roleValue.roleIds.filter((id) => !currentRoleIdSet.has(id));
-    const rolesToUnassign = currentRoleIds.filter((id) => !desiredRoleIdSet.has(id));
-
-    const currentDirectKeys = new Set(currentDirectPerms.map(directPermKey));
-    const desiredDirectKeys = new Set(directPermissions.map(directPermKey));
-    const directToGrant = directPermissions.filter((p) => !currentDirectKeys.has(directPermKey(p)));
-    const directToRevoke = currentDirectPerms.filter((p) => !desiredDirectKeys.has(directPermKey(p)));
-
-    const adminChange = isCurrentUserAdmin && isAdmin !== currentIsAdmin;
-
-    return { rolesToAssign, rolesToUnassign, directToGrant, directToRevoke, adminChange };
-  }, [
-    currentRoleIds,
-    currentDirectPerms,
-    currentIsAdmin,
-    roleValue.roleIds,
-    directPermissions,
-    isAdmin,
-    isCurrentUserAdmin,
-  ]);
+  // --- Diff computation (delegates to the pure ``computeAccessDiff``) ---
+  const diff = useMemo<AccessDiff>(
+    () =>
+      computeAccessDiff(
+        { roleIds: currentRoleIds, directPermissions: currentDirectPerms, isAdmin: currentIsAdmin },
+        { roleIds: roleValue.roleIds, directPermissions, isAdmin },
+        isCurrentUserAdmin,
+      ),
+    [
+      currentRoleIds,
+      currentDirectPerms,
+      currentIsAdmin,
+      roleValue.roleIds,
+      directPermissions,
+      isAdmin,
+      isCurrentUserAdmin,
+    ],
+  );
 
   const hasAnyChange =
     diff.rolesToAssign.length > 0 ||
