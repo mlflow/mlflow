@@ -3111,6 +3111,10 @@
     "defaultMessage": "Last modified",
     "description": "Column title for last modified timestamp for a model in the registered model page"
   },
+  "Gxl8pl": {
+    "defaultMessage": "Version",
+    "description": "Label for the version picker on the playground prompt-registry modal"
+  },
   "GyGCX5": {
     "defaultMessage": "Create experiment",
     "description": "Home page experiments empty state CTA"
@@ -4311,6 +4315,10 @@
     "defaultMessage": "Name",
     "description": "Guardrail name column header"
   },
+  "OH0TQo": {
+    "defaultMessage": "This is a text-typed prompt. It will load as a single user message.",
+    "description": "Info alert shown when a text-typed prompt is selected on the playground prompt-registry modal"
+  },
   "OH7hV5": {
     "defaultMessage": "Value",
     "description": "Tag filter input for value field in the tags filter popover for experiments page search by tags"
@@ -4939,6 +4947,10 @@
     "defaultMessage": "Cancel",
     "description": "Cancel button text for creating model in the model registry"
   },
+  "SFfu70": {
+    "defaultMessage": "Select a version",
+    "description": "Placeholder for the version picker on the playground prompt-registry modal"
+  },
   "SG4oPe": {
     "defaultMessage": "— instructions or persona for the model (e.g. {example}).",
     "description": "Description of the system role in the playground role-selector help popover"
@@ -4998,6 +5010,10 @@
   "SVNXvf": {
     "defaultMessage": "Create LLM judge",
     "description": "Title for new LLM judge modal"
+  },
+  "SYa+JC": {
+    "defaultMessage": "Select a prompt",
+    "description": "Placeholder for the prompt picker on the playground prompt-registry modal"
   },
   "Sb+wLa": {
     "defaultMessage": "Model configuration stores the LLM settings associated with this prompt.",
@@ -5622,6 +5638,10 @@
   "WGN2f3": {
     "defaultMessage": "Register model",
     "description": "Run page > Header > Register model dropdown > Button label when some models are not registered"
+  },
+  "WGe+QH": {
+    "defaultMessage": "Load",
+    "description": "Confirm-button label on the prompt-registry picker modal that loads the selected prompt version"
   },
   "WHf+VX": {
     "defaultMessage": "Please enter a name",
@@ -7943,6 +7963,10 @@
     "defaultMessage": "Knowledge retention",
     "description": "LLM template option"
   },
+  "jLM00a": {
+    "defaultMessage": "Load prompt from registry",
+    "description": "Label for the button that opens the registered prompt picker on the playground page"
+  },
   "jMUqD1": {
     "defaultMessage": "Safety",
     "description": "Evaluation results > known type of evaluation result assessment > safety assessment. Used to indicate if the result is safe in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Safety: moderate\""
@@ -8791,6 +8815,10 @@
     "defaultMessage": "Custom code judge",
     "description": "Menu item text to create a new custom code judge"
   },
+  "o66/ZA": {
+    "defaultMessage": "Cancel",
+    "description": "Cancel-button label on the prompt-registry picker modal"
+  },
   "o7dzKo": {
     "defaultMessage": "Last Modified",
     "description": "Label name for last modified timestamp metadata in model version page"
@@ -8946,6 +8974,10 @@
   "oyQRYx": {
     "defaultMessage": "Describe what this guardrail should check for...",
     "description": "Guardrail instructions placeholder"
+  },
+  "p+urWV": {
+    "defaultMessage": "Load prompt from registry",
+    "description": "Title of the prompt-registry picker modal on the playground page"
   },
   "p/wUKB": {
     "defaultMessage": "MLflow Assistant",
@@ -9742,6 +9774,10 @@
   "tUDgmf": {
     "defaultMessage": "Select one or more sessions to perform actions.",
     "description": "Tooltip shown when actions button is disabled due to no session selection"
+  },
+  "tUgCAM": {
+    "defaultMessage": "Prompt",
+    "description": "Label for the prompt picker on the playground prompt-registry modal"
   },
   "ta42Qe": {
     "defaultMessage": "Active",

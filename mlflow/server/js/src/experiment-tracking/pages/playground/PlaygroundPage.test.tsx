@@ -7,6 +7,7 @@ import { DesignSystemProvider } from '@databricks/design-system';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { testRoute, TestRouter } from '../../../common/utils/RoutingTestUtils';
 import { GatewayApi } from '../../../gateway/api';
+import { RegisteredPromptsApi } from '../prompts/api';
 import { PlaygroundApi } from './api';
 import PlaygroundPage from './PlaygroundPage';
 import { useChatCompletionMutation } from './hooks/useChatCompletionMutation';
@@ -40,6 +41,11 @@ describe('PlaygroundPage', () => {
         },
       ],
     });
+    // PromptRegistryPicker mounts inside the page (Modal hidden by default).
+    // Stub the registered-prompts list so the underlying hook doesn't hit the network.
+    jest.spyOn(RegisteredPromptsApi, 'listRegisteredPrompts').mockResolvedValue({
+      registered_models: [],
+    });
   });
 
   it('renders the page header and the empty completion output by default', async () => {
@@ -51,6 +57,7 @@ describe('PlaygroundPage', () => {
 
     expect(screen.getByText('Submit a message to see the response here.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /submit/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /load prompt from registry/i })).toBeInTheDocument();
   });
 
   it('keeps Submit disabled until both an endpoint and a non-empty message are present', async () => {

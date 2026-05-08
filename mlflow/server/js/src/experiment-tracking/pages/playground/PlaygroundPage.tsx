@@ -7,13 +7,17 @@ import { withErrorBoundary } from '../../../common/utils/withErrorBoundary';
 import { EndpointSelector } from '../../components/EndpointSelector';
 import { CompletionOutputPanel } from './components/CompletionOutputPanel';
 import { PromptInputPanel } from './components/PromptInputPanel';
+import { PromptRegistryPicker } from './components/PromptRegistryPicker';
 import { useChatCompletionMutation } from './hooks/useChatCompletionMutation';
 import type { ChatMessage } from './types';
+
+const EMPTY_USER_MESSAGE: ChatMessage = { role: 'user', content: '' };
 
 const PlaygroundPage = () => {
   const { theme } = useDesignSystemTheme();
   const [endpointName, setEndpointName] = useState<string>('');
-  const [messages, setMessages] = useState<ChatMessage[]>([{ role: 'user', content: '' }]);
+  const [messages, setMessages] = useState<ChatMessage[]>([{ ...EMPTY_USER_MESSAGE }]);
+  const [showRegistryPicker, setShowRegistryPicker] = useState(false);
 
   const { mutate, data, error, isLoading } = useChatCompletionMutation();
 
@@ -64,6 +68,12 @@ const PlaygroundPage = () => {
             onEndpointSelect={setEndpointName}
             showCreateButton={false}
           />
+          <Button componentId="mlflow.playground.load_from_registry" onClick={() => setShowRegistryPicker(true)}>
+            <FormattedMessage
+              defaultMessage="Load prompt from registry"
+              description="Label for the button that opens the registered prompt picker on the playground page"
+            />
+          </Button>
         </div>
 
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md, minHeight: 0 }}>
@@ -87,6 +97,15 @@ const PlaygroundPage = () => {
           <CompletionOutputPanel response={data} error={error ?? undefined} isLoading={isLoading} />
         </div>
       </div>
+
+      <PromptRegistryPicker
+        visible={showRegistryPicker}
+        onCancel={() => setShowRegistryPicker(false)}
+        onLoad={(loadedMessages) => {
+          setMessages(loadedMessages.length > 0 ? loadedMessages : [{ ...EMPTY_USER_MESSAGE }]);
+          setShowRegistryPicker(false);
+        }}
+      />
     </ScrollablePageWrapper>
   );
 };

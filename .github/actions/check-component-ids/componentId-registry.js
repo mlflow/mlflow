@@ -1779,11 +1779,16 @@ module.exports = {
   "mlflow.overview.usage.traces.view_traces_link": "",
 
   // -- mlflow.playground --
+  "mlflow.playground.load_from_registry": "",
   "mlflow.playground.output.error": "",
   "mlflow.playground.prompt_input.content": "",
   "mlflow.playground.prompt_input.remove": "",
   "mlflow.playground.prompt_input.role": "",
   "mlflow.playground.prompt_input.role_help": "",
+  "mlflow.playground.prompt_registry_picker": "",
+  "mlflow.playground.prompt_registry_picker.prompt": "",
+  "mlflow.playground.prompt_registry_picker.text_prompt_hint": "",
+  "mlflow.playground.prompt_registry_picker.version": "",
   "mlflow.playground.submit": "",
 
   // -- mlflow.prompts --
