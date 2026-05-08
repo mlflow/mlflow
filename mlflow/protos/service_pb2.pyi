@@ -284,7 +284,7 @@ class RunInfo(_message.Message):
     def __init__(self, run_id: _Optional[str] = ..., run_uuid: _Optional[str] = ..., run_name: _Optional[str] = ..., experiment_id: _Optional[str] = ..., user_id: _Optional[str] = ..., status: _Optional[_Union[RunStatus, str]] = ..., start_time: _Optional[int] = ..., end_time: _Optional[int] = ..., artifact_uri: _Optional[str] = ..., lifecycle_stage: _Optional[str] = ...) -> None: ...
 
 class Experiment(_message.Message):
-    __slots__ = ("experiment_id", "name", "artifact_location", "lifecycle_stage", "last_update_time", "creation_time", "tags")
+    __slots__ = ("experiment_id", "name", "artifact_location", "lifecycle_stage", "last_update_time", "creation_time", "tags", "effective_trace_archival_retention")
     EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     ARTIFACT_LOCATION_FIELD_NUMBER: _ClassVar[int]
@@ -292,6 +292,7 @@ class Experiment(_message.Message):
     LAST_UPDATE_TIME_FIELD_NUMBER: _ClassVar[int]
     CREATION_TIME_FIELD_NUMBER: _ClassVar[int]
     TAGS_FIELD_NUMBER: _ClassVar[int]
+    EFFECTIVE_TRACE_ARCHIVAL_RETENTION_FIELD_NUMBER: _ClassVar[int]
     experiment_id: str
     name: str
     artifact_location: str
@@ -299,7 +300,8 @@ class Experiment(_message.Message):
     last_update_time: int
     creation_time: int
     tags: _containers.RepeatedCompositeFieldContainer[ExperimentTag]
-    def __init__(self, experiment_id: _Optional[str] = ..., name: _Optional[str] = ..., artifact_location: _Optional[str] = ..., lifecycle_stage: _Optional[str] = ..., last_update_time: _Optional[int] = ..., creation_time: _Optional[int] = ..., tags: _Optional[_Iterable[_Union[ExperimentTag, _Mapping]]] = ...) -> None: ...
+    effective_trace_archival_retention: str
+    def __init__(self, experiment_id: _Optional[str] = ..., name: _Optional[str] = ..., artifact_location: _Optional[str] = ..., lifecycle_stage: _Optional[str] = ..., last_update_time: _Optional[int] = ..., creation_time: _Optional[int] = ..., tags: _Optional[_Iterable[_Union[ExperimentTag, _Mapping]]] = ..., effective_trace_archival_retention: _Optional[str] = ...) -> None: ...
 
 class DatasetInput(_message.Message):
     __slots__ = ("tags", "dataset")
