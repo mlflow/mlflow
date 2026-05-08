@@ -109,11 +109,25 @@ The available permissions are:
 
 The default permission for all users is `READ`. It can be changed in the [configuration](#configuration) file.
 
-Permissions can be granted on individual resources for each user. For workspace-wide access
-controls, see [Workspace Permissions](/self-hosting/workspaces/permissions).
+Permissions are granted via **roles** — see [Role-Based Access Control](/self-hosting/security/role-based-access-control)
+for the model, scenarios, and API reference. For workspace-wide access controls
+specifically, see [Workspace Permissions](/self-hosting/workspaces/permissions).
 Supported resources include `Experiment`, `Registered Model`, and `Scorer`.
-To access an API endpoint, an user must have the required permission.
+To access an API endpoint, a user must have the required permission.
 Otherwise, a `403 Forbidden` response will be returned.
+
+:::warning Legacy permission-CRUD endpoints removed
+
+The pre-RBAC per-resource permission endpoints
+(`/mlflow/{experiments,registered-models,scorers,gateway/*}/permissions/*` and
+`/mlflow/workspaces/<workspace>/permissions`) and the matching
+`AuthServiceClient` methods (`create_experiment_permission()`,
+`set_workspace_permission()`, etc.) have been removed. Manage permissions
+through the [role API](/self-hosting/security/role-based-access-control#api-reference)
+or the admin UI. The matrix tables below still reference these endpoints in
+some rows; treat those as historical and use the role API instead.
+
+:::
 
 Required Permissions for accessing experiments:
 
@@ -1321,8 +1335,12 @@ auth_client.update_user_admin(username="user1", is_admin=True)
 
 MLflow provides <Link to="/api_reference/auth/rest-api.html#create-user" target="_blank">REST APIs</Link>
 and a client class <APILink fn="mlflow.server.auth.client.AuthServiceClient">`AuthServiceClient`</APILink> to manage users and permissions.
-For workspace-scoped permissions, see <Link to="/self-hosting/workspaces/permissions">Workspace Permissions</Link>.
-To instantiate `AuthServiceClient`, it is recommended that you use <APILink fn="mlflow.server.get_app_client" />.
+Permissions are granted via roles; see [Role-Based Access Control](/self-hosting/security/role-based-access-control)
+for the full model and the per-scenario examples (one-off direct grants, team
+roles, workspace admins, onboarding). For workspace-scoped permissions, see
+
+<Link to="/self-hosting/workspaces/permissions">Workspace Permissions</Link>.
+To instantiate `AuthServiceClient`, use <APILink fn="mlflow.server.get_app_client" />.
 
 ```bash title="Example"
 export MLFLOW_TRACKING_USERNAME=admin
@@ -1342,9 +1360,16 @@ auth_client.create_user(username="user2", password="pw2")
 client = MlflowClient(tracking_uri=tracking_uri)
 experiment_id = client.create_experiment(name="experiment")
 
-auth_client.create_experiment_permission(
-    experiment_id=experiment_id, username="user2", permission="MANAGE"
+# Grant user2 MANAGE on this experiment via a role. The role is reusable —
+# subsequent users get the same permission with one ``assign_role`` call.
+role = auth_client.create_role(name="experiment-manager", workspace="default")
+auth_client.add_role_permission(
+    role_id=role.id,
+    resource_type="experiment",
+    resource_pattern=experiment_id,
+    permission="MANAGE",
 )
+auth_client.assign_role(username="user2", role_id=role.id)
 ```
 
 ## Authenticating to MLflow
