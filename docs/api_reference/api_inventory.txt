@@ -1630,7 +1630,6 @@ mlflow.server.auth.client.AuthServiceClient.delete_registered_model_permission
 mlflow.server.auth.client.AuthServiceClient.delete_role
 mlflow.server.auth.client.AuthServiceClient.delete_scorer_permission
 mlflow.server.auth.client.AuthServiceClient.delete_user
-mlflow.server.auth.client.AuthServiceClient.delete_workspace_permission
 mlflow.server.auth.client.AuthServiceClient.get_experiment_permission
 mlflow.server.auth.client.AuthServiceClient.get_gateway_endpoint_permission
 mlflow.server.auth.client.AuthServiceClient.get_gateway_model_definition_permission
@@ -1644,10 +1643,7 @@ mlflow.server.auth.client.AuthServiceClient.list_role_permissions
 mlflow.server.auth.client.AuthServiceClient.list_role_users
 mlflow.server.auth.client.AuthServiceClient.list_roles
 mlflow.server.auth.client.AuthServiceClient.list_user_roles
-mlflow.server.auth.client.AuthServiceClient.list_user_workspace_permissions
-mlflow.server.auth.client.AuthServiceClient.list_workspace_permissions
 mlflow.server.auth.client.AuthServiceClient.remove_role_permission
-mlflow.server.auth.client.AuthServiceClient.set_workspace_permission
 mlflow.server.auth.client.AuthServiceClient.unassign_role
 mlflow.server.auth.client.AuthServiceClient.update_experiment_permission
 mlflow.server.auth.client.AuthServiceClient.update_gateway_endpoint_permission
