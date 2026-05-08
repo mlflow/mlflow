@@ -383,13 +383,8 @@ class AuthServiceClient:
         resp = self._request(LIST_ROLES, "GET")
         return [Role.from_json(r) for r in resp["roles"]]
 
-    # ------------------------------------------------------------------
-    # Legacy per-resource permission methods (deprecated).
-    #
-    # Retained for backward compatibility: each call routes through the
-    # synthetic per-user role grants written by migration ``e5f6a7b8c9d0``.
-    # Prefer :meth:`add_role_permission` + :meth:`assign_role` for new code.
-    # ------------------------------------------------------------------
+    # Legacy per-resource permission methods (deprecated). Backed by synthetic
+    # per-user role grants; prefer ``add_role_permission`` + ``assign_role``.
 
     def create_experiment_permission(
         self, experiment_id: str, username: str, permission: str

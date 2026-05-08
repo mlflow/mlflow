@@ -1197,16 +1197,10 @@ def validate_can_view_user_roles():
 
 def _role_based_read_predicate(username: str, resource_type: str) -> Callable[[str], bool]:
     """
-    Build a ``p(resource_id) -> bool`` predicate that decides if ``username`` can read a
-    resource of ``resource_type`` in the active workspace, based on their role grants.
-
-    Max-style resolution: a positive grant (specific or wildcard) wins; rows that
-    don't grant read are ignored (the simplified RBAC model rejects
-    ``NO_PERMISSIONS`` as a grantable role permission at write time, so these
-    rows aren't expected, but skipping them keeps the resolver consistent with
-    the rest of the codebase's max-permission semantics). Falls back to
-    ``auth_config.default_permission.can_read`` when workspaces are disabled;
-    with workspaces enabled, absence of a grant in the resolved workspace is a
+    Build a ``p(resource_id) -> bool`` predicate from ``username``'s role
+    grants in the active workspace. Max-style: any positive grant (specific or
+    wildcard) wins; ``NO_PERMISSIONS`` rows are ignored. Falls back to
+    ``default_permission.can_read`` when workspaces are disabled, otherwise to
     deny.
     """
     workspace_name = (
@@ -1982,9 +1976,8 @@ BEFORE_REQUEST_VALIDATORS.update({
     (AJAX_DELETE_USER, "DELETE"): validate_can_delete_user,
 })
 
-# Legacy per-resource permission routes (deprecated). Same authorization shape
-# as the corresponding ``manage`` validators since callers must still own the
-# underlying resource to grant permissions on it.
+# Legacy per-resource permission routes (deprecated). Caller must still own
+# the underlying resource — same ``manage`` validators as the resource itself.
 BEFORE_REQUEST_VALIDATORS.update({
     (GET_EXPERIMENT_PERMISSION, "GET"): validate_can_manage_experiment,
     (CREATE_EXPERIMENT_PERMISSION, "POST"): validate_can_manage_experiment,
@@ -3316,13 +3309,10 @@ def delete_user():
 
 
 # =============================================================================
-# Legacy per-resource permission handlers (deprecated)
+# Legacy per-resource permission handlers (deprecated). Backed by synthetic
+# per-user role grants (migration ``e5f6a7b8c9d0``); each logs once on first
+# call.
 # =============================================================================
-#
-# These endpoints predate the role-based API. They are kept as thin wrappers
-# over the synthetic per-user role grants written by migration ``e5f6a7b8c9d0``
-# so existing callers continue to work; new code should use the role API.
-# Each handler logs a one-time deprecation note when first invoked.
 
 
 _LEGACY_PERMISSION_DEPRECATION_LOGGED: set[str] = set()
@@ -4178,8 +4168,7 @@ def create_app(app: Flask = app):
             view_func=delete_user,
             methods=["DELETE"],
         )
-    # Legacy per-resource permission routes (deprecated). Backed by the
-    # synthetic per-user role grants written by migration ``e5f6a7b8c9d0``.
+    # Legacy per-resource permission routes (deprecated).
     app.add_url_rule(
         rule=CREATE_EXPERIMENT_PERMISSION,
         view_func=create_experiment_permission,

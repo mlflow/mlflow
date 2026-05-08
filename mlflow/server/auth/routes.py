@@ -22,10 +22,8 @@ AJAX_DELETE_USER = _get_ajax_path("/mlflow/users/delete")
 LIST_USERS = _get_rest_path("/mlflow/users/list")
 AJAX_LIST_USERS = _get_ajax_path("/mlflow/users/list")
 
-# Legacy per-resource permission routes. Retained for backward compatibility
-# with pre-RBAC clients; the handlers route to the synthetic per-user role's
-# grants in ``role_permissions`` (see migration ``e5f6a7b8c9d0``). New callers
-# should use the role API (``add_role_permission`` + ``assign_role``).
+# Legacy per-resource permission routes (deprecated). Backed by synthetic
+# per-user role grants from migration ``e5f6a7b8c9d0``.
 CREATE_EXPERIMENT_PERMISSION = _get_rest_path("/mlflow/experiments/permissions/create")
 GET_EXPERIMENT_PERMISSION = _get_rest_path("/mlflow/experiments/permissions/get")
 UPDATE_EXPERIMENT_PERMISSION = _get_rest_path("/mlflow/experiments/permissions/update")

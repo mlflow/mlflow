@@ -2512,12 +2512,6 @@ def test_user_cannot_create_via_autogrant_when_default_permission_lacks_use(monk
 
 
 def test_role_based_read_predicate_ignores_no_permissions_grants(monkeypatch):
-    """``_role_based_read_predicate`` is max-style: ``NO_PERMISSIONS`` rows
-    (whether wildcard or per-resource) are ignored; a positive grant wins and
-    the ``default_permission`` fallback applies to anything else. Operators
-    that want a deny-by-default posture should set
-    ``default_permission=NO_PERMISSIONS``, not write per-user denies.
-    """
     monkeypatch.delenv(MLFLOW_ENABLE_WORKSPACES.name, raising=False)
     monkeypatch.setattr(
         auth_module,
