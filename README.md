@@ -34,9 +34,7 @@ Learn more at [MLflow for LLMs and Agents](https://mlflow.org/docs/latest/genai)
       <a href="https://mlflow.org/"><strong>Website</strong></a> ·
       <a href="https://demo.mlflow.org/"><strong>Try Demo</strong></a> ·
       <a href="https://mlflow.org/docs/latest"><strong>Docs</strong></a> ·
-      <a href="https://github.com/mlflow/mlflow/issues/new/choose"><strong>Feature Request</strong></a> ·
       <a href="https://mlflow.org/blog"><strong>News</strong></a> ·
-      <a href="https://www.youtube.com/@mlflowoss"><strong>YouTube</strong></a> ·
       <a href="https://lu.ma/mlflow?k=c"><strong>Events</strong></a>
    </div>
 </div>
@@ -89,7 +87,9 @@ MLflow provides everything you need to build, debug, evaluate, and deploy produc
         <a href="https://mlflow.org/docs/latest/genai/tracing/"><strong>Observability</strong></a>
         <br><br>
         <div>Capture complete traces of your LLM applications and agents for deep behavioral insights. Built on OpenTelemetry, supporting any LLM provider and agent framework. Monitor production quality, costs, and safety.</div><br>
-        <a href="https://mlflow.org/docs/latest/genai/tracing/quickstart/">Getting Started →</a> · <a href="https://demo.mlflow.org/#/experiments/1/traces">Try Demo →</a>
+        <a href="https://mlflow.org/docs/latest/genai/tracing/quickstart/">Getting Started →</a>
+        <br>
+        <a href="https://demo.mlflow.org/#/experiments/1/traces?startTimeLabel=CUSTOM&startTime=2026-04-17T16%3A47%3A15.258Z&endTime=2026-04-24T21%3A20%3A50.781Z">Try Demo →</a>
         <br><br>
     </div>
     </td>
@@ -100,7 +100,9 @@ MLflow provides everything you need to build, debug, evaluate, and deploy produc
         <a href="https://mlflow.org/docs/latest/genai/eval-monitor/"><strong>Evaluation</strong></a>
         <br><br>
         <div>Run systematic evaluations, track quality metrics over time, and catch regressions before they reach production. Choose from 50+ built-in metrics and LLM judges, or define your own.</div><br>
-        <a href="https://mlflow.org/docs/latest/genai/eval-monitor/">Getting Started →</a> · <a href="https://demo.mlflow.org/#/experiments/1/evaluation-runs">Try Demo →</a>
+        <a href="https://mlflow.org/docs/latest/genai/eval-monitor/">Getting Started →</a>
+        <br>
+        <a href="https://demo.mlflow.org/#/experiments/1/evaluation-runs">Try Demo →</a>
         <br><br>
     </div>
     </td>
@@ -113,7 +115,9 @@ MLflow provides everything you need to build, debug, evaluate, and deploy produc
         <a href="https://mlflow.org/docs/latest/genai/prompt-registry/"><strong>Prompts & Optimization</strong></a>
         <br><br>
         <div>Version, test, and deploy prompts with full lineage tracking. <a href="https://mlflow.org/prompt-optimization">Automatically optimize prompts</a> with state-of-the-art algorithms to improve performance.</div><br>
-        <a href="https://mlflow.org/docs/latest/genai/prompt-registry/create-and-edit-prompts/">Getting Started →</a> · <a href="https://demo.mlflow.org/#/prompts">Try Demo →</a>
+        <a href="https://mlflow.org/docs/latest/genai/prompt-registry/create-and-edit-prompts/">Getting Started →</a>
+        <br>
+        <a href="https://demo.mlflow.org/#/prompts">Try Demo →</a>
         <br><br>
     </div>
     </td>
