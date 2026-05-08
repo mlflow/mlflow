@@ -337,7 +337,7 @@ class XTestViz:
     def render_results_table(self, data_rows: list[JobResult]) -> str:
         """Render job data as a markdown table."""
         if not data_rows:
-            return "All latest cross-version tests succeeded."
+            return "No test jobs found."
 
         pivot_data, sorted_dates, sorted_names = self._pivot_job_results(data_rows)
         return self._build_markdown_table(pivot_data, sorted_dates, sorted_names)
@@ -372,12 +372,15 @@ async def main() -> None:
         print("Set GH_TOKEN environment variable or use --token option.", file=sys.stderr)
 
     visualizer = XTestViz(github_token=token, repo=args.repo)
-    data_rows = await visualizer.fetch_all_jobs(args.days)
-    data_rows = visualizer.filter_latest_not_success(data_rows)
+    raw_rows = await visualizer.fetch_all_jobs(args.days)
+    data_rows = visualizer.filter_latest_not_success(raw_rows)
     if args.json_output:
         Path(args.json_output).write_text(visualizer.render_json(data_rows))
     if not data_rows:
-        print("No workflow runs found in the specified time period.")
+        if raw_rows:
+            print("All latest cross-version tests succeeded.")
+        else:
+            print("No workflow runs found in the specified time period.")
     else:
         print(visualizer.render_results_table(data_rows))
 
