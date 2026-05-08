@@ -82,7 +82,6 @@ jobs:
       - name: Run tests
         env:
           MATRIX_OPTION: ${{ matrix.option }}
-          NODE_OPTIONS: --max-old-space-size=4096
         run: |
           "$GITHUB_WORKSPACE/dev/profile.sh" \
             yarn test --silent --maxWorkers=2 --logHeapUsage $MATRIX_OPTION src/experiment-tracking/components
