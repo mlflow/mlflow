@@ -116,16 +116,24 @@ Supported resources include `Experiment`, `Registered Model`, and `Scorer`.
 To access an API endpoint, a user must have the required permission.
 Otherwise, a `403 Forbidden` response will be returned.
 
-:::warning Legacy permission-CRUD endpoints removed
+:::warning Pre-RBAC permission management is changing
 
-The pre-RBAC per-resource permission endpoints
-(`/mlflow/{experiments,registered-models,scorers,gateway/*}/permissions/*` and
-`/mlflow/workspaces/<workspace>/permissions`) and the matching
-`AuthServiceClient` methods (`create_experiment_permission()`,
-`set_workspace_permission()`, etc.) have been removed. Manage permissions
-through the [role API](/self-hosting/security/role-based-access-control#api-reference)
-or the admin UI. The matrix tables below still reference these endpoints in
-some rows; treat those as historical and use the role API instead.
+The per-resource permission endpoints
+(`/mlflow/{experiments,registered-models,scorers,gateway/*}/permissions/*`)
+and the matching `AuthServiceClient` methods
+(`create_experiment_permission()`, `update_registered_model_permission()`,
+etc.) are **deprecated**. They still work — backed internally by synthetic
+per-user role grants — but emit a deprecation warning. Prefer the
+[role API](/self-hosting/security/role-based-access-control#api-reference)
+or the admin UI for new code.
+
+The workspace-permission endpoints
+(`/mlflow/workspaces/<workspace>/permissions`) and their `AuthServiceClient`
+methods (`set_workspace_permission()`, `list_workspace_permissions()`, etc.)
+have been **removed**. Use the seeded `<workspace>/admin` and
+`<workspace>/user` roles, or a custom role with a `(workspace, *, …)`
+permission. See [Role-Based Access Control](/self-hosting/security/role-based-access-control)
+and [Workspace Permissions](/self-hosting/workspaces/permissions).
 
 :::
 

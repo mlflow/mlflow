@@ -44,17 +44,24 @@ permission)`. The pattern is either a literal resource id or `*` (apply to all
 
 ### Permission levels
 
-| Permission       | Can read | Can use | Can update | Can delete | Can manage |
-| ---------------- | -------- | ------- | ---------- | ---------- | ---------- |
-| `READ`           | Yes      | No      | No         | No         | No         |
-| `USE`            | Yes      | Yes     | No         | No         | No         |
-| `EDIT`           | Yes      | Yes     | Yes        | No         | No         |
-| `MANAGE`         | Yes      | Yes     | Yes        | Yes        | Yes        |
-| `NO_PERMISSIONS` | No       | No      | No         | No         | No         |
+The grantable permission levels for resource-scoped permissions are:
+
+| Permission | Can read | Can use | Can update | Can delete | Can manage |
+| ---------- | -------- | ------- | ---------- | ---------- | ---------- |
+| `READ`     | Yes      | No      | No         | No         | No         |
+| `USE`      | Yes      | Yes     | No         | No         | No         |
+| `EDIT`     | Yes      | Yes     | Yes        | No         | No         |
+| `MANAGE`   | Yes      | Yes     | Yes        | Yes        | Yes        |
 
 `USE` is for consuming a resource without modifying it (invoking a gateway
-endpoint, referencing a model definition, creating new experiments / registered
-models within a workspace).
+endpoint, referencing a model definition, creating new experiments /
+registered models within a workspace).
+
+`NO_PERMISSIONS` exists as the deny-by-default sentinel — it's the effective
+state of any `(user, resource)` pair with no matching grant. It is **not
+grantable** as a role permission or a direct grant; the auth server rejects
+attempts to assign it. To deny access, simply don't grant it; an absent grant
+combined with a non-permissive `default_permission` yields the same effect.
 
 ### Workspace-level grants
 
@@ -175,7 +182,8 @@ role (and a `user` role) — see [Default roles](#default-roles). Promoting a
 user to workspace admin means assigning the seeded `admin` role:
 
 ```python
-admin_role = auth_client.get_role_by_name(workspace="ml-research", name="admin")
+# The seeded ``admin`` role lives in the same workspace; look it up by name.
+admin_role = next(r for r in auth_client.list_roles("ml-research") if r.name == "admin")
 auth_client.assign_role(username="alice", role_id=admin_role.id)
 ```
 
@@ -259,15 +267,18 @@ endpoints, the auth-store backfill migration translates the legacy tables
 through at least one full release cycle, then are dropped in a subsequent
 migration.
 
-The wire surface change is more visible: the per-resource permission
-endpoints are gone.
+The wire surface and `AuthServiceClient` shape change as follows:
 
-| Removed (legacy)                                                                       | Replacement                                                                                                                                |
-| -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `POST /mlflow/experiments/permissions/create`                                          | `POST /mlflow/roles/create` + `POST /mlflow/roles/permissions/add` + `POST /mlflow/roles/assign` (or a direct permission via the admin UI) |
-| `POST/GET/PATCH/DELETE` on `/mlflow/{registered-models,scorers,gateway/*}/permissions` | Same role-API pattern                                                                                                                      |
-| `POST/GET/PATCH/DELETE` on `/mlflow/workspaces/<workspace>/permissions`                | Assign the seeded `admin` or `user` role for the workspace, or a custom role                                                               |
-| `auth_client.create_experiment_permission()` and the ~30 sibling client methods        | `auth_client.create_role()`, `add_role_permission()`, `assign_role()`, etc.                                                                |
+| Pre-RBAC surface                                                                                                                               | Status                                                                                              | Replacement                                                                                                                               |
+| ---------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST/GET/PATCH/DELETE` on `/mlflow/{experiments,registered-models,scorers,gateway/*}/permissions`                                             | **Deprecated** (still works; emits a deprecation warning; backed by synthetic per-user role grants) | `POST /mlflow/roles/create` + `POST /mlflow/roles/permissions/add` + `POST /mlflow/roles/assign`, or a direct permission via the admin UI |
+| `auth_client.create_experiment_permission()`, `update_registered_model_permission()`, and the ~30 sibling per-resource client methods          | **Deprecated**                                                                                      | `auth_client.create_role()`, `add_role_permission()`, `assign_role()`, etc.                                                               |
+| `POST/GET/PATCH/DELETE` on `/mlflow/workspaces/<workspace>/permissions`                                                                        | **Removed**                                                                                         | Assign the seeded `admin` or `user` role for the workspace, or a custom role with a `(workspace, *, …)` permission                        |
+| `auth_client.set_workspace_permission()`, `list_workspace_permissions()`, `delete_workspace_permission()`, `list_user_workspace_permissions()` | **Removed**                                                                                         | The role API (`assign_role` to a workspace-scoped role with a `(workspace, *, …)` permission)                                             |
+
+The per-resource path is "deprecated, not removed" so existing scripts keep
+working; new code should use the role API directly. The workspace-permission
+path is fully gone — calls to those endpoints will 404.
 
 **Behavioral note: owner delegation.** Pre-RBAC, a resource creator with
 `MANAGE` could delegate permissions on that resource to others. Post-RBAC,
@@ -284,9 +295,8 @@ as an admin operation going forward.
 The role-related methods on `AuthServiceClient`:
 
 ```python
-auth_client.create_role(name, workspace, description=None)
+auth_client.create_role(workspace, name, description=None)
 auth_client.get_role(role_id)
-auth_client.get_role_by_name(workspace, name)
 auth_client.list_roles(workspace)
 auth_client.update_role(role_id, name=None, description=None)
 auth_client.delete_role(role_id)

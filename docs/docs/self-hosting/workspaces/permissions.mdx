@@ -41,14 +41,23 @@ permission for that resource's workspace.
 
 1. **Workspace-level grant.** Alice holds the `team-a/user` role.
    - Alice can read all experiments, registered models, and prompts in `team-a`.
-2. **Resource-level exception.** Alice additionally has `NO_PERMISSIONS` on
-   experiment `exp-123` in `team-a` (via a direct permission or a more specific
-   role).
-   - Alice can read everything in `team-a` except `exp-123`.
-3. **Direct resource grant without workspace access.** Bob has `EDIT` permission
-   on experiment `exp-456` in `team-a`, but no role with workspace-level access.
-   - Bob can access `exp-456` only. The workspace `team-a` does not appear in
-     Bob's `mlflow.list_workspaces()` results.
+2. **Resource-level upgrade.** Bob holds the `team-a/user` role (`USE`
+   workspace-wide) plus a per-resource grant of `EDIT` on experiment `exp-123`.
+   - Bob can read every resource in `team-a` and additionally edit `exp-123`.
+     The more specific resource grant wins over the workspace-level grant for
+     that resource.
+3. **Direct resource grant without workspace access.** Carol has `EDIT`
+   permission on experiment `exp-456` in `team-a` but no role with
+   workspace-level access.
+   - Carol can access `exp-456` only. The workspace `team-a` does not appear
+     in Carol's `mlflow.list_workspaces()` results.
+
+`NO_PERMISSIONS` is the deny-by-default sentinel; it is **not grantable** as
+a role permission or a direct grant, so there's no "explicit deny" override.
+To restrict a user from a particular resource, give them only the broader
+roles they need and don't grant access to that specific resource — an absent
+grant combined with the workspace-level grant's resolution chain yields the
+deny.
 
 ## Default roles
 
@@ -89,14 +98,16 @@ from mlflow.server import get_app_client
 
 auth_client = get_app_client("basic-auth", tracking_uri="http://localhost:5000")
 
-user_role = auth_client.get_role_by_name(workspace="team-a", name="user")
+# Find the seeded ``user`` role in this workspace by listing roles and
+# selecting by name.
+user_role = next(r for r in auth_client.list_roles("team-a") if r.name == "user")
 auth_client.assign_role(username="alice", role_id=user_role.id)
 ```
 
 ### Make a user a workspace admin
 
 ```python
-admin_role = auth_client.get_role_by_name(workspace="team-a", name="admin")
+admin_role = next(r for r in auth_client.list_roles("team-a") if r.name == "admin")
 auth_client.assign_role(username="alice", role_id=admin_role.id)
 ```
 
@@ -158,8 +169,9 @@ If users hit permission-denied errors:
        print(r.workspace, r.name)
    ```
 
-2. Check whether a more specific direct permission denies access (`NO_PERMISSIONS`
-   on the resource).
+2. Check whether a more specific direct permission on that resource grants only
+   `READ` when the user is trying to update — specific resource grants win over
+   the workspace-level grant.
 3. Verify the workspace exists and the role is assigned in the right workspace.
 
 ### Workspace not visible in `list_workspaces()`
