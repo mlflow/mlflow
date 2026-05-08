@@ -468,7 +468,67 @@ def test_flatten_catalog_entry_without_last_updated_at():
     assert "last_updated_at" not in info
 
 
-def test_load_bundled_provider_returns_data():
+def test_flatten_catalog_entry_with_modality_pricing():
+    entry = {
+        "mode": "embedding",
+        "context_window": {"max_input": 8172, "max_tokens": 8172},
+        "pricing": {
+            "input_per_million_tokens": 0.135,
+            "output_per_million_tokens": 0.0,
+            "modality": {
+                "image": {"input_per_image": 0.00006},
+                "video": {"input_per_second": 0.0007},
+                "audio": {"input_per_second": 0.00014},
+            },
+        },
+        "capabilities": {
+            "function_calling": False,
+            "vision": True,
+            "reasoning": False,
+            "prompt_caching": False,
+            "response_schema": False,
+        },
+    }
+    info = _flatten_catalog_entry(entry)
+    assert info["mode"] == "embedding"
+    assert info["input_cost_per_token"] == pytest.approx(0.135e-6)
+    assert info["input_cost_per_image"] == pytest.approx(0.00006)
+    assert info["input_cost_per_video_per_second"] == pytest.approx(0.0007)
+    assert info["input_cost_per_audio_per_second"] == pytest.approx(0.00014)
+    assert info["supports_vision"] is True
+
+
+def test_flatten_catalog_entry_without_modality_pricing():
+    entry = {
+        "mode": "chat",
+        "pricing": {"input_per_million_tokens": 1.0, "output_per_million_tokens": 2.0},
+        "capabilities": {
+            "function_calling": False,
+            "vision": False,
+            "reasoning": False,
+            "prompt_caching": False,
+            "response_schema": False,
+        },
+    }
+    info = _flatten_catalog_entry(entry)
+    assert "input_cost_per_image" not in info
+    assert "input_cost_per_video_per_second" not in info
+    assert "input_cost_per_audio_per_second" not in info
+
+
+def test_bedrock_nova2_multimodal_embedding_pricing(monkeypatch):
+    monkeypatch.setenv("MLFLOW_MODEL_CATALOG_URI", "")
+    _load_bundled_provider.cache_clear()
+    models = _load_bundled_provider("bedrock")
+    model = models.get("amazon.nova-2-multimodal-embeddings-v1:0")
+    assert model is not None
+    assert model["mode"] == "embedding"
+    assert model["input_cost_per_token"] == pytest.approx(0.135e-6)
+    assert model["input_cost_per_image"] == pytest.approx(0.00006)
+    assert model["input_cost_per_video_per_second"] == pytest.approx(0.0007)
+    assert model["input_cost_per_audio_per_second"] == pytest.approx(0.00014)
+    assert model["supports_vision"] is True
+
     _load_bundled_provider.cache_clear()
     result = _load_bundled_provider("openai")
     assert len(result) > 0

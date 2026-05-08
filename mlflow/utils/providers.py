@@ -95,6 +95,9 @@ class ModelInfo(TypedDict, total=False):
     output_cost_per_token: float
     cache_read_input_token_cost: float
     cache_creation_input_token_cost: float
+    input_cost_per_image: float
+    input_cost_per_video_per_second: float
+    input_cost_per_audio_per_second: float
     deprecation_date: str
     last_updated_at: str
 
@@ -117,6 +120,9 @@ class ModelDict(TypedDict):
     max_output_tokens: int | None
     input_cost_per_token: float | None
     output_cost_per_token: float | None
+    input_cost_per_image: float | None
+    input_cost_per_video_per_second: float | None
+    input_cost_per_audio_per_second: float | None
     deprecation_date: str | None
     last_updated_at: str | None
 
@@ -141,9 +147,16 @@ class CatalogLongContextTier(CatalogPricingTier, total=False):
     threshold_tokens: int
 
 
+class CatalogPricingModality(TypedDict, total=False):
+    input_per_million_tokens: float
+    input_per_image: float
+    input_per_second: float
+
+
 class CatalogPricing(CatalogPricingTier, total=False):
     service_tiers: dict[str, CatalogPricingTier]
     long_context: list[CatalogLongContextTier]
+    modality: dict[str, CatalogPricingModality]
 
 
 class CatalogCapabilities(TypedDict, total=False):
@@ -189,6 +202,16 @@ def _flatten_catalog_entry(entry: CatalogModelEntry) -> ModelInfo:
             info["cache_read_input_token_cost"] = v / 1_000_000
         if (v := pricing.get("cache_write_per_million_tokens")) is not None:
             info["cache_creation_input_token_cost"] = v / 1_000_000
+        if modality := pricing.get("modality"):
+            if image := modality.get("image"):
+                if (v := image.get("input_per_image")) is not None:
+                    info["input_cost_per_image"] = v
+            if video := modality.get("video"):
+                if (v := video.get("input_per_second")) is not None:
+                    info["input_cost_per_video_per_second"] = v
+            if audio := modality.get("audio"):
+                if (v := audio.get("input_per_second")) is not None:
+                    info["input_cost_per_audio_per_second"] = v
 
     if caps := entry.get("capabilities"):
         info["supports_function_calling"] = caps.get("function_calling", False)
@@ -978,6 +1001,9 @@ def _build_model_dict(
         "max_output_tokens": info.get("max_output_tokens"),
         "input_cost_per_token": info.get("input_cost_per_token"),
         "output_cost_per_token": info.get("output_cost_per_token"),
+        "input_cost_per_image": info.get("input_cost_per_image"),
+        "input_cost_per_video_per_second": info.get("input_cost_per_video_per_second"),
+        "input_cost_per_audio_per_second": info.get("input_cost_per_audio_per_second"),
         "deprecation_date": info.get("deprecation_date"),
         "last_updated_at": info.get("last_updated_at"),
     }
