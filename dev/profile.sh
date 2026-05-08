@@ -53,11 +53,11 @@ cleanup() {
   fi
 
   local sampled=/tmp/profile-sampled.csv
-  local n step labels cpu_list mem_list
+  local n step total cpu_list mem_list
   n=$(wc -l <"$SAMPLE_FILE")
   step=$((n / 30 + 1))
   awk -v step="$step" 'NR % step == 0' "$SAMPLE_FILE" >"$sampled"
-  labels=$(awk -F, 'BEGIN{p="["} {p=p"\"T" NR "\","} END{sub(/,$/,"",p); print p"]"}' "$sampled")
+  total=$(awk -F, 'NR==1{first=$1} END{print $1-first}' "$SAMPLE_FILE")
   cpu_list=$(awk -F, '{printf "%s,",$2}' "$sampled" | sed 's/,$//')
   mem_list=$(awk -F, '{printf "%s,",$3}' "$sampled" | sed 's/,$//')
 
@@ -65,7 +65,7 @@ cleanup() {
     echo '## CPU usage (%)'
     echo '```mermaid'
     echo 'xychart-beta'
-    echo "  x-axis $labels"
+    echo "  x-axis \"Elapsed (s)\" 0 --> $total"
     echo '  y-axis "CPU %" 0 --> 100'
     echo "  line [$cpu_list]"
     echo '```'
@@ -73,7 +73,7 @@ cleanup() {
     echo '## Memory used (MB)'
     echo '```mermaid'
     echo 'xychart-beta'
-    echo "  x-axis $labels"
+    echo "  x-axis \"Elapsed (s)\" 0 --> $total"
     echo '  y-axis "Memory MB"'
     echo "  line [$mem_list]"
     echo '```'
