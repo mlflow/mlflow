@@ -83,7 +83,29 @@ jobs:
         env:
           MATRIX_OPTION: ${{ matrix.option }}
         run: |
-          yarn test --silent $MATRIX_OPTION src/experiment-tracking/components
+          SUFFIX="${MATRIX_OPTION#--}"
+          yarn test --silent $MATRIX_OPTION src/experiment-tracking/components \
+            --json --outputFile=jest-results-${SUFFIX}.json
+      - name: Filter Jest results
+        if: failure()
+        env:
+          MATRIX_OPTION: ${{ matrix.option }}
+        run: |
+          SUFFIX="${MATRIX_OPTION#--}"
+          if [ -f jest-results-${SUFFIX}.json ]; then
+            jq '[.testResults[] | .assertionResults[]
+                  | select(.status != "passed" or .duration > 1000)
+                  | {name: .fullName, status, duration, failureMessages}]' \
+              jest-results-${SUFFIX}.json > jest-failures-${SUFFIX}.json
+          fi
+      - name: Upload Jest results
+        if: failure()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: jest-failures-${{ matrix.option }}
+          path: mlflow/server/js/jest-failures-*.json
+          retention-days: 7
+          if-no-files-found: ignore
       - name: Run build
         env:
           # Prevent warnings (emitted from react-pdf) from being treated as errors
