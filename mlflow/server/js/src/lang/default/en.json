@@ -1887,6 +1887,10 @@
     "defaultMessage": "An error occurred while rendering this component.",
     "description": "Description for default error message in experiment datasets UI"
   },
+  "9JbHw8": {
+    "defaultMessage": "Manage",
+    "description": "Workspaces table column header for the per-row admin entry point"
+  },
   "9KLNi5": {
     "defaultMessage": "Delete",
     "description": "Experiments page list, delete bulk experiments modal primary button"
@@ -3023,10 +3027,6 @@
     "defaultMessage": "JSON",
     "description": "JSON select menu option for assessment data type"
   },
-  "GKXuD6": {
-    "defaultMessage": "Platform Admin",
-    "description": "Admin page title"
-  },
   "GKiPV1": {
     "defaultMessage": "Start Time:",
     "description": "Text for start time row header in the main table in the model comparison\n                page"
@@ -3282,6 +3282,10 @@
   "I9bJ/T": {
     "defaultMessage": "Select All",
     "description": "Option to select all items in the item selector"
+  },
+  "IARcQx": {
+    "defaultMessage": "Manage workspace {name}",
+    "description": "Aria label on the gear icon for managing a workspace"
   },
   "IAyAgH": {
     "defaultMessage": "Move up",
@@ -4387,6 +4391,10 @@
     "defaultMessage": "Classification",
     "description": "Label for experiments focused on classification modeling"
   },
+  "P0Y/ks": {
+    "defaultMessage": "Workspace Manager",
+    "description": "Admin page title shown when the URL is scoped to a single workspace via ?workspace=…"
+  },
   "P31kXd": {
     "defaultMessage": "Cost breakdown",
     "description": "Header for span cost breakdown"
@@ -5311,6 +5319,10 @@
     "defaultMessage": "Ground truth values annotated to the trace",
     "description": "Tooltip description for the Expectation column group in the traces table"
   },
+  "UsvDLH": {
+    "defaultMessage": "Select a workspace",
+    "description": "Roles tab empty state shown to workspace admins without an active workspace"
+  },
   "UtUq/x": {
     "defaultMessage": "Registered models",
     "description": "Header title for the registered models column in the logged model list table"
@@ -5763,6 +5775,10 @@
     "defaultMessage": "Session ID",
     "description": "Label for the session id section"
   },
+  "XJP2Uv": {
+    "defaultMessage": "Pick a workspace from the workspace selector to see its roles.",
+    "description": "Roles tab empty state body when no workspace is selected"
+  },
   "XK+0na": {
     "defaultMessage": "Reset period",
     "description": "Budget reset period column header"
@@ -5851,10 +5867,6 @@
     "defaultMessage": "Scanning <tracesLink>{totalTraces} traces</tracesLink>, <issuesLink>{identifiedIssues} issues</issuesLink> identified so far",
     "description": "Issue detection progress > Progress summary while running"
   },
-  "Y/1i4Y": {
-    "defaultMessage": "{label}: {behavior}",
-    "description": "Helper text under the log-level slider explaining how the currently selected level filters the trace view."
-  },
   "Y+dLul": {
     "defaultMessage": "Choose your integration. Install the {code} package for automatic tracing, or use {trace} for custom functions.",
     "description": "Step 2 description for TypeScript traces onboarding"
@@ -5862,6 +5874,10 @@
   "Y+nCpQ": {
     "defaultMessage": "Pending",
     "description": "Label indicating this onboarding step is not yet completed"
+  },
+  "Y/1i4Y": {
+    "defaultMessage": "{label}: {behavior}",
+    "description": "Helper text under the log-level slider explaining how the currently selected level filters the trace view."
   },
   "Y1eg9D": {
     "defaultMessage": "In progress",
@@ -6290,6 +6306,10 @@
   "aSnHN9": {
     "defaultMessage": "Tool Call Efficiency",
     "description": "LLM template option"
+  },
+  "aTO9J7": {
+    "defaultMessage": "Manage workspace",
+    "description": "Tooltip on the gear icon that links to /admin/ws scoped to this workspace"
   },
   "aTnlkS": {
     "defaultMessage": "Search for a provider...",
@@ -9951,6 +9971,10 @@
     "defaultMessage": "At least one form field has incorrect value. Please correct and try again.",
     "description": "Generic error message for an invalid form input"
   },
+  "vaeS94": {
+    "defaultMessage": "Platform Admin",
+    "description": "Admin page title shown when the URL has no ?workspace=… (cross-workspace platform-admin view)"
+  },
   "vedifc": {
     "defaultMessage": "Enter API key or select saved key",
     "description": "Placeholder for API key combobox input"
@@ -10570,6 +10594,10 @@
   "zEXwQL": {
     "defaultMessage": "Error",
     "description": "Label for an assessment with an error"
+  },
+  "zIXqYZ": {
+    "defaultMessage": "Workspace: {workspace}",
+    "description": "Subtitle on the admin page identifying the active workspace when the URL is per-workspace scoped"
   },
   "zLTdCZ": {
     "defaultMessage": "Reviewed",

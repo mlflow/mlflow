@@ -85,20 +85,68 @@ def test_list_roles(store):
     store.create_role(name="viewer", workspace="ws1")
     store.create_role(name="editor", workspace="ws1")
     store.create_role(name="viewer", workspace="ws2")
+    store.create_role(name="other", workspace="ws3")
 
-    ws1_roles = store.list_roles("ws1")
-    assert len(ws1_roles) == 2
+    # Single workspace.
+    ws1_roles = store.list_roles(["ws1"])
     assert {r.name for r in ws1_roles} == {"viewer", "editor"}
 
-    ws2_roles = store.list_roles("ws2")
-    assert len(ws2_roles) == 1
+    # Subset across two workspaces.
+    roles = store.list_roles(["ws1", "ws2"])
+    assert {(r.workspace, r.name) for r in roles} == {
+        ("ws1", "viewer"),
+        ("ws1", "editor"),
+        ("ws2", "viewer"),
+    }
+
+    # Empty iterable is interpreted literally — no roles.
+    assert store.list_roles([]) == []
+
+    # ``None`` (default) lists across the whole system — the admin path.
+    all_roles = store.list_roles()
+    assert {(r.workspace, r.name) for r in all_roles} == {
+        ("ws1", "viewer"),
+        ("ws1", "editor"),
+        ("ws2", "viewer"),
+        ("ws3", "other"),
+    }
 
 
-def test_list_all_roles(store):
-    store.create_role(name="viewer", workspace="ws1")
-    store.create_role(name="editor", workspace="ws2")
-    all_roles = store.list_all_roles()
-    assert len(all_roles) == 2
+def test_list_users_with_roles_eager_loads_in_one_batch(store, user, user2):
+    # Two roles for the first user, one for the second; one extra unassigned
+    # role just to confirm we only return roles tied to a user.
+    r1 = store.create_role(name="viewer", workspace="ws1")
+    r2 = store.create_role(name="editor", workspace="ws2")
+    r3 = store.create_role(name="other", workspace="ws3")
+    store.create_role(name="unassigned", workspace="ws1")
+
+    store.assign_role_to_user(user.id, r1.id)
+    store.assign_role_to_user(user.id, r2.id)
+    store.assign_role_to_user(user2.id, r3.id)
+
+    users_with_roles = store.list_users_with_roles()
+    by_username = {u.username: roles for u, roles in users_with_roles}
+
+    assert {(r.workspace, r.name) for r in by_username[user.username]} == {
+        ("ws1", "viewer"),
+        ("ws2", "editor"),
+    }
+    assert {(r.workspace, r.name) for r in by_username[user2.username]} == {("ws3", "other")}
+
+
+def test_list_user_present_workspaces(store, user):
+    # No assignments → empty set.
+    assert store.list_user_present_workspaces(user.id) == set()
+
+    r1 = store.create_role(name="viewer", workspace="ws1")
+    r2 = store.create_role(name="editor", workspace="ws2")
+    r3 = store.create_role(name="other", workspace="ws2")
+
+    store.assign_role_to_user(user.id, r1.id)
+    store.assign_role_to_user(user.id, r2.id)
+    store.assign_role_to_user(user.id, r3.id)
+
+    assert store.list_user_present_workspaces(user.id) == {"ws1", "ws2"}
 
 
 def test_update_role(store):
@@ -143,8 +191,8 @@ def test_delete_roles_for_workspace(store):
     store.create_role(name="r3", workspace="ws2")
 
     store.delete_roles_for_workspace("ws1")
-    assert store.list_roles("ws1") == []
-    assert len(store.list_roles("ws2")) == 1
+    assert store.list_roles(["ws1"]) == []
+    assert len(store.list_roles(["ws2"])) == 1
 
 
 def test_delete_roles_for_workspace_cascades(store, user):
@@ -154,7 +202,7 @@ def test_delete_roles_for_workspace_cascades(store, user):
 
     store.delete_roles_for_workspace("ws1")
 
-    assert store.list_roles("ws1") == []
+    assert store.list_roles(["ws1"]) == []
     assert store.list_user_roles(user.id) == []
 
 

@@ -23,7 +23,7 @@ from mlflow.tracing.constant import (
 )
 from mlflow.version import IS_TRACING_SDK_ONLY
 
-from tests.openai.mock_openai import EMPTY_CHOICES, LIST_CONTENT
+from tests.openai.mock_openai import AZURE_ANNOTATIONS, EMPTY_CHOICES, LIST_CONTENT
 from tests.tracing.helper import get_traces, skip_when_testing_trace_sdk
 
 MOCK_TOOLS = [
@@ -441,6 +441,41 @@ async def test_chat_completions_streaming_empty_choices(client):
 
     trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert trace.info.status == "OK"
+
+
+@pytest.mark.asyncio
+async def test_chat_completions_streaming_ignores_azure_annotation_chunks(client):
+    mlflow.openai.autolog()
+    stream = client.chat.completions.create(
+        messages=[{"role": "user", "content": AZURE_ANNOTATIONS}],
+        model="gpt-4o-mini",
+        stream=True,
+        stream_options={"include_usage": True},
+    )
+
+    chunks = [chunk async for chunk in await stream] if client._is_async else list(stream)
+    assert chunks[0].object == ""
+    assert chunks[-1].object == ""
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    assert trace is not None
+    assert trace.info.status == "OK"
+    assert trace.info.token_usage == {
+        TokenUsageKey.INPUT_TOKENS: 9,
+        TokenUsageKey.OUTPUT_TOKENS: 12,
+        TokenUsageKey.TOTAL_TOKENS: 21,
+    }
+
+    span = trace.data.spans[0]
+    assert span.outputs["id"] == "chatcmpl-123"
+    assert span.outputs["model"] == "gpt-4o-mini"
+    assert span.outputs["choices"][0]["message"]["content"] == "Hello world"
+    assert span.outputs["usage"]["prompt_tokens"] == 9
+    assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        TokenUsageKey.INPUT_TOKENS: 9,
+        TokenUsageKey.OUTPUT_TOKENS: 12,
+        TokenUsageKey.TOTAL_TOKENS: 21,
+    }
 
 
 @pytest.mark.asyncio

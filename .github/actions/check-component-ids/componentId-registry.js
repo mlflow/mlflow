@@ -1603,11 +1603,14 @@ module.exports = {
   "mlflow.home.workspaces.edit_modal": "",
   "mlflow.home.workspaces.error": "",
   "mlflow.home.workspaces.last_used_badge": "",
+  "mlflow.home.workspaces.manage_link": "",
+  "mlflow.home.workspaces.manage_tooltip": "",
   "mlflow.home.workspaces.pagination": "",
   "mlflow.home.workspaces.retry": "",
   "mlflow.home.workspaces.workspace_link": "",
   "mlflow.home.workspaces_table.header.artifact_root": "",
   "mlflow.home.workspaces_table.header.description": "",
+  "mlflow.home.workspaces_table.header.manage": "",
   "mlflow.home.workspaces_table.header.name": "",
 
   // -- mlflow.issue-detection --

@@ -1,5 +1,7 @@
+import { useEffect, useMemo, useRef } from 'react';
 import { useMutation, useQuery } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { AccountApi } from './api';
+import { isWorkspaceAdminRole } from './types';
 import type { UpdatePasswordRequest } from './types';
 
 export const useCurrentUserQuery = () => {
@@ -14,6 +16,56 @@ export const useCurrentUserQuery = () => {
 export const useCurrentUserIsAdmin = () => {
   const { data } = useCurrentUserQuery();
   return Boolean(data?.user?.is_admin);
+};
+
+/**
+ * Workspaces in which the current user holds ``(workspace, *, MANAGE)``.
+ *
+ * Holds the last computed set in a ref so the gate stays stable across
+ * the cache invalidation ``WorkspaceSelector`` triggers on workspace
+ * switch (without it the Manage entry flickers off and back on). Resets
+ * on username change so a dev-user-switcher cookie swap can't briefly
+ * serve the previous identity's set during the new user's first refetch.
+ */
+export const useCurrentUserAdminWorkspaces = (): Set<string> => {
+  const { data: currentUser } = useCurrentUserQuery();
+  const username = currentUser?.user?.username ?? '';
+  // Platform admins short-circuit on ``is_admin`` everywhere; their
+  // workspace-admin set is unused. Skip the fetch to save a request per page load.
+  const { data: rolesData } = useUserRolesQuery(username, {
+    enabled: !currentUser?.user?.is_admin,
+  });
+
+  const computed = useMemo(() => {
+    if (!rolesData) {
+      return null;
+    }
+    const result = new Set<string>();
+    for (const role of rolesData.roles ?? []) {
+      if (isWorkspaceAdminRole(role)) {
+        result.add(role.workspace);
+      }
+    }
+    return result;
+  }, [rolesData]);
+
+  const previous = useRef<Set<string>>(new Set());
+  const lastUsername = useRef(username);
+  useEffect(() => {
+    if (lastUsername.current !== username) {
+      previous.current = new Set();
+      lastUsername.current = username;
+    }
+    if (computed) {
+      previous.current = computed;
+    }
+  }, [computed, username]);
+
+  return computed ?? previous.current;
+};
+
+export const useCurrentUserIsWorkspaceAdmin = (): boolean => {
+  return useCurrentUserAdminWorkspaces().size > 0;
 };
 
 /**
@@ -49,13 +101,14 @@ export const useUpdatePassword = () => {
   });
 };
 
-export const useUserRolesQuery = (username: string) => {
+export const useUserRolesQuery = (username: string, options: { enabled?: boolean } = {}) => {
   return useQuery({
     queryKey: AccountQueryKeys.userRoles(username),
     queryFn: () => AccountApi.listUserRoles(username),
     retry: false,
     refetchOnWindowFocus: false,
-    enabled: Boolean(username),
+    // Callers pass ``enabled: false`` to skip a fetch they know will 403.
+    enabled: Boolean(username) && options.enabled !== false,
   });
 };
 
