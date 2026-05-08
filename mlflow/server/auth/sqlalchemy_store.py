@@ -335,6 +335,111 @@ class SqlAlchemyStore:
             query = query.filter(SqlRole.workspace == workspace)
         return [rid for (rid, name) in query.all() if self._is_synthetic_role_name(name)]
 
+    # ---- Per-user grant helpers ----
+    #
+    # Generic API for per-user permission grants on the user's synthetic
+    # ``__user_<id>__`` role in the active workspace. Cascade handlers
+    # (``set_can_manage_*_permission``, ``delete_*_permissions_cascade``,
+    # ``rename_registered_model_permission``) call these directly. Per-resource
+    # CRUD methods below remain only as tombstones backing the deprecated REST
+    # surface; remove them when the deprecated handlers are dropped.
+
+    def grant_user_permission(
+        self,
+        username: str,
+        resource_type: str,
+        resource_pattern: str,
+        permission: str,
+    ) -> None:
+        """
+        Upsert a ``permission`` grant on ``(resource_type, resource_pattern)`` for
+        ``username`` via their synthetic role in the active workspace.
+        """
+        _validate_permission_for_resource_type(permission, resource_type)
+        with self.ManagedSessionMaker() as session:
+            user = self._get_user(session, username=username)
+            workspace_name = self._get_active_workspace_name()
+            role = self._get_or_create_synthetic_user_role(session, user.id, workspace_name)
+            existing = (
+                session
+                .query(SqlRolePermission)
+                .filter(
+                    SqlRolePermission.role_id == role.id,
+                    SqlRolePermission.resource_type == resource_type,
+                    SqlRolePermission.resource_pattern == resource_pattern,
+                )
+                .first()
+            )
+            if existing is None:
+                session.add(
+                    SqlRolePermission(
+                        role_id=role.id,
+                        resource_type=resource_type,
+                        resource_pattern=resource_pattern,
+                        permission=permission,
+                    )
+                )
+            else:
+                existing.permission = permission
+
+    def delete_grants_for_resource(
+        self,
+        resource_type: str,
+        resource_pattern: str,
+        *,
+        workspace_scoped: bool = False,
+    ) -> None:
+        """
+        Delete every synthetic-role grant matching ``(resource_type,
+        resource_pattern)``. ``workspace_scoped=True`` restricts to the active
+        workspace — for resources whose pattern can collide across workspaces
+        (e.g. registered-model names). Admin-created roles are never touched.
+        """
+        with self.ManagedSessionMaker() as session:
+            workspace = self._get_active_workspace_name() if workspace_scoped else None
+            role_ids = self._synthetic_role_ids(session, workspace=workspace)
+            if not role_ids:
+                return
+            session.query(SqlRolePermission).filter(
+                SqlRolePermission.role_id.in_(role_ids),
+                SqlRolePermission.resource_type == resource_type,
+                SqlRolePermission.resource_pattern == resource_pattern,
+            ).delete(synchronize_session=False)
+
+    def rename_grants_for_resource(
+        self,
+        resource_type: str,
+        old_pattern: str,
+        new_pattern: str,
+        *,
+        workspace_scoped: bool = False,
+    ) -> None:
+        """
+        Rewrite every synthetic-role grant on ``(resource_type, old_pattern)`` to
+        ``(resource_type, new_pattern)``. Used for resources whose pattern is the
+        primary key and can change (e.g. registered-model rename).
+        """
+        with self.ManagedSessionMaker() as session:
+            workspace = self._get_active_workspace_name() if workspace_scoped else None
+            role_ids = self._synthetic_role_ids(session, workspace=workspace)
+            if not role_ids:
+                return
+            session.query(SqlRolePermission).filter(
+                SqlRolePermission.role_id.in_(role_ids),
+                SqlRolePermission.resource_type == resource_type,
+                SqlRolePermission.resource_pattern == old_pattern,
+            ).update(
+                {SqlRolePermission.resource_pattern: new_pattern},
+                synchronize_session=False,
+            )
+
+    # ---- Legacy per-resource CRUD (tombstones) ----
+    #
+    # The methods below back the deprecated REST handlers in ``__init__.py``.
+    # Internal callers should use ``grant_user_permission`` /
+    # ``delete_grants_for_resource`` / ``rename_grants_for_resource`` instead.
+    # Remove these when the deprecated REST surface is dropped.
+
     def create_experiment_permission(
         self, experiment_id: str, username: str, permission: str
     ) -> ExperimentPermission:
@@ -633,41 +738,6 @@ class SqlAlchemyStore:
         with self.ManagedSessionMaker() as session:
             _, _, rp = self._get_registered_model_permission_row(session, name, username)
             session.delete(rp)
-
-    def delete_registered_model_permissions(self, name: str) -> None:
-        """
-        Delete *all* registered model permission rows for the given model name in the active
-        workspace.
-
-        This is primarily used as cleanup when a registered model is deleted to ensure that
-        previously granted permissions do not implicitly carry over if a new model is later created
-        with the same name. Synthetic-role-only — admin-created roles with an overlapping
-        registered_model grant are untouched.
-        """
-        with self.ManagedSessionMaker() as session:
-            workspace_name = self._get_active_workspace_name()
-            role_ids = self._synthetic_role_ids(session, workspace=workspace_name)
-            if not role_ids:
-                return
-            session.query(SqlRolePermission).filter(
-                SqlRolePermission.role_id.in_(role_ids),
-                SqlRolePermission.resource_type == RESOURCE_TYPE_REGISTERED_MODEL,
-                SqlRolePermission.resource_pattern == name,
-            ).delete(synchronize_session=False)
-
-    def rename_registered_model_permissions(self, old_name: str, new_name: str):
-        # Synthetic-role-only rename; admin-created roles with a grant on ``old_name``
-        # are untouched so we don't accidentally mutate their grants.
-        with self.ManagedSessionMaker() as session:
-            workspace_name = self._get_active_workspace_name()
-            role_ids = self._synthetic_role_ids(session, workspace=workspace_name)
-            if not role_ids:
-                return
-            session.query(SqlRolePermission).filter(
-                SqlRolePermission.role_id.in_(role_ids),
-                SqlRolePermission.resource_type == RESOURCE_TYPE_REGISTERED_MODEL,
-                SqlRolePermission.resource_pattern == old_name,
-            ).update({SqlRolePermission.resource_pattern: new_name}, synchronize_session=False)
 
     def _list_workspace_perm_rows(
         self,
@@ -1078,19 +1148,6 @@ class SqlAlchemyStore:
             _, rp = self._get_scorer_permission_row(session, experiment_id, scorer_name, username)
             session.delete(rp)
 
-    def delete_scorer_permissions_for_scorer(self, experiment_id: str, scorer_name: str):
-        """Synthetic-role-only cleanup for when a scorer is deleted."""
-        pattern = self._scorer_pattern(experiment_id, scorer_name)
-        with self.ManagedSessionMaker() as session:
-            role_ids = self._synthetic_role_ids(session)
-            if not role_ids:
-                return
-            session.query(SqlRolePermission).filter(
-                SqlRolePermission.role_id.in_(role_ids),
-                SqlRolePermission.resource_type == RESOURCE_TYPE_SCORER,
-                SqlRolePermission.resource_pattern == pattern,
-            ).delete(synchronize_session=False)
-
     # ---- Gateway permission helpers ----
     #
     # The three gateway resource types (secret / endpoint / model_definition) share a
@@ -1238,20 +1295,6 @@ class SqlAlchemyStore:
             # access.
             return user_id, rows
 
-    def _delete_per_resource_permissions_for_resource(
-        self, resource_type: str, resource_pattern: str
-    ) -> None:
-        """Synthetic-role-only cleanup when a resource itself is deleted."""
-        with self.ManagedSessionMaker() as session:
-            role_ids = self._synthetic_role_ids(session)
-            if not role_ids:
-                return
-            session.query(SqlRolePermission).filter(
-                SqlRolePermission.role_id.in_(role_ids),
-                SqlRolePermission.resource_type == resource_type,
-                SqlRolePermission.resource_pattern == resource_pattern,
-            ).delete(synchronize_session=False)
-
     # ---- gateway_secret ----
 
     def create_gateway_secret_permission(
@@ -1323,9 +1366,6 @@ class SqlAlchemyStore:
                 f"username={username} not found"
             ),
         )
-
-    def delete_gateway_secret_permissions_for_secret(self, secret_id: str) -> None:
-        self._delete_per_resource_permissions_for_resource(RESOURCE_TYPE_GATEWAY_SECRET, secret_id)
 
     # ---- gateway_endpoint ----
 
@@ -1399,11 +1439,6 @@ class SqlAlchemyStore:
                 f"Gateway endpoint permission with endpoint_id={endpoint_id} and "
                 f"username={username} not found"
             ),
-        )
-
-    def delete_gateway_endpoint_permissions_for_endpoint(self, endpoint_id: str) -> None:
-        self._delete_per_resource_permissions_for_resource(
-            RESOURCE_TYPE_GATEWAY_ENDPOINT, endpoint_id
         )
 
     # ---- gateway_model_definition ----
@@ -1492,13 +1527,6 @@ class SqlAlchemyStore:
                 f"Gateway model definition permission with "
                 f"model_definition_id={model_definition_id} and username={username} not found"
             ),
-        )
-
-    def delete_gateway_model_definition_permissions_for_model_definition(
-        self, model_definition_id: str
-    ) -> None:
-        self._delete_per_resource_permissions_for_resource(
-            RESOURCE_TYPE_GATEWAY_MODEL_DEFINITION, model_definition_id
         )
 
     # ---- Role CRUD ----
