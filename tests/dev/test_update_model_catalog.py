@@ -212,7 +212,7 @@ def test_extract_modality_pricing_flat_per_unit():
         "input_cost_per_audio_per_second": 0.00014,
     }
     assert _extract_modality_pricing(info) == {
-        "image": {"input_per_image": 6e-05},
+        "image": {"input_per_million_tokens": 60.0},
         "video": {"input_per_second": 0.0007},
         "audio": {"input_per_second": 0.00014},
     }
@@ -226,7 +226,7 @@ def test_extract_modality_pricing_mixed():
     }
     assert _extract_modality_pricing(info) == {
         "audio": {"input_per_million_tokens": 0.7},
-        "image": {"input_per_image": 6e-05},
+        "image": {"input_per_million_tokens": 60.0},
         "video": {"input_per_second": 0.0007},
     }
 

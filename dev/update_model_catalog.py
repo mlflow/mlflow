@@ -72,20 +72,22 @@ def _extract_base_pricing(info: dict[str, Any]) -> dict[str, Any]:
 
 
 _MODALITY_INPUT = re.compile(r"^input_cost_per_([a-z0-9_]+)_token$")
+_MODALITY_INPUT_UNITLESS = re.compile(r"^input_cost_per_([a-z]+)$")
 _MODALITY_OUTPUT = re.compile(r"^output_cost_per_([a-z0-9_]+)_token$")
 _MODALITY_CACHE_READ = re.compile(r"^cache_read_input_([a-z0-9_]+)_token_cost$")
 _MODALITY_CACHE_WRITE = re.compile(r"^cache_creation_input_([a-z0-9_]+)_token_cost$")
 _MODALITY_CACHE_READ_ALT = re.compile(r"^cache_read_input_token_cost_per_([a-z0-9_]+)_token$")
-_FLAT_INPUT_PER_IMAGE = re.compile(r"^input_cost_per_(image)$")
 _FLAT_INPUT_PER_SECOND = re.compile(r"^input_cost_per_([a-z]+)_per_second$")
-_EXCLUDED_MODALITIES = {"reasoning"}
+_EXCLUDED_MODALITIES = {"reasoning", "token"}
 
 
 def _extract_modality_pricing(info: dict[str, Any]) -> dict[str, dict[str, float]]:
-    """Extract modality-specific pricing (audio/image/video/etc).
+    """Extract modality-specific pricing (audio/image/video/etc) as per-million-token rates.
 
-    Handles both per-token rates (stored as per-million-tokens) and flat per-unit
-    rates (e.g. input_cost_per_image, input_cost_per_video_per_second).
+    Both keyed-per-token (e.g. input_cost_per_image_token) and unitless flat-per-unit
+    keys (e.g. input_cost_per_image) are treated equivalently: the value is scaled to
+    per-million and stored under input_per_million_tokens for the modality.
+    Per-second rates (e.g. input_cost_per_video_per_second) are stored as input_per_second.
     """
     modalities: dict[str, dict[str, float]] = {}
     for k, v in info.items():
@@ -117,12 +119,14 @@ def _extract_modality_pricing(info: dict[str, Any]) -> dict[str, dict[str, float
                 continue
             modality_entry = modalities.setdefault(modality, {})
             modality_entry["cache_read_per_million_tokens"] = _to_per_million(v)
-        elif m := _FLAT_INPUT_PER_IMAGE.match(k):
-            modality = m.group(1)
-            modalities.setdefault(modality, {})["input_per_image"] = v
         elif m := _FLAT_INPUT_PER_SECOND.match(k):
             modality = m.group(1)
             modalities.setdefault(modality, {})["input_per_second"] = v
+        elif m := _MODALITY_INPUT_UNITLESS.match(k):
+            modality = m.group(1)
+            if modality in _EXCLUDED_MODALITIES:
+                continue
+            modalities.setdefault(modality, {})["input_per_million_tokens"] = _to_per_million(v)
 
     return modalities
 

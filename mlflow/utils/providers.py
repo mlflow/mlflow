@@ -149,7 +149,6 @@ class CatalogLongContextTier(CatalogPricingTier, total=False):
 
 class CatalogPricingModality(TypedDict, total=False):
     input_per_million_tokens: float
-    input_per_image: float
     input_per_second: float
 
 
@@ -204,8 +203,8 @@ def _flatten_catalog_entry(entry: CatalogModelEntry) -> ModelInfo:
             info["cache_creation_input_token_cost"] = v / 1_000_000
         if modality := pricing.get("modality"):
             if image := modality.get("image"):
-                if (v := image.get("input_per_image")) is not None:
-                    info["input_cost_per_image"] = v
+                if (v := image.get("input_per_million_tokens")) is not None:
+                    info["input_cost_per_image"] = v / 1_000_000
             if video := modality.get("video"):
                 if (v := video.get("input_per_second")) is not None:
                     info["input_cost_per_video_per_second"] = v

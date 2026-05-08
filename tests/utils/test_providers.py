@@ -476,7 +476,7 @@ def test_flatten_catalog_entry_with_modality_pricing():
             "input_per_million_tokens": 0.135,
             "output_per_million_tokens": 0.0,
             "modality": {
-                "image": {"input_per_image": 0.00006},
+                "image": {"input_per_million_tokens": 60.0},
                 "video": {"input_per_second": 0.0007},
                 "audio": {"input_per_second": 0.00014},
             },
