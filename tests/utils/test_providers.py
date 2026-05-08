@@ -492,9 +492,11 @@ def test_flatten_catalog_entry_with_modality_pricing():
     info = _flatten_catalog_entry(entry)
     assert info["mode"] == "embedding"
     assert info["input_cost_per_token"] == pytest.approx(0.135e-6)
-    assert info["input_cost_per_image"] == pytest.approx(0.00006)
-    assert info["input_cost_per_video_per_second"] == pytest.approx(0.0007)
-    assert info["input_cost_per_audio_per_second"] == pytest.approx(0.00014)
+    assert info["modality"] == {
+        "image": {"input_per_million_tokens": 60.0},
+        "video": {"input_per_second": 0.0007},
+        "audio": {"input_per_second": 0.00014},
+    }
     assert info["supports_vision"] is True
 
 
@@ -511,9 +513,7 @@ def test_flatten_catalog_entry_without_modality_pricing():
         },
     }
     info = _flatten_catalog_entry(entry)
-    assert "input_cost_per_image" not in info
-    assert "input_cost_per_video_per_second" not in info
-    assert "input_cost_per_audio_per_second" not in info
+    assert "modality" not in info
 
 
 def test_bedrock_nova2_multimodal_embedding_pricing(monkeypatch):
@@ -524,9 +524,11 @@ def test_bedrock_nova2_multimodal_embedding_pricing(monkeypatch):
     assert model is not None
     assert model["mode"] == "embedding"
     assert model["input_cost_per_token"] == pytest.approx(0.135e-6)
-    assert model["input_cost_per_image"] == pytest.approx(0.00006)
-    assert model["input_cost_per_video_per_second"] == pytest.approx(0.0007)
-    assert model["input_cost_per_audio_per_second"] == pytest.approx(0.00014)
+    assert model["modality"] == {
+        "image": {"input_per_million_tokens": 60.0},
+        "video": {"input_per_second": 0.0007},
+        "audio": {"input_per_second": 0.00014},
+    }
     assert model["supports_vision"] is True
 
     _load_bundled_provider.cache_clear()

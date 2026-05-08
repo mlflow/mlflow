@@ -74,59 +74,6 @@ class ProviderConfigResponse(TypedDict):
     default_mode: str
 
 
-class ModelInfo(TypedDict, total=False):
-    """Flat model info used internally by cost_per_token, get_models, etc.
-
-    All fields are optional (total=False) since not every model has every field.
-    For example, embedding models may lack output pricing, and some models may
-    not have deprecation dates or cache pricing.
-    """
-
-    mode: str | None
-    supports_function_calling: bool
-    supports_vision: bool
-    supports_reasoning: bool
-    supports_prompt_caching: bool
-    supports_response_schema: bool
-    max_input_tokens: int
-    max_output_tokens: int
-    max_tokens: int
-    input_cost_per_token: float
-    output_cost_per_token: float
-    cache_read_input_token_cost: float
-    cache_creation_input_token_cost: float
-    input_cost_per_image: float
-    input_cost_per_video_per_second: float
-    input_cost_per_audio_per_second: float
-    deprecation_date: str
-    last_updated_at: str
-
-
-class ModelDict(TypedDict):
-    """Model dictionary returned by get_models() and the gateway API.
-
-    All fields are always present (some may be None).
-    """
-
-    model: str
-    provider: str | None
-    mode: str | None
-    supports_function_calling: bool
-    supports_vision: bool
-    supports_reasoning: bool
-    supports_prompt_caching: bool
-    supports_response_schema: bool
-    max_input_tokens: int | None
-    max_output_tokens: int | None
-    input_cost_per_token: float | None
-    output_cost_per_token: float | None
-    input_cost_per_image: float | None
-    input_cost_per_video_per_second: float | None
-    input_cost_per_audio_per_second: float | None
-    deprecation_date: str | None
-    last_updated_at: str | None
-
-
 # --- MLflow-native catalog schema TypedDicts (matches per-provider JSON files) ---
 
 
@@ -150,6 +97,58 @@ class CatalogLongContextTier(CatalogPricingTier, total=False):
 class CatalogPricingModality(TypedDict, total=False):
     input_per_million_tokens: float
     input_per_second: float
+
+
+class ModelInfo(TypedDict, total=False):
+    """Flat model info used internally by cost_per_token, get_models, etc.
+
+    All fields are optional (total=False) since not every model has every field.
+    For example, embedding models may lack output pricing, and some models may
+    not have deprecation dates or cache pricing.
+    """
+
+    mode: str | None
+    supports_function_calling: bool
+    supports_vision: bool
+    supports_reasoning: bool
+    supports_prompt_caching: bool
+    supports_response_schema: bool
+    max_input_tokens: int
+    max_output_tokens: int
+    max_tokens: int
+    input_cost_per_token: float
+    output_cost_per_token: float
+    cache_read_input_token_cost: float
+    cache_creation_input_token_cost: float
+    modality: dict[str, CatalogPricingModality]
+    deprecation_date: str
+    last_updated_at: str
+
+
+class ModelDict(TypedDict):
+    """Model dictionary returned by get_models() and the gateway API.
+
+    All fields are always present (some may be None).
+    """
+
+    model: str
+    provider: str | None
+    mode: str | None
+    supports_function_calling: bool
+    supports_vision: bool
+    supports_reasoning: bool
+    supports_prompt_caching: bool
+    supports_response_schema: bool
+    max_input_tokens: int | None
+    max_output_tokens: int | None
+    input_cost_per_token: float | None
+    output_cost_per_token: float | None
+    modality: dict[str, CatalogPricingModality] | None
+    deprecation_date: str | None
+    last_updated_at: str | None
+
+
+# --- (continued) MLflow-native catalog schema TypedDicts ---
 
 
 class CatalogPricing(CatalogPricingTier, total=False):
@@ -202,15 +201,7 @@ def _flatten_catalog_entry(entry: CatalogModelEntry) -> ModelInfo:
         if (v := pricing.get("cache_write_per_million_tokens")) is not None:
             info["cache_creation_input_token_cost"] = v / 1_000_000
         if modality := pricing.get("modality"):
-            if image := modality.get("image"):
-                if (v := image.get("input_per_million_tokens")) is not None:
-                    info["input_cost_per_image"] = v / 1_000_000
-            if video := modality.get("video"):
-                if (v := video.get("input_per_second")) is not None:
-                    info["input_cost_per_video_per_second"] = v
-            if audio := modality.get("audio"):
-                if (v := audio.get("input_per_second")) is not None:
-                    info["input_cost_per_audio_per_second"] = v
+            info["modality"] = modality
 
     if caps := entry.get("capabilities"):
         info["supports_function_calling"] = caps.get("function_calling", False)
@@ -1000,9 +991,7 @@ def _build_model_dict(
         "max_output_tokens": info.get("max_output_tokens"),
         "input_cost_per_token": info.get("input_cost_per_token"),
         "output_cost_per_token": info.get("output_cost_per_token"),
-        "input_cost_per_image": info.get("input_cost_per_image"),
-        "input_cost_per_video_per_second": info.get("input_cost_per_video_per_second"),
-        "input_cost_per_audio_per_second": info.get("input_cost_per_audio_per_second"),
+        "modality": info.get("modality"),
         "deprecation_date": info.get("deprecation_date"),
         "last_updated_at": info.get("last_updated_at"),
     }
