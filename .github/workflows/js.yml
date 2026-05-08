@@ -82,9 +82,10 @@ jobs:
       - name: Run tests
         env:
           MATRIX_OPTION: ${{ matrix.option }}
+          NODE_OPTIONS: --max-old-space-size=4096
         run: |
           "$GITHUB_WORKSPACE/dev/profile.sh" \
-            yarn test --silent --maxWorkers=1 --logHeapUsage $MATRIX_OPTION src/experiment-tracking/components
+            yarn test --silent --maxWorkers=2 --logHeapUsage $MATRIX_OPTION src/experiment-tracking/components
       - name: Upload profile metrics
         if: always()
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
