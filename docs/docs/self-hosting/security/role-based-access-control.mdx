@@ -58,10 +58,16 @@ endpoint, referencing a model definition, creating new experiments /
 registered models within a workspace).
 
 `NO_PERMISSIONS` exists as the deny-by-default sentinel — it's the effective
-state of any `(user, resource)` pair with no matching grant. It is **not
-grantable** as a role permission or a direct grant; the auth server rejects
-attempts to assign it. To deny access, simply don't grant it; an absent grant
-combined with a non-permissive `default_permission` yields the same effect.
+state of any `(user, resource)` pair with no matching grant in the resolver's
+chain. It is **not grantable** as a role permission or a direct grant; the
+auth server rejects attempts to assign it.
+
+RBAC has no explicit-deny override: a workspace-level grant cannot be
+"excepted" for a single resource by an absent or lesser per-resource grant
+— the resolver's specific-pattern check finds no row, falls through to the
+workspace grant, and allows. To restrict access to a specific resource,
+grant access more narrowly (per-resource or resource-type wildcard) rather
+than holding a broad workspace-level grant and trying to except the resource.
 
 ### Workspace-level grants
 

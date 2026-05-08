@@ -52,12 +52,16 @@ permission for that resource's workspace.
    - Carol can access `exp-456` only. The workspace `team-a` does not appear
      in Carol's `mlflow.list_workspaces()` results.
 
-`NO_PERMISSIONS` is the deny-by-default sentinel; it is **not grantable** as
-a role permission or a direct grant, so there's no "explicit deny" override.
-To restrict a user from a particular resource, give them only the broader
-roles they need and don't grant access to that specific resource — an absent
-grant combined with the workspace-level grant's resolution chain yields the
-deny.
+`NO_PERMISSIONS` is the deny-by-default sentinel for users with no matching
+grant in the resolver's chain; it is **not grantable** as a role permission
+or a direct grant, so there's no "explicit deny" override.
+
+This means RBAC cannot restrict a single resource for a user who already
+holds a workspace-level grant: the workspace grant covers every resource
+in the workspace, and an absent (or even lesser) per-resource grant doesn't
+override it. To restrict access to a specific resource, give the user
+narrower access in the first place — per-resource or resource-type-wildcard
+roles instead of the seeded `<workspace>/user` role.
 
 ## Default roles
 
