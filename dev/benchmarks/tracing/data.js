@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1778205591867,
+  "lastUpdate": 1778213195960,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -1511,6 +1511,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 4.9364710000020295,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "198982749+Copilot@users.noreply.github.com",
+            "name": "Copilot",
+            "username": "Copilot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0d361deb83e1a4c3d8e9c7de921ada8f42e5ccdc",
+          "message": "Add per-image/video/audio pricing to `amazon.nova-2-multimodal-embeddings-v1:0` in Bedrock catalog (#23117)\n\nCo-authored-by: copilot-swe-agent[bot] <198982749+Copilot@users.noreply.github.com>\nCo-authored-by: TomeHirata <33407409+TomeHirata@users.noreply.github.com>",
+          "timestamp": "2026-05-08T04:02:28Z",
+          "tree_id": "512c8d0aefd197c02dd9f28725bf23bbf85a7a4a",
+          "url": "https://github.com/mlflow/mlflow/commit/0d361deb83e1a4c3d8e9c7de921ada8f42e5ccdc"
+        },
+        "date": 1778213194853,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 36.051621999999384,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 21.15460462162037,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 21.058667921875607,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 20.776909189655843,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 21.821374111111492,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 12.704690399993979,
             "unit": "ms"
           }
         ]
