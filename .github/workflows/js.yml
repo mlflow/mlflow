@@ -82,7 +82,8 @@ jobs:
       - name: Run tests
         env:
           MATRIX_OPTION: ${{ matrix.option }}
-        # --maxWorkers=2: Jest's default (3) saturates the 16 GB runner.
+        # --maxWorkers=2: Jest's default (3) leaks module cache across test
+        # files and peaks ~15 GB RSS on the 16 GB runner; 2 keeps peak ~13 GB.
         run: |
           "$GITHUB_WORKSPACE/dev/profile.sh" \
             yarn test --silent --maxWorkers=2 $MATRIX_OPTION src/experiment-tracking/components
