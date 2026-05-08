@@ -3717,9 +3717,7 @@ def test_trace_link_to_run_permission(client, monkeypatch):
     assert link((user2, password2)).status_code == 403
 
     # Grant READ on exp_b → now allowed
-    _grant_experiment_permission(
-        client.tracking_uri, exp_b, user2, "READ", (user1, password1)
-    )
+    _grant_experiment_permission(client.tracking_uri, exp_b, user2, "READ", (user1, password1))
     assert link((user2, password2)).status_code == 200
 
 
