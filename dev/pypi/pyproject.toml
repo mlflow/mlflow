@@ -6,13 +6,3 @@ readme = "README.md"
 authors = [{ name = "mlflow", email = "mlflow@mlflow.com" }]
 requires-python = ">=3.10"
 dependencies = ["packaging"]
-
-[build-system]
-requires = ["setuptools>=61"]
-build-backend = "setuptools.build_meta"
-
-[tool.setuptools.packages.find]
-where = ["src"]
-
-[tool.setuptools.package-data]
-pypi = ["py.typed"]

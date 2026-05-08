@@ -27,7 +27,7 @@ def _parse_requires_python(dists: list[dict[str, Any]]) -> SpecifierSet | None:
 @dataclass(frozen=True)
 class Release:
     version: Version
-    upload_time: datetime | None
+    upload_time: datetime
     yanked: bool
     requires_python: SpecifierSet | None
 
@@ -43,6 +43,10 @@ class Package:
         raw_releases = data.get("releases") or {}
         releases: list[Release] = []
         for raw_version, dists in raw_releases.items():
+            if not dists:
+                # PyPI keeps the version slot even after all distributions are
+                # deleted; such releases can't be installed, so skip them.
+                continue
             try:
                 version = Version(raw_version)
             except InvalidVersion:
@@ -50,11 +54,14 @@ class Package:
                 # (e.g., https://pypi.org/project/pytz/2004d).
                 continue
             times = [t for d in dists if (t := _parse_upload_time(d.get("upload_time_iso_8601")))]
+            if not times:
+                # No distribution has a parseable upload_time; treat as unusable.
+                continue
             releases.append(
                 Release(
                     version=version,
-                    upload_time=min(times) if times else None,
-                    yanked=len(dists) > 0 and all(d.get("yanked", False) for d in dists),
+                    upload_time=min(times),
+                    yanked=all(d.get("yanked", False) for d in dists),
                     requires_python=_parse_requires_python(dists),
                 )
             )

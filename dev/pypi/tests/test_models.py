@@ -7,9 +7,17 @@ from packaging.specifiers import SpecifierSet
 from packaging.version import Version
 from pypi._models import Package
 
+_DEFAULT_UPLOAD = "2024-01-01T00:00:00Z"
+
 
 def _payload(releases: dict[str, list[dict[str, Any]]]) -> dict[str, Any]:
-    return {"info": {"name": "demo", "summary": "demo package"}, "releases": releases}
+    # Inject a default upload_time into every non-empty dist so tests don't
+    # have to spell it out — `from_json` skips releases that lack one.
+    normalized = {
+        v: [{"upload_time_iso_8601": _DEFAULT_UPLOAD, **d} for d in dists]
+        for v, dists in releases.items()
+    }
+    return {"info": {"name": "demo", "summary": "demo package"}, "releases": normalized}
 
 
 def test_versions_are_parsed_to_packaging_version() -> None:
@@ -21,6 +29,28 @@ def test_versions_are_parsed_to_packaging_version() -> None:
     )
     assert all(isinstance(v, Version) for v in pkg.versions)
     assert pkg.versions == (Version("1.0.0"), Version("2.0.0"))
+
+
+def test_releases_without_distributions_are_dropped() -> None:
+    pkg = Package.from_json(
+        _payload({
+            "1.0.0": [{}],
+            "0.5.0": [],  # all distributions deleted on PyPI
+        })
+    )
+    assert pkg.versions == (Version("1.0.0"),)
+
+
+def test_releases_without_upload_time_are_dropped() -> None:
+    raw = {
+        "info": {"name": "demo"},
+        "releases": {
+            "1.0.0": [{"upload_time_iso_8601": "2024-01-01T00:00:00Z"}],
+            "0.5.0": [{"filename": "demo-0.5.0.tar.gz"}],  # missing upload_time
+        },
+    }
+    pkg = Package.from_json(raw)
+    assert pkg.versions == (Version("1.0.0"),)
 
 
 def test_invalid_versions_are_dropped() -> None:
