@@ -23,6 +23,7 @@ if [ ! -r /proc/stat ] || [ ! -r /proc/meminfo ]; then
 fi
 
 (
+  printf 'timestamp,cpu_pct,mem_gb\n'
   prev_total=0
   prev_idle=0
   while true; do
@@ -52,12 +53,14 @@ cleanup() {
     return 0
   fi
 
+  local data_csv=/tmp/profile-data.csv
   local sampled=/tmp/profile-sampled.csv
   local n step total cpu_list mem_list
-  n=$(wc -l <"$SAMPLE_FILE")
+  tail -n +2 "$SAMPLE_FILE" >"$data_csv"
+  n=$(wc -l <"$data_csv")
   step=$((n / 30 + 1))
-  awk -v step="$step" 'NR % step == 0' "$SAMPLE_FILE" >"$sampled"
-  total=$(awk -F, 'NR==1{first=$1} END{print $1-first}' "$SAMPLE_FILE")
+  awk -v step="$step" 'NR % step == 0' "$data_csv" >"$sampled"
+  total=$(awk -F, 'NR==1{first=$1} END{print $1-first}' "$data_csv")
   cpu_list=$(awk -F, '{printf "%s,",$2}' "$sampled" | sed 's/,$//')
   mem_list=$(awk -F, '{printf "%s,",$3}' "$sampled" | sed 's/,$//')
 
