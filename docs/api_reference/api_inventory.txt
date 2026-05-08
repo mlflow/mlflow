@@ -449,6 +449,7 @@ mlflow.entities.LifecycleStage.matches_view_type
 mlflow.entities.LifecycleStage.view_type_to_stages
 mlflow.entities.Link
 mlflow.entities.Link.from_dict
+mlflow.entities.Link.from_otel_proto
 mlflow.entities.Link.to_dict
 mlflow.entities.LiveSpan
 mlflow.entities.LiveSpan.add_event
