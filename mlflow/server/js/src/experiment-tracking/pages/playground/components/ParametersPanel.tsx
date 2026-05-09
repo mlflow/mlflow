@@ -66,73 +66,67 @@ export const ParametersPanel = ({ value, onChange }: Props) => {
         </Popover.Root>
       </div>
 
-      <div>
-        <FormUI.Label htmlFor="mlflow.playground.params.temperature">
-          <FormattedMessage
-            defaultMessage="Temperature"
-            description="Label for the temperature input on the playground parameters panel"
-          />
-        </FormUI.Label>
-        <Input
-          componentId="mlflow.playground.params.temperature"
-          id="mlflow.playground.params.temperature"
-          type="number"
-          min={0}
-          max={2}
-          step={0.1}
-          value={formatValue(value.temperature)}
-          placeholder={intl.formatMessage({
-            defaultMessage: 'e.g. 0.7',
-            description: 'Placeholder for the temperature input on the playground parameters panel',
-          })}
-          onChange={handleField('temperature')}
+      <FormUI.Label htmlFor="mlflow.playground.params.temperature">
+        <FormattedMessage
+          defaultMessage="Temperature"
+          description="Label for the temperature input on the playground parameters panel"
         />
-      </div>
+      </FormUI.Label>
+      <Input
+        componentId="mlflow.playground.params.temperature"
+        id="mlflow.playground.params.temperature"
+        type="number"
+        min={0}
+        max={2}
+        step={0.1}
+        value={formatValue(value.temperature)}
+        placeholder={intl.formatMessage({
+          defaultMessage: 'e.g. 0.7',
+          description: 'Placeholder for the temperature input on the playground parameters panel',
+        })}
+        onChange={handleField('temperature')}
+      />
 
-      <div>
-        <FormUI.Label htmlFor="mlflow.playground.params.max_tokens">
-          <FormattedMessage
-            defaultMessage="Max tokens"
-            description="Label for the max-tokens input on the playground parameters panel"
-          />
-        </FormUI.Label>
-        <Input
-          componentId="mlflow.playground.params.max_tokens"
-          id="mlflow.playground.params.max_tokens"
-          type="number"
-          min={1}
-          step={1}
-          value={formatValue(value.max_tokens)}
-          placeholder={intl.formatMessage({
-            defaultMessage: 'e.g. 512',
-            description: 'Placeholder for the max-tokens input on the playground parameters panel',
-          })}
-          onChange={handleField('max_tokens')}
+      <FormUI.Label htmlFor="mlflow.playground.params.max_tokens">
+        <FormattedMessage
+          defaultMessage="Max tokens"
+          description="Label for the max-tokens input on the playground parameters panel"
         />
-      </div>
+      </FormUI.Label>
+      <Input
+        componentId="mlflow.playground.params.max_tokens"
+        id="mlflow.playground.params.max_tokens"
+        type="number"
+        min={1}
+        step={1}
+        value={formatValue(value.max_tokens)}
+        placeholder={intl.formatMessage({
+          defaultMessage: 'e.g. 512',
+          description: 'Placeholder for the max-tokens input on the playground parameters panel',
+        })}
+        onChange={handleField('max_tokens')}
+      />
 
-      <div>
-        <FormUI.Label htmlFor="mlflow.playground.params.top_p">
-          <FormattedMessage
-            defaultMessage="Top P"
-            description="Label for the top-p input on the playground parameters panel"
-          />
-        </FormUI.Label>
-        <Input
-          componentId="mlflow.playground.params.top_p"
-          id="mlflow.playground.params.top_p"
-          type="number"
-          min={0}
-          max={1}
-          step={0.05}
-          value={formatValue(value.top_p)}
-          placeholder={intl.formatMessage({
-            defaultMessage: 'e.g. 1.0',
-            description: 'Placeholder for the top-p input on the playground parameters panel',
-          })}
-          onChange={handleField('top_p')}
+      <FormUI.Label htmlFor="mlflow.playground.params.top_p">
+        <FormattedMessage
+          defaultMessage="Top P"
+          description="Label for the top-p input on the playground parameters panel"
         />
-      </div>
+      </FormUI.Label>
+      <Input
+        componentId="mlflow.playground.params.top_p"
+        id="mlflow.playground.params.top_p"
+        type="number"
+        min={0}
+        max={1}
+        step={0.05}
+        value={formatValue(value.top_p)}
+        placeholder={intl.formatMessage({
+          defaultMessage: 'e.g. 1.0',
+          description: 'Placeholder for the top-p input on the playground parameters panel',
+        })}
+        onChange={handleField('top_p')}
+      />
     </div>
   );
 };
