@@ -457,15 +457,20 @@ def trace_to_dspy_example(trace: Trace, judge: Judge) -> list["dspy.Example"]:
             example_kwargs["expectations"] = expectations
             example_inputs.append("expectations")
 
-        # Create a DSPy example for each resolved assessment
+        # Create a DSPy example for each resolved assessment. Tag with provenance
+        # metadata so callers can identify the originating trace/assessment without
+        # round-tripping through the trace store.
         examples = []
         for assessment in resolved_assessments:
             example = dspy.Example(
                 result=str(assessment.feedback.value).lower(),
                 rationale=assessment.rationale or "",
                 **example_kwargs,
-            )
-            examples.append(example.with_inputs(*example_inputs))
+            ).with_inputs(*example_inputs)
+            example._trace_id = trace.info.trace_id
+            example._assessment_id = assessment.assessment_id
+            example._last_update_time_ms = assessment.last_update_time_ms
+            examples.append(example)
 
         return examples
 

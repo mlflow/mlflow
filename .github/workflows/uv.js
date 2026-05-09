@@ -129,4 +129,14 @@ module.exports = async ({ github, context }) => {
     labels: ["team-review"],
   });
   console.log("Added team-review label to the PR");
+
+  await github.graphql(
+    `mutation($pullRequestId: ID!) {
+      enablePullRequestAutoMerge(input: { pullRequestId: $pullRequestId }) {
+        pullRequest { autoMergeRequest { enabledAt } }
+      }
+    }`,
+    { pullRequestId: pr.node_id }
+  );
+  console.log("Enabled auto-merge");
 };

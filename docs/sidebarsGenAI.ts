@@ -155,6 +155,11 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'tracing/app-instrumentation/logging',
+                  label: 'Setting Log Levels',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/track-environments-context/index',
                   label: 'Track Application Versions',
                 },
@@ -762,6 +767,11 @@ const sidebarsGenAI: SidebarsConfig = {
                       type: 'doc',
                       id: 'eval-monitor/scorers/third-party/guardrails',
                       label: 'Guardrails AI',
+                    },
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/third-party/google-adk',
+                      label: 'Google ADK',
                     },
                   ],
                   collapsed: false,

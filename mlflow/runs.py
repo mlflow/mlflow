@@ -295,7 +295,9 @@ def get_metric_history(run_id: str, metric_key: str, max_results: int | None) ->
         ]
 
         # Apply max_results limit if specified
-        if max_results is not None and max_results > 0:
+        if max_results is not None:
+            if max_results < 0:
+                raise click.UsageError(f"max_results cannot be negative, got {max_results}")
             history_data = history_data[:max_results]
 
         click.echo(json.dumps(history_data, indent=2))

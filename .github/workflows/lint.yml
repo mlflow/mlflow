@@ -90,6 +90,10 @@ jobs:
         run: |
           uv run --no-sync pytest dev/clint
 
+      - name: Test pypi
+        run: |
+          uv run --no-sync pytest dev/pypi
+
       - name: Check function signatures
         if: matrix.os == 'ubuntu-latest'
         run: |

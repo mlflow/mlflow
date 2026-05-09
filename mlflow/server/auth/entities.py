@@ -10,17 +10,11 @@ class User:
         username,
         password_hash,
         is_admin,
-        experiment_permissions=None,
-        registered_model_permissions=None,
-        scorer_permissions=None,
     ):
         self._id = id_
         self._username = username
         self._password_hash = password_hash
         self._is_admin = is_admin
-        self._experiment_permissions = experiment_permissions
-        self._registered_model_permissions = registered_model_permissions
-        self._scorer_permissions = scorer_permissions
 
     @property
     def id(self):
@@ -42,40 +36,11 @@ class User:
     def is_admin(self, is_admin):
         self._is_admin = is_admin
 
-    @property
-    def experiment_permissions(self):
-        return self._experiment_permissions
-
-    @experiment_permissions.setter
-    def experiment_permissions(self, experiment_permissions):
-        self._experiment_permissions = experiment_permissions
-
-    @property
-    def registered_model_permissions(self):
-        return self._registered_model_permissions
-
-    @registered_model_permissions.setter
-    def registered_model_permissions(self, registered_model_permissions):
-        self._registered_model_permissions = registered_model_permissions
-
-    @property
-    def scorer_permissions(self):
-        return self._scorer_permissions
-
-    @scorer_permissions.setter
-    def scorer_permissions(self, scorer_permissions):
-        self._scorer_permissions = scorer_permissions
-
     def to_json(self):
         return {
             "id": self.id,
             "username": self.username,
             "is_admin": self.is_admin,
-            "experiment_permissions": [p.to_json() for p in self.experiment_permissions],
-            "registered_model_permissions": [
-                p.to_json() for p in self.registered_model_permissions
-            ],
-            "scorer_permissions": [p.to_json() for p in self.scorer_permissions],
         }
 
     @classmethod
@@ -85,16 +50,6 @@ class User:
             username=dictionary["username"],
             password_hash="REDACTED",
             is_admin=dictionary["is_admin"],
-            experiment_permissions=[
-                ExperimentPermission.from_json(p) for p in dictionary["experiment_permissions"]
-            ],
-            registered_model_permissions=[
-                RegisteredModelPermission.from_json(p)
-                for p in dictionary["registered_model_permissions"]
-            ],
-            scorer_permissions=[
-                ScorerPermission.from_json(p) for p in dictionary["scorer_permissions"]
-            ],
         )
 
 

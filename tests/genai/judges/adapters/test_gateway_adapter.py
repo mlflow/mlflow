@@ -1150,6 +1150,9 @@ def test_invoke_with_tools_populates_output_fields(mock_trace):
     assert result.num_completion_tokens == 5
 
 
+# --- Workspace header forwarding tests ---
+
+
 def test_invoke_via_gateway_forwards_workspace_header_single_shot():
     """_invoke_via_gateway should attach X-MLFLOW-WORKSPACE when provider is 'gateway'
     and a workspace is active."""

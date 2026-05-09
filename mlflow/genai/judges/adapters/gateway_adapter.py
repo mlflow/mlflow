@@ -60,6 +60,8 @@ from mlflow.metrics.genai.model_utils import (
 )
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INTERNAL_ERROR, INVALID_PARAMETER_VALUE
 from mlflow.tracing.constant import AssessmentMetadataKey
+from mlflow.utils.workspace_context import get_request_workspace
+from mlflow.utils.workspace_utils import WORKSPACE_HEADER_NAME
 
 _logger = logging.getLogger(__name__)
 
@@ -301,7 +303,7 @@ def _invoke_via_gateway(
     """
     # Forward workspace context for gateway provider
     if provider == "gateway":
-        workspace_headers = {}
+        workspace_headers: dict[str, str] = {}
         if ws := get_request_workspace():
             workspace_headers[WORKSPACE_HEADER_NAME] = ws
         extra_headers = {**workspace_headers, **(extra_headers or {})}

@@ -3,7 +3,7 @@ description: "Set up Node"
 inputs:
   node-version:
     description: "Node version to use."
-    default: 20
+    default: 24
     required: false
   cache:
     description: "Package manager to cache (e.g., npm, yarn)."

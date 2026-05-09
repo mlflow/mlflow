@@ -323,7 +323,7 @@ jobs:
           # (removed HallucinationEvaluator/RelevanceEvaluator/etc. and LiteLLMModel)
           uv pip install \
             -r requirements/test-requirements.txt \
-            deepeval ragas 'arize-phoenix-evals<3.0.0' trulens trulens-providers-litellm guardrails-ai
+            deepeval ragas 'arize-phoenix-evals<3.0.0' trulens trulens-providers-litellm guardrails-ai google-adk
       - uses: ./.github/actions/show-versions
       - name: Run GenAI Tests (OSS)
         run: |
@@ -331,9 +331,16 @@ jobs:
 
       - name: Run GenAI Tests (Databricks)
         run: |
+          # google-adk pins opentelemetry-sdk<1.39.0, so the base venv resolves
+          # to 1.38. The --with databricks-agents overlay pulls a newer
+          # opentelemetry-sdk on top, and guardrails-ai's OTLP grpc exporter
+          # (still 1.38 in the venv) tries to import LogData from the overlay
+          # sdk where it no longer exists. The guardrails tests already run in
+          # the OSS step above; skip them here until google-adk relaxes its pin.
           uv run --no-sync --with databricks-agents \
             pytest tests/genai --ignore tests/genai/test_genai_import_without_agent_sdk.py \
-            --ignore tests/genai/optimize --ignore tests/genai/prompts
+            --ignore tests/genai/optimize --ignore tests/genai/prompts \
+            --ignore tests/genai/scorers/guardrails
 
   pyfunc:
     if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
