@@ -8,11 +8,16 @@ try {
 } catch {}
 execSync("sleep 1");
 
+execSync("sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq tshark < /dev/null", {
+  shell: "/bin/bash",
+  stdio: "inherit",
+});
+
 let hosts = "";
 try {
   hosts = execSync(
-    `sudo tcpdump -r ${pcap} -nn -A 'tcp dst port 443' ` +
-      `| grep -oE '[a-z0-9][a-z0-9.-]*\\.[a-z]{2,63}' | sort -u`,
+    `sudo tshark -r ${pcap} -Y 'tls.handshake.type==1' ` +
+      `-T fields -e tls.handshake.extensions_server_name | sort -u`,
     { shell: "/bin/bash" }
   )
     .toString()
