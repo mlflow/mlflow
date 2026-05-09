@@ -1,0 +1,7 @@
+name: "egress"
+description: "Capture outbound TCP traffic for the duration of the job and print the contacted hostnames."
+runs:
+  using: node24
+  main: main.js
+  post: post.js
+  post-if: always()

@@ -83,6 +83,7 @@ jobs:
         with:
           persist-credentials: false
           submodules: true
+      - uses: ./.github/actions/egress
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/free-disk-space
       - uses: ./.github/actions/setup-python
