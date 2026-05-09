@@ -40,6 +40,27 @@ safe_pull_request_target_workflow if {
 	input.name == "UI Preview"
 }
 
+deny_create_app_token_without_permissions contains msg if {
+	some job_id, job in input.jobs
+	some step in job.steps
+	startswith(step.uses, "actions/create-github-app-token@")
+	not step_has_app_token_permissions(step)
+	msg := sprintf(
+		concat("", [
+			"actions/create-github-app-token in job '%s' must explicitly request permissions ",
+			"via 'permission-<name>: <level>' inputs (e.g., permission-contents: write) for ",
+			"least-privilege access. See ",
+			"https://github.com/actions/create-github-app-token#create-a-token-with-specific-permissions",
+		]),
+		[job_id],
+	)
+}
+
+step_has_app_token_permissions(step) if {
+	some key, _ in step["with"]
+	startswith(key, "permission-")
+}
+
 deny_unnecessary_github_token contains msg if {
 	some job in input.jobs
 	some step in job.steps
