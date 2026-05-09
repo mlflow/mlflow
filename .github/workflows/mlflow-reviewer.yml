@@ -13,9 +13,9 @@ permissions:
 
 concurrency:
   # Single group per PR. cancel-in-progress is false so the auto-trigger run
-  # always finishes; subsequent /review invocations queue behind it. The
-  # orchestrator's head_sha cache dedupes a queued /review against a same-SHA
-  # auto run, so /review --no-cache is the only way to force a re-review.
+  # always finishes; subsequent /cheese invocations queue behind it. The
+  # orchestrator's head_sha cache dedupes a queued /cheese against a same-SHA
+  # auto run, so /cheese --no-cache is the only way to force a re-review.
   group: nailaopus-${{ github.event.pull_request.number || github.event.issue.number }}
   cancel-in-progress: false
 
@@ -24,7 +24,7 @@ jobs:
     if: |
       (github.event_name == 'issue_comment' &&
        github.event.issue.pull_request != null &&
-       startsWith(github.event.comment.body, '/review') &&
+       startsWith(github.event.comment.body, '/cheese') &&
        contains(fromJSON('["MEMBER", "COLLABORATOR", "OWNER"]'), github.event.comment.author_association))
       ||
       (github.event_name == 'pull_request' &&
@@ -164,7 +164,7 @@ jobs:
           PR: ${{ steps.ctx.outputs.pr }}
           REPO: ${{ github.repository }}
           # FLAGS is empty on auto-triggered runs by design: the flags step
-          # only runs for /review comments, and there is no comment body to
+          # only runs for /cheese comments, and there is no comment body to
           # parse on a pull_request event.
           FLAGS: ${{ steps.flags.outputs.flags }}
         # Inputs flow through env vars rather than `${{ }}` interpolation
