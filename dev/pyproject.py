@@ -369,7 +369,10 @@ def build(package_type: PackageType) -> None:
                 "gateway": gateways_requirements,
                 "genai": genai_requirements,
                 # click 8.3.0 causes MLflow MCP server to fail: https://github.com/mlflow/mlflow/issues/18747
-                "mcp": ["fastmcp<4,>=2.0.0", "click!=8.3.0"],
+                # fastmcp lower bound raised from 2.0.0 to exclude versions affected by
+                # GHSA-rww4-4w9c-7733, GHSA-m8x7-r2rg-vh5g, and GHSA-vv7q-7jx5-f767.
+                # See mlflow#23061.
+                "mcp": ["fastmcp<4,>=3.2.0", "click!=8.3.0"],
                 "azure": [
                     # Required to log artifacts and models to Azure Blob Storage
                     "azure-storage-blob>=12",
