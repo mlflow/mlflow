@@ -57,21 +57,17 @@ async def _fetch_json(session: aiohttp.ClientSession, url: str) -> dict[str, Any
     raise PyPIError(f"Failed to fetch {url} after {_RETRIES} attempts: {last_error}")
 
 
-async def get_package(name: str, *, session: aiohttp.ClientSession | None = None) -> Package:
-    """Fetch package metadata from PyPI. Override the base URL with $PYPI_URL.
-
-    Pass an open ``aiohttp.ClientSession`` via ``session`` to share a connection
-    pool across many calls. If omitted, the call is delegated to :func:`get_packages`,
-    which opens a single-shot session.
-    """
+async def _fetch_one(session: aiohttp.ClientSession, name: str) -> Package:
     if (cached := _cache.get(name)) is not None:
         return cached
-    if session is None:
-        return (await get_packages([name]))[0]
-    payload = await _fetch_json(session, _url(name))
-    pkg = Package.from_json(payload)
+    pkg = Package.from_json(await _fetch_json(session, _url(name)))
     _cache[name] = pkg
     return pkg
+
+
+async def get_package(name: str) -> Package:
+    """Fetch package metadata from PyPI. Override the base URL with $PYPI_URL."""
+    return (await get_packages([name]))[0]
 
 
 @overload
@@ -94,7 +90,7 @@ async def get_packages(
     timeout = aiohttp.ClientTimeout(total=_TIMEOUT_SECONDS)
     async with aiohttp.ClientSession(timeout=timeout) as session:
         return await asyncio.gather(
-            *(get_package(n, session=session) for n in names),
+            *(_fetch_one(session, n) for n in names),
             return_exceptions=return_exceptions,
         )
 
