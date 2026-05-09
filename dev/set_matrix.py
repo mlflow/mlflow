@@ -330,10 +330,13 @@ def infer_python_version(package: Package, version: str, repo_url: str | None = 
     """
     candidates = ("3.10", "3.11")
 
-    if version == DEV_VERSION and repo_url:
-        if rp := _requires_python_from_repo(repo_url):
+    if version == DEV_VERSION:
+        # `Version("dev")` would raise InvalidVersion, so resolve dev separately
+        # via the repo's pyproject.toml when available.
+        if repo_url and (rp := _requires_python_from_repo(repo_url)):
             spec = SpecifierSet(rp)
             return next(filter(spec.contains, candidates), candidates[0])
+        return candidates[0]
 
     if (release := package.get_release(version)) and release.requires_python:
         return next(filter(release.requires_python.contains, candidates), candidates[0])
@@ -552,7 +555,7 @@ def validate_requirements(
 
 async def expand_config(config: dict[str, Any], *, is_ref: bool = False) -> set[MatrixItem]:
     matrix = set()
-    pip_releases = [fc.package_info.pip_release for fc in config.values()]
+    pip_releases = list({fc.package_info.pip_release for fc in config.values()})
     packages = dict(zip(pip_releases, await get_packages(pip_releases)))
     for name, flavor_config in config.items():
         flavor = get_flavor(name)
