@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import os
 from collections.abc import Iterable
-from typing import Any
+from typing import Any, Literal, overload
 
 import aiohttp
 
@@ -61,26 +61,42 @@ async def get_package(name: str, *, session: aiohttp.ClientSession | None = None
     """Fetch package metadata from PyPI. Override the base URL with $PYPI_URL.
 
     Pass an open ``aiohttp.ClientSession`` via ``session`` to share a connection
-    pool across many calls. If omitted, a single-shot session is created per call.
+    pool across many calls. If omitted, the call is delegated to :func:`get_packages`,
+    which opens a single-shot session.
     """
     if (cached := _cache.get(name)) is not None:
         return cached
     if session is None:
-        timeout = aiohttp.ClientTimeout(total=_TIMEOUT_SECONDS)
-        async with aiohttp.ClientSession(timeout=timeout) as s:
-            payload = await _fetch_json(s, _url(name))
-    else:
-        payload = await _fetch_json(session, _url(name))
+        return (await get_packages([name]))[0]
+    payload = await _fetch_json(session, _url(name))
     pkg = Package.from_json(payload)
     _cache[name] = pkg
     return pkg
 
 
-async def get_packages(names: Iterable[str]) -> list[Package]:
-    """Fetch multiple packages concurrently with one shared aiohttp session."""
+@overload
+async def get_packages(
+    names: Iterable[str], *, return_exceptions: Literal[False] = ...
+) -> list[Package]: ...
+@overload
+async def get_packages(
+    names: Iterable[str], *, return_exceptions: Literal[True]
+) -> list[Package | BaseException]: ...
+async def get_packages(
+    names: Iterable[str], *, return_exceptions: bool = False
+) -> list[Package] | list[Package | BaseException]:
+    """Fetch multiple packages concurrently with one shared aiohttp session.
+
+    Set ``return_exceptions=True`` to mirror :func:`asyncio.gather`'s behavior:
+    failed fetches return their ``BaseException`` in place of a ``Package`` rather
+    than aborting the whole batch.
+    """
     timeout = aiohttp.ClientTimeout(total=_TIMEOUT_SECONDS)
     async with aiohttp.ClientSession(timeout=timeout) as session:
-        return await asyncio.gather(*(get_package(n, session=session) for n in names))
+        return await asyncio.gather(
+            *(get_package(n, session=session) for n in names),
+            return_exceptions=return_exceptions,
+        )
 
 
 def clear_cache() -> None:

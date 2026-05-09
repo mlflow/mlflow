@@ -7,7 +7,7 @@ from collections.abc import Sequence
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from pypi import Package, PyPIError, get_package
+from pypi import Package, get_packages
 
 
 def get_cooldown_days() -> int:
@@ -20,13 +20,6 @@ def get_cooldown_days() -> int:
 def get_distributions() -> list[tuple[str, str]]:
     res = subprocess.check_output([sys.executable, "-m", "pip", "list", "--format", "json"])
     return [(pkg["name"], pkg["version"]) for pkg in json.loads(res)]
-
-
-async def safe_get_package(name: str) -> Package | None:
-    try:
-        return await get_package(name)
-    except PyPIError:
-        return None
 
 
 def get_longest_string_length(array: Sequence[str]) -> int:
@@ -43,7 +36,8 @@ def format_age_past_cooldown(release_date: datetime | None, cooldown_days: int) 
 async def main() -> None:
     cooldown_days = get_cooldown_days()
     distributions = get_distributions()
-    pkgs = await asyncio.gather(*(safe_get_package(name) for name, _ in distributions))
+    raw = await get_packages([name for name, _ in distributions], return_exceptions=True)
+    pkgs: list[Package | None] = [r if isinstance(r, Package) else None for r in raw]
     results: list[datetime | None] = [
         (release.upload_time if (release := pkg.get_release(version)) else None) if pkg else None
         for pkg, (_, version) in zip(pkgs, distributions)
