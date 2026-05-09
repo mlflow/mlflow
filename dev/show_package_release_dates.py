@@ -3,13 +3,11 @@ import json
 import re
 import subprocess
 import sys
-import traceback
 from collections.abc import Sequence
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-import aiohttp
-from pydantic import BaseModel
+from pypi import Package, PyPIError, get_package
 
 
 def get_cooldown_days() -> int:
@@ -19,37 +17,15 @@ def get_cooldown_days() -> int:
     raise RuntimeError(f'`exclude-newer = "P<N>D"` not found in {pyproject}')
 
 
-class ReleaseFile(BaseModel):
-    upload_time_iso_8601: str
-
-
-class PyPIResponse(BaseModel):
-    releases: dict[str, list[ReleaseFile]]
-
-
 def get_distributions() -> list[tuple[str, str]]:
     res = subprocess.check_output([sys.executable, "-m", "pip", "list", "--format", "json"])
     return [(pkg["name"], pkg["version"]) for pkg in json.loads(res)]
 
 
-def extract_upload_time(response: PyPIResponse, version: str) -> datetime | None:
-    for f in response.releases.get(version, []):
-        return datetime.fromisoformat(f.upload_time_iso_8601.replace("Z", "+00:00"))
-    return None
-
-
-async def get_release_date(
-    session: aiohttp.ClientSession, package: str, version: str
-) -> datetime | None:
+async def safe_get_package(name: str) -> Package | None:
     try:
-        async with session.get(f"https://pypi.python.org/pypi/{package}/json", timeout=10) as resp:
-            resp.raise_for_status()
-            resp_json = await resp.json()
-            response = PyPIResponse.model_validate(resp_json)
-            return extract_upload_time(response, version)
-
-    except Exception:
-        traceback.print_exc()
+        return await get_package(name)
+    except PyPIError:
         return None
 
 
@@ -67,9 +43,11 @@ def format_age_past_cooldown(release_date: datetime | None, cooldown_days: int) 
 async def main() -> None:
     cooldown_days = get_cooldown_days()
     distributions = get_distributions()
-    async with aiohttp.ClientSession() as session:
-        tasks = [get_release_date(session, pkg, ver) for pkg, ver in distributions]
-        results = await asyncio.gather(*tasks)
+    pkgs = await asyncio.gather(*(safe_get_package(name) for name, _ in distributions))
+    results: list[datetime | None] = [
+        (release.upload_time if (release := pkg.get_release(version)) else None) if pkg else None
+        for pkg, (_, version) in zip(pkgs, distributions)
+    ]
 
     ages = [format_age_past_cooldown(r, cooldown_days) for r in results]
     packages, versions = list(zip(*distributions))

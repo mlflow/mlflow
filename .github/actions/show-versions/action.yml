@@ -13,7 +13,7 @@ runs:
             source .venv/bin/activate
           fi
         fi
-        pip --disable-pip-version-check install aiohttp > /dev/null
+        pip --disable-pip-version-check install ./dev/pypi > /dev/null
         echo ">>> package versions"
         status=0
         python dev/show_package_release_dates.py || status=$?

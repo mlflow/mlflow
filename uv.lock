@@ -10,7 +10,7 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "2026-04-24T16:07:07.638534Z"
+exclude-newer = "2026-04-25T01:47:11.547752Z"
 exclude-newer-span = "P14D"
 
 [options.exclude-newer-package]
@@ -6869,11 +6869,15 @@ name = "pypi"
 version = "0.1.0"
 source = { editable = "dev/pypi" }
 dependencies = [
+    { name = "aiohttp" },
     { name = "packaging" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "packaging" }]
+requires-dist = [
+    { name = "aiohttp" },
+    { name = "packaging" },
+]
 
 [[package]]
 name = "pyproject-hooks"

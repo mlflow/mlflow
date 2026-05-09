@@ -4,4 +4,4 @@ version = "0.1.0"
 description = "A minimal client for fetching package metadata from PyPI."
 readme = "README.md"
 requires-python = ">=3.10"
-dependencies = ["packaging"]
+dependencies = ["aiohttp", "packaging"]
