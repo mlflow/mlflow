@@ -28,7 +28,7 @@ const KNOWN_ROLES: ChatRole[] = ['system', 'user', 'assistant'];
 
 const isKnownRole = (role: string): role is ChatRole => (KNOWN_ROLES as string[]).includes(role);
 
-export const buildMessagesFromVersion = (version: RegisteredPromptVersion): ChatMessage[] => {
+const buildMessagesFromVersion = (version: RegisteredPromptVersion): ChatMessage[] => {
   const tagValue = getPromptContentTagValue(version) ?? '';
 
   if (isChatPrompt(version)) {
