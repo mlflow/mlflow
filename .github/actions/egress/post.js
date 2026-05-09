@@ -11,13 +11,15 @@ execSync("sleep 1");
 let hosts = "";
 try {
   hosts = execSync(
-    `sudo tshark -r ${pcap} -Y 'tls.handshake.type==1' ` +
-      `-T fields -e tls.handshake.extensions_server_name 2>/dev/null | sort -u`,
+    `sudo tcpdump -r ${pcap} -nn -A 'tcp dst port 443' ` +
+      `| grep -oE '[a-z0-9][a-z0-9.-]*\\.[a-z]{2,63}' | sort -u`,
     { shell: "/bin/bash" }
   )
     .toString()
     .trim();
-} catch {}
+} catch (err) {
+  console.log(`extraction failed: ${err.message}`);
+}
 
 console.log("Outbound hosts contacted during this job:");
 if (hosts) {
