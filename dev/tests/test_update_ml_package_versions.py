@@ -51,9 +51,10 @@ def run_test(src, src_expected, mock_packages):
 
     with (
         mock.patch("dev.update_ml_package_versions.get_packages", new=fake_get_packages),
-        mock.patch("dev.update_ml_package_versions.check_pypi_accessibility"),
+        mock.patch("dev.update_ml_package_versions.check_pypi_accessibility") as mock_check,
     ):
         update_ml_package_versions.update()
+        mock_check.assert_called_once()
 
     assert versions_yaml.read_text() == src_expected
 

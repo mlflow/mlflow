@@ -234,7 +234,7 @@ def parse_args():
 
 def get_min_supported_version(versions_infos: list[VersionInfo], genai: bool = False) -> str | None:
     """
-    Get the minimum version that is released within the past two years
+    Get the minimum version that is released within the past 1 year (genai) or 2 years (non-genai).
     """
     years = 1 if genai else 2
     min_support_date = datetime.now(timezone.utc) - timedelta(days=years * 365)
