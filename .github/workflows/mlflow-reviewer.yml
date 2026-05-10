@@ -19,6 +19,10 @@ concurrency:
   group: nailaopus-${{ github.event.pull_request.number || github.event.issue.number }}
   cancel-in-progress: false
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   review:
     if: |
