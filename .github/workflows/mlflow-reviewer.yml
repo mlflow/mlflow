@@ -6,11 +6,6 @@ on:
   pull_request:
     types: [opened, ready_for_review]
 
-permissions:
-  contents: read
-  pull-requests: write
-  issues: write
-
 concurrency:
   # Single group per PR. cancel-in-progress is false so the auto-trigger run
   # always finishes; subsequent /cheese invocations queue behind it. The
@@ -25,6 +20,10 @@ defaults:
 
 jobs:
   review:
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
     if: |
       (github.event_name == 'issue_comment' &&
        github.event.issue.pull_request != null &&
@@ -60,14 +59,23 @@ jobs:
           app-id: ${{ vars.NAILAOPUS_APP_ID }}
           private-key: ${{ secrets.NAILAOPUS_APP_KEY }}
           owner: mlflow
+          # Least-privilege: explicitly request only what the workflow uses
+          # on each repo. The App's installation permissions are the upper
+          # bound; these inputs narrow the issued token further.
+          permission-contents: read
+          permission-pull-requests: write
+          permission-issues: write
+          permission-metadata: read
 
       - name: React eyes on trigger comment
         if: steps.ctx.outputs.trigger == 'comment'
         env:
           GH_TOKEN: ${{ steps.app_token.outputs.token }}
+          REPO: ${{ github.repository }}
+          COMMENT_ID: ${{ github.event.comment.id }}
         run: |
           gh api \
-            "repos/${{ github.repository }}/issues/comments/${{ github.event.comment.id }}/reactions" \
+            "repos/$REPO/issues/comments/$COMMENT_ID/reactions" \
             -X POST -f content=eyes || true
 
       - name: Reject fork PRs (comment-triggered only)
@@ -128,6 +136,9 @@ jobs:
           fetch-depth: 0
           path: mlflow
           token: ${{ steps.app_token.outputs.token }}
+          # Read-only checkout; we never push from the workflow. Avoid
+          # persisting the App token into .git/config.
+          persist-credentials: false
 
       - name: Checkout mlflow/internal (orchestrator code)
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -135,6 +146,7 @@ jobs:
           repository: mlflow/internal
           path: internal
           token: ${{ steps.app_token.outputs.token }}
+          persist-credentials: false
 
       - name: Set up Python
         uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
@@ -171,7 +183,7 @@ jobs:
           # only runs for /cheese comments, and there is no comment body to
           # parse on a pull_request event.
           FLAGS: ${{ steps.flags.outputs.flags }}
-        # Inputs flow through env vars rather than `${{ }}` interpolation
+        # Inputs flow through env vars rather than ${{ }} interpolation
         # directly into the shell, so an unexpected character in any value
         # (today none reach here, but the pattern is hardening for drift)
         # is treated as data, not as code. $FLAGS is intentionally unquoted
@@ -183,26 +195,34 @@ jobs:
         if: success() && steps.ctx.outputs.trigger == 'comment'
         env:
           GH_TOKEN: ${{ steps.app_token.outputs.token }}
+          REPO: ${{ github.repository }}
+          COMMENT_ID: ${{ github.event.comment.id }}
         run: |
           gh api \
-            "repos/${{ github.repository }}/issues/comments/${{ github.event.comment.id }}/reactions" \
+            "repos/$REPO/issues/comments/$COMMENT_ID/reactions" \
             -X POST -f content=+1 || true
 
       - name: React -1 and post failure comment on failure
         if: failure()
         env:
           GH_TOKEN: ${{ steps.app_token.outputs.token }}
+          TRIGGER: ${{ steps.ctx.outputs.trigger }}
+          REPO: ${{ github.repository }}
+          PR: ${{ steps.ctx.outputs.pr }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+          SERVER_URL: ${{ github.server_url }}
+          RUN_ID: ${{ github.run_id }}
         run: |
-          if [ "${{ steps.ctx.outputs.trigger }}" = "comment" ]; then
+          if [ "$TRIGGER" = "comment" ]; then
             gh api \
-              "repos/${{ github.repository }}/issues/comments/${{ github.event.comment.id }}/reactions" \
+              "repos/$REPO/issues/comments/$COMMENT_ID/reactions" \
               -X POST -f content=-1 || true
           fi
-          run_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          run_url="$SERVER_URL/$REPO/actions/runs/$RUN_ID"
           # printf with a single-quoted format string keeps backticks literal
           # (no command substitution) and avoids the multi-line YAML quoting
           # bug where embedded backticks broke shell parsing.
           body=$(printf '`NaiLaOpus` failed. See [run logs](%s).\n\n---\nPosted by `NaiLaOpus` (auto-generated).' "$run_url")
           gh api \
-            "repos/${{ github.repository }}/issues/${{ steps.ctx.outputs.pr }}/comments" \
+            "repos/$REPO/issues/$PR/comments" \
             -X POST -f body="$body" || true
