@@ -115,3 +115,25 @@ def test_to_immutable_span_propagates_attachments():
     assert isinstance(immutable, Span)
     assert att.id in immutable._attachments
     assert immutable._attachments[att.id] is att
+
+
+def test_set_inputs_after_end_does_not_store_attachment():
+    span = _make_live_span()
+    span.end()
+
+    att = Attachment(content_type="image/png", content_bytes=b"img")
+    span.set_inputs({"image": att})
+
+    assert att.id not in span._attachments
+    assert span.inputs is None
+
+
+def test_set_outputs_after_end_does_not_store_attachment():
+    span = _make_live_span()
+    span.end()
+
+    att = Attachment(content_type="audio/wav", content_bytes=b"audio")
+    span.set_outputs({"sound": att})
+
+    assert att.id not in span._attachments
+    assert span.outputs is None

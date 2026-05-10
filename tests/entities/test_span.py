@@ -879,6 +879,27 @@ def test_live_span_add_link():
         assert otel_span.links[0].context.span_id == 0xAABBCCDDEEFF0011
 
 
+def test_add_link_after_end_does_not_store_link():
+    from mlflow.entities.link import Link
+
+    trace_id = "tr-12345"
+    tracer = _get_tracer("test")
+    otel_span = tracer.start_span("test_span")
+    span = create_mlflow_span(otel_span, trace_id=trace_id)
+    span.end()
+
+    span.add_link(
+        Link(
+            trace_id="tr-abc123",
+            span_id="aabbccddeeff0011",
+            attributes={"relationship": "triggered_by"},
+        )
+    )
+
+    assert len(span.links) == 0
+    assert len(otel_span.links) == 0
+
+
 def test_add_link_rejects_invalid_ids():
     from mlflow.entities.link import Link
 
