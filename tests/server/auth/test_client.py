@@ -19,16 +19,12 @@ from mlflow.protos.databricks_pb2 import (
 )
 from mlflow.server.auth.client import AuthServiceClient
 from mlflow.utils.os import is_windows
-from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 from tests.helper_functions import random_str
 from tests.server.auth.auth_test_utils import (
     ADMIN_PASSWORD,
     ADMIN_USERNAME,
-    NEW_PERMISSION,
-    PERMISSION,
     User,
-    create_user,
     write_isolated_auth_config,
 )
 from tests.tracking.integration_test_utils import _init_server
@@ -151,60 +147,52 @@ def test_get_current_user(client, monkeypatch):
     assert resp.status_code == 401
 
 
-def test_list_current_user_permissions(client, monkeypatch):
-    # /users/current/permissions returns the calling user's direct per-resource
-    # grants. Sender == target, so any authenticated user can read their own
-    # without an admin gate.
+@pytest.mark.parametrize(
+    ("path", "method"),
+    [
+        ("/api/2.0/mlflow/experiments/permissions/get", "GET"),
+        ("/api/2.0/mlflow/experiments/permissions/create", "POST"),
+        ("/api/2.0/mlflow/experiments/permissions/update", "PATCH"),
+        ("/api/2.0/mlflow/experiments/permissions/delete", "DELETE"),
+        ("/api/2.0/mlflow/registered-models/permissions/get", "GET"),
+        ("/api/2.0/mlflow/registered-models/permissions/create", "POST"),
+        ("/api/2.0/mlflow/registered-models/permissions/update", "PATCH"),
+        ("/api/2.0/mlflow/registered-models/permissions/delete", "DELETE"),
+        ("/api/3.0/mlflow/scorers/permissions/get", "GET"),
+        ("/api/3.0/mlflow/scorers/permissions/create", "POST"),
+        ("/api/3.0/mlflow/scorers/permissions/update", "PATCH"),
+        ("/api/3.0/mlflow/scorers/permissions/delete", "DELETE"),
+        ("/api/3.0/mlflow/gateway/secrets/permissions/get", "GET"),
+        ("/api/3.0/mlflow/gateway/secrets/permissions/create", "POST"),
+        ("/api/3.0/mlflow/gateway/secrets/permissions/update", "PATCH"),
+        ("/api/3.0/mlflow/gateway/secrets/permissions/delete", "DELETE"),
+        ("/api/3.0/mlflow/gateway/endpoints/permissions/get", "GET"),
+        ("/api/3.0/mlflow/gateway/endpoints/permissions/create", "POST"),
+        ("/api/3.0/mlflow/gateway/endpoints/permissions/update", "PATCH"),
+        ("/api/3.0/mlflow/gateway/endpoints/permissions/delete", "DELETE"),
+        ("/api/3.0/mlflow/gateway/model-definitions/permissions/get", "GET"),
+        ("/api/3.0/mlflow/gateway/model-definitions/permissions/create", "POST"),
+        ("/api/3.0/mlflow/gateway/model-definitions/permissions/update", "PATCH"),
+        ("/api/3.0/mlflow/gateway/model-definitions/permissions/delete", "DELETE"),
+    ],
+)
+def test_legacy_permission_endpoints_remain_registered(client, path, method):
+    resp = requests.request(
+        method, client.tracking_uri + path, auth=(ADMIN_USERNAME, ADMIN_PASSWORD)
+    )
+    assert resp.status_code != 404, (
+        f"{method} {path} unexpectedly returned 404 — legacy permission endpoints "
+        "must remain registered for backward compatibility"
+    )
+
+
+def test_legacy_client_methods_emit_deprecation_warning(client, monkeypatch):
     username = random_str()
     password = random_str()
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
         client.create_user(username, password)
-        client.create_experiment_permission("exp-1", username, "EDIT")
-        client.create_registered_model_permission("model-x", username, "READ")
-        client.create_gateway_secret_permission("secret-1", username, "MANAGE")
-        client.create_gateway_endpoint_permission("endpoint-1", username, "READ")
-        client.create_gateway_model_definition_permission("md-1", username, "EDIT")
-
-    url = f"{client.tracking_uri}/api/3.0/mlflow/users/current/permissions"
-
-    resp = requests.get(url, auth=(username, password))
-    assert resp.status_code == 200
-    grants = resp.json()["permissions"]
-    # Each entry uses the unified ``resource_pattern`` shape - ready for a
-    # future migration that folds these tables into the role/permission model.
-    assert {(g["resource_type"], g["resource_pattern"], g["permission"]) for g in grants} == {
-        ("experiment", "exp-1", "EDIT"),
-        ("registered_model", "model-x", "READ"),
-        ("gateway_secret", "secret-1", "MANAGE"),
-        ("gateway_endpoint", "endpoint-1", "READ"),
-        ("gateway_model_definition", "md-1", "EDIT"),
-    }
-    # Every grant carries a ``workspace`` field. ``registered_model`` rows
-    # have it on the permission row natively; the others are resolved via
-    # the resource→workspace lookup. The lookup-based resources don't
-    # exist in the tracking store in this test, so their workspace falls
-    # back to ``None`` (which is the documented "deleted-or-unknown"
-    # path).
-    by_type = {g["resource_type"]: g for g in grants}
-    assert "workspace" in by_type["registered_model"]
-    assert by_type["registered_model"]["workspace"] == DEFAULT_WORKSPACE_NAME
-    assert by_type["experiment"]["workspace"] is None
-    assert by_type["gateway_secret"]["workspace"] is None
-    assert by_type["gateway_endpoint"]["workspace"] is None
-    assert by_type["gateway_model_definition"]["workspace"] is None
-
-    # An unrelated user sees their own (empty) list, not the target user's.
-    other_username = random_str()
-    other_password = random_str()
-    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
-        client.create_user(other_username, other_password)
-    resp = requests.get(url, auth=(other_username, other_password))
-    assert resp.status_code == 200
-    assert resp.json()["permissions"] == []
-
-    # Unauthenticated requests are rejected.
-    resp = requests.get(url)
-    assert resp.status_code == 401
+        with pytest.warns(FutureWarning, match="create_experiment_permission"):
+            client.create_experiment_permission("exp-deprecation", username, "READ")
 
 
 def test_update_user_password(client, monkeypatch):
@@ -349,156 +337,3 @@ def test_delete_user(client, monkeypatch):
         client.create_user(username2, password2)
     with User(username2, password2, monkeypatch), assert_unauthorized():
         client.delete_user(username)
-
-
-def test_client_create_experiment_permission(client, monkeypatch):
-    experiment_id = random_str()
-    username, password = create_user(client.tracking_uri)
-
-    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
-        ep = client.create_experiment_permission(experiment_id, username, PERMISSION)
-    assert ep.experiment_id == experiment_id
-    assert ep.permission == PERMISSION
-
-    with assert_unauthenticated():
-        client.create_experiment_permission(experiment_id, username, PERMISSION)
-
-    with User(username, password, monkeypatch), assert_unauthorized():
-        client.create_experiment_permission(experiment_id, username, PERMISSION)
-
-
-def test_client_get_experiment_permission(client, monkeypatch):
-    experiment_id = random_str()
-    username, password = create_user(client.tracking_uri)
-
-    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
-        client.create_experiment_permission(experiment_id, username, PERMISSION)
-        ep = client.get_experiment_permission(experiment_id, username)
-    assert ep.experiment_id == experiment_id
-    assert ep.permission == PERMISSION
-
-    with assert_unauthenticated():
-        client.get_experiment_permission(experiment_id, username)
-
-    with User(username, password, monkeypatch), assert_unauthorized():
-        client.get_experiment_permission(experiment_id, username)
-
-
-def test_client_update_experiment_permission(client, monkeypatch):
-    experiment_id = random_str()
-    username, password = create_user(client.tracking_uri)
-
-    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
-        client.create_experiment_permission(experiment_id, username, PERMISSION)
-        client.update_experiment_permission(experiment_id, username, NEW_PERMISSION)
-        ep = client.get_experiment_permission(experiment_id, username)
-    assert ep.experiment_id == experiment_id
-    assert ep.permission == NEW_PERMISSION
-
-    with assert_unauthenticated():
-        client.update_experiment_permission(experiment_id, username, PERMISSION)
-
-    with User(username, password, monkeypatch), assert_unauthorized():
-        client.update_experiment_permission(experiment_id, username, PERMISSION)
-
-
-def test_client_delete_experiment_permission(client, monkeypatch):
-    experiment_id = random_str()
-    username, password = create_user(client.tracking_uri)
-
-    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
-        client.create_experiment_permission(experiment_id, username, PERMISSION)
-        client.delete_experiment_permission(experiment_id, username)
-        with pytest.raises(
-            MlflowException,
-            match=rf"Experiment permission with experiment_id={experiment_id} "
-            rf"and username={username} not found",
-        ) as exception_context:
-            client.get_experiment_permission(experiment_id, username)
-        assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
-
-    with assert_unauthenticated():
-        client.delete_experiment_permission(experiment_id, username)
-
-    with User(username, password, monkeypatch), assert_unauthorized():
-        client.delete_experiment_permission(experiment_id, username)
-
-
-def test_client_create_registered_model_permission(client, monkeypatch):
-    name = random_str()
-    username, password = create_user(client.tracking_uri)
-
-    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
-        rmp = client.create_registered_model_permission(name, username, PERMISSION)
-    assert rmp.name == name
-    assert rmp.permission == PERMISSION
-    assert rmp.workspace == DEFAULT_WORKSPACE_NAME
-
-    with assert_unauthenticated():
-        client.create_registered_model_permission(name, username, PERMISSION)
-
-    with User(username, password, monkeypatch), assert_unauthorized():
-        client.create_registered_model_permission(name, username, PERMISSION)
-
-
-def test_client_get_registered_model_permission(client, monkeypatch):
-    name = random_str()
-    username, password = create_user(client.tracking_uri)
-
-    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
-        client.create_registered_model_permission(name, username, PERMISSION)
-        rmp = client.get_registered_model_permission(name, username)
-    assert rmp.name == name
-    assert rmp.permission == PERMISSION
-    assert rmp.workspace == DEFAULT_WORKSPACE_NAME
-
-    with assert_unauthenticated():
-        client.get_registered_model_permission(name, username)
-
-    with User(username, password, monkeypatch), assert_unauthorized():
-        client.get_registered_model_permission(name, username)
-
-
-def test_client_update_registered_model_permission(client, monkeypatch):
-    name = random_str()
-    username, password = create_user(client.tracking_uri)
-
-    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
-        client.create_registered_model_permission(name, username, PERMISSION)
-        client.update_registered_model_permission(name, username, NEW_PERMISSION)
-        rmp = client.get_registered_model_permission(name, username)
-    assert rmp.name == name
-    assert rmp.permission == NEW_PERMISSION
-    assert rmp.workspace == DEFAULT_WORKSPACE_NAME
-
-    with assert_unauthenticated():
-        client.update_registered_model_permission(name, username, PERMISSION)
-
-    with User(username, password, monkeypatch), assert_unauthorized():
-        client.update_registered_model_permission(name, username, PERMISSION)
-
-
-def test_client_delete_registered_model_permission(client, monkeypatch):
-    name = random_str()
-    username, password = create_user(client.tracking_uri)
-
-    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
-        client.create_registered_model_permission(name, username, PERMISSION)
-        client.delete_registered_model_permission(name, username)
-        expected_message = (
-            "Registered model permission with "
-            f"workspace={DEFAULT_WORKSPACE_NAME}, name={name} "
-            f"and username={username} not found"
-        )
-        with pytest.raises(
-            MlflowException,
-            match=expected_message,
-        ) as exception_context:
-            client.get_registered_model_permission(name, username)
-        assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
-
-    with assert_unauthenticated():
-        client.delete_registered_model_permission(name, username)
-
-    with User(username, password, monkeypatch), assert_unauthorized():
-        client.delete_registered_model_permission(name, username)

@@ -17,13 +17,14 @@ from opentelemetry.trace import Status as OTelStatus
 from opentelemetry.trace import StatusCode as OTelStatusCode
 
 import mlflow
+from mlflow.entities.link import Link
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_log_level import SpanLogLevel
 from mlflow.entities.span_status import SpanStatus, SpanStatusCode
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracing.attachments import Attachment
-from mlflow.tracing.constant import TRACE_REQUEST_ID_PREFIX, SpanAttributeKey
+from mlflow.tracing.constant import TRACE_ID_V4_PREFIX, TRACE_REQUEST_ID_PREFIX, SpanAttributeKey
 from mlflow.tracing.utils import (
     build_otel_context,
     decode_id,
@@ -118,6 +119,26 @@ class Span:
         # deserialization of the attribute values.
         self._attributes = _CachedSpanAttributesRegistry(otel_span)
         self._attachments: dict[str, Attachment] = {}
+        request_id = self._attributes.get(SpanAttributeKey.REQUEST_ID)
+        otel_links = getattr(otel_span, "links", ())
+        if request_id and request_id.startswith(TRACE_ID_V4_PREFIX):
+            if otel_links:
+                _logger.warning(
+                    "Span links are not currently supported for Unity Catalog traces. "
+                    "%d link(s) on span '%s' will be dropped.",
+                    len(otel_links),
+                    otel_span.name,
+                )
+            self._links: list["Link"] = []
+        else:
+            self._links: list["Link"] = [
+                Link(
+                    trace_id=f"tr-{otel_link.context.trace_id:032x}",
+                    span_id=f"{otel_link.context.span_id:016x}",
+                    attributes=dict(otel_link.attributes) if otel_link.attributes else None,
+                )
+                for otel_link in otel_links
+            ]
 
     @cached_property
     def trace_id(self) -> str:
@@ -247,6 +268,23 @@ class Span:
             for event in self._span.events
         ]
 
+    @property
+    def links(self) -> list["Link"]:
+        """
+        Get all links of the span.
+
+        Returns:
+            A list of all links of the span.
+        """
+        return [
+            Link(
+                trace_id=link.trace_id,
+                span_id=link.span_id,
+                attributes=dict(link.attributes) if link.attributes else None,
+            )
+            for link in self._links
+        ]
+
     def __repr__(self):
         return (
             f"{type(self).__name__}(name={self.name!r}, trace_id={self.trace_id!r}, "
@@ -295,6 +333,7 @@ class Span:
             # Read raw values directly from the OTel span to skip a full json.loads pass
             # over every attribute that self.attributes would trigger via get_all().
             "attributes": dict(self._span.attributes),
+            "links": [link.to_dict() for link in self.links],
         }
 
     @classmethod
@@ -364,7 +403,13 @@ class Span:
                     for event in data.get("events", [])
                 ],
             )
-            return cls(otel_span)
+            span = cls(otel_span)
+
+            # Deserialize links if present
+            if links_data := data.get("links"):
+                span._links = [Link.from_dict(link_dict) for link_dict in links_data]
+
+            return span
         except Exception as e:
             raise MlflowException(
                 "Failed to create a Span object from the given dictionary",
@@ -403,7 +448,11 @@ class Span:
                 for event in data["events"]
             ],
         )
-        return cls(otel_span)
+        span = cls(otel_span)
+
+        span._links = [Link.from_dict(d) for d in data.get("links", [])]
+
+        return span
 
     @classmethod
     def from_otel_proto(
@@ -460,6 +509,18 @@ class Span:
         else:
             otel_resource = _OTelResource.get_empty()
 
+        links = []
+        if location_id:
+            if otel_proto_span.links:
+                _logger.warning(
+                    "Span links are not currently supported for Unity Catalog traces. "
+                    "%d link(s) on span '%s' will be dropped.",
+                    len(otel_proto_span.links),
+                    otel_proto_span.name,
+                )
+        else:
+            links = [Link.from_otel_proto(proto_link) for proto_link in otel_proto_span.links]
+
         otel_span = OTelReadableSpan(
             name=otel_proto_span.name,
             context=build_otel_context(trace_id, span_id),
@@ -468,12 +529,15 @@ class Span:
             end_time=otel_proto_span.end_time_unix_nano,
             # we need to dump the attribute value to be consistent with span.set_attribute behavior
             attributes={
-                # Include the MLflow trace request ID only if it's not already present in attributes
-                SpanAttributeKey.REQUEST_ID: dump_span_attribute_value(mlflow_trace_id),
                 **{
                     attr.key: dump_span_attribute_value(_decode_otel_proto_anyvalue(attr.value))
                     for attr in otel_proto_span.attributes
                 },
+                # Server-computed trace ID placed last so it always takes precedence over any
+                # client-sent mlflow.traceRequestId — prevents double-encoding when the MLflow
+                # SDK (via OtelSpanProcessor.on_start) has already JSON-encoded the value into
+                # the OTel span before OTLP export.
+                SpanAttributeKey.REQUEST_ID: dump_span_attribute_value(mlflow_trace_id),
             },
             status=OTelStatus(status_code, otel_proto_span.status.message or None),
             events=[
@@ -490,7 +554,9 @@ class Span:
             resource=otel_resource,
         )
 
-        return cls(otel_span)
+        span = cls(otel_span)
+        span._links = links
+        return span
 
     def to_otel_proto(self) -> OTelProtoSpan:
         """
@@ -522,6 +588,23 @@ class Span:
         for event in self.events:
             otel_event = event.to_otel_proto()
             otel_span.events.append(otel_event)
+
+        # Convert links to OTLP proto format
+        for link in self.links:
+            proto_link = otel_span.links.add()
+            # Convert MLflow trace ID (tr-xxx or trace:/loc/xxx) back to OTel bytes
+            link_trace_id_hex = parse_trace_id_v4(link.trace_id)[1].removeprefix(
+                TRACE_REQUEST_ID_PREFIX
+            )
+            proto_link.trace_id = decode_id(link_trace_id_hex).to_bytes(16, "big")
+            proto_link.span_id = decode_id(link.span_id).to_bytes(8, "big")
+
+            # Add link attributes
+            if link.attributes:
+                for key, value in link.attributes.items():
+                    attr = proto_link.attributes.add()
+                    attr.key = key
+                    _set_otel_proto_anyvalue(attr.value, value)
 
         return otel_span
 
@@ -589,6 +672,25 @@ class LiveSpan(Span):
         self._attributes = _SpanAttributesRegistry(otel_span)
         self._attributes.set(SpanAttributeKey.REQUEST_ID, trace_id)
         self._attributes.set(SpanAttributeKey.SPAN_TYPE, span_type)
+        otel_links = getattr(otel_span, "links", ())
+        if trace_id.startswith(TRACE_ID_V4_PREFIX):
+            if otel_links:
+                _logger.warning(
+                    "Span links are not currently supported for Unity Catalog traces. "
+                    "%d link(s) on span '%s' will be dropped.",
+                    len(otel_links),
+                    otel_span.name,
+                )
+            self._links: list["Link"] = []
+        else:
+            self._links: list["Link"] = [
+                Link(
+                    trace_id=f"tr-{otel_link.context.trace_id:032x}",
+                    span_id=f"{otel_link.context.span_id:016x}",
+                    attributes=dict(otel_link.attributes) if otel_link.attributes else None,
+                )
+                for otel_link in otel_links
+            ]
         # Track the original span name for deduplication purposes during span logging.
         # Why: When traces contain multiple spans with identical names (e.g., multiple "LLM"
         # or "query" spans), it's difficult for users to distinguish between them in the UI
@@ -910,6 +1012,48 @@ class LiveSpan(Span):
             if current is None or int(current) < SpanLogLevel.ERROR:
                 self._attributes.set(SpanAttributeKey.LOG_LEVEL, int(SpanLogLevel.ERROR))
 
+    def add_link(self, link: "Link"):
+        """
+        Add a link to this span.
+
+        Args:
+            link: The link to add to the span. This should be a
+                :py:class:`Link <mlflow.entities.Link>` object.
+        """
+        if not isinstance(link, Link):
+            raise MlflowException(
+                f"The `link` parameter must be a Link instance, but got {type(link)}.",
+                INVALID_PARAMETER_VALUE,
+            )
+
+        # Validate and forward to the underlying OTel span so external exporters can see links
+        try:
+            link_trace_id_hex = parse_trace_id_v4(link.trace_id)[1].removeprefix(
+                TRACE_REQUEST_ID_PREFIX
+            )
+            trace_id_int = decode_id(link_trace_id_hex)
+            span_id_int = decode_id(link.span_id)
+            trace_id_int.to_bytes(16, "big")
+            span_id_int.to_bytes(8, "big")
+            otel_context = build_otel_context(trace_id_int, span_id_int)
+        except (ValueError, OverflowError, MlflowException) as e:
+            raise MlflowException(
+                f"Invalid link: trace_id={link.trace_id!r}, span_id={link.span_id!r}. "
+                "trace_id must be a valid MLflow trace ID or hex string, and "
+                "span_id must be a hex string.",
+                INVALID_PARAMETER_VALUE,
+            ) from e
+
+        self._links.append(
+            Link(
+                trace_id=link.trace_id,
+                span_id=link.span_id,
+                attributes=dict(link.attributes) if link.attributes else None,
+            )
+        )
+        if hasattr(self._span, "add_link"):
+            self._span.add_link(otel_context, link.attributes)
+
     def record_exception(self, exception: str | Exception):
         """
         Record an exception on the span, adding an exception event and setting span status to ERROR.
@@ -1011,8 +1155,16 @@ class LiveSpan(Span):
         """
         # All state of the live span is already persisted in the OpenTelemetry span object.
         span = Span(self._span)
-        # Shallow copy so the immutable span is independent of further LiveSpan mutations
+        # Shallow copies so the immutable span is independent of further LiveSpan mutations
         span._attachments = dict(self._attachments)
+        span._links = [
+            Link(
+                trace_id=link.trace_id,
+                span_id=link.span_id,
+                attributes=dict(link.attributes) if link.attributes else None,
+            )
+            for link in self._links
+        ]
         return span
 
     @classmethod
@@ -1080,6 +1232,12 @@ class LiveSpan(Span):
             clone_span.set_outputs(span.outputs)
         for event in span.events:
             clone_span.add_event(event)
+        if span.links:
+            _logger.warning(
+                "Span links on span '%s' will not be retained when copying to a new trace "
+                "because link trace IDs may not resolve in the destination trace context.",
+                span.name,
+            )
 
         # Update trace ID and span ID
         context = span._span.get_span_context()
@@ -1122,6 +1280,7 @@ class NoOpSpan(Span):
     def __init__(self, otel_span=None):
         self._span = otel_span or NonRecordingSpan(context=None)
         self._attributes = {}
+        self._links = []
 
     @property
     def trace_id(self):
@@ -1181,6 +1340,9 @@ class NoOpSpan(Span):
         pass
 
     def add_event(self, event: SpanEvent):
+        pass
+
+    def add_link(self, link: Link) -> None:
         pass
 
     def record_exception(self, exception: str | Exception):

@@ -24,6 +24,7 @@ from tests.server.auth.auth_test_utils import (
     ADMIN_USERNAME,
     User,
     create_user,
+    grant_role_permission,
     write_isolated_auth_config,
 )
 from tests.tracking.integration_test_utils import _init_server
@@ -234,88 +235,14 @@ def test_create_workspace_seeds_default_roles(workspace_client, monkeypatch):
     ]
 
 
-def test_workspace_permission_set_and_list(workspace_setup, monkeypatch):
-    client, _tracking_uri, workspace_name, username, _password = workspace_setup
-
-    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
-        perm = client.set_workspace_permission(workspace_name, username, "MANAGE")
-        user = client.get_user(username)
-    assert perm.workspace == workspace_name
-    assert perm.user_id == user.id
-    assert perm.permission == "MANAGE"
-
-    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
-        perms = client.list_workspace_permissions(workspace_name)
-        assert any(p.user_id == user.id for p in perms)
-
-        user_perms = client.list_user_workspace_permissions(username)
-        assert any(p.workspace == workspace_name for p in user_perms)
-
-        client.delete_workspace_permission(workspace_name, username)
-        assert client.list_workspace_permissions(workspace_name) == []
-
-
-def test_workspace_permission_list_requires_authentication(workspace_setup):
-    client, _tracking_uri, workspace_name, _username, _password = workspace_setup
-
-    with assert_unauthenticated():
-        client.list_workspace_permissions(workspace_name)
-
-
-def test_workspace_permission_list_requires_manage_permission(workspace_setup, monkeypatch):
-    client, tracking_uri, workspace_name, manager_username, manager_password = workspace_setup
-    target_username, _ = create_user(tracking_uri)
-    other_username, other_password = create_user(tracking_uri)
-
-    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
-        client.set_workspace_permission(workspace_name, manager_username, "MANAGE")
-        client.set_workspace_permission(workspace_name, target_username, "USE")
-
-    with User(other_username, other_password, monkeypatch), assert_unauthorized():
-        client.list_workspace_permissions(workspace_name)
-
-    with User(manager_username, manager_password, monkeypatch):
-        perms = client.list_workspace_permissions(workspace_name)
-
-    assert perms  # manager should see permissions they can manage
-    assert all(p.workspace == workspace_name for p in perms)
-
-
-def test_workspace_permission_set_requires_manage_permission(workspace_client, monkeypatch):
-    client, tracking_uri = workspace_client
-    workspace_name = "team-b"
-    _create_workspace(tracking_uri, workspace_name)
-    manager_username, manager_password = create_user(tracking_uri)
-    target_username, target_password = create_user(tracking_uri)
-
-    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
-        client.set_workspace_permission(workspace_name, manager_username, "MANAGE")
-
-    with User(manager_username, manager_password, monkeypatch):
-        perm = client.set_workspace_permission(workspace_name, target_username, "USE")
-        assert perm.permission == "USE"
-        client.delete_workspace_permission(workspace_name, target_username)
-
-    with User(manager_username, manager_password, monkeypatch):
-        perm = client.set_workspace_permission(workspace_name, target_username, "USE")
-        assert perm.permission == "USE"
-
-    with User(target_username, target_password, monkeypatch), assert_unauthorized():
-        client.set_workspace_permission(workspace_name, manager_username, "USE")
-
-    with User(target_username, target_password, monkeypatch), assert_unauthorized():
-        client.delete_workspace_permission(workspace_name, manager_username)
-
-
 def test_run_access_controls_across_workspaces(workspace_setup, monkeypatch):
     client, tracking_uri, workspace_a, username, password = workspace_setup
     workspace_b = f"team-{random_str()}"
     _create_workspace(tracking_uri, workspace_b)
 
     # Allow the regular user to create resources in both workspaces for setup.
-    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
-        client.set_workspace_permission(workspace_a, username, "MANAGE")
-        client.set_workspace_permission(workspace_b, username, "MANAGE")
+    grant_role_permission(tracking_uri, username, "workspace", "*", "MANAGE", workspace=workspace_a)
+    grant_role_permission(tracking_uri, username, "workspace", "*", "MANAGE", workspace=workspace_b)
 
     exp_a = _create_experiment(tracking_uri, workspace_a, auth=(username, password))
     run_a = _create_run(tracking_uri, workspace_a, exp_a, auth=(username, password))
@@ -324,8 +251,9 @@ def test_run_access_controls_across_workspaces(workspace_setup, monkeypatch):
 
     # Use a separate limited user who only has access to workspace A.
     limited_user, limited_password = create_user(tracking_uri)
-    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
-        client.set_workspace_permission(workspace_a, limited_user, "USE")
+    grant_role_permission(
+        tracking_uri, limited_user, "workspace", "*", "USE", workspace=workspace_a
+    )
 
     # Positive: limited user can read run in workspace A.
     resp_ok = requests.get(
@@ -368,9 +296,8 @@ def test_registered_model_access_controls_across_workspaces(workspace_setup, mon
     workspace_b = f"team-{random_str()}"
     _create_workspace(tracking_uri, workspace_b)
 
-    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
-        client.set_workspace_permission(workspace_a, username, "MANAGE")
-        client.set_workspace_permission(workspace_b, username, "MANAGE")
+    grant_role_permission(tracking_uri, username, "workspace", "*", "MANAGE", workspace=workspace_a)
+    grant_role_permission(tracking_uri, username, "workspace", "*", "MANAGE", workspace=workspace_b)
 
     # Create resources in both workspaces as the regular user.
     exp_a = _create_experiment(tracking_uri, workspace_a, auth=(username, password))
@@ -386,8 +313,9 @@ def test_registered_model_access_controls_across_workspaces(workspace_setup, mon
     _create_model_version(tracking_uri, workspace_b, model_b, run_b, auth=(username, password))
 
     limited_user, limited_password = create_user(tracking_uri)
-    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
-        client.set_workspace_permission(workspace_a, limited_user, "USE")
+    grant_role_permission(
+        tracking_uri, limited_user, "workspace", "*", "USE", workspace=workspace_a
+    )
 
     # Positive: limited user can read model in authorized workspace.
     resp_ok = requests.get(
@@ -413,55 +341,3 @@ def test_registered_model_access_controls_across_workspaces(workspace_setup, mon
     )
     assert resp.status_code == 403
     assert "Permission denied" in resp.text
-
-
-def test_list_current_user_permissions_no_active_workspace(workspace_client, monkeypatch):
-    # ``/users/current/permissions`` backs the global ``/account`` page,
-    # which has no active workspace - it must list registered-model
-    # grants across every workspace the user has them in. The
-    # active-workspace-aware ``list_registered_model_permissions`` would
-    # raise here, so the handler uses the cross-workspace variant.
-    client, tracking_uri = workspace_client
-
-    workspace_a = f"ws-a-{random_str()}"
-    workspace_b = f"ws-b-{random_str()}"
-    _create_workspace(tracking_uri, workspace_a)
-    _create_workspace(tracking_uri, workspace_b)
-    username, password = create_user(tracking_uri)
-
-    model_a = f"model-a-{random_str()}"
-    model_b = f"model-b-{random_str()}"
-    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
-        # Create one registered-model permission per workspace. We go
-        # through the REST endpoint directly because the typed client
-        # method doesn't accept a workspace header - the server reads it
-        # from the request to set the row's ``workspace`` column.
-        for workspace_name, model_name in [(workspace_a, model_a), (workspace_b, model_b)]:
-            resp = requests.post(
-                f"{tracking_uri}/api/2.0/mlflow/registered-models/permissions/create",
-                json={"name": model_name, "username": username, "permission": "READ"},
-                auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
-                headers={WORKSPACE_HEADER_NAME: workspace_name},
-            )
-            assert resp.ok, (
-                f"create_registered_model_permission failed: {resp.status_code} {resp.text}"
-            )
-
-    url = f"{tracking_uri}/api/3.0/mlflow/users/current/permissions"
-
-    # Critical assertion: no ``X-MLFLOW-WORKSPACE`` header. On a
-    # workspaces-enabled deployment, ``list_registered_model_permissions``
-    # would raise here ("Active workspace is required"); the
-    # cross-workspace path must succeed and span both workspaces.
-    resp = requests.get(url, auth=(username, password))
-    assert resp.status_code == 200, resp.text
-    grants = resp.json()["permissions"]
-
-    # Each workspace's grant should be present, attributed correctly.
-    rm_grants = [g for g in grants if g["resource_type"] == "registered_model"]
-    assert {(g["resource_pattern"], g["workspace"]) for g in rm_grants} == {
-        (model_a, workspace_a),
-        (model_b, workspace_b),
-    }
-    for g in rm_grants:
-        assert g["permission"] == "READ"

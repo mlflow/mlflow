@@ -1,4 +1,4 @@
-from urllib.parse import quote
+import warnings
 
 from mlflow.server.auth.entities import (
     ExperimentPermission,
@@ -11,7 +11,6 @@ from mlflow.server.auth.entities import (
     ScorerPermission,
     User,
     UserRoleAssignment,
-    WorkspacePermission,
 )
 from mlflow.server.auth.routes import (
     ADD_ROLE_PERMISSION,
@@ -44,8 +43,6 @@ from mlflow.server.auth.routes import (
     LIST_ROLE_USERS,
     LIST_ROLES,
     LIST_USER_ROLES,
-    LIST_USER_WORKSPACE_PERMISSIONS,
-    LIST_WORKSPACE_PERMISSIONS,
     REMOVE_ROLE_PERMISSION,
     UNASSIGN_ROLE,
     UPDATE_EXPERIMENT_PERMISSION,
@@ -61,6 +58,19 @@ from mlflow.server.auth.routes import (
 )
 from mlflow.utils.credentials import get_default_host_creds
 from mlflow.utils.rest_utils import http_request, verify_rest_response
+
+_LEGACY_PERMISSION_DEPRECATION_MESSAGE = (
+    "{name} is deprecated and will be removed in a future MLflow release. "
+    "Use the role API (`add_role_permission` + `assign_role`) instead."
+)
+
+
+def _warn_legacy_permission_method(name: str) -> None:
+    warnings.warn(
+        _LEGACY_PERMISSION_DEPRECATION_MESSAGE.format(name=name),
+        FutureWarning,
+        stacklevel=3,
+    )
 
 
 class AuthServiceClient:
@@ -84,12 +94,6 @@ class AuthServiceClient:
         if resp.status_code == 204 or not resp.content:
             return {}
         return resp.json()
-
-    def _workspace_endpoint(self, template: str, workspace_name: str) -> str:
-        """
-        Replace the workspace placeholder in ``template`` with a URL-encoded name.
-        """
-        return template.replace("<workspace_name>", quote(workspace_name, safe=""))
 
     def create_user(self, username: str, password: str):
         """
@@ -290,739 +294,6 @@ class AuthServiceClient:
             json={"username": username},
         )
 
-    def create_experiment_permission(self, experiment_id: str, username: str, permission: str):
-        """
-        Create a permission on an experiment for a user.
-
-        Args:
-            experiment_id: The id of the experiment.
-            username: The username.
-            permission: Permission to grant. Must be one of "READ", "USE", "EDIT", "MANAGE" and
-                "NO_PERMISSIONS".
-
-        Raises:
-            mlflow.exceptions.RestException: if the user does not exist, or a permission already
-                exists for this experiment user pair, or if the permission is invalid. Does not
-                require ``experiment_id`` to be an existing experiment.
-
-        Returns:
-            A single :py:class:`mlflow.server.auth.entities.ExperimentPermission` object.
-
-        .. code-block:: bash
-            :caption: Example
-
-            export MLFLOW_TRACKING_USERNAME=admin
-            export MLFLOW_TRACKING_PASSWORD=password
-
-        .. code-block:: python
-
-            from mlflow.server.auth.client import AuthServiceClient
-
-            client = AuthServiceClient("tracking_uri")
-            client.create_user("newuser", "newpassword")
-            ep = client.create_experiment_permission("myexperiment", "newuser", "READ")
-
-            print(f"experiment_id: {ep.experiment_id}")
-            print(f"user_id: {ep.user_id}")
-            print(f"permission: {ep.permission}")
-
-        .. code-block:: text
-            :caption: Output
-
-            experiment_id: myexperiment
-            user_id: 3
-            permission: READ
-        """
-        resp = self._request(
-            CREATE_EXPERIMENT_PERMISSION,
-            "POST",
-            json={"experiment_id": experiment_id, "username": username, "permission": permission},
-        )
-        return ExperimentPermission.from_json(resp["experiment_permission"])
-
-    def get_experiment_permission(self, experiment_id: str, username: str):
-        """
-        Get an experiment permission for a user.
-
-        Args:
-            experiment_id: The id of the experiment.
-            username: The username.
-
-        Raises:
-            mlflow.exceptions.RestException: if the user does not exist,
-                or no permission exists for this experiment user pair.
-                Note that the default permission will still be effective even if
-                no permission exists.
-
-        Returns:
-            A single :py:class:`mlflow.server.auth.entities.ExperimentPermission` object.
-
-        .. code-block:: bash
-            :caption: Example
-
-            export MLFLOW_TRACKING_USERNAME=admin
-            export MLFLOW_TRACKING_PASSWORD=password
-
-        .. code-block:: python
-
-            from mlflow.server.auth.client import AuthServiceClient
-
-            client = AuthServiceClient("tracking_uri")
-            client.create_user("newuser", "newpassword")
-            client.create_experiment_permission("myexperiment", "newuser", "READ")
-            ep = client.get_experiment_permission("myexperiment", "newuser")
-            print(f"experiment_id: {ep.experiment_id}")
-            print(f"user_id: {ep.user_id}")
-            print(f"permission: {ep.permission}")
-
-        .. code-block:: text
-            :caption: Output
-
-            experiment_id: myexperiment
-            user_id: 3
-            permission: READ
-        """
-        resp = self._request(
-            GET_EXPERIMENT_PERMISSION,
-            "GET",
-            params={"experiment_id": experiment_id, "username": username},
-        )
-        return ExperimentPermission.from_json(resp["experiment_permission"])
-
-    def update_experiment_permission(self, experiment_id: str, username: str, permission: str):
-        """
-        Update an existing experiment permission for a user.
-
-        Args:
-            experiment_id: The id of the experiment.
-            username: The username.
-            permission: New permission to grant. Must be one of "READ", "USE", "EDIT", "MANAGE" and
-                "NO_PERMISSIONS".
-
-        Raises:
-            mlflow.exceptions.RestException: if the user does not exist, or no permission exists for
-                this experiment user pair, or if the permission is invalid
-
-        .. code-block:: bash
-            :caption: Example
-
-            export MLFLOW_TRACKING_USERNAME=admin
-            export MLFLOW_TRACKING_PASSWORD=password
-
-        .. code-block:: python
-
-            from mlflow.server.auth.client import AuthServiceClient
-
-            client = AuthServiceClient("tracking_uri")
-            client.create_user("newuser", "newpassword")
-            client.create_experiment_permission("myexperiment", "newuser", "READ")
-            client.update_experiment_permission("myexperiment", "newuser", "EDIT")
-        """
-        self._request(
-            UPDATE_EXPERIMENT_PERMISSION,
-            "PATCH",
-            json={"experiment_id": experiment_id, "username": username, "permission": permission},
-        )
-
-    def delete_experiment_permission(self, experiment_id: str, username: str):
-        """
-        Delete an existing experiment permission for a user.
-
-        Args:
-            experiment_id: The id of the experiment.
-            username: The username.
-
-        Raises:
-            mlflow.exceptions.RestException: if the user does not exist, or no permission exists for
-                this experiment user pair, or if the permission is invalid.
-                Note that the default permission will still be effective even
-                after the permission has been deleted.
-
-
-        .. code-block:: bash
-            :caption: Example
-
-            export MLFLOW_TRACKING_USERNAME=admin
-            export MLFLOW_TRACKING_PASSWORD=password
-
-        .. code-block:: python
-
-            from mlflow.server.auth.client import AuthServiceClient
-
-            client = AuthServiceClient("tracking_uri")
-            client.create_user("newuser", "newpassword")
-            client.create_experiment_permission("myexperiment", "newuser", "READ")
-            client.delete_experiment_permission("myexperiment", "newuser")
-        """
-        self._request(
-            DELETE_EXPERIMENT_PERMISSION,
-            "DELETE",
-            json={"experiment_id": experiment_id, "username": username},
-        )
-
-    def create_registered_model_permission(self, name: str, username: str, permission: str):
-        """
-        Create a permission on an registered model for a user.
-
-        Args:
-            name: The name of the registered model.
-            username: The username.
-            permission: Permission to grant. Must be one of "READ", "USE", "EDIT", "MANAGE" and
-                "NO_PERMISSIONS".
-
-        Raises:
-            mlflow.exceptions.RestException: if the user does not exist,
-                or a permission already exists for this registered model user pair,
-                or if the permission is invalid.
-                Does not require ``name`` to be an existing registered model.
-
-        Returns:
-            A single :py:class:`mlflow.server.auth.entities.RegisteredModelPermission` object.
-        """
-        resp = self._request(
-            CREATE_REGISTERED_MODEL_PERMISSION,
-            "POST",
-            json={"name": name, "username": username, "permission": permission},
-        )
-        return RegisteredModelPermission.from_json(resp["registered_model_permission"])
-
-    def get_registered_model_permission(self, name: str, username: str):
-        """
-        Get an registered model permission for a user.
-
-        Args:
-            name: The name of the registered model.
-            username: The username.
-
-        Raises:
-            mlflow.exceptions.RestException: if the user does not
-                exist, or no permission exists for this registered model user pair. Note that the
-                default permission will still be effective even if no permission exists.
-
-        Returns:
-             A single :py:class:`mlflow.server.auth.entities.RegisteredModelPermission` object.
-
-        .. code-block:: bash
-            :caption: Example
-
-            export MLFLOW_TRACKING_USERNAME=admin
-            export MLFLOW_TRACKING_PASSWORD=password
-
-        .. code-block:: python
-
-            from mlflow.server.auth.client import AuthServiceClient
-
-            client = AuthServiceClient("tracking_uri")
-            client.create_user("newuser", "newpassword")
-            client.create_registered_model_permission("myregisteredmodel", "newuser", "READ")
-            rmp = client.get_registered_model_permission("myregisteredmodel", "newuser")
-
-            print(f"name: {rmp.name}")
-            print(f"user_id: {rmp.user_id}")
-            print(f"permission: {rmp.permission}")
-
-        .. code-block:: text
-            :caption: Output
-
-            name: myregisteredmodel
-            user_id: 3
-            permission: READ
-        """
-        resp = self._request(
-            GET_REGISTERED_MODEL_PERMISSION,
-            "GET",
-            params={"name": name, "username": username},
-        )
-        return RegisteredModelPermission.from_json(resp["registered_model_permission"])
-
-    def update_registered_model_permission(self, name: str, username: str, permission: str):
-        """
-        Update an existing registered model permission for a user.
-
-        Args:
-            name: The name of the registered model.
-            username: The username.
-            permission: New permission to grant. Must be one of "READ", "USE", "EDIT", "MANAGE" and
-                "NO_PERMISSIONS".
-
-        Raises:
-            mlflow.exceptions.RestException: if the user does not exist, or no permission exists for
-                this registered model user pair, or if the permission is invalid.
-
-        .. code-block:: bash
-            :caption: Example
-
-            export MLFLOW_TRACKING_USERNAME=admin
-            export MLFLOW_TRACKING_PASSWORD=password
-
-        .. code-block:: python
-
-            from mlflow.server.auth.client import AuthServiceClient
-
-            client = AuthServiceClient("tracking_uri")
-            client.create_user("newuser", "newpassword")
-            client.create_registered_model_permission("myregisteredmodel", "newuser", "READ")
-            client.update_registered_model_permission("myregisteredmodel", "newuser", "EDIT")
-        """
-        self._request(
-            UPDATE_REGISTERED_MODEL_PERMISSION,
-            "PATCH",
-            json={"name": name, "username": username, "permission": permission},
-        )
-
-    def delete_registered_model_permission(self, name: str, username: str):
-        """
-        Delete an existing registered model permission for a user.
-
-        Args:
-            name: The name of the registered model.
-            username: The username.
-
-        Raises:
-            mlflow.exceptions.RestException: if the user does not exist,
-                or no permission exists for this registered model user pair,
-                or if the permission is invalid.
-                Note that the default permission will still be effective even
-                after the permission has been deleted.
-
-        .. code-block:: bash
-            :caption: Example
-
-            export MLFLOW_TRACKING_USERNAME=admin
-            export MLFLOW_TRACKING_PASSWORD=password
-
-        .. code-block:: python
-
-            from mlflow.server.auth.client import AuthServiceClient
-
-            client = AuthServiceClient("tracking_uri")
-            client.create_user("newuser", "newpassword")
-            client.create_registered_model_permission("myregisteredmodel", "newuser", "READ")
-            client.delete_registered_model_permission("myregisteredmodel", "newuser")
-        """
-        self._request(
-            DELETE_REGISTERED_MODEL_PERMISSION,
-            "DELETE",
-            json={"name": name, "username": username},
-        )
-
-    def create_scorer_permission(
-        self, experiment_id: str, scorer_name: str, username: str, permission: str
-    ):
-        """
-        Create a permission on a scorer for a user.
-
-        Args:
-            experiment_id: The id of the experiment containing the scorer.
-            scorer_name: The name of the scorer.
-            username: The username.
-            permission: Permission to grant. Must be one of "READ", "USE", "EDIT", "MANAGE" and
-                "NO_PERMISSIONS".
-
-        Raises:
-            mlflow.exceptions.RestException: if the user does not exist,
-                or the scorer permission already exists.
-
-        Returns:
-            A single :py:class:`mlflow.server.auth.entities.ScorerPermission` object.
-        """
-        resp = self._request(
-            CREATE_SCORER_PERMISSION,
-            "POST",
-            json={
-                "experiment_id": experiment_id,
-                "scorer_name": scorer_name,
-                "username": username,
-                "permission": permission,
-            },
-        )
-        return ScorerPermission.from_json(resp["scorer_permission"])
-
-    def get_scorer_permission(self, experiment_id: str, scorer_name: str, username: str):
-        """
-        Get a scorer permission for a user.
-
-        Args:
-            experiment_id: The id of the experiment containing the scorer.
-            scorer_name: The name of the scorer.
-            username: The username.
-
-        Raises:
-            mlflow.exceptions.RestException: if the user does not exist,
-                or no permission exists for this scorer user pair.
-
-        Returns:
-            A single :py:class:`mlflow.server.auth.entities.ScorerPermission` object.
-        """
-        resp = self._request(
-            GET_SCORER_PERMISSION,
-            "GET",
-            params={
-                "experiment_id": experiment_id,
-                "scorer_name": scorer_name,
-                "username": username,
-            },
-        )
-        return ScorerPermission.from_json(resp["scorer_permission"])
-
-    def update_scorer_permission(
-        self, experiment_id: str, scorer_name: str, username: str, permission: str
-    ):
-        """
-        Update an existing scorer permission for a user.
-
-        Args:
-            experiment_id: The id of the experiment containing the scorer.
-            scorer_name: The name of the scorer.
-            username: The username.
-            permission: New permission to grant. Must be one of "READ", "USE", "EDIT", "MANAGE" and
-                "NO_PERMISSIONS".
-
-        Raises:
-            mlflow.exceptions.RestException: if the user does not exist,
-                or no permission exists for this scorer user pair,
-                or if the permission is invalid.
-        """
-        self._request(
-            UPDATE_SCORER_PERMISSION,
-            "PATCH",
-            json={
-                "experiment_id": experiment_id,
-                "scorer_name": scorer_name,
-                "username": username,
-                "permission": permission,
-            },
-        )
-
-    def delete_scorer_permission(self, experiment_id: str, scorer_name: str, username: str):
-        """
-        Delete an existing scorer permission for a user.
-
-        Args:
-            experiment_id: The id of the experiment containing the scorer.
-            scorer_name: The name of the scorer.
-            username: The username.
-
-        Raises:
-            mlflow.exceptions.RestException: if the user does not exist,
-                or no permission exists for this scorer user pair.
-        """
-        self._request(
-            DELETE_SCORER_PERMISSION,
-            "DELETE",
-            json={
-                "experiment_id": experiment_id,
-                "scorer_name": scorer_name,
-                "username": username,
-            },
-        )
-
-    # Gateway secret permission methods
-
-    def create_gateway_secret_permission(self, secret_id: str, username: str, permission: str):
-        """
-        Create a permission on a gateway secret for a user.
-
-        Args:
-            secret_id: The id of the gateway secret.
-            username: The username.
-            permission: Permission to grant. Must be one of "READ", "USE", "EDIT", "MANAGE" and
-                "NO_PERMISSIONS".
-
-        Returns:
-            A single :py:class:`mlflow.server.auth.entities.GatewaySecretPermission` object.
-        """
-        resp = self._request(
-            CREATE_GATEWAY_SECRET_PERMISSION,
-            "POST",
-            json={"secret_id": secret_id, "username": username, "permission": permission},
-        )
-        return GatewaySecretPermission.from_json(resp["gateway_secret_permission"])
-
-    def get_gateway_secret_permission(self, secret_id: str, username: str):
-        """
-        Get a gateway secret permission for a user.
-
-        Args:
-            secret_id: The id of the gateway secret.
-            username: The username.
-
-        Returns:
-            A single :py:class:`mlflow.server.auth.entities.GatewaySecretPermission` object.
-        """
-        resp = self._request(
-            GET_GATEWAY_SECRET_PERMISSION,
-            "GET",
-            params={"secret_id": secret_id, "username": username},
-        )
-        return GatewaySecretPermission.from_json(resp["gateway_secret_permission"])
-
-    def update_gateway_secret_permission(self, secret_id: str, username: str, permission: str):
-        """
-        Update an existing gateway secret permission for a user.
-
-        Args:
-            secret_id: The id of the gateway secret.
-            username: The username.
-            permission: New permission to grant. Must be one of "READ", "USE", "EDIT", "MANAGE" and
-                "NO_PERMISSIONS".
-        """
-        self._request(
-            UPDATE_GATEWAY_SECRET_PERMISSION,
-            "PATCH",
-            json={"secret_id": secret_id, "username": username, "permission": permission},
-        )
-
-    def delete_gateway_secret_permission(self, secret_id: str, username: str):
-        """
-        Delete an existing gateway secret permission for a user.
-
-        Args:
-            secret_id: The id of the gateway secret.
-            username: The username.
-        """
-        self._request(
-            DELETE_GATEWAY_SECRET_PERMISSION,
-            "DELETE",
-            json={"secret_id": secret_id, "username": username},
-        )
-
-    # Gateway endpoint permission methods
-
-    def create_gateway_endpoint_permission(self, endpoint_id: str, username: str, permission: str):
-        """
-        Create a permission on a gateway endpoint for a user.
-
-        Args:
-            endpoint_id: The id of the gateway endpoint.
-            username: The username.
-            permission: Permission to grant. Must be one of "READ", "USE", "EDIT", "MANAGE" and
-                "NO_PERMISSIONS".
-
-        Returns:
-            A single :py:class:`mlflow.server.auth.entities.GatewayEndpointPermission` object.
-        """
-        resp = self._request(
-            CREATE_GATEWAY_ENDPOINT_PERMISSION,
-            "POST",
-            json={"endpoint_id": endpoint_id, "username": username, "permission": permission},
-        )
-        return GatewayEndpointPermission.from_json(resp["gateway_endpoint_permission"])
-
-    def get_gateway_endpoint_permission(self, endpoint_id: str, username: str):
-        """
-        Get a gateway endpoint permission for a user.
-
-        Args:
-            endpoint_id: The id of the gateway endpoint.
-            username: The username.
-
-        Returns:
-            A single :py:class:`mlflow.server.auth.entities.GatewayEndpointPermission` object.
-        """
-        resp = self._request(
-            GET_GATEWAY_ENDPOINT_PERMISSION,
-            "GET",
-            params={"endpoint_id": endpoint_id, "username": username},
-        )
-        return GatewayEndpointPermission.from_json(resp["gateway_endpoint_permission"])
-
-    def update_gateway_endpoint_permission(self, endpoint_id: str, username: str, permission: str):
-        """
-        Update an existing gateway endpoint permission for a user.
-
-        Args:
-            endpoint_id: The id of the gateway endpoint.
-            username: The username.
-            permission: New permission to grant. Must be one of "READ", "USE", "EDIT", "MANAGE" and
-                "NO_PERMISSIONS".
-        """
-        self._request(
-            UPDATE_GATEWAY_ENDPOINT_PERMISSION,
-            "PATCH",
-            json={"endpoint_id": endpoint_id, "username": username, "permission": permission},
-        )
-
-    def delete_gateway_endpoint_permission(self, endpoint_id: str, username: str):
-        """
-        Delete an existing gateway endpoint permission for a user.
-
-        Args:
-            endpoint_id: The id of the gateway endpoint.
-            username: The username.
-        """
-        self._request(
-            DELETE_GATEWAY_ENDPOINT_PERMISSION,
-            "DELETE",
-            json={"endpoint_id": endpoint_id, "username": username},
-        )
-
-    # Gateway model definition permission methods
-
-    def create_gateway_model_definition_permission(
-        self, model_definition_id: str, username: str, permission: str
-    ):
-        """
-        Create a permission on a gateway model definition for a user.
-
-        Args:
-            model_definition_id: The id of the gateway model definition.
-            username: The username.
-            permission: Permission to grant. Must be one of "READ", "USE", "EDIT", "MANAGE" and
-                "NO_PERMISSIONS".
-
-        Returns:
-            A single :py:class:`mlflow.server.auth.entities.GatewayModelDefinitionPermission`
-            object.
-        """
-        resp = self._request(
-            CREATE_GATEWAY_MODEL_DEFINITION_PERMISSION,
-            "POST",
-            json={
-                "model_definition_id": model_definition_id,
-                "username": username,
-                "permission": permission,
-            },
-        )
-        return GatewayModelDefinitionPermission.from_json(
-            resp["gateway_model_definition_permission"]
-        )
-
-    def get_gateway_model_definition_permission(self, model_definition_id: str, username: str):
-        """
-        Get a gateway model definition permission for a user.
-
-        Args:
-            model_definition_id: The id of the gateway model definition.
-            username: The username.
-
-        Returns:
-            A single :py:class:`mlflow.server.auth.entities.GatewayModelDefinitionPermission`
-            object.
-        """
-        resp = self._request(
-            GET_GATEWAY_MODEL_DEFINITION_PERMISSION,
-            "GET",
-            params={"model_definition_id": model_definition_id, "username": username},
-        )
-        return GatewayModelDefinitionPermission.from_json(
-            resp["gateway_model_definition_permission"]
-        )
-
-    def update_gateway_model_definition_permission(
-        self, model_definition_id: str, username: str, permission: str
-    ):
-        """
-        Update an existing gateway model definition permission for a user.
-
-        Args:
-            model_definition_id: The id of the gateway model definition.
-            username: The username.
-            permission: New permission to grant. Must be one of "READ", "USE", "EDIT", "MANAGE" and
-                "NO_PERMISSIONS".
-        """
-        self._request(
-            UPDATE_GATEWAY_MODEL_DEFINITION_PERMISSION,
-            "PATCH",
-            json={
-                "model_definition_id": model_definition_id,
-                "username": username,
-                "permission": permission,
-            },
-        )
-
-    def delete_gateway_model_definition_permission(self, model_definition_id: str, username: str):
-        """
-        Delete an existing gateway model definition permission for a user.
-
-        Args:
-            model_definition_id: The id of the gateway model definition.
-            username: The username.
-        """
-        self._request(
-            DELETE_GATEWAY_MODEL_DEFINITION_PERMISSION,
-            "DELETE",
-            json={"model_definition_id": model_definition_id, "username": username},
-        )
-
-    def list_workspace_permissions(self, workspace_name: str) -> list[WorkspacePermission]:
-        """
-        List the permissions configured for the specified workspace.
-
-        Args:
-            workspace_name: The workspace name.
-
-        Returns:
-            A list of :py:class:`mlflow.server.auth.entities.WorkspacePermission` objects.
-        """
-
-        endpoint = self._workspace_endpoint(LIST_WORKSPACE_PERMISSIONS, workspace_name)
-        resp = self._request(endpoint, "GET")
-        return [WorkspacePermission.from_json(p) for p in resp["permissions"]]
-
-    def set_workspace_permission(
-        self, workspace_name: str, username: str, permission: str
-    ) -> WorkspacePermission:
-        """
-        Create or update a workspace-level permission for a user.
-
-        Args:
-            workspace_name: The workspace name.
-            username: The username receiving the permission.
-            permission: Permission to grant. Must be one of "READ", "USE", "EDIT",
-                "MANAGE", "NO_PERMISSIONS".
-
-        Returns:
-            A :py:class:`mlflow.server.auth.entities.WorkspacePermission` object.
-        """
-
-        endpoint = self._workspace_endpoint(LIST_WORKSPACE_PERMISSIONS, workspace_name)
-        resp = self._request(
-            endpoint,
-            "POST",
-            json={
-                "username": username,
-                "permission": permission,
-            },
-        )
-
-        return WorkspacePermission.from_json(resp["permission"])
-
-    def delete_workspace_permission(self, workspace_name: str, username: str) -> None:
-        """
-        Delete a workspace-level permission for a user.
-
-        Args:
-            workspace_name: The workspace name.
-            username: The username whose permission should be removed.
-        """
-
-        endpoint = self._workspace_endpoint(LIST_WORKSPACE_PERMISSIONS, workspace_name)
-        self._request(
-            endpoint,
-            "DELETE",
-            params={"username": username},
-            expected_status=204,
-        )
-
-    def list_user_workspace_permissions(self, username: str) -> list[WorkspacePermission]:
-        """
-        List workspace-level permissions assigned to a user.
-
-        Args:
-            username: The username.
-
-        Returns:
-            A list of :py:class:`mlflow.server.auth.entities.WorkspacePermission` objects.
-        """
-
-        resp = self._request(
-            LIST_USER_WORKSPACE_PERMISSIONS,
-            "GET",
-            params={"username": username},
-        )
-        return [WorkspacePermission.from_json(p) for p in resp["permissions"]]
-
     # ---- Role management (RBAC) ----
 
     def create_role(
@@ -1111,3 +382,280 @@ class AuthServiceClient:
         # cross-workspace listing (admin-only, enforced server-side).
         resp = self._request(LIST_ROLES, "GET")
         return [Role.from_json(r) for r in resp["roles"]]
+
+    # Legacy per-resource permission methods (deprecated). Backed by synthetic
+    # per-user role grants; prefer ``add_role_permission`` + ``assign_role``.
+
+    def create_experiment_permission(
+        self, experiment_id: str, username: str, permission: str
+    ) -> ExperimentPermission:
+        _warn_legacy_permission_method("create_experiment_permission")
+        resp = self._request(
+            CREATE_EXPERIMENT_PERMISSION,
+            "POST",
+            json={"experiment_id": experiment_id, "username": username, "permission": permission},
+        )
+        return ExperimentPermission.from_json(resp["experiment_permission"])
+
+    def get_experiment_permission(self, experiment_id: str, username: str) -> ExperimentPermission:
+        _warn_legacy_permission_method("get_experiment_permission")
+        resp = self._request(
+            GET_EXPERIMENT_PERMISSION,
+            "GET",
+            params={"experiment_id": experiment_id, "username": username},
+        )
+        return ExperimentPermission.from_json(resp["experiment_permission"])
+
+    def update_experiment_permission(
+        self, experiment_id: str, username: str, permission: str
+    ) -> None:
+        _warn_legacy_permission_method("update_experiment_permission")
+        self._request(
+            UPDATE_EXPERIMENT_PERMISSION,
+            "PATCH",
+            json={"experiment_id": experiment_id, "username": username, "permission": permission},
+        )
+
+    def delete_experiment_permission(self, experiment_id: str, username: str) -> None:
+        _warn_legacy_permission_method("delete_experiment_permission")
+        self._request(
+            DELETE_EXPERIMENT_PERMISSION,
+            "DELETE",
+            json={"experiment_id": experiment_id, "username": username},
+        )
+
+    def create_registered_model_permission(
+        self, name: str, username: str, permission: str
+    ) -> RegisteredModelPermission:
+        _warn_legacy_permission_method("create_registered_model_permission")
+        resp = self._request(
+            CREATE_REGISTERED_MODEL_PERMISSION,
+            "POST",
+            json={"name": name, "username": username, "permission": permission},
+        )
+        return RegisteredModelPermission.from_json(resp["registered_model_permission"])
+
+    def get_registered_model_permission(
+        self, name: str, username: str
+    ) -> RegisteredModelPermission:
+        _warn_legacy_permission_method("get_registered_model_permission")
+        resp = self._request(
+            GET_REGISTERED_MODEL_PERMISSION,
+            "GET",
+            params={"name": name, "username": username},
+        )
+        return RegisteredModelPermission.from_json(resp["registered_model_permission"])
+
+    def update_registered_model_permission(self, name: str, username: str, permission: str) -> None:
+        _warn_legacy_permission_method("update_registered_model_permission")
+        self._request(
+            UPDATE_REGISTERED_MODEL_PERMISSION,
+            "PATCH",
+            json={"name": name, "username": username, "permission": permission},
+        )
+
+    def delete_registered_model_permission(self, name: str, username: str) -> None:
+        _warn_legacy_permission_method("delete_registered_model_permission")
+        self._request(
+            DELETE_REGISTERED_MODEL_PERMISSION,
+            "DELETE",
+            json={"name": name, "username": username},
+        )
+
+    def create_scorer_permission(
+        self, experiment_id: str, scorer_name: str, username: str, permission: str
+    ) -> ScorerPermission:
+        _warn_legacy_permission_method("create_scorer_permission")
+        resp = self._request(
+            CREATE_SCORER_PERMISSION,
+            "POST",
+            json={
+                "experiment_id": experiment_id,
+                "scorer_name": scorer_name,
+                "username": username,
+                "permission": permission,
+            },
+        )
+        return ScorerPermission.from_json(resp["scorer_permission"])
+
+    def get_scorer_permission(
+        self, experiment_id: str, scorer_name: str, username: str
+    ) -> ScorerPermission:
+        _warn_legacy_permission_method("get_scorer_permission")
+        resp = self._request(
+            GET_SCORER_PERMISSION,
+            "GET",
+            params={
+                "experiment_id": experiment_id,
+                "scorer_name": scorer_name,
+                "username": username,
+            },
+        )
+        return ScorerPermission.from_json(resp["scorer_permission"])
+
+    def update_scorer_permission(
+        self, experiment_id: str, scorer_name: str, username: str, permission: str
+    ) -> None:
+        _warn_legacy_permission_method("update_scorer_permission")
+        self._request(
+            UPDATE_SCORER_PERMISSION,
+            "PATCH",
+            json={
+                "experiment_id": experiment_id,
+                "scorer_name": scorer_name,
+                "username": username,
+                "permission": permission,
+            },
+        )
+
+    def delete_scorer_permission(self, experiment_id: str, scorer_name: str, username: str) -> None:
+        _warn_legacy_permission_method("delete_scorer_permission")
+        self._request(
+            DELETE_SCORER_PERMISSION,
+            "DELETE",
+            json={
+                "experiment_id": experiment_id,
+                "scorer_name": scorer_name,
+                "username": username,
+            },
+        )
+
+    # Gateway secret permission methods (deprecated)
+
+    def create_gateway_secret_permission(
+        self, secret_id: str, username: str, permission: str
+    ) -> GatewaySecretPermission:
+        _warn_legacy_permission_method("create_gateway_secret_permission")
+        resp = self._request(
+            CREATE_GATEWAY_SECRET_PERMISSION,
+            "POST",
+            json={"secret_id": secret_id, "username": username, "permission": permission},
+        )
+        return GatewaySecretPermission.from_json(resp["gateway_secret_permission"])
+
+    def get_gateway_secret_permission(
+        self, secret_id: str, username: str
+    ) -> GatewaySecretPermission:
+        _warn_legacy_permission_method("get_gateway_secret_permission")
+        resp = self._request(
+            GET_GATEWAY_SECRET_PERMISSION,
+            "GET",
+            params={"secret_id": secret_id, "username": username},
+        )
+        return GatewaySecretPermission.from_json(resp["gateway_secret_permission"])
+
+    def update_gateway_secret_permission(
+        self, secret_id: str, username: str, permission: str
+    ) -> None:
+        _warn_legacy_permission_method("update_gateway_secret_permission")
+        self._request(
+            UPDATE_GATEWAY_SECRET_PERMISSION,
+            "PATCH",
+            json={"secret_id": secret_id, "username": username, "permission": permission},
+        )
+
+    def delete_gateway_secret_permission(self, secret_id: str, username: str) -> None:
+        _warn_legacy_permission_method("delete_gateway_secret_permission")
+        self._request(
+            DELETE_GATEWAY_SECRET_PERMISSION,
+            "DELETE",
+            json={"secret_id": secret_id, "username": username},
+        )
+
+    # Gateway endpoint permission methods (deprecated)
+
+    def create_gateway_endpoint_permission(
+        self, endpoint_id: str, username: str, permission: str
+    ) -> GatewayEndpointPermission:
+        _warn_legacy_permission_method("create_gateway_endpoint_permission")
+        resp = self._request(
+            CREATE_GATEWAY_ENDPOINT_PERMISSION,
+            "POST",
+            json={"endpoint_id": endpoint_id, "username": username, "permission": permission},
+        )
+        return GatewayEndpointPermission.from_json(resp["gateway_endpoint_permission"])
+
+    def get_gateway_endpoint_permission(
+        self, endpoint_id: str, username: str
+    ) -> GatewayEndpointPermission:
+        _warn_legacy_permission_method("get_gateway_endpoint_permission")
+        resp = self._request(
+            GET_GATEWAY_ENDPOINT_PERMISSION,
+            "GET",
+            params={"endpoint_id": endpoint_id, "username": username},
+        )
+        return GatewayEndpointPermission.from_json(resp["gateway_endpoint_permission"])
+
+    def update_gateway_endpoint_permission(
+        self, endpoint_id: str, username: str, permission: str
+    ) -> None:
+        _warn_legacy_permission_method("update_gateway_endpoint_permission")
+        self._request(
+            UPDATE_GATEWAY_ENDPOINT_PERMISSION,
+            "PATCH",
+            json={"endpoint_id": endpoint_id, "username": username, "permission": permission},
+        )
+
+    def delete_gateway_endpoint_permission(self, endpoint_id: str, username: str) -> None:
+        _warn_legacy_permission_method("delete_gateway_endpoint_permission")
+        self._request(
+            DELETE_GATEWAY_ENDPOINT_PERMISSION,
+            "DELETE",
+            json={"endpoint_id": endpoint_id, "username": username},
+        )
+
+    # Gateway model definition permission methods (deprecated)
+
+    def create_gateway_model_definition_permission(
+        self, model_definition_id: str, username: str, permission: str
+    ) -> GatewayModelDefinitionPermission:
+        _warn_legacy_permission_method("create_gateway_model_definition_permission")
+        resp = self._request(
+            CREATE_GATEWAY_MODEL_DEFINITION_PERMISSION,
+            "POST",
+            json={
+                "model_definition_id": model_definition_id,
+                "username": username,
+                "permission": permission,
+            },
+        )
+        return GatewayModelDefinitionPermission.from_json(
+            resp["gateway_model_definition_permission"]
+        )
+
+    def get_gateway_model_definition_permission(
+        self, model_definition_id: str, username: str
+    ) -> GatewayModelDefinitionPermission:
+        _warn_legacy_permission_method("get_gateway_model_definition_permission")
+        resp = self._request(
+            GET_GATEWAY_MODEL_DEFINITION_PERMISSION,
+            "GET",
+            params={"model_definition_id": model_definition_id, "username": username},
+        )
+        return GatewayModelDefinitionPermission.from_json(
+            resp["gateway_model_definition_permission"]
+        )
+
+    def update_gateway_model_definition_permission(
+        self, model_definition_id: str, username: str, permission: str
+    ) -> None:
+        _warn_legacy_permission_method("update_gateway_model_definition_permission")
+        self._request(
+            UPDATE_GATEWAY_MODEL_DEFINITION_PERMISSION,
+            "PATCH",
+            json={
+                "model_definition_id": model_definition_id,
+                "username": username,
+                "permission": permission,
+            },
+        )
+
+    def delete_gateway_model_definition_permission(
+        self, model_definition_id: str, username: str
+    ) -> None:
+        _warn_legacy_permission_method("delete_gateway_model_definition_permission")
+        self._request(
+            DELETE_GATEWAY_MODEL_DEFINITION_PERMISSION,
+            "DELETE",
+            json={"model_definition_id": model_definition_id, "username": username},
+        )

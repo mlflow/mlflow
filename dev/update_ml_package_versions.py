@@ -9,11 +9,10 @@ $ python dev/update_ml_package_versions.py
 """
 
 import argparse
+import asyncio
 import json
 import os
 import re
-import sys
-import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
@@ -22,6 +21,7 @@ from pathlib import Path
 
 import yaml
 from packaging.version import Version
+from pypi import Package, get_packages
 
 
 def read_file(path):
@@ -55,43 +55,15 @@ class VersionInfo:
     upload_time: datetime
 
 
-def get_package_version_infos(package_name: str) -> list[VersionInfo]:
-    url = f"{PYPI_URL}/pypi/{package_name}/json"
-    for _ in range(5):  # Retry up to 5 times
-        try:
-            with urllib.request.urlopen(url) as res:
-                data = json.load(res)
-        except ConnectionResetError as e:
-            sys.stderr.write(f"Retrying {url} due to {e}\n")
-            time.sleep(1)
-        else:
-            break
-    else:
-        raise Exception(f"Failed to fetch {url}")
-
-    def is_dev_or_pre_release(version_str):
-        v = Version(version_str)
-        return v.is_devrelease or v.is_prerelease
-
+def get_package_version_infos(package: Package) -> list[VersionInfo]:
     cutoff = datetime.now(timezone.utc) - timedelta(days=RELEASE_CUTOFF_DAYS)
-
-    def uploaded_within_cutoff(dist) -> bool:
-        if ut := dist.get("upload_time_iso_8601"):
-            return datetime.fromisoformat(ut.replace("Z", "+00:00")) >= cutoff
-        return False
-
     return [
-        VersionInfo(
-            version=version,
-            upload_time=datetime.fromisoformat(dist_files[0]["upload_time"]),
-        )
-        for version, dist_files in data["releases"].items()
-        if (
-            len(dist_files) > 0
-            and not is_dev_or_pre_release(version)
-            and not any(uploaded_within_cutoff(dist) for dist in dist_files)
-            and not any(dist.get("yanked", False) for dist in dist_files)
-        )
+        VersionInfo(version=str(r.version), upload_time=r.upload_time)
+        for r in package.releases
+        if not r.yanked
+        and not r.version.is_devrelease
+        and not r.version.is_prerelease
+        and r.upload_time < cutoff
     ]
 
 
@@ -262,11 +234,10 @@ def parse_args():
 
 def get_min_supported_version(versions_infos: list[VersionInfo], genai: bool = False) -> str | None:
     """
-    Get the minimum version that is released within the past two years
+    Get the minimum version that is released within the past 1 year (genai) or 2 years (non-genai).
     """
     years = 1 if genai else 2
-    min_support_date = datetime.now() - timedelta(days=years * 365)
-    min_support_date = min_support_date.replace(tzinfo=None)
+    min_support_date = datetime.now(timezone.utc) - timedelta(days=years * 365)
 
     # Extract versions that were released in the past two years
     recent_versions = [v for v in versions_infos if v.upload_time > min_support_date]
@@ -287,13 +258,14 @@ def update(skip_yml=False):
         old_src = read_file(yml_path)
         new_src = old_src
         config_dict = yaml.load(old_src, Loader=yaml.SafeLoader)
-        for flavor_key, config in config_dict.items():
-            # We currently don't have bandwidth to support newer versions of these flavors.
-            if flavor_key in ["litellm"]:
-                continue
+        # We currently don't have bandwidth to support newer versions of these flavors.
+        flavors = [(k, c) for k, c in config_dict.items() if k not in ["litellm"]]
+        package_names = sorted({c["package_info"]["pip_release"] for _, c in flavors})
+        packages = dict(zip(package_names, asyncio.run(get_packages(package_names))))
+        for flavor_key, config in flavors:
             package_name = config["package_info"]["pip_release"]
             genai = config["package_info"].get("genai", False)
-            versions_and_upload_times = get_package_version_infos(package_name)
+            versions_and_upload_times = get_package_version_infos(packages[package_name])
             min_supported_version = get_min_supported_version(
                 versions_and_upload_times, genai=genai
             )

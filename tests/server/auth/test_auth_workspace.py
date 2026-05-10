@@ -23,7 +23,6 @@ from mlflow.server.auth.routes import (
 )
 from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
 from mlflow.utils import workspace_context
-from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 from tests.helper_functions import random_str
 
@@ -436,52 +435,6 @@ def _set_workspace_permission(store: SqlAlchemyStore, username: str, permission:
     store.set_workspace_permission("team-a", username, permission)
 
 
-def test_workspace_permission_grants_default_access(monkeypatch):
-    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
-
-    default_permission = MANAGE.name
-    monkeypatch.setattr(
-        auth_module,
-        "auth_config",
-        auth_module.auth_config._replace(
-            default_permission=default_permission,
-            grant_default_workspace_access=True,
-        ),
-        raising=False,
-    )
-
-    class DummyStore:
-        def get_workspace_permission(self, workspace_name, username):
-            return None
-
-        def get_role_workspace_permission(self, workspace_name, username):
-            return None
-
-        def list_accessible_workspace_names(self, username):
-            return []
-
-    dummy_store = DummyStore()
-    monkeypatch.setattr(auth_module, "store", dummy_store, raising=False)
-
-    default_workspace = DEFAULT_WORKSPACE_NAME
-    monkeypatch.setattr(auth_module, "_get_workspace_store", lambda: None, raising=False)
-    monkeypatch.setattr(
-        auth_module,
-        "get_default_workspace_optional",
-        lambda *args, **kwargs: (SimpleNamespace(name=default_workspace), True),
-        raising=False,
-    )
-
-    auth = SimpleNamespace(username="alice")
-    permission = auth_module._workspace_permission(auth.username, default_workspace)
-    assert permission is not None
-    assert permission.can_manage
-
-    with workspace_context.WorkspaceContext(default_workspace):
-        monkeypatch.setattr(auth_module, "authenticate_request", lambda: auth)
-        assert auth_module.validate_can_create_experiment()
-
-
 def test_filter_list_workspaces_includes_default_when_autogrant(monkeypatch):
     monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
     auth = SimpleNamespace(username="alice")
@@ -789,7 +742,7 @@ def test_no_permissions_blocks_create(workspace_permission_setup):
 
 
 def test_role_grant_workspace_use_allows_create(workspace_permission_setup, monkeypatch):
-    # Workspace-wide USE grant (resource_type='*') confers create rights.
+    # Workspace-wide USE grant ('workspace', '*', USE) confers create rights.
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     user_id = store.get_user(username).id
@@ -1083,11 +1036,8 @@ def test_registered_model_validators_require_manage_for_writes(workspace_permiss
             assert auth_module.validate_can_update_registered_model()
             assert auth_module.validate_can_delete_registered_model()
             assert auth_module.validate_can_manage_registered_model()
-        perm = auth_module._workspace_permission(
-            auth_module.authenticate_request().username, "team-a"
-        )
-        assert perm is not None
-        assert perm.can_manage
+        user = store.get_user(auth_module.authenticate_request().username)
+        assert store.is_workspace_admin(user.id, "team-a")
         assert workspace_context.get_request_workspace() == "team-a"
         assert auth_module.validate_can_create_registered_model()
 
@@ -2472,3 +2422,121 @@ def test_role_permission_resolver_denies_in_non_default_workspace(monkeypatch):
     )
     perm = auth_module._get_role_permission_or_default(role_perm)
     assert perm.name == NO_PERMISSIONS.name
+
+
+def test_user_can_create_in_default_workspace_via_autogrant(monkeypatch):
+    """``_user_can_create_in_workspace`` must honor
+    ``grant_default_workspace_access`` so an ungranted user in the default
+    workspace can still create when ``default_permission.can_use`` is true.
+    Regression guard for the legacy-endpoint simplification, which dropped
+    the auto-grant fallback when ``_workspace_permission`` was retired.
+    """
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    auth = SimpleNamespace(username="alice")
+    monkeypatch.setattr(auth_module, "authenticate_request", lambda: auth)
+    monkeypatch.setattr(
+        auth_module,
+        "auth_config",
+        auth_module.auth_config._replace(
+            default_permission=USE.name,
+            grant_default_workspace_access=True,
+        ),
+        raising=False,
+    )
+
+    default_workspace = "team-default"
+    monkeypatch.setattr(auth_module, "_get_workspace_store", lambda: None, raising=False)
+    monkeypatch.setattr(
+        auth_module,
+        "get_default_workspace_optional",
+        lambda *args, **kwargs: (SimpleNamespace(name=default_workspace), True),
+        raising=False,
+    )
+
+    class DummyStore:
+        def get_user(self, username):
+            return SimpleNamespace(id=42, username=username)
+
+        def get_role_permission_for_resource(self, *args, **kwargs):
+            return None
+
+    monkeypatch.setattr(auth_module, "store", DummyStore(), raising=False)
+
+    # Default workspace + autogrant + USE → allowed.
+    with workspace_context.WorkspaceContext(default_workspace):
+        assert auth_module._user_can_create_in_workspace()
+
+    # Same config but a non-default workspace → still denied.
+    with workspace_context.WorkspaceContext("team-other"):
+        assert not auth_module._user_can_create_in_workspace()
+
+
+def test_user_cannot_create_via_autogrant_when_default_permission_lacks_use(monkeypatch):
+    """The auto-grant create-gate gates on ``default_permission.can_use``. If
+    the operator pinned ``default_permission=READ`` (read-only access), the
+    fallback must not allow create.
+    """
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    auth = SimpleNamespace(username="alice")
+    monkeypatch.setattr(auth_module, "authenticate_request", lambda: auth)
+    monkeypatch.setattr(
+        auth_module,
+        "auth_config",
+        auth_module.auth_config._replace(
+            default_permission=READ.name,
+            grant_default_workspace_access=True,
+        ),
+        raising=False,
+    )
+
+    default_workspace = "team-default"
+    monkeypatch.setattr(auth_module, "_get_workspace_store", lambda: None, raising=False)
+    monkeypatch.setattr(
+        auth_module,
+        "get_default_workspace_optional",
+        lambda *args, **kwargs: (SimpleNamespace(name=default_workspace), True),
+        raising=False,
+    )
+
+    class DummyStore:
+        def get_user(self, username):
+            return SimpleNamespace(id=42, username=username)
+
+        def get_role_permission_for_resource(self, *args, **kwargs):
+            return None
+
+    monkeypatch.setattr(auth_module, "store", DummyStore(), raising=False)
+
+    with workspace_context.WorkspaceContext(default_workspace):
+        assert not auth_module._user_can_create_in_workspace()
+
+
+def test_role_based_read_predicate_ignores_no_permissions_grants(monkeypatch):
+    monkeypatch.delenv(MLFLOW_ENABLE_WORKSPACES.name, raising=False)
+    monkeypatch.setattr(
+        auth_module,
+        "auth_config",
+        auth_module.auth_config._replace(default_permission=READ.name),
+        raising=False,
+    )
+
+    class DummyStore:
+        def get_user(self, username):
+            return SimpleNamespace(id=42, username=username)
+
+        def list_role_grants_for_user_in_workspace(self, *args, **kwargs):
+            return [
+                ("*", NO_PERMISSIONS.name),
+                ("exp-allowed", READ.name),
+                ("exp-explicit-deny", NO_PERMISSIONS.name),
+            ]
+
+    monkeypatch.setattr(auth_module, "store", DummyStore(), raising=False)
+
+    predicate = auth_module._role_based_read_predicate("alice", "experiment")
+    # Specific positive grant wins.
+    assert predicate("exp-allowed")
+    # NO_PERMISSIONS wildcard is ignored; default READ fallback applies.
+    assert predicate("exp-other")
+    # Per-resource NO_PERMISSIONS is ignored; default READ fallback applies.
+    assert predicate("exp-explicit-deny")
