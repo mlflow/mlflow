@@ -105,6 +105,7 @@ jobs:
         run: |
           cat > /tmp/parse_args.py <<'EOF'
           import argparse
+          import secrets
           import sys
 
           ALIASES = {
@@ -123,7 +124,9 @@ jobs:
 
           model = ALIASES.get(args.model, args.model)
           prompt = " ".join(leftover) + sep + tail
-          sys.stdout.write(f"prompt<<PROMPT_EOF\n{prompt}\nPROMPT_EOF\nmodel={model}\n")
+          # Random delimiter so user input can't terminate the heredoc.
+          delim = f"PROMPT_EOF_{secrets.token_hex(8)}"
+          sys.stdout.write(f"prompt<<{delim}\n{prompt}\n{delim}\nmodel={model}\n")
           EOF
 
           echo "$COMMENT_BODY" | python /tmp/parse_args.py >> "$GITHUB_OUTPUT"
