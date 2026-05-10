@@ -16,8 +16,9 @@ A workspace-level grant is a permission on the special
 applies to **every resource type** in that workspace (experiments, registered
 models, prompts, AI Gateway resources). Two levels are grantable:
 
-- `USE`: workspace **member**. Read every resource in the workspace; create
-  new experiments and registered models.
+- `USE`: workspace **member**. Provides USE-level access (read + use) to
+  resources in the workspace and the ability to create new experiments and
+  registered models. Per-resource grants can upgrade individual rows.
 - `MANAGE`: workspace **admin**. Full authority within the workspace,
   including granting permissions to other users via roles in this workspace.
   Cannot perform system-wide operations like deleting users.
@@ -39,18 +40,18 @@ permission for that resource's workspace.
 
 ### Example scenarios
 
-1. **Workspace-level grant.** Alice holds the `team-a/user` role.
-   - Alice can read all experiments, registered models, and prompts in `team-a`.
+1. **Workspace-level grant.** Alice holds the `team-a/user` role, so she can
+   read all experiments, registered models, and prompts in `team-a`.
 2. **Resource-level upgrade.** Bob holds the `team-a/user` role (`USE`
-   workspace-wide) plus a per-resource grant of `EDIT` on experiment `exp-123`.
-   - Bob can read every resource in `team-a` and additionally edit `exp-123`.
-     The more specific resource grant wins over the workspace-level grant for
-     that resource.
+   workspace-wide) plus a per-resource grant of `EDIT` on experiment
+   `exp-123`. Bob can read every resource in `team-a` and additionally edit
+   `exp-123`; the resolver unions matching grants and the higher-priority
+   `EDIT` wins for that resource.
 3. **Direct resource grant without workspace access.** Carol has `EDIT`
    permission on experiment `exp-456` in `team-a` but no role with
-   workspace-level access.
-   - Carol can access `exp-456` only. The workspace `team-a` does not appear
-     in Carol's `mlflow.list_workspaces()` results.
+   workspace-level access. Carol can access `exp-456` only, and the
+   workspace `team-a` does not appear in her `mlflow.list_workspaces()`
+   results.
 
 `NO_PERMISSIONS` is the deny-by-default sentinel for users with no matching
 grant in the resolver's chain; it is **not grantable** as a role permission

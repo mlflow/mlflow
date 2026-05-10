@@ -26,11 +26,14 @@ remain the right starting point.
 
 ```mermaid
 flowchart LR
-    Users[users] -->|assigned| URA[user_role_assignments]
+    Users[users] --> URA[user_role_assignments]
     URA --> Roles[roles]
-    Roles -->|have| RP[role_permissions]
-    RP --> Tuple["(resource_type, resource_pattern, permission)"]
+    Roles --> RP[role_permissions]
 ```
+
+A user-role assignment links one user to one role; a role contains zero or
+more `role_permissions` rows of the form
+`(resource_type, resource_pattern, permission)`.
 
 - **Users** are global (one row per identity in the auth database).
 - **Roles** are workspace-scoped. A role named `editor` in workspace `foo` is a
@@ -65,18 +68,22 @@ auth server rejects attempts to assign it.
 
 RBAC has no explicit-deny override: a workspace-level grant cannot be
 "excepted" for a single resource by an absent or lesser per-resource grant.
-The resolver's specific-pattern check finds no row, falls through to the
-workspace grant, and allows. To restrict access to a specific resource,
-grant access more narrowly (per-resource or resource-type wildcard) rather
-than holding a broad workspace-level grant and trying to except the resource.
+The resolver unions every matching row and takes the highest-priority
+permission level, so a workspace `USE` grant always at least allows USE on
+every resource in the workspace; a per-resource grant can only upgrade that.
+To restrict access to a specific resource, grant access more narrowly
+(per-resource or resource-type wildcard) rather than holding a broad
+workspace-level grant and trying to except the resource.
 
 ### Workspace-level grants
 
 Workspace-wide access is expressed as a permission on the special
 `(resource_type='workspace', resource_pattern='*')` slot. Two levels:
 
-- `USE`: workspace **member**. Read every resource in the workspace; create
-  experiments and registered models.
+- `USE`: workspace **member**. Provides USE-level access (read + use) to
+  resources in the workspace and the ability to create experiments and
+  registered models. Concrete capabilities follow the `USE` row of the
+  permission table, and per-resource grants can upgrade individual rows.
 - `MANAGE`: workspace **admin**. Full authority within the workspace, including
   creating roles, granting permissions, and managing users assigned to roles in
   this workspace. Cannot perform system-wide operations such as deleting users.
@@ -87,10 +94,12 @@ For each authorization check, MLflow evaluates in this order:
 
 1. **Super-admin bypass**: `is_admin = true` short-circuits to allow.
 2. **Role-derived grant on the resource**: the user's roles in the request's
-   workspace are unioned, and a row matching `(resource_type, resource_id)` is
-   sought. Specific patterns win over `*`.
-3. **Workspace-level grant**: if no resource-specific row matched, a
-   `(workspace, *, …)` row that satisfies the requested permission applies.
+   workspace are unioned, and every row matching the resource is folded
+   together. The highest-priority permission level wins
+   (`MANAGE` > `EDIT` > `USE` > `READ`).
+3. **Workspace-level grant**: a `(workspace, *, …)` row participates in the
+   same union — it acts as a floor that more-specific resource grants can
+   upgrade but never downgrade.
 4. **Server `default_permission`**: a configured fallback. With workspaces
    enabled, this only applies to the reserved `default` workspace when
    `grant_default_workspace_access` is set; otherwise the effective default is
@@ -279,7 +288,7 @@ The wire surface and `AuthServiceClient` shape change as follows:
 | Pre-RBAC surface                                                                                                                               | Status                                                                                              | Replacement                                                                                                                               |
 | ---------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
 | `POST/GET/PATCH/DELETE` on `/mlflow/{experiments,registered-models,scorers,gateway/*}/permissions`                                             | **Deprecated** (still works; emits a deprecation warning; backed by synthetic per-user role grants) | `POST /mlflow/roles/create` + `POST /mlflow/roles/permissions/add` + `POST /mlflow/roles/assign`, or a direct permission via the admin UI |
-| `auth_client.create_experiment_permission()`, `update_registered_model_permission()`, and the ~30 sibling per-resource client methods          | **Deprecated**                                                                                      | `auth_client.create_role()`, `add_role_permission()`, `assign_role()`, etc.                                                               |
+| `auth_client.create_experiment_permission()`, `update_registered_model_permission()`, and the ~23 sibling per-resource client methods          | **Deprecated**                                                                                      | `auth_client.create_role()`, `add_role_permission()`, `assign_role()`, etc.                                                               |
 | `POST/GET/PATCH/DELETE` on `/mlflow/workspaces/<workspace>/permissions`                                                                        | **Removed**                                                                                         | Assign the seeded `admin` or `user` role for the workspace, or a custom role with a `(workspace, *, …)` permission                        |
 | `auth_client.set_workspace_permission()`, `list_workspace_permissions()`, `delete_workspace_permission()`, `list_user_workspace_permissions()` | **Removed**                                                                                         | The role API (`assign_role` to a workspace-scoped role with a `(workspace, *, …)` permission)                                             |
 
