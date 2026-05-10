@@ -98,7 +98,7 @@ For each authorization check, MLflow evaluates in this order:
    together. The highest-priority permission level wins
    (`MANAGE` > `EDIT` > `USE` > `READ`).
 3. **Workspace-level grant**: a `(workspace, *, …)` row participates in the
-   same union — it acts as a floor that more-specific resource grants can
+   same union; it acts as a floor that more-specific resource grants can
    upgrade but never downgrade.
 4. **Server `default_permission`**: a configured fallback. With workspaces
    enabled, this only applies to the reserved `default` workspace when
