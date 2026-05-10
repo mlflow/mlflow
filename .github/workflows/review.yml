@@ -108,12 +108,14 @@ jobs:
           import secrets
           import sys
 
-          ALIASES = {
-              "opus": "claude-opus-4-6",
-              "sonnet": "claude-sonnet-4-6",
-              "haiku": "claude-haiku-4-5",
-          }
-          CHOICES = list(ALIASES) + list(ALIASES.values())
+          CHOICES = [
+              "opus",
+              "sonnet",
+              "haiku",
+              "claude-opus-4-6",
+              "claude-sonnet-4-6",
+              "claude-haiku-4-5",
+          ]
 
           body = sys.stdin.read().removeprefix("/review")
           head, sep, tail = body.partition("\n")
@@ -122,11 +124,10 @@ jobs:
           parser.add_argument("-m", "--model", choices=CHOICES, default="opus")
           args, leftover = parser.parse_known_args(head.split())
 
-          model = ALIASES.get(args.model, args.model)
           prompt = " ".join(leftover) + sep + tail
           # Random delimiter so user input can't terminate the heredoc.
           delim = f"PROMPT_EOF_{secrets.token_hex(8)}"
-          sys.stdout.write(f"prompt<<{delim}\n{prompt}\n{delim}\nmodel={model}\n")
+          sys.stdout.write(f"prompt<<{delim}\n{prompt}\n{delim}\nmodel={args.model}\n")
           EOF
 
           echo "$COMMENT_BODY" | python /tmp/parse_args.py >> "$GITHUB_OUTPUT"
@@ -138,7 +139,7 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
           PROMPT: ${{ steps.prompt.outputs.prompt }}
-          MODEL: ${{ steps.prompt.outputs.model || 'claude-opus-4-6' }}
+          MODEL: ${{ steps.prompt.outputs.model || 'opus' }}
           EVENT_NAME: ${{ github.event_name }}
         run: |
           OUTPUT_FILE="/tmp/output.json"
