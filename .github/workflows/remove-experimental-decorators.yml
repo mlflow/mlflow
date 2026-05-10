@@ -35,8 +35,6 @@ jobs:
           persist-credentials: true
           token: ${{ steps.app-token.outputs.token }}
 
-      - uses: ./.github/actions/setup-python
-
       - name: Run remove_experimental_decorators script
         id: remove
         run: |
