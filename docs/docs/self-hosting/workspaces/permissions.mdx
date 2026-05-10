@@ -4,8 +4,8 @@ import Link from "@docusaurus/Link";
 
 Workspace-scoped permissions provide convenient access control for all
 resources within a workspace when [authentication](/self-hosting/security/basic-http-auth)
-is enabled. Workspace authorization is expressed through MLflow's role system —
-see <Link to="/self-hosting/security/role-based-access-control">Role-Based Access Control</Link>
+is enabled. Workspace authorization is expressed through MLflow's role
+system; see <Link to="/self-hosting/security/role-based-access-control">Role-Based Access Control</Link>
 for the full model and API reference. This page covers the workspace-scoped
 specifics.
 
@@ -16,9 +16,9 @@ A workspace-level grant is a permission on the special
 applies to **every resource type** in that workspace (experiments, registered
 models, prompts, AI Gateway resources). Two levels are grantable:
 
-- `USE` — workspace **member**. Read every resource in the workspace; create
+- `USE`: workspace **member**. Read every resource in the workspace; create
   new experiments and registered models.
-- `MANAGE` — workspace **admin**. Full authority within the workspace,
+- `MANAGE`: workspace **admin**. Full authority within the workspace,
   including granting permissions to other users via roles in this workspace.
   Cannot perform system-wide operations like deleting users.
 
@@ -28,11 +28,11 @@ permission for that resource's workspace.
 
 ### Permission resolution order
 
-1. **Admin check** — `is_admin = true` short-circuits to allow.
-2. **Explicit resource permission** — a role-derived grant on the specific
+1. **Admin check**: `is_admin = true` short-circuits to allow.
+2. **Explicit resource permission**: a role-derived grant on the specific
    `(resource_type, resource_id)`.
-3. **Workspace permission** — a role-derived grant on `(workspace, *)`.
-4. **Default permission** — only when workspaces are disabled. With workspaces
+3. **Workspace permission**: a role-derived grant on `(workspace, *)`.
+4. **Default permission**: only when workspaces are disabled. With workspaces
    enabled, the default is effectively **deny** unless a workspace permission
    (or explicit resource permission) grants access. For the reserved `default`
    workspace, you can opt in to inheritance via `grant_default_workspace_access`.
@@ -60,7 +60,7 @@ This means RBAC cannot restrict a single resource for a user who already
 holds a workspace-level grant: the workspace grant covers every resource
 in the workspace, and an absent (or even lesser) per-resource grant doesn't
 override it. To restrict access to a specific resource, give the user
-narrower access in the first place — per-resource or resource-type-wildcard
+narrower access in the first place: per-resource or resource-type-wildcard
 roles instead of the seeded `<workspace>/user` role.
 
 ## Default roles
@@ -174,20 +174,20 @@ If users hit permission-denied errors:
    ```
 
 2. Check whether a more specific direct permission on that resource grants only
-   `READ` when the user is trying to update — specific resource grants win over
+   `READ` when the user is trying to update. Specific resource grants win over
    the workspace-level grant.
 3. Verify the workspace exists and the role is assigned in the right workspace.
 
 ### Workspace not visible in `list_workspaces()`
 
-The user needs a role granting workspace-level access in that workspace —
+The user needs a role granting workspace-level access in that workspace;
 direct per-resource grants don't suffice. Assign the seeded `user` or `admin`
 role for the workspace, or create a custom role that carries a `(workspace, *, …)`
 permission.
 
 ## Next steps
 
-- [Role-Based Access Control](/self-hosting/security/role-based-access-control) — the full RBAC model and API reference
-- [Configuration](/self-hosting/workspaces/configuration) — server configuration options
-- [Workspace Providers](/self-hosting/workspaces/workspace-providers) — implement custom providers
-- [Authentication](/self-hosting/security/basic-http-auth) — set up MLflow authentication
+- [Role-Based Access Control](/self-hosting/security/role-based-access-control). The full RBAC model and API reference
+- [Configuration](/self-hosting/workspaces/configuration). Server configuration options
+- [Workspace Providers](/self-hosting/workspaces/workspace-providers). Implement custom providers
+- [Authentication](/self-hosting/security/basic-http-auth). Set up MLflow authentication

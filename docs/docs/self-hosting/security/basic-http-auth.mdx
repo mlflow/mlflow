@@ -109,35 +109,46 @@ The available permissions are:
 
 The default permission for all users is `READ`. It can be changed in the [configuration](#configuration) file.
 
-Permissions are granted via **roles** — see [Role-Based Access Control](/self-hosting/security/role-based-access-control)
+Permissions are granted via **roles**. See [Role-Based Access Control](/self-hosting/security/role-based-access-control)
 for the model, scenarios, and API reference. For workspace-wide access controls
 specifically, see [Workspace Permissions](/self-hosting/workspaces/permissions).
 Supported resources include `Experiment`, `Registered Model`, and `Scorer`.
 To access an API endpoint, a user must have the required permission.
 Otherwise, a `403 Forbidden` response will be returned.
 
-:::warning Pre-RBAC permission management is changing
+:::warning[Pre-RBAC permission management is changing]
 
-The per-resource permission endpoints
-(`/mlflow/{experiments,registered-models,scorers,gateway/*}/permissions/*`)
-and the matching `AuthServiceClient` methods
-(`create_experiment_permission()`, `update_registered_model_permission()`,
-etc.) are **deprecated**. They still work — backed internally by synthetic
-per-user role grants — but emit a deprecation warning. Prefer the
+The following are **deprecated**. They still work (backed internally by
+synthetic per-user role grants), but emit a deprecation warning. Prefer the
 [role API](/self-hosting/security/role-based-access-control#api-reference)
 or the admin UI for new code.
 
-The workspace-permission endpoints
-(`/mlflow/workspaces/<workspace>/permissions`) and their `AuthServiceClient`
-methods (`set_workspace_permission()`, `list_workspace_permissions()`, etc.)
-have been **removed**. Use the seeded `<workspace>/admin` and
-`<workspace>/user` roles, or a custom role with a `(workspace, *, …)`
-permission. See [Role-Based Access Control](/self-hosting/security/role-based-access-control)
+- REST endpoints:
+  - `/mlflow/experiments/permissions/*`
+  - `/mlflow/registered-models/permissions/*`
+  - `/mlflow/scorers/permissions/*`
+  - `/mlflow/gateway/secrets/permissions/*`
+  - `/mlflow/gateway/endpoints/permissions/*`
+  - `/mlflow/gateway/model-definitions/permissions/*`
+- `AuthServiceClient` methods: `create_experiment_permission()`,
+  `update_registered_model_permission()`, and the ~26 sibling per-resource
+  methods.
+
+The following have been **removed** (calls return 404):
+
+- REST endpoints: `/mlflow/workspaces/<workspace>/permissions/*`.
+- `AuthServiceClient` methods: `set_workspace_permission()`,
+  `list_workspace_permissions()`, `delete_workspace_permission()`,
+  `list_user_workspace_permissions()`.
+
+Use the seeded `<workspace>/admin` and `<workspace>/user` roles, or a custom
+role with a `(workspace, *, …)` permission. See
+[Role-Based Access Control](/self-hosting/security/role-based-access-control)
 and [Workspace Permissions](/self-hosting/workspaces/permissions).
 
 :::
 
-Required Permissions for accessing experiments:
+#### Required permissions for accessing experiments
 
 <table>
   <thead>
@@ -1367,7 +1378,7 @@ auth_client.create_user(username="user2", password="pw2")
 client = MlflowClient(tracking_uri=tracking_uri)
 experiment_id = client.create_experiment(name="experiment")
 
-# Grant user2 MANAGE on this experiment via a role. The role is reusable —
+# Grant user2 MANAGE on this experiment via a role. The role is reusable;
 # subsequent users get the same permission with one ``assign_role`` call.
 role = auth_client.create_role(name="experiment-manager", workspace="default")
 auth_client.add_role_permission(
