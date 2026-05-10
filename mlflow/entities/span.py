@@ -454,8 +454,7 @@ class Span:
         # environment variable reads (see https://github.com/mlflow/mlflow/issues/15625).
         if resource is not None and resource.attributes:
             resource_attrs = {
-                attr.key: _decode_otel_proto_anyvalue(attr.value)
-                for attr in resource.attributes
+                attr.key: _decode_otel_proto_anyvalue(attr.value) for attr in resource.attributes
             }
             otel_resource = _OTelResource(resource_attrs)
         else:
