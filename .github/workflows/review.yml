@@ -97,18 +97,36 @@ jobs:
         run: |
           claude --version
 
-      - name: Extract optional prompt from comment
+      - name: Extract optional prompt and model from comment
         if: github.event_name == 'issue_comment'
         id: prompt
         env:
           COMMENT_BODY: ${{ github.event.comment.body }}
         run: |
-          PROMPT=$(echo "$COMMENT_BODY" | sed 's|^/review||')
-          {
-            echo 'prompt<<PROMPT_EOF'
-            echo "$PROMPT"
-            echo 'PROMPT_EOF'
-          } >> "$GITHUB_OUTPUT"
+          cat > /tmp/parse_args.py <<'EOF'
+          import argparse
+          import sys
+
+          ALIASES = {
+              "opus": "claude-opus-4-6",
+              "sonnet": "claude-sonnet-4-6",
+              "haiku": "claude-haiku-4-5",
+          }
+          CHOICES = list(ALIASES) + list(ALIASES.values())
+
+          body = sys.stdin.read().removeprefix("/review")
+          head, sep, tail = body.partition("\n")
+
+          parser = argparse.ArgumentParser(add_help=False)
+          parser.add_argument("-m", "--model", choices=CHOICES, default="opus")
+          args, leftover = parser.parse_known_args(head.split())
+
+          model = ALIASES.get(args.model, args.model)
+          prompt = " ".join(leftover) + sep + tail
+          sys.stdout.write(f"prompt<<PROMPT_EOF\n{prompt}\nPROMPT_EOF\nmodel={model}\n")
+          EOF
+
+          echo "$COMMENT_BODY" | python /tmp/parse_args.py >> "$GITHUB_OUTPUT"
 
       - name: Review
         id: review
@@ -117,6 +135,7 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
           PROMPT: ${{ steps.prompt.outputs.prompt }}
+          MODEL: ${{ steps.prompt.outputs.model || 'claude-opus-4-6' }}
           EVENT_NAME: ${{ github.event_name }}
         run: |
           OUTPUT_FILE="/tmp/output.json"
@@ -131,7 +150,7 @@ jobs:
 
           EXIT_CODE=0
           # Note: ARGS[*] is intentional - claude CLI expects a single prompt string
-          timeout 20m claude --model claude-opus-4-6 --print --verbose --output-format stream-json "${ARGS[*]}" | .claude/scripts/stream.sh "$OUTPUT_FILE" || EXIT_CODE=$?
+          timeout 20m claude --model "$MODEL" --print --verbose --output-format stream-json "${ARGS[*]}" | .claude/scripts/stream.sh "$OUTPUT_FILE" || EXIT_CODE=$?
           if [ "${EXIT_CODE:-0}" -eq 124 ]; then
             echo "Warning: Claude command timed out after 20 minutes"
           elif [ "${EXIT_CODE:-0}" -ne 0 ]; then
