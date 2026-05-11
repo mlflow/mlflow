@@ -1904,9 +1904,9 @@ def test_query_span_metrics_with_json_encoded_span_type_filter(store: SqlAlchemy
     legacy_tool_span = create_test_span(
         "trace1", "span2", span_id=2, span_type="TOOL", start_ns=1100000000
     )
-    legacy_tool_span_otel_proto = OTelProtoSpan()
-    legacy_tool_span_otel_proto.CopyFrom(legacy_tool_span.to_otel_proto())
-    for attr in legacy_tool_span_otel_proto.attributes:
+    proto_span = OTelProtoSpan()
+    proto_span.CopyFrom(legacy_tool_span.to_otel_proto())
+    for attr in proto_span.attributes:
         if attr.key == SpanAttributeKey.SPAN_TYPE:
             attr.value.string_value = '"TOOL"'
             break
@@ -1914,7 +1914,7 @@ def test_query_span_metrics_with_json_encoded_span_type_filter(store: SqlAlchemy
         raise AssertionError(
             f"Failed to find '{SpanAttributeKey.SPAN_TYPE}' in OTLP span attributes"
         )
-    legacy_tool_span = Span.from_otel_proto(legacy_tool_span_otel_proto)
+    legacy_tool_span = Span.from_otel_proto(proto_span)
     assert legacy_tool_span.span_type == '"TOOL"'
 
     spans = [
@@ -1932,7 +1932,7 @@ def test_query_span_metrics_with_json_encoded_span_type_filter(store: SqlAlchemy
         dimensions=[SpanMetricDimensionKey.SPAN_TYPE],
     )
     counts_by_span_type = {
-        result.dimensions[SpanMetricDimensionKey.SPAN_TYPE]: result.values["COUNT"]
+        result.dimensions[SpanMetricDimensionKey.SPAN_TYPE]: result.values.get("COUNT", 0)
         for result in dimension_result
     }
     assert "TOOL" in counts_by_span_type
