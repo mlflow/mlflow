@@ -61,6 +61,13 @@ jobs:
           sed -i '/enablePlugins(CoursierPlugin)/d' build.sbt
           build/sbt package
 
+      - name: Configure UC OSS server
+        working-directory: unitycatalog
+        run: |
+          # v0.4.1 requires a managed storage location for model registration.
+          # Set a local file path as the fallback model storage root.
+          echo "storage-root.models=file:///tmp/uc-model-storage" >> etc/conf/server.properties
+
       - name: Run tests for UnityCatalog
         run: |
           export UC_OSS_INTEGRATION=true
