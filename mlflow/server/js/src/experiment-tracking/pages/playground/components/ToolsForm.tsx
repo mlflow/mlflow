@@ -1,6 +1,14 @@
-import { FormUI, Input, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import {
+  FormUI,
+  Input,
+  SegmentedControlButton,
+  SegmentedControlGroup,
+  Typography,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 import type { ChangeEvent } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
+import type { ToolChoice } from '../types';
 
 const { TextArea } = Input;
 
@@ -8,7 +16,11 @@ interface Props {
   value: string;
   onChange: (next: string) => void;
   error?: string | null;
+  toolChoice: ToolChoice;
+  onToolChoiceChange: (next: ToolChoice) => void;
 }
+
+const TOOL_CHOICE_OPTIONS: ToolChoice[] = ['auto', 'none', 'required'];
 
 const TOOLS_PLACEHOLDER = `[
   {
@@ -27,9 +39,11 @@ const TOOLS_PLACEHOLDER = `[
   }
 ]`;
 
-export const ToolsForm = ({ value, onChange, error }: Props) => {
+export const ToolsForm = ({ value, onChange, error, toolChoice, onToolChoiceChange }: Props) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
+
+  const hasTools = value.trim().length > 0;
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
@@ -66,6 +80,36 @@ export const ToolsForm = ({ value, onChange, error }: Props) => {
             description="Help text under the playground tools textarea"
           />
         </Typography.Hint>
+      )}
+
+      {hasTools && (
+        <>
+          <FormUI.Label htmlFor="mlflow.playground.tools.tool_choice">
+            <FormattedMessage
+              defaultMessage="Tool choice"
+              description="Label for the tool_choice picker on the playground tools section"
+            />
+          </FormUI.Label>
+          <SegmentedControlGroup
+            componentId="mlflow.playground.tools.tool_choice"
+            name="mlflow.playground.tools.tool_choice"
+            size="small"
+            value={toolChoice}
+            onChange={(event) => onToolChoiceChange(event.target.value as ToolChoice)}
+          >
+            {TOOL_CHOICE_OPTIONS.map((option) => (
+              <SegmentedControlButton key={option} value={option}>
+                {option}
+              </SegmentedControlButton>
+            ))}
+          </SegmentedControlGroup>
+          <Typography.Hint>
+            <FormattedMessage
+              defaultMessage="auto — model decides. none — never call a tool. required — must call a tool."
+              description="Help text under the tool_choice picker on the playground tools section"
+            />
+          </Typography.Hint>
+        </>
       )}
     </div>
   );

@@ -1,6 +1,6 @@
 import { useDesignSystemTheme } from '@databricks/design-system';
 import { EndpointSelector } from '../../../components/EndpointSelector';
-import type { ChatMessage, PlaygroundParams, ResponseFormatType } from '../types';
+import type { ChatMessage, PlaygroundParams, ResponseFormatType, ToolChoice } from '../types';
 import { ParametersButton } from './ParametersButton';
 import { RegistryButton } from './RegistryButton';
 import { VariablesButton } from './VariablesButton';
@@ -13,6 +13,8 @@ interface Props {
   toolsText: string;
   onToolsChange: (next: string) => void;
   toolsError?: string | null;
+  toolChoice: ToolChoice;
+  onToolChoiceChange: (next: ToolChoice) => void;
   responseFormatType: ResponseFormatType;
   onResponseFormatTypeChange: (next: ResponseFormatType) => void;
   responseFormatSchemaText: string;
@@ -32,6 +34,8 @@ export const PlaygroundTopBar = ({
   toolsText,
   onToolsChange,
   toolsError,
+  toolChoice,
+  onToolChoiceChange,
   responseFormatType,
   onResponseFormatTypeChange,
   responseFormatSchemaText,
@@ -67,6 +71,8 @@ export const PlaygroundTopBar = ({
         toolsText={toolsText}
         onToolsChange={onToolsChange}
         toolsError={toolsError}
+        toolChoice={toolChoice}
+        onToolChoiceChange={onToolChoiceChange}
         responseFormatType={responseFormatType}
         onResponseFormatTypeChange={onResponseFormatTypeChange}
         responseFormatSchemaText={responseFormatSchemaText}

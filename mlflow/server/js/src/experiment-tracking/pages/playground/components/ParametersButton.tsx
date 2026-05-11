@@ -1,6 +1,6 @@
 import { Button, Drawer, Spacer, Typography, WrenchIcon, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
-import type { PlaygroundParams, ResponseFormatType } from '../types';
+import type { PlaygroundParams, ResponseFormatType, ToolChoice } from '../types';
 import { ParametersForm } from './ParametersForm';
 import { ResponseFormatForm } from './ResponseFormatForm';
 import { ToolsForm } from './ToolsForm';
@@ -11,6 +11,8 @@ interface Props {
   toolsText: string;
   onToolsChange: (next: string) => void;
   toolsError?: string | null;
+  toolChoice: ToolChoice;
+  onToolChoiceChange: (next: ToolChoice) => void;
   responseFormatType: ResponseFormatType;
   onResponseFormatTypeChange: (next: ResponseFormatType) => void;
   responseFormatSchemaText: string;
@@ -24,6 +26,8 @@ export const ParametersButton = ({
   toolsText,
   onToolsChange,
   toolsError,
+  toolChoice,
+  onToolChoiceChange,
   responseFormatType,
   onResponseFormatTypeChange,
   responseFormatSchemaText,
@@ -81,7 +85,13 @@ export const ParametersButton = ({
               description="Section header for tool definitions inside the playground settings drawer"
             />
           </Typography.Title>
-          <ToolsForm value={toolsText} onChange={onToolsChange} error={toolsError} />
+          <ToolsForm
+            value={toolsText}
+            onChange={onToolsChange}
+            error={toolsError}
+            toolChoice={toolChoice}
+            onToolChoiceChange={onToolChoiceChange}
+          />
 
           <Spacer size="md" />
 

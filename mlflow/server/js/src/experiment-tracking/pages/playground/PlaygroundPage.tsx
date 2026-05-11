@@ -9,7 +9,7 @@ import { PlaygroundTopBar } from './components/PlaygroundTopBar';
 import { PromptInputPanel } from './components/PromptInputPanel';
 import { PromptRegistryPicker } from './components/PromptRegistryPicker';
 import { useChatCompletionMutation } from './hooks/useChatCompletionMutation';
-import type { ChatMessage, PlaygroundParams, ResponseFormat, ResponseFormatType } from './types';
+import type { ChatMessage, PlaygroundParams, ResponseFormat, ResponseFormatType, ToolChoice } from './types';
 import { substituteVariables } from './utils';
 
 const EMPTY_USER_MESSAGE: ChatMessage = { role: 'user', content: '' };
@@ -21,6 +21,7 @@ const PlaygroundPage = () => {
   const [params, setParams] = useState<PlaygroundParams>({});
   const [variables, setVariables] = useState<Record<string, string>>({});
   const [toolsText, setToolsText] = useState<string>('');
+  const [toolChoice, setToolChoice] = useState<ToolChoice>('auto');
   const [responseFormatType, setResponseFormatType] = useState<ResponseFormatType>('text');
   const [responseFormatSchemaText, setResponseFormatSchemaText] = useState<string>('');
   const [showRegistryPicker, setShowRegistryPicker] = useState(false);
@@ -82,7 +83,12 @@ const PlaygroundPage = () => {
       ...(params.temperature !== undefined && { temperature: params.temperature }),
       ...(params.max_tokens !== undefined && { max_tokens: params.max_tokens }),
       ...(params.top_p !== undefined && { top_p: params.top_p }),
+      ...(params.top_k !== undefined && { top_k: params.top_k }),
+      ...(params.presence_penalty !== undefined && { presence_penalty: params.presence_penalty }),
+      ...(params.frequency_penalty !== undefined && { frequency_penalty: params.frequency_penalty }),
+      ...(params.stop && params.stop.length > 0 && { stop: params.stop }),
       ...(tools && { tools }),
+      ...(tools && { tool_choice: toolChoice }),
       ...(response_format && { response_format }),
     });
   };
@@ -116,6 +122,8 @@ const PlaygroundPage = () => {
         toolsText={toolsText}
         onToolsChange={setToolsText}
         toolsError={toolsError}
+        toolChoice={toolChoice}
+        onToolChoiceChange={setToolChoice}
         responseFormatType={responseFormatType}
         onResponseFormatTypeChange={setResponseFormatType}
         responseFormatSchemaText={responseFormatSchemaText}
