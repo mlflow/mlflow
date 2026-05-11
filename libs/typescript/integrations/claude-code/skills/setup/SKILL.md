@@ -7,45 +7,78 @@ disable-model-invocation: true
 
 Use this skill only when the user explicitly asks to configure MLflow tracing.
 
-The bundled `mlflow-claude-code setup` CLI has an interactive mode, but the
-Claude Code Bash tool runs without a TTY and cannot drive interactive prompts.
-**Never run the interactive form from this skill.** Always use the
-`--non-interactive` form with flags.
+## CRITICAL RULES — READ FIRST
 
-## Procedure
+1. **You MUST ask the user for every value below before running the CLI.**
+   Never pick defaults silently. Never assume `http://localhost:5000`. Never
+   assume an experiment name like `claude-code`. Never guess scope.
+2. **Use the `AskUserQuestion` tool for every question.** Do not just write
+   "I'll use X" in chat — actually ask.
+3. **Never run the interactive form of `mlflow-claude-code setup`.** The
+   Claude Code Bash tool has no TTY and the prompts will hang. Always use
+   `--non-interactive` with explicit flags built from the user's answers.
+4. **Do not invent menus, options, or wizards.** Only present the choices
+   listed below.
 
-1. Gather the required inputs by asking the user directly in chat (use
-   `AskUserQuestion` when possible). Required values:
-   - Scope: project (`--project`, default) or user-wide (`--user`)
-   - Tracking URI (default: `http://localhost:5000`; also accepts arbitrary
-     `http://...` / `https://...` URLs, or `databricks`)
-   - Experiment: either an experiment ID or an experiment name (not both)
+## Step 1 — Ask for scope
 
-2. Do not invent your own wizard, menus, or made-up defaults. Ask plain
-   questions and use the defaults above only as suggested defaults.
+Use `AskUserQuestion`:
 
-3. Once you have the values, run the CLI non-interactively:
+- Question: "Where should MLflow tracing be configured?"
+- Options:
+  - "Project (this repo only)" → flag `--project`
+  - "User (all repos)" → flag `--user`
 
-   ```bash
-   mlflow-claude-code setup --non-interactive --project \
-     --tracking-uri "<uri>" --experiment-name "<name>"
-   ```
+## Step 2 — Ask for tracking URI
 
-   Or with an experiment ID:
+Use `AskUserQuestion`:
 
-   ```bash
-   mlflow-claude-code setup --non-interactive --project \
-     --tracking-uri "<uri>" --experiment-id "<id>"
-   ```
+- Question: "Which MLflow tracking URI should be used?"
+- Options:
+  - "http://localhost:5000 (default local MLflow server)"
+  - "databricks (use Databricks workspace)"
+  - "Custom URL" → on selection, ask a follow-up free-text question for the
+    URL (`http://...` or `https://...`).
 
-   Replace `--project` with `--user` if the user requested user-wide config.
+Do NOT add localhost:3000 or any other invented option.
 
-4. If the user explicitly asks to run the interactive wizard, do NOT run it
-   yourself. Tell them to run this command in their own terminal:
+## Step 3 — Ask for experiment
 
-   ```bash
-   mlflow-claude-code setup --project
-   ```
+Use `AskUserQuestion`:
 
-5. After the non-interactive CLI finishes, summarize the resulting
-   configuration and next steps from the CLI output.
+- Question: "How should the MLflow experiment be specified?"
+- Options:
+  - "By name" → follow up with a free-text question asking for the experiment
+    name. Do not pre-fill a default like `claude-code`.
+  - "By ID" → follow up with a free-text question asking for the experiment
+    ID.
+
+## Step 4 — Run the CLI non-interactively
+
+Only after collecting all values from the user, run exactly one of:
+
+```bash
+mlflow-claude-code setup --non-interactive <scope-flag> \
+  --tracking-uri "<uri>" --experiment-name "<name>"
+```
+
+```bash
+mlflow-claude-code setup --non-interactive <scope-flag> \
+  --tracking-uri "<uri>" --experiment-id "<id>"
+```
+
+Where `<scope-flag>` is `--project` or `--user` from Step 1.
+
+## Step 5 — Summarize
+
+After the CLI exits, summarize the resulting configuration and next steps
+from the CLI output.
+
+## If the user wants the interactive wizard
+
+If the user explicitly asks to run the interactive wizard themselves, do
+NOT run it from this skill. Tell them to run this in their own terminal:
+
+```bash
+mlflow-claude-code setup --project
+```
