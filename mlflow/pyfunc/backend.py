@@ -348,7 +348,10 @@ class PyFuncBackend(FlavorBackend):
         _set_mlflow_config_env(command_env, model_config)
 
         return self.prepare_env(local_path).execute(
-            command=f"python {_STDIN_SERVER_SCRIPT} --model-uri {local_path}",
+            command=(
+                f"python {shlex.quote(str(_STDIN_SERVER_SCRIPT))} "
+                f"--model-uri {shlex.quote(local_path)}"
+            ),
             command_env=command_env,
             stdin=subprocess.PIPE,
             stdout=stdout,
