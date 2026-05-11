@@ -50,6 +50,7 @@ jobs:
       - name: Clone UnityCatalog at tag v0.4.1
         run: |
           git clone --branch v0.4.1 --depth 1 https://github.com/unitycatalog/unitycatalog.git
+          git -C unitycatalog checkout c239a9b437f1acad290cff6e7e02b41699f00ebe
 
       - name: Build uc-oss server
         working-directory: unitycatalog
