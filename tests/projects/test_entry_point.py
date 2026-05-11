@@ -1,4 +1,5 @@
 import os
+import shlex
 from shlex import quote
 from unittest import mock
 
@@ -55,6 +56,42 @@ def test_entry_point_compute_command():
         name_value = "friend; echo 'hi'"
         command = entry_point.compute_command({"name": name_value}, storage_dir)
         assert command == "python greeter.py {} {}".format(quote("hi"), quote(name_value))
+
+
+@pytest.mark.parametrize(
+    "malicious_key",
+    [
+        "x;touch /tmp/pwned",
+        "a&b",
+        "a|b",
+        "a`b`",
+        "a$(b)",
+        "a>b",
+    ],
+)
+def test_sanitize_param_dict_quotes_keys(malicious_key):
+    sanitized = EntryPoint._sanitize_param_dict({malicious_key: "value"})
+    assert malicious_key not in sanitized
+    assert quote(malicious_key) in sanitized
+    assert sanitized[quote(malicious_key)] == quote("value")
+
+
+def test_compute_command_shell_escapes_extra_param_keys():
+    project = load_project()
+    entry_point = project.get_entry_point("greeter")
+    malicious_key = "x;touch /tmp/pwned"
+    with TempDir() as tmp:
+        storage_dir = tmp.path()
+        command = entry_point.compute_command({"name": "friend", malicious_key: "1"}, storage_dir)
+        # The key must be shell-quoted so that `bash -c` parses it as a single
+        # (nonsensical) flag token rather than executing the injected payload.
+        assert f"--{quote(malicious_key)} " in command
+        # Parsed by the shell, the metacharacters from the key must collapse
+        # into a single token rather than splitting the command in two.
+        tokens = shlex.split(command)
+        assert f"--{malicious_key}" in tokens
+        assert "touch" not in tokens
+        assert ";" not in tokens
 
 
 def test_path_parameter():
