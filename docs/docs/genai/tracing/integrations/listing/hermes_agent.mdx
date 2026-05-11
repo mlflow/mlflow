@@ -1,4 +1,4 @@
----
+cd ---
 title: Tracing Hermes Agent
 description: Trace Hermes Agent conversations, tool calls, and long-running sessions with MLflow using the hermes-otel plugin.
 sidebar_position: 11
@@ -63,22 +63,23 @@ backends:
 `x-mlflow-experiment-id` is required for OTLP ingestion. MLflow uses it to route incoming Hermes spans to the right experiment.
 :::
 
-### Step 3: Enable the Plugin in Hermes
+### Step 3: (Optional) Point Hermes LLM calls at the MLflow AI Gateway
 
-Update `~/.hermes/config.yaml` so Hermes loads the plugin and uses the model/provider you want:
+Update `~/.hermes/config.yaml` so Hermes uses the [MLflow AI Gateway](/genai/governance/ai-gateway/) as the default model provider.  With a small change to your configuration, you get centralized model routing for the same Hermes runs, plus:
+
+- **Governance** — one place to manage which models Hermes can call
+- **Budgets** — spending limits and alerts for long-running Hermes sessions
+- **Guardrails** — PII detection and safety filters applied at the gateway
+- **Usage logs** — per-request inputs, outputs, tokens, and latency
+
+See the [Hermes Agent + MLflow AI Gateway](/genai/governance/ai-gateway/coding-agents/hermes-agent) guide to set this up.
 
 ```yaml
 model:
   default: "gpt-5.5"
   provider: "custom"
   base_url: "http://localhost:5000/gateway/mlflow/v1"
-
-plugins:
-  enabled:
-    - hermes_otel
 ```
-
-The `base_url` above is optional. If you want centralized routing, guardrails, and cost tracking, point Hermes at the [MLflow AI Gateway](/genai/governance/ai-gateway/). If you only want tracing, you can point Hermes at any supported provider and keep `hermes-otel` exporting spans directly to MLflow.
 
 ### Step 4: Run Hermes Agent
 
@@ -91,7 +92,7 @@ hermes
 For example:
 
 ```text
-> Use the terminal tool to print the working directory and list 3 files.
+> What is the weather in Tokyo?
 ```
 
 ## What Gets Traced
@@ -116,17 +117,6 @@ In addition to per-trace detail, MLflow aggregates Hermes traffic into per-exper
   alt="MLflow token usage and cost dashboard for Hermes Agent traces"
 />
 
-## Using AI Gateway Together with Tracing
-
-Tracing captures the full agent workflow. Pairing it with the [MLflow AI Gateway](/genai/governance/ai-gateway/coding-agents/hermes-agent) gives you centralized model routing for the same Hermes runs, plus:
-
-- **Governance** — one place to manage which models Hermes can call
-- **Budgets** — spending limits and alerts for long-running Hermes sessions
-- **Guardrails** — PII detection and safety filters applied at the gateway
-- **Usage logs** — per-request inputs, outputs, tokens, and latency
-
-See the [Hermes Agent + MLflow AI Gateway](/genai/governance/ai-gateway/coding-agents/hermes-agent) guide to set this up.
-
 ## Troubleshooting
 
 **No traces appear in MLflow**
@@ -145,3 +135,7 @@ See the [Hermes Agent + MLflow AI Gateway](/genai/governance/ai-gateway/coding-a
 
 - Gateway logs capture model requests
 - Full Hermes agent traces require `hermes-otel` exporting spans directly to MLflow
+
+## Acknowledgments
+
+The Hermes Agent tracing integration is made possible by the [`hermes-otel`](https://github.com/briancaffey/hermes-otel) plugin created by [Brian Caffey](https://github.com/briancaffey).
