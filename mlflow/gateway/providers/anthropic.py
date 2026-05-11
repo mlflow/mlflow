@@ -537,7 +537,7 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
     def _get_chat_stream_path(self) -> str:
         return "messages"
 
-    def _prepare_payload(self, payload: dict) -> dict:
+    def _prepare_payload(self, payload: dict[str, Any]) -> dict[str, Any]:
         return payload
 
     async def _chat_stream(

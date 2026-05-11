@@ -262,7 +262,8 @@ async def test_claude_chat_stream_uses_stream_raw_predict_endpoint():
         b"event: message_start\n",
         b'data: {"type": "message_start", "message": {"id": "msg-1", "type": "message", '
         b'"role": "assistant", "content": [], "model": "claude-sonnet-4-5@20251101", '
-        b'"stop_reason": null, "stop_sequence": null, "usage": {"input_tokens": 5, "output_tokens": 1}}}\n',
+        b'"stop_reason": null, "stop_sequence": null, '
+        b'"usage": {"input_tokens": 5, "output_tokens": 1}}}\n',
         b"\n",
         b"event: content_block_delta\n",
         b'data: {"type": "content_block_delta", "index": 0, '

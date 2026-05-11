@@ -21,6 +21,7 @@ Three model types are supported:
 import json
 from enum import Enum
 from pathlib import Path
+from typing import Any
 
 from mlflow.gateway.config import EndpointConfig, VertexAIConfig
 from mlflow.gateway.exceptions import AIGatewayException
@@ -91,7 +92,7 @@ class _VertexAIClaudeProvider(AnthropicProvider):
     def _get_chat_stream_path(self) -> str:
         return f"{self.config.model.name}:streamRawPredict"
 
-    def _prepare_payload(self, payload: dict) -> dict:
+    def _prepare_payload(self, payload: dict[str, Any]) -> dict[str, Any]:
         payload.pop("model", None)
         payload["anthropic_version"] = _VERTEX_ANTHROPIC_VERSION
         return payload
