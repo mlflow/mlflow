@@ -6,7 +6,7 @@ on:
   pull_request:
     paths:
       - ".github/workflows/review.yml"
-      - ".claude/commands/pr-review.md"
+      - ".claude/skills/pr-review/**"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.issue.number }}

@@ -6,7 +6,7 @@ on:
   pull_request:
     paths:
       - .github/workflows/resolve.yml
-      - .claude/commands/resolve.md
+      - .claude/skills/resolve/**
       - .claude/skills/fetch-unresolved-comments/**
 
 concurrency:
