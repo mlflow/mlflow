@@ -1,5 +1,5 @@
 import json
-from typing import ClassVar
+from typing import Any, ClassVar
 from unittest.mock import Mock, patch
 
 import pytest
@@ -832,7 +832,7 @@ def test_from_dict_round_trips_known_fields():
     assert restored.call_source is not None
 
 
-def _deserialize_via_scorer_version(payload: dict) -> SerializedScorer:
+def _deserialize_via_scorer_version(payload: dict[str, Any]) -> SerializedScorer:
     return ScorerVersion(
         experiment_id="123",
         scorer_name=payload["name"],
