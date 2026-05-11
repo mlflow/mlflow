@@ -53,20 +53,21 @@ jobs:
 
           for state in triage draft; do
             gh api "repos/$REPO/security-advisories?state=$state&sort=updated&direction=desc&per_page=100" \
-              --jq ".[] | select((.updated_at | fromdateiso8601) >= $cutoff) | {ghsa_id, current: [.collaborating_users[].login]}" \
+              --jq ".[] | select((.updated_at | fromdateiso8601) >= $cutoff) | {ghsa_id, html_url, current: [.collaborating_users[].login]}" \
             | while read -r adv; do
                 ghsa=$(jq -r '.ghsa_id' <<<"$adv")
-                merged=$(jq -c --argjson m "$maintainers" '(.current + $m) | unique' <<<"$adv")
-                current=$(jq -c '.current | unique' <<<"$adv")
-                if [ "$merged" = "$current" ]; then
-                  echo "$ghsa ($state): up to date"
+                url=$(jq -r '.html_url' <<<"$adv")
+                missing=$(jq -c --argjson m "$maintainers" '$m - .current' <<<"$adv")
+                if [ "$missing" = "[]" ]; then
+                  echo "$url ($state): up to date"
                   continue
                 fi
                 if [ "$DRY_RUN" = "true" ]; then
-                  echo "$ghsa ($state): [dry-run] would invite -> $(jq -r 'join(",")' <<<"$merged")"
+                  echo "$url ($state): [dry-run] would invite -> $(jq -r 'join(",")' <<<"$missing")"
                   continue
                 fi
-                echo "$ghsa ($state): inviting -> $(jq -r 'join(",")' <<<"$merged")"
+                echo "$url ($state): inviting -> $(jq -r 'join(",")' <<<"$missing")"
+                merged=$(jq -c --argjson m "$maintainers" '(.current + $m) | unique' <<<"$adv")
                 jq -n --argjson users "$merged" '{collaborating_users: $users}' \
                   | gh api --method PATCH "repos/$REPO/security-advisories/$ghsa" --input - >/dev/null
               done
