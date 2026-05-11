@@ -54,7 +54,18 @@ jobs:
       - name: Build uc-oss server
         working-directory: unitycatalog
         run: |
-          build/sbt package
+          for attempt in {1..3}; do
+            if build/sbt package; then
+              break
+            fi
+            if [[ "$attempt" -eq 3 ]]; then
+              echo "UnityCatalog build failed after ${attempt} attempts."
+              exit 1
+            fi
+            echo "UnityCatalog build failed on attempt ${attempt}; clearing Maven/Coursier cache and retrying."
+            rm -rf ~/.cache/coursier/v1/https/repo1.maven.org/maven2
+            sleep 5
+          done
 
       - name: Run tests for UnityCatalog
         run: |
