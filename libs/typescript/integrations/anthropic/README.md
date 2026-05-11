@@ -1,15 +1,10 @@
 # MLflow Typescript SDK - Anthropic
 
-Seamlessly integrate [MLflow Tracing](https://github.com/mlflow/mlflow/tree/main/libs/typescript) with Anthropic to automatically trace your Claude API calls and Claude Agent SDK interactions.
+Seamlessly integrate [MLflow Tracing](https://github.com/mlflow/mlflow/tree/main/libs/typescript) with Anthropic to automatically trace your Claude API calls.
 
 | Package                 | NPM                                                                                                                                     | Description                                     |
 | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
 | [@mlflow/anthropic](./) | [![npm package](https://img.shields.io/npm/v/%40mlflow%2Fanthropic?style=flat-square)](https://www.npmjs.com/package/@mlflow/anthropic) | Auto-instrumentation integration for Anthropic. |
-
-## Features
-
-- **`tracedAnthropic`**: Wrapper for tracing the standard Anthropic SDK client
-- **`createTracedQuery`**: Wrapper for the Claude Agent SDK with automatic AGENT and TOOL span creation
 
 ## Installation
 
@@ -18,12 +13,6 @@ npm install @mlflow/anthropic
 ```
 
 The package includes the [`@mlflow/core`](https://github.com/mlflow/mlflow/tree/main/libs/typescript) package and `@anthropic-ai/sdk` package as peer dependencies. Depending on your package manager, you may need to install these two packages separately.
-
-For Claude Agent SDK support, also install:
-
-```bash
-npm install @anthropic-ai/claude-agent-sdk
-```
 
 ## Quickstart
 
@@ -47,9 +36,7 @@ mlflow.init({
 });
 ```
 
-### Tracing Anthropic SDK (Basic)
-
-Create a trace for Anthropic Claude messages:
+Create a trace for Anthropic Claude:
 
 ```typescript
 import Anthropic from '@anthropic-ai/sdk';
@@ -65,37 +52,11 @@ const response = await client.messages.create({
 });
 ```
 
-### Tracing Claude Agent SDK
+View traces in MLflow UI:
 
-Use `createTracedQuery()` to wrap the Claude Agent SDK's `query` function.
+![MLflow Tracing UI](https://github.com/mlflow/mlflow/blob/master/docs/static/images/llms/anthropic/anthropic-tracing.png?raw=True)
 
-```typescript
-import { query } from '@anthropic-ai/claude-agent-sdk';
-import { createTracedQuery } from '@mlflow/anthropic';
-import * as mlflow from '@mlflow/core';
-
-mlflow.init({
-  trackingUri: 'http://localhost:5000',
-  experimentId: '123',
-});
-
-const tracedQuery = createTracedQuery(query);
-
-const result = tracedQuery({
-  prompt: 'List files in this directory',
-  options: {
-    tools: ['Bash', 'Read', 'Glob'],
-  },
-});
-
-for await (const message of result) {
-  if (message.type === 'result') {
-    console.log('Result:', message.result);
-  }
-}
-```
-
-## Documentation
+## Documentation 📘
 
 Official documentation for MLflow Typescript SDK can be found [here](https://mlflow.org/docs/latest/genai/tracing/quickstart).
 

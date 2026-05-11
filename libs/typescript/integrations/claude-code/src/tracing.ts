@@ -44,7 +44,7 @@ const METADATA_KEY_CLAUDE_CODE_VERSION = 'mlflow.claude_code_version';
 /**
  * Separate text content from tool_use blocks in an assistant response.
  */
-function extractContentAndTools(
+export function extractContentAndTools(
   content: string | ContentBlock[],
 ): [string, Array<{ type: 'tool_use'; id: string; name: string; input: Record<string, unknown> }>] {
   let textContent = '';
@@ -212,7 +212,7 @@ function getInputMessages(
  * `mlflow.anthropic` convention of `input_tokens + output_tokens`
  * (cache tokens excluded).
  */
-function buildUsageDict(usage: TokenUsage): Record<string, number> {
+export function buildUsageDict(usage: TokenUsage): Record<string, number> {
   const inputTokens = usage.input_tokens ?? 0;
   const outputTokens = usage.output_tokens ?? 0;
 
