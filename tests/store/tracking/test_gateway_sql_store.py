@@ -2476,6 +2476,31 @@ def _create_scorer(store: SqlAlchemyStore, endpoint_name: str | None = None):
     return store.register_scorer(experiment_id, f"safety-judge-{name_suffix}", serialized_scorer)
 
 
+def _create_scorer_versions(store: SqlAlchemyStore):
+    """Helper to create multiple versions of a scorer for guardrail tests."""
+    name_suffix = uuid.uuid4().hex[:8]
+    endpoint = _create_gateway_endpoint(store, f"guardrail-ep-{name_suffix}")
+    experiment_id = store.create_experiment(f"guardrail-scorer-exp-{name_suffix}")
+    scorer_name = f"safety-judge-{name_suffix}"
+
+    serialized_scorer_v1 = json.dumps({
+        "instructions_judge_pydantic_data": {
+            "model": f"gateway:/{endpoint.name}",
+            "instructions": "Is this input safe?",
+        }
+    })
+    serialized_scorer_v2 = json.dumps({
+        "instructions_judge_pydantic_data": {
+            "model": f"gateway:/{endpoint.name}",
+            "instructions": "Is this input still safe?",
+        }
+    })
+
+    scorer_v1 = store.register_scorer(experiment_id, scorer_name, serialized_scorer_v1)
+    scorer_v2 = store.register_scorer(experiment_id, scorer_name, serialized_scorer_v2)
+    return scorer_v1, scorer_v2
+
+
 def test_create_gateway_guardrail(store: SqlAlchemyStore):
     scorer = _create_scorer(store)
 
@@ -2514,6 +2539,33 @@ def test_create_gateway_guardrail_after_sanitization(store: SqlAlchemyStore):
 
     assert guardrail.stage == GuardrailStage.AFTER
     assert guardrail.action == GuardrailAction.SANITIZATION
+
+
+def test_create_gateway_guardrail_rejects_unknown_scorer(store: SqlAlchemyStore):
+    with pytest.raises(MlflowException, match="Scorer with ID 'missing-scorer' not found"):
+        store.create_gateway_guardrail(
+            name="test-guardrail",
+            scorer_id="missing-scorer",
+            scorer_version=1,
+            stage=GuardrailStage.BEFORE,
+            action=GuardrailAction.VALIDATION,
+        )
+
+
+def test_create_gateway_guardrail_rejects_unknown_scorer_version(store: SqlAlchemyStore):
+    scorer = _create_scorer(store)
+
+    with pytest.raises(
+        MlflowException,
+        match=rf"Scorer with ID '{scorer.scorer_id}' and version 999 not found",
+    ):
+        store.create_gateway_guardrail(
+            name="test-guardrail",
+            scorer_id=scorer.scorer_id,
+            scorer_version=999,
+            stage=GuardrailStage.BEFORE,
+            action=GuardrailAction.VALIDATION,
+        )
 
 
 def test_get_gateway_guardrail(store: SqlAlchemyStore):

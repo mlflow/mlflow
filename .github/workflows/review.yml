@@ -140,7 +140,7 @@ jobs:
           MODEL: ${{ steps.prompt.outputs.model || 'opus' }}
           EVENT_NAME: ${{ github.event_name }}
         run: |
-          OUTPUT_FILE="/tmp/output.json"
+          OUTPUT_FILE="/tmp/output.jsonl"
 
           # Safe construction using arrays - PROMPT is passed as separate argument to prevent shell injection
           if [ "$EVENT_NAME" = "pull_request" ]; then
@@ -161,6 +161,16 @@ jobs:
             exit $EXIT_CODE
           fi
 
+      - name: Upload Claude stream transcript
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: claude-stream-${{ github.run_id }}-${{ github.run_attempt }}
+          path: /tmp/output.jsonl
+          retention-days: 1
+          if-no-files-found: ignore
+
       - name: Report review results
         if: github.event_name == 'issue_comment'
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
@@ -173,7 +183,7 @@ jobs:
             const { comment } = context.payload;
 
             // Read Claude output from file instead of environment variable
-            const outputPath = '/tmp/output.json';
+            const outputPath = '/tmp/output.jsonl';
             let claudeOutput = '';
             try {
               if (fs.existsSync(outputPath)) {
