@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 import numpy as np
 import pytest
 from opentelemetry import trace as trace_api
+from opentelemetry.proto.trace.v1.trace_pb2 import Span as OTelProtoSpan
 
 from mlflow.entities import (
     Assessment,
@@ -16,6 +17,7 @@ from mlflow.entities import (
     trace_location,
 )
 from mlflow.entities.assessment import AssessmentError
+from mlflow.entities.span import Span
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_metrics import (
     AggregationType,
@@ -25,7 +27,6 @@ from mlflow.entities.trace_metrics import (
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges import CategoricalRating
-from mlflow.store.tracking.dbmodels.models import SqlSpan
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracing.constant import (
     AssessmentMetricDimensionKey,
@@ -1900,23 +1901,38 @@ def test_query_span_metrics_with_json_encoded_span_type_filter(store: SqlAlchemy
     )
     store.start_trace(trace_info)
 
+    legacy_tool_span = create_test_span(
+        "trace1", "span2", span_id=2, span_type="TOOL", start_ns=1100000000
+    )
+    legacy_tool_span_otel_proto = OTelProtoSpan()
+    legacy_tool_span_otel_proto.CopyFrom(legacy_tool_span.to_otel_proto())
+    for attr in legacy_tool_span_otel_proto.attributes:
+        if attr.key == SpanAttributeKey.SPAN_TYPE:
+            attr.value.string_value = '"TOOL"'
+            break
+    legacy_tool_span = Span.from_otel_proto(legacy_tool_span_otel_proto)
+    assert legacy_tool_span.span_type == '"TOOL"'
+
     spans = [
         create_test_span("trace1", "span1", span_id=1, span_type="TOOL", start_ns=1000000000),
-        create_test_span("trace1", "span2", span_id=2, span_type="TOOL", start_ns=1100000000),
+        legacy_tool_span,
         create_test_span("trace1", "span3", span_id=3, span_type="LLM", start_ns=1200000000),
     ]
     store.log_spans(exp_id, spans)
 
-    with store.ManagedSessionMaker() as session:
-        # Simulate legacy data where span type was persisted as a JSON-encoded string.
-        session.query(SqlSpan).filter(SqlSpan.trace_id == "trace1", SqlSpan.name == "span2").update(
-            {SqlSpan.type: json.dumps("TOOL")},
-            synchronize_session=False,
-        )
-        session.commit()
-        stored_types = [row[0] for row in session.query(SqlSpan.type).all()]
-        assert "TOOL" in stored_types
-        assert '"TOOL"' in stored_types
+    dimension_result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.SPANS,
+        metric_name=SpanMetricKey.SPAN_COUNT,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
+        dimensions=[SpanMetricDimensionKey.SPAN_TYPE],
+    )
+    counts_by_span_type = {
+        result.dimensions[SpanMetricDimensionKey.SPAN_TYPE]: result.values["COUNT"]
+        for result in dimension_result
+    }
+    assert counts_by_span_type["TOOL"] == 1
+    assert counts_by_span_type['"TOOL"'] == 1
 
     result = store.query_trace_metrics(
         experiment_ids=[exp_id],
