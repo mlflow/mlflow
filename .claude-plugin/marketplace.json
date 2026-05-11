@@ -8,10 +8,8 @@
     {
       "name": "mlflow-tracing",
       "source": {
-        "source": "git-subdir",
-        "url": "https://github.com/mlflow/mlflow.git",
-        "path": "libs/typescript/integrations/claude-code",
-        "ref": "claude/publish-code-tracing-plugin-ydX4o"
+        "source": "npm",
+        "package": "@mlflow/claude-code"
       },
       "description": "MLflow tracing integration for Claude Code.",
       "homepage": "https://mlflow.org/",
