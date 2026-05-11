@@ -43,9 +43,7 @@ describe('ExperimentNameValidator server-side fallback', () => {
     const mockCallback = jest.fn((err) => err);
     experimentNameValidator(undefined, 'my-experiment', mockCallback);
     await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(mockCallback).toHaveBeenCalledWith(
-      expect.stringContaining('already exists in deleted state'),
-    );
+    expect(mockCallback).toHaveBeenCalledWith(expect.stringContaining('already exists in deleted state'));
   });
 
   test('shows no error when experiment is not found via API', async () => {
