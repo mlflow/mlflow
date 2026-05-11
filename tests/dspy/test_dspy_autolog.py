@@ -191,6 +191,7 @@ def test_mlflow_callback_exception():
                 raise dspy.ContextWindowExceededError(message="Error")
             else:
                 from litellm import ContextWindowExceededError as _CWE
+
                 raise _CWE("Error", "invalid model", "provider")
 
     cot = dspy.ChainOfThought("question -> answer", n=3)
