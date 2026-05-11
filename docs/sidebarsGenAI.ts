@@ -155,6 +155,11 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'tracing/app-instrumentation/logging',
+                  label: 'Setting Log Levels',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/track-environments-context/index',
                   label: 'Track Application Versions',
                 },
@@ -763,6 +768,11 @@ const sidebarsGenAI: SidebarsConfig = {
                       id: 'eval-monitor/scorers/third-party/guardrails',
                       label: 'Guardrails AI',
                     },
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/third-party/google-adk',
+                      label: 'Google ADK',
+                    },
                   ],
                   collapsed: false,
                   link: {
@@ -1055,6 +1065,31 @@ const sidebarsGenAI: SidebarsConfig = {
           type: 'doc',
           id: 'governance/ai-gateway/benchmarks',
           label: 'Performance & Benchmarks',
+        },
+        {
+          type: 'category',
+          label: 'Coding Agents',
+          items: [
+            {
+              type: 'doc',
+              id: 'governance/ai-gateway/coding-agents/claude-code',
+              label: 'Claude Code',
+            },
+            {
+              type: 'doc',
+              id: 'governance/ai-gateway/coding-agents/codex',
+              label: 'OpenAI Codex',
+            },
+            {
+              type: 'doc',
+              id: 'governance/ai-gateway/coding-agents/gemini-cli',
+              label: 'Gemini CLI',
+            },
+          ],
+          link: {
+            type: 'doc',
+            id: 'governance/ai-gateway/coding-agents/index',
+          },
         },
       ],
       link: {

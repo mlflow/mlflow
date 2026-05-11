@@ -106,6 +106,29 @@ def fake_chat_response():
     }
 
 
+def test_get_headers_uses_server_key_by_default():
+    provider = GeminiProvider(EndpointConfig(**chat_config()))
+    merged = provider._get_headers(headers={"x-goog-api-key": "client-key", "X-Custom": "value"})
+    assert merged["x-goog-api-key"] == "key"
+    assert merged["X-Custom"] == "value"
+
+
+@pytest.mark.parametrize(
+    "user_agent",
+    [
+        "claude-cli/2.0.37 (external, cli)",
+        "Codex-Desktop/26.422.2437.0",
+        "GeminiCLI/0.39.0/gemini-2.0-pro (darwin; x64)",
+    ],
+)
+def test_get_headers_preserves_client_key_for_credential_agents(user_agent):
+    provider = GeminiProvider(EndpointConfig(**chat_config()))
+    merged = provider._get_headers(
+        headers={"x-goog-api-key": "client-key", "user-agent": user_agent}
+    )
+    assert merged["x-goog-api-key"] == "client-key"
+
+
 @pytest.mark.asyncio
 async def test_gemini_single_embedding():
     config = embedding_config()

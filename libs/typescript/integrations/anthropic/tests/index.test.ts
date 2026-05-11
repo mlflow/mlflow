@@ -77,6 +77,7 @@ describe('tracedAnthropic', () => {
     const span = trace.data.spans[0];
     expect(span.name).toBe('Messages');
     expect(span.spanType).toBe(mlflow.SpanType.LLM);
+    expect(span.logLevel).toBe(mlflow.SpanLogLevel.INFO);
     expect(span.status.statusCode).toBe(mlflow.SpanStatusCode.OK);
     expect(span.inputs).toEqual({
       model: 'claude-3-7-sonnet-20250219',

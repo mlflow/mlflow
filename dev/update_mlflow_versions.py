@@ -36,6 +36,8 @@ _TS_VERSION_FILES = [
 
 _R_VERSION_FILES = [Path("mlflow", "R", "mlflow", "DESCRIPTION")]
 
+_HELM_CHART_FILES = [Path("charts", "Chart.yaml")]
+
 
 def get_current_py_version() -> str:
     text = Path("mlflow", "version.py").read_text()
@@ -148,6 +150,14 @@ def replace_java_pom_xml(old_version: str, new_py_version: str, paths: list[Path
     )
 
 
+def replace_helm_chart(new_py_version: str, paths: list[Path]) -> None:
+    replace_occurrences(
+        files=paths,
+        pattern=re.compile(r'^appVersion:\s+".+"$', re.MULTILINE),
+        repl=f'appVersion: "{replace_dev_or_rc_suffix_with(new_py_version, "")}"',
+    )
+
+
 def replace_r(old_py_version: str, new_py_version: str, paths: list[Path]) -> None:
     current_py_version_without_suffix = replace_dev_or_rc_suffix_with(old_py_version, "")
 
@@ -173,6 +183,7 @@ def update_versions(new_py_version: str) -> None:
     replace_java(old_py_version, new_py_version, _JAVA_VERSION_FILES)
     replace_java_pom_xml(old_py_version, new_py_version, _JAVA_POM_XML_FILES)
     replace_r(old_py_version, new_py_version, _R_VERSION_FILES)
+    replace_helm_chart(new_py_version, _HELM_CHART_FILES)
 
 
 def validate_new_version(value: str) -> str:

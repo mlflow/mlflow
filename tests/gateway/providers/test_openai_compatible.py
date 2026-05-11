@@ -146,6 +146,23 @@ def test_get_headers_strips_client_authorization():
     assert merged["X-Custom"] == "value"
 
 
+@pytest.mark.parametrize(
+    "user_agent",
+    [
+        "claude-cli/2.0.37 (external, cli)",
+        "Codex-Desktop/26.422.2437.0",
+        "GeminiCLI/0.39.0/gemini-2.0-pro (darwin; x64)",
+    ],
+)
+def test_get_headers_preserves_client_key_for_credential_agents(user_agent):
+    provider = _make_provider()
+    merged = provider._get_headers(
+        headers={"authorization": "Bearer client-key", "user-agent": user_agent}
+    )
+    assert merged["authorization"] == "Bearer client-key"
+    assert "Authorization" not in merged
+
+
 @pytest.mark.asyncio
 async def test_chat():
     provider = _make_provider()

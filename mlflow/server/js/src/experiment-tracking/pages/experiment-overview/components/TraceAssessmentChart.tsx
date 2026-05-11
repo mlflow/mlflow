@@ -206,6 +206,7 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({
             <Tooltip
               content={distributionTooltipContent}
               cursor={{ fill: theme.colors.actionTertiaryBackgroundHover }}
+              wrapperStyle={{ pointerEvents: 'auto' }}
             />
             <Legend {...scrollableLegendProps} />
             <Bar dataKey="count" fill={chartLineColor} radius={[0, 4, 4, 0]}>
@@ -232,6 +233,7 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({
               <Tooltip
                 content={timeSeriesTooltipContent}
                 cursor={{ stroke: theme.colors.actionTertiaryBackgroundHover }}
+                wrapperStyle={{ pointerEvents: 'auto' }}
               />
               <Legend {...scrollableLegendProps} />
               <Line
