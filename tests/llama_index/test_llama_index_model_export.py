@@ -17,7 +17,13 @@ from llama_index.embeddings.databricks import DatabricksEmbedding
 from llama_index.embeddings.openai import OpenAIEmbedding
 from llama_index.llms.databricks import Databricks
 from llama_index.llms.openai import OpenAI
-from llama_index.vector_stores.qdrant import QdrantVectorStore
+try:
+    from llama_index.vector_stores.qdrant import QdrantVectorStore
+
+    _QDRANT_AVAILABLE = True
+except ImportError:
+    QdrantVectorStore = None
+    _QDRANT_AVAILABLE = False
 from packaging.version import Version
 
 import mlflow
@@ -407,9 +413,13 @@ def test_llama_index_databricks_integration(monkeypatch, document, model_path, m
             "tests/llama_index/sample_code/basic_vector_store.py",
             SimpleVectorStore,
         ),
-        (
+        pytest.param(
             "tests/llama_index/sample_code/external_vector_store.py",
             QdrantVectorStore,
+            marks=pytest.mark.skipif(
+                not _QDRANT_AVAILABLE,
+                reason="llama-index-vector-stores-qdrant not installed",
+            ),
         ),
     ],
 )
