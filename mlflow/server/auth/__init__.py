@@ -2345,6 +2345,22 @@ def create_admin_user(username, password):
             raise
 
 
+# The literal default admin password shipped in mlflow/server/auth/basic_auth.ini.
+# Kept in sync with that file so we can detect when an operator hasn't overridden it.
+_DEFAULT_ADMIN_PASSWORD = "password1234"
+
+
+def _warn_if_default_admin_password(password):
+    if password == _DEFAULT_ADMIN_PASSWORD:
+        _logger.warning(
+            "The MLflow basic auth admin account is using the default password shipped "
+            "in basic_auth.ini. Change it before exposing this server beyond localhost. "
+            "To override, set the MLFLOW_AUTH_CONFIG_PATH environment variable to point "
+            "to a custom basic_auth.ini with a non-default admin_password, or update the "
+            "password via the UPDATE_USER_PASSWORD endpoint after startup."
+        )
+
+
 def alert(href: str):
     return render_template_string(
         r"""
@@ -3239,6 +3255,7 @@ def create_app(app: Flask = app):
 
     store.init_db(auth_config.database_uri)
     create_admin_user(auth_config.admin_username, auth_config.admin_password)
+    _warn_if_default_admin_password(auth_config.admin_password)
 
     _auth_initialized = True
 
