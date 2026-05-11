@@ -134,7 +134,7 @@ export const PromptInputPanel = ({ messages, onChange }: Props) => {
                   </Typography.Paragraph>
                   <ul css={{ margin: `${theme.spacing.xs}px 0 0`, paddingLeft: theme.spacing.lg }}>
                     <li>
-                      <Typography.Text bold>system</Typography.Text>{' '}
+                      <Typography.Text bold>System</Typography.Text>{' '}
                       <FormattedMessage
                         defaultMessage="— instructions or persona for the model (e.g. {example})."
                         description="Description of the system role in the playground role-selector help popover"
@@ -142,14 +142,14 @@ export const PromptInputPanel = ({ messages, onChange }: Props) => {
                       />
                     </li>
                     <li>
-                      <Typography.Text bold>user</Typography.Text>{' '}
+                      <Typography.Text bold>User</Typography.Text>{' '}
                       <FormattedMessage
                         defaultMessage="— what the human is asking. This is the typical input."
                         description="Description of the user role in the playground role-selector help popover"
                       />
                     </li>
                     <li>
-                      <Typography.Text bold>assistant</Typography.Text>{' '}
+                      <Typography.Text bold>Assistant</Typography.Text>{' '}
                       <FormattedMessage
                         defaultMessage="— what the model has previously said. Useful for priming with example responses."
                         description="Description of the assistant role in the playground role-selector help popover"
