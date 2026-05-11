@@ -51,7 +51,7 @@ Run the `fetch-diff` skill to fetch the PR diff for the identified PR.
 
 ### 3. Fetch Existing Review Comments
 
-Fetch every review thread on the PR (open, resolved, and outdated) so you can avoid duplicating prior feedback:
+Fetch up to 100 review threads on the PR (open, resolved, and outdated, with up to 20 comments each) so you can avoid duplicating prior feedback:
 
 ```bash
 gh api graphql -F owner=<owner> -F repo=<repo> -F pr=<PR_NUMBER> -f query='
