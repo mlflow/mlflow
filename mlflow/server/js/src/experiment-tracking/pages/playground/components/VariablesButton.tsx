@@ -41,10 +41,21 @@ export const VariablesButton = ({ messages, value, onChange }: Props) => {
       </Drawer.Trigger>
       <Drawer.Content
         componentId="mlflow.playground.variables.drawer"
-        title={intl.formatMessage({
-          defaultMessage: 'Variables',
-          description: 'Title of the playground variables drawer',
-        })}
+        title={
+          <span
+            css={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: theme.spacing.xs,
+              fontSize: theme.typography.fontSizeXl,
+              fontWeight: theme.typography.typographyBoldFontWeight,
+              lineHeight: theme.typography.lineHeightXl,
+            }}
+          >
+            <CodeIcon />
+            <FormattedMessage defaultMessage="Variables" description="Title of the playground variables drawer" />
+          </span>
+        }
       >
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
           <Typography.Hint>

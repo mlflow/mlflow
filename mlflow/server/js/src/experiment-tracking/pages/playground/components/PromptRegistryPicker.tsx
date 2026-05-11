@@ -1,5 +1,6 @@
 import {
   Alert,
+  BookIcon,
   Button,
   DialogCombobox,
   DialogComboboxContent,
@@ -98,10 +99,24 @@ export const PromptRegistryPicker = ({ visible, onCancel, onLoad }: Props) => {
       <Drawer.Content
         componentId="mlflow.playground.prompt_registry_picker"
         width={520}
-        title={intl.formatMessage({
-          defaultMessage: 'Load prompt from registry',
-          description: 'Title of the prompt-registry picker drawer on the playground page',
-        })}
+        title={
+          <span
+            css={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: theme.spacing.xs,
+              fontSize: theme.typography.fontSizeXl,
+              fontWeight: theme.typography.typographyBoldFontWeight,
+              lineHeight: theme.typography.lineHeightXl,
+            }}
+          >
+            <BookIcon />
+            <FormattedMessage
+              defaultMessage="Load prompt from registry"
+              description="Title of the prompt-registry picker drawer on the playground page"
+            />
+          </span>
+        }
         footer={
           <div css={{ display: 'flex', justifyContent: 'flex-end', gap: theme.spacing.sm }}>
             <Button componentId="mlflow.playground.prompt_registry_picker.cancel" onClick={handleCancel}>
