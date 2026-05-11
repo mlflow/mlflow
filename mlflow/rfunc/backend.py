@@ -103,8 +103,8 @@ class RFuncBackend(FlavorBackend):
             raise Exception("RBackend does not support redirect stdout/stderr.")
 
         model_path = _download_artifact_from_uri(model_uri)
-        command = "mlflow::mlflow_rfunc_serve('{}', port = {}, host = '{}')".format(
-            quote(model_path), port, host
+        command = "mlflow::mlflow_rfunc_serve({}, port = {}, host = {})".format(
+            _r_quote(model_path), port, _r_quote(host)
         )
         _execute(command)
 
@@ -146,3 +146,11 @@ def _execute(command, extra_envs=None):
 
 def _str_optional(s):
     return "NULL" if s is None else f"'{quote(str(s))}'"
+
+
+def _r_quote(s: str) -> str:
+    # The `command` is passed directly as an argv element to `Rscript -e`, so
+    # the string is parsed by R, not the shell. Escape backslashes and single
+    # quotes so the result is a safe R single-quoted string literal.
+    escaped = s.replace("\\", "\\\\").replace("'", "\\'")
+    return f"'{escaped}'"
