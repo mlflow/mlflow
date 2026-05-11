@@ -1913,6 +1913,7 @@ def test_query_span_metrics_with_json_encoded_span_type_filter(store: SqlAlchemy
             {SqlSpan.type: json.dumps("TOOL")},
             synchronize_session=False,
         )
+        session.commit()
         stored_types = [row[0] for row in session.query(SqlSpan.type).all()]
         assert "TOOL" in stored_types
         assert '"TOOL"' in stored_types
