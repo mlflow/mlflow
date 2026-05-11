@@ -1,5 +1,4 @@
 import {
-  Button,
   ChevronDownIcon,
   ChevronRightIcon,
   FormUI,
@@ -55,7 +54,17 @@ export const ParametersForm = ({ value, onChange }: Props) => {
   };
 
   return (
-    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
+    <div
+      css={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: theme.spacing.xs,
+        border: `1px solid ${theme.colors.border}`,
+        borderRadius: theme.general.borderRadiusBase,
+        padding: theme.spacing.md,
+        '& label': { fontWeight: theme.typography.typographyRegularFontWeight },
+      }}
+    >
       <FormUI.Label htmlFor="mlflow.playground.params.temperature">
         <FormattedMessage
           defaultMessage="Temperature"
@@ -118,19 +127,30 @@ export const ParametersForm = ({ value, onChange }: Props) => {
         onChange={handleNumber('top_p')}
       />
 
-      <Button
-        componentId="mlflow.playground.params.advanced_toggle"
-        size="small"
-        type="tertiary"
-        icon={showAdvanced ? <ChevronDownIcon /> : <ChevronRightIcon />}
+      <button
+        type="button"
         onClick={() => setShowAdvanced((v) => !v)}
-        css={{ alignSelf: 'flex-start' }}
+        aria-expanded={showAdvanced}
+        css={{
+          alignSelf: 'flex-start',
+          border: 0,
+          background: 'transparent',
+          padding: 0,
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: theme.spacing.xs,
+          cursor: 'pointer',
+          color: theme.colors.textSecondary,
+          fontSize: theme.typography.fontSizeSm,
+          '&:hover': { color: theme.colors.textPrimary },
+        }}
       >
+        {showAdvanced ? <ChevronDownIcon /> : <ChevronRightIcon />}
         <FormattedMessage
           defaultMessage="Advanced"
-          description="Toggle button label that reveals advanced sampling parameters on the playground"
+          description="Toggle label that reveals advanced sampling parameters on the playground"
         />
-      </Button>
+      </button>
 
       {showAdvanced && (
         <>

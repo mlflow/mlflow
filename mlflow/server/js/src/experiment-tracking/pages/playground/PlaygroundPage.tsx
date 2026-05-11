@@ -21,7 +21,7 @@ const PlaygroundPage = () => {
   const [params, setParams] = useState<PlaygroundParams>({});
   const [variables, setVariables] = useState<Record<string, string>>({});
   const [toolsText, setToolsText] = useState<string>('');
-  const [toolChoice, setToolChoice] = useState<ToolChoice>('auto');
+  const [toolChoice, setToolChoice] = useState<ToolChoice>('none');
   const [responseFormatType, setResponseFormatType] = useState<ResponseFormatType>('text');
   const [responseFormatSchemaText, setResponseFormatSchemaText] = useState<string>('');
   const [showRegistryPicker, setShowRegistryPicker] = useState(false);
@@ -62,7 +62,7 @@ const PlaygroundPage = () => {
     Boolean(endpointName) &&
     messages.length > 0 &&
     messages.some((m) => m.content.trim().length > 0) &&
-    !toolsError &&
+    (toolChoice === 'none' || !toolsError) &&
     !responseFormatSchemaError &&
     !isLoading;
 
@@ -70,7 +70,7 @@ const PlaygroundPage = () => {
     if (!canSubmit) {
       return;
     }
-    const tools = toolsText.trim() ? (JSON.parse(toolsText) as unknown[]) : undefined;
+    const tools = toolChoice !== 'none' && toolsText.trim() ? (JSON.parse(toolsText) as unknown[]) : undefined;
     let response_format: ResponseFormat | undefined;
     if (responseFormatType === 'json_object') {
       response_format = { type: 'json_object' };

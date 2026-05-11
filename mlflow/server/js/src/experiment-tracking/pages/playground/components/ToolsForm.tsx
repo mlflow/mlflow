@@ -3,7 +3,6 @@ import {
   Input,
   SegmentedControlButton,
   SegmentedControlGroup,
-  Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import type { ChangeEvent } from 'react';
@@ -20,7 +19,11 @@ interface Props {
   onToolChoiceChange: (next: ToolChoice) => void;
 }
 
-const TOOL_CHOICE_OPTIONS: ToolChoice[] = ['auto', 'none', 'required'];
+const TOOL_CHOICE_OPTIONS: { value: ToolChoice; label: string }[] = [
+  { value: 'none', label: 'None' },
+  { value: 'auto', label: 'Auto' },
+  { value: 'required', label: 'Required' },
+];
 
 const TOOLS_PLACEHOLDER = `[
   {
@@ -43,72 +46,56 @@ export const ToolsForm = ({ value, onChange, error, toolChoice, onToolChoiceChan
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
 
-  const hasTools = value.trim().length > 0;
-
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-      <FormUI.Label htmlFor="mlflow.playground.tools.input">
+      <FormUI.Label htmlFor="mlflow.playground.tools.tool_choice">
         <FormattedMessage
-          defaultMessage="Tools (JSON array)"
-          description="Label for the playground tools JSON textarea inside the settings drawer"
+          defaultMessage="Tool choice"
+          description="Label above the tool choice segmented picker inside the Tools card"
         />
       </FormUI.Label>
-      <TextArea
-        componentId="mlflow.playground.tools.input"
-        id="mlflow.playground.tools.input"
-        value={value}
-        onChange={(event: ChangeEvent<HTMLTextAreaElement>) => onChange(event.target.value)}
-        autoSize={{ minRows: 4, maxRows: 16 }}
-        placeholder={intl.formatMessage(
-          {
-            defaultMessage: 'e.g. {example}',
-            description: 'Placeholder shown above the playground tools JSON textarea',
-          },
-          { example: TOOLS_PLACEHOLDER },
-        )}
-        css={{
-          fontFamily: 'monospace',
-          fontSize: theme.typography.fontSizeSm,
-        }}
-      />
-      {error ? (
-        <FormUI.Message type="error" message={error} />
-      ) : (
-        <Typography.Hint>
-          <FormattedMessage
-            defaultMessage="Provide an array of tool definitions the model is allowed to call. Leave blank to disable tool use."
-            description="Help text under the playground tools textarea"
-          />
-        </Typography.Hint>
-      )}
+      <SegmentedControlGroup
+        componentId="mlflow.playground.tools.tool_choice"
+        id="mlflow.playground.tools.tool_choice"
+        name="mlflow.playground.tools.tool_choice"
+        size="small"
+        value={toolChoice}
+        onChange={(event) => onToolChoiceChange(event.target.value as ToolChoice)}
+      >
+        {TOOL_CHOICE_OPTIONS.map(({ value: optionValue, label }) => (
+          <SegmentedControlButton key={optionValue} value={optionValue}>
+            {label}
+          </SegmentedControlButton>
+        ))}
+      </SegmentedControlGroup>
 
-      {hasTools && (
+      {toolChoice !== 'none' && (
         <>
-          <FormUI.Label htmlFor="mlflow.playground.tools.tool_choice">
+          <FormUI.Label htmlFor="mlflow.playground.tools.input">
             <FormattedMessage
-              defaultMessage="Tool choice"
-              description="Label for the tool_choice picker on the playground tools section"
+              defaultMessage="JSON Tool Definition"
+              description="Label for the JSON tool definitions textarea inside the Tools card"
             />
           </FormUI.Label>
-          <SegmentedControlGroup
-            componentId="mlflow.playground.tools.tool_choice"
-            name="mlflow.playground.tools.tool_choice"
-            size="small"
-            value={toolChoice}
-            onChange={(event) => onToolChoiceChange(event.target.value as ToolChoice)}
-          >
-            {TOOL_CHOICE_OPTIONS.map((option) => (
-              <SegmentedControlButton key={option} value={option}>
-                {option}
-              </SegmentedControlButton>
-            ))}
-          </SegmentedControlGroup>
-          <Typography.Hint>
-            <FormattedMessage
-              defaultMessage="auto — model decides. none — never call a tool. required — must call a tool."
-              description="Help text under the tool_choice picker on the playground tools section"
-            />
-          </Typography.Hint>
+          <TextArea
+            componentId="mlflow.playground.tools.input"
+            id="mlflow.playground.tools.input"
+            value={value}
+            onChange={(event: ChangeEvent<HTMLTextAreaElement>) => onChange(event.target.value)}
+            autoSize={{ minRows: 4, maxRows: 16 }}
+            placeholder={intl.formatMessage(
+              {
+                defaultMessage: 'e.g. {example}',
+                description: 'Placeholder shown above the playground tools JSON textarea',
+              },
+              { example: TOOLS_PLACEHOLDER },
+            )}
+            css={{
+              fontFamily: 'monospace',
+              fontSize: theme.typography.fontSizeSm,
+            }}
+          />
+          {error && <FormUI.Message type="error" message={error} />}
         </>
       )}
     </div>

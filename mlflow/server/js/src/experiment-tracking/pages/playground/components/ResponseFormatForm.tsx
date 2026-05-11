@@ -3,7 +3,6 @@ import {
   Input,
   SegmentedControlButton,
   SegmentedControlGroup,
-  Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import type { ChangeEvent } from 'react';
@@ -20,7 +19,11 @@ interface Props {
   schemaError?: string | null;
 }
 
-const TYPE_OPTIONS: ResponseFormatType[] = ['text', 'json_object', 'json_schema'];
+const TYPE_OPTIONS: { value: ResponseFormatType; label: string }[] = [
+  { value: 'text', label: 'Text' },
+  { value: 'json_object', label: 'JSON' },
+  { value: 'json_schema', label: 'JSON schema' },
+];
 
 const SCHEMA_PLACEHOLDER = `{
   "name": "weather_report",
@@ -48,23 +51,17 @@ export const ResponseFormatForm = ({ type, onTypeChange, schemaText, onSchemaCha
         value={type}
         onChange={(event) => onTypeChange(event.target.value as ResponseFormatType)}
       >
-        {TYPE_OPTIONS.map((option) => (
-          <SegmentedControlButton key={option} value={option}>
-            {option}
+        {TYPE_OPTIONS.map(({ value, label }) => (
+          <SegmentedControlButton key={value} value={value}>
+            {label}
           </SegmentedControlButton>
         ))}
       </SegmentedControlGroup>
-      <Typography.Hint>
-        <FormattedMessage
-          defaultMessage="text — model's free response. json_object — model returns valid JSON. json_schema — model output conforms to the schema you provide."
-          description="Help text under the playground response_format picker"
-        />
-      </Typography.Hint>
       {type === 'json_schema' && (
         <>
           <FormUI.Label htmlFor="mlflow.playground.response_format.schema">
             <FormattedMessage
-              defaultMessage="JSON schema"
+              defaultMessage="Schema"
               description="Label for the playground response_format JSON schema textarea"
             />
           </FormUI.Label>
