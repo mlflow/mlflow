@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { v4 as uuidv4 } from 'uuid';
 import {
   Button,
   ChevronDownIcon,
@@ -27,6 +28,16 @@ import {
   type MetricFilterColumn,
   type MetricFilterColumnOption,
 } from './MetricsFilter.utils';
+
+// UI-only row state. The `id` is a stable per-row identifier used as the
+// React key so that adding/removing rows does not cause adjacent rows to
+// inherit one another's component state (focus, dropdown open state, etc.).
+// It is stripped before filters are forwarded to the parent via setFilters.
+interface FilterRowState extends MetricFilter {
+  id: string;
+}
+
+const toRowState = (filter: MetricFilter): FilterRowState => ({ ...filter, id: uuidv4() });
 
 interface MetricsFilterProps {
   filters: MetricFilter[];
@@ -89,47 +100,51 @@ const FilterForm = ({ filters, setFilters, columnOptions }: MetricsFilterProps) 
     () => ({ column: columnOptions[0]?.value ?? ('' as MetricFilterColumn), value: '' }),
     [columnOptions],
   );
-  const [localFilters, setLocalFilters] = useState<MetricFilter[]>(
-    filters.length > 0 ? filters : [emptyFilter],
+  const [localFilters, setLocalFilters] = useState<FilterRowState[]>(() =>
+    (filters.length > 0 ? filters : [emptyFilter]).map(toRowState),
   );
 
   // Keep the draft in sync with the applied filters so that external changes
   // (e.g. clicking the clear icon in the trigger while the popover is open)
   // are reflected in the form instead of being clobbered on the next Apply.
   useEffect(() => {
-    setLocalFilters(filters.length > 0 ? filters : [emptyFilter]);
+    setLocalFilters((filters.length > 0 ? filters : [emptyFilter]).map(toRowState));
   }, [filters, emptyFilter]);
 
-  const updateAt = (index: number, next: MetricFilter) => {
-    setLocalFilters((prev) => prev.map((f, i) => (i === index ? next : f)));
+  const updateAt = (id: string, next: MetricFilter) => {
+    setLocalFilters((prev) => prev.map((row) => (row.id === id ? { ...row, ...next } : row)));
   };
 
-  const removeAt = (index: number) => {
+  const removeAt = (id: string) => {
     setLocalFilters((prev) => {
-      const next = prev.filter((_, i) => i !== index);
-      return next.length === 0 ? [emptyFilter] : next;
+      const next = prev.filter((row) => row.id !== id);
+      return next.length === 0 ? [toRowState(emptyFilter)] : next;
     });
   };
 
   const addRow = () => {
-    setLocalFilters((prev) => [...prev, emptyFilter]);
+    setLocalFilters((prev) => [...prev, toRowState(emptyFilter)]);
   };
 
   const apply = () => {
-    setFilters(localFilters.filter(isCompleteFilter));
+    setFilters(
+      localFilters
+        .filter(isCompleteFilter)
+        .map((row): MetricFilter => ({ column: row.column, value: row.value })),
+    );
   };
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.lg }}>
       <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
-        {localFilters.map((filter, index) => (
+        {localFilters.map((row) => (
           <FilterRow
-            key={index}
-            index={index}
-            filter={filter}
+            key={row.id}
+            rowId={row.id}
+            filter={row}
             columnOptions={columnOptions}
-            onChange={(next) => updateAt(index, next)}
-            onDelete={() => removeAt(index)}
+            onChange={(next) => updateAt(row.id, next)}
+            onDelete={() => removeAt(row.id)}
           />
         ))}
       </div>
@@ -162,14 +177,14 @@ const FilterForm = ({ filters, setFilters, columnOptions }: MetricsFilterProps) 
 };
 
 interface FilterRowProps {
-  index: number;
+  rowId: string;
   filter: MetricFilter;
   columnOptions: MetricFilterColumnOption[];
   onChange: (next: MetricFilter) => void;
   onDelete: () => void;
 }
 
-const FilterRow = ({ index, filter, columnOptions, onChange, onDelete }: FilterRowProps) => {
+const FilterRow = ({ rowId, filter, columnOptions, onChange, onDelete }: FilterRowProps) => {
   const { theme } = useDesignSystemTheme();
   const selectedOption = columnOptions.find((o) => o.value === filter.column);
 
@@ -177,7 +192,7 @@ const FilterRow = ({ index, filter, columnOptions, onChange, onDelete }: FilterR
     <div css={{ display: 'flex', flexDirection: 'row', gap: theme.spacing.sm, alignItems: 'flex-end' }}>
       {/* Field (Column) */}
       <div css={{ display: 'flex', flexDirection: 'column' }}>
-        <FormUI.Label htmlFor={`usage-metrics-filter-column-${index}`}>
+        <FormUI.Label htmlFor={`usage-metrics-filter-column-${rowId}`}>
           <FormattedMessage
             defaultMessage="Field"
             description="Usage overview > filter row > field column label"
@@ -185,7 +200,7 @@ const FilterRow = ({ index, filter, columnOptions, onChange, onDelete }: FilterR
         </FormUI.Label>
         <DialogCombobox
           componentId="mlflow.usage.metrics_filter.column"
-          id={`usage-metrics-filter-column-${index}`}
+          id={`usage-metrics-filter-column-${rowId}`}
           value={filter.column ? [filter.column] : []}
         >
           <DialogComboboxTrigger
@@ -214,7 +229,7 @@ const FilterRow = ({ index, filter, columnOptions, onChange, onDelete }: FilterR
 
       {/* Operator (locked to "=") */}
       <div css={{ display: 'flex', flexDirection: 'column' }}>
-        <FormUI.Label htmlFor={`usage-metrics-filter-operator-${index}`}>
+        <FormUI.Label htmlFor={`usage-metrics-filter-operator-${rowId}`}>
           <FormattedMessage
             defaultMessage="Operator"
             description="Usage overview > filter row > operator column label"
@@ -223,7 +238,7 @@ const FilterRow = ({ index, filter, columnOptions, onChange, onDelete }: FilterR
         <SimpleSelect
           aria-label="Operator"
           componentId="mlflow.usage.metrics_filter.operator"
-          id={`usage-metrics-filter-operator-${index}`}
+          id={`usage-metrics-filter-operator-${rowId}`}
           value="="
           disabled
           contentProps={{ style: { zIndex: theme.options.zIndexBase + 100 } }}
@@ -235,7 +250,7 @@ const FilterRow = ({ index, filter, columnOptions, onChange, onDelete }: FilterR
 
       {/* Value */}
       <div css={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-        <FormUI.Label htmlFor={`usage-metrics-filter-value-${index}`}>
+        <FormUI.Label htmlFor={`usage-metrics-filter-value-${rowId}`}>
           <FormattedMessage
             defaultMessage="Value"
             description="Usage overview > filter row > value column label"
@@ -243,7 +258,7 @@ const FilterRow = ({ index, filter, columnOptions, onChange, onDelete }: FilterR
         </FormUI.Label>
         <Input
           componentId="mlflow.usage.metrics_filter.value"
-          id={`usage-metrics-filter-value-${index}`}
+          id={`usage-metrics-filter-value-${rowId}`}
           value={filter.value}
           onChange={(e) => onChange({ ...filter, value: e.target.value })}
           placeholder="Enter value"
