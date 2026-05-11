@@ -58,6 +58,7 @@ jobs:
           # built-in coursier 2.x and causes version properties to resolve as empty
           # strings (e.g. "junit:junit::"), breaking dependency resolution.
           sed -i '/io.get-coursier.*sbt-coursier/d' project/plugins.sbt
+          sed -i '/enablePlugins(CoursierPlugin)/d' build.sbt
           build/sbt package
 
       - name: Run tests for UnityCatalog
