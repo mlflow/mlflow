@@ -4,8 +4,11 @@ Vertex AI provider for MLflow AI Gateway.
 Extends the Gemini provider to use Vertex AI endpoints with Google Cloud
 authentication (Application Default Credentials or service account JSON).
 
-Vertex AI uses the same Gemini API format but with different URL patterns
-and auth mechanism.
+For Google-published models (e.g. gemini-2.0-flash), this uses the Gemini API
+format with :generateContent/:streamGenerateContent endpoints.
+
+For Anthropic Claude models, this uses AnthropicProvider's logic with Vertex AI
+auth (Bearer token) and :rawPredict/:streamRawPredict endpoints.
 """
 
 import json
@@ -13,18 +16,65 @@ from enum import Enum
 from pathlib import Path
 
 from mlflow.gateway.config import EndpointConfig, VertexAIConfig
+from mlflow.gateway.providers.anthropic import AnthropicProvider
+from mlflow.gateway.providers.base import BaseProvider
 from mlflow.gateway.providers.gemini import GeminiProvider
 
 _DEFAULT_SCOPES = ["https://www.googleapis.com/auth/cloud-platform"]
 
+# Version string required by Vertex AI for Anthropic models
+_VERTEX_ANTHROPIC_VERSION = "vertex-2023-10-16"
+
+
+class _VertexAIClaudeProvider(AnthropicProvider):
+    """AnthropicProvider adapted for Claude models hosted on Vertex AI.
+
+    Uses Vertex AI Bearer-token auth and :rawPredict/:streamRawPredict endpoints
+    instead of the standard Anthropic API key and /messages endpoint.
+    """
+
+    DISPLAY_NAME = "Vertex AI"
+    CONFIG_TYPE = VertexAIConfig
+
+    def __init__(self, config: EndpointConfig, vertex_config: VertexAIConfig, get_credentials_fn):
+        # Call BaseProvider.__init__ directly — AnthropicProvider.__init__ would reject
+        # VertexAIConfig since it expects AnthropicConfig.
+        BaseProvider.__init__(self, config)
+        self.vertex_config = vertex_config
+        self._get_creds = get_credentials_fn
+
+    @property
+    def headers(self) -> dict[str, str]:
+        creds = self._get_creds()
+        return {"Authorization": f"Bearer {creds.token}"}
+
+    @property
+    def base_url(self) -> str:
+        project = self.vertex_config.vertex_project
+        location = self.vertex_config.vertex_location or "global"
+        prefix = "" if location == "global" else f"{location}-"
+        host = f"https://{prefix}aiplatform.googleapis.com"
+        path = f"/v1/projects/{project}/locations/{location}/publishers/anthropic/models"
+        return f"{host}{path}"
+
+    def _get_chat_path(self) -> str:
+        return f"{self.config.model.name}:rawPredict"
+
+    def _get_chat_stream_path(self) -> str:
+        return f"{self.config.model.name}:streamRawPredict"
+
+    def _prepare_payload(self, payload: dict) -> dict:
+        payload.pop("model", None)
+        payload["anthropic_version"] = _VERTEX_ANTHROPIC_VERSION
+        return payload
+
 
 class VertexAIProvider(GeminiProvider):
-    """Vertex AI provider for Google's Gemini models.
+    """Vertex AI provider supporting both Google (Gemini) and Anthropic (Claude) models.
 
-    Currently supports Google-published models only (e.g., gemini-2.0-flash).
-    Partner models hosted on Vertex AI (Anthropic, Mistral, Llama, etc.) use
-    different publisher paths and API formats (e.g., :rawPredict with
-    Anthropic Messages API) and are not yet supported by this provider.
+    Google-published models use the Gemini API format (:generateContent).
+    Anthropic Claude models are handled by _VertexAIClaudeProvider, which reuses
+    AnthropicProvider's request/response logic with Vertex AI auth and endpoints.
     """
 
     DISPLAY_NAME = "Vertex AI"
@@ -42,6 +92,14 @@ class VertexAIProvider(GeminiProvider):
         self._provider_name = provider.value if isinstance(provider, Enum) else str(provider)
         self.vertex_config: VertexAIConfig = config.model.config
         self._cached_credentials = None
+        self._claude_provider: _VertexAIClaudeProvider | None = (
+            _VertexAIClaudeProvider(config, self.vertex_config, self._get_credentials)
+            if self._is_claude_model()
+            else None
+        )
+
+    def _is_claude_model(self) -> bool:
+        return self.config.model.name.lower().startswith("claude")
 
     def _get_credentials(self):
         """Get Google Cloud credentials, caching them for reuse."""
@@ -87,6 +145,9 @@ class VertexAIProvider(GeminiProvider):
         credentials = self._get_credentials()
         return {"Authorization": f"Bearer {credentials.token}"}
 
+    def _get_publisher(self) -> str:
+        return "anthropic" if self._is_claude_model() else "google"
+
     @property
     def base_url(self) -> str:
         project = self.vertex_config.vertex_project
@@ -95,5 +156,36 @@ class VertexAIProvider(GeminiProvider):
         # https://docs.cloud.google.com/vertex-ai/docs/general/googleapi-access-methods#regional-global-endpoints
         prefix = "" if location == "global" else f"{location}-"
         host = f"https://{prefix}aiplatform.googleapis.com"
-        path = f"/v1/projects/{project}/locations/{location}/publishers/google/models"
+        publisher = self._get_publisher()
+        path = f"/v1/projects/{project}/locations/{location}/publishers/{publisher}/models"
         return f"{host}{path}"
+
+    async def _chat(self, payload):
+        if self._claude_provider:
+            return await self._claude_provider._chat(payload)
+        return await super()._chat(payload)
+
+    async def _chat_stream(self, payload):
+        if self._claude_provider:
+            async for chunk in self._claude_provider._chat_stream(payload):
+                yield chunk
+            return
+        async for chunk in super()._chat_stream(payload):
+            yield chunk
+
+    async def _completions(self, payload):
+        if self._claude_provider:
+            raise NotImplementedError(
+                "The completions endpoint is not supported for Anthropic Claude models on "
+                "Vertex AI. Use the chat endpoint instead."
+            )
+        return await super()._completions(payload)
+
+    async def _completions_stream(self, payload):
+        if self._claude_provider:
+            raise NotImplementedError(
+                "The completions endpoint is not supported for Anthropic Claude models on "
+                "Vertex AI. Use the chat endpoint instead."
+            )
+        async for chunk in super()._completions_stream(payload):
+            yield chunk

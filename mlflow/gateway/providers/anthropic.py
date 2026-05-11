@@ -531,6 +531,15 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
         else:
             raise ValueError(f"Invalid route type {route_type}")
 
+    def _get_chat_path(self) -> str:
+        return "messages"
+
+    def _get_chat_stream_path(self) -> str:
+        return "messages"
+
+    def _prepare_payload(self, payload: dict) -> dict:
+        return payload
+
     async def _chat_stream(
         self, payload: chat.RequestPayload
     ) -> AsyncIterable[chat.StreamResponsePayload]:
@@ -539,13 +548,14 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
         payload = AnthropicAdapter.chat_streaming_to_model(payload, self.config)
+        payload = self._prepare_payload(payload)
 
         headers = self._get_headers(payload)
 
         stream = send_stream_request(
             headers=headers,
             base_url=self.base_url,
-            path="messages",
+            path=self._get_chat_stream_path(),
             payload=payload,
         )
 
@@ -611,13 +621,14 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
         payload = AnthropicAdapter.chat_to_model(payload, self.config)
+        payload = self._prepare_payload(payload)
 
         headers = self._get_headers(payload)
 
         resp = await send_request(
             headers=headers,
             base_url=self.base_url,
-            path="messages",
+            path=self._get_chat_path(),
             payload=payload,
         )
         return AnthropicAdapter.model_to_chat(resp, self.config)
