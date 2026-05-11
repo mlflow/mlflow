@@ -789,11 +789,10 @@ llama_index:
     minimum: "0.12.35"
     maximum: "0.13.6"
     unsupported:
-      # 0.14.16+ uses llama-index-workflows>=2.0 which changed the Context API
-      # (ctx.set/get removed in favor of ctx.store.set/get). The tracer tests
-      # need to be updated to fully support the workflows 2.x API before testing
-      # these versions.
-      - ">= 0.14.16"
+      # 0.14.0+ requires llama-index-workflows>=2.0 which removed ctx.set/get
+      # in favor of ctx.store.set/get. The tracer tests need to be updated to
+      # fully support the workflows 2.x API before testing these versions.
+      - ">= 0.14.0"
     requirements:
       ">= 0.0.0": [
           # Versions 1.99.2 - 1.99.8 contain regressions:
