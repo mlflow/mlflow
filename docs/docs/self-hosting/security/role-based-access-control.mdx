@@ -48,9 +48,12 @@ more `role_permissions` rows of the form
 permission)`. The pattern is either a literal resource id or `*` (apply to all
   resources of that type in the workspace).
 - **Direct per-user grants** (when you want to give one user one permission,
-  no role to share) are stored under a hidden synthetic role named
-  `__user_<id>__`. Same storage, same resolver; the synthetic role is just an
-  authoring detail.
+  no role to share) are stored under a reserved synthetic role named
+  `__user_<id>__`. Same storage, same resolver; operators don't author or
+  edit synthetic roles directly — they're managed by the admin UI's
+  _Direct permissions_ section and by the deprecated per-resource APIs.
+  The `__user_<id>__` name pattern is reserved: `create_role` and
+  `update_role` reject it.
 
 ### Permission levels
 
