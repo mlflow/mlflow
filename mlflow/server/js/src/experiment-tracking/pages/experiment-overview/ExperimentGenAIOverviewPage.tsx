@@ -221,7 +221,11 @@ const ExperimentGenAIOverviewPageImpl = () => {
           }}
         >
           {activeTab === OverviewTab.Usage && (
-            <MetricsFilter filters={metricFilters} setFilters={setMetricFilters} columnOptions={metricsFilterColumnOptions} />
+            <MetricsFilter
+              filters={metricFilters}
+              setFilters={setMetricFilters}
+              columnOptions={metricsFilterColumnOptions}
+            />
           )}
 
           {/* Time unit selector for chart grouping */}

@@ -16,8 +16,7 @@ export interface MetricFilterColumnOption {
   label: string;
 }
 
-export const isCompleteFilter = (filter: MetricFilter): boolean =>
-  Boolean(filter.column) && Boolean(filter.value);
+export const isCompleteFilter = (filter: MetricFilter): boolean => Boolean(filter.column) && Boolean(filter.value);
 
 /**
  * Translates user-driven filter rows from MetricsFilter into metrics-API DSL

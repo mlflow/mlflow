@@ -20,14 +20,8 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
-import type {
-  MetricFilter
-} from './MetricsFilter.utils';
-import {
-  isCompleteFilter,
-  type MetricFilterColumn,
-  type MetricFilterColumnOption,
-} from './MetricsFilter.utils';
+import type { MetricFilter } from './MetricsFilter.utils';
+import { isCompleteFilter, type MetricFilterColumn, type MetricFilterColumnOption } from './MetricsFilter.utils';
 
 // UI-only row state. The `id` is a stable per-row identifier used as the
 // React key so that adding/removing rows does not cause adjacent rows to
@@ -151,9 +145,7 @@ const FilterForm = ({ filters, setFilters, columnOptions }: MetricsFilterProps) 
 
   const apply = () => {
     setFilters(
-      localFilters
-        .filter(isCompleteFilter)
-        .map((row): MetricFilter => ({ column: row.column, value: row.value })),
+      localFilters.filter(isCompleteFilter).map((row): MetricFilter => ({ column: row.column, value: row.value })),
     );
   };
 
@@ -172,27 +164,13 @@ const FilterForm = ({ filters, setFilters, columnOptions }: MetricsFilterProps) 
         ))}
       </div>
       <div>
-        <Button
-          componentId="mlflow.usage.metrics_filter.add_row"
-          icon={<PlusIcon />}
-          onClick={addRow}
-        >
-          <FormattedMessage
-            defaultMessage="Add filter"
-            description="Usage overview > add filter row button"
-          />
+        <Button componentId="mlflow.usage.metrics_filter.add_row" icon={<PlusIcon />} onClick={addRow}>
+          <FormattedMessage defaultMessage="Add filter" description="Usage overview > add filter row button" />
         </Button>
       </div>
       <div css={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <Button
-          componentId="mlflow.usage.metrics_filter.apply"
-          type="primary"
-          onClick={apply}
-        >
-          <FormattedMessage
-            defaultMessage="Apply filters"
-            description="Usage overview > apply filters button"
-          />
+        <Button componentId="mlflow.usage.metrics_filter.apply" type="primary" onClick={apply}>
+          <FormattedMessage defaultMessage="Apply filters" description="Usage overview > apply filters button" />
         </Button>
       </div>
     </div>
@@ -216,10 +194,7 @@ const FilterRow = ({ rowId, filter, columnOptions, onChange, onDelete }: FilterR
       {/* Field (Column) */}
       <div css={{ display: 'flex', flexDirection: 'column' }}>
         <FormUI.Label htmlFor={`usage-metrics-filter-column-${rowId}`}>
-          <FormattedMessage
-            defaultMessage="Field"
-            description="Usage overview > filter row > field column label"
-          />
+          <FormattedMessage defaultMessage="Field" description="Usage overview > filter row > field column label" />
         </FormUI.Label>
         <DialogCombobox
           componentId="mlflow.usage.metrics_filter.column"
@@ -274,10 +249,7 @@ const FilterRow = ({ rowId, filter, columnOptions, onChange, onDelete }: FilterR
       {/* Value */}
       <div css={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
         <FormUI.Label htmlFor={`usage-metrics-filter-value-${rowId}`}>
-          <FormattedMessage
-            defaultMessage="Value"
-            description="Usage overview > filter row > value column label"
-          />
+          <FormattedMessage defaultMessage="Value" description="Usage overview > filter row > value column label" />
         </FormUI.Label>
         <Input
           componentId="mlflow.usage.metrics_filter.value"
