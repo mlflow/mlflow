@@ -58,14 +58,31 @@ export const CompletionOutputPanel = ({ response, error, isLoading }: Props) => 
         ) : completion ? (
           <GenAIMarkdownRenderer>{completion}</GenAIMarkdownRenderer>
         ) : (
-          <Empty
-            description={
-              <FormattedMessage
-                defaultMessage="Submit a message to see the response here."
-                description="Empty state for the playground completion output panel"
-              />
-            }
-          />
+          <div
+            css={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              height: '100%',
+              width: '100%',
+              '& > div': {
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                alignItems: 'center',
+              },
+            }}
+          >
+            <Empty
+              description={
+                <FormattedMessage
+                  defaultMessage="Submit a message to see the response here."
+                  description="Empty state for the playground completion output panel"
+                />
+              }
+            />
+          </div>
         )}
       </div>
 
