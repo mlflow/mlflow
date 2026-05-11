@@ -10,6 +10,7 @@ Usage
 from __future__ import annotations
 
 import base64
+import configparser
 import functools
 import importlib
 import json
@@ -17,6 +18,7 @@ import logging
 import re
 import secrets
 from http import HTTPStatus
+from pathlib import Path
 from typing import Any, Awaitable, Callable
 
 import sqlalchemy
@@ -2345,19 +2347,33 @@ def create_admin_user(username, password):
             raise
 
 
-# The literal default admin password shipped in mlflow/server/auth/basic_auth.ini.
-# Kept in sync with that file so we can detect when an operator hasn't overridden it.
-_DEFAULT_ADMIN_PASSWORD = "password1234"
+@functools.lru_cache(maxsize=1)
+def _get_shipped_default_admin_password():
+    """Read the admin_password value from the shipped basic_auth.ini.
+
+    Read directly from the packaged file (not via MLFLOW_AUTH_CONFIG_PATH) so the
+    warning fires only when an operator hasn't overridden the shipped default.
+    """
+    parser = configparser.ConfigParser()
+    parser.read(Path(__file__).parent / "basic_auth.ini")
+    return parser.get("mlflow", "admin_password", fallback=None)
+
+
+_default_password_warning_emitted = False
 
 
 def _warn_if_default_admin_password(password):
-    if password == _DEFAULT_ADMIN_PASSWORD:
+    global _default_password_warning_emitted
+    if _default_password_warning_emitted:
+        return
+    if password == _get_shipped_default_admin_password():
+        _default_password_warning_emitted = True
         _logger.warning(
             "The MLflow basic auth admin account is using the default password shipped "
             "in basic_auth.ini. Change it before exposing this server beyond localhost. "
             "To override, set the MLFLOW_AUTH_CONFIG_PATH environment variable to point "
             "to a custom basic_auth.ini with a non-default admin_password, or update the "
-            "password via the UPDATE_USER_PASSWORD endpoint after startup."
+            f"password via {UPDATE_USER_PASSWORD} after startup."
         )
 
 
