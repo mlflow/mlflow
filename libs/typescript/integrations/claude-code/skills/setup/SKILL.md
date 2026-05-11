@@ -7,40 +7,45 @@ disable-model-invocation: true
 
 Use this skill only when the user explicitly asks to configure MLflow tracing.
 
-Do not invent your own wizard.
-Do not present your own menus.
-Do not suggest made-up defaults or options.
-Do not ask the user to choose between hard-coded tracking URIs or experiment IDs.
+The bundled `mlflow-claude-code setup` CLI has an interactive mode, but the
+Claude Code Bash tool runs without a TTY and cannot drive interactive prompts.
+**Never run the interactive form from this skill.** Always use the
+`--non-interactive` form with flags.
 
-Always delegate setup to the bundled CLI.
+## Procedure
 
-If the user explicitly asks for user-wide configuration, run:
+1. Gather the required inputs by asking the user directly in chat (use
+   `AskUserQuestion` when possible). Required values:
+   - Scope: project (`--project`, default) or user-wide (`--user`)
+   - Tracking URI (default: `http://localhost:5000`; also accepts arbitrary
+     `http://...` / `https://...` URLs, or `databricks`)
+   - Experiment: either an experiment ID or an experiment name (not both)
 
-```bash
-mlflow-claude-code setup --user
-```
+2. Do not invent your own wizard, menus, or made-up defaults. Ask plain
+   questions and use the defaults above only as suggested defaults.
 
-Otherwise, run:
+3. Once you have the values, run the CLI non-interactively:
 
-```bash
-mlflow-claude-code setup --project
-```
+   ```bash
+   mlflow-claude-code setup --non-interactive --project \
+     --tracking-uri "<uri>" --experiment-name "<name>"
+   ```
 
-If the user already provided all required values and explicitly wants a non-interactive setup, run one of these commands instead:
+   Or with an experiment ID:
 
-```bash
-mlflow-claude-code setup --non-interactive --project --tracking-uri "<uri>" --experiment-id "<id>"
-```
+   ```bash
+   mlflow-claude-code setup --non-interactive --project \
+     --tracking-uri "<uri>" --experiment-id "<id>"
+   ```
 
-```bash
-mlflow-claude-code setup --non-interactive --project --tracking-uri "<uri>" --experiment-name "<name>"
-```
+   Replace `--project` with `--user` if the user requested user-wide config.
 
-For user-wide configuration, replace `--project` with `--user`.
+4. If the user explicitly asks to run the interactive wizard, do NOT run it
+   yourself. Tell them to run this command in their own terminal:
 
-Notes:
-- The default local MLflow server URI is `http://localhost:5000`.
-- Other MLflow servers should be entered as arbitrary `http://...` or `https://...` URLs.
-- `databricks` is supported, but the CLI should handle that directly rather than the skill presenting it as a prominent custom menu.
+   ```bash
+   mlflow-claude-code setup --project
+   ```
 
-After the CLI finishes, summarize the resulting configuration and next steps.
+5. After the non-interactive CLI finishes, summarize the resulting
+   configuration and next steps from the CLI output.
