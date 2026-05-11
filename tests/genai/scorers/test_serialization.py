@@ -864,7 +864,7 @@ def test_unknown_field_surfaces_version_mismatch(deserialize):
         "original_func_name": "future_scorer",
         "field_from_the_future": "value",
     }
-    with pytest.raises(MlflowException) as exc_info:
+    with pytest.raises(MlflowException, match="Cannot deserialize scorer") as exc_info:
         deserialize(payload)
     message = str(exc_info.value)
     assert "future_scorer" in message

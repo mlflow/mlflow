@@ -166,8 +166,7 @@ class SerializedScorer:
         version and points at the upgrade as the fix.
         """
         known_fields = {f.name for f in fields(cls)}
-        unknown_fields = sorted(set(data) - known_fields)
-        if unknown_fields:
+        if unknown_fields := sorted(set(data) - known_fields):
             serialized_version = data.get("mlflow_version") or "unknown"
             scorer_name = data.get("name") or "<unnamed>"
             raise MlflowException.invalid_parameter_value(
