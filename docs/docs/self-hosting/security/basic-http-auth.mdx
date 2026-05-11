@@ -1352,10 +1352,9 @@ auth_client.update_user_admin(username="user1", is_admin=True)
 
 ### Managing Permissions
 
-MLflow provides [REST APIs](/api_reference/auth/rest-api.html#create-user)
+MLflow provides <Link to="/api_reference/auth/rest-api.html#create-user" target="_blank">REST APIs</Link>
 and a client class <APILink fn="mlflow.server.auth.client.AuthServiceClient">`AuthServiceClient`</APILink>
-for managing users and permissions. To instantiate `AuthServiceClient`, use
-`mlflow.server.get_app_client`.
+for managing users and permissions. To instantiate `AuthServiceClient`, use <APILink fn="mlflow.server.get_app_client" />.
 
 Permissions are granted via the **role API**. The three methods you need are:
 
