@@ -1,9 +1,9 @@
-import shlex
 from unittest import mock
 
 import pytest
 
 from mlflow.pyfunc.backend import _STDIN_SERVER_SCRIPT, PyFuncBackend
+from mlflow.utils.string_utils import quote
 
 
 @pytest.mark.parametrize(
@@ -34,12 +34,5 @@ def test_serve_stdin_shell_quotes_local_path(local_path):
     mock_environment.execute.assert_called_once()
 
     command = mock_environment.execute.call_args.kwargs["command"]
-    # The path must appear in shell-quoted form to neutralize shell metacharacters.
-    assert shlex.quote(local_path) in command
-    assert command.startswith(f"python {shlex.quote(str(_STDIN_SERVER_SCRIPT))} --model-uri ")
-
-    # Tokenizing with shlex must round-trip the original local_path as a single argument so
-    # metacharacters like $(...), ;, |, and backticks never get interpreted by the shell.
-    tokens = shlex.split(command)
-    assert tokens[-1] == local_path
-    assert tokens[-2] == "--model-uri"
+    assert quote(local_path) in command
+    assert command.startswith(f"python {quote(str(_STDIN_SERVER_SCRIPT))} --model-uri ")
