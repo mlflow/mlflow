@@ -1,0 +1,37 @@
+name: advisory-invite
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/advisory-invite.yml
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  invite:
+    if: >
+      github.repository == 'mlflow/mlflow' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
+        id: app-token
+        with:
+          client-id: ${{ secrets.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          permission-repository-advisories: write
+
+      - name: Invite TomeHirata to the latest triage advisory
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          ghsa=$(gh api "repos/$REPO/security-advisories?state=triage&per_page=1" --jq '.[0].ghsa_id')
+          users=$(gh api "repos/$REPO/security-advisories/$ghsa" \
+            --jq '[.collaborating_users[].login] + ["TomeHirata"] | unique')
+          jq -n --argjson u "$users" '{collaborating_users: $u}' \
+            | gh api --method PATCH "repos/$REPO/security-advisories/$ghsa" --input -
