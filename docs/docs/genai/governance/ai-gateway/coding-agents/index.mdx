@@ -1,6 +1,6 @@
 ---
 title: Coding Agents
-description: Use Claude Code, OpenAI Codex, and Gemini CLI with the MLflow AI Gateway using your own subscription credentials.
+description: Use Claude Code, OpenAI Codex, Gemini CLI, and OpenClaw with the MLflow AI Gateway using your own subscription credentials.
 ---
 
 import TilesGrid from "@site/src/components/TilesGrid";
@@ -9,7 +9,7 @@ import { BarChart3, DollarSign, Shield } from "lucide-react";
 
 # Coding Agents & AI Gateway
 
-The MLflow AI Gateway supports popular AI coding agents such as **Claude Code**, **OpenAI Codex**, and **Gemini CLI** out of the box.
+The MLflow AI Gateway supports popular AI coding agents such as **Claude Code**, **OpenAI Codex**, and **Gemini CLI**, as well as long-running agent runtimes like **OpenClaw**.
 
 AI coding agents make dozens or hundreds of LLM calls per session, often running autonomously for extended periods. Without visibility or controls in place, it's easy to lose track of what they're doing, how much they're spending, and whether they're operating within your organization's policies. Routing coding agents through the gateway gives your team three key capabilities:
 
@@ -66,5 +66,14 @@ AI coding agents make dozens or hundreds of LLM calls per session, often running
     description="Route Gemini CLI through the gateway using your Google subscription"
     href="./gemini-cli"
     linkText="Set up Gemini CLI →"
+  />
+  <TileCard
+    image="/images/logos/openclaw-logo.svg"
+    imageWidth={48}
+    imageHeight={48}
+    title="OpenClaw"
+    description="Route OpenClaw through the gateway using OpenClaw's OpenAI-compatible provider support"
+    href="./openclaw"
+    linkText="Set up OpenClaw →"
   />
 </TilesGrid>

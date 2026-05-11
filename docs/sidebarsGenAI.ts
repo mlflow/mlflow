@@ -374,6 +374,11 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'tracing/integrations/listing/openclaw',
+                  label: 'OpenClaw',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/integrations/listing/qwen_code',
                   label: 'Qwen Code',
                 },
@@ -1084,6 +1089,11 @@ const sidebarsGenAI: SidebarsConfig = {
               type: 'doc',
               id: 'governance/ai-gateway/coding-agents/gemini-cli',
               label: 'Gemini CLI',
+            },
+            {
+              type: 'doc',
+              id: 'governance/ai-gateway/coding-agents/openclaw',
+              label: 'OpenClaw',
             },
           ],
           link: {

@@ -1,0 +1,118 @@
+---
+title: OpenClaw
+description: Use OpenClaw with the MLflow AI Gateway to get centralized observability, guardrails, and budget controls for long-running agent sessions.
+---
+
+import TilesGrid from "@site/src/components/TilesGrid";
+import TileCard from "@site/src/components/TileCard";
+import { BarChart3, Shield, DollarSign } from "lucide-react";
+
+# OpenClaw + MLflow AI Gateway
+
+Route [OpenClaw](https://github.com/openclaw/openclaw) through the MLflow AI Gateway to get centralized usage tracking, guardrails, and budget controls for long-running agent sessions.
+
+## Prerequisites
+
+- MLflow server running with a SQL backend (`mlflow server --port 5000`)
+- [OpenClaw](https://github.com/openclaw/openclaw) installed (`npm install -g openclaw@latest`)
+
+## Step 1: Create an OpenAI Endpoint
+
+Navigate to the **AI Gateway** tab at `http://localhost:5000/#/gateway` and click **Create Endpoint**.
+
+- **Provider:** OpenAI
+- **Model:** `gpt-4o-mini` (or your preferred model)
+- **Endpoint name:** choose a name, e.g. `my-openclaw-endpoint`
+- **LLM Connection:** select an existing connection or create a new one (see [Create an LLM Connection](/genai/governance/ai-gateway/api-keys/create-and-manage))
+
+:::tip
+The server-side API key in the LLM Connection can be set to a dummy value such as `dummy`. OpenClaw will send requests to the gateway's OpenAI-compatible endpoint, and the gateway will authenticate to the upstream provider using the connection you configured.
+:::
+
+## Step 2: Point OpenClaw at the Gateway
+
+Update `~/.openclaw/openclaw.json` so OpenClaw uses the gateway's OpenAI-compatible endpoint and explicitly routes this model through the PI runtime:
+
+```json5 title="~/.openclaw/openclaw.json"
+{
+  agents: {
+    defaults: {
+      model: { primary: "openai/my-openclaw-endpoint" },
+      models: {
+        "openai/my-openclaw-endpoint": {
+          agentRuntime: { id: "pi" },
+        },
+      },
+    },
+  },
+  models: {
+    providers: {
+      openai: {
+        baseUrl: "http://localhost:5000/gateway/mlflow/v1",
+        apiKey: "dummy",
+        api: "openai-completions",
+        models: [
+          {
+            id: "my-openclaw-endpoint",
+            name: "MLflow AI Gateway endpoint",
+          },
+        ],
+      },
+    },
+  },
+}
+```
+
+Then validate the config:
+
+```bash
+openclaw config validate
+```
+
+:::note
+The explicit `agentRuntime.id: "pi"` is important here. OpenClaw's default `openai/*` route can select the native Codex runtime; using `pi` forces the OpenAI-compatible gateway path instead.
+:::
+
+## Step 3: Run OpenClaw
+
+Start or restart the OpenClaw gateway so the config is picked up:
+
+```bash
+openclaw gateway run
+```
+
+Then talk to OpenClaw normally:
+
+```bash
+openclaw message send "Summarize the latest pull request in two bullet points."
+```
+
+## What You Get
+
+Every model call OpenClaw sends through the gateway is captured in MLflow. Open the **AI Gateway** section of the MLflow UI to inspect logs, token usage, latency, and endpoint-level traffic.
+
+![OpenClaw traffic visible in MLflow AI Gateway](/images/genai/governance/ai-gateway/usage-tracking-endpoint.png)
+
+<TilesGrid>
+  <TileCard
+    icon={BarChart3}
+    title="Usage Tracking"
+    description="Monitor request volume, latency, and token usage across OpenClaw sessions"
+    href="/genai/governance/ai-gateway/usage-tracking"
+    linkText="View usage tracking →"
+  />
+  <TileCard
+    icon={Shield}
+    title="Guardrails"
+    description="Add content policies and safety checks to all OpenClaw model traffic"
+    href="/genai/governance/ai-gateway/guardrails"
+    linkText="Configure guardrails →"
+  />
+  <TileCard
+    icon={DollarSign}
+    title="Budget Alerts & Limits"
+    description="Set spending limits to prevent long-running OpenClaw sessions from exceeding budget"
+    href="/genai/governance/ai-gateway/budget-alerts-limits"
+    linkText="Configure budget limits →"
+  />
+</TilesGrid>

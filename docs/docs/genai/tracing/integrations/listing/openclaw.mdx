@@ -1,0 +1,150 @@
+---
+title: Tracing OpenClaw
+description: Trace OpenClaw conversations, tool calls, and long-running agent activity with MLflow using the MLflow OpenClaw plugin.
+sidebar_position: 11
+sidebar_label: OpenClaw
+keywords: [openclaw, tracing, mlflow, tool calling, ai agent, long-running agent]
+image: /images/llms/openclaw/openclaw-trace.png
+---
+
+import ImageBox from "@site/src/components/ImageBox";
+
+# Tracing OpenClaw
+
+[MLflow Tracing](/genai/tracing) provides automatic tracing for [OpenClaw](https://github.com/openclaw/openclaw) via the `@mlflow/mlflow-openclaw` plugin. After setup, MLflow automatically captures OpenClaw traces, including agent turns, tool calls, sub-agent activity, and token usage.
+
+<ImageBox src="/images/llms/openclaw/openclaw-trace.png" alt="OpenClaw trace detail in the MLflow UI" />
+
+Once configured, OpenClaw traces appear in MLflow with:
+
+- An `AGENT` root span for each OpenClaw session turn
+- `LLM` spans for model calls
+- `TOOL` spans for web fetches, terminal calls, and other tools
+- Session metadata, timing, and token usage
+
+## Setup
+
+### Requirements
+
+- [OpenClaw](https://github.com/openclaw/openclaw) installed
+- An MLflow tracking server running
+- A target MLflow experiment
+
+### Step 1: Install the Plugin
+
+```bash
+openclaw plugins install @mlflow/mlflow-openclaw
+```
+
+### Step 2: Start MLflow and Create an Experiment
+
+Start MLflow if it is not already running:
+
+```bash
+mlflow server --port 5000
+```
+
+Create or choose an experiment from the MLflow UI, then note its experiment ID.
+
+### Step 3: Configure the Plugin
+
+Run the interactive setup command:
+
+```bash
+openclaw mlflow configure
+```
+
+The plugin prompts for the tracking URI and experiment ID:
+
+```text
+~$ openclaw mlflow configure
+
+┌  MLflow Tracing configuration
+│
+◆  MLflow Tracking URI
+│  http://localhost:5000
+└
+◇  Experiment ID
+│  2
+```
+
+You can also configure the same values with environment variables:
+
+```bash
+export MLFLOW_TRACKING_URI=http://localhost:5000
+export MLFLOW_EXPERIMENT_ID=<your-experiment-id>
+```
+
+### Step 4: Verify the Configuration
+
+```bash
+openclaw mlflow status
+```
+
+This shows the effective MLflow tracking URI and experiment ID OpenClaw will use.
+
+### Step 5: Run OpenClaw
+
+Start or restart the OpenClaw gateway and then send a message:
+
+```bash
+openclaw gateway run
+openclaw message send "Hello, Lobster!"
+```
+
+Visit the MLflow UI at `http://localhost:5000` and open the experiment's **Traces** tab to inspect the recorded spans.
+
+## What Gets Traced
+
+The plugin creates a span hierarchy like:
+
+```text
+AGENT (openclaw_agent)
+├── LLM (llm_call)
+├── TOOL (tool_<name>)
+├── AGENT (subagent_<label>)
+└── ...
+```
+
+This lets you inspect the full agent workflow rather than only the final response.
+
+## Monitoring Usage and Quality
+
+MLflow also aggregates OpenClaw trace metrics in the experiment overview, including latency, trace counts, and tool call activity.
+
+<ImageBox src="/images/llms/openclaw/openclaw-overview.png" alt="OpenClaw overview metrics in MLflow" />
+
+Because traces are stored as first-class MLflow traces, you can also:
+
+- Attach human feedback to OpenClaw traces
+- Run [trace evaluation](/genai/eval-monitor/running-evaluation/traces) on captured sessions
+- Group traces by session and user for long-running conversations
+
+## Plugin Allowlist
+
+OpenClaw shows a warning for community plugins that are not allowlisted. To suppress the warning, add `mlflow-openclaw` to the plugin allowlist in `~/.openclaw/openclaw.json`:
+
+```json
+{
+  "plugins": {
+    "allow": ["mlflow-openclaw"]
+  }
+}
+```
+
+## Troubleshooting
+
+**No traces appear in MLflow**
+
+- Verify `MLFLOW_TRACKING_URI` points to a reachable MLflow server
+- Verify `MLFLOW_EXPERIMENT_ID` points to an existing experiment
+- Run `openclaw mlflow status` to inspect the effective config
+- Restart the OpenClaw gateway after changing plugin configuration
+
+**OpenClaw warns about an untrusted plugin**
+
+- Add `mlflow-openclaw` to the OpenClaw plugin allowlist
+
+**You want gateway governance as well as tracing**
+
+- Route OpenClaw model traffic through the [MLflow AI Gateway](/genai/governance/ai-gateway/) and keep the tracing plugin enabled for end-to-end agent observability

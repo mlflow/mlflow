@@ -413,6 +413,13 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     category: 'Coding Agents',
   },
   {
+    id: 'openclaw',
+    name: 'OpenClaw',
+    logoPath: '/images/logos/openclaw-logo.svg',
+    link: '/genai/tracing/integrations/listing/openclaw',
+    category: 'Coding Agents',
+  },
+  {
     id: 'codex',
     name: 'Codex CLI',
     logoPath: '/images/logos/openai-logo-only.png',
