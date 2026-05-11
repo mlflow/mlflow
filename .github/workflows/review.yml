@@ -22,8 +22,6 @@ jobs:
     permissions:
       pull-requests: write
     timeout-minutes: 30
-    outputs:
-      bot-approved: ${{ steps.check-approval.outputs.approved }}
     # Security: Only run for authorized users.
     # - pull_request: Only run for non-fork PRs
     # - issue_comment: BOTH PR author and commenter must be authorized (can't trust external PRs)
@@ -222,70 +220,3 @@ jobs:
               comment_id: comment.id,
               body: updatedBody
             });
-
-      - name: Check bot approval
-        id: check-approval
-        if: github.event_name == 'issue_comment'
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          PR_NUMBER: ${{ github.event.issue.number }}
-          REPO: ${{ github.repository }}
-          COMMENT_CREATED_AT: ${{ github.event.comment.created_at }}
-        run: |
-          count=$(gh api "repos/${REPO}/pulls/${PR_NUMBER}/reviews" \
-            --jq '[.[]
-                   | select(.user.login == "mlflow-app[bot]"
-                            and .state == "APPROVED"
-                            and .submitted_at >= env.COMMENT_CREATED_AT)
-                  ] | length')
-          approved=$([ "$count" -gt 0 ] && echo true || echo false)
-          echo "approved=$approved" >> "$GITHUB_OUTPUT"
-
-  post-review:
-    needs: review
-    if: github.event_name == 'issue_comment' && needs.review.outputs.bot-approved == 'true'
-    runs-on: ubuntu-slim
-    timeout-minutes: 5
-    permissions:
-      actions: write
-      pull-requests: read
-    steps:
-      - name: Approve queued rerun workflows
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_NUMBER: ${{ github.event.issue.number }}
-          REPO: ${{ github.repository }}
-          COMMENT_CREATED_AT: ${{ github.event.comment.created_at }}
-        run: |
-          head_sha=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json headRefOid --jq '.headRefOid')
-
-          # Poll for up to ~30s: the `rerun` workflow may not be queued yet
-          # when this step starts, since mlflow-app[bot]'s approval review
-          # fires it asynchronously.
-          run_ids=""
-          for i in $(seq 1 6); do
-            run_ids=$(
-              gh api --paginate "repos/${REPO}/actions/runs?head_sha=${head_sha}" \
-                --jq '.workflow_runs[]
-                      | select(.name == "rerun"
-                               and .conclusion == "action_required"
-                               and .actor.login == "mlflow-app[bot]"
-                               and .created_at >= env.COMMENT_CREATED_AT)
-                      | .id'
-            )
-            [ -n "$run_ids" ] && break
-            echo "No action_required rerun yet (attempt $i); sleeping 5s..."
-            sleep 5
-          done
-
-          if [ -z "$run_ids" ]; then
-            echo "Timed out waiting for action_required rerun workflows"
-            exit 0
-          fi
-
-          # Use /rerun since /approve fails with "not a fork pull request" on runs from `pull_request_review` events.
-          while IFS= read -r run_id; do
-            gh api --method POST "repos/${REPO}/actions/runs/${run_id}/rerun" >/dev/null \
-              && echo "Approved run $run_id" \
-              || echo "Failed to approve run $run_id"
-          done <<< "$run_ids"
