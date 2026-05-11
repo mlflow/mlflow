@@ -20,10 +20,10 @@ export const isCompleteFilter = (filter: MetricFilter): boolean =>
   Boolean(filter.column) && Boolean(filter.value);
 
 /**
- * Translates user-driven filter rows from OverviewMetricsFilter into metrics-API DSL
+ * Translates user-driven filter rows from MetricsFilter into metrics-API DSL
  * filter strings consumed by useTraceMetricsQuery via OverviewChartProvider.
  *
- * Add a new case here when adding a new column option in OverviewMetricsFilter.
+ * Add a new case here when adding a new column option in MetricsFilter.
  */
 export const translateToMetricsFilters = (filters: MetricFilter[]): string[] | undefined => {
   const result = filters
