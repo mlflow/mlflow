@@ -132,6 +132,7 @@ export abstract class RunsChartsCardConfig {
       resultChartSet.push({
         ...RunsChartsCardConfig.getEmptyChartCardByType(chartType, true, getUUID()),
         metricKey: metricsKey,
+        displayName: RunsChartsCardConfig.extractChartDisplayName(metricsKey),
       } as RunsChartsBarCardConfig);
     });
 
@@ -155,6 +156,12 @@ export abstract class RunsChartsCardConfig {
       return MLFLOW_SYSTEM_METRIC_NAME;
     }
     return section;
+  };
+
+  static extractChartDisplayName = (metricKey: string, delimiter = '/') => {
+    const displayMetricName = customMetricBehaviorDefs[metricKey]?.displayName ?? metricKey;
+    const parts = displayMetricName.split(delimiter);
+    return parts[parts.length - 1] || displayMetricName;
   };
 
   static getBaseChartAndSectionConfigs({
@@ -274,6 +281,7 @@ export abstract class RunsChartsCardConfig {
         resultChartSet.push({
           ...RunsChartsCardConfig.getEmptyChartCardByType(chartType, true, getUUID(), sectionId),
           metricKey: metricsKey,
+          displayName: RunsChartsCardConfig.extractChartDisplayName(metricsKey),
           ...(metricsKey.startsWith(MLFLOW_SYSTEM_METRIC_PREFIX) ? { xAxisKey: 'time', useGlobalXaxisKey: false } : {}),
         } as RunsChartsBarCardConfig);
       });
@@ -517,6 +525,7 @@ export abstract class RunsChartsCardConfig {
         const newChartConfig = {
           ...RunsChartsCardConfig.getEmptyChartCardByType(chartType, true, getUUID(), sectionId),
           metricKey: metricKey,
+          displayName: RunsChartsCardConfig.extractChartDisplayName(metricKey),
           ...(metricKey.startsWith(MLFLOW_SYSTEM_METRIC_PREFIX) ? { xAxisKey: 'time', useGlobalXaxisKey: false } : {}),
         } as RunsChartsBarCardConfig;
 
@@ -547,6 +556,7 @@ export abstract class RunsChartsCardConfig {
             prevChart.metricSectionId,
           ),
           metricKey: metricKey,
+          displayName: RunsChartsCardConfig.extractChartDisplayName(metricKey),
           deleted: prevChart.deleted,
           ...(metricKey.startsWith(MLFLOW_SYSTEM_METRIC_PREFIX) ? { xAxisKey: 'time', useGlobalXaxisKey: false } : {}),
         } as RunsChartsLineCardConfig;
