@@ -1775,6 +1775,10 @@
     "defaultMessage": "Enable Usage Tracking in the Overview tab to view logs",
     "description": "Tooltip shown on disabled Logs tab explaining that usage tracking must be enabled first"
   },
+  "8oh0iW": {
+    "defaultMessage": "Clear filters",
+    "description": "Usage overview > clear metrics filters button"
+  },
   "8qJt7/": {
     "defaultMessage": "Experimental",
     "description": "Experimental badge shown for features which are experimental"
@@ -2126,6 +2130,10 @@
   "Ai/ANo": {
     "defaultMessage": "Usage",
     "description": "Page title"
+  },
+  "AmLGSf": {
+    "defaultMessage": "Apply filters",
+    "description": "Usage overview > apply filters button"
   },
   "AoDwev": {
     "defaultMessage": "Description (optional)",
@@ -3154,6 +3162,10 @@
   "HSMagB": {
     "defaultMessage": "Error evaluating \"{label}\"",
     "description": "Error evaluating label"
+  },
+  "HT6/F3": {
+    "defaultMessage": "Value",
+    "description": "Usage overview > filter row > value column label"
   },
   "HUC492": {
     "defaultMessage": "See detailed trace view",
@@ -6331,6 +6343,10 @@
     "defaultMessage": "Please select metric",
     "description": "Placeholder text where one can select metrics from the list of available metrics to render on the graph"
   },
+  "aZKtr2": {
+    "defaultMessage": "Field",
+    "description": "Usage overview > filter row > field column label"
+  },
   "aZV8M7": {
     "defaultMessage": "Delete",
     "description": "Delete assessment menu item"
@@ -8091,6 +8107,10 @@
     "defaultMessage": "Discard",
     "description": "Experiment page > artifact compare view > prompt lab artifact synchronization > submit button label"
   },
+  "kQ9rmr": {
+    "defaultMessage": "Operator",
+    "description": "Usage overview > filter row > operator column label"
+  },
   "kQw850": {
     "defaultMessage": "Test succeeded (HTTP {status})",
     "description": "Message informing the user that the webhook test succeeded"
@@ -8654,6 +8674,10 @@
   "nWeQCU": {
     "defaultMessage": "Show differences only",
     "description": "Runs charts > components > config > RunsChartsConfigureDifferenceChart > Show differences only toggle"
+  },
+  "nXsSZ1": {
+    "defaultMessage": "Add filter",
+    "description": "Usage overview > add filter row button"
   },
   "nY1YrF": {
     "defaultMessage": "Internal server error",
@@ -10330,6 +10354,10 @@
   "xbfKJS": {
     "defaultMessage": "JSON body for the OpenAI-compatible Chat Completions API. Include \"model\" (endpoint name) and \"messages\".",
     "description": "Request body tooltip for unified Chat Completions API"
+  },
+  "xc+tL4": {
+    "defaultMessage": "Filters{numFilters}",
+    "description": "Usage overview > metrics filter dropdown button"
   },
   "xdFMIN": {
     "defaultMessage": "Dataset name",

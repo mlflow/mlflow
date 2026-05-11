@@ -35,13 +35,27 @@ describe('MetricsFilter', () => {
   it('calls setFilters with an empty array when the clear button is clicked', async () => {
     const setFilters = jest.fn();
     const activeFilters: MetricFilter[] = [{ column: 'user', value: 'alice' }];
-    const { container } = renderFilter(activeFilters, setFilters);
+    renderFilter(activeFilters, setFilters);
 
-    // XCircleFillIcon renders as an aria-hidden anticon span with tabindex="-1"
-    const clearIcon = container.querySelector('[tabindex="-1"]');
-    expect(clearIcon).toBeInTheDocument();
-    await userEvent.click(clearIcon!);
+    await userEvent.click(screen.getByRole('button', { name: /clear filters/i }));
     expect(setFilters).toHaveBeenCalledWith([]);
+  });
+
+  it('clears filters via keyboard activation (Enter and Space)', async () => {
+    const setFilters = jest.fn();
+    const activeFilters: MetricFilter[] = [{ column: 'user', value: 'alice' }];
+    renderFilter(activeFilters, setFilters);
+
+    const clearButton = screen.getByRole('button', { name: /clear filters/i });
+    clearButton.focus();
+    expect(clearButton).toHaveFocus();
+
+    await userEvent.keyboard('{Enter}');
+    expect(setFilters).toHaveBeenLastCalledWith([]);
+
+    setFilters.mockClear();
+    await userEvent.keyboard(' ');
+    expect(setFilters).toHaveBeenLastCalledWith([]);
   });
 
   describe('filter form (popover)', () => {
@@ -123,7 +137,7 @@ describe('MetricsFilter', () => {
     it('initialises the form with existing active filters', async () => {
       const activeFilters: MetricFilter[] = [{ column: 'user', value: 'alice' }];
       renderFilter(activeFilters);
-      await userEvent.click(screen.getByRole('button', { name: /filters/i }));
+      await userEvent.click(screen.getByRole('button', { name: /^filters/i }));
       await screen.findByText('Field');
 
       expect(screen.getByDisplayValue('alice')).toBeInTheDocument();
@@ -134,15 +148,14 @@ describe('MetricsFilter', () => {
         const [filters, setFilters] = useState<MetricFilter[]>([{ column: 'user', value: 'alice' }]);
         return <MetricsFilter filters={filters} setFilters={setFilters} columnOptions={TEST_COLUMN_OPTIONS} />;
       };
-      const { container } = renderWithDesignSystem(<ControlledHarness />);
+      renderWithDesignSystem(<ControlledHarness />);
 
-      await userEvent.click(screen.getByRole('button', { name: /filters/i }));
+      await userEvent.click(screen.getByRole('button', { name: /^filters/i }));
       await screen.findByText('Field');
       expect(screen.getByDisplayValue('alice')).toBeInTheDocument();
 
-      // Click the clear-all icon in the trigger; popover stays open due to stopPropagation.
-      const clearIcon = container.querySelector('[tabindex="-1"]');
-      await userEvent.click(clearIcon!);
+      // Click the clear-all control in the trigger; popover stays open due to stopPropagation.
+      await userEvent.click(screen.getByRole('button', { name: /clear filters/i }));
 
       // The form should now reflect the cleared state instead of showing stale rows.
       await waitFor(() => {

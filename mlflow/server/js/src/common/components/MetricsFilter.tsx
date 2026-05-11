@@ -71,18 +71,41 @@ export const MetricsFilter = ({ filters, setFilters, columnOptions }: MetricsFil
               { numFilters: hasActiveFilters ? ` (${filters.length})` : '' },
             )}
             {hasActiveFilters && (
-              <XCircleFillIcon
+              <span
+                role="button"
+                tabIndex={0}
+                aria-label={intl.formatMessage({
+                  defaultMessage: 'Clear filters',
+                  description: 'Usage overview > clear metrics filters button',
+                })}
                 css={{
                   fontSize: 12,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                   cursor: 'pointer',
                   color: theme.colors.grey400,
                   '&:hover': { color: theme.colors.grey600 },
+                  '&:focus-visible': {
+                    outline: `2px solid ${theme.colors.actionDefaultBorderFocus}`,
+                    outlineOffset: 2,
+                    borderRadius: theme.general.borderRadiusBase,
+                  },
                 }}
                 onClick={(e) => {
                   e.stopPropagation();
                   setFilters([]);
                 }}
-              />
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setFilters([]);
+                  }
+                }}
+              >
+                <XCircleFillIcon css={{ fontSize: 12 }} />
+              </span>
             )}
           </div>
         </Button>
