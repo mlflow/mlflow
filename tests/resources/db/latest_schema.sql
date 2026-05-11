@@ -97,6 +97,21 @@ CREATE TABLE jobs (
 )
 
 
+CREATE TABLE mcp_servers (
+	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
+	name VARCHAR(256) NOT NULL,
+	display_name VARCHAR(256),
+	description TEXT,
+	icons JSON,
+	latest_version VARCHAR(256),
+	created_by VARCHAR(256),
+	last_updated_by VARCHAR(256),
+	created_at BIGINT NOT NULL,
+	last_updated_at BIGINT NOT NULL,
+	CONSTRAINT mcp_servers_pk PRIMARY KEY (workspace, name)
+)
+
+
 CREATE TABLE registered_models (
 	name VARCHAR(256) NOT NULL,
 	creation_time BIGINT,
@@ -236,6 +251,61 @@ CREATE TABLE logged_models (
 	CONSTRAINT logged_models_pk PRIMARY KEY (model_id),
 	CONSTRAINT fk_logged_models_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id) ON DELETE CASCADE,
 	CONSTRAINT logged_models_lifecycle_stage_check CHECK (lifecycle_stage IN ('active', 'deleted'))
+)
+
+
+CREATE TABLE mcp_access_bindings (
+	binding_id INTEGER NOT NULL,
+	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
+	server_name VARCHAR(256) NOT NULL,
+	server_version VARCHAR(128),
+	server_alias VARCHAR(256),
+	endpoint_url VARCHAR(2048) NOT NULL,
+	transport_type VARCHAR(32) DEFAULT 'streamable-http' NOT NULL,
+	created_by VARCHAR(256),
+	last_updated_by VARCHAR(256),
+	created_at BIGINT NOT NULL,
+	last_updated_at BIGINT NOT NULL,
+	CONSTRAINT mcp_access_bindings_pk PRIMARY KEY (binding_id),
+	CONSTRAINT mcp_access_bindings_server_fkey FOREIGN KEY(workspace, server_name) REFERENCES mcp_servers (workspace, name) ON DELETE CASCADE ON UPDATE CASCADE
+)
+
+
+CREATE TABLE mcp_server_aliases (
+	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
+	name VARCHAR(256) NOT NULL,
+	alias VARCHAR(256) NOT NULL,
+	version VARCHAR(128) NOT NULL,
+	CONSTRAINT mcp_server_aliases_pk PRIMARY KEY (workspace, name, alias),
+	CONSTRAINT mcp_server_aliases_server_fkey FOREIGN KEY(workspace, name) REFERENCES mcp_servers (workspace, name) ON DELETE CASCADE ON UPDATE CASCADE
+)
+
+
+CREATE TABLE mcp_server_tags (
+	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
+	name VARCHAR(256) NOT NULL,
+	key VARCHAR(250) NOT NULL,
+	value VARCHAR(5000),
+	CONSTRAINT mcp_server_tags_pk PRIMARY KEY (workspace, name, key),
+	CONSTRAINT mcp_server_tags_server_fkey FOREIGN KEY(workspace, name) REFERENCES mcp_servers (workspace, name) ON DELETE CASCADE ON UPDATE CASCADE
+)
+
+
+CREATE TABLE mcp_server_versions (
+	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
+	name VARCHAR(256) NOT NULL,
+	version VARCHAR(128) NOT NULL,
+	server_json JSON NOT NULL,
+	display_name VARCHAR(256),
+	status VARCHAR(20) DEFAULT 'draft' NOT NULL,
+	tools JSON,
+	source VARCHAR(512),
+	created_by VARCHAR(256),
+	last_updated_by VARCHAR(256),
+	created_at BIGINT NOT NULL,
+	last_updated_at BIGINT NOT NULL,
+	CONSTRAINT mcp_server_versions_pk PRIMARY KEY (workspace, name, version),
+	CONSTRAINT mcp_server_versions_server_fkey FOREIGN KEY(workspace, name) REFERENCES mcp_servers (workspace, name) ON DELETE CASCADE ON UPDATE CASCADE
 )
 
 
@@ -480,6 +550,17 @@ CREATE TABLE logged_model_tags (
 	CONSTRAINT logged_model_tags_pk PRIMARY KEY (model_id, tag_key),
 	CONSTRAINT fk_logged_model_tags_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id),
 	CONSTRAINT fk_logged_model_tags_model_id FOREIGN KEY(model_id) REFERENCES logged_models (model_id) ON DELETE CASCADE
+)
+
+
+CREATE TABLE mcp_server_version_tags (
+	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
+	name VARCHAR(256) NOT NULL,
+	version VARCHAR(128) NOT NULL,
+	key VARCHAR(250) NOT NULL,
+	value VARCHAR(5000),
+	CONSTRAINT mcp_server_version_tags_pk PRIMARY KEY (workspace, name, version, key),
+	CONSTRAINT mcp_server_version_tags_version_fkey FOREIGN KEY(workspace, name, version) REFERENCES mcp_server_versions (workspace, name, version) ON DELETE CASCADE ON UPDATE CASCADE
 )
 
 

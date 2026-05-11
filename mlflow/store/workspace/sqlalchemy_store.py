@@ -29,6 +29,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlGatewayModelDefinition,
     SqlGatewaySecret,
     SqlJob,
+    SqlMCPServer,
 )
 from mlflow.store.workspace.abstract_store import AbstractStore, WorkspaceNameValidator
 from mlflow.store.workspace.dbmodels import SqlWorkspace
@@ -54,6 +55,7 @@ _WORKSPACE_ROOT_MODELS = [
     SqlGatewayBudgetPolicy,
     SqlGatewayGuardrail,
     SqlJob,
+    SqlMCPServer,
 ]
 
 
