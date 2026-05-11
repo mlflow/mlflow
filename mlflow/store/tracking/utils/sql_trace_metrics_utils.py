@@ -572,8 +572,8 @@ def _apply_filters(query: Query, filters: list[str], view_type: MetricViewType) 
                     case SpanMetricSearchKey.STATUS:
                         query = query.filter(SqlSpan.status == parsed_filter.value)
                     case SpanMetricSearchKey.TYPE:
-                        # Some legacy traces can persist span types with JSON string encoding
-                        # (e.g. '"TOOL"' instead of TOOL). Match both forms so span.type
+                        # Some legacy traces can persist span types as the JSON-encoded
+                        # string value "\"TOOL\"" instead of "TOOL". Match both forms so span.type
                         # filters remain backward compatible for existing records.
                         span_type_value = parsed_filter.value
                         query = query.filter(
