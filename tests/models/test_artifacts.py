@@ -117,7 +117,9 @@ def test_infer_artifact_type_and_ext_raise_exception_for_unsupported_ext(tmp_pat
         _infer_artifact_type_and_ext("invalid_ext_artifact", path, cm_fn_tuple)
 
 
-def test_pickle_evaluation_artifact_load_raises_when_pickle_deserialization_disabled(tmp_path, monkeypatch):
+def test_pickle_evaluation_artifact_load_raises_when_pickle_deserialization_disabled(
+    tmp_path, monkeypatch
+):
     monkeypatch.setenv("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", "false")
 
     artifact_path = tmp_path / "artifact.pickle"
