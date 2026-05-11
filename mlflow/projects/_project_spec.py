@@ -302,7 +302,11 @@ class EntryPoint:
         params, extra_params = self.compute_parameters(user_parameters, storage_dir)
         command_with_params = self.command.format(**params)
         command_arr = [command_with_params]
-        command_arr.extend([f"--{key} {value}" for key, value in extra_params.items()])
+        # Quote `key` because the assembled command is passed to `bash -c`; an
+        # extra-param key containing shell metacharacters would otherwise be
+        # interpreted by the shell. `value` is already quoted by
+        # `_sanitize_param_dict`.
+        command_arr.extend([f"--{quote(str(key))} {value}" for key, value in extra_params.items()])
         return " ".join(command_arr)
 
     @staticmethod

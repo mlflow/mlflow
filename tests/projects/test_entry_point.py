@@ -1,4 +1,5 @@
 import os
+import shlex
 from shlex import quote
 from unittest import mock
 
@@ -55,6 +56,35 @@ def test_entry_point_compute_command():
         name_value = "friend; echo 'hi'"
         command = entry_point.compute_command({"name": name_value}, storage_dir)
         assert command == "python greeter.py {} {}".format(quote("hi"), quote(name_value))
+
+
+@pytest.mark.parametrize(
+    "malicious_key",
+    [
+        "x; id > /tmp/pwned; echo ",
+        "a&&b",
+        "$(whoami)",
+        "a|b",
+        "a`b`",
+        "a>b",
+    ],
+)
+def test_compute_command_quotes_extra_param_keys(malicious_key):
+    project = load_project()
+    entry_point = project.get_entry_point("greeter")
+    with TempDir() as tmp:
+        storage_dir = tmp.path()
+        command = entry_point.compute_command({"name": "friend", malicious_key: "1"}, storage_dir)
+        # The injected key must be shell-quoted in the assembled command so
+        # `bash -c` parses it as a single flag token rather than additional
+        # shell tokens.
+        assert f"--{quote(malicious_key)} " in command
+        tokens = shlex.split(command)
+        assert f"--{malicious_key}" in tokens
+        # Metacharacters from the key must not produce extra shell tokens
+        # like `;`, `&&`, or `$(whoami)` invocations.
+        for forbidden in [";", "&&", "|", "`", "$(", ">", "id", "whoami"]:
+            assert forbidden not in tokens
 
 
 def test_path_parameter():
