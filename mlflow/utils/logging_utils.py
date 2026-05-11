@@ -38,6 +38,12 @@ class MlflowLoggingStream:
         if self._enabled:
             sys.stderr.flush()
 
+    def isatty(self) -> bool:
+        # Delegate to sys.stderr if it supports isatty(); otherwise return False.
+        # This handles environments like Gunicorn where sys.stderr is replaced with
+        # a StreamToLogger object that does not implement the full IO protocol.
+        return getattr(sys.stderr, "isatty", lambda: False)()
+
     @property
     def enabled(self):
         return self._enabled
