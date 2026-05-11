@@ -175,7 +175,12 @@ jobs:
       - name: Run NaiLaOpus (dry-run by default; Bridge 2 adds --no-dry-run to enable posting)
         working-directory: mlflow
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          # NAILAOPUS_ANTHROPIC_API_KEY is namespaced so the bot's spend is
+          # isolated from any other workflow on this repo that uses Anthropic
+          # (e.g. the existing `review.yml`'s ANTHROPIC_API_KEY). The
+          # orchestrator reads from $ANTHROPIC_API_KEY, so the env var name
+          # passed to the process stays standard.
+          ANTHROPIC_API_KEY: ${{ secrets.NAILAOPUS_ANTHROPIC_API_KEY }}
           GH_TOKEN: ${{ steps.app_token.outputs.token }}
           PR: ${{ steps.ctx.outputs.pr }}
           REPO: ${{ github.repository }}
