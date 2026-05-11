@@ -19,6 +19,7 @@ export interface Issue {
   created_timestamp: number;
   last_updated_timestamp: number;
   categories?: string[];
+  trace_count?: number;
 }
 
 type SearchIssuesResponse = {
@@ -54,6 +55,7 @@ export const useSearchIssuesQuery = ({
       const requestBody = {
         experiment_id: experimentId,
         filter_string: filterString,
+        include_trace_count: true,
       };
 
       return (await fetchAPI(getAjaxUrl('ajax-api/3.0/mlflow/issues/search'), {

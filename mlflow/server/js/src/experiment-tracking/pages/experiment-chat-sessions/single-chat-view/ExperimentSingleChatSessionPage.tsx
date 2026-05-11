@@ -4,7 +4,7 @@ import { FormattedMessage } from '@mlflow/mlflow/src/i18n/i18n';
 import type { GetTraceFunction } from '@databricks/web-shared/genai-traces-table';
 import {
   createTraceLocationForExperiment,
-  createTraceLocationForUCSchema,
+  createTraceLocationForDestinationPath,
   doesTraceSupportV4API,
   useGetTraces,
   useSearchMlflowTraces,
@@ -231,6 +231,8 @@ const ExperimentSingleChatSessionPageImpl = () => {
             <div
               css={{
                 height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
                 marginLeft: -theme.spacing.lg,
                 marginRight: -theme.spacing.lg,
                 marginBottom: -theme.spacing.lg,

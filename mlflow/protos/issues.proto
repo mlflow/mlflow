@@ -46,6 +46,9 @@ message Issue {
 
   // Categories of the issue.
   repeated string categories = 12;
+
+  // Number of traces impacted by this issue. Only populated when explicitly requested.
+  optional int32 trace_count = 13;
 }
 
 // Request to create a new issue.
@@ -130,6 +133,9 @@ message SearchIssues {
 
   // Page token for pagination.
   optional string page_token = 4;
+
+  // Whether to include the count of traces impacted by each issue.
+  optional bool include_trace_count = 5;
 
   message Response {
     // List of issues.

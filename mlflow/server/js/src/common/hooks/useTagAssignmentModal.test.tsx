@@ -5,8 +5,17 @@ import type { TagAssignmentModalParams } from './useTagAssignmentModal';
 import { useTagAssignmentModal } from './useTagAssignmentModal';
 import type { KeyValueEntity } from '../types';
 import { DesignSystemProvider } from '@databricks/design-system';
-import { waitFor, screen } from '@testing-library/react';
+import { fireEvent, waitFor, screen } from '@testing-library/react';
 import { renderWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
+
+// Set a React controlled input's value reliably by going through the native
+// HTMLInputElement value setter (which React's internal change-tracker hooks
+// into) and then dispatching an `input` event so React fires onChange.
+function setNativeInputValue(input: HTMLElement, value: string) {
+  const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!;
+  nativeSetter.call(input, value);
+  fireEvent.input(input);
+}
 
 describe('useTagAssignmentModal', () => {
   function renderTestComponent(params: Partial<TagAssignmentModalParams> = {}) {
@@ -38,12 +47,12 @@ describe('useTagAssignmentModal', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Open Modal' }));
 
-    // Find the first key input and type a tag key
-    const keyInputs = screen.getAllByRole('textbox');
-    await userEvent.type(keyInputs[0], 'newTag');
-
-    // Find the value input (should be the second textbox)
-    await userEvent.type(keyInputs[1], 'newValue');
+    // Use native value setter + input event to set values in a single
+    // operation. This avoids userEvent.type's character-by-character approach
+    // which is flaky under memory pressure when running the full test suite.
+    const inputs = await screen.findAllByRole('textbox');
+    setNativeInputValue(inputs[0], 'newTag');
+    setNativeInputValue(inputs[1], 'newValue');
 
     // Submit the form
     await userEvent.click(screen.getByRole('button', { name: 'Save' }));
@@ -65,7 +74,7 @@ describe('useTagAssignmentModal', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Open Modal' }));
 
     // Find the value input and change it
-    const inputs = screen.getAllByRole('textbox');
+    const inputs = await screen.findAllByRole('textbox');
     const valueInput = inputs[1]; // Second input should be the value
 
     // Clear and type new value

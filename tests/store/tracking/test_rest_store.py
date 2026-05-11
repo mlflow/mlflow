@@ -3889,6 +3889,7 @@ def test_search_issues():
         "filter_string": "severity = 'high'",
         "max_results": 100,
         "page_token": "page_token_123",
+        "include_trace_count": False,
     })
     _verify_requests(mock_http, creds, "issues/search", "POST", expected_request_json, use_v3=True)
 
@@ -3906,3 +3907,52 @@ def test_search_issues():
     assert result[1].severity == IssueSeverity.MEDIUM
 
     assert result.token == "next_token_456"
+
+
+def test_search_issues_with_trace_count():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+    response = mock.MagicMock()
+    response.status_code = 200
+    response.text = json.dumps({
+        "issues": [
+            {
+                "issue_id": "issue-123",
+                "experiment_id": "exp-456",
+                "name": "Issue with traces",
+                "description": "Has 2 traces",
+                "status": "pending",
+                "created_timestamp": 1234567890000,
+                "last_updated_timestamp": 1234567890000,
+                "trace_count": 2,
+            },
+            {
+                "issue_id": "issue-124",
+                "experiment_id": "exp-456",
+                "name": "Issue without traces",
+                "description": "Has no traces",
+                "status": "pending",
+                "created_timestamp": 1234567900000,
+                "last_updated_timestamp": 1234567900000,
+                "trace_count": 0,
+            },
+        ],
+        "next_page_token": "",
+    })
+
+    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+        result = store.search_issues(
+            experiment_id="exp-456",
+            include_trace_count=True,
+        )
+
+    expected_request_json = json.dumps({
+        "experiment_id": "exp-456",
+        "include_trace_count": True,
+    })
+    _verify_requests(mock_http, creds, "issues/search", "POST", expected_request_json, use_v3=True)
+
+    assert len(result) == 2
+    assert result[0].trace_count == 2
+    assert result[1].trace_count == 0
+    assert result.token is None

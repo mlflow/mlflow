@@ -1,6 +1,7 @@
 import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
@@ -356,7 +357,7 @@ def test_patch_session_cancel_with_process(client):
     session_id = r.json()["session_id"]
 
     # Start a real subprocess and register it with the session
-    with subprocess.Popen(["sleep", "10"]) as proc:
+    with subprocess.Popen([sys.executable, "-c", "import time; time.sleep(10)"]) as proc:
         save_process_pid(session_id, proc.pid)
 
         assert _is_process_running(proc.pid)

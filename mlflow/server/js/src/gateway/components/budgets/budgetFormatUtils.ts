@@ -14,7 +14,7 @@ export function formatDuration(value: number, unit: DurationUnit): string {
       WEEKS: 'Weekly',
       MONTHS: 'Monthly',
     };
-    if (friendlyLabels[unit]) return friendlyLabels[unit]!;
+    if (friendlyLabels[unit]) return friendlyLabels[unit];
   }
   const typeLabels: Record<DurationUnit, string> = {
     MINUTES: value === 1 ? 'Minute' : 'Minutes',

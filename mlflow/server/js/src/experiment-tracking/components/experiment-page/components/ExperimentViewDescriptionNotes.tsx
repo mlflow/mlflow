@@ -23,7 +23,6 @@ import {
 import { ThemeAwareReactMde } from '../../../../common/components/EditableNote';
 import { FormattedMessage } from 'react-intl';
 import { setExperimentTagApi } from '../../../actions';
-import { shouldEnableExperimentPageSideTabs } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 
 const extractNoteFromTags = (tags: Record<string, KeyValueEntity>) =>
   Object.values(tags).find((t) => t.key === NOTE_CONTENT_TAG)?.value || undefined;
@@ -92,23 +91,29 @@ export const ExperimentViewDescriptionNotes = ({
 
   const sanitizedContent = getSanitizedHtmlContent(effectiveNote);
   const hasContent = sanitizedContent && sanitizedContent.trim().length > 0;
+  const getIcon = useCallback(
+    (name: string) => {
+      return (
+        <Tooltip componentId="mlflow.experiment-tracking.experiment-description.edit" content={name}>
+          <span css={{ color: theme.colors.textPrimary }}>
+            <SvgIcon icon={name} />
+          </span>
+        </Tooltip>
+      );
+    },
+    [theme],
+  );
 
   return (
     <div
-      css={
-        shouldEnableExperimentPageSideTabs()
-          ? {
-              paddingBottom: theme.spacing.sm,
-              borderBottom: `1px solid ${theme.colors.border}`,
-            }
-          : undefined
-      }
+      css={{
+        paddingBottom: theme.spacing.sm,
+        borderBottom: `1px solid ${theme.colors.border}`,
+      }}
     >
       {hasContent && (
         <div
-          style={{
-            whiteSpace: isExpanded ? 'normal' : 'pre-wrap',
-            lineHeight: theme.typography.lineHeightLg,
+          css={{
             background: theme.colors.backgroundSecondary,
             display: 'flex',
             alignItems: 'flex-start',
@@ -116,7 +121,7 @@ export const ExperimentViewDescriptionNotes = ({
           }}
         >
           <div
-            style={{
+            css={{
               flexGrow: 1,
               marginRight: PADDING_HORIZONTAL,
               overflow: 'hidden',
@@ -124,6 +129,16 @@ export const ExperimentViewDescriptionNotes = ({
               padding: `${theme.spacing.sm}px ${PADDING_HORIZONTAL}px`,
               maxHeight: isExpanded ? 'none' : COLLAPSE_MAX_HEIGHT + 'px',
               wordBreak: 'break-word',
+              '&>:first-child': {
+                marginBlockStart: 0,
+                ...(isExpanded
+                  ? {}
+                  : {
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                    }),
+              },
             }}
           >
             <div
@@ -188,13 +203,7 @@ export const ExperimentViewDescriptionNotes = ({
           selectedTab={selectedTab}
           onTabChange={(newTab) => setSelectedTab(newTab)}
           generateMarkdownPreview={() => Promise.resolve(getSanitizedHtmlContent(tmpNote))}
-          getIcon={(name) => (
-            <Tooltip componentId="mlflow.experiment-tracking.experiment-description.edit" content={name}>
-              <span css={{ color: theme.colors.textPrimary }}>
-                <SvgIcon icon={name} />
-              </span>
-            </Tooltip>
-          )}
+          getIcon={getIcon}
         />
       </Modal>
     </div>

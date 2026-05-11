@@ -1,0 +1,83 @@
+name: Tracing Benchmark
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - ".github/workflows/tracing-benchmark.yml"
+      - "dev/benchmarks/tracing/**"
+      - "mlflow/**"
+      - "!mlflow/server/js/**"
+  pull_request:
+    paths:
+      - ".github/workflows/tracing-benchmark.yml"
+      - "dev/benchmarks/tracing/**"
+  workflow_dispatch:
+
+concurrency:
+  # On master, never cancel in-flight runs — each push is a distinct
+  # data point in the trend. Elsewhere, coalesce per ref.
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      # contents: write is required for the action to push to gh-pages on master.
+      contents: write
+    if: github.repository == 'mlflow/mlflow'
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-python
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Run benchmark
+        run: |
+          uv run --no-sync pytest dev/benchmarks/tracing/ \
+            --benchmark-only \
+            --benchmark-json=benchmark-results.json
+
+      - name: Convert to custom format
+        run: |
+          uv run --no-sync python -c "
+          import json
+          with open('benchmark-results.json') as f:
+              data = json.load(f)
+          out = [
+              {'name': b['fullname'], 'unit': 'ms', 'value': b['stats']['mean'] * 1000}
+              for b in data['benchmarks']
+          ]
+          with open('benchmark-custom.json', 'w') as f:
+              json.dump(out, f, indent=2)
+          "
+
+      # Only master pushes update gh-pages. PR runs just validate that the
+      # bench still produces a parseable JSON. The gh-pages branch must be
+      # seeded once by a maintainer before the first master run; full history
+      # is always fetchable from
+      # https://raw.githubusercontent.com/mlflow/mlflow/gh-pages/dev/benchmarks/tracing/data.js
+      - name: Publish benchmark result
+        if: github.event_name == 'push'
+        uses: benchmark-action/github-action-benchmark@a60cea5bc7b49e15c1f58f411161f99e0df48372 # v1.22.0
+        with:
+          name: MLflow Tracing Benchmark
+          tool: customSmallerIsBetter
+          output-file-path: benchmark-custom.json
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          gh-pages-branch: gh-pages
+          benchmark-data-dir-path: dev/benchmarks/tracing
+          auto-push: true
+          alert-threshold: "200%"
+          comment-on-alert: false
+          fail-on-alert: false
+          summary-always: true
+          max-items-in-chart: 500

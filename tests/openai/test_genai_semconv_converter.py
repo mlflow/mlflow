@@ -3,15 +3,12 @@ import json
 
 import openai
 import pytest
-from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 from packaging.version import Version
 
 import mlflow
 from mlflow.openai.genai_semconv_converter import _convert_content, _convert_message
-from mlflow.tracing.processor.otel import OtelSpanProcessor
-from mlflow.tracing.provider import provider as tracer_provider_wrapper
 
-from tests.tracing.helper import reset_autolog_state  # noqa: F401
+from tests.tracing.helper import capture_otel_export, reset_autolog_state  # noqa: F401
 
 MODEL = "gpt-4o-mini"
 
@@ -51,20 +48,10 @@ MOCK_RESPONSES_TOOLS = [
 ]
 
 
-@pytest.fixture
-def genai_semconv_capture(monkeypatch):
+@pytest.fixture(autouse=True)
+def enable_genai_semconv(monkeypatch):
     monkeypatch.setenv("MLFLOW_ENABLE_OTEL_GENAI_SEMCONV", "true")
-    exporter = InMemorySpanExporter()
-    # Force-init the tracer provider so we can add our processor
-    tracer_provider_wrapper.get_or_init_tracer("test")
-    tp = tracer_provider_wrapper.get()
-    processor = OtelSpanProcessor(span_exporter=exporter, export_metrics=False)
-    # Skip trace registration since the regular MLflow processors already handle that
-    processor._should_register_traces = False
-    tp.add_span_processor(processor)
-    yield exporter, processor
-    processor.force_flush(timeout_millis=5000)
-    processor.shutdown()
+    return
 
 
 @pytest.fixture
@@ -84,8 +71,8 @@ def _get_chat_span(exporter, processor):
     ["chat_completions", pytest.param("responses", marks=requires_responses_api)],
 )
 @pytest.mark.usefixtures("reset_autolog_state")
-def test_autolog_basic(client, genai_semconv_capture, api):
-    exporter, processor = genai_semconv_capture
+def test_autolog_basic(client, capture_otel_export, api):
+    exporter, processor = capture_otel_export
 
     mlflow.openai.autolog()
     if api == "chat_completions":
@@ -128,8 +115,8 @@ def test_autolog_basic(client, genai_semconv_capture, api):
     ["chat_completions", pytest.param("responses", marks=requires_responses_api)],
 )
 @pytest.mark.usefixtures("reset_autolog_state")
-def test_autolog_with_tool_calls(client, genai_semconv_capture, api):
-    exporter, processor = genai_semconv_capture
+def test_autolog_with_tool_calls(client, capture_otel_export, api):
+    exporter, processor = capture_otel_export
 
     mlflow.openai.autolog()
     if api == "chat_completions":
@@ -212,8 +199,8 @@ def test_autolog_with_tool_calls(client, genai_semconv_capture, api):
     ["chat_completions", pytest.param("responses", marks=requires_responses_api)],
 )
 @pytest.mark.usefixtures("reset_autolog_state")
-def test_autolog_streaming(client, genai_semconv_capture, api):
-    exporter, processor = genai_semconv_capture
+def test_autolog_streaming(client, capture_otel_export, api):
+    exporter, processor = capture_otel_export
 
     mlflow.openai.autolog()
     if api == "chat_completions":

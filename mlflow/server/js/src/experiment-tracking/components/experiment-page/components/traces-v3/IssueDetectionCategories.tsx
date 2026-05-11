@@ -4,85 +4,96 @@ import {
   Typography,
   Checkbox,
   SearchIcon,
-  ThumbsDownIcon,
   ShieldIcon,
   LightningIcon,
+  CheckCircleIcon,
+  ClipboardIcon,
+  StarIcon,
 } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
-export type IssueCategory = 'low_quality' | 'negative_ux' | 'safety' | 'performance';
+export type IssueCategory = 'correctness' | 'latency' | 'execution' | 'adherence' | 'relevance' | 'safety';
 
 interface IssueCategoryDefinition {
   id: IssueCategory;
   icon: React.ReactNode;
   title: React.ReactNode;
   description: React.ReactNode;
+  componentId: string;
 }
 
 export const ISSUE_CATEGORY_DEFINITIONS: IssueCategoryDefinition[] = [
   {
-    id: 'low_quality',
+    id: 'correctness',
     icon: <SearchIcon />,
-    title: (
-      <FormattedMessage
-        defaultMessage="Low Quality Responses"
-        description="Issue category title for detecting low quality responses"
-      />
-    ),
+    title: <FormattedMessage defaultMessage="Correctness" description="Issue category title for correctness" />,
     description: (
       <FormattedMessage
-        defaultMessage="Detect incorrect, incomplete, or hallucinated responses"
-        description="Issue category description for low quality responses"
+        defaultMessage="Output is factually accurate and grounded in provided data"
+        description="Issue category description for correctness"
       />
     ),
+    componentId: 'mlflow.traces.issue-detection-modal.category.correctness',
   },
   {
-    id: 'negative_ux',
-    icon: <ThumbsDownIcon />,
-    title: (
-      <FormattedMessage
-        defaultMessage="Negative User Experiences"
-        description="Issue category title for detecting negative user experiences"
-      />
-    ),
+    id: 'latency',
+    icon: <LightningIcon />,
+    title: <FormattedMessage defaultMessage="Latency" description="Issue category title for latency" />,
     description: (
       <FormattedMessage
-        defaultMessage="Detect unsatisfactory user experiences and unmet user needs"
-        description="Issue category description for negative user experiences"
+        defaultMessage="Agent responds within acceptable time bounds"
+        description="Issue category description for latency"
       />
     ),
+    componentId: 'mlflow.traces.issue-detection-modal.category.latency',
+  },
+  {
+    id: 'execution',
+    icon: <CheckCircleIcon />,
+    title: <FormattedMessage defaultMessage="Execution" description="Issue category title for execution" />,
+    description: (
+      <FormattedMessage
+        defaultMessage="Agent successfully completes actions (tool calls, API steps)"
+        description="Issue category description for execution"
+      />
+    ),
+    componentId: 'mlflow.traces.issue-detection-modal.category.execution',
+  },
+  {
+    id: 'adherence',
+    icon: <ClipboardIcon />,
+    title: <FormattedMessage defaultMessage="Adherence" description="Issue category title for adherence" />,
+    description: (
+      <FormattedMessage
+        defaultMessage="Response follows instructions, constraints, policies, and formatting"
+        description="Issue category description for adherence"
+      />
+    ),
+    componentId: 'mlflow.traces.issue-detection-modal.category.adherence',
+  },
+  {
+    id: 'relevance',
+    icon: <StarIcon />,
+    title: <FormattedMessage defaultMessage="Relevance" description="Issue category title for relevance" />,
+    description: (
+      <FormattedMessage
+        defaultMessage="Output is useful, directly addresses the user's request, and leaves the user satisfied with the interaction"
+        description="Issue category description for relevance"
+      />
+    ),
+    componentId: 'mlflow.traces.issue-detection-modal.category.relevance',
   },
   {
     id: 'safety',
     icon: <ShieldIcon />,
-    title: (
-      <FormattedMessage
-        defaultMessage="Safety & Compliance Violations"
-        description="Issue category title for detecting safety violations"
-      />
-    ),
+    title: <FormattedMessage defaultMessage="Safety" description="Issue category title for safety" />,
     description: (
       <FormattedMessage
-        defaultMessage="Detect unsafe responses or actions and compliance violations"
-        description="Issue category description for safety violations"
+        defaultMessage="Response avoids harmful, sensitive, or inappropriate content"
+        description="Issue category description for safety"
       />
     ),
-  },
-  {
-    id: 'performance',
-    icon: <LightningIcon />,
-    title: (
-      <FormattedMessage
-        defaultMessage="Performance Issues"
-        description="Issue category title for detecting performance issues"
-      />
-    ),
-    description: (
-      <FormattedMessage
-        defaultMessage="Identify slow requests or operations"
-        description="Issue category description for performance issues"
-      />
-    ),
+    componentId: 'mlflow.traces.issue-detection-modal.category.safety',
   },
 ];
 
@@ -92,9 +103,10 @@ interface IssueCategoryCardProps {
   category: IssueCategoryDefinition;
   isSelected: boolean;
   onToggle: (categoryId: IssueCategory, isChecked: boolean) => void;
+  componentId: string;
 }
 
-const IssueCategoryCard: React.FC<IssueCategoryCardProps> = ({ category, isSelected, onToggle }) => {
+const IssueCategoryCard: React.FC<IssueCategoryCardProps> = ({ category, isSelected, onToggle, componentId }) => {
   const { theme } = useDesignSystemTheme();
 
   return (
@@ -115,7 +127,7 @@ const IssueCategoryCard: React.FC<IssueCategoryCardProps> = ({ category, isSelec
       onClick={() => onToggle(category.id, !isSelected)}
     >
       <Checkbox
-        componentId={`mlflow.traces.issue-detection-modal.category.${category.id}`}
+        componentId={componentId}
         isChecked={isSelected}
         onChange={(checked) => onToggle(category.id, checked)}
         onClick={(e) => e.stopPropagation()}
@@ -149,6 +161,7 @@ export const IssueCategoryList: React.FC<IssueCategoryListProps> = ({ selectedCa
           category={category}
           isSelected={selectedCategories.has(category.id)}
           onToggle={onToggle}
+          componentId={category.componentId}
         />
       ))}
     </div>

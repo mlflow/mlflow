@@ -41,6 +41,8 @@ class GenAiTranslator(OtelSchemaTranslator):
     # Reference: https://opentelemetry.io/docs/specs/semconv/registry/attributes/gen-ai/#genai-attributes
     INPUT_TOKEN_KEY = "gen_ai.usage.input_tokens"
     OUTPUT_TOKEN_KEY = "gen_ai.usage.output_tokens"
+    CACHE_READ_INPUT_TOKEN_KEY = "gen_ai.usage.cache_read.input_tokens"
+    CACHE_CREATION_INPUT_TOKEN_KEY = "gen_ai.usage.cache_creation.input_tokens"
 
     # Input/Output attribute keys from OTEL GenAI semantic conventions
     # Reference: https://opentelemetry.io/docs/specs/semconv/registry/attributes/gen-ai/#gen-ai-input-messages
@@ -51,6 +53,7 @@ class GenAiTranslator(OtelSchemaTranslator):
     # Reference: https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-spans/
     MODEL_NAME_KEYS = ["gen_ai.response.model", "gen_ai.request.model"]
     LLM_PROVIDER_KEY = "gen_ai.provider.name"
+    TOOL_DEFINITION_KEYS = ["gen_ai.tool.definitions"]
 
     def _decode_json_value(self, value: Any) -> Any:
         """Decode JSON-serialized string values."""

@@ -53,7 +53,7 @@ export function computeWorkflowPathToRoot(
     if (!incomingEdgesMap.has(edge.targetId)) {
       incomingEdgesMap.set(edge.targetId, []);
     }
-    incomingEdgesMap.get(edge.targetId)!.push(edge);
+    incomingEdgesMap.get(edge.targetId)?.push(edge);
   }
 
   const toProcess = [nodeId];

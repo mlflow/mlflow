@@ -254,11 +254,6 @@ class Feedback(Assessment):
         overrides: str | None = None,
         valid: bool = True,
     ):
-        if value is None and error is None:
-            raise MlflowException.invalid_parameter_value(
-                "Either `value` or `error` must be provided.",
-            )
-
         # Default to CODE source if not provided
         if source is None:
             source = AssessmentSource(source_type=AssessmentSourceType.CODE)

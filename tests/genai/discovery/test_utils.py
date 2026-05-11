@@ -4,17 +4,26 @@ from unittest import mock
 import pytest
 
 from mlflow.entities.issue import Issue, IssueStatus
+from mlflow.entities.trace import Trace
+from mlflow.entities.trace_data import TraceData
+from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.trace_location import TraceLocation
+from mlflow.entities.trace_state import TraceState
+from mlflow.genai.discovery.constants import CATEGORY_LATENCY, build_satisfaction_instructions
 from mlflow.genai.discovery.entities import _ConversationAnalysis, _IdentifiedIssue
 from mlflow.genai.discovery.utils import (
-    _TokenCounter,
     build_summary,
     collect_affected_trace_ids,
+    compute_latency_percentiles,
     format_annotation_prompt,
     format_trace_content,
     get_session_id,
     group_traces_by_session,
     log_discovery_artifacts,
 )
+from mlflow.genai.utils.gateway_utils import GatewayConfig
+from mlflow.genai.utils.trace_utils import _extract_trace_timing_info
+from mlflow.metrics.genai.model_utils import _get_provider_instance
 
 
 def test_format_trace_content_includes_errors(make_trace):
@@ -28,6 +37,43 @@ def test_format_trace_content_no_errors(make_trace):
     trace = make_trace()
     content = format_trace_content(trace)
     assert "Errors:" not in content
+
+
+def test_format_trace_content_includes_timing_when_requested(make_trace):
+    trace = make_trace()
+    content = format_trace_content(trace, include_timing=True)
+    assert "Total duration:" in content
+    assert "Slowest spans:" in content
+
+
+def test_format_trace_content_excludes_timing_by_default(make_trace):
+    trace = make_trace()
+    content = format_trace_content(trace, include_timing=False)
+    assert "Total duration:" not in content
+    assert "Slowest spans:" not in content
+
+
+def test_extract_trace_timing_info_with_valid_trace(make_trace):
+    trace = make_trace()
+    timing_info = _extract_trace_timing_info(trace)
+    assert timing_info is not None
+    assert "duration_s" in timing_info
+    assert "slowest_spans_formatted" in timing_info
+    assert timing_info["duration_s"] > 0
+
+
+def test_extract_trace_timing_info_returns_none_without_duration():
+    trace_info = TraceInfo(
+        trace_id="test",
+        trace_location=TraceLocation.from_experiment_id("0"),
+        request_time=0,
+        execution_duration=None,
+        state=TraceState.OK,
+    )
+    trace = Trace(trace_info, TraceData())
+
+    timing_info = _extract_trace_timing_info(trace)
+    assert timing_info is None
 
 
 def test_collect_affected_trace_ids_gathers_from_analyses():
@@ -173,25 +219,6 @@ def test_build_summary_with_issues():
     assert "Network instability; Upstream service issues" in result
 
 
-def test_token_counter_tracks_usage():
-    counter = _TokenCounter()
-    assert counter.input_tokens == 0
-    assert counter.output_tokens == 0
-    assert counter.cost_usd == 0.0
-
-    mock_response = mock.MagicMock()
-    mock_response.usage = mock.MagicMock()
-    mock_response.usage.prompt_tokens = 100
-    mock_response.usage.completion_tokens = 50
-    mock_response._hidden_params = {"response_cost": 0.005}
-
-    counter.track(mock_response)
-
-    assert counter.input_tokens == 100
-    assert counter.output_tokens == 50
-    assert counter.cost_usd == 0.005
-
-
 def test_group_traces_by_session_groups_by_session_id(make_trace):
     traces = [
         make_trace(session_id="session-1"),
@@ -240,3 +267,108 @@ def test_group_traces_by_session_sorts_by_timestamp(make_trace):
     assert session_traces[0].info.trace_id == trace1.info.trace_id
     assert session_traces[1].info.trace_id == trace2.info.trace_id
     assert session_traces[2].info.trace_id == trace3.info.trace_id
+
+
+@pytest.mark.parametrize(
+    ("durations", "expected_result"),
+    [
+        (
+            [1000, 2000, 3000, 4000, 5000],
+            {"p50": 3.0, "p75": 4.0, "p90": 4.6, "p95": 4.8, "p99": 4.96, "count": 5},
+        ),
+        ([], None),
+        ([None, None], None),
+        (
+            [1000, None, 2000],
+            {"p50": 1.5, "p75": 1.75, "p90": 1.9, "p95": 1.95, "p99": 1.99, "count": 2},
+        ),
+    ],
+    ids=["valid_traces", "empty_traces", "no_durations", "skips_without_duration"],
+)
+def test_compute_latency_percentiles(make_trace, durations, expected_result):
+    traces = [make_trace(execution_duration_ms=d) for d in durations] if durations else []
+    result = compute_latency_percentiles(traces)
+    assert result == expected_result
+
+
+@pytest.mark.parametrize(
+    ("use_conversation", "categories", "latency_stats", "expected_assertions"),
+    [
+        (
+            False,
+            [CATEGORY_LATENCY, "correctness"],
+            {"p50": 1.5, "p75": 2.0, "p90": 3.0, "p95": 4.0, "count": 100},
+            {
+                "LATENCY CHECK:": True,
+                "p50=1.5s": True,
+                "p75=2.0s": True,
+                "p90=3.0s": True,
+                "p95=4.0s": True,
+                "from 100 traces": True,
+            },
+        ),
+        (
+            False,
+            [CATEGORY_LATENCY, "correctness"],
+            None,
+            {
+                "LATENCY CHECK:": True,
+                "p50=": False,
+                "using this dataset's latency distribution": False,
+            },
+        ),
+        (
+            False,
+            ["correctness", "relevance"],
+            None,
+            {"LATENCY CHECK:": False},
+        ),
+        (
+            True,
+            [CATEGORY_LATENCY],
+            {"p50": 1.0, "p75": 1.5, "p90": 2.0, "p95": 2.5, "count": 50},
+            {
+                "LATENCY CHECK:": True,
+                "p50=1.0s": True,
+                "conversation": True,
+            },
+        ),
+    ],
+    ids=[
+        "with_stats",
+        "without_stats",
+        "no_latency_category",
+        "conversation_mode",
+    ],
+)
+def test_build_satisfaction_instructions_latency_variations(
+    use_conversation, categories, latency_stats, expected_assertions
+):
+    result = build_satisfaction_instructions(
+        use_conversation=use_conversation, categories=categories, latency_stats=latency_stats
+    )
+
+    for expected_text, should_be_present in expected_assertions.items():
+        if should_be_present:
+            assert expected_text in result or expected_text in result.lower()
+        else:
+            assert expected_text not in result
+
+
+def test_get_mlflow_gateway_provider():
+    gateway_config = GatewayConfig(
+        api_base="http://localhost:5000/gateway/mlflow/v1/",
+        endpoint_name="chat",
+        extra_headers={"X-Custom": "header"},
+    )
+
+    with mock.patch(
+        "mlflow.metrics.genai.model_utils.get_gateway_config",
+        return_value=gateway_config,
+    ) as mock_get_config:
+        provider = _get_provider_instance("gateway", "chat")
+
+    mock_get_config.assert_called_once_with("chat")
+    assert provider.get_endpoint_url("llm/v1/chat").endswith("/chat/completions")
+    assert provider.headers == {"X-Custom": "header"}
+    assert provider.config.model.name == "chat"

@@ -3,6 +3,7 @@ import type { ModelTraceInfoV3, ModelTraceSpan } from '../model-trace-explorer/M
 
 export type AssessmentDType = 'string' | 'numeric' | 'boolean' | 'pass-fail' | 'unknown';
 export type AssessmentType = 'AI_JUDGE' | 'HUMAN' | 'CODE';
+export type TraceTablePageSource = 'experiment-traces' | 'chat-sessions' | 'run-view-traces';
 
 // Reflects structure logged by mlflow.log_table()
 export interface RawGenaiEvaluationArtifactResponse {
@@ -118,9 +119,9 @@ export interface AssessmentAggregates {
   currentCounts?: AssessmentRunCounts;
   otherCounts?: AssessmentRunCounts;
 
-  // Numeric values for the current run and other run.
-  currentNumericValues?: number[];
-  otherNumericValues?: number[];
+  // Numeric averages for the current run and other run.
+  currentNumericAverage?: number;
+  otherNumericAverage?: number;
 
   currentNumRootCause: number;
   otherNumRootCause: number;
@@ -129,6 +130,15 @@ export interface AssessmentAggregates {
   currentNumericAggregate?: NumericAggregate;
 
   assessmentFilters: AssessmentFilter[];
+}
+
+/**
+ * Server-side assessment count data from the trace metrics API.
+ * Each entry represents one (assessmentName, value) → count tuple.
+ */
+export interface AssessmentCountMetrics {
+  data: { assessmentName: string; assessmentValue: string; count: number }[];
+  isLoading: boolean;
 }
 
 export interface EvaluationsOverviewTableSort {
@@ -162,6 +172,9 @@ export interface AssessmentFilter {
   filterValue: AssessmentValueType;
   // Only defined when filtering on an assessment for RCA values.
   filterType?: 'rca' | undefined;
+  // Optional operator for numeric comparison filters (>, <, >=, <=).
+  // Defaults to equality (=) when not specified.
+  filterOperator?: FilterOperator;
   run: string;
 }
 export type TableFilter = {
@@ -355,6 +368,7 @@ export type NumericAggregate = {
   min: number;
   max: number;
   maxCount: number;
+  average: number;
   counts: NumericAggregateCount[];
 };
 

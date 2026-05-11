@@ -4,6 +4,10 @@ import phoenix.evals as phoenix_evals
 import pytest
 
 from mlflow.entities.assessment import Feedback
+from mlflow.entities.assessment_source import AssessmentSourceType
+from mlflow.exceptions import MlflowException
+from mlflow.genai.scorers.base import Scorer, ScorerKind
+from mlflow.genai.scorers.phoenix import Hallucination
 
 
 @pytest.fixture
@@ -124,3 +128,59 @@ def test_phoenix_scorer_error_handling(mock_model):
     assert isinstance(result, Feedback)
     assert result.error is not None
     assert "Evaluation failed" in str(result.error)
+
+
+def test_high_level_scorer_call_chain(monkeypatch):
+    """Exercises the full call chain: Hallucination(model=...) -> scorer(inputs=..., outputs=...)
+    as recommended in docs.
+    """
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+
+    from mlflow.genai.scorers.phoenix import Hallucination
+
+    scorer = Hallucination(model="openai:/gpt-4")
+
+    with patch.object(
+        scorer._evaluator, "evaluate", return_value=("factual", 0.95, "Grounded.")
+    ) as mock_evaluate:
+        feedback = scorer(
+            inputs="What is MLflow?",
+            outputs="MLflow is an open-source platform for managing ML workflows.",
+            expectations={"context": "MLflow is an open-source ML platform."},
+        )
+
+    mock_evaluate.assert_called_once()
+    assert isinstance(feedback, Feedback)
+    assert feedback.name == "Hallucination"
+    assert feedback.value == "factual"
+    assert feedback.metadata["score"] == 0.95
+    assert feedback.rationale == "Grounded."
+    assert feedback.source.source_type == AssessmentSourceType.LLM_JUDGE
+    assert feedback.source.source_id == "openai:/gpt-4"
+
+
+def test_phoenix_scorer_kind_is_third_party(mock_model):
+    with patch("mlflow.genai.scorers.phoenix.create_phoenix_model", return_value=mock_model):
+        assert Hallucination(model="openai:/gpt-4").kind == ScorerKind.THIRD_PARTY
+
+
+def test_phoenix_scorer_serialization_round_trip(mock_model):
+    with patch("mlflow.genai.scorers.phoenix.create_phoenix_model", return_value=mock_model):
+        scorer = Hallucination(model="openai:/gpt-4")
+        dump = scorer.model_dump()
+        assert dump["third_party_scorer_data"]["class"] == "Hallucination"
+        assert dump["third_party_scorer_data"]["metric_name"] == "Hallucination"
+        assert dump["third_party_scorer_data"]["model"] == "openai:/gpt-4"
+
+        restored = Scorer.model_validate(dump)
+        assert isinstance(restored, Hallucination)
+        assert restored.kind == ScorerKind.THIRD_PARTY
+        assert restored._model == "openai:/gpt-4"
+
+
+def test_phoenix_scorer_register_blocked_on_databricks(mock_model):
+    with patch("mlflow.genai.scorers.phoenix.create_phoenix_model", return_value=mock_model):
+        scorer = Hallucination(model="openai:/gpt-4")
+        with patch("mlflow.genai.scorers.base.is_databricks_uri", return_value=True):
+            with pytest.raises(MlflowException, match="Third-party scorer registration"):
+                scorer.register(name="hallucination")

@@ -7,9 +7,6 @@ import type { ModelListTableProps } from './ModelListTable';
 import { ModelListTable } from './ModelListTable';
 import { DesignSystemProvider } from '@databricks/design-system';
 
-// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
-jest.setTimeout(30000);
-
 import { Stages } from '../../constants';
 import Utils from '../../../common/utils/Utils';
 import { withNextModelsUIContext } from '../../hooks/useNextModelsUI';
@@ -17,6 +14,9 @@ import { ModelsNextUIToggleSwitch } from '../ModelsNextUIToggleSwitch';
 import userEvent from '@testing-library/user-event';
 import { shouldShowModelsNextUI } from '../../../common/utils/FeatureUtils';
 import { I18nUtils } from '../../../i18n/I18nUtils';
+
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
+jest.setTimeout(30000);
 jest.mock('../../../common/utils/FeatureUtils', () => ({
   ...jest.requireActual<typeof import('../../../common/utils/FeatureUtils')>('../../../common/utils/FeatureUtils'),
   shouldShowModelsNextUI: jest.fn(),

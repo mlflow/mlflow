@@ -1,18 +1,15 @@
-import { useMemo, useCallback } from 'react';
+import { useMemo } from 'react';
 import {
   MetricViewType,
   AggregationType,
   TraceMetricKey,
-  TraceFilterKey,
   TraceStatus,
-  createTraceFilter,
+  TraceDimensionKey,
+  TIME_BUCKET_DIMENSION_KEY,
 } from '@databricks/web-shared/model-trace-explorer';
 import { useTraceMetricsQuery } from './useTraceMetricsQuery';
-import { formatTimestampForTraceMetrics, useTimestampValueMap } from '../utils/chartUtils';
+import { formatTimestampForTraceMetrics } from '../utils/chartUtils';
 import { useOverviewChartContext } from '../OverviewChartContext';
-
-// Filter to get only error traces
-const ERROR_FILTER = createTraceFilter(TraceFilterKey.STATUS, TraceStatus.ERROR);
 
 export interface ErrorsChartDataPoint {
   name: string;
@@ -40,8 +37,11 @@ export interface UseTraceErrorsChartDataResult {
 
 /**
  * Custom hook that fetches and processes errors chart data.
- * Encapsulates all data-fetching and processing logic for the errors chart.
- * Uses OverviewChartContext to get chart props.
+ *
+ * Uses the same TRACE_COUNT query with TRACE_STATUS dimension as the requests chart,
+ * so React Query deduplicates it to a single SQL execution.
+ * Error counts are extracted from the ERROR status rows; total counts are the sum
+ * of all status rows.
  *
  * @returns Processed chart data, loading state, and error state
  */
@@ -49,13 +49,12 @@ export function useTraceErrorsChartData(): UseTraceErrorsChartDataResult {
   const { experimentIds, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets, filters } =
     useOverviewChartContext();
 
-  const errorFilters = useMemo(() => [...(filters ?? []), ERROR_FILTER], [filters]);
-
-  // Fetch error count metrics grouped by time bucket
+  // This query uses the same params as useTraceRequestsChartData, so React Query
+  // deduplicates it into a single network request and SQL execution.
   const {
-    data: errorCountData,
-    isLoading: isLoadingErrors,
-    error: errorCountError,
+    data: traceCountData,
+    isLoading,
+    error,
   } = useTraceMetricsQuery({
     experimentIds,
     startTimeMs,
@@ -64,65 +63,55 @@ export function useTraceErrorsChartData(): UseTraceErrorsChartDataResult {
     metricName: TraceMetricKey.TRACE_COUNT,
     aggregations: [{ aggregation_type: AggregationType.COUNT }],
     timeIntervalSeconds,
-    filters: errorFilters,
-  });
-
-  // Fetch total trace count metrics grouped by time bucket (for calculating error rate)
-  // This query is also used by TraceRequestsChart, so React Query will dedupe it
-  const {
-    data: totalCountData,
-    isLoading: isLoadingTotal,
-    error: totalCountError,
-  } = useTraceMetricsQuery({
-    experimentIds,
-    startTimeMs,
-    endTimeMs,
-    viewType: MetricViewType.TRACES,
-    metricName: TraceMetricKey.TRACE_COUNT,
-    aggregations: [{ aggregation_type: AggregationType.COUNT }],
-    timeIntervalSeconds,
+    dimensions: [TraceDimensionKey.TRACE_STATUS],
     filters,
   });
 
-  const errorDataPoints = useMemo(() => errorCountData?.data_points || [], [errorCountData?.data_points]);
-  const totalDataPoints = useMemo(() => totalCountData?.data_points || [], [totalCountData?.data_points]);
-  const isLoading = isLoadingErrors || isLoadingTotal;
-  const error = errorCountError || totalCountError;
+  const dataPoints = useMemo(() => traceCountData?.data_points || [], [traceCountData?.data_points]);
 
-  // Calculate totals by summing time-bucketed data
-  const totalErrors = useMemo(
-    () => errorDataPoints.reduce((sum, dp) => sum + (dp.values?.[AggregationType.COUNT] || 0), 0),
-    [errorDataPoints],
-  );
-  const totalTraces = useMemo(
-    () => totalDataPoints.reduce((sum, dp) => sum + (dp.values?.[AggregationType.COUNT] || 0), 0),
-    [totalDataPoints],
-  );
+  // Build per-timestamp maps for error counts and total counts from the status-dimensioned data
+  const { errorByTimestamp, totalByTimestamp, totalErrors, totalTraces } = useMemo(() => {
+    const errorMap = new Map<number, number>();
+    const totalMap = new Map<number, number>();
+    let errors = 0;
+    let total = 0;
+
+    for (const dp of dataPoints) {
+      const ts = new Date(dp.dimensions?.[TIME_BUCKET_DIMENSION_KEY]).getTime();
+      if (isNaN(ts)) continue;
+
+      const count = dp.values?.[AggregationType.COUNT] || 0;
+      const status = dp.dimensions?.[TraceDimensionKey.TRACE_STATUS];
+
+      totalMap.set(ts, (totalMap.get(ts) || 0) + count);
+      total += count;
+
+      if (status === TraceStatus.ERROR) {
+        errorMap.set(ts, (errorMap.get(ts) || 0) + count);
+        errors += count;
+      }
+    }
+
+    return { errorByTimestamp: errorMap, totalByTimestamp: totalMap, totalErrors: errors, totalTraces: total };
+  }, [dataPoints]);
+
   const overallErrorRate = totalTraces > 0 ? (totalErrors / totalTraces) * 100 : 0;
-
-  // Create maps by timestamp for easy lookup using shared utility
-  const countExtractor = useCallback(
-    (dp: { values?: Record<string, number> }) => dp.values?.[AggregationType.COUNT] || 0,
-    [],
-  );
-  const errorCountByTimestamp = useTimestampValueMap(errorDataPoints, countExtractor);
-  const totalCountByTimestamp = useTimestampValueMap(totalDataPoints, countExtractor);
 
   // Prepare chart data - fill in all time buckets with 0 for missing data
   const chartData = useMemo(() => {
     return timeBuckets.map((timestampMs) => {
-      const errorCount = errorCountByTimestamp.get(timestampMs) || 0;
-      const totalCount = totalCountByTimestamp.get(timestampMs) || 0;
+      const errorCount = errorByTimestamp.get(timestampMs) || 0;
+      const totalCount = totalByTimestamp.get(timestampMs) || 0;
       const errorRate = totalCount > 0 ? (errorCount / totalCount) * 100 : 0;
 
       return {
         name: formatTimestampForTraceMetrics(timestampMs, timeIntervalSeconds),
         errorCount,
-        errorRate: Math.round(errorRate * 100) / 100, // Round to 2 decimal places
+        errorRate: Math.round(errorRate * 100) / 100,
         timestampMs,
       };
     });
-  }, [timeBuckets, errorCountByTimestamp, totalCountByTimestamp, timeIntervalSeconds]);
+  }, [timeBuckets, errorByTimestamp, totalByTimestamp, timeIntervalSeconds]);
 
   // Calculate average error rate across time buckets for the reference line
   const avgErrorRate = useMemo(() => {
@@ -138,6 +127,6 @@ export function useTraceErrorsChartData(): UseTraceErrorsChartDataResult {
     avgErrorRate,
     isLoading,
     error,
-    hasData: totalDataPoints.length > 0,
+    hasData: dataPoints.length > 0,
   };
 }

@@ -88,7 +88,7 @@ def test_generate_all_demos_propagates_workspace_to_child_threads():
             def _worker():
                 workspace_seen_in_thread[0] = get_request_workspace()
 
-            t = threading.Thread(target=_worker)
+            t = threading.Thread(name="test-generate-worker", target=_worker)
             t.start()
             t.join()
             return DemoResult(

@@ -15,7 +15,7 @@ const GATEWAY_TRACE_INFO_QUERY_KEY = 'GATEWAY_TRACE_INFO';
 export const useGatewayTraceLink = (linkedTraceId: string | undefined): string | undefined => {
   const { data } = useQuery({
     queryKey: [GATEWAY_TRACE_INFO_QUERY_KEY, linkedTraceId],
-    queryFn: () => fetchTraceInfoV3({ traceId: linkedTraceId! }),
+    queryFn: () => fetchTraceInfoV3({ traceId: linkedTraceId ?? '' }),
     enabled: Boolean(linkedTraceId),
     refetchOnWindowFocus: false,
     retry: false,

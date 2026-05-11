@@ -1,6 +1,10 @@
 ---
+title: Tracing Claude Code
+description: Trace Claude Code CLI conversations and Claude Agent SDK usage with MLflow for full observability into AI-assisted software development workflows.
 sidebar_position: 9
 sidebar_label: Claude Code
+keywords: [claude code, tracing, mlflow, anthropic, ai agent, coding assistant]
+image: /images/llms/anthropic/claude-code-tracing.png
 ---
 
 import Tabs from "@theme/Tabs";
@@ -37,7 +41,7 @@ Use CLI tracing to automatically capture your interactive Claude Code CLI conver
 
 #### Requirements
 
-- MLflow >= 3.4 (`pip install 'mlflow[genai]>=3.4'`)
+- MLflow >= 3.4 (`pip install 'mlflow>=3.4'`)
 - [Claude Code CLI](https://claude.com/product/claude-code) installed and configured
 
 #### Basic Setup
@@ -101,7 +105,7 @@ Use SDK tracing when building applications that programmatically use the Claude 
 
 #### Requirements
 
-- MLflow >= 3.5 (`pip install 'mlflow[genai]>=3.5'`)
+- MLflow >= 3.5 (`pip install 'mlflow>=3.5'`)
 - [Claude Agent SDK](https://docs.claude.com/en/api/agent-sdk/overview) >= 0.1.0 (`pip install claude-agent-sdk >= 0.1.0`)
 
 #### Basic Setup

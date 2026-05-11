@@ -18,7 +18,10 @@ import {
   TracesTableColumnType,
   TracesTableColumnGroup,
   FilterOperator,
+  shouldUseInfinitePaginatedTraces,
 } from '@databricks/web-shared/genai-traces-table';
+import { useTraceMetricsQuery } from '../../../../pages/experiment-overview/hooks/useTraceMetricsQuery';
+import { useLogTelemetryEvent } from '@mlflow/mlflow/src/telemetry/hooks/useLogTelemetryEvent';
 import { useSetInitialTimeFilter } from './hooks/useSetInitialTimeFilter';
 import { useDeleteTracesMutation } from '../../../evaluations/hooks/useDeleteTraces';
 import { useEditExperimentTraceTags } from '../../../traces/hooks/useEditExperimentTraceTags';
@@ -26,6 +29,7 @@ import { TracesV3EmptyState } from './TracesV3EmptyState';
 import { useMarkdownConverter } from '@mlflow/mlflow/src/common/utils/MarkdownUtils';
 import { GenericNetworkRequestError } from '@mlflow/mlflow/src/shared/web-shared/errors/PredefinedErrors';
 import { TestRouter, testRoute, waitForRoutesToBeRendered } from '@mlflow/mlflow/src/common/utils/RoutingTestUtils';
+import * as useCountInfoModule from './hooks/useCountInfo';
 
 // Overriding default timeout for OSS tests
 // eslint-disable-next-line no-restricted-syntax
@@ -46,8 +50,21 @@ jest.mock('@databricks/web-shared/genai-traces-table', () => {
     useFilters: jest.fn(),
     useTableSort: jest.fn(),
     invalidateMlflowSearchTracesCache: jest.fn(),
+    shouldUseInfinitePaginatedTraces: jest.fn(),
   };
 });
+
+jest.mock('./hooks/useAssessmentCountMetrics', () => ({
+  useAssessmentCountMetrics: jest.fn(() => undefined),
+}));
+
+jest.mock('../../../../pages/experiment-overview/hooks/useTraceMetricsQuery', () => ({
+  useTraceMetricsQuery: jest.fn(() => ({ data: undefined, isLoading: false })),
+}));
+
+jest.mock('@mlflow/mlflow/src/telemetry/hooks/useLogTelemetryEvent', () => ({
+  useLogTelemetryEvent: jest.fn(() => jest.fn()),
+}));
 
 jest.mock('./hooks/useSetInitialTimeFilter', () => ({
   useSetInitialTimeFilter: jest.fn(),
@@ -70,7 +87,6 @@ jest.mock('@mlflow/mlflow/src/common/utils/FeatureUtils', () => ({
   ),
   shouldEnableTagGrouping: jest.fn().mockReturnValue(true),
 }));
-
 jest.mock('@mlflow/mlflow/src/experiment-tracking/sdk/MlflowService', () => ({
   MlflowService: {
     getExperimentTraceInfoV3: jest.fn(),
@@ -81,6 +97,11 @@ jest.mock('@mlflow/mlflow/src/experiment-tracking/sdk/MlflowService', () => ({
 // Mock the empty state component to avoid deep dependency issues
 jest.mock('./TracesV3EmptyState', () => ({
   TracesV3EmptyState: jest.fn(() => null),
+}));
+
+// Mock useLocalStorage to prevent guidance popovers from showing in tests
+jest.mock('@databricks/web-shared/hooks/useLocalStorage', () => ({
+  useLocalStorage: jest.fn(() => [true, jest.fn()]), // Return true to indicate guidance has been seen
 }));
 
 jest.mock('../../../../pages/experiment-evaluation-datasets/components/ExportTracesToDatasetModal', () => ({
@@ -429,6 +450,12 @@ describe('TracesV3Logs', () => {
       renderComponent({ additionalFilters });
       await waitForRoutesToBeRendered();
 
+      expect(useMlflowTracesTableMetadata).toHaveBeenCalledWith(
+        expect.not.objectContaining({
+          networkFilters: additionalFilters,
+        }),
+      );
+
       // Should have called useSearchMlflowTraces with combined filters (additionalFilters + userFilters)
       await waitFor(() => {
         expect(searchTracesMock).toHaveBeenCalledWith(
@@ -437,6 +464,64 @@ describe('TracesV3Logs', () => {
           }),
         );
       });
+    });
+  });
+
+  describe('Count mode', () => {
+    it('counts sessions only for forced chat session views', async () => {
+      const useCountInfoSpy = jest.spyOn(useCountInfoModule, 'useCountInfo').mockReturnValue({
+        currentCount: 2,
+        logCountLoading: false,
+        totalCount: 5,
+        maxAllowedCount: Infinity,
+      });
+
+      jest.mocked(useMlflowTracesTableMetadata).mockReturnValue({
+        assessmentInfos: [],
+        allColumns: [],
+        totalCount: 0,
+        isLoading: false,
+        error: null,
+        isEmpty: false,
+        tableFilterOptions: { source: [] },
+        evaluatedTraces: [],
+        otherEvaluatedTraces: [],
+      });
+
+      jest.mocked(useSetInitialTimeFilter).mockReturnValue({
+        isInitialTimeFilterLoading: false,
+      });
+
+      jest.mocked(useSearchMlflowTraces).mockReturnValue({
+        data: [],
+        isLoading: false,
+        isFetching: false,
+        error: null,
+      } as any);
+
+      const defaultView = renderComponent();
+      await waitForRoutesToBeRendered();
+
+      expect(useCountInfoSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          countSessions: false,
+        }),
+      );
+
+      defaultView.unmount();
+      useCountInfoSpy.mockClear();
+
+      const chatSessionsView = renderComponent({ forceGroupBySession: true });
+      await waitForRoutesToBeRendered();
+
+      expect(useCountInfoSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          countSessions: true,
+        }),
+      );
+
+      chatSessionsView.unmount();
+      useCountInfoSpy.mockRestore();
     });
   });
 
@@ -503,6 +588,64 @@ describe('TracesV3Logs', () => {
       await waitForRoutesToBeRendered();
 
       expect(TracesV3EmptyState).toHaveBeenCalled();
+    });
+  });
+
+  describe('Trace count telemetry', () => {
+    let mockLogTelemetryEvent: jest.Mock;
+
+    beforeEach(() => {
+      mockLogTelemetryEvent = jest.fn();
+      jest.mocked(useLogTelemetryEvent).mockReturnValue(mockLogTelemetryEvent);
+      jest.mocked(shouldUseInfinitePaginatedTraces).mockReturnValue(true);
+      jest.mocked(useTraceMetricsQuery).mockReturnValue({
+        data: { data_points: [{ values: { COUNT: 42 } }] },
+        isLoading: false,
+      } as any);
+
+      jest.mocked(useMlflowTracesTableMetadata).mockReturnValue({
+        assessmentInfos: [],
+        allColumns: [],
+        totalCount: 0,
+        isLoading: false,
+        error: null,
+        isEmpty: false,
+        tableFilterOptions: { source: [] },
+        evaluatedTraces: [],
+        otherEvaluatedTraces: [],
+      });
+      jest.mocked(useSetInitialTimeFilter).mockReturnValue({ isInitialTimeFilterLoading: false });
+      jest.mocked(useSearchMlflowTraces).mockReturnValue({
+        data: [],
+        isLoading: false,
+        isFetching: false,
+        error: null,
+      } as any);
+    });
+
+    it('logs trace count telemetry once for a single experiment', async () => {
+      renderComponent({ experimentIds: ['telemetry-single-exp'] });
+      await waitForRoutesToBeRendered();
+
+      await waitFor(() => {
+        expect(mockLogTelemetryEvent).toHaveBeenCalledTimes(1);
+        expect(mockLogTelemetryEvent).toHaveBeenCalledWith(
+          expect.objectContaining({
+            componentId: 'mlflow.traces-tab.trace-count',
+            componentViewId: 'telemetry-single-exp',
+            value: JSON.stringify({ totalTraces: 42 }),
+          }),
+        );
+      });
+    });
+
+    it('does not log trace count telemetry for multi-experiment views', async () => {
+      renderComponent({ experimentIds: ['telemetry-multi-exp-1', 'telemetry-multi-exp-2'] });
+      await waitForRoutesToBeRendered();
+
+      expect(mockLogTelemetryEvent).not.toHaveBeenCalledWith(
+        expect.objectContaining({ componentId: 'mlflow.traces-tab.trace-count' }),
+      );
     });
   });
 });

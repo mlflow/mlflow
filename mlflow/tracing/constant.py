@@ -11,6 +11,12 @@ class TraceMetadataKey:
     SIZE_STATS = "mlflow.trace.sizeStats"
     # Aggregated token usage information in a single trace, stored as a dumped JSON string.
     TOKEN_USAGE = "mlflow.trace.tokenUsage"
+    # Set by start_trace() when it writes the authoritative (DFS-dedup) TOKEN_USAGE / COST
+    # so that concurrent log_spans() calls do not accumulate on top of them.
+    # Set by start_trace() after writing authoritative trace-level values (TOKEN_USAGE,
+    # COST, session ID, request_time, execution_duration) so that concurrent log_spans()
+    # calls do not overwrite them.
+    TRACE_INFO_FINALIZED = "mlflow.trace.infoFinalized"
     # Aggregated cost information in a single trace, stored as a dumped JSON string (USD).
     COST = "mlflow.trace.cost"
     # Store the user ID/name of the application request. Do not confuse this with mlflow.user
@@ -25,6 +31,7 @@ class TraceMetadataKey:
     # Gateway-specific metadata keys
     GATEWAY_ENDPOINT_ID = "mlflow.gateway.endpointId"
     GATEWAY_REQUEST_TYPE = "mlflow.gateway.requestType"
+    GATEWAY_CALLER = "mlflow.gateway.caller"
     # Store the user ID/name from authentication
     AUTH_USER_ID = "mlflow.auth.userId"
     AUTH_USERNAME = "mlflow.auth.username"
@@ -92,6 +99,9 @@ class SpanAttributeKey:
     INPUTS = "mlflow.spanInputs"
     OUTPUTS = "mlflow.spanOutputs"
     SPAN_TYPE = "mlflow.spanType"
+    # Severity level of the span (one of the SpanLogLevel members). Absent
+    # means the span was not classified.
+    LOG_LEVEL = "mlflow.spanLogLevel"
     FUNCTION_NAME = "mlflow.spanFunctionName"
     START_TIME_NS = "mlflow.spanStartTimeNs"
     CHAT_TOOLS = "mlflow.chat.tools"
@@ -127,6 +137,10 @@ class SpanAttributeKey:
     # https://opentelemetry.io/docs/specs/semconv/registry/attributes/session/#session-id
     USER_ID = "user.id"
     SESSION_ID = "session.id"
+    # Prefix for per-tag span attributes emitted by OtelSpanProcessor so user-defined tags
+    # survive OTLP export and can be restored to SqlTraceTag rows on the server side.
+    # Each attribute is keyed as "mlflow.traceTag.<tag_key>" with the plain string value.
+    TRACE_TAG_PREFIX = "mlflow.traceTag."
 
 
 class AssessmentMetadataKey:
@@ -204,6 +218,7 @@ class TraceMetricKey:
     """
 
     TRACE_COUNT = "trace_count"
+    SESSION_COUNT = "session_count"
     LATENCY = "latency"
     INPUT_TOKENS = "input_tokens"
     OUTPUT_TOKENS = "output_tokens"

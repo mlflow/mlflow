@@ -64,13 +64,17 @@ def _is_in_databricks() -> bool:
         return True
 
     # check if in databricks model serving environment
-    if os.environ.get("IS_IN_DB_MODEL_SERVING_ENV", "false").lower() == "true":
+    if os.environ.get("IS_IN_DB_MODEL_SERVING_ENV", "false").lower() in ("true", "1"):
         return True
 
     return False
 
 
 def _detect_environment() -> str | None:
+    # Check for MLflow demo deployment (e.g. demo.mlflow.org) before generic docker detection
+    if os.environ.get("MLFLOW_DEPLOYMENT_ENV") == "demo":
+        return Environment.DEMO.value
+
     for env_var, environment in ENV_VAR_TO_ENVIRONMENT_MAP.items():
         if env_var in os.environ:
             return environment.value

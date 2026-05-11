@@ -34,6 +34,8 @@ R = TypeVar("R")
 def experimental(
     f: Callable[P, R],
     version: str | None = None,
+    *,
+    skip: bool = False,
 ) -> Callable[P, R]: ...
 
 
@@ -41,12 +43,16 @@ def experimental(
 def experimental(
     f: None = None,
     version: str | None = None,
+    *,
+    skip: bool = False,
 ) -> Callable[[Callable[P, R]], Callable[P, R]]: ...
 
 
 def experimental(
     f: Callable[P, R] | None = None,
     version: str | None = None,
+    *,
+    skip: bool = False,
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """Decorator / decorator creator for marking APIs experimental in the docstring.
 
@@ -55,6 +61,10 @@ def experimental(
         version: The version in which the API was introduced as experimental.
             The version is used to determine whether the API should be considered
             as stable or not when releasing a new version of MLflow.
+        skip: If True, the automated decorator removal script will skip this
+            decorator. Use this for APIs that are intentionally kept experimental
+            (e.g., because they are still evolving) and should not be auto-promoted
+            to stable.
 
     Returns:
         A decorator that adds a note to the docstring of the decorated API,

@@ -5,6 +5,9 @@ on:
     workflows: [docs]
     types: [completed]
 
+env:
+  DOCS_BUILD_DIR: /tmp/docs-build
+
 defaults:
   run:
     shell: bash
@@ -20,6 +23,7 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          persist-credentials: false
           sparse-checkout: |
             .github
       - name: Set alias
@@ -51,24 +55,27 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           run-id: ${{ github.event.workflow_run.id }}
           name: docs-build-${{ github.event.workflow_run.id }}
-          path: downloaded-artifact
+          path: ${{ env.DOCS_BUILD_DIR }}
       - uses: ./.github/actions/setup-node
       - name: Deploy to Netlify
         id: netlify_deploy
-        working-directory: downloaded-artifact
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
           ALIAS: ${{ steps.alias.outputs.value }}
           RUN_ID: ${{ github.run_id }}
         run: |-
-          OUTPUT=$(npx -y netlify-cli deploy \
-            --dir=. \
+          OUTPUT=$(npx --min-release-age=14 --yes netlify-cli deploy \
+            --dir="$DOCS_BUILD_DIR" \
             --no-build \
             --message="Preview ${ALIAS} - GitHub Run ID: $RUN_ID" \
             --alias="${ALIAS}" \
             --json)
-          DEPLOY_URL=$(echo "$OUTPUT" | jq -r '.deploy_url')
+          if ! DEPLOY_URL=$(echo "$OUTPUT" | jq -re '.deploy_url'); then
+            echo "::error::Failed to parse deploy output"
+            echo "$OUTPUT"
+            exit 1
+          fi
           echo "deploy_url=${DEPLOY_URL}/docs/latest/" >> $GITHUB_OUTPUT
         continue-on-error: true
       - name: Extract PR number

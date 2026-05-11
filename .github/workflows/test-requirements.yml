@@ -41,6 +41,7 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          persist-credentials: false
           repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || null }}
           submodules: recursive
       - uses: ./.github/actions/setup-python
@@ -48,7 +49,7 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
       - name: Install dev script dependencies
         run: |
-          pip install -r dev/requirements.txt
+          uv pip install --system -r dev/requirements.txt
       - uses: ./.github/actions/update-requirements
         if: github.event_name == 'schedule'
       - name: Install dependencies
@@ -74,6 +75,7 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          persist-credentials: false
           repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || null }}
           submodules: recursive
       - uses: ./.github/actions/free-disk-space
@@ -84,19 +86,20 @@ jobs:
       - uses: ./.github/actions/setup-java
       - name: Install dev script dependencies
         run: |
-          pip install -r dev/requirements.txt
+          uv pip install --system -r dev/requirements.txt
       - uses: ./.github/actions/update-requirements
         if: github.event_name == 'schedule'
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh --ml
-          pip install '.[gateway]'
-          # transformers doesn't support Keras 3 yet. tf-keras needs to be installed as a workaround.
-          pip install tf-keras
+          uv pip install --system '.[gateway]'
       - uses: ./.github/actions/show-versions
       - name: Run tests
+        env:
+          SPLITS: ${{ matrix.splits }}
+          GROUP: ${{ matrix.group }}
         run: |
           source dev/setup-ssh.sh
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests --requires-ssh --ignore-flavors \
+          pytest --splits=$SPLITS --group=$GROUP tests --requires-ssh --ignore-flavors \
             --ignore=tests/examples --ignore=tests/evaluate \
             --ignore=tests/deployments --ignore=tests/genai

@@ -23,6 +23,7 @@ from openai.types.chat import ChatCompletionMessageToolCall
 from packaging.version import Version
 
 import mlflow
+from mlflow.entities import SpanLogLevel
 from mlflow.entities.span import SpanType
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.entities.trace_status import TraceStatus
@@ -75,6 +76,7 @@ def test_trace_llm_complete(is_async, mock_litellm_cost):
     assert len(spans) == 1
     assert spans[0].name == "OpenAI.{}complete".format("a" if is_async else "")
     assert spans[0].span_type == SpanType.LLM
+    assert spans[0].log_level == SpanLogLevel.INFO
     assert spans[0].inputs == {"args": ["Hello"]}
     assert spans[0].outputs["text"] == "Hello"
 
@@ -655,7 +657,7 @@ def test_tracer_handle_tracking_uri_update(tmp_path):
     assert len(get_traces()) == 1
 
     # Set different tracking URI and initialize the tracer
-    with _use_tracking_uri(tmp_path / "dummy"):
+    with _use_tracking_uri(f"sqlite:///{tmp_path / 'dummy.db'}"):
         assert len(get_traces()) == 0
 
         # The new trace will be logged to the updated tracking URI
@@ -761,7 +763,11 @@ async def test_tracer_parallel_workflow():
         assert s.status.status_code == SpanStatusCode.OK
 
     root_span = traces[0].data.spans[0]
-    expected_inputs = {"kwargs": {"inputs": ["apple", "grape", "orange", "banana"]}}
+    # In llama-index >= 0.14.16, kwargs are flattened in span inputs
+    if llama_core_version >= Version("0.14.16"):
+        expected_inputs = {"inputs": ["apple", "grape", "orange", "banana"]}
+    else:
+        expected_inputs = {"kwargs": {"inputs": ["apple", "grape", "orange", "banana"]}}
     # assert that the inputs are a superset of the expected inputs.
     # this is to make the test resilient to framework changes which may add additional inputs.
     assert all(root_span.inputs.get(k) == v for k, v in expected_inputs.items())
@@ -836,7 +842,11 @@ async def test_tracer_parallel_workflow_with_custom_spans():
     assert all(s.status.status_code == SpanStatusCode.OK for s in spans)
 
     workflow_span = spans[0]
-    assert all(workflow_span.inputs.get(k) == v for k, v in {"kwargs": {"inputs": inputs}}.items())
+    if llama_core_version >= Version("0.14.16"):
+        expected_inputs = {"inputs": inputs}
+    else:
+        expected_inputs = {"kwargs": {"inputs": inputs}}
+    assert all(workflow_span.inputs.get(k) == v for k, v in expected_inputs.items())
     if isinstance(workflow_span.outputs, str):
         assert workflow_span.outputs == result
     else:

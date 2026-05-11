@@ -1,7 +1,11 @@
 ---
+title: Tracing LangChain Deep Agent
+description: Trace LangChain Deep Agent autonomous task planning and execution with MLflow for full observability into complex AI agent workflows.
 sidebar_position: 60
 sidebar_label: LangChain Deep Agent
 toc_max_heading_level: 2
+keywords: [langchain, deep agent, tracing, mlflow, ai agent, langgraph, autonomous]
+image: /images/llms/tracing/deepagent-tracing.png
 ---
 
 import { APILink } from "@site/src/components/APILink";
@@ -28,7 +32,7 @@ mlflow.langchain.autolog()
 <StepHeader number={1} title="Install Dependencies" />
 
 ```bash
-pip install deepagents tavily-python 'mlflow[genai]'
+pip install deepagents tavily-python mlflow
 ```
 
 <StepHeader number={2} title="Start MLflow Server" />

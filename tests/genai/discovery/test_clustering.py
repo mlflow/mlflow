@@ -187,4 +187,4 @@ def test_build_cluster_summary_prompt_with_categories():
     assert "hallucination" in prompt
     assert "tool_error" in prompt
     assert "latency" in prompt
-    assert "ONLY include categories from this list" in prompt
+    assert "Assign one or more categories from" in prompt

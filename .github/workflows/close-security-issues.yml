@@ -1,0 +1,34 @@
+name: close-security-issues
+
+on:
+  issues:
+    types: [opened]
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  close:
+    if: github.repository == 'mlflow/mlflow'
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          REPO: ${{ github.repository }}
+        run: |
+          title_lower=$(echo "$ISSUE_TITLE" | tr '[:upper:]' '[:lower:]')
+
+          if echo "$title_lower" | grep -qE "security\s+vulnerability"; then
+            gh issue close "$ISSUE_NUMBER" --repo "$REPO" --comment "$(cat <<'EOF'
+          This issue has been automatically closed because it appears to report a security vulnerability.
+
+          Please report security vulnerabilities through [GitHub's private vulnerability reporting](https://github.com/mlflow/mlflow/security/advisories/new) instead. See our [Security Policy](https://github.com/mlflow/mlflow/blob/master/SECURITY.md) for more details.
+          EOF
+            )"
+          fi

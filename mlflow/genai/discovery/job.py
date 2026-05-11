@@ -28,13 +28,15 @@ def _fetch_provider_credentials(
         )
 
     secret_value = store._get_decrypted_secret(secret_id)
+    auth_config = store.get_secret_info(secret_id=secret_id).auth_config or {}
+    secret_dict = secret_value | auth_config
     credentials = {}
     if isinstance(env_var_config, dict):
         for secret_key, env_var_name in env_var_config.items():
-            if value := secret_value.get(secret_key):
+            if value := secret_dict.get(secret_key):
                 credentials[env_var_name] = value
     else:
-        if api_key := secret_value.get("api_key"):
+        if api_key := secret_dict.get("api_key"):
             credentials[env_var_config] = api_key
 
     return credentials

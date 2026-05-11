@@ -1,3 +1,4 @@
+import { jest, describe, beforeEach, test, expect } from '@jest/globals';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithDesignSystem } from '../../../common/utils/TestUtils.react18';
@@ -8,13 +9,13 @@ jest.mock('./utils/fetchArtifactUnified', () => ({
   fetchArtifactUnified: jest.fn(),
 }));
 
-const mockFetch = fetchArtifactUnified as jest.MockedFunction<typeof fetchArtifactUnified>;
+const mockFetch = jest.mocked(fetchArtifactUnified);
 
 const renderView = (props = {}) =>
   renderWithDesignSystem(<ShowArtifactMarkdownView runUuid="run-1" path="notes.md" {...props} />);
 
 describe('ShowArtifactMarkdownView', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(async () => jest.clearAllMocks());
 
   test('shows skeleton while loading', () => {
     mockFetch.mockReturnValue(new Promise(() => {}));

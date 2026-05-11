@@ -13,10 +13,12 @@ on:
     paths-ignore:
       - "docs/**"
       - "**.md"
+      - "dev/clint/**"
       - ".github/workflows/docs.yml"
       - ".github/workflows/preview-docs.yml"
       - "mlflow/server/js/**"
       - ".github/workflows/js.yml"
+      - ".claude/**"
   schedule:
     # Run this workflow daily at 13:00 UTC
     - cron: "0 13 * * *"
@@ -39,18 +41,19 @@ jobs:
     timeout-minutes: 120
     permissions:
       contents: read
-    if: github.event_name == 'push' || (github.event_name == 'schedule' && github.repository == 'mlflow/dev') || (github.event_name == 'pull_request' && (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot'))
+    if: (github.event_name == 'push' || (github.event_name == 'schedule' && github.repository == 'mlflow/dev') || (github.event_name == 'pull_request' && (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')))
     defaults:
       run:
         working-directory: mlflow/R/mlflow
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          persist-credentials: false
           repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || null }}
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
-      - uses: r-lib/actions/setup-r@bd49c52ffe281809afa6f0fecbf37483c5dd0b93 # v2.11.3
+      - uses: r-lib/actions/setup-r@a51a8012b0aab7c32ef9d19bf54da93f3254335e # v2.12.0
       # This step dumps the current set of R dependencies and R version into files to be used
       # as a cache key when caching/restoring R dependencies.
       - name: Dump dependencies
@@ -75,15 +78,20 @@ jobs:
           key: ${{ steps.os-name.outputs.os-name }}-${{ hashFiles('mlflow/R/mlflow/R-version') }}-0-${{ hashFiles('mlflow/R/mlflow/depends.Rds') }}
       - name: Install dependencies
         run: |
-          sudo apt-get install -y libcurl4-openssl-dev libharfbuzz-dev libfribidi-dev libtiff-dev
           Rscript -e 'source(".install-deps.R", echo=TRUE)'
       - name: Set USE_R_DEVEL
+        env:
+          HAS_R_DEVEL_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'r-devel') }}
         run: |
           if [ "$GITHUB_EVENT_NAME" = "schedule" ]; then
             USE_R_DEVEL=true
           elif [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
-            # Use r-devel on a pull request targeted to a release branch
-            USE_R_DEVEL=$([[ $GITHUB_BASE_REF =~ branch-[0-9]+\.[0-9]+$ ]] && echo true || echo false)
+            # Use r-devel on a pull request targeted to a release branch or with the "r-devel" label
+            if [[ $GITHUB_BASE_REF =~ branch-[0-9]+\.[0-9]+$ ]] || [ "$HAS_R_DEVEL_LABEL" = "true" ]; then
+              USE_R_DEVEL=true
+            else
+              USE_R_DEVEL=false
+            fi
           else
             # Use r-devel on a push to a release branch
             USE_R_DEVEL=$([[ $GITHUB_REF_NAME =~ branch-[0-9]+\.[0-9]+$ ]] && echo true || echo false)
@@ -94,14 +102,16 @@ jobs:
           ./build-package.sh
       - name: Create test environment
         run: |
-          pip install $(git rev-parse --show-toplevel)
+          uv pip install --system $(git rev-parse --show-toplevel)
           H2O_VERSION=$(Rscript -e "print(packageVersion('h2o'))" | grep -Eo '[0-9][0-9.]+')
           # test-keras-model.R fails with tensorflow>=2.13.0
-          pip install xgboost 'tensorflow<2.13.0' "h2o==$H2O_VERSION" "pydantic<3,>=1.0" "typing_extensions>=4.6.0"
+          uv pip install --system xgboost 'tensorflow<2.13.0' "h2o==$H2O_VERSION" "pydantic<3,>=1.0" "typing_extensions>=4.6.0"
           Rscript -e 'source(".install-mlflow-r.R", echo=TRUE)'
       - name: Run tests
         env:
           LINTR_COMMENT_BOT: false
+          # TODO: Migrate R tests to use a SQLite backend instead of FileStore
+          MLFLOW_ALLOW_FILE_STORE: true
         run: |
           cd tests
           export RETICULATE_PYTHON_BIN=$(which python)

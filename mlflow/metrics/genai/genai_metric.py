@@ -58,7 +58,8 @@ def _format_args_string(grading_context_columns: list[str] | None, eval_values, 
             )
         else:
             raise MlflowException(
-                f"{arg} does not exist in the eval function {list(eval_values.keys())}."
+                f"{arg} does not exist in the eval function {list(eval_values.keys())}.",
+                error_code=INVALID_PARAMETER_VALUE,
             )
 
     return (
@@ -252,9 +253,12 @@ def make_genai_metric_from_prompt(
         :test:
         :caption: Example for creating a genai metric
 
+        import os
         import pandas as pd
         import mlflow
         from mlflow.metrics.genai import make_genai_metric_from_prompt
+
+        os.environ.setdefault("OPENAI_API_KEY", "your-api-key-here")
 
         metric = make_genai_metric_from_prompt(
             name="ease_of_understanding",
@@ -604,7 +608,8 @@ def make_genai_metric(
                     "- predictions and targets (if required) are provided correctly\n"
                     "- grading_context_columns are mapped correctly using the evaluator_config "
                     "parameter\n"
-                    "- input and output data are formatted correctly."
+                    "- input and output data are formatted correctly.",
+                    error_code=INVALID_PARAMETER_VALUE,
                 )
             grading_payloads.append(
                 evaluation_context["eval_prompt"].format(

@@ -1,3 +1,4 @@
+import io
 from unittest import mock
 
 import pytest
@@ -11,7 +12,7 @@ from mlflow.gateway.config import (
     EndpointConfig,
 )
 from mlflow.gateway.providers.bedrock import AmazonBedrockModelProvider, AmazonBedrockProvider
-from mlflow.gateway.schemas import completions
+from mlflow.gateway.schemas import chat, completions, embeddings
 
 from tests.gateway.providers.test_anthropic import (
     completions_response as anthropic_completions_response,
@@ -317,6 +318,12 @@ def _assert_any_call_at_least(mobj, *args, **kwargs):
         raise AssertionError(f"No valid call to {mobj=} with {args=} and {kwargs=}")
 
 
+def test_get_provider_name():
+    provider = AmazonBedrockProvider.__new__(AmazonBedrockProvider)
+    assert provider.DISPLAY_NAME == "Amazon Bedrock"
+    assert provider.get_provider_name() == "bedrock"
+
+
 @pytest.mark.parametrize(("aws_config", "expected"), bedrock_aws_configs)
 def test_bedrock_aws_config(aws_config, expected):
     assert isinstance(
@@ -420,3 +427,185 @@ async def test_bedrock_request_response(
 def test_amazon_bedrock_model_provider(model_name, expected):
     provider = AmazonBedrockModelProvider.of_str(model_name)
     assert provider == expected
+
+
+# ---- Converse API tests ----
+
+
+def _make_converse_provider():
+    """Create a provider with a mock boto3 client for Converse API tests."""
+
+    config = {
+        "name": "chat",
+        "endpoint_type": "llm/v1/chat",
+        "model": {
+            "provider": "bedrock",
+            "name": "us.anthropic.claude-3-5-sonnet-20241022-v2:0",
+            "config": {"aws_config": {"aws_region": "us-east-1"}},
+        },
+    }
+    return AmazonBedrockProvider(EndpointConfig(**config))
+
+
+def _converse_response():
+    return {
+        "output": {
+            "message": {
+                "role": "assistant",
+                "content": [{"text": "Hello from Bedrock!"}],
+            }
+        },
+        "stopReason": "end_turn",
+        "usage": {
+            "inputTokens": 10,
+            "outputTokens": 20,
+            "totalTokens": 30,
+        },
+    }
+
+
+def _converse_response_with_tool_use():
+    return {
+        "output": {
+            "message": {
+                "role": "assistant",
+                "content": [
+                    {
+                        "toolUse": {
+                            "toolUseId": "tool_abc123",
+                            "name": "add",
+                            "input": {"a": 17, "b": 25},
+                        }
+                    }
+                ],
+            }
+        },
+        "stopReason": "tool_use",
+        "usage": {
+            "inputTokens": 30,
+            "outputTokens": 10,
+            "totalTokens": 40,
+        },
+    }
+
+
+def _converse_stream_response():
+    return {
+        "stream": iter([
+            {"contentBlockDelta": {"delta": {"text": "Hello"}}},
+            {"contentBlockDelta": {"delta": {"text": " from Bedrock!"}}},
+            {"messageStop": {"stopReason": "end_turn"}},
+            {"metadata": {"usage": {"inputTokens": 10, "outputTokens": 20, "totalTokens": 30}}},
+        ])
+    }
+
+
+def _embeddings_invoke_response():
+    body = io.BytesIO(b'{"embedding": [0.1, 0.2, 0.3], "inputTextTokenCount": 5}')
+    return {"body": body}
+
+
+@pytest.mark.asyncio
+async def test_bedrock_converse_chat():
+
+    provider = _make_converse_provider()
+    mock_client = mock.Mock()
+    mock_client.converse.return_value = _converse_response()
+
+    with mock.patch.object(provider, "get_bedrock_client", return_value=mock_client):
+        payload = chat.RequestPayload(
+            messages=[{"role": "user", "content": "Hello"}],
+        )
+        response = await provider.chat(payload)
+
+    result = jsonable_encoder(response)
+    assert result["choices"][0]["message"]["content"] == "Hello from Bedrock!"
+    assert result["choices"][0]["message"]["role"] == "assistant"
+    assert result["usage"]["prompt_tokens"] == 10
+    assert result["usage"]["completion_tokens"] == 20
+    mock_client.converse.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_bedrock_converse_chat_stream():
+
+    provider = _make_converse_provider()
+    mock_client = mock.Mock()
+    mock_client.converse_stream.return_value = _converse_stream_response()
+
+    with mock.patch.object(provider, "get_bedrock_client", return_value=mock_client):
+        payload = chat.RequestPayload(
+            messages=[{"role": "user", "content": "Hello"}],
+        )
+        chunks = [jsonable_encoder(chunk) async for chunk in provider.chat_stream(payload)]
+
+    # Should have: 2 text deltas + 1 stop + 1 usage
+    assert len(chunks) == 4
+    assert chunks[0]["choices"][0]["delta"]["content"] == "Hello"
+    assert chunks[1]["choices"][0]["delta"]["content"] == " from Bedrock!"
+    assert chunks[2]["choices"][0]["finish_reason"] == "stop"
+    assert chunks[3]["usage"]["prompt_tokens"] == 10
+    mock_client.converse_stream.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_bedrock_embeddings():
+
+    config = {
+        "name": "embeddings",
+        "endpoint_type": "llm/v1/embeddings",
+        "model": {
+            "provider": "bedrock",
+            "name": "amazon.titan-embed-text-v1",
+            "config": {"aws_config": {"aws_region": "us-east-1"}},
+        },
+    }
+    provider = AmazonBedrockProvider(EndpointConfig(**config))
+    mock_client = mock.Mock()
+    mock_client.invoke_model.return_value = _embeddings_invoke_response()
+
+    with mock.patch.object(provider, "get_bedrock_client", return_value=mock_client):
+        payload = embeddings.RequestPayload(input="Test text")
+        response = await provider.embeddings(payload)
+
+    result = jsonable_encoder(response)
+    assert result["data"][0]["embedding"] == [0.1, 0.2, 0.3]
+    assert result["usage"]["prompt_tokens"] == 5
+    mock_client.invoke_model.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_bedrock_converse_with_system_message():
+
+    provider = _make_converse_provider()
+    mock_client = mock.Mock()
+    mock_client.converse.return_value = _converse_response()
+
+    with mock.patch.object(provider, "get_bedrock_client", return_value=mock_client):
+        payload = chat.RequestPayload(
+            messages=[
+                {"role": "system", "content": "You are helpful"},
+                {"role": "user", "content": "Hello"},
+            ],
+        )
+        await provider.chat(payload)
+
+    call_kwargs = mock_client.converse.call_args.kwargs
+    assert call_kwargs["system"] == [{"text": "You are helpful"}]
+    assert len(call_kwargs["messages"]) == 1  # only user message
+
+
+@pytest.mark.asyncio
+async def test_bedrock_converse_chat_with_tool_call():
+
+    provider = _make_converse_provider()
+    mock_client = mock.Mock()
+    mock_client.converse.return_value = _converse_response_with_tool_use()
+
+    with mock.patch.object(provider, "get_bedrock_client", return_value=mock_client):
+        payload = chat.RequestPayload(messages=[{"role": "user", "content": "add 17 and 25"}])
+        response = await provider.chat(payload)
+
+    result = jsonable_encoder(response)
+    tool_calls = result["choices"][0]["message"]["tool_calls"]
+    assert tool_calls[0]["function"]["name"] == "add"

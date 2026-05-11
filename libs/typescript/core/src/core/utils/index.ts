@@ -217,34 +217,51 @@ export function aggregateUsageFromSpans(spans: Span[]): TokenUsage | null {
   };
   let hasUsageData = false;
 
-  // Track spans that have usage data to avoid double counting
-  const spansWithUsage = new Set<string>();
+  // Build parent-children map for DFS traversal (mirrors Python SDK)
+  const spanById = new Map<string, Span>();
+  const childrenMap = new Map<string, Span[]>();
+  const roots: Span[] = [];
 
   for (const span of spans) {
-    const tokenUsageAttr = span.attributes[SpanAttributeKey.TOKEN_USAGE];
-    if (!tokenUsageAttr) {
-      continue;
-    }
-    const tokenUsage = tokenUsageAttr as TokenUsage;
-
-    // Skip if this span's parent also has usage data (avoid double counting)
-    let shouldSkip = false;
-    if (span.parentId) {
-      const parentSpan = spans.find((s) => s.spanId === span.parentId);
-      const parentUsageAttr = parentSpan?.attributes[SpanAttributeKey.TOKEN_USAGE];
-      if (parentUsageAttr) {
-        shouldSkip = true;
-      }
-    }
-
-    if (!shouldSkip) {
-      totalUsage.input_tokens += tokenUsage.input_tokens;
-      totalUsage.output_tokens += tokenUsage.output_tokens;
-      totalUsage.total_tokens += tokenUsage.total_tokens;
-      hasUsageData = true;
-
-      spansWithUsage.add(span.spanId);
+    spanById.set(span.spanId, span);
+    if (span.parentId && spanById.has(span.parentId)) {
+      const children = childrenMap.get(span.parentId) || [];
+      children.push(span);
+      childrenMap.set(span.parentId, children);
+    } else {
+      roots.push(span);
     }
   }
+
+  function dfs(span: Span, ancestorHasData: boolean): void {
+    const tokenUsageAttr = span.attributes[SpanAttributeKey.TOKEN_USAGE];
+    const spanHasData = tokenUsageAttr != null;
+
+    if (spanHasData && !ancestorHasData) {
+      const tokenUsage = tokenUsageAttr as TokenUsage;
+      totalUsage.input_tokens += tokenUsage.input_tokens || 0;
+      totalUsage.output_tokens += tokenUsage.output_tokens || 0;
+      totalUsage.total_tokens += tokenUsage.total_tokens || 0;
+      // Optional cache keys — only include when present
+      if (tokenUsage.cache_read_input_tokens != null) {
+        totalUsage.cache_read_input_tokens =
+          (totalUsage.cache_read_input_tokens || 0) + tokenUsage.cache_read_input_tokens;
+      }
+      if (tokenUsage.cache_creation_input_tokens != null) {
+        totalUsage.cache_creation_input_tokens =
+          (totalUsage.cache_creation_input_tokens || 0) + tokenUsage.cache_creation_input_tokens;
+      }
+      hasUsageData = true;
+    }
+
+    for (const child of childrenMap.get(span.spanId) || []) {
+      dfs(child, ancestorHasData || spanHasData);
+    }
+  }
+
+  for (const root of roots) {
+    dfs(root, false);
+  }
+
   return hasUsageData ? totalUsage : null;
 }

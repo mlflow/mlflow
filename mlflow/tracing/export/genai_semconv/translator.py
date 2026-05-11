@@ -73,8 +73,21 @@ def translate_span_to_genai(span: ReadableSpan) -> ReadableSpan:
             except Exception:
                 _logger.debug("Failed to convert messages for format %r, skipping", message_format)
 
-    # Merge: Keep non-mlflow.* attrs, add GenAI attrs
-    merged_attrs = {k: v for k, v in original_attrs.items() if not k.startswith("mlflow.")}
+    # Fallback: carry mlflow.chat.tools → gen_ai.tool.definitions if converter didn't set it
+    if GenAiSemconvKey.TOOL_DEFINITIONS not in genai_attrs:
+        if chat_tools := get_otel_attribute(span, SpanAttributeKey.CHAT_TOOLS):
+            genai_attrs[GenAiSemconvKey.TOOL_DEFINITIONS] = (
+                chat_tools if isinstance(chat_tools, str) else json.dumps(chat_tools)
+            )
+
+    # Merge: Keep non-mlflow.* attrs (but preserve mlflow.traceTag.* so user tags survive
+    # OTLP export even in GenAI semconv mode), then overlay GenAI attrs.
+    prefix = SpanAttributeKey.TRACE_TAG_PREFIX
+    merged_attrs = {
+        k: v
+        for k, v in original_attrs.items()
+        if not k.startswith("mlflow.") or k.startswith(prefix)
+    }
     merged_attrs.update(genai_attrs)
 
     new_name = _build_genai_span_name(span.name, genai_attrs)
@@ -130,6 +143,18 @@ def _get_converter(
             from mlflow.openai.genai_semconv_converter import OpenAIChatCompletionConverter
 
             return OpenAIChatCompletionConverter()
+        case "anthropic":
+            from mlflow.anthropic.genai_semconv_converter import AnthropicConverter
+
+            return AnthropicConverter()
+        case "gemini":
+            from mlflow.gemini.genai_semconv_converter import GeminiConverter
+
+            return GeminiConverter()
+        case "bedrock":
+            from mlflow.bedrock.genai_semconv_converter import BedrockConverseConverter
+
+            return BedrockConverseConverter()
         case _:
             from mlflow.openai.genai_semconv_converter import OpenAIChatCompletionConverter
 
@@ -161,7 +186,12 @@ def _get_genai_span_kind(genai_attrs: dict[str, Any], original_kind: SpanKind) -
 
 
 def _create_passthrough_span(span: ReadableSpan, original_attrs: dict[str, Any]) -> ReadableSpan:
-    cleaned_attrs = {k: v for k, v in original_attrs.items() if not k.startswith("mlflow.")}
+    prefix = SpanAttributeKey.TRACE_TAG_PREFIX
+    cleaned_attrs = {
+        k: v
+        for k, v in original_attrs.items()
+        if not k.startswith("mlflow.") or k.startswith(prefix)
+    }
     return _build_readable_span(span, name=span.name, attributes=cleaned_attrs, kind=span.kind)
 
 

@@ -11,8 +11,10 @@ import mlflow
 from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
     call_chat_completions,
 )
-from mlflow.genai.judges.adapters.gateway_adapter import _NATIVE_PROVIDERS
-from mlflow.genai.judges.adapters.litellm_adapter import _suppress_litellm_nonfatal_errors
+from mlflow.genai.judges.adapters.litellm_adapter import (
+    _is_litellm_available,
+    _suppress_litellm_nonfatal_errors,
+)
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
 from mlflow.genai.judges.utils.invocation_utils import (
     FieldExtraction,
@@ -48,35 +50,23 @@ def get_default_optimizer() -> AlignmentOptimizer:
     return SIMBAAlignmentOptimizer()
 
 
-def _is_litellm_available() -> bool:
-    """Check if LiteLLM is available for import."""
-    try:
-        import litellm  # noqa: F401
-
-        return True
-    except ImportError:
-        return False
-
-
 def validate_judge_model(model_uri: str) -> None:
     """
-    Validate that a judge model URI is valid and has required dependencies.
+    Validate that a judge model URI is well-formed.
 
-    This function performs early validation at judge construction time to provide
-    fast feedback about configuration issues.
+    For the Databricks default model, also checks that databricks-agents is installed.
+    Provider support is validated at invocation time via the adapter selection logic.
 
     Args:
         model_uri: The model URI to validate (e.g., "databricks", "openai:/gpt-4")
 
     Raises:
-        MlflowException: If the model URI is invalid or required dependencies are missing.
+        MlflowException: If the model URI is malformed or Databricks dependencies are missing.
     """
-    from mlflow.exceptions import MlflowException
     from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
         _check_databricks_agents_installed,
     )
     from mlflow.metrics.genai.model_utils import _parse_model_uri
-    from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
     # Special handling for Databricks default model
     if model_uri == _DATABRICKS_DEFAULT_JUDGE_MODEL:
@@ -84,17 +74,8 @@ def validate_judge_model(model_uri: str) -> None:
         _check_databricks_agents_installed()
         return
 
-    # Validate the URI format and extract provider
-    provider, model_name = _parse_model_uri(model_uri)
-
-    # Check if LiteLLM is required and available for non-native providers
-    if provider not in _NATIVE_PROVIDERS:
-        if not _is_litellm_available():
-            raise MlflowException(
-                f"LiteLLM is required for using '{provider}' as a provider. "
-                "Please install it with: `pip install litellm`",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
+    # Validate the URI format (raises if malformed)
+    _parse_model_uri(model_uri)
 
 
 class CategoricalRating(StrEnum):
@@ -134,9 +115,8 @@ __all__ = [
     "CategoricalRating",
     # Databricks adapter
     "call_chat_completions",
-    # Gateway adapter
-    "_NATIVE_PROVIDERS",
-    # LiteLLM adapter
+    # LiteLLM adapter (re-exported for backwards compatibility with external consumers)
+    "_is_litellm_available",
     "_suppress_litellm_nonfatal_errors",
     # Invocation utils
     "FieldExtraction",

@@ -76,7 +76,7 @@ export interface ExperimentViewRunsTableProps {
 }
 
 export const ExperimentViewRunsTable = React.memo(
-  // eslint-disable-next-line complexity, react-component-name/react-component-name
+  // eslint-disable-next-line react-component-name/react-component-name
   ({
     experiments,
     searchFacetsState,
@@ -343,7 +343,8 @@ export const ExperimentViewRunsTable = React.memo(
       [updateViewState],
     );
 
-    const displayAddColumnsCTA = !hasSelectedAllColumns && !isComparingRuns && rowsData.length > 0;
+    const hasSelectedRuns = Object.values(viewState.runsSelected).some(Boolean);
+    const displayAddColumnsCTA = !hasSelectedAllColumns && !isComparingRuns && !hasSelectedRuns && rowsData.length > 0;
     const displayPreviewSidebar = !isComparingRuns && viewState.previewPaneVisible;
     const displayRunsTable = !runListHidden || !isComparingRuns;
     const displayStatusBar = !runListHidden;

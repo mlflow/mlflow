@@ -1,15 +1,15 @@
 import { jest, describe, it, expect, beforeEach } from '@jest/globals';
 
+import { fetchAPI } from '../common/utils/FetchUtils';
+import { WebhooksApi } from './webhooksApi';
+
 jest.mock('../common/utils/FetchUtils', () => ({
   fetchAPI: jest.fn(() => Promise.resolve()),
   getAjaxUrl: jest.fn((url: string) => url),
   HTTPMethods: { GET: 'GET', POST: 'POST', PATCH: 'PATCH', DELETE: 'DELETE' },
 }));
 
-import { fetchAPI } from '../common/utils/FetchUtils';
-import { WebhooksApi } from './webhooksApi';
-
-const mockFetchAPI = fetchAPI as jest.MockedFunction<typeof fetchAPI>;
+const mockFetchAPI = jest.mocked(fetchAPI);
 
 describe('WebhooksApi', () => {
   beforeEach(() => {

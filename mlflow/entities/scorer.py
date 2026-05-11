@@ -1,5 +1,5 @@
 import json
-from functools import lru_cache
+from functools import cached_property
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.protos.service_pb2 import Scorer as ProtoScorer
@@ -93,8 +93,7 @@ class ScorerVersion(_MlflowObject):
         """
         return self._scorer_version
 
-    @property
-    @lru_cache(maxsize=1)
+    @cached_property
     def serialized_scorer(self):
         """
         The deserialized scorer object containing metadata and function code.
@@ -103,7 +102,7 @@ class ScorerVersion(_MlflowObject):
         SerializedScorer object that contains all the information needed to
         reconstruct and execute the scorer function.
 
-        The result is cached using LRU caching to avoid repeated deserialization
+        The result is cached to avoid repeated deserialization
         when the same ScorerVersion instance is accessed multiple times.
 
         Returns:

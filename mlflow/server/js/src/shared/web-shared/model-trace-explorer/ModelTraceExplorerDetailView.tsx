@@ -1,18 +1,9 @@
 import { Global } from '@emotion/react';
 import { clamp, values, isString } from 'lodash';
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
-import {
-  Button,
-  FullscreenExitIcon,
-  FullscreenIcon,
-  InfoFillIcon,
-  Tooltip,
-  Typography,
-  useDesignSystemTheme,
-} from '@databricks/design-system';
+import { useDesignSystemTheme } from '@databricks/design-system';
 import { useResizeObserver } from '@databricks/web-shared/hooks';
-import { FormattedMessage } from '@databricks/i18n';
 import { ResizableBox } from 'react-resizable';
 
 import type { ModelTrace, ModelTraceSpanNode } from './ModelTrace.types';
@@ -32,9 +23,12 @@ import {
 import { DEFAULT_WORKFLOW_LAYOUT_CONFIG, EXPANDED_WORKFLOW_LAYOUT_CONFIG } from './graph-view/GraphView.types';
 import { computeWorkflowPathToRoot } from './graph-view/GraphView.utils';
 import { computeWorkflowLayout } from './graph-view/GraphView.workflow';
-import { GraphViewWorkflowCanvas } from './graph-view/GraphViewWorkflowCanvas';
 import { GraphViewSpanNavigator } from './graph-view/GraphViewSpanNavigator';
 import { useGraphTreeLinkedState } from './graph-view/useGraphTreeLinkedState';
+
+const GraphViewWorkflowCanvas = React.lazy(() =>
+  import('./graph-view/GraphViewWorkflowCanvas').then((m) => ({ default: m.GraphViewWorkflowCanvas })),
+);
 
 const LEFT_PANE_MIN_WIDTH_LARGE_SPACINGS = 7;
 const LEFT_PANE_HEADER_MIN_WIDTH_PX = 350;
@@ -48,6 +42,31 @@ const DEFAULT_GRAPH_HEIGHT_RATIO = 0.25;
 const EXPANDED_GRAPH_HEIGHT_RATIO = 0.75;
 // Ratio of the container width the left pane occupies when graph is fully expanded.
 const EXPANDED_PANE_WIDTH_RATIO = 0.65;
+
+const ResizeHandle = React.forwardRef<HTMLDivElement, { handleAxis?: string }>(function ResizeHandle(
+  { handleAxis: _handleAxis, ...props },
+  ref,
+) {
+  return (
+    <div
+      ref={ref}
+      css={{
+        height: 8,
+        cursor: 'ns-resize',
+        backgroundColor: 'transparent',
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        zIndex: 1,
+        ':hover': {
+          backgroundColor: 'rgba(0,0,0,0.1)',
+        },
+      }}
+      {...props}
+    />
+  );
+});
 
 export const ModelTraceExplorerDetailView = ({
   modelTraceInfo,
@@ -117,7 +136,7 @@ export const ModelTraceExplorerDetailView = ({
     selectedNode,
     setSelectedNode,
   } = useGraphTreeLinkedState(workflowLayout.nodes);
-  const graphAvailable = !!rootNode && workflowLayout.nodes.length > 0;
+  const graphAvailable = Boolean(rootNode) && workflowLayout.nodes.length > 0;
   const hasGraph = showGraph && graphAvailable;
 
   const onSizeRatioChange = useCallback(
@@ -284,74 +303,18 @@ export const ModelTraceExplorerDetailView = ({
         overflow: 'hidden',
       }}
     >
-      <div
-        css={{
-          display: 'flex',
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: `${theme.spacing.xs}px ${theme.spacing.md}px`,
-          borderBottom: `1px solid ${theme.colors.border}`,
-          backgroundColor: theme.colors.backgroundSecondary,
-          flexShrink: 0,
-          minWidth: 200,
-          flexWrap: 'wrap',
-          gap: theme.spacing.xs,
-        }}
-      >
-        <Typography.Text size="sm" color="secondary">
-          <FormattedMessage
-            defaultMessage="{count} {count, plural, one {node} other {nodes}}"
-            description="Count of workflow nodes displayed in graph view"
-            values={{ count: workflowLayout.nodes.length }}
-          />
-        </Typography.Text>
-        <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
-          <Tooltip
-            componentId="shared.model-trace-explorer.graph-navigation-hint"
-            content={
-              <FormattedMessage
-                defaultMessage="Scroll to zoom, drag background to pan, drag nodes to reposition"
-                description="Navigation hint for graph view"
-              />
-            }
-          >
-            <InfoFillIcon css={{ width: 14, height: 14, color: theme.colors.textSecondary, cursor: 'help' }} />
-          </Tooltip>
-          <Tooltip
-            componentId="shared.model-trace-explorer.graph-expand-toggle"
-            content={
-              isGraphExpanded ? (
-                <FormattedMessage
-                  defaultMessage="Collapse graph"
-                  description="Tooltip for the button that collapses the graph view to its default size"
-                />
-              ) : (
-                <FormattedMessage
-                  defaultMessage="Expand graph"
-                  description="Tooltip for the button that expands the graph view to a larger size"
-                />
-              )
-            }
-          >
-            <Button
-              componentId="shared.model-trace-explorer.graph-expand-button"
-              icon={isGraphExpanded ? <FullscreenExitIcon /> : <FullscreenIcon />}
-              size="small"
-              onClick={handleToggleGraphExpand}
-            />
-          </Tooltip>
-        </div>
-      </div>
-
-      <GraphViewWorkflowCanvas
-        layout={workflowLayout}
-        selectedNodeId={selectedWorkflowNode?.id ?? null}
-        highlightedPathNodeIds={highlightedWorkflowNodeIds}
-        highlightedPathEdgeIds={highlightedWorkflowEdgeIds}
-        onSelectNode={handleSelectWorkflowNode}
-        onViewSpanDetails={handleViewSpanDetails}
-      />
+      <React.Suspense fallback={null}>
+        <GraphViewWorkflowCanvas
+          layout={workflowLayout}
+          selectedNodeId={selectedWorkflowNode?.id ?? null}
+          highlightedPathNodeIds={highlightedWorkflowNodeIds}
+          highlightedPathEdgeIds={highlightedWorkflowEdgeIds}
+          onSelectNode={handleSelectWorkflowNode}
+          onViewSpanDetails={handleViewSpanDetails}
+          isGraphExpanded={isGraphExpanded}
+          onToggleGraphExpand={handleToggleGraphExpand}
+        />
+      </React.Suspense>
     </div>
   );
 
@@ -459,27 +422,7 @@ export const ModelTraceExplorerDetailView = ({
                     onResize={handleGraphResize}
                     onResizeStart={() => setIsResizing(true)}
                     onResizeStop={() => setIsResizing(false)}
-                    handle={
-                      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                      (_axis: string, ref: React.Ref<HTMLDivElement>) => (
-                        <div
-                          ref={ref}
-                          css={{
-                            height: theme.spacing.sm,
-                            cursor: 'ns-resize',
-                            backgroundColor: 'transparent',
-                            position: 'absolute',
-                            top: 0,
-                            left: 0,
-                            right: 0,
-                            zIndex: 1,
-                            ':hover': {
-                              backgroundColor: 'rgba(0,0,0,0.1)',
-                            },
-                          }}
-                        />
-                      )
-                    }
+                    handle={<ResizeHandle />}
                     css={{
                       display: 'flex',
                       flexDirection: 'column',

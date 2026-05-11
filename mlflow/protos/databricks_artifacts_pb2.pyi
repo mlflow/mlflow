@@ -143,26 +143,30 @@ class GetPresignedUploadPartUrl(_message.Message):
     def __init__(self, run_id: _Optional[str] = ..., path: _Optional[str] = ..., upload_id: _Optional[str] = ..., part_number: _Optional[int] = ...) -> None: ...
 
 class GetCredentialsForTraceDataDownload(_message.Message):
-    __slots__ = ("request_id",)
+    __slots__ = ("request_id", "path")
     class Response(_message.Message):
         __slots__ = ("credential_info",)
         CREDENTIAL_INFO_FIELD_NUMBER: _ClassVar[int]
         credential_info: ArtifactCredentialInfo
         def __init__(self, credential_info: _Optional[_Union[ArtifactCredentialInfo, _Mapping]] = ...) -> None: ...
     REQUEST_ID_FIELD_NUMBER: _ClassVar[int]
+    PATH_FIELD_NUMBER: _ClassVar[int]
     request_id: str
-    def __init__(self, request_id: _Optional[str] = ...) -> None: ...
+    path: str
+    def __init__(self, request_id: _Optional[str] = ..., path: _Optional[str] = ...) -> None: ...
 
 class GetCredentialsForTraceDataUpload(_message.Message):
-    __slots__ = ("request_id",)
+    __slots__ = ("request_id", "path")
     class Response(_message.Message):
         __slots__ = ("credential_info",)
         CREDENTIAL_INFO_FIELD_NUMBER: _ClassVar[int]
         credential_info: ArtifactCredentialInfo
         def __init__(self, credential_info: _Optional[_Union[ArtifactCredentialInfo, _Mapping]] = ...) -> None: ...
     REQUEST_ID_FIELD_NUMBER: _ClassVar[int]
+    PATH_FIELD_NUMBER: _ClassVar[int]
     request_id: str
-    def __init__(self, request_id: _Optional[str] = ...) -> None: ...
+    path: str
+    def __init__(self, request_id: _Optional[str] = ..., path: _Optional[str] = ...) -> None: ...
 
 class GetCredentialsForLoggedModelUpload(_message.Message):
     __slots__ = ("model_id", "paths", "page_token")

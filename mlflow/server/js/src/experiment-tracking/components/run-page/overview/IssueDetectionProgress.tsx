@@ -1,8 +1,10 @@
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import {
   Button,
   CheckCircleIcon,
+  DesignSystemEventProviderAnalyticsEventTypes,
+  DesignSystemEventProviderComponentTypes,
   ParagraphSkeleton,
   XCircleIcon,
   Typography,
@@ -14,14 +16,24 @@ import { RunPageTabName } from '../../../constants';
 import Routes from '../../../routes';
 import Utils from '../../../../common/utils/Utils';
 import { useSearchIssuesQuery } from '../hooks/useSearchIssuesQuery';
-import { IssueJobStatus, isJobComplete, type IssueJobResult } from '../hooks/useFetchIssueJobStatus';
+import { JobStatus, isJobComplete } from '../hooks/useFetchJobStatus';
 import { useCancelJob } from '../hooks/useCancelJob';
+import { useLogTelemetryEvent } from '../../../../telemetry/hooks/useLogTelemetryEvent';
+
+export interface IssueJobResult {
+  issues?: number;
+  summary?: string;
+  total_traces_analyzed?: number;
+  total_cost_usd?: number;
+}
 
 export interface IssueDetectionProgressProps {
   /** Job ID for cancel functionality */
   jobId?: string;
   /** Job status from parent */
-  jobStatus?: IssueJobStatus;
+  jobStatus?: JobStatus;
+  /** Current job stage */
+  jobStage?: string;
   /** Total traces count */
   totalTraces?: number;
   /** Job result data */
@@ -37,6 +49,7 @@ export interface IssueDetectionProgressProps {
 export const IssueDetectionProgress = ({
   jobId,
   jobStatus,
+  jobStage,
   totalTraces,
   result,
   isLoadingJobStatus,
@@ -45,6 +58,7 @@ export const IssueDetectionProgress = ({
 }: IssueDetectionProgressProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
+  const logTelemetryEvent = useLogTelemetryEvent();
   const navigate = useNavigate();
   const { experimentId, runUuid } = useParams<{ experimentId: string; runUuid: string }>();
   const { cancelJob, isCancelling } = useCancelJob();
@@ -81,19 +95,36 @@ export const IssueDetectionProgress = ({
     );
   };
 
-  const isJobSucceeded = jobStatus === IssueJobStatus.SUCCEEDED;
-  const isJobFailed = jobStatus === IssueJobStatus.FAILED || jobStatus === IssueJobStatus.TIMEOUT || !!jobStatusError;
-  const isJobCanceled = jobStatus === IssueJobStatus.CANCELED;
-  const jobComplete = isJobComplete(jobStatus) || !!jobStatusError;
+  const isJobSucceeded = jobStatus === JobStatus.SUCCEEDED;
+  const isJobFailed = jobStatus === JobStatus.FAILED || jobStatus === JobStatus.TIMEOUT || Boolean(jobStatusError);
+  const isJobCanceled = jobStatus === JobStatus.CANCELED;
+  const jobComplete = isJobComplete(jobStatus) || Boolean(jobStatusError);
 
   const { issues } = useSearchIssuesQuery({
     experimentId: experimentId ?? '',
     sourceRunId: runUuid ?? '',
-    enabled: !!experimentId && !!runUuid,
+    enabled: Boolean(experimentId) && Boolean(runUuid),
     pollingEnabled: !jobComplete,
   });
 
   const identifiedIssues = issues.length;
+
+  useEffect(() => {
+    if (isJobSucceeded && runUuid) {
+      logTelemetryEvent({
+        componentId: 'mlflow.issue-detection.completed',
+        componentType: DesignSystemEventProviderComponentTypes.Card,
+        // Use runUuid as componentViewId to track the same eval result across sessions
+        componentViewId: runUuid ?? '',
+        eventType: DesignSystemEventProviderAnalyticsEventTypes.OnView,
+        value: JSON.stringify({
+          totalTraces,
+          identifiedIssues: result?.issues,
+          totalCostUsd: result?.total_cost_usd,
+        }),
+      });
+    }
+  }, [isJobSucceeded, runUuid, totalTraces, result?.issues, result?.total_cost_usd, logTelemetryEvent]);
 
   if (isLoadingJobStatus) {
     return (
@@ -177,10 +208,12 @@ export const IssueDetectionProgress = ({
                 defaultMessage="Issue detection canceled"
                 description="Issue detection progress > Step label when canceled"
               />
+            ) : jobStage ? (
+              jobStage
             ) : (
               <FormattedMessage
                 defaultMessage="Identifying issues from traces..."
-                description="Issue detection progress > Step label"
+                description="Issue detection progress > Step label (fallback)"
               />
             )}
           </Typography.Text>

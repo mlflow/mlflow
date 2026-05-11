@@ -1,6 +1,10 @@
 ---
+title: Tracing Microsoft Agent Framework
+description: Trace Microsoft Agent Framework agent executions with MLflow via OpenTelemetry for full observability into modular AI agent workflows.
 sidebar_position: 5
 sidebar_label: Microsoft Agent Framework
+keywords: [microsoft, agent framework, tracing, mlflow, opentelemetry, ai agent]
+image: /images/llms/tracing/microsoft-agent-framework-tracing.png
 ---
 
 import ImageBox from "@site/src/components/ImageBox";
@@ -15,7 +19,7 @@ import { APILink } from "@site/src/components/APILink";
 ## Step 1: Install libraries
 
 ```bash
-pip install 'mlflow[genai]>=3.6.0' agent-framework opentelemetry-exporter-otlp-proto-http
+pip install 'mlflow>=3.6.0' agent-framework opentelemetry-exporter-otlp-proto-http
 ```
 
 ## Step 2: Start the MLflow Tracking Server

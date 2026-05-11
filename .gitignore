@@ -24,6 +24,7 @@ __pycache__
 # Distribution / packaging
 .Python
 build/
+bundle/
 develop-eggs/
 dist/
 downloads/
@@ -133,6 +134,9 @@ a.md
 
 # Ignore a gunicorn config file
 gunicorn.conf.py
+
+# Personal Claude Code instructions
+CLAUDE.local.md
 
 # ignore everything in .claude
 .claude/*

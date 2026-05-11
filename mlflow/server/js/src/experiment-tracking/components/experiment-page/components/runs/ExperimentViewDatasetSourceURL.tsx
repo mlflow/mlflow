@@ -65,5 +65,26 @@ export const ExperimentViewDatasetSourceURL = ({ datasetWithTags }: ExperimentVi
       return null;
     }
   }
+  if (sourceType === DatasetSourceTypes.LOCAL) {
+    try {
+      const { uri } = JSON.parse(dataset.source);
+      if (uri) {
+        return (
+          <Typography.Hint
+            title={uri}
+            css={{
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
+            Path: {uri}
+          </Typography.Hint>
+        );
+      }
+    } catch {
+      return null;
+    }
+  }
   return null;
 };

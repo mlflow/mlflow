@@ -35,7 +35,7 @@ export const AssessmentSummaryTable: React.FC<AssessmentSummaryTableProps> = ({
   const tableData = useMemo(() => {
     return assessmentNames.map((name) => ({
       scorerName: name,
-      totalCount: countsByName.get(name)!,
+      totalCount: countsByName.get(name) ?? 0,
       avgValue: avgValuesByName.get(name),
     }));
   }, [assessmentNames, countsByName, avgValuesByName]);

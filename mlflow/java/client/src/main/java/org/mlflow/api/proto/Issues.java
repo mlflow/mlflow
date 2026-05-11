@@ -369,6 +369,25 @@ public final class Issues {
      */
     com.google.protobuf.ByteString
         getCategoriesBytes(int index);
+
+    /**
+     * <pre>
+     * Number of traces impacted by this issue. Only populated when explicitly requested.
+     * </pre>
+     *
+     * <code>optional int32 trace_count = 13;</code>
+     * @return Whether the traceCount field is set.
+     */
+    boolean hasTraceCount();
+    /**
+     * <pre>
+     * Number of traces impacted by this issue. Only populated when explicitly requested.
+     * </pre>
+     *
+     * <code>optional int32 trace_count = 13;</code>
+     * @return The traceCount.
+     */
+    int getTraceCount();
   }
   /**
    * <pre>
@@ -504,6 +523,11 @@ public final class Issues {
                 mutable_bitField0_ |= 0x00000800;
               }
               categories_.add(bs);
+              break;
+            }
+            case 104: {
+              bitField0_ |= 0x00000400;
+              traceCount_ = input.readInt32();
               break;
             }
             default: {
@@ -1181,6 +1205,33 @@ public final class Issues {
       return categories_.getByteString(index);
     }
 
+    public static final int TRACE_COUNT_FIELD_NUMBER = 13;
+    private int traceCount_;
+    /**
+     * <pre>
+     * Number of traces impacted by this issue. Only populated when explicitly requested.
+     * </pre>
+     *
+     * <code>optional int32 trace_count = 13;</code>
+     * @return Whether the traceCount field is set.
+     */
+    @java.lang.Override
+    public boolean hasTraceCount() {
+      return ((bitField0_ & 0x00000400) != 0);
+    }
+    /**
+     * <pre>
+     * Number of traces impacted by this issue. Only populated when explicitly requested.
+     * </pre>
+     *
+     * <code>optional int32 trace_count = 13;</code>
+     * @return The traceCount.
+     */
+    @java.lang.Override
+    public int getTraceCount() {
+      return traceCount_;
+    }
+
     private byte memoizedIsInitialized = -1;
     @java.lang.Override
     public final boolean isInitialized() {
@@ -1230,6 +1281,9 @@ public final class Issues {
       }
       for (int i = 0; i < categories_.size(); i++) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 12, categories_.getRaw(i));
+      }
+      if (((bitField0_ & 0x00000400) != 0)) {
+        output.writeInt32(13, traceCount_);
       }
       unknownFields.writeTo(output);
     }
@@ -1287,6 +1341,10 @@ public final class Issues {
         }
         size += dataSize;
         size += 1 * getCategoriesList().size();
+      }
+      if (((bitField0_ & 0x00000400) != 0)) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeInt32Size(13, traceCount_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -1357,6 +1415,11 @@ public final class Issues {
       }
       if (!getCategoriesList()
           .equals(other.getCategoriesList())) return false;
+      if (hasTraceCount() != other.hasTraceCount()) return false;
+      if (hasTraceCount()) {
+        if (getTraceCount()
+            != other.getTraceCount()) return false;
+      }
       if (!unknownFields.equals(other.unknownFields)) return false;
       return true;
     }
@@ -1417,6 +1480,10 @@ public final class Issues {
       if (getCategoriesCount() > 0) {
         hash = (37 * hash) + CATEGORIES_FIELD_NUMBER;
         hash = (53 * hash) + getCategoriesList().hashCode();
+      }
+      if (hasTraceCount()) {
+        hash = (37 * hash) + TRACE_COUNT_FIELD_NUMBER;
+        hash = (53 * hash) + getTraceCount();
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
@@ -1579,6 +1646,8 @@ public final class Issues {
         bitField0_ = (bitField0_ & ~0x00000400);
         categories_ = com.google.protobuf.LazyStringArrayList.EMPTY;
         bitField0_ = (bitField0_ & ~0x00000800);
+        traceCount_ = 0;
+        bitField0_ = (bitField0_ & ~0x00001000);
         return this;
       }
 
@@ -1657,6 +1726,10 @@ public final class Issues {
           bitField0_ = (bitField0_ & ~0x00000800);
         }
         result.categories_ = categories_;
+        if (((from_bitField0_ & 0x00001000) != 0)) {
+          result.traceCount_ = traceCount_;
+          to_bitField0_ |= 0x00000400;
+        }
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -1771,6 +1844,9 @@ public final class Issues {
             categories_.addAll(other.categories_);
           }
           onChanged();
+        }
+        if (other.hasTraceCount()) {
+          setTraceCount(other.getTraceCount());
         }
         this.mergeUnknownFields(other.unknownFields);
         onChanged();
@@ -3062,6 +3138,61 @@ public final class Issues {
   }
   ensureCategoriesIsMutable();
         categories_.add(value);
+        onChanged();
+        return this;
+      }
+
+      private int traceCount_ ;
+      /**
+       * <pre>
+       * Number of traces impacted by this issue. Only populated when explicitly requested.
+       * </pre>
+       *
+       * <code>optional int32 trace_count = 13;</code>
+       * @return Whether the traceCount field is set.
+       */
+      @java.lang.Override
+      public boolean hasTraceCount() {
+        return ((bitField0_ & 0x00001000) != 0);
+      }
+      /**
+       * <pre>
+       * Number of traces impacted by this issue. Only populated when explicitly requested.
+       * </pre>
+       *
+       * <code>optional int32 trace_count = 13;</code>
+       * @return The traceCount.
+       */
+      @java.lang.Override
+      public int getTraceCount() {
+        return traceCount_;
+      }
+      /**
+       * <pre>
+       * Number of traces impacted by this issue. Only populated when explicitly requested.
+       * </pre>
+       *
+       * <code>optional int32 trace_count = 13;</code>
+       * @param value The traceCount to set.
+       * @return This builder for chaining.
+       */
+      public Builder setTraceCount(int value) {
+        bitField0_ |= 0x00001000;
+        traceCount_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Number of traces impacted by this issue. Only populated when explicitly requested.
+       * </pre>
+       *
+       * <code>optional int32 trace_count = 13;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearTraceCount() {
+        bitField0_ = (bitField0_ & ~0x00001000);
+        traceCount_ = 0;
         onChanged();
         return this;
       }
@@ -10157,6 +10288,25 @@ public final class Issues {
      */
     com.google.protobuf.ByteString
         getPageTokenBytes();
+
+    /**
+     * <pre>
+     * Whether to include the count of traces impacted by each issue.
+     * </pre>
+     *
+     * <code>optional bool include_trace_count = 5;</code>
+     * @return Whether the includeTraceCount field is set.
+     */
+    boolean hasIncludeTraceCount();
+    /**
+     * <pre>
+     * Whether to include the count of traces impacted by each issue.
+     * </pre>
+     *
+     * <code>optional bool include_trace_count = 5;</code>
+     * @return The includeTraceCount.
+     */
+    boolean getIncludeTraceCount();
   }
   /**
    * <pre>
@@ -10232,6 +10382,11 @@ public final class Issues {
               com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000008;
               pageToken_ = bs;
+              break;
+            }
+            case 40: {
+              bitField0_ |= 0x00000010;
+              includeTraceCount_ = input.readBool();
               break;
             }
             default: {
@@ -11612,6 +11767,33 @@ public final class Issues {
       }
     }
 
+    public static final int INCLUDE_TRACE_COUNT_FIELD_NUMBER = 5;
+    private boolean includeTraceCount_;
+    /**
+     * <pre>
+     * Whether to include the count of traces impacted by each issue.
+     * </pre>
+     *
+     * <code>optional bool include_trace_count = 5;</code>
+     * @return Whether the includeTraceCount field is set.
+     */
+    @java.lang.Override
+    public boolean hasIncludeTraceCount() {
+      return ((bitField0_ & 0x00000010) != 0);
+    }
+    /**
+     * <pre>
+     * Whether to include the count of traces impacted by each issue.
+     * </pre>
+     *
+     * <code>optional bool include_trace_count = 5;</code>
+     * @return The includeTraceCount.
+     */
+    @java.lang.Override
+    public boolean getIncludeTraceCount() {
+      return includeTraceCount_;
+    }
+
     private byte memoizedIsInitialized = -1;
     @java.lang.Override
     public final boolean isInitialized() {
@@ -11638,6 +11820,9 @@ public final class Issues {
       if (((bitField0_ & 0x00000008) != 0)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 4, pageToken_);
       }
+      if (((bitField0_ & 0x00000010) != 0)) {
+        output.writeBool(5, includeTraceCount_);
+      }
       unknownFields.writeTo(output);
     }
 
@@ -11659,6 +11844,10 @@ public final class Issues {
       }
       if (((bitField0_ & 0x00000008) != 0)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(4, pageToken_);
+      }
+      if (((bitField0_ & 0x00000010) != 0)) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeBoolSize(5, includeTraceCount_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -11695,6 +11884,11 @@ public final class Issues {
         if (!getPageToken()
             .equals(other.getPageToken())) return false;
       }
+      if (hasIncludeTraceCount() != other.hasIncludeTraceCount()) return false;
+      if (hasIncludeTraceCount()) {
+        if (getIncludeTraceCount()
+            != other.getIncludeTraceCount()) return false;
+      }
       if (!unknownFields.equals(other.unknownFields)) return false;
       return true;
     }
@@ -11721,6 +11915,11 @@ public final class Issues {
       if (hasPageToken()) {
         hash = (37 * hash) + PAGE_TOKEN_FIELD_NUMBER;
         hash = (53 * hash) + getPageToken().hashCode();
+      }
+      if (hasIncludeTraceCount()) {
+        hash = (37 * hash) + INCLUDE_TRACE_COUNT_FIELD_NUMBER;
+        hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+            getIncludeTraceCount());
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
@@ -11867,6 +12066,8 @@ public final class Issues {
         bitField0_ = (bitField0_ & ~0x00000004);
         pageToken_ = "";
         bitField0_ = (bitField0_ & ~0x00000008);
+        includeTraceCount_ = false;
+        bitField0_ = (bitField0_ & ~0x00000010);
         return this;
       }
 
@@ -11911,6 +12112,10 @@ public final class Issues {
           to_bitField0_ |= 0x00000008;
         }
         result.pageToken_ = pageToken_;
+        if (((from_bitField0_ & 0x00000010) != 0)) {
+          result.includeTraceCount_ = includeTraceCount_;
+          to_bitField0_ |= 0x00000010;
+        }
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -11977,6 +12182,9 @@ public final class Issues {
           bitField0_ |= 0x00000008;
           pageToken_ = other.pageToken_;
           onChanged();
+        }
+        if (other.hasIncludeTraceCount()) {
+          setIncludeTraceCount(other.getIncludeTraceCount());
         }
         this.mergeUnknownFields(other.unknownFields);
         onChanged();
@@ -12386,6 +12594,61 @@ public final class Issues {
         onChanged();
         return this;
       }
+
+      private boolean includeTraceCount_ ;
+      /**
+       * <pre>
+       * Whether to include the count of traces impacted by each issue.
+       * </pre>
+       *
+       * <code>optional bool include_trace_count = 5;</code>
+       * @return Whether the includeTraceCount field is set.
+       */
+      @java.lang.Override
+      public boolean hasIncludeTraceCount() {
+        return ((bitField0_ & 0x00000010) != 0);
+      }
+      /**
+       * <pre>
+       * Whether to include the count of traces impacted by each issue.
+       * </pre>
+       *
+       * <code>optional bool include_trace_count = 5;</code>
+       * @return The includeTraceCount.
+       */
+      @java.lang.Override
+      public boolean getIncludeTraceCount() {
+        return includeTraceCount_;
+      }
+      /**
+       * <pre>
+       * Whether to include the count of traces impacted by each issue.
+       * </pre>
+       *
+       * <code>optional bool include_trace_count = 5;</code>
+       * @param value The includeTraceCount to set.
+       * @return This builder for chaining.
+       */
+      public Builder setIncludeTraceCount(boolean value) {
+        bitField0_ |= 0x00000010;
+        includeTraceCount_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Whether to include the count of traces impacted by each issue.
+       * </pre>
+       *
+       * <code>optional bool include_trace_count = 5;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearIncludeTraceCount() {
+        bitField0_ = (bitField0_ & ~0x00000010);
+        includeTraceCount_ = false;
+        onChanged();
+        return this;
+      }
       @java.lang.Override
       public final Builder setUnknownFields(
           final com.google.protobuf.UnknownFieldSet unknownFields) {
@@ -12494,31 +12757,32 @@ public final class Issues {
   static {
     java.lang.String[] descriptorData = {
       "\n\014issues.proto\022\rmlflow.issues\032\020databrick" +
-      "s.proto\"\204\002\n\005Issue\022\020\n\010issue_id\030\001 \001(\t\022\025\n\re" +
+      "s.proto\"\231\002\n\005Issue\022\020\n\010issue_id\030\001 \001(\t\022\025\n\re" +
       "xperiment_id\030\002 \001(\t\022\014\n\004name\030\003 \001(\t\022\023\n\013desc" +
       "ription\030\004 \001(\t\022\016\n\006status\030\005 \001(\t\022\020\n\010severit" +
       "y\030\006 \001(\t\022\023\n\013root_causes\030\007 \003(\t\022\025\n\rsource_r" +
       "un_id\030\010 \001(\t\022\031\n\021created_timestamp\030\t \001(\003\022\036" +
       "\n\026last_updated_timestamp\030\n \001(\003\022\022\n\ncreate" +
-      "d_by\030\013 \001(\t\022\022\n\ncategories\030\014 \003(\t\"\200\002\n\013Creat" +
-      "eIssue\022\033\n\rexperiment_id\030\001 \001(\tB\004\370\206\031\001\022\022\n\004n" +
-      "ame\030\002 \001(\tB\004\370\206\031\001\022\031\n\013description\030\003 \001(\tB\004\370\206" +
-      "\031\001\022\016\n\006status\030\004 \001(\t\022\020\n\010severity\030\005 \001(\t\022\023\n\013" +
-      "root_causes\030\006 \003(\t\022\025\n\rsource_run_id\030\007 \001(\t" +
-      "\022\022\n\ncreated_by\030\010 \001(\t\022\022\n\ncategories\030\t \003(\t" +
-      "\032/\n\010Response\022#\n\005issue\030\001 \001(\0132\024.mlflow.iss" +
-      "ues.Issue\"\233\001\n\013UpdateIssue\022\026\n\010issue_id\030\001 " +
-      "\001(\tB\004\370\206\031\001\022\014\n\004name\030\002 \001(\t\022\023\n\013description\030\003" +
-      " \001(\t\022\016\n\006status\030\004 \001(\t\022\020\n\010severity\030\005 \001(\t\032/" +
-      "\n\010Response\022#\n\005issue\030\001 \001(\0132\024.mlflow.issue" +
-      "s.Issue\"S\n\010GetIssue\022\026\n\010issue_id\030\001 \001(\tB\004\370" +
-      "\206\031\001\032/\n\010Response\022#\n\005issue\030\001 \001(\0132\024.mlflow." +
-      "issues.Issue\"\260\001\n\014SearchIssues\022\025\n\rexperim" +
-      "ent_id\030\001 \001(\t\022\025\n\rfilter_string\030\002 \001(\t\022\023\n\013m" +
-      "ax_results\030\003 \001(\005\022\022\n\npage_token\030\004 \001(\t\032I\n\010" +
-      "Response\022$\n\006issues\030\001 \003(\0132\024.mlflow.issues" +
-      ".Issue\022\027\n\017next_page_token\030\002 \001(\tB\031\n\024org.m" +
-      "lflow.api.proto\220\001\001"
+      "d_by\030\013 \001(\t\022\022\n\ncategories\030\014 \003(\t\022\023\n\013trace_" +
+      "count\030\r \001(\005\"\200\002\n\013CreateIssue\022\033\n\rexperimen" +
+      "t_id\030\001 \001(\tB\004\370\206\031\001\022\022\n\004name\030\002 \001(\tB\004\370\206\031\001\022\031\n\013" +
+      "description\030\003 \001(\tB\004\370\206\031\001\022\016\n\006status\030\004 \001(\t\022" +
+      "\020\n\010severity\030\005 \001(\t\022\023\n\013root_causes\030\006 \003(\t\022\025" +
+      "\n\rsource_run_id\030\007 \001(\t\022\022\n\ncreated_by\030\010 \001(" +
+      "\t\022\022\n\ncategories\030\t \003(\t\032/\n\010Response\022#\n\005iss" +
+      "ue\030\001 \001(\0132\024.mlflow.issues.Issue\"\233\001\n\013Updat" +
+      "eIssue\022\026\n\010issue_id\030\001 \001(\tB\004\370\206\031\001\022\014\n\004name\030\002" +
+      " \001(\t\022\023\n\013description\030\003 \001(\t\022\016\n\006status\030\004 \001(" +
+      "\t\022\020\n\010severity\030\005 \001(\t\032/\n\010Response\022#\n\005issue" +
+      "\030\001 \001(\0132\024.mlflow.issues.Issue\"S\n\010GetIssue" +
+      "\022\026\n\010issue_id\030\001 \001(\tB\004\370\206\031\001\032/\n\010Response\022#\n\005" +
+      "issue\030\001 \001(\0132\024.mlflow.issues.Issue\"\315\001\n\014Se" +
+      "archIssues\022\025\n\rexperiment_id\030\001 \001(\t\022\025\n\rfil" +
+      "ter_string\030\002 \001(\t\022\023\n\013max_results\030\003 \001(\005\022\022\n" +
+      "\npage_token\030\004 \001(\t\022\033\n\023include_trace_count" +
+      "\030\005 \001(\010\032I\n\010Response\022$\n\006issues\030\001 \003(\0132\024.mlf" +
+      "low.issues.Issue\022\027\n\017next_page_token\030\002 \001(" +
+      "\tB\031\n\024org.mlflow.api.proto\220\001\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -12530,7 +12794,7 @@ public final class Issues {
     internal_static_mlflow_issues_Issue_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_issues_Issue_descriptor,
-        new java.lang.String[] { "IssueId", "ExperimentId", "Name", "Description", "Status", "Severity", "RootCauses", "SourceRunId", "CreatedTimestamp", "LastUpdatedTimestamp", "CreatedBy", "Categories", });
+        new java.lang.String[] { "IssueId", "ExperimentId", "Name", "Description", "Status", "Severity", "RootCauses", "SourceRunId", "CreatedTimestamp", "LastUpdatedTimestamp", "CreatedBy", "Categories", "TraceCount", });
     internal_static_mlflow_issues_CreateIssue_descriptor =
       getDescriptor().getMessageTypes().get(1);
     internal_static_mlflow_issues_CreateIssue_fieldAccessorTable = new
@@ -12572,7 +12836,7 @@ public final class Issues {
     internal_static_mlflow_issues_SearchIssues_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_issues_SearchIssues_descriptor,
-        new java.lang.String[] { "ExperimentId", "FilterString", "MaxResults", "PageToken", });
+        new java.lang.String[] { "ExperimentId", "FilterString", "MaxResults", "PageToken", "IncludeTraceCount", });
     internal_static_mlflow_issues_SearchIssues_Response_descriptor =
       internal_static_mlflow_issues_SearchIssues_descriptor.getNestedTypes().get(0);
     internal_static_mlflow_issues_SearchIssues_Response_fieldAccessorTable = new

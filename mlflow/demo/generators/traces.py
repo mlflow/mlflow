@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import hashlib
 import logging
 import random
@@ -22,6 +23,8 @@ from mlflow.demo.data import (
     RAG_TRACES,
     SESSION_TRACES,
     DemoTrace,
+    MultimodalDemoTrace,
+    get_multimodal_traces,
 )
 from mlflow.entities import SpanType
 from mlflow.tracing.constant import SpanAttributeKey, TraceMetadataKey
@@ -31,8 +34,25 @@ _logger = logging.getLogger(__name__)
 
 DEMO_VERSION_TAG = "mlflow.demo.version"
 DEMO_TRACE_TYPE_TAG = "mlflow.demo.trace_type"
+DEMO_START_TIME_TAG = "mlflow.demo.start_time_ms"
+DEMO_END_TIME_TAG = "mlflow.demo.end_time_ms"
 
-_TOTAL_TRACES_PER_VERSION = 17
+_TOTAL_TRACES_PER_VERSION = 21
+
+
+@dataclass(frozen=True)
+class _TraceSetResult:
+    """Result from generating a set of traces.
+
+    Attributes:
+        trace_ids: List of generated trace IDs.
+        start_time_ns: Earliest trace start time in nanoseconds.
+        end_time_ns: Latest trace end time in nanoseconds.
+    """
+
+    trace_ids: list[str]
+    start_time_ns: int
+    end_time_ns: int
 
 
 def _get_trace_timestamps(trace_index: int, version: str) -> tuple[int, int]:
@@ -124,7 +144,7 @@ class TracesDemoGenerator(BaseDemoGenerator):
     """
 
     name = DemoFeature.TRACES
-    version = 1
+    version = 2
 
     def generate(self) -> DemoResult:
         self._restore_experiment_if_deleted()
@@ -138,10 +158,16 @@ class TracesDemoGenerator(BaseDemoGenerator):
             "and prompts. Explore MLflow's GenAI features with this experiment.",
         )
 
-        v1_trace_ids = self._generate_trace_set("v1")
-        v2_trace_ids = self._generate_trace_set("v2")
+        v1_result = self._generate_trace_set("v1")
+        v2_result = self._generate_trace_set("v2")
 
-        all_trace_ids = v1_trace_ids + v2_trace_ids
+        all_trace_ids = v1_result.trace_ids + v2_result.trace_ids
+
+        # Store the overall time range of demo data as experiment tags
+        overall_start_ms = min(v1_result.start_time_ns, v2_result.start_time_ns) // 1_000_000
+        overall_end_ms = max(v1_result.end_time_ns, v2_result.end_time_ns) // 1_000_000
+        mlflow.set_experiment_tag(DEMO_START_TIME_TAG, str(overall_start_ms))
+        mlflow.set_experiment_tag(DEMO_END_TIME_TAG, str(overall_end_ms))
 
         return DemoResult(
             feature=self.name,
@@ -149,25 +175,33 @@ class TracesDemoGenerator(BaseDemoGenerator):
             navigation_url=f"#/experiments/{experiment.experiment_id}",
         )
 
-    def _generate_trace_set(self, version: Literal["v1", "v2"]) -> list[str]:
+    def _generate_trace_set(self, version: Literal["v1", "v2"]) -> _TraceSetResult:
         """Generate a complete set of traces for the given version."""
         trace_ids = []
         trace_index = 0
+        min_start_ns = float("inf")
+        max_end_ns = 0
 
         for trace_def in RAG_TRACES:
             start_ns, end_ns = _get_trace_timestamps(trace_index, version)
+            min_start_ns = min(min_start_ns, start_ns)
+            max_end_ns = max(max_end_ns, end_ns)
             if trace_id := self._create_rag_trace(trace_def, version, start_ns, end_ns):
                 trace_ids.append(trace_id)
             trace_index += 1
 
         for trace_def in AGENT_TRACES:
             start_ns, end_ns = _get_trace_timestamps(trace_index, version)
+            min_start_ns = min(min_start_ns, start_ns)
+            max_end_ns = max(max_end_ns, end_ns)
             if trace_id := self._create_agent_trace(trace_def, version, start_ns, end_ns):
                 trace_ids.append(trace_id)
             trace_index += 1
 
         for idx, trace_def in enumerate(PROMPT_TRACES):
             start_ns, end_ns = _get_trace_timestamps(trace_index, version)
+            min_start_ns = min(min_start_ns, start_ns)
+            max_end_ns = max(max_end_ns, end_ns)
             prompt_version_num = str(idx % 2 + 1) if version == "v1" else str(idx % 2 + 3)
             if trace_id := self._create_prompt_trace(
                 trace_def, version, start_ns, end_ns, prompt_version_num
@@ -175,9 +209,24 @@ class TracesDemoGenerator(BaseDemoGenerator):
                 trace_ids.append(trace_id)
             trace_index += 1
 
-        trace_ids.extend(self._create_session_traces(version, trace_index))
+        for trace_def in get_multimodal_traces():
+            start_ns, end_ns = _get_trace_timestamps(trace_index, version)
+            min_start_ns = min(min_start_ns, start_ns)
+            max_end_ns = max(max_end_ns, end_ns)
+            if trace_id := self._create_multimodal_trace(trace_def, version, start_ns, end_ns):
+                trace_ids.append(trace_id)
+            trace_index += 1
 
-        return trace_ids
+        session_result = self._create_session_traces(version, trace_index)
+        trace_ids.extend(session_result.trace_ids)
+        min_start_ns = min(min_start_ns, session_result.start_time_ns)
+        max_end_ns = max(max_end_ns, session_result.end_time_ns)
+
+        return _TraceSetResult(
+            trace_ids=trace_ids,
+            start_time_ns=int(min_start_ns),
+            end_time_ns=int(max_end_ns),
+        )
 
     def _data_exists(self) -> bool:
         store = _get_store()
@@ -339,7 +388,7 @@ class TracesDemoGenerator(BaseDemoGenerator):
         )
 
         tool_start = start_ns + 5000
-        for i, tool in enumerate(trace_def.tools):
+        for tool in trace_def.tools:
             tool_span = mlflow.start_span_no_context(
                 name=tool.name,
                 span_type=SpanType.TOOL,
@@ -486,6 +535,55 @@ class TracesDemoGenerator(BaseDemoGenerator):
 
         return trace_id
 
+    def _create_multimodal_trace(
+        self,
+        trace_def: MultimodalDemoTrace,
+        version: Literal["v1", "v2"],
+        start_ns: int,
+        end_ns: int,
+    ) -> str | None:
+        """Create a multimodal trace with pre-built inputs/outputs."""
+        response_text = (
+            trace_def.v1_response_text if version == "v1" else trace_def.v2_response_text
+        )
+        prompt_tokens = 200
+        completion_tokens = _estimate_tokens(response_text)
+
+        model = GPT_5_2
+
+        # Deep copy to avoid mutating shared trace definition data
+        outputs = copy.deepcopy(trace_def.outputs)
+        # Inject version-specific response text into outputs
+        match outputs:
+            case {"choices": [*choices]}:
+                for choice in choices:
+                    match choice:
+                        case {"message": {"content": None, **rest}} if "audio" not in rest:
+                            choice["message"]["content"] = response_text
+
+        root = mlflow.start_span_no_context(
+            name=trace_def.name,
+            span_type=trace_def.span_type,
+            inputs=trace_def.inputs,
+            attributes={
+                SpanAttributeKey.MESSAGE_FORMAT: "openai",
+                SpanAttributeKey.CHAT_USAGE: {
+                    "input_tokens": prompt_tokens,
+                    "output_tokens": completion_tokens,
+                    "total_tokens": prompt_tokens + completion_tokens,
+                },
+                SpanAttributeKey.MODEL: model.name,
+                SpanAttributeKey.MODEL_PROVIDER: model.provider,
+                SpanAttributeKey.LLM_COST: _compute_cost(model, prompt_tokens, completion_tokens),
+            },
+            metadata={DEMO_VERSION_TAG: version, DEMO_TRACE_TYPE_TAG: "multimodal"},
+            start_time_ns=start_ns,
+        )
+        root.set_outputs(outputs)
+        root.end(end_time_ns=end_ns)
+
+        return root.trace_id
+
     def _link_prompt_to_trace(
         self, short_prompt_name: str, trace_id: str, prompt_version: str = "1"
     ) -> None:
@@ -565,12 +663,16 @@ class TracesDemoGenerator(BaseDemoGenerator):
         else:
             return str(template)
 
-    def _create_session_traces(self, version: Literal["v1", "v2"], start_index: int) -> list[str]:
+    def _create_session_traces(
+        self, version: Literal["v1", "v2"], start_index: int
+    ) -> _TraceSetResult:
         """Create multi-turn conversation session traces."""
         trace_ids = []
         current_session = None
         turn_counter = 0
         trace_index = start_index
+        min_start_ns = float("inf")
+        max_end_ns = 0
 
         for trace_def in SESSION_TRACES:
             if trace_def.session_id != current_session:
@@ -581,13 +683,19 @@ class TracesDemoGenerator(BaseDemoGenerator):
             versioned_session_id = f"{trace_def.session_id}-{version}"
 
             start_ns, end_ns = _get_trace_timestamps(trace_index, version)
+            min_start_ns = min(min_start_ns, start_ns)
+            max_end_ns = max(max_end_ns, end_ns)
             if trace_id := self._create_session_turn_trace(
                 trace_def, turn_counter, version, versioned_session_id, start_ns, end_ns
             ):
                 trace_ids.append(trace_id)
             trace_index += 1
 
-        return trace_ids
+        return _TraceSetResult(
+            trace_ids=trace_ids,
+            start_time_ns=int(min_start_ns),
+            end_time_ns=int(max_end_ns),
+        )
 
     def _create_session_turn_trace(
         self,
