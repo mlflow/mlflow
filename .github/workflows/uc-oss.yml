@@ -55,9 +55,11 @@ jobs:
       - name: Build uc-oss server
         working-directory: unitycatalog
         run: |
-          # Remove the legacy sbt-coursier 1.x plugin — it conflicts with sbt 1.9's
-          # built-in coursier 2.x and causes version properties to resolve as empty
-          # strings (e.g. "junit:junit::"), breaking dependency resolution.
+          # TODO: Remove these two lines once UC OSS releases a version with the
+          # sbt-coursier fix merged in https://github.com/unitycatalog/unitycatalog/blob/main/build.sbt
+          # The legacy sbt-coursier 1.x plugin conflicts with sbt 1.9's built-in
+          # coursier 2.x and causes version properties to resolve as empty strings
+          # (e.g. "junit:junit::"), breaking dependency resolution.
           sed -i '/io.get-coursier.*sbt-coursier/d' project/plugins.sbt
           sed -i '/enablePlugins(CoursierPlugin)/d' build.sbt
           build/sbt package
