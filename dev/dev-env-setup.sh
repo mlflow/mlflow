@@ -296,18 +296,20 @@ create_virtualenv() {
 # Install mlflow dev version and required dependencies
 install_mlflow_and_dependencies() {
   # Install current checked out version of mlflow (local)
-  uv pip install --system -e .[extras]
+  # Note: omit --system so uv installs into the active virtualenv (sourced in
+  # create_virtualenv) rather than the pyenv Python's site-packages.
+  uv pip install -e .[extras]
 
   echo "Installing pip dependencies for development environment."
   if [[ -n "$full" ]]; then
     # Install dev requirements
-    uv pip install --system -r "$rd/dev-requirements.txt"
+    uv pip install -r "$rd/dev-requirements.txt"
     # Install test plugin
-    uv pip install --system -e "$MLFLOW_HOME/tests/resources/mlflow-test-plugin"
+    uv pip install -e "$MLFLOW_HOME/tests/resources/mlflow-test-plugin"
   else
     files=("$rd/test-requirements.txt" "$rd/lint-requirements.txt" "$rd/doc-requirements.txt")
     for r in "${files[@]}"; do
-      uv pip install --system -r "$r"
+      uv pip install -r "$r"
     done
   fi
   echo "Finished installing pip dependencies."
