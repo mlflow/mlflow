@@ -16,7 +16,7 @@ A workspace-level grant is a permission on the special
 applies to **every resource type** in that workspace (experiments, registered
 models, prompts, AI Gateway resources). Two levels are grantable:
 
-- `USE` on `(workspace, *)` is the **workspace member** grant. Holders get
+- `USE` on `(workspace, *)` is the **Workspace Member** grant. Holders get
   USE-level access (read + use) to every resource in the workspace, plus
   the ability to create new experiments and registered models. Per-resource
   grants can upgrade individual rows. A user _without_ this grant doesn't
@@ -65,7 +65,7 @@ two roles into every newly created workspace:
 | Role    | Permission               | Intent            |
 | ------- | ------------------------ | ----------------- |
 | `admin` | `(workspace, *, MANAGE)` | Workspace Manager |
-| `user`  | `(workspace, *, USE)`    | Workspace member  |
+| `user`  | `(workspace, *, USE)`    | Workspace Member  |
 
 The user who creates a workspace is automatically assigned its seeded `admin`
 role. See <Link to="/self-hosting/security/role-based-access-control#default-roles">Default roles</Link>
@@ -84,7 +84,7 @@ seeded `user` and `admin` roles cover the common cases.
 - Either Platform Admin privileges, or an existing Workspace Manager role
   on the target workspace (so you can manage role assignments there)
 
-### Make a user a workspace member
+### Make a user a Workspace Member
 
 In the admin UI: `/admin` → Users → click the user → **Edit access** → in the
 _Role assignments_ section, add `<workspace>/user` → review → apply.

@@ -116,6 +116,11 @@ Supported resources include `Experiment`, `Registered Model`, and `Scorer`.
 To access an API endpoint, a user must have the required permission.
 Otherwise, a `403 Forbidden` response will be returned.
 
+Note: the role-based model and the role API were introduced in MLflow 3.12;
+the admin UI documented on the RBAC page is available from the next minor
+release. Older MLflow versions only support the pre-RBAC per-resource
+permission APIs documented below.
+
 :::warning[Pre-RBAC permission management is changing]
 
 The following are **deprecated**. They still work (backed internally by
@@ -134,6 +139,30 @@ or the admin UI for new code.
   `update_registered_model_permission()`, and the ~23 sibling per-resource
   methods.
 
+**Migration recipe.** If you used to call
+`auth_client.create_experiment_permission(experiment_id, username, permission)`,
+the role-API equivalent is to create a single-user role, attach the
+permission, and assign the user:
+
+```python
+role = auth_client.create_role(
+    name=f"{username}-exp-{experiment_id}",
+    workspace="default",
+)
+auth_client.add_role_permission(
+    role_id=role.id,
+    resource_type="experiment",
+    resource_pattern=str(experiment_id),
+    permission=permission,
+)
+auth_client.assign_role(username=username, role_id=role.id)
+```
+
+Substitute `registered_model`, `scorer`, or a gateway resource type for
+other resources, and `workspace=` accordingly when workspaces are enabled.
+See [Migrating from the pre-RBAC model](/self-hosting/security/role-based-access-control#migrating-from-the-pre-rbac-model)
+for the full surface mapping.
+
 The following have been **removed** (calls return 404):
 
 - REST endpoints: `/mlflow/workspaces/<workspace>/permissions/*`.
@@ -143,7 +172,8 @@ The following have been **removed** (calls return 404):
 
 Use the seeded `<workspace>/admin` and `<workspace>/user` roles, or a custom
 role with a `(workspace, *, …)` permission. See
-[Role-Based Access Control](/self-hosting/security/role-based-access-control)
+[Role-Based Access Control](/self-hosting/security/role-based-access-control),
+[Migrating from the pre-RBAC model](/self-hosting/security/role-based-access-control#migrating-from-the-pre-rbac-model),
 and [Workspace Permissions](/self-hosting/workspaces/permissions).
 
 :::
