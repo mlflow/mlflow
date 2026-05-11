@@ -2359,15 +2359,8 @@ def _get_shipped_default_admin_password():
     return parser.get("mlflow", "admin_password", fallback=None)
 
 
-_default_password_warning_emitted = False
-
-
 def _warn_if_default_admin_password(password):
-    global _default_password_warning_emitted
-    if _default_password_warning_emitted:
-        return
     if password == _get_shipped_default_admin_password():
-        _default_password_warning_emitted = True
         _logger.warning(
             "The MLflow basic auth admin account is using the default password shipped "
             "in basic_auth.ini. Change it before exposing this server beyond localhost. "
