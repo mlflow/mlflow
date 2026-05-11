@@ -2621,34 +2621,61 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     RESOURCE_DOES_NOT_EXIST,
                 )
 
-            # Build query for scorer versions
-            query = session.query(SqlScorerVersion).filter(
-                SqlScorerVersion.scorer_id == scorer.scorer_id
-            )
-
-            if version is not None:
-                # Get specific version
-                sql_scorer_version = query.filter(
-                    SqlScorerVersion.scorer_version == version
-                ).first()
-                if sql_scorer_version is None:
+            try:
+                sql_scorer_version = self._get_scorer_version(
+                    session=session,
+                    scorer_id=scorer.scorer_id,
+                    version=version,
+                )
+            except MlflowException as e:
+                if e.error_code != ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+                    raise
+                if version is not None:
                     raise MlflowException(
                         f"Scorer with name '{name}' and version {version} not found for "
                         f"experiment {experiment_id}.",
                         RESOURCE_DOES_NOT_EXIST,
-                    )
-            else:
-                # Get maximum version
-                sql_scorer_version = query.order_by(SqlScorerVersion.scorer_version.desc()).first()
-                if sql_scorer_version is None:
-                    raise MlflowException(
-                        f"Scorer with name '{name}' not found for experiment {experiment_id}.",
-                        RESOURCE_DOES_NOT_EXIST,
-                    )
+                    ) from e
+                raise MlflowException(
+                    f"Scorer with name '{name}' not found for experiment {experiment_id}.",
+                    RESOURCE_DOES_NOT_EXIST,
+                ) from e
 
             entity = sql_scorer_version.to_mlflow_entity()
             # Resolve gateway endpoint ID to name before returning
             return self.resolve_endpoint_in_scorer(entity)
+
+    def _get_scorer_version(
+        self,
+        session: Session,
+        scorer_id: str,
+        version: int | None = None,
+    ) -> SqlScorerVersion:
+        scorer = (
+            self._get_query(session, SqlScorer).filter(SqlScorer.scorer_id == scorer_id).first()
+        )
+        if scorer is None:
+            raise MlflowException(
+                f"Scorer with ID '{scorer_id}' not found.",
+                RESOURCE_DOES_NOT_EXIST,
+            )
+
+        query = session.query(SqlScorerVersion).filter(SqlScorerVersion.scorer_id == scorer_id)
+        if version is not None:
+            sql_scorer_version = query.filter(SqlScorerVersion.scorer_version == version).first()
+            if sql_scorer_version is None:
+                raise MlflowException(
+                    f"Scorer with ID '{scorer_id}' and version {version} not found.",
+                    RESOURCE_DOES_NOT_EXIST,
+                )
+        else:
+            sql_scorer_version = query.order_by(SqlScorerVersion.scorer_version.desc()).first()
+            if sql_scorer_version is None:
+                raise MlflowException(
+                    f"Scorer with ID '{scorer_id}' not found.",
+                    RESOURCE_DOES_NOT_EXIST,
+                )
+        return sql_scorer_version
 
     def delete_scorer(self, experiment_id, name, version=None) -> None:
         """

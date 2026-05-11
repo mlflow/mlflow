@@ -32,6 +32,8 @@ _DSPY_UNDER_2_6 = _DSPY_VERSION < Version("2.6.0rc1")
 
 _DSPY_3_0_4_OR_NEWER = _DSPY_VERSION >= Version("3.0.4")
 
+_DSPY_3_2_0_OR_NEWER = _DSPY_VERSION >= Version("3.2.0")
+
 
 # Test module
 class CoT(dspy.Module):
@@ -171,7 +173,13 @@ def test_autolog_cot():
 
 
 def test_mlflow_callback_exception():
-    from litellm import ContextWindowExceededError
+    # dspy 3.2.0+ replaced litellm's ContextWindowExceededError with its own.
+    # ChatAdapter only skips the JSONAdapter fallback for dspy.ContextWindowExceededError,
+    # so we must raise the appropriate type to keep the expected span count.
+    if _DSPY_3_2_0_OR_NEWER:
+        ContextWindowExceededError = dspy.ContextWindowExceededError
+    else:
+        from litellm import ContextWindowExceededError
 
     mlflow.dspy.autolog()
 
@@ -179,8 +187,12 @@ def test_mlflow_callback_exception():
         @with_callbacks
         def __call__(self, prompt=None, messages=None, **kwargs):
             time.sleep(0.1)
-            # pdpy.ChatAdapter falls back to JSONAdapter unless it's not ContextWindowExceededError
-            raise ContextWindowExceededError("Error", "invalid model", "provider")
+            if _DSPY_3_2_0_OR_NEWER:
+                raise dspy.ContextWindowExceededError(message="Error")
+            else:
+                from litellm import ContextWindowExceededError as _CWE
+
+                raise _CWE("Error", "invalid model", "provider")
 
     cot = dspy.ChainOfThought("question -> answer", n=3)
 
