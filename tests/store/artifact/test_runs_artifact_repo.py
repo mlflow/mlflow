@@ -7,6 +7,7 @@ import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
+from mlflow.store.entities.paged_list import PagedList
 
 
 @pytest.mark.parametrize(
@@ -153,7 +154,9 @@ def test_get_logged_model_artifact_repo_uses_models_uri():
         matched_model = Mock()
         matched_model.source_run_id = "some-run-id"
         matched_model.model_id = "m-123456"
-        mock_mlflow_client.return_value.search_logged_models.return_value = [matched_model]
+        mock_mlflow_client.return_value.search_logged_models.return_value = PagedList(
+            [matched_model], token=None
+        )
 
         repo = runs_repo._get_logged_model_artifact_repo(run_id="some-run-id", name="model")
 
