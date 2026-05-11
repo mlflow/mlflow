@@ -66,48 +66,49 @@ state of any `(user, resource)` pair with no matching grant in the resolver's
 chain. It is **not grantable** as a role permission or a direct grant; the
 auth server rejects attempts to assign it.
 
-RBAC has no explicit-deny override: a workspace-level grant cannot be
-"excepted" for a single resource by an absent or lesser per-resource grant.
-The resolver unions every matching row and takes the highest-priority
-permission level, so a workspace `USE` grant always at least allows USE on
-every resource in the workspace; a per-resource grant can only upgrade that.
-To restrict access to a specific resource, grant access more narrowly
-(per-resource or resource-type wildcard) rather than holding a broad
-workspace-level grant and trying to except the resource.
+Because grants are folded via a max (see
+[Permission resolution](#permission-resolution)), RBAC has no
+explicit-deny override: an absent or lesser per-resource grant cannot
+revoke a broader grant the user already holds. To restrict access to a
+specific resource, grant access more narrowly (per-resource or
+resource-type wildcard) rather than holding a broad workspace-level grant
+and trying to except the resource.
 
 ### Workspace-level grants
 
 Workspace-wide access is expressed as a permission on the special
 `(resource_type='workspace', resource_pattern='*')` slot. Two levels:
 
-- `USE` on `(workspace, *)` is the workspace **member** grant. Holders get
+- `USE` on `(workspace, *)` is the **workspace member** grant. Holders get
   USE-level access (read + use) to every resource in the workspace, plus the
   ability to create experiments and registered models. Per-resource grants
   can upgrade individual rows. A user _without_ this grant doesn't get a
   workspace floor; they only get what their specific resource grants
   provide, or what the [resolution chain](#permission-resolution) returns
   for ungranted resources (typically `NO_PERMISSIONS`).
-- `MANAGE` on `(workspace, *)` is the workspace **admin** grant. Full
+- `MANAGE` on `(workspace, *)` is the **Workspace Manager** grant. Full
   authority within the workspace, including creating roles, granting
   permissions, and managing users assigned to roles in this workspace.
   Cannot perform system-wide operations such as deleting users.
 
 ### Permission resolution
 
-For each authorization check, MLflow evaluates in this order:
+For each authorization check, MLflow evaluates the user's effective
+permission as follows:
 
-1. **Super-admin bypass**: `is_admin = true` short-circuits to allow.
-2. **Role-derived grant on the resource**: the user's roles in the request's
-   workspace are unioned, and every row matching the resource is folded
-   together. The highest-priority permission level wins
-   (`MANAGE` > `EDIT` > `USE` > `READ`).
-3. **Workspace-level grant**: a `(workspace, *, …)` row participates in the
-   same union; it acts as a floor that more-specific resource grants can
-   upgrade but never downgrade.
-4. **Server `default_permission`**: a configured fallback. With workspaces
-   enabled, this only applies to the reserved `default` workspace when
-   `grant_default_workspace_access` is set; otherwise the effective default is
-   deny.
+1. **Platform Admin bypass**: `is_admin = true` short-circuits to allow.
+2. **Role-derived grants**: all of the user's roles in the request's workspace
+   contribute. Every grant that applies to the resource is folded together
+   via a max, and the highest-priority permission wins
+   (`MANAGE` > `EDIT` > `USE` > `READ`). A `(workspace, *, …)` row
+   participates in the same max because it applies to all resources in the
+   workspace, so a workspace-level grant acts as a floor that per-resource
+   grants can upgrade but never downgrade.
+3. **Server `default_permission`**: a configured fallback consulted only when
+   no role-derived grant matches. With workspaces disabled, it always applies.
+   With workspaces enabled, it applies only to the reserved `default`
+   workspace when `grant_default_workspace_access` is set; otherwise the
+   effective default is deny.
 
 ### Identity tiers
 
@@ -210,9 +211,9 @@ admin_role = next(r for r in auth_client.list_roles("ml-research") if r.name == 
 auth_client.assign_role(username="alice", role_id=admin_role.id)
 ```
 
-The role explicitly carries `(workspace, *, MANAGE)`. A named, listable,
-bulk-assignable grant. Unlike the legacy workspace `MANAGE` permission, it does
-not implicitly fan out to every resource type.
+The role explicitly carries `(workspace, *, MANAGE)`, which is a named,
+listable, bulk-assignable grant. Unlike the legacy workspace `MANAGE`
+permission, it does not implicitly fan out to every resource type.
 
 In the admin UI: `/admin` → Users → click `alice` → **Edit access** → in the
 _Role assignments_ section, add `ml-research/admin` → review changes → apply.
@@ -302,7 +303,7 @@ The wire surface and `AuthServiceClient` shape change as follows:
 
 The per-resource path is "deprecated, not removed" so existing scripts keep
 working; new code should use the role API directly. The workspace-permission
-path is fully gone. Calls to those endpoints will 404.
+path is fully gone; calls to those endpoints return 404.
 
 **Behavioral note: owner delegation.** Pre-RBAC, a resource creator with
 `MANAGE` could delegate permissions on that resource to others. Post-RBAC,
