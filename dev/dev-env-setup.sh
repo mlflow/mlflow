@@ -211,7 +211,22 @@ check_and_install_pyenv() {
   fi
 }
 
+check_and_install_uv() {
+  if [ -z "$(command -v uv || true)" ]; then
+    echo "uv is not installed. Installing uv..."
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+    # uv may be installed to ~/.local/bin or ~/.cargo/bin depending on the platform
+    export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
+    if [ -n "$GITHUB_ACTIONS" ]; then
+      echo "$HOME/.local/bin" >>"$GITHUB_PATH"
+      echo "$HOME/.cargo/bin" >>"$GITHUB_PATH"
+    fi
+  fi
+}
+
 check_and_install_min_py_version() {
+  check_and_install_uv
+
   # Get the minimum supported version for development purposes
   min_py_version="3.10"
 
