@@ -1288,10 +1288,6 @@ def test_query_span_metrics_count_by_span_type(store: SqlAlchemyStore):
     ]
     store.log_spans(exp_id, spans)
 
-    with store.ManagedSessionMaker() as session:
-        stored_types = [row[0] for row in session.query(SqlSpan.type).all()]
-        assert '"TOOL"' in stored_types
-
     result = store.query_trace_metrics(
         experiment_ids=[exp_id],
         view_type=MetricViewType.SPANS,
@@ -1906,10 +1902,15 @@ def test_query_span_metrics_with_json_encoded_span_type_filter(store: SqlAlchemy
 
     spans = [
         create_test_span("trace1", "span1", span_id=1, span_type="TOOL", start_ns=1000000000),
+        # Simulate historical malformed data where span type was persisted as a JSON string.
         create_test_span("trace1", "span2", span_id=2, span_type='"TOOL"', start_ns=1100000000),
         create_test_span("trace1", "span3", span_id=3, span_type="LLM", start_ns=1200000000),
     ]
     store.log_spans(exp_id, spans)
+
+    with store.ManagedSessionMaker() as session:
+        stored_types = [row[0] for row in session.query(SqlSpan.type).all()]
+        assert '"TOOL"' in stored_types
 
     result = store.query_trace_metrics(
         experiment_ids=[exp_id],
