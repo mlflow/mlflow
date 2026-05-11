@@ -5,6 +5,8 @@ import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-c
 
 import { AccountApi } from './api';
 import {
+  useCurrentUserAdminWorkspaces,
+  useCurrentUserIsWorkspaceAdmin,
   useCurrentUserQuery,
   useIsAuthAvailable,
   useIsBasicAuth,
@@ -130,5 +132,152 @@ describe('useUserRolesQuery (gated on truthy username)', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(mockedApi.listUserRoles).toHaveBeenCalledWith('pat');
+  });
+});
+
+describe('useCurrentUserIsWorkspaceAdmin', () => {
+  // (workspace, *, MANAGE) → workspace-admin role.
+  const wsAdminRole = {
+    id: 1,
+    name: 'wp-admin-foo',
+    workspace: 'foo',
+    description: '',
+    permissions: [{ id: 10, role_id: 1, resource_type: 'workspace', resource_pattern: '*', permission: 'MANAGE' }],
+  };
+  const memberRole = {
+    id: 2,
+    name: 'foo-member',
+    workspace: 'foo',
+    description: '',
+    permissions: [{ id: 11, role_id: 2, resource_type: 'experiment', resource_pattern: '*', permission: 'READ' }],
+  };
+
+  it('returns false while the queries are still loading', () => {
+    mockedApi.getCurrentUser.mockReturnValueOnce(new Promise(() => {}));
+    const { result } = renderHook(() => useCurrentUserIsWorkspaceAdmin(), {
+      wrapper: makeWrapper(),
+    });
+    expect(result.current).toBe(false);
+    expect(mockedApi.listUserRoles).not.toHaveBeenCalled();
+  });
+
+  it('returns true when the user has at least one workspace-admin role', async () => {
+    mockedApi.getCurrentUser.mockResolvedValueOnce({
+      user: { id: 1, username: 'pat', is_admin: false },
+      is_basic_auth: true,
+    });
+    mockedApi.listUserRoles.mockResolvedValueOnce({ roles: [memberRole, wsAdminRole] });
+
+    const { result } = renderHook(() => useCurrentUserIsWorkspaceAdmin(), {
+      wrapper: makeWrapper(),
+    });
+    await waitFor(() => expect(result.current).toBe(true));
+    expect(mockedApi.listUserRoles).toHaveBeenCalledWith('pat');
+  });
+
+  it('returns false when the user holds only non-admin roles', async () => {
+    mockedApi.getCurrentUser.mockResolvedValueOnce({
+      user: { id: 1, username: 'pat', is_admin: false },
+      is_basic_auth: true,
+    });
+    mockedApi.listUserRoles.mockResolvedValueOnce({ roles: [memberRole] });
+
+    const { result } = renderHook(() => useCurrentUserIsWorkspaceAdmin(), {
+      wrapper: makeWrapper(),
+    });
+    await waitFor(() => expect(mockedApi.listUserRoles).toHaveBeenCalledTimes(1));
+    expect(result.current).toBe(false);
+  });
+
+  it('returns false when the user has no roles at all', async () => {
+    mockedApi.getCurrentUser.mockResolvedValueOnce({
+      user: { id: 1, username: 'pat', is_admin: false },
+      is_basic_auth: true,
+    });
+    mockedApi.listUserRoles.mockResolvedValueOnce({ roles: [] });
+
+    const { result } = renderHook(() => useCurrentUserIsWorkspaceAdmin(), {
+      wrapper: makeWrapper(),
+    });
+    await waitFor(() => expect(mockedApi.listUserRoles).toHaveBeenCalledTimes(1));
+    expect(result.current).toBe(false);
+  });
+});
+
+describe('useCurrentUserAdminWorkspaces', () => {
+  const adminFooRole = {
+    id: 1,
+    name: 'admin-foo',
+    workspace: 'foo',
+    description: '',
+    permissions: [{ id: 10, role_id: 1, resource_type: 'workspace', resource_pattern: '*', permission: 'MANAGE' }],
+  };
+  const adminBarRole = {
+    id: 2,
+    name: 'admin-bar',
+    workspace: 'bar',
+    description: '',
+    permissions: [{ id: 20, role_id: 2, resource_type: 'workspace', resource_pattern: '*', permission: 'MANAGE' }],
+  };
+  const memberRole = {
+    id: 3,
+    name: 'foo-member',
+    workspace: 'foo',
+    description: '',
+    permissions: [{ id: 30, role_id: 3, resource_type: 'experiment', resource_pattern: '*', permission: 'READ' }],
+  };
+
+  it('returns the set of workspaces where the user is a workspace admin', async () => {
+    mockedApi.getCurrentUser.mockResolvedValueOnce({
+      user: { id: 1, username: 'pat', is_admin: false },
+      is_basic_auth: true,
+    });
+    mockedApi.listUserRoles.mockResolvedValueOnce({
+      roles: [adminFooRole, memberRole, adminBarRole],
+    });
+
+    const { result } = renderHook(() => useCurrentUserAdminWorkspaces(), {
+      wrapper: makeWrapper(),
+    });
+    await waitFor(() => expect(result.current.size).toBe(2));
+    expect(result.current.has('foo')).toBe(true);
+    expect(result.current.has('bar')).toBe(true);
+  });
+
+  it('returns an empty set when the user has only non-admin roles', async () => {
+    mockedApi.getCurrentUser.mockResolvedValueOnce({
+      user: { id: 1, username: 'pat', is_admin: false },
+      is_basic_auth: true,
+    });
+    mockedApi.listUserRoles.mockResolvedValueOnce({ roles: [memberRole] });
+
+    const { result } = renderHook(() => useCurrentUserAdminWorkspaces(), {
+      wrapper: makeWrapper(),
+    });
+    await waitFor(() => expect(mockedApi.listUserRoles).toHaveBeenCalledTimes(1));
+    expect(result.current.size).toBe(0);
+  });
+
+  it('skips listUserRoles for platform admins (they short-circuit elsewhere)', async () => {
+    mockedApi.getCurrentUser.mockResolvedValueOnce({
+      user: { id: 1, username: 'admin', is_admin: true },
+      is_basic_auth: true,
+    });
+
+    const { result } = renderHook(() => useCurrentUserAdminWorkspaces(), {
+      wrapper: makeWrapper(),
+    });
+    // Wait for currentUserQuery to resolve, then assert no roles fetch fired.
+    await waitFor(() => expect(mockedApi.getCurrentUser).toHaveBeenCalled());
+    expect(mockedApi.listUserRoles).not.toHaveBeenCalled();
+    expect(result.current.size).toBe(0);
+  });
+
+  it('returns an empty set while the queries are still loading', () => {
+    mockedApi.getCurrentUser.mockReturnValueOnce(new Promise(() => {}));
+    const { result } = renderHook(() => useCurrentUserAdminWorkspaces(), {
+      wrapper: makeWrapper(),
+    });
+    expect(result.current.size).toBe(0);
   });
 });

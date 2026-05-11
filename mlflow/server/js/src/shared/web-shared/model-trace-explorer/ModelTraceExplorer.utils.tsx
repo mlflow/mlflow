@@ -41,7 +41,13 @@ import type {
   ModelTraceLocation,
   ModelTraceInputAudio,
 } from './ModelTrace.types';
-import { ModelSpanType, ModelIconType, MLFLOW_TRACE_SCHEMA_VERSION_KEY, type SpanCostInfo } from './ModelTrace.types';
+import {
+  ModelSpanType,
+  ModelIconType,
+  MLFLOW_TRACE_SCHEMA_VERSION_KEY,
+  SpanLogLevel,
+  type SpanCostInfo,
+} from './ModelTrace.types';
 import { ModelTraceExplorerIcon } from './ModelTraceExplorerIcon';
 import { parseJSONSafe } from './TagUtils';
 import { normalizeAnthropicChatInput, normalizeAnthropicChatOutput } from './chat-utils/anthropic';
@@ -164,6 +170,28 @@ export function tryDeserializeAttribute(value: string): any {
   }
 }
 
+export const SPAN_LOG_LEVEL_ATTRIBUTE_KEY = 'mlflow.spanLogLevel';
+
+// Normalize the raw `mlflow.spanLogLevel` attribute value to a SpanLogLevel.
+// The wire shape varies by endpoint:
+//   - artifact endpoint: JSON-stringified int (e.g. "30")
+//   - V3 traces/get + V4 OTLP: int_value extracted as a JS number (e.g. 30)
+// Returns undefined when the attribute is absent or the value is not numeric.
+export const parseSpanLogLevel = (raw: unknown): SpanLogLevel | undefined => {
+  if (raw === undefined || raw === null) return undefined;
+  const parsed = typeof raw === 'number' ? raw : tryDeserializeAttribute(String(raw));
+  return typeof parsed === 'number' ? (parsed as SpanLogLevel) : undefined;
+};
+
+// Returns the span's classified severity. Spans without an explicit level are
+// treated as DEBUG so that pre-feature traces (no `mlflow.spanLogLevel`
+// attribute) and spans from third-party tracers that don't yet stamp a level
+// remain visible at the default threshold and don't disappear unexpectedly
+// when a user bumps the threshold.
+export const getSpanLogLevel = (node: ModelTraceSpanNode): SpanLogLevel => {
+  return node.logLevel ?? SpanLogLevel.DEBUG;
+};
+
 export const getMatchesFromEvent = (span: ModelTraceSpanNode, searchFilter: string): SearchMatch[] => {
   const events = span.events;
   if (!events) {
@@ -281,9 +309,10 @@ export function searchTree(
   const allSpanTypesSelected = Object.values(spanFilterState.spanTypeDisplayState).every(
     (shouldDisplay) => shouldDisplay,
   );
-  // if there is no search filter and all span types
-  // are selected, then we don't have to do any filtering.
-  if (searchFilterLowercased === '' && allSpanTypesSelected) {
+  // if there is no search filter, all span types are selected, and the log-level
+  // threshold is at the lowest level (DEBUG), no filtering is needed.
+  const logLevelThresholdAtMin = spanFilterState.minLogLevel === SpanLogLevel.DEBUG;
+  if (searchFilterLowercased === '' && allSpanTypesSelected && logLevelThresholdAtMin) {
     return {
       filteredTreeNodes: [rootNode],
       matches: [],
@@ -307,10 +336,11 @@ export function searchTree(
   const spanName = ((rootNode.title as string) ?? '').toLowerCase();
   const spanMatches = getMatchesFromSpan(rootNode, searchFilterLowercased);
 
-  // check if the span passes the text and type filters
+  // check if the span passes the text, type, and log-level filters
   const nodeMatchesSearch = spanMatches.length > 0 || spanName.includes(searchFilterLowercased);
   const spanTypeIsDisplayed = rootNode.type ? spanFilterState.spanTypeDisplayState[rootNode.type] : true;
-  const nodePassesSpanFilters = nodeMatchesSearch && spanTypeIsDisplayed;
+  const spanPassesLogLevel = getSpanLogLevel(rootNode) >= spanFilterState.minLogLevel;
+  const nodePassesSpanFilters = nodeMatchesSearch && spanTypeIsDisplayed && spanPassesLogLevel;
 
   const hasMatchingChild = filteredChildren.length > 0;
   const hasException = getSpanExceptionCount(rootNode) > 0;
@@ -489,6 +519,7 @@ export const normalizeNewSpanData = (
   const linkedGatewayTraceId = tryDeserializeAttribute(
     getSpanAttribute(span.attributes, SPAN_ATTRIBUTE_LINKED_GATEWAY_TRACE_ID_KEY) as string,
   );
+  const logLevel = parseSpanLogLevel(getSpanAttribute(span.attributes, SPAN_LOG_LEVEL_ATTRIBUTE_KEY));
 
   // remove other private mlflow attributes
   const attributes = mapValues(
@@ -526,6 +557,7 @@ export const normalizeNewSpanData = (
     modelName,
     cost,
     linkedGatewayTraceId,
+    logLevel,
   };
 };
 
@@ -688,6 +720,7 @@ export function parseModelTraceToTreeWithMultipleRoots(trace: ModelTrace): Model
 
     // v1 spans
     const spanType = span.span_type ?? ModelSpanType.UNKNOWN;
+    const logLevel = parseSpanLogLevel(getSpanAttribute(span.attributes, SPAN_LOG_LEVEL_ATTRIBUTE_KEY));
     return {
       title: span.name,
       icon: <ModelTraceExplorerIcon type={getIconTypeForSpan(spanType)} />,
@@ -705,6 +738,7 @@ export function parseModelTraceToTreeWithMultipleRoots(trace: ModelTrace): Model
       parentId: span.parent_id ?? span.parent_span_id,
       assessments: [],
       traceId,
+      logLevel,
     };
   }
 

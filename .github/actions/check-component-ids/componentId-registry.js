@@ -566,8 +566,6 @@ module.exports = {
     "",
   codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_components_experiment_page_components_header_experimentviewheaderkindselector_113:
     "",
-  codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_components_traces_quickstart_tracesviewtablenotracesquickstart_46:
-    "",
   "codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_components_traces_quickstart_tracetablequickstart.utils_366":
     "",
   codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_evaluation_runs_experimentevaluationrunstablecellrenderers_284:
@@ -761,6 +759,12 @@ module.exports = {
   "delete-run-modal": "",
   "delete-selected": "",
   "delete-selected-children": "",
+  "dev.user_switcher.admin_tag": "",
+  "dev.user_switcher.clear": "",
+  "dev.user_switcher.error": "",
+  "dev.user_switcher.password_input": "",
+  "dev.user_switcher.password_modal": "",
+  "dev.user_switcher.password_modal.error": "",
   "discovery.data_explorer.entity_comment.show_comment_text_toggle": "",
   "endpoint-tags-section.remove-button": "",
   "eval-tab.delete_traces-modal": "",
@@ -1599,11 +1603,14 @@ module.exports = {
   "mlflow.home.workspaces.edit_modal": "",
   "mlflow.home.workspaces.error": "",
   "mlflow.home.workspaces.last_used_badge": "",
+  "mlflow.home.workspaces.manage_link": "",
+  "mlflow.home.workspaces.manage_tooltip": "",
   "mlflow.home.workspaces.pagination": "",
   "mlflow.home.workspaces.retry": "",
   "mlflow.home.workspaces.workspace_link": "",
   "mlflow.home.workspaces_table.header.artifact_root": "",
   "mlflow.home.workspaces_table.header.description": "",
+  "mlflow.home.workspaces_table.header.manage": "",
   "mlflow.home.workspaces_table.header.name": "",
 
   // -- mlflow.issue-detection --
@@ -1994,6 +2001,21 @@ module.exports = {
   "mlflow.traces.issue-detection.view-issues-button": "",
   "mlflow.traces.issue-detection.view-issues-link": "",
   "mlflow.traces.issue-detection.view-traces-link": "",
+  "mlflow.traces.onboarding.docs_link": "",
+  "mlflow.traces.onboarding.framework_selector": "",
+  "mlflow.traces.onboarding.integrations_link": "",
+  "mlflow.traces.onboarding.language_selector": "",
+  "mlflow.traces.onboarding.npm_link": "",
+  "mlflow.traces.onboarding.otel_docs_link": "",
+  "mlflow.traces.onboarding.step1.connect.copy": "",
+  "mlflow.traces.onboarding.step1.copy": "",
+  "mlflow.traces.onboarding.step1.install.copy": "",
+  "mlflow.traces.onboarding.step1.otel_env.copy": "",
+  "mlflow.traces.onboarding.step2.code.copy": "",
+  "mlflow.traces.onboarding.step2.copy": "",
+  "mlflow.traces.onboarding.step2.install.copy": "",
+  "mlflow.traces.onboarding.step2.otel_code.copy": "",
+  "mlflow.traces.onboarding.step2.otel_install.copy": "",
 
   // -- mlflow.traces-tab --
   "mlflow.traces-tab.trace-count": "",
@@ -2078,6 +2100,7 @@ module.exports = {
   "shared.model-trace-explorer.key-value-tag.link": "",
   "shared.model-trace-explorer.linked_prompts.table.header": "",
   "shared.model-trace-explorer.linked_prompts.table.search": "",
+  "shared.model-trace-explorer.log-level-tooltip": "",
   "shared.model-trace-explorer.next-search-match": "",
   "shared.model-trace-explorer.prev-search-match": "",
   "shared.model-trace-explorer.relevance-assessment-tooltip": "",

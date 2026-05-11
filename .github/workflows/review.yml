@@ -42,11 +42,13 @@ jobs:
        contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association) &&
        startsWith(github.event.comment.body, '/review'))
     steps:
-      - uses: actions/create-github-app-token@f8d387b68d61c58ab83c6c016672934102569859 # v3.0.0
+      - uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
         id: app-token
         with:
-          app-id: ${{ secrets.APP_ID }}
+          client-id: ${{ secrets.APP_CLIENT_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          permission-contents: read
+          permission-pull-requests: write
       - name: React to comment
         if: github.event_name == 'issue_comment'
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
@@ -95,18 +97,40 @@ jobs:
         run: |
           claude --version
 
-      - name: Extract optional prompt from comment
+      - name: Extract optional prompt and model from comment
         if: github.event_name == 'issue_comment'
         id: prompt
         env:
           COMMENT_BODY: ${{ github.event.comment.body }}
         run: |
-          PROMPT=$(echo "$COMMENT_BODY" | sed 's|^/review||')
-          {
-            echo 'prompt<<PROMPT_EOF'
-            echo "$PROMPT"
-            echo 'PROMPT_EOF'
-          } >> "$GITHUB_OUTPUT"
+          cat > /tmp/parse_args.py <<'EOF'
+          import argparse
+          import secrets
+          import sys
+
+          CHOICES = [
+              "opus",
+              "sonnet",
+              "haiku",
+              "claude-opus-4-6",
+              "claude-sonnet-4-6",
+              "claude-haiku-4-5",
+          ]
+
+          body = sys.stdin.read().removeprefix("/review")
+          head, sep, tail = body.partition("\n")
+
+          parser = argparse.ArgumentParser(add_help=False)
+          parser.add_argument("-m", "--model", choices=CHOICES, default="opus")
+          args, leftover = parser.parse_known_args(head.split())
+
+          prompt = " ".join(leftover) + sep + tail
+          # Random delimiter so user input can't terminate the heredoc.
+          delim = f"PROMPT_EOF_{secrets.token_hex(8)}"
+          sys.stdout.write(f"prompt<<{delim}\n{prompt}\n{delim}\nmodel={args.model}\n")
+          EOF
+
+          echo "$COMMENT_BODY" | python /tmp/parse_args.py >> "$GITHUB_OUTPUT"
 
       - name: Review
         id: review
@@ -115,6 +139,7 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
           PROMPT: ${{ steps.prompt.outputs.prompt }}
+          MODEL: ${{ steps.prompt.outputs.model || 'opus' }}
           EVENT_NAME: ${{ github.event_name }}
         run: |
           OUTPUT_FILE="/tmp/output.json"
@@ -129,7 +154,7 @@ jobs:
 
           EXIT_CODE=0
           # Note: ARGS[*] is intentional - claude CLI expects a single prompt string
-          timeout 20m claude --model claude-opus-4-6 --print --verbose --output-format stream-json "${ARGS[*]}" | .claude/scripts/stream.sh "$OUTPUT_FILE" || EXIT_CODE=$?
+          timeout 20m claude --model "$MODEL" --print --verbose --output-format stream-json "${ARGS[*]}" | .claude/scripts/stream.sh "$OUTPUT_FILE" || EXIT_CODE=$?
           if [ "${EXIT_CODE:-0}" -eq 124 ]; then
             echo "Warning: Claude command timed out after 20 minutes"
           elif [ "${EXIT_CODE:-0}" -ne 0 ]; then

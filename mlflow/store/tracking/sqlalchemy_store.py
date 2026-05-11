@@ -4548,6 +4548,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             session_id = None
             user_id = None
             root_span_dict = None
+            trace_tags_from_root_attr: dict[str, str] = {}
             for span in trace_spans:
                 span_dict = translate_span_when_storing(span)
                 span_cost = None
@@ -4609,6 +4610,23 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
                 if span.parent_id is None:
                     root_span_dict = span_dict
+                    # Extract user-defined tags emitted by OtelSpanProcessor as
+                    # individual "mlflow.traceTag.<key>" attributes on the root span (OTLP path).
+                    # from_otel_proto JSON-encodes every attribute value once, so one
+                    # _try_parse_json_string call is sufficient to unwrap the plain string value.
+                    prefix = SpanAttributeKey.TRACE_TAG_PREFIX
+                    for attr_key, attr_value in span_attributes.items():
+                        if attr_key.startswith(prefix):
+                            tag_key = attr_key[len(prefix) :]
+                            tag_value = str(_try_parse_json_string(attr_value))
+                            try:
+                                tag_key, tag_value = _validate_trace_tag(tag_key, tag_value)
+                            except Exception:
+                                _logger.debug(
+                                    "Skipping invalid trace tag from OTLP attribute %r", attr_key
+                                )
+                                continue
+                            trace_tags_from_root_attr[tag_key] = tag_value
 
             trace_aggregates[trace_id] = _TraceAggregate(
                 min_start_ms=min_start_ms,
@@ -4620,6 +4638,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 session_id=session_id,
                 user_id=user_id,
                 root_span_dict=root_span_dict,
+                trace_tags=trace_tags_from_root_attr,
             )
 
         with self.ManagedSessionMaker() as session:
@@ -4899,6 +4918,10 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                         value=SpansLocation.TRACKING_STORE.value,
                     )
                 )
+                # Restore user-defined tags carried via mlflow.traceTag.* attributes on the root
+                # span (set by OtelSpanProcessor when the trace was exported over OTLP).
+                for tag_key, tag_value in agg.trace_tags.items():
+                    session.merge(SqlTraceTag(request_id=trace_id, key=tag_key, value=tag_value))
 
         return spans
 
@@ -7234,6 +7257,8 @@ class _TraceAggregate:
     session_id: str | None = None
     user_id: str | None = None
     root_span_dict: dict[str, Any] | None = None
+    # User-defined tags from mlflow.update_current_trace(tags=...) carried via OTLP export
+    trace_tags: dict[str, str] = field(default_factory=dict)
 
 
 # Maximum number of attempts to create trace_info rows in log_spans() Phase 2.
