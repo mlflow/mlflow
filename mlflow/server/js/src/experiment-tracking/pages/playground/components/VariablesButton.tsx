@@ -1,4 +1,4 @@
-import { Button, CodeIcon, Drawer, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { Button, CodeIcon, Drawer, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { useMemo } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import type { ChatMessage } from '../types';
@@ -16,7 +16,6 @@ export const VariablesButton = ({ messages, value, onChange }: Props) => {
   const intl = useIntl();
 
   const variableNames = useMemo(() => extractTemplateVariables(messages), [messages]);
-  const hasVariables = variableNames.length > 0;
 
   const triggerLabel = (
     <FormattedMessage
@@ -26,38 +25,19 @@ export const VariablesButton = ({ messages, value, onChange }: Props) => {
     />
   );
 
-  const trigger = (
-    <Button
-      componentId="mlflow.playground.variables.drawer.trigger"
-      icon={<CodeIcon />}
-      aria-label={intl.formatMessage({
-        defaultMessage: 'Open variable values',
-        description: 'Aria label for the top-bar button that opens the playground variables drawer',
-      })}
-    >
-      {triggerLabel}
-    </Button>
-  );
-
   return (
     <Drawer.Root>
       <Drawer.Trigger>
-        {hasVariables ? (
-          trigger
-        ) : (
-          <Tooltip
-            componentId="mlflow.playground.variables.drawer.tooltip"
-            content={
-              <FormattedMessage
-                defaultMessage="Add a placeholder like {example} to a message to define a variable."
-                description="Tooltip shown on the playground variables button when no variables are detected"
-                values={{ example: <Typography.Text code>{'{{ name }}'}</Typography.Text> }}
-              />
-            }
-          >
-            {trigger}
-          </Tooltip>
-        )}
+        <Button
+          componentId="mlflow.playground.variables.drawer.trigger"
+          icon={<CodeIcon />}
+          aria-label={intl.formatMessage({
+            defaultMessage: 'Open variable values',
+            description: 'Aria label for the top-bar button that opens the playground variables drawer',
+          })}
+        >
+          {triggerLabel}
+        </Button>
       </Drawer.Trigger>
       <Drawer.Content
         componentId="mlflow.playground.variables.drawer"
@@ -69,8 +49,9 @@ export const VariablesButton = ({ messages, value, onChange }: Props) => {
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
           <Typography.Hint>
             <FormattedMessage
-              defaultMessage="Each placeholder in your messages becomes an input here. Values are substituted into a copy of the messages at submit time; the templates above stay intact."
+              defaultMessage="Wrap a name in {syntax} inside any message to define a variable. Each variable becomes an input here. Values set below will be substituted in at submit time."
               description="Help text inside the playground variables drawer"
+              values={{ syntax: <Typography.Text code>{'{{ }}'}</Typography.Text> }}
             />
           </Typography.Hint>
           <VariablesForm messages={messages} value={value} onChange={onChange} />

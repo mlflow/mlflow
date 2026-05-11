@@ -97,6 +97,7 @@ export const PromptRegistryPicker = ({ visible, onCancel, onLoad }: Props) => {
     >
       <Drawer.Content
         componentId="mlflow.playground.prompt_registry_picker"
+        width={520}
         title={intl.formatMessage({
           defaultMessage: 'Load prompt from registry',
           description: 'Title of the prompt-registry picker drawer on the playground page',

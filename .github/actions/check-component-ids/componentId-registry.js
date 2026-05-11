@@ -1797,7 +1797,6 @@ module.exports = {
   "mlflow.playground.prompt_registry_picker.version": "",
   "mlflow.playground.submit": "",
   "mlflow.playground.variables.drawer": "",
-  "mlflow.playground.variables.drawer.tooltip": "",
   "mlflow.playground.variables.drawer.trigger": "",
   "mlflow.playground.variables.input": "",
 

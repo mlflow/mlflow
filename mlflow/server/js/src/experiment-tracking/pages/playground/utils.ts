@@ -33,3 +33,12 @@ export const substituteVariables = (messages: ChatMessage[], values: Record<stri
     content: message.content.replace(TEMPLATE_VARIABLE_PATTERN, (_, name: string) => values[name] ?? ''),
   }));
 };
+
+/**
+ * Returns the unique declared variable names whose corresponding value is
+ * missing or trims to an empty string. Used to surface a pre-submit warning
+ * when placeholders would silently substitute as `''`.
+ */
+export const getEmptyVariables = (messages: ChatMessage[], values: Record<string, string>): string[] => {
+  return extractTemplateVariables(messages).filter((name) => !(values[name] ?? '').trim());
+};

@@ -32,15 +32,21 @@ export const ParametersButton = ({ value, onChange }: Props) => {
       <Drawer.Content
         componentId="mlflow.playground.params.drawer"
         title={intl.formatMessage({
-          defaultMessage: 'Parameters',
-          description: 'Title of the playground parameters drawer',
+          defaultMessage: 'Settings',
+          description: 'Title of the playground settings drawer',
         })}
       >
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
+          <Typography.Title level={4} withoutMargins>
+            <FormattedMessage
+              defaultMessage="Parameters"
+              description="Section header for sampling parameters inside the playground settings drawer"
+            />
+          </Typography.Title>
           <Typography.Hint>
             <FormattedMessage
               defaultMessage="Leave a field blank to use the provider's default."
-              description="Help text inside the playground parameters drawer"
+              description="Help text inside the playground parameters section of the settings drawer"
             />
           </Typography.Hint>
           <ParametersForm value={value} onChange={onChange} />
