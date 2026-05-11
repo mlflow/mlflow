@@ -1,6 +1,13 @@
+# To test changes to this workflow, open a PR from an upstream branch
+# (forks can't read the app secrets). The pull_request trigger runs the
+# job in dry-run mode — advisories are listed but no PATCH is sent.
 name: advisory-invite
 
 on:
+  schedule:
+    # 09:00 and 15:00 JST (00:00 and 06:00 UTC)
+    - cron: "0 0,6 * * *"
+  workflow_dispatch:
   pull_request:
     paths:
       - .github/workflows/advisory-invite.yml
@@ -13,7 +20,8 @@ jobs:
   invite:
     if: >
       github.repository == 'mlflow/mlflow' &&
-      github.event.pull_request.head.repo.full_name == github.repository
+      (github.event_name != 'pull_request' ||
+       github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-slim
     timeout-minutes: 5
     permissions: {}
@@ -25,13 +33,41 @@ jobs:
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
           permission-repository-advisories: write
 
-      - name: Invite TomeHirata to the latest triage advisory
+      - name: Invite maintainers to all open advisories
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           REPO: ${{ github.repository }}
+          DRY_RUN: ${{ github.event_name == 'pull_request' }}
+          MAINTAINERS: |
+            B-Step62
+            daniellok-db
+            harupy
+            kriscon-db
+            PattaraS
+            serena-ruan
+            TomeHirata
+            WeichenXu123
         run: |
-          ghsa=$(gh api "repos/$REPO/security-advisories?state=triage&per_page=1" --jq '.[0].ghsa_id')
-          users=$(gh api "repos/$REPO/security-advisories/$ghsa" \
-            --jq '[.collaborating_users[].login] + ["TomeHirata"] | unique')
-          jq -n --argjson u "$users" '{collaborating_users: $u}' \
-            | gh api --method PATCH "repos/$REPO/security-advisories/$ghsa" --input -
+          maintainers=$(echo "$MAINTAINERS" | jq -R . | jq -s 'map(select(length > 0))')
+          cutoff=$(date -u -d '1 day ago' +%s)
+
+          for state in triage draft; do
+            gh api "repos/$REPO/security-advisories?state=$state&sort=updated&direction=desc&per_page=100" \
+              --jq ".[] | select((.updated_at | fromdateiso8601) >= $cutoff) | {ghsa_id, current: [.collaborating_users[].login]}" \
+            | while read -r adv; do
+                ghsa=$(jq -r '.ghsa_id' <<<"$adv")
+                merged=$(jq -c --argjson m "$maintainers" '(.current + $m) | unique' <<<"$adv")
+                current=$(jq -c '.current | unique' <<<"$adv")
+                if [ "$merged" = "$current" ]; then
+                  echo "$ghsa ($state): up to date"
+                  continue
+                fi
+                if [ "$DRY_RUN" = "true" ]; then
+                  echo "$ghsa ($state): [dry-run] would invite -> $(jq -r 'join(",")' <<<"$merged")"
+                  continue
+                fi
+                echo "$ghsa ($state): inviting -> $(jq -r 'join(",")' <<<"$merged")"
+                jq -n --argjson users "$merged" '{collaborating_users: $users}' \
+                  | gh api --method PATCH "repos/$REPO/security-advisories/$ghsa" --input - >/dev/null
+              done
+          done
