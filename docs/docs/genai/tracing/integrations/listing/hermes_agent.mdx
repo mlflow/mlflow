@@ -5,6 +5,7 @@ sidebar_position: 11
 sidebar_label: Hermes Agent
 keywords: [hermes agent, hermes, tracing, mlflow, tool calling, otlp, ai agent]
 image: /images/llms/hermes/hermes-agent-trace-detail.png
+
 ---
 
 import ImageBox from "@site/src/components/ImageBox";
@@ -65,7 +66,7 @@ backends:
 
 ### Step 3: (Optional) Point Hermes LLM calls at the MLflow AI Gateway
 
-Update `~/.hermes/config.yaml` so Hermes uses the [MLflow AI Gateway](/genai/governance/ai-gateway/) as the default model provider.  With a small change to your configuration, you get centralized model routing for the same Hermes runs, plus:
+Update `~/.hermes/config.yaml` so Hermes uses the [MLflow AI Gateway](/genai/governance/ai-gateway/) as the default model provider. With a small change to your configuration, you get centralized model routing for the same Hermes runs, plus:
 
 - **Governance** — one place to manage which models Hermes can call
 - **Budgets** — spending limits and alerts for long-running Hermes sessions
