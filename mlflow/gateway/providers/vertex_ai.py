@@ -22,7 +22,7 @@ import json
 from enum import Enum
 from pathlib import Path
 
-from mlflow.gateway.config import EndpointConfig, EndpointType, VertexAIConfig
+from mlflow.gateway.config import EndpointConfig, VertexAIConfig
 from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.anthropic import AnthropicProvider
 from mlflow.gateway.providers.base import BaseProvider
@@ -44,7 +44,7 @@ def _classify_model(model_name: str) -> str:
     name = model_name.lower()
     if name.startswith("claude"):
         return "claude"
-    if "/" in name or name.startswith(_MAAS_PREFIXES):
+    if "/" in name or name.startswith(_MAAS_PREFIXES) or name.endswith("-maas"):
         return "maas"
     return "gemini"
 
@@ -81,7 +81,7 @@ class _VertexAIClaudeProvider(AnthropicProvider):
         return f"{host}{path}"
 
     def get_endpoint_url(self, route_type: str) -> str:
-        if route_type in ("llm/v1/chat", EndpointType.LLM_V1_CHAT):
+        if route_type == "llm/v1/chat":
             return f"{self.base_url}/{self.config.model.name}:rawPredict"
         raise ValueError(f"Unsupported route type for Vertex AI Claude: {route_type}")
 
@@ -207,6 +207,8 @@ class VertexAIProvider(GeminiProvider):
 
     @property
     def base_url(self) -> str:
+        if self._model_type == "maas":
+            return self._delegate._api_base
         project = self.vertex_config.vertex_project
         location = self.vertex_config.vertex_location or "global"
         # Regional endpoints use a "{location}-" prefix; the global endpoint has no prefix.

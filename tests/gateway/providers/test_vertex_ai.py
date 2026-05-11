@@ -277,9 +277,7 @@ async def test_claude_chat_stream_uses_stream_raw_predict_endpoint():
     mock_client = mock_http_client(mock_response)
 
     with mock.patch("aiohttp.ClientSession", return_value=mock_client):
-        payload = chat.RequestPayload(
-            messages=[{"role": "user", "content": "Hello"}], stream=True
-        )
+        payload = chat.RequestPayload(messages=[{"role": "user", "content": "Hello"}], stream=True)
         chunks = [chunk async for chunk in provider.chat_stream(payload)]
 
     assert len(chunks) > 0
@@ -349,8 +347,9 @@ async def test_maas_chat_uses_openai_format():
     }
 
     with (
-        mock.patch("aiohttp.ClientSession.post", return_value=MockAsyncResponse(openai_resp))
-        as mock_post,
+        mock.patch(
+            "aiohttp.ClientSession.post", return_value=MockAsyncResponse(openai_resp)
+        ) as mock_post,
     ):
         payload = chat.RequestPayload(messages=[{"role": "user", "content": "Hello"}])
         response = await provider.chat(payload)
@@ -392,9 +391,7 @@ def test_maas_get_endpoint_url():
 async def test_claude_completions_raises_gateway_exception():
     provider = _make_claude_provider()
     with pytest.raises(AIGatewayException, match="completions endpoint is not supported"):
-        await provider.completions(
-            completions.RequestPayload(prompt="hello", max_tokens=10)
-        )
+        await provider.completions(completions.RequestPayload(prompt="hello", max_tokens=10))
 
 
 def test_with_credentials():
