@@ -214,12 +214,19 @@ check_and_install_pyenv() {
 check_and_install_uv() {
   if [ -z "$(command -v uv || true)" ]; then
     echo "uv is not installed. Installing uv..."
-    curl -LsSf https://astral.sh/uv/install.sh | sh
+    UV_INSTALLER=$(mktemp)
+    curl -LsSf https://astral.sh/uv/install.sh -o "$UV_INSTALLER"
+    sh "$UV_INSTALLER"
+    rm -f "$UV_INSTALLER"
     # uv may be installed to ~/.local/bin or ~/.cargo/bin depending on the platform
     export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
     if [ -n "$GITHUB_ACTIONS" ]; then
       echo "$HOME/.local/bin" >>"$GITHUB_PATH"
       echo "$HOME/.cargo/bin" >>"$GITHUB_PATH"
+    fi
+    if [ -z "$(command -v uv || true)" ]; then
+      echo "Failed to install uv. Please install it manually: https://docs.astral.sh/uv/getting-started/installation/"
+      exit 1
     fi
   fi
 }
