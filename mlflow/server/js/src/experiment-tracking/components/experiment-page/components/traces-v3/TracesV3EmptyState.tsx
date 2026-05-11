@@ -2,6 +2,7 @@ import { useMonitoringFilters } from '@mlflow/mlflow/src/experiment-tracking/hoo
 import {
   createTraceLocationForExperiment,
   GenAITracesTableBodySkeleton,
+  invalidateMlflowSearchTracesCache,
   useSearchMlflowTraces,
   isSqlWarehouseTimeoutError,
 } from '@databricks/web-shared/genai-traces-table';
@@ -9,8 +10,9 @@ import { FormattedMessage } from '@databricks/i18n';
 import { Button, DangerIcon, Empty, ParagraphSkeleton, SearchIcon } from '@databricks/design-system';
 import { getNamedDateFilters } from './utils/dateUtils';
 import { useGetExperimentQuery } from '@mlflow/mlflow/src/experiment-tracking/hooks/useExperimentQuery';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useIntl } from '@databricks/i18n';
+import { useQueryClient } from '@databricks/web-shared/query-client';
 import {
   useExperimentKind,
   isGenAIExperimentKind,
@@ -21,6 +23,8 @@ import {
   type ModelTraceSearchLocation,
 } from '@databricks/web-shared/model-trace-explorer';
 
+const EMPTY_STATE_POLL_INTERVAL_MS = 5000;
+
 export const TracesV3EmptyState = (props: {
   traceSearchLocations: ModelTraceSearchLocation[];
   experimentIds: string[];
@@ -30,6 +34,7 @@ export const TracesV3EmptyState = (props: {
   const { experimentIds, traceSearchLocations, loggedModelId, isCallDisabled } = props;
 
   const intl = useIntl();
+  const queryClient = useQueryClient();
 
   const {
     data: traces,
@@ -41,7 +46,22 @@ export const TracesV3EmptyState = (props: {
     limit: 1,
     ...(loggedModelId ? { filterByLoggedModelId: loggedModelId } : {}),
     disabled: isCallDisabled,
+    // Poll while the empty state is visible so it auto-resolves once the
+    // first trace is ingested. The component unmounts as soon as the parent
+    // metadata query reports `isEmpty=false`, which stops the interval.
+    refetchInterval: isCallDisabled ? false : EMPTY_STATE_POLL_INTERVAL_MS,
   });
+
+  const hasAnyTraces = Boolean(traces && traces.length > 0);
+
+  // When polling detects the first ingested trace, invalidate the shared search
+  // traces cache so the parent metadata query re-fetches and swaps the empty
+  // state for the populated table.
+  useEffect(() => {
+    if (hasAnyTraces) {
+      invalidateMlflowSearchTracesCache({ queryClient });
+    }
+  }, [hasAnyTraces, queryClient]);
 
   // check experiment tags to see if it's genai or custom
   const { data: experimentEntity, loading: isExperimentLoading } = useGetExperimentQuery({
@@ -51,8 +71,6 @@ export const TracesV3EmptyState = (props: {
   const experimentKind = useExperimentKind(experiment?.tags);
 
   const isGenAIExperiment = experimentKind ? isGenAIExperimentKind(experimentKind) : false;
-
-  const hasMoreTraces = traces && traces.length > 0;
 
   const [monitoringFilters, setMonitoringFilters] = useMonitoringFilters({
     persist: shouldEnableTracesTableStatePersistence(),
@@ -92,7 +110,7 @@ export const TracesV3EmptyState = (props: {
     );
   }
 
-  if (hasMoreTraces) {
+  if (hasAnyTraces) {
     const image = <SearchIcon />;
     const description = (
       <FormattedMessage
