@@ -1355,8 +1355,9 @@ auth_client.update_user_admin(username="user1", is_admin=True)
 MLflow provides <Link to="/api_reference/auth/rest-api.html#create-user" target="_blank">REST APIs</Link>
 and a client class <APILink fn="mlflow.server.auth.client.AuthServiceClient">`AuthServiceClient`</APILink> to manage users and permissions.
 Permissions are granted via roles; see [Role-Based Access Control](/self-hosting/security/role-based-access-control)
-for the full model and the per-scenario examples (one-off direct grants, team
-roles, workspace admins, onboarding). For workspace-scoped permissions, see
+for the full model and the per-scenario examples (one-off direct grants,
+team roles, promoting a user to Workspace Manager, onboarding). For
+workspace-scoped permissions, see
 [Workspace Permissions](/self-hosting/workspaces/permissions).
 To instantiate `AuthServiceClient`, use <APILink fn="mlflow.server.get_app_client" />.
 

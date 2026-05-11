@@ -16,12 +16,17 @@ A workspace-level grant is a permission on the special
 applies to **every resource type** in that workspace (experiments, registered
 models, prompts, AI Gateway resources). Two levels are grantable:
 
-- `USE`: workspace **member**. Provides USE-level access (read + use) to
-  resources in the workspace and the ability to create new experiments and
-  registered models. Per-resource grants can upgrade individual rows.
-- `MANAGE`: workspace **admin**. Full authority within the workspace,
-  including granting permissions to other users via roles in this workspace.
-  Cannot perform system-wide operations like deleting users.
+- `USE` on `(workspace, *)` is the workspace **member** grant. Holders get
+  USE-level access (read + use) to every resource in the workspace, plus
+  the ability to create new experiments and registered models. Per-resource
+  grants can upgrade individual rows. A user _without_ this grant doesn't
+  get a workspace floor; they only get what their specific resource grants
+  provide.
+- `MANAGE` on `(workspace, *)` is the workspace **admin** grant; the admin
+  UI calls these users **Workspace Managers**. Full authority within the
+  workspace, including granting permissions to other users via roles in
+  this workspace. Cannot perform system-wide operations like deleting
+  users.
 
 Workspace-level grants act as a **fallback**: if a user has no explicit
 resource-level permission for a resource, MLflow falls back to the workspace
@@ -69,10 +74,10 @@ roles instead of the seeded `<workspace>/user` role.
 When `MLFLOW_RBAC_SEED_DEFAULT_ROLES` is on (it is, by default), MLflow seeds
 two roles into every newly created workspace:
 
-| Role    | Permission               | Intent           |
-| ------- | ------------------------ | ---------------- |
-| `admin` | `(workspace, *, MANAGE)` | Workspace admin  |
-| `user`  | `(workspace, *, USE)`    | Workspace member |
+| Role    | Permission               | Intent            |
+| ------- | ------------------------ | ----------------- |
+| `admin` | `(workspace, *, MANAGE)` | Workspace Manager |
+| `user`  | `(workspace, *, USE)`    | Workspace member  |
 
 The user who creates a workspace is automatically assigned its seeded `admin`
 role. See <Link to="/self-hosting/security/role-based-access-control#default-roles">Default roles</Link>
@@ -88,8 +93,8 @@ seeded `user` and `admin` roles cover the common cases.
 
 - Workspaces enabled (`--enable-workspaces`)
 - Authentication enabled (`--app-name basic-auth`)
-- Either super-admin privileges, or an existing workspace-admin role on the
-  target workspace (so you can manage role assignments there)
+- Either Platform Admin privileges, or an existing Workspace Manager role
+  on the target workspace (so you can manage role assignments there)
 
 ### Make a user a workspace member
 
@@ -109,7 +114,7 @@ user_role = next(r for r in auth_client.list_roles("team-a") if r.name == "user"
 auth_client.assign_role(username="alice", role_id=user_role.id)
 ```
 
-### Make a user a workspace admin
+### Make a user a Workspace Manager
 
 ```python
 admin_role = next(r for r in auth_client.list_roles("team-a") if r.name == "admin")
@@ -135,7 +140,7 @@ auth_client.unassign_role(username="alice", role_id=user_role.id)
   workspace in the list.
 - Direct resource permissions without a workspace-level grant do **not** make a
   workspace visible. The user can still access the specific resource directly.
-- Super admins see every workspace.
+- Platform Admins see every workspace.
 - If `grant_default_workspace_access=true`, the reserved `default` workspace
   is also visible (and inherits `default_permission`).
 
@@ -174,9 +179,10 @@ If users hit permission-denied errors:
        print(r.workspace, r.name)
    ```
 
-2. Check whether a more specific direct permission on that resource grants only
-   `READ` when the user is trying to update. Specific resource grants win over
-   the workspace-level grant.
+2. Confirm the operation needs more than `USE` (e.g., `EDIT` / `MANAGE`).
+   The resolver folds every matching grant and takes the highest-priority
+   permission level, so a workspace `USE` grant is the floor; if no
+   per-resource grant upgrades it, write operations are denied.
 3. Verify the workspace exists and the role is assigned in the right workspace.
 
 ### Workspace not visible in `list_workspaces()`

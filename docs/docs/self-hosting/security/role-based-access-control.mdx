@@ -80,13 +80,17 @@ workspace-level grant and trying to except the resource.
 Workspace-wide access is expressed as a permission on the special
 `(resource_type='workspace', resource_pattern='*')` slot. Two levels:
 
-- `USE`: workspace **member**. Provides USE-level access (read + use) to
-  resources in the workspace and the ability to create experiments and
-  registered models. Concrete capabilities follow the `USE` row of the
-  permission table, and per-resource grants can upgrade individual rows.
-- `MANAGE`: workspace **admin**. Full authority within the workspace, including
-  creating roles, granting permissions, and managing users assigned to roles in
-  this workspace. Cannot perform system-wide operations such as deleting users.
+- `USE` on `(workspace, *)` is the workspace **member** grant. Holders get
+  USE-level access (read + use) to every resource in the workspace, plus the
+  ability to create experiments and registered models. Per-resource grants
+  can upgrade individual rows. A user _without_ this grant doesn't get a
+  workspace floor; they only get what their specific resource grants
+  provide, or what the [resolution chain](#permission-resolution) returns
+  for ungranted resources (typically `NO_PERMISSIONS`).
+- `MANAGE` on `(workspace, *)` is the workspace **admin** grant. Full
+  authority within the workspace, including creating roles, granting
+  permissions, and managing users assigned to roles in this workspace.
+  Cannot perform system-wide operations such as deleting users.
 
 ### Permission resolution
 
@@ -107,11 +111,14 @@ For each authorization check, MLflow evaluates in this order:
 
 ### Identity tiers
 
-| Tier            | How it's expressed                          | Capability                                                                  |
-| --------------- | ------------------------------------------- | --------------------------------------------------------------------------- |
-| Super admin     | `is_admin = true` on the user row           | Unrestricted system-wide. Sole bearer of user delete + bulk operations.     |
-| Workspace admin | Holds `(workspace, *, MANAGE)` via any role | Full authority within those workspaces; can manage roles, users, and grants |
-| Regular user    | Any other authenticated identity            | Authorization flows through role-derived permissions only                   |
+The admin UI uses **Platform Admin** for the first tier and **Workspace
+Manager** for the second; the doc uses the same labels.
+
+| Tier              | How it's expressed                          | Capability                                                                     |
+| ----------------- | ------------------------------------------- | ------------------------------------------------------------------------------ |
+| Platform Admin    | `is_admin = true` on the user row           | Unrestricted system-wide. Sole bearer of user delete and bulk operations.      |
+| Workspace Manager | Holds `(workspace, *, MANAGE)` via any role | Full authority within those workspaces; can manage roles, users, and grants.   |
+| Regular user      | Any other authenticated identity            | No admin UI access; authorization flows through role-derived permissions only. |
 
 ## Common scenarios
 
@@ -121,8 +128,8 @@ role) and add users to it, or grant a one-off **direct permission** to a single
 user. Both flows live behind the same admin UI modals. There's no separate
 "Assign user" or "Grant permission" button.
 
-The examples below assume you've authenticated as a super admin or as a
-workspace admin of `ml-research`.
+The examples below assume you've authenticated as a Platform Admin or as a
+Workspace Manager of `ml-research`.
 
 ```python
 from mlflow.server import get_app_client
@@ -191,11 +198,11 @@ In the admin UI: `/admin` → Roles → **Create role** → resource type
 `experiment`, pattern `*` (rendered as "All experiments"), permission `READ`;
 add the team in the _Assigned users_ section → Create.
 
-### 4. Make a user a workspace admin
+### 4. Make a user a Workspace Manager
 
 Each newly created workspace is automatically seeded with a default `admin`
 role (and a `user` role). See [Default roles](#default-roles). Promoting a
-user to workspace admin means assigning the seeded `admin` role:
+user to Workspace Manager means assigning the seeded `admin` role:
 
 ```python
 # The seeded ``admin`` role lives in the same workspace; look it up by name.
@@ -229,12 +236,13 @@ result is identical.
 The admin UI is the operator-facing surface for everything above. It's reached
 from two entry points:
 
-- **Platform admins** (`is_admin = true`) navigate to `/admin` via the sidebar
-  `Manage` entry. The page renders cross-workspace: every user in the system,
-  every role in every workspace.
-- **Workspace admins** click a gear icon on the home-page workspaces table
-  next to a workspace they administer. The link lands at `/admin/ws?workspace=<name>`
-  . The per-workspace view, scoped to roles and users they can see.
+- **Platform Admins** (`is_admin = true`) navigate to `/admin` via the
+  sidebar `Manage` entry. The page renders cross-workspace: every user in
+  the system, every role in every workspace.
+- **Workspace Managers** click a gear icon on the home-page workspaces table
+  next to a workspace they administer. The link lands at
+  `/admin/ws?workspace=<name>`, the per-workspace view scoped to roles and
+  users they can see.
 
 Both views share the same layout: a **Users** tab and a **Roles** tab.
 
@@ -242,16 +250,16 @@ Both views share the same layout: a **Users** tab and a **Roles** tab.
 
 Lists every user, each row showing their visible roles. Click a username to
 open the user detail page, then **Edit access** to manage that user's roles,
-direct permissions, and admin status (platform-admin-only). Changes are
+direct permissions, and admin status (Platform Admins only). Changes are
 previewed in a Review step before they're applied.
 
 ### Roles tab
 
-Lists roles in the active scope (all roles for platform admins; the active
-workspace's roles for workspace admins). **Create role** opens a single-page
-form with three sections (_Role details_, _Permissions_, _Assigned users_)
-and submits them in one shot. **Edit role** on the role detail page mirrors
-the same shape.
+Lists roles in the active scope (all roles for Platform Admins; the active
+workspace's roles for Workspace Managers). **Create role** opens a
+single-page form with three sections (_Role details_, _Permissions_,
+_Assigned users_) and submits them in one shot. **Edit role** on the role
+detail page mirrors the same shape.
 
 ## Default roles
 
@@ -260,7 +268,7 @@ two roles into every newly created workspace:
 
 | Role    | Permission               | Intent                                                                                       |
 | ------- | ------------------------ | -------------------------------------------------------------------------------------------- |
-| `admin` | `(workspace, *, MANAGE)` | Workspace administrator. Full authority within the workspace.                                |
+| `admin` | `(workspace, *, MANAGE)` | Workspace Manager. Full authority within the workspace.                                      |
 | `user`  | `(workspace, *, USE)`    | Member. Reads every resource in the workspace; can create experiments and registered models. |
 
 The user who creates the workspace is automatically assigned the seeded `admin`
@@ -298,10 +306,10 @@ path is fully gone. Calls to those endpoints will 404.
 
 **Behavioral note: owner delegation.** Pre-RBAC, a resource creator with
 `MANAGE` could delegate permissions on that resource to others. Post-RBAC,
-delegation requires a workspace admin (any role with `(workspace, *, MANAGE)`)
-or a super admin. If your deployment relied on owner-delegation, either
-elevate the relevant users to workspace admins or treat permission delegation
-as an admin operation going forward.
+delegation requires a Workspace Manager (any role with
+`(workspace, *, MANAGE)`) or a Platform Admin. If your deployment relied on
+owner-delegation, either elevate the relevant users to Workspace Managers
+or treat permission delegation as an admin operation going forward.
 
 ## API reference
 
