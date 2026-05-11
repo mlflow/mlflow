@@ -1,5 +1,6 @@
 import json
 import pathlib
+import pickle
 
 import numpy as np
 import pandas as pd
@@ -114,3 +115,31 @@ def test_infer_artifact_type_and_ext_raise_exception_for_unsupported_ext(tmp_pat
         match=f"with path '{path}' does not match any of the supported file extensions",
     ):
         _infer_artifact_type_and_ext("invalid_ext_artifact", path, cm_fn_tuple)
+
+
+@pytest.mark.parametrize("allow_pickle", ["true", None])
+def test_pickle_evaluation_artifact_load_allowed(tmp_path, monkeypatch, allow_pickle):
+    if allow_pickle is None:
+        monkeypatch.delenv("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", raising=False)
+    else:
+        monkeypatch.setenv("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", allow_pickle)
+
+    payload = {"a": 1, "b": [1, 2, 3]}
+    pickle_path = tmp_path / "artifact.pickle"
+    with open(pickle_path, "wb") as f:
+        pickle.dump(payload, f)
+
+    artifact = PickleEvaluationArtifact(uri=str(pickle_path))
+    assert artifact._load_content_from_file(str(pickle_path)) == payload
+
+
+def test_pickle_evaluation_artifact_load_disallowed(tmp_path, monkeypatch):
+    monkeypatch.setenv("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", "false")
+
+    pickle_path = tmp_path / "artifact.pickle"
+    with open(pickle_path, "wb") as f:
+        pickle.dump({"a": 1}, f)
+
+    artifact = PickleEvaluationArtifact(uri=str(pickle_path))
+    with pytest.raises(MlflowException, match="MLFLOW_ALLOW_PICKLE_DESERIALIZATION"):
+        artifact._load_content_from_file(str(pickle_path))

@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
+from mlflow.environment_variables import MLFLOW_ALLOW_PICKLE_DESERIALIZATION
 from mlflow.exceptions import MlflowException
 from mlflow.models.evaluation.base import EvaluationArtifact
 from mlflow.utils.annotations import developer_stable
@@ -88,6 +89,15 @@ class PickleEvaluationArtifact(EvaluationArtifact):
             pickle.dump(self._content, f)
 
     def _load_content_from_file(self, local_artifact_path):
+        if not MLFLOW_ALLOW_PICKLE_DESERIALIZATION.get():
+            raise MlflowException(
+                "Deserializing evaluation artifact using pickle is disallowed. The "
+                f"artifact at '{local_artifact_path}' is stored in pickle format, which "
+                "can execute arbitrary code during deserialization. To allow loading "
+                "this artifact, set the environment variable "
+                "'MLFLOW_ALLOW_PICKLE_DESERIALIZATION' to 'true', and only do so if the "
+                "artifact source is trusted."
+            )
         with open(local_artifact_path, "rb") as f:
             self._content = pickle.load(f)
         return self._content
