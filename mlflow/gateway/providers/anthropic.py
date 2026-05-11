@@ -488,7 +488,7 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
 
     @property
     def base_url(self) -> str:
-        return "https://api.anthropic.com/v1"
+        return self.anthropic_config.anthropic_api_base
 
     @property
     def adapter_class(self) -> type[ProviderAdapter]:
