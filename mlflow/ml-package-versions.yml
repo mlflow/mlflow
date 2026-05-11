@@ -765,9 +765,11 @@ llama_index:
   models:
     # New event/span framework is fully implemented in 0.10.44
     minimum: "0.12.35"
-    # 0.14.18+ requires llama-index-llms-openai>=0.7 which conflicts with
-    # llama-index-llms-databricks (requires llama-index-llms-openai-like<0.6)
     maximum: "0.14.16"
+    unsupported:
+      # 0.14.17+ requires llama-index-llms-openai>=0.7 which conflicts with
+      # llama-index-llms-databricks (requires llama-index-llms-openai-like<0.6)
+      - ">= 0.14.17"
     requirements:
       ">= 0.0.0": [
           # Versions 1.99.2 - 1.99.8 contain regressions:
@@ -785,9 +787,11 @@ llama_index:
     run: pytest tests/llama_index --ignore tests/llama_index/test_llama_index_autolog.py --ignore tests/llama_index/test_llama_index_tracer.py
   autologging:
     minimum: "0.12.35"
-    # 0.14.18+ requires llama-index-llms-openai>=0.7 (openai 2.x), breaking
-    # the test setup which relies on OPENAI_API_BASE and openai 1.x behavior
     maximum: "0.14.16"
+    unsupported:
+      # 0.14.17+ requires llama-index-llms-openai>=0.7 (openai 2.x), breaking
+      # the test setup which relies on OPENAI_API_BASE and openai 1.x behavior
+      - ">= 0.14.17"
     requirements:
       ">= 0.0.0": [
           # Versions 1.99.2 - 1.99.8 contain regressions:
