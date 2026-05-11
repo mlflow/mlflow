@@ -7,6 +7,8 @@ import userEvent from '@testing-library/user-event';
 import { MlflowService } from '../../sdk/MlflowService';
 import { getExperimentApi, updateExperimentApi } from '../../actions';
 import Utils from '../../../common/utils/Utils';
+import { ErrorCodes } from '../../../common/constants';
+import { ErrorWrapper } from '../../../common/utils/ErrorWrapper';
 
 jest.mock('../../actions', () => ({
   getExperimentApi: jest.fn(() => ({ type: 'action', meta: {}, payload: Promise.resolve({}) })),
@@ -22,7 +24,11 @@ describe('RenameExperimentModal', () => {
   beforeEach(() => {
     jest.mocked(updateExperimentApi).mockClear();
     jest.mocked(getExperimentApi).mockClear();
-    jest.spyOn(MlflowService, 'getExperimentByName').mockImplementation(() => Promise.reject({} as any));
+    jest
+      .spyOn(MlflowService, 'getExperimentByName')
+      .mockImplementation(() =>
+        Promise.reject(new ErrorWrapper({ error_code: ErrorCodes.RESOURCE_DOES_NOT_EXIST, message: 'not found' }, 404)),
+      );
     jest.spyOn(Utils, 'logErrorAndNotifyUser');
     jest.clearAllMocks();
   });
