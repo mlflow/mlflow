@@ -254,6 +254,14 @@ check_and_install_min_py_version() {
   # Install the Python version if it cannot be found
   pyenv install -s "$PY_INSTALL_VERSION"
   pyenv local "$PY_INSTALL_VERSION"
+  # Add pyenv shims to PATH so uv and other tools resolve the pyenv-managed
+  # Python (e.g., 3.10.13) rather than the system Python (which may be
+  # PEP 668 externally managed on Ubuntu 24.04+).
+  PYENV_SHIMS="${PYENV_ROOT:-$HOME/.pyenv}/shims"
+  export PATH="$PYENV_SHIMS:$PATH"
+  if [ -n "$GITHUB_ACTIONS" ]; then
+    echo "$PYENV_SHIMS" >>"$GITHUB_PATH"
+  fi
   uv pip install --system $(quiet_command) --upgrade pip
   uv pip install --system $(quiet_command) virtualenv
 }
