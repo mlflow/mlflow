@@ -74,7 +74,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "0.12.35",
-            "maximum": "0.13.6"
+            "maximum": "0.14.16"
         }
     },
     "ag2": {
