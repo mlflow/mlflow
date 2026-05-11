@@ -177,6 +177,19 @@ def _fetch_project(uri, version=None):
 
 def _unzip_repo(zip_file, dst_dir):
     with zipfile.ZipFile(zip_file) as zip_in:
+        for member in zip_in.infolist():
+            member_path = member.filename.replace("\\", "/")
+            if posixpath.isabs(member_path):
+                raise ExecutionException(
+                    f"Absolute path destination in the zip file is not allowed, "
+                    f"but got {member.filename}."
+                )
+            normalized = posixpath.normpath(member_path)
+            if normalized == ".." or normalized.startswith("../"):
+                raise ExecutionException(
+                    f"Relative path that escapes the extraction directory is not "
+                    f"allowed, but got {member.filename}."
+                )
         zip_in.extractall(dst_dir)
 
 
