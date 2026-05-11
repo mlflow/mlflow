@@ -698,10 +698,6 @@ def run(
     # Link traces to the run if the backend support it
     batch_link_traces_to_run(run_id=run_id, eval_results=eval_results)
 
-    # Refresh traces on eval_results to include all logged assessments.
-    # This is done once after all assessments (single-turn and multi-turn) are logged to the traces.
-    _refresh_eval_result_traces(eval_results)
-
     # Aggregate scorer stats from single-turn results
     for result in eval_results:
         if result is not None:
@@ -967,36 +963,6 @@ def _log_assessments(
             _logger.debug(f"No root span found for trace {trace.info.trace_id}")
 
         mlflow.log_assessment(trace_id=assessment.trace_id, assessment=assessment)
-
-
-def _refresh_eval_result_traces(eval_results: list[EvalResult]) -> None:
-    """
-    Refresh traces on eval_results to include logged assessments.
-
-    This function fetches the updated traces from the backend after all assessments
-    (both single-turn and multi-turn) have been logged.
-    """
-
-    def _fetch_trace(eval_result: EvalResult):
-        if eval_result.eval_item.trace is None:
-            return None
-        trace_id = eval_result.eval_item.trace.info.trace_id
-        try:
-            return eval_result, mlflow.get_trace(trace_id)
-        except Exception as e:
-            _logger.warning(f"Failed to refresh trace {trace_id}: {e}")
-            return None
-
-    with ThreadPoolExecutor(
-        max_workers=MLFLOW_GENAI_EVAL_MAX_WORKERS.get(),
-        thread_name_prefix="GenAIEvaluationTraceRefresh",
-    ) as executor:
-        futures = [executor.submit(_fetch_trace, er) for er in eval_results]
-        for future in as_completed(futures):
-            result = future.result()
-            if result is not None:
-                eval_result, refreshed_trace = result
-                eval_result.eval_item.trace = refreshed_trace
 
 
 def _should_clone_trace(
