@@ -2818,6 +2818,41 @@ def test_list_endpoint_guardrail_configs(store: SqlAlchemyStore):
         assert config.guardrail.stage == GuardrailStage.BEFORE
 
 
+def test_list_endpoint_guardrail_configs_null_order_sorts_last(store: SqlAlchemyStore):
+    scorer = _create_scorer(store)
+    endpoint = _create_gateway_endpoint(store, f"gr-null-last-{uuid.uuid4().hex[:8]}")
+
+    guardrail_with_order = store.create_gateway_guardrail(
+        name="test-guardrail-with-order",
+        scorer_id=scorer.scorer_id,
+        scorer_version=scorer.scorer_version,
+        stage=GuardrailStage.BEFORE,
+        action=GuardrailAction.VALIDATION,
+    )
+    guardrail_null_order = store.create_gateway_guardrail(
+        name="test-guardrail-null-order",
+        scorer_id=scorer.scorer_id,
+        scorer_version=scorer.scorer_version,
+        stage=GuardrailStage.BEFORE,
+        action=GuardrailAction.VALIDATION,
+    )
+
+    store.add_guardrail_to_endpoint(
+        endpoint_id=endpoint.endpoint_id,
+        guardrail_id=guardrail_null_order.guardrail_id,
+    )
+    store.add_guardrail_to_endpoint(
+        endpoint_id=endpoint.endpoint_id,
+        guardrail_id=guardrail_with_order.guardrail_id,
+        execution_order=5,
+    )
+
+    configs = store.list_endpoint_guardrail_configs(endpoint.endpoint_id)
+    assert len(configs) == 2
+    assert configs[0].execution_order == 5
+    assert configs[1].execution_order is None
+
+
 def test_list_endpoint_guardrail_configs_empty(store: SqlAlchemyStore):
     endpoint = _create_gateway_endpoint(store, f"gr-empty-{uuid.uuid4().hex[:8]}")
     configs = store.list_endpoint_guardrail_configs(endpoint.endpoint_id)
