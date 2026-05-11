@@ -1,5 +1,5 @@
 import { Button, Header, PlayIcon, Spacer, useDesignSystemTheme } from '@databricks/design-system';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { ScrollablePageWrapper } from '../../../common/components/ScrollablePageWrapper';
 import ErrorUtils from '../../../common/utils/ErrorUtils';
@@ -9,7 +9,7 @@ import { PlaygroundTopBar } from './components/PlaygroundTopBar';
 import { PromptInputPanel } from './components/PromptInputPanel';
 import { PromptRegistryPicker } from './components/PromptRegistryPicker';
 import { useChatCompletionMutation } from './hooks/useChatCompletionMutation';
-import type { ChatMessage, PlaygroundParams } from './types';
+import type { ChatMessage, PlaygroundParams, ResponseFormat, ResponseFormatType } from './types';
 import { substituteVariables } from './utils';
 
 const EMPTY_USER_MESSAGE: ChatMessage = { role: 'user', content: '' };
@@ -20,16 +20,61 @@ const PlaygroundPage = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([{ ...EMPTY_USER_MESSAGE }]);
   const [params, setParams] = useState<PlaygroundParams>({});
   const [variables, setVariables] = useState<Record<string, string>>({});
+  const [toolsText, setToolsText] = useState<string>('');
+  const [responseFormatType, setResponseFormatType] = useState<ResponseFormatType>('text');
+  const [responseFormatSchemaText, setResponseFormatSchemaText] = useState<string>('');
   const [showRegistryPicker, setShowRegistryPicker] = useState(false);
 
   const { mutate, data, error, isLoading } = useChatCompletionMutation();
 
+  const toolsError = useMemo(() => {
+    if (!toolsText.trim()) {
+      return null;
+    }
+    try {
+      const parsed = JSON.parse(toolsText);
+      if (!Array.isArray(parsed)) {
+        return 'Tools must be a JSON array';
+      }
+      return null;
+    } catch (e) {
+      return e instanceof Error ? e.message : 'Invalid JSON';
+    }
+  }, [toolsText]);
+
+  const responseFormatSchemaError = useMemo(() => {
+    if (responseFormatType !== 'json_schema') {
+      return null;
+    }
+    if (!responseFormatSchemaText.trim()) {
+      return 'Schema is required';
+    }
+    try {
+      JSON.parse(responseFormatSchemaText);
+      return null;
+    } catch (e) {
+      return e instanceof Error ? e.message : 'Invalid JSON';
+    }
+  }, [responseFormatType, responseFormatSchemaText]);
+
   const canSubmit =
-    Boolean(endpointName) && messages.length > 0 && messages.some((m) => m.content.trim().length > 0) && !isLoading;
+    Boolean(endpointName) &&
+    messages.length > 0 &&
+    messages.some((m) => m.content.trim().length > 0) &&
+    !toolsError &&
+    !responseFormatSchemaError &&
+    !isLoading;
 
   const handleSubmit = () => {
     if (!canSubmit) {
       return;
+    }
+    const tools = toolsText.trim() ? (JSON.parse(toolsText) as unknown[]) : undefined;
+    let response_format: ResponseFormat | undefined;
+    if (responseFormatType === 'json_object') {
+      response_format = { type: 'json_object' };
+    } else if (responseFormatType === 'json_schema') {
+      response_format = { type: 'json_schema', json_schema: JSON.parse(responseFormatSchemaText) };
     }
     mutate({
       model: endpointName,
@@ -37,6 +82,8 @@ const PlaygroundPage = () => {
       ...(params.temperature !== undefined && { temperature: params.temperature }),
       ...(params.max_tokens !== undefined && { max_tokens: params.max_tokens }),
       ...(params.top_p !== undefined && { top_p: params.top_p }),
+      ...(tools && { tools }),
+      ...(response_format && { response_format }),
     });
   };
 
@@ -66,6 +113,14 @@ const PlaygroundPage = () => {
         onEndpointSelect={setEndpointName}
         params={params}
         onParamsChange={setParams}
+        toolsText={toolsText}
+        onToolsChange={setToolsText}
+        toolsError={toolsError}
+        responseFormatType={responseFormatType}
+        onResponseFormatTypeChange={setResponseFormatType}
+        responseFormatSchemaText={responseFormatSchemaText}
+        onResponseFormatSchemaChange={setResponseFormatSchemaText}
+        responseFormatSchemaError={responseFormatSchemaError}
         messages={messages}
         variables={variables}
         onVariablesChange={setVariables}

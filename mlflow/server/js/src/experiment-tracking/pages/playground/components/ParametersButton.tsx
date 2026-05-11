@@ -1,14 +1,35 @@
-import { Button, Drawer, Typography, WrenchIcon, useDesignSystemTheme } from '@databricks/design-system';
+import { Button, Drawer, Spacer, Typography, WrenchIcon, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
-import type { PlaygroundParams } from '../types';
+import type { PlaygroundParams, ResponseFormatType } from '../types';
 import { ParametersForm } from './ParametersForm';
+import { ResponseFormatForm } from './ResponseFormatForm';
+import { ToolsForm } from './ToolsForm';
 
 interface Props {
   value: PlaygroundParams;
   onChange: (next: PlaygroundParams) => void;
+  toolsText: string;
+  onToolsChange: (next: string) => void;
+  toolsError?: string | null;
+  responseFormatType: ResponseFormatType;
+  onResponseFormatTypeChange: (next: ResponseFormatType) => void;
+  responseFormatSchemaText: string;
+  onResponseFormatSchemaChange: (next: string) => void;
+  responseFormatSchemaError?: string | null;
 }
 
-export const ParametersButton = ({ value, onChange }: Props) => {
+export const ParametersButton = ({
+  value,
+  onChange,
+  toolsText,
+  onToolsChange,
+  toolsError,
+  responseFormatType,
+  onResponseFormatTypeChange,
+  responseFormatSchemaText,
+  onResponseFormatSchemaChange,
+  responseFormatSchemaError,
+}: Props) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
 
@@ -31,6 +52,7 @@ export const ParametersButton = ({ value, onChange }: Props) => {
       </Drawer.Trigger>
       <Drawer.Content
         componentId="mlflow.playground.params.drawer"
+        width={420}
         title={intl.formatMessage({
           defaultMessage: 'Settings',
           description: 'Title of the playground settings drawer',
@@ -50,6 +72,32 @@ export const ParametersButton = ({ value, onChange }: Props) => {
             />
           </Typography.Hint>
           <ParametersForm value={value} onChange={onChange} />
+
+          <Spacer size="md" />
+
+          <Typography.Title level={4} withoutMargins>
+            <FormattedMessage
+              defaultMessage="Tools"
+              description="Section header for tool definitions inside the playground settings drawer"
+            />
+          </Typography.Title>
+          <ToolsForm value={toolsText} onChange={onToolsChange} error={toolsError} />
+
+          <Spacer size="md" />
+
+          <Typography.Title level={4} withoutMargins>
+            <FormattedMessage
+              defaultMessage="Response format"
+              description="Section header for the structured-output picker inside the playground settings drawer"
+            />
+          </Typography.Title>
+          <ResponseFormatForm
+            type={responseFormatType}
+            onTypeChange={onResponseFormatTypeChange}
+            schemaText={responseFormatSchemaText}
+            onSchemaChange={onResponseFormatSchemaChange}
+            schemaError={responseFormatSchemaError}
+          />
         </div>
       </Drawer.Content>
     </Drawer.Root>

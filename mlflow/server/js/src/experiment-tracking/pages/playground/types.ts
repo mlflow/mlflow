@@ -5,12 +5,18 @@ export interface ChatMessage {
   content: string;
 }
 
+export type ResponseFormatType = 'text' | 'json_object' | 'json_schema';
+
+export type ResponseFormat = { type: 'json_object' } | { type: 'json_schema'; json_schema: unknown };
+
 export interface ChatCompletionRequest {
   model: string;
   messages: ChatMessage[];
   temperature?: number;
   max_tokens?: number;
   top_p?: number;
+  tools?: unknown[];
+  response_format?: ResponseFormat;
 }
 
 export interface PlaygroundParams {
