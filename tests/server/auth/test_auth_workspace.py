@@ -508,6 +508,60 @@ def test_filter_list_workspaces_filters_to_allowed(monkeypatch):
     assert [ws["name"] for ws in payload["workspaces"]] == ["team-a"]
 
 
+def test_list_workspaces_hides_workspace_with_only_synthetic_resource_grant(
+    tmp_path, monkeypatch
+):
+    # Pins the permissions.mdx scenario: "Carol has EDIT permission on
+    # experiment exp-456 in team-a but no role with workspace-level access.
+    # Carol can access exp-456 only, and the workspace team-a does not appear
+    # in her ``mlflow.list_workspaces()`` results."
+    #
+    # The grant lives on Carol's synthetic ``__user_<id>__`` role with a
+    # per-resource ``(experiment, exp-456, EDIT)`` row — no ``(workspace, *)``
+    # grant. ``list_accessible_workspace_names`` should treat this as "no
+    # workspace-level access" and filter team-a out.
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    monkeypatch.setattr(
+        auth_module,
+        "auth_config",
+        auth_module.auth_config._replace(grant_default_workspace_access=False),
+        raising=False,
+    )
+
+    db_uri = f"sqlite:///{tmp_path / 'auth-store.db'}"
+    auth_store = SqlAlchemyStore()
+    auth_store.init_db(db_uri)
+    monkeypatch.setattr(auth_module, "store", auth_store, raising=False)
+
+    auth_store.create_user("carol", "supersecurepassword", is_admin=False)
+    # Direct permission: writes to Carol's synthetic ``__user_<id>__`` role in
+    # team-a. Uses the legacy API on purpose — that's exactly the surface the
+    # admin UI's "Direct permissions" section is sugar over.
+    with workspace_context.WorkspaceContext("team-a"):
+        auth_store.create_experiment_permission("exp-456", "carol", "EDIT")
+
+    monkeypatch.setattr(
+        auth_module, "authenticate_request", lambda: SimpleNamespace(username="carol")
+    )
+
+    response = Response(
+        json.dumps({"workspaces": [{"name": "team-a"}, {"name": "team-b"}]}),
+        mimetype="application/json",
+    )
+    auth_module.filter_list_workspaces(response)
+    payload = json.loads(response.get_data(as_text=True))
+    # protobuf-to-JSON omits empty repeated fields, so an empty list of
+    # workspaces serializes as ``{}``. Both forms mean "Carol sees no
+    # workspaces", which is what the docs claim.
+    assert [ws["name"] for ws in payload.get("workspaces", [])] == [], (
+        "A direct-permission-only user must not see team-a in list_workspaces; "
+        "only workspace-scoped role assignments confer visibility."
+    )
+
+    auth_store.engine.dispose()
+
+
 def test_list_workspaces_filters_to_role_assigned_workspaces(tmp_path, monkeypatch):
     # End-to-end guard for the list_accessible_workspace_names fix: alice has NO
     # legacy workspace_permissions rows — her only workspace membership is via a
@@ -615,6 +669,61 @@ def test_experiment_validators_allow_manage_permission(workspace_permission_setu
 
     with workspace_context.WorkspaceContext("team-a"):
         assert auth_module.validate_can_create_experiment()
+
+
+def test_per_resource_manage_allows_deprecated_endpoint_but_not_role_api(
+    workspace_permission_setup,
+):
+    # Pins the doc claim ("Note on per-resource MANAGE" on the RBAC page):
+    # during the deprecation window, a user with ``(experiment, X, MANAGE)``
+    # can still call the deprecated per-resource permission endpoint for X,
+    # but the new role API (``add_role_permission``, ``assign_role``)
+    # requires workspace MANAGE or Platform Admin even for the same user.
+    # Tome flagged this on PR #23133 — the contract is subtle, so guard it.
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    user = store.get_user(username)
+
+    # Drop the fixture's workspace MANAGE so we exercise per-resource MANAGE
+    # in isolation.
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
+
+    role = store.create_role(name="exp-1-manager", workspace="team-a")
+    store.add_role_permission(role.id, "experiment", "exp-1", MANAGE.name)
+    store.assign_role_to_user(user.id, role.id)
+
+    # Deprecated endpoint: per-resource MANAGE on exp-1 allows delegation on
+    # exp-1.
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/experiments/permissions/create",
+        method="POST",
+        json={"experiment_id": "exp-1", "username": username, "permission": "READ"},
+    ):
+        assert auth_module.validate_can_manage_experiment()
+
+    # Deprecated endpoint: per-resource MANAGE on exp-1 does NOT carry over to
+    # exp-2 (different resource_pattern → different grant).
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/experiments/permissions/create",
+        method="POST",
+        json={"experiment_id": "exp-2", "username": username, "permission": "READ"},
+    ):
+        assert not auth_module.validate_can_manage_experiment()
+
+    # New role API: per-resource MANAGE is NOT sufficient to call
+    # ``add_role_permission`` — validate_can_manage_roles requires workspace
+    # MANAGE or is_admin.
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/roles/permissions/add",
+        method="POST",
+        json={
+            "role_id": role.id,
+            "resource_type": "experiment",
+            "resource_pattern": "exp-1",
+            "permission": "EDIT",
+        },
+    ):
+        assert not auth_module.validate_can_manage_roles()
 
 
 def test_experiment_validators_allow_role_based_workspace_manage(workspace_permission_setup):

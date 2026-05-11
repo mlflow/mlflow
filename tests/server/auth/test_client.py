@@ -1,3 +1,4 @@
+import contextlib
 from contextlib import contextmanager
 
 import pytest
@@ -193,6 +194,103 @@ def test_legacy_client_methods_emit_deprecation_warning(client, monkeypatch):
         client.create_user(username, password)
         with pytest.warns(FutureWarning, match="create_experiment_permission"):
             client.create_experiment_permission("exp-deprecation", username, "READ")
+
+
+# The full surface of legacy per-resource permission methods on
+# ``AuthServiceClient``. The deprecation warning is emitted by
+# ``_warn_legacy_permission_method`` before the HTTP call, so we don't need a
+# live server — the call fails at the network layer, which is fine; what we're
+# pinning is the warning contract, not the response.
+_LEGACY_PERMISSION_METHODS = [
+    ("create_experiment_permission", ("e", "u", "READ")),
+    ("get_experiment_permission", ("e", "u")),
+    ("update_experiment_permission", ("e", "u", "READ")),
+    ("delete_experiment_permission", ("e", "u")),
+    ("create_registered_model_permission", ("m", "u", "READ")),
+    ("get_registered_model_permission", ("m", "u")),
+    ("update_registered_model_permission", ("m", "u", "READ")),
+    ("delete_registered_model_permission", ("m", "u")),
+    ("create_scorer_permission", ("e", "s", "u", "READ")),
+    ("get_scorer_permission", ("e", "s", "u")),
+    ("update_scorer_permission", ("e", "s", "u", "READ")),
+    ("delete_scorer_permission", ("e", "s", "u")),
+    ("create_gateway_secret_permission", ("sid", "u", "READ")),
+    ("get_gateway_secret_permission", ("sid", "u")),
+    ("update_gateway_secret_permission", ("sid", "u", "READ")),
+    ("delete_gateway_secret_permission", ("sid", "u")),
+    ("create_gateway_endpoint_permission", ("eid", "u", "READ")),
+    ("get_gateway_endpoint_permission", ("eid", "u")),
+    ("update_gateway_endpoint_permission", ("eid", "u", "READ")),
+    ("delete_gateway_endpoint_permission", ("eid", "u")),
+    ("create_gateway_model_definition_permission", ("mid", "u", "READ")),
+    ("get_gateway_model_definition_permission", ("mid", "u")),
+    ("update_gateway_model_definition_permission", ("mid", "u", "READ")),
+    ("delete_gateway_model_definition_permission", ("mid", "u")),
+]
+
+
+@pytest.mark.parametrize(("method_name", "args"), _LEGACY_PERMISSION_METHODS)
+def test_every_legacy_permission_method_emits_deprecation_warning(
+    method_name, args, monkeypatch
+):
+    # Pins the contract that every deprecated per-resource permission method on
+    # ``AuthServiceClient`` calls ``_warn_legacy_permission_method`` before any
+    # network I/O. Guards against accidental removal of the warning during
+    # refactors. We patch ``_request`` to short-circuit — the warning is the
+    # only thing under test here; ``http_request``'s retry/backoff against an
+    # unbound URI would dominate the runtime.
+    fake_client = AuthServiceClient("http://127.0.0.1:1")
+    monkeypatch.setattr(fake_client, "_request", lambda *a, **kw: {})
+    method = getattr(fake_client, method_name)
+    with pytest.warns(FutureWarning, match=method_name):
+        with contextlib.suppress(Exception):
+            method(*args)
+
+
+# Documented as removed from ``AuthServiceClient`` (see RBAC docs ->
+# "Migrating from the pre-RBAC model"). Guards against accidental re-addition
+# during refactors or merges.
+_REMOVED_WORKSPACE_PERMISSION_METHODS = [
+    "set_workspace_permission",
+    "list_workspace_permissions",
+    "delete_workspace_permission",
+    "list_user_workspace_permissions",
+]
+
+
+@pytest.mark.parametrize("method_name", _REMOVED_WORKSPACE_PERMISSION_METHODS)
+def test_removed_workspace_permission_methods_absent(method_name):
+    fake_client = AuthServiceClient("http://127.0.0.1:1")
+    assert not hasattr(fake_client, method_name), (
+        f"{method_name} is documented as removed in the RBAC migration but is "
+        f"still defined on AuthServiceClient"
+    )
+
+
+# Documented as removed wire endpoints. Hitting the route should not match any
+# handler; Flask returns 404 for unregistered paths. This guards against
+# accidental re-registration during refactors.
+@pytest.mark.parametrize(
+    ("path", "method"),
+    [
+        ("/api/2.0/mlflow/workspaces/team-a/permissions/get", "GET"),
+        ("/api/2.0/mlflow/workspaces/team-a/permissions/create", "POST"),
+        ("/api/2.0/mlflow/workspaces/team-a/permissions/update", "PATCH"),
+        ("/api/2.0/mlflow/workspaces/team-a/permissions/delete", "DELETE"),
+        ("/api/3.0/mlflow/workspaces/team-a/permissions/get", "GET"),
+        ("/api/3.0/mlflow/workspaces/team-a/permissions/create", "POST"),
+        ("/api/3.0/mlflow/workspaces/team-a/permissions/update", "PATCH"),
+        ("/api/3.0/mlflow/workspaces/team-a/permissions/delete", "DELETE"),
+    ],
+)
+def test_removed_workspace_permission_endpoints_return_404(client, path, method):
+    resp = requests.request(
+        method, client.tracking_uri + path, auth=(ADMIN_USERNAME, ADMIN_PASSWORD)
+    )
+    assert resp.status_code == 404, (
+        f"{method} {path} is documented as removed in the RBAC migration but "
+        f"returned {resp.status_code} (expected 404)"
+    )
 
 
 def test_update_user_password(client, monkeypatch):
