@@ -7,7 +7,6 @@ import sys
 from mlflow.exceptions import MlflowException
 from mlflow.models import FlavorBackend
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.string_utils import quote
 
 _logger = logging.getLogger(__name__)
 
@@ -61,11 +60,11 @@ class RFuncBackend(FlavorBackend):
             raise MlflowException("pip_requirements_override is not supported in the R backend.")
         model_path = _download_artifact_from_uri(model_uri)
         str_cmd = (
-            "mlflow:::mlflow_rfunc_predict(model_path = '{0}', input_path = {1}, "
+            "mlflow:::mlflow_rfunc_predict(model_path = {0}, input_path = {1}, "
             "output_path = {2}, content_type = {3})"
         )
         command = str_cmd.format(
-            quote(model_path),
+            _r_quote(model_path),
             _str_optional(input_path),
             _str_optional(output_path),
             _str_optional(content_type),
@@ -145,7 +144,7 @@ def _execute(command, extra_envs=None):
 
 
 def _str_optional(s):
-    return "NULL" if s is None else f"'{quote(str(s))}'"
+    return "NULL" if s is None else _r_quote(str(s))
 
 
 def _r_quote(s: str) -> str:
