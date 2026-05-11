@@ -1910,6 +1910,10 @@ def test_query_span_metrics_with_json_encoded_span_type_filter(store: SqlAlchemy
         if attr.key == SpanAttributeKey.SPAN_TYPE:
             attr.value.string_value = '"TOOL"'
             break
+    else:
+        raise AssertionError(
+            f"Failed to find '{SpanAttributeKey.SPAN_TYPE}' in OTLP span attributes"
+        )
     legacy_tool_span = Span.from_otel_proto(legacy_tool_span_otel_proto)
     assert legacy_tool_span.span_type == '"TOOL"'
 
@@ -1931,6 +1935,8 @@ def test_query_span_metrics_with_json_encoded_span_type_filter(store: SqlAlchemy
         result.dimensions[SpanMetricDimensionKey.SPAN_TYPE]: result.values["COUNT"]
         for result in dimension_result
     }
+    assert "TOOL" in counts_by_span_type
+    assert '"TOOL"' in counts_by_span_type
     assert counts_by_span_type["TOOL"] == 1
     assert counts_by_span_type['"TOOL"'] == 1
 
