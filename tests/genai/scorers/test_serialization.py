@@ -4,7 +4,9 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+import mlflow
 from mlflow.entities import Feedback
+from mlflow.entities.scorer import ScorerVersion
 from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers import Scorer, scorer
 from mlflow.genai.scorers.base import SerializedScorer
@@ -819,11 +821,6 @@ def test_serialized_scorer_rejects_multiple_scorer_field_types():
         )
 
 
-# ============================================================================
-# VERSION-MISMATCH ERROR TESTS
-# ============================================================================
-
-
 def test_from_dict_round_trips_known_fields():
     @scorer(name="round_trip")
     def my_scorer(outputs):
@@ -835,10 +832,30 @@ def test_from_dict_round_trips_known_fields():
     assert restored.call_source is not None
 
 
-def test_from_dict_surfaces_version_on_unknown_field():
-    # Simulate a payload written by a newer mlflow that added a field this runtime
-    # doesn't know about (the exact failure mode reported by Skyscanner: a 3.12-
-    # serialized scorer running on a 3.11-pinned monitoring wheel).
+def _deserialize_via_scorer_version(payload: dict) -> SerializedScorer:
+    return ScorerVersion(
+        experiment_id="123",
+        scorer_name=payload["name"],
+        scorer_version=1,
+        serialized_scorer=json.dumps(payload),
+        creation_time=0,
+    ).serialized_scorer
+
+
+@pytest.mark.parametrize(
+    "deserialize",
+    [
+        SerializedScorer.from_dict,
+        Scorer.model_validate,
+        _deserialize_via_scorer_version,
+    ],
+    ids=[
+        "SerializedScorer.from_dict",
+        "Scorer.model_validate",
+        "ScorerVersion.serialized_scorer",
+    ],
+)
+def test_unknown_field_surfaces_version_mismatch(deserialize):
     payload = {
         "name": "future_scorer",
         "mlflow_version": "99.0.0",
@@ -848,15 +865,11 @@ def test_from_dict_surfaces_version_on_unknown_field():
         "field_from_the_future": "value",
     }
     with pytest.raises(MlflowException) as exc_info:
-        SerializedScorer.from_dict(payload)
-
+        deserialize(payload)
     message = str(exc_info.value)
     assert "future_scorer" in message
     assert "99.0.0" in message
     assert "field_from_the_future" in message
-    # The runtime mlflow version should be surfaced so users know what to align to.
-    import mlflow
-
     assert mlflow.__version__ in message
 
 
@@ -868,44 +881,5 @@ def test_from_dict_unknown_field_falls_back_to_unknown_serialized_version():
         "original_func_name": "no_version",
         "mystery_field": True,
     }
-    # mlflow_version is omitted (defaults to mlflow.__version__ on the dataclass),
-    # but if the dict literally lacks it we should fall back to "unknown" rather
-    # than crash.
     with pytest.raises(MlflowException, match="unknown"):
         SerializedScorer.from_dict(payload)
-
-
-def test_model_validate_surfaces_version_on_unknown_field():
-    payload = {
-        "name": "future_scorer",
-        "mlflow_version": "99.0.0",
-        "call_source": "return 1",
-        "call_signature": "(outputs)",
-        "original_func_name": "future_scorer",
-        "field_from_the_future": "value",
-    }
-    with pytest.raises(MlflowException, match="99.0.0"):
-        Scorer.model_validate(payload)
-
-
-def test_scorer_version_serialized_scorer_surfaces_version_on_unknown_field():
-    # Exercises the ScorerVersion.serialized_scorer path used by monitoring jobs.
-    from mlflow.entities.scorer import ScorerVersion
-
-    payload = {
-        "name": "future_scorer",
-        "mlflow_version": "99.0.0",
-        "call_source": "return 1",
-        "call_signature": "(outputs)",
-        "original_func_name": "future_scorer",
-        "field_from_the_future": "value",
-    }
-    version = ScorerVersion(
-        experiment_id="123",
-        scorer_name="future_scorer",
-        scorer_version=1,
-        serialized_scorer=json.dumps(payload),
-        creation_time=0,
-    )
-    with pytest.raises(MlflowException, match="99.0.0"):
-        _ = version.serialized_scorer
