@@ -577,7 +577,8 @@ def _apply_filters(query: Query, filters: list[str], view_type: MetricViewType) 
                         # type filters continue to work for existing data.
                         span_type_value = parsed_filter.value
                         query = query.filter(
-                            SqlSpan.type.in_([span_type_value, json.dumps(span_type_value)])
+                            (SqlSpan.type == span_type_value)
+                            | (SqlSpan.type == json.dumps(span_type_value))
                         )
             case AssessmentMetricSearchKey.VIEW_TYPE:
                 if view_type != MetricViewType.ASSESSMENTS:

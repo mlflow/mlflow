@@ -25,6 +25,7 @@ from mlflow.entities.trace_metrics import (
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges import CategoricalRating
+from mlflow.store.tracking.dbmodels.models import SqlSpan
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracing.constant import (
     AssessmentMetricDimensionKey,
@@ -1286,6 +1287,10 @@ def test_query_span_metrics_count_by_span_type(store: SqlAlchemyStore):
         create_test_span("trace1", "span6", span_id=6, span_type="TOOL", start_ns=1500000000),
     ]
     store.log_spans(exp_id, spans)
+
+    with store.ManagedSessionMaker() as session:
+        stored_types = [row[0] for row in session.query(SqlSpan.type).all()]
+        assert '"TOOL"' in stored_types
 
     result = store.query_trace_metrics(
         experiment_ids=[exp_id],
