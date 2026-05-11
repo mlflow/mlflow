@@ -161,6 +161,15 @@ jobs:
             exit $EXIT_CODE
           fi
 
+      - name: Upload Claude stream transcript
+        if: always()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: claude-stream-${{ github.run_id }}-${{ github.run_attempt }}
+          path: /tmp/output.json
+          retention-days: 1
+          if-no-files-found: ignore
+
       - name: Report review results
         if: github.event_name == 'issue_comment'
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
