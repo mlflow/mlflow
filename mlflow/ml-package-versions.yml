@@ -787,11 +787,13 @@ llama_index:
     run: pytest tests/llama_index --ignore tests/llama_index/test_llama_index_autolog.py --ignore tests/llama_index/test_llama_index_tracer.py
   autologging:
     minimum: "0.12.35"
-    maximum: "0.14.16"
+    maximum: "0.13.6"
     unsupported:
-      # 0.14.17+ requires llama-index-llms-openai>=0.7 (openai 2.x), breaking
-      # the test setup which relies on OPENAI_API_BASE and openai 1.x behavior
-      - ">= 0.14.17"
+      # 0.14.16+ uses llama-index-workflows>=2.0 which changed the Context API
+      # (ctx.set/get removed in favor of ctx.store.set/get). The tracer tests
+      # need to be updated to fully support the workflows 2.x API before testing
+      # these versions.
+      - ">= 0.14.16"
     requirements:
       ">= 0.0.0": [
           # Versions 1.99.2 - 1.99.8 contain regressions:
