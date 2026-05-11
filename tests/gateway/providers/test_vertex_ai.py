@@ -11,8 +11,9 @@ from mlflow.gateway.constants import (
     MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS,
     MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS,
 )
+from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.vertex_ai import VertexAIProvider
-from mlflow.gateway.schemas import chat
+from mlflow.gateway.schemas import chat, completions
 
 from tests.gateway.tools import MockAsyncResponse, MockAsyncStreamingResponse, mock_http_client
 
@@ -389,9 +390,6 @@ def test_maas_get_endpoint_url():
 
 @pytest.mark.asyncio
 async def test_claude_completions_raises_gateway_exception():
-    from mlflow.gateway.exceptions import AIGatewayException
-    from mlflow.gateway.schemas import completions
-
     provider = _make_claude_provider()
     with pytest.raises(AIGatewayException, match="completions endpoint is not supported"):
         await provider.completions(
