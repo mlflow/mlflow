@@ -1,6 +1,6 @@
 {
   "name": "@mlflow/claude-code",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Claude Code integration package for MLflow Tracing",
   "type": "module",
   "repository": {
@@ -30,6 +30,9 @@
   ],
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "bin": {
+    "mlflow-claude-code": "./bin/mlflow-claude-code"
+  },
   "scripts": {
     "build": "tsc && npm run build:bundle",
     "build:bundle": "node esbuild.config.mjs",
@@ -55,7 +58,9 @@
   "files": [
     "dist/",
     "bundle/",
+    "bin/",
     "hooks/",
+    "skills/",
     ".claude-plugin/"
   ]
 }

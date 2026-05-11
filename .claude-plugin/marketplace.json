@@ -1,0 +1,23 @@
+{
+  "name": "mlflow-plugins",
+  "owner": {
+    "name": "MLflow"
+  },
+  "description": "Claude Code plugins published by the MLflow project.",
+  "plugins": [
+    {
+      "name": "mlflow-tracing",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/mlflow/mlflow.git",
+        "path": "libs/typescript/integrations/claude-code",
+        "ref": "claude/publish-code-tracing-plugin-ydX4o"
+      },
+      "description": "MLflow tracing integration for Claude Code.",
+      "homepage": "https://mlflow.org/",
+      "repository": "https://github.com/mlflow/mlflow",
+      "license": "Apache-2.0",
+      "category": "developer-tools"
+    }
+  ]
+}

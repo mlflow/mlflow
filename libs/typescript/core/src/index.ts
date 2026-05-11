@@ -11,6 +11,7 @@ import { tracingContext } from './core/context';
 import { flushTraces } from './core/provider';
 import { MlflowClient } from './clients';
 import { InMemoryTraceManager } from './core/trace_manager';
+import { createAuthProvider } from './auth';
 
 export {
   getLastActiveTraceId,
@@ -24,6 +25,7 @@ export {
   withSpan,
   MlflowClient,
   InMemoryTraceManager,
+  createAuthProvider,
 };
 
 // Export entities
