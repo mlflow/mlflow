@@ -311,6 +311,9 @@ install_mlflow_and_dependencies() {
     done
   fi
   echo "Finished installing pip dependencies."
+  # Regenerate pyenv shims so newly installed executables (e.g., pre-commit)
+  # are accessible via the shims directory we added to PATH earlier.
+  pyenv rehash
 
   echo "$(
     tput setaf 2
