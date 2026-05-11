@@ -2850,7 +2850,9 @@ def test_list_endpoint_guardrail_configs_null_order_sorts_last(store: SqlAlchemy
     configs = store.list_endpoint_guardrail_configs(endpoint.endpoint_id)
     assert len(configs) == 2
     assert configs[0].execution_order == 5
+    assert configs[0].guardrail_id == guardrail_with_order.guardrail_id
     assert configs[1].execution_order is None
+    assert configs[1].guardrail_id == guardrail_null_order.guardrail_id
 
 
 def test_list_endpoint_guardrail_configs_empty(store: SqlAlchemyStore):
