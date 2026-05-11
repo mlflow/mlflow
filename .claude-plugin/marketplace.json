@@ -9,7 +9,7 @@
       "name": "mlflow-tracing",
       "source": {
         "source": "git-subdir",
-        "url": "https://github.com/B-Step62/mlflow.git",
+        "url": "https://github.com/mlflow/mlflow.git",
         "path": "libs/typescript/integrations/claude-code",
         "ref": "claude/publish-code-tracing-plugin-ydX4o"
       },
