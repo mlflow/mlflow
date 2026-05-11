@@ -289,6 +289,87 @@ async def test_claude_chat_stream_uses_stream_raw_predict_endpoint():
     assert "model" not in call_kwargs[1]["json"]
 
 
+def _make_maas_provider(model_name: str, location: str = "us-central1") -> VertexAIProvider:
+    endpoint_config = EndpointConfig(
+        name="vertex-maas-endpoint",
+        endpoint_type="llm/v1/chat",
+        model={
+            "provider": "vertex_ai",
+            "name": model_name,
+            "config": {
+                "vertex_project": "my-gcp-project",
+                "vertex_location": location,
+            },
+        },
+    )
+    provider = VertexAIProvider(endpoint_config)
+    provider._cached_credentials = _mock_credentials()
+    return provider
+
+
+@pytest.mark.parametrize(
+    "model_name",
+    [
+        "meta/llama-3.1-405b-instruct-maas",
+        "mistral-large-2411",
+        "codestral-2501",
+        "jamba-1.5",
+        "deepseek-ai/deepseek-r1-0528-maas",
+        "xai/grok-4.1-fast-reasoning",
+        "qwen/qwen3-235b-a22b-instruct-2507-maas",
+    ],
+)
+def test_maas_model_uses_openapi_endpoint(model_name):
+    provider = _make_maas_provider(model_name)
+    assert provider._tier == "maas"
+    assert provider._delegate is not None
+    assert provider._delegate._api_base == (
+        "https://us-central1-aiplatform.googleapis.com"
+        "/v1/projects/my-gcp-project/locations/us-central1/endpoints/openapi"
+    )
+
+
+@pytest.mark.asyncio
+async def test_maas_chat_uses_openai_format():
+    provider = _make_maas_provider("meta/llama-3.1-405b-instruct-maas")
+    openai_resp = {
+        "id": "chatcmpl-123",
+        "object": "chat.completion",
+        "created": 1677858242,
+        "model": "meta/llama-3.1-405b-instruct-maas",
+        "choices": [
+            {
+                "index": 0,
+                "message": {"role": "assistant", "content": "Hello from Llama on Vertex AI!"},
+                "finish_reason": "stop",
+            }
+        ],
+        "usage": {"prompt_tokens": 10, "completion_tokens": 8, "total_tokens": 18},
+    }
+
+    with (
+        mock.patch("aiohttp.ClientSession.post", return_value=MockAsyncResponse(openai_resp))
+        as mock_post,
+    ):
+        payload = chat.RequestPayload(messages=[{"role": "user", "content": "Hello"}])
+        response = await provider.chat(payload)
+
+    result = jsonable_encoder(response)
+    assert result["choices"][0]["message"]["content"] == "Hello from Llama on Vertex AI!"
+    assert result["usage"]["prompt_tokens"] == 10
+
+    mock_post.assert_called_once_with(
+        "https://us-central1-aiplatform.googleapis.com"
+        "/v1/projects/my-gcp-project/locations/us-central1/endpoints/openapi/chat/completions",
+        json={
+            "model": "meta/llama-3.1-405b-instruct-maas",
+            "n": 1,
+            "messages": [{"role": "user", "content": "Hello"}],
+        },
+        timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+    )
+
+
 def test_with_credentials():
     creds_json = json.dumps({"type": "service_account", "project_id": "test"})
     config = VertexAIConfig(vertex_project="my-project", vertex_credentials=creds_json)
