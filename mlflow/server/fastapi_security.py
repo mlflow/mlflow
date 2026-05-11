@@ -163,10 +163,15 @@ def init_fastapi_security(app: FastAPI) -> None:
     allowed_origins = get_allowed_origins()
 
     if allowed_origins and "*" in allowed_origins:
+        _logger.warning(
+            "MLFLOW_SERVER_CORS_ALLOWED_ORIGINS=* is set; disabling credentialed CORS. "
+            "Wildcard origins with credentials is a CORS spec violation. "
+            "Set an explicit origin allowlist to enable credentialed cross-origin requests."
+        )
         app.add_middleware(
             CORSMiddleware,
             allow_origins=["*"],
-            allow_credentials=True,
+            allow_credentials=False,
             allow_methods=["*"],
             allow_headers=["*"],
             expose_headers=["*"],

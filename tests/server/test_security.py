@@ -352,6 +352,37 @@ def test_fastapi_cors_allows_localhost_origins(fastapi_client, origin, expect_co
         assert response.headers.get("access-control-allow-origin") is None
 
 
+def test_fastapi_wildcard_cors_disables_credentials(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+):
+    monkeypatch.setenv("MLFLOW_SERVER_CORS_ALLOWED_ORIGINS", "*")
+    # The "mlflow" logger sets propagate=False, so caplog's root handler does not
+    # see records. Attach caplog's handler directly to the security logger.
+    security_logger = logging.getLogger("mlflow.server.fastapi_security")
+    security_logger.addHandler(caplog.handler)
+
+    app = FastAPI()
+
+    @app.api_route("/api/2.0/mlflow/experiments/list", methods=["GET", "POST", "OPTIONS"])
+    async def api_endpoint():
+        return {"ok": True}
+
+    try:
+        with caplog.at_level("WARNING", logger="mlflow.server.fastapi_security"):
+            init_fastapi_security(app)
+    finally:
+        security_logger.removeHandler(caplog.handler)
+    assert any("disabling credentialed CORS" in record.message for record in caplog.records)
+
+    client = TestClient(app, raise_server_exceptions=False)
+    response = client.post(
+        "/api/2.0/mlflow/experiments/list",
+        headers={"Host": "localhost", "Origin": "http://evil.com"},
+    )
+    assert response.status_code == 200
+    assert response.headers.get("access-control-allow-credentials") != "true"
+
+
 def test_fastapi_cors_allows_configured_origin(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("MLFLOW_SERVER_CORS_ALLOWED_ORIGINS", "https://trusted.com")
 
