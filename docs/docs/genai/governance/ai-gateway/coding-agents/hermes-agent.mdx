@@ -1,0 +1,101 @@
+---
+title: Hermes Agent
+description: Use Hermes Agent with the MLflow AI Gateway by pointing Hermes's custom provider at your gateway endpoint.
+---
+
+import TilesGrid from "@site/src/components/TilesGrid";
+import TileCard from "@site/src/components/TileCard";
+import { BarChart3, Shield, DollarSign } from "lucide-react";
+
+# Hermes Agent + MLflow AI Gateway
+
+Route [Hermes Agent](https://github.com/NousResearch/hermes-agent) through the MLflow AI Gateway by pointing Hermes's custom OpenAI-compatible provider at your gateway endpoint. This gives you centralized model routing, usage tracking, and governance while Hermes keeps running its own agent loop, tools, and sessions.
+
+## Prerequisites
+
+- MLflow server running with a SQL backend (`mlflow server --port 5000`)
+- Hermes Agent installed
+
+## Step 1: Create a Gateway Endpoint
+
+Navigate to the **AI Gateway** tab at `http://localhost:5000/#/gateway` and click **Create Endpoint**.
+
+- **Provider:** choose your upstream provider, for example `OpenAI`
+- **Model:** choose the upstream model you want Hermes to use, for example `gpt-4o-mini`
+- **Endpoint name:** choose a name, for example `my-hermes-endpoint`
+- **LLM Connection:** select an existing connection or create a new one (see [Create an LLM Connection](/genai/governance/ai-gateway/api-keys/create-and-manage))
+
+## Step 2: Point Hermes at the Gateway
+
+Update `~/.hermes/config.yaml` so Hermes uses its `custom` provider against the MLflow AI Gateway's OpenAI-compatible endpoint:
+
+```yaml
+model:
+  default: "my-hermes-endpoint"
+  provider: "custom"
+  base_url: "http://localhost:5000/gateway/mlflow/v1"
+  # api_key: "your-gateway-api-key"
+```
+
+:::tip
+Hermes's `custom` provider expects a standard OpenAI-compatible `/v1` API. MLflow AI Gateway exposes exactly that interface at `/gateway/mlflow/v1`.
+:::
+
+## Step 3: Run Hermes Agent
+
+Restart Hermes so the updated provider configuration takes effect:
+
+```bash
+hermes gateway run
+```
+
+If you use the Hermes API server, make sure it is enabled in `~/.hermes/.env`:
+
+```bash
+API_SERVER_ENABLED=true
+```
+
+Then send a test request through Hermes:
+
+```bash
+python - <<'PY'
+from openai import OpenAI
+
+client = OpenAI(base_url="http://localhost:8642/v1", api_key="not-required")
+response = client.chat.completions.create(
+    model="hermes-agent",
+    messages=[{"role": "user", "content": "Say hello in one sentence."}],
+)
+print(response.choices[0].message.content)
+PY
+```
+
+Hermes routes the underlying model call to the gateway using `my-hermes-endpoint`.
+
+## What You Get
+
+Every Hermes model request routed through the gateway is captured in MLflow. Open the **Usage** page and inspect the **Logs** tab in the MLflow UI to review inputs, outputs, token usage, and latency for each request.
+
+<TilesGrid>
+  <TileCard
+    icon={BarChart3}
+    title="Usage Tracking"
+    description="Monitor token usage and latency across Hermes sessions routed through the gateway"
+    href="/genai/governance/ai-gateway/usage-tracking"
+    linkText="View usage tracking →"
+  />
+  <TileCard
+    icon={Shield}
+    title="Guardrails"
+    description="Apply centralized guardrails to the model calls Hermes makes through the gateway"
+    href="/genai/governance/ai-gateway/guardrails"
+    linkText="Configure guardrails →"
+  />
+  <TileCard
+    icon={DollarSign}
+    title="Budget Alerts & Limits"
+    description="Set spending limits for long-running Hermes workloads before they run away"
+    href="/genai/governance/ai-gateway/budget-alerts-limits"
+    linkText="Configure budget limits →"
+  />
+</TilesGrid>
