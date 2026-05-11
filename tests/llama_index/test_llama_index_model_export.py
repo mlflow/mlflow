@@ -17,13 +17,6 @@ from llama_index.embeddings.databricks import DatabricksEmbedding
 from llama_index.embeddings.openai import OpenAIEmbedding
 from llama_index.llms.databricks import Databricks
 from llama_index.llms.openai import OpenAI
-try:
-    from llama_index.vector_stores.qdrant import QdrantVectorStore
-
-    _QDRANT_AVAILABLE = True
-except ImportError:
-    QdrantVectorStore = None
-    _QDRANT_AVAILABLE = False
 from packaging.version import Version
 
 import mlflow
@@ -42,6 +35,14 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.schema import ColSpec, DataType, Schema
 
 from tests.helper_functions import pyfunc_scoring_endpoint
+
+try:
+    from llama_index.vector_stores.qdrant import QdrantVectorStore
+
+    _QDRANT_AVAILABLE = True
+except ImportError:
+    QdrantVectorStore = None
+    _QDRANT_AVAILABLE = False
 
 _EMBEDDING_DIM = 1536
 _TEST_QUERY = "Spell llamaindex"
