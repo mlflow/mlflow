@@ -1,4 +1,5 @@
 import { describe, it, expect, jest } from '@jest/globals';
+import { useState } from 'react';
 import userEvent from '@testing-library/user-event';
 import { renderWithDesignSystem, screen, waitFor } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { MetricsFilter } from './MetricsFilter';
@@ -126,6 +127,28 @@ describe('MetricsFilter', () => {
       await screen.findByText('Field');
 
       expect(screen.getByDisplayValue('alice')).toBeInTheDocument();
+    });
+
+    it('clears the form when filters are cleared externally while the popover is open', async () => {
+      const ControlledHarness = () => {
+        const [filters, setFilters] = useState<MetricFilter[]>([{ column: 'user', value: 'alice' }]);
+        return <MetricsFilter filters={filters} setFilters={setFilters} columnOptions={TEST_COLUMN_OPTIONS} />;
+      };
+      const { container } = renderWithDesignSystem(<ControlledHarness />);
+
+      await userEvent.click(screen.getByRole('button', { name: /filters/i }));
+      await screen.findByText('Field');
+      expect(screen.getByDisplayValue('alice')).toBeInTheDocument();
+
+      // Click the clear-all icon in the trigger; popover stays open due to stopPropagation.
+      const clearIcon = container.querySelector('[tabindex="-1"]');
+      await userEvent.click(clearIcon!);
+
+      // The form should now reflect the cleared state instead of showing stale rows.
+      await waitFor(() => {
+        expect(screen.queryByDisplayValue('alice')).not.toBeInTheDocument();
+      });
+      expect(screen.getByPlaceholderText('Enter value')).toHaveValue('');
     });
   });
 });

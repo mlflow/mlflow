@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Button,
   ChevronDownIcon,
@@ -85,10 +85,20 @@ export const MetricsFilter = ({ filters, setFilters, columnOptions }: MetricsFil
 
 const FilterForm = ({ filters, setFilters, columnOptions }: MetricsFilterProps) => {
   const { theme } = useDesignSystemTheme();
-  const emptyFilter: MetricFilter = { column: columnOptions[0]?.value ?? ('' as MetricFilterColumn), value: '' };
+  const emptyFilter = useMemo<MetricFilter>(
+    () => ({ column: columnOptions[0]?.value ?? ('' as MetricFilterColumn), value: '' }),
+    [columnOptions],
+  );
   const [localFilters, setLocalFilters] = useState<MetricFilter[]>(
     filters.length > 0 ? filters : [emptyFilter],
   );
+
+  // Keep the draft in sync with the applied filters so that external changes
+  // (e.g. clicking the clear icon in the trigger while the popover is open)
+  // are reflected in the form instead of being clobbered on the next Apply.
+  useEffect(() => {
+    setLocalFilters(filters.length > 0 ? filters : [emptyFilter]);
+  }, [filters, emptyFilter]);
 
   const updateAt = (index: number, next: MetricFilter) => {
     setLocalFilters((prev) => prev.map((f, i) => (i === index ? next : f)));
