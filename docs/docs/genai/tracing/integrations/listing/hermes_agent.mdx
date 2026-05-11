@@ -4,11 +4,19 @@ description: Trace Hermes Agent conversations, tool calls, and long-running sess
 sidebar_position: 11
 sidebar_label: Hermes Agent
 keywords: [hermes agent, hermes, tracing, mlflow, tool calling, otlp, ai agent]
+image: /images/llms/hermes/hermes-agent-trace-detail.png
 ---
+
+import ImageBox from "@site/src/components/ImageBox";
 
 # Tracing Hermes Agent
 
 [MLflow Tracing](/genai/tracing) can capture end-to-end [Hermes Agent](https://github.com/NousResearch/hermes-agent) execution traces, including LLM calls, tool invocations, and long-running agent sessions, by ingesting OpenTelemetry spans emitted by the [`hermes-otel`](https://github.com/briancaffey/hermes-otel) plugin.
+
+<ImageBox
+  src="/images/llms/hermes/hermes-agent-trace-detail.png"
+  alt="Hermes Agent tool-calling trace in the MLflow UI"
+/>
 
 Once configured, Hermes traces appear in MLflow with:
 
