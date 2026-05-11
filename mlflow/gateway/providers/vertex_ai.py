@@ -4,16 +4,16 @@ Vertex AI provider for MLflow AI Gateway.
 Extends the Gemini provider to use Vertex AI endpoints with Google Cloud
 authentication (Application Default Credentials or service account JSON).
 
-Three tiers of models are supported:
+Three model types are supported:
 
-- **Tier 1 — Google models** (gemini-*, medlm-*, text-embedding-*, etc.):
+- **Google models** (gemini-*, medlm-*, text-embedding-*, etc.):
   Gemini API format with :generateContent/:streamGenerateContent endpoints.
 
-- **Tier 2 — Anthropic Claude models** (claude-*):
+- **Anthropic Claude models** (claude-*):
   Anthropic Messages API format with :rawPredict/:streamRawPredict endpoints,
   routed through publishers/anthropic.
 
-- **Tier 3 — OpenAI-compatible MaaS models** (Meta/Llama, Mistral, DeepSeek,
+- **OpenAI-compatible MaaS models** (Meta/Llama, Mistral, DeepSeek,
   AI21 Jamba, xAI Grok, Qwen, etc.):
   OpenAI Chat Completions format via the shared /endpoints/openapi endpoint.
 """
@@ -22,7 +22,8 @@ import json
 from enum import Enum
 from pathlib import Path
 
-from mlflow.gateway.config import EndpointConfig, VertexAIConfig
+from mlflow.gateway.config import EndpointConfig, EndpointType, VertexAIConfig
+from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.anthropic import AnthropicProvider
 from mlflow.gateway.providers.base import BaseProvider
 from mlflow.gateway.providers.gemini import GeminiProvider
@@ -33,17 +34,17 @@ _DEFAULT_SCOPES = ["https://www.googleapis.com/auth/cloud-platform"]
 # Version string required by Vertex AI for Anthropic models
 _VERTEX_ANTHROPIC_VERSION = "vertex-2023-10-16"
 
-# No-slash model name prefixes that belong to Tier 3 (OpenAI-compatible MaaS)
-# rather than Tier 1 (Gemini API).
-_TIER3_PREFIXES = ("mistral", "codestral", "jamba")
+# No-slash model name prefixes that belong to the MaaS (OpenAI-compatible) type
+# rather than the Google (Gemini API) type.
+_MAAS_PREFIXES = ("mistral", "codestral", "jamba")
 
 
 def _classify_model(model_name: str) -> str:
-    """Return the tier for a Vertex AI model name: 'gemini', 'claude', or 'maas'."""
+    """Return the model type for a Vertex AI model name: 'gemini', 'claude', or 'maas'."""
     name = model_name.lower()
     if name.startswith("claude"):
         return "claude"
-    if "/" in name or name.startswith(_TIER3_PREFIXES):
+    if "/" in name or name.startswith(_MAAS_PREFIXES):
         return "maas"
     return "gemini"
 
@@ -78,6 +79,11 @@ class _VertexAIClaudeProvider(AnthropicProvider):
         host = f"https://{prefix}aiplatform.googleapis.com"
         path = f"/v1/projects/{project}/locations/{location}/publishers/anthropic/models"
         return f"{host}{path}"
+
+    def get_endpoint_url(self, route_type: str) -> str:
+        if route_type in ("llm/v1/chat", EndpointType.LLM_V1_CHAT):
+            return f"{self.base_url}/{self.config.model.name}:rawPredict"
+        raise ValueError(f"Unsupported route type for Vertex AI Claude: {route_type}")
 
     def _get_chat_path(self) -> str:
         return f"{self.config.model.name}:rawPredict"
@@ -126,10 +132,9 @@ class _VertexAIMaaSProvider(OpenAICompatibleProvider):
 class VertexAIProvider(GeminiProvider):
     """Vertex AI provider supporting Google, Anthropic, and OpenAI-compatible MaaS models.
 
-    - Gemini/Google models → Tier 1: Gemini API (:generateContent)
-    - Claude models        → Tier 2: Anthropic API (:rawPredict) via _VertexAIClaudeProvider
-    - MaaS models          → Tier 3: OpenAI Chat Completions (/endpoints/openapi/chat/completions)
-                             via _VertexAIMaaSProvider
+    - Google models  → Gemini API (:generateContent)
+    - Claude models  → Anthropic API (:rawPredict) via _VertexAIClaudeProvider
+    - MaaS models    → OpenAI Chat Completions (/endpoints/openapi) via _VertexAIMaaSProvider
     """
 
     DISPLAY_NAME = "Vertex AI"
@@ -148,12 +153,12 @@ class VertexAIProvider(GeminiProvider):
         self.vertex_config: VertexAIConfig = config.model.config
         self._cached_credentials = None
 
-        self._tier = _classify_model(config.model.name)
-        if self._tier == "claude":
+        self._model_type = _classify_model(config.model.name)
+        if self._model_type == "claude":
             self._delegate = _VertexAIClaudeProvider(
                 config, self.vertex_config, self._get_credentials
             )
-        elif self._tier == "maas":
+        elif self._model_type == "maas":
             self._delegate = _VertexAIMaaSProvider(
                 config, self.vertex_config, self._get_credentials
             )
@@ -208,9 +213,14 @@ class VertexAIProvider(GeminiProvider):
         # https://docs.cloud.google.com/vertex-ai/docs/general/googleapi-access-methods#regional-global-endpoints
         prefix = "" if location == "global" else f"{location}-"
         host = f"https://{prefix}aiplatform.googleapis.com"
-        publisher = "anthropic" if self._tier == "claude" else "google"
+        publisher = "anthropic" if self._model_type == "claude" else "google"
         path = f"/v1/projects/{project}/locations/{location}/publishers/{publisher}/models"
         return f"{host}{path}"
+
+    def get_endpoint_url(self, route_type: str) -> str:
+        if self._delegate:
+            return self._delegate.get_endpoint_url(route_type)
+        return super().get_endpoint_url(route_type)
 
     async def _chat(self, payload):
         if self._delegate:
@@ -226,18 +236,24 @@ class VertexAIProvider(GeminiProvider):
             yield chunk
 
     async def _completions(self, payload):
-        if self._tier in ("claude", "maas"):
-            raise NotImplementedError(
-                f"The completions endpoint is not supported for {self.config.model.name} on "
-                "Vertex AI. Use the chat endpoint instead."
+        if self._model_type in ("claude", "maas"):
+            raise AIGatewayException(
+                status_code=501,
+                detail=(
+                    f"The completions endpoint is not supported for {self.config.model.name} on "
+                    "Vertex AI. Use the chat endpoint instead."
+                ),
             )
         return await super()._completions(payload)
 
     async def _completions_stream(self, payload):
-        if self._tier in ("claude", "maas"):
-            raise NotImplementedError(
-                f"The completions endpoint is not supported for {self.config.model.name} on "
-                "Vertex AI. Use the chat endpoint instead."
+        if self._model_type in ("claude", "maas"):
+            raise AIGatewayException(
+                status_code=501,
+                detail=(
+                    f"The completions endpoint is not supported for {self.config.model.name} on "
+                    "Vertex AI. Use the chat endpoint instead."
+                ),
             )
         async for chunk in super()._completions_stream(payload):
             yield chunk

@@ -321,7 +321,7 @@ def _make_maas_provider(model_name: str, location: str = "us-central1") -> Verte
 )
 def test_maas_model_uses_openapi_endpoint(model_name):
     provider = _make_maas_provider(model_name)
-    assert provider._tier == "maas"
+    assert provider._model_type == "maas"
     assert provider._delegate is not None
     assert provider._delegate._api_base == (
         "https://us-central1-aiplatform.googleapis.com"
@@ -368,6 +368,35 @@ async def test_maas_chat_uses_openai_format():
         },
         timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
     )
+
+
+def test_claude_get_endpoint_url():
+    provider = _make_claude_provider()
+    assert provider.get_endpoint_url("llm/v1/chat") == (
+        "https://us-east5-aiplatform.googleapis.com"
+        "/v1/projects/my-gcp-project/locations/us-east5/publishers/anthropic/models"
+        "/claude-sonnet-4-5@20251101:rawPredict"
+    )
+
+
+def test_maas_get_endpoint_url():
+    provider = _make_maas_provider("meta/llama-3.1-405b-instruct-maas")
+    assert provider.get_endpoint_url("llm/v1/chat") == (
+        "https://us-central1-aiplatform.googleapis.com"
+        "/v1/projects/my-gcp-project/locations/us-central1/endpoints/openapi/chat/completions"
+    )
+
+
+@pytest.mark.asyncio
+async def test_claude_completions_raises_gateway_exception():
+    from mlflow.gateway.exceptions import AIGatewayException
+    from mlflow.gateway.schemas import completions
+
+    provider = _make_claude_provider()
+    with pytest.raises(AIGatewayException, match="completions endpoint is not supported"):
+        await provider.completions(
+            completions.RequestPayload(prompt="hello", max_tokens=10)
+        )
 
 
 def test_with_credentials():
