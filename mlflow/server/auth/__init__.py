@@ -10,7 +10,6 @@ Usage
 from __future__ import annotations
 
 import base64
-import configparser
 import functools
 import importlib
 import json
@@ -18,7 +17,6 @@ import logging
 import re
 import secrets
 from http import HTTPStatus
-from pathlib import Path
 from typing import Any, Awaitable, Callable
 
 import sqlalchemy
@@ -2347,20 +2345,12 @@ def create_admin_user(username, password):
             raise
 
 
-@functools.lru_cache(maxsize=1)
-def _get_shipped_default_admin_password():
-    """Read the admin_password value from the shipped basic_auth.ini.
-
-    Read directly from the packaged file (not via MLFLOW_AUTH_CONFIG_PATH) so the
-    warning fires only when an operator hasn't overridden the shipped default.
-    """
-    parser = configparser.ConfigParser()
-    parser.read(Path(__file__).parent / "basic_auth.ini")
-    return parser.get("mlflow", "admin_password", fallback=None)
+# Must match the admin_password shipped in mlflow/server/auth/basic_auth.ini.
+_DEFAULT_ADMIN_PASSWORD = "password1234"
 
 
 def _warn_if_default_admin_password(password):
-    if password == _get_shipped_default_admin_password():
+    if password == _DEFAULT_ADMIN_PASSWORD:
         _logger.warning(
             "The MLflow basic auth admin account is using the default password shipped "
             "in basic_auth.ini. Change it before exposing this server beyond localhost. "
