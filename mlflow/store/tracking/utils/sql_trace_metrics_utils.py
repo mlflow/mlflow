@@ -572,7 +572,13 @@ def _apply_filters(query: Query, filters: list[str], view_type: MetricViewType) 
                     case SpanMetricSearchKey.STATUS:
                         query = query.filter(SqlSpan.status == parsed_filter.value)
                     case SpanMetricSearchKey.TYPE:
-                        query = query.filter(SqlSpan.type == parsed_filter.value)
+                        # Some historical spans may contain JSON-encoded span type values
+                        # (e.g. '"TOOL"'). Match both normalized and encoded forms to ensure
+                        # type filters continue to work for existing data.
+                        span_type_value = parsed_filter.value
+                        query = query.filter(
+                            SqlSpan.type.in_([span_type_value, json.dumps(span_type_value)])
+                        )
             case AssessmentMetricSearchKey.VIEW_TYPE:
                 if view_type != MetricViewType.ASSESSMENTS:
                     raise MlflowException.invalid_parameter_value(
