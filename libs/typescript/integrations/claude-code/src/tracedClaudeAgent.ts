@@ -40,13 +40,14 @@ export function createTracedQuery(queryFn: QueryFunction): QueryFunction {
     const promptForSpan = typeof params.prompt === 'string' ? params.prompt : '[streaming input]';
     const ctx = new LiveTracingContext(promptForSpan, params.options);
 
-    // Default forwardSubagentText to true so sub-agent inner messages flow
+    // Force forwardSubagentText: true so sub-agent inner messages flow
     // through the parent stream. Without it, the SDK only emits tool_use and
     // tool_result blocks from sub-agents (heartbeat), which strips LLM and
-    // nested tool spans from the resulting trace.
+    // nested tool spans from the resulting trace. Forwarding is local-only
+    // (no network cost), so we always enable it when the wrapper is in use.
     const options: QueryOptions = {
-      forwardSubagentText: true,
       ...params.options,
+      forwardSubagentText: true,
     };
 
     const sdkQuery = queryFn({ ...params, options });

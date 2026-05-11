@@ -495,14 +495,14 @@ describe('createTracedQuery', () => {
     });
   });
 
-  it('respects an explicit forwardSubagentText: false override', async () => {
+  it('forces forwardSubagentText: true even when the caller passes false', async () => {
     const { fn, optionsSeen } = mockQuery([
       { type: 'result', subtype: 'success', duration_ms: 1, usage: { input_tokens: 0, output_tokens: 0 } },
     ]);
 
     await drain(createTracedQuery(fn)({ prompt: 'p', options: { forwardSubagentText: false } }));
 
-    expect(optionsSeen[0]?.forwardSubagentText).toBe(false);
+    expect(optionsSeen[0]?.forwardSubagentText).toBe(true);
   });
 
   it('records hooks as a sanitized placeholder so functions are not serialised on the span', async () => {

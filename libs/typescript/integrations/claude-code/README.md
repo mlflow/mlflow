@@ -63,8 +63,6 @@ for await (const message of result) {
 
 The wrapper produces the same span tree as the Claude Code CLI integration: an `AGENT` root span with `LLM` and `TOOL` children, plus nested `AGENT` spans for sub-agents invoked via the Task tool. Token usage (including `cache_read_input_tokens` and `cache_creation_input_tokens`) is recorded on every LLM span and aggregated on the root.
 
-Sub-agent attribution requires `forwardSubagentText: true` on `options`, which the wrapper sets by default. Override it on `params.options` if you need to opt out.
-
 ## Documentation
 
 Official documentation for the MLflow TypeScript SDK is at https://mlflow.org/docs/latest/genai/tracing/quickstart.
