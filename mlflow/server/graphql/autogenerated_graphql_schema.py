@@ -247,6 +247,7 @@ class MlflowExperiment(graphene.ObjectType):
     last_update_time = LongString()
     creation_time = LongString()
     tags = graphene.List(graphene.NonNull(MlflowExperimentTag))
+    workspace = graphene.String()
 
 
 class MlflowGetExperimentResponse(graphene.ObjectType):

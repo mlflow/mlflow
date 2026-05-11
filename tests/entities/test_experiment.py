@@ -97,6 +97,18 @@ def test_creation_and_hydration():
     )
 
 
+def test_workspace_round_trips_through_proto():
+    exp = Experiment(
+        experiment_id="123",
+        name="exp",
+        artifact_location="/tmp/exp",
+        lifecycle_stage=LifecycleStage.ACTIVE,
+        workspace="team-a",
+    )
+
+    assert Experiment.from_proto(exp.to_proto()).workspace == "team-a"
+
+
 def test_string_repr():
     exp = Experiment(
         experiment_id=0,
