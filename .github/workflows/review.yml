@@ -135,6 +135,7 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: "1"
           PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
           PROMPT: ${{ steps.prompt.outputs.prompt }}
           MODEL: ${{ steps.prompt.outputs.model || 'opus' }}
