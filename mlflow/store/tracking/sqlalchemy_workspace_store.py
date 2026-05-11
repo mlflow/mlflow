@@ -49,6 +49,7 @@ from mlflow.utils.uri import (
     append_to_uri_path,
 )
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME, WORKSPACES_DIR_NAME
+from mlflow.environment_variables import MLFLOW_WORKSPACE_DISABLE_ARTIFACT_PREFIX
 
 _logger = logging.getLogger(__name__)
 
@@ -496,7 +497,7 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-        if should_append:
+        if should_append and not MLFLOW_WORKSPACE_DISABLE_ARTIFACT_PREFIX.get():
             resolved_root = append_to_uri_path(resolved_root, WORKSPACES_DIR_NAME, workspace)
 
         return append_to_uri_path(resolved_root, str(experiment_id))
