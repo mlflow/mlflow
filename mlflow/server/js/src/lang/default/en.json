@@ -8675,6 +8675,10 @@
     "defaultMessage": "Show differences only",
     "description": "Runs charts > components > config > RunsChartsConfigureDifferenceChart > Show differences only toggle"
   },
+  "nXIn89": {
+    "defaultMessage": "User",
+    "description": "Usage overview > metrics filter > user column option label"
+  },
   "nXsSZ1": {
     "defaultMessage": "Add filter",
     "description": "Usage overview > add filter row button"
