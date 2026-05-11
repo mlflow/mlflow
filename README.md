@@ -51,6 +51,11 @@ From zero to full-stack LLMOps in minutes. No complex setup or major code change
 ```bash
 uvx mlflow server
 ```
+**Windows PowerShell users:** If you're using a Python virtual environment, activate it before running MLflow commands:
+
+```powershell
+.venv\Scripts\activate
+```
 
 **2. Enable Logging**
 
