@@ -1,5 +1,6 @@
 import json
 import pathlib
+import pickle
 
 import numpy as np
 import pandas as pd
@@ -117,8 +118,6 @@ def test_infer_artifact_type_and_ext_raise_exception_for_unsupported_ext(tmp_pat
 
 
 def test_pickle_evaluation_artifact_load_raises_without_env_var(tmp_path, monkeypatch):
-    import pickle
-
     monkeypatch.setenv("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", "false")
 
     artifact_path = tmp_path / "artifact.pickle"
