@@ -45,7 +45,6 @@ export const CompletionOutputPanel = ({ response, error, isLoading }: Props) => 
           padding: theme.spacing.md,
           backgroundColor: theme.colors.backgroundSecondary,
           minHeight: 200,
-          flex: 1,
           overflow: 'auto',
         }}
       >
