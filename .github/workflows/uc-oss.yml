@@ -47,9 +47,9 @@ jobs:
 
       - uses: ./.github/actions/setup-java
 
-      - name: Clone UnityCatalog at tag v0.2.1
+      - name: Clone UnityCatalog at tag v0.4.1
         run: |
-          git clone --branch v0.2.1 --depth 1 https://github.com/unitycatalog/unitycatalog.git
+          git clone --branch v0.4.1 --depth 1 https://github.com/unitycatalog/unitycatalog.git
 
       - name: Build uc-oss server
         working-directory: unitycatalog
