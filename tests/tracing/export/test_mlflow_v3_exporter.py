@@ -404,6 +404,7 @@ def test_prompt_linking_in_mlflow_v3_exporter(is_async, monkeypatch):
             trace_id=12345,
             span_id=1,
             parent_id=None,
+            end_time=int(time.time() * 1e9),
         )
         trace_id = generate_trace_id_v3(otel_span)
         span = LiveSpan(otel_span, trace_id)
@@ -494,6 +495,7 @@ def test_prompt_linking_with_empty_prompts_mlflow_v3(is_async, monkeypatch):
             trace_id=12345,
             span_id=1,
             parent_id=None,
+            end_time=int(time.time() * 1e9),
         )
         trace_id = generate_trace_id_v3(otel_span)
         span = LiveSpan(otel_span, trace_id)
@@ -554,6 +556,7 @@ def test_prompt_linking_error_handling_mlflow_v3(monkeypatch):
             trace_id=12345,
             span_id=1,
             parent_id=None,
+            end_time=int(time.time() * 1e9),
         )
         trace_id = generate_trace_id_v3(otel_span)
         span = LiveSpan(otel_span, trace_id)
@@ -603,6 +606,7 @@ def test_no_log_spans_to_artifacts_if_stored_in_tracking_store(monkeypatch):
         trace_id=12345,
         span_id=1,
         parent_id=None,
+        end_time=int(time.time() * 1e9),
     )
     trace_id = generate_trace_id_v3(otel_span)
     span = LiveSpan(otel_span, trace_id)
@@ -633,7 +637,9 @@ def test_no_log_spans_to_artifacts_if_stored_in_tracking_store(monkeypatch):
 
 def test_batch_write_skipped_when_store_unsupported(monkeypatch):
     monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", "false")
-    otel_span = create_mock_otel_span(name="root", trace_id=66666, span_id=1, parent_id=None)
+    otel_span = create_mock_otel_span(
+        name="root", trace_id=66666, span_id=1, parent_id=None, end_time=int(time.time() * 1e9)
+    )
     trace_id = generate_trace_id_v3(otel_span)
     span = LiveSpan(otel_span, trace_id)
 
