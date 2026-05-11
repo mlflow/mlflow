@@ -1,6 +1,6 @@
 {
   "name": "@mlflow/claude-code",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Claude Code integration package for MLflow Tracing",
   "type": "module",
   "repository": {

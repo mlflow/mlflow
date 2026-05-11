@@ -1,44 +1,22 @@
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createInterface } from 'node:readline';
 
 import { parseSetupArgs, runSetup } from '../src/commands/setup';
-import { selectPrompt } from '../src/ui-select';
 
-jest.mock('node:readline', () => ({ createInterface: jest.fn() }));
-jest.mock('../src/ui-select', () => ({ selectPrompt: jest.fn() }));
 jest.mock('../src/config', () => {
   const actual = jest.requireActual('../src/config');
   return {
     ...actual,
-    resolveExperiment: jest.fn(async (_trackingUri: string, experimentId?: string, experimentName?: string) => ({
-      experimentId: experimentId ?? 'resolved-id',
-      experimentName,
-      created: false,
-    })),
+    resolveExperiment: jest.fn(
+      async (_trackingUri: string, experimentId?: string, experimentName?: string) => ({
+        experimentId: experimentId ?? 'resolved-id',
+        experimentName,
+        created: false,
+      }),
+    ),
   };
 });
-
-const createInterfaceMock = jest.mocked(createInterface);
-const selectPromptMock = jest.mocked(selectPrompt);
-
-function mockTextPrompts(answers: string[]): void {
-  const queue = [...answers];
-  createInterfaceMock.mockImplementation(
-    () =>
-      ({
-        question: (_prompt: string, cb: (answer: string) => void) => {
-          const answer = queue.shift();
-          if (answer === undefined) {
-            throw new Error('mockTextPrompts: ran out of answers');
-          }
-          cb(answer);
-        },
-        close: () => {},
-      }) as unknown as ReturnType<typeof createInterface>,
-  );
-}
 
 describe('mlflow-claude-code setup', () => {
   let tmpHome: string;
@@ -50,8 +28,6 @@ describe('mlflow-claude-code setup', () => {
     tmpCwd = mkdtempSync(join(tmpdir(), 'claude-setup-cwd-'));
     originalExitCode = process.exitCode;
     process.exitCode = undefined;
-    createInterfaceMock.mockReset();
-    selectPromptMock.mockReset();
   });
 
   afterEach(() => {
@@ -76,8 +52,17 @@ describe('mlflow-claude-code setup', () => {
     });
   });
 
-  it('writes project settings in non-interactive mode with default experiment name', async () => {
-    await runSetup(['--non-interactive'], { home: tmpHome, cwd: tmpCwd });
+  it('writes project settings from flags', async () => {
+    await runSetup(
+      [
+        '--project',
+        '--tracking-uri',
+        'http://localhost:5000',
+        '--experiment-name',
+        'my-experiment',
+      ],
+      { home: tmpHome, cwd: tmpCwd },
+    );
 
     const settingsPath = join(tmpCwd, '.claude', 'settings.json');
     expect(existsSync(settingsPath)).toBe(true);
@@ -86,21 +71,14 @@ describe('mlflow-claude-code setup', () => {
         MLFLOW_CLAUDE_TRACING_ENABLED: 'true',
         MLFLOW_TRACKING_URI: 'http://localhost:5000',
         MLFLOW_EXPERIMENT_ID: 'resolved-id',
-        MLFLOW_EXPERIMENT_NAME: 'claude-code-traces',
+        MLFLOW_EXPERIMENT_NAME: 'my-experiment',
       },
     });
   });
 
   it('writes user settings when --user is passed', async () => {
     await runSetup(
-      [
-        '--non-interactive',
-        '--user',
-        '--tracking-uri',
-        'http://mlflow.example',
-        '--experiment-id',
-        '42',
-      ],
+      ['--user', '--tracking-uri', 'http://mlflow.example', '--experiment-id', '42'],
       { home: tmpHome, cwd: tmpCwd },
     );
 
@@ -108,24 +86,33 @@ describe('mlflow-claude-code setup', () => {
     expect(existsSync(join(tmpCwd, '.claude', 'settings.json'))).toBe(false);
   });
 
-  it('prompts for scope and experiment selection in interactive mode', async () => {
-    selectPromptMock.mockResolvedValueOnce(true).mockResolvedValueOnce('name');
-    mockTextPrompts(['', 'my-experiment']);
+  it('rejects missing scope flag', async () => {
+    await runSetup(
+      ['--tracking-uri', 'http://localhost:5000', '--experiment-name', 'x'],
+      { home: tmpHome, cwd: tmpCwd },
+    );
+    expect(process.exitCode).toBe(1);
+  });
 
-    await runSetup([], { home: tmpHome, cwd: tmpCwd });
+  it('rejects missing tracking URI', async () => {
+    await runSetup(['--project', '--experiment-name', 'x'], { home: tmpHome, cwd: tmpCwd });
+    expect(process.exitCode).toBe(1);
+  });
 
-    expect(selectPromptMock).toHaveBeenCalledTimes(2);
-    expect(JSON.parse(readFileSync(join(tmpCwd, '.claude', 'settings.json'), 'utf-8'))).toMatchObject({
-      env: {
-        MLFLOW_EXPERIMENT_NAME: 'my-experiment',
-      },
+  it('rejects missing experiment', async () => {
+    await runSetup(['--project', '--tracking-uri', 'http://localhost:5000'], {
+      home: tmpHome,
+      cwd: tmpCwd,
     });
+    expect(process.exitCode).toBe(1);
   });
 
   it('rejects conflicting experiment flags', async () => {
     await runSetup(
       [
-        '--non-interactive',
+        '--project',
+        '--tracking-uri',
+        'http://localhost:5000',
         '--experiment-id',
         '1',
         '--experiment-name',
@@ -134,6 +121,14 @@ describe('mlflow-claude-code setup', () => {
       { home: tmpHome, cwd: tmpCwd },
     );
 
+    expect(process.exitCode).toBe(1);
+  });
+
+  it('rejects invalid tracking URI', async () => {
+    await runSetup(
+      ['--project', '--tracking-uri', 'not-a-uri', '--experiment-name', 'x'],
+      { home: tmpHome, cwd: tmpCwd },
+    );
     expect(process.exitCode).toBe(1);
   });
 });
