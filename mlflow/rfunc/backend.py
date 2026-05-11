@@ -104,7 +104,7 @@ class RFuncBackend(FlavorBackend):
 
         model_path = _download_artifact_from_uri(model_uri)
         command = "mlflow::mlflow_rfunc_serve('{}', port = {}, host = '{}')".format(
-            quote(model_path), port, host
+            quote(model_path), port, _r_quote(host)
         )
         _execute(command)
 
@@ -146,3 +146,7 @@ def _execute(command, extra_envs=None):
 
 def _str_optional(s):
     return "NULL" if s is None else f"'{quote(str(s))}'"
+
+
+def _r_quote(s):
+    return s.replace("\\", "\\\\").replace("'", "\\'")
