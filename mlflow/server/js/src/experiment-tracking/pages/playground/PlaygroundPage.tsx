@@ -4,12 +4,10 @@ import { FormattedMessage } from 'react-intl';
 import { ScrollablePageWrapper } from '../../../common/components/ScrollablePageWrapper';
 import ErrorUtils from '../../../common/utils/ErrorUtils';
 import { withErrorBoundary } from '../../../common/utils/withErrorBoundary';
-import { EndpointSelector } from '../../components/EndpointSelector';
 import { CompletionOutputPanel } from './components/CompletionOutputPanel';
-import { ParametersPanel } from './components/ParametersPanel';
+import { PlaygroundTopBar } from './components/PlaygroundTopBar';
 import { PromptInputPanel } from './components/PromptInputPanel';
 import { PromptRegistryPicker } from './components/PromptRegistryPicker';
-import { VariablesPanel } from './components/VariablesPanel';
 import { useChatCompletionMutation } from './hooks/useChatCompletionMutation';
 import type { ChatMessage, PlaygroundParams } from './types';
 import { substituteVariables } from './utils';
@@ -63,52 +61,38 @@ const PlaygroundPage = () => {
         }
       />
       <Spacer shrinks={false} />
-      <div
-        css={{
-          display: 'grid',
-          gridTemplateColumns: '320px 1fr',
-          gap: theme.spacing.lg,
-          flex: 1,
-          minHeight: 0,
-        }}
-      >
-        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
-          <EndpointSelector
-            componentIdPrefix="mlflow.playground.endpoint-selector"
-            currentEndpointName={endpointName}
-            onEndpointSelect={setEndpointName}
-            showCreateButton={false}
-          />
-          <ParametersPanel value={params} onChange={setParams} />
-          <VariablesPanel messages={messages} value={variables} onChange={setVariables} />
-          <Button componentId="mlflow.playground.load_from_registry" onClick={() => setShowRegistryPicker(true)}>
+      <PlaygroundTopBar
+        endpointName={endpointName}
+        onEndpointSelect={setEndpointName}
+        params={params}
+        onParamsChange={setParams}
+        messages={messages}
+        variables={variables}
+        onVariablesChange={setVariables}
+        onOpenRegistry={() => setShowRegistryPicker(true)}
+      />
+      <Spacer size="sm" shrinks={false} />
+      <div css={{ borderTop: `1px solid ${theme.colors.border}`, flexShrink: 0 }} role="separator" aria-hidden="true" />
+      <Spacer size="sm" shrinks={false} />
+      <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md, flex: 1, minHeight: 0 }}>
+        <PromptInputPanel messages={messages} onChange={setMessages} />
+        <div css={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <Button
+            componentId="mlflow.playground.submit"
+            type="primary"
+            icon={<PlayIcon />}
+            disabled={!canSubmit}
+            loading={isLoading}
+            onClick={handleSubmit}
+          >
             <FormattedMessage
-              defaultMessage="Load prompt from registry"
-              description="Label for the button that opens the registered prompt picker on the playground page"
+              defaultMessage="Submit"
+              description="Label for the submit button on the playground page that runs the chat completion request"
             />
           </Button>
         </div>
-
-        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md, minHeight: 0 }}>
-          <PromptInputPanel messages={messages} onChange={setMessages} />
-          <div css={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <Button
-              componentId="mlflow.playground.submit"
-              type="primary"
-              icon={<PlayIcon />}
-              disabled={!canSubmit}
-              loading={isLoading}
-              onClick={handleSubmit}
-            >
-              <FormattedMessage
-                defaultMessage="Submit"
-                description="Label for the submit button on the playground page that runs the chat completion request"
-              />
-            </Button>
-          </div>
-          <Spacer size="sm" />
-          <CompletionOutputPanel response={data} error={error ?? undefined} isLoading={isLoading} />
-        </div>
+        <Spacer size="sm" />
+        <CompletionOutputPanel response={data} error={error ?? undefined} isLoading={isLoading} />
       </div>
 
       <PromptRegistryPicker
