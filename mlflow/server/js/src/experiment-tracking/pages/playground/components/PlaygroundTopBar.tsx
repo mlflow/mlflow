@@ -57,14 +57,13 @@ export const PlaygroundTopBar = ({
         flexWrap: 'wrap',
       }}
     >
-      <div css={{ flex: '0 0 auto', maxWidth: 320 }}>
-        <EndpointSelector
-          componentIdPrefix="mlflow.playground.endpoint-selector"
-          currentEndpointName={endpointName}
-          onEndpointSelect={onEndpointSelect}
-          showCreateButton={false}
-        />
-      </div>
+      <EndpointSelector
+        componentIdPrefix="mlflow.playground.endpoint-selector"
+        currentEndpointName={endpointName}
+        onEndpointSelect={onEndpointSelect}
+        showCreateButton={false}
+        triggerMaxWidth={400}
+      />
       <ParametersButton
         value={params}
         onChange={onParamsChange}
