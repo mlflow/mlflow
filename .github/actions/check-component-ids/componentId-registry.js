@@ -1794,6 +1794,8 @@ module.exports = {
   "mlflow.playground.prompt_registry_picker.text_prompt_hint": "",
   "mlflow.playground.prompt_registry_picker.version": "",
   "mlflow.playground.submit": "",
+  "mlflow.playground.variables.help": "",
+  "mlflow.playground.variables.input": "",
 
   // -- mlflow.prompts --
   "mlflow.prompts.chat_creator.add_after": "",

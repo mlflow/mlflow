@@ -1,5 +1,5 @@
 import { jest, describe, it, expect, beforeEach } from '@jest/globals';
-import { render, renderHook, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import React from 'react';
 import { IntlProvider } from 'react-intl';
@@ -117,6 +117,40 @@ describe('PlaygroundPage', () => {
         }),
       );
     });
+  });
+
+  it('substitutes typed variable values into the request body and leaves the template intact', async () => {
+    const chatCompletionSpy = jest.spyOn(PlaygroundApi, 'chatCompletion').mockResolvedValue({
+      choices: [{ index: 0, message: { role: 'assistant', content: 'ok' }, finish_reason: 'stop' }],
+    });
+
+    renderPlayground();
+
+    const endpointInput = await screen.findByTestId('endpoint-selector-test-input');
+    await userEvent.type(endpointInput, 'my-endpoint');
+
+    // Set the user message to a template — fireEvent.change avoids userEvent's
+    // `{{`-escaping rules for braces.
+    const template = 'Summarize: {{ text }}';
+    fireEvent.change(screen.getByPlaceholderText('Type a message'), { target: { value: template } });
+
+    // The Variables panel now renders an input for the detected variable.
+    const variableInput = await screen.findByLabelText('text');
+    await userEvent.type(variableInput, 'Hello world');
+
+    await userEvent.click(screen.getByRole('button', { name: /submit/i }));
+
+    await waitFor(() => {
+      expect(chatCompletionSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          model: 'my-endpoint',
+          messages: [{ role: 'user', content: 'Summarize: Hello world' }],
+        }),
+      );
+    });
+
+    // The template in the message panel is preserved (un-substituted).
+    expect(screen.getByPlaceholderText('Type a message')).toHaveValue(template);
   });
 
   it('exposes a hook that posts to the chat completions API', async () => {

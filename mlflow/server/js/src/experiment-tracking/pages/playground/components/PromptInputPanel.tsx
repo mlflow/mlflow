@@ -1,7 +1,6 @@
 import {
   Button,
   CloseIcon,
-  FormUI,
   InfoSmallIcon,
   Input,
   PlusIcon,
@@ -145,15 +144,8 @@ export const PromptInputPanel = ({ messages, onChange }: Props) => {
               onClick={() => removeMessage(index)}
             />
           </div>
-          <FormUI.Label htmlFor={`${COMPONENT_ID}.content.${index}`} css={{ display: 'none' }}>
-            <FormattedMessage
-              defaultMessage="Message content"
-              description="Hidden label for the message content textarea on the playground page"
-            />
-          </FormUI.Label>
           <TextArea
             componentId="mlflow.playground.prompt_input.content"
-            id={`${COMPONENT_ID}.content.${index}`}
             value={message.content}
             onChange={(event: ChangeEvent<HTMLTextAreaElement>) =>
               updateMessage(index, { content: event.target.value })

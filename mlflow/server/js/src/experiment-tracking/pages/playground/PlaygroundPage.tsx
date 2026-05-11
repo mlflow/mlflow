@@ -9,8 +9,10 @@ import { CompletionOutputPanel } from './components/CompletionOutputPanel';
 import { ParametersPanel } from './components/ParametersPanel';
 import { PromptInputPanel } from './components/PromptInputPanel';
 import { PromptRegistryPicker } from './components/PromptRegistryPicker';
+import { VariablesPanel } from './components/VariablesPanel';
 import { useChatCompletionMutation } from './hooks/useChatCompletionMutation';
 import type { ChatMessage, PlaygroundParams } from './types';
+import { substituteVariables } from './utils';
 
 const EMPTY_USER_MESSAGE: ChatMessage = { role: 'user', content: '' };
 
@@ -19,6 +21,7 @@ const PlaygroundPage = () => {
   const [endpointName, setEndpointName] = useState<string>('');
   const [messages, setMessages] = useState<ChatMessage[]>([{ ...EMPTY_USER_MESSAGE }]);
   const [params, setParams] = useState<PlaygroundParams>({});
+  const [variables, setVariables] = useState<Record<string, string>>({});
   const [showRegistryPicker, setShowRegistryPicker] = useState(false);
 
   const { mutate, data, error, isLoading } = useChatCompletionMutation();
@@ -32,7 +35,7 @@ const PlaygroundPage = () => {
     }
     mutate({
       model: endpointName,
-      messages,
+      messages: substituteVariables(messages, variables),
       ...(params.temperature !== undefined && { temperature: params.temperature }),
       ...(params.max_tokens !== undefined && { max_tokens: params.max_tokens }),
       ...(params.top_p !== undefined && { top_p: params.top_p }),
@@ -77,6 +80,7 @@ const PlaygroundPage = () => {
             showCreateButton={false}
           />
           <ParametersPanel value={params} onChange={setParams} />
+          <VariablesPanel messages={messages} value={variables} onChange={setVariables} />
           <Button componentId="mlflow.playground.load_from_registry" onClick={() => setShowRegistryPicker(true)}>
             <FormattedMessage
               defaultMessage="Load prompt from registry"

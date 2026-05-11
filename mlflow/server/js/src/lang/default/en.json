@@ -387,6 +387,10 @@
     "defaultMessage": "Close guidance",
     "description": "Aria label for closing the detect issues guidance popover"
   },
+  "06vLyo": {
+    "defaultMessage": "About prompt variables",
+    "description": "Aria label for the info popover next to the playground variables header"
+  },
   "07nYAU": {
     "defaultMessage": "Compared IDs:",
     "description": "Label for the compared IDs section in the model trace explorer"
@@ -558,6 +562,10 @@
   "18/UVG": {
     "defaultMessage": "Using controls above, select at least one artifact containing table.",
     "description": "Experiment page > artifact compare view > empty state for no tables selected > subtitle with the hint"
+  },
+  "1AgKB2": {
+    "defaultMessage": "Variables",
+    "description": "Section header for the variable-substitution panel on the playground page"
   },
   "1BIc9x": {
     "defaultMessage": "Launch Demo",
@@ -2815,6 +2823,10 @@
     "defaultMessage": "No trace data available",
     "description": "Evaluation review > no trace data available"
   },
+  "Ea2iIo": {
+    "defaultMessage": "Each placeholder in your messages becomes an input here. Values are substituted into a copy of the messages at submit time; the templates above stay intact so you can re-run with different inputs.",
+    "description": "Help text in the playground variables panel popover"
+  },
   "EaH1E1": {
     "defaultMessage": "Version {version}",
     "description": "Version display for judge"
@@ -3330,10 +3342,6 @@
   "I9bJ/T": {
     "defaultMessage": "Select All",
     "description": "Option to select all items in the item selector"
-  },
-  "IADRYy": {
-    "defaultMessage": "Message content",
-    "description": "Hidden label for the message content textarea on the playground page"
   },
   "IAyAgH": {
     "defaultMessage": "Move up",
@@ -5774,6 +5782,10 @@
   "WpNCQl": {
     "defaultMessage": "No results",
     "description": "Experiment page > sort selector > no results after filtering"
+  },
+  "WpqCm4": {
+    "defaultMessage": "Value for {name}",
+    "description": "Placeholder for a variable-value textarea on the playground page"
   },
   "Ws58cc": {
     "defaultMessage": "Groundedness",
