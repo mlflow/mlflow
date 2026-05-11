@@ -1,6 +1,6 @@
 import { jest, describe, it, expect, beforeEach } from '@jest/globals';
 import { fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import userEventGlobal, { PointerEventsCheckLevel } from '@testing-library/user-event';
 import React from 'react';
 import { IntlProvider } from 'react-intl';
 import { DesignSystemProvider } from '@databricks/design-system';
@@ -11,6 +11,16 @@ import { RegisteredPromptsApi } from '../prompts/api';
 import { PlaygroundApi } from './api';
 import PlaygroundPage from './PlaygroundPage';
 import { useChatCompletionMutation } from './hooks/useChatCompletionMutation';
+
+// Drawer + DialogCombobox use Radix overlays that cover their triggers; disable userEvent's
+// pointer-events check so clicks register through them.
+const userEvent = userEventGlobal.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
+
+const openSettingsDrawer = () => userEvent.click(screen.getByRole('button', { name: /open model parameters/i }));
+const openVariablesDrawer = () => userEvent.click(screen.getByRole('button', { name: /open variable values/i }));
+
+// Drawers are focus-trapping Radix dialogs — Submit isn't reachable until the drawer is closed.
+const closeDrawer = () => userEvent.keyboard('{Escape}');
 
 jest.mock('../../components/EndpointSelector', () => ({
   EndpointSelector: ({
@@ -104,8 +114,11 @@ describe('PlaygroundPage', () => {
     await userEvent.type(endpointInput, 'my-endpoint');
 
     await userEvent.type(screen.getByPlaceholderText('Type a message'), 'Hello there');
+
+    await openSettingsDrawer();
     await userEvent.type(screen.getByLabelText('Temperature'), '1.5');
 
+    await closeDrawer();
     await userEvent.click(screen.getByRole('button', { name: /submit/i }));
 
     await waitFor(() => {
@@ -117,6 +130,84 @@ describe('PlaygroundPage', () => {
         }),
       );
     });
+  });
+
+  it('forwards advanced sampling params, stop sequences, tool_choice and response_format', async () => {
+    const chatCompletionSpy = jest.spyOn(PlaygroundApi, 'chatCompletion').mockResolvedValue({
+      choices: [{ index: 0, message: { role: 'assistant', content: 'ok' }, finish_reason: 'stop' }],
+    });
+
+    renderPlayground();
+
+    const endpointInput = await screen.findByTestId('endpoint-selector-test-input');
+    await userEvent.type(endpointInput, 'my-endpoint');
+    await userEvent.type(screen.getByPlaceholderText('Type a message'), 'Hello there');
+
+    await openSettingsDrawer();
+
+    // Reveal and fill the advanced sampling block.
+    await userEvent.click(screen.getByRole('button', { name: /advanced/i }));
+    await userEvent.type(screen.getByLabelText('Top K'), '40');
+    await userEvent.type(screen.getByLabelText('Presence penalty'), '0.5');
+    await userEvent.type(screen.getByLabelText('Frequency penalty'), '0.5');
+    fireEvent.change(screen.getByLabelText('Stop sequences'), { target: { value: 'STOP\nFIN' } });
+
+    // Switch tool_choice to required and supply a valid tools array.
+    await userEvent.click(screen.getByRole('radio', { name: 'Required' }));
+    fireEvent.change(screen.getByLabelText('JSON Tool Definition'), {
+      target: { value: '[{"type":"function","function":{"name":"echo"}}]' },
+    });
+
+    // Switch response format to json_object.
+    await userEvent.click(screen.getByRole('radio', { name: 'JSON' }));
+
+    await closeDrawer();
+    await userEvent.click(screen.getByRole('button', { name: /submit/i }));
+
+    await waitFor(() => {
+      expect(chatCompletionSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          model: 'my-endpoint',
+          messages: [{ role: 'user', content: 'Hello there' }],
+          top_k: 40,
+          presence_penalty: 0.5,
+          frequency_penalty: 0.5,
+          stop: ['STOP', 'FIN'],
+          tools: [{ type: 'function', function: { name: 'echo' } }],
+          tool_choice: 'required',
+          response_format: { type: 'json_object' },
+        }),
+      );
+    });
+  });
+
+  it('omits tools and tool_choice when toolChoice stays at none, even with tool text typed', async () => {
+    const chatCompletionSpy = jest.spyOn(PlaygroundApi, 'chatCompletion').mockResolvedValue({
+      choices: [{ index: 0, message: { role: 'assistant', content: 'ok' }, finish_reason: 'stop' }],
+    });
+
+    renderPlayground();
+
+    const endpointInput = await screen.findByTestId('endpoint-selector-test-input');
+    await userEvent.type(endpointInput, 'my-endpoint');
+    await userEvent.type(screen.getByPlaceholderText('Type a message'), 'Hello there');
+
+    // Pick Required just to reveal the textarea, type something, then revert to None.
+    await openSettingsDrawer();
+    await userEvent.click(screen.getByRole('radio', { name: 'Required' }));
+    fireEvent.change(screen.getByLabelText('JSON Tool Definition'), {
+      target: { value: '[{"type":"function","function":{"name":"echo"}}]' },
+    });
+    await userEvent.click(screen.getByRole('radio', { name: 'None' }));
+
+    await closeDrawer();
+    await userEvent.click(screen.getByRole('button', { name: /submit/i }));
+
+    await waitFor(() => {
+      expect(chatCompletionSpy).toHaveBeenCalled();
+    });
+    expect(chatCompletionSpy).toHaveBeenCalledWith(expect.not.objectContaining({ tools: expect.anything() }));
+    expect(chatCompletionSpy).toHaveBeenCalledWith(expect.not.objectContaining({ tool_choice: expect.anything() }));
   });
 
   it('substitutes typed variable values into the request body and leaves the template intact', async () => {
@@ -134,10 +225,12 @@ describe('PlaygroundPage', () => {
     const template = 'Summarize: {{ text }}';
     fireEvent.change(screen.getByPlaceholderText('Type a message'), { target: { value: template } });
 
-    // The Variables panel now renders an input for the detected variable.
+    // The Variables drawer now renders an input for the detected variable.
+    await openVariablesDrawer();
     const variableInput = await screen.findByLabelText('text');
     await userEvent.type(variableInput, 'Hello world');
 
+    await closeDrawer();
     await userEvent.click(screen.getByRole('button', { name: /submit/i }));
 
     await waitFor(() => {

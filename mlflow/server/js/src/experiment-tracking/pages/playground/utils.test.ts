@@ -1,6 +1,6 @@
 import { describe, it, expect } from '@jest/globals';
 import type { ChatMessage } from './types';
-import { extractTemplateVariables, substituteVariables } from './utils';
+import { extractTemplateVariables, getEmptyVariables, substituteVariables } from './utils';
 
 describe('extractTemplateVariables', () => {
   it('returns an empty list when there are no placeholders', () => {
@@ -55,5 +55,30 @@ describe('substituteVariables', () => {
   it('leaves malformed placeholders literal', () => {
     const messages: ChatMessage[] = [{ role: 'user', content: 'Keep {{ }} as-is' }];
     expect(substituteVariables(messages, {})).toEqual([{ role: 'user', content: 'Keep {{ }} as-is' }]);
+  });
+});
+
+describe('getEmptyVariables', () => {
+  it('returns an empty list when no variables are declared', () => {
+    const messages: ChatMessage[] = [{ role: 'user', content: 'no placeholders' }];
+    expect(getEmptyVariables(messages, {})).toEqual([]);
+  });
+
+  it('returns every declared variable when no values are provided', () => {
+    const messages: ChatMessage[] = [{ role: 'user', content: '{{ topic }} in {{ tone }}' }];
+    expect(getEmptyVariables(messages, {})).toEqual(['topic', 'tone']);
+  });
+
+  it('returns only the variables whose value is missing or trims to empty', () => {
+    const messages: ChatMessage[] = [{ role: 'user', content: '{{ a }} {{ b }} {{ c }}' }];
+    expect(getEmptyVariables(messages, { a: 'set', b: '   ', c: '' })).toEqual(['b', 'c']);
+  });
+
+  it('preserves first-appearance order from extractTemplateVariables', () => {
+    const messages: ChatMessage[] = [
+      { role: 'system', content: 'Style: {{ tone }}' },
+      { role: 'user', content: 'Translate {{ text }} into {{ language }}; keep tone {{ tone }}.' },
+    ];
+    expect(getEmptyVariables(messages, { language: 'fr' })).toEqual(['tone', 'text']);
   });
 });
