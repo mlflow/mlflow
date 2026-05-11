@@ -8,12 +8,15 @@ roles instead of one-off per-resource grants. A **role** is a bundle of permissi
 **users** are assigned to roles; permissions decisions are made against the
 combined set of permissions a user holds in the workspace they're acting in.
 
-Use RBAC when you have more than a handful of users, when teams share access
-patterns ("data scientists can read all experiments in `ml-research`"), or when
-you want to delegate workspace administration without giving out global admin.
-For a single-user setup or a simple installation with a few direct grants, the
-per-user mechanics described in <Link to="/self-hosting/security/basic-http-auth">Username and Password</Link>
-remain the right starting point.
+RBAC is the authorization model for all permission grants. Even a single
+one-off grant on one resource goes through it (see [Scenario 1](#1-give-alice-edit-on-experiment-42-one-off)).
+A named role pays off when you have more than a handful of users, when teams
+share access patterns ("data scientists can read all experiments in
+`ml-research`"), or when you want to delegate workspace administration
+without giving out global admin. For setting up authentication and managing
+users (login, signup, admin status, password updates), see
+[Username and Password](/self-hosting/security/basic-http-auth); this page
+picks up once users exist.
 
 :::note[Prerequisites]
 
@@ -143,14 +146,18 @@ auth_client = get_app_client("basic-auth", tracking_uri=tracking_uri)
 
 When the grant is genuinely just for one user and won't be reused, a **direct
 permission** is the simplest option. Internally it's stored under Alice's
-synthetic per-user role; no role to maintain.
+synthetic per-user role; no admin-managed role to maintain.
 
 In the admin UI: `/admin` → Users → click `alice` → **Edit access** → in the
 _Direct permissions_ section, add `experiment:42 → EDIT` → review → apply.
 
-Via the role API, the equivalent is to add a permission to Alice's synthetic
-role. In practice, prefer the UI for this case. The role API is more
-convenient when you'll reuse the grant.
+Programmatically, the synthetic role isn't exposed as a separate API surface.
+Use the same role API as the reusable case below ([Scenario 2](#2-give-alice-edit-on-experiment-42-reusable)),
+just with a single-user role: `create_role` + `add_role_permission` +
+`assign_role`. The pre-RBAC `create_experiment_permission()` /
+`update_experiment_permission()` family still works for now (it
+internally writes to the synthetic role) but emits a deprecation warning
+on every call; new code should not rely on it.
 
 ### 2. Give Alice EDIT on experiment 42 (reusable)
 

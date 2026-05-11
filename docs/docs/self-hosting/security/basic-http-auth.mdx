@@ -1352,14 +1352,29 @@ auth_client.update_user_admin(username="user1", is_admin=True)
 
 ### Managing Permissions
 
-MLflow provides <Link to="/api_reference/auth/rest-api.html#create-user" target="_blank">REST APIs</Link>
-and a client class <APILink fn="mlflow.server.auth.client.AuthServiceClient">`AuthServiceClient`</APILink> to manage users and permissions.
-Permissions are granted via roles; see [Role-Based Access Control](/self-hosting/security/role-based-access-control)
-for the full model and the per-scenario examples (one-off direct grants,
-team roles, promoting a user to Workspace Manager, onboarding). For
-workspace-scoped permissions, see
+MLflow provides [REST APIs](/api_reference/auth/rest-api.html#create-user)
+and a client class <APILink fn="mlflow.server.auth.client.AuthServiceClient">`AuthServiceClient`</APILink>
+for managing users and permissions. To instantiate `AuthServiceClient`, use
+`mlflow.server.get_app_client`.
+
+Permissions are granted via the **role API**. The three methods you need are:
+
+- `create_role(name, workspace, description=None)`: create a role
+- `add_role_permission(role_id, resource_type, resource_pattern, permission)`: attach a grant
+- `assign_role(username, role_id)`: assign a user to the role
+
+This is the path for every grant: one user or many, one resource or
+wildcard, one-off or reusable. The pre-RBAC per-resource methods
+(`create_experiment_permission()`, `update_registered_model_permission()`,
+etc.) still work for backwards compatibility but emit a deprecation warning;
+see the warning above. For one-off grants, the admin UI's _Direct permissions_
+section is the simplest path (no role to author). See
+[Role-Based Access Control](/self-hosting/security/role-based-access-control)
+for the full model, the
+[API reference](/self-hosting/security/role-based-access-control#api-reference),
+and worked scenarios (one-off direct grants, team roles, promoting a user to
+Workspace Manager, onboarding). For workspace-scoped permissions, see
 [Workspace Permissions](/self-hosting/workspaces/permissions).
-To instantiate `AuthServiceClient`, use <APILink fn="mlflow.server.get_app_client" />.
 
 ```bash title="Example"
 export MLFLOW_TRACKING_USERNAME=admin
@@ -1379,8 +1394,11 @@ auth_client.create_user(username="user2", password="pw2")
 client = MlflowClient(tracking_uri=tracking_uri)
 experiment_id = client.create_experiment(name="experiment")
 
-# Grant user2 MANAGE on this experiment via a role. The role is reusable;
-# subsequent users get the same permission with one ``assign_role`` call.
+# Grant user2 MANAGE on this experiment by creating a single-permission role
+# and assigning it. The same pattern (``create_role`` -> ``add_role_permission``
+# -> ``assign_role``) scales to any number of users and permissions; reuse the
+# same role to grant the same access to more users with one ``assign_role``
+# call each.
 role = auth_client.create_role(name="experiment-manager", workspace="default")
 auth_client.add_role_permission(
     role_id=role.id,
