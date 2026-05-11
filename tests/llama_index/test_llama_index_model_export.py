@@ -81,7 +81,9 @@ def test_llama_index_native_save_and_load_model(request, index_fixture, model_pa
 def test_llama_index_native_log_and_load_model(request, index_fixture):
     index = request.getfixturevalue(index_fixture)
     with mlflow.start_run():
-        logged_model = mlflow.llama_index.log_model(index, name="model", engine_type="query")
+        logged_model = mlflow.llama_index.log_model(
+            index, name="model", engine_type="query"
+        )
 
     loaded_model = mlflow.llama_index.load_model(logged_model.model_uri)
 
@@ -94,9 +96,13 @@ def test_llama_index_native_log_and_load_model(request, index_fixture):
 
 def test_llama_index_save_invalid_object_raise(single_index):
     with pytest.raises(MlflowException, match="The provided object of type "):
-        mlflow.llama_index.save_model(llama_index_model=OpenAI(), path="model", engine_type="query")
+        mlflow.llama_index.save_model(
+            llama_index_model=OpenAI(), path="model", engine_type="query"
+        )
 
-    with pytest.raises(MlflowException, match="Saving a non-index object is only supported"):
+    with pytest.raises(
+        MlflowException, match="Saving a non-index object is only supported"
+    ):
         mlflow.llama_index.save_model(
             llama_index_model=single_index.as_query_engine(),
             path="model",
@@ -128,11 +134,18 @@ def test_format_predict_input_correct(single_index, engine_type):
     wrapped_model = create_pyfunc_wrapper(single_index, engine_type)
 
     assert isinstance(
-        wrapped_model._format_predict_input(pd.DataFrame({"query_str": ["hi"]})), QueryBundle
+        wrapped_model._format_predict_input(pd.DataFrame({"query_str": ["hi"]})),
+        QueryBundle,
     )
-    assert isinstance(wrapped_model._format_predict_input(np.array(["hi"])), QueryBundle)
-    assert isinstance(wrapped_model._format_predict_input({"query_str": ["hi"]}), QueryBundle)
-    assert isinstance(wrapped_model._format_predict_input({"query_str": "hi"}), QueryBundle)
+    assert isinstance(
+        wrapped_model._format_predict_input(np.array(["hi"])), QueryBundle
+    )
+    assert isinstance(
+        wrapped_model._format_predict_input({"query_str": ["hi"]}), QueryBundle
+    )
+    assert isinstance(
+        wrapped_model._format_predict_input({"query_str": "hi"}), QueryBundle
+    )
     assert isinstance(wrapped_model._format_predict_input(["hi"]), QueryBundle)
     assert isinstance(wrapped_model._format_predict_input("hi"), QueryBundle)
 
@@ -169,11 +182,15 @@ def test_format_predict_input_correct_schema_complex(single_index, engine_type):
         "custom_embedding_strs": [["a"]],
         "embedding": [[1.0]],
     }
-    assert isinstance(wrapped_model._format_predict_input(pd.DataFrame(payload)), QueryBundle)
-    payload.update({
-        "custom_embedding_strs": ["a"],
-        "embedding": [1.0],
-    })
+    assert isinstance(
+        wrapped_model._format_predict_input(pd.DataFrame(payload)), QueryBundle
+    )
+    payload.update(
+        {
+            "custom_embedding_strs": ["a"],
+            "embedding": [1.0],
+        }
+    )
     assert isinstance(wrapped_model._format_predict_input(payload), QueryBundle)
 
 
@@ -218,11 +235,13 @@ def test_query_engine_predict(single_index, with_input_example, payload):
         ["string", "string"],
         np.array(["string", "string"]),
         pd.DataFrame({"query_str": ["string", "string"]}),
-        pd.DataFrame({
-            "query_str": ["hi"] * 2,
-            "custom_embedding_strs": [["a"] * _EMBEDDING_DIM] * 2,
-            "embedding": [[1.0] * _EMBEDDING_DIM] * 2,
-        }),
+        pd.DataFrame(
+            {
+                "query_str": ["hi"] * 2,
+                "custom_embedding_strs": [["a"] * _EMBEDDING_DIM] * 2,
+                "embedding": [[1.0] * _EMBEDDING_DIM] * 2,
+            }
+        ),
     ],
 )
 def test_query_engine_predict_list(single_index, with_input_example, payload):
@@ -276,12 +295,19 @@ def test_query_engine_predict_numeric(model_path, single_index, with_input_examp
         "string",
         {
             "message": "string",
-            _CHAT_MESSAGE_HISTORY_PARAMETER_NAME: [{"role": "user", "content": "string"}] * 3,
+            _CHAT_MESSAGE_HISTORY_PARAMETER_NAME: [
+                {"role": "user", "content": "string"}
+            ]
+            * 3,
         },
-        pd.DataFrame({
-            "message": ["string"],
-            _CHAT_MESSAGE_HISTORY_PARAMETER_NAME: [[{"role": "user", "content": "string"}]],
-        }),
+        pd.DataFrame(
+            {
+                "message": ["string"],
+                _CHAT_MESSAGE_HISTORY_PARAMETER_NAME: [
+                    [{"role": "user", "content": "string"}]
+                ],
+            }
+        ),
     ],
 )
 def test_chat_engine_predict(single_index, with_input_example, payload):
@@ -357,7 +383,9 @@ def test_retriever_engine_predict(single_index, with_input_example):
     assert all(p["class_name"] == "NodeWithScore" for p in predictions)
 
 
-def test_llama_index_databricks_integration(monkeypatch, document, model_path, mock_openai):
+def test_llama_index_databricks_integration(
+    monkeypatch, document, model_path, mock_openai
+):
     monkeypatch.setenv("DATABRICKS_TOKEN", "test")
     monkeypatch.setenv("DATABRICKS_SERVING_ENDPOINT", mock_openai)
     monkeypatch.setattr(Settings, "llm", Databricks(model="dbrx-instruct"))
@@ -367,7 +395,10 @@ def test_llama_index_databricks_integration(monkeypatch, document, model_path, m
 
     index = VectorStoreIndex(nodes=[document])
     mlflow.llama_index.save_model(
-        llama_index_model=index, path=model_path, input_example="hi", engine_type="query"
+        llama_index_model=index,
+        path=model_path,
+        input_example="hi",
+        engine_type="query",
     )
 
     with model_path.joinpath("requirements.txt").open() as file:
@@ -550,7 +581,9 @@ async def test_save_load_workflow_as_code():
         )
 
     # Signature
-    assert model_info.signature.inputs == Schema([ColSpec(type=DataType.string, name="topic")])
+    assert model_info.signature.inputs == Schema(
+        [ColSpec(type=DataType.string, name="topic")]
+    )
     assert model_info.signature.outputs == Schema([ColSpec(DataType.string)])
 
     # Native inference
@@ -568,11 +601,13 @@ async def test_save_load_workflow_as_code():
     assert "pirates" in result
 
     # Batch inference
-    batch_result = pyfunc_loaded_model.predict([
-        {"topic": "pirates"},
-        {"topic": "ninjas"},
-        {"topic": "robots"},
-    ])
+    batch_result = pyfunc_loaded_model.predict(
+        [
+            {"topic": "pirates"},
+            {"topic": "ninjas"},
+            {"topic": "robots"},
+        ]
+    )
     assert len(batch_result) == 3
     assert all(isinstance(r, str) for r in batch_result)
 
