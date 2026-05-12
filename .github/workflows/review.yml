@@ -91,6 +91,12 @@ jobs:
       - name: Install Claude CLI
         run: |
           .claude/scripts/install-claude.sh
+      - name: Install bubblewrap
+        run: |
+          if ! command -v bwrap >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y bubblewrap
+          fi
       - name: Verify Claude CLI
         run: |
           claude --version
