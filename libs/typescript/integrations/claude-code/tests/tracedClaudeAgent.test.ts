@@ -50,7 +50,7 @@ function mockQuery(messages: unknown[]) {
     const iter = (async function* () {
       // If the prompt is an AsyncIterable, drain it (mirrors real SDK).
       if (typeof params.prompt !== 'string') {
-        for await (const _item of params.prompt as AsyncIterable<unknown>) {
+        for await (const _item of params.prompt) {
           // Discard — the wrapper observes via its capturing iterable.
         }
       }
@@ -71,6 +71,7 @@ function mockQuery(messages: unknown[]) {
 
 function mockQueryThatThrows(messages: unknown[], error: Error) {
   const fn = (): MockQueryReturn => {
+    // eslint-disable-next-line @typescript-eslint/require-await
     const iter = (async function* () {
       for (const m of messages) {
         yield m;
@@ -111,7 +112,9 @@ interface FetchedSpan {
 
 function rootSpan(spans: FetchedSpan[]): FetchedSpan {
   const root = spans.find((s) => s.parentId == null);
-  if (!root) throw new Error('No root span in trace');
+  if (!root) {
+    throw new Error('No root span in trace');
+  }
   return root;
 }
 
@@ -156,7 +159,9 @@ describe('createTracedQuery (integration)', () => {
     await drain(wrappedQuery(params));
     await mlflow.flushTraces();
     const traceId = mlflow.getLastActiveTraceId();
-    if (!traceId) throw new Error('No active trace id after run');
+    if (!traceId) {
+      throw new Error('No active trace id after run');
+    }
     const trace = await client.getTrace(traceId);
     return {
       trace,
@@ -443,7 +448,9 @@ describe('createTracedQuery (integration)', () => {
     await expect(drain(traced({ prompt: 'p' }))).rejects.toThrow('rate limit');
     await mlflow.flushTraces();
     const traceId = mlflow.getLastActiveTraceId();
-    if (!traceId) throw new Error('No trace id');
+    if (!traceId) {
+      throw new Error('No trace id');
+    }
     const trace = await client.getTrace(traceId);
     const spans = trace.data.spans as unknown as FetchedSpan[];
 
@@ -544,7 +551,9 @@ describe('createTracedQuery (integration)', () => {
     await mlflow.flushTraces();
 
     const traceId = mlflow.getLastActiveTraceId();
-    if (!traceId) throw new Error('No trace id after early break');
+    if (!traceId) {
+      throw new Error('No trace id after early break');
+    }
     // If the post-loop finalize hadn't run, the root would never end and the
     // exporter wouldn't have pushed the trace — getTrace would 404.
     const trace = await client.getTrace(traceId);
@@ -562,6 +571,7 @@ describe('createTracedQuery (integration)', () => {
       },
     ]);
 
+    // eslint-disable-next-line @typescript-eslint/require-await
     async function* streamingPrompt() {
       yield { type: 'user', message: { role: 'user', content: 'first chunk' } };
       yield {
