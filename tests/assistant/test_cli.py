@@ -42,8 +42,7 @@ def test_configure_auth_failure(runner):
     ):
         result = runner.invoke(commands, ["--configure"], input="1\n")
         assert result.exit_code == 0
-        # Should show error about authentication
-        assert "unauthorized" in result.output.lower()
+        assert "not authenticated" in result.output.lower()
 
 
 def test_configure_experiment_fetch_failure(runner):
