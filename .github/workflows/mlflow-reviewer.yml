@@ -3,15 +3,19 @@ name: NaiLaOpus
 on:
   issue_comment:
     types: [created]
-  pull_request:
-    types: [opened, ready_for_review]
+  # Auto-trigger on PR open/ready is deferred until comment-based runs have
+  # been validated on real PRs. Re-enable by uncommenting these lines.
+  # pull_request:
+  #   types: [opened, ready_for_review]
 
 concurrency:
-  # Single group per PR. cancel-in-progress is false so the auto-trigger run
-  # always finishes; subsequent /review-v2 invocations queue behind it. The
-  # orchestrator's head_sha cache dedupes a queued /review-v2 against a same-SHA
-  # auto run, so /review-v2 --no-cache is the only way to force a re-review.
-  group: nailaopus-${{ github.event.pull_request.number || github.event.issue.number }}
+  # Single group per PR. cancel-in-progress is false so each /review-v2
+  # invocation finishes; subsequent invocations on the same PR queue behind
+  # it. The orchestrator's head_sha cache dedupes against same-SHA runs, so
+  # /review-v2 --no-cache is the only way to force a re-review. The fallback
+  # to github.event.pull_request.number is retained for the commented-out
+  # auto-trigger path.
+  group: nailaopus-${{ github.event.issue.number || github.event.pull_request.number }}
   cancel-in-progress: false
 
 defaults:
@@ -24,16 +28,16 @@ jobs:
       contents: read
       pull-requests: write
       issues: write
+    # The pull_request auto-trigger branch is commented out above; keep the
+    # comment-trigger gate here. The dropped branch required
+    # head.repo.full_name == github.repository (no fork PRs) and was
+    # restricted to MEMBER/COLLABORATOR/OWNER PR authors — both will need to
+    # be reinstated when the auto-trigger is re-enabled.
     if: |
-      (github.event_name == 'issue_comment' &&
-       github.event.issue.pull_request != null &&
-       startsWith(github.event.comment.body, '/review-v2') &&
-       contains(fromJSON('["MEMBER", "COLLABORATOR", "OWNER"]'), github.event.comment.author_association))
-      ||
-      (github.event_name == 'pull_request' &&
-       github.event.pull_request.draft == false &&
-       github.event.pull_request.head.repo.full_name == github.repository &&
-       contains(fromJSON('["MEMBER", "COLLABORATOR", "OWNER"]'), github.event.pull_request.author_association))
+      github.event_name == 'issue_comment' &&
+      github.event.issue.pull_request != null &&
+      startsWith(github.event.comment.body, '/review-v2') &&
+      contains(fromJSON('["MEMBER", "COLLABORATOR", "OWNER"]'), github.event.comment.author_association)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -65,7 +69,6 @@ jobs:
           permission-contents: read
           permission-pull-requests: write
           permission-issues: write
-          permission-metadata: read
 
       - name: React eyes on trigger comment
         if: steps.ctx.outputs.trigger == 'comment'
@@ -84,17 +87,22 @@ jobs:
           GH_TOKEN: ${{ steps.app_token.outputs.token }}
           PR: ${{ steps.ctx.outputs.pr }}
           REPO: ${{ github.repository }}
+          SERVER_URL: ${{ github.server_url }}
+          RUN_ID: ${{ github.run_id }}
         run: |
-          # The pull_request branch of the job-level `if:` already requires
-          # head.repo.full_name == github.repository. The issue_comment payload
-          # does not carry head_repo, so we fetch it here and refuse to run if
-          # the PR head is on a fork: the subsequent checkout + uv pip install
-          # would execute fork-controlled build hooks with App-token + Anthropic
-          # secrets in scope.
-          set -e
+          # The issue_comment payload does not carry head_repo, so we fetch
+          # it here and refuse to run if the PR head is on a fork: the
+          # subsequent checkout would execute fork-controlled build hooks
+          # with App-token + Anthropic secrets in scope. The existing
+          # `review.yml` workflow has the same fork limitation; a followup
+          # PR will lift this once we have a safe execution model for fork
+          # PRs (likely via `pull_request_target` + read-only checkout +
+          # explicit reviewer opt-in).
           head_repo=$(gh api "repos/$REPO/pulls/$PR" --jq .head.repo.full_name)
           if [ "$head_repo" != "$REPO" ]; then
-            echo "Refusing to run on fork PR (head=$head_repo, expected=$REPO)."
+            run_url="$SERVER_URL/$REPO/actions/runs/$RUN_ID"
+            body=$(printf 'Refusing to run NaiLaOpus on fork PR (head=`%s`). See [run logs](%s).\n\n---\nPosted by `NaiLaOpus` (auto-generated).' "$head_repo" "$run_url")
+            gh api "repos/$REPO/issues/$PR/comments" -X POST -f body="$body" || true
             exit 1
           fi
 
@@ -104,7 +112,6 @@ jobs:
           PR: ${{ steps.ctx.outputs.pr }}
           REPO: ${{ github.repository }}
         run: |
-          set -e
           since=$(date -u -d '24 hours ago' '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || date -u -v-24H '+%Y-%m-%dT%H:%M:%SZ')
           count=$(gh api "repos/$REPO/issues/$PR/comments" --paginate \
             --jq "[.[] | select(.user.login == \"NaiLaOpus[bot]\") | select(.created_at > \"$since\")] | length")
@@ -119,11 +126,8 @@ jobs:
           PR: ${{ steps.ctx.outputs.pr }}
           REPO: ${{ github.repository }}
         run: |
-          gh label create nailaopus-reviewed \
-            --repo "$REPO" \
-            --color ededed \
-            --description "PR was reviewed by NaiLaOpus[bot] at least once" \
-            2>/dev/null || true
+          # The `nailaopus-reviewed` label is created out-of-band as part of
+          # the repo-admin rollout; we assume it exists here.
           gh issue edit "$PR" \
             --repo "$REPO" \
             --add-label nailaopus-reviewed || true
@@ -133,7 +137,13 @@ jobs:
         with:
           repository: ${{ github.repository }}
           ref: refs/pull/${{ steps.ctx.outputs.pr }}/head
-          fetch-depth: 0
+          # Shallow + sparse: the orchestrator runs `gh pr diff` and reads
+          # only changed files through the GitHub API, so we don't need
+          # history or the full tree on disk.
+          fetch-depth: 1
+          sparse-checkout: |
+            .gitignore
+          sparse-checkout-cone-mode: false
           path: mlflow
           token: ${{ steps.app_token.outputs.token }}
           # Read-only checkout; we never push from the workflow. Avoid
@@ -144,21 +154,15 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           repository: mlflow/internal
+          fetch-depth: 1
+          sparse-checkout: |
+            mlflow-reviewer
           path: internal
           token: ${{ steps.app_token.outputs.token }}
           persist-credentials: false
 
-      - name: Set up Python
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
-        with:
-          python-version: "3.11"
-
       - name: Install uv
         uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
-
-      - name: Install orchestrator
-        working-directory: internal/mlflow-reviewer
-        run: uv pip install -e ".[test]" --system
 
       - name: Parse review flags (comment-triggered only)
         id: flags
@@ -166,14 +170,12 @@ jobs:
         env:
           BODY: ${{ github.event.comment.body }}
         run: |
-          set -e
           flags=""
           if echo "$BODY" | grep -q -- '--no-cache'; then flags="$flags --no-cache"; fi
           if echo "$BODY" | grep -q -- '--hybrid'; then flags="$flags --hybrid"; fi
           echo "flags=$flags" >> "$GITHUB_OUTPUT"
 
       - name: Run NaiLaOpus (dry-run by default; Bridge 2 adds --no-dry-run to enable posting)
-        working-directory: mlflow
         env:
           # EXPERIMENTAL_ANTHROPIC_API_KEY isolates the bot's spend from
           # any other workflow on this repo that uses Anthropic (e.g. the
@@ -193,8 +195,11 @@ jobs:
         # (today none reach here, but the pattern is hardening for drift)
         # is treated as data, not as code. $FLAGS is intentionally unquoted
         # so it word-splits into separate argv entries.
+        # `uv run --directory` resolves + runs the `nailaopus` console script
+        # from the orchestrator package without a separate `uv pip install`
+        # step; uv caches the env between invocations.
         run: |
-          mlflow-reviewer "$PR" --repo "$REPO" $FLAGS
+          uv run --directory internal/mlflow-reviewer nailaopus "$PR" --repo "$REPO" $FLAGS
 
       - name: React +1 on success (comment-triggered only)
         if: success() && steps.ctx.outputs.trigger == 'comment'
@@ -207,27 +212,22 @@ jobs:
             "repos/$REPO/issues/comments/$COMMENT_ID/reactions" \
             -X POST -f content=+1 || true
 
-      - name: React -1 and post failure comment on failure
+      - name: Post failure comment
         if: failure()
         env:
           GH_TOKEN: ${{ steps.app_token.outputs.token }}
-          TRIGGER: ${{ steps.ctx.outputs.trigger }}
           REPO: ${{ github.repository }}
           PR: ${{ steps.ctx.outputs.pr }}
-          COMMENT_ID: ${{ github.event.comment.id }}
           SERVER_URL: ${{ github.server_url }}
           RUN_ID: ${{ github.run_id }}
         run: |
-          if [ "$TRIGGER" = "comment" ]; then
-            gh api \
-              "repos/$REPO/issues/comments/$COMMENT_ID/reactions" \
-              -X POST -f content=-1 || true
-          fi
           run_url="$SERVER_URL/$REPO/actions/runs/$RUN_ID"
           # printf with a single-quoted format string keeps backticks literal
           # (no command substitution) and avoids the multi-line YAML quoting
-          # bug where embedded backticks broke shell parsing.
-          body=$(printf '`NaiLaOpus` failed. See [run logs](%s).\n\n---\nPosted by `NaiLaOpus` (auto-generated).' "$run_url")
+          # bug where embedded backticks broke shell parsing. The leading ❌
+          # is the signal a per-comment reaction used to give; consolidating
+          # into one comment cuts an API call and reduces rate-limit pressure.
+          body=$(printf '❌ `NaiLaOpus` failed. See [run logs](%s).\n\n---\nPosted by `NaiLaOpus` (auto-generated).' "$run_url")
           gh api \
             "repos/$REPO/issues/$PR/comments" \
             -X POST -f body="$body" || true
