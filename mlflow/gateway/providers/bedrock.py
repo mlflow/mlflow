@@ -337,18 +337,16 @@ class AmazonBedrockProvider(BaseProvider):
                 if tool_calls := msg.get("tool_calls"):
                     if content:
                         assistant_content.append({"text": content})
-                    assistant_content.extend(
-                        {
+                    for tool_call in tool_calls:
+                        arguments = tool_call.get("function", {}).get("arguments")
+                        tool_input = json.loads(arguments) if arguments else {}
+                        assistant_content.append({
                             "toolUse": {
                                 "toolUseId": tool_call.get("id", ""),
                                 "name": tool_call.get("function", {}).get("name", ""),
-                                "input": json.loads(
-                                    tool_call.get("function", {}).get("arguments", "{}") or "{}"
-                                ),
+                                "input": tool_input,
                             }
-                        }
-                        for tool_call in tool_calls
-                    )
+                        })
                 else:
                     assistant_content.append({"text": content})
                 converse_messages.append({
