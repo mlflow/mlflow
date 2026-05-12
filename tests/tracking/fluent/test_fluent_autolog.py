@@ -111,6 +111,7 @@ def reset_global_states():
 
     # setfit may not be in library_to_mlflow_module when incompatible with transformers 5.x
     mlflow.utils.import_hooks._post_import_hooks.pop("setfit", None)
+    mlflow.utils.import_hooks._post_import_hooks.pop("mistralai", None)
 
     assert all(v == {} for v in AUTOLOGGING_INTEGRATIONS.values())
     assert mlflow.utils.import_hooks._post_import_hooks == {}
@@ -137,6 +138,7 @@ def reset_global_states():
     mlflow.utils.import_hooks._post_import_hooks.pop("haystack", None)
     # setfit may not be in library_to_mlflow_module when incompatible with transformers 5.x
     mlflow.utils.import_hooks._post_import_hooks.pop("setfit", None)
+    mlflow.utils.import_hooks._post_import_hooks.pop("mistralai", None)
     # TODO: Remove this line when we stop supporting google.generativeai
     mlflow.utils.import_hooks._post_import_hooks.pop("google.generativeai", None)
 
@@ -499,7 +501,7 @@ def test_autolog_genai_import(disable, flavor_and_module):
     # pytorch-lightning is not valid flavor name.
     # paddle autologging is not in the list of autologging integrations.
     # crewai, smolagents, and semantic_kernel require Python 3.10+ (our CI runs on Python 3.9).
-    if flavor in {
+    skip_flavors = {
         "pytorch-lightning",
         "paddle",
         "crewai",
@@ -510,7 +512,11 @@ def test_autolog_genai_import(disable, flavor_and_module):
         "agno",
         "strands",
         "haystack",
-    }:
+    }
+    if mistralai is None:
+        skip_flavors.add("mistral")
+
+    if flavor in skip_flavors:
         return
 
     with reset_module_import():

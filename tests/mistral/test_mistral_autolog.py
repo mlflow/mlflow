@@ -3,7 +3,7 @@ from unittest.mock import patch
 import httpx
 import pytest
 
-mistralai = pytest.importorskip("mistralai")
+pytest.importorskip("mistralai")
 
 try:
     from mistralai.client import Mistral  # mistralai >= 2.0
