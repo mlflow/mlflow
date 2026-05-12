@@ -58,10 +58,10 @@ export function createTracedQuery(queryFn: QueryFunction): QueryFunction {
           dispatch(ctx, msg);
           yield msg;
         }
-        ctx.finalize();
+        await ctx.finalize();
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        ctx.finalizeError(message);
+        await ctx.finalizeError(message);
         throw err;
       }
     }
@@ -81,7 +81,8 @@ export function createTracedQuery(queryFn: QueryFunction): QueryFunction {
             | ((...a: unknown[]) => unknown)
             | undefined;
           return (...args: unknown[]) => {
-            ctx.finalizeError('interrupted');
+            // Fire-and-forget the trace flush so .interrupt() stays sync-compatible.
+            void ctx.finalizeError('interrupted');
             return typeof method === 'function' ? method.call(target, ...args) : method;
           };
         }

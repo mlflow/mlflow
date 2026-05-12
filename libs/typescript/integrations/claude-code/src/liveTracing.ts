@@ -20,6 +20,7 @@
 
 import {
   startSpan,
+  flushTraces,
   SpanType,
   SpanAttributeKey,
   SpanStatusCode,
@@ -250,7 +251,7 @@ export class LiveTracingContext {
   }
 
   /** Close all open spans with ERROR status on stream throw or interruption. */
-  finalizeError(error: string): void {
+  async finalizeError(error: string): Promise<void> {
     if (this.ended) {return;}
     for (const span of this.openToolSpans.values()) {
       span.setStatus(SpanStatusCode.ERROR, error);
@@ -263,11 +264,11 @@ export class LiveTracingContext {
     }
     this.subagentSpans.clear();
     this.rootSpan.setStatus(SpanStatusCode.ERROR, error);
-    this.finalize();
+    await this.finalize();
   }
 
-  /** Close the root span; safe to call multiple times. */
-  finalize(): void {
+  /** Close the root span and flush traces to the backend; safe to call multiple times. */
+  async finalize(): Promise<void> {
     if (this.ended) {return;}
     this.ended = true;
 
@@ -286,6 +287,12 @@ export class LiveTracingContext {
     }
     this.rootSpan.setOutputs(outputs);
     this.rootSpan.end();
+
+    try {
+      await flushTraces();
+    } catch (err) {
+      console.error('[mlflow] Failed to flush traces:', err);
+    }
   }
 
   private getConversation(key: ConversationKey): InputMessage[] {
