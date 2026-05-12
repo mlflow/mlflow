@@ -174,11 +174,12 @@ jobs:
         run: |
           python <<'PY'
           import os
+          import sys
           from pathlib import Path
 
           path = Path("/tmp/output.jsonl")
           if not path.exists():
-              raise SystemExit(0)
+              sys.exit(0)
           data = path.read_text()
           for name in ("ANTHROPIC_API_KEY", "GH_TOKEN"):
               if val := os.environ.get(name):
