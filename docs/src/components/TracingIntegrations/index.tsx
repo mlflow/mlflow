@@ -24,6 +24,7 @@ type Category =
   | 'Agent Frameworks (Python)'
   | 'Agent Frameworks (TypeScript)'
   | 'Agent Frameworks (Java)'
+  | 'Coding Agents & Long-Running Agents'
   | 'Model Providers'
   | 'Tools'
   | 'Gateways'
@@ -34,6 +35,7 @@ const CATEGORY_ORDER: Category[] = [
   'Agent Frameworks (Python)',
   'Agent Frameworks (TypeScript)',
   'Agent Frameworks (Java)',
+  'Coding Agents & Long-Running Agents',
   'Model Providers',
   'Tools',
   'Gateways',
@@ -390,48 +392,55 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     link: '/genai/tracing/integrations/listing/togetherai',
     category: 'Model Providers',
   },
-  // Coding Agents
+  // Coding Agents & Long-Running Agents
   {
     id: 'claude_code',
     name: 'Claude Code',
     logoPath: '/images/logos/claude-code-logo.png',
     link: '/genai/tracing/integrations/listing/claude_code',
-    category: 'Coding Agents',
+    category: 'Coding Agents & Long-Running Agents',
   },
   {
     id: 'opencode',
     name: 'OpenCode',
     logoPath: '/images/logos/opencode-logo.png',
     link: '/genai/tracing/integrations/listing/opencode',
-    category: 'Coding Agents',
+    category: 'Coding Agents & Long-Running Agents',
   },
   {
     id: 'openhands',
     name: 'OpenHands',
     logoPath: '/images/logos/openhands-logo.png',
     link: '/genai/tracing/integrations/listing/openhands',
-    category: 'Coding Agents',
+    category: 'Coding Agents & Long-Running Agents',
   },
   {
     id: 'codex',
     name: 'Codex CLI',
     logoPath: '/images/logos/openai-logo-only.png',
     link: '/genai/tracing/integrations/listing/codex',
-    category: 'Coding Agents',
+    category: 'Coding Agents & Long-Running Agents',
   },
   {
     id: 'gemini_cli',
     name: 'Gemini CLI',
     logoPath: '/images/logos/google-gemini-logo.svg',
     link: '/genai/tracing/integrations/listing/gemini_cli',
-    category: 'Coding Agents',
+    category: 'Coding Agents & Long-Running Agents',
+  },
+  {
+    id: 'hermes_agent',
+    name: 'Hermes Agent',
+    logoPath: '/images/logos/hermes-agent-logo.svg',
+    link: '/genai/tracing/integrations/listing/hermes_agent',
+    category: 'Coding Agents & Long-Running Agents',
   },
   {
     id: 'qwen_code',
     name: 'Qwen Code',
     logoPath: '/images/logos/qwen-logo.jpg',
     link: '/genai/tracing/integrations/listing/qwen_code',
-    category: 'Coding Agents',
+    category: 'Coding Agents & Long-Running Agents',
   },
   {
     id: 'instructor',

@@ -56,6 +56,17 @@ deny_create_app_token_without_permissions contains msg if {
 	)
 }
 
+deny_create_app_token_with_app_id contains msg if {
+	some job_id, job in input.jobs
+	some step in job.steps
+	startswith(step.uses, "actions/create-github-app-token@")
+	step["with"]["app-id"]
+	msg := sprintf(
+		"actions/create-github-app-token in job '%s' uses deprecated 'app-id'. Use 'client-id' instead.",
+		[job_id],
+	)
+}
+
 step_has_app_token_permissions(step) if {
 	some key, _ in step["with"]
 	startswith(key, "permission-")
