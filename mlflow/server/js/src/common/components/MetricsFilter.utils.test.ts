@@ -3,9 +3,7 @@ import { isCompleteFilter, translateToMetricsFilters, type MetricFilter } from '
 
 jest.mock('@databricks/web-shared/model-trace-explorer', () => ({
   MLFLOW_TRACE_USER_KEY: 'mlflow.trace.user',
-  createTraceMetadataFilter: jest.fn(
-    (key: string, value: string) => `trace.metadata.\`${key}\` = "${value}"`,
-  ),
+  createTraceMetadataFilter: jest.fn((key: string, value: string) => `trace.metadata.\`${key}\` = "${value}"`),
 }));
 
 describe('isCompleteFilter', () => {
