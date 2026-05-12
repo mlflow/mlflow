@@ -986,28 +986,26 @@ haystack:
     test_tracing_sdk: true
     test_every_n_versions: 10
 
-# Disabled due to supply chain compromise in mistralai 2.4.6.
-# See https://github.com/mistralai/client-python/issues/523
-# mistral:
-#   package_info:
-#     genai: true
-#     repo: https://github.com/mistralai/client-python/tree/HEAD
-#     pip_release: "mistralai"
-#     module_name: "mistralai"
-#     install_dev: |
-#       TMP_DIR=$(mktemp -d)
-#       git clone --depth 1 https://github.com/mistralai/client-python $TMP_DIR
-#       cd $TMP_DIR
-#       python scripts/prepare_readme.py
-#       uv pip install --system .
-#       rm -rf $TMP_DIR
-#   autologging:
-#     minimum: "1.7.1"
-#     maximum: "2.4.0"
-#     requirements:
-#     run: pytest tests/mistral
-#     test_tracing_sdk: true
-#     test_every_n_versions: 10
+mistral:
+  package_info:
+    genai: true
+    repo: https://github.com/mistralai/client-python/tree/HEAD
+    pip_release: "mistralai"
+    module_name: "mistralai"
+    install_dev: |
+      TMP_DIR=$(mktemp -d)
+      git clone --depth 1 https://github.com/mistralai/client-python $TMP_DIR
+      cd $TMP_DIR
+      python scripts/prepare_readme.py
+      uv pip install --system .
+      rm -rf $TMP_DIR
+  autologging:
+    minimum: "1.7.1"
+    maximum: "2.4.0"
+    requirements:
+    run: pytest tests/mistral
+    test_tracing_sdk: true
+    test_every_n_versions: 10
 
 sentence_transformers:
   package_info:
