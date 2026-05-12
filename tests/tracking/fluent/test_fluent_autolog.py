@@ -109,6 +109,10 @@ def reset_global_states():
 
     # setfit may not be in library_to_mlflow_module when incompatible with transformers 5.x
     mlflow.utils.import_hooks._post_import_hooks.pop("setfit", None)
+    # mistralai is removed from library_to_mlflow_module while the package is
+    # disabled (see https://github.com/mistralai/client-python/issues/523), but
+    # mlflow.autolog() still registers a post-import hook for it via fluent.py.
+    mlflow.utils.import_hooks._post_import_hooks.pop("mistralai", None)
 
     assert all(v == {} for v in AUTOLOGGING_INTEGRATIONS.values())
     assert mlflow.utils.import_hooks._post_import_hooks == {}
@@ -135,6 +139,8 @@ def reset_global_states():
     mlflow.utils.import_hooks._post_import_hooks.pop("haystack", None)
     # setfit may not be in library_to_mlflow_module when incompatible with transformers 5.x
     mlflow.utils.import_hooks._post_import_hooks.pop("setfit", None)
+    # mistralai is disabled — see https://github.com/mistralai/client-python/issues/523
+    mlflow.utils.import_hooks._post_import_hooks.pop("mistralai", None)
     # TODO: Remove this line when we stop supporting google.generativeai
     mlflow.utils.import_hooks._post_import_hooks.pop("google.generativeai", None)
 
