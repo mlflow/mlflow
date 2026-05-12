@@ -1,6 +1,7 @@
 import warnings
 
 from mlflow.server.auth.entities import (
+    CheckUserPermissionResult,
     ExperimentPermission,
     GatewayEndpointPermission,
     GatewayModelDefinitionPermission,
@@ -15,6 +16,7 @@ from mlflow.server.auth.entities import (
 from mlflow.server.auth.routes import (
     ADD_ROLE_PERMISSION,
     ASSIGN_ROLE,
+    CHECK_USER_PERMISSION,
     CREATE_EXPERIMENT_PERMISSION,
     CREATE_GATEWAY_ENDPOINT_PERMISSION,
     CREATE_GATEWAY_MODEL_DEFINITION_PERMISSION,
@@ -39,11 +41,13 @@ from mlflow.server.auth.routes import (
     GET_ROLE,
     GET_SCORER_PERMISSION,
     GET_USER,
+    GRANT_USER_PERMISSION,
     LIST_ROLE_PERMISSIONS,
     LIST_ROLE_USERS,
     LIST_ROLES,
     LIST_USER_ROLES,
     REMOVE_ROLE_PERMISSION,
+    REVOKE_USER_PERMISSION,
     UNASSIGN_ROLE,
     UPDATE_EXPERIMENT_PERMISSION,
     UPDATE_GATEWAY_ENDPOINT_PERMISSION,
@@ -382,6 +386,60 @@ class AuthServiceClient:
         # cross-workspace listing (admin-only, enforced server-side).
         resp = self._request(LIST_ROLES, "GET")
         return [Role.from_json(r) for r in resp["roles"]]
+
+    # ---- Unified per-user permission convenience APIs ----
+    #
+    # Grant / revoke / check a single resource permission for a user. These
+    # preserve the legacy per-resource endpoints' per-resource MANAGE
+    # delegation semantics (a user holding MANAGE on a specific experiment can
+    # grant other users access to that experiment without holding workspace
+    # MANAGE) but with a uniform ``(resource_type, resource_id)`` shape.
+
+    def grant_user_permission(
+        self,
+        username: str,
+        resource_type: str,
+        resource_id: str,
+        permission: str,
+    ) -> None:
+        self._request(
+            GRANT_USER_PERMISSION,
+            "POST",
+            json={
+                "username": username,
+                "resource_type": resource_type,
+                "resource_id": resource_id,
+                "permission": permission,
+            },
+        )
+
+    def revoke_user_permission(self, username: str, resource_type: str, resource_id: str) -> None:
+        self._request(
+            REVOKE_USER_PERMISSION,
+            "POST",
+            json={
+                "username": username,
+                "resource_type": resource_type,
+                "resource_id": resource_id,
+            },
+        )
+
+    def check_user_permission(
+        self,
+        username: str,
+        resource_type: str,
+        resource_id: str,
+        workspace: str | None = None,
+    ) -> CheckUserPermissionResult:
+        payload: dict[str, object] = {
+            "username": username,
+            "resource_type": resource_type,
+            "resource_id": resource_id,
+        }
+        if workspace is not None:
+            payload["workspace"] = workspace
+        resp = self._request(CHECK_USER_PERMISSION, "POST", json=payload)
+        return CheckUserPermissionResult.from_json(resp)
 
     # Legacy per-resource permission methods (deprecated). Backed by synthetic
     # per-user role grants; prefer ``add_role_permission`` + ``assign_role``.

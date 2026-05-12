@@ -406,6 +406,102 @@ class SqlAlchemyStore:
             else:
                 existing.permission = permission
 
+    def grant_user_resource_permission(
+        self,
+        username: str,
+        resource_type: str,
+        resource_pattern: str,
+        permission: str,
+    ) -> None:
+        """
+        Create a new ``permission`` grant on ``(resource_type, resource_pattern)`` for
+        ``username`` via their synthetic role in the active workspace. Unlike
+        ``grant_user_permission`` (which upserts), this raises ``RESOURCE_ALREADY_EXISTS``
+        when a row already exists — matching the legacy ``create_*_permission`` family's
+        contract so the convenience REST surface can reject duplicate grants cleanly.
+        """
+        _validate_permission_for_resource_type(permission, resource_type)
+        duplicate_message = (
+            f"Permission for user={username} on "
+            f"resource_type={resource_type}, resource_id={resource_pattern} already exists."
+        )
+        with self.ManagedSessionMaker() as session:
+            user = self._get_user(session, username=username)
+            workspace_name = self._get_active_workspace_name()
+            role = self._get_or_create_synthetic_user_role(session, user.id, workspace_name)
+            existing = (
+                session
+                .query(SqlRolePermission)
+                .filter(
+                    SqlRolePermission.role_id == role.id,
+                    SqlRolePermission.resource_type == resource_type,
+                    SqlRolePermission.resource_pattern == resource_pattern,
+                )
+                .first()
+            )
+            if existing is not None:
+                raise MlflowException(duplicate_message, RESOURCE_ALREADY_EXISTS)
+            try:
+                with session.begin_nested():
+                    session.add(
+                        SqlRolePermission(
+                            role_id=role.id,
+                            resource_type=resource_type,
+                            resource_pattern=resource_pattern,
+                            permission=permission,
+                        )
+                    )
+                    session.flush()
+            except IntegrityError as e:
+                # Concurrent create lost the unique-constraint race. Surface as
+                # a clean RESOURCE_ALREADY_EXISTS instead of a 500.
+                raise MlflowException(duplicate_message, RESOURCE_ALREADY_EXISTS) from e
+
+    def revoke_user_resource_permission(
+        self,
+        username: str,
+        resource_type: str,
+        resource_pattern: str,
+    ) -> None:
+        """
+        Remove the ``(resource_type, resource_pattern)`` grant from ``username``'s
+        synthetic role in the active workspace. Raises ``RESOURCE_DOES_NOT_EXIST`` if
+        no matching row exists — matching the legacy ``delete_*_permission`` family's
+        contract.
+        """
+        _validate_resource_type(resource_type)
+        not_found_message = (
+            f"Permission for user={username} on "
+            f"resource_type={resource_type}, resource_id={resource_pattern} not found."
+        )
+        with self.ManagedSessionMaker() as session:
+            user = self._get_user(session, username=username)
+            workspace_name = self._get_active_workspace_name()
+            role = (
+                session
+                .query(SqlRole)
+                .filter(
+                    SqlRole.workspace == workspace_name,
+                    SqlRole.name == self._synthetic_user_role_name(user.id),
+                )
+                .first()
+            )
+            rp = (
+                None
+                if role is None
+                else session
+                .query(SqlRolePermission)
+                .filter(
+                    SqlRolePermission.role_id == role.id,
+                    SqlRolePermission.resource_type == resource_type,
+                    SqlRolePermission.resource_pattern == resource_pattern,
+                )
+                .first()
+            )
+            if rp is None:
+                raise MlflowException(not_found_message, RESOURCE_DOES_NOT_EXIST)
+            session.delete(rp)
+
     def delete_grants_for_resource(
         self,
         resource_type: str,
