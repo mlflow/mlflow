@@ -521,28 +521,22 @@ def _get_test_files_from_pytest_command(cmd, test_dir):
 
 async def _get_available_packages(pip_releases: list[str]) -> dict[str, Package]:
     remaining = list(pip_releases)
-    last_error = None
-    for _ in range(len(pip_releases)):
+    while remaining:
         try:
             return dict(zip(remaining, await get_packages(remaining)))
         except PyPIError as e:
-            last_error = e
             if not (match := PYPI_NOT_FOUND_PATTERN.search(str(e))):
                 raise
             package_name = match.group("name")
-            if package_name not in remaining:
+            next_remaining = [release for release in remaining if release != package_name]
+            if len(next_remaining) == len(remaining):
                 raise
-            remaining = [release for release in remaining if release != package_name]
+            remaining = next_remaining
             warnings.warn(
                 f"Skipping unavailable PyPI package {package_name!r} while generating matrix.",
                 stacklevel=2,
             )
-            if not remaining:
-                return {}
-    raise RuntimeError(
-        f"Failed to resolve available PyPI packages while processing {pip_releases}. "
-        f"Last error: {last_error}"
-    )
+    return {}
 
 
 def validate_requirements(
