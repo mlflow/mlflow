@@ -17,6 +17,7 @@ from mlflow.environment_variables import (
     MLFLOW_BOTO_CLIENT_ADDRESSING_STYLE,
     MLFLOW_S3_ENDPOINT_URL,
     MLFLOW_S3_EXPECTED_BUCKET_OWNER,
+    MLFLOW_S3_IGNORE_DIRECTORY_MARKERS,
     MLFLOW_S3_IGNORE_TLS,
     MLFLOW_S3_UPLOAD_EXTRA_ARGS,
 )
@@ -422,17 +423,25 @@ class S3ArtifactRepository(
                 self._verify_listed_object_contains_artifact_path_prefix(
                     listed_object_path=subdir_path, artifact_path=artifact_path
                 )
-                subdir_rel_path = posixpath.relpath(path=subdir_path, start=artifact_path)
+                subdir_rel_path = posixpath.relpath(
+                    path=subdir_path, start=artifact_path
+                )
                 subdir_rel_path = subdir_rel_path.removesuffix("/")
                 infos.append(FileInfo(subdir_rel_path, True, None))
             # Objects listed directly will be files
             for obj in result.get("Contents", []):
                 file_path = obj.get("Key")
+                file_size = int(obj.get("Size"))
+                if (
+                    MLFLOW_S3_IGNORE_DIRECTORY_MARKERS
+                    and self._file_is_directory_marker(file_path, file_size)
+                ):
+                    continue
+
                 self._verify_listed_object_contains_artifact_path_prefix(
                     listed_object_path=file_path, artifact_path=artifact_path
                 )
                 file_rel_path = posixpath.relpath(path=file_path, start=artifact_path)
-                file_size = int(obj.get("Size"))
                 infos.append(FileInfo(file_rel_path, False, file_size))
         return sorted(infos, key=lambda f: f.path)
 
@@ -444,6 +453,10 @@ class S3ArtifactRepository(
                 f" artifact path. Artifact path: {artifact_path}. Object path:"
                 f" {listed_object_path}."
             )
+
+    @staticmethod
+    def _file_is_directory_marker(file_path, file_size):
+        return file_size == 0 and file_path.endswith("/")
 
     def _download_file(self, remote_file_path, local_path):
         """
