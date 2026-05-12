@@ -4113,6 +4113,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         Returns:
             The number of traces deleted.
         """
+        deleted_db_backed_count = 0
+        selected_archived_traces: list[_TraceDeleteSelection] = []
         with self.ManagedSessionMaker() as session:
             filters = [SqlTraceInfo.experiment_id == int(experiment_id)]
             if max_timestamp_millis is not None:
@@ -4137,23 +4139,45 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             )
             if not selected_trace_ids:
                 return 0
-            selected_traces = self._select_archived_traces_for_delete(
+
+            # Classify selected traces while the trace rows remain locked, then delete the
+            # DB-backed subset before any slow object-store cleanup begins.
+            selected_archived_traces = self._select_archived_traces_for_delete(
                 session=session,
                 trace_ids=selected_trace_ids,
             )
-            archived_trace_ids = {selected_trace.trace_id for selected_trace in selected_traces}
-            deletable_trace_ids = [
+            archived_trace_ids = {
+                selected_trace.trace_id for selected_trace in selected_archived_traces
+            }
+            db_backed_trace_ids = [
                 trace_id for trace_id in selected_trace_ids if trace_id not in archived_trace_ids
             ]
-            deletable_trace_ids.extend(self._delete_archived_trace_payloads(selected_traces))
-            if not deletable_trace_ids:
-                return 0
-            return (
+            if db_backed_trace_ids:
+                deleted_db_backed_count = (
+                    session
+                    .query(SqlTraceInfo)
+                    .filter(SqlTraceInfo.request_id.in_(db_backed_trace_ids))
+                    .delete(synchronize_session=False)
+                )
+
+        if not selected_archived_traces:
+            return deleted_db_backed_count
+
+        # Archived traces stay for a second phase so payload cleanup can happen outside the
+        # transaction. Missing archived files are still treated as successful cleanup so
+        # concurrent deleters can converge safely.
+        deleted_archived_trace_ids = self._delete_archived_trace_payloads(selected_archived_traces)
+        if not deleted_archived_trace_ids:
+            return deleted_db_backed_count
+
+        with self.ManagedSessionMaker() as session:
+            deleted_archived_count = (
                 session
                 .query(SqlTraceInfo)
-                .filter(SqlTraceInfo.request_id.in_(deletable_trace_ids))
+                .filter(SqlTraceInfo.request_id.in_(deleted_archived_trace_ids))
                 .delete(synchronize_session=False)
             )
+        return deleted_db_backed_count + deleted_archived_count
 
     def _select_trace_ids_for_delete(
         self,
@@ -4166,6 +4190,9 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             ._trace_query(session, for_update_or_delete=True)
             .with_entities(SqlTraceInfo.request_id)
             .filter(and_(*filters))
+            # Keep row locking deterministic so overlapping delete calls acquire trace_info locks
+            # in the same order instead of deadlocking on row-locking backends.
+            .order_by(SqlTraceInfo.timestamp_ms, SqlTraceInfo.request_id)
             .all()
         )
         return [trace_id for (trace_id,) in rows]
@@ -4176,6 +4203,13 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         session: Session,
         trace_ids: list[str],
     ) -> list[_TraceDeleteSelection]:
+        """
+        Return archive-backed traces and their payload URIs for a delete pass.
+
+        `_delete_traces()` calls this while the selected `trace_info` rows are still locked so it
+        can classify candidates consistently, delete DB-backed rows in the same transaction, and
+        leave only archive-backed traces for the slower payload cleanup phase.
+        """
         if not trace_ids:
             return []
         spans_location_tag = aliased(SqlTraceTag)
@@ -4197,7 +4231,10 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     archive_location_tag.key == TraceTagKey.ARCHIVE_LOCATION,
                 ),
             )
-            .with_entities(SqlTraceInfo.request_id, archive_location_tag.value)
+            .with_entities(
+                SqlTraceInfo.request_id,
+                archive_location_tag.value,
+            )
             .filter(
                 SqlTraceInfo.request_id.in_(trace_ids),
                 spans_location_tag.value == SpansLocation.ARCHIVE_REPO.value,
@@ -4212,6 +4249,16 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             for trace_id, archived_artifact_uri in rows
         ]
 
+    @staticmethod
+    def _is_missing_archived_trace_payload_delete_error(exc: Exception) -> bool:
+        if isinstance(exc, FileNotFoundError):
+            return True
+        if isinstance(exc, MlflowException) and exc.error_code == ErrorCode.Name(
+            RESOURCE_DOES_NOT_EXIST
+        ):
+            return True
+        return "No such file or directory" in str(exc) or "No such artifact" in str(exc)
+
     def _delete_archived_trace_payloads(
         self, selected_traces: list[_TraceDeleteSelection]
     ) -> list[str]:
@@ -4224,15 +4271,16 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 get_artifact_repository(selected_trace.archived_artifact_uri).delete_artifacts(
                     TRACE_ARCHIVAL_FILENAME
                 )
-            except Exception:
-                _logger.error(
-                    "Failed to clean up archived payload for trace %s; "
-                    "leaving the trace row intact.",
-                    selected_trace.trace_id,
-                    exc_info=True,
-                )
-            else:
-                deleted_trace_ids.append(selected_trace.trace_id)
+            except Exception as e:
+                if not self._is_missing_archived_trace_payload_delete_error(e):
+                    _logger.error(
+                        "Failed to clean up archived payload for trace %s; "
+                        "leaving the trace row intact.",
+                        selected_trace.trace_id,
+                        exc_info=True,
+                    )
+                    continue
+            deleted_trace_ids.append(selected_trace.trace_id)
         return deleted_trace_ids
 
     def create_assessment(self, assessment: Assessment) -> Assessment:

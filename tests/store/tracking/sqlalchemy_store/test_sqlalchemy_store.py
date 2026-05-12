@@ -15166,6 +15166,83 @@ def test_delete_traces_cleans_up_archived_payloads(store: SqlAlchemyStore):
         assert not archive_payload_path.exists()
 
 
+def test_delete_traces_removes_db_backed_rows_before_archived_payload_cleanup(
+    store: SqlAlchemyStore,
+):
+    exp_id = store.create_experiment("archive-delete-db-first")
+    archived_trace_id = "tr-archive-delete-db-first-archived"
+    db_backed_trace_id = "tr-archive-delete-db-first-db"
+    now_millis = 27 * 24 * 60 * 60 * 1000
+    request_time = now_millis - 2 * 24 * 60 * 60 * 1000
+
+    for trace_id, span_id in [(archived_trace_id, 581), (db_backed_trace_id, 582)]:
+        _create_trace(store, trace_id, exp_id, request_time=request_time)
+        store.log_spans(
+            exp_id,
+            [
+                create_test_span(
+                    trace_id,
+                    span_id=span_id,
+                    start_ns=request_time * 1_000_000,
+                    end_ns=(request_time + 1_000) * 1_000_000,
+                )
+            ],
+        )
+
+    with TempDir() as tmp:
+        from mlflow.tracing.otel.otel_archival import TRACE_ARCHIVAL_FILENAME
+
+        archive_root = Path(tmp.path("archive"))
+        archive_root.mkdir()
+        assert (
+            _archive_traces(
+                store,
+                default_trace_archival_location=archive_root.as_uri(),
+                default_retention="1d",
+                now_millis=now_millis,
+                max_traces=1,
+            )
+            == 1
+        )
+
+        trace_info = store.get_trace_info(archived_trace_id)
+        archive_payload_path = (
+            Path(local_file_uri_to_path(trace_info.tags[TraceTagKey.ARCHIVE_LOCATION]))
+            / TRACE_ARCHIVAL_FILENAME
+        )
+        assert archive_payload_path.is_file()
+
+        def delete_artifacts_side_effect(path: str):
+            assert path == TRACE_ARCHIVAL_FILENAME
+            with store.ManagedSessionMaker() as session:
+                remaining_trace_ids = {
+                    trace_id
+                    for (trace_id,) in (
+                        session
+                        .query(SqlTraceInfo.request_id)
+                        .filter(SqlTraceInfo.experiment_id == int(exp_id))
+                        .all()
+                    )
+                }
+            assert remaining_trace_ids == {archived_trace_id}
+            archive_payload_path.unlink()
+
+        cleanup_repo = mock.Mock()
+        cleanup_repo.delete_artifacts.side_effect = delete_artifacts_side_effect
+        with mock.patch(
+            "mlflow.store.tracking.sqlalchemy_store.get_artifact_repository",
+            return_value=cleanup_repo,
+        ):
+            assert store.delete_traces(
+                exp_id, trace_ids=[archived_trace_id, db_backed_trace_id]
+            ) == 2
+
+        cleanup_repo.delete_artifacts.assert_called_once_with(TRACE_ARCHIVAL_FILENAME)
+        traces, _ = store.search_traces([exp_id])
+        assert traces == []
+        assert not archive_payload_path.exists()
+
+
 def test_delete_traces_keeps_trace_when_archived_cleanup_fails(store: SqlAlchemyStore):
     exp_id = store.create_experiment("archive-delete-payload-first")
     trace_id = "tr-archive-delete-payload-first"
@@ -15218,6 +15295,64 @@ def test_delete_traces_keeps_trace_when_archived_cleanup_fails(store: SqlAlchemy
         traces, _ = store.search_traces([exp_id])
         assert [trace.trace_id for trace in traces] == [trace_id]
         assert archive_payload_path.is_file()
+
+
+def test_delete_traces_treats_missing_archived_payload_as_already_deleted(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("archive-delete-missing-payload")
+    trace_id = "tr-archive-delete-missing-payload"
+    now_millis = 28 * 24 * 60 * 60 * 1000
+    request_time = now_millis - 2 * 24 * 60 * 60 * 1000
+
+    _create_trace(store, trace_id, exp_id, request_time=request_time)
+    store.log_spans(
+        exp_id,
+        [
+            create_test_span(
+                trace_id,
+                span_id=711,
+                start_ns=request_time * 1_000_000,
+                end_ns=(request_time + 1_000) * 1_000_000,
+            )
+        ],
+    )
+
+    with TempDir() as tmp:
+        from mlflow.tracing.otel.otel_archival import TRACE_ARCHIVAL_FILENAME
+
+        archive_root = Path(tmp.path("archive"))
+        archive_root.mkdir()
+        assert (
+            _archive_traces(
+                store,
+                default_trace_archival_location=archive_root.as_uri(),
+                default_retention="1d",
+                now_millis=now_millis,
+            )
+            == 1
+        )
+
+        trace_info = store.get_trace_info(trace_id)
+        archive_payload_path = (
+            Path(local_file_uri_to_path(trace_info.tags[TraceTagKey.ARCHIVE_LOCATION]))
+            / TRACE_ARCHIVAL_FILENAME
+        )
+        assert archive_payload_path.is_file()
+        archive_payload_path.unlink()
+
+        missing_artifact_repo = mock.Mock()
+        missing_artifact_repo.delete_artifacts.side_effect = MlflowException(
+            f"No such file or directory: '{TRACE_ARCHIVAL_FILENAME}'",
+            error_code=RESOURCE_DOES_NOT_EXIST,
+        )
+        with mock.patch(
+            "mlflow.store.tracking.sqlalchemy_store.get_artifact_repository",
+            return_value=missing_artifact_repo,
+        ):
+            assert store.delete_traces(exp_id, trace_ids=[trace_id]) == 1
+
+        traces, _ = store.search_traces([exp_id])
+        assert traces == []
+        assert not archive_payload_path.exists()
 
 
 def test_delete_traces_cleans_up_archived_payloads_with_bounded_ties(store: SqlAlchemyStore):
