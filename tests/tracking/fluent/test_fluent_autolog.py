@@ -43,6 +43,11 @@ from tests.autologging.fixtures import (
 )
 from tests.helper_functions import start_mock_openai_server
 
+try:
+    import mistralai
+except ImportError:
+    mistralai = None
+
 library_to_mlflow_module_without_spark_datasource = {
     tensorflow: mlflow.tensorflow,
     keras: mlflow.keras,
@@ -63,11 +68,6 @@ try:
 except ImportError:
     pass
 
-try:
-    import mistralai
-except ImportError:
-    mistralai = None
-
 library_to_mlflow_module_genai = {
     openai: mlflow.openai,
     llama_index.core: mlflow.llama_index,
@@ -82,7 +82,6 @@ library_to_mlflow_module_genai = {
     # TODO: once Python 3.10 is introduced, enable smolagents
     # smolagents: mlflow.smolagents,
 }
-
 if mistralai is not None:
     library_to_mlflow_module_genai[mistralai] = mlflow.mistral
 
