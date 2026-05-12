@@ -30,7 +30,7 @@ interface ProviderSetupConfig {
   connectLabel: string;
 }
 
-const PROVIDER_CONFIG: Record<string, ProviderSetupConfig> = {
+const PROVIDER_CONFIG = {
   claude_code: {
     connectLabel: 'Check Again',
   },
@@ -40,7 +40,7 @@ const PROVIDER_CONFIG: Record<string, ProviderSetupConfig> = {
     supportsModelSelection: true,
     connectLabel: 'Connect',
   },
-};
+} satisfies Record<string, ProviderSetupConfig>;
 
 const DEFAULT_PROVIDER_CONFIG: ProviderSetupConfig = {
   connectLabel: 'Check Again',
@@ -55,7 +55,7 @@ export const SetupStepAuth = ({
 }: SetupStepAuthProps) => {
   const { theme } = useDesignSystemTheme();
   const { config } = useAssistantConfigQuery();
-  const providerConfig = PROVIDER_CONFIG[provider] ?? DEFAULT_PROVIDER_CONFIG;
+  const providerConfig = (PROVIDER_CONFIG as Record<string, ProviderSetupConfig | undefined>)[provider] ?? DEFAULT_PROVIDER_CONFIG;
 
   const [authState, setAuthState] = useState<AuthState>(cachedAuthStatus ?? 'checking');
   const [error, setError] = useState<string | null>(null);
@@ -374,12 +374,21 @@ export const SetupStepAuth = ({
       <Button componentId="mlflow.assistant.setup.connection.continue" type="primary" onClick={onContinue}>
         Continue
       </Button>
-    ) : (
+    ) : hasProviderModelSelection ? (
       <Button
-        componentId={`mlflow.assistant.setup.connection.${hasProviderModelSelection ? 'connect' : 'check_again'}`}
+        componentId="mlflow.assistant.setup.connection.connect"
         type="primary"
         onClick={runProviderHealthCheck}
-        disabled={authState === 'checking' || (requiresProviderBaseUrl && !providerBaseUrl)}
+        disabled={authState === 'checking' || !providerBaseUrl}
+      >
+        {providerConfig.connectLabel}
+      </Button>
+    ) : (
+      <Button
+        componentId="mlflow.assistant.setup.connection.check_again"
+        type="primary"
+        onClick={runProviderHealthCheck}
+        disabled={authState === 'checking'}
       >
         {providerConfig.connectLabel}
       </Button>

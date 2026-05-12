@@ -32,13 +32,14 @@ interface SetupStepProjectProps {
   backLabel?: string;
 }
 
-const PROVIDER_SKILLS_DIR: Record<string, string> = {
+const PROVIDER_SKILLS_DIR = {
   claude_code: '.claude/skills',
   ollama: '.ollama/skills',
   codex: '.codex/skills',
-};
+} satisfies Record<string, string>;
 
-const getSkillsDir = (provider: string): string => PROVIDER_SKILLS_DIR[provider] ?? `.${provider}/skills`;
+const getSkillsDir = (provider: string): string =>
+  (PROVIDER_SKILLS_DIR as Record<string, string | undefined>)[provider] ?? `.${provider}/skills`;
 
 const deriveSkillsLocation = (
   skillsLocation: string | undefined,

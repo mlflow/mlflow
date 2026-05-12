@@ -703,11 +703,13 @@ module.exports = {
   "mlflow.assistant.setup.complete.start_chatting": "",
   "mlflow.assistant.setup.connection.back": "",
   "mlflow.assistant.setup.connection.check_again": "",
+  "mlflow.assistant.setup.connection.connect": "",
   "mlflow.assistant.setup.connection.continue": "",
   "mlflow.assistant.setup.connection.copy": "",
   "mlflow.assistant.setup.connection.learn_more": "",
   "mlflow.assistant.setup.footer.back": "",
   "mlflow.assistant.setup.footer.next": "",
+  "mlflow.assistant.setup.ollama.link": "",
   "mlflow.assistant.setup.project.custom_skills_path": "",
   "mlflow.assistant.setup.project.error": "",
   "mlflow.assistant.setup.project.path_input": "",
@@ -725,6 +727,8 @@ module.exports = {
   "mlflow.assistant.setup.project.skills_location": "",
   "mlflow.assistant.setup.project.skills_project": "",
   "mlflow.assistant.setup.provider.continue": "",
+  "mlflow.assistant.setup.provider.model": "",
+  "mlflow.assistant.setup.provider.url": "",
 
   // -- mlflow.charts --
   "mlflow.charts.bar_card_title.dataset_tag": "",
