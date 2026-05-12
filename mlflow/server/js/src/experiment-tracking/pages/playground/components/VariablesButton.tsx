@@ -58,13 +58,13 @@ export const VariablesButton = ({ messages, value, onChange }: Props) => {
         }
       >
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
-          <Typography.Hint>
+          <Typography.Paragraph withoutMargins>
             <FormattedMessage
               defaultMessage="Add {example} to any message to define a reusable variable. The values you enter below replace the placeholders when you submit. Your message templates stay intact, so you can re-run with different inputs."
-              description="Help text inside the playground variables drawer"
+              description="Intro paragraph at the top of the playground variables drawer"
               values={{ example: <Typography.Text code>{'{{ name }}'}</Typography.Text> }}
             />
-          </Typography.Hint>
+          </Typography.Paragraph>
           <VariablesForm messages={messages} value={value} onChange={onChange} />
         </div>
       </Drawer.Content>

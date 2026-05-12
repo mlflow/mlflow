@@ -11,6 +11,7 @@ import {
   Drawer,
   FormUI,
   Spacer,
+  Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { useMemo, useState } from 'react';
@@ -139,7 +140,13 @@ export const PromptRegistryPicker = ({ visible, onCancel, onLoad }: Props) => {
           </div>
         }
       >
-        <div>
+        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
+          <Typography.Paragraph withoutMargins>
+            <FormattedMessage
+              defaultMessage="Load a saved prompt to replace the current playground messages."
+              description="Intro paragraph at the top of the playground prompt-registry picker drawer"
+            />
+          </Typography.Paragraph>
           <FormUI.Label htmlFor="mlflow.playground.prompt_registry_picker.prompt">
             <FormattedMessage
               defaultMessage="Prompt"
