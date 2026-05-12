@@ -31,7 +31,7 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "mlflow-claude-code": "./bin/mlflow-claude-code"
+    "mlflow-claude-code": "./bundle/cli.cjs"
   },
   "scripts": {
     "build": "tsc && npm run build:bundle",
@@ -58,7 +58,6 @@
   "files": [
     "dist/",
     "bundle/",
-    "bin/",
     "hooks/",
     "skills/",
     ".claude-plugin/"

@@ -84,11 +84,13 @@ export function resolveSettingsPath(
 }
 
 export function loadSettings(path: string): ClaudeSettings {
+  let raw: string;
   try {
-    return JSON.parse(readFileSync(path, 'utf-8')) as ClaudeSettings;
+    raw = readFileSync(path, 'utf-8');
   } catch {
     return {};
   }
+  return JSON.parse(raw) as ClaudeSettings;
 }
 
 export function saveSettings(path: string, settings: ClaudeSettings): void {
@@ -215,7 +217,12 @@ export function writeTracingSettings(
 
   env[MLFLOW_CLAUDE_TRACING_ENABLED] = config.enabled === false ? 'false' : 'true';
   env[MLFLOW_TRACKING_URI] = config.trackingUri;
-  env[MLFLOW_EXPERIMENT_ID] = config.experimentId;
+
+  if (hasConfigValue(config.experimentId)) {
+    env[MLFLOW_EXPERIMENT_ID] = config.experimentId;
+  } else {
+    delete env[MLFLOW_EXPERIMENT_ID];
+  }
 
   if (hasConfigValue(config.experimentName)) {
     env[MLFLOW_EXPERIMENT_NAME] = config.experimentName;
@@ -241,6 +248,14 @@ export async function ensureInitialized(): Promise<boolean> {
   if (!hasConfigValue(config.experimentId) && !hasConfigValue(config.experimentName)) {
     console.error('[mlflow] MLFLOW_EXPERIMENT_ID or MLFLOW_EXPERIMENT_NAME is not set');
     return false;
+  }
+
+  // Fast path: skip network call when experimentId is already known.
+  if (hasConfigValue(config.experimentId)) {
+    const quickKey = JSON.stringify({ trackingUri: config.trackingUri, experimentId: config.experimentId });
+    if (initializedKey === quickKey) {
+      return true;
+    }
   }
 
   try {

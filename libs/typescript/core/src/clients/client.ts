@@ -149,7 +149,7 @@ export class MlflowClient {
         name: response.experiment.name,
       };
     } catch (error) {
-      if (error instanceof Error && /RESOURCE_DOES_NOT_EXIST|404/.test(error.message)) {
+      if (error instanceof Error && /RESOURCE_DOES_NOT_EXIST|HTTP 404:/.test(error.message)) {
         return null;
       }
       throw error;
