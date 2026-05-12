@@ -9,6 +9,7 @@ import re
 import tempfile
 import threading
 import time
+import unicodedata
 import urllib
 from functools import partial, wraps
 from typing import Any, Callable
@@ -1002,13 +1003,36 @@ def _get_validated_flask_request_json(
     return request_json
 
 
+def _content_disposition_attachment(filename: str) -> str:
+    """
+    Build an RFC 6266 / RFC 5987 ``Content-Disposition`` value for an attachment.
+
+    HTTP headers must be ASCII-encodable; ASGI adapters such as starlette's
+    ``WSGIMiddleware`` raise ``UnicodeEncodeError`` on raw non-ASCII bytes. For
+    filenames containing non-ASCII characters, emit an ASCII ``filename=``
+    fallback alongside a percent-encoded ``filename*=UTF-8''…`` parameter.
+    """
+    try:
+        filename.encode("ascii")
+    except UnicodeEncodeError:
+        ascii_fallback = (
+            unicodedata.normalize("NFKD", filename).encode("ascii", "ignore").decode("ascii")
+        )
+        # safe = RFC 5987 attr-char
+        quoted = urllib.parse.quote(filename, safe="!#$&+-.^_`|~")
+        return f"attachment; filename={ascii_fallback}; filename*=UTF-8''{quoted}"
+    return f"attachment; filename={filename}"
+
+
 def _response_with_file_attachment_headers(file_path, response):
     mime_type = _guess_mime_type(file_path)
     filename = pathlib.Path(file_path).name
     response.mimetype = mime_type
     content_disposition_header_name = "Content-Disposition"
     if content_disposition_header_name not in response.headers:
-        response.headers[content_disposition_header_name] = f"attachment; filename={filename}"
+        response.headers[content_disposition_header_name] = _content_disposition_attachment(
+            filename
+        )
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["Content-Type"] = mime_type
     return response
