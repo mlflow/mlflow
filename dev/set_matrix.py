@@ -530,15 +530,12 @@ async def _get_available_packages(pip_releases: list[str]) -> dict[str, Package]
             package_name = match.group("name")
             if package_name not in remaining:
                 raise
-            previous_len = len(remaining)
             remaining = [release for release in remaining if release != package_name]
-            if len(remaining) == previous_len:
-                raise
             warnings.warn(
                 f"Skipping unavailable PyPI package {package_name!r} while generating matrix.",
                 stacklevel=2,
             )
-    if pip_releases:
+    if not remaining and pip_releases:
         warnings.warn(
             "All configured PyPI packages were unavailable while generating matrix; "
             "the generated matrix will be empty.",
