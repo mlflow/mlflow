@@ -106,7 +106,9 @@ export async function runSetup(args: string[], options: SetupOptions = {}): Prom
 
     console.error(`\n${settingsFileExisted ? 'Updated' : 'Created'} ${settingsPath}`);
     if (resolved.created && resolved.experimentName) {
-      console.error(`Created MLflow experiment ${resolved.experimentName} (${resolved.experimentId})`);
+      console.error(
+        `Created MLflow experiment ${resolved.experimentName} (${resolved.experimentId})`,
+      );
     } else {
       console.error(`Resolved MLflow experiment ID ${resolved.experimentId}`);
     }
@@ -122,7 +124,7 @@ export async function runSetup(args: string[], options: SetupOptions = {}): Prom
   }
 }
 
-export async function runStatus(options: ConfigPathOptions = {}): Promise<void> {
+export function runStatus(options: ConfigPathOptions = {}): void {
   const config = getEffectiveTracingConfig(options);
 
   console.error('\nMLflow Tracing Status\n');

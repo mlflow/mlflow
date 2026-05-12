@@ -32,7 +32,7 @@ async function main(): Promise<void> {
   }
 
   if (command === 'status') {
-    await runStatus();
+    runStatus();
     return;
   }
 

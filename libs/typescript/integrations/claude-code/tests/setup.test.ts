@@ -5,14 +5,17 @@ import { join } from 'node:path';
 import { parseSetupArgs, runSetup } from '../src/commands/setup';
 
 jest.mock('../src/config', () => {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   const actual = jest.requireActual('../src/config');
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
   return {
     ...actual,
     resolveExperiment: jest.fn(
-      async (_trackingUri: string, experimentId?: string, experimentName?: string) => ({
-        experimentId: experimentId ?? 'resolved-id',
-        experimentName,
-        created: false,
+      (_trackingUri: string, experimentId?: string, experimentName?: string) =>
+        Promise.resolve({
+          experimentId: experimentId ?? 'resolved-id',
+          experimentName,
+          created: false,
       }),
     ),
   };
@@ -77,20 +80,20 @@ describe('mlflow-claude-code setup', () => {
   });
 
   it('writes user settings when --user is passed', async () => {
-    await runSetup(
-      ['--user', '--tracking-uri', 'http://mlflow.example', '--experiment-id', '42'],
-      { home: tmpHome, cwd: tmpCwd },
-    );
+    await runSetup(['--user', '--tracking-uri', 'http://mlflow.example', '--experiment-id', '42'], {
+      home: tmpHome,
+      cwd: tmpCwd,
+    });
 
     expect(existsSync(join(tmpHome, '.claude', 'settings.json'))).toBe(true);
     expect(existsSync(join(tmpCwd, '.claude', 'settings.json'))).toBe(false);
   });
 
   it('rejects missing scope flag', async () => {
-    await runSetup(
-      ['--tracking-uri', 'http://localhost:5000', '--experiment-name', 'x'],
-      { home: tmpHome, cwd: tmpCwd },
-    );
+    await runSetup(['--tracking-uri', 'http://localhost:5000', '--experiment-name', 'x'], {
+      home: tmpHome,
+      cwd: tmpCwd,
+    });
     expect(process.exitCode).toBe(1);
   });
 
@@ -125,10 +128,10 @@ describe('mlflow-claude-code setup', () => {
   });
 
   it('rejects invalid tracking URI', async () => {
-    await runSetup(
-      ['--project', '--tracking-uri', 'not-a-uri', '--experiment-name', 'x'],
-      { home: tmpHome, cwd: tmpCwd },
-    );
+    await runSetup(['--project', '--tracking-uri', 'not-a-uri', '--experiment-name', 'x'], {
+      home: tmpHome,
+      cwd: tmpCwd,
+    });
     expect(process.exitCode).toBe(1);
   });
 });

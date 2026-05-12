@@ -14,6 +14,7 @@ All values come from the user.
 Call `AskUserQuestion` ONCE with these three questions:
 
 Question A
+
 - question: `Where should MLflow tracing be configured?`
 - header: `Scope`
 - multiSelect: `false`
@@ -22,6 +23,7 @@ Question A
   2. label: `User`, description: `Write to ~/.claude/settings.json (all repos)`
 
 Question B
+
 - question: `Which MLflow tracking URI should be used? (Use Other to type a custom URL)`
 - header: `Tracking URI`
 - multiSelect: `false`
@@ -30,6 +32,7 @@ Question B
   2. label: `databricks`, description: `Use the default Databricks profile`
 
 Question C
+
 - question: `How should the MLflow experiment be specified?`
 - header: `Experiment by`
 - multiSelect: `false`
@@ -60,11 +63,13 @@ Run exactly one of these commands, substituting the collected values. Do
 not add or remove flags.
 
 If Question C answer is `Name`:
+
 ```bash
 mlflow-claude-code setup <scope-flag> --tracking-uri "<uri>" --experiment-name "<value>"
 ```
 
 If Question C answer is `ID`:
+
 ```bash
 mlflow-claude-code setup <scope-flag> --tracking-uri "<uri>" --experiment-id "<value>"
 ```

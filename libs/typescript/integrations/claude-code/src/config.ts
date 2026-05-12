@@ -52,10 +52,7 @@ function hasAnyTracingKey(env: Record<string, string | undefined>): boolean {
 
 function hasTracingConfig(config: TracingConfig): boolean {
   return Boolean(
-    config.trackingUri ||
-      config.experimentId ||
-      config.experimentName ||
-      config.enabled,
+    config.trackingUri || config.experimentId || config.experimentName || config.enabled,
   );
 }
 
@@ -135,9 +132,7 @@ export function getEffectiveTracingConfig(options: ConfigPathOptions = {}): Trac
   const envConfig = parseTracingConfig(process.env, 'environment');
   const effective: TracingConfig = {
     enabled:
-      process.env[MLFLOW_CLAUDE_TRACING_ENABLED] !== undefined
-        ? envConfig.enabled
-        : merged.enabled,
+      process.env[MLFLOW_CLAUDE_TRACING_ENABLED] !== undefined ? envConfig.enabled : merged.enabled,
     trackingUri: process.env[MLFLOW_TRACKING_URI] ?? merged.trackingUri,
     experimentId: process.env[MLFLOW_EXPERIMENT_ID] ?? merged.experimentId,
     experimentName: process.env[MLFLOW_EXPERIMENT_NAME] ?? merged.experimentName,
@@ -252,7 +247,10 @@ export async function ensureInitialized(): Promise<boolean> {
 
   // Fast path: skip network call when experimentId is already known.
   if (hasConfigValue(config.experimentId)) {
-    const quickKey = JSON.stringify({ trackingUri: config.trackingUri, experimentId: config.experimentId });
+    const quickKey = JSON.stringify({
+      trackingUri: config.trackingUri,
+      experimentId: config.experimentId,
+    });
     if (initializedKey === quickKey) {
       return true;
     }

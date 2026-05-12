@@ -17,11 +17,21 @@ const createAuthProviderMock = jest.fn((_options: unknown) => ({
 }));
 
 jest.mock('@mlflow/core', () => ({
-  init: (config: unknown) => initMock(config),
-  createAuthProvider: (options: unknown) => createAuthProviderMock(options),
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+  init: jest.fn((...args: unknown[]) => initMock(...(args as Parameters<typeof initMock>))),
+  createAuthProvider: jest.fn((...args: unknown[]) =>
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    createAuthProviderMock(...(args as Parameters<typeof createAuthProviderMock>)),
+  ),
   MlflowClient: jest.fn().mockImplementation(() => ({
-    getExperimentByName: (name: unknown) => getExperimentByNameMock(name),
-    createExperiment: (name: unknown) => createExperimentMock(name),
+    getExperimentByName: jest.fn((...args: unknown[]) =>
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+      getExperimentByNameMock(...(args as Parameters<typeof getExperimentByNameMock>)),
+    ),
+    createExperiment: jest.fn((...args: unknown[]) =>
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+      createExperimentMock(...(args as Parameters<typeof createExperimentMock>)),
+    ),
   })),
 }));
 
@@ -58,7 +68,9 @@ describe('Claude Code tracing config', () => {
       experimentName: 'claude-code-traces',
     });
 
-    const stored = JSON.parse(readFileSync(settingsPath, 'utf-8')) as { env: Record<string, string> };
+    const stored = JSON.parse(readFileSync(settingsPath, 'utf-8')) as {
+      env: Record<string, string>;
+    };
     expect(stored.env).toMatchObject({
       MLFLOW_CLAUDE_TRACING_ENABLED: 'true',
       MLFLOW_TRACKING_URI: 'http://localhost:5000',

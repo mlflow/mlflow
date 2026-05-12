@@ -131,9 +131,7 @@ export class MlflowClient {
   /**
    * Get an experiment by name.
    */
-  async getExperimentByName(
-    name: string,
-  ): Promise<{ experimentId: string; name: string } | null> {
+  async getExperimentByName(name: string): Promise<{ experimentId: string; name: string } | null> {
     const url = GetExperimentByName.getEndpoint(this.hostUrl, name);
     try {
       const response = await makeRequest<GetExperimentByName.Response>(
