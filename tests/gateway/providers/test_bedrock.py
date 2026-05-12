@@ -659,8 +659,9 @@ async def test_bedrock_converse_serializes_assistant_tool_call_history():
     mock_client.converse.assert_called_once()
 
 
+@pytest.mark.parametrize("arguments", ["not-json", "", "   "])
 @pytest.mark.asyncio
-async def test_bedrock_converse_rejects_invalid_assistant_tool_call_arguments():
+async def test_bedrock_converse_rejects_invalid_assistant_tool_call_arguments(arguments):
     provider = _make_converse_provider()
     mock_client = mock.Mock()
     mock_client.converse.return_value = _converse_response()
@@ -676,7 +677,7 @@ async def test_bedrock_converse_rejects_invalid_assistant_tool_call_arguments():
                         {
                             "id": "tool_bad_args",
                             "type": "function",
-                            "function": {"name": "add", "arguments": "not-json"},
+                            "function": {"name": "add", "arguments": arguments},
                         }
                     ],
                 },
@@ -690,4 +691,37 @@ async def test_bedrock_converse_rejects_invalid_assistant_tool_call_arguments():
     assert exc_info.value.status_code == 422
     assert "tool_call_id=tool_bad_args" in exc_info.value.detail
     assert "tool_name=add" in exc_info.value.detail
+    mock_client.converse.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_bedrock_converse_rejects_assistant_tool_call_with_missing_name():
+    provider = _make_converse_provider()
+    mock_client = mock.Mock()
+    mock_client.converse.return_value = _converse_response()
+
+    with mock.patch.object(provider, "get_bedrock_client", return_value=mock_client):
+        payload = chat.RequestPayload(
+            messages=[
+                {"role": "user", "content": "Compute 17+25"},
+                {
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [
+                        {
+                            "id": "tool_missing_name",
+                            "type": "function",
+                            "function": {"name": None, "arguments": '{"a": 17, "b": 25}'},
+                        }
+                    ],
+                },
+            ]
+        )
+        with pytest.raises(
+            AIGatewayException, match="Invalid assistant tool call: missing function name"
+        ) as exc_info:
+            await provider.chat(payload)
+
+    assert exc_info.value.status_code == 422
+    assert "tool_call_id=tool_missing_name" in exc_info.value.detail
     mock_client.converse.assert_not_called()

@@ -338,16 +338,30 @@ class AmazonBedrockProvider(BaseProvider):
                     if content:
                         assistant_content.append({"text": content})
                     for tool_call in tool_calls:
-                        if arguments := tool_call.get("function", {}).get("arguments"):
+                        tool_function = tool_call.get("function") or {}
+                        tool_call_id = tool_call.get("id", "")
+                        tool_call_name = tool_function.get("name")
+                        if not isinstance(tool_call_name, str) or not tool_call_name.strip():
+                            raise AIGatewayException(
+                                status_code=422,
+                                detail=(
+                                    "Invalid assistant tool call: missing function name for "
+                                    f"tool_call_id={tool_call_id}."
+                                ),
+                            )
+
+                        arguments = tool_function.get("arguments")
+                        if arguments is not None:
                             try:
+                                if not isinstance(arguments, str) or not arguments.strip():
+                                    raise ValueError
                                 tool_input = json.loads(arguments)
-                            except json.JSONDecodeError as e:
-                                tool_call_name = tool_call.get("function", {}).get("name", "")
+                            except (TypeError, ValueError, json.JSONDecodeError) as e:
                                 raise AIGatewayException(
                                     status_code=422,
                                     detail=(
                                         "Invalid assistant tool call arguments: not valid JSON for "
-                                        f"tool_call_id={tool_call.get('id', '')}, "
+                                        f"tool_call_id={tool_call_id}, "
                                         f"tool_name={tool_call_name}."
                                     ),
                                 ) from e
@@ -355,8 +369,8 @@ class AmazonBedrockProvider(BaseProvider):
                             tool_input = {}
                         assistant_content.append({
                             "toolUse": {
-                                "toolUseId": tool_call.get("id", ""),
-                                "name": tool_call.get("function", {}).get("name", ""),
+                                "toolUseId": tool_call_id,
+                                "name": tool_call_name,
                                 "input": tool_input,
                             }
                         })
