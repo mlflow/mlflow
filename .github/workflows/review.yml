@@ -92,11 +92,19 @@ jobs:
       - name: Install Claude CLI
         run: |
           .claude/scripts/install-claude.sh
-      - name: Install bubblewrap
+      - name: Install subprocess isolation dependencies
+        # Mirrors anthropics/claude-code-action: install bubblewrap + socat and
+        # relax the Ubuntu 24.04 AppArmor restriction on unprivileged user
+        # namespaces, otherwise bwrap fails with "Sandbox failed to initialize".
+        # https://github.com/anthropics/claude-code-action/blob/dde2242db6af13460b916652159b6ba19a598f30/action.yml#L198-L221
         run: |
-          if ! command -v bwrap >/dev/null 2>&1; then
-            sudo apt-get update
-            sudo apt-get install -y bubblewrap
+          if ! command -v bwrap >/dev/null 2>&1 || ! command -v socat >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y --no-install-recommends bubblewrap socat
+          fi
+          sysctl_file=/proc/sys/kernel/apparmor_restrict_unprivileged_userns
+          if [ -f "$sysctl_file" ] && [ "$(cat "$sysctl_file")" = "1" ]; then
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
           fi
       - name: Verify Claude CLI
         run: |
@@ -151,8 +159,12 @@ jobs:
           OUTPUT_FILE="/tmp/output.jsonl"
 
           # Safe construction using arrays - PROMPT is passed as separate argument to prevent shell injection
+          EXTRA_FLAGS=()
           if [ "$EVENT_NAME" = "pull_request" ]; then
-            ARGS=("Hi")
+            # Smoke test: exercise the Bash tool (and gh CLI + app token) so
+            # sandbox or auth regressions surface here.
+            ARGS=("Run \`gh pr view $PR_NUMBER\` and summarize the PR")
+            EXTRA_FLAGS+=("--allowedTools=Bash(gh pr view:*)")
           else
             ARGS=("/pr-review")
             [ -n "$PROMPT" ] && ARGS+=("$PROMPT")
@@ -160,7 +172,7 @@ jobs:
 
           EXIT_CODE=0
           # Note: ARGS[*] is intentional - claude CLI expects a single prompt string
-          timeout 20m claude --model "$MODEL" --print --verbose --output-format stream-json "${ARGS[*]}" | .claude/scripts/stream.sh "$OUTPUT_FILE" || EXIT_CODE=$?
+          timeout 20m claude --model "$MODEL" --print --verbose --output-format stream-json "${EXTRA_FLAGS[@]}" "${ARGS[*]}" | .claude/scripts/stream.sh "$OUTPUT_FILE" || EXIT_CODE=$?
           if [ "${EXIT_CODE:-0}" -eq 124 ]; then
             echo "Warning: Claude command timed out after 20 minutes"
           elif [ "${EXIT_CODE:-0}" -ne 0 ]; then
