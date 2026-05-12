@@ -17,7 +17,10 @@ import lightgbm
 import lightning
 import litellm
 import llama_index.core
-import mistralai
+
+# Disabled due to supply chain compromise in mistralai 2.4.6.
+# See https://github.com/mistralai/client-python/issues/523
+# import mistralai
 import openai
 import pyspark
 import pyspark.ml
@@ -74,7 +77,7 @@ library_to_mlflow_module_genai = {
     google.genai: mlflow.gemini,
     boto3: mlflow.bedrock,
     groq: mlflow.groq,
-    mistralai: mlflow.mistral,
+    # mistralai: mlflow.mistral,
     autogen: mlflow.ag2,
     # TODO: once Python 3.10 is introduced, enable smolagents
     # smolagents: mlflow.smolagents,
