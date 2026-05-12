@@ -514,6 +514,8 @@ def test_autolog_genai_import(disable, flavor_and_module):
         "agno",
         "strands",
         "haystack",
+        # mistral is disabled - see https://github.com/mistralai/client-python/issues/523
+        "mistral",
     }:
         return
 
