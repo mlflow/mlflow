@@ -338,8 +338,16 @@ class AmazonBedrockProvider(BaseProvider):
                     if content:
                         assistant_content.append({"text": content})
                     for tool_call in tool_calls:
-                        arguments = tool_call.get("function", {}).get("arguments")
-                        tool_input = json.loads(arguments) if arguments else {}
+                        if arguments := tool_call.get("function", {}).get("arguments"):
+                            try:
+                                tool_input = json.loads(arguments)
+                            except json.JSONDecodeError as e:
+                                raise AIGatewayException(
+                                    status_code=422,
+                                    detail="Invalid assistant tool call arguments: not valid JSON.",
+                                ) from e
+                        else:
+                            tool_input = {}
                         assistant_content.append({
                             "toolUse": {
                                 "toolUseId": tool_call.get("id", ""),
