@@ -64,17 +64,17 @@ Configure credentials in n8n for both the LLM endpoint and MLflow.
 
 ### OpenAI Settings
 
-| Field | Required | Description | Example |
-|-------|----------|-------------|---------|
-| OpenAI API Key | Yes | API key for your OpenAI-compatible endpoint | `sk-abc123...` |
-| OpenAI Base URL | No | Override the default endpoint base URL | `https://api.openai.com/v1` |
+| Field           | Required | Description                                 | Example                     |
+| --------------- | -------- | ------------------------------------------- | --------------------------- |
+| OpenAI API Key  | Yes      | API key for your OpenAI-compatible endpoint | `sk-abc123...`              |
+| OpenAI Base URL | No       | Override the default endpoint base URL      | `https://api.openai.com/v1` |
 
 ### MLflow Settings
 
-| Field | Required | Description | Example |
-|-------|----------|-------------|---------|
-| MLflow Tracking URI | Yes | Your MLflow tracking server URI | `http://localhost:5000` or `databricks` |
-| MLflow Experiment ID | Yes | Experiment ID where traces will be logged | `1234567890` |
+| Field                | Required | Description                               | Example                                 |
+| -------------------- | -------- | ----------------------------------------- | --------------------------------------- |
+| MLflow Tracking URI  | Yes      | Your MLflow tracking server URI           | `http://localhost:5000` or `databricks` |
+| MLflow Experiment ID | Yes      | Experiment ID where traces will be logged | `1234567890`                            |
 
 :::tip Databricks users
 Set the **Tracking URI** to `databricks` and provide your Databricks personal access token as the **MLflow Tracking Token**.
@@ -84,11 +84,11 @@ Set the **Tracking URI** to `databricks` and provide your Databricks personal ac
 
 Add the **OpenAI MLflow** node to your workflow and configure the MLflow tracing fields:
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `sessionId` | `string` | Groups related traces into one chat session (`mlflow.trace.session`) |
-| `userId` | `string` | Identifies the end user making the request (`mlflow.trace.user`) |
-| `customMetadata` | `object` | Arbitrary JSON attached to the trace as span metadata |
+| Field            | Type     | Description                                                          |
+| ---------------- | -------- | -------------------------------------------------------------------- |
+| `sessionId`      | `string` | Groups related traces into one chat session (`mlflow.trace.session`) |
+| `userId`         | `string` | Identifies the end user making the request (`mlflow.trace.user`)     |
+| `customMetadata` | `object` | Arbitrary JSON attached to the trace as span metadata                |
 
 <ImageBox src="/images/llms/tracing/n8n/node-example.png" alt="n8n OpenAI MLflow node configuration" />
 

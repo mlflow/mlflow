@@ -89,24 +89,24 @@ Enable **"Group by session"** to see the full conversation grouped under one ses
 
 ## What Gets Traced
 
-| Field | Description |
-|-------|-------------|
-| Inputs | Last user message per turn |
-| Outputs | Assistant response |
-| `model` | Model name reported by Open WebUI |
-| `mlflow.trace.session` | Chat ID — groups all turns of a conversation |
-| `mlflow.trace.user` | Authenticated user's email |
-| Token usage | Input/output/total tokens when provided by the backend |
+| Field                  | Description                                            |
+| ---------------------- | ------------------------------------------------------ |
+| Inputs                 | Last user message per turn                             |
+| Outputs                | Assistant response                                     |
+| `model`                | Model name reported by Open WebUI                      |
+| `mlflow.trace.session` | Chat ID — groups all turns of a conversation           |
+| `mlflow.trace.user`    | Authenticated user's email                             |
+| Token usage            | Input/output/total tokens when provided by the backend |
 
 ## Configuration
 
 The pipeline exposes the following valves configurable from the Open WebUI admin UI:
 
-| Valve | Default | Description |
-|-------|---------|-------------|
-| `mlflow_tracking_uri` | `http://localhost:5000` | MLflow tracking server URI |
-| `mlflow_experiment_name` | `open-webui` | Experiment name in MLflow |
-| `debug` | `false` | Enable debug logging |
+| Valve                    | Default                 | Description                |
+| ------------------------ | ----------------------- | -------------------------- |
+| `mlflow_tracking_uri`    | `http://localhost:5000` | MLflow tracking server URI |
+| `mlflow_experiment_name` | `open-webui`            | Experiment name in MLflow  |
+| `debug`                  | `false`                 | Enable debug logging       |
 
 ## Full Example
 
