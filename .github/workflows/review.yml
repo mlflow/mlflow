@@ -166,6 +166,26 @@ jobs:
             exit $EXIT_CODE
           fi
 
+      - name: Redact secrets from transcript
+        if: always()
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          python <<'PY'
+          import os
+          from pathlib import Path
+
+          path = Path("/tmp/output.jsonl")
+          if not path.exists():
+              raise SystemExit(0)
+          data = path.read_text()
+          for name in ("ANTHROPIC_API_KEY", "GH_TOKEN"):
+              if val := os.environ.get(name):
+                  data = data.replace(val, "***")
+          path.write_text(data)
+          PY
+
       - name: Upload Claude stream transcript
         if: always()
         continue-on-error: true
