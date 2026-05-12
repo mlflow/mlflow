@@ -40,6 +40,7 @@ import { useOverviewTab, OverviewTab } from './hooks/useOverviewTab';
 import { MetricsFilter } from '../../../common/components/MetricsFilter';
 import {
   translateToMetricsFilters,
+  translateToTracesPageFilters,
   type MetricFilter,
   type MetricFilterColumnOption,
 } from '../../../common/components/MetricsFilter.utils';
@@ -149,6 +150,9 @@ const ExperimentGenAIOverviewPageImpl = () => {
   // metrics-API DSL strings via translateToMetricsFilters and passed to the chart provider.
   const [metricFilters, setMetricFilters] = useState<MetricFilter[]>([]);
   const chartFilters = useMemo(() => translateToMetricsFilters(metricFilters), [metricFilters]);
+  // Same filters re-translated into Traces page URL format so chart tooltip
+  // "View traces" links carry the active MetricsFilter selections through to the Traces tab.
+  const tracesNavigationFilters = useMemo(() => translateToTracesPageFilters(metricFilters), [metricFilters]);
   const metricsFilterColumnOptions = useMemo<MetricFilterColumnOption[]>(
     () => [
       {
@@ -261,6 +265,7 @@ const ExperimentGenAIOverviewPageImpl = () => {
           timeIntervalSeconds={timeIntervalSeconds}
           timeBuckets={timeBuckets}
           filters={chartFilters}
+          tracesNavigationFilters={tracesNavigationFilters}
         >
           <Tabs.Content value={OverviewTab.Usage} css={{ flex: 1, overflowY: 'auto' }}>
             <TabContentContainer>
