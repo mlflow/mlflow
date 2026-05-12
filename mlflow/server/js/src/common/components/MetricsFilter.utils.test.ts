@@ -2,7 +2,9 @@ import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import { isCompleteFilter, translateToMetricsFilters, type MetricFilter } from './MetricsFilter.utils';
 
 jest.mock('@databricks/web-shared/model-trace-explorer', () => ({
-  createTraceMetadataFilter: jest.fn((key: string, value: string) => `${key}='${value}'`),
+  createTraceMetadataFilter: jest.fn(
+    (key: string, value: string) => `trace.metadata.\`${key}\` = "${value}"`,
+  ),
 }));
 
 describe('isCompleteFilter', () => {
@@ -38,7 +40,7 @@ describe('translateToMetricsFilters', () => {
   it('translates a user filter to a DSL string', () => {
     const filters: MetricFilter[] = [{ column: 'user', value: 'alice' }];
     const result = translateToMetricsFilters(filters);
-    expect(result).toEqual(["mlflow.trace.user='alice'"]);
+    expect(result).toEqual(['trace.metadata.`mlflow.trace.user` = "alice"']);
   });
 
   it('skips incomplete filters and returns the rest', () => {
@@ -47,7 +49,7 @@ describe('translateToMetricsFilters', () => {
       { column: 'user', value: '' },
     ];
     const result = translateToMetricsFilters(filters);
-    expect(result).toEqual(["mlflow.trace.user='alice'"]);
+    expect(result).toEqual(['trace.metadata.`mlflow.trace.user` = "alice"']);
   });
 
   it('translates multiple complete filters', () => {
@@ -56,6 +58,9 @@ describe('translateToMetricsFilters', () => {
       { column: 'user', value: 'bob' },
     ];
     const result = translateToMetricsFilters(filters);
-    expect(result).toEqual(["mlflow.trace.user='alice'", "mlflow.trace.user='bob'"]);
+    expect(result).toEqual([
+      'trace.metadata.`mlflow.trace.user` = "alice"',
+      'trace.metadata.`mlflow.trace.user` = "bob"',
+    ]);
   });
 });
