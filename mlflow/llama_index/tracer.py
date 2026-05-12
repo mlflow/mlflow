@@ -462,11 +462,12 @@ class MlflowEventHandler(BaseEventHandler, extra="allow"):
 
     @_handle_event.register
     def _(self, event: LLMCompletionEndEvent, span: LiveSpan):
+        # Defensive: response shape can vary across llama-index/openai versions
         try:
             span.set_attribute("usage", self._extract_token_usage(event.response))
             token_counts = self._parse_usage(span)
             span.set_attribute(SpanAttributeKey.CHAT_USAGE, token_counts)
-        except Exception as e:
+        except (AttributeError, KeyError, TypeError) as e:
             _logger.debug(f"Failed to set usage attributes: {e}", exc_info=True)
         self._span_handler.resolve_pending_stream_span(span, event)
 
@@ -478,11 +479,12 @@ class MlflowEventHandler(BaseEventHandler, extra="allow"):
 
     @_handle_event.register
     def _(self, event: LLMChatEndEvent, span: LiveSpan):
+        # Defensive: response shape can vary across llama-index/openai versions
         try:
             span.set_attribute("usage", self._extract_token_usage(event.response))
             token_counts = self._parse_usage(span)
             span.set_attribute(SpanAttributeKey.CHAT_USAGE, token_counts)
-        except Exception as e:
+        except (AttributeError, KeyError, TypeError) as e:
             _logger.debug(f"Failed to set usage attributes: {e}", exc_info=True)
         self._span_handler.resolve_pending_stream_span(span, event)
 

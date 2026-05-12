@@ -783,8 +783,10 @@ llama_index:
           "uvicorn",
         ]
       # llama-index-vector-stores-qdrant 0.7+ requires qdrant-client>=1.13 which
-      # conflicts with llama-index 0.12.x dependency resolution
-      ">= 0.13.0": ["llama-index-vector-stores-qdrant"]
+      # conflicts with llama-index 0.12.x dependency resolution.
+      # TODO: qdrant-client 1.16 is currently broken with llama-index until
+      # https://github.com/run-llama/llama_index/issues/20271 is resolved
+      ">= 0.13.0": ["llama-index-vector-stores-qdrant", "qdrant-client<1.16.0"]
     run: pytest tests/llama_index --ignore tests/llama_index/test_llama_index_autolog.py --ignore tests/llama_index/test_llama_index_tracer.py
   autologging:
     minimum: "0.12.35"

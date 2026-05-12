@@ -312,6 +312,16 @@ class MlflowV3SpanExporter(SpanExporter):
 
         return self._is_async_enabled
 
+    def shutdown(self) -> None:
+        # Flush any deferred root spans that are still pending (e.g. if a background
+        # span never ended). This prevents them from leaking across exporter lifetimes.
+        with self._deferred_lock:
+            pending = list(self._deferred_root_spans.items())
+            self._deferred_root_spans.clear()
+        manager = InMemoryTraceManager.get_instance()
+        for _, span in pending:
+            self._do_export_trace(manager, span)
+
     def _should_log_spans_to_artifacts(self, trace_info: TraceInfo) -> bool:
         """
         Whether to log spans to artifacts. Overridden by UC table exporter to False.
