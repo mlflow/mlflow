@@ -755,6 +755,7 @@ class LiveSpan(Span):
         from mlflow.environment_variables import MLFLOW_TRACE_MAX_ATTACHMENT_SIZE
 
         if not self._is_recording():
+            _logger.debug("Skipping attachment storage because the span is no longer recording.")
             return attachment.ref(self.trace_id)
 
         max_size = MLFLOW_TRACE_MAX_ATTACHMENT_SIZE.get()
@@ -1003,6 +1004,7 @@ class LiveSpan(Span):
                 :py:class:`Link <mlflow.entities.Link>` object.
         """
         if not self._is_recording():
+            _logger.debug("Skipping link addition because the span is no longer recording.")
             return
 
         if not isinstance(link, Link):

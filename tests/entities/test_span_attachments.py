@@ -1,3 +1,5 @@
+from unittest import mock
+
 from mlflow.entities.span import LiveSpan, Span
 from mlflow.tracing.attachments import Attachment
 
@@ -122,10 +124,14 @@ def test_set_inputs_after_end_does_not_store_attachment():
     span.end()
 
     att = Attachment(content_type="image/png", content_bytes=b"img")
-    span.set_inputs({"image": att})
+    with mock.patch("mlflow.entities.span._logger.debug") as mock_debug:
+        span.set_inputs({"image": att})
 
     assert att.id not in span._attachments
     assert span.inputs is None
+    mock_debug.assert_called_once_with(
+        "Skipping attachment storage because the span is no longer recording."
+    )
 
 
 def test_set_outputs_after_end_does_not_store_attachment():
