@@ -609,3 +609,50 @@ async def test_bedrock_converse_chat_with_tool_call():
     result = jsonable_encoder(response)
     tool_calls = result["choices"][0]["message"]["tool_calls"]
     assert tool_calls[0]["function"]["name"] == "add"
+
+
+@pytest.mark.asyncio
+async def test_bedrock_converse_serializes_assistant_tool_call_history():
+    provider = _make_converse_provider()
+    mock_client = mock.Mock()
+    mock_client.converse.return_value = _converse_response()
+
+    with mock.patch.object(provider, "get_bedrock_client", return_value=mock_client):
+        payload = chat.RequestPayload(
+            messages=[
+                {"role": "user", "content": "Compute 17+25"},
+                {
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [
+                        {
+                            "id": "tool_abc123",
+                            "type": "function",
+                            "function": {"name": "add", "arguments": '{"a": 17, "b": 25}'},
+                        }
+                    ],
+                },
+                {"role": "tool", "tool_call_id": "tool_abc123", "content": "42"},
+            ],
+            tools=[
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "add",
+                        "description": "Add two integers.",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {"a": {"type": "integer"}, "b": {"type": "integer"}},
+                            "required": ["a", "b"],
+                        },
+                    },
+                }
+            ],
+        )
+        await provider.chat(payload)
+
+    call_kwargs = mock_client.converse.call_args.kwargs
+    assistant_blocks = call_kwargs["messages"][1]["content"]
+    tool_uses = [b["toolUse"] for b in assistant_blocks if "toolUse" in b]
+    assert tool_uses == [{"toolUseId": "tool_abc123", "name": "add", "input": {"a": 17, "b": 25}}]
+    mock_client.converse.assert_called_once()

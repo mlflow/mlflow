@@ -321,7 +321,9 @@ class AmazonBedrockProvider(BaseProvider):
             content = msg.get("content", "")
 
             # Normalize content: extract text from list of content parts
-            if isinstance(content, list):
+            if content is None:
+                content = ""
+            elif isinstance(content, list):
                 content = "\n".join(
                     p.get("text", "")
                     for p in content
@@ -331,9 +333,27 @@ class AmazonBedrockProvider(BaseProvider):
             if role == "system":
                 system_prompts.append({"text": content})
             elif role == "assistant":
+                assistant_content = []
+                if tool_calls := msg.get("tool_calls"):
+                    if content:
+                        assistant_content.append({"text": content})
+                    assistant_content.extend(
+                        {
+                            "toolUse": {
+                                "toolUseId": tool_call.get("id", ""),
+                                "name": tool_call.get("function", {}).get("name", ""),
+                                "input": json.loads(
+                                    tool_call.get("function", {}).get("arguments", "{}") or "{}"
+                                ),
+                            }
+                        }
+                        for tool_call in tool_calls
+                    )
+                else:
+                    assistant_content.append({"text": content})
                 converse_messages.append({
                     "role": "assistant",
-                    "content": [{"text": content}],
+                    "content": assistant_content,
                 })
             elif role == "tool":
                 converse_messages.append({
