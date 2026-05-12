@@ -46,31 +46,39 @@ export const ToolsForm = ({ value, onChange, error, toolChoice, onToolChoiceChan
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
 
+  const fieldGroupCss = {
+    display: 'flex' as const,
+    flexDirection: 'column' as const,
+    gap: theme.spacing.xs,
+  };
+
   return (
-    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-      <FormUI.Label htmlFor="mlflow.playground.tools.tool_choice">
-        <FormattedMessage
-          defaultMessage="Tool choice"
-          description="Label above the tool choice segmented picker inside the Tools card"
-        />
-      </FormUI.Label>
-      <SegmentedControlGroup
-        componentId="mlflow.playground.tools.tool_choice"
-        id="mlflow.playground.tools.tool_choice"
-        name="mlflow.playground.tools.tool_choice"
-        size="small"
-        value={toolChoice}
-        onChange={(event) => onToolChoiceChange(event.target.value as ToolChoice)}
-      >
-        {TOOL_CHOICE_OPTIONS.map(({ value: optionValue, label }) => (
-          <SegmentedControlButton key={optionValue} value={optionValue}>
-            {label}
-          </SegmentedControlButton>
-        ))}
-      </SegmentedControlGroup>
+    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
+      <div css={fieldGroupCss}>
+        <FormUI.Label htmlFor="mlflow.playground.tools.tool_choice">
+          <FormattedMessage
+            defaultMessage="Tool choice"
+            description="Label above the tool choice segmented picker inside the Tools card"
+          />
+        </FormUI.Label>
+        <SegmentedControlGroup
+          componentId="mlflow.playground.tools.tool_choice"
+          id="mlflow.playground.tools.tool_choice"
+          name="mlflow.playground.tools.tool_choice"
+          size="small"
+          value={toolChoice}
+          onChange={(event) => onToolChoiceChange(event.target.value as ToolChoice)}
+        >
+          {TOOL_CHOICE_OPTIONS.map(({ value: optionValue, label }) => (
+            <SegmentedControlButton key={optionValue} value={optionValue}>
+              {label}
+            </SegmentedControlButton>
+          ))}
+        </SegmentedControlGroup>
+      </div>
 
       {toolChoice !== 'none' && (
-        <>
+        <div css={fieldGroupCss}>
           <FormUI.Label htmlFor="mlflow.playground.tools.input">
             <FormattedMessage
               defaultMessage="JSON Tool Definition"
@@ -96,7 +104,7 @@ export const ToolsForm = ({ value, onChange, error, toolChoice, onToolChoiceChan
             }}
           />
           {error && <FormUI.Message type="error" message={error} />}
-        </>
+        </div>
       )}
     </div>
   );

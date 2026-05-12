@@ -53,79 +53,91 @@ export const ParametersForm = ({ value, onChange }: Props) => {
     onChange({ ...value, stop: stopFromText(event.target.value) });
   };
 
+  const fieldGroupCss = {
+    display: 'flex' as const,
+    flexDirection: 'column' as const,
+    gap: theme.spacing.xs,
+  };
+
   return (
     <div
       css={{
         display: 'flex',
         flexDirection: 'column',
-        gap: theme.spacing.xs,
+        gap: theme.spacing.sm,
         border: `1px solid ${theme.colors.border}`,
         borderRadius: theme.general.borderRadiusBase,
         padding: theme.spacing.md,
         '& label': { fontWeight: theme.typography.typographyRegularFontWeight },
       }}
     >
-      <FormUI.Label htmlFor="mlflow.playground.params.temperature">
-        <FormattedMessage
-          defaultMessage="Temperature"
-          description="Label for the temperature input on the playground parameters panel"
+      <div css={fieldGroupCss}>
+        <FormUI.Label htmlFor="mlflow.playground.params.temperature">
+          <FormattedMessage
+            defaultMessage="Temperature"
+            description="Label for the temperature input on the playground parameters panel"
+          />
+        </FormUI.Label>
+        <Input
+          componentId="mlflow.playground.params.temperature"
+          id="mlflow.playground.params.temperature"
+          type="number"
+          min={0}
+          max={2}
+          step={0.1}
+          value={formatValue(value.temperature)}
+          placeholder={intl.formatMessage({
+            defaultMessage: 'e.g. 0.7',
+            description: 'Placeholder for the temperature input on the playground parameters panel',
+          })}
+          onChange={handleNumber('temperature')}
         />
-      </FormUI.Label>
-      <Input
-        componentId="mlflow.playground.params.temperature"
-        id="mlflow.playground.params.temperature"
-        type="number"
-        min={0}
-        max={2}
-        step={0.1}
-        value={formatValue(value.temperature)}
-        placeholder={intl.formatMessage({
-          defaultMessage: 'e.g. 0.7',
-          description: 'Placeholder for the temperature input on the playground parameters panel',
-        })}
-        onChange={handleNumber('temperature')}
-      />
+      </div>
 
-      <FormUI.Label htmlFor="mlflow.playground.params.max_tokens">
-        <FormattedMessage
-          defaultMessage="Max tokens"
-          description="Label for the max-tokens input on the playground parameters panel"
+      <div css={fieldGroupCss}>
+        <FormUI.Label htmlFor="mlflow.playground.params.max_tokens">
+          <FormattedMessage
+            defaultMessage="Max tokens"
+            description="Label for the max-tokens input on the playground parameters panel"
+          />
+        </FormUI.Label>
+        <Input
+          componentId="mlflow.playground.params.max_tokens"
+          id="mlflow.playground.params.max_tokens"
+          type="number"
+          min={1}
+          step={1}
+          value={formatValue(value.max_tokens)}
+          placeholder={intl.formatMessage({
+            defaultMessage: 'e.g. 512',
+            description: 'Placeholder for the max-tokens input on the playground parameters panel',
+          })}
+          onChange={handleNumber('max_tokens')}
         />
-      </FormUI.Label>
-      <Input
-        componentId="mlflow.playground.params.max_tokens"
-        id="mlflow.playground.params.max_tokens"
-        type="number"
-        min={1}
-        step={1}
-        value={formatValue(value.max_tokens)}
-        placeholder={intl.formatMessage({
-          defaultMessage: 'e.g. 512',
-          description: 'Placeholder for the max-tokens input on the playground parameters panel',
-        })}
-        onChange={handleNumber('max_tokens')}
-      />
+      </div>
 
-      <FormUI.Label htmlFor="mlflow.playground.params.top_p">
-        <FormattedMessage
-          defaultMessage="Top P"
-          description="Label for the top-p input on the playground parameters panel"
+      <div css={fieldGroupCss}>
+        <FormUI.Label htmlFor="mlflow.playground.params.top_p">
+          <FormattedMessage
+            defaultMessage="Top P"
+            description="Label for the top-p input on the playground parameters panel"
+          />
+        </FormUI.Label>
+        <Input
+          componentId="mlflow.playground.params.top_p"
+          id="mlflow.playground.params.top_p"
+          type="number"
+          min={0}
+          max={1}
+          step={0.05}
+          value={formatValue(value.top_p)}
+          placeholder={intl.formatMessage({
+            defaultMessage: 'e.g. 1.0',
+            description: 'Placeholder for the top-p input on the playground parameters panel',
+          })}
+          onChange={handleNumber('top_p')}
         />
-      </FormUI.Label>
-      <Input
-        componentId="mlflow.playground.params.top_p"
-        id="mlflow.playground.params.top_p"
-        type="number"
-        min={0}
-        max={1}
-        step={0.05}
-        value={formatValue(value.top_p)}
-        placeholder={intl.formatMessage({
-          defaultMessage: 'e.g. 1.0',
-          description: 'Placeholder for the top-p input on the playground parameters panel',
-        })}
-        onChange={handleNumber('top_p')}
-      />
+      </div>
 
       <button
         type="button"
@@ -136,12 +148,14 @@ export const ParametersForm = ({ value, onChange }: Props) => {
           border: 0,
           background: 'transparent',
           padding: 0,
+          marginTop: theme.spacing.sm,
           display: 'inline-flex',
           alignItems: 'center',
           gap: theme.spacing.xs,
           cursor: 'pointer',
-          color: theme.colors.textSecondary,
-          fontSize: theme.typography.fontSizeSm,
+          color: theme.colors.textPrimary,
+          fontSize: theme.typography.fontSizeMd,
+          fontWeight: theme.typography.typographyBoldFontWeight,
           '&:hover': { color: theme.colors.textPrimary },
         }}
       >
@@ -154,91 +168,99 @@ export const ParametersForm = ({ value, onChange }: Props) => {
 
       {showAdvanced && (
         <>
-          <FormUI.Label htmlFor="mlflow.playground.params.top_k">
-            <FormattedMessage
-              defaultMessage="Top K"
-              description="Label for the top-k input on the playground parameters panel"
+          <div css={fieldGroupCss}>
+            <FormUI.Label htmlFor="mlflow.playground.params.top_k">
+              <FormattedMessage
+                defaultMessage="Top K"
+                description="Label for the top-k input on the playground parameters panel"
+              />
+            </FormUI.Label>
+            <Input
+              componentId="mlflow.playground.params.top_k"
+              id="mlflow.playground.params.top_k"
+              type="number"
+              min={1}
+              step={1}
+              value={formatValue(value.top_k)}
+              placeholder={intl.formatMessage({
+                defaultMessage: 'e.g. 40',
+                description: 'Placeholder for the top-k input on the playground parameters panel',
+              })}
+              onChange={handleNumber('top_k')}
             />
-          </FormUI.Label>
-          <Input
-            componentId="mlflow.playground.params.top_k"
-            id="mlflow.playground.params.top_k"
-            type="number"
-            min={1}
-            step={1}
-            value={formatValue(value.top_k)}
-            placeholder={intl.formatMessage({
-              defaultMessage: 'e.g. 40',
-              description: 'Placeholder for the top-k input on the playground parameters panel',
-            })}
-            onChange={handleNumber('top_k')}
-          />
+          </div>
 
-          <FormUI.Label htmlFor="mlflow.playground.params.presence_penalty">
-            <FormattedMessage
-              defaultMessage="Presence penalty"
-              description="Label for the presence-penalty input on the playground parameters panel"
+          <div css={fieldGroupCss}>
+            <FormUI.Label htmlFor="mlflow.playground.params.presence_penalty">
+              <FormattedMessage
+                defaultMessage="Presence penalty"
+                description="Label for the presence-penalty input on the playground parameters panel"
+              />
+            </FormUI.Label>
+            <Input
+              componentId="mlflow.playground.params.presence_penalty"
+              id="mlflow.playground.params.presence_penalty"
+              type="number"
+              min={-2}
+              max={2}
+              step={0.1}
+              value={formatValue(value.presence_penalty)}
+              placeholder={intl.formatMessage({
+                defaultMessage: 'e.g. 0.0',
+                description: 'Placeholder for the presence-penalty input on the playground parameters panel',
+              })}
+              onChange={handleNumber('presence_penalty')}
             />
-          </FormUI.Label>
-          <Input
-            componentId="mlflow.playground.params.presence_penalty"
-            id="mlflow.playground.params.presence_penalty"
-            type="number"
-            min={-2}
-            max={2}
-            step={0.1}
-            value={formatValue(value.presence_penalty)}
-            placeholder={intl.formatMessage({
-              defaultMessage: 'e.g. 0.0',
-              description: 'Placeholder for the presence-penalty input on the playground parameters panel',
-            })}
-            onChange={handleNumber('presence_penalty')}
-          />
+          </div>
 
-          <FormUI.Label htmlFor="mlflow.playground.params.frequency_penalty">
-            <FormattedMessage
-              defaultMessage="Frequency penalty"
-              description="Label for the frequency-penalty input on the playground parameters panel"
+          <div css={fieldGroupCss}>
+            <FormUI.Label htmlFor="mlflow.playground.params.frequency_penalty">
+              <FormattedMessage
+                defaultMessage="Frequency penalty"
+                description="Label for the frequency-penalty input on the playground parameters panel"
+              />
+            </FormUI.Label>
+            <Input
+              componentId="mlflow.playground.params.frequency_penalty"
+              id="mlflow.playground.params.frequency_penalty"
+              type="number"
+              min={-2}
+              max={2}
+              step={0.1}
+              value={formatValue(value.frequency_penalty)}
+              placeholder={intl.formatMessage({
+                defaultMessage: 'e.g. 0.0',
+                description: 'Placeholder for the frequency-penalty input on the playground parameters panel',
+              })}
+              onChange={handleNumber('frequency_penalty')}
             />
-          </FormUI.Label>
-          <Input
-            componentId="mlflow.playground.params.frequency_penalty"
-            id="mlflow.playground.params.frequency_penalty"
-            type="number"
-            min={-2}
-            max={2}
-            step={0.1}
-            value={formatValue(value.frequency_penalty)}
-            placeholder={intl.formatMessage({
-              defaultMessage: 'e.g. 0.0',
-              description: 'Placeholder for the frequency-penalty input on the playground parameters panel',
-            })}
-            onChange={handleNumber('frequency_penalty')}
-          />
+          </div>
 
-          <FormUI.Label htmlFor="mlflow.playground.params.stop">
-            <FormattedMessage
-              defaultMessage="Stop sequences"
-              description="Label for the stop-sequences input on the playground parameters panel"
+          <div css={fieldGroupCss}>
+            <FormUI.Label htmlFor="mlflow.playground.params.stop">
+              <FormattedMessage
+                defaultMessage="Stop sequences"
+                description="Label for the stop-sequences input on the playground parameters panel"
+              />
+            </FormUI.Label>
+            <TextArea
+              componentId="mlflow.playground.params.stop"
+              id="mlflow.playground.params.stop"
+              value={stopToText(value.stop)}
+              onChange={handleStop}
+              autoSize={{ minRows: 1, maxRows: 6 }}
+              placeholder={intl.formatMessage({
+                defaultMessage: 'One sequence per line',
+                description: 'Placeholder for the stop-sequences textarea on the playground parameters panel',
+              })}
             />
-          </FormUI.Label>
-          <TextArea
-            componentId="mlflow.playground.params.stop"
-            id="mlflow.playground.params.stop"
-            value={stopToText(value.stop)}
-            onChange={handleStop}
-            autoSize={{ minRows: 1, maxRows: 6 }}
-            placeholder={intl.formatMessage({
-              defaultMessage: 'One sequence per line',
-              description: 'Placeholder for the stop-sequences textarea on the playground parameters panel',
-            })}
-          />
-          <Typography.Hint>
-            <FormattedMessage
-              defaultMessage="The model stops generating when it produces any of these strings."
-              description="Help text under the stop-sequences textarea on the playground parameters panel"
-            />
-          </Typography.Hint>
+            <Typography.Hint>
+              <FormattedMessage
+                defaultMessage="The model stops generating when it produces any of these strings."
+                description="Help text under the stop-sequences textarea on the playground parameters panel"
+              />
+            </Typography.Hint>
+          </div>
         </>
       )}
     </div>
