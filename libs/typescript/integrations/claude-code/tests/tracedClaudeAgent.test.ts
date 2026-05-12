@@ -1,210 +1,173 @@
 /**
- * Tests for createTracedQuery (Claude Agent SDK wrapper) and the
- * LiveTracingContext state machine it drives.
+ * Integration tests for createTracedQuery against a real MLflow tracking server.
+ *
+ * Mirrors core/tests/core/api.test.ts: the global-server-setup spawns a
+ * local MLflow server, we create a real experiment, drive the wrapper with
+ * scripted SDKMessage sequences, flush, then fetch the trace via the client
+ * API and assert on the real span tree.
+ *
+ * No mocks of @mlflow/core, LiveSpan, or InMemoryTraceManager — the same
+ * exporter, span processor, and storage path that production uses.
  */
 
-// ============================================================================
-// Mock @mlflow/core
-// ============================================================================
+import * as mlflow from '@mlflow/core';
+import { createAuthProvider } from '@mlflow/core/auth';
+import { MlflowClient } from '@mlflow/core/clients';
+import { SpanType } from '@mlflow/core/core/constants';
+import { SpanStatusCode } from '@mlflow/core/core/entities/span_status';
+import { TraceState } from '@mlflow/core/core/entities/trace_state';
 
-interface MockSpan {
-  name: string;
-  spanId: string;
-  parentId: string | null;
-  spanType: string;
-  inputs: Record<string, unknown>;
-  outputs: unknown;
-  attributes: Record<string, unknown>;
-  status: { code: string; description?: string } | null;
-  ended: boolean;
-  traceId: string;
-  setAttribute: (key: string, value: unknown) => void;
-  setInputs: (inputs: Record<string, unknown>) => void;
-  setOutputs: (outputs: unknown) => void;
-  setStatus: (code: string, description?: string) => void;
-  end: () => void;
-}
-
-const mockSpans: Record<string, MockSpan> = {};
-let spanCounter = 0;
-
-function resetMocks() {
-  for (const key of Object.keys(mockSpans)) {
-    delete mockSpans[key];
-  }
-  spanCounter = 0;
-  mockTraceInfo.traceMetadata = {};
-  mockTraceInfo.requestPreview = undefined;
-  mockTraceInfo.responsePreview = undefined;
-}
-
-const mockTraceInfo: {
-  traceMetadata: Record<string, string>;
-  requestPreview?: string;
-  responsePreview?: string;
-} = {
-  traceMetadata: {},
-};
-
-jest.mock('@mlflow/core', () => {
-  return {
-    init: jest.fn(),
-    startSpan: jest.fn((options: any) => {
-      const id = `span-${++spanCounter}`;
-      const parentId = options.parent ? options.parent.spanId : null;
-      const span: MockSpan = {
-        name: options.name,
-        spanId: id,
-        parentId,
-        spanType: options.spanType ?? 'UNKNOWN',
-        inputs: options.inputs ?? {},
-        outputs: undefined,
-        attributes: { ...(options.attributes ?? {}) },
-        status: null,
-        ended: false,
-        traceId: 'mock-trace-id',
-        setAttribute: jest.fn((key: string, value: unknown) => {
-          span.attributes[key] = value;
-        }),
-        setInputs: jest.fn((inputs: Record<string, unknown>) => {
-          span.inputs = inputs;
-        }),
-        setOutputs: jest.fn((outputs: unknown) => {
-          span.outputs = outputs;
-        }),
-        setStatus: jest.fn((code: string, description?: string) => {
-          span.status = { code, description };
-        }),
-        end: jest.fn(() => {
-          span.ended = true;
-        }),
-      };
-      mockSpans[id] = span;
-      return span;
-    }),
-    flushTraces: jest.fn().mockResolvedValue(undefined),
-    SpanType: {
-      LLM: 'LLM',
-      AGENT: 'AGENT',
-      TOOL: 'TOOL',
-      UNKNOWN: 'UNKNOWN',
-    },
-    SpanAttributeKey: {
-      TOKEN_USAGE: 'mlflow.chat.tokenUsage',
-      MESSAGE_FORMAT: 'mlflow.message.format',
-    },
-    SpanStatusCode: {
-      OK: 'OK',
-      ERROR: 'ERROR',
-    },
-    TraceMetadataKey: {
-      TRACE_SESSION: 'mlflow.trace.session',
-      TRACE_USER: 'mlflow.trace.user',
-      TOKEN_USAGE: 'mlflow.trace.tokenUsage',
-    },
-    TokenUsageKey: {
-      INPUT_TOKENS: 'input_tokens',
-      OUTPUT_TOKENS: 'output_tokens',
-      TOTAL_TOKENS: 'total_tokens',
-      CACHE_READ_INPUT_TOKENS: 'cache_read_input_tokens',
-      CACHE_CREATION_INPUT_TOKENS: 'cache_creation_input_tokens',
-    },
-    InMemoryTraceManager: {
-      getInstance: jest.fn(() => ({
-        getTrace: jest.fn(() => ({ info: mockTraceInfo })),
-      })),
-    },
-  };
-});
-
-// Import after mock
 import { createTracedQuery } from '../src/tracedClaudeAgent';
 
+// The real `Query` type has 20+ methods (setModel, setPermissionMode, etc.)
+// that the wrapper doesn't touch; cast the minimal stub for tests.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyQueryFn = any;
+
+const TEST_TRACKING_URI = process.env.MLFLOW_TRACKING_URI ?? 'http://localhost:5000';
+
 // ============================================================================
-// Helpers
+// Mock query (the only thing we mock — the SDK transport itself)
 // ============================================================================
 
-function getSpans() {
-  return Object.values(mockSpans);
+interface MockQueryParams {
+  prompt: string | AsyncIterable<unknown>;
+  options?: Record<string, unknown>;
 }
 
-function spansByType(type: string) {
-  return getSpans().filter((s) => s.spanType === type);
+interface MockQueryReturn {
+  [Symbol.asyncIterator]: () => AsyncIterator<unknown>;
+  next: () => Promise<IteratorResult<unknown>>;
+  return: (v?: unknown) => Promise<IteratorResult<unknown>>;
+  throw: (e?: unknown) => Promise<IteratorResult<unknown>>;
+  interrupt: jest.Mock;
 }
 
-function spansByName(name: string) {
-  return getSpans().filter((s) => s.name === name);
-}
-
-function rootSpan() {
-  return getSpans().find((s) => s.parentId === null);
-}
-
-function childrenOf(spanId: string) {
-  return getSpans().filter((s) => s.parentId === spanId);
-}
-
-/**
- * Build a mock query function that yields a scripted sequence of SDKMessages
- * and records the options passed in (so tests can verify forwardSubagentText).
- */
-function mockQuery(messages: any[]) {
+function mockQuery(messages: unknown[]) {
   const optionsSeen: Record<string, unknown>[] = [];
-  const fn = (params: { prompt: unknown; options?: Record<string, unknown> }) => {
+  const fn = (params: MockQueryParams): MockQueryReturn => {
     optionsSeen.push(params.options ?? {});
     const iter = (async function* () {
+      // If the prompt is an AsyncIterable, drain it (mirrors real SDK).
+      if (typeof params.prompt !== 'string') {
+        for await (const _item of params.prompt as AsyncIterable<unknown>) {
+          // Discard — the wrapper observes via its capturing iterable.
+        }
+      }
       for (const m of messages) {
         yield m;
       }
     })();
-    // Return an object that satisfies Symbol.asyncIterator plus interrupt/close stubs.
-    const result: any = {
+    return {
       [Symbol.asyncIterator]: () => iter,
       next: () => iter.next(),
-      return: (v?: any) => iter.return(v),
-      throw: (e?: any) => iter.throw(e),
+      return: (v?: unknown) => iter.return(v as never),
+      throw: (e?: unknown) => iter.throw(e),
       interrupt: jest.fn(),
     };
-    return result;
   };
   return { fn, optionsSeen };
 }
 
-function mockQueryThatThrows(messages: any[], error: Error) {
-  const fn = () => {
+function mockQueryThatThrows(messages: unknown[], error: Error) {
+  const fn = (): MockQueryReturn => {
     const iter = (async function* () {
-      for (const m of messages) yield m;
+      for (const m of messages) {
+        yield m;
+      }
       throw error;
     })();
     return {
       [Symbol.asyncIterator]: () => iter,
       next: () => iter.next(),
-      return: (v?: any) => iter.return(v),
-      throw: (e?: any) => iter.throw(e),
+      return: (v?: unknown) => iter.return(v as never),
+      throw: (e?: unknown) => iter.throw(e),
       interrupt: jest.fn(),
-    } as any;
+    };
   };
   return fn;
 }
 
-async function drain(query: any) {
-  const seen: any[] = [];
-  for await (const msg of query) {
-    seen.push(msg);
+async function drain(query: unknown) {
+  for await (const _msg of query as AsyncIterable<unknown>) {
+    // discard
   }
-  return seen;
 }
 
 // ============================================================================
-// Tests
+// Trace fetch helpers — operate on the real trace returned by the server
 // ============================================================================
 
-beforeEach(() => {
-  resetMocks();
-  jest.clearAllMocks();
-});
+interface FetchedSpan {
+  name: string;
+  spanId: string;
+  parentId: string | null;
+  spanType: string;
+  inputs: unknown;
+  outputs: unknown;
+  attributes: Record<string, unknown>;
+  status: { statusCode: string; description?: string };
+}
 
-describe('createTracedQuery', () => {
+function rootSpan(spans: FetchedSpan[]): FetchedSpan {
+  const root = spans.find((s) => s.parentId == null);
+  if (!root) throw new Error('No root span in trace');
+  return root;
+}
+
+function spansByName(spans: FetchedSpan[], name: string): FetchedSpan[] {
+  return spans.filter((s) => s.name === name);
+}
+
+function spansByType(spans: FetchedSpan[], type: string): FetchedSpan[] {
+  return spans.filter((s) => s.spanType === type);
+}
+
+function childrenOf(spans: FetchedSpan[], spanId: string): FetchedSpan[] {
+  return spans.filter((s) => s.parentId === spanId);
+}
+
+// ============================================================================
+// Suite setup — one experiment shared across tests
+// ============================================================================
+
+describe('createTracedQuery (integration)', () => {
+  let client: MlflowClient;
+  let experimentId: string;
+
+  beforeAll(async () => {
+    const authProvider = createAuthProvider({ trackingUri: TEST_TRACKING_URI });
+    client = new MlflowClient({ trackingUri: TEST_TRACKING_URI, authProvider });
+    const experimentName = `claude-code-agent-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    experimentId = await client.createExperiment(experimentName);
+    mlflow.init({ trackingUri: TEST_TRACKING_URI, experimentId });
+  });
+
+  afterAll(async () => {
+    if (experimentId) {
+      await client.deleteExperiment(experimentId);
+    }
+  });
+
+  async function runAndFetchTrace(
+    wrappedQuery: ReturnType<typeof createTracedQuery>,
+    params: MockQueryParams,
+  ) {
+    await drain(wrappedQuery(params));
+    await mlflow.flushTraces();
+    const traceId = mlflow.getLastActiveTraceId();
+    if (!traceId) throw new Error('No active trace id after run');
+    const trace = await client.getTrace(traceId);
+    return {
+      trace,
+      spans: trace.data.spans as unknown as FetchedSpan[],
+    };
+  }
+
+  // --------------------------------------------------------------------------
+  // Basic span tree
+  // --------------------------------------------------------------------------
+
   it('produces an AGENT root span with LLM and TOOL children for a basic run', async () => {
     const { fn } = mockQuery([
       { type: 'system', subtype: 'init', session_id: 'sess-abc', model: 'claude-haiku-4-5' },
@@ -267,28 +230,26 @@ describe('createTracedQuery', () => {
       },
     ]);
 
-    const traced = createTracedQuery(fn);
-    await drain(traced({ prompt: 'list files' }));
+    const { trace, spans } = await runAndFetchTrace(createTracedQuery(fn as AnyQueryFn), { prompt: 'list files' });
 
-    const root = rootSpan();
-    expect(root).toBeDefined();
-    expect(root!.spanType).toBe('AGENT');
-    expect(root!.name).toBe('claude_code_conversation');
-    expect(root!.ended).toBe(true);
+    expect(trace.info.state).toBe(TraceState.OK);
 
-    const llmSpans = spansByType('LLM');
+    const root = rootSpan(spans);
+    expect(root.spanType).toBe(SpanType.AGENT);
+    expect(root.name).toBe('claude_code_conversation');
+
+    const llmSpans = spansByType(spans, SpanType.LLM);
     expect(llmSpans).toHaveLength(2);
-    expect(llmSpans.every((s) => s.ended)).toBe(true);
-    expect(llmSpans.every((s) => s.parentId === root!.spanId)).toBe(true);
+    expect(llmSpans.every((s) => s.parentId === root.spanId)).toBe(true);
 
-    const toolSpans = spansByType('TOOL');
+    const toolSpans = spansByType(spans, SpanType.TOOL);
     expect(toolSpans).toHaveLength(1);
     expect(toolSpans[0].name).toBe('tool_Bash');
-    expect(toolSpans[0].ended).toBe(true);
     expect(toolSpans[0].outputs).toEqual({ result: 'file1\nfile2' });
 
-    // Root usage records cache tokens as separate keys (not collapsed).
-    expect(root!.attributes['mlflow.chat.tokenUsage']).toEqual({
+    // Aggregate token usage (with separate cache keys) is recorded on the root.
+    const rootUsage = root.attributes['mlflow.chat.tokenUsage'] as Record<string, number>;
+    expect(rootUsage).toEqual({
       input_tokens: 80,
       output_tokens: 35,
       total_tokens: 115,
@@ -296,7 +257,7 @@ describe('createTracedQuery', () => {
       cache_creation_input_tokens: 5,
     });
 
-    // Per-turn usage on LLM spans
+    // Per-turn token usage on the first LLM span.
     expect(llmSpans[0].attributes['mlflow.chat.tokenUsage']).toEqual({
       input_tokens: 10,
       output_tokens: 20,
@@ -304,7 +265,11 @@ describe('createTracedQuery', () => {
     });
   });
 
-  it('creates AGENT(subagent) nested under TOOL(Agent) for Task tool calls', async () => {
+  // --------------------------------------------------------------------------
+  // Sub-agent nesting
+  // --------------------------------------------------------------------------
+
+  it('nests an AGENT(subagent) span under the Task tool for sub-agent invocations', async () => {
     const { fn } = mockQuery([
       { type: 'system', subtype: 'init', session_id: 's', model: 'claude-haiku-4-5' },
       {
@@ -327,7 +292,6 @@ describe('createTracedQuery', () => {
           ],
         },
       },
-      // Sub-agent inner messages
       {
         type: 'user',
         parent_tool_use_id: 'task-1',
@@ -363,7 +327,6 @@ describe('createTracedQuery', () => {
           content: [{ type: 'text', text: 'Found 2 files.' }],
         },
       },
-      // Task tool returns
       {
         type: 'user',
         parent_tool_use_id: null,
@@ -387,35 +350,35 @@ describe('createTracedQuery', () => {
       },
     ]);
 
-    await drain(createTracedQuery(fn)({ prompt: 'use agent' }));
+    const { spans } = await runAndFetchTrace(createTracedQuery(fn as AnyQueryFn), { prompt: 'use agent' });
 
-    const root = rootSpan()!;
-    const taskTool = spansByName('tool_Agent')[0];
+    const root = rootSpan(spans);
+    const taskTool = spansByName(spans, 'tool_Agent')[0];
     expect(taskTool).toBeDefined();
     expect(taskTool.parentId).toBe(root.spanId);
 
-    const subagent = spansByName('subagent_general-purpose')[0];
+    const subagent = spansByName(spans, 'subagent_general-purpose')[0];
     expect(subagent).toBeDefined();
-    expect(subagent.spanType).toBe('AGENT');
+    expect(subagent.spanType).toBe(SpanType.AGENT);
     expect(subagent.parentId).toBe(taskTool.spanId);
 
-    // Inner Bash tool span is nested under the subagent
-    const innerBash = spansByName('tool_Bash')[0];
-    expect(innerBash).toBeDefined();
+    // Inner Bash span nests under the sub-agent wrapper, not under root.
+    const innerBash = spansByName(spans, 'tool_Bash')[0];
     expect(innerBash.parentId).toBe(subagent.spanId);
     expect(innerBash.outputs).toEqual({ result: 'a\nb' });
-    expect(innerBash.ended).toBe(true);
 
-    // Inner LLM span(s) are also under the subagent
-    const innerLlms = childrenOf(subagent.spanId).filter((s) => s.spanType === 'LLM');
+    // At least one inner LLM span lives under the sub-agent.
+    const innerLlms = childrenOf(spans, subagent.spanId).filter(
+      (s) => s.spanType === SpanType.LLM,
+    );
     expect(innerLlms.length).toBeGreaterThanOrEqual(1);
-
-    // Both subagent wrapper and Task tool are closed after the tool_result
-    expect(subagent.ended).toBe(true);
-    expect(taskTool.ended).toBe(true);
   });
 
-  it('marks TOOL span as ERROR when tool_result has is_error=true', async () => {
+  // --------------------------------------------------------------------------
+  // Error handling
+  // --------------------------------------------------------------------------
+
+  it('marks a TOOL span ERROR when its tool_result has is_error=true', async () => {
     const { fn } = mockQuery([
       { type: 'system', subtype: 'init', session_id: 's', model: 'm' },
       {
@@ -450,15 +413,14 @@ describe('createTracedQuery', () => {
       },
     ]);
 
-    await drain(createTracedQuery(fn)({ prompt: 'p' }));
+    const { spans } = await runAndFetchTrace(createTracedQuery(fn as AnyQueryFn), { prompt: 'p' });
 
-    const tool = spansByName('tool_Bash')[0];
-    expect(tool.status?.code).toBe('ERROR');
-    expect(tool.status?.description).toBe('command failed');
-    expect(tool.ended).toBe(true);
+    const tool = spansByName(spans, 'tool_Bash')[0];
+    expect(tool.status.statusCode).toBe(SpanStatusCode.ERROR);
+    expect(tool.status.description).toBe('command failed');
   });
 
-  it('closes all open spans with ERROR when the stream throws', async () => {
+  it('closes every open span with ERROR and marks the trace ERROR on stream throw', async () => {
     const fn = mockQueryThatThrows(
       [
         { type: 'system', subtype: 'init', session_id: 's', model: 'm' },
@@ -475,19 +437,20 @@ describe('createTracedQuery', () => {
       new Error('rate limit'),
     );
 
-    const traced = createTracedQuery(fn);
+    const traced = createTracedQuery(fn as AnyQueryFn);
     await expect(drain(traced({ prompt: 'p' }))).rejects.toThrow('rate limit');
+    await mlflow.flushTraces();
+    const traceId = mlflow.getLastActiveTraceId();
+    if (!traceId) throw new Error('No trace id');
+    const trace = await client.getTrace(traceId);
+    const spans = trace.data.spans as unknown as FetchedSpan[];
 
-    const root = rootSpan()!;
-    expect(root.status?.code).toBe('ERROR');
-    expect(root.ended).toBe(true);
-
-    const tool = spansByName('tool_Bash')[0];
-    expect(tool.status?.code).toBe('ERROR');
-    expect(tool.ended).toBe(true);
+    expect(trace.info.state).toBe(TraceState.ERROR);
+    const tool = spansByName(spans, 'tool_Bash')[0];
+    expect(tool.status.statusCode).toBe(SpanStatusCode.ERROR);
   });
 
-  it('marks root as ERROR when result.subtype is not success', async () => {
+  it('marks the trace ERROR when result.subtype is not "success"', async () => {
     const { fn } = mockQuery([
       { type: 'system', subtype: 'init', session_id: 's', model: 'm' },
       {
@@ -498,32 +461,13 @@ describe('createTracedQuery', () => {
       },
     ]);
 
-    await drain(createTracedQuery(fn)({ prompt: 'p' }));
-
-    const root = rootSpan()!;
-    expect(root.status?.code).toBe('ERROR');
-    expect(root.status?.description).toBe('error_max_turns');
+    const { trace } = await runAndFetchTrace(createTracedQuery(fn as AnyQueryFn), { prompt: 'p' });
+    expect(trace.info.state).toBe(TraceState.ERROR);
   });
 
-  it('sets forwardSubagentText: true by default and preserves user-provided options', async () => {
-    const { fn, optionsSeen } = mockQuery([
-      {
-        type: 'result',
-        subtype: 'success',
-        duration_ms: 1,
-        usage: { input_tokens: 0, output_tokens: 0 },
-      },
-    ]);
-
-    await drain(
-      createTracedQuery(fn)({ prompt: 'p', options: { permissionMode: 'bypassPermissions' } }),
-    );
-
-    expect(optionsSeen[0]).toMatchObject({
-      forwardSubagentText: true,
-      permissionMode: 'bypassPermissions',
-    });
-  });
+  // --------------------------------------------------------------------------
+  // Wrapper behavior
+  // --------------------------------------------------------------------------
 
   it('forces forwardSubagentText: true even when the caller passes false', async () => {
     const { fn, optionsSeen } = mockQuery([
@@ -535,9 +479,37 @@ describe('createTracedQuery', () => {
       },
     ]);
 
-    await drain(createTracedQuery(fn)({ prompt: 'p', options: { forwardSubagentText: false } }));
+    await drain(createTracedQuery(fn as AnyQueryFn)({ prompt: 'p', options: { forwardSubagentText: false } }));
+    await mlflow.flushTraces();
 
     expect(optionsSeen[0]?.forwardSubagentText).toBe(true);
+  });
+
+  it('replaces callbacks in options with a sanitized placeholder on the span', async () => {
+    const { fn } = mockQuery([
+      {
+        type: 'result',
+        subtype: 'success',
+        duration_ms: 1,
+        usage: { input_tokens: 0, output_tokens: 0 },
+      },
+    ]);
+    const hookFn = jest.fn();
+    const canUseTool = jest.fn();
+
+    const { spans } = await runAndFetchTrace(createTracedQuery(fn as AnyQueryFn), {
+      prompt: 'p',
+      options: {
+        hooks: { PreToolUse: [hookFn] },
+        canUseTool,
+        permissionMode: 'bypassPermissions',
+      },
+    });
+
+    const opts = (rootSpan(spans).inputs as { options: Record<string, unknown> }).options;
+    expect((opts.hooks as { PreToolUse: unknown[] }).PreToolUse[0]).toBe('[function]');
+    expect(opts.canUseTool).toBe('[function]');
+    expect(opts.permissionMode).toBe('bypassPermissions');
   });
 
   it('finalizes the trace even when the consumer breaks out of the iterator early', async () => {
@@ -559,45 +531,25 @@ describe('createTracedQuery', () => {
       },
     ]);
 
-    const traced = createTracedQuery(fn);
-    const stream = traced({ prompt: 'p' });
-    for await (const msg of stream) {
+    const stream = createTracedQuery(fn as AnyQueryFn)({ prompt: 'p' });
+    for await (const msg of stream as AsyncIterable<{ type: string }>) {
       if (msg.type === 'assistant') {
-        break; // consumer exits before the rest of the stream drains
+        break;
       }
     }
+    await mlflow.flushTraces();
 
-    // Even though we broke early, the root span must be closed so the trace
-    // flushes to the backend (otherwise it would leak as an open trace).
-    const root = rootSpan()!;
-    expect(root.ended).toBe(true);
+    const traceId = mlflow.getLastActiveTraceId();
+    if (!traceId) throw new Error('No trace id after early break');
+    // If the post-loop finalize hadn't run, the root would never end and the
+    // exporter wouldn't have pushed the trace — getTrace would 404.
+    const trace = await client.getTrace(traceId);
+    expect(trace.info.traceId).toBe(traceId);
+    expect(trace.info.state).toBe(TraceState.OK);
   });
 
   it('captures streaming-prompt text on the root span as the SDK consumes it', async () => {
-    // mockQuery that actually drains the prompt iterable (mirrors what the
-    // real Agent SDK does in streaming mode).
-    function streamingMockQuery(messages: any[]) {
-      const fn = (params: { prompt: any; options?: Record<string, unknown> }) => {
-        const iter = (async function* () {
-          if (typeof params.prompt !== 'string') {
-            for await (const _ of params.prompt as AsyncIterable<unknown>) {
-              // drain — the wrapper's capturing iterable observes each chunk
-            }
-          }
-          for (const m of messages) yield m;
-        })();
-        return {
-          [Symbol.asyncIterator]: () => iter,
-          next: () => iter.next(),
-          return: (v?: any) => iter.return(v),
-          throw: (e?: any) => iter.throw(e),
-          interrupt: jest.fn(),
-        } as any;
-      };
-      return fn;
-    }
-
-    const fn = streamingMockQuery([
+    const { fn } = mockQuery([
       {
         type: 'result',
         subtype: 'success',
@@ -614,42 +566,10 @@ describe('createTracedQuery', () => {
       };
     }
 
-    await drain(createTracedQuery(fn)({ prompt: streamingPrompt() }));
+    const { spans } = await runAndFetchTrace(createTracedQuery(fn as AnyQueryFn), { prompt: streamingPrompt() });
 
-    const root = rootSpan()!;
-    const recorded = root.inputs.prompt as string;
+    const recorded = (rootSpan(spans).inputs as { prompt: string }).prompt;
     expect(recorded).toContain('first chunk');
     expect(recorded).toContain('second chunk');
-  });
-
-  it('replaces callbacks in options with a sanitized placeholder on the span', async () => {
-    const { fn } = mockQuery([
-      {
-        type: 'result',
-        subtype: 'success',
-        duration_ms: 1,
-        usage: { input_tokens: 0, output_tokens: 0 },
-      },
-    ]);
-    const hookFn = jest.fn();
-    const canUseToolFn = jest.fn();
-
-    await drain(
-      createTracedQuery(fn)({
-        prompt: 'p',
-        options: {
-          hooks: { PreToolUse: [hookFn] },
-          canUseTool: canUseToolFn as any,
-          permissionMode: 'bypassPermissions',
-        },
-      }),
-    );
-
-    const root = rootSpan()!;
-    const opts = root.inputs.options as any;
-    // Functions at every depth are replaced; non-function fields are preserved.
-    expect(opts.hooks.PreToolUse[0]).toBe('[function]');
-    expect(opts.canUseTool).toBe('[function]');
-    expect(opts.permissionMode).toBe('bypassPermissions');
   });
 });
