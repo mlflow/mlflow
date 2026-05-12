@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import invariant from 'invariant';
 import { useParams } from '../../../common/utils/RoutingUtils';
 import { Alert, Tabs, Typography, useDesignSystemTheme } from '@databricks/design-system';
-import { FormattedMessage } from 'react-intl';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { shouldEnableIssueDetection } from '../../../common/utils/FeatureUtils';
 import { IssueDetectionModal } from '../../components/experiment-page/components/traces-v3/IssueDetectionModal';
 import { DetectIssuesButton } from '../../../shared/web-shared/genai-traces-table/components/DetectIssuesButton';
@@ -37,11 +37,18 @@ import { TIME_UNIT_SECONDS, calculateDefaultTimeUnit, isTimeUnitValid } from './
 import { generateTimeBuckets } from './utils/chartUtils';
 import { OverviewChartProvider } from './OverviewChartContext';
 import { useOverviewTab, OverviewTab } from './hooks/useOverviewTab';
+import { MetricsFilter } from '../../../common/components/MetricsFilter';
+import {
+  translateToMetricsFilters,
+  type MetricFilter,
+  type MetricFilterColumnOption,
+} from '../../../common/components/MetricsFilter.utils';
 
 const DEMO_START_TIME_TAG = 'mlflow.demo.start_time_ms';
 const DEMO_END_TIME_TAG = 'mlflow.demo.end_time_ms';
 
 const ExperimentGenAIOverviewPageImpl = () => {
+  const intl = useIntl();
   const { experimentId } = useParams();
   const { theme } = useDesignSystemTheme();
   const [activeTab, setActiveTab] = useOverviewTab();
@@ -138,6 +145,23 @@ const ExperimentGenAIOverviewPageImpl = () => {
     [startTimeMs, endTimeMs, timeIntervalSeconds],
   );
 
+  // User-driven filter rows captured by MetricsFilter. Translated into
+  // metrics-API DSL strings via translateToMetricsFilters and passed to the chart provider.
+  const [metricFilters, setMetricFilters] = useState<MetricFilter[]>([]);
+  const chartFilters = useMemo(() => translateToMetricsFilters(metricFilters), [metricFilters]);
+  const metricsFilterColumnOptions = useMemo<MetricFilterColumnOption[]>(
+    () => [
+      {
+        value: 'user',
+        label: intl.formatMessage({
+          defaultMessage: 'User',
+          description: 'Usage overview > metrics filter > user column option label',
+        }),
+      },
+    ],
+    [intl],
+  );
+
   return (
     <div
       css={{
@@ -196,6 +220,14 @@ const ExperimentGenAIOverviewPageImpl = () => {
             gap: theme.spacing.sm,
           }}
         >
+          {activeTab === OverviewTab.Usage && (
+            <MetricsFilter
+              filters={metricFilters}
+              setFilters={setMetricFilters}
+              columnOptions={metricsFilterColumnOptions}
+            />
+          )}
+
           {/* Time unit selector for chart grouping */}
           <TimeUnitSelector
             value={effectiveTimeUnit}
@@ -228,6 +260,7 @@ const ExperimentGenAIOverviewPageImpl = () => {
           endTimeMs={endTimeMs}
           timeIntervalSeconds={timeIntervalSeconds}
           timeBuckets={timeBuckets}
+          filters={chartFilters}
         >
           <Tabs.Content value={OverviewTab.Usage} css={{ flex: 1, overflowY: 'auto' }}>
             <TabContentContainer>
