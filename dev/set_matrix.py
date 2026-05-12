@@ -537,7 +537,10 @@ async def _get_available_packages(pip_releases: list[str]) -> dict[str, Package]
                 stacklevel=2,
             )
     if pip_releases:
-        warnings.warn("All configured PyPI packages were unavailable while generating matrix.")
+        warnings.warn(
+            "All configured PyPI packages were unavailable while generating matrix; "
+            "the generated matrix will be empty."
+        )
     return {}
 
 
