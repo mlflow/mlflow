@@ -161,6 +161,9 @@ jobs:
           git config user.email "${AUTHOR_ID}+${AUTHOR_LOGIN}@users.noreply.github.com"
 
       - uses: ./.github/actions/setup-python
+        with:
+          enable-uv-cache: false
+          pin-micro-version: false
 
       - name: Set up pre-commit
         run: |

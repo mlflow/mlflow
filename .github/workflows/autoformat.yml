@@ -118,6 +118,9 @@ jobs:
           git fetch base $BASE_REF
           git merge base/$BASE_REF
       - uses: ./.github/actions/setup-python
+        with:
+          enable-uv-cache: false
+          pin-micro-version: false
       # ************************************************************************
       # pre-commit
       # ************************************************************************

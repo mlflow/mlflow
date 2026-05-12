@@ -89,6 +89,9 @@ jobs:
           ref: ${{ github.event.pull_request.number && format('refs/pull/{0}/merge', github.event.pull_request.number) || github.sha }}
 
       - uses: ./.github/actions/setup-python
+        with:
+          enable-uv-cache: false
+          pin-micro-version: false
       - uses: ./.github/actions/setup-node
 
       - name: Install build tools
