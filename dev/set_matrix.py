@@ -529,10 +529,10 @@ async def _get_available_packages(pip_releases: list[str]) -> dict[str, Package]
             if not (match := PYPI_NOT_FOUND_PATTERN.search(str(e))):
                 raise
             package_name = match.group("name")
-            if package_name in unavailable:
+            if package_name not in remaining or package_name in unavailable:
                 raise
             unavailable.add(package_name)
-            remaining = [release for release in pip_releases if release not in unavailable]
+            remaining = [release for release in remaining if release != package_name]
             warnings.warn(
                 f"Skipping unavailable PyPI package {package_name!r} while generating matrix.",
                 stacklevel=2,
