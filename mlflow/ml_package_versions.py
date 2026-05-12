@@ -166,16 +166,6 @@ _ML_PACKAGE_VERSIONS = {
             "maximum": "1.36.0"
         }
     },
-    "mistral": {
-        "package_info": {
-            "pip_release": "mistralai",
-            "module_name": "mistralai"
-        },
-        "autologging": {
-            "minimum": "1.7.1",
-            "maximum": "2.4.0"
-        }
-    },
     "groq": {
         "package_info": {
             "pip_release": "groq"
@@ -463,7 +453,6 @@ GENAI_FLAVOR_TO_MODULE_NAME = {
     "pydantic_ai": "pydantic_ai",
     "smolagents": "smolagents",
     "strands": "strands",
-    "mistral": "mistralai",
     "groq": "groq",
     "bedrock": "boto3"
 }
