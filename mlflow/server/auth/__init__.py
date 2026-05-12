@@ -43,6 +43,7 @@ from mlflow import MlflowException
 from mlflow.entities import Experiment
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.model_registry import RegisteredModel
+from mlflow.entities.model_registry.prompt_version import IS_PROMPT_TAG_KEY
 from mlflow.environment_variables import (
     _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN,
     _MLFLOW_SGI_NAME,
@@ -846,6 +847,26 @@ def _get_permission_from_registered_model_name() -> Permission:
     )
 
 
+def _get_permission_from_prompt_id() -> Permission:
+    # Prompts share the model-registry wire surface with registered models but are
+    # a distinct RBAC resource_type. Workspace resolution uses the same backing
+    # store call (``get_registered_model`` returns both shapes), but the grant
+    # lookup is namespaced under ``"prompt"`` so a registered_model grant on the
+    # same name does not satisfy a prompt request, and vice versa.
+    name = _get_request_param("name")
+    username = authenticate_request().username
+    return _get_role_permission_or_default(
+        _role_permission_for(
+            username=username,
+            resource_type="prompt",
+            resource_key=name,
+            workspace_lookup_id=name,
+            workspace_fetcher=_get_model_registry_store().get_registered_model,
+            workspace_label="prompt",
+        ),
+    )
+
+
 def _get_permission_from_scorer_name() -> Permission:
     experiment_id = _get_request_param("experiment_id")
     name = _get_request_param("name")
@@ -1021,6 +1042,85 @@ def validate_can_delete_registered_model():
 
 def validate_can_manage_registered_model():
     return _get_permission_from_registered_model_name().can_manage
+
+
+# Prompts
+def validate_can_read_prompt():
+    return _get_permission_from_prompt_id().can_read
+
+
+def validate_can_update_prompt():
+    return _get_permission_from_prompt_id().can_update
+
+
+def validate_can_delete_prompt():
+    return _get_permission_from_prompt_id().can_delete
+
+
+def validate_can_manage_prompt():
+    return _get_permission_from_prompt_id().can_manage
+
+
+def _request_targets_prompt() -> bool:
+    """Decide whether the current registered-model request actually targets a prompt.
+
+    Prompts share the OSS ``/api/2.0/mlflow/registered-models/...`` wire surface
+    with regular models; the discriminator is the ``mlflow.prompt.is_prompt``
+    tag. On CREATE the tag lives on the inbound request body; on every other
+    name-keyed op we must round-trip the registry to read the stored tag.
+    Resolution failures (missing name, unknown model) fall back to ``False`` so
+    the caller proceeds down the registered-model path and surfaces the same
+    error it always has.
+    """
+    params = _request_params()
+    tags = params.get("tags")
+    if isinstance(tags, list):
+        for tag in tags:
+            key = tag.get("key") if isinstance(tag, dict) else getattr(tag, "key", None)
+            if key == IS_PROMPT_TAG_KEY:
+                value = tag.get("value") if isinstance(tag, dict) else getattr(tag, "value", None)
+                if str(value).lower() == "true":
+                    return True
+    name = params.get("name")
+    if not name:
+        return False
+    try:
+        rm = _get_model_registry_store().get_registered_model(name)
+    except Exception:
+        return False
+    return bool(getattr(rm, "_is_prompt", lambda: False)())
+
+
+def _validate_can_read_registered_model_or_prompt():
+    return (
+        validate_can_read_prompt()
+        if _request_targets_prompt()
+        else validate_can_read_registered_model()
+    )
+
+
+def _validate_can_update_registered_model_or_prompt():
+    return (
+        validate_can_update_prompt()
+        if _request_targets_prompt()
+        else validate_can_update_registered_model()
+    )
+
+
+def _validate_can_delete_registered_model_or_prompt():
+    return (
+        validate_can_delete_prompt()
+        if _request_targets_prompt()
+        else validate_can_delete_registered_model()
+    )
+
+
+def _validate_can_manage_registered_model_or_prompt():
+    return (
+        validate_can_manage_prompt()
+        if _request_targets_prompt()
+        else validate_can_manage_registered_model()
+    )
 
 
 def validate_can_create_experiment() -> bool:
@@ -1837,26 +1937,26 @@ BEFORE_REQUEST_HANDLERS = {
     LogParam: validate_can_update_run,
     GetMetricHistory: validate_can_read_run,
     ListArtifacts: validate_can_read_run,
-    # Routes for model registry
+    # Routes for model registry (shared with prompts — see `_request_targets_prompt`).
     CreateRegisteredModel: validate_can_create_registered_model,
-    GetRegisteredModel: validate_can_read_registered_model,
-    DeleteRegisteredModel: validate_can_delete_registered_model,
-    UpdateRegisteredModel: validate_can_update_registered_model,
-    RenameRegisteredModel: validate_can_update_registered_model,
-    GetLatestVersions: validate_can_read_registered_model,
-    CreateModelVersion: validate_can_update_registered_model,
-    GetModelVersion: validate_can_read_registered_model,
-    DeleteModelVersion: validate_can_delete_registered_model,
-    UpdateModelVersion: validate_can_update_registered_model,
-    TransitionModelVersionStage: validate_can_update_registered_model,
-    GetModelVersionDownloadUri: validate_can_read_registered_model,
-    SetRegisteredModelTag: validate_can_update_registered_model,
-    DeleteRegisteredModelTag: validate_can_update_registered_model,
-    SetModelVersionTag: validate_can_update_registered_model,
-    DeleteModelVersionTag: validate_can_delete_registered_model,
-    SetRegisteredModelAlias: validate_can_update_registered_model,
-    DeleteRegisteredModelAlias: validate_can_delete_registered_model,
-    GetModelVersionByAlias: validate_can_read_registered_model,
+    GetRegisteredModel: _validate_can_read_registered_model_or_prompt,
+    DeleteRegisteredModel: _validate_can_delete_registered_model_or_prompt,
+    UpdateRegisteredModel: _validate_can_update_registered_model_or_prompt,
+    RenameRegisteredModel: _validate_can_update_registered_model_or_prompt,
+    GetLatestVersions: _validate_can_read_registered_model_or_prompt,
+    CreateModelVersion: _validate_can_update_registered_model_or_prompt,
+    GetModelVersion: _validate_can_read_registered_model_or_prompt,
+    DeleteModelVersion: _validate_can_delete_registered_model_or_prompt,
+    UpdateModelVersion: _validate_can_update_registered_model_or_prompt,
+    TransitionModelVersionStage: _validate_can_update_registered_model_or_prompt,
+    GetModelVersionDownloadUri: _validate_can_read_registered_model_or_prompt,
+    SetRegisteredModelTag: _validate_can_update_registered_model_or_prompt,
+    DeleteRegisteredModelTag: _validate_can_update_registered_model_or_prompt,
+    SetModelVersionTag: _validate_can_update_registered_model_or_prompt,
+    DeleteModelVersionTag: _validate_can_delete_registered_model_or_prompt,
+    SetRegisteredModelAlias: _validate_can_update_registered_model_or_prompt,
+    DeleteRegisteredModelAlias: _validate_can_delete_registered_model_or_prompt,
+    GetModelVersionByAlias: _validate_can_read_registered_model_or_prompt,
     # Routes for scorers
     RegisterScorer: validate_can_update_experiment,
     ListScorers: validate_can_read_experiment,

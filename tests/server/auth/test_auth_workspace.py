@@ -361,11 +361,16 @@ class _TrackingStore:
 
 
 class _RegistryStore:
-    def __init__(self, model_workspaces: dict[str, str]):
+    def __init__(self, model_workspaces: dict[str, str], prompts: set[str] | None = None):
         self._model_workspaces = model_workspaces
+        self._prompts = prompts or set()
 
     def get_registered_model(self, name: str):
-        return SimpleNamespace(workspace=self._model_workspaces[name])
+        is_prompt = name in self._prompts
+        return SimpleNamespace(
+            workspace=self._model_workspaces[name],
+            _is_prompt=lambda: is_prompt,
+        )
 
 
 @pytest.fixture
@@ -1054,6 +1059,136 @@ def test_registered_model_validators_require_manage_for_writes(workspace_permiss
         # USE confers create rights under the simplified workspace model — the
         # creator-as-owner mechanism then grants MANAGE on what user creates.
         assert auth_module.validate_can_create_registered_model()
+
+
+def test_prompt_validators_require_manage_for_writes(workspace_permission_setup, monkeypatch):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    registry_store = _RegistryStore({"prompt-xyz": "team-a"}, prompts={"prompt-xyz"})
+    monkeypatch.setattr(auth_module, "_get_model_registry_store", lambda: registry_store)
+
+    with workspace_context.WorkspaceContext("team-a"):
+        _set_workspace_permission(store, username, MANAGE.name)
+        with auth_module.app.test_request_context(
+            "/api/2.0/mlflow/registered-models/get",
+            method="GET",
+            query_string={"name": "prompt-xyz"},
+        ):
+            assert auth_module.validate_can_read_prompt()
+            assert auth_module.validate_can_update_prompt()
+            assert auth_module.validate_can_delete_prompt()
+            assert auth_module.validate_can_manage_prompt()
+
+        _set_workspace_permission(store, username, USE.name)
+        with auth_module.app.test_request_context(
+            "/api/2.0/mlflow/registered-models/get",
+            method="GET",
+            query_string={"name": "prompt-xyz"},
+        ):
+            assert auth_module.validate_can_read_prompt()
+            assert not auth_module.validate_can_update_prompt()
+            assert not auth_module.validate_can_delete_prompt()
+            assert not auth_module.validate_can_manage_prompt()
+
+
+def test_prompt_dispatch_routes_request_by_is_prompt_tag(workspace_permission_setup, monkeypatch):
+    """A request hitting the shared registered-model route resolves to the
+    prompt validator only when the underlying entity is a prompt. The
+    dispatching wrappers (`_validate_can_*_registered_model_or_prompt`) must
+    pick the right one based on `_request_targets_prompt()`.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    registry_store = _RegistryStore(
+        {"prompt-xyz": "team-a", "model-xyz": "team-a"},
+        prompts={"prompt-xyz"},
+    )
+    monkeypatch.setattr(auth_module, "_get_model_registry_store", lambda: registry_store)
+
+    # Grant prompt READ only — NOT registered_model READ.
+    role = store.create_role(name="prompt-reader", workspace="team-a")
+    store.add_role_permission(role.id, "prompt", "prompt-xyz", "READ")
+    user = store.get_user(username)
+    store.assign_role_to_user(user.id, role.id)
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
+
+    with workspace_context.WorkspaceContext("team-a"):
+        # The prompt name maps to the prompt validator and succeeds.
+        with auth_module.app.test_request_context(
+            "/api/2.0/mlflow/registered-models/get",
+            method="GET",
+            query_string={"name": "prompt-xyz"},
+        ):
+            assert auth_module._validate_can_read_registered_model_or_prompt()
+
+        # A non-prompt name maps to the registered_model validator and FAILS:
+        # the user has no registered_model grant. This pins cross-resource
+        # isolation — a prompt grant must not satisfy a registered_model
+        # request.
+        with auth_module.app.test_request_context(
+            "/api/2.0/mlflow/registered-models/get",
+            method="GET",
+            query_string={"name": "model-xyz"},
+        ):
+            assert not auth_module._validate_can_read_registered_model_or_prompt()
+
+
+def test_registered_model_grant_does_not_satisfy_prompt_request(
+    workspace_permission_setup, monkeypatch
+):
+    """The inverse of the dispatch test: a `(registered_model, foo, READ)`
+    grant must NOT satisfy a request for prompt `foo` after the resource_type
+    split.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    registry_store = _RegistryStore({"foo": "team-a"}, prompts={"foo"})
+    monkeypatch.setattr(auth_module, "_get_model_registry_store", lambda: registry_store)
+
+    role = store.create_role(name="rm-reader", workspace="team-a")
+    store.add_role_permission(role.id, "registered_model", "foo", "READ")
+    user = store.get_user(username)
+    store.assign_role_to_user(user.id, role.id)
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
+
+    with workspace_context.WorkspaceContext("team-a"):
+        with auth_module.app.test_request_context(
+            "/api/2.0/mlflow/registered-models/get",
+            method="GET",
+            query_string={"name": "foo"},
+        ):
+            # registered_model grant must not leak into the prompt namespace.
+            assert not auth_module.validate_can_read_prompt()
+
+
+def test_create_registered_model_prompt_tag_routes_to_prompt_validator(
+    workspace_permission_setup, monkeypatch
+):
+    """On CREATE, the request body carries the discriminator tag — the entity
+    doesn't exist yet, so the request-body tag is the only signal. The
+    dispatcher must pick the prompt path when the inbound tags include
+    ``mlflow.prompt.is_prompt = 'true'``.
+    """
+    registry_store = _RegistryStore({})
+    monkeypatch.setattr(auth_module, "_get_model_registry_store", lambda: registry_store)
+
+    with workspace_context.WorkspaceContext("team-a"):
+        with auth_module.app.test_request_context(
+            "/api/2.0/mlflow/registered-models/create",
+            method="POST",
+            json={
+                "name": "new-prompt",
+                "tags": [{"key": "mlflow.prompt.is_prompt", "value": "true"}],
+            },
+        ):
+            assert auth_module._request_targets_prompt()
+
+        with auth_module.app.test_request_context(
+            "/api/2.0/mlflow/registered-models/create",
+            method="POST",
+            json={"name": "new-model", "tags": []},
+        ):
+            assert not auth_module._request_targets_prompt()
 
 
 def test_validate_can_view_workspace_requires_access(workspace_permission_setup):
