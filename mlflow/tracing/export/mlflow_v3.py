@@ -1,4 +1,5 @@
 import logging
+import threading
 from collections import defaultdict
 from typing import Sequence
 
@@ -51,7 +52,10 @@ class MlflowV3SpanExporter(SpanExporter):
 
         # Root spans deferred when background thread spans are still running at export time.
         # Keyed by OTel trace ID; popped and exported once all spans in the trace have ended.
+        # Protected by _deferred_lock because SimpleSpanProcessor calls export() from the
+        # span's own thread, so concurrent calls from multiple threads are possible.
         self._deferred_root_spans: dict[int, ReadableSpan] = {}
+        self._deferred_lock = threading.Lock()
 
     def export(self, spans: Sequence[ReadableSpan]) -> None:
         """
@@ -146,9 +150,14 @@ class MlflowV3SpanExporter(SpanExporter):
         manager = InMemoryTraceManager.get_instance()
 
         # Flush any previously deferred root spans whose background spans have now ended.
-        for otel_trace_id in list(self._deferred_root_spans.keys()):
-            if not manager.has_open_spans(otel_trace_id):
-                self._do_export_trace(manager, self._deferred_root_spans.pop(otel_trace_id))
+        with self._deferred_lock:
+            to_flush = [
+                (otel_trace_id, self._deferred_root_spans.pop(otel_trace_id))
+                for otel_trace_id in list(self._deferred_root_spans.keys())
+                if not manager.has_open_spans(otel_trace_id)
+            ]
+        for _, deferred_span in to_flush:
+            self._do_export_trace(manager, deferred_span)
 
         for span in spans:
             if span._parent is not None:
@@ -159,7 +168,8 @@ class MlflowV3SpanExporter(SpanExporter):
             # This prevents _collect_mlflow_spans_for_export from losing the OTel→MLflow trace
             # ID mapping before those late spans can be logged.
             if manager.has_open_spans(span.context.trace_id):
-                self._deferred_root_spans[span.context.trace_id] = span
+                with self._deferred_lock:
+                    self._deferred_root_spans[span.context.trace_id] = span
                 continue
 
             self._do_export_trace(manager, span)
