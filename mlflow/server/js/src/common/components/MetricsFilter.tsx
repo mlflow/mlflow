@@ -73,7 +73,7 @@ export const MetricsFilter = ({ filters, setFilters, columnOptions }: MetricsFil
                   description: 'Usage overview > clear metrics filters button',
                 })}
                 css={{
-                  fontSize: 12,
+                  fontSize: theme.typography.fontSizeSm,
                   display: 'inline-flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -98,7 +98,7 @@ export const MetricsFilter = ({ filters, setFilters, columnOptions }: MetricsFil
                   }
                 }}
               >
-                <XCircleFillIcon css={{ fontSize: 12 }} />
+                <XCircleFillIcon css={{ fontSize: theme.typography.fontSizeSm }} />
               </span>
             )}
           </div>
