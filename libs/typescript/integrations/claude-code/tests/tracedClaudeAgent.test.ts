@@ -230,7 +230,9 @@ describe('createTracedQuery (integration)', () => {
       },
     ]);
 
-    const { trace, spans } = await runAndFetchTrace(createTracedQuery(fn as AnyQueryFn), { prompt: 'list files' });
+    const { trace, spans } = await runAndFetchTrace(createTracedQuery(fn as AnyQueryFn), {
+      prompt: 'list files',
+    });
 
     expect(trace.info.state).toBe(TraceState.OK);
 
@@ -350,7 +352,9 @@ describe('createTracedQuery (integration)', () => {
       },
     ]);
 
-    const { spans } = await runAndFetchTrace(createTracedQuery(fn as AnyQueryFn), { prompt: 'use agent' });
+    const { spans } = await runAndFetchTrace(createTracedQuery(fn as AnyQueryFn), {
+      prompt: 'use agent',
+    });
 
     const root = rootSpan(spans);
     const taskTool = spansByName(spans, 'tool_Agent')[0];
@@ -368,9 +372,7 @@ describe('createTracedQuery (integration)', () => {
     expect(innerBash.outputs).toEqual({ result: 'a\nb' });
 
     // At least one inner LLM span lives under the sub-agent.
-    const innerLlms = childrenOf(spans, subagent.spanId).filter(
-      (s) => s.spanType === SpanType.LLM,
-    );
+    const innerLlms = childrenOf(spans, subagent.spanId).filter((s) => s.spanType === SpanType.LLM);
     expect(innerLlms.length).toBeGreaterThanOrEqual(1);
   });
 
@@ -479,7 +481,9 @@ describe('createTracedQuery (integration)', () => {
       },
     ]);
 
-    await drain(createTracedQuery(fn as AnyQueryFn)({ prompt: 'p', options: { forwardSubagentText: false } }));
+    await drain(
+      createTracedQuery(fn as AnyQueryFn)({ prompt: 'p', options: { forwardSubagentText: false } }),
+    );
     await mlflow.flushTraces();
 
     expect(optionsSeen[0]?.forwardSubagentText).toBe(true);
@@ -566,7 +570,9 @@ describe('createTracedQuery (integration)', () => {
       };
     }
 
-    const { spans } = await runAndFetchTrace(createTracedQuery(fn as AnyQueryFn), { prompt: streamingPrompt() });
+    const { spans } = await runAndFetchTrace(createTracedQuery(fn as AnyQueryFn), {
+      prompt: streamingPrompt(),
+    });
 
     const recorded = (rootSpan(spans).inputs as { prompt: string }).prompt;
     expect(recorded).toContain('first chunk');
