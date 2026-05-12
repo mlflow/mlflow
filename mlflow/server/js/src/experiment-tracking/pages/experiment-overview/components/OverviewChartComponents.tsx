@@ -354,8 +354,6 @@ export function ScrollableTooltip({
     if (hasCustomLinkClick) {
       linkConfig.onLinkClick?.(label, dataPoint);
     } else if (hasTimeBasedNavigation) {
-      // tooltipLinkUrlBuilder is an extension point for hosts that fully replace navigation;
-      // forwarding tracesNavigationFilters only applies to the default builder.
       const url = tooltipLinkUrlBuilder
         ? tooltipLinkUrlBuilder(
             linkConfig.experimentId ?? '',
