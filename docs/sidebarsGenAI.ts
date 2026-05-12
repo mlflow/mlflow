@@ -538,6 +538,22 @@ const sidebarsGenAI: SidebarsConfig = {
               ],
             },
             {
+              type: 'category',
+              label: 'No-Code',
+              items: [
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/n8n',
+                  label: 'n8n',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/open-webui',
+                  label: 'Open WebUI',
+                },
+              ],
+            },
+            {
               type: 'doc',
               id: 'tracing/integrations/contribute',
               label: 'Add New Integration',
