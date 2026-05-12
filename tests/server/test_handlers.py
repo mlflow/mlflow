@@ -182,6 +182,7 @@ from mlflow.server.handlers import (
     _query_trace_metrics,
     _register_scorer,
     _rename_registered_model,
+    _response_with_file_attachment_headers,
     _search_evaluation_datasets_handler,
     _search_experiments,
     _search_issues,
@@ -3778,6 +3779,43 @@ def test_download_artifact_streams_in_chunks(enable_serve_artifacts, tmp_path):
         # Verify that all data is correctly streamed
         streamed_data = b"".join(response_chunks)
         assert streamed_data == test_data
+
+
+@pytest.mark.parametrize(
+    ("file_path", "expected_simple", "expected_quoted"),
+    [
+        ("Tribeč_mountains.html", "Tribec_mountains.html", "Tribe%C4%8D_mountains.html"),
+        (
+            "time_series_eeeúaaa_aaaaaal_39.html",
+            "time_series_eeeuaaa_aaaaaal_39.html",
+            "time_series_eee%C3%BAaaa_aaaaaal_39.html",
+        ),
+        ("日本語.txt", ".txt", "%E6%97%A5%E6%9C%AC%E8%AA%9E.txt"),
+    ],
+)
+def test_response_with_file_attachment_headers_encodes_non_ascii_filename(
+    file_path, expected_simple, expected_quoted
+):
+    from flask import Response
+
+    with app.test_request_context():
+        response = _response_with_file_attachment_headers(file_path, Response())
+
+    header = response.headers["Content-Disposition"]
+    # The Content-Disposition header value must be ASCII-encodable so that
+    # WSGI/ASGI adapters (e.g., starlette's WSGIMiddleware) can serialize
+    # the response without raising UnicodeEncodeError. See GH-23208.
+    header.encode("ascii")
+    assert header == f"attachment; filename={expected_simple}; filename*=UTF-8''{expected_quoted}"
+
+
+def test_response_with_file_attachment_headers_ascii_filename_unchanged():
+    from flask import Response
+
+    with app.test_request_context():
+        response = _response_with_file_attachment_headers("model.pkl", Response())
+
+    assert response.headers["Content-Disposition"] == "attachment; filename=model.pkl"
 
 
 def test_create_prompt_optimization_job(mock_tracking_store):
