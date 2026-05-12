@@ -8,6 +8,7 @@ import {
 import type { ChangeEvent } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import type { ToolChoice } from '../types';
+import { isToolsValueEmpty } from '../utils';
 
 const { TextArea } = Input;
 
@@ -103,7 +104,18 @@ export const ToolsForm = ({ value, onChange, error, toolChoice, onToolChoiceChan
               fontSize: theme.typography.fontSizeSm,
             }}
           />
-          {error && <FormUI.Message type="error" message={error} />}
+          {isToolsValueEmpty(value) ? (
+            <FormUI.Message
+              type="error"
+              message={intl.formatMessage({
+                defaultMessage: 'Add at least one tool definition',
+                description:
+                  'Inline error shown in the Tools card when tool choice is not none but no tool definitions are provided',
+              })}
+            />
+          ) : (
+            error && <FormUI.Message type="error" message={error} />
+          )}
         </div>
       )}
     </div>

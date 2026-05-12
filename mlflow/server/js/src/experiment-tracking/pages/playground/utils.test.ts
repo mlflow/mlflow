@@ -1,6 +1,6 @@
 import { describe, it, expect } from '@jest/globals';
 import type { ChatMessage } from './types';
-import { extractTemplateVariables, getEmptyVariables, substituteVariables } from './utils';
+import { extractTemplateVariables, getEmptyVariables, isToolsValueEmpty, substituteVariables } from './utils';
 
 describe('extractTemplateVariables', () => {
   it('returns an empty list when there are no placeholders', () => {
@@ -80,5 +80,35 @@ describe('getEmptyVariables', () => {
       { role: 'user', content: 'Translate {{ text }} into {{ language }}; keep tone {{ tone }}.' },
     ];
     expect(getEmptyVariables(messages, { language: 'fr' })).toEqual(['tone', 'text']);
+  });
+});
+
+describe('isToolsValueEmpty', () => {
+  it('treats empty and whitespace-only text as empty', () => {
+    expect(isToolsValueEmpty('')).toBe(true);
+    expect(isToolsValueEmpty('   ')).toBe(true);
+    expect(isToolsValueEmpty('\n\t')).toBe(true);
+  });
+
+  it('treats an empty JSON array as empty', () => {
+    expect(isToolsValueEmpty('[]')).toBe(true);
+    expect(isToolsValueEmpty('[ ]')).toBe(true);
+    expect(isToolsValueEmpty('[\n]')).toBe(true);
+  });
+
+  it('treats a non-empty array as not empty', () => {
+    expect(isToolsValueEmpty('[{}]')).toBe(false);
+    expect(isToolsValueEmpty('[{"type":"function"}]')).toBe(false);
+  });
+
+  it('returns false for non-array JSON so the parse-error path can claim it', () => {
+    expect(isToolsValueEmpty('{}')).toBe(false);
+    expect(isToolsValueEmpty('"foo"')).toBe(false);
+    expect(isToolsValueEmpty('42')).toBe(false);
+  });
+
+  it('returns false for unparseable text so the parse-error path can claim it', () => {
+    expect(isToolsValueEmpty('[not-json')).toBe(false);
+    expect(isToolsValueEmpty('not-json')).toBe(false);
   });
 });

@@ -57,4 +57,20 @@ describe('ToolsForm', () => {
     renderForm({ toolChoice: 'none', error: 'Invalid JSON' });
     expect(screen.queryByText('Invalid JSON')).not.toBeInTheDocument();
   });
+
+  it('shows an empty-required inline error when toolChoice is not none and the textarea is empty', () => {
+    renderForm({ toolChoice: 'auto', value: '' });
+    expect(screen.getByText('Add at least one tool definition')).toBeInTheDocument();
+  });
+
+  it('shows the empty-required inline error when toolChoice is not none and the value parses to []', () => {
+    renderForm({ toolChoice: 'required', value: '[]' });
+    expect(screen.getByText('Add at least one tool definition')).toBeInTheDocument();
+  });
+
+  it('prefers the empty-required error over a stale parse-error prop when the value is empty', () => {
+    renderForm({ toolChoice: 'auto', value: '', error: 'Invalid JSON' });
+    expect(screen.getByText('Add at least one tool definition')).toBeInTheDocument();
+    expect(screen.queryByText('Invalid JSON')).not.toBeInTheDocument();
+  });
 });

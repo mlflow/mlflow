@@ -1,6 +1,14 @@
-import { Button, Header, PlayIcon, Spacer, useDesignSystemTheme } from '@databricks/design-system';
+import {
+  Button,
+  Header,
+  HoverCard,
+  PlayIcon,
+  Spacer,
+  Typography,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 import { useMemo, useState } from 'react';
-import { FormattedMessage } from 'react-intl';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { ScrollablePageWrapper } from '../../../common/components/ScrollablePageWrapper';
 import ErrorUtils from '../../../common/utils/ErrorUtils';
 import { withErrorBoundary } from '../../../common/utils/withErrorBoundary';
@@ -10,12 +18,13 @@ import { PromptInputPanel } from './components/PromptInputPanel';
 import { PromptRegistryPicker } from './components/PromptRegistryPicker';
 import { useChatCompletionMutation } from './hooks/useChatCompletionMutation';
 import type { ChatMessage, PlaygroundParams, ResponseFormat, ResponseFormatType, ToolChoice } from './types';
-import { substituteVariables } from './utils';
+import { getEmptyVariables, isToolsValueEmpty, substituteVariables } from './utils';
 
 const EMPTY_USER_MESSAGE: ChatMessage = { role: 'user', content: '' };
 
 const PlaygroundPage = () => {
   const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
   const [endpointName, setEndpointName] = useState<string>('');
   const [messages, setMessages] = useState<ChatMessage[]>([{ ...EMPTY_USER_MESSAGE }]);
   const [params, setParams] = useState<PlaygroundParams>({});
@@ -50,21 +59,85 @@ const PlaygroundPage = () => {
     if (!responseFormatSchemaText.trim()) {
       return 'Schema is required';
     }
+    let parsed: unknown;
     try {
-      JSON.parse(responseFormatSchemaText);
-      return null;
+      parsed = JSON.parse(responseFormatSchemaText);
     } catch (e) {
       return e instanceof Error ? e.message : 'Invalid JSON';
     }
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+      return 'Schema must be a JSON object';
+    }
+    return null;
   }, [responseFormatType, responseFormatSchemaText]);
 
-  const canSubmit =
-    Boolean(endpointName) &&
-    messages.length > 0 &&
-    messages.some((m) => m.content.trim().length > 0) &&
-    (toolChoice === 'none' || !toolsError) &&
-    !responseFormatSchemaError &&
-    !isLoading;
+  const submitBlockers = useMemo(() => {
+    const blockers: string[] = [];
+    if (!endpointName) {
+      blockers.push(
+        intl.formatMessage({
+          defaultMessage: 'Select a model endpoint',
+          description: 'Reason shown when the playground Submit button is disabled because no endpoint is selected',
+        }),
+      );
+    }
+    if (messages.length === 0 || messages.some((m) => m.content.trim().length === 0)) {
+      blockers.push(
+        intl.formatMessage({
+          defaultMessage: 'Fill in every message',
+          description: 'Reason shown when the playground Submit button is disabled because a message is empty',
+        }),
+      );
+    }
+    if (toolChoice !== 'none') {
+      if (isToolsValueEmpty(toolsText)) {
+        blockers.push(
+          intl.formatMessage({
+            defaultMessage: 'Add at least one tool definition',
+            description:
+              'Reason shown when the playground Submit button is disabled because tool choice requires tools but none are provided',
+          }),
+        );
+      } else if (toolsError) {
+        blockers.push(
+          intl.formatMessage(
+            {
+              defaultMessage: 'Fix the Tools JSON: {error}',
+              description:
+                'Reason shown when the playground Submit button is disabled because the tools JSON is invalid',
+            },
+            { error: toolsError },
+          ),
+        );
+      }
+    }
+    if (responseFormatSchemaError) {
+      blockers.push(
+        intl.formatMessage(
+          {
+            defaultMessage: 'Fix the response format schema: {error}',
+            description:
+              'Reason shown when the playground Submit button is disabled because the response format schema is invalid',
+          },
+          { error: responseFormatSchemaError },
+        ),
+      );
+    }
+    for (const name of getEmptyVariables(messages, variables)) {
+      blockers.push(
+        intl.formatMessage(
+          {
+            defaultMessage: 'Provide a value for the variable {name}',
+            description: 'Reason shown when the playground Submit button is disabled because a variable is empty',
+          },
+          { name },
+        ),
+      );
+    }
+    return blockers;
+  }, [endpointName, messages, toolChoice, toolsText, toolsError, responseFormatSchemaError, variables, intl]);
+
+  const canSubmit = submitBlockers.length === 0 && !isLoading;
 
   const handleSubmit = () => {
     if (!canSubmit) {
@@ -140,19 +213,56 @@ const PlaygroundPage = () => {
       <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md, flex: 1, minHeight: 0 }}>
         <PromptInputPanel messages={messages} onChange={setMessages} />
         <div css={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <Button
-            componentId="mlflow.playground.submit"
-            type="primary"
-            icon={<PlayIcon />}
-            disabled={!canSubmit}
-            loading={isLoading}
-            onClick={handleSubmit}
-          >
-            <FormattedMessage
-              defaultMessage="Submit"
-              description="Label for the submit button on the playground page that runs the chat completion request"
-            />
-          </Button>
+          {(() => {
+            const submitButton = (
+              <Button
+                componentId="mlflow.playground.submit"
+                type="primary"
+                icon={<PlayIcon />}
+                disabled={!canSubmit}
+                loading={isLoading}
+                onClick={handleSubmit}
+              >
+                <FormattedMessage
+                  defaultMessage="Submit"
+                  description="Label for the submit button on the playground page that runs the chat completion request"
+                />
+              </Button>
+            );
+            if (submitBlockers.length === 0) {
+              return submitButton;
+            }
+            return (
+              <HoverCard
+                trigger={<span css={{ display: 'inline-block' }}>{submitButton}</span>}
+                content={
+                  <div
+                    css={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: theme.spacing.sm,
+                      padding: theme.spacing.sm,
+                      maxWidth: 360,
+                    }}
+                  >
+                    <Typography.Paragraph withoutMargins>
+                      <FormattedMessage
+                        defaultMessage="To submit:"
+                        description="Lead-in line of the popup shown when the playground Submit button is disabled"
+                      />
+                    </Typography.Paragraph>
+                    <ul css={{ margin: `${theme.spacing.xs}px 0 0`, paddingLeft: theme.spacing.lg }}>
+                      {submitBlockers.map((reason) => (
+                        <li key={reason}>{reason}</li>
+                      ))}
+                    </ul>
+                  </div>
+                }
+                side="top"
+                align="end"
+              />
+            );
+          })()}
         </div>
         <Spacer size="sm" />
         <CompletionOutputPanel response={data} error={error ?? undefined} isLoading={isLoading} />

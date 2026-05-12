@@ -42,3 +42,20 @@ export const substituteVariables = (messages: ChatMessage[], values: Record<stri
 export const getEmptyVariables = (messages: ChatMessage[], values: Record<string, string>): string[] => {
   return extractTemplateVariables(messages).filter((name) => !(values[name] ?? '').trim());
 };
+
+/**
+ * Returns true when the JSON tool-definitions text has no usable tools — either
+ * empty/whitespace or parses to an empty array. Parse errors return false so
+ * they flow to the separate parse-error path.
+ */
+export const isToolsValueEmpty = (text: string): boolean => {
+  if (!text.trim()) {
+    return true;
+  }
+  try {
+    const parsed = JSON.parse(text);
+    return Array.isArray(parsed) && parsed.length === 0;
+  } catch {
+    return false;
+  }
+};

@@ -103,6 +103,85 @@ describe('PlaygroundPage', () => {
     expect(submit).toBeDisabled();
   });
 
+  it('keeps Submit disabled while any message textbox is empty', async () => {
+    renderPlayground();
+
+    const endpointInput = await screen.findByTestId('endpoint-selector-test-input');
+    await userEvent.type(endpointInput, 'my-endpoint');
+    await userEvent.type(screen.getByPlaceholderText('Type a message'), 'Hello');
+
+    // The Submit button is re-queried each time because the HoverCard wrapper
+    // unmounts when there are no blockers, swapping the DOM node identity.
+    expect(screen.getByRole('button', { name: /submit/i })).toBeEnabled();
+
+    // Add a second message and leave it empty — Submit should disable again.
+    await userEvent.click(screen.getByRole('button', { name: /add message/i }));
+    expect(screen.getByRole('button', { name: /submit/i })).toBeDisabled();
+  });
+
+  it('keeps Submit disabled while a template variable is unfilled, then enables once provided', async () => {
+    renderPlayground();
+
+    const endpointInput = await screen.findByTestId('endpoint-selector-test-input');
+    await userEvent.type(endpointInput, 'my-endpoint');
+    // fireEvent.change avoids userEvent's `{{`-escaping rules for braces.
+    fireEvent.change(screen.getByPlaceholderText('Type a message'), { target: { value: 'Hi {{ name }}' } });
+
+    expect(screen.getByRole('button', { name: /submit/i })).toBeDisabled();
+
+    await openVariablesDrawer();
+    await userEvent.type(await screen.findByLabelText('name'), 'Alice');
+    await closeDrawer();
+
+    expect(screen.getByRole('button', { name: /submit/i })).toBeEnabled();
+  });
+
+  it('keeps Submit disabled when tool choice is required but no tool definition is provided', async () => {
+    renderPlayground();
+
+    const endpointInput = await screen.findByTestId('endpoint-selector-test-input');
+    await userEvent.type(endpointInput, 'my-endpoint');
+    await userEvent.type(screen.getByPlaceholderText('Type a message'), 'Hello');
+
+    expect(screen.getByRole('button', { name: /submit/i })).toBeEnabled();
+
+    await openSettingsDrawer();
+    await userEvent.click(screen.getByRole('radio', { name: 'Required' }));
+    await closeDrawer();
+
+    expect(screen.getByRole('button', { name: /submit/i })).toBeDisabled();
+  });
+
+  it('keeps Submit disabled when tool choice is required and tools parses to an empty array', async () => {
+    renderPlayground();
+
+    const endpointInput = await screen.findByTestId('endpoint-selector-test-input');
+    await userEvent.type(endpointInput, 'my-endpoint');
+    await userEvent.type(screen.getByPlaceholderText('Type a message'), 'Hello');
+
+    await openSettingsDrawer();
+    await userEvent.click(screen.getByRole('radio', { name: 'Required' }));
+    fireEvent.change(screen.getByLabelText('JSON Tool Definition'), { target: { value: '[]' } });
+    await closeDrawer();
+
+    expect(screen.getByRole('button', { name: /submit/i })).toBeDisabled();
+  });
+
+  it('keeps Submit disabled when response_format is json_schema and the value is not a JSON object', async () => {
+    renderPlayground();
+
+    const endpointInput = await screen.findByTestId('endpoint-selector-test-input');
+    await userEvent.type(endpointInput, 'my-endpoint');
+    await userEvent.type(screen.getByPlaceholderText('Type a message'), 'Hello');
+
+    await openSettingsDrawer();
+    await userEvent.click(screen.getByRole('radio', { name: 'JSON schema' }));
+    fireEvent.change(screen.getByLabelText('Schema'), { target: { value: '42' } });
+    await closeDrawer();
+
+    expect(screen.getByRole('button', { name: /submit/i })).toBeDisabled();
+  });
+
   it('forwards typed sampling parameters into the chat completion request', async () => {
     const chatCompletionSpy = jest.spyOn(PlaygroundApi, 'chatCompletion').mockResolvedValue({
       choices: [{ index: 0, message: { role: 'assistant', content: 'ok' }, finish_reason: 'stop' }],
