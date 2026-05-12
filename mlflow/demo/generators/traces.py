@@ -144,7 +144,7 @@ class TracesDemoGenerator(BaseDemoGenerator):
     """
 
     name = DemoFeature.TRACES
-    version = 1
+    version = 2
 
     def generate(self) -> DemoResult:
         self._restore_experiment_if_deleted()

@@ -13,6 +13,7 @@ from mlflow.gateway.providers.base import (
     BaseProvider,
     PassthroughAction,
     ProviderAdapter,
+    _client_provides_auth,
 )
 from mlflow.gateway.providers.utils import rename_payload_keys, send_request, send_stream_request
 from mlflow.gateway.schemas import chat, completions
@@ -487,7 +488,7 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
 
     @property
     def base_url(self) -> str:
-        return "https://api.anthropic.com/v1"
+        return self.anthropic_config.anthropic_api_base
 
     @property
     def adapter_class(self) -> type[ProviderAdapter]:
@@ -514,7 +515,10 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
             client_headers = headers.copy()
             client_headers.pop("host", None)
             client_headers.pop("content-length", None)
-            # Don't override api key or version headers
+            if _client_provides_auth(headers):
+                # Preserve the client's own credentials for subscription-based tools
+                # (e.g. Claude Code, Codex, Gemini CLI) instead of using the server key.
+                result_headers.pop("x-api-key", None)
             result_headers = client_headers | result_headers
 
         return result_headers
@@ -527,6 +531,15 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
         else:
             raise ValueError(f"Invalid route type {route_type}")
 
+    def _get_chat_path(self) -> str:
+        return "messages"
+
+    def _get_chat_stream_path(self) -> str:
+        return "messages"
+
+    def _prepare_payload(self, payload: dict[str, Any]) -> dict[str, Any]:
+        return payload
+
     async def _chat_stream(
         self, payload: chat.RequestPayload
     ) -> AsyncIterable[chat.StreamResponsePayload]:
@@ -535,13 +548,14 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
         payload = AnthropicAdapter.chat_streaming_to_model(payload, self.config)
+        payload = self._prepare_payload(payload)
 
         headers = self._get_headers(payload)
 
         stream = send_stream_request(
             headers=headers,
             base_url=self.base_url,
-            path="messages",
+            path=self._get_chat_stream_path(),
             payload=payload,
         )
 
@@ -607,13 +621,14 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
         payload = AnthropicAdapter.chat_to_model(payload, self.config)
+        payload = self._prepare_payload(payload)
 
         headers = self._get_headers(payload)
 
         resp = await send_request(
             headers=headers,
             base_url=self.base_url,
-            path="messages",
+            path=self._get_chat_path(),
             payload=payload,
         )
         return AnthropicAdapter.model_to_chat(resp, self.config)

@@ -167,6 +167,9 @@ def http_request(
     if traffic_id := _MLFLOW_DATABRICKS_TRAFFIC_ID.get():
         headers["x-databricks-traffic-id"] = traffic_id
 
+    if host_creds.workspace_id:
+        headers["x-databricks-org-id"] = host_creds.workspace_id
+
     if host_creds.use_databricks_sdk:
         from databricks.sdk.errors import DatabricksError
 
@@ -316,8 +319,10 @@ def get_workspace_client(
 
     if use_secret_scope_token:
         kwargs = {"host": host, "token": token}
-    else:
+    elif databricks_auth_profile:
         kwargs = {"profile": databricks_auth_profile}
+    else:
+        kwargs = {}
     if timeout is not None:
         kwargs["http_timeout_seconds"] = timeout
     config = Config(
@@ -738,6 +743,7 @@ class MlflowHostCreds:
         client_id=None,
         client_secret=None,
         use_secret_scope_token=False,
+        workspace_id=None,
     ):
         if not host:
             raise MlflowException(
@@ -769,6 +775,7 @@ class MlflowHostCreds:
         self.client_id = client_id
         self.client_secret = client_secret
         self.use_secret_scope_token = use_secret_scope_token
+        self.workspace_id = workspace_id
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):

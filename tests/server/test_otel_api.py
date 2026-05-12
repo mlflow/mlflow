@@ -163,12 +163,12 @@ def test_otlp_invalid_content_type(monkeypatch):
 
     client = _make_test_client()
 
-    # Test with wrong content type
+    # Test with unsupported content type
     response = client.post(
         OTLP_TRACES_PATH,
         data=_build_otlp_payload(),
         headers={
-            "Content-Type": "application/json",
+            "Content-Type": "text/plain",
             "X-MLflow-Experiment-Id": "42",
         },
     )
@@ -207,7 +207,7 @@ def test_otlp_invalid_protobuf_data(monkeypatch):
         },
     )
     assert response.status_code == 400
-    assert "Invalid OpenTelemetry protobuf format" in response.json()["detail"]
+    assert "Invalid OpenTelemetry format" in response.json()["detail"]
 
 
 def test_otlp_empty_resource_spans(monkeypatch):

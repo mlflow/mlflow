@@ -172,6 +172,9 @@ export interface AssessmentFilter {
   filterValue: AssessmentValueType;
   // Only defined when filtering on an assessment for RCA values.
   filterType?: 'rca' | undefined;
+  // Optional operator for numeric comparison filters (>, <, >=, <=).
+  // Defaults to equality (=) when not specified.
+  filterOperator?: FilterOperator;
   run: string;
 }
 export type TableFilter = {

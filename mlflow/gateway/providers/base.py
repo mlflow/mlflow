@@ -40,6 +40,36 @@ PASSTHROUGH_ROUTES = {
     PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT: "/gemini/v1beta/models/{endpoint_name}:streamGenerateContent",  # noqa: E501
 }
 
+# User-agent prefixes for subscription-based CLI tools that carry their own credentials.
+# When one of these tools is detected, the gateway preserves the client's auth header
+# instead of overwriting it with the server-side API key.
+# - Claude Code sends:  claude-cli/<version> (external, cli)
+# - OpenAI Codex sends: Codex-Desktop/<version>
+# - Gemini CLI sends:   GeminiCLI/<version>/<model> (<platform>; <arch>)
+#
+# Security note: User-Agent strings are not cryptographically verified, so any HTTP
+# client can claim these prefixes. However, the client must still supply valid upstream
+# credentials for the API call to succeed — bypassing the server key only matters when
+# the client already holds its own valid credentials (e.g., a personal subscription
+# account). Admins who need to enforce server-side key usage exclusively (for billing
+# attribution or rate limiting) should leave the endpoint's auth unconfigured or
+# restrict network-level access to trusted clients.
+_USER_CREDENTIAL_AGENTS = ("claude-cli/", "codex-desktop/", "geminicli/")
+
+# Auth header names that subscription-based CLI tools may include.
+_CLIENT_AUTH_HEADERS = ("authorization", "x-api-key", "x-goog-api-key", "api-key")
+
+
+def _client_provides_auth(headers: dict[str, str] | None) -> bool:
+    """Return True when the request comes from a known CLI tool and includes its own auth header."""
+    if not headers:
+        return False
+    lower_headers = {k.lower(): v for k, v in headers.items()}
+    user_agent = lower_headers.get("user-agent", "").lower()
+    is_credential_agent = any(user_agent.startswith(agent) for agent in _USER_CREDENTIAL_AGENTS)
+    has_auth = any(key in lower_headers for key in _CLIENT_AUTH_HEADERS)
+    return is_credential_agent and has_auth
+
 
 def _get_nested(d: dict[str, Any], key: str) -> Any:
     """Look up a value by key, supporting one level of nesting."""
@@ -84,6 +114,8 @@ class BaseProvider(ABC):
 
         self.config = config
         self._enable_tracing = enable_tracing
+        provider = config.model.provider
+        self._provider_name = provider.value if isinstance(provider, Enum) else str(provider)
 
     def get_endpoint_url(self, route_type: str) -> str:
         """Return the full endpoint URL for the given route type.
@@ -157,10 +189,13 @@ class BaseProvider(ABC):
         async for chunk in self._maybe_trace_stream_method(
             "chat_stream", self._chat_stream, payload
         ):
+            chunk.provider = self._provider_name
             yield chunk
 
     async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
-        return await self._maybe_trace_method("chat", self._chat, payload)
+        result = await self._maybe_trace_method("chat", self._chat, payload)
+        result.provider = self._provider_name
+        return result
 
     async def completions_stream(
         self, payload: completions.RequestPayload

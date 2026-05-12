@@ -1,9 +1,11 @@
 import logging
 import os
 import urllib.parse
+from typing import Iterator
 
 import mlflow
 from mlflow.entities.file_info import FileInfo
+from mlflow.entities.logged_model import LoggedModel
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
     ENDPOINT_NOT_FOUND,
@@ -148,37 +150,42 @@ class RunsArtifactRepository(ArtifactRepository):
         client = mlflow.tracking.MlflowClient(self.tracking_uri)
         experiment_id = client.get_run(run_id).info.experiment_id
 
-        page_token: str | None = None
-        while True:
-            try:
-                page = client.search_logged_models(
-                    experiment_ids=[experiment_id],
-                    # TODO: Filter by 'source_run_id' once Databricks backend supports it
-                    filter_string=f"name = '{name}'",
-                    page_token=page_token,
-                )
-            except MlflowException as e:
-                # Older tracking servers (e.g. MLflow 2.x) don't have the logged models APIs.
-                # In such cases, treat the run as having no associated logged model artifacts.
-                if e.error_code in {
-                    ErrorCode.Name(ENDPOINT_NOT_FOUND),
-                    ErrorCode.Name(NOT_IMPLEMENTED),
-                }:
-                    _logger.debug(
-                        "Logged models APIs are unavailable on the tracking server; skipping "
-                        "logged model artifact lookup.",
-                        exc_info=True,
+        def iter_models() -> Iterator[LoggedModel]:
+            page_token: str | None = None
+            while True:
+                try:
+                    page = client.search_logged_models(
+                        experiment_ids=[experiment_id],
+                        # TODO: Filter by 'source_run_id' once Databricks backend supports it
+                        filter_string=f"name = '{name}'",
+                        page_token=page_token,
                     )
-                    return None
-                raise
+                except MlflowException as e:
+                    # Older tracking servers (e.g. MLflow 2.x) don't have the logged models APIs.
+                    # In such cases, treat the run as having no associated logged model artifacts.
+                    if e.error_code in {
+                        ErrorCode.Name(ENDPOINT_NOT_FOUND),
+                        ErrorCode.Name(NOT_IMPLEMENTED),
+                    }:
+                        _logger.debug(
+                            "Logged models APIs are unavailable on the tracking server; skipping "
+                            "logged model artifact lookup.",
+                            exc_info=True,
+                        )
+                        return
+                    raise
 
-            if model := next((m for m in page if m.source_run_id == run_id), None):
-                return get_artifact_repository(
-                    model.artifact_location, tracking_uri=self.tracking_uri
-                )
-            if not page.token:
-                break
-            page_token = page.token
+                yield from page
+                if not page.token:
+                    break
+                page_token = page.token
+
+        if matched := next((m for m in iter_models() if m.source_run_id == run_id), None):
+            return get_artifact_repository(
+                f"models:/{matched.model_id}",
+                tracking_uri=self.tracking_uri,
+                registry_uri=self.registry_uri,
+            )
 
         return None
 

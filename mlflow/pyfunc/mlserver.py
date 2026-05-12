@@ -1,11 +1,23 @@
 import logging
 import os
 import shlex
+import warnings
 
 _logger = logging.getLogger(__name__)
 
 MLServerMLflowRuntime = "mlserver_mlflow.MLflowRuntime"
 MLServerDefaultModelName = "mlflow-model"
+
+_DEPRECATION_MESSAGE = (
+    "MLflow's MLServer integration (`enable_mlserver=True`) is deprecated and will be "
+    "removed in MLflow 3.13. The MLServer project is no longer actively maintained "
+    "(see https://github.com/SeldonIO/MLServer/issues/2404). Use the default scoring "
+    "server instead."
+)
+
+
+def warn_mlserver_deprecated() -> None:
+    warnings.warn(_DEPRECATION_MESSAGE, category=FutureWarning, stacklevel=3)
 
 
 def get_cmd(

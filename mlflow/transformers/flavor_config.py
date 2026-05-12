@@ -8,9 +8,9 @@ from packaging.version import Version
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import ALREADY_EXISTS, INVALID_PARAMETER_VALUE
-from mlflow.transformers.hub_utils import get_latest_commit_for_repo
 from mlflow.transformers.peft import _PEFT_ADAPTOR_DIR_NAME, get_peft_base_model, is_peft_model
 from mlflow.transformers.torch_utils import _extract_torch_dtype_if_set
+from mlflow.utils.huggingface_utils import get_latest_commit_for_repo
 
 if TYPE_CHECKING:
     import transformers
@@ -266,6 +266,7 @@ def update_flavor_conf_to_persist_pretrained_model(
 
     flavor_conf[FlavorKey.MODEL_BINARY] = _MODEL_BINARY_FILE_NAME
     flavor_conf.pop(FlavorKey.MODEL_REVISION, None)
+    flavor_conf.pop(FlavorKey.MODEL_LOCAL_BASE, None)
 
     # Remove component repo name and commit hash
     components = original_flavor_conf.get(FlavorKey.COMPONENTS, [])

@@ -1,4 +1,5 @@
 import type { TraceActions } from '@databricks/web-shared/genai-traces-table';
+import { isV4TraceLocation } from '@databricks/web-shared/genai-traces-table';
 import { useMemo } from 'react';
 import { useDeleteTracesMutation } from '../../../../evaluations/hooks/useDeleteTraces';
 import type { ModelTraceLocation } from '@databricks/web-shared/model-trace-explorer';

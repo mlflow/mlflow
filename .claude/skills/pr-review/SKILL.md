@@ -1,13 +1,14 @@
 ---
+name: pr-review
+description: Review a GitHub pull request, add review comments for issues found, and approve if no significant issues exist
 disable-model-invocation: true
 allowed-tools: Read, Skill, Bash, Grep, Glob
-argument-hint: [extra_context]
-description: Review a GitHub pull request, add review comments for issues found, and approve if no significant issues exist
+argument-hint: "[extra_context]"
 ---
 
 # Review Pull Request
 
-Automatically review a GitHub pull request and provide feedback on code quality, style guide violations, and potential bugs. Approves the PR if no significant issues are found.
+Automatically review a GitHub pull request across correctness, security, edge cases, efficiency, readability, test coverage, and style. Approves the PR when there are no findings or only MODERATE/NIT findings.
 
 ## Usage
 
@@ -48,34 +49,86 @@ The current local branch may not be the PR branch being reviewed. Always rely on
 
 Run the `fetch-diff` skill to fetch the PR diff for the identified PR.
 
-### 3. Review Changed Lines
+### 3. Fetch Existing Review Comments
 
-**Apply additional filtering** from user instructions if provided (e.g., focus on specific issues or areas)
-
-Carefully examine **only the changed lines** (added, modified, or deleted) in the diff for:
-
-- Style guide violations (see `.claude/rules/` for language-specific rules)
-- Potential bugs and code quality issues
-- Common mistakes
-
-**Workspace awareness reminder**: If the diff touches the SQLAlchemy tracking store or other tracking persistence layers, verify that workspace-aware behavior remains intact and that new functionality includes matching workspace-aware tests (for example, additions in `tests/store/tracking/test_sqlalchemy_store_workspace.py`).
-
-**Important**: Ignore unchanged/context lines and pre-existing code.
-
-### 4. Decision Point
-
-- If **no issues found** → Skip to step 6 (approve)
-- If **only minor issues found** (e.g., style nits, suggestions) → Continue to step 5 (add review comments), then step 6 (approve)
-- If **significant issues found** (e.g., bugs, logic errors, security) → Continue to step 5 (add review comments), do NOT approve
-
-### 5. Add Review Comments
-
-For each issue found, use the `add-review-comment` skill to post review comments.
-
-### 6. Approve the PR
-
-Approve the PR when there are no issues or only minor issues.
+Fetch up to 100 review threads on the PR (open, resolved, and outdated, with up to 20 comments each) so you can avoid duplicating prior feedback:
 
 ```bash
-gh pr review <PR_NUMBER> --repo <owner/repo> --approve
+gh api graphql -F owner=<owner> -F repo=<repo> -F pr=<PR_NUMBER> -f query='
+  query($owner: String!, $repo: String!, $pr: Int!) {
+    repository(owner: $owner, name: $repo) {
+      pullRequest(number: $pr) {
+        reviewThreads(first: 100) {
+          nodes {
+            isResolved
+            isOutdated
+            path
+            line
+            comments(first: 20) {
+              nodes { author { login } body }
+            }
+          }
+        }
+      }
+    }
+  }'
 ```
+
+### 4. In-Depth Analysis
+
+**Apply additional filtering** from user instructions if provided (e.g., focus on specific issues or areas).
+
+You may read unchanged/context lines to understand the change, but only file findings against the changed lines (added, modified, or deleted). Pre-existing code is not in scope, even if it looks suboptimal.
+
+Evaluate the changed code across these dimensions:
+
+- **Correctness**: logic errors, off-by-one, incorrect API usage, broken invariants, regressions in behavior
+- **Security**: injection, unsafe deserialization, secret leakage, missing authz/authn, unsafe defaults
+- **Edge cases**: None/empty/zero inputs, concurrency, error paths, retries, large/unicode inputs
+- **Efficiency**: needless N+1 queries, redundant work in hot paths, allocations in tight loops
+- **Readability & maintainability**: unclear names, dead code, premature abstractions, comments that restate the code
+- **Test coverage**: new behavior lacks tests, tests assert on the wrong thing, mocks hide real failures
+- **Style guide**: see `.claude/rules/` for language-specific rules and `CLAUDE.md` for repo conventions
+
+**Workspace awareness reminder**: If the diff touches the SQLAlchemy tracking store or other tracking persistence layers, verify workspace-aware behavior remains intact and that new functionality includes matching workspace-aware tests (e.g., additions in `tests/store/tracking/test_sqlalchemy_store_workspace.py`).
+
+### 5. Decision Point
+
+Classify each finding by severity (matches `.github/instructions/code-review.instructions.md`):
+
+| Severity | Emoji | Use for                                                                          |
+| -------- | ----- | -------------------------------------------------------------------------------- |
+| CRITICAL | 🔴    | bugs, logic errors, security issues, data loss risk, broken public API           |
+| MODERATE | 🟡    | non-blocking quality concerns where the code works but could be clearer or safer |
+| NIT      | 🟢    | pure style/preference the author can ignore                                      |
+
+Then:
+
+- **No findings** -> skip to step 7 (approve)
+- **Only MODERATE/NIT findings** -> step 6 (add comments), then step 7 (approve)
+- **Any CRITICAL finding** -> step 6 (add comments); do NOT approve
+
+### 6. Add Review Comments
+
+For each finding, use the `add-review-comment` skill. One comment per distinct finding, anchored to the most relevant changed line. For repeated identical issues, leave a single representative comment rather than flagging every instance.
+
+Every comment MUST use this exact format: `<emoji> **<severity>:** <description>`
+
+Keep comments constructive and specific: state the problem, why it matters, and a concrete suggestion when possible.
+
+### 7. Approve the PR
+
+Approve the PR when there are no findings or only MODERATE/NIT findings, but **only if the PR author has the `admin` or `maintain` role**.
+
+First, check the PR author's role:
+
+```bash
+author=$(gh api repos/<owner>/<repo>/pulls/<PR_NUMBER> --jq '.user.login')
+gh api repos/<owner>/<repo>/collaborators/"$author"/permission --jq '.role_name'
+```
+
+- If the role is `admin` or `maintain` -> approve the PR:
+  ```bash
+  gh pr review <PR_NUMBER> --repo <owner/repo> --approve
+  ```
+- Otherwise (including API errors, e.g., 404 for non-collaborators) -> do NOT approve. Do not mention the reason for not approving in the review.
