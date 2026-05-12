@@ -48,7 +48,7 @@ def save_model(tmp_path):
         knn_model,
         path=model_path,
         pip_requirements=[
-            f"mlflow=={get_released_mlflow_version()}",
+            f"mlflow=={VERSION}",
             f"scikit-learn=={sklearn.__version__}",
             # TODO: Remove this once https://github.com/pandas-dev/pandas/issues/61564 is resolved
             "pandas!=2.3.0",
@@ -102,7 +102,7 @@ def test_build_image(tmp_path, params):
             f"pip install mlflow=={VERSION}",
             # TODO: Remove ` pandas!=2.3.0` once https://github.com/pandas-dev/pandas/issues/61564
             # is resolved
-            f"pip install mlflow=={get_released_mlflow_version()} pandas!=2.3.0",
+            f"pip install mlflow=={VERSION} pandas!=2.3.0",
         )
         dockerfile.write_text(content)
 
