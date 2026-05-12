@@ -778,11 +778,13 @@ llama_index:
           # Required to test Databricks integration
           "llama-index-llms-databricks",
           "llama-index-embeddings-databricks",
-          "llama-index-vector-stores-qdrant",
           # Required to run tests/openai/mock_openai.py
           "fastapi",
           "uvicorn",
         ]
+      # llama-index-vector-stores-qdrant 0.7+ requires qdrant-client>=1.13 which
+      # conflicts with llama-index 0.12.x dependency resolution
+      ">= 0.13.0": ["llama-index-vector-stores-qdrant"]
     run: pytest tests/llama_index --ignore tests/llama_index/test_llama_index_autolog.py --ignore tests/llama_index/test_llama_index_tracer.py
   autologging:
     minimum: "0.12.35"
