@@ -546,6 +546,13 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     link: '/genai/tracing/integrations/listing/open-webui',
     category: 'No-Code',
   },
+  {
+    id: 'n8n',
+    name: 'n8n',
+    logoPath: '/images/logos/n8n-logo.png',
+    link: '/genai/tracing/integrations/listing/n8n',
+    category: 'No-Code',
+  },
 ];
 
 const IntegrationSection: React.FC<{
