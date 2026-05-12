@@ -336,7 +336,8 @@ export function ScrollableTooltip({
 }: ScrollableTooltipProps) {
   const { theme } = useDesignSystemTheme();
   const navigate = useNavigate();
-  const { hideTooltipLinks, tooltipLinkUrlBuilder, tooltipLinkText } = useContext(OverviewChartContext) ?? {};
+  const { hideTooltipLinks, tooltipLinkUrlBuilder, tooltipLinkText, tracesNavigationFilters } =
+    useContext(OverviewChartContext) ?? {};
 
   if (!active || !payload?.length) {
     return null;
@@ -353,6 +354,8 @@ export function ScrollableTooltip({
     if (hasCustomLinkClick) {
       linkConfig.onLinkClick?.(label, dataPoint);
     } else if (hasTimeBasedNavigation) {
+      // tooltipLinkUrlBuilder is an extension point for hosts that fully replace navigation;
+      // forwarding tracesNavigationFilters only applies to the default builder.
       const url = tooltipLinkUrlBuilder
         ? tooltipLinkUrlBuilder(
             linkConfig.experimentId ?? '',
@@ -363,6 +366,7 @@ export function ScrollableTooltip({
             linkConfig.experimentId ?? '',
             dataPoint.timestampMs ?? 0,
             linkConfig.timeIntervalSeconds ?? 0,
+            tracesNavigationFilters,
           );
       navigate(url);
     }

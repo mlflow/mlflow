@@ -146,13 +146,20 @@ const ExperimentGenAIOverviewPageImpl = () => {
     [startTimeMs, endTimeMs, timeIntervalSeconds],
   );
 
-  // User-driven filter rows captured by MetricsFilter. Translated into
-  // metrics-API DSL strings via translateToMetricsFilters and passed to the chart provider.
+  // User-driven filter rows captured by MetricsFilter. The MetricsFilter UI is only rendered on
+  // the Usage tab, so we scope both the chart-query filters (metrics-API DSL) and the navigation
+  // filters (Traces page URL format) to that tab; charts on Quality and Tool calls tabs are
+  // unaffected even though they share the same OverviewChartProvider.
   const [metricFilters, setMetricFilters] = useState<MetricFilter[]>([]);
-  const chartFilters = useMemo(() => translateToMetricsFilters(metricFilters), [metricFilters]);
-  // Same filters re-translated into Traces page URL format so chart tooltip
-  // "View traces" links carry the active MetricsFilter selections through to the Traces tab.
-  const tracesNavigationFilters = useMemo(() => translateToTracesPageFilters(metricFilters), [metricFilters]);
+  const isUsageTab = activeTab === OverviewTab.Usage;
+  const chartFilters = useMemo(
+    () => (isUsageTab ? translateToMetricsFilters(metricFilters) : undefined),
+    [isUsageTab, metricFilters],
+  );
+  const tracesNavigationFilters = useMemo(
+    () => (isUsageTab ? translateToTracesPageFilters(metricFilters) : undefined),
+    [isUsageTab, metricFilters],
+  );
   const metricsFilterColumnOptions = useMemo<MetricFilterColumnOption[]>(
     () => [
       {
