@@ -230,9 +230,7 @@ _LEGACY_PERMISSION_METHODS = [
 
 
 @pytest.mark.parametrize(("method_name", "args"), _LEGACY_PERMISSION_METHODS)
-def test_every_legacy_permission_method_emits_deprecation_warning(
-    method_name, args, monkeypatch
-):
+def test_every_legacy_permission_method_emits_deprecation_warning(method_name, args, monkeypatch):
     # Pins the contract that every deprecated per-resource permission method on
     # ``AuthServiceClient`` calls ``_warn_legacy_permission_method`` before any
     # network I/O. Guards against accidental removal of the warning during

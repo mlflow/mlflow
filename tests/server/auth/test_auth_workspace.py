@@ -508,9 +508,7 @@ def test_filter_list_workspaces_filters_to_allowed(monkeypatch):
     assert [ws["name"] for ws in payload["workspaces"]] == ["team-a"]
 
 
-def test_list_workspaces_hides_workspace_with_only_synthetic_resource_grant(
-    tmp_path, monkeypatch
-):
+def test_list_workspaces_hides_workspace_with_only_synthetic_resource_grant(tmp_path, monkeypatch):
     # Pins the permissions.mdx scenario: "Carol has EDIT permission on
     # experiment exp-456 in team-a but no role with workspace-level access.
     # Carol can access exp-456 only, and the workspace team-a does not appear
