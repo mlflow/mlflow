@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Any, Callable, Generator, Literal, ParamSpec, 
 from cachetools import TTLCache
 from opentelemetry import trace as trace_api
 
-from mlflow.entities import NoOpSpan, Session, SpanLogLevel, SpanType, Trace
+from mlflow.entities import Link, NoOpSpan, Session, SpanLogLevel, SpanType, Trace
 from mlflow.entities.span import NO_OP_SPAN_TRACE_ID, LiveSpan, create_mlflow_span
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatusCode
@@ -97,7 +97,7 @@ def trace(
     trace_destination: TraceLocationBase | None = None,
     sampling_ratio_override: float | None = None,
     log_level: SpanLogLevel | str | None = None,
-    links: list | Callable[[], list] | None = None,
+    links: list[Link] | Callable[[], list[Link]] | None = None,
 ) -> Callable[_P, _R]: ...
 
 
@@ -111,7 +111,7 @@ def trace(
     trace_destination: TraceLocationBase | None = None,
     sampling_ratio_override: float | None = None,
     log_level: SpanLogLevel | str | None = None,
-    links: list | Callable[[], list] | None = None,
+    links: list[Link] | Callable[[], list[Link]] | None = None,
 ) -> Callable[[Callable[_P, _R]], Callable[_P, _R]]: ...
 
 
@@ -124,7 +124,7 @@ def trace(
     trace_destination: TraceLocationBase | None = None,
     sampling_ratio_override: float | None = None,
     log_level: SpanLogLevel | str | None = None,
-    links: list | Callable[[], list] | None = None,
+    links: list[Link] | Callable[[], list[Link]] | None = None,
 ) -> Callable[..., Any]:
     """
     A decorator that creates a new span for the decorated function.
@@ -301,7 +301,7 @@ def _wrap_function(
     trace_destination: TraceLocationBase | None = None,
     sampling_ratio_override: float | None = None,
     log_level: SpanLogLevel | str | None = None,
-    links: list | Callable[[], list] | None = None,
+    links: list[Link] | Callable[[], list[Link]] | None = None,
 ) -> Callable[..., Any]:
     class _WrappingContext:
         # define the wrapping logic as a coroutine to avoid code duplication
@@ -378,7 +378,7 @@ def _wrap_generator(
     trace_destination: TraceLocationBase | None = None,
     sampling_ratio_override: float | None = None,
     log_level: SpanLogLevel | str | None = None,
-    links: list | Callable[[], list] | None = None,
+    links: list[Link] | Callable[[], list[Link]] | None = None,
 ) -> Callable[..., Any]:
     """
     Wrap a generator function to create a span.
@@ -685,7 +685,7 @@ def start_span_no_context(
     experiment_id: str | None = None,
     start_time_ns: int | None = None,
     log_level: SpanLogLevel | str | None = None,
-    links: list | None = None,
+    links: list[Link] | None = None,
 ) -> LiveSpan:
     """
     Start a span without attaching it to the global tracing context.
@@ -759,7 +759,6 @@ def start_span_no_context(
             parent=parent_span._span if parent_span else None,
             start_time_ns=start_time_ns,
             experiment_id=experiment_id,
-            links=links,
         )
 
         # If the span was dropped by the sampler, return a NoOpSpan that

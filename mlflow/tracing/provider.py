@@ -23,7 +23,6 @@ from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import SpanProcessor, TracerProvider
 from opentelemetry.sdk.trace.id_generator import IdGenerator
 from opentelemetry.sdk.trace.sampling import ParentBased
-from opentelemetry.trace import Link as OTelLink
 
 import mlflow
 from mlflow.entities.trace_location import (
@@ -41,10 +40,9 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import MlflowException, MlflowTracingException
 from mlflow.tracing.config import reset_config
-from mlflow.tracing.constant import TRACE_REQUEST_ID_PREFIX, SpanAttributeKey
+from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.destination import TraceDestination, UserTraceDestinationRegistry
 from mlflow.tracing.sampling import _MlflowSampler
-from mlflow.tracing.utils import build_otel_context, decode_id
 from mlflow.tracing.utils.exception import raise_as_trace_exception
 from mlflow.tracing.utils.once import Once
 from mlflow.tracing.utils.otlp import (
@@ -201,25 +199,8 @@ def get_current_otel_span() -> trace.Span | None:
     return trace.get_current_span(context=get_current_context())
 
 
-def _convert_links_to_otel(links: list | None) -> list[OTelLink] | None:
-    if not links:
-        return None
-    otel_links = []
-    for link in links:
-        try:
-            trace_id_hex = link.trace_id.removeprefix(TRACE_REQUEST_ID_PREFIX)
-            otel_context = build_otel_context(
-                decode_id(trace_id_hex),
-                decode_id(link.span_id),
-            )
-            otel_links.append(OTelLink(context=otel_context, attributes=link.attributes or {}))
-        except (ValueError, AttributeError) as e:
-            _logger.warning(f"Skipping invalid link: {e}")
-    return otel_links or None
-
-
 def start_span_in_context(
-    name: str, experiment_id: str | None = None, links: list | None = None
+    name: str, experiment_id: str | None = None
 ) -> trace.Span:
     """
     Start a new OpenTelemetry span in the current context.
@@ -231,7 +212,6 @@ def start_span_in_context(
         name: The name of the span.
         experiment_id: The ID of the experiment to log the span to. If not specified, the span will
             be logged to the active experiment or explicitly set trace destination.
-        links: A list of :py:class:`Link <mlflow.entities.Link>` objects to associate with the span.
 
     Returns:
         The newly created OpenTelemetry span.
@@ -243,7 +223,6 @@ def start_span_in_context(
         name,
         attributes=attributes,
         context=get_current_context(),
-        links=_convert_links_to_otel(links),
     )
 
     if experiment_id and getattr(span, "_parent", None):
@@ -280,7 +259,6 @@ def start_detached_span(
     parent: trace.Span | None = None,
     experiment_id: str | None = None,
     start_time_ns: int | None = None,
-    links: list | None = None,
 ) -> tuple[str, trace.Span] | None:
     """
     Start a new OpenTelemetry span that is not part of the current trace context, but with the
@@ -294,7 +272,6 @@ def start_detached_span(
             experiment in MLflow.
         start_time_ns: The start time of the span in nanoseconds.
             If not provided, the current timestamp is used.
-        links: A list of :py:class:`Link <mlflow.entities.Link>` objects to associate with the span.
 
     Returns:
         The newly created OpenTelemetry span.
@@ -317,7 +294,6 @@ def start_detached_span(
         context=context,
         attributes=attributes,
         start_time=start_time_ns,
-        links=_convert_links_to_otel(links),
     )
 
     if experiment_id and getattr(span, "_parent", None):

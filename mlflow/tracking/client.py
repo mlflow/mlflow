@@ -29,6 +29,7 @@ from mlflow.entities import (
     EvaluationDataset,
     Experiment,
     FileInfo,
+    Link,
     LoggedModel,
     LoggedModelInput,
     LoggedModelOutput,
@@ -1657,7 +1658,7 @@ class MlflowClient:
         inputs: Any | None = None,
         attributes: dict[str, Any] | None = None,
         start_time_ns: int | None = None,
-        links: list | None = None,
+        links: list[Link] | None = None,
     ) -> Span:
         """
         Create a new span and start it without attaching it to the global trace context.
