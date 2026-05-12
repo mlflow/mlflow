@@ -1,4 +1,4 @@
-import { createTraceMetadataFilter } from '@databricks/web-shared/model-trace-explorer';
+import { MLFLOW_TRACE_USER_KEY, createTraceMetadataFilter } from '@databricks/web-shared/model-trace-explorer';
 
 /**
  * Curated list of columns the metrics API can filter on with `=`.
@@ -30,7 +30,7 @@ export const translateToMetricsFilters = (filters: MetricFilter[]): string[] | u
       if (!f.column || !f.value) return null;
       switch (f.column) {
         case 'user':
-          return createTraceMetadataFilter('mlflow.trace.user', f.value);
+          return createTraceMetadataFilter(MLFLOW_TRACE_USER_KEY, f.value);
         default:
           return null;
       }

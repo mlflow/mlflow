@@ -1,7 +1,8 @@
-import { describe, it, expect, jest, beforeEach } from '@jest/globals';
+import { describe, it, expect, jest } from '@jest/globals';
 import { isCompleteFilter, translateToMetricsFilters, type MetricFilter } from './MetricsFilter.utils';
 
 jest.mock('@databricks/web-shared/model-trace-explorer', () => ({
+  MLFLOW_TRACE_USER_KEY: 'mlflow.trace.user',
   createTraceMetadataFilter: jest.fn(
     (key: string, value: string) => `trace.metadata.\`${key}\` = "${value}"`,
   ),
