@@ -24,10 +24,12 @@ defaults:
 
 jobs:
   review:
+    # The workflow never uses the default GITHUB_TOKEN — every `gh api`
+    # call goes through the App installation token (steps.app_token.outputs.token).
+    # `permissions:` is set to a minimal `contents: read` purely to satisfy
+    # `.github/policy.rego`'s require-explicit-permissions rule.
     permissions:
       contents: read
-      pull-requests: write
-      issues: write
     # The pull_request auto-trigger branch is commented out above; keep the
     # comment-trigger gate here. The dropped branch required
     # head.repo.full_name == github.repository (no fork PRs) and was
@@ -73,16 +75,23 @@ jobs:
           permission-pull-requests: write
           permission-issues: write
 
-      - name: React eyes on trigger comment
+      - name: Annotate trigger comment with run URL
         if: steps.ctx.outputs.trigger == 'comment'
         env:
           GH_TOKEN: ${{ steps.app_token.outputs.token }}
           REPO: ${{ github.repository }}
           COMMENT_ID: ${{ github.event.comment.id }}
+          SERVER_URL: ${{ github.server_url }}
+          RUN_ID: ${{ github.run_id }}
+        # Mirrors review.yml's pattern: append a run-URL link to the trigger
+        # comment instead of leaving a separate reaction artifact on the PR.
+        # The maintainer who typed `/review-v2` sees a clickable "🚀 running"
+        # link to follow the job in real time.
         run: |
-          gh api \
-            "repos/$REPO/issues/comments/$COMMENT_ID/reactions" \
-            -X POST -f content=eyes || true
+          run_url="$SERVER_URL/$REPO/actions/runs/$RUN_ID"
+          orig=$(gh api "repos/$REPO/issues/comments/$COMMENT_ID" --jq .body)
+          body=$(printf '%s\n\n---\n\n🚀 [NaiLaOpus running...](%s)' "$orig" "$run_url")
+          gh api "repos/$REPO/issues/comments/$COMMENT_ID" -X PATCH -f body="$body" || true
 
       - name: Reject fork PRs (comment-triggered only)
         if: steps.ctx.outputs.trigger == 'comment'
@@ -94,13 +103,13 @@ jobs:
           RUN_ID: ${{ github.run_id }}
         run: |
           # The issue_comment payload does not carry head_repo, so we fetch
-          # it here and refuse to run if the PR head is on a fork: the
-          # subsequent checkout would execute fork-controlled build hooks
-          # with App-token + Anthropic secrets in scope. The existing
-          # `review.yml` workflow has the same fork limitation; a followup
-          # PR will lift this once we have a safe execution model for fork
-          # PRs (likely via `pull_request_target` + read-only checkout +
-          # explicit reviewer opt-in).
+          # it here and refuse to run if the PR head is on a fork. The
+          # sparse-checkout above prevents fork code from executing on the
+          # runner, but the App-token + Anthropic key are still in scope, so
+          # we're being conservative for the bridge launch. Lifting this
+          # restriction (review.yml already allows fork PRs via the
+          # issue_comment path) is tracked as a followup, pending an
+          # explicit security review of the secret-exposure surface.
           head_repo=$(gh api "repos/$REPO/pulls/$PR" --jq .head.repo.full_name)
           if [ "$head_repo" != "$REPO" ]; then
             run_url="$SERVER_URL/$REPO/actions/runs/$RUN_ID"
