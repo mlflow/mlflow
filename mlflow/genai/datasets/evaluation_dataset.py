@@ -66,14 +66,18 @@ class EvaluationDataset(Dataset, PyFuncConvertibleDatasetMixin):
         directly delegated to the underlying dataset implementation.
         """
         if name.startswith("_") or name == "records":
-            raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
+            raise AttributeError(
+                f"'{type(self).__name__}' object has no attribute '{name}'"
+            )
 
         if self._mlflow_dataset and hasattr(self._mlflow_dataset, name):
             return getattr(self._mlflow_dataset, name)
         elif self._databricks_dataset and hasattr(self._databricks_dataset, name):
             return getattr(self._databricks_dataset, name)
 
-        raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
+        raise AttributeError(
+            f"'{type(self).__name__}' object has no attribute '{name}'"
+        )
 
     @property
     def digest(self) -> str | None:
@@ -105,7 +109,9 @@ class EvaluationDataset(Dataset, PyFuncConvertibleDatasetMixin):
         """Source information for the dataset."""
         if self._mlflow_dataset:
             return self._mlflow_dataset.source
-        return DatabricksEvaluationDatasetSource(table_name=self.name, dataset_id=self.dataset_id)
+        return DatabricksEvaluationDatasetSource(
+            table_name=self.name, dataset_id=self.dataset_id
+        )
 
     @property
     def source_type(self) -> str | None:
@@ -141,10 +147,7 @@ class EvaluationDataset(Dataset, PyFuncConvertibleDatasetMixin):
         """The experiment IDs associated with the dataset (MLflow only)."""
         if self._mlflow_dataset:
             return self._mlflow_dataset.experiment_ids
-        raise NotImplementedError(
-            "Experiment associations are not available for Databricks managed datasets. "
-            "Dataset associations are managed through Unity Catalog."
-        )
+        return self._databricks_dataset.experiment_ids
 
     @property
     def schema(self) -> str | None:
