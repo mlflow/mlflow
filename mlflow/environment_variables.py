@@ -246,6 +246,13 @@ MLFLOW_S3_UPLOAD_EXTRA_ARGS = _EnvironmentVariable("MLFLOW_S3_UPLOAD_EXTRA_ARGS"
 #: (default: ``None``)
 MLFLOW_S3_EXPECTED_BUCKET_OWNER = _EnvironmentVariable("MLFLOW_S3_EXPECTED_BUCKET_OWNER", str, None)
 
+#: Specifies whether or not to ignore directory markers when listing artifacts in S3.
+#: Directory markers are zero-byte objects with keys that end with "/" which some S3-compatible
+#: storage providers create to represent directories. These objects can cause issues when listing
+#: and subsequently downloading artifacts.
+#: (default: ``True``)
+MLFLOW_S3_IGNORE_DIRECTORY_MARKERS= _BooleanEnvironmentVariable("MLFLOW_S3_IGNORE_DIRECTORY_MARKERS", True)
+
 #: Specifies the location of a Kerberos ticket cache to use for HDFS artifact operations.
 #: (default: ``None``)
 MLFLOW_KERBEROS_TICKET_CACHE = _EnvironmentVariable("MLFLOW_KERBEROS_TICKET_CACHE", str, None)

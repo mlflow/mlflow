@@ -17,6 +17,7 @@ from mlflow.environment_variables import (
     MLFLOW_BOTO_CLIENT_ADDRESSING_STYLE,
     MLFLOW_S3_ENDPOINT_URL,
     MLFLOW_S3_EXPECTED_BUCKET_OWNER,
+    MLFLOW_S3_IGNORE_DIRECTORY_MARKERS,
     MLFLOW_S3_IGNORE_TLS,
     MLFLOW_S3_UPLOAD_EXTRA_ARGS,
 )
@@ -433,7 +434,10 @@ class S3ArtifactRepository(
                 )
                 file_rel_path = posixpath.relpath(path=file_path, start=artifact_path)
                 file_size = int(obj.get("Size"))
-                infos.append(FileInfo(file_rel_path, False, file_size))
+                file_info = FileInfo(file_rel_path, False, file_size)
+                if MLFLOW_S3_IGNORE_DIRECTORY_MARKERS and self._file_is_directory_marker(file_info):
+                    continue
+                infos.append(file_info)
         return sorted(infos, key=lambda f: f.path)
 
     @staticmethod
@@ -444,6 +448,10 @@ class S3ArtifactRepository(
                 f" artifact path. Artifact path: {artifact_path}. Object path:"
                 f" {listed_object_path}."
             )
+
+    @staticmethod
+    def _file_is_directory_marker(file_info):
+        return file_info.file_size == 0 and file_info.path.endswith("/")
 
     def _download_file(self, remote_file_path, local_path):
         """
