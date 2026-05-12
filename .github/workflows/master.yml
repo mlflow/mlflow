@@ -323,7 +323,12 @@ jobs:
           # (removed HallucinationEvaluator/RelevanceEvaluator/etc. and LiteLLMModel)
           uv pip install \
             -r requirements/test-requirements.txt \
-            deepeval ragas 'arize-phoenix-evals<3.0.0' trulens trulens-providers-litellm guardrails-ai google-adk
+            deepeval ragas 'arize-phoenix-evals<3.0.0' trulens trulens-providers-litellm google-adk
+          # guardrails-ai may be unavailable on PyPI in some windows. Install it opportunistically;
+          # guardrails-specific tests are skipped when the package is absent.
+          if ! uv pip install guardrails-ai; then
+            echo "guardrails-ai is unavailable on PyPI; skipping guardrails-specific tests."
+          fi
       - uses: ./.github/actions/show-versions
       - name: Run GenAI Tests (OSS)
         run: |

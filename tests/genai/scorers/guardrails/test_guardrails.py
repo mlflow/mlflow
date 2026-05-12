@@ -1,7 +1,10 @@
 from unittest.mock import patch
 
-import guardrails
 import pytest
+
+pytest.importorskip("guardrails")
+
+import guardrails
 from guardrails import Validator, register_validator
 from guardrails.classes.validation.validation_result import FailResult, PassResult
 
