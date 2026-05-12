@@ -88,14 +88,12 @@ def test_from_huggingface_dataset_constructs_expected_dataset_with_revision():
         "cornell-movie-review-data/rotten_tomatoes",
         split="train",
         revision=revision,
-        trust_remote_code=True,
     )
 
     mlflow_ds_new = mlflow.data.from_huggingface(
         ds,
         path="cornell-movie-review-data/rotten_tomatoes",
         revision=revision,
-        trust_remote_code=True,
     )
 
     ds = mlflow_ds_new.source.load()
