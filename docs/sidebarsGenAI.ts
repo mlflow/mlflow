@@ -155,6 +155,11 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'tracing/app-instrumentation/logging',
+                  label: 'Setting Log Levels',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/track-environments-context/index',
                   label: 'Track Application Versions',
                 },
@@ -340,7 +345,7 @@ const sidebarsGenAI: SidebarsConfig = {
             },
             {
               type: 'category',
-              label: 'Coding Agents',
+              label: 'Coding Agents & Long-Running Agents',
               items: [
                 {
                   type: 'doc',
@@ -356,6 +361,11 @@ const sidebarsGenAI: SidebarsConfig = {
                   type: 'doc',
                   id: 'tracing/integrations/listing/gemini_cli',
                   label: 'Gemini CLI',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/hermes_agent',
+                  label: 'Hermes Agent',
                 },
                 {
                   type: 'doc',
@@ -763,6 +773,11 @@ const sidebarsGenAI: SidebarsConfig = {
                       id: 'eval-monitor/scorers/third-party/guardrails',
                       label: 'Guardrails AI',
                     },
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/third-party/google-adk',
+                      label: 'Google ADK',
+                    },
                   ],
                   collapsed: false,
                   link: {
@@ -1058,7 +1073,7 @@ const sidebarsGenAI: SidebarsConfig = {
         },
         {
           type: 'category',
-          label: 'Coding Agents',
+          label: 'Coding Agents & Long-Running Agents',
           items: [
             {
               type: 'doc',
@@ -1074,6 +1089,11 @@ const sidebarsGenAI: SidebarsConfig = {
               type: 'doc',
               id: 'governance/ai-gateway/coding-agents/gemini-cli',
               label: 'Gemini CLI',
+            },
+            {
+              type: 'doc',
+              id: 'governance/ai-gateway/coding-agents/hermes-agent',
+              label: 'Hermes Agent',
             },
           ],
           link: {

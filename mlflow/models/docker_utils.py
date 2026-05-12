@@ -1,5 +1,6 @@
 import logging
 import os
+import subprocess
 from subprocess import Popen
 from typing import Literal
 from urllib.parse import urlparse
@@ -193,14 +194,27 @@ def _pip_mlflow_install_step(dockerfile_context_dir, mlflow_home):
         return f"# Install MLflow\nRUN pip install mlflow=={VERSION}"
 
 
-def build_image_from_context(context_dir: str, image_name: str):
-    import docker
+def build_image_from_context(context_dir: str, image_name: str, network: str | None = None):
+    try:
+        import docker
 
-    client = docker.from_env()
+        client = docker.from_env()
+        docker_version = int(client.version()["Version"].split(".")[0])
+    except Exception:
+        try:
+            result = subprocess.run(
+                ["docker", "version", "--format", "{{.Server.Version}}"],
+                capture_output=True,
+                text=True,
+            )
+            docker_version = int(result.stdout.strip().split(".")[0])
+        except Exception:
+            docker_version = 0
     # In Docker < 19, `docker build` doesn't support the `--platform` option
-    is_platform_supported = int(client.version()["Version"].split(".")[0]) >= 19
+    is_platform_supported = docker_version >= 19
     # Enforcing the AMD64 architecture build for Apple M1 users
     platform_option = ["--platform", "linux/amd64"] if is_platform_supported else []
+    network_option = ["--network", network] if network else []
     commands = [
         "docker",
         "build",
@@ -209,6 +223,7 @@ def build_image_from_context(context_dir: str, image_name: str):
         "-f",
         "Dockerfile",
         *platform_option,
+        *network_option,
         ".",
     ]
     proc = Popen(commands, cwd=context_dir)

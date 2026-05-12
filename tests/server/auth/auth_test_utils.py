@@ -2,6 +2,7 @@ from pathlib import Path
 
 from mlflow.environment_variables import MLFLOW_TRACKING_PASSWORD, MLFLOW_TRACKING_USERNAME
 from mlflow.server.auth import auth_config
+from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 from tests.helper_functions import random_str
 from tests.tracking.integration_test_utils import _send_rest_tracking_post_request
@@ -51,6 +52,52 @@ def create_user(tracking_uri: str, username: str | None = None, password: str | 
     )
     response.raise_for_status()
     return username, password
+
+
+def grant_role_permission(
+    tracking_uri: str,
+    username: str,
+    resource_type: str,
+    resource_pattern: str,
+    permission: str,
+    workspace: str = DEFAULT_WORKSPACE_NAME,
+    auth: tuple[str, str] | None = None,
+) -> None:
+    """
+    Grant ``username`` ``permission`` on ``(resource_type, resource_pattern)`` via the
+    role API. Creates a throwaway role in ``workspace`` with a single permission row,
+    then assigns it to the user. Useful for auth-flow tests that previously called
+    ``POST /mlflow/experiments/permissions/create`` (and equivalents) to set up state.
+    """
+    auth = auth or (ADMIN_USERNAME, ADMIN_PASSWORD)
+    role_name = f"_test_{resource_type}_{random_str()}"
+    create_resp = _send_rest_tracking_post_request(
+        tracking_uri,
+        "/api/3.0/mlflow/roles/create",
+        {"name": role_name, "workspace": workspace},
+        auth=auth,
+    )
+    create_resp.raise_for_status()
+    role_id = create_resp.json()["role"]["id"]
+    add_resp = _send_rest_tracking_post_request(
+        tracking_uri,
+        "/api/3.0/mlflow/roles/permissions/add",
+        {
+            "role_id": role_id,
+            "resource_type": resource_type,
+            "resource_pattern": resource_pattern,
+            "permission": permission,
+        },
+        auth=auth,
+    )
+    add_resp.raise_for_status()
+    assign_resp = _send_rest_tracking_post_request(
+        tracking_uri,
+        "/api/3.0/mlflow/roles/assign",
+        {"username": username, "role_id": role_id},
+        auth=auth,
+    )
+    assign_resp.raise_for_status()
 
 
 class User:

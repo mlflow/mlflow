@@ -29,6 +29,7 @@ import { TracesV3EmptyState } from './TracesV3EmptyState';
 import { useMarkdownConverter } from '@mlflow/mlflow/src/common/utils/MarkdownUtils';
 import { GenericNetworkRequestError } from '@mlflow/mlflow/src/shared/web-shared/errors/PredefinedErrors';
 import { TestRouter, testRoute, waitForRoutesToBeRendered } from '@mlflow/mlflow/src/common/utils/RoutingTestUtils';
+import * as useCountInfoModule from './hooks/useCountInfo';
 
 // Overriding default timeout for OSS tests
 // eslint-disable-next-line no-restricted-syntax
@@ -449,6 +450,12 @@ describe('TracesV3Logs', () => {
       renderComponent({ additionalFilters });
       await waitForRoutesToBeRendered();
 
+      expect(useMlflowTracesTableMetadata).toHaveBeenCalledWith(
+        expect.not.objectContaining({
+          networkFilters: additionalFilters,
+        }),
+      );
+
       // Should have called useSearchMlflowTraces with combined filters (additionalFilters + userFilters)
       await waitFor(() => {
         expect(searchTracesMock).toHaveBeenCalledWith(
@@ -457,6 +464,64 @@ describe('TracesV3Logs', () => {
           }),
         );
       });
+    });
+  });
+
+  describe('Count mode', () => {
+    it('counts sessions only for forced chat session views', async () => {
+      const useCountInfoSpy = jest.spyOn(useCountInfoModule, 'useCountInfo').mockReturnValue({
+        currentCount: 2,
+        logCountLoading: false,
+        totalCount: 5,
+        maxAllowedCount: Infinity,
+      });
+
+      jest.mocked(useMlflowTracesTableMetadata).mockReturnValue({
+        assessmentInfos: [],
+        allColumns: [],
+        totalCount: 0,
+        isLoading: false,
+        error: null,
+        isEmpty: false,
+        tableFilterOptions: { source: [] },
+        evaluatedTraces: [],
+        otherEvaluatedTraces: [],
+      });
+
+      jest.mocked(useSetInitialTimeFilter).mockReturnValue({
+        isInitialTimeFilterLoading: false,
+      });
+
+      jest.mocked(useSearchMlflowTraces).mockReturnValue({
+        data: [],
+        isLoading: false,
+        isFetching: false,
+        error: null,
+      } as any);
+
+      const defaultView = renderComponent();
+      await waitForRoutesToBeRendered();
+
+      expect(useCountInfoSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          countSessions: false,
+        }),
+      );
+
+      defaultView.unmount();
+      useCountInfoSpy.mockClear();
+
+      const chatSessionsView = renderComponent({ forceGroupBySession: true });
+      await waitForRoutesToBeRendered();
+
+      expect(useCountInfoSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          countSessions: true,
+        }),
+      );
+
+      chatSessionsView.unmount();
+      useCountInfoSpy.mockRestore();
     });
   });
 

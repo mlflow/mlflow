@@ -90,8 +90,7 @@ if os.environ.get(PROMETHEUS_EXPORTER_ENV_VAR):
     from mlflow.server.prometheus_exporter import activate_prometheus_exporter
 
     prometheus_metrics_path = os.environ.get(PROMETHEUS_EXPORTER_ENV_VAR)
-    if not os.path.exists(prometheus_metrics_path):
-        os.makedirs(prometheus_metrics_path)
+    os.makedirs(prometheus_metrics_path, exist_ok=True)
     activate_prometheus_exporter(app)
 
 

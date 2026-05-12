@@ -35,6 +35,7 @@ from mlflow.utils.model_utils import _get_all_flavor_configurations
 from mlflow.utils.nfs_on_spark import get_nfs_cache_root_dir
 from mlflow.utils.os import is_windows
 from mlflow.utils.process import ShellCommandException, cache_return_value_per_process
+from mlflow.utils.string_utils import quote
 from mlflow.utils.virtualenv import _get_or_create_virtualenv
 from mlflow.version import VERSION
 
@@ -348,7 +349,7 @@ class PyFuncBackend(FlavorBackend):
         _set_mlflow_config_env(command_env, model_config)
 
         return self.prepare_env(local_path).execute(
-            command=f"python {_STDIN_SERVER_SCRIPT} --model-uri {local_path}",
+            command=(f"python {quote(str(_STDIN_SERVER_SCRIPT))} --model-uri {quote(local_path)}"),
             command_env=command_env,
             stdin=subprocess.PIPE,
             stdout=stdout,
