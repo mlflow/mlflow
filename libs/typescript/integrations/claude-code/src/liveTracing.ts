@@ -204,7 +204,9 @@ export class LiveTracingContext {
         is_error?: boolean;
       };
       const toolUseId = toolResult.tool_use_id;
-      if (!toolUseId) {continue;}
+      if (!toolUseId) {
+        continue;
+      }
 
       // If this tool result closes a Task/Agent call, finalize its sub-agent
       // wrapper span first so it nests under the TOOL span correctly.
@@ -221,7 +223,9 @@ export class LiveTracingContext {
       }
 
       const toolSpan = this.openToolSpans.get(toolUseId);
-      if (!toolSpan) {continue;}
+      if (!toolSpan) {
+        continue;
+      }
 
       toolSpan.setOutputs({ result: toolResult.content ?? '' });
       if (toolResult.is_error) {
@@ -252,7 +256,9 @@ export class LiveTracingContext {
 
   /** Close all open spans with ERROR status on stream throw or interruption. */
   async finalizeError(error: string): Promise<void> {
-    if (this.ended) {return;}
+    if (this.ended) {
+      return;
+    }
     for (const span of this.openToolSpans.values()) {
       span.setStatus(SpanStatusCode.ERROR, error);
       span.end();
@@ -269,13 +275,19 @@ export class LiveTracingContext {
 
   /** Close the root span and flush traces to the backend; safe to call multiple times. */
   async finalize(): Promise<void> {
-    if (this.ended) {return;}
+    if (this.ended) {
+      return;
+    }
     this.ended = true;
 
     // Defensive: close anything still open (shouldn't happen in normal completion).
-    for (const span of this.openToolSpans.values()) {span.end();}
+    for (const span of this.openToolSpans.values()) {
+      span.end();
+    }
     this.openToolSpans.clear();
-    for (const span of this.subagentSpans.values()) {span.end();}
+    for (const span of this.subagentSpans.values()) {
+      span.end();
+    }
     this.subagentSpans.clear();
 
     this.applyTraceMetadata();
@@ -322,7 +334,9 @@ export class LiveTracingContext {
     try {
       const traceManager = InMemoryTraceManager.getInstance();
       const trace = traceManager.getTrace(this.rootSpan.traceId);
-      if (!trace) {return;}
+      if (!trace) {
+        return;
+      }
 
       const userPrompt = this.conversations.get(null)?.[0]?.content;
       if (typeof userPrompt === 'string') {
@@ -358,9 +372,7 @@ export class LiveTracingContext {
 function hasThinking(content: string | ContentBlock[]): boolean {
   return (
     Array.isArray(content) &&
-    content.some(
-      (b) => typeof b === 'object' && b != null && 'type' in b && b.type === 'thinking',
-    )
+    content.some((b) => typeof b === 'object' && b != null && 'type' in b && b.type === 'thinking')
   );
 }
 
@@ -369,7 +381,9 @@ function hasThinking(content: string | ContentBlock[]): boolean {
  * options on the root span's inputs.
  */
 function sanitizeOptions(options: Record<string, unknown> | undefined): unknown {
-  if (!options) {return undefined;}
+  if (!options) {
+    return undefined;
+  }
   const { hooks: _hooks, ...rest } = options;
   return rest;
 }

@@ -224,9 +224,7 @@ describe('createTracedQuery', () => {
         message: {
           role: 'assistant',
           model: 'claude-haiku-4-5',
-          content: [
-            { type: 'tool_use', id: 'tool-1', name: 'Bash', input: { command: 'ls' } },
-          ],
+          content: [{ type: 'tool_use', id: 'tool-1', name: 'Bash', input: { command: 'ls' } }],
           usage: { input_tokens: 30, output_tokens: 5 },
         },
       },
@@ -236,7 +234,12 @@ describe('createTracedQuery', () => {
         message: {
           role: 'user',
           content: [
-            { type: 'tool_result', tool_use_id: 'tool-1', content: 'file1\nfile2', is_error: false },
+            {
+              type: 'tool_result',
+              tool_use_id: 'tool-1',
+              content: 'file1\nfile2',
+              is_error: false,
+            },
           ],
         },
       },
@@ -367,11 +370,21 @@ describe('createTracedQuery', () => {
         message: {
           role: 'user',
           content: [
-            { type: 'tool_result', tool_use_id: 'task-1', content: 'Found 2 files.', is_error: false },
+            {
+              type: 'tool_result',
+              tool_use_id: 'task-1',
+              content: 'Found 2 files.',
+              is_error: false,
+            },
           ],
         },
       },
-      { type: 'result', subtype: 'success', duration_ms: 100, usage: { input_tokens: 0, output_tokens: 0 } },
+      {
+        type: 'result',
+        subtype: 'success',
+        duration_ms: 100,
+        usage: { input_tokens: 0, output_tokens: 0 },
+      },
     ]);
 
     await drain(createTracedQuery(fn)({ prompt: 'use agent' }));
@@ -420,11 +433,21 @@ describe('createTracedQuery', () => {
         message: {
           role: 'user',
           content: [
-            { type: 'tool_result', tool_use_id: 'tool-x', content: 'command failed', is_error: true },
+            {
+              type: 'tool_result',
+              tool_use_id: 'tool-x',
+              content: 'command failed',
+              is_error: true,
+            },
           ],
         },
       },
-      { type: 'result', subtype: 'success', duration_ms: 1, usage: { input_tokens: 0, output_tokens: 0 } },
+      {
+        type: 'result',
+        subtype: 'success',
+        duration_ms: 1,
+        usage: { input_tokens: 0, output_tokens: 0 },
+      },
     ]);
 
     await drain(createTracedQuery(fn)({ prompt: 'p' }));
@@ -484,10 +507,17 @@ describe('createTracedQuery', () => {
 
   it('sets forwardSubagentText: true by default and preserves user-provided options', async () => {
     const { fn, optionsSeen } = mockQuery([
-      { type: 'result', subtype: 'success', duration_ms: 1, usage: { input_tokens: 0, output_tokens: 0 } },
+      {
+        type: 'result',
+        subtype: 'success',
+        duration_ms: 1,
+        usage: { input_tokens: 0, output_tokens: 0 },
+      },
     ]);
 
-    await drain(createTracedQuery(fn)({ prompt: 'p', options: { permissionMode: 'bypassPermissions' } }));
+    await drain(
+      createTracedQuery(fn)({ prompt: 'p', options: { permissionMode: 'bypassPermissions' } }),
+    );
 
     expect(optionsSeen[0]).toMatchObject({
       forwardSubagentText: true,
@@ -497,7 +527,12 @@ describe('createTracedQuery', () => {
 
   it('forces forwardSubagentText: true even when the caller passes false', async () => {
     const { fn, optionsSeen } = mockQuery([
-      { type: 'result', subtype: 'success', duration_ms: 1, usage: { input_tokens: 0, output_tokens: 0 } },
+      {
+        type: 'result',
+        subtype: 'success',
+        duration_ms: 1,
+        usage: { input_tokens: 0, output_tokens: 0 },
+      },
     ]);
 
     await drain(createTracedQuery(fn)({ prompt: 'p', options: { forwardSubagentText: false } }));
@@ -507,11 +542,18 @@ describe('createTracedQuery', () => {
 
   it('records hooks as a sanitized placeholder so functions are not serialised on the span', async () => {
     const { fn } = mockQuery([
-      { type: 'result', subtype: 'success', duration_ms: 1, usage: { input_tokens: 0, output_tokens: 0 } },
+      {
+        type: 'result',
+        subtype: 'success',
+        duration_ms: 1,
+        usage: { input_tokens: 0, output_tokens: 0 },
+      },
     ]);
     const hookFn = jest.fn();
 
-    await drain(createTracedQuery(fn)({ prompt: 'p', options: { hooks: { PreToolUse: [hookFn] } } }));
+    await drain(
+      createTracedQuery(fn)({ prompt: 'p', options: { hooks: { PreToolUse: [hookFn] } } }),
+    );
 
     const root = rootSpan()!;
     // Hooks should not appear in the recorded options

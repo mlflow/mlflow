@@ -2,8 +2,8 @@
 
 Trace [Claude Code](https://docs.claude.com/en/docs/claude-code/overview) sessions and [Claude Agent SDK](https://docs.claude.com/en/api/agent-sdk/typescript) runs with [MLflow Tracing](https://github.com/mlflow/mlflow/tree/main/libs/typescript).
 
-| Package                   | NPM                                                                                                                                       | Description                                                              |
-| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| Package                   | NPM                                                                                                                                         | Description                                                              |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
 | [@mlflow/claude-code](./) | [![npm package](https://img.shields.io/npm/v/%40mlflow%2Fclaude-code?style=flat-square)](https://www.npmjs.com/package/@mlflow/claude-code) | Trace Claude Code CLI sessions (Stop-hook) and Claude Agent SDK queries. |
 
 ## Installation
