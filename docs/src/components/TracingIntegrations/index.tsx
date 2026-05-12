@@ -539,6 +539,13 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     link: '/genai/tracing/integrations/listing/langflow',
     category: 'No-Code',
   },
+  {
+    id: 'open-webui',
+    name: 'Open WebUI',
+    logoPath: '/images/logos/open-webui-logo.png',
+    link: '/genai/tracing/integrations/listing/open-webui',
+    category: 'No-Code',
+  },
 ];
 
 const IntegrationSection: React.FC<{
