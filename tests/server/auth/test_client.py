@@ -4,7 +4,7 @@ import pytest
 import requests
 
 import mlflow
-from mlflow import MlflowException
+from mlflow import MlflowClient, MlflowException
 from mlflow.environment_variables import (
     MLFLOW_AUTH_CONFIG_PATH,
     MLFLOW_FLASK_SERVER_SECRET_KEY,
@@ -337,3 +337,210 @@ def test_delete_user(client, monkeypatch):
         client.create_user(username2, password2)
     with User(username2, password2, monkeypatch), assert_unauthorized():
         client.delete_user(username)
+
+
+# ---- Unified per-user permission convenience APIs ----
+
+
+def _create_experiment(tracking_uri: str, monkeypatch, name: str) -> str:
+    """
+    Create an experiment via MlflowClient as the admin (so it bypasses auth) and
+    return its experiment_id. Tests that exercise ``check_user_permission`` need
+    a real experiment row so the workspace-lookup step succeeds — without it,
+    ``_role_permission_for`` falls through to ``default_permission`` regardless
+    of any explicit grant.
+    """
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        return MlflowClient(tracking_uri).create_experiment(name)
+
+
+def test_grant_user_permission_roundtrip(client, monkeypatch):
+    # Admin grants READ on an experiment to a new user, then the user's
+    # synthetic role surfaces the row via list_user_roles.
+    username = random_str()
+    password = random_str()
+    exp_id = _create_experiment(client.tracking_uri, monkeypatch, f"grant-{random_str()}")
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        client.create_user(username, password)
+        client.grant_user_permission(username, "experiment", exp_id, "READ")
+
+        roles = client.list_user_roles(username)
+
+    # The grant lives on the user's synthetic ``__user_<id>__`` role.
+    synthetic = [r for r in roles if r.name.startswith("__user_")]
+    assert len(synthetic) == 1
+    grants = [(p.resource_type, p.resource_pattern, p.permission) for p in synthetic[0].permissions]
+    assert ("experiment", exp_id, "READ") in grants
+
+
+def test_grant_user_permission_duplicate_raises(client, monkeypatch):
+    username = random_str()
+    password = random_str()
+    exp_id = _create_experiment(client.tracking_uri, monkeypatch, f"dup-{random_str()}")
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        client.create_user(username, password)
+        client.grant_user_permission(username, "experiment", exp_id, "READ")
+        with pytest.raises(MlflowException, match="already exists") as exc:
+            client.grant_user_permission(username, "experiment", exp_id, "EDIT")
+    from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
+
+    assert exc.value.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS)
+
+
+def test_grant_user_permission_unknown_user_raises(client, monkeypatch):
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        with pytest.raises(MlflowException, match="not found") as exc:
+            client.grant_user_permission(
+                "no-such-user-" + random_str(), "experiment", "exp-1", "READ"
+            )
+    assert exc.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+
+def test_grant_user_permission_invalid_resource_type(client, monkeypatch):
+    username = random_str()
+    password = random_str()
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        client.create_user(username, password)
+        with pytest.raises(MlflowException, match="Invalid resource type"):
+            client.grant_user_permission(username, "bogus", "x", "READ")
+
+
+def test_grant_user_permission_invalid_permission_for_resource_type(client, monkeypatch):
+    # ``NO_PERMISSIONS`` is intentionally disallowed at the resource scope —
+    # absence of a grant combined with ``default_permission`` already expresses
+    # "no access".
+    username = random_str()
+    password = random_str()
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        client.create_user(username, password)
+        with pytest.raises(MlflowException, match="Invalid permission"):
+            client.grant_user_permission(username, "experiment", "exp-1", "NO_PERMISSIONS")
+
+
+def test_revoke_user_permission_roundtrip(client, monkeypatch):
+    username = random_str()
+    password = random_str()
+    exp_id = _create_experiment(client.tracking_uri, monkeypatch, f"revoke-{random_str()}")
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        client.create_user(username, password)
+        client.grant_user_permission(username, "experiment", exp_id, "READ")
+        # Confirm the row is present before we revoke.
+        roles_before = client.list_user_roles(username)
+        synthetic_before = next(r for r in roles_before if r.name.startswith("__user_"))
+        assert any(p.resource_pattern == exp_id for p in synthetic_before.permissions)
+
+        client.revoke_user_permission(username, "experiment", exp_id)
+        roles_after = client.list_user_roles(username)
+        synthetic_after = next((r for r in roles_after if r.name.startswith("__user_")), None)
+        # Either the synthetic role is empty or it no longer contains the grant.
+        remaining = synthetic_after.permissions if synthetic_after else []
+        assert not any(p.resource_pattern == exp_id for p in remaining)
+
+
+def test_revoke_user_permission_missing_row_raises(client, monkeypatch):
+    username = random_str()
+    password = random_str()
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        client.create_user(username, password)
+        with pytest.raises(MlflowException, match="not found") as exc:
+            client.revoke_user_permission(username, "experiment", "exp-not-granted")
+    assert exc.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+
+def test_check_user_permission_self_check(client, monkeypatch):
+    # A non-admin user can check their own permissions on any resource.
+    username = random_str()
+    password = random_str()
+    exp_id = _create_experiment(client.tracking_uri, monkeypatch, f"self-{random_str()}")
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        client.create_user(username, password)
+        client.grant_user_permission(username, "experiment", exp_id, "READ")
+
+    with User(username, password, monkeypatch):
+        result = client.check_user_permission(username, "experiment", exp_id)
+
+    # READ.can_use is False — ``allowed`` mirrors ``can_use`` (regular access tier).
+    assert result.permission == "READ"
+    assert result.allowed is False
+
+
+def test_check_user_permission_returns_max_grant(client, monkeypatch):
+    # A user with an explicit MANAGE grant has allowed=True (MANAGE.can_use=True).
+    username = random_str()
+    password = random_str()
+    exp_id = _create_experiment(client.tracking_uri, monkeypatch, f"mgr-{random_str()}")
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        client.create_user(username, password)
+        client.grant_user_permission(username, "experiment", exp_id, "MANAGE")
+
+    with User(username, password, monkeypatch):
+        result = client.check_user_permission(username, "experiment", exp_id)
+
+    assert result.permission == "MANAGE"
+    assert result.allowed is True
+
+
+def test_check_user_permission_cross_user_requires_admin(client, monkeypatch):
+    # A plain user cannot check another user's permissions.
+    target = random_str()
+    requester = random_str()
+    requester_pw = random_str()
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        client.create_user(target, random_str())
+        client.create_user(requester, requester_pw)
+
+    with User(requester, requester_pw, monkeypatch), assert_unauthorized():
+        client.check_user_permission(target, "experiment", "exp-x")
+
+
+def test_check_user_permission_admin_can_check_any_user(client, monkeypatch):
+    username = random_str()
+    password = random_str()
+    exp_id = _create_experiment(client.tracking_uri, monkeypatch, f"admin-{random_str()}")
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        client.create_user(username, password)
+        client.grant_user_permission(username, "experiment", exp_id, "EDIT")
+
+        result = client.check_user_permission(username, "experiment", exp_id)
+
+    assert result.permission == "EDIT"
+    assert result.allowed is True
+
+
+def test_grant_user_permission_requires_authentication(client):
+    with assert_unauthenticated():
+        client.grant_user_permission("alice", "experiment", "exp-1", "READ")
+
+
+def test_grant_user_permission_non_admin_without_manage_rejected(client, monkeypatch):
+    # A plain user without per-resource MANAGE cannot grant permissions.
+    requester = random_str()
+    requester_pw = random_str()
+    target = random_str()
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        client.create_user(requester, requester_pw)
+        client.create_user(target, random_str())
+
+    with User(requester, requester_pw, monkeypatch), assert_unauthorized():
+        client.grant_user_permission(target, "experiment", "exp-1", "READ")
+
+
+@pytest.mark.parametrize("api_prefix", ["api", "ajax-api"])
+@pytest.mark.parametrize(
+    "endpoint",
+    [
+        "/3.0/mlflow/users/permissions/grant",
+        "/3.0/mlflow/users/permissions/revoke",
+        "/3.0/mlflow/auth/check",
+    ],
+)
+def test_unified_permission_endpoints_reachable_at_both_path_prefixes(client, api_prefix, endpoint):
+    # The MLflow frontend hits /ajax-api/ paths; the Python client hits /api/ paths.
+    # Every unified permission route must be reachable at both — a 404 here would
+    # silently break the admin UI without surfacing as a permission-system failure.
+    resp = requests.post(
+        f"{client.tracking_uri}/{api_prefix}{endpoint}",
+        json={},
+        auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
+    )
+    assert resp.status_code != 404, f"POST /{api_prefix}{endpoint} unexpectedly returned 404"

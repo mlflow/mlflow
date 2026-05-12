@@ -206,8 +206,16 @@ from mlflow.server.auth.logo import MLFLOW_LOGO
 from mlflow.server.auth.permissions import (
     MANAGE,
     NO_PERMISSIONS,
+    RESOURCE_TYPE_EXPERIMENT,
+    RESOURCE_TYPE_GATEWAY_ENDPOINT,
+    RESOURCE_TYPE_GATEWAY_MODEL_DEFINITION,
+    RESOURCE_TYPE_GATEWAY_SECRET,
+    RESOURCE_TYPE_REGISTERED_MODEL,
+    RESOURCE_TYPE_SCORER,
     USE,
     Permission,
+    _validate_permission_for_resource_type,
+    _validate_resource_type,
     get_permission,
 )
 from mlflow.server.auth.permissions import (
@@ -217,6 +225,7 @@ from mlflow.server.auth.routes import (
     ADD_ROLE_PERMISSION,
     AJAX_ADD_ROLE_PERMISSION,
     AJAX_ASSIGN_ROLE,
+    AJAX_CHECK_USER_PERMISSION,
     AJAX_CREATE_ROLE,
     AJAX_CREATE_USER,
     AJAX_DELETE_ROLE,
@@ -224,6 +233,7 @@ from mlflow.server.auth.routes import (
     AJAX_GET_CURRENT_USER,
     AJAX_GET_ROLE,
     AJAX_GET_USER,
+    AJAX_GRANT_USER_PERMISSION,
     AJAX_LIST_CURRENT_USER_PERMISSIONS,
     AJAX_LIST_ROLE_PERMISSIONS,
     AJAX_LIST_ROLE_USERS,
@@ -232,12 +242,14 @@ from mlflow.server.auth.routes import (
     AJAX_LIST_USER_ROLES,
     AJAX_LIST_USERS,
     AJAX_REMOVE_ROLE_PERMISSION,
+    AJAX_REVOKE_USER_PERMISSION,
     AJAX_UNASSIGN_ROLE,
     AJAX_UPDATE_ROLE,
     AJAX_UPDATE_ROLE_PERMISSION,
     AJAX_UPDATE_USER_ADMIN,
     AJAX_UPDATE_USER_PASSWORD,
     ASSIGN_ROLE,
+    CHECK_USER_PERMISSION,
     CREATE_EXPERIMENT_PERMISSION,
     CREATE_GATEWAY_ENDPOINT_PERMISSION,
     CREATE_GATEWAY_MODEL_DEFINITION_PERMISSION,
@@ -275,6 +287,7 @@ from mlflow.server.auth.routes import (
     GET_SCORER_PERMISSION,
     GET_TRACE_ARTIFACT,
     GET_USER,
+    GRANT_USER_PERMISSION,
     HOME,
     INVOKE_SCORER,
     LIST_CURRENT_USER_PERMISSIONS,
@@ -285,6 +298,7 @@ from mlflow.server.auth.routes import (
     LIST_USER_ROLES,
     LIST_USERS,
     REMOVE_ROLE_PERMISSION,
+    REVOKE_USER_PERMISSION,
     SEARCH_DATASETS,
     SIGNUP,
     UNASSIGN_ROLE,
@@ -1194,6 +1208,167 @@ def validate_can_view_user_roles():
     return store.is_workspace_admin_of_any_of_users_workspaces(user.id, target_user.id)
 
 
+# ============================================================================
+# Unified per-user permission convenience APIs
+# ----------------------------------------------------------------------------
+# The legacy per-resource permission endpoints (``/experiments/permissions/*``,
+# ``/registered-models/permissions/*``, ``/scorers/permissions/*``,
+# ``/gateway/*/permissions/*``) are deprecated. The three convenience endpoints
+# below — ``grant_user_permission``, ``revoke_user_permission``,
+# ``check_user_permission`` — replace them with a single uniform shape keyed by
+# ``(resource_type, resource_id)``. They preserve the deprecated endpoints'
+# **per-resource MANAGE delegation** semantics permanently: a workspace member
+# who holds MANAGE on a specific experiment can grant other users access to
+# that experiment without holding workspace-wide MANAGE.
+# ============================================================================
+
+
+# Map of ``resource_type`` -> ``(perm_resolver, workspace_label, workspace_fetcher_factory)``.
+# ``perm_resolver`` is the canonical ``_get_permission_from_*`` function used by
+# the legacy validators — we route through it so the dispatcher's authorization
+# check is *bit-for-bit* the same as the legacy endpoints' (no drift risk).
+# ``workspace_fetcher_factory`` is invoked lazily (it closes over
+# ``_get_tracking_store`` which is patched in tests).
+
+
+def _scorer_lookup_keys(resource_id: str) -> tuple[str, str]:
+    """
+    Split a scorer ``resource_id`` (``"<experiment_id>/<url_quote(scorer_name)>"``,
+    matching ``SqlAlchemyStore._scorer_pattern``) into its constituent parts.
+    Raises ``INVALID_PARAMETER_VALUE`` when the input lacks the ``"/"`` delimiter.
+    """
+    experiment_id, sep, _ = resource_id.partition("/")
+    if not sep:
+        raise MlflowException(
+            "Invalid scorer resource_id. Expected '<experiment_id>/<scorer_name>'.",
+            INVALID_PARAMETER_VALUE,
+        )
+    return experiment_id, resource_id
+
+
+def _resolve_user_permission_for_resource(
+    username: str, resource_type: str, resource_id: str
+) -> Permission:
+    """
+    Resolve the effective permission ``username`` has on
+    ``(resource_type, resource_id)`` using the same code path as the runtime
+    authorization check. Mirrors the ``_get_permission_from_*`` family so the
+    answer ``check_user_permission`` returns can never drift from what an actual
+    request would see.
+    """
+    _validate_resource_type(resource_type)
+    if resource_type == RESOURCE_TYPE_EXPERIMENT:
+        return _get_experiment_permission(resource_id, username)
+    if resource_type == RESOURCE_TYPE_REGISTERED_MODEL:
+        return _get_role_permission_or_default(
+            _role_permission_for(
+                username=username,
+                resource_type=RESOURCE_TYPE_REGISTERED_MODEL,
+                resource_key=resource_id,
+                workspace_lookup_id=resource_id,
+                workspace_fetcher=_get_model_registry_store().get_registered_model,
+                workspace_label="registered model",
+            ),
+        )
+    if resource_type == RESOURCE_TYPE_SCORER:
+        experiment_id, scorer_pattern = _scorer_lookup_keys(resource_id)
+        return _get_role_permission_or_default(
+            _role_permission_for(
+                username=username,
+                resource_type=RESOURCE_TYPE_SCORER,
+                resource_key=scorer_pattern,
+                workspace_lookup_id=experiment_id,
+                workspace_fetcher=_get_tracking_store().get_experiment,
+                workspace_label="experiment",
+            ),
+        )
+    if resource_type == RESOURCE_TYPE_GATEWAY_SECRET:
+        return _get_role_permission_or_default(
+            _role_permission_for(
+                username=username,
+                resource_type=RESOURCE_TYPE_GATEWAY_SECRET,
+                resource_key=resource_id,
+                workspace_lookup_id=resource_id,
+                workspace_fetcher=lambda sid: _get_tracking_store().get_secret_info(secret_id=sid),
+                workspace_label="gateway secret",
+            ),
+        )
+    if resource_type == RESOURCE_TYPE_GATEWAY_ENDPOINT:
+        return _get_role_permission_or_default(
+            _role_permission_for(
+                username=username,
+                resource_type=RESOURCE_TYPE_GATEWAY_ENDPOINT,
+                resource_key=resource_id,
+                workspace_lookup_id=resource_id,
+                workspace_fetcher=lambda eid: _get_tracking_store().get_gateway_endpoint(
+                    endpoint_id=eid
+                ),
+                workspace_label="gateway endpoint",
+            ),
+        )
+    if resource_type == RESOURCE_TYPE_GATEWAY_MODEL_DEFINITION:
+        return _get_role_permission_or_default(
+            _role_permission_for(
+                username=username,
+                resource_type=RESOURCE_TYPE_GATEWAY_MODEL_DEFINITION,
+                resource_key=resource_id,
+                workspace_lookup_id=resource_id,
+                workspace_fetcher=lambda mdid: _get_tracking_store().get_gateway_model_definition(
+                    model_definition_id=mdid
+                ),
+                workspace_label="gateway model definition",
+            ),
+        )
+    # ``workspace`` is intentionally excluded — the workspace slot has its own
+    # set_workspace_permission / delete_workspace_permission endpoints and the
+    # ``check`` semantics for "does user have permission on the workspace itself"
+    # are ambiguous (which permission tier — USE or MANAGE — counts as 'allowed'?).
+    raise MlflowException(
+        f"resource_type '{resource_type}' is not supported by the per-user "
+        "permission convenience APIs. Use the workspace-permission APIs for "
+        "workspace-wide grants.",
+        INVALID_PARAMETER_VALUE,
+    )
+
+
+def validate_can_manage_resource() -> bool:
+    """
+    Dispatcher validator for the unified per-user grant convenience APIs. Reads
+    ``resource_type`` + ``resource_id`` from the request body and resolves the
+    requester's effective permission on that resource through the exact same
+    code path the legacy per-resource ``validate_can_manage_*`` validators use
+    (``_get_role_permission_or_default(_role_permission_for(...))``), so the
+    per-resource MANAGE delegation semantics carry over identically: a user
+    holding MANAGE on a specific experiment can grant other users access to
+    that experiment without holding workspace-wide MANAGE.
+    """
+    resource_type = _get_request_param("resource_type")
+    resource_id = _get_request_param("resource_id")
+    requester = authenticate_request().username
+    return _resolve_user_permission_for_resource(requester, resource_type, resource_id).can_manage
+
+
+def validate_can_check_user_permission() -> bool:
+    """
+    Authorization gate for ``check_user_permission``: super admins bypass,
+    self-checks are always allowed, and a workspace admin in the resource's
+    workspace may check other users in that workspace. Mirrors the
+    ``validate_can_view_user_roles`` pattern (which gates listings of another
+    user's role grants).
+    """
+    requester = authenticate_request().username
+    requester_user = store.get_user(requester)
+    if requester_user.is_admin:
+        return True
+    target_username = _get_request_param("username")
+    if requester == target_username:
+        return True
+    if not store.has_user(target_username):
+        return False
+    target_user = store.get_user(target_username)
+    return store.is_workspace_admin_of_any_of_users_workspaces(requester_user.id, target_user.id)
+
+
 def _role_based_read_predicate(username: str, resource_type: str) -> Callable[[str], bool]:
     """
     Build a ``p(resource_id) -> bool`` predicate from ``username``'s role
@@ -2052,6 +2227,16 @@ BEFORE_REQUEST_VALIDATORS.update({
     (AJAX_LIST_USER_PERMISSIONS, "GET"): validate_can_view_user_roles,
     (LIST_ROLE_USERS, "GET"): validate_can_manage_roles,
     (AJAX_LIST_ROLE_USERS, "GET"): validate_can_manage_roles,
+    # Unified per-user grant convenience APIs. ``grant`` / ``revoke`` gate on
+    # per-resource MANAGE on the target resource (preserving the per-resource
+    # MANAGE delegation the legacy endpoints offered, permanently). ``check``
+    # uses the same self/admin/workspace-admin shape as ``LIST_USER_ROLES``.
+    (GRANT_USER_PERMISSION, "POST"): validate_can_manage_resource,
+    (AJAX_GRANT_USER_PERMISSION, "POST"): validate_can_manage_resource,
+    (REVOKE_USER_PERMISSION, "POST"): validate_can_manage_resource,
+    (AJAX_REVOKE_USER_PERMISSION, "POST"): validate_can_manage_resource,
+    (CHECK_USER_PERMISSION, "POST"): validate_can_check_user_permission,
+    (AJAX_CHECK_USER_PERMISSION, "POST"): validate_can_check_user_permission,
 })
 
 # Flask routes (no proto mapping)
@@ -3583,6 +3768,61 @@ def delete_gateway_model_definition_permission():
 
 
 # =============================================================================
+# Unified per-user permission convenience handlers
+# =============================================================================
+
+
+@catch_mlflow_exception
+def grant_user_permission():
+    username = _get_request_param("username")
+    resource_type = _get_request_param("resource_type")
+    resource_id = _get_request_param("resource_id")
+    permission = _get_request_param("permission")
+    # Validate the (permission, resource_type) pair before touching the user — keeps
+    # the error precedence consistent with the legacy ``create_*_permission`` family
+    # which validates the permission first.
+    _validate_permission_for_resource_type(permission, resource_type)
+    # ``get_user`` raises RESOURCE_DOES_NOT_EXIST when the user is missing; let it
+    # propagate so callers see a clean 404 with the same shape as the existing
+    # /users/get and /users/roles/list endpoints.
+    store.get_user(username)
+    store.grant_user_resource_permission(username, resource_type, resource_id, permission)
+    return make_response({})
+
+
+@catch_mlflow_exception
+def revoke_user_permission():
+    username = _get_request_param("username")
+    resource_type = _get_request_param("resource_type")
+    resource_id = _get_request_param("resource_id")
+    _validate_resource_type(resource_type)
+    store.get_user(username)
+    store.revoke_user_resource_permission(username, resource_type, resource_id)
+    return make_response({})
+
+
+@catch_mlflow_exception
+def check_user_permission():
+    username = _get_request_param("username")
+    resource_type = _get_request_param("resource_type")
+    resource_id = _get_request_param("resource_id")
+    # Surface unknown users / unsupported resource_types as clean 4xx instead of
+    # leaking through as an "allowed=False" 200.
+    store.get_user(username)
+    permission = _resolve_user_permission_for_resource(username, resource_type, resource_id)
+    # "allowed" mirrors ``can_use`` for the regular access tier — i.e. the user
+    # can interact with the resource. Read-only access (READ) is intentionally
+    # *not* sufficient: callers that only need to confirm a user can view the
+    # resource can inspect ``permission`` directly. This matches the semantics
+    # of ``_user_can_create_in_workspace`` (which uses ``can_use``) and the
+    # workspace-tier model (USE = regular member).
+    return jsonify({
+        "allowed": permission.can_use,
+        "permission": permission.name,
+    })
+
+
+# =============================================================================
 # GraphQL Authorization
 # =============================================================================
 
@@ -4072,6 +4312,11 @@ _RBAC_ROUTES: list[tuple[Callable[[], Any], str, str, str]] = [
     (unassign_role, "DELETE", UNASSIGN_ROLE, AJAX_UNASSIGN_ROLE),
     (list_user_roles, "GET", LIST_USER_ROLES, AJAX_LIST_USER_ROLES),
     (list_role_users, "GET", LIST_ROLE_USERS, AJAX_LIST_ROLE_USERS),
+    # Unified per-user permission convenience APIs. RPC-style POST endpoints
+    # under /mlflow/users/permissions/{grant,revoke} and /mlflow/auth/check.
+    (grant_user_permission, "POST", GRANT_USER_PERMISSION, AJAX_GRANT_USER_PERMISSION),
+    (revoke_user_permission, "POST", REVOKE_USER_PERMISSION, AJAX_REVOKE_USER_PERMISSION),
+    (check_user_permission, "POST", CHECK_USER_PERMISSION, AJAX_CHECK_USER_PERMISSION),
 ]
 
 
