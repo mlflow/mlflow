@@ -1,3 +1,4 @@
+import inspect
 import json
 import logging
 import os
@@ -75,9 +76,11 @@ def _load_model(model_uri, dst_path=None):
     else:
         model = dspy.load(os.path.join(local_model_path, model_path), allow_pickle=True)
 
-        dspy_settings = dspy.load_settings(
-            os.path.join(local_model_path, _MODEL_DATA_PATH, _DSPY_SETTINGS_FILE_NAME)
-        )
+        settings_path = os.path.join(local_model_path, _MODEL_DATA_PATH, _DSPY_SETTINGS_FILE_NAME)
+        if "allow_pickle" in inspect.signature(dspy.load_settings).parameters:
+            dspy_settings = dspy.load_settings(settings_path, allow_pickle=True)
+        else:
+            dspy_settings = dspy.load_settings(settings_path)
 
         model_config_file = os.path.join(
             local_model_path, _MODEL_DATA_PATH, _MODEL_CONFIG_FILE_NAME

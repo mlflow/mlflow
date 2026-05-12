@@ -1,5 +1,6 @@
 import { test, jest, expect, describe } from '@jest/globals';
 import { getExperimentNameValidator, modelNameValidator } from './validations';
+import { MlflowService } from '../../experiment-tracking/sdk/MlflowService';
 import { Services as ModelRegistryService } from '../../model-registry/services';
 
 test('ExperimentNameValidator works properly', () => {
@@ -20,6 +21,39 @@ test('ExperimentNameValidator works properly', () => {
   // input value == undefined, no error message expected
   experimentNameValidator(undefined, undefined, mockCallback);
   expect(mockCallback).toHaveBeenCalledWith(undefined);
+});
+
+describe('ExperimentNameValidator server-side fallback', () => {
+  test('shows "already exists" error for active experiment found via API', async () => {
+    MlflowService.getExperimentByName = jest.fn(() =>
+      Promise.resolve({ experiment: { lifecycleStage: 'active' } }),
+    ) as any;
+    const experimentNameValidator = getExperimentNameValidator(() => []);
+    const mockCallback = jest.fn((err) => err);
+    experimentNameValidator(undefined, 'my-experiment', mockCallback);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(mockCallback).toHaveBeenCalledWith(`Experiment "my-experiment" already exists.`);
+  });
+
+  test('shows "already exists in deleted state" error for deleted experiment found via API', async () => {
+    MlflowService.getExperimentByName = jest.fn(() =>
+      Promise.resolve({ experiment: { lifecycleStage: 'deleted' } }),
+    ) as any;
+    const experimentNameValidator = getExperimentNameValidator(() => []);
+    const mockCallback = jest.fn((err) => err);
+    experimentNameValidator(undefined, 'my-experiment', mockCallback);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(mockCallback).toHaveBeenCalledWith(expect.stringContaining('already exists in deleted state'));
+  });
+
+  test('shows no error when experiment is not found via API', async () => {
+    MlflowService.getExperimentByName = jest.fn(() => Promise.reject()) as any;
+    const experimentNameValidator = getExperimentNameValidator(() => []);
+    const mockCallback = jest.fn((err) => err);
+    experimentNameValidator(undefined, 'nonexistent-experiment', mockCallback);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(mockCallback).toHaveBeenCalledWith(undefined);
+  });
 });
 
 describe('modelNameValidator should work properly', () => {

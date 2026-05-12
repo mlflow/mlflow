@@ -211,7 +211,29 @@ check_and_install_pyenv() {
   fi
 }
 
+check_and_install_uv() {
+  if [ -z "$(command -v uv || true)" ]; then
+    echo "uv is not installed. Installing uv..."
+    UV_INSTALLER=$(mktemp)
+    curl -LsSf https://astral.sh/uv/install.sh -o "$UV_INSTALLER"
+    sh "$UV_INSTALLER"
+    rm -f "$UV_INSTALLER"
+    # uv may be installed to ~/.local/bin or ~/.cargo/bin depending on the platform
+    export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
+    if [ -n "$GITHUB_ACTIONS" ]; then
+      echo "$HOME/.local/bin" >>"$GITHUB_PATH"
+      echo "$HOME/.cargo/bin" >>"$GITHUB_PATH"
+    fi
+    if [ -z "$(command -v uv || true)" ]; then
+      echo "Failed to install uv. Please install it manually: https://docs.astral.sh/uv/getting-started/installation/"
+      exit 1
+    fi
+  fi
+}
+
 check_and_install_min_py_version() {
+  check_and_install_uv
+
   # Get the minimum supported version for development purposes
   min_py_version="3.10"
 
@@ -239,6 +261,14 @@ check_and_install_min_py_version() {
   # Install the Python version if it cannot be found
   pyenv install -s "$PY_INSTALL_VERSION"
   pyenv local "$PY_INSTALL_VERSION"
+  # Add pyenv shims to PATH so uv and other tools resolve the pyenv-managed
+  # Python (e.g., 3.10.13) rather than the system Python (which may be
+  # PEP 668 externally managed on Ubuntu 24.04+).
+  PYENV_SHIMS="${PYENV_ROOT:-$HOME/.pyenv}/shims"
+  export PATH="$PYENV_SHIMS:$PATH"
+  if [ -n "$GITHUB_ACTIONS" ]; then
+    echo "$PYENV_SHIMS" >>"$GITHUB_PATH"
+  fi
   uv pip install --system $(quiet_command) --upgrade pip
   uv pip install --system $(quiet_command) virtualenv
 }
@@ -273,21 +303,26 @@ create_virtualenv() {
 # Install mlflow dev version and required dependencies
 install_mlflow_and_dependencies() {
   # Install current checked out version of mlflow (local)
-  uv pip install --system -e .[extras]
+  # Note: omit --system so uv installs into the active virtualenv (sourced in
+  # create_virtualenv) rather than the pyenv Python's site-packages.
+  uv pip install -e .[extras]
 
   echo "Installing pip dependencies for development environment."
   if [[ -n "$full" ]]; then
     # Install dev requirements
-    uv pip install --system -r "$rd/dev-requirements.txt"
+    uv pip install -r "$rd/dev-requirements.txt"
     # Install test plugin
-    uv pip install --system -e "$MLFLOW_HOME/tests/resources/mlflow-test-plugin"
+    uv pip install -e "$MLFLOW_HOME/tests/resources/mlflow-test-plugin"
   else
     files=("$rd/test-requirements.txt" "$rd/lint-requirements.txt" "$rd/doc-requirements.txt")
     for r in "${files[@]}"; do
-      uv pip install --system -r "$r"
+      uv pip install -r "$r"
     done
   fi
   echo "Finished installing pip dependencies."
+  # Regenerate pyenv shims so newly installed executables (e.g., pre-commit)
+  # are accessible via the shims directory we added to PATH earlier.
+  pyenv rehash
 
   echo "$(
     tput setaf 2

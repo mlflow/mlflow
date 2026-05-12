@@ -34,6 +34,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlLoggedModel,
     SqlOnlineScoringConfig,
     SqlRun,
+    SqlScorer,
     SqlTraceInfo,
 )
 from mlflow.store.tracking.sqlalchemy_store import (
@@ -98,6 +99,11 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
         if model is SqlOnlineScoringConfig:
             return query.join(
                 SqlExperiment, SqlOnlineScoringConfig.experiment_id == SqlExperiment.experiment_id
+            ).filter(SqlExperiment.workspace == workspace)
+
+        if model is SqlScorer:
+            return query.join(
+                SqlExperiment, SqlScorer.experiment_id == SqlExperiment.experiment_id
             ).filter(SqlExperiment.workspace == workspace)
 
         if model is SqlEvaluationDataset:

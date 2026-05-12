@@ -49,7 +49,32 @@ The current local branch may not be the PR branch being reviewed. Always rely on
 
 Run the `fetch-diff` skill to fetch the PR diff for the identified PR.
 
-### 3. In-Depth Analysis
+### 3. Fetch Existing Review Comments
+
+Fetch up to 100 review threads on the PR (open, resolved, and outdated, with up to 20 comments each) so you can avoid duplicating prior feedback:
+
+```bash
+gh api graphql -F owner=<owner> -F repo=<repo> -F pr=<PR_NUMBER> -f query='
+  query($owner: String!, $repo: String!, $pr: Int!) {
+    repository(owner: $owner, name: $repo) {
+      pullRequest(number: $pr) {
+        reviewThreads(first: 100) {
+          nodes {
+            isResolved
+            isOutdated
+            path
+            line
+            comments(first: 20) {
+              nodes { author { login } body }
+            }
+          }
+        }
+      }
+    }
+  }'
+```
+
+### 4. In-Depth Analysis
 
 **Apply additional filtering** from user instructions if provided (e.g., focus on specific issues or areas).
 
@@ -67,7 +92,7 @@ Evaluate the changed code across these dimensions:
 
 **Workspace awareness reminder**: If the diff touches the SQLAlchemy tracking store or other tracking persistence layers, verify workspace-aware behavior remains intact and that new functionality includes matching workspace-aware tests (e.g., additions in `tests/store/tracking/test_sqlalchemy_store_workspace.py`).
 
-### 4. Decision Point
+### 5. Decision Point
 
 Classify each finding by severity (matches `.github/instructions/code-review.instructions.md`):
 
@@ -79,11 +104,11 @@ Classify each finding by severity (matches `.github/instructions/code-review.ins
 
 Then:
 
-- **No findings** -> skip to step 6 (approve)
-- **Only MODERATE/NIT findings** -> step 5 (add comments), then step 6 (approve)
-- **Any CRITICAL finding** -> step 5 (add comments); do NOT approve
+- **No findings** -> skip to step 7 (approve)
+- **Only MODERATE/NIT findings** -> step 6 (add comments), then step 7 (approve)
+- **Any CRITICAL finding** -> step 6 (add comments); do NOT approve
 
-### 5. Add Review Comments
+### 6. Add Review Comments
 
 For each finding, use the `add-review-comment` skill. One comment per distinct finding, anchored to the most relevant changed line. For repeated identical issues, leave a single representative comment rather than flagging every instance.
 
@@ -91,7 +116,7 @@ Every comment MUST use this exact format: `<emoji> **<severity>:** <description>
 
 Keep comments constructive and specific: state the problem, why it matters, and a concrete suggestion when possible.
 
-### 6. Approve the PR
+### 7. Approve the PR
 
 Approve the PR when there are no findings or only MODERATE/NIT findings, but **only if the PR author has the `admin` or `maintain` role**.
 
