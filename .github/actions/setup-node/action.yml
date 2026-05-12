@@ -5,12 +5,13 @@ inputs:
     description: "Node version to use."
     default: 24
     required: false
+  # NOTE: `cache` / `cache-dependency-path` are currently ignored; caching is hardcoded off below.
   cache:
-    description: "Currently ignored: node caching is hardcoded off in this composite to avoid cache-poisoning exposure. Retained for easy rewire if caching is re-enabled in the future."
+    description: "Package manager to cache (e.g., npm, yarn)."
     default: ""
     required: false
   cache-dependency-path:
-    description: "Currently ignored: node caching is hardcoded off in this composite. See `cache` input."
+    description: "Path to dependency file(s) for cache key generation."
     default: ""
     required: false
 

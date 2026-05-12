@@ -8,8 +8,9 @@ inputs:
     description: "Whether to pin to a specific micro version for Anaconda compatibility. Set to false for workflows that don't need conda/pyenv to hit the runner's pre-installed Python cache and avoid a ~9s download."
     required: false
     default: "true"
+  # NOTE: `enable-uv-cache` is currently ignored; caching is hardcoded off below.
   enable-uv-cache:
-    description: "Currently ignored: uv caching is hardcoded off in this composite to avoid cache-poisoning exposure. Retained for easy rewire if caching is re-enabled in the future."
+    description: "Enable uv's built-in cache. Set to false for short jobs where cache restore/save overhead isn't worth it."
     required: false
     default: "true"
 outputs:
