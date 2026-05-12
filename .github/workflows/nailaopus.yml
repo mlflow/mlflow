@@ -62,9 +62,6 @@ jobs:
         id: app_token
         uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
         with:
-          # `app-id` is deprecated; the rest of the repo uses `client-id`
-          # (PR #23157). The variable holds the App's Client ID (format
-          # `Iv23li...`), not the numeric App ID.
           client-id: ${{ vars.NAILAOPUS_APP_CLIENT_ID }}
           private-key: ${{ secrets.NAILAOPUS_APP_KEY }}
           owner: mlflow
@@ -149,10 +146,8 @@ jobs:
         with:
           repository: ${{ github.repository }}
           ref: refs/pull/${{ steps.ctx.outputs.pr }}/head
-          # Shallow + sparse: the orchestrator runs `gh pr diff` and reads
-          # only changed files through the GitHub API, so we don't need
-          # history or the full tree on disk.
-          fetch-depth: 1
+          # Sparse: the orchestrator reads files via the GitHub API, so we
+          # only need `.gitignore` on disk to make the checkout valid.
           sparse-checkout: |
             .gitignore
           sparse-checkout-cone-mode: false
@@ -166,7 +161,6 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           repository: mlflow/internal
-          fetch-depth: 1
           sparse-checkout: |
             mlflow-reviewer
           path: internal
