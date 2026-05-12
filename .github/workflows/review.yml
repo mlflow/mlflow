@@ -163,7 +163,7 @@ jobs:
             # Smoke test: exercise the Bash tool (and gh CLI + app token) so
             # sandbox or auth regressions surface here.
             ARGS=("Run \`gh pr view $PR_NUMBER\` and summarize the PR")
-            EXTRA_FLAGS+=(--allowedTools "Bash(gh pr view:*)")
+            EXTRA_FLAGS+=("--allowedTools=Bash(gh pr view:*)")
           else
             ARGS=("/pr-review")
             [ -n "$PROMPT" ] && ARGS+=("$PROMPT")
