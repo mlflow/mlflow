@@ -30,9 +30,20 @@ import {
 } from '@mlflow/core';
 
 import type { ContentBlock, MessageContent, TokenUsage } from './types.js';
-import { buildUsageDict, extractContentAndTools } from './tracing.js';
+import {
+  MAX_PREVIEW_LENGTH,
+  METADATA_KEY_CLAUDE_CODE_VERSION,
+  METADATA_KEY_PERMISSION_MODE,
+  METADATA_KEY_WORKING_DIRECTORY,
+  buildUsageDict,
+  extractContentAndTools,
+  sanitizeForSpan,
+} from './_internal.js';
 
-const MAX_PREVIEW_LENGTH = 1000;
+// Tool names that invoke a sub-agent. `'Agent'` is what the Claude Agent SDK
+// emits as of 0.2.x (confirmed via live stream inspection); `'Task'` is the
+// legacy name still used by the Claude Code CLI transcript. Both surfaces
+// land in this code path now that SDK and CLI traces share their builders.
 const SUBAGENT_TOOL_NAMES = new Set(['Task', 'Agent']);
 
 type ConversationKey = string | null;
@@ -90,14 +101,33 @@ export class LiveTracingContext {
   private permissionMode: string | undefined;
   private claudeCodeVersion: string | undefined;
   private ended = false;
+  private readonly spanOptions: unknown;
 
   constructor(prompt: string, options?: Record<string, unknown>) {
+    this.spanOptions = sanitizeOptions(options);
     this.rootSpan = startSpan({
       name: 'claude_code_conversation',
       spanType: SpanType.AGENT,
-      inputs: { prompt, options: sanitizeOptions(options) },
+      inputs: { prompt, options: this.spanOptions },
     });
     this.conversations.set(null, [{ role: 'user', content: prompt }]);
+  }
+
+  /**
+   * Append captured prompt text (used when the caller passes an AsyncIterable
+   * prompt to query() — content arrives over time, not as a single string).
+   * Each call refreshes the root span's `inputs.prompt` so users see the most
+   * complete prompt available in the trace UI as more chunks arrive.
+   */
+  appendPromptText(text: string): void {
+    const conversation = this.getConversation(null);
+    const first = conversation[0];
+    if (first?.role === 'user' && typeof first.content === 'string') {
+      first.content = first.content ? `${first.content}\n${text}` : text;
+    } else {
+      conversation.unshift({ role: 'user', content: text });
+    }
+    this.rootSpan.setInputs({ prompt: conversation[0].content, options: this.spanOptions });
   }
 
   /** Update root span metadata with session-level info from the init message. */
@@ -114,7 +144,7 @@ export class LiveTracingContext {
    */
   onAssistantMessage(msg: SDKAssistantLike): void {
     const parentKey: ConversationKey = msg.parent_tool_use_id ?? null;
-    const parentSpan = this.resolveParent(parentKey, msg.message);
+    const parentSpan = this.resolveParent(parentKey);
     const content = msg.message.content;
     const [textContent, toolUses] = extractContentAndTools(content);
 
@@ -316,7 +346,7 @@ export class LiveTracingContext {
     return conv;
   }
 
-  private resolveParent(parentKey: ConversationKey, _message: unknown): LiveSpan {
+  private resolveParent(parentKey: ConversationKey): LiveSpan {
     if (parentKey == null) {
       return this.rootSpan;
     }
@@ -355,12 +385,12 @@ export class LiveTracingContext {
       if (user) {
         metadata[TraceMetadataKey.TRACE_USER] = user;
       }
-      metadata['mlflow.trace.working_directory'] = process.cwd();
+      metadata[METADATA_KEY_WORKING_DIRECTORY] = process.cwd();
       if (this.permissionMode) {
-        metadata['mlflow.trace.permission_mode'] = this.permissionMode;
+        metadata[METADATA_KEY_PERMISSION_MODE] = this.permissionMode;
       }
       if (this.claudeCodeVersion) {
-        metadata['mlflow.claude_code_version'] = this.claudeCodeVersion;
+        metadata[METADATA_KEY_CLAUDE_CODE_VERSION] = this.claudeCodeVersion;
       }
       trace.info.traceMetadata = metadata;
     } catch (err) {
@@ -377,13 +407,15 @@ function hasThinking(content: string | ContentBlock[]): boolean {
 }
 
 /**
- * Strip hook callbacks (they're functions, not serialisable) before recording
- * options on the root span's inputs.
+ * Strip callbacks (functions are not serialisable and may close over large
+ * objects) before recording options on the root span's inputs. The Agent SDK
+ * options can include functions at several depths — `hooks[].hooks[]`,
+ * `canUseTool`, MCP server entries — so we recursively drop any function
+ * value rather than enumerating known fields.
  */
 function sanitizeOptions(options: Record<string, unknown> | undefined): unknown {
   if (!options) {
     return undefined;
   }
-  const { hooks: _hooks, ...rest } = options;
-  return rest;
+  return sanitizeForSpan(options);
 }

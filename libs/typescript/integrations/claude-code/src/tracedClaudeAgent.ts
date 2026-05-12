@@ -37,8 +37,15 @@ type QueryFunction = (params: QueryParams) => Query;
  */
 export function createTracedQuery(queryFn: QueryFunction): QueryFunction {
   return (params: QueryParams): Query => {
-    const promptForSpan = typeof params.prompt === 'string' ? params.prompt : '[streaming input]';
-    const ctx = new LiveTracingContext(promptForSpan, params.options);
+    const ctx = new LiveTracingContext(initialPromptFor(params.prompt), params.options);
+
+    // For AsyncIterable prompts, wrap so user messages are observed for prompt
+    // capture without consuming them — the SDK still receives the original
+    // sequence. The wrapper records text content on the root span's inputs.
+    const prompt =
+      typeof params.prompt === 'string'
+        ? params.prompt
+        : capturingPromptIterable(params.prompt, (text) => ctx.appendPromptText(text));
 
     // Force forwardSubagentText: true so sub-agent inner messages flow
     // through the parent stream. Without it, the SDK only emits tool_use and
@@ -50,19 +57,24 @@ export function createTracedQuery(queryFn: QueryFunction): QueryFunction {
       forwardSubagentText: true,
     };
 
-    const sdkQuery = queryFn({ ...params, options });
+    const sdkQuery = queryFn({ ...params, prompt, options });
 
     async function* tracedGenerator(): AsyncGenerator<SDKMessage, void> {
+      // finalize() / finalizeError() are idempotent (guarded by `ended`), so
+      // calling finalize() unconditionally in `finally` is safe even when the
+      // error path already called finalizeError(). The `finally` block matters
+      // because consumers can exit early (`break`) and skip the post-loop code.
       try {
         for await (const msg of sdkQuery) {
           dispatch(ctx, msg);
           yield msg;
         }
-        await ctx.finalize();
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         await ctx.finalizeError(message);
         throw err;
+      } finally {
+        await ctx.finalize();
       }
     }
 
@@ -115,4 +127,68 @@ function dispatch(ctx: LiveTracingContext, msg: SDKMessage): void {
       // are heartbeat signals that don't change the span tree.
       return;
   }
+}
+
+/**
+ * Initial value for the root span's `prompt` input. For string prompts we have
+ * it up front; for streaming prompts we start with a placeholder and append
+ * each user message's text via `capturingPromptIterable`.
+ */
+function initialPromptFor(prompt: string | AsyncIterable<unknown>): string {
+  return typeof prompt === 'string' ? prompt : '';
+}
+
+/**
+ * Wrap an AsyncIterable of SDK user messages so each yielded message's text
+ * content is forwarded to `onText`. Used to record streaming prompts on the
+ * root span's inputs as they arrive; the underlying iterable is passed through
+ * unchanged to the SDK.
+ */
+function capturingPromptIterable(
+  source: AsyncIterable<unknown>,
+  onText: (text: string) => void,
+): AsyncIterable<unknown> {
+  return {
+    [Symbol.asyncIterator](): AsyncIterator<unknown> {
+      const sourceIter = source[Symbol.asyncIterator]();
+      return {
+        async next(): Promise<IteratorResult<unknown>> {
+          const result = await sourceIter.next();
+          if (!result.done) {
+            const text = extractUserText(result.value);
+            if (text) {
+              onText(text);
+            }
+          }
+          return result;
+        },
+        return: sourceIter.return ? sourceIter.return.bind(sourceIter) : undefined,
+        throw: sourceIter.throw ? sourceIter.throw.bind(sourceIter) : undefined,
+      };
+    },
+  };
+}
+
+function extractUserText(value: unknown): string | undefined {
+  if (typeof value !== 'object' || value == null) {
+    return undefined;
+  }
+  const v = value as { type?: string; message?: { content?: unknown } };
+  if (v.type !== 'user') {
+    return undefined;
+  }
+  const content = v.message?.content;
+  if (typeof content === 'string') {
+    return content;
+  }
+  if (Array.isArray(content)) {
+    const text = content
+      .filter((b): b is { type: 'text'; text: string } => {
+        return typeof b === 'object' && b != null && (b as { type?: string }).type === 'text';
+      })
+      .map((b) => b.text)
+      .join('');
+    return text || undefined;
+  }
+  return undefined;
 }

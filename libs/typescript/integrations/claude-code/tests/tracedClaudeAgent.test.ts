@@ -540,7 +540,89 @@ describe('createTracedQuery', () => {
     expect(optionsSeen[0]?.forwardSubagentText).toBe(true);
   });
 
-  it('records hooks as a sanitized placeholder so functions are not serialised on the span', async () => {
+  it('finalizes the trace even when the consumer breaks out of the iterator early', async () => {
+    const { fn } = mockQuery([
+      { type: 'system', subtype: 'init', session_id: 's', model: 'm' },
+      {
+        type: 'assistant',
+        parent_tool_use_id: null,
+        message: { role: 'assistant', model: 'm', content: [{ type: 'text', text: 'hi' }] },
+      },
+      {
+        type: 'assistant',
+        parent_tool_use_id: null,
+        message: {
+          role: 'assistant',
+          model: 'm',
+          content: [{ type: 'text', text: 'never reached' }],
+        },
+      },
+    ]);
+
+    const traced = createTracedQuery(fn);
+    const stream = traced({ prompt: 'p' });
+    for await (const msg of stream) {
+      if (msg.type === 'assistant') {
+        break; // consumer exits before the rest of the stream drains
+      }
+    }
+
+    // Even though we broke early, the root span must be closed so the trace
+    // flushes to the backend (otherwise it would leak as an open trace).
+    const root = rootSpan()!;
+    expect(root.ended).toBe(true);
+  });
+
+  it('captures streaming-prompt text on the root span as the SDK consumes it', async () => {
+    // mockQuery that actually drains the prompt iterable (mirrors what the
+    // real Agent SDK does in streaming mode).
+    function streamingMockQuery(messages: any[]) {
+      const fn = (params: { prompt: any; options?: Record<string, unknown> }) => {
+        const iter = (async function* () {
+          if (typeof params.prompt !== 'string') {
+            for await (const _ of params.prompt as AsyncIterable<unknown>) {
+              // drain — the wrapper's capturing iterable observes each chunk
+            }
+          }
+          for (const m of messages) yield m;
+        })();
+        return {
+          [Symbol.asyncIterator]: () => iter,
+          next: () => iter.next(),
+          return: (v?: any) => iter.return(v),
+          throw: (e?: any) => iter.throw(e),
+          interrupt: jest.fn(),
+        } as any;
+      };
+      return fn;
+    }
+
+    const fn = streamingMockQuery([
+      {
+        type: 'result',
+        subtype: 'success',
+        duration_ms: 1,
+        usage: { input_tokens: 0, output_tokens: 0 },
+      },
+    ]);
+
+    async function* streamingPrompt() {
+      yield { type: 'user', message: { role: 'user', content: 'first chunk' } };
+      yield {
+        type: 'user',
+        message: { role: 'user', content: [{ type: 'text', text: 'second chunk' }] },
+      };
+    }
+
+    await drain(createTracedQuery(fn)({ prompt: streamingPrompt() }));
+
+    const root = rootSpan()!;
+    const recorded = root.inputs.prompt as string;
+    expect(recorded).toContain('first chunk');
+    expect(recorded).toContain('second chunk');
+  });
+
+  it('replaces callbacks in options with a sanitized placeholder on the span', async () => {
     const { fn } = mockQuery([
       {
         type: 'result',
@@ -550,13 +632,24 @@ describe('createTracedQuery', () => {
       },
     ]);
     const hookFn = jest.fn();
+    const canUseToolFn = jest.fn();
 
     await drain(
-      createTracedQuery(fn)({ prompt: 'p', options: { hooks: { PreToolUse: [hookFn] } } }),
+      createTracedQuery(fn)({
+        prompt: 'p',
+        options: {
+          hooks: { PreToolUse: [hookFn] },
+          canUseTool: canUseToolFn as any,
+          permissionMode: 'bypassPermissions',
+        },
+      }),
     );
 
     const root = rootSpan()!;
-    // Hooks should not appear in the recorded options
-    expect((root.inputs.options as any).hooks).toBeUndefined();
+    const opts = root.inputs.options as any;
+    // Functions at every depth are replaced; non-function fields are preserved.
+    expect(opts.hooks.PreToolUse[0]).toBe('[function]');
+    expect(opts.canUseTool).toBe('[function]');
+    expect(opts.permissionMode).toBe('bypassPermissions');
   });
 });
