@@ -17,7 +17,6 @@ import lightgbm
 import lightning
 import litellm
 import llama_index.core
-import mistralai
 import openai
 import pyspark
 import pyspark.ml
@@ -64,6 +63,11 @@ try:
 except ImportError:
     pass
 
+try:
+    import mistralai
+except ImportError:
+    mistralai = None
+
 library_to_mlflow_module_genai = {
     openai: mlflow.openai,
     llama_index.core: mlflow.llama_index,
@@ -74,11 +78,13 @@ library_to_mlflow_module_genai = {
     google.genai: mlflow.gemini,
     boto3: mlflow.bedrock,
     groq: mlflow.groq,
-    mistralai: mlflow.mistral,
     autogen: mlflow.ag2,
     # TODO: once Python 3.10 is introduced, enable smolagents
     # smolagents: mlflow.smolagents,
 }
+
+if mistralai is not None:
+    library_to_mlflow_module_genai[mistralai] = mlflow.mistral
 
 library_to_mlflow_module_traditional_ai = {
     **library_to_mlflow_module_without_spark_datasource,

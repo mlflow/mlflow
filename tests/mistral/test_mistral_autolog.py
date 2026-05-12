@@ -3,6 +3,8 @@ from unittest.mock import patch
 import httpx
 import pytest
 
+mistralai = pytest.importorskip("mistralai")
+
 try:
     from mistralai.client import Mistral  # mistralai >= 2.0
     from mistralai.client.models import (

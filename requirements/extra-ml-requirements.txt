@@ -80,7 +80,8 @@ google-genai
 # Required by mlflow.groq
 groq
 # Required by mlflow.mistral
-mistralai
+# NOTE: `mistralai` is currently quarantined on PyPI, so no installable files are published.
+# Keep this dependency out of CI until package publishing is restored.
 # Required by mlflow.autogen
 autogen-agentchat
 # Required by mlflow.semantic_kernel
