@@ -58,9 +58,12 @@ jobs:
 
       - name: Generate App installation token (multi-repo)
         id: app_token
-        uses: actions/create-github-app-token@f8d387b68d61c58ab83c6c016672934102569859 # v3.0.0
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
         with:
-          app-id: ${{ vars.NAILAOPUS_APP_ID }}
+          # `app-id` is deprecated; the rest of the repo uses `client-id`
+          # (PR #23157). The variable holds the App's Client ID (format
+          # `Iv23li...`), not the numeric App ID.
+          client-id: ${{ vars.NAILAOPUS_APP_CLIENT_ID }}
           private-key: ${{ secrets.NAILAOPUS_APP_KEY }}
           owner: mlflow
           # Least-privilege: explicitly request only what the workflow uses
