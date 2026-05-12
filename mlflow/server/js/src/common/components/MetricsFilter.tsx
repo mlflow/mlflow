@@ -187,6 +187,7 @@ interface FilterRowProps {
 
 const FilterRow = ({ rowId, filter, columnOptions, onChange, onDelete }: FilterRowProps) => {
   const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
   const selectedOption = columnOptions.find((o) => o.value === filter.column);
 
   return (
@@ -203,7 +204,10 @@ const FilterRow = ({ rowId, filter, columnOptions, onChange, onDelete }: FilterR
         >
           <DialogComboboxTrigger
             withInlineLabel={false}
-            placeholder="Select field"
+            placeholder={intl.formatMessage({
+              defaultMessage: 'Select field',
+              description: 'Usage overview > filter row > field column placeholder',
+            })}
             renderDisplayedValue={() => selectedOption?.label ?? ''}
             width={160}
             allowClear={false}
@@ -234,7 +238,10 @@ const FilterRow = ({ rowId, filter, columnOptions, onChange, onDelete }: FilterR
           />
         </FormUI.Label>
         <SimpleSelect
-          aria-label="Operator"
+          aria-label={intl.formatMessage({
+            defaultMessage: 'Operator',
+            description: 'Usage overview > filter row > operator dropdown aria label',
+          })}
           componentId="mlflow.usage.metrics_filter.operator"
           id={`usage-metrics-filter-operator-${rowId}`}
           value="="
@@ -256,7 +263,10 @@ const FilterRow = ({ rowId, filter, columnOptions, onChange, onDelete }: FilterR
           id={`usage-metrics-filter-value-${rowId}`}
           value={filter.value}
           onChange={(e) => onChange({ ...filter, value: e.target.value })}
-          placeholder="Enter value"
+          placeholder={intl.formatMessage({
+            defaultMessage: 'Enter value',
+            description: 'Usage overview > filter row > value input placeholder',
+          })}
         />
       </div>
 
@@ -265,7 +275,10 @@ const FilterRow = ({ rowId, filter, columnOptions, onChange, onDelete }: FilterR
         componentId="mlflow.usage.metrics_filter.delete_row"
         icon={<CloseIcon />}
         onClick={onDelete}
-        aria-label="Remove filter"
+        aria-label={intl.formatMessage({
+          defaultMessage: 'Remove filter',
+          description: 'Usage overview > filter row > remove row button aria label',
+        })}
       />
     </div>
   );

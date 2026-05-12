@@ -4411,6 +4411,10 @@
     "defaultMessage": "Cost breakdown",
     "description": "Header for span cost breakdown"
   },
+  "P5OG6u": {
+    "defaultMessage": "Select field",
+    "description": "Usage overview > filter row > field column placeholder"
+  },
   "PAUNgq": {
     "defaultMessage": "Cost Breakdown",
     "description": "Title for the cost breakdown chart"
@@ -4522,6 +4526,10 @@
   "Pgxfhl": {
     "defaultMessage": "Role",
     "description": "Roles table column header for the role name"
+  },
+  "PlP56F": {
+    "defaultMessage": "Enter value",
+    "description": "Usage overview > filter row > value input placeholder"
   },
   "PmPV+3": {
     "defaultMessage": "Models",
@@ -4818,6 +4826,10 @@
   "RhQhT4": {
     "defaultMessage": "Model",
     "description": "Label for model name in span details"
+  },
+  "RiZy19": {
+    "defaultMessage": "Remove filter",
+    "description": "Usage overview > filter row > remove row button aria label"
   },
   "RlBbjb": {
     "defaultMessage": "A tag key is required",
@@ -6090,6 +6102,10 @@
   "ZBZBrn": {
     "defaultMessage": "Input /1M",
     "description": "Table header for input cost"
+  },
+  "ZBaNWk": {
+    "defaultMessage": "Operator",
+    "description": "Usage overview > filter row > operator dropdown aria label"
   },
   "ZGrkWk": {
     "defaultMessage": "Perform inference via model.transform()",
