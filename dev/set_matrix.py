@@ -49,6 +49,9 @@ VERSIONS_YAML_PATH = "mlflow/ml-package-versions.yml"
 DEV_VERSION = "dev"
 # Treat "dev" as "newer than any existing versions"
 DEV_NUMERIC = "9999.9999.9999"
+PYPI_NOT_FOUND_PATTERN = re.compile(
+    r"Package not found: https://pypi\.org/pypi/(?P<name>[^/]+)/json"
+)
 
 T = TypeVar("T")
 
@@ -516,6 +519,28 @@ def _get_test_files_from_pytest_command(cmd, test_dir):
     return executed_files - ignore_files
 
 
+async def _get_available_packages(pip_releases: list[str]) -> dict[str, Package]:
+    unavailable = set()
+    remaining = pip_releases
+    while True:
+        try:
+            return dict(zip(remaining, await get_packages(remaining)))
+        except Exception as e:
+            if not (match := PYPI_NOT_FOUND_PATTERN.search(str(e))):
+                raise
+            package_name = match.group("name")
+            if package_name in unavailable:
+                raise
+            unavailable.add(package_name)
+            remaining = [release for release in pip_releases if release not in unavailable]
+            warnings.warn(
+                f"Skipping unavailable PyPI package {package_name!r} while generating matrix.",
+                stacklevel=2,
+            )
+            if not remaining:
+                return {}
+
+
 def validate_requirements(
     requirements: dict[str, list[str]],
     name: str,
@@ -556,11 +581,18 @@ def validate_requirements(
 async def expand_config(config: dict[str, Any], *, is_ref: bool = False) -> set[MatrixItem]:
     matrix = set()
     pip_releases = list({fc.package_info.pip_release for fc in config.values()})
-    packages = dict(zip(pip_releases, await get_packages(pip_releases)))
+    packages = await _get_available_packages(pip_releases)
     for name, flavor_config in config.items():
         flavor = get_flavor(name)
         package_info = flavor_config.package_info
-        package = packages[package_info.pip_release]
+        package = packages.get(package_info.pip_release)
+        if package is None:
+            warnings.warn(
+                f"Skipping flavor {name!r}: PyPI package "
+                f"{package_info.pip_release!r} is unavailable.",
+                stacklevel=2,
+            )
+            continue
         all_versions = get_released_versions(package)
         free_disk_space = package_info.pip_release in (
             "transformers",
