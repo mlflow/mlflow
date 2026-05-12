@@ -342,9 +342,14 @@ class AmazonBedrockProvider(BaseProvider):
                             try:
                                 tool_input = json.loads(arguments)
                             except json.JSONDecodeError as e:
+                                tool_call_name = tool_call.get("function", {}).get("name", "")
                                 raise AIGatewayException(
                                     status_code=422,
-                                    detail="Invalid assistant tool call arguments: not valid JSON.",
+                                    detail=(
+                                        "Invalid assistant tool call arguments: not valid JSON for "
+                                        f"tool_call_id={tool_call.get('id', '')}, "
+                                        f"tool_name={tool_call_name}."
+                                    ),
                                 ) from e
                         else:
                             tool_input = {}
