@@ -1,4 +1,3 @@
-import contextlib
 from contextlib import contextmanager
 
 import pytest
@@ -198,9 +197,9 @@ def test_legacy_client_methods_emit_deprecation_warning(client, monkeypatch):
 
 # The full surface of legacy per-resource permission methods on
 # ``AuthServiceClient``. The deprecation warning is emitted by
-# ``_warn_legacy_permission_method`` before the HTTP call, so we don't need a
-# live server — the call fails at the network layer, which is fine; what we're
-# pinning is the warning contract, not the response.
+# ``_warn_legacy_permission_method`` *before* ``_request`` is called, so no
+# live server is needed; we patch ``_request`` to raise a sentinel and
+# assert the warning still fires, which pins the ordering (warning then HTTP).
 _LEGACY_PERMISSION_METHODS = [
     ("create_experiment_permission", ("e", "u", "READ")),
     ("get_experiment_permission", ("e", "u")),
@@ -229,20 +228,35 @@ _LEGACY_PERMISSION_METHODS = [
 ]
 
 
+class _RequestCalled(Exception):
+    """Sentinel raised by the patched ``_request`` to mark that ``_request`` ran."""
+
+
 @pytest.mark.parametrize(("method_name", "args"), _LEGACY_PERMISSION_METHODS)
 def test_every_legacy_permission_method_emits_deprecation_warning(method_name, args, monkeypatch):
-    # Pins the contract that every deprecated per-resource permission method on
-    # ``AuthServiceClient`` calls ``_warn_legacy_permission_method`` before any
-    # network I/O. Guards against accidental removal of the warning during
-    # refactors. We patch ``_request`` to short-circuit — the warning is the
-    # only thing under test here; ``http_request``'s retry/backoff against an
-    # unbound URI would dominate the runtime.
+    # Pins both halves of the contract for every deprecated per-resource
+    # permission method on ``AuthServiceClient``:
+    #
+    # 1. The warning is emitted.
+    # 2. It is emitted *before* ``_request`` runs (i.e., before any HTTP I/O).
+    #
+    # The patched ``_request`` raises ``_RequestCalled``. ``pytest.raises``
+    # asserts that the method reached ``_request`` (so the call isn't
+    # short-circuited some other way), and ``pytest.warns`` asserts the warning
+    # fired before the exception. If a future refactor moved the warning after
+    # ``_request``, ``_RequestCalled`` would still be raised but no warning
+    # would be captured and ``pytest.warns`` would fail.
+    def _raise(*_args, **_kwargs):
+        raise _RequestCalled("_request was reached")
+
     fake_client = AuthServiceClient("http://127.0.0.1:1")
-    monkeypatch.setattr(fake_client, "_request", lambda *a, **kw: {})
+    monkeypatch.setattr(fake_client, "_request", _raise)
     method = getattr(fake_client, method_name)
-    with pytest.warns(FutureWarning, match=method_name):
-        with contextlib.suppress(Exception):
-            method(*args)
+    with (
+        pytest.warns(FutureWarning, match=method_name),
+        pytest.raises(_RequestCalled, match="_request was reached"),
+    ):
+        method(*args)
 
 
 # Documented as removed from ``AuthServiceClient`` (see RBAC docs ->
