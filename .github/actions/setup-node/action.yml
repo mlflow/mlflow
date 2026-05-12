@@ -6,11 +6,11 @@ inputs:
     default: 24
     required: false
   cache:
-    description: "Package manager to cache (e.g., npm, yarn)."
+    description: "Currently ignored: node caching is hardcoded off in this composite to avoid cache-poisoning exposure. Retained for easy rewire if caching is re-enabled in the future."
     default: ""
     required: false
   cache-dependency-path:
-    description: "Path to dependency file(s) for cache key generation."
+    description: "Currently ignored: node caching is hardcoded off in this composite. See `cache` input."
     default: ""
     required: false
 

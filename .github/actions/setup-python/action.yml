@@ -9,7 +9,7 @@ inputs:
     required: false
     default: "true"
   enable-uv-cache:
-    description: "Enable uv's built-in cache. Set to false for short jobs where cache restore/save overhead isn't worth it."
+    description: "Currently ignored: uv caching is hardcoded off in this composite to avoid cache-poisoning exposure. Retained for easy rewire if caching is re-enabled in the future."
     required: false
     default: "true"
 outputs:
