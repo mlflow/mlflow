@@ -43,7 +43,7 @@ import yaml
 from packaging.specifiers import SpecifierSet
 from packaging.version import Version as OriginalVersion
 from pydantic import BaseModel, ConfigDict, field_validator
-from pypi import Package, get_packages
+from pypi import Package, PyPIError, get_packages
 
 VERSIONS_YAML_PATH = "mlflow/ml-package-versions.yml"
 DEV_VERSION = "dev"
@@ -520,18 +520,16 @@ def _get_test_files_from_pytest_command(cmd, test_dir):
 
 
 async def _get_available_packages(pip_releases: list[str]) -> dict[str, Package]:
-    unavailable = set()
     remaining = pip_releases
-    while True:
+    for _ in range(len(pip_releases) + 1):
         try:
             return dict(zip(remaining, await get_packages(remaining)))
-        except Exception as e:
+        except PyPIError as e:
             if not (match := PYPI_NOT_FOUND_PATTERN.search(str(e))):
                 raise
             package_name = match.group("name")
-            if package_name not in remaining or package_name in unavailable:
+            if package_name not in remaining:
                 raise
-            unavailable.add(package_name)
             remaining = [release for release in remaining if release != package_name]
             warnings.warn(
                 f"Skipping unavailable PyPI package {package_name!r} while generating matrix.",
@@ -539,6 +537,7 @@ async def _get_available_packages(pip_releases: list[str]) -> dict[str, Package]
             )
             if not remaining:
                 return {}
+    raise RuntimeError("Failed to resolve available PyPI packages for matrix generation.")
 
 
 def validate_requirements(
