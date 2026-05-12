@@ -563,6 +563,10 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         order_by,
         page_token,
     ):
+        effective_retention_context = (
+            self._get_effective_experiment_trace_archival_retention_context()
+        )
+
         def compute_next_token(current_size):
             next_token = None
             if max_results + 1 == current_size:
@@ -596,7 +600,9 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 .limit(max_results + 1)
             )
             queried_experiments = session.execute(stmt).scalars(SqlExperiment).all()
-            experiments = [e.to_mlflow_entity() for e in queried_experiments]
+            experiments = [
+                self._to_experiment(e, effective_retention_context) for e in queried_experiments
+            ]
             next_page_token = compute_next_token(len(experiments))
 
         return experiments[:max_results], next_page_token
@@ -612,14 +618,19 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         experiments, next_page_token = self._search_experiments(
             view_type, max_results, filter_string, order_by, page_token
         )
-        return PagedList(
-            self._apply_effective_trace_archival_retention_to_experiments(experiments),
-            next_page_token,
-        )
+        return PagedList(experiments, next_page_token)
 
     def _get_effective_experiment_trace_archival_retention_context(
         self,
     ) -> tuple[str, set[str]] | None:
+        """
+        Resolve the broader-scope retention context used to populate experiment entities.
+
+        Returns:
+            A tuple of ``(broader_retention, long_retention_allowlist)`` when broader-scope trace
+            archival is configured for the current store context. Returns ``None`` when
+            effective experiment retention should be left unset.
+        """
         trace_archival_location = MLFLOW_TRACE_ARCHIVAL_LOCATION.get()
         if trace_archival_location is None:
             return None
@@ -653,24 +664,24 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             )
             return None
 
-    def _apply_effective_trace_archival_retention_to_experiments(
-        self, experiments: list[Experiment]
-    ) -> list[Experiment]:
-        context = self._get_effective_experiment_trace_archival_retention_context()
-        if context is None:
-            return experiments
-
-        broader_retention, long_retention_allowlist = context
-        for experiment in experiments:
-            experiment.effective_trace_archival_retention = (
-                _resolve_effective_trace_archival_retention(
-                    experiment_id=experiment.experiment_id,
-                    experiment_tags=experiment.tags,
-                    broader_retention=broader_retention,
-                    long_retention_allowlist=long_retention_allowlist,
-                )
+    def _to_experiment(
+        self,
+        sql_experiment: SqlExperiment,
+        effective_retention_context: tuple[str, set[str]] | None = None,
+    ) -> Experiment:
+        effective_trace_archival_retention = None
+        if effective_retention_context is not None:
+            broader_retention, long_retention_allowlist = effective_retention_context
+            effective_trace_archival_retention = _resolve_effective_trace_archival_retention(
+                experiment_id=str(sql_experiment.experiment_id),
+                experiment_tags={tag.key: tag.value for tag in sql_experiment.tags},
+                broader_retention=broader_retention,
+                long_retention_allowlist=long_retention_allowlist,
             )
-        return experiments
+
+        return sql_experiment.to_mlflow_entity(
+            effective_trace_archival_retention=effective_trace_archival_retention
+        )
 
     def _get_experiment(self, session, experiment_id, view_type, eager=False):
         """
@@ -787,16 +798,20 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         ]
 
     def get_experiment(self, experiment_id):
+        effective_retention_context = (
+            self._get_effective_experiment_trace_archival_retention_context()
+        )
         with self.ManagedSessionMaker() as session:
-            experiment = self._get_experiment(
-                session, experiment_id, ViewType.ALL, eager=True
-            ).to_mlflow_entity()
-        return self._apply_effective_trace_archival_retention_to_experiments([experiment])[0]
+            experiment = self._get_experiment(session, experiment_id, ViewType.ALL, eager=True)
+            return self._to_experiment(experiment, effective_retention_context)
 
     def get_experiment_by_name(self, experiment_name):
         """
         Specialized implementation for SQL backed store.
         """
+        effective_retention_context = (
+            self._get_effective_experiment_trace_archival_retention_context()
+        )
         with self.ManagedSessionMaker() as session:
             stages = LifecycleStage.view_type_to_stages(ViewType.ALL)
             experiment = (
@@ -809,10 +824,9 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 )
                 .one_or_none()
             )
-            result = experiment.to_mlflow_entity() if experiment is not None else None
-        if result is None:
-            return None
-        return self._apply_effective_trace_archival_retention_to_experiments([result])[0]
+            if experiment is None:
+                return None
+            return self._to_experiment(experiment, effective_retention_context)
 
     def delete_experiment(self, experiment_id):
         with self.ManagedSessionMaker() as session:
@@ -5415,6 +5429,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             is_archive_backed = (
                 trace_info.tags.get(TraceTagKey.SPANS_LOCATION) == SpansLocation.ARCHIVE_REPO.value
             )
+            # Archive-backed traces stay visible even when the payload read resolves to [] so
+            # batch reads only skip DB-backed traces that are still incomplete (`spans is None`).
             if spans or (spans is not None and is_archive_backed):
                 traces.append(Trace(info=trace_info, data=TraceData(spans=spans)))
 

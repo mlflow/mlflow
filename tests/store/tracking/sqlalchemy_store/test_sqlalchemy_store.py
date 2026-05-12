@@ -776,6 +776,9 @@ def test_get_experiment_effective_trace_archival_retention_uses_broader_scope_de
     actual = store.get_experiment(experiment_id)
     assert actual.effective_trace_archival_retention == "30d"
 
+    actual_by_name = store.get_experiment_by_name("goku")
+    assert actual_by_name.effective_trace_archival_retention == "30d"
+
     searched = next(
         exp
         for exp in store.search_experiments(view_type=ViewType.ALL)
@@ -15233,9 +15236,9 @@ def test_delete_traces_removes_db_backed_rows_before_archived_payload_cleanup(
             "mlflow.store.tracking.sqlalchemy_store.get_artifact_repository",
             return_value=cleanup_repo,
         ):
-            assert store.delete_traces(
-                exp_id, trace_ids=[archived_trace_id, db_backed_trace_id]
-            ) == 2
+            assert (
+                store.delete_traces(exp_id, trace_ids=[archived_trace_id, db_backed_trace_id]) == 2
+            )
 
         cleanup_repo.delete_artifacts.assert_called_once_with(TRACE_ARCHIVAL_FILENAME)
         traces, _ = store.search_traces([exp_id])
