@@ -16,7 +16,7 @@
       "description": "Top-level review summary. Must end with the '🤖 Generated with Claude' footer on its own line.",
       "type": "string",
       "minLength": 1,
-      "pattern": "🤖 Generated with Claude\\s*$"
+      "pattern": "(^|\\n)🤖 Generated with Claude\\s*$"
     },
     "commit_id": {
       "description": "Head commit SHA being reviewed. Optional; GitHub defaults to the latest commit when omitted.",
