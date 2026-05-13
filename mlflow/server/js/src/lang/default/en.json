@@ -467,6 +467,10 @@
     "defaultMessage": "MLflow documentation",
     "description": "Link to tracing documentation"
   },
+  "0WTeD+": {
+    "defaultMessage": "Chat completion failed",
+    "description": "Title of the error alert shown on the playground when a chat completion request fails"
+  },
   "0WzWvy": {
     "defaultMessage": "Issues detected on the trace by automatic issue detection",
     "description": "Tooltip description for the Issues column in the traces table"

@@ -176,7 +176,14 @@ const PlaygroundPage = () => {
     if (responseFormatType === 'json_object') {
       response_format = { type: 'json_object' };
     } else if (responseFormatType === 'json_schema') {
-      response_format = { type: 'json_schema', json_schema: JSON.parse(responseFormatSchemaText) };
+      response_format = {
+        type: 'json_schema',
+        json_schema: {
+          name: 'response_schema',
+          schema: JSON.parse(responseFormatSchemaText),
+          strict: true,
+        },
+      };
     }
     mutate({
       model: endpointName,

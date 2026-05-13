@@ -7,7 +7,14 @@ export interface ChatMessage {
 
 export type ResponseFormatType = 'text' | 'json_object' | 'json_schema';
 
-export type ResponseFormat = { type: 'json_object' } | { type: 'json_schema'; json_schema: unknown };
+export type ResponseFormat =
+  | { type: 'json_object' }
+  | {
+      type: 'json_schema';
+      // OpenAI-compatible envelope: gateway providers (Gemini, Anthropic)
+      // expect json_schema as { name, schema, strict }, not the raw schema.
+      json_schema: { name: string; schema: unknown; strict?: boolean };
+    };
 
 export type ToolChoice = 'auto' | 'none' | 'required';
 

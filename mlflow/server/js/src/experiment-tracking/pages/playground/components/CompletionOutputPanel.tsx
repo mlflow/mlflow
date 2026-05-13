@@ -53,7 +53,37 @@ export const CompletionOutputPanel = ({ response, error, isLoading }: Props) => 
             <Spinner />
           </div>
         ) : error ? (
-          <Alert type="error" message={error.message} componentId="mlflow.playground.output.error" closable={false} />
+          (() => {
+            const status = (error as { status?: number }).status;
+            const detail = status ? `HTTP ${status} — ${error.message}` : error.message;
+            return (
+              <Alert
+                type="error"
+                componentId="mlflow.playground.output.error"
+                closable={false}
+                message={
+                  <FormattedMessage
+                    defaultMessage="Chat completion failed"
+                    description="Title of the error alert shown on the playground when a chat completion request fails"
+                  />
+                }
+                description={
+                  <pre
+                    css={{
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-word',
+                      margin: 0,
+                      fontFamily: 'inherit',
+                      maxHeight: 240,
+                      overflow: 'auto',
+                    }}
+                  >
+                    {detail}
+                  </pre>
+                }
+              />
+            );
+          })()
         ) : completion ? (
           <GenAIMarkdownRenderer>{completion}</GenAIMarkdownRenderer>
         ) : (

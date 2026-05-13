@@ -260,6 +260,41 @@ describe('PlaygroundPage', () => {
     });
   });
 
+  it('wraps json_schema response_format in the OpenAI envelope on submit', async () => {
+    const chatCompletionSpy = jest.spyOn(PlaygroundApi, 'chatCompletion').mockResolvedValue({
+      choices: [{ index: 0, message: { role: 'assistant', content: 'ok' }, finish_reason: 'stop' }],
+    });
+
+    renderPlayground();
+
+    const endpointInput = await screen.findByTestId('endpoint-selector-test-input');
+    await userEvent.type(endpointInput, 'my-endpoint');
+    await userEvent.type(screen.getByPlaceholderText('Type a message'), 'Hello there');
+
+    await openSettingsDrawer();
+    await userEvent.click(screen.getByRole('radio', { name: 'JSON schema' }));
+    fireEvent.change(screen.getByLabelText('Schema'), {
+      target: { value: '{"type":"object","properties":{"x":{"type":"string"}}}' },
+    });
+    await closeDrawer();
+    await userEvent.click(screen.getByRole('button', { name: /submit/i }));
+
+    await waitFor(() => {
+      expect(chatCompletionSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          response_format: {
+            type: 'json_schema',
+            json_schema: {
+              name: 'response_schema',
+              schema: { type: 'object', properties: { x: { type: 'string' } } },
+              strict: true,
+            },
+          },
+        }),
+      );
+    });
+  });
+
   it('omits tools and tool_choice when toolChoice stays at none, even with tool text typed', async () => {
     const chatCompletionSpy = jest.spyOn(PlaygroundApi, 'chatCompletion').mockResolvedValue({
       choices: [{ index: 0, message: { role: 'assistant', content: 'ok' }, finish_reason: 'stop' }],
@@ -448,6 +483,25 @@ describe('PlaygroundPage', () => {
     });
     expect(screen.getByTestId('endpoint-selector-test-input')).toHaveValue('');
     expect(screen.getByRole('button', { name: /submit/i })).toBeDisabled();
+  });
+
+  it('surfaces the upstream message and HTTP status when chat completion rejects', async () => {
+    jest
+      .spyOn(PlaygroundApi, 'chatCompletion')
+      .mockRejectedValue(Object.assign(new Error('Gemini rejected schema: foo'), { status: 400 }));
+
+    renderPlayground();
+
+    const endpointInput = await screen.findByTestId('endpoint-selector-test-input');
+    await userEvent.type(endpointInput, 'my-endpoint');
+    await userEvent.type(screen.getByPlaceholderText('Type a message'), 'Hello');
+
+    await userEvent.click(screen.getByRole('button', { name: /submit/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Chat completion failed')).toBeInTheDocument();
+    });
+    expect(screen.getByText('HTTP 400 — Gemini rejected schema: foo')).toBeInTheDocument();
   });
 
   it('exposes a hook that posts to the chat completions API', async () => {
