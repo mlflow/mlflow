@@ -21,11 +21,11 @@ A filter pipeline that integrates [MLflow](https://mlflow.org/) tracing with [Op
 
 ## Configuration (Valves)
 
-| Valve | Default | Description |
-|-------|---------|-------------|
-| `mlflow_tracking_uri` | `http://localhost:5000` | MLflow tracking server URI |
-| `mlflow_experiment_name` | `open-webui` | Experiment name in MLflow |
-| `debug` | `false` | Enable debug logging |
+| Valve                    | Default                 | Description                |
+| ------------------------ | ----------------------- | -------------------------- |
+| `mlflow_tracking_uri`    | `http://localhost:5000` | MLflow tracking server URI |
+| `mlflow_experiment_name` | `open-webui`            | Experiment name in MLflow  |
+| `debug`                  | `false`                 | Enable debug logging       |
 
 ## Setup
 

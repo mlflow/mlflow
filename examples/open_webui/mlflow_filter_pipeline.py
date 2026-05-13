@@ -1,3 +1,4 @@
+# ruff: noqa
 """
 title: MLflow Filter Pipeline
 author: open-webui
@@ -22,10 +23,10 @@ from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 
 def extract_latest_user_input(text: str) -> str:
     """If text contains a <chat_history> block, return only the last USER: segment inside it."""
-    match = re.search(r'<chat_history>(.*?)</chat_history>', text, re.DOTALL)
+    match = re.search(r"<chat_history>(.*?)</chat_history>", text, re.DOTALL)
     if match:
         history = match.group(1)
-        user_messages = re.findall(r'USER:\s*(.*?)(?=\s*ASSISTANT:|\s*$)', history, re.DOTALL)
+        user_messages = re.findall(r"USER:\s*(.*?)(?=\s*ASSISTANT:|\s*$)", history, re.DOTALL)
         if user_messages:
             return user_messages[-1].strip()
     return text
@@ -50,14 +51,12 @@ class Pipeline:
         self.type = "filter"
         self.name = "MLflow Filter"
 
-        self.valves = self.Valves(
-            **{
-                "pipelines": ["*"],
-                "mlflow_tracking_uri": os.getenv("MLFLOW_TRACKING_URI", "http://localhost:5000"),
-                "mlflow_experiment_name": os.getenv("MLFLOW_EXPERIMENT_NAME", "open-webui"),
-                "debug": os.getenv("DEBUG_MODE", "false").lower() == "true",
-            }
-        )
+        self.valves = self.Valves(**{
+            "pipelines": ["*"],
+            "mlflow_tracking_uri": os.getenv("MLFLOW_TRACKING_URI", "http://localhost:5000"),
+            "mlflow_experiment_name": os.getenv("MLFLOW_EXPERIMENT_NAME", "open-webui"),
+            "debug": os.getenv("DEBUG_MODE", "false").lower() == "true",
+        })
 
         self.pending_inlets: dict = {}
 
