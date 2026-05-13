@@ -9,9 +9,6 @@ import { MemoryRouter, Route, Routes } from '../common/utils/RoutingUtils';
 
 import { fetchEndpointRaw } from '../common/utils/FetchUtils';
 
-// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
-jest.setTimeout(30000);
-
 jest.mock('../common/utils/FetchUtils', () => ({
   fetchEndpointRaw: jest.fn(() => Promise.resolve()),
   HTTPMethods: { POST: 'POST', GET: 'GET' },
