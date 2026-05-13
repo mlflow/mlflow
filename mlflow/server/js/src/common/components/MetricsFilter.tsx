@@ -220,9 +220,7 @@ const FilterRow = ({ rowId, filter, columnOptions, onChange, onDelete }: FilterR
                   key={option.value}
                   value={option.value}
                   checked={option.value === filter.column}
-                  onChange={(value: string) =>
-                    onChange({ column: value as MetricFilterColumn, value: '' })
-                  }
+                  onChange={(value: string) => onChange({ column: value as MetricFilterColumn, value: '' })}
                 >
                   {option.label}
                 </DialogComboboxOptionListSelectItem>
