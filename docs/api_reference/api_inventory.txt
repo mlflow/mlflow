@@ -447,8 +447,13 @@ mlflow.entities.LifecycleStage
 mlflow.entities.LifecycleStage.is_valid
 mlflow.entities.LifecycleStage.matches_view_type
 mlflow.entities.LifecycleStage.view_type_to_stages
+mlflow.entities.Link
+mlflow.entities.Link.from_dict
+mlflow.entities.Link.from_otel_proto
+mlflow.entities.Link.to_dict
 mlflow.entities.LiveSpan
 mlflow.entities.LiveSpan.add_event
+mlflow.entities.LiveSpan.add_link
 mlflow.entities.LiveSpan.from_dict
 mlflow.entities.LiveSpan.record_exception
 mlflow.entities.LiveSpan.set_attribute
@@ -493,6 +498,7 @@ mlflow.entities.MlflowExperimentLocation.to_dict
 mlflow.entities.MlflowExperimentLocation.to_proto
 mlflow.entities.NoOpSpan
 mlflow.entities.NoOpSpan.add_event
+mlflow.entities.NoOpSpan.add_link
 mlflow.entities.NoOpSpan.end
 mlflow.entities.NoOpSpan.record_exception
 mlflow.entities.NoOpSpan.set_attribute
@@ -672,6 +678,7 @@ mlflow.entities.issue.Issue
 mlflow.entities.issue.IssueSeverity
 mlflow.entities.issue.IssueStatus
 mlflow.entities.lifecycle_stage.LifecycleStage
+mlflow.entities.link.Link
 mlflow.entities.logged_model.LoggedModel
 mlflow.entities.logged_model_input.LoggedModelInput
 mlflow.entities.logged_model_output.LoggedModelOutput

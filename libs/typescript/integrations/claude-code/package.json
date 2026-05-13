@@ -1,7 +1,7 @@
 {
   "name": "@mlflow/claude-code",
   "version": "0.2.0",
-  "description": "Claude Code integration package for MLflow Tracing",
+  "description": "Claude Code and Claude Agent SDK integration package for MLflow Tracing",
   "type": "module",
   "repository": {
     "type": "git",
@@ -22,6 +22,7 @@
     "observability",
     "claude-code",
     "claude",
+    "claude-agent-sdk",
     "anthropic",
     "llm",
     "agent",
@@ -42,7 +43,16 @@
   "dependencies": {
     "@mlflow/core": "^0.2.0"
   },
+  "peerDependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.2.0"
+  },
+  "peerDependenciesMeta": {
+    "@anthropic-ai/claude-agent-sdk": {
+      "optional": true
+    }
+  },
   "devDependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.2.0",
     "@types/jest": "^29.5.3",
     "esbuild": "^0.25.0",
     "jest": "^29.6.2",

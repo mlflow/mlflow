@@ -1775,6 +1775,10 @@
     "defaultMessage": "Enable Usage Tracking in the Overview tab to view logs",
     "description": "Tooltip shown on disabled Logs tab explaining that usage tracking must be enabled first"
   },
+  "8oh0iW": {
+    "defaultMessage": "Clear filters",
+    "description": "Usage overview > clear metrics filters button"
+  },
   "8qJt7/": {
     "defaultMessage": "Experimental",
     "description": "Experimental badge shown for features which are experimental"
@@ -2126,6 +2130,10 @@
   "Ai/ANo": {
     "defaultMessage": "Usage",
     "description": "Page title"
+  },
+  "AmLGSf": {
+    "defaultMessage": "Apply filters",
+    "description": "Usage overview > apply filters button"
   },
   "AoDwev": {
     "defaultMessage": "Description (optional)",
@@ -3154,6 +3162,10 @@
   "HSMagB": {
     "defaultMessage": "Error evaluating \"{label}\"",
     "description": "Error evaluating label"
+  },
+  "HT6/F3": {
+    "defaultMessage": "Value",
+    "description": "Usage overview > filter row > value column label"
   },
   "HUC492": {
     "defaultMessage": "See detailed trace view",
@@ -4399,6 +4411,10 @@
     "defaultMessage": "Cost breakdown",
     "description": "Header for span cost breakdown"
   },
+  "P5OG6u": {
+    "defaultMessage": "Select field",
+    "description": "Usage overview > filter row > field column placeholder"
+  },
   "PAUNgq": {
     "defaultMessage": "Cost Breakdown",
     "description": "Title for the cost breakdown chart"
@@ -4510,6 +4526,10 @@
   "Pgxfhl": {
     "defaultMessage": "Role",
     "description": "Roles table column header for the role name"
+  },
+  "PlP56F": {
+    "defaultMessage": "Enter value",
+    "description": "Usage overview > filter row > value input placeholder"
   },
   "PmPV+3": {
     "defaultMessage": "Models",
@@ -4806,6 +4826,10 @@
   "RhQhT4": {
     "defaultMessage": "Model",
     "description": "Label for model name in span details"
+  },
+  "RiZy19": {
+    "defaultMessage": "Remove filter",
+    "description": "Usage overview > filter row > remove row button aria label"
   },
   "RlBbjb": {
     "defaultMessage": "A tag key is required",
@@ -6079,6 +6103,10 @@
     "defaultMessage": "Input /1M",
     "description": "Table header for input cost"
   },
+  "ZBaNWk": {
+    "defaultMessage": "Operator",
+    "description": "Usage overview > filter row > operator dropdown aria label"
+  },
   "ZGrkWk": {
     "defaultMessage": "Perform inference via model.transform()",
     "description": "Code comment which states how we can perform SparkML inference"
@@ -6330,6 +6358,10 @@
   "aXw0NO": {
     "defaultMessage": "Please select metric",
     "description": "Placeholder text where one can select metrics from the list of available metrics to render on the graph"
+  },
+  "aZKtr2": {
+    "defaultMessage": "Field",
+    "description": "Usage overview > filter row > field column label"
   },
   "aZV8M7": {
     "defaultMessage": "Delete",
@@ -8091,6 +8123,10 @@
     "defaultMessage": "Discard",
     "description": "Experiment page > artifact compare view > prompt lab artifact synchronization > submit button label"
   },
+  "kQ9rmr": {
+    "defaultMessage": "Operator",
+    "description": "Usage overview > filter row > operator column label"
+  },
   "kQw850": {
     "defaultMessage": "Test succeeded (HTTP {status})",
     "description": "Message informing the user that the webhook test succeeded"
@@ -8654,6 +8690,14 @@
   "nWeQCU": {
     "defaultMessage": "Show differences only",
     "description": "Runs charts > components > config > RunsChartsConfigureDifferenceChart > Show differences only toggle"
+  },
+  "nXIn89": {
+    "defaultMessage": "User",
+    "description": "Usage overview > metrics filter > user column option label"
+  },
+  "nXsSZ1": {
+    "defaultMessage": "Add filter",
+    "description": "Usage overview > add filter row button"
   },
   "nY1YrF": {
     "defaultMessage": "Internal server error",
@@ -10330,6 +10374,10 @@
   "xbfKJS": {
     "defaultMessage": "JSON body for the OpenAI-compatible Chat Completions API. Include \"model\" (endpoint name) and \"messages\".",
     "description": "Request body tooltip for unified Chat Completions API"
+  },
+  "xc+tL4": {
+    "defaultMessage": "Filters{numFilters}",
+    "description": "Usage overview > metrics filter dropdown button"
   },
   "xdFMIN": {
     "defaultMessage": "Dataset name",

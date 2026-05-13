@@ -82,8 +82,22 @@ jobs:
       - name: Run tests
         env:
           MATRIX_OPTION: ${{ matrix.option }}
+        # --maxWorkers=2: Jest's default (3) leaks module cache across test
+        # files and peaks ~15 GB RSS on the 16 GB runner; 2 keeps peak ~13 GB.
         run: |
-          yarn test --silent $MATRIX_OPTION src/experiment-tracking/components
+          "$GITHUB_WORKSPACE/dev/profile.sh" \
+            yarn test --silent --maxWorkers=2 $MATRIX_OPTION src/experiment-tracking/components
+      - name: Upload profile metrics
+        if: always()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: profile-metrics-${{ strategy.job-index }}
+          path: /tmp/profile-metrics.csv
+          # TODO: Uncomment once `gh run download` supports non-zipped artifacts.
+          # https://github.com/cli/cli/issues/13012
+          # archive: false
+          retention-days: 3
+          if-no-files-found: ignore
       - name: Run build
         env:
           # Prevent warnings (emitted from react-pdf) from being treated as errors

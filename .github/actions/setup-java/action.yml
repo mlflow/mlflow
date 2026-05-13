@@ -21,5 +21,7 @@ runs:
 
     - name: Set MLFLOW_DOCKER_OPENJDK_VERSION
       shell: bash
+      env:
+        JAVA_VERSION: ${{ inputs.java-version }}
       run: |
-        echo "MLFLOW_DOCKER_OPENJDK_VERSION=${{ inputs.java-version }}" >> $GITHUB_ENV
+        echo "MLFLOW_DOCKER_OPENJDK_VERSION=$JAVA_VERSION" >> $GITHUB_ENV

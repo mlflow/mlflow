@@ -241,6 +241,26 @@
       },
       "last_updated_at": "2026-04-24"
     },
+    "MiniMax-M2.7": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 204800,
+        "max_output": 131072,
+        "max_tokens": 131072
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.3,
+        "output_per_million_tokens": 1.2
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-11"
+    },
     "QwQ-32B": {
       "mode": "chat",
       "context_window": {
