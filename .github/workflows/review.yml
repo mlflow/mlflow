@@ -185,6 +185,9 @@ jobs:
             exit 1
           fi
           uv run --frozen --package skills skills validate-review /tmp/review-payload.json
+          echo "::group::Review payload"
+          jq . /tmp/review-payload.json
+          echo "::endgroup::"
 
       - name: Post review
         if: github.event_name == 'issue_comment'
@@ -223,9 +226,7 @@ jobs:
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: claude-stream-${{ github.run_id }}-${{ github.run_attempt }}
-          path: |
-            /tmp/output.jsonl
-            /tmp/review-payload.json
+          path: /tmp/output.jsonl
           retention-days: 1
           if-no-files-found: ignore
 
