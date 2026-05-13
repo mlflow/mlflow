@@ -28,7 +28,7 @@ def main(argv: list[str]) -> int:
         if errors := check(Path(arg)):
             failed += 1
             for err in errors:
-                print(f"{arg}: {err}")
+                print(f"{arg}: {err}", file=sys.stderr)
     return 1 if failed else 0
 
 
