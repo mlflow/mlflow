@@ -1,5 +1,13 @@
 import { MlflowService } from '../../experiment-tracking/sdk/MlflowService';
 import { Services as ModelRegistryService } from '../../model-registry/services';
+import { ErrorCodes } from '../constants';
+
+const isResourceDoesNotExistError = (error: unknown) =>
+  typeof error === 'object' &&
+  error !== null &&
+  'getErrorCode' in error &&
+  typeof error.getErrorCode === 'function' &&
+  error.getErrorCode() === ErrorCodes.RESOURCE_DOES_NOT_EXIST;
 
 export const getExperimentNameValidator = (getExistingExperimentNames: () => string[]) => {
   return (rule: unknown, value: string | undefined, callback: (arg?: string) => void) => {
@@ -23,7 +31,13 @@ export const getExperimentNameValidator = (getExistingExperimentNames: () => str
             callback(`Experiment "${value}" already exists.`);
           }
         })
-        .catch((e) => callback(undefined)); // no experiment returned
+        .catch((e) => {
+          if (isResourceDoesNotExistError(e)) {
+            callback(undefined);
+          } else {
+            callback('Could not validate experiment name. Please try again.');
+          }
+        });
     }
   };
 };

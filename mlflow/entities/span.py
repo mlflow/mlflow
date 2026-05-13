@@ -689,6 +689,9 @@ class LiveSpan(Span):
         normalized = SpanLogLevel.from_value(level)
         self.set_attribute(SpanAttributeKey.LOG_LEVEL, int(normalized))
 
+    def _is_recording(self) -> bool:
+        return self._span.is_recording()
+
     def set_inputs(self, inputs: Any):
         """Set the input values to the span."""
         extract_base64 = self._should_extract_base64()
@@ -750,6 +753,10 @@ class LiveSpan(Span):
 
     def _store_attachment(self, attachment: Attachment) -> str:
         from mlflow.environment_variables import MLFLOW_TRACE_MAX_ATTACHMENT_SIZE
+
+        if not self._is_recording():
+            _logger.debug("Skipping attachment storage because the span is no longer recording.")
+            return attachment.ref(self.trace_id)
 
         max_size = MLFLOW_TRACE_MAX_ATTACHMENT_SIZE.get()
         if max_size is not None and max_size > 0 and len(attachment.content_bytes) > max_size:
@@ -996,6 +1003,10 @@ class LiveSpan(Span):
             link: The link to add to the span. This should be a
                 :py:class:`Link <mlflow.entities.Link>` object.
         """
+        if not self._is_recording():
+            _logger.debug("Skipping link addition because the span is no longer recording.")
+            return
+
         if not isinstance(link, Link):
             raise MlflowException(
                 f"The `link` parameter must be a Link instance, but got {type(link)}.",

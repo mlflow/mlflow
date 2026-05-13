@@ -1,17 +1,17 @@
 ---
-title: Coding Agents
-description: Use Claude Code, OpenAI Codex, and Gemini CLI with the MLflow AI Gateway using your own subscription credentials.
+title: Coding Agents & Long-Running Agents
+description: Use Claude Code, OpenAI Codex, Gemini CLI, and Hermes Agent with the MLflow AI Gateway for centralized observability and governance.
 ---
 
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
 import { BarChart3, DollarSign, Shield } from "lucide-react";
 
-# Coding Agents & AI Gateway
+# Coding Agents & Long-Running Agents
 
-The MLflow AI Gateway supports popular AI coding agents such as **Claude Code**, **OpenAI Codex**, and **Gemini CLI** out of the box.
+The MLflow AI Gateway supports popular AI coding agents such as **Claude Code**, **OpenAI Codex**, and **Gemini CLI**, as well as long-running agent runtimes like **Hermes Agent**.
 
-AI coding agents make dozens or hundreds of LLM calls per session, often running autonomously for extended periods. Without visibility or controls in place, it's easy to lose track of what they're doing, how much they're spending, and whether they're operating within your organization's policies. Routing coding agents through the gateway gives your team three key capabilities:
+Coding agents and long-running agent runtimes can make dozens or hundreds of LLM calls per session, often running autonomously for extended periods while also invoking tools and managing their own state. Without visibility or controls in place, it's easy to lose track of what they're doing, how much they're spending, and whether they're operating within your organization's policies. Routing these agents through the gateway gives your team three key capabilities:
 
 <TilesGrid>
   <TileCard
@@ -66,5 +66,14 @@ AI coding agents make dozens or hundreds of LLM calls per session, often running
     description="Route Gemini CLI through the gateway using your Google subscription"
     href="./gemini-cli"
     linkText="Set up Gemini CLI →"
+  />
+  <TileCard
+    image="/images/logos/hermes-agent-logo.svg"
+    imageWidth={48}
+    imageHeight={48}
+    title="Hermes Agent"
+    description="Route Hermes Agent through the gateway using Hermes's custom provider support"
+    href="./hermes-agent"
+    linkText="Set up Hermes Agent →"
   />
 </TilesGrid>
