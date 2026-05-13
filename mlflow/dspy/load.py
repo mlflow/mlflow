@@ -53,7 +53,6 @@ def _load_model(model_uri, dst_path=None):
     mlflow_model = Model.load(local_model_path)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name="dspy")
 
-    _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
     model_path = flavor_conf.get("model_path", _DEFAULT_MODEL_PATH)
     task = flavor_conf.get("inference_task")
 
@@ -63,15 +62,19 @@ def _load_model(model_uri, dst_path=None):
         or is_in_databricks_model_serving_environment()
     )
 
+    # Raise BEFORE mutating sys.path so a denied load has no global side effects.
+    if model_path.endswith(".pkl") and not allow_pickle:
+        raise MlflowException(
+            "Deserializing model using pickle is disallowed, but this model is saved "
+            "in pickle format. To address this issue, you need to set environment variable "
+            "'MLFLOW_ALLOW_PICKLE_DESERIALIZATION' to 'true', or save the model with "
+            "'use_dspy_model_save=True' like "
+            "`mlflow.dspy.save_model(model, path, use_dspy_model_save=True)`."
+        )
+
+    _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
+
     if model_path.endswith(".pkl"):
-        if not allow_pickle:
-            raise MlflowException(
-                "Deserializing model using pickle is disallowed, but this model is saved "
-                "in pickle format. To address this issue, you need to set environment variable "
-                "'MLFLOW_ALLOW_PICKLE_DESERIALIZATION' to 'true', or save the model with "
-                "'use_dspy_model_save=True' like "
-                "`mlflow.dspy.save_model(model, path, use_dspy_model_save=True)`."
-            )
         with open(os.path.join(local_model_path, model_path), "rb") as f:
             loaded_wrapper = cloudpickle.load(f)
     else:
