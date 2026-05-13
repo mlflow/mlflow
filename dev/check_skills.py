@@ -23,13 +23,13 @@ def check(path: Path) -> list[str]:
     return [f"missing or empty `{k}`" for k in REQUIRED if not fm.get(k)]
 
 
-def main(argv: list[str]) -> int:
-    any_failed = False
+def main(argv: list[str]) -> bool:
+    failed = False
     for arg in argv:
         for err in check(Path(arg)):
             print(f"{arg}: {err}", file=sys.stderr)
-            any_failed = True
-    return 1 if any_failed else 0
+            failed = True
+    return failed
 
 
 if __name__ == "__main__":
