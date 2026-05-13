@@ -16,6 +16,8 @@ import yaml
 from packaging.version import Version
 
 import mlflow
+from mlflow.environment_variables import MLFLOW_ALLOW_PICKLE_DESERIALIZATION
+from mlflow.exceptions import MlflowException
 from mlflow.models.utils import _validate_and_get_model_code_path
 from mlflow.utils.class_utils import _get_class_from_string
 
@@ -448,6 +450,12 @@ def _save_base_lcs(model, path, loader_fn=None, persist_dir=None):
 
 
 def _load_from_pickle(path):
+    if not MLFLOW_ALLOW_PICKLE_DESERIALIZATION.get():
+        raise MlflowException(
+            "Deserializing LangChain artifacts using pickle is disallowed. "
+            "To allow loading, set environment variable "
+            "'MLFLOW_ALLOW_PICKLE_DESERIALIZATION' to 'true'."
+        )
     with open(path, "rb") as f:
         return cloudpickle.load(f)
 
