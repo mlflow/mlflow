@@ -9,7 +9,7 @@ allowed-tools:
   - Grep
   - Glob
   - Agent
-  - Write(//tmp/review-payload.json)
+  - Edit(//tmp/review-payload.json)
 argument-hint: "[extra_context]"
 ---
 
