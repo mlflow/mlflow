@@ -43,7 +43,7 @@ export const ResponseFormatForm = ({ type, onTypeChange, schemaText, onSchemaCha
   const intl = useIntl();
 
   return (
-    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
+    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
       <SegmentedControlGroup
         componentId="mlflow.playground.response_format.type"
         name="mlflow.playground.response_format.type"
@@ -58,7 +58,7 @@ export const ResponseFormatForm = ({ type, onTypeChange, schemaText, onSchemaCha
         ))}
       </SegmentedControlGroup>
       {type === 'json_schema' && (
-        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+        <div>
           <FormUI.Label htmlFor="mlflow.playground.response_format.schema">
             <FormattedMessage
               defaultMessage="Schema"

@@ -47,15 +47,9 @@ export const ToolsForm = ({ value, onChange, error, toolChoice, onToolChoiceChan
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
 
-  const fieldGroupCss = {
-    display: 'flex' as const,
-    flexDirection: 'column' as const,
-    gap: theme.spacing.xs,
-  };
-
   return (
-    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
-      <div css={fieldGroupCss}>
+    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+      <div>
         <FormUI.Label htmlFor="mlflow.playground.tools.tool_choice">
           <FormattedMessage
             defaultMessage="Tool choice"
@@ -79,7 +73,7 @@ export const ToolsForm = ({ value, onChange, error, toolChoice, onToolChoiceChan
       </div>
 
       {toolChoice !== 'none' && (
-        <div css={fieldGroupCss}>
+        <div>
           <FormUI.Label htmlFor="mlflow.playground.tools.input">
             <FormattedMessage
               defaultMessage="JSON Tool Definition"

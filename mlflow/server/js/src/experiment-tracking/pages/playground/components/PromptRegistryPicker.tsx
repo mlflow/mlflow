@@ -10,7 +10,6 @@ import {
   DialogComboboxTrigger,
   Drawer,
   FormUI,
-  Spacer,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
@@ -140,123 +139,122 @@ export const PromptRegistryPicker = ({ visible, onCancel, onLoad }: Props) => {
           </div>
         }
       >
-        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
+        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
           <Typography.Paragraph withoutMargins>
             <FormattedMessage
               defaultMessage="Load a saved prompt to replace the current playground messages."
               description="Intro paragraph at the top of the playground prompt-registry picker drawer"
             />
           </Typography.Paragraph>
-          <FormUI.Label htmlFor="mlflow.playground.prompt_registry_picker.prompt">
-            <FormattedMessage
-              defaultMessage="Prompt"
-              description="Label for the prompt picker on the playground prompt-registry modal"
-            />
-          </FormUI.Label>
-          <DialogCombobox
-            componentId="mlflow.playground.prompt_registry_picker.prompt"
-            label={intl.formatMessage({
-              defaultMessage: 'Prompt',
-              description: 'Label for the prompt picker on the playground prompt-registry modal',
-            })}
-            modal={false}
-            value={selectedPromptName ? [selectedPromptName] : undefined}
-          >
-            <DialogComboboxTrigger
-              id="mlflow.playground.prompt_registry_picker.prompt"
-              css={{ width: '100%' }}
-              allowClear
-              placeholder={intl.formatMessage({
-                defaultMessage: 'Select a prompt',
-                description: 'Placeholder for the prompt picker on the playground prompt-registry modal',
+          <div>
+            <FormUI.Label htmlFor="mlflow.playground.prompt_registry_picker.prompt">
+              <FormattedMessage
+                defaultMessage="Prompt"
+                description="Label for the prompt picker on the playground prompt-registry modal"
+              />
+            </FormUI.Label>
+            <DialogCombobox
+              componentId="mlflow.playground.prompt_registry_picker.prompt"
+              label={intl.formatMessage({
+                defaultMessage: 'Prompt',
+                description: 'Label for the prompt picker on the playground prompt-registry modal',
               })}
-              withInlineLabel={false}
-              onClear={() => handlePromptSelect('')}
-            />
-            <DialogComboboxContent loading={isPromptsLoading} maxHeight={320} matchTriggerWidth>
-              {!isPromptsLoading && (
-                <DialogComboboxOptionList>
-                  <DialogComboboxOptionListSearch autoFocus>
-                    {(prompts ?? []).map((prompt) => (
+              modal={false}
+              value={selectedPromptName ? [selectedPromptName] : undefined}
+            >
+              <DialogComboboxTrigger
+                id="mlflow.playground.prompt_registry_picker.prompt"
+                css={{ width: '100%' }}
+                allowClear
+                placeholder={intl.formatMessage({
+                  defaultMessage: 'Select a prompt',
+                  description: 'Placeholder for the prompt picker on the playground prompt-registry modal',
+                })}
+                withInlineLabel={false}
+                onClear={() => handlePromptSelect('')}
+              />
+              <DialogComboboxContent loading={isPromptsLoading} maxHeight={320} matchTriggerWidth>
+                {!isPromptsLoading && (
+                  <DialogComboboxOptionList>
+                    <DialogComboboxOptionListSearch autoFocus>
+                      {(prompts ?? []).map((prompt) => (
+                        <DialogComboboxOptionListSelectItem
+                          key={prompt.name}
+                          value={prompt.name}
+                          onChange={(name) => handlePromptSelect(name)}
+                          checked={selectedPromptName === prompt.name}
+                        >
+                          {prompt.name}
+                        </DialogComboboxOptionListSelectItem>
+                      ))}
+                    </DialogComboboxOptionListSearch>
+                  </DialogComboboxOptionList>
+                )}
+              </DialogComboboxContent>
+            </DialogCombobox>
+            {promptsError && <FormUI.Message type="error" message={promptsError.message} />}
+          </div>
+
+          <div>
+            <FormUI.Label htmlFor="mlflow.playground.prompt_registry_picker.version">
+              <FormattedMessage
+                defaultMessage="Version"
+                description="Label for the version picker on the playground prompt-registry modal"
+              />
+            </FormUI.Label>
+            <DialogCombobox
+              componentId="mlflow.playground.prompt_registry_picker.version"
+              label={intl.formatMessage({
+                defaultMessage: 'Version',
+                description: 'Label for the version picker on the playground prompt-registry modal',
+              })}
+              modal={false}
+              value={selectedVersion ? [selectedVersion] : undefined}
+            >
+              <DialogComboboxTrigger
+                id="mlflow.playground.prompt_registry_picker.version"
+                css={{ width: '100%' }}
+                allowClear
+                disabled={!selectedPromptName || isDetailsLoading}
+                placeholder={intl.formatMessage({
+                  defaultMessage: 'Select a version',
+                  description: 'Placeholder for the version picker on the playground prompt-registry modal',
+                })}
+                withInlineLabel={false}
+                onClear={() => setSelectedVersion(undefined)}
+              />
+              <DialogComboboxContent loading={isDetailsLoading} maxHeight={320} matchTriggerWidth>
+                {!isDetailsLoading && (
+                  <DialogComboboxOptionList>
+                    {versions.map((version) => (
                       <DialogComboboxOptionListSelectItem
-                        key={prompt.name}
-                        value={prompt.name}
-                        onChange={(name) => handlePromptSelect(name)}
-                        checked={selectedPromptName === prompt.name}
+                        key={version.version}
+                        value={version.version}
+                        onChange={(value) => setSelectedVersion(value)}
+                        checked={selectedVersion === version.version}
                       >
-                        {prompt.name}
+                        {`v${version.version}`}
                       </DialogComboboxOptionListSelectItem>
                     ))}
-                  </DialogComboboxOptionListSearch>
-                </DialogComboboxOptionList>
-              )}
-            </DialogComboboxContent>
-          </DialogCombobox>
-          {promptsError && <FormUI.Message type="error" message={promptsError.message} />}
-
-          <Spacer size="md" />
-
-          <FormUI.Label htmlFor="mlflow.playground.prompt_registry_picker.version">
-            <FormattedMessage
-              defaultMessage="Version"
-              description="Label for the version picker on the playground prompt-registry modal"
-            />
-          </FormUI.Label>
-          <DialogCombobox
-            componentId="mlflow.playground.prompt_registry_picker.version"
-            label={intl.formatMessage({
-              defaultMessage: 'Version',
-              description: 'Label for the version picker on the playground prompt-registry modal',
-            })}
-            modal={false}
-            value={selectedVersion ? [selectedVersion] : undefined}
-          >
-            <DialogComboboxTrigger
-              id="mlflow.playground.prompt_registry_picker.version"
-              css={{ width: '100%' }}
-              allowClear
-              disabled={!selectedPromptName || isDetailsLoading}
-              placeholder={intl.formatMessage({
-                defaultMessage: 'Select a version',
-                description: 'Placeholder for the version picker on the playground prompt-registry modal',
-              })}
-              withInlineLabel={false}
-              onClear={() => setSelectedVersion(undefined)}
-            />
-            <DialogComboboxContent loading={isDetailsLoading} maxHeight={320} matchTriggerWidth>
-              {!isDetailsLoading && (
-                <DialogComboboxOptionList>
-                  {versions.map((version) => (
-                    <DialogComboboxOptionListSelectItem
-                      key={version.version}
-                      value={version.version}
-                      onChange={(value) => setSelectedVersion(value)}
-                      checked={selectedVersion === version.version}
-                    >
-                      {`v${version.version}`}
-                    </DialogComboboxOptionListSelectItem>
-                  ))}
-                </DialogComboboxOptionList>
-              )}
-            </DialogComboboxContent>
-          </DialogCombobox>
-          {detailsError && <FormUI.Message type="error" message={detailsError.message} />}
+                  </DialogComboboxOptionList>
+                )}
+              </DialogComboboxContent>
+            </DialogCombobox>
+            {detailsError && <FormUI.Message type="error" message={detailsError.message} />}
+          </div>
 
           {selectedVersionEntity && !isChatPrompt(selectedVersionEntity) && (
-            <>
-              <Spacer size="sm" />
-              <Alert
-                componentId="mlflow.playground.prompt_registry_picker.text_prompt_hint"
-                type="info"
-                closable={false}
-                message={
-                  <FormattedMessage
-                    defaultMessage="This is a text-typed prompt. It will load as a single user message."
-                    description="Info alert shown when a text-typed prompt is selected on the playground prompt-registry modal"
-                  />
-                }
-              />
-            </>
+            <Alert
+              componentId="mlflow.playground.prompt_registry_picker.text_prompt_hint"
+              type="info"
+              closable={false}
+              message={
+                <FormattedMessage
+                  defaultMessage="This is a text-typed prompt. It will load as a single user message."
+                  description="Info alert shown when a text-typed prompt is selected on the playground prompt-registry modal"
+                />
+              }
+            />
           )}
         </div>
       </Drawer.Content>

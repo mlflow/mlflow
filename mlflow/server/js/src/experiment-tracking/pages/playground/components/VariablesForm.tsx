@@ -1,6 +1,5 @@
 import { FormUI, Input, useDesignSystemTheme } from '@databricks/design-system';
 import type { ChangeEvent } from 'react';
-import { Fragment } from 'react';
 import { useIntl } from 'react-intl';
 import type { ChatMessage } from '../types';
 import { extractTemplateVariables } from '../utils';
@@ -23,11 +22,11 @@ export const VariablesForm = ({ messages, value, onChange }: Props) => {
   };
 
   return (
-    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
+    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
       {variableNames.map((name) => {
         const inputId = `mlflow.playground.variables.input.${name}`;
         return (
-          <Fragment key={name}>
+          <div key={name}>
             <FormUI.Label htmlFor={inputId}>{name}</FormUI.Label>
             <TextArea
               componentId="mlflow.playground.variables.input"
@@ -43,7 +42,7 @@ export const VariablesForm = ({ messages, value, onChange }: Props) => {
                 { name },
               )}
             />
-          </Fragment>
+          </div>
         );
       })}
     </div>

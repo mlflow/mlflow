@@ -35,7 +35,7 @@ describe('VariablesButton', () => {
   it('opens the drawer with the help paragraph and per-variable inputs', async () => {
     renderButton([{ role: 'user', content: 'Discuss {{ topic }}' }]);
     await userEvent.click(screen.getByRole('button', { name: /open variable values/i }));
-    expect(screen.getByText(/define a reusable variable/i)).toBeInTheDocument();
+    expect(screen.getByText(/create reusable variables/i)).toBeInTheDocument();
     expect(screen.getByLabelText('topic')).toBeInTheDocument();
   });
 });

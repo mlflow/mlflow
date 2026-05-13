@@ -53,25 +53,19 @@ export const ParametersForm = ({ value, onChange }: Props) => {
     onChange({ ...value, stop: stopFromText(event.target.value) });
   };
 
-  const fieldGroupCss = {
-    display: 'flex' as const,
-    flexDirection: 'column' as const,
-    gap: theme.spacing.xs,
-  };
-
   return (
     <div
       css={{
         display: 'flex',
         flexDirection: 'column',
-        gap: theme.spacing.sm,
+        gap: theme.spacing.md,
         border: `1px solid ${theme.colors.border}`,
         borderRadius: theme.general.borderRadiusBase,
         padding: theme.spacing.md,
         '& label': { fontWeight: theme.typography.typographyRegularFontWeight },
       }}
     >
-      <div css={fieldGroupCss}>
+      <div>
         <FormUI.Label htmlFor="mlflow.playground.params.temperature">
           <FormattedMessage
             defaultMessage="Temperature"
@@ -94,7 +88,7 @@ export const ParametersForm = ({ value, onChange }: Props) => {
         />
       </div>
 
-      <div css={fieldGroupCss}>
+      <div>
         <FormUI.Label htmlFor="mlflow.playground.params.max_tokens">
           <FormattedMessage
             defaultMessage="Max tokens"
@@ -116,7 +110,7 @@ export const ParametersForm = ({ value, onChange }: Props) => {
         />
       </div>
 
-      <div css={fieldGroupCss}>
+      <div>
         <FormUI.Label htmlFor="mlflow.playground.params.top_p">
           <FormattedMessage
             defaultMessage="Top P"
@@ -148,7 +142,6 @@ export const ParametersForm = ({ value, onChange }: Props) => {
           border: 0,
           background: 'transparent',
           padding: 0,
-          marginTop: theme.spacing.sm,
           display: 'inline-flex',
           alignItems: 'center',
           gap: theme.spacing.xs,
@@ -168,7 +161,7 @@ export const ParametersForm = ({ value, onChange }: Props) => {
 
       {showAdvanced && (
         <>
-          <div css={fieldGroupCss}>
+          <div>
             <FormUI.Label htmlFor="mlflow.playground.params.top_k">
               <FormattedMessage
                 defaultMessage="Top K"
@@ -190,7 +183,7 @@ export const ParametersForm = ({ value, onChange }: Props) => {
             />
           </div>
 
-          <div css={fieldGroupCss}>
+          <div>
             <FormUI.Label htmlFor="mlflow.playground.params.presence_penalty">
               <FormattedMessage
                 defaultMessage="Presence penalty"
@@ -213,7 +206,7 @@ export const ParametersForm = ({ value, onChange }: Props) => {
             />
           </div>
 
-          <div css={fieldGroupCss}>
+          <div>
             <FormUI.Label htmlFor="mlflow.playground.params.frequency_penalty">
               <FormattedMessage
                 defaultMessage="Frequency penalty"
@@ -236,7 +229,7 @@ export const ParametersForm = ({ value, onChange }: Props) => {
             />
           </div>
 
-          <div css={fieldGroupCss}>
+          <div>
             <FormUI.Label htmlFor="mlflow.playground.params.stop">
               <FormattedMessage
                 defaultMessage="Stop sequences"
