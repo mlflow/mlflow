@@ -559,11 +559,7 @@ def test_predict_output(dummy_model):
     assert result == {"answer": "4", "custom_field": "custom_value"}
 
 
-@pytest.mark.parametrize("use_dspy_model_save", [use_dspy_model_save_param, False])
-def test_load_model_disallows_pickle_deserialization(use_dspy_model_save, monkeypatch):
-    if use_dspy_model_save and _DSPY_VERSION <= Version("2.6.0"):
-        pytest.skip("'use_dspy_model_save' = True does not support dspy <= 2.6.0")
-
+def test_load_model_disallows_pickle_deserialization_legacy_pkl(monkeypatch):
     dspy_model = CoT()
     dspy.settings.configure(lm=dspy.LM(model="openai/gpt-4o-mini", max_tokens=250))
 
@@ -571,9 +567,36 @@ def test_load_model_disallows_pickle_deserialization(use_dspy_model_save, monkey
         model_info = mlflow.dspy.log_model(
             dspy_model,
             name="model",
-            use_dspy_model_save=use_dspy_model_save,
+            use_dspy_model_save=False,
         )
 
     monkeypatch.setenv("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", "false")
     with pytest.raises(MlflowException, match="MLFLOW_ALLOW_PICKLE_DESERIALIZATION"):
         mlflow.dspy.load_model(model_info.model_uri)
+
+
+@pytest.mark.skipif(
+    _DSPY_VERSION <= Version("2.6.0"),
+    reason="'use_dspy_model_save' = True does not support dspy <= 2.6.0",
+)
+@pytest.mark.parametrize(("env_value", "expected_allow_pickle"), [("false", False), ("true", True)])
+def test_load_model_forwards_allow_pickle_to_dspy(env_value, expected_allow_pickle, monkeypatch):
+    dspy_model = CoT()
+    dspy.settings.configure(lm=dspy.LM(model="openai/gpt-4o-mini", max_tokens=250))
+
+    with mlflow.start_run():
+        model_info = mlflow.dspy.log_model(
+            dspy_model,
+            name="model",
+            use_dspy_model_save=True,
+        )
+
+    monkeypatch.setenv("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", env_value)
+    with mock.patch("dspy.load") as mock_load:
+        try:
+            mlflow.dspy.load_model(model_info.model_uri)
+        except Exception:
+            pass  # downstream code may fail on the MagicMock; only the kwarg matters here
+
+    mock_load.assert_called_once()
+    assert mock_load.call_args.kwargs["allow_pickle"] is expected_allow_pickle
