@@ -17,19 +17,19 @@ def parse_frontmatter(text: str) -> dict[str, object] | None:
 
 
 def check(path: Path) -> list[str]:
-    if (fm := parse_frontmatter(path.read_text(encoding="utf-8"))) is None:
+    fm = parse_frontmatter(path.read_text(encoding="utf-8"))
+    if fm is None:
         return ["missing YAML frontmatter"]
     return [f"missing or empty `{k}`" for k in REQUIRED if not fm.get(k)]
 
 
 def main(argv: list[str]) -> int:
-    failed = 0
+    any_failed = False
     for arg in argv:
-        if errors := check(Path(arg)):
-            failed += 1
-            for err in errors:
-                print(f"{arg}: {err}", file=sys.stderr)
-    return 1 if failed else 0
+        for err in check(Path(arg)):
+            print(f"{arg}: {err}", file=sys.stderr)
+            any_failed = True
+    return 1 if any_failed else 0
 
 
 if __name__ == "__main__":
