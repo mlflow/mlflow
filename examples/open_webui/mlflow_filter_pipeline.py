@@ -150,10 +150,8 @@ class Pipeline:
 
                 # Groups all turns of this chat under one session in the MLflow UI
                 mlflow.update_current_trace(
-                    metadata={
-                        "mlflow.trace.session": chat_id,
-                        "mlflow.trace.user": user_email,
-                    }
+                    session_id=chat_id,
+                    user=user_email,
                 )
 
             self.log(f"MLflow trace logged for chat_id: {chat_id}")

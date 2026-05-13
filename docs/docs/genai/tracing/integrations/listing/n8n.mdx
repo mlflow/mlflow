@@ -6,10 +6,15 @@ keywords: [n8n, tracing, mlflow, workflow automation, openai, llm, observability
 ---
 
 import ImageBox from "@site/src/components/ImageBox";
+import TilesGrid from "@site/src/components/TilesGrid";
+import TileCard from "@site/src/components/TileCard";
+import { Users, BookOpen, Scale } from "lucide-react";
 
 # Tracing n8n
 
 [n8n](https://n8n.io/) is a fair-code workflow automation platform that lets you connect services and build AI-powered workflows visually. MLflow integrates with n8n via the [`n8n-nodes-mlflow`](https://www.npmjs.com/package/n8n-nodes-mlflow) community node — an OpenAI-compatible chat model node with built-in MLflow tracing. Every LLM request and response is automatically logged as a trace, with multi-turn conversations grouped by session in the MLflow UI.
+
+<ImageBox src="/images/llms/tracing/n8n/mlflow-chat-session-example.png" alt="MLflow chat session grouped view" />
 
 ## Features
 
@@ -19,16 +24,18 @@ import ImageBox from "@site/src/components/ImageBox";
 - **Custom metadata** — attach `sessionId`, `userId`, and arbitrary JSON to every trace span
 - **Databricks support** — compatible with both self-hosted and Databricks-managed MLflow
 
-## Installation
+## Setup
 
-### Option 1: Community Nodes UI (Recommended, n8n v0.187+)
+### 1. Installation
+
+#### Option 1: Community Nodes UI (Recommended, n8n v0.187+)
 
 1. Go to **Settings → Community Nodes**
 2. Click **Install**
 3. Enter `n8n-nodes-mlflow` as the npm package name
 4. Agree to the risks of using community nodes and click **Install**
 
-### Option 2: Docker
+#### Option 2: Docker
 
 A preconfigured Docker setup is available in the [`docker/` directory](https://github.com/mlflow/mlflow-n8n-nodes/tree/main/docker):
 
@@ -50,7 +57,7 @@ docker run -it --rm \
 
 Access n8n at `http://localhost:5678`.
 
-### Option 3: Manual
+#### Option 3: Manual Installation
 
 ```bash
 cd ~/.n8n
@@ -58,18 +65,18 @@ npm install n8n-nodes-mlflow
 n8n start
 ```
 
-## Credentials
+### 2. Credentials
 
 Configure credentials in n8n for both the LLM endpoint and MLflow.
 
-### OpenAI Settings
+#### OpenAI Settings
 
 | Field           | Required | Description                                 | Example                     |
 | --------------- | -------- | ------------------------------------------- | --------------------------- |
 | OpenAI API Key  | Yes      | API key for your OpenAI-compatible endpoint | `sk-abc123...`              |
 | OpenAI Base URL | No       | Override the default endpoint base URL      | `https://api.openai.com/v1` |
 
-### MLflow Settings
+#### MLflow Settings
 
 | Field                | Required | Description                               | Example                                 |
 | -------------------- | -------- | ----------------------------------------- | --------------------------------------- |
@@ -80,7 +87,7 @@ Configure credentials in n8n for both the LLM endpoint and MLflow.
 Set the **Tracking URI** to `databricks` and provide your Databricks personal access token as the **MLflow Tracking Token**.
 :::
 
-## Node Configuration
+### 3. Node Configuration
 
 Add the **OpenAI MLflow** node to your workflow and configure the MLflow tracing fields:
 
@@ -114,8 +121,6 @@ After running a workflow, open the MLflow UI and navigate to the **Traces** tab.
 
 Enable **"Group by session"** to see all turns of a conversation grouped under one session:
 
-<ImageBox src="/images/llms/tracing/n8n/mlflow-chat-session-example.png" alt="MLflow chat session grouped view" />
-
 ## Compatibility
 
 - n8n version 1.0.0 or later
@@ -129,3 +134,35 @@ Enable **"Group by session"** to see all turns of a conversation grouped under o
 - [mlflow/mlflow-n8n-nodes on GitHub](https://github.com/mlflow/mlflow-n8n-nodes)
 - [n8n Community Nodes documentation](https://docs.n8n.io/integrations/community-nodes/)
 - [MLflow Tracing documentation](/genai/tracing)
+
+## Next steps
+
+<TilesGrid>
+  <TileCard
+    icon={Users}
+    iconSize={48}
+    title="Track User Feedback"
+    description="Record user feedback on traces for tracking user satisfaction."
+    href="/genai/tracing/collect-user-feedback"
+    linkText="Learn about feedback →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={BookOpen}
+    iconSize={48}
+    title="Manage Prompts"
+    description="Learn how to manage prompts with MLflow's prompt registry."
+    href="/genai/prompt-registry"
+    linkText="Manage prompts →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={Scale}
+    iconSize={48}
+    title="Evaluate Traces"
+    description="Evaluate traces with LLM judges to understand and improve your AI application's behavior."
+    href="/genai/eval-monitor/running-evaluation/traces"
+    linkText="Evaluate traces →"
+    containerHeight={64}
+  />
+</TilesGrid>

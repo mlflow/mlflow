@@ -6,6 +6,9 @@ keywords: [open-webui, tracing, mlflow, filter pipeline, chat, observability, no
 ---
 
 import ImageBox from "@site/src/components/ImageBox";
+import TilesGrid from "@site/src/components/TilesGrid";
+import TileCard from "@site/src/components/TileCard";
+import { Users, BookOpen, Scale } from "lucide-react";
 
 # Tracing Open WebUI
 
@@ -113,3 +116,35 @@ The pipeline exposes the following valves configurable from the Open WebUI admin
 A complete, runnable example including the pipeline source and setup instructions is available in the MLflow repository:
 
 👉 [`examples/open_webui/`](https://github.com/mlflow/mlflow/tree/master/examples/open_webui)
+
+## Next steps
+
+<TilesGrid>
+  <TileCard
+    icon={Users}
+    iconSize={48}
+    title="Track User Feedback"
+    description="Record user feedback on traces for tracking user satisfaction."
+    href="/genai/tracing/collect-user-feedback"
+    linkText="Learn about feedback →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={BookOpen}
+    iconSize={48}
+    title="Manage Prompts"
+    description="Learn how to manage prompts with MLflow's prompt registry."
+    href="/genai/prompt-registry"
+    linkText="Manage prompts →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={Scale}
+    iconSize={48}
+    title="Evaluate Traces"
+    description="Evaluate traces with LLM judges to understand and improve your AI application's behavior."
+    href="/genai/eval-monitor/running-evaluation/traces"
+    linkText="Evaluate traces →"
+    containerHeight={64}
+  />
+</TilesGrid>
