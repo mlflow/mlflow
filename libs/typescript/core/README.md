@@ -55,6 +55,61 @@ const span = mlflow.startSpan({ name: 'my-span' });
 span.end();
 ```
 
+## Distributed Tracing
+
+When your application spans multiple services, you can connect spans from these services into a single trace. MLflow supports this via **Distributed Tracing**, propagating the active trace context over HTTP using the W3C TraceContext specification.
+
+### Client Example
+
+```typescript
+import * as mlflow from 'mlflow-tracing';
+
+mlflow.withSpan(async (span) => {
+  // Get headers containing the trace context
+  const headers = mlflow.getTracingContextHeadersForHttpRequest();
+
+  // Pass headers to downstream service
+  await fetch('https://your.service/handle', {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ input: 'hello' }),
+  });
+}, { name: 'client-root' });
+```
+
+### Server Handler Example (Express)
+
+```typescript
+import * as mlflow from 'mlflow-tracing';
+import express from 'express';
+
+const app = express();
+
+app.post('/handle', (req, res) => {
+  // Extract trace context from incoming headers
+  mlflow.withTracingContextFromHeaders(req.headers, () => {
+    mlflow.withSpan((span) => {
+      // This span is a child of the client's span
+      span.setAttribute('status', 'ok');
+      res.json({ ok: true });
+    }, { name: 'server-handler' });
+  });
+});
+```
+
+For async handlers, use `withTracingContextFromHeadersAsync`:
+
+```typescript
+app.post('/handle', async (req, res) => {
+  await mlflow.withTracingContextFromHeadersAsync(req.headers, async () => {
+    await mlflow.withSpan(async (span) => {
+      // Async processing here
+      res.json({ ok: true });
+    }, { name: 'server-handler' });
+  });
+});
+```
+
 ## Documentation 📘
 
 Official documentation for MLflow Typescript SDK can be found [here](https://mlflow.org/docs/latest/genai/tracing/quickstart).
