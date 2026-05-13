@@ -7,7 +7,7 @@ import {
   GetTraceInfoV3,
   StartTraceV3,
 } from './spec';
-import { makeRequest } from './utils';
+import { makeRequest, MlflowHttpError } from './utils';
 import { TraceData } from '../core/entities/trace_data';
 import { ArtifactsClient, getArtifactsClient } from './artifacts';
 import { AuthProvider, HeadersProvider } from '../auth';
@@ -147,7 +147,10 @@ export class MlflowClient {
         name: response.experiment.name,
       };
     } catch (error) {
-      if (error instanceof Error && /RESOURCE_DOES_NOT_EXIST|HTTP 404:/.test(error.message)) {
+      if (
+        error instanceof MlflowHttpError &&
+        (error.status === 404 || error.errorCode === 'RESOURCE_DOES_NOT_EXIST')
+      ) {
         return null;
       }
       throw error;

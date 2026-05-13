@@ -1,7 +1,7 @@
 {
   "name": "mlflow-tracing",
   "version": "0.2.0",
-  "description": "MLflow tracing integration for Claude Code — exports conversation traces to MLflow",
+  "description": "Observability plugin for Claude Code with MLflow tracing",
   "author": {
     "name": "MLflow",
     "url": "https://mlflow.org/"

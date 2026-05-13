@@ -17,6 +17,7 @@ function printUsage(): void {
 
 async function main(): Promise<void> {
   const [, , command, ...rest] = process.argv;
+  const wantsHelp = rest.includes('--help') || rest.includes('-h');
 
   if (command === undefined || command === '--help' || command === '-h' || command === 'help') {
     printUsage();
@@ -27,11 +28,19 @@ async function main(): Promise<void> {
   }
 
   if (command === 'setup') {
+    if (wantsHelp) {
+      printUsage();
+      return;
+    }
     await runSetup(rest);
     return;
   }
 
   if (command === 'status') {
+    if (wantsHelp) {
+      printUsage();
+      return;
+    }
     runStatus();
     return;
   }
