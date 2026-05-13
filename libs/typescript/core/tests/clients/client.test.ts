@@ -120,4 +120,132 @@ describe('MlflowClient', () => {
       expect(retrievedTraceInfo.requestTime).toBe(1000);
     });
   });
+
+  describe('searchTraces', () => {
+    it('should return an empty result when no traces exist', async () => {
+      const result = await client.searchTraces({
+        experimentIds: [experimentId],
+      });
+
+      expect(result.items).toEqual([]);
+      expect(result.nextPageToken).toBeUndefined();
+    });
+
+    it('should find traces by experiment ID', async () => {
+      const traceId = randomUUID();
+      await client.createTrace(
+        new TraceInfo({
+          traceId,
+          traceLocation: {
+            type: TraceLocationType.MLFLOW_EXPERIMENT,
+            mlflowExperiment: { experimentId },
+          },
+          state: TraceState.OK,
+          requestTime: Date.now(),
+          executionDuration: 100,
+          requestPreview: '{"input":"hello"}',
+          responsePreview: '{"output":"world"}',
+        }),
+      );
+
+      const result = await client.searchTraces({
+        experimentIds: [experimentId],
+      });
+
+      expect(result.items.length).toBe(1);
+      expect(result.items[0]).toBeInstanceOf(TraceInfo);
+      expect(result.items[0].traceId).toBe(traceId);
+      expect(result.items[0].state).toBe(TraceState.OK);
+    });
+
+    it('should support maxResults to limit returned traces', async () => {
+      for (let i = 0; i < 3; i++) {
+        await client.createTrace(
+          new TraceInfo({
+            traceId: randomUUID(),
+            traceLocation: {
+              type: TraceLocationType.MLFLOW_EXPERIMENT,
+              mlflowExperiment: { experimentId },
+            },
+            state: TraceState.OK,
+            requestTime: Date.now() + i,
+          }),
+        );
+      }
+
+      const result = await client.searchTraces({
+        experimentIds: [experimentId],
+        maxResults: 2,
+      });
+
+      expect(result.items.length).toBe(2);
+      expect(result.nextPageToken).toBeDefined();
+    });
+
+    it('should support filter strings', async () => {
+      const okTraceId = randomUUID();
+      await client.createTrace(
+        new TraceInfo({
+          traceId: okTraceId,
+          traceLocation: {
+            type: TraceLocationType.MLFLOW_EXPERIMENT,
+            mlflowExperiment: { experimentId },
+          },
+          state: TraceState.OK,
+          requestTime: Date.now(),
+        }),
+      );
+      await client.createTrace(
+        new TraceInfo({
+          traceId: randomUUID(),
+          traceLocation: {
+            type: TraceLocationType.MLFLOW_EXPERIMENT,
+            mlflowExperiment: { experimentId },
+          },
+          state: TraceState.ERROR,
+          requestTime: Date.now(),
+        }),
+      );
+
+      const result = await client.searchTraces({
+        experimentIds: [experimentId],
+        filter: "trace.status = 'OK'",
+      });
+
+      expect(result.items.length).toBe(1);
+      expect(result.items[0].traceId).toBe(okTraceId);
+      expect(result.items[0].state).toBe(TraceState.OK);
+    });
+
+    it('should paginate through results with pageToken', async () => {
+      for (let i = 0; i < 3; i++) {
+        await client.createTrace(
+          new TraceInfo({
+            traceId: randomUUID(),
+            traceLocation: {
+              type: TraceLocationType.MLFLOW_EXPERIMENT,
+              mlflowExperiment: { experimentId },
+            },
+            state: TraceState.OK,
+            requestTime: Date.now() + i,
+          }),
+        );
+      }
+
+      const page1 = await client.searchTraces({
+        experimentIds: [experimentId],
+        maxResults: 2,
+      });
+      expect(page1.items.length).toBe(2);
+      expect(page1.nextPageToken).toBeDefined();
+
+      const page2 = await client.searchTraces({
+        experimentIds: [experimentId],
+        maxResults: 2,
+        pageToken: page1.nextPageToken,
+      });
+      expect(page2.items.length).toBe(1);
+      expect(page2.nextPageToken).toBeUndefined();
+    });
+  });
 });

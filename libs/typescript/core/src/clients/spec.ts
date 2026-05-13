@@ -5,7 +5,7 @@
  * including request payloads and response structures for all trace-related endpoints.
  */
 
-import type { TraceInfo } from '../core/entities/trace_info';
+import type { TraceInfo, SerializedTraceInfo } from '../core/entities/trace_info';
 import { ArtifactCredentialType } from './artifacts/databricks';
 
 /**
@@ -38,6 +38,34 @@ export namespace GetTraceInfoV3 {
     trace: {
       trace_info: Parameters<typeof TraceInfo.fromJson>[0];
     };
+  }
+}
+
+/**
+ * Search for traces matching given criteria.
+ * Endpoint: POST /api/3.0/mlflow/traces/search
+ */
+export namespace SearchTracesV3 {
+  export const getEndpoint = (host: string) => `${host}/api/3.0/mlflow/traces/search`;
+
+  export interface ExperimentLocation {
+    type: 'MLFLOW_EXPERIMENT';
+    mlflow_experiment: {
+      experiment_id: string;
+    };
+  }
+
+  export interface Request {
+    locations?: ExperimentLocation[];
+    filter?: string;
+    max_results?: number;
+    order_by?: string[];
+    page_token?: string;
+  }
+
+  export interface Response {
+    traces?: SerializedTraceInfo[];
+    next_page_token?: string;
   }
 }
 

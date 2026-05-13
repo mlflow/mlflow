@@ -1,6 +1,12 @@
 import { TraceInfo } from '../core/entities/trace_info';
 import { Trace } from '../core/entities/trace';
-import { CreateExperiment, DeleteExperiment, GetTraceInfoV3, StartTraceV3 } from './spec';
+import {
+  CreateExperiment,
+  DeleteExperiment,
+  GetTraceInfoV3,
+  SearchTracesV3,
+  StartTraceV3,
+} from './spec';
 import { makeRequest } from './utils';
 import { TraceData } from '../core/entities/trace_data';
 import { ArtifactsClient, getArtifactsClient } from './artifacts';
@@ -100,6 +106,59 @@ export class MlflowClient {
    */
   async uploadTraceData(traceInfo: TraceInfo, traceData: TraceData): Promise<void> {
     await this.artifactsClient.uploadTraceData(traceInfo, traceData);
+  }
+
+  // === TRACE SEARCH METHODS ===
+  /**
+   * Search for traces matching given criteria.
+   * Corresponds to Python: client.search_traces()
+   *
+   * Endpoint: POST /api/3.0/mlflow/traces/search
+   *
+   * @param options - Search parameters
+   * @param options.experimentIds - Experiment IDs to search within
+   * @param options.filter - SQL-like filter string, e.g. "trace.status = 'OK'"
+   * @param options.maxResults - Maximum results to return (default 100, max 500)
+   * @param options.orderBy - Sort columns, e.g. ["timestamp_ms DESC"]
+   * @param options.pageToken - Token for fetching the next page
+   * @returns A paged list of TraceInfo objects
+   */
+  async searchTraces(options: {
+    experimentIds?: string[];
+    filter?: string;
+    maxResults?: number;
+    orderBy?: string[];
+    pageToken?: string;
+  } = {}): Promise<{ items: TraceInfo[]; nextPageToken?: string }> {
+    const url = SearchTracesV3.getEndpoint(this.hostUrl);
+
+    const locations = options.experimentIds?.map(
+      (id): SearchTracesV3.ExperimentLocation => ({
+        type: 'MLFLOW_EXPERIMENT',
+        mlflow_experiment: { experiment_id: id },
+      }),
+    );
+
+    const payload: SearchTracesV3.Request = {
+      locations,
+      filter: options.filter,
+      max_results: options.maxResults,
+      order_by: options.orderBy,
+      page_token: options.pageToken,
+    };
+
+    const response = await makeRequest<SearchTracesV3.Response>(
+      'POST',
+      url,
+      this.headersProvider,
+      payload,
+    );
+
+    const traces = (response.traces ?? []).map((t) => TraceInfo.fromJson(t));
+    return {
+      items: traces,
+      nextPageToken: response.next_page_token,
+    };
   }
 
   // === EXPERIMENT METHODS  ===
