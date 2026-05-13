@@ -32,9 +32,11 @@ jest.mock('recharts', () => {
   return {
     ...baseMock,
     Tooltip: ({ content }: { content?: unknown }) =>
-      React.isValidElement(content)
-        ? React.cloneElement(content as React.ReactElement, { active: true, payload })
-        : <div data-testid="tooltip" />,
+      React.isValidElement(content) ? (
+        React.cloneElement(content as React.ReactElement, { active: true, payload })
+      ) : (
+        <div data-testid="tooltip" />
+      ),
   };
 });
 
