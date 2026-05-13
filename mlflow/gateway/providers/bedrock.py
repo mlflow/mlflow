@@ -202,10 +202,9 @@ class AmazonBedrockProvider(BaseProvider):
         if not isinstance(self.bedrock_config.aws_config, AWSRole):
             return False
 
-        return (
-            (time.monotonic_ns() - self._client_created)
-            >= (self.bedrock_config.aws_config.session_length_seconds) * 1_000_000_000,
-        )
+        return (time.monotonic_ns() - self._client_created) >= (
+            self.bedrock_config.aws_config.session_length_seconds
+        ) * 1_000_000_000
 
     def get_bedrock_client(self):
         try:
