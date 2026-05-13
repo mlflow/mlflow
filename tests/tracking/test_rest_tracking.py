@@ -2461,7 +2461,7 @@ def test_get_experiment_graphql(mlflow_client):
         json={
             "query": 'query testQuery {mlflowGetExperiment(input: {experimentId: "'
             + experiment_id
-            + '"}) { experiment { name } }}',
+            + '"}) { experiment { name effectiveTraceArchivalRetention } }}',
             "operationName": "testQuery",
         },
         headers={"content-type": "application/json; charset=utf-8"},
@@ -2469,6 +2469,10 @@ def test_get_experiment_graphql(mlflow_client):
     assert response.status_code == 200
     json = response.json()
     assert json["data"]["mlflowGetExperiment"]["experiment"]["name"] == "GraphqlTest"
+    assert json["data"]["mlflowGetExperiment"]["experiment"]["effectiveTraceArchivalRetention"] in (
+        None,
+        "",
+    )
 
 
 def test_get_run_and_experiment_graphql(mlflow_client):
