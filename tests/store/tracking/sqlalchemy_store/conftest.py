@@ -332,9 +332,6 @@ def _create_trace(
     tags=None,
     client_request_id=None,
 ) -> TraceInfo:
-    if not store.get_experiment(experiment_id):
-        store.create_experiment(store, experiment_id)
-
     trace_info = TraceInfo(
         trace_id=trace_id,
         trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
