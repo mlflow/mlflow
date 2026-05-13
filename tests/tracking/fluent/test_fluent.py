@@ -567,7 +567,8 @@ def test_start_run_defaults(empty_active_run_stack):
     )
     mock_source_version = mock.Mock()
     source_version_patch = mock.patch(
-        "mlflow.tracking.context.git_context._get_source_version", return_value=mock_source_version
+        "mlflow.tracking.context.git_context._resolve_git_info",
+        return_value={mlflow_tags.MLFLOW_GIT_COMMIT: mock_source_version},
     )
     run_name = "my name"
 
@@ -612,7 +613,8 @@ def test_start_run_defaults_databricks_notebook(
     )
     mock_source_version = mock.Mock()
     source_version_patch = mock.patch(
-        "mlflow.tracking.context.git_context._get_source_version", return_value=mock_source_version
+        "mlflow.tracking.context.git_context._resolve_git_info",
+        return_value={mlflow_tags.MLFLOW_GIT_COMMIT: mock_source_version},
     )
     mock_notebook_id = mock.Mock()
     notebook_id_patch = mock.patch(
@@ -696,7 +698,8 @@ def test_start_run_creates_new_run_with_user_specified_tags():
     )
     mock_source_version = mock.Mock()
     source_version_patch = mock.patch(
-        "mlflow.tracking.context.git_context._get_source_version", return_value=mock_source_version
+        "mlflow.tracking.context.git_context._resolve_git_info",
+        return_value={mlflow_tags.MLFLOW_GIT_COMMIT: mock_source_version},
     )
     user_specified_tags = {
         "ml_task": "regression",
@@ -907,7 +910,8 @@ def test_start_run_with_description(empty_active_run_stack):
     )
     mock_source_version = mock.Mock()
     source_version_patch = mock.patch(
-        "mlflow.tracking.context.git_context._get_source_version", return_value=mock_source_version
+        "mlflow.tracking.context.git_context._resolve_git_info",
+        return_value={mlflow_tags.MLFLOW_GIT_COMMIT: mock_source_version},
     )
 
     description = "Test description"
@@ -1840,8 +1844,8 @@ def test_initialize_logged_model_tags_from_context():
             return_value=SourceType.from_string(expected_tags[mlflow_tags.MLFLOW_SOURCE_TYPE]),
         ) as m_get_source_type,
         mock.patch(
-            "mlflow.tracking.context.git_context._get_source_version",
-            return_value=expected_tags[mlflow_tags.MLFLOW_GIT_COMMIT],
+            "mlflow.tracking.context.git_context._resolve_git_info",
+            return_value={mlflow_tags.MLFLOW_GIT_COMMIT: expected_tags[mlflow_tags.MLFLOW_GIT_COMMIT]},
         ) as m_get_source_version,
     ):
         model = mlflow.initialize_logged_model()
