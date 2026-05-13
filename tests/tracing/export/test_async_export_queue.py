@@ -90,7 +90,6 @@ def test_async_queue_activate_thread_safe():
 
 
 def test_put_after_terminate_executes_synchronously():
-    """put() after flush(terminate=True) must not deadlock and must execute the task."""
     queue = AsyncTraceExportQueue()
 
     calls = []
