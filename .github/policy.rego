@@ -414,6 +414,24 @@ deny_upload_artifact_without_if_no_files_found contains msg if {
 	)
 }
 
+deny_matrix_without_fail_fast contains msg if {
+	some job_id, job in input.jobs
+	job.strategy.matrix
+	not has_explicit_fail_fast(job.strategy)
+	msg := sprintf(
+		"strategy.matrix in job '%s' must set 'fail-fast' explicitly (either true or false).",
+		[job_id],
+	)
+}
+
+has_explicit_fail_fast(strategy) if {
+	strategy["fail-fast"] == false
+}
+
+has_explicit_fail_fast(strategy) if {
+	strategy["fail-fast"] == true
+}
+
 deny_mutable_install contains msg if {
 	some job_id, job in input.jobs
 	some step in job.steps

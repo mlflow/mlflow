@@ -283,6 +283,16 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'tracing/integrations/listing/n8n',
+                  label: 'n8n',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/open-webui',
+                  label: 'Open WebUI',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/integrations/listing/openai-agent',
                   label: 'OpenAI Agent',
                 },

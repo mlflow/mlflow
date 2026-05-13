@@ -29,17 +29,23 @@ Navigate to the **AI Gateway** tab at `http://localhost:5000/#/gateway` and clic
 The server-side API key in the LLM Connection can be set to a dummy value (e.g. `dummy`). The gateway detects Codex's `User-Agent` and forwards the client's own credentials, either their OpenAI subscription or their own API key, to the upstream provider instead.
 :::
 
-## Step 2: Configure Environment Variables
+## Step 2: Configure Codex Base URL
 
-Set the following environment variable so Codex routes through the gateway:
+Configure Codex to point to the gateway base URL.
 
 ```bash
-export OPENAI_BASE_URL="http://localhost:5000/gateway/openai/v1"
+codex --model my-codex-endpoint --config 'openai_base_url="http://localhost:5000/gateway/openai/v1"'
+```
+
+For a persistent setup, add the same value to `~/.codex/config.toml`:
+
+```toml title="~/.codex/config.toml"
+openai_base_url = "http://localhost:5000/gateway/openai/v1"
 ```
 
 ## Step 3: Run Codex
 
-Pass your endpoint name as the model:
+Pass your endpoint name as the model. If you did not persist `openai_base_url` in `~/.codex/config.toml`, also include `--config 'openai_base_url="http://localhost:5000/gateway/openai/v1"'` when launching Codex.
 
 ```bash
 codex --model my-codex-endpoint

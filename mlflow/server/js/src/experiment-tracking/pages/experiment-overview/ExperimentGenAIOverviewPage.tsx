@@ -40,6 +40,7 @@ import { useOverviewTab, OverviewTab } from './hooks/useOverviewTab';
 import { MetricsFilter } from '../../../common/components/MetricsFilter';
 import {
   translateToMetricsFilters,
+  translateToTracesPageFilters,
   type MetricFilter,
   type MetricFilterColumnOption,
 } from '../../../common/components/MetricsFilter.utils';
@@ -145,10 +146,20 @@ const ExperimentGenAIOverviewPageImpl = () => {
     [startTimeMs, endTimeMs, timeIntervalSeconds],
   );
 
-  // User-driven filter rows captured by MetricsFilter. Translated into
-  // metrics-API DSL strings via translateToMetricsFilters and passed to the chart provider.
+  // User-driven filter rows captured by MetricsFilter. The MetricsFilter UI is only rendered on
+  // the Usage tab, so we scope both the chart-query filters (metrics-API DSL) and the navigation
+  // filters (Traces page URL format) to that tab; charts on Quality and Tool calls tabs are
+  // unaffected even though they share the same OverviewChartProvider.
   const [metricFilters, setMetricFilters] = useState<MetricFilter[]>([]);
-  const chartFilters = useMemo(() => translateToMetricsFilters(metricFilters), [metricFilters]);
+  const isUsageTab = activeTab === OverviewTab.Usage;
+  const chartFilters = useMemo(
+    () => (isUsageTab ? translateToMetricsFilters(metricFilters) : undefined),
+    [isUsageTab, metricFilters],
+  );
+  const tracesNavigationFilters = useMemo(
+    () => (isUsageTab ? translateToTracesPageFilters(metricFilters) : undefined),
+    [isUsageTab, metricFilters],
+  );
   const metricsFilterColumnOptions = useMemo<MetricFilterColumnOption[]>(
     () => [
       {
@@ -261,6 +272,7 @@ const ExperimentGenAIOverviewPageImpl = () => {
           timeIntervalSeconds={timeIntervalSeconds}
           timeBuckets={timeBuckets}
           filters={chartFilters}
+          tracesNavigationFilters={tracesNavigationFilters}
         >
           <Tabs.Content value={OverviewTab.Usage} css={{ flex: 1, overflowY: 'auto' }}>
             <TabContentContainer>
