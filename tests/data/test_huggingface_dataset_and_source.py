@@ -99,7 +99,7 @@ def test_from_huggingface_dataset_constructs_expected_dataset_with_revision():
     )
 
     ds = mlflow_ds_new.source.load()
-    assert any(revision in cs for cs in ds.info.download_checksums)
+    assert revision in ds.cache_files[0]["filename"]
 
 
 def test_from_huggingface_dataset_constructs_expected_dataset_with_data_files():
