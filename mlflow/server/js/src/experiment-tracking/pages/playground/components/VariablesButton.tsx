@@ -60,7 +60,7 @@ export const VariablesButton = ({ messages, value, onChange }: Props) => {
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
           <Typography.Paragraph withoutMargins>
             <FormattedMessage
-              defaultMessage="Use {example}  to create reusable variables. Values entered below replace the placeholders on submit, while your templates stay unchanged for reuse with different inputs."
+              defaultMessage="Use {example} to create reusable variables. Values entered below replace the placeholders on submit, while your templates stay unchanged for reuse with different inputs."
               description="Intro paragraph at the top of the playground variables drawer"
               values={{ example: <Typography.Text code>{'{{ name }}'}</Typography.Text> }}
             />
