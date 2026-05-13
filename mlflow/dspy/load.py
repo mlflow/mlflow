@@ -85,7 +85,7 @@ def _load_model(model_uri, dst_path=None):
                     "which disables pickle-based deserialization. If the failure above "
                     "is due to disabled pickle deserialization, set "
                     "'MLFLOW_ALLOW_PICKLE_DESERIALIZATION' to 'true' to allow loading "
-                    "models saved with `use_dspy_model_save=True`."
+                    "pickle-based models."
                 ) from e
             raise
 
