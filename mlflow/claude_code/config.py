@@ -66,29 +66,43 @@ def save_claude_config(settings_path: Path, config: dict[str, Any]) -> None:
 def get_tracing_status(settings_path: Path) -> TracingStatus:
     """Get current tracing status from Claude settings.
 
+    Checks both settings.json and settings.local.json, with local taking
+    precedence for env vars (matching Claude Code's own precedence).
+
     Args:
-        settings_path: Path to Claude settings file
+        settings_path: Path to Claude settings file (e.g., .claude/settings.json)
 
     Returns:
         TracingStatus with tracing status information
     """
-    if not settings_path.exists():
+    local_path = settings_path.parent / "settings.local.json"
+    config = load_claude_config(settings_path)
+    local_config = load_claude_config(local_path)
+
+    if not config and not local_config:
         return TracingStatus(enabled=False, reason="No configuration found")
 
-    config = load_claude_config(settings_path)
     env_vars = config.get(ENVIRONMENT_FIELD, {})
-    enabled = env_vars.get(MLFLOW_TRACING_ENABLED) == "true"
+    local_env_vars = local_config.get(ENVIRONMENT_FIELD, {})
+    merged_env = {**env_vars, **local_env_vars}
+
+    enabled = merged_env.get(MLFLOW_TRACING_ENABLED) == "true"
 
     return TracingStatus(
         enabled=enabled,
-        tracking_uri=env_vars.get(MLFLOW_TRACKING_URI.name),
-        experiment_id=env_vars.get(MLFLOW_EXPERIMENT_ID.name),
-        experiment_name=env_vars.get(MLFLOW_EXPERIMENT_NAME.name),
+        tracking_uri=merged_env.get(MLFLOW_TRACKING_URI.name),
+        experiment_id=merged_env.get(MLFLOW_EXPERIMENT_ID.name),
+        experiment_name=merged_env.get(MLFLOW_EXPERIMENT_NAME.name),
     )
 
 
 def get_env_var(var_name: str, default: str = "") -> str:
     """Get environment variable from OS or Claude settings as fallback.
+
+    Checks in order (first match wins):
+    1. OS environment variables (set by Claude Code from settings at startup)
+    2. .claude/settings.local.json env block (user-local, not committed)
+    3. .claude/settings.json env block (project-level, may be committed)
 
     Args:
         var_name: Environment variable name
@@ -102,15 +116,18 @@ def get_env_var(var_name: str, default: str = "") -> str:
     if value is not None:
         return value
 
-    # Fallback to Claude settings
-    try:
-        settings_path = Path(".claude/settings.json")
-        if settings_path.exists():
-            config = load_claude_config(settings_path)
-            env_vars = config.get(ENVIRONMENT_FIELD, {})
-            return env_vars.get(var_name, default)
-    except Exception:
-        pass
+    # Check settings.local.json (user-local overrides, not committed to git)
+    for settings_file in ("settings.local.json", "settings.json"):
+        try:
+            settings_path = Path(f".claude/{settings_file}")
+            if settings_path.exists():
+                config = load_claude_config(settings_path)
+                env_vars = config.get(ENVIRONMENT_FIELD, {})
+                value = env_vars.get(var_name)
+                if value is not None:
+                    return value
+        except Exception:
+            pass
 
     return default
 
