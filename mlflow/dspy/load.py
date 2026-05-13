@@ -75,7 +75,19 @@ def _load_model(model_uri, dst_path=None):
         with open(os.path.join(local_model_path, model_path), "rb") as f:
             loaded_wrapper = cloudpickle.load(f)
     else:
-        model = dspy.load(os.path.join(local_model_path, model_path), allow_pickle=allow_pickle)
+        try:
+            model = dspy.load(os.path.join(local_model_path, model_path), allow_pickle=allow_pickle)
+        except Exception as e:
+            if not allow_pickle:
+                raise MlflowException(
+                    f"Failed to load DSPy model: {e}. Note: the environment variable "
+                    "'MLFLOW_ALLOW_PICKLE_DESERIALIZATION' is currently set to 'false', "
+                    "which disables pickle-based deserialization. If the failure above "
+                    "is due to disabled pickle deserialization, set "
+                    "'MLFLOW_ALLOW_PICKLE_DESERIALIZATION' to 'true' to allow loading "
+                    "models saved with `use_dspy_model_save=True`."
+                ) from e
+            raise
 
         settings_path = os.path.join(local_model_path, _MODEL_DATA_PATH, _DSPY_SETTINGS_FILE_NAME)
         if "allow_pickle" in inspect.signature(dspy.load_settings).parameters:

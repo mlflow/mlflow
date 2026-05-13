@@ -600,3 +600,24 @@ def test_load_model_forwards_allow_pickle_to_dspy(env_value, expected_allow_pick
 
     mock_load.assert_called_once()
     assert mock_load.call_args.kwargs["allow_pickle"] is expected_allow_pickle
+
+
+@pytest.mark.skipif(
+    _DSPY_VERSION <= Version("2.6.0"),
+    reason="'use_dspy_model_save' = True does not support dspy <= 2.6.0",
+)
+def test_load_model_wraps_dspy_error_when_pickle_disabled(monkeypatch):
+    dspy_model = CoT()
+    dspy.settings.configure(lm=dspy.LM(model="openai/gpt-4o-mini", max_tokens=250))
+
+    with mlflow.start_run():
+        model_info = mlflow.dspy.log_model(
+            dspy_model,
+            name="model",
+            use_dspy_model_save=True,
+        )
+
+    monkeypatch.setenv("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", "false")
+    with mock.patch("dspy.load", side_effect=ValueError("pickle disallowed by dspy")):
+        with pytest.raises(MlflowException, match="MLFLOW_ALLOW_PICKLE_DESERIALIZATION"):
+            mlflow.dspy.load_model(model_info.model_uri)
