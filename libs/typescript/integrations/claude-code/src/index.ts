@@ -5,6 +5,7 @@ export {
   getEffectiveTracingConfig,
   resolveSettingsPath,
 } from './config.js';
+export { createTracedQuery } from './tracedClaudeAgent.js';
 export type {
   TranscriptEntry,
   MessageContent,

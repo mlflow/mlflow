@@ -2,7 +2,7 @@
 name: pr-review
 description: Review a GitHub pull request, add review comments for issues found, and approve if no significant issues exist
 disable-model-invocation: true
-allowed-tools: Read, Skill, Bash, Grep, Glob
+allowed-tools: Read, Skill, Bash, Grep, Glob, Agent
 argument-hint: "[extra_context]"
 ---
 
