@@ -12,7 +12,7 @@ def parse_frontmatter(text: str) -> dict[str, object] | None:
     end = text.find("\n---\n", 4)
     if end == -1:
         return None
-    data = yaml.safe_load(text[4:end])
+    data = yaml.safe_load(text[4:end]) or {}
     return data if isinstance(data, dict) else None
 
 
