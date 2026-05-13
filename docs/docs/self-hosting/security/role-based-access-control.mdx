@@ -51,9 +51,9 @@ permission)`. The pattern is either a literal resource id or `*` (apply to all
   no role to share) are stored under a reserved synthetic role named
   `__user_<id>__`. Same storage, same resolver; operators don't author or
   edit synthetic roles directly — they're managed by the admin UI's
-  _Direct permissions_ section and by the deprecated per-resource APIs.
-  The `__user_<id>__` name pattern is reserved: `create_role` and
-  `update_role` reject it.
+  _Direct permissions_ section and by the `grant_user_permission` /
+  `revoke_user_permission` convenience APIs. The `__user_<id>__` name
+  pattern is reserved: `create_role` and `update_role` reject it.
 
 ### Permission levels
 
@@ -132,7 +132,7 @@ Manager** for the second; the doc uses the same labels.
 
 ## Common scenarios
 
-The big shift from the pre-RBAC model: every "give X access to Y" used to be a
+The big shift from the legacy permission model: every "give X access to Y" used to be a
 one-off per-resource POST. Now you either build the permission set once (a
 role) and add users to it, or grant a one-off **direct permission** to a single
 user. Both flows live behind the same admin UI modals. There's no separate
@@ -157,13 +157,27 @@ per-user role; no admin-managed role to maintain.
 **Via the admin UI:** `/admin` → Users → click `alice` → **Edit access** → in
 the _Direct permissions_ section, add `experiment:42 → EDIT` → review → apply.
 
+**Via the convenience API:** the cleanest single-call path is
+`auth_client.grant_user_permission(username, resource_type, resource_id,
+permission)`. Internally it writes to the same synthetic per-user role
+as the admin UI's _Direct permissions_ section:
+
+```python
+auth_client.grant_user_permission("alice", "experiment", "42", "EDIT")
+```
+
+`grant_user_permission` is gated by per-resource MANAGE on the target
+resource — the same authority check the legacy
+`create_experiment_permission()` family used — so an experiment owner
+who holds `(experiment, 42, MANAGE)` can grant access without holding
+workspace-wide MANAGE.
+
 **Via the role API:** the synthetic role isn't its own API surface. Use the
 same pattern as [Scenario 2](#2-give-alice-edit-on-experiment-42-reusable)
 with a single-user role (`create_role` + `add_role_permission` +
-`assign_role`). The pre-RBAC `create_experiment_permission()` /
-`update_experiment_permission()` family still works during the deprecation
-window and writes to the synthetic role under the hood, but emits a warning
-on every call.
+`assign_role`). This works but requires workspace MANAGE or Platform Admin
+because `create_role` is an administrative action; the convenience API
+above is the lower-privilege path for the same outcome.
 
 ### 2. Give Alice EDIT on experiment 42 (reusable)
 
@@ -305,10 +319,11 @@ manually):
 export MLFLOW_RBAC_SEED_DEFAULT_ROLES=false
 ```
 
-## Migrating from the pre-RBAC model
+## Migrating from the legacy permission model
 
-If you're upgrading from a release that used the per-resource permission
-endpoints, the auth-store backfill migration translates the legacy tables
+If you're upgrading from a release before MLflow 3.13 that used the
+per-resource permission endpoints, the auth-store backfill migration
+translates the legacy tables
 (`experiment_permissions`, `registered_model_permissions`, the four
 `gateway_*_permissions`, `scorer_permissions`, `workspace_permissions`) into
 `role_permissions` rows. The legacy tables remain on disk for rollback safety
@@ -317,24 +332,36 @@ migration.
 
 The wire surface and `AuthServiceClient` shape change as follows:
 
-| Pre-RBAC surface                                                                                                                               | Status                                                                                              | Replacement                                                                                                                               |
-| ---------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `POST/GET/PATCH/DELETE` on `/mlflow/{experiments,registered-models,scorers,gateway/*}/permissions`                                             | **Deprecated** (still works; emits a deprecation warning; backed by synthetic per-user role grants) | `POST /mlflow/roles/create` + `POST /mlflow/roles/permissions/add` + `POST /mlflow/roles/assign`, or a direct permission via the admin UI |
-| `auth_client.create_experiment_permission()`, `update_registered_model_permission()`, and the ~23 sibling per-resource client methods          | **Deprecated**                                                                                      | `auth_client.create_role()`, `add_role_permission()`, `assign_role()`, etc.                                                               |
-| `POST/GET/PATCH/DELETE` on `/mlflow/workspaces/<workspace>/permissions`                                                                        | **Removed**                                                                                         | Assign the seeded `admin` or `user` role for the workspace, or a custom role with a `(workspace, *, …)` permission                        |
-| `auth_client.set_workspace_permission()`, `list_workspace_permissions()`, `delete_workspace_permission()`, `list_user_workspace_permissions()` | **Removed**                                                                                         | The role API (`assign_role` to a workspace-scoped role with a `(workspace, *, …)` permission)                                             |
+| Pre-RBAC surface                                                                                                                               | Status      | Replacement                                                                                                                                                                  |
+| ---------------------------------------------------------------------------------------------------------------------------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST/GET/PATCH/DELETE` on `/mlflow/{experiments,registered-models,scorers,gateway/*}/permissions`                                             | **Removed** | `POST /mlflow/users/permissions/grant` / `revoke` for one-user one-resource direct grants, or the role API (`POST /mlflow/roles/create` + `add` + `assign`) for shared sets. |
+| `auth_client.create_experiment_permission()`, `update_registered_model_permission()`, and the ~23 sibling per-resource client methods          | **Removed** | `auth_client.grant_user_permission(username, resource_type, resource_id, permission)` / `revoke_user_permission(...)`, or `create_role` + `add_role_permission` + `assign_role`. |
+| `POST/GET/PATCH/DELETE` on `/mlflow/workspaces/<workspace>/permissions`                                                                        | **Removed** | Assign the seeded `admin` or `user` role for the workspace, or a custom role with a `(workspace, *, …)` permission                                                           |
+| `auth_client.set_workspace_permission()`, `list_workspace_permissions()`, `delete_workspace_permission()`, `list_user_workspace_permissions()` | **Removed** | The role API (`assign_role` to a workspace-scoped role with a `(workspace, *, …)` permission)                                                                                |
 
-The per-resource path is "deprecated, not removed" so existing scripts keep
-working; new code should use the role API directly. The workspace-permission
-path is fully gone; calls to those endpoints return 404.
+All four legacy surfaces are removed at the same upgrade that lands RBAC.
+There is no deprecation-warning window: basic-auth was still marked
+experimental, so the carry cost of 25 deprecation-warning-emitting
+methods outweighed the soft-transition benefit. The auth-store backfill
+migration moves existing legacy permission rows into synthetic-role
+storage, so existing grants survive the upgrade — only the API surface
+changes.
 
-**Note on per-resource MANAGE.** During the deprecation window, a user with
-`(experiment, 42, MANAGE)` can still delegate on experiment 42 via the
-deprecated per-resource endpoints (the same per-resource MANAGE check gates
-them as pre-RBAC). The new role API (`add_role_permission`, `assign_role`)
-itself requires workspace MANAGE or Platform Admin. If the deprecated
-endpoints are removed in a future release, per-resource MANAGE alone will
-no longer be sufficient for delegation; until then, both paths work.
+After the upgrade, the one-user one-resource workflow is:
+
+```python
+# Replace this:
+#   auth_client.create_experiment_permission(experiment_id, username, "EDIT")
+auth_client.grant_user_permission(username, "experiment", experiment_id, "EDIT")
+```
+
+**Per-resource MANAGE retains delegation.** A user with `(experiment, 42,
+MANAGE)` can still grant other users access to experiment 42 — the new
+`grant_user_permission` / `revoke_user_permission` are gated by the same
+per-resource MANAGE check the legacy endpoints used. The role API itself
+(`create_role`, `add_role_permission`, `assign_role`) still requires
+workspace MANAGE or Platform Admin; that's by design, since creating a
+role is an administrative action.
 
 ## API reference
 

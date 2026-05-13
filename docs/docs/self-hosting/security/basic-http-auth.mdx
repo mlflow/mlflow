@@ -112,21 +112,30 @@ The default permission for all users is `READ`. It can be changed in the [config
 Permissions are granted via **roles**. See [Role-Based Access Control](/self-hosting/security/role-based-access-control)
 for the model, scenarios, and API reference. For workspace-wide access controls
 specifically, see [Workspace Permissions](/self-hosting/workspaces/permissions).
-Supported resources include `Experiment`, `Registered Model`, and `Scorer`.
+Supported resources include `Experiment`, `Registered Model`, `Prompt`,
+`Scorer`, and the AI Gateway resource types (secrets, endpoints, model
+definitions). `Prompt` is its own resource type even though prompts share
+the model-registry wire surface with registered models: a
+`(registered_model, foo, READ)` grant does not satisfy a request that
+targets a prompt with the same name, and vice versa.
 To access an API endpoint, a user must have the required permission.
 Otherwise, a `403 Forbidden` response will be returned.
 
 Note: the role-based model and the role API were introduced in MLflow 3.12;
-the admin UI documented on the RBAC page is available from the next minor
-release. Older MLflow versions only support the pre-RBAC per-resource
+the admin UI documented on the RBAC page is available from MLflow 3.13.0.
+MLflow versions before 3.13 only support the legacy per-resource
 permission APIs documented below.
 
-:::warning[Pre-RBAC permission management is changing]
+:::warning[Pre-RBAC permission management has been removed]
 
-The following are **deprecated**. They still work (backed internally by
-synthetic per-user role grants), but emit a deprecation warning. Prefer the
-[role API](/self-hosting/security/role-based-access-control#api-reference)
-or the admin UI for new code.
+The following surfaces are **removed** when RBAC lands. Calls return 404
+or the client method no longer exists. The auth-store backfill migration
+moves existing grants into the new synthetic-role storage automatically,
+so existing access survives the upgrade — only the API shape changes.
+
+The replacement is `grant_user_permission` / `revoke_user_permission`
+(one-user, one-resource direct grants) or the role API (for shared
+permission sets). See the migration recipe below.
 
 - REST endpoints:
   - `/mlflow/experiments/permissions/*`
@@ -135,46 +144,42 @@ or the admin UI for new code.
   - `/mlflow/gateway/secrets/permissions/*`
   - `/mlflow/gateway/endpoints/permissions/*`
   - `/mlflow/gateway/model-definitions/permissions/*`
+  - `/mlflow/workspaces/<workspace>/permissions/*`
 - `AuthServiceClient` methods: `create_experiment_permission()`,
   `update_registered_model_permission()`, and the ~23 sibling per-resource
-  methods.
+  methods; `set_workspace_permission()`, `list_workspace_permissions()`,
+  `delete_workspace_permission()`, `list_user_workspace_permissions()`.
 
-**Migration recipe.** If you used to call
-`auth_client.create_experiment_permission(experiment_id, username, permission)`,
-the role-API equivalent is to create a single-user role, attach the
-permission, and assign the user:
+There is no deprecation-warning window. Basic-auth was still marked
+experimental, so the carry cost of 25 deprecation-warning-emitting
+methods outweighed the soft-transition benefit; a clean cut is
+preferable to a long carry.
+
+**Migration recipe.** Replace per-resource calls with
+`grant_user_permission` (one-user, one-resource direct grants) or the
+role API (when the same permission set is shared across users):
 
 ```python
-role = auth_client.create_role(
-    name=f"{username}-exp-{experiment_id}",
-    workspace="default",
-)
-auth_client.add_role_permission(
-    role_id=role.id,
-    resource_type="experiment",
-    resource_pattern=str(experiment_id),
-    permission=permission,
-)
-auth_client.assign_role(username=username, role_id=role.id)
+# Pre-RBAC:
+#   auth_client.create_experiment_permission(experiment_id, username, "EDIT")
+# After RBAC:
+auth_client.grant_user_permission(username, "experiment", experiment_id, "EDIT")
 ```
 
-Substitute `registered_model`, `scorer`, or a gateway resource type for
-other resources, and `workspace=` accordingly when workspaces are enabled.
-See [Migrating from the pre-RBAC model](/self-hosting/security/role-based-access-control#migrating-from-the-pre-rbac-model)
-for the full surface mapping.
+Substitute `registered_model`, `prompt`, `scorer`, or a gateway resource
+type as needed. `grant_user_permission` is gated by per-resource MANAGE
+on the target resource — the same authority check the legacy methods
+used — so an experiment owner can continue to delegate without holding
+workspace-wide MANAGE.
 
-The following have been **removed** (calls return 404):
-
-- REST endpoints: `/mlflow/workspaces/<workspace>/permissions/*`.
-- `AuthServiceClient` methods: `set_workspace_permission()`,
-  `list_workspace_permissions()`, `delete_workspace_permission()`,
-  `list_user_workspace_permissions()`.
-
-Use the seeded `<workspace>/admin` and `<workspace>/user` roles, or a custom
-role with a `(workspace, *, …)` permission. See
+For workspace-tier grants (previously
+`set_workspace_permission(workspace, user, permission)`), assign the
+seeded `<workspace>/admin` or `<workspace>/user` role, or build a custom
+role with a `(workspace, *, …)` permission and assign it. See
 [Role-Based Access Control](/self-hosting/security/role-based-access-control),
-[Migrating from the pre-RBAC model](/self-hosting/security/role-based-access-control#migrating-from-the-pre-rbac-model),
-and [Workspace Permissions](/self-hosting/workspaces/permissions).
+[Migrating from the legacy permission model](/self-hosting/security/role-based-access-control#migrating-from-the-legacy-permission-model),
+and [Workspace Permissions](/self-hosting/workspaces/permissions) for
+the full surface mapping.
 
 :::
 
@@ -1393,10 +1398,13 @@ Permissions are granted via the **role API**. The three methods you need are:
 - `assign_role(username, role_id)`: assign a user to the role
 
 This is the path for every grant: one user or many, one resource or
-wildcard, one-off or reusable. The pre-RBAC per-resource methods
-(`create_experiment_permission()`, `update_registered_model_permission()`,
-etc.) still work for backwards compatibility but emit a deprecation warning;
-see the warning above. For one-off grants, the admin UI's _Direct permissions_
+wildcard, one-off or reusable. For one-user one-resource direct grants
+use `auth_client.grant_user_permission(username, resource_type,
+resource_id, permission)`; for shared sets use the role API
+(`create_role` + `add_role_permission` + `assign_role`). The legacy
+per-resource methods (`create_experiment_permission()`,
+`update_registered_model_permission()`, etc.) are removed — see the
+warning above. For one-off grants, the admin UI's _Direct permissions_
 section is the simplest path (no role to author). See
 [Role-Based Access Control](/self-hosting/security/role-based-access-control)
 for the full model, the
