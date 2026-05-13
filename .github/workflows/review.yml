@@ -159,21 +159,17 @@ jobs:
         run: |
           OUTPUT_FILE="/tmp/output.jsonl"
 
-          # Safe construction using arrays - PROMPT is passed as separate argument to prevent shell injection
-          EXTRA_FLAGS=()
-          if [ "$EVENT_NAME" = "pull_request" ]; then
-            # Smoke test: exercise the Bash tool (and gh CLI + app token) so
-            # sandbox or auth regressions surface here.
-            ARGS=("Run \`gh pr view $PR_NUMBER\` and summarize the PR")
-            EXTRA_FLAGS+=("--allowedTools=Bash(gh pr view:*)")
-          else
-            ARGS=("/pr-review")
-            [ -n "$PROMPT" ] && ARGS+=("$PROMPT")
+          # Safe construction using arrays - PROMPT is passed as separate argument to prevent shell injection.
+          # Both event paths run /pr-review end-to-end against the PR; on
+          # pull_request (smoke), Post is gated off so no review is submitted.
+          ARGS=("/pr-review")
+          if [ "$EVENT_NAME" = "issue_comment" ] && [ -n "$PROMPT" ]; then
+            ARGS+=("$PROMPT")
           fi
 
           EXIT_CODE=0
           # Note: ARGS[*] is intentional - claude CLI expects a single prompt string
-          timeout 20m claude --model "$MODEL" --print --verbose --output-format stream-json "${EXTRA_FLAGS[@]}" "${ARGS[*]}" | .claude/scripts/stream.sh "$OUTPUT_FILE" || EXIT_CODE=$?
+          timeout 20m claude --model "$MODEL" --print --verbose --output-format stream-json "${ARGS[*]}" | .claude/scripts/stream.sh "$OUTPUT_FILE" || EXIT_CODE=$?
           if [ "${EXIT_CODE:-0}" -eq 124 ]; then
             echo "Warning: Claude command timed out after 20 minutes"
           elif [ "${EXIT_CODE:-0}" -ne 0 ]; then
@@ -183,7 +179,6 @@ jobs:
           fi
 
       - name: Validate review payload
-        if: github.event_name == 'issue_comment'
         run: |
           if [ ! -f /tmp/review-payload.json ]; then
             echo "::error::Claude did not produce /tmp/review-payload.json"
