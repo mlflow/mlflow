@@ -1,12 +1,13 @@
 import sys
 from pathlib import Path
+from typing import Any
 
 import yaml
 
 REQUIRED = ("name", "description")
 
 
-def parse_frontmatter(text: str) -> dict[str, object] | None:
+def parse_frontmatter(text: str) -> dict[str, Any] | None:
     if not text.startswith("---\n"):
         return None
     end = text.find("\n---\n", 4)
