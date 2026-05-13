@@ -191,7 +191,6 @@ lint = [
   "types-PyYAML",
   "packaging>=25.0",
   "aiohttp",
-  "claude-agent-sdk",
   "pytest",
   "types-requests",
 ]
