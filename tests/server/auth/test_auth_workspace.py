@@ -2991,16 +2991,15 @@ def test_validate_can_check_user_permission_admin_short_circuits(
 def test_validate_can_check_user_permission_cross_user_requires_admin(
     workspace_permission_setup,
 ):
-    # A non-admin user without WP-admin scope cannot check another user's
-    # permissions.
+    # A non-admin requester without workspace MANAGE in the resource's workspace
+    # cannot check another user's permissions. ``alice`` holds USE in team-a (not
+    # MANAGE), so the workspace-admin gate fails even though the resource lives
+    # in alice's workspace.
     store = workspace_permission_setup["store"]
     requester = workspace_permission_setup["username"]
     target = "bob"
     store.create_user(target, "supersecurepassword", is_admin=False)
-    # ``requester`` is workspace MANAGE in team-a (fixture default) but ``bob``
-    # has no role assignment anywhere, so the "WP admin of any of target's
-    # workspaces" check returns False.
-    _set_workspace_permission(store, requester, MANAGE.name)
+    _set_workspace_permission(store, requester, USE.name)
 
     with auth_module.app.test_request_context(
         "/api/3.0/mlflow/auth/check",
@@ -3014,21 +3013,18 @@ def test_validate_can_check_user_permission_cross_user_requires_admin(
         assert not auth_module.validate_can_check_user_permission()
 
 
-def test_validate_can_check_user_permission_wp_admin_can_check_workspace_member(
+def test_validate_can_check_user_permission_wp_admin_scoped_to_resource_workspace(
     workspace_permission_setup,
 ):
-    # A workspace admin in team-a can check permissions for another user who has
-    # a role in team-a — mirrors ``validate_can_view_user_roles``.
+    # A workspace admin in team-a can check another user's permissions on resources
+    # in team-a. The scoping is by **resource workspace** (not by target-user
+    # presence), so the target need not have a role in team-a for the gate to allow.
     store = workspace_permission_setup["store"]
     requester = workspace_permission_setup["username"]
     _set_workspace_permission(store, requester, MANAGE.name)
 
     target = "bob"
     store.create_user(target, "supersecurepassword", is_admin=False)
-    target_id = store.get_user(target).id
-    member_role = store.create_role(name="bob-member", workspace="team-a")
-    store.add_role_permission(member_role.id, "workspace", "*", USE.name)
-    store.assign_role_to_user(target_id, member_role.id)
 
     with auth_module.app.test_request_context(
         "/api/3.0/mlflow/auth/check",
@@ -3040,3 +3036,54 @@ def test_validate_can_check_user_permission_wp_admin_can_check_workspace_member(
         },
     ):
         assert auth_module.validate_can_check_user_permission()
+
+
+def test_validate_can_check_user_permission_cross_workspace_probe_denied(
+    workspace_permission_setup,
+):
+    # Security gate: a workspace admin of team-a must NOT be able to probe a
+    # target user's permissions on a resource in team-b. Closes the
+    # cross-workspace information-disclosure gap.
+    store = workspace_permission_setup["store"]
+    requester = workspace_permission_setup["username"]
+    _set_workspace_permission(store, requester, MANAGE.name)
+
+    target = "bob"
+    store.create_user(target, "supersecurepassword", is_admin=False)
+    auth_module._get_tracking_store()._experiment_workspaces["exp-team-b"] = "team-b"
+
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/auth/check",
+        method="POST",
+        json={
+            "username": target,
+            "resource_type": "experiment",
+            "resource_id": "exp-team-b",
+        },
+    ):
+        assert not auth_module.validate_can_check_user_permission()
+
+
+def test_validate_can_check_user_permission_unknown_resource_denied(
+    workspace_permission_setup,
+):
+    # If the resource can't be resolved to a workspace (e.g. it doesn't exist),
+    # the gate must deny — otherwise a caller could probe across all workspaces
+    # by using a non-existent ID.
+    store = workspace_permission_setup["store"]
+    requester = workspace_permission_setup["username"]
+    _set_workspace_permission(store, requester, MANAGE.name)
+
+    target = "bob"
+    store.create_user(target, "supersecurepassword", is_admin=False)
+
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/auth/check",
+        method="POST",
+        json={
+            "username": target,
+            "resource_type": "experiment",
+            "resource_id": "exp-does-not-exist",
+        },
+    ):
+        assert not auth_module.validate_can_check_user_permission()

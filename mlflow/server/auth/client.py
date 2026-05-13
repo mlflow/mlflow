@@ -429,16 +429,16 @@ class AuthServiceClient:
         username: str,
         resource_type: str,
         resource_id: str,
-        workspace: str | None = None,
     ) -> CheckUserPermissionResult:
-        payload: dict[str, object] = {
-            "username": username,
-            "resource_type": resource_type,
-            "resource_id": resource_id,
-        }
-        if workspace is not None:
-            payload["workspace"] = workspace
-        resp = self._request(CHECK_USER_PERMISSION, "POST", json=payload)
+        resp = self._request(
+            CHECK_USER_PERMISSION,
+            "POST",
+            json={
+                "username": username,
+                "resource_type": resource_type,
+                "resource_id": resource_id,
+            },
+        )
         return CheckUserPermissionResult.from_json(resp)
 
     # Legacy per-resource permission methods (deprecated). Backed by synthetic
