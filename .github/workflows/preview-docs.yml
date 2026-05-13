@@ -14,7 +14,16 @@ defaults:
 
 jobs:
   main:
-    if: github.repository == 'mlflow/mlflow'
+    # Reject fork-source workflow_run events. Without this gate, a `docs` run
+    # triggered by a fork PR would cause this privileged workflow to deploy
+    # PR-controlled content to MLflow's Netlify preview site, with the bot
+    # posting the resulting link from `github-actions[bot]`. The Netlify token
+    # itself isn't exposed (the deploy step only uploads static files), but
+    # the official `mlflow-docs-preview.netlify.app` hostname can be abused
+    # for phishing or impersonation.
+    if: |
+      github.repository == 'mlflow/mlflow' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write # To post comments on PRs
