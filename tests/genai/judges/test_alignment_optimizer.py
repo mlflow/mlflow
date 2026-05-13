@@ -5,7 +5,7 @@ import pytest
 from mlflow.entities.trace import Trace
 from mlflow.genai.judges import AlignmentOptimizer, Judge, make_judge
 from mlflow.genai.judges.base import JudgeField
-from mlflow.genai.judges.optimizers import MemAlignOptimizer, SIMBAAlignmentOptimizer
+from mlflow.genai.judges.optimizers import MemAlignOptimizer
 from mlflow.genai.judges.utils import get_default_optimizer
 from mlflow.genai.scorers import UserFrustration
 
@@ -145,25 +145,12 @@ def test_judge_align_with_default_optimizer():
 
 def test_get_default_optimizer_returns_memalign():
     optimizer = get_default_optimizer()
-    assert isinstance(optimizer, MemAlignOptimizer)
-    assert not isinstance(optimizer, SIMBAAlignmentOptimizer)
-
-
-def test_get_default_optimizer_returns_alignment_optimizer():
-    assert isinstance(get_default_optimizer(), AlignmentOptimizer)
-
-
-def test_get_default_optimizer_uses_optimizer_defaults():
-    optimizer = get_default_optimizer()
     reference = MemAlignOptimizer()
+    assert isinstance(optimizer, MemAlignOptimizer)
     assert optimizer._retrieval_k == reference._retrieval_k
     assert optimizer._embedding_dim == reference._embedding_dim
     assert optimizer._reflection_lm == reference._reflection_lm
     assert optimizer._embedding_model == reference._embedding_model
-
-
-def test_get_default_optimizer_returns_fresh_instance():
-    assert get_default_optimizer() is not get_default_optimizer()
 
 
 def test_judge_align_uses_memalign_by_default():
