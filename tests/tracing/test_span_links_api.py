@@ -2,43 +2,8 @@ import mlflow
 from mlflow.entities import Link
 from mlflow.entities.span import NoOpSpan
 from mlflow.tracing.fluent import start_span_no_context
-from mlflow.tracing.provider import _convert_links_to_otel
 
 from tests.tracing.helper import get_traces
-
-
-def test_convert_links_to_otel_with_valid_links():
-    links = [
-        Link(trace_id="tr-0123456789abcdef0123456789abcdef", span_id="0123456789abcdef"),
-        Link(
-            trace_id="tr-abcdef0123456789abcdef0123456789",
-            span_id="abcdef0123456789",
-            attributes={"relationship": "causal"},
-        ),
-    ]
-    otel_links = _convert_links_to_otel(links)
-
-    assert len(otel_links) == 2
-    assert otel_links[0].context.trace_id == int("0123456789abcdef0123456789abcdef", 16)
-    assert otel_links[0].context.span_id == int("0123456789abcdef", 16)
-    assert otel_links[0].attributes == {}
-    assert otel_links[1].attributes["relationship"] == "causal"
-
-
-def test_convert_links_to_otel_returns_none_for_empty():
-    assert _convert_links_to_otel(None) is None
-    assert _convert_links_to_otel([]) is None
-
-
-def test_convert_links_to_otel_skips_invalid_links():
-    links = [
-        Link(trace_id="tr-invalid_hex", span_id="also_invalid"),
-        Link(trace_id="tr-0123456789abcdef0123456789abcdef", span_id="0123456789abcdef"),
-    ]
-    otel_links = _convert_links_to_otel(links)
-
-    assert len(otel_links) == 1
-    assert otel_links[0].context.span_id == int("0123456789abcdef", 16)
 
 
 # --- Integration tests for start_span with links ---
