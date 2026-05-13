@@ -53,11 +53,13 @@ from mlflow.utils.uri import append_to_uri_path
 from mlflow.utils.workspace_context import WorkspaceContext
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
-from tests.store.tracking.sqlalchemy_store.test_sqlalchemy_store import (
+from tests.store.tracking.sqlalchemy_store.conftest import (
     _create_trace,
+    create_test_span,
+)
+from tests.store.tracking.sqlalchemy_store.test_sqlalchemy_store import (
     _gateway_model_scorer_json,
     _mock_gateway_endpoint,
-    create_test_span,
 )
 
 
