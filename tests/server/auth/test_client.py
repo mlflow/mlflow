@@ -405,6 +405,27 @@ def test_grant_user_permission_invalid_resource_type(client, monkeypatch):
             client.grant_user_permission(username, "bogus", "x", "READ")
 
 
+def test_grant_user_permission_admin_cannot_grant_workspace_resource_type(client, monkeypatch):
+    # Super admins skip ``validate_can_manage_resource`` via ``sender_is_admin``
+    # in ``_before_request``. The handler-level (and store-level) rejection is the
+    # only defense, and it must fire for the admin path too.
+    username = random_str()
+    password = random_str()
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        client.create_user(username, password)
+        with pytest.raises(MlflowException, match="not supported by the per-user"):
+            client.grant_user_permission(username, "workspace", "*", "USE")
+
+
+def test_revoke_user_permission_admin_cannot_revoke_workspace_resource_type(client, monkeypatch):
+    username = random_str()
+    password = random_str()
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        client.create_user(username, password)
+        with pytest.raises(MlflowException, match="not supported by the per-user"):
+            client.revoke_user_permission(username, "workspace", "*")
+
+
 def test_grant_user_permission_invalid_permission_for_resource_type(client, monkeypatch):
     # ``NO_PERMISSIONS`` is intentionally disallowed at the resource scope —
     # absence of a grant combined with ``default_permission`` already expresses

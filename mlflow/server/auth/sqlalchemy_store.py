@@ -382,6 +382,19 @@ class SqlAlchemyStore:
             else:
                 existing.permission = permission
 
+    @staticmethod
+    def _reject_workspace_resource_type(resource_type: str) -> None:
+        # Defense in depth: handlers also reject this, but super-admins skip the
+        # ``validate_can_manage_resource`` gate via ``sender_is_admin()``. Catching
+        # it here closes the bypass and keeps the (workspace, *, ...) grant shape
+        # out of synthetic user roles regardless of caller.
+        if resource_type == RESOURCE_TYPE_WORKSPACE:
+            raise MlflowException.invalid_parameter_value(
+                "resource_type 'workspace' is not supported by the per-user permission "
+                "convenience APIs. Use set_workspace_permission / "
+                "delete_workspace_permission for workspace-wide grants."
+            )
+
     def grant_user_resource_permission(
         self,
         username: str,
@@ -396,6 +409,7 @@ class SqlAlchemyStore:
         when a row already exists — matching the legacy ``create_*_permission`` family's
         contract so the convenience REST surface can reject duplicate grants cleanly.
         """
+        self._reject_workspace_resource_type(resource_type)
         _validate_permission_for_resource_type(permission, resource_type)
         duplicate_message = (
             f"Permission for user={username} on "
@@ -445,6 +459,7 @@ class SqlAlchemyStore:
         no matching row exists — matching the legacy ``delete_*_permission`` family's
         contract.
         """
+        self._reject_workspace_resource_type(resource_type)
         _validate_resource_type(resource_type)
         not_found_message = (
             f"Permission for user={username} on "
