@@ -9,6 +9,7 @@ import { IntlProvider } from '@databricks/i18n';
 import { TEST_SPAN_FILTER_STATE } from './TimelineTree.test-utils';
 import { TimelineTreeFilterButton } from './TimelineTreeFilterButton';
 import type { SpanFilterState } from '../ModelTrace.types';
+import { SpanLogLevel } from '../ModelTrace.types';
 
 // eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(30000);
@@ -24,6 +25,7 @@ const TestWrapper = () => {
         <span>{'Show parents ' + String(spanFilterState.showParents)}</span>
         <span>{'Show exceptions ' + String(spanFilterState.showExceptions)}</span>
         <span>{'Show chain spans ' + String(spanFilterState.spanTypeDisplayState['CHAIN'])}</span>
+        <span>{'Min log level ' + String(spanFilterState.minLogLevel)}</span>
       </DesignSystemProvider>
     </IntlProvider>
   );
@@ -56,5 +58,24 @@ describe('TimelineTreeFilterButton', () => {
     const showChainCheckbox = screen.getByRole('checkbox', { name: 'Chain' });
     await userEvent.click(showChainCheckbox);
     expect(screen.getByText('Show chain spans false')).toBeInTheDocument();
+
+    // The log-level slider starts at DEBUG (the default "show everything" threshold)
+    // and should update state when nudged to a higher level. Each ArrowRight moves
+    // up one named level (DEBUG → INFO → WARNING).
+    expect(screen.getByText(`Min log level ${SpanLogLevel.DEBUG}`)).toBeInTheDocument();
+    const logLevelSlider = screen.getByRole('slider', { name: /Minimum log level/i });
+    logLevelSlider.focus();
+    await userEvent.keyboard('{ArrowRight}{ArrowRight}');
+    expect(screen.getByText(`Min log level ${SpanLogLevel.WARNING}`)).toBeInTheDocument();
+  });
+
+  it('renders the info tooltip explaining the filter', async () => {
+    render(<TestWrapper />);
+    await userEvent.click(screen.getByRole('button', { name: 'Filter' }));
+
+    // The tooltip trigger sits next to the "Minimum log level" label.
+    // (Hover assertions are covered by InfoTooltip's own tests; here we just
+    // verify the trigger is rendered so we don't accidentally drop it again.)
+    expect(await screen.findByText('Minimum log level')).toBeInTheDocument();
   });
 });

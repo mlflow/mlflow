@@ -1,6 +1,7 @@
-import { describe, it, expect } from '@jest/globals';
+import { jest, describe, it, expect } from '@jest/globals';
 import { render, screen } from '@testing-library/react';
 import { renderHook } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { DesignSystemProvider } from '@databricks/design-system';
 import {
   useScrollableLegendProps,
@@ -12,7 +13,8 @@ import {
   createSpanStatusEqualsFilter,
   ScrollableTooltip,
 } from './OverviewChartComponents';
-import { MemoryRouter } from '../../../../common/utils/RoutingUtils';
+import { OverviewChartContext, type OverviewChartContextValue } from '../OverviewChartContext';
+import { MemoryRouter, useLocation } from '../../../../common/utils/RoutingUtils';
 import { IntlProvider } from 'react-intl';
 
 const wrapper = ({ children }: { children: React.ReactNode }) => (
@@ -25,6 +27,37 @@ const renderTooltipWithProviders = (props: React.ComponentProps<typeof Scrollabl
       <IntlProvider locale="en">
         <DesignSystemProvider>
           <ScrollableTooltip {...props} />
+        </DesignSystemProvider>
+      </IntlProvider>
+    </MemoryRouter>,
+  );
+};
+
+// Surfaces the current router location as text so tests can assert post-click navigation
+// without mocking useNavigate.
+const LocationProbe = () => {
+  const location = useLocation();
+  return <div data-testid="location-probe">{`${location.pathname}${location.search}`}</div>;
+};
+
+const renderTooltipWithContext = (
+  props: React.ComponentProps<typeof ScrollableTooltip>,
+  contextValue: Partial<OverviewChartContextValue>,
+) => {
+  const value: OverviewChartContextValue = {
+    experimentIds: ['exp-1'],
+    timeIntervalSeconds: 3600,
+    timeBuckets: [],
+    ...contextValue,
+  };
+  return render(
+    <MemoryRouter>
+      <IntlProvider locale="en">
+        <DesignSystemProvider>
+          <OverviewChartContext.Provider value={value}>
+            <ScrollableTooltip {...props} />
+            <LocationProbe />
+          </OverviewChartContext.Provider>
         </DesignSystemProvider>
       </IntlProvider>
     </MemoryRouter>,
@@ -211,6 +244,110 @@ describe('ScrollableTooltip', () => {
     });
 
     expect(screen.queryByText('View traces for this period')).not.toBeInTheDocument();
+  });
+
+  describe('navigation forwards tracesNavigationFilters from context', () => {
+    const timestampMs = new Date('2025-12-22T10:00:00Z').getTime();
+
+    it('appends tracesNavigationFilters from context as filter query params', async () => {
+      const user = userEvent.setup();
+      renderTooltipWithContext(
+        {
+          active: true,
+          payload: [{ payload: { timestampMs }, name: 'count', value: 42, color: 'blue' }],
+          label: 'Test Label',
+          formatter: mockFormatter,
+          linkConfig: {
+            experimentId: 'test-exp-123',
+            timeIntervalSeconds: 3600,
+          },
+          componentId: 'mlflow.overview.usage.traces.view_traces_link',
+        },
+        { tracesNavigationFilters: ['user::=::bob'] },
+      );
+
+      await user.click(screen.getByText('View traces for this period'));
+
+      const location = screen.getByTestId('location-probe').textContent ?? '';
+      expect(location).toContain('/experiments/test-exp-123/traces');
+      expect(location).toContain('startTimeLabel=CUSTOM');
+      expect(location).toContain('startTime=2025-12-22T10%3A00%3A00.000Z');
+      expect(location).toContain('endTime=2025-12-22T11%3A00%3A00.000Z');
+      expect(location).toContain('filter=user%3A%3A%3D%3A%3Abob');
+    });
+
+    it('appends every entry when multiple tracesNavigationFilters are provided', async () => {
+      const user = userEvent.setup();
+      renderTooltipWithContext(
+        {
+          active: true,
+          payload: [{ payload: { timestampMs }, name: 'count', value: 42, color: 'blue' }],
+          label: 'Test Label',
+          formatter: mockFormatter,
+          linkConfig: {
+            experimentId: 'test-exp-123',
+            timeIntervalSeconds: 3600,
+          },
+          componentId: 'mlflow.overview.usage.traces.view_traces_link',
+        },
+        { tracesNavigationFilters: ['user::=::bob', 'user::=::alice'] },
+      );
+
+      await user.click(screen.getByText('View traces for this period'));
+
+      const location = screen.getByTestId('location-probe').textContent ?? '';
+      expect(location).toContain('filter=user%3A%3A%3D%3A%3Abob');
+      expect(location).toContain('filter=user%3A%3A%3D%3A%3Aalice');
+    });
+
+    it('omits filter query param when tracesNavigationFilters is undefined', async () => {
+      const user = userEvent.setup();
+      renderTooltipWithContext(
+        {
+          active: true,
+          payload: [{ payload: { timestampMs }, name: 'count', value: 42, color: 'blue' }],
+          label: 'Test Label',
+          formatter: mockFormatter,
+          linkConfig: {
+            experimentId: 'test-exp-123',
+            timeIntervalSeconds: 3600,
+          },
+          componentId: 'mlflow.overview.usage.traces.view_traces_link',
+        },
+        {},
+      );
+
+      await user.click(screen.getByText('View traces for this period'));
+
+      const location = screen.getByTestId('location-probe').textContent ?? '';
+      expect(location).toContain('/experiments/test-exp-123/traces');
+      expect(location).toContain('startTimeLabel=CUSTOM');
+      expect(location).not.toContain('filter=');
+    });
+
+    it('does not forward tracesNavigationFilters when a custom onLinkClick is used', async () => {
+      const user = userEvent.setup();
+      const onLinkClick = jest.fn();
+      renderTooltipWithContext(
+        {
+          active: true,
+          payload: [{ payload: { timestampMs }, name: 'count', value: 42, color: 'blue' }],
+          label: 'Test Label',
+          formatter: mockFormatter,
+          linkConfig: { onLinkClick },
+          componentId: 'mlflow.overview.usage.errors.view_traces_link',
+        },
+        { tracesNavigationFilters: ['user::=::bob'] },
+      );
+
+      await user.click(screen.getByText('View traces for this period'));
+
+      // Custom onLinkClick path is opaque to ScrollableTooltip; the chart's own handler is
+      // responsible for merging tracesNavigationFilters into its URL (covered by chart-level tests).
+      expect(onLinkClick).toHaveBeenCalledTimes(1);
+      const location = screen.getByTestId('location-probe').textContent ?? '';
+      expect(location).not.toContain('filter=');
+    });
   });
 });
 

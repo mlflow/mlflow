@@ -1,5 +1,6 @@
 import { jest, describe, it, expect, beforeEach } from '@jest/globals';
 import { screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { renderWithIntl } from '../../../../common/utils/TestUtils.react18';
 import { TraceErrorsChart } from './TraceErrorsChart';
 import { DesignSystemProvider } from '@databricks/design-system';
@@ -8,8 +9,43 @@ import { AggregationType, TraceMetricKey, TraceDimensionKey } from '@databricks/
 import { setupServer } from '../../../../common/utils/setup-msw';
 import { rest } from 'msw';
 import { OverviewChartProvider } from '../OverviewChartContext';
-import { MemoryRouter } from '../../../../common/utils/RoutingUtils';
+import { MemoryRouter, useLocation } from '../../../../common/utils/RoutingUtils';
 import { getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
+
+// Override the global Recharts auto-mock so <Tooltip> eagerly renders its `content` prop with
+// a payload containing the timestampMs the navigation tests below assert on. The base mock
+// already eagerly renders content with an empty payload; we narrow it here to inject
+// a specific data point so ScrollableTooltip's "View traces for this period" link is reachable.
+jest.mock('recharts', () => {
+  const baseMock = jest.requireActual<typeof import('../../../../../__mocks__/recharts')>(
+    '../../../../../__mocks__/recharts',
+  );
+  const React = jest.requireActual<typeof import('react')>('react');
+  const payload = [
+    {
+      payload: { timestampMs: new Date('2025-12-22T10:00:00Z').getTime() },
+      name: 'count',
+      value: 42,
+      color: 'blue',
+    },
+  ];
+  return {
+    ...baseMock,
+    Tooltip: ({ content }: { content?: unknown }) =>
+      React.isValidElement(content) ? (
+        React.cloneElement(content as React.ReactElement, { active: true, payload })
+      ) : (
+        <div data-testid="tooltip" />
+      ),
+  };
+});
+
+// Surfaces the current router location as text so navigation tests can assert post-click URLs
+// without mocking useNavigate.
+const LocationProbe = () => {
+  const location = useLocation();
+  return <div data-testid="location-probe">{`${location.pathname}${location.search}`}</div>;
+};
 
 // Helper to create a data point with trace_status dimension
 const createStatusDataPoint = (timeBucket: string, count: number, status: string) => ({
@@ -61,6 +97,24 @@ describe('TraceErrorsChart', () => {
           <DesignSystemProvider>
             <OverviewChartProvider {...contextProps}>
               <TraceErrorsChart />
+            </OverviewChartProvider>
+          </DesignSystemProvider>
+        </QueryClientProvider>
+      </MemoryRouter>,
+    );
+  };
+
+  // Variant of renderComponent that also mounts a LocationProbe so navigation tests can read
+  // back the URL after clicking the tooltip link.
+  const renderComponentWithLocationProbe = (props: { tracesNavigationFilters?: string[] } = {}) => {
+    const queryClient = createQueryClient();
+    return renderWithIntl(
+      <MemoryRouter>
+        <QueryClientProvider client={queryClient}>
+          <DesignSystemProvider>
+            <OverviewChartProvider {...defaultContextProps} {...props}>
+              <TraceErrorsChart />
+              <LocationProbe />
             </OverviewChartProvider>
           </DesignSystemProvider>
         </QueryClientProvider>
@@ -325,6 +379,68 @@ describe('TraceErrorsChart', () => {
       await waitFor(() => {
         expect(screen.getByTestId('composed-chart')).toHaveAttribute('data-count', '3');
       });
+    });
+  });
+
+  describe('navigation forwards tracesNavigationFilters from context', () => {
+    const dataPointsWithErrors = [
+      createStatusDataPoint('2025-12-22T10:00:00Z', 95, 'OK'),
+      createStatusDataPoint('2025-12-22T10:00:00Z', 5, 'ERROR'),
+    ];
+
+    it('appends tracesNavigationFilters from context after the chart-specific ERROR filter', async () => {
+      setupTraceMetricsHandler(dataPointsWithErrors);
+      const user = userEvent.setup();
+      renderComponentWithLocationProbe({ tracesNavigationFilters: ['user::=::bob'] });
+
+      await waitFor(() => {
+        expect(screen.getByText('View traces for this period')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByText('View traces for this period'));
+
+      const location = screen.getByTestId('location-probe').textContent ?? '';
+      expect(location).toContain('/experiments/test-experiment-123/traces');
+      expect(location).toContain('startTimeLabel=CUSTOM');
+      expect(location).toContain('startTime=2025-12-22T10%3A00%3A00.000Z');
+      expect(location).toContain('endTime=2025-12-22T11%3A00%3A00.000Z');
+      expect(location).toContain('filter=span.status%3A%3A%3D%3A%3AERROR');
+      expect(location).toContain('filter=user%3A%3A%3D%3A%3Abob');
+    });
+
+    it('appends every entry when multiple tracesNavigationFilters are provided', async () => {
+      setupTraceMetricsHandler(dataPointsWithErrors);
+      const user = userEvent.setup();
+      renderComponentWithLocationProbe({
+        tracesNavigationFilters: ['user::=::bob', 'user::=::alice'],
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText('View traces for this period')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByText('View traces for this period'));
+
+      const location = screen.getByTestId('location-probe').textContent ?? '';
+      expect(location).toContain('filter=span.status%3A%3A%3D%3A%3AERROR');
+      expect(location).toContain('filter=user%3A%3A%3D%3A%3Abob');
+      expect(location).toContain('filter=user%3A%3A%3D%3A%3Aalice');
+    });
+
+    it('navigates with only the chart-specific filter when tracesNavigationFilters is undefined', async () => {
+      setupTraceMetricsHandler(dataPointsWithErrors);
+      const user = userEvent.setup();
+      renderComponentWithLocationProbe();
+
+      await waitFor(() => {
+        expect(screen.getByText('View traces for this period')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByText('View traces for this period'));
+
+      const location = screen.getByTestId('location-probe').textContent ?? '';
+      expect(location).toContain('filter=span.status%3A%3A%3D%3A%3AERROR');
+      expect(location).not.toContain('filter=user');
     });
   });
 });

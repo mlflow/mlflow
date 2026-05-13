@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Button,
+  GearIcon,
   Input,
   Modal,
   Pagination,
@@ -11,12 +12,14 @@ import {
   TableCell,
   TableHeader,
   TableRow,
+  Tooltip,
   Typography,
   useDesignSystemTheme,
   Tag,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { Link } from '../../common/utils/RoutingUtils';
+import { useCurrentUserAdminWorkspaces, useCurrentUserIsAdmin } from '../../account/hooks';
 import { useWorkspaces, type Workspace } from '../../workspaces/hooks/useWorkspaces';
 import {
   getLastUsedWorkspace,
@@ -62,7 +65,17 @@ const WorkspacesEmptyState = ({ onCreateWorkspace }: { onCreateWorkspace: () => 
   );
 };
 
-const WorkspaceRow = ({ workspace, isLastUsed }: { workspace: Workspace; isLastUsed: boolean }) => {
+const WorkspaceRow = ({
+  workspace,
+  isLastUsed,
+  canManage,
+  showManageColumn,
+}: {
+  workspace: Workspace;
+  isLastUsed: boolean;
+  canManage: boolean;
+  showManageColumn: boolean;
+}) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const { mutate: updateWorkspace, isLoading: isPending } = useUpdateWorkspace();
@@ -74,6 +87,17 @@ const WorkspaceRow = ({ workspace, isLastUsed }: { workspace: Workspace; isLastU
     // Persist to localStorage for UI hints then hard reload to cleanly switch workspace
     setLastUsedWorkspace(workspace.name);
     window.location.hash = `#/?${WORKSPACE_QUERY_PARAM}=${encodeURIComponent(workspace.name)}`;
+    window.location.reload();
+  };
+
+  const handleManageClick = () => {
+    // Same hard-reload pattern as handleNameClick — flushes any stale auth /
+    // workspace context before landing on the per-workspace management view.
+    // ``/admin/ws`` is the workspace-mode pathname; the workspace value still
+    // travels in ``?workspace=`` so ``WorkspaceRouterSync`` keeps the global
+    // ``activeWorkspace`` in sync.
+    setLastUsedWorkspace(workspace.name);
+    window.location.hash = `#/admin/ws?${WORKSPACE_QUERY_PARAM}=${encodeURIComponent(workspace.name)}`;
     window.location.reload();
   };
 
@@ -242,6 +266,51 @@ const WorkspaceRow = ({ workspace, isLastUsed }: { workspace: Workspace; isLastU
             </Button>
           </div>
         </TableCell>
+        {showManageColumn && (
+          <TableCell
+            css={{
+              flex: 0,
+              minWidth: 100,
+              maxWidth: 100,
+              justifyContent: 'center',
+              paddingRight: theme.spacing.md,
+            }}
+          >
+            {canManage ? (
+              <Tooltip
+                componentId="mlflow.home.workspaces.manage_tooltip"
+                content={intl.formatMessage({
+                  defaultMessage: 'Manage workspace',
+                  description: 'Tooltip on the gear icon that links to /admin/ws scoped to this workspace',
+                })}
+              >
+                <Link
+                  componentId="mlflow.home.workspaces.manage_link"
+                  disableWorkspacePrefix
+                  to={`/admin/ws?${WORKSPACE_QUERY_PARAM}=${encodeURIComponent(workspace.name)}`}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleManageClick();
+                  }}
+                  aria-label={intl.formatMessage(
+                    {
+                      defaultMessage: 'Manage workspace {name}',
+                      description: 'Aria label on the gear icon for managing a workspace',
+                    },
+                    { name: workspace.name },
+                  )}
+                  css={{
+                    color: theme.colors.textSecondary,
+                    display: 'inline-flex',
+                    '&:hover': { color: theme.colors.actionLinkHover },
+                  }}
+                >
+                  <GearIcon />
+                </Link>
+              </Tooltip>
+            ) : null}
+          </TableCell>
+        )}
       </TableRow>
 
       <Modal
@@ -309,6 +378,19 @@ export const WorkspacesHomeView = ({ onCreateWorkspace }: WorkspacesHomeViewProp
   // Get last used workspace from localStorage for the "Last used" badge
   const lastUsedWorkspace = getLastUsedWorkspace();
   const [currentPage, setCurrentPage] = useState(1);
+  // Manage column: shown only to workspace managers — gear icon links to
+  // ``/admin/ws?workspace=<name>`` (the per-workspace management view).
+  // Platform admins navigate via the sidebar ``Manage`` entry instead,
+  // which lands on ``/admin`` (the cross-workspace platform-admin view).
+  //
+  // ``useCurrentUserAdminWorkspaces`` already short-circuits to an empty set
+  // for admins (it skips the role fetch when ``is_admin`` is true), so the
+  // ``adminWorkspaces.size`` check alone would suffice — but explicitly
+  // gating on ``!isAdmin`` is defense-in-depth so the gear stays hidden for
+  // admins even if that short-circuit ever changes.
+  const isAdmin = useCurrentUserIsAdmin();
+  const adminWorkspaces = useCurrentUserAdminWorkspaces();
+  const showManageColumn = !isAdmin && adminWorkspaces.size > 0;
 
   const shouldShowEmptyState = !isLoading && !isError && workspaces.length === 0;
 
@@ -399,6 +481,23 @@ export const WorkspacesHomeView = ({ onCreateWorkspace }: WorkspacesHomeViewProp
                   description="Workspaces table artifact root column header"
                 />
               </TableHeader>
+              {showManageColumn && (
+                <TableHeader
+                  componentId="mlflow.home.workspaces_table.header.manage"
+                  css={{
+                    flex: 0,
+                    minWidth: 100,
+                    maxWidth: 100,
+                    justifyContent: 'center',
+                    paddingRight: theme.spacing.md,
+                  }}
+                >
+                  <FormattedMessage
+                    defaultMessage="Manage"
+                    description="Workspaces table column header for the per-row admin entry point"
+                  />
+                </TableHeader>
+              )}
             </TableRow>
             {isLoading ? (
               <TableRow>
@@ -414,6 +513,8 @@ export const WorkspacesHomeView = ({ onCreateWorkspace }: WorkspacesHomeViewProp
                   key={workspace.name}
                   workspace={workspace}
                   isLastUsed={workspace.name === lastUsedWorkspace}
+                  canManage={!isAdmin && adminWorkspaces.has(workspace.name)}
+                  showManageColumn={showManageColumn}
                 />
               ))
             )}

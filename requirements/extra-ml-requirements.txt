@@ -80,7 +80,9 @@ google-genai
 # Required by mlflow.groq
 groq
 # Required by mlflow.mistral
-mistralai
+# Temporarily disabled due to supply chain compromise in 2.4.6.
+# See https://github.com/mistralai/client-python/issues/523
+# mistralai
 # Required by mlflow.autogen
 autogen-agentchat
 # Required by mlflow.semantic_kernel

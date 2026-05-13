@@ -39,3 +39,7 @@ use `gh` CLI instead of `actions/github-script`. It avoids the need for
   run: |
     gh pr comment ...
 ```
+
+## `pipefail` Is Already On
+
+Every workflow in this repo sets top-level `defaults.run.shell: bash` (enforced by [`.github/policy.rego`](../../.github/policy.rego)). GitHub Actions runs `shell: bash` as `bash --noprofile --norc -eo pipefail {0}`, so `pipefail` is already enabled. Don't ask for `set -o pipefail` in workflow `run:` steps. ([docs](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#defaultsrunshell))

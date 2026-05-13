@@ -187,8 +187,14 @@ def truncate_logs(logs: str, max_tokens: int = MAX_LOG_TOKENS) -> str:
 
 
 PR_URL_PATTERN = re.compile(r"github\.com/([^/]+/[^/]+)/pull/(\d+)")
-JOB_URL_PATTERN = re.compile(r"github\.com/([^/]+/[^/]+)/actions/runs/(\d+)/job/(\d+)")
-RUN_URL_PATTERN = re.compile(r"github\.com/([^/]+/[^/]+)/actions/runs/(\d+)")
+# Job URLs may optionally embed an attempt segment (`/attempts/{n}`) before `/job/{id}`.
+# The job ID is unique across attempts so the attempt number isn't needed for lookup.
+JOB_URL_PATTERN = re.compile(
+    r"github\.com/([^/]+/[^/]+)/actions/runs/(\d+)(?:/attempts/\d+)?/job/(\d+)"
+)
+# Run URLs may optionally specify an attempt (`/attempts/{n}`); when omitted, GitHub's
+# default behavior is to return jobs from the latest attempt only.
+RUN_URL_PATTERN = re.compile(r"github\.com/([^/]+/[^/]+)/actions/runs/(\d+)(?:/attempts/(\d+))?")
 
 
 async def get_failed_jobs_from_pr(
@@ -228,8 +234,11 @@ async def resolve_urls(client: GitHubClient, urls: list[str]) -> list[Job]:
             repo_full = match.group(1)
             owner, repo = repo_full.split("/")
             run_id = int(match.group(2))
+            attempt = int(match.group(3)) if match.group(3) else None
             run_jobs = [
-                j async for j in client.get_jobs(owner, repo, run_id) if j.conclusion == "failure"
+                j
+                async for j in client.get_jobs(owner, repo, run_id, attempt)
+                if j.conclusion == "failure"
             ]
             jobs.extend(run_jobs)
         elif match := PR_URL_PATTERN.search(url):
