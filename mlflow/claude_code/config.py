@@ -68,17 +68,27 @@ def save_claude_config(settings_path: Path, config: dict[str, Any]) -> None:
 def get_tracing_status(settings_path: Path) -> TracingStatus:
     """Get current tracing status from Claude settings.
 
+    Merges env vars from settings.json and settings.local.json (local wins),
+    matching Claude Code's own merge behavior.
+
     Args:
-        settings_path: Path to Claude settings file
+        settings_path: Path to Claude settings file (e.g., .claude/settings.json)
 
     Returns:
         TracingStatus with tracing status information
     """
-    if not settings_path.exists():
+    local_path = settings_path.parent / "settings.local.json"
+    config = load_claude_config(settings_path)
+    local_config = load_claude_config(local_path)
+
+    if not config and not local_config:
         return TracingStatus(enabled=False, reason="No configuration found")
 
-    config = load_claude_config(settings_path)
-    env_vars = config.get(ENVIRONMENT_FIELD, {})
+    # Merge env vars: local overrides shared (matching Claude Code precedence)
+    env_vars = {
+        **config.get(ENVIRONMENT_FIELD, {}),
+        **local_config.get(ENVIRONMENT_FIELD, {}),
+    }
     enabled = env_vars.get(MLFLOW_TRACING_ENABLED) == "true"
 
     return TracingStatus(
@@ -92,8 +102,13 @@ def get_tracing_status(settings_path: Path) -> TracingStatus:
 def get_env_var(var_name: str, default: str = "") -> str:
     """Get environment variable from Claude settings or OS environment as fallback.
 
-    Project-specific configuration in settings.json takes precedence over
-    global OS environment variables.
+    Project-specific configuration takes precedence over global OS
+    environment variables.
+
+    Checks in order (first match wins):
+    1. .claude/settings.local.json env block (user-local overrides)
+    2. .claude/settings.json env block (project-level)
+    3. OS environment variables
 
     Args:
         var_name: Environment variable name
@@ -103,16 +118,18 @@ def get_env_var(var_name: str, default: str = "") -> str:
         Environment variable value
     """
     # First check Claude settings (project-specific configuration takes priority)
-    try:
-        settings_path = Path(".claude/settings.json")
-        if settings_path.exists():
-            config = load_claude_config(settings_path)
-            env_vars = config.get(ENVIRONMENT_FIELD, {})
-            value = env_vars.get(var_name)
-            if value is not None:
-                return value
-    except Exception:
-        pass
+    # settings.local.json overrides settings.json
+    for settings_file in ("settings.local.json", "settings.json"):
+        try:
+            settings_path = Path(f".claude/{settings_file}")
+            if settings_path.exists():
+                config = load_claude_config(settings_path)
+                env_vars = config.get(ENVIRONMENT_FIELD, {})
+                value = env_vars.get(var_name)
+                if value is not None:
+                    return value
+        except Exception:
+            pass
 
     # Fallback to OS environment
     value = os.environ.get(var_name)

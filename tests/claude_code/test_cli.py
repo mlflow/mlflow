@@ -150,6 +150,64 @@ def test_setup_rejects_experiment_id_and_name_together(runner):
         assert "Choose either --experiment-id or --experiment-name" in result.output
 
 
+def test_claude_setup_with_local_flag(runner, monkeypatch):
+    monkeypatch.delenv("UV", raising=False)
+    monkeypatch.delenv("PIXI_ENVIRONMENT_NAME", raising=False)
+
+    with runner.isolated_filesystem():
+        result = runner.invoke(commands, ["claude", "--local"])
+        assert result.exit_code == 0
+
+        local_path = Path(".claude/settings.local.json")
+        assert local_path.exists()
+
+        with open(local_path) as f:
+            config = json.load(f)
+        assert "MLFLOW_CLAUDE_TRACING_ENABLED" in config.get("env", {})
+
+        settings_path = Path(".claude/settings.json")
+        assert not settings_path.exists()
+
+
+def test_claude_setup_local_status(runner, monkeypatch):
+    monkeypatch.delenv("UV", raising=False)
+    monkeypatch.delenv("PIXI_ENVIRONMENT_NAME", raising=False)
+
+    with runner.isolated_filesystem():
+        result = runner.invoke(commands, ["claude", "--local"])
+        assert result.exit_code == 0
+
+        result = runner.invoke(commands, ["claude", "--status"])
+        assert result.exit_code == 0
+        assert "Claude tracing is enabled" in result.output
+
+
+def test_claude_disable_cleans_local_without_flag(runner, monkeypatch):
+    monkeypatch.delenv("UV", raising=False)
+    monkeypatch.delenv("PIXI_ENVIRONMENT_NAME", raising=False)
+
+    with runner.isolated_filesystem():
+        result = runner.invoke(commands, ["claude", "--local"])
+        assert result.exit_code == 0
+
+        # Disable without --local should still clean settings.local.json
+        result = runner.invoke(commands, ["claude", "--disable"])
+        assert result.exit_code == 0
+        assert "Claude tracing disabled" in result.output
+
+
+def test_local_with_status_raises_error(runner):
+    result = runner.invoke(commands, ["claude", "--local", "--status"])
+    assert result.exit_code != 0
+    assert "--local can only be used during setup" in result.output
+
+
+def test_local_with_disable_raises_error(runner):
+    result = runner.invoke(commands, ["claude", "--local", "--disable"])
+    assert result.exit_code != 0
+    assert "--local can only be used during setup" in result.output
+
+
 def test_stop_hook_subcommand_is_routable(runner):
     with mock.patch("mlflow.claude_code.cli.stop_hook_handler") as mock_handler:
         result = runner.invoke(commands, ["claude", "stop-hook"])
