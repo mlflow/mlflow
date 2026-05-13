@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from unittest import mock
 
 import pytest
+from flask import Response
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 
 import mlflow
@@ -3801,8 +3802,6 @@ def test_download_artifact_streams_in_chunks(enable_serve_artifacts, tmp_path):
 def test_response_with_file_attachment_headers_encodes_non_ascii_filename(
     file_path, expected_simple, expected_quoted
 ):
-    from flask import Response
-
     with app.test_request_context():
         response = _response_with_file_attachment_headers(file_path, Response())
 
@@ -3815,8 +3814,6 @@ def test_response_with_file_attachment_headers_encodes_non_ascii_filename(
 
 
 def test_response_with_file_attachment_headers_ascii_filename_unchanged():
-    from flask import Response
-
     with app.test_request_context():
         response = _response_with_file_attachment_headers("model.pkl", Response())
 
