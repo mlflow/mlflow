@@ -1,13 +1,17 @@
 import json
 import os
 import shutil
+<<<<<<< HEAD:tests/store/tracking/sqlalchemy_store/test_sqlalchemy_store.py
 import time
 import uuid
 from pathlib import Path
+=======
+>>>>>>> 0d13bf3da0 (Rename test_sqlalchemy_store.py → test_sqlalchemy_store_core.py and reduce):tests/store/tracking/sqlalchemy_store/test_sqlalchemy_store_core.py
 from unittest import mock
 
 import pytest
 import sqlalchemy
+<<<<<<< HEAD:tests/store/tracking/sqlalchemy_store/test_sqlalchemy_store.py
 from opentelemetry import trace as trace_api
 from opentelemetry.sdk.resources import Resource as _OTelResource
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
@@ -27,14 +31,19 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.store.db.db_types import MSSQL, MYSQL, POSTGRES, SQLITE
+=======
+
+import mlflow.db
+from mlflow import entities
+from mlflow.exceptions import MlflowException
+from mlflow.store.db.db_types import MSSQL, MYSQL
+>>>>>>> 0d13bf3da0 (Rename test_sqlalchemy_store.py → test_sqlalchemy_store_core.py and reduce):tests/store/tracking/sqlalchemy_store/test_sqlalchemy_store_core.py
 from mlflow.store.db.utils import (
     _get_latest_schema_revision,
     _get_schema_version,
 )
-from mlflow.store.tracking import (
-    SEARCH_MAX_RESULTS_DEFAULT,
-)
 from mlflow.store.tracking.dbmodels import models
+<<<<<<< HEAD:tests/store/tracking/sqlalchemy_store/test_sqlalchemy_store.py
 from mlflow.store.tracking.dbmodels.models import (
     SqlDataset,
     SqlEntityAssociation,
@@ -61,141 +70,28 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlTraceMetadata,
     SqlTraceTag,
 )
+=======
+>>>>>>> 0d13bf3da0 (Rename test_sqlalchemy_store.py → test_sqlalchemy_store_core.py and reduce):tests/store/tracking/sqlalchemy_store/test_sqlalchemy_store_core.py
 from mlflow.store.tracking.sqlalchemy_store import (
     SqlAlchemyStore,
     _get_orderby_clauses,
 )
 from mlflow.store.tracking.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyStore
+<<<<<<< HEAD:tests/store/tracking/sqlalchemy_store/test_sqlalchemy_store.py
 from mlflow.tracing.utils import TraceJSONEncoder
 from mlflow.utils import mlflow_tags
 from mlflow.utils.time import get_current_time_millis
+=======
+>>>>>>> 0d13bf3da0 (Rename test_sqlalchemy_store.py → test_sqlalchemy_store_core.py and reduce):tests/store/tracking/sqlalchemy_store/test_sqlalchemy_store_core.py
 from mlflow.utils.uri import extract_db_type_from_uri
-from mlflow.utils.workspace_context import WorkspaceContext
-from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 from tests.integration.utils import invoke_cli_runner
-
-DB_URI = "sqlite:///"
-ARTIFACT_URI = "artifact_folder"
+from tests.store.tracking.sqlalchemy_store.conftest import (
+    ARTIFACT_URI,
+    _clear_in_memory_engine,
+)
 
 pytestmark = pytest.mark.notrackingurimock
-
-IS_MSSQL = MLFLOW_TRACKING_URI.get() and MLFLOW_TRACKING_URI.get().startswith("mssql+pyodbc")
-
-
-@pytest.fixture(autouse=True, params=[False, True], ids=["workspace-disabled", "workspace-enabled"])
-def workspaces_enabled(request, monkeypatch, disable_workspace_mode_by_default):
-    """
-    Run every test in this module with workspaces disabled and enabled to cover both code paths.
-    """
-    enabled = request.param
-    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true" if enabled else "false")
-    if enabled:
-        with WorkspaceContext(DEFAULT_WORKSPACE_NAME):
-            yield enabled
-    else:
-        yield enabled
-
-
-# Helper functions for span tests
-def create_mock_span_context(trace_id_num=12345, span_id_num=111) -> trace_api.SpanContext:
-    """Create a mock span context for testing."""
-    context = mock.Mock()
-    context.trace_id = trace_id_num
-    context.span_id = span_id_num
-    context.is_remote = False
-    context.trace_flags = trace_api.TraceFlags(1)
-    context.trace_state = trace_api.TraceState()
-    return context
-
-
-def create_test_span(
-    trace_id,
-    name="test_span",
-    span_id=111,
-    parent_id=None,
-    status=trace_api.StatusCode.UNSET,
-    status_desc=None,
-    start_ns=1000000000,
-    end_ns=2000000000,
-    span_type="LLM",
-    trace_num=12345,
-    attributes=None,
-    links=None,
-) -> Span:
-    """
-    Create an MLflow span for testing with minimal boilerplate.
-
-    Args:
-        trace_id: The trace ID string
-        name: Span name
-        span_id: Span ID number (default: 111)
-        parent_id: Parent span ID number, or None for root span
-        status: StatusCode enum value (default: UNSET)
-        status_desc: Status description string
-        start_ns: Start time in nanoseconds
-        end_ns: End time in nanoseconds
-        span_type: Span type (default: "LLM")
-        trace_num: Trace ID number for context (default: 12345)
-        attributes: Attributes dictionary
-        links: List of Link objects to attach to the span
-
-    Returns:
-        MLflow Span object ready for use in tests
-    """
-    context = create_mock_span_context(trace_num, span_id)
-    parent_context = create_mock_span_context(trace_num, parent_id) if parent_id else None
-
-    attributes = attributes or {}
-    otel_span = OTelReadableSpan(
-        name=name,
-        context=context,
-        parent=parent_context,
-        attributes={
-            "mlflow.traceRequestId": json.dumps(trace_id),
-            "mlflow.spanType": json.dumps(span_type, cls=TraceJSONEncoder),
-            **{k: json.dumps(v, cls=TraceJSONEncoder) for k, v in attributes.items()},
-        },
-        start_time=start_ns,
-        end_time=end_ns,
-        status=trace_api.Status(status, status_desc),
-        resource=_OTelResource.get_empty(),
-    )
-    span = create_mlflow_span(otel_span, trace_id, span_type)
-    if links:
-        span._links = list(links)
-    return span
-
-
-# Keep the old function for backward compatibility but delegate to new one
-def create_test_otel_span(
-    trace_id,
-    name="test_span",
-    parent=None,
-    status_code=trace_api.StatusCode.UNSET,
-    status_description=None,
-    start_time=1000000000,
-    end_time=2000000000,
-    span_type="LLM",
-    trace_id_num=12345,
-    span_id_num=111,
-) -> OTelReadableSpan:
-    """Create an OTelReadableSpan for testing with common defaults."""
-    context = create_mock_span_context(trace_id_num, span_id_num)
-
-    return OTelReadableSpan(
-        name=name,
-        context=context,
-        parent=parent,
-        attributes={
-            "mlflow.traceRequestId": json.dumps(trace_id),
-            "mlflow.spanType": json.dumps(span_type, cls=TraceJSONEncoder),
-        },
-        start_time=start_time,
-        end_time=end_time,
-        status=trace_api.Status(status_code, status_description),
-        resource=_OTelResource.get_empty(),
-    )
 
 
 def db_types_and_drivers():
@@ -260,178 +156,6 @@ def test_fail_on_unsupported_db_type(db_uri):
 def test_fail_on_multiple_drivers():
     with pytest.raises(MlflowException, match=r"Invalid database URI"):
         extract_db_type_from_uri("mysql+pymsql+pyodbc://...")
-
-
-@pytest.fixture
-def store(tmp_path: Path, db_uri: str, workspaces_enabled: bool) -> SqlAlchemyStore:
-    store_cls = WorkspaceAwareSqlAlchemyStore if workspaces_enabled else SqlAlchemyStore
-    artifact_uri = tmp_path / "artifacts"
-    artifact_uri.mkdir(exist_ok=True)
-    if db_uri_env := MLFLOW_TRACKING_URI.get():
-        s = store_cls(db_uri_env, artifact_uri.as_uri())
-        yield s
-        _cleanup_database(s)
-    else:
-        s = store_cls(db_uri, artifact_uri.as_uri())
-        yield s
-
-
-@pytest.fixture
-def store_and_trace_info(store):
-    exp_id = store.create_experiment("test")
-    timestamp_ms = get_current_time_millis()
-    return store, store.start_trace(
-        TraceInfo(
-            trace_id=f"tr-{uuid.uuid4()}",
-            trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
-            request_time=timestamp_ms,
-            execution_duration=0,
-            state=TraceState.OK,
-            tags={},
-            trace_metadata={},
-            client_request_id=f"tr-{uuid.uuid4()}",
-            request_preview=None,
-            response_preview=None,
-        ),
-    )
-
-
-def _get_store(tmp_path: Path):
-    db_uri = MLFLOW_TRACKING_URI.get() or f"{DB_URI}{tmp_path / 'temp.db'}"
-    artifact_uri = tmp_path / "artifacts"
-    artifact_uri.mkdir(exist_ok=True)
-    return SqlAlchemyStore(db_uri, artifact_uri.as_uri())
-
-
-def _get_query_to_reset_experiment_id(store: SqlAlchemyStore):
-    dialect = store._get_dialect()
-    if dialect == POSTGRES:
-        return "ALTER SEQUENCE experiments_experiment_id_seq RESTART WITH 1"
-    elif dialect == MYSQL:
-        return "ALTER TABLE experiments AUTO_INCREMENT = 1"
-    elif dialect == MSSQL:
-        return "DBCC CHECKIDENT (experiments, RESEED, 0)"
-    elif dialect == SQLITE:
-        # In SQLite, deleting all experiments resets experiment_id
-        return None
-    raise ValueError(f"Invalid dialect: {dialect}")
-
-
-def _cleanup_database(store: SqlAlchemyStore):
-    with store.ManagedSessionMaker() as session:
-        # Delete all rows in all tables
-        for model in (
-            SqlLoggedModel,
-            SqlLoggedModelMetric,
-            SqlLoggedModelParam,
-            SqlLoggedModelTag,
-            SqlParam,
-            SqlMetric,
-            SqlLatestMetric,
-            SqlTag,
-            SqlInputTag,
-            SqlInput,
-            SqlDataset,
-            SqlRun,
-            SqlTraceTag,
-            SqlTraceMetadata,
-            SqlTraceInfo,
-            SqlEvaluationDatasetRecord,
-            SqlEntityAssociation,
-            SqlEvaluationDataset,
-            SqlExperimentTag,
-            SqlOnlineScoringConfig,
-            SqlScorerVersion,
-            SqlScorer,
-            SqlGatewaySecret,
-            SqlExperiment,
-        ):
-            session.query(model).delete()
-
-        # Reset experiment_id to start at 1
-        if reset_experiment_id := _get_query_to_reset_experiment_id(store):
-            session.execute(sqlalchemy.sql.text(reset_experiment_id))
-
-        # Recreate the default experiment (id=0) so that tests using the global registry
-        # cache (e.g., mlflow.start_run()) can still find it after cleanup.
-        store._create_default_experiment(session)
-
-
-def _create_experiments(store: SqlAlchemyStore, names) -> str | list[str]:
-    if isinstance(names, (list, tuple)):
-        ids = []
-        for name in names:
-            # Sleep to ensure each experiment has a unique creation_time for
-            # deterministic experiment search results
-            time.sleep(0.001)
-            ids.append(store.create_experiment(name=name))
-        return ids
-
-    time.sleep(0.001)
-    return store.create_experiment(name=names)
-
-
-def _get_run_configs(experiment_id=None, tags=None, start_time=None):
-    return {
-        "experiment_id": experiment_id,
-        "user_id": "Anderson",
-        "start_time": get_current_time_millis() if start_time is None else start_time,
-        "tags": tags,
-        "run_name": "name",
-    }
-
-
-def _run_factory(store: SqlAlchemyStore, config=None):
-    if not config:
-        config = _get_run_configs()
-    if not config.get("experiment_id", None):
-        config["experiment_id"] = _create_experiments(store, "test exp")
-
-    return store.create_run(**config)
-
-
-def _clear_in_memory_engine():
-    engine = SqlAlchemyStore._engine_map.pop("sqlite:///:memory:", None)
-    if engine is not None:
-        engine.dispose()
-
-
-# Tests for Search API
-def _search_runs(
-    store: SqlAlchemyStore,
-    experiment_id,
-    filter_string=None,
-    run_view_type=ViewType.ALL,
-    max_results=SEARCH_MAX_RESULTS_DEFAULT,
-):
-    exps = [experiment_id] if isinstance(experiment_id, str) else experiment_id
-    return [
-        r.info.run_id for r in store.search_runs(exps, filter_string, run_view_type, max_results)
-    ]
-
-
-def _get_ordered_runs(store: SqlAlchemyStore, order_clauses, experiment_id):
-    return [
-        r.data.tags[mlflow_tags.MLFLOW_RUN_NAME]
-        for r in store.search_runs(
-            experiment_ids=[experiment_id],
-            filter_string="",
-            run_view_type=ViewType.ALL,
-            order_by=order_clauses,
-        )
-    ]
-
-
-def _verify_logged(store, run_id, metrics, params, tags):
-    run = store.get_run(run_id)
-    all_metrics = sum((store.get_metric_history(run_id, key) for key in run.data.metrics), [])
-    assert len(all_metrics) == len(metrics)
-    logged_metrics = [(m.key, m.value, m.timestamp, m.step) for m in all_metrics]
-    assert set(logged_metrics) == {(m.key, m.value, m.timestamp, m.step) for m in metrics}
-    logged_tags = set(run.data.tags.items())
-    assert {(tag.key, tag.value) for tag in tags} <= logged_tags
-    assert len(run.data.params) == len(params)
-    assert set(run.data.params.items()) == {(param.key, param.value) for param in params}
 
 
 def test_upgrade_cli_idempotence(store: SqlAlchemyStore):
