@@ -162,7 +162,7 @@ jobs:
         with:
           repository: mlflow/internal
           sparse-checkout: |
-            mlflow-reviewer
+            nailaopus
           path: internal
           token: ${{ steps.app_token.outputs.token }}
           persist-credentials: false
@@ -205,7 +205,7 @@ jobs:
         # from the orchestrator package without a separate `uv pip install`
         # step; uv caches the env between invocations.
         run: |
-          uv run --directory internal/mlflow-reviewer nailaopus "$PR" --repo "$REPO" $FLAGS
+          uv run --directory internal/nailaopus nailaopus "$PR" --repo "$REPO" $FLAGS
 
       - name: React +1 on success (comment-triggered only)
         if: success() && steps.ctx.outputs.trigger == 'comment'
