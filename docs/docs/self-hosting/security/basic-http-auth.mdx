@@ -999,203 +999,33 @@ MLflow Authentication provides API endpoints to manage users and permissions.
     </tr>
     <tr>
       <td>
-        <Link to="/api_reference/auth/rest-api.html#create-experiment-permission" target="_blank">
-          <span>Create Experiment Permission</span>
+        <Link to="/api_reference/auth/rest-api.html#grant-user-permission" target="_blank">
+          <span>Grant User Permission</span>
         </Link>
       </td>
-      <td>`2.0/mlflow/experiments/permissions/create`</td>
+      <td>`3.0/mlflow/users/permissions/grant`</td>
       <td>`POST`</td>
-      <td>can_manage</td>
+      <td>can_manage on the target resource (or admin)</td>
     </tr>
     <tr>
       <td>
-        <Link to="/api_reference/auth/rest-api.html#get-experiment-permission" target="_blank">
-          <span>Get Experiment Permission</span>
+        <Link to="/api_reference/auth/rest-api.html#revoke-user-permission" target="_blank">
+          <span>Revoke User Permission</span>
         </Link>
       </td>
-      <td>`2.0/mlflow/experiments/permissions/get`</td>
-      <td>`GET`</td>
-      <td>can_manage</td>
-    </tr>
-    <tr>
-      <td>
-        <Link to="/api_reference/auth/rest-api.html#update-experiment-permission" target="_blank">
-          <span>Update Experiment Permission</span>
-        </Link>
-      </td>
-      <td>`2.0/mlflow/experiments/permissions/update`</td>
-      <td>`PATCH`</td>
-      <td>can_manage</td>
-    </tr>
-    <tr>
-      <td>
-        <Link to="/api_reference/auth/rest-api.html#delete-experiment-permission" target="_blank">
-          <span>Delete Experiment Permission</span>
-        </Link>
-      </td>
-      <td>`2.0/mlflow/experiments/permissions/delete`</td>
-      <td>`DELETE`</td>
-      <td>can_manage</td>
-    </tr>
-    <tr>
-      <td>
-        <Link to="/api_reference/auth/rest-api.html#create-registered-model-permission" target="_blank">
-          <span>Create Registered Model Permission</span>
-        </Link>
-      </td>
-      <td>`2.0/mlflow/registered-models/permissions/create`</td>
+      <td>`3.0/mlflow/users/permissions/revoke`</td>
       <td>`POST`</td>
-      <td>can_manage</td>
+      <td>can_manage on the target resource (or admin)</td>
     </tr>
     <tr>
       <td>
-        <Link to="/api_reference/auth/rest-api.html#get-registered-model-permission" target="_blank">
-          <span>Get Registered Model Permission</span>
+        <Link to="/api_reference/auth/rest-api.html#check-user-permission" target="_blank">
+          <span>Check User Permission</span>
         </Link>
       </td>
-      <td>`2.0/mlflow/registered-models/permissions/get`</td>
-      <td>`GET`</td>
-      <td>can_manage</td>
-    </tr>
-    <tr>
-      <td>
-        <Link to="/api_reference/auth/rest-api.html#update-registered-model-permission" target="_blank">
-          <span>Update Registered Model Permission</span>
-        </Link>
-      </td>
-      <td>`2.0/mlflow/registered-models/permissions/update`</td>
-      <td>`PATCH`</td>
-      <td>can_manage</td>
-    </tr>
-    <tr>
-      <td>
-        <Link to="/api_reference/auth/rest-api.html#delete-registered-model-permission" target="_blank">
-          <span>Delete Registered Model Permission</span>
-        </Link>
-      </td>
-      <td>`2.0/mlflow/registered-models/permissions/delete`</td>
-      <td>`DELETE`</td>
-      <td>can_manage</td>
-    </tr>
-    <tr>
-      <td>
-        <Link to="/api_reference/auth/rest-api.html#create-gateway-endpoint-permission" target="_blank">
-          <span>Create Gateway Endpoint Permission</span>
-        </Link>
-      </td>
-      <td>`3.0/mlflow/gateway/endpoints/permissions/create`</td>
+      <td>`3.0/mlflow/auth/check`</td>
       <td>`POST`</td>
-      <td>can_manage</td>
-    </tr>
-    <tr>
-      <td>
-        <Link to="/api_reference/auth/rest-api.html#get-gateway-endpoint-permission" target="_blank">
-          <span>Get Gateway Endpoint Permission</span>
-        </Link>
-      </td>
-      <td>`3.0/mlflow/gateway/endpoints/permissions/get`</td>
-      <td>`GET`</td>
-      <td>can_manage</td>
-    </tr>
-    <tr>
-      <td>
-        <Link to="/api_reference/auth/rest-api.html#update-gateway-endpoint-permission" target="_blank">
-          <span>Update Gateway Endpoint Permission</span>
-        </Link>
-      </td>
-      <td>`3.0/mlflow/gateway/endpoints/permissions/update`</td>
-      <td>`PATCH`</td>
-      <td>can_manage</td>
-    </tr>
-    <tr>
-      <td>
-        <Link to="/api_reference/auth/rest-api.html#delete-gateway-endpoint-permission" target="_blank">
-          <span>Delete Gateway Endpoint Permission</span>
-        </Link>
-      </td>
-      <td>`3.0/mlflow/gateway/endpoints/permissions/delete`</td>
-      <td>`DELETE`</td>
-      <td>can_manage</td>
-    </tr>
-    <tr>
-      <td>
-        <Link to="/api_reference/auth/rest-api.html#create-gateway-secret-permission" target="_blank">
-          <span>Create Gateway API Key Permission</span>
-        </Link>
-      </td>
-      <td>`3.0/mlflow/gateway/secrets/permissions/create`</td>
-      <td>`POST`</td>
-      <td>can_manage</td>
-    </tr>
-    <tr>
-      <td>
-        <Link to="/api_reference/auth/rest-api.html#get-gateway-secret-permission" target="_blank">
-          <span>Get Gateway API Key Permission</span>
-        </Link>
-      </td>
-      <td>`3.0/mlflow/gateway/secrets/permissions/get`</td>
-      <td>`GET`</td>
-      <td>can_manage</td>
-    </tr>
-    <tr>
-      <td>
-        <Link to="/api_reference/auth/rest-api.html#update-gateway-secret-permission" target="_blank">
-          <span>Update Gateway API Key Permission</span>
-        </Link>
-      </td>
-      <td>`3.0/mlflow/gateway/secrets/permissions/update`</td>
-      <td>`PATCH`</td>
-      <td>can_manage</td>
-    </tr>
-    <tr>
-      <td>
-        <Link to="/api_reference/auth/rest-api.html#delete-gateway-secret-permission" target="_blank">
-          <span>Delete Gateway API Key Permission</span>
-        </Link>
-      </td>
-      <td>`3.0/mlflow/gateway/secrets/permissions/delete`</td>
-      <td>`DELETE`</td>
-      <td>can_manage</td>
-    </tr>
-    <tr>
-      <td>
-        <Link to="/api_reference/auth/rest-api.html#create-gateway-model-definition-permission" target="_blank">
-          <span>Create Gateway Model Definition Permission</span>
-        </Link>
-      </td>
-      <td>`3.0/mlflow/gateway/model-definitions/permissions/create`</td>
-      <td>`POST`</td>
-      <td>can_manage</td>
-    </tr>
-    <tr>
-      <td>
-        <Link to="/api_reference/auth/rest-api.html#get-gateway-model-definition-permission" target="_blank">
-          <span>Get Gateway Model Definition Permission</span>
-        </Link>
-      </td>
-      <td>`3.0/mlflow/gateway/model-definitions/permissions/get`</td>
-      <td>`GET`</td>
-      <td>can_manage</td>
-    </tr>
-    <tr>
-      <td>
-        <Link to="/api_reference/auth/rest-api.html#update-gateway-model-definition-permission" target="_blank">
-          <span>Update Gateway Model Definition Permission</span>
-        </Link>
-      </td>
-      <td>`3.0/mlflow/gateway/model-definitions/permissions/update`</td>
-      <td>`PATCH`</td>
-      <td>can_manage</td>
-    </tr>
-    <tr>
-      <td>
-        <Link to="/api_reference/auth/rest-api.html#delete-gateway-model-definition-permission" target="_blank">
-          <span>Delete Gateway Model Definition Permission</span>
-        </Link>
-      </td>
-      <td>`3.0/mlflow/gateway/model-definitions/permissions/delete`</td>
-      <td>`DELETE`</td>
-      <td>can_manage</td>
+      <td>self / admin / workspace MANAGE in the resource's workspace</td>
     </tr>
     <tr>
       <td>Create Webhook</td>
