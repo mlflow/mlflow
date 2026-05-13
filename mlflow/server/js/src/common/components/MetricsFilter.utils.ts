@@ -43,9 +43,14 @@ export const translateToMetricsFilters = (filters: MetricFilter[]): string[] | u
 
 /**
  * Translates user-driven filter rows from MetricsFilter into Traces page URL
- * filter strings (format: `column::operator::value::key`) consumed by useFilters
- * on the Traces tab. Used to forward overview filters when navigating from
- * chart tooltip "View traces" links to the Traces page.
+ * filter strings consumed by useFilters on the Traces tab. Used to forward
+ * overview filters when navigating from chart tooltip "View traces" links to
+ * the Traces page.
+ *
+ * URL filter format: `column::operator::value[::key]`. The trailing `::key`
+ * segment is optional and only used for filters that disambiguate within a
+ * column group (e.g. assessment filters); top-level columns like `user` emit
+ * the 3-segment form.
  *
  * Add a new case here when adding a new column option in MetricsFilter.
  */
