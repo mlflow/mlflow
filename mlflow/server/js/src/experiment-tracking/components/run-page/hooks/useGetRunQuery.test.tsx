@@ -1,9 +1,11 @@
-import { renderHook, waitFor } from '@testing-library/react-for-react-18';
+import { describe, beforeEach, it, expect } from '@jest/globals';
+import { renderHook, waitFor } from '@testing-library/react';
 import { graphql } from 'msw';
 import { useGetRunQuery } from './useGetRunQuery';
 import { setupServer } from '../../../../common/utils/setup-msw';
 import { TestApolloProvider } from '../../../../common/utils/TestApolloProvider';
-import { GetRun, MlflowRunStatus } from '../../../../graphql/__generated__/graphql';
+import type { GetRun } from '../../../../graphql/__generated__/graphql';
+import { MlflowRunStatus } from '../../../../graphql/__generated__/graphql';
 
 describe('useGetRunQuery', () => {
   const server = setupServer();
@@ -18,6 +20,7 @@ describe('useGetRunQuery', () => {
         res(
           ctx.data({
             mlflowGetRun: {
+              apiError: null,
               run: {
                 info: {
                   runName: 'test-run-name',
@@ -74,6 +77,6 @@ describe('useGetRunQuery', () => {
     });
 
     expect(result.current.data).toBeUndefined();
-    expect(result.current.error?.message).toEqual('test-error-message');
+    expect(result.current.apolloError?.message).toEqual('test-error-message');
   });
 });

@@ -7,13 +7,10 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
     ErrorCode,
 )
-from mlflow.server.auth.entities import ExperimentPermission, RegisteredModelPermission, User
-from mlflow.server.auth.permissions import (
-    ALL_PERMISSIONS,
-    EDIT,
-    READ,
-)
+from mlflow.server.auth.entities import User
+from mlflow.server.auth.permissions import EDIT, MANAGE, READ, USE
 from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
+from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 from tests.helper_functions import random_str
 
@@ -29,14 +26,6 @@ def store(tmp_sqlite_uri):
 
 def _user_maker(store, username, password, is_admin=False):
     return store.create_user(username, password, is_admin)
-
-
-def _ep_maker(store, experiment_id, username, permission):
-    return store.create_experiment_permission(experiment_id, username, permission)
-
-
-def _rmp_maker(store, name, username, permission):
-    return store.create_registered_model_permission(name, username, permission)
 
 
 def test_create_user(store):
@@ -161,266 +150,190 @@ def test_delete_user(store):
     assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
 
-def test_create_experiment_permission(store):
-    username1 = random_str()
-    password1 = random_str()
-    user1 = _user_maker(store, username1, password1)
-
-    experiment_id1 = random_str()
-    user_id1 = user1.id
-    permission1 = READ.name
-    ep1 = _ep_maker(store, experiment_id1, username1, permission1)
-    assert ep1.experiment_id == experiment_id1
-    assert ep1.user_id == user_id1
-    assert ep1.permission == permission1
-
-    # error on duplicate
-    with pytest.raises(
-        MlflowException,
-        match=rf"Experiment permission \(experiment_id={experiment_id1}, "
-        rf"username={username1}\) already exists",
-    ) as exception_context:
-        _ep_maker(store, experiment_id1, username1, permission1)
-    assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS)
-
-    # slightly different name is ok
-    experiment_id2 = random_str()
-    ep2 = _ep_maker(store, experiment_id2, username1, permission1)
-    assert ep2.experiment_id == experiment_id2
-    assert ep2.user_id == user_id1
-    assert ep2.permission == permission1
-
-    # all permissions are ok
-    for perm in ALL_PERMISSIONS:
-        experiment_id3 = random_str()
-        ep3 = _ep_maker(store, experiment_id3, username1, perm)
-        assert ep3.experiment_id == experiment_id3
-        assert ep3.user_id == user_id1
-        assert ep3.permission == perm
-
-    # invalid permission will fail
-    experiment_id4 = random_str()
-    with pytest.raises(MlflowException, match=r"Invalid permission") as exception_context:
-        _ep_maker(store, experiment_id4, username1, "some_invalid_permission_string")
-    assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+# ---------------------------------------------------------------------------
+# Per-user (synthetic role) logic
+#
+# The store represents per-user grants as ``role_permissions`` rows on a
+# synthetic ``__user_<id>__`` role scoped to a workspace. The tests above
+# exercise the create/get/update/delete API surface through this representation
+# implicitly, but the per-user invariants below are what protect the design
+# from regressions. A change that broke any of these would silently leak grants
+# across users / workspaces or fragment a single user's grants across multiple
+# synthetic roles.
+# ---------------------------------------------------------------------------
 
 
-def test_get_experiment_permission(store):
-    username1 = random_str()
-    password1 = random_str()
-    user1 = _user_maker(store, username1, password1)
+def _count_synthetic_roles_for(store, user_id: int) -> int:
+    from mlflow.server.auth.db.models import SqlRole
 
-    experiment_id1 = random_str()
-    user_id1 = user1.id
-    permission1 = READ.name
-    _ep_maker(store, experiment_id1, username1, permission1)
-    ep1 = store.get_experiment_permission(experiment_id1, username1)
-    assert isinstance(ep1, ExperimentPermission)
-    assert ep1.experiment_id == experiment_id1
-    assert ep1.user_id == user_id1
-    assert ep1.permission == permission1
-
-    # error on non-existent row
-    experiment_id2 = random_str()
-    with pytest.raises(
-        MlflowException,
-        match=rf"Experiment permission with experiment_id={experiment_id2} "
-        rf"and username={username1} not found",
-    ) as exception_context:
-        store.get_experiment_permission(experiment_id2, username1)
-    assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+    name = store._synthetic_user_role_name(user_id)
+    with store.ManagedSessionMaker() as session:
+        return session.query(SqlRole).filter(SqlRole.name == name).count()
 
 
-def test_list_experiment_permission(store):
-    username1 = random_str()
-    password1 = random_str()
-    _user_maker(store, username1, password1)
+def test_per_user_grant_does_not_leak_to_other_users(store):
+    user_a = _user_maker(store, random_str(), random_str())
+    user_b = _user_maker(store, random_str(), random_str())
+    experiment_id = random_str()
 
-    experiment_id1 = "1" + random_str()
-    _ep_maker(store, experiment_id1, username1, READ.name)
+    store.create_experiment_permission(experiment_id, user_a.username, MANAGE.name)
 
-    experiment_id2 = "2" + random_str()
-    _ep_maker(store, experiment_id2, username1, READ.name)
+    granted = store.get_experiment_permission(experiment_id, user_a.username)
+    assert granted.user_id == user_a.id
+    assert granted.permission == MANAGE.name
 
-    experiment_id3 = "3" + random_str()
-    _ep_maker(store, experiment_id3, username1, READ.name)
-
-    eps = store.list_experiment_permissions(username1)
-    eps.sort(key=lambda ep: ep.experiment_id)
-
-    assert len(eps) == 3
-    assert isinstance(eps[0], ExperimentPermission)
-    assert eps[0].experiment_id == experiment_id1
-    assert eps[1].experiment_id == experiment_id2
-    assert eps[2].experiment_id == experiment_id3
+    with pytest.raises(MlflowException, match=r"not found") as exc:
+        store.get_experiment_permission(experiment_id, user_b.username)
+    assert exc.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
 
-def test_update_experiment_permission(store):
-    username1 = random_str()
-    password1 = random_str()
-    _user_maker(store, username1, password1)
+def test_per_user_grants_share_one_synthetic_role(store):
+    user = _user_maker(store, random_str(), random_str())
 
-    experiment_id1 = random_str()
-    permission1 = READ.name
-    _ep_maker(store, experiment_id1, username1, permission1)
+    # Three grants on different resource types for the same user in the default
+    # workspace. All must land on the same synthetic role row, not three.
+    store.create_experiment_permission(random_str(), user.username, READ.name)
+    store.create_registered_model_permission(random_str(), user.username, EDIT.name)
+    store.create_scorer_permission(random_str(), random_str(), user.username, USE.name)
 
-    permission2 = EDIT.name
-    store.update_experiment_permission(experiment_id1, username1, permission2)
-    ep1 = store.get_experiment_permission(experiment_id1, username1)
-    assert ep1.permission == permission2
+    assert _count_synthetic_roles_for(store, user.id) == 1
 
-    # invalid permission will fail
-    with pytest.raises(MlflowException, match=r"Invalid permission") as exception_context:
-        store.update_experiment_permission(
-            experiment_id1, username1, "some_invalid_permission_string"
+
+def test_per_user_grants_use_one_synthetic_role_per_workspace(store, monkeypatch):
+    from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
+    from mlflow.server.auth.db.models import SqlRole
+    from mlflow.utils.workspace_context import WorkspaceContext
+
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    user = _user_maker(store, random_str(), random_str())
+
+    workspaces = [f"ws-{random_str()}" for _ in range(2)]
+    for ws in workspaces:
+        with WorkspaceContext(ws):
+            store.create_registered_model_permission(f"model-{ws}", user.username, USE.name)
+
+    # Distinct synthetic roles: one per workspace.
+    name = store._synthetic_user_role_name(user.id)
+    with store.ManagedSessionMaker() as session:
+        observed_workspaces = sorted(
+            workspace
+            for (workspace,) in session.query(SqlRole.workspace).filter(SqlRole.name == name).all()
         )
-    assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+    assert observed_workspaces == sorted(workspaces)
 
 
-def test_delete_experiment_permission(store):
-    username1 = random_str()
-    password1 = random_str()
-    _user_maker(store, username1, password1)
+def test_per_user_grants_resolved_via_role_resolver(store):
+    user_a = _user_maker(store, random_str(), random_str())
+    user_b = _user_maker(store, random_str(), random_str())
+    experiment_id = random_str()
 
-    experiment_id1 = random_str()
-    permission1 = READ.name
-    _ep_maker(store, experiment_id1, username1, permission1)
+    store.create_experiment_permission(experiment_id, user_a.username, EDIT.name)
 
-    store.delete_experiment_permission(experiment_id1, username1)
-    with pytest.raises(
-        MlflowException,
-        match=rf"Experiment permission with experiment_id={experiment_id1} "
-        rf"and username={username1} not found",
-    ) as exception_context:
-        store.get_experiment_permission(experiment_id1, username1)
-    assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+    # User A's grant resolves through the unified resolver — the same mechanism
+    # the runtime authz uses, not a per-resource fallback.
+    perm = store.get_role_permission_for_resource(
+        user_a.id, "experiment", experiment_id, DEFAULT_WORKSPACE_NAME
+    )
+    assert perm is not None
+    assert perm.name == EDIT.name
 
-
-def test_create_registered_model_permission(store):
-    username1 = random_str()
-    password1 = random_str()
-    user1 = _user_maker(store, username1, password1)
-
-    name1 = random_str()
-    user_id1 = user1.id
-    permission1 = READ.name
-    rmp1 = _rmp_maker(store, name1, username1, permission1)
-    assert rmp1.name == name1
-    assert rmp1.user_id == user_id1
-    assert rmp1.permission == permission1
-
-    # error on duplicate
-    with pytest.raises(
-        MlflowException,
-        match=rf"Registered model permission \(name={name1}, username={username1}\) already exists",
-    ) as exception_context:
-        _rmp_maker(store, name1, username1, permission1)
-    assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS)
-
-    # slightly different name is ok
-    name2 = random_str()
-    rmp2 = _rmp_maker(store, name2, username1, permission1)
-    assert rmp2.name == name2
-    assert rmp2.user_id == user_id1
-    assert rmp2.permission == permission1
-
-    # all permissions are ok
-    for perm in ALL_PERMISSIONS:
-        name3 = random_str()
-        rmp3 = _rmp_maker(store, name3, username1, perm)
-        assert rmp3.name == name3
-        assert rmp3.user_id == user_id1
-        assert rmp3.permission == perm
-
-    # invalid permission will fail
-    name4 = random_str()
-    with pytest.raises(MlflowException, match=r"Invalid permission") as exception_context:
-        _rmp_maker(store, name4, username1, "some_invalid_permission_string")
-    assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+    # User B has no grant on this experiment — resolver returns None.
+    assert (
+        store.get_role_permission_for_resource(
+            user_b.id, "experiment", experiment_id, DEFAULT_WORKSPACE_NAME
+        )
+        is None
+    )
 
 
-def test_get_registered_model_permission(store):
-    username1 = random_str()
-    password1 = random_str()
-    user1 = _user_maker(store, username1, password1)
+def test_per_user_grants_isolated_across_workspaces(store, monkeypatch):
+    from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
+    from mlflow.utils.workspace_context import WorkspaceContext
 
-    name1 = random_str()
-    user_id1 = user1.id
-    permission1 = READ.name
-    _rmp_maker(store, name1, username1, permission1)
-    rmp1 = store.get_registered_model_permission(name1, username1)
-    assert isinstance(rmp1, RegisteredModelPermission)
-    assert rmp1.name == name1
-    assert rmp1.user_id == user_id1
-    assert rmp1.permission == permission1
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    user = _user_maker(store, random_str(), random_str())
+    ws_a = f"ws-{random_str()}"
+    ws_b = f"ws-{random_str()}"
 
-    # error on non-existent row
-    name2 = random_str()
-    with pytest.raises(
-        MlflowException,
-        match=rf"Registered model permission with name={name2} and username={username1} not found",
-    ) as exception_context:
-        store.get_registered_model_permission(name2, username1)
-    assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+    with WorkspaceContext(ws_a):
+        store.create_registered_model_permission("model-1", user.username, MANAGE.name)
+
+    # In ws_a the grant is visible.
+    assert (
+        store.get_role_permission_for_resource(user.id, "registered_model", "model-1", ws_a).name
+        == MANAGE.name
+    )
+    # In ws_b the grant must not leak.
+    assert (
+        store.get_role_permission_for_resource(user.id, "registered_model", "model-1", ws_b) is None
+    )
 
 
-def test_list_registered_model_permission(store):
-    username1 = random_str()
-    password1 = random_str()
-    _user_maker(store, username1, password1)
+def test_delete_user_clears_retained_legacy_permission_rows(store):
+    """``e5f6a7b8c9d0`` retains the legacy permission tables on disk (they hold
+    pre-migration data for rollback). Their FKs to ``users.id`` are non-cascading
+    in earlier migrations, so a user with surviving legacy rows can't be deleted
+    on strict FK backends (e.g. PostgreSQL) unless ``delete_user`` first clears
+    them. Simulate that state by inserting raw rows into every legacy table and
+    confirm ``delete_user`` cleans them up rather than orphaning or erroring.
+    """
+    from sqlalchemy import text
 
-    name1 = "1" + random_str()
-    _rmp_maker(store, name1, username1, READ.name)
+    username = random_str()
+    user = _user_maker(store, username, random_str())
 
-    name2 = "2" + random_str()
-    _rmp_maker(store, name2, username1, READ.name)
+    legacy_inserts = {
+        "experiment_permissions": (
+            "INSERT INTO experiment_permissions (experiment_id, user_id, permission)"
+            " VALUES (:eid, :uid, 'READ')"
+        ),
+        "registered_model_permissions": (
+            "INSERT INTO registered_model_permissions (workspace, name, user_id, permission)"
+            " VALUES ('ws-default', :rid, :uid, 'READ')"
+        ),
+        "scorer_permissions": (
+            "INSERT INTO scorer_permissions"
+            " (experiment_id, scorer_name, user_id, permission)"
+            " VALUES (:eid, :sname, :uid, 'READ')"
+        ),
+        "gateway_secret_permissions": (
+            "INSERT INTO gateway_secret_permissions (secret_id, user_id, permission)"
+            " VALUES (:gid, :uid, 'READ')"
+        ),
+        "gateway_endpoint_permissions": (
+            "INSERT INTO gateway_endpoint_permissions (endpoint_id, user_id, permission)"
+            " VALUES (:eid, :uid, 'READ')"
+        ),
+        "gateway_model_definition_permissions": (
+            "INSERT INTO gateway_model_definition_permissions"
+            " (model_definition_id, user_id, permission)"
+            " VALUES (:mid, :uid, 'READ')"
+        ),
+        "workspace_permissions": (
+            "INSERT INTO workspace_permissions (workspace, user_id, permission)"
+            " VALUES ('ws-default', :uid, 'USE')"
+        ),
+    }
+    with store.ManagedSessionMaker() as session:
+        for stmt in legacy_inserts.values():
+            session.execute(
+                text(stmt),
+                {
+                    "uid": user.id,
+                    "eid": random_str(),
+                    "rid": random_str(),
+                    "sname": random_str(),
+                    "gid": random_str(),
+                    "mid": random_str(),
+                },
+            )
 
-    name3 = "3" + random_str()
-    _rmp_maker(store, name3, username1, READ.name)
+    store.delete_user(username)
 
-    rmps = store.list_registered_model_permissions(username1)
-    rmps.sort(key=lambda rmp: rmp.name)
-
-    assert len(rmps) == 3
-    assert isinstance(rmps[0], RegisteredModelPermission)
-    assert rmps[0].name == name1
-    assert rmps[1].name == name2
-    assert rmps[2].name == name3
-
-
-def test_update_registered_model_permission(store):
-    username1 = random_str()
-    password1 = random_str()
-    _user_maker(store, username1, password1)
-
-    name1 = random_str()
-    permission1 = READ.name
-    _rmp_maker(store, name1, username1, permission1)
-
-    permission2 = EDIT.name
-    store.update_registered_model_permission(name1, username1, permission2)
-    rmp1 = store.get_registered_model_permission(name1, username1)
-    assert rmp1.permission == permission2
-
-    # invalid permission will fail
-    with pytest.raises(MlflowException, match=r"Invalid permission") as exception_context:
-        store.update_registered_model_permission(name1, username1, "some_invalid_permission_string")
-    assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
-
-
-def test_delete_registered_model_permission(store):
-    username1 = random_str()
-    password1 = random_str()
-    _user_maker(store, username1, password1)
-
-    name1 = random_str()
-    permission1 = READ.name
-    _rmp_maker(store, name1, username1, permission1)
-
-    store.delete_registered_model_permission(name1, username1)
-    with pytest.raises(
-        MlflowException,
-        match=rf"Registered model permission with name={name1} and username={username1} not found",
-    ) as exception_context:
-        store.get_registered_model_permission(name1, username1)
-    assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+    with store.ManagedSessionMaker() as session:
+        for table in legacy_inserts:
+            count = session.execute(
+                text(f"SELECT COUNT(*) FROM {table} WHERE user_id = :uid"),
+                {"uid": user.id},
+            ).scalar()
+            assert count == 0, f"legacy rows in {table} not cleaned up by delete_user"

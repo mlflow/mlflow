@@ -1,8 +1,8 @@
 import { barChartCardDefaultMargin } from '../cards/RunsChartsBarChartCard';
-import { RunsChartsRunData } from '../RunsCharts.common';
+import type { RunsChartsRunData } from '../RunsCharts.common';
 import { RunsMetricsBarPlot } from '../RunsMetricsBarPlot';
 import { useRunsChartsTooltip } from '../../hooks/useRunsChartsTooltip';
-import { RunsChartsBarCardConfig } from '../../runs-charts.types';
+import type { RunsChartsBarCardConfig } from '../../runs-charts.types';
 
 export const RunsChartsConfigureBarChartPreview = ({
   previewData,
@@ -13,12 +13,17 @@ export const RunsChartsConfigureBarChartPreview = ({
 }) => {
   const { resetTooltip, setTooltip } = useRunsChartsTooltip(cardConfig);
 
+  const primaryDataKey = cardConfig.dataAccessKey ?? cardConfig.metricKey;
+  const selectedMetricKeys = cardConfig.selectedMetricKeys ?? [primaryDataKey];
+  const isMultiMetric = selectedMetricKeys.length > 1;
+
   return (
     <RunsMetricsBarPlot
       useDefaultHoverBox={false}
       displayRunNames={false}
       displayMetricKey={false}
-      metricKey={cardConfig.metricKey}
+      metricKey={primaryDataKey}
+      selectedMetricKeys={isMultiMetric ? selectedMetricKeys : undefined}
       runsData={previewData}
       margin={barChartCardDefaultMargin}
       onHover={setTooltip}

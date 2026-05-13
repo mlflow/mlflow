@@ -1,6 +1,6 @@
 import { Input, Modal, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { useCallback, useMemo, useState } from 'react';
-import { RunRowType } from '../../experiment-page/utils/experimentPage.row-types';
+import type { RunRowType } from '../../experiment-page/utils/experimentPage.row-types';
 import { uniq, compact } from 'lodash';
 import { canEvaluateOnRun, extractRequiredInputParamsForRun } from '../../prompt-engineering/PromptEngineering.utils';
 import { FormattedMessage } from 'react-intl';
@@ -55,6 +55,7 @@ export const useEvaluationAddNewInputsModal = () => {
 
   const AddNewInputsModal = (
     <Modal
+      componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_hooks_useevaluationaddnewinputsmodal.tsx_57"
       title={
         <FormattedMessage
           defaultMessage="Add row"
@@ -96,7 +97,11 @@ export const useEvaluationAddNewInputsModal = () => {
             />
           </Typography.Hint>
           <div css={{ marginTop: theme.spacing.sm }}>
-            <Input.TextArea value={inputValues[inputName]} onChange={(e) => setInputValue(inputName, e.target.value)} />
+            <Input.TextArea
+              componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_hooks_useevaluationaddnewinputsmodal.tsx_99"
+              value={inputValues[inputName]}
+              onChange={(e) => setInputValue(inputName, e.target.value)}
+            />
           </div>
         </div>
       ))}

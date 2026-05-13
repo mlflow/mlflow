@@ -29,6 +29,7 @@ from tests.helper_functions import (
     assert_register_model_called_with_local_model_path,
     pyfunc_serve_and_score_model,
 )
+from tests.transformers.version import IS_TRANSFORMERS_V5_OR_LATER
 
 
 @pytest.fixture
@@ -71,6 +72,11 @@ def test_model_save_and_load(model_path, basic_model):
     Version(sentence_transformers.__version__) < Version("2.4.0"),
     reason="`trust_remote_code` is not supported in Sentence Transformers < 2.3.0 "
     "and `include_prompt` from gte-base-en-v1.5 requires 2.4.0 or above",
+)
+@pytest.mark.skipif(
+    IS_TRANSFORMERS_V5_OR_LATER,
+    reason="Alibaba-NLP/gte-base-en-v1.5 has corrupted position_ids buffers on transformers 5.x "
+    "due to uninitialized meta-device loading (https://github.com/huggingface/transformers/issues/43957)",
 )
 def test_model_save_and_load_with_custom_code(model_path, model_with_remote_code):
     mlflow.sentence_transformers.save_model(model=model_with_remote_code, path=model_path)
@@ -147,23 +153,19 @@ def test_get_transformers_model_name(model_name, expected):
 def test_model_logging_and_inference(basic_model):
     artifact_path = "sentence_transformer"
     with mlflow.start_run():
-        model_info = mlflow.sentence_transformers.log_model(
-            model=basic_model, artifact_path=artifact_path
-        )
+        model_info = mlflow.sentence_transformers.log_model(basic_model, name=artifact_path)
 
     model = mlflow.sentence_transformers.load_model(model_info.model_uri)
 
     encoded_single = model.encode(
         "Encodings provide a fixed width output regardless of input size."
     )
-    encoded_multi = model.encode(
-        [
-            "Just a small town girl",
-            "livin in a lonely world",
-            "she took the midnight train",
-            "goin anywhere",
-        ]
-    )
+    encoded_multi = model.encode([
+        "Just a small town girl",
+        "livin' in a lonely world",
+        "she took the midnight train",
+        "going anywhere",
+    ])
 
     assert isinstance(encoded_single, np.ndarray)
     assert len(encoded_single) == 384
@@ -196,16 +198,15 @@ def test_log_model_calls_register_model(tmp_path, basic_model):
         _mlflow_conda_env(
             conda_env, additional_pip_deps=["transformers", "torch", "sentence-transformers"]
         )
-        mlflow.sentence_transformers.log_model(
-            model=basic_model,
-            artifact_path=artifact_path,
+        model_info = mlflow.sentence_transformers.log_model(
+            basic_model,
+            name=artifact_path,
             conda_env=str(conda_env),
             registered_model_name="My super cool encoder",
         )
-        model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
         assert_register_model_called_with_local_model_path(
             register_model_mock=mlflow.tracking._model_registry.fluent._register_model,
-            model_uri=model_uri,
+            model_uri=model_info.model_uri,
             registered_model_name="My super cool encoder",
         )
 
@@ -219,8 +220,8 @@ def test_log_model_with_no_registered_model_name(tmp_path, basic_model):
             conda_env, additional_pip_deps=["transformers", "torch", "sentence-transformers"]
         )
         mlflow.sentence_transformers.log_model(
-            model=basic_model,
-            artifact_path=artifact_path,
+            basic_model,
+            name=artifact_path,
             conda_env=str(conda_env),
         )
         mlflow.tracking._model_registry.fluent._register_model.assert_not_called()
@@ -232,33 +233,33 @@ def test_log_with_pip_requirements(tmp_path, basic_model):
     requirements_file = tmp_path.joinpath("requirements.txt")
     requirements_file.write_text("some-clever-package")
     with mlflow.start_run():
-        mlflow.sentence_transformers.log_model(
-            basic_model, "model", pip_requirements=str(requirements_file)
+        model_info = mlflow.sentence_transformers.log_model(
+            basic_model, name="model", pip_requirements=str(requirements_file)
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"),
+            model_info.model_uri,
             [expected_mlflow_version, "some-clever-package"],
             strict=True,
         )
     with mlflow.start_run():
-        mlflow.sentence_transformers.log_model(
+        model_info = mlflow.sentence_transformers.log_model(
             basic_model,
-            "model",
+            name="model",
             pip_requirements=[f"-r {requirements_file}", "a-hopefully-useful-package"],
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"),
+            model_info.model_uri,
             [expected_mlflow_version, "some-clever-package", "a-hopefully-useful-package"],
             strict=True,
         )
     with mlflow.start_run():
-        mlflow.sentence_transformers.log_model(
+        model_info = mlflow.sentence_transformers.log_model(
             basic_model,
-            "model",
+            name="model",
             pip_requirements=[f"-c {requirements_file}", "i-dunno-maybe-its-good"],
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"),
+            model_info.model_uri,
             [expected_mlflow_version, "i-dunno-maybe-its-good", "-c constraints.txt"],
             ["some-clever-package"],
             strict=True,
@@ -271,31 +272,31 @@ def test_log_with_extra_pip_requirements(basic_model, tmp_path):
     requirements_file = tmp_path.joinpath("requirements.txt")
     requirements_file.write_text("effective-package")
     with mlflow.start_run():
-        mlflow.sentence_transformers.log_model(
-            basic_model, "model", extra_pip_requirements=str(requirements_file)
+        model_info = mlflow.sentence_transformers.log_model(
+            basic_model, name="model", extra_pip_requirements=str(requirements_file)
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"),
+            model_info.model_uri,
             [expected_mlflow_version, *default_requirements, "effective-package"],
         )
     with mlflow.start_run():
-        mlflow.sentence_transformers.log_model(
+        model_info = mlflow.sentence_transformers.log_model(
             basic_model,
-            "model",
+            name="model",
             extra_pip_requirements=[f"-r {requirements_file}", "useful-package"],
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"),
+            model_info.model_uri,
             [expected_mlflow_version, *default_requirements, "effective-package", "useful-package"],
         )
     with mlflow.start_run():
-        mlflow.sentence_transformers.log_model(
+        model_info = mlflow.sentence_transformers.log_model(
             basic_model,
-            "model",
+            name="model",
             extra_pip_requirements=[f"-c {requirements_file}", "constrained-pkg"],
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"),
+            model_info.model_uri,
             [
                 expected_mlflow_version,
                 *default_requirements,
@@ -320,20 +321,25 @@ def test_model_log_without_conda_env_uses_default_env_with_expected_dependencies
 ):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.sentence_transformers.log_model(basic_model, artifact_path)
-        model_uri = mlflow.get_artifact_uri(artifact_path)
-    _assert_pip_requirements(model_uri, mlflow.sentence_transformers.get_default_pip_requirements())
+        model_info = mlflow.sentence_transformers.log_model(basic_model, name=artifact_path)
+    _assert_pip_requirements(
+        model_info.model_uri, mlflow.sentence_transformers.get_default_pip_requirements()
+    )
 
 
 def test_log_model_with_code_paths(basic_model):
     artifact_path = "model"
-    with mlflow.start_run(), mock.patch(
-        "mlflow.sentence_transformers._add_code_from_conf_to_system_path"
-    ) as add_mock:
-        mlflow.sentence_transformers.log_model(basic_model, artifact_path, code_paths=[__file__])
-        model_uri = mlflow.get_artifact_uri(artifact_path)
-        _compare_logged_code_paths(__file__, model_uri, mlflow.sentence_transformers.FLAVOR_NAME)
-        mlflow.sentence_transformers.load_model(model_uri)
+    with (
+        mlflow.start_run(),
+        mock.patch("mlflow.sentence_transformers._add_code_from_conf_to_system_path") as add_mock,
+    ):
+        model_info = mlflow.sentence_transformers.log_model(
+            basic_model, name=artifact_path, code_paths=[__file__]
+        )
+        _compare_logged_code_paths(
+            __file__, model_info.model_uri, mlflow.sentence_transformers.FLAVOR_NAME
+        )
+        mlflow.sentence_transformers.load_model(model_info.model_uri)
         add_mock.assert_called()
 
 
@@ -384,20 +390,8 @@ def test_model_pyfunc_predict_with_params(basic_model, tmp_path):
     emb0 = loaded_pyfunc.predict(sentence, params)
     assert emb0.shape == (1, embedding_dim)
 
-    with pytest.raises(MlflowException, match=r"Incompatible types for param 'batch_size'"):
+    with pytest.raises(MlflowException, match=r"Invalid parameters found"):
         loaded_pyfunc.predict(sentence, {"batch_size": "16"})
-
-    model_path = tmp_path / "model2"
-    mlflow.sentence_transformers.save_model(
-        basic_model,
-        model_path,
-        signature=infer_signature(sentence, params={"invalid_param": "value"}),
-    )
-    loaded_pyfunc = pyfunc.load_model(model_uri=model_path)
-    with pytest.raises(
-        MlflowException, match=r"Received invalid parameter value for `params` argument"
-    ):
-        loaded_pyfunc.predict(sentence, {"invalid_param": "random_value"})
 
     model_path = tmp_path / "model3"
     mlflow.sentence_transformers.save_model(basic_model, model_path)
@@ -411,12 +405,33 @@ def test_model_pyfunc_predict_with_params(basic_model, tmp_path):
     )
 
 
+@pytest.mark.skipif(
+    Version(sentence_transformers.__version__) >= Version("3.1.0"),
+    reason="This test only passes for Sentence Transformers < 3.1.0",
+)
+def test_model_pyfunc_predict_with_invalid_params(basic_model, tmp_path):
+    sentence = "hello world and hello mlflow"
+    model_path = tmp_path / "model"
+    mlflow.sentence_transformers.save_model(
+        basic_model,
+        model_path,
+        signature=infer_signature(sentence, params={"invalid_param": "value"}),
+    )
+    loaded_pyfunc = pyfunc.load_model(model_uri=model_path)
+
+    loaded_pyfunc = pyfunc.load_model(model_uri=model_path)
+    with pytest.raises(
+        MlflowException, match=r"Received invalid parameter value for `params` argument"
+    ):
+        loaded_pyfunc.predict(sentence, {"invalid_param": "random_value"})
+
+
 def test_spark_udf(basic_model, spark):
     params = {"batch_size": 16}
     with mlflow.start_run():
         signature = infer_signature(SENTENCES, basic_model.encode(SENTENCES), params)
         model_info = mlflow.sentence_transformers.log_model(
-            basic_model, "my_model", signature=signature
+            basic_model, name="my_model", signature=signature
         )
 
     result_type = ArrayType(DoubleType())
@@ -449,7 +464,7 @@ def test_spark_udf(basic_model, spark):
 def test_pyfunc_serve_and_score(input1, input2, basic_model):
     with mlflow.start_run():
         model_info = mlflow.sentence_transformers.log_model(
-            basic_model, "my_model", input_example=input1
+            basic_model, name="my_model", input_example=input1
         )
     loaded_pyfunc = pyfunc.load_model(model_uri=model_info.model_uri)
     local_predict = loaded_pyfunc.predict(input1)
@@ -527,13 +542,12 @@ def test_model_log_with_signature_inference(basic_model):
     artifact_path = "model"
 
     with mlflow.start_run():
-        mlflow.sentence_transformers.log_model(
-            basic_model, artifact_path=artifact_path, input_example=SENTENCES
+        model_info = mlflow.sentence_transformers.log_model(
+            basic_model, name=artifact_path, input_example=SENTENCES
         )
-        model_uri = mlflow.get_artifact_uri(artifact_path)
 
-    model_info = Model.load(model_uri)
-    assert model_info.signature == SIGNATURE
+    loaded_model_info = Model.load(model_info.model_uri)
+    assert loaded_model_info.signature == SIGNATURE
 
 
 def test_verify_task_and_update_metadata():

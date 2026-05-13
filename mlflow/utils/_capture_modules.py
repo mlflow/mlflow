@@ -1,6 +1,7 @@
 """
 This script should be executed in a fresh python interpreter process using `subprocess`.
 """
+
 import argparse
 import builtins
 import functools
@@ -69,6 +70,10 @@ class _CaptureImportedModules:
                         full_module_name = ".".join(full_modules)
                         if full_module_name in sys.modules:
                             self._record_imported_module(full_module_name)
+                        else:
+                            # in the case that `from_name` is a function or a class
+                            # then record the parent_module
+                            self._record_imported_module(".".join(parent_modules))
                 else:
                     full_module_name = ".".join(parent_modules)
                     self._record_imported_module(full_module_name)
@@ -183,7 +188,7 @@ def store_imported_modules(
             # because `pyfunc_conf[MAIN]` might also be a module loaded from
             # code_paths.
             with cap_cm:
-                # `mlflow.pyfunc.load_model` interanlly invokes
+                # `mlflow.pyfunc.load_model` internally invokes
                 # `importlib.import_module(pyfunc_conf[MAIN])`
                 mlflow.pyfunc.load_model(model_path)
         else:
@@ -242,8 +247,7 @@ def main():
     if flavor == mlflow.spark.FLAVOR_NAME:
         from mlflow.utils._spark_utils import _get_active_spark_session
 
-        spark = _get_active_spark_session()
-        if spark:
+        if spark := _get_active_spark_session():
             try:
                 spark.stop()
             except Exception:

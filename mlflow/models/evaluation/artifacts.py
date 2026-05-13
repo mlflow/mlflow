@@ -1,13 +1,14 @@
 import json
 import pathlib
 import pickle
-from collections import namedtuple
 from json import JSONDecodeError
+from typing import NamedTuple
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
+from mlflow.environment_variables import MLFLOW_ALLOW_PICKLE_DESERIALIZATION
 from mlflow.exceptions import MlflowException
 from mlflow.models.evaluation.base import EvaluationArtifact
 from mlflow.utils.annotations import developer_stable
@@ -88,6 +89,12 @@ class PickleEvaluationArtifact(EvaluationArtifact):
             pickle.dump(self._content, f)
 
     def _load_content_from_file(self, local_artifact_path):
+        if not MLFLOW_ALLOW_PICKLE_DESERIALIZATION.get():
+            raise MlflowException(
+                "Deserializing evaluation artifacts using pickle is disallowed. "
+                "Set environment variable 'MLFLOW_ALLOW_PICKLE_DESERIALIZATION' to 'true' "
+                "to allow deserializing evaluation artifacts using pickle."
+            )
         with open(local_artifact_path, "rb") as f:
             self._content = pickle.load(f)
         return self._content
@@ -116,9 +123,11 @@ _TYPE_TO_ARTIFACT_MAP = {
     plt.Figure: ImageEvaluationArtifact,
 }
 
-_InferredArtifactProperties = namedtuple(
-    "_InferredArtifactProperties", ["from_path", "type", "ext"]
-)
+
+class _InferredArtifactProperties(NamedTuple):
+    from_path: bool
+    type: type[EvaluationArtifact]
+    ext: str
 
 
 def _infer_artifact_type_and_ext(artifact_name, raw_artifact, custom_metric_tuple):

@@ -1,0 +1,93 @@
+syntax = "proto2";
+
+package mlflow;
+
+import "jobs.proto";
+import "scalapb/scalapb.proto";
+
+option java_package = "org.mlflow.api.proto";
+option py_generic_services = true;
+option (scalapb.options) = {flat_package: true};
+
+// Type of optimizer algorithm to use.
+enum OptimizerType {
+  OPTIMIZER_TYPE_UNSPECIFIED = 0;
+
+  // GEPA (Genetic Pareto) optimizer (https://github.com/gepa-ai/gepa)
+  OPTIMIZER_TYPE_GEPA = 1;
+
+  // MetaPrompt optimizer - uses metaprompting with LLMs to improve prompts in a single pass.
+  OPTIMIZER_TYPE_METAPROMPT = 2;
+}
+
+// Tag for a prompt optimization job.
+message PromptOptimizationJobTag {
+  optional string key = 1;
+
+  optional string value = 2;
+}
+
+// Configuration for a prompt optimization job.
+// Stored as run parameters in the underlying MLflow run.
+message PromptOptimizationJobConfig {
+  // The optimizer type to use.
+  optional OptimizerType optimizer_type = 1;
+
+  // ID of the EvaluationDataset containing training data.
+  optional string dataset_id = 2;
+
+  // List of scorer names. Can be built-in scorer class names
+  // (e.g., "Correctness", "Safety") or registered scorer names.
+  repeated string scorers = 3;
+
+  // JSON-serialized optimizer-specific configuration.
+  // Different optimizers accept different parameters:
+  // - GEPA: {"reflection_model": "openai:/gpt-5", "max_metric_calls": 300}
+  // - MetaPrompt: {"reflection_model": "openai:/gpt-5", "guidelines": "...", "lm_kwargs": {...}}
+  optional string optimizer_config_json = 4;
+}
+
+// Represents a prompt optimization job entity.
+message PromptOptimizationJob {
+  // Unique identifier for the optimization job.
+  // Used to poll job execution status (pending/running/completed/failed).
+  optional string job_id = 1;
+
+  // MLflow run ID where optimization metrics and results are stored.
+  // Use this to view results in MLflow UI. Only available after job starts running.
+  optional string run_id = 2;
+
+  // Current state of the job (status + error message + metadata).
+  optional JobState state = 3;
+
+  // ID of the MLflow experiment where this optimization job is tracked.
+  optional string experiment_id = 4;
+
+  // URI of the source prompt that optimization started from (e.g., "prompts:/my-prompt/1").
+  optional string source_prompt_uri = 5;
+
+  // URI of the optimized prompt (e.g., "prompts:/my-prompt/2").
+  // Only set if optimization completed successfully.
+  optional string optimized_prompt_uri = 6;
+
+  // Configuration for the optimization job.
+  optional PromptOptimizationJobConfig config = 7;
+
+  // Timestamp when the job was created (milliseconds since epoch).
+  optional int64 creation_timestamp_ms = 8;
+
+  // Timestamp when the job completed (milliseconds since epoch).
+  // Only set if status is COMPLETED, FAILED, or CANCELED.
+  optional int64 completion_timestamp_ms = 9;
+
+  // Tags associated with this job.
+  repeated PromptOptimizationJobTag tags = 10;
+
+  // Initial evaluation scores before optimization, keyed by scorer name.
+  // Example: {"Correctness": 0.65, "Safety": 0.80}
+  map<string, double> initial_eval_scores = 11;
+
+  // Final evaluation scores after optimization, keyed by scorer name.
+  // Example: {"Correctness": 0.89, "Safety": 0.95}
+  map<string, double> final_eval_scores = 12;
+}

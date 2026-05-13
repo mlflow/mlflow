@@ -10,7 +10,6 @@ from tests.projects.utils import load_project
 
 
 def test_project_get_entry_point():
-    """Test that `Project` correctly parses entry point information from an MLproject file."""
     project = load_project()
     entry_point = project.get_entry_point("greeter")
     assert entry_point.name == "greeter"
@@ -26,7 +25,6 @@ def test_project_get_entry_point():
 
 
 def test_project_get_unspecified_entry_point():
-    """Test that `Project` can run Python & bash scripts directly as entry points"""
     project = load_project()
     entry_point = project.get_entry_point("my_script.py")
     assert entry_point.name == "my_script.py"
@@ -34,14 +32,23 @@ def test_project_get_unspecified_entry_point():
     assert entry_point.parameters == {}
     entry_point = project.get_entry_point("my_script.sh")
     assert entry_point.name == "my_script.sh"
-    assert entry_point.command == "%s my_script.sh" % os.environ.get("SHELL", "bash")
+    assert entry_point.command == "{} my_script.sh".format(os.environ.get("SHELL", "bash"))
     assert entry_point.parameters == {}
     with pytest.raises(ExecutionException, match="Could not find my_program.scala"):
         project.get_entry_point("my_program.scala")
 
 
 @pytest.mark.parametrize(
-    ("mlproject", "conda_env_path", "conda_env_contents", "mlproject_path"),
+    (
+        # Contents of MLproject file. If None, no MLproject file will be written.
+        "mlproject",
+        # Path to conda environment file. If None, no conda environment file will be written.
+        "conda_env_path",
+        # Contents of conda environment file (written if conda_env_path is not None).
+        "conda_env_contents",
+        # Path to MLproject file. If None, the MLproject file will be written to "MLproject".
+        "mlproject_path",
+    ),
     [
         (None, None, "", None),
         ("key: value", "conda.yaml", "hi", "MLproject"),
@@ -51,13 +58,6 @@ def test_project_get_unspecified_entry_point():
 def test_load_project(tmp_path, mlproject, conda_env_path, conda_env_contents, mlproject_path):
     """
     Test that we can load a project with various combinations of an MLproject / conda.yaml file
-
-    Args:
-        mlproject: Contents of MLproject file. If None, no MLproject file will be written.
-        conda_env_path: Path to conda environment file. If None, no conda environment file will
-            be written.
-        conda_env_contents: Contents of conda environment file (written if conda_env_path is
-            not None).
     """
     if mlproject:
         tmp_path.joinpath(mlproject_path).write_text(mlproject)

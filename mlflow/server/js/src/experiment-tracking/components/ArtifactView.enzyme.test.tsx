@@ -5,8 +5,9 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import { jest, describe, beforeEach, test, expect } from '@jest/globals';
 import React from 'react';
-import { Typography } from '@databricks/design-system';
+import { DesignSystemProvider, Typography } from '@databricks/design-system';
 import { shallowWithIntl, mountWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme';
 import { ArtifactView, ArtifactViewImpl } from './ArtifactView';
 import ShowArtifactTextView from './artifact-view-components/ShowArtifactTextView';
@@ -22,16 +23,20 @@ import configureStore from 'redux-mock-store';
 import promiseMiddleware from 'redux-promise-middleware';
 import thunk from 'redux-thunk';
 import Utils from '../../common/utils/Utils';
+import { getArtifactBlob } from '../../common/utils/ArtifactUtils';
 
 const { Text } = Typography;
 
 // Mock these methods because js-dom doesn't implement window.Request
 jest.mock('../../common/utils/ArtifactUtils', () => ({
-  ...jest.requireActual('../../common/utils/ArtifactUtils'),
+  ...jest.requireActual<typeof import('../../common/utils/ArtifactUtils')>('../../common/utils/ArtifactUtils'),
   // @ts-expect-error TS(2554): Expected 1 arguments, but got 0.
   getArtifactContent: jest.fn().mockResolvedValue(),
   // @ts-expect-error TS(2554): Expected 1 arguments, but got 0.
   getArtifactBytesContent: jest.fn().mockResolvedValue(),
+  getArtifactBlob: jest
+    .fn<() => Promise<Blob>>()
+    .mockResolvedValue(new Blob(['dummy content'], { type: 'text/plain' })),
 }));
 
 describe('ArtifactView', () => {
@@ -51,15 +56,19 @@ describe('ArtifactView', () => {
   const getWrapper = (fakeStore: any, mockProps: any) =>
     mountWithIntl(
       <Provider store={fakeStore}>
-        <BrowserRouter>
-          <ArtifactView {...mockProps} />
-        </BrowserRouter>
+        <DesignSystemProvider>
+          <BrowserRouter>
+            <ArtifactView {...mockProps} />
+          </BrowserRouter>
+        </DesignSystemProvider>
       </Provider>,
     );
   beforeEach(() => {
     // TODO: remove global fetch mock by explicitly mocking all the service API calls
-    // @ts-expect-error TS(2322): Type 'Mock<Promise<{ ok: true; status: number; tex... Remove this comment to see the full error message
-    global.fetch = jest.fn(() => Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('') }));
+    jest
+      .spyOn(global, 'fetch')
+      // @ts-expect-error TS(2322): Type 'Mock<Promise<{ ok: true; status: number; tex... Remove this comment to see the full error message
+      .mockImplementation(() => Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('') }));
     const node = getTestArtifactNode();
     minimalProps = {
       runUuid: 'fakeUuid',
@@ -180,5 +189,47 @@ describe('ArtifactView', () => {
     const geojsonFileElement = wrapper.find('NodeHeader').at(0);
     geojsonFileElement.simulate('click');
     expect(wrapper.find(LazyShowArtifactMapView)).toHaveLength(1);
+  });
+  test('should download artifact via fetch and blob URL', async () => {
+    const rootNode = new ArtifactNode(true, undefined, undefined);
+    rootNode.isLoaded = true;
+    const textFile = new ArtifactNode(
+      false,
+      {
+        path: 'summary.txt',
+        is_dir: false,
+        file_size: '100',
+      },
+      undefined,
+    );
+    rootNode.setChildren([textFile.fileInfo]);
+    wrapper = getWrapper(getMockStore(rootNode), minimalProps);
+
+    const fileElement = wrapper.find('NodeHeader').at(0);
+    fileElement.simulate('click');
+    wrapper.update();
+
+    const createObjectURLSpy = jest.spyOn(URL, 'createObjectURL').mockReturnValue('blob:fake-url');
+    const revokeObjectURLMock = jest.fn();
+    URL.revokeObjectURL = revokeObjectURLMock;
+
+    const anchor = { href: '', download: '', click: jest.fn() } as any;
+    const createElementSpy = jest.spyOn(document, 'createElement').mockReturnValue(anchor);
+    jest.spyOn(document.body, 'appendChild').mockImplementation(() => anchor);
+    jest.spyOn(document.body, 'removeChild').mockImplementation(() => anchor);
+
+    const implInstance = wrapper.find('ArtifactViewImpl').instance() as any;
+    await implInstance.onDownloadClick('fakeUuid', 'summary.txt');
+
+    expect(getArtifactBlob).toHaveBeenCalledWith(
+      expect.stringContaining('get-artifact?path=summary.txt&run_uuid=fakeUuid'),
+    );
+    expect(createObjectURLSpy).toHaveBeenCalled();
+    expect(anchor.download).toBe('summary.txt');
+    expect(anchor.click).toHaveBeenCalled();
+    expect(revokeObjectURLMock).toHaveBeenCalledWith('blob:fake-url');
+
+    createObjectURLSpy.mockRestore();
+    createElementSpy.mockRestore();
   });
 });

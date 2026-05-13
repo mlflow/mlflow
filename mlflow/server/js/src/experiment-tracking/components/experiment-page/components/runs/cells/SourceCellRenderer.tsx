@@ -1,9 +1,10 @@
 import React from 'react';
 import Utils from '../../../../../../common/utils/Utils';
-import { RunRowType } from '../../../utils/experimentPage.row-types';
+import type { RunRowType } from '../../../utils/experimentPage.row-types';
 import { useDesignSystemTheme } from '@databricks/design-system';
 import { ExperimentSourceTypeIcon } from '../../../../ExperimentSourceTypeIcon';
 
+// eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
 export const SourceCellRenderer = React.memo(({ value: tags }: { value: RunRowType['tags'] }) => {
   const { theme } = useDesignSystemTheme();
   if (!tags) {

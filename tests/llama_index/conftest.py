@@ -2,7 +2,6 @@ import os
 import re
 import shutil
 import sys
-from typing import List
 
 import pytest
 from llama_index.core import (
@@ -16,7 +15,6 @@ from llama_index.core.callbacks import CallbackManager, LlamaDebugHandler
 from llama_index.core.node_parser import SentenceSplitter
 from llama_index.embeddings.openai import OpenAIEmbedding
 from llama_index.llms.openai import OpenAI
-from pyspark.sql import SparkSession
 
 from mlflow.tracing.provider import trace_disabled
 
@@ -29,12 +27,14 @@ def model_path(tmp_path):
     model_path = tmp_path.joinpath("model")
     yield model_path
 
-    if os.getenv("GITHUB_ACTIONS") == "true":
+    if os.environ.get("GITHUB_ACTIONS") == "true":
         shutil.rmtree(model_path, ignore_errors=True)
 
 
 @pytest.fixture(scope="module")
 def spark():
+    from pyspark.sql import SparkSession
+
     # NB: ensure that the driver and workers have the same python version
     os.environ["PYSPARK_PYTHON"] = sys.executable
     os.environ["PYSPARK_DRIVER_PYTHON"] = sys.executable
@@ -50,7 +50,7 @@ def mock_openai():
 
 
 #### Settings ####
-def _mock_tokenizer(text: str) -> List[str]:
+def _mock_tokenizer(text: str) -> list[str]:
     """Mock tokenizer."""
     tokens = re.split(r"[ \n]", text)
     result = []
@@ -64,12 +64,8 @@ def _mock_tokenizer(text: str) -> List[str]:
 @pytest.fixture(autouse=True)
 def settings(monkeypatch, mock_openai):
     """Set the LLM and Embedding model to the mock OpenAI server."""
-    monkeypatch.setenvs(
-        {
-            "OPENAI_API_KEY": "test",
-            "OPENAI_API_BASE": mock_openai,
-        }
-    )
+    monkeypatch.setenv("OPENAI_API_KEY", "test")
+    monkeypatch.setenv("OPENAI_API_BASE", mock_openai)
     monkeypatch.setattr(Settings, "llm", OpenAI())
     monkeypatch.setattr(Settings, "embed_model", OpenAIEmbedding())
     monkeypatch.setattr(Settings, "callback_manager", CallbackManager([LlamaDebugHandler()]))

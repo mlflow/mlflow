@@ -6,6 +6,8 @@ test_that("mlflow can read typed command line parameters", {
   mlflow_cli(
     "run",
     "examples/",
+    "--env-manager",
+    "uv",
     "--entry-point",
     "params_example.R",
     "-P", "my_int=10",

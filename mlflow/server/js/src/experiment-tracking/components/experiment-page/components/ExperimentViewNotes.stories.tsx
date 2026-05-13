@@ -5,7 +5,7 @@ import { MemoryRouter } from '../../../../common/utils/RoutingUtils';
 import { applyMiddleware, compose, createStore } from 'redux';
 import promiseMiddleware from 'redux-promise-middleware';
 import { ExperimentTag } from '../../../sdk/MlflowMessages';
-import { ExperimentEntity } from '../../../types';
+import type { ExperimentEntity } from '../../../types';
 import { GetExperimentsContextProvider } from '../contexts/GetExperimentsContext';
 import { ExperimentViewNotes } from './ExperimentViewNotes';
 
@@ -47,18 +47,17 @@ const mockActions: any = {
   },
 };
 
-const createComponentWrapper = (experiment: Partial<ExperimentEntity>) => () =>
-  (
-    <Provider store={createStore((s) => s as any, mockStore, compose(applyMiddleware(promiseMiddleware())))}>
-      <IntlProvider locale="en">
-        <MemoryRouter initialEntries={['/experiments/1234']}>
-          <GetExperimentsContextProvider actions={mockActions}>
-            <ExperimentViewNotes experiment={experiment as ExperimentEntity} />
-          </GetExperimentsContextProvider>
-        </MemoryRouter>
-      </IntlProvider>
-    </Provider>
-  );
+const createComponentWrapper = (experiment: Partial<ExperimentEntity>) => () => (
+  <Provider store={createStore((s) => s as any, mockStore, compose(applyMiddleware(promiseMiddleware())))}>
+    <IntlProvider locale="en">
+      <MemoryRouter initialEntries={['/experiments/1234']}>
+        <GetExperimentsContextProvider actions={mockActions}>
+          <ExperimentViewNotes experiment={experiment as ExperimentEntity} />
+        </GetExperimentsContextProvider>
+      </MemoryRouter>
+    </IntlProvider>
+  </Provider>
+);
 
 /**
  * Story for the experiment with no note

@@ -1,11 +1,8 @@
 from dataclasses import dataclass
-from typing import Dict, Optional, Union
 
 from mlflow.metrics.genai.prompt_template import PromptTemplate
-from mlflow.utils.annotations import experimental
 
 
-@experimental
 @dataclass
 class EvaluationExample:
     """
@@ -23,7 +20,7 @@ class EvaluationExample:
     .. code-block:: python
         :caption: Example for creating an EvaluationExample
 
-        from mlflow.metrics.base import EvaluationExample
+        from mlflow.metrics.genai import EvaluationExample
 
         example = EvaluationExample(
             input="What is MLflow?",
@@ -63,38 +60,36 @@ class EvaluationExample:
     output: str
     score: float
     justification: str
-    input: Optional[str] = None
-    grading_context: Optional[Union[Dict[str, str], str]] = None
+    input: str | None = None
+    grading_context: dict[str, str] | str | None = None
 
     def _format_grading_context(self):
         if isinstance(self.grading_context, dict):
-            return "\n".join(
-                [f"key: {key}\nvalue:\n{value}" for key, value in self.grading_context.items()]
-            )
+            return "\n".join([
+                f"key: {key}\nvalue:\n{value}" for key, value in self.grading_context.items()
+            ])
         else:
             return self.grading_context
 
     def __str__(self) -> str:
-        return PromptTemplate(
-            [
-                """
+        return PromptTemplate([
+            """
 Example Input:
 {input}
 """,
-                """
+            """
 Example Output:
 {output}
 """,
-                """
+            """
 Additional information used by the model:
 {grading_context}
 """,
-                """
+            """
 Example score: {score}
 Example justification: {justification}
         """,
-            ]
-        ).format(
+        ]).format(
             input=self.input,
             output=self.output,
             grading_context=self._format_grading_context(),

@@ -1,0 +1,77 @@
+name: uc-oss
+
+on:
+  pull_request: # for testing
+    types:
+      - opened
+      - synchronize
+      - reopened
+    paths:
+      - .github/workflows/uc-oss.yml
+      - mlflow/protos/**
+      - mlflow/store/**
+  schedule:
+    # Run this workflow daily at 13:00 UTC
+    - cron: "0 13 * * *"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  MLFLOW_HOME: ${{ github.workspace }}
+  MLFLOW_SERVER_ENABLE_JOB_EXECUTION: "false"
+
+jobs:
+  uc-oss-integration-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && github.repository == 'mlflow/dev') || (github.event_name == 'pull_request' && (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot'))
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+          repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}
+          ref: ${{ github.event.inputs.ref }}
+      - uses: ./.github/actions/setup-python
+
+      - name: Install dependencies
+        run: |
+          source ./dev/install-common-deps.sh
+
+      - uses: ./.github/actions/setup-java
+
+      - name: Clone UnityCatalog at tag v0.4.1
+        run: |
+          git clone --branch v0.4.1 --depth 1 https://github.com/unitycatalog/unitycatalog.git
+          git -C unitycatalog checkout c239a9b437f1acad290cff6e7e02b41699f00ebe
+
+      - name: Build uc-oss server
+        working-directory: unitycatalog
+        run: |
+          # TODO: Remove these two lines once UC OSS releases a version with the
+          # sbt-coursier fix merged in https://github.com/unitycatalog/unitycatalog/blob/main/build.sbt
+          # The legacy sbt-coursier 1.x plugin conflicts with sbt 1.9's built-in
+          # coursier 2.x and causes version properties to resolve as empty strings
+          # (e.g. "junit:junit::"), breaking dependency resolution.
+          sed -i '/io.get-coursier.*sbt-coursier/d' project/plugins.sbt
+          sed -i '/enablePlugins(CoursierPlugin)/d' build.sbt
+          build/sbt package
+
+      - name: Configure UC OSS server
+        working-directory: unitycatalog
+        run: |
+          # v0.4.1 requires a managed storage location for model registration.
+          # Set a local file path as the fallback model storage root.
+          echo "storage-root.models=file:///tmp/uc-model-storage" >> etc/conf/server.properties
+
+      - name: Run tests for UnityCatalog
+        run: |
+          export UC_OSS_INTEGRATION=true
+          pytest tests/uc_oss/test_uc_oss_integration.py

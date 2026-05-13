@@ -1,15 +1,14 @@
 import {
-  LegacyTooltip,
   TableFilterLayout,
   Button,
   TableFilterInput,
-  InfoIcon,
+  InfoSmallIcon,
   Popover,
   Typography,
 } from '@databricks/design-system';
 import { useEffect, useState } from 'react';
 import { FormattedMessage, defineMessage, useIntl } from 'react-intl';
-import { ExperimentSearchSyntaxDocUrl } from '../../../common/constants';
+import { ExperimentRunSearchSyntaxDocUrl } from '../../../common/constants';
 
 export interface ModelListFiltersProps {
   searchFilter: string;
@@ -17,7 +16,11 @@ export interface ModelListFiltersProps {
   isFiltered: boolean;
 }
 
-const ModelSearchInputHelpTooltip = () => {
+export const ModelSearchInputHelpTooltip = ({
+  exampleEntityName = 'my_model_name',
+}: {
+  exampleEntityName?: string;
+}) => {
   const { formatMessage } = useIntl();
   const tooltipIntroMessage = defineMessage({
     defaultMessage:
@@ -29,12 +32,12 @@ const ModelSearchInputHelpTooltip = () => {
   const labelText = formatMessage(tooltipIntroMessage, { newline: ' ', whereBold: 'WHERE' });
 
   return (
-    <Popover.Root>
+    <Popover.Root componentId="codegen_mlflow_app_src_model-registry_components_model-list_modellistfilters.tsx_46">
       <Popover.Trigger
         aria-label={labelText}
         css={{ border: 0, background: 'none', padding: 0, lineHeight: 0, cursor: 'pointer' }}
       >
-        <InfoIcon />
+        <InfoSmallIcon />
       </Popover.Trigger>
       <Popover.Content align="start">
         <div>
@@ -44,7 +47,11 @@ const ModelSearchInputHelpTooltip = () => {
             description="Learn more tooltip link to learn more on how to search models"
             values={{
               link: (chunks) => (
-                <Typography.Link href={ExperimentSearchSyntaxDocUrl + '#syntax'} openInNewTab>
+                <Typography.Link
+                  componentId="codegen_mlflow_app_src_model-registry_components_model-list_modellistfilters.tsx_61"
+                  href={ExperimentRunSearchSyntaxDocUrl + '#syntax'}
+                  openInNewTab
+                >
                   {chunks}
                 </Typography.Link>
               ),
@@ -55,7 +62,7 @@ const ModelSearchInputHelpTooltip = () => {
           <FormattedMessage defaultMessage="Examples:" description="Text header for examples of mlflow search syntax" />
           <br />
           • tags.my_key = "my_value"
-          <br />• name ilike "%my_model_name%" and tags.my_key = "my_value"
+          <br />• name ILIKE "%{exampleEntityName}%" AND tags.my_key = "my_value"
         </div>
         <Popover.Arrow />
       </Popover.Content>
@@ -87,8 +94,9 @@ export const ModelListFilters = ({
   return (
     <TableFilterLayout>
       <TableFilterInput
+        componentId="codegen_mlflow_app_src_model-registry_components_model-list_modellistfilters.tsx_118"
         placeholder={intl.formatMessage({
-          defaultMessage: 'Filter registered models by name or tags',
+          defaultMessage: 'Search registered models',
           description: 'Placeholder text inside model search bar',
         })}
         onSubmit={triggerSearch}

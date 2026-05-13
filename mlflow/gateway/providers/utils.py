@@ -1,24 +1,39 @@
+import time
 from contextlib import asynccontextmanager
-from typing import Any, AsyncGenerator, Dict
-
-import aiohttp
+from contextvars import ContextVar
+from typing import Any, AsyncGenerator
 
 from mlflow.gateway.constants import (
     MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS,
 )
 from mlflow.utils.uri import append_to_uri_path
 
+# Accumulates the total time (ms) spent waiting for provider HTTP responses in the current
+# request context. Reset to 0.0 at the start of each request by the gateway timing middleware
+# (add_gateway_timing_middleware in fastapi_app.py).
+provider_call_duration_ms: ContextVar[float] = ContextVar("provider_call_duration_ms", default=0.0)
+
+# Request gzip/deflate only so upstream never sends Brotli; aiohttp fails to decode
+# Content-Encoding: br without the optional brotli package.
+SUPPORTED_ACCEPT_ENCODING = "gzip, deflate, identity"
+
 
 @asynccontextmanager
-async def _aiohttp_post(headers: Dict[str, str], base_url: str, path: str, payload: Dict[str, Any]):
-    async with aiohttp.ClientSession(headers=headers) as session:
-        url = append_to_uri_path(base_url, path)
+async def _aiohttp_post(headers: dict[str, str], base_url: str, path: str, payload: dict[str, Any]):
+    import aiohttp
+
+    # Drop any client Accept-Encoding (any casing) so we send only one value; otherwise
+    # aiohttp may send both and upstream can respond with Brotli, which is not supported.
+    request_headers = {k: v for k, v in headers.items() if k.lower() != "accept-encoding"}
+    request_headers["Accept-Encoding"] = SUPPORTED_ACCEPT_ENCODING
+    url = append_to_uri_path(base_url, path)
+    async with aiohttp.ClientSession(headers=request_headers) as session:
         timeout = aiohttp.ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS)
         async with session.post(url, json=payload, timeout=timeout) as response:
             yield response
 
 
-async def send_request(headers: Dict[str, str], base_url: str, path: str, payload: Dict[str, Any]):
+async def send_request(headers: dict[str, str], base_url: str, path: str, payload: dict[str, Any]):
     """
     Send an HTTP request to a specific URL path with given headers and payload.
 
@@ -34,33 +49,41 @@ async def send_request(headers: Dict[str, str], base_url: str, path: str, payloa
     Raises:
         HTTPException if the HTTP request fails.
     """
+    import aiohttp
     from fastapi import HTTPException
 
-    async with _aiohttp_post(headers, base_url, path, payload) as response:
-        content_type = response.headers.get("Content-Type")
-        if content_type and "application/json" in content_type:
-            js = await response.json()
-        elif content_type and "text/plain" in content_type:
-            js = {"message": await response.text()}
-        else:
-            raise HTTPException(
-                status_code=502,
-                detail=f"The returned data type from the route service is not supported. "
-                f"Received content type: {content_type}",
-            )
-        try:
-            response.raise_for_status()
-        except aiohttp.ClientResponseError as e:
-            detail = js.get("error", {}).get("message", e.message) if "error" in js else js
-            raise HTTPException(status_code=e.status, detail=detail)
-        return js
+    start = time.perf_counter()
+    try:
+        async with _aiohttp_post(headers, base_url, path, payload) as response:
+            content_type = response.headers.get("Content-Type")
+            if content_type and "application/json" in content_type:
+                js = await response.json()
+            elif content_type and "text/plain" in content_type:
+                js = {"message": await response.text()}
+            else:
+                raise HTTPException(
+                    status_code=502,
+                    detail=f"The returned data type from the route service is not supported. "
+                    f"Received content type: {content_type}",
+                )
+            try:
+                response.raise_for_status()
+            except aiohttp.ClientResponseError as e:
+                detail = js.get("error", {}).get("message", e.message) if "error" in js else js
+                raise HTTPException(status_code=e.status, detail=detail)
+    finally:
+        # Record full provider HTTP time for non-streaming, even when raising.
+        provider_call_duration_ms.set(
+            provider_call_duration_ms.get() + (time.perf_counter() - start) * 1000
+        )
+    return js
 
 
 async def send_stream_request(
-    headers: Dict[str, str], base_url: str, path: str, payload: Dict[str, Any]
+    headers: dict[str, str], base_url: str, path: str, payload: dict[str, Any]
 ) -> AsyncGenerator[bytes, None]:
     """
-    Send an HTTP request to a specific URL path with given headers and payload.
+    Send a streaming HTTP request to a specific URL path with given headers and payload.
 
     Args:
         headers: The headers to include in the request.
@@ -68,18 +91,31 @@ async def send_stream_request(
         path: The specific path of the URL to which the request will be sent.
         payload: The payload (or data) to be included in the request.
 
-    Returns:
-        The server's response as a JSON object.
+    Yields:
+        Bytes from the server's streaming response.
 
     Raises:
         HTTPException if the HTTP request fails.
     """
+    import aiohttp
+    from fastapi import HTTPException
+
     async with _aiohttp_post(headers, base_url, path, payload) as response:
+        try:
+            response.raise_for_status()
+        except aiohttp.ClientResponseError as e:
+            try:
+                error_body = await response.json()
+                detail = error_body.get("error", {}).get("message", e.message)
+            except Exception:
+                detail = e.message
+            raise HTTPException(status_code=e.status, detail=detail)
+
         async for line in response.content:
             yield line
 
 
-def rename_payload_keys(payload: Dict[str, Any], mapping: Dict[str, str]) -> Dict[str, Any]:
+def rename_payload_keys(payload: dict[str, Any], mapping: dict[str, str]) -> dict[str, Any]:
     """Rename payload keys based on the specified mapping. If a key is not present in the
     mapping, the key and its value will remain unchanged.
 

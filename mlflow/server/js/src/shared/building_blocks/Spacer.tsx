@@ -9,7 +9,7 @@ import React from 'react';
 
 const spacingSizes = [4, 8, 16, 24, 32, 40];
 
-export const getMarginSize = (size: any) => {
+const getMarginSize = (size: any) => {
   switch (size) {
     case 'small':
       return 4;

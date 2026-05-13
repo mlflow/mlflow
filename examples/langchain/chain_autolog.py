@@ -21,7 +21,6 @@ mlflow.langchain.autolog(
     log_input_examples=True,
     log_model_signatures=True,
     log_models=True,
-    log_inputs_outputs=True,
     registered_model_name="lc_model",
 )
 

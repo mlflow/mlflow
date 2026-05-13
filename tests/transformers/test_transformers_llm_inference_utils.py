@@ -1,6 +1,5 @@
 import uuid
-from collections import namedtuple
-from typing import Dict, List
+from typing import Any, NamedTuple
 from unittest import mock
 
 import pandas as pd
@@ -51,13 +50,13 @@ class DummyTokenizer:
             tensor = tensor.tolist()
         return " ".join([str(x) for x in tensor])
 
-    def convert_tokens_to_ids(self, tokens: List[str]):
+    def convert_tokens_to_ids(self, tokens: list[str]):
         return [int(x) for x in tokens]
 
-    def _tokenize(self, text: str):
+    def tokenize(self, text: str):
         return [x for x in text.split(" ") if x]
 
-    def apply_chat_template(self, messages: List[Dict[str, str]], **kwargs):
+    def apply_chat_template(self, messages: list[dict[str, str]], **kwargs):
         return " ".join(message["content"] for message in messages)
 
 
@@ -71,7 +70,11 @@ def test_apply_chat_template():
         convert_messages_to_prompt([["one", "two"]], DummyTokenizer())
 
 
-_TestCase = namedtuple("_TestCase", ["data", "params", "expected_data", "expected_params"])
+class _TestCase(NamedTuple):
+    data: Any
+    params: Any
+    expected_data: Any
+    expected_params: Any
 
 
 @pytest.mark.parametrize(
@@ -86,14 +89,12 @@ _TestCase = namedtuple("_TestCase", ["data", "params", "expected_data", "expecte
         ),
         # Case 1: Data includes prompt and params
         _TestCase(
-            data=pd.DataFrame(
-                {
-                    "prompt": ["Hello world!"],
-                    "temperature": [0.7],
-                    "max_tokens": [100],
-                    "stop": [None],
-                }
-            ),
+            data=pd.DataFrame({
+                "prompt": ["Hello world!"],
+                "temperature": [0.7],
+                "max_tokens": [100],
+                "stop": [None],
+            }),
             params={},
             expected_data=["Hello world!"],
             expected_params={
@@ -105,11 +106,9 @@ _TestCase = namedtuple("_TestCase", ["data", "params", "expected_data", "expecte
         ),
         # Case 2: Params are passed if not specified in data
         _TestCase(
-            data=pd.DataFrame(
-                {
-                    "prompt": ["Hello world!"],
-                }
-            ),
+            data=pd.DataFrame({
+                "prompt": ["Hello world!"],
+            }),
             params={
                 "temperature": 0.7,
                 "max_tokens": 100,
@@ -125,19 +124,17 @@ _TestCase = namedtuple("_TestCase", ["data", "params", "expected_data", "expecte
         ),
         # Case 3: Data overrides params
         _TestCase(
-            data=pd.DataFrame(
-                {
-                    "messages": [
-                        [
-                            {"role": "user", "content": "Hello!"},
-                            {"role": "assistant", "content": "Hi!"},
-                        ]
-                    ],
-                    "temperature": [0.1],
-                    "max_tokens": [100],
-                    "stop": [["foo", "bar"]],
-                }
-            ),
+            data=pd.DataFrame({
+                "messages": [
+                    [
+                        {"role": "user", "content": "Hello!"},
+                        {"role": "assistant", "content": "Hi!"},
+                    ]
+                ],
+                "temperature": [0.1],
+                "max_tokens": [100],
+                "stop": [["foo", "bar"]],
+            }),
             params={
                 "temperature": [0.2],
                 "max_tokens": [200],
@@ -156,13 +153,11 @@ _TestCase = namedtuple("_TestCase", ["data", "params", "expected_data", "expecte
         ),
         # Case 4: Batch input
         _TestCase(
-            data=pd.DataFrame(
-                {
-                    "prompt": ["Hello!", "Hi", "Hola"],
-                    "temperature": [0.1, 0.2, 0.3],
-                    "max_tokens": [None, 200, 300],
-                }
-            ),
+            data=pd.DataFrame({
+                "prompt": ["Hello!", "Hi", "Hola"],
+                "temperature": [0.1, 0.2, 0.3],
+                "max_tokens": [None, 200, 300],
+            }),
             params={
                 "temperature": 0.4,
                 "max_tokens": 400,
@@ -231,23 +226,23 @@ def test_preprocess_llm_inference_input_raise_if_key_invalid():
         )
 
 
-@mock.patch("transformers.AutoTokenizer.from_pretrained")
-def test_stopping_criteria(mock_from_pretrained):
-    mock_from_pretrained.return_value = DummyTokenizer()
+def test_stopping_criteria():
+    with mock.patch("transformers.AutoTokenizer.from_pretrained") as mock_from_pretrained:
+        mock_from_pretrained.return_value = DummyTokenizer()
 
-    stopping_criteria = _get_stopping_criteria(stop=None, model_name=None)
-    assert stopping_criteria is None
+        stopping_criteria = _get_stopping_criteria(stop=None, model_name=None)
+        assert stopping_criteria is None
 
-    input_ids = torch.tensor([[1, 2, 3, 4, 5]])
-    scores = torch.ones(1, 5)
+        input_ids = torch.tensor([[1, 2, 3, 4, 5]])
+        scores = torch.ones(1, 5)
 
-    stopping_criteria = _get_stopping_criteria(stop="5", model_name="my/model")
-    stopping_criteria_matches = [f(input_ids, scores) for f in stopping_criteria]
-    assert stopping_criteria_matches == [True, True]
+        stopping_criteria = _get_stopping_criteria(stop="5", model_name="my/model")
+        stopping_criteria_matches = [f(input_ids, scores) for f in stopping_criteria]
+        assert stopping_criteria_matches == [True, True]
 
-    stopping_criteria = _get_stopping_criteria(stop=["100", "5"], model_name="my/model")
-    stopping_criteria_matches = [f(input_ids, scores) for f in stopping_criteria]
-    assert stopping_criteria_matches == [False, False, True, True]
+        stopping_criteria = _get_stopping_criteria(stop=["100", "5"], model_name="my/model")
+        stopping_criteria_matches = [f(input_ids, scores) for f in stopping_criteria]
+        assert stopping_criteria_matches == [False, False, True, True]
 
 
 def test_output_dict_for_completions():

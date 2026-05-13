@@ -83,7 +83,7 @@ def test_object_to_dict_one_required_param():
 
 
 def test_construct_prompt_template_object_success(qa_prompt_template):
-    kwargs = qa_prompt_template.dict()
+    kwargs = qa_prompt_template.model_dump()
     observed = _construct_prompt_template_object(PromptTemplate, kwargs)
     assert observed == qa_prompt_template
 
@@ -102,6 +102,19 @@ def test_settings_serialization_full_object(tmp_path, settings):
         objects = json.load(f)
 
     assert len(set(objects.keys()) - set(settings.__dict__.keys())) == 0
+
+
+def _assert_equal(settings_obj, deserialized_obj):
+    if isinstance(settings_obj, list):
+        assert len(settings_obj) == len(deserialized_obj)
+        for i in range(len(settings_obj)):
+            _assert_equal(settings_obj[i], deserialized_obj[i])
+    else:
+        for k, v in settings_obj.__dict__.items():
+            if k != "callback_manager":
+                assert getattr(deserialized_obj, k) == v
+            else:
+                assert getattr(deserialized_obj, k) is not None
 
 
 def test_settings_serde(tmp_path, settings, mock_logger):
@@ -127,10 +140,11 @@ def test_settings_serde(tmp_path, settings, mock_logger):
     deserialize_settings(path)
 
     assert Settings is not None
-    assert Settings.llm == _llm  # Token is automatically applied from environment vars
-    assert Settings.embed_model == _embed_model
+    # Token is automatically applied from environment vars
+    _assert_equal(Settings.llm, _llm)
+    _assert_equal(Settings.embed_model, _embed_model)
     assert Settings.callback_manager is not None  # Auto-generated from defaults
     assert Settings.tokenizer is not None  # Auto-generated from defaults
-    assert Settings.node_parser == _node_parser
-    assert Settings.prompt_helper == _prompt_helper
-    assert Settings.transformations == _transformations
+    _assert_equal(Settings.node_parser, _node_parser)
+    _assert_equal(Settings.prompt_helper, _prompt_helper)
+    _assert_equal(Settings.transformations, _transformations)

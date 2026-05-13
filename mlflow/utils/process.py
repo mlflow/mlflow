@@ -72,8 +72,7 @@ def _exec_cmd(
 
     """
 
-    illegal_kwargs = set(kwargs.keys()).intersection({"text"})
-    if illegal_kwargs:
+    if illegal_kwargs := set(kwargs.keys()).intersection({"text"}):
         raise ValueError(f"`kwargs` cannot contain {list(illegal_kwargs)}")
 
     env = kwargs.pop("env", None)

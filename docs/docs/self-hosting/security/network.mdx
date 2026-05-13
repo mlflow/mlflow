@@ -1,0 +1,211 @@
+import FeatureHighlights from "@site/src/components/FeatureHighlights";
+import { Shield } from "lucide-react";
+
+# Protect Your Tracking Server from Network Exposure
+
+MLflow 3.5.0+ includes security middleware to protect against DNS rebinding, CORS attacks, and clickjacking. These features are available with the default FastAPI-based tracking server (uvicorn).
+
+<FeatureHighlights features={[
+  {
+    icon: Shield,
+    title: "DNS Rebinding Protection",
+    description: "Validates Host headers to prevent attacks on internal services"
+  },
+  {
+    icon: Shield,
+    title: "CORS Protection",
+    description: "Controls which web apps can access your MLflow API"
+  },
+  {
+    icon: Shield,
+    title: "Clickjacking Prevention",
+    description: "X-Frame-Options header controls iframe embedding"
+  },
+  {
+    icon: Shield,
+    title: "Security Headers",
+    description: "Automatic headers prevent MIME sniffing and XSS"
+  },
+]} />
+
+Security settings can be configured through CLI options or environment variables. Default settings are designed to be safe for local development while requiring explicit configuration for production:
+
+:::important Requirements
+
+Security middleware features require the FastAPI-based tracking server (uvicorn), which is the default server in MLflow 3.5.0+.
+
+These features are not available when using `--gunicorn-opts` or `--waitress-opts`.
+
+:::
+
+### Allowed Hosts
+
+Controls which Host headers the server accepts. This prevents DNS rebinding attacks by validating incoming requests:
+
+| CLI Option        | Environment Variable          | Default                |
+| ----------------- | ----------------------------- | ---------------------- |
+| `--allowed-hosts` | `MLFLOW_SERVER_ALLOWED_HOSTS` | localhost, private IPs |
+
+**Example**:
+
+```bash
+# Specific hosts
+mlflow server --allowed-hosts "mlflow.company.com,192.168.1.100"
+
+# Wildcard patterns
+mlflow server --allowed-hosts "*.company.com,192.168.*"
+
+# Allow all (not recommended)
+mlflow server --allowed-hosts "*"
+```
+
+### CORS Origins
+
+Specifies which web applications can make API requests from browsers:
+
+| CLI Option               | Environment Variable                 | Default                             |
+| ------------------------ | ------------------------------------ | ----------------------------------- |
+| `--cors-allowed-origins` | `MLFLOW_SERVER_CORS_ALLOWED_ORIGINS` | localhost:\* (any localhost origin) |
+
+```bash
+# Specific origins
+mlflow server --cors-allowed-origins "https://app.company.com,https://notebook.company.com"
+
+# Wildcard for subdomains
+mlflow server --cors-allowed-origins "https://*.company.com"
+
+# Allow all origins (development only)
+mlflow server --cors-allowed-origins "*"
+```
+
+### X-Frame-Options
+
+Sets the X-Frame-Options header to control iframe embedding behavior:
+
+| CLI Option          | Environment Variable            | Default    |
+| ------------------- | ------------------------------- | ---------- |
+| `--x-frame-options` | `MLFLOW_SERVER_X_FRAME_OPTIONS` | SAMEORIGIN |
+
+- `SAMEORIGIN` - Only same origin can embed (default)
+- `DENY` - No embedding allowed
+- `NONE` - Any site can embed
+
+```bash
+# Allow cross-origin iframe embedding
+mlflow server --x-frame-options NONE
+```
+
+### Disable Security Middleware
+
+Completely disables security middleware. Use this only when security is handled by a reverse proxy or gateway:
+
+| CLI Option                      | Environment Variable                        | Default |
+| ------------------------------- | ------------------------------------------- | ------- |
+| `--disable-security-middleware` | `MLFLOW_SERVER_DISABLE_SECURITY_MIDDLEWARE` | false   |
+
+```bash
+mlflow server --disable-security-middleware
+```
+
+## Common Scenarios
+
+### Local Development
+
+Default configuration works out of the box:
+
+```bash
+mlflow server
+```
+
+This setup accepts connections from localhost and any private IPs.
+
+### Remote Tracking Server
+
+For a shared server accessed by multiple known users, you can configure it to allow connections
+from specific hosts.
+
+```bash
+mlflow server --host 0.0.0.0 --allowed-hosts "mlflow.internal:5000,localhost:*"
+```
+
+Then use MLflow Python SDK to connect to remote tracking servers:
+
+```python
+import mlflow
+
+# Connect to remote server
+mlflow.set_tracking_uri("http://mlflow.company.com:5000")
+
+with mlflow.start_run():
+    mlflow.log_param("alpha", 0.5)
+    mlflow.log_metric("rmse", 0.1)
+```
+
+:::info Host vs Allowed Hosts
+
+:::
+
+### Render MLflow UI within Jupyter Notebooks
+
+When notebooks run on a different domain than your MLflow server, configure CORS and frame options:
+
+```bash
+# Allow embedding from notebook domain
+mlflow server --host 0.0.0.0 \
+  --x-frame-options NONE \
+  --cors-allowed-origins "https://jupyter.company.com"
+```
+
+Then embed specific MLflow views directly in notebook cells:
+
+```python
+from IPython.display import IFrame
+
+# Embed MLflow UI
+IFrame(src="http://mlflow.company.com:5000", width=1000, height=600)
+```
+
+### Embedding MLflow UI in Web Applications
+
+Create a component to display MLflow content:
+
+```jsx
+function MLflowDashboard() {
+  return (
+    <iframe
+      src="http://mlflow.company.com:5000/experiments/1"
+      style={{ width: '100%', height: '800px' }}
+      title="MLflow"
+    />
+  );
+}
+```
+
+Configure the MLflow server to accept requests from your webapp:
+
+```bash
+mlflow server --host 0.0.0.0 \
+  --x-frame-options NONE \
+  --cors-allowed-origins "http://localhost:3000,https://app.company.com"
+```
+
+Use this HTML file to verify iframe configuration works correctly:
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <title>MLflow iframe Test</title>
+</head>
+<body>
+    <h1>MLflow Embedding Test</h1>
+    <iframe
+        src="http://localhost:5000"
+        style="width: 100%; height: 600px; border: 1px solid #ccc;"
+        onload="document.getElementById('status').innerHTML = '✅ Loaded'"
+        onerror="document.getElementById('status').innerHTML = '❌ Failed'">
+    </iframe>
+    <div id="status">Loading...</div>
+</body>
+</html>
+```

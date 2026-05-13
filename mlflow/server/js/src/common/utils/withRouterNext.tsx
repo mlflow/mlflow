@@ -8,7 +8,8 @@ import {
   useLocation,
   useNavigate,
   useParams,
-} from '../../common/utils/RoutingUtils';
+} from './RoutingUtils';
+import { useSearchParams } from './RoutingUtils';
 
 export interface WithRouterNextProps<Params extends RouterDOMParams = RouterDOMParams> {
   navigate: ReturnType<typeof useNavigate>;
@@ -21,7 +22,14 @@ export interface WithRouterNextProps<Params extends RouterDOMParams = RouterDOMP
  * react-router v6's location, navigate and params being injected via props.
  */
 export const withRouterNext =
-  <Props, Params extends RouterDOMParams>(Component: React.ComponentType<Props & WithRouterNextProps<Params>>) =>
+  <
+    T,
+    Props extends JSX.IntrinsicAttributes &
+      JSX.LibraryManagedAttributes<React.ComponentType<React.PropsWithChildren<T>>, React.PropsWithChildren<T>>,
+    Params extends RouterDOMParams = RouterDOMParams,
+  >(
+    Component: React.ComponentType<React.PropsWithChildren<T>>,
+  ) =>
   (
     props: Omit<
       Props,
@@ -35,6 +43,7 @@ export const withRouterNext =
     const location = useLocation();
     const navigate = useNavigate();
     const params = useParams<Params>();
+    const [searchParams, setSearchParams] = useSearchParams();
 
     return (
       <Component
@@ -42,6 +51,8 @@ export const withRouterNext =
         params={params as Params}
         location={location}
         navigate={navigate}
+        searchParams={searchParams}
+        setSearchParams={setSearchParams}
         {...(props as Props)}
       />
     );

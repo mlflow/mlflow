@@ -1,4 +1,3 @@
-from typing import Optional
 from unittest import mock
 
 import pytest
@@ -32,16 +31,16 @@ def test_register_constructor_function_performs_validation():
 
     def from_good_function(
         path: str,
-        name: Optional[str] = None,
-        digest: Optional[str] = None,
+        name: str | None = None,
+        digest: str | None = None,
     ) -> Dataset:
         pass
 
     registry.register_constructor(from_good_function)
 
     def bad_name_fn(
-        name: Optional[str] = None,
-        digest: Optional[str] = None,
+        name: str | None = None,
+        digest: str | None = None,
     ) -> Dataset:
         pass
 
@@ -54,7 +53,7 @@ def test_register_constructor_function_performs_validation():
         )
 
     def from_no_name_fn(
-        digest: Optional[str] = None,
+        digest: str | None = None,
     ) -> Dataset:
         pass
 
@@ -62,7 +61,7 @@ def test_register_constructor_function_performs_validation():
         registry.register_constructor(from_no_name_fn)
 
     def from_no_digest_fn(
-        name: Optional[str] = None,
+        name: str | None = None,
     ) -> Dataset:
         pass
 
@@ -71,8 +70,8 @@ def test_register_constructor_function_performs_validation():
 
     def from_bad_return_type_fn(
         path: str,
-        name: Optional[str] = None,
-        digest: Optional[str] = None,
+        name: str | None = None,
+        digest: str | None = None,
     ) -> str:
         pass
 
@@ -81,8 +80,8 @@ def test_register_constructor_function_performs_validation():
 
     def from_no_return_type_fn(
         path: str,
-        name: Optional[str] = None,
-        digest: Optional[str] = None,
+        name: str | None = None,
+        digest: str | None = None,
     ):
         pass
 
@@ -91,8 +90,6 @@ def test_register_constructor_function_performs_validation():
 
 
 def test_register_constructor_from_entrypoints_and_call(dataset_registry, tmp_path):
-    """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
-
     from mlflow_test_plugin.dummy_dataset import DummyDataset
 
     dataset_registry.register_entrypoints()

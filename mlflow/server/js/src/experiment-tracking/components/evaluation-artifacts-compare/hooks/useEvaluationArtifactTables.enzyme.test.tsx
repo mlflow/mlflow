@@ -1,8 +1,8 @@
+import { describe, it, expect, jest } from '@jest/globals';
 import { mount } from 'enzyme';
 import { useEvaluationArtifactTables } from './useEvaluationArtifactTables';
-import { RunRowType } from '../../experiment-page/utils/experimentPage.row-types';
+import type { RunRowType } from '../../experiment-page/utils/experimentPage.row-types';
 import { MLFLOW_LOGGED_ARTIFACTS_TAG } from '../../../constants';
-import { RunLoggedArtifactType } from '../../../types';
 
 describe('useEvaluationArtifactTables', () => {
   const mountTestComponent = (comparedRuns: RunRowType[]) => {
@@ -41,7 +41,7 @@ describe('useEvaluationArtifactTables', () => {
           value: artifactsDeclaration,
         },
       },
-    } as any);
+    }) as any;
 
   it('properly extracts all table names for a set of runs with all tables', () => {
     const { getHookResult } = mountTestComponent([

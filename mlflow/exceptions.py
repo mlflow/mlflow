@@ -1,7 +1,7 @@
 import json
 import logging
-from typing import Optional
 
+from mlflow.error_classification import ErrorClass, SqlState
 from mlflow.protos.databricks_pb2 import (
     ABORTED,
     ALREADY_EXISTS,
@@ -73,7 +73,14 @@ class MlflowException(Exception):
     instead.
     """
 
-    def __init__(self, message, error_code=INTERNAL_ERROR, **kwargs):
+    def __init__(
+        self,
+        message: str,
+        error_code: int = INTERNAL_ERROR,
+        sqlstate: str | None = None,
+        error_class: str | None = None,
+        **kwargs,
+    ):
         """
         Args:
             message: The message or exception describing the error that occurred. This will be
@@ -81,6 +88,10 @@ class MlflowException(Exception):
             error_code: An appropriate error code for the error that occurred; it will be
                 included in the exception's serialized JSON representation. This should
                 be one of the codes listed in the `mlflow.protos.databricks_pb2` proto.
+            sqlstate: A 5-character SQLSTATE code for error classification. If not provided,
+                auto-derived from error_code.
+            error_class: A descriptive error class name (e.g., "SCHEMA_ENFORCEMENT_FAILED").
+                If not provided, auto-derived from error_code.
             kwargs: Additional key-value pairs to include in the serialized JSON representation
                 of the MlflowException.
         """
@@ -90,11 +101,28 @@ class MlflowException(Exception):
             self.error_code = ErrorCode.Name(INTERNAL_ERROR)
         message = str(message)
         self.message = message
+        self.error_class = (
+            error_class
+            if error_class is not None
+            else ErrorClass.from_client_error_code(self.error_code)
+        )
+        if sqlstate is not None:
+            self.sqlstate = sqlstate
+        elif self.error_class is not None:
+            self.sqlstate = SqlState.from_error_class(
+                self.error_class
+            ) or SqlState.from_client_error_code(self.error_code)
+        else:
+            self.sqlstate = SqlState.from_client_error_code(self.error_code)
         self.json_kwargs = kwargs
         super().__init__(message)
 
     def serialize_as_json(self):
         exception_dict = {"error_code": self.error_code, "message": self.message}
+        if self.sqlstate is not None:
+            exception_dict["sqlstate"] = self.sqlstate
+        if self.error_class is not None:
+            exception_dict["error_class"] = self.error_class
         exception_dict.update(self.json_kwargs)
         return json.dumps(exception_dict)
 
@@ -102,16 +130,26 @@ class MlflowException(Exception):
         return ERROR_CODE_TO_HTTP_STATUS.get(self.error_code, 500)
 
     @classmethod
-    def invalid_parameter_value(cls, message, **kwargs):
+    def invalid_parameter_value(
+        cls, message: str, sqlstate: str | None = None, error_class: str | None = None, **kwargs
+    ):
         """Constructs an `MlflowException` object with the `INVALID_PARAMETER_VALUE` error code.
 
         Args:
             message: The message describing the error that occurred. This will be included in the
                 exception's serialized JSON representation.
+            sqlstate: A 5-character SQLSTATE code for error classification.
+            error_class: A descriptive error class name.
             kwargs: Additional key-value pairs to include in the serialized JSON representation
                 of the MlflowException.
         """
-        return cls(message, error_code=INVALID_PARAMETER_VALUE, **kwargs)
+        return cls(
+            message,
+            error_code=INVALID_PARAMETER_VALUE,
+            sqlstate=sqlstate,
+            error_class=error_class,
+            **kwargs,
+        )
 
 
 class RestException(MlflowException):
@@ -120,7 +158,7 @@ class RestException(MlflowException):
     def __init__(self, json):
         self.json = json
 
-        error_code = json.get("error_code", ErrorCode.Name(INTERNAL_ERROR))
+        error_code = json.get("error_code") or ErrorCode.Name(INTERNAL_ERROR)
         message = "{}: {}".format(
             error_code,
             json["message"] if "message" in json else "Response: " + str(json),
@@ -134,13 +172,27 @@ class RestException(MlflowException):
                 # corresponding `ErrorCode`.
                 error_code = HTTP_STATUS_TO_ERROR_CODE[int(error_code)]
                 super().__init__(message, error_code=ErrorCode.Value(error_code))
-            except ValueError or KeyError:
+            except (ValueError, KeyError, TypeError):
                 _logger.warning(
                     f"Received error code not recognized by MLflow: {error_code}, this may "
                     "indicate your request encountered an error before reaching MLflow server, "
                     "e.g., within a proxy server or authentication / authorization service."
                 )
                 super().__init__(message)
+
+        # Preserve sqlstate/error_class from the REST API error payload if present;
+        # otherwise override with CP/server classification (replacing the client
+        # codes that super().__init__() auto-derived).
+        sqlstate = json.get("sqlstate")
+        if sqlstate not in (None, ""):
+            self.sqlstate = sqlstate
+        else:
+            self.sqlstate = SqlState.from_cp_error_code(self.error_code)
+        error_class = json.get("error_class")
+        if error_class not in (None, ""):
+            self.error_class = error_class
+        else:
+            self.error_class = ErrorClass.from_cp_error_code(self.error_code)
 
     def __reduce__(self):
         """
@@ -170,6 +222,24 @@ class _UnsupportedMultipartUploadException(MlflowException):
         super().__init__(self.MESSAGE, error_code=NOT_IMPLEMENTED)
 
 
+class _UnsupportedMultipartDownloadException(MlflowException):
+    """Exception thrown when multipart download (MPD) is unsupported by an artifact repository"""
+
+    MESSAGE = "Multipart download is not supported for the current artifact repository"
+
+    def __init__(self):
+        super().__init__(self.MESSAGE, error_code=NOT_IMPLEMENTED)
+
+
+class _UnsupportedPresignedUploadException(MlflowException):
+    """Exception thrown when presigned upload is unsupported by an artifact repository"""
+
+    MESSAGE = "Presigned upload is not supported for the current artifact repository"
+
+    def __init__(self):
+        super().__init__(self.MESSAGE, error_code=NOT_IMPLEMENTED)
+
+
 class MlflowTracingException(MlflowException):
     """
     Exception thrown from tracing logic
@@ -186,7 +256,7 @@ class MlflowTraceDataException(MlflowTracingException):
     """Exception thrown for trace data related error"""
 
     def __init__(
-        self, error_code: str, request_id: Optional[str] = None, artifact_path: Optional[str] = None
+        self, error_code: str, request_id: str | None = None, artifact_path: str | None = None
     ):
         if request_id:
             self.ctx = f"request_id={request_id}"
@@ -202,12 +272,19 @@ class MlflowTraceDataException(MlflowTracingException):
 class MlflowTraceDataNotFound(MlflowTraceDataException):
     """Exception thrown when trace data is not found"""
 
-    def __init__(self, request_id: Optional[str] = None, artifact_path: Optional[str] = None):
+    def __init__(self, request_id: str | None = None, artifact_path: str | None = None):
         super().__init__(NOT_FOUND, request_id, artifact_path)
 
 
 class MlflowTraceDataCorrupted(MlflowTraceDataException):
     """Exception thrown when trace data is corrupted"""
 
-    def __init__(self, request_id: Optional[str] = None, artifact_path: Optional[str] = None):
+    def __init__(self, request_id: str | None = None, artifact_path: str | None = None):
         super().__init__(INVALID_STATE, request_id, artifact_path)
+
+
+class MlflowNotImplementedException(MlflowException):
+    """Exception thrown when a feature is not implemented"""
+
+    def __init__(self, message=""):
+        super().__init__(message, error_code=NOT_IMPLEMENTED)

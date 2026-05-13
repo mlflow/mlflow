@@ -9,6 +9,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+import mlflow.utils.async_logging.async_logging_queue
 from mlflow import MlflowException
 from mlflow.entities.metric import Metric
 from mlflow.entities.param import Param
@@ -30,9 +31,7 @@ class RunData:
         self.received_tags = []
         self.received_params = []
         self.batch_count = 0
-        self.throw_exception_on_batch_number = (
-            throw_exception_on_batch_number if throw_exception_on_batch_number else []
-        )
+        self.throw_exception_on_batch_number = throw_exception_on_batch_number or []
 
     def consume_queue_data(self, run_id, metrics, tags, params):
         self.batch_count += 1
@@ -56,11 +55,14 @@ def generate_async_logging_queue(clazz):
 def test_single_thread_publish_consume_queue(monkeypatch):
     monkeypatch.setenv("MLFLOW_ASYNC_LOGGING_BUFFERING_SECONDS", "3")
 
-    with patch.object(
-        AsyncLoggingQueue, "_batch_logging_worker_threadpool", create=True
-    ) as mock_worker_threadpool, patch.object(
-        AsyncLoggingQueue, "_batch_status_check_threadpool", create=True
-    ) as mock_check_threadpool:
+    with (
+        patch.object(
+            AsyncLoggingQueue, "_batch_logging_worker_threadpool", create=True
+        ) as mock_worker_threadpool,
+        patch.object(
+            AsyncLoggingQueue, "_batch_status_check_threadpool", create=True
+        ) as mock_check_threadpool,
+    ):
         mock_worker_threadpool.submit = MagicMock()
         mock_check_threadpool.submit = MagicMock()
         mock_worker_threadpool.shutdown = MagicMock()
@@ -213,10 +215,14 @@ def test_publish_multithread_consume_single_thread():
 
         run_operations = []
         t1 = threading.Thread(
-            target=_send_metrics_tags_params, args=(async_logging_queue, run_id, run_operations)
+            name="test-async-logging-1",
+            target=_send_metrics_tags_params,
+            args=(async_logging_queue, run_id, run_operations),
         )
         t2 = threading.Thread(
-            target=_send_metrics_tags_params, args=(async_logging_queue, run_id, run_operations)
+            name="test-async-logging-2",
+            target=_send_metrics_tags_params,
+            args=(async_logging_queue, run_id, run_operations),
         )
 
         t1.start()
@@ -237,12 +243,22 @@ class Consumer:
         self.metrics = []
         self.tags = []
         self.params = []
+        self.barrier = threading.Event()
 
     def consume_queue_data(self, run_id, metrics, tags, params):
-        time.sleep(0.5)
+        self.barrier.wait()
         self.metrics.extend(metrics or [])
         self.params.extend(params or [])
         self.tags.extend(tags or [])
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        del state["barrier"]
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        self.barrier = threading.Event()
 
 
 def test_async_logging_queue_pickle():
@@ -254,21 +270,21 @@ def test_async_logging_queue_pickle():
         pickle.dump(async_logging_queue, buffer)
         deserialized_queue = pickle.loads(buffer.getvalue())  # Type: AsyncLoggingQueue
 
-        # activate the queue and then try to pickle it
+        # Activate the queue and submit 10 items. Workers block on the barrier,
+        # so the consumer's state remains empty during pickling.
         async_logging_queue.activate()
 
-        run_operations = []
-        for val in range(0, 10):
-            run_operations.append(
-                async_logging_queue.log_batch_async(
-                    run_id=run_id,
-                    metrics=[Metric("metric", val, timestamp=time.time(), step=1)],
-                    tags=[],
-                    params=[],
-                )
+        run_operations = [
+            async_logging_queue.log_batch_async(
+                run_id=run_id,
+                metrics=[Metric("metric", val, timestamp=time.time(), step=1)],
+                tags=[],
+                params=[],
             )
+            for val in range(0, 10)
+        ]
 
-        # Pickle the queue
+        # Pickle while workers are blocked — consumer state is deterministically empty.
         buffer = io.BytesIO()
         pickle.dump(async_logging_queue, buffer)
 
@@ -277,12 +293,18 @@ def test_async_logging_queue_pickle():
         assert deserialized_queue._lock is not None
         assert deserialized_queue._status is QueueStatus.IDLE
 
+        # Release workers and wait for all operations to complete.
+        consumer.barrier.set()
+
         for run_operation in run_operations:
             run_operation.wait()
 
         assert len(consumer.metrics) == 10
 
-        # try to log using deserialized queue after activating it.
+        # Activate the deserialized queue and submit 10 more items.
+        # The deserialized consumer is a separate copy with an empty metrics list.
+        deserialized_consumer = deserialized_queue._logging_func.__self__
+        deserialized_consumer.barrier.set()
         deserialized_queue.activate()
         assert deserialized_queue.is_active()
 
@@ -301,7 +323,7 @@ def test_async_logging_queue_pickle():
         for run_operation in run_operations:
             run_operation.wait()
 
-        assert len(deserialized_queue._logging_func.__self__.metrics) == 10
+        assert len(deserialized_consumer.metrics) == 10
 
         deserialized_queue.shut_down_async_logging()
 
@@ -326,16 +348,21 @@ def _send_metrics_tags_params(run_data_queueing_processor, run_id, run_operation
         params_sent += params
 
 
-def _get_run_data(total_batches=TOTAL_BATCHES):
+def _get_run_data(
+    total_batches=TOTAL_BATCHES,
+    params_per_batch=PARAMS_PER_BATCH,
+    tags_per_batch=TAGS_PER_BATCH,
+    metrics_per_batch=METRIC_PER_BATCH,
+):
     for num in range(0, total_batches):
         guid8 = str(uuid.uuid4())[:8]
         params = [
             Param(f"batch param-{guid8}-{val}", value=str(time.time()))
-            for val in range(PARAMS_PER_BATCH)
+            for val in range(params_per_batch)
         ]
         tags = [
             RunTag(f"batch tag-{guid8}-{val}", value=str(time.time()))
-            for val in range(TAGS_PER_BATCH)
+            for val in range(tags_per_batch)
         ]
         metrics = [
             Metric(
@@ -344,7 +371,7 @@ def _get_run_data(total_batches=TOTAL_BATCHES):
                 timestamp=int(time.time() * 1000),
                 step=0,
             )
-            for val in range(METRIC_PER_BATCH)
+            for val in range(metrics_per_batch)
         ]
         yield params, tags, metrics
 
@@ -365,3 +392,48 @@ def _assert_sent_received_data(
     for num in range(1, len(params_sent)):
         assert params_sent[num].key == received_params[num].key
         assert params_sent[num].value == received_params[num].value
+
+
+def test_batch_split(monkeypatch):
+    monkeypatch.setattr(mlflow.utils.async_logging.async_logging_queue, "_MAX_ITEMS_PER_BATCH", 10)
+    monkeypatch.setattr(mlflow.utils.async_logging.async_logging_queue, "_MAX_PARAMS_PER_BATCH", 6)
+    monkeypatch.setattr(mlflow.utils.async_logging.async_logging_queue, "_MAX_TAGS_PER_BATCH", 8)
+
+    run_data = RunData()
+    with generate_async_logging_queue(run_data) as async_logging_queue:
+        async_logging_queue.activate()
+
+        run_id = "test_run_id"
+        for params, tags, metrics in _get_run_data(2, 3, 3, 3):
+            async_logging_queue.log_batch_async(
+                run_id=run_id, metrics=metrics, tags=tags, params=params
+            )
+        async_logging_queue.flush()
+
+        assert run_data.batch_count == 2
+
+    run_data = RunData()
+    with generate_async_logging_queue(run_data) as async_logging_queue:
+        async_logging_queue.activate()
+
+        run_id = "test_run_id"
+        for params, tags, metrics in _get_run_data(2, 4, 0, 0):
+            async_logging_queue.log_batch_async(
+                run_id=run_id, metrics=metrics, tags=tags, params=params
+            )
+        async_logging_queue.flush()
+
+        assert run_data.batch_count == 2
+
+    run_data = RunData()
+    with generate_async_logging_queue(run_data) as async_logging_queue:
+        async_logging_queue.activate()
+
+        run_id = "test_run_id"
+        for params, tags, metrics in _get_run_data(2, 0, 5, 0):
+            async_logging_queue.log_batch_async(
+                run_id=run_id, metrics=metrics, tags=tags, params=params
+            )
+        async_logging_queue.flush()
+
+        assert run_data.batch_count == 2

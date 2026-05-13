@@ -18,7 +18,7 @@ python train.py
 To view the newly created experiment and logged artifacts open the MLflow UI:
 
 ```
-mlflow ui
+mlflow server
 ```
 
 ## Model serving

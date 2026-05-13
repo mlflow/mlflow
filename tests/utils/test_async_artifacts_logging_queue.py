@@ -22,9 +22,7 @@ class RunArtifacts:
         self.received_filenames = []
         self.received_artifact_paths = []
         self.artifact_count = 0
-        self.throw_exception_on_artifact_number = (
-            throw_exception_on_artifact_number if throw_exception_on_artifact_number else []
-        )
+        self.throw_exception_on_artifact_number = throw_exception_on_artifact_number or []
 
     def consume_queue_data(self, filename, artifact_path, artifact):
         self.artifact_count += 1
@@ -47,15 +45,15 @@ def _assert_sent_received_artifacts(
     filenames_sent,
     artifact_paths_sent,
     artifacts_sent,
-    recieved_filenames,
-    recieved_artifact_paths,
+    received_filenames,
+    received_artifact_paths,
     received_artifacts,
 ):
     for num in range(1, len(filenames_sent)):
-        assert filenames_sent[num] == recieved_filenames[num]
+        assert filenames_sent[num] == received_filenames[num]
 
     for num in range(1, len(artifact_paths_sent)):
-        assert artifact_paths_sent[num] == recieved_artifact_paths[num]
+        assert artifact_paths_sent[num] == received_artifact_paths[num]
 
     for num in range(1, len(artifacts_sent)):
         assert artifacts_sent[num] == received_artifacts[num]
@@ -172,8 +170,16 @@ def test_publish_multithread_consume_single_thread():
             artifacts_sent.append(artifact)
 
     run_operations = []
-    t1 = threading.Thread(target=_send_artifact, args=(async_logging_queue, run_operations))
-    t2 = threading.Thread(target=_send_artifact, args=(async_logging_queue, run_operations))
+    t1 = threading.Thread(
+        name="test-async-artifacts-1",
+        target=_send_artifact,
+        args=(async_logging_queue, run_operations),
+    )
+    t2 = threading.Thread(
+        name="test-async-artifacts-2",
+        target=_send_artifact,
+        args=(async_logging_queue, run_operations),
+    )
 
     t1.start()
     t2.start()
@@ -193,12 +199,22 @@ class Consumer:
         self.filenames = []
         self.artifact_paths = []
         self.artifacts = []
+        self.barrier = threading.Event()
 
     def consume_queue_data(self, filename, artifact_path, artifact):
-        time.sleep(0.5)
+        self.barrier.wait()
         self.filenames.append(filename)
         self.artifact_paths.append(artifact_path)
         self.artifacts.append(artifact)
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        del state["barrier"]
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        self.barrier = threading.Event()
 
 
 def test_async_logging_queue_pickle():
@@ -210,20 +226,20 @@ def test_async_logging_queue_pickle():
     pickle.dump(async_logging_queue, buffer)
     deserialized_queue = pickle.loads(buffer.getvalue())  # Type: AsyncArtifactsLoggingQueue
 
-    # activate the queue and then try to pickle it
+    # Activate the queue and submit 10 items. Workers block on the barrier,
+    # so the consumer's state remains empty during pickling.
     async_logging_queue.activate()
 
-    run_operations = []
-    for val in range(0, 10):
-        run_operations.append(
-            async_logging_queue.log_artifacts_async(
-                filename=f"image-{val}.png",
-                artifact_path="images/image-artifact.png",
-                artifact=Image.new("RGB", (100, 100), color="blue"),
-            )
+    run_operations = [
+        async_logging_queue.log_artifacts_async(
+            filename=f"image-{val}.png",
+            artifact_path="images/image-artifact.png",
+            artifact=Image.new("RGB", (100, 100), color="blue"),
         )
+        for val in range(0, 10)
+    ]
 
-    # Pickle the queue
+    # Pickle while workers are blocked — consumer state is deterministically empty.
     buffer = io.BytesIO()
     pickle.dump(async_logging_queue, buffer)
 
@@ -232,12 +248,18 @@ def test_async_logging_queue_pickle():
     assert deserialized_queue._lock is not None
     assert deserialized_queue._is_activated is False
 
+    # Release workers and wait for all operations to complete.
+    consumer.barrier.set()
+
     for run_operation in run_operations:
         run_operation.wait()
 
     assert len(consumer.filenames) == 10
 
-    # try to log using deserialized queue after activating it.
+    # Activate the deserialized queue and submit 10 more items.
+    # The deserialized consumer is a separate copy with an empty filenames list.
+    deserialized_consumer = deserialized_queue._artifact_logging_func.__self__
+    deserialized_consumer.barrier.set()
     deserialized_queue.activate()
     assert deserialized_queue._is_activated
 
@@ -255,4 +277,4 @@ def test_async_logging_queue_pickle():
     for run_operation in run_operations:
         run_operation.wait()
 
-    assert len(deserialized_queue._artifact_logging_func.__self__.filenames) == 10
+    assert len(deserialized_consumer.filenames) == 10

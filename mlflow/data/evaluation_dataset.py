@@ -1,3 +1,4 @@
+import hashlib
 import json
 import logging
 import math
@@ -10,7 +11,6 @@ import mlflow
 from mlflow.entities import RunTag
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.utils import insecure_hash
 from mlflow.utils.string_utils import generate_feature_name_if_not_string
 
 try:
@@ -88,8 +88,10 @@ def _hash_data_as_bytes(data):
             return _hash_dict_as_bytes(data)
         if np.isscalar(data):
             return _hash_uint64_ndarray_as_bytes(pd.util.hash_array(np.array([data])))
-    finally:
-        return b""  # Skip unsupported types by returning an empty byte string
+    except Exception:
+        pass
+    # Skip unsupported types by returning an empty byte string
+    return b""
 
 
 def _hash_dict_as_bytes(data_dict):
@@ -176,13 +178,14 @@ def _gen_md5_for_arraylike_obj(md5_gen, data):
         md5_gen.update(_hash_array_like_obj_as_bytes(tail_rows))
 
 
-def convert_data_to_mlflow_dataset(data, targets=None, predictions=None):
+def convert_data_to_mlflow_dataset(data, targets=None, predictions=None, name=None):
     """Convert input data to mlflow dataset."""
     supported_dataframe_types = [pd.DataFrame]
     if "pyspark" in sys.modules:
-        from pyspark.sql import DataFrame as SparkDataFrame
+        from mlflow.utils.spark_utils import get_spark_dataframe_type
 
-        supported_dataframe_types.append(SparkDataFrame)
+        spark_df_type = get_spark_dataframe_type()
+        supported_dataframe_types.append(spark_df_type)
 
     if predictions is not None:
         _validate_dataset_type_supports_predictions(
@@ -195,14 +198,14 @@ def convert_data_to_mlflow_dataset(data, targets=None, predictions=None):
             data = [[elm] for elm in data]
 
         return mlflow.data.from_numpy(
-            np.array(data), targets=np.array(targets) if targets else None
+            np.array(data), targets=np.array(targets) if targets else None, name=name
         )
     elif isinstance(data, np.ndarray):
-        return mlflow.data.from_numpy(data, targets=targets)
+        return mlflow.data.from_numpy(data, targets=targets, name=name)
     elif isinstance(data, pd.DataFrame):
-        return mlflow.data.from_pandas(df=data, targets=targets, predictions=predictions)
-    elif "pyspark" in sys.modules and isinstance(data, SparkDataFrame):
-        return mlflow.data.from_spark(df=data, targets=targets, predictions=predictions)
+        return mlflow.data.from_pandas(df=data, targets=targets, predictions=predictions, name=name)
+    elif "pyspark" in sys.modules and isinstance(data, spark_df_type):
+        return mlflow.data.from_spark(df=data, targets=targets, predictions=predictions, name=name)
     else:
         # Cannot convert to mlflow dataset, return original data.
         _logger.info(
@@ -246,6 +249,7 @@ class EvaluationDataset:
         path=None,
         feature_names=None,
         predictions=None,
+        digest=None,
     ):
         """
         The values of the constructor arguments comes from the `evaluate` call.
@@ -272,15 +276,17 @@ class EvaluationDataset:
         self._predictions_data = None
         self._predictions_name = None
         self._has_predictions = predictions is not None
+        self._digest = digest
 
         try:
             # add checking `'pyspark' in sys.modules` to avoid importing pyspark when user
             # run code not related to pyspark.
             if "pyspark" in sys.modules:
-                from pyspark.sql import DataFrame as SparkDataFrame
+                from mlflow.utils.spark_utils import get_spark_dataframe_type
 
-                self._supported_dataframe_types = (pd.DataFrame, SparkDataFrame)
-                self._spark_df_type = SparkDataFrame
+                spark_df_type = get_spark_dataframe_type()
+                self._supported_dataframe_types = (pd.DataFrame, spark_df_type)
+                self._spark_df_type = spark_df_type
         except ImportError:
             pass
 
@@ -406,7 +412,7 @@ class EvaluationDataset:
             )
 
         # generate dataset hash
-        md5_gen = insecure_hash.md5()
+        md5_gen = hashlib.md5(usedforsecurity=False)
         _gen_md5_for_arraylike_obj(md5_gen, self._features_data)
         if self._labels_data is not None:
             _gen_md5_for_arraylike_obj(md5_gen, self._labels_data)
@@ -503,6 +509,13 @@ class EvaluationDataset:
         if self.path is not None:
             metadata["path"] = self.path
         return metadata
+
+    @property
+    def digest(self):
+        """
+        Return the digest of the dataset.
+        """
+        return self._digest
 
     def _log_dataset_tag(self, client, run_id, model_uuid):
         """

@@ -1,19 +1,17 @@
 import os
 import pickle
 import types
+from unittest import mock
 
 import cloudpickle
 import numpy as np
 import pytest
 import sklearn.datasets
-import sklearn.linear_model
 import sklearn.neighbors
 import yaml
 
 import mlflow
 import mlflow.pyfunc
-import mlflow.pyfunc.model
-import mlflow.sklearn
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, infer_signature
 from mlflow.models.utils import _read_example
@@ -136,7 +134,7 @@ def test_model_log_load(sklearn_knn_model, iris_data, tmp_path):
     pyfunc_artifact_path = "pyfunc_model"
     with mlflow.start_run():
         mlflow.pyfunc.log_model(
-            artifact_path=pyfunc_artifact_path,
+            name=pyfunc_artifact_path,
             data_path=sk_model_path,
             loader_module=__name__,
             code_paths=[__file__],
@@ -155,6 +153,9 @@ def test_model_log_load(sklearn_knn_model, iris_data, tmp_path):
     )
 
 
+@pytest.mark.skip(
+    reason="In MLflow 3.0, `log_model` does not start a run. Consider removing this test."
+)
 def test_model_log_load_no_active_run(sklearn_knn_model, iris_data, tmp_path):
     sk_model_path = os.path.join(tmp_path, "knn.pkl")
     with open(sk_model_path, "wb") as f:
@@ -163,7 +164,7 @@ def test_model_log_load_no_active_run(sklearn_knn_model, iris_data, tmp_path):
     pyfunc_artifact_path = "pyfunc_model"
     assert mlflow.active_run() is None
     mlflow.pyfunc.log_model(
-        artifact_path=pyfunc_artifact_path,
+        name=pyfunc_artifact_path,
         data_path=sk_model_path,
         loader_module=__name__,
         code_paths=[__file__],
@@ -190,10 +191,13 @@ def test_save_model_with_unsupported_argument_combinations_throws_exception(mode
 
 
 def test_log_model_with_unsupported_argument_combinations_throws_exception():
-    with mlflow.start_run(), pytest.raises(
-        MlflowException, match="Either `loader_module` or `python_model` must be specified"
+    with (
+        mlflow.start_run(),
+        pytest.raises(
+            MlflowException, match="Either `loader_module` or `python_model` must be specified"
+        ),
     ):
-        mlflow.pyfunc.log_model(artifact_path="pyfunc_model", data_path="/path/to/data")
+        mlflow.pyfunc.log_model(name="pyfunc_model", data_path="/path/to/data")
 
 
 def test_log_model_persists_specified_conda_env_file_in_mlflow_model_directory(
@@ -206,7 +210,7 @@ def test_log_model_persists_specified_conda_env_file_in_mlflow_model_directory(
     pyfunc_artifact_path = "pyfunc_model"
     with mlflow.start_run():
         mlflow.pyfunc.log_model(
-            artifact_path=pyfunc_artifact_path,
+            name=pyfunc_artifact_path,
             data_path=sk_model_path,
             loader_module=__name__,
             code_paths=[__file__],
@@ -240,7 +244,7 @@ def test_log_model_persists_specified_conda_env_dict_in_mlflow_model_directory(
     pyfunc_artifact_path = "pyfunc_model"
     with mlflow.start_run():
         mlflow.pyfunc.log_model(
-            artifact_path=pyfunc_artifact_path,
+            name=pyfunc_artifact_path,
             data_path=sk_model_path,
             loader_module=__name__,
             code_paths=[__file__],
@@ -271,7 +275,7 @@ def test_log_model_persists_requirements_in_mlflow_model_directory(
     pyfunc_artifact_path = "pyfunc_model"
     with mlflow.start_run():
         mlflow.pyfunc.log_model(
-            artifact_path=pyfunc_artifact_path,
+            name=pyfunc_artifact_path,
             data_path=sk_model_path,
             loader_module=__name__,
             code_paths=[__file__],
@@ -299,14 +303,13 @@ def test_log_model_without_specified_conda_env_uses_default_env_with_expected_de
 
     pyfunc_artifact_path = "pyfunc_model"
     with mlflow.start_run():
-        mlflow.pyfunc.log_model(
-            artifact_path=pyfunc_artifact_path,
+        model_info = mlflow.pyfunc.log_model(
+            name=pyfunc_artifact_path,
             data_path=sk_model_path,
             loader_module=__name__,
             code_paths=[__file__],
         )
-        model_uri = mlflow.get_artifact_uri(pyfunc_artifact_path)
-    _assert_pip_requirements(model_uri, mlflow.pyfunc.get_default_pip_requirements())
+    _assert_pip_requirements(model_info.model_uri, mlflow.pyfunc.get_default_pip_requirements())
 
 
 def test_streamable_model_save_load(tmp_path, model_path):
@@ -342,3 +345,24 @@ def test_streamable_model_save_load(tmp_path, model_path):
     assert isinstance(stream_result, types.GeneratorType)
 
     assert list(stream_result) == ["test1", "test2"]
+
+
+def test_log_loader_module_model_does_not_emit_pickle_warning(sklearn_knn_model, tmp_path):
+    sk_model_path = tmp_path / "knn.pkl"
+    with open(sk_model_path, "wb") as f:
+        pickle.dump(sklearn_knn_model, f)
+
+    with mlflow.start_run(), mock.patch("mlflow.pyfunc._logger.warning") as mock_log_warning:
+        mlflow.pyfunc.log_model(
+            name="pyfunc_model",
+            data_path=sk_model_path,
+            loader_module=__name__,
+            code_paths=[__file__],
+        )
+
+    warning_messages = [args[0] for args, _ in mock_log_warning.call_args_list if args]
+    assert not any(
+        "Passing a Python object as `python_model` causes it to be serialized using CloudPickle"
+        in msg
+        for msg in warning_messages
+    )

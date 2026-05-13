@@ -2,8 +2,8 @@ import { Button } from '@databricks/design-system';
 import { useState } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { GetLinkModal } from '../../../modals/GetLinkModal';
-import { ExperimentPageSearchFacetsState } from '../../models/ExperimentPageSearchFacetsState';
-import { ExperimentPageUIState } from '../../models/ExperimentPageUIState';
+import type { ExperimentPageSearchFacetsState } from '../../models/ExperimentPageSearchFacetsState';
+import type { ExperimentPageUIState } from '../../models/ExperimentPageUIState';
 import { ExperimentGetShareLinkModal } from './ExperimentGetShareLinkModal';
 
 /**
@@ -14,10 +14,12 @@ export const ExperimentViewHeaderShareButton = ({
   searchFacetsState,
   uiState,
   experimentIds,
+  type,
 }: {
   searchFacetsState?: ExperimentPageSearchFacetsState;
   uiState?: ExperimentPageUIState;
   experimentIds?: string[];
+  type?: 'primary' | 'link' | 'tertiary';
 }) => {
   const [showGetLinkModal, setShowGetLinkModal] = useState(false);
 
@@ -41,9 +43,9 @@ export const ExperimentViewHeaderShareButton = ({
       {/* TODO: ensure that E2E tests are working after refactor is complete */}
       <Button
         componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_header_experimentviewheadersharebutton.tsx_44"
-        type="primary"
+        type={type}
         onClick={() => setShowGetLinkModal(true)}
-        data-test-id="share-button"
+        data-testid="share-button"
       >
         <FormattedMessage defaultMessage="Share" description="Text for share button on experiment view page header" />
       </Button>

@@ -15,17 +15,17 @@ def transform(stdout: str, is_maintainer: bool) -> str:
         if m := MESSAGE_REGEX.match(line):
             path = m.group(1)
             command = (
-                "`ruff format .` or comment `@mlflow-automation autoformat`"
-                if is_maintainer
-                else "`ruff format .`"
+                "`ruff format .` or comment `/autoformat`" if is_maintainer else "`ruff format .`"
             )
-            line = f"{path}: Unformatted file. Run {command} to format."
+            # As a workaround for https://github.com/orgs/community/discussions/165826,
+            # add fake line:column numbers (1:1)
+            line = f"{path}:1:1: Unformatted file. Run {command} to format."
 
         transformed.append(line)
     return "\n".join(transformed) + "\n"
 
 
-def main():
+def main() -> None:
     if "NO_FIX" in os.environ:
         with subprocess.Popen(
             [
@@ -43,12 +43,10 @@ def main():
             sys.stderr.write(stderr)
             sys.exit(prc.returncode)
     else:
-        with subprocess.Popen(
-            [
-                *RUFF_FORMAT,
-                *sys.argv[1:],
-            ]
-        ) as prc:
+        with subprocess.Popen([
+            *RUFF_FORMAT,
+            *sys.argv[1:],
+        ]) as prc:
             prc.communicate()
             sys.exit(prc.returncode)
 

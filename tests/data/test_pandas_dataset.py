@@ -23,7 +23,8 @@ def spark_session():
     from pyspark.sql import SparkSession
 
     with (
-        SparkSession.builder.master("local[*]")
+        SparkSession.builder
+        .master("local[*]")
         .config("spark.jars.packages", "io.delta:delta-spark_2.12:3.0.0")
         .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
         .config(
@@ -236,6 +237,9 @@ def test_to_evaluation_dataset():
         name="testname",
     )
     evaluation_dataset = dataset.to_evaluation_dataset()
+
+    assert evaluation_dataset.name is not None
+    assert evaluation_dataset.digest is not None
     assert isinstance(evaluation_dataset, EvaluationDataset)
     assert evaluation_dataset.features_data.equals(df.drop("c", axis=1))
     assert np.array_equal(evaluation_dataset.labels_data, df["c"].to_numpy())
@@ -264,12 +268,10 @@ def test_df_hashing_with_dicts():
     source_uri = "test:/my/test/uri"
     source = SampleDatasetSource._resolve(source_uri)
 
-    df = pd.DataFrame(
-        [
-            {"a": [1, 2, 3], "b": {"b": "b", "c": {"c": "c"}}, "c": 3, "d": "d"},
-            {"a": [2, 3], "b": {"b": "b"}, "c": 3, "d": "d"},
-        ]
-    )
+    df = pd.DataFrame([
+        {"a": [1, 2, 3], "b": {"b": "b", "c": {"c": "c"}}, "c": 3, "d": "d"},
+        {"a": [2, 3], "b": {"b": "b"}, "c": 3, "d": "d"},
+    ])
     dataset1 = PandasDataset(df=df, source=source, name="testname")
     dataset2 = PandasDataset(df=df, source=source, name="testname")
     assert dataset1.digest == dataset2.digest

@@ -4,7 +4,7 @@ import json
 import re
 from dataclasses import dataclass
 from io import StringIO
-from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Union
+from typing import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:
     from databricks.sdk import WorkspaceClient
@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 _UC_FUNCTION = "uc_function"
 
 
-def uc_type_to_json_schema_type(uc_type_json: Union[str, Dict[str, Any]]) -> Dict[str, Any]:
+def uc_type_to_json_schema_type(uc_type_json: str | dict[str, Any]) -> dict[str, Any]:
     """
     Converts the JSON representation of a Unity Catalog data type to the corresponding JSON schema
     type. The conversion is lossy because we do not need to convert it back.
@@ -71,7 +71,7 @@ def uc_type_to_json_schema_type(uc_type_json: Union[str, Dict[str, Any]]) -> Dic
             raise TypeError(f"Unknown type {uc_type_json}. Try upgrading this package.")
 
 
-def extract_param_metadata(p: "FunctionParameterInfo") -> dict:
+def extract_param_metadata(p: "FunctionParameterInfo") -> dict[str, Any]:
     type_json = json.loads(p.type_json)["type"]
     json_schema_type = uc_type_to_json_schema_type(type_json)
     json_schema_type["name"] = p.name
@@ -81,7 +81,7 @@ def extract_param_metadata(p: "FunctionParameterInfo") -> dict:
     return json_schema_type
 
 
-def get_func_schema(func: "FunctionInfo") -> Dict[str, Any]:
+def get_func_schema(func: "FunctionInfo") -> dict[str, Any]:
     parameters = func.input_params.parameters if func.input_params else []
     return {
         "description": func.comment,
@@ -97,7 +97,7 @@ def get_func_schema(func: "FunctionInfo") -> Dict[str, Any]:
 @dataclass
 class ParameterizedStatement:
     statement: str
-    parameters: List["StatementParameterListItem"]
+    parameters: list["StatementParameterListItem"]
 
 
 @dataclass
@@ -107,10 +107,10 @@ class FunctionExecutionResult:
     We always use a string to present the result value for AI model to consume.
     """
 
-    error: Optional[str] = None
-    format: Optional[Literal["SCALAR", "CSV"]] = None
-    value: Optional[str] = None
-    truncated: Optional[bool] = None
+    error: str | None = None
+    format: Literal["SCALAR", "CSV"] | None = None
+    value: str | None = None
+    truncated: bool | None = None
 
     def to_json(self) -> str:
         data = {k: v for (k, v) in self.__dict__.items() if v is not None}
@@ -126,19 +126,43 @@ def is_scalar(function: "FunctionInfo") -> bool:
     return function.data_type != ColumnTypeName.TABLE_TYPE
 
 
+def _quote_identifier(identifier: str) -> str:
+    """
+    Quotes a SQL identifier to prevent SQL injection.
+    Databricks SQL uses backticks for quoting identifiers.
+
+    For multi-part identifiers (e.g., catalog.schema.function), each part is quoted separately.
+    Existing backticks around parts are stripped before re-quoting.
+
+    Raises:
+        ValueError: If any identifier part contains embedded backticks.
+    """
+    parts = identifier.split(".")
+    stripped_parts = [part.strip("`") for part in parts]
+    for part in stripped_parts:
+        if "`" in part:
+            raise ValueError(
+                f"Invalid identifier: {identifier}. "
+                "Backticks are not allowed within Unity Catalog identifier names."
+            )
+    quoted_parts = [f"`{part}`" for part in stripped_parts]
+    return ".".join(quoted_parts)
+
+
 def get_execute_function_sql_stmt(
     function: "FunctionInfo",
-    json_params: Dict[str, Any],
+    json_params: dict[str, Any],
 ) -> ParameterizedStatement:
     from databricks.sdk.service.catalog import ColumnTypeName
     from databricks.sdk.service.sql import StatementParameterListItem
 
     parts = []
     output_params = []
+    quoted_function_name = _quote_identifier(function.full_name)
     if is_scalar(function):
-        parts.append(f"SELECT {function.full_name}(")
+        parts.append(f"SELECT {quoted_function_name}(")
     else:
-        parts.append(f"SELECT * FROM {function.full_name}(")
+        parts.append(f"SELECT * FROM {quoted_function_name}(")
     if function.input_params is None or function.input_params.parameters is None:
         assert not json_params, "Function has no parameters but parameters were provided."
     else:
@@ -153,7 +177,8 @@ def get_execute_function_sql_stmt(
             else:
                 arg_clause = ""
                 if use_named_args:
-                    arg_clause += f"{p.name} => "
+                    quoted_param_name = _quote_identifier(p.name)
+                    arg_clause += f"{quoted_param_name} => "
                 json_value = json_params[p.name]
                 if p.type_name in (
                     ColumnTypeName.ARRAY,
@@ -188,7 +213,7 @@ def execute_function(
     ws: "WorkspaceClient",
     warehouse_id: str,
     function: "FunctionInfo",
-    parameters: Dict[str, Any],
+    parameters: dict[str, Any],
 ) -> FunctionExecutionResult:
     """
     Execute a function with the given arguments and return the result.
@@ -197,18 +222,17 @@ def execute_function(
         import pandas as pd
     except ImportError as e:
         raise ImportError(
-            "Could not import pandas python package. "
-            "Please install it with `pip install pandas`."
+            "Could not import pandas python package. Please install it with `pip install pandas`."
         ) from e
     from databricks.sdk.service.sql import StatementState
 
     # TODO: async so we can run functions in parallel
-    parametrized_statement = get_execute_function_sql_stmt(function, parameters)
+    parameterized_statement = get_execute_function_sql_stmt(function, parameters)
     # TODO: make limits and wait timeout configurable
     response = ws.statement_execution.execute_statement(
-        statement=parametrized_statement.statement,
+        statement=parameterized_statement.statement,
         warehouse_id=warehouse_id,
-        parameters=parametrized_statement.parameters,
+        parameters=parameterized_statement.parameters,
         wait_timeout="30s",
         row_limit=100,
         byte_limit=4096,
@@ -232,9 +256,9 @@ def execute_function(
         return FunctionExecutionResult(format="SCALAR", value=value, truncated=truncated)
     else:
         schema = manifest.schema
-        assert (
-            schema is not None and schema.columns is not None
-        ), "Statement execution succeeded but no schema was provided."
+        assert schema is not None and schema.columns is not None, (
+            "Statement execution succeeded but no schema was provided."
+        )
         columns = [c.name for c in schema.columns]
         if data_array is None:
             data_array = []
@@ -246,7 +270,7 @@ def execute_function(
         )
 
 
-def join_uc_functions(uc_functions: List[Dict[str, Any]]):
+def join_uc_functions(uc_functions: list[dict[str, Any]]):
     calls = [
         f"""
 <uc_function_call>
@@ -269,8 +293,8 @@ def _get_tool_name(function: "FunctionInfo") -> str:
 
 @dataclass
 class ParseResult:
-    tool_calls: List[Dict[str, Any]]
-    tool_messages: List[Dict[str, Any]]
+    tool_calls: list[dict[str, Any]]
+    tool_messages: list[dict[str, Any]]
 
 
 _UC_REGEX = re.compile(
@@ -287,7 +311,7 @@ _UC_REGEX = re.compile(
 )
 
 
-def parse_uc_functions(content) -> Optional[ParseResult]:
+def parse_uc_functions(content) -> ParseResult | None:
     tool_calls = []
     tool_messages = []
     for m in _UC_REGEX.finditer(content):

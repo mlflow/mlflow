@@ -1,0 +1,37 @@
+---
+title: Troubleshooting & FAQs
+---
+
+# Troubleshooting & FAQs
+
+This page aggregates common production issues for self-hosted MLflow deployments and how to resolve them.
+
+## MLflow UI/SDK is slow
+
+There are several possible reasons why the your MLflow UI does not perform well, but the most common reason is that the use of default file-based backend store.
+
+When you start the server with `mlflow server` command without any optional configuration, MLflow uses a local file system to store the metadata. This is simple, but severely limits the performance, e.g., no indexing.
+
+We generally recommend using a database-based backend store to get better performance. To get started, run the following command:
+
+```bash
+mlflow server --backend-store-uri sqlite:///mlflow.db
+```
+
+For connecting to different databases such as PostgreSQL, see [backend store documentation](/self-hosting/architecture/backend-store).
+
+Moreover, if the logging SDK calls are slow (e.g., `mlflow.log_metric`), you can also enable [async logging](https://mlflow.org/docs/latest/api_reference/python_api/mlflow.config.html#mlflow.config.enable_async_logging) to reduce the overhead.
+
+## The database or storage is full. Deleting runs/models does not work.
+
+MLflow uses logical deletion for the Runs and Models to avoid accidental deletion of data. To completely clean up the deleted runs and models, use the [mlflow gc](https://mlflow.org/docs/latest/api_reference/cli.html#mlflow-gc) command.
+
+## Should I use the same MLflow version for the client and the server?
+
+Not necessarily. SDK and the server within the same major version are expected to work together. Also most of APIs are backward compatible between v2 and v3, to make the migration smoother.
+
+That being said, the general recommendation is to keep the client and the server up-to-date to get the latest features and bug fixes. If the backend version is lower than the client version, new features may not be available because of the table definition mismatch.
+
+## Support
+
+If you are facing any issues during the upgrade, contact to the MLflow team by opening an issue on [GitHub](https://github.com/mlflow/mlflow/issues/new/choose).

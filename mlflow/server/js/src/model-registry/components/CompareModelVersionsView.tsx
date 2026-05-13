@@ -8,8 +8,9 @@
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
 import { Link } from '../../common/utils/RoutingUtils';
-import _ from 'lodash';
-import { FormattedMessage } from 'react-intl';
+import { every, isEmpty, uniq } from 'lodash';
+import type { IntlShape } from 'react-intl';
+import { FormattedMessage, injectIntl } from 'react-intl';
 import { Switch, Tabs, useDesignSystemTheme } from '@databricks/design-system';
 
 import { getParams, getRunInfo } from '../../experiment-tracking/reducers/Reducers';
@@ -27,8 +28,6 @@ import { getModelVersionSchemas } from '../reducers';
 import { PageHeader } from '../../shared/building_blocks/PageHeader';
 import type { RunInfoEntity } from '../../experiment-tracking/types';
 
-const { TabPane } = Tabs;
-
 function CenteredText(props: any) {
   const { theme } = useDesignSystemTheme();
   return (
@@ -42,11 +41,11 @@ function CenteredText(props: any) {
   );
 }
 
-function CompareTable(props: any) {
+function CompareTable({ style, ...props }: any) {
   const { theme } = useDesignSystemTheme();
   return (
     <table
-      className="compare-table table"
+      className="mlflow-compare-table table"
       css={{
         'th.main-table-header': {
           backgroundColor: theme.colors.white,
@@ -56,6 +55,17 @@ function CompareTable(props: any) {
           backgroundColor: theme.colors.backgroundValidationWarning,
         },
       }}
+      style={
+        {
+          '--mlflow-compare-border-color': theme.colors.border,
+          '--mlflow-compare-header-color': theme.colors.textPrimary,
+          '--mlflow-compare-header-bg': theme.colors.backgroundSecondary,
+          '--mlflow-compare-diff-bg': theme.colors.backgroundWarning,
+          '--mlflow-compare-diff-color': theme.colors.textSecondary,
+          '--mlflow-compare-hover-bg': theme.colors.backgroundSecondary,
+          ...style,
+        } as React.CSSProperties
+      }
       {...props}
     />
   );
@@ -97,6 +107,7 @@ type CompareModelVersionsViewImplProps = {
   outputsListByName: Array[];
   // @ts-expect-error TS(2314): Generic type 'Array<T>' requires 1 type argument(s... Remove this comment to see the full error message
   outputsListByIndex: Array[];
+  intl: IntlShape;
 };
 
 type CompareModelVersionsViewImplState = any;
@@ -118,11 +129,11 @@ export class CompareModelVersionsViewImpl extends Component<
   };
 
   icons = {
-    plusIcon: <i className="far fa-plus-square-o" />,
-    minusIcon: <i className="far fa-minus-square-o" />,
-    downIcon: <i className="fas fa-caret-down" />,
-    rightIcon: <i className="fas fa-caret-right" />,
-    chartIcon: <i className="fas fa-line-chart padding-left-text" />,
+    plusIcon: <i className="fa fa-plus-square-o" />,
+    minusIcon: <i className="fa fa-minus-square-o" />,
+    downIcon: <i className="fa fa-caret-down" />,
+    rightIcon: <i className="fa fa-caret-right" />,
+    chartIcon: <i className="fa fa-line-chart padding-left-text" />,
   };
 
   onToggleClick = (active: any) => {
@@ -152,26 +163,36 @@ export class CompareModelVersionsViewImpl extends Component<
       />
     );
     const breadcrumbs = [
-      <Link to={ModelRegistryRoutes.modelListPageRoute}>
+      // eslint-disable-next-line react/jsx-key
+      <Link
+        componentId="mlflow.model_registry.compare_versions.registered_models_link"
+        to={ModelRegistryRoutes.modelListPageRoute}
+      >
         <FormattedMessage
           defaultMessage="Registered Models"
           description="Text for registered model link in the title for model comparison page"
         />
       </Link>,
-      <Link to={ModelRegistryRoutes.getModelPageRoute(modelName)}>{modelName}</Link>,
+      // eslint-disable-next-line react/jsx-key
+      <Link
+        componentId="mlflow.model_registry.compare_versions.model_name_link"
+        to={ModelRegistryRoutes.getModelPageRoute(modelName)}
+      >
+        {modelName}
+      </Link>,
     ];
 
     return (
       <div
         className="CompareModelVersionsView"
-        // @ts-expect-error TS(2322): Type '{ '.compare-table': { minWidth: number; }; '... Remove this comment to see the full error message
+        // @ts-expect-error TS(2322): Type '{ '.mlflow-compare-table': { minWidth: number; }; '... Remove this comment to see the full error message
         css={{
           ...styles.compareModelVersionsView,
           ...styles.wrapper(runInfos.length),
         }}
       >
         <PageHeader title={title} breadcrumbs={breadcrumbs} />
-        <div className="responsive-table-container">
+        <div className="mlflow-responsive-table-container">
           <CompareTable>
             {this.renderTableHeader()}
             {this.renderModelVersionInfo()}
@@ -252,52 +273,46 @@ export class CompareModelVersionsViewImpl extends Component<
             {this.renderMetrics()}
           </CompareTable>
         </div>
-        <Tabs>
-          <TabPane
-            tab={
+        <Tabs.Root componentId="mlflow.compare-model-versions.plots-tabs" defaultValue="parallel-coordinates-plot">
+          <Tabs.List>
+            <Tabs.Trigger value="parallel-coordinates-plot">
               <FormattedMessage
                 defaultMessage="Parallel Coordinates Plot"
                 description="Tab text for parallel coordinates plot on the model comparison page"
               />
-            }
-            key="parallel-coordinates-plot"
-          >
-            <ParallelCoordinatesPlotPanel runUuids={runUuids} />
-          </TabPane>
-          <TabPane
-            tab={
+            </Tabs.Trigger>
+            <Tabs.Trigger value="scatter-plot">
               <FormattedMessage
                 defaultMessage="Scatter Plot"
                 description="Tab text for scatter plot on the model comparison page"
               />
-            }
-            key="scatter-plot"
-          >
-            <CompareRunScatter runUuids={runUuids} runDisplayNames={runDisplayNames} />
-          </TabPane>
-          <TabPane
-            tab={
+            </Tabs.Trigger>
+            <Tabs.Trigger value="box-plot">
               <FormattedMessage
                 defaultMessage="Box Plot"
                 description="Tab pane title for box plot on the compare runs page"
               />
-            }
-            key="box-plot"
-          >
-            <CompareRunBox runUuids={runUuids} runInfos={runInfos} paramLists={paramLists} metricLists={metricLists} />
-          </TabPane>
-          <TabPane
-            tab={
+            </Tabs.Trigger>
+            <Tabs.Trigger value="contour-plot">
               <FormattedMessage
                 defaultMessage="Contour Plot"
                 description="Tab text for contour plot on the model comparison page"
               />
-            }
-            key="contour-plot"
-          >
+            </Tabs.Trigger>
+          </Tabs.List>
+          <Tabs.Content value="parallel-coordinates-plot">
+            <ParallelCoordinatesPlotPanel runUuids={runUuids} />
+          </Tabs.Content>
+          <Tabs.Content value="scatter-plot">
+            <CompareRunScatter runUuids={runUuids} runDisplayNames={runDisplayNames} />
+          </Tabs.Content>
+          <Tabs.Content value="box-plot">
+            <CompareRunBox runUuids={runUuids} runInfos={runInfos} paramLists={paramLists} metricLists={metricLists} />
+          </Tabs.Content>
+          <Tabs.Content value="contour-plot">
             <CompareRunContour runUuids={runUuids} runDisplayNames={runDisplayNames} />
-          </TabPane>
-        </Tabs>
+          </Tabs.Content>
+        </Tabs.Root>
       </div>
     );
   }
@@ -317,7 +332,12 @@ export class CompareModelVersionsViewImpl extends Component<
             <th scope="column" className="data-value block-content" key={r.runUuid}>
               {/* Do not show links for invalid run IDs */}
               {runInfosValid[idx] ? (
-                <Link to={Routes.getRunPageRoute(r.experimentId ?? '0', r.runUuid ?? '')}>{r.runUuid}</Link>
+                <Link
+                  componentId="mlflow.model_registry.compare_versions.run_uuid_link"
+                  to={Routes.getRunPageRoute(r.experimentId ?? '0', r.runUuid ?? '')}
+                >
+                  {r.runUuid}
+                </Link>
               ) : (
                 r.runUuid
               )}
@@ -344,7 +364,12 @@ export class CompareModelVersionsViewImpl extends Component<
             const run = versionsToRuns[modelVersion];
             return (
               <td className="meta-info block-content" key={run}>
-                <Link to={ModelRegistryRoutes.getModelVersionPageRoute(modelName, modelVersion)}>{modelVersion}</Link>
+                <Link
+                  componentId="mlflow.model_registry.compare_versions.version_link"
+                  to={ModelRegistryRoutes.getModelVersionPageRoute(modelName, modelVersion)}
+                >
+                  {modelVersion}
+                </Link>
               </td>
             );
           })}
@@ -375,7 +400,8 @@ export class CompareModelVersionsViewImpl extends Component<
           </th>
           {runInfos.map((run, idx) => {
             /* Do not attempt to get timestamps for invalid run IDs */
-            const startTime = run.startTime && runInfosValid[idx] ? Utils.formatTimestamp(run.startTime) : '(unknown)';
+            const startTime =
+              run.startTime && runInfosValid[idx] ? Utils.formatTimestamp(run.startTime, this.props.intl) : '(unknown)';
             return (
               <td className="meta-info block-content" key={run.runUuid}>
                 {startTime}
@@ -477,8 +503,8 @@ export class CompareModelVersionsViewImpl extends Component<
     // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
     const isActive = this.state[activeSection];
     const showSchemaSection = schemaActive && isActive;
-    const showListByIndex = !compareByColumnNameToggle && !_.isEmpty(listByIndex);
-    const showListByName = compareByColumnNameToggle && !_.isEmpty(listByName);
+    const showListByIndex = !compareByColumnNameToggle && !isEmpty(listByIndex);
+    const showListByName = compareByColumnNameToggle && !isEmpty(listByName);
     const listByIndexHeaderMap = (key: any, data: any) => (
       <>
         {sectionName} [{key}]
@@ -522,6 +548,7 @@ export class CompareModelVersionsViewImpl extends Component<
     const metricsHeaderMap = (key: any, data: any) => {
       return (
         <Link
+          componentId="mlflow.model_registry.compare_versions.metric_link"
           to={Routes.getMetricPageRoute(
             runInfos.map((info) => info.runUuid).filter((uuid, idx) => data[idx] !== undefined),
             key,
@@ -554,7 +581,6 @@ export class CompareModelVersionsViewImpl extends Component<
     );
   }
 
-  // eslint-disable-next-line no-unused-vars
   renderDataRows(
     list: any,
     fieldName: any,
@@ -574,7 +600,7 @@ export class CompareModelVersionsViewImpl extends Component<
       // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
       records.forEach((r: any) => (data[r.key][i] = r.value));
     });
-    if (_.isEmpty(keys) || _.isEmpty(list)) {
+    if (isEmpty(keys) || isEmpty(list)) {
       return (
         <tr className={`table-row ${show ? '' : 'hidden-row'}`}>
           <th scope="row" className="rowHeader block-content">
@@ -591,7 +617,7 @@ export class CompareModelVersionsViewImpl extends Component<
       );
     }
     // @ts-expect-error TS(2345): Argument of type 'string' is not assignable to par... Remove this comment to see the full error message
-    const isAllNumeric = _.every(keys, (key) => !isNaN(key));
+    const isAllNumeric = every(keys, (key) => !isNaN(key));
     if (isAllNumeric) {
       keys.sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
     } else {
@@ -600,7 +626,7 @@ export class CompareModelVersionsViewImpl extends Component<
     let identical = true;
     const resultRows = keys.map((k) => {
       // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
-      const isDifferent = data[k].length > 1 && _.uniq(data[k]).length > 1;
+      const isDifferent = data[k].length > 1 && uniq(data[k]).length > 1;
       identical = !isDifferent && identical;
       return (
         <tr key={k} className={`table-row ${(toggle && !isDifferent) || !show ? 'hidden-row' : ''}`}>
@@ -629,7 +655,6 @@ export class CompareModelVersionsViewImpl extends Component<
             <CenteredText>
               <FormattedMessage
                 defaultMessage="{fieldName} are identical"
-                // eslint-disable-next-line max-len
                 description="Default text in data table where items are identical in the model comparison page"
                 values={{ fieldName: fieldName }}
               />
@@ -735,7 +760,7 @@ const DEFAULT_COLUMN_WIDTH = 200;
 
 const styles = {
   wrapper: (numRuns: any) => ({
-    '.compare-table': {
+    '.mlflow-compare-table': {
       // 1 extra unit for header column
       minWidth: (numRuns + 1) * DEFAULT_COLUMN_WIDTH,
     },
@@ -813,4 +838,4 @@ const styles = {
   },
 };
 
-export const CompareModelVersionsView = connect(mapStateToProps)(CompareModelVersionsViewImpl);
+export const CompareModelVersionsView = connect(mapStateToProps)(injectIntl(CompareModelVersionsViewImpl));

@@ -1,0 +1,7 @@
+# Exclude vendor/theme CSS files in api_reference directory
+api_reference/**/*.css
+# Exclude JS files in api_reference directory
+api_reference/**/*.js
+
+# Exclude to preserve indentation in the code blocks in the table
+docs/genai/eval-monitor/legacy-llm-evaluation.mdx

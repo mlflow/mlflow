@@ -1,5 +1,6 @@
 import { Typography } from '@databricks/design-system';
-import { DatasetSourceTypes, RunDatasetWithTags } from '../../../../types';
+import type { RunDatasetWithTags } from '../../../../types';
+import { DatasetSourceTypes } from '../../../../types';
 import React from 'react';
 import { FormattedMessage } from 'react-intl';
 
@@ -34,6 +35,14 @@ export const ExperimentViewDatasetSourceType = ({ datasetWithTags }: ExperimentV
         <FormattedMessage
           defaultMessage="Hugging Face"
           description="Experiment dataset drawer > source type > Hugging Face source type label"
+        />
+      );
+    }
+    if (sourceType === DatasetSourceTypes.LOCAL) {
+      return (
+        <FormattedMessage
+          defaultMessage="Local"
+          description="Experiment dataset drawer > source type > Local source type label"
         />
       );
     }

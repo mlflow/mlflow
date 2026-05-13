@@ -1,8 +1,9 @@
 import json
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 
 import numpy as np
 import pandas as pd
+import pydantic
 import pyspark
 import pytest
 from sklearn.ensemble import RandomForestRegressor
@@ -21,27 +22,31 @@ from mlflow.types.schema import (
     TensorSpec,
     convert_dataclass_to_schema,
 )
+from mlflow.types.utils import InvalidDataForSignatureInferenceError
 
 
 def test_model_signature_with_colspec():
     signature1 = ModelSignature(
         inputs=Schema([ColSpec(DataType.boolean), ColSpec(DataType.binary)]),
-        outputs=Schema(
-            [ColSpec(name=None, type=DataType.double), ColSpec(name=None, type=DataType.double)]
-        ),
+        outputs=Schema([
+            ColSpec(name=None, type=DataType.double),
+            ColSpec(name=None, type=DataType.double),
+        ]),
     )
     signature2 = ModelSignature(
         inputs=Schema([ColSpec(DataType.boolean), ColSpec(DataType.binary)]),
-        outputs=Schema(
-            [ColSpec(name=None, type=DataType.double), ColSpec(name=None, type=DataType.double)]
-        ),
+        outputs=Schema([
+            ColSpec(name=None, type=DataType.double),
+            ColSpec(name=None, type=DataType.double),
+        ]),
     )
     assert signature1 == signature2
     signature3 = ModelSignature(
         inputs=Schema([ColSpec(DataType.boolean), ColSpec(DataType.binary)]),
-        outputs=Schema(
-            [ColSpec(name=None, type=DataType.float), ColSpec(name=None, type=DataType.double)]
-        ),
+        outputs=Schema([
+            ColSpec(name=None, type=DataType.float),
+            ColSpec(name=None, type=DataType.double),
+        ]),
     )
     assert signature3 != signature1
     as_json = json.dumps(signature1.to_dict())
@@ -74,7 +79,7 @@ def test_model_signature_with_tensorspec():
     # Name mismatch
     signature4 = ModelSignature(
         inputs=Schema([TensorSpec(np.dtype("float"), (-1, 28, 28))]),
-        outputs=Schema([TensorSpec(np.dtype("float"), (-1, 10), "misMatch")]),
+        outputs=Schema([TensorSpec(np.dtype("float"), (-1, 10), "mismatch")]),
     )
     assert signature3 != signature4
     as_json = json.dumps(signature1.to_dict())
@@ -83,21 +88,17 @@ def test_model_signature_with_tensorspec():
 
     # Test with name
     signature6 = ModelSignature(
-        inputs=Schema(
-            [
-                TensorSpec(np.dtype("float"), (-1, 28, 28), name="image"),
-                TensorSpec(np.dtype("int"), (-1, 10), name="metadata"),
-            ]
-        ),
+        inputs=Schema([
+            TensorSpec(np.dtype("float"), (-1, 28, 28), name="image"),
+            TensorSpec(np.dtype("int"), (-1, 10), name="metadata"),
+        ]),
         outputs=Schema([TensorSpec(np.dtype("float"), (-1, 10), name="outputs")]),
     )
     signature7 = ModelSignature(
-        inputs=Schema(
-            [
-                TensorSpec(np.dtype("float"), (-1, 28, 28), name="image"),
-                TensorSpec(np.dtype("int"), (-1, 10), name="metadata"),
-            ]
-        ),
+        inputs=Schema([
+            TensorSpec(np.dtype("float"), (-1, 28, 28), name="image"),
+            TensorSpec(np.dtype("int"), (-1, 10), name="metadata"),
+        ]),
         outputs=Schema([TensorSpec(np.dtype("float"), (-1, 10), name="outputs")]),
     )
     assert signature6 == signature7
@@ -158,9 +159,9 @@ def test_infer_signature_on_nested_array():
         ],
         model_output=[{"outputs": [np.int32(5), np.int32(6)]}],
     )
-    assert signature.inputs == Schema(
-        [ColSpec(Array(Array(Array(DataType.string))), name="inputs")]
-    )
+    assert signature.inputs == Schema([
+        ColSpec(Array(Array(Array(DataType.string))), name="inputs")
+    ])
     assert signature.outputs == Schema([ColSpec(Array(DataType.integer), name="outputs")])
 
 
@@ -176,13 +177,11 @@ def test_infer_signature_on_list_of_dictionaries():
         ],
     )
     assert signature.inputs == Schema([ColSpec(DataType.string, name="query")])
-    assert signature.outputs == Schema(
-        [
-            ColSpec(DataType.string, name="output"),
-            ColSpec(Array(DataType.string), name="candidate_ids"),
-            ColSpec(Array(DataType.string), name="candidate_sources"),
-        ]
-    )
+    assert signature.outputs == Schema([
+        ColSpec(DataType.string, name="output"),
+        ColSpec(Array(DataType.string), name="candidate_ids"),
+        ColSpec(Array(DataType.string), name="candidate_sources"),
+    ])
 
 
 def test_signature_inference_infers_datime_types_as_expected():
@@ -202,20 +201,19 @@ def test_signature_inference_infers_datime_types_as_expected():
             "current_timestamp() as timestamp", "current_date() as date"
         )
         signature = infer_signature(spark_df)
-        assert signature.inputs == Schema(
-            [ColSpec(DataType.datetime, name="timestamp"), ColSpec(DataType.datetime, name="date")]
-        )
+        assert signature.inputs == Schema([
+            ColSpec(DataType.datetime, name="timestamp"),
+            ColSpec(DataType.datetime, name="date"),
+        ])
 
 
 def test_set_signature_to_logged_model():
     artifact_path = "regr-model"
-    with mlflow.start_run() as run:
-        mlflow.sklearn.log_model(sk_model=RandomForestRegressor(), artifact_path=artifact_path)
+    with mlflow.start_run():
+        model_info = mlflow.sklearn.log_model(RandomForestRegressor(), name=artifact_path)
     signature = infer_signature(np.array([1]))
-    run_id = run.info.run_id
-    model_uri = f"runs:/{run_id}/{artifact_path}"
-    set_signature(model_uri, signature)
-    model_info = get_model_info(model_uri)
+    set_signature(model_info.model_uri, signature)
+    model_info = get_model_info(model_info.model_uri)
     assert model_info.signature == signature
 
 
@@ -233,24 +231,23 @@ def test_set_signature_to_saved_model(tmp_path):
 
 def test_set_signature_overwrite():
     artifact_path = "regr-model"
-    with mlflow.start_run() as run:
-        mlflow.sklearn.log_model(
-            sk_model=RandomForestRegressor(),
-            artifact_path=artifact_path,
+    with mlflow.start_run():
+        model_info = mlflow.sklearn.log_model(
+            RandomForestRegressor(),
+            name=artifact_path,
             signature=infer_signature(np.array([1])),
         )
     new_signature = infer_signature(np.array([1]), np.array([1]))
-    run_id = run.info.run_id
-    model_uri = f"runs:/{run_id}/{artifact_path}"
-    set_signature(model_uri, new_signature)
-    model_info = get_model_info(model_uri)
+    set_signature(model_info.model_uri, new_signature)
+    model_info = get_model_info(model_info.model_uri)
     assert model_info.signature == new_signature
 
 
 def test_cannot_set_signature_on_models_scheme_uris():
     signature = infer_signature(np.array([1]))
     with pytest.raises(
-        MlflowException, match="Model URIs with the `models:/` scheme are not supported."
+        MlflowException,
+        match="Model URIs with the `models:/<name>/<version>` scheme are not supported.",
     ):
         set_signature("models:/dummy_model@champion", signature)
 
@@ -274,7 +271,7 @@ def test_signature_construction():
     assert signature.to_dict() == {
         "inputs": None,
         "outputs": None,
-        "params": '[{"name": "param1", "type": "string", "default": "test", "shape": null}]',
+        "params": '[{"name": "param1", "default": "test", "shape": null, "type": "string"}]',
     }
 
 
@@ -311,7 +308,8 @@ def test_signature_for_rag():
             '"message": {"type": "object", "properties": '
             '{"content": {"type": "string", "required": true}, '
             '"role": {"type": "string", "required": true}}, '
-            '"required": true}}}, "name": "choices", "required": true}]'
+            '"required": true}}}, "name": "choices", "required": true}, '
+            '{"type": "string", "name": "object", "required": true}]'
         ),
         "params": None,
     }
@@ -326,3 +324,63 @@ def test_infer_signature_and_convert_dataclass_to_schema_for_rag():
     output_schema = convert_dataclass_to_schema(rag_signatures.ChatCompletionResponse())
     assert inferred_signature.inputs == input_schema
     assert inferred_signature.outputs == output_schema
+
+
+def test_infer_signature_with_dataclass():
+    inferred_signature = infer_signature(
+        rag_signatures.ChatCompletionRequest(),
+        rag_signatures.ChatCompletionResponse(),
+    )
+    input_schema = convert_dataclass_to_schema(rag_signatures.ChatCompletionRequest())
+    output_schema = convert_dataclass_to_schema(rag_signatures.ChatCompletionResponse())
+    assert inferred_signature.inputs == input_schema
+    assert inferred_signature.outputs == output_schema
+
+
+@dataclass
+class CustomInput:
+    id: int = 0
+
+
+@dataclass
+class CustomOutput:
+    id: int = 0
+
+
+@dataclass
+class FlexibleChatCompletionRequest(rag_signatures.ChatCompletionRequest):
+    custom_input: CustomInput | None = None
+
+
+@dataclass
+class FlexibleChatCompletionResponse(rag_signatures.ChatCompletionResponse):
+    custom_output: CustomOutput | None = None
+
+
+def test_infer_signature_with_optional_and_child_dataclass():
+    inferred_signature = infer_signature(
+        FlexibleChatCompletionRequest(),
+        FlexibleChatCompletionResponse(),
+    )
+    custom_input_schema = next(
+        schema for schema in inferred_signature.inputs.to_dict() if schema["name"] == "custom_input"
+    )
+    assert custom_input_schema["required"] is False
+    assert "id" in custom_input_schema["properties"]
+    assert any(
+        schema for schema in inferred_signature.inputs.to_dict() if schema["name"] == "messages"
+    )
+
+
+def test_infer_signature_for_pydantic_objects_error():
+    class Message(pydantic.BaseModel):
+        content: str
+        role: str
+
+    m = Message(content="test", role="user")
+    with pytest.raises(
+        InvalidDataForSignatureInferenceError,
+        match=r"MLflow does not support inferring model signature from "
+        r"input example with Pydantic objects",
+    ):
+        infer_signature([m])

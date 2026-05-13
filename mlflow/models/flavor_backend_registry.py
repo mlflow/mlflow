@@ -6,6 +6,7 @@ Flavor backend can deploy particular flavor locally to generate predictions, dep
 REST api endpoint, or build a docker image for serving the model locally or remotely.
 Not all flavors have a flavor backend.
 """
+
 import logging
 
 from mlflow.models.model import Model

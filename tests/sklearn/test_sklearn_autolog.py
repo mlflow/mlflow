@@ -3,14 +3,15 @@ import doctest
 import functools
 import inspect
 import json
-import os
 import pickle
 import re
 from unittest import mock
 
+import joblib
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import polars as pl
 import pytest
 import sklearn
 import sklearn.base
@@ -94,11 +95,6 @@ def load_model_by_run_id(run_id):
     return mlflow.sklearn.load_model(f"runs:/{run_id}/{MODEL_DIR}")
 
 
-def get_model_conf(artifact_uri, model_subpath=MODEL_DIR):
-    model_conf_path = os.path.join(artifact_uri, model_subpath, "MLmodel")
-    return Model.load(model_conf_path)
-
-
 def stringify_dict_values(d):
     return {k: str(v) for k, v in d.items()}
 
@@ -121,6 +117,18 @@ def assert_predict_equal(left, right, X):
 @pytest.fixture(params=FIT_FUNC_NAMES)
 def fit_func_name(request):
     return request.param
+
+
+def _get_model_uri(name: str = MODEL_DIR) -> str:
+    """
+    Search for the model with the given name and return its URI.
+    """
+    if uri := next(
+        m.model_uri for m in mlflow.search_logged_models(output_format="list") if m.name == name
+    ):
+        return uri
+
+    raise ValueError(f"Model with name {name:r} not found")
 
 
 def test_autolog_preserves_original_function_attributes():
@@ -210,7 +218,6 @@ def test_estimator(fit_func_name):
     assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
     assert {TRAINING_SCORE: pytest.approx(model.score(X, y), abs=1e-6)}.items() <= metrics.items()
     assert tags == get_expected_class_tags(model)
-    assert MODEL_DIR in artifacts
 
     loaded_model = load_model_by_run_id(run_id)
     assert_predict_equal(loaded_model, model, X)
@@ -258,20 +265,17 @@ def test_classifier_binary():
     assert metrics == expected_metrics
 
     assert tags == get_expected_class_tags(model)
-    assert MODEL_DIR in artifacts
 
     client = MlflowClient()
     artifacts = [x.path for x in client.list_artifacts(run_id)]
 
     plot_names = []
     if _is_plotting_supported():
-        plot_names.extend(
-            [
-                "training_confusion_matrix.png",
-                "training_roc_curve.png",
-                "training_precision_recall_curve.png",
-            ]
-        )
+        plot_names.extend([
+            "training_confusion_matrix.png",
+            "training_roc_curve.png",
+            "training_precision_recall_curve.png",
+        ])
 
     assert all(x in artifacts for x in plot_names)
 
@@ -321,7 +325,6 @@ def test_classifier_multi_class():
     assert metrics == expected_metrics
 
     assert tags == get_expected_class_tags(model)
-    assert MODEL_DIR in artifacts
 
     client = MlflowClient()
     artifacts = [x.path for x in client.list_artifacts(run_id)]
@@ -360,7 +363,6 @@ def test_regressor():
         "training_r2_score": sklearn.metrics.r2_score(y_true, y_pred),
     }
     assert tags == get_expected_class_tags(model)
-    assert MODEL_DIR in artifacts
 
     loaded_model = load_model_by_run_id(run_id)
     assert_predict_equal(loaded_model, model, X)
@@ -384,7 +386,6 @@ def test_meta_estimator():
     assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
     assert {TRAINING_SCORE: pytest.approx(model.score(X, y), abs=1e-6)}.items() <= metrics.items()
     assert tags == get_expected_class_tags(model)
-    assert MODEL_DIR in artifacts
     assert_predict_equal(load_model_by_run_id(run_id), model, X)
 
 
@@ -402,8 +403,9 @@ def test_get_params_returns_dict_that_has_more_keys_than_max_params_tags_per_bat
     large_params = {str(i): str(i) for i in range(MAX_PARAMS_TAGS_PER_BATCH + 1)}
     X, y = get_iris()
 
-    with disable_validate_params("sklearn.cluster.KMeans"), mock.patch(
-        "sklearn.cluster.KMeans.get_params", return_value=large_params
+    with (
+        disable_validate_params("sklearn.cluster.KMeans"),
+        mock.patch("sklearn.cluster.KMeans.get_params", return_value=large_params),
     ):
         with mlflow.start_run() as run:
             model = sklearn.cluster.KMeans()
@@ -414,7 +416,6 @@ def test_get_params_returns_dict_that_has_more_keys_than_max_params_tags_per_bat
     assert params == large_params
     assert {TRAINING_SCORE: pytest.approx(model.score(X, y), abs=1e-6)}.items() <= metrics.items()
     assert tags == get_expected_class_tags(model)
-    assert MODEL_DIR in artifacts
     loaded_model = load_model_by_run_id(run_id)
     assert_predict_equal(loaded_model, model, X)
 
@@ -438,9 +439,12 @@ def test_get_params_returns_dict_whose_key_or_value_exceeds_length_limit(long_pa
 
     X, y = get_iris()
 
-    with disable_validate_params("sklearn.cluster.KMeans"), mock.patch(
-        "sklearn.cluster.KMeans.get_params", return_value=long_params
-    ), mock.patch("mlflow.utils._logger.warning") as mock_warning, mlflow.start_run() as run:
+    with (
+        disable_validate_params("sklearn.cluster.KMeans"),
+        mock.patch("sklearn.cluster.KMeans.get_params", return_value=long_params),
+        mock.patch("mlflow.utils._logger.warning") as mock_warning,
+        mlflow.start_run() as run,
+    ):
         model = sklearn.cluster.KMeans()
         model.fit(X, y)
 
@@ -452,7 +456,6 @@ def test_get_params_returns_dict_whose_key_or_value_exceeds_length_limit(long_pa
     assert params == truncate_dict(long_params)
     assert {TRAINING_SCORE: pytest.approx(model.score(X, y), abs=1e-6)}.items() <= metrics.items()
     assert tags == get_expected_class_tags(model)
-    assert MODEL_DIR in artifacts
     loaded_model = load_model_by_run_id(run_id)
     assert_predict_equal(loaded_model, model, X)
 
@@ -477,7 +480,6 @@ def test_fit_takes_Xy_as_keyword_arguments(Xy_passed_as):
     assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
     assert {TRAINING_SCORE: pytest.approx(model.score(X, y), abs=1e-6)}.items() <= metrics.items()
     assert tags == get_expected_class_tags(model)
-    assert MODEL_DIR in artifacts
     assert_predict_equal(load_model_by_run_id(run_id), model, X)
 
 
@@ -516,7 +518,6 @@ def test_call_fit_with_arguments_score_does_not_accept():
     assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
     assert {TRAINING_SCORE: pytest.approx(model.score(X, y), abs=1e-6)}.items() <= metrics.items()
     assert tags == get_expected_class_tags(model)
-    assert MODEL_DIR in artifacts
     assert_predict_equal(load_model_by_run_id(run_id), model, X)
 
 
@@ -561,7 +562,6 @@ def test_both_fit_and_score_contain_sample_weight(sample_weight_passed_as):
     assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
     assert {TRAINING_SCORE: pytest.approx(model.score(X, y), abs=1e-6)}.items() <= metrics.items()
     assert tags == get_expected_class_tags(model)
-    assert MODEL_DIR in artifacts
     assert_predict_equal(load_model_by_run_id(run_id), model, X)
 
 
@@ -597,7 +597,6 @@ def test_only_fit_contains_sample_weight():
     assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
     assert {TRAINING_SCORE: pytest.approx(model.score(X, y), abs=1e-6)}.items() <= metrics.items()
     assert tags == get_expected_class_tags(model)
-    assert MODEL_DIR in artifacts
     assert_predict_equal(load_model_by_run_id(run_id), model, X)
 
 
@@ -636,7 +635,6 @@ def test_only_score_contains_sample_weight():
     assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
     assert {TRAINING_SCORE: pytest.approx(model.score(X, y), abs=1e-6)}.items() <= metrics.items()
     assert tags == get_expected_class_tags(model)
-    assert MODEL_DIR in artifacts
     assert_predict_equal(load_model_by_run_id(run_id), model, X)
 
 
@@ -701,9 +699,11 @@ def test_autolog_emits_warning_message_when_metric_fails():
     def throwing_metrics(y_true, y_pred):
         raise Exception("EXCEPTION")
 
-    with mlflow.start_run(), mock.patch(
-        "mlflow.sklearn.utils._logger.warning"
-    ) as mock_warning, mock.patch("sklearn.metrics.precision_score", side_effect=throwing_metrics):
+    with (
+        mlflow.start_run(),
+        mock.patch("mlflow.sklearn.utils._logger.warning") as mock_warning,
+        mock.patch("sklearn.metrics.precision_score", side_effect=throwing_metrics),
+    ):
         model.fit(*get_iris())
         mock_warning.assert_called_once()
         mock_warning.called_once_with(
@@ -746,9 +746,9 @@ def test_autolog_emits_warning_message_when_model_prediction_fails():
             cv_model.predict([[0, 0, 0, 0]])
 
         # Count how many times `mock_warning` has been called on not-fitted `predict` failure
-        call_count = len(
-            [args for args in mock_warning.call_args_list if re.search(match, args[0][0])]
-        )
+        call_count = len([
+            args for args in mock_warning.call_args_list if re.search(match, args[0][0])
+        ])
         # If `_is_plotting_supported` returns True (meaning sklearn version is >= 0.22.0),
         # `mock_warning` should have been called twice, once for metrics, once for artifacts.
         # Otherwise, only once for metrics.
@@ -782,7 +782,7 @@ def test_parameter_search_estimators_produce_expected_outputs(
         if backend is None:
             cv_model.fit(X, y)
         else:
-            with sklearn.utils.parallel_backend(backend=backend):
+            with joblib.parallel_backend(backend=backend):
                 cv_model.fit(X, y)
 
     with mlflow.start_run() as run:
@@ -791,33 +791,40 @@ def test_parameter_search_estimators_produce_expected_outputs(
 
     params, metrics, tags, artifacts = get_run_data(run_id)
     expected_cv_params = truncate_dict(stringify_dict_values(cv_model.get_params(deep=False)))
-    expected_cv_params.update(
-        {
-            f"best_{param_name}": str(param_value)
-            for param_name, param_value in cv_model.best_params_.items()
-        }
-    )
+    expected_cv_params.update({
+        f"best_{param_name}": str(param_value)
+        for param_name, param_value in cv_model.best_params_.items()
+    })
     assert params == expected_cv_params
     assert {
         TRAINING_SCORE: cv_model.score(X, y),
         "best_cv_score": cv_model.best_score_,
     }.items() <= metrics.items()
     assert tags == get_expected_class_tags(cv_model)
-    assert MODEL_DIR in artifacts
-    assert "best_estimator" in artifacts
     assert "cv_results.csv" in artifacts
 
     best_estimator = mlflow.sklearn.load_model(f"runs:/{run_id}/best_estimator")
     assert isinstance(best_estimator, sklearn.svm.SVC)
     cv_model = mlflow.sklearn.load_model(f"runs:/{run_id}/{MODEL_DIR}")
     assert isinstance(cv_model, cv_class)
+    # Ensure the params are logged to the estimator
+    cv_model_id = Model.load(_get_model_uri(name="model")).model_id
+    cv_logged_model = mlflow.get_logged_model(cv_model_id)
+    assert expected_cv_params.items() <= cv_logged_model.params.items()
+    assert {
+        TRAINING_SCORE: cv_model.score(X, y),
+        "best_cv_score": cv_model.best_score_,
+    }.items() <= {m.key: m.value for m in cv_logged_model.metrics}.items()
 
     # Ensure that a signature and input example are produced for the best estimator
-    best_estimator_conf = get_model_conf(run.info.artifact_uri, "best_estimator")
+    model_uri = _get_model_uri(name="best_estimator")
+    best_estimator_conf = Model.load(model_uri)
     assert best_estimator_conf.signature == infer_signature(X, best_estimator.predict(X[:5]))
 
-    best_estimator_path = os.path.join(run.info.artifact_uri, "best_estimator")
-    input_example = _read_example(best_estimator_conf, best_estimator_path)
+    # Get the LoggedModel of the best estimator
+    logged_best_model = mlflow.get_logged_model(best_estimator_conf.model_id)
+
+    input_example = _read_example(best_estimator_conf, model_uri)
     best_estimator.predict(input_example)  # Ensure that input example evaluation succeeds
 
     client = MlflowClient()
@@ -838,13 +845,18 @@ def test_parameter_search_estimators_produce_expected_outputs(
         assert len(child_runs) == max_tuning_runs
         assert len(child_runs) + num_rest == num_total_results
 
+    # Check that each child run has a dataset input
+    for cr in child_runs:
+        assert len(cr.inputs.dataset_inputs) == 1
+
     # Verify that the best max_tuning_runs of parameter search results
     # have a corresponding MLflow run with the expected data
+    best_child_metrics = None
     for _, result in cv_results_best_n_df.iterrows():
         result_params = result.get("params", {})
-        params_search_clause = " and ".join(
-            [f"params.`{key}` = '{value}'" for key, value in result_params.items()]
-        )
+        params_search_clause = " and ".join([
+            f"params.`{key}` = '{value}'" for key, value in result_params.items()
+        ])
         search_filter = f"tags.`mlflow.parentRunId` = '{run_id}' and {params_search_clause}"
         child_runs = client.search_runs(run.info.experiment_id, search_filter)
         assert len(child_runs) == 1
@@ -859,13 +871,20 @@ def test_parameter_search_estimators_produce_expected_outputs(
         # would produce very noisy metrics results
         assert len([metric for metric in child_metrics.keys() if metric.startswith("split")]) == 0
 
+        # Verify if the params match the best estimator, then metrics are logged in the model
+        if result_params.items() <= cv_model.best_params_.items():
+            best_child_metrics = child_metrics
+
+    assert best_child_metrics is not None
+    assert best_child_metrics.items() <= {m.key: m.value for m in logged_best_model.metrics}.items()
+
     # Verify that the rest of the parameter search results do not have
     # a corresponding MLflow run.
     for _, result in cv_results_rest_df.iterrows():
         result_params = result.get("params", {})
-        params_search_clause = " and ".join(
-            [f"params.`{key}` = '{value}'" for key, value in result_params.items()]
-        )
+        params_search_clause = " and ".join([
+            f"params.`{key}` = '{value}'" for key, value in result_params.items()
+        ])
         search_filter = f"tags.`mlflow.parentRunId` = '{run_id}' and {params_search_clause}"
         child_runs = client.search_runs(run.info.experiment_id, search_filter)
         assert len(child_runs) == 0
@@ -907,13 +926,13 @@ def test_autolog_logs_signature_and_input_example(data_type):
     y = np.array(y) if data_type in [csr_matrix, csc_matrix] else data_type(y)
     model = sklearn.linear_model.LinearRegression()
 
-    with mlflow.start_run() as run:
+    with mlflow.start_run():
         model.fit(X, y)
-        model_path = os.path.join(run.info.artifact_uri, MODEL_DIR)
 
-    model_conf = get_model_conf(run.info.artifact_uri)
-    input_example = _read_example(model_conf, model_path)
-    pyfunc_model = mlflow.pyfunc.load_model(model_path)
+    model_uri = _get_model_uri()
+    model_conf = Model.load(model_uri)
+    input_example = _read_example(model_conf, model_uri)
+    pyfunc_model = mlflow.pyfunc.load_model(model_uri)
 
     assert model_conf.signature == infer_signature(X, model.predict(X[:5]))
 
@@ -941,15 +960,13 @@ def test_autolog_logs_signature_and_input_example(data_type):
 def test_autolog_metrics_input_example_and_signature_do_not_reflect_training_mutations():
     from sklearn.base import BaseEstimator, TransformerMixin
 
-    X_train = pd.DataFrame(
-        {
-            "Total Volume": [64236.62, 54876.98, 118220.22],
-            "Total Bags": [8696.87, 9505.56, 8145.35],
-            "Small Bags": [8603.62, 9408.07, 8042.21],
-            "Large Bags": [93.25, 97.49, 103.14],
-            "XLarge Bags": [0.0, 0.0, 0.0],
-        }
-    )
+    X_train = pd.DataFrame({
+        "Total Volume": [64236.62, 54876.98, 118220.22],
+        "Total Bags": [8696.87, 9505.56, 8145.35],
+        "Small Bags": [8603.62, 9408.07, 8042.21],
+        "Large Bags": [93.25, 97.49, 103.14],
+        "XLarge Bags": [0.0, 0.0, 0.0],
+    })
     y_train = pd.Series([1.33, 1.35, 0.93])
 
     class CustomTransformer(BaseEstimator, TransformerMixin):
@@ -957,7 +974,7 @@ def test_autolog_metrics_input_example_and_signature_do_not_reflect_training_mut
             return self
 
         def transform(self, X, y=None):
-            # Perform arbitary transformation
+            # Perform arbitrary transformation
             if "XXLarge Bags" in X.columns:
                 raise Exception("Found unexpected 'XXLarge Bags' column!")
             X["XXLarge Bags"] = X["XLarge Bags"] + 1
@@ -970,11 +987,9 @@ def test_autolog_metrics_input_example_and_signature_do_not_reflect_training_mut
     )
     sk_pipeline.fit(X_train, y_train)
 
-    run_artifact_uri = mlflow.last_active_run().info.artifact_uri
-    model_conf = get_model_conf(run_artifact_uri)
-    input_example = pd.read_json(
-        os.path.join(run_artifact_uri, "model", "input_example.json"), orient="split"
-    )
+    model_uri = _get_model_uri()
+    model_conf = Model.load(model_uri)
+    input_example = _read_example(model_conf, model_uri)
     model_signature_input_names = [inp.name for inp in model_conf.signature.inputs.inputs]
     assert "XLarge Bags" in model_signature_input_names
     assert "XLarge Bags" in input_example.columns
@@ -1006,13 +1021,14 @@ def test_autolog_does_not_throw_when_failing_to_sample_X():
     mlflow.sklearn.autolog()
     model = sklearn.linear_model.LinearRegression()
 
-    with mlflow.start_run() as run, mock.patch("mlflow.sklearn._logger.warning") as mock_warning:
+    with mlflow.start_run(), mock.patch("mlflow.sklearn._logger.warning") as mock_warning:
         model.fit(throwing_X, y)
 
-    model_conf = get_model_conf(run.info.artifact_uri)
+    model_conf = Model.load(_get_model_uri())
 
-    assert mock_warning.call_count == 2
-    mock_warning.call_args[0][0].endswith("DO NOT SLICE ME")
+    warning_messages = [args[0] for args, _ in mock_warning.call_args_list if args]
+    assert any(msg.endswith("DO NOT SLICE ME") for msg in warning_messages)
+
     assert "signature" not in model_conf.to_dict()
     assert "saved_input_example_info" not in model_conf.to_dict()
 
@@ -1026,10 +1042,10 @@ def test_autolog_logs_signature_only_when_estimator_defines_predict():
     model = AgglomerativeClustering()
     assert not hasattr(model, "predict")
 
-    with mlflow.start_run() as run:
+    with mlflow.start_run():
         model.fit(X, y)
 
-    model_conf = get_model_conf(run.info.artifact_uri)
+    model_conf = Model.load(_get_model_uri())
     assert "signature" not in model_conf.to_dict()
 
 
@@ -1039,29 +1055,37 @@ def test_autolog_does_not_throw_when_predict_fails():
     mlflow.sklearn.autolog(log_input_examples=True, log_model_signatures=True)
 
     # Note that `mock_warning` will be called twice because if `predict` throws, `score` also throws
-    with mlflow.start_run() as run, mock.patch(
-        "sklearn.linear_model.LinearRegression.predict", side_effect=Exception("Failed")
-    ), mock.patch("mlflow.sklearn._logger.warning") as mock_warning:
+    with (
+        mlflow.start_run(),
+        mock.patch(
+            "sklearn.linear_model.LinearRegression.predict", side_effect=Exception("Failed")
+        ),
+        mock.patch("mlflow.sklearn._logger.warning") as mock_warning,
+    ):
         model = sklearn.linear_model.LinearRegression()
         model.fit(X, y)
 
-    mock_warning.assert_called_with("Failed to infer model signature: Failed")
-    model_conf = get_model_conf(run.info.artifact_uri)
+    warning_messages = [args[0] for args, _ in mock_warning.call_args_list if args]
+    assert "Failed to infer model signature: Failed" in warning_messages
+    model_conf = Model.load(_get_model_uri())
     assert "signature" not in model_conf.to_dict()
 
 
 def test_autolog_does_not_throw_when_infer_signature_fails():
     X, y = get_iris()
 
-    with mlflow.start_run() as run, mock.patch(
-        "mlflow.models.infer_signature", side_effect=Exception("Failed")
-    ), mock.patch("mlflow.sklearn._logger.warning") as mock_warning:
+    with (
+        mlflow.start_run(),
+        mock.patch("mlflow.models.infer_signature", side_effect=Exception("Failed")),
+        mock.patch("mlflow.sklearn._logger.warning") as mock_warning,
+    ):
         mlflow.sklearn.autolog(log_input_examples=True, log_model_signatures=True)
         model = sklearn.linear_model.LinearRegression()
         model.fit(X, y)
 
-    mock_warning.assert_called_once_with("Failed to infer model signature: Failed")
-    model_conf = get_model_conf(run.info.artifact_uri)
+    warning_messages = [args[0] for args, _ in mock_warning.call_args_list if args]
+    assert "Failed to infer model signature: Failed" in warning_messages
+    model_conf = Model.load(_get_model_uri())
     assert "signature" not in model_conf.to_dict()
 
 
@@ -1069,7 +1093,7 @@ def test_autolog_does_not_warn_when_model_has_transform_function():
     X, y = get_iris()
 
     mlflow.sklearn.autolog(log_input_examples=True, log_model_signatures=True)
-    with mlflow.start_run() as run, mock.patch("mlflow.sklearn._logger.warning") as mock_warning:
+    with mlflow.start_run(), mock.patch("mlflow.sklearn._logger.warning") as mock_warning:
         estimators = [
             ("std_scaler", sklearn.preprocessing.StandardScaler()),
         ]
@@ -1080,7 +1104,7 @@ def test_autolog_does_not_warn_when_model_has_transform_function():
     msg = "Failed to infer model signature:"
     assert all(msg not in c[0] for c in mock_warning.call_args_list)
 
-    model_conf = get_model_conf(run.info.artifact_uri)
+    model_conf = Model.load(_get_model_uri())
     assert "signature" in model_conf.to_dict()
 
 
@@ -1089,13 +1113,13 @@ def test_autolog_does_not_warn_when_model_has_transform_function():
 def test_autolog_configuration_options(log_input_examples, log_model_signatures):
     X, y = get_iris()
 
-    with mlflow.start_run() as run:
+    with mlflow.start_run():
         mlflow.sklearn.autolog(
             log_input_examples=log_input_examples, log_model_signatures=log_model_signatures
         )
         model = sklearn.linear_model.LinearRegression()
         model.fit(X, y)
-    model_conf = get_model_conf(run.info.artifact_uri)
+    model_conf = Model.load(_get_model_uri())
     assert ("saved_input_example_info" in model_conf.to_dict()) == log_input_examples
     assert ("signature" in model_conf.to_dict()) == log_model_signatures
 
@@ -1111,7 +1135,7 @@ def test_sklearn_autolog_log_models_configuration(log_models):
 
     run_id = run.info.run_id
     _, _, _, artifacts = get_run_data(run_id)
-    assert (MODEL_DIR in artifacts) == log_models
+    assert (mlflow.last_logged_model() is not None) == log_models
 
 
 @pytest.mark.parametrize("log_datasets", [True, False])
@@ -1130,14 +1154,12 @@ def test_sklearn_autolog_log_datasets_configuration(log_datasets):
         assert len(dataset_inputs) == 1
         feature_schema = _infer_schema(X)
         target_schema = _infer_schema(y)
-        assert dataset_inputs[0].dataset.schema == json.dumps(
-            {
-                "mlflow_tensorspec": {
-                    "features": feature_schema.to_json(),
-                    "targets": target_schema.to_json(),
-                }
+        assert dataset_inputs[0].dataset.schema == json.dumps({
+            "mlflow_tensorspec": {
+                "features": feature_schema.to_json(),
+                "targets": target_schema.to_json(),
             }
-        )
+        })
     else:
         assert len(dataset_inputs) == 0
 
@@ -1159,23 +1181,19 @@ def test_sklearn_autolog_log_datasets_with_predict():
     assert dataset_inputs[0].tags[0].value == "train"
     feature_schema = _infer_schema(X)
     target_schema = _infer_schema(y)
-    assert dataset_inputs[0].dataset.schema == json.dumps(
-        {
-            "mlflow_tensorspec": {
-                "features": feature_schema.to_json(),
-                "targets": target_schema.to_json(),
-            }
+    assert dataset_inputs[0].dataset.schema == json.dumps({
+        "mlflow_tensorspec": {
+            "features": feature_schema.to_json(),
+            "targets": target_schema.to_json(),
         }
-    )
+    })
     assert dataset_inputs[1].tags[0].value == "eval"
-    assert dataset_inputs[1].dataset.schema == json.dumps(
-        {
-            "mlflow_tensorspec": {
-                "features": feature_schema.to_json(),
-                "targets": None,
-            }
+    assert dataset_inputs[1].dataset.schema == json.dumps({
+        "mlflow_tensorspec": {
+            "features": feature_schema.to_json(),
+            "targets": None,
         }
-    )
+    })
 
 
 def test_sklearn_autolog_log_datasets_without_explicit_run():
@@ -1194,23 +1212,36 @@ def test_sklearn_autolog_log_datasets_without_explicit_run():
     assert dataset_inputs[0].tags[0].value == "train"
     feature_schema = _infer_schema(X)
     target_schema = _infer_schema(y)
-    assert dataset_inputs[0].dataset.schema == json.dumps(
-        {
-            "mlflow_tensorspec": {
-                "features": feature_schema.to_json(),
-                "targets": target_schema.to_json(),
-            }
+    assert dataset_inputs[0].dataset.schema == json.dumps({
+        "mlflow_tensorspec": {
+            "features": feature_schema.to_json(),
+            "targets": target_schema.to_json(),
         }
-    )
+    })
     assert dataset_inputs[1].tags[0].value == "eval"
-    assert dataset_inputs[1].dataset.schema == json.dumps(
-        {
-            "mlflow_tensorspec": {
-                "features": feature_schema.to_json(),
-                "targets": None,
-            }
+    assert dataset_inputs[1].dataset.schema == json.dumps({
+        "mlflow_tensorspec": {
+            "features": feature_schema.to_json(),
+            "targets": None,
         }
-    )
+    })
+
+
+def test_sklearn_autolog_log_datasets_with_polars():
+    X, y = get_iris()
+    X_pl = pl.DataFrame(X, schema=["f1", "f2"])
+
+    with mlflow.start_run() as run:
+        mlflow.sklearn.autolog(log_datasets=True)
+        model = sklearn.linear_model.LinearRegression()
+        model.fit(X_pl, y)
+
+    run_id = run.info.run_id
+    client = MlflowClient()
+    dataset_inputs = client.get_run(run_id).inputs.dataset_inputs
+    assert len(dataset_inputs) == 1
+    assert dataset_inputs[0].tags[0].value == "train"
+    assert dataset_inputs[0].dataset.source_type == "code"
 
 
 def test_autolog_does_not_capture_runs_for_preprocessing_or_feature_manipulation_estimators():
@@ -1238,12 +1269,10 @@ def test_autolog_does_not_capture_runs_for_preprocessing_or_feature_manipulation
         LabelEncoder().fit([1, 2, 2, 6])
         MinMaxScaler().fit_transform(50 * np.random.random((10, 10)))
         SimpleImputer().fit_transform([[1, 2], [np.nan, 3], [7, 6]])
-        TfidfVectorizer().fit_transform(
-            [
-                "MLflow is an end-to-end machine learning platform.",
-                "MLflow enables me to systematize my ML experimentation",
-            ]
-        )
+        TfidfVectorizer().fit_transform([
+            "MLflow is an end-to-end machine learning platform.",
+            "MLflow enables me to systematize my ML experimentation",
+        ])
         VarianceThreshold().fit_transform([[0, 2, 0, 3], [0, 1, 4, 3], [0, 1, 1, 3]])
         ColumnTransformer([("norm", Normalizer(), [0])]).fit_transform([[0]])
 
@@ -1319,7 +1348,6 @@ def test_metric_computation_handles_absent_labels():
     # for sklearn models
     assert not metrics
     assert tags == get_expected_class_tags(model)
-    assert MODEL_DIR in artifacts
 
 
 @pytest.mark.parametrize("cross_val_func_name", mlflow.sklearn._apis_autologging_disabled)
@@ -1374,8 +1402,10 @@ def test_basic_post_training_metric_autologging():
     with mlflow.start_run() as run:
         model.fit(X, y)
 
-        eval1_X, eval1_y = X[0::3], y[0::3]
-        eval2_X, eval2_y = X[1::3], y[1::3]
+        eval1_X = X[0::3]
+        eval1_y = y[0::3]
+        eval2_X = X[1::3]
+        eval2_y = y[1::3]
 
         pred1_y = model.predict(X=eval1_X)
         pred2_y = model.predict(eval2_X)
@@ -1392,7 +1422,8 @@ def test_basic_post_training_metric_autologging():
         scorer2 = sklmetrics.make_scorer(sklmetrics.recall_score, average="macro")
         recall_score4_data2 = scorer2(model, eval2_X, eval2_y)
 
-        eval1_X, eval1_y = eval1_X.copy(), eval1_y.copy()
+        eval1_X = eval1_X.copy()
+        eval1_y = eval1_y.copy()
         # In metric key, it will include dataset name as "eval1_X-2"
         lor_score_data1_2 = model.score(eval1_X, eval1_y)
 
@@ -1486,7 +1517,8 @@ def test_nested_metric_call_is_disabled():
     mlflow.sklearn.autolog()
 
     X, y = get_iris()
-    eval1_X, eval1_y = X[0::3], y[0::3]
+    eval1_X = X[0::3]
+    eval1_y = y[0::3]
     lr_model = sklearn.linear_model.LinearRegression()
 
     with mlflow.start_run():
@@ -1511,8 +1543,10 @@ def test_multi_model_interleaved_fit_and_post_train_metric_call():
     from sklearn.metrics import mean_squared_error
 
     X, y = get_iris()
-    eval1_X, eval1_y = X[0::3], y[0::3]
-    eval2_X, eval2_y = X[1::3], y[1::3]
+    eval1_X = X[0::3]
+    eval1_y = y[0::3]
+    eval2_X = X[1::3]
+    eval2_y = y[1::3]
 
     lr_model1 = sklearn.linear_model.LinearRegression(fit_intercept=True)
     lr_model2 = sklearn.linear_model.LinearRegression(fit_intercept=False)
@@ -1551,15 +1585,20 @@ def test_meta_estimator_disable_nested_post_training_autologging(scoring):
     mlflow.sklearn.autolog()
 
     X, y = get_iris()
-    with mock.patch(
-        "mlflow.sklearn._AutologgingMetricsManager.register_model"
-    ) as mock_register_model, mock.patch(
-        "mlflow.sklearn._AutologgingMetricsManager.is_metric_value_loggable"
-    ) as mock_is_metric_value_loggable, mock.patch(
-        "mlflow.sklearn._AutologgingMetricsManager.log_post_training_metric"
-    ) as mock_log_post_training_metric, mock.patch(
-        "mlflow.sklearn._AutologgingMetricsManager.register_prediction_input_dataset"
-    ) as mock_register_prediction_input_dataset:
+    with (
+        mock.patch(
+            "mlflow.sklearn._AutologgingMetricsManager.register_model"
+        ) as mock_register_model,
+        mock.patch(
+            "mlflow.sklearn._AutologgingMetricsManager.is_metric_value_loggable"
+        ) as mock_is_metric_value_loggable,
+        mock.patch(
+            "mlflow.sklearn._AutologgingMetricsManager.log_post_training_metric"
+        ) as mock_log_post_training_metric,
+        mock.patch(
+            "mlflow.sklearn._AutologgingMetricsManager.register_prediction_input_dataset"
+        ) as mock_register_prediction_input_dataset,
+    ):
         with mlflow.start_run():
             svc = sklearn.svm.SVC()
             cv_model = sklearn.model_selection.GridSearchCV(
@@ -1579,7 +1618,8 @@ def test_meta_estimator_disable_nested_post_training_autologging(scoring):
 )
 def test_meta_estimator_post_training_autologging(scoring):
     X, y = get_iris()
-    eval1_X, eval1_y = X[0::3], y[0::3]
+    eval1_X = X[0::3]
+    eval1_y = y[0::3]
 
     mlflow.sklearn.autolog()
 
@@ -1704,14 +1744,15 @@ def test_is_metrics_value_loggable():
     assert not is_metric_value_loggable(np.array([1, 2]))
 
 
-def test_log_post_training_metrics_configuration():
+@pytest.mark.parametrize("log_models", [True, False])
+def test_log_post_training_metrics_configuration(log_models):
     from sklearn.linear_model import LogisticRegression
 
     X, y = get_iris()
     model = LogisticRegression()
     metric_name = sklearn.metrics.r2_score.__name__
 
-    # Ensure post-traning metrics autologging can be toggled on / off
+    # Ensure post-training metrics autologging can be toggled on / off
     for log_post_training_metrics in [True, False, True]:
         mlflow.sklearn.autolog(log_post_training_metrics=log_post_training_metrics)
 
@@ -1722,6 +1763,11 @@ def test_log_post_training_metrics_configuration():
 
         metrics = get_run_data(run.info.run_id)[1]
         assert any(k.startswith(metric_name) for k in metrics.keys()) is log_post_training_metrics
+
+        if log_models:
+            logged_model = mlflow.last_logged_model()
+            assert logged_model is not None
+            assert metrics.items() <= {m.key: m.value for m in logged_model.metrics}.items()
 
 
 class UnpicklableKmeans(sklearn.cluster.KMeans):

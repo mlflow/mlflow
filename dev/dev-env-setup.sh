@@ -124,10 +124,7 @@ quiet_command(){
 
 minor_to_micro() {
   case $1 in
-    "3.7") echo "3.7.14" ;;
-    "3.8") echo "3.8.13" ;;
-    "3.9") echo "3.9.13" ;;
-    "3.10") echo "3.10.4" ;;
+    "3.10") echo "3.10.13" ;;
   esac
 }
 
@@ -214,9 +211,31 @@ check_and_install_pyenv() {
   fi
 }
 
+check_and_install_uv() {
+  if [ -z "$(command -v uv || true)" ]; then
+    echo "uv is not installed. Installing uv..."
+    UV_INSTALLER=$(mktemp)
+    curl -LsSf https://astral.sh/uv/install.sh -o "$UV_INSTALLER"
+    sh "$UV_INSTALLER"
+    rm -f "$UV_INSTALLER"
+    # uv may be installed to ~/.local/bin or ~/.cargo/bin depending on the platform
+    export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
+    if [ -n "$GITHUB_ACTIONS" ]; then
+      echo "$HOME/.local/bin" >>"$GITHUB_PATH"
+      echo "$HOME/.cargo/bin" >>"$GITHUB_PATH"
+    fi
+    if [ -z "$(command -v uv || true)" ]; then
+      echo "Failed to install uv. Please install it manually: https://docs.astral.sh/uv/getting-started/installation/"
+      exit 1
+    fi
+  fi
+}
+
 check_and_install_min_py_version() {
+  check_and_install_uv
+
   # Get the minimum supported version for development purposes
-  min_py_version="3.8"
+  min_py_version="3.10"
 
   echo "The minimum version of Python to ensure backwards compatibility for MLflow development is: $(
     tput bold
@@ -230,7 +249,7 @@ check_and_install_min_py_version() {
     elif [[ $version_levels -eq 2 ]]; then
       PY_INSTALL_VERSION=$override_py_ver
     else
-      echo "You must supply a python override version with either minor (e.g., '3.9') or micro (e.g., '3.9.5'). '$override_py_ver' is invalid."
+      echo "You must supply a python override version with either minor (e.g., '3.10') or micro (e.g., '3.10.13'). '$override_py_ver' is invalid."
       exit 1
     fi
   else
@@ -242,9 +261,16 @@ check_and_install_min_py_version() {
   # Install the Python version if it cannot be found
   pyenv install -s "$PY_INSTALL_VERSION"
   pyenv local "$PY_INSTALL_VERSION"
-  pyenv exec pip install $(quiet_command) --upgrade pip
-  pyenv exec pip install $(quiet_command) virtualenv
-  pyenv exec pip install $(quiet_command) pre-commit
+  # Add pyenv shims to PATH so uv and other tools resolve the pyenv-managed
+  # Python (e.g., 3.10.13) rather than the system Python (which may be
+  # PEP 668 externally managed on Ubuntu 24.04+).
+  PYENV_SHIMS="${PYENV_ROOT:-$HOME/.pyenv}/shims"
+  export PATH="$PYENV_SHIMS:$PATH"
+  if [ -n "$GITHUB_ACTIONS" ]; then
+    echo "$PYENV_SHIMS" >>"$GITHUB_PATH"
+  fi
+  uv pip install --system $(quiet_command) --upgrade pip
+  uv pip install --system $(quiet_command) virtualenv
 }
 
 # Check if the virtualenv already exists at the specified path
@@ -277,21 +303,26 @@ create_virtualenv() {
 # Install mlflow dev version and required dependencies
 install_mlflow_and_dependencies() {
   # Install current checked out version of mlflow (local)
-  pip install -e .[extras]
-  
+  # Note: omit --system so uv installs into the active virtualenv (sourced in
+  # create_virtualenv) rather than the pyenv Python's site-packages.
+  uv pip install -e .[extras]
+
   echo "Installing pip dependencies for development environment."
   if [[ -n "$full" ]]; then
     # Install dev requirements
-    pip install -r "$rd/dev-requirements.txt"
+    uv pip install -r "$rd/dev-requirements.txt"
     # Install test plugin
-    pip install -e "$MLFLOW_HOME/tests/resources//mlflow-test-plugin"
+    uv pip install -e "$MLFLOW_HOME/tests/resources/mlflow-test-plugin"
   else
     files=("$rd/test-requirements.txt" "$rd/lint-requirements.txt" "$rd/doc-requirements.txt")
     for r in "${files[@]}"; do
-      pip install -r "$r"
+      uv pip install -r "$r"
     done
   fi
   echo "Finished installing pip dependencies."
+  # Regenerate pyenv shims so newly installed executables (e.g., pre-commit)
+  # are accessible via the shims directory we added to PATH earlier.
+  pyenv rehash
 
   echo "$(
     tput setaf 2
@@ -360,7 +391,7 @@ set_pre_commit_and_git_signoff() {
   fi
 
   # Set up pre-commit hooks
-  pre-commit install -t pre-commit -t prepare-commit-msg
+  pre-commit install --install-hooks
 }
 
 # Execute mandatory setups with strict error handling

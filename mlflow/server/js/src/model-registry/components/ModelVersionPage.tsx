@@ -19,6 +19,7 @@ import {
 import { getRunApi } from '../../experiment-tracking/actions';
 import { getModelVersion, getModelVersionSchemas } from '../reducers';
 import { ModelVersionView } from './ModelVersionView';
+import type { PendingModelVersionActivity } from '../constants';
 import { ActivityTypes, MODEL_VERSION_STATUS_POLL_INTERVAL as POLL_INTERVAL } from '../constants';
 import Utils from '../../common/utils/Utils';
 import { getRunInfo, getRunTags } from '../../experiment-tracking/reducers/Reducers';
@@ -28,16 +29,17 @@ import { Spinner } from '../../common/components/Spinner';
 import { ModelRegistryRoutes } from '../routes';
 import { getProtoField } from '../utils';
 import { getUUID } from '../../common/utils/ActionUtils';
-import _ from 'lodash';
+import { without } from 'lodash';
 import { PageContainer } from '../../common/components/PageContainer';
 import { withRouterNext } from '../../common/utils/withRouterNext';
 import type { WithRouterNextProps } from '../../common/utils/withRouterNext';
 import { withErrorBoundary } from '../../common/utils/withErrorBoundary';
 import ErrorUtils from '../../common/utils/ErrorUtils';
 import type { ModelEntity, RunInfoEntity } from '../../experiment-tracking/types';
-import { ReduxState } from '../../redux-types';
+import type { ReduxState } from '../../redux-types';
 import { ErrorCodes } from '../../common/constants';
 import { injectIntl } from 'react-intl';
+import { useRegisterAssistantContext } from '@mlflow/mlflow/src/assistant';
 
 type ModelVersionPageImplProps = WithRouterNextProps & {
   modelName: string;
@@ -61,6 +63,16 @@ type ModelVersionPageImplProps = WithRouterNextProps & {
 };
 
 type ModelVersionPageImplState = any;
+
+/**
+ * Wrapper component to register model name and version context for the Assistant.
+ * Used because ModelVersionPageImpl is a class component that can't use hooks.
+ */
+const ModelVersionAssistantContextProvider = ({ modelName, version }: { modelName?: string; version?: string }) => {
+  useRegisterAssistantContext('modelName', modelName);
+  useRegisterAssistantContext('modelVersion', version);
+  return null;
+};
 
 export class ModelVersionPageImpl extends React.Component<ModelVersionPageImplProps, ModelVersionPageImplState> {
   listTransitionRequestId: any;
@@ -86,7 +98,7 @@ export class ModelVersionPageImpl extends React.Component<ModelVersionPageImplPr
 
   loadData = (isInitialLoading: any) => {
     const promises = [this.getModelVersionDetailAndRunInfo(isInitialLoading)];
-    return Promise.all([promises]);
+    return Promise.all(promises);
   };
 
   pollData = () => {
@@ -99,7 +111,7 @@ export class ModelVersionPageImpl extends React.Component<ModelVersionPageImplPr
           this.props.deleteModelVersionApi(modelName, version, undefined, true);
           navigate(ModelRegistryRoutes.getModelPageRoute(modelName));
         } else {
-          console.error(e);
+          // fail silently for non-RESOURCE_DOES_NOT_EXIST errors
         }
       });
     }
@@ -118,7 +130,8 @@ export class ModelVersionPageImpl extends React.Component<ModelVersionPageImplPr
         isInitialLoading === true ? this.initGetModelVersionDetailsRequestId : this.getModelVersionDetailsRequestId,
       )
       .then(({ value }: any) => {
-        if (value && !value[getProtoField('model_version')].run_link) {
+        // Do not fetch run info if there is no run_id (e.g. model version created directly from a logged model)
+        if (value && !value[getProtoField('model_version')].run_link && value[getProtoField('model_version')]?.run_id) {
           this.props.getRunApi(value[getProtoField('model_version')].run_id, this.getRunRequestId);
         }
       });
@@ -137,12 +150,16 @@ export class ModelVersionPageImpl extends React.Component<ModelVersionPageImplPr
         // `initGetMlModelFileRequestId` from `criticalInitialRequestIds`
         // to unblock RequestStateWrapper from rendering its content
         this.setState((prevState: any) => ({
-          criticalInitialRequestIds: _.without(prevState.criticalInitialRequestIds, this.initGetMlModelFileRequestId),
+          criticalInitialRequestIds: without(prevState.criticalInitialRequestIds, this.initGetMlModelFileRequestId),
         }));
       });
   }
 
-  handleStageTransitionDropdownSelect = (activity: any, archiveExistingVersions: any) => {
+  // prettier-ignore
+  handleStageTransitionDropdownSelect = (
+    activity: PendingModelVersionActivity,
+    archiveExistingVersions?: boolean,
+  ) => {
     const { modelName, version } = this.props;
     const toStage = activity.to_stage;
     if (activity.type === ActivityTypes.APPLIED_TRANSITION) {
@@ -164,11 +181,15 @@ export class ModelVersionPageImpl extends React.Component<ModelVersionPageImplPr
     return this.props
       .updateModelVersionApi(modelName, version, description, this.updateModelVersionRequestId)
       .then(this.loadData)
-      .catch(console.error);
+      .catch(() => {
+        // fail silently
+      });
   };
 
   componentDidMount() {
-    this.loadData(true).catch(console.error);
+    this.loadData(true).catch(() => {
+      // fail silently
+    });
     this.loadModelDataWithAliases();
     this.pollIntervalId = setInterval(this.pollData, POLL_INTERVAL);
     this.getModelVersionMlModelFile();
@@ -181,7 +202,9 @@ export class ModelVersionPageImpl extends React.Component<ModelVersionPageImplPr
   // Make a new initial load if model version or name has changed
   componentDidUpdate(prevProps: ModelVersionPageImplProps) {
     if (this.props.version !== prevProps.version || this.props.modelName !== prevProps.modelName) {
-      this.loadData(true).catch(console.error);
+      this.loadData(true).catch(() => {
+        // fail silently
+      });
       this.getModelVersionMlModelFile();
     }
   }
@@ -195,9 +218,10 @@ export class ModelVersionPageImpl extends React.Component<ModelVersionPageImplPr
 
     return (
       <PageContainer>
+        <ModelVersionAssistantContextProvider modelName={modelName} version={version} />
         <RequestStateWrapper
+          // prettier-ignore
           requestIds={this.state.criticalInitialRequestIds}
-          // eslint-disable-next-line no-trailing-spaces
         >
           {(loading: any, hasError: any, requests: any) => {
             if (hasError) {

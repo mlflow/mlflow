@@ -2,6 +2,9 @@ name: Dev environment setup
 
 on:
   push:
+    branches:
+      - master
+      - branch-[0-9]+.[0-9]+
     paths:
       - "dev/dev-env-setup.sh"
       - "dev/test-dev-env-setup.sh"
@@ -29,27 +32,27 @@ on:
         required: false
         default: ""
 
-permissions:
-  contents: read
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 defaults:
   run:
-    shell: bash --noprofile --norc -exo pipefail {0}
+    shell: bash
 
 jobs:
   linux-env-setup:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    if: github.event_name != 'schedule' || github.repository == 'mlflow-automation/mlflow'
+    permissions:
+      contents: read
+    if: github.event_name != 'schedule' || github.repository == 'mlflow/dev'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/free-disk-space
         with:
-          submodules: recursive
           repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
       - name: Setup environment

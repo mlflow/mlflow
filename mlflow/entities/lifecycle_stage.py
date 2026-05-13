@@ -10,9 +10,9 @@ class LifecycleStage:
     @classmethod
     def view_type_to_stages(cls, view_type=ViewType.ALL):
         stages = []
-        if view_type == ViewType.ACTIVE_ONLY or view_type == ViewType.ALL:
+        if view_type in (ViewType.ACTIVE_ONLY, ViewType.ALL):
             stages.append(cls.ACTIVE)
-        if view_type == ViewType.DELETED_ONLY or view_type == ViewType.ALL:
+        if view_type in (ViewType.DELETED_ONLY, ViewType.ALL):
             stages.append(cls.DELETED)
         return stages
 

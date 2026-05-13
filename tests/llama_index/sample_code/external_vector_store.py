@@ -3,6 +3,7 @@ Sample code to define an index using an external vector store (Faiss) for model-
 
 Ref: https://qdrant.tech/documentation/quickstart/
 """
+
 from llama_index.core import VectorStoreIndex
 from llama_index.vector_stores.qdrant import QdrantVectorStore
 from qdrant_client import QdrantClient

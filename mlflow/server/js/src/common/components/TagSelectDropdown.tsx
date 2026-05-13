@@ -1,10 +1,12 @@
 import { sortedIndexOf } from 'lodash';
 import React, { useMemo, useRef, useState } from 'react';
-import { Control, useController } from 'react-hook-form';
+import type { Control } from 'react-hook-form';
+import { useController } from 'react-hook-form';
 import { useIntl } from 'react-intl';
 
-import { PlusIcon, LegacySelect, LegacyTooltip, useDesignSystemTheme } from '@databricks/design-system';
-import { KeyValueEntity } from '../../experiment-tracking/types';
+import { PlusIcon, LegacySelect, Tooltip, useDesignSystemTheme } from '@databricks/design-system';
+import type { KeyValueEntity } from '../types';
+import { isValidTagKey } from '../utils/tagKeyValidation';
 
 /**
  * Will show an extra row at the bottom of the dropdown menu to create a new tag when
@@ -25,7 +27,7 @@ function DropdownMenu(menu: React.ReactElement, allAvailableTags: string[]) {
     const doesTagExists = sortedIndexOf(allAvailableTags, searchValue) >= 0;
     if (doesTagExists) return menu;
 
-    const isValidTagKey = /^[^,.:/=\-\s]+$/.test(searchValue);
+    const tagKeyValid = isValidTagKey(searchValue);
 
     // Overriding the menu to add a new option at the top
     return React.cloneElement(menu, {
@@ -33,22 +35,24 @@ function DropdownMenu(menu: React.ReactElement, allAvailableTags: string[]) {
         {
           data: {
             value: searchValue,
-            disabled: !isValidTagKey,
+            disabled: !tagKeyValid,
             style: {
-              color: isValidTagKey ? theme.colors.actionTertiaryTextDefault : theme.colors.actionDisabledText,
+              color: tagKeyValid ? theme.colors.actionTertiaryTextDefault : theme.colors.actionDisabledText,
             },
             children: (
-              <LegacyTooltip
-                title={
-                  isValidTagKey
+              <Tooltip
+                content={
+                  tagKeyValid
                     ? undefined
                     : intl.formatMessage({
-                        defaultMessage: ', . : / - = and blank spaces are not allowed',
+                        defaultMessage:
+                          "Tag key may only contain alphanumeric characters, underscores (_), dashes (-), periods (.), spaces ( ), colons (:) and slashes (/). Key must not start with '/'.",
                         description:
                           'Key-value tag editor modal > Tag dropdown Manage Modal > Invalid characters error',
                       })
                 }
-                placement="right"
+                componentId="mlflow.common.components.tag-select-dropdown.add-new-tag-tooltip"
+                side="right"
               >
                 <span css={{ display: 'block' }}>
                   <PlusIcon css={{ marginRight: theme.spacing.sm }} />
@@ -62,7 +66,7 @@ function DropdownMenu(menu: React.ReactElement, allAvailableTags: string[]) {
                     },
                   )}
                 </span>
-              </LegacyTooltip>
+              </Tooltip>
             ),
           },
           key: searchValue,

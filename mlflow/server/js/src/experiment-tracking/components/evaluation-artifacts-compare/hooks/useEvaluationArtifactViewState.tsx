@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { ExperimentPageViewState } from '../../experiment-page/models/ExperimentPageViewState';
-import { UpdateExperimentViewStateFn } from '../../../types';
+import type { ExperimentPageViewState } from '../../experiment-page/models/ExperimentPageViewState';
+import type { UpdateExperimentViewStateFn } from '../../../types';
 
 export const useEvaluationArtifactViewState = (
   viewState: ExperimentPageViewState,

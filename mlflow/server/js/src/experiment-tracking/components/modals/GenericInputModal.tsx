@@ -15,14 +15,17 @@ type Props = {
   cancelText?: string;
   isOpen?: boolean;
   onClose: (...args: any[]) => any;
-  onCancel?: (...args: any[]) => any;
+  onCancel?: () => void;
   className?: string;
   footer?: React.ReactNode;
   handleSubmit: (...args: any[]) => any;
   title: React.ReactNode;
+  okButtonProps?: React.ComponentProps<typeof Modal>['okButtonProps'];
 };
 
-type State = any;
+type State = {
+  isSubmitting: boolean;
+};
 
 /**
  * Generic modal that has a title and an input field with a save/submit button.
@@ -39,17 +42,11 @@ export class GenericInputModal extends Component<Props, State> {
     this.setState({ isSubmitting: true });
     try {
       const values = await (this as any).formRef.current.validateFields();
-
-      // call handleSubmit from parent component, pass form values
-      // handleSubmit is expected to return a promise
-      return await this.props
-        .handleSubmit(values)
-        .then(this.resetAndClearModalForm)
-        .catch(this.handleSubmitFailure)
-        .finally(this.onRequestCloseHandler);
+      await this.props.handleSubmit(values);
+      this.resetAndClearModalForm();
+      this.onRequestCloseHandler();
     } catch (e) {
-      this.setState({ isSubmitting: false });
-      return Promise.reject(e);
+      this.handleSubmitFailure(e);
     }
   };
 
@@ -64,30 +61,24 @@ export class GenericInputModal extends Component<Props, State> {
   };
 
   onRequestCloseHandler = () => {
-    if (!this.state.isSubmitting) {
-      this.resetAndClearModalForm();
-      this.props.onClose();
-    }
+    this.resetAndClearModalForm();
+    this.props.onClose();
   };
 
   handleCancel = () => {
     this.onRequestCloseHandler();
-    // Check for optional `onCancel` method prop.
-    if (this.props.onCancel !== undefined) {
-      this.props.onCancel();
-    }
+    this.props.onCancel?.();
   };
 
   render() {
     const { isSubmitting } = this.state;
-    const { okText, cancelText, isOpen, footer, children } = this.props;
+    const { okText, cancelText, isOpen, footer, children, okButtonProps } = this.props;
 
     // add props (ref) to passed component
     const displayForm = React.Children.map(children, (child) => {
       // Checking isValidElement is the safe way and avoids a typescript
       // error too.
       if (React.isValidElement(child)) {
-        // @ts-expect-error TODO: fix this
         return React.cloneElement(child, { innerRef: this.formRef });
       }
       return child;
@@ -105,6 +96,7 @@ export class GenericInputModal extends Component<Props, State> {
         okText={okText}
         cancelText={cancelText}
         confirmLoading={isSubmitting}
+        okButtonProps={okButtonProps}
         onCancel={this.handleCancel}
         footer={footer}
         centered

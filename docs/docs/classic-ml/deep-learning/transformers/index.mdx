@@ -1,0 +1,178 @@
+import { CardGroup, PageCard } from "@site/src/components/Card";
+import TilesGrid from "@site/src/components/TilesGrid";
+import TileCard from "@site/src/components/TileCard";
+import { BookOpen, FileText } from "lucide-react";
+
+# MLflow Transformers Flavor
+
+The MLflow Transformers flavor provides native integration with the [Hugging Face Transformers](https://huggingface.co/docs/transformers/index) library, supporting model logging, loading, and inference for NLP, audio, vision, and multimodal tasks.
+
+## Key Features
+
+- **Pipeline and Component Logging**: Save complete pipelines or individual model components
+- **PyFunc Integration**: Deploy models with standardized inference interfaces
+- **PEFT Support**: Native support for parameter-efficient fine-tuning (LoRA, QLoRA, etc.)
+- **Prompt Templates**: Save and manage prompt templates with pipelines
+- **Automatic Metadata Logging**: Model cards and metadata logged automatically
+- **Flexible Inference Configuration**: Customize model behavior via `model_config` and signature parameters
+
+## Installation
+
+```bash
+pip install mlflow transformers
+```
+
+## Basic Usage
+
+### Logging a Pipeline
+
+```python
+import mlflow
+from transformers import pipeline
+
+# Create a text generation pipeline
+text_gen = pipeline("text-generation", model="gpt2")
+
+# Log the pipeline
+with mlflow.start_run():
+    mlflow.transformers.log_model(
+        transformers_model=text_gen,
+        name="model",
+    )
+```
+
+### Loading and Inference
+
+```python
+# Load as native transformers
+model = mlflow.transformers.load_model("runs:/<run_id>/model")
+result = model("Hello, how are you?")
+
+# Load as PyFunc
+pyfunc_model = mlflow.pyfunc.load_model("runs:/<run_id>/model")
+result = pyfunc_model.predict("Hello, how are you?")
+```
+
+## Autologging with HuggingFace Trainer
+
+When using the HuggingFace `Trainer` class for fine-tuning, you can enable automatic logging to MLflow by setting `report_to="mlflow"` in the `TrainingArguments`:
+
+```python
+from transformers import TrainingArguments, Trainer
+
+training_args = TrainingArguments(
+    output_dir="./results",
+    report_to="mlflow",  # Enable MLflow logging
+    # ... other training arguments
+)
+
+trainer = Trainer(
+    model=model,
+    args=training_args,
+    train_dataset=train_dataset,
+    # ... other trainer arguments
+)
+
+trainer.train()
+```
+
+This automatically logs training metrics, hyperparameters, and model checkpoints to your active MLflow run.
+
+## Tutorials
+
+### Quickstart
+
+<CardGroup>
+  <PageCard
+    headerText="Text Generation with Transformers"
+    link="/ml/deep-learning/transformers/tutorials/text-generation/text-generation/"
+    text="Introductory quickstart for using Transformers with MLflow"
+  />
+</CardGroup>
+
+### Fine-Tuning
+
+<CardGroup>
+  <PageCard
+    headerText="Fine-tuning a Foundation Model"
+    link="/ml/deep-learning/transformers/tutorials/fine-tuning/transformers-fine-tuning/"
+    text="Track fine-tuning experiments and log optimized models"
+  />
+  <PageCard
+    headerText="Fine-tuning with PEFT"
+    link="/ml/deep-learning/transformers/tutorials/fine-tuning/transformers-peft/"
+    text="Memory-efficient fine-tuning using PEFT (QLoRA) techniques"
+  />
+</CardGroup>
+
+### Advanced Use Cases
+
+<CardGroup>
+  <PageCard
+    headerText="Audio Transcription"
+    link="/ml/deep-learning/transformers/tutorials/audio-transcription/whisper/"
+    text="Use Whisper models for audio transcription"
+  />
+  <PageCard
+    headerText="Translation"
+    link="/ml/deep-learning/transformers/tutorials/translation/component-translation/"
+    text="Component-based model logging for translation tasks"
+  />
+  <PageCard
+    headerText="Conversational Pipelines"
+    link="/ml/deep-learning/transformers/tutorials/conversational/conversational-model/"
+    text="Stateful chat with conversational pipelines"
+  />
+  <PageCard
+    headerText="OpenAI-Compatible Chatbot"
+    link="/ml/deep-learning/transformers/tutorials/conversational/pyfunc-chat-model/"
+    text="Build and serve an OpenAI-compatible chatbot"
+  />
+  <PageCard
+    headerText="Prompt Templating"
+    link="/ml/deep-learning/transformers/tutorials/prompt-templating/prompt-templating/"
+    text="Optimize LLM outputs with prompt templates"
+  />
+</CardGroup>
+
+## Important Considerations
+
+### PyFunc Limitations
+
+- Not all pipeline types are supported for PyFunc inference
+- Some outputs (e.g., additional scores, references) may not be captured
+- Audio and text LLMs are supported; vision and multimodal models require native loading
+- See the [guide](/ml/deep-learning/transformers/guide#loading-a-transformers-model-as-a-python-function) for supported pipeline types
+
+### Input/Output Types
+
+Input and output formats for PyFunc may differ from native pipelines. Ensure compatibility with your data processing workflows.
+
+### Model Configuration
+
+Parameters in `ModelSignature` override those in `model_config` when both are provided.
+
+## Working with Large Models
+
+For models with billions of parameters, MLflow provides optimization techniques to reduce memory usage and speed up logging. See the [large models guide](/ml/deep-learning/transformers/large-models).
+
+## Tasks
+
+The `task` parameter determines input/output format. MLflow supports native Transformers tasks plus advanced tasks like `llm/v1/chat` and `llm/v1/completions` for OpenAI-compatible inference. See the [tasks guide](/ml/deep-learning/transformers/task).
+
+## Learn More
+
+<TilesGrid>
+  <TileCard
+    icon={BookOpen}
+    title="Detailed Guide"
+    description="Comprehensive documentation covering pipelines, PyFunc, signatures, PEFT, and more"
+    href="/ml/deep-learning/transformers/guide"
+  />
+  <TileCard
+    icon={FileText}
+    title="Transformers Documentation"
+    description="Official Hugging Face Transformers documentation"
+    href="https://huggingface.co/docs/transformers/index"
+  />
+</TilesGrid>

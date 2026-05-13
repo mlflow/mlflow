@@ -1,20 +1,25 @@
-import { render, screen, waitFor } from '@testing-library/react-for-react-18';
+import { jest, describe, test, expect } from '@jest/globals';
+import { render, screen, waitFor } from '@testing-library/react';
 import { RunsChartsConfigureModal } from './RunsChartsConfigureModal';
-import { RunsChartType, RunsChartsLineCardConfig } from '../runs-charts.types';
+import type { RunsChartsLineCardConfig } from '../runs-charts.types';
+import { RunsChartType } from '../runs-charts.types';
 import { IntlProvider } from 'react-intl';
 import { MockedReduxStoreProvider } from '../../../../common/utils/TestUtils';
 import { RunsMetricsLinePlot } from './RunsMetricsLinePlot';
 import { last } from 'lodash';
-import userEvent from '@testing-library/user-event-14';
+import userEvent from '@testing-library/user-event';
 import { RunsChartsLineChartXAxisType } from './RunsCharts.common';
 import { DesignSystemProvider } from '@databricks/design-system';
+import { TestApolloProvider } from '../../../../common/utils/TestApolloProvider';
+import { QueryClient, QueryClientProvider } from '../../../../common/utils/reactQueryHooks';
 
 // Larger timeout for integration testing (form rendering)
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(15000);
 
 // Mock <RunsMetricsLinePlot> component, it's exact implementation is not important for this test
 jest.mock('./RunsMetricsLinePlot', () => ({
-  RunsMetricsLinePlot: jest.fn().mockImplementation(() => <div>RunsMetricsLinePlot</div>),
+  RunsMetricsLinePlot: jest.fn(() => <div>RunsMetricsLinePlot</div>),
 }));
 
 const sampleChartData = [
@@ -44,6 +49,7 @@ const sampleLineChartConfig: RunsChartsLineCardConfig = {
 
 describe('RunsChartsConfigureModal', () => {
   const renderTestComponent = (onSubmit?: () => void) => {
+    const queryClient = new QueryClient();
     render(
       <RunsChartsConfigureModal
         config={sampleLineChartConfig}
@@ -57,15 +63,19 @@ describe('RunsChartsConfigureModal', () => {
       {
         wrapper: ({ children }) => (
           <DesignSystemProvider>
-            <MockedReduxStoreProvider
-              state={{
-                entities: {
-                  metricsByRunUuid: {},
-                },
-              }}
-            >
-              <IntlProvider locale="en">{children}</IntlProvider>
-            </MockedReduxStoreProvider>
+            <TestApolloProvider>
+              <QueryClientProvider client={queryClient}>
+                <MockedReduxStoreProvider
+                  state={{
+                    entities: {
+                      metricsByRunUuid: {},
+                    },
+                  }}
+                >
+                  <IntlProvider locale="en">{children}</IntlProvider>
+                </MockedReduxStoreProvider>
+              </QueryClientProvider>
+            </TestApolloProvider>
           </DesignSystemProvider>
         ),
       },

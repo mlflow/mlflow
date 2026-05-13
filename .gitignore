@@ -2,8 +2,13 @@
 mlruns/
 mlartifacts/
 outputs/
-mlruns.db
+mlruns*.db
+mlflow.db
+# SQLite WAL mode temporary files
+*-shm
+*-wal
 **/basic_auth.db
+mlflow/protos/protos.json
 
 # Mac
 .DS_Store
@@ -19,6 +24,7 @@ __pycache__
 # Distribution / packaging
 .Python
 build/
+bundle/
 develop-eggs/
 dist/
 downloads/
@@ -35,6 +41,11 @@ wheels/
 *.egg
 MANIFEST
 node_modules
+yarn-error.log
+.docusaurus
+*-ipynb.mdx
+docs/src/api_modules.json
+docs/static/api_reference
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
@@ -56,6 +67,7 @@ coverage.xml
 *.cover
 .hypothesis/
 .pytest_cache/
+.deepeval/
 
 # Sphinx documentation
 docs/_build/
@@ -73,7 +85,6 @@ venv/
 ENV/
 env.bak/
 venv.bak/
-.python-version
 dev-env-setup-progress
 
 # Editor files
@@ -81,9 +92,13 @@ dev-env-setup-progress
 *.swp
 *.swo
 *.idea
-*.vscode
 *.iml
 *~
+
+# vscode
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
 
 # mkdocs documentation
 /site
@@ -104,6 +119,9 @@ travis_wait*.log
 # Pytorch logs
 lightning_logs
 
+# Downloaded datasets
+examples/pytorch/*/data/
+
 a.py
 a.ipynb
 a.md
@@ -116,3 +134,16 @@ a.md
 
 # Ignore a gunicorn config file
 gunicorn.conf.py
+
+# Personal Claude Code instructions
+CLAUDE.local.md
+
+# ignore everything in .claude
+.claude/*
+!.claude/commands/
+!.claude/skills/
+!.claude/hooks/
+!.claude/rules/
+!.claude/scripts/
+!.claude/settings.json
+!.claude/statusline.sh

@@ -1,10 +1,6 @@
-import type {
-  ModelVersionInfoEntity,
-  RunInfoEntity,
-  RunDatasetWithTags,
-  KeyValueEntity,
-  MetricEntity,
-} from '../../../types';
+import type { ModelVersionInfoEntity, RunInfoEntity, RunDatasetWithTags, MetricEntity } from '../../../types';
+import type { KeyValueEntity } from '../../../../common/types';
+import type { LoggedModelProto } from '../../../types';
 
 /**
  * Represents how eye icon should be displayed for a particular row in runs table.
@@ -47,6 +43,7 @@ export interface RunRowType {
   hidden: boolean;
   pinnable: boolean;
   runName?: string;
+  runStatus?: string;
   defaultColor?: string;
   tags?: Record<string, { key: string; value: string }>;
   params?: KeyValueEntity[];
@@ -90,6 +87,7 @@ export interface RunRowModelsInfo {
     flavors: string[];
     utcTimeCreated: number;
   }[];
+  loggedModelsV3?: LoggedModelProto[];
   experimentId: string;
   runUuid: string;
 }

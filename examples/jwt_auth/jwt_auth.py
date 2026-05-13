@@ -2,8 +2,8 @@
 
 NOT SUITABLE FOR PRODUCTION USE.
 """
+
 import logging
-from typing import Union
 
 import jwt
 from flask import Response, make_response, request
@@ -14,7 +14,7 @@ BEARER_PREFIX = "bearer "
 _logger = logging.getLogger(__name__)
 
 
-def authenticate_request() -> Union[Authorization, Response]:
+def authenticate_request() -> Authorization | Response:
     _logger.debug("Getting token")
     error_response = make_response()
     error_response.status_code = 401

@@ -5,13 +5,19 @@ import pytest
 
 import mlflow
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
+    EmitModelVersionLineageRequest,
     Entity,
     Job,
     LineageHeaderInfo,
+    ModelVersionLineageDirection,
+    ModelVersionLineageInfo,
     Notebook,
 )
 from mlflow.store._unity_catalog.lineage.constants import _DATABRICKS_LINEAGE_ID_HEADER
 from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
+from mlflow.store.artifact.databricks_sdk_models_artifact_repo import (
+    DatabricksSDKModelsArtifactRepository,
+)
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.store.artifact.unity_catalog_models_artifact_repo import (
     UnityCatalogModelsArtifactRepository,
@@ -20,7 +26,7 @@ from mlflow.utils.proto_json_utils import message_to_json
 
 
 class SimpleModel(mlflow.pyfunc.PythonModel):
-    def predict(self, _, model_input):
+    def predict(self, context, model_input):
         return model_input.applymap(lambda x: x * 2)
 
 
@@ -52,12 +58,9 @@ def lineage_header_info_to_extra_headers(lineage_header_info):
 def test_downstream_notebook_job_lineage(
     tmp_path, is_in_notebook, is_in_job, notebook_id, job_id, monkeypatch
 ):
-    monkeypatch.setenvs(
-        {
-            "DATABRICKS_HOST": "my-host",
-            "DATABRICKS_TOKEN": "my-token",
-        }
-    )
+    monkeypatch.setenv("DATABRICKS_HOST", "my-host")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "my-token")
+    monkeypatch.setenv("MLFLOW_USE_DATABRICKS_SDK_MODEL_ARTIFACTS_REPO_FOR_UC", "false")
     model_dir = str(tmp_path.joinpath("model"))
     model_name = "mycatalog.myschema.mymodel"
     model_uri = f"models:/{model_name}/1"
@@ -77,40 +80,88 @@ def test_downstream_notebook_job_lineage(
     expected_lineage_header_info = LineageHeaderInfo(entities=entity_list) if entity_list else None
 
     # Mock out all necessary dependency
-    with mock.patch(
-        "mlflow.utils.databricks_utils.is_in_databricks_notebook",
-        return_value=is_in_notebook,
-    ), mock.patch(
-        "mlflow.utils.databricks_utils.is_in_databricks_runtime",
-        return_value=is_in_notebook or is_in_job,
-    ), mock.patch(
-        "mlflow.utils.databricks_utils.is_in_databricks_job",
-        return_value=is_in_job,
-    ), mock.patch(
-        "mlflow.utils.databricks_utils.get_notebook_id",
-        return_value=notebook_id,
-    ), mock.patch(
-        "mlflow.utils.databricks_utils.get_job_id",
-        return_value=job_id,
-    ), mock.patch("mlflow.get_registry_uri", return_value="databricks-uc"), mock.patch.object(
-        UnityCatalogModelsArtifactRepository,
-        "_get_blob_storage_path",
-        return_value="fake_blob_storage_path",
-    ), mock.patch(
-        "mlflow.utils._unity_catalog_utils._get_artifact_repo_from_storage_info",
-        return_value=mock_artifact_repo,
-    ), mock.patch(
-        "mlflow.utils.rest_utils.http_request",
-        return_value=mock.MagicMock(status_code=200, text="{}"),
-    ) as mock_http:
+    with (
+        mock.patch(
+            "mlflow.utils.databricks_utils.is_in_databricks_notebook",
+            return_value=is_in_notebook,
+        ),
+        mock.patch(
+            "mlflow.utils.databricks_utils.is_in_databricks_runtime",
+            return_value=is_in_notebook or is_in_job,
+        ),
+        mock.patch(
+            "mlflow.utils.databricks_utils.is_in_databricks_job",
+            return_value=is_in_job,
+        ),
+        mock.patch(
+            "mlflow.utils.databricks_utils.get_notebook_id",
+            return_value=notebook_id,
+        ),
+        mock.patch(
+            "mlflow.utils.databricks_utils.get_job_id",
+            return_value=job_id,
+        ),
+        mock.patch("mlflow.get_registry_uri", return_value="databricks-uc"),
+        mock.patch.object(
+            UnityCatalogModelsArtifactRepository,
+            "_get_blob_storage_path",
+            return_value="fake_blob_storage_path",
+        ),
+        mock.patch(
+            "mlflow.utils._unity_catalog_utils._get_artifact_repo_from_storage_info",
+            return_value=mock_artifact_repo,
+        ),
+        mock.patch(
+            "mlflow.utils.rest_utils.http_request",
+            return_value=mock.MagicMock(status_code=200, text="{}"),
+        ) as mock_http,
+        mock.patch.object(
+            mlflow.tracking.MlflowClient,
+            "get_model_version",
+            return_value=mock.Mock(model_id="m-123"),
+        ),
+    ):
         mlflow.pyfunc.save_model(path=model_dir, python_model=SimpleModel())
         mlflow.pyfunc.load_model(model_uri)
         extra_headers = lineage_header_info_to_extra_headers(expected_lineage_header_info)
         if is_in_notebook or is_in_job:
-            mock_http.assert_called_once_with(
+            mock_http.assert_any_call(
                 host_creds=mock.ANY,
                 endpoint=mock.ANY,
                 method=mock.ANY,
                 json=mock.ANY,
                 extra_headers=extra_headers,
             )
+
+
+def test_databricks_sdk_models_artifact_repo_lineage(tmp_path, monkeypatch):
+    # Test that when using DatabricksSDKModelArtifactRepo, lineage is still emitted properly
+    monkeypatch.setenv("DATABRICKS_HOST", "my-host")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "my-token")
+    monkeypatch.setenv("MLFLOW_USE_DATABRICKS_SDK_MODEL_ARTIFACTS_REPO_FOR_UC", "true")
+
+    with mock.patch(
+        "mlflow.utils._unity_catalog_utils.call_endpoint",
+    ) as mock_call_endpoint:
+        uc_repo = UnityCatalogModelsArtifactRepository("models:/a.b.c/1", "databricks-uc")
+        repo = uc_repo._get_artifact_repo()
+        assert isinstance(repo, DatabricksSDKModelsArtifactRepository)
+
+        req_body = message_to_json(
+            EmitModelVersionLineageRequest(
+                name="a.b.c",
+                version="1",
+                model_version_lineage_info=ModelVersionLineageInfo(
+                    entities=[],
+                    direction=ModelVersionLineageDirection.DOWNSTREAM,
+                ),
+            )
+        )
+
+        mock_call_endpoint.assert_any_call(
+            host_creds=mock.ANY,
+            endpoint=mock.ANY,
+            method=mock.ANY,
+            json_body=req_body,
+            response_proto=mock.ANY,
+        )

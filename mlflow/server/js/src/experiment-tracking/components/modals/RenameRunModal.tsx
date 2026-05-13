@@ -7,7 +7,8 @@
 
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
-import { IntlShape, injectIntl } from 'react-intl';
+import type { IntlShape } from 'react-intl';
+import { injectIntl } from 'react-intl';
 
 import { GenericInputModal } from './GenericInputModal';
 import { RenameForm, NEW_NAME_FIELD } from './RenameForm';
@@ -19,14 +20,16 @@ type Props = {
   isOpen?: boolean;
   runUuid: string;
   runName: string;
-  onClose: (...args: any[]) => any;
-  updateRunApi: (...args: any[]) => any;
+  onClose: () => void;
+  updateRunApi: (runId: string, newName: string, id: string) => any;
   intl: IntlShape;
-  onSuccess?: (...args: any[]) => any;
+  onSuccess?: () => void;
 };
 
-export class RenameRunModalImpl extends Component<Props> {
-  handleRenameRun = (values: any) => {
+class RenameRunModalImpl extends Component<Props> {
+  formRef = React.createRef();
+
+  handleRenameRun = (values: Record<string, string>) => {
     // get value of input field
     const newRunName = values[NEW_NAME_FIELD];
 
@@ -38,7 +41,7 @@ export class RenameRunModalImpl extends Component<Props> {
   };
 
   render() {
-    const { isOpen, runName } = this.props;
+    const { isOpen = false, runName } = this.props;
     return (
       <GenericInputModal
         title={this.props.intl.formatMessage({
@@ -56,7 +59,7 @@ export class RenameRunModalImpl extends Component<Props> {
         <RenameForm
           type="run"
           name={runName}
-          // @ts-expect-error TS(2769): No overload matches this call.
+          innerRef={this.formRef}
           visible={isOpen}
           validator={async (_, value) => {
             if (typeof value === 'string' && value.length && !value.trim()) {

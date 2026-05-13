@@ -5,6 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import { describe, beforeEach, test, expect } from '@jest/globals';
 import React from 'react';
 import { shallow } from 'enzyme';
 import { PermissionDeniedView } from './PermissionDeniedView';
@@ -19,6 +20,7 @@ describe('PermissionDeniedView', () => {
     minimalProps = { errorMessage: mockErrorMessage };
   });
 
+  // eslint-disable-next-line jest/expect-expect -- TODO(FEINF-1337)
   test('should render with minimal props without exploding', () => {
     wrapper = shallow(<PermissionDeniedView {...minimalProps} />);
   });
@@ -30,6 +32,6 @@ describe('PermissionDeniedView', () => {
 
   test('should render default message in h2 when no error message is passed', () => {
     wrapper = shallow(<PermissionDeniedView />);
-    expect(wrapper.find('[data-testid="error-message"]').text()).toBe(defaultMessage);
+    expect(wrapper.find('[data-testid="mlflow-error-message"]').text()).toBe(defaultMessage);
   });
 });

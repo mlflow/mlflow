@@ -1,4 +1,3 @@
-import os
 from unittest import mock
 
 import pytest
@@ -95,13 +94,12 @@ def test_plugin_doesnot_have_required_attrib():
         plugin_manager["dummy"]
 
 
-def test_plugin_raising_error():
+def test_plugin_raising_error(monkeypatch):
     client = deployments.get_deploy_client(f_target)
     # special case to raise error
-    os.environ["raiseError"] = "True"
+    monkeypatch.setenv("raiseError", "True")
     with pytest.raises(RuntimeError, match="Error requested"):
         client.list_deployments()
-    os.environ["raiseError"] = "False"
 
 
 def test_target_uri_parsing():

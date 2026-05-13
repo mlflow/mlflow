@@ -5,6 +5,5 @@ runs:
   steps:
     - shell: bash
       run: |
-        sudo rm -rf "$AGENT_TOOLSDIRECTORY"
-        sudo rm -rf /usr/share/dotnet
-        sudo rm -rf /usr/local/lib/android
+        # Run in background to save time
+        sudo rm -rf /usr/local/lib/android &

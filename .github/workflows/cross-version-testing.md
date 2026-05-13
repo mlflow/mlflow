@@ -161,7 +161,7 @@ time
 ## When do we run cross version tests?
 
 1. Daily at 7:00 UTC using a cron scheduler.
-   [README on the repository root](../../README.rst) has a badge ([![badge-img][]][badge-target]) that indicates the status of the most recent cron run.
+   [README on the repository root](../../README.md) has a badge ([![badge-img][]][badge-target]) that indicates the status of the most recent cron run.
 2. When a PR that affects the ML integrations is created. Note we only run tests relevant to
    the affected ML integrations. For example, a PR that affects files in `mlflow/sklearn` triggers
    cross version tests for `sklearn`.

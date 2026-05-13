@@ -1,0 +1,4 @@
+{"type":"user","message":{"role":"user","content":"Delete all files"},"timestamp":"2025-01-15T10:00:00.000Z","permissionMode":"default"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"toolu_rejected_001","name":"Bash","input":{"command":"rm -rf /"}}]},"timestamp":"2025-01-15T10:00:01.000Z"}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_rejected_001","content":"The user doesn't want to proceed with this tool use.","is_error":true}]},"timestamp":"2025-01-15T10:00:02.000Z"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"I understand, I won't proceed with that."}]},"timestamp":"2025-01-15T10:00:03.000Z"}

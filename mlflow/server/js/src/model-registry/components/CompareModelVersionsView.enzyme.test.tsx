@@ -5,6 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import { describe, beforeEach, test, expect } from '@jest/globals';
 import { CompareModelVersionsView, CompareModelVersionsViewImpl } from './CompareModelVersionsView';
 import React from 'react';
 import thunk from 'redux-thunk';

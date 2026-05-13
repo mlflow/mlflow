@@ -1,3 +1,4 @@
+import { describe, test, expect } from '@jest/globals';
 import {
   truncateToFirstLineWithMaxLength,
   capitalizeFirstChar,
@@ -54,7 +55,7 @@ describe('capitalizeFirstChar', () => {
 });
 
 describe('middleTruncateStr', () => {
-  test('test middleTruncateStr', () => {
+  test('middleTruncateStr', () => {
     expect(middleTruncateStr('abc', 10)).toEqual('abc');
     expect(middleTruncateStr('abcdefghij', 10)).toEqual('abcdefghij');
     expect(middleTruncateStr('abcdefghijk', 10)).toEqual('abc...hijk');
@@ -116,11 +117,14 @@ const testCompressedObject = {
 
 describe('text compression utils', () => {
   test.each([
-    'hello world',
-    'ąółźļż👀中文中文👀中文',
-    JSON.stringify(testCompressedObject),
-    '\u0000\u00ad\u0600-\u0604\u070f\u17b4\u17b5\u200c-\u200f\u2028-\u202f\u2060-\u206f\ufeff\ufff0-\uffff',
-  ])('deflate and inflate text: %s', async (text) => {
+    { text: 'hello world', name: 'simple' },
+    { text: 'ąółźļż👀中文中文👀中文', name: 'some unicode' },
+    { text: JSON.stringify(testCompressedObject), name: 'complex' },
+    {
+      text: '\u0000\u00ad\u0600-\u0604\u070f\u17b4\u17b5\u200c-\u200f\u2028-\u202f\u2060-\u206f\ufeff\ufff0-\uffff',
+      name: 'raw unicode',
+    },
+  ])('deflate and inflate text ($name)', async ({ text }) => {
     const compressed = await textCompressDeflate(text);
     expect(isTextCompressedDeflate(compressed)).toEqual(true);
 

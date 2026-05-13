@@ -5,7 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
-import React, { Component } from 'react';
+import { Component } from 'react';
 import { connect } from 'react-redux';
 import { FormattedMessage } from 'react-intl';
 import Utils from '../../common/utils/Utils';
@@ -27,6 +27,7 @@ type MetricViewImplProps = {
   runNames: string[];
   metricKey: string;
   location: Location;
+  navigate: (path: string, options?: { replace?: boolean }) => void;
 };
 
 export class MetricViewImpl extends Component<MetricViewImplProps> {
@@ -34,7 +35,6 @@ export class MetricViewImpl extends Component<MetricViewImplProps> {
     return numExperiments > 1 ? (
       <FormattedMessage
         defaultMessage="Comparing {numRuns} Runs from {numExperiments} Experiments"
-        // eslint-disable-next-line max-len
         description="Breadcrumb title for compare runs page with multiple experiments"
         values={{ numRuns, numExperiments }}
       />
@@ -59,18 +59,31 @@ export class MetricViewImpl extends Component<MetricViewImplProps> {
     }
 
     if (runUuids.length === 1) {
-      return <Link to={Routes.getRunPageRoute(experimentIds[0], runUuids[0])}>{runNames[0]}</Link>;
+      return (
+        <Link
+          componentId="mlflow.experiment_tracking.metric_view.run_link"
+          to={Routes.getRunPageRoute(experimentIds[0], runUuids[0])}
+        >
+          {runNames[0]}
+        </Link>
+      );
     }
 
     const text = this.getCompareRunsPageText(runUuids.length, experimentIds.length);
-    return <Link to={Routes.getCompareRunPageRoute(runUuids, experimentIds)}>{text}</Link>;
+    return (
+      <Link
+        componentId="mlflow.experiment_tracking.metric_view.compare_runs_link"
+        to={Routes.getCompareRunPageRoute(runUuids, experimentIds)}
+      >
+        {text}
+      </Link>
+    );
   }
 
   getCompareExperimentsPageLinkText(numExperiments: any) {
     return (
       <FormattedMessage
         defaultMessage="Displaying Runs from {numExperiments} Experiments"
-        // eslint-disable-next-line max-len
         description="Breadcrumb nav item to link to the compare-experiments page on compare runs page"
         values={{ numExperiments }}
       />
@@ -82,15 +95,36 @@ export class MetricViewImpl extends Component<MetricViewImplProps> {
 
     if (hasComparedExperimentsBefore && comparedExperimentIds) {
       const text = this.getCompareExperimentsPageLinkText(comparedExperimentIds.length);
-      return <Link to={Routes.getCompareExperimentsPageRoute(comparedExperimentIds)}>{text}</Link>;
+      return (
+        <Link
+          componentId="mlflow.experiment_tracking.metric_view.compare_experiments_link"
+          to={Routes.getCompareExperimentsPageRoute(comparedExperimentIds)}
+        >
+          {text}
+        </Link>
+      );
     }
 
     if (this.hasMultipleExperiments()) {
       const text = this.getCompareExperimentsPageLinkText(experimentIds.length);
-      return <Link to={Routes.getCompareExperimentsPageRoute(experimentIds)}>{text}</Link>;
+      return (
+        <Link
+          componentId="mlflow.experiment_tracking.metric_view.multiple_experiments_link"
+          to={Routes.getCompareExperimentsPageRoute(experimentIds)}
+        >
+          {text}
+        </Link>
+      );
     }
 
-    return <Link to={Routes.getExperimentPageRoute(experimentIds[0])}>{experiments[0].name}</Link>;
+    return (
+      <Link
+        componentId="mlflow.experiment_tracking.metric_view.experiment_link"
+        to={Routes.getExperimentPageRoute(experimentIds[0])}
+      >
+        {experiments[0].name}
+      </Link>
+    );
   }
 
   render() {
@@ -105,8 +139,14 @@ export class MetricViewImpl extends Component<MetricViewImplProps> {
     const breadcrumbs = [this.getExperimentPageLink(), this.getRunPageLink()];
     return (
       <div>
-        <PageHeader title={title} breadcrumbs={breadcrumbs} />
-        <MetricsPlotPanel {...{ experimentIds, runUuids, metricKey }} />
+        <PageHeader title={title} breadcrumbs={breadcrumbs} hideSpacer />
+        <MetricsPlotPanel
+          experimentIds={experimentIds}
+          runUuids={runUuids}
+          metricKey={metricKey}
+          location={location}
+          navigate={this.props.navigate}
+        />
       </div>
     );
   }

@@ -1,10 +1,9 @@
 import { useMemo, useState } from 'react';
 import { findChartStepsByTimestampForRuns } from '../utils/findChartStepsByTimestamp';
-import { SampledMetricsByRunUuidState } from '../../../types';
+import type { SampledMetricsByRunUuidState } from '../../../types';
 import { isNumber, isString, isUndefined } from 'lodash';
 import { RunsChartsLineChartXAxisType } from '../components/RunsCharts.common';
-import { RunsChartsLineCardConfig } from '../runs-charts.types';
-import { shouldEnableManualRangeControls } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
+import type { RunsChartsLineCardConfig } from '../runs-charts.types';
 
 /**
  * Hook used in compare run charts. It's responsible for converting selected range
@@ -25,12 +24,7 @@ export const useCompareRunChartSelectedRange = (
   scaleType: 'linear' | 'log' = 'linear',
 ) => {
   const [xRangeLocal, setXRangeLocal] = useState<[number | string, number | string] | undefined>(() => {
-    if (
-      shouldEnableManualRangeControls() &&
-      config.range &&
-      !isUndefined(config.range.xMin) &&
-      !isUndefined(config.range.xMax)
-    ) {
+    if (config.range && !isUndefined(config.range.xMin) && !isUndefined(config.range.xMax)) {
       return [config.range.xMin, config.range.xMax];
     }
     return undefined;

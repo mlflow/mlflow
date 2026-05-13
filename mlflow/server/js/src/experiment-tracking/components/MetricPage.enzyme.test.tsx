@@ -5,6 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import { jest, describe, beforeEach, test, expect } from '@jest/globals';
 import React from 'react';
 import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';
@@ -15,6 +16,8 @@ import configureStore from 'redux-mock-store';
 
 import { MetricPageImpl, MetricPage } from './MetricPage';
 import NotFoundPage from './NotFoundPage';
+import { mountWithIntl } from '../../common/utils/TestUtils.enzyme';
+import Utils from '../../common/utils/Utils';
 
 describe('MetricPage', () => {
   let wrapper;
@@ -27,8 +30,10 @@ describe('MetricPage', () => {
 
   beforeEach(() => {
     // TODO: remove global fetch mock by explicitly mocking all the service API calls
-    // @ts-expect-error TS(2322): Type 'Mock<Promise<{ ok: true; status: number; tex... Remove this comment to see the full error message
-    global.fetch = jest.fn(() => Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('') }));
+    jest
+      .spyOn(global, 'fetch')
+      // @ts-expect-error TS(2322): Type 'Mock<Promise<{ ok: true; status: number; tex... Remove this comment to see the full error message
+      .mockImplementation(() => Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('') }));
     minimalProps = {
       dispatch: jest.fn(),
       location: {
@@ -49,7 +54,7 @@ describe('MetricPage', () => {
   });
 
   test('should render with minimal props without exploding', () => {
-    wrapper = mount(
+    wrapper = mountWithIntl(
       <Provider store={minimalStore}>
         <MemoryRouter>
           <MetricPage {...minimalProps} />
@@ -60,7 +65,7 @@ describe('MetricPage', () => {
   });
 
   test('should render NotFoundPage when runs are not in query parameters', () => {
-    wrapper = mount(
+    wrapper = mountWithIntl(
       <Provider store={minimalStore}>
         <MemoryRouter>
           <MetricPage {...commonProps} />
@@ -80,7 +85,7 @@ describe('MetricPage', () => {
           '?runs=["a"]&metric="primary_metric_key"&experiment=0&plot_metric_keys=["metric_1","metric_2"]&plot_layout={}',
       },
     };
-    wrapper = mount(
+    wrapper = mountWithIntl(
       <Provider store={minimalStore}>
         <MemoryRouter>
           <MetricPage {...props} />
@@ -90,5 +95,24 @@ describe('MetricPage', () => {
 
     instance = wrapper.find(MetricPageImpl).instance();
     expect(instance.renderPageContent().type).not.toBe(NotFoundPage);
+  });
+
+  test('should display global error notification when query parameters are invalid', () => {
+    jest.spyOn(Utils, 'displayGlobalErrorNotification').mockImplementation(() => {});
+    const props = {
+      ...commonProps,
+      location: {
+        search: '?xyz=abc',
+      },
+    };
+    wrapper = mountWithIntl(
+      <Provider store={minimalStore}>
+        <MemoryRouter>
+          <MetricPage {...props} />
+        </MemoryRouter>
+      </Provider>,
+    ).find(MetricPage);
+
+    expect(wrapper.find(MetricPage).html()).toContain('Error during metric page load: invalid URL');
   });
 });

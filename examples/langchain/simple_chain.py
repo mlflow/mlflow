@@ -21,7 +21,7 @@ chain = LLMChain(llm=llm, prompt=prompt)
 
 # Log the LangChain LLMChain in an MLflow run
 with mlflow.start_run():
-    logged_model = mlflow.langchain.log_model(chain, "langchain_model")
+    logged_model = mlflow.langchain.log_model(chain, name="langchain_model")
 
 # Load the logged model using MLflow's Python function flavor
 loaded_model = mlflow.pyfunc.load_model(logged_model.model_uri)

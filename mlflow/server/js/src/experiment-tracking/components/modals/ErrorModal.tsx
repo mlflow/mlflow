@@ -21,7 +21,7 @@ type ErrorModalImplProps = {
   };
 };
 
-export class ErrorModalImpl extends Component<ErrorModalImplProps> {
+class ErrorModalImpl extends Component<ErrorModalImplProps> {
   render() {
     return (
       <Modal

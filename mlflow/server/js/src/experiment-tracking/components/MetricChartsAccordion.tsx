@@ -1,5 +1,6 @@
 import { Accordion, useDesignSystemTheme } from '@databricks/design-system';
-import { CSSObject, css } from '@emotion/react';
+import type { CSSObject } from '@emotion/react';
+import { css } from '@emotion/react';
 import { useMemo } from 'react';
 
 export const METRIC_CHART_SECTION_HEADER_SIZE = 55;
@@ -80,6 +81,7 @@ const MetricChartsAccordion = ({
 
   return (
     <Accordion
+      componentId="codegen_mlflow_app_src_experiment-tracking_components_metricchartsaccordion.tsx_82"
       {...(activeKey ? { activeKey } : {})}
       {...(onActiveKeyChange ? { onChange: onActiveKeyChange } : {})}
       dangerouslyAppendEmotionCSS={css(styles)}

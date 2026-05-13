@@ -33,7 +33,7 @@ mlflow run . --env-manager=local
 Once the code is finished executing, you can view the run's metrics, parameters, and details by running the command
 
 ```
-mlflow ui
+mlflow server
 ```
 
 and navigating to [http://localhost:5000](http://localhost:5000).

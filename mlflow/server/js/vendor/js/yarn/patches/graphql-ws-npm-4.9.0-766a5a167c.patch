@@ -1,0 +1,14 @@
+diff --git a/package.json b/package.json
+index 709aaff94501e06e606aa5a4c268ab66dc54ffc2..695e87999e797315bdbeccb1e73df527fdf73ad0 100644
+--- a/package.json
++++ b/package.json
+@@ -31,7 +31,8 @@
+     ".": {
+       "require": "./lib/index.js",
+       "import": "./lib/index.mjs",
+-      "browser": "./umd/graphql-ws.js"
++      "browser": "./umd/graphql-ws.js",
++      "types": "./lib/index.d.ts"
+     },
+     "./lib/use/ws": {
+       "require": "./lib/use/ws.js",

@@ -1,12 +1,8 @@
 import { fromPairs, isNil, isObject, isString, sortBy } from 'lodash';
 import { useMemo } from 'react';
 
-import {
-  ArtifactLogTableImageObject,
-  EvaluateCellImage,
-  EvaluationArtifactTableEntry,
-  PendingEvaluationArtifactTableEntry,
-} from '../../../types';
+import type { ArtifactLogTableImageObject, EvaluateCellImage, EvaluationArtifactTableEntry } from '../../../types';
+import { PendingEvaluationArtifactTableEntry } from '../../../types';
 import type { EvaluationDataReduxState } from '../../../reducers/EvaluationDataReducer';
 import { shouldEnablePromptLab } from '../../../../common/utils/FeatureUtils';
 import {
@@ -69,7 +65,6 @@ export const useEvaluationArtifactTableData = (
   groupByCols: string[],
   outputColumn: string,
 ): UseEvaluationArtifactTableDataResult =>
-  // eslint-disable-next-line complexity
   useMemo(() => {
     /**
      * End results, i.e. table rows

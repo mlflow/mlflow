@@ -5,6 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import { describe, beforeEach, test, expect, jest } from '@jest/globals';
 import React from 'react';
 import { shallow } from 'enzyme';
 import {
@@ -86,18 +87,20 @@ describe('unit tests', () => {
     wrapper = shallow(<ParallelCoordinatesPlotView {...mininumProps} />);
     instance = wrapper.instance();
     instance.findLastMetricFromState = jest.fn(() => 'metric_1');
-    instance.setState = jest.fn();
+    // @ts-expect-error -- TODO(FEINF-4162)
+    jest.spyOn(instance, 'setState').mockImplementation();
     instance.maybeUpdateStateForColorScale(['metric_1', 'metric_0']); // rightmost metric changes
-    expect(instance.setState).toBeCalled();
+    expect(instance.setState).toHaveBeenCalled();
   });
 
   test('maybeUpdateStateForColorScale should not trigger setState when last metric stays', () => {
     wrapper = shallow(<ParallelCoordinatesPlotView {...mininumProps} />);
     instance = wrapper.instance();
     instance.findLastMetricFromState = jest.fn(() => 'metric_1');
-    instance.setState = jest.fn();
+    // @ts-expect-error -- TODO(FEINF-4162)
+    jest.spyOn(instance, 'setState').mockImplementation();
     instance.maybeUpdateStateForColorScale(['metric_0', 'metric_1']); // rightmost metric stays
-    expect(instance.setState).not.toBeCalled();
+    expect(instance.setState).not.toHaveBeenCalled();
   });
 
   test('generateAttributesForCategoricalDimension', () => {

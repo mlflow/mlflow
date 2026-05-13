@@ -1,0 +1,86 @@
+diff --git a/es/TabNavList/OperationNode.js b/es/TabNavList/OperationNode.js
+index 89255c9c582e21e428d6da08939ee561ad9faec1..c99086ce1ec5d5365b8cbb0c576fc3c299f001eb 100644
+--- a/es/TabNavList/OperationNode.js
++++ b/es/TabNavList/OperationNode.js
+@@ -22,6 +22,7 @@ function OperationNode(_ref, ref) {
+       editable = _ref.editable,
+       tabBarGutter = _ref.tabBarGutter,
+       rtl = _ref.rtl,
++      getPopupContainer = _ref.getPopupContainer,
+       onTabClick = _ref.onTabClick;
+ 
+   // ======================== Dropdown ========================
+@@ -147,6 +148,7 @@ function OperationNode(_ref, ref) {
+     transitionName: moreTransitionName,
+     onVisibleChange: setOpen,
+     overlayClassName: overlayClassName,
++    getPopupContainer: getPopupContainer,
+     mouseEnterDelay: 0.1,
+     mouseLeaveDelay: 0.1
+   }, /*#__PURE__*/React.createElement("button", {
+diff --git a/es/Tabs.js b/es/Tabs.js
+index 2cee900afdc68c1ffba760c91924cada4eac400a..31c6d99e8bae0ea4bf1a4fab7ff54915f937b7cf 100644
+--- a/es/Tabs.js
++++ b/es/Tabs.js
+@@ -75,6 +75,7 @@ function Tabs(_ref, ref) {
+       onChange = _ref.onChange,
+       onTabClick = _ref.onTabClick,
+       onTabScroll = _ref.onTabScroll,
++      getPopupContainer = _ref.getPopupContainer,
+-      restProps = _objectWithoutProperties(_ref, ["id", "prefixCls", "className", "children", "direction", "activeKey", "defaultActiveKey", "editable", "animated", "tabPosition", "tabBarGutter", "tabBarStyle", "tabBarExtraContent", "locale", "moreIcon", "moreTransitionName", "destroyInactiveTabPane", "renderTabBar", "onChange", "onTabClick", "onTabScroll"]);
++      restProps = _objectWithoutProperties(_ref, ["id", "prefixCls", "className", "children", "direction", "activeKey", "defaultActiveKey", "editable", "animated", "tabPosition", "tabBarGutter", "tabBarStyle", "tabBarExtraContent", "locale", "moreIcon", "moreTransitionName", "destroyInactiveTabPane", "renderTabBar", "onChange", "onTabClick", "onTabScroll", "getPopupContainer"]);
+ 
+   var tabs = parseTabList(children);
+@@ -196,7 +197,8 @@ function Tabs(_ref, ref) {
+     onTabScroll: onTabScroll,
+     extra: tabBarExtraContent,
+     style: tabBarStyle,
+-    panes: children
++    panes: children,
++    getPopupContainer: getPopupContainer,
+   });
+ 
+   if (renderTabBar) {
+diff --git a/lib/TabNavList/OperationNode.js b/lib/TabNavList/OperationNode.js
+index 4e0d49eeaf2e94347f80c271d71732f194a63816..aa7b40bcd1b60b01abdf798eed6c831e41bf0f0f 100644
+--- a/lib/TabNavList/OperationNode.js
++++ b/lib/TabNavList/OperationNode.js
+@@ -39,6 +39,7 @@ function OperationNode(_ref, ref) {
+       editable = _ref.editable,
+       tabBarGutter = _ref.tabBarGutter,
+       rtl = _ref.rtl,
++      getPopupContainer = _ref.getPopupContainer,
+       onTabClick = _ref.onTabClick;
+ 
+   // ======================== Dropdown ========================
+@@ -164,6 +165,7 @@ function OperationNode(_ref, ref) {
+     transitionName: moreTransitionName,
+     onVisibleChange: setOpen,
+     overlayClassName: overlayClassName,
++    getPopupContainer: getPopupContainer,
+     mouseEnterDelay: 0.1,
+     mouseLeaveDelay: 0.1
+   }, /*#__PURE__*/React.createElement("button", {
+diff --git a/lib/Tabs.js b/lib/Tabs.js
+index 1608f4832b71b203c3f888514784cc26c5f9bded..fa601257356f98a73da0bd0777a3a49ce2f54bc6 100644
+--- a/lib/Tabs.js
++++ b/lib/Tabs.js
+@@ -100,6 +100,7 @@ function Tabs(_ref, ref) {
+       onChange = _ref.onChange,
+       onTabClick = _ref.onTabClick,
+       onTabScroll = _ref.onTabScroll,
++      getPopupContainer = _ref.getPopupContainer,
+-      restProps = (0, _objectWithoutProperties2.default)(_ref, ["id", "prefixCls", "className", "children", "direction", "activeKey", "defaultActiveKey", "editable", "animated", "tabPosition", "tabBarGutter", "tabBarStyle", "tabBarExtraContent", "locale", "moreIcon", "moreTransitionName", "destroyInactiveTabPane", "renderTabBar", "onChange", "onTabClick", "onTabScroll"]);
++      restProps = (0, _objectWithoutProperties2.default)(_ref, ["id", "prefixCls", "className", "children", "direction", "activeKey", "defaultActiveKey", "editable", "animated", "tabPosition", "tabBarGutter", "tabBarStyle", "tabBarExtraContent", "locale", "moreIcon", "moreTransitionName", "destroyInactiveTabPane", "renderTabBar", "onChange", "onTabClick", "onTabScroll", "getPopupContainer"]);
+   var tabs = parseTabList(children);
+   var rtl = direction === 'rtl';
+@@ -219,7 +220,8 @@ function Tabs(_ref, ref) {
+     onTabScroll: onTabScroll,
+     extra: tabBarExtraContent,
+     style: tabBarStyle,
+-    panes: children
++    panes: children,
++    getPopupContainer: getPopupContainer,
+   });
+ 
+   if (renderTabBar) {

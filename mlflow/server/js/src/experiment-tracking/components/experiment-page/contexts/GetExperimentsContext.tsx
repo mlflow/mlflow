@@ -1,11 +1,14 @@
 import { isEqual } from 'lodash';
 import React, { createContext, useCallback, useMemo, useState } from 'react';
+import { mapErrorWrapperToPredefinedError } from '../../../../common/utils/ErrorUtils';
+import { shouldUsePredefinedErrorsInExperimentTracking } from '../../../../common/utils/FeatureUtils';
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { ErrorWrapper } from '../../../../common/utils/ErrorWrapper';
 import RequestStateWrapper from '../../../../common/components/RequestStateWrapper';
 import Utils from '../../../../common/utils/Utils';
 import type { getExperimentApi, setCompareExperiments, setExperimentTagApi } from '../../../actions';
 import { useDispatch } from 'react-redux';
-import { ThunkDispatch } from '../../../../redux-types';
+import type { ThunkDispatch } from '../../../../redux-types';
 
 export interface GetExperimentsContextActions {
   setExperimentTagApi: typeof setExperimentTagApi;
@@ -27,7 +30,7 @@ export interface GetExperimentsContextType {
   /**
    * Contains error descriptor if fetching runs failed
    */
-  requestError: ErrorWrapper | null;
+  requestError: ErrorWrapper | Error | null;
 
   /**
    * All experiment-related actions creators
@@ -63,7 +66,9 @@ export const GetExperimentsContextProvider = ({
         const newRequestIds = experimentIds.map((experimentId) => {
           const requestAction = actions.getExperimentApi(experimentId);
           dispatch(requestAction).catch((e) => {
-            Utils.logErrorAndNotifyUser(e);
+            if (!shouldUsePredefinedErrorsInExperimentTracking()) {
+              Utils.logErrorAndNotifyUser(e);
+            }
           });
           return requestAction.meta.id;
         });
@@ -100,6 +105,13 @@ export const GetExperimentsContextProvider = ({
     if (!requestError) {
       requests.forEach((request) => {
         if (request.error) {
+          if (shouldUsePredefinedErrorsInExperimentTracking()) {
+            const maybePredefinedError = mapErrorWrapperToPredefinedError(request.error);
+            if (maybePredefinedError) {
+              setRequestError(maybePredefinedError);
+              return;
+            }
+          }
           setRequestError(request.error);
         }
       });
@@ -111,8 +123,8 @@ export const GetExperimentsContextProvider = ({
   return (
     <GetExperimentsContext.Provider value={contextValue}>
       <RequestStateWrapper
+        // prettier-ignore
         shouldOptimisticallyRender
-        // eslint-disable-next-line no-trailing-spaces
         requestIds={fetchExperimentsRequestIds}
       >
         {renderFn}

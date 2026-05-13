@@ -1,0 +1,11 @@
+{"type":"user","message":{"role":"user","content":"Spawn four agents in parallel"},"timestamp":"2025-01-15T10:00:00.000Z"}
+{"type":"assistant","message":{"id":"msg_turn1","role":"assistant","content":[{"type":"text","text":"Launching agents."}]},"timestamp":"2025-01-15T10:00:01.000Z"}
+{"type":"assistant","message":{"id":"msg_turn1","role":"assistant","content":[{"type":"tool_use","id":"toolu_a","name":"Task","input":{"prompt":"Agent A","subagent_type":"Explore"}}]},"timestamp":"2025-01-15T10:00:02.000Z"}
+{"type":"assistant","message":{"id":"msg_turn1","role":"assistant","content":[{"type":"tool_use","id":"toolu_b","name":"Task","input":{"prompt":"Agent B","subagent_type":"Explore"}}]},"timestamp":"2025-01-15T10:00:03.000Z"}
+{"type":"assistant","message":{"id":"msg_turn1","role":"assistant","content":[{"type":"tool_use","id":"toolu_c","name":"Task","input":{"prompt":"Agent C","subagent_type":"Explore"}}]},"timestamp":"2025-01-15T10:00:04.000Z"}
+{"type":"assistant","message":{"id":"msg_turn1","role":"assistant","content":[{"type":"tool_use","id":"toolu_d","name":"Task","input":{"prompt":"Agent D","subagent_type":"Explore"}}]},"timestamp":"2025-01-15T10:00:05.000Z"}
+{"type":"user","toolUseResult":{"status":"completed","agentId":"agentA","totalDurationMs":1000},"message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_a","content":"A done"}]},"timestamp":"2025-01-15T10:00:10.000Z"}
+{"type":"user","toolUseResult":{"status":"completed","agentId":"agentB","totalDurationMs":1000},"message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_b","content":"B done"}]},"timestamp":"2025-01-15T10:00:11.000Z"}
+{"type":"user","toolUseResult":{"status":"completed","agentId":"agentC","totalDurationMs":1000},"message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_c","content":"C done"}]},"timestamp":"2025-01-15T10:00:12.000Z"}
+{"type":"user","toolUseResult":{"status":"completed","agentId":"agentD","totalDurationMs":1000},"message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_d","content":"D done"}]},"timestamp":"2025-01-15T10:00:13.000Z"}
+{"type":"assistant","message":{"id":"msg_turn2","role":"assistant","content":[{"type":"text","text":"All four done."}]},"timestamp":"2025-01-15T10:00:14.000Z"}

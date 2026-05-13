@@ -20,43 +20,37 @@ def main():
                     [{"double": 0.1}],
                 )
             ],
-            schema=T.StructType(
-                [
-                    T.StructField(
-                        "str",
-                        T.StringType(),
+            schema=T.StructType([
+                T.StructField(
+                    "str",
+                    T.StringType(),
+                ),
+                T.StructField(
+                    "arr",
+                    T.ArrayType(T.IntegerType()),
+                ),
+                T.StructField(
+                    "obj",
+                    T.StructType([
+                        T.StructField("bool", T.BooleanType()),
+                    ]),
+                ),
+                T.StructField(
+                    "obj_arr",
+                    T.ArrayType(
+                        T.StructType([
+                            T.StructField("double", T.DoubleType()),
+                        ])
                     ),
-                    T.StructField(
-                        "arr",
-                        T.ArrayType(T.IntegerType()),
-                    ),
-                    T.StructField(
-                        "obj",
-                        T.StructType(
-                            [
-                                T.StructField("bool", T.BooleanType()),
-                            ]
-                        ),
-                    ),
-                    T.StructField(
-                        "obj_arr",
-                        T.ArrayType(
-                            T.StructType(
-                                [
-                                    T.StructField("double", T.DoubleType()),
-                                ]
-                            )
-                        ),
-                    ),
-                ]
-            ),
+                ),
+            ]),
         )
         df.printSchema()
         df.show()
 
         with mlflow.start_run():
             model_info = mlflow.pyfunc.log_model(
-                artifact_path="model",
+                name="model",
                 python_model=MyModel(),
                 signature=mlflow.models.infer_signature(df),
             )

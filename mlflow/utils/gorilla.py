@@ -93,7 +93,6 @@ def default_filter(name, obj):
 
 
 class DecoratorData:
-
     """Decorator data.
 
     Attributes
@@ -116,7 +115,6 @@ class DecoratorData:
 
 
 class Settings:
-
     """Define the patching behaviour.
 
     Attributes
@@ -170,7 +168,6 @@ class Settings:
 
 
 class Patch:
-
     """Describe all the information required to apply a patch.
 
     Attributes
@@ -606,8 +603,7 @@ def get_original_attribute(obj, name, bypass_descriptor_protocol=False):
             return getattr(obj_, name_)
 
     no_original_stored_err = (
-        "Original attribute %s was not stored when patching, set "
-        "store_hit=True will address this."
+        "Original attribute %s was not stored when patching, set store_hit=True will address this."
     )
 
     if inspect.isclass(obj):

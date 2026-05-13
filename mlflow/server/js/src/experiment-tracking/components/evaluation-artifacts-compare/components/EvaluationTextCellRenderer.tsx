@@ -1,14 +1,15 @@
 import { TableSkeleton, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { escapeRegExp } from 'lodash';
 import type { ICellRendererParams } from '@ag-grid-community/core';
 import { FormattedMessage } from 'react-intl';
 import React from 'react';
-import { RunRowType } from '../../experiment-page/utils/experimentPage.row-types';
+import type { RunRowType } from '../../experiment-page/utils/experimentPage.row-types';
 import { usePromptEngineeringContext } from '../contexts/PromptEngineeringContext';
 import { useSelector } from 'react-redux';
-import { ReduxState } from '../../../../redux-types';
+import type { ReduxState } from '../../../../redux-types';
 import { EvaluationCellEvaluateButton } from './EvaluationCellEvaluateButton';
 import { shouldEnablePromptLab } from '../../../../common/utils/FeatureUtils';
-import { UseEvaluationArtifactTableDataResult } from '../hooks/useEvaluationArtifactTableData';
+import type { UseEvaluationArtifactTableDataResult } from '../hooks/useEvaluationArtifactTableData';
 import { JsonPreview } from '../../../../common/components/JsonFormatting';
 
 // Truncate the text in the cell, it doesn't make sense to populate
@@ -30,13 +31,14 @@ interface EvaluationTextCellRendererProps extends ICellRendererParams {
  * Internal use component - breaks down the rendered text into chunks and highlights
  * particular part found by the provided substring.
  */
+// eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
 const HighlightedText = React.memo(({ text, highlight }: { text: string; highlight: string }) => {
   const { theme } = useDesignSystemTheme();
   if (!highlight) {
     return <>{text}</>;
   }
 
-  const parts = text.split(new RegExp(`(${highlight})`, 'gi'));
+  const parts = text.split(new RegExp(`(${escapeRegExp(highlight)})`, 'gi'));
 
   return (
     <>
@@ -56,7 +58,6 @@ const HighlightedText = React.memo(({ text, highlight }: { text: string; highlig
 /**
  * Component used to render a single text cell in the evaluation artifacts comparison table.
  */
-/* eslint-disable complexity */
 export const EvaluationTextCellRenderer = ({
   value,
   context,
@@ -123,8 +124,8 @@ export const EvaluationTextCellRenderer = ({
                 display: '-webkit-box',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
-                '-webkit-box-orient': 'vertical',
-                '-webkit-line-clamp': '7',
+                WebkitBoxOrient: 'vertical',
+                WebkitLineClamp: '7',
               }}
             >
               {isGroupByColumn && context.highlightedText ? (

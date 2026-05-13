@@ -1,4 +1,4 @@
-import { FormUI, InfoIcon, Input, LegacyTooltip, useDesignSystemTheme, Tag } from '@databricks/design-system';
+import { FormUI, InfoSmallIcon, Input, Tooltip, useDesignSystemTheme, Tag } from '@databricks/design-system';
 import { usePromptEvaluationParameters } from './hooks/usePromptEvaluationParameters';
 import { FormattedMessage } from 'react-intl';
 import { LineSmoothSlider } from '../LineSmoothSlider';
@@ -26,6 +26,7 @@ const EvaluationCreateParameterListControl = ({
       <div css={{ marginTop: theme.spacing.xs, marginBottom: theme.spacing.sm }}>
         {parameterValue.map((stop, index) => (
           <Tag
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_evaluationcreatepromptparameters.tsx_28"
             key={index}
             closable
             onClose={() => {
@@ -37,6 +38,7 @@ const EvaluationCreateParameterListControl = ({
         ))}
       </div>
       <Input
+        componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_evaluationcreatepromptparameters.tsx_39"
         allowClear
         css={{ width: '100%' }}
         disabled={disabled}
@@ -81,17 +83,23 @@ export const EvaluationCreatePromptParameters = ({
           <>
             <FormUI.Label htmlFor={parameterDef.name} css={{ span: { fontWeight: 'normal' } }}>
               <FormattedMessage {...parameterDef.string} />
-              <LegacyTooltip title={<FormattedMessage {...parameterDef.helpString} />} placement="right">
-                <InfoIcon
-                  css={{
-                    marginLeft: theme.spacing.sm,
-                    verticalAlign: 'text-top',
-                    color: theme.colors.textSecondary,
-                  }}
-                />
-              </LegacyTooltip>
+              <Tooltip
+                componentId="mlflow.experiment-tracking.evaluation-prompt-params.help"
+                content={<FormattedMessage {...parameterDef.helpString} />}
+                side="right"
+              >
+                <span>
+                  <InfoSmallIcon
+                    css={{
+                      marginLeft: theme.spacing.sm,
+                      verticalAlign: 'text-top',
+                      color: theme.colors.textSecondary,
+                    }}
+                  />
+                </span>
+              </Tooltip>
             </FormUI.Label>
-            <FormUI.Hint></FormUI.Hint>
+            <FormUI.Hint />
             {parameterDef.name === 'temperature' && (
               <LineSmoothSlider
                 data-testid={parameterDef.name}
@@ -99,12 +107,13 @@ export const EvaluationCreatePromptParameters = ({
                 max={parameterDef.max}
                 min={parameterDef.min}
                 step={parameterDef.step}
-                defaultValue={parameters[parameterDef.name] || 0}
+                value={parameters[parameterDef.name] || 0}
                 onChange={(value) => updateParameter(parameterDef.name, value)}
               />
             )}
             {parameterDef.type === 'input' && (
               <Input
+                componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_evaluationcreatepromptparameters.tsx_107"
                 data-testid={parameterDef.name}
                 type="number"
                 disabled={disabled}

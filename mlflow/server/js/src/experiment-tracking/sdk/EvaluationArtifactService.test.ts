@@ -1,9 +1,10 @@
-import { fetchEvaluationTableArtifact } from './EvaluationArtifactService';
+import { jest, describe, beforeEach, it, expect } from '@jest/globals';
+import { EvaluationTableParseError, fetchEvaluationTableArtifact } from './EvaluationArtifactService';
 
 const mockGetArtifactChunkedText = jest.fn();
 
 jest.mock('../../common/utils/ArtifactUtils', () => ({
-  ...jest.requireActual('../../common/utils/ArtifactUtils'),
+  ...jest.requireActual<typeof import('../../common/utils/ArtifactUtils')>('../../common/utils/ArtifactUtils'),
   getArtifactChunkedText: () => mockGetArtifactChunkedText(),
 }));
 
@@ -43,5 +44,11 @@ describe('fetchEvaluationTableArtifact', () => {
     await expect(fetchEvaluationTableArtifact('run_1', '/some/artifact')).rejects.toThrow(
       /does not contain "data" field/,
     );
+  });
+
+  it('fails with specific error on non-JSON response', async () => {
+    mockGetArtifactChunkedText.mockImplementation(() => Promise.resolve('[[[[[some invalid json{{'));
+
+    await expect(fetchEvaluationTableArtifact('run_1', '/some/artifact')).rejects.toThrow(EvaluationTableParseError);
   });
 });

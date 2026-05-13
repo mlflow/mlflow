@@ -48,7 +48,10 @@ export const EvaluationRunHeaderDatasetIndicator = ({
       </div>
       {run.datasets.length > 1 && (
         <div css={{ flexShrink: 0, flexGrow: 1, display: 'flex', alignItems: 'flex-end' }}>
-          <Popover.Root modal={false}>
+          <Popover.Root
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_components_evaluationrunheaderdatasetindicator.tsx_51"
+            modal={false}
+          >
             <Popover.Trigger asChild>
               <Button
                 componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_components_evaluationrunheaderdatasetindicator.tsx_49"

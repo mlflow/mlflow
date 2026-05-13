@@ -1,0 +1,87 @@
+diff --git a/es/_util/motion.js b/es/_util/motion.js
+index f25c7d3db2c757a0f5040073746954445d193765..57241bf522dcf0dde4abc72cecb9610f31e5911f 100644
+--- a/es/_util/motion.js
++++ b/es/_util/motion.js
+@@ -15,7 +15,7 @@ var getRealHeight = function getRealHeight(node) {
+ 
+ var getCurrentHeight = function getCurrentHeight(node) {
+   return {
+-    height: node.offsetHeight
++    height: node ? node.offsetHeight : 0
+   };
+ };
+ 
+diff --git a/es/tabs/index.js b/es/tabs/index.js
+index a50c868aaaf1f74a87d925cebee0b084e1cd3022..eb7230c460860eb8a524f6f9b459e28bb7b78566 100644
+--- a/es/tabs/index.js
++++ b/es/tabs/index.js
+@@ -39,7 +39,8 @@ function Tabs(_a) {
+ 
+   var _React$useContext = React.useContext(ConfigContext),
+       getPrefixCls = _React$useContext.getPrefixCls,
+-      direction = _React$useContext.direction;
++      direction = _React$useContext.direction,
++      getPopupContainer = _React$useContext.getPopupContainer;
+ 
+   var prefixCls = getPrefixCls('tabs', customizePrefixCls);
+   var editable;
+@@ -59,7 +60,8 @@ function Tabs(_a) {
+ 
+   devWarning(!('onPrevClick' in props) && !('onNextClick' in props), 'Tabs', '`onPrevClick` and `onNextClick` has been removed. Please use `onTabScroll` instead.');
+   return /*#__PURE__*/React.createElement(RcTabs, _extends({
+-    direction: direction
++    direction: direction,
++    getPopupContainer: getPopupContainer,
+   }, props, {
+     moreTransitionName: "slide-up",
+     className: classNames(className, (_classNames = {}, _defineProperty(_classNames, "".concat(prefixCls, "-").concat(size), size), _defineProperty(_classNames, "".concat(prefixCls, "-card"), ['card', 'editable-card'].includes(type)), _defineProperty(_classNames, "".concat(prefixCls, "-editable-card"), type === 'editable-card'), _defineProperty(_classNames, "".concat(prefixCls, "-centered"), centered), _classNames)),
+diff --git a/lib/_util/motion.js b/lib/_util/motion.js
+index 7374213ba727522c33c6ebb901791d52dd7460e6..39bc80b68b959abf3fcffcd5441af0a46ccafd5d 100644
+--- a/lib/_util/motion.js
++++ b/lib/_util/motion.js
+@@ -22,7 +22,7 @@ var getRealHeight = function getRealHeight(node) {
+ 
+ var getCurrentHeight = function getCurrentHeight(node) {
+   return {
+-    height: node.offsetHeight
++    height: node ? node.offsetHeight : 0
+   };
+ };
+ 
+diff --git a/lib/notification/style/index.less b/lib/notification/style/index.less
+index f41c292b2fb96d47897bf2a5f7471caaed7a5843..16ad1332a2806a360757ba904cd172cdcda72072 100644
+--- a/lib/notification/style/index.less
++++ b/lib/notification/style/index.less
+@@ -135,7 +135,7 @@
+           color: fade(@white, 85%);
+         }
+         & when not (@theme = dark) {
+-          color: shade(@text-color-secondary, 40%);
++          color: shade(fade(@black, 45%), 40%);
+         }
+       }
+     }
+diff --git a/lib/tabs/index.js b/lib/tabs/index.js
+index df1ce77303b13fdeaf9f3146799c9cba6774fce7..bed8f5bd89e8297ab1bdd53f35beafddda760832 100644
+--- a/lib/tabs/index.js
++++ b/lib/tabs/index.js
+@@ -58,7 +58,8 @@ function Tabs(_a) {
+ 
+   var _React$useContext = React.useContext(_configProvider.ConfigContext),
+       getPrefixCls = _React$useContext.getPrefixCls,
+-      direction = _React$useContext.direction;
++      direction = _React$useContext.direction,
++      getPopupContainer = _React$useContext.getPopupContainer;
+ 
+   var prefixCls = getPrefixCls('tabs', customizePrefixCls);
+   var editable;
+@@ -78,7 +79,8 @@ function Tabs(_a) {
+ 
+   (0, _devWarning["default"])(!('onPrevClick' in props) && !('onNextClick' in props), 'Tabs', '`onPrevClick` and `onNextClick` has been removed. Please use `onTabScroll` instead.');
+   return /*#__PURE__*/React.createElement(_rcTabs["default"], (0, _extends2["default"])({
+-    direction: direction
++    direction: direction,
++    getPopupContainer: getPopupContainer,
+   }, props, {
+     moreTransitionName: "slide-up",
+     className: (0, _classnames["default"])(className, (_classNames = {}, (0, _defineProperty2["default"])(_classNames, "".concat(prefixCls, "-").concat(size), size), (0, _defineProperty2["default"])(_classNames, "".concat(prefixCls, "-card"), ['card', 'editable-card'].includes(type)), (0, _defineProperty2["default"])(_classNames, "".concat(prefixCls, "-editable-card"), type === 'editable-card'), (0, _defineProperty2["default"])(_classNames, "".concat(prefixCls, "-centered"), centered), _classNames)),

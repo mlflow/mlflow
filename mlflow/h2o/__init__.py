@@ -7,10 +7,11 @@ H20 (native) format
 :py:mod:`mlflow.pyfunc`
     Produced for use by generic pyfunc-based deployment tools and batch inference.
 """
+
 import logging
 import os
 import warnings
-from typing import Any, Dict, Optional
+from typing import Any
 
 import yaml
 
@@ -39,6 +40,7 @@ from mlflow.utils.file_utils import (
 )
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
+    _copy_extra_files,
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
     _validate_and_prepare_target_save_path,
@@ -84,6 +86,8 @@ def save_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
+    extra_files=None,
+    **kwargs,
 ):
     """Save an H2O model to a path on the local file system.
 
@@ -93,11 +97,14 @@ def save_model(
         conda_env: {{ conda_env }}
         code_paths: {{ code_paths }}
         mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
+        settings: Settings to pass to ``h2o.init()`` when loading the model.
         signature: {{ signature }}
         input_example: {{ input_example }}
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata:  {{ metadata }}
+        extra_files: {{ extra_files }}
+        kwargs: {{ kwargs }}
     """
     import h2o
 
@@ -133,7 +140,9 @@ def save_model(
             "If your cluster is remote, H2O may not store the model correctly. "
             "Please upgrade H2O version to a newer version"
         )
-        h2o_save_location = h2o.save_model(model=h2o_model, path=model_data_path, force=True)
+        h2o_save_location = h2o.save_model(
+            model=h2o_model, path=model_data_path, force=True, **kwargs
+        )
     model_file = os.path.basename(h2o_save_location)
 
     # Save h2o-settings
@@ -145,6 +154,8 @@ def save_model(
     with open(os.path.join(model_data_path, "h2o.yaml"), "w") as settings_file:
         yaml.safe_dump(settings, stream=settings_file)
 
+    extra_files_config = _copy_extra_files(extra_files, path)
+
     pyfunc.add_to_model(
         mlflow_model,
         loader_module="mlflow.h2o",
@@ -154,7 +165,11 @@ def save_model(
         code=code_dir_subpath,
     )
     mlflow_model.add_flavor(
-        FLAVOR_NAME, h2o_version=h2o.__version__, data=model_data_subpath, code=code_dir_subpath
+        FLAVOR_NAME,
+        h2o_version=h2o.__version__,
+        data=model_data_subpath,
+        code=code_dir_subpath,
+        **extra_files_config,
     )
     if size := get_total_file_size(path):
         mlflow_model.model_size_bytes = size
@@ -197,7 +212,7 @@ def save_model(
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     h2o_model,
-    artifact_path,
+    artifact_path: str | None = None,
     conda_env=None,
     code_paths=None,
     registered_model_name=None,
@@ -206,13 +221,20 @@ def log_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
+    extra_files=None,
+    name: str | None = None,
+    params: dict[str, Any] | None = None,
+    tags: dict[str, Any] | None = None,
+    model_type: str | None = None,
+    step: int = 0,
+    model_id: str | None = None,
     **kwargs,
 ):
     """Log an H2O model as an MLflow artifact for the current run.
 
     Args:
         h2o_model: H2O model to be saved.
-        artifact_path: Run-relative artifact path.
+        artifact_path: Deprecated. Use `name` instead.
         conda_env: {{ conda_env }}
         code_paths: {{ code_paths }}
         registered_model_name: If given, create a model version under
@@ -223,6 +245,13 @@ def log_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata:  {{ metadata }}
+        extra_files: {{ extra_files }}
+        name: {{ name }}
+        params: {{ params }}
+        tags: {{ tags }}
+        model_type: {{ model_type }}
+        step: {{ step }}
+        model_id: {{ model_id }}
         kwargs: kwargs to pass to ``h2o.save_model`` method.
 
     Returns:
@@ -232,6 +261,7 @@ def log_model(
     """
     return Model.log(
         artifact_path=artifact_path,
+        name=name,
         flavor=mlflow.h2o,
         registered_model_name=registered_model_name,
         h2o_model=h2o_model,
@@ -241,7 +271,13 @@ def log_model(
         input_example=input_example,
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
+        extra_files=extra_files,
         metadata=metadata,
+        params=params,
+        tags=tags,
+        model_type=model_type,
+        step=step,
+        model_id=model_id,
         **kwargs,
     )
 
@@ -279,7 +315,7 @@ class _H2OModelWrapper:
         """
         return self.h2o_model
 
-    def predict(self, dataframe, params: Optional[Dict[str, Any]] = None):
+    def predict(self, dataframe, params: dict[str, Any] | None = None):
         """
         Args:
             dataframe: Model input data.

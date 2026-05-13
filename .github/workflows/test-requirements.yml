@@ -1,0 +1,105 @@
+name: Test requirements
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+    paths:
+      - requirements/core-requirements.yaml
+      - requirements/skinny-requirements.yaml
+      - requirements/gateway-requirements.yaml
+      - .github/workflows/test-requirements.yml
+  schedule:
+    - cron: "0 13 * * *"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  MLFLOW_HOME: ${{ github.workspace }}
+  MLFLOW_CONDA_HOME: /usr/share/miniconda
+  SPARK_LOCAL_IP: localhost
+  PYTHON_VERSION: "3.11" # minimum supported version + 1
+  PIP_EXTRA_INDEX_URL: https://download.pytorch.org/whl/cpu
+  PIP_CONSTRAINT: ${{ github.workspace }}/requirements/constraints.txt
+  _MLFLOW_TESTING_TELEMETRY: "true"
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  skinny:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    if: (github.event_name == 'schedule' && github.repository == 'mlflow/dev') || (github.event_name == 'pull_request' && (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot'))
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+          repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || null }}
+          submodules: recursive
+      - uses: ./.github/actions/setup-python
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install dev script dependencies
+        run: |
+          uv pip install --system -r dev/requirements.txt
+      - uses: ./.github/actions/update-requirements
+        if: github.event_name == 'schedule'
+      - name: Install dependencies
+        run: |
+          source ./dev/install-common-deps.sh --skinny
+      - uses: ./.github/actions/show-versions
+      - name: Run tests
+        run: |
+          ./dev/run-python-skinny-tests.sh
+
+  core:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      contents: read
+    if: (github.event_name == 'schedule' && github.repository == 'mlflow/dev') || (github.event_name == 'pull_request' && (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot'))
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [1, 2]
+        include:
+          - splits: 2
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+          repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || null }}
+          submodules: recursive
+      - uses: ./.github/actions/free-disk-space
+      - uses: ./.github/actions/setup-python
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - uses: ./.github/actions/setup-pyenv
+      - uses: ./.github/actions/setup-java
+      - name: Install dev script dependencies
+        run: |
+          uv pip install --system -r dev/requirements.txt
+      - uses: ./.github/actions/update-requirements
+        if: github.event_name == 'schedule'
+      - name: Install dependencies
+        run: |
+          source ./dev/install-common-deps.sh --ml
+          uv pip install --system '.[gateway]'
+      - uses: ./.github/actions/show-versions
+      - name: Run tests
+        env:
+          SPLITS: ${{ matrix.splits }}
+          GROUP: ${{ matrix.group }}
+        run: |
+          source dev/setup-ssh.sh
+          pytest --splits=$SPLITS --group=$GROUP tests --requires-ssh --ignore-flavors \
+            --ignore=tests/examples --ignore=tests/evaluate \
+            --ignore=tests/deployments --ignore=tests/genai

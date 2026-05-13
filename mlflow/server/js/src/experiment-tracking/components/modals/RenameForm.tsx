@@ -7,7 +7,7 @@
 
 import React, { Component } from 'react';
 
-import { Form, Input } from '@databricks/design-system';
+import { LegacyForm, Input } from '@databricks/design-system';
 
 export const NEW_NAME_FIELD = 'newName';
 
@@ -56,8 +56,8 @@ class RenameFormComponent extends Component<Props> {
   render() {
     return (
       // @ts-expect-error TS(2322): Type '{ children: Element; ref: any; layout: "vert... Remove this comment to see the full error message
-      <Form ref={this.props.innerRef} layout="vertical">
-        <Form.Item
+      <LegacyForm ref={this.props.innerRef} layout="vertical">
+        <LegacyForm.Item
           name={NEW_NAME_FIELD}
           initialValue={this.props.name}
           rules={[
@@ -67,12 +67,13 @@ class RenameFormComponent extends Component<Props> {
           label={`New ${this.props.type} name`}
         >
           <Input
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_modals_renameform.tsx_69"
             placeholder={`Input a ${this.props.type} name`}
             ref={this.autoFocusInputRef}
             data-testid="rename-modal-input"
           />
-        </Form.Item>
-      </Form>
+        </LegacyForm.Item>
+      </LegacyForm>
     );
   }
 }

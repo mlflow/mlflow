@@ -12,11 +12,12 @@ statsmodels (native) format
     https://www.statsmodels.org/stable/_modules/statsmodels/base/model.html#Results
 
 """
+
 import inspect
 import itertools
 import logging
 import os
-from typing import Any, Dict, Optional
+from typing import Any
 
 import yaml
 
@@ -50,11 +51,13 @@ from mlflow.utils.environment import (
 from mlflow.utils.file_utils import get_total_file_size, write_to
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
+    _copy_extra_files,
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
     _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
+from mlflow.utils.thread_utils import ThreadLocalVariable
 from mlflow.utils.validation import _is_numeric
 
 FLAVOR_NAME = "statsmodels"
@@ -86,7 +89,8 @@ def get_default_conda_env():
 _model_size_threshold_for_emitting_warning = 100 * 1024 * 1024  # 100 MB
 
 
-_save_model_called_from_autolog = False
+# Thread local variable key for flag indicating `save_model` is called from autologging routine
+_SAVE_MODEL_CALLED_FROM_AUTOLOG = ThreadLocalVariable(default_factory=lambda: False)
 
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
@@ -102,6 +106,7 @@ def save_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
+    extra_files=None,
 ):
     """
     Save a statsmodels model to a path on the local file system.
@@ -121,6 +126,7 @@ def save_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
+        extra_files: {{ extra_files }}
     """
     import statsmodels
 
@@ -148,7 +154,7 @@ def save_model(
 
     # Save a statsmodels model
     statsmodels_model.save(model_data_path, remove_data)
-    if _save_model_called_from_autolog and not remove_data:
+    if _SAVE_MODEL_CALLED_FROM_AUTOLOG.get() and not remove_data:
         saved_model_size = os.path.getsize(model_data_path)
         if saved_model_size >= _model_size_threshold_for_emitting_warning:
             _logger.warning(
@@ -159,6 +165,8 @@ def save_model(
                 "manually log model by "
                 '`mlflow.statsmodels.log_model(model, remove_data=True, artifact_path="model")`'
             )
+
+    extra_files_config = _copy_extra_files(extra_files, path)
 
     pyfunc.add_to_model(
         mlflow_model,
@@ -173,6 +181,7 @@ def save_model(
         statsmodels_version=statsmodels.__version__,
         data=STATSMODELS_DATA_SUBPATH,
         code=code_dir_subpath,
+        **extra_files_config,
     )
     if size := get_total_file_size(path):
         mlflow_model.model_size_bytes = size
@@ -215,7 +224,7 @@ def save_model(
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     statsmodels_model,
-    artifact_path,
+    artifact_path: str | None = None,
     conda_env=None,
     code_paths=None,
     registered_model_name=None,
@@ -226,6 +235,13 @@ def log_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
+    extra_files=None,
+    name: str | None = None,
+    params: dict[str, Any] | None = None,
+    tags: dict[str, Any] | None = None,
+    model_type: str | None = None,
+    step: int = 0,
+    model_id: str | None = None,
     **kwargs,
 ):
     """
@@ -234,7 +250,7 @@ def log_model(
     Args:
         statsmodels_model: statsmodels model (an instance of `statsmodels.base.model.Results`_) to
             be saved.
-        artifact_path: Run-relative artifact path.
+        artifact_path: Deprecated. Use `name` instead.
         conda_env: {{ conda_env }}
         code_paths: {{ code_paths }}
         registered_model_name: If given, create a model version under ``registered_model_name``,
@@ -250,6 +266,14 @@ def log_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
+        extra_files: {{ extra_files }}
+        name: {{ name }}
+        params: {{ params }}
+        tags: {{ tags }}
+        model_type: {{ model_type }}
+        step: {{ step }}
+        model_id: {{ model_id }}
+        kwargs: Extra kwargs to pass to ``mlflow.models.Model.log``.
 
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the metadata
@@ -257,6 +281,7 @@ def log_model(
     """
     return Model.log(
         artifact_path=artifact_path,
+        name=name,
         flavor=mlflow.statsmodels,
         registered_model_name=registered_model_name,
         statsmodels_model=statsmodels_model,
@@ -269,6 +294,12 @@ def log_model(
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
         metadata=metadata,
+        extra_files=extra_files,
+        params=params,
+        tags=tags,
+        model_type=model_type,
+        step=step,
+        model_id=model_id,
         **kwargs,
     )
 
@@ -335,7 +366,7 @@ class _StatsmodelsModelWrapper:
     def predict(
         self,
         dataframe,
-        params: Optional[Dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
     ):
         """
         Args:
@@ -464,7 +495,7 @@ def autolog(
     # Autologging depends on the exploration of the models class tree within the
     # `statsmodels.base.models` module. In order to load / access this module, the
     # `statsmodels.api` module must be imported
-    import statsmodels.api
+    import statsmodels.api  # noqa: F401
 
     def find_subclasses(klass):
         """
@@ -476,8 +507,7 @@ def autolog(
         Returns:
             A list of classes that includes the argument in the first position.
         """
-        subclasses = klass.__subclasses__()
-        if subclasses:
+        if subclasses := klass.__subclasses__():
             subclass_lists = [find_subclasses(c) for c in subclasses]
             chain = itertools.chain.from_iterable(subclass_lists)
             return [klass] + list(chain)
@@ -550,25 +580,25 @@ def autolog(
 
             if should_autolog:
                 # Log the model
+                model_id = None
                 if get_autologging_config(FLAVOR_NAME, "log_models", True):
-                    global _save_model_called_from_autolog
-                    _save_model_called_from_autolog = True
+                    _SAVE_MODEL_CALLED_FROM_AUTOLOG.set(True)
                     registered_model_name = get_autologging_config(
                         FLAVOR_NAME, "registered_model_name", None
                     )
                     try:
-                        log_model(
+                        model_id = log_model(
                             model,
-                            artifact_path="model",
+                            "model",
                             registered_model_name=registered_model_name,
-                        )
+                        ).model_id
                     finally:
-                        _save_model_called_from_autolog = False
+                        _SAVE_MODEL_CALLED_FROM_AUTOLOG.set(False)
 
                 # Log the most common metrics
                 if isinstance(model, statsmodels.base.wrapper.ResultsWrapper):
                     metrics_dict = _get_autolog_metrics(model)
-                    mlflow.log_metrics(metrics_dict)
+                    mlflow.log_metrics(metrics_dict, model_id=model_id)
 
                     model_summary = model.summary().as_text()
                     mlflow.log_text(model_summary, "model_summary.txt")

@@ -2,9 +2,12 @@ from enum import Enum
 
 from opentelemetry import trace as trace_api
 
+from mlflow.entities.trace_state import TraceState
 from mlflow.protos.service_pb2 import TraceStatus as ProtoTraceStatus
+from mlflow.utils.annotations import deprecated
 
 
+@deprecated(alternative="mlflow.entities.trace_state.TraceState")
 class TraceStatus(str, Enum):
     """Enum for status of an :py:class:`mlflow.entities.TraceInfo`."""
 
@@ -12,6 +15,29 @@ class TraceStatus(str, Enum):
     OK = "OK"
     ERROR = "ERROR"
     IN_PROGRESS = "IN_PROGRESS"
+
+    def to_state(self) -> TraceState:
+        if self == TraceStatus.UNSPECIFIED:
+            return TraceState.STATE_UNSPECIFIED
+        elif self == TraceStatus.OK:
+            return TraceState.OK
+        elif self == TraceStatus.ERROR:
+            return TraceState.ERROR
+        elif self == TraceStatus.IN_PROGRESS:
+            return TraceState.IN_PROGRESS
+        raise ValueError(f"Unknown TraceStatus: {self}")
+
+    @classmethod
+    def from_state(cls, state: TraceState) -> "TraceStatus":
+        if state == TraceState.STATE_UNSPECIFIED:
+            return cls.UNSPECIFIED
+        elif state == TraceState.OK:
+            return cls.OK
+        elif state == TraceState.ERROR:
+            return cls.ERROR
+        elif state == TraceState.IN_PROGRESS:
+            return cls.IN_PROGRESS
+        raise ValueError(f"Unknown TraceState: {state}")
 
     def to_proto(self):
         return ProtoTraceStatus.Value(self)

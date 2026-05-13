@@ -1,5 +1,5 @@
 import { Typography, useDesignSystemTheme } from '@databricks/design-system';
-import { RunRowType } from '../../../utils/experimentPage.row-types';
+import type { RunRowType } from '../../../utils/experimentPage.row-types';
 
 export const AggregateMetricValueCell = ({
   value,

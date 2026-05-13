@@ -2,13 +2,10 @@ import { useEffect, useMemo } from 'react';
 
 import { pick } from 'lodash';
 import { createExperimentPageSearchFacetsState } from '../models/ExperimentPageSearchFacetsState';
-import { ExperimentPageUIState } from '../models/ExperimentPageUIState';
+import type { ExperimentPageUIState } from '../models/ExperimentPageUIState';
 import { loadExperimentViewState, saveExperimentViewState } from '../utils/persistSearchFacets';
-import {
-  EXPERIMENT_PAGE_QUERY_PARAM_KEYS,
-  ExperimentQueryParamsSearchFacets,
-  useUpdateExperimentPageSearchFacets,
-} from './useExperimentPageSearchFacets';
+import type { ExperimentQueryParamsSearchFacets } from './useExperimentPageSearchFacets';
+import { EXPERIMENT_PAGE_QUERY_PARAM_KEYS, useUpdateExperimentPageSearchFacets } from './useExperimentPageSearchFacets';
 
 /**
  * Takes care of initializing the search facets from persisted view state and persisting them.

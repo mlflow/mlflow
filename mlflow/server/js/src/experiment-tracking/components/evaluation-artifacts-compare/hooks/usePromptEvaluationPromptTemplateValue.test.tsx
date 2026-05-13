@@ -1,4 +1,5 @@
-import { act, renderHook } from '@testing-library/react-hooks';
+import { describe, test, expect } from '@jest/globals';
+import { act, renderHook } from '@testing-library/react';
 import { usePromptEvaluationPromptTemplateValue } from './usePromptEvaluationPromptTemplateValue';
 import { extractPromptInputVariables } from '../../prompt-engineering/PromptEngineering.utils';
 

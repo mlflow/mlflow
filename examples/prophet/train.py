@@ -39,7 +39,7 @@ with mlflow.start_run():
     train = model.history
 
     model_info = mlflow.prophet.log_model(
-        model, artifact_path="prophet_model", input_example=train[["ds"]].head(10)
+        model, name="prophet_model", input_example=train[["ds"]].head(10)
     )
     mlflow.log_params(params)
     mlflow.log_metrics(metrics)

@@ -1,4 +1,5 @@
 """Base class of system metrics monitor."""
+
 import abc
 from collections import defaultdict
 

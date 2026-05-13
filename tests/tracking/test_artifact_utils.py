@@ -3,7 +3,10 @@ from unittest import mock
 from unittest.mock import ANY
 from uuid import UUID
 
+import pytest
+
 import mlflow
+from mlflow.exceptions import MlflowException
 from mlflow.tracking.artifact_utils import (
     _download_artifact_from_uri,
     _upload_artifact_to_uri,
@@ -80,11 +83,20 @@ def test_download_artifact_with_special_characters_in_file_name_and_path(tmp_pat
         assert f.read() == artifact_text
 
 
+def test_download_artifact_invalid_uri_model_id():
+    with pytest.raises(
+        MlflowException,
+        match="Invalid uri `m-dummy` is passed. Maybe you meant 'models:/m-dummy'?",
+    ):
+        _download_artifact_from_uri("m-dummy")
+
+
 def test_upload_artifacts_to_databricks():
     import_root = "mlflow.tracking.artifact_utils"
-    with mock.patch(import_root + "._download_artifact_from_uri") as download_mock, mock.patch(
-        import_root + ".DbfsRestArtifactRepository"
-    ) as repo_mock:
+    with (
+        mock.patch(import_root + "._download_artifact_from_uri") as download_mock,
+        mock.patch(import_root + ".DbfsRestArtifactRepository") as repo_mock,
+    ):
         new_source = _upload_artifacts_to_databricks(
             "dbfs:/original/sourcedir/",
             "runid12345",
@@ -100,9 +112,11 @@ def test_upload_artifacts_to_databricks():
 
 def test_upload_artifacts_to_databricks_no_run_id():
     import_root = "mlflow.tracking.artifact_utils"
-    with mock.patch(import_root + "._download_artifact_from_uri") as download_mock, mock.patch(
-        import_root + ".DbfsRestArtifactRepository"
-    ) as repo_mock, mock.patch("uuid.uuid4", return_value=UUID("4f746cdcc0374da2808917e81bb53323")):
+    with (
+        mock.patch(import_root + "._download_artifact_from_uri") as download_mock,
+        mock.patch(import_root + ".DbfsRestArtifactRepository") as repo_mock,
+        mock.patch("uuid.uuid4", return_value=UUID("4f746cdcc0374da2808917e81bb53323")),
+    ):
         new_source = _upload_artifacts_to_databricks(
             "dbfs:/original/sourcedir/", None, "databricks://tracking:ws", "databricks://registry"
         )

@@ -12,7 +12,7 @@ with mlflow.start_run():
         model="gpt-4o-mini",
         task=openai.chat.completions,
         messages=[{"role": "user", "content": "Tell me a {adjective} joke about {animal}."}],
-        artifact_path="model",
+        name="model",
     )
 
 with SparkSession.builder.getOrCreate() as spark:

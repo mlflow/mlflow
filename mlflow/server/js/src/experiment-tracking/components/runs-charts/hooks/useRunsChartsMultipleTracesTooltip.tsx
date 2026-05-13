@@ -8,7 +8,7 @@ import type {
 } from '../components/RunsMetricsLinePlot';
 import { compact, isNumber, isString, isUndefined, orderBy, throttle, uniq } from 'lodash';
 import type { LegendLabelData } from '../components/RunsMetricsLegend';
-import { RunsChartsLineChartXAxisType } from '../components/RunsCharts.common';
+import type { RunsChartsLineChartXAxisType } from '../components/RunsCharts.common';
 
 // Plotly-specific selectors for finding particular elements of interest in the plot DOM structure
 const PLOTLY_SVG_SELECTOR = '.main-svg';
@@ -43,18 +43,20 @@ export const useRunsMultipleTracesTooltipData = ({
   containsMultipleMetricKeys,
   xAxisKeyLabel,
   xAxisKey,
-  disabled,
+  disabled = false,
   setHoveredPointIndex,
   xAxisScaleType = 'linear',
+  positionInSection = 0,
 }: Pick<RunsMetricsLinePlotProps, 'runsData' | 'onHover' | 'onUnhover'> & {
   plotData: LineChartTraceData[];
   legendLabelData: LegendLabelData[];
   containsMultipleMetricKeys?: boolean;
   xAxisKeyLabel: string;
-  disabled: boolean;
+  disabled?: boolean;
   xAxisKey: RunsChartsLineChartXAxisType;
   setHoveredPointIndex: (value: number) => void;
   xAxisScaleType?: 'linear' | 'log';
+  positionInSection?: number;
 }) => {
   // Save current boundaries/dimensions of the plot in the mutable ref object
   const chartBoundaries = useRef<{
@@ -99,12 +101,14 @@ export const useRunsMultipleTracesTooltipData = ({
   const immediateRunsData = useRef(runsData);
   const immediatePlotData = useRef(plotData);
   const immediateXValuesData = useRef(visibleXValues);
+  const immediateFigure = useRef(initializedFigure);
 
   // Update the mutable ref objects when the input data changes
   immediateLegendLabelData.current = legendLabelData;
   immediateRunsData.current = runsData;
   immediatePlotData.current = plotData;
   immediateXValuesData.current = visibleXValues;
+  immediateFigure.current = initializedFigure;
 
   // Setup the boundaries of the plot
   const setupBoundaries = useCallback((figure: Readonly<Figure>) => {
@@ -162,6 +166,16 @@ export const useRunsMultipleTracesTooltipData = ({
     },
     [onUpdatePlotHandler],
   );
+
+  useEffect(() => {
+    // Recalculate positions after chart has been moved
+    requestAnimationFrame(() => {
+      if (!immediateFigure.current) {
+        return;
+      }
+      onUpdatePlotHandler(immediateFigure.current.figure, immediateFigure.current.graphDiv);
+    });
+  }, [positionInSection, onUpdatePlotHandler]);
 
   // Hides the scanline when the mouse leaves the plot
   const pointerLeavePlotCallback = useCallback(
@@ -274,7 +288,8 @@ export const useRunsMultipleTracesTooltipData = ({
           // First, find the corresponding data entry (from chart components's input data) and trace (from data prepared for plotly)
           const correspondingDataEntry = immediateRunsData.current.find(({ uuid }) => uuid === legendEntry.uuid);
           const correspondingDataTrace = immediatePlotData.current.find(
-            ({ uuid, metricKey }) => uuid === legendEntry.uuid && legendEntry.metricKey === metricKey,
+            ({ uuid, metricKey }) =>
+              uuid === legendEntry.uuid && (!legendEntry.metricKey || legendEntry.metricKey === metricKey),
           );
 
           if (!correspondingDataTrace) {
@@ -298,7 +313,7 @@ export const useRunsMultipleTracesTooltipData = ({
             value: isNumber(value) ? value : undefined,
             color: legendEntry?.color,
             dashStyle: legendEntry?.dashStyle,
-            uuid: `${legendEntry.uuid}.${legendEntry.metricKey}`,
+            uuid: legendEntry.metricKey ? `${legendEntry.uuid}.${legendEntry.metricKey}` : `${legendEntry.uuid}`,
           };
         });
 

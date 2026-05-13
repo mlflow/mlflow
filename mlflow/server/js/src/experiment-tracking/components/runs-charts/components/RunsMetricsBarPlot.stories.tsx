@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { RunInfoEntity } from '../../../types';
+import type { RunInfoEntity } from '../../../types';
 import { chartColors, ChartStoryWrapper, getRandomRunName, stableNormalRandom } from './RunsCharts.stories-common';
-import { RunsMetricsBarPlot, RunsMetricsBarPlotProps } from './RunsMetricsBarPlot';
+import type { RunsMetricsBarPlotProps } from './RunsMetricsBarPlot';
+import { RunsMetricsBarPlot } from './RunsMetricsBarPlot';
 
 export default {
   title: 'Runs charts/Metrics/Bar plot',

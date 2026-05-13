@@ -46,12 +46,15 @@ def train(training_data, max_runs, epochs, metric, algo, seed):
         Args:
             nepochs: Number of epochs to train the model.
             experiment_id: Experiment id for the training run.
-            valid_null_loss: Loss of a null model on the validation dataset.
-            test_null_loss: Loss of a null model on the test dataset.
-            return_test_loss: Return both validation and test loss if set.
+            null_train_loss: Loss of a null model on the training dataset.
+            null_valid_loss: Loss of a null model on the validation dataset.
+            null_test_loss Loss of a null model on the test dataset.
+            return_all: If True, return train, validation, and test loss.
+                Otherwise, return only the validation loss.
+                Default is False.
 
         Returns:
-            new eval function.
+            An evaluation function that trains the model and logs metrics to MLflow.
         """
 
         def eval(params):
@@ -104,13 +107,11 @@ def train(training_data, max_runs, epochs, metric, algo, seed):
                 valid_loss = null_valid_loss
                 test_loss = null_test_loss
 
-            mlflow.log_metrics(
-                {
-                    f"train_{metric}": train_loss,
-                    f"val_{metric}": valid_loss,
-                    f"test_{metric}": test_loss,
-                }
-            )
+            mlflow.log_metrics({
+                f"train_{metric}": train_loss,
+                f"val_{metric}": valid_loss,
+                f"test_{metric}": test_loss,
+            })
 
             if return_all:
                 return train_loss, valid_loss, test_loss
@@ -153,13 +154,11 @@ def train(training_data, max_runs, epochs, metric, algo, seed):
                 best_val_valid = r.data.metrics["val_rmse"]
                 best_val_test = r.data.metrics["test_rmse"]
         mlflow.set_tag("best_run", best_run.info.run_id)
-        mlflow.log_metrics(
-            {
-                f"train_{metric}": best_val_train,
-                f"val_{metric}": best_val_valid,
-                f"test_{metric}": best_val_test,
-            }
-        )
+        mlflow.log_metrics({
+            f"train_{metric}": best_val_train,
+            f"val_{metric}": best_val_valid,
+            f"test_{metric}": best_val_test,
+        })
 
 
 if __name__ == "__main__":

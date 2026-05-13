@@ -1,6 +1,7 @@
 """
 To run a tracking server with this app, use `mlflow server --app-name custom_app`.
 """
+
 import logging
 
 # This would be all that plugin author is required to import

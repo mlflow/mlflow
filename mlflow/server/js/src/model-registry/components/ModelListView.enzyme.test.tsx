@@ -5,6 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import { jest, describe, beforeEach, test, expect } from '@jest/globals';
 import React from 'react';
 import { ModelListView, ModelListViewImpl } from './ModelListView';
 import { MemoryRouter } from '../../common/utils/RoutingUtils';
@@ -74,5 +75,4 @@ describe('ModelListView', () => {
     wrapper = setupModelListViewWithIntl();
     expect(mockUpdatePageTitle.mock.calls[0][0]).toBe('MLflow Models');
   });
-  // eslint-disable-next-line
 });

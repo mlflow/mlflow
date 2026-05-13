@@ -1,34 +1,105 @@
 import json
+import logging
 import time
-from typing import AsyncIterable
+from typing import Any, AsyncIterable
 
-from fastapi import HTTPException
-from fastapi.encoders import jsonable_encoder
-
-from mlflow.gateway.config import AnthropicConfig, RouteConfig
+from mlflow.gateway.config import AnthropicConfig, EndpointConfig
 from mlflow.gateway.constants import (
     MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS,
     MLFLOW_AI_GATEWAY_ANTHROPIC_MAXIMUM_MAX_TOKENS,
 )
-from mlflow.gateway.providers.base import BaseProvider, ProviderAdapter
+from mlflow.gateway.exceptions import AIGatewayException
+from mlflow.gateway.providers.base import (
+    BaseProvider,
+    PassthroughAction,
+    ProviderAdapter,
+    _client_provides_auth,
+)
 from mlflow.gateway.providers.utils import rename_payload_keys, send_request, send_stream_request
 from mlflow.gateway.schemas import chat, completions
+from mlflow.gateway.utils import parse_sse_lines
+from mlflow.tracing.constant import TokenUsageKey
+from mlflow.types.chat import Function, ToolCallDelta
+
+_logger = logging.getLogger(__name__)
+
+
+def _normalize_anthropic_input_tokens(
+    token_usage: dict[str, int] | None,
+) -> dict[str, int] | None:
+    """Anthropic's input_tokens excludes cache tokens. Add them so input_tokens
+    represents the total input (consistent with OpenAI/Gemini).
+    """
+    if not token_usage or TokenUsageKey.INPUT_TOKENS not in token_usage:
+        return token_usage
+    cache_read = token_usage.get(TokenUsageKey.CACHE_READ_INPUT_TOKENS, 0)
+    cache_creation = token_usage.get(TokenUsageKey.CACHE_CREATION_INPUT_TOKENS, 0)
+    if cache_read or cache_creation:
+        token_usage[TokenUsageKey.INPUT_TOKENS] += cache_read + cache_creation
+        if TokenUsageKey.TOTAL_TOKENS in token_usage:
+            token_usage[TokenUsageKey.TOTAL_TOKENS] += cache_read + cache_creation
+    return token_usage
+
+
+class _UnsupportedSchemaError(Exception):
+    """Schema contains constructs that Anthropic structured outputs cannot represent."""
+
+
+def _enforce_strict_schema(schema: dict[str, Any]) -> None:
+    """Recursively set ``additionalProperties: false`` on object types that have ``properties``.
+
+    Anthropic's structured outputs require every object node to explicitly set
+    ``additionalProperties: false``. Pydantic-generated schemas often violate
+    this — for example, ``dict[str, str]`` produces:
+
+        // Rejected by Anthropic (400)
+        {"type": "object", "additionalProperties": {"type": "string"}}
+
+    This function rewrites it to:
+
+        // Accepted by Anthropic
+        {"type": "object", "additionalProperties": false}
+
+    Objects without ``properties`` (i.e. free-form dicts like ``dict[str, str]``)
+    are left unchanged so the model can still populate them with arbitrary keys.
+    """
+    if not isinstance(schema, dict):
+        return
+    if schema.get("type") == "object":
+        if "properties" not in schema:
+            raise _UnsupportedSchemaError(
+                "Object type without 'properties' (free-form dict) cannot be represented "
+                "with Anthropic structured outputs, which require additionalProperties: false."
+            )
+        schema["additionalProperties"] = False
+    for value in schema.values():
+        match value:
+            case dict():
+                _enforce_strict_schema(value)
+            case list():
+                for item in value:
+                    if isinstance(item, dict):
+                        _enforce_strict_schema(item)
 
 
 class AnthropicAdapter(ProviderAdapter):
     @classmethod
     def chat_to_model(cls, payload, config):
         key_mapping = {"stop": "stop_sequences"}
+        payload["model"] = config.model.name
         payload = rename_payload_keys(payload, key_mapping)
 
         if "top_p" in payload and "temperature" in payload:
-            raise HTTPException(
+            raise AIGatewayException(
                 status_code=422, detail="Cannot set both 'temperature' and 'top_p' parameters."
             )
 
-        max_tokens = payload.get("max_tokens", MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS)
+        max_completion_tokens = payload.pop("max_completion_tokens", None)
+        max_tokens = payload.get("max_tokens") or max_completion_tokens
+        if max_tokens is None:
+            max_tokens = MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS
         if max_tokens > MLFLOW_AI_GATEWAY_ANTHROPIC_MAXIMUM_MAX_TOKENS:
-            raise HTTPException(
+            raise AIGatewayException(
                 status_code=422,
                 detail="Invalid value for max_tokens: cannot exceed "
                 f"{MLFLOW_AI_GATEWAY_ANTHROPIC_MAXIMUM_MAX_TOKENS}.",
@@ -36,37 +107,147 @@ class AnthropicAdapter(ProviderAdapter):
         payload["max_tokens"] = max_tokens
 
         if payload.pop("n", 1) != 1:
-            raise HTTPException(
+            raise AIGatewayException(
                 status_code=422,
                 detail="'n' must be '1' for the Anthropic provider. Received value: '{n}'.",
             )
 
         # Cohere uses `system` to set the system message
         # we concatenate all system messages from the user with a newline
-        system_messages = [m for m in payload["messages"] if m["role"] == "system"]
-        if system_messages:
+        if system_messages := [m for m in payload["messages"] if m["role"] == "system"]:
             payload["system"] = "\n".join(m["content"] for m in system_messages)
 
         # remaining messages are chat history
-        # we want to include only user and assistant messages
-        payload["messages"] = [m for m in payload["messages"] if m["role"] in ("user", "assistant")]
+        # we want to include only user, assistant or tool messages
+        # Anthropic format of tool related messages example
+        # https://docs.claude.com/en/docs/agents-and-tools/tool-use/overview#tool-use-examples
+        converted_messages = []
+        for m in payload["messages"]:
+            if m["role"] == "system":
+                continue
+            elif m["role"] == "user":
+                converted_messages.append(m)
+            elif m["role"] == "assistant":
+                if m.get("tool_calls") is not None:
+                    tool_use_contents = [
+                        {
+                            "type": "tool_use",
+                            "id": tool_call["id"],
+                            "name": tool_call["function"]["name"],
+                            "input": json.loads(tool_call["function"]["arguments"]),
+                        }
+                        for tool_call in m["tool_calls"]
+                    ]
+                    m["content"] = tool_use_contents
+                    m.pop("tool_calls")
+                converted_messages.append(m)
+            elif m["role"] == "tool":
+                converted_messages.append({
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": m["tool_call_id"],
+                            "content": m["content"],
+                        }
+                    ],
+                })
+            else:
+                _logger.debug(f"Skipping message with unhandled role '{m['role']}'")
+
+        payload["messages"] = converted_messages
 
         # The range of Anthropic's temperature is 0-1, but ours is 0-2, so we halve it
         if "temperature" in payload:
             payload["temperature"] = 0.5 * payload["temperature"]
 
+        # convert tool definition to Anthropic format
+        if tools := payload.pop("tools", None):
+            converted_tools = []
+            for tool in tools:
+                if tool["type"] != "function":
+                    raise AIGatewayException(
+                        status_code=422,
+                        detail=(
+                            "Only function calling tool is supported, but received tool type "
+                            f"{tool['type']}"
+                        ),
+                    )
+
+                tool_function = tool["function"]
+                converted_tools.append({
+                    "name": tool_function["name"],
+                    "description": tool_function["description"],
+                    "input_schema": tool_function["parameters"],
+                })
+
+            payload["tools"] = converted_tools
+
+        # convert tool_choice to Anthropic format
+        # OpenAI format: "none", "auto", "required", {"type": "...", "function": {"name": "..."}}
+        # Anthropic format: {"type": "auto"}, {"type": "tool", "name": "..."}
+        if tool_choice := payload.pop("tool_choice", None):
+            match tool_choice:
+                case "none":
+                    payload["tool_choice"] = {"type": "none"}
+                case "auto":
+                    payload["tool_choice"] = {"type": "auto"}
+                case "required":
+                    payload["tool_choice"] = {"type": "any"}
+                case {"type": "function", "function": {"name": name}}:
+                    payload["tool_choice"] = {"type": "tool", "name": name}
+
+        # Transform response_format for Anthropic structured outputs
+        # Anthropic uses output_config.format with {"type": "json_schema", "schema": {...}}
+        if response_format := payload.pop("response_format", None):
+            if response_format.get("type") == "json_schema" and "json_schema" in response_format:
+                json_schema = response_format["json_schema"]
+                schema = json_schema.get("schema", {})
+                try:
+                    _enforce_strict_schema(schema)
+                except _UnsupportedSchemaError:
+                    # Schema contains free-form dicts (objects without properties)
+                    # which Anthropic cannot represent. Skip structured output and
+                    # let the model respond in plain text.
+                    _logger.debug(
+                        "Schema contains constructs unsupported by Anthropic structured "
+                        "outputs (e.g. free-form dict). Falling back to plain text."
+                    )
+                else:
+                    payload["output_config"] = {
+                        "format": {
+                            "type": "json_schema",
+                            "schema": schema,
+                        }
+                    }
+
         return payload
 
     @classmethod
     def model_to_chat(cls, resp, config):
-        # Example response:
+        # API reference: https://docs.anthropic.com/en/api/messages#body-messages
         #
+        # Example response:
         # ```
         # {
         #   "content": [
         #     {
         #       "text": "Blue is often seen as a calming and soothing color.",
         #       "type": "text"
+        #     },
+        #     {
+        #       "type": "tool_use",
+        #       "id": "toolu_011UYCoc...",
+        #       "name": "get_weather",
+        #       "input": { "city": "Singapore" }
+        #     },
+        #     {
+        #       "source": {
+        #       "type": "base64",
+        #       "media_type": "image/jpeg",
+        #       "data": "/9j/4AAQSkZJRg...",
+        #       "type": "image",
+        #       }
         #     }
         #   ],
         #   "id": "msg_013Zva2CMHLNnXjNJJKqJ2EF",
@@ -81,7 +262,23 @@ class AnthropicAdapter(ProviderAdapter):
         #   }
         # }
         # ```
+        from mlflow.anthropic.chat import convert_message_to_mlflow_chat
+        from mlflow.types.chat import TextContentPart
+
         stop_reason = "length" if resp["stop_reason"] == "max_tokens" else "stop"
+
+        message = convert_message_to_mlflow_chat(resp)
+
+        # Normalize content to OpenAI wire format: `content` must be a str or null,
+        # never a list. Anthropic returns a list of content blocks; we collapse all
+        # TextContentPart entries into a single string. Non-text parts (images, etc.)
+        # are dropped here since they have no OpenAI chat.completion equivalent.
+        # For tool-call-only responses the list will be empty, so content becomes None.
+        if isinstance(message.content, list):
+            text = "".join(
+                part.text for part in message.content if isinstance(part, TextContentPart)
+            )
+            message.content = text or None
 
         return chat.ResponsePayload(
             id=resp["id"],
@@ -91,19 +288,43 @@ class AnthropicAdapter(ProviderAdapter):
             choices=[
                 chat.Choice(
                     index=0,
-                    message=chat.ResponseMessage(
-                        role="assistant",
-                        content=c["text"],
-                    ),
+                    message=chat.ResponseMessage(**message.model_dump()),
                     finish_reason=stop_reason,
                 )
-                for c in resp["content"]
             ],
-            usage=chat.ChatUsage(
-                prompt_tokens=resp["usage"]["input_tokens"],
-                completion_tokens=resp["usage"]["output_tokens"],
-                total_tokens=resp["usage"]["input_tokens"] + resp["usage"]["output_tokens"],
-            ),
+            usage=cls._build_chat_usage(resp["usage"]),
+        )
+
+    @classmethod
+    def _build_chat_usage(cls, usage_data: dict[str, Any]) -> chat.ChatUsage:
+        # Anthropic's input_tokens excludes cache tokens, but we normalize prompt_tokens
+        # to include them (consistent with OpenAI/Gemini) so cost calculation works uniformly.
+        # Ref: https://platform.claude.com/docs/en/build-with-claude/prompt-caching
+        input_tokens = usage_data.get("input_tokens")
+        output_tokens = usage_data.get("output_tokens")
+        cache_read = usage_data.get("cache_read_input_tokens")
+        cache_creation = usage_data.get("cache_creation_input_tokens")
+
+        prompt_tokens = input_tokens
+        if prompt_tokens is not None:
+            prompt_tokens += (cache_read or 0) + (cache_creation or 0)
+
+        total_tokens = None
+        if prompt_tokens is not None and output_tokens is not None:
+            total_tokens = prompt_tokens + output_tokens
+
+        prompt_tokens_details = None
+        if cache_read is not None:
+            prompt_tokens_details = chat.PromptTokensDetails(cached_tokens=cache_read)
+        extra = {}
+        if cache_creation is not None:
+            extra["cache_creation_input_tokens"] = cache_creation
+        return chat.ChatUsage(
+            prompt_tokens=prompt_tokens,
+            completion_tokens=output_tokens,
+            total_tokens=total_tokens,
+            prompt_tokens_details=prompt_tokens_details,
+            **extra,
         )
 
     @classmethod
@@ -115,6 +336,37 @@ class AnthropicAdapter(ProviderAdapter):
         content = resp.get("delta") or resp.get("content_block") or {}
         if (stop_reason := content.get("stop_reason")) is not None:
             stop_reason = "length" if stop_reason == "max_tokens" else "stop"
+
+        # example of function calling delta message format:
+        # https://platform.openai.com/docs/guides/function-calling#streaming
+        if content.get("type") == "tool_use":
+            delta = chat.StreamDelta(
+                tool_calls=[
+                    ToolCallDelta(
+                        index=0,
+                        id=content.get("id"),
+                        type="function",
+                        function=Function(name=content.get("name")),
+                    )
+                ]
+            )
+        elif content.get("type") == "input_json_delta":
+            delta = chat.StreamDelta(
+                tool_calls=[
+                    ToolCallDelta(index=0, function=Function(arguments=content.get("partial_json")))
+                ]
+            )
+        else:
+            delta = chat.StreamDelta(
+                role=None,
+                content=content.get("text"),
+            )
+
+        # Extract usage from accumulated usage data (message_delta events)
+        usage = None
+        if usage_data := resp.get("_usage_data"):
+            usage = cls._build_chat_usage(usage_data)
+
         return chat.StreamResponsePayload(
             id=resp["id"],
             created=int(time.time()),
@@ -123,12 +375,10 @@ class AnthropicAdapter(ProviderAdapter):
                 chat.StreamChoice(
                     index=resp["index"],
                     finish_reason=stop_reason,
-                    delta=chat.StreamDelta(
-                        role=None,
-                        content=content.get("text"),
-                    ),
+                    delta=delta,
                 )
             ],
+            usage=usage,
         )
 
     @classmethod
@@ -157,8 +407,10 @@ class AnthropicAdapter(ProviderAdapter):
     def completions_to_model(cls, payload, config):
         key_mapping = {"max_tokens": "max_tokens_to_sample", "stop": "stop_sequences"}
 
+        payload["model"] = config.model.name
+
         if "top_p" in payload:
-            raise HTTPException(
+            raise AIGatewayException(
                 status_code=422,
                 detail="Cannot set both 'temperature' and 'top_p' parameters. "
                 "Please use only the temperature parameter for your query.",
@@ -166,7 +418,7 @@ class AnthropicAdapter(ProviderAdapter):
         max_tokens = payload.get("max_tokens", MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS)
 
         if max_tokens > MLFLOW_AI_GATEWAY_ANTHROPIC_MAXIMUM_MAX_TOKENS:
-            raise HTTPException(
+            raise AIGatewayException(
                 status_code=422,
                 detail="Invalid value for max_tokens: cannot exceed "
                 f"{MLFLOW_AI_GATEWAY_ANTHROPIC_MAXIMUM_MAX_TOKENS}.",
@@ -175,14 +427,14 @@ class AnthropicAdapter(ProviderAdapter):
         payload["max_tokens"] = max_tokens
 
         if payload.get("stream", False):
-            raise HTTPException(
+            raise AIGatewayException(
                 status_code=422,
                 detail="Setting the 'stream' parameter to 'true' is not supported with the MLflow "
                 "Gateway.",
             )
         n = payload.pop("n", 1)
         if n != 1:
-            raise HTTPException(
+            raise AIGatewayException(
                 status_code=422,
                 detail=f"'n' must be '1' for the Anthropic provider. Received value: '{n}'.",
             )
@@ -214,37 +466,102 @@ class AnthropicAdapter(ProviderAdapter):
 
 
 class AnthropicProvider(BaseProvider, AnthropicAdapter):
-    NAME = "Anthropic"
+    DISPLAY_NAME = "Anthropic"
     CONFIG_TYPE = AnthropicConfig
 
-    def __init__(self, config: RouteConfig) -> None:
-        super().__init__(config)
+    PASSTHROUGH_PROVIDER_PATHS = {
+        PassthroughAction.ANTHROPIC_MESSAGES: "messages",
+    }
+
+    def __init__(self, config: EndpointConfig, enable_tracing: bool = False) -> None:
+        super().__init__(config, enable_tracing=enable_tracing)
         if config.model.config is None or not isinstance(config.model.config, AnthropicConfig):
             raise TypeError(f"Invalid config type {config.model.config}")
         self.anthropic_config: AnthropicConfig = config.model.config
-        self.headers = {
+
+    @property
+    def headers(self) -> dict[str, str]:
+        return {
             "x-api-key": self.anthropic_config.anthropic_api_key,
             "anthropic-version": self.anthropic_config.anthropic_version,
         }
-        self.base_url = "https://api.anthropic.com/v1/"
 
-    async def chat_stream(
+    @property
+    def base_url(self) -> str:
+        return self.anthropic_config.anthropic_api_base
+
+    @property
+    def adapter_class(self) -> type[ProviderAdapter]:
+        return AnthropicAdapter
+
+    def _get_headers(
+        self,
+        payload: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> dict[str, str]:
+        """
+        Generate headers for Anthropic API requests.
+
+        Args:
+            payload: Request payload (used for conditional headers like anthropic-beta)
+            headers: Optional headers from client request to propagate
+
+        Returns:
+            Merged headers with provider headers taking precedence
+        """
+        result_headers = self.headers.copy()
+
+        if headers:
+            client_headers = headers.copy()
+            client_headers.pop("host", None)
+            client_headers.pop("content-length", None)
+            if _client_provides_auth(headers):
+                # Preserve the client's own credentials for subscription-based tools
+                # (e.g. Claude Code, Codex, Gemini CLI) instead of using the server key.
+                result_headers.pop("x-api-key", None)
+            result_headers = client_headers | result_headers
+
+        return result_headers
+
+    def get_endpoint_url(self, route_type: str) -> str:
+        if route_type == "llm/v1/chat":
+            return f"{self.base_url}/messages"
+        elif route_type == "llm/v1/completions":
+            return f"{self.base_url}/complete"
+        else:
+            raise ValueError(f"Invalid route type {route_type}")
+
+    def _get_chat_path(self) -> str:
+        return "messages"
+
+    def _get_chat_stream_path(self) -> str:
+        return "messages"
+
+    def _prepare_payload(self, payload: dict[str, Any]) -> dict[str, Any]:
+        return payload
+
+    async def _chat_stream(
         self, payload: chat.RequestPayload
     ) -> AsyncIterable[chat.StreamResponsePayload]:
+        from fastapi.encoders import jsonable_encoder
+
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
+        payload = AnthropicAdapter.chat_streaming_to_model(payload, self.config)
+        payload = self._prepare_payload(payload)
+
+        headers = self._get_headers(payload)
+
         stream = send_stream_request(
-            headers=self.headers,
+            headers=headers,
             base_url=self.base_url,
-            path="messages",
-            payload={
-                "model": self.config.model.name,
-                **AnthropicAdapter.chat_streaming_to_model(payload, self.config),
-            },
+            path=self._get_chat_stream_path(),
+            payload=payload,
         )
 
         indices = []
         metadata = {}
+        usage_data = {}  # Track usage across events
         async for chunk in stream:
             chunk = chunk.strip()
             if not chunk:
@@ -259,9 +576,17 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
             resp = json.loads(content.decode("utf-8"))
 
             # response id and model are only present in `message_start`
+            # Also extract input_tokens from message_start
             if resp["type"] == "message_start":
                 metadata["id"] = resp["message"]["id"]
                 metadata["model"] = resp["message"]["model"]
+                # Capture input_tokens and cache tokens from message_start
+                if message_usage := resp["message"].get("usage"):
+                    usage_data["input_tokens"] = message_usage.get("input_tokens")
+                    if (cached := message_usage.get("cache_read_input_tokens")) is not None:
+                        usage_data["cache_read_input_tokens"] = cached
+                    if (created := message_usage.get("cache_creation_input_tokens")) is not None:
+                        usage_data["cache_creation_input_tokens"] = created
                 continue
 
             if resp["type"] not in (
@@ -277,6 +602,11 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
 
             resp.update(metadata)
             if resp["type"] == "message_delta":
+                # Capture output_tokens from message_delta
+                if delta_usage := resp.get("usage"):
+                    usage_data["output_tokens"] = delta_usage.get("output_tokens")
+                # Include accumulated usage in the response
+                resp["_usage_data"] = usage_data
                 for index in indices:
                     yield AnthropicAdapter.model_to_chat_streaming(
                         {**resp, "index": index},
@@ -285,32 +615,37 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
             else:
                 yield AnthropicAdapter.model_to_chat_streaming(resp, self.config)
 
-    async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
+    async def _chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
+        from fastapi.encoders import jsonable_encoder
+
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
+        payload = AnthropicAdapter.chat_to_model(payload, self.config)
+        payload = self._prepare_payload(payload)
+
+        headers = self._get_headers(payload)
+
         resp = await send_request(
-            headers=self.headers,
+            headers=headers,
             base_url=self.base_url,
-            path="messages",
-            payload={
-                "model": self.config.model.name,
-                **AnthropicAdapter.chat_to_model(payload, self.config),
-            },
+            path=self._get_chat_path(),
+            payload=payload,
         )
         return AnthropicAdapter.model_to_chat(resp, self.config)
 
-    async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
+    async def _completions(
+        self, payload: completions.RequestPayload
+    ) -> completions.ResponsePayload:
+        from fastapi.encoders import jsonable_encoder
+
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
 
         resp = await send_request(
-            headers=self.headers,
+            headers=self._get_headers(payload),
             base_url=self.base_url,
             path="complete",
-            payload={
-                "model": self.config.model.name,
-                **AnthropicAdapter.completions_to_model(payload, self.config),
-            },
+            payload=AnthropicAdapter.completions_to_model(payload, self.config),
         )
 
         # Example response:
@@ -328,3 +663,87 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
         # ```
 
         return AnthropicAdapter.model_to_completions(resp, self.config)
+
+    def _extract_passthrough_token_usage(
+        self, action: PassthroughAction, result: dict[str, Any]
+    ) -> dict[str, int] | None:
+        """
+        Extract token usage from Anthropic passthrough response.
+
+        Anthropic response format:
+        {
+            "usage": {
+                "input_tokens": int,
+                "output_tokens": int,
+                "cache_read_input_tokens": int,
+                "cache_creation_input_tokens": int
+            }
+        }
+        """
+        token_usage = self._extract_token_usage_from_dict(
+            result.get("usage"),
+            "input_tokens",
+            "output_tokens",
+            cache_read_key="cache_read_input_tokens",
+            cache_creation_key="cache_creation_input_tokens",
+        )
+        return _normalize_anthropic_input_tokens(token_usage)
+
+    def _extract_streaming_token_usage(self, chunk: bytes) -> dict[str, int]:
+        """
+        Extract token usage from Anthropic streaming chunks.
+
+        Anthropic streaming format:
+        - message_start event: {"message": {"usage": {"input_tokens": X, ...}}}
+        - message_delta event: {"usage": {"output_tokens": Y}}
+
+        Returns:
+            A dictionary with token usage found in this chunk.
+            Total is calculated by the base class after accumulation.
+        """
+        usage: dict[str, int] = {}
+        for data in parse_sse_lines(chunk):
+            match data:
+                case {
+                    "type": "message_start",
+                    "message": {"usage": dict(msg_usage)},
+                }:
+                    if (input_tokens := msg_usage.get("input_tokens")) is not None:
+                        usage[TokenUsageKey.INPUT_TOKENS] = input_tokens
+                    if (cached := msg_usage.get("cache_read_input_tokens")) is not None:
+                        usage[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached
+                    if (created := msg_usage.get("cache_creation_input_tokens")) is not None:
+                        usage[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = created
+                case {"type": "message_delta", "usage": {"output_tokens": int(output_tokens)}}:
+                    usage[TokenUsageKey.OUTPUT_TOKENS] = output_tokens
+        # Anthropic's input_tokens excludes cache tokens; normalize to include them.
+        return _normalize_anthropic_input_tokens(usage) or usage
+
+    async def _passthrough(
+        self,
+        action: PassthroughAction,
+        payload: dict[str, Any],
+        headers: dict[str, str] | None = None,
+    ) -> dict[str, Any] | AsyncIterable[Any]:
+        provider_path = self._validate_passthrough_action(action)
+
+        # Add model name from config
+        payload["model"] = self.config.model.name
+
+        request_headers = self._get_headers(payload, headers)
+
+        if payload.get("stream"):
+            stream = send_stream_request(
+                headers=request_headers,
+                base_url=self.base_url,
+                path=provider_path,
+                payload=payload,
+            )
+            return self._stream_passthrough_with_usage(stream)
+        else:
+            return await send_request(
+                headers=request_headers,
+                base_url=self.base_url,
+                path=provider_path,
+                payload=payload,
+            )

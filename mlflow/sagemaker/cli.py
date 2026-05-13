@@ -4,7 +4,6 @@ import tempfile
 
 import click
 
-import mlflow
 import mlflow.models.docker_utils
 import mlflow.sagemaker
 from mlflow.sagemaker import DEFAULT_IMAGE_NAME as IMAGE
@@ -340,9 +339,18 @@ def push_model_to_sagemaker(
 @click.option("--build/--no-build", default=True, help="Build the container if set.")
 @click.option("--push/--no-push", default=True, help="Push the container to AWS ECR if set.")
 @click.option("--container", "-c", default=IMAGE, help="image name")
+@click.option(
+    "--network",
+    default=None,
+    help="Set the networking mode for the RUN instructions during docker build. "
+    "For example, use '--network sagemaker' when building in SageMaker JupyterLab.",
+)
+@cli_args.INSTALL_JAVA
 @cli_args.ENV_MANAGER
 @cli_args.MLFLOW_HOME
-def build_and_push_container(build, push, container, env_manager, mlflow_home):
+def build_and_push_container(
+    build, push, container, network, install_java, env_manager, mlflow_home
+):
     """
     Build new MLflow Sagemaker image, assign it a name, and push to ECR.
 
@@ -377,8 +385,9 @@ def build_and_push_container(build, push, container, env_manager, mlflow_home):
                 model_install_steps=setup_container,
                 # Create a conda env or virtualenv at runtime after the model is loaded
                 disable_env_creation_at_runtime=False,
+                install_java=install_java,
             )
 
-            docker_utils.build_image_from_context(tmp, image_name=container)
+            docker_utils.build_image_from_context(tmp, image_name=container, network=network)
     if push:
         mlflow.sagemaker.push_image_to_ecr(container)

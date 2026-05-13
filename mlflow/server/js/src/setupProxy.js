@@ -16,6 +16,24 @@ module.exports = function (app) {
       changeOrigin: true,
     }),
   );
+  // The legacy per-resource permission CRUD endpoints (e.g.
+  // ``/api/2.0/mlflow/experiments/permissions/create``) are exposed under
+  // ``/api`` rather than ``/ajax-api``. Without this proxy line, the dev
+  // server returns its SPA fallback (200 + index.html) for those POSTs and
+  // the frontend silently treats the grant as successful even though the
+  // backend never saw the request.
+  app.use(
+    createProxyMiddleware('/api', {
+      target: proxyTarget,
+      changeOrigin: true,
+    }),
+  );
+  app.use(
+    createProxyMiddleware('/graphql', {
+      target: proxyTarget,
+      changeOrigin: true,
+    }),
+  );
   app.use(
     createProxyMiddleware('/get-artifact', {
       target: proxyStaticTarget,
@@ -27,6 +45,12 @@ module.exports = function (app) {
     createProxyMiddleware('/model-versions/get-artifact', {
       target: proxyStaticTarget,
       ws: true,
+      changeOrigin: true,
+    }),
+  );
+  app.use(
+    createProxyMiddleware('/gateway', {
+      target: proxyTarget,
       changeOrigin: true,
     }),
   );

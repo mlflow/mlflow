@@ -21,6 +21,7 @@ export interface ToggleIconButtonProps extends ButtonProps {
  * TODO: replace this component with the one from DuBois design system when available.
  */
 const ToggleIconButton = React.forwardRef<HTMLButtonElement, ToggleIconButtonProps>(
+  // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
   (props: ToggleIconButtonProps, ref) => {
     const {
       pressed,
@@ -46,14 +47,14 @@ const ToggleIconButton = React.forwardRef<HTMLButtonElement, ToggleIconButtonPro
     return (
       <button
         onClick={(event) => {
-          eventContext.onClick();
+          eventContext.onClick(event);
           onClick?.(event);
         }}
         css={{
           cursor: 'pointer',
           width: theme.general.heightSm,
           height: theme.general.heightSm,
-          borderRadius: theme.borders.borderRadiusMd,
+          borderRadius: theme.legacyBorders.borderRadiusMd,
           lineHeight: theme.typography.lineHeightBase,
           padding: 0,
           border: 0,

@@ -2,17 +2,18 @@ import { PageWrapper, LegacySkeleton } from '@databricks/design-system';
 import { useEffect, useState } from 'react';
 import { connect, useDispatch } from 'react-redux';
 import { useParams, useNavigate } from '../../common/utils/RoutingUtils';
-import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
+import type { ErrorWrapper } from '../../common/utils/ErrorWrapper';
 import Utils from '../../common/utils/Utils';
-import { ReduxState } from '../../redux-types';
+import type { ReduxState } from '../../redux-types';
 import { getRunApi } from '../actions';
 import Routes from '../routes';
 import { PageNotFoundView } from '../../common/components/PageNotFoundView';
-import { WithRouterNextProps, withRouterNext } from '../../common/utils/withRouterNext';
+import type { WithRouterNextProps } from '../../common/utils/withRouterNext';
+import { withRouterNext } from '../../common/utils/withRouterNext';
 import { withErrorBoundary } from '../../common/utils/withErrorBoundary';
 import ErrorUtils from '../../common/utils/ErrorUtils';
 
-export const DirectRunPageImpl = (props: any) => {
+const DirectRunPageImpl = (props: any) => {
   const { runUuid } = useParams<{ runUuid: string }>();
   const [error, setError] = useState<ErrorWrapper>();
   const navigate = useNavigate();

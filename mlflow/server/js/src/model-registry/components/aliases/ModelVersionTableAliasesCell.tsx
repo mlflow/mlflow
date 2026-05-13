@@ -1,5 +1,5 @@
 import { Button, PencilIcon, useDesignSystemTheme } from '@databricks/design-system';
-import { ModelVersionAliasTag } from './ModelVersionAliasTag';
+import { AliasTag } from '../../../common/components/AliasTag';
 import { FormattedMessage } from 'react-intl';
 
 interface ModelVersionTableAliasesCellProps {
@@ -7,9 +7,14 @@ interface ModelVersionTableAliasesCellProps {
   modelName: string;
   version: string;
   onAddEdit: () => void;
+  className?: string;
 }
 
-export const ModelVersionTableAliasesCell = ({ aliases = [], onAddEdit }: ModelVersionTableAliasesCellProps) => {
+export const ModelVersionTableAliasesCell = ({
+  aliases = [],
+  onAddEdit,
+  className,
+}: ModelVersionTableAliasesCellProps) => {
   const { theme } = useDesignSystemTheme();
 
   return (
@@ -25,6 +30,7 @@ export const ModelVersionTableAliasesCell = ({ aliases = [], onAddEdit }: ModelV
         rowGap: theme.spacing.xs / 2,
         columnGap: theme.spacing.xs,
       }}
+      className={className}
     >
       {aliases.length < 1 ? (
         <Button
@@ -41,7 +47,7 @@ export const ModelVersionTableAliasesCell = ({ aliases = [], onAddEdit }: ModelV
       ) : (
         <>
           {aliases.map((alias) => (
-            <ModelVersionAliasTag value={alias} key={alias} css={{ marginTop: theme.spacing.xs / 2 }} />
+            <AliasTag value={alias} key={alias} css={{ marginTop: theme.spacing.xs / 2 }} />
           ))}
           <Button
             componentId="codegen_mlflow_app_src_model-registry_components_aliases_modelversiontablealiasescell.tsx_41"

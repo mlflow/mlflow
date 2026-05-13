@@ -20,8 +20,9 @@ import { searchRegisteredModelsApi } from '../actions';
 import LocalStorageUtils from '../../common/utils/LocalStorageUtils';
 import { withRouterNext } from '../../common/utils/withRouterNext';
 import type { WithRouterNextProps } from '../../common/utils/withRouterNext';
-import { ScrollablePageWrapper } from '../../common/components/ScrollablePageWrapper';
 import { createMLflowRoutePath } from '../../common/utils/RoutingUtils';
+import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
+import { ScrollablePageWrapper } from '../../common/components/ScrollablePageWrapper';
 
 type ModelListPageImplProps = WithRouterNextProps & {
   models?: any[];
@@ -50,7 +51,7 @@ export class ModelListPageImpl extends React.Component<ModelListPageImplProps, M
       pageTokens: {},
       loading: true,
       error: undefined,
-      searchInput: constructSearchInputFromURLState(this.getUrlState()),
+      searchInput: constructSearchInputFromURLState(this.getUrlState() as Record<string, string>),
     };
   }
   modelListPageStoreKey = 'ModelListPageStore';
@@ -67,7 +68,6 @@ export class ModelListPageImpl extends React.Component<ModelListPageImplProps, M
     const urlState = this.getUrlState();
     const persistedPageTokens = this.getPersistedPageTokens();
     const maxResultsForTokens = this.getPersistedMaxResults();
-    // eslint-disable-next-line react/no-did-mount-set-state
     this.setState(
       {
         // @ts-expect-error TS(4111): Property 'orderByKey' comes from an index signatur... Remove this comment to see the full error message

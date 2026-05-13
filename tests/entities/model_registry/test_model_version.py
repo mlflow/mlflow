@@ -4,6 +4,7 @@ from mlflow.entities.model_registry.model_version import ModelVersion
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.entities.model_registry.model_version_tag import ModelVersionTag
 from mlflow.entities.model_registry.registered_model import RegisteredModel
+from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 from tests.helper_functions import random_str
 
@@ -23,6 +24,7 @@ def _check(
     status_message,
     tags,
     aliases,
+    workspace=DEFAULT_WORKSPACE_NAME,
 ):
     assert isinstance(model_version, ModelVersion)
     assert model_version.name == name
@@ -38,11 +40,13 @@ def _check(
     assert model_version.status_message == status_message
     assert model_version.tags == tags
     assert model_version.aliases == aliases
+    assert model_version.workspace == workspace
 
 
 def test_creation_and_hydration():
     name = random_str()
-    t1, t2 = 100, 150
+    t1 = 100
+    t2 = 150
     source = "path/to/source"
     run_id = uuid.uuid4().hex
     run_link = "http://localhost:5000/path/to/run"
@@ -96,6 +100,11 @@ def test_creation_and_hydration():
         "status_message": "Model version #5 is ready to use.",
         "tags": {tag.key: tag.value for tag in (tags or [])},
         "aliases": ["test_alias"],
+        "model_id": None,
+        "metrics": None,
+        "params": None,
+        "deployment_job_state": None,
+        "workspace": DEFAULT_WORKSPACE_NAME,
     }
     model_version_as_dict = dict(mvd)
     assert model_version_as_dict == expected_dict
@@ -165,13 +174,41 @@ def test_string_repr():
         aliases=[],
     )
 
-    assert (
-        str(model_version) == "<ModelVersion: aliases=[], creation_timestamp=12, "
-        "current_stage='Archived', description='This is a test "
-        "model.', last_updated_timestamp=100, "
-        "name='myname', "
-        "run_id='some run', run_link='http://localhost:5000/path/"
-        "to/run', source='path/to/a/notebook', "
-        "status='PENDING_REGISTRATION', status_message='Copying!', "
-        "tags={}, user_id='user one', version='43'>"
+    assert str(model_version) == (
+        "<ModelVersion: aliases=[], creation_timestamp=12, current_stage='Archived', "
+        "deployment_job_state=None, "
+        "description='This is a test model.', last_updated_timestamp=100, metrics=None, "
+        "model_id=None, name='myname', params=None, run_id='some run', "
+        "run_link='http://localhost:5000/path/to/run', source='path/to/a/notebook', "
+        "status='PENDING_REGISTRATION', status_message='Copying!', tags={}, user_id='user one', "
+        "version='43', workspace='default'>"
     )
+
+
+def test_model_version_non_default_workspace_round_trip():
+    workspace = f"team-{random_str()}"
+    run_id = uuid.uuid4().hex
+    model_version = ModelVersion(
+        name="roundtrip-model",
+        version="7",
+        creation_timestamp=10,
+        last_updated_timestamp=20,
+        description="non-default workspace",
+        user_id="user-10",
+        current_stage="Production",
+        source="path/to/model",
+        run_id=run_id,
+        status="READY",
+        status_message="ready",
+        tags=[],
+        aliases=[],
+        workspace=workspace,
+    )
+
+    as_dict = dict(model_version)
+    assert as_dict["workspace"] == workspace
+    as_dict["tags"] = []
+
+    hydrated = ModelVersion.from_dictionary(as_dict)
+    assert hydrated.workspace == workspace
+    assert workspace in str(hydrated)

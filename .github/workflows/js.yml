@@ -1,9 +1,11 @@
 name: JS
 
 on:
+  workflow_dispatch:
   push:
     paths:
       - mlflow/server/js/**
+      - .github/actions/check-component-ids/**
       - .github/workflows/js.yml
     branches:
       - master
@@ -13,55 +15,52 @@ on:
       - opened
       - synchronize
       - reopened
-      - ready_for_review
     paths:
       - mlflow/server/js/**
+      - .github/actions/check-component-ids/**
       - .github/workflows/js.yml
-
-permissions:
-  contents: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
+  check-component-ids:
+    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
+    permissions:
+      contents: read
+    timeout-minutes: 5
+    runs-on: ubuntu-slim
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Check componentId registry
+        uses: ./.github/actions/check-component-ids
+
   js:
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
+    permissions:
+      contents: read
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
         option: [--testPathPattern, --testPathIgnorePatterns]
-        include:
-          - os: ubuntu-latest
-            shell: bash
-          - os: windows-latest
-            shell: pwsh
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     defaults:
       run:
-        shell: ${{ matrix.shell }}
         working-directory: mlflow/server/js
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          submodules: recursive
+          persist-credentials: false
       - uses: ./.github/actions/setup-node
-      - name: Disable problem matcher
-        if: runner.os == 'Windows'
-        run: |
-          echo "::remove-matcher owner=eslint-compact::"
-          echo "::remove-matcher owner=eslint-stylish::"
-      - name: Install dependencies (windows)
-        if: runner.os == 'Windows'
-        run: |
-          # On Windows, `yarn install` changes hash of @databricks/design-system in yarn.lock.
-          # Use `--no-immutable` to allow the change.
-          yarn install --no-immutable
-          git diff
-      - name: Install dependencies (non-windows)
-        if: runner.os != 'Windows'
+      - name: Install dependencies
         run: |
           yarn install --immutable
       - name: Run lint
@@ -70,14 +69,36 @@ jobs:
       - name: Run prettier
         run: |
           yarn prettier:check
+      # TODO: Disabled for now. Revisit after DAIS.
+      # - name: Run knip
+      #   run: |
+      #     yarn knip
       - name: Run extract-i18n lint
         run: |
           yarn i18n:check
-      - name: Run tests
+      - name: Run type-check
         run: |
-          yarn test --silent ${{ matrix.option }} src/experiment-tracking/components
+          yarn type-check
+      - name: Run tests
+        env:
+          MATRIX_OPTION: ${{ matrix.option }}
+        # --maxWorkers=2: Jest's default (3) leaks module cache across test
+        # files and peaks ~15 GB RSS on the 16 GB runner; 2 keeps peak ~13 GB.
+        run: |
+          "$GITHUB_WORKSPACE/dev/profile.sh" \
+            yarn test --silent --maxWorkers=2 $MATRIX_OPTION src/experiment-tracking/components
+      - name: Upload profile metrics
+        if: always()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: profile-metrics-${{ strategy.job-index }}
+          path: /tmp/profile-metrics.csv
+          # TODO: Uncomment once `gh run download` supports non-zipped artifacts.
+          # https://github.com/cli/cli/issues/13012
+          # archive: false
+          retention-days: 3
+          if-no-files-found: ignore
       - name: Run build
-        if: runner.os == 'Linux'
         env:
           # Prevent warnings (emitted from react-pdf) from being treated as errors
           # https://github.com/wojtekmaj/react-pdf/issues/280

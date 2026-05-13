@@ -5,10 +5,10 @@ from datetime import datetime
 from shlex import quote, split
 from threading import RLock
 
+import docker
 import kubernetes
 from kubernetes.config.config_exception import ConfigException
 
-import docker
 from mlflow.entities import RunStatus
 from mlflow.exceptions import ExecutionException
 from mlflow.projects.submitted_run import SubmittedRun

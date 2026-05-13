@@ -1,0 +1,92 @@
+name: uv
+
+on:
+  pull_request:
+    branches:
+      - master
+    paths:
+      - .github/workflows/uv.yml
+  schedule:
+    # Run this workflow on Monday and Thursday at 1:00 UTC (10:00 JST)
+    - cron: "0 1 * * 1,4"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  uv:
+    # Skip scheduled runs on forks
+    if: github.event_name != 'schedule' || github.repository == 'mlflow/mlflow'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
+        if: github.event_name != 'pull_request'
+        id: app-token
+        with:
+          client-id: ${{ secrets.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: true
+          token: ${{ steps.app-token.outputs.token || github.token }}
+      - uses: ./.github/actions/setup-python
+        with:
+          enable-uv-cache: false
+          pin-micro-version: false
+      - name: Run uv lock --upgrade
+        run: |
+          uv lock --upgrade 2>&1 | tee /tmp/uv-lock-output.txt
+      - name: Create or update uv.lock PR
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          PR_TITLE: "Update `uv.lock`"
+        run: |
+          if git diff --quiet uv.lock; then
+            echo "No changes to uv.lock, exiting early"
+            exit 0
+          fi
+
+          git config user.name 'mlflow-app[bot]'
+          git config user.email 'mlflow-app[bot]@users.noreply.github.com'
+          git add uv.lock
+          git commit -s -m "Update uv.lock"
+
+          {
+            echo 'This PR was created automatically to update `uv.lock`.'
+            echo
+            echo '### `uv lock` output'
+            echo
+            echo '```'
+            cat /tmp/uv-lock-output.txt
+            echo '```'
+            echo
+            echo "Created by: $RUN_URL"
+          } > /tmp/pr-body.md
+
+          EXISTING=$(gh pr list --base master --search "$PR_TITLE in:title" --state open --json number,headRefName --jq '.[0] // empty')
+          if [ -n "$EXISTING" ]; then
+            BRANCH=$(echo "$EXISTING" | jq -r .headRefName)
+            NUMBER=$(echo "$EXISTING" | jq -r .number)
+            echo "Updating existing PR #$NUMBER on branch $BRANCH"
+            git push --force origin "HEAD:$BRANCH"
+            gh pr edit "$NUMBER" --body-file /tmp/pr-body.md
+          else
+            BRANCH="uv-lock-update-$(date -u +%Y-%m-%dT%H-%M-%S)"
+            git push origin "HEAD:$BRANCH"
+            PR_URL=$(gh pr create --base master --head "$BRANCH" --title "$PR_TITLE" --body-file /tmp/pr-body.md --label team-review)
+            gh pr merge "$PR_URL" --auto
+          fi

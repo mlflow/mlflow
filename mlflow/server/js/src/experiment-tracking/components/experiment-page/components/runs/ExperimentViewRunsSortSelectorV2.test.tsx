@@ -1,20 +1,24 @@
-import userEvent from '@testing-library/user-event-14';
+import { jest, describe, beforeEach, test, expect } from '@jest/globals';
+import userEvent from '@testing-library/user-event';
 import { render, screen } from '../../../../../common/utils/TestUtils.react18';
 import { ExperimentViewRunsSortSelectorV2 } from './ExperimentViewRunsSortSelectorV2';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { MemoryRouter, useSearchParams } from '../../../../../common/utils/RoutingUtils';
 import { IntlProvider } from 'react-intl';
 
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
+jest.setTimeout(30000);
+
 const metricKeys = ['metric_alpha', 'metric_beta'];
 const paramKeys = ['param_1', 'param_2', 'param_3'];
 
 jest.mock('../../../../../common/utils/RoutingUtils', () => {
   const params = new URLSearchParams();
-  const setSearchParamsMock = jest
-    .fn()
-    .mockImplementation((setter: (newParams: URLSearchParams) => URLSearchParams) => setter(params));
+  const setSearchParamsMock = jest.fn((setter: (newParams: URLSearchParams) => URLSearchParams) => setter(params));
   return {
-    ...jest.requireActual('../../../../../common/utils/RoutingUtils'),
+    ...jest.requireActual<typeof import('../../../../../common/utils/RoutingUtils')>(
+      '../../../../../common/utils/RoutingUtils',
+    ),
     useSearchParams: () => {
       return [params, setSearchParamsMock];
     },

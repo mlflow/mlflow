@@ -1,17 +1,28 @@
 """create latest metrics table
 
-Revision ID: 89d4b8295536
-Revises: 7ac759974ad8
 Create Date: 2019-08-20 11:53:28.178479
 
 """
-import time
+
 import logging
+import time
 
 from alembic import op
-from sqlalchemy import orm, func, distinct, and_
-from sqlalchemy import Column, String, ForeignKey, Float, BigInteger, PrimaryKeyConstraint, Boolean
-from mlflow.store.tracking.dbmodels.models import SqlMetric, SqlLatestMetric
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    Column,
+    Float,
+    ForeignKey,
+    PrimaryKeyConstraint,
+    String,
+    and_,
+    distinct,
+    func,
+    orm,
+)
+
+from mlflow.store.tracking.dbmodels.models import SqlLatestMetric, SqlMetric
 
 _logger = logging.getLogger(__name__)
 _logger.setLevel(logging.INFO)
@@ -52,7 +63,8 @@ def _describe_migration_if_necessary(session):
     )
 
     num_metric_keys = (
-        session.query(SqlMetric.run_uuid, SqlMetric.key)
+        session
+        .query(SqlMetric.run_uuid, SqlMetric.key)
         .group_by(SqlMetric.run_uuid, SqlMetric.key)
         .count()
     )
@@ -69,12 +81,14 @@ def _describe_migration_if_necessary(session):
 
 def _get_latest_metrics_for_runs(session):
     metrics_with_max_step = (
-        session.query(SqlMetric.run_uuid, SqlMetric.key, func.max(SqlMetric.step).label("step"))
+        session
+        .query(SqlMetric.run_uuid, SqlMetric.key, func.max(SqlMetric.step).label("step"))
         .group_by(SqlMetric.key, SqlMetric.run_uuid)
         .subquery("metrics_with_max_step")
     )
     metrics_with_max_timestamp = (
-        session.query(
+        session
+        .query(
             SqlMetric.run_uuid,
             SqlMetric.key,
             SqlMetric.step,
@@ -91,8 +105,9 @@ def _get_latest_metrics_for_runs(session):
         .group_by(SqlMetric.key, SqlMetric.run_uuid, SqlMetric.step)
         .subquery("metrics_with_max_timestamp")
     )
-    metrics_with_max_value = (
-        session.query(
+    return (
+        session
+        .query(
             SqlMetric.run_uuid,
             SqlMetric.key,
             SqlMetric.step,
@@ -114,7 +129,6 @@ def _get_latest_metrics_for_runs(session):
         )
         .all()
     )
-    return metrics_with_max_value
 
 
 def upgrade():
@@ -135,22 +149,18 @@ def upgrade():
         PrimaryKeyConstraint("key", "run_uuid", name="latest_metric_pk"),
     )
 
-    session.add_all(
-        [
-            SqlLatestMetric(
-                run_uuid=run_uuid,
-                key=key,
-                step=step,
-                timestamp=timestamp,
-                value=value,
-                is_nan=is_nan,
-            )
-            for run_uuid, key, step, timestamp, value, is_nan in all_latest_metrics
-        ]
-    )
+    session.add_all([
+        SqlLatestMetric(
+            run_uuid=run_uuid,
+            key=key,
+            step=step,
+            timestamp=timestamp,
+            value=value,
+            is_nan=is_nan,
+        )
+        for run_uuid, key, step, timestamp, value, is_nan in all_latest_metrics
+    ])
     session.commit()
-
-    _logger.info("Migration complete!")
 
 
 def downgrade():

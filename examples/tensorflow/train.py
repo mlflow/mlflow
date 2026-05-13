@@ -1,6 +1,6 @@
 # tensorflow 2.x core api
 import tensorflow as tf
-from sklearn.datasets import fetch_california_housing
+from sklearn.datasets import load_diabetes
 
 import mlflow
 from mlflow.models import infer_signature
@@ -69,7 +69,7 @@ if __name__ == "__main__":
     tf.random.set_seed(42)
 
     # Load dataset
-    dataset = fetch_california_housing(as_frame=True)["frame"]
+    dataset = load_diabetes(as_frame=True)["frame"]
     # Drop missing values
     dataset = dataset.dropna()
     # using only 1500
@@ -78,14 +78,19 @@ if __name__ == "__main__":
 
     # Split dataset into train and test
     dataset_shuffled = tf.random.shuffle(dataset_tf, seed=42)
-    train_data, test_data = dataset_shuffled[100:], dataset_shuffled[:100]
-    x_train, y_train = train_data[:, :-1], train_data[:, -1]
-    x_test, y_test = test_data[:, :-1], test_data[:, -1]
+    train_data = dataset_shuffled[100:]
+    test_data = dataset_shuffled[:100]
+    x_train = train_data[:, :-1]
+    y_train = train_data[:, -1]
+    x_test = test_data[:, :-1]
+    y_test = test_data[:, -1]
     # Data normalization
     norm_x = Normalize(x_train)
     norm_y = Normalize(y_train)
-    x_train_norm, y_train_norm = norm_x.norm(x_train), norm_y.norm(y_train)
-    x_test_norm, y_test_norm = norm_x.norm(x_test), norm_y.norm(y_test)
+    x_train_norm = norm_x.norm(x_train)
+    y_train_norm = norm_y.norm(y_train)
+    x_test_norm = norm_x.norm(x_test)
+    y_test_norm = norm_y.norm(y_test)
 
     with mlflow.start_run():
         # Initialize linear regression model
@@ -101,11 +106,13 @@ if __name__ == "__main__":
         # Set training parameters
         epochs = 100
         learning_rate = 0.01
-        train_losses, test_losses = [], []
+        train_losses = []
+        test_losses = []
 
         # Format training loop
         for epoch in range(epochs):
-            batch_losses_train, batch_losses_test = [], []
+            batch_losses_train = []
+            batch_losses_test = []
 
             # Iterate through the training data
             for x_batch, y_batch in train_dataset:
@@ -137,20 +144,16 @@ if __name__ == "__main__":
                 print(f"Mean squared error for step {epoch}: {train_loss.numpy():0.3f}")
 
         # Log the parameters
-        mlflow.log_params(
-            {
-                "epochs": epochs,
-                "learning_rate": learning_rate,
-                "batch_size": batch_size,
-            }
-        )
+        mlflow.log_params({
+            "epochs": epochs,
+            "learning_rate": learning_rate,
+            "batch_size": batch_size,
+        })
         # Log the final metrics
-        mlflow.log_metrics(
-            {
-                "final_train_loss": train_loss.numpy(),
-                "final_test_loss": test_loss.numpy(),
-            }
-        )
+        mlflow.log_metrics({
+            "final_train_loss": train_loss.numpy(),
+            "final_test_loss": test_loss.numpy(),
+        })
         print(f"\nFinal train loss: {train_loss:0.3f}")
         print(f"Final test loss: {test_loss:0.3f}")
 
@@ -161,4 +164,4 @@ if __name__ == "__main__":
         predictions = lin_reg_export(x_test)
         signature = infer_signature(x_test.numpy(), predictions.numpy())
 
-        mlflow.tensorflow.log_model(lin_reg_export, "model", signature=signature)
+        mlflow.tensorflow.log_model(lin_reg_export, name="model", signature=signature)

@@ -1,10 +1,10 @@
 import { Typography, useDesignSystemTheme } from '@databricks/design-system';
 import type { ICellRendererParams } from '@ag-grid-community/core';
 import { FormattedMessage } from 'react-intl';
-import { RunRowType } from '../../experiment-page/utils/experimentPage.row-types';
-import { UseEvaluationArtifactTableDataResult } from '../hooks/useEvaluationArtifactTableData';
+import type { RunRowType } from '../../experiment-page/utils/experimentPage.row-types';
+import type { UseEvaluationArtifactTableDataResult } from '../hooks/useEvaluationArtifactTableData';
 import { ImagePlot } from '@mlflow/mlflow/src/experiment-tracking/components/runs-charts/components/charts/ImageGridPlot.common';
-import { EvaluateCellImage } from '@mlflow/mlflow/src/experiment-tracking/types';
+import type { EvaluateCellImage } from '@mlflow/mlflow/src/experiment-tracking/types';
 
 interface EvaluationImageCellRendererProps extends ICellRendererParams {
   value: EvaluateCellImage;
@@ -20,7 +20,6 @@ interface EvaluationImageCellRendererProps extends ICellRendererParams {
 /**
  * Component used to render a single text cell in the evaluation artifacts comparison table.
  */
-/* eslint-disable complexity */
 export const EvaluationImageCellRenderer = ({ value }: EvaluationImageCellRendererProps) => {
   const { theme } = useDesignSystemTheme();
 
@@ -54,8 +53,8 @@ export const EvaluationImageCellRenderer = ({ value }: EvaluationImageCellRender
             display: '-webkit-box',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
-            '-webkit-box-orient': 'vertical',
-            '-webkit-line-clamp': '7',
+            WebkitBoxOrient: 'vertical',
+            WebkitLineClamp: '7',
             width: '100%',
             height: '100%',
           }}

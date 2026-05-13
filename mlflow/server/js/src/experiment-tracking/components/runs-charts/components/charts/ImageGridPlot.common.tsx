@@ -1,23 +1,73 @@
-import { ImageIcon } from '@databricks/design-system';
-import { GenericSkeleton, useDesignSystemTheme } from '@databricks/design-system';
+import { ImageIcon, Spinner, Tooltip } from '@databricks/design-system';
+import { useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { getArtifactLocationUrl } from '@mlflow/mlflow/src/common/utils/ArtifactUtils';
-import { ImageEntity } from '@mlflow/mlflow/src/experiment-tracking/types';
-import { useState } from 'react';
+import type { ImageEntity } from '@mlflow/mlflow/src/experiment-tracking/types';
+import { useState, useEffect } from 'react';
 import { Typography } from '@databricks/design-system';
 import { ImagePreviewGroup, Image } from '../../../../../shared/building_blocks/Image';
+import { RunColorPill } from '@mlflow/mlflow/src/experiment-tracking/components/experiment-page/components/RunColorPill';
 
-export const MAX_IMAGE_SIZE = 225;
-export const MIN_IMAGE_SIZE = 120;
-export const IMAGE_GAP_SIZE = 10;
+export const MIN_GRID_IMAGE_SIZE = 400;
 
-export const getImageSize = (numImages: number, width: number) => {
-  // Scale image size based on number of images
-  const maxImagesPerRow = Math.floor(width / MIN_IMAGE_SIZE);
-  if (numImages < maxImagesPerRow) {
-    return Math.min(width / numImages - IMAGE_GAP_SIZE, MAX_IMAGE_SIZE);
-  }
-  return width / maxImagesPerRow - IMAGE_GAP_SIZE;
+// Params like 'name' and 'run_id' duplicate the run name so we skip them
+const REDUNDANT_PARAM_KEYS = new Set(['name', 'run_name', 'run_id']);
+
+export const formatRunParams = (params: Record<string, { key: string; value: string | number }>): string => {
+  const entries = Object.values(params).filter((p) => !REDUNDANT_PARAM_KEYS.has(p.key));
+  if (entries.length === 0) return '';
+  return entries.map((p) => `${p.key}=${p.value}`).join(', ');
+};
+
+export const ImageGridRunHeader = ({
+  displayName,
+  color,
+  params,
+  maxParamsWidth,
+}: {
+  displayName: string;
+  color?: string;
+  params: Record<string, { key: string; value: string | number }>;
+  maxParamsWidth?: number;
+}) => {
+  const { theme } = useDesignSystemTheme();
+  const paramsText = formatRunParams(params);
+
+  return (
+    <Tooltip
+      content={paramsText ? `${displayName}\n${paramsText}` : displayName}
+      componentId="mlflow.charts.image-plot.run-name-tooltip"
+    >
+      <div css={{ overflow: 'hidden' }}>
+        <div
+          css={{
+            height: theme.typography.lineHeightMd,
+            whiteSpace: 'nowrap',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: theme.spacing.sm,
+          }}
+        >
+          <RunColorPill color={color} />
+          {displayName}
+        </div>
+        {paramsText && (
+          <div
+            css={{
+              fontSize: theme.typography.fontSizeSm,
+              color: theme.colors.textSecondary,
+              whiteSpace: 'normal',
+              lineHeight: 1.3,
+              maxWidth: maxParamsWidth,
+              overflow: 'hidden',
+            }}
+          >
+            {paramsText}
+          </div>
+        )}
+      </div>
+    </Tooltip>
+  );
 };
 
 type ImagePlotProps = {
@@ -31,11 +81,36 @@ export const ImagePlot = ({ imageUrl, compressedImageUrl, imageSize, maxImageSiz
   const [previewVisible, setPreviewVisible] = useState(false);
   const { theme } = useDesignSystemTheme();
 
+  const [imageLoading, setImageLoading] = useState(true);
+
+  useEffect(() => {
+    // Load the image in the memory (should reuse the same request) in order to get the loading state
+    setImageLoading(true);
+    const img = new window.Image();
+    img.onload = () => setImageLoading(false);
+    img.onerror = () => setImageLoading(false);
+    img.src = compressedImageUrl;
+    return () => {
+      img.src = '';
+    };
+  }, [compressedImageUrl]);
+
   return (
-    <div css={{ width: imageSize, height: imageSize || '100%' }}>
-      <div css={{ height: imageSize || '100%' }}>
-        {compressedImageUrl === undefined ? (
-          <GenericSkeleton label="Loading..." css={{ height: imageSize, width: imageSize }} />
+    <div css={{ width: imageSize || '100%', height: imageSize || '100%' }}>
+      <div css={{ display: 'contents' }}>
+        {compressedImageUrl === undefined || imageLoading ? (
+          <div
+            css={{
+              width: '100%',
+              backgroundColor: theme.colors.backgroundSecondary,
+              display: 'flex',
+              aspectRatio: '1',
+              justifyContent: 'center',
+              alignItems: 'center',
+            }}
+          >
+            <Spinner />
+          </div>
         ) : (
           <div
             css={{
@@ -43,14 +118,12 @@ export const ImagePlot = ({ imageUrl, compressedImageUrl, imageSize, maxImageSiz
               alignItems: 'center',
               justifyContent: 'center',
               width: imageSize || '100%',
-              height: imageSize || '100%',
+              aspectRatio: '1',
               maxWidth: maxImageSize,
               maxHeight: maxImageSize,
               backgroundColor: theme.colors.backgroundSecondary,
-              '& .ant-image': {
-                height: '100%',
-                display: 'flex',
-                alignItems: 'center',
+              '.rc-image': {
+                cursor: 'pointer',
               },
             }}
           >
@@ -91,9 +164,9 @@ export const ImagePlotWithHistory = ({
           justifyContent: 'center',
           textAlign: 'center',
           width: imageSize,
-          height: imageSize,
           backgroundColor: theme.colors.backgroundSecondary,
           padding: theme.spacing.md,
+          aspectRatio: '1',
         }}
       >
         <ImageIcon />

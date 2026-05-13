@@ -27,7 +27,6 @@ class PluginManager(abc.ABC):
     registered through the `register_entrypoints` method.
     """
 
-    @abc.abstractmethod
     def __init__(self, group_name):
         self._registry = {}
         self.group_name = group_name

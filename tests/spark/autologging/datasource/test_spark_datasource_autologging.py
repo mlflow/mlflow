@@ -28,7 +28,8 @@ def test_autologging_of_datasources_with_different_formats(spark_session, format
     mlflow.spark.autolog()
     for data_format, file_path in format_to_file_path.items():
         base_df = (
-            spark_session.read.format(data_format)
+            spark_session.read
+            .format(data_format)
             .option("header", "true")
             .option("inferSchema", "true")
             .load(file_path)
@@ -58,7 +59,9 @@ def test_autologging_of_datasources_with_different_formats(spark_session, format
 
 def test_autologging_does_not_throw_on_api_failures(spark_session, format_to_file_path, tmp_path):
     mlflow.spark.autolog()
-    with _init_server(f"sqlite:///{tmp_path}/test.db", root_artifact_uri=tmp_path.as_uri()) as url:
+    with _init_server(
+        f"sqlite:///{tmp_path}/test.db", root_artifact_uri=tmp_path.as_uri(), server_type="fastapi"
+    ) as url:
         mlflow.set_tracking_uri(url)
         with mlflow.start_run():
             with mock.patch(
@@ -67,7 +70,8 @@ def test_autologging_does_not_throw_on_api_failures(spark_session, format_to_fil
                 data_format = list(format_to_file_path.keys())[0]
                 file_path = format_to_file_path[data_format]
                 df = (
-                    spark_session.read.format(data_format)
+                    spark_session.read
+                    .format(data_format)
                     .option("header", "true")
                     .option("inferSchema", "true")
                     .load(file_path)
@@ -84,7 +88,8 @@ def test_autologging_dedups_multiple_reads_of_same_datasource(spark_session, for
     data_format = list(format_to_file_path.keys())[0]
     file_path = format_to_file_path[data_format]
     df = (
-        spark_session.read.format(data_format)
+        spark_session.read
+        .format(data_format)
         .option("header", "true")
         .option("inferSchema", "true")
         .load(file_path)
@@ -120,12 +125,10 @@ def test_autologging_multiple_reads_same_run(spark_session, format_to_file_path)
         run = mlflow.get_run(run_id)
         assert _SPARK_TABLE_INFO_TAG_NAME in run.data.tags
         table_info_tag = run.data.tags[_SPARK_TABLE_INFO_TAG_NAME]
-        assert table_info_tag == "\n".join(
-            [
-                _get_expected_table_info_row(path, data_format)
-                for data_format, path in format_to_file_path.items()
-            ]
-        )
+        assert table_info_tag == "\n".join([
+            _get_expected_table_info_row(path, data_format)
+            for data_format, path in format_to_file_path.items()
+        ])
 
 
 def test_autologging_multiple_runs_same_data(spark_session, format_to_file_path):
@@ -133,7 +136,8 @@ def test_autologging_multiple_runs_same_data(spark_session, format_to_file_path)
     data_format = list(format_to_file_path.keys())[0]
     file_path = format_to_file_path[data_format]
     df = (
-        spark_session.read.format(data_format)
+        spark_session.read
+        .format(data_format)
         .option("header", "true")
         .option("inferSchema", "true")
         .load(file_path)
@@ -154,7 +158,8 @@ def test_autologging_does_not_start_run(spark_session, format_to_file_path):
         data_format = list(format_to_file_path.keys())[0]
         file_path = format_to_file_path[data_format]
         df = (
-            spark_session.read.format(data_format)
+            spark_session.read
+            .format(data_format)
             .option("header", "true")
             .option("inferSchema", "true")
             .load(file_path)
@@ -186,7 +191,8 @@ def test_autologging_slow_api_requests(spark_session, format_to_file_path):
             run_id = mlflow.active_run().info.run_id
             for data_format, file_path in format_to_file_path.items():
                 df = (
-                    spark_session.read.format(data_format)
+                    spark_session.read
+                    .format(data_format)
                     .option("header", "true")
                     .option("inferSchema", "true")
                     .load(file_path)
@@ -203,12 +209,10 @@ def test_autologging_slow_api_requests(spark_session, format_to_file_path):
     run = mlflow.get_run(run_id)
     assert _SPARK_TABLE_INFO_TAG_NAME in run.data.tags
     table_info_tag = run.data.tags[_SPARK_TABLE_INFO_TAG_NAME]
-    assert table_info_tag == "\n".join(
-        [
-            _get_expected_table_info_row(path, data_format)
-            for data_format, path in format_to_file_path.items()
-        ]
-    )
+    assert table_info_tag == "\n".join([
+        _get_expected_table_info_row(path, data_format)
+        for data_format, path in format_to_file_path.items()
+    ])
 
 
 def test_autologging_truncates_datasource_tag_to_maximum_supported_value(tmp_path, spark_session):
@@ -232,7 +236,8 @@ def test_autologging_truncates_datasource_tag_to_maximum_supported_value(tmp_pat
         # (`MAX_TAG_VAL_LENGTH`). One path is left out to be read during the MLflow run to verify
         # that tag value updates perform truncation as expected
         df = (
-            spark_session.read.format("csv")
+            spark_session.read
+            .format("csv")
             .option("header", "true")
             .option("inferSchema", "true")
             .load(path)
@@ -263,7 +268,8 @@ def test_autologging_truncates_datasource_tag_to_maximum_supported_value(tmp_pat
         # Read the serialized Spark Dataframe from the final path and verify that the resulting
         # Spark Datasource tag update performs truncation as expected
         df = (
-            spark_session.read.format("csv")
+            spark_session.read
+            .format("csv")
             .option("header", "true")
             .option("inferSchema", "true")
             .load(saved_df_paths[-1])

@@ -1,0 +1,98 @@
+<svg viewBox="0 0 1000 450" xmlns="http://www.w3.org/2000/svg">
+  <!-- Define styles -->
+  <defs>
+    <style>
+      .box { rx: 8; stroke-width: 2; }
+      .input-box { fill: #E3F2FD; stroke: #1976D2; }
+      .process-box { fill: #FFF9C4; stroke: #F57C00; }
+      .output-box { fill: #C8E6C9; stroke: #388E3C; }
+      .model-box { fill: #F3E5F5; stroke: #7B1FA2; }
+      .text-title { font-family: Arial, sans-serif; font-size: 18px; font-weight: bold; fill: #333; }
+      .text-body { font-family: Arial, sans-serif; font-size: 14px; fill: #555; }
+      .text-small { font-family: Arial, sans-serif; font-size: 12px; fill: #666; }
+      .arrow { fill: none; stroke: #666; stroke-width: 2.5; marker-end: url(#arrowhead); }
+      .label-bg { fill: white; stroke: #999; stroke-width: 1; rx: 4; }
+    </style>
+    <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <polygon points="0 0, 10 3, 0 6" fill="#666" />
+    </marker>
+  </defs>
+  
+  <!-- Stage 1: Inputs -->
+  <g id="stage1">
+    <rect x="50" y="120" width="180" height="100" class="box input-box"/>
+    <text x="140" y="155" text-anchor="middle" class="text-title">Inputs</text>
+    <text x="140" y="185" text-anchor="middle" class="text-small">Current Application + Prompts</text>
+    <text x="140" y="205" text-anchor="middle" class="text-small">+ Sample Data</text>
+  </g>
+  
+  <!-- Arrow 1 -->
+  <path d="M 230 170 L 280 170" class="arrow"/>
+  <rect x="240" y="150" width="30" height="25" class="label-bg"/>
+  <text x="255" y="167" text-anchor="middle" class="text-small">Build</text>
+  
+  <!-- Stage 2: Training Dataset -->
+  <g id="stage2">
+    <rect x="280" y="120" width="180" height="100" class="box process-box"/>
+    <text x="370" y="155" text-anchor="middle" class="text-title">Training</text>
+    <text x="370" y="175" text-anchor="middle" class="text-title">Dataset</text>
+    <text x="370" y="200" text-anchor="middle" class="text-small">Inputs + Current Outputs</text>
+  </g>
+  
+  <!-- Arrow 2 -->
+  <path d="M 460 170 L 510 170" class="arrow"/>
+  <rect x="470" y="150" width="30" height="25" class="label-bg"/>
+  <text x="485" y="167" text-anchor="middle" class="text-small">Run</text>
+  
+  <!-- Stage 3: Prompt Optimization -->
+  <g id="stage3">
+    <rect x="510" y="120" width="180" height="100" class="box process-box"/>
+    <text x="600" y="155" text-anchor="middle" class="text-title">Prompt</text>
+    <text x="600" y="175" text-anchor="middle" class="text-title">Optimization</text>
+    <text x="600" y="200" text-anchor="middle" class="text-small">Optimize prompts</text>
+  </g>
+  
+  <!-- Arrow 3 -->
+  <path d="M 690 170 L 740 170" class="arrow"/>
+  <rect x="700" y="150" width="30" height="25" class="label-bg"/>
+  <text x="715" y="167" text-anchor="middle" class="text-small">Get</text>
+  
+  <!-- Stage 4: Optimized Prompts -->
+  <g id="stage4">
+    <rect x="740" y="120" width="180" height="100" class="box output-box"/>
+    <text x="830" y="155" text-anchor="middle" class="text-title">Optimized</text>
+    <text x="830" y="175" text-anchor="middle" class="text-title">Prompts</text>
+    <text x="830" y="200" text-anchor="middle" class="text-small">Minimal Drift</text>
+  </g>
+  
+  <!-- Model indicators -->
+  <g id="current-model">
+    <rect x="50" y="290" width="180" height="80" class="box model-box"/>
+    <circle cx="75" cy="320" r="12" fill="none" stroke="#7B1FA2" stroke-width="2"/>
+    <circle cx="75" cy="320" r="8" fill="none" stroke="#7B1FA2" stroke-width="2"/>
+    <circle cx="75" cy="320" r="4" fill="#7B1FA2"/>
+    <text x="100" y="320" class="text-body" font-weight="bold">Current LLM</text>
+    <text x="100" y="340" class="text-small">(e.g., GPT-4o)</text>
+    <text x="100" y="360" class="text-small" fill="#999">Original model</text>
+  </g>
+  
+  <g id="new-model">
+    <rect x="280" y="290" width="180" height="80" class="box model-box"/>
+    <circle cx="305" cy="320" r="12" fill="none" stroke="#7B1FA2" stroke-width="2"/>
+    <circle cx="305" cy="320" r="8" fill="none" stroke="#7B1FA2" stroke-width="2"/>
+    <circle cx="305" cy="320" r="4" fill="#7B1FA2"/>
+    <text x="330" y="320" class="text-body" font-weight="bold">Target LLM</text>
+    <text x="330" y="340" class="text-small">(e.g., GPT-4o-mini)</text>
+    <text x="330" y="360" class="text-small" fill="#999">Destination model</text>
+  </g>
+  
+  <!-- Arrow connecting current LLM to evaluation dataset -->
+  <path d="M 140 290 L 140 250 L 370 250 L 370 220" class="arrow" stroke="#7B1FA2" stroke-width="3"/>
+  <rect x="210" y="235" width="100" height="30" class="label-bg" fill="#F3E5F5" stroke="#7B1FA2"/>
+  <text x="260" y="255" text-anchor="middle" class="text-small" fill="#7B1FA2" font-weight="bold">Generate labels</text>
+  
+  <!-- Arrow connecting target LLM to adaptation -->
+  <path d="M 370 290 L 370 270 L 600 270 L 600 220" class="arrow" stroke="#7B1FA2" stroke-width="3"/>
+  <rect x="435" y="235" width="100" height="30" class="label-bg" fill="#F3E5F5" stroke="#7B1FA2"/>
+  <text x="485" y="255" text-anchor="middle" class="text-small" fill="#7B1FA2" font-weight="bold">Optimize for</text>
+</svg>

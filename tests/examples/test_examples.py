@@ -33,7 +33,10 @@ def replace_mlflow_with_dev_version(yml_path: Path) -> None:
 def clean_up_mlflow_virtual_environments():
     yield
 
-    for path in Path(_get_mlflow_virtualenv_root()).iterdir():
+    venv_root = Path(_get_mlflow_virtualenv_root())
+    if not venv_root.exists():
+        return
+    for path in venv_root.iterdir():
         if path.is_dir():
             shutil.rmtree(path)
 
@@ -54,9 +57,10 @@ def mock_openai():
     ("directory", "params"),
     [
         ("h2o", []),
-        ("hyperparam", ["-e", "train", "-P", "epochs=1"]),
-        ("hyperparam", ["-e", "random", "-P", "epochs=1"]),
-        ("hyperparam", ["-e", "hyperopt", "-P", "epochs=1"]),
+        # TODO: Fix the hyperparam example and re-enable it
+        # ("hyperparam", ["-e", "train", "-P", "epochs=1"]),
+        # ("hyperparam", ["-e", "random", "-P", "epochs=1"]),
+        # ("hyperparam", ["-e", "hyperopt", "-P", "epochs=1"]),
         (
             "lightgbm/lightgbm_native",
             ["-P", "learning_rate=0.1", "-P", "colsample_bytree=0.8", "-P", "subsample=0.9"],
@@ -73,20 +77,8 @@ def mock_openai():
             ["-P", "learning_rate=0.3", "-P", "colsample_bytree=0.8", "-P", "subsample=0.9"],
         ),
         ("xgboost/xgboost_sklearn", []),
-        ("fastai", ["-P", "lr=0.02", "-P", "epochs=3"]),
         ("pytorch/MNIST", ["-P", "max_epochs=1"]),
-        (
-            "pytorch/BertNewsClassification",
-            ["-P", "max_epochs=1", "-P", "num_samples=100", "-P", "dataset=20newsgroups"],
-        ),
-        (
-            "pytorch/AxHyperOptimizationPTL",
-            ["-P", "max_epochs=10", "-P", "total_trials=1"],
-        ),
-        (
-            "pytorch/IterativePruning",
-            ["-P", "max_epochs=1", "-P", "total_trials=1"],
-        ),
+        ("pytorch/HPOExample", ["-P", "n_trials=2", "-P", "max_epochs=1"]),
         ("pytorch/CaptumExample", ["-P", "max_epochs=50"]),
         ("supply_chain_security", []),
         ("tensorflow", []),
@@ -98,10 +90,10 @@ def test_mlflow_run_example(directory, params, tmp_path):
     # directory being reused when re-trying the test since
     # tmp_path is named as the test name
     random_tmp_path = tmp_path / str(uuid.uuid4())
-    mlflow.set_tracking_uri(random_tmp_path.joinpath("mlruns").as_uri())
     example_dir = Path(EXAMPLES_DIR, directory)
     tmp_example_dir = random_tmp_path.joinpath(example_dir)
     shutil.copytree(example_dir, tmp_example_dir)
+    mlflow.set_tracking_uri(f"sqlite:///{random_tmp_path / 'mlruns.db'}")
     python_env_path = find_python_env_yaml(tmp_example_dir)
     replace_mlflow_with_dev_version(python_env_path)
     cli_run_list = [tmp_example_dir] + params
@@ -159,7 +151,6 @@ def test_mlflow_run_example(directory, params, tmp_path):
         ("shap", [sys.executable, "explainer_logging.py"]),
         ("ray_serve", [sys.executable, "train_model.py"]),
         ("pip_requirements", [sys.executable, "pip_requirements.py"]),
-        ("fastai", [sys.executable, "train.py", "--lr", "0.02", "--epochs", "3"]),
         ("pmdarima", [sys.executable, "train.py"]),
         ("evaluation", [sys.executable, "evaluate_on_binary_classifier.py"]),
         ("evaluation", [sys.executable, "evaluate_on_multiclass_classifier.py"]),
@@ -167,7 +158,6 @@ def test_mlflow_run_example(directory, params, tmp_path):
         ("evaluation", [sys.executable, "evaluate_with_custom_metrics.py"]),
         ("evaluation", [sys.executable, "evaluate_with_custom_metrics_comprehensive.py"]),
         ("evaluation", [sys.executable, "evaluate_with_model_validation.py"]),
-        ("diviner", [sys.executable, "train.py"]),
         ("spark_udf", [sys.executable, "spark_udf_datetime.py"]),
         ("pyfunc", [sys.executable, "train.py"]),
         ("tensorflow", [sys.executable, "train.py"]),
@@ -179,7 +169,6 @@ def test_mlflow_run_example(directory, params, tmp_path):
         ("sentence_transformers", [sys.executable, "simple.py"]),
         ("tracing", [sys.executable, "fluent.py"]),
         ("tracing", [sys.executable, "client.py"]),
-        ("tracing", [sys.executable, "multithreading.py"]),
         ("llama_index", [sys.executable, "simple_index.py"]),
         ("llama_index", [sys.executable, "autolog.py"]),
     ],

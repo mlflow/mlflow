@@ -16,7 +16,7 @@ You can try experimenting with both, as well as omitting the --inverse-method ar
 Then you can open the MLflow UI to track the experiments and compare your runs via:
 
 ```
-mlflow ui
+mlflow server
 ```
 
 ## Running the code as a project

@@ -52,8 +52,8 @@ def resolve_request_headers(request_headers=None):
     :py:class:`mlflow.tracking.request_header.RequestHeaderProvider`.
 
     Args:
-        tags: A dictionary of request headers to override. If specified, headers passed in this
-            argument will override those inferred from the context.
+        request_headers: A dictionary of request headers to override. If specified, headers passed
+            in this argument will override those inferred from the context.
 
     Returns:
         A dictionary of resolved headers.

@@ -7,6 +7,7 @@ import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
+from mlflow.store.entities.paged_list import PagedList
 
 
 @pytest.mark.parametrize(
@@ -72,7 +73,9 @@ def test_get_artifact_uri(uri, expected_tracking_uri, mock_uri, expected_result_
     ) as get_artifact_uri_mock:
         result_uri = RunsArtifactRepository.get_underlying_uri(uri)
         get_artifact_uri_mock.assert_called_once_with(
-            "1234abcdf1394asdfwer33", "path/model", expected_tracking_uri
+            run_id="1234abcdf1394asdfwer33",
+            artifact_path="path/model",
+            tracking_uri=expected_tracking_uri,
         )
         assert result_uri == expected_result_uri
 
@@ -104,3 +107,62 @@ def test_runs_artifact_repo_uses_repo_download_artifacts():
     runs_repo.repo = Mock()
     runs_repo.download_artifacts("artifact_path", "dst_path")
     runs_repo.repo.download_artifacts.assert_called_once()
+
+
+def test_runs_artifact_repo_tracking_uri_passed_as_keyword():
+    """
+    Test that tracking_uri is passed as keyword argument to get_artifact_repository.
+    This verifies the fix for issue #16873 where tracking_uri was incorrectly passed
+    as a positional argument, causing it to be interpreted as access_key_id in S3.
+    """
+    with mock.patch(
+        "mlflow.tracking.artifact_utils.get_artifact_uri",
+        return_value="s3://test-bucket/some-run-id/artifacts/path/to/model",
+    ) as mock_get_artifact_uri:
+        runs_repo = RunsArtifactRepository(
+            artifact_uri="runs:/some-run-id/path/to/model",
+            tracking_uri="http://test-tracking-server:5000",
+        )
+        assert isinstance(runs_repo.repo, S3ArtifactRepository)
+        mock_get_artifact_uri.assert_called_once()
+
+
+def test_get_logged_model_artifact_repo_uses_models_uri():
+    with (
+        mock.patch(
+            "mlflow.store.artifact.runs_artifact_repo.RunsArtifactRepository.get_underlying_uri",
+            return_value="mlflow-artifacts:/1/some-run-id/artifacts/model",
+        ),
+        mock.patch(
+            "mlflow.store.artifact.runs_artifact_repo.mlflow.tracking.MlflowClient"
+        ) as mock_mlflow_client,
+        mock.patch(
+            "mlflow.store.artifact.artifact_repository_registry.get_artifact_repository"
+        ) as mock_get_artifact_repo,
+    ):
+        runs_repo = RunsArtifactRepository(
+            artifact_uri="runs:/some-run-id/model",
+            tracking_uri="http://test-tracking-server:5000",
+            registry_uri="sqlite:///mlflow.db",
+        )
+        mock_get_artifact_repo.reset_mock()
+
+        run = Mock()
+        run.info.experiment_id = "123"
+        mock_mlflow_client.return_value.get_run.return_value = run
+
+        matched_model = Mock()
+        matched_model.source_run_id = "some-run-id"
+        matched_model.model_id = "m-123456"
+        mock_mlflow_client.return_value.search_logged_models.return_value = PagedList(
+            [matched_model], token=None
+        )
+
+        repo = runs_repo._get_logged_model_artifact_repo(run_id="some-run-id", name="model")
+
+        assert repo == mock_get_artifact_repo.return_value
+        mock_get_artifact_repo.assert_called_once_with(
+            "models:/m-123456",
+            tracking_uri="http://test-tracking-server:5000",
+            registry_uri="sqlite:///mlflow.db",
+        )

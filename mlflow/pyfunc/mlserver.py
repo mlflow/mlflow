@@ -1,23 +1,35 @@
 import logging
 import os
-from typing import Dict, Optional, Tuple
+import shlex
+import warnings
 
 _logger = logging.getLogger(__name__)
 
 MLServerMLflowRuntime = "mlserver_mlflow.MLflowRuntime"
 MLServerDefaultModelName = "mlflow-model"
 
+_DEPRECATION_MESSAGE = (
+    "MLflow's MLServer integration (`enable_mlserver=True`) is deprecated and will be "
+    "removed in MLflow 3.13. The MLServer project is no longer actively maintained "
+    "(see https://github.com/SeldonIO/MLServer/issues/2404). Use the default scoring "
+    "server instead."
+)
+
+
+def warn_mlserver_deprecated() -> None:
+    warnings.warn(_DEPRECATION_MESSAGE, category=FutureWarning, stacklevel=3)
+
 
 def get_cmd(
     model_uri: str,
-    port: Optional[int] = None,
-    host: Optional[str] = None,
-    timeout: Optional[int] = None,
-    nworkers: Optional[int] = None,
-    model_name: Optional[str] = None,
-    model_version: Optional[str] = None,
-) -> Tuple[str, Dict[str, str]]:
-    cmd = f"mlserver start {model_uri}"
+    port: int | None = None,
+    host: str | None = None,
+    timeout: int | None = None,
+    nworkers: int | None = None,
+    model_name: str | None = None,
+    model_version: str | None = None,
+) -> tuple[str, dict[str, str]]:
+    cmd = f"mlserver start {shlex.quote(model_uri)}"
 
     cmd_env = os.environ.copy()
 

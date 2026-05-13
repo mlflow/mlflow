@@ -1,8 +1,8 @@
 import logging
 
 import click
-from packaging.requirements import InvalidRequirement, Requirement
 
+from mlflow.mcp.decorator import mlflow_mcp
 from mlflow.models import python_api
 from mlflow.models.flavor_backend_registry import get_flavor_backend
 from mlflow.models.model import update_model_requirements
@@ -23,11 +23,12 @@ def commands():
 
 
 @commands.command("serve")
+@mlflow_mcp(tool_name="serve_model")
 @cli_args.MODEL_URI
 @cli_args.PORT
 @cli_args.HOST
 @cli_args.TIMEOUT
-@cli_args.WORKERS
+@cli_args.MODELS_WORKERS
 @cli_args.ENV_MANAGER
 @cli_args.NO_CONDA
 @cli_args.INSTALL_MLFLOW
@@ -107,7 +108,17 @@ def serve(
     )
 
 
+class KeyValueType(click.ParamType):
+    name = "key=value"
+
+    def convert(self, value, param, ctx):
+        if "=" not in value:
+            self.fail(f"{value!r} is not a valid key value pair, expecting `key=value`", param, ctx)
+        return value.split("=", 1)
+
+
 @commands.command("predict")
+@mlflow_mcp(tool_name="predict_with_model")
 @cli_args.MODEL_URI
 @click.option(
     "--input-path", "-i", default=None, help="CSV containing pandas DataFrame to predict against."
@@ -133,16 +144,45 @@ def serve(
     help="Specify packages and versions to override the dependencies defined "
     "in the model. Must be a comma-separated string like x==y,z==a.",
 )
-def predict(**kwargs):
+@click.option(
+    "--env",
+    default=None,
+    type=KeyValueType(),
+    multiple=True,
+    help="Extra environment variables to set when running the model. Must be "
+    "key value pairs, e.g. `--env key=value`.",
+)
+def predict(
+    model_uri,
+    input_data=None,
+    input_path=None,
+    content_type=python_api._CONTENT_TYPE_JSON,
+    output_path=None,
+    env_manager=_EnvManager.VIRTUALENV,
+    install_mlflow=False,
+    pip_requirements_override=None,
+    env=None,
+):
     """
     Generate predictions in json format using a saved MLflow model. For information about the input
     data formats accepted by this function, see the following documentation:
     https://www.mlflow.org/docs/latest/models.html#built-in-deployment-tools.
     """
-    return python_api.predict(**kwargs)
+    return python_api.predict(
+        model_uri=model_uri,
+        input_data=input_data,
+        input_path=input_path,
+        content_type=content_type,
+        output_path=output_path,
+        env_manager=env_manager,
+        install_mlflow=install_mlflow,
+        pip_requirements_override=pip_requirements_override,
+        extra_envs=dict(env),
+    )
 
 
 @commands.command("prepare-env")
+@mlflow_mcp(tool_name="prepare_model_env")
 @cli_args.MODEL_URI
 @cli_args.ENV_MANAGER
 @cli_args.INSTALL_MLFLOW
@@ -162,6 +202,7 @@ def prepare_env(
 
 
 @commands.command("generate-dockerfile")
+@mlflow_mcp(tool_name="generate_model_dockerfile")
 @cli_args.MODEL_URI_BUILD_DOCKER
 @click.option(
     "--output-directory",
@@ -213,6 +254,7 @@ def generate_dockerfile(
 
 
 @commands.command("build-docker")
+@mlflow_mcp(tool_name="build_model_docker")
 @cli_args.MODEL_URI_BUILD_DOCKER
 @click.option("--name", "-n", default="mlflow-pyfunc-servable", help="Name to use for built image")
 @cli_args.ENV_MANAGER
@@ -251,21 +293,23 @@ def build_docker(**kwargs):
 
         Since MLflow 2.10.1, the Docker image built with ``--model-uri`` does **not install Java**
         for improved performance, unless the model flavor is one of ``["johnsnowlabs", "h2o",
-        "mleap", "spark"]``. If you need to install Java for other flavors, e.g. custom Python model
+        "spark"]``. If you need to install Java for other flavors, e.g. custom Python model
         that uses SparkML, please specify the ``--install-java`` flag to enforce Java installation.
 
-    .. warning::
-
-        The image built without ``--model-uri`` doesn't support serving models with RFunc / Java
-        MLeap model server.
-
-    NB: by default, the container will start nginx and gunicorn processes. If you don't need the
+    NB: by default, the container will start nginx and uvicorn processes. If you don't need the
     nginx process to be started (for instance if you deploy your container to Google Cloud Run),
     you can disable it via the DISABLE_NGINX environment variable:
 
     .. code:: bash
 
         docker run -p 5001:8080 -e DISABLE_NGINX=true "my-image-name"
+
+    By default, the number of uvicorn workers is set to CPU count. If you want to set a custom
+    number of workers, you can set the MLFLOW_MODELS_WORKERS environment variable:
+
+    .. code:: bash
+
+        docker run -p 5001:8080 -e MLFLOW_MODELS_WORKERS=4 "my-image-name"
 
     See https://www.mlflow.org/docs/latest/python_api/mlflow.pyfunc.html for more information on the
     'python_function' flavor.
@@ -274,6 +318,7 @@ def build_docker(**kwargs):
 
 
 @commands.command("update-pip-requirements")
+@mlflow_mcp(tool_name="update_model_pip_requirements")
 @cli_args.MODEL_URI
 @click.argument("operation", type=click.Choice(["add", "remove"]))
 @click.argument("requirement_strings", type=str, nargs=-1)
@@ -311,11 +356,6 @@ def update_pip_requirements(model_uri, operation, requirement_strings):
     and remove all the specified package names. Any requirements that are not
     found in the existing files will be ignored.
     """
-    try:
-        requirements = [Requirement(s.strip().lower()) for s in requirement_strings]
-    except InvalidRequirement as e:
-        raise click.BadArgumentUsage(f"Invalid requirement: {e}")
-
-    update_model_requirements(model_uri, operation, requirements)
+    update_model_requirements(model_uri, operation, requirement_strings)
 
     _logger.info(f"Successfully updated the requirements for the model at {model_uri}!")

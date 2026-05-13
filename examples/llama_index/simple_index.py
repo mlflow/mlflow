@@ -33,7 +33,7 @@ mlflow.set_experiment("llama_index")
 with mlflow.start_run() as run:
     model_info = mlflow.llama_index.log_model(
         llama_index_model=index,
-        artifact_path="chat_index",
+        name="chat_index",
         # Log the index with chat engine type. This lets you load the index back as a chat engine
         # using `mlflow.pyfunc.load_model()`` API for querying and deploying.
         engine_type="chat",
@@ -72,7 +72,7 @@ print("-------\n\033[0m")
 
 print(
     "\033[92m"
-    "🚀 Now run `mlflow ui --port 5000` and open MLflow UI to see the logged information, such as "
+    "🚀 Now run `mlflow server --port 5000` and open MLflow UI to see the logged information, such as "
     "serialized index, global Settings, model signature, dependencies, and more."
 )
 print(f" - Run URL: http://127.0.0.1:5000/#/experiments/{experiment_id}/runs/{run_id}")

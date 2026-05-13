@@ -1,4 +1,5 @@
-import { act, renderHook } from '@testing-library/react-hooks';
+import { describe, jest, test, expect } from '@jest/globals';
+import { act, renderHook } from '@testing-library/react';
 import { getExperimentPageDefaultViewMode, useExperimentPageViewMode } from './useExperimentPageViewMode';
 import { useLocation } from '../../../../common/utils/RoutingUtils';
 import { TestRouter, testRoute } from '../../../../common/utils/RoutingTestUtils';

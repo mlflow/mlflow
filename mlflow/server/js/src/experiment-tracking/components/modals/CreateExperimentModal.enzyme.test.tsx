@@ -5,6 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import { describe, jest, beforeEach, test, expect } from '@jest/globals';
 import React from 'react';
 import { shallow } from 'enzyme';
 import { CreateExperimentModalImpl } from './CreateExperimentModal';
@@ -30,6 +31,7 @@ describe('CreateExperimentModal', () => {
         return Promise.resolve(response);
       },
       searchExperimentsApi: () => Promise.resolve([]),
+      onExperimentCreated: jest.fn(),
       navigate,
     };
     wrapper = shallow(<CreateExperimentModalImpl {...minimalProps} />);
@@ -46,28 +48,52 @@ describe('CreateExperimentModal', () => {
       artifactLocation: 'artifactLoc',
     });
 
-    expect(navigate).toBeCalledWith(createMLflowRoutePath('/experiments/fakeExpId'));
+    expect(navigate).toHaveBeenCalledWith(createMLflowRoutePath('/experiments/fakeExpId'));
+  });
+  test('Create button is disabled when experiment name is empty and enabled when name is entered', () => {
+    wrapper = shallow(<CreateExperimentModalImpl {...minimalProps} isOpen />);
+    // Initially, experimentName state is empty so okButtonProps.disabled should be true
+    let modal = wrapper.find(GenericInputModal);
+    expect(modal.prop('okButtonProps')).toEqual({ disabled: true });
+
+    // Simulate entering an experiment name via handleValuesChange
+    const instance = wrapper.instance() as any;
+    instance.handleValuesChange({ experimentName: 'my-experiment' });
+    wrapper.update();
+
+    modal = wrapper.find(GenericInputModal);
+    expect(modal.prop('okButtonProps')).toEqual({ disabled: false });
+
+    // Simulate clearing the experiment name
+    instance.handleValuesChange({ experimentName: '' });
+    wrapper.update();
+
+    modal = wrapper.find(GenericInputModal);
+    expect(modal.prop('okButtonProps')).toEqual({ disabled: true });
+
+    // Whitespace-only should also be disabled
+    instance.handleValuesChange({ experimentName: '   ' });
+    wrapper.update();
+
+    modal = wrapper.find(GenericInputModal);
+    expect(modal.prop('okButtonProps')).toEqual({ disabled: true });
   });
   test('handleCreateExperiment does not perform redirection if API requests fail', async () => {
     const propsVals = [
-      {
-        ...minimalProps,
-        searchExperimentsApi: () => Promise.reject(new Error('SearchExperiments failed!')),
-      },
       {
         ...minimalProps,
         createExperimentApi: () => Promise.reject(new Error('CreateExperiment failed!')),
       },
     ];
     const testPromises: any = [];
-    propsVals.forEach((props) => {
+    propsVals.forEach(async (props) => {
       wrapper = shallow(<CreateExperimentModalImpl {...props} />);
       instance = wrapper.instance();
       const payload = { experimentName: 'myNewExp', artifactLocation: 'artifactLoc' };
-      testPromises.push(expect(instance.handleCreateExperiment(payload)).rejects.toThrow());
+      testPromises.push(await expect(instance.handleCreateExperiment(payload)).rejects.toThrow());
     });
     await Promise.all(testPromises);
 
-    expect(navigate).not.toBeCalled();
+    expect(navigate).not.toHaveBeenCalled();
   });
 });

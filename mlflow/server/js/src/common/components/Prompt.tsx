@@ -1,5 +1,5 @@
 import React from 'react';
-import { UNSAFE_NavigationContext } from '../../common/utils/RoutingUtils';
+import { UNSAFE_NavigationContext } from '../utils/RoutingUtils';
 
 const useNavigationBlock = () => {
   return (React.useContext(UNSAFE_NavigationContext) as any).navigator.block;
@@ -25,7 +25,6 @@ export const Prompt = ({ when, message }: PromptProps) => {
       return window.confirm(message);
     });
 
-    // eslint-disable-next-line consistent-return
     return unblock;
   }, [message, block, when]);
 

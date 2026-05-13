@@ -1,4 +1,9 @@
+from __future__ import annotations
+
 import logging
+import pathlib
+import shutil
+from typing import TYPE_CHECKING, Any
 
 from mlflow.environment_variables import (
     MLFLOW_HUGGINGFACE_DISABLE_ACCELERATE_FEATURES,
@@ -7,6 +12,9 @@ from mlflow.environment_variables import (
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_STATE
 from mlflow.transformers.flavor_config import FlavorKey, get_peft_base_model, is_peft_model
+
+if TYPE_CHECKING:
+    import transformers
 
 _logger = logging.getLogger(__name__)
 
@@ -23,7 +31,7 @@ def save_pipeline_pretrained_weights(path, pipeline, flavor_conf, processor=None
     Args:
         path: The local path to save the pipeline
         pipeline: Transformers pipeline instance
-        flavor_config: The flavor configuration constructed for the pipeline
+        flavor_conf: The flavor configuration constructed for the pipeline
         processor: Optional processor instance to save alongside the pipeline
     """
     model = get_peft_base_model(pipeline.model) if is_peft_model(pipeline.model) else pipeline.model
@@ -39,6 +47,98 @@ def save_pipeline_pretrained_weights(path, pipeline, flavor_conf, processor=None
 
     if processor:
         processor.save_pretrained(component_dir.joinpath(_PROCESSOR_BINARY_DIR_NAME))
+
+
+def save_local_checkpoint(path, checkpoint_dir, flavor_conf, processor=None):
+    """
+    Save the local checkpoint of the model and other components to the specified local path.
+
+    Args:
+        path: The local path to save the pipeline
+        checkpoint_dir: The local path to the checkpoint directory
+        flavor_conf: The flavor configuration constructed for the pipeline
+        processor: Optional processor instance to save alongside the pipeline
+    """
+    # Copy files within checkpoint dir to the model path
+    shutil.copytree(checkpoint_dir, path.joinpath(_MODEL_BINARY_FILE_NAME))
+
+    for name in flavor_conf.get(FlavorKey.COMPONENTS, []):
+        # Other pipeline components such as tokenizer may not saved in the checkpoint.
+        # We first try to load the component instance from the checkpoint directory,
+        # if it fails, we load the component from the HuggingFace Hub.
+        try:
+            component = _load_component(flavor_conf, name, local_path=checkpoint_dir)
+        except Exception:
+            repo_id = flavor_conf[FlavorKey.MODEL_NAME]
+            _logger.info(
+                f"The {name} state file is not found ins the local checkpoint directory. MLflow "
+                f"will use the default component state from the base HF repository {repo_id}."
+            )
+            component = _load_component(flavor_conf, name, repo_id=repo_id)
+
+        component.save_pretrained(path.joinpath(_COMPONENTS_BINARY_DIR_NAME, name))
+
+    if processor:
+        processor.save_pretrained(
+            path.joinpath(_COMPONENTS_BINARY_DIR_NAME, _PROCESSOR_BINARY_DIR_NAME)
+        )
+
+
+def save_pipeline_components(
+    path: pathlib.Path,
+    pipeline: transformers.Pipeline,
+    flavor_conf: dict[str, Any],
+    processor: transformers.ProcessorMixin | None = None,
+) -> None:
+    """
+    Save only the pipeline components (tokenizer, feature extractor, etc.) without the
+    model weights. Used when saving a PEFT model with a local base model path reference.
+    """
+    component_dir = path.joinpath(_COMPONENTS_BINARY_DIR_NAME)
+    for name in flavor_conf.get(FlavorKey.COMPONENTS, []):
+        getattr(pipeline, name).save_pretrained(component_dir.joinpath(name))
+
+    if processor:
+        processor.save_pretrained(component_dir.joinpath(_PROCESSOR_BINARY_DIR_NAME))
+
+
+def load_model_and_components_from_local_base_path(
+    path: pathlib.Path,
+    flavor_conf: dict[str, Any],
+    accelerate_conf: dict[str, Any],
+    device: str | int | None = None,
+    base_model_path: str | None = None,
+) -> dict[str, Any]:
+    """
+    Load the base model from an external local path and pipeline components from the
+    MLflow artifact directory. Used when a PEFT model was saved with a local base model
+    path reference via the ``base_model_path`` parameter.
+
+    Args:
+        path: The local path containing MLflow model artifacts
+        flavor_conf: The flavor configuration
+        accelerate_conf: The configuration for the accelerate library
+        device: The device to load the model onto
+        base_model_path: Optional override for the base model path stored in the flavor
+            config. When provided, the base model is loaded from this path instead of
+            the path stored at save time.
+    """
+    loaded = {}
+
+    base_model_path = base_model_path or flavor_conf[FlavorKey.MODEL_LOCAL_BASE]
+    loaded[FlavorKey.MODEL] = _load_model(base_model_path, flavor_conf, accelerate_conf, device)
+
+    components = flavor_conf.get(FlavorKey.COMPONENTS, [])
+    if FlavorKey.PROCESSOR_TYPE in flavor_conf:
+        components.append("processor")
+
+    for component_key in components:
+        component_path = path.joinpath(_COMPONENTS_BINARY_DIR_NAME, component_key)
+        loaded[component_key] = _load_component(
+            flavor_conf, component_key, local_path=component_path
+        )
+
+    return loaded
 
 
 def load_model_and_components_from_local(path, flavor_conf, accelerate_conf, device=None):
@@ -66,7 +166,10 @@ def load_model_and_components_from_local(path, flavor_conf, accelerate_conf, dev
         components.append("processor")
 
     for component_key in components:
-        loaded[component_key] = _load_component(flavor_conf, component_key, local_path=path)
+        component_path = path.joinpath(_COMPONENTS_BINARY_DIR_NAME, component_key)
+        loaded[component_key] = _load_component(
+            flavor_conf, component_key, local_path=component_path
+        )
 
     return loaded
 
@@ -107,7 +210,7 @@ def load_model_and_components_from_huggingface_hub(flavor_conf, accelerate_conf,
     return loaded
 
 
-def _load_component(flavor_conf, name, local_path=None):
+def _load_component(flavor_conf, name, local_path=None, repo_id=None):
     import transformers
 
     _COMPONENT_TO_AUTOCLASS_MAP = {
@@ -134,11 +237,10 @@ def _load_component(flavor_conf, name, local_path=None):
 
     if local_path is not None:
         # Load component from local file
-        path = local_path.joinpath(_COMPONENTS_BINARY_DIR_NAME, name)
-        return cls.from_pretrained(str(path), trust_remote_code=trust_remote)
+        return cls.from_pretrained(str(local_path), trust_remote_code=trust_remote)
     else:
         # Load component from HuggingFace Hub
-        repo = flavor_conf[FlavorKey.COMPONENT_NAME.format(name)]
+        repo = repo_id or flavor_conf[FlavorKey.COMPONENT_NAME.format(name)]
         revision = flavor_conf.get(FlavorKey.COMPONENT_REVISION.format(name))
         return cls.from_pretrained(repo, revision=revision, trust_remote_code=trust_remote)
 
@@ -215,7 +317,7 @@ def _load_model(model_name_or_path, flavor_conf, accelerate_conf, device, revisi
         load_kwargs.update({"trust_remote_code": True})
 
     if model := _try_load_model_with_accelerate(
-        cls, model_name_or_path, {**accelerate_conf, **load_kwargs}
+        cls, model_name_or_path, accelerate_conf | load_kwargs
     ):
         return model
 

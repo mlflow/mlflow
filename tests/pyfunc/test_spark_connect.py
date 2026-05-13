@@ -1,6 +1,5 @@
 import numpy as np
 import pandas as pd
-import pyspark
 import pytest
 from pyspark.sql import SparkSession
 from sklearn.datasets import load_iris
@@ -11,15 +10,7 @@ import mlflow
 
 @pytest.fixture(scope="module")
 def spark():
-    spark = (
-        SparkSession.builder.remote("local[2]")
-        .config(
-            # The jars for spark-connect are not bundled in the pyspark package
-            "spark.jars.packages",
-            f"org.apache.spark:spark-connect_2.12:{pyspark.__version__}",
-        )
-        .getOrCreate()
-    )
+    spark = SparkSession.builder.remote("local[2]").getOrCreate()
     yield spark
     spark.stop()
 
@@ -28,7 +19,7 @@ def test_spark_udf_spark_connect(spark):
     X, y = load_iris(return_X_y=True)
     model = LogisticRegression().fit(X, y)
     with mlflow.start_run():
-        info = mlflow.sklearn.log_model(model, "model")
+        info = mlflow.sklearn.log_model(model, name="model")
     sdf = spark.createDataFrame(pd.DataFrame(X, columns=list("abcd")))
     udf = mlflow.pyfunc.spark_udf(spark, info.model_uri, env_manager="local")
     result = sdf.select(udf(*sdf.columns).alias("preds")).toPandas()
@@ -44,15 +35,15 @@ def test_spark_udf_spark_connect_unsupported_env_manager(spark, tmp_path, env_ma
         mlflow.pyfunc.spark_udf(spark, str(tmp_path), env_manager=env_manager)
 
 
-def test_spark_udf_spark_connect_with_model_logging(spark, tmp_path):
+def test_spark_udf_spark_connect_with_model_logging(spark, db_uri):
     X, y = load_iris(return_X_y=True, as_frame=True)
     model = LogisticRegression().fit(X, y)
 
-    mlflow.set_tracking_uri(tmp_path.joinpath("mlruns").as_uri())
+    mlflow.set_tracking_uri(db_uri)
     mlflow.set_experiment("test")
     with mlflow.start_run():
         signature = mlflow.models.infer_signature(X, y)
-        model_info = mlflow.sklearn.log_model(model, "model", signature=signature)
+        model_info = mlflow.sklearn.log_model(model, name="model", signature=signature)
 
     udf = mlflow.pyfunc.spark_udf(spark, model_info.model_uri, env_manager="local")
     X_test = X.head(5)

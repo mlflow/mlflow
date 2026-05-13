@@ -1,25 +1,41 @@
+import hashlib
 import logging
 import os
+import re
+import sqlite3
+import tempfile
 import time
 from contextlib import contextmanager
+from pathlib import Path
 
 import sqlalchemy
 from alembic.migration import MigrationContext
 from alembic.script import ScriptDirectory
-from sqlalchemy import sql
+from packaging.version import Version
+from sqlalchemy import event, sql
 
 # We need to import sqlalchemy.pool to convert poolclass string to class object
 from sqlalchemy.pool import (
     AssertionPool,
     AsyncAdaptedQueuePool,
-    FallbackAsyncAdaptedQueuePool,
     NullPool,
     QueuePool,
     SingletonThreadPool,
     StaticPool,
 )
 
+# CRITICAL: Import ORM modules to register all table metadata with Base.metadata.
+# _all_tables_exist() depends on Base.metadata.tables being fully populated.
+# If these imports are removed, Base.metadata.tables will be incomplete and
+# _all_tables_exist() will return True even when tables are missing, silently
+# skipping DB initialization/migration.
+import mlflow.store.model_registry.dbmodels.models  # noqa: F401
+import mlflow.store.tracking.dbmodels.models  # noqa: F401
+import mlflow.store.workspace.dbmodels.models  # noqa: F401
 from mlflow.environment_variables import (
+    MLFLOW_MYSQL_SSL_CA,
+    MLFLOW_MYSQL_SSL_CERT,
+    MLFLOW_MYSQL_SSL_KEY,
     MLFLOW_SQLALCHEMYSTORE_ECHO,
     MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW,
     MLFLOW_SQLALCHEMYSTORE_POOL_RECYCLE,
@@ -27,31 +43,14 @@ from mlflow.environment_variables import (
     MLFLOW_SQLALCHEMYSTORE_POOLCLASS,
 )
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import BAD_REQUEST, INTERNAL_ERROR, TEMPORARILY_UNAVAILABLE
+from mlflow.protos.databricks_pb2 import (
+    BAD_REQUEST,
+    INTERNAL_ERROR,
+    TEMPORARILY_UNAVAILABLE,
+)
+from mlflow.store.db.base_sql_model import Base
 from mlflow.store.db.db_types import SQLITE
-from mlflow.store.model_registry.dbmodels.models import (
-    SqlModelVersion,
-    SqlModelVersionTag,
-    SqlRegisteredModel,
-    SqlRegisteredModelAlias,
-    SqlRegisteredModelTag,
-)
 from mlflow.store.tracking.dbmodels.initial_models import Base as InitialBase
-from mlflow.store.tracking.dbmodels.models import (
-    SqlDataset,
-    SqlExperiment,
-    SqlExperimentTag,
-    SqlInput,
-    SqlInputTag,
-    SqlLatestMetric,
-    SqlMetric,
-    SqlParam,
-    SqlRun,
-    SqlTag,
-    SqlTraceInfo,
-    SqlTraceRequestMetadata,
-    SqlTraceTag,
-)
 
 _logger = logging.getLogger(__name__)
 
@@ -65,37 +64,40 @@ def _get_package_dir():
 
 
 def _all_tables_exist(engine):
-    return {
-        t
-        for t in sqlalchemy.inspect(engine).get_table_names()
-        # Filter out alembic tables
-        if not t.startswith("alembic_")
-    } == {
-        SqlExperiment.__tablename__,
-        SqlRun.__tablename__,
-        SqlMetric.__tablename__,
-        SqlParam.__tablename__,
-        SqlTag.__tablename__,
-        SqlExperimentTag.__tablename__,
-        SqlLatestMetric.__tablename__,
-        SqlRegisteredModel.__tablename__,
-        SqlModelVersion.__tablename__,
-        SqlRegisteredModelTag.__tablename__,
-        SqlModelVersionTag.__tablename__,
-        SqlRegisteredModelAlias.__tablename__,
-        SqlDataset.__tablename__,
-        SqlInput.__tablename__,
-        SqlInputTag.__tablename__,
-        SqlTraceInfo.__tablename__,
-        SqlTraceTag.__tablename__,
-        SqlTraceRequestMetadata.__tablename__,
+    # Check if all ORM-defined tables exist in the database.
+    # Derived from Base.metadata.tables so that newly added ORM models are
+    # automatically included without requiring a manual update here.
+    # Using issubset() instead of equality so that additional tables added by migrations
+    # don't cause this check to fail. This prevents unnecessary calls to _initialize_tables
+    # which can cause migration errors like "Can't locate revision identified by 'xxx'".
+    expected_tables = set(Base.metadata.tables)
+    actual_tables = {
+        t for t in sqlalchemy.inspect(engine).get_table_names() if not t.startswith("alembic_")
     }
+    return expected_tables.issubset(actual_tables)
 
 
 def _initialize_tables(engine):
     _logger.info("Creating initial MLflow database tables...")
     InitialBase.metadata.create_all(engine)
     _upgrade_db(engine)
+
+
+def _safe_initialize_tables(engine: sqlalchemy.engine.Engine) -> None:
+    from mlflow.utils.file_utils import ExclusiveFileLock
+
+    if os.name == "nt":
+        if not _all_tables_exist(engine):
+            _initialize_tables(engine)
+        return
+
+    url_hash = hashlib.md5(
+        str(engine.url).encode("utf-8"),
+        usedforsecurity=False,
+    ).hexdigest()
+    with ExclusiveFileLock(f"{tempfile.gettempdir()}/db_init_lock-{url_hash}"):
+        if not _all_tables_exist(engine):
+            _initialize_tables(engine)
 
 
 def _get_latest_schema_revision():
@@ -155,13 +157,13 @@ def _get_managed_session_maker(SessionMaker, db_type):
                     "SQLAlchemy database error. The following exception is caught.\n%s",
                     e,
                 )
-                raise MlflowException(message=e, error_code=TEMPORARILY_UNAVAILABLE)
+                raise MlflowException(message=e, error_code=TEMPORARILY_UNAVAILABLE) from e
             except sqlalchemy.exc.SQLAlchemyError as e:
                 session.rollback()
-                raise MlflowException(message=e, error_code=BAD_REQUEST)
+                raise MlflowException(message=e, error_code=BAD_REQUEST) from e
             except Exception as e:
                 session.rollback()
-                raise MlflowException(message=e, error_code=INTERNAL_ERROR)
+                raise MlflowException(message=e, error_code=INTERNAL_ERROR) from e
 
     return make_managed_session
 
@@ -196,6 +198,30 @@ def _get_alembic_config(db_url, alembic_dir=None):
     return config
 
 
+def _check_sqlite_version(db_url: str) -> None:
+    """
+    Check if SQLite version supports required features.
+
+    MLflow requires SQLite 3.31.0 or higher for computed columns support.
+    Raises MlflowException if the version is too old.
+    """
+    if not db_url.startswith("sqlite:"):
+        return
+
+    version_str = sqlite3.sqlite_version
+    try:
+        sqlite_version = Version(version_str)
+    except Exception:
+        return
+    min_version_str = "3.31.0"
+    if sqlite_version < Version(min_version_str):
+        raise MlflowException(
+            f"MLflow requires SQLite >= {min_version_str} for SQL based "
+            f"store, but found {version_str}. Please upgrade your SQLite. "
+            f"See https://www.sqlite.org/download.html for installation options."
+        )
+
+
 def _upgrade_db(engine):
     """
     Upgrade the schema of an MLflow tracking database to the latest supported version.
@@ -211,6 +237,8 @@ def _upgrade_db(engine):
     from alembic import command
 
     db_url = str(engine.url)
+    # Check SQLite version before running migrations
+    _check_sqlite_version(db_url)
     _logger.info("Updating database tables")
     config = _get_alembic_config(db_url)
     # Initialize a shared connection to be used for the database upgrade, ensuring that
@@ -229,7 +257,20 @@ def _get_schema_version(engine):
         return mc.get_current_revision()
 
 
+def _make_parent_dirs_if_sqlite(db_uri: str) -> None:
+    """Create parent directories for SQLite database file if they don't exist."""
+    if not db_uri.startswith("sqlite:///"):
+        return
+    # SQLite URI format: sqlite:///path/to/file.db (relative) or sqlite:////abs/path (Unix)
+    # Remove the 'sqlite:///' prefix to get the path
+    # Skip in-memory databases (:memory: or empty path)
+    db_path = db_uri.removeprefix("sqlite:///")
+    if db_path and db_path != ":memory:":
+        Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+
+
 def create_sqlalchemy_engine_with_retry(db_uri):
+    _make_parent_dirs_if_sqlite(db_uri)
     attempts = 0
     while True:
         attempts += 1
@@ -257,27 +298,33 @@ def create_sqlalchemy_engine(db_uri):
     pool_recycle = MLFLOW_SQLALCHEMYSTORE_POOL_RECYCLE.get()
     echo = MLFLOW_SQLALCHEMYSTORE_ECHO.get()
     poolclass = MLFLOW_SQLALCHEMYSTORE_POOLCLASS.get()
-    pool_kwargs = {}
+    kwargs = {}
     # Send argument only if they have been injected.
     # Some engine does not support them (for example sqllite)
     if pool_size:
-        pool_kwargs["pool_size"] = pool_size
+        kwargs["pool_size"] = pool_size
     if pool_max_overflow:
-        pool_kwargs["max_overflow"] = pool_max_overflow
+        kwargs["max_overflow"] = pool_max_overflow
     if pool_recycle:
-        pool_kwargs["pool_recycle"] = pool_recycle
+        kwargs["pool_recycle"] = pool_recycle
     if echo:
-        pool_kwargs["echo"] = echo
+        kwargs["echo"] = echo
     if poolclass:
         pool_class_map = {
             "AssertionPool": AssertionPool,
             "AsyncAdaptedQueuePool": AsyncAdaptedQueuePool,
-            "FallbackAsyncAdaptedQueuePool": FallbackAsyncAdaptedQueuePool,
             "NullPool": NullPool,
             "QueuePool": QueuePool,
             "SingletonThreadPool": SingletonThreadPool,
             "StaticPool": StaticPool,
         }
+        try:
+            # FallbackAsyncAdaptedQueuePool was removed in SQLAlchemy 2.1
+            from sqlalchemy.pool import FallbackAsyncAdaptedQueuePool
+
+            pool_class_map["FallbackAsyncAdaptedQueuePool"] = FallbackAsyncAdaptedQueuePool
+        except ImportError:
+            pass
         if poolclass not in pool_class_map:
             list_str = " ".join(pool_class_map.keys())
             err_str = (
@@ -286,7 +333,84 @@ def create_sqlalchemy_engine(db_uri):
             )
             _logger.warning(err_str)
             raise ValueError(err_str)
-        pool_kwargs["poolclass"] = pool_class_map[poolclass]
-    if pool_kwargs:
-        _logger.info("Create SQLAlchemy engine with pool options %s", pool_kwargs)
-    return sqlalchemy.create_engine(db_uri, pool_pre_ping=True, **pool_kwargs)
+        kwargs["poolclass"] = pool_class_map[poolclass]
+    if kwargs:
+        _logger.info("Create SQLAlchemy engine with pool options %s", kwargs)
+
+    # Handle MySQL SSL certificates via connect_args
+    if db_uri.startswith("mysql"):
+        connect_args = {
+            k: v
+            for k, v in {
+                "ssl_ca": MLFLOW_MYSQL_SSL_CA.get(),
+                "ssl_cert": MLFLOW_MYSQL_SSL_CERT.get(),
+                "ssl_key": MLFLOW_MYSQL_SSL_KEY.get(),
+            }.items()
+            if v
+        }
+        if connect_args:
+            kwargs["connect_args"] = connect_args
+
+    engine = sqlalchemy.create_engine(db_uri, pool_pre_ping=True, **kwargs)
+
+    # Register custom functions for SQLite
+    if db_uri.startswith("sqlite"):
+
+        @event.listens_for(engine, "connect")
+        def _register_sqlite_functions(dbapi_conn, connection_record):
+            # Register REGEXP function to enable RLIKE operator support
+            def regexp(pattern, string):
+                """Custom REGEXP function for SQLite that uses Python's re module."""
+                if string is None or pattern is None:
+                    return False
+                try:
+                    return re.search(pattern, string) is not None
+                except re.error:
+                    return False
+
+            dbapi_conn.create_function("regexp", 2, regexp)
+
+            # Register PERCENTILE aggregate function (PERCENTILE_CONT with linear interpolation)
+            class PercentileAggregate:
+                def __init__(self):
+                    self.values = []
+                    self.percentile_value = None
+
+                def step(self, value, percentile):
+                    if value is not None:
+                        self.values.append(float(value))
+                    if self.percentile_value is None and percentile is not None:
+                        self.percentile_value = float(percentile)
+
+                def finalize(self):
+                    if not self.values or self.percentile_value is None:
+                        return None
+
+                    sorted_values = sorted(self.values)
+                    n = len(sorted_values)
+                    percentile_ratio = self.percentile_value / 100.0
+
+                    # Linear interpolation: index = percentile_ratio * (n - 1)
+                    index = percentile_ratio * (n - 1)
+                    lower_idx = int(index)
+                    upper_idx = min(lower_idx + 1, n - 1)
+                    fraction = index - lower_idx
+
+                    return sorted_values[lower_idx] + fraction * (
+                        sorted_values[upper_idx] - sorted_values[lower_idx]
+                    )
+
+            dbapi_conn.create_aggregate("percentile", 2, PercentileAggregate)
+
+    # SQLAlchemy's MSSQL dialect calls the base fetch_clause() which generates
+    # "FETCH FIRST n ROWS ONLY" but SQL Server requires "FETCH NEXT n ROWS ONLY".
+    # Register an event listener to rewrite the generated SQL before execution.
+    if db_uri.startswith("mssql"):
+
+        @event.listens_for(engine, "before_cursor_execute", retval=True)
+        def _fix_mssql_fetch_syntax(conn, cursor, statement, parameters, context, executemany):
+            if " FETCH FIRST " in statement:
+                statement = statement.replace(" FETCH FIRST ", " FETCH NEXT ")
+            return statement, parameters
+
+    return engine

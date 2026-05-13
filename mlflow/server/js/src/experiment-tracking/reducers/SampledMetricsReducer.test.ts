@@ -1,3 +1,4 @@
+import { describe, it, expect } from '@jest/globals';
 import { fulfilled, pending, rejected } from '../../common/utils/ActionUtils';
 import { createChartAxisRangeKey } from '../components/runs-charts/components/RunsCharts.common';
 import { sampledMetricsByRunUuid } from './SampledMetricsReducer';
@@ -202,6 +203,82 @@ describe('SampledMetricsReducer', () => {
             refreshing: false,
             metricsHistory: testMetricsHistory,
             lastUpdatedTime: expect.anything(),
+          },
+        },
+      },
+    });
+  });
+
+  it('handles refreshing state correctly with multiple run IDs', () => {
+    const multipleRunIds = ['run_1', 'run_2', 'run_3'];
+    const testMetricsHistory = [{ run_id: 'run_1', key: testMetricKey, value: 123, step: 0, timestamp: 1 }] as any;
+
+    const initialState = {
+      run_1: {
+        test_metric_key: {
+          DEFAULT: {
+            loading: false,
+            refreshing: false,
+            metricsHistory: testMetricsHistory,
+          },
+        },
+      },
+      run_2: {
+        test_metric_key: {
+          DEFAULT: {
+            loading: false,
+            refreshing: false,
+            metricsHistory: testMetricsHistory,
+          },
+        },
+      },
+      run_3: {
+        test_metric_key: {
+          DEFAULT: {
+            loading: false,
+            refreshing: false,
+            metricsHistory: testMetricsHistory,
+          },
+        },
+      },
+    };
+
+    const pendingState = sampledMetricsByRunUuid(initialState, {
+      type: pending('GET_SAMPLED_METRIC_HISTORY_API_BULK'),
+      meta: {
+        runUuids: multipleRunIds,
+        key: testMetricKey,
+        rangeKey: testDefaultRangeKey,
+        maxResults: 100,
+        isRefreshing: true,
+      },
+    });
+
+    expect(pendingState).toEqual({
+      run_1: {
+        test_metric_key: {
+          DEFAULT: {
+            loading: false,
+            refreshing: true,
+            metricsHistory: testMetricsHistory,
+          },
+        },
+      },
+      run_2: {
+        test_metric_key: {
+          DEFAULT: {
+            loading: false,
+            refreshing: true,
+            metricsHistory: testMetricsHistory,
+          },
+        },
+      },
+      run_3: {
+        test_metric_key: {
+          DEFAULT: {
+            loading: false,
+            refreshing: true,
+            metricsHistory: testMetricsHistory,
           },
         },
       },
