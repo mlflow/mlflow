@@ -3,20 +3,30 @@ import { APILink } from "@site/src/components/APILink";
 
 # Role-Based Access Control (RBAC)
 
-MLflow's role-based access control lets you express authorization as named, reusable
-roles instead of one-off per-resource grants. A **role** is a bundle of permissions;
-**users** are assigned to roles; permissions decisions are made against the
-combined set of permissions a user holds in the workspace they're acting in.
+MLflow's role-based access control is the authorization layer for every
+permission grant — but the operator surface scales with what you need:
 
-RBAC is the authorization model for all permission grants. Even a single
-one-off grant on one resource goes through it (see [Scenario 1](#1-give-alice-edit-on-experiment-42-one-off)).
-A named role pays off when you have more than a handful of users, when teams
-share access patterns ("data scientists can read all experiments in
-`ml-research`"), or when you want to delegate workspace administration
-without giving out global admin. For setting up authentication and managing
-users (login, signup, admin status, password updates), see
-[Username and Password](/self-hosting/security/basic-http-auth); this page
-picks up once users exist.
+- **Give one user one permission?** A single
+  [`grant_user_permission`](#1-give-alice-edit-on-experiment-42-one-off)
+  call (or one click in the admin UI). No role to author, no users to
+  assign.
+- **Share the same permission set across users?**
+  [Create a role](#2-give-alice-edit-on-experiment-42-reusable), add
+  the permissions, assign the users. The role lives in one place;
+  changes propagate automatically.
+- **Make someone a workspace admin?**
+  [Assign the seeded `admin` role](#4-make-a-user-a-workspace-manager)
+  for that workspace.
+
+Roles pay off when patterns repeat or you need to delegate workspace
+administration. For one-off grants, the convenience APIs cover the
+simple case directly. Both flows write to the same underlying model, so
+you can mix and match as access patterns evolve.
+
+For setting up authentication and managing users (login, signup, admin
+status, password updates), see
+[Username and Password](/self-hosting/security/basic-http-auth); this
+page picks up once users exist.
 
 :::note[Prerequisites]
 
@@ -30,30 +40,39 @@ picks up once users exist.
 
 ## The model
 
+Three entities, two relations:
+
 ```mermaid
 flowchart LR
-    Users[users] --> URA[user_role_assignments]
-    URA --> Roles[roles]
-    Roles --> RP[role_permissions]
+    Users[Users]
+    Roles[Roles]
+    Resources[Resources]
+
+    Users -- user_role_assignments --> Roles
+    Roles -- role_permissions --> Resources
 ```
 
-A user-role assignment links one user to one role; a role contains zero or
-more `role_permissions` rows of the form
-`(resource_type, resource_pattern, permission)`.
-
 - **Users** are global (one row per identity in the auth database).
-- **Roles** are workspace-scoped. A role named `editor` in workspace `foo` is a
-  separate row from `editor` in workspace `bar`.
-- **Permissions** live as rows under a role: `(resource_type, resource_pattern,
-permission)`. The pattern is either a literal resource id or `*` (apply to all
-  resources of that type in the workspace).
-- **Direct per-user grants** (when you want to give one user one permission,
-  no role to share) are stored under a reserved synthetic role named
-  `__user_<id>__`. Same storage, same resolver; operators don't author or
-  edit synthetic roles directly — they're managed by the admin UI's
-  _Direct permissions_ section and by the `grant_user_permission` /
-  `revoke_user_permission` convenience APIs. The `__user_<id>__` name
-  pattern is reserved: `create_role` and `update_role` reject it.
+- **Roles** are workspace-scoped bundles of permissions. A role named
+  `editor` in workspace `foo` is a separate row from `editor` in workspace
+  `bar`.
+- **Resources** are experiments, registered models, prompts, scorers, and
+  AI Gateway resources (secrets, endpoints, model definitions). A role
+  grants permissions on a resource via a `(resource_type,
+  resource_pattern, permission)` row, where the pattern is either a literal
+  resource id or `*` (apply to all resources of that type in the workspace).
+
+### Direct grants without a role
+
+Sometimes you want to give one user one permission and that's it — no
+shared pattern, nothing reusable. RBAC handles this without making you
+author a single-user role first. Under the hood each user has a reserved
+`__user_<id>__` role that holds their direct grants; the
+`grant_user_permission` / `revoke_user_permission` APIs (and the admin
+UI's _Direct permissions_ section) write to it directly. From an
+operator's perspective it's one call or one form field — the synthetic
+role is an implementation detail you never touch. The `__user_<id>__`
+name pattern is reserved: `create_role` and `update_role` reject it.
 
 ### Permission levels
 
