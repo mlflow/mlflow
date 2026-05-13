@@ -4,6 +4,7 @@ from typing import Any
 
 import yaml
 
+# https://agentskills.io/specification#frontmatter
 REQUIRED = ("name", "description")
 
 
