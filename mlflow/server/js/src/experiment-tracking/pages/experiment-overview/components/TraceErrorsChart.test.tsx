@@ -12,21 +12,30 @@ import { OverviewChartProvider } from '../OverviewChartContext';
 import { MemoryRouter, useLocation } from '../../../../common/utils/RoutingUtils';
 import { getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 
-// Override the global Recharts auto-mock so <Tooltip> eagerly renders its `content` prop, which
-// lets the navigation tests below click the "View traces for this period" link inside
-// ScrollableTooltip. See `buildEagerTooltipRechartsMock` for the full rationale and mechanics.
+// Override the global Recharts auto-mock so <Tooltip> eagerly renders its `content` prop with
+// a payload containing the timestampMs the navigation tests below assert on. The base mock
+// already eagerly renders content with an empty payload; we narrow it here to inject
+// a specific data point so ScrollableTooltip's "View traces for this period" link is reachable.
 jest.mock('recharts', () => {
-  const { buildEagerTooltipRechartsMock } = jest.requireActual<
-    typeof import('../../../../common/utils/rechartsEagerTooltipMock')
-  >('../../../../common/utils/rechartsEagerTooltipMock');
-  return buildEagerTooltipRechartsMock([
+  const baseMock = jest.requireActual<typeof import('../../../../../__mocks__/recharts')>(
+    '../../../../../__mocks__/recharts',
+  );
+  const React = jest.requireActual<typeof import('react')>('react');
+  const payload = [
     {
       payload: { timestampMs: new Date('2025-12-22T10:00:00Z').getTime() },
       name: 'count',
       value: 42,
       color: 'blue',
     },
-  ]);
+  ];
+  return {
+    ...baseMock,
+    Tooltip: ({ content }: { content?: unknown }) =>
+      React.isValidElement(content)
+        ? React.cloneElement(content as React.ReactElement, { active: true, payload })
+        : <div data-testid="tooltip" />,
+  };
 });
 
 // Surfaces the current router location as text so navigation tests can assert post-click URLs
