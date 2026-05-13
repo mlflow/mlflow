@@ -43,7 +43,6 @@ from mlflow import MlflowException
 from mlflow.entities import Experiment
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.model_registry import RegisteredModel
-from mlflow.entities.model_registry.prompt_version import IS_PROMPT_TAG_KEY
 from mlflow.environment_variables import (
     _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN,
     _MLFLOW_SGI_NAME,
@@ -847,7 +846,7 @@ def _get_permission_from_registered_model_name() -> Permission:
     )
 
 
-def _get_permission_from_prompt_id() -> Permission:
+def _get_permission_from_prompt_name() -> Permission:
     # Prompts share the model-registry wire surface with registered models but are
     # a distinct RBAC resource_type. Workspace resolution uses the same backing
     # store call (``get_registered_model`` returns both shapes), but the grant
@@ -1046,48 +1045,49 @@ def validate_can_manage_registered_model():
 
 # Prompts
 def validate_can_read_prompt():
-    return _get_permission_from_prompt_id().can_read
+    return _get_permission_from_prompt_name().can_read
 
 
 def validate_can_update_prompt():
-    return _get_permission_from_prompt_id().can_update
+    return _get_permission_from_prompt_name().can_update
 
 
 def validate_can_delete_prompt():
-    return _get_permission_from_prompt_id().can_delete
+    return _get_permission_from_prompt_name().can_delete
 
 
 def validate_can_manage_prompt():
-    return _get_permission_from_prompt_id().can_manage
+    return _get_permission_from_prompt_name().can_manage
 
 
 def _request_targets_prompt() -> bool:
     """Decide whether the current registered-model request actually targets a prompt.
 
     Prompts share the OSS ``/api/2.0/mlflow/registered-models/...`` wire surface
-    with regular models; the discriminator is the ``mlflow.prompt.is_prompt``
-    tag. On CREATE the tag lives on the inbound request body; on every other
-    name-keyed op we must round-trip the registry to read the stored tag.
-    Resolution failures (missing name, unknown model) fall back to ``False`` so
-    the caller proceeds down the registered-model path and surfaces the same
-    error it always has.
+    with regular models; the discriminator is the ``mlflow.prompt.is_prompt`` tag
+    on the **persisted** entity. The classification therefore round-trips the
+    registry on every dispatcher call — trusting an inbound-body tag would let a
+    caller spoof the discriminator and flip the auth namespace (a
+    ``(prompt, foo, MANAGE)`` grant must NOT satisfy a registered-model delete
+    that names ``foo`` in its body but is not actually a prompt). The tag is
+    only ever written at create time, so persisted-state lookup is sufficient.
+
+    Missing entities (``RESOURCE_DOES_NOT_EXIST``) and missing ``name`` params
+    fall back to the registered-model path so the caller surfaces the same error
+    it always has. All other ``MlflowException`` types — and any non-MlflowException
+    failure — propagate; silencing them would hide real bugs (a broken registry
+    store would otherwise quietly route every request to the registered-model
+    namespace).
     """
-    params = _request_params()
-    tags = params.get("tags")
-    if isinstance(tags, list):
-        for tag in tags:
-            key = tag.get("key") if isinstance(tag, dict) else getattr(tag, "key", None)
-            if key == IS_PROMPT_TAG_KEY:
-                value = tag.get("value") if isinstance(tag, dict) else getattr(tag, "value", None)
-                if str(value).lower() == "true":
-                    return True
-    name = params.get("name")
+    name = _request_params().get("name")
     if not name:
         return False
     try:
         rm = _get_model_registry_store().get_registered_model(name)
-    except Exception:
-        return False
+    except MlflowException as e:
+        if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+            return False
+        raise
     return bool(getattr(rm, "_is_prompt", lambda: False)())
 
 

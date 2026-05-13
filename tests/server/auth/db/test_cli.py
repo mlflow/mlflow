@@ -609,6 +609,77 @@ def test_promote_prompt_resource_type_rewrites_prompt_grants(tmp_path: Path) -> 
     ]
 
 
+def test_promote_prompt_resource_type_workspace_collision_isolated(tmp_path: Path) -> None:
+    """Regression for the workspace-scoped classifier: the same name can be a
+    prompt in one workspace and a regular registered model in another. The
+    migration must only rewrite the prompt-workspace grant; the other
+    workspace's grant must stay on ``registered_model``. Otherwise the
+    classifier silently mis-rewrites grants across workspaces.
+    """
+    runner = CliRunner()
+    db = tmp_path / "test.db"
+    db_url = f"sqlite:///{db}"
+
+    res = runner.invoke(
+        cli.upgrade,
+        ["--url", db_url, "--revision", "e5f6a7b8c9d0"],
+        catch_exceptions=False,
+    )
+    assert res.exit_code == 0, res.output
+
+    # Same name ``foo`` in two workspaces — prompt in team-a, registered_model
+    # in team-b. Only the team-a grant should flip.
+    with sqlite3.connect(db) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "CREATE TABLE registered_model_tags ("
+            "workspace VARCHAR(63) NOT NULL, "
+            "name VARCHAR(256) NOT NULL, "
+            "key VARCHAR(250) NOT NULL, "
+            "value VARCHAR(5000), "
+            "PRIMARY KEY (workspace, key, name))"
+        )
+        cursor.execute(
+            "INSERT INTO registered_model_tags (workspace, name, key, value) "
+            "VALUES ('team-a', 'foo', 'mlflow.prompt.is_prompt', 'true')"
+        )
+        cursor.execute(
+            "INSERT INTO users (id, username, password_hash, is_admin) VALUES (1, 'alice', 'h', 0)"
+        )
+        cursor.executemany(
+            "INSERT INTO roles (id, workspace, name) VALUES (?, ?, ?)",
+            [(1, "team-a", "role-a"), (2, "team-b", "role-b")],
+        )
+        cursor.executemany(
+            "INSERT INTO role_permissions "
+            "(role_id, resource_type, resource_pattern, permission) VALUES (?, ?, ?, ?)",
+            [
+                # team-a grant should flip to ``prompt`` (foo IS a prompt in team-a).
+                (1, "registered_model", "foo", "MANAGE"),
+                # team-b grant must stay ``registered_model`` (foo is a regular RM in team-b).
+                (2, "registered_model", "foo", "READ"),
+            ],
+        )
+        conn.commit()
+
+    res = runner.invoke(cli.upgrade, ["--url", db_url], catch_exceptions=False)
+    assert res.exit_code == 0, res.output
+
+    with sqlite3.connect(db) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT r.workspace, rp.resource_type, rp.resource_pattern, rp.permission "
+            "FROM role_permissions rp JOIN roles r ON r.id = rp.role_id "
+            "ORDER BY r.workspace"
+        )
+        rows = cursor.fetchall()
+
+    assert rows == [
+        ("team-a", "prompt", "foo", "MANAGE"),
+        ("team-b", "registered_model", "foo", "READ"),
+    ]
+
+
 def test_promote_prompt_resource_type_no_tracking_tables_is_noop(tmp_path: Path) -> None:
     """When the tracking tables are not in the same database (split-DB
     deployment), the migration cannot classify rows. It must leave them
