@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1778574092230,
+  "lastUpdate": 1778636533052,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -2699,6 +2699,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 7.437111000004393,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60318530+SahilKumar75@users.noreply.github.com",
+            "name": "Sahil Kumar Singh",
+            "username": "SahilKumar75"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "744ea6a95e97008383cbf1f978a269d6cbe88534",
+          "message": "Fix ended `LiveSpan` state mutation (#23152)\n\nSigned-off-by: Sahil Kumar Singh <sahilkumargreat12@gmail.com>",
+          "timestamp": "2026-05-13T01:38:23Z",
+          "tree_id": "fd221c0db6af89314a3d3ca08db6d6610b33398c",
+          "url": "https://github.com/mlflow/mlflow/commit/744ea6a95e97008383cbf1f978a269d6cbe88534"
+        },
+        "date": 1778636532200,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 39.90910050000025,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 24.756521411760826,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 23.661810680002873,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 23.620312094339653,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 22.582412859654802,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 9.125598600019202,
             "unit": "ms"
           }
         ]
