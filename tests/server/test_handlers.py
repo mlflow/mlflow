@@ -3785,6 +3785,10 @@ def test_download_artifact_streams_in_chunks(enable_serve_artifacts, tmp_path):
 @pytest.mark.parametrize(
     ("file_path", "expected_simple", "expected_quoted"),
     [
+        # No-extension fully-CJK filename: NFKD normalization strips every
+        # character, so the helper must fall back to a safe non-empty
+        # ``filename=`` value rather than emitting ``filename=;``.
+        ("日本語", "download", "%E6%97%A5%E6%9C%AC%E8%AA%9E"),
         ("Tribeč_mountains.html", "Tribec_mountains.html", "Tribe%C4%8D_mountains.html"),
         (
             "time_series_eeeúaaa_aaaaaal_39.html",
@@ -3822,6 +3826,8 @@ def test_response_with_file_attachment_headers_ascii_filename_unchanged():
 @pytest.mark.parametrize(
     ("filename", "expected_simple", "expected_quoted"),
     [
+        # See sibling unit test for why this empty-fallback case leads.
+        ("日本語", "download", "%E6%97%A5%E6%9C%AC%E8%AA%9E"),
         ("Tribeč_mountains.html", "Tribec_mountains.html", "Tribe%C4%8D_mountains.html"),
         (
             "time_series_eeeúaaa_aaaaaal_39.html",

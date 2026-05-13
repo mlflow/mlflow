@@ -1015,8 +1015,12 @@ def _content_disposition_attachment(filename: str) -> str:
     try:
         filename.encode("ascii")
     except UnicodeEncodeError:
+        # ``or "download"`` ensures a well-formed ``filename=<value>`` parameter
+        # even when normalization strips every character (e.g. ``日本語`` with no
+        # extension). Clients that ignore ``filename*`` still get a usable name.
         ascii_fallback = (
             unicodedata.normalize("NFKD", filename).encode("ascii", "ignore").decode("ascii")
+            or "download"
         )
         # safe = RFC 5987 attr-char
         quoted = urllib.parse.quote(filename, safe="!#$&+-.^_`|~")
