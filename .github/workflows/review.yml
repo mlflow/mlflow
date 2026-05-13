@@ -122,7 +122,7 @@ jobs:
           import secrets
           import sys
 
-          CHOICES = [
+          MODEL_CHOICES = [
               "opus",
               "sonnet",
               "haiku",
@@ -130,18 +130,22 @@ jobs:
               "claude-sonnet-4-6",
               "claude-haiku-4-5",
           ]
+          EFFORT_CHOICES = ["low", "medium", "high", "xhigh", "max"]
 
           body = sys.stdin.read().removeprefix("/review")
           head, sep, tail = body.partition("\n")
 
           parser = argparse.ArgumentParser(add_help=False)
-          parser.add_argument("-m", "--model", choices=CHOICES, default="opus")
+          parser.add_argument("-m", "--model", choices=MODEL_CHOICES, default="claude-opus-4-6")
+          parser.add_argument("-e", "--effort", choices=EFFORT_CHOICES, default="medium")
           args, leftover = parser.parse_known_args(head.split())
 
           prompt = " ".join(leftover) + sep + tail
           # Random delimiter so user input can't terminate the heredoc.
           delim = f"PROMPT_EOF_{secrets.token_hex(8)}"
-          sys.stdout.write(f"prompt<<{delim}\n{prompt}\n{delim}\nmodel={args.model}\n")
+          sys.stdout.write(
+              f"prompt<<{delim}\n{prompt}\n{delim}\nmodel={args.model}\neffort={args.effort}\n"
+          )
           EOF
 
           echo "$COMMENT_BODY" | python /tmp/parse_args.py >> "$GITHUB_OUTPUT"
@@ -154,7 +158,8 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
           PROMPT: ${{ steps.prompt.outputs.prompt }}
-          MODEL: ${{ steps.prompt.outputs.model || 'opus' }}
+          MODEL: ${{ steps.prompt.outputs.model || 'claude-opus-4-6' }}
+          EFFORT: ${{ steps.prompt.outputs.effort || 'medium' }}
           EVENT_NAME: ${{ github.event_name }}
         run: |
           OUTPUT_FILE="/tmp/output.jsonl"
@@ -169,7 +174,14 @@ jobs:
 
           EXIT_CODE=0
           # Note: ARGS[*] is intentional - claude CLI expects a single prompt string
-          timeout 20m claude --model "$MODEL" --print --verbose --output-format stream-json "${ARGS[*]}" | .claude/scripts/stream.sh "$OUTPUT_FILE" || EXIT_CODE=$?
+          timeout 20m claude \
+            --model "$MODEL" \
+            --effort "$EFFORT" \
+            --print \
+            --verbose \
+            --output-format stream-json \
+            "${ARGS[*]}" \
+            | .claude/scripts/stream.sh "$OUTPUT_FILE" || EXIT_CODE=$?
           if [ "${EXIT_CODE:-0}" -eq 124 ]; then
             echo "Warning: Claude command timed out after 20 minutes"
           elif [ "${EXIT_CODE:-0}" -ne 0 ]; then
