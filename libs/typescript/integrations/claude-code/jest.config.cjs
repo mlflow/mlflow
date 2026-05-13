@@ -8,6 +8,11 @@ module.exports = {
   testMatch: ['**/*.test.ts'],
   moduleFileExtensions: ['ts', 'js', 'json', 'node'],
   modulePaths: [path.resolve(__dirname, '../../node_modules')],
+  // Integration tests require a real MLflow server at MLFLOW_TRACKING_URI
+  // (default http://localhost:5000). In CI, the typescript-sdk job starts one
+  // via the shared global setup; locally you can point at any running server.
+  globalSetup: path.resolve(__dirname, '../../jest.global-server-setup.ts'),
+  globalTeardown: path.resolve(__dirname, '../../jest.global-server-teardown.ts'),
   transform: {
     '^.+\\.tsx?$': [
       'ts-jest',

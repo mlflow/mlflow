@@ -366,6 +366,65 @@ describe('ExperimentGenAIOverviewPage', () => {
     });
   });
 
+  describe('metrics filter', () => {
+    it('should render the metrics filter button on the Usage tab', async () => {
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /filters/i })).toBeInTheDocument();
+      });
+    });
+
+    it('should not render the metrics filter button on the Quality tab', async () => {
+      const user = userEvent.setup();
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByRole('tab', { name: 'Quality' })).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole('tab', { name: 'Quality' }));
+
+      await waitFor(() => {
+        expect(screen.queryByRole('button', { name: /filters/i })).not.toBeInTheDocument();
+      });
+    });
+
+    it('should not render the metrics filter button on the Tool calls tab', async () => {
+      const user = userEvent.setup();
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByRole('tab', { name: 'Tool calls' })).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole('tab', { name: 'Tool calls' }));
+
+      await waitFor(() => {
+        expect(screen.queryByRole('button', { name: /filters/i })).not.toBeInTheDocument();
+      });
+    });
+
+    it('should reshow the metrics filter button when switching back to the Usage tab', async () => {
+      const user = userEvent.setup();
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByRole('tab', { name: 'Quality' })).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole('tab', { name: 'Quality' }));
+      await waitFor(() => {
+        expect(screen.queryByRole('button', { name: /filters/i })).not.toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole('tab', { name: 'Usage' }));
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /filters/i })).toBeInTheDocument();
+      });
+    });
+  });
+
   describe('demo experiment time range', () => {
     it('should set time range from demo experiment tags', async () => {
       // Mock demo experiment with time range tags

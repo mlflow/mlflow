@@ -2027,6 +2027,16 @@ module.exports = {
   "mlflow.traces-table.refresh-button": "",
   "mlflow.traces-table.refresh-button.tooltip": "",
 
+  // -- mlflow.usage --
+  "mlflow.usage.metrics_filter": "",
+  "mlflow.usage.metrics_filter.add_row": "",
+  "mlflow.usage.metrics_filter.apply": "",
+  "mlflow.usage.metrics_filter.button": "",
+  "mlflow.usage.metrics_filter.column": "",
+  "mlflow.usage.metrics_filter.delete_row": "",
+  "mlflow.usage.metrics_filter.operator": "",
+  "mlflow.usage.metrics_filter.value": "",
+
   // -- shared.media-rendering-utils --
   "shared.media-rendering-utils.fetch-download": "",
 
