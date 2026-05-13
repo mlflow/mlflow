@@ -127,9 +127,7 @@ class Judge(Scorer):
                 import logging
 
                 # For MemAlign optimizer (default)
-                logging.getLogger("mlflow.genai.judges.optimizers.memalign").setLevel(
-                    logging.DEBUG
-                )
+                logging.getLogger("mlflow.genai.judges.optimizers.memalign").setLevel(logging.DEBUG)
         """
         if self.is_session_level_scorer:
             raise NotImplementedError("Alignment is not supported for session-level scorers.")
