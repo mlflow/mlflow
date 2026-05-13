@@ -148,9 +148,10 @@ jobs:
           ref: refs/pull/${{ steps.ctx.outputs.pr }}/head
           # Full checkout (shallow by default) so the orchestrator's agents
           # can use Read/Grep/Glob bounded to this worktree via
-          # `--mlflow-tree mlflow` below. The agents grep sibling files at
-          # PR head to validate or refute concerns, which gave a meaningful
-          # recall lift in the 81-PR eval vs. API-only reads.
+          # `--mlflow-tree "$GITHUB_WORKSPACE/mlflow"` below. The agents grep
+          # sibling files at PR head to validate or refute concerns, which
+          # gave a meaningful recall lift in the 81-PR eval vs. API-only
+          # reads.
           path: mlflow
           token: ${{ steps.app_token.outputs.token }}
           # Read-only checkout; we never push from the workflow. Avoid
@@ -205,7 +206,7 @@ jobs:
         # from the orchestrator package without a separate `uv pip install`
         # step; uv caches the env between invocations.
         run: |
-          uv run --directory internal/nailaopus nailaopus "$PR" --repo "$REPO" --mlflow-tree mlflow $FLAGS
+          uv run --directory internal/nailaopus nailaopus "$PR" --repo "$REPO" --mlflow-tree "$GITHUB_WORKSPACE/mlflow" $FLAGS
 
       - name: React +1 on success (comment-triggered only)
         if: success() && steps.ctx.outputs.trigger == 'comment'
