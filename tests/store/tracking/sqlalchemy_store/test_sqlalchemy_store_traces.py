@@ -55,6 +55,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlSpan,
     SqlSpanMetrics,
     SqlTraceInfo,
+    SqlTraceMetadata,
     SqlTraceMetrics,
 )
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore, _TraceArchiveCandidate
@@ -4140,6 +4141,71 @@ def test_log_spans_token_usage(store: SqlAlchemyStore) -> None:
     assert trace.info.token_usage["input_tokens"] == 100
     assert trace.info.token_usage["output_tokens"] == 50
     assert trace.info.token_usage["total_tokens"] == 150
+
+
+def test_log_spans_handles_preexisting_metadata_row(store: SqlAlchemyStore) -> None:
+    """Regression test for #23244: a pre-existing token-usage metadata row must not
+    cause a UniqueViolation on ``trace_request_metadata_pk`` when ``log_spans`` writes
+    token usage. The ``_bulk_upsert`` path (INSERT ... ON CONFLICT DO UPDATE) merges
+    atomically instead of raising as the prior ``session.merge`` path did under the
+    concurrent-write race.
+    """
+    experiment_id = store.create_experiment("test_log_spans_preexisting_metadata")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    # Insert SqlTraceInfo + a token_usage SqlTraceMetadata directly (bypassing
+    # store.start_trace so the TRACE_INFO_FINALIZED marker is not set), mirroring a
+    # concurrent log_spans writer that committed the metadata row before this call.
+    pre_existing = {"input_tokens": 70, "output_tokens": 30, "total_tokens": 100}
+    with store.ManagedSessionMaker(read_only=False) as session:
+        session.add(
+            SqlTraceInfo(
+                request_id=trace_id,
+                experiment_id=experiment_id,
+                timestamp_ms=1_000,
+                execution_time_ms=1_000,
+                status=TraceState.IN_PROGRESS.value,
+                client_request_id=None,
+            )
+        )
+        session.flush()
+        session.add(
+            SqlTraceMetadata(
+                request_id=trace_id,
+                key=TraceMetadataKey.TOKEN_USAGE,
+                value=json.dumps(pre_existing),
+            )
+        )
+        session.commit()
+
+    otel_span = create_test_otel_span(
+        trace_id=trace_id,
+        name="follow_up_llm_call",
+        start_time=2_000_000_000,
+        end_time=3_000_000_000,
+        trace_id_num=12345,
+        span_id_num=222,
+    )
+    otel_span._attributes = {
+        "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
+        SpanAttributeKey.CHAT_USAGE: json.dumps({
+            "input_tokens": 40,
+            "output_tokens": 20,
+            "total_tokens": 60,
+        }),
+    }
+    span = create_mlflow_span(otel_span, trace_id, "LLM")
+
+    # Must not raise IntegrityError / UniqueViolation.
+    store.log_spans(experiment_id, [span])
+
+    # Final state reflects pre-existing + new span's usage, merged.
+    trace_info = store.get_trace_info(trace_id)
+    assert trace_info.token_usage == {
+        "input_tokens": 110,
+        "output_tokens": 50,
+        "total_tokens": 160,
+    }
 
 
 def test_log_spans_update_token_usage_incrementally(store: SqlAlchemyStore) -> None:

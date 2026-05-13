@@ -5194,6 +5194,12 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 # (flag set AND an existing record is present). If the flag is set but no
                 # record exists yet (start_trace() lost the race or didn't include token
                 # usage), log_spans() must still write it to avoid data loss.
+                #
+                # Use `_bulk_upsert` (INSERT ... ON CONFLICT DO UPDATE), not
+                # `session.merge`: under concurrent `log_spans` for the same trace_id,
+                # two transactions can both INSERT this `(key, request_id)` row and
+                # collide on the unique constraint at autoflush time (#23244). The
+                # upsert resolves the conflict atomically at the DB layer.
                 if aggregated_token_usage := agg.aggregated_token_usage:
                     existing_record = existing_token_usage.get(trace_id)
                     if trace_id not in finalized_trace_ids or not existing_record:
@@ -5201,20 +5207,24 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                             existing_record.value if existing_record else {},
                             aggregated_token_usage,
                         )
-                        session.merge(
-                            SqlTraceMetadata(
-                                request_id=trace_id,
-                                key=TraceMetadataKey.TOKEN_USAGE,
-                                value=json.dumps(trace_token_usage),
-                            )
+                        _bulk_upsert(
+                            session,
+                            SqlTraceMetadata,
+                            [
+                                {
+                                    "request_id": trace_id,
+                                    "key": TraceMetadataKey.TOKEN_USAGE,
+                                    "value": json.dumps(trace_token_usage),
+                                }
+                            ],
                         )
-                        for key in TokenUsageKey.all_keys():
-                            if (value := trace_token_usage.get(key)) is not None:
-                                session.merge(
-                                    SqlTraceMetrics(
-                                        request_id=trace_id, key=key, value=float(value)
-                                    )
-                                )
+                        metric_rows = [
+                            {"request_id": trace_id, "key": key, "value": float(value)}
+                            for key in TokenUsageKey.all_keys()
+                            if (value := trace_token_usage.get(key)) is not None
+                        ]
+                        if metric_rows:
+                            _bulk_upsert(session, SqlTraceMetrics, metric_rows)
 
                 # Cost metadata — skip only if start_trace() has already written the
                 # authoritative value (flag set AND existing record present). If the flag
@@ -5225,12 +5235,16 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                         recorded_cost = update_cost(
                             existing_record.value if existing_record else {}, aggregated_cost
                         )
-                        session.merge(
-                            SqlTraceMetadata(
-                                request_id=trace_id,
-                                key=TraceMetadataKey.COST,
-                                value=json.dumps(recorded_cost),
-                            )
+                        _bulk_upsert(
+                            session,
+                            SqlTraceMetadata,
+                            [
+                                {
+                                    "request_id": trace_id,
+                                    "key": TraceMetadataKey.COST,
+                                    "value": json.dumps(recorded_cost),
+                                }
+                            ],
                         )
 
                 # Session ID metadata
@@ -5239,15 +5253,22 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     and trace_id not in existing_sessions
                     and trace_id not in finalized_trace_ids
                 ):
-                    session.merge(
-                        SqlTraceMetadata(
-                            request_id=trace_id,
-                            key=TraceMetadataKey.TRACE_SESSION,
-                            value=agg.session_id,
-                        )
+                    _bulk_upsert(
+                        session,
+                        SqlTraceMetadata,
+                        [
+                            {
+                                "request_id": trace_id,
+                                "key": TraceMetadataKey.TRACE_SESSION,
+                                "value": agg.session_id,
+                            }
+                        ],
                     )
 
-                # User ID metadata
+                # User ID metadata. Kept on `session.merge` (not `_bulk_upsert` like
+                # the writes above) because user_id is first-writer-wins: once set, a
+                # later span batch must not overwrite it, which the existing-record
+                # check below preserves.
                 if agg.user_id:
                     existing_user_id = (
                         session
