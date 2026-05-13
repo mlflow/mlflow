@@ -4,6 +4,7 @@ from unittest import mock
 
 import opentelemetry.trace as trace_api
 import pytest
+from opentelemetry.proto.resource.v1.resource_pb2 import Resource as OTelProtoResource
 from opentelemetry.proto.trace.v1.trace_pb2 import Span as OTelProtoSpan
 from opentelemetry.proto.trace.v1.trace_pb2 import Status as OTelProtoStatus
 from opentelemetry.sdk.resources import Resource as OTelResource
@@ -380,8 +381,6 @@ def sample_otel_span_for_conversion():
 def test_otel_attribute_conversion(attributes):
     from opentelemetry.proto.common.v1.common_pb2 import KeyValue
 
-    from mlflow.tracing.utils.otlp import _decode_otel_proto_anyvalue, _set_otel_proto_anyvalue
-
     # Convert attributes to proto format
     proto_attrs = []
     for key, value in attributes.items():
@@ -447,8 +446,6 @@ def test_span_from_otel_proto_conversion():
     otel_proto.status.message = "Error occurred"
 
     # Add attributes
-    from mlflow.tracing.utils.otlp import _set_otel_proto_anyvalue
-
     attr2 = otel_proto.attributes.add()
     attr2.key = "mlflow.spanType"
     _set_otel_proto_anyvalue(attr2.value, "CHAIN")
@@ -500,11 +497,59 @@ def test_span_from_otel_proto_conversion():
     assert mlflow_span.events[0].timestamp == 1500000000
     assert mlflow_span.events[0].attributes["event_data"] == "event_value"
 
+    # Verify resource is empty when none is provided
+    assert len(mlflow_span._span.resource.attributes) == 0
+
     # Verify links use v3 format when no location_id
     assert len(mlflow_span.links) == 1
     assert mlflow_span.links[0].trace_id == "tr-aabbccddeeff00112233445566778899"
     assert mlflow_span.links[0].span_id == "1122334455667788"
     assert mlflow_span.links[0].attributes == {"rel": "causal"}
+
+
+def test_span_from_otel_proto_with_resource():
+    otel_proto = OTelProtoSpan()
+    otel_proto.trace_id = bytes.fromhex("12345678901234567890123456789012")
+    otel_proto.span_id = bytes.fromhex("1234567890123456")
+    otel_proto.name = "span_with_resource"
+    otel_proto.start_time_unix_nano = 1000000000
+    otel_proto.end_time_unix_nano = 2000000000
+
+    # Build a proto Resource with typical OTel resource attributes
+    resource = OTelProtoResource()
+    for key, value in [
+        ("service.name", "my-app"),
+        ("telemetry.sdk.language", "java"),
+        ("telemetry.sdk.name", "opentelemetry"),
+        ("telemetry.sdk.version", "1.40.0"),
+    ]:
+        attr = resource.attributes.add()
+        attr.key = key
+        _set_otel_proto_anyvalue(attr.value, value)
+
+    mlflow_span = Span.from_otel_proto(otel_proto, resource=resource)
+
+    assert mlflow_span.name == "span_with_resource"
+    res_attrs = dict(mlflow_span._span.resource.attributes)
+    assert res_attrs["service.name"] == "my-app"
+    assert res_attrs["telemetry.sdk.language"] == "java"
+    assert res_attrs["telemetry.sdk.name"] == "opentelemetry"
+    assert res_attrs["telemetry.sdk.version"] == "1.40.0"
+
+
+def test_span_from_otel_proto_with_empty_resource():
+    otel_proto = OTelProtoSpan()
+    otel_proto.trace_id = bytes.fromhex("12345678901234567890123456789012")
+    otel_proto.span_id = bytes.fromhex("1234567890123456")
+    otel_proto.name = "span_empty_resource"
+    otel_proto.start_time_unix_nano = 1000000000
+    otel_proto.end_time_unix_nano = 2000000000
+
+    # An empty proto Resource (no attributes)
+    resource = OTelProtoResource()
+    mlflow_span = Span.from_otel_proto(otel_proto, resource=resource)
+
+    assert len(mlflow_span._span.resource.attributes) == 0
 
 
 def test_span_from_otel_proto_with_location():
