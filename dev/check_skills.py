@@ -19,7 +19,7 @@ def parse_frontmatter(text: str) -> dict[str, object] | None:
 def check(path: Path) -> list[str]:
     fm = parse_frontmatter(path.read_text(encoding="utf-8"))
     if fm is None:
-        return ["missing YAML frontmatter"]
+        return ["missing frontmatter"]
     return [f"missing or empty `{k}`" for k in REQUIRED if not fm.get(k)]
 
 
