@@ -16,7 +16,7 @@ jest.mock('../src/config', () => {
           experimentId: experimentId ?? 'resolved-id',
           experimentName,
           created: false,
-      }),
+        }),
     ),
   };
 });
