@@ -14,7 +14,7 @@ export const EndpointsFilterButton = ({ availableProviders, filter, onFilterChan
       availableProviders={availableProviders}
       filter={filter}
       onFilterChange={onFilterChange}
-      componentIdPrefix="mlflow.gateway.endpoints-list"
+      componentId="mlflow.gateway.endpoints-list"
     />
   );
 };

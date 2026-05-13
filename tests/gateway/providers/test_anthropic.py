@@ -18,7 +18,7 @@ from mlflow.gateway.providers.anthropic import (
     _enforce_strict_schema,
     _UnsupportedSchemaError,
 )
-from mlflow.gateway.providers.base import PassthroughAction
+from mlflow.gateway.providers.base import PassthroughAction, _client_provides_auth
 from mlflow.gateway.schemas import chat, completions, embeddings
 
 from tests.gateway.tools import MockAsyncResponse, MockAsyncStreamingResponse, mock_http_client
@@ -68,6 +68,53 @@ def parsed_completions_response():
         ],
         "usage": {"prompt_tokens": None, "completion_tokens": None, "total_tokens": None},
     }
+
+
+@pytest.mark.parametrize(
+    ("headers", "expected"),
+    [
+        # Known CLI tools with auth header → True
+        ({"user-agent": "claude-cli/2.0.37 (external, cli)", "x-api-key": "key"}, True),
+        ({"user-agent": "Codex-Desktop/26.422.2437.0", "authorization": "Bearer key"}, True),
+        (
+            {
+                "user-agent": "GeminiCLI/0.39.0/gemini-2.0-pro (darwin; x64)",
+                "x-goog-api-key": "key",
+            },
+            True,
+        ),
+        # Known CLI tool but no auth header → False
+        ({"user-agent": "claude-cli/2.0.37 (external, cli)"}, False),
+        # Unknown user-agent with auth header → False
+        ({"user-agent": "python-httpx/0.27.0", "authorization": "Bearer key"}, False),
+        # Empty / missing headers → False
+        ({}, False),
+        (None, False),
+    ],
+)
+def test_client_provides_auth(headers, expected):
+    assert _client_provides_auth(headers) == expected
+
+
+def test_get_headers_uses_server_key_by_default():
+    provider = AnthropicProvider(EndpointConfig(**completions_config()))
+    merged = provider._get_headers(headers={"x-api-key": "client-key", "X-Custom": "value"})
+    assert merged["x-api-key"] == "key"
+    assert merged["X-Custom"] == "value"
+
+
+@pytest.mark.parametrize(
+    "user_agent",
+    [
+        "claude-cli/2.0.37 (external, cli)",
+        "Codex-Desktop/26.422.2437.0",
+        "GeminiCLI/0.39.0/gemini-2.0-pro (darwin; x64)",
+    ],
+)
+def test_get_headers_preserves_client_key_for_credential_agents(user_agent):
+    provider = AnthropicProvider(EndpointConfig(**completions_config()))
+    merged = provider._get_headers(headers={"x-api-key": "client-key", "user-agent": user_agent})
+    assert merged["x-api-key"] == "client-key"
 
 
 @pytest.mark.asyncio
@@ -271,6 +318,7 @@ async def test_chat():
             "object": "chat.completion",
             "created": 1677858242,
             "model": "claude-2.1",
+            "provider": "anthropic",
             "choices": [
                 {
                     "message": {
@@ -391,6 +439,7 @@ async def test_chat_function_calling():
             "object": "chat.completion",
             "created": 1677858242,
             "model": "claude-2.1",
+            "provider": "anthropic",
             "choices": [
                 {
                     "index": 0,
@@ -551,6 +600,7 @@ async def test_chat_stream():
                 "object": "chat.completion.chunk",
                 "created": 1677858242,
                 "model": "claude-2.1",
+                "provider": "anthropic",
                 "choices": [
                     {
                         "index": 0,
@@ -569,6 +619,7 @@ async def test_chat_stream():
                 "object": "chat.completion.chunk",
                 "created": 1677858242,
                 "model": "claude-2.1",
+                "provider": "anthropic",
                 "choices": [
                     {
                         "index": 0,
@@ -587,6 +638,7 @@ async def test_chat_stream():
                 "object": "chat.completion.chunk",
                 "created": 1677858242,
                 "model": "claude-2.1",
+                "provider": "anthropic",
                 "choices": [
                     {
                         "index": 0,
@@ -605,6 +657,7 @@ async def test_chat_stream():
                 "object": "chat.completion.chunk",
                 "created": 1677858242,
                 "model": "claude-2.1",
+                "provider": "anthropic",
                 "choices": [
                     {
                         "index": 0,
@@ -695,6 +748,7 @@ async def test_chat_function_calling_stream():
                 "object": "chat.completion.chunk",
                 "created": 1677858242,
                 "model": "claude-2.1",
+                "provider": "anthropic",
                 "choices": [
                     {
                         "index": 0,
@@ -720,6 +774,7 @@ async def test_chat_function_calling_stream():
                 "object": "chat.completion.chunk",
                 "created": 1677858242,
                 "model": "claude-2.1",
+                "provider": "anthropic",
                 "choices": [
                     {
                         "index": 0,
@@ -745,6 +800,7 @@ async def test_chat_function_calling_stream():
                 "object": "chat.completion.chunk",
                 "created": 1677858242,
                 "model": "claude-2.1",
+                "provider": "anthropic",
                 "choices": [
                     {
                         "index": 0,
@@ -770,6 +826,7 @@ async def test_chat_function_calling_stream():
                 "object": "chat.completion.chunk",
                 "created": 1677858242,
                 "model": "claude-2.1",
+                "provider": "anthropic",
                 "choices": [
                     {
                         "index": 0,
@@ -1343,10 +1400,12 @@ def test_anthropic_extract_passthrough_token_usage_with_cached_tokens():
     token_usage = provider._extract_passthrough_token_usage(
         PassthroughAction.ANTHROPIC_MESSAGES, result
     )
+    # Anthropic's input_tokens (100) excludes cache tokens, so after normalization
+    # input_tokens = 100 + 25 + 15 = 140
     assert token_usage == {
-        "input_tokens": 100,
+        "input_tokens": 140,
         "output_tokens": 50,
-        "total_tokens": 150,
+        "total_tokens": 190,
         "cache_read_input_tokens": 25,
         "cache_creation_input_tokens": 15,
     }
@@ -1361,8 +1420,10 @@ def test_anthropic_extract_streaming_token_usage_message_start_with_cached_token
         b'"cache_creation_input_tokens":15}}}\n'
     )
     result = provider._extract_streaming_token_usage(chunk)
+    # Anthropic's input_tokens (100) excludes cache tokens, so after normalization
+    # input_tokens = 100 + 25 + 15 = 140
     assert result == {
-        "input_tokens": 100,
+        "input_tokens": 140,
         "cache_read_input_tokens": 25,
         "cache_creation_input_tokens": 15,
     }
@@ -1373,13 +1434,14 @@ def test_anthropic_extract_streaming_full_stream_with_cached_tokens():
     accumulated_usage = {}
 
     # message_start with input_tokens and cached tokens
+    # Anthropic's input_tokens (100) excludes cache, normalized to 100 + 25 = 125
     chunk1 = (
         b"event: message_start\n"
         b'data: {"type":"message_start","message":{"id":"msg_123",'
         b'"usage":{"input_tokens":100,"cache_read_input_tokens":25}}}\n'
     )
     accumulated_usage.update(provider._extract_streaming_token_usage(chunk1))
-    assert accumulated_usage == {"input_tokens": 100, "cache_read_input_tokens": 25}
+    assert accumulated_usage == {"input_tokens": 125, "cache_read_input_tokens": 25}
 
     # message_delta with output_tokens
     chunk2 = (
@@ -1389,7 +1451,7 @@ def test_anthropic_extract_streaming_full_stream_with_cached_tokens():
     )
     accumulated_usage.update(provider._extract_streaming_token_usage(chunk2))
     assert accumulated_usage == {
-        "input_tokens": 100,
+        "input_tokens": 125,
         "output_tokens": 50,
         "cache_read_input_tokens": 25,
     }
@@ -1403,9 +1465,10 @@ def test_anthropic_adapter_build_chat_usage_with_cached_tokens():
         "cache_creation_input_tokens": 10,
     }
     usage = AnthropicAdapter._build_chat_usage(usage_data)
-    assert usage.prompt_tokens == 50
+    # Anthropic's input_tokens (50) excludes cache tokens, so prompt_tokens = 50 + 30 + 10 = 90
+    assert usage.prompt_tokens == 90
     assert usage.completion_tokens == 20
-    assert usage.total_tokens == 70
+    assert usage.total_tokens == 110
     assert usage.prompt_tokens_details is not None
     assert usage.prompt_tokens_details.cached_tokens == 30
     assert getattr(usage, "cache_creation_input_tokens") == 10

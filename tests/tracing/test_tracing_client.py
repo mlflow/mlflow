@@ -119,6 +119,7 @@ def test_batch_get_traces_with_artifact_repo_traces():
         info=store.get_trace_info(artifact_trace_id),
         data=TraceData(spans=[]),
     )
+    mlflow.flush_trace_async_logging()
     with patch.object(
         TracingClient, "_download_spans_from_artifact_repo", return_value=artifact_trace
     ) as mock_download:
@@ -160,7 +161,7 @@ def test_tracing_client_link_prompt_versions_to_trace():
         client.link_prompt_versions_to_trace(trace_id, [prompt_version])
 
         # Verify the linked prompts tag was set
-        trace = mlflow.get_trace(trace_id)
+        trace = mlflow.get_trace(trace_id, flush=True)
         assert "mlflow.linkedPrompts" in trace.info.tags
 
         # Parse and verify the linked prompts

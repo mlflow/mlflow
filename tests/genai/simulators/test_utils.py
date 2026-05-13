@@ -38,20 +38,18 @@ def test_format_history(history, expected):
         "anthropic:/claude-3-haiku",
     ],
 )
-def test_invoke_model_without_tracing_with_litellm(model_uri):
+def test_invoke_model_without_tracing_with_provider(model_uri):
     from mlflow.types.llm import ChatMessage
 
     messages = [ChatMessage(role="user", content="Hello")]
 
-    with mock.patch("litellm.completion") as mock_completion:
-        mock_completion.return_value = mock.MagicMock(
-            choices=[mock.MagicMock(message=mock.MagicMock(content="Hi there!"))]
-        )
-
+    with mock.patch(
+        "mlflow.genai.scorers.llm_backend.ScorerLLMClient.complete", return_value="Hi there!"
+    ) as mock_invoke:
         result = invoke_model_without_tracing(model_uri=model_uri, messages=messages)
 
         assert result == "Hi there!"
-        mock_completion.assert_called_once()
+        mock_invoke.assert_called_once()
 
 
 def test_invoke_model_without_tracing_with_inference_params():
@@ -59,19 +57,21 @@ def test_invoke_model_without_tracing_with_inference_params():
 
     messages = [ChatMessage(role="user", content="Hello")]
 
-    with mock.patch("litellm.completion") as mock_completion:
-        mock_completion.return_value = mock.MagicMock(
-            choices=[mock.MagicMock(message=mock.MagicMock(content="Response"))]
-        )
-
+    with mock.patch(
+        "mlflow.genai.scorers.llm_backend.ScorerLLMClient.complete", return_value="Response"
+    ) as mock_invoke:
         invoke_model_without_tracing(
             model_uri="openai:/gpt-4o-mini",
             messages=messages,
             inference_params={"temperature": 0.5},
         )
 
-        call_kwargs = mock_completion.call_args[1]
-        assert call_kwargs["temperature"] == 0.5
+        mock_invoke.assert_called_once_with(
+            [{"role": "user", "content": "Hello"}],
+            response_format=None,
+            num_retries=3,
+            temperature=0.5,
+        )
 
 
 @pytest.mark.parametrize("model_uri", ["databricks", "gpt-oss-120b"])
@@ -83,7 +83,7 @@ def test_invoke_model_without_tracing_with_databricks(model_uri):
     with (
         mock.patch("mlflow.genai.simulators.utils.call_chat_completions") as mock_call,
         mock.patch(
-            "mlflow.genai.simulators.utils.create_litellm_message_from_databricks_response"
+            "mlflow.genai.simulators.utils._create_message_from_databricks_response"
         ) as mock_create,
     ):
         mock_call.return_value = mock.MagicMock(error_code=None, output_json='{"content": "Hi"}')

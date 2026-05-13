@@ -154,7 +154,7 @@ export const ModelTraceExplorerViewStateProvider = ({
   const [selectedNode, setSelectedNode] = useState<ModelTraceSpanNode | undefined>(defaultSelectedNode);
   const defaultActiveTab = getDefaultActiveTab(selectedNode);
   const [activeTab, setActiveTab] = useState<ModelTraceExplorerTab>(defaultActiveTab);
-  const [showGraph, setShowGraph] = useState(!!rootNode);
+  const [showGraph, setShowGraph] = useState(Boolean(rootNode));
   const [showTimelineTreeGantt, setShowTimelineTreeGantt] = useState(false);
   const [assessmentsPaneExpanded, setAssessmentsPaneExpandedInternal] = useState(() => {
     if (preferences.assessmentsPaneExpanded !== undefined) {
@@ -183,8 +183,7 @@ export const ModelTraceExplorerViewStateProvider = ({
     listeners.add(callback);
 
     if (pendingHighlightRef.current === assessmentId) {
-      // eslint-disable-next-line
-      callback(); // eslint-disable-line callback-return
+      callback();
       pendingHighlightRef.current = null;
     }
 

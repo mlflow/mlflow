@@ -10,11 +10,14 @@ import {
   ChevronRightIcon,
 } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
+import { useLocation, useNavigate } from '../../../../../common/utils/RoutingUtils';
+import Routes from '../../../../routes';
+import { getTimeRangeQueryString } from '../../../../pages/experiment-page-tabs/side-nav/utils';
 import { SelectTracesModal } from '../../../SelectTracesModal';
 import { useCreateSecret } from '../../../../../gateway/hooks/useCreateSecret';
 import { ALL_ISSUE_CATEGORIES, type IssueCategory } from './IssueDetectionCategories';
 import { IssueDetectionCategorySelection } from './IssueDetectionCategorySelection';
-import { IssueDetectionModelSelection, type IssueDetectionModelSelectionRef } from './IssueDetectionModelSelection';
+import { GenAIModelSelection, type GenAIModelSelectionRef } from './GenAIModelSelection';
 import { useInvokeIssueDetection } from './hooks/useInvokeIssueDetection';
 
 interface IssueDetectionModalProps {
@@ -22,7 +25,6 @@ interface IssueDetectionModalProps {
   experimentId?: string;
   initialSelectedTraceIds?: string[];
   availableTraceIds?: string[];
-  onSubmitSuccess?: (runId?: string) => void;
   defaultGroupBySession?: boolean;
 }
 
@@ -31,11 +33,12 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
   experimentId,
   initialSelectedTraceIds = [],
   availableTraceIds = [],
-  onSubmitSuccess,
   defaultGroupBySession = false,
 }) => {
   const { theme } = useDesignSystemTheme();
-  const modelSelectionRef = useRef<IssueDetectionModelSelectionRef>(null);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const modelSelectionRef = useRef<GenAIModelSelectionRef>(null);
 
   const [currentStep, setCurrentStep] = useState<1 | 2>(1);
   const [selectedCategories, setSelectedCategories] = useState<Set<IssueCategory>>(new Set(ALL_ISSUE_CATEGORIES));
@@ -106,9 +109,12 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
         },
         {
           onSuccess: (response) => {
-            onSubmitSuccess?.(response.run_id);
             resetForm();
             onClose();
+            navigate({
+              pathname: Routes.getIssueDetectionRunDetailsRoute(experimentId, response.run_id),
+              search: getTimeRangeQueryString(location.search),
+            });
           },
         },
       );
@@ -153,7 +159,7 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
   }, [resetForm, resetCreateSecret, resetIssueDetection, onClose]);
 
   const isStep1Valid = selectedCategories.size > 0;
-  const isStep2Valid = isModelSelectionValid;
+  const isStep2Valid = isModelSelectionValid && selectedTraceIds.length > 0;
 
   const handleModelSelectionValidityChange = useCallback((isValid: boolean) => {
     setIsModelSelectionValid(isValid);
@@ -212,7 +218,7 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
           </div>
         }
         visible
-        onCancel={handleClose}
+        onCancel={isCreatingSecret || isInvokingIssueDetection ? undefined : handleClose}
         footer={currentStep === 1 ? renderStep1Footer() : renderStep2Footer()}
       >
         {(createSecretError || issueDetectionError) && (
@@ -240,12 +246,69 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
             onCategoryToggle={handleCategoryToggle}
           />
         ) : (
-          <IssueDetectionModelSelection
-            ref={modelSelectionRef}
-            selectedTraceIds={selectedTraceIds}
-            onSelectTracesClick={() => setIsSelectTracesModalOpen(true)}
-            onValidityChange={handleModelSelectionValidityChange}
-          />
+          <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.lg }}>
+            <div>
+              <Typography.Text bold>
+                <FormattedMessage defaultMessage="Traces" description="Section header for trace selection" />
+              </Typography.Text>
+              <Typography.Text color="secondary" css={{ display: 'block', marginTop: theme.spacing.xs }}>
+                <FormattedMessage
+                  defaultMessage="Select the traces to analyze for issues"
+                  description="Description for trace selection section"
+                />
+              </Typography.Text>
+              <div css={{ marginTop: theme.spacing.sm }}>
+                <Button
+                  componentId="mlflow.traces.issue-detection-modal.select-traces"
+                  data-testid="select-traces"
+                  onClick={() => setIsSelectTracesModalOpen(true)}
+                >
+                  {selectedTraceIds.length > 0 ? (
+                    <FormattedMessage
+                      defaultMessage="{count, plural, one {1 trace selected} other {# traces selected}}"
+                      description="Label showing number of traces selected"
+                      values={{ count: selectedTraceIds.length }}
+                    />
+                  ) : (
+                    <FormattedMessage
+                      defaultMessage="Select traces"
+                      description="Button to open trace selection modal"
+                    />
+                  )}
+                </Button>
+              </div>
+            </div>
+            <GenAIModelSelection
+              ref={modelSelectionRef}
+              onValidityChange={handleModelSelectionValidityChange}
+              showConfigureDirectly
+              componentId="mlflow.traces.issue-detection-modal"
+              description={
+                <>
+                  <FormattedMessage
+                    defaultMessage="Configure the model to power issue detection."
+                    description="Description for model selection in issue detection modal"
+                  />
+                  <br />
+                  <FormattedMessage
+                    defaultMessage="Rough cost: under $0.5 for ~100 traces, actual cost varies by selected model. <link>See benchmark</link>."
+                    description="Approximate USD cost ranges for issue detection as a hint, with link to benchmark docs"
+                    values={{
+                      link: (chunks: React.ReactNode) => (
+                        <a
+                          href="https://mlflow.org/docs/latest/genai/eval-monitor/ai-insights/detect-issues/#cost-benchmark"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          {chunks}
+                        </a>
+                      ),
+                    }}
+                  />
+                </>
+              }
+            />
+          </div>
         )}
       </Modal>
       {isSelectTracesModalOpen && (

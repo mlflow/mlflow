@@ -92,8 +92,14 @@ export const ToolUsageChart: React.FC = () => {
               <XAxis dataKey="timestamp" {...xAxisProps} />
               <YAxis {...yAxisProps} />
               <Tooltip
-                content={<ScrollableTooltip formatter={tooltipFormatter} />}
+                content={
+                  <ScrollableTooltip
+                    formatter={tooltipFormatter}
+                    componentId="mlflow.overview.usage.traces.view_traces_link"
+                  />
+                }
                 cursor={{ fill: theme.colors.actionTertiaryBackgroundHover }}
+                wrapperStyle={{ pointerEvents: 'auto' }}
               />
               {displayedItems.map((toolName) => {
                 const originalIndex = toolNames.indexOf(toolName);

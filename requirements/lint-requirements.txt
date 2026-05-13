@@ -1,4 +1,4 @@
-ruff==0.15.5
+ruff==0.15.10
 pre-commit==4.0.1
 toml==0.10.2
 mypy==1.17.1

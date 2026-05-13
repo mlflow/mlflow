@@ -1,11 +1,12 @@
 from pathlib import Path
 
 from clint.config import Config
+from clint.index import SymbolIndex
 from clint.linter import Position, Range, lint_file
 from clint.rules.log_model_artifact_path import LogModelArtifactPath
 
 
-def test_log_model_artifact_path(index_path: Path) -> None:
+def test_log_model_artifact_path(index: SymbolIndex) -> None:
     code = """
 import mlflow
 
@@ -25,7 +26,7 @@ mlflow.spark.log_model(spark_model, "spark_model")
 mlflow.pytorch.log_model(model, artifact_path="pytorch_model")
 """
     config = Config(select={LogModelArtifactPath.name})
-    violations = lint_file(Path("test.py"), code, config, index_path)
+    violations = lint_file(Path("test.py"), code, config, index)
     assert len(violations) == 3
     assert all(isinstance(v.rule, LogModelArtifactPath) for v in violations)
     assert violations[0].range == Range(Position(4, 0))

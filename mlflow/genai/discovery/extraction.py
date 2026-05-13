@@ -12,7 +12,7 @@ from mlflow.genai.discovery.constants import (
     FAILURE_LABEL_SYSTEM_PROMPT,
 )
 from mlflow.genai.discovery.entities import _ConversationAnalysis, _TriageResult
-from mlflow.genai.discovery.utils import _call_llm, _TokenCounter
+from mlflow.genai.utils.llm_utils import _call_llm, _TokenCounter
 
 _logger = logging.getLogger(__name__)
 

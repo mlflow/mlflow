@@ -6,7 +6,7 @@ on:
   pull_request:
     paths:
       - .github/workflows/resolve.yml
-      - .claude/commands/resolve.md
+      - .claude/skills/resolve/**
       - .claude/skills/fetch-unresolved-comments/**
 
 concurrency:
@@ -23,11 +23,10 @@ jobs:
     permissions:
       pull-requests: write
     timeout-minutes: 5
-    # TODO: Re-enable after https://github.com/BerriAI/litellm/issues/24512 is resolved
     if: >
-      false &&
       (github.event_name == 'pull_request' &&
        github.event.pull_request.head.repo.full_name == github.repository &&
+       github.event.pull_request.draft == false &&
        contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association))
       ||
       (github.event_name == 'issue_comment' &&
@@ -56,12 +55,12 @@ jobs:
             let message;
             if (isAllowed) {
               const workflowUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}?pr=${context.issue.number}`;
-              message = `🚀 [Resolve workflow started](${workflowUrl})`;
+              message = `🚀 [Resolve running...](${workflowUrl})`;
             } else {
               message = `⚠️ Only repository maintainers and collaborators are allowed to trigger this workflow. Your association: ${authorAssociation}`;
             }
 
-            const updatedBody = `${comment.body}\n\n---\n${message}`;
+            const updatedBody = `${comment.body}\n\n---\n\n${message}`;
 
             await github.rest.issues.updateComment({
               owner: context.repo.owner,
@@ -85,7 +84,7 @@ jobs:
             const isFork = pr.head.repo && pr.head.repo.full_name !== pr.base.repo.full_name;
             if (isFork && !pr.maintainer_can_modify) {
               const forkMessage = `⚠️ This PR does not allow maintainers to push changes. Please enable "Allow edits by maintainers" in the PR settings and re-trigger the workflow.`;
-              const forkUpdatedBody = `${updatedBody}\n\n---\n${forkMessage}`;
+              const forkUpdatedBody = `${updatedBody}\n\n---\n\n${forkMessage}`;
 
               await github.rest.issues.updateComment({
                 owner: context.repo.owner,
@@ -129,22 +128,23 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
   resolve:
-    # TODO: Re-enable after https://github.com/BerriAI/litellm/issues/24512 is resolved
-    if: false
     needs: precheck
     runs-on: ubuntu-latest
     permissions:
       pull-requests: read
     timeout-minutes: 30
     steps:
-      - uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # v2.2.1
+      - uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
         id: app-token
         with:
-          app-id: ${{ secrets.APP_ID }}
+          client-id: ${{ secrets.APP_CLIENT_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: read
 
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          persist-credentials: true
           repository: ${{ needs.precheck.outputs.head_repository }}
           ref: ${{ needs.precheck.outputs.head_ref }}
           token: ${{ steps.app-token.outputs.token }}
@@ -169,12 +169,16 @@ jobs:
 
       - name: Install Claude CLI
         run: |
-          curl -fsSL https://claude.ai/install.sh | bash -s 2.1.71
+          .claude/scripts/install-claude.sh
+      - name: Verify Claude CLI
+        run: |
+          claude --version
 
       - name: Run Claude resolve command
         id: claude-fix
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: "1"
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PROMPT: ${{ needs.precheck.outputs.prompt }}
           PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
@@ -194,6 +198,7 @@ jobs:
           name: claude-output
           path: /tmp/output.json
           if-no-files-found: ignore
+          retention-days: 1
 
       - name: Commit changes
         run: |
@@ -215,9 +220,7 @@ jobs:
 
   report:
     needs: [precheck, resolve]
-    # TODO: Re-enable after https://github.com/BerriAI/litellm/issues/24512 is resolved
     if: |
-      false &&
       always() &&
       !contains(needs.*.result, 'cancelled') &&
       !contains(needs.*.result, 'skipped')
@@ -227,7 +230,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Download Claude output
-        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: claude-output
           path: /tmp
@@ -244,11 +247,11 @@ jobs:
             const fs = require('fs');
 
             const resolveJobStatus = process.env.RESOLVE_JOB_STATUS;
-            const statusMessage = resolveJobStatus !== 'success'
-              ? `⚠️ Workflow encountered an error.`
-              : `✅ Workflow completed successfully.`;
+            const workflowUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}?pr=${context.issue.number}`;
 
-            let resultMessage = statusMessage;
+            let resultLine = resolveJobStatus !== 'success'
+              ? `⚠️ [Resolve](${workflowUrl}) encountered an error`
+              : `✅ [Resolve](${workflowUrl}) completed`;
 
             // Read Claude output from file instead of environment variable
             const outputPath = '/tmp/output.json';
@@ -261,20 +264,24 @@ jobs:
               console.log('Failed to read Claude output file:', e);
             }
 
-            // Extract and display Claude's result and raw output
+            // Extract and display Claude's result from JSON output
             if (claudeOutput) {
               try {
                 const events = claudeOutput.trim().split('\n').filter(Boolean).map(JSON.parse);
-                const resultEvent = events.find(({ type }) => type === 'result');
+                const resultEvent = events.findLast(({ type }) => type === 'result');
                 if (resultEvent) {
-                  resultMessage += `\n\n<details>\n<summary>Claude Output</summary>\n\n${resultEvent.result}\n\n</details>`;
+                  const seconds = (resultEvent.duration_ms / 1000).toFixed(1);
+                  const tokens = (resultEvent.usage?.input_tokens ?? 0) + (resultEvent.usage?.output_tokens ?? 0);
+                  const cost = (Math.round(resultEvent.total_cost_usd * 100) / 100).toFixed(2);
+                  resultLine += ` (${seconds}s, ${resultEvent.num_turns} turns, ${tokens} tokens, $${cost})`;
+                  resultLine += `\n<details><summary>Resolve Output</summary>\n\n${resultEvent.result}\n\n</details>`;
                 }
               } catch (e) {
                 console.log('Failed to parse Claude output as JSON:', e);
               }
             }
 
-            console.log('Result message to post:', resultMessage);
+            console.log('Result line to post:', resultLine);
 
             if (process.env.COMMENT_ID) {
               const commentId = parseInt(process.env.COMMENT_ID, 10);
@@ -284,7 +291,8 @@ jobs:
                 comment_id: commentId,
               });
 
-              const updatedBody = `${currentComment.body}\n\n---\n${resultMessage}`;
+              const originalBody = currentComment.body.split('\n\n---\n\n🚀 ')[0];
+              const updatedBody = `${originalBody}\n\n---\n\n${resultLine}`;
 
               await github.rest.issues.updateComment({
                 owner: context.repo.owner,

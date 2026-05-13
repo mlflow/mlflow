@@ -3941,7 +3941,8 @@ def test_do_not_log_built_in_metrics_as_artifacts():
         assert len(results) == 0
 
 
-def test_log_genai_custom_metrics_as_artifacts():
+def test_log_genai_custom_metrics_as_artifacts(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     with mlflow.start_run() as run:
         model_info = mlflow.pyfunc.log_model(
             name="model", python_model=language_model, input_example=["a"]
@@ -4016,7 +4017,8 @@ def test_log_genai_custom_metrics_as_artifacts():
     assert len(results) == 0
 
 
-def test_all_genai_custom_metrics_are_from_user_prompt():
+def test_all_genai_custom_metrics_are_from_user_prompt(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     with mlflow.start_run() as run:
         model_info = mlflow.pyfunc.log_model(
             name="model", python_model=language_model, input_example=["a"]

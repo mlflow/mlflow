@@ -9,6 +9,7 @@ import { useProviderConfigQuery } from './useProviderConfigQuery';
 import type { ProviderModel, Endpoint } from '../types';
 import type { SecretMode } from '../components/model-configuration/types';
 import { isValidEndpointName } from '../utils/gatewayUtils';
+import { telemetryClient } from '../../telemetry/TelemetryClient';
 
 export interface CreateEndpointFormData {
   name: string;
@@ -29,6 +30,14 @@ export interface CreateEndpointFormData {
 export interface UseCreateEndpointFormOptions {
   onSuccess?: (endpoint: Endpoint) => void;
   onCancel?: () => void;
+  /** Pre-fill the provider field (e.g. from quick-start templates) */
+  defaultProvider?: string;
+  /** Pre-fill the model field (e.g. from quick-start templates) */
+  defaultModel?: string;
+  /** Pre-fill the endpoint name field */
+  defaultName?: string;
+  /** Pre-fill the new secret name field */
+  defaultSecretName?: string;
 }
 
 export interface UseCreateEndpointFormResult {
@@ -47,16 +56,20 @@ export interface UseCreateEndpointFormResult {
 export function useCreateEndpointForm({
   onSuccess,
   onCancel,
+  defaultProvider,
+  defaultModel,
+  defaultName,
+  defaultSecretName,
 }: UseCreateEndpointFormOptions = {}): UseCreateEndpointFormResult {
   const form = useForm<CreateEndpointFormData>({
     defaultValues: {
-      name: '',
-      provider: '',
-      modelName: '',
+      name: defaultName ?? '',
+      provider: defaultProvider ?? '',
+      modelName: defaultModel ?? '',
       secretMode: 'new',
       existingSecretId: '',
       newSecret: {
-        name: '',
+        name: defaultSecretName ?? '',
         authMode: '',
         secretFields: {},
         configFields: {},
@@ -137,6 +150,17 @@ export function useCreateEndpointForm({
         usage_tracking: values.usageTracking,
       });
 
+      telemetryClient.logEventWithMetadata_I_CONFIRM_THERE_IS_NO_PII(
+        'mlflow.gateway.endpoint.create',
+        'onSubmitSuccess',
+        {
+          secretMode: values.secretMode,
+          provider: values.provider,
+          model: values.modelName,
+          usageTracking: String(values.usageTracking),
+        },
+      );
+
       onSuccess?.(endpointResponse.endpoint);
     } catch {
       // Errors are handled by mutation error state
@@ -208,10 +232,12 @@ export function useCreateEndpointForm({
     [providerConfig, newSecretAuthMode],
   );
   const requiresSecretFields = selectedAuthMode?.secret_fields?.some((f) => f.required) ?? true;
-  const hasSecretFieldValues = !requiresSecretFields || Object.values(newSecretFields || {}).some((v) => !!v);
+  const hasSecretFieldValues = !requiresSecretFields || Object.values(newSecretFields || {}).some((v) => Boolean(v));
   const isSecretConfigured =
-    secretMode === 'existing' ? !!existingSecretId : !!newSecretName && !!newSecretAuthMode && hasSecretFieldValues;
-  const isFormComplete = !!provider && !!modelName && isSecretConfigured;
+    secretMode === 'existing'
+      ? Boolean(existingSecretId)
+      : Boolean(newSecretName) && Boolean(newSecretAuthMode) && hasSecretFieldValues;
+  const isFormComplete = Boolean(provider) && Boolean(modelName) && isSecretConfigured;
 
   return {
     form,

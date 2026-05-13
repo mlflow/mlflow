@@ -13,8 +13,7 @@ jobs:
   check-comment:
     runs-on: ubuntu-slim
     timeout-minutes: 10
-    # TODO: Re-enable after https://github.com/BerriAI/litellm/issues/24512 is resolved
-    if: false && github.event.issue.pull_request && startsWith(github.event.comment.body, '/autoformat')
+    if: github.event.issue.pull_request && startsWith(github.event.comment.body, '/autoformat')
     permissions:
       statuses: write # autoformat.createStatus
       pull-requests: write # autoformat.createReaction on PRs
@@ -30,6 +29,7 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          persist-credentials: false
           sparse-checkout: |
             .github
       - name: judge
@@ -63,8 +63,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: check-comment
-    # TODO: Re-enable after https://github.com/BerriAI/litellm/issues/24512 is resolved
-    if: false && needs.check-comment.outputs.should_autoformat == 'true'
+    if: needs.check-comment.outputs.should_autoformat == 'true'
     permissions:
       pull-requests: read # view files modified in PR
     outputs:
@@ -72,6 +71,7 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          persist-credentials: false
           repository: ${{ needs.check-comment.outputs.repository }}
           ref: ${{ needs.check-comment.outputs.head_ref }}
           # Set fetch-depth to merge the base branch
@@ -181,7 +181,7 @@ jobs:
       # ************************************************************************
       - if: steps.diff.outputs.api == 'true'
         run: |
-          uv run --group docs --extra gateway --directory docs/api_reference make dummy
+          uv run --group docs --with-requirements "$GITHUB_WORKSPACE/requirements/torch.txt" --extra gateway --directory docs/api_reference make dummy
       # ************************************************************************
       # Upload patch
       # ************************************************************************
@@ -200,27 +200,30 @@ jobs:
         with:
           name: ${{ github.run_id }}.diff
           path: ${{ github.run_id }}.diff
+          retention-days: 1
+          if-no-files-found: ignore
 
   push:
     runs-on: ubuntu-slim
     timeout-minutes: 5
     needs: [check-comment, format]
-    # TODO: Re-enable after https://github.com/BerriAI/litellm/issues/24512 is resolved
-    if: false && needs.format.outputs.reformatted == 'true'
+    if: needs.format.outputs.reformatted == 'true'
     permissions:
       contents: read
     outputs:
       head_sha: ${{ steps.push.outputs.head_sha }}
     steps:
-      - uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # v2.2.1
+      - uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
         id: app-token
         with:
-          app-id: ${{ secrets.APP_ID }}
+          client-id: ${{ secrets.APP_CLIENT_ID }}
           # See https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/managing-private-keys-for-github-apps
           # for how to rotate the private key
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          permission-contents: write
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          persist-credentials: true
           repository: ${{ needs.check-comment.outputs.repository }}
           ref: ${{ needs.check-comment.outputs.head_ref }}
           # Set fetch-depth to merge the base branch
@@ -267,7 +270,7 @@ jobs:
           git merge base/${BASE_REF}
 
       - name: Download patch
-        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: ${{ github.run_id }}.diff
           path: /tmp
@@ -288,14 +291,14 @@ jobs:
     runs-on: ubuntu-slim
     timeout-minutes: 10
     needs: [check-comment, format, push]
-    # TODO: Re-enable after https://github.com/BerriAI/litellm/issues/24512 is resolved
-    if: false && always() && needs.check-comment.outputs.should_autoformat == 'true'
+    if: always() && needs.check-comment.outputs.should_autoformat == 'true'
     permissions:
       statuses: write # To update check statuses
       actions: write # To approve workflow runs
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          persist-credentials: false
           sparse-checkout: |
             .github
       - name: Update status

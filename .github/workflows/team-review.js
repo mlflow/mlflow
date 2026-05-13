@@ -1,5 +1,14 @@
 const STATS_ISSUE_NUMBER = 19428;
-const MEMBERS = ["B-Step62", "daniellok-db", "harupy", "serena-ruan", "TomeHirata", "WeichenXu123"];
+const MEMBERS = [
+  "B-Step62",
+  "daniellok-db",
+  "harupy",
+  "kriscon-db",
+  "PattaraS",
+  "serena-ruan",
+  "TomeHirata",
+  "WeichenXu123",
+];
 
 async function loadStats(github, owner, repo) {
   try {
@@ -97,7 +106,11 @@ function updateStats(stats, selectedReviewers) {
   for (const reviewer of selectedReviewers) {
     reviewCounts[reviewer] = (reviewCounts[reviewer] || 0) + 1;
   }
-  stats.reviewCounts = reviewCounts;
+  stats.reviewCounts = Object.fromEntries(
+    Object.keys(reviewCounts)
+      .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base", numeric: true }))
+      .map((k) => [k, reviewCounts[k]])
+  );
   return stats;
 }
 

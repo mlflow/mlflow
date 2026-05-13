@@ -1,7 +1,7 @@
 import { ArrowLeftIcon, BeakerIcon, Spinner, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { useGetExperimentQuery } from '../../experiment-tracking/hooks/useExperimentQuery';
-import { useLocation } from '../utils/RoutingUtils';
-import ExperimentTrackingRoutes from '../../experiment-tracking/routes';
+import { matchPath, useLocation } from '../utils/RoutingUtils';
+import ExperimentTrackingRoutes, { RoutePaths } from '../../experiment-tracking/routes';
 import { MlflowSidebarLink } from './MlflowSidebarLink';
 import { getExperimentKindForWorkflowType } from '../../experiment-tracking/utils/ExperimentKindUtils';
 import type { ExperimentPageSideNavSectionKey } from '../../experiment-tracking/pages/experiment-page-tabs/side-nav/constants';
@@ -18,6 +18,7 @@ import {
   isTracesRelatedTab,
   getTimeRangeQueryString,
 } from '../../experiment-tracking/pages/experiment-page-tabs/side-nav/utils';
+import { useExperimentHasV4Location } from '../../experiment-tracking/hooks/useExperimentHasV4Location';
 import { Fragment } from 'react';
 
 // pass a dummy function to avoid highlighting the experiment back link
@@ -41,12 +42,14 @@ export const MlflowSidebarExperimentItems = ({
     enabled: Boolean(experimentId) && workflowType === WorkflowType.GENAI,
     filter: '', // not important in this case, we show the runs tab if there are any training runs
   });
+  const hasV4Location = useExperimentHasV4Location(experiment?.tags);
   const config = useExperimentPageSideNavConfig({
     experimentKind: getExperimentKindForWorkflowType(workflowType),
     hasTrainingRuns: (trainingRuns?.length ?? 0) > 0,
+    hasV4Location,
   });
   const { tabName: activeTabByRoute } = useGetExperimentPageActiveTabByRoute();
-  const { search } = useLocation();
+  const { pathname, search } = useLocation();
 
   return (
     <>
@@ -89,6 +92,19 @@ export const MlflowSidebarExperimentItems = ({
                 return (
                   activeTabByRoute === ExperimentPageTabName.ChatSessions ||
                   activeTabByRoute === ExperimentPageTabName.SingleChatSession
+                );
+              }
+              if (item.tabName === ExperimentPageTabName.EvaluationRuns) {
+                return (
+                  activeTabByRoute === ExperimentPageTabName.EvaluationRuns ||
+                  Boolean(matchPath(RoutePaths.runPageWithTab, pathname)) ||
+                  Boolean(matchPath(RoutePaths.experimentPageTabIssueDetectionRunDetailsWithTab, pathname))
+                );
+              }
+              if (item.tabName === ExperimentPageTabName.Runs && workflowType === WorkflowType.MACHINE_LEARNING) {
+                return (
+                  activeTabByRoute === ExperimentPageTabName.Runs ||
+                  Boolean(matchPath(RoutePaths.runPageWithTab, pathname))
                 );
               }
               return activeTabByRoute === item.tabName;

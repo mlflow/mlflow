@@ -267,7 +267,7 @@ def log_feedback(
         trace_id: The ID of the trace.
         name: The name of the feedback assessment e.g., "faithfulness". Defaults to
             "feedback" if not provided.
-        value: The value of the feedback. Must be one of the following types:
+        value: The value of the feedback. Can be ``None``, or one of the following types:
             - float
             - int
             - str

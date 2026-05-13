@@ -27,6 +27,7 @@ import type {
   TracesTableColumn,
   TableFilter,
   TableFilterOptions,
+  TraceTablePageSource,
 } from './types';
 import { shouldEnableSessionGrouping, shouldEnableTagGrouping } from './utils/FeatureUtils';
 import { shouldEnableIssueDetection } from '../../../common/utils/FeatureUtils';
@@ -40,8 +41,8 @@ interface CountInfo {
 }
 
 interface GenAITracesTableToolbarProps {
-  // Component ID for detect issues button (optional, defaults to mlflow.traces-table.detect-issues-button)
-  detectIssuesButtonComponentId?: string;
+  // Component for detect issues button
+  pageSource?: TraceTablePageSource;
 
   // Experiment metadata
   experimentId?: string;
@@ -102,7 +103,7 @@ export const GenAITracesTableToolbar: React.FC<React.PropsWithChildren<GenAITrac
   // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
   (props: GenAITracesTableToolbarProps) => {
     const {
-      detectIssuesButtonComponentId = 'mlflow.traces-table.detect-issues-button',
+      pageSource = 'experiment-traces',
       searchQuery,
       setSearchQuery,
       filters,
@@ -222,7 +223,16 @@ export const GenAITracesTableToolbar: React.FC<React.PropsWithChildren<GenAITrac
             </Tooltip>
           )}
           {shouldEnableIssueDetection() && onDetectIssues && (
-            <DetectIssuesButton componentId={detectIssuesButtonComponentId} onClick={onDetectIssues} />
+            <DetectIssuesButton
+              componentId={
+                pageSource === 'experiment-traces'
+                  ? 'mlflow.traces-table.detect-issues-button'
+                  : pageSource === 'chat-sessions'
+                    ? 'mlflow.chat-sessions.detect-issues-button'
+                    : 'mlflow.run-view-traces.detect-issues-button'
+              }
+              onClick={onDetectIssues}
+            />
           )}
           {onRefresh && (
             <Tooltip

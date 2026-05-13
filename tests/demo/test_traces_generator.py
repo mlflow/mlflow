@@ -20,7 +20,7 @@ def traces_generator():
 def test_generator_attributes():
     generator = TracesDemoGenerator()
     assert generator.name == DemoFeature.TRACES
-    assert generator.version == 1
+    assert generator.version == 2
 
 
 def test_data_exists_false_when_no_experiment():
@@ -107,10 +107,10 @@ def test_traces_have_version_metadata():
     v1_traces = [t for t in traces if t.info.trace_metadata.get(DEMO_VERSION_TAG) == "v1"]
     v2_traces = [t for t in traces if t.info.trace_metadata.get(DEMO_VERSION_TAG) == "v2"]
 
-    # 2 RAG + 2 agent + 6 prompt + 7 session = 17 per version
-    assert len(v1_traces) == 17
-    assert len(v2_traces) == 17
-    assert len(traces) == 34
+    # 2 RAG + 2 agent + 6 prompt + 4 multimodal + 7 session = 21 per version
+    assert len(v1_traces) == 21
+    assert len(v2_traces) == 21
+    assert len(traces) == 42
 
 
 def test_traces_have_type_metadata():

@@ -42,7 +42,9 @@ def get_evaluator_class(metric_name: str):
         return getattr(phoenix_evals, evaluator_class_name)
     except AttributeError:
         available_metrics = ", ".join(sorted(_METRIC_REGISTRY.keys()))
+        # error_code is INVALID_PARAMETER_VALUE but this is an attribute lookup failure
         raise MlflowException.invalid_parameter_value(
             f"Unknown Phoenix metric: '{metric_name}'. Could not find '{evaluator_class_name}' "
-            f"in 'phoenix.evals'. Available pre-configured metrics: {available_metrics}"
+            f"in 'phoenix.evals'. Available pre-configured metrics: {available_metrics}",
+            error_class="ATTRIBUTE_NOT_FOUND",
         )

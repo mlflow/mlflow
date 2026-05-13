@@ -6,7 +6,6 @@
  */
 
 import cookie from 'cookie';
-import JsonBigInt from 'json-bigint';
 import yaml from 'js-yaml';
 import { isNil, pickBy } from 'lodash';
 import { ErrorWrapper } from './ErrorWrapper';
@@ -81,13 +80,6 @@ export const parseResponse = ({ resolve, response, parser }: any) => {
 
 export const defaultResponseParser = ({ resolve, response }: any) =>
   parseResponse({ resolve, response, parser: JSON.parse });
-
-export const jsonBigIntResponseParser = ({ resolve, response }: any) =>
-  parseResponse({
-    resolve,
-    response,
-    parser: JsonBigInt({ strict: true, storeAsString: true }).parse,
-  });
 
 export const yamlResponseParser = ({ resolve, response }: any) =>
   parseResponse({ resolve, response, parser: yaml.safeLoad });
@@ -349,64 +341,6 @@ export const deleteJson = (props: any) => {
   });
 };
 
-/** @deprecated Use `fetchAPI` (returns parsed JSON) or `fetchOrFail` (returns raw Response) for better error parsing support. */
-export const getBigIntJson = (props: any) => {
-  const { relativeUrl, data } = props;
-  const queryParams = new URLSearchParams(filterUndefinedFields(data));
-  return fetchEndpoint({
-    ...props,
-    ...(String(queryParams).length > 0 && {
-      relativeUrl: `${relativeUrl}?${queryParams}`,
-    }),
-    method: HTTPMethods.GET,
-    success: jsonBigIntResponseParser,
-  });
-};
-
-/** @deprecated Use `fetchAPI` (returns parsed JSON) or `fetchOrFail` (returns raw Response) for better error parsing support. */
-export const postBigIntJson = (props: any) => {
-  const { data } = props;
-  return fetchEndpoint({
-    ...props,
-    method: HTTPMethods.POST,
-    body: generateJsonBody(data),
-    success: jsonBigIntResponseParser,
-  });
-};
-
-/** @deprecated Use `fetchAPI` (returns parsed JSON) or `fetchOrFail` (returns raw Response) for better error parsing support. */
-export const putBigIntJson = (props: any) => {
-  const { data } = props;
-  return fetchEndpoint({
-    ...props,
-    method: HTTPMethods.PUT,
-    body: generateJsonBody(data),
-    success: jsonBigIntResponseParser,
-  });
-};
-
-/** @deprecated Use `fetchAPI` (returns parsed JSON) or `fetchOrFail` (returns raw Response) for better error parsing support. */
-export const patchBigIntJson = (props: any) => {
-  const { data } = props;
-  return fetchEndpoint({
-    ...props,
-    method: HTTPMethods.PATCH,
-    body: generateJsonBody(data),
-    success: jsonBigIntResponseParser,
-  });
-};
-
-/** @deprecated Use `fetchAPI` (returns parsed JSON) or `fetchOrFail` (returns raw Response) for better error parsing support. */
-export const deleteBigIntJson = (props: any) => {
-  const { data } = props;
-  return fetchEndpoint({
-    ...props,
-    method: HTTPMethods.DELETE,
-    body: generateJsonBody(data),
-    success: jsonBigIntResponseParser,
-  });
-};
-
 export const getYaml = (props: any) => {
   const { relativeUrl, data } = props;
   const queryParams = new URLSearchParams(filterUndefinedFields(data));
@@ -473,7 +407,7 @@ export type FetchAPIOptions = Omit<RequestInit, 'body'> & {
 
 // Helper method to make a request to the backend.
 export const fetchAPI = async (url: string, options: FetchAPIOptions = {}) => {
-  const { method, headers, body, ...restOptions } = options;
+  const { method, headers: extraHeaders, body, ...restOptions } = options;
 
   let cookieString = '';
   if (typeof document !== 'undefined' && typeof document.cookie === 'string') {
@@ -486,7 +420,7 @@ export const fetchAPI = async (url: string, options: FetchAPIOptions = {}) => {
     headers: {
       ...getDefaultHeaders(cookieString),
       ...(body ? { 'Content-Type': 'application/json' } : {}),
-      ...headers,
+      ...extraHeaders,
     },
     ...(body && { body: serializeRequestBody(body) }),
   };
@@ -532,8 +466,7 @@ export async function fetchOrFail(input: RequestInfo | URL, options?: RequestIni
       ...options?.headers,
     },
   };
-
-  // eslint-disable-next-line no-restricted-globals -- See go/spog-fetch
+  // eslint-disable-next-line no-restricted-globals -- only used by OSS
   const response = await fetch(input, fetchOptions);
   if (!response.ok) {
     const error = matchPredefinedErrorFromResponse(response);

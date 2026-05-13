@@ -1,0 +1,56 @@
+{
+  "name": "@mlflow/vercel",
+  "version": "0.2.0-rc.1",
+  "description": "Vercel AI SDK integration for MLflow Tracing — SpanProcessor that translates AI SDK span attributes to MLflow format",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mlflow/mlflow.git"
+  },
+  "homepage": "https://mlflow.org/",
+  "author": {
+    "name": "MLflow",
+    "url": "https://mlflow.org/"
+  },
+  "bugs": {
+    "url": "https://github.com/mlflow/mlflow/issues"
+  },
+  "license": "Apache-2.0",
+  "keywords": [
+    "mlflow",
+    "tracing",
+    "observability",
+    "opentelemetry",
+    "llm",
+    "vercel",
+    "ai-sdk",
+    "vercel-ai",
+    "javascript",
+    "typescript"
+  ],
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "jest",
+    "lint": "eslint . --ext .ts --max-warnings 0",
+    "lint:fix": "eslint . --ext .ts --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "peerDependencies": {
+    "@opentelemetry/api": ">=1.0.0",
+    "@opentelemetry/sdk-trace-base": ">=1.0.0"
+  },
+  "devDependencies": {
+    "jest": "^29.6.2",
+    "ts-jest": "^29.1.1",
+    "typescript": "^5.8.3",
+    "@opentelemetry/sdk-trace-base": "^2.1.0"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "files": [
+    "dist/"
+  ]
+}

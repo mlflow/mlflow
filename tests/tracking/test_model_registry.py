@@ -23,6 +23,8 @@ from tests.tracking.integration_test_utils import ServerThread
 @pytest.fixture(params=["file", "sqlalchemy"])
 def client(request: pytest.FixtureRequest, tmp_path: Path, db_uri: str):
     """Provides an MLflow Tracking API client pointed at the local tracking server."""
+    if request.param == "file":
+        pytest.skip("FileStore is no longer supported.")
     backend_uri = tmp_path.joinpath("file").as_uri() if request.param == "file" else db_uri
 
     # Force-reset backend stores before each test

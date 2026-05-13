@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom';
 import { MLFlowRoot } from './app';
 
+// eslint-disable-next-line @databricks/no-direct-react-root -- We should try to migrate this (FEINF-4568)
 ReactDOM.render(<MLFlowRoot />, document.getElementById('root'));
 
 const windowOnError = (message: Event | string, source?: string, lineno?: number, colno?: number, error?: Error) => {

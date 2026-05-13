@@ -4,7 +4,7 @@ import { Controller, useWatch } from 'react-hook-form';
 import { useDesignSystemTheme, Typography, Input, FormUI } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 import { useQueryClient } from '@databricks/web-shared/query-client';
-import { COMPONENT_ID_PREFIX, type ScorerFormMode, SCORER_FORM_MODE } from './constants';
+import { type ScorerFormMode, SCORER_FORM_MODE } from './constants';
 import { EndpointSelector } from '../../components/EndpointSelector';
 import {
   ModelProvider,
@@ -140,7 +140,7 @@ export const ModelSectionRenderer: React.FC<ModelSectionRendererProps> = ({
                 onUserSelect?.('model', modelValue);
               }}
               disabled={isReadOnly}
-              componentIdPrefix={`${COMPONENT_ID_PREFIX}.endpoint`}
+              componentIdPrefix="mlflow.experiment-scorers.endpoint"
               onEndpointNotFound={handleEndpointNotFound}
             />
           </div>

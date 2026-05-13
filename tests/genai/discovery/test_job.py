@@ -11,12 +11,21 @@ from mlflow.genai.discovery.job import (
 
 
 @pytest.mark.parametrize(
-    ("provider", "secret_value", "expected_credentials"),
+    ("provider", "secret_value", "auth_config", "expected_credentials"),
     [
-        ("openai", {"api_key": "test-key"}, {"OPENAI_API_KEY": "test-key"}),
-        ("anthropic", {"api_key": "test-key"}, {"ANTHROPIC_API_KEY": "test-key"}),
-        ("gemini", {"api_key": "test-key"}, {"GEMINI_API_KEY": "test-key"}),
-        ("azure", {"api_key": "test-key"}, {"AZURE_OPENAI_API_KEY": "test-key"}),
+        ("openai", {"api_key": "test-key"}, {}, {"OPENAI_API_KEY": "test-key"}),
+        ("anthropic", {"api_key": "test-key"}, {}, {"ANTHROPIC_API_KEY": "test-key"}),
+        ("gemini", {"api_key": "test-key"}, {}, {"GEMINI_API_KEY": "test-key"}),
+        (
+            "azure",
+            {"api_key": "test-key"},
+            {"api_base": "https://my-resource.openai.azure.com", "api_version": "2024-02-01"},
+            {
+                "AZURE_API_KEY": "test-key",
+                "AZURE_API_BASE": "https://my-resource.openai.azure.com",
+                "AZURE_API_VERSION": "2024-02-01",
+            },
+        ),
         (
             "bedrock",
             {
@@ -24,6 +33,7 @@ from mlflow.genai.discovery.job import (
                 "aws_secret_access_key": "secret-key",
                 "aws_session_token": "session-token",
             },
+            {},
             {
                 "AWS_ACCESS_KEY_ID": "access-key",
                 "AWS_SECRET_ACCESS_KEY": "secret-key",
@@ -32,11 +42,15 @@ from mlflow.genai.discovery.job import (
         ),
     ],
 )
-def test_fetch_provider_credentials_success(provider, secret_value, expected_credentials):
+def test_fetch_provider_credentials_success(
+    provider, secret_value, auth_config, expected_credentials
+):
     mock_store = mock.MagicMock()
     mock_store._get_decrypted_secret.return_value = secret_value
+    mock_store.get_secret_info.return_value.auth_config = auth_config
     credentials = _fetch_provider_credentials(mock_store, provider, "secret-123")
     mock_store._get_decrypted_secret.assert_called_once_with("secret-123")
+    mock_store.get_secret_info.assert_called_once_with(secret_id="secret-123")
     assert credentials == expected_credentials
 
 
@@ -49,16 +63,20 @@ def test_fetch_provider_credentials_unknown_provider():
 def test_fetch_provider_credentials_case_insensitive():
     mock_store = mock.MagicMock()
     mock_store._get_decrypted_secret.return_value = {"api_key": "test-key"}
+    mock_store.get_secret_info.return_value.auth_config = {}
     credentials = _fetch_provider_credentials(mock_store, "OpenAI", "secret-123")
     mock_store._get_decrypted_secret.assert_called_once_with("secret-123")
+    mock_store.get_secret_info.assert_called_once_with(secret_id="secret-123")
     assert credentials == {"OPENAI_API_KEY": "test-key"}
 
 
 def test_fetch_provider_credentials_missing_api_key():
     mock_store = mock.MagicMock()
     mock_store._get_decrypted_secret.return_value = {}
+    mock_store.get_secret_info.return_value.auth_config = {}
     credentials = _fetch_provider_credentials(mock_store, "openai", "secret-123")
     mock_store._get_decrypted_secret.assert_called_once_with("secret-123")
+    mock_store.get_secret_info.assert_called_once_with(secret_id="secret-123")
     assert credentials == {}
 
 
@@ -68,11 +86,38 @@ def test_fetch_provider_credentials_bedrock_missing_optional_token():
         "aws_access_key_id": "access-key",
         "aws_secret_access_key": "secret-key",
     }
+    mock_store.get_secret_info.return_value.auth_config = {}
     credentials = _fetch_provider_credentials(mock_store, "bedrock", "secret-123")
     mock_store._get_decrypted_secret.assert_called_once_with("secret-123")
+    mock_store.get_secret_info.assert_called_once_with(secret_id="secret-123")
     assert credentials == {
         "AWS_ACCESS_KEY_ID": "access-key",
         "AWS_SECRET_ACCESS_KEY": "secret-key",
+    }
+
+
+def test_fetch_provider_credentials_none_auth_config():
+    mock_store = mock.MagicMock()
+    mock_store._get_decrypted_secret.return_value = {"api_key": "test-key"}
+    mock_store.get_secret_info.return_value.auth_config = None
+    credentials = _fetch_provider_credentials(mock_store, "openai", "secret-123")
+    mock_store._get_decrypted_secret.assert_called_once_with("secret-123")
+    mock_store.get_secret_info.assert_called_once_with(secret_id="secret-123")
+    assert credentials == {"OPENAI_API_KEY": "test-key"}
+
+
+def test_fetch_provider_credentials_azure_partial_auth_config():
+    mock_store = mock.MagicMock()
+    mock_store._get_decrypted_secret.return_value = {"api_key": "test-key"}
+    mock_store.get_secret_info.return_value.auth_config = {
+        "api_base": "https://my-resource.openai.azure.com"
+    }
+    credentials = _fetch_provider_credentials(mock_store, "azure", "secret-123")
+    mock_store._get_decrypted_secret.assert_called_once_with("secret-123")
+    mock_store.get_secret_info.assert_called_once_with(secret_id="secret-123")
+    assert credentials == {
+        "AZURE_API_KEY": "test-key",
+        "AZURE_API_BASE": "https://my-resource.openai.azure.com",
     }
 
 

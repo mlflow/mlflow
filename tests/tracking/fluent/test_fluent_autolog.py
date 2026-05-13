@@ -17,7 +17,10 @@ import lightgbm
 import lightning
 import litellm
 import llama_index.core
-import mistralai
+
+# Disabled due to supply chain compromise in mistralai 2.4.6.
+# See https://github.com/mistralai/client-python/issues/523
+# import mistralai
 import openai
 import pyspark
 import pyspark.ml
@@ -74,7 +77,7 @@ library_to_mlflow_module_genai = {
     google.genai: mlflow.gemini,
     boto3: mlflow.bedrock,
     groq: mlflow.groq,
-    mistralai: mlflow.mistral,
+    # mistralai: mlflow.mistral,
     autogen: mlflow.ag2,
     # TODO: once Python 3.10 is introduced, enable smolagents
     # smolagents: mlflow.smolagents,
@@ -106,6 +109,10 @@ def reset_global_states():
 
     # setfit may not be in library_to_mlflow_module when incompatible with transformers 5.x
     mlflow.utils.import_hooks._post_import_hooks.pop("setfit", None)
+    # mistralai is removed from library_to_mlflow_module while the package is
+    # disabled (see https://github.com/mistralai/client-python/issues/523), but
+    # mlflow.autolog() still registers a post-import hook for it via fluent.py.
+    mlflow.utils.import_hooks._post_import_hooks.pop("mistralai", None)
 
     assert all(v == {} for v in AUTOLOGGING_INTEGRATIONS.values())
     assert mlflow.utils.import_hooks._post_import_hooks == {}
@@ -132,6 +139,8 @@ def reset_global_states():
     mlflow.utils.import_hooks._post_import_hooks.pop("haystack", None)
     # setfit may not be in library_to_mlflow_module when incompatible with transformers 5.x
     mlflow.utils.import_hooks._post_import_hooks.pop("setfit", None)
+    # mistralai is disabled — see https://github.com/mistralai/client-python/issues/523
+    mlflow.utils.import_hooks._post_import_hooks.pop("mistralai", None)
     # TODO: Remove this line when we stop supporting google.generativeai
     mlflow.utils.import_hooks._post_import_hooks.pop("google.generativeai", None)
 
@@ -456,10 +465,10 @@ def test_autolog_genai_auto_tracing(mock_openai, is_databricks, disable, other_l
 
     # GenAI should not be enabled by mlflow.autolog even if disable=False on Databricks
     if is_databricks or disable:
-        trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+        trace = mlflow.get_trace(mlflow.get_last_active_trace_id(), flush=True)
         assert trace is None
     else:
-        trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+        trace = mlflow.get_trace(mlflow.get_last_active_trace_id(), flush=True)
         assert trace is not None
         assert trace.info.status == "OK"
         assert len(trace.data.spans) == 1
@@ -505,6 +514,8 @@ def test_autolog_genai_import(disable, flavor_and_module):
         "agno",
         "strands",
         "haystack",
+        # mistral is disabled - see https://github.com/mistralai/client-python/issues/523
+        "mistral",
     }:
         return
 

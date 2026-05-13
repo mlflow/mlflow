@@ -1,0 +1,65 @@
+---
+title: Performance & Benchmarks
+---
+
+# Performance & Benchmarks
+
+The MLflow AI Gateway is designed to add minimal overhead over a direct LLM call. The gateway handles
+config caching, secret decryption, tracing, and provider dispatch while keeping latency additions in
+the single-digit-to-tens-of-milliseconds range.
+
+## Measuring Gateway Overhead
+
+Every gateway response includes the `X-MLflow-Gateway-Duration-Ms` header. For non-streaming
+responses, `X-MLflow-Gateway-Overhead-Duration-Ms` is also included when provider timing is
+available:
+
+| Header                                  | Description                                                                                                                                    | Streaming |
+| --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| `X-MLflow-Gateway-Duration-Ms`          | Non-streaming: total time in the gateway handler (ms), including the LLM provider call. Streaming: gateway setup time until the stream starts. | ✅ Always |
+| `X-MLflow-Gateway-Overhead-Duration-Ms` | Gateway-only processing time: `total_ms - provider_call_ms`                                                                                    | ❌ Absent |
+
+```bash
+curl -si -X POST http://localhost:5000/gateway/my-endpoint/mlflow/invocations \
+  -H "Content-Type: application/json" \
+  -d '{"messages": [{"role": "user", "content": "Hello!"}]}' \
+  | grep -i "x-mlflow-gateway"
+# X-MLflow-Gateway-Duration-Ms: 87
+# X-MLflow-Gateway-Overhead-Duration-Ms: 3
+```
+
+:::note Streaming responses
+For streaming responses, only `X-MLflow-Gateway-Duration-Ms` is present. It reflects gateway setup
+time up to the point the stream starts (time-to-first-stream), not the full streaming duration.
+`X-MLflow-Gateway-Overhead-Duration-Ms` is absent because provider timing is not tracked for
+streaming requests.
+:::
+
+## Benchmark Setup
+
+The benchmark measures **pure MLflow overhead** by placing the gateway between the benchmark client and
+a fake OpenAI-compatible server that responds with a fixed 50 ms latency. All MLflow processing —
+config resolution, secret decryption, provider dispatch — runs in that path, so results reflect gateway
+cost rather than provider variance.
+
+| Parameter          | Value                                                                       |
+| ------------------ | --------------------------------------------------------------------------- |
+| Simulated upstream | Fixed **50 ms** per request from a fake OpenAI-compatible server            |
+| MLflow instances   | **4** instances behind nginx                                                |
+| Database           | PostgreSQL (default benchmark configuration)                                |
+| Client concurrency | **50** concurrent requests                                                  |
+| Request path       | Benchmark client → nginx → MLflow AI Gateway → fake provider                |
+| What is measured   | Gateway processing overhead: config resolution, secret decryption, dispatch |
+
+The following factors are **not** captured by this setup:
+
+| Not measured                             | Why                                                              |
+| ---------------------------------------- | ---------------------------------------------------------------- |
+| Real provider latency variance           | The upstream server returns a fixed-delay response               |
+| Internet/network distance to an LLM API  | Requests stay within the local benchmark environment             |
+| Model generation time beyond fixed delay | The fake provider returns a synthetic response immediately       |
+| TLS/SSL overhead                         | The benchmark runs in a local test environment without TLS       |
+| Authentication / RBAC checks             | The benchmark isolates gateway processing rather than auth flows |
+
+For the full methodology, architecture, and CLI options, see
+[`dev/benchmarks/gateway/`](https://github.com/mlflow/mlflow/tree/master/dev/benchmarks/gateway).

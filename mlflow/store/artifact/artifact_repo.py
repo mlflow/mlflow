@@ -22,8 +22,10 @@ from mlflow.exceptions import (
     MlflowTraceDataNotFound,
 )
 from mlflow.protos.databricks_pb2 import (
+    INTERNAL_ERROR,
     INVALID_PARAMETER_VALUE,
     RESOURCE_DOES_NOT_EXIST,
+    ErrorCode,
 )
 from mlflow.tracing.utils.artifact_utils import TRACE_DATA_FILE_NAME
 from mlflow.utils.annotations import developer_stable
@@ -337,11 +339,20 @@ class ArtifactRepository:
                 template.format(path=path, error=error, traceback=tracebacks[path])
                 for path, error in failed_downloads.items()
             )
+            error_codes = {
+                e.error_code
+                for e in failed_downloads.values()
+                if isinstance(e, MlflowException) and e.error_code != "INTERNAL_ERROR"
+            }
+            error_code = (
+                ErrorCode.Value(error_codes.pop()) if len(error_codes) == 1 else INTERNAL_ERROR
+            )
             raise MlflowException(
                 message=(
                     "The following failures occurred while downloading one or more"
                     f" artifacts from {self.artifact_uri}:\n{_truncate_error(failures)}"
-                )
+                ),
+                error_code=error_code,
             )
 
         return os.path.join(dst_path, artifact_path)
@@ -517,6 +528,27 @@ class MultipartDownloadMixin(ABC):
         """
 
 
+class PresignedUploadMixin(ABC):
+    """
+    Mixin that defines the API for artifact repositories that support presigned
+    URL uploads, i.e. generating presigned URLs for direct upload to cloud storage.
+    """
+
+    @abstractmethod
+    def create_presigned_upload_url(self, artifact_path, expiration=900):
+        """
+        Generate a presigned URL for uploading an artifact directly to cloud storage.
+
+        Args:
+            artifact_path: Relative path within the run's artifact directory
+                          (e.g. "models/model.pkl").
+            expiration: URL expiration time in seconds (default: 900).
+
+        Returns:
+            CreatePresignedUploadResponse with presigned_url and headers.
+        """
+
+
 def verify_artifact_path(artifact_path):
     if artifact_path and path_not_unique(artifact_path):
         raise MlflowException(
@@ -532,7 +564,9 @@ def _validate_attachment_path(path: str) -> None:
         if str(parsed) != path:
             raise ValueError("Non-canonical UUID format")
     except (ValueError, AttributeError, TypeError):
+        # error_code is INVALID_PARAMETER_VALUE but this is an attribute/type validation failure
         raise MlflowException(
             f"Invalid attachment path: '{path}'. Attachment path must be a valid UUID.",
             error_code=INVALID_PARAMETER_VALUE,
+            error_class="ATTRIBUTE_NOT_FOUND",
         )

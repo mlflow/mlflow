@@ -4,12 +4,12 @@
 # This file will be replaced by `pyproject.release.toml` when releasing a new version.
 
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools<=82.0.1"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "mlflow"
-version = "3.11.1.dev0"
+version = "3.11.2.dev0"
 description = "MLflow is an open source platform for the complete machine learning lifecycle"
 readme = "README.md"
 keywords = ["mlflow", "ai", "databricks"]
@@ -29,6 +29,7 @@ requires-python = ">=3.10"
 dependencies = [
   "Flask-CORS<7",
   "Flask<4",
+  "aiohttp<4",
   "alembic<2,!=1.10.0",
   "cachetools<8,>=5.0.0",
   "click<9,>=7.0",
@@ -41,7 +42,7 @@ dependencies = [
   "graphene<4",
   "gunicorn<26; platform_system != 'Windows'",
   "huey<3,>=2.5.4",
-  "importlib_metadata<9,>=3.7.0,!=4.7.0",
+  "importlib_metadata<10,>=3.7.0,!=4.7.0",
   "matplotlib<4",
   "numpy<3",
   "opentelemetry-api<3,>=1.9.0",
@@ -60,6 +61,7 @@ dependencies = [
   "skops<1",
   "sqlalchemy<3,>=1.4.0",
   "sqlparse<1,>=0.4.0",
+  "starlette<1",
   "typing-extensions<5,>=4.0.0",
   "uvicorn<1",
   "waitress<4; platform_system == 'Windows'",
@@ -96,7 +98,6 @@ mlserver = [
   "mlserver-mlflow>=1.2.0,!=1.3.1,<2.0.0",
 ]
 gateway = [
-  "aiohttp<4",
   "boto3<2,>=1.28.56",
   "fastapi<1",
   "slowapi<1,>=0.1.9",
@@ -105,23 +106,20 @@ gateway = [
   "watchfiles<2",
 ]
 genai = [
-  "aiohttp<4",
   "boto3<2,>=1.28.56",
   "fastapi<1",
-  "gepa<1,>=0.0.26",
-  "litellm<2,>=1.0.0",
   "slowapi<1,>=0.1.9",
   "tiktoken<1",
   "uvicorn[standard]<1",
   "watchfiles<2",
 ]
-mcp = ["fastmcp<3,>=2.0.0", "click!=8.3.0"]
+mcp = ["fastmcp<4,>=2.0.0", "click!=8.3.0"]
 azure = ["azure-storage-blob>=12", "azure-identity>=1.6.1"]
 sqlserver = ["mlflow-dbstore"]
 aliyun-oss = ["aliyunstoreplugin"]
 jfrog = ["mlflow-jfrog-plugin"]
 kubernetes = ["kubernetes"]
-langchain = ["langchain>=0.3.21,<=1.2.12"]
+langchain = ["langchain>=0.3.26,<=1.2.15"]
 auth = ["Flask-WTF<2"]
 
 [project.urls]
@@ -158,7 +156,7 @@ mlflow = [
   "assistant/skills/**/*",
   "models/container/**/*",
   "server/js/build/**/*",
-  "utils/model_prices_and_context_window.json",
+  "utils/model_catalog/*.json",
 ]
 
 [tool.setuptools.packages.find]
@@ -180,18 +178,19 @@ dev = [
   "skills",
 ]
 lint = [
-  "ruff==0.15.5",
+  "ruff==0.15.10",
   "pre-commit==4.0.1",
   "toml==0.10.2",
   "types-toml",
   "mypy==1.17.1",
+  "ty==0.0.24",
   "pydantic>=2.0",
   "clint",
+  "pypi",
   "pyyaml>=6.0.2",
   "types-PyYAML",
   "packaging>=25.0",
   "aiohttp",
-  "tiktoken",
   "claude-agent-sdk",
   "pytest",
   "types-requests",
@@ -199,6 +198,7 @@ lint = [
 pytest = [
   "pytest==9.0.2",
   "pytest-asyncio",
+  "pytest-benchmark",
   "pytest-repeat",
   "pytest-cov",
   "pytest-timeout",
@@ -229,9 +229,6 @@ docs = [
   "pyspark",
   "datasets",
   "plotly",
-  "torch>=1.11.0",
-  "torchvision>=0.12.0,!=0.24.0",
-  "lightning>=1.8.1",
   "Flask-WTF<2",
   "polars>=1",
   "openai",
@@ -239,16 +236,13 @@ docs = [
   "deepeval",
   "ragas",
   "instructor",
-  "litellm",
   "langchain-community>=0.3.0",
 ]
 
 [tool.uv]
-# TODO: Remove once the incident is fully remediated
-# Mitigation for https://github.com/aquasecurity/trivy/discussions/10425
-exclude-newer = "2026-03-10T00:00:00Z"
+exclude-newer = "P14D"
 exclude-newer-package = { torch = false, torchvision = false }
-required-version = ">=0.10.12"
+required-version = ">=0.11.7"
 constraint-dependencies = [
   # xgboost 3.1.0 changed base_score format to vector for multi-output models, breaking shap compatibility
   # https://xgboost.readthedocs.io/en/latest/changes/v3.1.0.html#multi-target-class-intercept
@@ -272,10 +266,16 @@ exclude-dependencies = ["uv"]
 torch-backend = "cpu"
 
 [tool.uv.workspace]
-members = ["dev/clint", "tests/resources/mlflow-test-plugin", ".claude/skills"]
+members = [
+  "dev/clint",
+  "dev/pypi",
+  "tests/resources/mlflow-test-plugin",
+  ".claude/skills",
+]
 
 [tool.uv.sources]
 clint = { workspace = true }
+pypi = { workspace = true }
 mlflow-test-plugin = { workspace = true }
 skills = { workspace = true }
 torch = { index = "pytorch-cpu" }
@@ -289,7 +289,7 @@ explicit = true
 [tool.ruff]
 line-length = 100
 target-version = "py310"
-required-version = "0.15.5"
+required-version = "0.15.10"
 force-exclude = true
 extend-include = ["*.ipynb"]
 extension = { mdx = "markdown" }
@@ -404,6 +404,7 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "dev/*" = ["T201", "PT018"]
+"dev/benchmarks/*" = ["T20"]
 "examples/*" = ["T20", "RET504", "E501"]
 "docs/*" = ["T20", "RET504", "E501"]
 "mlflow/*" = ["PT018"]
@@ -463,18 +464,10 @@ example-rules = [
 ]
 
 [tool.clint.per-file-ignores]
-# Rules that should only be enabled for files in the root mlflow directory
-"^(?!mlflow/).*$" = [
-  "forbidden-set-active-model-usage",
-  "unnamed-thread",
-  "unnamed-thread-pool",
-]
+"^(?!mlflow/).*$" = ["forbidden-set-active-model-usage"]
+"^(?!mlflow/|tests/).*$" = ["unnamed-thread", "unnamed-thread-pool"]
 # Multi-assign has better readability in this example.
 "docs/docs/classic-ml/getting-started/deep-learning.mdx" = ["multi-assign"]
-# New experimental TruLens agent scorers - not yet in clint's static allowlist.
-"mlflow/genai/scorers/trulens/scorers/agent_trace.py" = [
-  "unknown-mlflow-function",
-]
 
 [tool.clint.forbidden-top-level-imports]
 "mlflow/gateway/providers/*" = ["fastapi", "starlette", "aiohttp"]
@@ -501,10 +494,18 @@ Tru = "Tru"                        # TruLens library name prefix
 # https://github.com/crate-ci/typos/blob/master/docs/reference.md
 [tool.typos.files]
 extend-exclude = [
-  # Ignore proto files
+  # Allowlist: only check these extensions
+  "*",
+  "!*/",
+  "!*.py",
+  "!*.md",
+  "!*.mdx",
+  # Ignore proto files (re-excluded because they match *.py above)
   "mlflow/protos/**/*",
   # Vendored files
   "mlflow/utils/gorilla.py",
+  # Submodule (typos should be fixed upstream)
+  "mlflow/assistant/skills/**/*",
 ]
 
 [tool.typos.default]

@@ -300,7 +300,7 @@ REST-based backend store that is externally managed and not directly accessible.
 #### [Artifact Store](/self-hosting/architecture/artifact-store) \{#artifact-stores}
 
 Artifact store persists (typically large) artifacts for each run, such as model weights (e.g. a pickled scikit-learn model),
-images (e.g. PNGs), model and data files (e.g. [Parquet](https://parquet.apache.org) file). MLflow stores artifacts ina a
+images (e.g. PNGs), model and data files (e.g. [Parquet](https://parquet.apache.org) file). MLflow stores artifacts in a
 local file (`mlruns`) by default, but also supports different storage options such as Amazon S3 and Azure Blob Storage.
 
 For models which are logged as MLflow artifacts, you can refer the model through a model URI of format: `models:/<model_id>`,
@@ -314,7 +314,7 @@ see [MLflow Model Registry](/ml/model-registry) for details.
 #### [MLflow Tracking Server](/self-hosting/architecture/tracking-server) (Optional) \{#tracking_server}
 
 MLflow Tracking Server is a stand-alone HTTP server that provides REST APIs for accessing backend and/or artifact store.
-Tracking server also offers flexibility to configure what data to server, govern access control, versioning, and etc. Read
+Tracking server also offers flexibility to configure what data to serve, govern access control, versioning, and etc. Read
 [MLflow Tracking Server documentation](/self-hosting) for more details.
 
 ### Common Setups \{#tracking_setup}

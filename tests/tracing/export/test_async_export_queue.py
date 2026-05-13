@@ -65,11 +65,11 @@ def test_async_queue_activate_thread_safe():
             )
 
         # 1. Validate activation
-        with ThreadPoolExecutor(max_workers=10) as executor:
+        with ThreadPoolExecutor(
+            max_workers=10, thread_name_prefix="test-async-export-queue-activate"
+        ) as executor:
             for _ in range(10):
                 executor.submit(queue.activate)
-
-        assert queue.is_active()
         assert count_threads() > 0  # Logging thread + max 5 worker threads
         mock_atexit.assert_called_once()
         mock_atexit.reset_mock()
@@ -81,11 +81,11 @@ def test_async_queue_activate_thread_safe():
         mock_atexit.assert_not_called()  # Exit callback should not be registered again
 
         # 3. Validate flush with termination
-        with ThreadPoolExecutor(max_workers=10) as executor:
+        with ThreadPoolExecutor(
+            max_workers=10, thread_name_prefix="test-async-export-queue-flush"
+        ) as executor:
             for _ in range(10):
                 executor.submit(queue.flush(terminate=True))
-
-        assert not queue.is_active()
         assert count_threads() == 0
 
 

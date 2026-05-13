@@ -10,9 +10,9 @@ runs:
       # Ref: https://github.com/pyenv/pyenv/wiki#suggested-build-environment
       # Note: llvm is optional (required only for building PyPy/clang)
       run: |
-        sudo apt-get update --snapshot=20260310T000000Z
+        sudo apt-get update
         sudo apt-get purge -y man-db || true
-        sudo apt-get install --snapshot=20260310T000000Z -y --no-install-recommends make build-essential libssl-dev zlib1g-dev \
+        sudo apt-get install -y --no-install-recommends make build-essential libssl-dev zlib1g-dev \
         libbz2-dev libreadline-dev libsqlite3-dev wget curl \
         libncursesw5-dev xz-utils libffi-dev liblzma-dev
     - name: Install pyenv

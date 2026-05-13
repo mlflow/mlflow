@@ -698,14 +698,12 @@ class AbstractStore(GatewayStoreMixin):
         Args:
             location: The location to log spans to. Can be either experiment ID or the
                 full UC table name.
-            spans: List of Span entities to log. All spans must belong to the same trace.
+            spans: List of Span entities to log. Spans may belong to different traces;
+                the store will group them by trace_id internally.
             tracking_uri: The tracking URI to use. Default to None.
 
         Returns:
             List of logged Span entities.
-
-        Raises:
-            MlflowException: If spans belong to different traces.
         """
         raise NotImplementedError
 
@@ -715,13 +713,10 @@ class AbstractStore(GatewayStoreMixin):
 
         Args:
             location: The location to log spans to.
-            spans: List of Span entities to log. All spans must belong to the same trace.
+            spans: List of Span entities to log. Spans may belong to different traces.
 
         Returns:
             List of logged Span entities.
-
-        Raises:
-            MlflowException: If spans belong to different traces.
         """
         raise NotImplementedError
 

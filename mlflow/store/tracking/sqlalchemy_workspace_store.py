@@ -26,12 +26,15 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlGatewayEndpoint,
     SqlGatewayEndpointBinding,
     SqlGatewayEndpointModelMapping,
+    SqlGatewayGuardrail,
+    SqlGatewayGuardrailConfig,
     SqlGatewayModelDefinition,
     SqlGatewaySecret,
     SqlIssue,
     SqlLoggedModel,
     SqlOnlineScoringConfig,
     SqlRun,
+    SqlScorer,
     SqlTraceInfo,
 )
 from mlflow.store.tracking.sqlalchemy_store import (
@@ -98,6 +101,11 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
                 SqlExperiment, SqlOnlineScoringConfig.experiment_id == SqlExperiment.experiment_id
             ).filter(SqlExperiment.workspace == workspace)
 
+        if model is SqlScorer:
+            return query.join(
+                SqlExperiment, SqlScorer.experiment_id == SqlExperiment.experiment_id
+            ).filter(SqlExperiment.workspace == workspace)
+
         if model is SqlEvaluationDataset:
             return query.filter(SqlEvaluationDataset.workspace == workspace)
 
@@ -106,6 +114,8 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
             SqlGatewayEndpoint,
             SqlGatewayModelDefinition,
             SqlGatewayBudgetPolicy,
+            SqlGatewayGuardrail,
+            SqlGatewayGuardrailConfig,
         ):
             return query.filter(model.workspace == workspace)
 

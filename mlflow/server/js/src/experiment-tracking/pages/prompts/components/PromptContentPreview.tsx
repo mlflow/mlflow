@@ -292,20 +292,20 @@ export const PromptContentPreview = ({
   );
 };
 
+const getClientSetup = () => `from openai import OpenAI
+import mlflow
+
+client = OpenAI(api_key="<YOUR_API_KEY>")`;
+
+const getModel = () => 'gpt-4o-mini';
+
 const buildCodeSnippetContent = (
   promptVersion: RegisteredPromptVersion | undefined,
   variables: string[] | null,
   promptType: string = PROMPT_TYPE_TEXT,
 ) => {
-  let codeSnippetContent = `from openai import OpenAI
-import mlflow
-client = OpenAI(api_key="<YOUR_API_KEY>")
-
-# Set MLflow tracking URI
-mlflow.set_tracking_uri("<YOUR_TRACKING_URI>")
-
-# Example of loading and using the prompt
-prompt = mlflow.genai.load_prompt("prompts:/${promptVersion?.name}/${promptVersion?.version}")`;
+  const model = getModel();
+  let codeSnippetContent = getClientSetup();
 
   // Null variables mean that there was a parsing error
   if (variables === null) {
@@ -318,11 +318,17 @@ variables = {
    ...
 }
 
-messages = prompt.format(**variables)
-response = client.chat.completions.create(
-    messages=messages,
-    model="gpt-4o-mini",
-)`;
+@mlflow.trace
+def run_prompt(**variables):
+    prompt = mlflow.genai.load_prompt("prompts:/${promptVersion?.name}/${promptVersion?.version}")
+    messages = prompt.format(**variables)
+    response = client.chat.completions.create(
+        messages=messages,
+        model="${model}",
+    )
+    return response.choices[0].message.content
+
+print(run_prompt(**variables))`;
     } else {
       codeSnippetContent += `
 
@@ -332,32 +338,51 @@ variables = {
    ...
 }
 
-response = client.chat.completions.create(
-    messages=[{
-        "role": "user",
-        "content": prompt.format(**variables),
-    }],
-    model="gpt-4o-mini",
-)`;
+@mlflow.trace
+def run_prompt(**variables):
+    prompt = mlflow.genai.load_prompt("prompts:/${promptVersion?.name}/${promptVersion?.version}")
+    response = client.chat.completions.create(
+        messages=[{
+            "role": "user",
+            "content": prompt.format(**variables),
+        }],
+        model="${model}",
+    )
+    return response.choices[0].message.content
+
+print(run_prompt(**variables))`;
     }
   } else if (promptType === PROMPT_TYPE_CHAT) {
     codeSnippetContent += `
-messages = prompt.format(${variables.map((name) => `${name}="<${name}>"`).join(', ')})
-response = client.chat.completions.create(
-    messages=messages,
-    model="gpt-4o-mini",
-)`;
+
+@mlflow.trace
+def run_prompt(${variables.map((name) => `${name}`).join(', ')}):
+    prompt = mlflow.genai.load_prompt("prompts:/${promptVersion?.name}/${promptVersion?.version}")
+    messages = prompt.format_messages(${variables.map((name) => `${name}=${name}`).join(', ')})
+    response = client.chat.completions.create(
+        messages=messages,
+        model="${model}",
+    )
+    return response.choices[0].message.content
+
+print(run_prompt(${variables.map((name) => `${name}="<${name}>"`).join(', ')}))`;
   } else {
     codeSnippetContent += `
-response = client.chat.completions.create(
-    messages=[{
-        "role": "user",
-        "content": prompt.format(${variables.map((name) => `${name}="<${name}>"`).join(', ')}),
-    }],
-    model="gpt-4o-mini",
-)`;
+
+@mlflow.trace
+def run_prompt(${variables.map((name) => `${name}`).join(', ')}):
+    prompt = mlflow.genai.load_prompt("prompts:/${promptVersion?.name}/${promptVersion?.version}")
+    response = client.chat.completions.create(
+        messages=[{
+            "role": "user",
+            "content": prompt.format(${variables.map((name) => `${name}=${name}`).join(', ')}),
+        }],
+        model="${model}",
+    )
+    return response.choices[0].message.content
+
+print(run_prompt(${variables.map((name) => `${name}="<${name}>"`).join(', ')}))`;
   }
 
-  codeSnippetContent += `\n\nprint(response.choices[0].message.content)`;
   return codeSnippetContent;
 };

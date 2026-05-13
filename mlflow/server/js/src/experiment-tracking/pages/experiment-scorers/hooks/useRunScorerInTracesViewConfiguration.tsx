@@ -7,6 +7,7 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import {
   Alert,
   Button,
+  PillControl,
   getShadowScrollStyles,
   Input,
   Modal,
@@ -18,7 +19,6 @@ import {
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { PillControl } from '@databricks/design-system/development';
 import ScorerModalRenderer from '../ScorerModalRenderer';
 import { SCORER_FORM_MODE, ScorerEvaluationScope } from '../constants';
 import { useRunSerializedScorer } from './useRunSerializedScorer';
@@ -513,6 +513,13 @@ const TemplateOption = ({
  * on selected traces. Shows one row per in-flight or completed evaluation,
  * with a spinner while loading and success/error states on completion.
  */
+const AUTO_DISMISS_DELAY_MS = 10000;
+const FADE_OUT_DURATION_MS = 1000;
+const completedEvaluationFadeOutCss = {
+  animation: `fadeOut ${FADE_OUT_DURATION_MS}ms ease-out ${AUTO_DISMISS_DELAY_MS - FADE_OUT_DURATION_MS}ms forwards`,
+  '@keyframes fadeOut': { from: { opacity: 1 }, to: { opacity: 0 } },
+} as const;
+
 const JudgesEvaluationStatusBanner = ({
   evaluations,
   onDismiss,
@@ -522,6 +529,38 @@ const JudgesEvaluationStatusBanner = ({
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
+  const timersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+
+  useEffect(() => {
+    const completedKeys = new Set(evaluations.filter((e) => !e.isLoading).map((e) => e.requestKey));
+
+    // Start timers for newly completed evaluations that don't have a timer yet
+    completedKeys.forEach((key) => {
+      if (!timersRef.current.has(key)) {
+        const timer = setTimeout(() => {
+          onDismiss(key);
+          timersRef.current.delete(key);
+        }, AUTO_DISMISS_DELAY_MS);
+        timersRef.current.set(key, timer);
+      }
+    });
+
+    // Clear timers for evaluations no longer in the list (e.g., already dismissed)
+    timersRef.current.forEach((timer, key) => {
+      if (!completedKeys.has(key)) {
+        clearTimeout(timer);
+        timersRef.current.delete(key);
+      }
+    });
+  }, [evaluations, onDismiss]);
+
+  // Clean up all pending timers on unmount
+  useEffect(() => {
+    const timers = timersRef.current;
+    return () => {
+      timers.forEach(clearTimeout);
+    };
+  }, []);
 
   return (
     <div
@@ -555,38 +594,40 @@ const JudgesEvaluationStatusBanner = ({
 
         if (evaluation.error) {
           return (
-            <Alert
-              key={evaluation.requestKey}
-              componentId="mlflow.experiment-scorers.judges-error-banner"
-              type="error"
-              closable
-              onClose={() => onDismiss(evaluation.requestKey)}
-              message={intl.formatMessage(
-                {
-                  defaultMessage: 'Judge "{label}" failed: {error}',
-                  description: 'Banner message shown when a judge run fails',
-                },
-                { label: evaluation.label, error: evaluation.error.message },
-              )}
-            />
+            <div key={evaluation.requestKey} css={completedEvaluationFadeOutCss}>
+              <Alert
+                componentId="mlflow.experiment-scorers.judges-error-banner"
+                type="error"
+                closable
+                onClose={() => onDismiss(evaluation.requestKey)}
+                message={intl.formatMessage(
+                  {
+                    defaultMessage: 'Judge "{label}" failed: {error}',
+                    description: 'Banner message shown when a judge run fails',
+                  },
+                  { label: evaluation.label, error: evaluation.error.message },
+                )}
+              />
+            </div>
           );
         }
 
         return (
-          <Alert
-            key={evaluation.requestKey}
-            componentId="mlflow.experiment-scorers.judges-success-banner"
-            type="info"
-            closable
-            onClose={() => onDismiss(evaluation.requestKey)}
-            message={intl.formatMessage(
-              {
-                defaultMessage: 'Judge "{label}" completed successfully.',
-                description: 'Banner message shown when a judge run completes successfully',
-              },
-              { label: evaluation.label },
-            )}
-          />
+          <div key={evaluation.requestKey} css={completedEvaluationFadeOutCss}>
+            <Alert
+              componentId="mlflow.experiment-scorers.judges-success-banner"
+              type="info"
+              closable
+              onClose={() => onDismiss(evaluation.requestKey)}
+              message={intl.formatMessage(
+                {
+                  defaultMessage: 'Judge "{label}" completed successfully.',
+                  description: 'Banner message shown when a judge run completes successfully',
+                },
+                { label: evaluation.label },
+              )}
+            />
+          </div>
         );
       })}
     </div>

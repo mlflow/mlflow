@@ -40,11 +40,15 @@ class Attachment:
         return self._content_bytes
 
     def ref(self, trace_id: str) -> str:
-        query = urlencode({"content_type": self._content_type, "trace_id": trace_id})
+        query = urlencode({
+            "content_type": self._content_type,
+            "trace_id": trace_id,
+            "size": str(len(self._content_bytes)),
+        })
         return f"mlflow-attachment://{self._id}?{query}"
 
     @staticmethod
-    def parse_ref(ref_uri: str) -> dict[str, str] | None:
+    def parse_ref(ref_uri: str) -> dict[str, str | int | None] | None:
         parsed = urlparse(ref_uri)
         if parsed.scheme != "mlflow-attachment":
             return None
@@ -54,8 +58,16 @@ class Attachment:
         trace_id = params.get("trace_id", [None])[0]
         if not attachment_id or not content_type or not trace_id:
             return None
+        size_str = params.get("size", [None])[0]
+        try:
+            size = int(size_str) if size_str else None
+        except ValueError:
+            size = None
+        if size is not None and size <= 0:
+            size = None
         return {
             "attachment_id": attachment_id,
             "content_type": content_type,
             "trace_id": trace_id,
+            "size": size,
         }

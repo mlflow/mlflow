@@ -11,7 +11,7 @@ import { Link } from '../../common/utils/RoutingUtils';
 import { every, isEmpty, uniq } from 'lodash';
 import type { IntlShape } from 'react-intl';
 import { FormattedMessage, injectIntl } from 'react-intl';
-import { Switch, LegacyTabs, useDesignSystemTheme } from '@databricks/design-system';
+import { Switch, Tabs, useDesignSystemTheme } from '@databricks/design-system';
 
 import { getParams, getRunInfo } from '../../experiment-tracking/reducers/Reducers';
 import '../../experiment-tracking/components/CompareRunView.css';
@@ -28,8 +28,6 @@ import { getModelVersionSchemas } from '../reducers';
 import { PageHeader } from '../../shared/building_blocks/PageHeader';
 import type { RunInfoEntity } from '../../experiment-tracking/types';
 
-const { TabPane } = LegacyTabs;
-
 function CenteredText(props: any) {
   const { theme } = useDesignSystemTheme();
   return (
@@ -43,7 +41,7 @@ function CenteredText(props: any) {
   );
 }
 
-function CompareTable(props: any) {
+function CompareTable({ style, ...props }: any) {
   const { theme } = useDesignSystemTheme();
   return (
     <table
@@ -57,6 +55,17 @@ function CompareTable(props: any) {
           backgroundColor: theme.colors.backgroundValidationWarning,
         },
       }}
+      style={
+        {
+          '--mlflow-compare-border-color': theme.colors.border,
+          '--mlflow-compare-header-color': theme.colors.textPrimary,
+          '--mlflow-compare-header-bg': theme.colors.backgroundSecondary,
+          '--mlflow-compare-diff-bg': theme.colors.backgroundWarning,
+          '--mlflow-compare-diff-color': theme.colors.textSecondary,
+          '--mlflow-compare-hover-bg': theme.colors.backgroundSecondary,
+          ...style,
+        } as React.CSSProperties
+      }
       {...props}
     />
   );
@@ -264,52 +273,46 @@ export class CompareModelVersionsViewImpl extends Component<
             {this.renderMetrics()}
           </CompareTable>
         </div>
-        <LegacyTabs>
-          <TabPane
-            tab={
+        <Tabs.Root componentId="mlflow.compare-model-versions.plots-tabs" defaultValue="parallel-coordinates-plot">
+          <Tabs.List>
+            <Tabs.Trigger value="parallel-coordinates-plot">
               <FormattedMessage
                 defaultMessage="Parallel Coordinates Plot"
                 description="Tab text for parallel coordinates plot on the model comparison page"
               />
-            }
-            key="parallel-coordinates-plot"
-          >
-            <ParallelCoordinatesPlotPanel runUuids={runUuids} />
-          </TabPane>
-          <TabPane
-            tab={
+            </Tabs.Trigger>
+            <Tabs.Trigger value="scatter-plot">
               <FormattedMessage
                 defaultMessage="Scatter Plot"
                 description="Tab text for scatter plot on the model comparison page"
               />
-            }
-            key="scatter-plot"
-          >
-            <CompareRunScatter runUuids={runUuids} runDisplayNames={runDisplayNames} />
-          </TabPane>
-          <TabPane
-            tab={
+            </Tabs.Trigger>
+            <Tabs.Trigger value="box-plot">
               <FormattedMessage
                 defaultMessage="Box Plot"
                 description="Tab pane title for box plot on the compare runs page"
               />
-            }
-            key="box-plot"
-          >
-            <CompareRunBox runUuids={runUuids} runInfos={runInfos} paramLists={paramLists} metricLists={metricLists} />
-          </TabPane>
-          <TabPane
-            tab={
+            </Tabs.Trigger>
+            <Tabs.Trigger value="contour-plot">
               <FormattedMessage
                 defaultMessage="Contour Plot"
                 description="Tab text for contour plot on the model comparison page"
               />
-            }
-            key="contour-plot"
-          >
+            </Tabs.Trigger>
+          </Tabs.List>
+          <Tabs.Content value="parallel-coordinates-plot">
+            <ParallelCoordinatesPlotPanel runUuids={runUuids} />
+          </Tabs.Content>
+          <Tabs.Content value="scatter-plot">
+            <CompareRunScatter runUuids={runUuids} runDisplayNames={runDisplayNames} />
+          </Tabs.Content>
+          <Tabs.Content value="box-plot">
+            <CompareRunBox runUuids={runUuids} runInfos={runInfos} paramLists={paramLists} metricLists={metricLists} />
+          </Tabs.Content>
+          <Tabs.Content value="contour-plot">
             <CompareRunContour runUuids={runUuids} runDisplayNames={runDisplayNames} />
-          </TabPane>
-        </LegacyTabs>
+          </Tabs.Content>
+        </Tabs.Root>
       </div>
     );
   }

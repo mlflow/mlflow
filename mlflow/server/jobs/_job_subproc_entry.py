@@ -29,13 +29,18 @@ from mlflow.server.jobs.utils import (
     _exit_when_orphaned,
     _load_function,
 )
+from mlflow.telemetry.client import get_telemetry_client, set_telemetry_client
 from mlflow.utils.workspace_context import WorkspaceContext
 
 _logger = logging.getLogger(__name__)
 # Configure Python logging to suppress noisy job logs
 configure_logging_for_jobs()
 
-if __name__ == "__main__":
+
+def _main():
+    # ensure telemetry can be captured within jobs
+    set_telemetry_client()
+
     # ensure the subprocess is killed when parent process dies.
     threading.Thread(
         target=_exit_when_orphaned,
@@ -91,3 +96,17 @@ if __name__ == "__main__":
     finally:
         if job_id:
             _set_job_tracker(None)
+        if telemetry_client := get_telemetry_client():
+            # best-effort flush before job exits; timeout avoids blocking shutdown
+            try:
+                flush_thread = threading.Thread(
+                    target=telemetry_client.flush, daemon=True, name="FlushTelemetryRecords"
+                )
+                flush_thread.start()
+                flush_thread.join(timeout=5)
+            except Exception:
+                pass
+
+
+if __name__ == "__main__":
+    _main()

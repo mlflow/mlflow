@@ -1,13 +1,22 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Header, HomeIcon, TableSkeleton, TitleSkeleton, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { ScrollablePageWrapper } from '../common/components/ScrollablePageWrapper';
 import { useQuery } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
+import { useSearchParams } from '../common/utils/RoutingUtils';
+import { ErrorView } from '../common/components/ErrorView';
+import { ErrorCodes } from '../common/constants';
+import { ErrorWrapper } from '../common/utils/ErrorWrapper';
 import { MlflowService } from '../experiment-tracking/sdk/MlflowService';
 import type { SearchExperimentsApiResponse } from '../experiment-tracking/types';
 import { CreateExperimentModal } from '../experiment-tracking/components/modals/CreateExperimentModal';
 import { useInvalidateExperimentList } from '../experiment-tracking/components/experiment-page/hooks/useExperimentListQuery';
 import { FeaturesSection } from './components/features';
+import {
+  extractWorkspaceFromSearchParams,
+  setActiveWorkspace,
+  setLastUsedWorkspace,
+} from '../workspaces/utils/WorkspaceUtils';
 // Loaders and lazy imports for expensive components
 import LogTracesDrawerLoader from './components/LogTracesDrawerLoader';
 import { TelemetryInfoAlert } from '../telemetry/TelemetryInfoAlert';
@@ -22,6 +31,8 @@ const HomePage = () => {
   const { theme } = useDesignSystemTheme();
   const invalidateExperiments = useInvalidateExperimentList();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [searchParams] = useSearchParams();
+  const workspaceFromQuery = extractWorkspaceFromSearchParams(searchParams);
 
   const { data, error, isLoading, refetch } = useQuery<
     SearchExperimentsApiResponse,
@@ -38,6 +49,23 @@ const HomePage = () => {
   });
 
   const experiments = data?.experiments;
+  const errorMessage = error instanceof ErrorWrapper ? error.getMessageField() : null;
+  const isWorkspaceNotFoundError =
+    workspaceFromQuery &&
+    error instanceof ErrorWrapper &&
+    error.getErrorCode() === ErrorCodes.RESOURCE_DOES_NOT_EXIST &&
+    typeof errorMessage === 'string' &&
+    errorMessage.includes(`'${workspaceFromQuery}'`) &&
+    /^Workspace '.+' not found(?:\b|$)/.test(errorMessage);
+
+  useEffect(() => {
+    if (!isWorkspaceNotFoundError) {
+      return;
+    }
+
+    setActiveWorkspace(null);
+    setLastUsedWorkspace(null);
+  }, [isWorkspaceNotFoundError]);
 
   const handleOpenCreateModal = () => setIsCreateModalOpen(true);
   const handleCloseCreateModal = () => setIsCreateModalOpen(false);
@@ -46,6 +74,17 @@ const HomePage = () => {
     invalidateExperiments();
     refetch();
   };
+
+  if (isWorkspaceNotFoundError) {
+    return (
+      <ErrorView
+        statusCode={404}
+        subMessage={`Workspace "${workspaceFromQuery}" was not found`}
+        fallbackHomePageReactRoute="/"
+        disableWorkspacePrefixOnFallback
+      />
+    );
+  }
 
   return (
     <ScrollablePageWrapper

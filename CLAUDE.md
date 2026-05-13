@@ -78,6 +78,14 @@ tail -f /tmp/mlflow-dev-server.log
 
 ## Development Commands
 
+### Offline / No-Network Usage
+
+If PyPI is unreachable, add `--frozen` to `uv run` commands that should use the existing `uv.lock` as-is without modifying the environment. This works when the required dependencies are already installed or available in the local cache:
+
+```bash
+uv run --frozen pytest tests/
+```
+
 ### Testing
 
 ```bash
@@ -92,7 +100,7 @@ uv run pytest tests/
 uv run pytest tests/test_version.py
 
 # Run tests with specific package versions
-uv run --with abc==1.2.3 --with xyz==4.5.6 pytest tests/test_version.py
+uv run --with 'abc==1.2.3,xyz==4.5.6' pytest tests/test_version.py
 
 # Run tests with optional dependencies/extras
 uv run --with transformers pytest tests/transformers

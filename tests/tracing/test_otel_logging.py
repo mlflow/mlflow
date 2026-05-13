@@ -20,7 +20,7 @@ from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import (
     ExportTraceServiceRequest,
     ExportTraceServiceResponse,
 )
-from opentelemetry.proto.common.v1.common_pb2 import InstrumentationScope
+from opentelemetry.proto.common.v1.common_pb2 import AnyValue, InstrumentationScope, KeyValue
 from opentelemetry.proto.resource.v1.resource_pb2 import Resource
 from opentelemetry.proto.trace.v1.trace_pb2 import ResourceSpans, ScopeSpans
 from opentelemetry.proto.trace.v1.trace_pb2 import Span as OTelProtoSpan
@@ -58,6 +58,11 @@ def mlflow_server(tmp_path: Path, db_uri: str) -> Iterator[str]:
     # Start the FastAPI app in a background thread and yield its URL.
     with ServerThread(mlflow_app, get_safe_port()) as url:
         yield url
+        # Drain any pending async trace exports while the server is still up.
+        # The autouse `enable_async_trace_logging` fixture in tests/tracing/conftest.py
+        # also calls flush on teardown, but by that time this ServerThread has
+        # already exited, causing the worker to retry against a dead server.
+        mlflow.flush_trace_async_logging()
 
 
 def test_otel_client_sends_spans_to_mlflow_database(mlflow_server: str, monkeypatch):
@@ -296,12 +301,12 @@ def test_invalid_content_type_returns_400(mlflow_server: str):
     request = ExportTraceServiceRequest()
     request.resource_spans.append(resource_spans)
 
-    # Send request with incorrect Content-Type
+    # Send request with unsupported Content-Type
     response = requests.post(
         f"{mlflow_server}/v1/traces",
         data=request.SerializeToString(),
         headers={
-            "Content-Type": "application/json",  # Wrong content type
+            "Content-Type": "text/plain",
             MLFLOW_EXPERIMENT_ID_HEADER: "test-experiment",
         },
         timeout=10,
@@ -607,7 +612,12 @@ def test_error_logging_spans(mlflow_server: str):
         locations=[experiment_id], include_spans=False, return_type="list"
     )
 
-    assert len(traces) == 1
+    # The OTLP endpoint now calls log_spans once for all spans in the batch.
+    # If that call fails, all spans in the batch are dropped together (HTTP 422 is
+    # non-retryable for the OTel OTLP exporter). Previously, per-trace calls meant
+    # the second trace could still succeed. With the unified log_spans call, the
+    # result is 0 stored traces.
+    assert len(traces) == 0
 
 
 def test_otel_trace_received_telemetry_from_mlflow_client(mlflow_server: str):
@@ -728,6 +738,205 @@ def test_otel_trace_received_telemetry_from_external_client(mlflow_server: str):
         assert record.status.value == "success"
         assert record.params["source"] == TraceSource.UNKNOWN.value
         assert record.params["count"] == 2
+
+
+@pytest.mark.parametrize(
+    ("service_name", "expected_source", "expected_service_names"),
+    [
+        ("codex_cli_rs", TraceSource.EXTERNAL_OTEL_CLIENT, ["codex_cli_rs"]),
+        ("gemini-cli", TraceSource.EXTERNAL_OTEL_CLIENT, ["gemini-cli"]),
+        ("qwen-code", TraceSource.EXTERNAL_OTEL_CLIENT, ["qwen-code"]),
+        # Unknown service names are not on the allowlist — source falls back to UNKNOWN
+        ("my-custom-app", TraceSource.UNKNOWN, None),
+    ],
+)
+def test_otel_trace_received_telemetry_from_external_otel_client_with_service_name(
+    mlflow_server: str,
+    service_name: str,
+    expected_source: TraceSource,
+    expected_service_names: list[str] | None,
+):
+    mlflow.set_tracking_uri(mlflow_server)
+    experiment = mlflow.set_experiment("otel-telemetry-service-name-test")
+    experiment_id = experiment.experiment_id
+
+    trace_id = bytes.fromhex("0000000000000500" + "0" * 16)
+
+    request = ExportTraceServiceRequest()
+    request.resource_spans.append(
+        ResourceSpans(
+            resource=Resource(
+                attributes=[
+                    KeyValue(key="service.name", value=AnyValue(string_value=service_name)),
+                ]
+            ),
+            scope_spans=[
+                ScopeSpans(
+                    scope=InstrumentationScope(name="test-scope"),
+                    spans=[
+                        OTelProtoSpan(
+                            trace_id=trace_id,
+                            span_id=bytes.fromhex("00000005" + "0" * 8),
+                            name="root-span",
+                            start_time_unix_nano=1000000000,
+                            end_time_unix_nano=2000000000,
+                        ),
+                    ],
+                )
+            ],
+        )
+    )
+
+    with mock.patch("mlflow.telemetry.track.get_telemetry_client") as mock_get_client:
+        mock_client = mock.MagicMock(spec=TelemetryClient)
+        mock_client.config = None
+        mock_get_client.return_value = mock_client
+
+        response = requests.post(
+            f"{mlflow_server}/v1/traces",
+            data=request.SerializeToString(),
+            headers={
+                "Content-Type": "application/x-protobuf",
+                MLFLOW_EXPERIMENT_ID_HEADER: experiment_id,
+            },
+            timeout=10,
+        )
+
+        assert response.status_code == 200
+
+        mock_client.add_record.assert_called_once()
+        record = mock_client.add_record.call_args[0][0]
+
+        assert record.event_name == TracesReceivedByServerEvent.name
+        assert record.params["source"] == expected_source.value
+        assert record.params["count"] == 1
+        if expected_service_names is not None:
+            assert record.params["service_names"] == expected_service_names
+        else:
+            assert "service_names" not in record.params
+
+
+def test_service_name_propagated_to_root_span(mlflow_server: str):
+    mlflow.set_tracking_uri(mlflow_server)
+    experiment = mlflow.set_experiment("otel-service-name-on-span-test")
+    experiment_id = experiment.experiment_id
+
+    trace_id = bytes.fromhex("0000000000000600" + "0" * 16)
+    root_span_id = bytes.fromhex("00000006" + "0" * 8)
+    child_span_id = bytes.fromhex("00000007" + "0" * 8)
+
+    request = ExportTraceServiceRequest()
+    request.resource_spans.append(
+        ResourceSpans(
+            resource=Resource(
+                attributes=[
+                    KeyValue(key="service.name", value=AnyValue(string_value="gemini-cli")),
+                ]
+            ),
+            scope_spans=[
+                ScopeSpans(
+                    scope=InstrumentationScope(name="test-scope"),
+                    spans=[
+                        OTelProtoSpan(
+                            trace_id=trace_id,
+                            span_id=root_span_id,
+                            name="root-span",
+                            start_time_unix_nano=1000000000,
+                            end_time_unix_nano=2000000000,
+                        ),
+                        OTelProtoSpan(
+                            trace_id=trace_id,
+                            span_id=child_span_id,
+                            parent_span_id=root_span_id,
+                            name="child-span",
+                            start_time_unix_nano=1100000000,
+                            end_time_unix_nano=1500000000,
+                        ),
+                    ],
+                )
+            ],
+        )
+    )
+
+    response = requests.post(
+        f"{mlflow_server}/v1/traces",
+        data=request.SerializeToString(),
+        headers={
+            "Content-Type": "application/x-protobuf",
+            MLFLOW_EXPERIMENT_ID_HEADER: experiment_id,
+        },
+        timeout=10,
+    )
+    assert response.status_code == 200
+
+    traces = mlflow.search_traces(locations=[experiment_id], include_spans=True, return_type="list")
+    assert len(traces) == 1
+
+    root_span = next(s for s in traces[0].data.spans if s.parent_id is None)
+    child_span = next(s for s in traces[0].data.spans if s.parent_id is not None)
+
+    # service.name should be on the root span only
+    assert root_span.get_attribute("service.name") == "gemini-cli"
+    assert child_span.get_attribute("service.name") is None
+
+
+def test_otlp_json_encoding(mlflow_server: str):
+    mlflow.set_tracking_uri(mlflow_server)
+    experiment = mlflow.set_experiment("otel-json-encoding-test")
+    experiment_id = experiment.experiment_id
+
+    trace_id_hex = "61181d5c16b3b25d966891c3fc595af9"
+    span_id_hex = "508755a859b294e3"
+
+    payload = {
+        "resourceSpans": [
+            {
+                "resource": {
+                    "attributes": [
+                        {"key": "service.name", "value": {"stringValue": "gemini-cli"}},
+                    ]
+                },
+                "scopeSpans": [
+                    {
+                        "scope": {"name": "gemini-cli"},
+                        "spans": [
+                            {
+                                "traceId": trace_id_hex,
+                                "spanId": span_id_hex,
+                                "name": "user_prompt",
+                                "startTimeUnixNano": str(int(time.time() * 1e9)),
+                                "endTimeUnixNano": str(int(time.time() * 1e9) + 1000000000),
+                                "attributes": [
+                                    {
+                                        "key": "gen_ai.operation.name",
+                                        "value": {"stringValue": "user_prompt"},
+                                    },
+                                ],
+                            }
+                        ],
+                    }
+                ],
+            }
+        ]
+    }
+
+    response = requests.post(
+        f"{mlflow_server}/v1/traces",
+        json=payload,
+        headers={
+            "Content-Type": "application/json",
+            MLFLOW_EXPERIMENT_ID_HEADER: experiment_id,
+        },
+        timeout=10,
+    )
+    assert response.status_code == 200
+
+    traces = mlflow.search_traces(locations=[experiment_id], include_spans=True, return_type="list")
+    assert len(traces) == 1
+
+    root_span = traces[0].data.spans[0]
+    assert root_span.name == "user_prompt"
+    assert root_span.get_attribute("service.name") == "gemini-cli"
 
 
 def test_response_is_protobuf_format(mlflow_server: str):

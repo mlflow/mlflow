@@ -1,3 +1,4 @@
+import json
 import logging
 import threading
 import time
@@ -13,6 +14,8 @@ from mlflow.telemetry.client import (
     BATCH_TIME_INTERVAL_SECONDS,
     MAX_QUEUE_SIZE,
     MAX_WORKERS,
+    RETRYABLE_ERRORS,
+    UNRECOVERABLE_ERRORS,
     TelemetryClient,
     _is_localhost_uri,
     get_telemetry_client,
@@ -384,7 +387,7 @@ def test_concurrent_record_addition(mock_telemetry_client: TelemetryClient, mock
     # Start multiple threads
     threads = []
     for i in range(3):
-        thread = threading.Thread(target=add_records, args=(i,))
+        thread = threading.Thread(name=f"telemetry-client-{i}", target=add_records, args=(i,))
         threads.append(thread)
         thread.start()
 
@@ -888,9 +891,9 @@ def test_warning_suppression_in_shutdown(recwarn, mock_telemetry_client: Telemet
         assert len(recwarn) == 0
 
 
+@pytest.mark.skipif(IS_TRACING_SDK_ONLY, reason="Requires full tracking SDK")
 @pytest.mark.parametrize("tracking_uri_scheme", ["databricks", "databricks-uc", "uc"])
-@pytest.mark.parametrize("terminate", [True, False])
-def test_databricks_tracking_uri_scheme(mock_requests, tracking_uri_scheme, terminate):
+def test_databricks_tracking_uri_scheme_does_not_use_oss_path(mock_requests, tracking_uri_scheme):
     record = Record(
         event_name="test_event",
         timestamp_ns=time.time_ns(),
@@ -899,12 +902,212 @@ def test_databricks_tracking_uri_scheme(mock_requests, tracking_uri_scheme, term
 
     with (
         _use_tracking_uri(f"{tracking_uri_scheme}://profile_name"),
+        mock.patch(
+            "mlflow.telemetry.client.http_request",
+            return_value=mock.Mock(status_code=200),
+        ),
+        mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds"),
+        mock.patch("mlflow.telemetry.client._IS_MLFLOW_DEV_VERSION", False),
         TelemetryClient() as telemetry_client,
     ):
         telemetry_client.add_record(record)
-        telemetry_client.flush(terminate=terminate)
+        telemetry_client.flush(terminate=True)
+        # OSS ingestion path should not receive records
         assert len(mock_requests) == 0
-        assert get_telemetry_client() is None
+
+
+@pytest.mark.skipif(IS_TRACING_SDK_ONLY, reason="Requires full tracking SDK")
+@pytest.mark.parametrize("tracking_uri_scheme", ["databricks", "databricks-uc", "uc"])
+def test_databricks_end_to_end_forwarding(tracking_uri_scheme):
+    record = Record(
+        event_name="test_event",
+        timestamp_ns=time.time_ns(),
+        status=Status.SUCCESS,
+        duration_ms=42,
+        params={"key": "value"},
+    )
+
+    with (
+        _use_tracking_uri(f"{tracking_uri_scheme}://profile_name"),
+        mock.patch(
+            "mlflow.telemetry.client.http_request",
+            return_value=mock.Mock(status_code=200),
+        ) as mock_http,
+        mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds"),
+        mock.patch("mlflow.telemetry.client._IS_MLFLOW_DEV_VERSION", False),
+        TelemetryClient() as telemetry_client,
+    ):
+        telemetry_client.add_record(record)
+        telemetry_client.flush()
+
+        mock_http.assert_called_once()
+        payload = mock_http.call_args.kwargs["json"]
+        assert len(payload["events"]) == 1
+        event = payload["events"][0]
+        assert event["event_name"] == "test_event"
+        assert event["tracking_uri_scheme"] == tracking_uri_scheme
+        assert "params_json" in event
+        assert "params" not in event
+
+
+def test_databricks_forwarding_disabled_for_dev_versions():
+    record = Record(
+        event_name="test_event",
+        timestamp_ns=time.time_ns(),
+        status=Status.SUCCESS,
+    )
+
+    with TelemetryClient() as client:
+        client.info["tracking_uri_scheme"] = "databricks"
+
+        with (
+            mock.patch(
+                "mlflow.telemetry.client.http_request",
+                return_value=mock.Mock(status_code=200),
+            ) as mock_http,
+            mock.patch("mlflow.telemetry.client._IS_MLFLOW_DEV_VERSION", True),
+        ):
+            client._process_records([record])
+
+        mock_http.assert_not_called()
+
+
+def test_forward_to_databricks_params_json_serialization():
+    with TelemetryClient() as client:
+        client.info["tracking_uri_scheme"] = "databricks"
+        record = Record(
+            event_name="genai_evaluate",
+            timestamp_ns=1700000000000000000,
+            status=Status.SUCCESS,
+            params={"predict_fn_provided": True},
+        )
+
+        with (
+            mock.patch(
+                "mlflow.telemetry.client.http_request",
+                return_value=mock.Mock(status_code=200),
+            ) as mock_http,
+            mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds"),
+            mock.patch(
+                "mlflow.tracking._tracking_service.utils.get_tracking_uri",
+                return_value="databricks",
+            ),
+        ):
+            client._forward_to_databricks([record])
+
+        event = mock_http.call_args.kwargs["json"]["events"][0]
+        assert "params" not in event
+        assert "params_json" in event
+        assert json.loads(event["params_json"]) == {"predict_fn_provided": True}
+
+
+def test_forward_to_databricks_no_params_json_when_params_none():
+    with TelemetryClient() as client:
+        client.info["tracking_uri_scheme"] = "databricks"
+        record = Record(
+            event_name="test_event",
+            timestamp_ns=time.time_ns(),
+            status=Status.SUCCESS,
+        )
+
+        with (
+            mock.patch(
+                "mlflow.telemetry.client.http_request",
+                return_value=mock.Mock(status_code=200),
+            ) as mock_http,
+            mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds"),
+            mock.patch(
+                "mlflow.tracking._tracking_service.utils.get_tracking_uri",
+                return_value="databricks",
+            ),
+        ):
+            client._forward_to_databricks([record])
+
+        event = mock_http.call_args.kwargs["json"]["events"][0]
+        assert "params" not in event
+        assert "params_json" not in event
+
+
+@pytest.mark.parametrize("status_code", list(UNRECOVERABLE_ERRORS))
+def test_forward_to_databricks_stops_on_unrecoverable_error(status_code):
+    with TelemetryClient() as client:
+        client.info["tracking_uri_scheme"] = "databricks"
+        record = Record(
+            event_name="test_event",
+            timestamp_ns=time.time_ns(),
+            status=Status.SUCCESS,
+        )
+
+        with (
+            mock.patch(
+                "mlflow.telemetry.client.http_request",
+                return_value=mock.Mock(status_code=status_code),
+            ),
+            mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds"),
+            mock.patch(
+                "mlflow.tracking._tracking_service.utils.get_tracking_uri",
+                return_value="databricks",
+            ),
+        ):
+            client._forward_to_databricks([record])
+
+        assert client._is_stopped
+        assert not client.is_active
+
+
+def test_forward_to_databricks_credential_failure_non_fatal():
+    with TelemetryClient() as client:
+        client.info["tracking_uri_scheme"] = "databricks"
+        record = Record(
+            event_name="test_event",
+            timestamp_ns=time.time_ns(),
+            status=Status.SUCCESS,
+        )
+
+        with (
+            mock.patch(
+                "mlflow.utils.databricks_utils.get_databricks_host_creds",
+                side_effect=Exception("no creds"),
+            ),
+            mock.patch(
+                "mlflow.tracking._tracking_service.utils.get_tracking_uri",
+                return_value="databricks",
+            ),
+        ):
+            client._forward_to_databricks([record])
+
+        assert not client._is_stopped
+
+
+@pytest.mark.parametrize("error_code", RETRYABLE_ERRORS)
+def test_forward_to_databricks_retries_on_retryable_error(error_code):
+    with TelemetryClient() as client:
+        client.info["tracking_uri_scheme"] = "databricks"
+        record = Record(
+            event_name="test_event",
+            timestamp_ns=time.time_ns(),
+            status=Status.SUCCESS,
+        )
+
+        with (
+            mock.patch(
+                "mlflow.telemetry.client.http_request",
+                side_effect=[
+                    mock.Mock(status_code=error_code),
+                    mock.Mock(status_code=error_code),
+                    mock.Mock(status_code=200),
+                ],
+            ) as mock_http,
+            mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds"),
+            mock.patch(
+                "mlflow.tracking._tracking_service.utils.get_tracking_uri",
+                return_value="databricks",
+            ),
+            mock.patch("mlflow.telemetry.client.time.sleep"),
+        ):
+            client._forward_to_databricks([record])
+
+        assert mock_http.call_count == 3
 
 
 @pytest.mark.no_mock_requests_get

@@ -148,7 +148,7 @@ The Scorer interface allows you to define various types of quality metrics for y
 
 :::tip
 
-The default model used for LLM-as-a-Judge scorers such as Correctness and Guidelines is OpenAI `gpt-4o-mini`. MLflow supports all major LLM providers, such as Anthropic, Bedrock, Google, xAI, and more, through the built-in adopters and LiteLLM.
+The default model used for LLM-as-a-Judge scorers such as Correctness and Guidelines is OpenAI `gpt-4o-mini`. MLflow supports all major LLM providers, such as Anthropic, Bedrock, Google, xAI, and more through the built-in adapters.
 
 <details>
 <summary>Example of using different model providers for the judge model</summary>
@@ -166,11 +166,9 @@ Correctness(model="bedrock:/amazon.nova-lite-v1:0")
 Correctness(model="bedrock:/amazon.nova-micro-v1:0")
 
 # Google
-# Run `pip install litellm` to use Google as the judge model
 Correctness(model="gemini:/gemini-2.5-flash")
 
 # xAI
-# Run `pip install litellm` to use xAI as the judge model
 Correctness(model="xai:/grok-2-latest")
 ```
 
