@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1778681991030,
+  "lastUpdate": 1778704326869,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -2861,6 +2861,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 13.778979599999275,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "74836691+SomtochiUmeh@users.noreply.github.com",
+            "name": "Somtochi Umeh",
+            "username": "SomtochiUmeh"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4b5c6691d545f06acae58b9c1d3e4c0106512dee",
+          "message": "Unblock delete dataset records for managed datasets (#23214)\n\nSigned-off-by: SomtochiUmeh <somtochiumeh@gmail.com>",
+          "timestamp": "2026-05-13T20:28:17Z",
+          "tree_id": "45f51622b81ccc23ae43492e4c5a4053a46c0329",
+          "url": "https://github.com/mlflow/mlflow/commit/4b5c6691d545f06acae58b9c1d3e4c0106512dee"
+        },
+        "date": 1778704326180,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 40.60354735000047,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 23.13021120000006,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 21.834119080645518,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 21.780969928570926,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 23.073717116667325,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 49.16387759999736,
             "unit": "ms"
           }
         ]
