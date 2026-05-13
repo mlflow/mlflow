@@ -8,11 +8,17 @@ import {
 
 jest.mock('@databricks/web-shared/model-trace-explorer', () => ({
   MLFLOW_TRACE_USER_KEY: 'mlflow.trace.user',
+  SESSION_ID_METADATA_KEY: 'mlflow.trace.session',
+  TraceFilterKey: { STATUS: 'status', TAG: 'tag', METADATA: 'metadata' },
+  TraceStatus: { IN_PROGRESS: 'IN_PROGRESS', OK: 'OK', ERROR: 'ERROR' },
   createTraceMetadataFilter: jest.fn((key: string, value: string) => `trace.metadata.\`${key}\` = "${value}"`),
+  createTraceFilter: jest.fn((field: string, value: string) => `trace.${field} = "${value}"`),
 }));
 
 jest.mock('@databricks/web-shared/genai-traces-table', () => ({
   USER_COLUMN_ID: 'user',
+  SESSION_COLUMN_ID: 'session',
+  STATE_COLUMN_ID: 'state',
   FilterOperator: { EQUALS: '=' },
 }));
 
@@ -72,6 +78,32 @@ describe('translateToMetricsFilters', () => {
       'trace.metadata.`mlflow.trace.user` = "bob"',
     ]);
   });
+
+  it('translates a session filter to a metadata DSL string with the session metadata key', () => {
+    const filters: MetricFilter[] = [{ column: 'session', value: 'sess-123' }];
+    expect(translateToMetricsFilters(filters)).toEqual(['trace.metadata.`mlflow.trace.session` = "sess-123"']);
+  });
+
+  it('translates a state filter to a trace.status DSL string', () => {
+    expect(translateToMetricsFilters([{ column: 'state', value: 'OK' }])).toEqual(['trace.status = "OK"']);
+    expect(translateToMetricsFilters([{ column: 'state', value: 'ERROR' }])).toEqual(['trace.status = "ERROR"']);
+    expect(translateToMetricsFilters([{ column: 'state', value: 'IN_PROGRESS' }])).toEqual([
+      'trace.status = "IN_PROGRESS"',
+    ]);
+  });
+
+  it('translates a heterogeneous mix of complete filters preserving order', () => {
+    const filters: MetricFilter[] = [
+      { column: 'user', value: 'alice' },
+      { column: 'session', value: 'sess-123' },
+      { column: 'state', value: 'ERROR' },
+    ];
+    expect(translateToMetricsFilters(filters)).toEqual([
+      'trace.metadata.`mlflow.trace.user` = "alice"',
+      'trace.metadata.`mlflow.trace.session` = "sess-123"',
+      'trace.status = "ERROR"',
+    ]);
+  });
 });
 
 describe('translateToTracesPageFilters', () => {
@@ -106,5 +138,30 @@ describe('translateToTracesPageFilters', () => {
       { column: 'user', value: 'bob' },
     ];
     expect(translateToTracesPageFilters(filters)).toEqual(['user::=::alice', 'user::=::bob']);
+  });
+
+  it('translates a session filter using the session column id', () => {
+    expect(translateToTracesPageFilters([{ column: 'session', value: 'sess-123' }])).toEqual(['session::=::sess-123']);
+  });
+
+  it('translates a state filter using the state column id', () => {
+    expect(translateToTracesPageFilters([{ column: 'state', value: 'OK' }])).toEqual(['state::=::OK']);
+    expect(translateToTracesPageFilters([{ column: 'state', value: 'ERROR' }])).toEqual(['state::=::ERROR']);
+    expect(translateToTracesPageFilters([{ column: 'state', value: 'IN_PROGRESS' }])).toEqual([
+      'state::=::IN_PROGRESS',
+    ]);
+  });
+
+  it('translates a heterogeneous mix preserving order', () => {
+    const filters: MetricFilter[] = [
+      { column: 'user', value: 'alice' },
+      { column: 'session', value: 'sess-123' },
+      { column: 'state', value: 'ERROR' },
+    ];
+    expect(translateToTracesPageFilters(filters)).toEqual([
+      'user::=::alice',
+      'session::=::sess-123',
+      'state::=::ERROR',
+    ]);
   });
 });

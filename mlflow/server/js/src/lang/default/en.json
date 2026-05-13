@@ -9367,6 +9367,10 @@
     "defaultMessage": "Relevant",
     "description": "Evaluation results > relevancy assessment > positive value label. Displayed if evaluation result is considered as irrelevant to the query."
   },
+  "rONS3/": {
+    "defaultMessage": "Select value",
+    "description": "Usage overview > filter row > value dropdown placeholder"
+  },
   "rOj9V6": {
     "defaultMessage": "Define your own guardrail with a custom name and instructions.",
     "description": "Custom guardrail type description"
@@ -9462,6 +9466,10 @@
   "s+Flkm": {
     "defaultMessage": "Failed to load direct permissions",
     "description": "Alert title shown when the direct-permissions query fails"
+  },
+  "s29iQg": {
+    "defaultMessage": "Session",
+    "description": "Usage overview > metrics filter > session column option label"
   },
   "s2G/vI": {
     "defaultMessage": "All users",
@@ -9802,6 +9810,10 @@
   "u13xKF": {
     "defaultMessage": "Custom judge",
     "description": "LLM judge option for creating a custom judge"
+  },
+  "u9ZeuA": {
+    "defaultMessage": "State",
+    "description": "Usage overview > metrics filter > state column option label"
   },
   "uANtE/": {
     "defaultMessage": "Primary Model",

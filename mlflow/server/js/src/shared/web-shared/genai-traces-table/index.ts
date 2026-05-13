@@ -106,6 +106,8 @@ export {
   ISSUES_COLUMN_ID,
 } from './hooks/useTableColumns';
 
+export { ExperimentViewTracesStatusLabels } from './cellRenderers/StatusRenderer';
+
 export { getSimulationColumnsToAdd } from './GenAiTracesTable.utils';
 
 // Test utilities
