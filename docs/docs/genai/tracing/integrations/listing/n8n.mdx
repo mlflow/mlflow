@@ -14,7 +14,7 @@ import { Users, BookOpen, Scale } from "lucide-react";
 
 [n8n](https://n8n.io/) is a fair-code workflow automation platform that lets you connect services and build AI-powered workflows visually. MLflow integrates with n8n via the [`n8n-nodes-mlflow`](https://www.npmjs.com/package/n8n-nodes-mlflow) community node — an OpenAI-compatible chat model node with built-in MLflow tracing. Every LLM request and response is automatically logged as a trace, with multi-turn conversations grouped by session in the MLflow UI.
 
-<ImageBox src="/images/llms/tracing/n8n/mlflow-chat-session-example.png" alt="MLflow chat session grouped view" />
+<ImageBox src="/images/llms/tracing/n8n/mlflow-trace2.png" alt="MLflow trace detail" />
 
 ## Features
 
@@ -117,9 +117,9 @@ After running a workflow, open the MLflow UI and navigate to the **Traces** tab.
 
 <ImageBox src="/images/llms/tracing/n8n/mlflow-trace1.png" alt="MLflow trace overview" />
 
-<ImageBox src="/images/llms/tracing/n8n/mlflow-trace2.png" alt="MLflow trace detail" />
-
 Enable **"Group by session"** to see all turns of a conversation grouped under one session:
+
+<ImageBox src="/images/llms/tracing/n8n/mlflow-chat-session-example.png" alt="MLflow chat session grouped view" />
 
 ## Compatibility
 
