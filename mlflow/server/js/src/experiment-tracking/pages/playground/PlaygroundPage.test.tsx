@@ -325,6 +325,131 @@ describe('PlaygroundPage', () => {
     expect(screen.getByPlaceholderText('Type a message')).toHaveValue(template);
   });
 
+  const stubPromptVersion = (
+    promptName: string,
+    type: 'chat' | 'text',
+    text: string,
+    extras: { modelConfig?: Record<string, unknown>; responseFormat?: string } = {},
+  ) => {
+    jest.spyOn(RegisteredPromptsApi, 'listRegisteredPrompts').mockResolvedValue({
+      registered_models: [{ name: promptName } as any],
+    });
+    const tags: { key: string; value: string }[] = [
+      { key: '_mlflow_prompt_type', value: type },
+      { key: 'mlflow.prompt.text', value: text },
+    ];
+    if (extras.modelConfig !== undefined) {
+      tags.push({ key: '_mlflow_prompt_model_config', value: JSON.stringify(extras.modelConfig) });
+    }
+    if (extras.responseFormat !== undefined) {
+      tags.push({ key: '_mlflow_prompt_response_format', value: extras.responseFormat });
+    }
+    jest
+      .spyOn(RegisteredPromptsApi, 'getPromptDetails')
+      .mockResolvedValue({ registered_model: { name: promptName } as any });
+    jest.spyOn(RegisteredPromptsApi, 'getPromptVersions').mockResolvedValue({
+      model_versions: [{ name: promptName, version: '1', tags } as any],
+    });
+  };
+
+  const openRegistryAndLoad = async (promptName: string) => {
+    await userEvent.click(screen.getByRole('button', { name: /load prompt from registry/i }));
+    await userEvent.click(await screen.findByRole('combobox', { name: /prompt/i }));
+    await userEvent.click(await screen.findByText(promptName));
+    await userEvent.click(await screen.findByRole('combobox', { name: /version/i }));
+    await userEvent.click(await screen.findByText('v1'));
+    await userEvent.click(screen.getByRole('button', { name: /^load$/i }));
+  };
+
+  it('resets and applies settings as a unit when the loaded version carries stored config', async () => {
+    const chatCompletionSpy = jest.spyOn(PlaygroundApi, 'chatCompletion').mockResolvedValue({
+      choices: [{ index: 0, message: { role: 'assistant', content: 'ok' }, finish_reason: 'stop' }],
+    });
+    stubPromptVersion('cfg-prompt', 'chat', JSON.stringify([{ role: 'user', content: 'Hi' }]), {
+      modelConfig: { top_p: 0.5 },
+    });
+
+    renderPlayground();
+
+    const endpointInput = await screen.findByTestId('endpoint-selector-test-input');
+    await userEvent.type(endpointInput, 'my-endpoint');
+
+    // Pre-fill a temperature that must be wiped out by the load (replace-as-unit).
+    await openSettingsDrawer();
+    await userEvent.type(screen.getByLabelText('Temperature'), '0.1');
+    await closeDrawer();
+
+    await openRegistryAndLoad('cfg-prompt');
+
+    await waitFor(() => {
+      expect(screen.getByText(/Loaded cfg-prompt v1 with settings/i)).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByRole('button', { name: /submit/i }));
+
+    await waitFor(() => {
+      expect(chatCompletionSpy).toHaveBeenCalled();
+    });
+    expect(chatCompletionSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        model: 'my-endpoint',
+        top_p: 0.5,
+        messages: [{ role: 'user', content: 'Hi' }],
+      }),
+    );
+    expect(chatCompletionSpy).toHaveBeenCalledWith(expect.not.objectContaining({ temperature: expect.anything() }));
+  });
+
+  it('leaves existing playground settings untouched when the loaded version has no stored settings', async () => {
+    const chatCompletionSpy = jest.spyOn(PlaygroundApi, 'chatCompletion').mockResolvedValue({
+      choices: [{ index: 0, message: { role: 'assistant', content: 'ok' }, finish_reason: 'stop' }],
+    });
+    stubPromptVersion('plain-prompt', 'text', 'Plain text');
+
+    renderPlayground();
+
+    const endpointInput = await screen.findByTestId('endpoint-selector-test-input');
+    await userEvent.type(endpointInput, 'my-endpoint');
+
+    await openSettingsDrawer();
+    await userEvent.type(screen.getByLabelText('Temperature'), '0.1');
+    await closeDrawer();
+
+    await openRegistryAndLoad('plain-prompt');
+
+    await waitFor(() => {
+      expect(screen.getByText(/Loaded plain-prompt v1$/i)).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/with settings/i)).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /submit/i }));
+
+    await waitFor(() => {
+      expect(chatCompletionSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          model: 'my-endpoint',
+          temperature: 0.1,
+        }),
+      );
+    });
+  });
+
+  it('never auto-sets the endpoint from the loaded version provider/model_name', async () => {
+    stubPromptVersion('cfg-prompt', 'chat', JSON.stringify([{ role: 'user', content: 'Hi' }]), {
+      modelConfig: { provider: 'openai', model_name: 'gpt-4' },
+    });
+
+    renderPlayground();
+
+    await openRegistryAndLoad('cfg-prompt');
+
+    await waitFor(() => {
+      expect(screen.getByText(/Loaded cfg-prompt v1 with settings/i)).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('endpoint-selector-test-input')).toHaveValue('');
+    expect(screen.getByRole('button', { name: /submit/i })).toBeDisabled();
+  });
+
   it('exposes a hook that posts to the chat completions API', async () => {
     const chatCompletionSpy = jest.spyOn(PlaygroundApi, 'chatCompletion').mockResolvedValue({
       choices: [{ index: 0, message: { role: 'assistant', content: 'Hello back!' }, finish_reason: 'stop' }],

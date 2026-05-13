@@ -2,12 +2,13 @@ import {
   Button,
   Header,
   HoverCard,
+  Notification,
   PlayIcon,
   Spacer,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { ScrollablePageWrapper } from '../../../common/components/ScrollablePageWrapper';
 import ErrorUtils from '../../../common/utils/ErrorUtils';
@@ -16,6 +17,7 @@ import { CompletionOutputPanel } from './components/CompletionOutputPanel';
 import { PlaygroundTopBar } from './components/PlaygroundTopBar';
 import { PromptInputPanel } from './components/PromptInputPanel';
 import { PromptRegistryPicker } from './components/PromptRegistryPicker';
+import type { PromptLoadPayload } from './components/PromptRegistryPicker';
 import { useChatCompletionMutation } from './hooks/useChatCompletionMutation';
 import type { ChatMessage, PlaygroundParams, ResponseFormat, ResponseFormatType, ToolChoice } from './types';
 import { getEmptyVariables, isToolsValueEmpty, substituteVariables } from './utils';
@@ -34,8 +36,34 @@ const PlaygroundPage = () => {
   const [responseFormatType, setResponseFormatType] = useState<ResponseFormatType>('text');
   const [responseFormatSchemaText, setResponseFormatSchemaText] = useState<string>('');
   const [showRegistryPicker, setShowRegistryPicker] = useState(false);
+  const [loadedToast, setLoadedToast] = useState<{
+    name: string;
+    version: string;
+    withSettings: boolean;
+  } | null>(null);
 
   const { mutate, data, error, isLoading } = useChatCompletionMutation();
+
+  useEffect(() => {
+    if (!loadedToast) return;
+    const t = window.setTimeout(() => setLoadedToast(null), 4000);
+    return () => window.clearTimeout(t);
+  }, [loadedToast]);
+
+  const handleRegistryLoad = (payload: PromptLoadPayload) => {
+    setMessages(payload.messages.length > 0 ? payload.messages : [{ ...EMPTY_USER_MESSAGE }]);
+    if (payload.settings !== null) {
+      setParams(payload.settings.params);
+      setResponseFormatType(payload.settings.responseFormatType);
+      setResponseFormatSchemaText(payload.settings.responseFormatSchemaText);
+    }
+    setShowRegistryPicker(false);
+    setLoadedToast({
+      name: payload.promptName,
+      version: payload.versionLabel,
+      withSettings: payload.settings !== null,
+    });
+  };
 
   const toolsError = useMemo(() => {
     if (!toolsText.trim()) {
@@ -271,11 +299,31 @@ const PlaygroundPage = () => {
       <PromptRegistryPicker
         visible={showRegistryPicker}
         onCancel={() => setShowRegistryPicker(false)}
-        onLoad={(loadedMessages) => {
-          setMessages(loadedMessages.length > 0 ? loadedMessages : [{ ...EMPTY_USER_MESSAGE }]);
-          setShowRegistryPicker(false);
-        }}
+        onLoad={handleRegistryLoad}
       />
+      {loadedToast && (
+        <Notification.Provider>
+          <Notification.Root severity="success" componentId="mlflow.playground.prompt_registry_picker.loaded">
+            <Notification.Title>
+              {loadedToast.withSettings ? (
+                <FormattedMessage
+                  defaultMessage="Loaded {name} v{version} with settings"
+                  description="Success toast shown on the playground after loading a prompt version that also applied stored settings"
+                  values={{ name: loadedToast.name, version: loadedToast.version }}
+                />
+              ) : (
+                <FormattedMessage
+                  defaultMessage="Loaded {name} v{version}"
+                  description="Success toast shown on the playground after loading a prompt version that did not include stored settings"
+                  values={{ name: loadedToast.name, version: loadedToast.version }}
+                />
+              )}
+            </Notification.Title>
+            <Notification.Close componentId="mlflow.playground.prompt_registry_picker.loaded.close" />
+          </Notification.Root>
+          <Notification.Viewport />
+        </Notification.Provider>
+      )}
     </ScrollablePageWrapper>
   );
 };

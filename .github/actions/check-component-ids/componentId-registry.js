@@ -1799,6 +1799,8 @@ module.exports = {
   "mlflow.playground.prompt_registry_picker": "",
   "mlflow.playground.prompt_registry_picker.cancel": "",
   "mlflow.playground.prompt_registry_picker.load": "",
+  "mlflow.playground.prompt_registry_picker.loaded": "",
+  "mlflow.playground.prompt_registry_picker.loaded.close": "",
   "mlflow.playground.prompt_registry_picker.prompt": "",
   "mlflow.playground.prompt_registry_picker.text_prompt_hint": "",
   "mlflow.playground.prompt_registry_picker.version": "",
