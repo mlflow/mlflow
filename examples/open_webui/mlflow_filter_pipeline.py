@@ -62,7 +62,8 @@ class Pipeline:
         self.pending_inlets: dict = {}
 
     def log(self, message: str):
-        print(f"[DEBUG] {message}", flush=True)
+        if self.valves.debug:
+            print(f"[DEBUG] {message}", flush=True)
 
     async def on_startup(self):
         self.log(f"on_startup triggered for {__name__}")
@@ -143,7 +144,7 @@ class Pipeline:
             with mlflow.start_span(name="chat_turn", span_type=SpanType.AGENT) as span:
                 span.set_inputs({"user": user_input})
                 span.set_outputs({"response": assistant_message})
-                span.set_attribute("model", model)
+                span.set_attribute(SpanAttributeKey.MODEL, model)
                 if token_usage:
                     span.set_attribute(SpanAttributeKey.CHAT_USAGE, token_usage)
 
