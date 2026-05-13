@@ -9,6 +9,7 @@ from dspy.utils.dummies import DummyLM, dummy_rm
 from packaging.version import Version
 
 import mlflow
+from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelSignature
 from mlflow.types.schema import ColSpec, Schema
 
@@ -556,3 +557,23 @@ def test_predict_output(dummy_model):
 
     assert isinstance(result, dict)
     assert result == {"answer": "4", "custom_field": "custom_value"}
+
+
+@pytest.mark.parametrize("use_dspy_model_save", [use_dspy_model_save_param, False])
+def test_load_model_disallows_pickle_deserialization(use_dspy_model_save, monkeypatch):
+    if use_dspy_model_save and _DSPY_VERSION <= Version("2.6.0"):
+        pytest.skip("'use_dspy_model_save' = True does not support dspy <= 2.6.0")
+
+    dspy_model = CoT()
+    dspy.settings.configure(lm=dspy.LM(model="openai/gpt-4o-mini", max_tokens=250))
+
+    with mlflow.start_run():
+        model_info = mlflow.dspy.log_model(
+            dspy_model,
+            name="model",
+            use_dspy_model_save=use_dspy_model_save,
+        )
+
+    monkeypatch.setenv("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", "false")
+    with pytest.raises(MlflowException, match="MLFLOW_ALLOW_PICKLE_DESERIALIZATION"):
+        mlflow.dspy.load_model(model_info.model_uri)
