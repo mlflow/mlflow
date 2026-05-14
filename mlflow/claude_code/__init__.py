@@ -5,7 +5,8 @@ This module provides automatic tracing of Claude Code conversations to MLflow.
 Usage:
     mlflow autolog claude [directory] [options]
 
-After setup, use the regular 'claude' command and traces will be automatically captured.
+After setup, use the regular 'claude' command and traces will be automatically captured
+by the MLflow Claude plugin runtime.
 
 To enable tracing for the Claude Agent SDK, use `mlflow.anthropic.autolog()`.
 

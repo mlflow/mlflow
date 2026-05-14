@@ -6,13 +6,10 @@ import pytest
 from click.testing import CliRunner
 
 from mlflow.claude_code.cli import commands
-from mlflow.claude_code.config import HOOK_FIELD_COMMAND, HOOK_FIELD_HOOKS
-from mlflow.claude_code.hooks import upsert_hook
 
 
 @pytest.fixture
 def runner():
-    """Provide a CLI runner for tests."""
     return CliRunner()
 
 
@@ -46,78 +43,23 @@ def test_trace_disable_with_no_config(runner):
         assert result.exit_code == 0
 
 
-def _get_hook_command_from_settings() -> str:
-    settings_path = Path(".claude/settings.json")
-    with open(settings_path) as f:
-        config = json.load(f)
-
-    if hooks := config.get("hooks"):
-        for group in hooks.get("Stop", []):
-            for hook in group.get("hooks", []):
-                if command := hook.get("command"):
-                    return command
-
-    raise AssertionError("No hook command found in settings.json")
-
-
-def test_claude_setup_with_uv_env_var(runner, monkeypatch):
-    monkeypatch.setenv("UV", "/path/to/uv")
-    monkeypatch.delenv("PIXI_ENVIRONMENT_NAME", raising=False)
-
-    with runner.isolated_filesystem():
-        result = runner.invoke(commands, ["claude"])
+def test_claude_setup_installs_plugin_and_writes_env(runner):
+    with (
+        runner.isolated_filesystem(),
+        mock.patch("mlflow.claude_code.cli.ensure_plugin_installed") as mock_install,
+        mock.patch("mlflow.claude_code.cli.migrate_legacy_hooks") as mock_migrate,
+    ):
+        result = runner.invoke(commands, ["claude", "-u", "http://localhost:5000", "-e", "123"])
         assert result.exit_code == 0
 
-        hook_command = _get_hook_command_from_settings()
-        assert hook_command == "uv run mlflow autolog claude stop-hook"
+        mock_install.assert_called_once_with(Path.cwd())
+        mock_migrate.assert_called_once_with(Path.cwd() / ".claude" / "settings.json")
 
-
-def test_claude_setup_without_uv_env_var(runner, monkeypatch):
-    monkeypatch.delenv("UV", raising=False)
-    monkeypatch.delenv("PIXI_ENVIRONMENT_NAME", raising=False)
-
-    with runner.isolated_filesystem():
-        result = runner.invoke(commands, ["claude"])
-        assert result.exit_code == 0
-
-        hook_command = _get_hook_command_from_settings()
-        assert hook_command == "mlflow autolog claude stop-hook"
-
-
-def test_claude_setup_with_pixi_env_vars(runner, monkeypatch):
-    monkeypatch.delenv("UV", raising=False)
-    monkeypatch.setenv("PIXI_ENVIRONMENT_NAME", "tracing")
-
-    with runner.isolated_filesystem():
-        result = runner.invoke(commands, ["claude"])
-        assert result.exit_code == 0
-
-        hook_command = _get_hook_command_from_settings()
-        assert hook_command == "pixi run -e tracing mlflow autolog claude stop-hook"
-
-
-def test_claude_setup_with_pixi_env_name_containing_spaces(runner, monkeypatch):
-    monkeypatch.delenv("UV", raising=False)
-    monkeypatch.setenv("PIXI_ENVIRONMENT_NAME", "my env")
-
-    with runner.isolated_filesystem():
-        result = runner.invoke(commands, ["claude"])
-        assert result.exit_code == 0
-
-        hook_command = _get_hook_command_from_settings()
-        assert hook_command == "pixi run -e 'my env' mlflow autolog claude stop-hook"
-
-
-def test_claude_setup_with_mlflow_cmd_option(runner, monkeypatch):
-    monkeypatch.delenv("UV", raising=False)
-    monkeypatch.delenv("PIXI_ENVIRONMENT_NAME", raising=False)
-
-    with runner.isolated_filesystem():
-        result = runner.invoke(commands, ["claude", "--mlflow-cmd", "pixi run -e tracing mlflow"])
-        assert result.exit_code == 0
-
-        hook_command = _get_hook_command_from_settings()
-        assert hook_command == "pixi run -e tracing mlflow autolog claude stop-hook"
+        config = json.loads(Path(".claude/settings.json").read_text())
+        assert config["env"]["MLFLOW_CLAUDE_TRACING_ENABLED"] == "true"
+        assert config["env"]["MLFLOW_TRACKING_URI"] == "http://localhost:5000"
+        assert config["env"]["MLFLOW_EXPERIMENT_ID"] == "123"
+        assert "hooks" not in config
 
 
 def test_mlflow_cmd_empty_string_raises_error(runner):
@@ -127,57 +69,24 @@ def test_mlflow_cmd_empty_string_raises_error(runner):
         assert "must not be empty or whitespace-only" in result.output
 
 
+def test_claude_setup_surfaces_plugin_install_failure(runner):
+    with (
+        runner.isolated_filesystem(),
+        mock.patch(
+            "mlflow.claude_code.cli.ensure_plugin_installed",
+            side_effect=RuntimeError("boom"),
+        ),
+    ):
+        result = runner.invoke(commands, ["claude"])
+        assert result.exit_code != 0
+        assert "boom" in result.output
+
+
 def test_mlflow_cmd_whitespace_only_raises_error(runner):
     with runner.isolated_filesystem():
         result = runner.invoke(commands, ["claude", "--mlflow-cmd", "   "])
         assert result.exit_code != 0
         assert "must not be empty or whitespace-only" in result.output
-
-
-def test_mlflow_cmd_option_overrides_env_vars(runner, monkeypatch):
-    monkeypatch.setenv("UV", "/path/to/uv")
-    monkeypatch.setenv("PIXI_ENVIRONMENT_NAME", "default")
-
-    with runner.isolated_filesystem():
-        result = runner.invoke(commands, ["claude", "--mlflow-cmd", "custom run mlflow"])
-        assert result.exit_code == 0
-
-        hook_command = _get_hook_command_from_settings()
-        assert hook_command == "custom run mlflow autolog claude stop-hook"
-
-
-def test_upsert_hook_uses_cli_command(monkeypatch):
-    monkeypatch.delenv("UV", raising=False)
-    monkeypatch.delenv("PIXI_ENVIRONMENT_NAME", raising=False)
-    config = {HOOK_FIELD_HOOKS: {}}
-    upsert_hook(config, "Stop", "stop-hook")
-
-    hook_command = config[HOOK_FIELD_HOOKS]["Stop"][0][HOOK_FIELD_HOOKS][0][HOOK_FIELD_COMMAND]
-    assert hook_command == "mlflow autolog claude stop-hook"
-
-
-def test_upsert_hook_uses_custom_mlflow_cmd():
-    config = {HOOK_FIELD_HOOKS: {}}
-    upsert_hook(config, "Stop", "stop-hook", mlflow_cmd="pixi run -e myenv mlflow")
-
-    hook_command = config[HOOK_FIELD_HOOKS]["Stop"][0][HOOK_FIELD_HOOKS][0][HOOK_FIELD_COMMAND]
-    assert hook_command == "pixi run -e myenv mlflow autolog claude stop-hook"
-
-
-def test_upsert_hook_upgrades_legacy_hook():
-    legacy_command = (
-        'python -I -c "from mlflow.claude_code.hooks import stop_hook_handler; stop_hook_handler()"'
-    )
-    config = {
-        HOOK_FIELD_HOOKS: {
-            "Stop": [{HOOK_FIELD_HOOKS: [{"type": "command", HOOK_FIELD_COMMAND: legacy_command}]}]
-        }
-    }
-    upsert_hook(config, "Stop", "stop-hook")
-
-    hook_command = config[HOOK_FIELD_HOOKS]["Stop"][0][HOOK_FIELD_HOOKS][0][HOOK_FIELD_COMMAND]
-    assert "mlflow autolog claude stop-hook" in hook_command
-    assert "python -I -c" not in hook_command
 
 
 def test_stop_hook_subcommand_is_routable(runner):
