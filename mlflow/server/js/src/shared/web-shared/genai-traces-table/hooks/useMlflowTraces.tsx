@@ -32,6 +32,8 @@ import {
   INPUTS_COLUMN_ID,
   RESPONSE_COLUMN_ID,
   ISSUE_ID_COLUMN_ID,
+  GIT_BRANCH_COLUMN_ID,
+  GIT_COMMIT_COLUMN_ID,
 } from './useTableColumns';
 import { TracesServiceV4, fetchTraceInfoV3 } from '../../model-trace-explorer/api';
 import type { ModelTraceInfoV3, ModelTraceSearchLocation } from '../../model-trace-explorer/ModelTrace.types';
@@ -982,6 +984,12 @@ export const createMlflowSearchFilter = (
           break;
         case SOURCE_COLUMN_ID:
           filter.push(`request_metadata."mlflow.source.name" ${networkFilter.operator} '${networkFilter.value}'`);
+          break;
+        case GIT_BRANCH_COLUMN_ID:
+          filter.push(`request_metadata."mlflow.source.git.branch" ${networkFilter.operator} '${networkFilter.value}'`);
+          break;
+        case GIT_COMMIT_COLUMN_ID:
+          filter.push(`request_metadata."mlflow.source.git.commit" ${networkFilter.operator} '${networkFilter.value}'`);
           break;
         case TracesTableColumnGroup.ASSESSMENT:
           // Handle IS NULL / IS NOT NULL operators for assessments

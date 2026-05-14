@@ -25,7 +25,7 @@ python dev/set_matrix.py --versions 1.1.1
 """
 
 import argparse
-import functools
+import asyncio
 import json
 import os
 import re
@@ -41,9 +41,9 @@ from typing import Any, Iterator, TypeVar
 import requests
 import yaml
 from packaging.specifiers import SpecifierSet
-from packaging.version import InvalidVersion
 from packaging.version import Version as OriginalVersion
 from pydantic import BaseModel, ConfigDict, field_validator
+from pypi import Package, get_packages
 
 VERSIONS_YAML_PATH = "mlflow/ml-package-versions.yml"
 DEV_VERSION = "dev"
@@ -189,38 +189,15 @@ def read_yaml(location, if_error=None):
 RELEASE_CUTOFF_DAYS = 14
 
 
-def get_released_versions(package_name: str) -> list[Version]:
-    data = pypi_json(package_name)
+def get_released_versions(package: Package) -> list[Version]:
     cutoff = datetime.now(tz=timezone.utc) - timedelta(days=RELEASE_CUTOFF_DAYS)
     versions: list[Version] = []
-    for version_str, distributions in data["releases"].items():
-        if len(distributions) == 0 or any(d.get("yanked", False) for d in distributions):
+    for release in package.releases:
+        if release.yanked or release.upload_time >= cutoff:
             continue
-
-        # Extract the earliest upload time as the release date
-        upload_times = [
-            datetime.fromisoformat(ut.replace("Z", "+00:00"))
-            for dist in distributions
-            if (ut := dist.get("upload_time_iso_8601"))
-        ]
-
-        release_date = min(upload_times) if upload_times else None
-
-        # Exclude versions with unknown release dates or released on/after the cutoff date
-        if not release_date or release_date >= cutoff:
+        if release.version.is_devrelease or release.version.is_prerelease:
             continue
-
-        try:
-            version = Version(version_str, release_date)
-        except InvalidVersion:
-            # Ignore invalid versions such as https://pypi.org/project/pytz/2004d
-            continue
-
-        if version.is_devrelease or version.is_prerelease:
-            continue
-
-        versions.append(version)
-
+        versions.append(Version(str(release.version), release.upload_time))
     return versions
 
 
@@ -315,25 +292,6 @@ def get_java_version(java: dict[str, str] | None, version: str) -> str:
     return _get_spec_value(java, version, "17")
 
 
-@functools.lru_cache(maxsize=128)
-def pypi_json(package: str) -> dict[str, Any]:
-    resp = requests.get(f"https://pypi.org/pypi/{package}/json")
-    resp.raise_for_status()
-    return resp.json()
-
-
-def _requires_python(package: str, version: str) -> str | None:
-    package_json = pypi_json(package)
-    for ver, dist in package_json.get("releases", {}).items():
-        if ver != version:
-            continue
-
-        for d in dist:
-            if rp := d.get("requires_python"):
-                return rp
-    return None
-
-
 def _requires_python_from_repo(repo_url: str) -> str | None:
     """
     Fetch requires-python from repository's pyproject.toml for dev version inference.
@@ -366,20 +324,22 @@ def _requires_python_from_repo(repo_url: str) -> str | None:
     return None
 
 
-def infer_python_version(package: str, version: str, repo_url: str | None = None) -> str:
+def infer_python_version(package: Package, version: str, repo_url: str | None = None) -> str:
     """
     Infer the minimum Python version required by the package.
     """
     candidates = ("3.10", "3.11")
 
-    if version == DEV_VERSION and repo_url:
-        if rp := _requires_python_from_repo(repo_url):
+    if version == DEV_VERSION:
+        # `Version("dev")` would raise InvalidVersion, so resolve dev separately
+        # via the repo's pyproject.toml when available.
+        if repo_url and (rp := _requires_python_from_repo(repo_url)):
             spec = SpecifierSet(rp)
             return next(filter(spec.contains, candidates), candidates[0])
+        return candidates[0]
 
-    if rp := _requires_python(package, version):
-        spec = SpecifierSet(rp)
-        return next(filter(spec.contains, candidates), candidates[0])
+    if (release := package.get_release(version)) and release.requires_python:
+        return next(filter(release.requires_python.contains, candidates), candidates[0])
 
     return candidates[0]
 
@@ -391,7 +351,7 @@ def _get_spec_value(spec: dict[str, str] | None, version: str, default: str) -> 
 
 
 def get_python_version(
-    python: dict[str, str] | None, package: str, version: str, repo_url: str | None = None
+    python: dict[str, str] | None, package: Package, version: str, repo_url: str | None = None
 ) -> str:
     if python and (match := next(_find_matches(python, version), None)):
         return match
@@ -593,12 +553,15 @@ def validate_requirements(
             )
 
 
-def expand_config(config: dict[str, Any], *, is_ref: bool = False) -> set[MatrixItem]:
+async def expand_config(config: dict[str, Any], *, is_ref: bool = False) -> set[MatrixItem]:
     matrix = set()
+    pip_releases = list({fc.package_info.pip_release for fc in config.values()})
+    packages = dict(zip(pip_releases, await get_packages(pip_releases)))
     for name, flavor_config in config.items():
         flavor = get_flavor(name)
         package_info = flavor_config.package_info
-        all_versions = get_released_versions(package_info.pip_release)
+        package = packages[package_info.pip_release]
+        all_versions = get_released_versions(package)
         free_disk_space = package_info.pip_release in (
             "transformers",
             "sentence-transformers",
@@ -632,9 +595,7 @@ def expand_config(config: dict[str, Any], *, is_ref: bool = False) -> set[Matrix
                 requirements.extend(get_matched_requirements(cfg.requirements or {}, str(ver)))
                 install = make_pip_install_command(requirements)
                 run = remove_comments(cfg.run)
-                python = get_python_version(
-                    cfg.python, package_info.pip_release, str(ver), package_info.repo
-                )
+                python = get_python_version(cfg.python, package, str(ver), package_info.repo)
                 runs_on = get_runs_on(cfg.runs_on, ver)
                 java = get_java_version(cfg.java, str(ver))
 
@@ -688,9 +649,7 @@ def expand_config(config: dict[str, Any], *, is_ref: bool = False) -> set[Matrix
                     install = make_pip_install_command(requirements) + "\n" + install_dev
                 else:
                     install = install_dev
-                python = get_python_version(
-                    cfg.python, package_info.pip_release, DEV_VERSION, package_info.repo
-                )
+                python = get_python_version(cfg.python, package, DEV_VERSION, package_info.repo)
                 runs_on = get_runs_on(cfg.runs_on, DEV_VERSION)
                 java = get_java_version(cfg.java, DEV_VERSION)
 
@@ -733,18 +692,18 @@ def apply_changed_files(changed_files, matrix):
     return set(filter(lambda x: x.flavor in changed_flavors, matrix))
 
 
-def generate_matrix(args):
+async def generate_matrix(args):
     args = parse_args(args)
     config = read_yaml(args.versions_yaml)
     if (args.ref_versions_yaml, args.changed_files).count(None) == 2:
-        matrix = expand_config(config)
+        matrix = await expand_config(config)
     else:
         matrix = set()
-        mat = expand_config(config)
+        mat = await expand_config(config)
 
         if args.ref_versions_yaml:
             ref_config = read_yaml(args.ref_versions_yaml, if_error={})
-            ref_matrix = expand_config(ref_config, is_ref=True)
+            ref_matrix = await expand_config(ref_config, is_ref=True)
             matrix.update(mat.difference(ref_matrix))
 
         if args.changed_files:
@@ -800,7 +759,7 @@ def split(matrix, n):
         yield chunk
 
 
-def main(args):
+async def main(args):
     # https://docs.github.com/en/actions/learn-github-actions/usage-limits-billing-and-administration#usage-limits
     # > A job matrix can generate a maximum of 256 jobs per workflow run.
     MAX_ITEMS = 256
@@ -808,7 +767,7 @@ def main(args):
 
     print(divider("Parameters"))
     print(json.dumps(args, indent=2))
-    matrix = generate_matrix(args)
+    matrix = await generate_matrix(args)
     matrix = sorted(matrix, key=lambda x: (x.name, x.category, x.version))
     assert len(matrix) <= MAX_ITEMS * 2, f"Too many jobs: {len(matrix)} > {MAX_ITEMS * NUM_JOBS}"
     for idx, mat in enumerate(split(matrix, NUM_JOBS), start=1):
@@ -821,4 +780,4 @@ def main(args):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    asyncio.run(main(sys.argv[1:]))

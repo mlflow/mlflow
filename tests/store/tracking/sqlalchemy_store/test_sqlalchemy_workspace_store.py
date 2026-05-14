@@ -53,11 +53,13 @@ from mlflow.utils.uri import append_to_uri_path
 from mlflow.utils.workspace_context import WorkspaceContext
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
-from tests.store.tracking.sqlalchemy_store.test_sqlalchemy_store import (
+from tests.store.tracking.sqlalchemy_store.conftest import (
     _create_trace,
+    create_test_span,
+)
+from tests.store.tracking.sqlalchemy_store.test_sqlalchemy_store import (
     _gateway_model_scorer_json,
     _mock_gateway_endpoint,
-    create_test_span,
 )
 
 
@@ -2310,3 +2312,38 @@ def test_guardrails_are_workspace_scoped(gateway_workspace_store):
         guardrails = gateway_workspace_store.list_gateway_guardrails()
         assert len(guardrails) == 1
         assert guardrails[0].guardrail_id == guardrail_a.guardrail_id
+
+
+def test_guardrails_reject_cross_workspace_scorers(gateway_workspace_store):
+    with WorkspaceContext("team-guard-create-a"):
+        scorer_a, _ = _create_scorer_in_workspace(gateway_workspace_store, "team-guard-create-a")
+
+    with WorkspaceContext("team-guard-create-b"):
+        with pytest.raises(
+            MlflowException,
+            match=rf"Scorer with ID '{scorer_a.scorer_id}' not found",
+        ):
+            gateway_workspace_store.create_gateway_guardrail(
+                name="guardrail-cross-workspace",
+                scorer_id=scorer_a.scorer_id,
+                scorer_version=scorer_a.scorer_version,
+                stage=GuardrailStage.BEFORE,
+                action=GuardrailAction.VALIDATION,
+            )
+
+
+def test_guardrails_reject_missing_scorer_version_in_same_workspace(gateway_workspace_store):
+    with WorkspaceContext("team-guard-version-a"):
+        scorer_a, _ = _create_scorer_in_workspace(gateway_workspace_store, "team-guard-version-a")
+
+        with pytest.raises(
+            MlflowException,
+            match=rf"Scorer with ID '{scorer_a.scorer_id}' and version 999 not found",
+        ):
+            gateway_workspace_store.create_gateway_guardrail(
+                name="guardrail-missing-version",
+                scorer_id=scorer_a.scorer_id,
+                scorer_version=999,
+                stage=GuardrailStage.BEFORE,
+                action=GuardrailAction.VALIDATION,
+            )

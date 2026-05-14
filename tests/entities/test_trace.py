@@ -130,6 +130,7 @@ def test_json_deserialization(monkeypatch):
                         "mlflow.spanInputs": '{"x": 2, "y": 5}',
                         "mlflow.spanOutputs": "8",
                     },
+                    "links": [],
                 },
                 {
                     "name": "add_one_with_custom_name",
@@ -154,6 +155,7 @@ def test_json_deserialization(monkeypatch):
                         "datetime": json.dumps(str(datetime_now)),
                         "metadata": '{"foo": "bar"}',
                     },
+                    "links": [],
                 },
             ],
         },

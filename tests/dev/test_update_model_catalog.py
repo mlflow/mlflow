@@ -205,6 +205,17 @@ def test_extract_modality_pricing_skips_reasoning():
     assert _extract_modality_pricing(info) == {"audio": {"input_per_million_tokens": 0.7}}
 
 
+def test_extract_modality_pricing_mixed():
+    info = {
+        "input_cost_per_audio_token": 7e-7,
+        "input_cost_per_video_per_second": 0.0007,
+    }
+    assert _extract_modality_pricing(info) == {
+        "audio": {"input_per_million_tokens": 0.7},
+        "video": {"input_per_second": 0.0007},
+    }
+
+
 def test_extract_tool_pricing():
     info = {
         "computer_use_input_cost_per_1k_tokens": 0.00225,

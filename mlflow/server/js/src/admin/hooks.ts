@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { useSearchParams } from '../common/utils/RoutingUtils';
 import { SETTINGS_RETURN_TO_PARAM } from '../settings/settingsSectionConstants';
@@ -16,7 +16,9 @@ import type {
 // Re-export account-side hooks so admin pages can keep importing them via
 // ``./hooks``. The canonical home is account/hooks.
 export {
+  useCurrentUserAdminWorkspaces,
   useCurrentUserIsAdmin,
+  useCurrentUserIsWorkspaceAdmin,
   useCurrentUserQuery,
   useIsAuthAvailable,
   useIsBasicAuth,
@@ -108,12 +110,24 @@ export const useUpdateAdmin = () => {
 };
 
 // Role queries and mutations
-export const useRolesQuery = (workspace?: string) => {
+//
+// ``workspaces`` accepts a single workspace, a list of workspaces, or
+// ``undefined`` (admin-only unscoped listing). The cache key normalizes a list
+// to a sorted form so callers passing the same set in different order share
+// the same entry.
+export const useRolesQuery = (workspaces?: string | readonly string[], options: { enabled?: boolean } = {}) => {
+  const normalized = useMemo<string | readonly string[] | undefined>(() => {
+    if (workspaces === undefined) return undefined;
+    if (typeof workspaces === 'string') return workspaces;
+    return [...workspaces].sort();
+  }, [workspaces]);
   return useQuery({
-    queryKey: [...AdminQueryKeys.roles, workspace],
-    queryFn: () => AdminApi.listRoles(workspace),
+    queryKey: [...AdminQueryKeys.roles, normalized],
+    queryFn: () => AdminApi.listRoles(normalized),
     retry: false,
     refetchOnWindowFocus: false,
+    // Callers pass ``enabled: false`` to skip a fetch they know will 403.
+    enabled: options.enabled !== false,
   });
 };
 
@@ -182,16 +196,18 @@ export const useRemovePermission = (roleId: number) => {
 };
 
 // Role assignment mutations
+//
+// Invalidate both the per-user ``userRoles`` query (UserDetailPage, Account
+// page) and the bulk ``users`` query (Admin Users tab eager-loads roles per
+// user) so the new assignment is reflected everywhere on the next render.
 export const useAssignRole = (roleId: number) => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (username: string) => AdminApi.assignRole(username, roleId),
     onSuccess: (_data, username) => {
       queryClient.invalidateQueries({ queryKey: AdminQueryKeys.roleUsers(roleId) });
-      // The Admin Users tab renders a per-user roles cell from
-      // ``useUserRolesQuery(username)``; refetch it so the new role shows up
-      // immediately after the modal closes.
       queryClient.invalidateQueries({ queryKey: AccountQueryKeys.userRoles(username) });
+      queryClient.invalidateQueries({ queryKey: AdminQueryKeys.users });
     },
   });
 };
@@ -203,6 +219,7 @@ export const useUnassignRole = (roleId: number) => {
     onSuccess: (_data, username) => {
       queryClient.invalidateQueries({ queryKey: AdminQueryKeys.roleUsers(roleId) });
       queryClient.invalidateQueries({ queryKey: AccountQueryKeys.userRoles(username) });
+      queryClient.invalidateQueries({ queryKey: AdminQueryKeys.users });
     },
   });
 };

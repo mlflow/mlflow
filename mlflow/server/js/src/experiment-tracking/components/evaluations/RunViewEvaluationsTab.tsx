@@ -229,6 +229,7 @@ const RunViewEvaluationsTabInner = ({
   const countInfo = useCountInfo({
     experimentIds,
     runUuid,
+    traceInfos,
     traceInfosCount: traceInfos?.length,
     traceInfosLoading,
     metadataTotalCount: totalCount,
