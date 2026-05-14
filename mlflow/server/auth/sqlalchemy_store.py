@@ -1,3 +1,4 @@
+import logging
 import re
 from collections.abc import Iterable
 from urllib.parse import quote, unquote
@@ -121,8 +122,6 @@ class SqlAlchemyStore:
             )
         else:
             if read_db_uri and read_db_uri == db_uri:
-                import logging
-
                 logging.getLogger(__name__).warning(
                     "read_db_uri is the same as the primary db_uri; "
                     "read replica routing will not be enabled. "

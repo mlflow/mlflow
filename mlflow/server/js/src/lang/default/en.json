@@ -207,6 +207,10 @@
     "defaultMessage": "Run judge",
     "description": "Button text for running judge"
   },
+  "/G6dxl": {
+    "defaultMessage": "Git commit",
+    "description": "Column label for the git commit hash the trace was produced on"
+  },
   "/HeTx7": {
     "defaultMessage": "Create",
     "description": "Create webhook confirm button"
@@ -842,6 +846,10 @@
   "2vjNq9": {
     "defaultMessage": "Please complete all required fields",
     "description": "Tooltip shown when submit button is disabled due to incomplete form"
+  },
+  "2xFiOo": {
+    "defaultMessage": "Git commit",
+    "description": "Usage overview > metrics filter > git commit column option label"
   },
   "2zy+D5": {
     "defaultMessage": "Add new tag",
@@ -4275,6 +4283,10 @@
     "defaultMessage": "Share and manage machine learning models. <link>Learn more</link>",
     "description": "Models table > no models present yet"
   },
+  "OCZ6Y6": {
+    "defaultMessage": "Git branch",
+    "description": "Column label for the git branch the trace was produced on"
+  },
   "OCpkAU": {
     "defaultMessage": "The AI Gateway requires a SQL-based backend store (SQLite, PostgreSQL, MySQL, or MSSQL) to persist credentials securely. Start the MLflow server with a database URI:",
     "description": "AI Gateway setup guide > Step 2 description"
@@ -5142,6 +5154,10 @@
   "TXPJuE": {
     "defaultMessage": "Retrieval Groundedness assessment is missing. This is likely because your agent is not returning retrieved_context.",
     "description": "Evaluation results > known type of evaluation result assessment > retrieval groundedness assessment. Used to indicate if the result is grounded in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Retrieval Groundedness: moderately grounded\""
+  },
+  "TXwmoT": {
+    "defaultMessage": "Git branch",
+    "description": "Usage overview > metrics filter > git branch column option label"
   },
   "TannO5": {
     "defaultMessage": "Retrieved {sampledCount} out of {totalCount} total logs ({percentage}%)",
@@ -9367,6 +9383,10 @@
     "defaultMessage": "Relevant",
     "description": "Evaluation results > relevancy assessment > positive value label. Displayed if evaluation result is considered as irrelevant to the query."
   },
+  "rONS3/": {
+    "defaultMessage": "Select value",
+    "description": "Usage overview > filter row > value dropdown placeholder"
+  },
   "rOj9V6": {
     "defaultMessage": "Define your own guardrail with a custom name and instructions.",
     "description": "Custom guardrail type description"
@@ -9462,6 +9482,10 @@
   "s+Flkm": {
     "defaultMessage": "Failed to load direct permissions",
     "description": "Alert title shown when the direct-permissions query fails"
+  },
+  "s29iQg": {
+    "defaultMessage": "Session",
+    "description": "Usage overview > metrics filter > session column option label"
   },
   "s2G/vI": {
     "defaultMessage": "All users",
@@ -9802,6 +9826,10 @@
   "u13xKF": {
     "defaultMessage": "Custom judge",
     "description": "LLM judge option for creating a custom judge"
+  },
+  "u9ZeuA": {
+    "defaultMessage": "State",
+    "description": "Usage overview > metrics filter > state column option label"
   },
   "uANtE/": {
     "defaultMessage": "Primary Model",

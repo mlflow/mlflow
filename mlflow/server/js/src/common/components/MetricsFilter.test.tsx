@@ -7,9 +7,25 @@ import type { MetricFilter, MetricFilterColumn, MetricFilterColumnOption } from 
 
 const TEST_COLUMN_OPTIONS: MetricFilterColumnOption[] = [{ value: 'user' as MetricFilterColumn, label: 'User' }];
 
+const STATE_VALUE_OPTIONS = [
+  { value: 'IN_PROGRESS', label: 'In progress' },
+  { value: 'OK', label: 'OK' },
+  { value: 'ERROR', label: 'Error' },
+];
+
+const TEST_COLUMN_OPTIONS_WITH_DROPDOWN: MetricFilterColumnOption[] = [
+  { value: 'user' as MetricFilterColumn, label: 'User' },
+  { value: 'state' as MetricFilterColumn, label: 'State', valueOptions: STATE_VALUE_OPTIONS },
+];
+
 const renderFilter = (filters: MetricFilter[] = [], setFilters = jest.fn()) =>
   renderWithDesignSystem(
     <MetricsFilter filters={filters} setFilters={setFilters} columnOptions={TEST_COLUMN_OPTIONS} />,
+  );
+
+const renderFilterWithDropdownColumn = (filters: MetricFilter[] = [], setFilters = jest.fn()) =>
+  renderWithDesignSystem(
+    <MetricsFilter filters={filters} setFilters={setFilters} columnOptions={TEST_COLUMN_OPTIONS_WITH_DROPDOWN} />,
   );
 
 describe('MetricsFilter', () => {
@@ -162,6 +178,37 @@ describe('MetricsFilter', () => {
         expect(screen.queryByDisplayValue('alice')).not.toBeInTheDocument();
       });
       expect(screen.getByPlaceholderText('Enter value')).toHaveValue('');
+    });
+
+    it('renders a dropdown for the value control when the selected column declares valueOptions', async () => {
+      renderFilterWithDropdownColumn([{ column: 'state', value: 'OK' }]);
+      await userEvent.click(screen.getByRole('button', { name: /^filters/i }));
+      await screen.findByText('Field');
+
+      // The free-text input is replaced by a select control once the column declares valueOptions.
+      expect(screen.queryByPlaceholderText('Enter value')).not.toBeInTheDocument();
+      expect(screen.getByText('OK')).toBeInTheDocument();
+    });
+
+    it('renders the input value control for columns without valueOptions even when other columns provide them', async () => {
+      renderFilterWithDropdownColumn([{ column: 'user', value: 'alice' }]);
+      await userEvent.click(screen.getByRole('button', { name: /^filters/i }));
+      await screen.findByText('Field');
+
+      expect(screen.getByPlaceholderText('Enter value')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('alice')).toBeInTheDocument();
+    });
+
+    it('applies a dropdown-driven filter without modification', async () => {
+      const setFilters = jest.fn();
+      renderFilterWithDropdownColumn([{ column: 'state', value: 'ERROR' }], setFilters);
+      await userEvent.click(screen.getByRole('button', { name: /^filters/i }));
+      await screen.findByText('Field');
+
+      await userEvent.click(screen.getByRole('button', { name: /apply filters/i }));
+      await waitFor(() => {
+        expect(setFilters).toHaveBeenCalledWith([{ column: 'state', value: 'ERROR' }]);
+      });
     });
   });
 });
