@@ -37,6 +37,10 @@ jobs:
       ||
       (github.event_name == 'issue_comment' &&
        github.event.issue.pull_request &&
+       (
+        contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.issue.author_association) ||
+        (github.event.issue.user.login == 'Copilot' && github.event.issue.user.type == 'Bot')
+       ) &&
        contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association) &&
        startsWith(github.event.comment.body, '/review') &&
        !startsWith(github.event.comment.body, '/review-'))
