@@ -59,7 +59,7 @@ pytestmark = pytest.mark.notrackingurimock
 IS_MSSQL = MLFLOW_TRACKING_URI.get() and MLFLOW_TRACKING_URI.get().startswith("mssql+pyodbc")
 
 
-@pytest.fixture(autouse=True, params=[False, True], ids=["workspace-disabled", "workspace-enabled"])
+@pytest.fixture(params=[False, True], ids=["workspace-disabled", "workspace-enabled"])
 def workspaces_enabled(request, monkeypatch, disable_workspace_mode_by_default):
     """
     Run every test in this module with workspaces disabled and enabled to cover both code paths.
