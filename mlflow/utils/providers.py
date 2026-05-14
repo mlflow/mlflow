@@ -74,6 +74,31 @@ class ProviderConfigResponse(TypedDict):
     default_mode: str
 
 
+# --- MLflow-native catalog schema TypedDicts (matches per-provider JSON files) ---
+
+
+class CatalogContextWindow(TypedDict, total=False):
+    max_input: int
+    max_output: int
+    max_tokens: int
+
+
+class CatalogPricingTier(TypedDict, total=False):
+    input_per_million_tokens: float
+    output_per_million_tokens: float
+    cache_read_per_million_tokens: float
+    cache_write_per_million_tokens: float
+
+
+class CatalogLongContextTier(CatalogPricingTier, total=False):
+    threshold_tokens: int
+
+
+class CatalogPricingModality(TypedDict, total=False):
+    input_per_million_tokens: float
+    input_per_second: float
+
+
 class ModelInfo(TypedDict, total=False):
     """Flat model info used internally by cost_per_token, get_models, etc.
 
@@ -95,6 +120,7 @@ class ModelInfo(TypedDict, total=False):
     output_cost_per_token: float
     cache_read_input_token_cost: float
     cache_creation_input_token_cost: float
+    modality: dict[str, CatalogPricingModality]
     deprecation_date: str
     last_updated_at: str
 
@@ -117,33 +143,18 @@ class ModelDict(TypedDict):
     max_output_tokens: int | None
     input_cost_per_token: float | None
     output_cost_per_token: float | None
+    modality: dict[str, CatalogPricingModality] | None
     deprecation_date: str | None
     last_updated_at: str | None
 
 
-# --- MLflow-native catalog schema TypedDicts (matches per-provider JSON files) ---
-
-
-class CatalogContextWindow(TypedDict, total=False):
-    max_input: int
-    max_output: int
-    max_tokens: int
-
-
-class CatalogPricingTier(TypedDict, total=False):
-    input_per_million_tokens: float
-    output_per_million_tokens: float
-    cache_read_per_million_tokens: float
-    cache_write_per_million_tokens: float
-
-
-class CatalogLongContextTier(CatalogPricingTier, total=False):
-    threshold_tokens: int
+# --- (continued) MLflow-native catalog schema TypedDicts ---
 
 
 class CatalogPricing(CatalogPricingTier, total=False):
     service_tiers: dict[str, CatalogPricingTier]
     long_context: list[CatalogLongContextTier]
+    modality: dict[str, CatalogPricingModality]
 
 
 class CatalogCapabilities(TypedDict, total=False):
@@ -189,6 +200,8 @@ def _flatten_catalog_entry(entry: CatalogModelEntry) -> ModelInfo:
             info["cache_read_input_token_cost"] = v / 1_000_000
         if (v := pricing.get("cache_write_per_million_tokens")) is not None:
             info["cache_creation_input_token_cost"] = v / 1_000_000
+        if modality := pricing.get("modality"):
+            info["modality"] = modality
 
     if caps := entry.get("capabilities"):
         info["supports_function_calling"] = caps.get("function_calling", False)
@@ -978,6 +991,7 @@ def _build_model_dict(
         "max_output_tokens": info.get("max_output_tokens"),
         "input_cost_per_token": info.get("input_cost_per_token"),
         "output_cost_per_token": info.get("output_cost_per_token"),
+        "modality": info.get("modality"),
         "deprecation_date": info.get("deprecation_date"),
         "last_updated_at": info.get("last_updated_at"),
     }

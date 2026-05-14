@@ -2621,34 +2621,61 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     RESOURCE_DOES_NOT_EXIST,
                 )
 
-            # Build query for scorer versions
-            query = session.query(SqlScorerVersion).filter(
-                SqlScorerVersion.scorer_id == scorer.scorer_id
-            )
-
-            if version is not None:
-                # Get specific version
-                sql_scorer_version = query.filter(
-                    SqlScorerVersion.scorer_version == version
-                ).first()
-                if sql_scorer_version is None:
+            try:
+                sql_scorer_version = self._get_scorer_version(
+                    session=session,
+                    scorer_id=scorer.scorer_id,
+                    version=version,
+                )
+            except MlflowException as e:
+                if e.error_code != ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+                    raise
+                if version is not None:
                     raise MlflowException(
                         f"Scorer with name '{name}' and version {version} not found for "
                         f"experiment {experiment_id}.",
                         RESOURCE_DOES_NOT_EXIST,
-                    )
-            else:
-                # Get maximum version
-                sql_scorer_version = query.order_by(SqlScorerVersion.scorer_version.desc()).first()
-                if sql_scorer_version is None:
-                    raise MlflowException(
-                        f"Scorer with name '{name}' not found for experiment {experiment_id}.",
-                        RESOURCE_DOES_NOT_EXIST,
-                    )
+                    ) from e
+                raise MlflowException(
+                    f"Scorer with name '{name}' not found for experiment {experiment_id}.",
+                    RESOURCE_DOES_NOT_EXIST,
+                ) from e
 
             entity = sql_scorer_version.to_mlflow_entity()
             # Resolve gateway endpoint ID to name before returning
             return self.resolve_endpoint_in_scorer(entity)
+
+    def _get_scorer_version(
+        self,
+        session: Session,
+        scorer_id: str,
+        version: int | None = None,
+    ) -> SqlScorerVersion:
+        scorer = (
+            self._get_query(session, SqlScorer).filter(SqlScorer.scorer_id == scorer_id).first()
+        )
+        if scorer is None:
+            raise MlflowException(
+                f"Scorer with ID '{scorer_id}' not found.",
+                RESOURCE_DOES_NOT_EXIST,
+            )
+
+        query = session.query(SqlScorerVersion).filter(SqlScorerVersion.scorer_id == scorer_id)
+        if version is not None:
+            sql_scorer_version = query.filter(SqlScorerVersion.scorer_version == version).first()
+            if sql_scorer_version is None:
+                raise MlflowException(
+                    f"Scorer with ID '{scorer_id}' and version {version} not found.",
+                    RESOURCE_DOES_NOT_EXIST,
+                )
+        else:
+            sql_scorer_version = query.order_by(SqlScorerVersion.scorer_version.desc()).first()
+            if sql_scorer_version is None:
+                raise MlflowException(
+                    f"Scorer with ID '{scorer_id}' not found.",
+                    RESOURCE_DOES_NOT_EXIST,
+                )
+        return sql_scorer_version
 
     def delete_scorer(self, experiment_id, name, version=None) -> None:
         """
@@ -4548,6 +4575,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             session_id = None
             user_id = None
             root_span_dict = None
+            trace_tags_from_root_attr: dict[str, str] = {}
             for span in trace_spans:
                 span_dict = translate_span_when_storing(span)
                 span_cost = None
@@ -4609,6 +4637,23 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
                 if span.parent_id is None:
                     root_span_dict = span_dict
+                    # Extract user-defined tags emitted by OtelSpanProcessor as
+                    # individual "mlflow.traceTag.<key>" attributes on the root span (OTLP path).
+                    # from_otel_proto JSON-encodes every attribute value once, so one
+                    # _try_parse_json_string call is sufficient to unwrap the plain string value.
+                    prefix = SpanAttributeKey.TRACE_TAG_PREFIX
+                    for attr_key, attr_value in span_attributes.items():
+                        if attr_key.startswith(prefix):
+                            tag_key = attr_key[len(prefix) :]
+                            tag_value = str(_try_parse_json_string(attr_value))
+                            try:
+                                tag_key, tag_value = _validate_trace_tag(tag_key, tag_value)
+                            except Exception:
+                                _logger.debug(
+                                    "Skipping invalid trace tag from OTLP attribute %r", attr_key
+                                )
+                                continue
+                            trace_tags_from_root_attr[tag_key] = tag_value
 
             trace_aggregates[trace_id] = _TraceAggregate(
                 min_start_ms=min_start_ms,
@@ -4620,6 +4665,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 session_id=session_id,
                 user_id=user_id,
                 root_span_dict=root_span_dict,
+                trace_tags=trace_tags_from_root_attr,
             )
 
         with self.ManagedSessionMaker() as session:
@@ -4899,6 +4945,10 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                         value=SpansLocation.TRACKING_STORE.value,
                     )
                 )
+                # Restore user-defined tags carried via mlflow.traceTag.* attributes on the root
+                # span (set by OtelSpanProcessor when the trace was exported over OTLP).
+                for tag_key, tag_value in agg.trace_tags.items():
+                    session.merge(SqlTraceTag(request_id=trace_id, key=tag_key, value=tag_value))
 
         return spans
 
@@ -7234,6 +7284,8 @@ class _TraceAggregate:
     session_id: str | None = None
     user_id: str | None = None
     root_span_dict: dict[str, Any] | None = None
+    # User-defined tags from mlflow.update_current_trace(tags=...) carried via OTLP export
+    trace_tags: dict[str, str] = field(default_factory=dict)
 
 
 # Maximum number of attempts to create trace_info rows in log_spans() Phase 2.

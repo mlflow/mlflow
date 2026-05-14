@@ -76,11 +76,17 @@ _MODALITY_OUTPUT = re.compile(r"^output_cost_per_([a-z0-9_]+)_token$")
 _MODALITY_CACHE_READ = re.compile(r"^cache_read_input_([a-z0-9_]+)_token_cost$")
 _MODALITY_CACHE_WRITE = re.compile(r"^cache_creation_input_([a-z0-9_]+)_token_cost$")
 _MODALITY_CACHE_READ_ALT = re.compile(r"^cache_read_input_token_cost_per_([a-z0-9_]+)_token$")
+_FLAT_INPUT_PER_SECOND = re.compile(r"^input_cost_per_([a-z]+)_per_second$")
 _EXCLUDED_MODALITIES = {"reasoning"}
 
 
 def _extract_modality_pricing(info: dict[str, Any]) -> dict[str, dict[str, float]]:
-    """Extract modality-specific pricing (audio/image/etc) as per-million-token rates."""
+    """Extract modality-specific pricing (audio/image/video/etc) as per-million-token rates.
+
+    Keyed-per-token keys (e.g. input_cost_per_image_token) are scaled to per-million and
+    stored under input_per_million_tokens for the modality.
+    Per-second rates (e.g. input_cost_per_video_per_second) are stored as input_per_second.
+    """
     modalities: dict[str, dict[str, float]] = {}
     for k, v in info.items():
         if m := _MODALITY_INPUT.match(k):
@@ -111,6 +117,9 @@ def _extract_modality_pricing(info: dict[str, Any]) -> dict[str, dict[str, float
                 continue
             modality_entry = modalities.setdefault(modality, {})
             modality_entry["cache_read_per_million_tokens"] = _to_per_million(v)
+        elif m := _FLAT_INPUT_PER_SECOND.match(k):
+            modality = m.group(1)
+            modalities.setdefault(modality, {})["input_per_second"] = v
 
     return modalities
 

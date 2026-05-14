@@ -93,6 +93,9 @@ export const CreateUserModal = ({ open, onClose }: CreateUserModalProps) => {
         }
       }
       queryClient.invalidateQueries({ queryKey: AccountQueryKeys.userRoles(trimmedUsername) });
+      // The Admin Users tab eager-loads each user's roles via
+      // ``useUsersQuery``; invalidate so the new assignments show up.
+      queryClient.invalidateQueries({ queryKey: AdminQueryKeys.users });
       for (const roleId of roleValue.roleIds) {
         queryClient.invalidateQueries({ queryKey: AdminQueryKeys.roleUsers(roleId) });
       }

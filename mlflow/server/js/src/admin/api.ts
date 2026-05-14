@@ -65,10 +65,11 @@ export const AdminApi = {
     }) as Promise<RoleResponse>;
   },
 
-  listRoles: (workspace?: string) => {
+  listRoles: (workspaces?: string | readonly string[]) => {
     const params = new URLSearchParams();
-    if (workspace) {
-      params.append('workspace', workspace);
+    const list = workspaces === undefined ? [] : typeof workspaces === 'string' ? [workspaces] : workspaces;
+    for (const w of list) {
+      if (w) params.append('workspace', w);
     }
     // Drop the trailing ``?`` when there are no params - the unconditional
     // ``join('?')`` produced ``.../list?`` which clutters logs and breaks

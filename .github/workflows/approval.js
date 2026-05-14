@@ -63,6 +63,12 @@ function hasAnyApproval(reviews) {
 }
 
 module.exports = async ({ github, context, core }) => {
+  const { pull_request: pr } = context.payload;
+  const authorLogin = pr?.user?.login;
+  if (authorLogin === "mlflow-app[bot]") {
+    return;
+  }
+
   const maintainers = await getMaintainers({ github, context });
   const reviews = await github.paginate(github.rest.pulls.listReviews, {
     owner: context.repo.owner,
@@ -75,9 +81,6 @@ module.exports = async ({ github, context, core }) => {
       (maintainers.includes(user.login) ||
         (user.type.toLowerCase() === "bot" && user.login === "mlflow-app[bot]"))
   );
-
-  const { pull_request: pr } = context.payload;
-  const authorLogin = pr?.user?.login;
 
   const files = await github.paginate(github.rest.pulls.listFiles, {
     owner: context.repo.owner,

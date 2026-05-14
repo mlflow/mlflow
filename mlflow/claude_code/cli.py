@@ -28,6 +28,14 @@ def commands():
 @click.option("--experiment-name", "-n", help="MLflow experiment name")
 @click.option("--disable", is_flag=True, help="Disable Claude tracing in the specified directory")
 @click.option("--status", is_flag=True, help="Show current tracing status")
+@click.option(
+    "--mlflow-cmd",
+    default=None,
+    help=(
+        "Custom command to invoke mlflow in the hook (e.g., 'pixi run -e myenv mlflow'). "
+        "Defaults to auto-detection based on the current environment."
+    ),
+)
 @click.pass_context
 def claude(
     ctx: click.Context,
@@ -37,6 +45,7 @@ def claude(
     experiment_name: str | None,
     disable: bool,
     status: bool,
+    mlflow_cmd: str | None,
 ) -> None:
     """Set up Claude Code tracing in a directory.
 
@@ -58,12 +67,20 @@ def claude(
       # Set up tracing with custom tracking URI
       mlflow autolog claude -u file://./custom-mlruns
 
+      # Set up tracing with pixi environment manager
+      mlflow autolog claude --mlflow-cmd "pixi run -e myenv mlflow"
+
       # Disable tracing in current directory
       mlflow autolog claude --disable
     """
     # Skip setup when a subcommand (e.g., stop-hook) is being invoked
     if ctx.invoked_subcommand is not None:
         return
+
+    if mlflow_cmd is not None and not mlflow_cmd.strip():
+        raise click.BadParameter(
+            "must not be empty or whitespace-only", param_hint="'--mlflow-cmd'"
+        )
 
     target_dir = Path(directory).resolve()
     claude_dir = target_dir / ".claude"
@@ -81,7 +98,7 @@ def claude(
 
     # Create .claude directory and set up hooks
     claude_dir.mkdir(parents=True, exist_ok=True)
-    setup_hooks_config(settings_file)
+    setup_hooks_config(settings_file, mlflow_cmd=mlflow_cmd)
     click.echo("✅ Claude Code hooks configured")
 
     # Set up environment variables
