@@ -1845,7 +1845,9 @@ def test_initialize_logged_model_tags_from_context():
         ) as m_get_source_type,
         mock.patch(
             "mlflow.tracking.context.git_context._resolve_git_info",
-            return_value={mlflow_tags.MLFLOW_GIT_COMMIT: expected_tags[mlflow_tags.MLFLOW_GIT_COMMIT]},
+            return_value={
+                mlflow_tags.MLFLOW_GIT_COMMIT: expected_tags[mlflow_tags.MLFLOW_GIT_COMMIT]
+            },
         ) as m_get_source_version,
     ):
         model = mlflow.initialize_logged_model()

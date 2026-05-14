@@ -17,7 +17,10 @@ from mlflow.utils.git_utils import _strip_credentials_from_url
         # git:// URL form with embedded userinfo
         ("git://user:secret@host/repo.git", "git://host/repo.git"),
         # Preserve port
-        ("https://user:token@host.example.com:8080/repo.git", "https://host.example.com:8080/repo.git"),
+        (
+            "https://user:token@host.example.com:8080/repo.git",
+            "https://host.example.com:8080/repo.git",
+        ),
         # Preserve query + fragment
         ("https://user@host/repo.git?foo=bar#section", "https://host/repo.git?foo=bar#section"),
         # No-op: HTTPS without credentials
