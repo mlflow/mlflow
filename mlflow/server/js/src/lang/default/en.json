@@ -455,6 +455,10 @@
     "defaultMessage": "No image logged at this step",
     "description": "Experiment tracking > runs charts > charts > image plot with history > no image text"
   },
+  "0ZcmHR": {
+    "defaultMessage": "repository",
+    "description": "Dropdown label for the git repository tag in the run search autocomplete"
+  },
   "0eoz8L": {
     "defaultMessage": "Hour",
     "description": "Time unit: hour"
@@ -3479,6 +3483,10 @@
     "defaultMessage": "{count} {count, plural, one {value} other {values}}",
     "description": "Tag showing the number of unique string values in session assessment"
   },
+  "J01BlU": {
+    "defaultMessage": "commit",
+    "description": "Dropdown label for the git commit tag in the run search autocomplete"
+  },
   "J2IXIT": {
     "defaultMessage": "Create Guardrail",
     "description": "Title for create guardrail modal"
@@ -4627,6 +4635,10 @@
     "defaultMessage": "Maximum of {max} sessions can be selected",
     "description": "Tooltip shown when too many sessions are selected"
   },
+  "Pogv4g": {
+    "defaultMessage": "Derived from tag {key}",
+    "description": "Tooltip on eval runs table column headers that come from a git source tag, explaining the underlying tag key"
+  },
   "Potju2": {
     "defaultMessage": "Restore",
     "description": "String for the restore button to undo the experiments that were deleted"
@@ -5707,6 +5719,10 @@
     "defaultMessage": "Cost: {input} in / {output} out",
     "description": "Model cost per token"
   },
+  "WG1R+I": {
+    "defaultMessage": "Git repository",
+    "description": "Column header and group label for the git repository tag in the eval runs table"
+  },
   "WGN2f3": {
     "defaultMessage": "Register model",
     "description": "Run page > Header > Register model dropdown > Button label when some models are not registered"
@@ -6062,6 +6078,10 @@
   "YKE3h7": {
     "defaultMessage": "Define custom instructions for LLM-based evaluation. {learnMore}",
     "description": "Hint text for Instructions section with documentation link"
+  },
+  "YL73JL": {
+    "defaultMessage": "repository",
+    "description": "Dropdown label for the git repository tag in eval runs Columns / Group by selectors"
   },
   "YLMjFk": {
     "defaultMessage": "Reasoning",
@@ -6898,6 +6918,10 @@
   "cy9EfG": {
     "defaultMessage": "Attributes",
     "description": "Experiment page > group by runs control > attributes section label"
+  },
+  "cyh9MU": {
+    "defaultMessage": "Git",
+    "description": "Section header for git source tags in the eval runs Columns selector"
   },
   "d00egE": {
     "defaultMessage": "No span with type RETRIEVER found in trace.",
@@ -8019,6 +8043,10 @@
     "defaultMessage": "Select the experiment you configured above.",
     "description": "Instruction to select the experiment configured for traces"
   },
+  "j4uHfd": {
+    "defaultMessage": "branch",
+    "description": "Dropdown label for the git branch tag in the run search autocomplete"
+  },
   "j4vtTO": {
     "defaultMessage": "Save aliases",
     "description": "Alias editor > Confirm change of aliases"
@@ -8038,6 +8066,10 @@
   "jClVwe": {
     "defaultMessage": "Point the OTLP exporter at this MLflow server by setting these environment variables. See the <a>OpenTelemetry export docs</a> for the full reference.",
     "description": "Step 1 description for OpenTelemetry traces onboarding"
+  },
+  "jFQW9u": {
+    "defaultMessage": "commit",
+    "description": "Dropdown label for the git commit tag in eval runs Columns / Group by selectors"
   },
   "jFk49l": {
     "defaultMessage": "Quick-start with a popular model below, or create an endpoint from 60+ providers and all their supported models.",
@@ -8158,6 +8190,10 @@
   "js4/Y8": {
     "defaultMessage": "You can also <link>register it to the model registry</link> to version control",
     "description": "Sub text to tell the users where one can go to register the model artifact"
+  },
+  "jsGnTA": {
+    "defaultMessage": "Git commit",
+    "description": "Column header and group label for the git commit tag in the eval runs table"
   },
   "jwALGI": {
     "defaultMessage": "Cancel",
@@ -9103,6 +9139,10 @@
     "defaultMessage": "Delete prompt",
     "description": "A header for the delete prompt modal"
   },
+  "p5rx6l": {
+    "defaultMessage": "Git branch",
+    "description": "Column header and group label for the git branch tag in the eval runs table"
+  },
   "pBUaAK": {
     "defaultMessage": "Are you sure you want to delete this tag？",
     "description": "Title text for confirmation pop-up to delete a tag from table\n                     in MLflow"
@@ -9154,6 +9194,10 @@
   "pU6cxH": {
     "defaultMessage": "Add",
     "description": "Model registry > model version table > aliases column > 'add' button label"
+  },
+  "pV7MzC": {
+    "defaultMessage": "Git",
+    "description": "Section header for git source tags in a 'group by' selector"
   },
   "pVF+2s": {
     "defaultMessage": "Show less",
@@ -10422,6 +10466,10 @@
   "x+e1xE": {
     "defaultMessage": "Is tool usage efficient throughout the conversation?",
     "description": "Hint for ConversationalToolCallEfficiency template"
+  },
+  "x/SW+S": {
+    "defaultMessage": "branch",
+    "description": "Dropdown label for the git branch tag in eval runs Columns / Group by selectors"
   },
   "x/YJtF": {
     "defaultMessage": "MLflow MCP server",
