@@ -17,7 +17,6 @@ from mlflow.environment_variables import (
     MLFLOW_BOTO_CLIENT_ADDRESSING_STYLE,
     MLFLOW_S3_ENDPOINT_URL,
     MLFLOW_S3_EXPECTED_BUCKET_OWNER,
-    MLFLOW_S3_IGNORE_DIRECTORY_MARKERS,
     MLFLOW_S3_IGNORE_TLS,
     MLFLOW_S3_UPLOAD_EXTRA_ARGS,
 )
@@ -430,10 +429,7 @@ class S3ArtifactRepository(
             for obj in result.get("Contents", []):
                 file_path = obj.get("Key")
                 file_size = int(obj.get("Size"))
-                if (
-                    MLFLOW_S3_IGNORE_DIRECTORY_MARKERS
-                    and self._file_is_directory_marker(file_path, file_size)
-                ):
+                if self._file_is_directory_marker(file_path, file_size):
                     continue
 
                 self._verify_listed_object_contains_artifact_path_prefix(
