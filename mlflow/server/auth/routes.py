@@ -82,3 +82,14 @@ GATEWAY_SUPPORTED_MODELS = _get_ajax_path("/mlflow/gateway/supported-models", ve
 GATEWAY_PROVIDER_CONFIG = _get_ajax_path("/mlflow/gateway/provider-config", version=3)
 GATEWAY_SECRETS_CONFIG = _get_ajax_path("/mlflow/gateway/secrets/config", version=3)
 INVOKE_SCORER = _get_ajax_path("/mlflow/scorer/invoke", version=3)
+
+# Online scoring configuration routes (registered manually in handlers.py
+# via get_internal_online_scoring_endpoints; not part of a proto service).
+SCORER_ONLINE_CONFIG_AJAX = _get_ajax_path("/mlflow/scorers/online-config", version=3)
+SCORER_ONLINE_CONFIG_REST = _get_rest_path("/mlflow/scorers/online-config", version=3)
+SCORER_ONLINE_CONFIGS_AJAX = _get_ajax_path("/mlflow/scorers/online-configs", version=3)
+SCORER_ONLINE_CONFIGS_REST = _get_rest_path("/mlflow/scorers/online-configs", version=3)
+
+# Public, unauthenticated UI/telemetry routes (registered manually in
+# mlflow/server/__init__.py; not part of a proto service).
+UI_TELEMETRY_AJAX = _get_ajax_path("/mlflow/ui-telemetry", version=3)

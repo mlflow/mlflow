@@ -143,6 +143,72 @@ def test_proxy_artifact_mpu_validator_returns_update_for_post():
     assert validator is auth_module.validate_can_update_experiment_artifact_proxy
 
 
+@pytest.mark.parametrize(
+    ("path", "method"),
+    [
+        ("/api/2.0/mlflow/__not_a_real_endpoint__", "POST"),
+        ("/ajax-api/3.0/mlflow/__not_a_real_endpoint__", "GET"),
+        # logged-models/webhooks paths fall through the special regex-matching
+        # branches in _find_validator; an unmatched action (extra path segment
+        # not covered by any registered pattern) must fail-closed.
+        ("/api/2.0/mlflow/logged-models/some-id/__no_such_action__", "POST"),
+        ("/api/2.0/mlflow/webhooks/some-id/__no_such_webhook_action__", "GET"),
+        # Workspace-prefixed but parameter pattern does not match any registered route.
+        ("/api/3.0/mlflow/workspaces/foo/__nope__", "GET"),
+    ],
+)
+def test_find_validator_returns_fail_closed_for_unmapped_route(path, method):
+    # Regression test for GHSA-m97m-jq2c-qw46: any (path, method) pair not
+    # registered with a validator must fall through to a fail-closed sentinel
+    # that denies the request, rather than the historical None / fail-open.
+    req = mock.Mock(path=path, method=method)
+    validator = auth_module._find_validator(req)
+    assert callable(validator)
+    assert validator() is False
+
+
+def test_find_validator_returns_allow_through_for_registered_none_validator():
+    # Endpoints that are registered with a None validator (e.g. SearchExperiments,
+    # ListWorkspaces) rely on after-request filtering rather than per-request
+    # permission checks. _find_validator must keep allowing them.
+    req = mock.Mock(path="/api/2.0/mlflow/experiments/search", method="POST")
+    validator = auth_module._find_validator(req)
+    assert callable(validator)
+    assert validator() is True
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/",
+        "/version",
+        "/build/main.js",
+        "/build/static/css/main.css",
+        "/ajax-api/3.0/mlflow/ui-telemetry",
+        "/static/css/x.css",
+        "/favicon.ico",
+        "/health",
+    ],
+)
+def test_is_unprotected_route_allowlist(path):
+    # The genuinely-public UI/health/telemetry routes are explicitly allowlisted
+    # so the fail-closed default in _find_validator does not block them.
+    assert auth_module.is_unprotected_route(path)
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/api/2.0/mlflow/experiments/search",
+        "/api/2.0/mlflow/runs/search",
+        "/api/2.0/mlflow/__not_a_real_endpoint__",
+        "/build",  # missing trailing slash, must not match /build/ prefix
+    ],
+)
+def test_is_unprotected_route_does_not_match_other_paths(path):
+    assert not auth_module.is_unprotected_route(path)
+
+
 def test_proxy_artifact_authorization_required(client, monkeypatch):
     username1, password1 = create_user(client.tracking_uri)
     username2, password2 = create_user(client.tracking_uri)
@@ -1199,6 +1265,141 @@ def test_scorer_read_permission(client, monkeypatch):
         )
         with pytest.raises(requests.HTTPError, match="403"):
             response.raise_for_status()
+
+
+def test_scorer_online_config_requires_permission(client, monkeypatch):
+    # GHSA-m97m-jq2c-qw46: the scorer online-config PUT/GET endpoints used to be
+    # filtered out of BEFORE_REQUEST_VALIDATORS, so any authenticated user could
+    # call them. They are now wired to validate_can_update_scorer_online_config
+    # (PUT) and validate_can_read_scorer_online_configs (GET).
+    username1, password1 = create_user(client.tracking_uri)
+    username2, password2 = create_user(client.tracking_uri)
+
+    with User(username1, password1, monkeypatch):
+        experiment_id = client.create_experiment("scorer-online-config-authz-test")
+
+    scorer_json = '{"name": "test_scorer", "type": "pyfunc"}'
+    with User(username1, password1, monkeypatch):
+        response = _send_rest_tracking_post_request(
+            client.tracking_uri,
+            "/api/3.0/mlflow/scorers/register",
+            json_payload={
+                "experiment_id": experiment_id,
+                "name": "test_scorer",
+                "serialized_scorer": scorer_json,
+            },
+            auth=(username1, password1),
+        )
+    response.raise_for_status()
+    scorer_name = response.json()["name"]
+    scorer_id = response.json()["scorer_id"]
+
+    # Strip user2's default scorer/experiment permissions so the auth layer is
+    # the only thing that decides the response status.
+    _send_rest_tracking_post_request(
+        client.tracking_uri,
+        "/api/3.0/mlflow/scorers/permissions/create",
+        json_payload={
+            "experiment_id": experiment_id,
+            "scorer_name": scorer_name,
+            "username": username2,
+            "permission": "NO_PERMISSIONS",
+        },
+        auth=(username1, password1),
+    )
+    _send_rest_tracking_post_request(
+        client.tracking_uri,
+        "/api/2.0/mlflow/experiments/permissions/create",
+        json_payload={
+            "experiment_id": experiment_id,
+            "username": username2,
+            "permission": "NO_PERMISSIONS",
+        },
+        auth=(username1, password1),
+    )
+
+    # PUT by an unauthorized user must 403 (previously fail-open).
+    with User(username2, password2, monkeypatch):
+        response = requests.put(
+            url=client.tracking_uri + "/api/3.0/mlflow/scorers/online-config",
+            json={
+                "experiment_id": experiment_id,
+                "name": scorer_name,
+                "sample_rate": 0.0,
+            },
+            auth=(username2, password2),
+        )
+    assert response.status_code == 403
+
+    # GET by an unauthorized user must 403 (previously fail-open). Even with no
+    # config yet stored for the scorer, requesting its id reveals nothing if the
+    # auth layer rejects the request first.
+    with User(username2, password2, monkeypatch):
+        response = requests.get(
+            url=client.tracking_uri + "/api/3.0/mlflow/scorers/online-configs",
+            params={"scorer_ids": [scorer_id]},
+            auth=(username2, password2),
+        )
+    # The store returns no configs for a scorer that has never been configured,
+    # so the wrapper validator returns True (nothing to check). To exercise the
+    # 403 branch we instead PUT-then-GET. For PUT we use sample_rate=0 so the
+    # backend skips the gateway-model validation it otherwise enforces.
+    with User(username1, password1, monkeypatch):
+        put_resp = requests.put(
+            url=client.tracking_uri + "/api/3.0/mlflow/scorers/online-config",
+            json={
+                "experiment_id": experiment_id,
+                "name": scorer_name,
+                "sample_rate": 0.0,
+            },
+            auth=(username1, password1),
+        )
+    if put_resp.status_code != 200:
+        raise AssertionError(f"online-config PUT failed: {put_resp.status_code} {put_resp.text}")
+
+    with User(username2, password2, monkeypatch):
+        response = requests.get(
+            url=client.tracking_uri + "/api/3.0/mlflow/scorers/online-configs",
+            params={"scorer_ids": [scorer_id]},
+            auth=(username2, password2),
+        )
+    assert response.status_code == 403
+
+
+def test_unmapped_endpoint_is_fail_closed(client, monkeypatch):
+    # GHSA-m97m-jq2c-qw46: requests to a Flask path that is not registered with
+    # an explicit validator must be denied with 403 rather than allowed through
+    # by the previous fail-open default. We hit /graphql with an unsupported
+    # method (PATCH) so Flask routes the request to the existing /graphql
+    # endpoint but with a method that has no validator entry.
+    # Note: Flask returns 405 for unsupported methods on a registered route
+    # AFTER before_request hooks run, so the auth layer can reject first.
+    username, password = create_user(client.tracking_uri)
+    with User(username, password, monkeypatch):
+        # The /graphql endpoint accepts GET/POST. PATCH is unregistered.
+        response = requests.patch(
+            url=client.tracking_uri + "/graphql",
+            json={},
+            auth=(username, password),
+        )
+    assert response.status_code == 403
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/",
+        "/version",
+        "/ajax-api/3.0/mlflow/ui-telemetry",
+    ],
+)
+def test_unprotected_routes_remain_accessible_without_auth(client, path):
+    # The genuinely-public routes must continue to work without credentials.
+    response = requests.get(client.tracking_uri + path)
+    # Telemetry can return 200/204/empty; version returns 200; "/" serves HTML
+    # or a 404 if the UI bundle is absent in test installs. The important
+    # assertion is that auth (401/403) is not enforced.
+    assert response.status_code not in (401, 403)
 
 
 def _graphql_query(tracking_uri, query, variables=None, auth=None):

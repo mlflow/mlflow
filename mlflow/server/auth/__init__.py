@@ -222,8 +222,13 @@ from mlflow.server.auth.routes import (
     LIST_USER_WORKSPACE_PERMISSIONS,
     LIST_USERS,
     LIST_WORKSPACE_PERMISSIONS,
+    SCORER_ONLINE_CONFIG_AJAX,
+    SCORER_ONLINE_CONFIG_REST,
+    SCORER_ONLINE_CONFIGS_AJAX,
+    SCORER_ONLINE_CONFIGS_REST,
     SEARCH_DATASETS,
     SIGNUP,
+    UI_TELEMETRY_AJAX,
     UPDATE_EXPERIMENT_PERMISSION,
     UPDATE_GATEWAY_ENDPOINT_PERMISSION,
     UPDATE_GATEWAY_MODEL_DEFINITION_PERMISSION,
@@ -237,6 +242,7 @@ from mlflow.server.auth.routes import (
 from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
 from mlflow.server.fastapi_app import create_fastapi_app
 from mlflow.server.handlers import (
+    _add_static_prefix,
     _disable_if_workspaces_disabled,
     _get_ajax_path,
     _get_model_registry_store,
@@ -276,8 +282,29 @@ _RESOURCE_WORKSPACE_CACHE: TTLCache[str, str | None] = TTLCache(
 )
 
 
+# Prefix-matched routes that bypass auth. "/build/" serves the React UI bundle and
+# "/static", "/favicon.ico", "/health" are the original public prefixes. These are
+# intentionally not authenticated because they either serve UI shell content or are
+# used by liveness probes.
+_UNPROTECTED_PATH_PREFIXES = ("/static", "/favicon.ico", "/health", "/build/")
+
+# Exact-match routes that bypass auth. Kept separate from the prefix list so that the
+# UI HTML index "/" does not accidentally match every path. The ui-telemetry endpoints
+# are explicitly public because they return client telemetry config and accept
+# anonymous client-emitted telemetry records (no per-user data).
+_UNPROTECTED_EXACT_PATHS = frozenset({
+    HOME,
+    "/version",
+    UI_TELEMETRY_AJAX,
+})
+
+
 def is_unprotected_route(path: str) -> bool:
-    return path.startswith(("/static", "/favicon.ico", "/health"))
+    prefixed_prefixes = tuple(_add_static_prefix(p) for p in _UNPROTECTED_PATH_PREFIXES)
+    if path.startswith(_UNPROTECTED_PATH_PREFIXES) or path.startswith(prefixed_prefixes):
+        return True
+    prefixed_exact = {_add_static_prefix(p) for p in _UNPROTECTED_EXACT_PATHS}
+    return path in _UNPROTECTED_EXACT_PATHS or path in prefixed_exact
 
 
 def make_basic_auth_response() -> Response:
@@ -1016,6 +1043,46 @@ def validate_can_manage_scorer_permission():
     return _get_permission_from_scorer_permission_request().can_manage
 
 
+def validate_can_update_scorer_online_config():
+    # PUT /mlflow/scorers/online-config accepts {experiment_id, name, sample_rate,
+    # filter_string} in the JSON body. The standard validate_can_update_scorer
+    # uses _get_request_param which does not currently dispatch on PUT, so we
+    # read the body directly here and reuse the same permission lookup.
+    body = request.get_json(silent=True) or {}
+    experiment_id = body.get("experiment_id")
+    name = body.get("name")
+    if not experiment_id or not name:
+        # Missing required params - let the handler return a proper 400. We
+        # cannot make a permission decision without them, so fail closed.
+        return False
+    username = authenticate_request().username
+    permission = _get_permission_from_store_or_default(
+        lambda: store.get_scorer_permission(experiment_id, name, username).permission,
+        workspace_level_permission_func=lambda: _workspace_permission_for_experiment(
+            username, experiment_id
+        ),
+    )
+    return permission.can_update
+
+
+def validate_can_read_scorer_online_configs():
+    # GET /mlflow/scorers/online-configs accepts a list of scorer_ids and does not
+    # include experiment_id/scorer_name in the request, so the standard
+    # validate_can_read_scorer (which reads experiment_id + name) cannot be used.
+    # We resolve scorer_ids -> OnlineScoringConfigs and require the caller to have
+    # read permission on every experiment that owns one of the returned configs.
+    # Scorer ids without a config simply produce nothing in the response (no info
+    # leak), and the empty-input case is allowed since the response is also empty.
+    scorer_ids = request.args.getlist("scorer_ids")
+    if not scorer_ids:
+        return True
+    configs = _get_tracking_store().get_online_scoring_configs(scorer_ids)
+    username = authenticate_request().username
+    return all(
+        _get_experiment_permission(config.experiment_id, username).can_read for config in configs
+    )
+
+
 def sender_is_admin():
     """Validate if the sender is admin"""
     username = authenticate_request().username
@@ -1541,7 +1608,10 @@ BEFORE_REQUEST_HANDLERS = {
     SearchPromptOptimizationJobs: validate_can_read_experiment,
     CancelPromptOptimizationJob: validate_can_update_prompt_optimization_job,
     DeletePromptOptimizationJob: validate_can_delete_prompt_optimization_job,
-    # Workspace routes
+    # Workspace routes. ListWorkspaces uses None to express "any authenticated
+    # user may call; the response is filtered to accessible workspaces by
+    # ``filter_list_workspaces`` in the after-request handler" - this is
+    # handled in ``_find_validator`` via the ``_allow_through`` sentinel.
     ListWorkspaces: None,
     CreateWorkspace: sender_is_admin,
     GetWorkspace: validate_can_view_workspace,
@@ -1638,6 +1708,15 @@ BEFORE_REQUEST_VALIDATORS.update({
     (LIST_WORKSPACE_PERMISSIONS, "POST"): validate_can_modify_workspace_permission,
     (LIST_WORKSPACE_PERMISSIONS, "DELETE"): validate_can_modify_workspace_permission,
     (LIST_USER_WORKSPACE_PERMISSIONS, "GET"): sender_is_admin,
+    # Online scoring config endpoints. Each uses a thin wrapper around the
+    # existing scorer/experiment permission machinery: the PUT wrapper reads
+    # experiment_id + name from the JSON body (the shared _get_request_param
+    # helper does not yet dispatch PUT), and the GET wrapper resolves
+    # scorer_ids -> experiment_ids since the request does not include them.
+    (SCORER_ONLINE_CONFIG_AJAX, "PUT"): validate_can_update_scorer_online_config,
+    (SCORER_ONLINE_CONFIG_REST, "PUT"): validate_can_update_scorer_online_config,
+    (SCORER_ONLINE_CONFIGS_AJAX, "GET"): validate_can_read_scorer_online_configs,
+    (SCORER_ONLINE_CONFIGS_REST, "GET"): validate_can_read_scorer_online_configs,
 })
 
 # Precompile workspace parameterized paths (e.g., workspace_name) for fast matching.
@@ -1766,53 +1845,76 @@ def authenticate_request_basic_auth() -> Authorization | Response:
         return make_basic_auth_response()
 
 
-def _find_validator(req: Request) -> Callable[[], bool] | None:
+def _fail_closed() -> bool:
+    return False
+
+
+def _allow_through() -> bool:
+    # Sentinel for routes that are registered but intentionally have no validator
+    # (e.g. list/search endpoints whose results are filtered in an after-request
+    # handler). The route is known to the auth layer, so the caller is allowed
+    # to proceed - they have already been authenticated by the time this runs.
+    return True
+
+
+def _find_validator(req: Request) -> Callable[[], bool]:
     """
     Finds the validator matching the request path and method.
+
+    Always returns a callable. For (path, method) pairs that are not explicitly
+    registered in any of the validator dicts, returns a fail-closed sentinel
+    that denies the request. Genuinely public routes must be allowlisted via
+    ``is_unprotected_route`` and proxy artifact paths are handled separately
+    via ``_get_proxy_artifact_validator`` in ``_before_request``.
+
+    Routes that are registered but map to ``None`` (e.g. ListWorkspaces,
+    SearchExperiments) are treated as "no permission check needed at this
+    layer" because their responses are filtered after the request runs; for
+    those, ``_allow_through`` is returned.
     """
     if "/mlflow/logged-models" in req.path:
         # logged model routes are not registered in the app
         # so we need to check them manually
-        return next(
-            (
-                v
-                for (pat, method), v in LOGGED_MODEL_BEFORE_REQUEST_VALIDATORS.items()
-                if pat.fullmatch(req.path) and method == req.method
-            ),
-            None,
+        return _resolve_pattern_validator(
+            req, LOGGED_MODEL_BEFORE_REQUEST_VALIDATORS, fallback=_fail_closed
         )
 
     if "/mlflow/webhooks" in req.path:
         # Webhook routes contain path parameters (e.g., /mlflow/webhooks/<webhook_id>)
         # so we need regex matching
-        return next(
-            (
-                v
-                for (pat, method), v in WEBHOOK_BEFORE_REQUEST_VALIDATORS.items()
-                if pat.fullmatch(req.path) and method == req.method
-            ),
-            None,
+        return _resolve_pattern_validator(
+            req, WEBHOOK_BEFORE_REQUEST_VALIDATORS, fallback=_fail_closed
         )
 
-    if validator := BEFORE_REQUEST_VALIDATORS.get((req.path, req.method)):
-        return validator
+    key = (req.path, req.method)
+    if key in BEFORE_REQUEST_VALIDATORS:
+        validator = BEFORE_REQUEST_VALIDATORS[key]
+        return validator if validator is not None else _allow_through
 
     # Workspace permission routes use parameterized path matching (e.g., workspace_name).
     # Only check these when workspaces are enabled to avoid unnecessary regex matching.
     if MLFLOW_ENABLE_WORKSPACES.get():
-        return _get_workspace_validator(req)
+        validator = _get_workspace_validator(req)
+        return validator if validator is not None else _fail_closed
 
     if "/workspaces/" not in req.path:
-        return None
+        return _fail_closed
 
     # Regex matching for parameterized workspace paths.
-    for (path, method), candidate in WORKSPACE_PARAMETERIZED_BEFORE_REQUEST_VALIDATORS.items():
-        if method != req.method:
-            continue
-        if path.fullmatch(req.path):
-            return candidate
+    return _resolve_pattern_validator(
+        req, WORKSPACE_PARAMETERIZED_BEFORE_REQUEST_VALIDATORS, fallback=_fail_closed
+    )
 
-    return None
+
+def _resolve_pattern_validator(
+    req: Request,
+    table: dict[tuple[re.Pattern, str], Callable[[], bool] | None],
+    fallback: Callable[[], bool],
+) -> Callable[[], bool]:
+    for (pat, method), candidate in table.items():
+        if method == req.method and pat.fullmatch(req.path):
+            return candidate if candidate is not None else _allow_through
+    return fallback
 
 
 def _get_workspace_validator(req: Request) -> Callable[[], bool] | None:
@@ -1845,14 +1947,21 @@ def _before_request():
     if sender_is_admin():
         return
 
-    # authorization
-    if validator := _find_validator(request):
-        if not validator():
-            return make_forbidden_response()
-    elif _is_proxy_artifact_path(request.path):
+    # Proxy artifact paths use a separate validator-lookup mechanism keyed on
+    # method + view args rather than (path, method). Handle them up front so the
+    # strict fail-closed default below does not block legitimate artifact access.
+    if _is_proxy_artifact_path(request.path):
         if validator := _get_proxy_artifact_validator(request.method, request.view_args):
             if not validator():
                 return make_forbidden_response()
+        return
+
+    # All other routes go through _find_validator, which returns a fail-closed
+    # sentinel for any (path, method) pair not explicitly registered. This
+    # prevents new endpoints from being silently exposed if a developer forgets
+    # to add a corresponding validator entry.
+    if not _find_validator(request)():
+        return make_forbidden_response()
 
 
 def set_can_manage_experiment_permission(resp: Response):
