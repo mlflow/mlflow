@@ -536,6 +536,7 @@ def test_get_experiment_by_name():
             name="abc",
             artifact_location="/abc",
             lifecycle_stage=LifecycleStage.ACTIVE,
+            effective_trace_archival_retention="30d",
         )
         response.text = json.dumps({
             "experiment": json.loads(message_to_json(experiment.to_proto()))
@@ -554,6 +555,7 @@ def test_get_experiment_by_name():
         assert result.name == experiment.name
         assert result.artifact_location == experiment.artifact_location
         assert result.lifecycle_stage == experiment.lifecycle_stage
+        assert result.effective_trace_archival_retention == "30d"
         # Test GetExperimentByName against nonexistent experiment
         mock_http.reset_mock()
         nonexistent_exp_response = mock.MagicMock()

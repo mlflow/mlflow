@@ -7,7 +7,10 @@ for users.
 
 import click
 
-from mlflow.environment_variables import MLFLOW_WORKSPACE
+from mlflow.environment_variables import (
+    MLFLOW_TRACE_ARCHIVAL_LONG_RETENTION_ALLOWLIST,
+    MLFLOW_WORKSPACE,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.store.tracking import (
     DEFAULT_ARTIFACTS_URI,
@@ -67,6 +70,10 @@ def artifacts_only_config_validation(
     artifacts_only: bool,
     backend_store_uri: str,
     enable_workspaces: bool = False,
+    trace_archival_location: str | None = None,
+    trace_archival_retention: str | None = None,
+    trace_archival_long_retention_allowlist: str | None = None,
+    trace_archival_long_retention_allowlist_source: str | None = None,
 ) -> None:
     if artifacts_only and enable_workspaces:
         # Workspace mode relies on a workspace provider to resolve the default workspace and seed
@@ -81,3 +88,37 @@ def artifacts_only_config_validation(
             "properly proxy access to the artifact storage location."
         )
         raise click.UsageError(message=msg)
+    if not artifacts_only:
+        return
+
+    unsupported_trace_archival_options = []
+    if trace_archival_location is not None:
+        unsupported_trace_archival_options.append("--trace-archival-location")
+    if trace_archival_retention is not None:
+        unsupported_trace_archival_options.append("--trace-archival-retention")
+    if trace_archival_long_retention_allowlist is not None:
+        unsupported_trace_archival_options.append(
+            trace_archival_long_retention_allowlist_source
+            or MLFLOW_TRACE_ARCHIVAL_LONG_RETENTION_ALLOWLIST.name
+        )
+
+    if unsupported_trace_archival_options:
+        options = ", ".join(unsupported_trace_archival_options)
+        raise click.UsageError(
+            f"{options} cannot be combined with --artifacts-only because artifact-only servers "
+            "do not initialize the tracking store required for server-owned trace archival."
+        )
+
+
+def trace_archival_config_validation(
+    trace_archival_location: str | None = None,
+    trace_archival_retention: str | None = None,
+    trace_archival_long_retention_allowlist: str | None = None,
+) -> None:
+    if trace_archival_location is None and (
+        trace_archival_retention is not None or trace_archival_long_retention_allowlist is not None
+    ):
+        raise click.UsageError(
+            "Server-owned trace archival requires --trace-archival-location to be configured "
+            "explicitly."
+        )

@@ -2816,6 +2816,9 @@ message Experiment {
 
   // Tags: Additional metadata key-value pairs.
   repeated ExperimentTag tags = 7;
+
+  // Effective trace archival retention after broader-scope and experiment overrides are applied.
+  optional string effective_trace_archival_retention = 8;
 }
 
 // DatasetInput. Represents a dataset and input tags.

@@ -415,7 +415,8 @@ class ArtifactRepository:
         Download archived trace data from ``traces.pb``.
 
         Returns:
-            The archived trace data.
+            The archived trace data. If the archived payload is missing, returns an empty
+            ``TraceData`` so callers can continue surfacing trace metadata.
         """
         from mlflow.tracing.otel.otel_archival import TRACE_ARCHIVAL_FILENAME
 
@@ -423,8 +424,13 @@ class ArtifactRepository:
             temp_file = Path(temp_dir, TRACE_ARCHIVAL_FILENAME)
             try:
                 self._download_file(TRACE_ARCHIVAL_FILENAME, temp_file)
-            except Exception as e:
-                raise MlflowTraceDataNotFound(artifact_path=TRACE_ARCHIVAL_FILENAME) from e
+            except Exception:
+                _logger.warning(
+                    "Archived trace payload is missing for path=%s; returning empty spans.",
+                    TRACE_ARCHIVAL_FILENAME,
+                    exc_info=_logger.isEnabledFor(logging.DEBUG),
+                )
+                return TraceData(spans=[])
             return TraceData(spans=_try_read_trace_data_pb(temp_file))
 
     def download_trace_attachment(self, path: str) -> bytes:

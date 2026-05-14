@@ -317,7 +317,7 @@ class AbstractStore(GatewayStoreMixin):
             raise MlflowException.invalid_parameter_value(
                 "Either `max_timestamp_millis` or `trace_ids` must be specified.",
             )
-        if max_timestamp_millis and trace_ids:
+        if max_timestamp_millis is not None and trace_ids:
             raise MlflowException.invalid_parameter_value(
                 "Only one of `max_timestamp_millis` and `trace_ids` can be specified.",
             )
@@ -419,7 +419,10 @@ class AbstractStore(GatewayStoreMixin):
         Args:
             default_trace_archival_location: Broader-scope archival repository root for this
                 archival pass. Implementations may override it with workspace-specific
-                configuration, but callers must supply a broader-scope default explicitly.
+                configuration, but callers must supply a concrete broader-scope default
+                explicitly. Orchestrator is responsible for resolving any fallback semantics
+                (for example, deriving an effective archival location from artifact storage)
+                before invoking this method.
             default_retention: Broader-scope default retention in the form ``<int><unit>`` where
                 unit is one of ``m``, ``h``, or ``d``. Callers must supply it explicitly.
             long_retention_allowlist: Experiment IDs allowed to exceed the broader-scope

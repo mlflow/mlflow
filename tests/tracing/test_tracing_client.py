@@ -113,6 +113,33 @@ def test_batch_get_traces_without_location_for_archive_repo():
     mock_download.assert_called_once_with(archived_trace.info)
 
 
+def test_batch_get_traces_returns_empty_archived_trace_when_payload_missing():
+    mock_store = Mock()
+    trace_info = TraceInfo(
+        trace_id="id1",
+        trace_location=TraceLocation.from_experiment_id("0"),
+        request_time=1000,
+        state=TraceState.OK,
+        tags={
+            TraceTagKey.SPANS_LOCATION: SpansLocation.ARCHIVE_REPO,
+            TraceTagKey.ARCHIVE_LOCATION: "s3://bucket/archive/id1",
+        },
+    )
+    mock_store.batch_get_trace_infos.return_value = [trace_info]
+    mock_archive_repo = Mock()
+    mock_archive_repo.download_archived_trace_data.return_value = TraceData(spans=[])
+
+    with patch("mlflow.tracing.client._get_store", return_value=mock_store):
+        client = TracingClient()
+        with patch.object(client, "_get_archive_repo_for_trace", return_value=mock_archive_repo):
+            traces = client.batch_get_traces(["id1"])
+
+    assert [trace.info.trace_id for trace in traces] == ["id1"]
+    assert traces[0].data.spans == []
+    mock_store.batch_get_traces.assert_not_called()
+    mock_archive_repo.download_archived_trace_data.assert_called_once()
+
+
 @pytest.mark.parametrize(
     "tags",
     [{}, {TraceTagKey.SPANS_LOCATION: SpansLocation.ARCHIVE_REPO}],
