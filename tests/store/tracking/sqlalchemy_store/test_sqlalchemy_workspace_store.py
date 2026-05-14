@@ -2310,3 +2310,84 @@ def test_guardrails_are_workspace_scoped(gateway_workspace_store):
         guardrails = gateway_workspace_store.list_gateway_guardrails()
         assert len(guardrails) == 1
         assert guardrails[0].guardrail_id == guardrail_a.guardrail_id
+
+
+def test_search_traces_cross_tenant_assessment_filter(workspace_tracking_store):
+    """Regression test: Verify session-scoped assessment filter is workspace-isolated.
+    
+    This test ensures that a session-scoped assessment placed in workspace A
+    doesn't leak to workspace B, even when both workspaces have traces with
+    the same session.id.
+    """
+    from mlflow.entities.assessment import AssessmentSource, AssessmentSourceType, Feedback
+
+    session_id = "shared-session-id"
+
+    # Workspace A: Create experiment and traces with shared session ID
+    with WorkspaceContext("team-assessment-ws-a"):
+        exp_a = workspace_tracking_store.create_experiment("exp-assessment-ws-a")
+        _create_trace(
+            workspace_tracking_store,
+            "trace-a1",
+            exp_a,
+            request_time=1000,
+            trace_metadata={TraceMetadataKey.TRACE_SESSION: session_id},
+        )
+        _create_trace(
+            workspace_tracking_store,
+            "trace-a2",
+            exp_a,
+            request_time=2000,
+            trace_metadata={TraceMetadataKey.TRACE_SESSION: session_id},
+        )
+
+        # Add session-scoped assessment in workspace A
+        feedback_a = Feedback(
+            trace_id="trace-a1",
+            name="session_quality",
+            value="good",
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.HUMAN,
+                source_id="user@example.com",
+            ),
+            metadata={TraceMetadataKey.TRACE_SESSION: session_id},
+        )
+        workspace_tracking_store.create_assessment(feedback_a)
+
+    # Workspace B: Create experiment and traces with same session ID
+    with WorkspaceContext("team-assessment-ws-b"):
+        exp_b = workspace_tracking_store.create_experiment("exp-assessment-ws-b")
+        _create_trace(
+            workspace_tracking_store,
+            "trace-b1",
+            exp_b,
+            request_time=1500,
+            trace_metadata={TraceMetadataKey.TRACE_SESSION: session_id},
+        )
+        _create_trace(
+            workspace_tracking_store,
+            "trace-b2",
+            exp_b,
+            request_time=2500,
+            trace_metadata={TraceMetadataKey.TRACE_SESSION: session_id},
+        )
+
+        # Search for the assessment from workspace A - should return nothing
+        # (the assessment filter is workspace-scoped)
+        traces, _ = workspace_tracking_store.search_traces(
+            [exp_b], filter_string='feedback.session_quality = "good"'
+        )
+        trace_ids = {t.request_id for t in traces}
+        assert trace_ids == set(), (
+            f"Workspace B should not see workspace A's assessments, "
+            f"but got traces: {trace_ids}"
+        )
+
+    # Verify workspace A still sees its own assessment correctly
+    with WorkspaceContext("team-assessment-ws-a"):
+        traces, _ = workspace_tracking_store.search_traces(
+            [exp_a], filter_string='feedback.session_quality = "good"'
+        )
+        trace_ids = {t.request_id for t in traces}
+        # Session-scoped assessment should expand to all traces in the session
+        assert trace_ids == {"trace-a1", "trace-a2"}

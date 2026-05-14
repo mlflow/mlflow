@@ -3963,7 +3963,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     f"No trace tag with key '{key}' for trace with ID '{trace_id}'",
                     RESOURCE_DOES_NOT_EXIST,
                 )
-            session.commit()
 
     def _delete_traces(
         self,
@@ -6835,13 +6834,21 @@ def _get_orderby_clauses_for_search_traces(order_by_list: list[str], session):
     return select_clauses, clauses, ordering_joins
 
 
-def _get_session_scoped_trace_ids(session, assessment_filters, traces_query=None):
+def _get_session_scoped_trace_ids(session, assessment_filters, traces_query: Query):
     """Find all trace IDs covered by session-scoped assessments matching the given filters.
 
     Two-step approach:
     1. Find session IDs that have a matching session-scoped assessment.
     2. Find all trace IDs belonging to those sessions.
+    
+    Args:
+        session: SQLAlchemy session
+        assessment_filters: List of filters to apply to assessments
+        traces_query: Query object that filters traces to the active workspace (required)
     """
+    # Build subquery for valid trace IDs (workspace-filtered)
+    valid_trace_ids = traces_query.with_entities(SqlTraceInfo.request_id).subquery()
+    
     session_ids_query = (
         session
         .query(SqlTraceMetadata.value)
@@ -6851,29 +6858,20 @@ def _get_session_scoped_trace_ids(session, assessment_filters, traces_query=None
             *assessment_filters,
             SqlAssessments.assessment_metadata.isnot(None),
             SqlAssessments.assessment_metadata.contains(f'"{TraceMetadataKey.TRACE_SESSION}":'),
+            SqlTraceMetadata.request_id.in_(select(valid_trace_ids.c.request_id)),
         )
     )
-
-    if traces_query is not None:
-        valid_trace_ids = traces_query.with_entities(SqlTraceInfo.request_id).subquery()
-        session_ids_query = session_ids_query.filter(
-            SqlTraceMetadata.request_id.in_(select(valid_trace_ids.c.request_id))
-        )
 
     result_query = session.query(SqlTraceMetadata.request_id).filter(
         SqlTraceMetadata.key == TraceMetadataKey.TRACE_SESSION,
         SqlTraceMetadata.value.in_(session_ids_query),
+        SqlTraceMetadata.request_id.in_(select(valid_trace_ids.c.request_id)),
     )
-
-    if traces_query is not None:
-        result_query = result_query.filter(
-            SqlTraceMetadata.request_id.in_(select(valid_trace_ids.c.request_id))
-        )
 
     return result_query
 
 
-def _get_filter_clauses_for_search_traces(filter_string, session, dialect, traces_query=None):
+def _get_filter_clauses_for_search_traces(filter_string, session, dialect, traces_query: Query):
     """
     Creates trace attribute filters and subqueries that will be inner-joined
     to SqlTraceInfo to act as multi-clause filters and return them as a tuple.
