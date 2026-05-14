@@ -4,6 +4,7 @@ import pytest
 
 import mlflow.tracing.trace_archival_config as trace_archival_config_module
 from mlflow.environment_variables import MLFLOW_TRACE_ARCHIVAL_CONFIG
+from mlflow.exceptions import MlflowException
 from mlflow.tracing.trace_archival_config import get_trace_archival_server_config
 
 
@@ -12,21 +13,60 @@ def reset_trace_archival_server_config_cache(monkeypatch):
     monkeypatch.setattr(trace_archival_config_module, "_TRACE_ARCHIVAL_SERVER_CONFIG_CACHE", None)
 
 
+def _write_trace_archival_config_lines(tmp_path, lines):
+    config_path = tmp_path / "trace-archival.yaml"
+    config_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return config_path
+
+
 def _write_trace_archival_config(tmp_path, *, retention="30d"):
     archive_path = tmp_path / "archive"
     archive_path.mkdir(exist_ok=True)
-    config_path = tmp_path / "trace-archival.yaml"
-    config_path.write_text(
-        "\n".join([
+    return _write_trace_archival_config_lines(
+        tmp_path,
+        [
             "trace_archival:",
             "  enabled: true",
             f"  location: {archive_path.as_uri()}",
             f"  retention: {retention}",
-        ])
-        + "\n",
-        encoding="utf-8",
+        ],
     )
-    return config_path
+
+
+def test_get_trace_archival_server_config_rejects_null_location(monkeypatch, tmp_path):
+    config_path = _write_trace_archival_config_lines(
+        tmp_path,
+        [
+            "trace_archival:",
+            "  enabled: true",
+            "  location:",
+            "  retention: 30d",
+        ],
+    )
+    monkeypatch.setenv(MLFLOW_TRACE_ARCHIVAL_CONFIG.name, str(config_path))
+
+    with pytest.raises(MlflowException, match="trace_archival.location") as exc_info:
+        get_trace_archival_server_config()
+
+    assert "Expected a URI string." in exc_info.value.message
+
+
+def test_get_trace_archival_server_config_rejects_null_retention(monkeypatch, tmp_path):
+    config_path = _write_trace_archival_config_lines(
+        tmp_path,
+        [
+            "trace_archival:",
+            "  enabled: true",
+            f"  location: {(tmp_path / 'archive').as_uri()}",
+            "  retention:",
+        ],
+    )
+    monkeypatch.setenv(MLFLOW_TRACE_ARCHIVAL_CONFIG.name, str(config_path))
+
+    with pytest.raises(MlflowException, match="trace_archival.retention") as exc_info:
+        get_trace_archival_server_config()
+
+    assert "Expected a duration in the form" in exc_info.value.message
 
 
 def test_get_trace_archival_server_config_uses_cached_value_before_expiry(monkeypatch, tmp_path):

@@ -6152,55 +6152,6 @@ def test_archive_traces_preserves_trace_attachment_location(store: SqlAlchemySto
     )
 
 
-def test_archive_traces_raises_when_default_root_is_unset_and_no_workspace_override(
-    store: SqlAlchemyStore, workspaces_enabled: bool
-):
-    if workspaces_enabled:
-        workspace_store = store._get_workspace_provider_instance()
-        workspace_store.update_workspace(
-            Workspace(
-                name=DEFAULT_WORKSPACE_NAME,
-                trace_archival_location="",
-            )
-        )
-
-    exp_id = store.create_experiment("archive-default-root")
-    now_millis = 15 * 24 * 60 * 60 * 1000
-    trace_id = "tr-archive-default-root"
-    request_time = now_millis - 2 * 24 * 60 * 60 * 1000  # 2 days old
-
-    _create_trace(store, trace_id, exp_id, request_time=request_time)
-    store.log_spans(
-        exp_id,
-        [
-            create_test_span(
-                trace_id,
-                span_id=113,
-                start_ns=request_time * 1_000_000,
-                end_ns=(request_time + 1_000) * 1_000_000,
-            )
-        ],
-    )
-    with pytest.raises(MlflowException, match="default_trace_archival_location") as exc_info:
-        _archive_traces(
-            store,
-            default_trace_archival_location=None,
-            default_retention="1d",
-            now_millis=now_millis,
-        )
-    assert exc_info.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
-
-
-def test_archive_traces_raises_when_default_retention_is_unset(store: SqlAlchemyStore):
-    with pytest.raises(MlflowException, match="default_retention") as exc_info:
-        _archive_traces(
-            store=store,
-            default_trace_archival_location="s3://archive/default",
-            default_retention=None,
-        )
-    assert exc_info.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
-
-
 def test_archive_traces_rejects_proxy_only_default_root(store: SqlAlchemyStore):
     with pytest.raises(MlflowException, match="proxy-only `mlflow-artifacts:` scheme") as exc_info:
         _archive_traces(
