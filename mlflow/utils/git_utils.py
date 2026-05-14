@@ -1,13 +1,31 @@
 import logging
 import os
+from urllib.parse import urlsplit, urlunsplit
 
 _logger = logging.getLogger(__name__)
+
+
+def _strip_credentials_from_url(url: str) -> str:
+    """
+    Strip any embedded userinfo (username/password) from a URL so it's safe to record as a tag.
+
+    HTTP(S) and similar remotes can carry credentials in the form
+    ``https://user:token@host/path``; MLflow records repo URLs as run tags that are stored and
+    displayed to users, so we drop the userinfo before exposing them. URLs without a scheme
+    (e.g. SSH-style ``git@github.com:org/repo.git``) or without userinfo are returned unchanged.
+    """
+    parsed = urlsplit(url)
+    if not parsed.scheme or "@" not in parsed.netloc:
+        return url
+    _, _, host_port = parsed.netloc.rpartition("@")
+    return urlunsplit((parsed.scheme, host_port, parsed.path, parsed.query, parsed.fragment))
 
 
 def get_git_repo_url(path: str) -> str | None:
     """
     Obtains the url of the git repository associated with the specified path,
-    returning ``None`` if the path does not correspond to a git repository.
+    returning ``None`` if the path does not correspond to a git repository. Any embedded
+    credentials (e.g. tokens in HTTPS remotes) are stripped before the URL is returned.
     """
     try:
         from git import Repo
@@ -21,7 +39,8 @@ def get_git_repo_url(path: str) -> str | None:
 
     try:
         repo = Repo(path, search_parent_directories=True)
-        return next((remote.url for remote in repo.remotes), None)
+        url = next((remote.url for remote in repo.remotes), None)
+        return _strip_credentials_from_url(url) if url is not None else None
     except Exception:
         return None
 
