@@ -423,9 +423,7 @@ class S3ArtifactRepository(
                 self._verify_listed_object_contains_artifact_path_prefix(
                     listed_object_path=subdir_path, artifact_path=artifact_path
                 )
-                subdir_rel_path = posixpath.relpath(
-                    path=subdir_path, start=artifact_path
-                )
+                subdir_rel_path = posixpath.relpath(path=subdir_path, start=artifact_path)
                 subdir_rel_path = subdir_rel_path.removesuffix("/")
                 infos.append(FileInfo(subdir_rel_path, True, None))
             # Objects listed directly will be files
