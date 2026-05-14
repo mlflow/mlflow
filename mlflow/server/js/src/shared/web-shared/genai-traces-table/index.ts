@@ -104,6 +104,8 @@ export {
   USER_COLUMN_ID,
   ISSUE_ID_COLUMN_ID,
   ISSUES_COLUMN_ID,
+  GIT_BRANCH_COLUMN_ID,
+  GIT_COMMIT_COLUMN_ID,
 } from './hooks/useTableColumns';
 
 export { ExperimentViewTracesStatusLabels } from './cellRenderers/StatusRenderer';

@@ -1,10 +1,14 @@
 import {
   FilterOperator,
+  GIT_BRANCH_COLUMN_ID,
+  GIT_COMMIT_COLUMN_ID,
   SESSION_COLUMN_ID,
   STATE_COLUMN_ID,
   USER_COLUMN_ID,
 } from '@databricks/web-shared/genai-traces-table';
 import {
+  MLFLOW_GIT_BRANCH_KEY,
+  MLFLOW_GIT_COMMIT_KEY,
   MLFLOW_TRACE_USER_KEY,
   SESSION_ID_METADATA_KEY,
   TraceFilterKey,
@@ -18,7 +22,7 @@ import {
  * Add a new entry here AND in `translateToMetricsFilters` and
  * `translateToTracesPageFilters` to expose more dimensions.
  */
-export type MetricFilterColumn = 'user' | 'session' | 'state';
+export type MetricFilterColumn = 'user' | 'session' | 'state' | 'git_branch' | 'git_commit';
 
 export interface MetricFilter {
   column: MetricFilterColumn;
@@ -52,6 +56,10 @@ export const translateToMetricsFilters = (filters: MetricFilter[]): string[] | u
           return createTraceMetadataFilter(SESSION_ID_METADATA_KEY, f.value);
         case 'state':
           return createTraceFilter(TraceFilterKey.STATUS, f.value);
+        case 'git_branch':
+          return createTraceMetadataFilter(MLFLOW_GIT_BRANCH_KEY, f.value);
+        case 'git_commit':
+          return createTraceMetadataFilter(MLFLOW_GIT_COMMIT_KEY, f.value);
         default:
           return null;
       }
@@ -84,6 +92,10 @@ export const translateToTracesPageFilters = (filters: MetricFilter[]): string[] 
           return [SESSION_COLUMN_ID, FilterOperator.EQUALS, f.value].join('::');
         case 'state':
           return [STATE_COLUMN_ID, FilterOperator.EQUALS, f.value].join('::');
+        case 'git_branch':
+          return [GIT_BRANCH_COLUMN_ID, FilterOperator.EQUALS, f.value].join('::');
+        case 'git_commit':
+          return [GIT_COMMIT_COLUMN_ID, FilterOperator.EQUALS, f.value].join('::');
         default:
           return null;
       }

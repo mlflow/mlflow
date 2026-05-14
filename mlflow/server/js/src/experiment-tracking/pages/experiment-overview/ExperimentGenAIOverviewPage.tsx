@@ -189,6 +189,20 @@ const ExperimentGenAIOverviewPageImpl = () => {
           label: intl.formatMessage(ExperimentViewTracesStatusLabels[value]),
         })),
       },
+      {
+        value: 'git_branch',
+        label: intl.formatMessage({
+          defaultMessage: 'Git branch',
+          description: 'Usage overview > metrics filter > git branch column option label',
+        }),
+      },
+      {
+        value: 'git_commit',
+        label: intl.formatMessage({
+          defaultMessage: 'Git commit',
+          description: 'Usage overview > metrics filter > git commit column option label',
+        }),
+      },
     ],
     [intl],
   );

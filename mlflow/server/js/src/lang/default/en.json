@@ -847,6 +847,10 @@
     "defaultMessage": "Please complete all required fields",
     "description": "Tooltip shown when submit button is disabled due to incomplete form"
   },
+  "2xFiOo": {
+    "defaultMessage": "Git commit",
+    "description": "Usage overview > metrics filter > git commit column option label"
+  },
   "2zy+D5": {
     "defaultMessage": "Add new tag",
     "description": "Experiment tracking > experiment page > runs > add new tag button"
@@ -5150,6 +5154,10 @@
   "TXPJuE": {
     "defaultMessage": "Retrieval Groundedness assessment is missing. This is likely because your agent is not returning retrieved_context.",
     "description": "Evaluation results > known type of evaluation result assessment > retrieval groundedness assessment. Used to indicate if the result is grounded in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Retrieval Groundedness: moderately grounded\""
+  },
+  "TXwmoT": {
+    "defaultMessage": "Git branch",
+    "description": "Usage overview > metrics filter > git branch column option label"
   },
   "TannO5": {
     "defaultMessage": "Retrieved {sampledCount} out of {totalCount} total logs ({percentage}%)",

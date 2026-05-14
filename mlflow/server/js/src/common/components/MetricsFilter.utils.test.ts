@@ -9,6 +9,8 @@ import {
 jest.mock('@databricks/web-shared/model-trace-explorer', () => ({
   MLFLOW_TRACE_USER_KEY: 'mlflow.trace.user',
   SESSION_ID_METADATA_KEY: 'mlflow.trace.session',
+  MLFLOW_GIT_BRANCH_KEY: 'mlflow.source.git.branch',
+  MLFLOW_GIT_COMMIT_KEY: 'mlflow.source.git.commit',
   TraceFilterKey: { STATUS: 'status', TAG: 'tag', METADATA: 'metadata' },
   TraceStatus: { IN_PROGRESS: 'IN_PROGRESS', OK: 'OK', ERROR: 'ERROR' },
   createTraceMetadataFilter: jest.fn((key: string, value: string) => `trace.metadata.\`${key}\` = "${value}"`),
@@ -19,6 +21,8 @@ jest.mock('@databricks/web-shared/genai-traces-table', () => ({
   USER_COLUMN_ID: 'user',
   SESSION_COLUMN_ID: 'session',
   STATE_COLUMN_ID: 'state',
+  GIT_BRANCH_COLUMN_ID: 'git_branch',
+  GIT_COMMIT_COLUMN_ID: 'git_commit',
   FilterOperator: { EQUALS: '=' },
 }));
 
@@ -92,16 +96,30 @@ describe('translateToMetricsFilters', () => {
     ]);
   });
 
+  it('translates a git_branch filter to a metadata DSL string with the git branch metadata key', () => {
+    const filters: MetricFilter[] = [{ column: 'git_branch', value: 'main' }];
+    expect(translateToMetricsFilters(filters)).toEqual(['trace.metadata.`mlflow.source.git.branch` = "main"']);
+  });
+
+  it('translates a git_commit filter to a metadata DSL string with the git commit metadata key', () => {
+    const filters: MetricFilter[] = [{ column: 'git_commit', value: 'abc1234' }];
+    expect(translateToMetricsFilters(filters)).toEqual(['trace.metadata.`mlflow.source.git.commit` = "abc1234"']);
+  });
+
   it('translates a heterogeneous mix of complete filters preserving order', () => {
     const filters: MetricFilter[] = [
       { column: 'user', value: 'alice' },
       { column: 'session', value: 'sess-123' },
       { column: 'state', value: 'ERROR' },
+      { column: 'git_branch', value: 'main' },
+      { column: 'git_commit', value: 'abc1234' },
     ];
     expect(translateToMetricsFilters(filters)).toEqual([
       'trace.metadata.`mlflow.trace.user` = "alice"',
       'trace.metadata.`mlflow.trace.session` = "sess-123"',
       'trace.status = "ERROR"',
+      'trace.metadata.`mlflow.source.git.branch` = "main"',
+      'trace.metadata.`mlflow.source.git.commit` = "abc1234"',
     ]);
   });
 });
@@ -152,16 +170,30 @@ describe('translateToTracesPageFilters', () => {
     ]);
   });
 
+  it('translates a git_branch filter using the git_branch column id', () => {
+    expect(translateToTracesPageFilters([{ column: 'git_branch', value: 'main' }])).toEqual(['git_branch::=::main']);
+  });
+
+  it('translates a git_commit filter using the git_commit column id', () => {
+    expect(translateToTracesPageFilters([{ column: 'git_commit', value: 'abc1234' }])).toEqual([
+      'git_commit::=::abc1234',
+    ]);
+  });
+
   it('translates a heterogeneous mix preserving order', () => {
     const filters: MetricFilter[] = [
       { column: 'user', value: 'alice' },
       { column: 'session', value: 'sess-123' },
       { column: 'state', value: 'ERROR' },
+      { column: 'git_branch', value: 'main' },
+      { column: 'git_commit', value: 'abc1234' },
     ];
     expect(translateToTracesPageFilters(filters)).toEqual([
       'user::=::alice',
       'session::=::sess-123',
       'state::=::ERROR',
+      'git_branch::=::main',
+      'git_commit::=::abc1234',
     ]);
   });
 });
