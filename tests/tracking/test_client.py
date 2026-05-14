@@ -347,7 +347,7 @@ def test_client_get_trace_from_artifact_repo(mock_store, mock_artifact_repo):
 
 
 def test_client_get_trace_from_archive_repo(mock_store, mock_artifact_repo):
-    mock_store.get_trace_info.return_value = TraceInfo(
+    trace_info = TraceInfo(
         trace_id="tr-1234567",
         trace_location=TraceLocation.from_experiment_id("0"),
         request_time=123,
@@ -359,7 +359,7 @@ def test_client_get_trace_from_archive_repo(mock_store, mock_artifact_repo):
             TraceTagKey.ARCHIVE_LOCATION: "dbfs:/path/to/archive",
         },
     )
-    mock_artifact_repo.download_archived_trace_data.return_value = TraceData.from_dict({
+    trace_data = TraceData.from_dict({
         "request": '{"prompt": "What is the meaning of life?"}',
         "response": '{"answer": 42}',
         "spans": [
@@ -385,11 +385,15 @@ def test_client_get_trace_from_archive_repo(mock_store, mock_artifact_repo):
             }
         ],
     })
+    mock_store.get_trace_info.return_value = trace_info
+    mock_store.get_trace.return_value = Trace(info=trace_info, data=trace_data)
 
     trace = MlflowClient().get_trace("1234567")
 
     mock_store.get_trace_info.assert_called_once_with("1234567")
-    mock_artifact_repo.download_archived_trace_data.assert_called_once()
+    mock_store.get_trace.assert_called_once_with("1234567")
+    mock_store.batch_get_traces.assert_not_called()
+    mock_artifact_repo.download_archived_trace_data.assert_not_called()
     mock_artifact_repo.download_trace_data.assert_not_called()
     assert trace.info.tags[TraceTagKey.ARCHIVE_LOCATION] == "dbfs:/path/to/archive"
     assert trace.data.spans[0].name == "predict"
@@ -398,7 +402,7 @@ def test_client_get_trace_from_archive_repo(mock_store, mock_artifact_repo):
 def test_client_get_trace_from_archive_repo_returns_empty_spans_when_payload_missing(
     mock_store, mock_artifact_repo
 ):
-    mock_store.get_trace_info.return_value = TraceInfo(
+    trace_info = TraceInfo(
         trace_id="tr-1234567",
         trace_location=TraceLocation.from_experiment_id("0"),
         request_time=123,
@@ -410,13 +414,15 @@ def test_client_get_trace_from_archive_repo_returns_empty_spans_when_payload_mis
             TraceTagKey.ARCHIVE_LOCATION: "dbfs:/path/to/archive",
         },
     )
-    mock_artifact_repo.download_archived_trace_data.return_value = TraceData(spans=[])
+    mock_store.get_trace_info.return_value = trace_info
+    mock_store.get_trace.return_value = Trace(info=trace_info, data=TraceData(spans=[]))
 
     trace = MlflowClient().get_trace("1234567")
 
     assert trace.info.trace_id == "tr-1234567"
     assert trace.data.spans == []
-    mock_artifact_repo.download_archived_trace_data.assert_called_once()
+    mock_store.get_trace.assert_called_once_with("1234567")
+    mock_artifact_repo.download_archived_trace_data.assert_not_called()
 
 
 def test_client_get_trace_throws_for_missing_or_corrupted_data(mock_store, mock_artifact_repo):
@@ -444,20 +450,14 @@ def test_client_get_trace_throws_for_missing_or_corrupted_data(mock_store, mock_
         MlflowClient().get_trace("1234567")
 
 
-@pytest.mark.parametrize(
-    "tags",
-    [{}, {TraceTagKey.SPANS_LOCATION: SpansLocation.ARCHIVE_REPO}],
-)
-def test_client_get_trace_throws_for_missing_location_metadata(
-    mock_store, mock_artifact_repo, tags
-):
+def test_client_get_trace_throws_for_missing_location_metadata(mock_store, mock_artifact_repo):
     mock_store.get_trace_info.return_value = TraceInfo(
         trace_id="1234567",
         trace_location=TraceLocation.from_experiment_id("0"),
         request_time=123,
         execution_duration=456,
         state=TraceState.OK,
-        tags=tags,
+        tags={},
     )
 
     with pytest.raises(
@@ -466,6 +466,29 @@ def test_client_get_trace_throws_for_missing_location_metadata(
     ):
         MlflowClient().get_trace("1234567")
 
+    mock_artifact_repo.download_trace_data.assert_not_called()
+    mock_artifact_repo.download_archived_trace_data.assert_not_called()
+
+
+def test_client_get_trace_from_archive_repo_does_not_require_archive_location_tag(
+    mock_store, mock_artifact_repo
+):
+    trace_info = TraceInfo(
+        trace_id="tr-1234567",
+        trace_location=TraceLocation.from_experiment_id("0"),
+        request_time=123,
+        execution_duration=456,
+        state=TraceState.OK,
+        tags={TraceTagKey.SPANS_LOCATION: SpansLocation.ARCHIVE_REPO},
+    )
+    mock_store.get_trace_info.return_value = trace_info
+    mock_store.get_trace.return_value = Trace(info=trace_info, data=TraceData(spans=[]))
+
+    trace = MlflowClient().get_trace("1234567")
+
+    assert trace.info.trace_id == "tr-1234567"
+    assert trace.data.spans == []
+    mock_store.get_trace.assert_called_once_with("1234567")
     mock_artifact_repo.download_trace_data.assert_not_called()
     mock_artifact_repo.download_archived_trace_data.assert_not_called()
 
