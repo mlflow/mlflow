@@ -705,6 +705,7 @@ def _build_tool_result_map(messages: list[Any]) -> dict[str, str]:
                     tool_result_map[block.tool_use_id] = result or ""
     return tool_result_map
 
+
 # Maps SDK dataclass names to Anthropic API "type" discriminators.
 # dataclasses.asdict() gives us the fields but not the type tag that
 # the Anthropic message format requires on every content block.
@@ -831,6 +832,7 @@ def process_sdk_messages(
             return None
 
         result_msg = next((msg for msg in messages if isinstance(msg, ResultMessage)), None)
+
         # Prefer the SDK's own session_id, fall back to caller arg
         session_id = (result_msg.session_id if result_msg else None) or session_id
 
