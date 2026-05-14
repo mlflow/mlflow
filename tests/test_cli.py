@@ -638,28 +638,34 @@ def test_server_trace_archival_config_allows_disabled_config_on_unsupported_trac
     artifact_root = (tmp_path / "artifacts").as_uri()
     config_path = _write_trace_archival_config(tmp_path, enabled=False)
     mock_tracking_store = mock.Mock(supports_trace_archival=False)
+    MLFLOW_TRACE_ARCHIVAL_CONFIG.unset()
 
-    with (
-        mock.patch("mlflow.server._run_server") as run_server_mock,
-        mock.patch("mlflow.server.handlers._get_tracking_store", return_value=mock_tracking_store),
-        mock.patch("mlflow.server.handlers._get_model_registry_store", return_value=None),
-    ):
-        result = CliRunner().invoke(
-            server,
-            [
-                "--backend-store-uri",
-                backend_uri,
-                "--registry-store-uri",
-                backend_uri,
-                "--default-artifact-root",
-                artifact_root,
-                "--trace-archival-config",
-                str(config_path),
-            ],
-        )
+    try:
+        with (
+            mock.patch("mlflow.server._run_server") as run_server_mock,
+            mock.patch(
+                "mlflow.server.handlers._get_tracking_store", return_value=mock_tracking_store
+            ),
+            mock.patch("mlflow.server.handlers._get_model_registry_store", return_value=None),
+        ):
+            result = CliRunner().invoke(
+                server,
+                [
+                    "--backend-store-uri",
+                    backend_uri,
+                    "--registry-store-uri",
+                    backend_uri,
+                    "--default-artifact-root",
+                    artifact_root,
+                    "--trace-archival-config",
+                    str(config_path),
+                ],
+            )
 
-    assert result.exit_code == 0
-    run_server_mock.assert_called_once()
+        assert result.exit_code == 0
+        run_server_mock.assert_called_once()
+    finally:
+        MLFLOW_TRACE_ARCHIVAL_CONFIG.unset()
 
 
 @pytest.mark.parametrize("command", [server])
@@ -1165,9 +1171,12 @@ def test_mlflow_models_serve(enable_mlserver):
 
 def test_mlflow_tracking_disabled_in_artifacts_only_mode(tmp_path: Path):
     port = get_safe_port()
+    env = {**os.environ}
+    env.pop(MLFLOW_TRACE_ARCHIVAL_CONFIG.name, None)
     with subprocess.Popen(
         [sys.executable, "-m", "mlflow", "server", "--port", str(port), "--artifacts-only"],
         cwd=tmp_path,
+        env=env,
     ) as process:
         try:
             _await_server_up_or_die(port)
@@ -1182,9 +1191,12 @@ def test_mlflow_tracking_disabled_in_artifacts_only_mode(tmp_path: Path):
 
 def test_mlflow_artifact_list_in_artifacts_only_mode(tmp_path: Path):
     port = get_safe_port()
+    env = {**os.environ}
+    env.pop(MLFLOW_TRACE_ARCHIVAL_CONFIG.name, None)
     with subprocess.Popen(
         [sys.executable, "-m", "mlflow", "server", "--port", str(port), "--artifacts-only"],
         cwd=tmp_path,
+        env=env,
     ) as process:
         try:
             _await_server_up_or_die(port)

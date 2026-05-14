@@ -114,7 +114,7 @@ def traces_data_pb_to_spans(data: bytes) -> list[Span]:
             "Archived trace payload must contain exactly one ScopeSpans group."
         )
     spans = [
-        Span.from_otel_proto(otel_span)
+        Span.from_otel_proto(otel_span, preserve_request_id=True)
         for resource_spans in traces_data.resource_spans
         for scope_spans in resource_spans.scope_spans
         for otel_span in scope_spans.spans

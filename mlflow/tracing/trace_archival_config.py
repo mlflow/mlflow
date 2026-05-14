@@ -21,7 +21,7 @@ from mlflow.utils.validation import (
 
 _TRACE_ARCHIVAL_CONFIG_KEY = "trace_archival"
 _TRACE_ARCHIVAL_INTERVAL_SECONDS_DEFAULT = 300
-_TRACE_ARCHIVAL_INTERVAL_SECONDS_MIN = 1
+_TRACE_ARCHIVAL_POSITIVE_INT_MIN = 1
 _TRACE_ARCHIVAL_INTERVAL_SECONDS_MAX = 86400
 _TRACE_ARCHIVAL_SERVER_CONFIG_CACHE_TTL_SECONDS = 5.0
 
@@ -71,16 +71,14 @@ def get_trace_archival_server_config() -> TraceArchivalServerConfig | None:
             cached is not None and cached.config_path == normalized_config_path
         )
         previous_config = cached.config if cache_was_for_same_path else None
-        previous_path = cached.config_path if cached is not None else None
 
         try:
             config = load_trace_archival_server_config(normalized_config_path)
         except MlflowException:
             if previous_config is not None:
                 _logger.warning(
-                    "Failed to refresh trace archival config from %s; continuing to use the "
-                    "last valid config.",
-                    normalized_config_path,
+                    "Failed to refresh trace archival config; continuing to use the last valid "
+                    "config.",
                     exc_info=True,
                 )
                 _TRACE_ARCHIVAL_SERVER_CONFIG_CACHE = _TraceArchivalServerConfigCacheEntry(
@@ -91,19 +89,9 @@ def get_trace_archival_server_config() -> TraceArchivalServerConfig | None:
                 return previous_config
             raise
 
-        if previous_path is not None and previous_path != normalized_config_path:
+        if previous_config is not None and previous_config != config:
             _logger.info(
-                "Trace archival config source changed from %s to %s.",
-                previous_path,
-                normalized_config_path,
-            )
-        elif previous_config is not None and previous_config != config:
-            _logger.info(
-                "Trace archival config changed at %s; updated fields: %s.",
-                normalized_config_path,
-                ", ".join(
-                    _get_trace_archival_server_config_changed_fields(previous_config, config)
-                ),
+                "Trace archival config changed; refreshed cached server settings.",
             )
 
         _TRACE_ARCHIVAL_SERVER_CONFIG_CACHE = _TraceArchivalServerConfigCacheEntry(
@@ -134,14 +122,16 @@ def load_trace_archival_server_config(
         trace_archival.get("long_retention_allowlist"),
         path,
     )
-    interval_seconds = _get_optional_positive_int(
+    interval_seconds = _get_optional_bounded_positive_int(
         trace_archival,
         path,
         "interval_seconds",
         default=_TRACE_ARCHIVAL_INTERVAL_SECONDS_DEFAULT,
         maximum=_TRACE_ARCHIVAL_INTERVAL_SECONDS_MAX,
     )
-    max_traces_per_pass = _get_optional_positive_int(trace_archival, path, "max_traces_per_pass")
+    max_traces_per_pass = _get_optional_bounded_positive_int(
+        trace_archival, path, "max_traces_per_pass"
+    )
 
     return TraceArchivalServerConfig(
         enabled=enabled,
@@ -206,7 +196,7 @@ def _get_required_bool(payload: dict[str, Any], path: Path, key: str) -> bool:
     )
 
 
-def _get_optional_positive_int(
+def _get_optional_bounded_positive_int(
     payload: dict[str, Any],
     path: Path,
     key: str,
@@ -223,7 +213,7 @@ def _get_optional_positive_int(
             path,
             f"'{_TRACE_ARCHIVAL_CONFIG_KEY}.{key}' must be a positive integer.",
         )
-    if value < _TRACE_ARCHIVAL_INTERVAL_SECONDS_MIN:
+    if value < _TRACE_ARCHIVAL_POSITIVE_INT_MIN:
         raise _invalid_trace_archival_config(
             path,
             f"'{_TRACE_ARCHIVAL_CONFIG_KEY}.{key}' must be a positive integer.",
@@ -265,20 +255,3 @@ def _invalid_trace_archival_config(path: Path, message: str) -> MlflowException:
     return MlflowException.invalid_parameter_value(
         f"Invalid trace archival config file '{path}': {message}"
     )
-
-
-def _get_trace_archival_server_config_changed_fields(
-    old: TraceArchivalServerConfig, new: TraceArchivalServerConfig
-) -> list[str]:
-    return [
-        field_name
-        for field_name in (
-            "enabled",
-            "location",
-            "retention",
-            "long_retention_allowlist",
-            "interval_seconds",
-            "max_traces_per_pass",
-        )
-        if getattr(old, field_name) != getattr(new, field_name)
-    ]

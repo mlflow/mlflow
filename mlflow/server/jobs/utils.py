@@ -28,7 +28,7 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.server.constants import HUEY_STORAGE_PATH_ENV_VAR, MLFLOW_SERVER_UP_TIME
-from mlflow.tracing._trace_archival_service import run_trace_archival_scheduler
+from mlflow.tracing.trace_archival_service import run_trace_archival_scheduler
 from mlflow.utils.environment import _PythonEnv
 from mlflow.utils.import_hooks import register_post_import_hook
 from mlflow.utils.process import _exec_cmd

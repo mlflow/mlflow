@@ -7,8 +7,8 @@ from opentelemetry import trace as trace_api
 from opentelemetry.sdk.resources import Resource as _OTelResource
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 
-import mlflow.tracing._trace_archival_service as trace_archival_service_module
 import mlflow.tracing.trace_archival_config as trace_archival_config_module
+import mlflow.tracing.trace_archival_service as trace_archival_service_module
 from mlflow.entities import ExperimentTag, Workspace, trace_location
 from mlflow.entities.span import create_mlflow_span
 from mlflow.entities.trace_info import TraceInfo
@@ -25,9 +25,9 @@ from mlflow.store.tracking.dbmodels.models import SqlSpan
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.store.tracking.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyStore
 from mlflow.store.workspace.abstract_store import ResolvedTraceArchivalConfig
-from mlflow.tracing._trace_archival_service import run_trace_archival_scheduler
 from mlflow.tracing.constant import SpansLocation, TraceExperimentTagKey, TraceTagKey
 from mlflow.tracing.otel.otel_archival import TRACE_ARCHIVAL_FILENAME
+from mlflow.tracing.trace_archival_service import run_trace_archival_scheduler
 from mlflow.tracing.utils import TraceJSONEncoder
 from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.uri import append_to_uri_path

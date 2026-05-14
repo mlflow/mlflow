@@ -81,9 +81,7 @@ def test_get_trace_archival_server_config_reloads_and_logs_changes(monkeypatch, 
     assert second.retention == "7d"
     assert second.max_traces_per_pass == 25
     mock_logger.info.assert_called_once_with(
-        "Trace archival config changed at %s; updated fields: %s.",
-        str(config_path),
-        "retention, max_traces_per_pass",
+        "Trace archival config changed; refreshed cached server settings."
     )
 
 
@@ -105,7 +103,6 @@ def test_get_trace_archival_server_config_keeps_last_good_value_on_refresh_failu
     assert second is not None
     assert second == first
     mock_logger.warning.assert_called_once_with(
-        "Failed to refresh trace archival config from %s; continuing to use the last valid config.",
-        str(config_path),
+        "Failed to refresh trace archival config; continuing to use the last valid config.",
         exc_info=True,
     )

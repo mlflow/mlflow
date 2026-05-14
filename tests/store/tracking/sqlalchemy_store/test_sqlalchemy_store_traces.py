@@ -18,7 +18,7 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 import mlflow
 import mlflow.store.tracking.sqlalchemy_store as sqlalchemy_store_module
-import mlflow.tracing._trace_archival_service as trace_archival_service_module
+import mlflow.tracing.trace_archival_service as trace_archival_service_module
 from mlflow.entities import (
     AssessmentSource,
     Expectation,
@@ -44,7 +44,6 @@ from mlflow.exceptions import (
     MlflowTracingException,
 )
 from mlflow.protos.databricks_pb2 import (
-    INTERNAL_ERROR,
     INVALID_PARAMETER_VALUE,
     INVALID_STATE,
     RESOURCE_DOES_NOT_EXIST,
