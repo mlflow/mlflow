@@ -156,7 +156,7 @@ class SerializedScorer:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "SerializedScorer":
-        """Build a SerializedScorer from a dict, tolerating unknown fields from newer mlflow versions.
+        """Build a SerializedScorer from a dict, tolerating unknown fields from newer versions.
 
         Newer mlflow versions sometimes add fields to this dataclass (e.g.
         ``third_party_scorer_data`` in 3.12). When an older runtime deserializes a payload
