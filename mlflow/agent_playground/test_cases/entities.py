@@ -321,6 +321,29 @@ class JobResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 
+class TestCaseRow(BaseModel):
+    """Materialized view of a stored test case.
+
+    What ``store.list_cases`` / ``store.get_case`` return. Combines the
+    ``TestSpec`` payload with run-context fields stored on the row
+    (``source_*`` lineage tags, ``promoted`` flag) plus the
+    conversation prefix held on ``inputs.messages``. The persisted row
+    representation is internal to the store layer; callers (CRUD
+    endpoints, runner, prompt builders) consume this shape.
+    """
+
+    __test__ = False
+
+    test_case_id: str
+    spec: TestSpec
+    conversation_messages: list[dict[str, Any]] = Field(default_factory=list)
+    source_feedback_id: str | None = None
+    source_feedback_ids: list[str] = Field(default_factory=list)
+    source_trace_id: str | None = None
+    source_assistant_message_id: str | None = None
+    promoted: bool = False
+
+
 class DedupVerdict(BaseModel):
     """Output of the coder-mediated semantic dedup pass.
 
@@ -355,6 +378,7 @@ __all__ = [
     "JudgeSpec",
     "PersonaSpec",
     "RunSummary",
+    "TestCaseRow",
     "TestSpec",
     "TestStrategy",
     "Verdict",
