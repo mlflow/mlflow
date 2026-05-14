@@ -1,5 +1,5 @@
+import time
 import uuid
-from unittest import mock
 
 import pytest
 
@@ -14,14 +14,10 @@ from mlflow.entities.assessment import ExpectationValue, FeedbackValue
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
-from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
-from mlflow.tracing.constant import TraceMetadataKey
-
-from tests.store.tracking.sqlalchemy_store.conftest import (
-    _create_trace,
-)
+from mlflow.utils.time import get_current_time_millis
 
 pytestmark = pytest.mark.notrackingurimock
+
 
 def test_create_and_get_assessment(store_and_trace_info):
     store, trace_info = store_and_trace_info
@@ -548,5 +544,3 @@ def test_start_trace_with_assessments_missing_trace_id(store):
     assert len(result.assessments) == 1
     assert result.assessments[0].trace_id == trace_id
     assert result.assessments[0].name == "test_feedback"
-
-
