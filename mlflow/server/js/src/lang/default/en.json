@@ -207,6 +207,10 @@
     "defaultMessage": "Run judge",
     "description": "Button text for running judge"
   },
+  "/G6dxl": {
+    "defaultMessage": "Git commit",
+    "description": "Column label for the git commit hash the trace was produced on"
+  },
   "/HeTx7": {
     "defaultMessage": "Create",
     "description": "Create webhook confirm button"
@@ -4274,6 +4278,10 @@
   "OC5Osf": {
     "defaultMessage": "Share and manage machine learning models. <link>Learn more</link>",
     "description": "Models table > no models present yet"
+  },
+  "OCZ6Y6": {
+    "defaultMessage": "Git branch",
+    "description": "Column label for the git branch the trace was produced on"
   },
   "OCpkAU": {
     "defaultMessage": "The AI Gateway requires a SQL-based backend store (SQLite, PostgreSQL, MySQL, or MSSQL) to persist credentials securely. Start the MLflow server with a database URI:",
