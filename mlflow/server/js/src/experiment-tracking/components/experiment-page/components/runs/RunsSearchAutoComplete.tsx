@@ -45,9 +45,10 @@ const getEntityNamesFromRunsData = (
 ): EntitySearchAutoCompleteEntityNameGroup => {
   const metricNames = mergeDeduplicate(existingNames.metricNames, newRunsData.metricKeyList);
   const paramNames = mergeDeduplicate(existingNames.paramNames, newRunsData.paramKeyList);
-  const tagNames = cleanEntitySearchTagNames(
-    mergeDeduplicate(getTagNames(existingNames.tagNames), getTagNames(newRunsData.tagsList)),
-  );
+  // Keep raw tag names in the cache. Cleaning (filter + backtick-wrap) happens only at output
+  // time so that on re-render the cache doesn't get re-cleaned, which would double-wrap names
+  // and accumulate spurious entries.
+  const tagNames = mergeDeduplicate(existingNames.tagNames, getTagNames(newRunsData.tagsList));
 
   return {
     metricNames,
@@ -67,7 +68,10 @@ export const RunsSearchAutoComplete = ({ runsData, ...restProps }: RunsSearchAut
     const existingEntityNames = existingEntityNamesRef.current;
     const mergedEntityNames = getEntityNamesFromRunsData(runsData, existingEntityNames);
     existingEntityNamesRef.current = mergedEntityNames;
-    return getEntitySearchOptionsFromEntityNames(mergedEntityNames, ATTRIBUTE_OPTIONS);
+    return getEntitySearchOptionsFromEntityNames(
+      { ...mergedEntityNames, tagNames: cleanEntitySearchTagNames(mergedEntityNames.tagNames) },
+      ATTRIBUTE_OPTIONS,
+    );
   }, [runsData]);
 
   return (
