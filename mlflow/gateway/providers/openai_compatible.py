@@ -113,7 +113,7 @@ class OpenAICompatibleAdapter(ProviderAdapter):
             choices=[
                 chat.StreamChoice(
                     index=c["index"],
-                    finish_reason=c["finish_reason"],
+                    finish_reason=c.get("finish_reason"),
                     delta=chat.StreamDelta(
                         role=c["delta"].get("role"),
                         content=c["delta"].get("content"),
