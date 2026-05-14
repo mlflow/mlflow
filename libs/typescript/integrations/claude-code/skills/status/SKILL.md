@@ -1,4 +1,5 @@
 ---
+name: status
 description: Show the current MLflow tracing configuration for Claude Code.
 disable-model-invocation: true
 ---

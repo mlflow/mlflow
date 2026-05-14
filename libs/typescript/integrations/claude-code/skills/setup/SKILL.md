@@ -1,4 +1,5 @@
 ---
+name: setup
 description: Configure MLflow tracing for Claude Code.
 disable-model-invocation: true
 ---
