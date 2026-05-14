@@ -15,7 +15,7 @@ import evalRunsEmptyImg from '@mlflow/mlflow/src/common/static/eval-runs-empty.s
 import Utils from '@mlflow/mlflow/src/common/utils/Utils';
 import type { DatasetWithRunType } from '../../components/experiment-page/components/runs/ExperimentViewDatasetDrawer';
 import { ExperimentViewDatasetDrawer } from '../../components/experiment-page/components/runs/ExperimentViewDatasetDrawer';
-import { compact, keyBy, mapValues, uniq, xor, xorBy } from 'lodash';
+import { compact, uniq, xorBy } from 'lodash';
 import {
   EVAL_RUNS_TABLE_BASE_SELECTION_STATE,
   EvalRunsTableKeyedColumnPrefix,
@@ -39,7 +39,7 @@ import {
   RunGroupingAggregateFunction,
   RunGroupingMode,
 } from '../../components/experiment-page/utils/experimentPage.row-types';
-import { getGroupByRunsData } from './ExperimentEvaluationRunsPage.utils';
+import { getGroupByRunsData, reconcileSelectedColumns } from './ExperimentEvaluationRunsPage.utils';
 import {
   ExperimentEvaluationRunsPageMode,
   useExperimentEvaluationRunsPageMode,
@@ -256,28 +256,21 @@ const ExperimentEvaluationRunsPageImpl = () => {
     ];
   }, [runs]);
 
-  const baseColumns = useMemo(() => Object.keys(EVAL_RUNS_TABLE_BASE_SELECTION_STATE), []);
-  const existingColumns = useMemo(
-    () => Object.keys(selectedColumns).filter((column) => !baseColumns.includes(column)),
-    [baseColumns, selectedColumns],
-  );
-  const columnDifference = useMemo(() => xor(existingColumns, uniqueColumns), [existingColumns, uniqueColumns]);
-  // if there is a difference between the existing column state and
-  // the unique metrics (e.g. the user performed a search and the
-  // list of available metrics changed), reset the selected columns
-  // to the default state to avoid displaying columns that don't exist
-  if (columnDifference.length > 0) {
-    const metricColumns = uniqueColumns.filter((col) => col.startsWith(EvalRunsTableKeyedColumnPrefix.METRIC + '.'));
-    // When flag is ON, limit default visible metrics to 5; when OFF, show all (original behavior)
-    const defaultEnabledMetrics = enableImprovedComparison
-      ? new Set(metricColumns.slice(0, DEFAULT_VISIBLE_METRIC_COLUMNS))
-      : new Set(metricColumns);
-
-    setSelectedColumns({
-      ...EVAL_RUNS_TABLE_BASE_SELECTION_STATE,
-      ...mapValues(keyBy(uniqueColumns), (_, key) => defaultEnabledMetrics.has(key)),
-    });
-  }
+  // Reconcile selectedColumns with the current uniqueColumns whenever the set of
+  // available metric/param/tag columns shifts (e.g. the user performed a search).
+  // We preserve the user's existing choices for columns that still exist, drop
+  // columns that have disappeared, and apply defaults only to newly-appeared
+  // columns. Wrapped in useEffect to avoid setting state during render.
+  useEffect(() => {
+    setSelectedColumns((prev) =>
+      reconcileSelectedColumns({
+        previous: prev,
+        uniqueColumns,
+        defaultVisibleMetricColumns: DEFAULT_VISIBLE_METRIC_COLUMNS,
+        enableImprovedComparison,
+      }),
+    );
+  }, [uniqueColumns, enableImprovedComparison]);
 
   const isEmpty = runUuids.length === 0 && !searchFilter && !isLoading;
 

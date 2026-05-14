@@ -2,6 +2,10 @@ import type { RunEntity } from '../../types';
 import type { RunsGroupByConfig } from '../../components/experiment-page/utils/experimentPage.group-row-utils';
 import type { RunGroupByGroupingValue } from '../../components/experiment-page/utils/experimentPage.row-types';
 import { RunGroupingMode } from '../../components/experiment-page/utils/experimentPage.row-types';
+import {
+  EVAL_RUNS_TABLE_BASE_SELECTION_STATE,
+  EvalRunsTableKeyedColumnPrefix,
+} from './ExperimentEvaluationRunsTable.constants';
 
 export type ExperimentEvaluationRunsGroupData = {
   groupKey: string;
@@ -59,6 +63,43 @@ const getGroupValues = (run: RunEntity, groupBy: RunsGroupByConfig): RunGroupByG
   }
 
   return values;
+};
+
+/**
+ * Reconcile the user's selected column state against the latest set of unique
+ * metric/param/tag columns. Columns that still exist keep their selected state
+ * (preserving the user's choices), columns that have disappeared are dropped,
+ * and newly-appeared columns get a sensible default (metrics within the visible
+ * limit are enabled; everything else is disabled).
+ */
+export const reconcileSelectedColumns = ({
+  previous,
+  uniqueColumns,
+  defaultVisibleMetricColumns,
+  enableImprovedComparison,
+}: {
+  previous: { [key: string]: boolean };
+  uniqueColumns: string[];
+  defaultVisibleMetricColumns: number;
+  enableImprovedComparison: boolean;
+}): { [key: string]: boolean } => {
+  const metricColumns = uniqueColumns.filter((col) => col.startsWith(EvalRunsTableKeyedColumnPrefix.METRIC + '.'));
+  // When flag is ON, limit default visible metrics; when OFF, show all (original behavior)
+  const defaultEnabledMetrics = enableImprovedComparison
+    ? new Set(metricColumns.slice(0, defaultVisibleMetricColumns))
+    : new Set(metricColumns);
+
+  const next: { [key: string]: boolean } = { ...EVAL_RUNS_TABLE_BASE_SELECTION_STATE };
+  // Preserve any user overrides for the base columns
+  for (const baseKey of Object.keys(EVAL_RUNS_TABLE_BASE_SELECTION_STATE)) {
+    if (baseKey in previous) {
+      next[baseKey] = previous[baseKey];
+    }
+  }
+  for (const col of uniqueColumns) {
+    next[col] = col in previous ? previous[col] : defaultEnabledMetrics.has(col);
+  }
+  return next;
 };
 
 export const getGroupByRunsData = (runs: RunEntity[], groupBy: RunsGroupByConfig | null): RunEntityOrGroupData[] => {
