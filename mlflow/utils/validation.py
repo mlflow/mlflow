@@ -195,8 +195,36 @@ def _validate_trace_archival_location(value: Any, *, parameter_name: str | None 
         raise MlflowException.invalid_parameter_value(
             "Trace archival location cannot use the proxy-only `mlflow-artifacts:` scheme."
         )
-
     return trimmed
+
+
+def _validate_trace_archival_repository_support(
+    value: Any, *, parameter_name: str | None = None
+) -> str:
+    location = _validate_trace_archival_location(value, parameter_name=parameter_name)
+    parameter_name = parameter_name or "trace_archival_location"
+
+    # Imported lazily to avoid a module import cycle with artifact repository validation helpers.
+    from mlflow.store.artifact.artifact_repo import ArtifactRepository
+    from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
+    from mlflow.store.artifact.databricks_artifact_repo import DatabricksArtifactRepository
+    from mlflow.store.artifact.dbfs_artifact_repo import DbfsRestArtifactRepository
+
+    artifact_repo = get_artifact_repository(location)
+    if isinstance(artifact_repo, DatabricksArtifactRepository):
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid value for '{parameter_name}'. Trace archival location {location!r} "
+            "resolves to a Databricks trace artifact repository that does not support "
+            "archived trace reads."
+        )
+    if isinstance(artifact_repo, DbfsRestArtifactRepository) or (
+        type(artifact_repo).delete_artifacts is ArtifactRepository.delete_artifacts
+    ):
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid value for '{parameter_name}'. Trace archival location {location!r} "
+            "resolves to an artifact repository that does not support deleting archived payloads."
+        )
+    return location
 
 
 def _parse_trace_archival_duration_config(
@@ -231,6 +259,24 @@ def _parse_trace_archival_duration_config(
         return None
 
     return _validate_trace_archival_retention_string(duration_value)
+
+
+def _validate_trace_experiment_tag(key: str, value: Any) -> None:
+    # Import lazily to avoid coupling the generic validation module to tracing at import time.
+    from mlflow.tracing.constant import TraceExperimentTagKey
+
+    if key == TraceExperimentTagKey.ARCHIVAL_RETENTION:
+        _parse_trace_archival_duration_config(
+            value,
+            duration_key="value",
+            expected_type="duration",
+        )
+    elif key == TraceExperimentTagKey.ARCHIVE_NOW:
+        _parse_trace_archival_duration_config(
+            value,
+            duration_key="older_than",
+            allow_missing_duration=True,
+        )
 
 
 def append_to_json_path(currentPath, value):
@@ -387,6 +433,7 @@ def _validate_experiment_tag(key, value):
     _validate_tag_name(key)
     _validate_length_limit("key", MAX_EXPERIMENT_TAG_KEY_LENGTH, key)
     _validate_length_limit("value", MAX_EXPERIMENT_TAG_VAL_LENGTH, value)
+    _validate_trace_experiment_tag(key, value)
 
 
 def _validate_registered_model_tag(key, value):

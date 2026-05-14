@@ -172,7 +172,7 @@ class SqlExperiment(Base):
     def __repr__(self):
         return f"<SqlExperiment ({self.experiment_id}, {self.name})>"
 
-    def to_mlflow_entity(self):
+    def to_mlflow_entity(self, effective_trace_archival_retention: str | None = None):
         """
         Convert DB model to corresponding MLflow entity.
 
@@ -188,6 +188,7 @@ class SqlExperiment(Base):
             creation_time=self.creation_time,
             last_update_time=self.last_update_time,
             workspace=self.workspace,
+            effective_trace_archival_retention=effective_trace_archival_retention,
         )
 
 

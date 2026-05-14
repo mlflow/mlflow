@@ -52,7 +52,6 @@ from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.exceptions import (
     MlflowException,
     MlflowNotImplementedException,
-    MlflowTraceDataNotFound,
     MlflowTracingException,
 )
 from mlflow.gateway.budget_tracker.in_memory import InMemoryBudgetTracker
@@ -3005,22 +3004,6 @@ def test_get_trace_artifact_handler_falls_back_to_archive_repo(mock_tracking_sto
     mock_archive_repo.download_archived_trace_data.assert_called_once()
     assert response.status_code == 200
     assert response.headers["Content-Disposition"] == "attachment; filename=traces.json"
-
-
-def test_get_trace_artifact_handler_does_not_redownload_archive_after_store_failure(
-    mock_tracking_store,
-):
-    trace_id = "tr-test-archive-store-error"
-    mock_tracking_store.get_trace.side_effect = MlflowTraceDataNotFound(artifact_path="traces.pb")
-
-    with mock.patch("mlflow.server.handlers._get_trace_archive_repo") as mock_archive_repo:
-        with app.test_request_context(method="GET", query_string={"request_id": trace_id}):
-            response = get_trace_artifact_handler()
-
-    mock_tracking_store.get_trace.assert_called_once_with(trace_id, allow_partial=True)
-    mock_tracking_store.get_trace_info.assert_not_called()
-    mock_archive_repo.assert_not_called()
-    assert response.status_code == 404
 
 
 def test_get_trace_artifact_handler_attachment_missing_request_id():

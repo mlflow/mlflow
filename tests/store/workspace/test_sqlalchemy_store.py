@@ -1,9 +1,12 @@
+from unittest import mock
+
 import pytest
 import sqlalchemy as sa
 from sqlalchemy.exc import IntegrityError
 
 from mlflow.entities.workspace import Workspace, WorkspaceDeletionMode
 from mlflow.exceptions import MlflowException
+from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.store.workspace.dbmodels.models import SqlWorkspace
 from mlflow.store.workspace.sqlalchemy_store import SqlAlchemyStore
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
@@ -107,6 +110,59 @@ def test_create_workspace_invalid_name_raises(workspace_store):
     assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
 
 
+def test_create_workspace_invalid_trace_archival_location_raises(workspace_store):
+    with pytest.raises(MlflowException, match="proxy-only `mlflow-artifacts:` scheme") as exc:
+        workspace_store.create_workspace(
+            Workspace(
+                name="team-a",
+                description=None,
+                trace_archival_location="mlflow-artifacts:/archive/team-a",
+            )
+        )
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+
+
+def test_create_workspace_unsupported_trace_archival_location_raises(workspace_store):
+    class UnsupportedArchiveRepo(ArtifactRepository):
+        def log_artifact(self, local_file, artifact_path=None):
+            raise NotImplementedError
+
+        def log_artifacts(self, local_dir, artifact_path=None):
+            raise NotImplementedError
+
+        def list_artifacts(self, path=None):
+            raise NotImplementedError
+
+    with mock.patch(
+        "mlflow.store.artifact.artifact_repository_registry.get_artifact_repository",
+        return_value=UnsupportedArchiveRepo("dbfs:/archive/team-a"),
+    ):
+        with pytest.raises(
+            MlflowException,
+            match="does not support deleting archived payloads",
+        ) as exc:
+            workspace_store.create_workspace(
+                Workspace(
+                    name="team-a",
+                    description=None,
+                    trace_archival_location="dbfs:/archive/team-a",
+                )
+            )
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+
+
+def test_create_workspace_invalid_trace_archival_retention_raises(workspace_store):
+    with pytest.raises(MlflowException, match="Trace archival retention must") as exc:
+        workspace_store.create_workspace(
+            Workspace(
+                name="team-a",
+                description=None,
+                trace_archival_retention="thirty-days",
+            )
+        )
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+
+
 def test_update_workspace_changes_description(workspace_store):
     workspace_store.create_workspace(Workspace(name="team-a", description="old"))
 
@@ -153,6 +209,43 @@ def test_update_workspace_sets_trace_archival_location(workspace_store):
     assert fetched.trace_archival_location == "s3://archive/team-a"
 
 
+def test_update_workspace_invalid_trace_archival_location_raises(workspace_store):
+    workspace_store.create_workspace(Workspace(name="team-a", description="old"))
+
+    with pytest.raises(MlflowException, match="proxy-only `mlflow-artifacts:` scheme") as exc:
+        workspace_store.update_workspace(
+            Workspace(name="team-a", trace_archival_location="mlflow-artifacts:/archive/team-a")
+        )
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+
+
+def test_update_workspace_unsupported_trace_archival_location_raises(workspace_store):
+    class UnsupportedArchiveRepo(ArtifactRepository):
+        def log_artifact(self, local_file, artifact_path=None):
+            raise NotImplementedError
+
+        def log_artifacts(self, local_dir, artifact_path=None):
+            raise NotImplementedError
+
+        def list_artifacts(self, path=None):
+            raise NotImplementedError
+
+    workspace_store.create_workspace(Workspace(name="team-a", description="old"))
+
+    with mock.patch(
+        "mlflow.store.artifact.artifact_repository_registry.get_artifact_repository",
+        return_value=UnsupportedArchiveRepo("dbfs:/archive/team-a"),
+    ):
+        with pytest.raises(
+            MlflowException,
+            match="does not support deleting archived payloads",
+        ) as exc:
+            workspace_store.update_workspace(
+                Workspace(name="team-a", trace_archival_location="dbfs:/archive/team-a")
+            )
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+
+
 def test_update_workspace_can_clear_trace_archival_location(workspace_store):
     workspace_store.create_workspace(
         Workspace(
@@ -177,6 +270,16 @@ def test_update_workspace_sets_trace_archival_retention(workspace_store):
     assert updated.trace_archival_retention == "14d"
     fetched = workspace_store.get_workspace("team-a")
     assert fetched.trace_archival_retention == "14d"
+
+
+def test_update_workspace_invalid_trace_archival_retention_raises(workspace_store):
+    workspace_store.create_workspace(Workspace(name="team-a", description="old"))
+
+    with pytest.raises(MlflowException, match="Trace archival retention must") as exc:
+        workspace_store.update_workspace(
+            Workspace(name="team-a", trace_archival_retention="thirty-days")
+        )
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
 
 
 def test_update_workspace_can_clear_trace_archival_retention(workspace_store):

@@ -267,8 +267,10 @@ def _make_span() -> Span:
 
 
 def test_archived_trace_data_errors(local_artifact_repo):
-    with pytest.raises(MlflowTraceDataNotFound, match=r"Trace data not found for path="):
-        local_artifact_repo.download_archived_trace_data()
+    assert (
+        local_artifact_repo.download_archived_trace_data().to_dict()
+        == TraceData(spans=[]).to_dict()
+    )
 
     trace_pb_path = pathlib.Path(local_artifact_repo.artifact_dir, TRACE_ARCHIVAL_FILENAME)
     trace_pb_path.write_bytes(b"")

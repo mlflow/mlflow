@@ -24,7 +24,13 @@ from mlflow.cli import cli, doctor, gc, server
 from mlflow.data import numpy_dataset
 from mlflow.entities import Metric, ViewType
 from mlflow.entities.logged_model import LoggedModelParameter, LoggedModelTag
-from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES, MLFLOW_WORKSPACE_STORE_URI
+from mlflow.environment_variables import (
+    MLFLOW_ENABLE_WORKSPACES,
+    MLFLOW_TRACE_ARCHIVAL_LOCATION,
+    MLFLOW_TRACE_ARCHIVAL_LONG_RETENTION_ALLOWLIST,
+    MLFLOW_TRACE_ARCHIVAL_RETENTION,
+    MLFLOW_WORKSPACE_STORE_URI,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.server import handlers
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
@@ -279,6 +285,70 @@ def test_server_artifacts_only_conflicts_with_enable_workspaces():
         )
 
 
+@pytest.mark.parametrize(
+    ("extra_args", "expected_message"),
+    [
+        (
+            ["--trace-archival-location", "file:///tmp/trace-archive"],
+            "--trace-archival-location cannot be combined with --artifacts-only",
+        ),
+        (
+            ["--trace-archival-retention", "30d"],
+            "--trace-archival-retention cannot be combined with --artifacts-only",
+        ),
+    ],
+)
+def test_server_artifacts_only_conflicts_with_trace_archival_options(extra_args, expected_message):
+    with pytest.raises(click.UsageError, match=expected_message):
+        CliRunner().invoke(
+            server,
+            ["--artifacts-only", *extra_args],
+            catch_exceptions=False,
+            standalone_mode=False,
+        )
+
+
+def test_server_artifacts_only_conflicts_with_trace_archival_allowlist_env_var():
+    MLFLOW_TRACE_ARCHIVAL_LONG_RETENTION_ALLOWLIST.set("1,2")
+    try:
+        with pytest.raises(
+            click.UsageError,
+            match=(
+                "MLFLOW_TRACE_ARCHIVAL_LONG_RETENTION_ALLOWLIST cannot be combined with "
+                "--artifacts-only"
+            ),
+        ):
+            CliRunner().invoke(
+                server,
+                ["--artifacts-only"],
+                catch_exceptions=False,
+                standalone_mode=False,
+            )
+    finally:
+        MLFLOW_TRACE_ARCHIVAL_LONG_RETENTION_ALLOWLIST.unset()
+
+
+def test_server_artifacts_only_conflicts_with_trace_archival_allowlist_file(tmp_path):
+    allowlist_file = tmp_path / "trace-allowlist.txt"
+    allowlist_file.write_text("1\n2\n", encoding="utf-8")
+
+    with pytest.raises(
+        click.UsageError,
+        match="--trace-archival-long-retention-allowlist-file cannot be combined with "
+        "--artifacts-only",
+    ):
+        CliRunner().invoke(
+            server,
+            [
+                "--artifacts-only",
+                "--trace-archival-long-retention-allowlist-file",
+                str(allowlist_file),
+            ],
+            catch_exceptions=False,
+            standalone_mode=False,
+        )
+
+
 def test_server_workspace_uri_sets_env_when_workspaces_enabled(tmp_path):
     handlers._tracking_store = None
     handlers._model_registry_store = None
@@ -290,6 +360,7 @@ def test_server_workspace_uri_sets_env_when_workspaces_enabled(tmp_path):
 
     MLFLOW_WORKSPACE_STORE_URI.unset()
     MLFLOW_ENABLE_WORKSPACES.unset()
+    MLFLOW_TRACE_ARCHIVAL_LONG_RETENTION_ALLOWLIST.unset()
 
     try:
         with (
@@ -325,6 +396,205 @@ def test_server_workspace_uri_sets_env_when_workspaces_enabled(tmp_path):
     finally:
         MLFLOW_WORKSPACE_STORE_URI.unset()
         MLFLOW_ENABLE_WORKSPACES.unset()
+        MLFLOW_TRACE_ARCHIVAL_LONG_RETENTION_ALLOWLIST.unset()
+
+
+def test_server_trace_archival_settings_set_env(tmp_path):
+    handlers._tracking_store = None
+    handlers._model_registry_store = None
+    backend_uri = f"sqlite:///{tmp_path / 'backend.db'}"
+    artifact_root = (tmp_path / "artifacts").as_uri()
+    archive_root = (tmp_path / "trace-archive").as_uri()
+
+    MLFLOW_TRACE_ARCHIVAL_LOCATION.unset()
+    MLFLOW_TRACE_ARCHIVAL_RETENTION.unset()
+    MLFLOW_TRACE_ARCHIVAL_LONG_RETENTION_ALLOWLIST.unset()
+
+    try:
+        MLFLOW_TRACE_ARCHIVAL_LONG_RETENTION_ALLOWLIST.set(" 1,2,1 ,, 3 ")
+        with (
+            mock.patch("mlflow.server._run_server") as run_server_mock,
+            mock.patch("mlflow.server.handlers.initialize_backend_stores") as init_backend,
+        ):
+            result = CliRunner().invoke(
+                server,
+                [
+                    "--backend-store-uri",
+                    backend_uri,
+                    "--registry-store-uri",
+                    backend_uri,
+                    "--default-artifact-root",
+                    artifact_root,
+                    "--trace-archival-location",
+                    archive_root,
+                    "--trace-archival-retention",
+                    "30d",
+                ],
+                catch_exceptions=False,
+                standalone_mode=False,
+            )
+        assert result.exit_code == 0
+        run_server_mock.assert_called_once()
+        init_backend.assert_called_once()
+        assert MLFLOW_TRACE_ARCHIVAL_LOCATION.get() == archive_root
+        assert MLFLOW_TRACE_ARCHIVAL_RETENTION.get() == "30d"
+        assert MLFLOW_TRACE_ARCHIVAL_LONG_RETENTION_ALLOWLIST.get() == "1,2,3"
+    finally:
+        MLFLOW_TRACE_ARCHIVAL_LOCATION.unset()
+        MLFLOW_TRACE_ARCHIVAL_RETENTION.unset()
+        MLFLOW_TRACE_ARCHIVAL_LONG_RETENTION_ALLOWLIST.unset()
+
+
+def test_server_trace_archival_allowlist_file_sets_env(tmp_path):
+    handlers._tracking_store = None
+    handlers._model_registry_store = None
+    backend_uri = f"sqlite:///{tmp_path / 'backend.db'}"
+    artifact_root = (tmp_path / "artifacts").as_uri()
+    archive_root = (tmp_path / "trace-archive").as_uri()
+    allowlist_file = tmp_path / "trace-allowlist.txt"
+    allowlist_file.write_text("# comment\n 1 \n2, 1\n\n3\n", encoding="utf-8")
+
+    MLFLOW_TRACE_ARCHIVAL_LOCATION.unset()
+    MLFLOW_TRACE_ARCHIVAL_RETENTION.unset()
+    MLFLOW_TRACE_ARCHIVAL_LONG_RETENTION_ALLOWLIST.unset()
+
+    try:
+        with (
+            mock.patch("mlflow.server._run_server") as run_server_mock,
+            mock.patch("mlflow.server.handlers.initialize_backend_stores") as init_backend,
+        ):
+            result = CliRunner().invoke(
+                server,
+                [
+                    "--backend-store-uri",
+                    backend_uri,
+                    "--registry-store-uri",
+                    backend_uri,
+                    "--default-artifact-root",
+                    artifact_root,
+                    "--trace-archival-location",
+                    archive_root,
+                    "--trace-archival-retention",
+                    "30d",
+                    "--trace-archival-long-retention-allowlist-file",
+                    str(allowlist_file),
+                ],
+                catch_exceptions=False,
+                standalone_mode=False,
+            )
+        assert result.exit_code == 0
+        run_server_mock.assert_called_once()
+        init_backend.assert_called_once()
+        assert MLFLOW_TRACE_ARCHIVAL_LOCATION.get() == archive_root
+        assert MLFLOW_TRACE_ARCHIVAL_RETENTION.get() == "30d"
+        assert MLFLOW_TRACE_ARCHIVAL_LONG_RETENTION_ALLOWLIST.get() == "1,2,3"
+    finally:
+        MLFLOW_TRACE_ARCHIVAL_LOCATION.unset()
+        MLFLOW_TRACE_ARCHIVAL_RETENTION.unset()
+        MLFLOW_TRACE_ARCHIVAL_LONG_RETENTION_ALLOWLIST.unset()
+
+
+def test_server_trace_archival_retention_requires_location():
+    with pytest.raises(
+        click.UsageError,
+        match="Server-owned trace archival requires --trace-archival-location",
+    ):
+        CliRunner().invoke(
+            server,
+            ["--trace-archival-retention", "30d"],
+            catch_exceptions=False,
+            standalone_mode=False,
+        )
+
+
+def test_server_trace_archival_allowlist_env_requires_location():
+    MLFLOW_TRACE_ARCHIVAL_LONG_RETENTION_ALLOWLIST.set("1,2")
+    try:
+        with pytest.raises(
+            click.UsageError,
+            match="Server-owned trace archival requires --trace-archival-location",
+        ):
+            CliRunner().invoke(
+                server,
+                [],
+                catch_exceptions=False,
+                standalone_mode=False,
+            )
+    finally:
+        MLFLOW_TRACE_ARCHIVAL_LONG_RETENTION_ALLOWLIST.unset()
+
+
+def test_server_trace_archival_allowlist_file_requires_location(tmp_path):
+    allowlist_file = tmp_path / "trace-allowlist.txt"
+    allowlist_file.write_text("1\n2\n", encoding="utf-8")
+
+    with pytest.raises(
+        click.UsageError,
+        match="Server-owned trace archival requires --trace-archival-location",
+    ):
+        CliRunner().invoke(
+            server,
+            ["--trace-archival-long-retention-allowlist-file", str(allowlist_file)],
+            catch_exceptions=False,
+            standalone_mode=False,
+        )
+
+
+def test_server_trace_archival_retention_rejects_invalid_value():
+    result = CliRunner().invoke(
+        server,
+        [
+            "--trace-archival-retention",
+            "0d",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "Invalid value for 'trace_archival_retention'" in result.output
+
+
+def test_server_trace_archival_long_retention_allowlist_rejects_invalid_experiment_id():
+    MLFLOW_TRACE_ARCHIVAL_LONG_RETENTION_ALLOWLIST.set("1,invalid id")
+    try:
+        result = CliRunner().invoke(server, [])
+        assert result.exit_code != 0
+        assert "Invalid experiment ID: 'invalid id'" in result.output
+    finally:
+        MLFLOW_TRACE_ARCHIVAL_LONG_RETENTION_ALLOWLIST.unset()
+
+
+def test_server_trace_archival_long_retention_allowlist_file_rejects_invalid_experiment_id(
+    tmp_path,
+):
+    allowlist_file = tmp_path / "trace-allowlist.txt"
+    allowlist_file.write_text("1\ninvalid id\n", encoding="utf-8")
+
+    result = CliRunner().invoke(
+        server,
+        ["--trace-archival-long-retention-allowlist-file", str(allowlist_file)],
+    )
+    assert result.exit_code != 0
+    assert "Invalid experiment ID: 'invalid id'" in result.output
+
+
+def test_server_trace_archival_allowlist_file_conflicts_with_env_var(tmp_path):
+    allowlist_file = tmp_path / "trace-allowlist.txt"
+    allowlist_file.write_text("1\n2\n", encoding="utf-8")
+    MLFLOW_TRACE_ARCHIVAL_LONG_RETENTION_ALLOWLIST.set("3,4")
+    try:
+        with pytest.raises(
+            click.UsageError,
+            match="--trace-archival-long-retention-allowlist-file cannot be combined with "
+            "MLFLOW_TRACE_ARCHIVAL_LONG_RETENTION_ALLOWLIST",
+        ):
+            CliRunner().invoke(
+                server,
+                ["--trace-archival-long-retention-allowlist-file", str(allowlist_file)],
+                catch_exceptions=False,
+                standalone_mode=False,
+            )
+    finally:
+        MLFLOW_TRACE_ARCHIVAL_LONG_RETENTION_ALLOWLIST.unset()
 
 
 @pytest.mark.parametrize("command", [server])
