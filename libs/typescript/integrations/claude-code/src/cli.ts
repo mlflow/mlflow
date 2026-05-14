@@ -5,7 +5,7 @@ function printUsage(): void {
   console.error('');
   console.error('Commands:');
   console.error('  setup        Configure MLflow tracing for Claude Code.');
-  console.error('               Flags:');
+  console.error('               Options:');
   console.error(
     '                 -p, --project          Write settings to ./.claude/settings.json',
   );
