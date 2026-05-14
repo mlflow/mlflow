@@ -10,8 +10,8 @@ allowed-tools:
   - Glob
   - Agent
   - Edit(//tmp/review-payload.json)
-argument-hint: "<owner>/<repo> <pr_number> [extra_context]"
-arguments: [repo, pr_number, extra_context]
+argument-hint: "<owner> <repo> <pr_number> [extra_context]"
+arguments: [owner, repo, pr_number, extra_context]
 ---
 
 # Review Pull Request
@@ -21,50 +21,50 @@ Automatically review a GitHub pull request across correctness, security, edge ca
 ## Usage
 
 ```
-/pr-review <owner>/<repo> <pr_number> [extra_context]
+/pr-review <owner> <repo> <pr_number> [extra_context]
 ```
 
 ## Arguments
 
-- `<owner>/<repo>` (required): repository slug, e.g. `mlflow/mlflow`
+- `<owner>` (required): repository owner, e.g. `mlflow`
+- `<repo>` (required): repository name, e.g. `mlflow`
 - `<pr_number>` (required): pull request number
 - `[extra_context]` (optional): additional filtering or focus instructions (e.g., a specific concern or file type)
 
 ## Examples
 
 ```
-/pr-review mlflow/mlflow 23320
-/pr-review mlflow/mlflow 23320 Please focus on security issues
-/pr-review mlflow/mlflow 23320 Only review Python files
+/pr-review mlflow mlflow 23320
+/pr-review mlflow mlflow 23320 Please focus on security issues
+/pr-review mlflow mlflow 23320 Only review Python files
 ```
 
-## Important Note
-
-Fetch the diff hunks via the `fetch-diff` skill. For context beyond the diff (existing patterns, call sites of changed symbols, file conventions), `Read` and `Grep` the working tree. The working tree is master, not the PR head, so don't infer the changed-line state from it.
-
-You have a **read-only** GitHub token. Do NOT call write APIs (`gh api ... POST`, `gh pr review`, `gh pr comment`, etc.) — your only output is `/tmp/review-payload.json`. The workflow's post step holds the write token and submits the review on your behalf.
-
-## Instructions
+## Inputs
 
 This invocation is reviewing:
 
+- Owner: `$owner`
 - Repo: `$repo`
 - PR number: `$pr_number`
 - Extra context: `$extra_context`
 
-Substitute the placeholders (`<owner>`, `<repo>`, `<pr_number>`) in the steps below with the values above.
+The `<owner>`/`<repo>`/`<pr_number>` placeholders in the steps below refer to the values above.
+
+## Instructions
 
 ### 1. Fetch PR context
 
 Fetch the PR title, description, and author:
 
 ```bash
-gh pr view <pr_number> --repo <owner>/<repo> --json title,body,author
+gh pr view <pr_number> --repo "<owner>/<repo>" --json title,body,author
 ```
+
+> **Note:** You have a **read-only** GitHub token. Do NOT call write APIs (`gh api ... POST`, `gh pr review`, `gh pr comment`, etc.).
 
 ### 2. Fetch PR Diff
 
-Run the `fetch-diff` skill to fetch the PR diff for the identified PR.
+Fetch the diff hunks via the `fetch-diff` skill. For context beyond the diff (existing patterns, call sites of changed symbols, file conventions), `Read` and `Grep` the working tree. The working tree is master, not the PR head, so don't infer the changed-line state from it.
 
 ### 3. Fetch Existing Review Comments
 
