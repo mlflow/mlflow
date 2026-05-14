@@ -17,16 +17,17 @@ defaults:
     shell: bash
 
 jobs:
-  review:
-    runs-on: ubuntu-latest
-    # GITHUB_TOKEN is unused — all GitHub API calls go through the app tokens
-    # minted below. Grant nothing so any future accidental use of GITHUB_TOKEN
-    # fails closed.
-    permissions: {}
-    timeout-minutes: 30
-    # Security: Only run for authorized users.
-    # - pull_request: Only run for non-fork PRs
-    # - issue_comment: BOTH PR author and commenter must be authorized (can't trust external PRs)
+  # Auth gate: only users with admin or maintain role on the repo can trigger
+  # the review (plus the Copilot bot). For issue_comment, BOTH the PR author
+  # and the commenter are checked.
+  gate:
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    # Cheap author_association prefilter so random users can't spawn workflow
+    # runs. The gate step below does the authoritative admin/maintain role
+    # check.
     if: >
       (github.event_name == 'pull_request' &&
        github.event.pull_request.head.repo.full_name == github.repository &&
@@ -43,6 +44,49 @@ jobs:
        contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association) &&
        startsWith(github.event.comment.body, '/review') &&
        !startsWith(github.event.comment.body, '/review-'))
+    steps:
+      - name: Check user permission
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          EVENT_NAME: ${{ github.event_name }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login || github.event.issue.user.login }}
+          PR_AUTHOR_TYPE: ${{ github.event.pull_request.user.type || github.event.issue.user.type }}
+          COMMENTER: ${{ github.event.comment.user.login }}
+        run: |
+          check_user() {
+            local user=$1
+            local type=$2
+            if [ "$user" = "Copilot" ] && [ "$type" = "Bot" ]; then
+              echo "::notice::Allowing Copilot bot: $user"
+              return 0
+            fi
+            local role
+            role=$(gh api "repos/$REPO/collaborators/$user/permission" --jq .role_name) \
+              || { echo "::error::Failed to fetch permission for $user"; exit 1; }
+            case "$role" in
+              admin|maintain)
+                echo "::notice::User $user has $role role"
+                ;;
+              *)
+                echo "::error::User $user lacks admin/maintain role (has: $role)"
+                exit 1
+                ;;
+            esac
+          }
+          check_user "$PR_AUTHOR" "$PR_AUTHOR_TYPE"
+          if [ "$EVENT_NAME" = "issue_comment" ]; then
+            check_user "$COMMENTER" "User"
+          fi
+
+  review:
+    needs: gate
+    runs-on: ubuntu-latest
+    # GITHUB_TOKEN is unused — all GitHub API calls go through the app tokens
+    # minted below. Grant nothing so any future accidental use of GITHUB_TOKEN
+    # fails closed.
+    permissions: {}
+    timeout-minutes: 30
     steps:
       # Two app tokens with split scopes:
       # - app-token-read (read-only): used by the Claude step so prompt-injection
@@ -71,19 +115,8 @@ jobs:
           retries: 3
           script: |
             const { comment } = context.payload;
-
-            // Check user association - only allow OWNER, MEMBER, or COLLABORATOR
-            const authorAssociation = comment.author_association;
-            const isAllowed = ['OWNER', 'MEMBER', 'COLLABORATOR'].includes(authorAssociation);
-
-            let message;
-            if (isAllowed) {
-              const workflowUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}?pr=${context.issue.number}`;
-              message = `🚀 [Review running...](${workflowUrl})`;
-            } else {
-              message = `⚠️ Only repository maintainers and collaborators are allowed to trigger this workflow. Your association: ${authorAssociation}`;
-            }
-
+            const workflowUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}?pr=${context.issue.number}`;
+            const message = `🚀 [Review running...](${workflowUrl})`;
             const updatedBody = `${comment.body}\n\n---\n\n${message}`;
 
             await github.rest.issues.updateComment({
@@ -92,14 +125,11 @@ jobs:
               comment_id: comment.id,
               body: updatedBody,
             });
-
-            if (!isAllowed) {
-              throw new Error(`User not allowed to trigger workflow: ${comment.user.login} (association: ${authorAssociation})`);
-            }
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
           token: ${{ steps.app-token-read.outputs.token }}
+          ref: refs/pull/${{ github.event.pull_request.number || github.event.issue.number }}/merge
       - uses: ./.github/actions/setup-python
         with:
           pin-micro-version: false

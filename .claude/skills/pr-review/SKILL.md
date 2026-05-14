@@ -62,7 +62,7 @@ gh pr view <pr_number> --repo "<owner>/<repo>" --json title,body,author
 
 ### 2. Fetch PR Diff
 
-Fetch the diff hunks via the `fetch-diff` skill. For context beyond the diff (existing patterns, call sites of changed symbols, file conventions), `Read` and `Grep` the working tree. The working tree is master, not the PR head, so don't infer the changed-line state from it.
+Fetch the diff hunks via the `fetch-diff` skill. For context beyond the diff (existing patterns, call sites of changed symbols, file conventions), `Read` and `Grep` the working tree, which holds the PR merged into the base (`refs/pull/<pr>/merge`), so file contents reflect the post-merge state.
 
 ### 3. Fetch Existing Review Comments
 
