@@ -23,6 +23,24 @@ _MODEL_BINARY_FILE_NAME = "model"
 _COMPONENTS_BINARY_DIR_NAME = "components"
 _PROCESSOR_BINARY_DIR_NAME = "processor"
 
+# Shared error message used when a model artifact requires custom (remote) code
+# but the caller did not opt in via ``trust_remote_code=True``. Prior to the
+# behavior change, MLflow silently enabled ``trust_remote_code=True`` for
+# custom-architecture models. We now require an explicit opt-in to match the
+# Hugging Face library default.
+_TRUST_REMOTE_CODE_ERROR_MESSAGE = (
+    "This Transformers model contains custom code (a custom architecture or "
+    "component referenced via `auto_map` in `config.json`). Loading it "
+    "requires executing arbitrary Python code from the model artifact.\n\n"
+    "MLflow does not enable this by default for security reasons. If you "
+    "trust the source of this model and want to load it, pass "
+    "`trust_remote_code=True` to `mlflow.transformers.load_model`:\n\n"
+    "    mlflow.transformers.load_model(model_uri, trust_remote_code=True)\n\n"
+    "Note: this changed in MLflow <next-version> to match the Hugging Face "
+    "library default. Previously, MLflow silently enabled remote code "
+    "execution for custom-architecture models."
+)
+
 
 def save_pipeline_pretrained_weights(path, pipeline, flavor_conf, processor=None):
     """
@@ -108,6 +126,7 @@ def load_model_and_components_from_local_base_path(
     accelerate_conf: dict[str, Any],
     device: str | int | None = None,
     base_model_path: str | None = None,
+    trust_remote_code: bool = False,
 ) -> dict[str, Any]:
     """
     Load the base model from an external local path and pipeline components from the
@@ -122,11 +141,19 @@ def load_model_and_components_from_local_base_path(
         base_model_path: Optional override for the base model path stored in the flavor
             config. When provided, the base model is loaded from this path instead of
             the path stored at save time.
+        trust_remote_code: Whether to allow executing custom code embedded in the model
+            artifact. See ``mlflow.transformers.load_model`` for details.
     """
     loaded = {}
 
     base_model_path = base_model_path or flavor_conf[FlavorKey.MODEL_LOCAL_BASE]
-    loaded[FlavorKey.MODEL] = _load_model(base_model_path, flavor_conf, accelerate_conf, device)
+    loaded[FlavorKey.MODEL] = _load_model(
+        base_model_path,
+        flavor_conf,
+        accelerate_conf,
+        device,
+        trust_remote_code=trust_remote_code,
+    )
 
     components = flavor_conf.get(FlavorKey.COMPONENTS, [])
     if FlavorKey.PROCESSOR_TYPE in flavor_conf:
@@ -135,13 +162,18 @@ def load_model_and_components_from_local_base_path(
     for component_key in components:
         component_path = path.joinpath(_COMPONENTS_BINARY_DIR_NAME, component_key)
         loaded[component_key] = _load_component(
-            flavor_conf, component_key, local_path=component_path
+            flavor_conf,
+            component_key,
+            local_path=component_path,
+            trust_remote_code=trust_remote_code,
         )
 
     return loaded
 
 
-def load_model_and_components_from_local(path, flavor_conf, accelerate_conf, device=None):
+def load_model_and_components_from_local(
+    path, flavor_conf, accelerate_conf, device=None, trust_remote_code: bool = False
+):
     """
     Load the model and components of a Transformer pipeline from the specified local path.
 
@@ -150,6 +182,8 @@ def load_model_and_components_from_local(path, flavor_conf, accelerate_conf, dev
         flavor_conf: The flavor configuration
         accelerate_conf: The configuration for the accelerate library
         device: The device to load the model onto
+        trust_remote_code: Whether to allow executing custom code embedded in the model
+            artifact. See ``mlflow.transformers.load_model`` for details.
     """
     loaded = {}
 
@@ -159,7 +193,13 @@ def load_model_and_components_from_local(path, flavor_conf, accelerate_conf, dev
     #     "artifacts/pipeline/*" path. In order to load the older formats after the change, the
     #     presence of the new path key is checked.
     model_path = path.joinpath(flavor_conf.get(FlavorKey.MODEL_BINARY, "pipeline"))
-    loaded[FlavorKey.MODEL] = _load_model(model_path, flavor_conf, accelerate_conf, device)
+    loaded[FlavorKey.MODEL] = _load_model(
+        model_path,
+        flavor_conf,
+        accelerate_conf,
+        device,
+        trust_remote_code=trust_remote_code,
+    )
 
     components = flavor_conf.get(FlavorKey.COMPONENTS, [])
     if FlavorKey.PROCESSOR_TYPE in flavor_conf:
@@ -168,13 +208,18 @@ def load_model_and_components_from_local(path, flavor_conf, accelerate_conf, dev
     for component_key in components:
         component_path = path.joinpath(_COMPONENTS_BINARY_DIR_NAME, component_key)
         loaded[component_key] = _load_component(
-            flavor_conf, component_key, local_path=component_path
+            flavor_conf,
+            component_key,
+            local_path=component_path,
+            trust_remote_code=trust_remote_code,
         )
 
     return loaded
 
 
-def load_model_and_components_from_huggingface_hub(flavor_conf, accelerate_conf, device=None):
+def load_model_and_components_from_huggingface_hub(
+    flavor_conf, accelerate_conf, device=None, trust_remote_code: bool = False
+):
     """
     Load the model and components of a Transformer pipeline from HuggingFace Hub.
 
@@ -182,6 +227,8 @@ def load_model_and_components_from_huggingface_hub(flavor_conf, accelerate_conf,
         flavor_conf: The flavor configuration
         accelerate_conf: The configuration for the accelerate library
         device: The device to load the model onto
+        trust_remote_code: Whether to allow executing custom code embedded in the model
+            artifact. See ``mlflow.transformers.load_model`` for details.
     """
     loaded = {}
 
@@ -197,7 +244,12 @@ def load_model_and_components_from_huggingface_hub(flavor_conf, accelerate_conf,
         )
 
     loaded[FlavorKey.MODEL] = _load_model(
-        model_repo, flavor_conf, accelerate_conf, device, revision=model_revision
+        model_repo,
+        flavor_conf,
+        accelerate_conf,
+        device,
+        revision=model_revision,
+        trust_remote_code=trust_remote_code,
     )
 
     components = flavor_conf.get(FlavorKey.COMPONENTS, [])
@@ -205,12 +257,12 @@ def load_model_and_components_from_huggingface_hub(flavor_conf, accelerate_conf,
         components.append("processor")
 
     for name in components:
-        loaded[name] = _load_component(flavor_conf, name)
+        loaded[name] = _load_component(flavor_conf, name, trust_remote_code=trust_remote_code)
 
     return loaded
 
 
-def _load_component(flavor_conf, name, local_path=None, repo_id=None):
+def _load_component(flavor_conf, name, local_path=None, repo_id=None, trust_remote_code=False):
     import transformers
 
     _COMPONENT_TO_AUTOCLASS_MAP = {
@@ -232,6 +284,8 @@ def _load_component(flavor_conf, name, local_path=None, repo_id=None):
                 "definition. Make sure your model was saved with "
                 "save_pretrained=True."
             )
+        if not trust_remote_code:
+            raise MlflowException(_TRUST_REMOTE_CODE_ERROR_MESSAGE)
         cls = _COMPONENT_TO_AUTOCLASS_MAP[name]
         trust_remote = True
 
@@ -245,7 +299,9 @@ def _load_component(flavor_conf, name, local_path=None, repo_id=None):
         return cls.from_pretrained(repo, revision=revision, trust_remote_code=trust_remote)
 
 
-def _load_class_from_transformers_config(model_name_or_path, revision=None):
+def _load_class_from_transformers_config(
+    model_name_or_path, revision=None, trust_remote_code: bool = False
+):
     """
     This method retrieves the Transformers AutoClass from the transformers config.
     Using the correct AutoClass allows us to leverage Transformers' model loading
@@ -254,15 +310,22 @@ def _load_class_from_transformers_config(model_name_or_path, revision=None):
     import transformers
     from transformers import AutoConfig
 
-    config = AutoConfig.from_pretrained(
-        model_name_or_path,
-        revision=revision,
-        # trust_remote_code is set to True in order to
-        # make sure the config gets loaded as the correct
-        # class. if this is not set for custom models, the
-        # base class will be loaded instead of the custom one.
-        trust_remote_code=True,
-    )
+    try:
+        config = AutoConfig.from_pretrained(
+            model_name_or_path,
+            revision=revision,
+            # ``trust_remote_code`` is forwarded from the caller. When the
+            # caller passes ``False`` (the default) and the artifact contains
+            # custom code referenced via ``auto_map``, Hugging Face raises a
+            # ``ValueError`` instructing the user to set
+            # ``trust_remote_code=True``. We surface that as an MlflowException
+            # with actionable guidance below.
+            trust_remote_code=trust_remote_code,
+        )
+    except ValueError as e:
+        if "trust_remote_code" in str(e):
+            raise MlflowException(_TRUST_REMOTE_CODE_ERROR_MESSAGE) from e
+        raise
 
     # the model's class name (e.g. "MPTForCausalLM")
     # is stored in the `architectures` field. it
@@ -291,11 +354,26 @@ def _load_class_from_transformers_config(model_name_or_path, revision=None):
         auto_class = auto_classes[0]
         cls = getattr(transformers, auto_class)
 
+        # The model requires custom code to load. If the caller did not opt
+        # in via ``trust_remote_code=True``, refuse with a friendly error.
+        # Note: in practice, ``AutoConfig.from_pretrained`` above would have
+        # raised first, but we keep this as a defense-in-depth check in case
+        # a transformers version differs in behavior.
+        if not trust_remote_code:
+            raise MlflowException(_TRUST_REMOTE_CODE_ERROR_MESSAGE)
+
         # we will need to trust remote code when loading the model
         return cls, True
 
 
-def _load_model(model_name_or_path, flavor_conf, accelerate_conf, device, revision=None):
+def _load_model(
+    model_name_or_path,
+    flavor_conf,
+    accelerate_conf,
+    device,
+    revision=None,
+    trust_remote_code: bool = False,
+):
     """
     Try to load a model with various loading strategies.
       1. Try to load the model with accelerate
@@ -309,7 +387,7 @@ def _load_model(model_name_or_path, flavor_conf, accelerate_conf, device, revisi
         trust_remote = False
     else:
         cls, trust_remote = _load_class_from_transformers_config(
-            model_name_or_path, revision=revision
+            model_name_or_path, revision=revision, trust_remote_code=trust_remote_code
         )
 
     load_kwargs = {"revision": revision} if revision else {}

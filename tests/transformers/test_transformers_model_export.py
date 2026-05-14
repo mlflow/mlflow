@@ -1374,14 +1374,31 @@ def test_custom_code_pipeline(custom_code_pipeline, model_path):
         signature=signature,
     )
 
-    # just test that it doesn't blow up when performing inference
-    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
-    pyfunc_pred = pyfunc_loaded.predict(data)
-    assert isinstance(pyfunc_pred[0][0], float)
+    # pyfunc cannot opt into trust_remote_code, so loading a custom-code
+    # model via pyfunc should now refuse by default.
+    with pytest.raises(MlflowException, match="trust_remote_code"):
+        mlflow.pyfunc.load_model(model_path)
 
-    transformers_loaded = mlflow.transformers.load_model(model_path)
+    transformers_loaded = mlflow.transformers.load_model(model_path, trust_remote_code=True)
     transformers_pred = transformers_loaded(data)
-    assert pyfunc_pred[0][0] == transformers_pred[0][0][0]
+    assert isinstance(transformers_pred[0][0][0], float)
+
+
+def test_custom_code_pipeline_refused_without_trust_remote_code(custom_code_pipeline, model_path):
+    data = "hello"
+
+    signature = infer_signature(
+        data, mlflow.transformers.generate_signature_output(custom_code_pipeline, data)
+    )
+
+    mlflow.transformers.save_model(
+        custom_code_pipeline,
+        path=model_path,
+        signature=signature,
+    )
+
+    with pytest.raises(MlflowException, match="trust_remote_code"):
+        mlflow.transformers.load_model(model_path)
 
 
 def test_custom_components_pipeline(custom_components_pipeline, model_path):
@@ -1401,18 +1418,124 @@ def test_custom_components_pipeline(custom_components_pipeline, model_path):
         transformers_model=components, path=model_path, signature=signature
     )
 
-    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
-    pyfunc_pred = pyfunc_loaded.predict(data)
-    assert isinstance(pyfunc_pred[0][0], float)
+    # pyfunc cannot opt into trust_remote_code, so loading a custom-code
+    # model via pyfunc should now refuse by default.
+    with pytest.raises(MlflowException, match="trust_remote_code"):
+        mlflow.pyfunc.load_model(model_path)
 
-    transformers_loaded = mlflow.transformers.load_model(model_path)
+    transformers_loaded = mlflow.transformers.load_model(model_path, trust_remote_code=True)
     transformers_pred = transformers_loaded(data)
-    assert pyfunc_pred[0][0] == transformers_pred[0][0][0]
+    assert isinstance(transformers_pred[0][0][0], float)
 
     # assert that all the reloaded components exist
     # and have the same class name as pre-save
     for name, component in components.items():
         assert component.__class__.__name__ == getattr(transformers_loaded, name).__class__.__name__
+
+
+_HF_TRUST_REMOTE_CODE_ERROR = ValueError(
+    "Loading this model requires you to execute custom code contained in the "
+    "model repository on your local machine. Please set the option "
+    "`trust_remote_code=True` to permit loading of this model."
+)
+
+
+def test_load_class_from_transformers_config_default_passes_false_to_autoconfig():
+    from mlflow.transformers.model_io import _load_class_from_transformers_config
+
+    # Use a real built-in architecture name so the function takes the
+    # ``hasattr(transformers, class_name)`` True branch and returns immediately.
+    fake_config = mock.MagicMock()
+    fake_config.architectures = ["BertForQuestionAnswering"]
+
+    with mock.patch(
+        "transformers.AutoConfig.from_pretrained",
+        return_value=fake_config,
+    ) as mock_autoconfig:
+        cls, trust_remote = _load_class_from_transformers_config("some/path")
+
+        assert cls is transformers.BertForQuestionAnswering
+        assert trust_remote is False
+        mock_autoconfig.assert_called_once()
+        _, kwargs = mock_autoconfig.call_args
+        assert kwargs.get("trust_remote_code") is False
+
+
+def test_load_class_from_transformers_config_passes_true_when_opted_in():
+    from mlflow.transformers.model_io import _load_class_from_transformers_config
+
+    fake_config = mock.MagicMock()
+    fake_config.architectures = ["BertForQuestionAnswering"]
+
+    with mock.patch(
+        "transformers.AutoConfig.from_pretrained",
+        return_value=fake_config,
+    ) as mock_autoconfig:
+        _load_class_from_transformers_config("some/path", trust_remote_code=True)
+
+        mock_autoconfig.assert_called_once()
+        _, kwargs = mock_autoconfig.call_args
+        assert kwargs.get("trust_remote_code") is True
+
+
+def test_load_class_from_transformers_config_translates_hf_trust_remote_code_error():
+    from mlflow.transformers.model_io import _load_class_from_transformers_config
+
+    with mock.patch(
+        "transformers.AutoConfig.from_pretrained",
+        side_effect=_HF_TRUST_REMOTE_CODE_ERROR,
+    ) as mock_autoconfig:
+        with pytest.raises(MlflowException, match="trust_remote_code") as exc_info:
+            _load_class_from_transformers_config("some/path")
+
+        assert exc_info.value.__cause__ is _HF_TRUST_REMOTE_CODE_ERROR
+        mock_autoconfig.assert_called_once()
+
+
+def test_load_class_from_transformers_config_propagates_unrelated_value_error():
+    from mlflow.transformers.model_io import _load_class_from_transformers_config
+
+    other_error = ValueError("Some other problem")
+    with mock.patch(
+        "transformers.AutoConfig.from_pretrained",
+        side_effect=other_error,
+    ) as mock_autoconfig:
+        with pytest.raises(ValueError, match="Some other problem"):
+            _load_class_from_transformers_config("some/path")
+        mock_autoconfig.assert_called_once()
+
+
+def test_load_model_passes_trust_remote_code_through_to_internal_loader(
+    text_generation_pipeline, model_path
+):
+    mlflow.transformers.save_model(text_generation_pipeline, path=model_path)
+
+    sentinel = object()
+    with mock.patch(
+        "mlflow.transformers._load_model",
+        return_value=sentinel,
+    ) as mock_internal_load:
+        result = mlflow.transformers.load_model(model_path, trust_remote_code=True)
+
+        assert result is sentinel
+        mock_internal_load.assert_called_once()
+        _, kwargs = mock_internal_load.call_args
+        assert kwargs.get("trust_remote_code") is True
+
+
+def test_load_model_default_passes_false_to_internal_loader(text_generation_pipeline, model_path):
+    mlflow.transformers.save_model(text_generation_pipeline, path=model_path)
+
+    sentinel = object()
+    with mock.patch(
+        "mlflow.transformers._load_model",
+        return_value=sentinel,
+    ) as mock_internal_load:
+        mlflow.transformers.load_model(model_path)
+
+        mock_internal_load.assert_called_once()
+        _, kwargs = mock_internal_load.call_args
+        assert kwargs.get("trust_remote_code") is False
 
 
 @pytest.mark.parametrize(

@@ -319,6 +319,26 @@ The transformers flavor has two different primary mechanisms for saving and load
 Saving transformers models with custom code (i.e. models that require `trust_remote_code=True`) requires `transformers >= 4.26.0`.
 :::
 
+:::warning Loading models with custom code
+Some Transformers models (e.g. MPT, certain Falcon variants, DeepSeek-R1) ship a custom architecture or component
+referenced via `auto_map` in `config.json`. Loading these artifacts executes arbitrary Python from the model
+repository.
+
+To match the Hugging Face library default, MLflow does **not** enable this by default. Calling
+<APILink fn="mlflow.transformers.load_model" /> on a custom-code artifact will raise an `MlflowException` with
+actionable guidance. To load such a model, pass `trust_remote_code=True` explicitly:
+
+```python
+loaded = mlflow.transformers.load_model(model_uri, trust_remote_code=True)
+```
+
+Only set `trust_remote_code=True` for models from sources you trust. Pyfunc loading does not accept this
+parameter, so custom-code artifacts must be loaded via `mlflow.transformers.load_model` directly.
+
+This default changed in MLflow `<next-version>`. Prior versions silently enabled remote code execution for
+custom-architecture models.
+:::
+
 **Pipelines**
 
 Pipelines, in the context of the Transformers library, are high-level objects that combine pre-trained models and tokenizers

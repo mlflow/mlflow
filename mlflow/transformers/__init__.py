@@ -1125,6 +1125,7 @@ def load_model(
     return_type="pipeline",
     device=None,
     base_model_path: str | None = None,
+    trust_remote_code: bool = False,
     **kwargs,
 ):
     """
@@ -1173,6 +1174,28 @@ def load_model(
             artifact at save time. This is useful when the base model is located at a
             different path at load time than it was at save time (e.g. different mount
             points across environments).
+        trust_remote_code: Whether to allow executing custom code embedded in
+            the model artifact. Hugging Face Transformers uses this flag as an
+            explicit consent boundary for importing custom architecture or
+            component modules referenced via ``auto_map`` in ``config.json``.
+
+            Default is ``False``. When ``False``, MLflow refuses to load
+            artifacts that require custom code and raises a clear error
+            with instructions. When ``True``, MLflow forwards the trust
+            decision to Hugging Face and executes the embedded code.
+
+            .. warning::
+
+                Setting ``trust_remote_code=True`` executes arbitrary
+                Python from the model artifact. Only enable this for models
+                from sources you trust.
+
+            .. note::
+
+                Prior to MLflow <next-version>, MLflow silently enabled
+                ``trust_remote_code=True`` for custom-architecture models,
+                without any caller opt-in. This was a behavior change in
+                <next-version>.
         kwargs: Optional configuration options for loading of a ``transformers`` object.
             For information on parameters and their usage, see
             `transformers documentation <https://huggingface.co/docs/transformers/index>`_.
@@ -1233,6 +1256,7 @@ def load_model(
         return_type,
         device,
         base_model_path=base_model_path,
+        trust_remote_code=trust_remote_code,
         **kwargs,
     )
 
@@ -1368,6 +1392,7 @@ def _load_model(
     return_type: str,
     device=None,
     base_model_path: str | None = None,
+    trust_remote_code: bool = False,
     **kwargs,
 ):
     """
@@ -1439,6 +1464,7 @@ def _load_model(
             accelerate_conf=accelerate_model_conf,
             device=device,
             base_model_path=base_model_path,
+            trust_remote_code=trust_remote_code,
         )
     elif FlavorKey.MODEL_REVISION not in flavor_config:
         model_and_components = load_model_and_components_from_local(
@@ -1446,10 +1472,14 @@ def _load_model(
             flavor_conf=flavor_config,
             accelerate_conf=accelerate_model_conf,
             device=device,
+            trust_remote_code=trust_remote_code,
         )
     else:
         model_and_components = load_model_and_components_from_huggingface_hub(
-            flavor_conf=flavor_config, accelerate_conf=accelerate_model_conf, device=device
+            flavor_conf=flavor_config,
+            accelerate_conf=accelerate_model_conf,
+            device=device,
+            trust_remote_code=trust_remote_code,
         )
 
     # Load and apply PEFT adaptor if saved
@@ -1787,7 +1817,14 @@ def _get_model_config(local_path, pyfunc_config):
 
 def _load_pyfunc(path, model_config: dict[str, Any] | None = None):
     """
-    Loads the model as pyfunc model
+    Loads the model as pyfunc model.
+
+    Note: pyfunc loading does not accept a ``trust_remote_code`` argument, so
+    models that require custom code (custom architectures or components
+    referenced via ``auto_map`` in ``config.json``) will fail to load by
+    default. Users who need to load such artifacts should call
+    ``mlflow.transformers.load_model(model_uri, trust_remote_code=True)``
+    directly after independently verifying that the model source is trusted.
     """
     local_path = pathlib.Path(path)
     flavor_configuration = _get_flavor_configuration(local_path, FLAVOR_NAME)
@@ -1795,7 +1832,7 @@ def _load_pyfunc(path, model_config: dict[str, Any] | None = None):
     prompt_template = _get_prompt_template(local_path)
 
     return _TransformersWrapper(
-        _load_model(str(local_path), flavor_configuration, "pipeline"),
+        _load_model(str(local_path), flavor_configuration, "pipeline", trust_remote_code=False),
         flavor_configuration,
         model_config,
         prompt_template,
