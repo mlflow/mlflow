@@ -26,6 +26,7 @@ def test_trace_command_help(runner):
     assert "Set up Claude Code tracing" in result.output
     assert "--tracking-uri" in result.output
     assert "--experiment-id" in result.output
+    assert "--non-interactive" in result.output
     assert "--disable" in result.output
     assert "--status" in result.output
 
@@ -47,19 +48,58 @@ def test_claude_setup_installs_plugin_and_writes_env(runner):
     with (
         runner.isolated_filesystem(),
         mock.patch("mlflow.claude_code.cli.ensure_plugin_installed") as mock_install,
-        mock.patch("mlflow.claude_code.cli.migrate_legacy_hooks") as mock_migrate,
     ):
         result = runner.invoke(commands, ["claude", "-u", "http://localhost:5000", "-e", "123"])
         assert result.exit_code == 0
 
         mock_install.assert_called_once_with(Path.cwd())
-        mock_migrate.assert_called_once_with(Path.cwd() / ".claude" / "settings.json")
 
         config = json.loads(Path(".claude/settings.json").read_text())
         assert config["env"]["MLFLOW_CLAUDE_TRACING_ENABLED"] == "true"
         assert config["env"]["MLFLOW_TRACKING_URI"] == "http://localhost:5000"
         assert config["env"]["MLFLOW_EXPERIMENT_ID"] == "123"
         assert "hooks" not in config
+
+
+def test_claude_setup_prompts_for_missing_values_in_interactive_mode(runner):
+    with (
+        runner.isolated_filesystem(),
+        mock.patch("mlflow.claude_code.cli.ensure_plugin_installed"),
+        mock.patch("mlflow.claude_code.cli._is_interactive_shell", return_value=True),
+        mock.patch("mlflow.get_tracking_uri", return_value="http://localhost:5000"),
+    ):
+        result = runner.invoke(commands, ["claude"], input="\n42\n")
+        assert result.exit_code == 0
+
+        config = json.loads(Path(".claude/settings.json").read_text())
+        assert config["env"]["MLFLOW_TRACKING_URI"] == "http://localhost:5000"
+        assert config["env"]["MLFLOW_EXPERIMENT_ID"] == "42"
+        assert "interactive mode" in result.output
+        assert "MLFLOW_TRACKING_URI and MLFLOW_EXPERIMENT_ID" in result.output
+
+
+def test_claude_setup_shows_plugin_install_message(runner):
+    with (
+        runner.isolated_filesystem(),
+        mock.patch("mlflow.claude_code.cli.ensure_plugin_installed"),
+    ):
+        result = runner.invoke(commands, ["claude", "-u", "http://localhost:5000", "-e", "123"])
+        assert result.exit_code == 0
+        assert "Installing MLflow Claude plugin into Claude Code" in result.output
+
+
+def test_claude_setup_non_interactive_uses_defaults(runner):
+    with (
+        runner.isolated_filesystem(),
+        mock.patch("mlflow.claude_code.cli.ensure_plugin_installed"),
+        mock.patch("mlflow.get_tracking_uri", return_value="file:///tmp/mlruns"),
+    ):
+        result = runner.invoke(commands, ["claude", "--non-interactive"])
+        assert result.exit_code == 0
+
+        config = json.loads(Path(".claude/settings.json").read_text())
+        assert config["env"]["MLFLOW_TRACKING_URI"] == "file:///tmp/mlruns"
+        assert config["env"]["MLFLOW_EXPERIMENT_ID"] == "0"
 
 
 def test_mlflow_cmd_empty_string_raises_error(runner):
@@ -87,6 +127,16 @@ def test_mlflow_cmd_whitespace_only_raises_error(runner):
         result = runner.invoke(commands, ["claude", "--mlflow-cmd", "   "])
         assert result.exit_code != 0
         assert "must not be empty or whitespace-only" in result.output
+
+
+def test_setup_rejects_experiment_id_and_name_together(runner):
+    with runner.isolated_filesystem():
+        result = runner.invoke(
+            commands,
+            ["claude", "--experiment-id", "1", "--experiment-name", "my-exp"],
+        )
+        assert result.exit_code != 0
+        assert "Choose either --experiment-id or --experiment-name" in result.output
 
 
 def test_stop_hook_subcommand_is_routable(runner):

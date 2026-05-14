@@ -6,36 +6,10 @@ from unittest import mock
 import click
 import pytest
 
-from mlflow.claude_code.plugin import disable_tracing_plugin, ensure_plugin_installed, migrate_legacy_hooks
+from mlflow.claude_code.plugin import disable_tracing_plugin, ensure_plugin_installed
 
 
-def test_migrate_legacy_hooks_removes_only_mlflow_hook(tmp_path):
-    settings_path = tmp_path / ".claude" / "settings.json"
-    settings_path.parent.mkdir(parents=True)
-    settings_path.write_text(
-        json.dumps(
-            {
-                "hooks": {
-                    "Stop": [
-                        {
-                            "hooks": [
-                                {"type": "command", "command": "mlflow autolog claude stop-hook"},
-                                {"type": "command", "command": "echo keep-me"},
-                            ]
-                        }
-                    ]
-                }
-            }
-        )
-    )
-
-    assert migrate_legacy_hooks(settings_path) is True
-    config = json.loads(settings_path.read_text())
-    hooks = config["hooks"]["Stop"][0]["hooks"]
-    assert hooks == [{"type": "command", "command": "echo keep-me"}]
-
-
-def test_disable_tracing_plugin_removes_env_and_legacy_hooks(tmp_path):
+def test_disable_tracing_plugin_removes_env_only(tmp_path):
     settings_path = tmp_path / ".claude" / "settings.json"
     settings_path.parent.mkdir(parents=True)
     settings_path.write_text(
@@ -46,21 +20,14 @@ def test_disable_tracing_plugin_removes_env_and_legacy_hooks(tmp_path):
                     "MLFLOW_TRACKING_URI": "http://localhost:5000",
                     "MLFLOW_EXPERIMENT_ID": "123",
                 },
-                "hooks": {
-                    "Stop": [
-                        {
-                            "hooks": [
-                                {"type": "command", "command": "mlflow autolog claude stop-hook"}
-                            ]
-                        }
-                    ]
-                },
+                "other": "keep-me",
             }
         )
     )
 
     assert disable_tracing_plugin(settings_path) is True
-    assert not settings_path.exists()
+    config = json.loads(settings_path.read_text())
+    assert config == {"other": "keep-me"}
 
 
 def test_ensure_plugin_installed_runs_marketplace_add_and_install(tmp_path):

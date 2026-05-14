@@ -59,7 +59,7 @@ def patched_claude_sdk_init(original, self, options=None):
                 from mlflow.utils.autologging_utils import autologging_is_disabled
 
                 if not autologging_is_disabled("anthropic"):
-                    from mlflow.claude_code.sdk_tracing import process_sdk_messages
+                    from mlflow.claude_code.tracing import process_sdk_messages
 
                     process_sdk_messages(list(messages))
             except Exception as e:

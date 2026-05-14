@@ -15,13 +15,13 @@ from claude_agent_sdk.types import (
 
 import mlflow
 import mlflow.claude_code.tracing as tracing_module
-from mlflow.claude_code.sdk_tracing import process_sdk_messages
 from mlflow.claude_code.tracing import (
     CLAUDE_TRACING_LEVEL,
     METADATA_KEY_CLAUDE_CODE_VERSION,
     find_last_user_message_index,
     get_hook_response,
     parse_timestamp_to_ns,
+    process_sdk_messages,
     process_transcript,
     setup_logging,
 )

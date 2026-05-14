@@ -1,5 +1,7 @@
 """MLflow CLI commands for Claude Code integration."""
 
+import os
+import sys
 from pathlib import Path
 
 import click
@@ -9,8 +11,47 @@ from mlflow.claude_code.hooks import stop_hook_handler
 from mlflow.claude_code.plugin import (
     disable_tracing_plugin,
     ensure_plugin_installed,
-    migrate_legacy_hooks,
 )
+from mlflow.environment_variables import (
+    MLFLOW_EXPERIMENT_ID,
+    MLFLOW_EXPERIMENT_NAME,
+    MLFLOW_TRACKING_URI,
+)
+
+
+def _title(text: str) -> str:
+    return click.style(text, fg="magenta", bold=True)
+
+
+def _ok(text: str) -> str:
+    return click.style(text, fg="green", bold=True)
+
+
+def _warn(text: str) -> str:
+    return click.style(text, fg="yellow", bold=True)
+
+
+def _error(text: str) -> str:
+    return click.style(text, fg="red", bold=True)
+
+
+def _label(text: str) -> str:
+    return click.style(text, bold=True)
+
+
+def _question(text: str) -> str:
+    return click.style(text, fg="yellow", bold=True)
+
+
+def _value(text: str) -> str:
+    return click.style(text, fg="cyan")
+
+
+def _muted(text: str) -> str:
+    return click.style(text, dim=True)
+
+
+_DEFAULT_TRACKING_URI_SENTINEL = "default"
 
 
 @click.group("autolog")
@@ -34,6 +75,12 @@ def commands():
 @click.option("--disable", is_flag=True, help="Disable Claude tracing in the specified directory")
 @click.option("--status", is_flag=True, help="Show current tracing status")
 @click.option(
+    "--non-interactive",
+    "-y",
+    is_flag=True,
+    help="Skip prompts and use flags, environment variables, or defaults.",
+)
+@click.option(
     "--mlflow-cmd",
     default=None,
     help=(
@@ -50,6 +97,7 @@ def claude(
     experiment_name: str | None,
     disable: bool,
     status: bool,
+    non_interactive: bool,
     mlflow_cmd: str | None,
 ) -> None:
     """Set up Claude Code tracing in a directory.
@@ -79,12 +127,15 @@ def claude(
     if ctx.invoked_subcommand is not None:
         return
 
+    if experiment_id and experiment_name:
+        raise click.BadParameter("Choose either --experiment-id or --experiment-name, not both.")
+
     if mlflow_cmd is not None:
         if not mlflow_cmd.strip():
             raise click.BadParameter(
                 "must not be empty or whitespace-only", param_hint="'--mlflow-cmd'"
             )
-        click.echo("⚠️  --mlflow-cmd is deprecated and ignored.")
+        click.echo(f"{_warn('⚠')} {_muted('--mlflow-cmd is deprecated and ignored.')}")
 
     target_dir = Path(directory).resolve()
     claude_dir = target_dir / ".claude"
@@ -98,18 +149,27 @@ def claude(
         _handle_disable(settings_file)
         return
 
-    click.echo(f"Configuring Claude tracing in: {target_dir}")
+    _print_setup_intro(tracking_uri, experiment_id, experiment_name, non_interactive)
+    tracking_uri, experiment_id, experiment_name = _resolve_setup_inputs(
+        tracking_uri,
+        experiment_id,
+        experiment_name,
+        non_interactive,
+    )
+
+    click.echo(f"{_title('MLflow Claude Tracing Setup')}")
+    click.echo(f"{_label('Project:')} {_value(str(target_dir))}")
 
     # Create .claude directory and install the plugin runtime
     claude_dir.mkdir(parents=True, exist_ok=True)
+    click.echo(f"{_label('Installing plugin:')} {_muted('MLflow Claude plugin for Claude Code')}")
     try:
         ensure_plugin_installed(target_dir)
-        migrate_legacy_hooks(settings_file)
     except click.ClickException:
         raise
     except Exception as exc:
         raise click.ClickException(f"Failed to configure Claude tracing: {exc}") from exc
-    click.echo("✅ Claude Code plugin installed")
+    click.echo(f"{_ok('✓')} Claude Code plugin installed")
 
     # Set up environment variables consumed by the plugin
     setup_environment_config(settings_file, tracking_uri, experiment_id, experiment_name)
@@ -118,35 +178,105 @@ def claude(
     _show_setup_status(target_dir, settings_file)
 
 
+def _print_setup_intro(
+    tracking_uri: str | None,
+    experiment_id: str | None,
+    experiment_name: str | None,
+    non_interactive: bool,
+) -> None:
+    if non_interactive or not _is_interactive_shell():
+        return
+
+    missing_tracking = not (tracking_uri or os.environ.get(MLFLOW_TRACKING_URI.name))
+    missing_experiment = not (
+        experiment_id
+        or experiment_name
+        or os.environ.get(MLFLOW_EXPERIMENT_ID.name)
+        or os.environ.get(MLFLOW_EXPERIMENT_NAME.name)
+    )
+    if not missing_tracking and not missing_experiment:
+        return
+
+    click.echo(f"{_title('Interactive Mode')}")
+    click.echo(_muted("MLflow Claude tracing setup is running in interactive mode."))
+    click.echo(
+        _muted(
+            "If you want non-interactive setup, provide values with CLI options or set "
+            "MLFLOW_TRACKING_URI and MLFLOW_EXPERIMENT_ID in your environment."
+        )
+    )
+    click.echo("")
+
+
+def _resolve_setup_inputs(
+    tracking_uri: str | None,
+    experiment_id: str | None,
+    experiment_name: str | None,
+    non_interactive: bool,
+) -> tuple[str | None, str | None, str | None]:
+    resolved_tracking_uri = tracking_uri or os.environ.get(MLFLOW_TRACKING_URI.name)
+    resolved_experiment_id = experiment_id or os.environ.get(MLFLOW_EXPERIMENT_ID.name)
+    resolved_experiment_name = experiment_name or os.environ.get(MLFLOW_EXPERIMENT_NAME.name)
+
+    if non_interactive or not _is_interactive_shell():
+        return resolved_tracking_uri, resolved_experiment_id, resolved_experiment_name
+
+    if not resolved_tracking_uri:
+        import mlflow
+
+        actual_default_tracking_uri = mlflow.get_tracking_uri()
+        resolved_tracking_uri = click.prompt(
+            _question("MLflow tracking URI"),
+            default=_DEFAULT_TRACKING_URI_SENTINEL,
+            show_default=True,
+        ).strip()
+        if resolved_tracking_uri == _DEFAULT_TRACKING_URI_SENTINEL:
+            resolved_tracking_uri = actual_default_tracking_uri
+
+    if not resolved_experiment_id and not resolved_experiment_name:
+        resolved_experiment_id = click.prompt(
+            _question("MLflow experiment ID"),
+            default="0",
+            show_default=True,
+        ).strip()
+
+    return resolved_tracking_uri, resolved_experiment_id, resolved_experiment_name
+
+
+def _is_interactive_shell() -> bool:
+    return sys.stdin.isatty() and sys.stdout.isatty()
+
+
 def _handle_disable(settings_file: Path) -> None:
     """Handle disable command."""
     if disable_tracing_plugin(settings_file):
-        click.echo("✅ Claude tracing disabled")
+        click.echo(f"{_ok('✓')} Claude tracing disabled")
     else:
-        click.echo("❌ No Claude configuration found - tracing was not enabled")
+        click.echo(f"{_error('✗')} No Claude configuration found - tracing was not enabled")
 
 
 def _show_status(target_dir: Path, settings_file: Path) -> None:
     """Show current tracing status."""
-    click.echo(f"📍 Claude tracing status in: {target_dir}")
+    click.echo(f"{_title('MLflow Claude Tracing Status')}")
+    click.echo(f"{_label('Project:')} {_value(str(target_dir))}")
 
     status = get_tracing_status(settings_file)
 
     if not status.enabled:
-        click.echo("❌ Claude tracing is not enabled")
+        click.echo(f"{_error('✗')} Claude tracing is not enabled")
         if status.reason:
-            click.echo(f"   Reason: {status.reason}")
+            click.echo(f"  {_label('Reason:')} {_muted(status.reason)}")
         return
 
-    click.echo("✅ Claude tracing is ENABLED")
-    click.echo(f"📊 Tracking URI: {status.tracking_uri}")
+    click.echo(f"{_ok('✓')} Claude tracing is enabled")
+    click.echo(f"{_label('Tracking URI:')} {_value(str(status.tracking_uri))}")
 
     if status.experiment_name:
-        click.echo(f"🔬 Experiment Name: {status.experiment_name}")
+        click.echo(f"{_label('Experiment name:')} {_value(status.experiment_name)}")
     if status.experiment_id:
-        click.echo(f"🆔 Experiment ID: {status.experiment_id}")
+        click.echo(f"{_label('Experiment ID:')} {_value(status.experiment_id)}")
     elif not status.experiment_name:
-        click.echo("🔬 Experiment: Default (experiment 0)")
+        click.echo(f"{_label('Experiment:')} {_muted('Default (experiment 0)')}")
 
 
 def _show_setup_status(
@@ -157,45 +287,35 @@ def _show_setup_status(
     current_dir = Path.cwd().resolve()
     status = get_tracing_status(settings_file)
 
-    click.echo("\n" + "=" * 50)
-    click.echo("🎯 Claude Tracing Setup Complete!")
-    click.echo("=" * 50)
-
-    click.echo(f"📁 Directory: {target_dir}")
+    click.echo("")
+    click.echo(_title("Setup Complete"))
+    click.echo(f"{_label('Project:')} {_value(str(target_dir))}")
 
     # Show tracking configuration
     if status.tracking_uri:
-        click.echo(f"📊 Tracking URI: {status.tracking_uri}")
+        click.echo(f"{_label('Tracking URI:')} {_value(status.tracking_uri)}")
 
     if status.experiment_name:
-        click.echo(f"🔬 Experiment Name: {status.experiment_name}")
+        click.echo(f"{_label('Experiment name:')} {_value(status.experiment_name)}")
     if status.experiment_id:
-        click.echo(f"🆔 Experiment ID: {status.experiment_id}")
+        click.echo(f"{_label('Experiment ID:')} {_value(status.experiment_id)}")
     elif not status.experiment_name:
-        click.echo("🔬 Experiment: Default (experiment 0)")
+        click.echo(f"{_label('Experiment:')} {_muted('Default (experiment 0)')}")
 
     # Show next steps
-    click.echo("\n" + "=" * 30)
-    click.echo("🚀 Next Steps:")
-    click.echo("=" * 30)
+    click.echo("")
+    click.echo(_title("Next Steps"))
 
     # Only show cd if it's a different directory
     if target_dir != current_dir:
-        click.echo(f"cd {target_dir}")
+        click.echo(f"  {_muted('Work from:')} {_value(str(target_dir))}")
 
-    click.echo("claude -p 'your prompt here'")
+    click.echo(f"  {_muted('1.')} Use Claude Code as usual in this directory.")
+    click.echo(f"  {_muted('2.')} Visit the MLflow UI after a Claude conversation ends to inspect traces.")
 
-    if status.tracking_uri and status.tracking_uri.startswith("file://"):
-        click.echo("\n💡 View your traces:")
-        click.echo(f"   mlflow server --backend-store-uri {status.tracking_uri}")
-    elif not status.tracking_uri:
-        click.echo("\n💡 View your traces:")
-        click.echo("   mlflow server")
-    elif status.tracking_uri == "databricks":
-        click.echo("\n💡 View your traces in your Databricks workspace")
-
-    click.echo("\n🔧 To disable tracing later:")
-    click.echo("   mlflow autolog claude --disable")
+    click.echo("")
+    click.echo(_title("Disable Later"))
+    click.echo(f"  {_value('mlflow autolog claude --disable')}")
 
 
 @claude.command("stop-hook", hidden=True)
