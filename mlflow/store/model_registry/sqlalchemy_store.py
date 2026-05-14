@@ -156,6 +156,12 @@ class SqlAlchemyStore(AbstractStore):
                 WriteSessionMaker, ReadSessionMaker, self.db_type
             )
         else:
+            if read_db_uri and read_db_uri == db_uri:
+                _logger.warning(
+                    "read_db_uri is the same as the primary db_uri; "
+                    "read replica routing will not be enabled. "
+                    "This is likely a configuration mistake."
+                )
             self.read_engine = None
             SessionMaker = sqlalchemy.orm.sessionmaker(bind=self.engine)
             self.ManagedSessionMaker = _get_managed_session_maker(SessionMaker, self.db_type)

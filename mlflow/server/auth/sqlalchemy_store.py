@@ -60,6 +60,8 @@ from mlflow.utils.uri import extract_db_type_from_uri
 from mlflow.utils.validation import _validate_password, _validate_username
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
+_logger = logging.getLogger(__name__)
+
 # Pre-RBAC permission tables retained on disk by
 # ``e5f6a7b8c9d0_migrate_permissions_to_roles``. The runtime no longer reads or
 # writes these tables — they exist solely so operators can roll back the
@@ -122,7 +124,7 @@ class SqlAlchemyStore:
             )
         else:
             if read_db_uri and read_db_uri == db_uri:
-                logging.getLogger(__name__).warning(
+                _logger.warning(
                     "read_db_uri is the same as the primary db_uri; "
                     "read replica routing will not be enabled. "
                     "This is likely a configuration mistake."
