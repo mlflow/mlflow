@@ -146,6 +146,15 @@ def _get_managed_session_maker(SessionMaker, db_type):
                     session.execute(sql.text("PRAGMA foreign_keys = ON;"))
                     session.execute(sql.text("PRAGMA busy_timeout = 20000;"))
                     session.execute(sql.text("PRAGMA case_sensitive_like = true;"))
+                if read_only and os.environ.get("PYTEST_CURRENT_TEST"):
+                    def _reject_flush(session, flush_context, instances):
+                        raise MlflowException(
+                            "Write operation detected on a read-only session. "
+                            "Mark this method with read_only=False.",
+                            error_code=INTERNAL_ERROR,
+                        )
+
+                    event.listen(session, "before_flush", _reject_flush)
                 yield session
                 session.commit()
             except MlflowException:
@@ -193,17 +202,6 @@ def _get_routing_session_maker(write_session_maker, read_session_maker, db_type)
     @contextmanager
     def make_managed_session(read_only=True):
         with (_read if read_only else _write)(read_only=read_only) as session:
-            if read_only and os.environ.get("_MLFLOW_TESTING"):
-                from sqlalchemy import event
-
-                def _reject_flush(session, flush_context, instances):
-                    raise MlflowException(
-                        "Write operation detected on a read-only session. "
-                        "Mark this method with read_only=False.",
-                        error_code=INTERNAL_ERROR,
-                    )
-
-                event.listen(session, "before_flush", _reject_flush)
             yield session
 
     return make_managed_session
