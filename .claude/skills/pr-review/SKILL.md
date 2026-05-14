@@ -85,9 +85,10 @@ gh api graphql -F owner=<owner> -F repo=<repo> -F pr=<PR_NUMBER> -f query='
 
 ### 4. In-Depth Analysis
 
-**Apply additional filtering** from user instructions if provided (e.g., focus on specific issues or areas).
+#### Don't comment on
 
-You may read unchanged/context lines to understand the change, but only file findings against the changed lines (added, modified, or deleted). Pre-existing code is not in scope, even if it looks suboptimal.
+- Pre-existing code. You may read unchanged/context lines to understand the change, but only file findings against the changed lines (added, modified, or deleted), even if surrounding code looks suboptimal.
+- Issues already caught by formatters or linters (unused imports, formatting, line length, simple typos, etc.).
 
 Evaluate the changed code across these dimensions:
 
