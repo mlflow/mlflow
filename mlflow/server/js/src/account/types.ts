@@ -2,6 +2,13 @@ export interface User {
   id: number;
   username: string;
   is_admin: boolean;
+  /**
+   * Roles the requester is authorized to see for this user. The backend
+   * scopes the list per-requester (admin sees every role; workspace
+   * managers see only roles in workspaces they administer). Optional so
+   * older callers / fixtures that don't populate it stay valid.
+   */
+  roles?: Role[];
 }
 
 export interface RolePermission {

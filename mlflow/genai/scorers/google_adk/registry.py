@@ -16,11 +16,11 @@ def get_scorer_class(metric_name: str):
     )
 
     registry = {
-        "ToolTrajectory": ToolTrajectory,
-        "ResponseMatch": ResponseMatch,
-        "ResponseEvaluation": ResponseEvaluation,
-        "Safety": Safety,
         "Hallucination": Hallucination,
+        "ResponseEvaluation": ResponseEvaluation,
+        "ResponseMatch": ResponseMatch,
+        "Safety": Safety,
+        "ToolTrajectory": ToolTrajectory,
     }
 
     if metric_name not in registry:

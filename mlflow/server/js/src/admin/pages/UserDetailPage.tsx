@@ -16,7 +16,14 @@ import {
 } from '@databricks/design-system';
 import { ScrollablePageWrapper } from '@mlflow/mlflow/src/common/components/ScrollablePageWrapper';
 import { Link, useParams, useSearchParams } from '../../common/utils/RoutingUtils';
-import { useUserPermissionsQuery, useUserRolesQuery, useUsersQuery, useWithSettingsReturnTo } from '../hooks';
+import { useActiveWorkspace } from '../../workspaces/utils/WorkspaceUtils';
+import {
+  useCurrentUserIsAdmin,
+  useUserPermissionsQuery,
+  useUserRolesQuery,
+  useUsersQuery,
+  useWithSettingsReturnTo,
+} from '../hooks';
 import { useWorkspacesEnabled } from '../../experiment-tracking/hooks/useServerInfo';
 import AdminRoutes from '../routes';
 import { EditAccessModal } from '../components/EditAccessModal';
@@ -34,7 +41,7 @@ const UserDetailPage = () => {
   const tabFromUrl = searchParams.get('tab');
   const activeTab = tabFromUrl === 'permissions' ? 'permissions' : 'roles';
 
-  const { data: rolesData, isLoading: rolesLoading, error: rolesError } = useUserRolesQuery(username);
+  const { data: rolesData, isLoading: rolesLoading, error: rolesErrorRaw } = useUserRolesQuery(username);
   const { data: directPermsData, isLoading: directPermsLoading } = useUserPermissionsQuery(username);
   // ``useUsersQuery`` is admin-only; we use it just to surface the
   // ``is_admin`` flag for this user. Failing this should not block the
@@ -42,15 +49,46 @@ const UserDetailPage = () => {
   const { data: usersData } = useUsersQuery();
   const { workspacesEnabled } = useWorkspacesEnabled();
   const withReturnTo = useWithSettingsReturnTo();
+  // For workspace managers viewing a user outside their workspaces,
+  // ``validate_can_view_user_roles`` 403s — that's expected, not a failure.
+  // Hide the red error banner for non-admins so the page degrades to an
+  // empty "no visible roles" state instead of looking broken; platform
+  // admins still see real fetch failures.
+  const isAdmin = useCurrentUserIsAdmin();
+  const rolesError = isAdmin ? rolesErrorRaw : null;
+  // The /admin entry is per-workspace, so non-admin viewers should only
+  // see roles in the active workspace — including for self, where the
+  // backend's self-check returns global roles.
+  const activeWorkspace = useActiveWorkspace();
 
   const [editAccessOpen, setEditAccessOpen] = useState(false);
 
   const user = useMemo(() => usersData?.users?.find((u) => u.username === username), [usersData, username]);
-  const roles = rolesData?.roles ?? [];
-  const directPermissions = directPermsData?.permissions ?? [];
+  const allRoles = rolesData?.roles ?? [];
+  const roles = isAdmin || !activeWorkspace ? allRoles : allRoles.filter((r) => r.workspace === activeWorkspace);
+  const allDirectPermissions = directPermsData?.permissions ?? [];
+  // Direct permissions also carry ``workspace``; same scope rule.
+  // ``workspace: null`` means the underlying resource was deleted — keep
+  // those visible to platform admins, drop for workspace managers (the
+  // grant isn't actionable in any specific workspace anyway).
+  const directPermissions =
+    isAdmin || !activeWorkspace
+      ? allDirectPermissions
+      : allDirectPermissions.filter((p) => p.workspace === activeWorkspace);
 
   const rolesEmptyState =
-    roles.length === 0 ? <Empty title="No roles" description="This user has not been assigned to any roles." /> : null;
+    roles.length === 0 ? (
+      <Empty
+        title="No roles"
+        description={
+          isAdmin
+            ? 'This user has not been assigned to any roles.'
+            : activeWorkspace
+              ? `No roles for this user in workspace "${activeWorkspace}".`
+              : 'No roles visible in workspaces you manage.'
+        }
+      />
+    ) : null;
 
   if (!username) {
     return (

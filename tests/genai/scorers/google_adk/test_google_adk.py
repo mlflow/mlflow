@@ -455,7 +455,10 @@ def _create_test_trace(inputs=None, outputs=None):
 
 
 def _create_tool_trace(inputs, outputs, tool_calls):
-    """Build a trace containing TOOL spans for one or more tool calls."""
+    """Build a trace containing one or more TOOL spans.
+
+    Each entry in ``tool_calls`` is a ``(name, args, result)`` triple.
+    """
     with mlflow.start_span(name="root") as root:
         root.set_inputs(inputs)
         for name, args, result in tool_calls:
@@ -488,6 +491,95 @@ def test_response_match_with_trace():
     assert result.metadata["score"] == 0.75
 
 
+def test_tool_trajectory_with_trace_extracts_actual_calls():
+    """Regression test for the bug where actual tool calls were never
+    extracted from the trace: the scorer silently reported 0.0 for any
+    real agent run that didn't duplicate tool calls under
+    ``expectations["actual_tool_calls"]``.
+    """
+    trace = _create_tool_trace(
+        inputs={"query": "Book a flight to Paris"},
+        outputs="Booked flight AA123",
+        tool_calls=[
+            ("search_flights", {"destination": "Paris"}, {"flights": ["AA123"]}),
+            ("book_flight", {"flight_id": "AA123"}, {"status": "confirmed"}),
+        ],
+    )
+
+    captured = {}
+
+    def _fake_evaluate(*, actual_invocations, expected_invocations):
+        captured["actual"] = actual_invocations
+        captured["expected"] = expected_invocations
+        return _make_eval_result(1.0)
+
+    mock_evaluator = Mock()
+    mock_evaluator.evaluate_invocations = _fake_evaluate
+
+    with patch(
+        f"{_PATCH_PREFIX}._create_trajectory_evaluator",
+        return_value=mock_evaluator,
+    ):
+        scorer = ToolTrajectory(match_type="EXACT", threshold=0.5)
+        result = scorer(
+            trace=trace,
+            expectations={
+                "expected_tool_calls": [
+                    {"name": "search_flights", "args": {"destination": "Paris"}},
+                    {"name": "book_flight", "args": {"flight_id": "AA123"}},
+                ],
+            },
+        )
+
+    # Scorer result
+    assert result.value == CategoricalRating.YES
+    assert result.metadata[FRAMEWORK_METADATA_KEY] == "google_adk"
+
+    # Actual tool calls must be populated from the trace, not left empty
+    actual_inv = captured["actual"][0]
+    assert actual_inv.intermediate_data is not None
+    actual_tool_names = [t.name for t in actual_inv.intermediate_data.tool_uses]
+    assert actual_tool_names == ["search_flights", "book_flight"]
+
+
+def test_tool_trajectory_expectation_override_beats_trace():
+    """Explicit ``expectations["actual_tool_calls"]`` should override trace
+    extraction so callers can inject synthetic data when needed.
+    """
+    trace = _create_tool_trace(
+        inputs={"q": "x"},
+        outputs="y",
+        tool_calls=[("trace_tool", {"from": "trace"}, {"ok": True})],
+    )
+
+    captured = {}
+
+    def _fake_evaluate(*, actual_invocations, expected_invocations):
+        captured["actual"] = actual_invocations
+        return _make_eval_result(1.0)
+
+    mock_evaluator = Mock()
+    mock_evaluator.evaluate_invocations = _fake_evaluate
+
+    with patch(
+        f"{_PATCH_PREFIX}._create_trajectory_evaluator",
+        return_value=mock_evaluator,
+    ):
+        scorer = ToolTrajectory(match_type="EXACT")
+        scorer(
+            trace=trace,
+            expectations={
+                "expected_tool_calls": [{"name": "override_tool", "args": {}}],
+                "actual_tool_calls": [{"name": "override_tool", "args": {}}],
+            },
+        )
+
+    actual_inv = captured["actual"][0]
+    assert actual_inv.intermediate_data is not None
+    names = [t.name for t in actual_inv.intermediate_data.tool_uses]
+    assert names == ["override_tool"]  # Not "trace_tool"
+
+
 # ---------------------------------------------------------------------------
 # map_scorer_inputs_to_invocation helper tests (require google-adk installed)
 # ---------------------------------------------------------------------------
@@ -512,19 +604,98 @@ def test_map_scorer_inputs_to_invocation_basic():
     assert expected.final_response.parts[0].text == "hello world"
 
 
+def test_map_scorer_inputs_to_invocation_no_expectations():
+    from mlflow.genai.scorers.google_adk.utils import map_scorer_inputs_to_invocation
+
+    actual, expected = map_scorer_inputs_to_invocation(
+        inputs="test input",
+        outputs="test output",
+    )
+
+    assert actual.user_content.parts[0].text == "test input"
+    assert actual.final_response.parts[0].text == "test output"
+    assert expected.intermediate_data is None
+    assert expected.final_response is None
+
+
+def test_map_scorer_inputs_to_invocation_uses_context_fallback():
+    from mlflow.genai.scorers.google_adk.utils import map_scorer_inputs_to_invocation
+
+    _, expected = map_scorer_inputs_to_invocation(
+        inputs="q",
+        outputs="a",
+        expectations={"context": "reference from context key"},
+    )
+
+    assert expected.final_response.parts[0].text == "reference from context key"
+
+
+def test_extract_actual_tool_calls_from_trace():
+    from mlflow.genai.scorers.google_adk.utils import _extract_actual_tool_calls
+
+    trace = _create_tool_trace(
+        inputs={"q": "weather and stock"},
+        outputs="done",
+        tool_calls=[
+            ("get_weather", {"city": "NYC"}, {"temp": 72}),
+            ("get_stock", {"symbol": "AAPL"}, {"price": 150}),
+        ],
+    )
+
+    result = _extract_actual_tool_calls(expectations=None, trace=trace)
+    assert [c["name"] for c in result] == ["get_weather", "get_stock"]
+    assert result[0]["args"] == {"city": "NYC"}
+    assert result[1]["args"] == {"symbol": "AAPL"}
+
+
+def test_extract_actual_tool_calls_expectation_override():
+    from mlflow.genai.scorers.google_adk.utils import _extract_actual_tool_calls
+
+    trace = _create_tool_trace(
+        inputs={"q": "x"},
+        outputs="y",
+        tool_calls=[("from_trace", {}, {})],
+    )
+    result = _extract_actual_tool_calls(
+        expectations={"actual_tool_calls": [{"name": "explicit", "args": {}}]},
+        trace=trace,
+    )
+    assert [c["name"] for c in result] == ["explicit"]
+
+
+def test_extract_actual_tool_calls_no_trace_no_expectation():
+    from mlflow.genai.scorers.google_adk.utils import _extract_actual_tool_calls
+
+    assert _extract_actual_tool_calls(expectations=None, trace=None) == []
+    assert _extract_actual_tool_calls(expectations={}, trace=None) == []
+
+
+def test_map_scorer_inputs_to_invocation_reads_trace_tool_calls():
+    from mlflow.genai.scorers.google_adk.utils import map_scorer_inputs_to_invocation
+
+    trace = _create_tool_trace(
+        inputs={"q": "Book a flight"},
+        outputs="Booked",
+        tool_calls=[("book_flight", {"dest": "Paris"}, {"ok": True})],
+    )
+
+    actual, _ = map_scorer_inputs_to_invocation(
+        trace=trace,
+        expectations={"expected_tool_calls": [{"name": "book_flight", "args": {"dest": "Paris"}}]},
+    )
+    assert actual.intermediate_data is not None
+    names = [t.name for t in actual.intermediate_data.tool_uses]
+    assert names == ["book_flight"]
+
+
+# ---------------------------------------------------------------------------
+# LLM judge scorer test helpers
+# ---------------------------------------------------------------------------
+
+
 def _mock_llm_evaluator(overall_score):
     mock_evaluator = Mock()
     mock_evaluator.evaluate_invocations.return_value = _make_eval_result(overall_score)
-    return mock_evaluator
-
-
-def _mock_async_llm_evaluator(overall_score):
-    mock_evaluator = Mock()
-
-    async def async_evaluate(**kwargs):
-        return _make_eval_result(overall_score)
-
-    mock_evaluator.evaluate_invocations = Mock(side_effect=lambda **kw: async_evaluate(**kw))
     return mock_evaluator
 
 
@@ -547,8 +718,14 @@ def test_response_evaluation_scorer(score, expected_value):
             f"{_PATCH_PREFIX}._create_response_evaluation_evaluator",
             return_value=_mock_llm_evaluator(score),
         ),
-        patch(f"{_PATCH_PREFIX}.map_scorer_inputs_to_invocation", return_value=_mock_invocations()),
-        patch(f"{_PATCH_PREFIX}.run_async", side_effect=lambda coro: _make_eval_result(score)),
+        patch(
+            f"{_PATCH_PREFIX}.map_scorer_inputs_to_invocation",
+            return_value=_mock_invocations(),
+        ),
+        patch(
+            f"{_PATCH_PREFIX}.run_async",
+            side_effect=lambda coro: _make_eval_result(score),
+        ),
     ):
         scorer = ResponseEvaluation(model="gemini-2.5-flash", threshold=0.5)
         result = scorer(
@@ -601,7 +778,10 @@ def test_safety_scorer(score, expected_value):
             f"{_PATCH_PREFIX}._create_safety_evaluator",
             return_value=_mock_llm_evaluator(score),
         ),
-        patch(f"{_PATCH_PREFIX}.map_scorer_inputs_to_invocation", return_value=_mock_invocations()),
+        patch(
+            f"{_PATCH_PREFIX}.map_scorer_inputs_to_invocation",
+            return_value=_mock_invocations(),
+        ),
     ):
         scorer = Safety(model="gemini-2.5-flash", threshold=0.5)
         result = scorer(
@@ -626,7 +806,10 @@ def test_safety_error_handling():
 
     with (
         patch(f"{_PATCH_PREFIX}._create_safety_evaluator", return_value=mock_evaluator),
-        patch(f"{_PATCH_PREFIX}.map_scorer_inputs_to_invocation", return_value=_mock_invocations()),
+        patch(
+            f"{_PATCH_PREFIX}.map_scorer_inputs_to_invocation",
+            return_value=_mock_invocations(),
+        ),
     ):
         scorer = Safety()
         result = scorer(inputs="test", outputs="test")
@@ -656,8 +839,14 @@ def test_hallucination_scorer(score, expected_value):
             f"{_PATCH_PREFIX}._create_hallucination_evaluator",
             return_value=_mock_llm_evaluator(score),
         ),
-        patch(f"{_PATCH_PREFIX}.map_scorer_inputs_to_invocation", return_value=_mock_invocations()),
-        patch(f"{_PATCH_PREFIX}.run_async", side_effect=lambda coro: _make_eval_result(score)),
+        patch(
+            f"{_PATCH_PREFIX}.map_scorer_inputs_to_invocation",
+            return_value=_mock_invocations(),
+        ),
+        patch(
+            f"{_PATCH_PREFIX}.run_async",
+            side_effect=lambda coro: _make_eval_result(score),
+        ),
     ):
         scorer = Hallucination(model="gemini-2.5-flash", threshold=0.5)
         result = scorer(
@@ -685,7 +874,10 @@ def test_hallucination_error_handling():
             f"{_PATCH_PREFIX}._create_hallucination_evaluator",
             return_value=mock_evaluator,
         ),
-        patch(f"{_PATCH_PREFIX}.map_scorer_inputs_to_invocation", return_value=_mock_invocations()),
+        patch(
+            f"{_PATCH_PREFIX}.map_scorer_inputs_to_invocation",
+            return_value=_mock_invocations(),
+        ),
         patch(f"{_PATCH_PREFIX}.run_async", side_effect=RuntimeError("Eval failed")),
     ):
         scorer = Hallucination()
@@ -720,210 +912,14 @@ def test_get_scorer_llm_judges(metric_name, expected_class):
     assert isinstance(scorer, expected_class)
 
 
-def test_llm_judge_source_type():
+def test_llm_judge_model_attribute():
     with patch(f"{_PATCH_PREFIX}._create_safety_evaluator"):
         scorer = Safety(model="gemini-2.5-pro")
 
     assert scorer._model == "gemini-2.5-pro"
 
 
-def test_llm_judge_default_model():
+def test_llm_judge_default_model_and_samples():
     with patch(f"{_PATCH_PREFIX}._create_safety_evaluator") as mock_create:
         Safety()
         mock_create.assert_called_once_with(0.5, "gemini-2.5-flash", 5)
-
-
-def test_map_scorer_inputs_to_invocation_no_expectations():
-    from mlflow.genai.scorers.google_adk.utils import map_scorer_inputs_to_invocation
-
-    actual, expected = map_scorer_inputs_to_invocation(
-        inputs="test input",
-        outputs="test output",
-    )
-
-    assert actual.user_content.parts[0].text == "test input"
-    assert actual.final_response.parts[0].text == "test output"
-    assert expected.intermediate_data is None
-    assert expected.final_response is None
-
-
-def test_map_scorer_inputs_to_invocation_uses_context_fallback():
-    from mlflow.genai.scorers.google_adk.utils import map_scorer_inputs_to_invocation
-
-    _, expected = map_scorer_inputs_to_invocation(
-        inputs="q",
-        outputs="a",
-        expectations={"context": "reference from context key"},
-    )
-
-    assert expected.final_response.parts[0].text == "reference from context key"
-
-
-# ---------------------------------------------------------------------------
-# Trace-based actual tool call extraction (regression tests)
-# ---------------------------------------------------------------------------
-
-
-def test_extract_actual_tool_calls_from_trace():
-    from mlflow.genai.scorers.google_adk.utils import _extract_actual_tool_calls
-
-    trace = _create_tool_trace(
-        inputs={"q": "Book a flight to Paris"},
-        outputs="Booked AA123",
-        tool_calls=[
-            ("search_flights", {"destination": "Paris"}, {"flights": ["AA123"]}),
-            ("book_flight", {"flight_id": "AA123"}, {"status": "confirmed"}),
-        ],
-    )
-
-    calls = _extract_actual_tool_calls(expectations=None, trace=trace)
-
-    assert len(calls) == 2
-    assert calls[0]["name"] == "search_flights"
-    assert calls[0]["args"] == {"destination": "Paris"}
-    assert calls[1]["name"] == "book_flight"
-    assert calls[1]["args"] == {"flight_id": "AA123"}
-
-
-def test_extract_actual_tool_calls_expectation_override():
-    from mlflow.genai.scorers.google_adk.utils import _extract_actual_tool_calls
-
-    trace = _create_tool_trace(
-        inputs={"q": "x"},
-        outputs="y",
-        tool_calls=[("from_trace", {"a": 1}, "ok")],
-    )
-
-    calls = _extract_actual_tool_calls(
-        expectations={"actual_tool_calls": [{"name": "override", "args": {"b": 2}}]},
-        trace=trace,
-    )
-
-    assert len(calls) == 1
-    assert calls[0]["name"] == "override"
-    assert calls[0]["args"] == {"b": 2}
-
-
-def test_extract_actual_tool_calls_no_trace_no_expectation():
-    from mlflow.genai.scorers.google_adk.utils import _extract_actual_tool_calls
-
-    assert _extract_actual_tool_calls(expectations=None, trace=None) == []
-    assert _extract_actual_tool_calls(expectations={}, trace=None) == []
-
-
-def test_map_scorer_inputs_to_invocation_reads_trace_tool_calls():
-    from mlflow.genai.scorers.google_adk.utils import map_scorer_inputs_to_invocation
-
-    trace = _create_tool_trace(
-        inputs={"q": "Search for weather in Paris"},
-        outputs="It is 20C and sunny",
-        tool_calls=[
-            ("get_weather", {"city": "Paris"}, {"temp": 20, "conditions": "sunny"}),
-        ],
-    )
-
-    actual, expected = map_scorer_inputs_to_invocation(
-        expectations={
-            "expected_tool_calls": [{"name": "get_weather", "args": {"city": "Paris"}}],
-        },
-        trace=trace,
-    )
-
-    assert actual.intermediate_data is not None
-    assert len(actual.intermediate_data.tool_uses) == 1
-    assert actual.intermediate_data.tool_uses[0].name == "get_weather"
-    assert actual.intermediate_data.tool_uses[0].args == {"city": "Paris"}
-
-    assert expected.intermediate_data is not None
-    assert len(expected.intermediate_data.tool_uses) == 1
-    assert expected.intermediate_data.tool_uses[0].name == "get_weather"
-
-
-def test_tool_trajectory_with_trace_extracts_actual_calls():
-    """Regression: ToolTrajectory must populate actual tool calls from trace.
-
-    Before the fix, actual_tool_calls were only read from
-    ``expectations["actual_tool_calls"]``. The trace's TOOL spans were ignored,
-    so every real evaluation compared an empty actual trajectory against the
-    expected one and silently failed.
-    """
-    trace = _create_tool_trace(
-        inputs={"query": "Book a flight to Paris"},
-        outputs="Booked flight AA123",
-        tool_calls=[
-            ("search_flights", {"destination": "Paris"}, {"flights": ["AA123"]}),
-            ("book_flight", {"flight_id": "AA123"}, {"status": "confirmed"}),
-        ],
-    )
-
-    captured = {}
-
-    def _capture(actual_invocations, expected_invocations, **kwargs):
-        captured["actual"] = actual_invocations
-        captured["expected"] = expected_invocations
-        return _make_eval_result(1.0)
-
-    mock_evaluator = Mock()
-    mock_evaluator.evaluate_invocations.side_effect = _capture
-
-    with patch(
-        f"{_PATCH_PREFIX}._create_trajectory_evaluator",
-        return_value=mock_evaluator,
-    ):
-        scorer = ToolTrajectory(match_type="EXACT", threshold=0.5)
-        result = scorer(
-            trace=trace,
-            expectations={
-                "expected_tool_calls": [
-                    {"name": "search_flights", "args": {"destination": "Paris"}},
-                    {"name": "book_flight", "args": {"flight_id": "AA123"}},
-                ],
-            },
-        )
-
-    assert isinstance(result, Feedback)
-    assert result.value == CategoricalRating.YES
-
-    actual_invocation = captured["actual"][0]
-    assert actual_invocation.intermediate_data is not None
-    actual_tool_uses = actual_invocation.intermediate_data.tool_uses
-    assert len(actual_tool_uses) == 2
-    assert actual_tool_uses[0].name == "search_flights"
-    assert actual_tool_uses[0].args == {"destination": "Paris"}
-    assert actual_tool_uses[1].name == "book_flight"
-    assert actual_tool_uses[1].args == {"flight_id": "AA123"}
-
-
-def test_tool_trajectory_expectation_override_beats_trace():
-    trace = _create_tool_trace(
-        inputs={"q": "x"},
-        outputs="y",
-        tool_calls=[("from_trace", {"a": 1}, "ok")],
-    )
-
-    captured = {}
-
-    def _capture(actual_invocations, expected_invocations, **kwargs):
-        captured["actual"] = actual_invocations
-        return _make_eval_result(1.0)
-
-    mock_evaluator = Mock()
-    mock_evaluator.evaluate_invocations.side_effect = _capture
-
-    with patch(
-        f"{_PATCH_PREFIX}._create_trajectory_evaluator",
-        return_value=mock_evaluator,
-    ):
-        scorer = ToolTrajectory()
-        scorer(
-            trace=trace,
-            expectations={
-                "expected_tool_calls": [{"name": "override", "args": {"b": 2}}],
-                "actual_tool_calls": [{"name": "override", "args": {"b": 2}}],
-            },
-        )
-
-    actual_tool_uses = captured["actual"][0].intermediate_data.tool_uses
-    assert len(actual_tool_uses) == 1
-    assert actual_tool_uses[0].name == "override"
-    assert actual_tool_uses[0].args == {"b": 2}

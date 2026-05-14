@@ -316,8 +316,13 @@ def _build_endpoint_config(
         anthropic_config = {
             "anthropic_api_key": model_config.secret_value.get(_AuthConfigKey.API_KEY),
         }
-        if model_config.auth_config and "version" in model_config.auth_config:
-            anthropic_config["anthropic_version"] = model_config.auth_config["version"]
+        if model_config.auth_config:
+            if "version" in model_config.auth_config:
+                anthropic_config["anthropic_version"] = model_config.auth_config["version"]
+            if _AuthConfigKey.API_BASE in model_config.auth_config:
+                anthropic_config["anthropic_api_base"] = model_config.auth_config[
+                    _AuthConfigKey.API_BASE
+                ]
         provider_config = AnthropicConfig(**anthropic_config)
     elif model_config.provider == Provider.MISTRAL:
         provider_config = MistralConfig(

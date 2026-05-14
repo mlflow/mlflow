@@ -142,7 +142,12 @@ export function MlflowSidebar({
   const showNestedExperimentItems = Boolean(activeExperimentId) && shouldEnableWorkflowBasedNavigation();
   const showNestedSettingsItems = isSettingsActive(location);
 
+  // Manage in the avatar dropdown is platform-admin-only — a fast-path
+  // they can hit from anywhere. Workspace managers reach /admin via the
+  // gear icon in the workspaces table on the home page instead, which
+  // ties the entry point to a specific workspace they administer.
   const isAdmin = useCurrentUserIsAdmin();
+  const canManage = isAdmin;
 
   const { openPanel, closePanel, isPanelOpen, isLocalServer } = useAssistant();
   const [isAssistantHovered, setIsAssistantHovered] = useState(false);
@@ -532,7 +537,7 @@ export function MlflowSidebar({
                   >
                     <FormattedMessage defaultMessage="Account" description="Sidebar account menu item" />
                   </DropdownMenu.Item>
-                  {isAdmin && (
+                  {canManage && (
                     <DropdownMenu.Item
                       componentId="mlflow.sidebar.manage"
                       onPointerDown={() => {

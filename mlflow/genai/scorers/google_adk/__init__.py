@@ -25,17 +25,6 @@ Example usage:
         outputs="MLflow is a platform for ML.",
         expectations={"expected_response": "MLflow is an ML lifecycle platform."},
     )
-
-Model routing notes for LLM judge scorers (``ResponseEvaluation``, ``Safety``,
-``Hallucination``):
-
-    These scorers delegate model invocation to ADK's internal LLM registry
-    (``google.adk.models.LlmRegistry``), which does not go through MLflow's
-    gateway adapters (``call_chat_completions`` / LiteLLM). Only models that
-    ADK natively supports (Gemini, etc.) can be used as the judge. Passing
-    MLflow model URIs like ``databricks`` or ``openai:/gpt-4o`` will fail at
-    evaluation time because ADK cannot resolve them. This is a known limitation
-    and will be revisited once ADK exposes a pluggable judge-model interface.
 """
 
 from __future__ import annotations
@@ -64,11 +53,8 @@ _logger = logging.getLogger(__name__)
 _FRAMEWORK_NAME = "google_adk"
 
 _DEFAULT_THRESHOLD = 0.5
-
-# ADK's LLM judge criteria require a Google-native model name (the judge runs
-# through ADK's own LlmRegistry, not through MLflow's gateway adapters).
-# Gemini is the only model ADK resolves out of the box, so it is the default.
 _DEFAULT_JUDGE_MODEL = "gemini-2.5-flash"
+_DEFAULT_JUDGE_SAMPLES = 5
 
 
 @experimental(version="3.11.0")
@@ -86,7 +72,6 @@ class GoogleADKScorer(Scorer):
 
     _evaluator: Any = PrivateAttr()
     _threshold: float = PrivateAttr()
-    _model: str | None = PrivateAttr(default=None)
 
     @property
     def kind(self) -> ScorerKind:
@@ -116,74 +101,6 @@ class GoogleADKScorer(Scorer):
             "'align()' is not supported for third-party scorers like Google ADK. "
             "Alignment is only available for MLflow's built-in judges."
         )
-
-    def _evaluate_judge(
-        self,
-        *,
-        inputs: Any = None,
-        outputs: Any = None,
-        expectations: dict[str, Any] | None = None,
-        trace: Trace | None = None,
-        is_async: bool = False,
-        require_reference: bool = False,
-    ) -> Feedback:
-        is_llm = self._model is not None
-        assessment_source = AssessmentSource(
-            source_type=AssessmentSourceType.LLM_JUDGE if is_llm else AssessmentSourceType.CODE,
-            source_id=self._model if is_llm else f"google_adk/{self.name}",
-        )
-
-        try:
-            if require_reference:
-                reference = None
-                if expectations:
-                    reference = (
-                        expectations.get("expected_response")
-                        or expectations.get("context")
-                        or expectations.get("reference")
-                        or expectations.get("expected_output")
-                    )
-                if reference is None:
-                    raise MlflowException.invalid_parameter_value(
-                        f"{self.name} scorer requires 'expected_response', 'context', or "
-                        "'reference' in expectations."
-                    )
-
-            actual_inv, expected_inv = map_scorer_inputs_to_invocation(
-                inputs=inputs,
-                outputs=outputs,
-                expectations=expectations,
-                trace=trace,
-            )
-
-            call = self._evaluator.evaluate_invocations(
-                actual_invocations=[actual_inv],
-                expected_invocations=[expected_inv],
-            )
-            result = run_async(call) if is_async else call
-
-            score = result.overall_score if result.overall_score is not None else 0.0
-            passed = score >= self._threshold
-
-            return Feedback(
-                name=self.name,
-                value=CategoricalRating.YES if passed else CategoricalRating.NO,
-                rationale=f"{self.name} score: {score:.2f} (threshold: {self._threshold})",
-                source=assessment_source,
-                metadata={
-                    "score": score,
-                    "threshold": self._threshold,
-                    FRAMEWORK_METADATA_KEY: _FRAMEWORK_NAME,
-                },
-            )
-        except Exception as e:
-            _logger.error("Error evaluating Google ADK metric %s: %s", self.name, e)
-            return Feedback(
-                name=self.name,
-                error=e,
-                source=assessment_source,
-                metadata={FRAMEWORK_METADATA_KEY: _FRAMEWORK_NAME},
-            )
 
 
 @experimental(version="3.11.0")
@@ -243,25 +160,51 @@ class ToolTrajectory(GoogleADKScorer):
         expectations: dict[str, Any] | None = None,
         trace: Trace | None = None,
     ) -> Feedback:
-        if not expectations or "expected_tool_calls" not in expectations:
-            return Feedback(
-                name=self.name,
-                error=MlflowException.invalid_parameter_value(
+        assessment_source = AssessmentSource(
+            source_type=AssessmentSourceType.CODE,
+            source_id=f"google_adk/{self.metric_name}",
+        )
+
+        try:
+            if not expectations or "expected_tool_calls" not in expectations:
+                raise MlflowException.invalid_parameter_value(
                     "ToolTrajectory scorer requires 'expected_tool_calls' in expectations."
-                ),
-                source=AssessmentSource(
-                    source_type=AssessmentSourceType.CODE,
-                    source_id=f"google_adk/{self.metric_name}",
-                ),
-                metadata={FRAMEWORK_METADATA_KEY: _FRAMEWORK_NAME},
+                )
+
+            actual_inv, expected_inv = map_scorer_inputs_to_invocation(
+                inputs=inputs,
+                outputs=outputs,
+                expectations=expectations,
+                trace=trace,
             )
 
-        return self._evaluate_judge(
-            inputs=inputs,
-            outputs=outputs,
-            expectations=expectations,
-            trace=trace,
-        )
+            result = self._evaluator.evaluate_invocations(
+                actual_invocations=[actual_inv],
+                expected_invocations=[expected_inv],
+            )
+
+            score = result.overall_score if result.overall_score is not None else 0.0
+            passed = score >= self._threshold
+
+            return Feedback(
+                name=self.name,
+                value=CategoricalRating.YES if passed else CategoricalRating.NO,
+                rationale=f"Tool trajectory score: {score:.2f} (threshold: {self._threshold})",
+                source=assessment_source,
+                metadata={
+                    "score": score,
+                    "threshold": self._threshold,
+                    FRAMEWORK_METADATA_KEY: _FRAMEWORK_NAME,
+                },
+            )
+        except Exception as e:
+            _logger.error("Error evaluating Google ADK metric %s: %s", self.name, e)
+            return Feedback(
+                name=self.name,
+                error=e,
+                source=assessment_source,
+                metadata={FRAMEWORK_METADATA_KEY: _FRAMEWORK_NAME},
+            )
 
 
 @experimental(version="3.11.0")
@@ -308,13 +251,61 @@ class ResponseMatch(GoogleADKScorer):
         expectations: dict[str, Any] | None = None,
         trace: Trace | None = None,
     ) -> Feedback:
-        return self._evaluate_judge(
-            inputs=inputs,
-            outputs=outputs,
-            expectations=expectations,
-            trace=trace,
-            require_reference=True,
+        assessment_source = AssessmentSource(
+            source_type=AssessmentSourceType.CODE,
+            source_id=f"google_adk/{self.metric_name}",
         )
+
+        try:
+            reference = None
+            if expectations:
+                reference = (
+                    expectations.get("expected_response")
+                    or expectations.get("context")
+                    or expectations.get("reference")
+                    or expectations.get("expected_output")
+                )
+
+            if reference is None:
+                raise MlflowException.invalid_parameter_value(
+                    "ResponseMatch scorer requires 'expected_response', 'context', or "
+                    "'reference' in expectations."
+                )
+
+            actual_inv, expected_inv = map_scorer_inputs_to_invocation(
+                inputs=inputs,
+                outputs=outputs,
+                expectations=expectations,
+                trace=trace,
+            )
+
+            result = self._evaluator.evaluate_invocations(
+                actual_invocations=[actual_inv],
+                expected_invocations=[expected_inv],
+            )
+
+            score = result.overall_score if result.overall_score is not None else 0.0
+            passed = score >= self._threshold
+
+            return Feedback(
+                name=self.name,
+                value=CategoricalRating.YES if passed else CategoricalRating.NO,
+                rationale=f"ROUGE-1 F-measure: {score:.4f} (threshold: {self._threshold})",
+                source=assessment_source,
+                metadata={
+                    "score": score,
+                    "threshold": self._threshold,
+                    FRAMEWORK_METADATA_KEY: _FRAMEWORK_NAME,
+                },
+            )
+        except Exception as e:
+            _logger.error("Error evaluating Google ADK metric %s: %s", self.name, e)
+            return Feedback(
+                name=self.name,
+                error=e,
+                source=assessment_source,
+                metadata={FRAMEWORK_METADATA_KEY: _FRAMEWORK_NAME},
+            )
 
 
 @experimental(version="3.12.0")
@@ -324,12 +315,13 @@ class ResponseEvaluation(GoogleADKScorer):
 
     Wraps ADK's ``FinalResponseMatchV2Evaluator`` which uses a judge model
     to assess whether the agent's response matches the expected response.
-    Requires expected_response in expectations.
+    Requires ``expected_response`` (or ``context``/``reference``) in
+    expectations.
 
     .. note::
         The judge model must be resolvable by ADK's ``LlmRegistry`` (e.g.
         ``gemini-2.5-flash``). MLflow model URIs such as ``databricks`` or
-        ``openai:/gpt-4o`` are NOT supported for the LLM judge scorers in
+        ``openai:/gpt-4o`` are not supported for the LLM judge scorers in
         this integration.
 
     Args:
@@ -337,15 +329,26 @@ class ResponseEvaluation(GoogleADKScorer):
             model ADK's ``LlmRegistry`` can resolve.
         threshold: Score threshold for pass/fail (default: 0.5).
         num_samples: Number of judge samples for majority voting (default: 5).
+
+    Examples:
+        .. code-block:: python
+
+            scorer = ResponseEvaluation(model="gemini-2.5-flash", threshold=0.6)
+            feedback = scorer(
+                outputs="MLflow is an ML lifecycle platform.",
+                expectations={"expected_response": "MLflow manages the ML lifecycle."},
+            )
     """
 
     metric_name: ClassVar[str] = "ResponseEvaluation"
+
+    _model: str = PrivateAttr()
 
     def __init__(
         self,
         model: str = _DEFAULT_JUDGE_MODEL,
         threshold: float = _DEFAULT_THRESHOLD,
-        num_samples: int = 5,
+        num_samples: int = _DEFAULT_JUDGE_SAMPLES,
         **kwargs: Any,
     ):
         check_adk_installed()
@@ -362,7 +365,8 @@ class ResponseEvaluation(GoogleADKScorer):
         expectations: dict[str, Any] | None = None,
         trace: Trace | None = None,
     ) -> Feedback:
-        return self._evaluate_judge(
+        return _evaluate_llm_judge(
+            scorer=self,
             inputs=inputs,
             outputs=outputs,
             expectations=expectations,
@@ -383,21 +387,31 @@ class Safety(GoogleADKScorer):
     .. note::
         The judge model must be resolvable by ADK's ``LlmRegistry`` (e.g.
         ``gemini-2.5-flash``). MLflow model URIs such as ``databricks`` or
-        ``openai:/gpt-4o`` are NOT supported.
+        ``openai:/gpt-4o`` are not supported.
 
     Args:
         model: Judge model ID (default: ``"gemini-2.5-flash"``).
         threshold: Score threshold for pass/fail (default: 0.5).
         num_samples: Number of judge samples for majority voting (default: 5).
+
+    Examples:
+        .. code-block:: python
+
+            scorer = Safety(model="gemini-2.5-flash", threshold=0.5)
+            feedback = scorer(
+                outputs="Here's how to safely handle the request...",
+            )
     """
 
     metric_name: ClassVar[str] = "Safety"
+
+    _model: str = PrivateAttr()
 
     def __init__(
         self,
         model: str = _DEFAULT_JUDGE_MODEL,
         threshold: float = _DEFAULT_THRESHOLD,
-        num_samples: int = 5,
+        num_samples: int = _DEFAULT_JUDGE_SAMPLES,
         **kwargs: Any,
     ):
         check_adk_installed()
@@ -414,11 +428,13 @@ class Safety(GoogleADKScorer):
         expectations: dict[str, Any] | None = None,
         trace: Trace | None = None,
     ) -> Feedback:
-        return self._evaluate_judge(
+        return _evaluate_llm_judge(
+            scorer=self,
             inputs=inputs,
             outputs=outputs,
             expectations=expectations,
             trace=trace,
+            is_async=False,
         )
 
 
@@ -433,21 +449,32 @@ class Hallucination(GoogleADKScorer):
     .. note::
         The judge model must be resolvable by ADK's ``LlmRegistry`` (e.g.
         ``gemini-2.5-flash``). MLflow model URIs such as ``databricks`` or
-        ``openai:/gpt-4o`` are NOT supported.
+        ``openai:/gpt-4o`` are not supported.
 
     Args:
         model: Judge model ID (default: ``"gemini-2.5-flash"``).
         threshold: Score threshold for pass/fail (default: 0.5).
         num_samples: Number of judge samples for majority voting (default: 5).
+
+    Examples:
+        .. code-block:: python
+
+            scorer = Hallucination(model="gemini-2.5-flash", threshold=0.5)
+            feedback = scorer(
+                inputs="What year did MLflow ship 1.0?",
+                outputs="MLflow shipped 1.0 in 2019.",
+            )
     """
 
     metric_name: ClassVar[str] = "Hallucination"
+
+    _model: str = PrivateAttr()
 
     def __init__(
         self,
         model: str = _DEFAULT_JUDGE_MODEL,
         threshold: float = _DEFAULT_THRESHOLD,
-        num_samples: int = 5,
+        num_samples: int = _DEFAULT_JUDGE_SAMPLES,
         **kwargs: Any,
     ):
         check_adk_installed()
@@ -464,12 +491,88 @@ class Hallucination(GoogleADKScorer):
         expectations: dict[str, Any] | None = None,
         trace: Trace | None = None,
     ) -> Feedback:
-        return self._evaluate_judge(
+        return _evaluate_llm_judge(
+            scorer=self,
             inputs=inputs,
             outputs=outputs,
             expectations=expectations,
             trace=trace,
             is_async=True,
+        )
+
+
+def _evaluate_llm_judge(
+    *,
+    scorer: GoogleADKScorer,
+    inputs: Any,
+    outputs: Any,
+    expectations: dict[str, Any] | None,
+    trace: Trace | None,
+    is_async: bool,
+    require_reference: bool = False,
+) -> Feedback:
+    """Shared evaluation logic for ADK LLM-judge scorers.
+
+    Handles reference validation, async/sync evaluator dispatch, and the
+    common Feedback shape. Kept separate from ``ToolTrajectory`` and
+    ``ResponseMatch`` because their bodies are simpler and idiomatic to keep
+    inline.
+    """
+    assessment_source = AssessmentSource(
+        source_type=AssessmentSourceType.LLM_JUDGE,
+        source_id=scorer._model,
+    )
+
+    try:
+        if require_reference:
+            reference = None
+            if expectations:
+                reference = (
+                    expectations.get("expected_response")
+                    or expectations.get("context")
+                    or expectations.get("reference")
+                    or expectations.get("expected_output")
+                )
+            if reference is None:
+                raise MlflowException.invalid_parameter_value(
+                    f"{scorer.name} scorer requires 'expected_response', 'context', or "
+                    "'reference' in expectations."
+                )
+
+        actual_inv, expected_inv = map_scorer_inputs_to_invocation(
+            inputs=inputs,
+            outputs=outputs,
+            expectations=expectations,
+            trace=trace,
+        )
+
+        call = scorer._evaluator.evaluate_invocations(
+            actual_invocations=[actual_inv],
+            expected_invocations=[expected_inv],
+        )
+        result = run_async(call) if is_async else call
+
+        score = result.overall_score if result.overall_score is not None else 0.0
+        passed = score >= scorer._threshold
+
+        return Feedback(
+            name=scorer.name,
+            value=CategoricalRating.YES if passed else CategoricalRating.NO,
+            rationale=f"{scorer.name} score: {score:.2f} (threshold: {scorer._threshold})",
+            source=assessment_source,
+            metadata={
+                "score": score,
+                "threshold": scorer._threshold,
+                FRAMEWORK_METADATA_KEY: _FRAMEWORK_NAME,
+            },
+        )
+    except Exception as e:
+        _logger.error("Error evaluating Google ADK metric %s: %s", scorer.name, e)
+        return Feedback(
+            name=scorer.name,
+            error=e,
+            source=assessment_source,
+            metadata={FRAMEWORK_METADATA_KEY: _FRAMEWORK_NAME},
         )
 
 
@@ -565,8 +668,9 @@ def get_scorer(
     Get a Google ADK evaluator as an MLflow scorer.
 
     Args:
-        metric_name: Name of the ADK metric. Available: "ToolTrajectory",
-            "ResponseMatch", "ResponseEvaluation", "Safety", "Hallucination".
+        metric_name: Name of the ADK metric. One of: ``"ToolTrajectory"``,
+            ``"ResponseMatch"``, ``"ResponseEvaluation"``, ``"Safety"``,
+            ``"Hallucination"``.
         kwargs: Additional keyword arguments passed to the scorer constructor
             (e.g., threshold, match_type, model, num_samples).
 
@@ -578,6 +682,7 @@ def get_scorer(
 
             scorer = get_scorer("ToolTrajectory", match_type="IN_ORDER", threshold=0.5)
             scorer = get_scorer("ResponseMatch", threshold=0.7)
+            scorer = get_scorer("Safety", model="gemini-2.5-flash", threshold=0.5)
     """
     from mlflow.genai.scorers.google_adk.registry import get_scorer_class
 
@@ -586,12 +691,10 @@ def get_scorer(
 
 __all__ = [
     "GoogleADKScorer",
-    # Deterministic scorers
-    "ResponseMatch",
-    "ToolTrajectory",
-    # LLM judge scorers
     "Hallucination",
     "ResponseEvaluation",
+    "ResponseMatch",
     "Safety",
+    "ToolTrajectory",
     "get_scorer",
 ]
