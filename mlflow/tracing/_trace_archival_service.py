@@ -16,7 +16,6 @@ from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 from mlflow.tracing.trace_archival_config import get_trace_archival_server_config
 from mlflow.utils.uri import append_to_uri_path
 from mlflow.utils.validation import (
-    _validate_trace_archival_location,
     _validate_trace_archival_repository_support,
     _validate_trace_archival_retention_string,
 )
@@ -44,18 +43,6 @@ def _resolve_scheduler_trace_archival_config(
     default_trace_archival_location: str,
     default_retention: str,
 ) -> TraceArchivalConfig:
-    if not default_trace_archival_location:
-        raise MlflowException.invalid_parameter_value(
-            "`default_trace_archival_location` must be provided."
-        )
-    default_trace_archival_location = _validate_trace_archival_location(
-        default_trace_archival_location,
-        parameter_name="default_trace_archival_location",
-    )
-    if not default_retention:
-        raise MlflowException.invalid_parameter_value("`default_retention` must be provided.")
-    default_retention = _validate_trace_archival_retention_string(default_retention)
-
     trace_archival_config = tracking_store.resolve_trace_archival_config(
         default_trace_archival_location=default_trace_archival_location,
         default_retention=default_retention,
@@ -184,14 +171,8 @@ def _get_trace_archival_scheduler_settings() -> _TraceArchivalSchedulerSettings 
         return None
 
     return _TraceArchivalSchedulerSettings(
-        location=_validate_trace_archival_location(
-            trace_archival_config.location,
-            parameter_name="trace_archival.location",
-        ),
-        retention=_validate_trace_archival_retention_string(
-            trace_archival_config.retention,
-            parameter_name="trace_archival.retention",
-        ),
+        location=trace_archival_config.location,
+        retention=trace_archival_config.retention,
         long_retention_allowlist=set(trace_archival_config.long_retention_allowlist),
         interval_seconds=trace_archival_config.interval_seconds,
         max_traces_per_pass=trace_archival_config.max_traces_per_pass,
