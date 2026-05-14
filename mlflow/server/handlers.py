@@ -1,11 +1,13 @@
 # Define all the service endpoint handlers here.
 import io
+import ipaddress
 import json
 import logging
 import os
 import pathlib
 import posixpath
 import re
+import socket
 import tempfile
 import threading
 import time
@@ -68,6 +70,7 @@ from mlflow.entities.trace_metrics import MetricAggregation, MetricViewType
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent, WebhookStatus
 from mlflow.environment_variables import (
+    MLFLOW_ARTIFACT_LOCATION_ALLOW_PRIVATE_IPS,
     MLFLOW_CREATE_MODEL_VERSION_SOURCE_VALIDATION_REGEX,
     MLFLOW_DEPLOYMENTS_TARGET,
     MLFLOW_ENABLE_WORKSPACES,
@@ -1100,12 +1103,57 @@ def _workspace_not_supported(message: str) -> MlflowException:
     return MlflowException(message, FEATURE_DISABLED)
 
 
+_HTTP_ARTIFACT_LOCATION_SCHEMES = frozenset(["http", "https"])
+
+
+def _validate_artifact_location_http_host(
+    parsed: urllib.parse.ParseResult, field_name: str
+) -> None:
+    """Reject http(s) artifact_location values that resolve to non-public IPs.
+
+    Prevents SSRF where an attacker sets artifact_location to a private/loopback/IMDS
+    address and triggers the outbound fetch via /get-artifact. Mirrors the
+    _validate_webhook_url pattern in mlflow/utils/validation.py.
+    """
+    hostname = parsed.hostname
+    if not hostname:
+        raise MlflowException.invalid_parameter_value(
+            f"'{field_name}' with scheme {parsed.scheme!r} must include a hostname."
+        )
+
+    if MLFLOW_ARTIFACT_LOCATION_ALLOW_PRIVATE_IPS.get():
+        return
+
+    try:
+        addr_infos = socket.getaddrinfo(hostname, None)
+    except socket.gaierror as e:
+        raise MlflowException.invalid_parameter_value(
+            f"Cannot resolve '{field_name}' hostname {hostname!r}: {e}"
+        ) from e
+
+    for addr_info in addr_infos:
+        try:
+            ip = ipaddress.ip_address(addr_info[4][0])
+        except ValueError as e:
+            raise MlflowException.invalid_parameter_value(
+                f"'{field_name}' hostname {hostname!r} resolved to an invalid IP address: {e}"
+            ) from e
+        if not ip.is_global:
+            raise MlflowException.invalid_parameter_value(
+                f"'{field_name}' must not resolve to a non-public IP address. "
+                f"{hostname!r} resolves to {ip}."
+            )
+
+
 def _validate_artifact_root_uri(value: str, field_name: str) -> str:
     parsed = urllib.parse.urlparse(value)
     if parsed.fragment or parsed.params:
         raise MlflowException.invalid_parameter_value(
             f"'{field_name}' URL can't include fragments or params."
         )
+
+    if parsed.scheme in _HTTP_ARTIFACT_LOCATION_SCHEMES:
+        _validate_artifact_location_http_host(parsed, field_name)
 
     validate_query_string(parsed.query)
     _validate_experiment_artifact_location(value)

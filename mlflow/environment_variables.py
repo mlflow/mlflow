@@ -1358,6 +1358,15 @@ _MLFLOW_WEBHOOK_ALLOW_PRIVATE_IPS = _BooleanEnvironmentVariable(
 )
 
 
+#: Allow http(s) artifact_location values that resolve to non-public IPs (loopback,
+#: link-local, private ranges, etc.). Useful for in-house HTTP artifact servers reachable
+#: only via internal addresses. Default: ``False``. When ``True``, the artifact_location
+#: validator skips the private-IP check for http/https schemes.
+MLFLOW_ARTIFACT_LOCATION_ALLOW_PRIVATE_IPS = _BooleanEnvironmentVariable(
+    "MLFLOW_ARTIFACT_LOCATION_ALLOW_PRIVATE_IPS", False
+)
+
+
 #: Whether to disable telemetry collection in MLflow. If set to True, no telemetry
 #: data will be collected. (default: ``False``)
 MLFLOW_DISABLE_TELEMETRY = _BooleanEnvironmentVariable("MLFLOW_DISABLE_TELEMETRY", False)

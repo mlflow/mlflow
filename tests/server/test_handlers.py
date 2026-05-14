@@ -1,4 +1,5 @@
 import json
+import socket
 import uuid
 from dataclasses import asdict
 from datetime import datetime, timezone
@@ -201,6 +202,7 @@ from mlflow.server.handlers import (
     _update_model_version,
     _update_registered_model,
     _upsert_dataset_records_handler,
+    _validate_artifact_root_uri,
     _validate_source_run,
     catch_mlflow_exception,
     get_artifact_handler,
@@ -5467,3 +5469,94 @@ def test_get_rest_path_respects_static_prefix(monkeypatch):
         _get_ajax_path("/mlflow/experiments/search")
         == "/myapp/ajax-api/2.0/mlflow/experiments/search"
     )
+
+
+# -- _validate_artifact_root_uri tests --
+
+
+def _mock_getaddrinfo_returning(ip_str):
+    return [(socket.AF_INET, socket.SOCK_STREAM, 0, "", (ip_str, 0))]
+
+
+@pytest.mark.parametrize(
+    ("url", "resolved_ip"),
+    [
+        ("http://169.254.169.254/latest/meta-data", "169.254.169.254"),
+        ("http://localhost/foo", "127.0.0.1"),
+        ("http://127.0.0.1/foo", "127.0.0.1"),
+        ("http://10.0.0.1/foo", "10.0.0.1"),
+        ("http://192.168.1.1/foo", "192.168.1.1"),
+        ("https://metadata.google.internal/computeMetadata/v1/", "169.254.169.254"),
+    ],
+)
+def test_validate_artifact_root_uri_rejects_private_http_hosts(url, resolved_ip):
+    with mock.patch(
+        "mlflow.server.handlers.socket.getaddrinfo",
+        return_value=_mock_getaddrinfo_returning(resolved_ip),
+    ) as mock_getaddrinfo:
+        with pytest.raises(MlflowException, match="must not resolve to a non-public IP"):
+            _validate_artifact_root_uri(url, "artifact_location")
+        mock_getaddrinfo.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "s3://bucket/path",
+        "gs://bucket/path",
+        "file:///tmp/artifacts",
+        "mlflow-artifacts:/path",
+        "dbfs:/path",
+    ],
+)
+def test_validate_artifact_root_uri_allows_non_http_schemes(url):
+    with mock.patch("mlflow.server.handlers.socket.getaddrinfo") as mock_getaddrinfo:
+        assert _validate_artifact_root_uri(url, "artifact_location") == url
+        mock_getaddrinfo.assert_not_called()
+
+
+def test_validate_artifact_root_uri_allows_public_https_host():
+    with mock.patch(
+        "mlflow.server.handlers.socket.getaddrinfo",
+        return_value=_mock_getaddrinfo_returning("1.2.3.4"),
+    ) as mock_getaddrinfo:
+        url = "https://artifacts.example.com/path"
+        assert _validate_artifact_root_uri(url, "artifact_location") == url
+        mock_getaddrinfo.assert_called_once()
+
+
+def test_validate_artifact_root_uri_rejects_unresolvable_http_hostname():
+    with mock.patch(
+        "mlflow.server.handlers.socket.getaddrinfo",
+        side_effect=socket.gaierror("Name or service not known"),
+    ) as mock_getaddrinfo:
+        with pytest.raises(MlflowException, match="Cannot resolve 'artifact_location' hostname"):
+            _validate_artifact_root_uri("http://does-not-exist.invalid/path", "artifact_location")
+        mock_getaddrinfo.assert_called_once()
+
+
+def test_validate_artifact_root_uri_rejects_if_any_resolved_address_is_private():
+    multi_resolve = [
+        (socket.AF_INET, socket.SOCK_STREAM, 0, "", ("8.8.8.8", 0)),
+        (socket.AF_INET, socket.SOCK_STREAM, 0, "", ("10.0.0.1", 0)),
+    ]
+    with mock.patch(
+        "mlflow.server.handlers.socket.getaddrinfo",
+        return_value=multi_resolve,
+    ) as mock_getaddrinfo:
+        with pytest.raises(MlflowException, match="must not resolve to a non-public IP"):
+            _validate_artifact_root_uri("https://dual-homed.example.com/path", "artifact_location")
+        mock_getaddrinfo.assert_called_once()
+
+
+def test_validate_artifact_root_uri_allow_private_ips_env_var(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ARTIFACT_LOCATION_ALLOW_PRIVATE_IPS", "true")
+    with mock.patch("mlflow.server.handlers.socket.getaddrinfo") as mock_getaddrinfo:
+        url = "http://internal-host/path"
+        assert _validate_artifact_root_uri(url, "artifact_location") == url
+        mock_getaddrinfo.assert_not_called()
+
+
+def test_validate_artifact_root_uri_rejects_http_without_hostname():
+    with pytest.raises(MlflowException, match="must include a hostname"):
+        _validate_artifact_root_uri("http:///path", "artifact_location")
