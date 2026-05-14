@@ -158,6 +158,7 @@ class OpenAIProvider(BaseProvider):
         PassthroughAction.OPENAI_CHAT: "chat/completions",
         PassthroughAction.OPENAI_EMBEDDINGS: "embeddings",
         PassthroughAction.OPENAI_RESPONSES: "responses",
+        PassthroughAction.OPENAI_RESPONSES_COMPACT: "responses/compact",
     }
 
     def __init__(self, config: EndpointConfig, enable_tracing: bool = False) -> None:
@@ -554,7 +555,10 @@ class OpenAIProvider(BaseProvider):
         if not usage:
             return None
 
-        if action == PassthroughAction.OPENAI_RESPONSES:
+        if action in (
+            PassthroughAction.OPENAI_RESPONSES,
+            PassthroughAction.OPENAI_RESPONSES_COMPACT,
+        ):
             return self._extract_token_usage_from_dict(
                 usage,
                 "input_tokens",
