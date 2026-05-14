@@ -1,4 +1,5 @@
 """MLflow tracing integration for Claude Code interactions."""
+
 import dataclasses
 import json
 import logging
@@ -704,7 +705,9 @@ def _build_tool_result_map(messages: list[Any]) -> dict[str, str]:
                     tool_result_map[block.tool_use_id] = result or ""
     return tool_result_map
 
-
+# Maps SDK dataclass names to Anthropic API "type" discriminators.
+# dataclasses.asdict() gives us the fields but not the type tag that
+# the Anthropic message format requires on every content block.
 _CONTENT_BLOCK_TYPES = {
     "TextBlock": "text",
     "ToolUseBlock": "tool_use",
@@ -828,6 +831,7 @@ def process_sdk_messages(
             return None
 
         result_msg = next((msg for msg in messages if isinstance(msg, ResultMessage)), None)
+        # Prefer the SDK's own session_id, fall back to caller arg
         session_id = (result_msg.session_id if result_msg else None) or session_id
 
         get_logger().log(
@@ -856,6 +860,7 @@ def process_sdk_messages(
 
         final_response = _create_sdk_child_spans(messages, parent_span, tool_result_map)
 
+        # Set token usage on the root span so it aggregates into trace-level usage
         usage = getattr(result_msg, "usage", None) if result_msg else None
         if usage:
             _set_token_usage_attribute(parent_span, usage)
