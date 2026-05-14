@@ -1,11 +1,9 @@
 import json
 import math
 import os
-import random
 import shutil
 import time
 import uuid
-from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 from unittest import mock
@@ -15,9 +13,7 @@ import sqlalchemy
 from opentelemetry import trace as trace_api
 from opentelemetry.sdk.resources import Resource as _OTelResource
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
-from sqlalchemy.exc import IntegrityError
 
-import mlflow
 import mlflow.db
 from mlflow import entities
 from mlflow.entities import (
@@ -25,7 +21,6 @@ from mlflow.entities import (
     AssessmentSourceType,
     Expectation,
     Feedback,
-    Link,
     Metric,
     ViewType,
     trace_location,
@@ -36,16 +31,14 @@ from mlflow.entities.gateway_endpoint import GatewayEndpoint
 from mlflow.entities.logged_model_parameter import LoggedModelParameter
 from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.logged_model_tag import LoggedModelTag
-from mlflow.entities.model_registry import PromptVersion
 from mlflow.entities.span import Span, create_mlflow_span
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_state import TraceState
-from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import (
     MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_TRACKING_URI,
 )
-from mlflow.exceptions import MlflowException, MlflowTracingException
+from mlflow.exceptions import MlflowException
 from mlflow.store.db.db_types import MSSQL, MYSQL, POSTGRES, SQLITE
 from mlflow.store.db.utils import (
     _get_latest_schema_revision,
@@ -76,12 +69,9 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlRun,
     SqlScorer,
     SqlScorerVersion,
-    SqlSpan,
-    SqlSpanMetrics,
     SqlTag,
     SqlTraceInfo,
     SqlTraceMetadata,
-    SqlTraceMetrics,
     SqlTraceTag,
 )
 from mlflow.store.tracking.sqlalchemy_store import (
@@ -89,20 +79,8 @@ from mlflow.store.tracking.sqlalchemy_store import (
     _get_orderby_clauses,
 )
 from mlflow.store.tracking.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyStore
-from mlflow.tracing.constant import (
-    MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE,
-    CostKey,
-    SpanAttributeKey,
-    SpansLocation,
-    TraceMetadataKey,
-    TraceSizeStatsKey,
-    TraceTagKey,
-)
 from mlflow.tracing.utils import TraceJSONEncoder
 from mlflow.utils import mlflow_tags
-from mlflow.utils.mlflow_tags import (
-    MLFLOW_ARTIFACT_LOCATION,
-)
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import extract_db_type_from_uri
 from mlflow.utils.workspace_context import WorkspaceContext
