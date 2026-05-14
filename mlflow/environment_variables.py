@@ -1421,22 +1421,9 @@ MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY = _EnvironmentVariable(
     "MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY", int, 60
 )
 
-#: Specifies the broader-scope trace archival repository root for MLflow server archival jobs.
-#: Server-owned trace archival requires this to be configured explicitly.
+#: Specifies the path to the YAML config file for MLflow server-owned trace archival.
 #: (default: ``None``)
-MLFLOW_TRACE_ARCHIVAL_LOCATION = _EnvironmentVariable("MLFLOW_TRACE_ARCHIVAL_LOCATION", str, None)
-
-#: Specifies the broader-scope default trace archival retention for MLflow server archival jobs.
-#: The value must use the ``<int><unit>`` grammar where unit is one of ``m``, ``h``, or ``d``.
-#: (default: ``None``)
-MLFLOW_TRACE_ARCHIVAL_RETENTION = _EnvironmentVariable("MLFLOW_TRACE_ARCHIVAL_RETENTION", str, None)
-
-#: Comma-separated experiment IDs whose longer experiment-level trace archival retention overrides
-#: may exceed broader-scope retention policy.
-#: (default: ``""``)
-MLFLOW_TRACE_ARCHIVAL_LONG_RETENTION_ALLOWLIST = _EnvironmentVariable(
-    "MLFLOW_TRACE_ARCHIVAL_LONG_RETENTION_ALLOWLIST", str, ""
-)
+MLFLOW_TRACE_ARCHIVAL_CONFIG = _EnvironmentVariable("MLFLOW_TRACE_ARCHIVAL_CONFIG", str, None)
 
 #: Specifies the maximum number of workers for async judge invocation jobs.
 #: (default: ``10``)

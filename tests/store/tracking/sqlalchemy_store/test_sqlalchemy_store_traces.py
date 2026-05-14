@@ -34,9 +34,7 @@ from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.entities.workspace import TraceArchivalConfig, Workspace
 from mlflow.environment_variables import (
-    MLFLOW_TRACE_ARCHIVAL_LOCATION,
-    MLFLOW_TRACE_ARCHIVAL_LONG_RETENTION_ALLOWLIST,
-    MLFLOW_TRACE_ARCHIVAL_RETENTION,
+    MLFLOW_TRACE_ARCHIVAL_CONFIG,
 )
 from mlflow.exceptions import (
     MlflowException,
@@ -8519,11 +8517,37 @@ def test_archive_traces_keeps_unsupported_archive_repository_retryable(
     assert TraceExperimentTagKey.ARCHIVE_NOW not in store.get_experiment(exp_success).tags
 
 
-def test_get_experiment_effective_trace_archival_retention_uses_broader_scope_default(
-    store: SqlAlchemyStore, monkeypatch: pytest.MonkeyPatch
+def _set_trace_archival_config(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    *,
+    location: str = "s3://archive/default",
+    retention: str = "30d",
+    allowlist: list[str] | None = None,
+    enabled: bool = True,
 ):
-    monkeypatch.setenv(MLFLOW_TRACE_ARCHIVAL_LOCATION.name, "s3://archive/default")
-    monkeypatch.setenv(MLFLOW_TRACE_ARCHIVAL_RETENTION.name, "30d")
+    allowlist_yaml = ""
+    if allowlist is not None:
+        entries = "\n".join(f'    - "{experiment_id}"' for experiment_id in allowlist)
+        allowlist_yaml = f"\n  long_retention_allowlist:\n{entries}"
+
+    config_path = tmp_path / "trace-archival.yaml"
+    config_path.write_text(
+        (
+            "trace_archival:\n"
+            f"  enabled: {'true' if enabled else 'false'}\n"
+            f"  location: {location}\n"
+            f"  retention: {retention}{allowlist_yaml}\n"
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv(MLFLOW_TRACE_ARCHIVAL_CONFIG.name, str(config_path))
+
+
+def test_get_experiment_effective_trace_archival_retention_uses_broader_scope_default(
+    store: SqlAlchemyStore, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+):
+    _set_trace_archival_config(monkeypatch, tmp_path)
 
     experiment_id = _create_experiments(store, "goku")
     actual = store.get_experiment(experiment_id)
@@ -8541,10 +8565,9 @@ def test_get_experiment_effective_trace_archival_retention_uses_broader_scope_de
 
 
 def test_get_experiment_effective_trace_archival_retention_uses_shorter_experiment_override(
-    store: SqlAlchemyStore, monkeypatch: pytest.MonkeyPatch
+    store: SqlAlchemyStore, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ):
-    monkeypatch.setenv(MLFLOW_TRACE_ARCHIVAL_LOCATION.name, "s3://archive/default")
-    monkeypatch.setenv(MLFLOW_TRACE_ARCHIVAL_RETENTION.name, "30d")
+    _set_trace_archival_config(monkeypatch, tmp_path)
 
     experiment_id = _create_experiments(store, "gohan")
     store.set_experiment_tag(
@@ -8562,13 +8585,13 @@ def test_get_experiment_effective_trace_archival_retention_uses_shorter_experime
 def test_get_experiment_effective_trace_archival_retention_uses_workspace_override(
     store: SqlAlchemyStore,
     monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
     workspaces_enabled: bool,
 ):
     if not workspaces_enabled:
         pytest.skip("Workspace retention behavior only applies when workspaces are enabled.")
 
-    monkeypatch.setenv(MLFLOW_TRACE_ARCHIVAL_LOCATION.name, "s3://archive/default")
-    monkeypatch.setenv(MLFLOW_TRACE_ARCHIVAL_RETENTION.name, "30d")
+    _set_trace_archival_config(monkeypatch, tmp_path)
     workspace_store = store._get_workspace_provider_instance()
     workspace_store.update_workspace(
         Workspace(name=DEFAULT_WORKSPACE_NAME, trace_archival_retention="14d")
@@ -8580,15 +8603,14 @@ def test_get_experiment_effective_trace_archival_retention_uses_workspace_overri
 
 
 def test_get_experiment_effective_trace_archival_retention_respects_long_retention_allowlist(
-    store: SqlAlchemyStore, monkeypatch: pytest.MonkeyPatch
+    store: SqlAlchemyStore, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ):
-    monkeypatch.setenv(MLFLOW_TRACE_ARCHIVAL_LOCATION.name, "s3://archive/default")
-    monkeypatch.setenv(MLFLOW_TRACE_ARCHIVAL_RETENTION.name, "30d")
-
     allowlisted_experiment_id = _create_experiments(store, "vegeta")
     blocked_experiment_id = _create_experiments(store, "krillin")
-    monkeypatch.setenv(
-        MLFLOW_TRACE_ARCHIVAL_LONG_RETENTION_ALLOWLIST.name, allowlisted_experiment_id
+    _set_trace_archival_config(
+        monkeypatch,
+        tmp_path,
+        allowlist=[allowlisted_experiment_id],
     )
 
     for experiment_id in (allowlisted_experiment_id, blocked_experiment_id):
@@ -8608,9 +8630,9 @@ def test_get_experiment_effective_trace_archival_retention_respects_long_retenti
 
 
 def test_get_experiment_effective_trace_archival_retention_is_unset_without_archival_location(
-    store: SqlAlchemyStore, monkeypatch: pytest.MonkeyPatch
+    store: SqlAlchemyStore, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ):
-    monkeypatch.setenv(MLFLOW_TRACE_ARCHIVAL_RETENTION.name, "30d")
+    _set_trace_archival_config(monkeypatch, tmp_path, enabled=False)
 
     experiment_id = _create_experiments(store, "bulma")
     actual = store.get_experiment(experiment_id)
@@ -8618,10 +8640,9 @@ def test_get_experiment_effective_trace_archival_retention_is_unset_without_arch
 
 
 def test_get_experiment_effective_trace_archival_retention_ignores_invalid_config(
-    store: SqlAlchemyStore, monkeypatch: pytest.MonkeyPatch
+    store: SqlAlchemyStore, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ):
-    monkeypatch.setenv(MLFLOW_TRACE_ARCHIVAL_LOCATION.name, "s3://archive/default")
-    monkeypatch.setenv(MLFLOW_TRACE_ARCHIVAL_RETENTION.name, "thirty-days")
+    _set_trace_archival_config(monkeypatch, tmp_path, retention="thirty-days")
 
     experiment_id = _create_experiments(store, "future-trunks")
     actual = store.get_experiment(experiment_id)

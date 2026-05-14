@@ -25,9 +25,7 @@ from mlflow.environment_variables import (
     MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_EXPERIMENT_ID,
     MLFLOW_EXPERIMENT_NAME,
-    MLFLOW_TRACE_ARCHIVAL_LOCATION,
-    MLFLOW_TRACE_ARCHIVAL_LONG_RETENTION_ALLOWLIST,
-    MLFLOW_TRACE_ARCHIVAL_RETENTION,
+    MLFLOW_TRACE_ARCHIVAL_CONFIG,
     MLFLOW_WORKSPACE,
     MLFLOW_WORKSPACE_STORE_URI,
 )
@@ -38,12 +36,10 @@ from mlflow.store.tracking import (
     DEFAULT_ARTIFACTS_URI,
     DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
 )
-from mlflow.store.tracking.utils.trace_archival import (
-    _parse_trace_archival_long_retention_allowlist,
-)
 from mlflow.store.workspace.utils import get_default_workspace_optional
 from mlflow.telemetry.events import TrackingServerStartEvent
 from mlflow.telemetry.track import _record_event
+from mlflow.tracing.trace_archival_config import load_trace_archival_server_config
 from mlflow.tracking import _get_store
 from mlflow.tracking._tracking_service.utils import (
     _get_default_tracking_uri,
@@ -60,11 +56,6 @@ from mlflow.utils.server_cli_utils import (
     artifacts_only_config_validation,
     assert_server_workspace_env_unset,
     resolve_default_artifact_root,
-    trace_archival_config_validation,
-)
-from mlflow.utils.validation import (
-    _validate_trace_archival_repository_support,
-    _validate_trace_archival_retention_string,
 )
 from mlflow.utils.workspace_utils import resolve_workspace_store_uri
 
@@ -373,38 +364,6 @@ def _validate_static_prefix(ctx, param, value):
     return value
 
 
-def _validate_trace_archival_location_option(ctx, param, value):
-    if value is None:
-        return None
-
-    try:
-        return _validate_trace_archival_repository_support(value, parameter_name=param.name)
-    except MlflowException as e:
-        raise click.BadParameter(e.message) from e
-
-
-def _validate_trace_archival_retention_option(ctx, param, value):
-    if value is None:
-        return None
-
-    try:
-        return _validate_trace_archival_retention_string(value, parameter_name=param.name)
-    except MlflowException as e:
-        raise click.BadParameter(e.message) from e
-
-
-def _read_trace_archival_long_retention_allowlist_file(allowlist_file: Path) -> list[str]:
-    entries = []
-    with allowlist_file.open(encoding="utf-8") as handle:
-        for line in handle:
-            stripped = line.strip()
-            if not stripped or stripped.startswith("#"):
-                continue
-            entries.extend(part.strip() for part in stripped.split(","))
-
-    return _parse_trace_archival_long_retention_allowlist(",".join(entries))
-
-
 @cli.command()
 @click.pass_context
 @click.option(
@@ -501,36 +460,12 @@ def _read_trace_archival_long_retention_allowlist_file(allowlist_file: Path) -> 
     ),
 )
 @click.option(
-    "--trace-archival-location",
-    envvar=MLFLOW_TRACE_ARCHIVAL_LOCATION.name,
-    metavar="URI",
-    default=None,
-    callback=_validate_trace_archival_location_option,
-    help=(
-        "Destination URI for archived trace span payloads. This must be explicitly configured "
-        "for server-owned trace archival."
-    ),
-)
-@click.option(
-    "--trace-archival-retention",
-    envvar=MLFLOW_TRACE_ARCHIVAL_RETENTION.name,
-    metavar="DURATION",
-    default=None,
-    callback=_validate_trace_archival_retention_option,
-    help=(
-        "Broader-scope default trace archival retention in the form '<int><unit>' where unit "
-        "is one of 'm', 'h', or 'd' (for example '30d' or '12h')."
-    ),
-)
-@click.option(
-    "--trace-archival-long-retention-allowlist-file",
+    "--trace-archival-config",
+    envvar=MLFLOW_TRACE_ARCHIVAL_CONFIG.name,
     type=click.Path(exists=True, dir_okay=False, readable=True, path_type=Path),
+    metavar="PATH",
     default=None,
-    help=(
-        "Path to a newline-delimited allow-list file of experiment IDs whose longer "
-        "experiment-level trace archival retention may exceed the broader-scope retention. "
-        "Blank lines and '#' comments are ignored."
-    ),
+    help=("Path to the YAML config file for server-owned trace archival."),
 )
 @click.option(
     "--dev",
@@ -607,9 +542,7 @@ def server(
     waitress_opts,
     expose_prometheus,
     app_name,
-    trace_archival_location,
-    trace_archival_retention,
-    trace_archival_long_retention_allowlist_file,
+    trace_archival_config,
     dev,
     uvicorn_opts,
     secrets_cache_ttl,
@@ -670,7 +603,6 @@ def server(
         and ctx.get_parameter_source("enable_workspaces") != ParameterSource.COMMANDLINE
     ):
         enable_workspaces = MLFLOW_ENABLE_WORKSPACES.get()
-
     assert_server_workspace_env_unset()
 
     if disable_security_middleware:
@@ -707,52 +639,17 @@ def server(
     default_artifact_root = resolve_default_artifact_root(
         serve_artifacts, default_artifact_root, backend_store_uri
     )
-    trace_archival_long_retention_allowlist = None
-    trace_archival_long_retention_allowlist_source = None
-    raw_allowlist = MLFLOW_TRACE_ARCHIVAL_LONG_RETENTION_ALLOWLIST.get_raw()
-    if trace_archival_long_retention_allowlist_file is not None and raw_allowlist is not None:
-        raise click.UsageError(
-            "--trace-archival-long-retention-allowlist-file cannot be combined with "
-            f"{MLFLOW_TRACE_ARCHIVAL_LONG_RETENTION_ALLOWLIST.name}."
-        )
-    if trace_archival_long_retention_allowlist_file is not None:
-        trace_archival_long_retention_allowlist_source = (
-            "--trace-archival-long-retention-allowlist-file"
-        )
-        try:
-            trace_archival_long_retention_allowlist = ",".join(
-                _read_trace_archival_long_retention_allowlist_file(
-                    trace_archival_long_retention_allowlist_file
-                )
-            )
-        except (MlflowException, OSError) as e:
-            message = e.message if isinstance(e, MlflowException) else str(e)
-            raise click.UsageError(message) from e
-    elif raw_allowlist is not None:
-        trace_archival_long_retention_allowlist_source = (
-            MLFLOW_TRACE_ARCHIVAL_LONG_RETENTION_ALLOWLIST.name
-        )
-        try:
-            trace_archival_long_retention_allowlist = ",".join(
-                _parse_trace_archival_long_retention_allowlist(raw_allowlist)
-            )
-        except MlflowException as e:
-            raise click.UsageError(e.message) from e
-
     artifacts_only_config_validation(
         artifacts_only,
         backend_store_uri,
         enable_workspaces,
-        trace_archival_location=trace_archival_location,
-        trace_archival_retention=trace_archival_retention,
-        trace_archival_long_retention_allowlist=trace_archival_long_retention_allowlist,
-        trace_archival_long_retention_allowlist_source=trace_archival_long_retention_allowlist_source,
+        trace_archival_config_path=str(trace_archival_config) if trace_archival_config else None,
     )
-    trace_archival_config_validation(
-        trace_archival_location=trace_archival_location,
-        trace_archival_retention=trace_archival_retention,
-        trace_archival_long_retention_allowlist=trace_archival_long_retention_allowlist,
-    )
+    if trace_archival_config is not None:
+        try:
+            load_trace_archival_server_config(trace_archival_config)
+        except MlflowException as e:
+            raise click.UsageError(e.message) from e
 
     # Keep environment flag in sync with the resolved boolean so server-side gating
     # (which reads MLFLOW_ENABLE_WORKSPACES.get()) has a single source of truth.
@@ -765,14 +662,8 @@ def server(
             "Use --enable-workspaces to activate workspace mode.",
             err=True,
         )
-    if trace_archival_location is not None:
-        os.environ[MLFLOW_TRACE_ARCHIVAL_LOCATION.name] = trace_archival_location
-    if trace_archival_retention is not None:
-        os.environ[MLFLOW_TRACE_ARCHIVAL_RETENTION.name] = trace_archival_retention
-    if trace_archival_long_retention_allowlist is not None:
-        os.environ[MLFLOW_TRACE_ARCHIVAL_LONG_RETENTION_ALLOWLIST.name] = (
-            trace_archival_long_retention_allowlist
-        )
+    if trace_archival_config is not None:
+        os.environ[MLFLOW_TRACE_ARCHIVAL_CONFIG.name] = str(trace_archival_config)
 
     if not artifacts_only:
         try:

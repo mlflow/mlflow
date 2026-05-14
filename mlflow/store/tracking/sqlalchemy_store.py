@@ -82,11 +82,6 @@ from mlflow.entities.trace_metrics import (
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.entities.workspace import TraceArchivalConfig
-from mlflow.environment_variables import (
-    MLFLOW_TRACE_ARCHIVAL_LOCATION,
-    MLFLOW_TRACE_ARCHIVAL_LONG_RETENTION_ALLOWLIST,
-    MLFLOW_TRACE_ARCHIVAL_RETENTION,
-)
 from mlflow.exceptions import (
     MlflowException,
     MlflowNotImplementedException,
@@ -181,7 +176,6 @@ from mlflow.store.tracking.utils.trace_archival import (
     _ArchiveNowRequest,
     _format_trace_archival_duration_millis,
     _parse_trace_archival_duration_millis,
-    _parse_trace_archival_long_retention_allowlist,
     _resolve_effective_trace_archival_retention,
     _TraceArchiveCandidate,
     _TraceDeleteSelection,
@@ -210,6 +204,7 @@ from mlflow.tracing.otel.translation import (
     update_cost,
     update_token_usage,
 )
+from mlflow.tracing.trace_archival_config import get_trace_archival_server_config
 from mlflow.tracing.utils import (
     TraceJSONEncoder,
     generate_request_id_v2,
@@ -368,6 +363,10 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
     @property
     def supports_workspaces(self) -> bool:
         return False
+
+    @property
+    def supports_trace_archival(self) -> bool:
+        return True
 
     def _get_active_workspace(self) -> str:
         """
@@ -631,18 +630,18 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             archival is configured for the current store context. Returns ``None`` when
             effective experiment retention should be left unset.
         """
-        trace_archival_location = MLFLOW_TRACE_ARCHIVAL_LOCATION.get()
-        if trace_archival_location is None:
-            return None
-
         try:
-            default_retention = MLFLOW_TRACE_ARCHIVAL_RETENTION.get()
-            if default_retention is None:
+            trace_archival_config = get_trace_archival_server_config()
+            if trace_archival_config is None:
+                return None
+            if not trace_archival_config.enabled:
                 return None
 
             resolved_trace_archival_config = self.resolve_trace_archival_config(
-                default_trace_archival_location=trace_archival_location,
-                default_retention=_validate_trace_archival_retention_string(default_retention),
+                default_trace_archival_location=trace_archival_config.location,
+                default_retention=_validate_trace_archival_retention_string(
+                    trace_archival_config.retention
+                ),
             )
             broader_retention = resolved_trace_archival_config.config.retention
             if broader_retention is None:
@@ -650,11 +649,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
             return (
                 _validate_trace_archival_retention_string(broader_retention),
-                set(
-                    _parse_trace_archival_long_retention_allowlist(
-                        MLFLOW_TRACE_ARCHIVAL_LONG_RETENTION_ALLOWLIST.get()
-                    )
-                ),
+                set(trace_archival_config.long_retention_allowlist),
             )
         except MlflowException:
             _logger.warning(

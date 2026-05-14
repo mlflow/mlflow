@@ -75,6 +75,11 @@ class AbstractStore(GatewayStoreMixin):
         """Return whether workspaces are supported by this tracking store."""
         return False
 
+    @property
+    def supports_trace_archival(self) -> bool:
+        """Return whether server-owned trace archival is supported by this tracking store."""
+        return False
+
     @abstractmethod
     def search_experiments(
         self,
