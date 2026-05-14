@@ -100,6 +100,10 @@ LLM judge scorers use a Gemini model to grade the agent's response:
 LLM judge scorers require a model that ADK's `LlmRegistry` can resolve, such as `gemini-2.5-flash`. MLflow model URIs like `databricks` or `openai:/gpt-4o` are not supported by these scorers.
 :::
 
+:::caution
+`ResponseEvaluation` and `Hallucination` call the Gemini Developer API and accept a `GEMINI_API_KEY` or `GOOGLE_API_KEY` plus `GOOGLE_GENAI_USE_VERTEXAI=false`. `Safety` is routed by ADK through the Vertex AI Evaluation Service (`_SingleTurnVertexAiEvalFacade`) and requires Google Cloud project credentials (`GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION`, and `gcloud auth application-default login` or a service account). When auth is missing, scorers return a `Feedback` with an `error` field rather than raising, so evaluation runs can continue and surface the misconfiguration per-sample.
+:::
+
 ## Creating Scorers by Name
 
 You can also create Google ADK scorers dynamically using <APILink fn="mlflow.genai.scorers.google_adk.get_scorer">get_scorer</APILink>:
