@@ -1,14 +1,11 @@
-import contextlib
 import json
 import random
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
 from unittest import mock
 
 import pytest
-import sqlalchemy
 from opentelemetry import trace as trace_api
 from opentelemetry.sdk.resources import Resource as _OTelResource
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
@@ -17,28 +14,18 @@ from sqlalchemy.exc import IntegrityError
 import mlflow
 from mlflow.entities import (
     AssessmentSource,
-    AssessmentSourceType,
     Expectation,
     Feedback,
     Link,
-    RunStatus,
-    ViewType,
     trace_location,
 )
-from mlflow.entities.assessment import ExpectationValue, FeedbackValue
-from mlflow.entities.logged_model_parameter import LoggedModelParameter
-from mlflow.entities.logged_model_status import LoggedModelStatus
-from mlflow.entities.logged_model_tag import LoggedModelTag
 from mlflow.entities.model_registry import PromptVersion
 from mlflow.entities.span import Span, create_mlflow_span
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.environment_variables import MLFLOW_TRACKING_URI
 from mlflow.exceptions import MlflowException, MlflowTracingException
 from mlflow.store.tracking.dbmodels.models import (
-    SqlLoggedModel,
-    SqlLoggedModelMetric,
     SqlSpan,
     SqlSpanMetrics,
     SqlTraceInfo,
@@ -55,7 +42,6 @@ from mlflow.tracing.constant import (
     TraceTagKey,
 )
 from mlflow.tracing.utils import TraceJSONEncoder
-from mlflow.utils import mlflow_tags
 from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.workspace_context import WorkspaceContext
@@ -65,11 +51,13 @@ from tests.store.tracking.sqlalchemy_store.conftest import (
     IS_MSSQL,
     _create_experiments,
     _create_trace,
+    create_mock_span_context,
     create_test_otel_span,
     create_test_span,
 )
 
 pytestmark = pytest.mark.notrackingurimock
+
 
 def test_legacy_start_and_end_trace_v2(store: SqlAlchemyStore):
     experiment_id = store.create_experiment("test_experiment")
@@ -5395,5 +5383,3 @@ def test_find_completed_sessions_with_filter_string(store: SqlAlchemyStore):
     )
     assert len(completed) == 1
     assert completed[0].session_id == "session-c"
-
-
