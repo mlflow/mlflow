@@ -1,3 +1,5 @@
+import json
+
 import pytest
 
 from mlflow import MlflowClient, get_experiment_by_name, set_experiment
@@ -7,6 +9,7 @@ from mlflow.demo.generators.traces import (
     DEMO_VERSION_TAG,
     TracesDemoGenerator,
 )
+from mlflow.tracing.constant import TraceMetadataKey
 
 
 @pytest.fixture
@@ -148,3 +151,33 @@ def test_is_generated_checks_version(traces_generator):
 
     TracesDemoGenerator.version = 99
     assert traces_generator.is_generated() is False
+
+
+def test_agent_and_session_traces_include_chat_messages_attribute():
+    generator = TracesDemoGenerator()
+    generator.generate()
+
+    experiment = get_experiment_by_name(DEMO_EXPERIMENT_NAME)
+    client = MlflowClient()
+    traces = client.search_traces(locations=[experiment.experiment_id], max_results=100)
+
+    agent_traces = [t for t in traces if t.info.trace_metadata.get(DEMO_TRACE_TYPE_TAG) == "agent"]
+    session_traces = [t for t in traces if t.info.trace_metadata.get(DEMO_TRACE_TYPE_TAG) == "session"]
+
+    assert agent_traces
+    assert session_traces
+
+    for trace in agent_traces:
+        root_span = next(span for span in trace.data.spans if span.parent_id is None)
+        chat_messages = json.loads(root_span.attributes["mlflow.chat.messages"])
+        assert [message["role"] for message in chat_messages[:2]] == ["system", "user"]
+        assert chat_messages[-1]["role"] == "assistant"
+        assert "tool_calls" in chat_messages[2]
+
+    for trace in session_traces:
+        root_span = next(span for span in trace.data.spans if span.parent_id is None)
+        chat_messages = json.loads(root_span.attributes["mlflow.chat.messages"])
+        assert [message["role"] for message in chat_messages] == ["system", "user", "assistant"]
+        assert (
+            trace.info.trace_metadata.get(TraceMetadataKey.TRACE_SESSION) is not None
+        )

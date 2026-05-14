@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import hashlib
+import json
 import logging
 import random
 import re
@@ -36,6 +37,7 @@ DEMO_VERSION_TAG = "mlflow.demo.version"
 DEMO_TRACE_TYPE_TAG = "mlflow.demo.trace_type"
 DEMO_START_TIME_TAG = "mlflow.demo.start_time_ms"
 DEMO_END_TIME_TAG = "mlflow.demo.end_time_ms"
+_CHAT_MESSAGES_ATTRIBUTE_KEY = "mlflow.chat.messages"
 
 _TOTAL_TRACES_PER_VERSION = 21
 
@@ -383,6 +385,9 @@ class TracesDemoGenerator(BaseDemoGenerator):
             name="agent",
             span_type=SpanType.AGENT,
             inputs={"query": trace_def.query},
+            attributes={
+                _CHAT_MESSAGES_ATTRIBUTE_KEY: self._build_agent_chat_messages(trace_def, response),
+            },
             metadata={DEMO_VERSION_TAG: version, DEMO_TRACE_TYPE_TAG: "agent"},
             start_time_ns=start_ns,
         )
@@ -719,6 +724,9 @@ class TracesDemoGenerator(BaseDemoGenerator):
             name="chat_agent",
             span_type=SpanType.AGENT,
             inputs={"message": trace_def.query, "turn": turn},
+            attributes={
+                _CHAT_MESSAGES_ATTRIBUTE_KEY: self._build_session_chat_messages(trace_def.query, response),
+            },
             metadata={
                 TraceMetadataKey.TRACE_SESSION: versioned_session_id,
                 TraceMetadataKey.TRACE_USER: trace_def.session_user or "user",
@@ -772,3 +780,53 @@ class TracesDemoGenerator(BaseDemoGenerator):
         root.end(end_time_ns=end_ns)
 
         return root.trace_id
+
+    def _build_agent_chat_messages(
+        self,
+        trace_def: DemoTrace,
+        response: str,
+    ) -> list[dict[str, object]]:
+        chat_messages: list[dict[str, object]] = [
+            {"role": "system", "content": "You are a helpful assistant with tools."},
+            {"role": "user", "content": trace_def.query},
+        ]
+
+        if trace_def.tools:
+            assistant_tool_calls = []
+            for index, tool in enumerate(trace_def.tools, start=1):
+                tool_call_id = f"call_{index}"
+                assistant_tool_calls.append(
+                    {
+                        "id": tool_call_id,
+                        "function": {
+                            "name": tool.name,
+                            "arguments": json.dumps(tool.input, sort_keys=True),
+                        },
+                    }
+                )
+                chat_messages.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": tool_call_id,
+                        "content": json.dumps(tool.output, indent=2, sort_keys=True),
+                    }
+                )
+
+            chat_messages.insert(
+                2,
+                {
+                    "role": "assistant",
+                    "content": "",
+                    "tool_calls": assistant_tool_calls,
+                },
+            )
+
+        chat_messages.append({"role": "assistant", "content": response})
+        return chat_messages
+
+    def _build_session_chat_messages(self, query: str, response: str) -> list[dict[str, str]]:
+        return [
+            {"role": "system", "content": "You are an MLflow assistant."},
+            {"role": "user", "content": query},
+            {"role": "assistant", "content": response},
+        ]
