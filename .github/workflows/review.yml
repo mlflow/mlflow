@@ -25,13 +25,19 @@ jobs:
     timeout-minutes: 5
     permissions:
       contents: read
+    # Cheap author_association prefilter so random users can't spawn workflow
+    # runs. The gate step below does the authoritative admin/maintain role
+    # check.
     if: >
       (github.event_name == 'pull_request' &&
        github.event.pull_request.head.repo.full_name == github.repository &&
-       github.event.pull_request.draft == false)
+       github.event.pull_request.draft == false &&
+       (contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association) ||
+        (github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')))
       ||
       (github.event_name == 'issue_comment' &&
        github.event.issue.pull_request &&
+       contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association) &&
        startsWith(github.event.comment.body, '/review') &&
        !startsWith(github.event.comment.body, '/review-'))
     steps:
