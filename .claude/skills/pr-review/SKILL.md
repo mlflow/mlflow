@@ -40,7 +40,7 @@ Automatically review a GitHub pull request across correctness, security, edge ca
 
 ## Important Note
 
-The PR head is checked out into the working tree, so you may `Read`/`Grep` files for surrounding context. For the diff itself, use the `fetch-diff` skill.
+Always rely on the PR diff fetched via the `fetch-diff` skill. The local working tree is the workflow's own checkout, not the PR head.
 
 You have a **read-only** GitHub token. Do NOT call write APIs (`gh api ... POST`, `gh pr review`, `gh pr comment`, etc.) — your only output is `/tmp/review-payload.json`. The workflow's post step holds the write token and submits the review on your behalf.
 
