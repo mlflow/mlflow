@@ -19,36 +19,14 @@ from mlflow.environment_variables import (
 )
 
 
-def _title(text: str) -> str:
-    return click.style(text, fg="magenta", bold=True)
-
-
-def _ok(text: str) -> str:
-    return click.style(text, fg="green", bold=True)
-
-
-def _warn(text: str) -> str:
-    return click.style(text, fg="yellow", bold=True)
-
-
-def _error(text: str) -> str:
-    return click.style(text, fg="red", bold=True)
-
-
-def _label(text: str) -> str:
-    return click.style(text, bold=True)
-
-
-def _question(text: str) -> str:
-    return click.style(text, fg="yellow", bold=True)
-
-
-def _value(text: str) -> str:
-    return click.style(text, fg="cyan")
-
-
-def _muted(text: str) -> str:
-    return click.style(text, dim=True)
+_title = lambda text: click.style(text, fg="magenta", bold=True)
+_ok = lambda text: click.style(text, fg="green", bold=True)
+_warn = lambda text: click.style(text, fg="yellow", bold=True)
+_error = lambda text: click.style(text, fg="red", bold=True)
+_label = lambda text: click.style(text, bold=True)
+_question = lambda text: click.style(text, fg="yellow", bold=True)
+_value = lambda text: click.style(text, fg="cyan")
+_muted = lambda text: click.style(text, dim=True)
 
 
 _DEFAULT_TRACKING_URI_SENTINEL = "default"
