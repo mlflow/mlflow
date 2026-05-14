@@ -19,7 +19,6 @@ from mlflow.store.artifact.s3_artifact_repo import (
     S3ArtifactRepository,
     _cached_get_s3_client,
 )
-
 from tests.helper_functions import set_boto_credentials  # noqa: F401
 
 
@@ -367,6 +366,37 @@ def test_list_and_delete_artifacts_path(s3_artifact_repo, tmp_path, artifact_pat
     s3_artifact_repo.delete_artifacts(artifact_path=artifact_path)
     assert s3_artifact_repo.list_artifacts(artifact_path) == []
     assert s3_artifact_repo.list_artifacts() == []
+
+
+def test_list_artifacts_directory_marker_filtering(s3_artifact_root):
+    repo = S3ArtifactRepository(posixpath.join(s3_artifact_root, "some/path"))
+
+    mock_s3 = mock.Mock()
+    mock_paginator = mock.Mock()
+    mock_s3.get_paginator.return_value = mock_paginator
+    mock_paginator.paginate.return_value = [
+        {
+            "Contents": [
+                {"Key": "a.txt", "Size": 42},
+                {"Key": "b/", "Size": 0},
+                {"Key": "b/c.txt", "Size": 42},
+                {"Key": "b/d/", "Size": 0},
+                {"Key": "b/d/e.txt", "Size": 42},
+            ],
+            "CommonPrefixes": [],
+        }
+    ]
+
+    with mock.patch.object(repo, "_get_s3_client", return_value=mock_s3):
+        artifacts = repo.list_artifacts()
+
+    actual_paths = [f.path for f in artifacts]
+    expected_paths = [
+        "a.txt",
+        "b/c.txt",
+        "b/d/e.txt"
+    ]
+    assert actual_paths == expected_paths
 
 
 @pytest.mark.parametrize(
