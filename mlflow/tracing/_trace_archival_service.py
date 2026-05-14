@@ -12,7 +12,6 @@ from mlflow.environment_variables import (
     MLFLOW_ENABLE_WORKSPACES,
 )
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 from mlflow.tracing.trace_archival_config import get_trace_archival_server_config
 from mlflow.utils.uri import append_to_uri_path
 from mlflow.utils.validation import (
@@ -46,19 +45,10 @@ def _resolve_scheduler_trace_archival_config(
     trace_archival_config = tracking_store.resolve_trace_archival_config(
         default_trace_archival_location=default_trace_archival_location,
         default_retention=default_retention,
+    ).with_broader_defaults(
+        default_location=default_trace_archival_location,
+        default_retention=default_retention,
     )
-    # The scheduler already supplied broader-scope defaults, so `None` here means workspace
-    # resolution dropped a required value instead of preserving or overriding it.
-    if trace_archival_config.config.location is None:
-        raise MlflowException(
-            "Trace archival config resolution returned no archival location.",
-            error_code=INTERNAL_ERROR,
-        )
-    if trace_archival_config.config.retention is None:
-        raise MlflowException(
-            "Trace archival config resolution returned no archival retention.",
-            error_code=INTERNAL_ERROR,
-        )
 
     resolved_trace_archival_location = _validate_trace_archival_repository_support(
         trace_archival_config.config.location,

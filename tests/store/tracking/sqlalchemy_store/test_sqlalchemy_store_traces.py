@@ -6281,7 +6281,7 @@ def test_archive_traces_treats_unset_max_traces_per_pass_as_unbounded(
     assert archived_trace_ids == [candidate.trace_id for candidate in candidates]
 
 
-def test_archive_traces_raises_internal_error_when_resolution_returns_no_location(
+def test_archive_traces_falls_back_to_default_location_when_resolution_returns_no_location(
     store: SqlAlchemyStore, monkeypatch
 ):
     def _broken_resolve_trace_archival_config(
@@ -6297,19 +6297,25 @@ def test_archive_traces_raises_internal_error_when_resolution_returns_no_locatio
         "resolve_trace_archival_config",
         _broken_resolve_trace_archival_config,
     )
+    archive_traces_mock = mock.Mock(return_value=0)
+    monkeypatch.setattr(store, "archive_traces", archive_traces_mock)
 
-    with pytest.raises(
-        MlflowException, match="config resolution returned no archival location"
-    ) as exc_info:
-        _archive_traces(
-            store=store,
-            default_trace_archival_location="s3://archive/default",
-            default_retention="1d",
-        )
-    assert exc_info.value.error_code == ErrorCode.Name(INTERNAL_ERROR)
+    archived = _archive_traces(
+        store=store,
+        default_trace_archival_location="s3://archive/default",
+        default_retention="1d",
+    )
+
+    assert archived == 0
+    archive_traces_mock.assert_called_once_with(
+        resolved_trace_archival_location="s3://archive/default",
+        broader_retention="1d",
+        long_retention_allowlist=None,
+        max_traces_per_pass=100,
+    )
 
 
-def test_archive_traces_raises_internal_error_when_resolution_returns_no_retention(
+def test_archive_traces_falls_back_to_default_retention_when_resolution_returns_no_retention(
     store: SqlAlchemyStore, monkeypatch
 ):
     def _broken_resolve_trace_archival_config(
@@ -6328,16 +6334,22 @@ def test_archive_traces_raises_internal_error_when_resolution_returns_no_retenti
         "resolve_trace_archival_config",
         _broken_resolve_trace_archival_config,
     )
+    archive_traces_mock = mock.Mock(return_value=0)
+    monkeypatch.setattr(store, "archive_traces", archive_traces_mock)
 
-    with pytest.raises(
-        MlflowException, match="config resolution returned no archival retention"
-    ) as exc_info:
-        _archive_traces(
-            store=store,
-            default_trace_archival_location="s3://archive/default",
-            default_retention="1d",
-        )
-    assert exc_info.value.error_code == ErrorCode.Name(INTERNAL_ERROR)
+    archived = _archive_traces(
+        store=store,
+        default_trace_archival_location="s3://archive/default",
+        default_retention="1d",
+    )
+
+    assert archived == 0
+    archive_traces_mock.assert_called_once_with(
+        resolved_trace_archival_location="s3://archive/default",
+        broader_retention="1d",
+        long_retention_allowlist=None,
+        max_traces_per_pass=100,
+    )
 
 
 def test_archive_traces_respects_experiment_retention_and_archive_now(store: SqlAlchemyStore):
@@ -8519,6 +8531,33 @@ def test_get_experiment_effective_trace_archival_retention_ignores_invalid_confi
         if exp.experiment_id == experiment_id
     )
     assert searched.effective_trace_archival_retention is None
+
+
+def test_get_experiment_effective_trace_archival_retention_falls_back_to_broader_default(
+    store: SqlAlchemyStore, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+):
+    _set_trace_archival_config(monkeypatch, tmp_path, retention="30d")
+
+    def _broken_resolve_trace_archival_config(
+        *, default_trace_archival_location, default_retention
+    ):
+        return ResolvedTraceArchivalConfig(
+            config=TraceArchivalConfig(
+                location=default_trace_archival_location,
+                retention=None,
+            ),
+            append_workspace_prefix=False,
+        )
+
+    monkeypatch.setattr(
+        store,
+        "resolve_trace_archival_config",
+        _broken_resolve_trace_archival_config,
+    )
+
+    experiment_id = _create_experiments(store, "trunks")
+    actual = store.get_experiment(experiment_id)
+    assert actual.effective_trace_archival_retention == "30d"
 
 
 def test_create_experiment_rejects_invalid_trace_archival_retention_tag(store: SqlAlchemyStore):

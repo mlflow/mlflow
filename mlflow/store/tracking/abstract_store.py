@@ -449,7 +449,8 @@ class AbstractStore(GatewayStoreMixin):
         Resolve the effective trace archival configuration for the current store context.
 
         Single-tenant stores use the broader-scope defaults directly. Workspace-aware stores may
-        override this to apply workspace-specific archival settings.
+        override this to apply workspace-specific archival settings. Any field left as ``None``
+        inherits the broader-scope default in core.
 
         Returns:
             A ``ResolvedTraceArchivalConfig`` describing the effective archival location,

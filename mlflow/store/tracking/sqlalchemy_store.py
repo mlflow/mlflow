@@ -633,15 +633,15 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             if not trace_archival_config.enabled:
                 return None
 
+            broader_retention = trace_archival_config.retention
             resolved_trace_archival_config = self.resolve_trace_archival_config(
                 default_trace_archival_location=trace_archival_config.location,
-                default_retention=_validate_trace_archival_retention_string(
-                    trace_archival_config.retention
-                ),
+                default_retention=broader_retention,
+            ).with_broader_defaults(
+                default_location=trace_archival_config.location,
+                default_retention=broader_retention,
             )
             broader_retention = resolved_trace_archival_config.config.retention
-            if broader_retention is None:
-                return None
 
             return (
                 _validate_trace_archival_retention_string(broader_retention),
