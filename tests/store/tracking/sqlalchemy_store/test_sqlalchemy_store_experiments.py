@@ -3,7 +3,6 @@ from pathlib import Path
 
 import pytest
 
-import mlflow
 from mlflow import entities
 from mlflow.entities import (
     Experiment,
@@ -76,7 +75,7 @@ def test_default_experiment_lifecycle(store: SqlAlchemyStore, tmp_path):
     all_experiments = [e.name for e in store.search_experiments(ViewType.ALL)]
     assert set(all_experiments) == {"aNothEr", "Default"}
 
-    # ensure that experiment ID dor active experiment is unchanged
+    # ensure that experiment ID for active experiment is unchanged
     another = store.get_experiment(1)
     assert another.name == "aNothEr"
 
@@ -130,7 +129,7 @@ def test_artifact_path_segments_for_local():
 
 
 def test_raise_duplicate_experiments(store: SqlAlchemyStore):
-    with pytest.raises(Exception, match=r"Experiment\(name=.+\) already exists"):
+    with pytest.raises(MlflowException, match=r"Experiment\(name=.+\) already exists"):
         _create_experiments(store, ["test", "test"])
 
 
@@ -155,7 +154,7 @@ def test_duplicate_experiment_with_artifact_location_returns_resource_already_ex
 
 
 def test_raise_experiment_dont_exist(store: SqlAlchemyStore):
-    with pytest.raises(Exception, match=r"No Experiment with id=.+ exists"):
+    with pytest.raises(MlflowException, match=r"No Experiment with id=.+ exists"):
         store.get_experiment(experiment_id=100)
 
 
@@ -201,7 +200,7 @@ def test_delete_restore_experiment_with_runs(store: SqlAlchemyStore):
     assert len(deleted_run_list) == 2
     for deleted_run in deleted_run_list:
         assert deleted_run.info.lifecycle_stage == entities.LifecycleStage.DELETED
-        assert deleted_run.info.experiment_id in experiment_id
+        assert deleted_run.info.experiment_id == experiment_id
         assert deleted_run.info.run_id in run_ids
         with store.ManagedSessionMaker() as session:
             assert store._get_run(session, deleted_run.info.run_id).deleted_time is not None
@@ -222,7 +221,7 @@ def test_delete_restore_experiment_with_runs(store: SqlAlchemyStore):
         assert restored_run.info.lifecycle_stage == entities.LifecycleStage.ACTIVE
         with store.ManagedSessionMaker() as session:
             assert store._get_run(session, restored_run.info.run_id).deleted_time is None
-        assert restored_run.info.experiment_id in experiment_id
+        assert restored_run.info.experiment_id == experiment_id
         assert restored_run.info.run_id in run_ids
 
 
