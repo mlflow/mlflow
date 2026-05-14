@@ -7,8 +7,6 @@ from mlflow import entities
 from mlflow.entities import (
     Experiment,
     ExperimentTag,
-    Param,
-    RunTag,
     ViewType,
 )
 from mlflow.environment_variables import MLFLOW_TRACKING_URI
@@ -24,9 +22,8 @@ from mlflow.utils.validation import MAX_EXPERIMENT_NAME_LENGTH
 
 from tests.store.tracking.sqlalchemy_store.conftest import (
     _create_experiments,
-    _get_ordered_runs,
+    _get_run_configs,
     _run_factory,
-    _search_runs,
 )
 
 pytestmark = pytest.mark.notrackingurimock
@@ -177,9 +174,6 @@ def test_delete_experiment(store: SqlAlchemyStore):
 
 
 def test_delete_restore_experiment_with_runs(store: SqlAlchemyStore):
-    from mlflow.entities import RunTag
-    from tests.store.tracking.sqlalchemy_store.conftest import _get_run_configs
-
     experiment_id = _create_experiments(store, "test exp")
     run1 = _run_factory(store, config=_get_run_configs(experiment_id)).info.run_id
     run2 = _run_factory(store, config=_get_run_configs(experiment_id)).info.run_id
@@ -659,7 +653,6 @@ def _assert_create_experiment_appends_to_artifact_uri_path_correctly(
 
         store._dispose_engine()
 
-        from pathlib import Path
         cwd = Path.cwd().as_posix()
         drive = Path.cwd().drive
         if is_windows() and expected_artifact_uri_format.startswith("file:"):
