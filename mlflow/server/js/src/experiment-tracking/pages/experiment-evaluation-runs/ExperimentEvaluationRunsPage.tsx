@@ -17,6 +17,7 @@ import type { DatasetWithRunType } from '../../components/experiment-page/compon
 import { ExperimentViewDatasetDrawer } from '../../components/experiment-page/components/runs/ExperimentViewDatasetDrawer';
 import { compact, keyBy, mapValues, uniq, xor, xorBy } from 'lodash';
 import {
+  EVAL_RUNS_SEARCHABLE_INTERNAL_TAGS,
   EVAL_RUNS_TABLE_BASE_SELECTION_STATE,
   EvalRunsTableKeyedColumnPrefix,
 } from './ExperimentEvaluationRunsTable.constants';
@@ -240,7 +241,7 @@ const ExperimentEvaluationRunsPageImpl = () => {
         paramKeys.add(param.key);
       }
       for (const tag of run.data.tags ?? []) {
-        if (isUserFacingTag(tag.key)) {
+        if (isUserFacingTag(tag.key) || EVAL_RUNS_SEARCHABLE_INTERNAL_TAGS.has(tag.key)) {
           tagKeys.add(tag.key);
         }
       }

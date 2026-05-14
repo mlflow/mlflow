@@ -49,6 +49,16 @@ export enum EvalRunsTableKeyedColumnPrefix {
   TAG = 'tag',
 }
 
+/**
+ * Internal mlflow.* tags that are still useful enough as filter / group-by / column dimensions on
+ * the evaluation runs page to override the default `isUserFacingTag` hiding rule. Keep narrow.
+ */
+export const EVAL_RUNS_SEARCHABLE_INTERNAL_TAGS: Set<string> = new Set([
+  'mlflow.source.git.commit',
+  'mlflow.source.git.branch',
+  'mlflow.source.git.repoURL',
+]);
+
 export const EVAL_RUNS_UNSELECTABLE_COLUMNS: Set<string> = new Set([
   EvalRunsTableColumnId.checkbox,
   EvalRunsTableColumnId.visibility,

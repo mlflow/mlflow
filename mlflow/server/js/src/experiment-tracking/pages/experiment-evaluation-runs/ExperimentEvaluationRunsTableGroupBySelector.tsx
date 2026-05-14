@@ -6,7 +6,10 @@ import {
   DialogComboboxSectionHeader,
   DialogComboboxTrigger,
 } from '@databricks/design-system';
-import { EVAL_RUNS_UNSELECTABLE_COLUMNS } from './ExperimentEvaluationRunsTable.constants';
+import {
+  EVAL_RUNS_SEARCHABLE_INTERNAL_TAGS,
+  EVAL_RUNS_UNSELECTABLE_COLUMNS,
+} from './ExperimentEvaluationRunsTable.constants';
 import {
   RunGroupingAggregateFunction,
   RunGroupingMode,
@@ -37,7 +40,7 @@ export const ExperimentEvaluationRunsTableGroupBySelector = ({
         uniqueParams.add(param.key);
       }
       for (const tag of run.data?.tags ?? []) {
-        if (isUserFacingTag(tag.key)) {
+        if (isUserFacingTag(tag.key) || EVAL_RUNS_SEARCHABLE_INTERNAL_TAGS.has(tag.key)) {
           uniqueTags.add(tag.key);
         }
       }
