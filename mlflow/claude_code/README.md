@@ -8,6 +8,7 @@ This module provides automatic tracing integration between Claude Code and MLflo
 - **`hooks.py`** - Claude Code hook setup and management
 - **`cli.py`** - MLflow CLI commands (`mlflow autolog claude`)
 - **`tracing.py`** - Core tracing logic and processors
+- **`hooks/`** - Hook implementation handlers
 
 ## Installation
 
