@@ -3846,7 +3846,8 @@ def test_download_artifact_endpoint_non_ascii_filename(
     file_contents = b"hello from " + filename.encode("utf-8")
     (artifact_root / filename).write_bytes(file_contents)
 
-    monkeypatch.setenv(ARTIFACTS_DESTINATION_ENV_VAR, str(artifact_root))
+    # ``.as_uri()`` not ``str()``: on Windows ``str(WindowsPath)`` is ``C:\...`` which mlflow's artifact registry parses as scheme=``C`` and 500s.
+    monkeypatch.setenv(ARTIFACTS_DESTINATION_ENV_VAR, artifact_root.as_uri())
     monkeypatch.setattr("mlflow.server.handlers._artifact_repo", None)
 
     quoted_path = urllib.parse.quote(filename)
