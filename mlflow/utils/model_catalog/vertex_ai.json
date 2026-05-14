@@ -1572,7 +1572,15 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.2,
-        "output_per_million_tokens": 0
+        "output_per_million_tokens": 0,
+        "modality": {
+          "audio": {
+            "input_per_second": 0.00016
+          },
+          "video": {
+            "input_per_second": 0.00079
+          }
+        }
       },
       "capabilities": {
         "function_calling": false,
@@ -1581,7 +1589,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-27"
+      "last_updated_at": "2026-05-11"
     },
     "gemini-embedding-2-preview": {
       "mode": "embedding",
@@ -1591,7 +1599,15 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.2,
-        "output_per_million_tokens": 0
+        "output_per_million_tokens": 0,
+        "modality": {
+          "audio": {
+            "input_per_second": 0.00016
+          },
+          "video": {
+            "input_per_second": 0.00079
+          }
+        }
       },
       "capabilities": {
         "function_calling": false,
@@ -1600,7 +1616,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-05-11"
     },
     "gemini-flash-experimental": {
       "mode": "embedding",
@@ -2328,7 +2344,12 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.8,
-        "output_per_million_tokens": 0
+        "output_per_million_tokens": 0,
+        "modality": {
+          "video": {
+            "input_per_second": 0.0005
+          }
+        }
       },
       "capabilities": {
         "function_calling": false,
@@ -2337,7 +2358,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-05-11"
     },
     "multimodalembedding@001": {
       "mode": "embedding",
@@ -2347,7 +2368,12 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.8,
-        "output_per_million_tokens": 0
+        "output_per_million_tokens": 0,
+        "modality": {
+          "video": {
+            "input_per_second": 0.0005
+          }
+        }
       },
       "capabilities": {
         "function_calling": false,
@@ -2356,7 +2382,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-05-11"
     },
     "openai/gpt-oss-120b-maas": {
       "mode": "chat",
