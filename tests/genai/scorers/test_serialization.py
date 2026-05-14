@@ -842,6 +842,13 @@ def _deserialize_via_scorer_version(payload: dict[str, Any]) -> SerializedScorer
     ).serialized_scorer
 
 
+def _formatted_error_logs(mock_logger) -> str:
+    return " ".join(
+        call.args[0] % call.args[1:] if len(call.args) > 1 else call.args[0]
+        for call in mock_logger.error.call_args_list
+    )
+
+
 @pytest.mark.parametrize(
     "deserialize",
     [
@@ -855,7 +862,7 @@ def _deserialize_via_scorer_version(payload: dict[str, Any]) -> SerializedScorer
         "ScorerVersion.serialized_scorer",
     ],
 )
-def test_unknown_field_surfaces_version_mismatch(deserialize):
+def test_unknown_field_is_dropped_with_version_aware_log(deserialize):
     payload = {
         "name": "future_scorer",
         "mlflow_version": "99.0.0",
@@ -864,13 +871,15 @@ def test_unknown_field_surfaces_version_mismatch(deserialize):
         "original_func_name": "future_scorer",
         "field_from_the_future": "value",
     }
-    with pytest.raises(MlflowException, match="Cannot deserialize scorer") as exc_info:
-        deserialize(payload)
-    message = str(exc_info.value)
-    assert "future_scorer" in message
-    assert "99.0.0" in message
-    assert "field_from_the_future" in message
-    assert mlflow.__version__ in message
+    with patch("mlflow.genai.scorers.base._logger") as mock_logger:
+        result = deserialize(payload)
+    assert result.name == "future_scorer"
+    assert not hasattr(result, "field_from_the_future")
+    log_message = _formatted_error_logs(mock_logger)
+    assert "field_from_the_future" in log_message
+    assert "future_scorer" in log_message
+    assert "99.0.0" in log_message
+    assert mlflow.__version__ in log_message
 
 
 def test_from_dict_unknown_field_falls_back_to_unknown_serialized_version():
@@ -881,5 +890,9 @@ def test_from_dict_unknown_field_falls_back_to_unknown_serialized_version():
         "original_func_name": "no_version",
         "mystery_field": True,
     }
-    with pytest.raises(MlflowException, match="unknown"):
-        SerializedScorer.from_dict(payload)
+    with patch("mlflow.genai.scorers.base._logger") as mock_logger:
+        result = SerializedScorer.from_dict(payload)
+    assert result.name == "no_version"
+    log_message = _formatted_error_logs(mock_logger)
+    assert "unknown" in log_message
+    assert "mystery_field" in log_message

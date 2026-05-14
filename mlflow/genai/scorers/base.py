@@ -156,41 +156,31 @@ class SerializedScorer:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "SerializedScorer":
-        """Build a SerializedScorer from a dict, with a version-aware error on unknown fields.
+        """Build a SerializedScorer from a dict, tolerating unknown fields from newer mlflow versions.
 
         Newer mlflow versions sometimes add fields to this dataclass (e.g.
         ``third_party_scorer_data`` in 3.12). When an older runtime deserializes a payload
         written by a newer version, raw ``SerializedScorer(**data)`` raises a cryptic
-        ``TypeError: __init__() got an unexpected keyword argument '<field>'`` that doesn't
-        tell the caller what to do. This wrapper surfaces the serialized vs runtime mlflow
-        version and points at the upgrade as the fix.
+        ``TypeError: __init__() got an unexpected keyword argument '<field>'``. This
+        wrapper drops the unknown fields and logs a version-aware warning instead, so
+        forward-compatible payloads (additive-only fields) still deserialize.
         """
         known_fields = {f.name for f in fields(cls)}
         if unknown_fields := sorted(set(data) - known_fields):
             serialized_version = data.get("mlflow_version") or "unknown"
             scorer_name = data.get("name") or "<unnamed>"
-            raise MlflowException.invalid_parameter_value(
-                f"Cannot deserialize scorer {scorer_name!r}: it was serialized with "
-                f"mlflow=={serialized_version}, but this runtime is on "
-                f"mlflow=={mlflow.__version__}, which does not recognize the following "
-                f"field(s): {unknown_fields}. Upgrade mlflow to >={serialized_version} "
-                f"in this environment, or re-register the scorer from an environment "
-                f"that matches this runtime."
+            _logger.error(
+                "Ignoring unknown field(s) %s while deserializing scorer %r: it was "
+                "serialized with mlflow==%s, but this runtime is on mlflow==%s. "
+                "Upgrade mlflow to >=%s in this environment to pick up these fields.",
+                unknown_fields,
+                scorer_name,
+                serialized_version,
+                mlflow.__version__,
+                serialized_version,
             )
-        try:
-            return cls(**data)
-        except TypeError as e:
-            # Defensive: covers any future signature mismatch we don't anticipate above
-            # (e.g. a required field is dropped between versions).
-            serialized_version = data.get("mlflow_version") or "unknown"
-            scorer_name = data.get("name") or "<unnamed>"
-            raise MlflowException.invalid_parameter_value(
-                f"Failed to deserialize scorer {scorer_name!r} "
-                f"(serialized with mlflow=={serialized_version}, runtime is on "
-                f"mlflow=={mlflow.__version__}): {e}. This typically indicates a "
-                f"version mismatch between the mlflow version that wrote the scorer "
-                f"and the one reading it."
-            )
+            data = {k: v for k, v in data.items() if k in known_fields}
+        return cls(**data)
 
 
 def _record_scorer_call_with_context(func):
@@ -373,12 +363,8 @@ class Scorer(BaseModel):
             serialized = obj
         # Handle dict object
         elif isinstance(obj, dict):
-            # Parse the serialized data using our dataclass. SerializedScorer.from_dict surfaces
-            # a clear version-mismatch error if the payload has fields this runtime doesn't know.
             try:
                 serialized = SerializedScorer.from_dict(obj)
-            except MlflowException:
-                raise
             except Exception as e:
                 raise MlflowException.invalid_parameter_value(
                     f"Failed to parse serialized scorer data: {e}"
