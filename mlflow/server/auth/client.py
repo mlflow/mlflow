@@ -388,12 +388,9 @@ class AuthServiceClient:
         return [Role.from_json(r) for r in resp["roles"]]
 
     # ---- Unified per-user permission convenience APIs ----
-    #
-    # Grant / revoke / check a single resource permission for a user. These
-    # preserve the legacy per-resource endpoints' per-resource MANAGE
-    # delegation semantics (a user holding MANAGE on a specific experiment can
-    # grant other users access to that experiment without holding workspace
-    # MANAGE) but with a uniform ``(resource_type, resource_id)`` shape.
+    # Grant / revoke / check one resource permission for a user. Preserve the
+    # legacy per-resource MANAGE delegation (per-resource MANAGE gates writes)
+    # via a uniform ``(resource_type, resource_id)`` shape.
 
     def grant_user_permission(
         self,

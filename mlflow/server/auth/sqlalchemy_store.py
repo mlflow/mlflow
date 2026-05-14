@@ -408,10 +408,8 @@ class SqlAlchemyStore:
 
     @staticmethod
     def _reject_workspace_resource_type(resource_type: str) -> None:
-        # Defense in depth: handlers also reject this, but super-admins skip the
-        # ``validate_can_manage_resource`` gate via ``sender_is_admin()``. Catching
-        # it here closes the bypass and keeps the (workspace, *, ...) grant shape
-        # out of synthetic user roles regardless of caller.
+        # Defense in depth — closes the ``sender_is_admin()`` bypass on the
+        # ``validate_can_manage_resource`` gate.
         if resource_type == RESOURCE_TYPE_WORKSPACE:
             raise MlflowException.invalid_parameter_value(
                 "resource_type 'workspace' is not supported by the per-user permission "
@@ -426,12 +424,9 @@ class SqlAlchemyStore:
         resource_pattern: str,
         permission: str,
     ) -> None:
-        """
-        Create a new ``permission`` grant on ``(resource_type, resource_pattern)`` for
-        ``username`` via their synthetic role in the active workspace. Unlike
-        ``grant_user_permission`` (which upserts), this raises ``RESOURCE_ALREADY_EXISTS``
-        when a row already exists — matching the legacy ``create_*_permission`` family's
-        contract so the convenience REST surface can reject duplicate grants cleanly.
+        """Insert one grant on ``username``'s synthetic role in the active workspace;
+        raises ``RESOURCE_ALREADY_EXISTS`` if a row exists (matches the legacy
+        ``create_*_permission`` contract).
         """
         self._reject_workspace_resource_type(resource_type)
         _validate_permission_for_resource_type(permission, resource_type)
@@ -477,11 +472,9 @@ class SqlAlchemyStore:
         resource_type: str,
         resource_pattern: str,
     ) -> None:
-        """
-        Remove the ``(resource_type, resource_pattern)`` grant from ``username``'s
-        synthetic role in the active workspace. Raises ``RESOURCE_DOES_NOT_EXIST`` if
-        no matching row exists — matching the legacy ``delete_*_permission`` family's
-        contract.
+        """Remove one grant from ``username``'s synthetic role in the active workspace;
+        raises ``RESOURCE_DOES_NOT_EXIST`` if no row matches (matches the legacy
+        ``delete_*_permission`` contract).
         """
         self._reject_workspace_resource_type(resource_type)
         _validate_resource_type(resource_type)
