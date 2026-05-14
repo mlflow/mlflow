@@ -308,6 +308,7 @@ from mlflow.telemetry.utils import (
     is_telemetry_disabled,
 )
 from mlflow.tracing.constant import SpansLocation, TraceTagKey
+from mlflow.tracing.trace_archival_config import get_trace_archival_server_config
 from mlflow.tracing.utils.artifact_utils import (
     TRACE_DATA_FILE_NAME,
     get_archive_uri_for_trace,
@@ -710,6 +711,8 @@ def initialize_backend_stores(
         _verify_tracking_store_workspace_support(tracking_store)
         _verify_model_registry_store_workspace_support(registry_store)
 
+    _verify_tracking_store_trace_archival_support(tracking_store)
+
 
 def _store_supports_workspaces(
     store: AbstractTrackingStore | AbstractModelRegistryStore | AbstractJobStore,
@@ -718,11 +721,29 @@ def _store_supports_workspaces(
     return bool(getattr(store, "supports_workspaces", False))
 
 
+def _store_supports_trace_archival(store: AbstractTrackingStore) -> bool:
+    """Return whether the provided tracking store reports trace archival support."""
+    return bool(getattr(store, "supports_trace_archival", False))
+
+
 def _verify_tracking_store_workspace_support(tracking_store: AbstractTrackingStore) -> None:
     if not _store_supports_workspaces(tracking_store):
         raise MlflowException(
             "The configured tracking store does not support workspace-aware operations. "
             "Remove the --enable-workspaces flag or configure a workspace-capable backend store.",
+            error_code=INVALID_STATE,
+        )
+
+
+def _verify_tracking_store_trace_archival_support(tracking_store: AbstractTrackingStore) -> None:
+    trace_archival_config = get_trace_archival_server_config()
+    if trace_archival_config is None or not trace_archival_config.enabled:
+        return
+
+    if not _store_supports_trace_archival(tracking_store):
+        raise MlflowException(
+            "The configured tracking store does not support server-owned trace archival. "
+            "Remove the trace archival config or configure a trace-archival-capable backend store.",
             error_code=INVALID_STATE,
         )
 

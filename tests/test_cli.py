@@ -597,6 +597,71 @@ def test_server_trace_archival_config_rejects_invalid_max_traces_per_pass(tmp_pa
     assert "'trace_archival.max_traces_per_pass' must be a positive integer" in result.output
 
 
+def test_server_trace_archival_config_requires_archival_capable_tracking_store(tmp_path):
+    handlers._tracking_store = None
+    handlers._model_registry_store = None
+    backend_uri = f"sqlite:///{tmp_path / 'backend.db'}"
+    artifact_root = (tmp_path / "artifacts").as_uri()
+    config_path = _write_trace_archival_config(tmp_path)
+    mock_tracking_store = mock.Mock(supports_trace_archival=False)
+
+    with (
+        mock.patch("mlflow.server._run_server") as run_server_mock,
+        mock.patch("mlflow.server.handlers._get_tracking_store", return_value=mock_tracking_store),
+        mock.patch("mlflow.server.handlers._get_model_registry_store", return_value=None),
+    ):
+        result = CliRunner().invoke(
+            server,
+            [
+                "--backend-store-uri",
+                backend_uri,
+                "--registry-store-uri",
+                backend_uri,
+                "--default-artifact-root",
+                artifact_root,
+                "--trace-archival-config",
+                str(config_path),
+            ],
+        )
+
+    assert result.exit_code != 0
+    assert "Error initializing backend store" in result.output
+    run_server_mock.assert_not_called()
+
+
+def test_server_trace_archival_config_allows_disabled_config_on_unsupported_tracking_store(
+    tmp_path,
+):
+    handlers._tracking_store = None
+    handlers._model_registry_store = None
+    backend_uri = f"sqlite:///{tmp_path / 'backend.db'}"
+    artifact_root = (tmp_path / "artifacts").as_uri()
+    config_path = _write_trace_archival_config(tmp_path, enabled=False)
+    mock_tracking_store = mock.Mock(supports_trace_archival=False)
+
+    with (
+        mock.patch("mlflow.server._run_server") as run_server_mock,
+        mock.patch("mlflow.server.handlers._get_tracking_store", return_value=mock_tracking_store),
+        mock.patch("mlflow.server.handlers._get_model_registry_store", return_value=None),
+    ):
+        result = CliRunner().invoke(
+            server,
+            [
+                "--backend-store-uri",
+                backend_uri,
+                "--registry-store-uri",
+                backend_uri,
+                "--default-artifact-root",
+                artifact_root,
+                "--trace-archival-config",
+                str(config_path),
+            ],
+        )
+
+    assert result.exit_code == 0
+    run_server_mock.assert_called_once()
+
+
 @pytest.mark.parametrize("command", [server])
 def test_tracking_uri_validation_failure(command):
     handlers._tracking_store = None
