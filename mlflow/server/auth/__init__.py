@@ -1209,27 +1209,13 @@ def validate_can_view_user_roles():
     return store.is_workspace_admin_of_any_of_users_workspaces(user.id, target_user.id)
 
 
-# ============================================================================
-# Unified per-user permission convenience APIs
-# ----------------------------------------------------------------------------
-# The legacy per-resource permission endpoints (``/experiments/permissions/*``,
-# ``/registered-models/permissions/*``, ``/scorers/permissions/*``,
-# ``/gateway/*/permissions/*``) are deprecated. The three convenience endpoints
-# below — ``grant_user_permission``, ``revoke_user_permission``,
-# ``check_user_permission`` — replace them with a single uniform shape keyed by
-# ``(resource_type, resource_id)``. They preserve the deprecated endpoints'
-# **per-resource MANAGE delegation** semantics permanently: a workspace member
-# who holds MANAGE on a specific experiment can grant other users access to
-# that experiment without holding workspace-wide MANAGE.
-# ============================================================================
+# Unified per-user permission convenience APIs. Replace the deprecated
+# per-resource endpoints with a uniform ``(resource_type, resource_id)`` shape;
+# preserve per-resource MANAGE delegation (gated on resource-level MANAGE).
 
 
 def _scorer_lookup_keys(resource_id: str) -> tuple[str, str]:
-    """
-    Split a scorer ``resource_id`` (``"<experiment_id>/<url_quote(scorer_name)>"``,
-    matching ``SqlAlchemyStore._scorer_pattern``) into its constituent parts.
-    Raises ``INVALID_PARAMETER_VALUE`` when the input lacks the ``"/"`` delimiter.
-    """
+    """Split ``<experiment_id>/<url_quote(scorer_name)>`` into (experiment_id, full_pattern)."""
     experiment_id, sep, _ = resource_id.partition("/")
     if not sep:
         raise MlflowException(
@@ -1239,108 +1225,8 @@ def _scorer_lookup_keys(resource_id: str) -> tuple[str, str]:
     return experiment_id, resource_id
 
 
-def _resolve_user_permission_for_resource(
-    username: str, resource_type: str, resource_id: str
-) -> Permission:
-    """
-    Resolve the effective permission ``username`` has on
-    ``(resource_type, resource_id)`` using the same code path as the runtime
-    authorization check. Mirrors the ``_get_permission_from_*`` family so the
-    answer ``check_user_permission`` returns can never drift from what an actual
-    request would see.
-    """
-    _validate_resource_type(resource_type)
-    if resource_type == RESOURCE_TYPE_EXPERIMENT:
-        return _get_experiment_permission(resource_id, username)
-    if resource_type == RESOURCE_TYPE_REGISTERED_MODEL:
-        return _get_role_permission_or_default(
-            _role_permission_for(
-                username=username,
-                resource_type=RESOURCE_TYPE_REGISTERED_MODEL,
-                resource_key=resource_id,
-                workspace_lookup_id=resource_id,
-                workspace_fetcher=_get_model_registry_store().get_registered_model,
-                workspace_label="registered model",
-            ),
-        )
-    if resource_type == RESOURCE_TYPE_SCORER:
-        experiment_id, scorer_pattern = _scorer_lookup_keys(resource_id)
-        return _get_role_permission_or_default(
-            _role_permission_for(
-                username=username,
-                resource_type=RESOURCE_TYPE_SCORER,
-                resource_key=scorer_pattern,
-                workspace_lookup_id=experiment_id,
-                workspace_fetcher=_get_tracking_store().get_experiment,
-                workspace_label="experiment",
-            ),
-        )
-    if resource_type == RESOURCE_TYPE_GATEWAY_SECRET:
-        return _get_role_permission_or_default(
-            _role_permission_for(
-                username=username,
-                resource_type=RESOURCE_TYPE_GATEWAY_SECRET,
-                resource_key=resource_id,
-                workspace_lookup_id=resource_id,
-                workspace_fetcher=lambda sid: _get_tracking_store().get_secret_info(secret_id=sid),
-                workspace_label="gateway secret",
-            ),
-        )
-    if resource_type == RESOURCE_TYPE_GATEWAY_ENDPOINT:
-        return _get_role_permission_or_default(
-            _role_permission_for(
-                username=username,
-                resource_type=RESOURCE_TYPE_GATEWAY_ENDPOINT,
-                resource_key=resource_id,
-                workspace_lookup_id=resource_id,
-                workspace_fetcher=lambda eid: _get_tracking_store().get_gateway_endpoint(
-                    endpoint_id=eid
-                ),
-                workspace_label="gateway endpoint",
-            ),
-        )
-    if resource_type == RESOURCE_TYPE_GATEWAY_MODEL_DEFINITION:
-        return _get_role_permission_or_default(
-            _role_permission_for(
-                username=username,
-                resource_type=RESOURCE_TYPE_GATEWAY_MODEL_DEFINITION,
-                resource_key=resource_id,
-                workspace_lookup_id=resource_id,
-                workspace_fetcher=lambda mdid: _get_tracking_store().get_gateway_model_definition(
-                    model_definition_id=mdid
-                ),
-                workspace_label="gateway model definition",
-            ),
-        )
-    # ``workspace`` is intentionally excluded — the workspace slot has its own
-    # set_workspace_permission / delete_workspace_permission endpoints and the
-    # ``check`` semantics for "does user have permission on the workspace itself"
-    # are ambiguous (which permission tier — USE or MANAGE — counts as 'allowed'?).
-    raise MlflowException(
-        f"resource_type '{resource_type}' is not supported by the per-user "
-        "permission convenience APIs. Use the workspace-permission APIs for "
-        "workspace-wide grants.",
-        INVALID_PARAMETER_VALUE,
-    )
-
-
-def validate_can_manage_resource() -> bool:
-    """
-    Dispatcher validator for the unified per-user grant convenience APIs. Reads
-    ``resource_type`` + ``resource_id`` from the request body and resolves the
-    requester's effective permission on that resource through the exact same
-    code path the legacy per-resource ``validate_can_manage_*`` validators use
-    (``_get_role_permission_or_default(_role_permission_for(...))``), so the
-    per-resource MANAGE delegation semantics carry over identically: a user
-    holding MANAGE on a specific experiment can grant other users access to
-    that experiment without holding workspace-wide MANAGE.
-    """
-    resource_type = _get_request_param("resource_type")
-    resource_id = _get_request_param("resource_id")
-    requester = authenticate_request().username
-    return _resolve_user_permission_for_resource(requester, resource_type, resource_id).can_manage
-
-
+# Maps each resource_type to ``(workspace_label, workspace_fetcher_factory)``.
+# Factory is invoked lazily so tests can patch the underlying store.
 _RESOURCE_WORKSPACE_FETCHER: dict[str, tuple[str, Callable[[], Callable[[str], Any]]]] = {
     RESOURCE_TYPE_EXPERIMENT: ("experiment", lambda: _get_tracking_store().get_experiment),
     RESOURCE_TYPE_REGISTERED_MODEL: (
@@ -1366,16 +1252,63 @@ _RESOURCE_WORKSPACE_FETCHER: dict[str, tuple[str, Callable[[], Callable[[str], A
 }
 
 
-def _workspace_for_resource(resource_type: str, resource_id: str) -> str | None:
+def _resolve_user_permission_for_resource(
+    username: str, resource_type: str, resource_id: str
+) -> Permission:
+    """Resolve effective permission via the same code path as the runtime check
+    (``_get_permission_from_*`` family) so ``check_user_permission`` can't drift
+    from real authorization decisions.
     """
-    Resolve the workspace name that owns ``(resource_type, resource_id)``. Returns
-    ``None`` when the resource can't be located. Used by authorization gates that
-    need to scope a check to the resource's workspace (e.g. so a workspace admin
-    of workspace A can't ask questions about a resource in workspace B).
+    _validate_resource_type(resource_type)
+    if resource_type == RESOURCE_TYPE_SCORER:
+        experiment_id, scorer_pattern = _scorer_lookup_keys(resource_id)
+        return _get_role_permission_or_default(
+            _role_permission_for(
+                username=username,
+                resource_type=RESOURCE_TYPE_SCORER,
+                resource_key=scorer_pattern,
+                workspace_lookup_id=experiment_id,
+                workspace_fetcher=_get_tracking_store().get_experiment,
+                workspace_label="experiment",
+            ),
+        )
+    spec = _RESOURCE_WORKSPACE_FETCHER.get(resource_type)
+    if spec is None:
+        # ``workspace`` is excluded — workspace tier has its own surface and
+        # ``allowed`` semantics on the workspace slot are ambiguous (USE vs MANAGE).
+        raise MlflowException(
+            f"resource_type '{resource_type}' is not supported by the per-user "
+            "permission convenience APIs.",
+            INVALID_PARAMETER_VALUE,
+        )
+    label, fetcher_factory = spec
+    return _get_role_permission_or_default(
+        _role_permission_for(
+            username=username,
+            resource_type=resource_type,
+            resource_key=resource_id,
+            workspace_lookup_id=resource_id,
+            workspace_fetcher=fetcher_factory(),
+            workspace_label=label,
+        ),
+    )
 
-    Any lookup failure (resource missing, malformed key, store backend error) is
-    treated as "unable to resolve" → caller denies. Fail-closed semantics matter
-    here because this resolves a *security gate*, not a user-facing lookup.
+
+def validate_can_manage_resource() -> bool:
+    """Dispatcher validator for ``grant_user_permission`` / ``revoke_user_permission``.
+    Gates on the same per-resource MANAGE check the legacy ``validate_can_manage_*``
+    validators used.
+    """
+    resource_type = _get_request_param("resource_type")
+    resource_id = _get_request_param("resource_id")
+    requester = authenticate_request().username
+    return _resolve_user_permission_for_resource(requester, resource_type, resource_id).can_manage
+
+
+def _workspace_for_resource(resource_type: str, resource_id: str) -> str | None:
+    """Resolve the workspace name owning ``(resource_type, resource_id)``, or None
+    if the resource can't be located. Fail-closed: any lookup failure returns
+    None so authorization gates deny rather than leak across workspaces.
     """
     try:
         if resource_type == RESOURCE_TYPE_SCORER:
@@ -1393,12 +1326,9 @@ def _workspace_for_resource(resource_type: str, resource_id: str) -> str | None:
 
 
 def validate_can_check_user_permission() -> bool:
-    """
-    Authorization gate for ``check_user_permission``: super admins bypass,
-    self-checks are always allowed, and a workspace admin in the **resource's
-    workspace** may check other users. Scoping to the resource workspace prevents
-    a workspace-A admin from probing a target user's permissions on resources in
-    workspace B.
+    """Gate ``check_user_permission``: admin / self / workspace MANAGE in the
+    resource's workspace. Scoping to the resource workspace closes the
+    cross-workspace probe (workspace-A admin asking about a workspace-B resource).
     """
     requester = authenticate_request().username
     requester_user = store.get_user(requester)
@@ -3821,11 +3751,9 @@ def delete_gateway_model_definition_permission():
 
 
 def _reject_workspace_resource_type(resource_type: str) -> None:
-    # Workspace-tier grants have their own surface (set_workspace_permission /
-    # delete_workspace_permission) and the convenience APIs are resource-level only.
-    # Rejecting here (and again in the store) closes the admin-bypass gap: super
-    # admins skip ``validate_can_manage_resource`` via ``sender_is_admin()`` in
-    # ``_before_request``, so handler/store-level rejection is the only defense.
+    # Closes the super-admin bypass: ``sender_is_admin()`` skips
+    # ``validate_can_manage_resource``, so handler/store-level rejection is
+    # the only defense keeping workspace-tier grants out of the convenience APIs.
     if resource_type == RESOURCE_TYPE_WORKSPACE:
         raise MlflowException(
             "resource_type 'workspace' is not supported by the per-user permission "
@@ -3842,14 +3770,8 @@ def grant_user_permission():
     resource_id = _get_request_param("resource_id")
     permission = _get_request_param("permission")
     _reject_workspace_resource_type(resource_type)
-    # Validate the (permission, resource_type) pair before touching the user — keeps
-    # the error precedence consistent with the legacy ``create_*_permission`` family
-    # which validates the permission first.
     _validate_permission_for_resource_type(permission, resource_type)
-    # ``get_user`` raises RESOURCE_DOES_NOT_EXIST when the user is missing; let it
-    # propagate so callers see a clean 404 with the same shape as the existing
-    # /users/get and /users/roles/list endpoints.
-    store.get_user(username)
+    store.get_user(username)  # raises RESOURCE_DOES_NOT_EXIST if missing
     store.grant_user_resource_permission(username, resource_type, resource_id, permission)
     return make_response({})
 
@@ -3871,20 +3793,13 @@ def check_user_permission():
     username = _get_request_param("username")
     resource_type = _get_request_param("resource_type")
     resource_id = _get_request_param("resource_id")
-    # Surface unknown users and unsupported resource_types as clean 4xx. Unknown
-    # *resources* (e.g. a non-existent experiment_id) intentionally return
-    # ``allowed=False`` instead of a 404 — this matches the deny-by-default behavior
-    # of the runtime authorization check (workspace-resolution failure denies access)
-    # and lets callers ask "can this user reach the resource at all?" without first
-    # verifying existence separately.
+    # Unknown *users* and unsupported resource_types raise 4xx; unknown *resources*
+    # (e.g. nonexistent experiment_id) intentionally return ``allowed=False`` —
+    # matches the deny-by-default semantics of the runtime authorization check.
     store.get_user(username)
     permission = _resolve_user_permission_for_resource(username, resource_type, resource_id)
-    # "allowed" mirrors ``can_use`` for the regular access tier — i.e. the user
-    # can interact with the resource. Read-only access (READ) is intentionally
-    # *not* sufficient: callers that only need to confirm a user can view the
-    # resource can inspect ``permission`` directly. This matches the semantics
-    # of ``_user_can_create_in_workspace`` (which uses ``can_use``) and the
-    # workspace-tier model (USE = regular member).
+    # ``allowed`` mirrors ``can_use`` (regular access tier). READ alone is not
+    # sufficient — callers needing a different cut inspect ``permission`` directly.
     return jsonify({
         "allowed": permission.can_use,
         "permission": permission.name,
