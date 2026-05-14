@@ -10,8 +10,8 @@ allowed-tools:
   - Glob
   - Agent
   - Edit(//tmp/review-payload.json)
-argument-hint: "<owner> <repo> <pr_number> [extra_context]"
-arguments: [owner, repo, pr_number, extra_context]
+argument-hint: "<owner_repo> <pr_number> [extra_context]"
+arguments: [owner_repo, pr_number, extra_context]
 ---
 
 # Review Pull Request
@@ -21,34 +21,32 @@ Automatically review a GitHub pull request across correctness, security, edge ca
 ## Usage
 
 ```
-/pr-review <owner> <repo> <pr_number> [extra_context]
+/pr-review <owner_repo> <pr_number> [extra_context]
 ```
 
 ## Arguments
 
-- `<owner>` (required): repository owner, e.g. `mlflow`
-- `<repo>` (required): repository name, e.g. `mlflow`
+- `<owner_repo>` (required): repository slug, e.g. `mlflow/mlflow`
 - `<pr_number>` (required): pull request number
 - `[extra_context]` (optional): additional filtering or focus instructions (e.g., a specific concern or file type)
 
 ## Examples
 
 ```
-/pr-review mlflow mlflow 23320
-/pr-review mlflow mlflow 23320 Please focus on security issues
-/pr-review mlflow mlflow 23320 Only review Python files
+/pr-review mlflow/mlflow 23320
+/pr-review mlflow/mlflow 23320 Please focus on security issues
+/pr-review mlflow/mlflow 23320 Only review Python files
 ```
 
 ## Inputs
 
 This invocation is reviewing:
 
-- Owner: `$owner`
-- Repo: `$repo`
+- Owner/Repo: `$owner_repo`
 - PR number: `$pr_number`
 - Extra context: `$extra_context`
 
-The `<owner>`/`<repo>`/`<pr_number>` placeholders in the steps below refer to the values above.
+The `<owner>`/`<repo>`/`<pr_number>` placeholders in the steps below refer to the values above (split `$owner_repo` on `/` for `<owner>` and `<repo>`).
 
 ## Instructions
 
