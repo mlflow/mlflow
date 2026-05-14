@@ -1321,3 +1321,38 @@ async def gemini_passthrough_stream_generate_content(endpoint_name: str, request
     return StreamingResponse(
         safe_stream(traced_stream(body), as_bytes=True), media_type="text/event-stream"
     )
+
+
+@gateway_router.post("/proxy/{endpoint_name}/{path:path}", response_model=None)
+@translate_http_exception
+async def raw_proxy(endpoint_name: str, path: str, request: Request):
+    """
+    Raw proxy endpoint.
+
+    Routes the request payload as-is to the upstream provider at
+    <provider_base_url>/<path>, using the credentials configured for the named
+    endpoint. Unlike the typed passthrough routes, the ``model`` field in the
+    payload is NOT replaced with the value from the endpoint config.
+
+    Supports streaming when the request payload contains ``"stream": true``.
+
+    Example:
+        POST /gateway/proxy/my-openai-endpoint/chat/completions
+        {
+            "model": "gpt-4o",
+            "messages": [{"role": "user", "content": "Hello"}]
+        }
+    """
+    body = await _get_request_body(request)
+    store = _get_store()
+    _validate_store(store)
+    headers = dict(request.headers)
+    provider, _ = _create_provider_from_endpoint_name(
+        store, endpoint_name, EndpointType.LLM_V1_CHAT
+    )
+    result = await provider.proxy(path, body, headers)
+    if body.get("stream"):
+        return StreamingResponse(
+            safe_stream(result, as_bytes=True), media_type="text/event-stream"
+        )
+    return result

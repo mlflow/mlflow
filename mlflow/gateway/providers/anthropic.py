@@ -719,6 +719,27 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
         # Anthropic's input_tokens excludes cache tokens; normalize to include them.
         return _normalize_anthropic_input_tokens(usage) or usage
 
+    async def _proxy(
+        self,
+        path: str,
+        payload: dict[str, Any],
+        headers: dict[str, str] | None = None,
+    ) -> dict[str, Any] | AsyncIterable[Any]:
+        request_headers = self._get_headers(payload, headers)
+        if payload.get("stream"):
+            return send_stream_request(
+                headers=request_headers,
+                base_url=self.base_url,
+                path=path,
+                payload=payload,
+            )
+        return await send_request(
+            headers=request_headers,
+            base_url=self.base_url,
+            path=path,
+            payload=payload,
+        )
+
     async def _passthrough(
         self,
         action: PassthroughAction,

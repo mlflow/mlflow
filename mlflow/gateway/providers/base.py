@@ -179,6 +179,17 @@ class BaseProvider(ABC):
             f"{self.DISPLAY_NAME} models.",
         )
 
+    async def _proxy(
+        self,
+        path: str,
+        payload: dict[str, Any],
+        headers: dict[str, str] | None = None,
+    ) -> dict[str, Any] | AsyncIterable[Any]:
+        raise AIGatewayException(
+            status_code=501,
+            detail=f"The proxy endpoint is not implemented for {self.DISPLAY_NAME} models.",
+        )
+
     # -------------------------------------------------------------------------
     # Public methods (with optional tracing)
     # -------------------------------------------------------------------------
@@ -256,6 +267,14 @@ class BaseProvider(ABC):
             with mlflow.start_span(span_type=SpanType.LLM, name=self._get_span_name()) as span:
                 span.set_attributes({**self._get_provider_attributes(), "action": action.value})
                 raise e
+
+    async def proxy(
+        self,
+        path: str,
+        payload: dict[str, Any],
+        headers: dict[str, str] | None = None,
+    ) -> dict[str, Any] | AsyncIterable[Any]:
+        return await self._proxy(path, payload, headers)
 
     # -------------------------------------------------------------------------
     # Tracing helper methods
@@ -628,6 +647,15 @@ class TrafficRouteProvider(BaseProvider):
         prov = self._get_provider()
         return await prov.passthrough(action, payload, headers)
 
+    async def proxy(
+        self,
+        path: str,
+        payload: dict[str, Any],
+        headers: dict[str, str] | None = None,
+    ) -> dict[str, Any] | AsyncIterable[Any]:
+        prov = self._get_provider()
+        return await prov.proxy(path, payload, headers)
+
 
 class FallbackProvider(BaseProvider):
     """
@@ -770,6 +798,14 @@ class FallbackProvider(BaseProvider):
         headers: dict[str, str] | None = None,
     ) -> dict[str, Any] | AsyncIterable[Any]:
         return await self._execute_with_fallback("passthrough", action, payload, headers)
+
+    async def proxy(
+        self,
+        path: str,
+        payload: dict[str, Any],
+        headers: dict[str, str] | None = None,
+    ) -> dict[str, Any] | AsyncIterable[Any]:
+        return await self._execute_with_fallback("proxy", path, payload, headers)
 
 
 class ProviderAdapter(ABC):
