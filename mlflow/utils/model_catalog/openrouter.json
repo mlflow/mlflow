@@ -1793,6 +1793,26 @@
       },
       "last_updated_at": "2026-04-24"
     },
+    "qwen/qwen3.6-plus": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 65536,
+        "max_tokens": 65536
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.325,
+        "output_per_million_tokens": 1.95
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-11"
+    },
     "switchpoint/router": {
       "mode": "chat",
       "context_window": {
