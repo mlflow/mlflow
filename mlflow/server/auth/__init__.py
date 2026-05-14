@@ -201,7 +201,7 @@ from mlflow.protos.webhooks_pb2 import (
 )
 from mlflow.server import app
 from mlflow.server.auth.config import DEFAULT_AUTHORIZATION_FUNCTION, read_auth_config
-from mlflow.server.auth.entities import User
+from mlflow.server.auth.entities import CheckUserPermissionResult, User
 from mlflow.server.auth.logo import MLFLOW_LOGO
 from mlflow.server.auth.permissions import (
     MANAGE,
@@ -1225,6 +1225,19 @@ def _scorer_lookup_keys(resource_id: str) -> tuple[str, str]:
     return experiment_id, resource_id
 
 
+def _reject_workspace_resource_type(resource_type: str) -> None:
+    # Workspace-tier grants have their own surface (set_workspace_permission /
+    # delete_workspace_permission); rejecting here gives every code path the
+    # same 400 message regardless of which gate fires first.
+    if resource_type == RESOURCE_TYPE_WORKSPACE:
+        raise MlflowException(
+            "resource_type 'workspace' is not supported by the per-user permission "
+            "convenience APIs. Use set_workspace_permission / "
+            "delete_workspace_permission for workspace-wide grants.",
+            INVALID_PARAMETER_VALUE,
+        )
+
+
 # Maps each resource_type to ``(workspace_label, workspace_fetcher_factory)``.
 # Factory is invoked lazily so tests can patch the underlying store.
 _RESOURCE_WORKSPACE_FETCHER: dict[str, tuple[str, Callable[[], Callable[[str], Any]]]] = {
@@ -1252,6 +1265,24 @@ _RESOURCE_WORKSPACE_FETCHER: dict[str, tuple[str, Callable[[], Callable[[str], A
 }
 
 
+def _resource_dispatch_keys(
+    resource_type: str, resource_id: str
+) -> tuple[str, str, Callable[[str], Any], str] | None:
+    """Return ``(resource_key, workspace_lookup_id, workspace_fetcher, workspace_label)``
+    for ``(resource_type, resource_id)``, or ``None`` if the type isn't supported.
+    Scorers are the only resource_type whose role-lookup key differs from the
+    workspace-lookup id (key = ``<exp_id>/<scorer_name>``, lookup = ``exp_id``).
+    """
+    if resource_type == RESOURCE_TYPE_SCORER:
+        experiment_id, scorer_pattern = _scorer_lookup_keys(resource_id)
+        return scorer_pattern, experiment_id, _get_tracking_store().get_experiment, "experiment"
+    spec = _RESOURCE_WORKSPACE_FETCHER.get(resource_type)
+    if spec is None:
+        return None
+    label, fetcher_factory = spec
+    return resource_id, resource_id, fetcher_factory(), label
+
+
 def _resolve_user_permission_for_resource(
     username: str, resource_type: str, resource_id: str
 ) -> Permission:
@@ -1259,36 +1290,23 @@ def _resolve_user_permission_for_resource(
     (``_get_permission_from_*`` family) so ``check_user_permission`` can't drift
     from real authorization decisions.
     """
+    _reject_workspace_resource_type(resource_type)
     _validate_resource_type(resource_type)
-    if resource_type == RESOURCE_TYPE_SCORER:
-        experiment_id, scorer_pattern = _scorer_lookup_keys(resource_id)
-        return _get_role_permission_or_default(
-            _role_permission_for(
-                username=username,
-                resource_type=RESOURCE_TYPE_SCORER,
-                resource_key=scorer_pattern,
-                workspace_lookup_id=experiment_id,
-                workspace_fetcher=_get_tracking_store().get_experiment,
-                workspace_label="experiment",
-            ),
-        )
-    spec = _RESOURCE_WORKSPACE_FETCHER.get(resource_type)
-    if spec is None:
-        # ``workspace`` is excluded — workspace tier has its own surface and
-        # ``allowed`` semantics on the workspace slot are ambiguous (USE vs MANAGE).
+    dispatch = _resource_dispatch_keys(resource_type, resource_id)
+    if dispatch is None:
         raise MlflowException(
             f"resource_type '{resource_type}' is not supported by the per-user "
             "permission convenience APIs.",
             INVALID_PARAMETER_VALUE,
         )
-    label, fetcher_factory = spec
+    resource_key, workspace_lookup_id, fetcher, label = dispatch
     return _get_role_permission_or_default(
         _role_permission_for(
             username=username,
             resource_type=resource_type,
-            resource_key=resource_id,
-            workspace_lookup_id=resource_id,
-            workspace_fetcher=fetcher_factory(),
+            resource_key=resource_key,
+            workspace_lookup_id=workspace_lookup_id,
+            workspace_fetcher=fetcher,
             workspace_label=label,
         ),
     )
@@ -1311,16 +1329,11 @@ def _workspace_for_resource(resource_type: str, resource_id: str) -> str | None:
     None so authorization gates deny rather than leak across workspaces.
     """
     try:
-        if resource_type == RESOURCE_TYPE_SCORER:
-            experiment_id, _scorer_pattern = _scorer_lookup_keys(resource_id)
-            return _get_resource_workspace(
-                experiment_id, _get_tracking_store().get_experiment, "experiment", silent=True
-            )
-        spec = _RESOURCE_WORKSPACE_FETCHER.get(resource_type)
-        if spec is None:
+        dispatch = _resource_dispatch_keys(resource_type, resource_id)
+        if dispatch is None:
             return None
-        label, fetcher_factory = spec
-        return _get_resource_workspace(resource_id, fetcher_factory(), label, silent=True)
+        _resource_key, workspace_lookup_id, fetcher, label = dispatch
+        return _get_resource_workspace(workspace_lookup_id, fetcher, label, silent=True)
     except Exception:
         return None
 
@@ -1330,6 +1343,9 @@ def validate_can_check_user_permission() -> bool:
     resource's workspace. Scoping to the resource workspace closes the
     cross-workspace probe (workspace-A admin asking about a workspace-B resource).
     """
+    # Reject workspace upfront so admin and non-admin paths produce the same
+    # 400 message rather than a 400 for admin and a 403 for non-admin.
+    _reject_workspace_resource_type(_get_request_param("resource_type"))
     requester = authenticate_request().username
     requester_user = store.get_user(requester)
     if requester_user.is_admin:
@@ -3750,19 +3766,6 @@ def delete_gateway_model_definition_permission():
 # =============================================================================
 
 
-def _reject_workspace_resource_type(resource_type: str) -> None:
-    # Closes the super-admin bypass: ``sender_is_admin()`` skips
-    # ``validate_can_manage_resource``, so handler/store-level rejection is
-    # the only defense keeping workspace-tier grants out of the convenience APIs.
-    if resource_type == RESOURCE_TYPE_WORKSPACE:
-        raise MlflowException(
-            "resource_type 'workspace' is not supported by the per-user permission "
-            "convenience APIs. Use set_workspace_permission / "
-            "delete_workspace_permission for workspace-wide grants.",
-            INVALID_PARAMETER_VALUE,
-        )
-
-
 @catch_mlflow_exception
 def grant_user_permission():
     username = _get_request_param("username")
@@ -3800,10 +3803,9 @@ def check_user_permission():
     permission = _resolve_user_permission_for_resource(username, resource_type, resource_id)
     # ``allowed`` mirrors ``can_use`` (regular access tier). READ alone is not
     # sufficient — callers needing a different cut inspect ``permission`` directly.
-    return jsonify({
-        "allowed": permission.can_use,
-        "permission": permission.name,
-    })
+    return make_response(
+        CheckUserPermissionResult(allowed=permission.can_use, permission=permission.name).to_json()
+    )
 
 
 # =============================================================================
