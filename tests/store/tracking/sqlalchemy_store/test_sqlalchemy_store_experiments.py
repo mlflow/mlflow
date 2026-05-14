@@ -634,9 +634,12 @@ def test_restore_experiment(store: SqlAlchemyStore):
     assert deleted.experiment_id == experiment_id
     assert deleted.lifecycle_stage == entities.LifecycleStage.DELETED
 
+    time.sleep(0.01)
     store.restore_experiment(exp.experiment_id)
-    exp = store.get_experiment(experiment_id)
-    assert exp.lifecycle_stage == entities.LifecycleStage.ACTIVE
+    restored = store.get_experiment(experiment_id)
+    assert restored.experiment_id == experiment_id
+    assert restored.lifecycle_stage == entities.LifecycleStage.ACTIVE
+    assert restored.last_update_time > deleted.last_update_time
 
 
 def _assert_create_experiment_appends_to_artifact_uri_path_correctly(
