@@ -193,6 +193,7 @@ def save_model(
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
         extra_files: {{ extra_files }}
+        uv: {{ uv }}
 
     .. code-block:: python
         :caption: Example
@@ -381,6 +382,7 @@ def log_model(
         model_type: {{ model_type }}
         step: {{ step }}
         model_id: {{ model_id }}
+        uv: {{ uv }}
         kwargs: Additional arguments for :py:class:`mlflow.models.model.Model`
 
     Returns:

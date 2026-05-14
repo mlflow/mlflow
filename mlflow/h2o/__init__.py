@@ -105,6 +105,7 @@ def save_model(
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata:  {{ metadata }}
         extra_files: {{ extra_files }}
+        uv: {{ uv }}
         kwargs: {{ kwargs }}
     """
     import h2o
@@ -263,6 +264,7 @@ def log_model(
         model_type: {{ model_type }}
         step: {{ step }}
         model_id: {{ model_id }}
+        uv: {{ uv }}
         kwargs: kwargs to pass to ``h2o.save_model`` method.
 
     Returns:

@@ -155,6 +155,7 @@ def save_model(
         metadata: {{ metadata }}
         save_as_external_data: Save tensors to external file(s).
         extra_files: {{ extra_files }}
+        uv: {{ uv }}
         kwargs: {{ kwargs }}
     """
     import onnx
@@ -549,6 +550,7 @@ def log_model(
         model_type: {{ model_type }}
         step: {{ step }}
         model_id: {{ model_id }}
+        uv: {{ uv }}
         kwargs: {{ kwargs }}
 
     Returns:

@@ -2867,6 +2867,9 @@ def save_model(
     streamable=None,
     resources: str | list[Resource] | None = None,
     auth_policy: AuthPolicy | None = None,
+    uv_project_path: str | Path | None = None,
+    uv_groups: list[str] | None = None,
+    uv_extras: list[str] | None = None,
     uv=None,
     **kwargs,
 ):
@@ -3049,9 +3052,22 @@ def save_model(
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
         auth_policy: {{ auth_policy }}
+        uv_project_path: Deprecated. Use ``uv=UvConfig(project_path=...)`` instead.
+            Kept for backwards compatibility with MLflow 3.11 and will be removed
+            in a future release.
+        uv_groups: Deprecated. Use ``uv=UvConfig(groups=...)`` instead.
+            Kept for backwards compatibility with MLflow 3.11 and will be removed
+            in a future release.
+        uv_extras: Deprecated. Use ``uv=UvConfig(extras=...)`` instead.
+            Kept for backwards compatibility with MLflow 3.11 and will be removed
+            in a future release.
         uv: {{ uv }}
         kwargs: Extra keyword arguments.
     """
+    from mlflow.utils.uv_utils import _resolve_uv_param_compat
+
+    uv = _resolve_uv_param_compat(uv, uv_project_path, uv_groups, uv_extras)
+
     if (
         python_model is not None
         and not isinstance(python_model, (Path, str))
@@ -3422,6 +3438,9 @@ def log_model(
     streamable=None,
     resources: str | list[Resource] | None = None,
     auth_policy: AuthPolicy | None = None,
+    uv_project_path: str | Path | None = None,
+    uv_groups: list[str] | None = None,
+    uv_extras: list[str] | None = None,
     uv=None,
     prompts: list[str | Prompt] | None = None,
     name=None,
@@ -3623,6 +3642,15 @@ def log_model(
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
         auth_policy: {{ auth_policy }}
+        uv_project_path: Deprecated. Use ``uv=UvConfig(project_path=...)`` instead.
+            Kept for backwards compatibility with MLflow 3.11 and will be removed
+            in a future release.
+        uv_groups: Deprecated. Use ``uv=UvConfig(groups=...)`` instead.
+            Kept for backwards compatibility with MLflow 3.11 and will be removed
+            in a future release.
+        uv_extras: Deprecated. Use ``uv=UvConfig(extras=...)`` instead.
+            Kept for backwards compatibility with MLflow 3.11 and will be removed
+            in a future release.
         uv: {{ uv }}
         prompts: {{ prompts }}
         name: {{ name }}
@@ -3636,6 +3664,10 @@ def log_model(
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
         metadata of the logged model.
     """
+    from mlflow.utils.uv_utils import _resolve_uv_param_compat
+
+    uv = _resolve_uv_param_compat(uv, uv_project_path, uv_groups, uv_extras)
+
     flavor_name = _get_pyfunc_model_flavor_name(python_model)
     return Model.log(
         artifact_path=artifact_path,

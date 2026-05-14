@@ -224,6 +224,7 @@ def save_model(
         skops_trusted_types: A list of trusted types when loading model that is saved as
             the ``mlflow.sklearn.SERIALIZATION_FORMAT_SKOPS`` format.
         extra_files: {{ extra_files }}
+        uv: {{ uv }}
 
     .. code-block:: python
         :caption: Example
@@ -456,6 +457,7 @@ def log_model(
         name: {{ name }}
         skops_trusted_types: A list of trusted types when loading model that is saved as
             the ``mlflow.sklearn.SERIALIZATION_FORMAT_SKOPS`` format.
+        uv: {{ uv }}
         kwargs: Extra arguments to pass to :py:func:`mlflow.models.Model.log`.
 
     Returns:

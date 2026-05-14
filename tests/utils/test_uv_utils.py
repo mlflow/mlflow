@@ -5,11 +5,13 @@ import pytest
 from packaging.version import Version
 
 from mlflow.environment_variables import MLFLOW_UV_AUTO_DETECT
+from mlflow.exceptions import MlflowException
 from mlflow.utils.environment import infer_pip_requirements
 from mlflow.utils.uv_utils import (
     _PYPROJECT_FILE,
     _UV_LOCK_FILE,
     UvConfig,
+    _resolve_uv_param_compat,
     copy_uv_project_files,
     create_uv_sync_pyproject,
     detect_uv_project,
@@ -865,4 +867,64 @@ def test_infer_pip_requirements_warns_when_groups_set_but_no_uv_project(tmp_path
         mock_logger.warning.assert_any_call(
             "UvConfig groups and/or extras were specified but no uv project was detected. "
             "These parameters will be ignored. Falling back to package capture based inference."
+        )
+
+
+# --- Deprecated parameter compatibility tests ---
+
+
+def test_resolve_uv_param_compat_no_params_returns_none():
+    assert _resolve_uv_param_compat(None, None, None, None) is None
+
+
+def test_resolve_uv_param_compat_only_uvconfig_returns_unchanged():
+    cfg = UvConfig(project_path="/tmp/x", groups=["a"], extras=["b"])
+    assert _resolve_uv_param_compat(cfg, None, None, None) is cfg
+
+
+@pytest.mark.parametrize(
+    ("project_path", "groups", "extras"),
+    [
+        ("/p", None, None),
+        (None, ["g"], None),
+        (None, None, ["e"]),
+        ("/p", ["g"], ["e"]),
+    ],
+)
+def test_resolve_uv_param_compat_legacy_emits_future_warning(project_path, groups, extras):
+    with pytest.warns(FutureWarning, match="deprecated"):
+        result = _resolve_uv_param_compat(None, project_path, groups, extras)
+    assert isinstance(result, UvConfig)
+    assert result.project_path == project_path
+    assert result.groups == groups
+    assert result.extras == extras
+
+
+@pytest.mark.parametrize(
+    ("project_path", "groups", "extras"),
+    [
+        ("/p", None, None),
+        (None, ["g"], None),
+        (None, None, ["e"]),
+    ],
+)
+def test_resolve_uv_param_compat_mixing_raises(project_path, groups, extras):
+    cfg = UvConfig(project_path="/other")
+    with pytest.raises(MlflowException, match="Cannot specify both"):
+        _resolve_uv_param_compat(cfg, project_path, groups, extras)
+
+
+def test_resolve_uv_param_compat_uvconfig_does_not_warn(recwarn):
+    cfg = UvConfig(project_path="/tmp/x")
+    _resolve_uv_param_compat(cfg, None, None, None)
+    assert not [w for w in recwarn if issubclass(w.category, FutureWarning)]
+
+
+def test_infer_pip_requirements_mixing_legacy_and_uv_raises():
+    with pytest.raises(MlflowException, match="Cannot specify both"):
+        infer_pip_requirements(
+            "models:/dummy",
+            "sklearn",
+            uv=UvConfig(project_path="/tmp/x"),
+            uv_project_path="/tmp/x",
         )

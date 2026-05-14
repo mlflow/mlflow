@@ -245,6 +245,7 @@ def log_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
+        uv: {{ uv }}
         kwargs: Extra arguments to pass to the Spark model ``save`` method.
 
     Returns:
@@ -756,6 +757,7 @@ def save_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
+        uv: {{ uv }}
         kwargs: {{ kwargs }}
 
     .. code-block:: python

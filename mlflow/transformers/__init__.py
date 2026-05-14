@@ -515,6 +515,7 @@ def save_model(
                         path="path/to/save",
                         base_model_path=base_path,
                     )
+        uv: {{ uv }}
 
         kwargs: Optional additional configurations for transformers serialization.
 
@@ -1089,6 +1090,7 @@ def log_model(
             weights for PEFT models. When provided, only the PEFT adapter weights are
             saved and the base model weights are referenced by this path instead of
             being saved to the MLflow artifact. See :py:func:`save_model` for details.
+        uv: {{ uv }}
         kwargs: Additional arguments for :py:class:`mlflow.models.model.Model`
     """
     return Model.log(

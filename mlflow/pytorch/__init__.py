@@ -231,6 +231,7 @@ def log_model(
             virtually executing model.forward) and only supports Numpy array / Tensor or a list
             of Numpy arrays / Tensors as inputs. For details, see
             https://docs.pytorch.org/docs/stable/user_guide/torch_compiler/export/pt2_archive.html.
+        uv: {{ uv }}
         kwargs: kwargs to pass to ``torch.save`` method.
 
     Returns:
@@ -392,6 +393,7 @@ def save_model(
             virtually executing model.forward) and only supports Numpy array / Tensor or a list
             of Numpy arrays / Tensors as inputs. For details, see
             https://docs.pytorch.org/docs/stable/user_guide/torch_compiler/export/pt2_archive.html.
+        uv: {{ uv }}
         kwargs: kwargs to pass to ``torch.save`` method.
 
     .. code-block:: python

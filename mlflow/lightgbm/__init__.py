@@ -171,6 +171,7 @@ def save_model(
         skops_trusted_types: A list of trusted types when loading model that is saved as
             the "skops" format.
         extra_files: {{ extra_files }}
+        uv: {{ uv }}
         kwargs: {{ kwargs }}
 
     .. code-block:: python
@@ -411,6 +412,7 @@ def log_model(
             which can execute arbitrary code during deserialization.
         skops_trusted_types: A list of trusted types when loading model that is saved as
             the "skops" format.
+        uv: {{ uv }}
         kwargs: kwargs to pass to `lightgbm.Booster.save_model`_ method.
 
     Returns:

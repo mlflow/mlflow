@@ -350,6 +350,7 @@ def log_explainer(
         model_type: {{ model_type }}
         step: {{ step }}
         model_id: {{ model_id }}
+        uv: {{ uv }}
     """
 
     return Model.log(
@@ -425,6 +426,7 @@ def save_explainer(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
+        uv: {{ uv }}
     """
     import shap
 

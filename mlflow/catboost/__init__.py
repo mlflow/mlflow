@@ -117,6 +117,7 @@ def save_model(
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
         extra_files: {{ extra_files }}
+        uv: {{ uv }}
         kwargs: kwargs to pass to `CatBoost.save_model` method.
 
     """
@@ -265,6 +266,7 @@ def log_model(
         model_type: {{ model_type }}
         step: {{ step }}
         model_id: {{ model_id }}
+        uv: {{ uv }}
         kwargs: kwargs to pass to `CatBoost.save_model`_ method.
 
     Returns:

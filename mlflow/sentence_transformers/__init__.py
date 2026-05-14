@@ -170,6 +170,7 @@ def save_model(
         conda_env: {{ conda_env }}
         metadata: {{ metadata }}
         extra_files: {{ extra_files }}
+        uv: {{ uv }}
         kwargs: {{ kwargs }}
     """
     import sentence_transformers
@@ -410,6 +411,7 @@ def log_model(
         model_type: {{ model_type }}
         step: {{ step }}
         model_id: {{ model_id }}
+        uv: {{ uv }}
         kwargs: Extra arguments to pass to :py:func:`mlflow.models.Model.log`.
     """
     if task is not None:
