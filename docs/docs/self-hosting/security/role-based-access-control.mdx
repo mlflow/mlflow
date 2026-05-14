@@ -59,7 +59,7 @@ flowchart LR
 - **Resources** are experiments, registered models, prompts, scorers, and
   AI Gateway resources (secrets, endpoints, model definitions). A role
   grants permissions on a resource via a `(resource_type,
-  resource_pattern, permission)` row, where the pattern is either a literal
+resource_pattern, permission)` row, where the pattern is either a literal
   resource id or `*` (apply to all resources of that type in the workspace).
 
 ### Direct grants without a role
@@ -156,6 +156,37 @@ one-off per-resource POST. Now you either build the permission set once (a
 role) and add users to it, or grant a one-off **direct permission** to a single
 user. Both flows live behind the same admin UI modals. There's no separate
 "Assign user" or "Grant permission" button.
+
+Three structural shapes cover the bulk of what operators need:
+
+```mermaid
+flowchart TD
+    subgraph direct[Direct grant — one user, one resource]
+        direction LR
+        A1[Alice] --> A2[__user_alice__<br/>synthetic role]
+        A2 -->|role_permissions| A3[experiment 42<br/>EDIT]
+    end
+
+    subgraph shared[Shared role — many users, same permission set]
+        direction LR
+        B1[Alice] --> B3[exp-42-editor<br/>role]
+        B2[Bob] --> B3
+        B3 -->|role_permissions| B4[experiment 42<br/>EDIT]
+    end
+
+    subgraph floor[Workspace floor — many users, workspace-wide]
+        direction LR
+        C1[Alice] --> C3[ml-research/user<br/>seeded role]
+        C2[Bob] --> C3
+        C3 -->|role_permissions| C4[workspace *<br/>USE]
+    end
+```
+
+The direct-grant case uses the per-user `__user_<id>__` synthetic role
+under the hood (Alice's row never names a shared role); the shared and
+workspace-floor cases use an operator-authored or seeded role
+respectively. The resolver folds whichever grants apply via `max` —
+nothing changes about how permissions are evaluated.
 
 The examples below assume you've authenticated as a Platform Admin or as a
 Workspace Manager of `ml-research`.
@@ -351,12 +382,12 @@ migration.
 
 The wire surface and `AuthServiceClient` shape change as follows:
 
-| Pre-RBAC surface                                                                                                                               | Status      | Replacement                                                                                                                                                                  |
-| ---------------------------------------------------------------------------------------------------------------------------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `POST/GET/PATCH/DELETE` on `/mlflow/{experiments,registered-models,scorers,gateway/*}/permissions`                                             | **Removed** | `POST /mlflow/users/permissions/grant` / `revoke` for one-user one-resource direct grants, or the role API (`POST /mlflow/roles/create` + `add` + `assign`) for shared sets. |
+| Pre-RBAC surface                                                                                                                               | Status      | Replacement                                                                                                                                                                      |
+| ---------------------------------------------------------------------------------------------------------------------------------------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST/GET/PATCH/DELETE` on `/mlflow/{experiments,registered-models,scorers,gateway/*}/permissions`                                             | **Removed** | `POST /mlflow/users/permissions/grant` / `revoke` for one-user one-resource direct grants, or the role API (`POST /mlflow/roles/create` + `add` + `assign`) for shared sets.     |
 | `auth_client.create_experiment_permission()`, `update_registered_model_permission()`, and the ~23 sibling per-resource client methods          | **Removed** | `auth_client.grant_user_permission(username, resource_type, resource_id, permission)` / `revoke_user_permission(...)`, or `create_role` + `add_role_permission` + `assign_role`. |
-| `POST/GET/PATCH/DELETE` on `/mlflow/workspaces/<workspace>/permissions`                                                                        | **Removed** | Assign the seeded `admin` or `user` role for the workspace, or a custom role with a `(workspace, *, …)` permission                                                           |
-| `auth_client.set_workspace_permission()`, `list_workspace_permissions()`, `delete_workspace_permission()`, `list_user_workspace_permissions()` | **Removed** | The role API (`assign_role` to a workspace-scoped role with a `(workspace, *, …)` permission)                                                                                |
+| `POST/GET/PATCH/DELETE` on `/mlflow/workspaces/<workspace>/permissions`                                                                        | **Removed** | Assign the seeded `admin` or `user` role for the workspace, or a custom role with a `(workspace, *, …)` permission                                                               |
+| `auth_client.set_workspace_permission()`, `list_workspace_permissions()`, `delete_workspace_permission()`, `list_user_workspace_permissions()` | **Removed** | The role API (`assign_role` to a workspace-scoped role with a `(workspace, *, …)` permission)                                                                                    |
 
 All four legacy surfaces are removed at the same upgrade that lands RBAC.
 There is no deprecation-warning window: basic-auth was still marked
