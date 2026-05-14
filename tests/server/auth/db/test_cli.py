@@ -544,12 +544,8 @@ def _seed_registered_model_tags(db: Path, prompt_names: list[str]) -> None:
 
 
 def test_promote_prompt_resource_type_rewrites_prompt_grants(tmp_path: Path) -> None:
-    """The ``f1a2b3c4d5e6`` migration rewrites ``role_permissions`` rows whose
-    pattern names a prompt-tagged entity in the model registry. Registered
-    models keep their resource_type; prompts flip to ``prompt``. Wildcard
-    ``registered_model`` rows are intentionally left as-is (see migration
-    docstring).
-    """
+    # Prompt-tagged names flip to `prompt`; non-prompt names + wildcard rows stay
+    # on `registered_model`.
     runner = CliRunner()
     db = tmp_path / "test.db"
     db_url = f"sqlite:///{db}"
@@ -610,12 +606,8 @@ def test_promote_prompt_resource_type_rewrites_prompt_grants(tmp_path: Path) -> 
 
 
 def test_promote_prompt_resource_type_workspace_collision_isolated(tmp_path: Path) -> None:
-    """Regression for the workspace-scoped classifier: the same name can be a
-    prompt in one workspace and a regular registered model in another. The
-    migration must only rewrite the prompt-workspace grant; the other
-    workspace's grant must stay on ``registered_model``. Otherwise the
-    classifier silently mis-rewrites grants across workspaces.
-    """
+    # Same name across workspaces: prompt in team-a, registered_model in team-b.
+    # Only the team-a grant should flip.
     runner = CliRunner()
     db = tmp_path / "test.db"
     db_url = f"sqlite:///{db}"
@@ -681,12 +673,8 @@ def test_promote_prompt_resource_type_workspace_collision_isolated(tmp_path: Pat
 
 
 def test_promote_prompt_resource_type_no_tracking_tables_is_noop(tmp_path: Path) -> None:
-    """When the tracking tables are not in the same database (split-DB
-    deployment), the migration cannot classify rows. It must leave them
-    untouched rather than fail or accidentally rewrite — operators run an
-    equivalent rewrite by hand. The migration docstring documents this
-    contract.
-    """
+    # Split-DB: without `registered_model_tags` on this connection the migration
+    # is a no-op. Operators run the equivalent UPDATE by hand.
     runner = CliRunner()
     db = tmp_path / "test.db"
     db_url = f"sqlite:///{db}"
@@ -726,11 +714,8 @@ def test_promote_prompt_resource_type_no_tracking_tables_is_noop(tmp_path: Path)
 def test_promote_prompt_resource_type_downgrade_collapses_to_registered_model(
     tmp_path: Path,
 ) -> None:
-    """``downgrade()`` undoes the resource_type split by flipping every
-    ``prompt`` row back to ``registered_model``. Lossy by design: after
-    downgrade the operator is back in the pre-promotion model where prompts
-    and registered models share a namespace.
-    """
+    # `downgrade()` flips every `prompt` row back to `registered_model`. Lossy by
+    # design — collapses to the pre-promotion shared namespace.
     runner = CliRunner()
     db = tmp_path / "test.db"
     db_url = f"sqlite:///{db}"

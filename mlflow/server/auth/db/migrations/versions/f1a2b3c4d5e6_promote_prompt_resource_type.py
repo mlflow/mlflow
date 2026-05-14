@@ -4,41 +4,23 @@ Revision ID: f1a2b3c4d5e6
 Revises: e5f6a7b8c9d0
 Create Date: 2026-05-11 00:00:00.000000
 
-Prompts share the model-registry wire surface with regular registered models,
-so prior to this migration RBAC grants on prompts had to be expressed as
-``(resource_type='registered_model', resource_pattern=<prompt-name>, permission=...)``
-rows in ``role_permissions``. This was awkward because the resource_type column
-could not actually distinguish the two — the discriminator only existed on the
-underlying entity (the ``mlflow.prompt.is_prompt`` tag in
-``registered_model_tags``).
+Rewrite every ``role_permissions`` row whose ``(workspace, resource_pattern)``
+names a prompt (``mlflow.prompt.is_prompt = 'true'`` in
+``registered_model_tags``) from ``resource_type = 'registered_model'`` to
+``resource_type = 'prompt'``. Pre-RBAC the resource_type column couldn't
+distinguish prompts from regular models on the shared model-registry wire
+surface; this backfills the new namespace.
 
-The auth layer now treats ``prompt`` as its own ``resource_type`` with its own
-validators. To keep existing operator grants working after upgrade, this
-migration rewrites every ``role_permissions`` row whose
-``(workspace, resource_pattern)`` names a registered model that is in fact a
-prompt (``mlflow.prompt.is_prompt = 'true'``) to use ``resource_type = 'prompt'``.
-
-**Workspace-aware classification.** ``role_permissions`` rows are workspace-scoped
-via ``roles.workspace``; ``registered_model_tags`` rows are also workspace-scoped
-(the registered-model PK is ``(workspace, name)``). A name collision across
-workspaces — e.g. ``foo`` is a prompt in ``team-a`` but a regular registered model
-in ``team-b`` — must NOT cause cross-workspace mis-rewrites, so the join is keyed
-on ``(workspace, name)``.
-
-**Same-database assumption.** Like ``e5f6a7b8c9d0``, the migration assumes the
-auth tables and the model-registry tables live in the same database. When the
-``registered_model_tags`` table is not reachable on the current connection (the
-operator runs auth on a split database), no rows are rewritten and we leave the
-grants in their pre-migration ``registered_model`` shape. Operators on a split
-deployment must run an equivalent rewrite by hand — there is no robust way for
-Alembic to classify rows across two databases.
-
-**Wildcard rows** (``resource_pattern = '*'``) are left untouched. A wildcard
-``registered_model`` grant covers every registered model in the user's
-workspace and was never prompt-specific; rewriting it to ``prompt`` would
-silently revoke registered-model access. Operators who want a wildcard prompt
-grant must add it explicitly after upgrade.
-
+* **Workspace-keyed** — the same name can be a prompt in workspace A and a
+  registered model in workspace B; classifying by name alone would mis-rewrite
+  grants across workspaces.
+* **Wildcard rows left untouched** — ``(registered_model, *)`` covers every
+  RM in the workspace and was never prompt-specific; rewriting to
+  ``(prompt, *)`` would silently revoke RM access.
+* **Split-DB no-op** — like ``e5f6a7b8c9d0``, assumes the auth and
+  model-registry tables share a database. If ``registered_model_tags`` isn't
+  reachable, nothing is rewritten; operators on a split deployment run the
+  equivalent UPDATE by hand.
 """
 
 from alembic import op
@@ -57,12 +39,7 @@ def _registry_tag_table_exists(conn) -> bool:
 
 
 def _classify_prompts(conn, pairs: list[tuple[str, str]]) -> set[tuple[str, str]]:
-    """Return the subset of ``(workspace, name)`` pairs whose ``is_prompt`` tag is ``'true'``.
-
-    Classification is keyed on both columns because the same name can be a
-    registered model in one workspace and a prompt in another — collapsing to
-    name-only would mis-rewrite grants across workspaces.
-    """
+    """Return the subset of ``(workspace, name)`` pairs whose ``is_prompt`` tag is ``'true'``."""
     if not pairs:
         return set()
     workspaces = list({workspace for workspace, _ in pairs})

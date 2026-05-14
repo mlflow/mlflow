@@ -1097,11 +1097,8 @@ def test_prompt_validators_require_manage_for_writes(workspace_permission_setup,
 
 
 def test_prompt_dispatch_routes_request_by_is_prompt_tag(workspace_permission_setup, monkeypatch):
-    """A request hitting the shared registered-model route resolves to the
-    prompt validator only when the underlying entity is a prompt. The
-    dispatching wrappers (`_validate_can_*_registered_model_or_prompt`) must
-    pick the right one based on `_request_targets_prompt()`.
-    """
+    # Shared registered-model route resolves to the prompt validator only when
+    # the entity is a prompt; the dispatching wrappers pick via `_request_targets_prompt()`.
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     registry_store = _RegistryStore(
@@ -1127,9 +1124,7 @@ def test_prompt_dispatch_routes_request_by_is_prompt_tag(workspace_permission_se
             assert auth_module._validate_can_read_registered_model_or_prompt()
 
         # A non-prompt name maps to the registered_model validator and FAILS:
-        # the user has no registered_model grant. This pins cross-resource
-        # isolation — a prompt grant must not satisfy a registered_model
-        # request.
+        # pins cross-resource isolation (prompt grant ≠ registered_model grant).
         with auth_module.app.test_request_context(
             "/api/2.0/mlflow/registered-models/get",
             method="GET",
@@ -1169,12 +1164,9 @@ def test_registered_model_grant_does_not_satisfy_prompt_request(
 def test_request_targets_prompt_is_registry_driven_not_body_driven(
     workspace_permission_setup, monkeypatch
 ):
-    """Security gate: prompt classification must be driven by the *persisted*
-    ``mlflow.prompt.is_prompt`` tag, never by an inbound request-body tag.
-    Otherwise a caller with ``(prompt, foo, MANAGE)`` could spoof the body tag
-    on a non-CREATE registered-model route (delete, update, set-tag, …) and
-    escalate to a registered-model operation. This pins that contract.
-    """
+    # Spoofing regression: classification reads the persisted tag, not the body.
+    # Otherwise `(prompt, foo, MANAGE)` could flip the namespace on a non-CREATE
+    # registered-model route via a spoofed body tag.
     # ``foo`` exists as a regular registered model, not a prompt.
     registry_store = _RegistryStore({"foo": "team-a"}, prompts=set())
     monkeypatch.setattr(auth_module, "_get_model_registry_store", lambda: registry_store)
@@ -1204,10 +1196,8 @@ def test_request_targets_prompt_is_registry_driven_not_body_driven(
 def test_request_targets_prompt_persisted_prompt_classifies_true(
     workspace_permission_setup, monkeypatch
 ):
-    """Mirror of the spoofing regression: when the persisted entity IS a prompt
-    (``_is_prompt() == True``), the dispatcher routes to the prompt validator
-    regardless of what's in the request body.
-    """
+    # Mirror of the spoofing regression: persisted `_is_prompt() == True` routes
+    # to the prompt validator regardless of the body.
     registry_store = _RegistryStore({"foo": "team-a"}, prompts={"foo"})
     monkeypatch.setattr(auth_module, "_get_model_registry_store", lambda: registry_store)
 
@@ -1223,12 +1213,8 @@ def test_request_targets_prompt_persisted_prompt_classifies_true(
 def test_request_targets_prompt_unknown_entity_falls_back_to_registered_model(
     workspace_permission_setup, monkeypatch
 ):
-    """A request that names a non-existent entity returns False — the
-    dispatcher routes to the registered-model path, where the underlying
-    handler surfaces the same ``RESOURCE_DOES_NOT_EXIST`` it always has.
-    Importantly: a body-tag spoof here cannot force the prompt namespace either,
-    because the body tag is not consulted at all.
-    """
+    # Non-existent entity → False (registered-model path surfaces the 404).
+    # Body-tag spoof can't force the prompt namespace because the body is ignored.
     registry_store = _RegistryStore({})  # empty — every lookup raises 404
     monkeypatch.setattr(auth_module, "_get_model_registry_store", lambda: registry_store)
 
@@ -1247,11 +1233,8 @@ def test_request_targets_prompt_unknown_entity_falls_back_to_registered_model(
 def test_request_targets_prompt_propagates_unexpected_errors(
     workspace_permission_setup, monkeypatch
 ):
-    """A backend error from the registry store (anything other than
-    ``RESOURCE_DOES_NOT_EXIST``) must propagate, not be silently swallowed.
-    Otherwise a broken registry would quietly route every request down the
-    registered-model path.
-    """
+    # Non-`RESOURCE_DOES_NOT_EXIST` errors must propagate; silencing them would
+    # quietly route every request down the registered-model path.
 
     class _BrokenRegistryStore:
         def get_registered_model(self, name):
