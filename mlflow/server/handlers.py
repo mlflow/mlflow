@@ -2404,7 +2404,11 @@ _HANDLER_BLOCKED_TRACE_TAGS = frozenset({
 
 
 def _validate_trace_tag_handler_mutation(key: str, operation: str) -> None:
-    if key in _HANDLER_BLOCKED_TRACE_TAGS:
+    # `mlflow.trace.archivalFailure` is system-managed for writes, but deleting it is the
+    # supported way to clear a terminal archival failure and allow a later retry.
+    if key in _HANDLER_BLOCKED_TRACE_TAGS and not (
+        key == MLFLOW_TRACE_ARCHIVAL_FAILURE and operation == "deleted"
+    ):
         raise MlflowException.invalid_parameter_value(
             f"Tag '{key}' is immutable and cannot be {operation} on a trace."
         )

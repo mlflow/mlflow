@@ -64,6 +64,7 @@ from mlflow.store.tracking import SEARCH_EVALUATION_DATASETS_MAX_RESULTS, SEARCH
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore as SqlAlchemyTrackingStore
 from mlflow.tracing.constant import SpansLocation, TraceMetadataKey, TraceTagKey
 from mlflow.tracing.provider import _get_tracer, trace_disabled
+from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import TraceJSONEncoder
 from mlflow.tracking import set_registry_uri
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
@@ -1426,7 +1427,6 @@ def test_delete_trace_tag_on_logged_trace(mock_store):
     [
         TraceTagKey.SPANS_LOCATION,
         TraceTagKey.ARCHIVE_LOCATION,
-        TraceTagKey.ARCHIVAL_FAILURE,
     ],
 )
 def test_delete_trace_tag_skips_immutable_internal_tags_on_active_trace(monkeypatch, key):
@@ -1458,7 +1458,6 @@ def test_delete_trace_tag_skips_immutable_internal_tags_on_active_trace(monkeypa
     [
         TraceTagKey.SPANS_LOCATION,
         TraceTagKey.ARCHIVE_LOCATION,
-        TraceTagKey.ARCHIVAL_FAILURE,
     ],
 )
 def test_delete_trace_tag_skips_immutable_internal_tags(mock_store, key):
@@ -1469,6 +1468,30 @@ def test_delete_trace_tag_skips_immutable_internal_tags(mock_store, key):
     mock_logger.warning.assert_called_once_with(
         f"Tag '{key}' is immutable and cannot be deleted on a trace."
     )
+
+
+def test_delete_trace_tag_allows_clearing_archival_failure_on_active_trace(monkeypatch):
+    monkeypatch.setenv(MLFLOW_TRACKING_USERNAME.name, "bob")
+    monkeypatch.setattr(mlflow.tracking.context.default_context, "_get_source_name", lambda: "test")
+
+    client = mlflow.tracking.MlflowClient()
+    root_span = client.start_trace(name="test", tags={"foo": "bar"})
+    trace_id = root_span.trace_id
+    with InMemoryTraceManager.get_instance().get_trace(trace_id) as trace:
+        trace.info.tags[TraceTagKey.ARCHIVAL_FAILURE] = "MALFORMED_TRACE"
+
+    client.delete_trace_tag(trace_id, TraceTagKey.ARCHIVAL_FAILURE)
+    client.end_trace(trace_id)
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id(), flush=True)
+    assert trace.info.tags["foo"] == "bar"
+    assert TraceTagKey.ARCHIVAL_FAILURE not in trace.info.tags
+
+
+def test_delete_trace_tag_allows_clearing_archival_failure_on_logged_trace(mock_store):
+    mlflow.tracking.MlflowClient().delete_trace_tag("test", TraceTagKey.ARCHIVAL_FAILURE)
+
+    mock_store.delete_trace_tag.assert_called_once_with("test", TraceTagKey.ARCHIVAL_FAILURE)
 
 
 def test_client_create_experiment(mock_store):

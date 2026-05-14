@@ -613,7 +613,9 @@ class TracingClient:
             key: The string key of the tag. Must be at most 250 characters long, otherwise
                 it will be truncated when stored.
         """
-        if key in IMMUTABLE_TAGS:
+        # Allow users to clear archival-failure markers so the scheduler can retry after
+        # manual intervention, while keeping other internal storage tags immutable.
+        if key in IMMUTABLE_TAGS and key != TraceTagKey.ARCHIVAL_FAILURE:
             _logger.warning(f"Tag '{key}' is immutable and cannot be deleted on a trace.")
             return
 
