@@ -4,6 +4,7 @@ import os
 import shutil
 import time
 import uuid
+from dataclasses import dataclass
 from pathlib import Path
 from unittest import mock
 
@@ -20,12 +21,16 @@ from mlflow.entities import (
     AssessmentSourceType,
     Expectation,
     Feedback,
+    Metric,
     ViewType,
     trace_location,
 )
 from mlflow.entities.assessment import ExpectationValue, FeedbackValue
 from mlflow.entities.dataset_record import DatasetRecord
 from mlflow.entities.gateway_endpoint import GatewayEndpoint
+from mlflow.entities.logged_model_parameter import LoggedModelParameter
+from mlflow.entities.logged_model_status import LoggedModelStatus
+from mlflow.entities.logged_model_tag import LoggedModelTag
 from mlflow.entities.span import Span, create_mlflow_span
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_state import TraceState
