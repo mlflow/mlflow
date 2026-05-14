@@ -162,6 +162,12 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           repository: mlflow/internal
+          # Pinned to a specific commit so production reviews are reproducible
+          # and a bad orchestrator change can't silently break the bot. To bump,
+          # open a new PR that updates this SHA to the latest mlflow/internal
+          # main after reviewing the diff. We'll migrate to release tags once
+          # the bump cadence is stable; see mlflow/internal for the policy.
+          ref: 4a973436ee1df41253f7936e64d49cb4e52a4969
           sparse-checkout: |
             nailaopus
           path: internal
