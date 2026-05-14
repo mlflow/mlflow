@@ -6086,18 +6086,28 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             sql_trace_info = (
                 self
                 ._trace_query(session)
-                .options(joinedload(SqlTraceInfo.tags), joinedload(SqlTraceInfo.spans))
+                .options(selectinload(SqlTraceInfo.tags))
                 .filter(SqlTraceInfo.request_id == trace_id)
                 .one_or_none()
             )
             if sql_trace_info is None:
                 return None
 
+            span_rows = [
+                (span_id, content)
+                for span_id, content in (
+                    session
+                    .query(SqlSpan.span_id, SqlSpan.content)
+                    .filter(SqlSpan.trace_id == trace_id)
+                    .order_by(SqlSpan.span_id)
+                    .all()
+                )
+            ]
+
             trace_info = sql_trace_info.to_mlflow_entity()
-            if not self._is_trace_actionable_for_archival(trace_info, sql_trace_info.spans):
+            if not self._is_trace_actionable_for_archival(trace_info, span_rows):
                 return None
 
-            span_rows = sorted((span.span_id, span.content) for span in sql_trace_info.spans)
             return trace_info, sql_trace_info.db_payload_generation, span_rows
 
     def _serialize_trace_archival_span_rows_to_pb(self, span_rows: list[tuple[str, str]]) -> bytes:
@@ -6111,7 +6121,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             raise MlflowTraceArchivalMalformedTrace(str(e)) from e
 
     def _is_trace_actionable_for_archival(
-        self, trace_info: TraceInfo, spans: list[SqlSpan]
+        self, trace_info: TraceInfo, span_rows: list[tuple[str, str]]
     ) -> bool:
         spans_location = trace_info.tags.get(TraceTagKey.SPANS_LOCATION)
         if not self._is_db_backed_spans_location(spans_location):
@@ -6120,7 +6130,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             return False
         if trace_info.state == TraceState.IN_PROGRESS:
             return False
-        return any(span.content != "" for span in spans)
+        return any(content != "" for _, content in span_rows)
 
     @staticmethod
     def _is_db_backed_spans_location(spans_location: str | None) -> bool:
