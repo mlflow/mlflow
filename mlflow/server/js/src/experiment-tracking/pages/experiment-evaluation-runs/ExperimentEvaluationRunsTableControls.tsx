@@ -286,8 +286,8 @@ export const ExperimentEvaluationRunsTableControls = ({
                         </DialogComboboxSectionHeader>
                         {gitColumns.map(([column, selected]) => {
                           const tagKey = parseEvalRunsTableKeyedColumnKey(column)?.key ?? column;
-                          const labelDescriptor = GIT_SOURCE_TAG_LABELS[tagKey];
-                          const label = labelDescriptor ? intl.formatMessage(labelDescriptor) : tagKey;
+                          const labels = GIT_SOURCE_TAG_LABELS[tagKey as keyof typeof GIT_SOURCE_TAG_LABELS];
+                          const label = labels ? intl.formatMessage(labels.selector) : tagKey;
                           return (
                             <DialogComboboxOptionListCheckboxItem
                               key={column}

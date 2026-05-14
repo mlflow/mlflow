@@ -297,16 +297,27 @@ export const SortableHeaderCell = ({
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
 
-  const { displayedKey, friendlyLabel } = useMemo(() => {
+  const { displayedKey, friendlyLabel, tooltipContent } = useMemo(() => {
     const parsed = parseEvalRunsTableKeyedColumnKey(column.id);
     const key = parsed?.key ?? column.id;
-    const labelDescriptor =
+    const labels =
       parsed?.columnType === EvalRunsTableKeyedColumnPrefix.TAG
         ? GIT_SOURCE_TAG_LABELS[key as keyof typeof GIT_SOURCE_TAG_LABELS]
         : undefined;
     return {
       displayedKey: key,
-      friendlyLabel: labelDescriptor ? intl.formatMessage(labelDescriptor) : null,
+      friendlyLabel: labels ? intl.formatMessage(labels.display) : null,
+      // For git source tags, the header shows a friendly label; surface the underlying tag key
+      // in the tooltip so users still know how to reference it in filter queries.
+      tooltipContent: labels ? (
+        <FormattedMessage
+          defaultMessage="Derived from tag {key}"
+          description="Tooltip on eval runs table column headers that come from a git source tag, explaining the underlying tag key"
+          values={{ key }}
+        />
+      ) : (
+        key
+      ),
     };
   }, [column.id, intl]);
 
@@ -326,7 +337,7 @@ export const SortableHeaderCell = ({
     >
       <Tooltip
         componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_evaluation_runs_experimentevaluationrunstablecellrenderers_284"
-        content={displayedKey}
+        content={tooltipContent}
       >
         <span css={{ overflow: 'hidden', textOverflow: 'ellipsis', textWrap: 'nowrap' }}>
           <Typography.Text bold>{headerText}</Typography.Text>

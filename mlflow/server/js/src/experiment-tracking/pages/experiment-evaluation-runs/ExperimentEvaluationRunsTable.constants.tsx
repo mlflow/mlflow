@@ -55,20 +55,48 @@ export enum EvalRunsTableKeyedColumnPrefix {
  *
  * When extending this set, also add a friendly label below.
  */
+/**
+ * Friendly labels for the git source tags in two contexts on the eval runs page:
+ *   - selector: lowercase, used in the Columns and Group by dropdowns (sits under a "Git" header)
+ *   - display:  "Git X" form, used as the table column header and the grouped-runs row label
+ */
+type GitSourceTagLabel = {
+  selector: MessageDescriptor;
+  display: MessageDescriptor;
+};
+
 export const GIT_SOURCE_TAG_LABELS = {
-  'mlflow.source.git.commit': defineMessage({
-    defaultMessage: 'commit',
-    description: 'Friendly label for the mlflow.source.git.commit tag in the eval runs Columns and Group by selectors',
-  }),
-  'mlflow.source.git.branch': defineMessage({
-    defaultMessage: 'branch',
-    description: 'Friendly label for the mlflow.source.git.branch tag in the eval runs Columns and Group by selectors',
-  }),
-  'mlflow.source.git.repoURL': defineMessage({
-    defaultMessage: 'repository',
-    description: 'Friendly label for the mlflow.source.git.repoURL tag in the eval runs Columns and Group by selectors',
-  }),
-} satisfies Record<string, MessageDescriptor>;
+  'mlflow.source.git.commit': {
+    selector: defineMessage({
+      defaultMessage: 'commit',
+      description: 'Dropdown label for the git commit tag in eval runs Columns / Group by selectors',
+    }),
+    display: defineMessage({
+      defaultMessage: 'Git commit',
+      description: 'Column header and group label for the git commit tag in the eval runs table',
+    }),
+  },
+  'mlflow.source.git.branch': {
+    selector: defineMessage({
+      defaultMessage: 'branch',
+      description: 'Dropdown label for the git branch tag in eval runs Columns / Group by selectors',
+    }),
+    display: defineMessage({
+      defaultMessage: 'Git branch',
+      description: 'Column header and group label for the git branch tag in the eval runs table',
+    }),
+  },
+  'mlflow.source.git.repoURL': {
+    selector: defineMessage({
+      defaultMessage: 'repository',
+      description: 'Dropdown label for the git repository tag in eval runs Columns / Group by selectors',
+    }),
+    display: defineMessage({
+      defaultMessage: 'Git repository',
+      description: 'Column header and group label for the git repository tag in the eval runs table',
+    }),
+  },
+} satisfies Record<string, GitSourceTagLabel>;
 
 export const EVAL_RUNS_SEARCHABLE_INTERNAL_TAGS: Set<string> = new Set(Object.keys(GIT_SOURCE_TAG_LABELS));
 

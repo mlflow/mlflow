@@ -1,4 +1,6 @@
 import { useMemo, useRef } from 'react';
+import { defineMessage, useIntl } from 'react-intl';
+import type { MessageDescriptor } from 'react-intl';
 import type { ErrorWrapper } from '../../../../../common/utils/ErrorWrapper';
 import { EntitySearchAutoComplete } from '../../../EntitySearchAutoComplete';
 import type { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selector';
@@ -7,10 +9,7 @@ import type {
   EntitySearchAutoCompleteEntityNameGroup,
   EntitySearchAutoCompleteOptionGroup,
 } from '../../../EntitySearchAutoComplete.utils';
-import {
-  cleanEntitySearchTagNames,
-  getEntitySearchOptionsFromEntityNames,
-} from '../../../EntitySearchAutoComplete.utils';
+import { cleanEntitySearchTagNames } from '../../../EntitySearchAutoComplete.utils';
 import { shouldUseRegexpBasedAutoRunsSearchFilter } from '../../../../../common/utils/FeatureUtils';
 
 // A default placeholder for the search box
@@ -36,6 +35,28 @@ const ATTRIBUTE_OPTIONS = [
   'created',
 ].map((s) => ({ value: `attributes.${s}` }));
 
+/**
+ * Friendly dropdown labels for the three git source tags. Surface them in their own "Git" section
+ * with short names instead of mixing the raw `mlflow.source.git.*` keys into the generic Tags
+ * section.
+ */
+const GIT_TAG_FILTER_LABELS = {
+  'mlflow.source.git.commit': defineMessage({
+    defaultMessage: 'commit',
+    description: 'Dropdown label for the git commit tag in the run search autocomplete',
+  }),
+  'mlflow.source.git.branch': defineMessage({
+    defaultMessage: 'branch',
+    description: 'Dropdown label for the git branch tag in the run search autocomplete',
+  }),
+  'mlflow.source.git.repoURL': defineMessage({
+    defaultMessage: 'repository',
+    description: 'Dropdown label for the git repository tag in the run search autocomplete',
+  }),
+} satisfies Record<string, MessageDescriptor>;
+
+const isGitSourceTag = (tag: string): tag is keyof typeof GIT_TAG_FILTER_LABELS => tag in GIT_TAG_FILTER_LABELS;
+
 const mergeDeduplicate = (list1: string[], list2: string[]) => [...new Set([...list1, ...list2])];
 const getTagNames = (tagsList: any[]) => tagsList.flatMap((tagRecord) => Object.keys(tagRecord));
 
@@ -58,6 +79,7 @@ const getEntityNamesFromRunsData = (
 };
 
 export const RunsSearchAutoComplete = ({ runsData, ...restProps }: RunsSearchAutoCompleteProps) => {
+  const intl = useIntl();
   const existingEntityNamesRef = useRef<EntitySearchAutoCompleteEntityNameGroup>({
     metricNames: [],
     paramNames: [],
@@ -68,11 +90,44 @@ export const RunsSearchAutoComplete = ({ runsData, ...restProps }: RunsSearchAut
     const existingEntityNames = existingEntityNamesRef.current;
     const mergedEntityNames = getEntityNamesFromRunsData(runsData, existingEntityNames);
     existingEntityNamesRef.current = mergedEntityNames;
-    return getEntitySearchOptionsFromEntityNames(
-      { ...mergedEntityNames, tagNames: cleanEntitySearchTagNames(mergedEntityNames.tagNames) },
-      ATTRIBUTE_OPTIONS,
-    );
-  }, [runsData]);
+
+    // Split git source tags out of the generic Tags section so they can be surfaced in a
+    // dedicated Git section with friendly labels (e.g. "commit" instead of
+    // `mlflow.source.git.commit`).
+    const gitTagNames = mergedEntityNames.tagNames.filter(isGitSourceTag);
+    const nonGitTagNames = mergedEntityNames.tagNames.filter((tag) => !isGitSourceTag(tag));
+
+    return [
+      {
+        label: 'Metrics',
+        options: mergedEntityNames.metricNames.map((m) => ({ value: `metrics.${m}` })),
+      },
+      {
+        label: 'Parameters',
+        options: mergedEntityNames.paramNames.map((p) => ({ value: `params.${p}` })),
+      },
+      {
+        label: 'Tags',
+        options: cleanEntitySearchTagNames(nonGitTagNames).map((t) => ({ value: `tags.${t}` })),
+      },
+      {
+        label: 'Git',
+        options: gitTagNames.map((tag) => {
+          const friendlyLabel = intl.formatMessage(GIT_TAG_FILTER_LABELS[tag]);
+          return {
+            value: `tags.\`${tag}\``,
+            label: friendlyLabel,
+            // Make the friendly label searchable too, so typing "repository" finds repoURL etc.
+            searchText: `${tag} ${friendlyLabel}`,
+          };
+        }),
+      },
+      {
+        label: 'Attributes',
+        options: ATTRIBUTE_OPTIONS,
+      },
+    ];
+  }, [runsData, intl]);
 
   return (
     <EntitySearchAutoComplete

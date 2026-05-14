@@ -6,6 +6,12 @@ import { sanitizeStringForRegexp } from '../../common/utils/StringUtils';
 export type EntitySearchAutoCompleteOption = {
   label?: string | React.ReactNode;
   value: string;
+  /**
+   * Optional extra text to match against when filtering. Use for options whose user-visible label
+   * differs from the underlying `value` and where the label should also be searchable (e.g. the
+   * friendly "commit" / "branch" labels for git source tags whose values are technical paths).
+   */
+  searchText?: string;
 };
 
 export type EntitySearchAutoCompleteOptionGroup = {
@@ -142,13 +148,20 @@ export const getFilteredOptionsFromEntityName = (
   entityBeingEdited: EntitySearchAutoCompleteEntity,
   suggestionLimits: Record<string, number>,
 ): EntitySearchAutoCompleteOptionGroup[] => {
+  const needle = entityBeingEdited.name.toLowerCase().trim();
   return baseOptions
     .map((group) => {
       const newOptions = group.options
-        .filter((option) => option.value.toLowerCase().includes(entityBeingEdited.name.toLowerCase().trim()))
+        .filter(
+          (option) =>
+            option.value.toLowerCase().includes(needle) ||
+            (option.searchText !== undefined && option.searchText.toLowerCase().includes(needle)),
+        )
         .map((match) => ({
           value: match.value,
-          label: boldedText(match.value, entityBeingEdited.name.trim()),
+          // Preserve an explicit label if one was set on the option (e.g. a friendly label for
+          // git source tags). Otherwise fall back to the auto-bolded value.
+          label: match.label ?? boldedText(match.value, entityBeingEdited.name.trim()),
         }));
       const limitForGroup = suggestionLimits[group.label];
       const ellipsized = [

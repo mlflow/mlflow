@@ -11,12 +11,13 @@ import {
   Tag,
 } from '@databricks/design-system';
 import type { EvalRunsTableColumnDef } from './ExperimentEvaluationRunsTable.constants';
+import { GIT_SOURCE_TAG_LABELS } from './ExperimentEvaluationRunsTable.constants';
 import type { Row } from '@tanstack/react-table';
 import { flexRender } from '@tanstack/react-table';
 import type { RunEntityOrGroupData } from './ExperimentEvaluationRunsPage.utils';
 import type { RunGroupByGroupingValue } from '../../components/experiment-page/utils/experimentPage.row-types';
 import { RunGroupingMode } from '../../components/experiment-page/utils/experimentPage.row-types';
-import { FormattedMessage } from 'react-intl';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { useNavigate } from '../../../common/utils/RoutingUtils';
 import Routes from '../../routes';
 import { RunPageTabName } from '../../constants';
@@ -60,12 +61,19 @@ const GroupTag = ({ groupKey, groupValue }: { groupKey: string; groupValue: stri
 };
 
 const GroupLabel = ({ groupValues }: { groupValues: RunGroupByGroupingValue }): React.ReactElement => {
+  const intl = useIntl();
   const key = groupValues.groupByData;
   if (groupValues.mode === RunGroupingMode.Dataset) {
     return <GroupTag key={key} groupKey="Dataset" groupValue={String(groupValues.value)} />;
   }
 
-  return <GroupTag key={key} groupKey={key} groupValue={String(groupValues.value)} />;
+  const gitLabels =
+    groupValues.mode === RunGroupingMode.Tag
+      ? GIT_SOURCE_TAG_LABELS[key as keyof typeof GIT_SOURCE_TAG_LABELS]
+      : undefined;
+  const displayKey = gitLabels ? intl.formatMessage(gitLabels.display) : key;
+
+  return <GroupTag key={key} groupKey={displayKey} groupValue={String(groupValues.value)} />;
 };
 
 export const ExperimentEvaluationRunsTableRow = React.memo(

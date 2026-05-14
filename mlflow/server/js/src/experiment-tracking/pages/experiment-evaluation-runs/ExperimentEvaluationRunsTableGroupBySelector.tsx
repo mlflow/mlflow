@@ -158,8 +158,8 @@ export const ExperimentEvaluationRunsTableGroupBySelector = ({
                 </span>
               </DialogComboboxSectionHeader>
               {Array.from(uniqueGitTags).map((tag) => {
-                const labelDescriptor = GIT_SOURCE_TAG_LABELS[tag];
-                const label = labelDescriptor ? intl.formatMessage(labelDescriptor) : tag;
+                const labels = GIT_SOURCE_TAG_LABELS[tag as keyof typeof GIT_SOURCE_TAG_LABELS];
+                const label = labels ? intl.formatMessage(labels.selector) : tag;
                 return (
                   <DialogComboboxOptionListCheckboxItem
                     key={tag}
