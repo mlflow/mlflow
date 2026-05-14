@@ -57,6 +57,7 @@ from mlflow.server.gateway_api import (
     openai_passthrough_chat,
     openai_passthrough_embeddings,
     openai_passthrough_responses,
+    openai_passthrough_responses_compact,
 )
 from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig, GatewayModelConfig
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
@@ -1517,6 +1518,74 @@ async def test_openai_passthrough_responses(store: SqlAlchemyStore):
         assert response["object"] == "response"
         assert response["status"] == "completed"
         assert response["output"][0]["content"][0]["text"] == "Response from Responses API"
+
+
+@pytest.mark.asyncio
+async def test_openai_passthrough_responses_compact(store: SqlAlchemyStore):
+    secret = store.create_gateway_secret(
+        secret_name="openai-responses-compact-key",
+        secret_value={"api_key": "sk-test-responses-compact"},
+        provider="openai",
+    )
+    model_def = store.create_gateway_model_definition(
+        name="openai-responses-compact-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4o",
+    )
+    store.create_gateway_endpoint(
+        name="openai-responses-compact-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+    )
+
+    # Mock OpenAI Responses-compact response: same shape as /responses output
+    mock_response = {
+        "id": "resp-compact-123",
+        "object": "response",
+        "created": 1234567890,
+        "model": "gpt-4o",
+        "status": "completed",
+        "output": [
+            {
+                "role": "assistant",
+                "content": [{"type": "output_text", "text": "Compacted summary"}],
+            }
+        ],
+        "usage": {"input_tokens": 50, "output_tokens": 10, "total_tokens": 60},
+    }
+
+    # Compaction request — typical body carries `previous_response_id` and `model`
+    mock_request = create_mock_request()
+    mock_request.json = AsyncMock(
+        return_value={
+            "model": "openai-responses-compact-endpoint",
+            "previous_response_id": "resp_abc123",
+        }
+    )
+
+    with mock.patch(
+        "mlflow.gateway.providers.openai.send_request", return_value=mock_response
+    ) as mock_send:
+        response = await openai_passthrough_responses_compact(mock_request)
+
+        # Verify send_request was called with the /compact upstream path
+        assert mock_send.called
+        call_kwargs = mock_send.call_args[1]
+        assert call_kwargs["path"] == "responses/compact"
+        assert call_kwargs["payload"]["model"] == "gpt-4o"
+        assert call_kwargs["payload"]["previous_response_id"] == "resp_abc123"
+
+        # Verify response is the raw OpenAI Responses-compact format
+        assert response["id"] == "resp-compact-123"
+        assert response["object"] == "response"
+        assert response["status"] == "completed"
+        assert response["output"][0]["content"][0]["text"] == "Compacted summary"
 
 
 @pytest.mark.asyncio
