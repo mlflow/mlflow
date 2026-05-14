@@ -553,26 +553,13 @@ def validate_requirements(
             )
 
 
-# Packages temporarily excluded from PyPI lookups. The reference YAML is read
-# from master, so an entry that has been removed from the current branch may
-# still appear here until master catches up.
-# - mistralai: supply chain compromise — https://github.com/mistralai/client-python/issues/523
-_SKIPPED_PIP_RELEASES = {"mistralai"}
-
-
 async def expand_config(config: dict[str, Any], *, is_ref: bool = False) -> set[MatrixItem]:
     matrix = set()
-    pip_releases = list({
-        fc.package_info.pip_release
-        for fc in config.values()
-        if fc.package_info.pip_release not in _SKIPPED_PIP_RELEASES
-    })
+    pip_releases = list({fc.package_info.pip_release for fc in config.values()})
     packages = dict(zip(pip_releases, await get_packages(pip_releases)))
     for name, flavor_config in config.items():
         flavor = get_flavor(name)
         package_info = flavor_config.package_info
-        if package_info.pip_release in _SKIPPED_PIP_RELEASES:
-            continue
         package = packages[package_info.pip_release]
         all_versions = get_released_versions(package)
         free_disk_space = package_info.pip_release in (

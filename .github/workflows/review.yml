@@ -9,7 +9,7 @@ on:
       - ".claude/skills/pr-review/**"
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.issue.number }}
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.event.issue.number }}
   cancel-in-progress: true
 
 defaults:
@@ -19,8 +19,10 @@ defaults:
 jobs:
   review:
     runs-on: ubuntu-latest
-    permissions:
-      pull-requests: write
+    # GITHUB_TOKEN is unused — all GitHub API calls go through the app tokens
+    # minted below. Grant nothing so any future accidental use of GITHUB_TOKEN
+    # fails closed.
+    permissions: {}
     timeout-minutes: 30
     # Security: Only run for authorized users.
     # - pull_request: Only run for non-fork PRs
@@ -42,8 +44,20 @@ jobs:
        startsWith(github.event.comment.body, '/review') &&
        !startsWith(github.event.comment.body, '/review-'))
     steps:
+      # Two app tokens with split scopes:
+      # - app-token-read (read-only): used by the Claude step so prompt-injection
+      #   in a diff can't trigger comments, approvals, or any PR mutation.
+      # - app-token-write (write): used by React/Post/Report (code we control).
       - uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
-        id: app-token
+        id: app-token-read
+        with:
+          client-id: ${{ secrets.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          permission-contents: read
+          permission-pull-requests: read
+      - uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
+        if: github.event_name == 'issue_comment'
+        id: app-token-write
         with:
           client-id: ${{ secrets.APP_CLIENT_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
@@ -53,7 +67,7 @@ jobs:
         if: github.event_name == 'issue_comment'
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         with:
-          github-token: ${{ steps.app-token.outputs.token }}
+          github-token: ${{ steps.app-token-write.outputs.token }}
           retries: 3
           script: |
             const { comment } = context.payload;
@@ -85,7 +99,7 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
-          token: ${{ steps.app-token.outputs.token }}
+          token: ${{ steps.app-token-read.outputs.token }}
       - uses: ./.github/actions/setup-python
         with:
           pin-micro-version: false
@@ -108,7 +122,7 @@ jobs:
           import secrets
           import sys
 
-          CHOICES = [
+          MODEL_CHOICES = [
               "opus",
               "sonnet",
               "haiku",
@@ -116,18 +130,22 @@ jobs:
               "claude-sonnet-4-6",
               "claude-haiku-4-5",
           ]
+          EFFORT_CHOICES = ["low", "medium", "high", "xhigh", "max"]
 
           body = sys.stdin.read().removeprefix("/review")
           head, sep, tail = body.partition("\n")
 
           parser = argparse.ArgumentParser(add_help=False)
-          parser.add_argument("-m", "--model", choices=CHOICES, default="opus")
+          parser.add_argument("-m", "--model", choices=MODEL_CHOICES, default="claude-opus-4-6")
+          parser.add_argument("-e", "--effort", choices=EFFORT_CHOICES, default="medium")
           args, leftover = parser.parse_known_args(head.split())
 
           prompt = " ".join(leftover) + sep + tail
           # Random delimiter so user input can't terminate the heredoc.
           delim = f"PROMPT_EOF_{secrets.token_hex(8)}"
-          sys.stdout.write(f"prompt<<{delim}\n{prompt}\n{delim}\nmodel={args.model}\n")
+          sys.stdout.write(
+              f"prompt<<{delim}\n{prompt}\n{delim}\nmodel={args.model}\neffort={args.effort}\n"
+          )
           EOF
 
           echo "$COMMENT_BODY" | python /tmp/parse_args.py >> "$GITHUB_OUTPUT"
@@ -135,30 +153,35 @@ jobs:
       - name: Review
         id: review
         env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          # Read-only token: Claude can fetch PR/diff/comments but cannot post anything.
+          GH_TOKEN: ${{ steps.app-token-read.outputs.token }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
           PROMPT: ${{ steps.prompt.outputs.prompt }}
-          MODEL: ${{ steps.prompt.outputs.model || 'opus' }}
+          MODEL: ${{ steps.prompt.outputs.model || 'claude-opus-4-6' }}
+          EFFORT: ${{ steps.prompt.outputs.effort || 'medium' }}
           EVENT_NAME: ${{ github.event_name }}
         run: |
           OUTPUT_FILE="/tmp/output.jsonl"
 
-          # Safe construction using arrays - PROMPT is passed as separate argument to prevent shell injection
-          EXTRA_FLAGS=()
-          if [ "$EVENT_NAME" = "pull_request" ]; then
-            # Smoke test: exercise the Bash tool (and gh CLI + app token) so
-            # sandbox or auth regressions surface here.
-            ARGS=("Run \`gh pr view $PR_NUMBER\` and summarize the PR")
-            EXTRA_FLAGS+=("--allowedTools=Bash(gh pr view:*)")
-          else
-            ARGS=("/pr-review")
-            [ -n "$PROMPT" ] && ARGS+=("$PROMPT")
+          # Safe construction using arrays - PROMPT is passed as separate argument to prevent shell injection.
+          # Both event paths run /pr-review end-to-end against the PR; on
+          # pull_request (smoke), Post is gated off so no review is submitted.
+          ARGS=("/pr-review")
+          if [ "$EVENT_NAME" = "issue_comment" ] && [ -n "$PROMPT" ]; then
+            ARGS+=("$PROMPT")
           fi
 
           EXIT_CODE=0
           # Note: ARGS[*] is intentional - claude CLI expects a single prompt string
-          timeout 20m claude --model "$MODEL" --print --verbose --output-format stream-json "${EXTRA_FLAGS[@]}" "${ARGS[*]}" | .claude/scripts/stream.sh "$OUTPUT_FILE" || EXIT_CODE=$?
+          timeout 20m claude \
+            --model "$MODEL" \
+            --effort "$EFFORT" \
+            --print \
+            --verbose \
+            --output-format stream-json \
+            "${ARGS[*]}" \
+            | .claude/scripts/stream.sh "$OUTPUT_FILE" || EXIT_CODE=$?
           if [ "${EXIT_CODE:-0}" -eq 124 ]; then
             echo "Warning: Claude command timed out after 20 minutes"
           elif [ "${EXIT_CODE:-0}" -ne 0 ]; then
@@ -167,11 +190,32 @@ jobs:
             exit $EXIT_CODE
           fi
 
+      - name: Validate review payload
+        run: |
+          if [ ! -f /tmp/review-payload.json ]; then
+            echo "::error::Claude did not produce /tmp/review-payload.json"
+            exit 1
+          fi
+          uv run --frozen --package skills skills validate-review /tmp/review-payload.json
+          echo "::group::Review payload"
+          jq . /tmp/review-payload.json
+          echo "::endgroup::"
+
+      - name: Post review
+        if: github.event_name == 'issue_comment'
+        env:
+          GH_TOKEN: ${{ steps.app-token-write.outputs.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          gh api --method POST repos/"$REPO"/pulls/"$PR_NUMBER"/reviews --input /tmp/review-payload.json
+
       - name: Redact secrets from transcript
         if: always()
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_TOKEN_READ: ${{ steps.app-token-read.outputs.token }}
+          GH_TOKEN_WRITE: ${{ steps.app-token-write.outputs.token }}
         run: |
           python <<'PY'
           import os
@@ -182,7 +226,7 @@ jobs:
           if not path.exists():
               sys.exit(0)
           data = path.read_text()
-          for name in ("ANTHROPIC_API_KEY", "GH_TOKEN"):
+          for name in ("ANTHROPIC_API_KEY", "GH_TOKEN_READ", "GH_TOKEN_WRITE"):
               if val := os.environ.get(name):
                   data = data.replace(val, "***")
           path.write_text(data)
@@ -202,7 +246,7 @@ jobs:
         if: github.event_name == 'issue_comment'
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         with:
-          github-token: ${{ steps.app-token.outputs.token }}
+          github-token: ${{ steps.app-token-write.outputs.token }}
           retries: 3
           script: |
             const fs = require('fs');
