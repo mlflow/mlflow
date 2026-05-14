@@ -10,7 +10,8 @@ allowed-tools:
   - Glob
   - Agent
   - Edit(//tmp/review-payload.json)
-argument-hint: "[extra_context]"
+argument-hint: "<owner>/<repo> <pr_number> [extra_context]"
+arguments: [repo, pr_number, extra_context]
 ---
 
 # Review Pull Request
@@ -20,39 +21,46 @@ Automatically review a GitHub pull request across correctness, security, edge ca
 ## Usage
 
 ```
-/pr-review [extra_context]
+/pr-review <owner>/<repo> <pr_number> [extra_context]
 ```
 
 ## Arguments
 
-- `extra_context` (optional): Additional instructions or filtering context (e.g., focus on specific issues or areas)
+- `<owner>/<repo>` (required): repository slug, e.g. `mlflow/mlflow`
+- `<pr_number>` (required): pull request number
+- `[extra_context]` (optional): additional filtering or focus instructions (e.g., a specific concern or file type)
 
 ## Examples
 
 ```
-/pr-review                                    # Review all changes
-/pr-review Please focus on security issues    # Focus on security
-/pr-review Only review Python files           # Filter specific file types
-/pr-review Check for performance issues       # Focus on specific concern
+/pr-review mlflow/mlflow 23320
+/pr-review mlflow/mlflow 23320 Please focus on security issues
+/pr-review mlflow/mlflow 23320 Only review Python files
 ```
 
 ## Important Note
 
-The current local branch may not be the PR branch being reviewed. Always rely on the PR diff fetched via the `fetch-diff` skill.
+The PR head is checked out into the working tree, so you may `Read`/`Grep` files for surrounding context. For the diff itself, use the `fetch-diff` skill.
 
 You have a **read-only** GitHub token. Do NOT call write APIs (`gh api ... POST`, `gh pr review`, `gh pr comment`, etc.) — your only output is `/tmp/review-payload.json`. The workflow's post step holds the write token and submits the review on your behalf.
 
 ## Instructions
 
-### 1. Auto-detect PR context
+This invocation is reviewing:
 
-- First check for environment variables:
-  - If `PR_NUMBER` and `GITHUB_REPOSITORY` are set, parse `GITHUB_REPOSITORY` as `owner/repo` and use `PR_NUMBER`
-  - Then use `gh pr view <PR_NUMBER> --repo <owner/repo> --json 'title,body'` to retrieve the PR title and description
-- Otherwise:
-  - Use `gh pr view --json 'title,body,url,number'` to get PR info for the current branch
-  - Parse the output to extract owner, repo, PR number, title, and description
-- If neither method works, inform the user that no PR was found and exit
+- Repo: `$repo`
+- PR number: `$pr_number`
+- Extra context: `$extra_context`
+
+Substitute the placeholders (`<owner>`, `<repo>`, `<pr_number>`) in the steps below with the values above.
+
+### 1. Fetch PR context
+
+Fetch the PR title, description, and author:
+
+```bash
+gh pr view <pr_number> --repo <owner>/<repo> --json title,body,author
+```
 
 ### 2. Fetch PR Diff
 
@@ -63,7 +71,7 @@ Run the `fetch-diff` skill to fetch the PR diff for the identified PR.
 Fetch up to 100 review threads on the PR (open, resolved, and outdated, with up to 20 comments each) so you can avoid duplicating prior feedback:
 
 ```bash
-gh api graphql -F owner=<owner> -F repo=<repo> -F pr=<PR_NUMBER> -f query='
+gh api graphql -F owner=<owner> -F repo=<repo> -F pr=<pr_number> -f query='
   query($owner: String!, $repo: String!, $pr: Int!) {
     repository(owner: $owner, name: $repo) {
       pullRequest(number: $pr) {
@@ -117,11 +125,10 @@ Determine the review `event`:
 - **No CRITICAL findings AND author has `admin`/`maintain` role** -> `event: "APPROVE"`
 - **Any CRITICAL finding, OR author role is anything else (or the API errors, e.g., 404 for non-collaborators)** -> `event: "COMMENT"`. Do not mention the reason for not approving in the review body.
 
-Check the author's role:
+Check the author's role (use the `author.login` from step 1 as `<author>`):
 
 ```bash
-author=$(gh api repos/<owner>/<repo>/pulls/<PR_NUMBER> --jq '.user.login')
-gh api repos/<owner>/<repo>/collaborators/"$author"/permission --jq '.role_name'
+gh api repos/<owner>/<repo>/collaborators/<author>/permission --jq '.role_name'
 ```
 
 ### 6. Emit Review Payload

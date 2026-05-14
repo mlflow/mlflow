@@ -100,6 +100,7 @@ jobs:
         with:
           persist-credentials: false
           token: ${{ steps.app-token-read.outputs.token }}
+          ref: refs/pull/${{ github.event.pull_request.number || github.event.issue.number }}/head
       - uses: ./.github/actions/setup-python
         with:
           pin-micro-version: false
@@ -156,6 +157,7 @@ jobs:
           # Read-only token: Claude can fetch PR/diff/comments but cannot post anything.
           GH_TOKEN: ${{ steps.app-token-read.outputs.token }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
           PROMPT: ${{ steps.prompt.outputs.prompt }}
           MODEL: ${{ steps.prompt.outputs.model || 'claude-opus-4-6' }}
@@ -167,7 +169,7 @@ jobs:
           # Safe construction using arrays - PROMPT is passed as separate argument to prevent shell injection.
           # Both event paths run /pr-review end-to-end against the PR; on
           # pull_request (smoke), Post is gated off so no review is submitted.
-          ARGS=("/pr-review")
+          ARGS=("/pr-review" "$REPO" "$PR_NUMBER")
           if [ "$EVENT_NAME" = "issue_comment" ] && [ -n "$PROMPT" ]; then
             ARGS+=("$PROMPT")
           fi
