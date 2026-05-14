@@ -18,7 +18,7 @@ from mlflow.utils.validation import (
     _validate_trace_archival_repository_support,
     _validate_trace_archival_retention_string,
 )
-from mlflow.utils.workspace_context import WorkspaceContext, get_request_workspace
+from mlflow.utils.workspace_context import ServerWorkspaceContext, get_request_workspace
 from mlflow.utils.workspace_utils import WORKSPACES_DIR_NAME
 
 _logger = logging.getLogger(__name__)
@@ -209,4 +209,4 @@ def _get_trace_archival_workspace_contexts():
     # Shuffle workspace order each pass so a shared pass budget does not always favor the
     # same tenants first. More advanced fairness controls can be layered on later if needed.
     random.shuffle(workspaces)
-    return [WorkspaceContext(workspace.name) for workspace in workspaces]
+    return [ServerWorkspaceContext(workspace.name) for workspace in workspaces]

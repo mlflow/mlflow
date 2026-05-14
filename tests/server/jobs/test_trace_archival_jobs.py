@@ -17,6 +17,7 @@ from mlflow.entities.workspace import TraceArchivalConfig
 from mlflow.environment_variables import (
     MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_TRACE_ARCHIVAL_CONFIG,
+    MLFLOW_WORKSPACE,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.server.jobs.utils import register_periodic_tasks
@@ -148,6 +149,7 @@ def _get_archive_payload_path(archive_uri: str) -> Path:
 
 def test_trace_archival_scheduler_runs_per_workspace(monkeypatch, tmp_path):
     _configure_trace_archival_scheduler(monkeypatch, tmp_path, workspaces_enabled=True)
+    monkeypatch.delenv(MLFLOW_WORKSPACE.name, raising=False)
 
     mock_tracking_store = MagicMock()
     mock_workspace_store = MagicMock()
@@ -184,6 +186,7 @@ def test_trace_archival_scheduler_runs_per_workspace(monkeypatch, tmp_path):
     assert archived == 2
     shuffle_mock.assert_called_once()
     assert [workspace for workspace, _ in workspace_calls] == ["team-b", "team-a"]
+    assert MLFLOW_WORKSPACE.get_raw() is None
     for workspace, kwargs in workspace_calls:
         assert (
             kwargs["resolved_trace_archival_location"]
