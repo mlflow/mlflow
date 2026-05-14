@@ -5,10 +5,9 @@ This module provides automatic tracing integration between Claude Code and MLflo
 ## Module Structure
 
 - **`config.py`** - Configuration management (settings files, environment variables)
-- **`plugin.py`** - Claude plugin bootstrap and legacy hook migration
-- **`hooks.py`** - Legacy compatibility shim for older Python-hook installs
+- **`hooks.py`** - Claude Code hook setup and management
 - **`cli.py`** - MLflow CLI commands (`mlflow autolog claude`)
-- **`tracing.py`** - Core tracing logic for Claude CLI transcript processing and Claude Agent SDK traces
+- **`tracing.py`** - Core tracing logic and processors
 
 ## Installation
 
@@ -43,23 +42,23 @@ mlflow autolog claude --disable
 
 ## How it Works
 
-1. **Setup**: The `mlflow autolog claude` command installs the MLflow Claude plugin and writes tracing config into `.claude/settings.json`
-2. **Automatic Tracing**: When you use the `claude` command in the configured directory, the plugin automatically traces your conversations to MLflow
+1. **Setup**: The `mlflow autolog claude` command configures Claude Code hooks in a `.claude/settings.json` file
+2. **Automatic Tracing**: When you use the `claude` command in the configured directory, your conversations are automatically traced to MLflow
 3. **View Traces**: Use `mlflow server` to view your conversation traces
 
 ## Configuration
 
 The setup creates two types of configuration:
 
-### Claude Plugin Runtime
+### Claude Code Hooks
 
-- `mlflow autolog claude` installs `mlflow-tracing` from the MLflow Claude marketplace
-- Claude Code automatically loads the plugin's `Stop` hook from the plugin bundle
+- **PostToolUse**: Captures tool usage during conversations
+- **Stop**: Processes complete conversations into MLflow traces
 
 ### Environment Variables
 
 - `MLFLOW_CLAUDE_TRACING_ENABLED=true`: Enables tracing
-- `MLFLOW_TRACKING_URI`: Where to store traces (defaults to the active MLflow tracking URI)
+- `MLFLOW_TRACKING_URI`: Where to store traces (defaults to local `.claude/mlflow/runs`)
 - `MLFLOW_EXPERIMENT_ID` or `MLFLOW_EXPERIMENT_NAME`: Which experiment to use
 
 ## Examples

@@ -76,8 +76,8 @@ mlflow autolog claude -n "My AI Project"
 
 #### How It Works
 
-1. **Setup Phase**: The `mlflow autolog claude` command installs the MLflow Claude plugin from the MLflow marketplace and writes tracing config into `.claude/settings.json` in your project directory
-2. **Automatic Tracing**: When you use the `claude` command in the configured directory, the plugin automatically traces your conversations
+1. **Setup Phase**: The `mlflow autolog claude` command configures Claude Code hooks in a `.claude/settings.json` file in your project directory
+2. **Automatic Tracing**: When you use the `claude` command in the configured directory, your conversations are automatically traced
 3. **View Results**: Use the MLflow UI to explore your traces
 
 #### Basic Example
@@ -235,7 +235,6 @@ This shows:
 
 - Ensure you're in the configured directory
 - Check that `.claude/settings.json` exists
-- Re-run `mlflow autolog claude` if the project still points at an older Python hook setup
 - Review logs in `.claude/mlflow/claude_tracing.log`
 
 **Missing traces:**
@@ -252,7 +251,7 @@ To stop automatic CLI tracing:
 mlflow autolog claude --disable
 ```
 
-This removes the MLflow tracing configuration from `.claude/settings.json` and cleans up any legacy Python hook entries, but preserves existing traces.
+This removes the hooks from `.claude/settings.json` but preserves existing traces.
 
 </TabItem>
 <TabItem value="sdk" label="SDK Tracing">
