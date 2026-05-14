@@ -462,6 +462,11 @@ class UserRoleAssignment:
 
 
 class CheckUserPermissionResult:
+    """Response shape for ``POST /mlflow/auth/check``. ``allowed`` mirrors
+    ``Permission.can_use`` (regular access tier); ``permission`` is the
+    resolved effective permission name.
+    """
+
     def __init__(self, allowed: bool, permission: str):
         self._allowed = allowed
         self._permission = permission

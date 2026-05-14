@@ -2988,6 +2988,38 @@ def test_validate_can_check_user_permission_admin_short_circuits(
         assert auth_module.validate_can_check_user_permission()
 
 
+def test_validate_can_check_user_permission_admin_probes_other_workspace(
+    workspace_permission_setup, monkeypatch
+):
+    # Platform admins bypass the workspace check globally — even for resources in
+    # workspaces they have no role in. Pins the is_admin short-circuit on the
+    # cross-workspace path that ``_cross_workspace_probe_denied`` denies for non-admins.
+    store = workspace_permission_setup["store"]
+    admin_username = "platform-admin"
+    store.create_user(admin_username, "supersecurepassword", is_admin=True)
+
+    monkeypatch.setattr(
+        auth_module,
+        "authenticate_request",
+        lambda: SimpleNamespace(username=admin_username),
+    )
+
+    target = workspace_permission_setup["username"]
+    # team-b experiment — admin has no membership in team-b.
+    auth_module._get_tracking_store()._experiment_workspaces["exp-team-b"] = "team-b"
+
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/auth/check",
+        method="POST",
+        json={
+            "username": target,
+            "resource_type": "experiment",
+            "resource_id": "exp-team-b",
+        },
+    ):
+        assert auth_module.validate_can_check_user_permission()
+
+
 def test_validate_can_check_user_permission_cross_user_requires_admin(
     workspace_permission_setup,
 ):
