@@ -1,6 +1,7 @@
 import {
   useDesignSystemTheme,
   Button,
+  BranchIcon,
   DialogCombobox,
   DialogComboboxTrigger,
   DialogComboboxContent,
@@ -30,6 +31,8 @@ import {
   EVAL_RUNS_COLUMN_TYPE_LABELS,
   EVAL_RUNS_UNSELECTABLE_COLUMNS,
   EvalRunsTableKeyedColumnPrefix,
+  GIT_SOURCE_TAG_LABELS,
+  isGitSourceTag,
 } from './ExperimentEvaluationRunsTable.constants';
 import { parseEvalRunsTableKeyedColumnKey } from './ExperimentEvaluationRunsTable.utils';
 import { groupBy } from 'lodash';
@@ -223,38 +226,85 @@ export const ExperimentEvaluationRunsTableControls = ({
                 }
                 const headerLabelDescriptor =
                   EVAL_RUNS_COLUMN_TYPE_LABELS[columnType as EvalRunsTableKeyedColumnPrefix];
+                // Split git source tag columns out of the generic Tags section so they can be
+                // rendered as a dedicated Git section below.
+                const isTagSection = columnType === EvalRunsTableKeyedColumnPrefix.TAG;
+                const gitColumns = isTagSection
+                  ? columns.filter(([column]) => isGitSourceTag(parseEvalRunsTableKeyedColumnKey(column)?.key ?? ''))
+                  : [];
+                const nonGitColumns = isTagSection
+                  ? columns.filter(([column]) => !isGitSourceTag(parseEvalRunsTableKeyedColumnKey(column)?.key ?? ''))
+                  : columns;
                 return (
                   // eslint-disable-next-line react/jsx-key
                   <>
-                    <Spacer size="xs" />
-                    <DialogComboboxSectionHeader>
-                      {headerLabelDescriptor ? intl.formatMessage(headerLabelDescriptor) : columnType}
-                    </DialogComboboxSectionHeader>
-                    {columns.map(([column, selected]) => {
-                      const labelDescriptorForKnownColumn = EVAL_RUNS_COLUMN_LABELS[column as EvalRunsTableColumnId];
-                      const label = labelDescriptorForKnownColumn
-                        ? intl.formatMessage(labelDescriptorForKnownColumn)
-                        : (parseEvalRunsTableKeyedColumnKey(column)?.key ?? column);
+                    {nonGitColumns.length > 0 && (
+                      <>
+                        <Spacer size="xs" />
+                        <DialogComboboxSectionHeader>
+                          {headerLabelDescriptor ? intl.formatMessage(headerLabelDescriptor) : columnType}
+                        </DialogComboboxSectionHeader>
+                        {nonGitColumns.map(([column, selected]) => {
+                          const labelDescriptorForKnownColumn =
+                            EVAL_RUNS_COLUMN_LABELS[column as EvalRunsTableColumnId];
+                          const label = labelDescriptorForKnownColumn
+                            ? intl.formatMessage(labelDescriptorForKnownColumn)
+                            : (parseEvalRunsTableKeyedColumnKey(column)?.key ?? column);
 
-                      if (EVAL_RUNS_UNSELECTABLE_COLUMNS.has(column)) {
-                        return null;
-                      }
+                          if (EVAL_RUNS_UNSELECTABLE_COLUMNS.has(column)) {
+                            return null;
+                          }
 
-                      return (
-                        <DialogComboboxOptionListCheckboxItem
-                          key={column}
-                          value={column}
-                          onChange={() => {
-                            const newSelectedColumns = { ...selectedColumns };
-                            newSelectedColumns[column] = !selected;
-                            setSelectedColumns(newSelectedColumns);
-                          }}
-                          checked={selected}
-                        >
-                          {label}
-                        </DialogComboboxOptionListCheckboxItem>
-                      );
-                    })}
+                          return (
+                            <DialogComboboxOptionListCheckboxItem
+                              key={column}
+                              value={column}
+                              onChange={() => {
+                                const newSelectedColumns = { ...selectedColumns };
+                                newSelectedColumns[column] = !selected;
+                                setSelectedColumns(newSelectedColumns);
+                              }}
+                              checked={selected}
+                            >
+                              {label}
+                            </DialogComboboxOptionListCheckboxItem>
+                          );
+                        })}
+                      </>
+                    )}
+                    {gitColumns.length > 0 && (
+                      <>
+                        <Spacer size="xs" />
+                        <DialogComboboxSectionHeader>
+                          <span css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs }}>
+                            <BranchIcon />
+                            <FormattedMessage
+                              defaultMessage="Git"
+                              description="Section header for git source tags in the eval runs Columns selector"
+                            />
+                          </span>
+                        </DialogComboboxSectionHeader>
+                        {gitColumns.map(([column, selected]) => {
+                          const tagKey = parseEvalRunsTableKeyedColumnKey(column)?.key ?? column;
+                          const labelDescriptor = GIT_SOURCE_TAG_LABELS[tagKey];
+                          const label = labelDescriptor ? intl.formatMessage(labelDescriptor) : tagKey;
+                          return (
+                            <DialogComboboxOptionListCheckboxItem
+                              key={column}
+                              value={column}
+                              onChange={() => {
+                                const newSelectedColumns = { ...selectedColumns };
+                                newSelectedColumns[column] = !selected;
+                                setSelectedColumns(newSelectedColumns);
+                              }}
+                              checked={selected}
+                            >
+                              {label}
+                            </DialogComboboxOptionListCheckboxItem>
+                          );
+                        })}
+                      </>
+                    )}
                   </>
                 );
               })}

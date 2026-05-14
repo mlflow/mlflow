@@ -1,21 +1,25 @@
 import {
+  BranchIcon,
   DialogCombobox,
   DialogComboboxContent,
   DialogComboboxOptionList,
   DialogComboboxOptionListCheckboxItem,
   DialogComboboxSectionHeader,
   DialogComboboxTrigger,
+  useDesignSystemTheme,
 } from '@databricks/design-system';
 import {
   EVAL_RUNS_SEARCHABLE_INTERNAL_TAGS,
   EVAL_RUNS_UNSELECTABLE_COLUMNS,
+  GIT_SOURCE_TAG_LABELS,
+  isGitSourceTag,
 } from './ExperimentEvaluationRunsTable.constants';
 import {
   RunGroupingAggregateFunction,
   RunGroupingMode,
 } from '../../components/experiment-page/utils/experimentPage.row-types';
 import type { RunEntity } from '../../types';
-import { FormattedMessage } from 'react-intl';
+import { FormattedMessage, useIntl } from 'react-intl';
 import type { RunsGroupByConfig } from '../../components/experiment-page/utils/experimentPage.group-row-utils';
 import { isGroupedBy } from '../../components/experiment-page/utils/experimentPage.group-row-utils';
 import { isUserFacingTag } from '@mlflow/mlflow/src/common/utils/TagUtils';
@@ -30,23 +34,28 @@ export const ExperimentEvaluationRunsTableGroupBySelector = ({
   setGroupByConfig: (groupBy: RunsGroupByConfig | null) => void;
   runs: RunEntity[];
 }) => {
+  const intl = useIntl();
+  const { theme } = useDesignSystemTheme();
   const hasDatasets = runs.some((run) => (run.inputs?.datasetInputs?.length ?? 0) > 0);
-  const { uniqueParams, uniqueTags } = useMemo(() => {
+  const { uniqueParams, uniqueTags, uniqueGitTags } = useMemo(() => {
     const uniqueParams = new Set<string>();
     const uniqueTags = new Set<string>();
+    const uniqueGitTags = new Set<string>();
 
     for (const run of runs) {
       for (const param of run.data?.params ?? []) {
         uniqueParams.add(param.key);
       }
       for (const tag of run.data?.tags ?? []) {
-        if (isUserFacingTag(tag.key) || EVAL_RUNS_SEARCHABLE_INTERNAL_TAGS.has(tag.key)) {
+        if (isGitSourceTag(tag.key)) {
+          uniqueGitTags.add(tag.key);
+        } else if (isUserFacingTag(tag.key) || EVAL_RUNS_SEARCHABLE_INTERNAL_TAGS.has(tag.key)) {
           uniqueTags.add(tag.key);
         }
       }
     }
 
-    return { uniqueParams, uniqueTags };
+    return { uniqueParams, uniqueTags, uniqueGitTags };
   }, [runs]);
 
   const toggleGroupBy = (mode: RunGroupingMode, columnName: string) => {
@@ -135,6 +144,35 @@ export const ExperimentEvaluationRunsTableGroupBySelector = ({
                   }}
                 />
               ))}
+            </>
+          )}
+          {uniqueGitTags.size > 0 && (
+            <>
+              <DialogComboboxSectionHeader>
+                <span css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs }}>
+                  <BranchIcon />
+                  <FormattedMessage
+                    defaultMessage="Git"
+                    description="Section header for git source tags in a 'group by' selector"
+                  />
+                </span>
+              </DialogComboboxSectionHeader>
+              {Array.from(uniqueGitTags).map((tag) => {
+                const labelDescriptor = GIT_SOURCE_TAG_LABELS[tag];
+                const label = labelDescriptor ? intl.formatMessage(labelDescriptor) : tag;
+                return (
+                  <DialogComboboxOptionListCheckboxItem
+                    key={tag}
+                    value={tag}
+                    checked={isGroupedBy(groupByConfig, RunGroupingMode.Tag, tag)}
+                    onChange={() => {
+                      toggleGroupBy(RunGroupingMode.Tag, tag);
+                    }}
+                  >
+                    {label}
+                  </DialogComboboxOptionListCheckboxItem>
+                );
+              })}
             </>
           )}
         </DialogComboboxOptionList>

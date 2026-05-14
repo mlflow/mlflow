@@ -52,12 +52,27 @@ export enum EvalRunsTableKeyedColumnPrefix {
 /**
  * Internal mlflow.* tags that are still useful enough as filter / group-by / column dimensions on
  * the evaluation runs page to override the default `isUserFacingTag` hiding rule. Keep narrow.
+ *
+ * When extending this set, also add a friendly label below.
  */
-export const EVAL_RUNS_SEARCHABLE_INTERNAL_TAGS: Set<string> = new Set([
-  'mlflow.source.git.commit',
-  'mlflow.source.git.branch',
-  'mlflow.source.git.repoURL',
-]);
+export const GIT_SOURCE_TAG_LABELS = {
+  'mlflow.source.git.commit': defineMessage({
+    defaultMessage: 'Commit',
+    description: 'Friendly label for the mlflow.source.git.commit tag in the eval runs Columns and Group by selectors',
+  }),
+  'mlflow.source.git.branch': defineMessage({
+    defaultMessage: 'Branch',
+    description: 'Friendly label for the mlflow.source.git.branch tag in the eval runs Columns and Group by selectors',
+  }),
+  'mlflow.source.git.repoURL': defineMessage({
+    defaultMessage: 'Repository',
+    description: 'Friendly label for the mlflow.source.git.repoURL tag in the eval runs Columns and Group by selectors',
+  }),
+} satisfies Record<string, MessageDescriptor>;
+
+export const EVAL_RUNS_SEARCHABLE_INTERNAL_TAGS: Set<string> = new Set(Object.keys(GIT_SOURCE_TAG_LABELS));
+
+export const isGitSourceTag = (tagKey: string): boolean => tagKey in GIT_SOURCE_TAG_LABELS;
 
 export const EVAL_RUNS_UNSELECTABLE_COLUMNS: Set<string> = new Set([
   EvalRunsTableColumnId.checkbox,
