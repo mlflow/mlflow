@@ -12,8 +12,8 @@ distinguish prompts from regular models on the shared model-registry wire
 surface; this backfills the new namespace.
 
 * **Workspace-keyed** — the same name can be a prompt in workspace A and a
-  registered model in workspace B; classifying by name alone would mis-rewrite
-  grants across workspaces.
+  registered model in workspace B; classifying by name alone would
+  cross-rewrite grants across workspaces.
 * **Wildcard rows left untouched** — ``(registered_model, *)`` covers every
   RM in the workspace and was never prompt-specific; rewriting to
   ``(prompt, *)`` would silently revoke RM access.
