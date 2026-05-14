@@ -26,7 +26,8 @@ import { RunColorPill } from '../../components/experiment-page/components/RunCol
 import { TimeAgo } from '@databricks/web-shared/browse';
 import { parseEvalRunsTableKeyedColumnKey } from './ExperimentEvaluationRunsTable.utils';
 import { useMemo } from 'react';
-import { FormattedMessage } from 'react-intl';
+import { FormattedMessage, useIntl } from 'react-intl';
+import { EvalRunsTableKeyedColumnPrefix, GIT_SOURCE_TAG_LABELS } from './ExperimentEvaluationRunsTable.constants';
 import type { RunEntityOrGroupData } from './ExperimentEvaluationRunsPage.utils';
 import { useExperimentEvaluationRunsRowVisibility } from './hooks/useExperimentEvaluationRunsRowVisibility';
 import { RunPageTabName } from '../../constants';
@@ -294,8 +295,24 @@ export const SortableHeaderCell = ({
   title,
 }: HeaderContext<RunEntityOrGroupData, unknown> & { title?: React.ReactElement }) => {
   const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
 
-  const displayedKey = useMemo(() => parseEvalRunsTableKeyedColumnKey(column.id)?.key ?? column.id, [column.id]);
+  const { displayedKey, friendlyLabel } = useMemo(() => {
+    const parsed = parseEvalRunsTableKeyedColumnKey(column.id);
+    const key = parsed?.key ?? column.id;
+    const labelDescriptor =
+      parsed?.columnType === EvalRunsTableKeyedColumnPrefix.TAG
+        ? GIT_SOURCE_TAG_LABELS[key as keyof typeof GIT_SOURCE_TAG_LABELS]
+        : undefined;
+    return {
+      displayedKey: key,
+      friendlyLabel: labelDescriptor ? intl.formatMessage(labelDescriptor) : null,
+    };
+  }, [column.id, intl]);
+
+  // Header text prefers an explicit `title` prop, then a friendly label (e.g. git source tags),
+  // and finally falls back to the raw column key.
+  const headerText = title ?? friendlyLabel ?? displayedKey;
 
   return (
     <div
@@ -312,7 +329,7 @@ export const SortableHeaderCell = ({
         content={displayedKey}
       >
         <span css={{ overflow: 'hidden', textOverflow: 'ellipsis', textWrap: 'nowrap' }}>
-          <Typography.Text bold>{title ?? displayedKey}</Typography.Text>
+          <Typography.Text bold>{headerText}</Typography.Text>
         </span>
       </Tooltip>
       {!column.getIsSorted() && (

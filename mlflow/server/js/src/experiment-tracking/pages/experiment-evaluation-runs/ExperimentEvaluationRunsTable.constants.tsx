@@ -57,15 +57,15 @@ export enum EvalRunsTableKeyedColumnPrefix {
  */
 export const GIT_SOURCE_TAG_LABELS = {
   'mlflow.source.git.commit': defineMessage({
-    defaultMessage: 'Commit',
+    defaultMessage: 'commit',
     description: 'Friendly label for the mlflow.source.git.commit tag in the eval runs Columns and Group by selectors',
   }),
   'mlflow.source.git.branch': defineMessage({
-    defaultMessage: 'Branch',
+    defaultMessage: 'branch',
     description: 'Friendly label for the mlflow.source.git.branch tag in the eval runs Columns and Group by selectors',
   }),
   'mlflow.source.git.repoURL': defineMessage({
-    defaultMessage: 'Repository',
+    defaultMessage: 'repository',
     description: 'Friendly label for the mlflow.source.git.repoURL tag in the eval runs Columns and Group by selectors',
   }),
 } satisfies Record<string, MessageDescriptor>;
