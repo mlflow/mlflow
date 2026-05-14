@@ -137,6 +137,9 @@ def _get_managed_session_maker(SessionMaker, db_type):
     automatically closed when the session's associated context is exited.
     """
 
+    # Default to read_only=True to avoid accidentally treating read query as write
+    # and send to the main workers. The test time validation detects when the
+    # actual write query is marked read-only.
     @contextmanager
     def make_managed_session(read_only=True):
         """Provide a transactional scope around a series of operations."""
@@ -146,11 +149,17 @@ def _get_managed_session_maker(SessionMaker, db_type):
                     session.execute(sql.text("PRAGMA foreign_keys = ON;"))
                     session.execute(sql.text("PRAGMA busy_timeout = 20000;"))
                     session.execute(sql.text("PRAGMA case_sensitive_like = true;"))
+
+                # Validation that only triggers while testing to make sure the
+                # read_only flag is properly set.
                 if read_only and os.environ.get("PYTEST_CURRENT_TEST"):
+
                     def _reject_flush(session, flush_context, instances):
                         raise MlflowException(
                             "Write operation detected on a read-only session. "
-                            "Mark this method with read_only=False.",
+                            "ManagedSessionMaker creates read-only sessions "
+                            "by default. Pass read_only=False to the constructor "
+                            "to mark it as a write operation.",
                             error_code=INTERNAL_ERROR,
                         )
 
