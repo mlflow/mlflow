@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { getFilteredOptionsFromEntityName } from './EntitySearchAutoComplete.utils';
+import { cleanEntitySearchTagNames, getFilteredOptionsFromEntityName } from './EntitySearchAutoComplete.utils';
 import type {
   EntitySearchAutoCompleteEntity,
   EntitySearchAutoCompleteOptionGroup,
@@ -16,6 +16,25 @@ describe('EntitySearchAutoComplete utils', () => {
   const suggestionLimits = {
     Metrics: 10,
   };
+
+  describe('cleanEntitySearchTagNames', () => {
+    test('hides internal mlflow.* tags by default', () => {
+      expect(
+        cleanEntitySearchTagNames(['mlflow.runName', 'mlflow.user', 'mlflow.note.content', 'my_user_tag']),
+      ).toEqual(['my_user_tag']);
+    });
+
+    test('exposes git source tags as searchable internal tags', () => {
+      expect(
+        cleanEntitySearchTagNames([
+          'mlflow.source.git.commit',
+          'mlflow.source.git.branch',
+          'mlflow.source.git.repoURL',
+          'mlflow.runName',
+        ]),
+      ).toEqual(['`mlflow.source.git.commit`', '`mlflow.source.git.branch`', '`mlflow.source.git.repoURL`']);
+    });
+  });
 
   test('getFilteredOptionsFromEntityName handles single open parenthesis without crashing', () => {
     const entityBeingEdited: EntitySearchAutoCompleteEntity = {

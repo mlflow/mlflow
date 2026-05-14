@@ -47,11 +47,22 @@ const getClausesAndStartIndex = (str: string) => {
 };
 
 /**
- * Filters out internal tag names and wrap names that include control characters in backticks.
+ * Internal mlflow.* tags that are useful enough as filter dimensions to surface in autocomplete
+ * alongside user-defined tags. Keep this list narrow.
+ */
+const SEARCHABLE_INTERNAL_TAGS = new Set<string>([
+  'mlflow.source.git.commit',
+  'mlflow.source.git.branch',
+  'mlflow.source.git.repoURL',
+]);
+
+/**
+ * Filters out internal tag names (except for a small allowlist) and wraps names that include
+ * control characters in backticks.
  */
 export const cleanEntitySearchTagNames = (tagNames: string[]) =>
   tagNames
-    .filter((tag: string) => !tag.startsWith(MLFLOW_INTERNAL_PREFIX))
+    .filter((tag: string) => !tag.startsWith(MLFLOW_INTERNAL_PREFIX) || SEARCHABLE_INTERNAL_TAGS.has(tag))
     .map((tag: string) => {
       if (tag.includes('"') || tag.includes(' ') || tag.includes('.')) {
         return `\`${tag}\``;
