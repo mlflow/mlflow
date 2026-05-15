@@ -8,7 +8,8 @@ import TabItem from "@theme/TabItem";
 MLflow's role-based access control expresses permissions through **roles** —
 named bundles of `(resource_type, resource_pattern, permission)` grants you
 assign to users. A role lives in one place; changes propagate to every user
-assigned to it.
+assigned to it. When workspaces are enabled (`--enable-workspaces`), roles
+and their grants are scoped per workspace.
 
 :::tip[One-off grants]
 
@@ -33,7 +34,9 @@ Authentication enabled (`mlflow server --app-name basic-auth`).
 
 ## The model
 
-Three entities, two relations:
+Three entities, two relations. Roles (and the grants they carry) are
+workspace-scoped when workspaces are enabled; see
+[Workspace isolation](#workspace-isolation) for the on/off delta.
 
 ```mermaid
 flowchart LR
@@ -59,13 +62,11 @@ permission)` row, where the pattern is either a literal resource id or `*`
 ### Direct grants without a role
 
 For the one-user one-resource case, you don't need to author a single-user
-role. Each user has a reserved `__user_<id>__` synthetic role that holds
-their direct grants; the `grant_user_permission` /
-`revoke_user_permission` APIs and the admin UI's _Direct permissions_
-section write to it directly. From an operator's perspective it's one call
-or one form field — the synthetic role is an implementation detail you
-never touch. The `__user_<id>__` name pattern is reserved: `create_role`
-and `update_role` reject it.
+role. Each user has a reserved per-user role that holds their direct
+grants; the `grant_user_permission` / `revoke_user_permission` APIs and the
+admin UI's _Direct permissions_ section write to it directly. From an
+operator's perspective it's one call or one form field — the reserved role
+is an implementation detail you never touch.
 
 **Admin UI:** `/admin` → **Users** → click the user → **Edit access** → in
 the _Direct permissions_ section, add the `(resource, permission)` grant →
