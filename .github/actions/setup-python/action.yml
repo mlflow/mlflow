@@ -69,9 +69,9 @@ runs:
         # Disable progress bars and spinners to reduce CI log clutter
         # https://docs.astral.sh/uv/reference/environment/#uv_no_progress
         echo "UV_NO_PROGRESS=1" >> $GITHUB_ENV
-        # Exclude packages newer than 14 days to guard against supply chain attacks
+        # Exclude packages newer than 7 days to guard against supply chain attacks
         # https://docs.astral.sh/uv/reference/environment/#uv_exclude_newer
-        echo "UV_EXCLUDE_NEWER=P14D" >> $GITHUB_ENV
+        echo "UV_EXCLUDE_NEWER=P7D" >> $GITHUB_ENV
         # Disable Hugging Face download progress bars to reduce CI log clutter
         # https://huggingface.co/docs/huggingface_hub/package_reference/environment_variables#hfhubdisableprogressbars
         echo "HF_HUB_DISABLE_PROGRESS_BARS=1" >> $GITHUB_ENV

@@ -897,6 +897,22 @@ def test_get_role_permission_different_resource_types(store, user):
     assert result == READ
 
 
+def test_prompt_and_registered_model_grants_do_not_cross_resolve(store, user):
+    """A grant on `(registered_model, foo)` must NOT satisfy a request for
+    `(prompt, foo)` and vice versa — the resource_type discriminant has to
+    isolate the two namespaces post-promotion.
+    """
+    role = store.create_role(name="grants", workspace="ws1")
+    store.add_role_permission(role.id, "registered_model", "foo", "READ")
+    store.add_role_permission(role.id, "prompt", "bar", "MANAGE")
+    store.assign_role_to_user(user.id, role.id)
+
+    assert store.get_role_permission_for_resource(user.id, "prompt", "foo", "ws1") is None
+    assert store.get_role_permission_for_resource(user.id, "registered_model", "bar", "ws1") is None
+    assert store.get_role_permission_for_resource(user.id, "registered_model", "foo", "ws1") == READ
+    assert store.get_role_permission_for_resource(user.id, "prompt", "bar", "ws1") == MANAGE
+
+
 @pytest.mark.parametrize(
     ("perms", "expected"),
     [
