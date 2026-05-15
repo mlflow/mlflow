@@ -293,3 +293,11 @@ repos:
         language: fail
         entry: "Filenames must not contain spaces"
         files: " "
+
+      - id: skills
+        name: skills
+        entry: uv run --frozen --only-group lint dev/check_skills.py
+        language: system
+        files: '(^|/)SKILL\.md$'
+        stages: [pre-commit]
+        require_serial: true

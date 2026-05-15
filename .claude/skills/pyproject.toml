@@ -2,7 +2,7 @@
 name = "skills"
 version = "0.1.0"
 requires-python = ">=3.10"
-dependencies = ["aiohttp", "pydantic", "typing_extensions"]
+dependencies = ["aiohttp", "jsonschema", "pydantic", "typing_extensions"]
 
 [project.scripts]
 skills = "skills.cli:main"

@@ -207,6 +207,10 @@
     "defaultMessage": "Run judge",
     "description": "Button text for running judge"
   },
+  "/G6dxl": {
+    "defaultMessage": "Git commit",
+    "description": "Column label for the git commit hash the trace was produced on"
+  },
   "/HeTx7": {
     "defaultMessage": "Create",
     "description": "Create webhook confirm button"
@@ -842,6 +846,10 @@
   "2vjNq9": {
     "defaultMessage": "Please complete all required fields",
     "description": "Tooltip shown when submit button is disabled due to incomplete form"
+  },
+  "2xFiOo": {
+    "defaultMessage": "Git commit",
+    "description": "Usage overview > metrics filter > git commit column option label"
   },
   "2zy+D5": {
     "defaultMessage": "Add new tag",
@@ -1775,6 +1783,10 @@
     "defaultMessage": "Enable Usage Tracking in the Overview tab to view logs",
     "description": "Tooltip shown on disabled Logs tab explaining that usage tracking must be enabled first"
   },
+  "8oh0iW": {
+    "defaultMessage": "Clear filters",
+    "description": "Usage overview > clear metrics filters button"
+  },
   "8qJt7/": {
     "defaultMessage": "Experimental",
     "description": "Experimental badge shown for features which are experimental"
@@ -2126,6 +2138,10 @@
   "Ai/ANo": {
     "defaultMessage": "Usage",
     "description": "Page title"
+  },
+  "AmLGSf": {
+    "defaultMessage": "Apply filters",
+    "description": "Usage overview > apply filters button"
   },
   "AoDwev": {
     "defaultMessage": "Description (optional)",
@@ -3154,6 +3170,10 @@
   "HSMagB": {
     "defaultMessage": "Error evaluating \"{label}\"",
     "description": "Error evaluating label"
+  },
+  "HT6/F3": {
+    "defaultMessage": "Value",
+    "description": "Usage overview > filter row > value column label"
   },
   "HUC492": {
     "defaultMessage": "See detailed trace view",
@@ -4263,6 +4283,10 @@
     "defaultMessage": "Share and manage machine learning models. <link>Learn more</link>",
     "description": "Models table > no models present yet"
   },
+  "OCZ6Y6": {
+    "defaultMessage": "Git branch",
+    "description": "Column label for the git branch the trace was produced on"
+  },
   "OCpkAU": {
     "defaultMessage": "The AI Gateway requires a SQL-based backend store (SQLite, PostgreSQL, MySQL, or MSSQL) to persist credentials securely. Start the MLflow server with a database URI:",
     "description": "AI Gateway setup guide > Step 2 description"
@@ -4399,6 +4423,10 @@
     "defaultMessage": "Cost breakdown",
     "description": "Header for span cost breakdown"
   },
+  "P5OG6u": {
+    "defaultMessage": "Select field",
+    "description": "Usage overview > filter row > field column placeholder"
+  },
   "PAUNgq": {
     "defaultMessage": "Cost Breakdown",
     "description": "Title for the cost breakdown chart"
@@ -4510,6 +4538,10 @@
   "Pgxfhl": {
     "defaultMessage": "Role",
     "description": "Roles table column header for the role name"
+  },
+  "PlP56F": {
+    "defaultMessage": "Enter value",
+    "description": "Usage overview > filter row > value input placeholder"
   },
   "PmPV+3": {
     "defaultMessage": "Models",
@@ -4806,6 +4838,10 @@
   "RhQhT4": {
     "defaultMessage": "Model",
     "description": "Label for model name in span details"
+  },
+  "RiZy19": {
+    "defaultMessage": "Remove filter",
+    "description": "Usage overview > filter row > remove row button aria label"
   },
   "RlBbjb": {
     "defaultMessage": "A tag key is required",
@@ -5118,6 +5154,10 @@
   "TXPJuE": {
     "defaultMessage": "Retrieval Groundedness assessment is missing. This is likely because your agent is not returning retrieved_context.",
     "description": "Evaluation results > known type of evaluation result assessment > retrieval groundedness assessment. Used to indicate if the result is grounded in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Retrieval Groundedness: moderately grounded\""
+  },
+  "TXwmoT": {
+    "defaultMessage": "Git branch",
+    "description": "Usage overview > metrics filter > git branch column option label"
   },
   "TannO5": {
     "defaultMessage": "Retrieved {sampledCount} out of {totalCount} total logs ({percentage}%)",
@@ -6079,6 +6119,10 @@
     "defaultMessage": "Input /1M",
     "description": "Table header for input cost"
   },
+  "ZBaNWk": {
+    "defaultMessage": "Operator",
+    "description": "Usage overview > filter row > operator dropdown aria label"
+  },
   "ZGrkWk": {
     "defaultMessage": "Perform inference via model.transform()",
     "description": "Code comment which states how we can perform SparkML inference"
@@ -6330,6 +6374,10 @@
   "aXw0NO": {
     "defaultMessage": "Please select metric",
     "description": "Placeholder text where one can select metrics from the list of available metrics to render on the graph"
+  },
+  "aZKtr2": {
+    "defaultMessage": "Field",
+    "description": "Usage overview > filter row > field column label"
   },
   "aZV8M7": {
     "defaultMessage": "Delete",
@@ -8091,6 +8139,10 @@
     "defaultMessage": "Discard",
     "description": "Experiment page > artifact compare view > prompt lab artifact synchronization > submit button label"
   },
+  "kQ9rmr": {
+    "defaultMessage": "Operator",
+    "description": "Usage overview > filter row > operator column label"
+  },
   "kQw850": {
     "defaultMessage": "Test succeeded (HTTP {status})",
     "description": "Message informing the user that the webhook test succeeded"
@@ -8654,6 +8706,14 @@
   "nWeQCU": {
     "defaultMessage": "Show differences only",
     "description": "Runs charts > components > config > RunsChartsConfigureDifferenceChart > Show differences only toggle"
+  },
+  "nXIn89": {
+    "defaultMessage": "User",
+    "description": "Usage overview > metrics filter > user column option label"
+  },
+  "nXsSZ1": {
+    "defaultMessage": "Add filter",
+    "description": "Usage overview > add filter row button"
   },
   "nY1YrF": {
     "defaultMessage": "Internal server error",
@@ -9323,6 +9383,10 @@
     "defaultMessage": "Relevant",
     "description": "Evaluation results > relevancy assessment > positive value label. Displayed if evaluation result is considered as irrelevant to the query."
   },
+  "rONS3/": {
+    "defaultMessage": "Select value",
+    "description": "Usage overview > filter row > value dropdown placeholder"
+  },
   "rOj9V6": {
     "defaultMessage": "Define your own guardrail with a custom name and instructions.",
     "description": "Custom guardrail type description"
@@ -9418,6 +9482,10 @@
   "s+Flkm": {
     "defaultMessage": "Failed to load direct permissions",
     "description": "Alert title shown when the direct-permissions query fails"
+  },
+  "s29iQg": {
+    "defaultMessage": "Session",
+    "description": "Usage overview > metrics filter > session column option label"
   },
   "s2G/vI": {
     "defaultMessage": "All users",
@@ -9758,6 +9826,10 @@
   "u13xKF": {
     "defaultMessage": "Custom judge",
     "description": "LLM judge option for creating a custom judge"
+  },
+  "u9ZeuA": {
+    "defaultMessage": "State",
+    "description": "Usage overview > metrics filter > state column option label"
   },
   "uANtE/": {
     "defaultMessage": "Primary Model",
@@ -10330,6 +10402,10 @@
   "xbfKJS": {
     "defaultMessage": "JSON body for the OpenAI-compatible Chat Completions API. Include \"model\" (endpoint name) and \"messages\".",
     "description": "Request body tooltip for unified Chat Completions API"
+  },
+  "xc+tL4": {
+    "defaultMessage": "Filters{numFilters}",
+    "description": "Usage overview > metrics filter dropdown button"
   },
   "xdFMIN": {
     "defaultMessage": "Dataset name",

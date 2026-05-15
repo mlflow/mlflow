@@ -8,6 +8,7 @@ inputs:
     description: "Whether to pin to a specific micro version for Anaconda compatibility. Set to false for workflows that don't need conda/pyenv to hit the runner's pre-installed Python cache and avoid a ~9s download."
     required: false
     default: "true"
+  # NOTE: `enable-uv-cache` is currently ignored; caching is hardcoded off below.
   enable-uv-cache:
     description: "Enable uv's built-in cache. Set to false for short jobs where cache restore/save overhead isn't worth it."
     required: false
@@ -59,7 +60,8 @@ runs:
     - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
       with:
         version: "0.11.7"
-        enable-cache: ${{ inputs.enable-uv-cache }}
+        # Hardcoded to false to avoid cache-poisoning exposure. To re-enable, wire back to ${{ inputs.enable-uv-cache }}.
+        enable-cache: false
     - run: |
         # The default `first-index` strategy is too strict. Use `unsafe-first-match` instead.
         # https://docs.astral.sh/uv/configuration/environment/#uv_index_strategy

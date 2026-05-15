@@ -58,8 +58,12 @@ export enum TraceFilterKey {
 
 /**
  * Trace status values for filter expressions.
+ *
+ * Mirrors the backend `TraceState` enum (mlflow/entities/trace_state.py) for the
+ * subset accepted by the metrics API's `trace.status = "..."` filter.
  */
 export enum TraceStatus {
+  IN_PROGRESS = 'IN_PROGRESS',
   OK = 'OK',
   ERROR = 'ERROR',
 }
