@@ -28,7 +28,7 @@ the top of the generated file.
 
 from __future__ import annotations
 
-import json
+import pprint
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
@@ -194,7 +194,14 @@ def render_pytest_suite(experiment_id: str, cases: list[TestCaseRow]) -> str:
     )
 
     payloads = [_case_payload(case) for case in partition.exportable]
-    cases_literal = "_CASES: list[dict] = " + json.dumps(payloads, indent=4, ensure_ascii=False)
+    # ``pprint.pformat`` emits valid Python literals (``None`` / ``True``
+    # / ``False`` for nulls/bools) so the rendered file is executable.
+    # ``json.dumps`` would emit ``null`` / ``true`` / ``false`` which
+    # ``NameError`` at module load. ``sort_dicts=False`` preserves the
+    # author's field order.
+    cases_literal = "_CASES: list[dict] = " + pprint.pformat(
+        payloads, indent=4, width=100, sort_dicts=False
+    )
 
     if not payloads:
         cases_literal += "\n# No exportable cases. Add assertion-strategy single-turn cases via "

@@ -141,10 +141,24 @@ def export_test_cases(experiment_id: str, output: Path | None) -> None:
     multi-turn (persona) cases (CI cannot drive the simulator). The
     counts are reported in the generated file's header.
     """
-    cases = store.list_cases(experiment_id)
+    try:
+        cases = store.list_cases(experiment_id)
+    except MlflowException as exc:
+        raise click.ClickException(exc.message) from exc
+
     source = pytest_export.render_pytest_suite(experiment_id, cases)
     if output is None:
         click.echo(source)
         return
     output.write_text(source)
-    click.echo(f"Wrote pytest suite ({len(cases)} cases scanned) to {output}.")
+    # Count exportable cases for the success message so users know how
+    # many landed in the file (the rendered file's header has the
+    # exclusion breakdown).
+    exportable = sum(
+        1
+        for case in cases
+        if case.spec.strategy == "assertion"
+        and case.spec.persona is None
+        and case.conversation_messages
+    )
+    click.echo(f"Wrote pytest suite ({exportable} of {len(cases)} cases exported) to {output}.")

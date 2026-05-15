@@ -38,6 +38,25 @@ def test_renders_valid_python_for_assertion_only_suite():
     ast.parse(source)
 
 
+def test_rendered_suite_executes_at_module_load():
+    # ``ast.parse`` only checks syntax; ``compile`` + ``exec`` catches
+    # name-resolution failures like ``null`` / ``true`` / ``false``
+    # leaking out of ``json.dumps`` payloads into the rendered Python
+    # source. Conversation messages carrying ``None`` (the standard
+    # OpenAI assistant-message shape with ``tool_calls: None``) used to
+    # crash module load before the renderer switched to ``pprint``.
+    case = _assertion_case(
+        "tc-exec",
+        conversation_messages=[
+            {"role": "user", "content": "hi"},
+            {"role": "assistant", "content": "hello", "tool_calls": None},
+        ],
+    )
+    source = render_pytest_suite("exp-1", [case])
+    code = compile(source, "<generated_suite>", "exec")
+    exec(code, {})  # noqa: S102 — generated source is from a trusted renderer
+
+
 def test_header_records_included_and_excluded_counts():
     cases = [
         _assertion_case("tc-001"),
@@ -71,9 +90,10 @@ def test_header_records_included_and_excluded_counts():
 def test_assertion_payload_is_present():
     case = _assertion_case("tc-abc")
     source = render_pytest_suite("exp-1", [case])
-    assert '"test_case_id": "tc-abc"' in source
-    assert '"must_contain": [' in source
-    assert '"docs"' in source
+    # ``pprint.pformat`` emits Python literals (single-quoted strings).
+    assert "'test_case_id': 'tc-abc'" in source
+    assert "'must_contain':" in source
+    assert "'docs'" in source
 
 
 def test_judge_case_excluded_from_payload():

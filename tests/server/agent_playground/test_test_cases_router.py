@@ -264,4 +264,6 @@ def test_export_rejects_unknown_format(http, experiment_id):
         f"{_PREFIX}/test-cases/export",
         params={"experiment_id": experiment_id, "format": "junit"},
     )
-    assert resp.status_code == 400
+    # FastAPI / pydantic enforces the ``Literal["pytest"]`` query param,
+    # returning 422 on an unknown value.
+    assert resp.status_code == 422

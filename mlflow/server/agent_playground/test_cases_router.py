@@ -7,12 +7,16 @@ Mounted at ``/ajax-api/3.0/mlflow/agent-playground``. Endpoints:
 - ``PATCH /test-cases/{test_case_id}`` (partial update)
 - ``DELETE /test-cases/{test_case_id}?experiment_id=...`` (hard delete)
 - ``POST /test-cases/prompt-for-fix`` (renders the copy-paste fix prompt)
+- ``GET  /test-cases/export?format=pytest&experiment_id=...`` (pytest suite)
 
 No per-route auth dependency: relies on the global FastAPI permission
 middleware (matching ``job_api_router`` at ``mlflow/server/job_api.py``).
 """
 
 from __future__ import annotations
+
+import re
+from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Query, Response
 from pydantic import BaseModel, ValidationError
@@ -141,28 +145,30 @@ def list_test_cases(
     return ListTestCasesResponse(test_cases=page, next_page_token=next_token_str)
 
 
+_FILENAME_SAFE_RE = re.compile(r"[^A-Za-z0-9_-]+")
+
+
+def _safe_filename_component(value: str) -> str:
+    """Strip filename-unsafe characters; pads to a non-empty default."""
+    sanitized = _FILENAME_SAFE_RE.sub("_", value)
+    return sanitized or "unknown"
+
+
 @test_cases_router.get("/test-cases/export")
 def export_test_cases(
     experiment_id: str = Query(...),
-    format: str = Query("pytest"),
+    format: Literal["pytest"] = Query("pytest"),
 ) -> Response:
-    if format != "pytest":
-        raise HTTPException(
-            status_code=400, detail=f"Unsupported export format: {format!r}. Supported: 'pytest'."
-        )
     try:
         cases = store.list_cases(experiment_id)
     except MlflowException as exc:
         raise _mlflow_exc_to_http(exc)
     source = pytest_export.render_pytest_suite(experiment_id, cases)
+    filename = f"test_agent_playground_{_safe_filename_component(experiment_id)}.py"
     return Response(
         content=source,
         media_type="text/x-python",
-        headers={
-            "Content-Disposition": (
-                f'attachment; filename="test_agent_playground_{experiment_id}.py"'
-            ),
-        },
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
 
