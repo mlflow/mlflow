@@ -334,12 +334,16 @@ from two entry points:
 
 Both views share the same layout: a **Users** tab and a **Roles** tab.
 
+![Admin UI showing Users and Roles tabs](/images/self-hosting/rbac-admin-ui-overview.png)
+
 ### Users tab
 
 Lists every user, each row showing their visible roles. Click a username to
 open the user detail page, then **Edit access** to manage that user's roles,
 direct permissions, and admin status (Platform Admins only). Changes are
 previewed in a Review step before they're applied.
+
+![User detail page showing role assignments](/images/self-hosting/rbac-users-tab-roles.png)
 
 ### Roles tab
 
@@ -348,6 +352,10 @@ workspace's roles for Workspace Managers). **Create role** opens a
 single-page form with three sections (_Role details_, _Permissions_,
 _Assigned users_) and submits them in one shot. **Edit role** on the role
 detail page mirrors the same shape.
+
+![Roles tab listing roles across workspaces](/images/self-hosting/rbac-roles-tab.png)
+
+![Edit role form with Role details and Permissions sections](/images/self-hosting/rbac-edit-role-form.png)
 
 ## Default roles
 
