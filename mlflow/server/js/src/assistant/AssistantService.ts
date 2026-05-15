@@ -236,8 +236,15 @@ export const sendMessageStream = async (
 
 export const listProviderModels = async (provider: string, baseUrl: string): Promise<string[]> => {
   const url = `${API_BASE}/providers/${encodeURIComponent(provider)}/models?base_url=${encodeURIComponent(baseUrl)}`;
-  const data: { models: string[] } = await fetchAPI(url);
-  return data.models;
+  const response = await fetch(url, {
+    headers: { ...getDefaultHeaders(document.cookie) },
+  });
+  if (!response.ok) {
+    const data = await response.json();
+    throw new Error(data.detail || `Failed to list models for provider '${provider}': ${response.statusText}`);
+  }
+  const data = await response.json();
+  return data.models as string[];
 };
 
 /**
