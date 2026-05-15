@@ -35,6 +35,7 @@ import {
 } from '../../workspaces/utils/WorkspaceUtils';
 import { useUpdateWorkspace } from '../../workspaces/hooks/useUpdateWorkspace';
 import { WorkspaceSettingsFields } from './WorkspaceSettingsFields';
+import { useTraceArchivalEnabled } from '../../experiment-tracking/hooks/useServerInfo';
 
 type WorkspacesHomeViewProps = {
   onCreateWorkspace: () => void;
@@ -85,6 +86,7 @@ const WorkspaceRow = ({
   canManage,
   showEditColumn,
   showManageColumn,
+  traceArchivalEnabled,
 }: {
   workspace: Workspace;
   isLastUsed: boolean;
@@ -92,6 +94,7 @@ const WorkspaceRow = ({
   canManage: boolean;
   showEditColumn: boolean;
   showManageColumn: boolean;
+  traceArchivalEnabled: boolean;
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -422,6 +425,7 @@ const WorkspaceRow = ({
               }}
               descriptionAutoFocus
               showClearHint
+              showTraceArchivalSettings={traceArchivalEnabled}
             />
           </div>
         </Modal>
@@ -435,6 +439,7 @@ const WORKSPACES_PER_PAGE = 10;
 export const WorkspacesHomeView = ({ onCreateWorkspace }: WorkspacesHomeViewProps) => {
   const { theme } = useDesignSystemTheme();
   const { workspaces, isLoading, isError, refetch } = useWorkspaces(true);
+  const traceArchivalEnabled = useTraceArchivalEnabled();
   const lastUsedWorkspace = getLastUsedWorkspace();
   const [currentPage, setCurrentPage] = useState(1);
   // Manage column: shown only to workspace managers — gear icon links to
@@ -578,6 +583,7 @@ export const WorkspacesHomeView = ({ onCreateWorkspace }: WorkspacesHomeViewProp
                   canManage={!isAdmin && adminWorkspaces.has(workspace.name)}
                   showEditColumn={showEditColumn}
                   showManageColumn={showManageColumn}
+                  traceArchivalEnabled={traceArchivalEnabled}
                 />
               ))
             )}

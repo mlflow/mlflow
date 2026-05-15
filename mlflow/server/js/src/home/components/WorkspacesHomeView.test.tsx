@@ -10,6 +10,7 @@ import { useUpdateWorkspace } from '../../workspaces/hooks/useUpdateWorkspace';
 import { renderWithDesignSystem, screen, waitFor } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { MemoryRouter } from '../../common/utils/RoutingUtils';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
+import { useTraceArchivalEnabled } from '../../experiment-tracking/hooks/useServerInfo';
 
 jest.mock('../../workspaces/hooks/useWorkspaces');
 jest.mock('../../account/hooks', () => ({
@@ -18,6 +19,9 @@ jest.mock('../../account/hooks', () => ({
   useIsAuthAvailable: jest.fn<() => boolean>(() => true),
 }));
 jest.mock('../../workspaces/hooks/useUpdateWorkspace');
+jest.mock('../../experiment-tracking/hooks/useServerInfo', () => ({
+  useTraceArchivalEnabled: jest.fn(),
+}));
 jest.mock('../../workspaces/utils/WorkspaceUtils', () => {
   const actualWorkspaceUtils = jest.requireActual<typeof import('../../workspaces/utils/WorkspaceUtils')>(
     '../../workspaces/utils/WorkspaceUtils',
@@ -32,6 +36,7 @@ jest.mock('../../workspaces/utils/WorkspaceUtils', () => {
 const mockedAdminWorkspaces = jest.mocked(useCurrentUserAdminWorkspaces);
 const mockedIsAdmin = jest.mocked(useCurrentUserIsAdmin);
 const mockedIsAuthAvailable = jest.mocked(useIsAuthAvailable);
+const mockedUseTraceArchivalEnabled = jest.mocked(useTraceArchivalEnabled);
 
 const reloadMock = jest.fn();
 const mockUpdateWorkspace = jest.fn();
@@ -47,6 +52,7 @@ describe('WorkspacesHomeView', () => {
     mockedAdminWorkspaces.mockReturnValue(new Set());
     mockedIsAdmin.mockReturnValue(false);
     mockedIsAuthAvailable.mockReturnValue(true);
+    mockedUseTraceArchivalEnabled.mockReturnValue(true);
     Object.defineProperty(window, 'location', {
       value: { ...window.location, hash: '', reload: reloadMock },
       writable: true,
@@ -215,6 +221,31 @@ describe('WorkspacesHomeView', () => {
     expect(screen.getByDisplayValue('s3://archive/ml-research')).toBeInTheDocument();
     expect(screen.getByLabelText('Trace Archival Retention')).toHaveValue('30');
     expect(screen.getByText('Clear any optional field and save to remove the workspace override.')).toBeInTheDocument();
+  });
+
+  test('hides trace archival settings in the edit modal when the server disables trace archival', async () => {
+    mockedIsAdmin.mockReturnValue(true);
+    mockedUseTraceArchivalEnabled.mockReturnValue(false);
+    jest.mocked(useWorkspaces).mockReturnValue({
+      workspaces: [
+        {
+          name: 'ml-research',
+          description: 'Research experiments',
+          default_artifact_root: 's3://artifacts/ml-research',
+          trace_archival_config: { location: 's3://archive/ml-research', retention: '30d' },
+        },
+      ],
+      isLoading: false,
+      isError: false,
+      refetch: jest.fn() as any,
+    });
+
+    renderComponent();
+    await userEvent.click(screen.getByRole('button', { name: 'Edit workspace' }));
+
+    expect(screen.getByText('Edit Workspace')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Trace archival settings' })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Trace Archival Retention')).not.toBeInTheDocument();
   });
 
   test('saves updated fields from the edit modal', async () => {

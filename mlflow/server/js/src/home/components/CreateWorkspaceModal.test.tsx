@@ -5,20 +5,26 @@ import userEvent from '@testing-library/user-event';
 import { useCreateWorkspaceModal } from './CreateWorkspaceModal';
 import { renderWithIntl, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { fetchAPI } from '../../common/utils/FetchUtils';
+import { useTraceArchivalEnabled } from '../../experiment-tracking/hooks/useServerInfo';
 
 jest.mock('../../common/utils/FetchUtils', () => ({
   fetchAPI: jest.fn(() => Promise.resolve({})),
   getAjaxUrl: jest.fn((url: string) => url),
   HTTPMethods: { GET: 'GET', POST: 'POST', PATCH: 'PATCH', DELETE: 'DELETE' },
 }));
+jest.mock('../../experiment-tracking/hooks/useServerInfo', () => ({
+  useTraceArchivalEnabled: jest.fn(),
+}));
 
 describe('CreateWorkspaceModal', () => {
   const mockOnSuccess = jest.fn();
   const mockFetchAPI = jest.mocked(fetchAPI);
+  const mockedUseTraceArchivalEnabled = jest.mocked(useTraceArchivalEnabled);
 
   beforeEach(() => {
     jest.clearAllMocks();
     mockFetchAPI.mockResolvedValue({} as any);
+    mockedUseTraceArchivalEnabled.mockReturnValue(true);
   });
 
   const TestComponent = () => {
@@ -64,6 +70,17 @@ describe('CreateWorkspaceModal', () => {
         'Optional. Override how long traces stay in the tracking store before archival. Leave blank to use the server default.',
       ),
     ).toBeInTheDocument();
+  });
+
+  test('hides trace archival settings when the server disables trace archival', async () => {
+    mockedUseTraceArchivalEnabled.mockReturnValue(false);
+
+    renderComponent();
+    await openModal();
+
+    expect(screen.getByText('Create Workspace')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Trace archival settings' })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Trace Archival Retention')).not.toBeInTheDocument();
   });
 
   test('does not render modal when closed', () => {

@@ -8,6 +8,7 @@ import { MlflowService } from '../../../sdk/MlflowService';
 import { ErrorCodes } from '../../../../common/constants';
 import { ErrorWrapper } from '../../../../common/utils/ErrorWrapper';
 import { encodeTraceArchivalRetentionTag } from '../../../../common/utils/traceArchival';
+import { useTraceArchivalEnabled } from '../../../hooks/useServerInfo';
 
 const mockDispatch = jest.fn((..._args: any[]) => Promise.resolve());
 const mockUseSelector = jest.fn();
@@ -26,6 +27,9 @@ jest.mock('../../../actions', () => ({
 
 jest.mock('../hooks/useExperimentListQuery', () => ({
   useInvalidateExperimentList: () => mockInvalidateExperimentList,
+}));
+jest.mock('../../../hooks/useServerInfo', () => ({
+  useTraceArchivalEnabled: jest.fn(),
 }));
 
 jest.mock('../../../../common/components/EditableNote', () => ({
@@ -48,6 +52,7 @@ const defaultExperiment: ExperimentEntity = {
 describe('ExperimentViewMetadataEditor', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.mocked(useTraceArchivalEnabled).mockReturnValue(true);
     mockUseSelector.mockImplementation((selector: any) =>
       selector({
         entities: {
@@ -123,6 +128,21 @@ describe('ExperimentViewMetadataEditor', () => {
       'id',
       'mlflow.experiment.edit.trace-archival-retention-amount',
     );
+  });
+
+  test('hides trace archival retention when the server disables trace archival', () => {
+    jest.mocked(useTraceArchivalEnabled).mockReturnValue(false);
+
+    renderWithDesignSystem(
+      <ExperimentViewMetadataEditor
+        experiment={defaultExperiment}
+        editing
+        setEditing={jest.fn()}
+        defaultValue="Existing description"
+      />,
+    );
+
+    expect(screen.queryByLabelText('Trace archival retention')).not.toBeInTheDocument();
   });
 
   test('does not save the description when the rename fails', async () => {

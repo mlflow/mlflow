@@ -5988,6 +5988,20 @@ def _get_server_info():
     from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 
     store = _get_tracking_store()
+    try:
+        trace_archival_config = get_trace_archival_server_config()
+    except Exception:
+        _logger.warning(
+            "Failed to load trace archival config while serving server-info; "
+            + "defaulting to disabled.",
+            exc_info=True,
+        )
+        trace_archival_config = None
+    trace_archival_enabled = bool(
+        trace_archival_config
+        and trace_archival_config.enabled
+        and _store_supports_trace_archival(store)
+    )
 
     if isinstance(store, FileStore):
         store_type = "FileStore"
@@ -5998,6 +6012,7 @@ def _get_server_info():
     return jsonify({
         "store_type": store_type,
         "workspaces_enabled": MLFLOW_ENABLE_WORKSPACES.get(),
+        "trace_archival_enabled": trace_archival_enabled,
     })
 
 
