@@ -34,7 +34,7 @@ def save_file(src, path):
         f.write(src)
 
 
-RELEASE_CUTOFF_DAYS = 14
+RELEASE_CUTOFF_DAYS = 7
 PYPI_URL = os.environ.get("PYPI_URL", "https://pypi.org").rstrip("/")
 
 

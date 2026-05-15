@@ -239,7 +239,7 @@ docs = [
 ]
 
 [tool.uv]
-exclude-newer = "P14D"
+exclude-newer = "P7D"
 exclude-newer-package = { torch = false, torchvision = false }
 required-version = ">=0.11.7"
 constraint-dependencies = [
