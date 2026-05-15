@@ -16,12 +16,21 @@ Both functions are I/O-aware (they load assessments / traces / test
 cases from MLflow) but return only strings; rendering is deterministic
 given the inputs, so most tests mock the IO layer and verify the
 substring content.
+
+Trust boundary: user-supplied feedback rationale, anchored text, and
+conversation content flow into the rendered prompt verbatim. The v1
+playground is a single-developer tool (the developer's own feedback
+goes to the developer's own coding agent), so prompt-injection
+mitigations are deferred; revisit if the surface ever exposes
+cross-user feedback.
 """
 
 from __future__ import annotations
 
 import json
 from typing import Any
+
+import pydantic
 
 from mlflow.agent_playground.test_cases import store
 from mlflow.agent_playground.test_cases.entities import (
@@ -30,9 +39,10 @@ from mlflow.agent_playground.test_cases.entities import (
 )
 from mlflow.entities import Assessment, Trace
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
+from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, RESOURCE_DOES_NOT_EXIST
 from mlflow.tracing.assessment import get_assessment
-from mlflow.tracking.client import MlflowClient
+from mlflow.tracing.client import TracingClient
+from mlflow.tracing.utils.truncation import _try_extract_messages
 
 
 def _parse_anchor(metadata: dict[str, str] | None) -> AssistantMessageAnchor | None:
@@ -56,27 +66,49 @@ def _parse_anchor(metadata: dict[str, str] | None) -> AssistantMessageAnchor | N
         return None
     try:
         return AssistantMessageAnchor(**payload)
-    except Exception:
+    except (pydantic.ValidationError, TypeError):
         return None
+
+
+def _load_assessment_or_raise(trace_id: str, assessment_id: str) -> Assessment:
+    try:
+        return get_assessment(trace_id=trace_id, assessment_id=assessment_id)
+    except MlflowException:
+        raise
+    except Exception as exc:
+        raise MlflowException(
+            f"Failed to load assessment {assessment_id!r} on trace {trace_id!r}: {exc}",
+            error_code=INTERNAL_ERROR,
+        ) from exc
+
+
+def _load_trace_or_raise(trace_id: str) -> Trace:
+    try:
+        return TracingClient().get_trace(trace_id)
+    except MlflowException:
+        raise
+    except Exception as exc:
+        raise MlflowException(
+            f"Failed to load trace {trace_id!r}: {exc}",
+            error_code=INTERNAL_ERROR,
+        ) from exc
 
 
 def _extract_messages_from_trace(trace: Trace) -> list[dict[str, Any]]:
     """Pull the conversation messages out of a trace's root span.
 
-    The agent's ``@invoke`` contract returns a response payload whose
-    span inputs are the conversation prefix. If the inputs aren't a
-    well-formed message list, returns an empty list and the caller's
-    prompt degrades to "no conversation context."
+    Delegates to the shared ``_try_extract_messages`` helper in
+    ``mlflow.tracing.utils.truncation``, which dispatches across the
+    OpenAI ``messages`` / ``input`` / ``choices`` / ``output`` shapes
+    plus the nested ``request`` key. Returns an empty list when no
+    well-formed message list is recoverable; the caller's prompt
+    degrades to "no conversation context."
     """
-    spans = getattr(trace.data, "spans", []) or []
-    if not spans:
+    root = trace.data._get_root_span()
+    if root is None or not isinstance(root.inputs, dict):
         return []
-    root = spans[0]
-    inputs = getattr(root, "inputs", None)
-    messages = inputs.get("messages") or inputs.get("input") if isinstance(inputs, dict) else inputs
-    if isinstance(messages, list):
-        return [m for m in messages if isinstance(m, dict)]
-    return []
+    messages = _try_extract_messages(root.inputs)
+    return messages or []
 
 
 def _format_messages(messages: list[dict[str, Any]]) -> str:
@@ -194,22 +226,27 @@ def _format_persona_block(case: TestCaseRow) -> str:
     if persona.simulation_guidelines:
         joined = "; ".join(persona.simulation_guidelines)
         lines.append(f"  guidelines: {joined}")
+    if persona.context:
+        # Simulator-injected variables; surface to the coding agent so
+        # it can reason about which values the test will run under.
+        lines.append(f"  context: {json.dumps(persona.context, sort_keys=True)}")
     lines.append(f"  max_turns: {case.spec.max_turns}")
     return "\n".join(lines)
 
 
 def _format_assertion_block(case: TestCaseRow) -> str:
+    # TestSpec._strategy_matches_payload (entities.py) guarantees that
+    # judge-strategy specs carry a non-None judge payload and
+    # assertion-strategy specs carry a non-None assertion payload, so
+    # no defensive None branches here.
     if case.spec.strategy == "judge":
-        if case.spec.judge is None:
-            return "  (judge strategy with empty payload)"
-        lines = [f"  criteria: {case.spec.judge.criteria}"]
-        if case.spec.judge.expected_response:
-            lines.append(f"  expected: {case.spec.judge.expected_response}")
+        judge = case.spec.judge
+        lines = [f"  criteria: {judge.criteria}"]
+        if judge.expected_response:
+            lines.append(f"  expected: {judge.expected_response}")
         return "\n".join(lines)
 
     assertion = case.spec.assertion
-    if assertion is None:
-        return "  (assertion strategy with empty payload)"
     lines = []
     if assertion.must_contain:
         lines.append(f"  must_contain:      {assertion.must_contain}")
@@ -251,26 +288,6 @@ def build_fix_prompt(experiment_id: str, test_case_id: str) -> str:
         persona_block=_format_persona_block(case),
         assertion_block=_format_assertion_block(case),
     )
-
-
-def _load_assessment_or_raise(trace_id: str, assessment_id: str) -> Assessment:
-    try:
-        return get_assessment(trace_id=trace_id, assessment_id=assessment_id)
-    except MlflowException:
-        raise
-    except Exception as exc:
-        raise MlflowException(
-            f"Failed to load assessment {assessment_id!r} on trace {trace_id!r}: {exc}"
-        ) from exc
-
-
-def _load_trace_or_raise(trace_id: str) -> Trace:
-    try:
-        return MlflowClient().get_trace(trace_id)
-    except MlflowException:
-        raise
-    except Exception as exc:
-        raise MlflowException(f"Failed to load trace {trace_id!r}: {exc}") from exc
 
 
 __all__ = [
