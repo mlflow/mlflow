@@ -1,88 +1,25 @@
 import json
 import os
 import shutil
-<<<<<<< HEAD:tests/store/tracking/sqlalchemy_store/test_sqlalchemy_store.py
-import time
-import uuid
-from pathlib import Path
-=======
->>>>>>> 0d13bf3da0 (Rename test_sqlalchemy_store.py → test_sqlalchemy_store_core.py and reduce):tests/store/tracking/sqlalchemy_store/test_sqlalchemy_store_core.py
 from unittest import mock
 
 import pytest
 import sqlalchemy
-<<<<<<< HEAD:tests/store/tracking/sqlalchemy_store/test_sqlalchemy_store.py
-from opentelemetry import trace as trace_api
-from opentelemetry.sdk.resources import Resource as _OTelResource
-from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
-
-import mlflow.db
-from mlflow import entities
-from mlflow.entities import (
-    ViewType,
-    trace_location,
-)
-from mlflow.entities.span import Span, create_mlflow_span
-from mlflow.entities.trace_info import TraceInfo
-from mlflow.entities.trace_state import TraceState
-from mlflow.environment_variables import (
-    MLFLOW_ENABLE_WORKSPACES,
-    MLFLOW_TRACKING_URI,
-)
-from mlflow.exceptions import MlflowException
-from mlflow.store.db.db_types import MSSQL, MYSQL, POSTGRES, SQLITE
-=======
 
 import mlflow.db
 from mlflow import entities
 from mlflow.exceptions import MlflowException
 from mlflow.store.db.db_types import MSSQL, MYSQL
->>>>>>> 0d13bf3da0 (Rename test_sqlalchemy_store.py → test_sqlalchemy_store_core.py and reduce):tests/store/tracking/sqlalchemy_store/test_sqlalchemy_store_core.py
 from mlflow.store.db.utils import (
     _get_latest_schema_revision,
     _get_schema_version,
 )
 from mlflow.store.tracking.dbmodels import models
-<<<<<<< HEAD:tests/store/tracking/sqlalchemy_store/test_sqlalchemy_store.py
-from mlflow.store.tracking.dbmodels.models import (
-    SqlDataset,
-    SqlEntityAssociation,
-    SqlEvaluationDataset,
-    SqlEvaluationDatasetRecord,
-    SqlExperiment,
-    SqlExperimentTag,
-    SqlGatewaySecret,
-    SqlInput,
-    SqlInputTag,
-    SqlLatestMetric,
-    SqlLoggedModel,
-    SqlLoggedModelMetric,
-    SqlLoggedModelParam,
-    SqlLoggedModelTag,
-    SqlMetric,
-    SqlOnlineScoringConfig,
-    SqlParam,
-    SqlRun,
-    SqlScorer,
-    SqlScorerVersion,
-    SqlTag,
-    SqlTraceInfo,
-    SqlTraceMetadata,
-    SqlTraceTag,
-)
-=======
->>>>>>> 0d13bf3da0 (Rename test_sqlalchemy_store.py → test_sqlalchemy_store_core.py and reduce):tests/store/tracking/sqlalchemy_store/test_sqlalchemy_store_core.py
 from mlflow.store.tracking.sqlalchemy_store import (
     SqlAlchemyStore,
     _get_orderby_clauses,
 )
 from mlflow.store.tracking.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyStore
-<<<<<<< HEAD:tests/store/tracking/sqlalchemy_store/test_sqlalchemy_store.py
-from mlflow.tracing.utils import TraceJSONEncoder
-from mlflow.utils import mlflow_tags
-from mlflow.utils.time import get_current_time_millis
-=======
->>>>>>> 0d13bf3da0 (Rename test_sqlalchemy_store.py → test_sqlalchemy_store_core.py and reduce):tests/store/tracking/sqlalchemy_store/test_sqlalchemy_store_core.py
 from mlflow.utils.uri import extract_db_type_from_uri
 
 from tests.integration.utils import invoke_cli_runner
