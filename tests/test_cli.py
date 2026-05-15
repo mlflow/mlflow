@@ -1224,7 +1224,7 @@ def _create_test_job(job_store, job_name="test_job", finalize=True):
 def _set_job_creation_time(job_store, job_id, creation_time_ms):
     from mlflow.store.tracking.dbmodels.models import SqlJob
 
-    with job_store.ManagedSessionMaker() as session:
+    with job_store.ManagedSessionMaker(read_only=False) as session:
         job = session.query(SqlJob).filter(SqlJob.id == job_id).first()
         job.creation_time = creation_time_ms
 

@@ -15,7 +15,7 @@ def workspace_store(db_uri, monkeypatch):
 
     store = SqlAlchemyStore(db_uri)
 
-    with store.ManagedSessionMaker() as session:
+    with store.ManagedSessionMaker(read_only=False) as session:
         try:
             session.add(
                 SqlWorkspace(
@@ -269,7 +269,7 @@ def test_get_default_workspace_returns_default(workspace_store):
 def test_delete_workspace_reassigns_resources_to_default(workspace_store):
     workspace_store.create_workspace(Workspace(name="team-a", description=None))
 
-    with workspace_store.ManagedSessionMaker() as session:
+    with workspace_store.ManagedSessionMaker(read_only=False) as session:
         session.execute(
             sa.text(
                 "INSERT INTO experiments (name, workspace, lifecycle_stage) "
@@ -291,7 +291,7 @@ def test_delete_workspace_reassigns_resources_to_default(workspace_store):
 def test_delete_workspace_fails_on_naming_conflict(workspace_store):
     workspace_store.create_workspace(Workspace(name="team-a", description=None))
 
-    with workspace_store.ManagedSessionMaker() as session:
+    with workspace_store.ManagedSessionMaker(read_only=False) as session:
         session.execute(
             sa.text(
                 "INSERT INTO experiments (name, workspace, lifecycle_stage) "
@@ -319,7 +319,7 @@ def test_delete_workspace_fails_on_naming_conflict(workspace_store):
 def test_delete_workspace_cascade_removes_resources(workspace_store):
     workspace_store.create_workspace(Workspace(name="team-a", description=None))
 
-    with workspace_store.ManagedSessionMaker() as session:
+    with workspace_store.ManagedSessionMaker(read_only=False) as session:
         session.execute(
             sa.text(
                 "INSERT INTO experiments (name, workspace, lifecycle_stage) "
@@ -344,7 +344,7 @@ def test_delete_workspace_cascade_removes_resources(workspace_store):
 def test_delete_workspace_cascade_removes_experiment_with_runs(workspace_store):
     workspace_store.create_workspace(Workspace(name="team-a", description=None))
 
-    with workspace_store.ManagedSessionMaker() as session:
+    with workspace_store.ManagedSessionMaker(read_only=False) as session:
         session.execute(
             sa.text(
                 "INSERT INTO experiments (experiment_id, name, workspace, lifecycle_stage) "
@@ -379,7 +379,7 @@ def test_delete_workspace_cascade_removes_experiment_with_runs(workspace_store):
 def test_delete_workspace_restrict_blocks_when_resources_exist(workspace_store):
     workspace_store.create_workspace(Workspace(name="team-a", description=None))
 
-    with workspace_store.ManagedSessionMaker() as session:
+    with workspace_store.ManagedSessionMaker(read_only=False) as session:
         session.execute(
             sa.text(
                 "INSERT INTO experiments (name, workspace, lifecycle_stage) "

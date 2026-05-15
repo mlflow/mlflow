@@ -80,7 +80,7 @@ def set_kek_passphrase(monkeypatch):
 
 def _cleanup_database(store: SqlAlchemyStore):
     """Clean up gateway-specific tables after each test."""
-    with store.ManagedSessionMaker() as session:
+    with store.ManagedSessionMaker(read_only=False) as session:
         # Delete all rows in gateway tables in dependency order
         for model in (
             SqlGatewayGuardrailConfig,
@@ -348,7 +348,7 @@ def test_secret_id_and_name_are_immutable_at_database_level(store: SqlAlchemySto
         )
         session.flush()
 
-    with store.ManagedSessionMaker() as session:
+    with store.ManagedSessionMaker(read_only=False) as session:
         with pytest.raises((DatabaseError, IntegrityError, OperationalError)):
             attempt_mutation(session)
 
@@ -3025,7 +3025,7 @@ def test_sum_gateway_trace_cost_basic(store: SqlAlchemyStore):
     exp = store.create_experiment("cost-test-basic")
     exp_id = int(exp)
 
-    with store.ManagedSessionMaker() as session:
+    with store.ManagedSessionMaker(read_only=False) as session:
         _insert_trace_with_cost(session, exp_id, "t1", 1000, [("s1", 0.05), ("s2", 0.03)])
         _insert_trace_with_cost(session, exp_id, "t2", 2000, [("s1", 0.10)])
 
@@ -3037,7 +3037,7 @@ def test_sum_gateway_trace_cost_excludes_non_gateway(store: SqlAlchemyStore):
     exp = store.create_experiment("cost-test-non-gw")
     exp_id = int(exp)
 
-    with store.ManagedSessionMaker() as session:
+    with store.ManagedSessionMaker(read_only=False) as session:
         _insert_trace_with_cost(session, exp_id, "gw1", 1000, [("s1", 0.10)], is_gateway=True)
         _insert_trace_with_cost(session, exp_id, "nongw1", 1000, [("s1", 0.50)], is_gateway=False)
 
@@ -3049,7 +3049,7 @@ def test_sum_gateway_trace_cost_time_window(store: SqlAlchemyStore):
     exp = store.create_experiment("cost-test-window")
     exp_id = int(exp)
 
-    with store.ManagedSessionMaker() as session:
+    with store.ManagedSessionMaker(read_only=False) as session:
         _insert_trace_with_cost(session, exp_id, "early", 500, [("s1", 0.01)])
         _insert_trace_with_cost(session, exp_id, "in-window", 1500, [("s1", 0.05)])
         _insert_trace_with_cost(session, exp_id, "late", 3000, [("s1", 0.99)])
@@ -3060,7 +3060,7 @@ def test_sum_gateway_trace_cost_time_window(store: SqlAlchemyStore):
 
 
 def test_sum_gateway_trace_cost_workspace_filter(store: SqlAlchemyStore):
-    with store.ManagedSessionMaker() as session:
+    with store.ManagedSessionMaker(read_only=False) as session:
         # Create two experiments in different workspaces
         exp_ws_a = SqlExperiment(
             name=f"cost-ws-a-{uuid.uuid4().hex}",
