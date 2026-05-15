@@ -41,9 +41,10 @@ To use MLflow deployment, you must first create a model.
 ### Container
 
 Container plays a critical role for simplifying and standardizing the model deployment process. MLflow uses Docker containers to package models with
-their dependencies, enabling deployment to various destinations without environment compatibility issues. See
-[Building a Docker Image for MLflow Model](/ml/deployment/deploy-model-to-kubernetes#build-docker-for-deployment) for more details on how
-to deploy your model as a container. If you're new to Docker, you can start learning at ["What is a Container"](https://www.docker.com/resources/what-container).
+their dependencies, enabling deployment to various destinations without environment compatibility issues. Use the
+<APILink fn="mlflow.server.cli" hash="mlflow-models-build-docker">`mlflow models build-docker`</APILink> CLI command or the
+<APILink fn="mlflow.models.build_docker">`mlflow.models.build_docker`</APILink> Python API to build an image that serves your model.
+If you're new to Docker, you can start learning at ["What is a Container"](https://www.docker.com/resources/what-container).
 
 ### Deployment Target
 
@@ -83,9 +84,6 @@ MLflow offers support for a variety of deployment targets. For detailed informat
   </LogoCard>
   <LogoCard description="Databricks Model Serving offers a fully managed service for serving MLflow models at scale, with added benefits of performance optimizations and monitoring capabilities." link="https://docs.databricks.com/en/mlflow/models.html">
     <span>![Databricks Logo](/images/logos/databricks-logo.png)</span>
-  </LogoCard>
-  <LogoCard description="MLflow Deployment integrates with Kubernetes-native ML serving frameworks such as Seldon Core and KServe (formerly KFServing)." link="/ml/deployment/deploy-model-to-kubernetes">
-    <span>![Kubernetes Logo](/images/logos/kubernetes-logo.png)</span>
   </LogoCard>
   <LogoCard description="Modal is a serverless cloud platform for AI/ML with on-demand GPU access (T4 to H200), auto-scaling, and one-command deployment via the mlflow-modal-deploy plugin." link="/ml/deployment/deploy-model-to-modal">
     <span>![Modal Logo](/images/logos/modal-logo.png)</span>

@@ -26,7 +26,6 @@ RUN pip install /opt/mlflow
 RUN python -c "from mlflow.models.container import _install_pyfunc_deps;_install_pyfunc_deps(None, False)"
 
 ENV MLFLOW_DISABLE_ENV_CREATION=False
-ENV ENABLE_MLSERVER=False
 
 # granting read/write access and conditional execution authority to all child directories
 # and files to allow for deployment to AWS Sagemaker Serverless Endpoints
