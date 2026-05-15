@@ -228,6 +228,10 @@ class _TrackingStore:
         self.ManagedSessionMaker = ManagedSessionMaker
 
     def get_experiment(self, experiment_id: str):
+        if experiment_id not in self._experiment_workspaces:
+            raise MlflowException(
+                f"Experiment {experiment_id!r} not found", RESOURCE_DOES_NOT_EXIST
+            )
         return SimpleNamespace(workspace=self._experiment_workspaces[experiment_id])
 
     def get_experiment_by_name(self, experiment_name: str):
