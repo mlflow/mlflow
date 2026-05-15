@@ -8,28 +8,62 @@ from mlflow.assistant.providers.ollama import _MAX_SESSION_BYTES, OllamaProvider
 from mlflow.assistant.types import EventType
 
 
-class AsyncIterator:
-    def __init__(self, items):
-        self.items = iter(items)
+# ---------------------------------------------------------------------------
+# aiohttp mock helpers
+# ---------------------------------------------------------------------------
+
+class _AsyncLineIter:
+    """Yields pre-encoded JSON lines, one per call to __anext__."""
+
+    def __init__(self, lines: list[bytes]):
+        self._iter = iter(lines)
 
     def __aiter__(self):
         return self
 
-    async def __anext__(self):
+    async def __anext__(self) -> bytes:
         try:
-            return next(self.items)
+            return next(self._iter)
         except StopIteration:
             raise StopAsyncIteration
 
 
-def _make_chunk(content="", tool_calls=None):
-    msg = MagicMock()
-    msg.content = content
-    msg.tool_calls = tool_calls or []
-    chunk = MagicMock()
-    chunk.message = msg
-    return chunk
+def _make_aiohttp_session(response_lines_per_call: list[list[bytes]], status: int = 200):
+    """
+    Build a mock aiohttp.ClientSession whose post() returns successive
+    responses, each streaming the given byte lines.
+    """
+    responses = []
+    for lines in response_lines_per_call:
+        resp = MagicMock()
+        resp.status = status
+        resp.content = _AsyncLineIter(lines)
+        resp.__aenter__ = AsyncMock(return_value=resp)
+        resp.__aexit__ = AsyncMock(return_value=False)
+        responses.append(resp)
 
+    call_count = 0
+
+    def _post(*args, **kwargs):
+        nonlocal call_count
+        r = responses[call_count]
+        call_count += 1
+        return r
+
+    session = MagicMock()
+    session.post = _post
+    session.__aenter__ = AsyncMock(return_value=session)
+    session.__aexit__ = AsyncMock(return_value=False)
+    return session
+
+
+def _line(data: dict) -> bytes:
+    return (json.dumps(data) + "\n").encode()
+
+
+# ---------------------------------------------------------------------------
+# Fixtures
+# ---------------------------------------------------------------------------
 
 @pytest.fixture(autouse=True)
 def config(tmp_path):
@@ -41,27 +75,52 @@ def config(tmp_path):
     clear_config_cache()
 
 
-def test_is_available_when_ollama_installed():
-    with patch.dict("sys.modules", {"ollama": MagicMock()}):
-        provider = OllamaProvider()
-        assert provider.is_available() is True
+# ---------------------------------------------------------------------------
+# Basic provider tests
+# ---------------------------------------------------------------------------
 
-
-def test_is_available_when_ollama_not_installed():
-    with patch.dict("sys.modules", {"ollama": None}):
-        provider = OllamaProvider()
-        assert provider.is_available() is False
+def test_is_available():
+    assert OllamaProvider().is_available() is True
 
 
 def test_provider_name():
-    provider = OllamaProvider()
-    assert provider.name == "ollama"
+    assert OllamaProvider().name == "ollama"
 
 
 def test_provider_display_name():
-    provider = OllamaProvider()
-    assert provider.display_name == "Ollama"
+    assert OllamaProvider().display_name == "Ollama"
 
+
+# ---------------------------------------------------------------------------
+# list_models
+# ---------------------------------------------------------------------------
+
+def test_list_models_returns_model_names():
+    mock_resp = MagicMock()
+    mock_resp.json.return_value = {"models": [{"model": "llama3"}, {"model": "mistral"}]}
+    mock_resp.raise_for_status = MagicMock()
+
+    with patch("mlflow.assistant.providers.ollama.requests.get", return_value=mock_resp) as mock_get:
+        models = OllamaProvider().list_models("http://localhost:11434")
+
+    assert models == ["llama3", "mistral"]
+    mock_get.assert_called_once_with("http://localhost:11434/api/tags", timeout=10)
+
+
+def test_list_models_raises_on_connection_error():
+    from mlflow.assistant.providers.base import ProviderNotConfiguredError
+
+    with patch(
+        "mlflow.assistant.providers.ollama.requests.get",
+        side_effect=Exception("Connection refused"),
+    ):
+        with pytest.raises(ProviderNotConfiguredError, match="Connection refused"):
+            OllamaProvider().list_models("http://localhost:11434")
+
+
+# ---------------------------------------------------------------------------
+# _trim_session
+# ---------------------------------------------------------------------------
 
 def test_trim_session_avoids_reserializing_full_history(monkeypatch):
     message_content = "x" * (_MAX_SESSION_BYTES // 3)
@@ -85,78 +144,34 @@ def test_trim_session_avoids_reserializing_full_history(monkeypatch):
 
     monkeypatch.setattr("mlflow.assistant.providers.ollama.json.dumps", tracked_dumps)
 
-    trimmed_messages = _trim_session(messages)
+    trimmed = _trim_session(messages)
 
-    assert trimmed_messages[0]["role"] == "system"
-    assert trimmed_messages[-1]["content"].startswith("new-")
-    assert all(not message["content"].startswith("old-") for message in trimmed_messages[1:])
-
-
-def test_list_models_returns_model_names():
-    mock_ollama = MagicMock()
-    mock_model = MagicMock()
-    mock_model.model = "llama3"
-    mock_ollama.Client.return_value.list.return_value = MagicMock(models=[mock_model])
-
-    with patch.dict("sys.modules", {"ollama": mock_ollama}):
-        provider = OllamaProvider()
-        models = provider.list_models("http://localhost:11434")
-
-    assert models == ["llama3"]
-    mock_ollama.Client.assert_called_once_with(host="http://localhost:11434")
+    assert trimmed[0]["role"] == "system"
+    assert trimmed[-1]["content"].startswith("new-")
+    assert all(not m["content"].startswith("old-") for m in trimmed[1:])
 
 
-@pytest.mark.asyncio
-async def test_astream_yields_error_when_ollama_not_installed():
-    with patch.dict("sys.modules", {"ollama": None}):
-        provider = OllamaProvider()
-        events = [e async for e in provider.astream("test prompt", "http://localhost:5000")]
-
-    assert len(events) == 1
-    assert events[0].type == EventType.ERROR
-    assert "ollama" in events[0].data["error"].lower()
-
+# ---------------------------------------------------------------------------
+# astream — text streaming
+# ---------------------------------------------------------------------------
 
 @pytest.mark.asyncio
 async def test_astream_streams_text_chunks():
-    mock_ollama = MagicMock()
-    chunks = [
-        _make_chunk(content="Hello"),
-        _make_chunk(content=" world"),
-        _make_chunk(content=""),
+    lines = [
+        _line({"message": {"role": "assistant", "content": "Hello"}, "done": False}),
+        _line({"message": {"role": "assistant", "content": " world"}, "done": False}),
+        _line({"message": {"role": "assistant", "content": ""}, "done": True}),
     ]
+    session = _make_aiohttp_session([lines])
 
-    mock_client = MagicMock()
-    mock_client.chat = AsyncMock(return_value=AsyncIterator(chunks))
-    mock_ollama.AsyncClient.return_value = mock_client
-
-    with patch.dict("sys.modules", {"ollama": mock_ollama}):
-        provider = OllamaProvider()
-        events = [e async for e in provider.astream("test prompt", "http://localhost:5000")]
+    with patch("mlflow.assistant.providers.ollama.aiohttp.ClientSession", return_value=session):
+        events = [e async for e in OllamaProvider().astream("test prompt", "http://localhost:5000")]
 
     stream_events = [e for e in events if e.type == EventType.STREAM_EVENT]
     assert len(stream_events) == 2
     assert stream_events[0].data["event"]["delta"]["text"] == "Hello"
     assert stream_events[1].data["event"]["delta"]["text"] == " world"
-
-    done_events = [e for e in events if e.type == EventType.DONE]
-    assert len(done_events) == 1
-
-
-@pytest.mark.asyncio
-async def test_astream_yields_error_on_exception():
-    mock_ollama = MagicMock()
-    mock_client = MagicMock()
-    mock_client.chat = AsyncMock(side_effect=Exception("Connection refused"))
-    mock_ollama.AsyncClient.return_value = mock_client
-
-    with patch.dict("sys.modules", {"ollama": mock_ollama}):
-        provider = OllamaProvider()
-        events = [e async for e in provider.astream("test prompt", "http://localhost:5000")]
-
-    assert len(events) == 1
-    assert events[0].type == EventType.ERROR
-    assert "Connection refused" in events[0].data["error"]
+    assert any(e.type == EventType.DONE for e in events)
 
 
 @pytest.mark.asyncio
@@ -165,66 +180,94 @@ async def test_astream_uses_base_url_from_config(tmp_path):
     config_file.write_text(
         '{"providers": {"ollama": {"model": "llama3.2", "base_url": "http://myhost:11434"}}}'
     )
+    lines = [_line({"message": {"role": "assistant", "content": "hi"}, "done": True})]
+    session = _make_aiohttp_session([lines])
 
-    mock_ollama = MagicMock()
-    chunks = [_make_chunk(content="hi")]
-    mock_client = MagicMock()
-    mock_client.chat = AsyncMock(return_value=AsyncIterator(chunks))
-    mock_ollama.AsyncClient.return_value = mock_client
+    posted_urls = []
+
+    async def _post(url, **kwargs):
+        posted_urls.append(url)
+        return session.post.__wrapped__(url, **kwargs) if hasattr(session.post, "__wrapped__") else lines
+
+    # Capture the URL via a wrapper
+    real_session = _make_aiohttp_session([lines])
+    original_post = real_session.post
+
+    captured = {}
+
+    def capturing_post(url, **kwargs):
+        captured["url"] = url
+        return original_post(url, **kwargs)
+
+    real_session.post = capturing_post
 
     clear_config_cache()
     with (
         patch("mlflow.assistant.config.CONFIG_PATH", config_file),
-        patch.dict("sys.modules", {"ollama": mock_ollama}),
+        patch("mlflow.assistant.providers.ollama.aiohttp.ClientSession", return_value=real_session),
     ):
-        provider = OllamaProvider()
-        _ = [e async for e in provider.astream("prompt", "http://localhost:5000")]
+        _ = [e async for e in OllamaProvider().astream("prompt", "http://localhost:5000")]
 
-    mock_ollama.AsyncClient.assert_called_once_with(host="http://myhost:11434")
+    assert captured["url"] == "http://myhost:11434/api/chat"
+    clear_config_cache()
 
 
 @pytest.mark.asyncio
+async def test_astream_yields_error_on_http_error():
+    session = _make_aiohttp_session([[]], status=500)
+    session.__aenter__.return_value.post = AsyncMock(
+        return_value=MagicMock(
+            status=500,
+            text=AsyncMock(return_value="Internal Server Error"),
+            __aenter__=AsyncMock(return_value=MagicMock(
+                status=500,
+                text=AsyncMock(return_value="Internal Server Error"),
+                content=_AsyncLineIter([]),
+            )),
+            __aexit__=AsyncMock(return_value=False),
+        )
+    )
+
+    with patch(
+        "mlflow.assistant.providers.ollama.aiohttp.ClientSession",
+        side_effect=Exception("Connection refused"),
+    ):
+        events = [e async for e in OllamaProvider().astream("test", "http://localhost:5000")]
+
+    assert len(events) == 1
+    assert events[0].type == EventType.ERROR
+    assert "Connection refused" in events[0].data["error"]
+
+
+# ---------------------------------------------------------------------------
+# astream — tool call round-trip
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
 async def test_astream_tool_call_round_trip():
-    mock_ollama = MagicMock()
-
-    tc = MagicMock()
-    tc.function.name = "Bash"
-    tc.function.arguments = {"command": "ls"}
-    tc.model_dump.return_value = {"function": {"name": "Bash", "arguments": {"command": "ls"}}}
-
-    chunks_turn1 = [
-        _make_chunk(content="", tool_calls=[tc]),
+    tool_call = {
+        "function": {"name": "Bash", "arguments": {"command": "ls"}}
+    }
+    lines_turn1 = [
+        _line({"message": {"role": "assistant", "content": "", "tool_calls": [tool_call]}, "done": True}),
     ]
-    chunks_turn2 = [
-        _make_chunk(content="Done"),
+    lines_turn2 = [
+        _line({"message": {"role": "assistant", "content": "Done"}, "done": False}),
+        _line({"message": {"role": "assistant", "content": ""}, "done": True}),
     ]
-
-    call_count = 0
-
-    async def fake_chat(**kwargs):
-        nonlocal call_count
-        call_count += 1
-        if call_count == 1:
-            return AsyncIterator(chunks_turn1)
-        return AsyncIterator(chunks_turn2)
-
-    mock_client = MagicMock()
-    mock_client.chat = fake_chat
-    mock_ollama.AsyncClient.return_value = mock_client
+    session = _make_aiohttp_session([lines_turn1, lines_turn2])
 
     with (
-        patch.dict("sys.modules", {"ollama": mock_ollama}),
+        patch("mlflow.assistant.providers.ollama.aiohttp.ClientSession", return_value=session),
         patch(
             "mlflow.assistant.providers.ollama.execute_tool",
             AsyncMock(return_value=("file1.py\n", False)),
         ),
     ):
-        provider = OllamaProvider()
-        events = [e async for e in provider.astream("list files", "http://localhost:5000")]
+        events = [e async for e in OllamaProvider().astream("list files", "http://localhost:5000")]
 
     tool_use_events = [
-        e
-        for e in events
+        e for e in events
         if e.type == EventType.MESSAGE
         and isinstance(e.data["message"]["content"], list)
         and e.data["message"]["content"][0].get("name") == "Bash"

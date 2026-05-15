@@ -5,9 +5,11 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any, AsyncGenerator
 
+import aiohttp
+import requests
+
 from mlflow.assistant.providers.base import (
     AssistantProvider,
-    CLINotInstalledError,
     NotAuthenticatedError,
     ProviderNotConfiguredError,
     load_config,
@@ -28,24 +30,6 @@ _JSON_LIST_OVERHEAD_BYTES = 2
 _JSON_LIST_SEPARATOR_BYTES = 2
 
 
-def _get_ollama_client_factory() -> Callable[..., Any]:
-    import ollama
-
-    client_factory = getattr(ollama, "Client", None)
-    if client_factory is None:
-        raise ImportError("ollama.Client is unavailable")
-    return client_factory
-
-
-def _get_ollama_async_client_factory() -> Callable[..., Any]:
-    import ollama
-
-    async_client_factory = getattr(ollama, "AsyncClient", None)
-    if async_client_factory is None:
-        raise ImportError("ollama.AsyncClient is unavailable")
-    return async_client_factory
-
-
 def _message_size_bytes(message: dict[str, Any]) -> int:
     return len(json.dumps(message).encode())
 
@@ -62,6 +46,12 @@ def _trim_session(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return messages
 
 
+def _list_models_http(host: str) -> list[str]:
+    response = requests.get(f"{host}/api/tags", timeout=10)
+    response.raise_for_status()
+    return [m["model"] for m in response.json().get("models", []) if m.get("model")]
+
+
 class OllamaProvider(AssistantProvider):
     @property
     def name(self) -> str:
@@ -76,12 +66,7 @@ class OllamaProvider(AssistantProvider):
         return "AI-powered assistant using a locally running Ollama server"
 
     def is_available(self) -> bool:
-        try:
-            _get_ollama_client_factory()
-
-            return True
-        except ImportError:
-            return False
+        return True
 
     def _get_host(self) -> str:
         try:
@@ -91,22 +76,11 @@ class OllamaProvider(AssistantProvider):
             return "http://localhost:11434"
 
     def check_connection(self, echo: Callable[[str], None] | None = None) -> None:
-        try:
-            client_factory = _get_ollama_client_factory()
-        except ImportError:
-            if echo:
-                echo("ollama package not found")
-            raise CLINotInstalledError(
-                "The 'ollama' Python package is not installed. Install it with: pip install ollama"
-            )
-
         host = self._get_host()
         if echo:
             echo(f"Connecting to Ollama at {host}...")
-
         try:
-            client = client_factory(host=host)
-            client.list()
+            _list_models_http(host)
             if echo:
                 echo("Connection verified")
         except Exception as e:
@@ -118,18 +92,9 @@ class OllamaProvider(AssistantProvider):
             ) from e
 
     def list_models(self, base_url: str | None = None) -> list[str]:
-        try:
-            client_factory = _get_ollama_client_factory()
-        except ImportError as e:
-            raise CLINotInstalledError(
-                "The 'ollama' Python package is not installed. Install it with: pip install ollama"
-            ) from e
-
         host = base_url or self._get_host()
         try:
-            client = client_factory(host=host)
-            response = client.list()
-            return [model.model for model in response.models if model.model]
+            return _list_models_http(host)
         except Exception as e:
             raise ProviderNotConfiguredError(
                 f"Cannot connect to Ollama server at {host}: {e}"
@@ -147,23 +112,13 @@ class OllamaProvider(AssistantProvider):
         cwd: Path | None = None,
         context: dict[str, Any] | None = None,
     ) -> AsyncGenerator[Event, None]:
-        try:
-            async_client_factory = _get_ollama_async_client_factory()
-        except ImportError:
-            yield Event.from_error(
-                "The 'ollama' Python package is not installed. Install it with: pip install ollama"
-            )
-            return
-
         config = load_config(self.name)
         host = config.base_url or "http://localhost:11434"
         model = config.model if config.model and config.model != "default" else None
 
         if model is None:
-            client = async_client_factory(host=host)
             try:
-                response = await client.list()
-                available = [m.model for m in response.models if m.model]
+                available = _list_models_http(host)
             except Exception as e:
                 yield Event.from_error(
                     f"Cannot connect to Ollama at {host}: {e}. "
@@ -196,108 +151,115 @@ class OllamaProvider(AssistantProvider):
             messages.append({"role": "system", "content": sys_content})
 
         messages.append({"role": "user", "content": user_text})
-
         tools = build_tools_schema()
-        client = async_client_factory(host=host)
 
         try:
-            while True:
-                accumulated_text = ""
-                tool_calls_raw: list[Any] = []
-                in_think_block = False
-                think_buf = ""
+            async with aiohttp.ClientSession() as session:
+                while True:
+                    accumulated_text = ""
+                    tool_calls_raw: list[dict[str, Any]] = []
+                    in_think_block = False
+                    think_buf = ""
 
-                response_stream = await client.chat(
-                    model=model,
-                    messages=messages,
-                    tools=tools,
-                    stream=True,
-                )
+                    async with session.post(
+                        f"{host}/api/chat",
+                        json={"model": model, "messages": messages, "tools": tools, "stream": True},
+                        timeout=aiohttp.ClientTimeout(total=300),
+                    ) as resp:
+                        if resp.status != 200:
+                            body = await resp.text()
+                            yield Event.from_error(f"Ollama error {resp.status}: {body}")
+                            return
 
-                async for chunk in response_stream:
-                    msg = chunk.message
+                        async for raw_line in resp.content:
+                            line = raw_line.strip()
+                            if not line:
+                                continue
+                            chunk = json.loads(line)
+                            msg = chunk.get("message", {})
 
-                    if delta := msg.content or "":
-                        accumulated_text += delta
-                        think_buf += delta
-                        emit = ""
-                        while think_buf:
-                            if in_think_block:
-                                end = think_buf.find("</think>")
-                                if end == -1:
-                                    think_buf = ""
-                                    break
-                                think_buf = think_buf[end + len("</think>") :]
-                                in_think_block = False
-                            else:
-                                start = think_buf.find("<think>")
-                                if start == -1:
-                                    emit += think_buf
-                                    think_buf = ""
-                                    break
-                                emit += think_buf[:start]
-                                think_buf = think_buf[start + len("<think>") :]
-                                in_think_block = True
-                        if emit:
-                            yield Event.from_stream_event({
-                                "type": "content_delta",
-                                "delta": {"text": emit},
-                            })
+                            if delta := msg.get("content") or "":
+                                accumulated_text += delta
+                                think_buf += delta
+                                emit = ""
+                                while think_buf:
+                                    if in_think_block:
+                                        end = think_buf.find("</think>")
+                                        if end == -1:
+                                            think_buf = ""
+                                            break
+                                        think_buf = think_buf[end + len("</think>"):]
+                                        in_think_block = False
+                                    else:
+                                        start = think_buf.find("<think>")
+                                        if start == -1:
+                                            emit += think_buf
+                                            think_buf = ""
+                                            break
+                                        emit += think_buf[:start]
+                                        think_buf = think_buf[start + len("<think>"):]
+                                        in_think_block = True
+                                if emit:
+                                    yield Event.from_stream_event({
+                                        "type": "content_delta",
+                                        "delta": {"text": emit},
+                                    })
 
-                    if msg.tool_calls:
-                        tool_calls_raw.extend(msg.tool_calls)
+                            if raw_tool_calls := msg.get("tool_calls"):
+                                tool_calls_raw.extend(raw_tool_calls)
 
-                if not tool_calls_raw:
-                    if accumulated_text:
-                        messages.append({"role": "assistant", "content": accumulated_text})
-                    break
-
-                messages.append({
-                    "role": "assistant",
-                    "content": accumulated_text,
-                    "tool_calls": [tc.model_dump() for tc in tool_calls_raw],
-                })
-
-                for tc in tool_calls_raw:
-                    fn = tc.function
-                    tool_name = fn.name or ""
-                    raw_args = fn.arguments
-                    tool_input = dict(raw_args) if raw_args else {}
-                    tool_id = str(uuid.uuid4())
-
-                    yield Event.from_message(
-                        Message(
-                            role="assistant",
-                            content=[ToolUseBlock(id=tool_id, name=tool_name, input=tool_input)],
-                        )
-                    )
-
-                    result_str, is_error = await execute_tool(
-                        tool_name,
-                        tool_input,
-                        cwd=cwd,
-                        tracking_uri=tracking_uri,
-                        permissions=config.permissions,
-                    )
-
-                    yield Event.from_message(
-                        Message(
-                            role="user",
-                            content=[
-                                ToolResultBlock(
-                                    tool_use_id=tool_id,
-                                    content=result_str,
-                                    is_error=is_error,
-                                )
-                            ],
-                        )
-                    )
+                    if not tool_calls_raw:
+                        if accumulated_text:
+                            messages.append({"role": "assistant", "content": accumulated_text})
+                        break
 
                     messages.append({
-                        "role": "tool",
-                        "content": result_str,
-                        "tool_name": tool_name,
+                        "role": "assistant",
+                        "content": accumulated_text,
+                        "tool_calls": tool_calls_raw,
                     })
+
+                    for tc in tool_calls_raw:
+                        fn = tc.get("function", {})
+                        tool_name = fn.get("name", "")
+                        tool_input = fn.get("arguments", {})
+                        if isinstance(tool_input, str):
+                            tool_input = json.loads(tool_input)
+                        tool_id = str(uuid.uuid4())
+
+                        yield Event.from_message(
+                            Message(
+                                role="assistant",
+                                content=[ToolUseBlock(id=tool_id, name=tool_name, input=tool_input)],
+                            )
+                        )
+
+                        result_str, is_error = await execute_tool(
+                            tool_name,
+                            tool_input,
+                            cwd=cwd,
+                            tracking_uri=tracking_uri,
+                            permissions=config.permissions,
+                        )
+
+                        yield Event.from_message(
+                            Message(
+                                role="user",
+                                content=[
+                                    ToolResultBlock(
+                                        tool_use_id=tool_id,
+                                        content=result_str,
+                                        is_error=is_error,
+                                    )
+                                ],
+                            )
+                        )
+
+                        messages.append({
+                            "role": "tool",
+                            "content": result_str,
+                            "tool_name": tool_name,
+                        })
 
             new_session_id = json.dumps(_trim_session(messages))
             yield Event.from_result(result=None, session_id=new_session_id)
