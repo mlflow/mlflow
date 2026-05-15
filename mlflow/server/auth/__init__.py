@@ -699,6 +699,36 @@ def _role_permission_for(
     return _role_perm
 
 
+def _role_permission_for_known_workspace(
+    username: str,
+    resource_type: str,
+    resource_key: str,
+    workspace_name: str | None,
+) -> Callable[[], Permission | None]:
+    """Like ``_role_permission_for`` but with workspace already resolved.
+
+    Avoids the ``workspace_fetcher`` DB round-trip when the caller already
+    holds the resource object (e.g. ``_get_permission_from_registered_model_or_prompt_name``).
+    """
+
+    def _role_perm() -> Permission | None:
+        if workspace_name is None:
+            return NO_PERMISSIONS if MLFLOW_ENABLE_WORKSPACES.get() else None
+        user = store.get_user(username)
+        perm = store.get_role_permission_for_resource(
+            user.id, resource_type, resource_key, workspace_name
+        )
+        if perm is not None:
+            return perm
+        if not MLFLOW_ENABLE_WORKSPACES.get():
+            return None
+        if _user_inherits_default_workspace_grant(workspace_name):
+            return get_permission(auth_config.default_permission)
+        return NO_PERMISSIONS
+
+    return _role_perm
+
+
 def _get_experiment_permission(experiment_id: str, username: str) -> Permission:
     return _get_role_permission_or_default(
         _role_permission_for(
@@ -862,6 +892,29 @@ def _get_permission_from_prompt_name() -> Permission:
             workspace_fetcher=_get_model_registry_store().get_registered_model,
             workspace_label="prompt",
         ),
+    )
+
+
+def _get_permission_from_registered_model_or_prompt_name() -> Permission:
+    """Resolve permission for a shared model-registry route in a single DB round-trip.
+
+    Fetches the ``RegisteredModel`` once, classifies it as prompt or model via
+    ``._is_prompt()``, and resolves the workspace from the same object — avoiding
+    the separate classify fetch that ``_request_targets_prompt`` would add.
+    """
+    name = _get_request_param("name")
+    username = authenticate_request().username
+    workspace_name = None
+    resource_type = "registered_model"
+    try:
+        rm = _get_model_registry_store().get_registered_model(name)
+        resource_type = "prompt" if rm._is_prompt() else "registered_model"
+        workspace_name = getattr(rm, "workspace", None)
+    except MlflowException as e:
+        if e.error_code != ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+            raise
+    return _get_role_permission_or_default(
+        _role_permission_for_known_workspace(username, resource_type, name, workspace_name)
     )
 
 
@@ -1082,35 +1135,19 @@ def _request_targets_prompt() -> bool:
 
 
 def _validate_can_read_registered_model_or_prompt():
-    return (
-        validate_can_read_prompt()
-        if _request_targets_prompt()
-        else validate_can_read_registered_model()
-    )
+    return _get_permission_from_registered_model_or_prompt_name().can_read
 
 
 def _validate_can_update_registered_model_or_prompt():
-    return (
-        validate_can_update_prompt()
-        if _request_targets_prompt()
-        else validate_can_update_registered_model()
-    )
+    return _get_permission_from_registered_model_or_prompt_name().can_update
 
 
 def _validate_can_delete_registered_model_or_prompt():
-    return (
-        validate_can_delete_prompt()
-        if _request_targets_prompt()
-        else validate_can_delete_registered_model()
-    )
+    return _get_permission_from_registered_model_or_prompt_name().can_delete
 
 
 def _validate_can_manage_registered_model_or_prompt():
-    return (
-        validate_can_manage_prompt()
-        if _request_targets_prompt()
-        else validate_can_manage_registered_model()
-    )
+    return _get_permission_from_registered_model_or_prompt_name().can_manage
 
 
 def validate_can_create_experiment() -> bool:
