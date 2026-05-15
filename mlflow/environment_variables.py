@@ -1421,6 +1421,10 @@ MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY = _EnvironmentVariable(
     "MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY", int, 60
 )
 
+#: Specifies the path to the YAML config file for MLflow server-owned trace archival.
+#: (default: ``None``)
+MLFLOW_TRACE_ARCHIVAL_CONFIG = _EnvironmentVariable("MLFLOW_TRACE_ARCHIVAL_CONFIG", str, None)
+
 #: Specifies the maximum number of workers for async judge invocation jobs.
 #: (default: ``10``)
 MLFLOW_SERVER_JUDGE_INVOKE_MAX_WORKERS = _EnvironmentVariable(

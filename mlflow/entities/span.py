@@ -454,10 +454,21 @@ class Span:
         return span
 
     @classmethod
-    def from_otel_proto(cls, otel_proto_span, location_id: str | None = None) -> "Span":
+    def from_otel_proto(
+        cls,
+        otel_proto_span,
+        location_id: str | None = None,
+        *,
+        preserve_request_id: bool = False,
+    ) -> "Span":
         """
         Create a Span from an OpenTelemetry protobuf span.
-        This is an internal method used for receiving spans via OTel protocol.
+
+        This is an internal method used for receiving spans via OTel protocol. By default,
+        MLflow derives the canonical ``mlflow.traceRequestId`` from the OTLP trace ID so server
+        ingest does not trust a client-sent request ID. Set ``preserve_request_id=True`` only for
+        trusted internal round-trip flows, such as archived trace payload deserialization, where
+        the stored MLflow request ID must be preserved exactly if present.
         """
         # Validate required fields - empty bytes indicate missing trace_id or span_id
         if not otel_proto_span.trace_id:
@@ -479,6 +490,10 @@ class Span:
         else:
             status_code = OTelStatusCode.UNSET
 
+        serialized_attributes = {
+            attr.key: dump_span_attribute_value(_decode_otel_proto_anyvalue(attr.value))
+            for attr in otel_proto_span.attributes
+        }
         mlflow_trace_id = (
             generate_trace_id_v4_from_otel_trace_id(trace_id, location_id)
             if location_id
@@ -505,15 +520,14 @@ class Span:
             end_time=otel_proto_span.end_time_unix_nano,
             # we need to dump the attribute value to be consistent with span.set_attribute behavior
             attributes={
-                **{
-                    attr.key: dump_span_attribute_value(_decode_otel_proto_anyvalue(attr.value))
-                    for attr in otel_proto_span.attributes
-                },
-                # Server-computed trace ID placed last so it always takes precedence over any
-                # client-sent mlflow.traceRequestId — prevents double-encoding when the MLflow
-                # SDK (via OtelSpanProcessor.on_start) has already JSON-encoded the value into
-                # the OTel span before OTLP export.
-                SpanAttributeKey.REQUEST_ID: dump_span_attribute_value(mlflow_trace_id),
+                **serialized_attributes,
+                SpanAttributeKey.REQUEST_ID: (
+                    serialized_attributes.get(
+                        SpanAttributeKey.REQUEST_ID, dump_span_attribute_value(mlflow_trace_id)
+                    )
+                    if preserve_request_id
+                    else dump_span_attribute_value(mlflow_trace_id)
+                ),
             },
             status=OTelStatus(status_code, otel_proto_span.status.message or None),
             events=[

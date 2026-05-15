@@ -40,6 +40,7 @@ from mlflow.store.tracking.dbmodels.models import (
 from mlflow.store.tracking.sqlalchemy_store import (
     SqlAlchemyStore,
 )
+from mlflow.store.workspace.abstract_store import ResolvedTraceArchivalConfig
 from mlflow.store.workspace.utils import get_default_workspace_optional
 from mlflow.store.workspace_aware_mixin import WorkspaceAwareMixin
 from mlflow.tracking._workspace.registry import get_workspace_store
@@ -159,19 +160,31 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
                 error_code=INVALID_STATE,
             )
 
-    def _trace_query(self, session, for_update_or_delete=False):
+    def _trace_query(self, session, for_update_or_delete=False, workspace=None):
+        """
+        Return a workspace-scoped trace query.
+
+        Both plain reads and locking reads target `trace_info` directly via
+        `SqlAlchemyStore._get_query(..., SqlTraceInfo)` and scope results with an
+        `experiment_id IN (...)` subquery over experiments in the selected workspace. This keeps
+        the query shape anchored on trace rows rather than relying on a workspace-aware join
+        through experiments, which is especially important when applying row locks so the lock
+        lands directly on `trace_info` rows. Callers may pass an explicit workspace snapshot when
+        a multi-step write needs stable scoping across several queries.
+        """
+        workspace = workspace or self._get_active_workspace()
+        workspace_experiment_ids = (
+            session
+            .query(SqlExperiment.experiment_id)
+            .filter(SqlExperiment.workspace == workspace)
+            .subquery()
+        )
+        query = SqlAlchemyStore._get_query(self, session, SqlTraceInfo).filter(
+            SqlTraceInfo.experiment_id.in_(select(workspace_experiment_ids.c.experiment_id))
+        )
         if for_update_or_delete:
-            workspace = self._get_active_workspace()
-            workspace_experiment_ids = (
-                session
-                .query(SqlExperiment.experiment_id)
-                .filter(SqlExperiment.workspace == workspace)
-                .subquery()
-            )
-            return SqlAlchemyStore._get_query(self, session, SqlTraceInfo).filter(
-                SqlTraceInfo.experiment_id.in_(select(workspace_experiment_ids.c.experiment_id))
-            )
-        return super()._trace_query(session, for_update_or_delete=False)
+            return self._apply_trace_row_lock(query)
+        return query
 
     def _experiment_where_clauses(self):
         return [SqlExperiment.workspace == self._get_active_workspace()]
@@ -400,6 +413,19 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
         if self._workspace_provider is None:
             self._workspace_provider = get_workspace_store(workspace_uri=self._workspace_store_uri)
         return self._workspace_provider
+
+    def resolve_trace_archival_config(
+        self,
+        *,
+        default_trace_archival_location: str,
+        default_retention: str,
+    ) -> ResolvedTraceArchivalConfig:
+        provider = self._get_workspace_provider_instance()
+        return provider.resolve_trace_archival_config(
+            default_trace_archival_location,
+            default_retention,
+            self._get_active_workspace(),
+        )
 
     def _ensure_default_workspace_experiment(self) -> None:
         """
