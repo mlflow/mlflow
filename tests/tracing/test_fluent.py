@@ -6,6 +6,7 @@ import sys
 import threading
 import time
 import uuid
+import warnings
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict
 from datetime import datetime
@@ -26,7 +27,12 @@ from mlflow.entities import (
 )
 from mlflow.entities.trace_location import TraceLocation, UCSchemaLocation
 from mlflow.entities.trace_state import TraceState
-from mlflow.environment_variables import MLFLOW_TRACE_SAMPLING_RATIO, MLFLOW_TRACKING_USERNAME
+from mlflow.environment_variables import (
+    MLFLOW_EXPERIMENT_ID,
+    MLFLOW_EXPERIMENT_NAME,
+    MLFLOW_TRACE_SAMPLING_RATIO,
+    MLFLOW_TRACKING_USERNAME,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
@@ -46,7 +52,7 @@ from mlflow.tracing.provider import (
     safe_set_span_in_context,
     set_destination,
 )
-from mlflow.tracking.fluent import _get_experiment_id
+from mlflow.tracking.fluent import _get_experiment_id, _get_experiment_id_from_env
 from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.tracing.helper import (
@@ -55,6 +61,41 @@ from tests.tracing.helper import (
     purge_traces,
     skip_when_testing_trace_sdk,
 )
+
+
+def test_get_experiment_id_from_env_under_tracing_sdk_only(monkeypatch):
+    # Regression test for https://github.com/mlflow/mlflow/issues/17619.
+    # Under the lightweight `mlflow-tracing` package, `MlflowClient` and the
+    # tracking store layer are not importable, so env-var configured experiments
+    # must resolve without a backend round-trip: ids pass through, names warn.
+    monkeypatch.setattr("mlflow.tracking.fluent.IS_TRACING_SDK_ONLY", True)
+    monkeypatch.setattr("mlflow.tracking.fluent._active_experiment_id", None)
+    monkeypatch.delenv(MLFLOW_EXPERIMENT_NAME.name, raising=False)
+    monkeypatch.delenv(MLFLOW_EXPERIMENT_ID.name, raising=False)
+
+    # Neither env var set: no client lookup is needed; both functions return None.
+    assert _get_experiment_id_from_env() is None
+    assert _get_experiment_id() is None
+
+    # MLFLOW_EXPERIMENT_ID passes through without backend validation.
+    monkeypatch.setenv(MLFLOW_EXPERIMENT_ID.name, "12345")
+    assert _get_experiment_id_from_env() == "12345"
+    assert _get_experiment_id() == "12345"
+
+    # MLFLOW_EXPERIMENT_NAME alone cannot be resolved without a client: warn,
+    # return None, and let the trace processor degrade gracefully.
+    monkeypatch.delenv(MLFLOW_EXPERIMENT_ID.name)
+    monkeypatch.setenv(MLFLOW_EXPERIMENT_NAME.name, "some-experiment-name")
+    with pytest.warns(UserWarning, match=r"cannot be resolved to an experiment id"):
+        assert _get_experiment_id_from_env() is None
+    assert _get_experiment_id() is None
+
+    # Both env vars set: id wins (we cannot cross-check against the name without
+    # a client), no warning.
+    monkeypatch.setenv(MLFLOW_EXPERIMENT_ID.name, "12345")
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", UserWarning)
+        assert _get_experiment_id_from_env() == "12345"
 
 
 class DefaultTestModel:
