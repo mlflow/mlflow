@@ -9,11 +9,12 @@ stacks.
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from typing import Literal
 
 import click
 
-from mlflow.agent_playground.test_cases import store
+from mlflow.agent_playground.test_cases import pytest_export, store
 from mlflow.environment_variables import MLFLOW_EXPERIMENT_ID
 from mlflow.exceptions import MlflowException
 from mlflow.utils.string_utils import _create_table
@@ -110,3 +111,40 @@ def delete_test_case(test_case_id: str, experiment_id: str, yes: bool) -> None:
             f"Test case {test_case_id!r} not found in experiment {experiment_id!r}"
         )
     click.echo(f"Deleted test case {test_case_id!r}.")
+
+
+@test_commands.command("export")
+@click.option(
+    "--experiment-id",
+    "-x",
+    envvar=MLFLOW_EXPERIMENT_ID.name,
+    type=click.STRING,
+    required=True,
+    help="Experiment whose regression suite to export.",
+)
+@click.option(
+    "--output",
+    "-o",
+    type=click.Path(dir_okay=False, writable=True, path_type=Path),
+    default=None,
+    help="File to write the pytest suite to. Prints to stdout when omitted.",
+)
+def export_test_cases(experiment_id: str, output: Path | None) -> None:
+    """Render the regression suite as a self-contained pytest file.
+
+    The generated file POSTs each case to the agent at
+    ``MLFLOW_AGENT_URL`` (default ``http://localhost:8000/invocations``)
+    and runs deterministic substring / tool-call assertions. Suitable
+    for committing to CI as a regression gate.
+
+    Excluded: judge-strategy cases (CI cannot call an LLM judge), and
+    multi-turn (persona) cases (CI cannot drive the simulator). The
+    counts are reported in the generated file's header.
+    """
+    cases = store.list_cases(experiment_id)
+    source = pytest_export.render_pytest_suite(experiment_id, cases)
+    if output is None:
+        click.echo(source)
+        return
+    output.write_text(source)
+    click.echo(f"Wrote pytest suite ({len(cases)} cases scanned) to {output}.")

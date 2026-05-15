@@ -96,3 +96,32 @@ def test_delete_returns_error_for_missing(runner, experiment_id, db_uri, monkeyp
     )
     assert result.exit_code != 0
     assert "not found" in result.output
+
+
+def test_export_to_stdout(runner, experiment_id, assertion_spec, db_uri, monkeypatch):
+    monkeypatch.setenv("MLFLOW_TRACKING_URI", db_uri)
+    test_case_id = store.insert_case(
+        experiment_id,
+        assertion_spec,
+        conversation_messages=[{"role": "user", "content": "hi"}],
+    )
+    result = runner.invoke(agent_commands, ["test", "export", "-x", experiment_id])
+    assert result.exit_code == 0
+    assert test_case_id in result.output
+    assert "MLFLOW_AGENT_URL" in result.output
+
+
+def test_export_to_file(runner, experiment_id, assertion_spec, db_uri, monkeypatch, tmp_path):
+    monkeypatch.setenv("MLFLOW_TRACKING_URI", db_uri)
+    test_case_id = store.insert_case(
+        experiment_id,
+        assertion_spec,
+        conversation_messages=[{"role": "user", "content": "hi"}],
+    )
+    out = tmp_path / "test_suite.py"
+    result = runner.invoke(agent_commands, ["test", "export", "-x", experiment_id, "-o", str(out)])
+    assert result.exit_code == 0
+    assert out.exists()
+    content = out.read_text()
+    assert test_case_id in content
+    assert "Wrote pytest suite" in result.output

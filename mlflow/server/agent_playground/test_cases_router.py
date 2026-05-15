@@ -17,7 +17,7 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, Query, Response
 from pydantic import BaseModel, ValidationError
 
-from mlflow.agent_playground.test_cases import prompts, store
+from mlflow.agent_playground.test_cases import prompts, pytest_export, store
 from mlflow.agent_playground.test_cases.entities import (
     AssertionSpec,
     JudgeSpec,
@@ -139,6 +139,31 @@ def list_test_cases(
         raise _mlflow_exc_to_http(exc)
     next_token_str = next_token.decode("utf-8") if isinstance(next_token, bytes) else next_token
     return ListTestCasesResponse(test_cases=page, next_page_token=next_token_str)
+
+
+@test_cases_router.get("/test-cases/export")
+def export_test_cases(
+    experiment_id: str = Query(...),
+    format: str = Query("pytest"),
+) -> Response:
+    if format != "pytest":
+        raise HTTPException(
+            status_code=400, detail=f"Unsupported export format: {format!r}. Supported: 'pytest'."
+        )
+    try:
+        cases = store.list_cases(experiment_id)
+    except MlflowException as exc:
+        raise _mlflow_exc_to_http(exc)
+    source = pytest_export.render_pytest_suite(experiment_id, cases)
+    return Response(
+        content=source,
+        media_type="text/x-python",
+        headers={
+            "Content-Disposition": (
+                f'attachment; filename="test_agent_playground_{experiment_id}.py"'
+            ),
+        },
+    )
 
 
 @test_cases_router.get("/test-cases/{test_case_id}", response_model=TestCaseRow)

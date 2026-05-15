@@ -238,3 +238,30 @@ def test_prompt_for_fix_returns_404_for_missing(http, experiment_id):
         json={"experiment_id": experiment_id, "test_case_id": "tc-missing"},
     )
     assert resp.status_code == 404
+
+
+def test_export_returns_python_content(http, experiment_id, seeded_case):
+    resp = http.get(
+        f"{_PREFIX}/test-cases/export",
+        params={"experiment_id": experiment_id, "format": "pytest"},
+    )
+    assert resp.status_code == 200
+    assert resp.headers["content-type"].startswith("text/x-python")
+    assert "attachment" in resp.headers["content-disposition"]
+    assert seeded_case in resp.text
+
+
+def test_export_defaults_to_pytest_format(http, experiment_id):
+    resp = http.get(
+        f"{_PREFIX}/test-cases/export",
+        params={"experiment_id": experiment_id},
+    )
+    assert resp.status_code == 200
+
+
+def test_export_rejects_unknown_format(http, experiment_id):
+    resp = http.get(
+        f"{_PREFIX}/test-cases/export",
+        params={"experiment_id": experiment_id, "format": "junit"},
+    )
+    assert resp.status_code == 400
