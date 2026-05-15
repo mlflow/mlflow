@@ -285,7 +285,9 @@ async def test_proxy_streaming():
         b'"finish_reason":null}]}\n\n'
     )
     chunks = [chunk_data, b"data: [DONE]\n\n"]
-    mock_client = mock_http_client(MockAsyncStreamingResponse(chunks))
+    mock_client = mock_http_client(
+        MockAsyncStreamingResponse(chunks, headers={"Content-Type": "text/event-stream"})
+    )
 
     with mock.patch("aiohttp.ClientSession", return_value=mock_client):
         result = await provider.proxy(
@@ -294,6 +296,31 @@ async def test_proxy_streaming():
                 "messages": [{"role": "user", "content": "Hello"}],
                 "stream": True,
             },
+        )
+        collected = [chunk async for chunk in result]
+
+    assert len(collected) > 0
+
+
+@pytest.mark.asyncio
+async def test_proxy_streaming_detected_from_content_type():
+    """Streaming is detected from the response Content-Type, not from payload.stream."""
+    provider = _make_provider()
+    chunk_data = (
+        b'data: {"id":"chatcmpl-1","object":"chat.completion.chunk","created":1,'
+        b'"model":"test-model","choices":[{"index":0,"delta":{"content":"Hi"},'
+        b'"finish_reason":null}]}\n\n'
+    )
+    chunks = [chunk_data, b"data: [DONE]\n\n"]
+    # Response has text/event-stream Content-Type even though payload has no "stream" flag
+    mock_client = mock_http_client(
+        MockAsyncStreamingResponse(chunks, headers={"Content-Type": "text/event-stream"})
+    )
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        result = await provider.proxy(
+            path="streamGenerateContent",
+            payload={"contents": [{"parts": [{"text": "Hello"}]}]},  # no "stream" key
         )
         collected = [chunk async for chunk in result]
 

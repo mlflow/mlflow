@@ -16,7 +16,7 @@ from mlflow.gateway.providers.base import (
     ProviderAdapter,
     _client_provides_auth,
 )
-from mlflow.gateway.providers.utils import send_request, send_stream_request
+from mlflow.gateway.providers.utils import send_proxy_request, send_request, send_stream_request
 from mlflow.gateway.schemas import chat, embeddings
 from mlflow.gateway.utils import stream_sse_data
 
@@ -337,20 +337,13 @@ class OpenAICompatibleProvider(BaseProvider):
         payload: dict[str, Any],
         headers: dict[str, str] | None = None,
     ) -> dict[str, Any] | AsyncIterable[Any]:
-        request_headers = self._get_headers(headers)
-        if payload.get("stream"):
-            return send_stream_request(
-                headers=request_headers,
-                base_url=self._api_base,
-                path=path,
-                payload=payload,
-            )
-        return await send_request(
-            headers=request_headers,
-            base_url=self._api_base,
-            path=path,
-            payload=payload,
-        )
+        gen = send_proxy_request(self._get_headers(headers), self._api_base, path, payload)
+        meta = await gen.__anext__()
+        if meta["is_streaming"]:
+            return gen
+        body = await gen.__anext__()
+        await gen.aclose()
+        return body
 
     async def _passthrough(
         self,

@@ -10,7 +10,7 @@ import functools
 import logging
 import sys
 import time
-from collections.abc import Callable
+from collections.abc import AsyncIterable, Callable
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
@@ -1351,6 +1351,6 @@ async def raw_proxy(endpoint_name: str, path: str, request: Request):
         store, endpoint_name, EndpointType.LLM_V1_CHAT
     )
     result = await provider.proxy(path, body, headers)
-    if body.get("stream"):
+    if isinstance(result, AsyncIterable):
         return StreamingResponse(safe_stream(result, as_bytes=True), media_type="text/event-stream")
     return result

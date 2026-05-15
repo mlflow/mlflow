@@ -1,7 +1,7 @@
 import time
 from contextlib import asynccontextmanager
 from contextvars import ContextVar
-from typing import Any, AsyncGenerator
+from typing import Any, AsyncGenerator, AsyncIterator
 
 from mlflow.gateway.constants import (
     MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS,
@@ -113,6 +113,60 @@ async def send_stream_request(
 
         async for line in response.content:
             yield line
+
+
+_STREAMING_CONTENT_TYPES = frozenset({"text/event-stream", "application/x-ndjson"})
+
+
+async def send_proxy_request(
+    headers: dict[str, str],
+    base_url: str,
+    path: str,
+    payload: dict[str, Any],
+) -> AsyncIterator[dict[str, Any] | bytes]:
+    """
+    Async generator for raw proxy requests that auto-detects streaming from Content-Type.
+
+    Yields a metadata dict as the first item:
+        {"content_type": str, "is_streaming": bool}
+
+    For streaming responses (``text/event-stream``, ``application/x-ndjson``), then yields
+    raw response bytes. For non-streaming responses, yields a single parsed JSON dict.
+
+    Callers should consume all items or explicitly call ``aclose()`` to release the
+    underlying HTTP connection.
+    """
+    import aiohttp
+    from fastapi import HTTPException
+
+    async with _aiohttp_post(headers, base_url, path, payload) as response:
+        try:
+            response.raise_for_status()
+        except aiohttp.ClientResponseError as e:
+            try:
+                error_body = await response.json()
+                detail = error_body.get("error", {}).get("message", e.message)
+            except Exception:
+                detail = e.message
+            raise HTTPException(status_code=e.status, detail=detail)
+
+        content_type = (response.headers or {}).get("Content-Type", "application/json")
+        is_streaming = any(ct in content_type for ct in _STREAMING_CONTENT_TYPES)
+
+        yield {"content_type": content_type, "is_streaming": is_streaming}
+
+        if is_streaming:
+            async for chunk in response.content:
+                yield chunk
+        elif "application/json" in content_type:
+            yield await response.json()
+        elif "text/plain" in content_type:
+            yield {"message": await response.text()}
+        else:
+            raise HTTPException(
+                status_code=502,
+                detail=f"Unsupported Content-Type from upstream proxy: {content_type}",
+            )
 
 
 def rename_payload_keys(payload: dict[str, Any], mapping: dict[str, str]) -> dict[str, Any]:
