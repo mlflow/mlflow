@@ -215,7 +215,6 @@ from mlflow.server.auth.permissions import (
     RESOURCE_TYPE_WORKSPACE,
     USE,
     Permission,
-    _validate_permission_for_resource_type,
     _validate_resource_type,
     get_permission,
 )
@@ -3768,12 +3767,14 @@ def delete_gateway_model_definition_permission():
 
 @catch_mlflow_exception
 def grant_user_permission():
+    # resource_type / permission validation (including the ``workspace`` rejection
+    # that closes the ``sender_is_admin`` bypass) lives on the store layer
+    # alongside the DB write; the handler defers to it so both paths share the
+    # same single source of truth.
     username = _get_request_param("username")
     resource_type = _get_request_param("resource_type")
     resource_id = _get_request_param("resource_id")
     permission = _get_request_param("permission")
-    _reject_workspace_resource_type(resource_type)
-    _validate_permission_for_resource_type(permission, resource_type)
     store.get_user(username)  # raises RESOURCE_DOES_NOT_EXIST if missing
     store.grant_user_resource_permission(username, resource_type, resource_id, permission)
     return make_response({})
@@ -3781,11 +3782,11 @@ def grant_user_permission():
 
 @catch_mlflow_exception
 def revoke_user_permission():
+    # Same shape as ``grant_user_permission`` — store-layer guards cover the
+    # workspace rejection + resource_type validation.
     username = _get_request_param("username")
     resource_type = _get_request_param("resource_type")
     resource_id = _get_request_param("resource_id")
-    _reject_workspace_resource_type(resource_type)
-    _validate_resource_type(resource_type)
     store.get_user(username)
     store.revoke_user_resource_permission(username, resource_type, resource_id)
     return make_response({})
