@@ -13,6 +13,9 @@ from mlflow.agent_playground.test_cases.entities import (
 
 @pytest.fixture
 def client(db_uri):
+    # Sets the fluent tracking URI for the store layer (which uses the
+    # global URI), and also yields a client used by `experiment_id` /
+    # the cross-experiment isolation test to create experiments.
     original = mlflow.get_tracking_uri()
     mlflow.set_tracking_uri(db_uri)
     yield MlflowClient(tracking_uri=db_uri)
@@ -96,7 +99,6 @@ def test_insert_then_list_returns_the_case(experiment_id, assertion_spec):
     assert case.spec.strategy == "assertion"
     assert case.spec.assertion is not None
     assert case.spec.assertion.must_contain == ["docs"]
-    assert case.source_feedback_id == "fb-001"
     assert case.source_feedback_ids == ["fb-001"]
     assert case.source_trace_id == "tr-001"
     assert case.source_assistant_message_id == "msg-001"
@@ -116,25 +118,16 @@ def test_get_case_returns_none_for_unknown_id(experiment_id, assertion_spec):
     assert store.get_case(experiment_id, "tc-nonexistent") is None
 
 
-def test_judge_strategy_roundtrips(experiment_id, judge_spec):
-    test_case_id = store.insert_case(experiment_id, judge_spec)
+@pytest.mark.parametrize(
+    "spec_fixture_name",
+    ["assertion_spec", "judge_spec", "persona_spec"],
+)
+def test_spec_roundtrips_through_store(experiment_id, request, spec_fixture_name):
+    spec = request.getfixturevalue(spec_fixture_name)
+    test_case_id = store.insert_case(experiment_id, spec)
     case = store.get_case(experiment_id, test_case_id)
     assert case is not None
-    assert case.spec.strategy == "judge"
-    assert case.spec.judge is not None
-    assert case.spec.judge.criteria == "response is friendly"
-    assert case.spec.judge.expected_response == "hi friend"
-    assert case.spec.assertion is None
-
-
-def test_persona_roundtrips(experiment_id, persona_spec):
-    test_case_id = store.insert_case(experiment_id, persona_spec)
-    case = store.get_case(experiment_id, test_case_id)
-    assert case is not None
-    assert case.spec.persona is not None
-    assert case.spec.persona.goal == "learn about logging"
-    assert case.spec.persona.simulation_guidelines == ["ask one question at a time"]
-    assert case.spec.max_turns == 3
+    assert case.spec == spec
 
 
 def test_delete_case_removes_row(experiment_id, assertion_spec):
@@ -173,7 +166,7 @@ def test_update_keeps_unchanged_fields(experiment_id, assertion_spec):
     updated = store.update_case(experiment_id, test_case_id, promoted=True)
     assert updated is not None
     assert updated.promoted
-    assert updated.source_feedback_id == "fb-001"
+    assert updated.source_feedback_ids == ["fb-001"]
     assert updated.source_trace_id == "tr-001"
     assert updated.spec.assertion is not None
     assert updated.spec.assertion.must_contain == ["docs"]
@@ -230,7 +223,31 @@ def test_explicit_test_case_id_is_respected(experiment_id, assertion_spec):
     assert store.get_case(experiment_id, "tc-custom") is not None
 
 
-def test_get_or_create_recovers_for_other_experiment(client, assertion_spec):
+def test_explicit_test_case_id_collision_rejected(experiment_id, assertion_spec):
+    store.insert_case(experiment_id, assertion_spec, test_case_id="tc-collision")
+    with pytest.raises(Exception, match="already exists"):
+        store.insert_case(experiment_id, assertion_spec, test_case_id="tc-collision")
+
+
+def test_explicit_test_case_id_collision_rejected_even_when_messages_differ(
+    experiment_id, assertion_spec
+):
+    store.insert_case(
+        experiment_id,
+        assertion_spec,
+        test_case_id="tc-collision",
+        conversation_messages=[{"role": "user", "content": "first"}],
+    )
+    with pytest.raises(Exception, match="already exists"):
+        store.insert_case(
+            experiment_id,
+            assertion_spec,
+            test_case_id="tc-collision",
+            conversation_messages=[{"role": "user", "content": "second"}],
+        )
+
+
+def test_datasets_are_isolated_between_experiments(client, assertion_spec):
     exp_a = client.create_experiment("ap_store_test_a")
     exp_b = client.create_experiment("ap_store_test_b")
     store.insert_case(exp_a, assertion_spec)

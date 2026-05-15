@@ -337,7 +337,11 @@ class TestCaseRow(BaseModel):
     test_case_id: str
     spec: TestSpec
     conversation_messages: list[dict[str, Any]] = Field(default_factory=list)
-    source_feedback_id: str | None = None
+    # ``source_feedback_ids[0]`` is the feedback that originally produced
+    # the case; subsequent entries are appended by the coder-mediated
+    # dedup attach flow (see ``store.update_case``). The list is the
+    # single canonical store of feedback lineage; no separate "first
+    # feedback id" field is persisted.
     source_feedback_ids: list[str] = Field(default_factory=list)
     source_trace_id: str | None = None
     source_assistant_message_id: str | None = None
