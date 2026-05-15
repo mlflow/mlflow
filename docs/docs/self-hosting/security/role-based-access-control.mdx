@@ -1,40 +1,33 @@
 import Link from "@docusaurus/Link";
 import { APILink } from "@site/src/components/APILink";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
 
 # Role-Based Access Control (RBAC)
 
-MLflow's role-based access control is the authorization layer for every
-permission grant — but the operator surface scales with what you need:
+MLflow's role-based access control expresses permissions through **roles** —
+named bundles of `(resource_type, resource_pattern, permission)` grants you
+assign to users. A role lives in one place; changes propagate to every user
+assigned to it.
 
-- **Give one user one permission?** A single
-  [`grant_user_permission`](#1-give-alice-edit-on-experiment-42-one-off)
-  call (or one click in the admin UI). No role to author, no users to
-  assign.
-- **Share the same permission set across users?**
-  [Create a role](#2-give-alice-edit-on-experiment-42-reusable), add
-  the permissions, assign the users. The role lives in one place;
-  changes propagate automatically.
-- **Make someone a workspace admin?**
-  [Assign the seeded `admin` role](#4-make-a-user-a-workspace-manager)
-  for that workspace.
+:::tip[One-off grants]
 
-Roles pay off when patterns repeat or you need to delegate workspace
-administration. For one-off grants, the convenience APIs cover the
-simple case directly. Both flows write to the same underlying model, so
-you can mix and match as access patterns evolve.
+For a single-user single-resource grant — no shared pattern, nothing
+reusable — skip authoring a role and use the
+[`grant_user_permission`](#direct-grants-without-a-role) convenience API
+(or the **Direct permissions** section of the admin UI). Internally it
+writes to the same role-based model.
+
+:::
 
 For setting up authentication and managing users (login, signup, admin
 status, password updates), see
-[Username and Password](/self-hosting/security/basic-http-auth); this
-page picks up once users exist.
+[Username and Password](/self-hosting/security/basic-http-auth); this page
+picks up once users exist.
 
-:::note[Prerequisites]
+:::note[Prerequisite]
 
-- Authentication enabled (`mlflow server --app-name basic-auth`)
-- RBAC works against the reserved `default` workspace out of the box.
-  Pass `--enable-workspaces` to enable multi-workspace setups: named
-  workspaces, the workspace switcher, and `/admin/ws?workspace=…` for
-  Workspace Managers.
+Authentication enabled (`mlflow server --app-name basic-auth`).
 
 :::
 
@@ -55,24 +48,41 @@ flowchart LR
 - **Users** are global (one row per identity in the auth database).
 - **Roles** are workspace-scoped bundles of permissions. A role named
   `editor` in workspace `foo` is a separate row from `editor` in workspace
-  `bar`.
+  `bar`. See [Workspace isolation](#workspace-isolation) for how scoping
+  behaves with and without `--enable-workspaces`.
 - **Resources** are experiments, registered models, prompts, scorers, and
   AI Gateway resources (secrets, endpoints, model definitions). A role
-  grants permissions on a resource via a `(resource_type,
-resource_pattern, permission)` row, where the pattern is either a literal
-  resource id or `*` (apply to all resources of that type in the workspace).
+  grants permissions on a resource via a `(resource_type, resource_pattern,
+permission)` row, where the pattern is either a literal resource id or `*`
+  (apply to all resources of that type in the workspace).
 
 ### Direct grants without a role
 
-Sometimes you want to give one user one permission and that's it — no
-shared pattern, nothing reusable. RBAC handles this without making you
-author a single-user role first. Under the hood each user has a reserved
-`__user_<id>__` role that holds their direct grants; the
-`grant_user_permission` / `revoke_user_permission` APIs (and the admin
-UI's _Direct permissions_ section) write to it directly. From an
-operator's perspective it's one call or one form field — the synthetic
-role is an implementation detail you never touch. The `__user_<id>__`
-name pattern is reserved: `create_role` and `update_role` reject it.
+For the one-user one-resource case, you don't need to author a single-user
+role. Each user has a reserved `__user_<id>__` synthetic role that holds
+their direct grants; the `grant_user_permission` /
+`revoke_user_permission` APIs and the admin UI's _Direct permissions_
+section write to it directly. From an operator's perspective it's one call
+or one form field — the synthetic role is an implementation detail you
+never touch. The `__user_<id>__` name pattern is reserved: `create_role`
+and `update_role` reject it.
+
+**Admin UI:** `/admin` → **Users** → click the user → **Edit access** → in
+the _Direct permissions_ section, add the `(resource, permission)` grant →
+review → apply.
+
+**API:**
+
+```python
+auth_client.grant_user_permission("alice", "experiment", "42", "EDIT")
+```
+
+`grant_user_permission` is gated by per-resource MANAGE on the target
+resource — the same authority check the legacy
+`create_experiment_permission()` family used — so an experiment owner who
+holds `(experiment, 42, MANAGE)` can grant access without holding
+workspace-wide MANAGE. The role API itself requires workspace MANAGE or
+Platform Admin, since authoring a role is an administrative action.
 
 ### Permission levels
 
@@ -102,23 +112,6 @@ specific resource, grant access more narrowly (per-resource or
 resource-type wildcard) rather than holding a broad workspace-level grant
 and trying to except the resource.
 
-### Workspace-level grants
-
-Workspace-wide access is expressed as a permission on the special
-`(resource_type='workspace', resource_pattern='*')` slot. Two levels:
-
-- `USE` on `(workspace, *)` is the **Workspace Member** grant. Holders get
-  USE-level access (read + use) to every resource in the workspace, plus the
-  ability to create experiments and registered models. Per-resource grants
-  can upgrade individual rows. A user _without_ this grant doesn't get a
-  workspace floor; they only get what their specific resource grants
-  provide, or what the [resolution chain](#permission-resolution) returns
-  for ungranted resources (typically `NO_PERMISSIONS`).
-- `MANAGE` on `(workspace, *)` is the **Workspace Manager** grant. Full
-  authority within the workspace, including creating roles, granting
-  permissions, and managing users assigned to roles in this workspace.
-  Cannot perform system-wide operations such as deleting users.
-
 ### Permission resolution
 
 For each authorization check, MLflow evaluates the user's effective
@@ -132,64 +125,67 @@ permission as follows:
    participates in the same max because it applies to all resources in the
    workspace, so a workspace-level grant acts as a floor that per-resource
    grants can upgrade but never downgrade.
-3. **Server `default_permission`**: a configured fallback consulted only when
-   no role-derived grant matches. With workspaces disabled, it always applies.
-   With workspaces enabled, it applies only to the reserved `default`
-   workspace when `grant_default_workspace_access` is set; otherwise the
-   effective default is deny.
+3. **Server `default_permission`**: a configured fallback consulted only
+   when no role-derived grant matches. See
+   [Workspace isolation](#workspace-isolation) for how this interacts with
+   the workspace setting.
 
 ### Identity tiers
 
 The admin UI uses **Platform Admin** for the first tier and **Workspace
-Manager** for the second; the doc uses the same labels.
+Admin** for the second; the doc uses the same labels.
 
-| Tier              | How it's expressed                          | Capability                                                                     |
-| ----------------- | ------------------------------------------- | ------------------------------------------------------------------------------ |
-| Platform Admin    | `is_admin = true` on the user row           | Unrestricted system-wide. Sole bearer of user delete and bulk operations.      |
-| Workspace Manager | Holds `(workspace, *, MANAGE)` via any role | Full authority within those workspaces; can manage roles, users, and grants.   |
-| Regular user      | Any other authenticated identity            | No admin UI access; authorization flows through role-derived permissions only. |
+| Tier            | How it's expressed                          | Capability                                                                     |
+| --------------- | ------------------------------------------- | ------------------------------------------------------------------------------ |
+| Platform Admin  | `is_admin = true` on the user row           | Unrestricted system-wide. Sole bearer of user delete and bulk operations.      |
+| Workspace Admin | Holds `(workspace, *, MANAGE)` via any role | Full authority within those workspaces; can manage roles, users, and grants.   |
+| Regular user    | Any other authenticated identity            | No admin UI access; authorization flows through role-derived permissions only. |
+
+## Workspace isolation
+
+Roles are workspace-scoped. The same role name in two workspaces is two
+separate rows; permissions evaluated in one workspace don't bleed into
+another. How that scoping behaves depends on whether multi-workspace
+support is enabled.
+
+**Default (no `--enable-workspaces`).** A single reserved `default`
+workspace exists. All roles, all assignments, all permissions live there.
+The server's `default_permission` config (when set) applies as a fallback
+for any `(user, resource)` pair with no matching grant.
+
+**Multi-workspace (`--enable-workspaces`).** Named workspaces become
+first-class. The home page renders a workspace switcher; the admin UI gets
+a per-workspace entry point (`/admin/ws?workspace=<name>`); roles must be
+created in a specific workspace. The server's `default_permission` falls
+back only to the reserved `default` workspace when
+`grant_default_workspace_access` is set; otherwise the effective default in
+each named workspace is deny.
+
+Two grants on the special `(resource_type='workspace',
+resource_pattern='*')` slot define workspace-wide access:
+
+- `USE` on `(workspace, *)` — the **Workspace Member** grant. USE-level
+  access (read + use) to every resource in the workspace, plus the ability
+  to create experiments and registered models. Per-resource grants can
+  upgrade individual rows. A user without this grant gets no workspace
+  floor — only the specific resource grants they hold.
+- `MANAGE` on `(workspace, *)` — the **Workspace Admin** grant. Full
+  authority within the workspace, including creating roles, granting
+  permissions, and managing role assignments. Cannot perform system-wide
+  operations such as deleting users.
+
+The seeded `admin` and `user` roles each carry one of these grants; see
+[Default roles](#default-roles).
 
 ## Common scenarios
 
-The big shift from the legacy permission model: every "give X access to Y" used to be a
-one-off per-resource POST. Now you either build the permission set once (a
-role) and add users to it, or grant a one-off **direct permission** to a single
-user. Both flows live behind the same admin UI modals. There's no separate
-"Assign user" or "Grant permission" button.
+The big shift from the legacy permission model: every "give X access to Y"
+used to be a one-off per-resource POST. Now you build the permission set
+once as a role and assign users to it. Both the admin UI and the
+`AuthServiceClient` go through the same role-based primitives.
 
-Three structural shapes cover the bulk of what operators need:
-
-```mermaid
-flowchart TD
-    subgraph direct[Direct grant — one user, one resource]
-        direction LR
-        A1[Alice] --> A2[__user_alice__<br/>synthetic role]
-        A2 -->|role_permissions| A3[experiment 42<br/>EDIT]
-    end
-
-    subgraph shared[Shared role — many users, same permission set]
-        direction LR
-        B1[Alice] --> B3[exp-42-editor<br/>role]
-        B2[Bob] --> B3
-        B3 -->|role_permissions| B4[experiment 42<br/>EDIT]
-    end
-
-    subgraph floor[Workspace floor — many users, workspace-wide]
-        direction LR
-        C1[Alice] --> C3[ml-research/user<br/>seeded role]
-        C2[Bob] --> C3
-        C3 -->|role_permissions| C4[workspace *<br/>USE]
-    end
-```
-
-The direct-grant case uses the per-user `__user_<id>__` synthetic role
-under the hood (Alice's row never names a shared role); the shared and
-workspace-floor cases use an operator-authored or seeded role
-respectively. The resolver folds whichever grants apply via `max` —
-nothing changes about how permissions are evaluated.
-
-The examples below assume you've authenticated as a Platform Admin or as a
-Workspace Manager of `ml-research`.
+The examples below assume multi-workspace mode and that you've
+authenticated as a Platform Admin or as a Workspace Admin of `ml-research`.
 
 ```python
 from mlflow.server import get_app_client
@@ -198,75 +194,68 @@ tracking_uri = "http://localhost:5000"
 auth_client = get_app_client("basic-auth", tracking_uri=tracking_uri)
 ```
 
-### 1. Give Alice EDIT on experiment 42 (one-off)
+### 1. Give Alice EDIT on experiment 42
 
-For a one-user, one-resource grant that won't be reused, a **direct
-permission** is the simplest fit. Internally it lives on Alice's synthetic
-per-user role; no admin-managed role to maintain.
-
-**Via the admin UI:** `/admin` → Users → click `alice` → **Edit access** → in
-the _Direct permissions_ section, add `experiment:42 → EDIT` → review → apply.
-
-**Via the convenience API:** the cleanest single-call path is
-`auth_client.grant_user_permission(username, resource_type, resource_id,
-permission)`. Internally it writes to the same synthetic per-user role
-as the admin UI's _Direct permissions_ section:
-
-```python
-auth_client.grant_user_permission("alice", "experiment", "42", "EDIT")
+```mermaid
+flowchart LR
+    Alice[Alice] --> R["exp-42-editor<br/>role"]
+    R --> P["experiment 42<br/>EDIT"]
 ```
 
-`grant_user_permission` is gated by per-resource MANAGE on the target
-resource — the same authority check the legacy
-`create_experiment_permission()` family used — so an experiment owner
-who holds `(experiment, 42, MANAGE)` can grant access without holding
-workspace-wide MANAGE.
+<Tabs groupId="rbac-flow">
+<TabItem value="ui" label="Admin UI">
 
-**Via the role API:** the synthetic role isn't its own API surface. Use the
-same pattern as [Scenario 2](#2-give-alice-edit-on-experiment-42-reusable)
-with a single-user role (`create_role` + `add_role_permission` +
-`assign_role`). This works but requires workspace MANAGE or Platform Admin
-because `create_role` is an administrative action; the convenience API
-above is the lower-privilege path for the same outcome.
+1. Navigate to `/admin` → **Roles**.
+2. Click **Create role**.
+3. In _Permissions_, add `experiment:42 → EDIT`.
+4. In _Assigned users_, add `alice`.
+5. Click **Create**.
 
-### 2. Give Alice EDIT on experiment 42 (reusable)
-
-When the same permission set will be granted to other users (now or later),
-build it as a role.
-
-**Via the admin UI:** `/admin` → Roles → **Create role** → in the
-_Permissions_ section add `experiment:42 → EDIT`; in the _Assigned users_
-section add `alice` → Create.
-
-**Via the role API:**
+</TabItem>
+<TabItem value="api" label="Role API">
 
 ```python
-# 1. Create the role (workspace-scoped)
 role = auth_client.create_role(name="exp-42-editor", workspace="ml-research")
-
-# 2. Add the permission
 auth_client.add_role_permission(
     role_id=role.id,
     resource_type="experiment",
     resource_pattern="42",
     permission="EDIT",
 )
-
-# 3. Assign Alice
 auth_client.assign_role(username="alice", role_id=role.id)
 ```
 
-### 3. Give a team READ access to every experiment in a workspace
+</TabItem>
+</Tabs>
+
+### 2. Give a team READ access to every experiment in a workspace
 
 A wildcard pattern lets the role apply to resources that don't exist yet;
 adding a new experiment automatically inherits the grant.
 
-**Via the admin UI:** `/admin` → Roles → **Create role** → resource type
-`experiment`, pattern `*` (rendered as "All experiments"), permission
-`READ`; add the team in the _Assigned users_ section → Create.
+```mermaid
+flowchart LR
+    A[Alice] --> R["experiment-reader<br/>role"]
+    B[Bob] --> R
+    C[Carol] --> R
+    R --> P["experiment *<br/>READ"]
+```
 
-**Via the role API:** the shape is identical to Scenario 2 with two
-differences: `resource_pattern="*"` and a loop over the team:
+<Tabs groupId="rbac-flow">
+<TabItem value="ui" label="Admin UI">
+
+1. Navigate to `/admin` → **Roles**.
+2. Click **Create role**.
+3. In _Permissions_, add resource type `experiment`, pattern `*` (rendered
+   as "All experiments"), permission `READ`.
+4. In _Assigned users_, add `alice`, `bob`, `carol`.
+5. Click **Create**.
+
+</TabItem>
+<TabItem value="api" label="Role API">
+
+The shape is identical to Scenario 1 with two differences:
+`resource_pattern="*"` and a loop over the team.
 
 ```python
 role = auth_client.create_role(name="experiment-reader", workspace="ml-research")
@@ -280,54 +269,100 @@ for member in ("alice", "bob", "carol"):
     auth_client.assign_role(username=member, role_id=role.id)
 ```
 
-### 4. Make a user a Workspace Manager
+</TabItem>
+</Tabs>
 
-Each newly created workspace is automatically seeded with a default `admin`
-role (and a `user` role). See [Default roles](#default-roles). Promoting a
-user to Workspace Manager means assigning the seeded `admin` role. The role
-explicitly carries `(workspace, *, MANAGE)`, which is a named, listable,
-bulk-assignable grant; unlike the legacy workspace `MANAGE` permission, it
-does not implicitly fan out to every resource type.
+### 3. Make a user a Workspace Admin
 
-**Via the admin UI:** `/admin` → Users → click `alice` → **Edit access** →
-in the _Role assignments_ section, add `ml-research/admin` → review changes
-→ apply.
+Every newly created workspace is seeded with a default `admin` role (and a
+`user` role; see [Default roles](#default-roles)). Promoting a user means
+assigning them the seeded `admin` role for that workspace. The role
+explicitly carries `(workspace, *, MANAGE)`; unlike the legacy workspace
+`MANAGE` permission, it does not implicitly fan out to every resource type.
 
-**Via the role API:**
+```mermaid
+flowchart LR
+    Alice[Alice] --> R["ml-research/admin<br/>(seeded)"]
+    R --> P["workspace *<br/>MANAGE"]
+```
+
+<Tabs groupId="rbac-flow">
+<TabItem value="ui" label="Admin UI">
+
+1. Navigate to `/admin` → **Users**.
+2. Click `alice`.
+3. Click **Edit access**.
+4. In _Role assignments_, add `ml-research/admin`.
+5. Review changes → apply.
+
+</TabItem>
+<TabItem value="api" label="Role API">
 
 ```python
-# The seeded ``admin`` role lives in the same workspace; look it up by name.
+# The seeded ``admin`` role lives in the workspace; look it up by name.
 admin_role = next(r for r in auth_client.list_roles("ml-research") if r.name == "admin")
 auth_client.assign_role(username="alice", role_id=admin_role.id)
 ```
 
-### 5. Onboard a team of N users with the same access
+</TabItem>
+</Tabs>
+
+### 4. Onboard a team of N users with the same access
 
 Either reuse the seeded `<workspace>/user` role or create one once.
 
-**Via the admin UI**, there are two entry points to add multiple users:
+```mermaid
+flowchart LR
+    A[Alice] --> R["ml-research/user<br/>(seeded)"]
+    B[Bob] --> R
+    C[Carol] --> R
+    R --> P["workspace *<br/>USE"]
+```
 
-- **From the role.** `/admin` → Roles → click the role → **Edit role** → in
-  the _Assigned users_ section, add all the users → review → apply.
-- **From each user.** Users → click user → **Edit access** → in the _Role
-  assignments_ section, add the role → apply.
+<Tabs groupId="rbac-flow">
+<TabItem value="ui" label="Admin UI — from the role">
 
-The first form is one round trip per user assignment; the second is one
-round trip per user end-to-end. Pick whichever fits the operator's mental
-model; the result is identical.
+1. Navigate to `/admin` → **Roles** → click the role.
+2. Click **Edit role**.
+3. In _Assigned users_, add all the users.
+4. Review → apply.
 
-**Via the role API:** loop over the team and call `assign_role` once per
-member, as in Scenario 3.
+One round trip per user assignment.
+
+</TabItem>
+<TabItem value="ui-per-user" label="Admin UI — from each user">
+
+1. Navigate to `/admin` → **Users** → click the user.
+2. Click **Edit access**.
+3. In _Role assignments_, add the role → apply.
+4. Repeat for each user.
+
+One round trip per user end-to-end. Pick whichever fits the operator's
+mental model; the result is identical.
+
+</TabItem>
+<TabItem value="api" label="Role API">
+
+Loop over the team and call `assign_role` once per member:
+
+```python
+user_role = next(r for r in auth_client.list_roles("ml-research") if r.name == "user")
+for member in ("alice", "bob", "carol"):
+    auth_client.assign_role(username=member, role_id=user_role.id)
+```
+
+</TabItem>
+</Tabs>
 
 ## Admin UI
 
-The admin UI is the operator-facing surface for everything above. It's reached
-from two entry points:
+The admin UI is the operator-facing surface for everything above. It's
+reached from two entry points:
 
 - **Platform Admins** (`is_admin = true`) navigate to `/admin` via the
   sidebar `Manage` entry. The page renders cross-workspace: every user in
   the system, every role in every workspace.
-- **Workspace Managers** click a gear icon on the home-page workspaces table
+- **Workspace Admins** click a gear icon on the home-page workspaces table
   next to a workspace they administer. The link lands at
   `/admin/ws?workspace=<name>`, the per-workspace view scoped to roles and
   users they can see.
@@ -348,7 +383,7 @@ previewed in a Review step before they're applied.
 ### Managing Roles
 
 The Roles tab lists roles in the active scope (all roles for Platform Admins;
-the active workspace's roles for Workspace Managers). **Create role** opens a
+the active workspace's roles for Workspace Admins). **Create role** opens a
 single-page form with three sections (_Role details_, _Permissions_,
 _Assigned users_) and submits them in one shot. **Edit role** on the role
 detail page mirrors the same shape.
@@ -364,7 +399,7 @@ two roles into every newly created workspace:
 
 | Role    | Permission               | Intent                                                                                                 |
 | ------- | ------------------------ | ------------------------------------------------------------------------------------------------------ |
-| `admin` | `(workspace, *, MANAGE)` | Workspace Manager. Full authority within the workspace.                                                |
+| `admin` | `(workspace, *, MANAGE)` | Workspace Admin. Full authority within the workspace.                                                  |
 | `user`  | `(workspace, *, USE)`    | Workspace Member. Reads every resource in the workspace; can create experiments and registered models. |
 
 The user who creates the workspace is automatically assigned the seeded `admin`
@@ -381,31 +416,20 @@ export MLFLOW_RBAC_SEED_DEFAULT_ROLES=false
 
 If you're upgrading from a release before MLflow 3.13 that used the
 per-resource permission endpoints, the auth-store backfill migration
-translates the legacy tables
-(`experiment_permissions`, `registered_model_permissions`, the four
-`gateway_*_permissions`, `scorer_permissions`, `workspace_permissions`) into
-`role_permissions` rows. The legacy tables remain on disk for rollback safety
-through at least one full release cycle, then are dropped in a subsequent
-migration.
+translates the legacy permission tables into `role_permissions` rows.
+Existing grants survive the upgrade — only the API surface changes.
 
 The wire surface and `AuthServiceClient` shape change as follows:
 
-| Pre-RBAC surface                                                                                                                               | Status      | Replacement                                                                                                                                                                      |
-| ---------------------------------------------------------------------------------------------------------------------------------------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `POST/GET/PATCH/DELETE` on `/mlflow/{experiments,registered-models,scorers,gateway/*}/permissions`                                             | **Removed** | `POST /mlflow/users/permissions/grant` / `revoke` for one-user one-resource direct grants, or the role API (`POST /mlflow/roles/create` + `add` + `assign`) for shared sets.     |
-| `auth_client.create_experiment_permission()`, `update_registered_model_permission()`, and the ~23 sibling per-resource client methods          | **Removed** | `auth_client.grant_user_permission(username, resource_type, resource_id, permission)` / `revoke_user_permission(...)`, or `create_role` + `add_role_permission` + `assign_role`. |
-| `POST/GET/PATCH/DELETE` on `/mlflow/workspaces/<workspace>/permissions`                                                                        | **Removed** | Assign the seeded `admin` or `user` role for the workspace, or a custom role with a `(workspace, *, …)` permission                                                               |
-| `auth_client.set_workspace_permission()`, `list_workspace_permissions()`, `delete_workspace_permission()`, `list_user_workspace_permissions()` | **Removed** | The role API (`assign_role` to a workspace-scoped role with a `(workspace, *, …)` permission)                                                                                    |
+| Pre-RBAC surface                                                                                                       | Status      | Replacement                                                                                                       |
+| ---------------------------------------------------------------------------------------------------------------------- | ----------- | ----------------------------------------------------------------------------------------------------------------- |
+| Per-resource permission REST endpoints + `AuthServiceClient` methods (`create_experiment_permission()`, etc.)          | **Removed** | `grant_user_permission` / `revoke_user_permission` for one-off direct grants, or the role API for shared sets.    |
+| Workspace permission REST endpoints + `AuthServiceClient` methods (`set_workspace_permission()`, etc.)                 | **Removed** | The role API: assign the seeded `admin` / `user` role, or author a role carrying `(workspace, *, …)`.             |
 
-All four legacy surfaces are removed at the same upgrade that lands RBAC.
 There is no deprecation-warning window: basic-auth was still marked
-experimental, so the carry cost of 25 deprecation-warning-emitting
-methods outweighed the soft-transition benefit. The auth-store backfill
-migration moves existing legacy permission rows into synthetic-role
-storage, so existing grants survive the upgrade — only the API surface
-changes.
-
-After the upgrade, the one-user one-resource workflow is:
+experimental, so the carry cost of dozens of deprecation-warning-emitting
+methods outweighed the soft-transition benefit. After the upgrade, the
+one-user one-resource workflow is:
 
 ```python
 # Replace this:
@@ -416,10 +440,24 @@ auth_client.grant_user_permission(username, "experiment", experiment_id, "EDIT")
 **Per-resource MANAGE retains delegation.** A user with `(experiment, 42,
 MANAGE)` can still grant other users access to experiment 42 — the new
 `grant_user_permission` / `revoke_user_permission` are gated by the same
-per-resource MANAGE check the legacy endpoints used. The role API itself
-(`create_role`, `add_role_permission`, `assign_role`) still requires
-workspace MANAGE or Platform Admin; that's by design, since creating a
-role is an administrative action.
+per-resource MANAGE check the legacy endpoints used.
+
+### Rollback
+
+The legacy permission tables (`experiment_permissions`,
+`registered_model_permissions`, the four `gateway_*_permissions`,
+`scorer_permissions`, `workspace_permissions`) remain on disk for rollback
+safety through at least one full release cycle. To revert the auth-store
+schema:
+
+```bash
+mlflow db downgrade <previous-revision> --backend-store-uri <auth-db-uri>
+```
+
+The downgrade leaves the legacy tables in place and removes the
+`role_permissions` rows the backfill produced. Re-running the upgrade
+re-applies the backfill. The legacy tables are dropped in a subsequent
+migration after one full release cycle, so plan upgrade timing accordingly.
 
 ## API reference
 
