@@ -1,7 +1,7 @@
 import json
+import math
 import time
 import uuid
-from contextlib import asynccontextmanager
 from unittest import mock
 
 import pytest
@@ -20,22 +20,20 @@ from mlflow.entities.gateway_endpoint import GatewayEndpoint
 from mlflow.entities.span import create_mlflow_span
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_state import TraceState
-from mlflow.environment_variables import MLFLOW_TRACKING_URI
 from mlflow.exceptions import MlflowException
 from mlflow.store.tracking.dbmodels.models import SqlOnlineScoringConfig
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracing.utils import TraceJSONEncoder
-from mlflow.utils import mlflow_tags
-from mlflow.utils.time import get_current_time_millis
 
 from tests.store.tracking.sqlalchemy_store.conftest import (
     _create_experiments,
-    _create_trace,
+    create_mock_span_context,
     create_test_otel_span,
     create_test_span,
 )
 
 pytestmark = pytest.mark.notrackingurimock
+
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("is_async", [False, True])

@@ -1,5 +1,4 @@
 import json
-import math
 import os
 import shutil
 import time
@@ -16,14 +15,9 @@ from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 import mlflow.db
 from mlflow import entities
 from mlflow.entities import (
-    AssessmentSource,
-    AssessmentSourceType,
-    Feedback,
     ViewType,
     trace_location,
 )
-from mlflow.entities.assessment import FeedbackValue
-from mlflow.entities.gateway_endpoint import GatewayEndpoint
 from mlflow.entities.span import Span, create_mlflow_span
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_state import TraceState
@@ -699,5 +693,3 @@ def test_get_orderby_clauses(tmp_sqlite_uri):
         assert "value IS NULL" in select_clause[0]
         # test that clause name is in parsed
         assert "clause_1" in parsed[0]
-
-
