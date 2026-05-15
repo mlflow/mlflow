@@ -89,16 +89,26 @@ def _decode_page_token(token: str | None) -> int:
 
 
 def _merge_spec(existing: TestSpec, patch: PatchTestCaseRequest) -> TestSpec:
+    # On strategy switch, auto-clear the inactive strategy's payload.
+    # The TestSpec validator rejects orphans (an "assertion" spec with a
+    # non-None judge payload, and vice versa), and the UI flow that
+    # switches strategy expects the leftover payload to drop, not to
+    # error.
+    next_strategy = patch.strategy if patch.strategy is not None else existing.strategy
+    keep_assertion = next_strategy == "assertion"
+    keep_judge = next_strategy == "judge"
+    next_assertion = patch.assertion if patch.assertion is not None else existing.assertion
+    next_judge = patch.judge if patch.judge is not None else existing.judge
     return TestSpec(
-        strategy=patch.strategy if patch.strategy is not None else existing.strategy,
+        strategy=next_strategy,
         rationale_summary=(
             patch.rationale_summary
             if patch.rationale_summary is not None
             else existing.rationale_summary
         ),
         max_turns=patch.max_turns if patch.max_turns is not None else existing.max_turns,
-        assertion=patch.assertion if patch.assertion is not None else existing.assertion,
-        judge=patch.judge if patch.judge is not None else existing.judge,
+        assertion=next_assertion if keep_assertion else None,
+        judge=next_judge if keep_judge else None,
         persona=None if patch.clear_persona else (patch.persona or existing.persona),
     )
 
