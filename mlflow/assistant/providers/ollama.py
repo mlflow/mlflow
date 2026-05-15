@@ -230,7 +230,9 @@ class OllamaProvider(AssistantProvider):
                         yield Event.from_message(
                             Message(
                                 role="assistant",
-                                content=[ToolUseBlock(id=tool_id, name=tool_name, input=tool_input)],
+                                content=[
+                                    ToolUseBlock(id=tool_id, name=tool_name, input=tool_input)
+                                ],
                             )
                         )
 

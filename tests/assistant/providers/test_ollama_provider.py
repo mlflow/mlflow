@@ -7,10 +7,10 @@ from mlflow.assistant.providers.base import clear_config_cache
 from mlflow.assistant.providers.ollama import _MAX_SESSION_BYTES, OllamaProvider, _trim_session
 from mlflow.assistant.types import EventType
 
-
 # ---------------------------------------------------------------------------
 # aiohttp mock helpers
 # ---------------------------------------------------------------------------
+
 
 class _AsyncLineIter:
     """Yields pre-encoded JSON lines, one per call to __anext__."""
@@ -57,7 +57,7 @@ def _make_aiohttp_session(response_lines_per_call: list[list[bytes]], status: in
     return session
 
 
-def _line(data: dict) -> bytes:
+def _line(data: dict[str, object]) -> bytes:
     return (json.dumps(data) + "\n").encode()
 
 
@@ -100,7 +100,9 @@ def test_list_models_returns_model_names():
     mock_resp.json.return_value = {"models": [{"model": "llama3"}, {"model": "mistral"}]}
     mock_resp.raise_for_status = MagicMock()
 
-    with patch("mlflow.assistant.providers.ollama.requests.get", return_value=mock_resp) as mock_get:
+    with patch(
+        "mlflow.assistant.providers.ollama.requests.get", return_value=mock_resp
+    ) as mock_get:
         models = OllamaProvider().list_models("http://localhost:11434")
 
     assert models == ["llama3", "mistral"]
@@ -181,13 +183,6 @@ async def test_astream_uses_base_url_from_config(tmp_path):
         '{"providers": {"ollama": {"model": "llama3.2", "base_url": "http://myhost:11434"}}}'
     )
     lines = [_line({"message": {"role": "assistant", "content": "hi"}, "done": True})]
-    session = _make_aiohttp_session([lines])
-
-    posted_urls = []
-
-    async def _post(url, **kwargs):
-        posted_urls.append(url)
-        return session.post.__wrapped__(url, **kwargs) if hasattr(session.post, "__wrapped__") else lines
 
     # Capture the URL via a wrapper
     real_session = _make_aiohttp_session([lines])
@@ -248,9 +243,8 @@ async def test_astream_tool_call_round_trip():
     tool_call = {
         "function": {"name": "Bash", "arguments": {"command": "ls"}}
     }
-    lines_turn1 = [
-        _line({"message": {"role": "assistant", "content": "", "tool_calls": [tool_call]}, "done": True}),
-    ]
+    tool_msg = {"role": "assistant", "content": "", "tool_calls": [tool_call]}
+    lines_turn1 = [_line({"message": tool_msg, "done": True})]
     lines_turn2 = [
         _line({"message": {"role": "assistant", "content": "Done"}, "done": False}),
         _line({"message": {"role": "assistant", "content": ""}, "done": True}),
