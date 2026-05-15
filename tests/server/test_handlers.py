@@ -393,6 +393,49 @@ def test_server_info():
         data = response.get_json()
         assert data["store_type"] == "SqlStore"
         assert data["workspaces_enabled"] is False
+        assert data["trace_archival_enabled"] is False
+
+
+def test_server_info_trace_archival_enabled(monkeypatch):
+    monkeypatch.setattr(
+        "mlflow.server.handlers.get_trace_archival_server_config",
+        mock.Mock(return_value=mock.Mock(enabled=True)),
+    )
+    monkeypatch.setattr("mlflow.server.handlers._store_supports_trace_archival", lambda store: True)
+
+    with app.test_client() as c:
+        response = c.get("/api/3.0/mlflow/server-info")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["trace_archival_enabled"] is True
+
+
+def test_server_info_handles_invalid_trace_archival_config(monkeypatch):
+    monkeypatch.setattr(
+        "mlflow.server.handlers.get_trace_archival_server_config",
+        mock.Mock(
+            side_effect=MlflowException.invalid_parameter_value("invalid trace archival config")
+        ),
+    )
+
+    with app.test_client() as c:
+        response = c.get("/api/3.0/mlflow/server-info")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["trace_archival_enabled"] is False
+
+
+def test_server_info_handles_unexpected_trace_archival_config_error(monkeypatch):
+    monkeypatch.setattr(
+        "mlflow.server.handlers.get_trace_archival_server_config",
+        mock.Mock(side_effect=RuntimeError("unexpected trace archival config error")),
+    )
+
+    with app.test_client() as c:
+        response = c.get("/api/3.0/mlflow/server-info")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["trace_archival_enabled"] is False
 
 
 def test_get_endpoints():

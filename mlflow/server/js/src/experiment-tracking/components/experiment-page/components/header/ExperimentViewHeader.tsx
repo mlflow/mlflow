@@ -256,27 +256,29 @@ export const ExperimentViewHeader = React.memo(
             </Tooltip>
             {experimentKindSelector}
             {traceArchivalRetention && shouldShowTraceArchivalBadge && (
-              <Tooltip
-                componentId="mlflow.experiment_view.header.trace_archival_badge_tooltip"
-                content={
-                  <FormattedMessage
-                    defaultMessage="Archived traces remain accessible, but searching within span content no longer works after archival."
-                    description="Tooltip explaining the trace archival badge behavior"
-                  />
-                }
-              >
-                <Tag
-                  componentId="mlflow.experiment_view.header.trace_archival_badge"
-                  color="turquoise"
-                  css={{ margin: 0 }}
+              <div css={{ display: 'flex', alignItems: 'center' }}>
+                <Tooltip
+                  componentId="mlflow.experiment_view.header.trace_archival_badge_tooltip"
+                  content={
+                    <FormattedMessage
+                      defaultMessage="Archived traces remain accessible, but searching within span content no longer works after archival."
+                      description="Tooltip explaining the trace archival badge behavior"
+                    />
+                  }
                 >
-                  <FormattedMessage
-                    defaultMessage="Archive after: {retention}"
-                    description="Badge showing the active trace archival retention for the experiment"
-                    values={{ retention: traceArchivalRetention }}
-                  />
-                </Tag>
-              </Tooltip>
+                  <Tag
+                    componentId="mlflow.experiment_view.header.trace_archival_badge"
+                    color="turquoise"
+                    css={{ margin: 0 }}
+                  >
+                    <FormattedMessage
+                      defaultMessage="Archive after: {retention}"
+                      description="Badge showing the active trace archival retention for the experiment"
+                      values={{ retention: traceArchivalRetention }}
+                    />
+                  </Tag>
+                </Tooltip>
+              </div>
             )}
             {getInfoTooltip()}
           </div>

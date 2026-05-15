@@ -11,6 +11,7 @@ import {
   getTraceArchivalRetentionValidationError,
   type TraceArchivalRetentionUnit,
 } from '../../common/utils/traceArchival';
+import { useTraceArchivalEnabled } from '../../experiment-tracking/hooks/useServerInfo';
 import { WorkspaceSettingsFields } from './WorkspaceSettingsFields';
 
 type CreateWorkspaceFormData = {
@@ -30,6 +31,7 @@ export const useCreateWorkspaceModal = ({ onSuccess }: { onSuccess?: (workspaceN
   );
   const [traceArchivalRetentionError, setTraceArchivalRetentionError] = useState<string | undefined>();
   const intl = useIntl();
+  const traceArchivalEnabled = useTraceArchivalEnabled();
 
   const form = useForm<CreateWorkspaceFormData>({
     defaultValues: {
@@ -202,6 +204,7 @@ export const useCreateWorkspaceModal = ({ onSuccess }: { onSuccess?: (workspaceN
               onUnitChange: (unit) => updateTraceArchivalRetention({ unit }),
               unit: traceArchivalRetentionUnit,
             }}
+            showTraceArchivalSettings={traceArchivalEnabled}
           />
         </div>
       </Modal>

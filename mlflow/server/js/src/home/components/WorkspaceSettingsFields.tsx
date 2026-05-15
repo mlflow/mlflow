@@ -27,6 +27,7 @@ type WorkspaceSettingsFieldsProps<TFieldValues extends FieldValues> = {
   traceArchivalRetention: TraceArchivalRetentionFieldState;
   descriptionAutoFocus?: boolean;
   showClearHint?: boolean;
+  showTraceArchivalSettings?: boolean;
 };
 
 export const WorkspaceSettingsFields = <TFieldValues extends FieldValues>({
@@ -36,6 +37,7 @@ export const WorkspaceSettingsFields = <TFieldValues extends FieldValues>({
   traceArchivalRetention,
   descriptionAutoFocus = false,
   showClearHint = false,
+  showTraceArchivalSettings = true,
 }: WorkspaceSettingsFieldsProps<TFieldValues>) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -86,75 +88,77 @@ export const WorkspaceSettingsFields = <TFieldValues extends FieldValues>({
           })}
         />
       </div>
-      <CollapsibleSection
-        componentId={`${componentId}.trace_archival_section`}
-        title={intl.formatMessage({
-          defaultMessage: 'Trace archival settings',
-          description: 'Accordion title for trace archival workspace settings',
-        })}
-        defaultCollapsed
-        forceOpen={Boolean(locationFieldState.error || traceArchivalRetention.error)}
-      >
-        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
-          <div>
-            <FormUI.Label htmlFor={`${idPrefix}.trace_archival_location`}>
-              <FormattedMessage
-                defaultMessage="Trace Archival Location"
-                description="Label for workspace trace archival location field"
+      {showTraceArchivalSettings && (
+        <CollapsibleSection
+          componentId={`${componentId}.trace_archival_section`}
+          title={intl.formatMessage({
+            defaultMessage: 'Trace archival settings',
+            description: 'Accordion title for trace archival workspace settings',
+          })}
+          defaultCollapsed
+          forceOpen={Boolean(locationFieldState.error || traceArchivalRetention.error)}
+        >
+          <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+            <div>
+              <FormUI.Label htmlFor={`${idPrefix}.trace_archival_location`}>
+                <FormattedMessage
+                  defaultMessage="Trace Archival Location"
+                  description="Label for workspace trace archival location field"
+                />
+              </FormUI.Label>
+              <FormUI.Hint>
+                <FormattedMessage
+                  defaultMessage="Optional. Override where archived trace payloads are stored for this workspace. Leave blank to use the server default."
+                  description="Hint for workspace trace archival location field"
+                />
+              </FormUI.Hint>
+              <RHFControlledComponents.Input
+                control={control}
+                id={`${idPrefix}.trace_archival_location`}
+                componentId={`${componentId}.trace_archival_location_input`}
+                name={fieldNames.traceArchivalLocation}
+                rules={{
+                  validate: (value) => {
+                    const result = validateTraceArchivalLocation((value as string | undefined) ?? '', intl);
+                    return result.valid || result.error;
+                  },
+                }}
+                placeholder={intl.formatMessage({
+                  defaultMessage: 'Enter trace archival location URI',
+                  description: 'Placeholder for workspace trace archival location input',
+                })}
+                validationState={locationFieldState.error ? 'error' : undefined}
               />
-            </FormUI.Label>
-            <FormUI.Hint>
-              <FormattedMessage
-                defaultMessage="Optional. Override where archived trace payloads are stored for this workspace. Leave blank to use the server default."
-                description="Hint for workspace trace archival location field"
+              {locationFieldState.error && <FormUI.Message type="error" message={locationFieldState.error.message} />}
+            </div>
+            <div>
+              <FormUI.Label htmlFor={`${idPrefix}.trace_archival_retention_amount`}>
+                <FormattedMessage
+                  defaultMessage="Trace Archival Retention"
+                  description="Label for workspace trace archival retention field"
+                />
+              </FormUI.Label>
+              <FormUI.Hint>
+                <FormattedMessage
+                  defaultMessage="Optional. Override how long traces stay in the tracking store before archival. Leave blank to use the server default."
+                  description="Hint for workspace trace archival retention field"
+                />
+              </FormUI.Hint>
+              <TraceArchivalRetentionInput
+                amount={traceArchivalRetention.amount}
+                amountInputId={`${idPrefix}.trace_archival_retention_amount`}
+                componentId={`${componentId}.trace_archival_retention`}
+                error={Boolean(traceArchivalRetention.error)}
+                onAmountChange={traceArchivalRetention.onAmountChange}
+                onUnitChange={traceArchivalRetention.onUnitChange}
+                unitSelectorId={`${idPrefix}.trace_archival_retention_unit`}
+                unit={traceArchivalRetention.unit}
               />
-            </FormUI.Hint>
-            <RHFControlledComponents.Input
-              control={control}
-              id={`${idPrefix}.trace_archival_location`}
-              componentId={`${componentId}.trace_archival_location_input`}
-              name={fieldNames.traceArchivalLocation}
-              rules={{
-                validate: (value) => {
-                  const result = validateTraceArchivalLocation((value as string | undefined) ?? '', intl);
-                  return result.valid || result.error;
-                },
-              }}
-              placeholder={intl.formatMessage({
-                defaultMessage: 'Enter trace archival location URI',
-                description: 'Placeholder for workspace trace archival location input',
-              })}
-              validationState={locationFieldState.error ? 'error' : undefined}
-            />
-            {locationFieldState.error && <FormUI.Message type="error" message={locationFieldState.error.message} />}
+              {traceArchivalRetention.error && <FormUI.Message type="error" message={traceArchivalRetention.error} />}
+            </div>
           </div>
-          <div>
-            <FormUI.Label htmlFor={`${idPrefix}.trace_archival_retention_amount`}>
-              <FormattedMessage
-                defaultMessage="Trace Archival Retention"
-                description="Label for workspace trace archival retention field"
-              />
-            </FormUI.Label>
-            <FormUI.Hint>
-              <FormattedMessage
-                defaultMessage="Optional. Override how long traces stay in the tracking store before archival. Leave blank to use the server default."
-                description="Hint for workspace trace archival retention field"
-              />
-            </FormUI.Hint>
-            <TraceArchivalRetentionInput
-              amount={traceArchivalRetention.amount}
-              amountInputId={`${idPrefix}.trace_archival_retention_amount`}
-              componentId={`${componentId}.trace_archival_retention`}
-              error={Boolean(traceArchivalRetention.error)}
-              onAmountChange={traceArchivalRetention.onAmountChange}
-              onUnitChange={traceArchivalRetention.onUnitChange}
-              unitSelectorId={`${idPrefix}.trace_archival_retention_unit`}
-              unit={traceArchivalRetention.unit}
-            />
-            {traceArchivalRetention.error && <FormUI.Message type="error" message={traceArchivalRetention.error} />}
-          </div>
-        </div>
-      </CollapsibleSection>
+        </CollapsibleSection>
+      )}
     </div>
   );
 };

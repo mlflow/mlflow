@@ -30,6 +30,7 @@ import { getExperimentApi, setExperimentTagApi, updateExperimentApi } from '../.
 import { getExperimentNameValidator } from '../../../../common/forms/validations';
 import { useInvalidateExperimentList } from '../hooks/useExperimentListQuery';
 import { canModifyExperiment, canRenameExperiment } from '../utils/experimentPage.common-utils';
+import { useTraceArchivalEnabled } from '../../../hooks/useServerInfo';
 import {
   DEFAULT_TRACE_ARCHIVAL_RETENTION_UNIT,
   decodeTraceArchivalRetentionTag,
@@ -187,6 +188,7 @@ export const ExperimentViewMetadataEditor = ({
   const invalidateExperimentList = useInvalidateExperimentList();
   const canEditMetadata = canModifyExperiment(experiment);
   const canRename = canRenameExperiment(experiment);
+  const traceArchivalEnabled = useTraceArchivalEnabled();
 
   const updateTmpRetention = useCallback(
     ({
@@ -541,7 +543,7 @@ export const ExperimentViewMetadataEditor = ({
               />
             </div>
           )}
-          {canEditMetadata && (
+          {canEditMetadata && traceArchivalEnabled && (
             <div>
               <FormUI.Label htmlFor="mlflow.experiment.edit.trace-archival-retention-amount">
                 <FormattedMessage
