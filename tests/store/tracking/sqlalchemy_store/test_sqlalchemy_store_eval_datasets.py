@@ -61,7 +61,7 @@ def test_dataset_crud_operations(store):
         with pytest.raises(MlflowException, match="not found"):
             store.get_dataset(dataset_id=created_dataset.dataset_id)
 
-        # Verify idempotentcy
+        # Verify idempotency
         store.delete_dataset("d-nonexistent")
 
 
@@ -134,7 +134,7 @@ def test_dataset_search_comprehensive(store):
     datasets = []
     for i in range(10):
         name = f"{test_prefix}dataset_{i:02d}"
-        tags = {"priority": "high" if i % 2 == 0 else "low", "mlflow.user": f"user_{i % 3}"}
+        tags = {"priority": "high" if i % 2 == 0 else "low", mlflow_tags.MLFLOW_USER: f"user_{i % 3}"}
 
         if i < 3:
             created = store.create_dataset(
@@ -777,11 +777,12 @@ def test_dataset_update_tags(store):
     )
 
     store.set_dataset_tags(
-        created_no_tags.dataset_id, {"new_tag": "value", "mlflow.user": "test_user2"}
+        created_no_tags.dataset_id,
+        {"new_tag": "value", mlflow_tags.MLFLOW_USER: "test_user2"},
     )
 
     updated_no_tags = store.get_dataset(created_no_tags.dataset_id)
-    assert updated_no_tags.tags == {"new_tag": "value", "mlflow.user": "test_user2"}
+    assert updated_no_tags.tags == {"new_tag": "value", mlflow_tags.MLFLOW_USER: "test_user2"}
     assert updated_no_tags.last_update_time == created_no_tags.last_update_time
     assert updated_no_tags.last_updated_by == created_no_tags.last_updated_by
 
@@ -888,7 +889,7 @@ def test_sql_dataset_record_merge():
         record3.created_by = "user1"
         record3.last_updated_by = "user1"
 
-        new_data3 = {"tags": {"mlflow.user": "user2", "env": "prod"}}
+        new_data3 = {"tags": {mlflow_tags.MLFLOW_USER: "user2", "env": "prod"}}
 
         record3.merge(new_data3)
 
