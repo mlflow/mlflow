@@ -163,7 +163,7 @@ def test_run_needs_uuid(store: SqlAlchemyStore):
     # exceptions, including IntegrityError (sqlite) and FlushError (MysQL).
     # Therefore, we check for the more generic 'SQLAlchemyError'
     with pytest.raises(MlflowException, match=regex) as exception_context:
-        with store.ManagedSessionMaker() as session:
+        with store.ManagedSessionMaker(read_only=False) as session:
             session.add(models.SqlRun())
     assert exception_context.value.error_code == ErrorCode.Name(BAD_REQUEST)
 
