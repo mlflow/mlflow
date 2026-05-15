@@ -412,7 +412,7 @@ def test_grant_user_permission_invalid_resource_type(client, monkeypatch):
 )
 def test_admin_cannot_target_workspace_resource_type(client, monkeypatch, api_method, args):
     # Super admins skip ``validate_can_manage_resource`` via ``sender_is_admin``.
-    # Handler/store-level rejection is the only defense — must fire for the admin path.
+    # Store-level rejection is the only defense — must fire for the admin path.
     username, _ = _new_user(client, monkeypatch)
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
         with pytest.raises(MlflowException, match="not supported by the per-user"):
