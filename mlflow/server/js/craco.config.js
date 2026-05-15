@@ -86,22 +86,24 @@ function configureIframeCSSPublicPaths(config, env) {
 }
 
 /**
- * pdfjs-dist ships pre-built ESM (.mjs) bundles. Two webpack defaults leak the
- * build machine's absolute filesystem path (e.g. /home/runner/work/...) into
- * the published assets, which breaks the PDF artifact viewer:
+ * pdfjs-dist publishes browser-ready ESM (.mjs) bundles that do not need any
+ * further transformation. Two webpack defaults rewrite them anyway, both of
+ * which bake the build machine's filesystem path into the emitted assets and
+ * break the PDF artifact viewer at runtime:
  *
  *   1. CRA's babel-loader rule transforms .mjs files in node_modules.
  *      @babel/plugin-transform-runtime injects helper imports, and inside the
- *      webpack worker child compilation those get emitted as absolute paths.
+ *      webpack worker child compilation those resolve to fully-qualified
+ *      paths instead of module specifiers.
  *      → Skip babel-loader for pdfjs-dist.
  *
  *   2. Webpack inlines `import.meta.url` for .mjs source files, substituting
  *      `file://<absolute-path>/pdf.mjs`. pdfjs uses this only in Node-specific
- *      code (NodeCanvasFactory), which is dead code in the browser, but the
- *      string still ships in the bundle.
- *      → Add a parser rule that disables import.meta evaluation for pdfjs.
+ *      code (NodeCanvasFactory), dead code in the browser, but the string
+ *      still ships in the bundle.
+ *      → Disable `import.meta` evaluation for pdfjs files.
  */
-function fixPdfjsAbsolutePathLeaks(config) {
+function preservePdfjsBundles(config) {
   const pdfjsPattern = /[\\/]node_modules[\\/]pdfjs-dist[\\/]/;
   let touched = false;
   config.module.rules.forEach((rule) => {
@@ -338,7 +340,7 @@ module.exports = function () {
         webpackConfig = i18nOverrides(webpackConfig);
         webpackConfig = configureIframeCSSPublicPaths(webpackConfig, env);
         webpackConfig = enableOptionalTypescript(webpackConfig);
-        webpackConfig = fixPdfjsAbsolutePathLeaks(webpackConfig);
+        webpackConfig = preservePdfjsBundles(webpackConfig);
         webpackConfig.resolve = {
           ...webpackConfig.resolve,
           plugins: [new TsconfigPathsPlugin(), ...webpackConfig.resolve.plugins],
