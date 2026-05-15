@@ -26,6 +26,7 @@ from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 
 import mlflow.experiments
 import mlflow.pyfunc
+import mlflow.tracing.trace_archival_config as trace_archival_config_module
 from mlflow import MlflowClient
 from mlflow.artifacts import download_artifacts
 from mlflow.data.pandas_dataset import from_pandas
@@ -69,6 +70,7 @@ from mlflow.environment_variables import (
     MLFLOW_SERVER_GRAPHQL_MAX_ALIASES,
     MLFLOW_SERVER_GRAPHQL_MAX_ROOT_FIELDS,
     MLFLOW_SUPPRESS_PRINTING_URL_TO_STDOUT,
+    MLFLOW_TRACE_ARCHIVAL_CONFIG,
 )
 from mlflow.exceptions import MlflowException, RestException
 from mlflow.genai.datasets import (
@@ -131,6 +133,8 @@ def mlflow_client(store_type: str, tmp_path: Path, db_uri: str, monkeypatch):
     monkeypatch.setenv(
         "MLFLOW_CRYPTO_KEK_PASSPHRASE", "test-passphrase-at-least-32-characters-long"
     )
+    monkeypatch.delenv(MLFLOW_TRACE_ARCHIVAL_CONFIG.name, raising=False)
+    monkeypatch.setattr(trace_archival_config_module, "_TRACE_ARCHIVAL_SERVER_CONFIG_CACHE", None)
 
     if store_type == "file":
         backend_uri = tmp_path.joinpath("file").as_uri()
