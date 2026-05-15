@@ -257,6 +257,72 @@ async def test_passthrough_streaming():
     assert len(collected) > 0
 
 
+@pytest.mark.asyncio
+async def test_proxy_non_streaming():
+    provider = _make_provider()
+    mock_client = mock_http_client(MockAsyncResponse(_chat_response()))
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        result = await provider.proxy(
+            path="chat/completions",
+            payload={"messages": [{"role": "user", "content": "Hello"}]},
+        )
+
+    assert result["id"] == "chatcmpl-abc123"
+    mock_client.post.assert_called_once_with(
+        "https://api.test-provider.com/v1/chat/completions",
+        json={"messages": [{"role": "user", "content": "Hello"}]},
+        timeout=mock.ANY,
+    )
+
+
+@pytest.mark.asyncio
+async def test_proxy_streaming():
+    provider = _make_provider()
+    chunk_data = (
+        b'data: {"id":"chatcmpl-1","object":"chat.completion.chunk","created":1,'
+        b'"model":"test-model","choices":[{"index":0,"delta":{"content":"Hi"},'
+        b'"finish_reason":null}]}\n\n'
+    )
+    chunks = [chunk_data, b"data: [DONE]\n\n"]
+    mock_client = mock_http_client(MockAsyncStreamingResponse(chunks))
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        result = await provider.proxy(
+            path="chat/completions",
+            payload={
+                "messages": [{"role": "user", "content": "Hello"}],
+                "stream": True,
+            },
+        )
+        collected = [chunk async for chunk in result]
+
+    assert len(collected) > 0
+
+
+@pytest.mark.asyncio
+async def test_proxy_propagates_headers():
+    provider = _make_provider()
+    mock_client = mock_http_client(MockAsyncResponse(_chat_response()))
+    captured_headers = {}
+
+    def mock_client_session(headers=None):
+        captured_headers.update(headers or {})
+        return mock_client
+
+    with mock.patch("aiohttp.ClientSession", mock_client_session):
+        await provider.proxy(
+            path="chat/completions",
+            payload={"messages": [{"role": "user", "content": "Hello"}]},
+            headers={"X-Custom": "value", "host": "ignored", "content-length": "0"},
+        )
+
+    assert captured_headers["Authorization"] == "Bearer test-key"
+    assert captured_headers["X-Custom"] == "value"
+    assert "host" not in captured_headers
+    assert "content-length" not in captured_headers
+
+
 # --- adapter tests ---
 
 

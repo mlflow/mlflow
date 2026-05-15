@@ -1352,7 +1352,5 @@ async def raw_proxy(endpoint_name: str, path: str, request: Request):
     )
     result = await provider.proxy(path, body, headers)
     if body.get("stream"):
-        return StreamingResponse(
-            safe_stream(result, as_bytes=True), media_type="text/event-stream"
-        )
+        return StreamingResponse(safe_stream(result, as_bytes=True), media_type="text/event-stream")
     return result

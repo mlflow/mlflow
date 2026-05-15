@@ -1060,6 +1060,69 @@ async def test_passthrough_anthropic_messages_streaming():
 
 
 @pytest.mark.asyncio
+async def test_proxy_anthropic_non_streaming():
+    resp = passthrough_messages_response()
+    config = chat_config()
+
+    captured_session_headers = {}
+    mock_session_client = mock_http_client(MockAsyncResponse(resp))
+
+    def mock_client_session(headers=None):
+        captured_session_headers.update(headers or {})
+        return mock_session_client
+
+    with mock.patch("aiohttp.ClientSession", mock_client_session):
+        provider = AnthropicProvider(EndpointConfig(**config))
+        payload = {
+            "model": "claude-2.1",
+            "messages": [{"role": "user", "content": "Hello"}],
+            "max_tokens": 1024,
+        }
+        response = await provider.proxy(
+            path="messages",
+            payload=payload,
+            headers={"X-Request-ID": "req-001", "host": "ignored"},
+        )
+
+    assert response == resp
+    mock_session_client.post.assert_called_once_with(
+        "https://api.anthropic.com/v1/messages",
+        json=payload,
+        timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+    )
+    assert captured_session_headers["x-api-key"] == "key"
+    assert captured_session_headers["X-Request-ID"] == "req-001"
+    assert "host" not in captured_session_headers
+
+
+@pytest.mark.asyncio
+async def test_proxy_anthropic_streaming():
+    resp = passthrough_messages_stream_response()
+    config = chat_config()
+
+    captured_session_headers = {}
+    mock_session_client = mock_http_client(MockAsyncStreamingResponse(resp))
+
+    def mock_client_session(headers=None):
+        captured_session_headers.update(headers or {})
+        return mock_session_client
+
+    with mock.patch("aiohttp.ClientSession", mock_client_session):
+        provider = AnthropicProvider(EndpointConfig(**config))
+        payload = {
+            "model": "claude-2.1",
+            "messages": [{"role": "user", "content": "Hello"}],
+            "max_tokens": 1024,
+            "stream": True,
+        }
+        response = await provider.proxy(path="messages", payload=payload)
+        chunks = [chunk async for chunk in response]
+
+    assert len(chunks) == 7
+    assert b"message_start" in chunks[0]
+
+
+@pytest.mark.asyncio
 async def test_chat_with_structured_output():
     config = {
         "name": "chat",

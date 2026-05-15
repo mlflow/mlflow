@@ -274,7 +274,42 @@ class BaseProvider(ABC):
         payload: dict[str, Any],
         headers: dict[str, str] | None = None,
     ) -> dict[str, Any] | AsyncIterable[Any]:
-        return await self._proxy(path, payload, headers)
+        if not self._enable_tracing:
+            return await self._proxy(path, payload, headers)
+
+        try:
+            result = await self._proxy(path, payload, headers)
+            if isinstance(result, AsyncIterable):
+
+                @mlflow.trace(span_type=SpanType.LLM, name=self._get_span_name())
+                async def proxy():
+                    span = mlflow.get_current_active_span()
+                    if span is not None:
+                        span.set_attributes({
+                            **self._get_provider_attributes(),
+                            "proxy_path": path,
+                        })
+                    async for chunk in result:
+                        yield chunk
+
+                return proxy()
+            else:
+
+                @mlflow.trace(span_type=SpanType.LLM, name=self._get_span_name())
+                async def proxy():
+                    span = mlflow.get_current_active_span()
+                    if span is not None:
+                        span.set_attributes({
+                            **self._get_provider_attributes(),
+                            "proxy_path": path,
+                        })
+                    return result
+
+                return await proxy()
+        except Exception as e:
+            with mlflow.start_span(span_type=SpanType.LLM, name=self._get_span_name()) as span:
+                span.set_attributes({**self._get_provider_attributes(), "proxy_path": path})
+            raise e
 
     # -------------------------------------------------------------------------
     # Tracing helper methods
