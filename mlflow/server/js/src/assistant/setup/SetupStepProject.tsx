@@ -35,7 +35,6 @@ interface SetupStepProjectProps {
 const PROVIDER_SKILLS_DIR = {
   claude_code: '.claude/skills',
   ollama: '.ollama/skills',
-  codex: '.codex/skills',
 } satisfies Record<string, string>;
 
 const getSkillsDir = (provider: string): string =>

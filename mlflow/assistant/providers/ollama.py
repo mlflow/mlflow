@@ -1,9 +1,9 @@
 import json
 import logging
 import uuid
-from collections.abc import Callable as CollectionsCallable
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, AsyncGenerator, Callable
+from typing import Any, AsyncGenerator
 
 from mlflow.assistant.providers.base import (
     AssistantProvider,
@@ -18,14 +18,17 @@ from mlflow.assistant.types import Event, Message, ToolResultBlock, ToolUseBlock
 
 _logger = logging.getLogger(__name__)
 
-# Cap serialized session history at 50 KB. Older turns are dropped first (system
-# message at index 0 is always kept) to prevent unbounded growth over long conversations.
+# Ollama has no server-side session state, so we encode the full message history
+# as JSON in the session_id field. 50 KB is a conservative safety net: it is well
+# below typical LLM context windows and small enough that it does not bloat the
+# HTTP response payload. Older turns are dropped first; the system message at
+# index 0 is always kept.
 _MAX_SESSION_BYTES = 50 * 1024
 _JSON_LIST_OVERHEAD_BYTES = 2
 _JSON_LIST_SEPARATOR_BYTES = 2
 
 
-def _get_ollama_client_factory() -> CollectionsCallable[..., Any]:
+def _get_ollama_client_factory() -> Callable[..., Any]:
     import ollama
 
     client_factory = getattr(ollama, "Client", None)
@@ -34,7 +37,7 @@ def _get_ollama_client_factory() -> CollectionsCallable[..., Any]:
     return client_factory
 
 
-def _get_ollama_async_client_factory() -> CollectionsCallable[..., Any]:
+def _get_ollama_async_client_factory() -> Callable[..., Any]:
     import ollama
 
     async_client_factory = getattr(ollama, "AsyncClient", None)
@@ -153,8 +156,27 @@ class OllamaProvider(AssistantProvider):
             return
 
         config = load_config(self.name)
-        model = config.model if config.model and config.model != "default" else "llama3.2"
         host = config.base_url or "http://localhost:11434"
+        model = config.model if config.model and config.model != "default" else None
+
+        if model is None:
+            client = async_client_factory(host=host)
+            try:
+                response = await client.list()
+                available = [m.model for m in response.models if m.model]
+            except Exception as e:
+                yield Event.from_error(
+                    f"Cannot connect to Ollama at {host}: {e}. "
+                    "Make sure Ollama is running: ollama serve"
+                )
+                return
+            if not available:
+                yield Event.from_error(
+                    "No Ollama models found. Pull one first: ollama pull llama3.2, "
+                    "then reopen the setup wizard to select a model."
+                )
+                return
+            model = available[0]
 
         if context:
             user_text = f"<context>\n{json.dumps(context)}\n</context>\n\n{prompt}"
@@ -166,6 +188,7 @@ class OllamaProvider(AssistantProvider):
             try:
                 messages = json.loads(session_id)
             except (json.JSONDecodeError, TypeError):
+                _logger.warning("Failed to decode session history; starting a new session")
                 messages = []
 
         if not messages:

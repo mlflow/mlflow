@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+import shlex
 from pathlib import Path
 from typing import Any
 
@@ -9,6 +10,7 @@ from mlflow.assistant.config import PermissionsConfig
 _logger = logging.getLogger(__name__)
 
 _FILE_TOOLS = {"Read", "Write", "Edit"}
+_ALLOWED_BASH_COMMANDS = {"mlflow", "python3", "python"}
 
 
 def _is_path_within(path: Path, root: Path) -> bool:
@@ -38,8 +40,15 @@ async def execute_tool(
     if not perms.full_access:
         if tool_name == "Bash":
             command = tool_input.get("command", "").strip()
-            if not command.startswith("mlflow"):
-                return "Permission denied: only mlflow commands are allowed", True
+            try:
+                argv = shlex.split(command)
+            except ValueError:
+                return "Permission denied: malformed command", True
+            if not argv or argv[0] not in _ALLOWED_BASH_COMMANDS:
+                return (
+                    f"Permission denied: only {', '.join(sorted(_ALLOWED_BASH_COMMANDS))} "
+                    "commands are allowed"
+                ), True
 
         if tool_name in _FILE_TOOLS and not perms.allow_edit_files:
             return f"Permission denied: {tool_name} is not allowed", True
