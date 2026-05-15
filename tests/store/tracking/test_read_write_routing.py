@@ -252,7 +252,9 @@ def test_initialize_backend_stores_sets_env_var():
     # `initialize_backend_stores` mutates `os.environ` directly. Don't use `monkeypatch.delenv`
     # for cleanup: it records the env var's *current* value (set by `initialize_backend_stores`)
     # for rollback, which causes the value to be restored at teardown and leak into later tests.
-    os.environ.pop(READ_REPLICA_BACKEND_STORE_URI_ENV_VAR, None)  # clint: disable=os-environ-delete-in-test
+    os.environ.pop(
+        READ_REPLICA_BACKEND_STORE_URI_ENV_VAR, None
+    )  # clint: disable=os-environ-delete-in-test
     try:
         with (
             mock.patch("mlflow.server.handlers._get_tracking_store"),
@@ -264,7 +266,9 @@ def test_initialize_backend_stores_sets_env_var():
             )
             assert os.environ.get(READ_REPLICA_BACKEND_STORE_URI_ENV_VAR) == "sqlite:///read.db"
     finally:
-        os.environ.pop(READ_REPLICA_BACKEND_STORE_URI_ENV_VAR, None)  # clint: disable=os-environ-delete-in-test
+        os.environ.pop(
+            READ_REPLICA_BACKEND_STORE_URI_ENV_VAR, None
+        )  # clint: disable=os-environ-delete-in-test
 
 
 def test_get_sqlalchemy_store_reads_env_var(tmp_path, monkeypatch):
