@@ -5,6 +5,7 @@ from __future__ import annotations
 import shutil
 import subprocess
 from pathlib import Path
+from typing import Any
 
 import click
 
@@ -73,7 +74,7 @@ def disable_tracing_plugin(settings_path: Path) -> bool:
 def _run_claude(target_dir: Path, *args: str) -> subprocess.CompletedProcess:
     command = [CLAUDE_BINARY, *args]
     try:
-        return subprocess.run(  # noqa: S603
+        return subprocess.run(
             command,
             cwd=target_dir,
             check=True,
@@ -81,12 +82,11 @@ def _run_claude(target_dir: Path, *args: str) -> subprocess.CompletedProcess:
             text=True,
         )
     except subprocess.CalledProcessError as exc:
-        raise click.ClickException(
-            f"Failed to run `{' '.join(command)}`:\n{(exc.stderr or exc.stdout or str(exc)).strip()}"
-        ) from exc
+        detail = (exc.stderr or exc.stdout or str(exc)).strip()
+        raise click.ClickException(f"Failed to run `{' '.join(command)}`:\n{detail}") from exc
 
 
-def _remove_mlflow_env(config: dict) -> bool:
+def _remove_mlflow_env(config: dict[str, Any]) -> bool:
     env_vars = config.get(ENVIRONMENT_FIELD)
     if not env_vars:
         return False

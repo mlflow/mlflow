@@ -19,14 +19,36 @@ from mlflow.environment_variables import (
 )
 
 
-_title = lambda text: click.style(text, fg="magenta", bold=True)
-_ok = lambda text: click.style(text, fg="green", bold=True)
-_warn = lambda text: click.style(text, fg="yellow", bold=True)
-_error = lambda text: click.style(text, fg="red", bold=True)
-_label = lambda text: click.style(text, bold=True)
-_question = lambda text: click.style(text, fg="yellow", bold=True)
-_value = lambda text: click.style(text, fg="cyan")
-_muted = lambda text: click.style(text, dim=True)
+def _title(text: str) -> str:
+    return click.style(text, fg="magenta", bold=True)
+
+
+def _ok(text: str) -> str:
+    return click.style(text, fg="green", bold=True)
+
+
+def _warn(text: str) -> str:
+    return click.style(text, fg="yellow", bold=True)
+
+
+def _error(text: str) -> str:
+    return click.style(text, fg="red", bold=True)
+
+
+def _label(text: str) -> str:
+    return click.style(text, bold=True)
+
+
+def _question(text: str) -> str:
+    return click.style(text, fg="yellow", bold=True)
+
+
+def _value(text: str) -> str:
+    return click.style(text, fg="cyan")
+
+
+def _muted(text: str) -> str:
+    return click.style(text, dim=True)
 
 
 _DEFAULT_TRACKING_URI_SENTINEL = "default"
@@ -289,7 +311,9 @@ def _show_setup_status(
         click.echo(f"  {_muted('Work from:')} {_value(str(target_dir))}")
 
     click.echo(f"  {_muted('1.')} Use Claude Code as usual in this directory.")
-    click.echo(f"  {_muted('2.')} Visit the MLflow UI after a Claude conversation ends to inspect traces.")
+    click.echo(
+        f"  {_muted('2.')} Visit the MLflow UI after a Claude conversation ends to inspect traces."
+    )
 
     click.echo("")
     click.echo(_title("Disable Later"))

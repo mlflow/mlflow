@@ -13,6 +13,16 @@ def runner():
     return CliRunner()
 
 
+@pytest.fixture(autouse=True)
+def _clear_mlflow_env(monkeypatch):
+    for name in (
+        "MLFLOW_TRACKING_URI",
+        "MLFLOW_EXPERIMENT_ID",
+        "MLFLOW_EXPERIMENT_NAME",
+    ):
+        monkeypatch.delenv(name, raising=False)
+
+
 def test_claude_help_command(runner):
     result = runner.invoke(commands, ["--help"])
     assert result.exit_code == 0
@@ -35,7 +45,7 @@ def test_trace_status_with_no_config(runner):
     with runner.isolated_filesystem():
         result = runner.invoke(commands, ["claude", "--status"])
         assert result.exit_code == 0
-        assert "❌ Claude tracing is not enabled" in result.output
+        assert "Claude tracing is not enabled" in result.output
 
 
 def test_trace_disable_with_no_config(runner):
@@ -52,7 +62,7 @@ def test_claude_setup_installs_plugin_and_writes_env(runner):
         result = runner.invoke(commands, ["claude", "-u", "http://localhost:5000", "-e", "123"])
         assert result.exit_code == 0
 
-        mock_install.assert_called_once_with(Path.cwd())
+        mock_install.assert_called_once_with(Path(".").resolve())
 
         config = json.loads(Path(".claude/settings.json").read_text())
         assert config["env"]["MLFLOW_CLAUDE_TRACING_ENABLED"] == "true"
@@ -85,7 +95,8 @@ def test_claude_setup_shows_plugin_install_message(runner):
     ):
         result = runner.invoke(commands, ["claude", "-u", "http://localhost:5000", "-e", "123"])
         assert result.exit_code == 0
-        assert "Installing MLflow Claude plugin into Claude Code" in result.output
+        assert "MLflow Claude plugin for Claude Code" in result.output
+        assert "Claude Code plugin installed" in result.output
 
 
 def test_claude_setup_non_interactive_uses_defaults(runner):

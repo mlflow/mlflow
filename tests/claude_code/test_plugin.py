@@ -1,6 +1,5 @@
 import json
 import subprocess
-from pathlib import Path
 from unittest import mock
 
 import click
@@ -13,16 +12,14 @@ def test_disable_tracing_plugin_removes_env_only(tmp_path):
     settings_path = tmp_path / ".claude" / "settings.json"
     settings_path.parent.mkdir(parents=True)
     settings_path.write_text(
-        json.dumps(
-            {
-                "env": {
-                    "MLFLOW_CLAUDE_TRACING_ENABLED": "true",
-                    "MLFLOW_TRACKING_URI": "http://localhost:5000",
-                    "MLFLOW_EXPERIMENT_ID": "123",
-                },
-                "other": "keep-me",
-            }
-        )
+        json.dumps({
+            "env": {
+                "MLFLOW_CLAUDE_TRACING_ENABLED": "true",
+                "MLFLOW_TRACKING_URI": "http://localhost:5000",
+                "MLFLOW_EXPERIMENT_ID": "123",
+            },
+            "other": "keep-me",
+        })
     )
 
     assert disable_tracing_plugin(settings_path) is True
