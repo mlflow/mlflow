@@ -85,6 +85,45 @@ function configureIframeCSSPublicPaths(config, env) {
   return config;
 }
 
+/**
+ * pdfjs-dist ships pre-built ESM (.mjs) bundles. Two webpack defaults leak the
+ * build machine's absolute filesystem path (e.g. /home/runner/work/...) into
+ * the published assets, which breaks the PDF artifact viewer:
+ *
+ *   1. CRA's babel-loader rule transforms .mjs files in node_modules.
+ *      @babel/plugin-transform-runtime injects helper imports, and inside the
+ *      webpack worker child compilation those get emitted as absolute paths.
+ *      → Skip babel-loader for pdfjs-dist.
+ *
+ *   2. Webpack inlines `import.meta.url` for .mjs source files, substituting
+ *      `file://<absolute-path>/pdf.mjs`. pdfjs uses this only in Node-specific
+ *      code (NodeCanvasFactory), which is dead code in the browser, but the
+ *      string still ships in the bundle.
+ *      → Add a parser rule that disables import.meta evaluation for pdfjs.
+ */
+function fixPdfjsAbsolutePathLeaks(config) {
+  const pdfjsPattern = /[\\/]node_modules[\\/]pdfjs-dist[\\/]/;
+  let touched = false;
+  config.module.rules.forEach((rule) => {
+    if (!Array.isArray(rule.oneOf)) return;
+    rule.oneOf.forEach((r) => {
+      if (typeof r.loader === 'string' && r.loader.includes('babel-loader')) {
+        const exclude = Array.isArray(r.exclude) ? r.exclude : r.exclude ? [r.exclude] : [];
+        r.exclude = [...exclude, pdfjsPattern];
+        touched = true;
+      }
+    });
+  });
+  if (!touched) {
+    throw new Error('Failed to exclude pdfjs-dist from babel-loader: no rule matched');
+  }
+  config.module.rules.push({
+    test: pdfjsPattern,
+    parser: { importMeta: false },
+  });
+  return config;
+}
+
 function enableOptionalTypescript(config) {
   /**
    * Essential TS config is already inside CRA's config - the only
@@ -299,6 +338,7 @@ module.exports = function () {
         webpackConfig = i18nOverrides(webpackConfig);
         webpackConfig = configureIframeCSSPublicPaths(webpackConfig, env);
         webpackConfig = enableOptionalTypescript(webpackConfig);
+        webpackConfig = fixPdfjsAbsolutePathLeaks(webpackConfig);
         webpackConfig.resolve = {
           ...webpackConfig.resolve,
           plugins: [new TsconfigPathsPlugin(), ...webpackConfig.resolve.plugins],
