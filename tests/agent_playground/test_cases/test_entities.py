@@ -126,21 +126,41 @@ def test_assistant_message_anchor_trace_id_optional():
     assert anchor.trace_id is None
 
 
-def test_verdict_passed_has_no_reasons():
-    verdict = Verdict(test_case_id="tc-001", passed=True)
-    assert verdict.passed
+def test_verdict_pass_has_no_reasons():
+    verdict = Verdict(test_case_id="tc-001", outcome="pass")
+    assert verdict.outcome == "pass"
     assert verdict.reasons == ()
     assert verdict.judge_rationale is None
 
 
-def test_verdict_failed_carries_reasons():
+def test_verdict_fail_carries_reasons():
     verdict = Verdict(
         test_case_id="tc-001",
-        passed=False,
+        outcome="fail",
         reasons=("must_call_tool: search_docs not invoked",),
     )
-    assert not verdict.passed
+    assert verdict.outcome == "fail"
     assert verdict.reasons == ("must_call_tool: search_docs not invoked",)
+
+
+def test_verdict_error_carries_reasons():
+    verdict = Verdict(
+        test_case_id="tc-001",
+        outcome="error",
+        reasons=("agent crashed mid-turn",),
+    )
+    assert verdict.outcome == "error"
+    assert verdict.reasons == ("agent crashed mid-turn",)
+
+
+def test_verdict_pass_with_reasons_rejected():
+    with pytest.raises(ValueError, match="must not carry reasons"):
+        Verdict(test_case_id="tc-001", outcome="pass", reasons=("nope",))
+
+
+def test_verdict_invalid_outcome_rejected():
+    with pytest.raises(ValueError, match="outcome"):
+        Verdict(test_case_id="tc-001", outcome="maybe")
 
 
 def test_run_summary_aggregates_counts():
@@ -188,12 +208,27 @@ def test_job_response_failed_with_kind():
     assert resp.failure_kind == "missing_binary"
 
 
+def test_job_response_failed_without_kind_rejected():
+    with pytest.raises(ValueError, match="failure_kind"):
+        JobResponse(job_id="j", status=JobStatus.FAILED, failure_reason="x")
+
+
+def test_job_response_failed_without_reason_rejected():
+    with pytest.raises(ValueError, match="failure_reason"):
+        JobResponse(job_id="j", status=JobStatus.FAILED, failure_kind="other")
+
+
 @pytest.mark.parametrize(
     "kind",
     ["timeout", "missing_binary", "not_ready", "schema_validation", "other"],
 )
 def test_job_response_failure_kind_enum_values(kind: str):
-    resp = JobResponse(job_id="j", status=JobStatus.FAILED, failure_kind=kind)
+    resp = JobResponse(
+        job_id="j",
+        status=JobStatus.FAILED,
+        failure_kind=kind,
+        failure_reason="ctx",
+    )
     assert resp.failure_kind == kind
 
 
@@ -211,3 +246,31 @@ def test_dedup_verdict_duplicate_shape():
     )
     assert verdict.is_duplicate
     assert verdict.existing_test_case_id == "tc-001"
+
+
+def test_dedup_verdict_duplicate_without_id_rejected():
+    with pytest.raises(ValueError, match="requires existing_test_case_id"):
+        DedupVerdict(is_duplicate=True, reason="duplicate but unspecified")
+
+
+def test_dedup_verdict_unique_with_id_rejected():
+    with pytest.raises(ValueError, match="must not carry existing_test_case_id"):
+        DedupVerdict(
+            is_duplicate=False,
+            existing_test_case_id="tc-001",
+            reason="actually unique",
+        )
+
+
+@pytest.mark.parametrize(
+    "reserved_key",
+    ["input", "messages", "mlflow_session_id"],
+)
+def test_persona_spec_rejects_simulator_reserved_context_keys(reserved_key: str):
+    with pytest.raises(ValueError, match="simulator-reserved"):
+        PersonaSpec(goal="g", context={reserved_key: "x"})
+
+
+def test_persona_spec_accepts_non_reserved_context_keys():
+    spec = PersonaSpec(goal="g", context={"user_id": "123", "tenant": "acme"})
+    assert spec.context == {"user_id": "123", "tenant": "acme"}

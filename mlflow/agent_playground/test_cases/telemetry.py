@@ -7,11 +7,10 @@ telemetry pipeline (see :mod:`mlflow.telemetry.track` and
 
 This module only defines the event classes. Decorators are wired in when
 the relevant entry points exist (later PRs). Event names are stable
-identifiers from this point on; new fields can be added to ``parse``
-methods later without breaking existing records.
+identifiers from this point on; ``parse`` / ``parse_result`` methods can
+be added alongside the decoration stack without breaking existing
+records.
 """
-
-from __future__ import annotations
 
 from mlflow.telemetry.events import Event
 
@@ -41,11 +40,7 @@ class TestRunStartedEvent(Event):
 
 
 class TestRunCompletedEvent(Event):
-    """Emitted when a regression-suite run finishes (pass or fail).
-
-    A ``parse_result`` classmethod will be added later to capture
-    pass/fail counts per run.
-    """
+    """Emitted when a regression-suite run finishes (pass or fail)."""
 
     name: str = "agent_playground_test_run_completed"
 
@@ -57,11 +52,7 @@ class TestGenJobSubmittedEvent(Event):
 
 
 class TestGenJobCompletedEvent(Event):
-    """Emitted when a test-gen job reaches a terminal state.
-
-    A ``parse_result`` classmethod will be added later to capture the
-    final ``JobStatus`` and (for failures) the ``JobFailureKind``.
-    """
+    """Emitted when a test-gen job reaches a terminal state."""
 
     name: str = "agent_playground_test_gen_job_completed"
 

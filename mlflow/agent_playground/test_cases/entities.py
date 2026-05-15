@@ -14,10 +14,17 @@ deliberately I/O-free.
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Literal
+from typing import Literal
 
 import pydantic
 from pydantic import BaseModel, Field
+
+# Keys reserved by ``ConversationSimulator`` for injecting conversation
+# history and session id (see ``mlflow/genai/simulators/simulator.py``).
+# ``PersonaSpec.context`` must not contain these or the simulator will
+# reject the test case at runtime.
+_SIMULATOR_RESERVED_CONTEXT_KEYS = frozenset({"input", "messages", "mlflow_session_id"})
+
 
 # ---------------------------------------------------------------------------
 # Feedback anchor (consumed by prompt builders to render the failing context)
@@ -28,8 +35,9 @@ class AssistantMessageAnchor(BaseModel):
     """Logical anchor for a piece of feedback against an assistant message.
 
     Stored JSON-stringified inside an MLflow ``Assessment``'s
-    ``metadata.anchor`` field. Matches the shape Yuki's feedback widget
-    writes (POC ``feedback.tsx::AssistantMessageAnchor``).
+    ``metadata.anchor`` field. Matches the shape written by the
+    playground feedback widget (prototype reference:
+    ``feedback.tsx::AssistantMessageAnchor``).
 
     Character offsets are into the assistant message text, not DOM
     offsets, so the anchor survives re-renders. ``prefix`` and ``suffix``
@@ -63,9 +71,9 @@ class AssertionSpec(BaseModel):
 class JudgeSpec(BaseModel):
     """LLM-judge spec for the ``judge`` test strategy.
 
-    The judge LLM is the connected coding agent (via Haru's
-    ``CoderAdapter``) by default. ``expected_response`` is optional
-    reference output the judge can use as a comparator when scoring.
+    The judge LLM is the connected coding agent (via ``CoderAdapter``)
+    by default. ``expected_response`` is optional reference output the
+    judge can use as a comparator when scoring.
     """
 
     criteria: str
@@ -94,7 +102,18 @@ class PersonaSpec(BaseModel):
     goal: str
     persona: str | None = None
     simulation_guidelines: list[str] | None = None
-    context: dict[str, Any] | None = None
+    context: dict[str, object] | None = None
+
+    @pydantic.model_validator(mode="after")
+    def _reject_simulator_reserved_context_keys(self) -> PersonaSpec:
+        if self.context is None:
+            return self
+        if conflicts := sorted(set(self.context) & _SIMULATOR_RESERVED_CONTEXT_KEYS):
+            raise ValueError(
+                f"PersonaSpec.context keys {conflicts} conflict with simulator-reserved "
+                f"keys ({sorted(_SIMULATOR_RESERVED_CONTEXT_KEYS)}). Rename to avoid the clash."
+            )
+        return self
 
 
 # ---------------------------------------------------------------------------
@@ -143,11 +162,22 @@ class TestSpec(BaseModel):
 # ---------------------------------------------------------------------------
 
 
+VerdictOutcome = Literal["pass", "fail", "error"]
+
+
 class Verdict(BaseModel):
     """Outcome of a single test-case run.
 
     Emitted per case by the runner; aggregated into a ``RunSummary`` for
-    the parent batch. ``reasons`` is empty when ``passed`` is True.
+    the parent batch. ``outcome`` is one of:
+
+    - ``"pass"``: every assertion/judge check held.
+    - ``"fail"``: the agent responded but at least one check failed.
+      ``reasons`` carries the failed-clause descriptions.
+    - ``"error"``: execution itself failed (agent crash, timeout,
+      exception in eval). ``reasons`` carries the error description.
+
+    ``reasons`` is empty when ``outcome == "pass"``.
     ``judge_rationale`` is populated only for judge-strategy cases.
     ``trace_ids`` carries the per-turn agent traces emitted during the
     run, tagged with ``agent_playground.test_case_id`` and
@@ -155,11 +185,17 @@ class Verdict(BaseModel):
     """
 
     test_case_id: str
-    passed: bool
+    outcome: VerdictOutcome
     reasons: tuple[str, ...] = ()
     judge_rationale: str | None = None
     trace_ids: tuple[str, ...] = ()
     duration_ms: int | None = None
+
+    @pydantic.model_validator(mode="after")
+    def _pass_has_no_reasons(self) -> Verdict:
+        if self.outcome == "pass" and self.reasons:
+            raise ValueError("outcome='pass' must not carry reasons")
+        return self
 
 
 class RunSummary(BaseModel):
@@ -220,6 +256,15 @@ class JobResponse(BaseModel):
     failure_reason: str | None = None
     failure_kind: JobFailureKind | None = None
 
+    @pydantic.model_validator(mode="after")
+    def _failed_requires_kind_and_reason(self) -> JobResponse:
+        if self.status == JobStatus.FAILED:
+            if self.failure_kind is None:
+                raise ValueError("status=FAILED requires failure_kind to be set")
+            if self.failure_reason is None:
+                raise ValueError("status=FAILED requires failure_reason to be set")
+        return self
+
 
 # ---------------------------------------------------------------------------
 # Coder-mediated dedup
@@ -241,6 +286,14 @@ class DedupVerdict(BaseModel):
     existing_test_case_id: str | None = None
     reason: str
 
+    @pydantic.model_validator(mode="after")
+    def _duplicate_requires_existing_id(self) -> DedupVerdict:
+        if self.is_duplicate and self.existing_test_case_id is None:
+            raise ValueError("is_duplicate=True requires existing_test_case_id to be set")
+        if not self.is_duplicate and self.existing_test_case_id is not None:
+            raise ValueError("is_duplicate=False must not carry existing_test_case_id")
+        return self
+
 
 __all__ = [
     "AssertionSpec",
@@ -255,4 +308,5 @@ __all__ = [
     "TestSpec",
     "TestStrategy",
     "Verdict",
+    "VerdictOutcome",
 ]
