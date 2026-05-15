@@ -1348,6 +1348,7 @@ async def raw_proxy(endpoint_name: str, path: str, request: Request):
         }
     """
     body = await _get_request_body(request)
+    user_metadata = _get_user_metadata(request)
     store = _get_store()
     workspace = get_request_workspace()
     _validate_store(store)
@@ -1359,28 +1360,60 @@ async def raw_proxy(endpoint_name: str, path: str, request: Request):
     check_budget_limit(store, endpoint_config, workspace=workspace)
     guardrails, auth_headers = _get_guardrails_and_auth(store, endpoint_config, request)
 
-    try:
-        body = await run_pre_llm_guardrails(
-            guardrails,
-            body,
-            auth_headers=auth_headers,
-            usage_tracking=endpoint_config.usage_tracking,
-        )
-    except GuardrailViolation as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    # _do_proxy is always an async generator so maybe_traced_gateway_call can wrap it
+    # consistently regardless of whether the upstream responds with a streaming or
+    # non-streaming body.  For streaming responses it yields raw bytes; for
+    # non-streaming responses it yields a single dict.  The route handler peeks at
+    # the first item to decide how to respond to the client.
+    async def _do_proxy(body: dict[str, Any]):
+        try:
+            body = await run_pre_llm_guardrails(
+                guardrails,
+                body,
+                auth_headers=auth_headers,
+                usage_tracking=endpoint_config.usage_tracking,
+            )
+        except GuardrailViolation as e:
+            raise HTTPException(status_code=400, detail=str(e))
 
-    result = await provider.proxy(path, body, headers)
-    if isinstance(result, AsyncIterable):
-        # Post-LLM guardrails are not applied to streaming responses.
-        return StreamingResponse(safe_stream(result, as_bytes=True), media_type="text/event-stream")
+        result = await provider.proxy(path, body, headers)
 
-    try:
-        return await run_post_llm_guardrails_passthrough(
-            guardrails,
-            body,
-            result,
-            auth_headers=auth_headers,
-            usage_tracking=endpoint_config.usage_tracking,
+        if isinstance(result, AsyncIterable):
+            # Post-LLM guardrails are not applied to streaming responses.
+            async for chunk in result:
+                yield chunk
+        else:
+            try:
+                result = await run_post_llm_guardrails_passthrough(
+                    guardrails,
+                    body,
+                    result,
+                    auth_headers=auth_headers,
+                    usage_tracking=endpoint_config.usage_tracking,
+                )
+            except GuardrailViolation as e:
+                raise HTTPException(status_code=400, detail=str(e))
+            yield result
+
+    traced_proxy = maybe_traced_gateway_call(
+        _do_proxy,
+        endpoint_config,
+        user_metadata,
+        request_headers=headers,
+        request_type=GatewayRequestType.RAW_PROXY,
+        on_complete=make_budget_on_complete(store, workspace),
+    )
+
+    gen = traced_proxy(body)
+    first = await gen.__anext__()
+    if isinstance(first, bytes):
+
+        async def _prepend(first_chunk, rest):
+            yield first_chunk
+            async for chunk in rest:
+                yield chunk
+
+        return StreamingResponse(
+            safe_stream(_prepend(first, gen), as_bytes=True), media_type="text/event-stream"
         )
-    except GuardrailViolation as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    return first
