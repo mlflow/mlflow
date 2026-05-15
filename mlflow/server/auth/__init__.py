@@ -1078,7 +1078,7 @@ def _request_targets_prompt() -> bool:
         if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
             return False
         raise
-    return bool(getattr(rm, "_is_prompt", lambda: False)())
+    return rm._is_prompt()
 
 
 def _validate_can_read_registered_model_or_prompt():
