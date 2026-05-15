@@ -1391,22 +1391,45 @@ _RESOURCE_WORKSPACE_FETCHER: dict[str, tuple[str, Callable[[], Callable[[str], A
 }
 
 
-def _resource_dispatch_keys(
-    resource_type: str, resource_id: str
-) -> tuple[str, str, Callable[[str], Any], str] | None:
-    """Return ``(resource_key, workspace_lookup_id, workspace_fetcher, workspace_label)``
-    for ``(resource_type, resource_id)``, or ``None`` if the type isn't supported.
+@dataclass(frozen=True)
+class _ResourceDispatch:
+    """Lookup keys for resolving ``(resource_type, resource_id)`` against the
+    role-permission store + the workspace fetcher.
+
     Scorers are the only resource_type whose role-lookup key differs from the
     workspace-lookup id (key = ``<exp_id>/<scorer_name>``, lookup = ``exp_id``).
     """
+
+    resource_key: str
+    workspace_lookup_id: str
+    workspace_fetcher: Callable[[str], Any]
+    workspace_label: str
+
+
+def _resource_dispatch_keys(
+    resource_type: str, resource_id: str
+) -> _ResourceDispatch | None:
+    """Return the dispatch keys for ``(resource_type, resource_id)``, or ``None``
+    if the type isn't supported by the per-user convenience APIs.
+    """
     if resource_type == RESOURCE_TYPE_SCORER:
         experiment_id, scorer_pattern = _scorer_lookup_keys(resource_id)
-        return scorer_pattern, experiment_id, _get_tracking_store().get_experiment, "experiment"
+        return _ResourceDispatch(
+            resource_key=scorer_pattern,
+            workspace_lookup_id=experiment_id,
+            workspace_fetcher=_get_tracking_store().get_experiment,
+            workspace_label="experiment",
+        )
     spec = _RESOURCE_WORKSPACE_FETCHER.get(resource_type)
     if spec is None:
         return None
     label, fetcher_factory = spec
-    return resource_id, resource_id, fetcher_factory(), label
+    return _ResourceDispatch(
+        resource_key=resource_id,
+        workspace_lookup_id=resource_id,
+        workspace_fetcher=fetcher_factory(),
+        workspace_label=label,
+    )
 
 
 def _resolve_user_permission_for_resource(
@@ -1425,15 +1448,14 @@ def _resolve_user_permission_for_resource(
             "permission convenience APIs.",
             INVALID_PARAMETER_VALUE,
         )
-    resource_key, workspace_lookup_id, fetcher, label = dispatch
     return _get_role_permission_or_default(
         _role_permission_for(
             username=username,
             resource_type=resource_type,
-            resource_key=resource_key,
-            workspace_lookup_id=workspace_lookup_id,
-            workspace_fetcher=fetcher,
-            workspace_label=label,
+            resource_key=dispatch.resource_key,
+            workspace_lookup_id=dispatch.workspace_lookup_id,
+            workspace_fetcher=dispatch.workspace_fetcher,
+            workspace_label=dispatch.workspace_label,
         ),
     )
 
@@ -1458,8 +1480,12 @@ def _workspace_for_resource(resource_type: str, resource_id: str) -> str | None:
         dispatch = _resource_dispatch_keys(resource_type, resource_id)
         if dispatch is None:
             return None
-        _resource_key, workspace_lookup_id, fetcher, label = dispatch
-        return _get_resource_workspace(workspace_lookup_id, fetcher, label, silent=True)
+        return _get_resource_workspace(
+            dispatch.workspace_lookup_id,
+            dispatch.workspace_fetcher,
+            dispatch.workspace_label,
+            silent=True,
+        )
     except Exception:
         return None
 
