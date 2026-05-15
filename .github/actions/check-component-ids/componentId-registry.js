@@ -1002,9 +1002,13 @@ module.exports = {
   "mlflow.eval-runs.model-version-cell": "",
   "mlflow.eval-runs.model-version-cell-tooltip": "",
   "mlflow.eval-runs.page-mode-selector": "",
+  "mlflow.eval-runs.pytest-badge": "",
   "mlflow.eval-runs.run-name-cell": "",
   "mlflow.eval-runs.run-name-cell.open-run-page": "",
   "mlflow.eval-runs.run-name-cell.tooltip": "",
+  "mlflow.eval-runs.run-type-badge": "",
+  "mlflow.eval-runs.run-type-badge-issue": "",
+  "mlflow.eval-runs.run-type-badge-pytest": "",
   "mlflow.eval-runs.runs-delete-modal": "",
   "mlflow.eval-runs.start-run-button": "",
   "mlflow.eval-runs.start-run-modal": "",
@@ -1839,6 +1843,10 @@ module.exports = {
   "mlflow.prompts.version_runs.run_link": "",
   "mlflow.prompts.versions-table.row": "",
   "mlflow.prompts.versions.table.header": "",
+
+  // -- mlflow.pytest-results --
+  "mlflow.pytest-results.outcome-badge": "",
+  "mlflow.pytest-results.test-link": "",
 
   // -- mlflow.quality_tab --
   "mlflow.quality_tab.empty_state.learn_more_link": "",

@@ -1,7 +1,6 @@
-"""Tests for the MLflow GenAI pytest plugin."""
-
 from __future__ import annotations
 
+from importlib.metadata import entry_points
 from unittest import mock
 
 import pytest
@@ -36,10 +35,6 @@ def test_plugin_module_exports():
 
 
 def test_plugin_is_not_auto_registered():
-    """The plugin must NOT be registered as a pytest11 entry point.
-    Users should opt in explicitly via pytest_plugins or -p."""
-    from importlib.metadata import entry_points
-
     eps = entry_points(group="pytest11")
     mlflow_eps = [ep for ep in eps if ep.name == "mlflow-genai"]
     assert len(mlflow_eps) == 0
@@ -256,9 +251,7 @@ def test_fail():
             order_by=["attributes.start_time ASC"],
         )
         # Find the parent run (no parent_id tag)
-        parent_runs = [
-            r for r in runs if r.data.tags.get("mlflow.parentRunId") is None
-        ]
+        parent_runs = [r for r in runs if r.data.tags.get("mlflow.parentRunId") is None]
         assert len(parent_runs) == 1
         parent = parent_runs[0]
         assert parent.data.metrics["test.pass_count"] == 1
@@ -300,9 +293,7 @@ def test_fail_one():
             experiment_ids=experiment_ids,
             filter_string=f"tags.`{MLFLOW_RUN_TYPE_TAG}` = '{MLFLOW_RUN_TYPE_PYTEST}'",
         )
-        child_runs = [
-            r for r in runs if r.data.tags.get("mlflow.parentRunId") is not None
-        ]
+        child_runs = [r for r in runs if r.data.tags.get("mlflow.parentRunId") is not None]
         assert len(child_runs) == 2
         outcomes = {r.data.tags.get(MLFLOW_TEST_OUTCOME_TAG) for r in child_runs}
         assert outcomes == {"passed", "failed"}

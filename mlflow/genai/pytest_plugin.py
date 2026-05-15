@@ -108,14 +108,12 @@ def _resolve_experiment(config) -> None:
         config._mlflow_genai_experiment_name = cli_value
         return
 
-    env_name = os.environ.get("MLFLOW_EXPERIMENT_NAME")
-    if env_name:
+    if env_name := os.environ.get("MLFLOW_EXPERIMENT_NAME"):
         mlflow.set_experiment(experiment_name=env_name)
         config._mlflow_genai_experiment_name = env_name
         return
 
-    env_id = os.environ.get("MLFLOW_EXPERIMENT_ID")
-    if env_id:
+    if env_id := os.environ.get("MLFLOW_EXPERIMENT_ID"):
         mlflow.set_experiment(experiment_id=env_id)
         config._mlflow_genai_experiment_name = env_id
         return
@@ -178,11 +176,9 @@ def mlflow_experiment_name(request: pytest.FixtureRequest) -> str | None:
     cli_value = request.config.getoption("mlflow_experiment")
     if cli_value is not None:
         return cli_value
-    env_name = os.environ.get("MLFLOW_EXPERIMENT_NAME")
-    if env_name:
+    if env_name := os.environ.get("MLFLOW_EXPERIMENT_NAME"):
         return env_name
-    env_id = os.environ.get("MLFLOW_EXPERIMENT_ID")
-    if env_id:
+    if env_id := os.environ.get("MLFLOW_EXPERIMENT_ID"):
         return env_id
     return None
 
@@ -228,9 +224,7 @@ def mlflow_run(_mlflow_session_run, request: pytest.FixtureRequest):
         mlflow.set_tag(MLFLOW_TEST_NAME_TAG, test_name)
         # Log parametrize params if present
         if hasattr(request.node, "callspec"):
-            mlflow.log_params(
-                {k: str(v) for k, v in request.node.callspec.params.items()}
-            )
+            mlflow.log_params({k: str(v) for k, v in request.node.callspec.params.items()})
         request.node._mlflow_run_id = child_run.info.run_id
         yield child_run
 
@@ -286,9 +280,7 @@ def pytest_runtest_call(item: pytest.Item):
         mlflow.set_tag(MLFLOW_RUN_TYPE_TAG, MLFLOW_RUN_TYPE_PYTEST)
         mlflow.set_tag(MLFLOW_TEST_NAME_TAG, test_name)
         if hasattr(item, "callspec"):
-            mlflow.log_params(
-                {k: str(v) for k, v in item.callspec.params.items()}
-            )
+            mlflow.log_params({k: str(v) for k, v in item.callspec.params.items()})
         item._mlflow_run_id = child_run.info.run_id
         yield
 
