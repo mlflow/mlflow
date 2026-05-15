@@ -6,6 +6,7 @@ import {
   DatasetCell,
   ModelVersionCell,
   RunNameCell,
+  RunTypeCell,
   SortableHeaderCell,
   StatusCell,
   VisiblityCell,
@@ -36,6 +37,7 @@ export enum EvalRunsTableColumnId {
   checkbox = 'checkbox',
   visibility = 'visibility',
   runName = 'run_name',
+  runType = 'run_type',
   status = 'status',
   dataset = 'dataset',
   modelVersion = 'model_version',
@@ -59,6 +61,7 @@ export const EVAL_RUNS_TABLE_BASE_SELECTION_STATE: { [key: string]: boolean } = 
   [EvalRunsTableColumnId.checkbox]: true,
   [EvalRunsTableColumnId.visibility]: true,
   [EvalRunsTableColumnId.runName]: true,
+  [EvalRunsTableColumnId.runType]: true,
   [EvalRunsTableColumnId.status]: true,
   [EvalRunsTableColumnId.createdAt]: true,
   [EvalRunsTableColumnId.dataset]: true,
@@ -77,6 +80,10 @@ export const EVAL_RUNS_COLUMN_LABELS: Record<EvalRunsTableColumnId, MessageDescr
   [EvalRunsTableColumnId.runName]: defineMessage({
     defaultMessage: 'Run Name',
     description: 'Column header for run name in the evaluation runs table',
+  }),
+  [EvalRunsTableColumnId.runType]: defineMessage({
+    defaultMessage: 'Type',
+    description: 'Column header for run type in the evaluation runs table',
   }),
   [EvalRunsTableColumnId.status]: defineMessage({
     defaultMessage: 'Status',
@@ -150,6 +157,18 @@ export const getExperimentEvalRunsDefaultColumns = (
       meta: {
         styles: {
           minWidth: 100,
+        },
+      },
+    },
+    {
+      id: EvalRunsTableColumnId.runType,
+      header: () => <FormattedMessage {...EVAL_RUNS_COLUMN_LABELS[EvalRunsTableColumnId.runType]} />,
+      cell: RunTypeCell,
+      enableResizing: true,
+      meta: {
+        styles: {
+          minWidth: 80,
+          maxWidth: 140,
         },
       },
     },

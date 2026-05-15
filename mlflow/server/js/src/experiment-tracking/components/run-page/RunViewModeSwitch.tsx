@@ -2,10 +2,11 @@ import { Tabs } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { useNavigate, useParams, useSearchParams } from '../../../common/utils/RoutingUtils';
 import Routes from '../../routes';
-import { RunPageTabName } from '../../constants';
+import { RunPageTabName, MLFLOW_RUN_TYPE_TAG, MLFLOW_RUN_TYPE_VALUE_PYTEST } from '../../constants';
+import { EXPERIMENT_PARENT_ID_TAG } from '../experiment-page/utils/experimentPage.common-utils';
 import { getTimeRangeQueryString } from '../../pages/experiment-page-tabs/side-nav/utils';
 import { useRunViewActiveTab } from './useRunViewActiveTab';
-import { useState, type ReactNode } from 'react';
+import { useState, useMemo, type ReactNode } from 'react';
 import type { KeyValueEntity } from '../../../common/types';
 
 // Set of tabs that when active, the margin of the tab selector should be removed for better displaying
@@ -49,6 +50,12 @@ const TAB_LABELS: Record<RunPageTabName, ReactNode> = {
   [RunPageTabName.ARTIFACTS]: (
     <FormattedMessage defaultMessage="Artifacts" description="Run details page > tab selector > artifacts tab" />
   ),
+  [RunPageTabName.PYTEST_RESULTS]: (
+    <FormattedMessage
+      defaultMessage="Test Results"
+      description="Run details page > tab selector > pytest test results tab"
+    />
+  ),
 };
 
 export interface RunViewModeSwitchProps {
@@ -75,6 +82,16 @@ export const RunViewModeSwitch = ({
   const [searchParams] = useSearchParams();
   const currentTab = useRunViewActiveTab();
   const [removeTabMargin, setRemoveTabMargin] = useState(TABS_WITHOUT_MARGIN.includes(currentTab));
+
+  // For pytest parent runs, show only relevant tabs (like IssueDetectionRunDetailsPage pattern)
+  const effectiveTabs = useMemo(() => {
+    const isPytest = runTags?.[MLFLOW_RUN_TYPE_TAG]?.value === MLFLOW_RUN_TYPE_VALUE_PYTEST;
+    const hasParentRunId = Boolean(runTags?.[EXPERIMENT_PARENT_ID_TAG]?.value);
+    if (isPytest && !hasParentRunId) {
+      return [RunPageTabName.OVERVIEW, RunPageTabName.PYTEST_RESULTS, RunPageTabName.EVALUATIONS];
+    }
+    return visibleTabs;
+  }, [runTags, visibleTabs]);
 
   const onTabChanged = (newTabKey: string) => {
     if (!experimentId || !runUuid || currentTab === newTabKey) {
@@ -110,7 +127,7 @@ export const RunViewModeSwitch = ({
       }}
     >
       <Tabs.List>
-        {visibleTabs.map((tabName) => (
+        {effectiveTabs.map((tabName) => (
           <Tabs.Trigger key={tabName} value={tabName}>
             {TAB_LABELS[tabName]}
           </Tabs.Trigger>

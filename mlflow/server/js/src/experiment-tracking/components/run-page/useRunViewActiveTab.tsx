@@ -23,6 +23,9 @@ export const useRunViewActiveTab = (): RunPageTabName => {
   if (tabParam === 'issues') {
     return RunPageTabName.ISSUES;
   }
+  if (tabParam === 'pytest-results') {
+    return RunPageTabName.PYTEST_RESULTS;
+  }
   if (tabParam?.match(/^(artifactPath|artifacts)/)) {
     return RunPageTabName.ARTIFACTS;
   }

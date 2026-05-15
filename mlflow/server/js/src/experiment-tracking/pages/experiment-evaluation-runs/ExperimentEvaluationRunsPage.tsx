@@ -10,6 +10,7 @@ import { Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { ResizableBox } from 'react-resizable';
 import { ExperimentViewRunsTableResizerHandle } from '../../components/experiment-page/components/runs/ExperimentViewRunsTableResizer';
 import { RunViewEvaluationsTab } from '../../components/evaluations/RunViewEvaluationsTab';
+import { RunViewPytestResultsTab } from '../../components/run-page/RunViewPytestResultsTab';
 import { ExperimentEvaluationRunsTableControls } from './ExperimentEvaluationRunsTableControls';
 import evalRunsEmptyImg from '@mlflow/mlflow/src/common/static/eval-runs-empty.svg';
 import Utils from '@mlflow/mlflow/src/common/utils/Utils';
@@ -40,6 +41,8 @@ import {
   RunGroupingMode,
 } from '../../components/experiment-page/utils/experimentPage.row-types';
 import { getGroupByRunsData } from './ExperimentEvaluationRunsPage.utils';
+import type { RunEntityOrGroupData } from './ExperimentEvaluationRunsPage.utils';
+import type { RunEntity } from '../../types';
 import {
   ExperimentEvaluationRunsPageMode,
   useExperimentEvaluationRunsPageMode,
@@ -52,6 +55,8 @@ import {
   shouldEnableImprovedEvalRunsComparison,
   shouldShowEvalRunsIssuesPanel,
 } from '../../../common/utils/FeatureUtils';
+import { MLFLOW_RUN_TYPE_TAG, MLFLOW_RUN_TYPE_VALUE_PYTEST } from '../../constants';
+import { EXPERIMENT_PARENT_ID_TAG } from '../../components/experiment-page/utils/experimentPage.common-utils';
 
 const DEFAULT_VISIBLE_METRIC_COLUMNS = 5;
 
@@ -117,7 +122,10 @@ const ExperimentEvaluationRunsPageImpl = () => {
     invalidateMlflowSearchTracesCache({ queryClient });
   }, [refetch, queryClient]);
 
-  const runUuids = useMemo(() => runs?.map((run) => run.info.runUuid) ?? [], [runs]);
+  const runUuids = useMemo(
+    () => runs?.map((run) => ('info' in run ? run.info.runUuid : '')).filter(Boolean) ?? [],
+    [runs],
+  );
 
   // ORIGINAL BEHAVIOR (flag OFF): Auto-select first run when no run is selected or selected run is out of scope
   // This ensures the split view always has a run to display
@@ -128,7 +136,7 @@ const ExperimentEvaluationRunsPageImpl = () => {
     runs?.length &&
     (!selectedRunUuid || !runUuids.includes(selectedRunUuid))
   ) {
-    setSelectedRunUuid(runs[0].info.runUuid);
+    setSelectedRunUuid(runUuids[0]);
   }
 
   // Get selected run UUIDs from checkbox selection
@@ -232,16 +240,20 @@ const ExperimentEvaluationRunsPageImpl = () => {
     const paramKeys: Set<string> = new Set();
     const tagKeys: Set<string> = new Set();
     // Using for-of to avoid costlier functions and iterators
-    for (const run of runs ?? []) {
-      for (const metric of run.data.metrics ?? []) {
-        metricKeys.add(metric.key);
-      }
-      for (const param of run.data.params ?? []) {
-        paramKeys.add(param.key);
-      }
-      for (const tag of run.data.tags ?? []) {
-        if (isUserFacingTag(tag.key)) {
-          tagKeys.add(tag.key);
+    for (const item of runs ?? []) {
+      // Extract the RunEntity from the item (could be a regular run or a pytest group)
+      const runsToProcess = 'info' in item ? [item] : [];
+      for (const run of runsToProcess) {
+        for (const metric of run.data?.metrics ?? []) {
+          metricKeys.add(metric.key);
+        }
+        for (const param of run.data?.params ?? []) {
+          paramKeys.add(param.key);
+        }
+        for (const tag of run.data?.tags ?? []) {
+          if (isUserFacingTag(tag.key)) {
+            tagKeys.add(tag.key);
+          }
         }
       }
     }
@@ -281,7 +293,18 @@ const ExperimentEvaluationRunsPageImpl = () => {
 
   const isEmpty = runUuids.length === 0 && !searchFilter && !isLoading;
 
-  const runsAndGroupValues = getGroupByRunsData(runs ?? [], groupBy);
+  // Extract flat runs for grouping and charts
+  const flatRuns = useMemo(() => {
+    const flat: RunEntity[] = [];
+    for (const item of runs ?? []) {
+      if ('info' in item) {
+        flat.push(item);
+      }
+    }
+    return flat;
+  }, [runs]);
+
+  const runsAndGroupValues: RunEntityOrGroupData[] = getGroupByRunsData(flatRuns, groupBy);
 
   const handleCompare = useCallback(
     (runUuid1: string, runUuid2: string) => {
@@ -300,7 +323,19 @@ const ExperimentEvaluationRunsPageImpl = () => {
 
   const renderActiveTab = (selectedRunUuid: string) => {
     if (viewMode === ExperimentEvaluationRunsPageMode.CHARTS) {
-      return <ExperimentEvaluationRunsPageCharts runs={runs} experimentId={experimentId} />;
+      return <ExperimentEvaluationRunsPageCharts runs={flatRuns} experimentId={experimentId} />;
+    }
+
+    // Check if the selected run is a pytest parent run (by tags)
+    const selectedRun = runs?.find((run) => 'info' in run && run.info.runUuid === selectedRunUuid);
+    if (selectedRun && 'info' in selectedRun) {
+      const tags = selectedRun.data?.tags ?? [];
+      const isPytestParent =
+        tags.some((tag) => tag.key === MLFLOW_RUN_TYPE_TAG && tag.value === MLFLOW_RUN_TYPE_VALUE_PYTEST) &&
+        !tags.some((tag) => tag.key === EXPERIMENT_PARENT_ID_TAG);
+      if (isPytestParent) {
+        return <RunViewPytestResultsTab runUuid={selectedRunUuid} />;
+      }
     }
 
     return (
@@ -308,7 +343,7 @@ const ExperimentEvaluationRunsPageImpl = () => {
         experimentId={experimentId}
         runUuid={selectedRunUuid}
         runDisplayName={Utils.getRunDisplayName(
-          runs?.find((run) => run.info.runUuid === selectedRunUuid)?.info,
+          selectedRun && 'info' in selectedRun ? selectedRun.info : undefined,
           selectedRunUuid,
         )}
         setCurrentRunUuid={setSelectedRunUuid}
@@ -339,7 +374,7 @@ const ExperimentEvaluationRunsPageImpl = () => {
 
   const renderTableControls = () => (
     <ExperimentEvaluationRunsTableControls
-      runs={runs ?? []}
+      runs={flatRuns}
       refetchRuns={refetchAll}
       isFetching={isFetching || isLoading}
       searchRunsError={error}
@@ -554,7 +589,7 @@ const ExperimentEvaluationRunsPageImpl = () => {
                 paddingLeft: theme.spacing.sm,
               }}
             >
-              <ExperimentEvaluationRunsPageCharts runs={runs} experimentId={experimentId} />
+              <ExperimentEvaluationRunsPageCharts runs={flatRuns} experimentId={experimentId} />
             </div>
           ) : selectedRunUuid ? (
             <div

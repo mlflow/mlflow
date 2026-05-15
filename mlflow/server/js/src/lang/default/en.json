@@ -787,6 +787,10 @@
     "defaultMessage": "Unsaved",
     "description": "Experiment page > artifact compare view > results table > unsaved indicator"
   },
+  "2gacR/": {
+    "defaultMessage": "Type",
+    "description": "Column header for run type in the evaluation runs table"
+  },
   "2gmOVq": {
     "defaultMessage": "Process {evaluableRowCount} rows without evaluation output",
     "description": "Experiment page > artifact compare view > run column header > \"Evaluate all\" button tooltip"
@@ -818,6 +822,10 @@
   "2mwSM3": {
     "defaultMessage": "LLM-as-a-judge (Optimized)",
     "description": "Label for memory-augmented LLM scorer type"
+  },
+  "2oBp1F": {
+    "defaultMessage": "Failed to load test results.",
+    "description": "Run page > pytest results tab > error state"
   },
   "2oFAO4": {
     "defaultMessage": "Share",
@@ -1595,6 +1603,10 @@
     "defaultMessage": "Instructions",
     "description": "Section header for judge instructions"
   },
+  "7i1SeJ": {
+    "defaultMessage": "Evaluation",
+    "description": "Eval runs table > run type badge for normal evaluation runs"
+  },
   "7jsqqe": {
     "defaultMessage": "{timeSince, plural, =1 {1 minute} other {# minutes}} ago",
     "description": "Text for time in minutes since given date for MLflow views"
@@ -1931,6 +1943,10 @@
     "defaultMessage": "MLflow runs:",
     "description": "A label for the associated MLflow runs in the prompt details page"
   },
+  "9aG8T9": {
+    "defaultMessage": "Metrics",
+    "description": "Run page > pytest results tab > table header > metrics"
+  },
   "9cTaBs": {
     "defaultMessage": "Fail",
     "description": "Failing assessment label"
@@ -2170,6 +2186,10 @@
   "Aw8IHc": {
     "defaultMessage": "Evaluate individual traces for quality and correctness.",
     "description": "Hint for the scorer evaluation scope selection for traces"
+  },
+  "Axc/9J": {
+    "defaultMessage": "Pytest",
+    "description": "Eval runs table > run type badge for pytest runs"
   },
   "AxyQXa": {
     "defaultMessage": "Table view",
@@ -3202,6 +3222,10 @@
   "HZdpLU": {
     "defaultMessage": "Only alphanumeric characters, underscores, hyphens, and dots are allowed",
     "description": "A validation state for the prompt name format in the prompt creation modal"
+  },
+  "HZge9+": {
+    "defaultMessage": "Outcome",
+    "description": "Run page > pytest results tab > table header > outcome"
   },
   "Hay/ss": {
     "defaultMessage": "Select up to 2 runs to compare",
@@ -4342,6 +4366,10 @@
   "OWfx/j": {
     "defaultMessage": "Regression",
     "description": "Label for experiments focused on regression modeling"
+  },
+  "OYk8l/": {
+    "defaultMessage": "No test results found.",
+    "description": "Run page > pytest results tab > empty state"
   },
   "OZXWas": {
     "defaultMessage": "False",
@@ -5747,6 +5775,10 @@
     "defaultMessage": "Input an artifact location (optional)",
     "description": "Input placeholder to enter artifact location for create experiment"
   },
+  "X+Rl8k": {
+    "defaultMessage": "{failed} failed",
+    "description": "Run page > pytest results tab > summary failed count"
+  },
   "X+boXI": {
     "defaultMessage": "Copied",
     "description": "Tooltip text shown when copy operation completes"
@@ -5986,6 +6018,10 @@
   "YOp3/x": {
     "defaultMessage": "Unavailable when runs are grouped",
     "description": "Experiment page > view mode switch > evaluation mode disabled tooltip"
+  },
+  "YOq2qT": {
+    "defaultMessage": "{passed} passed",
+    "description": "Run page > pytest results tab > summary passed count"
   },
   "YQ+Eon": {
     "defaultMessage": "Register model",
@@ -6751,6 +6787,10 @@
     "defaultMessage": "Usage",
     "description": "Sidebar link for gateway usage"
   },
+  "cfQy7D": {
+    "defaultMessage": "Issue Detection",
+    "description": "Eval runs table > run type badge for issue detection runs"
+  },
   "cfzQMh": {
     "defaultMessage": "baseline run",
     "description": "Placeholder text shown when no baseline run is selected for comparison"
@@ -6978,6 +7018,10 @@
   "e09avc": {
     "defaultMessage": "Zoom in",
     "description": "Tooltip for the button that zooms in on the graph"
+  },
+  "e0yRJJ": {
+    "defaultMessage": "Loading test results...",
+    "description": "Run page > pytest results tab > loading state"
   },
   "e2AObB": {
     "defaultMessage": "Value",
@@ -7727,6 +7771,10 @@
     "defaultMessage": "Fit to view",
     "description": "Tooltip for the button that fits the graph to the viewport"
   },
+  "i6fqgA": {
+    "defaultMessage": "Duration (s)",
+    "description": "Run page > pytest results tab > table header > duration"
+  },
   "i7UTwK": {
     "defaultMessage": "Correctness assessment is missing. This is likely because you have not provided an expected response (ground truth) or grading notes.",
     "description": "Evaluation results > known type of evaluation result assessment > correctness assessment. Used to indicate if the result is correct in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Correctness: mostly yes, have gaps\""
@@ -7874,6 +7922,10 @@
   "iruFlr": {
     "defaultMessage": "Running the judge from the UI is only supported with {supportedProvider} endpoints, but the current model uses the {currentProvider} provider",
     "description": "Tooltip message when model provider is not supported. supportedProvider is the required provider type, currentProvider is what the model currently uses."
+  },
+  "itXRYo": {
+    "defaultMessage": "{skipped} skipped",
+    "description": "Run page > pytest results tab > summary skipped count"
   },
   "ivRq5S": {
     "defaultMessage": "Send Feedback",
@@ -9643,6 +9695,10 @@
     "defaultMessage": "Automatically log traces for OpenAI API calls by calling the {code} function. For example:",
     "description": "Description of how to log traces for the OpenAI package using MLflow autologging. This message is followed by a code example."
   },
+  "snzf5i": {
+    "defaultMessage": "Test Results",
+    "description": "Run details page > tab selector > pytest test results tab"
+  },
   "sptgX6": {
     "defaultMessage": "Model",
     "description": "Label for model select field"
@@ -10502,6 +10558,10 @@
   "yFl8nB": {
     "defaultMessage": "This model will be deprecated on {date}",
     "description": "Deprecation warning in modal footer"
+  },
+  "yGj17v": {
+    "defaultMessage": "Test Name",
+    "description": "Run page > pytest results tab > table header > test name"
   },
   "yHbOpe": {
     "defaultMessage": "Original logged model: {originalName}",
