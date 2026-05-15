@@ -74,12 +74,35 @@ class AssistantMessageAnchor(BaseModel):
 
 
 class AssertionSpec(BaseModel):
-    """Deterministic check spec for the ``assertion`` test strategy."""
+    """Deterministic check spec for the ``assertion`` test strategy.
+
+    All four lists reject empty / whitespace-only items: an empty
+    ``must_contain`` needle is a vacuous pass (``"" in any_str`` is
+    always true), and an empty ``must_not_contain`` needle is a
+    guaranteed fail. Catching at the entity layer prevents malformed
+    LLM-generated specs from running as no-op checks.
+    """
 
     must_contain: list[str] = Field(default_factory=list)
     must_not_contain: list[str] = Field(default_factory=list)
     must_call_tool: list[str] = Field(default_factory=list)
     must_not_call_tool: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _reject_blank_clauses(self) -> AssertionSpec:
+        for field_name, values in (
+            ("must_contain", self.must_contain),
+            ("must_not_contain", self.must_not_contain),
+            ("must_call_tool", self.must_call_tool),
+            ("must_not_call_tool", self.must_not_call_tool),
+        ):
+            for value in values:
+                if not value.strip():
+                    raise ValueError(
+                        f"AssertionSpec.{field_name} entries must be non-empty "
+                        f"and non-whitespace, got {value!r}"
+                    )
+        return self
 
 
 class JudgeSpec(BaseModel):
