@@ -14,10 +14,8 @@ middleware (matching ``job_api_router`` at ``mlflow/server/job_api.py``).
 
 from __future__ import annotations
 
-import base64
-
 from fastapi import APIRouter, HTTPException, Query, Response
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, ValidationError
 
 from mlflow.agent_playground.test_cases import prompts, store
 from mlflow.agent_playground.test_cases.entities import (
@@ -29,6 +27,7 @@ from mlflow.agent_playground.test_cases.entities import (
     TestStrategy,
 )
 from mlflow.exceptions import MlflowException
+from mlflow.utils.search_utils import SearchUtils
 
 test_cases_router = APIRouter(
     prefix="/ajax-api/3.0/mlflow/agent-playground",
@@ -69,23 +68,10 @@ class PatchTestCaseRequest(BaseModel):
     max_turns: int | None = None
     assertion: AssertionSpec | None = None
     judge: JudgeSpec | None = None
-    persona: PersonaSpec | None = Field(default=None)
+    persona: PersonaSpec | None = None
     clear_persona: bool = False
     conversation_messages: list[dict[str, object]] | None = None
     promoted: bool | None = None
-
-
-def _encode_page_token(offset: int) -> str:
-    return base64.urlsafe_b64encode(str(offset).encode()).decode()
-
-
-def _decode_page_token(token: str | None) -> int:
-    if token is None:
-        return 0
-    try:
-        return int(base64.urlsafe_b64decode(token.encode()).decode())
-    except (ValueError, UnicodeDecodeError, base64.binascii.Error) as exc:
-        raise HTTPException(status_code=400, detail=f"Invalid page_token: {exc}")
 
 
 def _merge_spec(existing: TestSpec, patch: PatchTestCaseRequest) -> TestSpec:
@@ -109,12 +95,27 @@ def _merge_spec(existing: TestSpec, patch: PatchTestCaseRequest) -> TestSpec:
         max_turns=patch.max_turns if patch.max_turns is not None else existing.max_turns,
         assertion=next_assertion if keep_assertion else None,
         judge=next_judge if keep_judge else None,
-        persona=None if patch.clear_persona else (patch.persona or existing.persona),
+        persona=(
+            None
+            if patch.clear_persona
+            else (patch.persona if patch.persona is not None else existing.persona)
+        ),
     )
 
 
 def _mlflow_exc_to_http(exc: MlflowException) -> HTTPException:
     return HTTPException(status_code=exc.get_http_status_code(), detail=exc.message)
+
+
+def _not_implemented_to_http(exc: NotImplementedError) -> HTTPException:
+    # ``store.delete_case`` / ``store.update_case`` raise ``NotImplementedError``
+    # on the Databricks tracking backend (the underlying
+    # ``EvaluationDataset.delete_records`` path). Surface as 501 with a
+    # clean message instead of a 500 stack trace.
+    return HTTPException(
+        status_code=501,
+        detail=f"Operation not supported on the current tracking backend: {exc}",
+    )
 
 
 @test_cases_router.get("/test-cases", response_model=ListTestCasesResponse)
@@ -123,17 +124,21 @@ def list_test_cases(
     max_results: int = Query(_DEFAULT_PAGE_SIZE, ge=1, le=_MAX_PAGE_SIZE),
     page_token: str | None = Query(None),
 ) -> ListTestCasesResponse:
-    offset = _decode_page_token(page_token)
+    # Pagination is offset-based and not snapshot-consistent: between
+    # paged requests, concurrent inserts/deletes can shift offsets,
+    # causing duplicates or skips. Acceptable for v1's expected scale
+    # (hundreds of cases per experiment).
     try:
         cases = store.list_cases(experiment_id)
     except MlflowException as exc:
         raise _mlflow_exc_to_http(exc)
 
-    page = cases[offset : offset + max_results]
-    next_token = (
-        _encode_page_token(offset + max_results) if offset + max_results < len(cases) else None
-    )
-    return ListTestCasesResponse(test_cases=page, next_page_token=next_token)
+    try:
+        page, next_token = SearchUtils.paginate(cases, page_token, max_results)
+    except MlflowException as exc:
+        raise _mlflow_exc_to_http(exc)
+    next_token_str = next_token.decode("utf-8") if isinstance(next_token, bytes) else next_token
+    return ListTestCasesResponse(test_cases=page, next_page_token=next_token_str)
 
 
 @test_cases_router.get("/test-cases/{test_case_id}", response_model=TestCaseRow)
@@ -179,6 +184,8 @@ def patch_test_case(test_case_id: str, payload: PatchTestCaseRequest) -> TestCas
             conversation_messages=payload.conversation_messages,
             promoted=payload.promoted,
         )
+    except NotImplementedError as exc:
+        raise _not_implemented_to_http(exc)
     except MlflowException as exc:
         raise _mlflow_exc_to_http(exc)
 
@@ -196,6 +203,8 @@ def patch_test_case(test_case_id: str, payload: PatchTestCaseRequest) -> TestCas
 def delete_test_case(test_case_id: str, experiment_id: str = Query(...)) -> Response:
     try:
         deleted = store.delete_case(experiment_id, test_case_id)
+    except NotImplementedError as exc:
+        raise _not_implemented_to_http(exc)
     except MlflowException as exc:
         raise _mlflow_exc_to_http(exc)
 

@@ -179,7 +179,7 @@ class TestSpec(BaseModel):
 
     strategy: TestStrategy
     rationale_summary: str
-    max_turns: int = 5
+    max_turns: int = Field(default=5, ge=1, le=100)
     assertion: AssertionSpec | None = None
     judge: JudgeSpec | None = None
     persona: PersonaSpec | None = None

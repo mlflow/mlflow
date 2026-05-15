@@ -15,6 +15,7 @@ import click
 
 from mlflow.agent_playground.test_cases import store
 from mlflow.environment_variables import MLFLOW_EXPERIMENT_ID
+from mlflow.exceptions import MlflowException
 from mlflow.utils.string_utils import _create_table
 
 
@@ -45,7 +46,10 @@ def test_commands():
 )
 def list_test_cases(experiment_id: str, output: Literal["table", "json"]) -> None:
     """List regression test cases for an experiment."""
-    cases = store.list_cases(experiment_id)
+    try:
+        cases = store.list_cases(experiment_id)
+    except MlflowException as exc:
+        raise click.ClickException(exc.message) from exc
     if output == "json":
         click.echo(json.dumps([case.model_dump() for case in cases], indent=2, default=str))
         return
@@ -92,7 +96,15 @@ def delete_test_case(test_case_id: str, experiment_id: str, yes: bool) -> None:
             abort=True,
         )
 
-    deleted = store.delete_case(experiment_id, test_case_id)
+    try:
+        deleted = store.delete_case(experiment_id, test_case_id)
+    except MlflowException as exc:
+        raise click.ClickException(exc.message) from exc
+    except NotImplementedError as exc:
+        raise click.ClickException(
+            f"Delete not supported on the current tracking backend: {exc}"
+        ) from exc
+
     if not deleted:
         raise click.ClickException(
             f"Test case {test_case_id!r} not found in experiment {experiment_id!r}"

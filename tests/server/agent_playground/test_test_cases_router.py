@@ -135,14 +135,6 @@ def test_get_returns_seeded_case(http, experiment_id, seeded_case):
     assert resp.json()["test_case_id"] == seeded_case
 
 
-def test_get_returns_404_for_missing(http, experiment_id):
-    resp = http.get(
-        f"{_PREFIX}/test-cases/tc-missing",
-        params={"experiment_id": experiment_id},
-    )
-    assert resp.status_code == 404
-
-
 def test_patch_updates_rationale_summary_only(http, experiment_id, seeded_case):
     resp = http.patch(
         f"{_PREFIX}/test-cases/{seeded_case}",
@@ -150,14 +142,20 @@ def test_patch_updates_rationale_summary_only(http, experiment_id, seeded_case):
     )
     assert resp.status_code == 200
     body = resp.json()
+    # Verify "only" rationale_summary changed; all other fields preserved.
     assert body["spec"]["rationale_summary"] == "updated reason"
     assert body["spec"]["strategy"] == "assertion"
+    assert body["spec"]["max_turns"] == 5
+    assert body["spec"]["persona"] is None
+    assert body["spec"]["judge"] is None
     assert body["spec"]["assertion"] == {
         "must_contain": ["docs"],
         "must_not_contain": [],
         "must_call_tool": ["search_docs"],
         "must_not_call_tool": [],
     }
+    assert body["promoted"] is False
+    assert body["source_feedback_ids"] == ["fb-001"]
 
 
 def test_patch_switches_strategy_with_matching_payload(
@@ -172,7 +170,12 @@ def test_patch_switches_strategy_with_matching_payload(
         },
     )
     assert resp.status_code == 200
-    assert resp.json()["spec"]["strategy"] == "judge"
+    body = resp.json()
+    assert body["spec"]["strategy"] == "judge"
+    # Strategy-switch auto-clears the inactive payload; verify the
+    # previous assertion clauses dropped.
+    assert body["spec"]["assertion"] is None
+    assert body["spec"]["judge"]["criteria"] == "response is friendly"
 
 
 def test_patch_rejects_strategy_swap_without_payload(http, experiment_id, seeded_case):

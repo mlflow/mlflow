@@ -3976,6 +3976,9 @@ def _find_fastapi_validator(path: str) -> Callable[[str, StarletteRequest], Awai
     if path.startswith("/ajax-api/3.0/mlflow/assistant"):
         return _get_require_authentication_validator()
 
+    if path.startswith("/ajax-api/3.0/mlflow/agent-playground"):
+        return _get_require_authentication_validator()
+
     return None
 
 

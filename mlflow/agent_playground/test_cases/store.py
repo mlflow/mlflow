@@ -70,10 +70,16 @@ from mlflow.agent_playground.test_cases.entities import (
     TestCaseRow,
     TestSpec,
 )
+from mlflow.agent_playground.test_cases.telemetry import (
+    TestCaseAddedEvent,
+    TestCaseDeletedEvent,
+    TestCaseUpdatedEvent,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.genai.datasets import create_dataset, get_dataset
 from mlflow.genai.datasets.evaluation_dataset import EvaluationDataset
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, ErrorCode
+from mlflow.telemetry.track import record_usage_event
 
 _logger = logging.getLogger(__name__)
 
@@ -241,6 +247,7 @@ def _build_record(
     }
 
 
+@record_usage_event(TestCaseAddedEvent)
 def insert_case(
     experiment_id: str,
     spec: TestSpec,
@@ -337,6 +344,7 @@ def _find_dataset_record_id(dataset: EvaluationDataset, test_case_id: str) -> st
     return None
 
 
+@record_usage_event(TestCaseDeletedEvent)
 def delete_case(experiment_id: str, test_case_id: str) -> bool:
     """Delete a case by id. Returns ``True`` if found and deleted."""
     dataset = _try_get_regression_dataset(experiment_id)
@@ -350,6 +358,7 @@ def delete_case(experiment_id: str, test_case_id: str) -> bool:
     return True
 
 
+@record_usage_event(TestCaseUpdatedEvent)
 def update_case(
     experiment_id: str,
     test_case_id: str,
