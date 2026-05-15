@@ -1589,6 +1589,35 @@ async def test_openai_passthrough_responses_compact(store: SqlAlchemyStore):
 
 
 @pytest.mark.asyncio
+async def test_openai_passthrough_responses_compact_rejects_stream():
+    """``/responses/compact`` is unary upstream; the handler must reject a
+    client-supplied ``stream=true`` with HTTP 400 before invoking the provider
+    (whose passthrough machinery treats all non-embeddings actions as
+    stream-capable and would otherwise open an SSE stream against an upstream
+    endpoint that does not support it).
+    """
+    mock_request = create_mock_request()
+    mock_request.json = AsyncMock(
+        return_value={
+            "model": "openai-responses-compact-endpoint",
+            "previous_response_id": "resp_abc123",
+            "stream": True,
+        }
+    )
+
+    # send_request should never be called — the handler rejects before
+    # reaching the provider.
+    with (
+        mock.patch("mlflow.gateway.providers.openai.send_request") as mock_send,
+        pytest.raises(HTTPException, match="stream=true is not supported") as exc_info,
+    ):
+        await openai_passthrough_responses_compact(mock_request)
+
+    assert exc_info.value.status_code == 400
+    assert not mock_send.called
+
+
+@pytest.mark.asyncio
 async def test_openai_passthrough_chat_streaming(store: SqlAlchemyStore):
     secret = store.create_gateway_secret(
         secret_name="openai-stream-passthrough-key",

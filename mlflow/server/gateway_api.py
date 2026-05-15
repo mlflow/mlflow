@@ -1096,7 +1096,11 @@ async def openai_passthrough_responses_compact(request: Request):
 
     Mirrors :func:`openai_passthrough_responses` for session compaction calls
     (e.g. those issued by the OpenAI Agents SDK's ``OpenAIResponsesCompactionSession``).
-    Compaction is a unary request — there is no streaming variant.
+    Compaction is a unary request — there is no streaming variant. A request
+    that sets ``stream=true`` is rejected with HTTP 400 to avoid the underlying
+    provider passthrough (which treats all non-embeddings actions as
+    stream-capable) attempting an SSE stream against an upstream endpoint that
+    does not support it.
 
     Example:
         POST /gateway/openai/v1/responses/compact
@@ -1106,6 +1110,17 @@ async def openai_passthrough_responses_compact(request: Request):
         }
     """
     body = await _get_request_body(request)
+
+    # /responses/compact is unary upstream; explicitly reject `stream=true`
+    # before the provider's passthrough machinery tries to open an SSE stream.
+    if body.get("stream"):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "stream=true is not supported on /responses/compact; compaction is a unary request."
+            ),
+        )
+
     user_metadata = _get_user_metadata(request)
 
     endpoint_name = _extract_endpoint_name_from_model(body)
