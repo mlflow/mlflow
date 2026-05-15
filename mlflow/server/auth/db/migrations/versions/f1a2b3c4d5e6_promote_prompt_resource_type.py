@@ -24,7 +24,7 @@ surface; this backfills the new namespace.
 """
 
 from alembic import op
-from sqlalchemy import bindparam, inspect, text
+from sqlalchemy import inspect, text
 
 _IS_PROMPT_TAG_KEY = "mlflow.prompt.is_prompt"
 
@@ -38,61 +38,31 @@ def _registry_tag_table_exists(conn) -> bool:
     return "registered_model_tags" in inspect(conn).get_table_names()
 
 
-def _classify_prompts(conn, pairs: list[tuple[str, str]]) -> set[tuple[str, str]]:
-    """Return the subset of ``(workspace, name)`` pairs whose ``is_prompt`` tag is ``'true'``."""
-    if not pairs:
-        return set()
-    workspaces = list({workspace for workspace, _ in pairs})
-    names = list({name for _, name in pairs})
-    rows = conn.execute(
-        text(
-            "SELECT workspace, name FROM registered_model_tags "
-            "WHERE key = :key AND LOWER(value) = 'true' "
-            "AND workspace IN :workspaces AND name IN :names"
-        ).bindparams(
-            bindparam("workspaces", expanding=True),
-            bindparam("names", expanding=True),
-        ),
-        {"key": _IS_PROMPT_TAG_KEY, "workspaces": workspaces, "names": names},
-    )
-    prompt_pairs = {(row.workspace, row.name) for row in rows}
-    return prompt_pairs & set(pairs)
-
-
 def upgrade() -> None:
     conn = op.get_bind()
     if not _registry_tag_table_exists(conn):
         # Split-DB deployment: cannot classify across databases. See module docstring.
         return
 
-    candidates = conn.execute(
-        text(
-            "SELECT rp.id, rp.resource_pattern, r.workspace "
-            "FROM role_permissions rp "
-            "JOIN roles r ON r.id = rp.role_id "
-            "WHERE rp.resource_type = 'registered_model' AND rp.resource_pattern <> '*'"
-        )
-    ).fetchall()
-    if not candidates:
-        return
-
-    prompt_pairs = _classify_prompts(
-        conn, [(row.workspace, row.resource_pattern) for row in candidates]
-    )
-    if not prompt_pairs:
-        return
-
-    rewrite_ids = [
-        row.id for row in candidates if (row.workspace, row.resource_pattern) in prompt_pairs
-    ]
-    if not rewrite_ids:
-        return
-
+    # Single-pass UPDATE: rewrite every non-wildcard ``registered_model`` row whose
+    # ``(workspace, name)`` matches an ``is_prompt='true'`` tag in the registry.
+    # Workspace correlation goes via ``role_permissions.role_id → roles.workspace``;
+    # the EXISTS subquery keeps the work in the database so we don't pull rows into
+    # Python or build IN-lists that can blow past SQLite's variable limit on large
+    # auth stores.
     conn.execute(
-        text("UPDATE role_permissions SET resource_type = 'prompt' WHERE id IN :ids").bindparams(
-            bindparam("ids", expanding=True)
+        text(
+            "UPDATE role_permissions SET resource_type = 'prompt' "
+            "WHERE resource_type = 'registered_model' AND resource_pattern <> '*' "
+            "AND EXISTS ("
+            "  SELECT 1 FROM roles r, registered_model_tags rmt "
+            "  WHERE r.id = role_permissions.role_id "
+            "  AND rmt.workspace = r.workspace "
+            "  AND rmt.name = role_permissions.resource_pattern "
+            "  AND rmt.key = :key AND LOWER(rmt.value) = 'true'"
+            ")"
         ),
-        {"ids": rewrite_ids},
+        {"key": _IS_PROMPT_TAG_KEY},
     )
 
 

@@ -1964,7 +1964,8 @@ BEFORE_REQUEST_HANDLERS = {
     LogParam: validate_can_update_run,
     GetMetricHistory: validate_can_read_run,
     ListArtifacts: validate_can_read_run,
-    # Routes for model registry (shared with prompts — see `_request_targets_prompt`).
+    # Routes for model registry (shared with prompts — dispatch via
+    # `_get_permission_from_registered_model_or_prompt_name`).
     CreateRegisteredModel: validate_can_create_registered_model,
     GetRegisteredModel: _validate_can_read_registered_model_or_prompt,
     DeleteRegisteredModel: _validate_can_delete_registered_model_or_prompt,

@@ -1097,8 +1097,9 @@ def test_prompt_validators_require_manage_for_writes(workspace_permission_setup,
 
 
 def test_prompt_dispatch_routes_request_by_is_prompt_tag(workspace_permission_setup, monkeypatch):
-    # Shared registered-model route resolves to the prompt validator only when
-    # the entity is a prompt; the dispatching wrappers pick via `_request_targets_prompt()`.
+    # Shared registered-model route resolves to the prompt resource_type only when
+    # the entity is a prompt; the dispatching wrappers pick via
+    # `_get_permission_from_registered_model_or_prompt_name()` (single fetch + `._is_prompt()`).
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     registry_store = _RegistryStore(
