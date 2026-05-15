@@ -1,6 +1,7 @@
 import pytest
 
 from mlflow.agent_playground.test_cases.entities import (
+    _SIMULATOR_RESERVED_CONTEXT_KEYS,
     AssertionSpec,
     AssistantMessageAnchor,
     DedupVerdict,
@@ -8,7 +9,6 @@ from mlflow.agent_playground.test_cases.entities import (
     JobStatus,
     JudgeSpec,
     PersonaSpec,
-    RunSummary,
     TestSpec,
     Verdict,
 )
@@ -97,8 +97,28 @@ def test_test_spec_max_turns_overridable_per_case():
 
 
 def test_test_spec_invalid_strategy_rejected():
-    with pytest.raises(ValueError, match="strategy"):
+    with pytest.raises(ValueError, match="Input should be 'assertion' or 'judge'"):
         TestSpec(strategy="invalid", rationale_summary="x", assertion=AssertionSpec())
+
+
+def test_test_spec_assertion_strategy_rejects_orphan_judge_payload():
+    with pytest.raises(ValueError, match="must not carry a judge payload"):
+        TestSpec(
+            strategy="assertion",
+            rationale_summary="x",
+            assertion=AssertionSpec(must_contain=["docs"]),
+            judge=JudgeSpec(criteria="c"),
+        )
+
+
+def test_test_spec_judge_strategy_rejects_orphan_assertion_payload():
+    with pytest.raises(ValueError, match="must not carry an assertion payload"):
+        TestSpec(
+            strategy="judge",
+            rationale_summary="x",
+            assertion=AssertionSpec(must_contain=["docs"]),
+            judge=JudgeSpec(criteria="c"),
+        )
 
 
 def test_assistant_message_anchor_required_fields():
@@ -107,7 +127,7 @@ def test_assistant_message_anchor_required_fields():
     AssistantMessageAnchor(
         message_id="msg-789",
         start=120,
-        end=178,
+        end=140,
         selected_text="use INFO for general",
         prefix="answer: ",
         suffix=" hope that",
@@ -124,6 +144,27 @@ def test_assistant_message_anchor_trace_id_optional():
         suffix="",
     )
     assert anchor.trace_id is None
+
+
+def test_assistant_message_anchor_rejects_negative_start():
+    with pytest.raises(ValueError, match="start must be non-negative"):
+        AssistantMessageAnchor(
+            message_id="m", start=-1, end=4, selected_text="abcd", prefix="", suffix=""
+        )
+
+
+def test_assistant_message_anchor_rejects_end_before_start():
+    with pytest.raises(ValueError, match="must be >= start"):
+        AssistantMessageAnchor(
+            message_id="m", start=10, end=4, selected_text="", prefix="", suffix=""
+        )
+
+
+def test_assistant_message_anchor_rejects_mismatched_selected_text_length():
+    with pytest.raises(ValueError, match="must equal end - start"):
+        AssistantMessageAnchor(
+            message_id="m", start=0, end=5, selected_text="hi", prefix="", suffix=""
+        )
 
 
 def test_verdict_pass_has_no_reasons():
@@ -161,17 +202,6 @@ def test_verdict_pass_with_reasons_rejected():
 def test_verdict_invalid_outcome_rejected():
     with pytest.raises(ValueError, match="outcome"):
         Verdict(test_case_id="tc-001", outcome="maybe")
-
-
-def test_run_summary_aggregates_counts():
-    summary = RunSummary(
-        run_id="run-xyz",
-        pass_count=8,
-        fail_count=1,
-        error_count=0,
-        duration_ms=12000,
-    )
-    assert summary.pass_count + summary.fail_count + summary.error_count == 9
 
 
 def test_job_status_enum_values():
@@ -216,6 +246,24 @@ def test_job_response_failed_without_kind_rejected():
 def test_job_response_failed_without_reason_rejected():
     with pytest.raises(ValueError, match="failure_reason"):
         JobResponse(job_id="j", status=JobStatus.FAILED, failure_kind="other")
+
+
+@pytest.mark.parametrize(
+    "non_failed_status",
+    [JobStatus.PENDING, JobStatus.RUNNING, JobStatus.SUCCEEDED, JobStatus.CANCELLED],
+)
+def test_job_response_non_failed_must_not_carry_failure_kind(non_failed_status: JobStatus):
+    with pytest.raises(ValueError, match="must not carry failure_kind"):
+        JobResponse(job_id="j", status=non_failed_status, failure_kind="other")
+
+
+@pytest.mark.parametrize(
+    "non_failed_status",
+    [JobStatus.PENDING, JobStatus.RUNNING, JobStatus.SUCCEEDED, JobStatus.CANCELLED],
+)
+def test_job_response_non_failed_must_not_carry_failure_reason(non_failed_status: JobStatus):
+    with pytest.raises(ValueError, match="must not carry failure_reason"):
+        JobResponse(job_id="j", status=non_failed_status, failure_reason="x")
 
 
 @pytest.mark.parametrize(
@@ -274,3 +322,23 @@ def test_persona_spec_rejects_simulator_reserved_context_keys(reserved_key: str)
 def test_persona_spec_accepts_non_reserved_context_keys():
     spec = PersonaSpec(goal="g", context={"user_id": "123", "tenant": "acme"})
     assert spec.context == {"user_id": "123", "tenant": "acme"}
+
+
+def test_persona_spec_reserved_keys_stay_in_lockstep_with_simulator():
+    # Drift guard: if the simulator adds a fourth reserved key,
+    # ``_SIMULATOR_RESERVED_CONTEXT_KEYS`` must be updated in lockstep
+    # or PersonaSpec.context will accept invalid input that the
+    # simulator rejects at runtime.
+    from mlflow.genai.simulators.simulator import _RESERVED_CONTEXT_KEYS
+
+    assert _SIMULATOR_RESERVED_CONTEXT_KEYS == _RESERVED_CONTEXT_KEYS
+
+
+def test_persona_spec_fields_are_subset_of_simulator_expected_keys():
+    # Drift guard: PersonaSpec.model_dump(exclude_none=True) is handed
+    # straight to ConversationSimulator, which warns on unexpected
+    # keys. Catching subset drift in CI is cheaper than the warning
+    # showing up at run time.
+    from mlflow.genai.simulators.simulator import _EXPECTED_TEST_CASE_KEYS
+
+    assert set(PersonaSpec.model_fields) <= _EXPECTED_TEST_CASE_KEYS

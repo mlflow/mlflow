@@ -14,15 +14,16 @@ deliberately I/O-free.
 from __future__ import annotations
 
 from enum import Enum
-from typing import Literal
+from typing import Any, Literal
 
-import pydantic
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 # Keys reserved by ``ConversationSimulator`` for injecting conversation
-# history and session id (see ``mlflow/genai/simulators/simulator.py``).
-# ``PersonaSpec.context`` must not contain these or the simulator will
-# reject the test case at runtime.
+# history and session id. Mirrors ``_RESERVED_CONTEXT_KEYS`` in
+# ``mlflow/genai/simulators/simulator.py``; the test suite asserts the
+# two sets stay in lockstep so drift is caught in CI rather than at
+# runtime. We duplicate rather than import to keep ``entities.py``
+# free of ``mlflow.*`` imports beyond ``pydantic``.
 _SIMULATOR_RESERVED_CONTEXT_KEYS = frozenset({"input", "messages", "mlflow_session_id"})
 
 
@@ -52,6 +53,19 @@ class AssistantMessageAnchor(BaseModel):
     selected_text: str
     prefix: str
     suffix: str
+
+    @model_validator(mode="after")
+    def _validate_anchor_range(self) -> AssistantMessageAnchor:
+        if self.start < 0:
+            raise ValueError(f"start must be non-negative, got {self.start}")
+        if self.end < self.start:
+            raise ValueError(f"end ({self.end}) must be >= start ({self.start})")
+        if len(self.selected_text) != self.end - self.start:
+            raise ValueError(
+                f"selected_text length ({len(self.selected_text)}) "
+                f"must equal end - start ({self.end - self.start})"
+            )
+        return self
 
 
 # ---------------------------------------------------------------------------
@@ -102,9 +116,9 @@ class PersonaSpec(BaseModel):
     goal: str
     persona: str | None = None
     simulation_guidelines: list[str] | None = None
-    context: dict[str, object] | None = None
+    context: dict[str, Any] | None = None
 
-    @pydantic.model_validator(mode="after")
+    @model_validator(mode="after")
     def _reject_simulator_reserved_context_keys(self) -> PersonaSpec:
         if self.context is None:
             return self
@@ -147,13 +161,21 @@ class TestSpec(BaseModel):
     judge: JudgeSpec | None = None
     persona: PersonaSpec | None = None
 
-    @pydantic.model_validator(mode="after")
+    @model_validator(mode="after")
     def _strategy_matches_payload(self) -> TestSpec:
         match self.strategy:
-            case "assertion" if self.assertion is None:
-                raise ValueError("strategy='assertion' requires an assertion payload")
-            case "judge" if self.judge is None:
-                raise ValueError("strategy='judge' requires a judge payload")
+            case "assertion":
+                if self.assertion is None:
+                    raise ValueError("strategy='assertion' requires an assertion payload")
+                if self.judge is not None:
+                    raise ValueError("strategy='assertion' must not carry a judge payload")
+            case "judge":
+                if self.judge is None:
+                    raise ValueError("strategy='judge' requires a judge payload")
+                if self.assertion is not None:
+                    raise ValueError("strategy='judge' must not carry an assertion payload")
+            case _:
+                raise ValueError(f"Unknown strategy: {self.strategy!r}")
         return self
 
 
@@ -191,7 +213,7 @@ class Verdict(BaseModel):
     trace_ids: tuple[str, ...] = ()
     duration_ms: int | None = None
 
-    @pydantic.model_validator(mode="after")
+    @model_validator(mode="after")
     def _pass_has_no_reasons(self) -> Verdict:
         if self.outcome == "pass" and self.reasons:
             raise ValueError("outcome='pass' must not carry reasons")
@@ -256,13 +278,18 @@ class JobResponse(BaseModel):
     failure_reason: str | None = None
     failure_kind: JobFailureKind | None = None
 
-    @pydantic.model_validator(mode="after")
-    def _failed_requires_kind_and_reason(self) -> JobResponse:
+    @model_validator(mode="after")
+    def _failure_fields_match_status(self) -> JobResponse:
         if self.status == JobStatus.FAILED:
             if self.failure_kind is None:
                 raise ValueError("status=FAILED requires failure_kind to be set")
             if self.failure_reason is None:
                 raise ValueError("status=FAILED requires failure_reason to be set")
+        else:
+            if self.failure_kind is not None:
+                raise ValueError(f"status={self.status.value!r} must not carry failure_kind")
+            if self.failure_reason is not None:
+                raise ValueError(f"status={self.status.value!r} must not carry failure_reason")
         return self
 
 
@@ -286,7 +313,7 @@ class DedupVerdict(BaseModel):
     existing_test_case_id: str | None = None
     reason: str
 
-    @pydantic.model_validator(mode="after")
+    @model_validator(mode="after")
     def _duplicate_requires_existing_id(self) -> DedupVerdict:
         if self.is_duplicate and self.existing_test_case_id is None:
             raise ValueError("is_duplicate=True requires existing_test_case_id to be set")
