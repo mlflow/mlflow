@@ -1279,9 +1279,7 @@ class _ResourceDispatch:
     workspace_label: str
 
 
-def _resource_dispatch_keys(
-    resource_type: str, resource_id: str
-) -> _ResourceDispatch | None:
+def _resource_dispatch_keys(resource_type: str, resource_id: str) -> _ResourceDispatch | None:
     """Return the dispatch keys for ``(resource_type, resource_id)``, or ``None``
     if the type isn't supported by the per-user convenience APIs.
     """
