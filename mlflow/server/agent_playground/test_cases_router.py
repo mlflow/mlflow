@@ -1,0 +1,206 @@
+"""FastAPI router for agent_playground test-case CRUD.
+
+Mounted at ``/ajax-api/3.0/mlflow/agent-playground``. Endpoints:
+
+- ``GET  /test-cases?experiment_id=...&max_results=&page_token=``
+- ``GET  /test-cases/{test_case_id}?experiment_id=...``
+- ``PATCH /test-cases/{test_case_id}`` (partial update)
+- ``DELETE /test-cases/{test_case_id}?experiment_id=...`` (hard delete)
+- ``POST /test-cases/prompt-for-fix`` (renders the copy-paste fix prompt)
+
+No per-route auth dependency: relies on the global FastAPI permission
+middleware (matching ``job_api_router`` at ``mlflow/server/job_api.py``).
+"""
+
+from __future__ import annotations
+
+import base64
+
+from fastapi import APIRouter, HTTPException, Query, Response
+from pydantic import BaseModel, Field, ValidationError
+
+from mlflow.agent_playground.test_cases import prompts, store
+from mlflow.agent_playground.test_cases.entities import (
+    AssertionSpec,
+    JudgeSpec,
+    PersonaSpec,
+    TestCaseRow,
+    TestSpec,
+    TestStrategy,
+)
+from mlflow.exceptions import MlflowException
+
+test_cases_router = APIRouter(
+    prefix="/ajax-api/3.0/mlflow/agent-playground",
+    tags=["AgentPlayground"],
+)
+
+
+_DEFAULT_PAGE_SIZE = 100
+_MAX_PAGE_SIZE = 1000
+
+
+class ListTestCasesResponse(BaseModel):
+    test_cases: list[TestCaseRow]
+    next_page_token: str | None = None
+
+
+class PromptForFixRequest(BaseModel):
+    experiment_id: str
+    test_case_id: str
+
+
+class PromptForFixResponse(BaseModel):
+    prompt: str
+
+
+class PatchTestCaseRequest(BaseModel):
+    """Partial update payload.
+
+    Only fields explicitly supplied are applied. Unsupplied fields are
+    left untouched. Lineage and ownership fields (``test_case_id``,
+    ``experiment_id``, ``source_*``) are not updatable through this
+    endpoint and must travel via the path / query params.
+    """
+
+    experiment_id: str
+    strategy: TestStrategy | None = None
+    rationale_summary: str | None = None
+    max_turns: int | None = None
+    assertion: AssertionSpec | None = None
+    judge: JudgeSpec | None = None
+    persona: PersonaSpec | None = Field(default=None)
+    clear_persona: bool = False
+    conversation_messages: list[dict[str, object]] | None = None
+    promoted: bool | None = None
+
+
+def _encode_page_token(offset: int) -> str:
+    return base64.urlsafe_b64encode(str(offset).encode()).decode()
+
+
+def _decode_page_token(token: str | None) -> int:
+    if token is None:
+        return 0
+    try:
+        return int(base64.urlsafe_b64decode(token.encode()).decode())
+    except (ValueError, UnicodeDecodeError, base64.binascii.Error) as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid page_token: {exc}")
+
+
+def _merge_spec(existing: TestSpec, patch: PatchTestCaseRequest) -> TestSpec:
+    return TestSpec(
+        strategy=patch.strategy if patch.strategy is not None else existing.strategy,
+        rationale_summary=(
+            patch.rationale_summary
+            if patch.rationale_summary is not None
+            else existing.rationale_summary
+        ),
+        max_turns=patch.max_turns if patch.max_turns is not None else existing.max_turns,
+        assertion=patch.assertion if patch.assertion is not None else existing.assertion,
+        judge=patch.judge if patch.judge is not None else existing.judge,
+        persona=None if patch.clear_persona else (patch.persona or existing.persona),
+    )
+
+
+def _mlflow_exc_to_http(exc: MlflowException) -> HTTPException:
+    return HTTPException(status_code=exc.get_http_status_code(), detail=exc.message)
+
+
+@test_cases_router.get("/test-cases", response_model=ListTestCasesResponse)
+def list_test_cases(
+    experiment_id: str = Query(...),
+    max_results: int = Query(_DEFAULT_PAGE_SIZE, ge=1, le=_MAX_PAGE_SIZE),
+    page_token: str | None = Query(None),
+) -> ListTestCasesResponse:
+    offset = _decode_page_token(page_token)
+    try:
+        cases = store.list_cases(experiment_id)
+    except MlflowException as exc:
+        raise _mlflow_exc_to_http(exc)
+
+    page = cases[offset : offset + max_results]
+    next_token = (
+        _encode_page_token(offset + max_results) if offset + max_results < len(cases) else None
+    )
+    return ListTestCasesResponse(test_cases=page, next_page_token=next_token)
+
+
+@test_cases_router.get("/test-cases/{test_case_id}", response_model=TestCaseRow)
+def get_test_case(test_case_id: str, experiment_id: str = Query(...)) -> TestCaseRow:
+    try:
+        case = store.get_case(experiment_id, test_case_id)
+    except MlflowException as exc:
+        raise _mlflow_exc_to_http(exc)
+
+    if case is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Test case {test_case_id!r} not found in experiment {experiment_id!r}",
+        )
+    return case
+
+
+@test_cases_router.patch("/test-cases/{test_case_id}", response_model=TestCaseRow)
+def patch_test_case(test_case_id: str, payload: PatchTestCaseRequest) -> TestCaseRow:
+    try:
+        existing = store.get_case(payload.experiment_id, test_case_id)
+    except MlflowException as exc:
+        raise _mlflow_exc_to_http(exc)
+
+    if existing is None:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                f"Test case {test_case_id!r} not found in experiment {payload.experiment_id!r}"
+            ),
+        )
+
+    try:
+        next_spec = _merge_spec(existing.spec, payload)
+    except ValidationError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+
+    try:
+        updated = store.update_case(
+            payload.experiment_id,
+            test_case_id,
+            spec=next_spec,
+            conversation_messages=payload.conversation_messages,
+            promoted=payload.promoted,
+        )
+    except MlflowException as exc:
+        raise _mlflow_exc_to_http(exc)
+
+    if updated is None:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                f"Test case {test_case_id!r} not found in experiment {payload.experiment_id!r}"
+            ),
+        )
+    return updated
+
+
+@test_cases_router.delete("/test-cases/{test_case_id}")
+def delete_test_case(test_case_id: str, experiment_id: str = Query(...)) -> Response:
+    try:
+        deleted = store.delete_case(experiment_id, test_case_id)
+    except MlflowException as exc:
+        raise _mlflow_exc_to_http(exc)
+
+    if not deleted:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Test case {test_case_id!r} not found in experiment {experiment_id!r}",
+        )
+    return Response(status_code=204)
+
+
+@test_cases_router.post("/test-cases/prompt-for-fix", response_model=PromptForFixResponse)
+def prompt_for_fix(payload: PromptForFixRequest) -> PromptForFixResponse:
+    try:
+        prompt = prompts.build_fix_prompt(payload.experiment_id, payload.test_case_id)
+    except MlflowException as exc:
+        raise _mlflow_exc_to_http(exc)
+    return PromptForFixResponse(prompt=prompt)
