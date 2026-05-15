@@ -58,18 +58,18 @@ jobs:
             local user=$1
             local type=$2
             if [ "$user" = "Copilot" ] && [ "$type" = "Bot" ]; then
-              echo "::notice::Allowing Copilot bot: $user"
+              echo "Allowing Copilot bot: $user"
               return 0
             fi
             local role
             role=$(gh api "repos/$REPO/collaborators/$user/permission" --jq .role_name) \
-              || { echo "::error::Failed to fetch permission for $user"; exit 1; }
+              || { echo "Failed to fetch permission for $user"; exit 1; }
             case "$role" in
               admin|maintain)
-                echo "::notice::User $user is allowed (admin or maintain role)"
+                echo "User $user is allowed (admin or maintain role)"
                 ;;
               *)
-                echo "::error::User $user is not allowed (admin or maintain role required)"
+                echo "User $user is not allowed (admin or maintain role required)"
                 exit 1
                 ;;
             esac
