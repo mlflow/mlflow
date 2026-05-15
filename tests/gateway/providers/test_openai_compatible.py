@@ -304,7 +304,6 @@ async def test_proxy_streaming():
 
 @pytest.mark.asyncio
 async def test_proxy_streaming_detected_from_content_type():
-    """Streaming is detected from the response Content-Type, not from payload.stream."""
     provider = _make_provider()
     chunk_data = (
         b'data: {"id":"chatcmpl-1","object":"chat.completion.chunk","created":1,'

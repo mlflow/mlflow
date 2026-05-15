@@ -1126,7 +1126,6 @@ async def test_proxy_anthropic_streaming():
 
 @pytest.mark.asyncio
 async def test_proxy_anthropic_streaming_detected_from_content_type():
-    """Streaming is detected from the response Content-Type, not from payload.stream."""
     resp = passthrough_messages_stream_response()
     config = chat_config()
 
