@@ -13,44 +13,61 @@ deterministic-check contract and lives in
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 
-from mlflow.agent_playground.test_cases.entities import AssertionSpec
+from mlflow.agent_playground.test_cases.entities import AssertionSpec, VerdictOutcome
 
 
 @dataclass(frozen=True)
 class AssertionResult:
     """Outcome of evaluating an :class:`AssertionSpec`.
 
-    ``passed`` is true iff every clause held. ``reasons`` lists every
-    failed clause as a human-readable string; it is empty when
-    ``passed`` is true. The runner wraps this into a full
+    ``outcome`` is ``"pass"`` iff every clause held, ``"fail"`` if any
+    clause failed. The assertion evaluator never produces ``"error"``;
+    execution-level failures (agent crash, timeout) are surfaced by the
+    runner when it wraps this into a full
     :class:`mlflow.agent_playground.test_cases.entities.Verdict` with
-    run-level context (test_case_id, trace_ids, duration_ms).
+    run-level context (``test_case_id``, ``trace_ids``,
+    ``duration_ms``).
+
+    ``reasons`` lists every failed clause as a human-readable string;
+    it is empty when ``outcome == "pass"``.
     """
 
-    passed: bool
+    outcome: VerdictOutcome
     reasons: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        if self.outcome == "pass" and self.reasons:
+            raise ValueError("outcome='pass' must not carry reasons")
 
 
 def evaluate_assertions(
     spec: AssertionSpec,
     final_response_text: str,
-    tool_call_names: list[str],
+    tool_call_names: Iterable[str],
 ) -> AssertionResult:
     """Apply ``spec`` to the agent's final response and tool-call list.
+
+    Substring checks (``must_contain`` / ``must_not_contain``) are
+    case-sensitive and do not normalize Unicode; needle strings match
+    byte-for-byte against ``final_response_text``. Tool-call checks
+    treat ``tool_call_names`` as a set: ``must_call_tool=["foo"]`` holds
+    if ``"foo"`` appears at least once, regardless of how many times it
+    was invoked.
 
     Args:
         spec: The assertion spec from the test case row.
         final_response_text: The assistant's text in the final turn of
-            the conversation. Substring checks run against this.
+            the conversation.
         tool_call_names: Names of tool spans observed during the
-            conversation (any turn, not just the final one). Tool-call
-            checks run against this set.
+            conversation (any turn, not just the final one). Membership
+            tested with set semantics; multiplicity and order ignored.
 
     Returns:
-        :class:`AssertionResult` with ``passed`` and a ``reasons`` tuple
-        listing each failed clause.
+        :class:`AssertionResult` with ``outcome`` and a ``reasons``
+        tuple listing each failed clause.
     """
     reasons: list[str] = [
         f"must_contain: {needle!r} was not present in the response"
@@ -73,7 +90,10 @@ def evaluate_assertions(
         for tool in spec.must_not_call_tool
         if tool in called
     )
-    return AssertionResult(passed=not reasons, reasons=tuple(reasons))
+    return AssertionResult(
+        outcome="pass" if not reasons else "fail",
+        reasons=tuple(reasons),
+    )
 
 
 __all__ = [

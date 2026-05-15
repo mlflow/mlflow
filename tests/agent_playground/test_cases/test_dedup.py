@@ -1,8 +1,8 @@
 import pytest
 
 from mlflow.agent_playground.test_cases.dedup import (
-    Duplicate,
-    Unique,
+    HardMatchDuplicate,
+    HardMatchUnique,
     check_hard_match,
 )
 
@@ -12,7 +12,7 @@ def test_no_existing_returns_unique():
         new_source_assistant_message_id="msg-1",
         existing=[],
     )
-    assert result == Unique()
+    assert result == HardMatchUnique()
 
 
 def test_hard_match_on_anchored_message_id():
@@ -20,7 +20,9 @@ def test_hard_match_on_anchored_message_id():
         new_source_assistant_message_id="msg-789",
         existing=[("msg-789", "tc-001")],
     )
-    assert result == Duplicate(test_case_id="tc-001", reason="anchored_message_id")
+    assert result == HardMatchDuplicate(
+        existing_test_case_id="tc-001", reason="anchored_message_id"
+    )
 
 
 def test_no_msg_id_disables_hard_match():
@@ -30,7 +32,7 @@ def test_no_msg_id_disables_hard_match():
         new_source_assistant_message_id=None,
         existing=[("msg-789", "tc-002")],
     )
-    assert result == Unique()
+    assert result == HardMatchUnique()
 
 
 def test_existing_with_no_msg_id_is_not_a_match():
@@ -40,7 +42,7 @@ def test_existing_with_no_msg_id_is_not_a_match():
         new_source_assistant_message_id=None,
         existing=[(None, "tc-003")],
     )
-    assert result == Unique()
+    assert result == HardMatchUnique()
 
 
 def test_first_match_returns_immediately():
@@ -51,7 +53,9 @@ def test_first_match_returns_immediately():
             ("msg-x", "tc-second"),
         ],
     )
-    assert result == Duplicate(test_case_id="tc-first", reason="anchored_message_id")
+    assert result == HardMatchDuplicate(
+        existing_test_case_id="tc-first", reason="anchored_message_id"
+    )
 
 
 def test_no_match_among_many_existing_returns_unique():
@@ -63,28 +67,47 @@ def test_no_match_among_many_existing_returns_unique():
             ("msg-c", "tc-c"),
         ],
     )
-    assert result == Unique()
+    assert result == HardMatchUnique()
+
+
+def test_existing_accepts_a_generator():
+    # The `existing` parameter is typed as Iterable, so a single-pass
+    # generator must work without TypeError.
+    def gen():
+        yield ("msg-a", "tc-a")
+        yield ("msg-x", "tc-x")
+        yield ("msg-b", "tc-b")
+
+    result = check_hard_match(
+        new_source_assistant_message_id="msg-x",
+        existing=gen(),
+    )
+    assert result == HardMatchDuplicate(existing_test_case_id="tc-x")
 
 
 @pytest.mark.parametrize(
     ("new_msg_id", "existing", "expected"),
     [
         # Match at the start of the list.
-        ("msg-x", [("msg-x", "tc-1"), ("msg-y", "tc-2")], Duplicate(test_case_id="tc-1")),
+        (
+            "msg-x",
+            [("msg-x", "tc-1"), ("msg-y", "tc-2")],
+            HardMatchDuplicate(existing_test_case_id="tc-1"),
+        ),
         # Match in the middle.
         (
             "msg-y",
             [("msg-a", "tc-1"), ("msg-y", "tc-2"), ("msg-z", "tc-3")],
-            Duplicate(test_case_id="tc-2"),
+            HardMatchDuplicate(existing_test_case_id="tc-2"),
         ),
         # Match at the end.
         (
             "msg-z",
             [("msg-a", "tc-1"), ("msg-y", "tc-2"), ("msg-z", "tc-3")],
-            Duplicate(test_case_id="tc-3"),
+            HardMatchDuplicate(existing_test_case_id="tc-3"),
         ),
         # No match.
-        ("msg-q", [("msg-a", "tc-1"), ("msg-b", "tc-2")], Unique()),
+        ("msg-q", [("msg-a", "tc-1"), ("msg-b", "tc-2")], HardMatchUnique()),
     ],
 )
 def test_hard_match_finds_first_in_iteration_order(new_msg_id, existing, expected):
