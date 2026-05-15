@@ -66,10 +66,10 @@ jobs:
               || { echo "::error::Failed to fetch permission for $user"; exit 1; }
             case "$role" in
               admin|maintain)
-                echo "::notice::User $user is allowed"
+                echo "::notice::User $user is allowed (admin or maintain role)"
                 ;;
               *)
-                echo "::error::User $user is not allowed"
+                echo "::error::User $user is not allowed (admin or maintain role required)"
                 exit 1
                 ;;
             esac
