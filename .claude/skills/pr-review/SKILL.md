@@ -10,7 +10,8 @@ allowed-tools:
   - Glob
   - Agent
   - Edit(//tmp/review-payload.json)
-argument-hint: "[extra_context]"
+argument-hint: "<owner_repo> <pr_number> [extra_context]"
+arguments: [owner_repo, pr_number, extra_context]
 ---
 
 # Review Pull Request
@@ -20,50 +21,55 @@ Automatically review a GitHub pull request across correctness, security, edge ca
 ## Usage
 
 ```
-/pr-review [extra_context]
+/pr-review <owner_repo> <pr_number> [extra_context]
 ```
 
 ## Arguments
 
-- `extra_context` (optional): Additional instructions or filtering context (e.g., focus on specific issues or areas)
+- `<owner_repo>` (required): repository slug, e.g. `mlflow/mlflow`
+- `<pr_number>` (required): pull request number
+- `[extra_context]` (optional): additional filtering or focus instructions (e.g., a specific concern or file type)
 
 ## Examples
 
 ```
-/pr-review                                    # Review all changes
-/pr-review Please focus on security issues    # Focus on security
-/pr-review Only review Python files           # Filter specific file types
-/pr-review Check for performance issues       # Focus on specific concern
+/pr-review mlflow/mlflow 23320
+/pr-review mlflow/mlflow 23320 Please focus on security issues
+/pr-review mlflow/mlflow 23320 Only review Python files
 ```
 
-## Important Note
+## Inputs
 
-The current local branch may not be the PR branch being reviewed. Always rely on the PR diff fetched via the `fetch-diff` skill.
+This invocation is reviewing:
 
-You have a **read-only** GitHub token. Do NOT call write APIs (`gh api ... POST`, `gh pr review`, `gh pr comment`, etc.) — your only output is `/tmp/review-payload.json`. The workflow's post step holds the write token and submits the review on your behalf.
+- Owner/Repo: `$owner_repo`
+- PR number: `$pr_number`
+- Extra context: `$extra_context`
+
+The `<owner>`/`<repo>`/`<pr_number>` placeholders in the steps below refer to the values above (split `$owner_repo` on `/` for `<owner>` and `<repo>`).
 
 ## Instructions
 
-### 1. Auto-detect PR context
+### 1. Fetch PR context
 
-- First check for environment variables:
-  - If `PR_NUMBER` and `GITHUB_REPOSITORY` are set, parse `GITHUB_REPOSITORY` as `owner/repo` and use `PR_NUMBER`
-  - Then use `gh pr view <PR_NUMBER> --repo <owner/repo> --json 'title,body'` to retrieve the PR title and description
-- Otherwise:
-  - Use `gh pr view --json 'title,body,url,number'` to get PR info for the current branch
-  - Parse the output to extract owner, repo, PR number, title, and description
-- If neither method works, inform the user that no PR was found and exit
+Fetch the PR title, description, and author:
+
+```bash
+gh pr view <pr_number> --repo "<owner>/<repo>" --json title,body,author
+```
+
+> **Note:** You have a **read-only** GitHub token. Do NOT call write APIs (`gh api ... POST`, `gh pr review`, `gh pr comment`, etc.).
 
 ### 2. Fetch PR Diff
 
-Run the `fetch-diff` skill to fetch the PR diff for the identified PR.
+Fetch the diff hunks via the `fetch-diff` skill. For context beyond the diff (existing patterns, call sites of changed symbols, file conventions), `Read` and `Grep` the working tree, which holds the PR merged into the base (`refs/pull/<pr>/merge`), so file contents reflect the post-merge state. When a quick shell command can settle a question, run it instead of speculating from the diff alone.
 
 ### 3. Fetch Existing Review Comments
 
 Fetch up to 100 review threads on the PR (open, resolved, and outdated, with up to 20 comments each) so you can avoid duplicating prior feedback:
 
 ```bash
-gh api graphql -F owner=<owner> -F repo=<repo> -F pr=<PR_NUMBER> -f query='
+gh api graphql -F owner=<owner> -F repo=<repo> -F pr=<pr_number> -f query='
   query($owner: String!, $repo: String!, $pr: Int!) {
     repository(owner: $owner, name: $repo) {
       pullRequest(number: $pr) {
@@ -117,11 +123,10 @@ Determine the review `event`:
 - **No CRITICAL findings AND author has `admin`/`maintain` role** -> `event: "APPROVE"`
 - **Any CRITICAL finding, OR author role is anything else (or the API errors, e.g., 404 for non-collaborators)** -> `event: "COMMENT"`. Do not mention the reason for not approving in the review body.
 
-Check the author's role:
+Check the author's role (use the `author.login` from step 1 as `<author>`):
 
 ```bash
-author=$(gh api repos/<owner>/<repo>/pulls/<PR_NUMBER> --jq '.user.login')
-gh api repos/<owner>/<repo>/collaborators/"$author"/permission --jq '.role_name'
+gh api repos/<owner>/<repo>/collaborators/<author>/permission --jq '.role_name'
 ```
 
 ### 6. Emit Review Payload

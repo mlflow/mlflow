@@ -1,6 +1,6 @@
 import { definePluginEntry, type OpenClawPluginApi } from 'openclaw/plugin-sdk/plugin-entry';
-import { createMLflowService } from './src/service.js';
-import { registerMlflowCli, type CommanderLike } from './src/configure.js';
+import { createMLflowService } from './service.js';
+import { registerMlflowCli, type CommanderLike } from './configure.js';
 
 function parsePluginConfig(raw: unknown): Record<string, unknown> {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
