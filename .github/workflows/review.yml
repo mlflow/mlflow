@@ -274,8 +274,10 @@ jobs:
           if-no-files-found: ignore
 
       - name: Report review results
-        if: github.event_name == 'issue_comment'
+        if: always() && github.event_name == 'issue_comment'
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        env:
+          JOB_STATUS: ${{ job.status }}
         with:
           github-token: ${{ steps.app-token-write.outputs.token }}
           retries: 3
@@ -283,6 +285,7 @@ jobs:
             const fs = require('fs');
             const { owner, repo } = context.repo;
             const { comment } = context.payload;
+            const jobStatus = process.env.JOB_STATUS;
 
             // Read Claude output from file instead of environment variable
             const outputPath = '/tmp/output.jsonl';
@@ -295,24 +298,31 @@ jobs:
               console.log('Failed to read Claude output file:', e);
             }
 
-            const workflowUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}?pr=${context.issue.number}`;
-            let resultLine = `✅ [Review](${workflowUrl}) completed`;
-
-            // Extract and display Claude's result from JSON output
+            let resultEvent = null;
             if (claudeOutput) {
               try {
                 const events = claudeOutput.trim().split('\n').filter(Boolean).map(JSON.parse);
-                const resultEvent = events.findLast(({ type }) => type === 'result');
-                if (resultEvent) {
-                  const seconds = (resultEvent.duration_ms / 1000).toFixed(1);
-                  const tokens = (resultEvent.usage?.input_tokens ?? 0) + (resultEvent.usage?.output_tokens ?? 0);
-                  const cost = (Math.round(resultEvent.total_cost_usd * 100) / 100).toFixed(2);
-                  resultLine += ` (${seconds}s, ${resultEvent.num_turns} turns, ${tokens} tokens, $${cost})`;
-                  resultLine += `\n<details><summary>Review Output</summary>\n\n${resultEvent.result}\n\n</details>`;
-                }
+                resultEvent = events.findLast(({ type }) => type === 'result');
               } catch (e) {
                 console.log('Failed to parse Claude output as JSON:', e);
               }
+            }
+
+            const workflowUrl = `https://github.com/${owner}/${repo}/actions/runs/${context.runId}?pr=${context.issue.number}`;
+            const failed = jobStatus !== 'success' || resultEvent?.is_error;
+            const icon = failed ? '❌' : '✅';
+            const verb = failed ? 'failed' : 'completed';
+            let resultLine = `${icon} [Review](${workflowUrl}) ${verb}`;
+
+            if (resultEvent) {
+              const seconds = (resultEvent.duration_ms / 1000).toFixed(1);
+              const tokens = (resultEvent.usage?.input_tokens ?? 0) + (resultEvent.usage?.output_tokens ?? 0);
+              const cost = (Math.round(resultEvent.total_cost_usd * 100) / 100).toFixed(2);
+              resultLine += ` (${seconds}s, ${resultEvent.num_turns} turns, ${tokens} tokens, $${cost})`;
+              const summary = resultEvent.is_error ? 'Error' : 'Review Output';
+              resultLine += `\n<details><summary>${summary}</summary>\n\n${resultEvent.result}\n\n</details>`;
+            } else if (failed) {
+              resultLine += `\n\nSee [workflow logs](${workflowUrl}) for details.`;
             }
 
             console.log('Result line to post:', resultLine);
