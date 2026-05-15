@@ -23,7 +23,6 @@ from mlflow.entities import (
     trace_location,
 )
 from mlflow.entities.assessment import FeedbackValue
-from mlflow.entities.dataset_record import DatasetRecord
 from mlflow.entities.gateway_endpoint import GatewayEndpoint
 from mlflow.entities.span import Span, create_mlflow_span
 from mlflow.entities.trace_info import TraceInfo

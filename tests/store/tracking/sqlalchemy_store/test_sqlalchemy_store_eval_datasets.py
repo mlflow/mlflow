@@ -1,27 +1,20 @@
-import math
+import json
 import time
-import uuid
 from unittest import mock
 
 import pytest
 
-from mlflow.entities import trace_location
 from mlflow.entities.dataset_record import DatasetRecord
-from mlflow.entities.trace_info import TraceInfo
-from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
 from mlflow.store.tracking.dbmodels.models import SqlEvaluationDatasetRecord
-from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.utils import mlflow_tags
-from mlflow.utils.time import get_current_time_millis
 
 from tests.store.tracking.sqlalchemy_store.conftest import (
     _create_experiments,
-    create_test_otel_span,
-    create_test_span,
 )
 
 pytestmark = pytest.mark.notrackingurimock
+
 
 def test_dataset_crud_operations(store):
     with mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=store):
@@ -1022,5 +1015,3 @@ def test_sql_dataset_record_wrapping_unwrapping():
 
     sql_record7.merge({"outputs": {"new": "dict"}})
     assert sql_record7.outputs == {DATASET_RECORD_WRAPPED_OUTPUT_KEY: {"new": "dict"}}
-
-
