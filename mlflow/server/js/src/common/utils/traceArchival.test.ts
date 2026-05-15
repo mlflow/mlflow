@@ -47,6 +47,10 @@ describe('traceArchival', () => {
       valid: false,
       error: 'Trace archival location must look like a URI, for example s3://bucket/path.',
     });
+    expect(validateTraceArchivalLocation('mlflow-artifacts:/archive/path', intl)).toEqual({
+      valid: false,
+      error: 'Trace archival location cannot use the proxy-only `mlflow-artifacts:` scheme.',
+    });
   });
 
   test('formats retention strings from amount and unit', () => {
