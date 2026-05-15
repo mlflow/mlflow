@@ -1,60 +1,75 @@
 ---
 name: pr-review
-description: Review a GitHub pull request, add review comments for issues found, and approve if no significant issues exist
+description: Review a GitHub pull request and emit a single review payload (comments + approval decision) for the workflow to validate and post
 disable-model-invocation: true
-allowed-tools: Read, Skill, Bash, Grep, Glob
-argument-hint: "[extra_context]"
+allowed-tools:
+  - Read
+  - Skill
+  - Bash
+  - Grep
+  - Glob
+  - Agent
+  - Edit(//tmp/review-payload.json)
+argument-hint: "<owner_repo> <pr_number> [extra_context]"
+arguments: [owner_repo, pr_number, extra_context]
 ---
 
 # Review Pull Request
 
-Automatically review a GitHub pull request across correctness, security, edge cases, efficiency, readability, test coverage, and style. Approves the PR when there are no findings or only MODERATE/NIT findings.
+Automatically review a GitHub pull request across correctness, security, edge cases, efficiency, readability, test coverage, and style. Emits a single `/tmp/review-payload.json` that the workflow validates against [`review-payload.schema.json`](./review-payload.schema.json) and posts via `POST /repos/{owner}/{repo}/pulls/{pull_number}/reviews`. Sets the payload's `event` to `APPROVE` when there are no findings or only MODERATE/NIT findings.
 
 ## Usage
 
 ```
-/pr-review [extra_context]
+/pr-review <owner_repo> <pr_number> [extra_context]
 ```
 
 ## Arguments
 
-- `extra_context` (optional): Additional instructions or filtering context (e.g., focus on specific issues or areas)
+- `<owner_repo>` (required): repository slug, e.g. `mlflow/mlflow`
+- `<pr_number>` (required): pull request number
+- `[extra_context]` (optional): additional filtering or focus instructions (e.g., a specific concern or file type)
 
 ## Examples
 
 ```
-/pr-review                                    # Review all changes
-/pr-review Please focus on security issues    # Focus on security
-/pr-review Only review Python files           # Filter specific file types
-/pr-review Check for performance issues       # Focus on specific concern
+/pr-review mlflow/mlflow 23320
+/pr-review mlflow/mlflow 23320 Please focus on security issues
+/pr-review mlflow/mlflow 23320 Only review Python files
 ```
 
-## Important Note
+## Inputs
 
-The current local branch may not be the PR branch being reviewed. Always rely on the PR diff fetched via the `fetch-diff` skill.
+This invocation is reviewing:
+
+- Owner/Repo: `$owner_repo`
+- PR number: `$pr_number`
+- Extra context: `$extra_context`
+
+The `<owner>`/`<repo>`/`<pr_number>` placeholders in the steps below refer to the values above (split `$owner_repo` on `/` for `<owner>` and `<repo>`).
 
 ## Instructions
 
-### 1. Auto-detect PR context
+### 1. Fetch PR context
 
-- First check for environment variables:
-  - If `PR_NUMBER` and `GITHUB_REPOSITORY` are set, parse `GITHUB_REPOSITORY` as `owner/repo` and use `PR_NUMBER`
-  - Then use `gh pr view <PR_NUMBER> --repo <owner/repo> --json 'title,body'` to retrieve the PR title and description
-- Otherwise:
-  - Use `gh pr view --json 'title,body,url,number'` to get PR info for the current branch
-  - Parse the output to extract owner, repo, PR number, title, and description
-- If neither method works, inform the user that no PR was found and exit
+Fetch the PR title, description, and author:
+
+```bash
+gh pr view <pr_number> --repo "<owner>/<repo>" --json title,body,author
+```
+
+> **Note:** You have a **read-only** GitHub token. Do NOT call write APIs (`gh api ... POST`, `gh pr review`, `gh pr comment`, etc.).
 
 ### 2. Fetch PR Diff
 
-Run the `fetch-diff` skill to fetch the PR diff for the identified PR.
+Fetch the diff hunks via the `fetch-diff` skill. For context beyond the diff (existing patterns, call sites of changed symbols, file conventions), `Read` and `Grep` the working tree, which holds the PR merged into the base (`refs/pull/<pr>/merge`), so file contents reflect the post-merge state. When a quick shell command can settle a question, run it instead of speculating from the diff alone.
 
 ### 3. Fetch Existing Review Comments
 
 Fetch up to 100 review threads on the PR (open, resolved, and outdated, with up to 20 comments each) so you can avoid duplicating prior feedback:
 
 ```bash
-gh api graphql -F owner=<owner> -F repo=<repo> -F pr=<PR_NUMBER> -f query='
+gh api graphql -F owner=<owner> -F repo=<repo> -F pr=<pr_number> -f query='
   query($owner: String!, $repo: String!, $pr: Int!) {
     repository(owner: $owner, name: $repo) {
       pullRequest(number: $pr) {
@@ -76,9 +91,10 @@ gh api graphql -F owner=<owner> -F repo=<repo> -F pr=<PR_NUMBER> -f query='
 
 ### 4. In-Depth Analysis
 
-**Apply additional filtering** from user instructions if provided (e.g., focus on specific issues or areas).
+#### Don't comment on
 
-You may read unchanged/context lines to understand the change, but only file findings against the changed lines (added, modified, or deleted). Pre-existing code is not in scope, even if it looks suboptimal.
+- Pre-existing code. You may read unchanged/context lines to understand the change, but only file findings against the changed lines (added, modified, or deleted), even if surrounding code looks suboptimal.
+- Issues already caught by formatters or linters (unused imports, formatting, line length, simple typos, etc.).
 
 Evaluate the changed code across these dimensions:
 
@@ -102,33 +118,30 @@ Classify each finding by severity (matches `.github/instructions/code-review.ins
 | MODERATE | 🟡    | non-blocking quality concerns where the code works but could be clearer or safer |
 | NIT      | 🟢    | pure style/preference the author can ignore                                      |
 
-Then:
+Determine the review `event`:
 
-- **No findings** -> skip to step 7 (approve)
-- **Only MODERATE/NIT findings** -> step 6 (add comments), then step 7 (approve)
-- **Any CRITICAL finding** -> step 6 (add comments); do NOT approve
+- **No CRITICAL findings AND author has `admin`/`maintain` role** -> `event: "APPROVE"`
+- **Any CRITICAL finding, OR author role is anything else (or the API errors, e.g., 404 for non-collaborators)** -> `event: "COMMENT"`. Do not mention the reason for not approving in the review body.
 
-### 6. Add Review Comments
-
-For each finding, use the `add-review-comment` skill. One comment per distinct finding, anchored to the most relevant changed line. For repeated identical issues, leave a single representative comment rather than flagging every instance.
-
-Every comment MUST use this exact format: `<emoji> **<severity>:** <description>`
-
-Keep comments constructive and specific: state the problem, why it matters, and a concrete suggestion when possible.
-
-### 7. Approve the PR
-
-Approve the PR when there are no findings or only MODERATE/NIT findings, but **only if the PR author has the `admin` or `maintain` role**.
-
-First, check the PR author's role:
+Check the author's role (use the `author.login` from step 1 as `<author>`):
 
 ```bash
-author=$(gh api repos/<owner>/<repo>/pulls/<PR_NUMBER> --jq '.user.login')
-gh api repos/<owner>/<repo>/collaborators/"$author"/permission --jq '.role_name'
+gh api repos/<owner>/<repo>/collaborators/<author>/permission --jq '.role_name'
 ```
 
-- If the role is `admin` or `maintain` -> approve the PR:
-  ```bash
-  gh pr review <PR_NUMBER> --repo <owner/repo> --approve
-  ```
-- Otherwise (including API errors, e.g., 404 for non-collaborators) -> do NOT approve. Do not mention the reason for not approving in the review.
+### 6. Emit Review Payload
+
+Read [`review-payload.schema.json`](./review-payload.schema.json) for the full payload spec (field types, required fields, patterns, enums) and write `/tmp/review-payload.json` matching it.
+
+Authoring rules not captured by the schema:
+
+- One comment per distinct finding, anchored to the most relevant changed line. For repeated identical issues, leave a single representative comment rather than flagging every instance.
+- Keep comments constructive and specific: state the problem, why it matters, and a concrete suggestion when possible.
+- Use suggestion blocks for simple fixes — fence with ` ```suggestion ` and preserve original indentation.
+- If you have no findings, emit an empty `comments` array.
+
+Validate before finishing — fix any errors and re-emit until this passes:
+
+```bash
+uv run --package skills skills validate-review /tmp/review-payload.json
+```

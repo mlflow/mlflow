@@ -1072,6 +1072,19 @@ def search_traces(
         _logger.debug("Searching traces in the current active experiment")
         locations = _get_search_locations(locations)
 
+    if (
+        locations
+        and any("." in loc for loc in locations)
+        and (not filter_string or "trace.timestamp_ms" not in filter_string.lower())
+    ):
+        warnings.warn(
+            "Searching traces without a time range constraint on UC table locations can be slow "
+            "and expensive. Consider adding a `trace.timestamp_ms` filter to your `filter_string` "
+            "to limit the scan, e.g. filter_string=\"trace.timestamp_ms > '2024-01-01'\".",
+            category=UserWarning,
+            stacklevel=2,
+        )
+
     def pagination_wrapper_func(number_to_get, next_page_token):
         return TracingClient().search_traces(
             experiment_ids=experiment_ids,

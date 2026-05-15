@@ -1,11 +1,10 @@
 # ruff: noqa: T201
-"""Analyze failed GitHub Action jobs."""
+"""Fetch logs from failed GitHub Action jobs for downstream analysis."""
 
 from __future__ import annotations
 
 import argparse
 import asyncio
-import json
 import re
 import sys
 import tempfile
@@ -13,13 +12,10 @@ import time
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 from skills.github import GitHubClient, Job, JobStep, get_github_token
 
-MAX_LOG_TOKENS = 100_000
-CHARS_PER_TOKEN = 2
-LOG_CACHE_DIR = Path(tempfile.gettempdir()) / "analyze-ci"
+LOG_CACHE_DIR = Path(tempfile.gettempdir()) / "fetch-logs"
 LOG_CACHE_TTL_SECONDS = 3 * 86400
 
 
@@ -29,17 +25,10 @@ class JobLogs:
     job_name: str
     job_url: str
     failed_step: str | None
-    logs: str
     raw_log_path: Path
+    failed_step_log_path: Path | None
     package_versions_path: Path | None
     conclusion: str | None
-
-
-@dataclass
-class AnalysisResult:
-    text: str
-    total_cost_usd: float | None
-    usage: dict[str, Any] | None
 
 
 def log(msg: str) -> None:
@@ -171,19 +160,7 @@ def compact_logs(lines: Iterable[str]) -> str:
         if not skip_section:
             result.append(line)
 
-    logs = "\n".join(result)
-    log(f"Compacted logs: {len(logs) // CHARS_PER_TOKEN:,} tokens")
-    return logs
-
-
-def truncate_logs(logs: str, max_tokens: int = MAX_LOG_TOKENS) -> str:
-    """Truncate logs to fit within token limit, keeping the end (where errors are)."""
-    estimated_tokens = len(logs) // CHARS_PER_TOKEN
-    if estimated_tokens <= max_tokens:
-        return logs
-    log(f"Truncating logs from {estimated_tokens:,} to {max_tokens:,} tokens")
-    truncated = logs[-(max_tokens * CHARS_PER_TOKEN) :]
-    return f"(showing last {max_tokens:,} tokens)\n{truncated}"
+    return "\n".join(result)
 
 
 PR_URL_PATTERN = re.compile(r"github\.com/([^/]+/[^/]+)/pull/(\d+)")
@@ -256,173 +233,78 @@ async def resolve_urls(client: GitHubClient, urls: list[str]) -> list[Job]:
     return jobs
 
 
+def extract_failed_step_log(raw_log_path: Path, failed_step: JobStep) -> Path:
+    out_path = raw_log_path.with_suffix(".failed-step.log")
+    if out_path.exists():
+        log(f"Using cached failed-step log at {out_path}")
+        return out_path
+    cleaned = compact_logs(iter_step_lines(raw_log_path, failed_step))
+    out_path.write_text(cleaned, encoding="utf-8")
+    log(f"Saved failed-step log to {out_path}")
+    return out_path
+
+
 async def fetch_single_job_logs(client: GitHubClient, job: Job) -> JobLogs:
     log(f"Fetching logs for '{job.workflow_name} / {job.name}'")
     raw_log_path = await download_raw_log(client, job)
     package_versions_path = extract_package_versions(raw_log_path)
 
     failed_step = next((s for s in job.steps if s.conclusion == "failure"), None)
-    if not failed_step:
-        return JobLogs(
-            workflow_name=job.workflow_name,
-            job_name=job.name,
-            job_url=job.html_url,
-            failed_step=None,
-            logs="",
-            raw_log_path=raw_log_path,
-            package_versions_path=package_versions_path,
-            conclusion=job.conclusion,
-        )
-    cleaned_logs = compact_logs(iter_step_lines(raw_log_path, failed_step))
-    truncated_logs = truncate_logs(cleaned_logs)
+    failed_step_log_path = (
+        extract_failed_step_log(raw_log_path, failed_step) if failed_step else None
+    )
 
     return JobLogs(
         workflow_name=job.workflow_name,
         job_name=job.name,
         job_url=job.html_url,
-        failed_step=failed_step.name,
-        logs=truncated_logs,
+        failed_step=failed_step.name if failed_step else None,
         raw_log_path=raw_log_path,
+        failed_step_log_path=failed_step_log_path,
         package_versions_path=package_versions_path,
         conclusion=job.conclusion,
     )
 
 
-ANALYZE_SYSTEM_PROMPT = """\
-You are a CI failure analyzer. Analyze the provided CI logs and produce a concise failure summary.
-
-Instructions:
-1. Identify the root cause of each failure
-2. Extract specific error messages (assertion errors, exceptions, stack traces)
-3. For pytest failures, include full test names (e.g., tests/test_foo.py::test_bar)
-4. Include relevant log snippets showing error context
-
-Output format for each failed job:
-```
-Failed job: <workflow name> / <job name>
-Failed step: <step name>
-URL: <job_url>
-
-<1-2 paragraph summary with root cause, error messages, test names, and key log snippets>
-```
-"""
-
-
-def format_single_job_for_analysis(job: JobLogs) -> str:
+def format_job_output(job: JobLogs) -> str:
     parts = [
         f"## {job.workflow_name} / {job.job_name}",
         f"URL: {job.job_url}",
-        f"Failed step: {job.failed_step or 'Unknown'}",
-        "",
-        "```",
-        job.logs,
-        "```",
     ]
+    if job.failed_step:
+        parts.append(f"Failed step: {job.failed_step}")
+    else:
+        parts.append(f"Conclusion: {job.conclusion} (no failed step recorded)")
+    parts.append(f"Raw log: {job.raw_log_path}")
+    if job.failed_step_log_path:
+        parts.append(f"Failed step log: {job.failed_step_log_path}")
+    if job.package_versions_path:
+        parts.append(f"Package versions: {job.package_versions_path}")
     return "\n".join(parts)
 
 
-async def analyze_single_job(job: JobLogs) -> AnalysisResult:
-    if job.failed_step is None:
-        text = (
-            f"## {job.workflow_name} / {job.job_name}\n"
-            f"URL: {job.job_url}\n"
-            f"Conclusion: {job.conclusion}\n\n"
-            f"Job has no failure to analyze. Raw log cached at {job.raw_log_path}"
-        )
-        if job.package_versions_path:
-            text = f"{text}\nPackage versions: {job.package_versions_path}"
-        return AnalysisResult(text=text, total_cost_usd=None, usage=None)
-
-    formatted_logs = format_single_job_for_analysis(job)
-    prompt = f"Analyze this CI failure:\n\n{formatted_logs}"
-
-    # Use an isolated temp directory to avoid conflicts with the parent Claude session
-    with tempfile.TemporaryDirectory() as tmpdir:
-        proc = await asyncio.create_subprocess_exec(
-            "claude",
-            "--print",
-            "--model",
-            "haiku",
-            "--system-prompt",
-            ANALYZE_SYSTEM_PROMPT,
-            "--tools",
-            "",
-            "--output-format",
-            "json",
-            cwd=tmpdir,
-            stdin=asyncio.subprocess.PIPE,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        stdout, stderr = await proc.communicate(prompt.encode("utf-8"))
-        if proc.returncode != 0:
-            raise RuntimeError(
-                f"claude exited with code {proc.returncode}: "
-                f"{stderr.decode('utf-8', errors='replace')}"
-            )
-
-    data = json.loads(stdout)
-    text = data.get("result", "")
-    # Surface the raw log path so downstream agents can grep it for deeper analysis
-    text = f"{text}\n\nRaw log: {job.raw_log_path}"
-    if job.package_versions_path:
-        text = f"{text}\nPackage versions: {job.package_versions_path}"
-    return AnalysisResult(
-        text=text,
-        total_cost_usd=data.get("total_cost_usd"),
-        usage=data.get("usage"),
-    )
-
-
-def format_result(result: AnalysisResult, debug: bool = False) -> str:
-    """Format analysis result, optionally with usage JSON."""
-    if not debug:
-        return result.text
-
-    filtered_usage = None
-    if result.usage:
-        filtered_usage = {k: v for k, v in result.usage.items() if "tokens" in k}
-    usage_data = {"total_cost_usd": result.total_cost_usd, "usage": filtered_usage}
-    usage_json = json.dumps(usage_data, indent=2)
-    return f"{result.text}\n\n```json\n{usage_json}\n```"
-
-
-async def analyze_jobs(jobs: list[JobLogs], debug: bool = False) -> str:
-    """Analyze each job in parallel to speed up processing."""
-    log(f"Analyzing {len(jobs)} job(s) in parallel...")
-    results = await asyncio.gather(*[analyze_single_job(job) for job in jobs])
-
-    separator = "\n\n---\n\n"
-    return separator.join(format_result(r, debug) for r in results)
-
-
-async def cmd_analyze_async(urls: list[str], debug: bool = False) -> None:
+async def cmd_fetch_async(urls: list[str]) -> None:
     prune_old_cached_logs()
     github_token = get_github_token()
     async with GitHubClient(github_token) as client:
-        # Resolve URLs to job targets
         jobs = await resolve_urls(client, urls)
 
         if not jobs:
             log("No failed jobs found")
             return
 
-        # Fetch logs for all jobs
         log(f"Fetching logs for {len(jobs)} job(s)")
         results = await asyncio.gather(*[fetch_single_job_logs(client, job) for job in jobs])
 
-    # Analyze logs
-    log("Analyzing logs...")
-    summary = await analyze_jobs(results, debug)
-    print(summary)
+    separator = "\n\n---\n\n"
+    print(separator.join(format_job_output(r) for r in results))
 
 
 def register(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
-    parser = subparsers.add_parser("analyze-ci", help="Analyze failed CI jobs")
+    parser = subparsers.add_parser("fetch-logs", help="Fetch logs from failed CI jobs")
     parser.add_argument("urls", nargs="+", help="PR URL, workflow run URL, or job URL(s)")
-    parser.add_argument("--debug", action="store_true", help="Show token/cost info")
     parser.set_defaults(func=run)
 
 
 def run(args: argparse.Namespace) -> None:
-    asyncio.run(cmd_analyze_async(args.urls, args.debug))
+    asyncio.run(cmd_fetch_async(args.urls))
