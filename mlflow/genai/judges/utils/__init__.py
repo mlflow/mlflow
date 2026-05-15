@@ -43,11 +43,11 @@ def get_default_optimizer() -> AlignmentOptimizer:
     Get the default alignment optimizer.
 
     Returns:
-        A SIMBA alignment optimizer with no model specified (uses default model).
+        A MemAlign alignment optimizer with no model specified (uses default model).
     """
-    from mlflow.genai.judges.optimizers.simba import SIMBAAlignmentOptimizer
+    from mlflow.genai.judges.optimizers.memalign import MemAlignOptimizer
 
-    return SIMBAAlignmentOptimizer()
+    return MemAlignOptimizer()
 
 
 def validate_judge_model(model_uri: str) -> None:

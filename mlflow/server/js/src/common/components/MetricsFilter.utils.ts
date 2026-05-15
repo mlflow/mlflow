@@ -1,12 +1,28 @@
-import { FilterOperator, USER_COLUMN_ID } from '@databricks/web-shared/genai-traces-table';
-import { MLFLOW_TRACE_USER_KEY, createTraceMetadataFilter } from '@databricks/web-shared/model-trace-explorer';
+import {
+  FilterOperator,
+  GIT_BRANCH_COLUMN_ID,
+  GIT_COMMIT_COLUMN_ID,
+  SESSION_COLUMN_ID,
+  STATE_COLUMN_ID,
+  USER_COLUMN_ID,
+} from '@databricks/web-shared/genai-traces-table';
+import {
+  MLFLOW_GIT_BRANCH_KEY,
+  MLFLOW_GIT_COMMIT_KEY,
+  MLFLOW_TRACE_USER_KEY,
+  SESSION_ID_METADATA_KEY,
+  TraceFilterKey,
+  TraceStatus,
+  createTraceFilter,
+  createTraceMetadataFilter,
+} from '@databricks/web-shared/model-trace-explorer';
 
 /**
  * Curated list of columns the metrics API can filter on with `=`.
  * Add a new entry here AND in `translateToMetricsFilters` and
  * `translateToTracesPageFilters` to expose more dimensions.
  */
-export type MetricFilterColumn = 'user';
+export type MetricFilterColumn = 'user' | 'session' | 'state' | 'git_branch' | 'git_commit';
 
 export interface MetricFilter {
   column: MetricFilterColumn;
@@ -16,7 +32,10 @@ export interface MetricFilter {
 export interface MetricFilterColumnOption {
   value: MetricFilterColumn;
   label: string;
+  valueOptions?: { value: string; label: string }[];
 }
+
+export const TRACE_STATE_VALUES = [TraceStatus.IN_PROGRESS, TraceStatus.OK, TraceStatus.ERROR] as const;
 
 export const isCompleteFilter = (filter: MetricFilter): boolean => Boolean(filter.column) && Boolean(filter.value);
 
@@ -33,6 +52,14 @@ export const translateToMetricsFilters = (filters: MetricFilter[]): string[] | u
       switch (f.column) {
         case 'user':
           return createTraceMetadataFilter(MLFLOW_TRACE_USER_KEY, f.value);
+        case 'session':
+          return createTraceMetadataFilter(SESSION_ID_METADATA_KEY, f.value);
+        case 'state':
+          return createTraceFilter(TraceFilterKey.STATUS, f.value);
+        case 'git_branch':
+          return createTraceMetadataFilter(MLFLOW_GIT_BRANCH_KEY, f.value);
+        case 'git_commit':
+          return createTraceMetadataFilter(MLFLOW_GIT_COMMIT_KEY, f.value);
         default:
           return null;
       }
@@ -61,6 +88,14 @@ export const translateToTracesPageFilters = (filters: MetricFilter[]): string[] 
       switch (f.column) {
         case 'user':
           return [USER_COLUMN_ID, FilterOperator.EQUALS, f.value].join('::');
+        case 'session':
+          return [SESSION_COLUMN_ID, FilterOperator.EQUALS, f.value].join('::');
+        case 'state':
+          return [STATE_COLUMN_ID, FilterOperator.EQUALS, f.value].join('::');
+        case 'git_branch':
+          return [GIT_BRANCH_COLUMN_ID, FilterOperator.EQUALS, f.value].join('::');
+        case 'git_commit':
+          return [GIT_COMMIT_COLUMN_ID, FilterOperator.EQUALS, f.value].join('::');
         default:
           return null;
       }
