@@ -12,6 +12,7 @@ from mlflow.environment_variables import (
     MLFLOW_TRACKING_USERNAME,
 )
 from mlflow.protos.databricks_pb2 import (
+    INVALID_PARAMETER_VALUE,
     PERMISSION_DENIED,
     RESOURCE_DOES_NOT_EXIST,
     UNAUTHENTICATED,
@@ -400,6 +401,18 @@ def test_grant_user_permission_invalid_resource_type(client, monkeypatch):
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
         with pytest.raises(MlflowException, match="Invalid resource type"):
             client.grant_user_permission(username, "bogus", "x", "READ")
+
+
+def test_grant_user_permission_malformed_scorer_id_returns_clean_4xx(client, monkeypatch):
+    # Malformed scorer ``resource_id`` raises inside ``validate_can_manage_resource``
+    # (a before-request validator). Pin that the wrapping ``catch_mlflow_exception``
+    # turns it into a 400, not a 500.
+    target_username, _ = _new_user(client, monkeypatch)
+    requester_username, requester_password = _new_user(client, monkeypatch)
+    with User(requester_username, requester_password, monkeypatch):
+        with pytest.raises(MlflowException, match="Invalid scorer resource_id") as exc:
+            client.grant_user_permission(target_username, "scorer", "no-slash-here", "READ")
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
 @pytest.mark.parametrize(
