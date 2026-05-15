@@ -30,7 +30,7 @@ from mlflow.agent_playground.test_cases.entities import (
 )
 from mlflow.entities import Assessment, Trace
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, ErrorCode
+from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.tracing.assessment import get_assessment
 from mlflow.tracking.client import MlflowClient
 
@@ -242,7 +242,7 @@ def build_fix_prompt(experiment_id: str, test_case_id: str) -> str:
     if case is None:
         raise MlflowException(
             f"Test case {test_case_id!r} not found in experiment {experiment_id!r}",
-            error_code=ErrorCode.Name(RESOURCE_DOES_NOT_EXIST),
+            error_code=RESOURCE_DOES_NOT_EXIST,
         )
 
     return _FIX_PROMPT_TEMPLATE.format(

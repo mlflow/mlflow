@@ -62,11 +62,12 @@ def test_test_gen_prompt_includes_rationale():
 
 
 def test_test_gen_prompt_includes_anchored_substring():
+    selected = "Use INFO for general advice"
     anchor = {
         "message_id": "msg-1",
         "start": 0,
-        "end": 5,
-        "selected_text": "Use INFO for general advice",
+        "end": len(selected),
+        "selected_text": selected,
         "prefix": "",
         "suffix": "",
     }
