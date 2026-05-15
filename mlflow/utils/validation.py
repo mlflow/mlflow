@@ -186,6 +186,14 @@ def _validate_trace_archival_location(value: Any, *, parameter_name: str | None 
 
     trimmed = value.strip()
     parsed = urllib.parse.urlparse(trimmed)
+    if not parsed.scheme:
+        if parameter_name is not None:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid value for '{parameter_name}'. Expected a URI string."
+            )
+        raise MlflowException.invalid_parameter_value(
+            "Trace archival location must be a URI string."
+        )
     if parsed.scheme == "mlflow-artifacts":
         if parameter_name is not None:
             raise MlflowException.invalid_parameter_value(

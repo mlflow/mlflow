@@ -3963,6 +3963,10 @@
     "defaultMessage": "Search traces by id, request, or response",
     "description": "Placeholder text for the search input in the trace results table"
   },
+  "M8GzoA": {
+    "defaultMessage": "Trace archival location cannot use the proxy-only `mlflow-artifacts:` scheme.",
+    "description": "Validation error for unsupported trace archival proxy URI scheme"
+  },
   "M8cEQy": {
     "defaultMessage": "No",
     "description": "Label for an assessment with a 'no' value"

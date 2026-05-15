@@ -51,6 +51,24 @@ def test_get_trace_archival_server_config_rejects_null_location(monkeypatch, tmp
     assert "Expected a URI string." in exc_info.value.message
 
 
+def test_get_trace_archival_server_config_rejects_local_path_location(monkeypatch, tmp_path):
+    config_path = _write_trace_archival_config_lines(
+        tmp_path,
+        [
+            "trace_archival:",
+            "  enabled: true",
+            "  location: archive",
+            "  retention: 30d",
+        ],
+    )
+    monkeypatch.setenv(MLFLOW_TRACE_ARCHIVAL_CONFIG.name, str(config_path))
+
+    with pytest.raises(MlflowException, match="trace_archival.location") as exc_info:
+        get_trace_archival_server_config()
+
+    assert "Expected a URI string." in exc_info.value.message
+
+
 def test_get_trace_archival_server_config_rejects_null_retention(monkeypatch, tmp_path):
     config_path = _write_trace_archival_config_lines(
         tmp_path,

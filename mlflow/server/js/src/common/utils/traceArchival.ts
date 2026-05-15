@@ -47,6 +47,12 @@ const getTraceArchivalLocationFormatMessage = (intl: TraceArchivalIntl) =>
     description: 'Validation error for invalid trace archival location URI',
   });
 
+const getTraceArchivalLocationProxySchemeMessage = (intl: TraceArchivalIntl) =>
+  intl.formatMessage({
+    defaultMessage: 'Trace archival location cannot use the proxy-only `mlflow-artifacts:` scheme.',
+    description: 'Validation error for unsupported trace archival proxy URI scheme',
+  });
+
 const formatRetentionUnitForDisplay = (amount: string, unit: TraceArchivalRetentionUnit, intl: TraceArchivalIntl) => {
   const count = Number(amount);
   switch (unit) {
@@ -116,6 +122,13 @@ export const validateTraceArchivalLocation = (
     return {
       valid: false,
       error: getTraceArchivalLocationFormatMessage(intl),
+    };
+  }
+
+  if (trimmedValue.toLowerCase().startsWith('mlflow-artifacts:')) {
+    return {
+      valid: false,
+      error: getTraceArchivalLocationProxySchemeMessage(intl),
     };
   }
 
