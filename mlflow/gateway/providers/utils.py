@@ -139,34 +139,40 @@ async def send_proxy_request(
     import aiohttp
     from fastapi import HTTPException
 
-    async with _aiohttp_post(headers, base_url, path, payload) as response:
-        try:
-            response.raise_for_status()
-        except aiohttp.ClientResponseError as e:
+    start = time.perf_counter()
+    try:
+        async with _aiohttp_post(headers, base_url, path, payload) as response:
             try:
-                error_body = await response.json()
-                detail = error_body.get("error", {}).get("message", e.message)
-            except Exception:
-                detail = e.message
-            raise HTTPException(status_code=e.status, detail=detail)
+                response.raise_for_status()
+            except aiohttp.ClientResponseError as e:
+                try:
+                    error_body = await response.json()
+                    detail = error_body.get("error", {}).get("message", e.message)
+                except Exception:
+                    detail = e.message
+                raise HTTPException(status_code=e.status, detail=detail)
 
-        content_type = (response.headers or {}).get("Content-Type", "application/json")
-        is_streaming = any(ct in content_type for ct in _STREAMING_CONTENT_TYPES)
+            content_type = (response.headers or {}).get("Content-Type", "application/json")
+            is_streaming = any(ct in content_type for ct in _STREAMING_CONTENT_TYPES)
 
-        yield {"content_type": content_type, "is_streaming": is_streaming}
+            yield {"content_type": content_type, "is_streaming": is_streaming}
 
-        if is_streaming:
-            async for chunk in response.content:
-                yield chunk
-        elif "application/json" in content_type:
-            yield await response.json()
-        elif "text/plain" in content_type:
-            yield {"message": await response.text()}
-        else:
-            raise HTTPException(
-                status_code=502,
-                detail=f"Unsupported Content-Type from upstream proxy: {content_type}",
-            )
+            if is_streaming:
+                async for chunk in response.content:
+                    yield chunk
+            elif "application/json" in content_type:
+                yield await response.json()
+            elif "text/plain" in content_type:
+                yield {"message": await response.text()}
+            else:
+                raise HTTPException(
+                    status_code=502,
+                    detail=f"Unsupported Content-Type from upstream proxy: {content_type}",
+                )
+    finally:
+        provider_call_duration_ms.set(
+            provider_call_duration_ms.get() + (time.perf_counter() - start) * 1000
+        )
 
 
 def rename_payload_keys(payload: dict[str, Any], mapping: dict[str, str]) -> dict[str, Any]:

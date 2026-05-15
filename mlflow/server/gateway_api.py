@@ -1325,6 +1325,7 @@ async def gemini_passthrough_stream_generate_content(endpoint_name: str, request
 
 @gateway_router.post("/proxy/{endpoint_name}/{path:path}", response_model=None)
 @translate_http_exception
+@_record_gateway_invocation(GatewayInvocationType.RAW_PROXY)
 async def raw_proxy(endpoint_name: str, path: str, request: Request):
     """
     Raw proxy endpoint.
@@ -1334,7 +1335,10 @@ async def raw_proxy(endpoint_name: str, path: str, request: Request):
     endpoint. Unlike the typed passthrough routes, the ``model`` field in the
     payload is NOT replaced with the value from the endpoint config.
 
-    Supports streaming when the request payload contains ``"stream": true``.
+    Streaming is detected automatically from the response Content-Type
+    (``text/event-stream`` or ``application/x-ndjson``), so this endpoint
+    supports providers like Gemini that signal streaming via Content-Type rather
+    than a ``"stream": true`` request flag.
 
     Example:
         POST /gateway/proxy/my-openai-endpoint/chat/completions
@@ -1345,12 +1349,38 @@ async def raw_proxy(endpoint_name: str, path: str, request: Request):
     """
     body = await _get_request_body(request)
     store = _get_store()
+    workspace = get_request_workspace()
     _validate_store(store)
     headers = dict(request.headers)
-    provider, _ = _create_provider_from_endpoint_name(
+    provider, endpoint_config = _create_provider_from_endpoint_name(
         store, endpoint_name, EndpointType.LLM_V1_CHAT
     )
+    _set_gateway_telemetry_state(request, endpoint_config)
+    check_budget_limit(store, endpoint_config, workspace=workspace)
+    guardrails, auth_headers = _get_guardrails_and_auth(store, endpoint_config, request)
+
+    try:
+        body = await run_pre_llm_guardrails(
+            guardrails,
+            body,
+            auth_headers=auth_headers,
+            usage_tracking=endpoint_config.usage_tracking,
+        )
+    except GuardrailViolation as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
     result = await provider.proxy(path, body, headers)
     if isinstance(result, AsyncIterable):
+        # Post-LLM guardrails are not applied to streaming responses.
         return StreamingResponse(safe_stream(result, as_bytes=True), media_type="text/event-stream")
-    return result
+
+    try:
+        return await run_post_llm_guardrails_passthrough(
+            guardrails,
+            body,
+            result,
+            auth_headers=auth_headers,
+            usage_tracking=endpoint_config.usage_tracking,
+        )
+    except GuardrailViolation as e:
+        raise HTTPException(status_code=400, detail=str(e))
