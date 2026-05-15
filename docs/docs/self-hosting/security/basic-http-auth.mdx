@@ -121,16 +121,17 @@ targets a prompt with the same name, and vice versa.
 To access an API endpoint, a user must have the required permission.
 Otherwise, a `403 Forbidden` response will be returned.
 
-Note: RBAC — the role-based model, role API, and admin UI — is available
+Note: RBAC - the role-based model, role API, and admin UI - is available
 from MLflow 3.13.0. MLflow versions before 3.13 only support the legacy
 per-resource permission APIs documented below.
 
 :::warning[Pre-RBAC permission management has been removed]
 
-The following surfaces are **removed** when RBAC lands. Calls return 404
-or the client method no longer exists. The auth-store backfill migration
-moves existing grants into the new synthetic-role storage automatically,
-so existing access survives the upgrade — only the API shape changes.
+The following surfaces are **removed** from MLflow 3.13.0 onwards.
+Calls return 404 or the client method no longer exists.
+The auth-store backfill migration moves existing grants into the
+new synthetic-role storage automatically, so existing access survives
+the upgrade, only the API shape changes.
 
 The replacement is `grant_user_permission` / `revoke_user_permission`
 (one-user, one-resource direct grants) or the role API (for shared
@@ -145,11 +146,6 @@ permission sets). See the migration recipe below.
   methods; `set_workspace_permission()`, `list_workspace_permissions()`,
   `delete_workspace_permission()`, `list_user_workspace_permissions()`.
 
-There is no deprecation-warning window. Basic-auth was still marked
-experimental, so the carry cost of 25 deprecation-warning-emitting
-methods outweighed the soft-transition benefit; a clean cut is
-preferable to a long carry.
-
 **Migration recipe.** Replace per-resource calls with
 `grant_user_permission` (one-user, one-resource direct grants) or the
 role API (when the same permission set is shared across users):
@@ -162,10 +158,10 @@ auth_client.grant_user_permission(username, "experiment", experiment_id, "EDIT")
 ```
 
 Substitute `registered_model`, `prompt`, `scorer`, or a gateway resource
-type as needed. `grant_user_permission` is gated by per-resource MANAGE
-on the target resource — the same authority check the legacy methods
-used — so an experiment owner can continue to delegate without holding
-workspace-wide MANAGE.
+type as needed.
+`grant_user_permission` is gated by per-resource MANAGE on the target resource,
+which is the same authority check the legacy methods used.
+An experiment owner can continue to delegate without holding workspace-wide MANAGE.
 
 For workspace-tier grants (previously
 `set_workspace_permission(workspace, user, permission)`), assign the
