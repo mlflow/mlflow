@@ -21,6 +21,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.gateway.constants import MLFLOW_GATEWAY_DURATION_HEADER, MLFLOW_GATEWAY_OVERHEAD_HEADER
 from mlflow.gateway.providers.utils import provider_call_duration_ms
 from mlflow.server import app as flask_app
+from mlflow.server.agent_playground.test_cases_router import test_cases_router
 from mlflow.server.assistant.api import assistant_router
 from mlflow.server.fastapi_security import init_fastapi_security
 from mlflow.server.gateway_api import gateway_router
@@ -182,6 +183,10 @@ def create_fastapi_app(flask_app: Flask = flask_app):
     # Include Assistant API router for AI-powered trace analysis
     # This provides /ajax-api/3.0/mlflow/assistant/* endpoints (localhost only)
     fastapi_app.include_router(assistant_router)
+
+    # Include Agent Playground test-case CRUD router
+    # /ajax-api/3.0/mlflow/agent-playground/test-cases/* endpoints
+    fastapi_app.include_router(test_cases_router)
 
     # Mount the entire Flask application at the root path
     # This ensures compatibility with existing APIs

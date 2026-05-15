@@ -1352,6 +1352,11 @@ from mlflow.cli.demo import demo
 
 cli.add_command(demo)
 
+# Add agent_playground CLI commands
+from mlflow.cli import agent
+
+cli.add_command(agent.commands)
+
 # Add AI commands CLI
 cli.add_command(ai_commands.commands)
 
