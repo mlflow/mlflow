@@ -57,7 +57,7 @@ from tests.store.tracking.sqlalchemy_store.conftest import (
     _create_trace,
     create_test_span,
 )
-from tests.store.tracking.sqlalchemy_store.test_sqlalchemy_store import (
+from tests.store.tracking.sqlalchemy_store.test_sqlalchemy_store_scorers import (
     _gateway_model_scorer_json,
     _mock_gateway_endpoint,
 )
