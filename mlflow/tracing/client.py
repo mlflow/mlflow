@@ -47,10 +47,7 @@ from mlflow.tracing.constant import (
 )
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import TraceJSONEncoder, exclude_immutable_tags, parse_trace_id_v4
-from mlflow.tracing.utils.artifact_utils import (
-    get_archive_uri_for_trace,
-    get_artifact_uri_for_trace,
-)
+from mlflow.tracing.utils.artifact_utils import get_artifact_uri_for_trace
 from mlflow.tracking._tracking_service.utils import _get_store, _resolve_tracking_uri
 from mlflow.utils import is_uuid
 from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS
@@ -176,9 +173,12 @@ class TracingClient:
         else:
             try:
                 trace_info = self.get_trace_info(trace_id)
-                # if the trace is stored in the tracking store, load spans from the tracking store
-                # otherwise, load spans from the artifact repository
-                if trace_info.tags.get(TraceTagKey.SPANS_LOCATION) == SpansLocation.TRACKING_STORE:
+                # if the trace is stored in the tracking store or archive repo, load spans via the
+                # store/server path; otherwise, load spans from the artifact repository
+                if trace_info.tags.get(TraceTagKey.SPANS_LOCATION) in (
+                    SpansLocation.TRACKING_STORE,
+                    SpansLocation.ARCHIVE_REPO,
+                ):
                     try:
                         return self.store.get_trace(trace_id)
                     except MlflowNotImplementedException:
@@ -396,10 +396,10 @@ class TracingClient:
             return self._load_traces_by_location(trace_infos_by_location, executor)
 
     def _download_spans_from_batch_get_traces(
-        self, trace_ids: list[str], location: str, executor: ThreadPoolExecutor
+        self, trace_ids: list[str], location: str | None, executor: ThreadPoolExecutor
     ) -> list[Trace]:
         """
-        Fetch full traces including spans from the BatchGetTrace v4 endpoint.
+        Fetch full traces including spans from the store batch-get path.
         BatchGetTrace endpoint only support up to 10 traces in a single call.
         """
         traces = []
@@ -420,7 +420,7 @@ class TracingClient:
     ) -> list[Trace]:
         traces = []
         for location, location_trace_infos in trace_infos_by_location.items():
-            if location in (SpansLocation.ARTIFACT_REPO, SpansLocation.ARCHIVE_REPO):
+            if location == SpansLocation.ARTIFACT_REPO:
                 traces.extend(
                     tr
                     for tr in executor.map(
@@ -430,9 +430,10 @@ class TracingClient:
                     if tr
                 )
             else:
+                batch_get_location = None if location == SpansLocation.ARCHIVE_REPO else location
                 traces.extend(
                     self._download_spans_from_batch_get_traces(
-                        [t.trace_id for t in location_trace_infos], location, executor
+                        [t.trace_id for t in location_trace_infos], batch_get_location, executor
                     )
                 )
         return traces
@@ -442,8 +443,8 @@ class TracingClient:
         Download trace data for the given trace_info and returns a Trace object.
         If the download fails (e.g., the trace data is missing or corrupted), returns None.
 
-        This is used for traces whose spans are stored outside the tracking store, including the
-        existing artifact-backed path and archived traces stored in the archival repository.
+        This is used for traces whose spans are fetched directly from artifact storage, including
+        the existing artifact-backed path.
         """
         is_online_trace = is_uuid(trace_info.trace_id)
         is_databricks = is_databricks_uri(self.tracking_uri)
@@ -612,7 +613,9 @@ class TracingClient:
             key: The string key of the tag. Must be at most 250 characters long, otherwise
                 it will be truncated when stored.
         """
-        if key in IMMUTABLE_TAGS:
+        # Allow users to clear archival-failure markers so the scheduler can retry after
+        # manual intervention, while keeping other internal storage tags immutable.
+        if key in IMMUTABLE_TAGS and key != TraceTagKey.ARCHIVAL_FAILURE:
             _logger.warning(f"Tag '{key}' is immutable and cannot be deleted on a trace.")
             return
 
@@ -723,11 +726,6 @@ class TracingClient:
         artifact_uri = add_databricks_profile_info_to_artifact_uri(artifact_uri, self.tracking_uri)
         return get_artifact_repository(artifact_uri)
 
-    def _get_archive_repo_for_trace(self, trace_info: TraceInfo):
-        archive_uri = get_archive_uri_for_trace(trace_info)
-        archive_uri = add_databricks_profile_info_to_artifact_uri(archive_uri, self.tracking_uri)
-        return get_artifact_repository(archive_uri)
-
     def _download_trace_data(self, trace_info: TraceInfo) -> TraceData:
         """
         Download trace data from artifact repository.
@@ -738,10 +736,6 @@ class TracingClient:
         Returns:
             TraceData object representing the downloaded trace data.
         """
-        if trace_info.tags.get(TraceTagKey.SPANS_LOCATION) == SpansLocation.ARCHIVE_REPO:
-            artifact_repo = self._get_archive_repo_for_trace(trace_info)
-            return artifact_repo.download_archived_trace_data()
-
         artifact_repo = self._get_artifact_repo_for_trace(trace_info)
         return TraceData.from_dict(artifact_repo.download_trace_data())
 

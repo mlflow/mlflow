@@ -113,6 +113,7 @@ def test_sqlalchemy_store_returns_workspace_aware_when_enabled(tmp_path, db_uri,
     try:
         assert isinstance(store, WorkspaceAwareSqlAlchemyStore)
         assert store.supports_workspaces is True
+        assert store.supports_trace_archival is True
     finally:
         store._dispose_engine()
 
@@ -125,6 +126,7 @@ def test_sqlalchemy_store_is_single_tenant_when_disabled(tmp_path, db_uri, monke
     try:
         assert not isinstance(store, WorkspaceAwareSqlAlchemyStore)
         assert store.supports_workspaces is False
+        assert store.supports_trace_archival is True
     finally:
         store._dispose_engine()
 

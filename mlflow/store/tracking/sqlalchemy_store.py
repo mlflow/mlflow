@@ -81,15 +81,8 @@ from mlflow.entities.trace_metrics import (
 )
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.entities.workspace import TraceArchivalConfig
-from mlflow.environment_variables import (
-    MLFLOW_TRACE_ARCHIVAL_LOCATION,
-    MLFLOW_TRACE_ARCHIVAL_LONG_RETENTION_ALLOWLIST,
-    MLFLOW_TRACE_ARCHIVAL_RETENTION,
-)
 from mlflow.exceptions import (
     MlflowException,
-    MlflowNotImplementedException,
     MlflowTraceArchivalMalformedTrace,
     MlflowTracingException,
 )
@@ -181,14 +174,12 @@ from mlflow.store.tracking.utils.trace_archival import (
     _ArchiveNowRequest,
     _format_trace_archival_duration_millis,
     _parse_trace_archival_duration_millis,
-    _parse_trace_archival_long_retention_allowlist,
     _resolve_effective_trace_archival_retention,
     _TraceArchiveCandidate,
     _TraceDeleteSelection,
     _TraceReadSnapshot,
     _TraceSpanSnapshot,
 )
-from mlflow.store.workspace.abstract_store import ResolvedTraceArchivalConfig
 from mlflow.telemetry.events import UpdateIssueEvent
 from mlflow.telemetry.track import record_usage_event
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
@@ -210,6 +201,7 @@ from mlflow.tracing.otel.translation import (
     update_cost,
     update_token_usage,
 )
+from mlflow.tracing.trace_archival_config import get_trace_archival_server_config
 from mlflow.tracing.utils import (
     TraceJSONEncoder,
     generate_request_id_v2,
@@ -259,11 +251,10 @@ from mlflow.utils.validation import (
     _validate_run_id,
     _validate_tag,
     _validate_trace_archival_location,
-    _validate_trace_archival_repository_support,
     _validate_trace_archival_retention_string,
     _validate_trace_tag,
 )
-from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME, WORKSPACES_DIR_NAME
+from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 _T = TypeVar("_T")
 
@@ -368,6 +359,10 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
     @property
     def supports_workspaces(self) -> bool:
         return False
+
+    @property
+    def supports_trace_archival(self) -> bool:
+        return True
 
     def _get_active_workspace(self) -> str:
         """
@@ -631,30 +626,26 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             archival is configured for the current store context. Returns ``None`` when
             effective experiment retention should be left unset.
         """
-        trace_archival_location = MLFLOW_TRACE_ARCHIVAL_LOCATION.get()
-        if trace_archival_location is None:
-            return None
-
         try:
-            default_retention = MLFLOW_TRACE_ARCHIVAL_RETENTION.get()
-            if default_retention is None:
+            trace_archival_config = get_trace_archival_server_config()
+            if trace_archival_config is None:
+                return None
+            if not trace_archival_config.enabled:
                 return None
 
+            broader_retention = trace_archival_config.retention
             resolved_trace_archival_config = self.resolve_trace_archival_config(
-                default_trace_archival_location=trace_archival_location,
-                default_retention=_validate_trace_archival_retention_string(default_retention),
+                default_trace_archival_location=trace_archival_config.location,
+                default_retention=broader_retention,
+            ).with_broader_defaults(
+                default_location=trace_archival_config.location,
+                default_retention=broader_retention,
             )
             broader_retention = resolved_trace_archival_config.config.retention
-            if broader_retention is None:
-                return None
 
             return (
                 _validate_trace_archival_retention_string(broader_retention),
-                set(
-                    _parse_trace_archival_long_retention_allowlist(
-                        MLFLOW_TRACE_ARCHIVAL_LONG_RETENTION_ALLOWLIST.get()
-                    )
-                ),
+                set(trace_archival_config.long_retention_allowlist),
             )
         except MlflowException:
             _logger.warning(
@@ -5652,74 +5643,51 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
     def archive_traces(
         self,
         *,
-        default_trace_archival_location: str,
-        default_retention: str,
+        resolved_trace_archival_location: str,
+        broader_retention: str,
         long_retention_allowlist: set[str] | list[str] | None = None,
-        max_traces: int | None = None,
+        max_traces_per_pass: int | None = None,
     ) -> int:
-        if max_traces is not None and max_traces <= 0:
+        if max_traces_per_pass is not None and max_traces_per_pass <= 0:
             raise MlflowException.invalid_parameter_value(
-                f"`max_traces` must be a positive integer, received {max_traces}."
+                f"`max_traces_per_pass` must be a positive integer, received {max_traces_per_pass}."
             )
-        if not default_trace_archival_location:
+        if not resolved_trace_archival_location:
             raise MlflowException.invalid_parameter_value(
-                "`default_trace_archival_location` must be provided."
+                "`resolved_trace_archival_location` must be provided."
             )
-        default_trace_archival_location = _validate_trace_archival_location(
-            default_trace_archival_location, parameter_name="default_trace_archival_location"
+        resolved_trace_archival_location = _validate_trace_archival_location(
+            resolved_trace_archival_location,
+            parameter_name="resolved_trace_archival_location",
         )
-        if not default_retention:
-            raise MlflowException.invalid_parameter_value("`default_retention` must be provided.")
-
+        if not broader_retention:
+            raise MlflowException.invalid_parameter_value("`broader_retention` must be provided.")
+        broader_retention = _validate_trace_archival_retention_string(
+            broader_retention, parameter_name="broader_retention"
+        )
         now_millis = self._get_archive_traces_now_millis()
         long_retention_allowlist = {
             str(experiment_id) for experiment_id in long_retention_allowlist or []
         }
-        trace_archival_config = self.resolve_trace_archival_config(
-            default_trace_archival_location=default_trace_archival_location,
-            default_retention=default_retention,
-        )
-        # The public API already required broader-scope defaults, so `None` here means config
-        # resolution dropped a caller-provided value instead of preserving or overriding it.
-        if trace_archival_config.config.location is None:
-            raise MlflowException(
-                "Trace archival config resolution returned no archival location.",
-                error_code=INTERNAL_ERROR,
-            )
-        if trace_archival_config.config.retention is None:
+        broader_retention_millis = _parse_trace_archival_duration_millis(broader_retention)
+        if broader_retention_millis is None:
             raise MlflowException(
                 "Trace archival config resolution returned no archival retention.",
                 error_code=INTERNAL_ERROR,
             )
-        trace_archival_config = ResolvedTraceArchivalConfig(
-            config=TraceArchivalConfig(
-                location=_validate_trace_archival_repository_support(
-                    trace_archival_config.config.location,
-                    parameter_name="resolved_trace_archival_location",
-                ),
-                retention=_validate_trace_archival_retention_string(
-                    trace_archival_config.config.retention
-                ),
-            ),
-            append_workspace_prefix=trace_archival_config.append_workspace_prefix,
-        )
-        broader_retention_millis = _parse_trace_archival_duration_millis(
-            trace_archival_config.config.retention
-        )
-
         with self.ManagedSessionMaker() as session:
             archive_now_requests, candidates = self._plan_trace_archival(
                 session=session,
                 now_millis=now_millis,
                 broader_retention_millis=broader_retention_millis,
                 long_retention_allowlist=long_retention_allowlist,
-                max_traces=max_traces,
+                max_traces_per_pass=max_traces_per_pass,
             )
         return self._execute_trace_archival_plan(
             archive_now_requests=archive_now_requests,
             candidates=candidates,
-            trace_archival_config=trace_archival_config,
-            max_traces=max_traces,
+            resolved_trace_archival_location=resolved_trace_archival_location,
+            max_traces_per_pass=max_traces_per_pass,
             now_millis=now_millis,
         )
 
@@ -5730,7 +5698,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         now_millis: int,
         broader_retention_millis: int,
         long_retention_allowlist: set[str],
-        max_traces: int | None,
+        max_traces_per_pass: int | None,
     ) -> tuple[list[_ArchiveNowCleanupRequest], list[_TraceArchiveCandidate]]:
         archive_now_requests: list[_ArchiveNowCleanupRequest] = []
         # Group archive-now experiments by cutoff so experiments requesting the same urgency
@@ -5772,15 +5740,15 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         archive_now_candidates = self._collect_grouped_trace_archive_candidates(
             session=session,
             cutoff_groups=archive_now_cutoff_groups,
-            max_traces=max_traces,
+            max_traces_per_pass=max_traces_per_pass,
         )
 
         regular_candidates: list[_TraceArchiveCandidate] = []
-        if max_traces is None or len(archive_now_candidates) < max_traces:
+        if max_traces_per_pass is None or len(archive_now_candidates) < max_traces_per_pass:
             regular_candidates = self._collect_grouped_trace_archive_candidates(
                 session=session,
                 cutoff_groups=regular_cutoff_groups,
-                max_traces=max_traces,
+                max_traces_per_pass=max_traces_per_pass,
             )
 
         return (
@@ -5793,7 +5761,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         *,
         session: Session,
         cutoff_groups: dict[int | None, list[str]],
-        max_traces: int | None,
+        max_traces_per_pass: int | None,
     ) -> list[_TraceArchiveCandidate]:
         candidates: list[_TraceArchiveCandidate] = []
         for cutoff, experiment_ids in cutoff_groups.items():
@@ -5803,9 +5771,9 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     session=session,
                     experiment_ids=experiment_ids,
                     max_timestamp_millis=cutoff,
-                    limit=max_traces,
+                    limit=max_traces_per_pass,
                 ),
-                limit=max_traces,
+                limit=max_traces_per_pass,
             )
         return candidates
 
@@ -5814,36 +5782,25 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         *,
         archive_now_requests: list[_ArchiveNowCleanupRequest],
         candidates: list[_TraceArchiveCandidate],
-        trace_archival_config: ResolvedTraceArchivalConfig,
-        max_traces: int | None,
+        resolved_trace_archival_location: str,
+        max_traces_per_pass: int | None,
         now_millis: int,
     ) -> int:
-        archive_now_experiment_ids = {r.experiment_id for r in archive_now_requests}
+        archive_now_experiment_ids = {request.experiment_id for request in archive_now_requests}
         retryable_failure_experiment_ids: set[str] = set()
         archived_count = 0
-        candidates_to_archive = candidates if max_traces is None else candidates[:max_traces]
+        candidates_to_archive = (
+            candidates if max_traces_per_pass is None else candidates[:max_traces_per_pass]
+        )
+
         try:
             for candidate in candidates_to_archive:
                 try:
                     if self._archive_trace_candidate(
                         trace_id=candidate.trace_id,
-                        trace_archival_config=trace_archival_config,
+                        resolved_trace_archival_location=resolved_trace_archival_location,
                     ):
                         archived_count += 1
-                except MlflowNotImplementedException:
-                    # TODO: The orchestration follow-up should treat unsupported archival
-                    # destinations as a scope-level signal (for example per workspace /
-                    # resolved archival location) and isolate the rest of that scope for the
-                    # current pass. Keep this retryable for now so traces remain eligible once
-                    # the workspace configuration is fixed.
-                    _logger.warning(
-                        "Failed to archive trace %s because the archive destination is "
-                        "unsupported; leaving it eligible for retry.",
-                        candidate.trace_id,
-                        exc_info=True,
-                    )
-                    if candidate.experiment_id in archive_now_experiment_ids:
-                        retryable_failure_experiment_ids.add(candidate.experiment_id)
                 except (MlflowException, SQLAlchemyError):
                     _logger.warning(
                         "Failed to archive trace %s; leaving it eligible for retry.",
@@ -5858,6 +5815,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 now_millis=now_millis,
                 retryable_failure_experiment_ids=retryable_failure_experiment_ids,
             )
+
         return archived_count
 
     def _get_archive_traces_now_millis(self) -> int:
@@ -5867,10 +5825,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         patching the shared time utility.
         """
         return get_current_time_millis()
-
-    def _get_trace_archival_workspace_name(self) -> str | None:
-        """Return the workspace path segment for workspace-scoped archival roots."""
-        return None
 
     def _resolve_effective_trace_archival_retention_millis(
         self,
@@ -6059,7 +6013,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         self,
         *,
         trace_id: str,
-        trace_archival_config: ResolvedTraceArchivalConfig,
+        resolved_trace_archival_location: str,
     ) -> bool:
         archival_data = self._load_trace_archival_data(trace_id)
         if archival_data is None:
@@ -6077,20 +6031,17 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             )
             return False
 
-        artifact_uri = self._get_archival_repository_artifact_uri(
-            trace_info=trace_info,
-            trace_archival_config=trace_archival_config,
+        artifact_uri = append_to_uri_path(
+            resolved_trace_archival_location,
+            str(trace_info.experiment_id),
+            self.TRACE_FOLDER_NAME,
+            trace_info.trace_id,
+            self.ARTIFACTS_FOLDER_NAME,
         )
         artifact_repo = get_artifact_repository(artifact_uri)
 
         try:
             artifact_repo.upload_archived_trace_data_bytes(archived_pb)
-        except MlflowNotImplementedException:
-            _logger.warning(
-                "Archive repository upload is unsupported for trace %s; leaving it retryable.",
-                trace_id,
-            )
-            raise
         except Exception as e:
             self._delete_unreferenced_archived_trace_payload(
                 trace_id=trace_id,
@@ -6100,6 +6051,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             # Normalize backend-specific upload errors so the outer archival loop
             # can treat them as retryable without depending on repository internals.
             raise MlflowException("Trace archival upload failed.") from e
+
         try:
             finalized = self._finalize_archived_trace(
                 trace_id=trace_id,
@@ -6124,6 +6076,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 artifact_uri=artifact_uri,
                 artifact_repo=artifact_repo,
             )
+
         return finalized
 
     def _load_trace_archival_data(
@@ -6133,18 +6086,28 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             sql_trace_info = (
                 self
                 ._trace_query(session)
-                .options(joinedload(SqlTraceInfo.tags), joinedload(SqlTraceInfo.spans))
+                .options(selectinload(SqlTraceInfo.tags))
                 .filter(SqlTraceInfo.request_id == trace_id)
                 .one_or_none()
             )
             if sql_trace_info is None:
                 return None
 
+            span_rows = [
+                (span_id, content)
+                for span_id, content in (
+                    session
+                    .query(SqlSpan.span_id, SqlSpan.content)
+                    .filter(SqlSpan.trace_id == trace_id)
+                    .order_by(SqlSpan.span_id)
+                    .all()
+                )
+            ]
+
             trace_info = sql_trace_info.to_mlflow_entity()
-            if not self._is_trace_actionable_for_archival(trace_info, sql_trace_info.spans):
+            if not self._is_trace_actionable_for_archival(trace_info, span_rows):
                 return None
 
-            span_rows = sorted((span.span_id, span.content) for span in sql_trace_info.spans)
             return trace_info, sql_trace_info.db_payload_generation, span_rows
 
     def _serialize_trace_archival_span_rows_to_pb(self, span_rows: list[tuple[str, str]]) -> bytes:
@@ -6158,7 +6121,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             raise MlflowTraceArchivalMalformedTrace(str(e)) from e
 
     def _is_trace_actionable_for_archival(
-        self, trace_info: TraceInfo, spans: list[SqlSpan]
+        self, trace_info: TraceInfo, span_rows: list[tuple[str, str]]
     ) -> bool:
         spans_location = trace_info.tags.get(TraceTagKey.SPANS_LOCATION)
         if not self._is_db_backed_spans_location(spans_location):
@@ -6167,7 +6130,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             return False
         if trace_info.state == TraceState.IN_PROGRESS:
             return False
-        return any(span.content != "" for span in spans)
+        return any(content != "" for _, content in span_rows)
 
     @staticmethod
     def _is_db_backed_spans_location(spans_location: str | None) -> bool:
@@ -6202,33 +6165,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             )
             .first()
             is not None
-        )
-
-    def _get_archival_repository_artifact_uri(
-        self,
-        *,
-        trace_info: TraceInfo,
-        trace_archival_config: ResolvedTraceArchivalConfig,
-    ) -> str:
-        resolved_root = trace_archival_config.config.location
-        append_workspace_prefix = trace_archival_config.append_workspace_prefix
-        if resolved_root is None:
-            raise MlflowException(
-                "Trace archival config resolution returned no archival location.",
-                error_code=INTERNAL_ERROR,
-            )
-
-        if append_workspace_prefix and (
-            workspace_name := self._get_trace_archival_workspace_name()
-        ):
-            resolved_root = append_to_uri_path(resolved_root, WORKSPACES_DIR_NAME, workspace_name)
-
-        return append_to_uri_path(
-            resolved_root,
-            str(trace_info.experiment_id),
-            self.TRACE_FOLDER_NAME,
-            trace_info.trace_id,
-            self.ARTIFACTS_FOLDER_NAME,
         )
 
     def _delete_unreferenced_archived_trace_payload(

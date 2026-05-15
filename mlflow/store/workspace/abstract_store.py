@@ -17,6 +17,21 @@ class ResolvedTraceArchivalConfig:
     config: TraceArchivalConfig
     append_workspace_prefix: bool
 
+    def with_broader_defaults(
+        self, *, default_location: str, default_retention: str
+    ) -> "ResolvedTraceArchivalConfig":
+        """Fill any unset workspace fields from broader-scope defaults."""
+
+        return ResolvedTraceArchivalConfig(
+            config=TraceArchivalConfig(
+                location=default_location if self.config.location is None else self.config.location,
+                retention=(
+                    default_retention if self.config.retention is None else self.config.retention
+                ),
+            ),
+            append_workspace_prefix=self.append_workspace_prefix,
+        )
+
 
 # The workspace store can be backed by something other than the tracking store. For example,
 # Kubeflow integrations map MLflow workspaces onto Kubernetes namespaces and rely on a
@@ -115,7 +130,8 @@ class AbstractStore(ABC):
             for the workspace. Providers should treat ``default_trace_archival_root`` as a
             required broader-scope default for the archival pass, and ``default_retention`` as a
             required broader-scope retention. Providers should override either value only when
-            workspace-specific settings are configured.
+            workspace-specific settings are configured; any field left as ``None`` will inherit
+            the broader-scope default in core.
         """
 
         return ResolvedTraceArchivalConfig(

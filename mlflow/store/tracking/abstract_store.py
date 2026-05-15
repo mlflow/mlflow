@@ -75,6 +75,11 @@ class AbstractStore(GatewayStoreMixin):
         """Return whether workspaces are supported by this tracking store."""
         return False
 
+    @property
+    def supports_trace_archival(self) -> bool:
+        """Return whether server-owned trace archival is supported by this tracking store."""
+        return False
+
     @abstractmethod
     def search_experiments(
         self,
@@ -405,10 +410,10 @@ class AbstractStore(GatewayStoreMixin):
     def archive_traces(
         self,
         *,
-        default_trace_archival_location: str,
-        default_retention: str,
+        resolved_trace_archival_location: str,
+        broader_retention: str,
         long_retention_allowlist: set[str] | list[str] | None = None,
-        max_traces: int | None = None,
+        max_traces_per_pass: int | None = None,
     ) -> int:
         """
         Archive eligible DB-backed trace payloads into the archival repository.
@@ -417,18 +422,17 @@ class AbstractStore(GatewayStoreMixin):
         are not supported.
 
         Args:
-            default_trace_archival_location: Broader-scope archival repository root for this
-                archival pass. Implementations may override it with workspace-specific
-                configuration, but callers must supply a concrete broader-scope default
-                explicitly. Orchestrator is responsible for resolving any fallback semantics
-                (for example, deriving an effective archival location from artifact storage)
-                before invoking this method.
-            default_retention: Broader-scope default retention in the form ``<int><unit>`` where
-                unit is one of ``m``, ``h``, or ``d``. Callers must supply it explicitly.
+            resolved_trace_archival_location: Final archival repository root for this archival
+                pass after broader-scope server and workspace resolution has already been applied.
+            broader_retention: Resolved broader-scope retention in the form ``<int><unit>`` where
+                unit is one of ``m``, ``h``, or ``d``. Experiment-level retention overrides are
+                resolved against this value during the pass.
             long_retention_allowlist: Experiment IDs allowed to exceed the broader-scope
                 retention with a longer experiment-level retention override.
-            max_traces: Maximum number of traces to archive in this pass. If unset, archive all
-                eligible traces.
+            max_traces_per_pass: Maximum number of traces to archive in this invocation. When the
+                scheduler applies a pass-level budget across multiple scopes, it passes the
+                remaining budget for the current scope here. If unset, archive all eligible
+                traces.
 
         Returns:
             The number of traces archived during the pass.
@@ -445,7 +449,8 @@ class AbstractStore(GatewayStoreMixin):
         Resolve the effective trace archival configuration for the current store context.
 
         Single-tenant stores use the broader-scope defaults directly. Workspace-aware stores may
-        override this to apply workspace-specific archival settings.
+        override this to apply workspace-specific archival settings. Any field left as ``None``
+        inherits the broader-scope default in core.
 
         Returns:
             A ``ResolvedTraceArchivalConfig`` describing the effective archival location,

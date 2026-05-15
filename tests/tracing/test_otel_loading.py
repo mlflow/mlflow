@@ -1,5 +1,6 @@
 import uuid
 from pathlib import Path
+from unittest import mock
 
 import pytest
 from opentelemetry import trace as otel_trace
@@ -17,7 +18,7 @@ from mlflow.entities.assessment_source import AssessmentSourceType
 from mlflow.server import handlers
 from mlflow.server.fastapi_app import app
 from mlflow.server.handlers import initialize_backend_stores
-from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.constant import SpanAttributeKey, SpansLocation, TraceTagKey
 from mlflow.tracing.otel.translation.base import OtelSchemaTranslator
 from mlflow.tracing.otel.translation.genai_semconv import GenAiTranslator
 from mlflow.tracing.otel.translation.open_inference import OpenInferenceTranslator
@@ -136,6 +137,76 @@ def test_get_trace_for_otel_sent_span(mlflow_server: str, is_async):
     # Verify the trace ID matches the expected format
     expected_trace_id = f"tr-{encode_trace_id(otel_trace_id)}"
     assert trace_id == expected_trace_id
+
+
+def test_rest_client_reads_archived_trace_via_server(mlflow_server: str, tmp_path: Path, is_async):
+    experiment = mlflow.set_experiment("otel-archived-trace-rest-test")
+    experiment_id = experiment.experiment_id
+
+    tracer = create_tracer(mlflow_server, experiment_id, "test-service-archive-read")
+
+    with tracer.start_as_current_span("archived-otel-span") as span:
+        span.set_attribute("archived.attribute", "server-owned")
+
+    if is_async:
+        _flush_async_logging()
+
+    traces = mlflow.search_traces(
+        locations=[experiment_id], include_spans=False, return_type="list"
+    )
+    assert len(traces) == 1, "Expected a single trace to archive in this isolated test"
+
+    trace_info = traces[0].info
+    trace_id = trace_info.trace_id
+
+    store = handlers._get_tracking_store()
+    archive_root = tmp_path.joinpath("archive")
+    archive_root.mkdir()
+    with mock.patch.object(
+        store,
+        "_get_archive_traces_now_millis",
+        return_value=trace_info.request_time + 2 * 60 * 1000,
+    ):
+        archived = store.archive_traces(
+            resolved_trace_archival_location=archive_root.as_uri(),
+            broader_retention="1m",
+            long_retention_allowlist=None,
+            max_traces_per_pass=100,
+        )
+
+    assert archived == 1
+    archived_trace_info = store.get_trace_info(trace_id)
+    assert archived_trace_info.tags[TraceTagKey.SPANS_LOCATION] == SpansLocation.ARCHIVE_REPO.value
+    assert TraceTagKey.ARCHIVE_LOCATION in archived_trace_info.tags
+
+    client = mlflow.MlflowClient(mlflow_server)
+    with (
+        mock.patch.object(
+            client._tracing_client,
+            "_download_trace_data",
+            side_effect=AssertionError("client-side archive download should not be used"),
+        ) as mock_download_trace_data,
+        mock.patch.object(
+            client._tracing_client,
+            "_download_spans_from_artifact_repo",
+            side_effect=AssertionError("artifact-repo batch download should not be used"),
+        ) as mock_download_spans_from_artifact_repo,
+    ):
+        retrieved_trace = client.get_trace(trace_id)
+        searched_traces = client.search_traces(locations=[experiment_id], include_spans=True)
+
+    assert retrieved_trace.info.trace_id == trace_id
+    assert len(retrieved_trace.data.spans) == 1
+    assert retrieved_trace.data.spans[0].name == "archived-otel-span"
+    assert retrieved_trace.data.spans[0].attributes["archived.attribute"] == "server-owned"
+
+    assert len(searched_traces) == 1
+    assert searched_traces[0].info.trace_id == trace_id
+    assert len(searched_traces[0].data.spans) == 1
+    assert searched_traces[0].data.spans[0].name == "archived-otel-span"
+
+    mock_download_trace_data.assert_not_called()
+    mock_download_spans_from_artifact_repo.assert_not_called()
 
 
 def test_get_trace_for_otel_nested_spans(mlflow_server: str, is_async):
