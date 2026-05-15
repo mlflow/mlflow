@@ -134,7 +134,10 @@ def test_dataset_search_comprehensive(store):
     datasets = []
     for i in range(10):
         name = f"{test_prefix}dataset_{i:02d}"
-        tags = {"priority": "high" if i % 2 == 0 else "low", mlflow_tags.MLFLOW_USER: f"user_{i % 3}"}
+        tags = {
+            "priority": "high" if i % 2 == 0 else "low",
+            mlflow_tags.MLFLOW_USER: f"user_{i % 3}",
+        }
 
         if i < 3:
             created = store.create_dataset(
