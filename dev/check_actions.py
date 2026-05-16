@@ -15,11 +15,6 @@ from pathlib import Path
 
 import yaml
 
-try:
-    from yaml import CSafeLoader as _YamlLoader
-except ImportError:
-    from yaml import SafeLoader as _YamlLoader  # type: ignore[assignment]
-
 # Matches a `uses:` line that references a remote action (not a local `./` path).
 # Captures:  owner/repo[/subpath]  @  ref  [  # comment  ]
 _USES_RE = re.compile(
@@ -188,7 +183,7 @@ def _pattern_matches(pattern: str, files: list[str]) -> bool:
 
 
 def _iter_path_patterns(path: Path) -> Iterator[tuple[str, str, str]]:
-    data = yaml.load(path.read_text(encoding="utf-8"), Loader=_YamlLoader)
+    data = yaml.load(path.read_text(encoding="utf-8"), Loader=yaml.CSafeLoader)
     if not isinstance(data, dict):
         return
     # PyYAML parses the literal `on:` key as the boolean True (YAML 1.1).
