@@ -143,6 +143,10 @@
     "defaultMessage": "Fallback",
     "description": "Gateway > Endpoint details > Label on connector between fallback model sections"
   },
+  "+o0xUA": {
+    "defaultMessage": "An error occurred while attempting to fetch trace data (ID: {traceId}). Please ensure that the MLflow tracking server is running, and that the trace data exists. Error details:",
+    "description": "An error message explaining that an error occurred while fetching trace data"
+  },
   "+tURAJ": {
     "defaultMessage": "Cancel",
     "description": "Button text for canceling evaluation"
@@ -5250,10 +5254,6 @@
   "UCQwvo": {
     "defaultMessage": "Registered prompts",
     "description": "Run page > Overview > Run prompts section label"
-  },
-  "UD4Z+e": {
-    "defaultMessage": "An error occurred while attempting to fetch trace data (ID: {traceId}). Please ensure that the MLflow tracking server is running, and that the trace data exists. Error details:",
-    "description": "An error message explaining that an error occured while fetching trace data"
   },
   "UEDu0c": {
     "defaultMessage": "MLflow UI automatically fetches metric histories for active runs and updates the metrics plot with a {interval} second interval.",
@@ -10755,10 +10755,6 @@
     "defaultMessage": "Application user who triggered the trace",
     "description": "Tooltip description for the User column in the traces table"
   },
-  "zhzZUu": {
-    "defaultMessage": "An error occured while attempting to delete traces. Please refresh the page and try again.",
-    "description": "Experiment page > traces view controls > Delete traces modal > Error message"
-  },
   "ziIhFQ": {
     "defaultMessage": "Loaded {allRuns} {allRuns, plural, =1 {run} other {runs}}, including {childRuns} child {childRuns, plural, =1 {run} other {runs}}",
     "description": "Experiment page > loaded more runs notification > loaded both parent and child runs"
@@ -10798,6 +10794,10 @@
   "zxfWCx": {
     "defaultMessage": "Add/Edit Prompt Version Metadata",
     "description": "Title for a modal that allows the user to add or edit metadata tags on prompt versions."
+  },
+  "zyPq2R": {
+    "defaultMessage": "An error occurred while attempting to delete traces. Please refresh the page and try again.",
+    "description": "Experiment page > traces view controls > Delete traces modal > Error message"
   },
   "zzuzri": {
     "defaultMessage": "Description",
