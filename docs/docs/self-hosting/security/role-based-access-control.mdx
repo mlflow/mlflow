@@ -21,7 +21,8 @@ picks up once users exist.
 
 ## Concepts
 
-Three entities, two relations. Roles (and the grants they carry) are
+Three entities — users, roles, resources — connected by two relations:
+role assignment and permission grants. Roles (and the grants they carry) are
 workspace-scoped when workspaces are enabled; see
 [Workspace isolation](#workspace-isolation) for the on/off delta.
 
@@ -38,21 +39,18 @@ flowchart LR
 - **User** — an actor who wants to access resources.
 - **Resource** — a target entity in MLflow that permissions are
   managed on, such as an experiment, a registered model, a prompt,
-  a scorer, or one of AI Gateway resources (a secret, an endpoints,
-  or a model definitions).
+  a scorer, or an AI Gateway resource (a secret, an endpoint,
+  or a model definition).
 - **Role** — a named bundle of permissions on resources.
 
 ## Roles
 
-Roles represent personas. For example,
-an _editor_ role can edit all prompts or a _workspace admin role who can
-manage a certain workspace.
-
-Abstractly, a role is defined as `(role_name, list(<resource_type, resource_id, permission_level>))`.
-This allows us to express permissions in granular, e.g., Alice may have READ access
-to experiment 42 and may have EDIT access to prompt 47. You may also grant a permission
-to all resources of the same type in one go by
-specifying a role like: `( chef editor, (<experiment, *, EDIT>))`.
+A role is a named list of `(resource_type, resource_pattern, permission)` grants.
+Grants can target a single resource (`experiment:42`) or every resource of
+a type (`experiment:*`), so one role can express both fine-grained and broad
+access. For example, an _editor_ role might carry `(experiment, *, EDIT)` to
+let its members edit every experiment, while a narrower role could combine
+`(experiment, 42, READ)` with `(prompt, 7, EDIT)`.
 
 ### Permission levels
 
@@ -94,9 +92,9 @@ permission as follows:
    participates in the same max because it applies to all resources in the
    workspace, so a workspace-level grant acts as a floor that per-resource
    grants can upgrade but never downgrade.
-3. **Server `default_permission`**: a configured floor consulted when resolving permissions.
-   See [Workspace isolation](#workspace-isolation) for how this interacts with
-   the workspace setting.
+3. **Server `default_permission`**: the server-wide fallback permission level.
+   When no role grant matches, this value is used as the floor. Behavior
+   varies with workspace mode; see [Workspace isolation](#workspace-isolation).
 
 ## Workspace isolation
 
@@ -129,11 +127,10 @@ Two grants on the special `(resource_type='workspace',
 resource_pattern='*')` slot define workspace-wide access:
 
 - `USE` on `(workspace, *)` — the **Workspace Member** grant.
-  Grant access to the workspace as well as an ability to create resources
-  within the workspace. Also grant 'default_permission' to all resources
-  within the workspace. For per-resource permission, floor to
-  `default_permission` if `grant_default_workspace_access` is true.
-  Otherwise, `NO_PERMISSIONS`
+  - Gives the user access to the workspace.
+  - Allows creating new resources (experiments, registered models) within it.
+  - Sets the per-resource permission floor to `default_permission` when
+    `grant_default_workspace_access` is true; otherwise `NO_PERMISSIONS`.
 - `MANAGE` on `(workspace, *)` — the **Workspace Admin** grant. Full
   authority within the workspace, including creating roles, granting
   permissions, and managing role assignments. Cannot perform system-wide
@@ -280,8 +277,7 @@ for member in ("alice", "bob", "carol"):
 Every newly created workspace is seeded with a default `admin` role (and a
 `user` role; see [Default roles](#default-roles)). Promoting a user means
 assigning them the seeded `admin` role for that workspace. The role
-explicitly carries `(workspace, *, MANAGE)`; unlike the legacy workspace
-`MANAGE` permission, it does not implicitly fan out to every resource type.
+explicitly carries `(workspace, *, MANAGE)`.
 
 ```mermaid
 flowchart LR
@@ -302,7 +298,7 @@ flowchart LR
 <TabItem value="api" label="Role API">
 
 ```python
-# The seeded ``admin`` role lives in the workspace; look it up by name.
+# The seeded `admin` role lives in the workspace; look it up by name.
 admin_role = next(r for r in auth_client.list_roles("ml-research") if r.name == "admin")
 auth_client.assign_role(username="alice", role_id=admin_role.id)
 ```
@@ -329,8 +325,6 @@ flowchart LR
 2. Click **Edit role**.
 3. In _Assigned users_, add all the users.
 4. Review → apply.
-
-One round trip per user assignment.
 
 </TabItem>
 <TabItem value="ui-per-user" label="Admin UI — from each user">
