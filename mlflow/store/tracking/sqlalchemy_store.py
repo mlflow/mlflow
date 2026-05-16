@@ -4226,7 +4226,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         if not deleted_archived_trace_ids:
             return deleted_db_backed_count
 
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             deleted_archived_count = (
                 session
                 .query(SqlTraceInfo)
@@ -6231,7 +6231,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         artifact_uri: str,
         db_payload_generation: int,
     ) -> bool:
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             sql_trace_info = (
                 self
                 ._trace_query(session, for_update_or_delete=True)
@@ -6286,7 +6286,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
     def _mark_trace_archival_failure(
         self, *, trace_id: str, failure_reason: str, db_payload_generation: int | None = None
     ) -> None:
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             sql_trace_info = (
                 self
                 ._trace_query(session, for_update_or_delete=True)
@@ -6325,7 +6325,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         if not archive_now_requests:
             return
 
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             for request in archive_now_requests:
                 if (
                     retryable_failure_experiment_ids
