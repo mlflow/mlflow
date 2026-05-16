@@ -168,6 +168,11 @@ def init_fastapi_security(app: FastAPI) -> None:
             "Wildcard origins with credentials is a CORS spec violation. "
             "Set an explicit origin allowlist to enable credentialed cross-origin requests."
         )
+        # CORSBlockingMiddleware is intentionally skipped here: the admin explicitly
+        # opted into wildcard CORS, so server-side rejection of cross-origin requests
+        # would defeat the purpose. The browser-side guardrail is that
+        # allow_credentials=False causes browsers to strip cookies/Authorization
+        # headers on cross-origin requests, so authenticated endpoints still 401.
         app.add_middleware(
             CORSMiddleware,
             allow_origins=["*"],

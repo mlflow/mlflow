@@ -84,6 +84,12 @@ def init_security_middleware(app: Flask) -> None:
                 )
             return None
 
+    # The block_cross_origin_state_changes hook is intentionally skipped when the
+    # admin sets MLFLOW_SERVER_CORS_ALLOWED_ORIGINS=*: server-side rejection of
+    # cross-origin requests would defeat the purpose of wildcard mode. The
+    # browser-side guardrail is that supports_credentials=False above causes
+    # browsers to strip cookies/Authorization headers on cross-origin requests,
+    # so authenticated endpoints still 401.
     if not (allowed_origins and "*" in allowed_origins):
 
         @app.before_request

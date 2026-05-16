@@ -382,6 +382,19 @@ def test_fastapi_wildcard_cors_disables_credentials(
     assert response.status_code == 200
     assert response.headers.get("access-control-allow-credentials") != "true"
 
+    # Browsers read Access-Control-Allow-Credentials from the preflight (OPTIONS)
+    # response before deciding whether to send a credentialed request. Verify the
+    # preflight does not advertise credential support either.
+    preflight = client.options(
+        "/api/2.0/mlflow/experiments/list",
+        headers={
+            "Host": "localhost",
+            "Origin": "http://evil.com",
+            "Access-Control-Request-Method": "POST",
+        },
+    )
+    assert preflight.headers.get("access-control-allow-credentials") != "true"
+
 
 def test_fastapi_cors_allows_configured_origin(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("MLFLOW_SERVER_CORS_ALLOWED_ORIGINS", "https://trusted.com")
