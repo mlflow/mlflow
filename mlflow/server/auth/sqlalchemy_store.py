@@ -2022,18 +2022,9 @@ class SqlAlchemyStore:
             best_permission_name: str | None = None
             for role in roles:
                 for rp in role.permissions:
-                    # Workspace-wide permission slot. The unified ``('workspace', '*')``
-                    # row accepts USE (regular member) or MANAGE (workspace admin).
-                    #
-                    # Folding into a resource-type query is *tier-dependent*:
-                    # - MANAGE always folds — a workspace admin sees and edits every
-                    #   resource in the workspace, by design.
-                    # - USE folds only for workspace-tier queries (the membership /
-                    #   create-rights signal). For resource-type queries (experiment,
-                    #   registered_model, …) workspace USE does **not** participate —
-                    #   it means "member can join + create their own", not "member can
-                    #   read every resource". To read another user's resource a member
-                    #   needs an explicit grant (per-resource or type-wildcard).
+                    # (workspace, *) folds into resource-type queries only for
+                    # MANAGE (workspace admin); USE is the "member can join +
+                    # create" signal and folds only for workspace-tier queries.
                     if rp.resource_type == RESOURCE_TYPE_WORKSPACE and rp.resource_pattern == "*":
                         if resource_type == RESOURCE_TYPE_WORKSPACE or rp.permission == MANAGE.name:
                             best_permission_name = (
