@@ -532,36 +532,13 @@ def _user_inherits_default_workspace_grant(workspace_name: str) -> bool:
 def _get_role_permission_or_default(
     role_permission_func: Callable[[], Permission | None],
 ) -> Permission:
-    """
-    Resolve a user's permission on a resource by consulting role_permissions via the
-    provided ``role_permission_func`` (see ``_role_permission_for``) and folding the
-    result against ``auth_config.default_permission`` as a floor.
+    """Fold the role-derived permission against ``default_permission`` as a floor.
 
-    Semantics:
-
-    - ``role_permission_func`` returns ``None`` (no grant matched, workspaces
-      disabled): fall through to ``default_permission`` — same as before.
-    - ``role_permission_func`` returns ``NO_PERMISSIONS``: explicit deny survives
-      the floor. This is the "user has no presence in this workspace" or "resource
-      not found" case (see ``_role_permission_for``) — denial is denial, the
-      floor must not lift it.
-    - Otherwise: take the max of the role-derived permission and
-      ``default_permission``. This makes a permissive default ``MANAGE`` lift
-      every lesser specific grant to ``MANAGE`` — operators who want to restrict
-      a user on a particular resource must lower ``default_permission`` and grant
-      up, rather than grant a lesser permission to scope down.
-
-    In the unified RBAC model (post-``e5f6a7b8c9d0`` migration), ``role_permissions`` is
-    the sole source of truth: per-user grants live under synthetic ``__user_<id>__``
-    roles, workspace-wide grants live in the unified ``('workspace', '*')`` slot
-    (USE for regular workspace members, MANAGE for workspace admins).
-    ``get_role_permission_for_resource`` walks all of the user's role grants and
-    returns the max, or ``None`` when nothing matches.
-
-    ``NO_PERMISSIONS`` is not accepted as a new grant value (validators reject it on
-    resource-scoped writes; the migration drops legacy ``NO_PERMISSIONS`` rows).
-    Any pre-existing ``NO_PERMISSIONS`` row in ``role_permissions`` from the early
-    RBAC API still resolves correctly via the explicit-deny carve-out above.
+    Carve-outs:
+    - ``None`` (no grant matched, workspaces disabled) → return ``default_permission``.
+    - ``NO_PERMISSIONS`` (explicit deny / no presence in workspace) → preserve;
+      the floor must not lift a denial.
+    - Otherwise → ``max(role_permission, default_permission)``.
     """
     perm = role_permission_func()
     default = get_permission(auth_config.default_permission)

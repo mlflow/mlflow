@@ -445,9 +445,7 @@ def test_get_role_permission_workspace_admin(store, user):
 
 
 def test_workspace_use_does_not_fold_into_resource_lookups(store, user):
-    # Workspace USE is the "member" tier — confers workspace access and create
-    # rights, but does NOT propagate to resource-level lookups. A member needs
-    # explicit per-resource grants for read/write capability.
+    # USE is the "member" tier: confers create + workspace-tier access only.
     role = store.create_role(name="user", workspace="ws1")
     store.add_role_permission(role.id, "workspace", "*", "USE")
     store.assign_role_to_user(user.id, role.id)
@@ -455,13 +453,12 @@ def test_workspace_use_does_not_fold_into_resource_lookups(store, user):
     assert store.get_role_permission_for_resource(user.id, "experiment", "1", "ws1") is None
     assert store.get_role_permission_for_resource(user.id, "registered_model", "m1", "ws1") is None
     assert store.get_role_permission_for_resource(user.id, "gateway_endpoint", "e1", "ws1") is None
-    # Workspace-tier lookup still finds the grant (used by _user_can_create_in_workspace).
+    # Workspace-tier query still finds it (used by _user_can_create_in_workspace).
     assert store.get_role_permission_for_resource(user.id, "workspace", "*", "ws1") == USE
 
 
 def test_workspace_manage_folds_across_resource_types(store, user):
-    # Workspace MANAGE still propagates to every resource type — workspace admins
-    # see and manage everything in the workspace, by design.
+    # MANAGE still folds — workspace admins see and manage every resource.
     role = store.create_role(name="ws-admin", workspace="ws1")
     store.add_role_permission(role.id, "workspace", "*", "MANAGE")
     store.assign_role_to_user(user.id, role.id)
@@ -476,8 +473,7 @@ def test_workspace_manage_folds_across_resource_types(store, user):
 
 
 def test_workspace_use_plus_specific_grant_returns_specific(store, user):
-    # Workspace USE no longer participates in resource lookups, so the specific
-    # EDIT grant stands alone for experiment 42, and other experiments yield None.
+    # USE doesn't fold; the specific EDIT grant stands alone.
     role = store.create_role(name="mixed", workspace="ws1")
     store.add_role_permission(role.id, "workspace", "*", "USE")
     store.add_role_permission(role.id, "experiment", "42", "EDIT")
@@ -718,11 +714,7 @@ def test_resolver_workspace_grant_promotes_to_every_resource_type(store, user, r
 @pytest.mark.parametrize(
     ("granted", "expected"),
     [
-        # Workspace USE is the "member" tier — no longer folds into resource-level
-        # lookups. Members can join + create their own resources, but cannot read
-        # others' resources without explicit per-resource grants.
         ("USE", None),
-        # Workspace MANAGE still folds into every concrete resource type.
         ("MANAGE", MANAGE),
     ],
 )
@@ -817,9 +809,7 @@ def test_resolver_union_picks_max_across_roles(store, user):
 
 
 def test_resolver_union_mixes_workspace_use_and_resource_grants(store, user):
-    # Workspace USE no longer folds into resource lookups, so a specific
-    # experiment READ grant stands alone — the resolver returns READ, not USE.
-    # Contrast with workspace MANAGE, which would still fold and dominate.
+    # USE doesn't fold; specific READ wins.
     r_ws = store.create_role(name="ws-user", workspace="ws1")
     store.add_role_permission(r_ws.id, "workspace", "*", "USE")
     store.assign_role_to_user(user.id, r_ws.id)
@@ -832,7 +822,7 @@ def test_resolver_union_mixes_workspace_use_and_resource_grants(store, user):
 
 
 def test_resolver_union_mixes_workspace_manage_and_resource_grants(store, user):
-    # Workspace MANAGE still folds — wins against any lesser specific grant.
+    # MANAGE folds and wins against any lesser specific grant.
     r_ws = store.create_role(name="ws-admin", workspace="ws1")
     store.add_role_permission(r_ws.id, "workspace", "*", "MANAGE")
     store.assign_role_to_user(user.id, r_ws.id)

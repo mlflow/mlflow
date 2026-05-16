@@ -249,9 +249,8 @@ def test_run_access_controls_across_workspaces(workspace_setup, monkeypatch):
     exp_b = _create_experiment(tracking_uri, workspace_b, auth=(username, password))
     run_b = _create_run(tracking_uri, workspace_b, exp_b, auth=(username, password))
 
-    # Use a separate limited user who is workspace admin in workspace A only.
-    # Workspace MANAGE folds into resource-level lookups (workspace USE does
-    # not), so MANAGE is the simplest "see everything in this workspace" grant.
+    # Limited user is workspace admin in workspace A only (MANAGE folds into
+    # resource lookups; USE does not, so MANAGE is the simplest read-all grant).
     limited_user, limited_password = create_user(tracking_uri)
     grant_role_permission(
         tracking_uri, limited_user, "workspace", "*", "MANAGE", workspace=workspace_a
@@ -314,8 +313,7 @@ def test_registered_model_access_controls_across_workspaces(workspace_setup, mon
     _create_registered_model(tracking_uri, workspace_b, model_b, auth=(username, password))
     _create_model_version(tracking_uri, workspace_b, model_b, run_b, auth=(username, password))
 
-    # Workspace MANAGE folds into resource lookups; workspace USE does not, so
-    # MANAGE is the test grant for "limited user with full read in workspace A".
+    # MANAGE folds into resource lookups; USE does not.
     limited_user, limited_password = create_user(tracking_uri)
     grant_role_permission(
         tracking_uri, limited_user, "workspace", "*", "MANAGE", workspace=workspace_a
