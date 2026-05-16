@@ -195,6 +195,35 @@ def test_databricks_host_creds_falls_back_when_sdk_fails(monkeypatch):
         assert creds.host == "https://test.databricks.com"
         assert creds.token == "test-token"
         assert not creds.use_databricks_sdk
+        # SDK init error must be captured so callers can surface it later.
+        assert creds.sdk_init_error is not None
+        assert "SDK auth failed" in creds.sdk_init_error
+
+
+def test_databricks_host_creds_keeps_sdk_when_workspace_id_attr_missing(monkeypatch):
+    # Older databricks-sdk releases don't have Config.workspace_id. The legacy behavior
+    # let the resulting AttributeError nuke use_databricks_sdk, breaking OAuth M2M auth
+    # for users who had MLFLOW_ENABLE_DB_SDK=true correctly set. workspace_id must
+    # degrade to None without dropping the SDK auth path. See ES-1918390.
+    monkeypatch.setenv("MLFLOW_ENABLE_DB_SDK", "true")
+    monkeypatch.setenv("DATABRICKS_HOST", "https://test.databricks.com")
+    monkeypatch.setenv("DATABRICKS_CLIENT_ID", "test-client-id")
+    monkeypatch.setenv("DATABRICKS_CLIENT_SECRET", "test-client-secret")
+    monkeypatch.delenv("DATABRICKS_TOKEN", raising=False)
+    monkeypatch.delenv("DATABRICKS_CONFIG_PROFILE", raising=False)
+
+    # Use a real object (not MagicMock) so getattr fallback is exercised.
+    class OldSdkConfig:
+        host = "https://test.databricks.com"
+
+    mock_ws = mock.MagicMock()
+    mock_ws.config = OldSdkConfig()
+
+    with mock.patch("databricks.sdk.WorkspaceClient", return_value=mock_ws):
+        creds = databricks_utils.get_databricks_host_creds("databricks")
+        assert creds.use_databricks_sdk
+        assert creds.workspace_id is None
+        assert creds.sdk_init_error is None
 
 
 def test_sdk_respects_env_var_priority(monkeypatch):

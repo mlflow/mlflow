@@ -978,6 +978,38 @@ def test_mlflow_host_creds_workspace_id_equality():
     assert hash(creds1) != hash(creds3)
 
 
+def test_oauth_error_includes_sdk_init_error(monkeypatch):
+    # Regression for ES-1918390: when MLFLOW_ENABLE_DB_SDK=true and the SDK fails to
+    # initialize, the OAuth error must surface the underlying SDK error and not just
+    # tell the user to set an env var they have already set.
+    monkeypatch.setenv("MLFLOW_ENABLE_DB_SDK", "true")
+    creds = MlflowHostCreds(
+        "http://my-host",
+        client_id="some-id",
+        client_secret="some-secret",
+        sdk_init_error="AttributeError(\"'Config' object has no attribute 'workspace_id'\")",
+    )
+    with pytest.raises(MlflowException, match="failed to initialize with error") as exc:
+        http_request(creds, "/my/endpoint", "GET")
+    msg = str(exc.value)
+    assert "MLFLOW_ENABLE_DB_SDK is currently set to 'True'" in msg
+    assert "AttributeError" in msg
+    assert "workspace_id" in msg
+
+
+def test_oauth_error_when_sdk_disabled(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_DB_SDK", "false")
+    creds = MlflowHostCreds(
+        "http://my-host",
+        client_id="some-id",
+        client_secret="some-secret",
+    )
+    with pytest.raises(MlflowException, match="Set 'MLFLOW_ENABLE_DB_SDK' to true") as exc:
+        http_request(creds, "/my/endpoint", "GET")
+    msg = str(exc.value)
+    assert "MLFLOW_ENABLE_DB_SDK is currently set to 'False'" in msg
+
+
 @pytest.mark.parametrize(
     ("timeout", "retry_timeout_seconds", "should_warn"),
     [

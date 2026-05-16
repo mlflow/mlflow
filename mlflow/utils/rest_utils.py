@@ -256,11 +256,29 @@ def http_request(
     elif host_creds.token:
         auth_str = f"Bearer {host_creds.token}"
     elif host_creds.client_secret:
-        raise MlflowException(
-            "To use OAuth authentication, set environmental variable "
-            f"'{MLFLOW_ENABLE_DB_SDK.name}' to true",
-            error_code=CUSTOMER_UNAUTHORIZED,
+        message = (
+            "OAuth authentication using DATABRICKS_CLIENT_ID and DATABRICKS_CLIENT_SECRET "
+            "requires the Databricks SDK to be enabled and successfully initialized. "
+            f"{MLFLOW_ENABLE_DB_SDK.name} is currently set to "
+            f"'{MLFLOW_ENABLE_DB_SDK.get()}'."
         )
+        if MLFLOW_ENABLE_DB_SDK.get():
+            if host_creds.sdk_init_error:
+                message += (
+                    " The SDK was enabled but failed to initialize with error: "
+                    f"{host_creds.sdk_init_error}. Ensure 'databricks-sdk' is installed "
+                    "at a recent version and that DATABRICKS_HOST, DATABRICKS_CLIENT_ID, "
+                    "and DATABRICKS_CLIENT_SECRET are correctly set."
+                )
+            else:
+                message += (
+                    " The SDK appears enabled but auth fell through to the legacy path "
+                    "anyway. Enable DEBUG logging on 'mlflow.utils.databricks_utils' to "
+                    "see why."
+                )
+        else:
+            message += f" Set '{MLFLOW_ENABLE_DB_SDK.name}' to true."
+        raise MlflowException(message, error_code=CUSTOMER_UNAUTHORIZED)
 
     if auth_str:
         headers["Authorization"] = auth_str
@@ -725,6 +743,10 @@ class MlflowHostCreds:
             authentication.
         client_id: The client ID used by Databricks OAuth
         client_secret: The client secret used by Databricks OAuth
+        sdk_init_error: When ``MLFLOW_ENABLE_DB_SDK`` is true but Databricks SDK
+            initialization failed, the string representation of the underlying error.
+            Used to produce a more actionable error message if OAuth auth is later
+            attempted via the legacy path.
     """
 
     def __init__(
@@ -744,6 +766,7 @@ class MlflowHostCreds:
         client_secret=None,
         use_secret_scope_token=False,
         workspace_id=None,
+        sdk_init_error=None,
     ):
         if not host:
             raise MlflowException(
@@ -776,6 +799,7 @@ class MlflowHostCreds:
         self.client_secret = client_secret
         self.use_secret_scope_token = use_secret_scope_token
         self.workspace_id = workspace_id
+        self.sdk_init_error = sdk_init_error
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
