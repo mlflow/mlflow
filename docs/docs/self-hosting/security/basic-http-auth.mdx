@@ -133,44 +133,8 @@ The auth-store backfill migration moves existing grants into the
 new synthetic-role storage automatically, so existing access survives
 the upgrade, only the API shape changes.
 
-The replacement is `grant_user_permission` / `revoke_user_permission`
-(one-user, one-resource direct grants) or the role API (for shared
-permission sets). See the migration recipe below.
-
-- REST endpoints:
-  - `/mlflow/{experiments,registered-models,scorers}/permissions/*`
-  - `/mlflow/gateway/{secrets,endpoints,model-definitions}/permissions/*`
-  - `/mlflow/workspaces/<workspace>/permissions/*`
-- `AuthServiceClient` methods: `create_experiment_permission()`,
-  `update_registered_model_permission()`, and the ~23 sibling per-resource
-  methods; `set_workspace_permission()`, `list_workspace_permissions()`,
-  `delete_workspace_permission()`, `list_user_workspace_permissions()`.
-
-**Migration recipe.** Replace per-resource calls with
-`grant_user_permission` (one-user, one-resource direct grants) or the
-role API (when the same permission set is shared across users):
-
-```python
-# Pre-RBAC:
-#   auth_client.create_experiment_permission(experiment_id, username, "EDIT")
-# After RBAC:
-auth_client.grant_user_permission(username, "experiment", experiment_id, "EDIT")
-```
-
-Substitute `registered_model`, `prompt`, `scorer`, or a gateway resource
-type as needed.
-`grant_user_permission` is gated by per-resource MANAGE on the target resource,
-which is the same authority check the legacy methods used.
-An experiment owner can continue to delegate without holding workspace-wide MANAGE.
-
-For workspace-tier grants (previously
-`set_workspace_permission(workspace, user, permission)`), assign the
-seeded `<workspace>/admin` or `<workspace>/user` role, or build a custom
-role with a `(workspace, *, …)` permission and assign it. See
-[Role-Based Access Control](/self-hosting/security/role-based-access-control),
-[Migrating from the legacy permission model](/self-hosting/security/role-based-access-control#migrating-from-the-legacy-permission-model),
-and [Workspace Permissions](/self-hosting/workspaces/permissions) for
-the full surface mapping.
+See [Migrating from the legacy permission model](role-based-access-control#migrating-from-the-legacy-permission-model)
+for the detailed guidance on how to migrate to the new RBAC permission model.
 
 :::
 

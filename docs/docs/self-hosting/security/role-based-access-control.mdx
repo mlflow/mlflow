@@ -5,34 +5,21 @@ import TabItem from "@theme/TabItem";
 
 # Role-Based Access Control (RBAC)
 
-MLflow's role-based access control expresses permissions through **roles** —
-named bundles of `(resource_type, resource_pattern, permission)` grants you
-assign to users. A role lives in one place; changes propagate to every user
-assigned to it. When workspaces are enabled (`--enable-workspaces`), roles
-and their grants are scoped per workspace.
+In MLflow, admins grant users permissions by assigning them **roles**.
+A role is a named group of permissions defined once and used multiple times.
+With workspaces (`--enable-workspaces`), roles become workspace-scoped.
 
-:::tip[One-off grants]
+## Prerequisite
 
-For a single-user single-resource grant — no shared pattern, nothing
-reusable — skip authoring a role and use the
-[`grant_user_permission`](#direct-grants-without-a-role) convenience API
-(or the **Direct permissions** section of the admin UI). Internally it
-writes to the same role-based model.
-
-:::
+Authentication enabled (`mlflow server --app-name basic-auth`).
 
 For setting up authentication and managing users (login, signup, admin
 status, password updates), see
 [Username and Password](/self-hosting/security/basic-http-auth); this page
 picks up once users exist.
 
-:::note[Prerequisite]
 
-Authentication enabled (`mlflow server --app-name basic-auth`).
-
-:::
-
-## The model
+## Concepts
 
 Three entities, two relations. Roles (and the grants they carry) are
 workspace-scoped when workspaces are enabled; see
@@ -48,16 +35,124 @@ flowchart LR
     Roles -- role_permissions --> Resources
 ```
 
-- **Users** are global (one row per identity in the auth database).
-- **Roles** are workspace-scoped bundles of permissions. A role named
-  `editor` in workspace `foo` is a separate row from `editor` in workspace
-  `bar`. See [Workspace isolation](#workspace-isolation) for how scoping
-  behaves with and without `--enable-workspaces`.
-- **Resources** are experiments, registered models, prompts, scorers, and
-  AI Gateway resources (secrets, endpoints, model definitions). A role
-  grants permissions on a resource via a `(resource_type, resource_pattern,
-permission)` row, where the pattern is either a literal resource id or `*`
-  (apply to all resources of that type in the workspace).
+- **User** — an actor who wants to access resources.
+- **Resource** — a target entity in MLflow that permissions are
+  managed on, such as an experiment, a registered model, a prompt,
+  a scorer, or one of AI Gateway resources (a secret, an endpoints,
+  or a model definitions).
+- **Role** — a named bundle of permissions on resources.
+
+## Roles
+
+Roles represent personas. For example,
+an _editor_ role can edit all prompts or a _workspace admin role who can
+manage a certain workspace.
+
+Abstractly, a role is defined as `(role_name, list(<resource_type, resource_id, permission_level>))`.
+This allows us to express permissions in granular, e.g., Alice may have READ access
+to experiment 42 and may have EDIT access to prompt 47. You may also grant a permission
+to all resources of the same type in one go by
+specifying a role like: `( chef editor, (<experiment, *, EDIT>))`.
+
+### Permission levels
+
+The grantable permission levels for resource-scoped permissions are:
+
+| Permission | Can read | Can use | Can update | Can delete | Can manage |
+| ---------- | -------- | ------- | ---------- | ---------- | ---------- |
+| `READ`     | Yes      | No      | No         | No         | No         |
+| `USE`      | Yes      | Yes     | No         | No         | No         |
+| `EDIT`     | Yes      | Yes     | Yes        | No         | No         |
+| `MANAGE`   | Yes      | Yes     | Yes        | Yes        | Yes        |
+
+`USE` is for consuming a resource without modifying it (invoking a gateway
+endpoint, referencing a model definition, creating new experiments /
+registered models within a workspace).
+
+`NO_PERMISSIONS` exists as the deny-by-default sentinel. It's the effective
+state of any `(user, resource)` pair with no matching grant in the resolver's
+chain. It is **not grantable** as a role permission or a direct grant; the
+auth server rejects attempts to assign it.
+
+Because grants are folded via a max (see
+[Permission resolution](#permission-resolution)), RBAC has no
+explicit-deny override. To restrict access to a
+specific resource, grant access more narrowly (per-resource or
+resource-type wildcard) rather than holding a broad workspace-level grant
+and trying to except the resource.
+
+#### Permission resolution
+
+For each authorization check, MLflow evaluates the user's effective
+permission as follows:
+
+1. **Platform Admin bypass**: `is_admin = true` short-circuits to allow.
+2. **Role-derived grants**: all of the user's roles in the request's workspace
+   contribute. Every grant that applies to the resource is folded together
+   via a max, and the highest-priority permission wins
+   (`MANAGE` > `EDIT` > `USE` > `READ`). A `(workspace, *, ...)` row
+   participates in the same max because it applies to all resources in the
+   workspace, so a workspace-level grant acts as a floor that per-resource
+   grants can upgrade but never downgrade.
+3. **Server `default_permission`**: a configured floor consulted when resolving permissions.
+   See [Workspace isolation](#workspace-isolation) for how this interacts with
+   the workspace setting.
+
+## Workspace isolation
+
+A [workspace](https://mlflow.org/docs/latest/self-hosting/workspaces/) is an
+isolated container for MLflow resources. Workspaces are off by default. To
+turn them on, start the server with `--enable-workspaces`. Once enabled,
+every experiment, registered model, prompt, scorer, and AI Gateway resource
+belongs to exactly one workspace, and nothing crosses the boundary.
+
+Roles and permissions follow the same boundary. A role named `editor` in
+workspace `foo` is a completely separate row from `editor` in workspace
+`bar`, and a permission grant made in one workspace has no effect in any
+other. How that boundary shows up depends on whether multi-workspace
+support is enabled.
+
+**Default (no `--enable-workspaces`).** A single reserved `default`
+workspace exists. All roles, all assignments, all permissions live there.
+The server's `default_permission` config (when set) applies as a floor
+for any `(user, resource)` pair.
+
+**Multi-workspace (`--enable-workspaces`).** Named workspaces become
+first-class. The home page renders a workspace switcher; the admin UI gets
+a per-workspace entry point (`/admin/ws?workspace=<name>`); roles must be
+created in a specific workspace. The server's `default_permission` falls
+back only to the reserved `default` workspace when
+`grant_default_workspace_access` is set; otherwise the effective default in
+each named workspace is deny.
+
+Two grants on the special `(resource_type='workspace',
+resource_pattern='*')` slot define workspace-wide access:
+
+- `USE` on `(workspace, *)` — the **Workspace Member** grant.
+  Grant access to the workspace as well as an ability to create resources
+  within the workspace. Also grant 'default_permission' to all resources
+  within the workspace. For per-resource permission, floor to
+  `default_permission` if `grant_default_workspace_access` is true.
+  Otherwise, `NO_PERMISSIONS`
+- `MANAGE` on `(workspace, *)` — the **Workspace Admin** grant. Full
+  authority within the workspace, including creating roles, granting
+  permissions, and managing role assignments. Cannot perform system-wide
+  operations such as deleting users.
+
+The seeded `admin` and `user` roles each carry one of these grants; see
+[Default roles](#default-roles).
+
+### User tiers
+
+The admin UI uses **Platform Admin** for the first tier and **Workspace
+Admin** for the second; the doc uses the same labels.
+
+| Tier            | How it's expressed                          | Capability                                                                     |
+| --------------- | ------------------------------------------- | ------------------------------------------------------------------------------ |
+| Platform Admin  | `is_admin = true` on the user row           | Unrestricted system-wide. Sole bearer of user delete and bulk operations.      |
+| Workspace Admin | Holds `(workspace, *, MANAGE)` via any role | Full authority within those workspaces; can manage roles, users, and grants.   |
+| Regular user    | Any other authenticated identity            | No admin UI access; authorization flows through role-derived permissions only. |
+
 
 ### Direct grants without a role
 
@@ -84,99 +179,6 @@ resource — the same authority check the legacy
 holds `(experiment, 42, MANAGE)` can grant access without holding
 workspace-wide MANAGE. The role API itself requires workspace MANAGE or
 Platform Admin, since authoring a role is an administrative action.
-
-### Permission levels
-
-The grantable permission levels for resource-scoped permissions are:
-
-| Permission | Can read | Can use | Can update | Can delete | Can manage |
-| ---------- | -------- | ------- | ---------- | ---------- | ---------- |
-| `READ`     | Yes      | No      | No         | No         | No         |
-| `USE`      | Yes      | Yes     | No         | No         | No         |
-| `EDIT`     | Yes      | Yes     | Yes        | No         | No         |
-| `MANAGE`   | Yes      | Yes     | Yes        | Yes        | Yes        |
-
-`USE` is for consuming a resource without modifying it (invoking a gateway
-endpoint, referencing a model definition, creating new experiments /
-registered models within a workspace).
-
-`NO_PERMISSIONS` exists as the deny-by-default sentinel. It's the effective
-state of any `(user, resource)` pair with no matching grant in the resolver's
-chain. It is **not grantable** as a role permission or a direct grant; the
-auth server rejects attempts to assign it.
-
-Because grants are folded via a max (see
-[Permission resolution](#permission-resolution)), RBAC has no
-explicit-deny override: an absent or lesser per-resource grant cannot
-revoke a broader grant the user already holds. To restrict access to a
-specific resource, grant access more narrowly (per-resource or
-resource-type wildcard) rather than holding a broad workspace-level grant
-and trying to except the resource.
-
-### Permission resolution
-
-For each authorization check, MLflow evaluates the user's effective
-permission as follows:
-
-1. **Platform Admin bypass**: `is_admin = true` short-circuits to allow.
-2. **Role-derived grants**: all of the user's roles in the request's workspace
-   contribute. Every grant that applies to the resource is folded together
-   via a max, and the highest-priority permission wins
-   (`MANAGE` > `EDIT` > `USE` > `READ`). A `(workspace, *, …)` row
-   participates in the same max because it applies to all resources in the
-   workspace, so a workspace-level grant acts as a floor that per-resource
-   grants can upgrade but never downgrade.
-3. **Server `default_permission`**: a configured fallback consulted only
-   when no role-derived grant matches. See
-   [Workspace isolation](#workspace-isolation) for how this interacts with
-   the workspace setting.
-
-### Identity tiers
-
-The admin UI uses **Platform Admin** for the first tier and **Workspace
-Admin** for the second; the doc uses the same labels.
-
-| Tier            | How it's expressed                          | Capability                                                                     |
-| --------------- | ------------------------------------------- | ------------------------------------------------------------------------------ |
-| Platform Admin  | `is_admin = true` on the user row           | Unrestricted system-wide. Sole bearer of user delete and bulk operations.      |
-| Workspace Admin | Holds `(workspace, *, MANAGE)` via any role | Full authority within those workspaces; can manage roles, users, and grants.   |
-| Regular user    | Any other authenticated identity            | No admin UI access; authorization flows through role-derived permissions only. |
-
-## Workspace isolation
-
-Roles are workspace-scoped. The same role name in two workspaces is two
-separate rows; permissions evaluated in one workspace don't bleed into
-another. How that scoping behaves depends on whether multi-workspace
-support is enabled.
-
-**Default (no `--enable-workspaces`).** A single reserved `default`
-workspace exists. All roles, all assignments, all permissions live there.
-The server's `default_permission` config (when set) applies as a fallback
-for any `(user, resource)` pair with no matching grant.
-
-**Multi-workspace (`--enable-workspaces`).** Named workspaces become
-first-class. The home page renders a workspace switcher; the admin UI gets
-a per-workspace entry point (`/admin/ws?workspace=<name>`); roles must be
-created in a specific workspace. The server's `default_permission` falls
-back only to the reserved `default` workspace when
-`grant_default_workspace_access` is set; otherwise the effective default in
-each named workspace is deny.
-
-Two grants on the special `(resource_type='workspace',
-resource_pattern='*')` slot define workspace-wide access:
-
-- `USE` on `(workspace, *)` — the **Workspace Member** grant. USE-level
-  access (read + use) to every resource in the workspace, plus the ability
-  to create experiments and registered models. Per-resource grants can
-  upgrade individual rows. A user without this grant gets no workspace
-  floor — only the specific resource grants they hold.
-- `MANAGE` on `(workspace, *)` — the **Workspace Admin** grant. Full
-  authority within the workspace, including creating roles, granting
-  permissions, and managing role assignments. Cannot perform system-wide
-  operations such as deleting users.
-
-The seeded `admin` and `user` roles each carry one of these grants; see
-[Default roles](#default-roles).
 
 ## Common scenarios
 
@@ -310,7 +312,7 @@ auth_client.assign_role(username="alice", role_id=admin_role.id)
 
 ### 4. Onboard a team of N users with the same access
 
-Either reuse the seeded `<workspace>/user` role or create one once.
+Create one role with desired permissions or reuse the seeded `<workspace>/user` role.
 
 ```mermaid
 flowchart LR
