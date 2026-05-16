@@ -175,7 +175,7 @@ jobs:
           parser.add_argument("-e", "--effort", choices=EFFORT_CHOICES, default="medium")
           args, leftover = parser.parse_known_args(head.split())
 
-          prompt = " ".join(leftover) + sep + tail
+          prompt = (" ".join(leftover) + sep + tail).strip()
           # Random delimiter so user input can't terminate the heredoc.
           delim = f"PROMPT_EOF_{secrets.token_hex(8)}"
           sys.stdout.write(
