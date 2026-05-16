@@ -11,7 +11,11 @@ jobs:
   run:
     runs-on: ubuntu-slim
     timeout-minutes: 10
-    if: github.event.issue.pull_request && startsWith(github.event.comment.body, '/cvt')
+    if: >
+      github.event.issue.pull_request &&
+      startsWith(github.event.comment.body, '/cvt') &&
+      contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.issue.author_association) &&
+      contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association)
     permissions:
       pull-requests: write
       actions: write
@@ -21,7 +25,6 @@ jobs:
           persist-credentials: false
           sparse-checkout: |
             .github
-      - uses: ./.github/actions/validate-author
       - uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         id: get-ref
         with:
