@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1778904047815,
+  "lastUpdate": 1778943879805,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -3239,6 +3239,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 9.207601999997905,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "samrajmoorjani@gmail.com",
+            "name": "Samraj Moorjani",
+            "username": "smoorjani"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ac15c22741f7aac50b16b9c74beff6a8e2fdd823",
+          "message": "Surface mlflow version mismatch when deserializing scorers (#23215)\n\nSigned-off-by: Samraj Moorjani <samraj.moorjani@databricks.com>",
+          "timestamp": "2026-05-16T15:01:03Z",
+          "tree_id": "d0c60125522658847990205edea3d01578edd303",
+          "url": "https://github.com/mlflow/mlflow/commit/ac15c22741f7aac50b16b9c74beff6a8e2fdd823"
+        },
+        "date": 1778943878542,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 48.622808149998775,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 21.80784737142777,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 21.470445142856956,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 21.725467410713556,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 21.19899780000007,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 24.592246200001,
             "unit": "ms"
           }
         ]
