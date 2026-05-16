@@ -1,4 +1,15 @@
-"""Validate GitHub Actions workflow and action files."""
+"""Validate GitHub Actions workflow and action files.
+
+Complements `.github/policy.rego` (run via conftest) by enforcing checks that
+need cross-file or remote context and so cannot be expressed as per-file Rego
+rules:
+
+- action `uses:` lines must be SHA-pinned with a `# vX.Y.Z` comment, and the
+  SHA must actually match that tag on the upstream repo
+- the same action must be pinned to a single version across all workflows
+- every `on.<event>.paths` / `paths-ignore` pattern must match at least one
+  tracked file
+"""
 
 import json
 import re
