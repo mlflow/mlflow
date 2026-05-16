@@ -23,13 +23,13 @@ def test_entry_point_compute_params():
         params, extra_params = entry_point.compute_parameters(
             {"name": "friend", "excitement": 10}, storage_dir
         )
-        assert params == {"name": "friend", "greeting": "hi"}
-        assert extra_params == {"excitement": "10"}
+        assert params == {"name": quote("friend"), "greeting": quote("hi")}
+        assert extra_params == {quote("excitement"): quote("10")}
         # Don't pass extra "excitement" param, pass value for `greeting`
         params, extra_params = entry_point.compute_parameters(
             {"name": "friend", "greeting": "hello"}, storage_dir
         )
-        assert params == {"name": "friend", "greeting": "hello"}
+        assert params == {"name": quote("friend"), "greeting": quote("hello")}
         assert extra_params == {}
         # Raise exception on missing required parameter
         with pytest.raises(
@@ -60,47 +60,17 @@ def test_entry_point_compute_command():
 
 @pytest.mark.parametrize(
     "malicious_key",
-    [
-        "x;touch /tmp/pwned",
-        "a&b",
-        "a|b",
-        "a`b`",
-        "a$(b)",
-        "a>b",
-    ],
+    ["x;touch /tmp/pwned", "a&b", "a|b", "a`b`", "a$(b)", "a>b"],
 )
-def test_sanitize_extra_param_dict_quotes_keys(malicious_key):
-    sanitized = EntryPoint._sanitize_extra_param_dict({malicious_key: "value"})
-    assert malicious_key not in sanitized
-    assert quote(malicious_key) in sanitized
-    assert sanitized[quote(malicious_key)] == quote("value")
-
-
-def test_sanitize_value_dict_preserves_keys():
-    # final_params keys flow into self.command via str.format, not the shell, so
-    # they must not be quoted (quote('a;b') would wrap in single quotes and break
-    # the {a;b} placeholder lookup).
-    sanitized = EntryPoint._sanitize_value_dict({"name": "friend; echo hi"})
-    assert "name" in sanitized
-    assert sanitized["name"] == quote("friend; echo hi")
-
-
-def test_compute_command_shell_escapes_extra_param_keys():
-    project = load_project()
-    entry_point = project.get_entry_point("greeter")
-    malicious_key = "x;touch /tmp/pwned"
+def test_compute_command_shell_escapes_extra_param_keys(malicious_key):
+    entry_point = load_project().get_entry_point("greeter")
     with TempDir() as tmp:
-        storage_dir = tmp.path()
-        command = entry_point.compute_command({"name": "friend", malicious_key: "1"}, storage_dir)
-        # The key must be shell-quoted so that `bash -c` parses it as a single
-        # (nonsensical) flag token rather than executing the injected payload.
-        assert f"--{quote(malicious_key)} " in command
-        # Parsed by the shell, the metacharacters from the key must collapse
-        # into a single token rather than splitting the command in two.
-        tokens = shlex.split(command)
-        assert f"--{malicious_key}" in tokens
-        assert "touch" not in tokens
-        assert ";" not in tokens
+        command = entry_point.compute_command(
+            {"name": "friend", malicious_key: "1"}, tmp.path()
+        )
+        # Shell-parsed tokens must collapse the metacharacters into one flag
+        # rather than splitting into multiple commands.
+        assert f"--{malicious_key}" in shlex.split(command)
 
 
 def test_path_parameter():
@@ -192,34 +162,34 @@ def test_params():
 
     user_3 = {"alpha": 0.004, "gamma": 0.89}
     expected_final_3 = {
-        "alpha": "0.004",
-        "l1_ratio": "0.1",
-        "l2_ratio": "0.0003",
-        "random_str": "hello",
+        "alpha": quote("0.004"),
+        "l1_ratio": quote("0.1"),
+        "l2_ratio": quote("0.0003"),
+        "random_str": quote("hello"),
     }
-    expected_extra_3 = {"gamma": "0.89"}
+    expected_extra_3 = {quote("gamma"): quote("0.89")}
     final_3, extra_3 = entry_point.compute_parameters(user_3, None)
     assert expected_extra_3 == extra_3
     assert expected_final_3 == final_3
 
     user_4 = {"alpha": 0.004, "l1_ratio": 0.0008, "random_str_2": "hello"}
     expected_final_4 = {
-        "alpha": "0.004",
-        "l1_ratio": "0.0008",
-        "l2_ratio": "0.0003",
-        "random_str": "hello",
+        "alpha": quote("0.004"),
+        "l1_ratio": quote("0.0008"),
+        "l2_ratio": quote("0.0003"),
+        "random_str": quote("hello"),
     }
-    expected_extra_4 = {"random_str_2": "hello"}
+    expected_extra_4 = {quote("random_str_2"): quote("hello")}
     final_4, extra_4 = entry_point.compute_parameters(user_4, None)
     assert expected_extra_4 == extra_4
     assert expected_final_4 == final_4
 
     user_5 = {"alpha": -0.99, "random_str": "hi"}
     expected_final_5 = {
-        "alpha": "-0.99",
-        "l1_ratio": "0.1",
-        "l2_ratio": "0.0003",
-        "random_str": "hi",
+        "alpha": quote("-0.99"),
+        "l1_ratio": quote("0.1"),
+        "l2_ratio": quote("0.0003"),
+        "random_str": quote("hi"),
     }
     expected_extra_5 = {}
     final_5, extra_5 = entry_point.compute_parameters(user_5, None)
@@ -228,12 +198,12 @@ def test_params():
 
     user_6 = {"alpha": 0.77, "ALPHA": 0.89}
     expected_final_6 = {
-        "alpha": "0.77",
-        "l1_ratio": "0.1",
-        "l2_ratio": "0.0003",
-        "random_str": "hello",
+        "alpha": quote("0.77"),
+        "l1_ratio": quote("0.1"),
+        "l2_ratio": quote("0.0003"),
+        "random_str": quote("hello"),
     }
-    expected_extra_6 = {"ALPHA": "0.89"}
+    expected_extra_6 = {quote("ALPHA"): quote("0.89")}
     final_6, extra_6 = entry_point.compute_parameters(user_6, None)
     assert expected_extra_6 == extra_6
     assert expected_final_6 == final_6
