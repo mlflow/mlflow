@@ -932,12 +932,12 @@ class Model:
             env_vars = None
             # validate input example works for serving when logging the model
             if serving_input and kwargs.get("validate_serving_input", True):
-                from mlflow.models import validate_serving_input
+                from mlflow.models.utils import _validate_serving_input
                 from mlflow.utils.model_utils import RECORD_ENV_VAR_ALLOWLIST, env_var_tracker
 
                 with env_var_tracker() as tracked_env_names:
                     try:
-                        validate_serving_input(
+                        _validate_serving_input(
                             model_uri=local_path,
                             serving_input=serving_input,
                         )
@@ -950,7 +950,7 @@ class Model:
                             "Alternatively, you can avoid passing input example and pass model "
                             "signature instead when logging the model. To ensure the input example "
                             "is valid prior to serving, please try calling "
-                            "`mlflow.models.validate_serving_input` on the model uri and serving "
+                            "`mlflow.models.predict` on the model uri and serving "
                             "input example. A serving input example can be generated from model "
                             "input example using "
                             "`mlflow.models.convert_input_example_to_serving_input` function.\n"
@@ -1237,12 +1237,12 @@ class Model:
                 env_vars = None
                 # validate input example works for serving when logging the model
                 if serving_input and kwargs.get("validate_serving_input", True):
-                    from mlflow.models import validate_serving_input
+                    from mlflow.models.utils import _validate_serving_input
                     from mlflow.utils.model_utils import RECORD_ENV_VAR_ALLOWLIST, env_var_tracker
 
                     with env_var_tracker() as tracked_env_names:
                         try:
-                            validate_serving_input(
+                            _validate_serving_input(
                                 model_uri=local_path,
                                 serving_input=serving_input,
                             )
@@ -1257,7 +1257,7 @@ class Model:
                                 "Alternatively, you can avoid passing input example and pass model "
                                 "signature instead when logging the model. To ensure the input "
                                 "example is valid prior to serving, please try calling "
-                                "`mlflow.models.validate_serving_input` on the model uri and "
+                                "`mlflow.models.predict` on the model uri and "
                                 "serving input example. A serving input example can be generated "
                                 "from model input example using "
                                 "`mlflow.models.convert_input_example_to_serving_input` function.\n"

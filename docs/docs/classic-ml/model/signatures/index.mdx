@@ -1307,13 +1307,18 @@ Test your model before deployment:
 
 ```python
 from mlflow.models.utils import load_serving_example
-from mlflow.models import validate_serving_input
+import mlflow.models
 
 # Load serving example
 serving_example = load_serving_example(model_info.model_uri)
 
-# Validate it works
-result = validate_serving_input(model_info.model_uri, serving_example)
+# Validate it works by running prediction in an isolated environment
+# that mirrors the serving environment.
+result = mlflow.models.predict(
+    model_uri=model_info.model_uri,
+    input_data=serving_example,
+    env_manager="uv",
+)
 print(f"Validation result: {result}")
 
 # Test with local server
