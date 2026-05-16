@@ -1,7 +1,7 @@
 """Validate GitHub Actions workflow and action files.
 
 Complements `.github/policy.rego` with checks that need cross-file or remote
-context (SHA-tag verification, version consistency, `paths` filter staleness).
+context.
 """
 
 import json
