@@ -43,7 +43,6 @@ jobs:
           token: ${{ steps.app-token.outputs.token || github.token }}
       - uses: ./.github/actions/setup-python
         with:
-          enable-uv-cache: false
           pin-micro-version: false
       - name: Run uv lock --upgrade
         run: |

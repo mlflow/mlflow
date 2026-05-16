@@ -133,7 +133,6 @@ jobs:
       - uses: ./.github/actions/setup-python
         with:
           pin-micro-version: false
-          enable-uv-cache: false
       - name: Install Claude CLI
         run: |
           .claude/scripts/install-claude.sh
