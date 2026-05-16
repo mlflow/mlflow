@@ -579,6 +579,7 @@ mlflow.entities.Trace.to_dict
 mlflow.entities.Trace.to_json
 mlflow.entities.Trace.to_pandas_dataframe_row
 mlflow.entities.Trace.to_proto
+mlflow.entities.TraceArchivalConfig
 mlflow.entities.TraceData
 mlflow.entities.TraceData.from_dict
 mlflow.entities.TraceData.to_dict
@@ -767,6 +768,7 @@ mlflow.entities.webhook.Webhook
 mlflow.entities.webhook.WebhookEvent
 mlflow.entities.webhook.WebhookStatus
 mlflow.entities.webhook.WebhookTestResult
+mlflow.entities.workspace.TraceArchivalConfig
 mlflow.entities.workspace.Workspace
 mlflow.entities.workspace.WorkspaceDeletionMode
 mlflow.evaluate

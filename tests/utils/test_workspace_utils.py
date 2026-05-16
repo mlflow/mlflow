@@ -3,7 +3,12 @@ from __future__ import annotations
 import os
 
 from mlflow.environment_variables import MLFLOW_WORKSPACE
-from mlflow.utils.workspace_context import WorkspaceContext, clear_server_request_workspace
+from mlflow.utils.workspace_context import (
+    ServerWorkspaceContext,
+    WorkspaceContext,
+    clear_server_request_workspace,
+    get_request_workspace,
+)
 from mlflow.utils.workspace_utils import (
     DEFAULT_WORKSPACE_NAME,
     resolve_entity_workspace_name,
@@ -38,3 +43,13 @@ def test_resolve_entity_workspace_defaults_when_unset(monkeypatch):
     with WorkspaceContext(None):
         pass
     assert resolve_entity_workspace_name(None) == DEFAULT_WORKSPACE_NAME
+
+
+def test_server_workspace_context_does_not_touch_env(monkeypatch):
+    monkeypatch.setenv(MLFLOW_WORKSPACE.name, "env-workspace")
+
+    with ServerWorkspaceContext("ctx-workspace"):
+        assert get_request_workspace() == "ctx-workspace"
+        assert MLFLOW_WORKSPACE.get_raw() == "env-workspace"
+
+    assert MLFLOW_WORKSPACE.get_raw() == "env-workspace"

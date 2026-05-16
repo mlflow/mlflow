@@ -4241,7 +4241,10 @@ def create_app(app: Flask = app):
     csrf = CSRFProtect()
     csrf.init_app(app)
 
-    store.init_db(auth_config.database_uri)
+    store.init_db(
+        auth_config.database_uri,
+        read_db_uri=auth_config.read_database_uri,
+    )
     create_admin_user(auth_config.admin_username, auth_config.admin_password)
     _warn_if_default_admin_password(auth_config.admin_password)
 

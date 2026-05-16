@@ -144,16 +144,35 @@ def setup_environment_config(
     # Always enable tracing
     config[ENVIRONMENT_FIELD][MLFLOW_TRACING_ENABLED] = "true"
 
-    # Set tracking URI
-    if tracking_uri:
-        config[ENVIRONMENT_FIELD][MLFLOW_TRACKING_URI.name] = tracking_uri
+    resolved_tracking_uri = tracking_uri or os.environ.get(MLFLOW_TRACKING_URI.name)
+    if not resolved_tracking_uri:
+        import mlflow
 
-    # Set experiment configuration (ID takes precedence over name)
-    if experiment_id:
-        config[ENVIRONMENT_FIELD][MLFLOW_EXPERIMENT_ID.name] = experiment_id
+        resolved_tracking_uri = mlflow.get_tracking_uri()
+
+    resolved_experiment_id = experiment_id or os.environ.get(MLFLOW_EXPERIMENT_ID.name)
+    resolved_experiment_name = experiment_name or os.environ.get(MLFLOW_EXPERIMENT_NAME.name)
+
+    if not resolved_experiment_id and resolved_experiment_name:
+        from mlflow.tracking.client import MlflowClient
+
+        client = MlflowClient(tracking_uri=resolved_tracking_uri)
+        experiment = client.get_experiment_by_name(resolved_experiment_name)
+        resolved_experiment_id = (
+            experiment.experiment_id
+            if experiment is not None
+            else client.create_experiment(resolved_experiment_name)
+        )
+
+    if not resolved_experiment_id:
+        resolved_experiment_id = "0"
+
+    config[ENVIRONMENT_FIELD][MLFLOW_TRACKING_URI.name] = resolved_tracking_uri
+    config[ENVIRONMENT_FIELD][MLFLOW_EXPERIMENT_ID.name] = resolved_experiment_id
+
+    if resolved_experiment_name:
+        config[ENVIRONMENT_FIELD][MLFLOW_EXPERIMENT_NAME.name] = resolved_experiment_name
+    else:
         config[ENVIRONMENT_FIELD].pop(MLFLOW_EXPERIMENT_NAME.name, None)
-    elif experiment_name:
-        config[ENVIRONMENT_FIELD][MLFLOW_EXPERIMENT_NAME.name] = experiment_name
-        config[ENVIRONMENT_FIELD].pop(MLFLOW_EXPERIMENT_ID.name, None)
 
     save_claude_config(settings_path, config)

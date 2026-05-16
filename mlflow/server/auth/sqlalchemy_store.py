@@ -1,3 +1,4 @@
+import logging
 import re
 from collections.abc import Iterable
 from urllib.parse import quote, unquote
@@ -49,11 +50,17 @@ from mlflow.server.auth.permissions import (
     get_permission,
     max_permission,
 )
-from mlflow.store.db.utils import _get_managed_session_maker, create_sqlalchemy_engine_with_retry
+from mlflow.store.db.utils import (
+    _get_managed_session_maker,
+    _get_routing_session_maker,
+    create_sqlalchemy_engine_with_retry,
+)
 from mlflow.utils import workspace_context
 from mlflow.utils.uri import extract_db_type_from_uri
 from mlflow.utils.validation import _validate_password, _validate_username
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
+
+_logger = logging.getLogger(__name__)
 
 # Pre-RBAC permission tables retained on disk by
 # ``e5f6a7b8c9d0_migrate_permissions_to_roles``. The runtime no longer reads or
@@ -101,13 +108,30 @@ class SqlAlchemyStore:
             "mlflow.set_workspace() before interacting with the authentication store."
         )
 
-    def init_db(self, db_uri):
+    def init_db(self, db_uri, read_db_uri=None):
         self.db_uri = db_uri
         self.db_type = extract_db_type_from_uri(db_uri)
         self.engine = create_sqlalchemy_engine_with_retry(db_uri)
         dbutils.migrate_if_needed(self.engine, "head")
-        SessionMaker = sessionmaker(bind=self.engine)
-        self.ManagedSessionMaker = _get_managed_session_maker(SessionMaker, self.db_type)
+
+        # Set up read replica engine if provided
+        if read_db_uri and read_db_uri != db_uri:
+            self.read_engine = create_sqlalchemy_engine_with_retry(read_db_uri)
+            WriteSessionMaker = sessionmaker(bind=self.engine)
+            ReadSessionMaker = sessionmaker(bind=self.read_engine)
+            self.ManagedSessionMaker = _get_routing_session_maker(
+                WriteSessionMaker, ReadSessionMaker, self.db_type
+            )
+        else:
+            if read_db_uri and read_db_uri == db_uri:
+                _logger.warning(
+                    "read_db_uri is the same as the primary db_uri; "
+                    "read replica routing will not be enabled. "
+                    "This is likely a configuration mistake."
+                )
+            self.read_engine = None
+            SessionMaker = sessionmaker(bind=self.engine)
+            self.ManagedSessionMaker = _get_managed_session_maker(SessionMaker, self.db_type)
 
     def authenticate_user(self, username: str, password: str) -> bool:
         with self.ManagedSessionMaker() as session:
@@ -121,7 +145,7 @@ class SqlAlchemyStore:
         _validate_username(username)
         _validate_password(password)
         pwhash = generate_password_hash(password)
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             try:
                 user = SqlUser(username=username, password_hash=pwhash, is_admin=is_admin)
                 session.add(user)
@@ -186,7 +210,7 @@ class SqlAlchemyStore:
     def update_user(
         self, username: str, password: str | None = None, is_admin: bool | None = None
     ) -> User:
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             user = self._get_user(session, username)
             if password is not None:
                 pwhash = generate_password_hash(password)
@@ -196,7 +220,7 @@ class SqlAlchemyStore:
             return user.to_mlflow_entity()
 
     def delete_user(self, username: str):
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             user = self._get_user(session, username)
             # The user's per-resource grants live as role_permissions rows under a
             # synthetic `__user_<id>__` role. Delete those first so their assignments
@@ -356,7 +380,7 @@ class SqlAlchemyStore:
         ``username`` via their synthetic role in the active workspace.
         """
         _validate_permission_for_resource_type(permission, resource_type)
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             user = self._get_user(session, username=username)
             workspace_name = self._get_active_workspace_name()
             role = self._get_or_create_synthetic_user_role(session, user.id, workspace_name)
@@ -395,7 +419,7 @@ class SqlAlchemyStore:
         workspace — for resources whose pattern can collide across workspaces
         (e.g. registered-model names). Admin-created roles are never touched.
         """
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             workspace = self._get_active_workspace_name() if workspace_scoped else None
             role_ids = self._synthetic_role_ids(session, workspace=workspace)
             if not role_ids:
@@ -419,7 +443,7 @@ class SqlAlchemyStore:
         ``(resource_type, new_pattern)``. Used for resources whose pattern is the
         primary key and can change (e.g. registered-model rename).
         """
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             workspace = self._get_active_workspace_name() if workspace_scoped else None
             role_ids = self._synthetic_role_ids(session, workspace=workspace)
             if not role_ids:
@@ -444,7 +468,7 @@ class SqlAlchemyStore:
         self, experiment_id: str, username: str, permission: str
     ) -> ExperimentPermission:
         _validate_permission_for_resource_type(permission, RESOURCE_TYPE_EXPERIMENT)
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             user = self._get_user(session, username=username)
             workspace_name = self._get_active_workspace_name()
             role = self._get_or_create_synthetic_user_role(session, user.id, workspace_name)
@@ -546,7 +570,7 @@ class SqlAlchemyStore:
         self, experiment_id: str, username: str, permission: str
     ) -> ExperimentPermission:
         _validate_permission_for_resource_type(permission, RESOURCE_TYPE_EXPERIMENT)
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             user, rp = self._get_experiment_permission_row(session, experiment_id, username)
             rp.permission = permission
             return ExperimentPermission(
@@ -554,12 +578,12 @@ class SqlAlchemyStore:
             )
 
     def delete_experiment_permission(self, experiment_id: str, username: str):
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             _, rp = self._get_experiment_permission_row(session, experiment_id, username)
             session.delete(rp)
 
     def delete_workspace_permissions_for_workspace(self, workspace_name: str) -> None:
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             role_ids = self._synthetic_role_ids(session, workspace=workspace_name)
             if not role_ids:
                 return
@@ -573,7 +597,7 @@ class SqlAlchemyStore:
         self, name: str, username: str, permission: str
     ) -> RegisteredModelPermission:
         _validate_permission_for_resource_type(permission, RESOURCE_TYPE_REGISTERED_MODEL)
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             user = self._get_user(session, username=username)
             workspace_name = self._get_active_workspace_name()
             role = self._get_or_create_synthetic_user_role(session, user.id, workspace_name)
@@ -725,7 +749,7 @@ class SqlAlchemyStore:
         self, name: str, username: str, permission: str
     ) -> RegisteredModelPermission:
         _validate_permission_for_resource_type(permission, RESOURCE_TYPE_REGISTERED_MODEL)
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             user, workspace_name, rp = self._get_registered_model_permission_row(
                 session, name, username
             )
@@ -735,7 +759,7 @@ class SqlAlchemyStore:
             )
 
     def delete_registered_model_permission(self, name: str, username: str):
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             _, _, rp = self._get_registered_model_permission_row(session, name, username)
             session.delete(rp)
 
@@ -796,7 +820,7 @@ class SqlAlchemyStore:
         self, workspace_name: str, username: str, permission: str
     ) -> WorkspacePermission:
         _validate_permission_for_resource_type(permission, RESOURCE_TYPE_WORKSPACE)
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             user = self._get_user(session, username=username)
             role = self._get_or_create_synthetic_user_role(session, user.id, workspace_name)
             existing = (
@@ -826,7 +850,7 @@ class SqlAlchemyStore:
             )
 
     def delete_workspace_permission(self, workspace_name: str, username: str) -> None:
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             user = self._get_user(session, username=username)
             role_name = self._synthetic_user_role_name(user.id)
             role = (
@@ -1006,7 +1030,7 @@ class SqlAlchemyStore:
     ) -> ScorerPermission:
         _validate_permission_for_resource_type(permission, RESOURCE_TYPE_SCORER)
         pattern = self._scorer_pattern(experiment_id, scorer_name)
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             user = self._get_user(session, username=username)
             workspace_name = self._get_active_workspace_name()
             role = self._get_or_create_synthetic_user_role(session, user.id, workspace_name)
@@ -1131,7 +1155,7 @@ class SqlAlchemyStore:
         self, experiment_id: str, scorer_name: str, username: str, permission: str
     ) -> ScorerPermission:
         _validate_permission_for_resource_type(permission, RESOURCE_TYPE_SCORER)
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             user, rp = self._get_scorer_permission_row(
                 session, experiment_id, scorer_name, username
             )
@@ -1144,7 +1168,7 @@ class SqlAlchemyStore:
             )
 
     def delete_scorer_permission(self, experiment_id: str, scorer_name: str, username: str):
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             _, rp = self._get_scorer_permission_row(session, experiment_id, scorer_name, username)
             session.delete(rp)
 
@@ -1166,7 +1190,7 @@ class SqlAlchemyStore:
         duplicate_message: str,
     ):
         _validate_permission_for_resource_type(permission, resource_type)
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             user = self._get_user(session, username=username)
             workspace_name = self._get_active_workspace_name()
             role = self._get_or_create_synthetic_user_role(session, user.id, workspace_name)
@@ -1246,7 +1270,7 @@ class SqlAlchemyStore:
         not_found_message: str,
     ):
         _validate_permission_for_resource_type(permission, resource_type)
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             user, rp = self._get_per_resource_permission_row(
                 session,
                 resource_type=resource_type,
@@ -1265,7 +1289,7 @@ class SqlAlchemyStore:
         username: str,
         not_found_message: str,
     ) -> None:
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             _, rp = self._get_per_resource_permission_row(
                 session,
                 resource_type=resource_type,
@@ -1538,7 +1562,7 @@ class SqlAlchemyStore:
         description: str | None = None,
     ) -> Role:
         self._reject_synthetic_role_name(name)
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             try:
                 role = SqlRole(
                     name=name,
@@ -1626,7 +1650,7 @@ class SqlAlchemyStore:
     ) -> Role:
         if name is not None:
             self._reject_synthetic_role_name(name)
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             role = self._get_role(session, role_id)
             if name is not None:
                 # Check for name conflicts before updating
@@ -1651,7 +1675,7 @@ class SqlAlchemyStore:
             return role.to_mlflow_entity()
 
     def delete_role(self, role_id: int) -> None:
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             role = self._get_role(session, role_id)
             session.delete(role)
 
@@ -1660,7 +1684,7 @@ class SqlAlchemyStore:
         # ``session.delete(instance)``, so for a bulk delete we must explicitly remove
         # child rows (``role_permissions``, ``user_role_assignments``) before the roles
         # themselves. The FK doesn't declare ``ON DELETE CASCADE`` at the DB level.
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             role_id_subq = (
                 session.query(SqlRole.id).filter(SqlRole.workspace == workspace_name).subquery()
             )
@@ -1691,7 +1715,7 @@ class SqlAlchemyStore:
                 f"resource_type='{resource_type}' requires resource_pattern='*'. "
                 f"Got resource_pattern='{resource_pattern}'."
             )
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             self._get_role(session, role_id)
             try:
                 rp = SqlRolePermission(
@@ -1735,7 +1759,7 @@ class SqlAlchemyStore:
             return self._get_role_permission(session, role_permission_id).to_mlflow_entity()
 
     def remove_role_permission(self, role_permission_id: int) -> None:
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             rp = self._get_role_permission(session, role_permission_id)
             session.delete(rp)
 
@@ -1748,7 +1772,7 @@ class SqlAlchemyStore:
             return [p.to_mlflow_entity() for p in perms]
 
     def update_role_permission(self, role_permission_id: int, permission: str) -> RolePermission:
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             rp = self._get_role_permission(session, role_permission_id)
             _validate_permission_for_resource_type(permission, rp.resource_type)
             rp.permission = permission
@@ -1757,7 +1781,7 @@ class SqlAlchemyStore:
     # ---- UserRoleAssignment CRUD ----
 
     def assign_role_to_user(self, user_id: int, role_id: int) -> UserRoleAssignment:
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             # Validate both user and role exist before attempting assignment
             user = session.get(SqlUser, user_id)
             if user is None:
@@ -1787,7 +1811,7 @@ class SqlAlchemyStore:
             return assignment.to_mlflow_entity()
 
     def unassign_role_from_user(self, user_id: int, role_id: int) -> None:
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             try:
                 assignment = (
                     session

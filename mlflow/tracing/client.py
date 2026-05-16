@@ -173,9 +173,12 @@ class TracingClient:
         else:
             try:
                 trace_info = self.get_trace_info(trace_id)
-                # if the trace is stored in the tracking store, load spans from the tracking store
-                # otherwise, load spans from the artifact repository
-                if trace_info.tags.get(TraceTagKey.SPANS_LOCATION) == SpansLocation.TRACKING_STORE:
+                # if the trace is stored in the tracking store or archive repo, load spans via the
+                # store/server path; otherwise, load spans from the artifact repository
+                if trace_info.tags.get(TraceTagKey.SPANS_LOCATION) in (
+                    SpansLocation.TRACKING_STORE,
+                    SpansLocation.ARCHIVE_REPO,
+                ):
                     try:
                         return self.store.get_trace(trace_id)
                     except MlflowNotImplementedException:
@@ -393,10 +396,10 @@ class TracingClient:
             return self._load_traces_by_location(trace_infos_by_location, executor)
 
     def _download_spans_from_batch_get_traces(
-        self, trace_ids: list[str], location: str, executor: ThreadPoolExecutor
+        self, trace_ids: list[str], location: str | None, executor: ThreadPoolExecutor
     ) -> list[Trace]:
         """
-        Fetch full traces including spans from the BatchGetTrace v4 endpoint.
+        Fetch full traces including spans from the store batch-get path.
         BatchGetTrace endpoint only support up to 10 traces in a single call.
         """
         traces = []
@@ -427,9 +430,10 @@ class TracingClient:
                     if tr
                 )
             else:
+                batch_get_location = None if location == SpansLocation.ARCHIVE_REPO else location
                 traces.extend(
                     self._download_spans_from_batch_get_traces(
-                        [t.trace_id for t in location_trace_infos], location, executor
+                        [t.trace_id for t in location_trace_infos], batch_get_location, executor
                     )
                 )
         return traces
@@ -439,7 +443,8 @@ class TracingClient:
         Download trace data for the given trace_info and returns a Trace object.
         If the download fails (e.g., the trace data is missing or corrupted), returns None.
 
-        This is used for traces logged via v3 endpoint, where spans are stored in artifact store.
+        This is used for traces whose spans are fetched directly from artifact storage, including
+        the existing artifact-backed path.
         """
         is_online_trace = is_uuid(trace_info.trace_id)
         is_databricks = is_databricks_uri(self.tracking_uri)
@@ -489,13 +494,19 @@ class TracingClient:
                 location = f"{uc_tp.catalog_name}.{uc_tp.schema_name}.{uc_tp.table_prefix}"
                 trace_infos_by_location[location].append(trace_info)
             elif trace_info.trace_location.mlflow_experiment:
-                # New traces in SQL store store spans in the tracking store, while for old traces or
-                # traces with File store, spans are stored in artifact repository.
-                if trace_info.tags.get(TraceTagKey.SPANS_LOCATION) == SpansLocation.TRACKING_STORE:
+                # DB-backed experiment traces use the tracking store. Legacy artifact-backed traces
+                # and archived traces are grouped by their spans-location tag so they can be
+                # fetched through the correct non-DB retrieval path.
+                spans_location = trace_info.tags.get(TraceTagKey.SPANS_LOCATION)
+                if spans_location == SpansLocation.TRACKING_STORE:
                     # location is not used for traces with mlflow experiment location in tracking
                     # store, so we use None as the location
                     trace_infos_by_location[None].append(trace_info)
+                elif spans_location in (SpansLocation.ARTIFACT_REPO, SpansLocation.ARCHIVE_REPO):
+                    trace_infos_by_location[spans_location].append(trace_info)
                 else:
+                    # Older traces may not set spansLocation and should continue to use the
+                    # artifact-backed trace-data path.
                     trace_infos_by_location[SpansLocation.ARTIFACT_REPO].append(trace_info)
             else:
                 _logger.warning(f"Unsupported location: {trace_info.trace_location}. Skipping.")
@@ -581,16 +592,17 @@ class TracingClient:
                 "will automatically be stringified when the trace is logged."
             )
 
+        if key in IMMUTABLE_TAGS:
+            _logger.warning(f"Tag '{key}' is immutable and cannot be set on a trace.")
+            return
+
         # Trying to set the tag on the active trace first
         with InMemoryTraceManager.get_instance().get_trace(trace_id) as trace:
             if trace:
                 trace.info.tags[key] = str(value)
                 return
 
-        if key in IMMUTABLE_TAGS:
-            _logger.warning(f"Tag '{key}' is immutable and cannot be set on a trace.")
-        else:
-            self.store.set_trace_tag(trace_id, key, str(value))
+        self.store.set_trace_tag(trace_id, key, str(value))
 
     def delete_trace_tag(self, trace_id: str, key: str):
         """
@@ -601,6 +613,12 @@ class TracingClient:
             key: The string key of the tag. Must be at most 250 characters long, otherwise
                 it will be truncated when stored.
         """
+        # Allow users to clear archival-failure markers so the scheduler can retry after
+        # manual intervention, while keeping other internal storage tags immutable.
+        if key in IMMUTABLE_TAGS and key != TraceTagKey.ARCHIVAL_FAILURE:
+            _logger.warning(f"Tag '{key}' is immutable and cannot be deleted on a trace.")
+            return
+
         # Trying to delete the tag on the active trace first
         with InMemoryTraceManager.get_instance().get_trace(trace_id) as trace:
             if trace:
@@ -613,10 +631,7 @@ class TracingClient:
                         error_code=RESOURCE_DOES_NOT_EXIST,
                     )
 
-        if key in IMMUTABLE_TAGS:
-            _logger.warning(f"Tag '{key}' is immutable and cannot be deleted on a trace.")
-        else:
-            self.store.delete_trace_tag(trace_id, key)
+        self.store.delete_trace_tag(trace_id, key)
 
     def get_assessment(self, trace_id: str, assessment_id: str) -> Assessment:
         """
