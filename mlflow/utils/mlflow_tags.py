@@ -104,6 +104,9 @@ MLFLOW_EXPERIMENT_DATABRICKS_TRACE_LOG_STORAGE_TABLE = (
 MLFLOW_EXPERIMENT_DATABRICKS_TRACE_ANNOTATIONS_TABLE = (
     "mlflow.experiment.databricksTraceAnnotationsTable"
 )
+MLFLOW_TRACE_SPANS_LOCATION = "mlflow.trace.spansLocation"
+MLFLOW_TRACE_ARCHIVE_LOCATION = "mlflow.trace.archiveLocation"
+MLFLOW_TRACE_ARCHIVAL_FAILURE = "mlflow.trace.archivalFailure"
 
 # For automatic model checkpointing
 LATEST_CHECKPOINT_ARTIFACT_TAG_KEY = "mlflow.latest_checkpoint_artifact"
@@ -115,7 +118,13 @@ MLFLOW_LATEST_ONLINE_SCORING_TRACE_CHECKPOINT = "mlflow.latestOnlineScoring.trac
 MLFLOW_LATEST_ONLINE_SCORING_SESSION_CHECKPOINT = "mlflow.latestOnlineScoring.session.checkpoint"
 
 # A set of tags that cannot be updated by the user
-IMMUTABLE_TAGS = {MLFLOW_USER, MLFLOW_ARTIFACT_LOCATION}
+IMMUTABLE_TAGS = {
+    MLFLOW_USER,
+    MLFLOW_ARTIFACT_LOCATION,
+    MLFLOW_TRACE_SPANS_LOCATION,
+    MLFLOW_TRACE_ARCHIVE_LOCATION,
+    MLFLOW_TRACE_ARCHIVAL_FAILURE,
+}
 
 # The list of tags generated from resolve_tags() that are required for tracing UI
 TRACE_RESOLVE_TAGS_ALLOWLIST = (

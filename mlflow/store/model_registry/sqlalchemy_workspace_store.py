@@ -21,8 +21,8 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
     to return the workspace from the current request context.
     """
 
-    def __init__(self, db_uri):
-        super().__init__(db_uri)
+    def __init__(self, db_uri, read_db_uri=None):
+        super().__init__(db_uri, read_db_uri=read_db_uri)
 
     def _initialize_store_state(self):
         """

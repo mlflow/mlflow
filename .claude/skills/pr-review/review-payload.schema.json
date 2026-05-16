@@ -13,7 +13,7 @@
       "enum": ["APPROVE", "COMMENT"]
     },
     "body": {
-      "description": "Top-level review summary. Must end with the '🤖 Generated with Claude' footer on its own line.",
+      "description": "Concise top-level review summary in 2-3 sentences capturing the overall assessment. Do not restate individual findings (those belong in inline comments). Must end with the '🤖 Generated with Claude' footer on its own line.",
       "type": "string",
       "minLength": 1,
       "pattern": "(^|\\n)🤖 Generated with Claude\\s*$"

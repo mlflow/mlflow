@@ -30,6 +30,8 @@ import {
   SPAN_TYPE_COLUMN_ID,
   SPAN_STATUS_COLUMN_ID,
   SPAN_CONTENT_COLUMN_ID,
+  GIT_BRANCH_COLUMN_ID,
+  GIT_COMMIT_COLUMN_ID,
 } from '../../hooks/useTableColumns';
 import type {
   AssessmentInfo,
@@ -52,6 +54,8 @@ const getFilterableInfoColumns = (usesV4APIs?: boolean) => {
       RUN_NAME_COLUMN_ID,
       LOGGED_MODEL_COLUMN_ID,
       SOURCE_COLUMN_ID,
+      GIT_BRANCH_COLUMN_ID,
+      GIT_COMMIT_COLUMN_ID,
       INPUTS_COLUMN_ID,
       RESPONSE_COLUMN_ID,
       LINKED_PROMPTS_COLUMN_ID,
@@ -66,6 +70,8 @@ const getFilterableInfoColumns = (usesV4APIs?: boolean) => {
     RUN_NAME_COLUMN_ID,
     LOGGED_MODEL_COLUMN_ID,
     SOURCE_COLUMN_ID,
+    GIT_BRANCH_COLUMN_ID,
+    GIT_COMMIT_COLUMN_ID,
     LINKED_PROMPTS_COLUMN_ID,
   ];
 };
