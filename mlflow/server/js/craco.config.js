@@ -105,11 +105,20 @@ function configureIframeCSSPublicPaths(config, env) {
  */
 function preservePdfjsBundles(config) {
   const pdfjsPattern = /[\\/]node_modules[\\/]pdfjs-dist[\\/]/;
+  const isBabelLoaderRule = (r) => {
+    if (typeof r.loader === 'string' && r.loader.includes('babel-loader')) {
+      return true;
+    }
+    if (Array.isArray(r.use) && r.use.some((u) => typeof u?.loader === 'string' && u.loader.includes('babel-loader'))) {
+      return true;
+    }
+    return false;
+  };
   let touched = false;
   config.module.rules.forEach((rule) => {
     if (!Array.isArray(rule.oneOf)) return;
     rule.oneOf.forEach((r) => {
-      if (typeof r.loader === 'string' && r.loader.includes('babel-loader')) {
+      if (isBabelLoaderRule(r)) {
         const exclude = Array.isArray(r.exclude) ? r.exclude : r.exclude ? [r.exclude] : [];
         r.exclude = [...exclude, pdfjsPattern];
         touched = true;
