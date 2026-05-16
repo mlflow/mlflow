@@ -2022,16 +2022,25 @@ class SqlAlchemyStore:
             best_permission_name: str | None = None
             for role in roles:
                 for rp in role.permissions:
-                    # Workspace-wide permission — applies to every resource type.
-                    # The unified ``('workspace', '*')`` slot accepts either USE
-                    # (regular workspace member) or MANAGE (workspace admin); the
-                    # permission tier alone distinguishes the two.
+                    # Workspace-wide permission slot. The unified ``('workspace', '*')``
+                    # row accepts USE (regular member) or MANAGE (workspace admin).
+                    #
+                    # Folding into a resource-type query is *tier-dependent*:
+                    # - MANAGE always folds — a workspace admin sees and edits every
+                    #   resource in the workspace, by design.
+                    # - USE folds only for workspace-tier queries (the membership /
+                    #   create-rights signal). For resource-type queries (experiment,
+                    #   registered_model, …) workspace USE does **not** participate —
+                    #   it means "member can join + create their own", not "member can
+                    #   read every resource". To read another user's resource a member
+                    #   needs an explicit grant (per-resource or type-wildcard).
                     if rp.resource_type == RESOURCE_TYPE_WORKSPACE and rp.resource_pattern == "*":
-                        best_permission_name = (
-                            max_permission(best_permission_name, rp.permission)
-                            if best_permission_name is not None
-                            else rp.permission
-                        )
+                        if resource_type == RESOURCE_TYPE_WORKSPACE or rp.permission == MANAGE.name:
+                            best_permission_name = (
+                                max_permission(best_permission_name, rp.permission)
+                                if best_permission_name is not None
+                                else rp.permission
+                            )
                         continue
                     # Resource-type-specific permission.
                     if rp.resource_type != resource_type:
