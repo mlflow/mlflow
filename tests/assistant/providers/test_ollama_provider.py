@@ -65,6 +65,7 @@ def _line(data: dict[str, object]) -> bytes:
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture(autouse=True)
 def config(tmp_path):
     config_file = tmp_path / "config.json"
@@ -78,6 +79,7 @@ def config(tmp_path):
 # ---------------------------------------------------------------------------
 # Basic provider tests
 # ---------------------------------------------------------------------------
+
 
 def test_is_available():
     assert OllamaProvider().is_available() is True
@@ -94,6 +96,7 @@ def test_provider_display_name():
 # ---------------------------------------------------------------------------
 # list_models
 # ---------------------------------------------------------------------------
+
 
 def test_list_models_returns_model_names():
     mock_resp = MagicMock()
@@ -123,6 +126,7 @@ def test_list_models_raises_on_connection_error():
 # ---------------------------------------------------------------------------
 # _trim_session
 # ---------------------------------------------------------------------------
+
 
 def test_trim_session_avoids_reserializing_full_history(monkeypatch):
     message_content = "x" * (_MAX_SESSION_BYTES // 3)
@@ -156,6 +160,7 @@ def test_trim_session_avoids_reserializing_full_history(monkeypatch):
 # ---------------------------------------------------------------------------
 # astream — text streaming
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_astream_streams_text_chunks():
@@ -214,11 +219,13 @@ async def test_astream_yields_error_on_http_error():
         return_value=MagicMock(
             status=500,
             text=AsyncMock(return_value="Internal Server Error"),
-            __aenter__=AsyncMock(return_value=MagicMock(
-                status=500,
-                text=AsyncMock(return_value="Internal Server Error"),
-                content=_AsyncLineIter([]),
-            )),
+            __aenter__=AsyncMock(
+                return_value=MagicMock(
+                    status=500,
+                    text=AsyncMock(return_value="Internal Server Error"),
+                    content=_AsyncLineIter([]),
+                )
+            ),
             __aexit__=AsyncMock(return_value=False),
         )
     )
@@ -238,11 +245,10 @@ async def test_astream_yields_error_on_http_error():
 # astream — tool call round-trip
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_astream_tool_call_round_trip():
-    tool_call = {
-        "function": {"name": "Bash", "arguments": {"command": "ls"}}
-    }
+    tool_call = {"function": {"name": "Bash", "arguments": {"command": "ls"}}}
     tool_msg = {"role": "assistant", "content": "", "tool_calls": [tool_call]}
     lines_turn1 = [_line({"message": tool_msg, "done": True})]
     lines_turn2 = [
@@ -261,7 +267,8 @@ async def test_astream_tool_call_round_trip():
         events = [e async for e in OllamaProvider().astream("list files", "http://localhost:5000")]
 
     tool_use_events = [
-        e for e in events
+        e
+        for e in events
         if e.type == EventType.MESSAGE
         and isinstance(e.data["message"]["content"], list)
         and e.data["message"]["content"][0].get("name") == "Bash"

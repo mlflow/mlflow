@@ -188,7 +188,7 @@ class OllamaProvider(AssistantProvider):
                                         if end == -1:
                                             think_buf = ""
                                             break
-                                        think_buf = think_buf[end + len("</think>"):]
+                                        think_buf = think_buf[end + len("</think>") :]
                                         in_think_block = False
                                     else:
                                         start = think_buf.find("<think>")
@@ -197,7 +197,7 @@ class OllamaProvider(AssistantProvider):
                                             think_buf = ""
                                             break
                                         emit += think_buf[:start]
-                                        think_buf = think_buf[start + len("<think>"):]
+                                        think_buf = think_buf[start + len("<think>") :]
                                         in_think_block = True
                                 if emit:
                                     yield Event.from_stream_event({
