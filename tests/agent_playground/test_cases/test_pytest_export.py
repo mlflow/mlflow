@@ -30,6 +30,13 @@ def _assertion_case(test_case_id: str, **overrides) -> TestCaseRow:
 def test_renders_valid_python_for_empty_suite():
     source = render_pytest_suite("exp-1", [])
     ast.parse(source)
+    # Empty suite emits a module-level ``pytest.skip`` rather than an
+    # empty parametrize (which pytest would surface as a confusing
+    # ``[NOTSET]`` test case).
+    assert "pytest.skip(" in source
+    assert "allow_module_level=True" in source
+    assert "_CASES" not in source
+    assert "@pytest.mark.parametrize" not in source
 
 
 def test_renders_valid_python_for_assertion_only_suite():
@@ -131,13 +138,13 @@ def test_no_messages_case_excluded_from_payload():
 
 
 def test_includes_agent_url_default():
-    source = render_pytest_suite("exp-1", [])
+    source = render_pytest_suite("exp-1", [_assertion_case("tc-x")])
     assert "http://localhost:8000/invocations" in source
     assert "MLFLOW_AGENT_URL" in source
 
 
 def test_includes_timeout_env_var():
-    source = render_pytest_suite("exp-1", [])
+    source = render_pytest_suite("exp-1", [_assertion_case("tc-x")])
     assert "MLFLOW_AGENT_TIMEOUT_SECONDS" in source
 
 

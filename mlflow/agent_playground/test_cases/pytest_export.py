@@ -154,6 +154,19 @@ def test_agent_playground_regression(case: dict) -> None:
 """
 
 
+_EMPTY_SUITE_BODY = """\
+import pytest
+
+pytest.skip(
+    "No exportable cases in this experiment. Add assertion-strategy "
+    "single-turn cases (judge-strategy and multi-turn cases are not "
+    "exportable to a hermetic CI gate) and re-run "
+    "`mlflow agent test export`.",
+    allow_module_level=True,
+)
+"""
+
+
 def _case_payload(case: TestCaseRow) -> dict[str, object]:
     assertion = case.spec.assertion
     return {
@@ -194,6 +207,12 @@ def render_pytest_suite(experiment_id: str, cases: list[TestCaseRow]) -> str:
     )
 
     payloads = [_case_payload(case) for case in partition.exportable]
+    if not payloads:
+        # Empty suite: skip at module level so the file is collectable
+        # by pytest without producing a misleading ``[NOTSET]``
+        # parametrized test. Users see one clean ``SKIPPED`` line.
+        return header + "\n\n" + _EMPTY_SUITE_BODY
+
     # ``pprint.pformat`` emits valid Python literals (``None`` / ``True``
     # / ``False`` for nulls/bools) so the rendered file is executable.
     # ``json.dumps`` would emit ``null`` / ``true`` / ``false`` which
@@ -202,9 +221,5 @@ def render_pytest_suite(experiment_id: str, cases: list[TestCaseRow]) -> str:
     cases_literal = "_CASES: list[dict] = " + pprint.pformat(
         payloads, indent=4, width=100, sort_dicts=False
     )
-
-    if not payloads:
-        cases_literal += "\n# No exportable cases. Add assertion-strategy single-turn cases via "
-        cases_literal += "`mlflow agent test add` to populate this suite."
 
     return header + "\n\n" + cases_literal + "\n" + _TEST_BODY
