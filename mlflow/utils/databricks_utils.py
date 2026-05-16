@@ -790,7 +790,7 @@ def get_databricks_host_creds(server_uri=None):
                     token=config.token,
                     use_databricks_sdk=True,
                     use_secret_scope_token=True,
-                    workspace_id=ws.config.workspace_id,
+                    workspace_id=getattr(ws.config, "workspace_id", None),
                 )
             except Exception as e:
                 raise MlflowException(
