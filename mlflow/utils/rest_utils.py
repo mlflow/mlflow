@@ -273,8 +273,8 @@ def http_request(
             else:
                 message += (
                     " The SDK appears enabled but auth fell through to the legacy path "
-                    "anyway. Enable DEBUG logging on 'mlflow.utils.databricks_utils' to "
-                    "see why."
+                    "anyway. Set MLFLOW_LOGGING_LEVEL=DEBUG and retry to see the "
+                    "underlying error."
                 )
         else:
             message += f" Set '{MLFLOW_ENABLE_DB_SDK.name}' to true."
