@@ -199,9 +199,15 @@ def _iter_path_patterns(path: Path) -> Iterator[tuple[str, str, str]]:
                 yield str(event), key, pattern
 
 
+def _iter_workflow_files() -> Iterator[Path]:
+    root = Path(".github/workflows")
+    for ext in ("*.yml", "*.yaml"):
+        yield from root.glob(ext)
+
+
 def _check_paths() -> Iterator[str]:
     files = _list_tracked_files()
-    for path in sorted(Path(".github/workflows").glob("*.yml")):
+    for path in sorted(_iter_workflow_files()):
         for event, key, pattern in _iter_path_patterns(path):
             if not _pattern_matches(pattern, files):
                 yield (
