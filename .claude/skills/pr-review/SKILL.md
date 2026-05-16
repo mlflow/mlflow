@@ -52,10 +52,10 @@ The `<owner>`/`<repo>`/`<pr_number>` placeholders in the steps below refer to th
 
 ### 1. Fetch PR context
 
-Fetch the PR title, description, and author:
+Fetch the PR title and description:
 
 ```bash
-gh pr view <pr_number> --repo "<owner>/<repo>" --json title,body,author
+gh pr view <pr_number> --repo "<owner>/<repo>" --json title,body
 ```
 
 > **Note:** You have a **read-only** GitHub token. Do NOT call write APIs (`gh api ... POST`, `gh pr review`, `gh pr comment`, etc.).
@@ -122,14 +122,8 @@ Classify each finding by severity (matches `.github/instructions/code-review.ins
 
 Determine the review `event`:
 
-- **No CRITICAL findings AND author has `admin`/`maintain` role** -> `event: "APPROVE"`
-- **Any CRITICAL finding, OR author role is anything else (or the API errors, e.g., 404 for non-collaborators)** -> `event: "COMMENT"`. Do not mention the reason for not approving in the review body.
-
-Check the author's role (use the `author.login` from step 1 as `<author>`):
-
-```bash
-gh api repos/<owner>/<repo>/collaborators/<author>/permission --jq '.role_name'
-```
+- **No CRITICAL findings** -> `event: "APPROVE"`
+- **Any CRITICAL finding** -> `event: "COMMENT"`
 
 ### 6. Emit Review Payload
 
