@@ -65,9 +65,7 @@ def test_entry_point_compute_command():
 def test_compute_command_shell_escapes_extra_param_keys(malicious_key):
     entry_point = load_project().get_entry_point("greeter")
     with TempDir() as tmp:
-        command = entry_point.compute_command(
-            {"name": "friend", malicious_key: "1"}, tmp.path()
-        )
+        command = entry_point.compute_command({"name": "friend", malicious_key: "1"}, tmp.path())
         # Shell-parsed tokens must collapse the metacharacters into one flag
         # rather than splitting into multiple commands.
         assert f"--{malicious_key}" in shlex.split(command)
