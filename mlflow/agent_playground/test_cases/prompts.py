@@ -37,9 +37,11 @@ from mlflow.agent_playground.test_cases.entities import (
     AssistantMessageAnchor,
     TestCaseRow,
 )
+from mlflow.agent_playground.test_cases.telemetry import PromptFromFeedbackBuiltEvent
 from mlflow.entities import Assessment, Trace
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, RESOURCE_DOES_NOT_EXIST
+from mlflow.telemetry.track import record_usage_event
 from mlflow.tracing.assessment import get_assessment
 from mlflow.tracing.client import TracingClient
 from mlflow.tracing.utils.truncation import _try_extract_messages
@@ -261,6 +263,7 @@ def _format_assertion_block(case: TestCaseRow) -> str:
     return "\n".join(lines)
 
 
+@record_usage_event(PromptFromFeedbackBuiltEvent)
 def build_fix_prompt(experiment_id: str, test_case_id: str) -> str:
     """Render the fix prompt that the UI copies to the user's clipboard.
 
