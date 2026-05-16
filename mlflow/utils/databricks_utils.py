@@ -776,8 +776,6 @@ def get_databricks_host_creds(server_uri=None):
 
     .. Warning:: This API is deprecated. In the future it might be removed.
     """
-    sdk_init_error = None
-
     if MLFLOW_ENABLE_DB_SDK.get():
         from databricks.sdk import WorkspaceClient
 
@@ -825,8 +823,10 @@ def get_databricks_host_creds(server_uri=None):
             # environment-variable-based auth methods like OIDC (file-oidc auth type).
             ws = WorkspaceClient(profile=profile) if profile else WorkspaceClient()
         except Exception as e:
-            _logger.debug(f"Failed to create databricks SDK workspace client, error: {e!r}")
-            sdk_init_error = repr(e)
+            _logger.warning(
+                f"Failed to create databricks SDK workspace client, error: {e!r}. "
+                "Falling back to legacy authentication."
+            )
             use_databricks_sdk = False
             databricks_auth_profile = None
             # Config resolves workspace_id from env vars, .databrickscfg, or host
@@ -879,7 +879,6 @@ def get_databricks_host_creds(server_uri=None):
         use_databricks_sdk=use_databricks_sdk,
         databricks_auth_profile=databricks_auth_profile,
         workspace_id=workspace_id,
-        sdk_init_error=sdk_init_error,
     )
 
 

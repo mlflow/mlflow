@@ -189,15 +189,21 @@ def test_databricks_host_creds_falls_back_when_sdk_fails(monkeypatch):
     monkeypatch.setenv("DATABRICKS_TOKEN", "test-token")
     monkeypatch.delenv("DATABRICKS_CONFIG_PROFILE", raising=False)
 
-    with mock.patch("databricks.sdk.WorkspaceClient", side_effect=Exception("SDK auth failed")):
+    with (
+        mock.patch("databricks.sdk.WorkspaceClient", side_effect=Exception("SDK auth failed")),
+        mock.patch.object(databricks_utils._logger, "warning") as mock_warning,
+    ):
         creds = databricks_utils.get_databricks_host_creds("databricks")
         # Should fall back to legacy and use env vars
         assert creds.host == "https://test.databricks.com"
         assert creds.token == "test-token"
         assert not creds.use_databricks_sdk
-        # SDK init error must be captured so callers can surface it later.
-        assert creds.sdk_init_error is not None
-        assert "SDK auth failed" in creds.sdk_init_error
+        # SDK init failure must surface as a WARNING so callers can correlate it with
+        # any downstream OAuth error.
+        mock_warning.assert_called_once()
+        msg = mock_warning.call_args.args[0]
+        assert "Failed to create databricks SDK workspace client" in msg
+        assert "SDK auth failed" in msg
 
 
 def test_databricks_host_creds_keeps_sdk_when_workspace_id_attr_missing(monkeypatch):
@@ -223,7 +229,6 @@ def test_databricks_host_creds_keeps_sdk_when_workspace_id_attr_missing(monkeypa
         creds = databricks_utils.get_databricks_host_creds("databricks")
         assert creds.use_databricks_sdk
         assert creds.workspace_id is None
-        assert creds.sdk_init_error is None
 
 
 def test_sdk_respects_env_var_priority(monkeypatch):
