@@ -659,10 +659,13 @@ def _check_requirement_satisfied(requirement_str: str) -> _MismatchedPackageInfo
     return None
 
 
-def warn_dependency_requirement_mismatches(model_requirements: list[str]):
+def _get_dependency_requirement_mismatches_message(model_requirements: list[str]) -> str | None:
     """
-    Inspects the model's dependencies and prints a warning if the current Python environment
-    doesn't satisfy them.
+    Inspects the model's dependencies and returns a message describing any mismatches
+    between the model's required dependencies and the current Python environment.
+
+    Returns ``None`` when no mismatches are detected or when an unexpected error occurs while
+    detecting mismatches (in which case the error is logged at warning level).
     """
     # Suppress databricks-feature-lookup warning for feature store cases
     # Suppress databricks-chains, databricks-rag, and databricks-agents warnings for RAG
@@ -692,18 +695,27 @@ def warn_dependency_requirement_mismatches(model_requirements: list[str]):
 
         if len(mismatch_infos) > 0:
             mismatch_str = " - " + "\n - ".join(mismatch_infos)
-            warning_msg = (
+            return (
                 "Detected one or more mismatches between the model's dependencies and the current "
                 f"Python environment:\n{mismatch_str}\n"
                 "To fix the mismatches, call `mlflow.pyfunc.get_model_dependencies(model_uri)` "
                 "to fetch the model's environment and install dependencies using the resulting "
                 "environment file."
             )
-            _logger.warning(warning_msg)
-
+        return None
     except Exception as e:
         _logger.warning(
             f"Encountered an unexpected error ({e!r}) while detecting model dependency "
             "mismatches. Set logging level to DEBUG to see the full traceback."
         )
         _logger.debug("", exc_info=True)
+        return None
+
+
+def warn_dependency_requirement_mismatches(model_requirements: list[str]):
+    """
+    Inspects the model's dependencies and prints a warning if the current Python environment
+    doesn't satisfy them.
+    """
+    if (msg := _get_dependency_requirement_mismatches_message(model_requirements)) is not None:
+        _logger.warning(msg)

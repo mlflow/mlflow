@@ -366,3 +366,73 @@ def test_log_loader_module_model_does_not_emit_pickle_warning(sklearn_knn_model,
         in msg
         for msg in warning_messages
     )
+
+
+def test_load_model_does_not_warn_on_dependency_mismatch_when_load_succeeds(
+    sklearn_knn_model, iris_data, tmp_path
+):
+    """When a dependency version mismatch exists but loading succeeds, no warning should be
+    emitted (MLflow guarantees backwards compatibility for model loading). See ML-52626.
+    """
+    sk_model_path = os.path.join(tmp_path, "knn.pkl")
+    with open(sk_model_path, "wb") as f:
+        pickle.dump(sklearn_knn_model, f)
+
+    model_path = os.path.join(tmp_path, "model")
+    mlflow.pyfunc.save_model(
+        path=model_path,
+        data_path=sk_model_path,
+        loader_module=__name__,
+        code_paths=[__file__],
+    )
+
+    with (
+        mock.patch(
+            "mlflow.pyfunc._get_dependency_requirement_mismatches_message",
+            return_value="Detected one or more mismatches between the model's dependencies",
+        ),
+        mock.patch("mlflow.pyfunc._logger.warning") as mock_log_warning,
+    ):
+        loaded = mlflow.pyfunc.load_model(model_path)
+
+    assert loaded is not None
+    warning_messages = [args[0] for args, _ in mock_log_warning.call_args_list if args]
+    assert not any("Detected one or more mismatches" in msg for msg in warning_messages)
+
+
+def test_load_model_warns_with_dependency_mismatch_when_load_fails(
+    sklearn_knn_model, iris_data, tmp_path
+):
+    """When loading fails, the captured dependency mismatch message should be surfaced as a
+    warning to help users diagnose the failure. See ML-52626.
+    """
+    sk_model_path = os.path.join(tmp_path, "knn.pkl")
+    with open(sk_model_path, "wb") as f:
+        pickle.dump(sklearn_knn_model, f)
+
+    model_path = os.path.join(tmp_path, "model")
+    mlflow.pyfunc.save_model(
+        path=model_path,
+        data_path=sk_model_path,
+        loader_module=__name__,
+        code_paths=[__file__],
+    )
+
+    mismatch_message = (
+        "Detected one or more mismatches between the model's dependencies and the current "
+        "Python environment:\n - mlflow (current: 9.9.9, required: mlflow==1.2.3)"
+    )
+
+    with (
+        mock.patch(
+            "mlflow.pyfunc._get_dependency_requirement_mismatches_message",
+            return_value=mismatch_message,
+        ),
+        mock.patch(f"{__name__}._load_pyfunc", side_effect=RuntimeError("simulated load failure")),
+        mock.patch("mlflow.pyfunc._logger.warning") as mock_log_warning,
+        pytest.raises(RuntimeError, match="simulated load failure"),
+    ):
+        mlflow.pyfunc.load_model(model_path)
+
+    warning_messages = [args[0] for args, _ in mock_log_warning.call_args_list if args]
+    assert any("Detected one or more mismatches" in msg for msg in warning_messages)

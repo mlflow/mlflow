@@ -584,6 +584,7 @@ from mlflow.utils.model_utils import (
 )
 from mlflow.utils.nfs_on_spark import get_nfs_cache_root_dir
 from mlflow.utils.requirements_utils import (
+    _get_dependency_requirement_mismatches_message,
     _parse_requirements,
     warn_dependency_requirement_mismatches,
 )
@@ -1070,6 +1071,12 @@ def _get_pip_requirements_from_model_path(model_path: str):
     return [req.req_str for req in _parse_requirements(req_file_path, is_constraint=False)]
 
 
+def _append_mismatch_message(error_message: str, mismatch_message: str | None) -> str:
+    if not mismatch_message:
+        return error_message
+    return f"{error_message}\n\n{mismatch_message}"
+
+
 @trace_disabled  # Suppress traces while loading model
 def load_model(
     model_uri: str,
@@ -1132,9 +1139,14 @@ def load_model(
         artifact_uri=model_uri, output_path=dst_path, lineage_header_info=lineage_header_info
     )
 
+    # Capture any dependency mismatch info upfront, but defer surfacing it until/unless the
+    # model fails to load. MLflow guarantees backwards compatibility for model loading, so the
+    # mismatch is only noteworthy if loading actually fails. Eagerly warning on every load
+    # creates noise for users who load successfully (the common case). See ML-52626.
+    mismatch_message = None
     if not suppress_warnings:
         model_requirements = _get_pip_requirements_from_model_path(local_path)
-        warn_dependency_requirement_mismatches(model_requirements)
+        mismatch_message = _get_dependency_requirement_mismatches_message(model_requirements)
 
     model_meta = Model.load(os.path.join(local_path, MLMODEL_FILE_NAME))
 
@@ -1178,13 +1190,24 @@ def load_model(
         # databricks module errors will just be re-raised.
         if conf[MAIN] == _DATABRICKS_FS_LOADER_MODULE and e.name.startswith("databricks"):
             raise MlflowException(
-                f"{e.msg}; "
-                "Note: mlflow.pyfunc.load_model is not supported for Feature Store models. "
-                "spark_udf() and predict() will not work as expected. Use "
-                "score_batch for offline predictions.",
+                _append_mismatch_message(
+                    f"{e.msg}; "
+                    "Note: mlflow.pyfunc.load_model is not supported for Feature Store models. "
+                    "spark_udf() and predict() will not work as expected. Use "
+                    "score_batch for offline predictions.",
+                    mismatch_message,
+                ),
                 BAD_REQUEST,
             ) from None
+        if mismatch_message:
+            _logger.warning(mismatch_message)
         raise e
+    except Exception:
+        # Surface the dependency mismatch info (if any) as a warning so that users can see it
+        # alongside the load failure traceback. See ML-52626.
+        if mismatch_message:
+            _logger.warning(mismatch_message)
+        raise
     finally:
         # clean up the dependencies schema which is set to global state after loading the model.
         # This avoids the schema being used by other models loaded in the same process.
