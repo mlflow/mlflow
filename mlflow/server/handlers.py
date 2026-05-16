@@ -6139,6 +6139,23 @@ def _get_ajax_path(base_path, version=2):
     return _add_static_prefix(f"/ajax-api/{version}.0{base_path}")
 
 
+def _get_v3_alias_path(base_path):
+    """
+    Returns the ``/api/v3`` alias for an endpoint currently registered under
+    ``/api/2.0/mlflow/...``.
+
+    Existing OSS tracking endpoints are exposed at ``/api/2.0/mlflow/...``. We
+    additionally register them at ``/api/v3/mlflow/...`` so callers can target a
+    stable, version-prefixed path (e.g. ``/api/v3/mlflow/experiments/create``). The
+    original ``/api/2.0`` routes are unchanged.
+
+    Only base paths starting with ``/mlflow/`` are aliased; sibling namespaces such
+    as ``/mlflow-artifacts/`` have route-specific auth handling and are not part of
+    the ``/api/v3/mlflow`` surface described in ML-52147.
+    """
+    return _add_static_prefix(f"/api/v3{base_path}")
+
+
 def _add_static_prefix(route: str) -> str:
     if prefix := os.environ.get(STATIC_PREFIX_ENV_VAR):
         return prefix.rstrip("/") + route
@@ -6149,10 +6166,15 @@ def _get_paths(base_path, version=2):
     """
     A service endpoints base path is typically something like /mlflow/experiment.
     We should register paths like /api/2.0/mlflow/experiment and
-    /ajax-api/2.0/mlflow/experiment in the Flask router.
+    /ajax-api/2.0/mlflow/experiment in the Flask router. Endpoints registered at
+    ``/api/2.0`` are additionally aliased under ``/api/v3`` so callers can use the
+    new prefix (e.g. ``/api/v3/mlflow/experiments/create``) interchangeably.
     """
     base_path = _convert_path_parameter_to_flask_format(base_path)
-    return [_get_rest_path(base_path, version), _get_ajax_path(base_path, version)]
+    paths = [_get_rest_path(base_path, version), _get_ajax_path(base_path, version)]
+    if version == 2 and base_path.startswith("/mlflow/"):
+        paths.append(_get_v3_alias_path(base_path))
+    return paths
 
 
 def _convert_path_parameter_to_flask_format(path):

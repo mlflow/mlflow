@@ -441,7 +441,40 @@ def test_server_info_handles_unexpected_trace_archival_config_error(monkeypatch)
 def test_get_endpoints():
     endpoints = get_endpoints()
     create_experiment_endpoint = [e for e in endpoints if e[1] == _create_experiment]
-    assert len(create_experiment_endpoint) == 2
+    # /api/2.0/mlflow/experiments/create, /ajax-api/2.0/mlflow/experiments/create,
+    # and the /api/v3/mlflow/experiments/create alias (ML-52147).
+    assert len(create_experiment_endpoint) == 3
+    paths = {e[0] for e in create_experiment_endpoint}
+    assert paths == {
+        "/api/2.0/mlflow/experiments/create",
+        "/ajax-api/2.0/mlflow/experiments/create",
+        "/api/v3/mlflow/experiments/create",
+    }
+
+
+def test_v3_alias_only_for_mlflow_namespace():
+    # /mlflow-artifacts/... is intentionally not aliased to /api/v3 (ML-52147 scope).
+    endpoints = get_endpoints()
+    v3_paths = [path for path, _, _ in endpoints if path.startswith("/api/v3/")]
+    assert v3_paths, "expected at least one /api/v3 alias to be registered"
+    assert all(path.startswith("/api/v3/mlflow/") for path in v3_paths)
+
+
+def test_v3_alias_routes_dispatch_to_existing_handler(
+    mock_get_request_message, mock_tracking_store
+):
+    mock_get_request_message.return_value = CreateExperiment(name="exp")
+    mock_tracking_store.create_experiment.return_value = "0"
+
+    with app.test_client() as c:
+        response = c.post(
+            "/api/v3/mlflow/experiments/create",
+            json={"name": "exp"},
+        )
+
+    assert response.status_code == 200
+    assert response.get_json() == {"experiment_id": "0"}
+    mock_tracking_store.create_experiment.assert_called_once()
 
 
 def test_convert_path_parameter_to_flask_format():
