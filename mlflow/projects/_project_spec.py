@@ -296,7 +296,10 @@ class EntryPoint:
         for key in user_parameters:
             if key not in final_params:
                 extra_params[key] = user_parameters[key]
-        return self._sanitize_param_dict(final_params), self._sanitize_param_dict(extra_params)
+        return (
+            self._sanitize_value_dict(final_params),
+            self._sanitize_extra_param_dict(extra_params),
+        )
 
     def compute_command(self, user_parameters, storage_dir):
         params, extra_params = self.compute_parameters(user_parameters, storage_dir)
@@ -306,7 +309,17 @@ class EntryPoint:
         return " ".join(command_arr)
 
     @staticmethod
-    def _sanitize_param_dict(param_dict):
+    def _sanitize_value_dict(param_dict):
+        # Keys here are used as str.format placeholders against self.command,
+        # not shell tokens, so quoting them would break {placeholder} resolution.
+        # Only values flow into the shell command unquoted, so only values need
+        # shell-quoting.
+        return {str(key): quote(str(value)) for key, value in param_dict.items()}
+
+    @staticmethod
+    def _sanitize_extra_param_dict(param_dict):
+        # Both keys and values get joined into the shell command as
+        # `--{key} {value}` tokens, so both need shell-quoting.
         return {quote(str(key)): quote(str(value)) for key, value in param_dict.items()}
 
 

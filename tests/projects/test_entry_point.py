@@ -69,11 +69,20 @@ def test_entry_point_compute_command():
         "a>b",
     ],
 )
-def test_sanitize_param_dict_quotes_keys(malicious_key):
-    sanitized = EntryPoint._sanitize_param_dict({malicious_key: "value"})
+def test_sanitize_extra_param_dict_quotes_keys(malicious_key):
+    sanitized = EntryPoint._sanitize_extra_param_dict({malicious_key: "value"})
     assert malicious_key not in sanitized
     assert quote(malicious_key) in sanitized
     assert sanitized[quote(malicious_key)] == quote("value")
+
+
+def test_sanitize_value_dict_preserves_keys():
+    # final_params keys flow into self.command via str.format, not the shell, so
+    # they must not be quoted (quote('a;b') would wrap in single quotes and break
+    # the {a;b} placeholder lookup).
+    sanitized = EntryPoint._sanitize_value_dict({"name": "friend; echo hi"})
+    assert "name" in sanitized
+    assert sanitized["name"] == quote("friend; echo hi")
 
 
 def test_compute_command_shell_escapes_extra_param_keys():
