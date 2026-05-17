@@ -172,6 +172,13 @@ For a deeper dive into using MLflow together with OpenTelemetry, see the [OpenTe
 
 After running the code above, go to the MLflow UI and select the "My Application" experiment, and then select the "Traces" tab. It should show the newly created trace.
 
+:::warning
+
+If you have existing MLflow experiments stored in `mlruns/`, the MLflow UI may default to the file-based backend and not show newly generated traces.
+
+To ensure you can see your new traces, start the MLflow UI with:
+
+
 :::tip Learn More About Tracing UI
 
 The "Traces" page includes rich information about the trace and supports various actions such as searching, filtering, adding feedbacks, and more. See [View Traces](/genai/tracing/observe-with-traces/ui) for comprehensive guide about how to get the most out of the MLflow Tracing UI.
