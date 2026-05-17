@@ -1,6 +1,7 @@
 import type { AuthState } from '../types';
 import { ClaudeCodeAuth } from './ClaudeCodeAuth';
 import { CodexAuth } from './CodexAuth';
+import { MLflowGatewayAuth } from './MLflowGatewayAuth';
 import { OllamaAuth } from './OllamaAuth';
 
 interface SetupStepAuthProps {
@@ -32,6 +33,17 @@ export const SetupStepAuth = ({
   if (provider === 'codex') {
     return (
       <CodexAuth
+        cachedAuthStatus={cachedAuthStatus}
+        onAuthStatusChange={onAuthStatusChange}
+        onBack={onBack}
+        onContinue={onContinue}
+      />
+    );
+  }
+
+  if (provider === 'mlflow_gateway') {
+    return (
+      <MLflowGatewayAuth
         cachedAuthStatus={cachedAuthStatus}
         onAuthStatusChange={onAuthStatusChange}
         onBack={onBack}

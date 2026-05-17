@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
+import mlflow
 from mlflow.assistant import clear_project_path_cache, get_project_path
 from mlflow.assistant.config import AssistantConfig, PermissionsConfig, ProjectConfig
 from mlflow.assistant.providers import list_providers
@@ -18,6 +19,7 @@ from mlflow.assistant.providers.base import (
 )
 from mlflow.assistant.skill_installer import install_skills, list_installed_skills
 from mlflow.assistant.types import EventType
+from mlflow.genai.agent_server import invoke
 from mlflow.server.assistant.session import SessionManager, terminate_session_process
 
 
@@ -292,6 +294,7 @@ async def update_config(request: ConfigUpdateRequest) -> ConfigResponse:
             existing = config.providers.get(name)
             model = provider_data.get("model") or (existing.model if existing else "default")
             base_url = provider_data.get("base_url")
+            api_key = provider_data.get("api_key")
             permissions = None
             if "permissions" in provider_data:
                 perm_data = provider_data["permissions"]
@@ -302,10 +305,14 @@ async def update_config(request: ConfigUpdateRequest) -> ConfigResponse:
                 )
             selected = provider_data.get("selected", False)
             if selected:
-                config.set_provider(name, model, permissions, base_url=base_url)
+                config.set_provider(name, model, permissions, base_url=base_url, api_key=api_key)
             else:
                 config.update_provider(
-                    name, model=model, permissions=permissions, base_url=base_url
+                    name,
+                    model=model,
+                    permissions=permissions,
+                    base_url=base_url,
+                    api_key=api_key,
                 )
 
     # Update projects
@@ -396,7 +403,9 @@ async def install_skills_endpoint(request: SkillsInstallRequest) -> SkillsInstal
 
 
 @assistant_router.get("/providers/{provider}/models")
-async def list_provider_models(provider: str, base_url: str | None = None) -> dict[str, Any]:
+async def list_provider_models(
+    provider: str, base_url: str | None = None, api_key: str | None = None
+) -> dict[str, Any]:
     p = _get_provider(provider)
     if p is None:
         raise HTTPException(
@@ -405,7 +414,7 @@ async def list_provider_models(provider: str, base_url: str | None = None) -> di
         )
 
     try:
-        models = p.list_models(base_url)
+        models = p.list_models(base_url, api_key)
         return {"models": models}
     except NotImplementedError:
         raise HTTPException(

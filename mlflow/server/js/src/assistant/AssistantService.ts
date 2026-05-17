@@ -234,8 +234,12 @@ export const sendMessageStream = async (
   }
 };
 
-export const listProviderModels = async (provider: string, baseUrl: string): Promise<string[]> => {
-  const url = `${API_BASE}/providers/${encodeURIComponent(provider)}/models?base_url=${encodeURIComponent(baseUrl)}`;
+export const listProviderModels = async (provider: string, baseUrl: string, apiKey?: string): Promise<string[]> => {
+  const params = new URLSearchParams({ base_url: baseUrl });
+  if (apiKey) {
+    params.set('api_key', apiKey);
+  }
+  const url = `${API_BASE}/providers/${encodeURIComponent(provider)}/models?${params.toString()}`;
   const response = await fetch(url, {
     headers: { ...getDefaultHeaders(document.cookie) },
   });

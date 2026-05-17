@@ -56,7 +56,7 @@ class MockProvider(AssistantProvider):
     def resolve_skills_path(self, base_directory: Path) -> Path:
         return base_directory / ".mock" / "skills"
 
-    def list_models(self, base_url: str | None = None) -> list[str]:
+    def list_models(self, base_url: str | None = None, api_key: str | None = None) -> list[str]:
         raise NotImplementedError
 
     async def astream(
@@ -465,12 +465,12 @@ def test_list_ollama_models_returns_model_list(client):
 
     assert response.status_code == 200
     assert response.json() == {"models": ["llama3"]}
-    mock_provider.list_models.assert_called_once_with("http://localhost:11434")
+    mock_provider.list_models.assert_called_once_with("http://localhost:11434", None)
 
 
 def test_list_ollama_models_returns_412_when_not_installed(client):
     class MissingDependencyProvider(MockProvider):
-        def list_models(self, base_url: str | None = None) -> list[str]:
+        def list_models(self, base_url: str | None = None, api_key: str | None = None) -> list[str]:
             raise CLINotInstalledError("ollama package missing")
 
     with patch(
@@ -485,7 +485,7 @@ def test_list_ollama_models_returns_412_when_not_installed(client):
 
 def test_list_ollama_models_returns_503_on_connection_failure(client):
     class UnreachableProvider(MockProvider):
-        def list_models(self, base_url: str | None = None) -> list[str]:
+        def list_models(self, base_url: str | None = None, api_key: str | None = None) -> list[str]:
             raise ProviderNotConfiguredError("Cannot connect to Ollama server")
 
     with patch("mlflow.server.assistant.api.list_providers", return_value=[UnreachableProvider()]):
