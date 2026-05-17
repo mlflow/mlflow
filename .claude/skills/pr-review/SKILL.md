@@ -93,6 +93,8 @@ gh api graphql -F owner=<owner> -F repo=<repo> -F pr=<pr_number> -f query='
 
 The working tree holds the PR merged into the base (`refs/pull/<pr>/merge`), so file contents reflect the post-merge state. Explore it for context beyond the diff (existing patterns, call sites of changed symbols, file conventions).
 
+The base branch is also fetched as `origin/master`. When the diff doesn't show enough (verifying a refactor preserved behavior, reading the full content of a deleted file, or seeing the pre-change version of a heavily modified file), use `git show origin/master:<path>` rather than re-fetching via the GitHub API.
+
 #### Don't comment on
 
 - Pre-existing code. You may read unchanged/context lines to understand the change, but only file findings against the changed lines (added, modified, or deleted), even if surrounding code looks suboptimal.

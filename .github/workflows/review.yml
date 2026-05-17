@@ -130,6 +130,11 @@ jobs:
           persist-credentials: false
           token: ${{ steps.app-token-read.outputs.token }}
           ref: refs/pull/${{ github.event.pull_request.number || github.event.issue.number }}/merge
+      # Make origin/master available so the pr-review skill can read pre-change
+      # content via `git show origin/master:<path>` instead of the GitHub API.
+      - name: Fetch base branch
+        run: |
+          git fetch --depth=1 origin master
       - uses: ./.github/actions/setup-python
         with:
           pin-micro-version: false
