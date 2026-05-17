@@ -23,13 +23,13 @@ def test_entry_point_compute_params():
         params, extra_params = entry_point.compute_parameters(
             {"name": "friend", "excitement": 10}, storage_dir
         )
-        assert params == {"name": quote("friend"), "greeting": quote("hi")}
+        assert params == {"name": "friend", "greeting": "hi"}
         assert extra_params == {quote("excitement"): quote("10")}
         # Don't pass extra "excitement" param, pass value for `greeting`
         params, extra_params = entry_point.compute_parameters(
             {"name": "friend", "greeting": "hello"}, storage_dir
         )
-        assert params == {"name": quote("friend"), "greeting": quote("hello")}
+        assert params == {"name": "friend", "greeting": "hello"}
         assert extra_params == {}
         # Raise exception on missing required parameter
         with pytest.raises(
@@ -160,10 +160,10 @@ def test_params():
 
     user_3 = {"alpha": 0.004, "gamma": 0.89}
     expected_final_3 = {
-        "alpha": quote("0.004"),
-        "l1_ratio": quote("0.1"),
-        "l2_ratio": quote("0.0003"),
-        "random_str": quote("hello"),
+        "alpha": "0.004",
+        "l1_ratio": "0.1",
+        "l2_ratio": "0.0003",
+        "random_str": "hello",
     }
     expected_extra_3 = {quote("gamma"): quote("0.89")}
     final_3, extra_3 = entry_point.compute_parameters(user_3, None)
@@ -172,10 +172,10 @@ def test_params():
 
     user_4 = {"alpha": 0.004, "l1_ratio": 0.0008, "random_str_2": "hello"}
     expected_final_4 = {
-        "alpha": quote("0.004"),
-        "l1_ratio": quote("0.0008"),
-        "l2_ratio": quote("0.0003"),
-        "random_str": quote("hello"),
+        "alpha": "0.004",
+        "l1_ratio": "0.0008",
+        "l2_ratio": "0.0003",
+        "random_str": "hello",
     }
     expected_extra_4 = {quote("random_str_2"): quote("hello")}
     final_4, extra_4 = entry_point.compute_parameters(user_4, None)
@@ -184,10 +184,10 @@ def test_params():
 
     user_5 = {"alpha": -0.99, "random_str": "hi"}
     expected_final_5 = {
-        "alpha": quote("-0.99"),
-        "l1_ratio": quote("0.1"),
-        "l2_ratio": quote("0.0003"),
-        "random_str": quote("hi"),
+        "alpha": "-0.99",
+        "l1_ratio": "0.1",
+        "l2_ratio": "0.0003",
+        "random_str": "hi",
     }
     expected_extra_5 = {}
     final_5, extra_5 = entry_point.compute_parameters(user_5, None)
@@ -196,10 +196,10 @@ def test_params():
 
     user_6 = {"alpha": 0.77, "ALPHA": 0.89}
     expected_final_6 = {
-        "alpha": quote("0.77"),
-        "l1_ratio": quote("0.1"),
-        "l2_ratio": quote("0.0003"),
-        "random_str": quote("hello"),
+        "alpha": "0.77",
+        "l1_ratio": "0.1",
+        "l2_ratio": "0.0003",
+        "random_str": "hello",
     }
     expected_extra_6 = {quote("ALPHA"): quote("0.89")}
     final_6, extra_6 = entry_point.compute_parameters(user_6, None)
