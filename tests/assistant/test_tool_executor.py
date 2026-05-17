@@ -20,25 +20,19 @@ def _run(coro):
 
 
 def test_read_resolves_relative_path_against_cwd(workspace):
-    result, is_error = _run(
-        execute_tool("Read", {"file_path": "src/main.py"}, cwd=workspace)
-    )
+    result, is_error = _run(execute_tool("Read", {"file_path": "src/main.py"}, cwd=workspace))
     assert not is_error
     assert "print('hello')" in result
 
 
 def test_read_absolute_path_works_without_cwd(workspace):
-    result, is_error = _run(
-        execute_tool("Read", {"file_path": str(workspace / "README.md")})
-    )
+    result, is_error = _run(execute_tool("Read", {"file_path": str(workspace / "README.md")}))
     assert not is_error
     assert "# project" in result
 
 
 def test_write_denied_without_cwd():
-    result, is_error = _run(
-        execute_tool("Write", {"file_path": "test.txt", "content": "hi"})
-    )
+    result, is_error = _run(execute_tool("Write", {"file_path": "test.txt", "content": "hi"}))
     assert is_error
     assert "Permission denied" in result
 
@@ -72,9 +66,7 @@ def test_path_containment_blocks_escape(workspace):
 
 
 def test_bash_works_without_cwd():
-    result, is_error = _run(
-        execute_tool("Bash", {"command": "echo hello"})
-    )
+    result, is_error = _run(execute_tool("Bash", {"command": "python3 -c \"print('hello')\""}))
     assert not is_error
     assert "hello" in result
 
