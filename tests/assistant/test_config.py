@@ -16,7 +16,6 @@ def config_file(tmp_path):
 
 
 def test_update_provider_preserves_selection():
-    """Updating a non-selected provider should not change the selected provider."""
     config = AssistantConfig()
     config.set_provider("claude_code", "claude-4", base_url=None)
     assert config.providers["claude_code"].selected is True
@@ -30,7 +29,6 @@ def test_update_provider_preserves_selection():
 
 
 def test_update_provider_creates_entry_when_missing():
-    """update_provider should create the provider entry if it doesn't exist."""
     config = AssistantConfig()
     assert "ollama" not in config.providers
 
@@ -42,7 +40,6 @@ def test_update_provider_creates_entry_when_missing():
 
 
 def test_update_provider_does_not_deselect_existing():
-    """Calling update_provider on a selected provider should keep it selected."""
     config = AssistantConfig()
     config.set_provider("ollama", "llama3.2")
     assert config.providers["ollama"].selected is True
@@ -54,7 +51,6 @@ def test_update_provider_does_not_deselect_existing():
 
 
 def test_set_provider_deselects_others():
-    """set_provider should mark the given provider as selected and deselect all others."""
     config = AssistantConfig()
     config.set_provider("claude_code", "claude-4")
     config.update_provider("ollama", model="llama3.2")
@@ -66,13 +62,11 @@ def test_set_provider_deselects_others():
 
 
 def test_get_selected_provider_returns_none_when_empty():
-    """get_selected_provider returns None when no providers exist."""
     config = AssistantConfig()
     assert config.get_selected_provider() is None
 
 
 def test_config_round_trip(config_file):
-    """Config should survive save/load cycle."""
     config = AssistantConfig()
     config.set_provider("ollama", "llama3.2", base_url="http://localhost:11434")
     config.save()
@@ -84,7 +78,6 @@ def test_config_round_trip(config_file):
 
 
 def test_update_provider_preserves_permissions():
-    """update_provider with permissions should replace permissions."""
     config = AssistantConfig()
     config.set_provider("ollama", "llama3.2")
     new_perms = PermissionsConfig(allow_edit_files=False, full_access=False)
