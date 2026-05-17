@@ -380,6 +380,32 @@ def test_openai_parse_tools_enum_validation(enum_values, param_type):
     assert parsed_tools[0].function.parameters.properties["option"].enum == enum_values
 
 
+def test_openai_parse_tools_accepts_openai_tool_model():
+    from openai.types.responses.function_tool import FunctionTool
+
+    from mlflow.openai.utils.chat_schema import _parse_tools
+
+    tool = FunctionTool(
+        name="lookup_order",
+        description="Look up an order by ID",
+        parameters={
+            "type": "object",
+            "properties": {"order_id": {"type": "string"}},
+            "required": ["order_id"],
+        },
+        type="function",
+        strict=True,
+    )
+
+    parsed_tools = _parse_tools({"tools": [tool]})
+
+    assert len(parsed_tools) == 1
+    assert parsed_tools[0].function.name == "lookup_order"
+    assert parsed_tools[0].function.description == "Look up an order by ID"
+    assert parsed_tools[0].function.parameters.properties["order_id"].type == "string"
+    assert parsed_tools[0].function.strict is True
+
+
 def test_construct_full_inputs_simple_function():
     def func(a, b, c=3, d=4, **kwargs):
         pass
