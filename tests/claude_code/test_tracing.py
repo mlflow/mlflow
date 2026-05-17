@@ -281,6 +281,25 @@ def test_process_transcript_returns_none_for_nonexistent_file():
     assert result is None
 
 
+def test_process_transcript_falls_back_to_snapshot_when_get_trace_fails(
+    mock_transcript_file, monkeypatch
+):
+    """Simulates the eventual-consistency scenario where the trace is created and
+    exported, but the post-export get_trace round-trip returns None. The caller
+    must still receive a non-None Trace so that stop-hook callers don't
+    mis-report a successful creation as a failure.
+    """
+    monkeypatch.setattr(tracing_module.mlflow, "get_trace", lambda *args, **kwargs: None)
+
+    trace = process_transcript(mock_transcript_file, "test-session-fallback")
+
+    # The fallback in-memory snapshot must be returned so callers see success.
+    assert trace is not None
+    assert trace.info.trace_metadata.get("mlflow.trace.session") == "test-session-fallback"
+    root_span = trace.data.spans[0]
+    assert root_span.name == "claude_code_conversation"
+
+
 def test_process_transcript_links_trace_to_run(mock_transcript_file):
     with mlflow.start_run() as run:
         trace = process_transcript(mock_transcript_file, "test-session-123")
