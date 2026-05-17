@@ -1,5 +1,4 @@
 import os
-import shlex
 from shlex import quote
 from unittest import mock
 
@@ -66,9 +65,9 @@ def test_compute_command_shell_escapes_extra_param_keys(malicious_key):
     entry_point = load_project().get_entry_point("greeter")
     with TempDir() as tmp:
         command = entry_point.compute_command({"name": "friend", malicious_key: "1"}, tmp.path())
-        # Shell-parsed tokens must collapse the metacharacters into one flag
-        # rather than splitting into multiple commands.
-        assert f"--{malicious_key}" in shlex.split(command)
+        # Raw command must contain the shell-quoted key so bash parses it as a
+        # single (nonsensical) flag token rather than executing the payload.
+        assert f"--{quote(malicious_key)}" in command
 
 
 def test_path_parameter():
