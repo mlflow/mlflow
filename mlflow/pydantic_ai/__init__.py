@@ -161,12 +161,15 @@ def autolog(log_traces: bool = True, disable: bool = False, silent: bool = False
 
         if hasattr(Agent, "instrument_all"):
             if log_traces:
+                # Capture the current instrumentation state before enabling
+                previous_state = getattr(Agent, "_instrument_all", False)
                 Agent.instrument_all(True)
 
                 from mlflow.utils.autologging_utils.safety import _AUTOLOGGING_CLEANUP_CALLBACKS
 
                 def cleanup_instrumentation():
-                    Agent.instrument_all(False)
+                    # Restore the previous state instead of always disabling
+                    Agent.instrument_all(previous_state)
 
                 _AUTOLOGGING_CLEANUP_CALLBACKS.setdefault(FLAVOR_NAME, []).append(
                     cleanup_instrumentation

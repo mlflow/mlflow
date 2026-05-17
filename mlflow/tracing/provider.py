@@ -356,8 +356,11 @@ def detach_span_from_context(token: contextvars.Token):
             mlflow_runtime_context.detach(token)
         else:
             context_api.detach(token)
-    except ValueError:
-        pass
+    except ValueError as e:
+        # Only suppress cross-context detachment errors (token from different context)
+        # Other ValueErrors indicate invalid token usage and should be logged
+        if "different Context" not in str(e):
+            _logger.warning("Failed to detach span from context: %s", e)
 
 
 def set_destination(destination: TraceLocationBase, *, context_local: bool = False):

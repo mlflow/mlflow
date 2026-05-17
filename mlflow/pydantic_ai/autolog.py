@@ -367,7 +367,6 @@ def _get_span_type(instance) -> str:
         if isinstance(instance, ToolManager):
             return SpanType.TOOL
 
-        pass
     return SpanType.UNKNOWN
 
 
