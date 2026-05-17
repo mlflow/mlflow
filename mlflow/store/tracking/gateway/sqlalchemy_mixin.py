@@ -5,7 +5,7 @@ import os
 import uuid
 from typing import Any
 
-from sqlalchemy import func
+from sqlalchemy import case, func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload
 
@@ -1381,6 +1381,9 @@ class SqlAlchemyGatewayStoreMixin:
         created_by: str | None = None,
     ) -> GatewayGuardrail:
         with self.ManagedSessionMaker() as session:
+            # Ensure the scorer is valid and in the current workspace
+            self._get_scorer_version(session, scorer_id, scorer_version)
+
             guardrail_id = f"gr-{uuid.uuid4().hex}"
             current_time = get_current_time_millis()
 
@@ -1530,7 +1533,8 @@ class SqlAlchemyGatewayStoreMixin:
                 .options(joinedload(SqlGatewayGuardrailConfig.guardrail))
                 .filter(SqlGatewayGuardrailConfig.endpoint_id == endpoint_id)
                 .order_by(
-                    SqlGatewayGuardrailConfig.execution_order.asc().nulls_last(),
+                    case((SqlGatewayGuardrailConfig.execution_order.is_(None), 1), else_=0).asc(),
+                    SqlGatewayGuardrailConfig.execution_order.asc(),
                     SqlGatewayGuardrailConfig.guardrail_id,
                 )
                 .all()

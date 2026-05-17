@@ -10,6 +10,16 @@ import { APILink } from "@site/src/components/APILink";
 
 # Deploy MLflow Model to Kubernetes
 
+:::warning[MLServer integration is deprecated]
+
+The MLflow MLServer integration (`--enable-mlserver` / `enable_mlserver=True`) is deprecated and will be removed in **MLflow 3.13**.
+Seldon, the company that maintained MLServer, is in [liquidation](https://github.com/SeldonIO/MLServer/issues/2404#issuecomment-4210286631), and the
+[MLServer project is no longer actively maintained](https://github.com/SeldonIO/MLServer/commits/master/). The guidance below is preserved for users on
+existing MLServer-based deployments. For new Kubernetes deployments, build the Docker image without `--enable-mlserver` (which uses the default FastAPI
+scoring server) or use a managed serving platform.
+
+:::
+
 ## Using MLServer as the Inference Server
 
 By default, MLflow deployment uses [FastAPI](https://fastapi.tiangolo.com/), a widely used ASGI web application framework for Python,

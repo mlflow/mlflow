@@ -1,13 +1,21 @@
 ---
+name: pr-review
+description: Review a GitHub pull request and emit a single review payload (comments + approval decision) for the workflow to validate and post
 disable-model-invocation: true
-allowed-tools: Read, Skill, Bash, Grep, Glob
-argument-hint: [extra_context]
-description: Review a GitHub pull request, add review comments for issues found, and approve if no significant issues exist
+allowed-tools:
+  - Read
+  - Skill
+  - Bash
+  - Grep
+  - Glob
+  - Agent
+  - Edit(//tmp/review-payload.json)
+argument-hint: "[extra_context]"
 ---
 
 # Review Pull Request
 
-Automatically review a GitHub pull request across correctness, security, edge cases, efficiency, readability, test coverage, and style. Approves the PR when there are no findings or only MODERATE/NIT findings.
+Automatically review a GitHub pull request across correctness, security, edge cases, efficiency, readability, test coverage, and style. Emits a single `/tmp/review-payload.json` that the workflow validates against [`review-payload.schema.json`](./review-payload.schema.json) and posts via `POST /repos/{owner}/{repo}/pulls/{pull_number}/reviews`. Sets the payload's `event` to `APPROVE` when there are no findings or only MODERATE/NIT findings.
 
 ## Usage
 
@@ -32,6 +40,8 @@ Automatically review a GitHub pull request across correctness, security, edge ca
 
 The current local branch may not be the PR branch being reviewed. Always rely on the PR diff fetched via the `fetch-diff` skill.
 
+You have a **read-only** GitHub token. Do NOT call write APIs (`gh api ... POST`, `gh pr review`, `gh pr comment`, etc.) — your only output is `/tmp/review-payload.json`. The workflow's post step holds the write token and submits the review on your behalf.
+
 ## Instructions
 
 ### 1. Auto-detect PR context
@@ -48,7 +58,32 @@ The current local branch may not be the PR branch being reviewed. Always rely on
 
 Run the `fetch-diff` skill to fetch the PR diff for the identified PR.
 
-### 3. In-Depth Analysis
+### 3. Fetch Existing Review Comments
+
+Fetch up to 100 review threads on the PR (open, resolved, and outdated, with up to 20 comments each) so you can avoid duplicating prior feedback:
+
+```bash
+gh api graphql -F owner=<owner> -F repo=<repo> -F pr=<PR_NUMBER> -f query='
+  query($owner: String!, $repo: String!, $pr: Int!) {
+    repository(owner: $owner, name: $repo) {
+      pullRequest(number: $pr) {
+        reviewThreads(first: 100) {
+          nodes {
+            isResolved
+            isOutdated
+            path
+            line
+            comments(first: 20) {
+              nodes { author { login } body }
+            }
+          }
+        }
+      }
+    }
+  }'
+```
+
+### 4. In-Depth Analysis
 
 **Apply additional filtering** from user instructions if provided (e.g., focus on specific issues or areas).
 
@@ -66,7 +101,7 @@ Evaluate the changed code across these dimensions:
 
 **Workspace awareness reminder**: If the diff touches the SQLAlchemy tracking store or other tracking persistence layers, verify workspace-aware behavior remains intact and that new functionality includes matching workspace-aware tests (e.g., additions in `tests/store/tracking/test_sqlalchemy_store_workspace.py`).
 
-### 4. Decision Point
+### 5. Decision Point
 
 Classify each finding by severity (matches `.github/instructions/code-review.instructions.md`):
 
@@ -76,33 +111,31 @@ Classify each finding by severity (matches `.github/instructions/code-review.ins
 | MODERATE | 🟡    | non-blocking quality concerns where the code works but could be clearer or safer |
 | NIT      | 🟢    | pure style/preference the author can ignore                                      |
 
-Then:
+Determine the review `event`:
 
-- **No findings** -> skip to step 6 (approve)
-- **Only MODERATE/NIT findings** -> step 5 (add comments), then step 6 (approve)
-- **Any CRITICAL finding** -> step 5 (add comments); do NOT approve
+- **No CRITICAL findings AND author has `admin`/`maintain` role** -> `event: "APPROVE"`
+- **Any CRITICAL finding, OR author role is anything else (or the API errors, e.g., 404 for non-collaborators)** -> `event: "COMMENT"`. Do not mention the reason for not approving in the review body.
 
-### 5. Add Review Comments
-
-For each finding, use the `add-review-comment` skill. One comment per distinct finding, anchored to the most relevant changed line. For repeated identical issues, leave a single representative comment rather than flagging every instance.
-
-Every comment MUST use this exact format: `<emoji> **<severity>:** <description>`
-
-Keep comments constructive and specific: state the problem, why it matters, and a concrete suggestion when possible.
-
-### 6. Approve the PR
-
-Approve the PR when there are no findings or only MODERATE/NIT findings, but **only if the PR author has the `admin` or `maintain` role**.
-
-First, check the PR author's role:
+Check the author's role:
 
 ```bash
 author=$(gh api repos/<owner>/<repo>/pulls/<PR_NUMBER> --jq '.user.login')
 gh api repos/<owner>/<repo>/collaborators/"$author"/permission --jq '.role_name'
 ```
 
-- If the role is `admin` or `maintain` -> approve the PR:
-  ```bash
-  gh pr review <PR_NUMBER> --repo <owner/repo> --approve
-  ```
-- Otherwise (including API errors, e.g., 404 for non-collaborators) -> do NOT approve. Do not mention the reason for not approving in the review.
+### 6. Emit Review Payload
+
+Read [`review-payload.schema.json`](./review-payload.schema.json) for the full payload spec (field types, required fields, patterns, enums) and write `/tmp/review-payload.json` matching it.
+
+Authoring rules not captured by the schema:
+
+- One comment per distinct finding, anchored to the most relevant changed line. For repeated identical issues, leave a single representative comment rather than flagging every instance.
+- Keep comments constructive and specific: state the problem, why it matters, and a concrete suggestion when possible.
+- Use suggestion blocks for simple fixes — fence with ` ```suggestion ` and preserve original indentation.
+- If you have no findings, emit an empty `comments` array.
+
+Validate before finishing — fix any errors and re-emit until this passes:
+
+```bash
+uv run --package skills skills validate-review /tmp/review-payload.json
+```

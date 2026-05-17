@@ -116,7 +116,11 @@ class ParamProperty(ParamType):
 
     description: str | None = None
     enum: list[str | int | float | bool] | None = None
-    items: ParamType | None = None
+    # Recursive type so nested arrays (e.g. list[list[str]]) preserve their inner
+    # `items` schema through Pydantic round-trips. If this were `ParamType`, the
+    # inner `items` field would be silently stripped and downstream providers
+    # would reject the schema with "array schema missing items".
+    items: ParamProperty | None = None
 
 
 class FunctionParams(BaseModel):

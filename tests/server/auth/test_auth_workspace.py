@@ -10,7 +10,7 @@ from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.server import auth as auth_module
-from mlflow.server.auth.permissions import EDIT, MANAGE, NO_PERMISSIONS, READ
+from mlflow.server.auth.permissions import MANAGE, NO_PERMISSIONS, READ, USE
 from mlflow.server.auth.routes import (
     CREATE_PROMPTLAB_RUN,
     GET_ARTIFACT,
@@ -23,7 +23,6 @@ from mlflow.server.auth.routes import (
 )
 from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
 from mlflow.utils import workspace_context
-from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 from tests.helper_functions import random_str
 
@@ -97,15 +96,16 @@ def test_seed_default_workspace_roles_happy_path(monkeypatch):
         auth_module._seed_default_workspace_roles(_create_workspace_response(workspace_name))
 
     names = [r["name"] for r in created_roles]
-    assert names == ["workspace-admin", "editor", "viewer"]
+    assert names == ["admin", "user"]
     assert all(r["workspace"] == workspace_name for r in created_roles)
 
-    # All three roles use resource_type='workspace' (the only supported workspace-wide
-    # resource_type in VALID_RESOURCE_TYPES). The permission level differentiates them.
+    # The simplified two-tier model lives in a single ``resource_type='workspace'``
+    # slot: ``admin`` carries MANAGE (admin grant), ``user`` carries USE (regular
+    # member). The permission tier distinguishes the two without needing a separate
+    # ``resource_type`` discriminant.
     assert [(p["resource_type"], p["permission"]) for p in added_perms] == [
         ("workspace", MANAGE.name),
-        ("workspace", EDIT.name),
-        ("workspace", READ.name),
+        ("workspace", USE.name),
     ]
     assert all(p["resource_pattern"] == "*" for p in added_perms)
 
@@ -151,7 +151,7 @@ def test_seed_default_workspace_roles_admin_creation_fails_still_seeds_others(mo
     workspace_name = f"team-{random_str(10)}"
 
     def fake_create_role(name, workspace, description=None):
-        if name == "workspace-admin":
+        if name == "admin":
             raise MlflowException("simulated admin role failure")
         return SimpleNamespace(id=10, name=name, workspace=workspace)
 
@@ -165,8 +165,8 @@ def test_seed_default_workspace_roles_admin_creation_fails_still_seeds_others(mo
     with auth_module.app.test_request_context("/api/3.0/mlflow/workspaces", method="POST"):
         auth_module._seed_default_workspace_roles(_create_workspace_response(workspace_name))
 
-    # editor and viewer still got created (best-effort seeding).
-    assert mock_add_role_permission.call_count == 2
+    # ``user`` still got created (best-effort seeding).
+    assert mock_add_role_permission.call_count == 1
 
 
 def test_seed_default_workspace_roles_permission_add_fails_rolls_back_role(monkeypatch):
@@ -177,13 +177,13 @@ def test_seed_default_workspace_roles_permission_add_fails_rolls_back_role(monke
 
     def fake_create_role(name, workspace, description=None):
         return SimpleNamespace(
-            id={"workspace-admin": 1, "editor": 2, "viewer": 3}[name],
+            id={"admin": 1, "user": 2}[name],
             name=name,
             workspace=workspace,
         )
 
     def fake_add_role_permission(role_id, resource_type, resource_pattern, permission):
-        if role_id == 1:  # workspace-admin
+        if role_id == 1:  # admin
             raise MlflowException("simulated add_role_permission failure")
         return SimpleNamespace(id=role_id)
 
@@ -198,7 +198,7 @@ def test_seed_default_workspace_roles_permission_add_fails_rolls_back_role(monke
     with auth_module.app.test_request_context("/api/3.0/mlflow/workspaces", method="POST"):
         auth_module._seed_default_workspace_roles(_create_workspace_response(workspace_name))
 
-    # Orphan workspace-admin role (id=1) was rolled back.
+    # Orphan admin role (id=1) was rolled back.
     mock_delete_role.assert_called_once_with(1)
 
 
@@ -417,50 +417,22 @@ def workspace_permission_setup(tmp_path, monkeypatch):
 
 
 def _set_workspace_permission(store: SqlAlchemyStore, username: str, permission: str):
+    """Replace the user's workspace grant on ``team-a`` with ``permission``.
+
+    The ``workspace_permission_setup`` fixture pre-grants MANAGE so each test
+    starts from a known authority; this helper rewrites that grant. ``permission
+    == NO_PERMISSIONS`` is treated as "clear the grant" since the simplified
+    model rejects NO_PERMISSIONS as a workspace-grant value — absence of a
+    grant combined with ``default_permission=NO_PERMISSIONS`` produces the same
+    deny semantics the explicit row used to provide.
+    """
+    if permission == NO_PERMISSIONS.name:
+        try:
+            store.delete_workspace_permission("team-a", username)
+        except MlflowException:
+            pass
+        return
     store.set_workspace_permission("team-a", username, permission)
-
-
-def test_workspace_permission_grants_default_access(monkeypatch):
-    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
-
-    default_permission = MANAGE.name
-    monkeypatch.setattr(
-        auth_module,
-        "auth_config",
-        auth_module.auth_config._replace(
-            default_permission=default_permission,
-            grant_default_workspace_access=True,
-        ),
-        raising=False,
-    )
-
-    class DummyStore:
-        def get_workspace_permission(self, workspace_name, username):
-            return None
-
-        def list_accessible_workspace_names(self, username):
-            return []
-
-    dummy_store = DummyStore()
-    monkeypatch.setattr(auth_module, "store", dummy_store, raising=False)
-
-    default_workspace = DEFAULT_WORKSPACE_NAME
-    monkeypatch.setattr(auth_module, "_get_workspace_store", lambda: None, raising=False)
-    monkeypatch.setattr(
-        auth_module,
-        "get_default_workspace_optional",
-        lambda *args, **kwargs: (SimpleNamespace(name=default_workspace), True),
-        raising=False,
-    )
-
-    auth = SimpleNamespace(username="alice")
-    permission = auth_module._workspace_permission(auth.username, default_workspace)
-    assert permission is not None
-    assert permission.can_manage
-
-    with workspace_context.WorkspaceContext(default_workspace):
-        monkeypatch.setattr(auth_module, "authenticate_request", lambda: auth)
-        assert auth_module.validate_can_create_experiment()
 
 
 def test_filter_list_workspaces_includes_default_when_autogrant(monkeypatch):
@@ -645,14 +617,92 @@ def test_experiment_validators_allow_manage_permission(workspace_permission_setu
         assert auth_module.validate_can_create_experiment()
 
 
-def test_experiment_validators_read_permission_blocks_writes(workspace_permission_setup):
+def test_experiment_validators_allow_role_based_workspace_manage(workspace_permission_setup):
+    # Grant MANAGE on the workspace via a role (with no legacy
+    # ``workspace_permissions`` row). Pre-fix this returned 403 — the
+    # workspace-level permission check only consulted the legacy table.
+    # ``_workspace_permission`` now max-merges role-based grants.
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
-    _set_workspace_permission(store, username, READ.name)
+
+    # Drop the legacy grant the fixture installs so we exercise the role path
+    # in isolation.
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
+
+    role = store.create_role(name="ws-admin", workspace="team-a")
+    store.add_role_permission(role.id, "workspace", "*", MANAGE.name)
+    user = store.get_user(username)
+    store.assign_role_to_user(user.id, role.id)
 
     with auth_module.app.test_request_context(
         "/api/2.0/mlflow/experiments/get", method="GET", query_string={"experiment_id": "exp-1"}
     ):
+        assert auth_module.validate_can_read_experiment()
+        assert auth_module.validate_can_update_experiment()
+        assert auth_module.validate_can_delete_experiment()
+        assert auth_module.validate_can_manage_experiment()
+
+    with workspace_context.WorkspaceContext("team-a"):
+        assert auth_module.validate_can_create_experiment()
+
+
+def test_experiment_validators_use_permission_allows_read_create_but_blocks_writes(
+    workspace_permission_setup,
+):
+    """Under the simplified model, ``USE`` is the non-admin workspace tier:
+    it allows reading every resource and creating new ones, but blocks
+    updates / deletes / role-admin actions on resources owned by others.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/experiments/get", method="GET", query_string={"experiment_id": "exp-1"}
+    ):
+        assert auth_module.validate_can_read_experiment()
+        assert not auth_module.validate_can_update_experiment()
+        assert not auth_module.validate_can_delete_experiment()
+        assert not auth_module.validate_can_manage_experiment()
+
+    with workspace_context.WorkspaceContext("team-a"):
+        assert auth_module.validate_can_create_experiment()
+
+
+def test_workspace_permission_max_merges_legacy_and_role(workspace_permission_setup):
+    # Operators mid-migration may have BOTH a legacy grant and a role grant.
+    # The effective permission must be the higher of the two — neither side
+    # should silently downgrade the other.
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+
+    # Legacy USE + role MANAGE → effective MANAGE.
+    _set_workspace_permission(store, username, USE.name)
+
+    role = store.create_role(name="ws-admin", workspace="team-a")
+    store.add_role_permission(role.id, "workspace", "*", MANAGE.name)
+    user = store.get_user(username)
+    store.assign_role_to_user(user.id, role.id)
+
+    with workspace_context.WorkspaceContext("team-a"):
+        assert auth_module.validate_can_create_experiment()
+
+
+def test_use_workspace_permission_allows_create_but_blocks_others_writes(
+    workspace_permission_setup,
+):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+
+    with workspace_context.WorkspaceContext("team-a"):
+        assert auth_module.validate_can_create_experiment()
+        assert auth_module.validate_can_create_registered_model()
+
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/experiments/get", method="GET", query_string={"experiment_id": "exp-1"}
+    ):
+        # USE preserves read; non-owned resources stay read-only.
         assert auth_module.validate_can_read_experiment()
         assert not auth_module.validate_can_update_experiment()
         assert not auth_module.validate_can_delete_experiment()
@@ -665,8 +715,69 @@ def test_experiment_validators_read_permission_blocks_writes(workspace_permissio
     ):
         assert auth_module.validate_can_read_experiment_by_name()
 
+    with (
+        workspace_context.WorkspaceContext("team-a"),
+        auth_module.app.test_request_context(
+            "/api/2.0/mlflow/registered-models/get",
+            method="GET",
+            query_string={"name": "model-xyz"},
+        ),
+    ):
+        # Same property for registered models.
+        assert auth_module.validate_can_read_registered_model()
+        assert not auth_module.validate_can_update_registered_model()
+        assert not auth_module.validate_can_delete_registered_model()
+        assert not auth_module.validate_can_manage_registered_model()
+
+
+def test_no_permissions_blocks_create(workspace_permission_setup):
+    # Without any access to the workspace, create is denied.
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
+
     with workspace_context.WorkspaceContext("team-a"):
         assert not auth_module.validate_can_create_experiment()
+        assert not auth_module.validate_can_create_registered_model()
+
+
+def test_role_grant_workspace_use_allows_create(workspace_permission_setup, monkeypatch):
+    # Workspace-wide USE grant ('workspace', '*', USE) confers create rights.
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    user_id = store.get_user(username).id
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    # Drop the legacy grant the fixture installs so we exercise the role-only
+    # path in isolation.
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
+
+    role = store.create_role(name="ws-contributor", workspace="team-a")
+    store.add_role_permission(role.id, "workspace", "*", USE.name)
+    store.assign_role_to_user(user_id, role.id)
+
+    with workspace_context.WorkspaceContext("team-a"):
+        assert auth_module.validate_can_create_experiment()
+        assert auth_module.validate_can_create_registered_model()
+
+
+def test_role_grant_resource_type_use_does_not_allow_create(
+    workspace_permission_setup, monkeypatch
+):
+    # Resource-specific USE on ``experiment`` doesn't confer workspace-wide
+    # create rights — only workspace-wide grants do.
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    user_id = store.get_user(username).id
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
+
+    role = store.create_role(name="exp-user", workspace="team-a")
+    store.add_role_permission(role.id, "experiment", "*", USE.name)
+    store.assign_role_to_user(user_id, role.id)
+
+    with workspace_context.WorkspaceContext("team-a"):
+        assert not auth_module.validate_can_create_experiment()
+        assert not auth_module.validate_can_create_registered_model()
 
 
 def test_experiment_artifact_proxy_validators_respect_permissions(workspace_permission_setup):
@@ -683,7 +794,7 @@ def test_experiment_artifact_proxy_validators_respect_permissions(workspace_perm
         assert auth_module.validate_can_update_experiment_artifact_proxy()
         assert auth_module.validate_can_delete_experiment_artifact_proxy()
 
-    _set_workspace_permission(store, username, READ.name)
+    _set_workspace_permission(store, username, USE.name)
 
     with auth_module.app.test_request_context(
         "/ajax-api/2.0/mlflow-artifacts/artifacts/1/path",
@@ -700,7 +811,7 @@ def test_experiment_artifact_proxy_without_experiment_id_uses_workspace_permissi
 ):
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
-    _set_workspace_permission(store, username, READ.name)
+    _set_workspace_permission(store, username, USE.name)
 
     with auth_module.app.test_request_context(
         "/ajax-api/2.0/mlflow-artifacts/artifacts/uploads/path",
@@ -781,15 +892,15 @@ def test_filter_experiment_ids_role_specific_grant(workspace_permission_setup, m
 
 
 def test_filter_experiment_ids_workspace_scope_role(workspace_permission_setup, monkeypatch):
-    # Role with (resource_type='workspace', '*', READ) should grant access to all experiments.
+    # Role with ('workspace', '*', USE) should grant read access to all experiments.
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     user_id = store.get_user(username).id
     monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
     _set_workspace_permission(store, username, NO_PERMISSIONS.name)
 
-    role = store.create_role(name="ws-reader", workspace="team-a")
-    store.add_role_permission(role.id, "workspace", "*", "READ")
+    role = store.create_role(name="ws-user", workspace="team-a")
+    store.add_role_permission(role.id, "workspace", "*", "USE")
     store.assign_role_to_user(user_id, role.id)
 
     token = workspace_context.set_server_request_workspace("team-a")
@@ -816,7 +927,7 @@ def test_run_validators_allow_manage_permission(workspace_permission_setup):
 def test_run_validators_read_permission_blocks_writes(workspace_permission_setup):
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
-    _set_workspace_permission(store, username, READ.name)
+    _set_workspace_permission(store, username, USE.name)
 
     with auth_module.app.test_request_context(
         "/api/2.0/mlflow/runs/get", method="GET", query_string={"run_id": "run-1"}
@@ -842,7 +953,7 @@ def test_logged_model_validators_respect_permissions(workspace_permission_setup)
         assert auth_module.validate_can_delete_logged_model()
         assert auth_module.validate_can_manage_logged_model()
 
-    _set_workspace_permission(store, username, READ.name)
+    _set_workspace_permission(store, username, USE.name)
     with auth_module.app.test_request_context(
         "/api/2.0/mlflow/logged-models/get",
         method="GET",
@@ -885,7 +996,7 @@ def test_scorer_validators_use_workspace_permissions(workspace_permission_setup)
 def test_scorer_validators_read_permission_blocks_writes(workspace_permission_setup):
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
-    _set_workspace_permission(store, username, READ.name)
+    _set_workspace_permission(store, username, USE.name)
 
     with auth_module.app.test_request_context(
         "/api/3.0/mlflow/scorers/get",
@@ -925,15 +1036,12 @@ def test_registered_model_validators_require_manage_for_writes(workspace_permiss
             assert auth_module.validate_can_update_registered_model()
             assert auth_module.validate_can_delete_registered_model()
             assert auth_module.validate_can_manage_registered_model()
-        perm = auth_module._workspace_permission(
-            auth_module.authenticate_request().username, "team-a"
-        )
-        assert perm is not None
-        assert perm.can_manage
+        user = store.get_user(auth_module.authenticate_request().username)
+        assert store.is_workspace_admin(user.id, "team-a")
         assert workspace_context.get_request_workspace() == "team-a"
         assert auth_module.validate_can_create_registered_model()
 
-        _set_workspace_permission(store, username, READ.name)
+        _set_workspace_permission(store, username, USE.name)
         with auth_module.app.test_request_context(
             "/api/2.0/mlflow/registered-models/get",
             method="GET",
@@ -943,7 +1051,9 @@ def test_registered_model_validators_require_manage_for_writes(workspace_permiss
             assert not auth_module.validate_can_update_registered_model()
             assert not auth_module.validate_can_delete_registered_model()
             assert not auth_module.validate_can_manage_registered_model()
-        assert not auth_module.validate_can_create_registered_model()
+        # USE confers create rights under the simplified workspace model — the
+        # creator-as-owner mechanism then grants MANAGE on what user creates.
+        assert auth_module.validate_can_create_registered_model()
 
 
 def test_validate_can_view_workspace_requires_access(workspace_permission_setup):
@@ -1068,7 +1178,7 @@ def test_experiment_artifact_proxy_without_workspaces_falls_back_to_default(monk
 def test_run_artifact_validators_denied_without_workspace_permission(workspace_permission_setup):
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
-    store.set_workspace_permission("team-a", username, NO_PERMISSIONS.name)
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
 
     with auth_module.app.test_request_context(
         GET_ARTIFACT,
@@ -1090,7 +1200,7 @@ def test_model_version_artifact_validator_denied_without_workspace_permission(
 ):
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
-    store.set_workspace_permission("team-a", username, NO_PERMISSIONS.name)
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
 
     with auth_module.app.test_request_context(
         GET_MODEL_VERSION_ARTIFACT,
@@ -1105,7 +1215,7 @@ def test_metric_history_bulk_validator_denied_without_workspace_permission(
 ):
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
-    store.set_workspace_permission("team-a", username, NO_PERMISSIONS.name)
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
 
     with auth_module.app.test_request_context(
         GET_METRIC_HISTORY_BULK,
@@ -1120,7 +1230,7 @@ def test_metric_history_bulk_interval_validator_denied_without_workspace_permiss
 ):
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
-    store.set_workspace_permission("team-a", username, NO_PERMISSIONS.name)
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
 
     with auth_module.app.test_request_context(
         GET_METRIC_HISTORY_BULK_INTERVAL,
@@ -1139,7 +1249,7 @@ def test_search_datasets_validator_denied_without_workspace_permission(
 ):
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
-    store.set_workspace_permission("team-a", username, NO_PERMISSIONS.name)
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
 
     with auth_module.app.test_request_context(
         SEARCH_DATASETS,
@@ -1154,7 +1264,7 @@ def test_create_promptlab_run_validator_denied_without_workspace_permission(
 ):
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
-    store.set_workspace_permission("team-a", username, NO_PERMISSIONS.name)
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
 
     with auth_module.app.test_request_context(
         CREATE_PROMPTLAB_RUN,
@@ -1169,7 +1279,7 @@ def test_trace_artifact_validator_denied_without_workspace_permission(
 ):
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
-    store.set_workspace_permission("team-a", username, NO_PERMISSIONS.name)
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
 
     with auth_module.app.test_request_context(
         GET_TRACE_ARTIFACT,
@@ -1225,7 +1335,7 @@ def test_explicit_experiment_permission_overrides_workspace(
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
 
-    store.set_workspace_permission("team-a", username, NO_PERMISSIONS.name)
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
     store.create_experiment_permission("exp-1", username, READ.name)
 
     with auth_module.app.test_request_context(
@@ -1314,7 +1424,7 @@ def test_workspace_permission_required_for_gateway_creation(workspace_permission
     username = workspace_permission_setup["username"]
 
     # Remove workspace permission
-    store.set_workspace_permission("team-a", username, NO_PERMISSIONS.name)
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
 
     with auth_module.app.test_request_context(
         "/api/3.0/mlflow/gateway/endpoints/create",
@@ -1378,7 +1488,7 @@ def test_prompt_optimization_job_validators_read_permission_blocks_writes(
     mock_job = SimpleNamespace(params='{"experiment_id": "exp-1"}')
     monkeypatch.setattr(auth_module, "get_job", lambda job_id: mock_job)
 
-    _set_workspace_permission(store, username, READ.name)
+    _set_workspace_permission(store, username, USE.name)
 
     with auth_module.app.test_request_context(
         "/api/3.0/mlflow/prompt-optimization/jobs/get",
@@ -1515,7 +1625,7 @@ def test_role_grant_on_gateway_endpoint_gates_validator_capabilities(
     username = workspace_permission_setup["username"]
 
     # Strip the default workspace MANAGE so the only positive grant is the role.
-    store.set_workspace_permission("team-a", username, NO_PERMISSIONS.name)
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
 
     _assign_role_with_permission(store, username, "team-a", "gateway_endpoint", granted)
 
@@ -1538,7 +1648,7 @@ def test_role_grant_read_on_gateway_endpoint_does_not_permit_use(
     """
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
-    store.set_workspace_permission("team-a", username, NO_PERMISSIONS.name)
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
 
     _assign_role_with_permission(store, username, "team-a", "gateway_endpoint", "READ")
 
@@ -1551,7 +1661,7 @@ def test_role_grant_read_on_gateway_endpoint_does_not_permit_use(
 def test_role_grant_use_on_gateway_endpoint_permits_use(workspace_permission_setup):
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
-    store.set_workspace_permission("team-a", username, NO_PERMISSIONS.name)
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
 
     _assign_role_with_permission(store, username, "team-a", "gateway_endpoint", "USE")
 
@@ -1576,7 +1686,7 @@ def test_role_grant_permission_level_determines_use_capability(
     """
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
-    store.set_workspace_permission("team-a", username, NO_PERMISSIONS.name)
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
 
     _assign_role_with_permission(store, username, "team-a", "gateway_endpoint", granted)
 
@@ -1589,19 +1699,19 @@ def test_role_grant_permission_level_determines_use_capability(
 # ---- Workspace-wide role grants on gateway resources ----
 
 
-@pytest.mark.parametrize("granted", ["READ", "USE", "EDIT", "MANAGE"])
+@pytest.mark.parametrize("granted", ["USE", "MANAGE"])
 def test_role_workspace_wide_grant_applies_to_gateway_endpoints(
     workspace_permission_setup, granted
 ):
-    """``(workspace, *, X)`` grants apply to every resource type in the
+    """``('workspace', '*', X)`` grants apply to every resource type in the
     workspace — including gateway endpoints. Confirms the workspace-wide
     short-circuit isn't accidentally gated behind resource_type=='experiment'
     or similar, which would silently lock workspace admins out of gateway
-    resources.
+    resources. The simplified workspace slot accepts only USE / MANAGE.
     """
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
-    store.set_workspace_permission("team-a", username, NO_PERMISSIONS.name)
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
 
     _assign_role_with_permission(store, username, "team-a", "workspace", granted)
 
@@ -1610,7 +1720,7 @@ def test_role_workspace_wide_grant_applies_to_gateway_endpoints(
         method="GET",
         query_string={"endpoint_id": "endpoint-1"},
     ):
-        # All four levels grant READ.
+        # Both levels grant READ.
         assert auth_module.validate_can_read_gateway_endpoint() is True
 
         # Only MANAGE grants can_delete / can_manage.
@@ -1618,33 +1728,17 @@ def test_role_workspace_wide_grant_applies_to_gateway_endpoints(
         assert auth_module.validate_can_manage_gateway_endpoint() is (granted == "MANAGE")
 
 
-def test_role_workspace_wide_read_does_not_imply_use_on_gateway_endpoint(
-    workspace_permission_setup,
-):
-    """``(workspace, *, READ)`` grants READ on every resource but not USE.
-    Users with a workspace-wide viewer role shouldn't be able to invoke
-    gateway endpoints.
-    """
-    store = workspace_permission_setup["store"]
-    username = workspace_permission_setup["username"]
-    store.set_workspace_permission("team-a", username, NO_PERMISSIONS.name)
-
-    _assign_role_with_permission(store, username, "team-a", "workspace", "READ")
-
-    with auth_module.app.test_request_context("/"):
-        assert auth_module._validate_gateway_use_permission("endpoint-1", username) is False
-
-
-@pytest.mark.parametrize("granted", ["USE", "EDIT", "MANAGE"])
-def test_role_workspace_wide_non_read_grants_imply_use_on_gateway_endpoint(
+@pytest.mark.parametrize("granted", ["USE", "MANAGE"])
+def test_role_workspace_wide_grant_implies_use_on_gateway_endpoint(
     workspace_permission_setup, granted
 ):
-    """``(workspace, *, {USE,EDIT,MANAGE})`` all imply USE → invocation
-    allowed.
+    """``('workspace', '*', {USE, MANAGE})`` both imply USE → gateway endpoint
+    invocation allowed. The simplified model collapses the prior READ workspace
+    tier into USE, so a workspace-wide grant always confers can_use.
     """
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
-    store.set_workspace_permission("team-a", username, NO_PERMISSIONS.name)
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
 
     _assign_role_with_permission(store, username, "team-a", "workspace", granted)
 
@@ -1668,7 +1762,7 @@ def test_role_grant_on_gateway_secret_gates_validator(
 ):
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
-    store.set_workspace_permission("team-a", username, NO_PERMISSIONS.name)
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
 
     _assign_role_with_permission(store, username, "team-a", "gateway_secret", granted)
 
@@ -1694,7 +1788,7 @@ def test_role_grant_on_gateway_model_definition_gates_validator(
 ):
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
-    store.set_workspace_permission("team-a", username, NO_PERMISSIONS.name)
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
 
     _assign_role_with_permission(store, username, "team-a", "gateway_model_definition", granted)
 
@@ -1719,7 +1813,7 @@ def test_role_in_other_workspace_does_not_grant_gateway_endpoint_access(
     """
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
-    store.set_workspace_permission("team-a", username, NO_PERMISSIONS.name)
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
 
     # Role with MANAGE in team-b — should NOT apply to team-a endpoints.
     _assign_role_with_permission(store, username, "team-b", "gateway_endpoint", "MANAGE")
@@ -1736,7 +1830,7 @@ def test_role_in_other_workspace_does_not_grant_gateway_endpoint_access(
 def test_role_in_other_workspace_does_not_grant_gateway_use(workspace_permission_setup):
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
-    store.set_workspace_permission("team-a", username, NO_PERMISSIONS.name)
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
 
     _assign_role_with_permission(store, username, "team-b", "gateway_endpoint", "USE")
 
@@ -1754,7 +1848,7 @@ def test_role_union_best_permission_wins_for_gateway_endpoint(workspace_permissi
     """
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
-    store.set_workspace_permission("team-a", username, NO_PERMISSIONS.name)
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
 
     _assign_role_with_permission(store, username, "team-a", "gateway_endpoint", "READ")
     _assign_role_with_permission(store, username, "team-a", "gateway_endpoint", "MANAGE")
@@ -1987,6 +2081,112 @@ def test_validate_can_list_roles_blank_workspace_denied_for_non_admin(role_auth_
         assert auth_module.validate_can_list_roles() is False
 
 
+@pytest.mark.parametrize(
+    ("actor", "workspaces", "expected"),
+    [
+        # Super admin lists across any combination unconditionally.
+        ("super_admin", ["foo", "bar"], True),
+        # Workspace admin must hold a role in *every* requested workspace.
+        ("ws_admin_foo", ["foo"], True),
+        ("ws_admin_foo", ["foo", "bar"], False),  # not present in bar
+        ("ws_admin_foo", ["foo", "foo"], True),  # duplicate is fine
+        # Member of foo can list foo, but not foo + bar.
+        ("ws_member_foo", ["foo"], True),
+        ("ws_member_foo", ["foo", "bar"], False),
+        # Outsider can list nothing.
+        ("outsider", ["foo"], False),
+        ("outsider", ["foo", "bar"], False),
+    ],
+)
+def test_validate_can_list_roles_multi_workspace(role_auth_setup, actor, workspaces, expected):
+    role_auth_setup["login_as"](actor)
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/roles/list",
+        method="GET",
+        query_string=[("workspace", w) for w in workspaces],
+    ):
+        assert auth_module.validate_can_list_roles() is expected
+
+
+# Super admin is omitted from these parametrizations: ``_before_request``
+# short-circuits via ``sender_is_admin`` before the validator is reached, so
+# the validator is unreachable for them in production.
+@pytest.mark.parametrize(
+    ("actor", "expected"),
+    [
+        ("ws_admin_foo", True),
+        ("ws_admin_bar", True),
+        ("ws_member_foo", False),
+        ("outsider", False),
+    ],
+)
+def test_validate_can_list_users(role_auth_setup, actor, expected):
+    role_auth_setup["login_as"](actor)
+    with auth_module.app.test_request_context("/api/2.0/mlflow/users/list", method="GET"):
+        assert auth_module.validate_can_list_users() is expected
+
+
+def test_list_users_handler_eager_loads_scoped_roles(role_auth_setup):
+    # Workspace admin: bulk response includes per-user roles, scoped to
+    # workspaces the requester administers (plus self, unscoped).
+    role_auth_setup["login_as"]("ws_admin_foo")
+    with auth_module.app.test_request_context("/api/2.0/mlflow/users/list", method="GET"):
+        response = auth_module.list_users()
+    by_username = {u["username"]: u for u in response.get_json()["users"]}
+
+    # Self: own admin role visible.
+    assert {(r["workspace"], r["name"]) for r in by_username["ws_admin_foo"]["roles"]} == {
+        ("foo", "admin-foo")
+    }
+    # Cross-user in foo: filtered to foo only (member-foo lives in foo).
+    assert {(r["workspace"], r["name"]) for r in by_username["ws_member_foo"]["roles"]} == {
+        ("foo", "member-foo")
+    }
+    # Cross-user outside requester's admin set: roles hidden.
+    assert by_username["ws_admin_bar"]["roles"] == []
+    assert by_username["outsider"]["roles"] == []
+
+
+def test_list_users_handler_super_admin_sees_every_role(role_auth_setup):
+    role_auth_setup["login_as"]("super_admin")
+    with auth_module.app.test_request_context("/api/2.0/mlflow/users/list", method="GET"):
+        response = auth_module.list_users()
+    by_username = {u["username"]: u for u in response.get_json()["users"]}
+
+    assert {(r["workspace"], r["name"]) for r in by_username["ws_admin_foo"]["roles"]} == {
+        ("foo", "admin-foo")
+    }
+    assert {(r["workspace"], r["name"]) for r in by_username["ws_admin_bar"]["roles"]} == {
+        ("bar", "admin-bar")
+    }
+    assert {(r["workspace"], r["name"]) for r in by_username["ws_member_foo"]["roles"]} == {
+        ("foo", "member-foo")
+    }
+
+
+@pytest.mark.parametrize(
+    ("actor", "expected"),
+    [
+        ("ws_admin_foo", True),
+        ("ws_admin_bar", True),
+        ("ws_member_foo", False),
+        ("outsider", False),
+    ],
+)
+def test_validate_can_create_user(role_auth_setup, actor, expected):
+    role_auth_setup["login_as"](actor)
+    with auth_module.app.test_request_context("/api/2.0/mlflow/users/create", method="POST"):
+        assert auth_module.validate_can_create_user() is expected
+
+
+def test_validate_can_delete_user_stays_super_admin_only(role_auth_setup):
+    # Regression: the create-user widening must not have leaked into delete.
+    for actor in ("ws_admin_foo", "outsider"):
+        role_auth_setup["login_as"](actor)
+        with auth_module.app.test_request_context("/api/2.0/mlflow/users/delete", method="DELETE"):
+            assert auth_module.validate_can_delete_user() is False
+
+
 def test_validate_can_view_user_roles_self_always_allowed(role_auth_setup):
     # A user can always read their own role list, even one with no roles.
     # Using ``outsider`` (zero roles) exercises the self-short-circuit without
@@ -2119,3 +2319,224 @@ def test_validate_can_manage_roles_propagates_param_coercion_errors(role_auth_se
     ):
         with pytest.raises(MlflowException, match="must be an integer"):
             auth_module.validate_can_manage_roles()
+
+
+def test_role_permission_resolver_honors_default_workspace_autogrant(monkeypatch):
+    """Resource-level resolution must fall back to ``default_permission`` for an
+    ungranted user in the configured default workspace when
+    ``grant_default_workspace_access=true``. Without this, deployments that
+    relied on the implicit auto-grant pre-simplification suddenly see
+    ``NO_PERMISSIONS`` for resources in the default workspace.
+    """
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    monkeypatch.setattr(
+        auth_module,
+        "auth_config",
+        auth_module.auth_config._replace(
+            default_permission=READ.name,
+            grant_default_workspace_access=True,
+        ),
+        raising=False,
+    )
+
+    default_workspace = "team-default"
+    monkeypatch.setattr(auth_module, "_get_workspace_store", lambda: None, raising=False)
+    monkeypatch.setattr(
+        auth_module,
+        "get_default_workspace_optional",
+        lambda *args, **kwargs: (SimpleNamespace(name=default_workspace), True),
+        raising=False,
+    )
+
+    class DummyStore:
+        def get_user(self, username):
+            return SimpleNamespace(id=42, username=username)
+
+        def get_role_permission_for_resource(self, *args, **kwargs):
+            return None
+
+    monkeypatch.setattr(auth_module, "store", DummyStore(), raising=False)
+    monkeypatch.setattr(
+        auth_module,
+        "_get_resource_workspace",
+        lambda *args, **kwargs: default_workspace,
+    )
+
+    role_perm = auth_module._role_permission_for(
+        username="alice",
+        resource_type="experiment",
+        resource_key="exp-1",
+        workspace_lookup_id="exp-1",
+        workspace_fetcher=lambda _id: SimpleNamespace(),
+        workspace_label="experiment",
+    )
+    perm = auth_module._get_role_permission_or_default(role_perm)
+    assert perm.name == READ.name
+
+
+def test_role_permission_resolver_denies_in_non_default_workspace(monkeypatch):
+    """The auto-grant only applies to the configured default workspace. An
+    ungranted user in any other workspace must still get ``NO_PERMISSIONS``,
+    even if ``grant_default_workspace_access`` is enabled.
+    """
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    monkeypatch.setattr(
+        auth_module,
+        "auth_config",
+        auth_module.auth_config._replace(
+            default_permission=READ.name,
+            grant_default_workspace_access=True,
+        ),
+        raising=False,
+    )
+
+    monkeypatch.setattr(auth_module, "_get_workspace_store", lambda: None, raising=False)
+    monkeypatch.setattr(
+        auth_module,
+        "get_default_workspace_optional",
+        lambda *args, **kwargs: (SimpleNamespace(name="team-default"), True),
+        raising=False,
+    )
+
+    class DummyStore:
+        def get_user(self, username):
+            return SimpleNamespace(id=42, username=username)
+
+        def get_role_permission_for_resource(self, *args, **kwargs):
+            return None
+
+    monkeypatch.setattr(auth_module, "store", DummyStore(), raising=False)
+    monkeypatch.setattr(
+        auth_module,
+        "_get_resource_workspace",
+        lambda *args, **kwargs: "other-workspace",
+    )
+
+    role_perm = auth_module._role_permission_for(
+        username="alice",
+        resource_type="experiment",
+        resource_key="exp-1",
+        workspace_lookup_id="exp-1",
+        workspace_fetcher=lambda _id: SimpleNamespace(),
+        workspace_label="experiment",
+    )
+    perm = auth_module._get_role_permission_or_default(role_perm)
+    assert perm.name == NO_PERMISSIONS.name
+
+
+def test_user_can_create_in_default_workspace_via_autogrant(monkeypatch):
+    """``_user_can_create_in_workspace`` must honor
+    ``grant_default_workspace_access`` so an ungranted user in the default
+    workspace can still create when ``default_permission.can_use`` is true.
+    Regression guard for the legacy-endpoint simplification, which dropped
+    the auto-grant fallback when ``_workspace_permission`` was retired.
+    """
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    auth = SimpleNamespace(username="alice")
+    monkeypatch.setattr(auth_module, "authenticate_request", lambda: auth)
+    monkeypatch.setattr(
+        auth_module,
+        "auth_config",
+        auth_module.auth_config._replace(
+            default_permission=USE.name,
+            grant_default_workspace_access=True,
+        ),
+        raising=False,
+    )
+
+    default_workspace = "team-default"
+    monkeypatch.setattr(auth_module, "_get_workspace_store", lambda: None, raising=False)
+    monkeypatch.setattr(
+        auth_module,
+        "get_default_workspace_optional",
+        lambda *args, **kwargs: (SimpleNamespace(name=default_workspace), True),
+        raising=False,
+    )
+
+    class DummyStore:
+        def get_user(self, username):
+            return SimpleNamespace(id=42, username=username)
+
+        def get_role_permission_for_resource(self, *args, **kwargs):
+            return None
+
+    monkeypatch.setattr(auth_module, "store", DummyStore(), raising=False)
+
+    # Default workspace + autogrant + USE → allowed.
+    with workspace_context.WorkspaceContext(default_workspace):
+        assert auth_module._user_can_create_in_workspace()
+
+    # Same config but a non-default workspace → still denied.
+    with workspace_context.WorkspaceContext("team-other"):
+        assert not auth_module._user_can_create_in_workspace()
+
+
+def test_user_cannot_create_via_autogrant_when_default_permission_lacks_use(monkeypatch):
+    """The auto-grant create-gate gates on ``default_permission.can_use``. If
+    the operator pinned ``default_permission=READ`` (read-only access), the
+    fallback must not allow create.
+    """
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    auth = SimpleNamespace(username="alice")
+    monkeypatch.setattr(auth_module, "authenticate_request", lambda: auth)
+    monkeypatch.setattr(
+        auth_module,
+        "auth_config",
+        auth_module.auth_config._replace(
+            default_permission=READ.name,
+            grant_default_workspace_access=True,
+        ),
+        raising=False,
+    )
+
+    default_workspace = "team-default"
+    monkeypatch.setattr(auth_module, "_get_workspace_store", lambda: None, raising=False)
+    monkeypatch.setattr(
+        auth_module,
+        "get_default_workspace_optional",
+        lambda *args, **kwargs: (SimpleNamespace(name=default_workspace), True),
+        raising=False,
+    )
+
+    class DummyStore:
+        def get_user(self, username):
+            return SimpleNamespace(id=42, username=username)
+
+        def get_role_permission_for_resource(self, *args, **kwargs):
+            return None
+
+    monkeypatch.setattr(auth_module, "store", DummyStore(), raising=False)
+
+    with workspace_context.WorkspaceContext(default_workspace):
+        assert not auth_module._user_can_create_in_workspace()
+
+
+def test_role_based_read_predicate_ignores_no_permissions_grants(monkeypatch):
+    monkeypatch.delenv(MLFLOW_ENABLE_WORKSPACES.name, raising=False)
+    monkeypatch.setattr(
+        auth_module,
+        "auth_config",
+        auth_module.auth_config._replace(default_permission=READ.name),
+        raising=False,
+    )
+
+    class DummyStore:
+        def get_user(self, username):
+            return SimpleNamespace(id=42, username=username)
+
+        def list_role_grants_for_user_in_workspace(self, *args, **kwargs):
+            return [
+                ("*", NO_PERMISSIONS.name),
+                ("exp-allowed", READ.name),
+                ("exp-explicit-deny", NO_PERMISSIONS.name),
+            ]
+
+    monkeypatch.setattr(auth_module, "store", DummyStore(), raising=False)
+
+    predicate = auth_module._role_based_read_predicate("alice", "experiment")
+    # Specific positive grant wins.
+    assert predicate("exp-allowed")
+    # NO_PERMISSIONS wildcard is ignored; default READ fallback applies.
+    assert predicate("exp-other")
+    # Per-resource NO_PERMISSIONS is ignored; default READ fallback applies.
+    assert predicate("exp-explicit-deny")

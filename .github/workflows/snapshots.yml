@@ -31,7 +31,7 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-java
-      - uses: r-lib/actions/setup-r@bd49c52ffe281809afa6f0fecbf37483c5dd0b93 # v2.11.3
+      - uses: r-lib/actions/setup-r@a51a8012b0aab7c32ef9d19bf54da93f3254335e # v2.12.0
 
       - name: Create artifacts directory
         run: |

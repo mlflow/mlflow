@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/mlflow/mlflow/.claude/skills/pr-review/review-payload.schema.json",
+  "title": "PR Review Payload",
+  "description": "Payload emitted by the pr-review skill and posted via POST /repos/{owner}/{repo}/pulls/{pull_number}/reviews.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["event", "body", "comments"],
+  "properties": {
+    "event": {
+      "description": "Review action. APPROVE only when there are no CRITICAL findings and the PR author has admin/maintain; otherwise COMMENT.",
+      "type": "string",
+      "enum": ["APPROVE", "COMMENT"]
+    },
+    "body": {
+      "description": "Top-level review summary. Must end with the '🤖 Generated with Claude' footer on its own line.",
+      "type": "string",
+      "minLength": 1,
+      "pattern": "(^|\\n)🤖 Generated with Claude\\s*$"
+    },
+    "commit_id": {
+      "description": "Head commit SHA being reviewed. Optional; GitHub defaults to the latest commit when omitted.",
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "comments": {
+      "description": "Inline review comments. Empty array is allowed (e.g., clean APPROVE).",
+      "type": "array",
+      "items": { "$ref": "#/$defs/comment" }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "event": { "const": "APPROVE" } },
+        "required": ["event"]
+      },
+      "then": {
+        "properties": {
+          "comments": {
+            "items": {
+              "properties": {
+                "body": {
+                  "not": { "pattern": "^🔴 \\*\\*CRITICAL:" }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "side": {
+      "type": "string",
+      "enum": ["LEFT", "RIGHT"]
+    },
+    "comment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "body", "line", "side"],
+      "properties": {
+        "path": {
+          "description": "File path relative to the repo root. Must match a path present in the PR diff.",
+          "type": "string",
+          "minLength": 1
+        },
+        "body": {
+          "description": "Comment body. Must start with '🔴 **CRITICAL:** ', '🟡 **MODERATE:** ', or '🟢 **NIT:** '.",
+          "type": "string",
+          "pattern": "^(🔴 \\*\\*CRITICAL:\\*\\*|🟡 \\*\\*MODERATE:\\*\\*|🟢 \\*\\*NIT:\\*\\*) "
+        },
+        "line": {
+          "description": "Line number to anchor to. For multi-line comments, this is the last line of the range.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "side": {
+          "description": "RIGHT for added/modified lines, LEFT for deleted lines.",
+          "$ref": "#/$defs/side"
+        },
+        "start_line": {
+          "description": "First line of a multi-line comment range. Required together with start_side.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "start_side": {
+          "description": "Side for start_line. Required together with start_line.",
+          "$ref": "#/$defs/side"
+        }
+      },
+      "dependentRequired": {
+        "start_line": ["start_side"],
+        "start_side": ["start_line"]
+      }
+    }
+  }
+}

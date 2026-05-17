@@ -1,0 +1,97 @@
+# Example values for the MLflow Helm chart (SQLite + local storage).
+# Usage:
+#   helm upgrade --install mlflow ./charts --namespace mlflow --create-namespace -f charts/example-mlflow-charts.yaml
+
+image:
+  repository: ghcr.io/mlflow/mlflow
+  tag: "v3.11.1-full"
+
+replicaCount: 1
+
+server:
+  value_options:
+    host: "0.0.0.0"
+    port: 5000
+    workers: 4
+
+    # Uncomment to enable the basic-auth plugin:
+    # app_name: "basic-auth"
+
+  # Bare flags rendered as --flag. Uncomment as needed.
+  flag_options: []
+  # - no_serve_artifacts
+
+mlflow:
+  backendStoreUri: "sqlite:////mlflow/mlflow.db"
+  defaultArtifactRoot: "/mlflow/artifacts"
+
+  # --- For production: use a real database and object store instead ---
+  # Option A: inline URI (password visible in values — development only).
+  # Option B: reference a Secret (recommended for production).
+  #
+  # Create the Secret first:
+  #   kubectl create secret generic mlflow-db-secret \
+  #     --from-literal=uri="postgresql://user:password@postgres:5432/mlflow"
+  # backendStoreUri: "postgresql://user:password@postgres:5432/mlflow"
+  # backendStoreUriFrom:
+  #   secretKeyRef:
+  #     name: mlflow-db-secret
+  #     key: uri
+  # artifactsDestination: "s3://my-bucket/mlflow"
+
+storage:
+  enabled: true
+  # StorageClass to use. Set to match your cluster
+  # (e.g. "gp2" for standard EKS, "standard" for Kind/minikube).
+  storageClassName: "gp2"
+
+# S3 credentials (or other artifact store credentials):
+#   kubectl create secret generic s3-credentials \
+#     --from-literal=access-key-id=<key> \
+#     --from-literal=secret-access-key=<secret>
+# env:
+#   - name: AWS_ACCESS_KEY_ID
+#     valueFrom:
+#       secretKeyRef:
+#         name: s3-credentials
+#         key: access-key-id
+#   - name: AWS_SECRET_ACCESS_KEY
+#     valueFrom:
+#       secretKeyRef:
+#         name: s3-credentials
+#         key: secret-access-key
+
+service:
+  type: ClusterIP
+
+# Expose via Ingress:
+# ingress:
+#   enabled: true
+#   className: nginx
+#   hosts:
+#     - host: mlflow.example.com
+#       paths:
+#         - path: /
+#           pathType: Prefix
+
+# Prometheus metrics:
+metrics:
+  enabled: false
+
+# Prometheus ServiceMonitor (requires Prometheus Operator):
+# serviceMonitor:
+#   enabled: true
+
+# Garbage collection (removes permanently soft-deleted resources):
+garbageCollection:
+  enabled: true
+  schedule: "0 2 * * 0"
+  olderThan: "30d"
+
+resources:
+  requests:
+    cpu: 500m
+    memory: 512Mi
+  limits:
+    cpu: 2000m
+    memory: 2Gi
