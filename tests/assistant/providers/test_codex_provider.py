@@ -70,7 +70,7 @@ def test_provider_name():
 
 
 def test_provider_display_name():
-    assert CodexProvider().display_name == "OpenAI Codex CLI"
+    assert CodexProvider().display_name == "OpenAI Codex"
 
 
 @pytest.mark.asyncio

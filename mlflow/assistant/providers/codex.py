@@ -28,7 +28,7 @@ class CodexProvider(AssistantProvider):
 
     @property
     def display_name(self) -> str:
-        return "OpenAI Codex CLI"
+        return "OpenAI Codex"
 
     @property
     def description(self) -> str:
@@ -155,6 +155,8 @@ class CodexProvider(AssistantProvider):
                 env={**os.environ, "MLFLOW_TRACKING_URI": tracking_uri},
             )
 
+            assert process.stdin is not None
+            assert process.stdout is not None
             process.stdin.write(user_message.encode("utf-8"))
             await process.stdin.drain()
             process.stdin.close()
@@ -181,6 +183,7 @@ class CodexProvider(AssistantProvider):
                 return
 
             if process.returncode != 0:
+                assert process.stderr is not None
                 stderr_bytes = await process.stderr.read()
                 error_msg = (
                     stderr_bytes.decode("utf-8", errors="replace").strip()
@@ -188,7 +191,7 @@ class CodexProvider(AssistantProvider):
                 )
                 yield Event.from_error(error_msg)
             else:
-                yield Event.from_result(result=None, session_id=None)
+                yield Event.from_result(result=None, session_id="")
 
         except Exception as e:
             _logger.exception("Error running Codex CLI")

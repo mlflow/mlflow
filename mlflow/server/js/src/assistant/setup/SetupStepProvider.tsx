@@ -32,9 +32,9 @@ const PROVIDERS: Provider[] = [
   },
   {
     id: 'codex',
-    name: 'OpenAI Codex CLI',
+    name: 'OpenAI Codex',
     description:
-      'AI assistant powered by OpenAI via the Codex CLI. Requires codex CLI installed and OPENAI_API_KEY set.',
+      'AI assistant powered by OpenAI via the Codex CLI. Requires the codex CLI to be installed and authenticated.',
     logo: OpenAiLogo,
     available: true,
   },

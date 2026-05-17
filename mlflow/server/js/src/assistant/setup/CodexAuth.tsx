@@ -99,12 +99,12 @@ export const CodexAuth = ({ cachedAuthStatus, onAuthStatusChange, onBack, onCont
             Install OpenAI Codex CLI
           </span>
         </div>
-        <Typography.Text color="secondary">
-          The Codex CLI is required but not installed on your system.
-        </Typography.Text>
+        <Typography.Text color="secondary">The Codex CLI is required but not installed on your system.</Typography.Text>
         <Typography.Text>Install it by running this command in your terminal:</Typography.Text>
         {renderCodeBlock('npm install -g @openai/codex')}
-        <Typography.Text color="secondary">After installation, click &quot;Check Again&quot; to verify.</Typography.Text>
+        <Typography.Text color="secondary">
+          After installation, click &quot;Check Again&quot; to verify.
+        </Typography.Text>
         <Typography.Link
           componentId="mlflow.assistant.setup.codex.learn_more"
           href="https://github.com/openai/codex"
@@ -129,12 +129,21 @@ export const CodexAuth = ({ cachedAuthStatus, onAuthStatusChange, onBack, onCont
               fontWeight: theme.typography.typographyBoldFontWeight,
             }}
           >
-            Set API Key
+            Authenticate
           </span>
         </div>
-        <Typography.Text color="secondary">Set your OpenAI API key in your environment:</Typography.Text>
+        <Typography.Text color="secondary">Choose one of the following options to authenticate:</Typography.Text>
+        <Typography.Text>
+          <strong>Option 1</strong> — Log in via the console:
+        </Typography.Text>
+        {renderCodeBlock('codex login')}
+        <Typography.Text>
+          <strong>Option 2</strong> — Set your OpenAI API key:
+        </Typography.Text>
         {renderCodeBlock('export OPENAI_API_KEY=your-api-key')}
-        <Typography.Text color="secondary">After setting the key, click &quot;Check Again&quot; to verify.</Typography.Text>
+        <Typography.Text color="secondary">
+          After authenticating, click &quot;Check Again&quot; to verify.
+        </Typography.Text>
         {error && (
           <Typography.Text color="error" css={{ fontSize: theme.typography.fontSizeSm }}>
             {error}
