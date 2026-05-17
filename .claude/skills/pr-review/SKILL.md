@@ -16,8 +16,6 @@ arguments: [owner_repo, pr_number, extra_context]
 
 # Review Pull Request
 
-Automatically review a GitHub pull request across correctness, security, edge cases, efficiency, readability, test coverage, and style. Emits a single `/tmp/review-payload.json` that the workflow validates against [`review-payload.schema.json`](./review-payload.schema.json) and posts via `POST /repos/{owner}/{repo}/pulls/{pull_number}/reviews`. Sets the payload's `event` to `APPROVE` when there are no findings or only MODERATE/NIT findings.
-
 ## Usage
 
 ```
@@ -29,14 +27,6 @@ Automatically review a GitHub pull request across correctness, security, edge ca
 - `<owner_repo>` (required): repository slug, e.g. `mlflow/mlflow`
 - `<pr_number>` (required): pull request number
 - `[extra_context]` (optional): additional filtering or focus instructions (e.g., a specific concern or file type)
-
-## Examples
-
-```
-/pr-review mlflow/mlflow 23320
-/pr-review mlflow/mlflow 23320 Please focus on security issues
-/pr-review mlflow/mlflow 23320 Only review Python files
-```
 
 ## Inputs
 
@@ -57,8 +47,6 @@ Fetch the PR title and description:
 ```bash
 gh pr view <pr_number> --repo "<owner>/<repo>" --json title,body
 ```
-
-> **Note:** You have a **read-only** GitHub token. Do NOT call write APIs (`gh api ... POST`, `gh pr review`, `gh pr comment`, etc.).
 
 ### 2. Fetch PR Diff
 
@@ -109,8 +97,6 @@ Evaluate the changed code across these dimensions:
 - **Readability & maintainability**: unclear names, dead code, premature abstractions, comments that restate the code
 - **Test coverage**: new behavior lacks tests, tests assert on the wrong thing, mocks hide real failures
 - **Style guide**: see `.claude/rules/` for language-specific rules and `CLAUDE.md` for repo conventions
-
-**Workspace awareness reminder**: If the diff touches the SQLAlchemy tracking store or other tracking persistence layers, verify workspace-aware behavior remains intact and that new functionality includes matching workspace-aware tests (e.g., additions in `tests/store/tracking/test_sqlalchemy_store_workspace.py`).
 
 ### 5. Decision Point
 
