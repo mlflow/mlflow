@@ -115,6 +115,8 @@ Determine the review `event`:
 
 ### 6. Emit Review Payload
 
+Your only output is `/tmp/review-payload.json`. Do not call any GitHub write APIs (e.g., `gh pr review`, `gh api -X POST /repos/{owner}/{repo}/pulls/{pr}/reviews`).
+
 Read [`review-payload.schema.json`](./review-payload.schema.json) for the full payload spec (field types, required fields, patterns, enums) and write `/tmp/review-payload.json` matching it.
 
 Authoring rules not captured by the schema:
