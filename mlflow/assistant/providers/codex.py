@@ -15,6 +15,7 @@ from mlflow.assistant.providers.base import (
 )
 from mlflow.assistant.providers.prompts import ASSISTANT_SYSTEM_PROMPT
 from mlflow.assistant.types import Event, Message, TextBlock
+from mlflow.server.assistant.session import clear_process_pid, save_process_pid
 
 _logger = logging.getLogger(__name__)
 
@@ -129,20 +130,23 @@ class CodexProvider(AssistantProvider):
 
         user_message = f"<system_instructions>\n{sys_prompt}\n</system_instructions>\n\n{user_text}"
 
-        cmd = [
-            codex_path,
-            "exec",
+        cmd = [codex_path, "exec"]
+
+        if session_id:
+            cmd.extend(["resume", session_id])
+
+        cmd.extend([
             "--json",
             "--dangerously-bypass-approvals-and-sandbox",
-            "--ephemeral",
             "--skip-git-repo-check",
-        ]
+        ])
 
         if config.model and config.model != "default":
             cmd.extend(["-m", config.model])
 
         cmd.append("-")
 
+        thread_id = ""
         process = None
         try:
             process = await asyncio.create_subprocess_exec(
@@ -154,6 +158,9 @@ class CodexProvider(AssistantProvider):
                 limit=100 * 1024 * 1024,
                 env={**os.environ, "MLFLOW_TRACKING_URI": tracking_uri},
             )
+
+            if mlflow_session_id and process.pid:
+                save_process_pid(mlflow_session_id, process.pid)
 
             assert process.stdin is not None
             assert process.stdout is not None
@@ -170,6 +177,10 @@ class CodexProvider(AssistantProvider):
                 try:
                     data = json.loads(line_str)
                 except json.JSONDecodeError:
+                    continue
+
+                if data.get("type") == "thread.started":
+                    thread_id = data.get("thread_id", "")
                     continue
 
                 event = self._parse_event(data)
@@ -191,12 +202,14 @@ class CodexProvider(AssistantProvider):
                 )
                 yield Event.from_error(error_msg)
             else:
-                yield Event.from_result(result=None, session_id="")
+                yield Event.from_result(result=None, session_id=thread_id)
 
         except Exception as e:
             _logger.exception("Error running Codex CLI")
             yield Event.from_error(str(e))
         finally:
+            if mlflow_session_id:
+                clear_process_pid(mlflow_session_id)
             if process is not None and process.returncode is None:
                 process.kill()
                 await process.wait()

@@ -198,7 +198,7 @@ async def test_astream_builds_correct_command():
     assert "exec" in args
     assert "--json" in args
     assert "--dangerously-bypass-approvals-and-sandbox" in args
-    assert "--ephemeral" in args
+    assert "--ephemeral" not in args
     assert "--skip-git-repo-check" in args
     assert args[-1] == "-"
 
@@ -269,6 +269,81 @@ async def test_astream_sends_prompt_via_stdin():
     assert b"my question" in stdin_bytes
     mock_proc.stdin.drain.assert_awaited_once()
     mock_proc.stdin.close.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_astream_captures_session_id_from_thread_started():
+    stdout_lines = _make_stdout_lines(
+        {"type": "thread.started", "thread_id": "abc-123"},
+        {"type": "item.completed", "item": {"type": "agent_message", "text": "hi"}},
+    )
+    mock_proc = _mock_process(stdout_lines=stdout_lines)
+
+    with (
+        patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
+        patch(
+            "mlflow.assistant.providers.codex.asyncio.create_subprocess_exec",
+            return_value=mock_proc,
+        ),
+    ):
+        provider = CodexProvider()
+        events = [e async for e in provider.astream("hi", "http://localhost:5000")]
+
+    done_events = [e for e in events if e.type == EventType.DONE]
+    assert len(done_events) == 1
+    assert done_events[0].data["session_id"] == "abc-123"
+
+
+@pytest.mark.asyncio
+async def test_astream_resumes_session_when_session_id_provided():
+    mock_proc = _mock_process()
+
+    with (
+        patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
+        patch(
+            "mlflow.assistant.providers.codex.asyncio.create_subprocess_exec",
+            return_value=mock_proc,
+        ) as mock_exec,
+    ):
+        provider = CodexProvider()
+        _ = [
+            e
+            async for e in provider.astream(
+                "follow up", "http://localhost:5000", session_id="abc-123"
+            )
+        ]
+
+    args = mock_exec.call_args[0]
+    assert "resume" in args
+    assert "abc-123" in args
+    resume_idx = list(args).index("resume")
+    assert args[resume_idx + 1] == "abc-123"
+
+
+@pytest.mark.asyncio
+async def test_astream_saves_and_clears_process_pid():
+    mock_proc = _mock_process()
+    mock_proc.pid = 12345
+
+    with (
+        patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
+        patch(
+            "mlflow.assistant.providers.codex.asyncio.create_subprocess_exec",
+            return_value=mock_proc,
+        ),
+        patch("mlflow.assistant.providers.codex.save_process_pid") as mock_save,
+        patch("mlflow.assistant.providers.codex.clear_process_pid") as mock_clear,
+    ):
+        provider = CodexProvider()
+        _ = [
+            e
+            async for e in provider.astream(
+                "hi", "http://localhost:5000", mlflow_session_id="session-xyz"
+            )
+        ]
+
+    mock_save.assert_called_once_with("session-xyz", 12345)
+    mock_clear.assert_called_once_with("session-xyz")
 
 
 @pytest.mark.asyncio
