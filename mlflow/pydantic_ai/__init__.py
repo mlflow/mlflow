@@ -87,10 +87,9 @@ def _tool_manager_uses_execute_tool_call() -> bool:
     except ImportError:
         try:
             from pydantic_ai._tool_manager import ToolManager
+            return hasattr(ToolManager, "execute_tool_call")
         except ImportError:
             return False
-
-        return hasattr(ToolManager, "execute_tool_call")
     except Exception:
         return False
 
