@@ -3,6 +3,7 @@ import { Button, Typography, useDesignSystemTheme } from '@databricks/design-sys
 
 import { toRGBA } from '@mlflow/mlflow/src/common/utils/toRGBA';
 import AnthropicLogo from '@mlflow/mlflow/src/common/static/logos/anthropic.svg';
+import OpenAiLogo from '@mlflow/mlflow/src/common/static/logos/openai.svg';
 import GeminiLogo from '@mlflow/mlflow/src/common/static/logos/gemini.png';
 import OllamaLogo from '@mlflow/mlflow/src/common/static/logos/ollama.png';
 
@@ -27,6 +28,14 @@ const PROVIDERS: Provider[] = [
     name: 'Ollama',
     description: 'AI assistant using a locally running Ollama server. Requires Ollama installed and running.',
     logo: OllamaLogo,
+    available: true,
+  },
+  {
+    id: 'codex',
+    name: 'OpenAI Codex CLI',
+    description:
+      'AI assistant powered by OpenAI via the Codex CLI. Requires codex CLI installed and OPENAI_API_KEY set.',
+    logo: OpenAiLogo,
     available: true,
   },
 ];
