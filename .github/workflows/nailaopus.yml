@@ -3,18 +3,23 @@ name: NaiLaOpus
 on:
   issue_comment:
     types: [created]
-  # Auto-trigger on PR open/ready is deferred until comment-based runs have
-  # been validated on real PRs. Re-enable by uncommenting these lines.
-  # pull_request:
-  #   types: [opened, ready_for_review]
+  # Auto-run on the first time a maintainer's PR is ready for review.
+  # `opened` fires for non-draft opens; `ready_for_review` fires for the
+  # draft -> ready transition; `reopened` fires when a closed PR is brought
+  # back. `synchronize` is intentionally excluded so subsequent author
+  # pushes don't re-trigger; maintainers can use `/review-v2` for re-runs,
+  # and the orchestrator's head-SHA cache short-circuits same-SHA runs.
+  pull_request:
+    types: [opened, ready_for_review, reopened]
 
 concurrency:
-  # Single group per PR. cancel-in-progress is false so each /review-v2
-  # invocation finishes; subsequent invocations on the same PR queue behind
-  # it. The orchestrator's head_sha cache dedupes against same-SHA runs, so
-  # /review-v2 --no-cache is the only way to force a re-review. The fallback
-  # to github.event.pull_request.number is retained for the commented-out
-  # auto-trigger path.
+  # Single group per PR. cancel-in-progress is false so each invocation
+  # finishes; subsequent invocations on the same PR queue behind it. The
+  # orchestrator's head_sha cache dedupes against same-SHA runs, so an
+  # auto-trigger immediately followed by /review-v2 on the same SHA
+  # short-circuits in the second run. The number coalesce handles both
+  # event payloads: issue_comment uses github.event.issue.number,
+  # pull_request uses github.event.pull_request.number.
   group: nailaopus-${{ github.event.issue.number || github.event.pull_request.number }}
   cancel-in-progress: false
 
@@ -33,24 +38,25 @@ jobs:
     # Two layers of gating, both at the job level so that non-maintainer PRs
     # never load the App-token secret or run any step at all (no observable
     # side effects, no review burden on each step before a runtime gate):
-    #   1. Comment author must be a maintainer (prevents random users from
-    #      triggering the bot via `/review-v2`).
+    #   1. Trigger author must be a maintainer (the commenter on
+    #      `/review-v2`, or the PR author on auto-trigger).
     #   2. PR author must be a maintainer (prevents review of community-
     #      authored PRs whose diff content could contain prompt-injection
     #      attempts against the LLM).
-    # `issue_comment` payloads expose both associations directly, so we
-    # can do this check without an extra `gh api` step.
-    #
-    # The pull_request auto-trigger branch is commented out above; if
-    # re-enabled, the second branch of this `if:` will need to use
-    # `github.event.pull_request.head.repo.full_name == github.repository`
-    # (no fork PRs) and `github.event.pull_request.author_association`.
+    # For the `pull_request` auto-trigger we additionally require the head
+    # ref to live on `mlflow/mlflow` (no fork PRs). `author_association`
+    # alone doesn't prevent a community fork from a maintainer; combining
+    # both ensures the diff cannot come from an untrusted source.
     if: |
-      github.event_name == 'issue_comment' &&
-      github.event.issue.pull_request != null &&
-      startsWith(github.event.comment.body, '/review-v2') &&
-      contains(fromJSON('["MEMBER", "COLLABORATOR", "OWNER"]'), github.event.comment.author_association) &&
-      contains(fromJSON('["MEMBER", "COLLABORATOR", "OWNER"]'), github.event.issue.author_association)
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.pull_request != null &&
+       startsWith(github.event.comment.body, '/review-v2') &&
+       contains(fromJSON('["MEMBER", "COLLABORATOR", "OWNER"]'), github.event.comment.author_association) &&
+       contains(fromJSON('["MEMBER", "COLLABORATOR", "OWNER"]'), github.event.issue.author_association)) ||
+      (github.event_name == 'pull_request' &&
+       !github.event.pull_request.draft &&
+       github.event.pull_request.head.repo.full_name == github.repository &&
+       contains(fromJSON('["MEMBER", "COLLABORATOR", "OWNER"]'), github.event.pull_request.author_association))
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -153,7 +159,7 @@ jobs:
           # open a new PR that updates this SHA to the latest mlflow/internal
           # main after reviewing the diff. We'll migrate to release tags once
           # the bump cadence is stable; see mlflow/internal for the policy.
-          ref: 6e90fa245775525c824f7b67211083ea6dbe59e3
+          ref: 564858ace69e52162b4f07c02626d9f3ced2f4f6
           sparse-checkout: |
             nailaopus
           path: internal
