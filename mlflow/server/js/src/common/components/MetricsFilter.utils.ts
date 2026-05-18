@@ -19,10 +19,8 @@ import {
 
 /**
  * Curated list of columns the metrics API can filter on with `=`.
- * Adding a new entry here triggers TypeScript errors at every translator
- * mapping (`COLUMN_TO_METRICS_FILTER_BUILDER`, `COLUMN_TO_TRACES_COLUMN_ID`)
- * until all transports are wired up — fill those in to expose the new
- * dimension end to end.
+ * Add a new entry here AND in `translateToMetricsFilters` and
+ * `translateToTracesPageFilters` to expose more dimensions
  */
 export type MetricFilterColumn = 'user' | 'session' | 'state' | 'git_branch' | 'git_commit';
 
@@ -94,12 +92,6 @@ const COLUMN_TO_TRACES_COLUMN_ID: Record<MetricFilterColumn, string> = {
  * column group (e.g. assessment filters); top-level columns like `user` emit
  * the 3-segment form.
  *
- * NOTE: A previous `translateToTableFilters` helper (producing in-memory
- * `TableFilter` objects for `TracesV3Logs.additionalFilters`) was removed
- * because it caused a dual-source-of-truth bug: filters injected via
- * `additionalFilters` are not editable from the Logs tab UI, so the user could
- * not remove them by clicking the filter chip. URL params are the only
- * supported cross-tab propagation channel for MetricsFilter rows.
  */
 export const translateToTracesPageFilters = (filters: MetricFilter[]): string[] | undefined => {
   const result = filters
