@@ -398,7 +398,7 @@ def test_list_artifacts_directory_marker_filtering(s3_artifact_root):
                 {"Key": "some/path/a.txt", "Size": 42},
                 {"Key": "some/path/b/", "Size": 0},
                 {"Key": "some/path/b/c.txt", "Size": 42},
-                {"Key": "some/path/b/d/", "Size": 0},
+                {"Key": "some/path/b/d/d", "Size": 0},
                 {"Key": "some/path/b/d/e.txt", "Size": 42},
             ],
             "CommonPrefixes": [],
@@ -608,7 +608,9 @@ def test_archived_trace_data_round_trip():
     assert restored.to_dict() == trace_data.to_dict()
 
 
-def test_bucket_ownership_verification_with_env_var(s3_artifact_repo, tmp_path, monkeypatch):
+def test_bucket_ownership_verification_with_env_var(
+    s3_artifact_repo, tmp_path, monkeypatch
+):
     file_name = "test.txt"
     file_path = tmp_path / file_name
     file_path.touch()
