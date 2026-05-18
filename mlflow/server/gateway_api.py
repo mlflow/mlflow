@@ -988,6 +988,67 @@ async def openai_passthrough_embeddings(request: Request):
     )
 
 
+async def _openai_responses_passthrough_unary(
+    request: Request,
+    body: dict[str, Any],
+    action: PassthroughAction,
+    request_type: GatewayRequestType,
+) -> dict[str, Any]:
+    """Shared body for the unary (non-streaming) OpenAI Responses-shaped
+    passthrough routes — the non-streaming branch of ``/responses`` and the
+    unary-only ``/responses/compact``.
+
+    Resolves the configured endpoint from ``body["model"]``, runs the usual
+    telemetry / budget / guardrail setup, wraps the upstream call in pre/post
+    guardrails, and returns the raw upstream response.
+    ``GuardrailViolation`` is translated to HTTP 400. Each call site is
+    responsible for reading the request body (so callers can also reject
+    ``stream=true`` when their endpoint doesn't support streaming, as
+    ``/responses/compact`` does).
+    """
+    user_metadata = _get_user_metadata(request)
+    endpoint_name = _extract_endpoint_name_from_model(body)
+    body.pop("model")
+    store = _get_store()
+    workspace = get_request_workspace()
+    _validate_store(store)
+    headers = dict(request.headers)
+    provider, endpoint_config = _create_provider_from_endpoint_name(
+        store, endpoint_name, EndpointType.LLM_V1_CHAT
+    )
+    _set_gateway_telemetry_state(request, endpoint_config)
+    check_budget_limit(store, endpoint_config, workspace=workspace)
+    guardrails, auth_headers = _get_guardrails_and_auth(store, endpoint_config, request)
+
+    async def _guarded_passthrough(body: dict[str, Any]) -> dict[str, Any]:
+        body = await run_pre_llm_guardrails(
+            guardrails,
+            body,
+            auth_headers=auth_headers,
+            usage_tracking=endpoint_config.usage_tracking,
+        )
+        response = await provider.passthrough(action=action, payload=body, headers=headers)
+        return await run_post_llm_guardrails_passthrough(
+            guardrails,
+            body,
+            response,
+            auth_headers=auth_headers,
+            usage_tracking=endpoint_config.usage_tracking,
+        )
+
+    try:
+        return await maybe_traced_gateway_call(
+            _guarded_passthrough,
+            endpoint_config,
+            user_metadata,
+            request_headers=headers,
+            request_type=request_type,
+            on_complete=make_budget_on_complete(store, workspace),
+        )(body)
+    except GuardrailViolation as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.OPENAI_RESPONSES], response_model=None)
 @translate_http_exception
 @_record_gateway_invocation(GatewayInvocationType.OPENAI_PASSTHROUGH_RESPONSES)
@@ -1011,23 +1072,25 @@ async def openai_passthrough_responses(request: Request):
         }
     """
     body = await _get_request_body(request)
-    user_metadata = _get_user_metadata(request)
-
-    endpoint_name = _extract_endpoint_name_from_model(body)
-    body.pop("model")
-    store = _get_store()
-    workspace = get_request_workspace()
-    _validate_store(store)
-    headers = dict(request.headers)
-    provider, endpoint_config = _create_provider_from_endpoint_name(
-        store, endpoint_name, EndpointType.LLM_V1_CHAT
-    )
-    _set_gateway_telemetry_state(request, endpoint_config)
-    check_budget_limit(store, endpoint_config, workspace=workspace)
-    guardrails, auth_headers = _get_guardrails_and_auth(store, endpoint_config, request)
 
     if body.get("stream", False):
-        # Post-LLM guardrails are not applied to streaming responses.
+        # Post-LLM guardrails are not applied to streaming responses. Streaming
+        # keeps its own inline setup because the closure below captures these
+        # variables directly; the unary path delegates to the shared helper.
+        user_metadata = _get_user_metadata(request)
+        endpoint_name = _extract_endpoint_name_from_model(body)
+        body.pop("model")
+        store = _get_store()
+        workspace = get_request_workspace()
+        _validate_store(store)
+        headers = dict(request.headers)
+        provider, endpoint_config = _create_provider_from_endpoint_name(
+            store, endpoint_name, EndpointType.LLM_V1_CHAT
+        )
+        _set_gateway_telemetry_state(request, endpoint_config)
+        check_budget_limit(store, endpoint_config, workspace=workspace)
+        guardrails, auth_headers = _get_guardrails_and_auth(store, endpoint_config, request)
+
         async def _guarded_stream(body: dict[str, Any]):
             request_dict = await run_pre_llm_guardrails(
                 guardrails,
@@ -1054,35 +1117,12 @@ async def openai_passthrough_responses(request: Request):
             safe_stream(traced_stream(body), as_bytes=True), media_type="text/event-stream"
         )
 
-    async def _guarded_passthrough(body: dict[str, Any]) -> dict[str, Any]:
-        body = await run_pre_llm_guardrails(
-            guardrails,
-            body,
-            auth_headers=auth_headers,
-            usage_tracking=endpoint_config.usage_tracking,
-        )
-        response = await provider.passthrough(
-            action=PassthroughAction.OPENAI_RESPONSES, payload=body, headers=headers
-        )
-        return await run_post_llm_guardrails_passthrough(
-            guardrails,
-            body,
-            response,
-            auth_headers=auth_headers,
-            usage_tracking=endpoint_config.usage_tracking,
-        )
-
-    try:
-        return await maybe_traced_gateway_call(
-            _guarded_passthrough,
-            endpoint_config,
-            user_metadata,
-            request_headers=headers,
-            request_type=GatewayRequestType.PASSTHROUGH_MODEL_OPENAI_RESPONSES,
-            on_complete=make_budget_on_complete(store, workspace),
-        )(body)
-    except GuardrailViolation as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    return await _openai_responses_passthrough_unary(
+        request,
+        body,
+        action=PassthroughAction.OPENAI_RESPONSES,
+        request_type=GatewayRequestType.PASSTHROUGH_MODEL_OPENAI_RESPONSES,
+    )
 
 
 @gateway_router.post(
@@ -1113,7 +1153,7 @@ async def openai_passthrough_responses_compact(request: Request):
 
     # /responses/compact is unary upstream; explicitly reject `stream=true`
     # before the provider's passthrough machinery tries to open an SSE stream.
-    if body.get("stream"):
+    if body.get("stream", False):
         raise HTTPException(
             status_code=400,
             detail=(
@@ -1121,52 +1161,12 @@ async def openai_passthrough_responses_compact(request: Request):
             ),
         )
 
-    user_metadata = _get_user_metadata(request)
-
-    endpoint_name = _extract_endpoint_name_from_model(body)
-    body.pop("model")
-    store = _get_store()
-    workspace = get_request_workspace()
-    _validate_store(store)
-    headers = dict(request.headers)
-    provider, endpoint_config = _create_provider_from_endpoint_name(
-        store, endpoint_name, EndpointType.LLM_V1_CHAT
+    return await _openai_responses_passthrough_unary(
+        request,
+        body,
+        action=PassthroughAction.OPENAI_RESPONSES_COMPACT,
+        request_type=GatewayRequestType.PASSTHROUGH_MODEL_OPENAI_RESPONSES,
     )
-    _set_gateway_telemetry_state(request, endpoint_config)
-    check_budget_limit(store, endpoint_config, workspace=workspace)
-    guardrails, auth_headers = _get_guardrails_and_auth(store, endpoint_config, request)
-
-    async def _guarded_passthrough(body: dict[str, Any]) -> dict[str, Any]:
-        body = await run_pre_llm_guardrails(
-            guardrails,
-            body,
-            auth_headers=auth_headers,
-            usage_tracking=endpoint_config.usage_tracking,
-        )
-        response = await provider.passthrough(
-            action=PassthroughAction.OPENAI_RESPONSES_COMPACT,
-            payload=body,
-            headers=headers,
-        )
-        return await run_post_llm_guardrails_passthrough(
-            guardrails,
-            body,
-            response,
-            auth_headers=auth_headers,
-            usage_tracking=endpoint_config.usage_tracking,
-        )
-
-    try:
-        return await maybe_traced_gateway_call(
-            _guarded_passthrough,
-            endpoint_config,
-            user_metadata,
-            request_headers=headers,
-            request_type=GatewayRequestType.PASSTHROUGH_MODEL_OPENAI_RESPONSES,
-            on_complete=make_budget_on_complete(store, workspace),
-        )(body)
-    except GuardrailViolation as e:
-        raise HTTPException(status_code=400, detail=str(e))
 
 
 @gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.ANTHROPIC_MESSAGES], response_model=None)
