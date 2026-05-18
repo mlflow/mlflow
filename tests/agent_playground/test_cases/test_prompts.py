@@ -8,10 +8,10 @@ import mlflow
 from mlflow import MlflowClient
 from mlflow.agent_playground.test_cases import prompts, store
 from mlflow.agent_playground.test_cases.entities import (
-    AssertionSpec,
-    JudgeSpec,
+    AssertionExpectations,
+    JudgeExpectations,
     PersonaSpec,
-    TestSpec,
+    TestCaseRow,
 )
 from mlflow.entities import Feedback
 from mlflow.exceptions import MlflowException
@@ -28,6 +28,28 @@ def client(db_uri):
 @pytest.fixture
 def experiment_id(client):
     return client.create_experiment("agent_playground_prompts_test")
+
+
+def _assertion_row(**overrides) -> TestCaseRow:
+    defaults = {
+        "test_case_id": store.new_test_case_id(),
+        "expectations": AssertionExpectations(must_contain=["docs"]),
+        "rationale_summary": "agent must cite docs",
+    }
+    defaults.update(overrides)
+    return TestCaseRow(**defaults)
+
+
+def _judge_row(**overrides) -> TestCaseRow:
+    defaults = {
+        "test_case_id": store.new_test_case_id(),
+        "expectations": JudgeExpectations(
+            instructions="response is friendly", expected_response="hi friend"
+        ),
+        "rationale_summary": "agent should sound friendlier",
+    }
+    defaults.update(overrides)
+    return TestCaseRow(**defaults)
 
 
 # --- build_test_gen_prompt -----------------------------------------------
@@ -153,6 +175,26 @@ def test_test_gen_prompt_degrades_when_anchor_fails_validation():
     assert "no anchored substring" in prompt
 
 
+def test_test_gen_prompt_degrades_when_rationale_missing():
+    # ``Feedback.rationale`` may be ``None`` (the widget allows
+    # rationale-less feedback); the builder falls back to a placeholder
+    # rather than emitting "None" verbatim.
+    assessment = Feedback(
+        name="agent_playground.feedback",
+        value="quality",
+        rationale=None,
+        metadata=None,
+    )
+    trace = _fake_trace([])
+    with (
+        mock.patch.object(prompts, "get_assessment", return_value=assessment),
+        mock.patch.object(prompts.TracingClient, "get_trace", return_value=trace),
+    ):
+        prompt = prompts.build_test_gen_prompt(trace_id="tr-1", assessment_id="fb-1")
+    assert "no rationale recorded" in prompt
+    assert "None" not in prompt.split("# Anchored substring")[0]
+
+
 def test_test_gen_prompt_degrades_when_no_conversation():
     assessment = _fake_assessment("x", anchor=None)
     trace = _fake_trace([])
@@ -162,6 +204,24 @@ def test_test_gen_prompt_degrades_when_no_conversation():
     ):
         prompt = prompts.build_test_gen_prompt(trace_id="tr-1", assessment_id="fb-1")
     assert "no prior conversation context" in prompt
+
+
+def test_test_gen_prompt_documents_discriminated_union_shape():
+    # Pin the specific instruction phrases — looser substrings like
+    # "expectations" or "kind" would pass even if the schema-instruction
+    # copy was removed entirely.
+    assessment = _fake_assessment("x", anchor=None)
+    trace = _fake_trace([])
+    with (
+        mock.patch.object(prompts, "get_assessment", return_value=assessment),
+        mock.patch.object(prompts.TracingClient, "get_trace", return_value=trace),
+    ):
+        prompt = prompts.build_test_gen_prompt(trace_id="tr-1", assessment_id="fb-1")
+    assert "GeneratedTestCase" in prompt
+    assert "discriminated union on ``kind``" in prompt
+    assert 'kind="assertion"' in prompt
+    assert 'kind="judge"' in prompt
+    assert "``instructions``" in prompt
 
 
 def test_test_gen_prompt_includes_persona_block_instruction():
@@ -175,8 +235,8 @@ def test_test_gen_prompt_includes_persona_block_instruction():
     # Specific instruction phrases — looser substrings like "persona" or
     # "ConversationSimulator" would pass even if the instructions copy
     # was removed entirely.
-    assert "include a `persona`" in prompt
-    assert "test-case dict shape" in prompt
+    assert "populate the\n   ``persona`` field" in prompt
+    assert "test-case dict" in prompt
     assert "mlflow.genai.simulators.ConversationSimulator" in prompt
 
 
@@ -213,40 +273,31 @@ def test_fix_prompt_raises_when_case_missing(experiment_id):
 
 
 def test_fix_prompt_includes_test_case_id_and_verify_command(experiment_id):
-    spec = TestSpec(
-        strategy="assertion",
-        rationale_summary="agent must cite docs",
-        assertion=AssertionSpec(must_contain=["docs"]),
-    )
-    test_case_id = store.insert_case(experiment_id, spec)
-    prompt = prompts.build_fix_prompt(experiment_id, test_case_id)
-    assert test_case_id in prompt
+    row = _assertion_row()
+    store.insert_case(experiment_id, row)
+    prompt = prompts.build_fix_prompt(experiment_id, row.test_case_id)
+    assert row.test_case_id in prompt
     assert "mlflow agent test run --test-case" in prompt
 
 
 def test_fix_prompt_includes_rationale_summary(experiment_id):
-    spec = TestSpec(
-        strategy="assertion",
-        rationale_summary="agent must cite docs on log levels",
-        assertion=AssertionSpec(must_contain=["docs"]),
-    )
-    test_case_id = store.insert_case(experiment_id, spec)
-    prompt = prompts.build_fix_prompt(experiment_id, test_case_id)
+    row = _assertion_row(rationale_summary="agent must cite docs on log levels")
+    store.insert_case(experiment_id, row)
+    prompt = prompts.build_fix_prompt(experiment_id, row.test_case_id)
     assert "agent must cite docs on log levels" in prompt
 
 
 def test_fix_prompt_assertion_strategy_renders_clauses(experiment_id):
-    spec = TestSpec(
-        strategy="assertion",
-        rationale_summary="x",
-        assertion=AssertionSpec(
+    row = _assertion_row(
+        expectations=AssertionExpectations(
             must_contain=["docs"],
             must_call_tool=["search_docs"],
             must_not_call_tool=["delete_record"],
         ),
+        rationale_summary="x",
     )
-    test_case_id = store.insert_case(experiment_id, spec)
-    prompt = prompts.build_fix_prompt(experiment_id, test_case_id)
+    store.insert_case(experiment_id, row)
+    prompt = prompts.build_fix_prompt(experiment_id, row.test_case_id)
     assert "must_contain" in prompt
     assert "docs" in prompt
     assert "must_call_tool" in prompt
@@ -254,32 +305,27 @@ def test_fix_prompt_assertion_strategy_renders_clauses(experiment_id):
     assert "must_not_call_tool" in prompt
 
 
-def test_fix_prompt_judge_strategy_renders_criteria(experiment_id):
-    spec = TestSpec(
-        strategy="judge",
-        rationale_summary="x",
-        judge=JudgeSpec(criteria="response is friendly", expected_response="hi friend"),
-    )
-    test_case_id = store.insert_case(experiment_id, spec)
-    prompt = prompts.build_fix_prompt(experiment_id, test_case_id)
+def test_fix_prompt_judge_strategy_renders_instructions(experiment_id):
+    row = _judge_row(rationale_summary="x")
+    store.insert_case(experiment_id, row)
+    prompt = prompts.build_fix_prompt(experiment_id, row.test_case_id)
+    assert "instructions" in prompt
     assert "response is friendly" in prompt
     assert "hi friend" in prompt
 
 
 def test_fix_prompt_persona_renders_goal_and_guidelines(experiment_id):
-    spec = TestSpec(
-        strategy="assertion",
-        rationale_summary="x",
+    row = _assertion_row(
         max_turns=3,
-        assertion=AssertionSpec(must_contain=["docs"]),
         persona=PersonaSpec(
             goal="learn about logging",
             persona="terse Python developer",
             simulation_guidelines=["ask one question at a time", "stay technical"],
         ),
+        rationale_summary="x",
     )
-    test_case_id = store.insert_case(experiment_id, spec)
-    prompt = prompts.build_fix_prompt(experiment_id, test_case_id)
+    store.insert_case(experiment_id, row)
+    prompt = prompts.build_fix_prompt(experiment_id, row.test_case_id)
     assert "learn about logging" in prompt
     assert "terse Python developer" in prompt
     assert "ask one question at a time" in prompt
@@ -288,28 +334,22 @@ def test_fix_prompt_persona_renders_goal_and_guidelines(experiment_id):
 
 
 def test_fix_prompt_persona_includes_context(experiment_id):
-    spec = TestSpec(
-        strategy="assertion",
-        rationale_summary="x",
-        assertion=AssertionSpec(must_contain=["docs"]),
+    row = _assertion_row(
         persona=PersonaSpec(
             goal="learn about logging",
             context={"user_id": "123", "tenant": "acme"},
         ),
+        rationale_summary="x",
     )
-    test_case_id = store.insert_case(experiment_id, spec)
-    prompt = prompts.build_fix_prompt(experiment_id, test_case_id)
+    store.insert_case(experiment_id, row)
+    prompt = prompts.build_fix_prompt(experiment_id, row.test_case_id)
     assert "context" in prompt
     assert "user_id" in prompt
     assert "tenant" in prompt
 
 
 def test_fix_prompt_no_persona_indicates_single_turn(experiment_id):
-    spec = TestSpec(
-        strategy="assertion",
-        rationale_summary="x",
-        assertion=AssertionSpec(must_contain=["docs"]),
-    )
-    test_case_id = store.insert_case(experiment_id, spec)
-    prompt = prompts.build_fix_prompt(experiment_id, test_case_id)
+    row = _assertion_row(rationale_summary="x")
+    store.insert_case(experiment_id, row)
+    prompt = prompts.build_fix_prompt(experiment_id, row.test_case_id)
     assert "single-turn" in prompt

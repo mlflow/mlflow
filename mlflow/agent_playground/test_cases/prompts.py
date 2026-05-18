@@ -4,8 +4,8 @@ Two callers, two prompts:
 
 1. ``build_test_gen_prompt`` is invoked by the async test-gen job worker
    (later stack). The connected coding agent receives this prompt plus a
-   ``TestSpec`` JSON schema and produces a regression test case from the
-   user's feedback.
+   ``GeneratedTestCase`` JSON schema and produces a regression test case
+   from the user's feedback.
 2. ``build_fix_prompt`` is invoked by the fix-prompt REST endpoint
    (later stack). The result is what the playground UI copies to the
    clipboard for the user to paste into their terminal ``claude``
@@ -34,17 +34,19 @@ import pydantic
 
 from mlflow.agent_playground.test_cases import store
 from mlflow.agent_playground.test_cases.entities import (
+    AssertionExpectations,
     AssistantMessageAnchor,
+    JudgeExpectations,
     TestCaseRow,
 )
-from mlflow.agent_playground.test_cases.telemetry import PromptFromFeedbackBuiltEvent
 from mlflow.entities import Assessment, Trace
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, RESOURCE_DOES_NOT_EXIST
+from mlflow.telemetry.events import AgentPlaygroundBuildPromptFromFeedbackEvent
 from mlflow.telemetry.track import record_usage_event
 from mlflow.tracing.assessment import get_assessment
 from mlflow.tracing.client import TracingClient
-from mlflow.tracing.utils.truncation import _try_extract_messages
+from mlflow.tracing.utils.truncation import _get_text_content_from_message, _try_extract_messages
 
 
 def _parse_anchor(metadata: dict[str, str] | None) -> AssistantMessageAnchor | None:
@@ -62,7 +64,11 @@ def _parse_anchor(metadata: dict[str, str] | None) -> AssistantMessageAnchor | N
         return None
     try:
         payload = json.loads(raw)
-    except json.JSONDecodeError:
+    except (json.JSONDecodeError, TypeError):
+        # ``json.loads`` raises ``JSONDecodeError`` on malformed strings
+        # and ``TypeError`` on non-string inputs (e.g., a metadata dict
+        # constructed in-Python with a non-str ``anchor`` value that
+        # bypassed the proto-side str coercion).
         return None
     if not isinstance(payload, dict):
         return None
@@ -119,7 +125,11 @@ def _format_messages(messages: list[dict[str, Any]]) -> str:
     lines: list[str] = []
     for msg in messages:
         role = msg.get("role", "unknown")
-        content = msg.get("content", "")
+        # ``_get_text_content_from_message`` flattens multimodal
+        # ``content: list[dict]`` shapes (e.g., text + image parts)
+        # into the first text-part string; inlining the f-string
+        # would render the Python ``repr`` of the list.
+        content = _get_text_content_from_message(msg)
         lines.append(f"  {role}: {content}")
     return "\n".join(lines)
 
@@ -127,8 +137,8 @@ def _format_messages(messages: list[dict[str, Any]]) -> str:
 _TEST_GEN_PROMPT_TEMPLATE = """\
 You will generate a regression test case for an MLflow Agent Playground
 feedback. The user flagged an assistant response as wrong; your job is
-to produce a TestSpec JSON that captures the contract the agent should
-satisfy.
+to produce a ``GeneratedTestCase`` JSON object that captures the
+contract the agent should satisfy.
 
 # User feedback
 {rationale}
@@ -144,16 +154,19 @@ satisfy.
 1. Read the agent's source code in this repo so you understand its
    tools, conventions, and the contract the failing response violates.
 
-2. Emit a single JSON object matching the TestSpec schema you will be
-   given. Pick `strategy="assertion"` for concrete claims like "must
-   cite docs" or "must call tool X"; pick `strategy="judge"` for
-   subjective qualities like "should sound friendlier".
+2. Emit a single JSON object matching the ``GeneratedTestCase`` schema
+   you will be given. The schema's ``expectations`` field is a
+   discriminated union on ``kind``: use ``kind="assertion"`` for
+   concrete claims like "must cite docs" or "must call tool X"; use
+   ``kind="judge"`` (with an ``instructions`` string) for subjective
+   qualities like "should sound friendlier".
 
-3. If the conversation has more than one user turn, include a `persona`
-   block (matches `mlflow.genai.simulators.ConversationSimulator`'s
-   test-case dict shape: goal + persona + simulation_guidelines +
-   context). The runner uses the simulator to drive the user side at
-   run time; the persona does NOT contain pre-baked user messages.
+3. If the conversation has more than one user turn, populate the
+   ``persona`` field (matches
+   ``mlflow.genai.simulators.ConversationSimulator``'s test-case dict
+   shape: goal + persona + simulation_guidelines + context). The
+   runner uses the simulator to drive the user side at run time; the
+   persona does NOT contain pre-baked user messages.
 
 Do not include any prose outside the JSON object.
 """
@@ -162,14 +175,21 @@ Do not include any prose outside the JSON object.
 def build_test_gen_prompt(trace_id: str, assessment_id: str) -> str:
     """Render the test-gen prompt for the connected coding agent.
 
+    No ``@record_usage_event`` decorator: this function is only called
+    from inside the test-gen job worker, which already emits
+    ``AgentPlaygroundSubmitTestGenJobEvent`` and
+    ``AgentPlaygroundCompleteTestGenJobEvent`` around the whole job
+    lifecycle. ``build_fix_prompt`` is the UI-copy endpoint with no
+    surrounding job, so it owns its own telemetry.
+
     Args:
         trace_id: Failing trace the feedback is anchored to.
         assessment_id: Saved feedback assessment id.
 
     Returns:
         Prompt string suitable for ``CoderAdapter.run_task(prompt,
-        output_schema=TestSpec)`` (the adapter wraps the JSON-schema
-        instruction itself per the proposal at
+        output_schema=GeneratedTestCase)`` (the adapter wraps the
+        JSON-schema instruction itself per the proposal at
         ``mlflow/internal:docs/projects/agent-playground/coder-adapter-proposal.md``).
 
     Raises:
@@ -201,8 +221,8 @@ Persona-driven conversation that the test replays against the agent:
 
 {persona_block}
 
-# Assertions on the final assistant response
-{assertion_block}
+# Expectations on the final assistant response
+{expectations_block}
 
 # Your task
 
@@ -217,7 +237,7 @@ Commit your changes only once the test passes.
 
 
 def _format_persona_block(case: TestCaseRow) -> str:
-    persona = case.spec.persona
+    persona = case.persona
     if persona is None:
         return "  (single-turn test; no persona)"
     lines = [
@@ -232,38 +252,41 @@ def _format_persona_block(case: TestCaseRow) -> str:
         # Simulator-injected variables; surface to the coding agent so
         # it can reason about which values the test will run under.
         lines.append(f"  context: {json.dumps(persona.context, sort_keys=True)}")
-    lines.append(f"  max_turns: {case.spec.max_turns}")
+    lines.append(f"  max_turns: {case.max_turns}")
     return "\n".join(lines)
 
 
-def _format_assertion_block(case: TestCaseRow) -> str:
-    # TestSpec._strategy_matches_payload (entities.py) guarantees that
-    # judge-strategy specs carry a non-None judge payload and
-    # assertion-strategy specs carry a non-None assertion payload, so
-    # no defensive None branches here.
-    if case.spec.strategy == "judge":
-        judge = case.spec.judge
-        lines = [f"  criteria: {judge.criteria}"]
-        if judge.expected_response:
-            lines.append(f"  expected: {judge.expected_response}")
+def _format_expectations_block(case: TestCaseRow) -> str:
+    # ``case.expectations`` is the ``Expectations`` discriminated union;
+    # dispatch on the variant type so a future widening of the union
+    # (a third ``kind="..."`` variant) falls through to the explicit
+    # raise below rather than silently mis-rendering as an assertion.
+    expectations = case.expectations
+    if isinstance(expectations, JudgeExpectations):
+        lines = [f"  instructions: {expectations.instructions}"]
+        if expectations.expected_response:
+            lines.append(f"  expected:     {expectations.expected_response}")
         return "\n".join(lines)
+    if isinstance(expectations, AssertionExpectations):
+        lines = []
+        if expectations.must_contain:
+            lines.append(f"  must_contain:       {expectations.must_contain}")
+        if expectations.must_not_contain:
+            lines.append(f"  must_not_contain:   {expectations.must_not_contain}")
+        if expectations.must_call_tool:
+            lines.append(f"  must_call_tool:     {expectations.must_call_tool}")
+        if expectations.must_not_call_tool:
+            lines.append(f"  must_not_call_tool: {expectations.must_not_call_tool}")
+        if not lines:
+            lines.append("  (no clauses; any response passes)")
+        return "\n".join(lines)
+    raise MlflowException(
+        f"Unhandled expectations kind {expectations.kind!r} in fix-prompt renderer",
+        error_code=INTERNAL_ERROR,
+    )
 
-    assertion = case.spec.assertion
-    lines = []
-    if assertion.must_contain:
-        lines.append(f"  must_contain:      {assertion.must_contain}")
-    if assertion.must_not_contain:
-        lines.append(f"  must_not_contain:  {assertion.must_not_contain}")
-    if assertion.must_call_tool:
-        lines.append(f"  must_call_tool:    {assertion.must_call_tool}")
-    if assertion.must_not_call_tool:
-        lines.append(f"  must_not_call_tool: {assertion.must_not_call_tool}")
-    if not lines:
-        lines.append("  (no clauses; any response passes)")
-    return "\n".join(lines)
 
-
-@record_usage_event(PromptFromFeedbackBuiltEvent)
+@record_usage_event(AgentPlaygroundBuildPromptFromFeedbackEvent)
 def build_fix_prompt(experiment_id: str, test_case_id: str) -> str:
     """Render the fix prompt that the UI copies to the user's clipboard.
 
@@ -286,10 +309,10 @@ def build_fix_prompt(experiment_id: str, test_case_id: str) -> str:
         )
 
     return _FIX_PROMPT_TEMPLATE.format(
-        rationale_summary=case.spec.rationale_summary,
+        rationale_summary=case.rationale_summary,
         test_case_id=test_case_id,
         persona_block=_format_persona_block(case),
-        assertion_block=_format_assertion_block(case),
+        expectations_block=_format_expectations_block(case),
     )
 
 
