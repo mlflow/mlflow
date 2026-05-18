@@ -76,11 +76,23 @@ def parsed_completions_response():
         # Known CLI tools with auth header → True
         ({"user-agent": "claude-cli/2.0.37 (external, cli)", "x-api-key": "key"}, True),
         # Codex TUI variant
-        ({"user-agent": "codex-tui/0.1.0 (darwin; arm64) iTerm.app", "authorization": "Bearer key"}, True),
+        (
+            {
+                "user-agent": "codex-tui/0.1.0 (darwin; arm64) iTerm.app",
+                "authorization": "Bearer key",
+            },
+            True,
+        ),
         # Codex non-interactive (Rust CLI) variant
-        ({"user-agent": "codex_cli_rs/0.1.0 (darwin; arm64)", "authorization": "Bearer key"}, True),
+        (
+            {"user-agent": "codex_cli_rs/0.1.0 (darwin; arm64)", "authorization": "Bearer key"},
+            True,
+        ),
         # Codex VS Code variant
-        ({"user-agent": "codex_vscode/0.1.0 (darwin; arm64)", "authorization": "Bearer key"}, True),
+        (
+            {"user-agent": "codex_vscode/0.1.0 (darwin; arm64)", "authorization": "Bearer key"},
+            True,
+        ),
         (
             {
                 "user-agent": "GeminiCLI/0.39.0/gemini-2.0-pro (darwin; x64)",

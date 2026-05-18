@@ -663,7 +663,6 @@ class GeminiProvider(BaseProvider):
             client_headers = headers.copy()
             client_headers.pop("host", None)
             client_headers.pop("content-length", None)
-            print(f"client_headers: {client_headers}")
             if _client_provides_auth(headers):
                 # Preserve the client's own credentials for subscription-based tools
                 # (e.g. Claude Code, Codex, Gemini CLI) instead of using the server key.
