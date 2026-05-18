@@ -29,3 +29,12 @@ def test_default_run_context_tags(patch_script_name):
             MLFLOW_SOURCE_NAME: MOCK_SCRIPT_NAME,
             MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.LOCAL),
         }
+
+
+@pytest.mark.parametrize("argv", [[], [""]])
+def test_default_run_context_tags_console(argv):
+    """Empty or missing sys.argv[0] (REPL) must report source as '<console>', not ''."""
+    mock_user = mock.Mock()
+    with mock.patch("sys.argv", argv), mock.patch("getpass.getuser", return_value=mock_user):
+        tags = DefaultRunContext().tags()
+        assert tags[MLFLOW_SOURCE_NAME] == "<console>"
