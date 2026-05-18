@@ -67,6 +67,9 @@ jobs:
           {
             echo 'This PR was created automatically to update `uv.lock`.'
             echo
+            echo '> [!IMPORTANT]'
+            echo '> This PR is set to auto-merge once CI passes. If any CI checks fail, please investigate and fix them.'
+            echo
             echo '### `uv lock` output'
             echo
             echo '```'
