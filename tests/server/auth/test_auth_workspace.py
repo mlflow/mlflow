@@ -2625,6 +2625,39 @@ def test_role_permission_resolver_denies_in_non_default_workspace(monkeypatch):
     assert perm.name == NO_PERMISSIONS.name
 
 
+def test_list_user_role_permissions_workspace_is_default_when_workspaces_disabled(
+    tmp_path, monkeypatch
+):
+    # ``_UserRolePermissionRow.workspace`` is typed ``str``, not ``str | None``.
+    # When workspaces are disabled, ``_get_active_workspace_name()`` returns the
+    # string ``"default"`` (``DEFAULT_WORKSPACE_NAME``) and every role write
+    # threads that through ``SqlRole.workspace`` (``nullable=False``). Pins
+    # that LIST surfaces ``"default"`` rather than ``None`` in this mode.
+    from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
+
+    monkeypatch.delenv(MLFLOW_ENABLE_WORKSPACES.name, raising=False)
+    db_uri = f"sqlite:///{tmp_path / 'auth-store.db'}"
+    auth_store = SqlAlchemyStore()
+    auth_store.init_db(db_uri)
+    monkeypatch.setattr(auth_module, "store", auth_store, raising=False)
+
+    username = "alice"
+    auth_store.create_user(username, "supersecurepassword", is_admin=False)
+    auth_store.grant_user_resource_permission(username, "experiment", "exp-1", READ.name)
+
+    is_admin, rows = auth_module._list_user_role_permissions(username)
+    assert is_admin is False
+    assert len(rows) == 1
+    row = rows[0]
+    assert isinstance(row.workspace, str)
+    assert row.workspace == DEFAULT_WORKSPACE_NAME
+    assert row.resource_type == "experiment"
+    assert row.resource_pattern == "exp-1"
+    assert row.permission == READ.name
+    # Direct grants land on the synthetic ``__user_<id>__`` role.
+    assert row.role_name == f"__user_{auth_store.get_user(username).id}__"
+
+
 def test_user_can_create_in_default_workspace_via_autogrant(monkeypatch):
     """``_user_can_create_in_workspace`` must honor
     ``grant_default_workspace_access`` so an ungranted user in the default
