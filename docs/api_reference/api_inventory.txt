@@ -1623,7 +1623,6 @@ mlflow.sentence_transformers.save_model
 mlflow.server.auth.client.AuthServiceClient
 mlflow.server.auth.client.AuthServiceClient.add_role_permission
 mlflow.server.auth.client.AuthServiceClient.assign_role
-mlflow.server.auth.client.AuthServiceClient.check_user_permission
 mlflow.server.auth.client.AuthServiceClient.create_experiment_permission
 mlflow.server.auth.client.AuthServiceClient.create_gateway_endpoint_permission
 mlflow.server.auth.client.AuthServiceClient.create_gateway_model_definition_permission
@@ -1648,6 +1647,7 @@ mlflow.server.auth.client.AuthServiceClient.get_registered_model_permission
 mlflow.server.auth.client.AuthServiceClient.get_role
 mlflow.server.auth.client.AuthServiceClient.get_scorer_permission
 mlflow.server.auth.client.AuthServiceClient.get_user
+mlflow.server.auth.client.AuthServiceClient.get_user_permission
 mlflow.server.auth.client.AuthServiceClient.grant_user_permission
 mlflow.server.auth.client.AuthServiceClient.list_all_roles
 mlflow.server.auth.client.AuthServiceClient.list_role_permissions
@@ -1667,9 +1667,9 @@ mlflow.server.auth.client.AuthServiceClient.update_role_permission
 mlflow.server.auth.client.AuthServiceClient.update_scorer_permission
 mlflow.server.auth.client.AuthServiceClient.update_user_admin
 mlflow.server.auth.client.AuthServiceClient.update_user_password
-mlflow.server.auth.entities.CheckUserPermissionResult
-mlflow.server.auth.entities.CheckUserPermissionResult.from_json
-mlflow.server.auth.entities.CheckUserPermissionResult.to_json
+mlflow.server.auth.entities.GetUserPermissionResult
+mlflow.server.auth.entities.GetUserPermissionResult.from_json
+mlflow.server.auth.entities.GetUserPermissionResult.to_json
 mlflow.server.auth.entities.ExperimentPermission
 mlflow.server.auth.entities.ExperimentPermission.from_json
 mlflow.server.auth.entities.ExperimentPermission.to_json

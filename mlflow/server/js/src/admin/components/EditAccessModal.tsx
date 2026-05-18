@@ -40,6 +40,11 @@ export interface EditAccessModalProps {
 const directPermKey = (p: { resourceType: string; resourceId: string; permission: string }) =>
   `${p.resourceType}::${p.resourceId}::${p.permission}`;
 
+// Synthetic per-user role created by the auth backend's ``grant_user_permission``
+// API. Permissions on this role are surfaced as "Direct permissions" in the UI;
+// permissions on every other role belong to the Roles tab.
+const SYNTHETIC_USER_ROLE_NAME_RE = /^__user_\d+__$/;
+
 const isDirectGrantResourceType = (rt: string): rt is DirectGrantResourceType =>
   rt === 'experiment' ||
   rt === 'registered_model' ||
@@ -86,6 +91,11 @@ export const EditAccessModal = ({ open, onClose, username, onCreateRoleForAllOfT
   const currentDirectPerms = useMemo<StagedDirectPermission[]>(
     () =>
       (directPermsData?.permissions ?? [])
+        // The unified ``/users/permissions/list`` response returns every
+        // permission across every role the user holds. Direct grants live on
+        // the synthetic ``__user_<id>__`` role; filter to just those for the
+        // "Direct permissions" view (custom roles are shown in the Roles tab).
+        .filter((p) => SYNTHETIC_USER_ROLE_NAME_RE.test(p.role_name))
         .filter((p) => isDirectGrantResourceType(p.resource_type))
         .map((p) => ({
           resourceType: p.resource_type as DirectGrantResourceType,

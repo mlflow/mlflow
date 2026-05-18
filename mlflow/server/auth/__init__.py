@@ -201,7 +201,7 @@ from mlflow.protos.webhooks_pb2 import (
 )
 from mlflow.server import app
 from mlflow.server.auth.config import DEFAULT_AUTHORIZATION_FUNCTION, read_auth_config
-from mlflow.server.auth.entities import CheckUserPermissionResult, User
+from mlflow.server.auth.entities import GetUserPermissionResult, User
 from mlflow.server.auth.logo import MLFLOW_LOGO
 from mlflow.server.auth.permissions import (
     MANAGE,
@@ -225,7 +225,6 @@ from mlflow.server.auth.routes import (
     ADD_ROLE_PERMISSION,
     AJAX_ADD_ROLE_PERMISSION,
     AJAX_ASSIGN_ROLE,
-    AJAX_CHECK_USER_PERMISSION,
     AJAX_CREATE_ROLE,
     AJAX_CREATE_USER,
     AJAX_DELETE_ROLE,
@@ -233,6 +232,7 @@ from mlflow.server.auth.routes import (
     AJAX_GET_CURRENT_USER,
     AJAX_GET_ROLE,
     AJAX_GET_USER,
+    AJAX_GET_USER_PERMISSION,
     AJAX_GRANT_USER_PERMISSION,
     AJAX_LIST_CURRENT_USER_PERMISSIONS,
     AJAX_LIST_ROLE_PERMISSIONS,
@@ -249,7 +249,6 @@ from mlflow.server.auth.routes import (
     AJAX_UPDATE_USER_ADMIN,
     AJAX_UPDATE_USER_PASSWORD,
     ASSIGN_ROLE,
-    CHECK_USER_PERMISSION,
     CREATE_EXPERIMENT_PERMISSION,
     CREATE_GATEWAY_ENDPOINT_PERMISSION,
     CREATE_GATEWAY_MODEL_DEFINITION_PERMISSION,
@@ -287,6 +286,7 @@ from mlflow.server.auth.routes import (
     GET_SCORER_PERMISSION,
     GET_TRACE_ARTIFACT,
     GET_USER,
+    GET_USER_PERMISSION,
     GRANT_USER_PERMISSION,
     HOME,
     INVOKE_SCORER,
@@ -1434,7 +1434,7 @@ def _resolve_user_permission_for_resource(
     username: str, resource_type: str, resource_id: str
 ) -> Permission:
     """Resolve effective permission via the same code path as the runtime check
-    (``_get_permission_from_*`` family) so ``check_user_permission`` can't drift
+    (``_get_permission_from_*`` family) so ``get_user_permission`` can't drift
     from real authorization decisions.
     """
     _reject_workspace_resource_type(resource_type)
@@ -1489,8 +1489,8 @@ def _workspace_for_resource(resource_type: str, resource_id: str) -> str | None:
     )
 
 
-def validate_can_check_user_permission() -> bool:
-    """Gate ``check_user_permission``: admin / self / workspace MANAGE in the
+def validate_can_get_user_permission() -> bool:
+    """Gate ``get_user_permission``: admin / self / workspace MANAGE in the
     resource's workspace. Scoping to the resource workspace closes the
     cross-workspace probe (workspace-A admin asking about a workspace-B resource).
     """
@@ -2381,8 +2381,8 @@ BEFORE_REQUEST_VALIDATORS.update({
     (AJAX_GRANT_USER_PERMISSION, "POST"): validate_can_manage_resource,
     (REVOKE_USER_PERMISSION, "POST"): validate_can_manage_resource,
     (AJAX_REVOKE_USER_PERMISSION, "POST"): validate_can_manage_resource,
-    (CHECK_USER_PERMISSION, "GET"): validate_can_check_user_permission,
-    (AJAX_CHECK_USER_PERMISSION, "GET"): validate_can_check_user_permission,
+    (GET_USER_PERMISSION, "GET"): validate_can_get_user_permission,
+    (AJAX_GET_USER_PERMISSION, "GET"): validate_can_get_user_permission,
 })
 
 # Flask routes (no proto mapping)
@@ -3479,135 +3479,73 @@ def get_current_user():
 
 
 @dataclass
-class _UserDirectPermission:
-    """Wire schema for one row of ``GET /users/current/permissions``."""
+class _UserRolePermissionRow:
+    """One row of ``GET /users/permissions/list``: a single grant on one of the
+    user's roles, enriched with role identity so the frontend can split the
+    "Direct permissions" view (rows whose ``role_name`` matches the synthetic
+    ``__user_<id>__`` pattern) from the "Role permissions" view.
+    """
 
+    role_id: int
+    role_name: str
+    workspace: str
     resource_type: str
     resource_pattern: str
     permission: str
-    workspace: str | None
 
 
-def _list_user_direct_permissions(username: str) -> list[_UserDirectPermission]:
-    # Returns each grant under ``resource_pattern`` (matching
-    # ``RolePermission``), enriched with the resource's workspace.
-    # ``workspace`` is ``None`` when the resource has been deleted -
-    # ``silent=True`` on the workspace lookup so deleted-resource grants
-    # don't flood logs with security warnings on this listing endpoint.
-    #
-    # Drift risk: this helper iterates ``store.list_*_permissions(username)``
-    # for every resource type. The four id-based listings (experiment,
-    # gateway_*) only filter by ``user_id`` today;
-    # ``list_all_registered_model_permissions`` is the explicit
-    # cross-workspace variant (the workspace-aware
-    # ``list_registered_model_permissions`` would raise on workspaces-enabled
-    # deployments without an active workspace, since ``/account`` is a
-    # global route). If any of the id-based methods gains a workspace filter
-    # in the future, this endpoint will silently break the same way. Follow-up:
-    # add a regression test or runtime assertion that walks every list method
-    # invoked here and proves it works when the active workspace is unset.
-    grants: list[_UserDirectPermission] = [
-        _UserDirectPermission(
-            resource_type="experiment",
-            resource_pattern=p.experiment_id,
-            permission=p.permission,
-            workspace=_get_resource_workspace(
-                p.experiment_id,
-                _get_tracking_store().get_experiment,
-                "experiment",
-                silent=True,
-            ),
+def _list_user_role_permissions(username: str) -> tuple[bool, list[_UserRolePermissionRow]]:
+    """Flatten every role-derived permission grant the user holds.
+
+    Returns ``(is_admin, rows)`` where ``rows`` covers all roles the user is
+    assigned to (including the synthetic ``__user_<id>__`` role used by the
+    ``grant`` / ``revoke`` convenience APIs). The ``workspace`` of each row is
+    the role's workspace; because resource-level grants are written into roles
+    scoped to the resource's workspace, that's equivalent to the resource's
+    workspace.
+    """
+    user = store.get_user(username)
+    rows = [
+        _UserRolePermissionRow(
+            role_id=role.id,
+            role_name=role.name,
+            workspace=role.workspace,
+            resource_type=rp.resource_type,
+            resource_pattern=rp.resource_pattern,
+            permission=rp.permission,
         )
-        for p in store.list_experiment_permissions(username)
+        for role in store.list_user_roles(user.id)
+        for rp in role.permissions
     ]
-    # Use the cross-workspace variant: ``/account`` is a global route
-    # (no ``X-MLFLOW-WORKSPACE`` header), so the active-workspace-aware
-    # ``list_registered_model_permissions`` would raise on
-    # workspaces-enabled deployments. ``list_all_registered_model_permissions``
-    # returns one row per (workspace, model) grant; each carries its own
-    # ``workspace`` value.
-    grants.extend(
-        _UserDirectPermission(
-            resource_type="registered_model",
-            resource_pattern=p.name,
-            permission=p.permission,
-            workspace=p.workspace,
-        )
-        for p in store.list_all_registered_model_permissions(username)
-    )
-    grants.extend(
-        _UserDirectPermission(
-            resource_type="gateway_secret",
-            resource_pattern=p.secret_id,
-            permission=p.permission,
-            workspace=_get_resource_workspace(
-                p.secret_id,
-                lambda sid: _get_tracking_store().get_secret_info(secret_id=sid),
-                "gateway_secret",
-                silent=True,
-            ),
-        )
-        for p in store.list_gateway_secret_permissions(username)
-    )
-    grants.extend(
-        _UserDirectPermission(
-            resource_type="gateway_endpoint",
-            resource_pattern=p.endpoint_id,
-            permission=p.permission,
-            workspace=_get_resource_workspace(
-                p.endpoint_id,
-                lambda eid: _get_tracking_store().get_gateway_endpoint(endpoint_id=eid),
-                "gateway_endpoint",
-                silent=True,
-            ),
-        )
-        for p in store.list_gateway_endpoint_permissions(username)
-    )
-    grants.extend(
-        _UserDirectPermission(
-            resource_type="gateway_model_definition",
-            resource_pattern=p.model_definition_id,
-            permission=p.permission,
-            workspace=_get_resource_workspace(
-                p.model_definition_id,
-                lambda mdid: _get_tracking_store().get_gateway_model_definition(
-                    model_definition_id=mdid
-                ),
-                "gateway_model_definition",
-                silent=True,
-            ),
-        )
-        for p in store.list_gateway_model_definition_permissions(username)
-    )
-    return grants
+    return user.is_admin, rows
 
 
 @catch_mlflow_exception
 def list_current_user_permissions():
-    # Sender == target, no admin gate. Roles + role permissions are exposed
-    # separately via /users/roles/list - the frontend unions both views.
+    # Sender == target. Returns every permission grant across every role the
+    # user holds, plus ``is_admin`` at the top level so the frontend can show
+    # admin status without a second call to ``/users/get``.
     username = authenticate_request().username
-    return jsonify({
-        "permissions": [asdict(grant) for grant in _list_user_direct_permissions(username)]
-    })
+    is_admin, rows = _list_user_role_permissions(username)
+    return jsonify({"is_admin": is_admin, "permissions": [asdict(r) for r in rows]})
 
 
 @catch_mlflow_exception
 def list_user_permissions():
-    # Admin / self / workspace-admin-of-target view of one user's direct
-    # grants. Mirrors ``list_user_roles``'s response-scoping: workspace
-    # admins see only grants whose ``workspace`` they administer; super
-    # admins and the user themselves see everything.
+    # Admin / self / workspace-admin-of-target view of one user's permissions
+    # across every role they hold. Workspace admins see only rows in workspaces
+    # they administer; super admins and self see everything. Mirrors
+    # ``list_user_roles``'s response-scoping.
     username = _get_request_param("username")
-    grants = _list_user_direct_permissions(username)
+    is_admin, rows = _list_user_role_permissions(username)
 
     requester = authenticate_request().username
     requester_user = store.get_user(requester)
     if not (requester_user.is_admin or requester == username):
         admin_workspaces = store.list_workspace_admin_workspaces(requester_user.id)
-        grants = [g for g in grants if g.workspace in admin_workspaces]
+        rows = [r for r in rows if r.workspace in admin_workspaces]
 
-    return jsonify({"permissions": [asdict(g) for g in grants]})
+    return jsonify({"is_admin": is_admin, "permissions": [asdict(r) for r in rows]})
 
 
 @catch_mlflow_exception
@@ -3945,7 +3883,7 @@ def revoke_user_permission():
 
 
 @catch_mlflow_exception
-def check_user_permission():
+def get_user_permission():
     username = _get_request_param("username")
     resource_type = _get_request_param("resource_type")
     resource_id = _get_request_param("resource_id")
@@ -3957,7 +3895,7 @@ def check_user_permission():
     # ``allowed`` mirrors ``can_use`` (regular access tier). READ alone is not
     # sufficient — callers needing a different cut inspect ``permission`` directly.
     return make_response(
-        CheckUserPermissionResult(allowed=permission.can_use, permission=permission.name).to_json()
+        GetUserPermissionResult(allowed=permission.can_use, permission=permission.name).to_json()
     )
 
 
@@ -4456,7 +4394,7 @@ _RBAC_ROUTES: list[tuple[Callable[[], Any], str, str, str]] = [
     # effective permission without touching the DB (GET).
     (grant_user_permission, "POST", GRANT_USER_PERMISSION, AJAX_GRANT_USER_PERMISSION),
     (revoke_user_permission, "POST", REVOKE_USER_PERMISSION, AJAX_REVOKE_USER_PERMISSION),
-    (check_user_permission, "GET", CHECK_USER_PERMISSION, AJAX_CHECK_USER_PERMISSION),
+    (get_user_permission, "GET", GET_USER_PERMISSION, AJAX_GET_USER_PERMISSION),
 ]
 
 

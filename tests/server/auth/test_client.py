@@ -344,7 +344,7 @@ def test_delete_user(client, monkeypatch):
 
 
 def _create_experiment(tracking_uri: str, monkeypatch, name: str) -> str:
-    """Create an experiment as admin so ``check_user_permission`` workspace
+    """Create an experiment as admin so ``get_user_permission`` workspace
     lookup succeeds; without a real row the resolver falls through to default.
     """
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
@@ -465,7 +465,7 @@ def test_revoke_user_permission_missing_row_raises(client, monkeypatch):
     assert exc.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
 
-def test_check_user_permission_self_check(client, monkeypatch):
+def test_get_user_permission_self_check(client, monkeypatch):
     # A non-admin user can check their own permissions on any resource.
     username, password = _new_user(client, monkeypatch)
     exp_id = _create_experiment(client.tracking_uri, monkeypatch, f"self-{random_str()}")
@@ -473,14 +473,14 @@ def test_check_user_permission_self_check(client, monkeypatch):
         client.grant_user_permission(username, "experiment", exp_id, "READ")
 
     with User(username, password, monkeypatch):
-        result = client.check_user_permission(username, "experiment", exp_id)
+        result = client.get_user_permission(username, "experiment", exp_id)
 
     # READ.can_use is False — ``allowed`` mirrors ``can_use``.
     assert result.permission == "READ"
     assert result.allowed is False
 
 
-def test_check_user_permission_returns_max_grant(client, monkeypatch):
+def test_get_user_permission_returns_max_grant(client, monkeypatch):
     # An explicit MANAGE grant yields allowed=True (MANAGE.can_use=True).
     username, password = _new_user(client, monkeypatch)
     exp_id = _create_experiment(client.tracking_uri, monkeypatch, f"mgr-{random_str()}")
@@ -488,27 +488,27 @@ def test_check_user_permission_returns_max_grant(client, monkeypatch):
         client.grant_user_permission(username, "experiment", exp_id, "MANAGE")
 
     with User(username, password, monkeypatch):
-        result = client.check_user_permission(username, "experiment", exp_id)
+        result = client.get_user_permission(username, "experiment", exp_id)
 
     assert result.permission == "MANAGE"
     assert result.allowed is True
 
 
-def test_check_user_permission_cross_user_requires_admin(client, monkeypatch):
+def test_get_user_permission_cross_user_requires_admin(client, monkeypatch):
     # A plain user cannot check another user's permissions.
     target, _ = _new_user(client, monkeypatch)
     requester, requester_pw = _new_user(client, monkeypatch)
 
     with User(requester, requester_pw, monkeypatch), assert_unauthorized():
-        client.check_user_permission(target, "experiment", "exp-x")
+        client.get_user_permission(target, "experiment", "exp-x")
 
 
-def test_check_user_permission_admin_can_check_any_user(client, monkeypatch):
+def test_get_user_permission_admin_can_check_any_user(client, monkeypatch):
     username, _ = _new_user(client, monkeypatch)
     exp_id = _create_experiment(client.tracking_uri, monkeypatch, f"admin-{random_str()}")
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
         client.grant_user_permission(username, "experiment", exp_id, "EDIT")
-        result = client.check_user_permission(username, "experiment", exp_id)
+        result = client.get_user_permission(username, "experiment", exp_id)
 
     assert result.permission == "EDIT"
     assert result.allowed is True
@@ -534,7 +534,7 @@ def test_grant_user_permission_non_admin_without_manage_rejected(client, monkeyp
     [
         ("/3.0/mlflow/users/permissions/grant", "POST"),
         ("/3.0/mlflow/users/permissions/revoke", "POST"),
-        ("/3.0/mlflow/users/permissions/check", "GET"),
+        ("/3.0/mlflow/users/permissions/get", "GET"),
     ],
 )
 def test_unified_permission_endpoints_reachable_at_both_path_prefixes(

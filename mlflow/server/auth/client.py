@@ -1,11 +1,11 @@
 import warnings
 
 from mlflow.server.auth.entities import (
-    CheckUserPermissionResult,
     ExperimentPermission,
     GatewayEndpointPermission,
     GatewayModelDefinitionPermission,
     GatewaySecretPermission,
+    GetUserPermissionResult,
     RegisteredModelPermission,
     Role,
     RolePermission,
@@ -16,7 +16,6 @@ from mlflow.server.auth.entities import (
 from mlflow.server.auth.routes import (
     ADD_ROLE_PERMISSION,
     ASSIGN_ROLE,
-    CHECK_USER_PERMISSION,
     CREATE_EXPERIMENT_PERMISSION,
     CREATE_GATEWAY_ENDPOINT_PERMISSION,
     CREATE_GATEWAY_MODEL_DEFINITION_PERMISSION,
@@ -41,6 +40,7 @@ from mlflow.server.auth.routes import (
     GET_ROLE,
     GET_SCORER_PERMISSION,
     GET_USER,
+    GET_USER_PERMISSION,
     GRANT_USER_PERMISSION,
     LIST_ROLE_PERMISSIONS,
     LIST_ROLE_USERS,
@@ -421,14 +421,14 @@ class AuthServiceClient:
             },
         )
 
-    def check_user_permission(
+    def get_user_permission(
         self,
         username: str,
         resource_type: str,
         resource_id: str,
-    ) -> CheckUserPermissionResult:
+    ) -> GetUserPermissionResult:
         resp = self._request(
-            CHECK_USER_PERMISSION,
+            GET_USER_PERMISSION,
             "GET",
             params={
                 "username": username,
@@ -436,7 +436,7 @@ class AuthServiceClient:
                 "resource_id": resource_id,
             },
         )
-        return CheckUserPermissionResult.from_json(resp)
+        return GetUserPermissionResult.from_json(resp)
 
     # Legacy per-resource permission methods (deprecated). Backed by synthetic
     # per-user role grants; prefer ``add_role_permission`` + ``assign_role``.

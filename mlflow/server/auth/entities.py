@@ -461,8 +461,8 @@ class UserRoleAssignment:
         )
 
 
-class CheckUserPermissionResult:
-    """Response shape for ``GET /mlflow/users/permissions/check``. ``allowed``
+class GetUserPermissionResult:
+    """Response shape for ``GET /mlflow/users/permissions/get``. ``allowed``
     mirrors ``Permission.can_use`` (regular access tier); ``permission`` is the
     resolved effective permission name.
     """

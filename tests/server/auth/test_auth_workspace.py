@@ -2944,7 +2944,7 @@ def test_validate_can_manage_resource_workspace_resource_type_rejected(
             auth_module.validate_can_manage_resource()
 
 
-def test_validate_can_check_user_permission_self_check_allowed(
+def test_validate_can_get_user_permission_self_check_allowed(
     workspace_permission_setup,
 ):
     # A non-admin user can always check their own permissions, even without
@@ -2954,7 +2954,7 @@ def test_validate_can_check_user_permission_self_check_allowed(
     _set_workspace_permission(store, username, NO_PERMISSIONS.name)
 
     with auth_module.app.test_request_context(
-        "/api/3.0/mlflow/users/permissions/check",
+        "/api/3.0/mlflow/users/permissions/get",
         method="GET",
         query_string={
             "username": username,
@@ -2962,10 +2962,10 @@ def test_validate_can_check_user_permission_self_check_allowed(
             "resource_id": "exp-1",
         },
     ):
-        assert auth_module.validate_can_check_user_permission()
+        assert auth_module.validate_can_get_user_permission()
 
 
-def test_validate_can_check_user_permission_admin_short_circuits(
+def test_validate_can_get_user_permission_admin_short_circuits(
     workspace_permission_setup, monkeypatch
 ):
     # Platform admins bypass the workspace check.
@@ -2981,7 +2981,7 @@ def test_validate_can_check_user_permission_admin_short_circuits(
 
     target = workspace_permission_setup["username"]
     with auth_module.app.test_request_context(
-        "/api/3.0/mlflow/users/permissions/check",
+        "/api/3.0/mlflow/users/permissions/get",
         method="GET",
         query_string={
             "username": target,
@@ -2989,10 +2989,10 @@ def test_validate_can_check_user_permission_admin_short_circuits(
             "resource_id": "exp-1",
         },
     ):
-        assert auth_module.validate_can_check_user_permission()
+        assert auth_module.validate_can_get_user_permission()
 
 
-def test_validate_can_check_user_permission_admin_probes_other_workspace(
+def test_validate_can_get_user_permission_admin_probes_other_workspace(
     workspace_permission_setup, monkeypatch
 ):
     # Platform admins bypass the workspace check globally — even for resources in
@@ -3013,7 +3013,7 @@ def test_validate_can_check_user_permission_admin_probes_other_workspace(
     auth_module._get_tracking_store()._experiment_workspaces["exp-team-b"] = "team-b"
 
     with auth_module.app.test_request_context(
-        "/api/3.0/mlflow/users/permissions/check",
+        "/api/3.0/mlflow/users/permissions/get",
         method="GET",
         query_string={
             "username": target,
@@ -3021,10 +3021,10 @@ def test_validate_can_check_user_permission_admin_probes_other_workspace(
             "resource_id": "exp-team-b",
         },
     ):
-        assert auth_module.validate_can_check_user_permission()
+        assert auth_module.validate_can_get_user_permission()
 
 
-def test_validate_can_check_user_permission_cross_user_requires_admin(
+def test_validate_can_get_user_permission_cross_user_requires_admin(
     workspace_permission_setup,
 ):
     # A non-admin requester without workspace MANAGE in the resource's workspace
@@ -3038,7 +3038,7 @@ def test_validate_can_check_user_permission_cross_user_requires_admin(
     _set_workspace_permission(store, requester, USE.name)
 
     with auth_module.app.test_request_context(
-        "/api/3.0/mlflow/users/permissions/check",
+        "/api/3.0/mlflow/users/permissions/get",
         method="GET",
         query_string={
             "username": target,
@@ -3046,10 +3046,10 @@ def test_validate_can_check_user_permission_cross_user_requires_admin(
             "resource_id": "exp-1",
         },
     ):
-        assert not auth_module.validate_can_check_user_permission()
+        assert not auth_module.validate_can_get_user_permission()
 
 
-def test_validate_can_check_user_permission_wp_admin_scoped_to_resource_workspace(
+def test_validate_can_get_user_permission_wp_admin_scoped_to_resource_workspace(
     workspace_permission_setup,
 ):
     # A workspace admin in team-a can check another user's permissions on resources
@@ -3063,7 +3063,7 @@ def test_validate_can_check_user_permission_wp_admin_scoped_to_resource_workspac
     store.create_user(target, "supersecurepassword", is_admin=False)
 
     with auth_module.app.test_request_context(
-        "/api/3.0/mlflow/users/permissions/check",
+        "/api/3.0/mlflow/users/permissions/get",
         method="GET",
         query_string={
             "username": target,
@@ -3071,10 +3071,10 @@ def test_validate_can_check_user_permission_wp_admin_scoped_to_resource_workspac
             "resource_id": "exp-1",
         },
     ):
-        assert auth_module.validate_can_check_user_permission()
+        assert auth_module.validate_can_get_user_permission()
 
 
-def test_validate_can_check_user_permission_cross_workspace_probe_denied(
+def test_validate_can_get_user_permission_cross_workspace_probe_denied(
     workspace_permission_setup,
 ):
     # Security gate: a workspace admin of team-a must NOT be able to probe a
@@ -3089,7 +3089,7 @@ def test_validate_can_check_user_permission_cross_workspace_probe_denied(
     auth_module._get_tracking_store()._experiment_workspaces["exp-team-b"] = "team-b"
 
     with auth_module.app.test_request_context(
-        "/api/3.0/mlflow/users/permissions/check",
+        "/api/3.0/mlflow/users/permissions/get",
         method="GET",
         query_string={
             "username": target,
@@ -3097,10 +3097,10 @@ def test_validate_can_check_user_permission_cross_workspace_probe_denied(
             "resource_id": "exp-team-b",
         },
     ):
-        assert not auth_module.validate_can_check_user_permission()
+        assert not auth_module.validate_can_get_user_permission()
 
 
-def test_validate_can_check_user_permission_unknown_resource_denied(
+def test_validate_can_get_user_permission_unknown_resource_denied(
     workspace_permission_setup,
 ):
     # If the resource can't be resolved to a workspace (e.g. it doesn't exist),
@@ -3114,7 +3114,7 @@ def test_validate_can_check_user_permission_unknown_resource_denied(
     store.create_user(target, "supersecurepassword", is_admin=False)
 
     with auth_module.app.test_request_context(
-        "/api/3.0/mlflow/users/permissions/check",
+        "/api/3.0/mlflow/users/permissions/get",
         method="GET",
         query_string={
             "username": target,
@@ -3122,4 +3122,4 @@ def test_validate_can_check_user_permission_unknown_resource_denied(
             "resource_id": "exp-does-not-exist",
         },
     ):
-        assert not auth_module.validate_can_check_user_permission()
+        assert not auth_module.validate_can_get_user_permission()

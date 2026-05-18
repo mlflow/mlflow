@@ -43,22 +43,24 @@ export interface ListUserRolesResponse {
 }
 
 /**
- * Direct (non-role-derived) per-resource grant. Shape matches
- * ``RolePermission`` (without role-table joins) so the frontend can
- * union both into one view. ``workspace`` is ``null`` when the
- * resource has been deleted or could not be resolved; the field is
- * always present on the wire (mirrors the backend's
- * ``_UserDirectPermission`` dataclass).
+ * One row of ``GET /users/permissions/list``: a single permission grant on
+ * one of the user's roles, carrying enough role identity that the frontend
+ * can split the "Direct permissions" view (rows whose ``role_name`` matches
+ * the synthetic ``__user_<id>__`` pattern) from the "Role permissions"
+ * view. ``workspace`` is the role's workspace.
  */
-export interface DirectPermission {
+export interface UserRolePermissionRow {
+  role_id: number;
+  role_name: string;
+  workspace: string;
   resource_type: string;
   resource_pattern: string;
   permission: string;
-  workspace: string | null;
 }
 
 export interface ListMyPermissionsResponse {
-  permissions: DirectPermission[];
+  is_admin: boolean;
+  permissions: UserRolePermissionRow[];
 }
 
 export interface UpdatePasswordRequest {
