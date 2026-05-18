@@ -12,6 +12,7 @@ from mlflow.environment_variables import (
     MLFLOW_TRACKING_USERNAME,
 )
 from mlflow.protos.databricks_pb2 import (
+    BAD_REQUEST,
     INVALID_PARAMETER_VALUE,
     PERMISSION_DENIED,
     RESOURCE_DOES_NOT_EXIST,
@@ -333,6 +334,18 @@ def test_delete_user(client, monkeypatch):
         client.create_user(username2, password2)
     with User(username2, password2, monkeypatch), assert_unauthorized():
         client.delete_user(username)
+
+
+def test_delete_user_rejects_self_delete(client, monkeypatch):
+    with (
+        User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch),
+        pytest.raises(MlflowException, match=r"cannot delete their own account") as exc,
+    ):
+        client.delete_user(ADMIN_USERNAME)
+    assert exc.value.error_code == ErrorCode.Name(BAD_REQUEST)
+    # Admin account still exists and is still usable.
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        assert client.get_user(ADMIN_USERNAME).username == ADMIN_USERNAME
 
 
 # ---- Unified per-user permission convenience APIs ----
