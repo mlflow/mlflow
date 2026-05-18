@@ -2,11 +2,35 @@ from __future__ import annotations
 
 import re
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from typing import Iterable
 
 from mlflow.entities import Workspace
-from mlflow.entities.workspace import WorkspaceDeletionMode
+from mlflow.entities.workspace import TraceArchivalConfig, WorkspaceDeletionMode
 from mlflow.exceptions import MlflowException
+
+
+@dataclass(frozen=True, slots=True)
+class ResolvedTraceArchivalConfig:
+    """Resolved trace archival settings for a workspace."""
+
+    config: TraceArchivalConfig
+    append_workspace_prefix: bool
+
+    def with_broader_defaults(
+        self, *, default_location: str, default_retention: str
+    ) -> "ResolvedTraceArchivalConfig":
+        """Fill any unset workspace fields from broader-scope defaults."""
+
+        return ResolvedTraceArchivalConfig(
+            config=TraceArchivalConfig(
+                location=default_location if self.config.location is None else self.config.location,
+                retention=(
+                    default_retention if self.config.retention is None else self.config.retention
+                ),
+            ),
+            append_workspace_prefix=self.append_workspace_prefix,
+        )
 
 
 # The workspace store can be backed by something other than the tracking store. For example,
@@ -90,6 +114,33 @@ class AbstractStore(ABC):
         """
 
         return default_artifact_root, True
+
+    def resolve_trace_archival_config(
+        self,
+        default_trace_archival_root: str,
+        default_retention: str,
+        workspace_name: str,
+    ) -> ResolvedTraceArchivalConfig:
+        """
+        Allow a provider to customize trace archival settings per workspace.
+
+        Returns:
+            A ``ResolvedTraceArchivalConfig`` describing the archival root, whether MLflow
+            should append ``/workspaces/<workspace_name>``, and the retention duration to apply
+            for the workspace. Providers should treat ``default_trace_archival_root`` as a
+            required broader-scope default for the archival pass, and ``default_retention`` as a
+            required broader-scope retention. Providers should override either value only when
+            workspace-specific settings are configured; any field left as ``None`` will inherit
+            the broader-scope default in core.
+        """
+
+        return ResolvedTraceArchivalConfig(
+            config=TraceArchivalConfig(
+                location=default_trace_archival_root,
+                retention=default_retention,
+            ),
+            append_workspace_prefix=True,
+        )
 
 
 class WorkspaceNameValidator:

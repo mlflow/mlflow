@@ -183,3 +183,49 @@ def test_setup_environment_config_experiment_id_precedence(temp_settings_path):
     assert env_vars[MLFLOW_TRACING_ENABLED] == "true"
     assert env_vars["MLFLOW_TRACKING_URI"] == new_tracking_uri
     assert env_vars["MLFLOW_EXPERIMENT_ID"] == new_experiment_id
+
+
+def test_setup_environment_config_defaults_to_current_tracking_uri_and_default_experiment(
+    temp_settings_path, monkeypatch
+):
+    monkeypatch.delenv("MLFLOW_TRACKING_URI", raising=False)
+    monkeypatch.delenv("MLFLOW_EXPERIMENT_ID", raising=False)
+    monkeypatch.delenv("MLFLOW_EXPERIMENT_NAME", raising=False)
+    monkeypatch.setattr("mlflow.get_tracking_uri", lambda: "file:///tmp/mlruns")
+
+    setup_environment_config(temp_settings_path)
+
+    config = json.loads(temp_settings_path.read_text())
+    env_vars = config["env"]
+    assert env_vars["MLFLOW_TRACKING_URI"] == "file:///tmp/mlruns"
+    assert env_vars["MLFLOW_EXPERIMENT_ID"] == "0"
+
+
+def test_setup_environment_config_resolves_experiment_name_to_id(temp_settings_path, monkeypatch):
+    class DummyExperiment:
+        experiment_id = "456"
+
+    class DummyClient:
+        def __init__(self, tracking_uri):
+            assert tracking_uri == "http://localhost:5000"
+
+        def get_experiment_by_name(self, name):
+            assert name == "my-exp"
+            return DummyExperiment()
+
+        def create_experiment(self, name):
+            raise AssertionError("create_experiment should not be called when experiment exists")
+
+    monkeypatch.setattr("mlflow.tracking.client.MlflowClient", DummyClient)
+
+    setup_environment_config(
+        temp_settings_path,
+        tracking_uri="http://localhost:5000",
+        experiment_name="my-exp",
+    )
+
+    config = json.loads(temp_settings_path.read_text())
+    env_vars = config["env"]
+    assert env_vars["MLFLOW_TRACKING_URI"] == "http://localhost:5000"
+    assert env_vars["MLFLOW_EXPERIMENT_ID"] == "456"
+    assert env_vars["MLFLOW_EXPERIMENT_NAME"] == "my-exp"

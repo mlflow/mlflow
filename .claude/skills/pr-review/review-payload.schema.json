@@ -8,7 +8,7 @@
   "required": ["event", "body", "comments"],
   "properties": {
     "event": {
-      "description": "Review action. APPROVE only when there are no CRITICAL findings and the PR author has admin/maintain; otherwise COMMENT.",
+      "description": "Review action. APPROVE only when there are no CRITICAL findings; otherwise COMMENT.",
       "type": "string",
       "enum": ["APPROVE", "COMMENT"]
     },

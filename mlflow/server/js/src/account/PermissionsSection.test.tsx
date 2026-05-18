@@ -3,7 +3,7 @@ import React from 'react';
 import { renderWithDesignSystem, screen, within } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 
 import { PermissionsSection } from './PermissionsSection';
-import type { DirectPermission, Role } from './types';
+import type { Role, UserRolePermissionRow } from './types';
 
 const role = (overrides: Partial<Role>): Role => ({
   id: 1,
@@ -14,7 +14,9 @@ const role = (overrides: Partial<Role>): Role => ({
   ...overrides,
 });
 
-const direct = (overrides: Partial<DirectPermission>): DirectPermission => ({
+const direct = (overrides: Partial<UserRolePermissionRow>): UserRolePermissionRow => ({
+  role_id: 99,
+  role_name: '__user_1__',
   resource_type: 'experiment',
   resource_pattern: 'exp-1',
   permission: 'READ',

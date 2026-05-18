@@ -5,6 +5,7 @@ from mlflow.server.auth.entities import (
     GatewayEndpointPermission,
     GatewayModelDefinitionPermission,
     GatewaySecretPermission,
+    GetUserPermissionResult,
     RegisteredModelPermission,
     Role,
     RolePermission,
@@ -39,11 +40,14 @@ from mlflow.server.auth.routes import (
     GET_ROLE,
     GET_SCORER_PERMISSION,
     GET_USER,
+    GET_USER_PERMISSION,
+    GRANT_USER_PERMISSION,
     LIST_ROLE_PERMISSIONS,
     LIST_ROLE_USERS,
     LIST_ROLES,
     LIST_USER_ROLES,
     REMOVE_ROLE_PERMISSION,
+    REVOKE_USER_PERMISSION,
     UNASSIGN_ROLE,
     UPDATE_EXPERIMENT_PERMISSION,
     UPDATE_GATEWAY_ENDPOINT_PERMISSION,
@@ -382,6 +386,57 @@ class AuthServiceClient:
         # cross-workspace listing (admin-only, enforced server-side).
         resp = self._request(LIST_ROLES, "GET")
         return [Role.from_json(r) for r in resp["roles"]]
+
+    # ---- Unified per-user permission convenience APIs ----
+    # Grant / revoke / check one resource permission for a user. Preserve the
+    # legacy per-resource MANAGE delegation (per-resource MANAGE gates writes)
+    # via a uniform ``(resource_type, resource_id)`` shape.
+
+    def grant_user_permission(
+        self,
+        username: str,
+        resource_type: str,
+        resource_id: str,
+        permission: str,
+    ) -> None:
+        self._request(
+            GRANT_USER_PERMISSION,
+            "POST",
+            json={
+                "username": username,
+                "resource_type": resource_type,
+                "resource_id": resource_id,
+                "permission": permission,
+            },
+        )
+
+    def revoke_user_permission(self, username: str, resource_type: str, resource_id: str) -> None:
+        self._request(
+            REVOKE_USER_PERMISSION,
+            "POST",
+            json={
+                "username": username,
+                "resource_type": resource_type,
+                "resource_id": resource_id,
+            },
+        )
+
+    def get_user_permission(
+        self,
+        username: str,
+        resource_type: str,
+        resource_id: str,
+    ) -> GetUserPermissionResult:
+        resp = self._request(
+            GET_USER_PERMISSION,
+            "GET",
+            params={
+                "username": username,
+                "resource_type": resource_type,
+                "resource_id": resource_id,
+            },
+        )
+        return GetUserPermissionResult.from_json(resp)
 
     # Legacy per-resource permission methods (deprecated). Backed by synthetic
     # per-user role grants; prefer ``add_role_permission`` + ``assign_role``.

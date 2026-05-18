@@ -1,4 +1,8 @@
-"""Validate that all remote GitHub Actions are SHA-pinned with a version comment."""
+"""Validate GitHub Actions workflow and action files.
+
+Complements `.github/policy.rego` with checks that need cross-file or remote
+context.
+"""
 
 import json
 import re
@@ -8,6 +12,8 @@ from collections import defaultdict
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
+
+import yaml
 
 # Matches a `uses:` line that references a remote action (not a local `./` path).
 # Captures:  owner/repo[/subpath]  @  ref  [  # comment  ]
@@ -134,6 +140,81 @@ def _check_action(a: ActionRef, cache: dict[str, bool]) -> str | None:
     return None
 
 
+_LITERAL_CHARS = re.compile(r"[A-Za-z0-9._/\-]")
+
+
+def _glob_to_regex(pattern: str) -> re.Pattern[str]:
+    # GitHub uses minimatch-style globs: `**` crosses `/`, `*` does not.
+    i = 0
+    n = len(pattern)
+    parts = ["^"]
+    while i < n:
+        c = pattern[i]
+        if c == "*" and i + 1 < n and pattern[i + 1] == "*":
+            i += 2
+            if i < n and pattern[i] == "/":
+                # `**/` matches zero or more path segments
+                parts.append("(?:.*/)?")
+                i += 1
+            else:
+                parts.append(".*")
+        elif c == "*":
+            parts.append("[^/]*")
+            i += 1
+        elif _LITERAL_CHARS.match(c):
+            parts.append(re.escape(c))
+            i += 1
+        else:
+            raise ValueError(
+                f"Unsupported character {c!r} at position {i} in pattern {pattern!r}."
+                " Extend _glob_to_regex if this is a valid GitHub path filter character."
+            )
+    parts.append("$")
+    return re.compile("".join(parts))
+
+
+def _list_tracked_files() -> list[str]:
+    return subprocess.check_output(["git", "ls-files"], text=True).splitlines()
+
+
+def _pattern_matches(pattern: str, files: list[str]) -> bool:
+    regex = _glob_to_regex(pattern.removeprefix("!"))
+    return any(regex.match(f) for f in files)
+
+
+def _iter_path_patterns(path: Path) -> Iterator[tuple[str, str, str]]:
+    data = yaml.load(path.read_text(encoding="utf-8"), Loader=yaml.CSafeLoader)
+    if not isinstance(data, dict):
+        return
+    # PyYAML parses the literal `on:` key as the boolean True (YAML 1.1).
+    on = data.get("on", data.get(True))
+    if not isinstance(on, dict):
+        return
+    for event, cfg in on.items():
+        if not isinstance(cfg, dict):
+            continue
+        for key in ("paths", "paths-ignore"):
+            for pattern in cfg.get(key) or []:
+                yield str(event), key, pattern
+
+
+def _iter_workflow_files() -> Iterator[Path]:
+    root = Path(".github/workflows")
+    for ext in ("*.yml", "*.yaml"):
+        yield from root.glob(ext)
+
+
+def _check_paths() -> Iterator[str]:
+    files = _list_tracked_files()
+    for path in sorted(_iter_workflow_files()):
+        for event, key, pattern in _iter_path_patterns(path):
+            if not _pattern_matches(pattern, files):
+                yield (
+                    f"{path}: [on.{event}.{key}] pattern {pattern!r} does not"
+                    " match any tracked file"
+                )
+
+
 def _check_version_consistency(all_action_refs: list[ActionRef]) -> Iterator[str]:
     by_action: dict[str, list[ActionRef]] = defaultdict(list)
     for action_ref in all_action_refs:
@@ -160,9 +241,10 @@ def main() -> int:
     finally:
         _save_cache(cache)
     all_errors.extend(_check_version_consistency(all_action_refs))
+    all_errors.extend(_check_paths())
 
     if all_errors:
-        print("action-pins: the following violations were found:\n", file=sys.stderr)
+        print("check-actions: the following violations were found:\n", file=sys.stderr)
         for err in all_errors:
             print(err, file=sys.stderr)
         print(f"\n{len(all_errors)} violation(s) found.", file=sys.stderr)
