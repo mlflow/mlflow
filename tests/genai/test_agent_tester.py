@@ -59,7 +59,7 @@ def _llm_dispatcher(agent_desc, test_case_list):
 
 @pytest.fixture
 def mock_llm():
-    with mock.patch("mlflow.genai.judges.utils.get_chat_completions_with_structured_output") as m:
+    with mock.patch("mlflow.genai.agent_tester.get_chat_completions_with_structured_output") as m:
         yield m
 
 
