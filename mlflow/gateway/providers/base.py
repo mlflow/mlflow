@@ -309,7 +309,7 @@ class BaseProvider(ABC):
         except Exception as e:
             with mlflow.start_span(span_type=SpanType.LLM, name=self._get_span_name()) as span:
                 span.set_attributes({**self._get_provider_attributes(), "proxy_path": path})
-            raise e
+                raise e
 
     # -------------------------------------------------------------------------
     # Tracing helper methods

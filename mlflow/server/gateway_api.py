@@ -1353,6 +1353,10 @@ async def raw_proxy(endpoint_name: str, path: str, request: Request):
     workspace = get_request_workspace()
     _validate_store(store)
     headers = dict(request.headers)
+    # The proxy route is type-agnostic; EndpointType is only used to satisfy
+    # EndpointConfig construction and has no effect on proxy behavior (the proxy
+    # bypasses typed routing entirely). LLM_V1_CHAT is used as the default since
+    # the DB does not store a per-endpoint type for DB-backed gateway endpoints.
     provider, endpoint_config = _create_provider_from_endpoint_name(
         store, endpoint_name, EndpointType.LLM_V1_CHAT
     )
@@ -1405,7 +1409,12 @@ async def raw_proxy(endpoint_name: str, path: str, request: Request):
     )
 
     gen = traced_proxy(body)
-    first = await gen.__anext__()
+    try:
+        first = await gen.__anext__()
+    except StopAsyncIteration:
+        # _do_proxy raised before yielding (e.g. guardrail violation, provider 501).
+        # The original HTTPException already propagated; re-raise a generic 500 as fallback.
+        raise HTTPException(status_code=500, detail="Proxy handler exited without a response.")
     if isinstance(first, bytes):
 
         async def _prepend(first_chunk, rest):

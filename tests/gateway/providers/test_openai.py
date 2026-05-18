@@ -1446,4 +1446,6 @@ async def test_proxy_streaming():
         )
         collected = [chunk async for chunk in result]
 
-    assert len(collected) > 0
+    assert len(collected) == 2
+    assert b"chatcmpl-1" in collected[0]
+    assert b"[DONE]" in collected[1]

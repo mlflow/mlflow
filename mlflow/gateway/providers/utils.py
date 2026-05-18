@@ -1,7 +1,7 @@
 import time
 from contextlib import asynccontextmanager
 from contextvars import ContextVar
-from typing import Any, AsyncGenerator, AsyncIterator
+from typing import Any, AsyncGenerator
 
 from mlflow.gateway.constants import (
     MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS,
@@ -123,7 +123,7 @@ async def send_proxy_request(
     base_url: str,
     path: str,
     payload: dict[str, Any],
-) -> AsyncIterator[dict[str, Any] | bytes]:
+) -> AsyncGenerator[dict[str, Any] | bytes, None]:
     """
     Async generator for raw proxy requests that auto-detects streaming from Content-Type.
 
@@ -153,7 +153,7 @@ async def send_proxy_request(
                 raise HTTPException(status_code=e.status, detail=detail)
 
             content_type = (response.headers or {}).get("Content-Type", "application/json")
-            is_streaming = any(ct in content_type for ct in _STREAMING_CONTENT_TYPES)
+            is_streaming = content_type.split(";")[0].strip() in _STREAMING_CONTENT_TYPES
 
             yield {"content_type": content_type, "is_streaming": is_streaming}
 
