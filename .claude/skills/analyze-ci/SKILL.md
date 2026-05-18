@@ -2,7 +2,7 @@
 name: analyze-ci
 description: Analyze failed GitHub Action jobs for a pull request.
 argument-hint: "url(s) of failed GitHub Action jobs, workflow runs, or PRs"
-context: fork
+model: haiku
 allowed-tools:
   - Bash(uv run --package skills skills fetch-logs:*)
   - Read
