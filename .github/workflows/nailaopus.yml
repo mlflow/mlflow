@@ -9,7 +9,24 @@ on:
   # back. `synchronize` is intentionally excluded so subsequent author
   # pushes don't re-trigger; maintainers can use `/review-v2` for re-runs,
   # and the orchestrator's head-SHA cache short-circuits same-SHA runs.
-  pull_request:
+  #
+  # `pull_request_target` (not `pull_request`) is required so the workflow
+  # runs in the base repo's context with access to base-repo secrets/vars
+  # (`secrets.NAILAOPUS_APP_KEY`, `vars.NAILAOPUS_APP_CLIENT_ID`,
+  # `secrets.EXPERIMENTAL_ANTHROPIC_API_KEY`). For `pull_request` events
+  # from forks GitHub does not pass base-repo secrets/vars, so the App
+  # token step fails with "client-id input must be set". Most maintainer
+  # PRs are from personal forks, so `pull_request_target` is needed to
+  # make the auto-trigger work in the common case.
+  #
+  # Safety: `pull_request_target` reads the workflow file from the base
+  # branch (not the PR head), so a PR cannot self-modify what runs. The
+  # workflow checks out PR head into `mlflow/` only to be *read* by the
+  # spotter/reviewer agents; the orchestrator code itself comes from a
+  # pinned `mlflow/internal` SHA, and we never `pip install` the PR's
+  # `pyproject.toml`. PR content is data, not code, from the runner's
+  # perspective.
+  pull_request_target:
     types: [opened, ready_for_review, reopened]
 
 concurrency:
@@ -19,7 +36,7 @@ concurrency:
   # auto-trigger immediately followed by /review-v2 on the same SHA
   # short-circuits in the second run. The number coalesce handles both
   # event payloads: issue_comment uses github.event.issue.number,
-  # pull_request uses github.event.pull_request.number.
+  # pull_request_target uses github.event.pull_request.number.
   group: nailaopus-${{ github.event.issue.number || github.event.pull_request.number }}
   cancel-in-progress: false
 
@@ -43,11 +60,11 @@ jobs:
     #   2. PR author must be a maintainer (prevents review of community-
     #      authored PRs whose diff content could contain prompt-injection
     #      attempts against the LLM).
-    # `pull_request` event gets an additional `!draft` guard: `opened`
-    # fires for PRs opened directly in draft state too, so without this
-    # the bot would review drafts. `ready_for_review` handles the
-    # draft -> ready transition separately, so only non-draft `opened`
-    # events should pass through.
+    # `pull_request_target` event gets an additional `!draft` guard:
+    # `opened` fires for PRs opened directly in draft state too, so
+    # without this the bot would review drafts. `ready_for_review`
+    # handles the draft -> ready transition separately, so only non-draft
+    # `opened` events should pass through.
     # The same trust model applies to PRs from forks as to PRs from
     # branches on `mlflow/mlflow`: maintainers commonly push to personal
     # forks, and `/review-v2` already trusts `author_association` without
@@ -58,7 +75,7 @@ jobs:
        startsWith(github.event.comment.body, '/review-v2') &&
        contains(fromJSON('["MEMBER", "COLLABORATOR", "OWNER"]'), github.event.comment.author_association) &&
        contains(fromJSON('["MEMBER", "COLLABORATOR", "OWNER"]'), github.event.issue.author_association)) ||
-      (github.event_name == 'pull_request' &&
+      (github.event_name == 'pull_request_target' &&
        !github.event.pull_request.draft &&
        contains(fromJSON('["MEMBER", "COLLABORATOR", "OWNER"]'), github.event.pull_request.author_association))
     runs-on: ubuntu-latest
@@ -199,7 +216,7 @@ jobs:
           REPO: ${{ github.repository }}
           # FLAGS is empty on auto-triggered runs by design: the flags step
           # only runs for /review-v2 comments, and there is no comment body to
-          # parse on a pull_request event.
+          # parse on a pull_request_target event.
           FLAGS: ${{ steps.flags.outputs.flags }}
         # Inputs flow through env vars rather than ${{ }} interpolation
         # directly into the shell, so an unexpected character in any value
