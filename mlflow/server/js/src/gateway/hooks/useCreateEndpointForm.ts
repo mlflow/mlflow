@@ -135,30 +135,26 @@ export function useCreateEndpointForm({
       let secretId = values.existingSecretId;
 
       if (!agentConfig) {
-        // Normal flow: create secret if needed
+        // Normal flow: always create the secret as entered by the user.
         if (values.secretMode === 'new') {
-          const existingByName = allSecrets?.find((s) => s.secret_name === values.newSecret.name);
-          if (existingByName) {
-            secretId = existingByName.secret_id;
-          } else {
-            const authConfig = { ...values.newSecret.configFields } satisfies Record<string, string>;
-            if (values.newSecret.authMode) {
-              authConfig['auth_mode'] = values.newSecret.authMode;
-            }
-
-            const secretResponse = await createSecret({
-              secret_name: values.newSecret.name,
-              secret_value: values.newSecret.secretFields,
-              provider: values.provider,
-              auth_config: Object.keys(authConfig).length > 0 ? authConfig : undefined,
-            });
-
-            secretId = secretResponse.secret.secret_id;
+          const authConfig = { ...values.newSecret.configFields } satisfies Record<string, string>;
+          if (values.newSecret.authMode) {
+            authConfig['auth_mode'] = values.newSecret.authMode;
           }
+
+          const secretResponse = await createSecret({
+            secret_name: values.newSecret.name,
+            secret_value: values.newSecret.secretFields,
+            provider: values.provider,
+            auth_config: Object.keys(authConfig).length > 0 ? authConfig : undefined,
+          });
+
+          secretId = secretResponse.secret.secret_id;
         }
       } else {
         // Coding agent flow: create a placeholder secret with an empty API key.
         // The actual credentials come from the client (detected via User-Agent).
+        // If a placeholder secret with this name already exists, reuse it.
         const existingByName = allSecrets?.find((s) => s.secret_name === values.newSecret.name);
         if (existingByName) {
           secretId = existingByName.secret_id;

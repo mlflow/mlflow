@@ -357,10 +357,10 @@ export const QuickStartTemplates = () => {
           width: '100%',
         }}
       >
+        <CodingAgentsCard />
         {PROVIDER_TEMPLATES.map((template) => (
           <ProviderCard key={template.provider} template={template} componentId={template.componentId} />
         ))}
-        <CodingAgentsCard />
       </div>
 
       <Link
@@ -414,10 +414,10 @@ export const QuickStartTemplatesCompact = () => {
           scrollbarWidth: 'none',
         }}
       >
+        <CodingAgentsCard compact />
         {COMPACT_PROVIDER_CONFIGS.map(({ componentId, template }) => (
           <ProviderCard key={template.provider} template={template} componentId={componentId} compact />
         ))}
-        <CodingAgentsCard compact />
       </div>
     </div>
   );
