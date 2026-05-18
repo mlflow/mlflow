@@ -177,23 +177,18 @@ def test_get_current_user(client, monkeypatch):
         ("/api/3.0/mlflow/gateway/model-definitions/permissions/delete", "DELETE"),
     ],
 )
-def test_legacy_permission_endpoints_remain_registered(client, path, method):
+def test_legacy_permission_endpoints_return_404(client, path, method):
+    # Regression guard: the deprecated per-resource permission endpoints were
+    # removed (RFC mprahl review M6+M9 — "rip the band-aid"). Replacement is
+    # the ``grant_user_permission`` / ``revoke_user_permission`` /
+    # ``check_user_permission`` convenience APIs.
     resp = requests.request(
         method, client.tracking_uri + path, auth=(ADMIN_USERNAME, ADMIN_PASSWORD)
     )
-    assert resp.status_code != 404, (
-        f"{method} {path} unexpectedly returned 404 — legacy permission endpoints "
-        "must remain registered for backward compatibility"
+    assert resp.status_code == 404, (
+        f"{method} {path} unexpectedly returned {resp.status_code} — legacy "
+        "permission endpoints must be removed"
     )
-
-
-def test_legacy_client_methods_emit_deprecation_warning(client, monkeypatch):
-    username = random_str()
-    password = random_str()
-    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
-        client.create_user(username, password)
-        with pytest.warns(FutureWarning, match="create_experiment_permission"):
-            client.create_experiment_permission("exp-deprecation", username, "READ")
 
 
 def test_update_user_password(client, monkeypatch):
