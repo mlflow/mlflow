@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any, Callable
 import pydantic
 
 import mlflow
+from mlflow.genai.judges.utils.invocation_utils import get_chat_completions_with_structured_output
 from mlflow.utils.annotations import experimental
 
 if TYPE_CHECKING:
@@ -178,7 +179,6 @@ def _describe_agent_from_response(
     response_text: str,
     model: str,
 ) -> _AgentDescription:
-    from mlflow.genai.judges.utils import get_chat_completions_with_structured_output
     from mlflow.types.llm import ChatMessage
 
     messages = [
@@ -201,7 +201,6 @@ def _describe_agent_from_traces(
 ) -> _AgentDescription:
     from mlflow.genai.discovery.extraction import extract_execution_paths_for_session
     from mlflow.genai.discovery.utils import group_traces_by_session
-    from mlflow.genai.judges.utils import get_chat_completions_with_structured_output
     from mlflow.genai.utils.trace_utils import (
         extract_available_tools_from_trace,
         resolve_conversation_from_session,
@@ -256,7 +255,7 @@ def _generate_test_cases(
     num_test_cases: int | None = None,
     guidance: str | None = None,
 ) -> list[dict[str, Any]]:
-    from mlflow.genai.judges.utils import get_chat_completions_with_structured_output
+
     from mlflow.types.llm import ChatMessage
 
     if num_test_cases is not None and num_test_cases < 1:
@@ -303,11 +302,13 @@ def _resolve_agent_description(
         except Exception:
             _logger.warning("Failed to describe agent from traces", exc_info=True)
 
-    return agent_desc or _AgentDescription(
-        description="A conversational AI agent",
-        capabilities=["general conversation"],
-        limitations=["unknown"],
-    )
+    if not agent_desc or not agent_desc.capabilities:
+        return _AgentDescription(
+            description="A conversational AI agent",
+            capabilities=["general conversation"],
+            limitations=["unknown"],
+        )
+    return agent_desc
 
 
 def _load_traces(
