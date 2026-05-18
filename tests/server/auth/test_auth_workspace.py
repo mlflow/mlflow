@@ -8,7 +8,9 @@ from flask import Response, request
 
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.exceptions import MlflowException
+from mlflow.prompt.constants import IS_PROMPT_TAG_KEY
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
+from mlflow.protos.model_registry_pb2 import SearchModelVersions, SearchRegisteredModels
 from mlflow.server import auth as auth_module
 from mlflow.server.auth.permissions import EDIT, MANAGE, NO_PERMISSIONS, READ, USE
 from mlflow.server.auth.routes import (
@@ -1250,6 +1252,195 @@ def test_request_targets_prompt_propagates_unexpected_errors(
         ):
             with pytest.raises(RuntimeError, match="registry store backend is down"):
                 auth_module._request_targets_prompt()
+
+
+def _build_search_registered_models_response(entries):
+    """Build a ``SearchRegisteredModels.Response()`` from ``(name, is_prompt)`` pairs."""
+    resp = SearchRegisteredModels.Response()
+    for name, is_prompt in entries:
+        rm = resp.registered_models.add()
+        rm.name = name
+        if is_prompt:
+            rm.tags.add(key=IS_PROMPT_TAG_KEY, value="true")
+    return resp
+
+
+def _build_search_model_versions_response(entries):
+    """Build a ``SearchModelVersions.Response()`` from ``(name, is_prompt)`` pairs."""
+    resp = SearchModelVersions.Response()
+    for name, is_prompt in entries:
+        mv = resp.model_versions.add()
+        mv.name = name
+        if is_prompt:
+            mv.tags.add(key=IS_PROMPT_TAG_KEY, value="true")
+    return resp
+
+
+def test_filter_search_registered_models_uses_prompt_grant_for_prompt_rows(
+    workspace_permission_setup, monkeypatch
+):
+    # A user holding only ``(prompt, foo, READ)`` previously had prompt ``foo``
+    # silently filtered out of ``SearchRegisteredModels`` results because the
+    # filter checked the ``registered_model`` namespace exclusively. With the
+    # per-row classify, the prompt grant satisfies the prompt row.
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
+    role = store.create_role(name="prompt-reader", workspace="team-a")
+    store.add_role_permission(role.id, "prompt", "foo", READ.name)
+    store.assign_role_to_user(store.get_user(username).id, role.id)
+
+    payload = json.dumps({
+        "registered_models": [
+            {"name": "foo", "tags": [{"key": IS_PROMPT_TAG_KEY, "value": "true"}]},
+            {"name": "bar", "tags": []},
+        ],
+        "next_page_token": "",
+    })
+    flask_resp = Response(payload, mimetype="application/json")
+
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/registered-models/search",
+        method="GET",
+        query_string={"max_results": "100"},
+    ):
+        auth_module.filter_search_registered_models(flask_resp)
+
+    out = json.loads(flask_resp.get_data(as_text=True))
+    names = [rm["name"] for rm in out.get("registered_models", [])]
+    # Prompt ``foo`` is kept (grant satisfies prompt namespace); ``bar`` is filtered out.
+    assert names == ["foo"]
+
+
+def test_filter_search_registered_models_does_not_satisfy_prompt_with_rm_grant(
+    workspace_permission_setup, monkeypatch
+):
+    # Inverse direction: a ``(registered_model, foo, READ)`` grant must NOT
+    # leak through and make a prompt row readable. Pins cross-namespace
+    # isolation on the response-filtering path.
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
+    role = store.create_role(name="rm-reader", workspace="team-a")
+    store.add_role_permission(role.id, "registered_model", "foo", READ.name)
+    store.assign_role_to_user(store.get_user(username).id, role.id)
+
+    payload = json.dumps({
+        "registered_models": [
+            {"name": "foo", "tags": [{"key": IS_PROMPT_TAG_KEY, "value": "true"}]},
+        ],
+        "next_page_token": "",
+    })
+    flask_resp = Response(payload, mimetype="application/json")
+
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/registered-models/search",
+        method="GET",
+        query_string={"max_results": "100"},
+    ):
+        auth_module.filter_search_registered_models(flask_resp)
+
+    out = json.loads(flask_resp.get_data(as_text=True))
+    assert out.get("registered_models", []) == []
+
+
+def test_filter_search_model_versions_uses_prompt_grant_for_prompt_versions(
+    workspace_permission_setup, monkeypatch
+):
+    # Same gap on ``SearchModelVersions``: prompt versions carry the
+    # ``mlflow.prompt.is_prompt`` tag and must be checked against ``prompt``
+    # grants, not ``registered_model`` grants.
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
+    role = store.create_role(name="prompt-reader", workspace="team-a")
+    store.add_role_permission(role.id, "prompt", "foo", READ.name)
+    store.assign_role_to_user(store.get_user(username).id, role.id)
+
+    payload = json.dumps({
+        "model_versions": [
+            {"name": "foo", "tags": [{"key": IS_PROMPT_TAG_KEY, "value": "true"}]},
+            {"name": "bar", "tags": []},
+        ],
+    })
+    flask_resp = Response(payload, mimetype="application/json")
+
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/model-versions/search", method="GET"
+    ):
+        auth_module.filter_search_model_versions(flask_resp)
+
+    out = json.loads(flask_resp.get_data(as_text=True))
+    names = [mv["name"] for mv in out.get("model_versions", [])]
+    assert names == ["foo"]
+
+
+def test_rename_registered_model_permission_sweeps_prompt_namespace(
+    workspace_permission_setup,
+):
+    # Renaming a prompt must propagate to ``(prompt, old_name, ...)`` grants.
+    # Without sweeping both namespaces, the rename leaves those grants orphaned
+    # under the old name and creates nothing under the new one.
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    store.grant_user_permission(username, "prompt", "foo", READ.name)
+    # Confirm the seed grant landed where we expect.
+    user_id = store.get_user(username).id
+    before = {
+        (rp.resource_type, rp.resource_pattern)
+        for role in store.list_user_roles(user_id)
+        for rp in role.permissions
+    }
+    assert ("prompt", "foo") in before
+
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/registered-models/rename",
+        method="POST",
+        json={"name": "foo", "new_name": "bar"},
+    ):
+        auth_module.rename_registered_model_permission(Response(status=200))
+
+    after = {
+        (rp.resource_type, rp.resource_pattern)
+        for role in store.list_user_roles(user_id)
+        for rp in role.permissions
+    }
+    assert ("prompt", "foo") not in after
+    assert ("prompt", "bar") in after
+
+
+def test_delete_can_manage_registered_model_permission_sweeps_prompt_namespace(
+    workspace_permission_setup,
+):
+    # Deleting a prompt must sweep its ``(prompt, name, ...)`` grants.
+    # Without the prompt-side delete, those rows would leak permanently.
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    store.grant_user_permission(username, "prompt", "foo", READ.name)
+    user_id = store.get_user(username).id
+    before = {
+        (rp.resource_type, rp.resource_pattern)
+        for role in store.list_user_roles(user_id)
+        for rp in role.permissions
+    }
+    assert ("prompt", "foo") in before
+
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/registered-models/delete",
+        method="DELETE",
+        json={"name": "foo"},
+    ):
+        auth_module.delete_can_manage_registered_model_permission(Response(status=200))
+
+    after = {
+        (rp.resource_type, rp.resource_pattern)
+        for role in store.list_user_roles(user_id)
+        for rp in role.permissions
+    }
+    assert ("prompt", "foo") not in after
 
 
 def test_validate_can_view_workspace_requires_access(workspace_permission_setup):
