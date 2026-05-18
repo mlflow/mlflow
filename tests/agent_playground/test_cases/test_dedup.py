@@ -70,6 +70,14 @@ def test_no_match_among_many_existing_returns_unique():
     assert result == HardMatchUnique()
 
 
+def test_hard_match_duplicate_rejects_empty_existing_test_case_id():
+    # Mirrors the ``min_length=1`` invariant on
+    # ``DedupVerdict.existing_test_case_id`` so the hard-match counterpart
+    # cannot emit a blank dedup pointer either.
+    with pytest.raises(ValueError, match="must be non-empty"):
+        HardMatchDuplicate(existing_test_case_id="")
+
+
 def test_existing_accepts_a_generator():
     # The `existing` parameter is typed as Iterable, so a single-pass
     # generator must work without TypeError.

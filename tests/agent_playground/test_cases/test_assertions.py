@@ -4,12 +4,12 @@ from mlflow.agent_playground.test_cases.assertions import (
     AssertionResult,
     evaluate_assertions,
 )
-from mlflow.agent_playground.test_cases.entities import AssertionSpec
+from mlflow.agent_playground.test_cases.entities import AssertionExpectations
 
 
 def test_empty_spec_passes_for_any_input():
     result = evaluate_assertions(
-        AssertionSpec(),
+        AssertionExpectations(),
         final_response_text="anything goes",
         tool_call_names=["any_tool"],
     )
@@ -18,7 +18,7 @@ def test_empty_spec_passes_for_any_input():
 
 def test_must_contain_pass():
     result = evaluate_assertions(
-        AssertionSpec(must_contain=["log level"]),
+        AssertionExpectations(must_contain=["log level"]),
         final_response_text="Set the log level to INFO",
         tool_call_names=[],
     )
@@ -28,17 +28,17 @@ def test_must_contain_pass():
 
 def test_must_contain_fail():
     result = evaluate_assertions(
-        AssertionSpec(must_contain=["log level", "DEBUG"]),
+        AssertionExpectations(must_contain=["log level", "DEBUG"]),
         final_response_text="Set the log level to INFO",
         tool_call_names=[],
     )
     assert result.outcome == "fail"
-    assert any("DEBUG" in reason for reason in result.reasons)
+    assert result.reasons == ("must_contain: 'DEBUG' was not present in the response",)
 
 
 def test_must_not_contain_pass():
     result = evaluate_assertions(
-        AssertionSpec(must_not_contain=["error"]),
+        AssertionExpectations(must_not_contain=["error"]),
         final_response_text="All good",
         tool_call_names=[],
     )
@@ -47,17 +47,17 @@ def test_must_not_contain_pass():
 
 def test_must_not_contain_fail():
     result = evaluate_assertions(
-        AssertionSpec(must_not_contain=["error"]),
+        AssertionExpectations(must_not_contain=["error"]),
         final_response_text="There was an error",
         tool_call_names=[],
     )
     assert result.outcome == "fail"
-    assert any("error" in reason for reason in result.reasons)
+    assert result.reasons == ("must_not_contain: 'error' was present in the response",)
 
 
 def test_must_call_tool_pass():
     result = evaluate_assertions(
-        AssertionSpec(must_call_tool=["search_docs"]),
+        AssertionExpectations(must_call_tool=["search_docs"]),
         final_response_text="",
         tool_call_names=["search_docs", "other_tool"],
     )
@@ -66,17 +66,17 @@ def test_must_call_tool_pass():
 
 def test_must_call_tool_fail():
     result = evaluate_assertions(
-        AssertionSpec(must_call_tool=["search_docs"]),
+        AssertionExpectations(must_call_tool=["search_docs"]),
         final_response_text="",
         tool_call_names=["other_tool"],
     )
     assert result.outcome == "fail"
-    assert any("search_docs" in reason for reason in result.reasons)
+    assert result.reasons == ("must_call_tool: 'search_docs' was not invoked",)
 
 
 def test_must_not_call_tool_pass():
     result = evaluate_assertions(
-        AssertionSpec(must_not_call_tool=["delete_record"]),
+        AssertionExpectations(must_not_call_tool=["delete_record"]),
         final_response_text="",
         tool_call_names=["search_docs"],
     )
@@ -85,17 +85,17 @@ def test_must_not_call_tool_pass():
 
 def test_must_not_call_tool_fail():
     result = evaluate_assertions(
-        AssertionSpec(must_not_call_tool=["delete_record"]),
+        AssertionExpectations(must_not_call_tool=["delete_record"]),
         final_response_text="",
         tool_call_names=["delete_record"],
     )
     assert result.outcome == "fail"
-    assert any("delete_record" in reason for reason in result.reasons)
+    assert result.reasons == ("must_not_call_tool: 'delete_record' was invoked",)
 
 
 def test_multiple_failures_listed_separately():
     result = evaluate_assertions(
-        AssertionSpec(
+        AssertionExpectations(
             must_contain=["log level"],
             must_call_tool=["search_docs"],
         ),
@@ -108,7 +108,7 @@ def test_multiple_failures_listed_separately():
 
 def test_all_four_clauses_pass_together():
     result = evaluate_assertions(
-        AssertionSpec(
+        AssertionExpectations(
             must_contain=["log level"],
             must_not_contain=["error"],
             must_call_tool=["search_docs"],
@@ -132,7 +132,7 @@ def test_all_four_clauses_pass_together():
 )
 def test_must_contain_substring_semantics(needle: str, haystack: str, expected_outcome: str):
     result = evaluate_assertions(
-        AssertionSpec(must_contain=[needle]),
+        AssertionExpectations(must_contain=[needle]),
         final_response_text=haystack,
         tool_call_names=[],
     )
@@ -144,7 +144,7 @@ def test_tool_call_set_semantics_at_least_once():
     # ``must_call_tool=["search_docs"]`` holds whether the tool was
     # called once or N times.
     result = evaluate_assertions(
-        AssertionSpec(must_call_tool=["search_docs"]),
+        AssertionExpectations(must_call_tool=["search_docs"]),
         final_response_text="",
         tool_call_names=["search_docs", "search_docs", "search_docs"],
     )
@@ -156,6 +156,11 @@ def test_assertion_result_pass_with_reasons_rejected():
         AssertionResult(outcome="pass", reasons=("nope",))
 
 
+def test_assertion_result_fail_without_reasons_rejected():
+    with pytest.raises(ValueError, match="must carry at least one reason"):
+        AssertionResult(outcome="fail")
+
+
 @pytest.mark.parametrize(
     ("field_name", "blank_value"),
     [
@@ -165,7 +170,14 @@ def test_assertion_result_pass_with_reasons_rejected():
         ("must_call_tool", "\t"),
         ("must_not_call_tool", ""),
     ],
+    ids=[
+        "must_contain-empty",
+        "must_contain-whitespace",
+        "must_not_contain-empty",
+        "must_call_tool-tab",
+        "must_not_call_tool-empty",
+    ],
 )
-def test_assertion_spec_rejects_blank_clauses(field_name: str, blank_value: str):
+def test_assertion_expectations_rejects_blank_clauses(field_name: str, blank_value: str):
     with pytest.raises(ValueError, match="must be non-empty"):
-        AssertionSpec(**{field_name: [blank_value]})
+        AssertionExpectations(**{field_name: [blank_value]})

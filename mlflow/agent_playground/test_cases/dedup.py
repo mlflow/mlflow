@@ -45,6 +45,10 @@ class HardMatchDuplicate:
     existing_test_case_id: str
     reason: HardMatchReason = "anchored_message_id"
 
+    def __post_init__(self) -> None:
+        if not self.existing_test_case_id:
+            raise ValueError("existing_test_case_id must be non-empty")
+
 
 HardMatchResult: TypeAlias = HardMatchUnique | HardMatchDuplicate
 
@@ -73,6 +77,10 @@ def check_hard_match(
     consulted. The caller invokes the coder-mediated semantic dedup pass
     when this function returns :class:`HardMatchUnique`.
     """
+    # Short-circuit is load-bearing: without it the generator's
+    # ``existing_msg_id == new_source_assistant_message_id`` predicate
+    # would match ``None == None`` and spuriously dedup a no-anchor new
+    # case against an existing no-anchor row.
     if new_source_assistant_message_id is None:
         return HardMatchUnique()
     return next(
