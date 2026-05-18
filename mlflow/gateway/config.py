@@ -97,6 +97,7 @@ class GatewayRequestType(str, Enum):
     PASSTHROUGH_MODEL_OPENAI_RESPONSES = "passthrough/model/openai-responses"
     PASSTHROUGH_MODEL_ANTHROPIC_MESSAGES = "passthrough/model/anthropic-messages"
     PASSTHROUGH_MODEL_GEMINI_GENERATE_CONTENT = "passthrough/model/gemini-generateContent"
+    RAW_PROXY = "proxy/raw"
 
 
 class CohereConfig(ConfigModel):
