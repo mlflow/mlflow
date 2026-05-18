@@ -249,23 +249,11 @@ from mlflow.server.auth.routes import (
     AJAX_UPDATE_USER_ADMIN,
     AJAX_UPDATE_USER_PASSWORD,
     ASSIGN_ROLE,
-    CREATE_EXPERIMENT_PERMISSION,
-    CREATE_GATEWAY_ENDPOINT_PERMISSION,
-    CREATE_GATEWAY_MODEL_DEFINITION_PERMISSION,
-    CREATE_GATEWAY_SECRET_PERMISSION,
     CREATE_PROMPTLAB_RUN,
-    CREATE_REGISTERED_MODEL_PERMISSION,
     CREATE_ROLE,
-    CREATE_SCORER_PERMISSION,
     CREATE_USER,
     CREATE_USER_UI,
-    DELETE_EXPERIMENT_PERMISSION,
-    DELETE_GATEWAY_ENDPOINT_PERMISSION,
-    DELETE_GATEWAY_MODEL_DEFINITION_PERMISSION,
-    DELETE_GATEWAY_SECRET_PERMISSION,
-    DELETE_REGISTERED_MODEL_PERMISSION,
     DELETE_ROLE,
-    DELETE_SCORER_PERMISSION,
     DELETE_USER,
     GATEWAY_PROVIDER_CONFIG,
     GATEWAY_PROXY,
@@ -274,16 +262,10 @@ from mlflow.server.auth.routes import (
     GATEWAY_SUPPORTED_PROVIDERS,
     GET_ARTIFACT,
     GET_CURRENT_USER,
-    GET_EXPERIMENT_PERMISSION,
-    GET_GATEWAY_ENDPOINT_PERMISSION,
-    GET_GATEWAY_MODEL_DEFINITION_PERMISSION,
-    GET_GATEWAY_SECRET_PERMISSION,
     GET_METRIC_HISTORY_BULK,
     GET_METRIC_HISTORY_BULK_INTERVAL,
     GET_MODEL_VERSION_ARTIFACT,
-    GET_REGISTERED_MODEL_PERMISSION,
     GET_ROLE,
-    GET_SCORER_PERMISSION,
     GET_TRACE_ARTIFACT,
     GET_USER,
     GET_USER_PERMISSION,
@@ -302,14 +284,8 @@ from mlflow.server.auth.routes import (
     SEARCH_DATASETS,
     SIGNUP,
     UNASSIGN_ROLE,
-    UPDATE_EXPERIMENT_PERMISSION,
-    UPDATE_GATEWAY_ENDPOINT_PERMISSION,
-    UPDATE_GATEWAY_MODEL_DEFINITION_PERMISSION,
-    UPDATE_GATEWAY_SECRET_PERMISSION,
-    UPDATE_REGISTERED_MODEL_PERMISSION,
     UPDATE_ROLE,
     UPDATE_ROLE_PERMISSION,
-    UPDATE_SCORER_PERMISSION,
     UPDATE_USER_ADMIN,
     UPDATE_USER_PASSWORD,
     UPLOAD_ARTIFACT,
@@ -2296,50 +2272,6 @@ BEFORE_REQUEST_VALIDATORS.update({
     (AJAX_DELETE_USER, "DELETE"): validate_can_delete_user,
 })
 
-# Legacy per-resource permission routes (deprecated). Caller must still own
-# the underlying resource — same ``manage`` validators as the resource itself.
-BEFORE_REQUEST_VALIDATORS.update({
-    (GET_EXPERIMENT_PERMISSION, "GET"): validate_can_manage_experiment,
-    (CREATE_EXPERIMENT_PERMISSION, "POST"): validate_can_manage_experiment,
-    (UPDATE_EXPERIMENT_PERMISSION, "PATCH"): validate_can_manage_experiment,
-    (DELETE_EXPERIMENT_PERMISSION, "DELETE"): validate_can_manage_experiment,
-    (GET_REGISTERED_MODEL_PERMISSION, "GET"): validate_can_manage_registered_model,
-    (CREATE_REGISTERED_MODEL_PERMISSION, "POST"): validate_can_manage_registered_model,
-    (UPDATE_REGISTERED_MODEL_PERMISSION, "PATCH"): validate_can_manage_registered_model,
-    (DELETE_REGISTERED_MODEL_PERMISSION, "DELETE"): validate_can_manage_registered_model,
-    (GET_SCORER_PERMISSION, "GET"): validate_can_manage_scorer_permission,
-    (CREATE_SCORER_PERMISSION, "POST"): validate_can_manage_scorer_permission,
-    (UPDATE_SCORER_PERMISSION, "PATCH"): validate_can_manage_scorer_permission,
-    (DELETE_SCORER_PERMISSION, "DELETE"): validate_can_manage_scorer_permission,
-    # Gateway secret permissions (deprecated)
-    (GET_GATEWAY_SECRET_PERMISSION, "GET"): validate_can_manage_gateway_secret,
-    (CREATE_GATEWAY_SECRET_PERMISSION, "POST"): validate_can_manage_gateway_secret,
-    (UPDATE_GATEWAY_SECRET_PERMISSION, "PATCH"): validate_can_manage_gateway_secret,
-    (DELETE_GATEWAY_SECRET_PERMISSION, "DELETE"): validate_can_manage_gateway_secret,
-    # Gateway endpoint permissions (deprecated)
-    (GET_GATEWAY_ENDPOINT_PERMISSION, "GET"): validate_can_manage_gateway_endpoint,
-    (CREATE_GATEWAY_ENDPOINT_PERMISSION, "POST"): validate_can_manage_gateway_endpoint,
-    (UPDATE_GATEWAY_ENDPOINT_PERMISSION, "PATCH"): validate_can_manage_gateway_endpoint,
-    (DELETE_GATEWAY_ENDPOINT_PERMISSION, "DELETE"): validate_can_manage_gateway_endpoint,
-    # Gateway model definition permissions (deprecated)
-    (
-        GET_GATEWAY_MODEL_DEFINITION_PERMISSION,
-        "GET",
-    ): validate_can_manage_gateway_model_definition,
-    (
-        CREATE_GATEWAY_MODEL_DEFINITION_PERMISSION,
-        "POST",
-    ): validate_can_manage_gateway_model_definition,
-    (
-        UPDATE_GATEWAY_MODEL_DEFINITION_PERMISSION,
-        "PATCH",
-    ): validate_can_manage_gateway_model_definition,
-    (
-        DELETE_GATEWAY_MODEL_DEFINITION_PERMISSION,
-        "DELETE",
-    ): validate_can_manage_gateway_model_definition,
-})
-
 # Role management routes (RBAC)
 BEFORE_REQUEST_VALIDATORS.update({
     (CREATE_ROLE, "POST"): validate_can_manage_roles,
@@ -3592,266 +3524,6 @@ def delete_user():
 
 
 # =============================================================================
-# Legacy per-resource permission handlers (deprecated). Backed by synthetic
-# per-user role grants (migration ``e5f6a7b8c9d0``); each logs once on first
-# call.
-# =============================================================================
-
-
-_LEGACY_PERMISSION_DEPRECATION_LOGGED: set[str] = set()
-
-
-def _log_legacy_permission_deprecation(endpoint: str) -> None:
-    if endpoint in _LEGACY_PERMISSION_DEPRECATION_LOGGED:
-        return
-    _LEGACY_PERMISSION_DEPRECATION_LOGGED.add(endpoint)
-    _logger.warning(
-        "Endpoint %s is deprecated and will be removed in a future MLflow release. "
-        "Use the role API (`add_role_permission` + `assign_role`) instead.",
-        endpoint,
-    )
-
-
-@catch_mlflow_exception
-def create_experiment_permission():
-    _log_legacy_permission_deprecation("create_experiment_permission")
-    experiment_id = _get_request_param("experiment_id")
-    username = _get_request_param("username")
-    permission = _get_request_param("permission")
-    ep = store.create_experiment_permission(experiment_id, username, permission)
-    return jsonify({"experiment_permission": ep.to_json()})
-
-
-@catch_mlflow_exception
-def get_experiment_permission():
-    _log_legacy_permission_deprecation("get_experiment_permission")
-    experiment_id = _get_request_param("experiment_id")
-    username = _get_request_param("username")
-    ep = store.get_experiment_permission(experiment_id, username)
-    return make_response({"experiment_permission": ep.to_json()})
-
-
-@catch_mlflow_exception
-def update_experiment_permission():
-    _log_legacy_permission_deprecation("update_experiment_permission")
-    experiment_id = _get_request_param("experiment_id")
-    username = _get_request_param("username")
-    permission = _get_request_param("permission")
-    store.update_experiment_permission(experiment_id, username, permission)
-    return make_response({})
-
-
-@catch_mlflow_exception
-def delete_experiment_permission():
-    _log_legacy_permission_deprecation("delete_experiment_permission")
-    experiment_id = _get_request_param("experiment_id")
-    username = _get_request_param("username")
-    store.delete_experiment_permission(experiment_id, username)
-    return make_response({})
-
-
-@catch_mlflow_exception
-def create_registered_model_permission():
-    _log_legacy_permission_deprecation("create_registered_model_permission")
-    name = _get_request_param("name")
-    username = _get_request_param("username")
-    permission = _get_request_param("permission")
-    rmp = store.create_registered_model_permission(name, username, permission)
-    return make_response({"registered_model_permission": rmp.to_json()})
-
-
-@catch_mlflow_exception
-def get_registered_model_permission():
-    _log_legacy_permission_deprecation("get_registered_model_permission")
-    name = _get_request_param("name")
-    username = _get_request_param("username")
-    rmp = store.get_registered_model_permission(name, username)
-    return make_response({"registered_model_permission": rmp.to_json()})
-
-
-@catch_mlflow_exception
-def update_registered_model_permission():
-    _log_legacy_permission_deprecation("update_registered_model_permission")
-    name = _get_request_param("name")
-    username = _get_request_param("username")
-    permission = _get_request_param("permission")
-    store.update_registered_model_permission(name, username, permission)
-    return make_response({})
-
-
-@catch_mlflow_exception
-def delete_registered_model_permission():
-    _log_legacy_permission_deprecation("delete_registered_model_permission")
-    name = _get_request_param("name")
-    username = _get_request_param("username")
-    store.delete_registered_model_permission(name, username)
-    return make_response({})
-
-
-@catch_mlflow_exception
-def create_scorer_permission():
-    _log_legacy_permission_deprecation("create_scorer_permission")
-    experiment_id = _get_request_param("experiment_id")
-    scorer_name = _get_request_param("scorer_name")
-    username = _get_request_param("username")
-    permission = _get_request_param("permission")
-    sp = store.create_scorer_permission(experiment_id, scorer_name, username, permission)
-    return jsonify({"scorer_permission": sp.to_json()})
-
-
-@catch_mlflow_exception
-def get_scorer_permission():
-    _log_legacy_permission_deprecation("get_scorer_permission")
-    experiment_id = _get_request_param("experiment_id")
-    scorer_name = _get_request_param("scorer_name")
-    username = _get_request_param("username")
-    sp = store.get_scorer_permission(experiment_id, scorer_name, username)
-    return make_response({"scorer_permission": sp.to_json()})
-
-
-@catch_mlflow_exception
-def update_scorer_permission():
-    _log_legacy_permission_deprecation("update_scorer_permission")
-    experiment_id = _get_request_param("experiment_id")
-    scorer_name = _get_request_param("scorer_name")
-    username = _get_request_param("username")
-    permission = _get_request_param("permission")
-    store.update_scorer_permission(experiment_id, scorer_name, username, permission)
-    return make_response({})
-
-
-@catch_mlflow_exception
-def delete_scorer_permission():
-    _log_legacy_permission_deprecation("delete_scorer_permission")
-    experiment_id = _get_request_param("experiment_id")
-    scorer_name = _get_request_param("scorer_name")
-    username = _get_request_param("username")
-    store.delete_scorer_permission(experiment_id, scorer_name, username)
-    return make_response({})
-
-
-# =============================================================================
-# Gateway Permission API Endpoints (deprecated)
-# =============================================================================
-
-
-@catch_mlflow_exception
-def create_gateway_secret_permission():
-    _log_legacy_permission_deprecation("create_gateway_secret_permission")
-    secret_id = _get_request_param("secret_id")
-    username = _get_request_param("username")
-    permission = _get_request_param("permission")
-    perm = store.create_gateway_secret_permission(secret_id, username, permission)
-    return jsonify({"gateway_secret_permission": perm.to_json()})
-
-
-@catch_mlflow_exception
-def get_gateway_secret_permission():
-    _log_legacy_permission_deprecation("get_gateway_secret_permission")
-    secret_id = _get_request_param("secret_id")
-    username = _get_request_param("username")
-    perm = store.get_gateway_secret_permission(secret_id, username)
-    return make_response({"gateway_secret_permission": perm.to_json()})
-
-
-@catch_mlflow_exception
-def update_gateway_secret_permission():
-    _log_legacy_permission_deprecation("update_gateway_secret_permission")
-    secret_id = _get_request_param("secret_id")
-    username = _get_request_param("username")
-    permission = _get_request_param("permission")
-    store.update_gateway_secret_permission(secret_id, username, permission)
-    return make_response({})
-
-
-@catch_mlflow_exception
-def delete_gateway_secret_permission():
-    _log_legacy_permission_deprecation("delete_gateway_secret_permission")
-    secret_id = _get_request_param("secret_id")
-    username = _get_request_param("username")
-    store.delete_gateway_secret_permission(secret_id, username)
-    return make_response({})
-
-
-@catch_mlflow_exception
-def create_gateway_endpoint_permission():
-    _log_legacy_permission_deprecation("create_gateway_endpoint_permission")
-    endpoint_id = _get_request_param("endpoint_id")
-    username = _get_request_param("username")
-    permission = _get_request_param("permission")
-    perm = store.create_gateway_endpoint_permission(endpoint_id, username, permission)
-    return jsonify({"gateway_endpoint_permission": perm.to_json()})
-
-
-@catch_mlflow_exception
-def get_gateway_endpoint_permission():
-    _log_legacy_permission_deprecation("get_gateway_endpoint_permission")
-    endpoint_id = _get_request_param("endpoint_id")
-    username = _get_request_param("username")
-    perm = store.get_gateway_endpoint_permission(endpoint_id, username)
-    return make_response({"gateway_endpoint_permission": perm.to_json()})
-
-
-@catch_mlflow_exception
-def update_gateway_endpoint_permission():
-    _log_legacy_permission_deprecation("update_gateway_endpoint_permission")
-    endpoint_id = _get_request_param("endpoint_id")
-    username = _get_request_param("username")
-    permission = _get_request_param("permission")
-    store.update_gateway_endpoint_permission(endpoint_id, username, permission)
-    return make_response({})
-
-
-@catch_mlflow_exception
-def delete_gateway_endpoint_permission():
-    _log_legacy_permission_deprecation("delete_gateway_endpoint_permission")
-    endpoint_id = _get_request_param("endpoint_id")
-    username = _get_request_param("username")
-    store.delete_gateway_endpoint_permission(endpoint_id, username)
-    return make_response({})
-
-
-@catch_mlflow_exception
-def create_gateway_model_definition_permission():
-    _log_legacy_permission_deprecation("create_gateway_model_definition_permission")
-    model_definition_id = _get_request_param("model_definition_id")
-    username = _get_request_param("username")
-    permission = _get_request_param("permission")
-    perm = store.create_gateway_model_definition_permission(
-        model_definition_id, username, permission
-    )
-    return jsonify({"gateway_model_definition_permission": perm.to_json()})
-
-
-@catch_mlflow_exception
-def get_gateway_model_definition_permission():
-    _log_legacy_permission_deprecation("get_gateway_model_definition_permission")
-    model_definition_id = _get_request_param("model_definition_id")
-    username = _get_request_param("username")
-    perm = store.get_gateway_model_definition_permission(model_definition_id, username)
-    return make_response({"gateway_model_definition_permission": perm.to_json()})
-
-
-@catch_mlflow_exception
-def update_gateway_model_definition_permission():
-    _log_legacy_permission_deprecation("update_gateway_model_definition_permission")
-    model_definition_id = _get_request_param("model_definition_id")
-    username = _get_request_param("username")
-    permission = _get_request_param("permission")
-    store.update_gateway_model_definition_permission(model_definition_id, username, permission)
-    return make_response({})
-
-
-@catch_mlflow_exception
-def delete_gateway_model_definition_permission():
-    _log_legacy_permission_deprecation("delete_gateway_model_definition_permission")
-    model_definition_id = _get_request_param("model_definition_id")
-    username = _get_request_param("username")
-    store.delete_gateway_model_definition_permission(model_definition_id, username)
-    return make_response({})
-
-
-# =============================================================================
 # Unified per-user permission convenience handlers
 # =============================================================================
 
@@ -4513,130 +4185,6 @@ def create_app(app: Flask = app):
             view_func=delete_user,
             methods=["DELETE"],
         )
-    # Legacy per-resource permission routes (deprecated).
-    app.add_url_rule(
-        rule=CREATE_EXPERIMENT_PERMISSION,
-        view_func=create_experiment_permission,
-        methods=["POST"],
-    )
-    app.add_url_rule(
-        rule=GET_EXPERIMENT_PERMISSION,
-        view_func=get_experiment_permission,
-        methods=["GET"],
-    )
-    app.add_url_rule(
-        rule=UPDATE_EXPERIMENT_PERMISSION,
-        view_func=update_experiment_permission,
-        methods=["PATCH"],
-    )
-    app.add_url_rule(
-        rule=DELETE_EXPERIMENT_PERMISSION,
-        view_func=delete_experiment_permission,
-        methods=["DELETE"],
-    )
-    app.add_url_rule(
-        rule=CREATE_REGISTERED_MODEL_PERMISSION,
-        view_func=create_registered_model_permission,
-        methods=["POST"],
-    )
-    app.add_url_rule(
-        rule=GET_REGISTERED_MODEL_PERMISSION,
-        view_func=get_registered_model_permission,
-        methods=["GET"],
-    )
-    app.add_url_rule(
-        rule=UPDATE_REGISTERED_MODEL_PERMISSION,
-        view_func=update_registered_model_permission,
-        methods=["PATCH"],
-    )
-    app.add_url_rule(
-        rule=DELETE_REGISTERED_MODEL_PERMISSION,
-        view_func=delete_registered_model_permission,
-        methods=["DELETE"],
-    )
-    app.add_url_rule(
-        rule=CREATE_SCORER_PERMISSION,
-        view_func=create_scorer_permission,
-        methods=["POST"],
-    )
-    app.add_url_rule(
-        rule=GET_SCORER_PERMISSION,
-        view_func=get_scorer_permission,
-        methods=["GET"],
-    )
-    app.add_url_rule(
-        rule=UPDATE_SCORER_PERMISSION,
-        view_func=update_scorer_permission,
-        methods=["PATCH"],
-    )
-    app.add_url_rule(
-        rule=DELETE_SCORER_PERMISSION,
-        view_func=delete_scorer_permission,
-        methods=["DELETE"],
-    )
-    # Gateway secret permission routes (deprecated)
-    app.add_url_rule(
-        rule=CREATE_GATEWAY_SECRET_PERMISSION,
-        view_func=create_gateway_secret_permission,
-        methods=["POST"],
-    )
-    app.add_url_rule(
-        rule=GET_GATEWAY_SECRET_PERMISSION,
-        view_func=get_gateway_secret_permission,
-        methods=["GET"],
-    )
-    app.add_url_rule(
-        rule=UPDATE_GATEWAY_SECRET_PERMISSION,
-        view_func=update_gateway_secret_permission,
-        methods=["PATCH"],
-    )
-    app.add_url_rule(
-        rule=DELETE_GATEWAY_SECRET_PERMISSION,
-        view_func=delete_gateway_secret_permission,
-        methods=["DELETE"],
-    )
-    # Gateway endpoint permission routes (deprecated)
-    app.add_url_rule(
-        rule=CREATE_GATEWAY_ENDPOINT_PERMISSION,
-        view_func=create_gateway_endpoint_permission,
-        methods=["POST"],
-    )
-    app.add_url_rule(
-        rule=GET_GATEWAY_ENDPOINT_PERMISSION,
-        view_func=get_gateway_endpoint_permission,
-        methods=["GET"],
-    )
-    app.add_url_rule(
-        rule=UPDATE_GATEWAY_ENDPOINT_PERMISSION,
-        view_func=update_gateway_endpoint_permission,
-        methods=["PATCH"],
-    )
-    app.add_url_rule(
-        rule=DELETE_GATEWAY_ENDPOINT_PERMISSION,
-        view_func=delete_gateway_endpoint_permission,
-        methods=["DELETE"],
-    )
-    # Gateway model definition permission routes (deprecated)
-    app.add_url_rule(
-        rule=CREATE_GATEWAY_MODEL_DEFINITION_PERMISSION,
-        view_func=create_gateway_model_definition_permission,
-        methods=["POST"],
-    )
-    app.add_url_rule(
-        rule=GET_GATEWAY_MODEL_DEFINITION_PERMISSION,
-        view_func=get_gateway_model_definition_permission,
-        methods=["GET"],
-    )
-    app.add_url_rule(
-        rule=UPDATE_GATEWAY_MODEL_DEFINITION_PERMISSION,
-        view_func=update_gateway_model_definition_permission,
-        methods=["PATCH"],
-    )
-    app.add_url_rule(
-        rule=DELETE_GATEWAY_MODEL_DEFINITION_PERMISSION,
-        view_func=delete_gateway_model_definition_permission,
-        methods=["DELETE"],
-    )
     # Role management routes (RBAC) — see _RBAC_ROUTES at module scope.
     for view_func, method, rest_path, ajax_path in _RBAC_ROUTES:
         for path in (rest_path, ajax_path):
