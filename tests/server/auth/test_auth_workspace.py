@@ -2658,6 +2658,252 @@ def test_list_user_role_permissions_workspace_is_default_when_workspaces_disable
     assert row.role_name == f"__user_{auth_store.get_user(username).id}__"
 
 
+def test_list_user_role_permissions_aggregates_synthetic_and_custom_roles(tmp_path, monkeypatch):
+    # Direct grants flow into the synthetic ``__user_<id>__`` role; a workspace
+    # admin can also assign the user to a named, hand-authored role. LIST must
+    # surface BOTH so the FE can split the "Direct permissions" tab (synthetic
+    # rows) from the "Role permissions" tab (everything else) by ``role_name``.
+    monkeypatch.delenv(MLFLOW_ENABLE_WORKSPACES.name, raising=False)
+    db_uri = f"sqlite:///{tmp_path / 'auth-store.db'}"
+    auth_store = SqlAlchemyStore()
+    auth_store.init_db(db_uri)
+    monkeypatch.setattr(auth_module, "store", auth_store, raising=False)
+
+    username = "alice"
+    user = auth_store.create_user(username, "supersecurepassword", is_admin=False)
+    auth_store.grant_user_resource_permission(username, "experiment", "exp-1", READ.name)
+
+    custom_role = auth_store.create_role(name="ml-reviewer", workspace="default")
+    auth_store.add_role_permission(custom_role.id, "registered_model", "*", READ.name)
+    auth_store.assign_role_to_user(user.id, custom_role.id)
+
+    is_admin, rows = auth_module._list_user_role_permissions(username)
+    assert is_admin is False
+    assert len(rows) == 2
+
+    by_role = {r.role_name: r for r in rows}
+    synthetic_name = f"__user_{user.id}__"
+    assert synthetic_name in by_role
+    assert "ml-reviewer" in by_role
+
+    syn_row = by_role[synthetic_name]
+    assert syn_row.resource_type == "experiment"
+    assert syn_row.resource_pattern == "exp-1"
+    assert syn_row.permission == READ.name
+
+    custom_row = by_role["ml-reviewer"]
+    assert custom_row.role_id == custom_role.id
+    assert custom_row.resource_type == "registered_model"
+    assert custom_row.resource_pattern == "*"
+    assert custom_row.permission == READ.name
+
+    # Distinct rows really do come from distinct roles (no aliasing on role_id).
+    assert syn_row.role_id != custom_row.role_id
+
+
+def test_list_user_role_permissions_empty_for_user_with_no_roles(tmp_path, monkeypatch):
+    # A freshly-created non-admin user with no grants must surface as
+    # ``(is_admin=False, rows=[])`` — not raise, and not leak rows from other users.
+    monkeypatch.delenv(MLFLOW_ENABLE_WORKSPACES.name, raising=False)
+    db_uri = f"sqlite:///{tmp_path / 'auth-store.db'}"
+    auth_store = SqlAlchemyStore()
+    auth_store.init_db(db_uri)
+    monkeypatch.setattr(auth_module, "store", auth_store, raising=False)
+
+    auth_store.create_user("alice", "supersecurepassword", is_admin=False)
+    # Second user with a grant — must not leak into alice's rows.
+    auth_store.create_user("bob", "supersecurepassword", is_admin=False)
+    auth_store.grant_user_resource_permission("bob", "experiment", "exp-1", READ.name)
+
+    is_admin, rows = auth_module._list_user_role_permissions("alice")
+    assert is_admin is False
+    assert rows == []
+
+
+def test_list_user_role_permissions_admin_flag_propagates(tmp_path, monkeypatch):
+    # ``is_admin`` comes from the User row, not from any grants — admins can
+    # have zero permission rows and still surface ``is_admin=True``. The FE
+    # relies on this to skip permission-fetch entirely for super admins.
+    monkeypatch.delenv(MLFLOW_ENABLE_WORKSPACES.name, raising=False)
+    db_uri = f"sqlite:///{tmp_path / 'auth-store.db'}"
+    auth_store = SqlAlchemyStore()
+    auth_store.init_db(db_uri)
+    monkeypatch.setattr(auth_module, "store", auth_store, raising=False)
+
+    auth_store.create_user("rootuser", "supersecurepassword", is_admin=True)
+
+    is_admin, rows = auth_module._list_user_role_permissions("rootuser")
+    assert is_admin is True
+    assert rows == []
+
+
+def test_list_user_role_permissions_multiple_perms_on_one_role(tmp_path, monkeypatch):
+    # One role with two RolePermission rows must produce two LIST rows that
+    # share role_id / role_name / workspace but differ on resource_type /
+    # permission. Pins the flatten-on-role.permissions behavior.
+    monkeypatch.delenv(MLFLOW_ENABLE_WORKSPACES.name, raising=False)
+    db_uri = f"sqlite:///{tmp_path / 'auth-store.db'}"
+    auth_store = SqlAlchemyStore()
+    auth_store.init_db(db_uri)
+    monkeypatch.setattr(auth_module, "store", auth_store, raising=False)
+
+    user = auth_store.create_user("alice", "supersecurepassword", is_admin=False)
+    role = auth_store.create_role(name="ml-power-user", workspace="default")
+    auth_store.add_role_permission(role.id, "experiment", "*", READ.name)
+    auth_store.add_role_permission(role.id, "registered_model", "*", MANAGE.name)
+    auth_store.assign_role_to_user(user.id, role.id)
+
+    is_admin, rows = auth_module._list_user_role_permissions("alice")
+    assert is_admin is False
+    assert len(rows) == 2
+    assert {(r.resource_type, r.permission) for r in rows} == {
+        ("experiment", READ.name),
+        ("registered_model", MANAGE.name),
+    }
+    assert {r.role_id for r in rows} == {role.id}
+    assert {r.role_name for r in rows} == {"ml-power-user"}
+
+
+def test_list_user_role_permissions_workspace_reflects_role_workspace(tmp_path, monkeypatch):
+    # With workspaces enabled, ``row.workspace`` is the *role's* workspace —
+    # i.e., the workspace where the resource lives — not always
+    # ``DEFAULT_WORKSPACE_NAME``. Pin against silent collapsing of the workspace
+    # field for non-default workspaces.
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    db_uri = f"sqlite:///{tmp_path / 'auth-store.db'}"
+    auth_store = SqlAlchemyStore()
+    auth_store.init_db(db_uri)
+    monkeypatch.setattr(auth_module, "store", auth_store, raising=False)
+
+    user = auth_store.create_user("alice", "supersecurepassword", is_admin=False)
+    role_a = auth_store.create_role(name="viewer", workspace="team-a")
+    auth_store.add_role_permission(role_a.id, "experiment", "*", READ.name)
+    auth_store.assign_role_to_user(user.id, role_a.id)
+
+    role_b = auth_store.create_role(name="viewer", workspace="team-b")
+    auth_store.add_role_permission(role_b.id, "experiment", "*", READ.name)
+    auth_store.assign_role_to_user(user.id, role_b.id)
+
+    _, rows = auth_module._list_user_role_permissions("alice")
+    assert {r.workspace for r in rows} == {"team-a", "team-b"}
+
+
+def _list_user_permissions_response(monkeypatch, requester: str, target: str) -> dict[str, object]:
+    """Invoke ``list_user_permissions`` as ``requester`` for ``target`` and return JSON."""
+    monkeypatch.setattr(
+        auth_module, "authenticate_request", lambda: SimpleNamespace(username=requester)
+    )
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/users/permissions/list",
+        method="GET",
+        query_string={"username": target},
+    ):
+        response = auth_module.list_user_permissions()
+    return json.loads(response.get_data(as_text=True))
+
+
+def test_list_user_permissions_admin_sees_rows_across_all_workspaces(tmp_path, monkeypatch):
+    # Platform admins must see EVERY role-derived row for the target user,
+    # regardless of which workspace the row sits in. This is the path the
+    # admin UI's "User detail" page hits when an admin clicks any user.
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    db_uri = f"sqlite:///{tmp_path / 'auth-store.db'}"
+    auth_store = SqlAlchemyStore()
+    auth_store.init_db(db_uri)
+    monkeypatch.setattr(auth_module, "store", auth_store, raising=False)
+
+    auth_store.create_user("root", "supersecurepassword", is_admin=True)
+    target = auth_store.create_user("alice", "supersecurepassword", is_admin=False)
+    role_a = auth_store.create_role(name="viewer", workspace="team-a")
+    auth_store.add_role_permission(role_a.id, "experiment", "*", READ.name)
+    auth_store.assign_role_to_user(target.id, role_a.id)
+    role_b = auth_store.create_role(name="viewer", workspace="team-b")
+    auth_store.add_role_permission(role_b.id, "experiment", "*", READ.name)
+    auth_store.assign_role_to_user(target.id, role_b.id)
+
+    payload = _list_user_permissions_response(monkeypatch, requester="root", target="alice")
+    assert payload["is_admin"] is False  # is_admin reflects the *target*, not the caller.
+    assert {p["workspace"] for p in payload["permissions"]} == {"team-a", "team-b"}
+
+
+def test_list_user_permissions_self_sees_all_rows(tmp_path, monkeypatch):
+    # Self-view sees everything the user holds, across every workspace, with no
+    # admin-workspace filtering. ``is_admin`` here mirrors the caller because
+    # caller == target.
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    db_uri = f"sqlite:///{tmp_path / 'auth-store.db'}"
+    auth_store = SqlAlchemyStore()
+    auth_store.init_db(db_uri)
+    monkeypatch.setattr(auth_module, "store", auth_store, raising=False)
+
+    alice = auth_store.create_user("alice", "supersecurepassword", is_admin=False)
+    role_a = auth_store.create_role(name="viewer", workspace="team-a")
+    auth_store.add_role_permission(role_a.id, "experiment", "*", READ.name)
+    auth_store.assign_role_to_user(alice.id, role_a.id)
+    role_b = auth_store.create_role(name="viewer", workspace="team-b")
+    auth_store.add_role_permission(role_b.id, "experiment", "*", READ.name)
+    auth_store.assign_role_to_user(alice.id, role_b.id)
+
+    payload = _list_user_permissions_response(monkeypatch, requester="alice", target="alice")
+    assert payload["is_admin"] is False
+    assert {p["workspace"] for p in payload["permissions"]} == {"team-a", "team-b"}
+
+
+def test_list_user_permissions_workspace_admin_scoped_to_own_workspaces(tmp_path, monkeypatch):
+    # A workspace admin of team-a viewing alice (who has rows in team-a + team-b)
+    # must see ONLY team-a rows. The team-b row would leak cross-workspace state
+    # the requester has no claim over. Security regression guard.
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    db_uri = f"sqlite:///{tmp_path / 'auth-store.db'}"
+    auth_store = SqlAlchemyStore()
+    auth_store.init_db(db_uri)
+    monkeypatch.setattr(auth_module, "store", auth_store, raising=False)
+
+    auth_store.create_user("wp-admin", "supersecurepassword", is_admin=False)
+    auth_store.set_workspace_permission("team-a", "wp-admin", MANAGE.name)
+
+    alice = auth_store.create_user("alice", "supersecurepassword", is_admin=False)
+    role_a = auth_store.create_role(name="viewer", workspace="team-a")
+    auth_store.add_role_permission(role_a.id, "experiment", "*", READ.name)
+    auth_store.assign_role_to_user(alice.id, role_a.id)
+    role_b = auth_store.create_role(name="viewer", workspace="team-b")
+    auth_store.add_role_permission(role_b.id, "experiment", "*", READ.name)
+    auth_store.assign_role_to_user(alice.id, role_b.id)
+
+    payload = _list_user_permissions_response(monkeypatch, requester="wp-admin", target="alice")
+    workspaces = {p["workspace"] for p in payload["permissions"]}
+    assert workspaces == {"team-a"}, workspaces
+
+
+def test_list_current_user_permissions_returns_caller_rows_and_admin_flag(tmp_path, monkeypatch):
+    # ``/users/current/permissions`` is the unauthenticated-safe self path the
+    # FE uses on bootstrap to decide which nav items to render. Caller == target
+    # implicitly; ``is_admin`` reflects the caller; rows cover every workspace.
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    db_uri = f"sqlite:///{tmp_path / 'auth-store.db'}"
+    auth_store = SqlAlchemyStore()
+    auth_store.init_db(db_uri)
+    monkeypatch.setattr(auth_module, "store", auth_store, raising=False)
+
+    alice = auth_store.create_user("alice", "supersecurepassword", is_admin=False)
+    role = auth_store.create_role(name="viewer", workspace="team-a")
+    auth_store.add_role_permission(role.id, "experiment", "*", READ.name)
+    auth_store.assign_role_to_user(alice.id, role.id)
+
+    monkeypatch.setattr(
+        auth_module, "authenticate_request", lambda: SimpleNamespace(username="alice")
+    )
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/users/current/permissions", method="GET"
+    ):
+        response = auth_module.list_current_user_permissions()
+    payload = json.loads(response.get_data(as_text=True))
+    assert payload["is_admin"] is False
+    assert len(payload["permissions"]) == 1
+    assert payload["permissions"][0]["workspace"] == "team-a"
+    assert payload["permissions"][0]["role_name"] == "viewer"
+
+
 def test_user_can_create_in_default_workspace_via_autogrant(monkeypatch):
     """``_user_can_create_in_workspace`` must honor
     ``grant_default_workspace_access`` so an ungranted user in the default
