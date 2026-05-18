@@ -69,7 +69,7 @@ def test_get_env_var_from_os_environment_when_no_settings(tmp_path, monkeypatch)
     assert result == "test_os_value"
 
 
-def test_get_env_var_settings_takes_precedence_over_os_env(tmp_path, monkeypatch):
+def test_get_env_var_os_env_takes_precedence_over_settings(tmp_path, monkeypatch):
     monkeypatch.setenv(MLFLOW_TRACING_ENABLED, "os_value")
 
     config_data = {"env": {MLFLOW_TRACING_ENABLED: "settings_value"}}
@@ -80,7 +80,7 @@ def test_get_env_var_settings_takes_precedence_over_os_env(tmp_path, monkeypatch
 
     monkeypatch.chdir(tmp_path)
     result = get_env_var(MLFLOW_TRACING_ENABLED, "default")
-    assert result == "settings_value"
+    assert result == "os_value"
 
 
 def test_get_env_var_falls_back_to_os_env_when_not_in_settings(tmp_path, monkeypatch):
@@ -144,7 +144,7 @@ def test_get_env_var_falls_through_local_to_settings(tmp_path, monkeypatch):
     assert get_env_var("MLFLOW_TRACKING_URI", "default") == "https://example.com"
 
 
-def test_get_env_var_local_overrides_os_env(tmp_path, monkeypatch):
+def test_get_env_var_os_env_takes_precedence_over_local(tmp_path, monkeypatch):
     monkeypatch.setenv(MLFLOW_TRACING_ENABLED, "os_value")
 
     claude_dir = tmp_path / ".claude"
@@ -154,7 +154,7 @@ def test_get_env_var_local_overrides_os_env(tmp_path, monkeypatch):
 
     monkeypatch.chdir(tmp_path)
     result = get_env_var(MLFLOW_TRACING_ENABLED, "default")
-    assert result == "local_value"
+    assert result == "os_value"
 
 
 def test_get_tracing_status_merges_local_and_shared(tmp_path):

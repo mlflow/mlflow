@@ -72,7 +72,11 @@ def commands():
 )
 @click.option("--experiment-id", "-e", help="MLflow experiment ID")
 @click.option("--experiment-name", "-n", help="MLflow experiment name")
-@click.option("--disable", is_flag=True, help="Disable Claude tracing in the specified directory")
+@click.option(
+    "--disable",
+    is_flag=True,
+    help="Disable Claude tracing (removes config from both settings.json and settings.local.json)",
+)
 @click.option("--status", is_flag=True, help="Show current tracing status")
 @click.option(
     "--local",

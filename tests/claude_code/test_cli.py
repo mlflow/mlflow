@@ -154,7 +154,10 @@ def test_claude_setup_with_local_flag(runner, monkeypatch):
     monkeypatch.delenv("UV", raising=False)
     monkeypatch.delenv("PIXI_ENVIRONMENT_NAME", raising=False)
 
-    with runner.isolated_filesystem():
+    with (
+        runner.isolated_filesystem(),
+        mock.patch("mlflow.claude_code.cli.ensure_plugin_installed"),
+    ):
         result = runner.invoke(commands, ["claude", "--local"])
         assert result.exit_code == 0
 
@@ -173,7 +176,10 @@ def test_claude_setup_local_status(runner, monkeypatch):
     monkeypatch.delenv("UV", raising=False)
     monkeypatch.delenv("PIXI_ENVIRONMENT_NAME", raising=False)
 
-    with runner.isolated_filesystem():
+    with (
+        runner.isolated_filesystem(),
+        mock.patch("mlflow.claude_code.cli.ensure_plugin_installed"),
+    ):
         result = runner.invoke(commands, ["claude", "--local"])
         assert result.exit_code == 0
 
@@ -186,7 +192,10 @@ def test_claude_disable_cleans_local_without_flag(runner, monkeypatch):
     monkeypatch.delenv("UV", raising=False)
     monkeypatch.delenv("PIXI_ENVIRONMENT_NAME", raising=False)
 
-    with runner.isolated_filesystem():
+    with (
+        runner.isolated_filesystem(),
+        mock.patch("mlflow.claude_code.cli.ensure_plugin_installed"),
+    ):
         result = runner.invoke(commands, ["claude", "--local"])
         assert result.exit_code == 0
 
