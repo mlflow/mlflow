@@ -15,8 +15,8 @@ import {
 } from '@databricks/design-system';
 import { FieldLabel } from './FieldLabel';
 import { useResourceOptionsQuery } from '../hooks';
-import { ALL_RESOURCE_PATTERN_LABEL, PERMISSIONS, RESOURCE_TYPES } from '../types';
-import { DIRECT_GRANT_RESOURCE_TYPES, type DirectGrantResourceType } from './DirectPermissionForm';
+import { useWorkspacesEnabled } from '../../experiment-tracking/hooks/useServerInfo';
+import { ALL_RESOURCE_PATTERN_LABEL, formatResourceType, PERMISSIONS, RESOURCE_TYPES } from '../types';
 
 export type RolePermissionScope = 'specific' | 'all';
 
@@ -54,17 +54,6 @@ export const ROLE_PERMISSION_DRAFT_DEFAULT: RolePermissionDraft = {
   permission: PERMISSIONS[0],
 };
 
-const RESOURCE_TYPE_LABEL: Record<DirectGrantResourceType, string> = {
-  experiment: 'Experiment',
-  registered_model: 'Registered model',
-  gateway_secret: 'Gateway secret',
-  gateway_endpoint: 'Gateway endpoint',
-  gateway_model_definition: 'Gateway model definition',
-};
-
-const isPickableResourceType = (rt: string): rt is DirectGrantResourceType =>
-  (DIRECT_GRANT_RESOURCE_TYPES as readonly string[]).includes(rt);
-
 /**
  * Add a permission to a role. Mirrors ``DirectPermissionForm``'s
  * (resource type + scope radio + resource picker) shape so the
@@ -74,7 +63,8 @@ const isPickableResourceType = (rt: string): rt is DirectGrantResourceType =>
  * Two role-only special cases:
  * - ``workspace``: the only valid pattern is ``*`` (the role's own
  *   workspace), so the scope radio is hidden and we render a static
- *   "Workspace: <name>" line.
+ *   "Workspace: <name>" line. The resource type itself is omitted from
+ *   the dropdown when workspaces are disabled at the server level.
  * - ``scorer``: no pre-built picker exists for composite scorer ids,
  *   so the scope radio is hidden and we fall back to a free-text
  *   pattern input. ``RolePermissionsSection`` reads the typed value
@@ -83,11 +73,14 @@ const isPickableResourceType = (rt: string): rt is DirectGrantResourceType =>
 export const RolePermissionForm = ({ value, onChange, workspace, disabled }: RolePermissionFormProps) => {
   const { theme } = useDesignSystemTheme();
   const [resourceSearch, setResourceSearch] = useState('');
+  const { workspacesEnabled } = useWorkspacesEnabled();
 
-  const isPickable = isPickableResourceType(value.resourceType);
-  const typeLabel = isPickable
-    ? RESOURCE_TYPE_LABEL[value.resourceType as DirectGrantResourceType]
-    : value.resourceType;
+  const visibleResourceTypes = useMemo(
+    () => RESOURCE_TYPES.filter((rt) => workspacesEnabled || rt !== 'workspace'),
+    [workspacesEnabled],
+  );
+
+  const typeLabel = formatResourceType(value.resourceType);
 
   const {
     options: resourceOptions,
@@ -127,9 +120,9 @@ export const RolePermissionForm = ({ value, onChange, workspace, disabled }: Rol
           }}
           disabled={disabled}
         >
-          {RESOURCE_TYPES.map((rt) => (
+          {visibleResourceTypes.map((rt) => (
             <SimpleSelectOption key={rt} value={rt}>
-              {rt}
+              {formatResourceType(rt)}
             </SimpleSelectOption>
           ))}
         </SimpleSelect>

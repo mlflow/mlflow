@@ -15,12 +15,15 @@ import {
 } from '@databricks/design-system';
 import { FieldLabel } from './FieldLabel';
 import { useResourceOptionsQuery } from '../hooks';
-import { PERMISSIONS } from '../types';
+import { formatResourceType, PERMISSIONS } from '../types';
 
 // Resource types eligible for per-user direct grants. ``workspace`` is excluded
 // (it's role-only), and ``scorer`` is excluded because its identifier is
 // composite (experiment_id + scorer_name) and the form below assumes a single
-// string id.
+// string id. ``gateway_model_definition`` stays in the tuple so existing grants
+// from earlier RBAC versions still display correctly, but it's filtered out of
+// ``PICKER_RESOURCE_TYPES`` below since it's an internal primitive that ships
+// behind ``gateway_endpoint`` and shouldn't be a new-grant option.
 export const DIRECT_GRANT_RESOURCE_TYPES = [
   'experiment',
   'registered_model',
@@ -31,13 +34,9 @@ export const DIRECT_GRANT_RESOURCE_TYPES = [
 
 export type DirectGrantResourceType = (typeof DIRECT_GRANT_RESOURCE_TYPES)[number];
 
-const RESOURCE_TYPE_LABEL: Record<DirectGrantResourceType, string> = {
-  experiment: 'Experiment',
-  registered_model: 'Registered model',
-  gateway_secret: 'Gateway secret',
-  gateway_endpoint: 'Gateway endpoint',
-  gateway_model_definition: 'Gateway model definition',
-};
+const PICKER_RESOURCE_TYPES: readonly DirectGrantResourceType[] = DIRECT_GRANT_RESOURCE_TYPES.filter(
+  (rt) => rt !== 'gateway_model_definition',
+);
 
 export type DirectPermissionScope = 'specific' | 'all';
 
@@ -99,7 +98,7 @@ export const DirectPermissionForm = ({
 
   const selectedOption = resourceOptions.find((o) => o.id === value.resourceId);
   const renderOption = (o: { id: string; name: string }) => (o.name === o.id ? o.name : `${o.name} (${o.id})`);
-  const typeLabel = RESOURCE_TYPE_LABEL[value.resourceType];
+  const typeLabel = formatResourceType(value.resourceType);
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
@@ -118,9 +117,9 @@ export const DirectPermissionForm = ({
           }
           disabled={disabled}
         >
-          {DIRECT_GRANT_RESOURCE_TYPES.map((rt) => (
+          {PICKER_RESOURCE_TYPES.map((rt) => (
             <SimpleSelectOption key={rt} value={rt}>
-              {RESOURCE_TYPE_LABEL[rt]}
+              {formatResourceType(rt)}
             </SimpleSelectOption>
           ))}
         </SimpleSelect>

@@ -93,3 +93,25 @@ export const parseResourcePattern = (input: string): string => {
   const trimmed = input.trim();
   return trimmed.toLowerCase() === ALL_RESOURCE_PATTERN_LABEL ? ALL_RESOURCE_PATTERN : trimmed;
 };
+
+/**
+ * User-facing display labels for canonical (snake_case) backend resource
+ * types. Admin tables and pickers render via ``formatResourceType`` so
+ * the UI never leaks raw wire names like ``registered_model``.
+ *
+ * ``gateway_secret`` reads as "LLM connection": the wire-level identifier
+ * stays ``gateway_secret`` (backend enums depend on it) but the product
+ * term is ``LLM connection``.
+ */
+export const RESOURCE_TYPE_LABEL: Record<string, string> = {
+  experiment: 'Experiment',
+  registered_model: 'Registered model',
+  scorer: 'Scorer',
+  gateway_secret: 'LLM connection',
+  gateway_endpoint: 'Gateway endpoint',
+  gateway_model_definition: 'Gateway model definition',
+  workspace: 'Workspace',
+};
+
+export const formatResourceType = (resourceType: string): string =>
+  RESOURCE_TYPE_LABEL[resourceType] ?? resourceType;

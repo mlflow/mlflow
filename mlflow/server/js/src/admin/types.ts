@@ -8,8 +8,10 @@ export {
   ALL_RESOURCE_PATTERN_LABEL,
   DEFAULT_WORKSPACE_NAME,
   formatResourcePattern,
+  formatResourceType,
   isWorkspaceAdminRole,
   parseResourcePattern,
+  RESOURCE_TYPE_LABEL,
 } from '../account/types';
 
 export interface UserRoleAssignment {
@@ -84,14 +86,31 @@ export interface ResourceOption {
   name: string;
 }
 
+/**
+ * Resource types offered in the admin UI's role/permission pickers.
+ *
+ * ``gateway_model_definition`` is intentionally omitted: it's an internal
+ * primitive that ships behind ``gateway_endpoint`` and is not user-facing.
+ * Callers that need to render historical rows whose ``resource_type``
+ * still references it should fall through ``formatResourceType`` (which
+ * resolves the label from ``RESOURCE_TYPE_LABEL``), not iterate this
+ * tuple.
+ */
 export const RESOURCE_TYPES = [
   'experiment',
   'registered_model',
   'scorer',
   'gateway_secret',
   'gateway_endpoint',
-  'gateway_model_definition',
   'workspace',
 ] as const;
 
-export const PERMISSIONS = ['READ', 'USE', 'EDIT', 'MANAGE', 'NO_PERMISSIONS'] as const;
+/**
+ * Permissions offered in the admin UI's permission pickers.
+ *
+ * ``NO_PERMISSIONS`` is intentionally omitted: it's a server-only sentinel
+ * (explicit deny) that the backend rejects as a new grant. The legacy
+ * tuple is still resolvable when rendering rows, but it's not a choice
+ * an admin should be able to assign.
+ */
+export const PERMISSIONS = ['READ', 'USE', 'EDIT', 'MANAGE'] as const;
