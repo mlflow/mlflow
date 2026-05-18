@@ -315,15 +315,20 @@ def calculate_cost_by_model_and_token_usage(
 
     prompt_tokens = usage.get(TokenUsageKey.INPUT_TOKENS, 0)
     completion_tokens = usage.get(TokenUsageKey.OUTPUT_TOKENS, 0)
+    cache_read_tokens = usage.get(TokenUsageKey.CACHE_READ_INPUT_TOKENS)
+    cache_creation_tokens = usage.get(TokenUsageKey.CACHE_CREATION_INPUT_TOKENS)
 
-    if prompt_tokens == 0 and completion_tokens == 0:
+    # Skip cost calculation only when ALL token counts are absent or zero.
+    # Cache-only requests (e.g. prompt_tokens=0 but cache_read_input_tokens>0) still
+    # incur real costs and must not be silently dropped.
+    if prompt_tokens == 0 and completion_tokens == 0 and not cache_read_tokens and not cache_creation_tokens:
         return None
 
     cache_kwargs = {}
-    if (cached := usage.get(TokenUsageKey.CACHE_READ_INPUT_TOKENS)) is not None:
-        cache_kwargs["cache_read_input_tokens"] = cached
-    if (created := usage.get(TokenUsageKey.CACHE_CREATION_INPUT_TOKENS)) is not None:
-        cache_kwargs["cache_creation_input_tokens"] = created
+    if cache_read_tokens is not None:
+        cache_kwargs["cache_read_input_tokens"] = cache_read_tokens
+    if cache_creation_tokens is not None:
+        cache_kwargs["cache_creation_input_tokens"] = cache_creation_tokens
 
     try:
         import litellm
