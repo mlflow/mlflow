@@ -146,7 +146,7 @@ def map_scorer_inputs_to_invocation(
     return actual_invocation, expected_invocation
 
 
-def run_async(coro: Any) -> Any:
+def _run_async(coro: Any) -> Any:
     """Run an async coroutine from a synchronous caller.
 
     Falls back to a worker thread when an event loop is already running

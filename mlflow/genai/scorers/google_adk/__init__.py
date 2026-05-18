@@ -29,6 +29,7 @@ Example usage:
 
 from __future__ import annotations
 
+import inspect
 import logging
 from typing import Any, ClassVar, Literal
 
@@ -42,9 +43,9 @@ from mlflow.genai.judges.utils import CategoricalRating
 from mlflow.genai.scorers import FRAMEWORK_METADATA_KEY
 from mlflow.genai.scorers.base import Scorer, ScorerKind
 from mlflow.genai.scorers.google_adk.utils import (
+    _run_async,
     check_adk_installed,
     map_scorer_inputs_to_invocation,
-    run_async,
 )
 from mlflow.utils.annotations import experimental
 
@@ -341,6 +342,7 @@ class ResponseEvaluation(GoogleADKScorer):
     """
 
     metric_name: ClassVar[str] = "ResponseEvaluation"
+    _requires_reference: ClassVar[bool] = True
 
     _model: str = PrivateAttr()
 
@@ -352,10 +354,18 @@ class ResponseEvaluation(GoogleADKScorer):
         **kwargs: Any,
     ):
         check_adk_installed()
+        from google.adk.evaluation.final_response_match_v2 import FinalResponseMatchV2Evaluator
+
         super().__init__(name=self.metric_name)
         self._threshold = threshold
         self._model = model
-        self._evaluator = _create_response_evaluation_evaluator(threshold, model, num_samples)
+        self._evaluator = _create_judge_evaluator(
+            FinalResponseMatchV2Evaluator,
+            "final_response_match_v2",
+            threshold,
+            judge_model=model,
+            num_samples=num_samples,
+        )
 
     def __call__(
         self,
@@ -371,54 +381,68 @@ class ResponseEvaluation(GoogleADKScorer):
             outputs=outputs,
             expectations=expectations,
             trace=trace,
-            is_async=True,
-            require_reference=True,
         )
 
 
 @experimental(version="3.12.0")
 class Safety(GoogleADKScorer):
     """
-    Evaluates response safety using an LLM judge.
+    Evaluates response safety using ADK's prebuilt Vertex AI SAFETY metric.
 
-    Wraps ADK's ``SafetyEvaluatorV1`` which uses a judge model to assess
-    whether the agent's response is safe and free of harmful content.
+    Wraps ADK's ``SafetyEvaluatorV1`` which delegates to the Vertex AI
+    Gen AI Evaluation Service's prebuilt ``SAFETY`` metric. The underlying
+    metric is fully managed by Vertex AI, so the judge model and sample
+    count are NOT user-configurable.
 
-    .. note::
-        The judge model must be resolvable by ADK's ``LlmRegistry`` (e.g.
-        ``gemini-2.5-flash``). MLflow model URIs such as ``databricks`` or
-        ``openai:/gpt-4o`` are not supported.
+    .. caution::
+        This scorer routes through Vertex AI and requires Google Cloud
+        project credentials: set ``GOOGLE_CLOUD_PROJECT`` and
+        ``GOOGLE_CLOUD_LOCATION``, plus
+        ``gcloud auth application-default login`` or a service account.
+        ``GEMINI_API_KEY`` alone is not sufficient. Unlike
+        :class:`ResponseEvaluation` and :class:`Hallucination`, the
+        ``model`` and ``num_samples`` arguments are not supported here
+        because ADK's underlying evaluator ignores them.
 
     Args:
-        model: Judge model ID (default: ``"gemini-2.5-flash"``).
-        threshold: Score threshold for pass/fail (default: 0.5).
-        num_samples: Number of judge samples for majority voting (default: 5).
+        threshold: Score threshold for pass/fail (default: 0.5). Vertex AI's
+            SAFETY metric returns a value in ``[0, 1]`` with higher = safer.
 
     Examples:
         .. code-block:: python
 
-            scorer = Safety(model="gemini-2.5-flash", threshold=0.5)
+            scorer = Safety(threshold=0.5)
             feedback = scorer(
-                outputs="Here's how to safely handle the request...",
+                outputs="Here is how to safely handle the request...",
             )
     """
 
     metric_name: ClassVar[str] = "Safety"
-
-    _model: str = PrivateAttr()
+    _requires_reference: ClassVar[bool] = False
 
     def __init__(
         self,
-        model: str = _DEFAULT_JUDGE_MODEL,
         threshold: float = _DEFAULT_THRESHOLD,
-        num_samples: int = _DEFAULT_JUDGE_SAMPLES,
         **kwargs: Any,
     ):
+        # Surface the misuse early: ADK's underlying evaluator ignores these,
+        # so silently accepting them would mislead the user.
+        if ignored := [k for k in ("model", "num_samples") if k in kwargs]:
+            raise TypeError(
+                f"Safety does not accept {ignored} because ADK's "
+                "SafetyEvaluatorV1 delegates to Vertex AI's prebuilt SAFETY "
+                "metric, which ignores judge_model_options. Use "
+                "ResponseEvaluation or Hallucination if you need a "
+                "configurable judge model."
+            )
         check_adk_installed()
+        from google.adk.evaluation.safety_evaluator import SafetyEvaluatorV1
+
         super().__init__(name=self.metric_name)
         self._threshold = threshold
-        self._model = model
-        self._evaluator = _create_safety_evaluator(threshold, model, num_samples)
+        self._evaluator = _create_judge_evaluator(
+            SafetyEvaluatorV1, "safety_evaluator_v1", threshold
+        )
 
     def __call__(
         self,
@@ -434,7 +458,6 @@ class Safety(GoogleADKScorer):
             outputs=outputs,
             expectations=expectations,
             trace=trace,
-            is_async=False,
         )
 
 
@@ -467,6 +490,7 @@ class Hallucination(GoogleADKScorer):
     """
 
     metric_name: ClassVar[str] = "Hallucination"
+    _requires_reference: ClassVar[bool] = False
 
     _model: str = PrivateAttr()
 
@@ -478,10 +502,18 @@ class Hallucination(GoogleADKScorer):
         **kwargs: Any,
     ):
         check_adk_installed()
+        from google.adk.evaluation.hallucinations_v1 import HallucinationsV1Evaluator
+
         super().__init__(name=self.metric_name)
         self._threshold = threshold
         self._model = model
-        self._evaluator = _create_hallucination_evaluator(threshold, model, num_samples)
+        self._evaluator = _create_judge_evaluator(
+            HallucinationsV1Evaluator,
+            "hallucinations_v1",
+            threshold,
+            judge_model=model,
+            num_samples=num_samples,
+        )
 
     def __call__(
         self,
@@ -497,7 +529,6 @@ class Hallucination(GoogleADKScorer):
             outputs=outputs,
             expectations=expectations,
             trace=trace,
-            is_async=True,
         )
 
 
@@ -508,37 +539,25 @@ def _evaluate_llm_judge(
     outputs: Any,
     expectations: dict[str, Any] | None,
     trace: Trace | None,
-    is_async: bool,
-    require_reference: bool = False,
 ) -> Feedback:
     """Shared evaluation logic for ADK LLM-judge scorers.
 
-    Handles reference validation, async/sync evaluator dispatch, and the
-    common Feedback shape. Kept separate from ``ToolTrajectory`` and
-    ``ResponseMatch`` because their bodies are simpler and idiomatic to keep
-    inline.
+    Async vs sync dispatch is detected from the evaluator's return value
+    (some ADK evaluators return a coroutine, others return a result
+    directly), so we do not hardcode it per scorer.
+
+    Reference-required scorers (only ``ResponseEvaluation`` today) declare
+    ``_requires_reference = True`` and the check is done against the
+    ``Invocation`` built by :func:`map_scorer_inputs_to_invocation`, which
+    owns the source-of-truth fallback chain for reference text.
     """
+    source_id = getattr(scorer, "_model", None) or f"google_adk/{scorer.name}"
     assessment_source = AssessmentSource(
         source_type=AssessmentSourceType.LLM_JUDGE,
-        source_id=scorer._model,
+        source_id=source_id,
     )
 
     try:
-        if require_reference:
-            reference = None
-            if expectations:
-                reference = (
-                    expectations.get("expected_response")
-                    or expectations.get("context")
-                    or expectations.get("reference")
-                    or expectations.get("expected_output")
-                )
-            if reference is None:
-                raise MlflowException.invalid_parameter_value(
-                    f"{scorer.name} scorer requires 'expected_response', 'context', or "
-                    "'reference' in expectations."
-                )
-
         actual_inv, expected_inv = map_scorer_inputs_to_invocation(
             inputs=inputs,
             outputs=outputs,
@@ -546,11 +565,18 @@ def _evaluate_llm_judge(
             trace=trace,
         )
 
-        call = scorer._evaluator.evaluate_invocations(
+        if scorer._requires_reference and expected_inv.final_response is None:
+            raise MlflowException.invalid_parameter_value(
+                f"{scorer.name} scorer requires 'expected_response', 'context', or "
+                "'reference' in expectations."
+            )
+
+        result = scorer._evaluator.evaluate_invocations(
             actual_invocations=[actual_inv],
             expected_invocations=[expected_inv],
         )
-        result = run_async(call) if is_async else call
+        if inspect.iscoroutine(result):
+            result = _run_async(result)
 
         score = result.overall_score if result.overall_score is not None else 0.0
         passed = score >= scorer._threshold
@@ -567,7 +593,7 @@ def _evaluate_llm_judge(
             },
         )
     except Exception as e:
-        _logger.error("Error evaluating Google ADK metric %s: %s", scorer.name, e)
+        _logger.warning("Google ADK metric %s returned an error: %s", scorer.name, e)
         return Feedback(
             name=scorer.name,
             error=e,
@@ -576,50 +602,45 @@ def _evaluate_llm_judge(
         )
 
 
-def _create_llm_judge_criterion(threshold: float, model: str, num_samples: int):
-    from google.adk.evaluation.eval_metrics import JudgeModelOptions, LlmAsAJudgeCriterion
+def _create_judge_evaluator(
+    evaluator_cls,
+    metric_name: str,
+    threshold: float,
+    *,
+    judge_model: str | None = None,
+    num_samples: int | None = None,
+):
+    """Build an ADK ``EvalMetric`` and instantiate the requested evaluator.
 
-    judge_opts = JudgeModelOptions(judge_model=model, num_samples=num_samples)
-    return LlmAsAJudgeCriterion(threshold=threshold, judge_model_options=judge_opts)
-
-
-def _create_response_evaluation_evaluator(threshold: float, model: str, num_samples: int):
+    When ``judge_model`` is provided, an ``LlmAsAJudgeCriterion`` is attached
+    so evaluators that read ``judge_model_options`` (``FinalResponseMatchV2``,
+    ``HallucinationsV1``) can pick it up. ``SafetyEvaluatorV1`` ignores the
+    criterion entirely (it delegates to Vertex AI's prebuilt SAFETY metric),
+    so callers that target Safety pass ``judge_model=None``.
+    """
     from google.adk.evaluation.eval_metrics import EvalMetric
-    from google.adk.evaluation.final_response_match_v2 import FinalResponseMatchV2Evaluator
 
-    criterion = _create_llm_judge_criterion(threshold, model, num_samples)
+    criterion = None
+    if judge_model is not None:
+        from google.adk.evaluation.eval_metrics import (
+            JudgeModelOptions,
+            LlmAsAJudgeCriterion,
+        )
+
+        criterion = LlmAsAJudgeCriterion(
+            threshold=threshold,
+            judge_model_options=JudgeModelOptions(
+                judge_model=judge_model,
+                num_samples=num_samples or _DEFAULT_JUDGE_SAMPLES,
+            ),
+        )
+
     eval_metric = EvalMetric(
-        metric_name="final_response_match_v2",
+        metric_name=metric_name,
         threshold=threshold,
         criterion=criterion,
     )
-    return FinalResponseMatchV2Evaluator(eval_metric=eval_metric)
-
-
-def _create_safety_evaluator(threshold: float, model: str, num_samples: int):
-    from google.adk.evaluation.eval_metrics import EvalMetric
-    from google.adk.evaluation.safety_evaluator import SafetyEvaluatorV1
-
-    criterion = _create_llm_judge_criterion(threshold, model, num_samples)
-    eval_metric = EvalMetric(
-        metric_name="safety_evaluator_v1",
-        threshold=threshold,
-        criterion=criterion,
-    )
-    return SafetyEvaluatorV1(eval_metric=eval_metric)
-
-
-def _create_hallucination_evaluator(threshold: float, model: str, num_samples: int):
-    from google.adk.evaluation.eval_metrics import EvalMetric
-    from google.adk.evaluation.hallucinations_v1 import HallucinationsV1Evaluator
-
-    criterion = _create_llm_judge_criterion(threshold, model, num_samples)
-    eval_metric = EvalMetric(
-        metric_name="hallucinations_v1",
-        threshold=threshold,
-        criterion=criterion,
-    )
-    return HallucinationsV1Evaluator(eval_metric=eval_metric)
+    return evaluator_cls(eval_metric=eval_metric)
 
 
 def _create_trajectory_evaluator(threshold: float, match_type: str):

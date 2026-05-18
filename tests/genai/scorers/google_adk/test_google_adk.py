@@ -700,7 +700,7 @@ def _mock_llm_evaluator(overall_score):
 
 
 # ---------------------------------------------------------------------------
-# ResponseEvaluation scorer tests (LLM judge, async)
+# ResponseEvaluation scorer tests (LLM judge, async return)
 # ---------------------------------------------------------------------------
 
 
@@ -713,18 +713,17 @@ def _mock_llm_evaluator(overall_score):
     ids=["pass", "fail"],
 )
 def test_response_evaluation_scorer(score, expected_value):
+    async def async_evaluate(**kwargs):
+        return _make_eval_result(score)
+
+    mock_evaluator = Mock()
+    mock_evaluator.evaluate_invocations = Mock(side_effect=lambda **kw: async_evaluate(**kw))
+
     with (
-        patch(
-            f"{_PATCH_PREFIX}._create_response_evaluation_evaluator",
-            return_value=_mock_llm_evaluator(score),
-        ),
+        patch(f"{_PATCH_PREFIX}._create_judge_evaluator", return_value=mock_evaluator),
         patch(
             f"{_PATCH_PREFIX}.map_scorer_inputs_to_invocation",
             return_value=_mock_invocations(),
-        ),
-        patch(
-            f"{_PATCH_PREFIX}.run_async",
-            side_effect=lambda coro: _make_eval_result(score),
         ),
     ):
         scorer = ResponseEvaluation(model="gemini-2.5-flash", threshold=0.5)
@@ -747,7 +746,7 @@ def test_response_evaluation_scorer(score, expected_value):
 
 def test_response_evaluation_missing_reference():
     with patch(
-        f"{_PATCH_PREFIX}._create_response_evaluation_evaluator",
+        f"{_PATCH_PREFIX}._create_judge_evaluator",
         return_value=_mock_llm_evaluator(0.0),
     ):
         scorer = ResponseEvaluation()
@@ -760,7 +759,7 @@ def test_response_evaluation_missing_reference():
 
 
 # ---------------------------------------------------------------------------
-# Safety scorer tests (LLM judge, sync)
+# Safety scorer tests (LLM judge, sync return; ADK ignores model/num_samples)
 # ---------------------------------------------------------------------------
 
 
@@ -775,7 +774,7 @@ def test_response_evaluation_missing_reference():
 def test_safety_scorer(score, expected_value):
     with (
         patch(
-            f"{_PATCH_PREFIX}._create_safety_evaluator",
+            f"{_PATCH_PREFIX}._create_judge_evaluator",
             return_value=_mock_llm_evaluator(score),
         ),
         patch(
@@ -783,7 +782,7 @@ def test_safety_scorer(score, expected_value):
             return_value=_mock_invocations(),
         ),
     ):
-        scorer = Safety(model="gemini-2.5-flash", threshold=0.5)
+        scorer = Safety(threshold=0.5)
         result = scorer(
             inputs="Tell me about chemistry.",
             outputs="Chemistry is the study of matter.",
@@ -794,10 +793,17 @@ def test_safety_scorer(score, expected_value):
     assert result.value == expected_value
     assert result.metadata["score"] == score
     assert result.metadata[FRAMEWORK_METADATA_KEY] == "google_adk"
-    assert result.source == AssessmentSource(
-        source_type=AssessmentSourceType.LLM_JUDGE,
-        source_id="gemini-2.5-flash",
-    )
+    # Safety does not expose a judge model, so source_id falls back to the framework prefix.
+    assert result.source.source_type == AssessmentSourceType.LLM_JUDGE
+    assert result.source.source_id == "google_adk/Safety"
+
+
+def test_safety_does_not_accept_model_param():
+    # ADK's SafetyEvaluatorV1 ignores judge_model_options. The MLflow wrapper
+    # reflects that by not accepting model/num_samples at all.
+    with patch(f"{_PATCH_PREFIX}._create_judge_evaluator"):
+        with pytest.raises(TypeError, match="model"):
+            Safety(model="gemini-2.5-flash")
 
 
 def test_safety_error_handling():
@@ -805,7 +811,7 @@ def test_safety_error_handling():
     mock_evaluator.evaluate_invocations.side_effect = RuntimeError("Safety check failed")
 
     with (
-        patch(f"{_PATCH_PREFIX}._create_safety_evaluator", return_value=mock_evaluator),
+        patch(f"{_PATCH_PREFIX}._create_judge_evaluator", return_value=mock_evaluator),
         patch(
             f"{_PATCH_PREFIX}.map_scorer_inputs_to_invocation",
             return_value=_mock_invocations(),
@@ -821,7 +827,7 @@ def test_safety_error_handling():
 
 
 # ---------------------------------------------------------------------------
-# Hallucination scorer tests (LLM judge, async)
+# Hallucination scorer tests (LLM judge, async return)
 # ---------------------------------------------------------------------------
 
 
@@ -834,18 +840,17 @@ def test_safety_error_handling():
     ids=["grounded", "hallucinated"],
 )
 def test_hallucination_scorer(score, expected_value):
+    async def async_evaluate(**kwargs):
+        return _make_eval_result(score)
+
+    mock_evaluator = Mock()
+    mock_evaluator.evaluate_invocations = Mock(side_effect=lambda **kw: async_evaluate(**kw))
+
     with (
-        patch(
-            f"{_PATCH_PREFIX}._create_hallucination_evaluator",
-            return_value=_mock_llm_evaluator(score),
-        ),
+        patch(f"{_PATCH_PREFIX}._create_judge_evaluator", return_value=mock_evaluator),
         patch(
             f"{_PATCH_PREFIX}.map_scorer_inputs_to_invocation",
             return_value=_mock_invocations(),
-        ),
-        patch(
-            f"{_PATCH_PREFIX}.run_async",
-            side_effect=lambda coro: _make_eval_result(score),
         ),
     ):
         scorer = Hallucination(model="gemini-2.5-flash", threshold=0.5)
@@ -870,15 +875,11 @@ def test_hallucination_error_handling():
     mock_evaluator.evaluate_invocations.side_effect = RuntimeError("Eval failed")
 
     with (
-        patch(
-            f"{_PATCH_PREFIX}._create_hallucination_evaluator",
-            return_value=mock_evaluator,
-        ),
+        patch(f"{_PATCH_PREFIX}._create_judge_evaluator", return_value=mock_evaluator),
         patch(
             f"{_PATCH_PREFIX}.map_scorer_inputs_to_invocation",
             return_value=_mock_invocations(),
         ),
-        patch(f"{_PATCH_PREFIX}.run_async", side_effect=RuntimeError("Eval failed")),
     ):
         scorer = Hallucination()
         result = scorer(inputs="test", outputs="test")
@@ -894,32 +895,34 @@ def test_hallucination_error_handling():
 
 
 @pytest.mark.parametrize(
-    ("metric_name", "expected_class"),
+    ("metric_name", "expected_class", "kwargs"),
     [
-        ("ResponseEvaluation", ResponseEvaluation),
-        ("Safety", Safety),
-        ("Hallucination", Hallucination),
+        ("ResponseEvaluation", ResponseEvaluation, {"model": "gemini-2.5-flash", "threshold": 0.7}),
+        ("Safety", Safety, {"threshold": 0.7}),
+        ("Hallucination", Hallucination, {"model": "gemini-2.5-flash", "threshold": 0.7}),
     ],
 )
-def test_get_scorer_llm_judges(metric_name, expected_class):
-    with (
-        patch(f"{_PATCH_PREFIX}._create_response_evaluation_evaluator"),
-        patch(f"{_PATCH_PREFIX}._create_safety_evaluator"),
-        patch(f"{_PATCH_PREFIX}._create_hallucination_evaluator"),
-    ):
-        scorer = get_scorer(metric_name, model="gemini-2.5-flash", threshold=0.7)
-
+def test_get_scorer_llm_judges(metric_name, expected_class, kwargs):
+    with patch(f"{_PATCH_PREFIX}._create_judge_evaluator"):
+        scorer = get_scorer(metric_name, **kwargs)
     assert isinstance(scorer, expected_class)
 
 
 def test_llm_judge_model_attribute():
-    with patch(f"{_PATCH_PREFIX}._create_safety_evaluator"):
-        scorer = Safety(model="gemini-2.5-pro")
-
+    with patch(f"{_PATCH_PREFIX}._create_judge_evaluator"):
+        scorer = Hallucination(model="gemini-2.5-pro")
     assert scorer._model == "gemini-2.5-pro"
 
 
 def test_llm_judge_default_model_and_samples():
-    with patch(f"{_PATCH_PREFIX}._create_safety_evaluator") as mock_create:
-        Safety()
-        mock_create.assert_called_once_with(0.5, "gemini-2.5-flash", 5)
+    with patch(f"{_PATCH_PREFIX}._create_judge_evaluator") as mock_create:
+        from google.adk.evaluation.hallucinations_v1 import HallucinationsV1Evaluator
+
+        Hallucination()
+        mock_create.assert_called_once_with(
+            HallucinationsV1Evaluator,
+            "hallucinations_v1",
+            0.5,
+            judge_model="gemini-2.5-flash",
+            num_samples=5,
+        )
