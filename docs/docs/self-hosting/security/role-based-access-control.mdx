@@ -18,7 +18,6 @@ status, password updates), see
 [Username and Password](/self-hosting/security/basic-http-auth); this page
 picks up once users exist.
 
-
 ## Concepts
 
 Three entities — users, roles, resources — connected by two relations:
@@ -149,7 +148,6 @@ Admin** for the second; the doc uses the same labels.
 | Platform Admin  | `is_admin = true` on the user row           | Unrestricted system-wide. Sole bearer of user delete and bulk operations.      |
 | Workspace Admin | Holds `(workspace, *, MANAGE)` via any role | Full authority within those workspaces; can manage roles, users, and grants.   |
 | Regular user    | Any other authenticated identity            | No admin UI access; authorization flows through role-derived permissions only. |
-
 
 ### Direct grants without a role
 
