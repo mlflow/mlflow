@@ -3079,10 +3079,13 @@ def filter_search_model_versions(resp: Response):
     # carrying a ``(prompt, name, READ)`` grant isn't dropped on the floor.
     can_read_rm = _role_based_read_predicate(username, "registered_model")
     can_read_prompt = _role_based_read_predicate(username, "prompt")
+
+    def can_read(entity) -> bool:
+        return (can_read_prompt if _entity_is_prompt(entity) else can_read_rm)(entity.name)
+
     # filter out model versions whose parent model is unreadable
     for mv in list(response_message.model_versions):
-        check = can_read_prompt if _entity_is_prompt(mv) else can_read_rm
-        if not check(mv.name):
+        if not can_read(mv):
             response_message.model_versions.remove(mv)
 
     resp.data = message_to_json(response_message)
