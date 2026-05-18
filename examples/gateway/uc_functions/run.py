@@ -37,6 +37,8 @@ def main():
         ],
         tools=[uc_function],
     )
+    if not resp.choices:
+        return  # pact: guard empty choices list
     print(resp.choices[0].message.content)
 
     print("----- UC function + User-defined function -----")

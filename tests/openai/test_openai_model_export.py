@@ -62,7 +62,9 @@ def test_log_model():
     assert loaded_model["model"] == "gpt-4o-mini"
     assert loaded_model["task"] == "chat.completions"
     assert loaded_model["temperature"] == 0.9
-    assert loaded_model["messages"] == [{"role": "system", "content": "You are an MLflow expert."}]
+    assert loaded_model["messages"] == [
+        {"role": "system", "content": "You are an MLflow expert."}
+    ]
 
 
 def test_chat_single_variable(tmp_path):
@@ -74,12 +76,14 @@ def test_chat_single_variable(tmp_path):
     )
 
     model = mlflow.pyfunc.load_model(tmp_path)
-    data = pd.DataFrame({
-        "x": [
-            "a",
-            "b",
-        ]
-    })
+    data = pd.DataFrame(
+        {
+            "x": [
+                "a",
+                "b",
+            ]
+        }
+    )
     expected_output = [
         [{"content": "a", "role": "user"}],
         [{"content": "b", "role": "user"}],
@@ -108,12 +112,14 @@ def test_completion_single_variable(tmp_path):
     )
 
     model = mlflow.pyfunc.load_model(tmp_path)
-    data = pd.DataFrame({
-        "x": [
-            "this is a test",
-            "this is another test",
-        ]
-    })
+    data = pd.DataFrame(
+        {
+            "x": [
+                "this is a test",
+                "this is another test",
+            ]
+        }
+    )
     expected_output = ["Say this is a test", "Say this is another test"]
     assert model.predict(data) == expected_output
 
@@ -147,16 +153,18 @@ def test_chat_multiple_variables(tmp_path):
     ]
 
     model = mlflow.pyfunc.load_model(tmp_path)
-    data = pd.DataFrame({
-        "x": [
-            "a",
-            "b",
-        ],
-        "y": [
-            "c",
-            "d",
-        ],
-    })
+    data = pd.DataFrame(
+        {
+            "x": [
+                "a",
+                "b",
+            ],
+            "y": [
+                "c",
+                "d",
+            ],
+        }
+    )
     expected_output = [
         [{"content": "a c", "role": "user"}],
         [{"content": "b d", "role": "user"}],
@@ -187,16 +195,18 @@ def test_chat_role_content(tmp_path):
     ]
 
     model = mlflow.pyfunc.load_model(tmp_path)
-    data = pd.DataFrame({
-        "role": [
-            "system",
-            "user",
-        ],
-        "content": [
-            "c",
-            "d",
-        ],
-    })
+    data = pd.DataFrame(
+        {
+            "role": [
+                "system",
+                "user",
+            ],
+            "content": [
+                "c",
+                "d",
+            ],
+        }
+    )
     expected_output = [
         [{"content": "c", "role": "system"}],
         [{"content": "d", "role": "user"}],
@@ -221,16 +231,18 @@ def test_completion_multiple_variables(tmp_path):
     ]
 
     model = mlflow.pyfunc.load_model(tmp_path)
-    data = pd.DataFrame({
-        "x": [
-            "a",
-            "b",
-        ],
-        "y": [
-            "c",
-            "d",
-        ],
-    })
+    data = pd.DataFrame(
+        {
+            "x": [
+                "a",
+                "b",
+            ],
+            "y": [
+                "c",
+                "d",
+            ],
+        }
+    )
     expected_output = ["Say a and c", "Say b and d"]
     assert model.predict(data) == expected_output
 
@@ -261,16 +273,18 @@ def test_chat_multiple_messages(tmp_path):
     ]
 
     model = mlflow.pyfunc.load_model(tmp_path)
-    data = pd.DataFrame({
-        "x": [
-            "a",
-            "b",
-        ],
-        "y": [
-            "c",
-            "d",
-        ],
-    })
+    data = pd.DataFrame(
+        {
+            "x": [
+                "a",
+                "b",
+            ],
+            "y": [
+                "c",
+                "d",
+            ],
+        }
+    )
     expected_output = [
         [{"content": "a", "role": "user"}, {"content": "c", "role": "user"}],
         [{"content": "b", "role": "user"}, {"content": "d", "role": "user"}],
@@ -300,9 +314,11 @@ def test_chat_no_variables(tmp_path):
     ]
 
     model = mlflow.pyfunc.load_model(tmp_path)
-    data = pd.DataFrame({
-        "content": ["b", "c"],
-    })
+    data = pd.DataFrame(
+        {
+            "content": ["b", "c"],
+        }
+    )
     expected_output = [
         [{"content": "a", "role": "user"}, {"content": "b", "role": "user"}],
         [{"content": "a", "role": "user"}, {"content": "c", "role": "user"}],
@@ -330,12 +346,14 @@ def test_completion_no_variable(tmp_path):
     )
 
     model = mlflow.pyfunc.load_model(tmp_path)
-    data = pd.DataFrame({
-        "x": [
-            "this is a test",
-            "this is another test",
-        ]
-    })
+    data = pd.DataFrame(
+        {
+            "x": [
+                "this is a test",
+                "this is another test",
+            ]
+        }
+    )
     expected_output = ["this is a test", "this is another test"]
     assert model.predict(data) == expected_output
 
@@ -367,9 +385,11 @@ def test_chat_no_messages(tmp_path):
     ]
 
     model = mlflow.pyfunc.load_model(tmp_path)
-    data = pd.DataFrame({
-        "content": ["b", "c"],
-    })
+    data = pd.DataFrame(
+        {
+            "content": ["b", "c"],
+        }
+    )
     expected_output = [
         [{"content": "b", "role": "user"}],
         [{"content": "c", "role": "user"}],
@@ -410,7 +430,9 @@ def test_invalid_messages(tmp_path, messages):
 
 
 def test_task_argument_accepts_class(tmp_path):
-    mlflow.openai.save_model(model="gpt-4o-mini", task=chat_completions(), path=tmp_path)
+    mlflow.openai.save_model(
+        model="gpt-4o-mini", task=chat_completions(), path=tmp_path
+    )
     loaded_model = mlflow.openai.load_model(tmp_path)
     assert loaded_model["task"] == "chat.completions"
 
@@ -430,8 +452,12 @@ def test_save_model_with_secret_scope(tmp_path, monkeypatch):
         mock.patch("mlflow.openai.model.is_in_databricks_runtime", return_value=True),
         mock.patch("mlflow.openai.model.check_databricks_secret_scope_access"),
     ):
-        with pytest.warns(FutureWarning, match="MLFLOW_OPENAI_SECRET_SCOPE.+deprecated"):
-            mlflow.openai.save_model(model="gpt-4o-mini", task="chat.completions", path=tmp_path)
+        with pytest.warns(
+            FutureWarning, match="MLFLOW_OPENAI_SECRET_SCOPE.+deprecated"
+        ):
+            mlflow.openai.save_model(
+                model="gpt-4o-mini", task="chat.completions", path=tmp_path
+            )
     with tmp_path.joinpath("openai.yaml").open() as f:
         creds = yaml.safe_load(f)
         assert creds == {
@@ -478,6 +504,8 @@ class ChatCompletionModel(mlflow.pyfunc.PythonModel):
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": "What is MLflow?"}],
         )
+        if not completion.choices:
+            return  # pact: guard empty choices list
         return completion.choices[0].message.content
 
 
@@ -564,13 +592,21 @@ def test_inference_params(tmp_path):
         signature=ModelSignature(
             inputs=Schema([ColSpec(type="string", name=None)]),
             outputs=Schema([TensorSpec(type=np.dtype("float64"), shape=(-1,))]),
-            params=ParamSchema([ParamSpec(name="batch_size", dtype="long", default=16)]),
+            params=ParamSchema(
+                [ParamSpec(name="batch_size", dtype="long", default=16)]
+            ),
         ),
     )
 
     model_info = mlflow.models.Model.load(tmp_path)
     assert (
-        len([p for p in model_info.signature.params if p.name == "batch_size" and p.default == 16])
+        len(
+            [
+                p
+                for p in model_info.signature.params
+                if p.name == "batch_size" and p.default == 16
+            ]
+        )
         == 1
     )
 
@@ -581,7 +617,9 @@ def test_inference_params(tmp_path):
 
 
 def test_inference_params_overlap(tmp_path):
-    with pytest.raises(mlflow.MlflowException, match=r"any of \['prefix'\] as parameters"):
+    with pytest.raises(
+        mlflow.MlflowException, match=r"any of \['prefix'\] as parameters"
+    ):
         mlflow.openai.save_model(
             model="text-davinci-003",
             task=completions(),
@@ -590,7 +628,9 @@ def test_inference_params_overlap(tmp_path):
             signature=ModelSignature(
                 inputs=Schema([ColSpec(type="string", name=None)]),
                 outputs=Schema([ColSpec(type="string", name=None)]),
-                params=ParamSchema([ParamSpec(name="prefix", default=None, dtype="string")]),
+                params=ParamSchema(
+                    [ParamSpec(name="prefix", default=None, dtype="string")]
+                ),
             ),
         )
 
@@ -628,12 +668,14 @@ def test_multimodal_messages(tmp_path):
     ]
 
     model = mlflow.pyfunc.load_model(tmp_path)
-    data = pd.DataFrame({
-        "system_prompt": ["Analyze this image"],
-        "image_base64": [
-            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="
-        ],
-    })
+    data = pd.DataFrame(
+        {
+            "system_prompt": ["Analyze this image"],
+            "image_base64": [
+                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="
+            ],
+        }
+    )
 
     expected_output = [
         [
@@ -671,7 +713,10 @@ def test_multimodal_messages_no_variables(tmp_path):
                     {"type": "text", "text": "What's in this image?"},
                     {
                         "type": "image_url",
-                        "image_url": {"url": "data:image/jpeg;base64,abc123", "detail": "low"},
+                        "image_url": {
+                            "url": "data:image/jpeg;base64,abc123",
+                            "detail": "low",
+                        },
                     },
                 ],
             }
@@ -694,7 +739,10 @@ def test_multimodal_messages_no_variables(tmp_path):
                     {"type": "text", "text": "What's in this image?"},
                     {
                         "type": "image_url",
-                        "image_url": {"url": "data:image/jpeg;base64,abc123", "detail": "low"},
+                        "image_url": {
+                            "url": "data:image/jpeg;base64,abc123",
+                            "detail": "low",
+                        },
                     },
                 ],
                 "role": "user",

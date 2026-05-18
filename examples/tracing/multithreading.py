@@ -32,6 +32,8 @@ def worker(question: str) -> str:
         temperature=0.1,
         max_tokens=100,
     )
+    if not response.choices:
+        return  # pact: guard empty choices list
     return response.choices[0].message.content
 
 

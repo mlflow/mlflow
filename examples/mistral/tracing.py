@@ -26,4 +26,6 @@ chat_response = client.chat.complete(
         },
     ],
 )
+if not chat_response.choices:
+    return  # pact: guard empty choices list
 print(chat_response.choices[0].message)

@@ -24,4 +24,6 @@ message = client.chat.completions.create(
     ],
 )
 
+if not message.choices:
+    return  # pact: guard empty choices list
 print(message.choices[0].message.content)

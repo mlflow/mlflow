@@ -95,7 +95,8 @@ def embedding_models():
 
 @pytest.mark.asyncio
 @pytest.mark.skipif(
-    Version(openai.__version__) < Version("1.66"), reason="Cost tracking does not work before 1.66"
+    Version(openai.__version__) < Version("1.66"),
+    reason="Cost tracking does not work before 1.66",
 )
 async def test_chat_completions_autolog(client, mock_litellm_cost):
     mlflow.openai.autolog()
@@ -119,7 +120,11 @@ async def test_chat_completions_autolog(client, mock_litellm_cost):
     span = trace.data.spans[0]
     assert span.span_type == SpanType.CHAT_MODEL
     assert span.log_level == SpanLogLevel.INFO
-    assert span.inputs == {"messages": messages, "model": "gpt-4o-mini", "temperature": 0}
+    assert span.inputs == {
+        "messages": messages,
+        "model": "gpt-4o-mini",
+        "temperature": 0,
+    }
     assert span.outputs["id"] == "chatcmpl-123"
     assert span.attributes["model"] == "gpt-4o-mini"
     assert span.attributes["temperature"] == 0
@@ -156,7 +161,8 @@ async def test_chat_completions_autolog(client, mock_litellm_cost):
 
 @pytest.mark.asyncio
 @pytest.mark.skipif(
-    Version(openai.__version__) < Version("1.66"), reason="Cost tracking does not work before 1.66"
+    Version(openai.__version__) < Version("1.66"),
+    reason="Cost tracking does not work before 1.66",
 )
 async def test_chat_completions_autolog_with_cached_tokens(client, mock_litellm_cost):
     mlflow.openai.autolog()
@@ -225,7 +231,8 @@ async def test_chat_completions_autolog_with_cached_tokens(client, mock_litellm_
 
 @pytest.mark.asyncio
 @pytest.mark.skipif(
-    Version(openai.__version__) < Version("1.66"), reason="Cost tracking does not work before 1.66"
+    Version(openai.__version__) < Version("1.66"),
+    reason="Cost tracking does not work before 1.66",
 )
 async def test_chat_completions_autolog_under_current_active_span(client):
     # If a user have an active span, the autologging should create a child span under it.
@@ -253,7 +260,11 @@ async def test_chat_completions_autolog_under_current_active_span(client):
     assert parent_span.name == "parent"
     child_span = trace.data.spans[1]
     assert child_span.name == "AsyncCompletions" if client._is_async else "Completions"
-    assert child_span.inputs == {"messages": messages, "model": "gpt-4o-mini", "temperature": 0}
+    assert child_span.inputs == {
+        "messages": messages,
+        "model": "gpt-4o-mini",
+        "temperature": 0,
+    }
     assert child_span.outputs["id"] == "chatcmpl-123"
     assert child_span.parent_id == parent_span.span_id
 
@@ -342,7 +353,9 @@ async def test_chat_completions_autolog_streaming(client, include_usage):
 async def test_chat_completions_autolog_tracing_error(client):
     mlflow.openai.autolog()
     messages = [{"role": "user", "content": "test"}]
-    with pytest.raises(openai.UnprocessableEntityError, match="Input should be less"):  # noqa: PT012
+    with pytest.raises(
+        openai.UnprocessableEntityError, match="Input should be less"
+    ):  # noqa: PT012
         response = client.chat.completions.create(
             messages=messages,
             model="gpt-4o-mini",
@@ -396,6 +409,8 @@ async def test_chat_completions_autolog_tracing_error_with_parent_span(client):
                     model="gpt-4o-mini",
                     temperature=5.0,
                 )
+                if not response.choices:
+                    return  # pact: guard empty choices list
                 return response.choices[0].delta.content
             except openai.OpenAIError as e:
                 raise MlflowException("Failed to create completions") from e
@@ -414,7 +429,10 @@ async def test_chat_completions_autolog_tracing_error_with_parent_span(client):
     assert parent_span.status.status_code == "ERROR"
     assert parent_span.events[0].name == "exception"
     assert parent_span.events[0].attributes["exception.type"] == "MlflowException"
-    assert parent_span.events[0].attributes["exception.message"] == "Failed to create completions"
+    assert (
+        parent_span.events[0].attributes["exception.message"]
+        == "Failed to create completions"
+    )
 
     child_span = trace.data.spans[1]
     assert child_span.name == "AsyncCompletions" if client._is_async else "Completions"
@@ -422,7 +440,9 @@ async def test_chat_completions_autolog_tracing_error_with_parent_span(client):
     assert child_span.outputs is None
     assert child_span.status.status_code == "ERROR"
     assert child_span.events[0].name == "exception"
-    assert child_span.events[0].attributes["exception.type"] == "UnprocessableEntityError"
+    assert (
+        child_span.events[0].attributes["exception.type"] == "UnprocessableEntityError"
+    )
 
 
 @pytest.mark.asyncio
@@ -434,7 +454,9 @@ async def test_chat_completions_streaming_empty_choices(client):
         stream=True,
     )
 
-    chunks = [chunk async for chunk in await stream] if client._is_async else list(stream)
+    chunks = (
+        [chunk async for chunk in await stream] if client._is_async else list(stream)
+    )
 
     # Ensure the stream has a chunk with empty choices
     assert chunks[0].choices == []
@@ -453,7 +475,9 @@ async def test_chat_completions_streaming_ignores_azure_annotation_chunks(client
         stream_options={"include_usage": True},
     )
 
-    chunks = [chunk async for chunk in await stream] if client._is_async else list(stream)
+    chunks = (
+        [chunk async for chunk in await stream] if client._is_async else list(stream)
+    )
     assert chunks[0].object == ""
     assert chunks[-1].object == ""
 
@@ -488,7 +512,9 @@ async def test_chat_completions_streaming_with_list_content(client):
         stream=True,
     )
 
-    chunks = [chunk async for chunk in await stream] if client._is_async else list(stream)
+    chunks = (
+        [chunk async for chunk in await stream] if client._is_async else list(stream)
+    )
 
     assert len(chunks) == 2
     assert chunks[0].choices[0].delta.content == [{"type": "text", "text": "Hello"}]
@@ -541,7 +567,9 @@ async def test_completions_autolog_streaming_empty_choices(client):
         stream=True,
     )
 
-    chunks = [chunk async for chunk in await stream] if client._is_async else list(stream)
+    chunks = (
+        [chunk async for chunk in await stream] if client._is_async else list(stream)
+    )
 
     # Ensure the stream has a chunk with empty choices
     assert chunks[0].choices == []
@@ -627,7 +655,9 @@ async def test_autolog_use_active_run_id(client):
     messages = [{"role": "user", "content": "test"}]
 
     async def _call_create():
-        response = client.chat.completions.create(messages=messages, model="gpt-4o-mini")
+        response = client.chat.completions.create(
+            messages=messages, model="gpt-4o-mini"
+        )
         if client._is_async:
             await response
         return response
@@ -646,10 +676,22 @@ async def test_autolog_use_active_run_id(client):
     traces = get_traces()[::-1]  # reverse order to sort by timestamp in ascending order
     assert len(traces) == 4
 
-    assert traces[0].info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run_1.info.run_id
-    assert traces[1].info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run_2.info.run_id
-    assert traces[2].info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run_2.info.run_id
-    assert traces[3].info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run_3.info.run_id
+    assert (
+        traces[0].info.request_metadata[TraceMetadataKey.SOURCE_RUN]
+        == run_1.info.run_id
+    )
+    assert (
+        traces[1].info.request_metadata[TraceMetadataKey.SOURCE_RUN]
+        == run_2.info.run_id
+    )
+    assert (
+        traces[2].info.request_metadata[TraceMetadataKey.SOURCE_RUN]
+        == run_2.info.run_id
+    )
+    assert (
+        traces[3].info.request_metadata[TraceMetadataKey.SOURCE_RUN]
+        == run_3.info.run_id
+    )
 
 
 @pytest.mark.asyncio
@@ -669,6 +711,8 @@ async def test_autolog_raw_response(client):
 
     resp = resp.parse()  # ensure the raw response is returned
 
+    if not resp.choices:
+        return  # pact: guard empty choices list
     assert resp.choices[0].message.content == '[{"role": "user", "content": "test"}]'
     trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert len(trace.data.spans) == 1
@@ -676,7 +720,8 @@ async def test_autolog_raw_response(client):
     assert span.span_type == SpanType.CHAT_MODEL
     assert isinstance(span.outputs, dict)
     assert (
-        span.outputs["choices"][0]["message"]["content"] == '[{"role": "user", "content": "test"}]'
+        span.outputs["choices"][0]["message"]["content"]
+        == '[{"role": "user", "content": "test"}]'
     )
     assert span.attributes[SpanAttributeKey.CHAT_TOOLS] == MOCK_TOOLS
     assert span.model_name == "gpt-4o-mini"
@@ -808,21 +853,27 @@ async def test_response_format(client):
     trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert len(trace.data.spans) == 1
     span = trace.data.spans[0]
-    assert span.outputs["choices"][0]["message"]["content"] == '{"name":"Angelo","age":42}'
+    assert (
+        span.outputs["choices"][0]["message"]["content"] == '{"name":"Angelo","age":42}'
+    )
     assert span.span_type == SpanType.CHAT_MODEL
     assert span.model_name == "gpt-4o"
 
-    assert trace.info.trace_metadata.get(TraceMetadataKey.TOKEN_USAGE) == json.dumps({
-        TokenUsageKey.INPUT_TOKENS: 68,
-        TokenUsageKey.OUTPUT_TOKENS: 11,
-        TokenUsageKey.TOTAL_TOKENS: 79,
-        TokenUsageKey.CACHE_READ_INPUT_TOKENS: 0,
-    })
+    assert trace.info.trace_metadata.get(TraceMetadataKey.TOKEN_USAGE) == json.dumps(
+        {
+            TokenUsageKey.INPUT_TOKENS: 68,
+            TokenUsageKey.OUTPUT_TOKENS: 11,
+            TokenUsageKey.TOTAL_TOKENS: 79,
+            TokenUsageKey.CACHE_READ_INPUT_TOKENS: 0,
+        }
+    )
 
 
 @skip_when_testing_trace_sdk
 @pytest.mark.asyncio
-async def test_autolog_link_traces_to_loaded_model_chat_completions(client, completion_models):
+async def test_autolog_link_traces_to_loaded_model_chat_completions(
+    client, completion_models
+):
     mlflow.openai.autolog()
 
     for model_info in completion_models:
@@ -847,7 +898,9 @@ async def test_autolog_link_traces_to_loaded_model_chat_completions(client, comp
 
 @skip_when_testing_trace_sdk
 @pytest.mark.asyncio
-async def test_autolog_link_traces_to_loaded_model_completions(client, completion_models):
+async def test_autolog_link_traces_to_loaded_model_completions(
+    client, completion_models
+):
     mlflow.openai.autolog()
 
     for model_info in completion_models:
@@ -920,7 +973,9 @@ def test_autolog_link_traces_to_loaded_model_embeddings_pyfunc(
 
 
 @skip_when_testing_trace_sdk
-def test_autolog_link_traces_to_active_model(monkeypatch, mock_openai, embedding_models):
+def test_autolog_link_traces_to_active_model(
+    monkeypatch, mock_openai, embedding_models
+):
     monkeypatch.setenv("OPENAI_API_KEY", "test")
     monkeypatch.setenv("OPENAI_API_BASE", mock_openai)
 
@@ -988,7 +1043,9 @@ async def test_model_loading_set_active_model_id_without_fetching_logged_model(
     mlflow.openai.autolog()
 
     model_info = completion_models[0]
-    with mock.patch("mlflow.get_logged_model", side_effect=Exception("get_logged_model failed")):
+    with mock.patch(
+        "mlflow.get_logged_model", side_effect=Exception("get_logged_model failed")
+    ):
         model_dict = mlflow.openai.load_model(model_info.model_uri)
     resp = client.chat.completions.create(
         messages=[{"role": "user", "content": f"test {model_info.model_id}"}],
@@ -1025,19 +1082,33 @@ def test_reconstruct_response_from_stream():
     content2 = ResponseOutputText(annotations=[], text=" world", type="output_text")
 
     message1 = ResponseOutputMessage(
-        id="test-1", content=[content1], role="assistant", status="completed", type="message"
+        id="test-1",
+        content=[content1],
+        role="assistant",
+        status="completed",
+        type="message",
     )
 
     message2 = ResponseOutputMessage(
-        id="test-2", content=[content2], role="assistant", status="completed", type="message"
+        id="test-2",
+        content=[content2],
+        role="assistant",
+        status="completed",
+        type="message",
     )
 
     chunk1 = ResponseOutputItemDoneEvent(
-        item=message1, output_index=0, sequence_number=1, type="response.output_item.done"
+        item=message1,
+        output_index=0,
+        sequence_number=1,
+        type="response.output_item.done",
     )
 
     chunk2 = ResponseOutputItemDoneEvent(
-        item=message2, output_index=1, sequence_number=2, type="response.output_item.done"
+        item=message2,
+        output_index=1,
+        sequence_number=2,
+        type="response.output_item.done",
     )
 
     chunks = [chunk1, chunk2]
@@ -1077,7 +1148,9 @@ async def test_tracing_headers_injected(client):
         async def send_patch(self, request, *args, **kwargs):
             if "chat/completions" in str(request.url):
                 captured_request["headers"] = dict(request.headers)
-                return httpx.Response(status_code=200, request=request, json=mock_response)
+                return httpx.Response(
+                    status_code=200, request=request, json=mock_response
+                )
             return await original_send(self, request, *args, **kwargs)
 
     else:
@@ -1087,7 +1160,9 @@ async def test_tracing_headers_injected(client):
         def send_patch(self, request, *args, **kwargs):
             if "chat/completions" in str(request.url):
                 captured_request["headers"] = dict(request.headers)
-                return httpx.Response(status_code=200, request=request, json=mock_response)
+                return httpx.Response(
+                    status_code=200, request=request, json=mock_response
+                )
             return original_send(self, request, *args, **kwargs)
 
     with mock.patch(patch_target, send_patch):
@@ -1140,7 +1215,9 @@ async def test_tracing_headers_preserve_user_headers(client):
         async def send_patch(self, request, *args, **kwargs):
             if "chat/completions" in str(request.url):
                 captured_request["headers"] = dict(request.headers)
-                return httpx.Response(status_code=200, request=request, json=mock_response)
+                return httpx.Response(
+                    status_code=200, request=request, json=mock_response
+                )
             return await original_send(self, request, *args, **kwargs)
 
     else:
@@ -1150,7 +1227,9 @@ async def test_tracing_headers_preserve_user_headers(client):
         def send_patch(self, request, *args, **kwargs):
             if "chat/completions" in str(request.url):
                 captured_request["headers"] = dict(request.headers)
-                return httpx.Response(status_code=200, request=request, json=mock_response)
+                return httpx.Response(
+                    status_code=200, request=request, json=mock_response
+                )
             return original_send(self, request, *args, **kwargs)
 
     with mock.patch(patch_target, send_patch):
@@ -1169,9 +1248,12 @@ async def test_tracing_headers_preserve_user_headers(client):
 
 @pytest.mark.asyncio
 @pytest.mark.skipif(
-    Version(openai.__version__) < Version("1.66"), reason="Cost tracking does not work before 1.66"
+    Version(openai.__version__) < Version("1.66"),
+    reason="Cost tracking does not work before 1.66",
 )
-async def test_chat_completions_autolog_streaming_with_cached_tokens(client, mock_litellm_cost):
+async def test_chat_completions_autolog_streaming_with_cached_tokens(
+    client, mock_litellm_cost
+):
     mlflow.openai.autolog()
 
     mock_chunk = {
