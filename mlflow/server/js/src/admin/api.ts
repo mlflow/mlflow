@@ -268,4 +268,53 @@ export const AdminApi = {
       error: defaultErrorHandler,
     }) as Promise<{ endpoints?: { endpoint_id: string; name: string }[] }>;
   },
+
+  // Scorer ids are composite (experiment_id + scorer_name) and live one-per-
+  // experiment in the existing `scorers/list` API. Aggregate them on the
+  // client by fetching experiments, then scorers for each. Reuses the
+  // existing per-route permission filtering (experiments/search already
+  // strips ones the caller can't read), so the picker shows only scorers
+  // in experiments the admin has visibility into.
+  listScorersLite: async (): Promise<ScorerOption[]> => {
+    const experiments = (await AdminApi.listExperimentsLite()).experiments ?? [];
+    const perExperiment = await Promise.all(
+      experiments.map(async (e) => {
+        const resp = (await fetchEndpoint({
+          relativeUrl: `ajax-api/3.0/mlflow/scorers/list?experiment_id=${encodeURIComponent(e.experiment_id)}`,
+          error: defaultErrorHandler,
+        })) as { scorers?: { scorer_name: string }[] };
+        return (resp.scorers ?? []).map((s) => ({
+          experiment_id: e.experiment_id,
+          experiment_name: e.name,
+          scorer_name: s.scorer_name,
+          resource_pattern: `${e.experiment_id}/${rfc3986EncodeComponent(s.scorer_name)}`,
+        }));
+      }),
+    );
+    return perExperiment.flat();
+  },
 };
+
+/** A scorer entry as the RBAC picker consumes it. */
+export interface ScorerOption {
+  experiment_id: string;
+  experiment_name: string;
+  scorer_name: string;
+  /** Composite ``<experiment_id>/<urlencoded scorer_name>`` matching the
+   * backend's ``SqlAlchemyStore._scorer_pattern``. */
+  resource_pattern: string;
+}
+
+/**
+ * Match Python's ``urllib.parse.quote(s, safe='')`` — JS' `encodeURIComponent`
+ * leaves `!`, `'`, `(`, `)`, `*` unencoded; Python percent-encodes all five.
+ * Mismatches here would cause picker IDs to not line up with the backend's
+ * `_scorer_pattern` and lookups would silently miss.
+ */
+const rfc3986EncodeComponent = (s: string): string =>
+  encodeURIComponent(s)
+    .replace(/!/g, '%21')
+    .replace(/'/g, '%27')
+    .replace(/\(/g, '%28')
+    .replace(/\)/g, '%29')
+    .replace(/\*/g, '%2A');

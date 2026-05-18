@@ -61,11 +61,10 @@ export const ROLE_PERMISSION_DRAFT_DEFAULT: RolePermissionDraft = {
 
 // Resource types with no id picker yet — render a free-text pattern input
 // instead of the standard ``Specific/All`` radio + ``DialogCombobox``.
-// ``scorer`` ids are composite (experiment_id + scorer_name); ``prompt`` is
-// stored as a registered model with the ``mlflow.prompt.is_prompt`` tag and
-// has no lite-list endpoint to filter on. ``RolePermissionsSection`` reads
-// the typed value off ``resourceId`` for both.
-const FREETEXT_RESOURCE_TYPES = new Set(['scorer', 'prompt']);
+// ``prompt`` is stored as a registered model with the
+// ``mlflow.prompt.is_prompt`` tag and has no lite-list endpoint to filter on.
+// ``RolePermissionsSection`` reads the typed value off ``resourceId``.
+const FREETEXT_RESOURCE_TYPES = new Set(['prompt']);
 
 /**
  * Add a permission to a role. Mirrors ``DirectPermissionForm``'s
@@ -73,13 +72,12 @@ const FREETEXT_RESOURCE_TYPES = new Set(['scorer', 'prompt']);
  * role-creation experience reads the same as user-creation's direct
  * permissions.
  *
- * Two role-only special cases:
+ * One role-only special case:
  * - ``workspace``: the only valid pattern is ``*`` (the role's own
  *   workspace), so the scope radio is hidden and we render a static
  *   "Workspace: <name>" line.
- * - ``FREETEXT_RESOURCE_TYPES`` (scorer, prompt): no pre-built picker
- *   exists, so we hide the scope radio and fall back to a free-text
- *   pattern input.
+ * - ``FREETEXT_RESOURCE_TYPES`` (``prompt``): no pre-built picker exists, so
+ *   we hide the scope radio and fall back to a free-text pattern input.
  */
 export const RolePermissionForm = ({ value, onChange, workspace, disabled }: RolePermissionFormProps) => {
   const { theme } = useDesignSystemTheme();
@@ -159,9 +157,7 @@ export const RolePermissionForm = ({ value, onChange, workspace, disabled }: Rol
             disabled={disabled}
           />
           <Typography.Text color="secondary" size="sm" css={{ display: 'block', marginTop: theme.spacing.xs }}>
-            {value.resourceType === 'scorer'
-              ? 'Scorer resource ids are composite (experiment_id + scorer_name); the picker isn’t available yet.'
-              : `${typeLabel} picker isn’t available yet; enter the resource id or "all".`}
+            {typeLabel} picker isn’t available yet; enter the resource id or "all".
           </Typography.Text>
         </div>
       ) : (

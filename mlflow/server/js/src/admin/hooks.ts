@@ -301,6 +301,13 @@ export const useResourceOptionsQuery = (resourceType: string) => {
     retry: false,
     refetchOnWindowFocus: false,
   });
+  const scorers = useQuery({
+    queryKey: AdminQueryKeys.resourceOptions('scorer'),
+    queryFn: AdminApi.listScorersLite,
+    enabled: resourceType === 'scorer',
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
 
   let options: ResourceOption[] = [];
   let isLoading = false;
@@ -323,6 +330,18 @@ export const useResourceOptionsQuery = (resourceType: string) => {
     case 'gateway_endpoint':
       options = (gatewayEndpoints.data?.endpoints ?? []).map((e) => ({ id: e.endpoint_id, name: e.name }));
       ({ isLoading, error } = gatewayEndpoints);
+      break;
+    case 'scorer':
+      // ``id`` is the composite ``<experiment_id>/<urlencoded scorer_name>``
+      // that matches the backend's ``_scorer_pattern`` — the picker sets
+      // ``draft.resourceId = id``, which is what the staged grant submits as
+      // its ``resource_pattern``. Display label disambiguates two same-named
+      // scorers in different experiments.
+      options = (scorers.data ?? []).map((s) => ({
+        id: s.resource_pattern,
+        name: `${s.scorer_name} (in ${s.experiment_name})`,
+      }));
+      ({ isLoading, error } = scorers);
       break;
   }
   return { options, isLoading, error };
