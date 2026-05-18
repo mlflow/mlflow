@@ -434,7 +434,7 @@ class SqlAlchemyStore:
             f"Permission for user={username} on "
             f"resource_type={resource_type}, resource_id={resource_pattern} already exists."
         )
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             user = self._get_user(session, username=username)
             workspace_name = self._get_active_workspace_name()
             role = self._get_or_create_synthetic_user_role(session, user.id, workspace_name)
@@ -482,7 +482,7 @@ class SqlAlchemyStore:
             f"Permission for user={username} on "
             f"resource_type={resource_type}, resource_id={resource_pattern} not found."
         )
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             user = self._get_user(session, username=username)
             workspace_name = self._get_active_workspace_name()
             role = (
