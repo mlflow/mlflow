@@ -4,7 +4,7 @@ import pytest
 
 import mlflow.spark
 from mlflow.exceptions import MlflowException
-from mlflow.spark.autologging import PythonSubscriber, _get_current_listener
+from mlflow.spark.autologging import PythonSubscriber, _get_current_listener, _get_repl_id
 
 
 @pytest.fixture
@@ -31,6 +31,17 @@ def test_subscriber_methods():
     # Assert repl ID is stable & different between subscribers
     assert subscriber.replId() == subscriber.replId()
     assert PythonSubscriber().replId() != subscriber.replId()
+
+
+@pytest.mark.parametrize("argv", [[], [""]])
+def test_get_repl_id_uses_console_when_no_main_file(argv):
+    mock_uuid = mock.Mock(hex="mock-uuid")
+    with (
+        mock.patch("sys.argv", argv),
+        mock.patch("mlflow.spark.autologging.get_databricks_repl_id", return_value=None),
+        mock.patch("mlflow.spark.autologging.uuid.uuid4", return_value=mock_uuid),
+    ):
+        assert _get_repl_id() == "PythonSubscriber[<console>][mock-uuid]"
 
 
 def test_enabling_autologging_throws_for_wrong_spark_version(

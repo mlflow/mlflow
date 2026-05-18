@@ -3,7 +3,7 @@ from unittest import mock
 import pytest
 
 from mlflow.entities import SourceType
-from mlflow.tracking.context.default_context import DefaultRunContext
+from mlflow.tracking.context.default_context import DefaultRunContext, _get_source_name
 from mlflow.utils.mlflow_tags import MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE, MLFLOW_USER
 
 MOCK_SCRIPT_NAME = "/path/to/script.py"
@@ -29,3 +29,9 @@ def test_default_run_context_tags(patch_script_name):
             MLFLOW_SOURCE_NAME: MOCK_SCRIPT_NAME,
             MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.LOCAL),
         }
+
+
+@pytest.mark.parametrize("argv", [[], [""]])
+def test_get_source_name_returns_console_when_no_main_file(argv):
+    with mock.patch("sys.argv", argv):
+        assert _get_source_name() == "<console>"

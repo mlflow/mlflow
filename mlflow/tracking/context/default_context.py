@@ -22,7 +22,7 @@ def _get_user():
 
 
 def _get_main_file():
-    if len(sys.argv) > 0:
+    if len(sys.argv) > 0 and sys.argv[0]:
         return sys.argv[0]
     return None
 
