@@ -4743,6 +4743,10 @@
     "defaultMessage": "On",
     "description": "Runs charts > line chart > display points > on setting label"
   },
+  "QWcxD+": {
+    "defaultMessage": "State",
+    "description": "Gateway usage overview > metrics filter > state column option label"
+  },
   "QXLV8h": {
     "defaultMessage": "Error",
     "description": "Title for error fallback component in the MLflow experiment chat sessions page"
