@@ -1554,7 +1554,7 @@ def test_delete_can_manage_registered_model_permission_rejects_missing_name(
     workspace_permission_setup,
 ):
     # ``request.get_json(silent=True)`` returns ``None`` on missing /
-    # unparseable bodies; the guard must surface a clean 400 instead of a
+    # unparsable bodies; the guard must surface a clean 400 instead of a
     # ``TypeError`` -> 500.
     with auth_module.app.test_request_context(
         "/api/2.0/mlflow/registered-models/delete",

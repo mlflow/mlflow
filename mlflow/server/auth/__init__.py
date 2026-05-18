@@ -2591,7 +2591,7 @@ def delete_can_manage_registered_model_permission(resp: Response):
     now. Names are unique within the registry, so exactly one of the two
     sweeps applies and the other is a no-op.
     """
-    # ``silent=True`` returns ``None`` on missing / unparseable bodies; the
+    # ``silent=True`` returns ``None`` on missing / unparsable bodies; the
     # ``or {}`` guard prevents a ``TypeError`` from leaking out as a 500.
     data = request.get_json(force=True, silent=True) or {}
     name = data.get("name")
@@ -3097,7 +3097,7 @@ def rename_registered_model_permission(resp: Response):
     ``(prompt, old_name, ...)`` grants. Names are unique within the registry,
     so exactly one of the two renames applies and the other is a no-op.
     """
-    # ``silent=True`` returns ``None`` on missing / unparseable bodies; ``or
+    # ``silent=True`` returns ``None`` on missing / unparsable bodies; ``or
     # {}`` plus the explicit value checks below prevent ``None`` from
     # propagating to ``resource_pattern`` and silently rewriting rows.
     data = request.get_json(force=True, silent=True) or {}
