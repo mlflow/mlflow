@@ -10,7 +10,6 @@ from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.constants import IS_PROMPT_TAG_KEY
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
-from mlflow.protos.model_registry_pb2 import SearchModelVersions, SearchRegisteredModels
 from mlflow.server import auth as auth_module
 from mlflow.server.auth.permissions import EDIT, MANAGE, NO_PERMISSIONS, READ, USE
 from mlflow.server.auth.routes import (
@@ -1254,28 +1253,6 @@ def test_request_targets_prompt_propagates_unexpected_errors(
                 auth_module._request_targets_prompt()
 
 
-def _build_search_registered_models_response(entries):
-    """Build a ``SearchRegisteredModels.Response()`` from ``(name, is_prompt)`` pairs."""
-    resp = SearchRegisteredModels.Response()
-    for name, is_prompt in entries:
-        rm = resp.registered_models.add()
-        rm.name = name
-        if is_prompt:
-            rm.tags.add(key=IS_PROMPT_TAG_KEY, value="true")
-    return resp
-
-
-def _build_search_model_versions_response(entries):
-    """Build a ``SearchModelVersions.Response()`` from ``(name, is_prompt)`` pairs."""
-    resp = SearchModelVersions.Response()
-    for name, is_prompt in entries:
-        mv = resp.model_versions.add()
-        mv.name = name
-        if is_prompt:
-            mv.tags.add(key=IS_PROMPT_TAG_KEY, value="true")
-    return resp
-
-
 def test_filter_search_registered_models_uses_prompt_grant_for_prompt_rows(
     workspace_permission_setup, monkeypatch
 ):
@@ -1441,6 +1418,167 @@ def test_delete_can_manage_registered_model_permission_sweeps_prompt_namespace(
         for rp in role.permissions
     }
     assert ("prompt", "foo") not in after
+
+
+def test_set_can_manage_registered_model_permission_grants_prompt_for_prompt_entity(
+    workspace_permission_setup,
+):
+    # ``CreateRegisteredModel`` is shared with prompt creation. When the
+    # created entity is a prompt, the creator-default MANAGE grant must land
+    # in the ``prompt`` namespace — otherwise the prompt-side validators
+    # immediately lock the creator out of their own prompt.
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    user_id = store.get_user(username).id
+
+    flask_resp = Response(
+        json.dumps({
+            "registered_model": {
+                "name": "my-prompt",
+                "tags": [{"key": IS_PROMPT_TAG_KEY, "value": "true"}],
+            }
+        }),
+        mimetype="application/json",
+    )
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/registered-models/create",
+        method="POST",
+        json={"name": "my-prompt"},
+    ):
+        auth_module.set_can_manage_registered_model_permission(flask_resp)
+
+    grants = {
+        (rp.resource_type, rp.resource_pattern, rp.permission)
+        for role in store.list_user_roles(user_id)
+        for rp in role.permissions
+    }
+    assert ("prompt", "my-prompt", MANAGE.name) in grants
+    assert ("registered_model", "my-prompt", MANAGE.name) not in grants
+
+
+def test_set_can_manage_registered_model_permission_grants_registered_model_for_plain_entity(
+    workspace_permission_setup,
+):
+    # Inverse: a non-prompt registered model still grants in the
+    # ``registered_model`` namespace — pins that the new classification path
+    # didn't accidentally flip the default for normal models.
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    user_id = store.get_user(username).id
+
+    flask_resp = Response(
+        json.dumps({"registered_model": {"name": "my-model", "tags": []}}),
+        mimetype="application/json",
+    )
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/registered-models/create",
+        method="POST",
+        json={"name": "my-model"},
+    ):
+        auth_module.set_can_manage_registered_model_permission(flask_resp)
+
+    grants = {
+        (rp.resource_type, rp.resource_pattern, rp.permission)
+        for role in store.list_user_roles(user_id)
+        for rp in role.permissions
+    }
+    assert ("registered_model", "my-model", MANAGE.name) in grants
+    assert ("prompt", "my-model", MANAGE.name) not in grants
+
+
+def test_filter_search_registered_models_classifies_refetched_rows(
+    workspace_permission_setup, monkeypatch
+):
+    # The initial filter pass works on protos; if it doesn't fill
+    # ``max_results``, the loop refetches more rows as ORM
+    # ``RegisteredModel`` entities. Those ORM rows have ``.tags`` that hide
+    # the ``mlflow.prompt.is_prompt`` key, so naive ``_proto_is_prompt`` on
+    # them would misclassify every prompt as a registered_model. Pins that
+    # ``_entity_is_prompt`` dispatches to ``_is_prompt()`` on the ORM side.
+    from mlflow.entities.model_registry import RegisteredModel
+    from mlflow.entities.model_registry.registered_model_tag import RegisteredModelTag
+    from mlflow.store.entities import PagedList
+    from mlflow.utils.search_utils import SearchUtils
+
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
+    role = store.create_role(name="prompt-reader", workspace="team-a")
+    store.add_role_permission(role.id, "prompt", "refetched-prompt", READ.name)
+    store.assign_role_to_user(store.get_user(username).id, role.id)
+
+    # Initial response is empty + has a next_page_token so the refetch loop
+    # runs. Then a fake registry returns one prompt + one registered_model.
+    refetched_rows = [
+        RegisteredModel(
+            name="refetched-prompt",
+            tags=[RegisteredModelTag(key=IS_PROMPT_TAG_KEY, value="true")],
+        ),
+        RegisteredModel(name="refetched-model", tags=[]),
+    ]
+    # First refetch returns the seed rows; subsequent calls return an empty
+    # page so the loop terminates instead of spinning on the same fake page.
+    calls = {"count": 0}
+
+    def fake_search(**_kwargs):
+        calls["count"] += 1
+        return PagedList(refetched_rows if calls["count"] == 1 else [], token=None)
+
+    fake_registry = SimpleNamespace(search_registered_models=fake_search)
+    monkeypatch.setattr(auth_module, "_get_model_registry_store", lambda: fake_registry)
+
+    # ``SearchUtils.parse_start_offset_from_page_token`` requires a real
+    # base64-encoded JSON token; use the project's helper so the loop's
+    # offset-bookkeeping doesn't reject our seed.
+    seed_token = SearchUtils.create_page_token(1).decode("utf-8")
+    flask_resp = Response(
+        json.dumps({"registered_models": [], "next_page_token": seed_token}),
+        mimetype="application/json",
+    )
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/registered-models/search",
+        method="GET",
+        query_string={"max_results": "10"},
+    ):
+        auth_module.filter_search_registered_models(flask_resp)
+
+    out = json.loads(flask_resp.get_data(as_text=True))
+    names = [rm["name"] for rm in out.get("registered_models", [])]
+    # The refetched prompt row is kept (prompt grant satisfies it); the
+    # plain registered_model row is filtered out.
+    assert names == ["refetched-prompt"]
+
+
+def test_delete_can_manage_registered_model_permission_rejects_missing_name(
+    workspace_permission_setup,
+):
+    # ``request.get_json(silent=True)`` returns ``None`` on missing /
+    # unparseable bodies; the guard must surface a clean 400 instead of a
+    # ``TypeError`` -> 500.
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/registered-models/delete",
+        method="DELETE",
+        data="",  # empty body
+        content_type="application/json",
+    ):
+        with pytest.raises(MlflowException, match="Missing value for required parameter 'name'"):
+            auth_module.delete_can_manage_registered_model_permission(Response(status=200))
+
+
+def test_rename_registered_model_permission_rejects_missing_fields(
+    workspace_permission_setup,
+):
+    # Missing ``name`` / ``new_name`` must raise INVALID_PARAMETER_VALUE
+    # rather than silently forwarding ``None`` to
+    # ``rename_grants_for_resource`` where it would corrupt grants.
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/registered-models/rename",
+        method="POST",
+        json={"name": "foo"},  # no new_name
+    ):
+        with pytest.raises(MlflowException, match="Missing value for required parameter"):
+            auth_module.rename_registered_model_permission(Response(status=200))
 
 
 def test_validate_can_view_workspace_requires_access(workspace_permission_setup):

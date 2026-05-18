@@ -1485,12 +1485,22 @@ def validate_can_get_user_permission() -> bool:
     return store.is_workspace_admin(requester_user.id, workspace_name)
 
 
-def _proto_is_prompt(proto) -> bool:
-    """True if a ``RegisteredModel`` / ``ModelVersion`` proto carries the
-    ``mlflow.prompt.is_prompt`` tag. Mirrors ``RegisteredModel._is_prompt``
-    for response-side classification where we only have the proto in hand.
+def _entity_is_prompt(entity) -> bool:
+    """True if a ``RegisteredModel`` / ``ModelVersion`` entity is prompt-flagged.
+
+    Unifies the two response-filtering paths in ``filter_search_*`` — initial
+    response rows arrive as protos (via ``parse_dict``), refetched rows arrive
+    as ORM entities (``PagedList[RegisteredModel]``). Dispatch order matters:
+    ``RegisteredModel.tags`` strips the ``mlflow.prompt.is_prompt`` tag from
+    its public dict so users don't see it, so we must call ``_is_prompt()``
+    on that entity rather than reading ``.tags`` directly.
     """
-    return any(t.key == IS_PROMPT_TAG_KEY and t.value.lower() == "true" for t in proto.tags)
+    if hasattr(entity, "_is_prompt"):
+        return entity._is_prompt()
+    tags = entity.tags
+    if isinstance(tags, dict):
+        return tags.get(IS_PROMPT_TAG_KEY, "false").lower() == "true"
+    return any(t.key == IS_PROMPT_TAG_KEY and t.value.lower() == "true" for t in tags)
 
 
 def _role_based_read_predicate(username: str, resource_type: str) -> Callable[[str], bool]:
@@ -2553,11 +2563,20 @@ def set_can_manage_experiment_permission(resp: Response):
 
 
 def set_can_manage_registered_model_permission(resp: Response):
+    # ``CreateRegisteredModel`` is shared with prompt creation; the response
+    # carries the persisted ``mlflow.prompt.is_prompt`` tag, so we can classify
+    # the entity authoritatively here and grant MANAGE in the matching
+    # namespace. Granting unconditionally on ``registered_model`` would leave
+    # the prompt creator without ``(prompt, name, MANAGE)`` and lock them out
+    # of the entity they just created via the prompt-side validators.
     response_message = CreateRegisteredModel.Response()
     parse_dict(resp.json, response_message)
     name = response_message.registered_model.name
+    resource_type = (
+        "prompt" if _entity_is_prompt(response_message.registered_model) else "registered_model"
+    )
     username = authenticate_request().username
-    store.grant_user_permission(username, "registered_model", name, MANAGE.name)
+    store.grant_user_permission(username, resource_type, name, MANAGE.name)
 
 
 def delete_can_manage_registered_model_permission(resp: Response):
@@ -2572,7 +2591,15 @@ def delete_can_manage_registered_model_permission(resp: Response):
     now. Names are unique within the registry, so exactly one of the two
     sweeps applies and the other is a no-op.
     """
-    name = request.get_json(force=True, silent=True)["name"]
+    # ``silent=True`` returns ``None`` on missing / unparseable bodies; the
+    # ``or {}`` guard prevents a ``TypeError`` from leaking out as a 500.
+    data = request.get_json(force=True, silent=True) or {}
+    name = data.get("name")
+    if not name:
+        raise MlflowException(
+            "Missing value for required parameter 'name'.",
+            INVALID_PARAMETER_VALUE,
+        )
     store.delete_grants_for_resource("registered_model", name, workspace_scoped=True)
     store.delete_grants_for_resource("prompt", name, workspace_scoped=True)
 
@@ -2994,8 +3021,8 @@ def filter_search_registered_models(resp: Response):
     can_read_rm = _role_based_read_predicate(username, "registered_model")
     can_read_prompt = _role_based_read_predicate(username, "prompt")
 
-    def can_read(rm) -> bool:
-        return (can_read_prompt if _proto_is_prompt(rm) else can_read_rm)(rm.name)
+    def can_read(entity) -> bool:
+        return (can_read_prompt if _entity_is_prompt(entity) else can_read_rm)(entity.name)
 
     # filter out unreadable
     for rm in list(response_message.registered_models):
@@ -3023,11 +3050,10 @@ def filter_search_registered_models(resp: Response):
             response_message.next_page_token = ""
             break
 
-        refetched_readable_proto = [
-            rm.to_proto()
-            for rm in refetched
-            if (can_read_prompt if rm._is_prompt() else can_read_rm)(rm.name)
-        ]
+        # ``can_read`` accepts both protos and ORM entities; reuse it here so
+        # refetched ORM rows go through the same classification as the initial
+        # JSON-parsed proto rows above.
+        refetched_readable_proto = [rm.to_proto() for rm in refetched if can_read(rm)]
         response_message.registered_models.extend(refetched_readable_proto)
 
         # recalculate next page token
@@ -3055,7 +3081,7 @@ def filter_search_model_versions(resp: Response):
     can_read_prompt = _role_based_read_predicate(username, "prompt")
     # filter out model versions whose parent model is unreadable
     for mv in list(response_message.model_versions):
-        check = can_read_prompt if _proto_is_prompt(mv) else can_read_rm
+        check = can_read_prompt if _entity_is_prompt(mv) else can_read_rm
         if not check(mv.name):
             response_message.model_versions.remove(mv)
 
@@ -3071,9 +3097,17 @@ def rename_registered_model_permission(resp: Response):
     ``(prompt, old_name, ...)`` grants. Names are unique within the registry,
     so exactly one of the two renames applies and the other is a no-op.
     """
-    data = request.get_json(force=True, silent=True)
+    # ``silent=True`` returns ``None`` on missing / unparseable bodies; ``or
+    # {}`` plus the explicit value checks below prevent ``None`` from
+    # propagating to ``resource_pattern`` and silently rewriting rows.
+    data = request.get_json(force=True, silent=True) or {}
     old_name = data.get("name")
     new_name = data.get("new_name")
+    if not old_name or not new_name:
+        raise MlflowException(
+            "Missing value for required parameter 'name' or 'new_name'.",
+            INVALID_PARAMETER_VALUE,
+        )
     store.rename_grants_for_resource("registered_model", old_name, new_name, workspace_scoped=True)
     store.rename_grants_for_resource("prompt", old_name, new_name, workspace_scoped=True)
 
