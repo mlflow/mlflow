@@ -8,6 +8,7 @@ import {
   type SerializedSpan,
 } from '../../../src/core/entities/span';
 import { SpanEvent } from '../../../src/core/entities/span_event';
+import { SpanLink } from '../../../src/core/entities/span_link';
 import { SpanStatus, SpanStatusCode } from '../../../src/core/entities/span_status';
 import { SpanAttributeKey, SpanType } from '../../../src/core/constants';
 import { convertHrTimeToNanoSeconds } from '../../../src/core/utils';
@@ -413,6 +414,178 @@ describe('Span', () => {
 
       // Events should be preserved
       expect(reconstructedSpan.events).toEqual(originalSpan.events);
+    });
+  });
+
+  describe('Span Links', () => {
+    it('should add links to a live span via addLink()', () => {
+      const traceId = 'tr-12345';
+      const span = tracer.startSpan('test');
+
+      try {
+        const mlflowSpan = createMlflowSpan(span, traceId) as LiveSpan;
+
+        const link = new SpanLink({
+          traceId: 'tr-0123456789abcdef0123456789abcdef',
+          spanId: '0123456789abcdef',
+          attributes: { type: 'causality' },
+        });
+
+        mlflowSpan.addLink(link);
+
+        expect(mlflowSpan.links).toHaveLength(1);
+        expect(mlflowSpan.links[0].traceId).toBe('tr-0123456789abcdef0123456789abcdef');
+        expect(mlflowSpan.links[0].spanId).toBe('0123456789abcdef');
+        expect(mlflowSpan.links[0].attributes).toEqual({ type: 'causality' });
+      } finally {
+        span.end();
+      }
+    });
+
+    it('should add multiple links to a span', () => {
+      const traceId = 'tr-12345';
+      const span = tracer.startSpan('test');
+
+      try {
+        const mlflowSpan = createMlflowSpan(span, traceId) as LiveSpan;
+
+        mlflowSpan.addLink(
+          new SpanLink({
+            traceId: 'tr-aaaa',
+            spanId: 'aaaa000000000001',
+          }),
+        );
+        mlflowSpan.addLink(
+          new SpanLink({
+            traceId: 'tr-bbbb',
+            spanId: 'bbbb000000000002',
+            attributes: { weight: 0.5 },
+          }),
+        );
+
+        expect(mlflowSpan.links).toHaveLength(2);
+        expect(mlflowSpan.links[0].traceId).toBe('tr-aaaa');
+        expect(mlflowSpan.links[1].traceId).toBe('tr-bbbb');
+        expect(mlflowSpan.links[1].attributes).toEqual({ weight: 0.5 });
+      } finally {
+        span.end();
+      }
+    });
+
+    it('should return defensive copies from links getter', () => {
+      const traceId = 'tr-12345';
+      const span = tracer.startSpan('test');
+
+      try {
+        const mlflowSpan = createMlflowSpan(span, traceId) as LiveSpan;
+
+        mlflowSpan.addLink(
+          new SpanLink({
+            traceId: 'tr-aaaa',
+            spanId: 'aaaa000000000001',
+            attributes: { key: 'value' },
+          }),
+        );
+
+        const links1 = mlflowSpan.links;
+        const links2 = mlflowSpan.links;
+        expect(links1[0]).not.toBe(links2[0]);
+      } finally {
+        span.end();
+      }
+    });
+
+    it('should include links in toJson() output', () => {
+      const traceId = 'tr-12345';
+      const span = tracer.startSpan('test');
+
+      try {
+        const mlflowSpan = createMlflowSpan(span, traceId) as LiveSpan;
+
+        mlflowSpan.addLink(
+          new SpanLink({
+            traceId: 'tr-linked-trace',
+            spanId: 'abcdef0123456789',
+            attributes: { kind: 'follows_from' },
+          }),
+        );
+      } finally {
+        span.end();
+      }
+
+      const completedSpan = createMlflowSpan(span, traceId);
+      const json = completedSpan.toJson();
+
+      expect(json.links).toBeDefined();
+      expect(json.links).toHaveLength(0);
+    });
+
+    it('should serialize and deserialize links via LiveSpan toJson/fromJson', () => {
+      const traceId = 'tr-12345';
+      const span = tracer.startSpan('test');
+
+      try {
+        const mlflowSpan = createMlflowSpan(span, traceId) as LiveSpan;
+        mlflowSpan.addLink(
+          new SpanLink({
+            traceId: 'tr-linked-trace',
+            spanId: 'abcdef0123456789',
+            attributes: { kind: 'follows_from' },
+          }),
+        );
+
+        const json = mlflowSpan.toJson();
+
+        expect(json.links).toHaveLength(1);
+        expect(json.links![0]).toEqual({
+          trace_id: 'tr-linked-trace',
+          span_id: 'abcdef0123456789',
+          attributes: { kind: 'follows_from' },
+        });
+
+        const reconstructed = Span.fromJson(json);
+        expect(reconstructed.links).toHaveLength(1);
+        expect(reconstructed.links[0].traceId).toBe('tr-linked-trace');
+        expect(reconstructed.links[0].spanId).toBe('abcdef0123456789');
+        expect(reconstructed.links[0].attributes).toEqual({ kind: 'follows_from' });
+      } finally {
+        span.end();
+      }
+    });
+
+    it('should handle fromJson with no links field (backward compatibility)', () => {
+      const jsonWithoutLinks: SerializedSpan = {
+        trace_id: 'rZo9DIws+6d2tejICXD4gw==',
+        span_id: 'DOD2qjZ6ZrU=',
+        parent_span_id: '',
+        name: 'test',
+        start_time_unix_nano: 1000000000n,
+        end_time_unix_nano: 2000000000n,
+        status: { code: 'STATUS_CODE_OK', message: '' },
+        attributes: {},
+        events: [],
+      };
+
+      const span = Span.fromJson(jsonWithoutLinks);
+      expect(span.links).toEqual([]);
+    });
+
+    it('should not throw when addLink is called on NoOpSpan', () => {
+      const noOpSpan = new NoOpSpan();
+      const link = new SpanLink({
+        traceId: 'tr-test',
+        spanId: '0123456789abcdef',
+      });
+
+      expect(() => noOpSpan.addLink(link)).not.toThrow();
+      expect(noOpSpan.links).toEqual([]);
+    });
+
+    it('should include empty links in NoOpSpan toJson()', () => {
+      const noOpSpan = new NoOpSpan();
+      const json = noOpSpan.toJson();
+
+      expect(json.links).toEqual([]);
     });
   });
 });

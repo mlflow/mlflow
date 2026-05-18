@@ -33,6 +33,8 @@ export type { Trace } from './core/entities/trace';
 export type { TraceInfo, TokenUsage } from './core/entities/trace_info';
 export type { TraceData } from './core/entities/trace_data';
 export { SpanStatusCode } from './core/entities/span_status';
+export { SpanLink } from './core/entities/span_link';
+export type { SpanLinkParams, SerializedSpanLink } from './core/entities/span_link';
 export type { UpdateCurrentTraceOptions, SpanOptions, TraceOptions } from './core/api';
 export type { TracingContextOptions } from './core/context';
 export { registerOnSpanStartHook, registerOnSpanEndHook } from './exporters/span_processor_hooks';
