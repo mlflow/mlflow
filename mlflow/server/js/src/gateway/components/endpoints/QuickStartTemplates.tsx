@@ -25,6 +25,7 @@ interface CodingAgentDoc {
   logo: string;
   logoDark?: string;
   codingAgent: CodingAgentType;
+  componentId: string;
 }
 
 interface ModelOption {
@@ -87,10 +88,10 @@ const CodingAgentsCard = ({ compact }: { compact?: boolean }) => {
         </Typography.Text>
       </div>
       <div css={{ display: 'flex', flexDirection: 'column' }}>
-        {CODING_AGENTS.map((agent) => (
+        {CODING_AGENTS.map(({ componentId, ...agent }) => (
           <Link
             key={agent.name}
-            componentId={`mlflow.gateway.quick_start.coding_agent.${agent.codingAgent}`}
+            componentId={componentId}
             to={GatewayRoutes.createEndpointPageRoute}
             state={{ codingAgent: agent.codingAgent }}
             css={{
@@ -299,6 +300,7 @@ const CODING_AGENTS: CodingAgentDoc[] = [
     logo: AnthropicLogo,
     logoDark: AnthropicLogoDark,
     codingAgent: 'claude-code',
+    componentId: 'mlflow.gateway.quick_start.coding_agent.claude-code',
   },
   {
     name: 'OpenAI Codex',
@@ -306,12 +308,14 @@ const CODING_AGENTS: CodingAgentDoc[] = [
     logo: OpenAiLogo,
     logoDark: OpenAiLogoDark,
     codingAgent: 'codex',
+    componentId: 'mlflow.gateway.quick_start.coding_agent.codex',
   },
   {
     name: 'Gemini CLI',
     provider: 'gemini',
     logo: GeminiLogo,
     codingAgent: 'gemini-cli',
+    componentId: 'mlflow.gateway.quick_start.coding_agent.gemini-cli',
   },
 ];
 

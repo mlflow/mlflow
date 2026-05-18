@@ -284,7 +284,7 @@ export const CodingAgentStarterCard = ({ endpointName, codingAgent }: CodingAgen
             {CODING_AGENT_LABELS[codingAgent]}
           </Typography.Text>
           <CopyButton
-            componentId={`mlflow.gateway.edit-endpoint.coding-agent-starter-code.copy`}
+            componentId="mlflow.gateway.edit-endpoint.coding-agent-starter-code.copy"
             copyText={bash}
             icon={<CopyIcon />}
             showLabel={false}

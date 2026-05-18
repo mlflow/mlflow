@@ -61,11 +61,11 @@ export interface EndpointFormRendererProps {
  * handled by the parent to allow this form to be reused in different contexts
  * (full page, modal, etc.).
  */
-const CODING_AGENT_LABELS: Record<string, string> = {
+const CODING_AGENT_LABELS = {
   'claude-code': 'Claude Code',
   codex: 'OpenAI Codex',
   'gemini-cli': 'Gemini CLI',
-};
+} satisfies Record<string, string>;
 
 export const EndpointFormRenderer = ({
   mode,
