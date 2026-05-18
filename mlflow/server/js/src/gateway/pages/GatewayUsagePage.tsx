@@ -26,6 +26,8 @@ import { ExperimentViewTracesStatusLabels, FilterOperator } from '@databricks/we
 import { MetricsFilter } from '../../common/components/MetricsFilter';
 import {
   translateToMetricsFilters,
+  translateToTableFilters,
+  translateToTracesPageFilters,
   TRACE_STATE_VALUES,
   type MetricFilter,
   type MetricFilterColumnOption,
@@ -140,17 +142,6 @@ export const GatewayUsagePage = () => {
     return selectedEndpoint?.experiment_id ? [selectedEndpoint.experiment_id] : [];
   }, [showAllEndpoints, endpointsWithExperiments, selectedEndpoint]);
 
-  const tooltipLinkUrlBuilder = useMemo(() => {
-    return (_experimentId: string, timestampMs: number, timeIntervalSeconds: number) => {
-      const params = new URLSearchParams();
-      params.set('tab', 'logs');
-      params.set('startTimeLabel', 'CUSTOM');
-      params.set('startTime', new Date(timestampMs).toISOString());
-      params.set('endTime', new Date(timestampMs + timeIntervalSeconds * 1000).toISOString());
-      return `${GatewayRoutes.usagePageRoute}?${params.toString()}`;
-    };
-  }, []);
-
   // Build chart filters from selected user ID and MetricsFilter rows.
   const chartFilters = useMemo(() => {
     const result: string[] = [];
@@ -164,11 +155,36 @@ export const GatewayUsagePage = () => {
     return result.length > 0 ? result : undefined;
   }, [selectedUserId, metricFilters]);
 
-  // Build table filters from selected user ID (TableFilter format for TracesV3Logs)
+  // Build table filters from selected auth user ID and MetricsFilter rows
+  // (TableFilter format for TracesV3Logs).
   const tableFilters = useMemo((): TableFilter[] | undefined => {
-    if (!selectedUserId) return undefined;
-    return [{ column: 'user', operator: FilterOperator.EQUALS, value: selectedUserId }];
-  }, [selectedUserId]);
+    const result: TableFilter[] = [];
+    if (selectedUserId) {
+      result.push({ column: 'user', operator: FilterOperator.EQUALS, value: selectedUserId });
+    }
+    const metricTableFilters = translateToTableFilters(metricFilters);
+    if (metricTableFilters) {
+      result.push(...metricTableFilters);
+    }
+    return result.length > 0 ? result : undefined;
+  }, [selectedUserId, metricFilters]);
+
+  // URL filter strings (column::operator::value) appended to chart-tooltip
+  // navigation so the Logs tab opens with the same filter set after a click on
+  // a chart bucket.
+  const tracesNavigationFilters = useMemo(() => translateToTracesPageFilters(metricFilters), [metricFilters]);
+
+  const tooltipLinkUrlBuilder = useMemo(() => {
+    return (_experimentId: string, timestampMs: number, timeIntervalSeconds: number) => {
+      const params = new URLSearchParams();
+      params.set('tab', 'logs');
+      params.set('startTimeLabel', 'CUSTOM');
+      params.set('startTime', new Date(timestampMs).toISOString());
+      params.set('endTime', new Date(timestampMs + timeIntervalSeconds * 1000).toISOString());
+      tracesNavigationFilters?.forEach((f) => params.append('filter', f));
+      return `${GatewayRoutes.usagePageRoute}?${params.toString()}`;
+    };
+  }, [tracesNavigationFilters]);
 
   // Column options exposed in the MetricsFilter dropdown
   const metricsFilterColumnOptions = useMemo<MetricFilterColumnOption[]>(

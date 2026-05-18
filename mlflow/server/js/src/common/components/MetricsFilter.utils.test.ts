@@ -2,6 +2,7 @@ import { describe, it, expect, jest } from '@jest/globals';
 import {
   isCompleteFilter,
   translateToMetricsFilters,
+  translateToTableFilters,
   translateToTracesPageFilters,
   type MetricFilter,
 } from './MetricsFilter.utils';
@@ -194,6 +195,57 @@ describe('translateToTracesPageFilters', () => {
       'state::=::ERROR',
       'git_branch::=::main',
       'git_commit::=::abc1234',
+    ]);
+  });
+});
+
+describe('translateToTableFilters', () => {
+  it('returns undefined for an empty filters array', () => {
+    expect(translateToTableFilters([])).toBeUndefined();
+  });
+
+  it('returns undefined when all filters are incomplete', () => {
+    const filters: MetricFilter[] = [
+      { column: 'user', value: '' },
+      { column: '' as MetricFilter['column'], value: 'alice' },
+    ];
+    expect(translateToTableFilters(filters)).toBeUndefined();
+  });
+
+  it('translates a user filter to a TableFilter object', () => {
+    expect(translateToTableFilters([{ column: 'user', value: 'alice' }])).toEqual([
+      { column: 'user', operator: '=', value: 'alice' },
+    ]);
+  });
+
+  it('skips incomplete filters and returns the rest', () => {
+    const filters: MetricFilter[] = [
+      { column: 'user', value: 'alice' },
+      { column: 'user', value: '' },
+    ];
+    expect(translateToTableFilters(filters)).toEqual([{ column: 'user', operator: '=', value: 'alice' }]);
+  });
+
+  it('translates a state filter to a TableFilter object with the state column id', () => {
+    expect(translateToTableFilters([{ column: 'state', value: 'ERROR' }])).toEqual([
+      { column: 'state', operator: '=', value: 'ERROR' },
+    ]);
+  });
+
+  it('translates a heterogeneous mix preserving order', () => {
+    const filters: MetricFilter[] = [
+      { column: 'user', value: 'alice' },
+      { column: 'session', value: 'sess-123' },
+      { column: 'state', value: 'ERROR' },
+      { column: 'git_branch', value: 'main' },
+      { column: 'git_commit', value: 'abc1234' },
+    ];
+    expect(translateToTableFilters(filters)).toEqual([
+      { column: 'user', operator: '=', value: 'alice' },
+      { column: 'session', operator: '=', value: 'sess-123' },
+      { column: 'state', operator: '=', value: 'ERROR' },
+      { column: 'git_branch', operator: '=', value: 'main' },
+      { column: 'git_commit', operator: '=', value: 'abc1234' },
     ]);
   });
 });

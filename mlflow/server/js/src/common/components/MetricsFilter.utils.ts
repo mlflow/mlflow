@@ -5,6 +5,7 @@ import {
   SESSION_COLUMN_ID,
   STATE_COLUMN_ID,
   USER_COLUMN_ID,
+  type TableFilter,
 } from '@databricks/web-shared/genai-traces-table';
 import {
   MLFLOW_GIT_BRANCH_KEY,
@@ -19,8 +20,10 @@ import {
 
 /**
  * Curated list of columns the metrics API can filter on with `=`.
- * Add a new entry here AND in `translateToMetricsFilters` and
- * `translateToTracesPageFilters` to expose more dimensions.
+ * Adding a new entry here triggers TypeScript errors at every translator
+ * mapping (`COLUMN_TO_METRICS_FILTER_BUILDER`, `COLUMN_TO_TRACES_COLUMN_ID`)
+ * until all transports are wired up — fill those in to expose the new
+ * dimension end to end.
  */
 export type MetricFilterColumn = 'user' | 'session' | 'state' | 'git_branch' | 'git_commit';
 
@@ -40,32 +43,46 @@ export const TRACE_STATE_VALUES = [TraceStatus.IN_PROGRESS, TraceStatus.OK, Trac
 export const isCompleteFilter = (filter: MetricFilter): boolean => Boolean(filter.column) && Boolean(filter.value);
 
 /**
+ * Builder for each column's metrics-API DSL filter string. Each entry is a
+ * closure so columns can pick *which* helper to call (most use
+ * `createTraceMetadataFilter` with a metadata key; `state` uses
+ * `createTraceFilter` with a `TraceFilterKey`) without forcing the mapping
+ * into a uniform shape.
+ *
+ * The `Record<MetricFilterColumn, ...>` type makes adding a new
+ * MetricFilterColumn a compile error until the builder is filled in.
+ */
+const COLUMN_TO_METRICS_FILTER_BUILDER: Record<MetricFilterColumn, (value: string) => string> = {
+  user: (v) => createTraceMetadataFilter(MLFLOW_TRACE_USER_KEY, v),
+  session: (v) => createTraceMetadataFilter(SESSION_ID_METADATA_KEY, v),
+  state: (v) => createTraceFilter(TraceFilterKey.STATUS, v),
+  git_branch: (v) => createTraceMetadataFilter(MLFLOW_GIT_BRANCH_KEY, v),
+  git_commit: (v) => createTraceMetadataFilter(MLFLOW_GIT_COMMIT_KEY, v),
+};
+
+/**
  * Translates user-driven filter rows from MetricsFilter into metrics-API DSL
  * filter strings consumed by useTraceMetricsQuery via OverviewChartProvider.
- *
- * Add a new case here when adding a new column option in MetricsFilter.
  */
 export const translateToMetricsFilters = (filters: MetricFilter[]): string[] | undefined => {
-  const result = filters
-    .map((f) => {
-      if (!f.column || !f.value) return null;
-      switch (f.column) {
-        case 'user':
-          return createTraceMetadataFilter(MLFLOW_TRACE_USER_KEY, f.value);
-        case 'session':
-          return createTraceMetadataFilter(SESSION_ID_METADATA_KEY, f.value);
-        case 'state':
-          return createTraceFilter(TraceFilterKey.STATUS, f.value);
-        case 'git_branch':
-          return createTraceMetadataFilter(MLFLOW_GIT_BRANCH_KEY, f.value);
-        case 'git_commit':
-          return createTraceMetadataFilter(MLFLOW_GIT_COMMIT_KEY, f.value);
-        default:
-          return null;
-      }
-    })
-    .filter((s): s is string => s !== null);
+  const result = filters.filter(isCompleteFilter).map((f) => COLUMN_TO_METRICS_FILTER_BUILDER[f.column](f.value));
   return result.length > 0 ? result : undefined;
+};
+
+/**
+ * Mapping from MetricFilter column to the corresponding traces-table column id.
+ * Shared by `translateToTracesPageFilters` (URL string form) and
+ * `translateToTableFilters` (TableFilter object form)
+ *
+ * The `Record<MetricFilterColumn, ...>` type makes adding a new
+ * MetricFilterColumn a compile error until the mapping is filled in.
+ */
+const COLUMN_TO_TRACES_COLUMN_ID: Record<MetricFilterColumn, string> = {
+  user: USER_COLUMN_ID,
+  session: SESSION_COLUMN_ID,
+  state: STATE_COLUMN_ID,
+  git_branch: GIT_BRANCH_COLUMN_ID,
+  git_commit: GIT_COMMIT_COLUMN_ID,
 };
 
 /**
@@ -78,28 +95,28 @@ export const translateToMetricsFilters = (filters: MetricFilter[]): string[] | u
  * segment is optional and only used for filters that disambiguate within a
  * column group (e.g. assessment filters); top-level columns like `user` emit
  * the 3-segment form.
- *
- * Add a new case here when adding a new column option in MetricsFilter.
  */
 export const translateToTracesPageFilters = (filters: MetricFilter[]): string[] | undefined => {
   const result = filters
-    .map((f) => {
-      if (!f.column || !f.value) return null;
-      switch (f.column) {
-        case 'user':
-          return [USER_COLUMN_ID, FilterOperator.EQUALS, f.value].join('::');
-        case 'session':
-          return [SESSION_COLUMN_ID, FilterOperator.EQUALS, f.value].join('::');
-        case 'state':
-          return [STATE_COLUMN_ID, FilterOperator.EQUALS, f.value].join('::');
-        case 'git_branch':
-          return [GIT_BRANCH_COLUMN_ID, FilterOperator.EQUALS, f.value].join('::');
-        case 'git_commit':
-          return [GIT_COMMIT_COLUMN_ID, FilterOperator.EQUALS, f.value].join('::');
-        default:
-          return null;
-      }
-    })
-    .filter((s): s is string => s !== null);
+    .filter(isCompleteFilter)
+    .map((f) => [COLUMN_TO_TRACES_COLUMN_ID[f.column], FilterOperator.EQUALS, f.value].join('::'));
+  return result.length > 0 ? result : undefined;
+};
+
+/**
+ * Translates user-driven filter rows from MetricsFilter into in-memory
+ * `TableFilter` objects, the shape consumed by `TracesV3Logs.additionalFilters`.
+ * Use this when a page needs to apply the same filters to a same-page logs view
+ * (no URL round-trip), which complements `translateToTracesPageFilters` for the
+ * chart-tooltip navigation case.
+ */
+export const translateToTableFilters = (filters: MetricFilter[]): TableFilter[] | undefined => {
+  const result = filters.filter(isCompleteFilter).map(
+    (f): TableFilter => ({
+      column: COLUMN_TO_TRACES_COLUMN_ID[f.column],
+      operator: FilterOperator.EQUALS,
+      value: f.value,
+    }),
+  );
   return result.length > 0 ? result : undefined;
 };
