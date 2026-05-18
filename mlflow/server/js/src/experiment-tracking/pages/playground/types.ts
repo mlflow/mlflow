@@ -5,9 +5,42 @@ export interface ChatMessage {
   content: string;
 }
 
+export type ResponseFormatType = 'text' | 'json_object' | 'json_schema';
+
+export type ResponseFormat =
+  | { type: 'json_object' }
+  | {
+      type: 'json_schema';
+      // OpenAI-compatible envelope: gateway providers (Gemini, Anthropic)
+      // expect json_schema as { name, schema, strict }, not the raw schema.
+      json_schema: { name: string; schema: unknown; strict?: boolean };
+    };
+
+export type ToolChoice = 'auto' | 'none' | 'required';
+
 export interface ChatCompletionRequest {
   model: string;
   messages: ChatMessage[];
+  temperature?: number;
+  max_tokens?: number;
+  top_p?: number;
+  top_k?: number;
+  presence_penalty?: number;
+  frequency_penalty?: number;
+  stop?: string[];
+  tools?: unknown[];
+  tool_choice?: ToolChoice;
+  response_format?: ResponseFormat;
+}
+
+export interface PlaygroundParams {
+  temperature?: number;
+  max_tokens?: number;
+  top_p?: number;
+  top_k?: number;
+  presence_penalty?: number;
+  frequency_penalty?: number;
+  stop?: string[];
 }
 
 export interface ChatCompletionUsage {
