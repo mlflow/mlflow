@@ -2,6 +2,7 @@ import { trace as otelTrace, context, Span as ApiSpan, INVALID_TRACEID } from '@
 import { Span as OTelSpan } from '@opentelemetry/sdk-trace-node';
 import { DEFAULT_SPAN_NAME, SpanLogLevel, SpanType, TraceMetadataKey } from './constants';
 import { createMlflowSpan, LiveSpan, NoOpSpan } from './entities/span';
+import { SpanLink } from './entities/span_link';
 import { getTracer } from './provider';
 import { InMemoryTraceManager } from './trace_manager';
 import { convertNanoSecondsToHrTime, mapArgsToObject } from './utils';
@@ -48,6 +49,12 @@ export interface SpanOptions {
    * level is resolved from the span type at end time.
    */
   logLevel?: SpanLogLevel | string;
+
+  /**
+   * Optional links to other spans. Links allow correlating spans across
+   * different traces, useful for multi-agent or async workflows.
+   */
+  links?: SpanLink[];
 }
 
 /**
@@ -234,6 +241,11 @@ function getMlflowSpan(otelSpan: OTelSpan, options: SpanOptions): LiveSpan | NoO
   }
   if (options.logLevel !== undefined) {
     mlflowSpan.setLogLevel(options.logLevel);
+  }
+  if (options.links) {
+    for (const link of options.links) {
+      mlflowSpan.addLink(link);
+    }
   }
   return mlflowSpan;
 }
