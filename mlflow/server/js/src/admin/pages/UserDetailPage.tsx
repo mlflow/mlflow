@@ -71,9 +71,7 @@ const UserDetailPage = () => {
   // role the user holds; filter to the synthetic ``__user_<id>__`` role to
   // get just the direct grants. Role-derived permissions are handled
   // separately via the ``roles`` union in ``PermissionsSection``.
-  const allDirectPermissions = (directPermsData?.permissions ?? []).filter((p) =>
-    isSyntheticUserRole(p.role_name),
-  );
+  const allDirectPermissions = (directPermsData?.permissions ?? []).filter((p) => isSyntheticUserRole(p.role_name));
   // Direct permissions also carry ``workspace`` — same scope rule as roles:
   // workspace managers only see grants in the active workspace.
   const directPermissions =

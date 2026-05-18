@@ -65,8 +65,7 @@ export interface UserRolePermissionRow {
  */
 export const SYNTHETIC_USER_ROLE_NAME_RE = /^__user_\d+__$/;
 
-export const isSyntheticUserRole = (roleName: string): boolean =>
-  SYNTHETIC_USER_ROLE_NAME_RE.test(roleName);
+export const isSyntheticUserRole = (roleName: string): boolean => SYNTHETIC_USER_ROLE_NAME_RE.test(roleName);
 
 export interface ListMyPermissionsResponse {
   is_admin: boolean;
