@@ -125,7 +125,7 @@ Determine the review `event`:
 
 ### 4. Emit Review Payload
 
-Write `/tmp/review-payload.json` matching [`review-payload.schema.json`](./review-payload.schema.json). No need to post the review yourself.
+Write `/tmp/review-payload.json` matching [`review-payload.schema.json`](./review-payload.schema.json). Do not post the review yourself.
 
 Authoring rules not captured by the schema:
 
