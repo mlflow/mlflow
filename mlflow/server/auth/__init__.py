@@ -522,31 +522,25 @@ def _user_inherits_default_workspace_grant(workspace_name: str) -> bool:
 def _get_role_permission_or_default(
     role_permission_func: Callable[[], Permission | None],
 ) -> Permission:
-    """
-    Resolve a user's permission on a resource by consulting role_permissions via the
-    provided ``role_permission_func`` (see ``_role_permission_for``).
+    """Fold the role-derived permission against ``default_permission`` as a floor.
 
-    Returns whatever ``role_permission_func`` produces if non-None — including
-    ``NO_PERMISSIONS``, which acts as an explicit deny. Falls back to
-    ``auth_config.default_permission`` only when ``role_permission_func`` returns
-    ``None`` (no matching grant at all).
-
-    In the unified RBAC model (post-``e5f6a7b8c9d0`` migration), ``role_permissions`` is
-    the sole source of truth: per-user grants live under synthetic ``__user_<id>__``
-    roles, workspace-wide grants live in the unified ``('workspace', '*')`` slot
-    (USE for regular workspace members, MANAGE for workspace admins).
-    ``get_role_permission_for_resource`` walks all of the user's role grants and
-    returns the max, or ``None`` when nothing matches.
-
-    ``NO_PERMISSIONS`` is no longer accepted as a new grant value (validators reject it
-    on resource-scoped writes; the migration drops legacy ``NO_PERMISSIONS`` rows).
-    Any pre-existing ``NO_PERMISSIONS`` row in ``role_permissions`` from the early RBAC
-    API still resolves correctly via the explicit-deny semantics described above.
+    ``NO_PERMISSIONS`` is preserved rather than max'd against ``default_permission``
+    — it's the resolver's "user has no presence in this workspace" signal (no role
+    matches in the resource's workspace and it isn't an autograted default workspace).
+    That's the only place the workspace boundary lives in this chain; lifting it via
+    the floor would silently leak ``default_permission`` (e.g. READ) into every
+    workspace the user has no role in. ``None`` (workspaces disabled, no grant) still
+    falls through to ``default_permission`` as the safety net.
     """
     perm = role_permission_func()
-    if perm is not None:
+    default = get_permission(auth_config.default_permission)
+    if perm is None:
+        # Workspaces disabled, no grant matched.
+        return default
+    if perm.name == NO_PERMISSIONS.name:
+        # Workspace-boundary deny — see docstring.
         return perm
-    return get_permission(auth_config.default_permission)
+    return get_permission(max_permission(perm.name, default.name))
 
 
 def _user_can_create_in_workspace() -> bool:
