@@ -17,6 +17,9 @@ from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_location import UCSchemaLocation, UnityCatalog
 from mlflow.environment_variables import (
     _MLFLOW_SEARCH_TRACES_MAX_BATCH_SIZE,
+    MLFLOW_GET_TRACE_OTEL_INITIAL_RETRY_INTERVAL_SECONDS,
+    MLFLOW_GET_TRACE_OTEL_MAX_RETRY_INTERVAL_SECONDS,
+    MLFLOW_GET_TRACE_OTEL_RETRY_TIMEOUT_SECONDS,
     MLFLOW_SEARCH_TRACES_MAX_THREADS,
     MLFLOW_TRACING_SQL_WAREHOUSE_ID,
 )
@@ -40,7 +43,6 @@ from mlflow.telemetry.events import LogAssessmentEvent, StartTraceEvent, TraceAt
 from mlflow.telemetry.track import record_usage_event
 from mlflow.tracing.attachments import Attachment
 from mlflow.tracing.constant import (
-    GET_TRACE_V4_RETRY_TIMEOUT_SECONDS,
     SpansLocation,
     TraceMetadataKey,
     TraceTagKey,
@@ -150,19 +152,26 @@ class TracingClient:
         """
         location, _ = parse_trace_id_v4(trace_id)
         if location is not None:
-            start_time = time.time()
+            # For a V4 trace, load spans from the v4 BatchGetTraces endpoint.
+            # BatchGetTraces returns an empty list if the trace is not found, which is
+            # retried with exponential backoff (capped per-interval) up to
+            # MLFLOW_GET_TRACE_OTEL_RETRY_TIMEOUT_SECONDS in total.
+            deadline = time.monotonic() + MLFLOW_GET_TRACE_OTEL_RETRY_TIMEOUT_SECONDS.get()
+            initial_interval = max(0.0, MLFLOW_GET_TRACE_OTEL_INITIAL_RETRY_INTERVAL_SECONDS.get())
+            max_interval = max(0.0, MLFLOW_GET_TRACE_OTEL_MAX_RETRY_INTERVAL_SECONDS.get())
             attempt = 0
-            while time.time() - start_time < GET_TRACE_V4_RETRY_TIMEOUT_SECONDS:
-                # For a V4 trace, load spans from the v4 BatchGetTraces endpoint.
-                # BatchGetTraces returns an empty list if the trace is not found, which will be
-                # retried up to GET_TRACE_V4_RETRY_TIMEOUT_SECONDS seconds.
+            while True:
                 if traces := self.store.batch_get_traces([trace_id], location):
                     return traces[0]
 
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    break
+
+                interval = min(initial_interval * 2**attempt, max_interval, remaining)
                 attempt += 1
-                interval = 2**attempt
                 _logger.debug(
-                    f"Trace not found, retrying in {interval} seconds (attempt {attempt})"
+                    f"Trace not found, retrying in {interval:.2f} seconds (attempt {attempt})"
                 )
                 time.sleep(interval)
 

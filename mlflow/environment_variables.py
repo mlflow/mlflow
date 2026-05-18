@@ -1172,6 +1172,28 @@ MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT = _EnvironmentVariable(
     "MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT", int, 500
 )
 
+#: Maximum number of seconds ``mlflow.get_trace`` will retry an OTel trace lookup while the trace
+#: has not yet propagated to the backend. The retry loop honors this as a hard deadline.
+#: (default: ``15``)
+MLFLOW_GET_TRACE_OTEL_RETRY_TIMEOUT_SECONDS = _EnvironmentVariable(
+    "MLFLOW_GET_TRACE_OTEL_RETRY_TIMEOUT_SECONDS", int, 15
+)
+
+#: Initial sleep, in seconds, before the first OTel trace lookup retry. Subsequent intervals
+#: double until capped by ``MLFLOW_GET_TRACE_OTEL_MAX_RETRY_INTERVAL_SECONDS``.
+#: (default: ``2.0``)
+MLFLOW_GET_TRACE_OTEL_INITIAL_RETRY_INTERVAL_SECONDS = _EnvironmentVariable(
+    "MLFLOW_GET_TRACE_OTEL_INITIAL_RETRY_INTERVAL_SECONDS", float, 2.0
+)
+
+#: Maximum sleep, in seconds, between two consecutive OTel trace lookup retries. The interval
+#: grows exponentially from ``MLFLOW_GET_TRACE_OTEL_INITIAL_RETRY_INTERVAL_SECONDS`` and is capped
+#: to this value.
+#: (default: ``8.0``)
+MLFLOW_GET_TRACE_OTEL_MAX_RETRY_INTERVAL_SECONDS = _EnvironmentVariable(
+    "MLFLOW_GET_TRACE_OTEL_MAX_RETRY_INTERVAL_SECONDS", float, 8.0
+)
+
 #: Specifies the SQL warehouse ID to use for tracing with Databricks backend.
 #: (default: ``None``)
 MLFLOW_TRACING_SQL_WAREHOUSE_ID = _EnvironmentVariable("MLFLOW_TRACING_SQL_WAREHOUSE_ID", str, None)
