@@ -433,9 +433,8 @@ class InstructionsJudge(Judge):
         # Some model providers (like Anthropic) require a user message
         # (i.e. a single-message chat history with role 'system' is not supported),
         # *and* they require the message to have non-empty content (empty string is not allowed).
-        # The fallback fires when there are no fields to substitute (template uses only
-        # {{ trace }}, or we fell back to agentic mode); it must steer the LLM to the tools
-        # so it doesn't self-grade this chat.
+        # The empty case must explicitly point at the tools, or the judge LLM can self-grade
+        # this chat instead of inspecting the trace.
         return (
             "\n".join(user_message_parts)
             if user_message_parts

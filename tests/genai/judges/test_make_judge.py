@@ -2206,6 +2206,23 @@ def test_fallback_to_agentic_mode_when_trace_missing_inputs_outputs(mock_invoke_
     assert "analyze a trace" in captured["prompt"][0].content.lower()
 
 
+def test_fallback_to_agentic_mode_logs_warning(mock_invoke_judge_model):
+    judge = make_judge(
+        name="test_judge",
+        instructions="Evaluate if {{ inputs }} matches {{ outputs }}",
+        feedback_value_type=str,
+        model="openai:/gpt-4",
+    )
+    trace = _create_otel_trace_without_root_inputs_outputs()
+
+    with mock.patch("mlflow.genai.judges.instructions_judge._logger.warning") as mock_warning:
+        judge(trace=trace)
+
+    mock_warning.assert_called_once()
+    format_str = mock_warning.call_args[0][0]
+    assert "Falling back to trace-based" in format_str
+
+
 def test_fallback_with_partial_data(mock_invoke_judge_model):
     judge = make_judge(
         name="test_judge",
@@ -2665,9 +2682,8 @@ def test_trace_only_template_uses_two_messages_with_empty_user(mock_invoke_judge
 
     user_msg = prompt[1]
     assert user_msg.role == "user"
-    assert (
-        user_msg.content == "Follow the instructions from the first message"
-    )  # Placeholder user message for trace-only
+    # Must disclaim the chat as input/response, or the LLM self-grades.
+    assert "not the input or response being judged" in user_msg.content
 
 
 def test_no_warning_when_extracting_fields_from_trace(mock_invoke_judge_model):
