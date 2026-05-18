@@ -2381,8 +2381,8 @@ BEFORE_REQUEST_VALIDATORS.update({
     (AJAX_GRANT_USER_PERMISSION, "POST"): validate_can_manage_resource,
     (REVOKE_USER_PERMISSION, "POST"): validate_can_manage_resource,
     (AJAX_REVOKE_USER_PERMISSION, "POST"): validate_can_manage_resource,
-    (CHECK_USER_PERMISSION, "POST"): validate_can_check_user_permission,
-    (AJAX_CHECK_USER_PERMISSION, "POST"): validate_can_check_user_permission,
+    (CHECK_USER_PERMISSION, "GET"): validate_can_check_user_permission,
+    (AJAX_CHECK_USER_PERMISSION, "GET"): validate_can_check_user_permission,
 })
 
 # Flask routes (no proto mapping)
@@ -4451,11 +4451,12 @@ _RBAC_ROUTES: list[tuple[Callable[[], Any], str, str, str]] = [
     (unassign_role, "DELETE", UNASSIGN_ROLE, AJAX_UNASSIGN_ROLE),
     (list_user_roles, "GET", LIST_USER_ROLES, AJAX_LIST_USER_ROLES),
     (list_role_users, "GET", LIST_ROLE_USERS, AJAX_LIST_ROLE_USERS),
-    # Unified per-user permission convenience APIs. RPC-style POST endpoints
-    # under /mlflow/users/permissions/{grant,revoke} and /mlflow/auth/check.
+    # Unified per-user permission convenience APIs under /mlflow/users/permissions/*.
+    # ``grant`` / ``revoke`` mutate state (POST); ``check`` resolves the user's
+    # effective permission without touching the DB (GET).
     (grant_user_permission, "POST", GRANT_USER_PERMISSION, AJAX_GRANT_USER_PERMISSION),
     (revoke_user_permission, "POST", REVOKE_USER_PERMISSION, AJAX_REVOKE_USER_PERMISSION),
-    (check_user_permission, "POST", CHECK_USER_PERMISSION, AJAX_CHECK_USER_PERMISSION),
+    (check_user_permission, "GET", CHECK_USER_PERMISSION, AJAX_CHECK_USER_PERMISSION),
 ]
 
 

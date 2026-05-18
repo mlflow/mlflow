@@ -429,8 +429,8 @@ class AuthServiceClient:
     ) -> CheckUserPermissionResult:
         resp = self._request(
             CHECK_USER_PERMISSION,
-            "POST",
-            json={
+            "GET",
+            params={
                 "username": username,
                 "resource_type": resource_type,
                 "resource_id": resource_id,

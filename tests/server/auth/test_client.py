@@ -530,20 +530,22 @@ def test_grant_user_permission_non_admin_without_manage_rejected(client, monkeyp
 
 @pytest.mark.parametrize("api_prefix", ["api", "ajax-api"])
 @pytest.mark.parametrize(
-    "endpoint",
+    ("endpoint", "method"),
     [
-        "/3.0/mlflow/users/permissions/grant",
-        "/3.0/mlflow/users/permissions/revoke",
-        "/3.0/mlflow/auth/check",
+        ("/3.0/mlflow/users/permissions/grant", "POST"),
+        ("/3.0/mlflow/users/permissions/revoke", "POST"),
+        ("/3.0/mlflow/users/permissions/check", "GET"),
     ],
 )
-def test_unified_permission_endpoints_reachable_at_both_path_prefixes(client, api_prefix, endpoint):
+def test_unified_permission_endpoints_reachable_at_both_path_prefixes(
+    client, api_prefix, endpoint, method
+):
     # The MLflow frontend hits /ajax-api/ paths; the Python client hits /api/ paths.
     # Every unified permission route must be reachable at both — a 404 here would
     # silently break the admin UI without surfacing as a permission-system failure.
-    resp = requests.post(
+    resp = requests.request(
+        method,
         f"{client.tracking_uri}/{api_prefix}{endpoint}",
-        json={},
         auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
     )
-    assert resp.status_code != 404, f"POST /{api_prefix}{endpoint} unexpectedly returned 404"
+    assert resp.status_code != 404, f"{method} /{api_prefix}{endpoint} unexpectedly returned 404"
