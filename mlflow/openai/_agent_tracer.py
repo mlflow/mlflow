@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import json
 import logging
+import weakref
 from typing import Any
 
 import agents.tracing as oai
 from agents import add_trace_processor, set_trace_processors
 from agents.tracing.setup import get_trace_provider
 
-from mlflow.entities.span import SpanType
+from mlflow.entities.span import LiveSpan, SpanType
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatus, SpanStatusCode
 from mlflow.tracing.constant import SpanAttributeKey
@@ -29,6 +30,10 @@ _logger = logging.getLogger(__name__)
 
 
 _AGENT_RUN_SPAN_NAME = "AgentRunner.run"
+_AGENT_RUN_STREAMED_SPAN_NAME = "AgentRunner.run_streamed"
+# Private marker attribute used to identify a root span created by our patches,
+# decoupling root detection from the human-readable span name.
+_AGENT_RUN_ROOT_MARKER = "mlflow.openai.agent_run_root"
 
 
 class OpenAISpanType:
@@ -91,8 +96,8 @@ class MlflowOpenAgentTracingProcessor(oai.TracingProcessor):
         self._span_id_to_mlflow_span: dict[str, SpanWithToken] = {}
 
     def on_trace_start(self, trace: oai.Trace) -> None:
-        if (active_span := get_current_active_span()) and active_span.name == _AGENT_RUN_SPAN_NAME:
-            # The root span is already started by the _patched_agent_run
+        if (active_span := get_current_active_span()) and _is_agent_run_root(active_span):
+            # The root span is already started by _patched_agent_run / _patched_agent_run_streamed
             mlflow_span = active_span
             token = None
         else:
@@ -282,24 +287,132 @@ def _parse_response_span_data(span_data: oai.ResponseSpanData) -> tuple[Any, Any
     return inputs, outputs, attributes
 
 
-async def _patched_agent_run(original, self, *args, **kwargs):
-    inputs = construct_full_inputs(original, self, *args, **kwargs)
-    # Exclude "run_config" because it may contain the model_provider which holds
-    # the AsyncOpenAI client. Serializing it triggers copy.deepcopy on the internal
-    # AsyncHttpxClientWrapper, which fails due to unpicklable locks and causes
-    # "AttributeError: 'AsyncHttpxClientWrapper' object has no attribute '_state'"
-    # errors during garbage collection. See https://github.com/mlflow/mlflow/issues/19911
+def _is_agent_run_root(span: LiveSpan) -> bool:
+    return bool(span.get_attribute(_AGENT_RUN_ROOT_MARKER))
+
+
+def _build_agent_run_span_args(original, self_, args, kwargs):
+    """Build inputs and attributes for the agent run root span.
+
+    Excludes "run_config" because it may contain the model_provider which holds
+    the AsyncOpenAI client. Serializing it triggers copy.deepcopy on the internal
+    AsyncHttpxClientWrapper, which fails due to unpicklable locks and causes
+    "AttributeError: 'AsyncHttpxClientWrapper' object has no attribute '_state'"
+    errors during garbage collection. See https://github.com/mlflow/mlflow/issues/19911
+    """
+    inputs = construct_full_inputs(original, self_, *args, **kwargs)
     attributes = {
         k: v for k, v in inputs.items() if k not in ("starting_agent", "input", "run_config")
     }
+    return inputs, attributes
+
+
+async def _patched_agent_run(original, self, *args, **kwargs):
+    inputs, attributes = _build_agent_run_span_args(original, self, args, kwargs)
 
     with start_span(
         name=_AGENT_RUN_SPAN_NAME,
         span_type=SpanType.AGENT,
         attributes=attributes,
     ) as span:
+        span.set_attribute(_AGENT_RUN_ROOT_MARKER, True)
         span.set_inputs(inputs.get("input"))
         result = await original(self, *args, **kwargs)
         span.set_outputs(result.final_output)
 
     return result
+
+
+def _patched_agent_run_streamed(original, self, *args, **kwargs):
+    """Patch ``AgentRunner.run_streamed`` to record an MLflow root span.
+
+    ``run_streamed`` is sync and returns a ``RunResultStreaming`` immediately
+    while spawning the actual run as an ``asyncio`` background task. The span
+    must therefore outlive the patched call. Cleanup happens via one of two
+    paths:
+
+    1. Iteration: the wrapped ``stream_events()`` ends the span and detaches
+       the GC finalizer when iteration completes (or raises).
+    2. Discard: a ``weakref.finalize`` callback closes the span if ``result``
+       is garbage-collected before iteration starts.
+    """
+    inputs, attributes = _build_agent_run_span_args(original, self, args, kwargs)
+
+    span = start_span_no_context(
+        name=_AGENT_RUN_STREAMED_SPAN_NAME,
+        span_type=SpanType.AGENT,
+        inputs=inputs.get("input"),
+        attributes=attributes,
+    )
+    span.set_attribute(_AGENT_RUN_ROOT_MARKER, True)
+    # Attach the span before original() runs so the asyncio task it spawns
+    # captures this span as its OTel context.
+    token = set_span_in_context(span)
+
+    try:
+        result = original(self, *args, **kwargs)
+    except Exception as e:
+        _finalize_streamed_span(span, token, error=e)
+        raise
+
+    finalizer = weakref.finalize(result, _finalize_streamed_span, span, token)
+    # Capture `stream_events` as the *unbound* function and reference `result`
+    # weakly: a bound method (`result.stream_events`) would have its closure cell
+    # strong-reference `result`, forming a cycle that prevents the GC finalizer
+    # from ever firing.
+    original_stream_events_func = type(result).stream_events
+    result_ref = weakref.ref(result)
+
+    async def wrapped_stream_events(*args, **kwargs):
+        # Reachable only via `result.stream_events`, so `result` is alive here;
+        # pinning it locally keeps it that way for the duration of iteration.
+        live_result = result_ref()
+        if not finalizer.alive:
+            # Re-iteration after finalize: pass through without touching span.
+            async for event in original_stream_events_func(live_result, *args, **kwargs):
+                yield event
+            return
+        error: Exception | None = None
+        try:
+            async for event in original_stream_events_func(live_result, *args, **kwargs):
+                yield event
+        except Exception as e:
+            error = e
+            raise
+        finally:
+            # `detach()` returns the original args tuple if we still owned the
+            # finalizer, or None if the GC callback already fired; finalize only
+            # when this iteration is the one that owns cleanup.
+            if finalizer.detach() is not None:
+                outputs = None if error else live_result.final_output
+                _finalize_streamed_span(span, token, error=error, outputs=outputs)
+
+    result.stream_events = wrapped_stream_events
+    return result
+
+
+def _safe_detach_span_context(token):
+    """Best-effort detach: tolerates being called from a different OTel context
+    (e.g., from a ``weakref.finalize`` callback) so callers can still end the
+    span afterwards. Same pattern as ``mlflow/langchain/langchain_tracer.py``.
+    """
+    if token is None:
+        return
+    try:
+        detach_span_from_context(token)
+    except ValueError:
+        _logger.debug("Failed to detach span context", exc_info=True)
+
+
+def _finalize_streamed_span(span, token, *, error=None, outputs=None):
+    _safe_detach_span_context(token)
+    try:
+        if error is not None:
+            span.record_exception(error)
+            span.end()
+            return
+        if outputs is not None:
+            span.set_outputs(outputs)
+        span.end(status=SpanStatusCode.OK)
+    except Exception:
+        _logger.warning("Failed to finalize streamed agent run span", exc_info=True)

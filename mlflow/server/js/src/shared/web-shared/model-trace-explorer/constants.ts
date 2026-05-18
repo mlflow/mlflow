@@ -15,6 +15,8 @@ export const SOURCE_TYPE_METADATA_KEY = 'mlflow.source.type';
 export const TOKEN_USAGE_METADATA_KEY = 'mlflow.trace.tokenUsage';
 export const COST_METADATA_KEY = 'mlflow.trace.cost';
 export const MLFLOW_TRACE_USER_KEY = 'mlflow.trace.user';
+export const MLFLOW_GIT_BRANCH_KEY = 'mlflow.source.git.branch';
+export const MLFLOW_GIT_COMMIT_KEY = 'mlflow.source.git.commit';
 
 // Span attribute keys for model and cost info
 export const SPAN_ATTRIBUTE_MODEL_KEY = 'mlflow.llm.model';

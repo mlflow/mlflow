@@ -33,7 +33,10 @@ def replace_mlflow_with_dev_version(yml_path: Path) -> None:
 def clean_up_mlflow_virtual_environments():
     yield
 
-    for path in Path(_get_mlflow_virtualenv_root()).iterdir():
+    venv_root = Path(_get_mlflow_virtualenv_root())
+    if not venv_root.exists():
+        return
+    for path in venv_root.iterdir():
         if path.is_dir():
             shutil.rmtree(path)
 
@@ -87,10 +90,10 @@ def test_mlflow_run_example(directory, params, tmp_path):
     # directory being reused when re-trying the test since
     # tmp_path is named as the test name
     random_tmp_path = tmp_path / str(uuid.uuid4())
-    mlflow.set_tracking_uri(random_tmp_path.joinpath("mlruns").as_uri())
     example_dir = Path(EXAMPLES_DIR, directory)
     tmp_example_dir = random_tmp_path.joinpath(example_dir)
     shutil.copytree(example_dir, tmp_example_dir)
+    mlflow.set_tracking_uri(f"sqlite:///{random_tmp_path / 'mlruns.db'}")
     python_env_path = find_python_env_yaml(tmp_example_dir)
     replace_mlflow_with_dev_version(python_env_path)
     cli_run_list = [tmp_example_dir] + params

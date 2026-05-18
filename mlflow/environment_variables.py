@@ -850,6 +850,11 @@ MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING = _BooleanEnvironmentVariable(
 #: (default: ``300``)
 MLFLOW_GENAI_EVAL_ASYNC_TIMEOUT = _EnvironmentVariable("MLFLOW_GENAI_EVAL_ASYNC_TIMEOUT", int, 300)
 
+#: Timeout in seconds for LLM calls during mlflow.genai.evaluate. When an LLM is used as a scorer.
+#: This controls how long to wait for an LLM response before timing out.
+#: (default: ``60``)
+MLFLOW_GENAI_EVAL_LLM_TIMEOUT = _EnvironmentVariable("MLFLOW_GENAI_EVAL_LLM_TIMEOUT", int, 60)
+
 #: Number of sessions (or individual traces when no session metadata exists) to sample
 #: for the triage phase of ``mlflow.genai.discover_issues()``. (default: ``100``)
 MLFLOW_GENAI_DISCOVERY_TRIAGE_SAMPLE_SIZE = _EnvironmentVariable(
@@ -1416,6 +1421,10 @@ MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY = _EnvironmentVariable(
     "MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY", int, 60
 )
 
+#: Specifies the path to the YAML config file for MLflow server-owned trace archival.
+#: (default: ``None``)
+MLFLOW_TRACE_ARCHIVAL_CONFIG = _EnvironmentVariable("MLFLOW_TRACE_ARCHIVAL_CONFIG", str, None)
+
 #: Specifies the maximum number of workers for async judge invocation jobs.
 #: (default: ``10``)
 MLFLOW_SERVER_JUDGE_INVOKE_MAX_WORKERS = _EnvironmentVariable(
@@ -1469,6 +1478,11 @@ _SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID = _EnvironmentVariable(
 MLFLOW_SERVER_ENABLE_GRAPHQL_AUTH = _BooleanEnvironmentVariable(
     "MLFLOW_SERVER_ENABLE_GRAPHQL_AUTH", True
 )
+
+#: Whether to show the Unity Catalog trace upsell message when calling set_experiment
+#: on a Databricks-backed experiment without a UC trace destination.
+#: (default: ``True``)
+_MLFLOW_ENABLE_UC_TRACE_UPSELL = _BooleanEnvironmentVariable("_MLFLOW_ENABLE_UC_TRACE_UPSELL", True)
 
 
 #: Specifies whether to allow unsafe pickle deserialization for loading model
@@ -1530,4 +1544,14 @@ MLFLOW_ALLOW_FILE_STORE = _BooleanEnvironmentVariable("MLFLOW_ALLOW_FILE_STORE",
 #: (default: ``False``)
 MLFLOW_SKIP_PIP_REQUIREMENTS_CHECK = _BooleanEnvironmentVariable(
     "MLFLOW_SKIP_PIP_REQUIREMENTS_CHECK", False
+)
+
+#: Specifies a read-only backend store URI for reader/writer instance routing.
+#: When set, the MLflow tracking server will route read operations (e.g. search_runs,
+#: get_experiment) to this URI and write operations to the primary ``--backend-store-uri``.
+#: This enables horizontal scaling via database read replicas.
+#: If not set, all operations use the primary backend store URI.
+#: (default: ``None``)
+MLFLOW_READ_REPLICA_BACKEND_STORE_URI = _EnvironmentVariable(
+    "MLFLOW_READ_REPLICA_BACKEND_STORE_URI", str, None
 )

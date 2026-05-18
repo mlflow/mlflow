@@ -4,6 +4,11 @@ import { useDesignSystemTheme } from '@databricks/design-system';
 export interface LongFormSectionProps {
   /** Section title displayed on the left side */
   title: string;
+  /**
+   * Optional subtitle displayed under the title (e.g. "Optional",
+   * "Required", or a short qualifier). Rendered in muted secondary text.
+   */
+  subtitle?: string;
   /** Width of the title column in pixels (default: 200) */
   titleWidth?: number;
   /** Content to display on the right side */
@@ -21,6 +26,7 @@ export interface LongFormSectionProps {
  */
 export const LongFormSection = ({
   title,
+  subtitle,
   titleWidth = 200,
   children,
   hideDivider = false,
@@ -52,14 +58,25 @@ export const LongFormSection = ({
           },
         }}
       >
-        <span
+        <div
           css={{
             fontWeight: theme.typography.typographyBoldFontWeight,
             fontSize: theme.typography.fontSizeLg,
           }}
         >
           {title}
-        </span>
+        </div>
+        {subtitle && (
+          <div
+            css={{
+              marginTop: theme.spacing.xs,
+              fontSize: theme.typography.fontSizeSm,
+              color: theme.colors.textSecondary,
+            }}
+          >
+            {subtitle}
+          </div>
+        )}
       </div>
       <div css={{ flexGrow: 1, minWidth: 0 }}>{children}</div>
     </div>

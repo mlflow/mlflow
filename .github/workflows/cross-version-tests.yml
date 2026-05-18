@@ -14,6 +14,7 @@ on:
       - ".github/workflows/preview-docs.yml"
       - "mlflow/server/js/**"
       - ".github/workflows/js.yml"
+      - ".claude/**"
   workflow_dispatch:
     inputs:
       repository:
@@ -76,7 +77,6 @@ jobs:
       - uses: ./.github/actions/setup-python
         with:
           pin-micro-version: false
-          enable-uv-cache: false
       - name: Install dependencies
         run: |
           uv pip install --system -r dev/requirements.txt

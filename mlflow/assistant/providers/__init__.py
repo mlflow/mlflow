@@ -1,14 +1,19 @@
 from mlflow.assistant.providers.base import AssistantProvider
 from mlflow.assistant.providers.claude_code import ClaudeCodeProvider
+from mlflow.assistant.providers.ollama import OllamaProvider
 
-__all__ = ["AssistantProvider", "ClaudeCodeProvider", "list_providers"]
+__all__ = [
+    "AssistantProvider",
+    "ClaudeCodeProvider",
+    "OllamaProvider",
+    "list_providers",
+]
 
-# Registry of all available providers
 _PROVIDERS: list[type[AssistantProvider]] = [
     ClaudeCodeProvider,
+    OllamaProvider,
 ]
 
 
 def list_providers() -> list[AssistantProvider]:
-    """Return instances of all available providers."""
     return [provider() for provider in _PROVIDERS]
