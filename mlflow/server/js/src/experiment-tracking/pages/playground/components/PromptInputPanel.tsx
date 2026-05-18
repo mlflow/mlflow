@@ -1,13 +1,12 @@
 import {
   Button,
+  ChevronDownIcon,
   CloseIcon,
-  FormUI,
-  InfoSmallIcon,
+  DropdownMenu,
+  InfoIcon,
   Input,
   PlusIcon,
   Popover,
-  SegmentedControlButton,
-  SegmentedControlGroup,
   Space,
   Typography,
   useDesignSystemTheme,
@@ -21,6 +20,8 @@ const { TextArea } = Input;
 const COMPONENT_ID = 'mlflow.playground.prompt_input';
 
 const ROLE_OPTIONS: ChatRole[] = ['system', 'user', 'assistant'];
+
+const roleLabel = (role: ChatRole): string => role[0].toUpperCase() + role.slice(1);
 
 interface Props {
   messages: ChatMessage[];
@@ -44,60 +45,7 @@ export const PromptInputPanel = ({ messages, onChange }: Props) => {
   };
 
   return (
-    <Space direction="vertical" size="small" css={{ width: '100%' }}>
-      <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
-        <Typography.Title level={4} withoutMargins>
-          <FormattedMessage
-            defaultMessage="Messages"
-            description="Section header for the chat input on the playground page"
-          />
-        </Typography.Title>
-        <Popover.Root componentId="mlflow.playground.prompt_input.role_help">
-          <Popover.Trigger
-            aria-label={intl.formatMessage({
-              defaultMessage: 'About message roles',
-              description: 'Aria label for the info popover that explains chat roles on the playground page',
-            })}
-            css={{ border: 0, background: 'none', padding: 0, display: 'inline-flex', cursor: 'pointer' }}
-          >
-            <InfoSmallIcon />
-          </Popover.Trigger>
-          <Popover.Content align="start" css={{ maxWidth: 360 }}>
-            <Typography.Paragraph withoutMargins>
-              <FormattedMessage
-                defaultMessage="Each message has a role that tells the model who is speaking:"
-                description="Intro line for the playground role-selector help popover"
-              />
-            </Typography.Paragraph>
-            <ul css={{ margin: `${theme.spacing.xs}px 0 0`, paddingLeft: theme.spacing.lg }}>
-              <li>
-                <Typography.Text bold>system</Typography.Text>{' '}
-                <FormattedMessage
-                  defaultMessage="— instructions or persona for the model (e.g. {example})."
-                  description="Description of the system role in the playground role-selector help popover"
-                  values={{ example: <Typography.Text code>You are a helpful assistant</Typography.Text> }}
-                />
-              </li>
-              <li>
-                <Typography.Text bold>user</Typography.Text>{' '}
-                <FormattedMessage
-                  defaultMessage="— what the human is asking. This is the typical input."
-                  description="Description of the user role in the playground role-selector help popover"
-                />
-              </li>
-              <li>
-                <Typography.Text bold>assistant</Typography.Text>{' '}
-                <FormattedMessage
-                  defaultMessage="— what the model has previously said. Useful for priming with example responses."
-                  description="Description of the assistant role in the playground role-selector help popover"
-                />
-              </li>
-            </ul>
-            <Popover.Arrow />
-          </Popover.Content>
-        </Popover.Root>
-      </div>
-
+    <Space direction="vertical" size="middle" css={{ width: '100%' }}>
       {messages.length === 0 && (
         <Typography.Hint>
           <FormattedMessage
@@ -111,9 +59,6 @@ export const PromptInputPanel = ({ messages, onChange }: Props) => {
         <div
           key={index}
           css={{
-            border: `1px solid ${theme.colors.border}`,
-            borderRadius: theme.general.borderRadiusBase,
-            padding: theme.spacing.sm,
             display: 'flex',
             flexDirection: 'column',
             gap: theme.spacing.xs,
@@ -121,39 +66,113 @@ export const PromptInputPanel = ({ messages, onChange }: Props) => {
           data-testid={`mlflow.playground.prompt_input.message.${message.role}`}
         >
           <div css={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <SegmentedControlGroup
-              componentId="mlflow.playground.prompt_input.role"
-              name={`${COMPONENT_ID}.role.${index}`}
-              size="small"
-              value={message.role}
-              onChange={(event) => updateMessage(index, { role: event.target.value as ChatRole })}
-            >
-              {ROLE_OPTIONS.map((role) => (
-                <SegmentedControlButton key={role} value={role}>
-                  {role}
-                </SegmentedControlButton>
-              ))}
-            </SegmentedControlGroup>
-            <Button
-              componentId="mlflow.playground.prompt_input.remove"
-              size="small"
-              icon={<CloseIcon />}
-              aria-label={intl.formatMessage({
-                defaultMessage: 'Remove message',
-                description: 'Aria label for the button that removes a message from the playground messages panel',
-              })}
-              onClick={() => removeMessage(index)}
-            />
+            <DropdownMenu.Root>
+              <DropdownMenu.Trigger asChild>
+                <button
+                  type="button"
+                  aria-label={intl.formatMessage({
+                    defaultMessage: 'Change message role',
+                    description: 'Aria label for the dropdown that swaps a chat message role on the playground page',
+                  })}
+                  css={{
+                    border: 0,
+                    background: 'transparent',
+                    padding: 0,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: theme.spacing.xs,
+                    cursor: 'pointer',
+                    color: theme.colors.textSecondary,
+                    fontSize: theme.typography.fontSizeSm,
+                    '&:hover': { color: theme.colors.textPrimary },
+                  }}
+                >
+                  {roleLabel(message.role)}
+                  <ChevronDownIcon css={{ fontSize: theme.typography.fontSizeSm }} />
+                </button>
+              </DropdownMenu.Trigger>
+              <DropdownMenu.Content align="start">
+                <DropdownMenu.RadioGroup
+                  componentId={`${COMPONENT_ID}.role.group`}
+                  value={message.role}
+                  onValueChange={(role) => updateMessage(index, { role: role as ChatRole })}
+                >
+                  {ROLE_OPTIONS.map((role) => (
+                    <DropdownMenu.RadioItem key={role} value={role}>
+                      <DropdownMenu.ItemIndicator />
+                      {roleLabel(role)}
+                    </DropdownMenu.RadioItem>
+                  ))}
+                </DropdownMenu.RadioGroup>
+              </DropdownMenu.Content>
+            </DropdownMenu.Root>
+            <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
+              <Popover.Root componentId="mlflow.playground.prompt_input.role_help">
+                <Popover.Trigger
+                  aria-label={intl.formatMessage({
+                    defaultMessage: 'About message roles',
+                    description: 'Aria label for the info popover that explains chat roles on the playground page',
+                  })}
+                  css={{
+                    border: 0,
+                    background: 'none',
+                    padding: 0,
+                    display: 'inline-flex',
+                    cursor: 'pointer',
+                    color: theme.colors.textSecondary,
+                    '&:hover': { color: theme.colors.textPrimary },
+                  }}
+                >
+                  <InfoIcon />
+                </Popover.Trigger>
+                <Popover.Content align="end" css={{ maxWidth: 360 }}>
+                  <Typography.Paragraph withoutMargins>
+                    <FormattedMessage
+                      defaultMessage="Each message has a role that tells the model who is speaking:"
+                      description="Intro line for the playground role-selector help popover"
+                    />
+                  </Typography.Paragraph>
+                  <ul css={{ margin: `${theme.spacing.xs}px 0 0`, paddingLeft: theme.spacing.lg }}>
+                    <li>
+                      <Typography.Text bold>System</Typography.Text>{' '}
+                      <FormattedMessage
+                        defaultMessage="— instructions or persona for the model (e.g. {example})."
+                        description="Description of the system role in the playground role-selector help popover"
+                        values={{ example: <Typography.Text code>You are a helpful assistant</Typography.Text> }}
+                      />
+                    </li>
+                    <li>
+                      <Typography.Text bold>User</Typography.Text>{' '}
+                      <FormattedMessage
+                        defaultMessage="— what the human is asking. This is the typical input."
+                        description="Description of the user role in the playground role-selector help popover"
+                      />
+                    </li>
+                    <li>
+                      <Typography.Text bold>Assistant</Typography.Text>{' '}
+                      <FormattedMessage
+                        defaultMessage="— what the model has previously said. Useful for priming with example responses."
+                        description="Description of the assistant role in the playground role-selector help popover"
+                      />
+                    </li>
+                  </ul>
+                  <Popover.Arrow />
+                </Popover.Content>
+              </Popover.Root>
+              <Button
+                componentId="mlflow.playground.prompt_input.remove"
+                size="small"
+                icon={<CloseIcon />}
+                aria-label={intl.formatMessage({
+                  defaultMessage: 'Remove message',
+                  description: 'Aria label for the button that removes a message from the playground messages panel',
+                })}
+                onClick={() => removeMessage(index)}
+              />
+            </div>
           </div>
-          <FormUI.Label htmlFor={`${COMPONENT_ID}.content.${index}`} css={{ display: 'none' }}>
-            <FormattedMessage
-              defaultMessage="Message content"
-              description="Hidden label for the message content textarea on the playground page"
-            />
-          </FormUI.Label>
           <TextArea
             componentId="mlflow.playground.prompt_input.content"
-            id={`${COMPONENT_ID}.content.${index}`}
             value={message.content}
             onChange={(event: ChangeEvent<HTMLTextAreaElement>) =>
               updateMessage(index, { content: event.target.value })
