@@ -23,7 +23,9 @@ import { LongFormSummary } from '../../../common/components/long-form/LongFormSu
 import type { EditEndpointFormData } from '../../hooks/useEditEndpointForm';
 import { TrafficSplitConfigurator } from './TrafficSplitConfigurator';
 import { FallbackModelsConfigurator } from './FallbackModelsConfigurator';
-import { StarterCodeCard } from './StarterCodeCard';
+import { CodingAgentStarterCard, StarterCodeCard } from './StarterCodeCard';
+import { CODING_AGENT_TAG_KEY } from '../../hooks/useCreateEndpointForm';
+import type { CodingAgentType } from '../../types';
 import { EditableEndpointName } from './EditableEndpointName';
 import { GatewayUsageSection } from './GatewayUsageSection';
 import type { Endpoint, EndpointModelMapping } from '../../types';
@@ -378,12 +380,20 @@ export const EditEndpointFormRenderer = ({
                   />
                 </div>
 
-                {endpoint && (
-                  <StarterCodeCard
-                    endpointName={endpoint.name}
-                    provider={getStarterCodeProvider(endpoint.model_mappings)}
-                  />
-                )}
+                {endpoint &&
+                  (endpoint.tags?.find((t) => t.key === CODING_AGENT_TAG_KEY)?.value as CodingAgentType | undefined ? (
+                    <CodingAgentStarterCard
+                      endpointName={endpoint.name}
+                      codingAgent={
+                        endpoint.tags?.find((t) => t.key === CODING_AGENT_TAG_KEY)?.value as CodingAgentType
+                      }
+                    />
+                  ) : (
+                    <StarterCodeCard
+                      endpointName={endpoint.name}
+                      provider={getStarterCodeProvider(endpoint.model_mappings)}
+                    />
+                  ))}
               </div>
             </Tabs.Content>
 

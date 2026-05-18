@@ -12,7 +12,7 @@ import type { ApiKeyConfiguration, SecretMode } from '../model-configuration/typ
 import { formatProviderName } from '../../utils/providerUtils';
 import { LongFormSection } from '../../../common/components/long-form/LongFormSection';
 import { LongFormSummary } from '../../../common/components/long-form/LongFormSummary';
-import type { ProviderModel, SecretInfo } from '../../types';
+import type { CodingAgentType, ProviderModel, SecretInfo } from '../../types';
 import { formatTokens, formatCost } from '../../utils/formatters';
 import { getModelCapabilities } from '../../utils/getModelCapabilities';
 import type { CreateEndpointFormData } from '../../hooks/useCreateEndpointForm';
@@ -38,6 +38,8 @@ export interface EndpointFormRendererProps {
   isFormComplete: boolean;
   /** Whether any fields have changed from their initial values (edit mode only) */
   hasChanges?: boolean;
+  /** When set, hides model/connections fields and shows a coding-agent banner */
+  codingAgent?: CodingAgentType;
   /** Form submission handler */
   onSubmit: (values: EndpointFormData) => Promise<void>;
   /** Cancel handler */
@@ -59,6 +61,12 @@ export interface EndpointFormRendererProps {
  * handled by the parent to allow this form to be reused in different contexts
  * (full page, modal, etc.).
  */
+const CODING_AGENT_LABELS: Record<string, string> = {
+  'claude-code': 'Claude Code',
+  codex: 'OpenAI Codex',
+  'gemini-cli': 'Gemini CLI',
+};
+
 export const EndpointFormRenderer = ({
   mode,
   isSubmitting,
@@ -68,6 +76,7 @@ export const EndpointFormRenderer = ({
   selectedModel,
   isFormComplete,
   hasChanges = true,
+  codingAgent,
   onSubmit,
   onCancel,
   onNameBlur,
@@ -224,79 +233,104 @@ export const EndpointFormRenderer = ({
             </LongFormSection>
           )}
 
-          {/* Model Section */}
-          <LongFormSection
-            titleWidth={LONG_FORM_TITLE_WIDTH}
-            title={intl.formatMessage({
-              defaultMessage: 'Model',
-              description: 'Section title for model configuration',
-            })}
-            hideDivider
-          >
-            <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
-              <Controller
-                control={form.control}
-                name="provider"
-                rules={{ required: 'Provider is required' }}
-                render={({ field, fieldState }) => (
-                  <ProviderSelect
-                    value={field.value}
-                    onChange={(value) => {
-                      field.onChange(value);
-                      form.setValue('modelName', '');
-                      form.setValue('existingSecretId', '');
-                      form.setValue('secretMode', 'new');
-                      form.setValue('newSecret', {
-                        name: '',
-                        authMode: '',
-                        secretFields: {},
-                        configFields: {},
-                      });
-                    }}
-                    error={fieldState.error?.message}
-                    componentId={`${componentId}.provider`}
-                  />
+          {/* Model Section — hidden for coding agents (values are pre-filled) */}
+          {codingAgent ? (
+            <LongFormSection
+              titleWidth={LONG_FORM_TITLE_WIDTH}
+              title={intl.formatMessage({
+                defaultMessage: 'Model',
+                description: 'Section title for model configuration',
+              })}
+              hideDivider
+            >
+              <Alert
+                componentId={`${componentId}.coding-agent-info`}
+                closable={false}
+                type="info"
+                message={intl.formatMessage(
+                  {
+                    defaultMessage:
+                      '{agentName} uses its own credentials, so no API key is required. The provider and model are pre-configured.',
+                    description: 'Info message shown on coding agent endpoint creation form',
+                  },
+                  { agentName: CODING_AGENT_LABELS[codingAgent] ?? codingAgent },
                 )}
               />
-              <Controller
-                control={form.control}
-                name="modelName"
-                rules={{ required: 'Model is required' }}
-                render={({ field, fieldState }) => (
-                  <ModelSelect
-                    provider={provider}
-                    value={field.value}
-                    onChange={field.onChange}
-                    error={fieldState.error?.message}
-                    componentId={`${componentId}.model`}
-                  />
-                )}
-              />
-
-              {/* Connections subsection - nested within Model */}
-              {provider && (
-                <div css={{ marginTop: theme.spacing.sm }}>
-                  <Typography.Text bold css={{ display: 'block', marginBottom: theme.spacing.sm }}>
-                    <FormattedMessage
-                      defaultMessage="Connections"
-                      description="Subsection header for API key configuration"
+            </LongFormSection>
+          ) : (
+            <LongFormSection
+              titleWidth={LONG_FORM_TITLE_WIDTH}
+              title={intl.formatMessage({
+                defaultMessage: 'Model',
+                description: 'Section title for model configuration',
+              })}
+              hideDivider
+            >
+              <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+                <Controller
+                  control={form.control}
+                  name="provider"
+                  rules={{ required: 'Provider is required' }}
+                  render={({ field, fieldState }) => (
+                    <ProviderSelect
+                      value={field.value}
+                      onChange={(value) => {
+                        field.onChange(value);
+                        form.setValue('modelName', '');
+                        form.setValue('existingSecretId', '');
+                        form.setValue('secretMode', 'new');
+                        form.setValue('newSecret', {
+                          name: '',
+                          authMode: '',
+                          secretFields: {},
+                          configFields: {},
+                        });
+                      }}
+                      error={fieldState.error?.message}
+                      componentId={`${componentId}.provider`}
                     />
-                  </Typography.Text>
-                  <ApiKeyConfigurator
-                    value={apiKeyConfig}
-                    onChange={handleApiKeyChange}
-                    provider={provider}
-                    existingSecrets={existingSecrets}
-                    isLoadingSecrets={isLoadingSecrets}
-                    authModes={authModes}
-                    defaultAuthMode={defaultAuthMode}
-                    isLoadingProviderConfig={isLoadingProviderConfig}
-                    componentId={`${componentId}.api-key`}
-                  />
-                </div>
-              )}
-            </div>
-          </LongFormSection>
+                  )}
+                />
+                <Controller
+                  control={form.control}
+                  name="modelName"
+                  rules={{ required: 'Model is required' }}
+                  render={({ field, fieldState }) => (
+                    <ModelSelect
+                      provider={provider}
+                      value={field.value}
+                      onChange={field.onChange}
+                      error={fieldState.error?.message}
+                      componentId={`${componentId}.model`}
+                    />
+                  )}
+                />
+
+                {/* Connections subsection - nested within Model */}
+                {provider && (
+                  <div css={{ marginTop: theme.spacing.sm }}>
+                    <Typography.Text bold css={{ display: 'block', marginBottom: theme.spacing.sm }}>
+                      <FormattedMessage
+                        defaultMessage="Connections"
+                        description="Subsection header for API key configuration"
+                      />
+                    </Typography.Text>
+                    <ApiKeyConfigurator
+                      value={apiKeyConfig}
+                      onChange={handleApiKeyChange}
+                      provider={provider}
+                      existingSecrets={existingSecrets}
+                      isLoadingSecrets={isLoadingSecrets}
+                      authModes={authModes}
+                      defaultAuthMode={defaultAuthMode}
+                      isLoadingProviderConfig={isLoadingProviderConfig}
+                      componentId={`${componentId}.api-key`}
+                    />
+                  </div>
+                )}
+              </div>
+            </LongFormSection>
+          )}
         </div>
 
         {/* Summary sidebar */}

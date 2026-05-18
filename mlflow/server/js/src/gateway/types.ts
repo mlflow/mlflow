@@ -128,6 +128,11 @@ export interface GatewayEndpointModelConfig {
   fallback_order?: number;
 }
 
+export interface EndpointTag {
+  key: string;
+  value?: string;
+}
+
 export interface Endpoint {
   endpoint_id: string;
   name: string;
@@ -143,7 +148,19 @@ export interface Endpoint {
   };
   experiment_id?: string;
   usage_tracking?: boolean;
+  tags?: EndpointTag[];
 }
+
+export interface SetEndpointTagRequest {
+  endpoint_id: string;
+  key: string;
+  value: string;
+}
+
+export interface SetEndpointTagResponse {}
+
+/** Identifies the coding agent associated with an endpoint (stored as a tag). */
+export type CodingAgentType = 'claude-code' | 'codex' | 'gemini-cli';
 
 export interface CreateEndpointRequest {
   name?: string;

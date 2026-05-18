@@ -10,6 +10,7 @@ import { FormattedMessage } from 'react-intl';
 import { Link } from '../../../common/utils/RoutingUtils';
 import GatewayRoutes from '../../routes';
 import { formatProviderName } from '../../utils/providerUtils';
+import type { CodingAgentType } from '../../types';
 
 import OpenAiLogo from '../../../common/static/logos/openai.svg';
 import OpenAiLogoDark from '../../../common/static/logos/openai-dark.svg';
@@ -23,7 +24,7 @@ interface CodingAgentDoc {
   provider: string;
   logo: string;
   logoDark?: string;
-  docPath: string;
+  codingAgent: CodingAgentType;
 }
 
 interface ModelOption {
@@ -87,11 +88,11 @@ const CodingAgentsCard = ({ compact }: { compact?: boolean }) => {
       </div>
       <div css={{ display: 'flex', flexDirection: 'column' }}>
         {CODING_AGENTS.map((agent) => (
-          <a
+          <Link
             key={agent.name}
-            href={agent.docPath}
-            target="_blank"
-            rel="noopener noreferrer"
+            componentId={`mlflow.gateway.quick_start.coding_agent.${agent.codingAgent}`}
+            to={GatewayRoutes.createEndpointPageRoute}
+            state={{ codingAgent: agent.codingAgent }}
             css={{
               textDecoration: 'none',
               color: 'inherit',
@@ -129,7 +130,7 @@ const CodingAgentsCard = ({ compact }: { compact?: boolean }) => {
               </Typography.Text>
             </div>
             <ChevronRightIcon css={{ color: theme.colors.textSecondary, fontSize: chevronSize, flexShrink: 0 }} />
-          </a>
+          </Link>
         ))}
       </div>
     </div>
@@ -297,20 +298,20 @@ const CODING_AGENTS: CodingAgentDoc[] = [
     provider: 'anthropic',
     logo: AnthropicLogo,
     logoDark: AnthropicLogoDark,
-    docPath: 'https://mlflow.org/docs/latest/genai/governance/ai-gateway/coding-agents/claude-code',
+    codingAgent: 'claude-code',
   },
   {
     name: 'OpenAI Codex',
     provider: 'openai',
     logo: OpenAiLogo,
     logoDark: OpenAiLogoDark,
-    docPath: 'https://mlflow.org/docs/latest/genai/governance/ai-gateway/coding-agents/codex',
+    codingAgent: 'codex',
   },
   {
     name: 'Gemini CLI',
     provider: 'gemini',
     logo: GeminiLogo,
-    docPath: 'https://mlflow.org/docs/latest/genai/governance/ai-gateway/coding-agents/gemini-cli',
+    codingAgent: 'gemini-cli',
   },
 ];
 
