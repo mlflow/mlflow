@@ -158,7 +158,7 @@ jobs:
           # open a new PR that updates this SHA to the latest mlflow/internal
           # main after reviewing the diff. We'll migrate to release tags once
           # the bump cadence is stable; see mlflow/internal for the policy.
-          ref: 84470a01acf0a3de0a422d04cf900e390e6371b5
+          ref: 564858ace69e52162b4f07c02626d9f3ced2f4f6
           sparse-checkout: |
             nailaopus
           path: internal
