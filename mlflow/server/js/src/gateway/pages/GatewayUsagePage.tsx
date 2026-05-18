@@ -26,7 +26,6 @@ import { ExperimentViewTracesStatusLabels, FilterOperator } from '@databricks/we
 import { MetricsFilter } from '../../common/components/MetricsFilter';
 import {
   translateToMetricsFilters,
-  translateToTableFilters,
   translateToTracesPageFilters,
   TRACE_STATE_VALUES,
   type MetricFilter,
@@ -155,19 +154,10 @@ export const GatewayUsagePage = () => {
     return result.length > 0 ? result : undefined;
   }, [selectedUserId, metricFilters]);
 
-  // Build table filters from selected auth user ID and MetricsFilter rows
-  // (TableFilter format for TracesV3Logs).
   const tableFilters = useMemo((): TableFilter[] | undefined => {
-    const result: TableFilter[] = [];
-    if (selectedUserId) {
-      result.push({ column: 'user', operator: FilterOperator.EQUALS, value: selectedUserId });
-    }
-    const metricTableFilters = translateToTableFilters(metricFilters);
-    if (metricTableFilters) {
-      result.push(...metricTableFilters);
-    }
-    return result.length > 0 ? result : undefined;
-  }, [selectedUserId, metricFilters]);
+    if (!selectedUserId) return undefined;
+    return [{ column: 'user', operator: FilterOperator.EQUALS, value: selectedUserId }];
+  }, [selectedUserId]);
 
   // URL filter strings (column::operator::value) appended to chart-tooltip
   // navigation so the Logs tab opens with the same filter set after a click on

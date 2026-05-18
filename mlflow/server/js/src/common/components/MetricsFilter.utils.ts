@@ -5,7 +5,6 @@ import {
   SESSION_COLUMN_ID,
   STATE_COLUMN_ID,
   USER_COLUMN_ID,
-  type TableFilter,
 } from '@databricks/web-shared/genai-traces-table';
 import {
   MLFLOW_GIT_BRANCH_KEY,
@@ -70,9 +69,8 @@ export const translateToMetricsFilters = (filters: MetricFilter[]): string[] | u
 };
 
 /**
- * Mapping from MetricFilter column to the corresponding traces-table column id.
- * Shared by `translateToTracesPageFilters` (URL string form) and
- * `translateToTableFilters` (TableFilter object form)
+ * Mapping from MetricFilter column to the corresponding traces-table column id,
+ * used by `translateToTracesPageFilters` to forward filters via URL params.
  *
  * The `Record<MetricFilterColumn, ...>` type makes adding a new
  * MetricFilterColumn a compile error until the mapping is filled in.
@@ -95,28 +93,17 @@ const COLUMN_TO_TRACES_COLUMN_ID: Record<MetricFilterColumn, string> = {
  * segment is optional and only used for filters that disambiguate within a
  * column group (e.g. assessment filters); top-level columns like `user` emit
  * the 3-segment form.
+ *
+ * NOTE: A previous `translateToTableFilters` helper (producing in-memory
+ * `TableFilter` objects for `TracesV3Logs.additionalFilters`) was removed
+ * because it caused a dual-source-of-truth bug: filters injected via
+ * `additionalFilters` are not editable from the Logs tab UI, so the user could
+ * not remove them by clicking the filter chip. URL params are the only
+ * supported cross-tab propagation channel for MetricsFilter rows.
  */
 export const translateToTracesPageFilters = (filters: MetricFilter[]): string[] | undefined => {
   const result = filters
     .filter(isCompleteFilter)
     .map((f) => [COLUMN_TO_TRACES_COLUMN_ID[f.column], FilterOperator.EQUALS, f.value].join('::'));
-  return result.length > 0 ? result : undefined;
-};
-
-/**
- * Translates user-driven filter rows from MetricsFilter into in-memory
- * `TableFilter` objects, the shape consumed by `TracesV3Logs.additionalFilters`.
- * Use this when a page needs to apply the same filters to a same-page logs view
- * (no URL round-trip), which complements `translateToTracesPageFilters` for the
- * chart-tooltip navigation case.
- */
-export const translateToTableFilters = (filters: MetricFilter[]): TableFilter[] | undefined => {
-  const result = filters.filter(isCompleteFilter).map(
-    (f): TableFilter => ({
-      column: COLUMN_TO_TRACES_COLUMN_ID[f.column],
-      operator: FilterOperator.EQUALS,
-      value: f.value,
-    }),
-  );
   return result.length > 0 ? result : undefined;
 };
