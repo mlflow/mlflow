@@ -228,6 +228,10 @@ class _TrackingStore:
         self.ManagedSessionMaker = ManagedSessionMaker
 
     def get_experiment(self, experiment_id: str):
+        if experiment_id not in self._experiment_workspaces:
+            raise MlflowException(
+                f"Experiment {experiment_id!r} not found", RESOURCE_DOES_NOT_EXIST
+            )
         return SimpleNamespace(workspace=self._experiment_workspaces[experiment_id])
 
     def get_experiment_by_name(self, experiment_name: str):
@@ -2737,3 +2741,385 @@ def test_role_based_read_predicate_ignores_no_permissions_grants(monkeypatch):
     assert predicate("exp-other")
     # Per-resource NO_PERMISSIONS is ignored; default READ fallback applies.
     assert predicate("exp-explicit-deny")
+
+
+# =============================================================================
+# Unified per-user permission convenience APIs — validator dispatcher tests
+# =============================================================================
+
+
+def _scorer_resource_id(experiment_id: str, scorer_name: str) -> str:
+    from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
+
+    return SqlAlchemyStore._scorer_pattern(experiment_id, scorer_name)
+
+
+@pytest.mark.parametrize(
+    ("resource_type", "resource_id"),
+    [
+        ("experiment", "exp-1"),
+        ("registered_model", "model-xyz"),
+        ("scorer", "exp-1/score-1"),
+        ("gateway_secret", "secret-1"),
+        ("gateway_endpoint", "endpoint-1"),
+        ("gateway_model_definition", "model-def-1"),
+    ],
+)
+def test_validate_can_manage_resource_workspace_manage_allows(
+    workspace_permission_setup, resource_type, resource_id
+):
+    # Workspace MANAGE (the fixture's default) grants per-resource MANAGE on every
+    # resource type in the workspace — the dispatcher must route the request
+    # through the same code path the legacy validators use.
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, MANAGE.name)
+
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/users/permissions/grant",
+        method="POST",
+        json={
+            "username": username,
+            "resource_type": resource_type,
+            "resource_id": resource_id,
+            "permission": "READ",
+        },
+    ):
+        assert auth_module.validate_can_manage_resource()
+
+
+def test_validate_can_manage_resource_per_resource_manage_allows(
+    workspace_permission_setup,
+):
+    # Per-resource MANAGE delegation: a user with MANAGE on exp-1 (and nothing
+    # else) can grant other users access to exp-1, mirroring the legacy
+    # ``validate_can_manage_experiment`` semantics.
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    user_id = store.get_user(username).id
+
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
+    role = store.create_role(name="exp-1-manager", workspace="team-a")
+    store.add_role_permission(role.id, "experiment", "exp-1", MANAGE.name)
+    store.assign_role_to_user(user_id, role.id)
+
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/users/permissions/grant",
+        method="POST",
+        json={
+            "username": username,
+            "resource_type": "experiment",
+            "resource_id": "exp-1",
+            "permission": "READ",
+        },
+    ):
+        assert auth_module.validate_can_manage_resource()
+
+
+def test_validate_can_manage_resource_other_resource_denied(workspace_permission_setup):
+    # MANAGE on exp-1 doesn't extend to exp-2.
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    user_id = store.get_user(username).id
+
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
+    role = store.create_role(name="exp-1-manager", workspace="team-a")
+    store.add_role_permission(role.id, "experiment", "exp-1", MANAGE.name)
+    store.assign_role_to_user(user_id, role.id)
+
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/users/permissions/grant",
+        method="POST",
+        json={
+            "username": username,
+            "resource_type": "experiment",
+            "resource_id": "exp-2",
+            "permission": "READ",
+        },
+    ):
+        assert not auth_module.validate_can_manage_resource()
+
+
+def test_validate_can_manage_resource_no_grant_denied(workspace_permission_setup):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
+
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/users/permissions/grant",
+        method="POST",
+        json={
+            "username": username,
+            "resource_type": "experiment",
+            "resource_id": "exp-1",
+            "permission": "READ",
+        },
+    ):
+        assert not auth_module.validate_can_manage_resource()
+
+
+def test_validate_can_manage_resource_workspace_use_insufficient(workspace_permission_setup):
+    # Workspace USE (regular member) doesn't grant per-resource MANAGE — only
+    # the resource owner's grant tier does.
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/users/permissions/grant",
+        method="POST",
+        json={
+            "username": username,
+            "resource_type": "experiment",
+            "resource_id": "exp-1",
+            "permission": "READ",
+        },
+    ):
+        assert not auth_module.validate_can_manage_resource()
+
+
+def test_validate_can_manage_resource_scorer_dispatch(workspace_permission_setup):
+    # The scorer ``resource_id`` is the compound pattern
+    # ``"<experiment_id>/<url_quote(scorer_name)>"``. The dispatcher must split
+    # off the experiment_id prefix for workspace resolution.
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, MANAGE.name)
+
+    pattern = _scorer_resource_id("exp-1", "score-1")
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/users/permissions/grant",
+        method="POST",
+        json={
+            "username": username,
+            "resource_type": "scorer",
+            "resource_id": pattern,
+            "permission": "READ",
+        },
+    ):
+        assert auth_module.validate_can_manage_resource()
+
+
+def test_validate_can_manage_resource_scorer_missing_delimiter_raises(workspace_permission_setup):
+    # ``resource_id`` without the ``/`` delimiter cannot be split into
+    # ``experiment_id`` for workspace resolution.
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, MANAGE.name)
+
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/users/permissions/grant",
+        method="POST",
+        json={
+            "username": username,
+            "resource_type": "scorer",
+            "resource_id": "missing-delimiter",
+            "permission": "READ",
+        },
+    ):
+        with pytest.raises(MlflowException, match="Expected '<experiment_id>/<scorer_name>'"):
+            auth_module.validate_can_manage_resource()
+
+
+def test_validate_can_manage_resource_workspace_resource_type_rejected(
+    workspace_permission_setup,
+):
+    # ``workspace`` is intentionally excluded from the unified API — workspace
+    # grants live behind set_workspace_permission / delete_workspace_permission.
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, MANAGE.name)
+
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/users/permissions/grant",
+        method="POST",
+        json={
+            "username": username,
+            "resource_type": "workspace",
+            "resource_id": "*",
+            "permission": "MANAGE",
+        },
+    ):
+        with pytest.raises(MlflowException, match="is not supported by the per-user"):
+            auth_module.validate_can_manage_resource()
+
+
+def test_validate_can_check_user_permission_self_check_allowed(
+    workspace_permission_setup,
+):
+    # A non-admin user can always check their own permissions, even without
+    # any workspace presence.
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
+
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/auth/check",
+        method="POST",
+        json={
+            "username": username,
+            "resource_type": "experiment",
+            "resource_id": "exp-1",
+        },
+    ):
+        assert auth_module.validate_can_check_user_permission()
+
+
+def test_validate_can_check_user_permission_admin_short_circuits(
+    workspace_permission_setup, monkeypatch
+):
+    # Platform admins bypass the workspace check.
+    store = workspace_permission_setup["store"]
+    admin_username = "platform-admin"
+    store.create_user(admin_username, "supersecurepassword", is_admin=True)
+
+    monkeypatch.setattr(
+        auth_module,
+        "authenticate_request",
+        lambda: SimpleNamespace(username=admin_username),
+    )
+
+    target = workspace_permission_setup["username"]
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/auth/check",
+        method="POST",
+        json={
+            "username": target,
+            "resource_type": "experiment",
+            "resource_id": "exp-1",
+        },
+    ):
+        assert auth_module.validate_can_check_user_permission()
+
+
+def test_validate_can_check_user_permission_admin_probes_other_workspace(
+    workspace_permission_setup, monkeypatch
+):
+    # Platform admins bypass the workspace check globally — even for resources in
+    # workspaces they have no role in. Pins the is_admin short-circuit on the
+    # cross-workspace path that ``_cross_workspace_probe_denied`` denies for non-admins.
+    store = workspace_permission_setup["store"]
+    admin_username = "platform-admin"
+    store.create_user(admin_username, "supersecurepassword", is_admin=True)
+
+    monkeypatch.setattr(
+        auth_module,
+        "authenticate_request",
+        lambda: SimpleNamespace(username=admin_username),
+    )
+
+    target = workspace_permission_setup["username"]
+    # team-b experiment — admin has no membership in team-b.
+    auth_module._get_tracking_store()._experiment_workspaces["exp-team-b"] = "team-b"
+
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/auth/check",
+        method="POST",
+        json={
+            "username": target,
+            "resource_type": "experiment",
+            "resource_id": "exp-team-b",
+        },
+    ):
+        assert auth_module.validate_can_check_user_permission()
+
+
+def test_validate_can_check_user_permission_cross_user_requires_admin(
+    workspace_permission_setup,
+):
+    # A non-admin requester without workspace MANAGE in the resource's workspace
+    # cannot check another user's permissions. ``alice`` holds USE in team-a (not
+    # MANAGE), so the workspace-admin gate fails even though the resource lives
+    # in alice's workspace.
+    store = workspace_permission_setup["store"]
+    requester = workspace_permission_setup["username"]
+    target = "bob"
+    store.create_user(target, "supersecurepassword", is_admin=False)
+    _set_workspace_permission(store, requester, USE.name)
+
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/auth/check",
+        method="POST",
+        json={
+            "username": target,
+            "resource_type": "experiment",
+            "resource_id": "exp-1",
+        },
+    ):
+        assert not auth_module.validate_can_check_user_permission()
+
+
+def test_validate_can_check_user_permission_wp_admin_scoped_to_resource_workspace(
+    workspace_permission_setup,
+):
+    # A workspace admin in team-a can check another user's permissions on resources
+    # in team-a. The scoping is by **resource workspace** (not by target-user
+    # presence), so the target need not have a role in team-a for the gate to allow.
+    store = workspace_permission_setup["store"]
+    requester = workspace_permission_setup["username"]
+    _set_workspace_permission(store, requester, MANAGE.name)
+
+    target = "bob"
+    store.create_user(target, "supersecurepassword", is_admin=False)
+
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/auth/check",
+        method="POST",
+        json={
+            "username": target,
+            "resource_type": "experiment",
+            "resource_id": "exp-1",
+        },
+    ):
+        assert auth_module.validate_can_check_user_permission()
+
+
+def test_validate_can_check_user_permission_cross_workspace_probe_denied(
+    workspace_permission_setup,
+):
+    # Security gate: a workspace admin of team-a must NOT be able to probe a
+    # target user's permissions on a resource in team-b. Closes the
+    # cross-workspace information-disclosure gap.
+    store = workspace_permission_setup["store"]
+    requester = workspace_permission_setup["username"]
+    _set_workspace_permission(store, requester, MANAGE.name)
+
+    target = "bob"
+    store.create_user(target, "supersecurepassword", is_admin=False)
+    auth_module._get_tracking_store()._experiment_workspaces["exp-team-b"] = "team-b"
+
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/auth/check",
+        method="POST",
+        json={
+            "username": target,
+            "resource_type": "experiment",
+            "resource_id": "exp-team-b",
+        },
+    ):
+        assert not auth_module.validate_can_check_user_permission()
+
+
+def test_validate_can_check_user_permission_unknown_resource_denied(
+    workspace_permission_setup,
+):
+    # If the resource can't be resolved to a workspace (e.g. it doesn't exist),
+    # the gate must deny — otherwise a caller could probe across all workspaces
+    # by using a non-existent ID.
+    store = workspace_permission_setup["store"]
+    requester = workspace_permission_setup["username"]
+    _set_workspace_permission(store, requester, MANAGE.name)
+
+    target = "bob"
+    store.create_user(target, "supersecurepassword", is_admin=False)
+
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/auth/check",
+        method="POST",
+        json={
+            "username": target,
+            "resource_type": "experiment",
+            "resource_id": "exp-does-not-exist",
+        },
+    ):
+        assert not auth_module.validate_can_check_user_permission()
