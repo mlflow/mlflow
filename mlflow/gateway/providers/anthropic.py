@@ -16,6 +16,7 @@ from mlflow.gateway.providers.base import (
     _client_provides_auth,
 )
 from mlflow.gateway.providers.utils import (
+    proxy_root_url,
     rename_payload_keys,
     send_proxy_request,
     send_request,
@@ -730,7 +731,9 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
         payload: dict[str, Any],
         headers: dict[str, str] | None = None,
     ) -> dict[str, Any] | AsyncIterable[Any]:
-        gen = send_proxy_request(self._get_headers(payload, headers), self.base_url, path, payload)
+        gen = send_proxy_request(
+            self._get_headers(payload, headers), proxy_root_url(self.base_url), path, payload
+        )
         meta = await gen.__anext__()
         if meta["is_streaming"]:
             return gen

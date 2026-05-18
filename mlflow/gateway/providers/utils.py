@@ -2,6 +2,7 @@ import time
 from contextlib import asynccontextmanager
 from contextvars import ContextVar
 from typing import Any, AsyncGenerator
+from urllib.parse import urlparse, urlunparse
 
 from mlflow.gateway.constants import (
     MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS,
@@ -113,6 +114,27 @@ async def send_stream_request(
 
         async for line in response.content:
             yield line
+
+
+def proxy_root_url(base_url: str) -> str:
+    """Return the root URL for raw proxy calls by stripping the last path segment.
+
+    Provider base URLs typically include a versioned path suffix (e.g. ``/v1``).
+    Raw proxy callers pass the full API path (e.g. ``v1/messages``), so appending
+    that to the base URL would produce a double-versioned URL like
+    ``https://api.anthropic.com/v1/v1/messages``.  Stripping the last segment
+    returns the true API root (``https://api.anthropic.com``) so the caller's
+    path is appended correctly.
+
+    Examples:
+        https://api.anthropic.com/v1      → https://api.anthropic.com
+        https://api.openai.com/v1         → https://api.openai.com
+        https://api.groq.com/openai/v1    → https://api.groq.com/openai
+    """
+    parsed = urlparse(base_url)
+    path = parsed.path.rstrip("/")
+    new_path = path.rsplit("/", 1)[0] if "/" in path.lstrip("/") else ""
+    return urlunparse(parsed._replace(path=new_path))
 
 
 _STREAMING_CONTENT_TYPES = frozenset({"text/event-stream", "application/x-ndjson"})

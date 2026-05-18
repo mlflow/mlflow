@@ -1079,7 +1079,7 @@ async def test_proxy_anthropic_non_streaming():
             "max_tokens": 1024,
         }
         response = await provider.proxy(
-            path="messages",
+            path="v1/messages",
             payload=payload,
             headers={"X-Request-ID": "req-001", "host": "ignored"},
         )
@@ -1117,7 +1117,7 @@ async def test_proxy_anthropic_streaming():
             "max_tokens": 1024,
             "stream": True,
         }
-        response = await provider.proxy(path="messages", payload=payload)
+        response = await provider.proxy(path="v1/messages", payload=payload)
         chunks = [chunk async for chunk in response]
 
     assert len(chunks) == 7
@@ -1141,7 +1141,7 @@ async def test_proxy_anthropic_streaming_detected_from_content_type():
             "max_tokens": 1024,
             # no "stream" flag
         }
-        response = await provider.proxy(path="messages", payload=payload)
+        response = await provider.proxy(path="v1/messages", payload=payload)
         chunks = [chunk async for chunk in response]
 
     assert len(chunks) == 7

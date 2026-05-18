@@ -1414,7 +1414,7 @@ async def test_proxy_non_streaming():
 
     with mock.patch("aiohttp.ClientSession", return_value=mock_client):
         result = await provider.proxy(
-            path="chat/completions",
+            path="v1/chat/completions",
             payload={"messages": [{"role": "user", "content": "Hello"}]},
         )
 
@@ -1441,7 +1441,7 @@ async def test_proxy_streaming():
 
     with mock.patch("aiohttp.ClientSession", return_value=mock_client):
         result = await provider.proxy(
-            path="chat/completions",
+            path="v1/chat/completions",
             payload={"messages": [{"role": "user", "content": "Hello"}], "stream": True},
         )
         collected = [chunk async for chunk in result]
