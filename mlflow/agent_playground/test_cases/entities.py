@@ -1,20 +1,37 @@
 """Schema entities for the agent_playground test-case slice.
 
-Pydantic models for everything in the data plane: the row shape stored in
-the regression dataset, the persona profile handed to
-``mlflow.genai.simulators.ConversationSimulator``, the verdict shape the
-runner emits, the job-status response shape the UI polls, and the
-feedback assessment anchor the prompt builder reads.
+Pydantic models for the data plane: the per-row ``expectations``
+discriminated union, the persona that lives on ``inputs.persona`` of a
+row, the verdict shape the runner emits, the dedup-verdict shape the
+test-gen worker hands the coder, and the feedback-anchor the prompt
+builders read.
 
 Every other module in this slice imports types from here. Nothing in
 this module imports from MLflow beyond ``pydantic``; entities are
 deliberately I/O-free.
+
+Shape decisions (see ``mlflow/internal:docs/projects/agent-playground/
+test-case-slice-design.md``):
+
+- ``expectations`` is a discriminated union on ``kind`` per Yuki L521,
+  not a flat-with-Nones blob containing a strategy + payloads.
+- The fixed prompt template for the judge strategy lives in the
+  judge-strategy evaluator (stack 9), not on the row.
+- ``PersonaSpec`` lives on ``inputs.persona`` of the row, sibling of
+  ``inputs.messages``, matching ``ConversationSimulator``'s
+  ``_EXPECTED_TEST_CASE_KEYS`` shape (Yuki L527).
+- Job lifecycle reuses ``mlflow.entities._job_status.JobStatus`` and
+  ``mlflow.server.job_api.Job`` (Yuki L443); the test-gen failure
+  taxonomy lives in ``JobEntity.status_details["failure_kind"]``,
+  not in a wrapper pydantic type.
+- ``AssistantMessageAnchor`` carries a ``kind`` discriminator (Yuki
+  L318) so the alias ``TraceAnchor`` can widen to additional variants
+  (tool_call, span_latency, ...) without an entity break.
 """
 
 from __future__ import annotations
 
-from enum import Enum
-from typing import Any, Literal
+from typing import Annotated, Any, Literal, TypeAlias
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -33,12 +50,13 @@ _SIMULATOR_RESERVED_CONTEXT_KEYS = frozenset({"input", "messages", "mlflow_sessi
 
 
 class AssistantMessageAnchor(BaseModel):
-    """Logical anchor for a piece of feedback against an assistant message.
+    """Substring inside an assistant message that anchors a feedback.
 
-    Stored JSON-stringified inside an MLflow ``Assessment``'s
-    ``metadata.anchor`` field. Matches the shape written by the
-    playground feedback widget (prototype reference:
-    ``feedback.tsx::AssistantMessageAnchor``).
+    The v1 ``TraceAnchor`` variant. Stored JSON-stringified inside an
+    MLflow ``Assessment``'s ``metadata.anchor`` field. Future variants
+    (tool_call, span_latency, ...) can ship under the same ``kind``
+    discriminator without breaking the entity contract; v1 ships only
+    this one.
 
     Character offsets are into the assistant message text, not DOM
     offsets, so the anchor survives re-renders. ``prefix`` and ``suffix``
@@ -46,6 +64,7 @@ class AssistantMessageAnchor(BaseModel):
     range if the rendered text shifts.
     """
 
+    kind: Literal["assistant_message"] = "assistant_message"
     message_id: str
     trace_id: str | None = None
     start: int
@@ -68,49 +87,96 @@ class AssistantMessageAnchor(BaseModel):
         return self
 
 
+# Widened to a union when additional variants ship (tool_call anchor,
+# span_latency anchor, ...). v1 ships only the assistant-message
+# variant so the alias collapses to a single type.
+TraceAnchor: TypeAlias = AssistantMessageAnchor
+
+
 # ---------------------------------------------------------------------------
-# Test strategy specs
+# Expectations (discriminated union on ``kind``; per-row evaluation data)
 # ---------------------------------------------------------------------------
 
 
-class AssertionSpec(BaseModel):
-    """Deterministic check spec for the ``assertion`` test strategy."""
+class AssertionExpectations(BaseModel):
+    """Deterministic substring + tool-call clauses for the assertion strategy.
 
+    Stored as the ``expectations`` field on a test-case row. The
+    ``kind`` discriminator is what the runner dispatches on.
+
+    All four lists reject empty / whitespace-only items: an empty
+    ``must_contain`` needle is a vacuous pass (``"" in any_str`` is
+    always true), and an empty ``must_not_contain`` needle is a
+    guaranteed fail. Catching at the entity layer prevents malformed
+    LLM-generated specs from running as no-op checks.
+    """
+
+    kind: Literal["assertion"] = "assertion"
     must_contain: list[str] = Field(default_factory=list)
     must_not_contain: list[str] = Field(default_factory=list)
     must_call_tool: list[str] = Field(default_factory=list)
     must_not_call_tool: list[str] = Field(default_factory=list)
 
+    @model_validator(mode="after")
+    def _reject_blank_clauses(self) -> AssertionExpectations:
+        for field_name, values in (
+            ("must_contain", self.must_contain),
+            ("must_not_contain", self.must_not_contain),
+            ("must_call_tool", self.must_call_tool),
+            ("must_not_call_tool", self.must_not_call_tool),
+        ):
+            for value in values:
+                if not value.strip():
+                    raise ValueError(
+                        f"AssertionExpectations.{field_name} entries must be non-empty "
+                        f"and non-whitespace, got {value!r}"
+                    )
+        return self
 
-class JudgeSpec(BaseModel):
-    """LLM-judge spec for the ``judge`` test strategy.
 
-    The judge LLM is the connected coding agent (via ``CoderAdapter``)
-    by default. ``expected_response`` is optional reference output the
-    judge can use as a comparator when scoring.
+class JudgeExpectations(BaseModel):
+    """LLM-judge criterion plus optional reference, for the judge strategy.
+
+    Stored as the ``expectations`` field on a test-case row. The
+    per-row ``criteria`` string is the parameter substituted into the
+    fixed judge prompt template; that template lives in the
+    judge-strategy evaluator (stack 9), mirroring how ``Correctness``
+    keeps ``CORRECTNESS_PROMPT_INSTRUCTIONS`` outside ``expectations``.
+    ``expected_response`` is optional reference output the judge can
+    use as a comparator.
     """
 
+    kind: Literal["judge"] = "judge"
     criteria: str
     expected_response: str | None = None
 
 
+Expectations: TypeAlias = Annotated[
+    AssertionExpectations | JudgeExpectations,
+    Field(discriminator="kind"),
+]
+
+
 # ---------------------------------------------------------------------------
-# Persona (multi-turn simulator input)
+# Persona (simulator input; lives on ``inputs.persona`` of the row)
 # ---------------------------------------------------------------------------
 
 
 class PersonaSpec(BaseModel):
-    """Strict subset of ``ConversationSimulator``'s test case dict.
+    """Strict subset of ``ConversationSimulator``'s test-case dict.
 
-    The runner hands ``PersonaSpec.model_dump(exclude_none=True)``
-    straight to ``ConversationSimulator(test_cases=[...])`` without
-    translation. Field naming matches the simulator's
-    ``_EXPECTED_TEST_CASE_KEYS`` (see
-    ``mlflow/genai/simulators/simulator.py``).
+    Stored on ``inputs.persona`` of the test-case row (sibling of
+    ``inputs.messages``), matching the simulator's own
+    ``_EXPECTED_TEST_CASE_KEYS`` shape at
+    ``mlflow/genai/simulators/simulator.py:52``. The runner hands
+    ``PersonaSpec.model_dump(exclude_none=True)`` straight to
+    ``ConversationSimulator(test_cases=[...])`` without translation.
 
-    The simulator's ``expectations`` field is deliberately skipped to
-    avoid a name collision with the row-level ``expectations`` column on
-    ``EvaluationDataset``, which stores the parent ``TestSpec``.
+    The simulator's own ``expectations`` field is deliberately not
+    represented here because the row-level ``expectations``
+    discriminated union (``AssertionExpectations`` /
+    ``JudgeExpectations``) serves the same scoring-data role for our
+    runner.
     """
 
     goal: str
@@ -131,56 +197,7 @@ class PersonaSpec(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Top-level test spec
-# ---------------------------------------------------------------------------
-
-
-TestStrategy = Literal["assertion", "judge"]
-
-
-class TestSpec(BaseModel):
-    """The contents of a regression test case.
-
-    Stored inside the ``expectations`` column of the
-    ``regression_suite_<exp_id>`` ``EvaluationDataset``. The runner
-    reads this to know how to drive a test (single-turn vs multi-turn
-    via persona) and how to score the result (assertion vs judge).
-
-    ``max_turns`` overrides the simulator-level default per case.
-    Persona-less test cases run single-turn (no simulator).
-    """
-
-    # The class name starts with "Test", which makes pytest try to
-    # collect it as a test class. This flag tells pytest to skip it.
-    __test__ = False
-
-    strategy: TestStrategy
-    rationale_summary: str
-    max_turns: int = 5
-    assertion: AssertionSpec | None = None
-    judge: JudgeSpec | None = None
-    persona: PersonaSpec | None = None
-
-    @model_validator(mode="after")
-    def _strategy_matches_payload(self) -> TestSpec:
-        match self.strategy:
-            case "assertion":
-                if self.assertion is None:
-                    raise ValueError("strategy='assertion' requires an assertion payload")
-                if self.judge is not None:
-                    raise ValueError("strategy='assertion' must not carry a judge payload")
-            case "judge":
-                if self.judge is None:
-                    raise ValueError("strategy='judge' requires a judge payload")
-                if self.assertion is not None:
-                    raise ValueError("strategy='judge' must not carry an assertion payload")
-            case _:
-                raise ValueError(f"Unknown strategy: {self.strategy!r}")
-        return self
-
-
-# ---------------------------------------------------------------------------
-# Runner outputs
+# Runner output
 # ---------------------------------------------------------------------------
 
 
@@ -190,10 +207,9 @@ VerdictOutcome = Literal["pass", "fail", "error"]
 class Verdict(BaseModel):
     """Outcome of a single test-case run.
 
-    Emitted per case by the runner; aggregated into a ``RunSummary`` for
-    the parent batch. ``outcome`` is one of:
+    Emitted per case by the runner. ``outcome`` is one of:
 
-    - ``"pass"``: every assertion/judge check held.
+    - ``"pass"``: every assertion / judge check held.
     - ``"fail"``: the agent responded but at least one check failed.
       ``reasons`` carries the failed-clause descriptions.
     - ``"error"``: execution itself failed (agent crash, timeout,
@@ -220,79 +236,6 @@ class Verdict(BaseModel):
         return self
 
 
-class RunSummary(BaseModel):
-    """Aggregate summary of a batch test-suite run.
-
-    Persisted as an MLflow ``Run`` artifact alongside the run's standard
-    fields. The parent ``Run`` is tagged with the existing
-    ``MLFLOW_RUN_TYPE`` tag (value ``agent_playground_regression``).
-    """
-
-    run_id: str
-    pass_count: int
-    fail_count: int
-    error_count: int = 0
-    duration_ms: int
-
-
-# ---------------------------------------------------------------------------
-# Async test-gen job (server-side)
-# ---------------------------------------------------------------------------
-
-
-class JobStatus(str, Enum):
-    """Lifecycle states for a test-gen job."""
-
-    PENDING = "pending"
-    RUNNING = "running"
-    SUCCEEDED = "succeeded"
-    FAILED = "failed"
-    CANCELLED = "cancelled"
-
-
-JobFailureKind = Literal[
-    "timeout",
-    "missing_binary",
-    "not_ready",
-    "schema_validation",
-    "other",
-]
-
-
-class JobResponse(BaseModel):
-    """Shape returned by ``POST /test-cases/jobs`` and the poll endpoint.
-
-    On the trigger call, ``status`` is ``pending`` and ``test_case_id``
-    is absent. On a successful poll, ``status`` is ``succeeded`` and
-    ``test_case_id`` is the persisted row id (``deduped=True`` indicates
-    the new feedback was attached to an existing case rather than
-    creating a new row). On failure, ``status`` is ``failed`` and the
-    ``failure_kind`` discriminator plus ``failure_reason`` message
-    describe the cause for the UI to surface.
-    """
-
-    job_id: str
-    status: JobStatus
-    test_case_id: str | None = None
-    deduped: bool = False
-    failure_reason: str | None = None
-    failure_kind: JobFailureKind | None = None
-
-    @model_validator(mode="after")
-    def _failure_fields_match_status(self) -> JobResponse:
-        if self.status == JobStatus.FAILED:
-            if self.failure_kind is None:
-                raise ValueError("status=FAILED requires failure_kind to be set")
-            if self.failure_reason is None:
-                raise ValueError("status=FAILED requires failure_reason to be set")
-        else:
-            if self.failure_kind is not None:
-                raise ValueError(f"status={self.status.value!r} must not carry failure_kind")
-            if self.failure_reason is not None:
-                raise ValueError(f"status={self.status.value!r} must not carry failure_reason")
-        return self
-
-
 # ---------------------------------------------------------------------------
 # Coder-mediated dedup
 # ---------------------------------------------------------------------------
@@ -301,12 +244,14 @@ class JobResponse(BaseModel):
 class DedupVerdict(BaseModel):
     """Output of the coder-mediated semantic dedup pass.
 
-    Returned by ``CoderAdapter.run_task`` when the test-gen worker hands
-    it the new test case plus existing rationale summaries. The worker
-    consults this only after the hard-match check (``dedup.py``) returns
-    ``Unique``. On ``is_duplicate=True``, the worker appends the new
-    feedback's id to the existing case's ``source_feedback_ids`` tag
-    instead of inserting a new row.
+    Returned by ``CoderAdapter.run_task(prompt,
+    output_schema=DedupVerdict)`` when the test-gen worker hands the
+    connected coding agent the new test case's rationale summary plus
+    the existing rationale summaries in the experiment. The worker
+    consults this only after the hard-match pre-filter (``dedup.py``)
+    returns ``HardMatchUnique``. On ``is_duplicate=True`` the worker
+    appends the new feedback's id to the existing case's
+    ``source_feedback_ids`` instead of inserting a new row.
     """
 
     is_duplicate: bool
@@ -323,17 +268,13 @@ class DedupVerdict(BaseModel):
 
 
 __all__ = [
-    "AssertionSpec",
+    "AssertionExpectations",
     "AssistantMessageAnchor",
     "DedupVerdict",
-    "JobFailureKind",
-    "JobResponse",
-    "JobStatus",
-    "JudgeSpec",
+    "Expectations",
+    "JudgeExpectations",
     "PersonaSpec",
-    "RunSummary",
-    "TestSpec",
-    "TestStrategy",
+    "TraceAnchor",
     "Verdict",
     "VerdictOutcome",
 ]
