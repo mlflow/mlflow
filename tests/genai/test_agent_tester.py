@@ -458,6 +458,10 @@ def test_test_agent_uses_default_model(mock_llm):
 
     with (
         mock.patch(
+            # Patching the definition site works here because `test_agent` imports
+            # `get_default_simulation_model` via a local `from ... import` inside the
+            # function body, so the name is re-bound from the (already-patched) module
+            # object each time `test_agent` is called.
             "mlflow.genai.simulators.utils.get_default_simulation_model",
             return_value=_MODEL,
         ) as mock_get_model,
