@@ -1,8 +1,8 @@
-import type { DirectPermission, Role, RolePermission, User } from '../account/types';
+import type { Role, RolePermission, User, UserRolePermissionRow } from '../account/types';
 
 // Re-export identity primitives + helpers from account/ so admin pages can
 // keep importing them via ``./types``. The canonical home is account/.
-export type { DirectPermission, Role, RolePermission, User };
+export type { Role, RolePermission, User, UserRolePermissionRow };
 export {
   ALL_RESOURCE_PATTERN,
   ALL_RESOURCE_PATTERN_LABEL,
