@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779099220360,
+  "lastUpdate": 1779099776577,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -3455,6 +3455,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 7.728155800000991,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "82044803+serena-ruan@users.noreply.github.com",
+            "name": "Serena Ruan",
+            "username": "serena-ruan"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4c8c9d9e0831bba77f98ae59cc7aad9cc4da6695",
+          "message": "Add `mlflow.genai.test_agent` for automated agent stress-testing (#22990)\n\nSigned-off-by: Serena Ruan <serena.rxy@gmail.com>\nCo-authored-by: Claude <noreply@anthropic.com>",
+          "timestamp": "2026-05-18T10:19:23Z",
+          "tree_id": "57ddd4ccf89de08fb5c2710512ee1089ea0002d5",
+          "url": "https://github.com/mlflow/mlflow/commit/4c8c9d9e0831bba77f98ae59cc7aad9cc4da6695"
+        },
+        "date": 1779099775879,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 43.163319300001035,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 22.513079583333706,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 22.23261198461553,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 22.133996596493898,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 21.56179468333524,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 7.220578799990562,
             "unit": "ms"
           }
         ]
