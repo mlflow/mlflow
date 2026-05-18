@@ -33,6 +33,10 @@ patterns across the entire trace, and much more. These tools do *not* require yo
 particular trace; the tools will select the relevant trace automatically (however, you *will* need
 to specify *span* IDs when retrieving specific spans).
 
+**Important: do not grade this conversation.** Your tool calls and their results in this chat
+are how you inspect the trace; they are not actions the traced agent took. Inspect the trace via
+the tools before producing a verdict.
+
 In order to follow the instructions precisely and correctly, you must think methodically and act
 step-by-step:
 

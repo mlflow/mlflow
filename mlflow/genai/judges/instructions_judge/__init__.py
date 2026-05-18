@@ -432,11 +432,18 @@ class InstructionsJudge(Judge):
 
         # Some model providers (like Anthropic) require a user message
         # (i.e. a single-message chat history with role 'system' is not supported),
-        # *and* they require the message to have non-empty content (empty string is not allowed)
+        # *and* they require the message to have non-empty content (empty string is not allowed).
+        # The fallback fires when there are no fields to substitute (template uses only
+        # {{ trace }}, or we fell back to agentic mode); it must steer the LLM to the tools
+        # so it doesn't self-grade this chat.
         return (
             "\n".join(user_message_parts)
             if user_message_parts
-            else "Follow the instructions from the first message"
+            else (
+                "Use the tools to inspect the trace and return the JSON rating per the system "
+                "message. This message and your tool calls in this chat are not the input or "
+                "response being judged. The trace lives only behind the tools."
+            )
         )
 
     def _build_template_values(
@@ -576,9 +583,11 @@ class InstructionsJudge(Judge):
                     missing_fields.append("inputs")
                 if missing_outputs:
                     missing_fields.append("outputs")
-                _logger.info(
-                    "Could not extract %s from the trace root span. "
-                    "Falling back to trace-based judge mode.",
+                _logger.warning(
+                    "Could not extract %s from the trace root span. Falling back to "
+                    "trace-based (agentic) judge mode; verdict quality may differ. If "
+                    "inputs/outputs live in OTel events (e.g. gen_ai.user.message, "
+                    "gen_ai.choice), use span attributes to avoid falling back.",
                     " and ".join(missing_fields),
                 )
 
