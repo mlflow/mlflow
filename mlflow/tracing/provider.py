@@ -351,16 +351,12 @@ def detach_span_from_context(token: contextvars.Token):
     Args:
         token: The token returned by `_set_span_to_active` function.
     """
-    try:
-        if MLFLOW_USE_DEFAULT_TRACER_PROVIDER.get():
-            mlflow_runtime_context.detach(token)
-        else:
-            context_api.detach(token)
-    except ValueError as e:
-        # Only suppress cross-context detachment errors (token from different context)
-        # Other ValueErrors indicate invalid token usage and should be logged
-        if "different Context" not in str(e):
-            _logger.warning("Failed to detach span from context: %s", e)
+    # OpenTelemetry's context_api.detach() already catches Exception internally
+    # and only logs, so we don't need additional error handling here
+    if MLFLOW_USE_DEFAULT_TRACER_PROVIDER.get():
+        mlflow_runtime_context.detach(token)
+    else:
+        context_api.detach(token)
 
 
 def set_destination(destination: TraceLocationBase, *, context_local: bool = False):

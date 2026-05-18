@@ -105,7 +105,7 @@ def _get_tool_manager_class_path() -> str:
 
             return "pydantic_ai._tool_manager.ToolManager"
         except ImportError:
-            return "pydantic_ai._tool_manager.ToolManager"
+            return None
 
 
 @autologging_integration(FLAVOR_NAME)
@@ -136,14 +136,19 @@ def autolog(log_traces: bool = True, disable: bool = False, silent: bool = False
             "request",
             "request_stream",
         ],
-        # In pydantic-ai >= 1.63.0, _agent_graph calls execute_tool_call directly,
-        # bypassing handle_call. Patch execute_tool_call when available; fall back to
-        # handle_call for older versions where execute_tool_call doesn't exist.
-        _get_tool_manager_class_path(): ["execute_tool_call"]
-        if _tool_manager_uses_execute_tool_call()
-        else ["handle_call"],
         "pydantic_ai.mcp.MCPServer": ["call_tool", "list_tools"],
     }
+
+    # In pydantic-ai >= 1.63.0, _agent_graph calls execute_tool_call directly,
+    # bypassing handle_call. Patch execute_tool_call when available; fall back to
+    # handle_call for older versions where execute_tool_call doesn't exist.
+    tool_manager_path = _get_tool_manager_class_path()
+    if tool_manager_path is not None:
+        class_map[tool_manager_path] = (
+            ["execute_tool_call"]
+            if _tool_manager_uses_execute_tool_call()
+            else ["handle_call"]
+        )
 
     try:
         from pydantic_ai import Tool
@@ -161,15 +166,15 @@ def autolog(log_traces: bool = True, disable: bool = False, silent: bool = False
 
         if hasattr(Agent, "instrument_all"):
             if log_traces:
-                # Capture the current instrumentation state before enabling
-                previous_state = getattr(Agent, "_instrument_all", False)
+                # Capture the current instrumentation default before enabling
+                previous_state = getattr(Agent, "_instrument_default", False)
                 Agent.instrument_all(True)
 
                 from mlflow.utils.autologging_utils.safety import _AUTOLOGGING_CLEANUP_CALLBACKS
 
                 def cleanup_instrumentation():
                     # Restore the previous state instead of always disabling
-                    Agent.instrument_all(previous_state)
+                    Agent._instrument_default = previous_state
 
                 _AUTOLOGGING_CLEANUP_CALLBACKS.setdefault(FLAVOR_NAME, []).append(
                     cleanup_instrumentation
