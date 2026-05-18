@@ -311,6 +311,54 @@ class Verdict(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Persisted row view (canonical read + write shape for the store layer)
+# ---------------------------------------------------------------------------
+
+
+class TestCaseRow(BaseModel):
+    """Server-internal denormalized view of a single test-case row.
+
+    Returned by :func:`mlflow.agent_playground.test_cases.store.list_cases`
+    / :func:`get_case` and accepted by :func:`insert_case`. The store
+    layer maps this back and forth from the underlying
+    ``EvaluationDataset`` row shape:
+
+    - ``inputs.persona`` <-> :attr:`persona`
+    - ``inputs.messages`` <-> :attr:`conversation_messages`
+    - ``expectations`` <-> :attr:`expectations` (discriminated union)
+    - ``tags.rationale_summary`` <-> :attr:`rationale_summary`
+    - ``tags.max_turns`` <-> :attr:`max_turns`
+    - ``tags.source_feedback_ids`` <-> :attr:`source_feedback_ids`
+      (comma-joined on the wire, attach-order list in memory)
+    - ``tags.source_trace_id`` <-> :attr:`source_trace_id`
+    - ``tags.source_assistant_message_id`` <-> :attr:`source_assistant_message_id`
+    - ``tags.promoted`` <-> :attr:`promoted`
+
+    The UI talks to the underlying ``DatasetRecord`` directly on the
+    wire; this is a server-internal convenience for the store layer
+    and its callers (runner, CRUD router, test-gen worker).
+
+    ``__test__ = False`` prevents pytest from collecting this as a
+    test class (its name starts with ``Test``).
+    """
+
+    __test__ = False
+
+    model_config = _STRICT_MODEL_CONFIG
+
+    test_case_id: str = Field(min_length=1)
+    expectations: Expectations
+    rationale_summary: str = Field(min_length=1)
+    persona: PersonaSpec | None = None
+    conversation_messages: list[dict[str, Any]] = Field(default_factory=list)
+    max_turns: int = Field(default=5, ge=1)
+    source_feedback_ids: list[str] = Field(default_factory=list)
+    source_trace_id: str | None = None
+    source_assistant_message_id: str | None = None
+    promoted: bool = False
+
+
+# ---------------------------------------------------------------------------
 # Coder-mediated dedup
 # ---------------------------------------------------------------------------
 
@@ -350,6 +398,7 @@ __all__ = [
     "Expectations",
     "JudgeExpectations",
     "PersonaSpec",
+    "TestCaseRow",
     "TraceAnchor",
     "Verdict",
     "VerdictOutcome",
