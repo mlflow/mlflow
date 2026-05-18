@@ -13,6 +13,17 @@ LIST_CURRENT_USER_PERMISSIONS = _get_rest_path("/mlflow/users/current/permission
 AJAX_LIST_CURRENT_USER_PERMISSIONS = _get_ajax_path("/mlflow/users/current/permissions", version=3)
 LIST_USER_PERMISSIONS = _get_rest_path("/mlflow/users/permissions/list", version=3)
 AJAX_LIST_USER_PERMISSIONS = _get_ajax_path("/mlflow/users/permissions/list", version=3)
+# Unified per-user grant convenience APIs. ``grant`` / ``revoke`` write to the
+# user's synthetic ``__user_<id>__`` role in the active workspace; ``check``
+# resolves the user's effective permission on the resource the same way the
+# runtime authorization check does, so callers see exactly what a real request
+# would see.
+GRANT_USER_PERMISSION = _get_rest_path("/mlflow/users/permissions/grant", version=3)
+AJAX_GRANT_USER_PERMISSION = _get_ajax_path("/mlflow/users/permissions/grant", version=3)
+REVOKE_USER_PERMISSION = _get_rest_path("/mlflow/users/permissions/revoke", version=3)
+AJAX_REVOKE_USER_PERMISSION = _get_ajax_path("/mlflow/users/permissions/revoke", version=3)
+GET_USER_PERMISSION = _get_rest_path("/mlflow/users/permissions/get", version=3)
+AJAX_GET_USER_PERMISSION = _get_ajax_path("/mlflow/users/permissions/get", version=3)
 UPDATE_USER_PASSWORD = _get_rest_path("/mlflow/users/update-password")
 AJAX_UPDATE_USER_PASSWORD = _get_ajax_path("/mlflow/users/update-password")
 UPDATE_USER_ADMIN = _get_rest_path("/mlflow/users/update-admin")
