@@ -475,7 +475,9 @@ def test_get_user_permission_self_check(client, monkeypatch):
     with User(username, password, monkeypatch):
         result = client.get_user_permission(username, "experiment", exp_id)
 
-    # READ.can_use is False — ``allowed`` mirrors ``can_use``.
+    # ``allowed`` mirrors ``Permission.can_use``. READ is defined with
+    # ``can_use=False`` in ``mlflow.server.auth.permissions`` (see ``READ =``),
+    # so a READ grant resolves to ``allowed=False``.
     assert result.permission == "READ"
     assert result.allowed is False
 
