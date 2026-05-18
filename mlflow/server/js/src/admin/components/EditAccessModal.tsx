@@ -24,6 +24,7 @@ import {
   useUsersQuery,
 } from '../hooks';
 import { AccountQueryKeys } from '../../account/hooks';
+import { isSyntheticUserRole } from '../../account/types';
 import { useActiveWorkspace } from '../../workspaces/utils/WorkspaceUtils';
 import { RoleAssignmentForm, ROLE_ASSIGNMENT_DEFAULT, type RoleAssignmentValue } from './RoleAssignmentForm';
 import { type DirectGrantResourceType } from './DirectPermissionForm';
@@ -39,11 +40,6 @@ export interface EditAccessModalProps {
 
 const directPermKey = (p: { resourceType: string; resourceId: string; permission: string }) =>
   `${p.resourceType}::${p.resourceId}::${p.permission}`;
-
-// Synthetic per-user role created by the auth backend's ``grant_user_permission``
-// API. Permissions on this role are surfaced as "Direct permissions" in the UI;
-// permissions on every other role belong to the Roles tab.
-const SYNTHETIC_USER_ROLE_NAME_RE = /^__user_\d+__$/;
 
 const isDirectGrantResourceType = (rt: string): rt is DirectGrantResourceType =>
   rt === 'experiment' ||
@@ -95,7 +91,7 @@ export const EditAccessModal = ({ open, onClose, username, onCreateRoleForAllOfT
         // permission across every role the user holds. Direct grants live on
         // the synthetic ``__user_<id>__`` role; filter to just those for the
         // "Direct permissions" view (custom roles are shown in the Roles tab).
-        .filter((p) => SYNTHETIC_USER_ROLE_NAME_RE.test(p.role_name))
+        .filter((p) => isSyntheticUserRole(p.role_name))
         .filter((p) => isDirectGrantResourceType(p.resource_type))
         .map((p) => ({
           resourceType: p.resource_type as DirectGrantResourceType,

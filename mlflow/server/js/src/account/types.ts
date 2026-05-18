@@ -58,6 +58,16 @@ export interface UserRolePermissionRow {
   permission: string;
 }
 
+/**
+ * Synthetic per-user role created by the auth backend's ``grant_user_permission``
+ * API. Rows on this role surface as "Direct permissions" in the UI; rows on
+ * every other role belong to the Roles view.
+ */
+export const SYNTHETIC_USER_ROLE_NAME_RE = /^__user_\d+__$/;
+
+export const isSyntheticUserRole = (roleName: string): boolean =>
+  SYNTHETIC_USER_ROLE_NAME_RE.test(roleName);
+
 export interface ListMyPermissionsResponse {
   is_admin: boolean;
   permissions: UserRolePermissionRow[];
