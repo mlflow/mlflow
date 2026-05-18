@@ -6,10 +6,10 @@ queue based approach.
 import atexit
 import logging
 import threading
-from concurrent.futures import ThreadPoolExecutor
 from queue import Empty, Queue
 from typing import TYPE_CHECKING, Callable, Union
 
+from mlflow.utils.async_logging.daemon_thread_pool import DaemonThreadPool
 from mlflow.utils.async_logging.run_artifact import RunArtifact
 from mlflow.utils.async_logging.run_operations import RunOperations
 
@@ -17,6 +17,12 @@ if TYPE_CHECKING:
     import PIL.Image
 
 _logger = logging.getLogger(__name__)
+
+# Maximum seconds to spend in `_at_exit_callback`. Workers are daemon threads,
+# so any work still in flight after this window is abandoned with the
+# interpreter; this bound keeps the atexit hook from blocking exit if a queue
+# was never drained explicitly.
+_AT_EXIT_TIMEOUT_SECONDS = 30
 
 
 class AsyncArtifactsLoggingQueue:
@@ -44,16 +50,19 @@ class AsyncArtifactsLoggingQueue:
     def _at_exit_callback(self) -> None:
         """Callback function to be executed when the program is exiting.
 
-        Stops the data processing thread and waits for the queue to be drained. Finally, shuts down
-        the thread pools used for data logging and artifact processing status check.
+        Stops the data processing thread and waits for the queue to be drained, bounded by
+        `_AT_EXIT_TIMEOUT_SECONDS`. Worker threads are daemons, so any work still in flight
+        after the bound is abandoned with the interpreter rather than blocking exit.
         """
         try:
-            # Stop the data processing thread
             self._stop_data_logging_thread_event.set()
-            # Waits till logging queue is drained.
-            self._artifact_logging_thread.join()
-            self._artifact_logging_worker_threadpool.shutdown(wait=True)
-            self._artifact_status_check_threadpool.shutdown(wait=True)
+            self._artifact_logging_thread.join(timeout=_AT_EXIT_TIMEOUT_SECONDS)
+            self._artifact_logging_worker_threadpool.shutdown(
+                wait=True, timeout=_AT_EXIT_TIMEOUT_SECONDS
+            )
+            self._artifact_status_check_threadpool.shutdown(
+                wait=True, timeout=_AT_EXIT_TIMEOUT_SECONDS
+            )
         except Exception as e:
             _logger.error(f"Encountered error while trying to finish logging: {e}")
 
@@ -227,12 +236,12 @@ class AsyncArtifactsLoggingQueue:
                 name="MLflowAsyncArtifactsLoggingLoop",
                 daemon=True,
             )
-            self._artifact_logging_worker_threadpool = ThreadPoolExecutor(
+            self._artifact_logging_worker_threadpool = DaemonThreadPool(
                 max_workers=5,
                 thread_name_prefix="MLflowArtifactsLoggingWorkerPool",
             )
 
-            self._artifact_status_check_threadpool = ThreadPoolExecutor(
+            self._artifact_status_check_threadpool = DaemonThreadPool(
                 max_workers=5,
                 thread_name_prefix="MLflowAsyncArtifactsLoggingStatusCheck",
             )
