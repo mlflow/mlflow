@@ -90,6 +90,43 @@ def test_chat_request():
         chat.RequestPayload(**{})
 
 
+def test_chat_request_preserves_nested_array_items():
+    # Regression test for https://github.com/mlflow/mlflow/issues/23040.
+    # Nested array schemas (e.g. list[list[str]]) must round-trip through the
+    # request model without losing the inner `items` field; otherwise the
+    # gateway forwards a malformed schema and providers reject it with
+    # `array schema missing items`.
+    nested_items = {
+        "type": "array",
+        "items": {"type": "string"},
+    }
+    payload = chat.RequestPayload(**{
+        "messages": [{"role": "user", "content": "hi"}],
+        "tools": [
+            {
+                "type": "function",
+                "function": {
+                    "name": "send",
+                    "description": "Send a message.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "buttons": {
+                                "type": "array",
+                                "items": nested_items,
+                            },
+                        },
+                    },
+                },
+            }
+        ],
+    })
+
+    dumped = payload.model_dump(exclude_none=True)
+    inner = dumped["tools"][0]["function"]["parameters"]["properties"]["buttons"]["items"]
+    assert inner == nested_items
+
+
 def test_chat_response():
     chat.ResponsePayload(**{
         "created": 100,

@@ -39,7 +39,7 @@ jobs:
       matrix:
         # 22.22.2 has a regression where `npm install -g` fails
         # See: https://github.com/nodejs/node/issues/62425
-        node-version: [20, 22.22.1, 24]
+        node-version: [22.22.1, 24]
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -55,8 +55,6 @@ jobs:
         uses: ./.github/actions/setup-node
         with:
           node-version: ${{ matrix.node-version }}
-          cache: npm
-          cache-dependency-path: libs/typescript/package-lock.json
 
       - name: Install dependencies
         run: npm ci

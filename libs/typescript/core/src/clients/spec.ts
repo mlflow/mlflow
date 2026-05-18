@@ -56,6 +56,19 @@ export namespace CreateExperiment {
   }
 }
 
+/** Get Experiment By Name */
+export namespace GetExperimentByName {
+  export const getEndpoint = (host: string, experimentName: string) =>
+    `${host}/api/2.0/mlflow/experiments/get-by-name?experiment_name=${encodeURIComponent(experimentName)}`;
+
+  export interface Response {
+    experiment?: {
+      experiment_id: string;
+      name: string;
+    };
+  }
+}
+
 /** Delete Experiment (used for testing) */
 export namespace DeleteExperiment {
   export const getEndpoint = (host: string) => `${host}/api/2.0/mlflow/experiments/delete`;

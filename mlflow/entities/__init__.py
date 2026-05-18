@@ -53,6 +53,7 @@ from mlflow.entities.gateway_secrets import GatewaySecretInfo
 from mlflow.entities.input_tag import InputTag
 from mlflow.entities.issue import Issue, IssueSeverity, IssueStatus
 from mlflow.entities.lifecycle_stage import LifecycleStage
+from mlflow.entities.link import Link
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.logged_model_input import LoggedModelInput
 from mlflow.entities.logged_model_output import LoggedModelOutput
@@ -95,7 +96,7 @@ from mlflow.entities.webhook import (
     WebhookStatus,
     WebhookTestResult,
 )
-from mlflow.entities.workspace import Workspace, WorkspaceDeletionMode
+from mlflow.entities.workspace import TraceArchivalConfig, Workspace, WorkspaceDeletionMode
 
 __all__ = [
     "Experiment",
@@ -121,6 +122,7 @@ __all__ = [
     "DatasetInput",
     "RunInputs",
     "RunOutputs",
+    "Link",
     "Span",
     "LiveSpan",
     "NoOpSpan",
@@ -184,6 +186,7 @@ __all__ = [
     "WebhookEvent",
     "WebhookStatus",
     "WebhookTestResult",
+    "TraceArchivalConfig",
     "Workspace",
     "WorkspaceDeletionMode",
     "GatewayGuardrail",

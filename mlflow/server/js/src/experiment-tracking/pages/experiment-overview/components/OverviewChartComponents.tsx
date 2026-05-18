@@ -336,7 +336,8 @@ export function ScrollableTooltip({
 }: ScrollableTooltipProps) {
   const { theme } = useDesignSystemTheme();
   const navigate = useNavigate();
-  const { hideTooltipLinks, tooltipLinkUrlBuilder, tooltipLinkText } = useContext(OverviewChartContext) ?? {};
+  const { hideTooltipLinks, tooltipLinkUrlBuilder, tooltipLinkText, tracesNavigationFilters } =
+    useContext(OverviewChartContext) ?? {};
 
   if (!active || !payload?.length) {
     return null;
@@ -363,6 +364,7 @@ export function ScrollableTooltip({
             linkConfig.experimentId ?? '',
             dataPoint.timestampMs ?? 0,
             linkConfig.timeIntervalSeconds ?? 0,
+            tracesNavigationFilters,
           );
       navigate(url);
     }

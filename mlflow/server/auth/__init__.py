@@ -55,7 +55,6 @@ from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
     INTERNAL_ERROR,
     INVALID_PARAMETER_VALUE,
-    RESOURCE_ALREADY_EXISTS,
     RESOURCE_DOES_NOT_EXIST,
     ErrorCode,
 )
@@ -700,6 +699,36 @@ def _role_permission_for(
     return _role_perm
 
 
+def _role_permission_for_known_workspace(
+    username: str,
+    resource_type: str,
+    resource_key: str,
+    workspace_name: str | None,
+) -> Callable[[], Permission | None]:
+    """Like ``_role_permission_for`` but with workspace already resolved.
+
+    Avoids the ``workspace_fetcher`` DB round-trip when the caller already
+    holds the resource object (e.g. ``_get_permission_from_registered_model_or_prompt_name``).
+    """
+
+    def _role_perm() -> Permission | None:
+        if workspace_name is None:
+            return NO_PERMISSIONS if MLFLOW_ENABLE_WORKSPACES.get() else None
+        user = store.get_user(username)
+        perm = store.get_role_permission_for_resource(
+            user.id, resource_type, resource_key, workspace_name
+        )
+        if perm is not None:
+            return perm
+        if not MLFLOW_ENABLE_WORKSPACES.get():
+            return None
+        if _user_inherits_default_workspace_grant(workspace_name):
+            return get_permission(auth_config.default_permission)
+        return NO_PERMISSIONS
+
+    return _role_perm
+
+
 def _get_experiment_permission(experiment_id: str, username: str) -> Permission:
     return _get_role_permission_or_default(
         _role_permission_for(
@@ -844,6 +873,48 @@ def _get_permission_from_registered_model_name() -> Permission:
             workspace_fetcher=_get_model_registry_store().get_registered_model,
             workspace_label="registered model",
         ),
+    )
+
+
+def _get_permission_from_prompt_name() -> Permission:
+    # Grant lookup is namespaced under ``"prompt"`` so a registered_model grant
+    # on the same name does not satisfy a prompt request, and vice versa.
+    # Workspace resolution reuses the registry's ``get_registered_model``
+    # (returns both shapes).
+    name = _get_request_param("name")
+    username = authenticate_request().username
+    return _get_role_permission_or_default(
+        _role_permission_for(
+            username=username,
+            resource_type="prompt",
+            resource_key=name,
+            workspace_lookup_id=name,
+            workspace_fetcher=_get_model_registry_store().get_registered_model,
+            workspace_label="prompt",
+        ),
+    )
+
+
+def _get_permission_from_registered_model_or_prompt_name() -> Permission:
+    """Resolve permission for a shared model-registry route in a single DB round-trip.
+
+    Fetches the ``RegisteredModel`` once, classifies it as prompt or model via
+    ``._is_prompt()``, and resolves the workspace from the same object — avoiding
+    the separate classify fetch that ``_request_targets_prompt`` would add.
+    """
+    name = _get_request_param("name")
+    username = authenticate_request().username
+    workspace_name = None
+    resource_type = "registered_model"
+    try:
+        rm = _get_model_registry_store().get_registered_model(name)
+        resource_type = "prompt" if rm._is_prompt() else "registered_model"
+        workspace_name = getattr(rm, "workspace", None)
+    except MlflowException as e:
+        if e.error_code != ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+            raise
+    return _get_role_permission_or_default(
+        _role_permission_for_known_workspace(username, resource_type, name, workspace_name)
     )
 
 
@@ -1022,6 +1093,61 @@ def validate_can_delete_registered_model():
 
 def validate_can_manage_registered_model():
     return _get_permission_from_registered_model_name().can_manage
+
+
+# Prompts
+def validate_can_read_prompt():
+    return _get_permission_from_prompt_name().can_read
+
+
+def validate_can_update_prompt():
+    return _get_permission_from_prompt_name().can_update
+
+
+def validate_can_delete_prompt():
+    return _get_permission_from_prompt_name().can_delete
+
+
+def validate_can_manage_prompt():
+    return _get_permission_from_prompt_name().can_manage
+
+
+def _request_targets_prompt() -> bool:
+    """Classify a shared registered-model request as targeting a prompt.
+
+    Reads the ``mlflow.prompt.is_prompt`` tag from the **persisted** entity, not
+    the request body — trusting the body would let a caller with
+    ``(prompt, foo, MANAGE)`` spoof the tag on a non-CREATE registered-model
+    route and escalate. Missing names and ``RESOURCE_DOES_NOT_EXIST`` fall
+    through to the registered-model path; other errors propagate so a broken
+    registry doesn't silently flip the auth namespace.
+    """
+    name = _request_params().get("name")
+    if not name:
+        return False
+    try:
+        rm = _get_model_registry_store().get_registered_model(name)
+    except MlflowException as e:
+        if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+            return False
+        raise
+    return rm._is_prompt()
+
+
+def _validate_can_read_registered_model_or_prompt():
+    return _get_permission_from_registered_model_or_prompt_name().can_read
+
+
+def _validate_can_update_registered_model_or_prompt():
+    return _get_permission_from_registered_model_or_prompt_name().can_update
+
+
+def _validate_can_delete_registered_model_or_prompt():
+    return _get_permission_from_registered_model_or_prompt_name().can_delete
+
+
+def _validate_can_manage_registered_model_or_prompt():
+    return _get_permission_from_registered_model_or_prompt_name().can_manage
 
 
 def validate_can_create_experiment() -> bool:
@@ -1838,26 +1964,27 @@ BEFORE_REQUEST_HANDLERS = {
     LogParam: validate_can_update_run,
     GetMetricHistory: validate_can_read_run,
     ListArtifacts: validate_can_read_run,
-    # Routes for model registry
+    # Routes for model registry (shared with prompts — dispatch via
+    # `_get_permission_from_registered_model_or_prompt_name`).
     CreateRegisteredModel: validate_can_create_registered_model,
-    GetRegisteredModel: validate_can_read_registered_model,
-    DeleteRegisteredModel: validate_can_delete_registered_model,
-    UpdateRegisteredModel: validate_can_update_registered_model,
-    RenameRegisteredModel: validate_can_update_registered_model,
-    GetLatestVersions: validate_can_read_registered_model,
-    CreateModelVersion: validate_can_update_registered_model,
-    GetModelVersion: validate_can_read_registered_model,
-    DeleteModelVersion: validate_can_delete_registered_model,
-    UpdateModelVersion: validate_can_update_registered_model,
-    TransitionModelVersionStage: validate_can_update_registered_model,
-    GetModelVersionDownloadUri: validate_can_read_registered_model,
-    SetRegisteredModelTag: validate_can_update_registered_model,
-    DeleteRegisteredModelTag: validate_can_update_registered_model,
-    SetModelVersionTag: validate_can_update_registered_model,
-    DeleteModelVersionTag: validate_can_delete_registered_model,
-    SetRegisteredModelAlias: validate_can_update_registered_model,
-    DeleteRegisteredModelAlias: validate_can_delete_registered_model,
-    GetModelVersionByAlias: validate_can_read_registered_model,
+    GetRegisteredModel: _validate_can_read_registered_model_or_prompt,
+    DeleteRegisteredModel: _validate_can_delete_registered_model_or_prompt,
+    UpdateRegisteredModel: _validate_can_update_registered_model_or_prompt,
+    RenameRegisteredModel: _validate_can_update_registered_model_or_prompt,
+    GetLatestVersions: _validate_can_read_registered_model_or_prompt,
+    CreateModelVersion: _validate_can_update_registered_model_or_prompt,
+    GetModelVersion: _validate_can_read_registered_model_or_prompt,
+    DeleteModelVersion: _validate_can_delete_registered_model_or_prompt,
+    UpdateModelVersion: _validate_can_update_registered_model_or_prompt,
+    TransitionModelVersionStage: _validate_can_update_registered_model_or_prompt,
+    GetModelVersionDownloadUri: _validate_can_read_registered_model_or_prompt,
+    SetRegisteredModelTag: _validate_can_update_registered_model_or_prompt,
+    DeleteRegisteredModelTag: _validate_can_update_registered_model_or_prompt,
+    SetModelVersionTag: _validate_can_update_registered_model_or_prompt,
+    DeleteModelVersionTag: _validate_can_delete_registered_model_or_prompt,
+    SetRegisteredModelAlias: _validate_can_update_registered_model_or_prompt,
+    DeleteRegisteredModelAlias: _validate_can_delete_registered_model_or_prompt,
+    GetModelVersionByAlias: _validate_can_read_registered_model_or_prompt,
     # Routes for scorers
     RegisterScorer: validate_can_update_experiment,
     ListScorers: validate_can_read_experiment,
@@ -2284,7 +2411,7 @@ def set_can_manage_experiment_permission(resp: Response):
     parse_dict(resp.json, response_message)
     experiment_id = response_message.experiment_id
     username = authenticate_request().username
-    store.create_experiment_permission(experiment_id, username, MANAGE.name)
+    store.grant_user_permission(username, "experiment", experiment_id, MANAGE.name)
 
 
 def set_can_manage_registered_model_permission(resp: Response):
@@ -2292,21 +2419,17 @@ def set_can_manage_registered_model_permission(resp: Response):
     parse_dict(resp.json, response_message)
     name = response_message.registered_model.name
     username = authenticate_request().username
-    store.create_registered_model_permission(name, username, MANAGE.name)
+    store.grant_user_permission(username, "registered_model", name, MANAGE.name)
 
 
 def delete_can_manage_registered_model_permission(resp: Response):
     """
-    Delete registered model permissions when the model is deleted.
-
-    We need to do this because the primary key of the registered model is the name,
-    unlike the experiment where the primary key is experiment_id (UUID). Therefore,
-    we have to delete existing permission records when the model is deleted; otherwise, they would
-    implicitly apply if a new model is later created with the same name.
+    Sweep registered-model grants when the model is deleted. The model's primary
+    key is its name (unlike experiments which use a UUID), so a future model
+    with the same name would otherwise inherit stale grants.
     """
-    # Get model name from request context because it's not available in the response
     name = request.get_json(force=True, silent=True)["name"]
-    store.delete_registered_model_permissions(name)
+    store.delete_grants_for_resource("registered_model", name, workspace_scoped=True)
 
 
 # ---- Role management handlers (RBAC) ----
@@ -2782,9 +2905,13 @@ def rename_registered_model_permission(resp: Response):
 
     Changing the model registry name must be propagated to all users.
     """
-    # get registry model name before update
     data = request.get_json(force=True, silent=True)
-    store.rename_registered_model_permissions(data.get("name"), data.get("new_name"))
+    store.rename_grants_for_resource(
+        "registered_model",
+        data.get("name"),
+        data.get("new_name"),
+        workspace_scoped=True,
+    )
 
 
 def set_can_manage_scorer_permission(resp: Response):
@@ -2793,13 +2920,10 @@ def set_can_manage_scorer_permission(resp: Response):
     experiment_id = response_message.experiment_id
     name = response_message.name
     username = authenticate_request().username
-    try:
-        store.create_scorer_permission(experiment_id, name, username, MANAGE.name)
-    except MlflowException as e:
-        if e.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS):
-            pass  # Permission already exists from a previous registration
-        else:
-            raise
+    # ``grant_user_permission`` is upsert, so re-registration is a no-op
+    # rather than an error — no try/except needed.
+    pattern = store._scorer_pattern(experiment_id, name)
+    store.grant_user_permission(username, "scorer", pattern, MANAGE.name)
 
 
 def delete_scorer_permissions_cascade(resp: Response):
@@ -2807,7 +2931,8 @@ def delete_scorer_permissions_cascade(resp: Response):
     experiment_id = data.get("experiment_id")
     name = data.get("name")
     if experiment_id and name:
-        store.delete_scorer_permissions_for_scorer(experiment_id, name)
+        pattern = store._scorer_pattern(experiment_id, name)
+        store.delete_grants_for_resource("scorer", pattern)
 
 
 def set_can_manage_gateway_secret_permission(resp: Response):
@@ -2815,13 +2940,13 @@ def set_can_manage_gateway_secret_permission(resp: Response):
     parse_dict(resp.json, response_message)
     secret_id = response_message.secret.secret_id
     username = authenticate_request().username
-    store.create_gateway_secret_permission(secret_id, username, MANAGE.name)
+    store.grant_user_permission(username, "gateway_secret", secret_id, MANAGE.name)
 
 
 def delete_gateway_secret_permissions_cascade(resp: Response):
     data = request.get_json(force=True, silent=True)
     if secret_id := data.get("secret_id"):
-        store.delete_gateway_secret_permissions_for_secret(secret_id)
+        store.delete_grants_for_resource("gateway_secret", secret_id)
 
 
 def set_can_manage_gateway_endpoint_permission(resp: Response):
@@ -2829,13 +2954,13 @@ def set_can_manage_gateway_endpoint_permission(resp: Response):
     parse_dict(resp.json, response_message)
     endpoint_id = response_message.endpoint.endpoint_id
     username = authenticate_request().username
-    store.create_gateway_endpoint_permission(endpoint_id, username, MANAGE.name)
+    store.grant_user_permission(username, "gateway_endpoint", endpoint_id, MANAGE.name)
 
 
 def delete_gateway_endpoint_permissions_cascade(resp: Response):
     data = request.get_json(force=True, silent=True)
     if endpoint_id := data.get("endpoint_id"):
-        store.delete_gateway_endpoint_permissions_for_endpoint(endpoint_id)
+        store.delete_grants_for_resource("gateway_endpoint", endpoint_id)
 
 
 def set_can_manage_gateway_model_definition_permission(resp: Response):
@@ -2843,13 +2968,15 @@ def set_can_manage_gateway_model_definition_permission(resp: Response):
     parse_dict(resp.json, response_message)
     model_definition_id = response_message.model_definition.model_definition_id
     username = authenticate_request().username
-    store.create_gateway_model_definition_permission(model_definition_id, username, MANAGE.name)
+    store.grant_user_permission(
+        username, "gateway_model_definition", model_definition_id, MANAGE.name
+    )
 
 
 def delete_gateway_model_definition_permissions_cascade(resp: Response):
     data = request.get_json(force=True, silent=True)
     if model_definition_id := data.get("model_definition_id"):
-        store.delete_gateway_model_definition_permissions_for_model_definition(model_definition_id)
+        store.delete_grants_for_resource("gateway_model_definition", model_definition_id)
 
 
 AFTER_REQUEST_PATH_HANDLERS = {
@@ -2942,6 +3069,21 @@ def create_admin_user(username, password):
                 # will succeed while the others will fail with an IntegrityError.
                 return
             raise
+
+
+# Must match the admin_password shipped in mlflow/server/auth/basic_auth.ini.
+_DEFAULT_ADMIN_PASSWORD = "password1234"
+
+
+def _warn_if_default_admin_password(password):
+    if password == _DEFAULT_ADMIN_PASSWORD:
+        _logger.warning(
+            "The MLflow basic auth admin account is using the default password shipped "
+            "in basic_auth.ini. Change it before exposing this server beyond localhost. "
+            "To override, set the MLFLOW_AUTH_CONFIG_PATH environment variable to point "
+            "to a custom basic_auth.ini with a non-default admin_password, or update the "
+            f"password via {UPDATE_USER_PASSWORD} after startup."
+        )
 
 
 def alert(href: str):
@@ -4099,8 +4241,12 @@ def create_app(app: Flask = app):
     csrf = CSRFProtect()
     csrf.init_app(app)
 
-    store.init_db(auth_config.database_uri)
+    store.init_db(
+        auth_config.database_uri,
+        read_db_uri=auth_config.read_database_uri,
+    )
     create_admin_user(auth_config.admin_username, auth_config.admin_password)
+    _warn_if_default_admin_password(auth_config.admin_password)
 
     _auth_initialized = True
 

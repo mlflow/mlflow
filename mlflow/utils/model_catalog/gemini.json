@@ -637,6 +637,9 @@
           },
           "image": {
             "input_per_million_tokens": 1.0
+          },
+          "video": {
+            "input_per_second": 3.3333333333333335e-5
           }
         }
       },
@@ -647,7 +650,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-05-11"
     },
     "gemini-3.1-pro-preview": {
       "mode": "chat",
@@ -770,7 +773,15 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.2,
-        "output_per_million_tokens": 0
+        "output_per_million_tokens": 0,
+        "modality": {
+          "audio": {
+            "input_per_second": 0.00016
+          },
+          "video": {
+            "input_per_second": 0.00079
+          }
+        }
       },
       "capabilities": {
         "function_calling": false,
@@ -779,7 +790,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-27"
+      "last_updated_at": "2026-05-11"
     },
     "gemini-embedding-2-preview": {
       "mode": "embedding",
@@ -789,7 +800,15 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.2,
-        "output_per_million_tokens": 0
+        "output_per_million_tokens": 0,
+        "modality": {
+          "audio": {
+            "input_per_second": 0.00016
+          },
+          "video": {
+            "input_per_second": 0.00079
+          }
+        }
       },
       "capabilities": {
         "function_calling": false,
@@ -798,7 +817,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-05-11"
     },
     "gemini-exp-1114": {
       "mode": "chat",
@@ -1043,7 +1062,15 @@
             "input_per_million_tokens": 0,
             "output_per_million_tokens": 0
           }
-        ]
+        ],
+        "modality": {
+          "audio": {
+            "input_per_second": 0
+          },
+          "video": {
+            "input_per_second": 0
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -1052,7 +1079,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-05-11"
     },
     "learnlm-1.5-pro-experimental": {
       "mode": "chat",
@@ -1070,7 +1097,15 @@
             "input_per_million_tokens": 0,
             "output_per_million_tokens": 0
           }
-        ]
+        ],
+        "modality": {
+          "audio": {
+            "input_per_second": 0
+          },
+          "video": {
+            "input_per_second": 0
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -1079,7 +1114,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-05-11"
     },
     "lyria-3-clip-preview": {
       "mode": "chat",

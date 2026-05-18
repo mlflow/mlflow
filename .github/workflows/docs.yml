@@ -8,6 +8,7 @@ on:
       - mlflow/**
       - docs/**
       - .github/workflows/docs.yml
+      - .github/actions/setup-node/**
     branches:
       - master
   pull_request:
@@ -21,6 +22,7 @@ on:
       - mlflow/**
       - docs/**
       - .github/workflows/docs.yml
+      - .github/actions/setup-node/**
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}

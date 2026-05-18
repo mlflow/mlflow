@@ -29,6 +29,7 @@ from mlflow.store.artifact.utils.models import _parse_model_uri
 from mlflow.store.db.utils import (
     _all_tables_exist,
     _get_managed_session_maker,
+    _get_routing_session_maker,
     _initialize_tables,
     create_sqlalchemy_engine_with_retry,
 )
@@ -123,7 +124,7 @@ class SqlAlchemyStore(AbstractStore):
                     cls._engine_map[db_uri] = create_sqlalchemy_engine_with_retry(db_uri)
         return cls._engine_map[db_uri]
 
-    def __init__(self, db_uri):
+    def __init__(self, db_uri, read_db_uri=None):
         """
         Create a database backed store.
 
@@ -133,6 +134,9 @@ class SqlAlchemyStore(AbstractStore):
                 <https://docs.sqlalchemy.org/en/latest/core/engines.html#database-urls>`_
                 for format specifications. MLflow supports the dialects ``mysql``,
                 ``mssql``, ``sqlite``, and ``postgresql``.
+            read_db_uri: Optional SQLAlchemy database URI for a read replica. When provided,
+                read operations are routed to this URI while write operations use ``db_uri``.
+                If not provided, all operations use ``db_uri``.
         """
         super().__init__()
         self.db_uri = db_uri
@@ -142,8 +146,25 @@ class SqlAlchemyStore(AbstractStore):
             _initialize_tables(self.engine)
         # Verify that all model registry tables exist.
         SqlAlchemyStore._verify_registry_tables_exist(self.engine)
-        SessionMaker = sqlalchemy.orm.sessionmaker(bind=self.engine)
-        self.ManagedSessionMaker = _get_managed_session_maker(SessionMaker, self.db_type)
+
+        # Set up read replica engine if provided
+        if read_db_uri and read_db_uri != db_uri:
+            self.read_engine = self._get_or_create_engine(read_db_uri)
+            WriteSessionMaker = sqlalchemy.orm.sessionmaker(bind=self.engine)
+            ReadSessionMaker = sqlalchemy.orm.sessionmaker(bind=self.read_engine)
+            self.ManagedSessionMaker = _get_routing_session_maker(
+                WriteSessionMaker, ReadSessionMaker, self.db_type
+            )
+        else:
+            if read_db_uri and read_db_uri == db_uri:
+                _logger.warning(
+                    "read_db_uri is the same as the primary db_uri; "
+                    "read replica routing will not be enabled. "
+                    "This is likely a configuration mistake."
+                )
+            self.read_engine = None
+            SessionMaker = sqlalchemy.orm.sessionmaker(bind=self.engine)
+            self.ManagedSessionMaker = _get_managed_session_maker(SessionMaker, self.db_type)
         # TODO: verify schema here once we add logic to initialize the registry tables if they
         # don't exist (schema verification will fail in tests otherwise)
         # mlflow.store.db.utils._verify_schema(self.engine)
@@ -374,7 +395,7 @@ class SqlAlchemyStore(AbstractStore):
         _validate_model_name(name)
         for tag in tags or []:
             _validate_registered_model_tag(tag.key, tag.value)
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             try:
                 creation_time = get_current_time_millis()
                 registered_model = self._with_workspace_field(
@@ -439,7 +460,7 @@ class SqlAlchemyStore(AbstractStore):
             A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
 
         """
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             sql_registered_model = self._get_registered_model(session, name)
             updated_time = get_current_time_millis()
             sql_registered_model.description = description
@@ -461,7 +482,7 @@ class SqlAlchemyStore(AbstractStore):
 
         """
         _validate_model_renaming(new_name)
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             sql_registered_model = self._get_registered_model(session, name)
             try:
                 updated_time = get_current_time_millis()
@@ -490,7 +511,7 @@ class SqlAlchemyStore(AbstractStore):
         Returns:
             None
         """
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             sql_registered_model = self._get_registered_model(session, name)
             session.delete(sql_registered_model)
 
@@ -923,7 +944,7 @@ class SqlAlchemyStore(AbstractStore):
         """
         _validate_model_name(name)
         _validate_registered_model_tag(tag.key, tag.value)
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             # check if registered model exists
             sql_registered_model = self._get_registered_model(session, name)
             session.merge(
@@ -948,7 +969,7 @@ class SqlAlchemyStore(AbstractStore):
         """
         _validate_model_name(name)
         _validate_tag_name(key)
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             # check if registered model exists
             self._get_registered_model(session, name)
             existing_tag = self._get_registered_model_tag(session, name, key)
@@ -1017,7 +1038,7 @@ class SqlAlchemyStore(AbstractStore):
             model = MlflowClient().get_logged_model(model_id)
             run_id = model.source_run_id
 
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             creation_time = get_current_time_millis()
             for attempt in range(self.CREATE_MODEL_VERSION_RETRIES):
                 try:
@@ -1158,7 +1179,7 @@ class SqlAlchemyStore(AbstractStore):
             A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
 
         """
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             updated_time = get_current_time_millis()
             sql_model_version = self._get_sql_model_version(session, name=name, version=version)
             sql_model_version.description = description
@@ -1193,7 +1214,7 @@ class SqlAlchemyStore(AbstractStore):
             )
             raise MlflowException(msg_tpl.format(stage, DEFAULT_STAGES_FOR_GET_LATEST_VERSIONS))
 
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             last_updated_time = get_current_time_millis()
 
             model_versions = []
@@ -1232,7 +1253,7 @@ class SqlAlchemyStore(AbstractStore):
             None
         """
         # currently delete model version still keeps the tags associated with the version
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             updated_time = get_current_time_millis()
             sql_model_version = self._get_sql_model_version(session, name, version)
             sql_registered_model = sql_model_version.registered_model
@@ -1439,7 +1460,7 @@ class SqlAlchemyStore(AbstractStore):
         _validate_model_name(name)
         _validate_model_version(version)
         _validate_model_version_tag(tag.key, tag.value)
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             # check if model version exists
             sql_model_version = self._get_sql_model_version(session, name, version)
             session.merge(
@@ -1467,7 +1488,7 @@ class SqlAlchemyStore(AbstractStore):
         _validate_model_name(name)
         _validate_model_version(version)
         _validate_tag_name(key)
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             # check if model version exists
             self._get_sql_model_version(session, name, version)
             existing_tag = self._get_model_version_tag(session, name, version, key)
@@ -1501,7 +1522,7 @@ class SqlAlchemyStore(AbstractStore):
         _validate_model_alias_name(alias)
         _validate_model_alias_name_reserved(alias)
         _validate_model_version(version)
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             # check if model version exists
             sql_model_version = self._get_sql_model_version(session, name, version)
             session.merge(
@@ -1526,7 +1547,7 @@ class SqlAlchemyStore(AbstractStore):
         """
         _validate_model_name(name)
         _validate_model_alias_name(alias)
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             # check if registered model exists
             self._get_registered_model(session, name)
             existing_alias = self._get_registered_model_alias(session, name, alias)
@@ -1591,7 +1612,7 @@ class SqlAlchemyStore(AbstractStore):
         _validate_webhook_url(url)
         _validate_webhook_events(events)
 
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             webhook_id = str(uuid.uuid4())
             creation_time = get_current_time_millis()
             webhook = self._with_workspace_field(
@@ -1708,7 +1729,7 @@ class SqlAlchemyStore(AbstractStore):
         secret: str | None = None,
         status: WebhookStatus | None = None,
     ) -> Webhook:
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             webhook = self._get_webhook_by_id(session, webhook_id)
 
             # Update fields if provided
@@ -1746,7 +1767,7 @@ class SqlAlchemyStore(AbstractStore):
             return webhook.to_mlflow_entity()
 
     def delete_webhook(self, webhook_id: str) -> None:
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             webhook = self._get_webhook_by_id(session, webhook_id)
 
             # Soft delete by setting deleted_timestamp
