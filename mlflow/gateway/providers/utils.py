@@ -169,9 +169,12 @@ async def send_proxy_request(
             except aiohttp.ClientResponseError as e:
                 try:
                     error_body = await response.json()
-                    detail = error_body.get("error", {}).get("message", e.message)
+                    detail = error_body.get("error", {}).get("message") or str(error_body)
                 except Exception:
-                    detail = e.message
+                    try:
+                        detail = await response.text()
+                    except Exception:
+                        detail = e.message
                 raise HTTPException(status_code=e.status, detail=detail)
 
             content_type = (response.headers or {}).get("Content-Type", "application/json")

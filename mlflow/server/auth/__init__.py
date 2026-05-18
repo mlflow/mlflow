@@ -3857,6 +3857,10 @@ def _extract_gateway_endpoint_name(path: str, body: dict[str, Any] | None) -> st
     if match := re.match(r"^/gateway/gemini/v1beta/models/([^/:]+):streamGenerateContent$", path):
         return match.group(1)
 
+    # Pattern 9: Raw proxy route (/gateway/proxy/{endpoint_name}/{path:path})
+    if match := re.match(r"^/gateway/proxy/([^/]+)/", path):
+        return match.group(1)
+
     return None
 
 

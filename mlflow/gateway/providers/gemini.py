@@ -11,7 +11,12 @@ from mlflow.gateway.providers.base import (
     ProviderAdapter,
     _client_provides_auth,
 )
-from mlflow.gateway.providers.utils import rename_payload_keys, send_request, send_stream_request
+from mlflow.gateway.providers.utils import (
+    rename_payload_keys,
+    send_proxy_request,
+    send_request,
+    send_stream_request,
+)
 from mlflow.gateway.schemas import (
     chat as chat_schema,
 )
@@ -658,6 +663,7 @@ class GeminiProvider(BaseProvider):
             client_headers = headers.copy()
             client_headers.pop("host", None)
             client_headers.pop("content-length", None)
+            print(f"client_headers: {client_headers}")
             if _client_provides_auth(headers):
                 # Preserve the client's own credentials for subscription-based tools
                 # (e.g. Claude Code, Codex, Gemini CLI) instead of using the server key.
@@ -867,6 +873,23 @@ class GeminiProvider(BaseProvider):
             pass
 
         return {}
+
+    async def _proxy(
+        self,
+        path: str,
+        payload: dict[str, Any],
+        headers: dict[str, str] | None = None,
+    ) -> dict[str, Any] | AsyncIterable[Any]:
+        # base_url includes /v1beta/models; the caller's path already starts with
+        # v1beta/models/..., so use the bare origin to avoid double-prefixing.
+        api_origin = "https://generativelanguage.googleapis.com"
+        gen = send_proxy_request(self._get_headers(None, headers), api_origin, path, payload)
+        meta = await gen.__anext__()
+        if meta["is_streaming"]:
+            return gen
+        body = await gen.__anext__()
+        await gen.aclose()
+        return body
 
     async def _passthrough(
         self,

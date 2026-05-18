@@ -1353,6 +1353,9 @@ async def raw_proxy(endpoint_name: str, path: str, request: Request):
     workspace = get_request_workspace()
     _validate_store(store)
     headers = dict(request.headers)
+    # Preserve upstream query parameters (e.g. Gemini's ?alt=sse for SSE streaming).
+    if qs := request.url.query:
+        path = f"{path}?{qs}"
     # The proxy route is type-agnostic; EndpointType is only used to satisfy
     # EndpointConfig construction and has no effect on proxy behavior (the proxy
     # bypasses typed routing entirely). LLM_V1_CHAT is used as the default since
