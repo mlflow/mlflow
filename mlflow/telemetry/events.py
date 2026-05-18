@@ -838,3 +838,41 @@ class UpdateIssueEvent(Event):
     @classmethod
     def parse_result(cls, result: Any) -> dict[str, Any]:
         return {"source_run_id": result.source_run_id} if result else {}
+
+
+# Agent Playground events. Names follow the ``<feature>_<verb>_<object>``
+# pattern established by the ``gateway_*`` events above so dashboards
+# can filter by the feature prefix. Decoration call sites land in later
+# stacks; these are bare classes for now.
+
+
+class AgentPlaygroundAddTestCaseEvent(Event):
+    name: str = "agent_playground_add_test_case"
+
+
+class AgentPlaygroundUpdateTestCaseEvent(Event):
+    name: str = "agent_playground_update_test_case"
+
+
+class AgentPlaygroundDeleteTestCaseEvent(Event):
+    name: str = "agent_playground_delete_test_case"
+
+
+class AgentPlaygroundStartTestRunEvent(Event):
+    name: str = "agent_playground_start_test_run"
+
+
+class AgentPlaygroundCompleteTestRunEvent(Event):
+    name: str = "agent_playground_complete_test_run"
+
+
+class AgentPlaygroundSubmitTestGenJobEvent(Event):
+    name: str = "agent_playground_submit_test_gen_job"
+
+
+class AgentPlaygroundCompleteTestGenJobEvent(Event):
+    name: str = "agent_playground_complete_test_gen_job"
+
+
+class AgentPlaygroundBuildPromptFromFeedbackEvent(Event):
+    name: str = "agent_playground_build_prompt_from_feedback"

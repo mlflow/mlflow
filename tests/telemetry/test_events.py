@@ -15,6 +15,14 @@ from mlflow.entities.issue import Issue, IssueSeverity, IssueStatus
 from mlflow.genai.discovery.entities import DiscoverIssuesResult
 from mlflow.prompt.constants import IS_PROMPT_TAG_KEY
 from mlflow.telemetry.events import (
+    AgentPlaygroundAddTestCaseEvent,
+    AgentPlaygroundBuildPromptFromFeedbackEvent,
+    AgentPlaygroundCompleteTestGenJobEvent,
+    AgentPlaygroundCompleteTestRunEvent,
+    AgentPlaygroundDeleteTestCaseEvent,
+    AgentPlaygroundStartTestRunEvent,
+    AgentPlaygroundSubmitTestGenJobEvent,
+    AgentPlaygroundUpdateTestCaseEvent,
     AiCommandRunEvent,
     AlignJudgeEvent,
     CreateDatasetEvent,
@@ -154,6 +162,17 @@ def test_event_name():
     assert GatewayUpdateGuardrailEvent.name == "gateway_update_guardrail"
     assert GatewayDeleteGuardrailEvent.name == "gateway_delete_guardrail"
     assert GatewayCreateModelDefinitionEvent.name == "gateway_create_model_definition"
+    assert AgentPlaygroundAddTestCaseEvent.name == "agent_playground_add_test_case"
+    assert AgentPlaygroundUpdateTestCaseEvent.name == "agent_playground_update_test_case"
+    assert AgentPlaygroundDeleteTestCaseEvent.name == "agent_playground_delete_test_case"
+    assert AgentPlaygroundStartTestRunEvent.name == "agent_playground_start_test_run"
+    assert AgentPlaygroundCompleteTestRunEvent.name == "agent_playground_complete_test_run"
+    assert AgentPlaygroundSubmitTestGenJobEvent.name == "agent_playground_submit_test_gen_job"
+    assert AgentPlaygroundCompleteTestGenJobEvent.name == "agent_playground_complete_test_gen_job"
+    assert (
+        AgentPlaygroundBuildPromptFromFeedbackEvent.name
+        == "agent_playground_build_prompt_from_feedback"
+    )
 
 
 def test_start_trace_parse_format_native():

@@ -13,27 +13,32 @@ deliberately I/O-free.
 Shape decisions (see ``mlflow/internal:docs/projects/agent-playground/
 test-case-slice-design.md``):
 
-- ``expectations`` is a discriminated union on ``kind`` per Yuki L521,
-  not a flat-with-Nones blob containing a strategy + payloads.
+- ``expectations`` is a discriminated union on ``kind`` per the
+  "Expectations shape" section of the design doc, not a flat-with-Nones
+  blob containing a strategy + payloads.
 - The fixed prompt template for the judge strategy lives in the
-  judge-strategy evaluator (stack 9), not on the row.
+  judge-strategy evaluator (stack 9), not on the row. The per-row
+  field is ``instructions``, matching ``mlflow.genai.judges.make_judge``.
 - ``PersonaSpec`` lives on ``inputs.persona`` of the row, sibling of
   ``inputs.messages``, matching ``ConversationSimulator``'s
-  ``_EXPECTED_TEST_CASE_KEYS`` shape (Yuki L527).
+  ``_EXPECTED_TEST_CASE_KEYS`` shape.
 - Job lifecycle reuses ``mlflow.entities._job_status.JobStatus`` and
-  ``mlflow.server.job_api.Job`` (Yuki L443); the test-gen failure
-  taxonomy lives in ``JobEntity.status_details["failure_kind"]``,
-  not in a wrapper pydantic type.
-- ``AssistantMessageAnchor`` carries a ``kind`` discriminator (Yuki
-  L318) so the alias ``TraceAnchor`` can widen to additional variants
-  (tool_call, span_latency, ...) without an entity break.
+  ``mlflow.server.job_api.Job``; the test-gen failure taxonomy lives
+  in ``JobEntity.status_details["failure_kind"]``, not in a wrapper
+  pydantic type.
+- ``AssistantMessageAnchor`` carries a ``kind`` discriminator so the
+  alias ``TraceAnchor`` can widen to additional variants (tool_call,
+  span_latency, ...) without an entity break.
+- All models set ``extra="forbid"`` and ``frozen=True`` so typo'd
+  fields fail loudly (catches malformed LLM-generated specs) and
+  post-construction mutation can't bypass cross-field invariants.
 """
 
 from __future__ import annotations
 
 from typing import Annotated, Any, Literal, TypeAlias
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 # Keys reserved by ``ConversationSimulator`` for injecting conversation
 # history and session id. Mirrors ``_RESERVED_CONTEXT_KEYS`` in
@@ -42,6 +47,8 @@ from pydantic import BaseModel, Field, model_validator
 # runtime. We duplicate rather than import to keep ``entities.py``
 # free of ``mlflow.*`` imports beyond ``pydantic``.
 _SIMULATOR_RESERVED_CONTEXT_KEYS = frozenset({"input", "messages", "mlflow_session_id"})
+
+_STRICT_MODEL_CONFIG = ConfigDict(extra="forbid", frozen=True)
 
 
 # ---------------------------------------------------------------------------
@@ -58,14 +65,19 @@ class AssistantMessageAnchor(BaseModel):
     discriminator without breaking the entity contract; v1 ships only
     this one.
 
-    Character offsets are into the assistant message text, not DOM
-    offsets, so the anchor survives re-renders. ``prefix`` and ``suffix``
+    ``start`` / ``end`` are Python code-point offsets into the
+    assistant message text, not DOM offsets or UTF-16 code units, so
+    the anchor survives re-renders. Callers serializing offsets from a
+    UI selection range (which is UTF-16-based in DOM APIs) must
+    normalize before constructing the anchor. ``prefix`` and ``suffix``
     are a few characters around the selection used to re-resolve the
     range if the rendered text shifts.
     """
 
+    model_config = _STRICT_MODEL_CONFIG
+
     kind: Literal["assistant_message"] = "assistant_message"
-    message_id: str
+    message_id: str = Field(min_length=1)
     trace_id: str | None = None
     start: int
     end: int
@@ -89,13 +101,25 @@ class AssistantMessageAnchor(BaseModel):
 
 # Widened to a union when additional variants ship (tool_call anchor,
 # span_latency anchor, ...). v1 ships only the assistant-message
-# variant so the alias collapses to a single type.
+# variant so the alias collapses to a single type. Consumers that
+# round-trip via ``TypeAdapter(TraceAnchor)`` must always include
+# ``kind`` in dict payloads so the v1->v2 widening is a no-op at the
+# wire level. ``AssistantMessageAnchor.model_dump()`` emits ``kind``
+# by default.
 TraceAnchor: TypeAlias = AssistantMessageAnchor
 
 
 # ---------------------------------------------------------------------------
 # Expectations (discriminated union on ``kind``; per-row evaluation data)
 # ---------------------------------------------------------------------------
+
+
+def _validate_non_empty_string_list(values: list[str], field_name: str) -> None:
+    for value in values:
+        if not value.strip():
+            raise ValueError(
+                f"{field_name} entries must be non-empty and non-whitespace, got {value!r}"
+            )
 
 
 class AssertionExpectations(BaseModel):
@@ -108,8 +132,13 @@ class AssertionExpectations(BaseModel):
     ``must_contain`` needle is a vacuous pass (``"" in any_str`` is
     always true), and an empty ``must_not_contain`` needle is a
     guaranteed fail. Catching at the entity layer prevents malformed
-    LLM-generated specs from running as no-op checks.
+    LLM-generated specs from running as no-op checks. Contradictory
+    pairs (the same string in ``must_contain`` and ``must_not_contain``,
+    or in ``must_call_tool`` and ``must_not_call_tool``) are likewise
+    rejected because they would guarantee failure on every run.
     """
+
+    model_config = _STRICT_MODEL_CONFIG
 
     kind: Literal["assertion"] = "assertion"
     must_contain: list[str] = Field(default_factory=list)
@@ -119,36 +148,57 @@ class AssertionExpectations(BaseModel):
 
     @model_validator(mode="after")
     def _reject_blank_clauses(self) -> AssertionExpectations:
-        for field_name, values in (
-            ("must_contain", self.must_contain),
-            ("must_not_contain", self.must_not_contain),
-            ("must_call_tool", self.must_call_tool),
-            ("must_not_call_tool", self.must_not_call_tool),
-        ):
-            for value in values:
-                if not value.strip():
-                    raise ValueError(
-                        f"AssertionExpectations.{field_name} entries must be non-empty "
-                        f"and non-whitespace, got {value!r}"
-                    )
+        _validate_non_empty_string_list(self.must_contain, "AssertionExpectations.must_contain")
+        _validate_non_empty_string_list(
+            self.must_not_contain, "AssertionExpectations.must_not_contain"
+        )
+        _validate_non_empty_string_list(self.must_call_tool, "AssertionExpectations.must_call_tool")
+        _validate_non_empty_string_list(
+            self.must_not_call_tool, "AssertionExpectations.must_not_call_tool"
+        )
+        return self
+
+    @model_validator(mode="after")
+    def _reject_contradictory_clauses(self) -> AssertionExpectations:
+        if contains_conflict := sorted(set(self.must_contain) & set(self.must_not_contain)):
+            raise ValueError(
+                "AssertionExpectations.must_contain and must_not_contain overlap on "
+                f"{contains_conflict}; every run would fail"
+            )
+        if tool_conflict := sorted(set(self.must_call_tool) & set(self.must_not_call_tool)):
+            raise ValueError(
+                "AssertionExpectations.must_call_tool and must_not_call_tool overlap on "
+                f"{tool_conflict}; every run would fail"
+            )
         return self
 
 
 class JudgeExpectations(BaseModel):
-    """LLM-judge criterion plus optional reference, for the judge strategy.
+    """LLM-judge instructions plus optional reference, for the judge strategy.
 
     Stored as the ``expectations`` field on a test-case row. The
-    per-row ``criteria`` string is the parameter substituted into the
-    fixed judge prompt template; that template lives in the
+    per-row ``instructions`` string is the parameter substituted into
+    the fixed judge prompt template; that template lives in the
     judge-strategy evaluator (stack 9), mirroring how ``Correctness``
     keeps ``CORRECTNESS_PROMPT_INSTRUCTIONS`` outside ``expectations``.
+    The field name ``instructions`` matches the existing public
+    ``mlflow.genai.judges.make_judge(instructions=...)`` API so the
+    same word carries the same meaning across the genai/judges surface.
     ``expected_response`` is optional reference output the judge can
     use as a comparator.
     """
 
+    model_config = _STRICT_MODEL_CONFIG
+
     kind: Literal["judge"] = "judge"
-    criteria: str
+    instructions: str = Field(min_length=1)
     expected_response: str | None = None
+
+    @model_validator(mode="after")
+    def _reject_blank_instructions(self) -> JudgeExpectations:
+        if not self.instructions.strip():
+            raise ValueError("JudgeExpectations.instructions must be non-whitespace")
+        return self
 
 
 Expectations: TypeAlias = Annotated[
@@ -170,7 +220,16 @@ class PersonaSpec(BaseModel):
     ``_EXPECTED_TEST_CASE_KEYS`` shape at
     ``mlflow/genai/simulators/simulator.py:52``. The runner hands
     ``PersonaSpec.model_dump(exclude_none=True)`` straight to
-    ``ConversationSimulator(test_cases=[...])`` without translation.
+    ``ConversationSimulator(test_cases=[...])`` after normalizing the
+    ``simulation_guidelines`` value to a ``list[str]``.
+
+    ``simulation_guidelines`` is stored as ``list[str]`` even though
+    the simulator also accepts a bare ``str``: list-shape gives the
+    UI a stable edit surface (per-guideline rows, drag-reorder) and
+    makes diffing across test-case edits trivial. The drift-guard
+    test pins the value-shape compatibility against the simulator's
+    declared parameter type so a future narrowing upstream surfaces in
+    CI.
 
     The simulator's own ``expectations`` field is deliberately not
     represented here because the row-level ``expectations``
@@ -179,10 +238,18 @@ class PersonaSpec(BaseModel):
     runner.
     """
 
-    goal: str
+    model_config = _STRICT_MODEL_CONFIG
+
+    goal: str = Field(min_length=1)
     persona: str | None = None
     simulation_guidelines: list[str] | None = None
     context: dict[str, Any] | None = None
+
+    @model_validator(mode="after")
+    def _reject_blank_goal(self) -> PersonaSpec:
+        if not self.goal.strip():
+            raise ValueError("PersonaSpec.goal must be non-whitespace")
+        return self
 
     @model_validator(mode="after")
     def _reject_simulator_reserved_context_keys(self) -> PersonaSpec:
@@ -209,30 +276,37 @@ class Verdict(BaseModel):
 
     Emitted per case by the runner. ``outcome`` is one of:
 
-    - ``"pass"``: every assertion / judge check held.
+    - ``"pass"``: every assertion / judge check held. ``reasons`` is
+      empty.
     - ``"fail"``: the agent responded but at least one check failed.
       ``reasons`` carries the failed-clause descriptions.
     - ``"error"``: execution itself failed (agent crash, timeout,
       exception in eval). ``reasons`` carries the error description.
 
-    ``reasons`` is empty when ``outcome == "pass"``.
-    ``judge_rationale`` is populated only for judge-strategy cases.
+    ``judge_rationale`` is populated by judge-strategy cases; the
+    entity layer does not enforce this because cross-strategy edge
+    cases (e.g. a hybrid evaluator) would surface as artificial
+    validation failures.
     ``trace_ids`` carries the per-turn agent traces emitted during the
     run, tagged with ``agent_playground.test_case_id`` and
     ``agent_playground.run_id`` so the UI can link verdicts to traces.
     """
 
-    test_case_id: str
+    model_config = _STRICT_MODEL_CONFIG
+
+    test_case_id: str = Field(min_length=1)
     outcome: VerdictOutcome
     reasons: tuple[str, ...] = ()
     judge_rationale: str | None = None
     trace_ids: tuple[str, ...] = ()
-    duration_ms: int | None = None
+    duration_ms: int | None = Field(default=None, ge=0)
 
     @model_validator(mode="after")
-    def _pass_has_no_reasons(self) -> Verdict:
+    def _validate_reasons_match_outcome(self) -> Verdict:
         if self.outcome == "pass" and self.reasons:
             raise ValueError("outcome='pass' must not carry reasons")
+        if self.outcome in ("fail", "error") and not self.reasons:
+            raise ValueError(f"outcome={self.outcome!r} must carry at least one reason")
         return self
 
 
@@ -254,9 +328,11 @@ class DedupVerdict(BaseModel):
     ``source_feedback_ids`` instead of inserting a new row.
     """
 
+    model_config = _STRICT_MODEL_CONFIG
+
     is_duplicate: bool
-    existing_test_case_id: str | None = None
-    reason: str
+    existing_test_case_id: str | None = Field(default=None, min_length=1)
+    reason: str = Field(min_length=1)
 
     @model_validator(mode="after")
     def _duplicate_requires_existing_id(self) -> DedupVerdict:
