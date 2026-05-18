@@ -2462,34 +2462,87 @@ def test_webhook_secret_encryption(store):
         assert raw_secret != "my_secret"  # Should be encrypted
 
 
+def _insert_logged_model(store, model_id, source_run_id, artifact_location="s3://bucket/artifacts"):
+    from mlflow.store.tracking.dbmodels.models import SqlExperiment, SqlLoggedModel
+
+    with store.ManagedSessionMaker(read_only=False) as session:
+        if not session.query(SqlExperiment).filter(SqlExperiment.experiment_id == 0).first():
+            session.add(
+                SqlExperiment(
+                    experiment_id=0,
+                    name="Default",
+                    artifact_location="/tmp/artifacts",
+                    lifecycle_stage="active",
+                )
+            )
+        session.add(
+            SqlLoggedModel(
+                model_id=model_id,
+                experiment_id=0,
+                name="test-model",
+                artifact_location=artifact_location,
+                creation_timestamp_ms=0,
+                last_updated_timestamp_ms=0,
+                status=1,
+                source_run_id=source_run_id,
+            )
+        )
+
+
 def test_create_model_version_with_model_id_and_no_run_id(store):
     name = "test_model_with_model_id"
     _rm_maker(store, name)
 
-    mock_run_id = "mock-run-id-123"
-    mock_logged_model = mock.MagicMock()
-    mock_logged_model.source_run_id = mock_run_id
+    run_id = "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4"
+    model_id = "test-model-id-456"
+    _insert_logged_model(store, model_id, run_id)
 
-    with mock.patch(
-        "mlflow.store.model_registry.sqlalchemy_store.MlflowClient"
-    ) as mock_client_class:
-        mock_client = mock.MagicMock()
-        mock_client_class.return_value = mock_client
-        mock_client.get_logged_model.return_value = mock_logged_model
+    mv = store.create_model_version(
+        name=name,
+        source="path/to/source",
+        run_id=None,
+        model_id=model_id,
+    )
 
-        mv = store.create_model_version(
+    assert mv.run_id == run_id
+
+    mvd = store.get_model_version(name=mv.name, version=mv.version)
+    assert mvd.run_id == run_id
+
+
+def test_create_model_version_with_models_uri_and_model_id(store):
+    name = "test_model_with_models_uri"
+    _rm_maker(store, name)
+
+    run_id = "b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5"
+    model_id = "m-abcdef1234567890abcdef1234567890"
+    artifact_location = "s3://bucket/artifacts/model"
+    _insert_logged_model(store, model_id, run_id, artifact_location)
+
+    mv = store.create_model_version(
+        name=name,
+        source=f"models:/{model_id}",
+        run_id=None,
+    )
+
+    assert mv.run_id == run_id
+    assert mv.source == f"models:/{model_id}"
+
+    mvd = store.get_model_version(name=mv.name, version=mv.version)
+    assert mvd.run_id == run_id
+
+
+def test_create_model_version_with_nonexistent_model_id(store):
+    name = "test_model_nonexistent"
+    _rm_maker(store, name)
+
+    with pytest.raises(MlflowException, match="Logged model with ID"):
+        store.create_model_version(
             name=name,
             source="path/to/source",
             run_id=None,
-            model_id="test-model-id-456",
+            model_id="nonexistent-model-id",
         )
-
-        mock_client.get_logged_model.assert_called_once_with("test-model-id-456")
-
-        assert mv.run_id == mock_run_id
-
-        mvd = store.get_model_version(name=mv.name, version=mv.version)
-        assert mvd.run_id == mock_run_id
 
 
 def test_create_model_version_concurrent(store):

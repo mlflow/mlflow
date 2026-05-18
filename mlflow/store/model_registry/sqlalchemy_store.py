@@ -8,6 +8,7 @@ import sqlalchemy
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.model_registry.model_version_stages import (
     ALL_STAGES,
     DEFAULT_STAGES_FOR_GET_LATEST_VERSIONS,
@@ -50,7 +51,7 @@ from mlflow.store.model_registry.dbmodels.models import (
     SqlWebhook,
     SqlWebhookEvent,
 )
-from mlflow.tracking.client import MlflowClient
+from mlflow.store.tracking.dbmodels.models import SqlLoggedModel
 from mlflow.utils.search_utils import SearchModelUtils, SearchModelVersionUtils, SearchUtils
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import extract_db_type_from_uri
@@ -1010,6 +1011,23 @@ class SqlAlchemyStore(AbstractStore):
 
         """
 
+        def get_logged_model(session, model_id):
+            logged_model = (
+                session
+                .query(SqlLoggedModel)
+                .filter(
+                    SqlLoggedModel.model_id == model_id,
+                    SqlLoggedModel.lifecycle_stage != LifecycleStage.DELETED,
+                )
+                .first()
+            )
+            if not logged_model:
+                raise MlflowException(
+                    f"Logged model with ID '{model_id}' not found.",
+                    RESOURCE_DOES_NOT_EXIST,
+                )
+            return logged_model.to_mlflow_entity()
+
         _validate_model_name(name)
         for tag in tags or []:
             _validate_model_version_tag(tag.key, tag.value)
@@ -1018,10 +1036,8 @@ class SqlAlchemyStore(AbstractStore):
             parsed_model_uri = _parse_model_uri(source)
             try:
                 if parsed_model_uri.model_id is not None:
-                    # TODO: Propagate tracking URI to file sqlalchemy directly, rather than relying
-                    # on global URI (individual MlflowClient instances may have different tracking
-                    # URIs)
-                    model = MlflowClient().get_logged_model(parsed_model_uri.model_id)
+                    with self.ManagedSessionMaker() as session:
+                        model = get_logged_model(session, parsed_model_uri.model_id)
                     storage_location = model.artifact_location
                     run_id = run_id or model.source_run_id
                 else:
@@ -1034,11 +1050,10 @@ class SqlAlchemyStore(AbstractStore):
                     f"Error: {e}"
                 ) from e
 
-        if not run_id and model_id:
-            model = MlflowClient().get_logged_model(model_id)
-            run_id = model.source_run_id
-
         with self.ManagedSessionMaker(read_only=False) as session:
+            if not run_id and model_id:
+                run_id = get_logged_model(session, model_id).source_run_id
+
             creation_time = get_current_time_millis()
             for attempt in range(self.CREATE_MODEL_VERSION_RETRIES):
                 try:
