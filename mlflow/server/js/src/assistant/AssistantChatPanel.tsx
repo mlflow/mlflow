@@ -16,7 +16,6 @@ import {
   SparkleDoubleIcon,
   SparkleIcon,
   StopIcon,
-  Tag,
   Tooltip,
   Typography,
   useDesignSystemTheme,
@@ -629,9 +628,6 @@ export const AssistantChatPanel = () => {
         >
           <SparkleDoubleIcon color="ai" css={{ fontSize: 20 }} />
           <FormattedMessage defaultMessage="MLflow Assistant" description="Title for the global Assistant chat panel" />
-          <Tag componentId="mlflow.assistant.chat_panel.beta" color="turquoise">
-            Beta
-          </Tag>
         </span>
         <div css={{ display: 'flex', gap: theme.spacing.xs }}>
           {showChatControls && (

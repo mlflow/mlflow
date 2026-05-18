@@ -801,7 +801,6 @@ module.exports = {
   "mlflow.artifacts.model_version.status": "",
 
   // -- mlflow.assistant --
-  "mlflow.assistant.chat_panel.beta": "",
   "mlflow.assistant.chat_panel.close": "",
   "mlflow.assistant.chat_panel.close.tooltip": "",
   "mlflow.assistant.chat_panel.context.dataset": "",
