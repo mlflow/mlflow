@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779226945053,
+  "lastUpdate": 1779227332857,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -4319,6 +4319,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 31.910170599996942,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "121050723+fenil210@users.noreply.github.com",
+            "name": "Fenil Ramoliya",
+            "username": "fenil210"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "301d0abbffdf3acb5e413dae75b999690d9a6b84",
+          "message": "fenil/fix-response-format-json: Tighten response format JSON schema type (#23290)\n\nSigned-off-by: Fenil Ramoliya <fenilramoliya2103@gmail.com>",
+          "timestamp": "2026-05-19T21:45:03Z",
+          "tree_id": "8812884bc069546bd42ac89763ccc474051ccc78",
+          "url": "https://github.com/mlflow/mlflow/commit/301d0abbffdf3acb5e413dae75b999690d9a6b84"
+        },
+        "date": 1779227331796,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 38.71868895000006,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 23.057291166667525,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 21.520984881355908,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 23.127377452830846,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 24.087446350877254,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 7.453104999996185,
             "unit": "ms"
           }
         ]
