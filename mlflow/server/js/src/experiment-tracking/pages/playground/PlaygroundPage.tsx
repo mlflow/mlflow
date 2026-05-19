@@ -304,7 +304,19 @@ const PlaygroundPage = () => {
               />
             );
           })()}
-        <div css={{ display: 'flex', justifyContent: 'flex-end', gap: theme.spacing.sm }}>
+        <div
+          css={{
+            display: 'flex',
+            justifyContent: 'flex-end',
+            alignItems: 'center',
+            gap: theme.spacing.sm,
+            paddingTop: theme.spacing.md,
+            paddingBottom: theme.spacing.md,
+            position: 'sticky',
+            bottom: 0,
+            backgroundColor: theme.colors.backgroundPrimary,
+          }}
+        >
           <Button
             componentId="mlflow.playground.clear"
             disabled={conversationIsEmpty}
