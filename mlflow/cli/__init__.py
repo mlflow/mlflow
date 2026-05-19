@@ -1352,7 +1352,7 @@ from mlflow.cli.demo import demo
 
 cli.add_command(demo)
 
-# Add agent_playground CLI commands
+# Add `mlflow agent` CLI commands (agent_playground feature)
 from mlflow.cli import agent
 
 cli.add_command(agent.commands)

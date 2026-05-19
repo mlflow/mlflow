@@ -4298,6 +4298,13 @@ def _find_fastapi_validator(path: str) -> Callable[[str, StarletteRequest], Awai
         return _get_require_authentication_validator()
 
     if path.startswith("/ajax-api/3.0/mlflow/agent-playground"):
+        # v1 is a single-developer playground; bare authentication
+        # matches the assistant/jobs precedent above. When the
+        # playground hits a multi-user surface, swap this for a
+        # per-experiment validator (see the OTel pattern earlier in
+        # this file: read ``experiment_id`` from the query string and
+        # call ``_get_experiment_permission(experiment_id, username)``
+        # to enforce CAN_READ / CAN_EDIT).
         return _get_require_authentication_validator()
 
     return None

@@ -51,6 +51,12 @@ def list_test_cases(experiment_id: str, output: Literal["table", "json"]) -> Non
     except MlflowException as exc:
         raise click.ClickException(exc.message) from exc
     if output == "json":
+        # ``default=str`` is the pragmatic display fallback for the
+        # non-strict ``PersonaSpec.context: dict[str, Any]`` field —
+        # context values that aren't JSON-native (e.g., ``UUID``,
+        # ``datetime``) stringify rather than crash the CLI. Strictness
+        # at the storage boundary lives on the entity layer; this
+        # output boundary is intentionally loose.
         click.echo(json.dumps([case.model_dump() for case in cases], indent=2, default=str))
         return
 
@@ -58,17 +64,17 @@ def list_test_cases(experiment_id: str, output: Literal["table", "json"]) -> Non
         click.echo(f"No test cases found in experiment {experiment_id!r}.")
         return
 
-    headers = ["test_case_id", "strategy", "promoted", "rationale_summary"]
+    headers = ["test_case_id", "kind", "promoted", "rationale_summary"]
     rows = [
         [
             case.test_case_id,
-            case.spec.strategy,
+            case.expectations.kind,
             "yes" if case.promoted else "no",
-            case.spec.rationale_summary,
+            case.rationale_summary,
         ]
         for case in cases
     ]
-    click.echo(_create_table(rows, headers))
+    click.echo(_create_table(rows, headers=headers))
 
 
 @test_commands.command("delete")

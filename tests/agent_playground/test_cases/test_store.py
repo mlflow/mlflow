@@ -13,7 +13,11 @@ from mlflow.agent_playground.test_cases.entities import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.genai.datasets.evaluation_dataset import EvaluationDataset
-from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS, ErrorCode
+from mlflow.protos.databricks_pb2 import (
+    INVALID_PARAMETER_VALUE,
+    RESOURCE_ALREADY_EXISTS,
+    ErrorCode,
+)
 
 
 @pytest.fixture
@@ -398,3 +402,60 @@ def test_update_case_logs_when_restore_also_fails(experiment_id, assertion_row):
         store.update_case(experiment_id, assertion_row.test_case_id, promoted=True)
     mock_logger.error.assert_called_once()
     assert "failed to restore" in str(mock_logger.error.call_args)
+
+
+def test_update_case_clear_persona_drops_persona(experiment_id):
+    row = TestCaseRow(
+        test_case_id=store.new_test_case_id(),
+        expectations=AssertionExpectations(must_contain=["docs"]),
+        rationale_summary="x",
+        persona=PersonaSpec(goal="learn logging", persona="terse dev"),
+    )
+    store.insert_case(experiment_id, row)
+
+    updated = store.update_case(experiment_id, row.test_case_id, clear_persona=True)
+    assert updated is not None
+    assert updated.persona is None
+
+
+def test_update_case_persona_and_clear_persona_together_rejected(experiment_id, assertion_row):
+    store.insert_case(experiment_id, assertion_row)
+    # Ambiguity: caller specified both a new persona AND clear_persona=True.
+    # Surface as MlflowException(INVALID_PARAMETER_VALUE) so the router
+    # maps to 400 and CLI callers wrapping MlflowException see it.
+    with pytest.raises(MlflowException, match="not both") as exc_info:
+        store.update_case(
+            experiment_id,
+            assertion_row.test_case_id,
+            persona=PersonaSpec(goal="g"),
+            clear_persona=True,
+        )
+    assert exc_info.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+def test_update_case_aborts_when_row_concurrently_deleted(experiment_id, assertion_row):
+    # Mirrors the read-side race in ``update_case``: between ``get_case``
+    # (which sees the row) and ``delete_case`` (which would have removed
+    # it), a concurrent caller deletes the row first. The store must NOT
+    # resurrect it via ``merge_records``; it returns ``None`` instead.
+    store.insert_case(experiment_id, assertion_row)
+
+    real_delete = store.delete_case
+    call_count = {"n": 0}
+
+    def racing_delete(exp_id, tc_id):
+        # First call returns False as if the row was concurrently
+        # removed; the production update_case should bail out instead
+        # of re-merging.
+        call_count["n"] += 1
+        return False
+
+    with (
+        mock.patch.object(store, "delete_case", side_effect=racing_delete),
+        mock.patch.object(EvaluationDataset, "merge_records") as mock_merge,
+    ):
+        result = store.update_case(experiment_id, assertion_row.test_case_id, promoted=True)
+    assert result is None
+    mock_merge.assert_not_called()
+    # The real row is still in the store (we mocked the delete out).
+    assert real_delete(experiment_id, assertion_row.test_case_id) is True

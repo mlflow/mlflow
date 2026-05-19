@@ -335,6 +335,7 @@ def update_case(
     *,
     expectations: Expectations | None = None,
     persona: PersonaSpec | None = None,
+    clear_persona: bool = False,
     conversation_messages: list[dict[str, Any]] | None = None,
     rationale_summary: str | None = None,
     max_turns: int | None = None,
@@ -362,14 +363,23 @@ def update_case(
     raises.
 
     Each kwarg defaults to ``None``, meaning "keep the existing
-    value". v1 does not support clearing a persona by passing
-    ``persona=None`` (since that's the no-op sentinel); to drop a
-    persona, delete and re-insert the case.
+    value". To clear ``persona`` (switching a multi-turn case to
+    single-turn), pass ``clear_persona=True``; ``persona=None`` is
+    the no-op sentinel and is ignored when ``clear_persona`` is also
+    false. Passing both ``persona=<spec>`` and ``clear_persona=True``
+    raises ``ValueError`` because the intent is ambiguous.
 
     Returns:
         The updated :class:`TestCaseRow`, or ``None`` if the case
         wasn't found.
     """
+    if clear_persona and persona is not None:
+        raise MlflowException(
+            "update_case: pass either persona=<spec> to set the persona OR "
+            "clear_persona=True to clear it, not both",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
     existing = get_case(experiment_id, test_case_id)
     if existing is None:
         return None
@@ -377,6 +387,13 @@ def update_case(
     next_feedback_ids = list(existing.source_feedback_ids)
     if attach_source_feedback_id and attach_source_feedback_id not in next_feedback_ids:
         next_feedback_ids.append(attach_source_feedback_id)
+
+    if clear_persona:
+        next_persona: PersonaSpec | None = None
+    elif persona is not None:
+        next_persona = persona
+    else:
+        next_persona = existing.persona
 
     # ``model_copy(update=...)`` skips validators by design. Round-trip
     # through ``model_validate(model_dump())`` so the strict entity
@@ -387,7 +404,7 @@ def update_case(
                 "expectations": (
                     expectations if expectations is not None else existing.expectations
                 ),
-                "persona": persona if persona is not None else existing.persona,
+                "persona": next_persona,
                 "conversation_messages": (
                     conversation_messages
                     if conversation_messages is not None
@@ -409,8 +426,13 @@ def update_case(
     new_record = _test_case_to_record(updated)
 
     # Delete then re-insert so the hash-based dedup doesn't leave the
-    # old row behind when ``inputs`` changes.
-    delete_case(experiment_id, test_case_id)
+    # old row behind when ``inputs`` changes. If ``delete_case`` reports
+    # the row was already gone (a concurrent delete between our
+    # ``get_case`` above and this point), abort instead of inserting:
+    # the row WAS deleted; re-creating it would silently resurrect a
+    # case the other caller just removed.
+    if not delete_case(experiment_id, test_case_id):
+        return None
     dataset = get_or_create_regression_dataset(experiment_id)
     try:
         dataset.merge_records([new_record])

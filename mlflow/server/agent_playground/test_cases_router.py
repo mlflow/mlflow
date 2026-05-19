@@ -2,32 +2,41 @@
 
 Mounted at ``/ajax-api/3.0/mlflow/agent-playground``. Endpoints:
 
-- ``GET  /test-cases?experiment_id=...&max_results=&page_token=``
-- ``GET  /test-cases/{test_case_id}?experiment_id=...``
-- ``PATCH /test-cases/{test_case_id}`` (partial update)
-- ``DELETE /test-cases/{test_case_id}?experiment_id=...`` (hard delete)
-- ``POST /test-cases/prompt-for-fix`` (renders the copy-paste fix prompt)
+- ``GET    /test-cases?experiment_id=...&max_results=&page_token=``
+- ``GET    /test-cases/{test_case_id}?experiment_id=...``
+- ``PATCH  /test-cases/{test_case_id}?experiment_id=...`` (partial update)
+- ``DELETE /test-cases/{test_case_id}?experiment_id=...``
+- ``POST   /test-cases/prompt-for-fix?experiment_id=...``
 
-No per-route auth dependency: relies on the global FastAPI permission
+``experiment_id`` lives in the URL query string on every endpoint (not
+in any request body) to match the existing CRUD conventions on this
+surface and AIP-122 (parent identifiers go in the URL).
+
+No per-route authorization: relies on the global FastAPI permission
 middleware (matching ``job_api_router`` at ``mlflow/server/job_api.py``).
+v1 is a single-developer playground; per-experiment authorization
+checks belong with the multi-user surface and are tracked as a v2
+follow-up (see TODO in ``mlflow/server/auth/__init__.py``).
 """
 
 from __future__ import annotations
 
+import logging
+from typing import Any
+
 from fastapi import APIRouter, HTTPException, Query, Response
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, model_validator
 
 from mlflow.agent_playground.test_cases import prompts, store
 from mlflow.agent_playground.test_cases.entities import (
-    AssertionSpec,
-    JudgeSpec,
+    Expectations,
     PersonaSpec,
     TestCaseRow,
-    TestSpec,
-    TestStrategy,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.utils.search_utils import SearchUtils
+
+_logger = logging.getLogger(__name__)
 
 test_cases_router = APIRouter(
     prefix="/ajax-api/3.0/mlflow/agent-playground",
@@ -44,63 +53,62 @@ class ListTestCasesResponse(BaseModel):
     next_page_token: str | None = None
 
 
-class PromptForFixRequest(BaseModel):
-    experiment_id: str
-    test_case_id: str
-
-
 class PromptForFixResponse(BaseModel):
     prompt: str
 
 
 class PatchTestCaseRequest(BaseModel):
-    """Partial update payload.
+    """Partial-update payload.
 
     Only fields explicitly supplied are applied. Unsupplied fields are
     left untouched. Lineage and ownership fields (``test_case_id``,
     ``experiment_id``, ``source_*``) are not updatable through this
-    endpoint and must travel via the path / query params.
+    endpoint and must travel via the URL / query string instead.
+
+    ``expectations`` is the atomic unit: switching between assertion
+    and judge strategies sends the full new ``AssertionExpectations``
+    or ``JudgeExpectations`` object. The discriminated union on
+    ``kind`` makes orphan-payload misconfiguration structurally
+    impossible at the wire layer.
+
+    ``persona`` is nullable on the row; passing ``persona=None`` here
+    is a no-op (keep existing), and clearing the persona is opt-in via
+    ``clear_persona=True``. An empty body ``{}`` is rejected at the
+    wire layer (``_reject_empty_patch``) so a no-op PATCH doesn't
+    silently trigger the store's delete-then-insert path (which would
+    reset ``created_time``/``source`` and expose the read-side race
+    documented on ``store.update_case``).
     """
 
-    experiment_id: str
-    strategy: TestStrategy | None = None
-    rationale_summary: str | None = None
-    max_turns: int | None = None
-    assertion: AssertionSpec | None = None
-    judge: JudgeSpec | None = None
+    expectations: Expectations | None = None
     persona: PersonaSpec | None = None
     clear_persona: bool = False
-    conversation_messages: list[dict[str, object]] | None = None
+    rationale_summary: str | None = None
+    max_turns: int | None = None
+    conversation_messages: list[dict[str, Any]] | None = None
     promoted: bool | None = None
 
-
-def _merge_spec(existing: TestSpec, patch: PatchTestCaseRequest) -> TestSpec:
-    # On strategy switch, auto-clear the inactive strategy's payload.
-    # The TestSpec validator rejects orphans (an "assertion" spec with a
-    # non-None judge payload, and vice versa), and the UI flow that
-    # switches strategy expects the leftover payload to drop, not to
-    # error.
-    next_strategy = patch.strategy if patch.strategy is not None else existing.strategy
-    keep_assertion = next_strategy == "assertion"
-    keep_judge = next_strategy == "judge"
-    next_assertion = patch.assertion if patch.assertion is not None else existing.assertion
-    next_judge = patch.judge if patch.judge is not None else existing.judge
-    return TestSpec(
-        strategy=next_strategy,
-        rationale_summary=(
-            patch.rationale_summary
-            if patch.rationale_summary is not None
-            else existing.rationale_summary
-        ),
-        max_turns=patch.max_turns if patch.max_turns is not None else existing.max_turns,
-        assertion=next_assertion if keep_assertion else None,
-        judge=next_judge if keep_judge else None,
-        persona=(
-            None
-            if patch.clear_persona
-            else (patch.persona if patch.persona is not None else existing.persona)
-        ),
-    )
+    @model_validator(mode="after")
+    def _reject_empty_patch(self) -> PatchTestCaseRequest:
+        if (
+            not any(
+                value is not None
+                for value in (
+                    self.expectations,
+                    self.persona,
+                    self.rationale_summary,
+                    self.max_turns,
+                    self.conversation_messages,
+                    self.promoted,
+                )
+            )
+            and not self.clear_persona
+        ):
+            raise ValueError(
+                "PatchTestCaseRequest must carry at least one field to update; "
+                "an empty payload would silently delete-then-insert the row."
+            )
+        return self
 
 
 def _mlflow_exc_to_http(exc: MlflowException) -> HTTPException:
@@ -108,10 +116,13 @@ def _mlflow_exc_to_http(exc: MlflowException) -> HTTPException:
 
 
 def _not_implemented_to_http(exc: NotImplementedError) -> HTTPException:
-    # ``store.delete_case`` / ``store.update_case`` raise ``NotImplementedError``
-    # on the Databricks tracking backend (the underlying
-    # ``EvaluationDataset.delete_records`` path). Surface as 501 with a
-    # clean message instead of a 500 stack trace.
+    # ``store.delete_case`` / ``store.update_case`` raise
+    # ``NotImplementedError`` on the Databricks tracking backend (the
+    # underlying ``EvaluationDataset.delete_records`` path). Surface as
+    # 501 with a clean message instead of a 500 stack trace; log the
+    # original exception so operators have a server-side breadcrumb
+    # when correlating the 501 response back to a backend cause.
+    _logger.warning("agent_playground router: operation not supported by backend", exc_info=exc)
     return HTTPException(
         status_code=501,
         detail=f"Operation not supported on the current tracking backend: {exc}",
@@ -120,7 +131,7 @@ def _not_implemented_to_http(exc: NotImplementedError) -> HTTPException:
 
 @test_cases_router.get("/test-cases", response_model=ListTestCasesResponse)
 def list_test_cases(
-    experiment_id: str = Query(...),
+    experiment_id: str = Query(..., min_length=1),
     max_results: int = Query(_DEFAULT_PAGE_SIZE, ge=1, le=_MAX_PAGE_SIZE),
     page_token: str | None = Query(None),
 ) -> ListTestCasesResponse:
@@ -131,22 +142,27 @@ def list_test_cases(
     try:
         cases = store.list_cases(experiment_id)
     except MlflowException as exc:
-        raise _mlflow_exc_to_http(exc)
+        raise _mlflow_exc_to_http(exc) from exc
 
     try:
         page, next_token = SearchUtils.paginate(cases, page_token, max_results)
     except MlflowException as exc:
-        raise _mlflow_exc_to_http(exc)
-    next_token_str = next_token.decode("utf-8") if isinstance(next_token, bytes) else next_token
+        raise _mlflow_exc_to_http(exc) from exc
+    # ``SearchUtils.create_page_token`` always returns ``bytes``; the
+    # ``None`` short-circuit is the only other path.
+    next_token_str = next_token.decode("utf-8") if next_token else None
     return ListTestCasesResponse(test_cases=page, next_page_token=next_token_str)
 
 
 @test_cases_router.get("/test-cases/{test_case_id}", response_model=TestCaseRow)
-def get_test_case(test_case_id: str, experiment_id: str = Query(...)) -> TestCaseRow:
+def get_test_case(
+    test_case_id: str,
+    experiment_id: str = Query(..., min_length=1),
+) -> TestCaseRow:
     try:
         case = store.get_case(experiment_id, test_case_id)
     except MlflowException as exc:
-        raise _mlflow_exc_to_http(exc)
+        raise _mlflow_exc_to_http(exc) from exc
 
     if case is None:
         raise HTTPException(
@@ -157,56 +173,47 @@ def get_test_case(test_case_id: str, experiment_id: str = Query(...)) -> TestCas
 
 
 @test_cases_router.patch("/test-cases/{test_case_id}", response_model=TestCaseRow)
-def patch_test_case(test_case_id: str, payload: PatchTestCaseRequest) -> TestCaseRow:
-    try:
-        existing = store.get_case(payload.experiment_id, test_case_id)
-    except MlflowException as exc:
-        raise _mlflow_exc_to_http(exc)
-
-    if existing is None:
-        raise HTTPException(
-            status_code=404,
-            detail=(
-                f"Test case {test_case_id!r} not found in experiment {payload.experiment_id!r}"
-            ),
-        )
-
-    try:
-        next_spec = _merge_spec(existing.spec, payload)
-    except ValidationError as exc:
-        raise HTTPException(status_code=422, detail=str(exc))
-
+def patch_test_case(
+    test_case_id: str,
+    payload: PatchTestCaseRequest,
+    experiment_id: str = Query(..., min_length=1),
+) -> TestCaseRow:
     try:
         updated = store.update_case(
-            payload.experiment_id,
+            experiment_id,
             test_case_id,
-            spec=next_spec,
+            expectations=payload.expectations,
+            persona=payload.persona,
+            clear_persona=payload.clear_persona,
             conversation_messages=payload.conversation_messages,
+            rationale_summary=payload.rationale_summary,
+            max_turns=payload.max_turns,
             promoted=payload.promoted,
         )
     except NotImplementedError as exc:
-        raise _not_implemented_to_http(exc)
+        raise _not_implemented_to_http(exc) from exc
     except MlflowException as exc:
-        raise _mlflow_exc_to_http(exc)
+        raise _mlflow_exc_to_http(exc) from exc
 
     if updated is None:
         raise HTTPException(
             status_code=404,
-            detail=(
-                f"Test case {test_case_id!r} not found in experiment {payload.experiment_id!r}"
-            ),
+            detail=f"Test case {test_case_id!r} not found in experiment {experiment_id!r}",
         )
     return updated
 
 
 @test_cases_router.delete("/test-cases/{test_case_id}")
-def delete_test_case(test_case_id: str, experiment_id: str = Query(...)) -> Response:
+def delete_test_case(
+    test_case_id: str,
+    experiment_id: str = Query(..., min_length=1),
+) -> Response:
     try:
         deleted = store.delete_case(experiment_id, test_case_id)
     except NotImplementedError as exc:
-        raise _not_implemented_to_http(exc)
+        raise _not_implemented_to_http(exc) from exc
     except MlflowException as exc:
-        raise _mlflow_exc_to_http(exc)
+        raise _mlflow_exc_to_http(exc) from exc
 
     if not deleted:
         raise HTTPException(
@@ -217,9 +224,12 @@ def delete_test_case(test_case_id: str, experiment_id: str = Query(...)) -> Resp
 
 
 @test_cases_router.post("/test-cases/prompt-for-fix", response_model=PromptForFixResponse)
-def prompt_for_fix(payload: PromptForFixRequest) -> PromptForFixResponse:
+def prompt_for_fix(
+    test_case_id: str = Query(...),
+    experiment_id: str = Query(..., min_length=1),
+) -> PromptForFixResponse:
     try:
-        prompt = prompts.build_fix_prompt(payload.experiment_id, payload.test_case_id)
+        prompt = prompts.build_fix_prompt(experiment_id, test_case_id)
     except MlflowException as exc:
-        raise _mlflow_exc_to_http(exc)
+        raise _mlflow_exc_to_http(exc) from exc
     return PromptForFixResponse(prompt=prompt)
