@@ -44,20 +44,23 @@ export const useSetInitialTimeFilter = ({
     sqlWarehouseId,
   });
 
-  // Set monitoring filters based on oldest trace from empty check
-  if (shouldFetchForEmptyCheck && emptyCheckTraces && emptyCheckTraces.length > 0 && !emptyCheckLoading) {
-    // Since traces are sorted in descending order (newest first), the oldest trace is the last one while newest is the first one
+  // endTime must come from the response (stable across renders), not
+  // `new Date()`, otherwise this effect's deps churn and refetch in a loop.
+  useEffect(() => {
+    if (!shouldFetchForEmptyCheck || emptyCheckLoading || !emptyCheckTraces || emptyCheckTraces.length === 0) {
+      return;
+    }
+    const newestTrace = emptyCheckTraces[0];
     const oldestTrace = emptyCheckTraces[emptyCheckTraces.length - 1];
-
     setMonitoringFilters(
       {
         startTimeLabel: 'CUSTOM',
         startTime: oldestTrace.request_time,
-        endTime: new Date().toISOString(),
+        endTime: newestTrace.request_time,
       },
       true,
     );
-  }
+  }, [shouldFetchForEmptyCheck, emptyCheckLoading, emptyCheckTraces, setMonitoringFilters]);
 
   // Return loading state so component can show loading skeleton
   const isInitialTimeFilterLoading = shouldFetchForEmptyCheck && emptyCheckLoading;

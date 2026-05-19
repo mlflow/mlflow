@@ -1,8 +1,8 @@
+import { useMonitoringConfig } from '@mlflow/mlflow/src/experiment-tracking/hooks/useMonitoringConfig';
 import { useMonitoringFilters } from '@mlflow/mlflow/src/experiment-tracking/hooks/useMonitoringFilters';
 import {
   createTraceLocationForExperiment,
   GenAITracesTableBodySkeleton,
-  invalidateMlflowSearchTracesCache,
   useSearchMlflowTraces,
   isSqlWarehouseTimeoutError,
 } from '@databricks/web-shared/genai-traces-table';
@@ -10,9 +10,8 @@ import { FormattedMessage } from '@databricks/i18n';
 import { Button, DangerIcon, Empty, ParagraphSkeleton, SearchIcon } from '@databricks/design-system';
 import { getNamedDateFilters } from './utils/dateUtils';
 import { useGetExperimentQuery } from '@mlflow/mlflow/src/experiment-tracking/hooks/useExperimentQuery';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useIntl } from '@databricks/i18n';
-import { useQueryClient } from '@databricks/web-shared/query-client';
 import {
   useExperimentKind,
   isGenAIExperimentKind,
@@ -34,11 +33,15 @@ export const TracesV3EmptyState = (props: {
   const { experimentIds, traceSearchLocations, loggedModelId, isCallDisabled } = props;
 
   const intl = useIntl();
-  const queryClient = useQueryClient();
+  const { refresh: refreshMonitoringConfig } = useMonitoringConfig();
+
+  // Latch once a trace appears so polling stops even if a filter still hides it.
+  const [hasSeenTrace, setHasSeenTrace] = useState(false);
 
   const {
     data: traces,
     isLoading,
+    isFetching,
     error,
   } = useSearchMlflowTraces({
     locations: traceSearchLocations,
@@ -46,22 +49,27 @@ export const TracesV3EmptyState = (props: {
     limit: 1,
     ...(loggedModelId ? { filterByLoggedModelId: loggedModelId } : {}),
     disabled: isCallDisabled,
-    // Poll while the empty state is visible so it auto-resolves once the
-    // first trace is ingested. The component unmounts as soon as the parent
-    // metadata query reports `isEmpty=false`, which stops the interval.
-    refetchInterval: isCallDisabled ? false : EMPTY_STATE_POLL_INTERVAL_MS,
+    refetchInterval: isCallDisabled || hasSeenTrace ? false : EMPTY_STATE_POLL_INTERVAL_MS,
   });
 
-  const hasAnyTraces = Boolean(traces && traces.length > 0);
-
-  // When polling detects the first ingested trace, invalidate the shared search
-  // traces cache so the parent metadata query re-fetches and swaps the empty
-  // state for the populated table.
+  // Track whether the probe has settled at least once since this mount, so
+  // `keepPreviousData` cached values from prior activity don't briefly drive
+  // the render or fire `refresh()` on remount (e.g. after a delete-all).
+  const [initialFetchDone, setInitialFetchDone] = useState(false);
   useEffect(() => {
-    if (hasAnyTraces) {
-      invalidateMlflowSearchTracesCache({ queryClient });
+    if (!isFetching && !initialFetchDone) {
+      setInitialFetchDone(true);
     }
-  }, [hasAnyTraces, queryClient]);
+  }, [isFetching, initialFetchDone]);
+
+  const hasAnyTraces = initialFetchDone && Boolean(traces && traces.length > 0);
+
+  useEffect(() => {
+    if (hasAnyTraces && !hasSeenTrace) {
+      setHasSeenTrace(true);
+      refreshMonitoringConfig();
+    }
+  }, [hasAnyTraces, hasSeenTrace, refreshMonitoringConfig]);
 
   // check experiment tags to see if it's genai or custom
   const { data: experimentEntity, loading: isExperimentLoading } = useGetExperimentQuery({
