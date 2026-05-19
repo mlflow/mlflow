@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779222250816,
+  "lastUpdate": 1779223875692,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -4103,6 +4103,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 60.13624920000211,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "1fannnw@gmail.com",
+            "name": "Stefan Wang",
+            "username": "1fanwang"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "78bd647bb5e5ecb698ad4d3dda8f9a8703872386",
+          "message": "Fix UnicodeEncodeError on artifact download with non-ASCII filename (#23241)\n\nSigned-off-by: 1fanwang <1fannnw@gmail.com>\nSigned-off-by: Yuki Watanabe <31463517+B-Step62@users.noreply.github.com>\nCo-authored-by: Yuki Watanabe <31463517+B-Step62@users.noreply.github.com>",
+          "timestamp": "2026-05-19T20:47:53Z",
+          "tree_id": "4e141f04dfdaeb8c5c0630498957df21a1b68343",
+          "url": "https://github.com/mlflow/mlflow/commit/78bd647bb5e5ecb698ad4d3dda8f9a8703872386"
+        },
+        "date": 1779223874931,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 44.69851955000337,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 25.384659911766757,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 22.80113913333442,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 24.45770582758606,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 24.143283448275344,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 7.606829600001674,
             "unit": "ms"
           }
         ]
