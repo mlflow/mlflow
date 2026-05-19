@@ -1,6 +1,6 @@
 ---
 name: pr-review
-description: Review a GitHub pull request and emit a single review payload (comments + approval decision) for the workflow to validate and post
+description: Review a GitHub pull request and emit a validated local review payload (comments + approval decision)
 disable-model-invocation: true
 allowed-tools:
   - Read
@@ -123,13 +123,14 @@ Determine the review `event`:
 - **No CRITICAL findings** -> `event: "APPROVE"`
 - **Any CRITICAL finding** -> `event: "COMMENT"`
 
-### 4. Emit Review Payload
+### 4. Emit Local Review Payload
 
-Write `/tmp/review-payload.json` matching [`review-payload.schema.json`](./review-payload.schema.json). Do not post the review yourself.
+Write `/tmp/review-payload.json` matching [`review-payload.schema.json`](./review-payload.schema.json), then validate it.
 
 Authoring rules not captured by the schema:
 
 - One comment per distinct finding, anchored to the most relevant changed line. For repeated identical issues, leave a single representative comment rather than flagging every instance.
+- Anchors must land in a diff hunk. For findings about out-of-diff code, anchor to any changed line (prefer the same file when it has hunks) and name the actual `path:line` in the body.
 - Keep comments constructive and specific: state the problem, why it matters, and a concrete suggestion when possible.
 - Use suggestion blocks for simple fixes — fence with ` ```suggestion ` and preserve original indentation.
 - If you have no findings, emit an empty `comments` array.
@@ -139,3 +140,5 @@ Validate before finishing — fix any errors and re-emit until this passes:
 ```bash
 uv run --package skills skills validate-review /tmp/review-payload.json
 ```
+
+Do not post the review or comments by running `gh pr review`, calling GitHub review/comment APIs, or using any other skills. Stop after writing and validating the local review payload.

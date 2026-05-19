@@ -81,6 +81,11 @@ const sidebarsSelfHosting: SidebarsConfig = {
         },
         {
           type: 'doc',
+          id: 'security/role-based-access-control',
+          label: 'Role-Based Access Control',
+        },
+        {
+          type: 'doc',
           id: 'security/sso',
           label: 'SSO (Single Sign-On)',
         },

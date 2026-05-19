@@ -253,7 +253,7 @@ jobs:
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
-          uv sync --extra mlserver
+          uv sync
           uv pip install \
             -r requirements/test-requirements.txt \
             pyspark langchain langchain-community

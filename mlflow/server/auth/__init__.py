@@ -51,6 +51,7 @@ from mlflow.environment_variables import (
     MLFLOW_RBAC_SEED_DEFAULT_ROLES,
     MLFLOW_SERVER_ENABLE_GRAPHQL_AUTH,
 )
+from mlflow.prompt.constants import IS_PROMPT_TAG_KEY
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
     INTERNAL_ERROR,
@@ -249,23 +250,11 @@ from mlflow.server.auth.routes import (
     AJAX_UPDATE_USER_ADMIN,
     AJAX_UPDATE_USER_PASSWORD,
     ASSIGN_ROLE,
-    CREATE_EXPERIMENT_PERMISSION,
-    CREATE_GATEWAY_ENDPOINT_PERMISSION,
-    CREATE_GATEWAY_MODEL_DEFINITION_PERMISSION,
-    CREATE_GATEWAY_SECRET_PERMISSION,
     CREATE_PROMPTLAB_RUN,
-    CREATE_REGISTERED_MODEL_PERMISSION,
     CREATE_ROLE,
-    CREATE_SCORER_PERMISSION,
     CREATE_USER,
     CREATE_USER_UI,
-    DELETE_EXPERIMENT_PERMISSION,
-    DELETE_GATEWAY_ENDPOINT_PERMISSION,
-    DELETE_GATEWAY_MODEL_DEFINITION_PERMISSION,
-    DELETE_GATEWAY_SECRET_PERMISSION,
-    DELETE_REGISTERED_MODEL_PERMISSION,
     DELETE_ROLE,
-    DELETE_SCORER_PERMISSION,
     DELETE_USER,
     GATEWAY_PROVIDER_CONFIG,
     GATEWAY_PROXY,
@@ -274,16 +263,10 @@ from mlflow.server.auth.routes import (
     GATEWAY_SUPPORTED_PROVIDERS,
     GET_ARTIFACT,
     GET_CURRENT_USER,
-    GET_EXPERIMENT_PERMISSION,
-    GET_GATEWAY_ENDPOINT_PERMISSION,
-    GET_GATEWAY_MODEL_DEFINITION_PERMISSION,
-    GET_GATEWAY_SECRET_PERMISSION,
     GET_METRIC_HISTORY_BULK,
     GET_METRIC_HISTORY_BULK_INTERVAL,
     GET_MODEL_VERSION_ARTIFACT,
-    GET_REGISTERED_MODEL_PERMISSION,
     GET_ROLE,
-    GET_SCORER_PERMISSION,
     GET_TRACE_ARTIFACT,
     GET_USER,
     GET_USER_PERMISSION,
@@ -302,14 +285,8 @@ from mlflow.server.auth.routes import (
     SEARCH_DATASETS,
     SIGNUP,
     UNASSIGN_ROLE,
-    UPDATE_EXPERIMENT_PERMISSION,
-    UPDATE_GATEWAY_ENDPOINT_PERMISSION,
-    UPDATE_GATEWAY_MODEL_DEFINITION_PERMISSION,
-    UPDATE_GATEWAY_SECRET_PERMISSION,
-    UPDATE_REGISTERED_MODEL_PERMISSION,
     UPDATE_ROLE,
     UPDATE_ROLE_PERMISSION,
-    UPDATE_SCORER_PERMISSION,
     UPDATE_USER_ADMIN,
     UPDATE_USER_PASSWORD,
     UPLOAD_ARTIFACT,
@@ -546,31 +523,25 @@ def _user_inherits_default_workspace_grant(workspace_name: str) -> bool:
 def _get_role_permission_or_default(
     role_permission_func: Callable[[], Permission | None],
 ) -> Permission:
-    """
-    Resolve a user's permission on a resource by consulting role_permissions via the
-    provided ``role_permission_func`` (see ``_role_permission_for``).
+    """Fold the role-derived permission against ``default_permission`` as a floor.
 
-    Returns whatever ``role_permission_func`` produces if non-None — including
-    ``NO_PERMISSIONS``, which acts as an explicit deny. Falls back to
-    ``auth_config.default_permission`` only when ``role_permission_func`` returns
-    ``None`` (no matching grant at all).
-
-    In the unified RBAC model (post-``e5f6a7b8c9d0`` migration), ``role_permissions`` is
-    the sole source of truth: per-user grants live under synthetic ``__user_<id>__``
-    roles, workspace-wide grants live in the unified ``('workspace', '*')`` slot
-    (USE for regular workspace members, MANAGE for workspace admins).
-    ``get_role_permission_for_resource`` walks all of the user's role grants and
-    returns the max, or ``None`` when nothing matches.
-
-    ``NO_PERMISSIONS`` is no longer accepted as a new grant value (validators reject it
-    on resource-scoped writes; the migration drops legacy ``NO_PERMISSIONS`` rows).
-    Any pre-existing ``NO_PERMISSIONS`` row in ``role_permissions`` from the early RBAC
-    API still resolves correctly via the explicit-deny semantics described above.
+    ``NO_PERMISSIONS`` is preserved rather than max'd against ``default_permission``
+    — it's the resolver's "user has no presence in this workspace" signal (no role
+    matches in the resource's workspace and it isn't an autograted default workspace).
+    That's the only place the workspace boundary lives in this chain; lifting it via
+    the floor would silently leak ``default_permission`` (e.g. READ) into every
+    workspace the user has no role in. ``None`` (workspaces disabled, no grant) still
+    falls through to ``default_permission`` as the safety net.
     """
     perm = role_permission_func()
-    if perm is not None:
+    default = get_permission(auth_config.default_permission)
+    if perm is None:
+        # Workspaces disabled, no grant matched.
+        return default
+    if perm.name == NO_PERMISSIONS.name:
+        # Workspace-boundary deny — see docstring.
         return perm
-    return get_permission(auth_config.default_permission)
+    return get_permission(max_permission(perm.name, default.name))
 
 
 def _user_can_create_in_workspace() -> bool:
@@ -1514,6 +1485,34 @@ def validate_can_get_user_permission() -> bool:
     return store.is_workspace_admin(requester_user.id, workspace_name)
 
 
+def _entity_is_prompt(entity) -> bool:
+    """True if a ``RegisteredModel`` / ``ModelVersion`` entity is prompt-flagged.
+
+    Unifies the two response-filtering paths in ``filter_search_*`` — initial
+    response rows arrive as protos (via ``parse_dict``), refetched rows arrive
+    as ORM entities (``PagedList[RegisteredModel]`` / ``[ModelVersion]``).
+    Both ORM entities expose ``_is_prompt()``; protos don't, so we fall back
+    to scanning the repeated ``.tags`` field for the prompt marker.
+    """
+    if hasattr(entity, "_is_prompt"):
+        return entity._is_prompt()
+    return any(t.key == IS_PROMPT_TAG_KEY and t.value.lower() == "true" for t in entity.tags)
+
+
+def _rm_or_prompt_read_predicate(username: str) -> Callable[[Any], bool]:
+    """Build a ``p(entity) -> bool`` for filtering shared registered-model /
+    model-version search responses. Classifies each row by its
+    ``mlflow.prompt.is_prompt`` tag and consults the matching grant namespace.
+    """
+    can_read_rm = _role_based_read_predicate(username, "registered_model")
+    can_read_prompt = _role_based_read_predicate(username, "prompt")
+
+    def can_read(entity) -> bool:
+        return (can_read_prompt if _entity_is_prompt(entity) else can_read_rm)(entity.name)
+
+    return can_read
+
+
 def _role_based_read_predicate(username: str, resource_type: str) -> Callable[[str], bool]:
     """
     Build a ``p(resource_id) -> bool`` predicate from ``username``'s role
@@ -2296,50 +2295,6 @@ BEFORE_REQUEST_VALIDATORS.update({
     (AJAX_DELETE_USER, "DELETE"): validate_can_delete_user,
 })
 
-# Legacy per-resource permission routes (deprecated). Caller must still own
-# the underlying resource — same ``manage`` validators as the resource itself.
-BEFORE_REQUEST_VALIDATORS.update({
-    (GET_EXPERIMENT_PERMISSION, "GET"): validate_can_manage_experiment,
-    (CREATE_EXPERIMENT_PERMISSION, "POST"): validate_can_manage_experiment,
-    (UPDATE_EXPERIMENT_PERMISSION, "PATCH"): validate_can_manage_experiment,
-    (DELETE_EXPERIMENT_PERMISSION, "DELETE"): validate_can_manage_experiment,
-    (GET_REGISTERED_MODEL_PERMISSION, "GET"): validate_can_manage_registered_model,
-    (CREATE_REGISTERED_MODEL_PERMISSION, "POST"): validate_can_manage_registered_model,
-    (UPDATE_REGISTERED_MODEL_PERMISSION, "PATCH"): validate_can_manage_registered_model,
-    (DELETE_REGISTERED_MODEL_PERMISSION, "DELETE"): validate_can_manage_registered_model,
-    (GET_SCORER_PERMISSION, "GET"): validate_can_manage_scorer_permission,
-    (CREATE_SCORER_PERMISSION, "POST"): validate_can_manage_scorer_permission,
-    (UPDATE_SCORER_PERMISSION, "PATCH"): validate_can_manage_scorer_permission,
-    (DELETE_SCORER_PERMISSION, "DELETE"): validate_can_manage_scorer_permission,
-    # Gateway secret permissions (deprecated)
-    (GET_GATEWAY_SECRET_PERMISSION, "GET"): validate_can_manage_gateway_secret,
-    (CREATE_GATEWAY_SECRET_PERMISSION, "POST"): validate_can_manage_gateway_secret,
-    (UPDATE_GATEWAY_SECRET_PERMISSION, "PATCH"): validate_can_manage_gateway_secret,
-    (DELETE_GATEWAY_SECRET_PERMISSION, "DELETE"): validate_can_manage_gateway_secret,
-    # Gateway endpoint permissions (deprecated)
-    (GET_GATEWAY_ENDPOINT_PERMISSION, "GET"): validate_can_manage_gateway_endpoint,
-    (CREATE_GATEWAY_ENDPOINT_PERMISSION, "POST"): validate_can_manage_gateway_endpoint,
-    (UPDATE_GATEWAY_ENDPOINT_PERMISSION, "PATCH"): validate_can_manage_gateway_endpoint,
-    (DELETE_GATEWAY_ENDPOINT_PERMISSION, "DELETE"): validate_can_manage_gateway_endpoint,
-    # Gateway model definition permissions (deprecated)
-    (
-        GET_GATEWAY_MODEL_DEFINITION_PERMISSION,
-        "GET",
-    ): validate_can_manage_gateway_model_definition,
-    (
-        CREATE_GATEWAY_MODEL_DEFINITION_PERMISSION,
-        "POST",
-    ): validate_can_manage_gateway_model_definition,
-    (
-        UPDATE_GATEWAY_MODEL_DEFINITION_PERMISSION,
-        "PATCH",
-    ): validate_can_manage_gateway_model_definition,
-    (
-        DELETE_GATEWAY_MODEL_DEFINITION_PERMISSION,
-        "DELETE",
-    ): validate_can_manage_gateway_model_definition,
-})
-
 # Role management routes (RBAC)
 BEFORE_REQUEST_VALIDATORS.update({
     (CREATE_ROLE, "POST"): validate_can_manage_roles,
@@ -2618,21 +2573,45 @@ def set_can_manage_experiment_permission(resp: Response):
 
 
 def set_can_manage_registered_model_permission(resp: Response):
+    # ``CreateRegisteredModel`` is shared with prompt creation; the response
+    # carries the persisted ``mlflow.prompt.is_prompt`` tag, so we can classify
+    # the entity authoritatively here and grant MANAGE in the matching
+    # namespace. Granting unconditionally on ``registered_model`` would leave
+    # the prompt creator without ``(prompt, name, MANAGE)`` and lock them out
+    # of the entity they just created via the prompt-side validators.
     response_message = CreateRegisteredModel.Response()
     parse_dict(resp.json, response_message)
     name = response_message.registered_model.name
+    resource_type = (
+        "prompt" if _entity_is_prompt(response_message.registered_model) else "registered_model"
+    )
     username = authenticate_request().username
-    store.grant_user_permission(username, "registered_model", name, MANAGE.name)
+    store.grant_user_permission(username, resource_type, name, MANAGE.name)
 
 
 def delete_can_manage_registered_model_permission(resp: Response):
     """
-    Sweep registered-model grants when the model is deleted. The model's primary
-    key is its name (unlike experiments which use a UUID), so a future model
-    with the same name would otherwise inherit stale grants.
+    Sweep registered-model and prompt grants when the entity is deleted.
+
+    The model registry's primary key is the entity name (unlike experiments
+    which use a UUID), so a future entity with the same name would otherwise
+    inherit stale grants. ``DeleteRegisteredModel`` is shared between
+    registered models and prompts on the REST surface; the entity is already
+    gone by the time this after-request hook runs, so we cannot classify it
+    now. Names are unique within the registry, so exactly one of the two
+    sweeps applies and the other is a no-op.
     """
-    name = request.get_json(force=True, silent=True)["name"]
+    # ``silent=True`` returns ``None`` on missing / unparsable bodies; the
+    # ``or {}`` guard prevents a ``TypeError`` from leaking out as a 500.
+    data = request.get_json(force=True, silent=True) or {}
+    name = data.get("name")
+    if not name:
+        raise MlflowException(
+            "Missing value for required parameter 'name'.",
+            INVALID_PARAMETER_VALUE,
+        )
     store.delete_grants_for_resource("registered_model", name, workspace_scoped=True)
+    store.delete_grants_for_resource("prompt", name, workspace_scoped=True)
 
 
 # ---- Role management handlers (RBAC) ----
@@ -3045,10 +3024,15 @@ def filter_search_registered_models(resp: Response):
     parse_dict(resp.json, response_message)
 
     username = authenticate_request().username
-    can_read = _role_based_read_predicate(username, "registered_model")
+    # The registered-model REST surface is shared with prompts; classify each
+    # row by its ``mlflow.prompt.is_prompt`` tag and check the correct grant
+    # namespace. Without this, a user holding only a ``(prompt, foo, READ)``
+    # grant would have prompt ``foo`` silently filtered out of the response.
+    can_read = _rm_or_prompt_read_predicate(username)
+
     # filter out unreadable
     for rm in list(response_message.registered_models):
-        if not can_read(rm.name):
+        if not can_read(rm):
             response_message.registered_models.remove(rm)
 
     # re-fetch to fill max results
@@ -3072,7 +3056,10 @@ def filter_search_registered_models(resp: Response):
             response_message.next_page_token = ""
             break
 
-        refetched_readable_proto = [rm.to_proto() for rm in refetched if can_read(rm.name)]
+        # ``can_read`` accepts both protos and ORM entities; reuse it here so
+        # refetched ORM rows go through the same classification as the initial
+        # JSON-parsed proto rows above.
+        refetched_readable_proto = [rm.to_proto() for rm in refetched if can_read(rm)]
         response_message.registered_models.extend(refetched_readable_proto)
 
         # recalculate next page token
@@ -3093,10 +3080,14 @@ def filter_search_model_versions(resp: Response):
     parse_dict(resp.json, response_message)
 
     username = authenticate_request().username
-    can_read = _role_based_read_predicate(username, "registered_model")
+    # Prompt versions and model versions share the same REST surface; classify
+    # each row by its ``mlflow.prompt.is_prompt`` tag so a prompt-version
+    # carrying a ``(prompt, name, READ)`` grant isn't dropped on the floor.
+    can_read = _rm_or_prompt_read_predicate(username)
+
     # filter out model versions whose parent model is unreadable
     for mv in list(response_message.model_versions):
-        if not can_read(mv.name):
+        if not can_read(mv):
             response_message.model_versions.remove(mv)
 
     resp.data = message_to_json(response_message)
@@ -3104,17 +3095,26 @@ def filter_search_model_versions(resp: Response):
 
 def rename_registered_model_permission(resp: Response):
     """
-    A model registry can be assigned to multiple users with different permissions.
+    Propagate a registered-model rename to RBAC grants.
 
-    Changing the model registry name must be propagated to all users.
+    ``RenameRegisteredModel`` is shared between registered models and prompts;
+    sweep both namespaces so a prompt rename doesn't orphan its
+    ``(prompt, old_name, ...)`` grants. Names are unique within the registry,
+    so exactly one of the two renames applies and the other is a no-op.
     """
-    data = request.get_json(force=True, silent=True)
-    store.rename_grants_for_resource(
-        "registered_model",
-        data.get("name"),
-        data.get("new_name"),
-        workspace_scoped=True,
-    )
+    # ``silent=True`` returns ``None`` on missing / unparsable bodies; ``or
+    # {}`` plus the explicit value checks below prevent ``None`` from
+    # propagating to ``resource_pattern`` and silently rewriting rows.
+    data = request.get_json(force=True, silent=True) or {}
+    old_name = data.get("name")
+    new_name = data.get("new_name")
+    if not old_name or not new_name:
+        raise MlflowException(
+            "Missing value for required parameter 'name' or 'new_name'.",
+            INVALID_PARAMETER_VALUE,
+        )
+    store.rename_grants_for_resource("registered_model", old_name, new_name, workspace_scoped=True)
+    store.rename_grants_for_resource("prompt", old_name, new_name, workspace_scoped=True)
 
 
 def set_can_manage_scorer_permission(resp: Response):
@@ -3586,268 +3586,23 @@ def update_user_admin():
 @catch_mlflow_exception
 def delete_user():
     username = _get_request_param("username")
+    # Admins cannot delete their own account — like blocking ``root`` from
+    # ``userdel root`` on Unix. Without this guard the request still succeeds
+    # but leaves the caller in a broken state (browser still has Basic Auth
+    # creds for a now-missing user, so every subsequent request 401s).
+    #
+    # ``authenticate_request()`` can return a ``Response`` (401 challenge)
+    # rather than an ``Authorization`` object, so guard the ``.username``
+    # access with ``getattr`` — same pattern ``update_user_password`` uses.
+    sender = authenticate_request()
+    sender_username = getattr(sender, "username", None)
+    if username == sender_username:
+        raise MlflowException(
+            "Users cannot delete their own account. Ask another admin to delete this user instead.",
+            BAD_REQUEST,
+        )
     store.delete_user(username)
     _invalidate_user_auth_cache(username)
-    return make_response({})
-
-
-# =============================================================================
-# Legacy per-resource permission handlers (deprecated). Backed by synthetic
-# per-user role grants (migration ``e5f6a7b8c9d0``); each logs once on first
-# call.
-# =============================================================================
-
-
-_LEGACY_PERMISSION_DEPRECATION_LOGGED: set[str] = set()
-
-
-def _log_legacy_permission_deprecation(endpoint: str) -> None:
-    if endpoint in _LEGACY_PERMISSION_DEPRECATION_LOGGED:
-        return
-    _LEGACY_PERMISSION_DEPRECATION_LOGGED.add(endpoint)
-    _logger.warning(
-        "Endpoint %s is deprecated and will be removed in a future MLflow release. "
-        "Use the role API (`add_role_permission` + `assign_role`) instead.",
-        endpoint,
-    )
-
-
-@catch_mlflow_exception
-def create_experiment_permission():
-    _log_legacy_permission_deprecation("create_experiment_permission")
-    experiment_id = _get_request_param("experiment_id")
-    username = _get_request_param("username")
-    permission = _get_request_param("permission")
-    ep = store.create_experiment_permission(experiment_id, username, permission)
-    return jsonify({"experiment_permission": ep.to_json()})
-
-
-@catch_mlflow_exception
-def get_experiment_permission():
-    _log_legacy_permission_deprecation("get_experiment_permission")
-    experiment_id = _get_request_param("experiment_id")
-    username = _get_request_param("username")
-    ep = store.get_experiment_permission(experiment_id, username)
-    return make_response({"experiment_permission": ep.to_json()})
-
-
-@catch_mlflow_exception
-def update_experiment_permission():
-    _log_legacy_permission_deprecation("update_experiment_permission")
-    experiment_id = _get_request_param("experiment_id")
-    username = _get_request_param("username")
-    permission = _get_request_param("permission")
-    store.update_experiment_permission(experiment_id, username, permission)
-    return make_response({})
-
-
-@catch_mlflow_exception
-def delete_experiment_permission():
-    _log_legacy_permission_deprecation("delete_experiment_permission")
-    experiment_id = _get_request_param("experiment_id")
-    username = _get_request_param("username")
-    store.delete_experiment_permission(experiment_id, username)
-    return make_response({})
-
-
-@catch_mlflow_exception
-def create_registered_model_permission():
-    _log_legacy_permission_deprecation("create_registered_model_permission")
-    name = _get_request_param("name")
-    username = _get_request_param("username")
-    permission = _get_request_param("permission")
-    rmp = store.create_registered_model_permission(name, username, permission)
-    return make_response({"registered_model_permission": rmp.to_json()})
-
-
-@catch_mlflow_exception
-def get_registered_model_permission():
-    _log_legacy_permission_deprecation("get_registered_model_permission")
-    name = _get_request_param("name")
-    username = _get_request_param("username")
-    rmp = store.get_registered_model_permission(name, username)
-    return make_response({"registered_model_permission": rmp.to_json()})
-
-
-@catch_mlflow_exception
-def update_registered_model_permission():
-    _log_legacy_permission_deprecation("update_registered_model_permission")
-    name = _get_request_param("name")
-    username = _get_request_param("username")
-    permission = _get_request_param("permission")
-    store.update_registered_model_permission(name, username, permission)
-    return make_response({})
-
-
-@catch_mlflow_exception
-def delete_registered_model_permission():
-    _log_legacy_permission_deprecation("delete_registered_model_permission")
-    name = _get_request_param("name")
-    username = _get_request_param("username")
-    store.delete_registered_model_permission(name, username)
-    return make_response({})
-
-
-@catch_mlflow_exception
-def create_scorer_permission():
-    _log_legacy_permission_deprecation("create_scorer_permission")
-    experiment_id = _get_request_param("experiment_id")
-    scorer_name = _get_request_param("scorer_name")
-    username = _get_request_param("username")
-    permission = _get_request_param("permission")
-    sp = store.create_scorer_permission(experiment_id, scorer_name, username, permission)
-    return jsonify({"scorer_permission": sp.to_json()})
-
-
-@catch_mlflow_exception
-def get_scorer_permission():
-    _log_legacy_permission_deprecation("get_scorer_permission")
-    experiment_id = _get_request_param("experiment_id")
-    scorer_name = _get_request_param("scorer_name")
-    username = _get_request_param("username")
-    sp = store.get_scorer_permission(experiment_id, scorer_name, username)
-    return make_response({"scorer_permission": sp.to_json()})
-
-
-@catch_mlflow_exception
-def update_scorer_permission():
-    _log_legacy_permission_deprecation("update_scorer_permission")
-    experiment_id = _get_request_param("experiment_id")
-    scorer_name = _get_request_param("scorer_name")
-    username = _get_request_param("username")
-    permission = _get_request_param("permission")
-    store.update_scorer_permission(experiment_id, scorer_name, username, permission)
-    return make_response({})
-
-
-@catch_mlflow_exception
-def delete_scorer_permission():
-    _log_legacy_permission_deprecation("delete_scorer_permission")
-    experiment_id = _get_request_param("experiment_id")
-    scorer_name = _get_request_param("scorer_name")
-    username = _get_request_param("username")
-    store.delete_scorer_permission(experiment_id, scorer_name, username)
-    return make_response({})
-
-
-# =============================================================================
-# Gateway Permission API Endpoints (deprecated)
-# =============================================================================
-
-
-@catch_mlflow_exception
-def create_gateway_secret_permission():
-    _log_legacy_permission_deprecation("create_gateway_secret_permission")
-    secret_id = _get_request_param("secret_id")
-    username = _get_request_param("username")
-    permission = _get_request_param("permission")
-    perm = store.create_gateway_secret_permission(secret_id, username, permission)
-    return jsonify({"gateway_secret_permission": perm.to_json()})
-
-
-@catch_mlflow_exception
-def get_gateway_secret_permission():
-    _log_legacy_permission_deprecation("get_gateway_secret_permission")
-    secret_id = _get_request_param("secret_id")
-    username = _get_request_param("username")
-    perm = store.get_gateway_secret_permission(secret_id, username)
-    return make_response({"gateway_secret_permission": perm.to_json()})
-
-
-@catch_mlflow_exception
-def update_gateway_secret_permission():
-    _log_legacy_permission_deprecation("update_gateway_secret_permission")
-    secret_id = _get_request_param("secret_id")
-    username = _get_request_param("username")
-    permission = _get_request_param("permission")
-    store.update_gateway_secret_permission(secret_id, username, permission)
-    return make_response({})
-
-
-@catch_mlflow_exception
-def delete_gateway_secret_permission():
-    _log_legacy_permission_deprecation("delete_gateway_secret_permission")
-    secret_id = _get_request_param("secret_id")
-    username = _get_request_param("username")
-    store.delete_gateway_secret_permission(secret_id, username)
-    return make_response({})
-
-
-@catch_mlflow_exception
-def create_gateway_endpoint_permission():
-    _log_legacy_permission_deprecation("create_gateway_endpoint_permission")
-    endpoint_id = _get_request_param("endpoint_id")
-    username = _get_request_param("username")
-    permission = _get_request_param("permission")
-    perm = store.create_gateway_endpoint_permission(endpoint_id, username, permission)
-    return jsonify({"gateway_endpoint_permission": perm.to_json()})
-
-
-@catch_mlflow_exception
-def get_gateway_endpoint_permission():
-    _log_legacy_permission_deprecation("get_gateway_endpoint_permission")
-    endpoint_id = _get_request_param("endpoint_id")
-    username = _get_request_param("username")
-    perm = store.get_gateway_endpoint_permission(endpoint_id, username)
-    return make_response({"gateway_endpoint_permission": perm.to_json()})
-
-
-@catch_mlflow_exception
-def update_gateway_endpoint_permission():
-    _log_legacy_permission_deprecation("update_gateway_endpoint_permission")
-    endpoint_id = _get_request_param("endpoint_id")
-    username = _get_request_param("username")
-    permission = _get_request_param("permission")
-    store.update_gateway_endpoint_permission(endpoint_id, username, permission)
-    return make_response({})
-
-
-@catch_mlflow_exception
-def delete_gateway_endpoint_permission():
-    _log_legacy_permission_deprecation("delete_gateway_endpoint_permission")
-    endpoint_id = _get_request_param("endpoint_id")
-    username = _get_request_param("username")
-    store.delete_gateway_endpoint_permission(endpoint_id, username)
-    return make_response({})
-
-
-@catch_mlflow_exception
-def create_gateway_model_definition_permission():
-    _log_legacy_permission_deprecation("create_gateway_model_definition_permission")
-    model_definition_id = _get_request_param("model_definition_id")
-    username = _get_request_param("username")
-    permission = _get_request_param("permission")
-    perm = store.create_gateway_model_definition_permission(
-        model_definition_id, username, permission
-    )
-    return jsonify({"gateway_model_definition_permission": perm.to_json()})
-
-
-@catch_mlflow_exception
-def get_gateway_model_definition_permission():
-    _log_legacy_permission_deprecation("get_gateway_model_definition_permission")
-    model_definition_id = _get_request_param("model_definition_id")
-    username = _get_request_param("username")
-    perm = store.get_gateway_model_definition_permission(model_definition_id, username)
-    return make_response({"gateway_model_definition_permission": perm.to_json()})
-
-
-@catch_mlflow_exception
-def update_gateway_model_definition_permission():
-    _log_legacy_permission_deprecation("update_gateway_model_definition_permission")
-    model_definition_id = _get_request_param("model_definition_id")
-    username = _get_request_param("username")
-    permission = _get_request_param("permission")
-    store.update_gateway_model_definition_permission(model_definition_id, username, permission)
-    return make_response({})
-
-
-@catch_mlflow_exception
-def delete_gateway_model_definition_permission():
-    _log_legacy_permission_deprecation("delete_gateway_model_definition_permission")
-    model_definition_id = _get_request_param("model_definition_id")
-    username = _get_request_param("username")
-    store.delete_gateway_model_definition_permission(model_definition_id, username)
     return make_response({})
 
 
@@ -4513,130 +4268,6 @@ def create_app(app: Flask = app):
             view_func=delete_user,
             methods=["DELETE"],
         )
-    # Legacy per-resource permission routes (deprecated).
-    app.add_url_rule(
-        rule=CREATE_EXPERIMENT_PERMISSION,
-        view_func=create_experiment_permission,
-        methods=["POST"],
-    )
-    app.add_url_rule(
-        rule=GET_EXPERIMENT_PERMISSION,
-        view_func=get_experiment_permission,
-        methods=["GET"],
-    )
-    app.add_url_rule(
-        rule=UPDATE_EXPERIMENT_PERMISSION,
-        view_func=update_experiment_permission,
-        methods=["PATCH"],
-    )
-    app.add_url_rule(
-        rule=DELETE_EXPERIMENT_PERMISSION,
-        view_func=delete_experiment_permission,
-        methods=["DELETE"],
-    )
-    app.add_url_rule(
-        rule=CREATE_REGISTERED_MODEL_PERMISSION,
-        view_func=create_registered_model_permission,
-        methods=["POST"],
-    )
-    app.add_url_rule(
-        rule=GET_REGISTERED_MODEL_PERMISSION,
-        view_func=get_registered_model_permission,
-        methods=["GET"],
-    )
-    app.add_url_rule(
-        rule=UPDATE_REGISTERED_MODEL_PERMISSION,
-        view_func=update_registered_model_permission,
-        methods=["PATCH"],
-    )
-    app.add_url_rule(
-        rule=DELETE_REGISTERED_MODEL_PERMISSION,
-        view_func=delete_registered_model_permission,
-        methods=["DELETE"],
-    )
-    app.add_url_rule(
-        rule=CREATE_SCORER_PERMISSION,
-        view_func=create_scorer_permission,
-        methods=["POST"],
-    )
-    app.add_url_rule(
-        rule=GET_SCORER_PERMISSION,
-        view_func=get_scorer_permission,
-        methods=["GET"],
-    )
-    app.add_url_rule(
-        rule=UPDATE_SCORER_PERMISSION,
-        view_func=update_scorer_permission,
-        methods=["PATCH"],
-    )
-    app.add_url_rule(
-        rule=DELETE_SCORER_PERMISSION,
-        view_func=delete_scorer_permission,
-        methods=["DELETE"],
-    )
-    # Gateway secret permission routes (deprecated)
-    app.add_url_rule(
-        rule=CREATE_GATEWAY_SECRET_PERMISSION,
-        view_func=create_gateway_secret_permission,
-        methods=["POST"],
-    )
-    app.add_url_rule(
-        rule=GET_GATEWAY_SECRET_PERMISSION,
-        view_func=get_gateway_secret_permission,
-        methods=["GET"],
-    )
-    app.add_url_rule(
-        rule=UPDATE_GATEWAY_SECRET_PERMISSION,
-        view_func=update_gateway_secret_permission,
-        methods=["PATCH"],
-    )
-    app.add_url_rule(
-        rule=DELETE_GATEWAY_SECRET_PERMISSION,
-        view_func=delete_gateway_secret_permission,
-        methods=["DELETE"],
-    )
-    # Gateway endpoint permission routes (deprecated)
-    app.add_url_rule(
-        rule=CREATE_GATEWAY_ENDPOINT_PERMISSION,
-        view_func=create_gateway_endpoint_permission,
-        methods=["POST"],
-    )
-    app.add_url_rule(
-        rule=GET_GATEWAY_ENDPOINT_PERMISSION,
-        view_func=get_gateway_endpoint_permission,
-        methods=["GET"],
-    )
-    app.add_url_rule(
-        rule=UPDATE_GATEWAY_ENDPOINT_PERMISSION,
-        view_func=update_gateway_endpoint_permission,
-        methods=["PATCH"],
-    )
-    app.add_url_rule(
-        rule=DELETE_GATEWAY_ENDPOINT_PERMISSION,
-        view_func=delete_gateway_endpoint_permission,
-        methods=["DELETE"],
-    )
-    # Gateway model definition permission routes (deprecated)
-    app.add_url_rule(
-        rule=CREATE_GATEWAY_MODEL_DEFINITION_PERMISSION,
-        view_func=create_gateway_model_definition_permission,
-        methods=["POST"],
-    )
-    app.add_url_rule(
-        rule=GET_GATEWAY_MODEL_DEFINITION_PERMISSION,
-        view_func=get_gateway_model_definition_permission,
-        methods=["GET"],
-    )
-    app.add_url_rule(
-        rule=UPDATE_GATEWAY_MODEL_DEFINITION_PERMISSION,
-        view_func=update_gateway_model_definition_permission,
-        methods=["PATCH"],
-    )
-    app.add_url_rule(
-        rule=DELETE_GATEWAY_MODEL_DEFINITION_PERMISSION,
-        view_func=delete_gateway_model_definition_permission,
-        methods=["DELETE"],
-    )
     # Role management routes (RBAC) — see _RBAC_ROUTES at module scope.
     for view_func, method, rest_path, ajax_path in _RBAC_ROUTES:
         for path in (rest_path, ajax_path):
