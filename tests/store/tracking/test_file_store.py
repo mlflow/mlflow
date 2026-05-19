@@ -3197,20 +3197,23 @@ def test_delete_traces(store):
         trace_info = store.start_trace(trace_info)
         trace_ids.append(trace_info.trace_id)
 
+    assert store.delete_traces(exp_id, max_timestamp_millis=0) == 1
+    assert len(store.search_traces([exp_id])[0]) == 9
+
     # delete with max_timestamp_millis
     # if max_traces < number of traces with timestamp < max_timestamp_millis,
     # delete older traces first
     assert store.delete_traces(exp_id, max_timestamp_millis=50, max_traces=2) == 2
-    assert len(store.search_traces([exp_id])[0]) == 8
+    assert len(store.search_traces([exp_id])[0]) == 7
     assert store.delete_traces(exp_id, max_timestamp_millis=50) == 4
-    assert len(store.search_traces([exp_id])[0]) == 4
+    assert len(store.search_traces([exp_id])[0]) == 3
 
     # delete with trace_ids
     assert store.delete_traces(exp_id, trace_ids=[trace_ids[3]]) == 1
-    assert len(store.search_traces([exp_id])[0]) == 3
+    assert len(store.search_traces([exp_id])[0]) == 2
     assert store.delete_traces(exp_id, trace_ids=["non_existing_trace_id"]) == 0
-    assert len(store.search_traces([exp_id])[0]) == 3
-    assert store.delete_traces(exp_id, trace_ids=trace_ids) == 3
+    assert len(store.search_traces([exp_id])[0]) == 2
+    assert store.delete_traces(exp_id, trace_ids=trace_ids) == 2
     assert len(store.search_traces([exp_id])[0]) == 0
 
     with pytest.raises(

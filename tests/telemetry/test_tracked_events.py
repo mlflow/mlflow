@@ -1251,6 +1251,7 @@ def test_tracking_server_start(
     # Isolate env vars that server() mutates so they don't leak into other tests
     for key in (
         "MLFLOW_ENABLE_WORKSPACES",
+        "MLFLOW_TRACE_ARCHIVAL_CONFIG",
         "MLFLOW_WORKSPACE_STORE_URI",
         "MLFLOW_SERVER_DISABLE_SECURITY_MIDDLEWARE",
         "MLFLOW_SERVER_ALLOWED_HOSTS",

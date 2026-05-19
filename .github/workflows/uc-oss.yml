@@ -47,14 +47,29 @@ jobs:
 
       - uses: ./.github/actions/setup-java
 
-      - name: Clone UnityCatalog at tag v0.2.1
+      - name: Clone UnityCatalog at tag v0.4.1
         run: |
-          git clone --branch v0.2.1 --depth 1 https://github.com/unitycatalog/unitycatalog.git
+          git clone --branch v0.4.1 --depth 1 https://github.com/unitycatalog/unitycatalog.git
+          git -C unitycatalog checkout c239a9b437f1acad290cff6e7e02b41699f00ebe
 
       - name: Build uc-oss server
         working-directory: unitycatalog
         run: |
+          # TODO: Remove these two lines once UC OSS releases a version with the
+          # sbt-coursier fix merged in https://github.com/unitycatalog/unitycatalog/blob/main/build.sbt
+          # The legacy sbt-coursier 1.x plugin conflicts with sbt 1.9's built-in
+          # coursier 2.x and causes version properties to resolve as empty strings
+          # (e.g. "junit:junit::"), breaking dependency resolution.
+          sed -i '/io.get-coursier.*sbt-coursier/d' project/plugins.sbt
+          sed -i '/enablePlugins(CoursierPlugin)/d' build.sbt
           build/sbt package
+
+      - name: Configure UC OSS server
+        working-directory: unitycatalog
+        run: |
+          # v0.4.1 requires a managed storage location for model registration.
+          # Set a local file path as the fallback model storage root.
+          echo "storage-root.models=file:///tmp/uc-model-storage" >> etc/conf/server.properties
 
       - name: Run tests for UnityCatalog
         run: |

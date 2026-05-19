@@ -49,7 +49,11 @@ from mlflow.entities.trace_metrics import (
     MetricViewType,
 )
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
-from mlflow.exceptions import MlflowException, MlflowNotImplementedException
+from mlflow.exceptions import (
+    MlflowException,
+    MlflowNotImplementedException,
+    MlflowTracingException,
+)
 from mlflow.gateway.budget_tracker.in_memory import InMemoryBudgetTracker
 from mlflow.genai.scorers.online.entities import OnlineScoringConfig
 from mlflow.protos.databricks_pb2 import (
@@ -226,6 +230,7 @@ from mlflow.store.tracking import MAX_RESULTS_QUERY_TRACE_METRICS
 from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
 from mlflow.telemetry.schemas import Record, Status
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
+from mlflow.tracing.constant import SpansLocation, TraceTagKey
 from mlflow.tracing.utils import build_otel_context
 from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION
 from mlflow.utils.proto_json_utils import message_to_json
@@ -388,6 +393,49 @@ def test_server_info():
         data = response.get_json()
         assert data["store_type"] == "SqlStore"
         assert data["workspaces_enabled"] is False
+        assert data["trace_archival_enabled"] is False
+
+
+def test_server_info_trace_archival_enabled(monkeypatch):
+    monkeypatch.setattr(
+        "mlflow.server.handlers.get_trace_archival_server_config",
+        mock.Mock(return_value=mock.Mock(enabled=True)),
+    )
+    monkeypatch.setattr("mlflow.server.handlers._store_supports_trace_archival", lambda store: True)
+
+    with app.test_client() as c:
+        response = c.get("/api/3.0/mlflow/server-info")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["trace_archival_enabled"] is True
+
+
+def test_server_info_handles_invalid_trace_archival_config(monkeypatch):
+    monkeypatch.setattr(
+        "mlflow.server.handlers.get_trace_archival_server_config",
+        mock.Mock(
+            side_effect=MlflowException.invalid_parameter_value("invalid trace archival config")
+        ),
+    )
+
+    with app.test_client() as c:
+        response = c.get("/api/3.0/mlflow/server-info")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["trace_archival_enabled"] is False
+
+
+def test_server_info_handles_unexpected_trace_archival_config_error(monkeypatch):
+    monkeypatch.setattr(
+        "mlflow.server.handlers.get_trace_archival_server_config",
+        mock.Mock(side_effect=RuntimeError("unexpected trace archival config error")),
+    )
+
+    with app.test_client() as c:
+        response = c.get("/api/3.0/mlflow/server-info")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["trace_archival_enabled"] is False
 
 
 def test_get_endpoints():
@@ -2968,6 +3016,39 @@ def test_get_trace_artifact_handler_with_attachment_path(mock_tracking_store):
     assert response.headers["X-Content-Type-Options"] == "nosniff"
 
 
+def test_get_trace_artifact_handler_falls_back_to_archive_repo(mock_tracking_store):
+    trace_id = "tr-test-archive-fallback"
+    trace_info = TraceInfo(
+        trace_id=trace_id,
+        trace_location=EntityTraceLocation.from_experiment_id("3"),
+        request_time=1234567890,
+        execution_duration=4000,
+        state=TraceState.OK,
+        tags={
+            MLFLOW_ARTIFACT_LOCATION: "dbfs:/trace-artifacts",
+            TraceTagKey.SPANS_LOCATION: SpansLocation.ARCHIVE_REPO.value,
+            TraceTagKey.ARCHIVE_LOCATION: "dbfs:/trace-archive",
+        },
+    )
+
+    mock_tracking_store.get_trace.side_effect = MlflowTracingException("archive-backed trace")
+    mock_tracking_store.get_trace_info.return_value = trace_info
+    mock_archive_repo = mock.MagicMock()
+    mock_archive_repo.download_archived_trace_data.return_value = TraceData(spans=[])
+
+    with mock.patch(
+        "mlflow.server.handlers._get_trace_archive_repo", return_value=mock_archive_repo
+    ):
+        with app.test_request_context(method="GET", query_string={"request_id": trace_id}):
+            response = get_trace_artifact_handler()
+
+    mock_tracking_store.get_trace.assert_called_once_with(trace_id, allow_partial=True)
+    mock_tracking_store.get_trace_info.assert_called_once_with(trace_id)
+    mock_archive_repo.download_archived_trace_data.assert_called_once()
+    assert response.status_code == 200
+    assert response.headers["Content-Disposition"] == "attachment; filename=traces.json"
+
+
 def test_get_trace_artifact_handler_attachment_missing_request_id():
     query = {"path": "a1b2c3d4-e5f6-4890-abcd-ef1234567890"}
     with app.test_request_context(method="GET", query_string=query):
@@ -3034,6 +3115,82 @@ def test_delete_trace_tag_v3_handler(mock_get_request_message, mock_tracking_sto
     assert response.status_code == 200
 
 
+@pytest.mark.parametrize(
+    "tag_key",
+    [
+        TraceTagKey.SPANS_LOCATION,
+        TraceTagKey.ARCHIVE_LOCATION,
+    ],
+)
+def test_delete_trace_tag_v2_handler_rejects_archival_immutable_tags(
+    mock_get_request_message, mock_tracking_store, tag_key
+):
+    request_msg = DeleteTraceTag(key=tag_key)
+    mock_get_request_message.return_value = request_msg
+
+    response = _delete_trace_tag(request_id="tr-123v2")
+
+    assert response.status_code == 400
+    response_data = json.loads(response.get_data())
+    assert response_data["error_code"] == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+    assert response_data["message"] == (
+        f"Tag '{tag_key}' is immutable and cannot be deleted on a trace."
+    )
+    mock_tracking_store.delete_trace_tag.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "tag_key",
+    [
+        TraceTagKey.SPANS_LOCATION,
+        TraceTagKey.ARCHIVE_LOCATION,
+    ],
+)
+def test_delete_trace_tag_v3_handler_rejects_archival_immutable_tags(
+    mock_get_request_message, mock_tracking_store, tag_key
+):
+    request_msg = DeleteTraceTagV3(key=tag_key)
+    mock_get_request_message.return_value = request_msg
+
+    response = _delete_trace_tag_v3(trace_id="tr-v3-456")
+
+    assert response.status_code == 400
+    response_data = json.loads(response.get_data())
+    assert response_data["error_code"] == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+    assert response_data["message"] == (
+        f"Tag '{tag_key}' is immutable and cannot be deleted on a trace."
+    )
+    mock_tracking_store.delete_trace_tag.assert_not_called()
+
+
+def test_delete_trace_tag_v2_handler_allows_clearing_archival_failure(
+    mock_get_request_message, mock_tracking_store
+):
+    request_msg = DeleteTraceTag(key=TraceTagKey.ARCHIVAL_FAILURE)
+    mock_get_request_message.return_value = request_msg
+
+    response = _delete_trace_tag(request_id="tr-123v2")
+
+    assert response.status_code == 200
+    mock_tracking_store.delete_trace_tag.assert_called_once_with(
+        "tr-123v2", TraceTagKey.ARCHIVAL_FAILURE
+    )
+
+
+def test_delete_trace_tag_v3_handler_allows_clearing_archival_failure(
+    mock_get_request_message, mock_tracking_store
+):
+    request_msg = DeleteTraceTagV3(key=TraceTagKey.ARCHIVAL_FAILURE)
+    mock_get_request_message.return_value = request_msg
+
+    response = _delete_trace_tag_v3(trace_id="tr-v3-456")
+
+    assert response.status_code == 200
+    mock_tracking_store.delete_trace_tag.assert_called_once_with(
+        "tr-v3-456", TraceTagKey.ARCHIVAL_FAILURE
+    )
+
+
 def test_set_trace_tag_v2_handler(mock_get_request_message, mock_tracking_store):
     """Test v2 set_trace_tag handler with request_id parameter.
 
@@ -3084,6 +3241,52 @@ def test_set_trace_tag_v3_handler(mock_get_request_message, mock_tracking_store)
     # Verify response was created (200 status)
     assert response is not None
     assert response.status_code == 200
+
+
+@pytest.mark.parametrize(
+    "tag_key",
+    [
+        TraceTagKey.SPANS_LOCATION,
+        TraceTagKey.ARCHIVE_LOCATION,
+        TraceTagKey.ARCHIVAL_FAILURE,
+    ],
+)
+def test_set_trace_tag_v2_handler_rejects_archival_immutable_tags(
+    mock_get_request_message, mock_tracking_store, tag_key
+):
+    request_msg = SetTraceTag(key=tag_key, value="tv")
+    mock_get_request_message.return_value = request_msg
+
+    response = _set_trace_tag(request_id="tr-test-v2-123")
+
+    assert response.status_code == 400
+    response_data = json.loads(response.get_data())
+    assert response_data["error_code"] == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+    assert response_data["message"] == f"Tag '{tag_key}' is immutable and cannot be set on a trace."
+    mock_tracking_store.set_trace_tag.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "tag_key",
+    [
+        TraceTagKey.SPANS_LOCATION,
+        TraceTagKey.ARCHIVE_LOCATION,
+        TraceTagKey.ARCHIVAL_FAILURE,
+    ],
+)
+def test_set_trace_tag_v3_handler_rejects_archival_immutable_tags(
+    mock_get_request_message, mock_tracking_store, tag_key
+):
+    request_msg = SetTraceTagV3(key=tag_key, value="tv")
+    mock_get_request_message.return_value = request_msg
+
+    response = _set_trace_tag_v3(trace_id="tr-test-v3-456")
+
+    assert response.status_code == 400
+    response_data = json.loads(response.get_data())
+    assert response_data["error_code"] == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+    assert response_data["message"] == f"Tag '{tag_key}' is immutable and cannot be set on a trace."
+    mock_tracking_store.set_trace_tag.assert_not_called()
 
 
 def test_link_prompts_to_trace_handler(mock_get_request_message, mock_tracking_store):
@@ -4720,6 +4923,92 @@ def test_list_budget_windows_zero_spend():
     window = response.json["windows"][0]
     assert window["budget_policy_id"] == "bp-test"
     assert window["current_spend"] == 0.0
+
+
+def test_list_budget_windows_workspace_scoped_filters_workspace_policies():
+    tracker = InMemoryBudgetTracker()
+    global_policy = GatewayBudgetPolicy(
+        budget_policy_id="bp-global",
+        budget_unit=BudgetUnit.USD,
+        budget_amount=100.0,
+        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+        target_scope=BudgetTargetScope.GLOBAL,
+        budget_action=BudgetAction.ALERT,
+        created_at=0,
+        last_updated_at=0,
+    )
+    ws_policy = GatewayBudgetPolicy(
+        budget_policy_id="bp-ws",
+        budget_unit=BudgetUnit.USD,
+        budget_amount=50.0,
+        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+        target_scope=BudgetTargetScope.WORKSPACE,
+        budget_action=BudgetAction.ALERT,
+        created_at=0,
+        last_updated_at=0,
+        workspace="team-a",
+    )
+    other_ws_policy = GatewayBudgetPolicy(
+        budget_policy_id="bp-other",
+        budget_unit=BudgetUnit.USD,
+        budget_amount=75.0,
+        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+        target_scope=BudgetTargetScope.WORKSPACE,
+        budget_action=BudgetAction.ALERT,
+        created_at=0,
+        last_updated_at=0,
+        workspace="team-b",
+    )
+    tracker.refresh_policies([global_policy, ws_policy, other_ws_policy])
+
+    with (
+        app.test_client() as c,
+        mock.patch("mlflow.server.handlers.get_budget_tracker", return_value=tracker),
+        mock.patch("mlflow.server.handlers.maybe_refresh_budget_policies"),
+        WorkspaceContext("team-a"),
+    ):
+        response = c.get("/ajax-api/3.0/mlflow/gateway/budgets/windows")
+
+    assert response.status_code == 200
+    policy_ids = {w["budget_policy_id"] for w in response.json["windows"]}
+    assert policy_ids == {"bp-global", "bp-ws"}
+
+
+def test_list_budget_windows_no_workspace_returns_all():
+    tracker = InMemoryBudgetTracker()
+    global_policy = GatewayBudgetPolicy(
+        budget_policy_id="bp-global",
+        budget_unit=BudgetUnit.USD,
+        budget_amount=100.0,
+        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+        target_scope=BudgetTargetScope.GLOBAL,
+        budget_action=BudgetAction.ALERT,
+        created_at=0,
+        last_updated_at=0,
+    )
+    ws_policy = GatewayBudgetPolicy(
+        budget_policy_id="bp-ws",
+        budget_unit=BudgetUnit.USD,
+        budget_amount=50.0,
+        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+        target_scope=BudgetTargetScope.WORKSPACE,
+        budget_action=BudgetAction.ALERT,
+        created_at=0,
+        last_updated_at=0,
+        workspace="team-a",
+    )
+    tracker.refresh_policies([global_policy, ws_policy])
+
+    with (
+        app.test_client() as c,
+        mock.patch("mlflow.server.handlers.get_budget_tracker", return_value=tracker),
+        mock.patch("mlflow.server.handlers.maybe_refresh_budget_policies"),
+    ):
+        response = c.get("/ajax-api/3.0/mlflow/gateway/budgets/windows")
+
+    assert response.status_code == 200
+    policy_ids = {w["budget_policy_id"] for w in response.json["windows"]}
+    assert policy_ids == {"bp-global", "bp-ws"}
 
 
 def test_create_issue_with_all_fields():

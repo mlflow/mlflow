@@ -255,7 +255,41 @@ Issue detection requires LLM calls to analyze each trace. Costs scale with:
 - Model size and pricing
 - Number of categories selected
 
-More capable models (e.g. `gpt-5.4`) generally produce better issue detection quality, and the cost is reasonable, typically a few dollars for hundreds of traces. We recommend starting with a stronger model to get the best results out of the box.
+## Cost benchmark
+
+**On April 16, 2026**, we ran an internal benchmark sweep of issue detection across several chat models. The numbers below are **indicative only**—your tokens and dollar cost will differ with trace length, category selection, provider pricing, and product changes.
+
+**Setup:** 402 verified traces in the evaluation pool; each run analyzed a deterministic subset of **50**, **100**, or **250** traces (seed 42)
+
+**Summary across all models by trace count:**
+
+| Traces | Typical cost | Issues found |
+| ------ | ------------ | ------------ |
+| 50     | $0.08–$0.42  | 5–9          |
+| 100    | $0.11–$0.53  | 8–13         |
+| 250    | $0.16–$0.93  | 10–22        |
+
+**Full model breakdown:**
+
+| Model             | Traces | Input tokens | Output tokens | Cost (USD) | Issues found |
+| ----------------- | -----: | -----------: | ------------: | ---------: | -----------: |
+| gpt-5.4           |     50 |       38,004 |         6,549 |       0.19 |            9 |
+| o3                |     50 |       25,253 |        10,866 |       0.14 |            6 |
+| claude-opus-4-6   |     50 |       44,219 |         7,935 |       0.42 |            6 |
+| claude-sonnet-4-6 |     50 |       45,139 |         7,837 |       0.25 |            8 |
+| gemini-3.1-pro    |     50 |       22,537 |         2,732 |       0.08 |            5 |
+| gpt-5.4           |    100 |       59,085 |         9,976 |       0.30 |           13 |
+| o3                |    100 |       51,508 |        25,789 |       0.31 |            8 |
+| claude-opus-4-6   |    100 |       56,128 |         9,985 |       0.53 |            9 |
+| claude-sonnet-4-6 |    100 |       80,965 |        15,062 |       0.47 |           11 |
+| gemini-3.1-pro    |    100 |       32,128 |         3,949 |       0.11 |            8 |
+| gpt-5.4           |    250 |      114,285 |        20,578 |       0.59 |           22 |
+| o3                |    250 |       61,733 |        30,173 |       0.36 |           12 |
+| claude-opus-4-6   |    250 |       94,152 |        18,174 |       0.93 |           10 |
+| claude-sonnet-4-6 |    250 |       97,299 |        18,062 |       0.56 |           14 |
+| gemini-3.1-pro    |    250 |       43,080 |         6,155 |       0.16 |           12 |
+
+More capable models (for example `gpt-5.4`) generally improve issue detection quality in our testing; we still recommend starting with a strong default model, then tuning for cost or latency using Gateway budgets and smaller trace sets if needed.
 
 To control costs at scale, connect via an [MLflow AI Gateway](/genai/governance/ai-gateway/) endpoint and use its built-in budget controls to cap spending across detection runs.
 

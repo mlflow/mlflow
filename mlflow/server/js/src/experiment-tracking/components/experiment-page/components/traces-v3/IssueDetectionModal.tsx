@@ -284,10 +284,28 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
               showConfigureDirectly
               componentId="mlflow.traces.issue-detection-modal"
               description={
-                <FormattedMessage
-                  defaultMessage="Configure the model to power issue detection"
-                  description="Description for the model selection step in issue detection modal"
-                />
+                <>
+                  <FormattedMessage
+                    defaultMessage="Configure the model to power issue detection."
+                    description="Description for model selection in issue detection modal"
+                  />
+                  <br />
+                  <FormattedMessage
+                    defaultMessage="Rough cost: under $0.5 for ~100 traces, actual cost varies by selected model. <link>See benchmark</link>."
+                    description="Approximate USD cost ranges for issue detection as a hint, with link to benchmark docs"
+                    values={{
+                      link: (chunks: React.ReactNode) => (
+                        <a
+                          href="https://mlflow.org/docs/latest/genai/eval-monitor/ai-insights/detect-issues/#cost-benchmark"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          {chunks}
+                        </a>
+                      ),
+                    }}
+                  />
+                </>
               }
             />
           </div>
