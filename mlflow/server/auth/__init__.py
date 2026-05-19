@@ -51,6 +51,7 @@ from mlflow.environment_variables import (
     MLFLOW_RBAC_SEED_DEFAULT_ROLES,
     MLFLOW_SERVER_ENABLE_GRAPHQL_AUTH,
 )
+from mlflow.prompt.constants import IS_PROMPT_TAG_KEY
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
     INTERNAL_ERROR,
@@ -1484,6 +1485,34 @@ def validate_can_get_user_permission() -> bool:
     return store.is_workspace_admin(requester_user.id, workspace_name)
 
 
+def _entity_is_prompt(entity) -> bool:
+    """True if a ``RegisteredModel`` / ``ModelVersion`` entity is prompt-flagged.
+
+    Unifies the two response-filtering paths in ``filter_search_*`` — initial
+    response rows arrive as protos (via ``parse_dict``), refetched rows arrive
+    as ORM entities (``PagedList[RegisteredModel]`` / ``[ModelVersion]``).
+    Both ORM entities expose ``_is_prompt()``; protos don't, so we fall back
+    to scanning the repeated ``.tags`` field for the prompt marker.
+    """
+    if hasattr(entity, "_is_prompt"):
+        return entity._is_prompt()
+    return any(t.key == IS_PROMPT_TAG_KEY and t.value.lower() == "true" for t in entity.tags)
+
+
+def _rm_or_prompt_read_predicate(username: str) -> Callable[[Any], bool]:
+    """Build a ``p(entity) -> bool`` for filtering shared registered-model /
+    model-version search responses. Classifies each row by its
+    ``mlflow.prompt.is_prompt`` tag and consults the matching grant namespace.
+    """
+    can_read_rm = _role_based_read_predicate(username, "registered_model")
+    can_read_prompt = _role_based_read_predicate(username, "prompt")
+
+    def can_read(entity) -> bool:
+        return (can_read_prompt if _entity_is_prompt(entity) else can_read_rm)(entity.name)
+
+    return can_read
+
+
 def _role_based_read_predicate(username: str, resource_type: str) -> Callable[[str], bool]:
     """
     Build a ``p(resource_id) -> bool`` predicate from ``username``'s role
@@ -2544,21 +2573,45 @@ def set_can_manage_experiment_permission(resp: Response):
 
 
 def set_can_manage_registered_model_permission(resp: Response):
+    # ``CreateRegisteredModel`` is shared with prompt creation; the response
+    # carries the persisted ``mlflow.prompt.is_prompt`` tag, so we can classify
+    # the entity authoritatively here and grant MANAGE in the matching
+    # namespace. Granting unconditionally on ``registered_model`` would leave
+    # the prompt creator without ``(prompt, name, MANAGE)`` and lock them out
+    # of the entity they just created via the prompt-side validators.
     response_message = CreateRegisteredModel.Response()
     parse_dict(resp.json, response_message)
     name = response_message.registered_model.name
+    resource_type = (
+        "prompt" if _entity_is_prompt(response_message.registered_model) else "registered_model"
+    )
     username = authenticate_request().username
-    store.grant_user_permission(username, "registered_model", name, MANAGE.name)
+    store.grant_user_permission(username, resource_type, name, MANAGE.name)
 
 
 def delete_can_manage_registered_model_permission(resp: Response):
     """
-    Sweep registered-model grants when the model is deleted. The model's primary
-    key is its name (unlike experiments which use a UUID), so a future model
-    with the same name would otherwise inherit stale grants.
+    Sweep registered-model and prompt grants when the entity is deleted.
+
+    The model registry's primary key is the entity name (unlike experiments
+    which use a UUID), so a future entity with the same name would otherwise
+    inherit stale grants. ``DeleteRegisteredModel`` is shared between
+    registered models and prompts on the REST surface; the entity is already
+    gone by the time this after-request hook runs, so we cannot classify it
+    now. Names are unique within the registry, so exactly one of the two
+    sweeps applies and the other is a no-op.
     """
-    name = request.get_json(force=True, silent=True)["name"]
+    # ``silent=True`` returns ``None`` on missing / unparsable bodies; the
+    # ``or {}`` guard prevents a ``TypeError`` from leaking out as a 500.
+    data = request.get_json(force=True, silent=True) or {}
+    name = data.get("name")
+    if not name:
+        raise MlflowException(
+            "Missing value for required parameter 'name'.",
+            INVALID_PARAMETER_VALUE,
+        )
     store.delete_grants_for_resource("registered_model", name, workspace_scoped=True)
+    store.delete_grants_for_resource("prompt", name, workspace_scoped=True)
 
 
 # ---- Role management handlers (RBAC) ----
@@ -2971,10 +3024,15 @@ def filter_search_registered_models(resp: Response):
     parse_dict(resp.json, response_message)
 
     username = authenticate_request().username
-    can_read = _role_based_read_predicate(username, "registered_model")
+    # The registered-model REST surface is shared with prompts; classify each
+    # row by its ``mlflow.prompt.is_prompt`` tag and check the correct grant
+    # namespace. Without this, a user holding only a ``(prompt, foo, READ)``
+    # grant would have prompt ``foo`` silently filtered out of the response.
+    can_read = _rm_or_prompt_read_predicate(username)
+
     # filter out unreadable
     for rm in list(response_message.registered_models):
-        if not can_read(rm.name):
+        if not can_read(rm):
             response_message.registered_models.remove(rm)
 
     # re-fetch to fill max results
@@ -2998,7 +3056,10 @@ def filter_search_registered_models(resp: Response):
             response_message.next_page_token = ""
             break
 
-        refetched_readable_proto = [rm.to_proto() for rm in refetched if can_read(rm.name)]
+        # ``can_read`` accepts both protos and ORM entities; reuse it here so
+        # refetched ORM rows go through the same classification as the initial
+        # JSON-parsed proto rows above.
+        refetched_readable_proto = [rm.to_proto() for rm in refetched if can_read(rm)]
         response_message.registered_models.extend(refetched_readable_proto)
 
         # recalculate next page token
@@ -3019,10 +3080,14 @@ def filter_search_model_versions(resp: Response):
     parse_dict(resp.json, response_message)
 
     username = authenticate_request().username
-    can_read = _role_based_read_predicate(username, "registered_model")
+    # Prompt versions and model versions share the same REST surface; classify
+    # each row by its ``mlflow.prompt.is_prompt`` tag so a prompt-version
+    # carrying a ``(prompt, name, READ)`` grant isn't dropped on the floor.
+    can_read = _rm_or_prompt_read_predicate(username)
+
     # filter out model versions whose parent model is unreadable
     for mv in list(response_message.model_versions):
-        if not can_read(mv.name):
+        if not can_read(mv):
             response_message.model_versions.remove(mv)
 
     resp.data = message_to_json(response_message)
@@ -3030,17 +3095,26 @@ def filter_search_model_versions(resp: Response):
 
 def rename_registered_model_permission(resp: Response):
     """
-    A model registry can be assigned to multiple users with different permissions.
+    Propagate a registered-model rename to RBAC grants.
 
-    Changing the model registry name must be propagated to all users.
+    ``RenameRegisteredModel`` is shared between registered models and prompts;
+    sweep both namespaces so a prompt rename doesn't orphan its
+    ``(prompt, old_name, ...)`` grants. Names are unique within the registry,
+    so exactly one of the two renames applies and the other is a no-op.
     """
-    data = request.get_json(force=True, silent=True)
-    store.rename_grants_for_resource(
-        "registered_model",
-        data.get("name"),
-        data.get("new_name"),
-        workspace_scoped=True,
-    )
+    # ``silent=True`` returns ``None`` on missing / unparsable bodies; ``or
+    # {}`` plus the explicit value checks below prevent ``None`` from
+    # propagating to ``resource_pattern`` and silently rewriting rows.
+    data = request.get_json(force=True, silent=True) or {}
+    old_name = data.get("name")
+    new_name = data.get("new_name")
+    if not old_name or not new_name:
+        raise MlflowException(
+            "Missing value for required parameter 'name' or 'new_name'.",
+            INVALID_PARAMETER_VALUE,
+        )
+    store.rename_grants_for_resource("registered_model", old_name, new_name, workspace_scoped=True)
+    store.rename_grants_for_resource("prompt", old_name, new_name, workspace_scoped=True)
 
 
 def set_can_manage_scorer_permission(resp: Response):
@@ -3512,6 +3586,21 @@ def update_user_admin():
 @catch_mlflow_exception
 def delete_user():
     username = _get_request_param("username")
+    # Admins cannot delete their own account — like blocking ``root`` from
+    # ``userdel root`` on Unix. Without this guard the request still succeeds
+    # but leaves the caller in a broken state (browser still has Basic Auth
+    # creds for a now-missing user, so every subsequent request 401s).
+    #
+    # ``authenticate_request()`` can return a ``Response`` (401 challenge)
+    # rather than an ``Authorization`` object, so guard the ``.username``
+    # access with ``getattr`` — same pattern ``update_user_password`` uses.
+    sender = authenticate_request()
+    sender_username = getattr(sender, "username", None)
+    if username == sender_username:
+        raise MlflowException(
+            "Users cannot delete their own account. Ask another admin to delete this user instead.",
+            BAD_REQUEST,
+        )
     store.delete_user(username)
     _invalidate_user_auth_cache(username)
     return make_response({})
