@@ -197,7 +197,9 @@ async def test_astream_builds_correct_command():
     assert "/usr/bin/codex" in args
     assert "exec" in args
     assert "--json" in args
-    assert "--dangerously-bypass-approvals-and-sandbox" in args
+    assert "--sandbox" in args
+    assert "danger-full-access" in args
+    assert "--dangerously-bypass-approvals-and-sandbox" not in args
     assert "--ephemeral" not in args
     assert "--skip-git-repo-check" in args
     assert args[-1] == "-"
@@ -269,6 +271,30 @@ async def test_astream_sends_prompt_via_stdin():
     assert b"my question" in stdin_bytes
     mock_proc.stdin.drain.assert_awaited_once()
     mock_proc.stdin.close.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_astream_omits_system_instructions_on_resume():
+    mock_proc = _mock_process()
+
+    with (
+        patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
+        patch(
+            "mlflow.assistant.providers.codex.asyncio.create_subprocess_exec",
+            return_value=mock_proc,
+        ),
+    ):
+        provider = CodexProvider()
+        _ = [
+            e
+            async for e in provider.astream(
+                "follow up", "http://localhost:5000", session_id="abc-123"
+            )
+        ]
+
+    stdin_bytes = mock_proc.stdin.write.call_args[0][0]
+    assert b"<system_instructions>" not in stdin_bytes
+    assert b"follow up" in stdin_bytes
 
 
 @pytest.mark.asyncio

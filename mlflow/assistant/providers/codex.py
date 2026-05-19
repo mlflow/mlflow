@@ -121,28 +121,33 @@ class CodexProvider(AssistantProvider):
 
         config = load_config(self.name)
 
-        sys_prompt = ASSISTANT_SYSTEM_PROMPT.format(tracking_uri=tracking_uri)
-
         if context:
             user_text = f"<context>\n{json.dumps(context)}\n</context>\n\n{prompt}"
         else:
             user_text = prompt
 
-        user_message = f"<system_instructions>\n{sys_prompt}\n</system_instructions>\n\n{user_text}"
-
-        cmd = [codex_path, "exec"]
-
         if session_id:
-            cmd.extend(["resume", session_id])
+            user_message = user_text
+        else:
+            sys_prompt = ASSISTANT_SYSTEM_PROMPT.format(tracking_uri=tracking_uri)
+            user_message = (
+                f"<system_instructions>\n{sys_prompt}\n</system_instructions>\n\n{user_text}"
+            )
 
-        cmd.extend([
+        cmd = [
+            codex_path,
+            "exec",
             "--json",
-            "--dangerously-bypass-approvals-and-sandbox",
+            "--sandbox",
+            "danger-full-access",
             "--skip-git-repo-check",
-        ])
+        ]
 
         if config.model and config.model != "default":
             cmd.extend(["-m", config.model])
+
+        if session_id:
+            cmd.extend(["resume", session_id])
 
         cmd.append("-")
 
