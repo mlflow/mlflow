@@ -57,7 +57,13 @@ def test_create_role_same_name_different_workspace(store):
     assert r1.id != r2.id
 
 
-@pytest.mark.parametrize("name", ["__user_1__", "__user_42__", "__user_999999__"])
+# Sample names matching the reserved ``__user_<id>__`` pattern. Shared by
+# the create-time and update-time guards so a future pattern addition
+# (e.g. another reserved prefix) lands in both tests automatically.
+_SYNTHETIC_USER_ROLE_NAMES = ["__user_1__", "__user_42__", "__user_999999__"]
+
+
+@pytest.mark.parametrize("name", _SYNTHETIC_USER_ROLE_NAMES)
 def test_create_role_rejects_synthetic_user_name_pattern(store, name):
     # The ``__user_<id>__`` pattern is reserved for synthetic per-user roles
     # created internally by ``grant_user_permission``. Allowing an operator
@@ -68,7 +74,7 @@ def test_create_role_rejects_synthetic_user_name_pattern(store, name):
         store.create_role(name=name, workspace="ws1")
 
 
-@pytest.mark.parametrize("name", ["__user_1__", "__user_42__"])
+@pytest.mark.parametrize("name", _SYNTHETIC_USER_ROLE_NAMES)
 def test_update_role_rejects_synthetic_user_name_pattern(store, name):
     # The same reservation must apply when *renaming* an existing role —
     # otherwise the create-time guard could be bypassed by creating with a
