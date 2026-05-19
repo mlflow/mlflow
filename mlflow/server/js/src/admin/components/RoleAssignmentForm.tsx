@@ -77,6 +77,13 @@ export const RoleAssignmentForm = ({ value, onChange, disabled }: RoleAssignment
     return `${selectedRoles.length} roles selected`;
   }, [selectedRoles]);
 
+  // ``DialogCombobox`` calls ``renderDisplayedValue`` once per entry in
+  // ``value`` (joined by ``,``); collapse to a single summary label so the
+  // count text renders once. Items' checked state is driven by each
+  // ``DialogComboboxOptionListCheckboxItem``'s explicit ``checked`` prop —
+  // pinned by ``RoleAssignmentForm.test.tsx``.
+  const triggerValue = useMemo(() => (triggerText ? [triggerText] : []), [triggerText]);
+
   const toggleRole = (roleId: number) => {
     const next = value.roleIds.includes(roleId)
       ? value.roleIds.filter((id) => id !== roleId)
@@ -101,16 +108,10 @@ export const RoleAssignmentForm = ({ value, onChange, disabled }: RoleAssignment
         ) : roles.length === 0 ? (
           <Typography.Text color="secondary">No roles available. Create a role first.</Typography.Text>
         ) : (
-          <DialogCombobox
-            componentId="admin.role_assignment.roles"
-            label="Roles"
-            multiSelect
-            value={selectedRoles.map(formatRoleLabel)}
-          >
+          <DialogCombobox componentId="admin.role_assignment.roles" label="Roles" multiSelect value={triggerValue}>
             <DialogComboboxTrigger
               withInlineLabel={false}
               placeholder="Select one or more roles"
-              renderDisplayedValue={() => triggerText}
               onClear={() => onChange({ roleIds: [] })}
               width="100%"
               disabled={disabled}

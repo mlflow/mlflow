@@ -153,14 +153,6 @@ module.exports = {
     "",
   "codegen_mlflow_app_src_experiment-tracking_components_evaluations_evaluationsoverview.tsx_576":
     "",
-  "codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_experimentviewdescriptionnotes.tsx_114":
-    "",
-  "codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_experimentviewdescriptionnotes.tsx_120":
-    "",
-  "codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_experimentviewdescriptionnotes.tsx_126":
-    "",
-  "codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_experimentviewdescriptionnotes.tsx_141":
-    "",
   "codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_experimentviewnotes.tsx_57":
     "",
   "codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_header_experimentgetsharelinkmodal.tsx_101":
@@ -751,6 +743,7 @@ module.exports = {
   "admin.users.select_all": "",
   "admin.users.select_header": "",
   "admin.users.select_row": "",
+  "admin.users.select_row.self_tooltip": "",
   "admin.users.username_header": "",
   "admin.users.username_link": "",
   cancel: "",
@@ -836,11 +829,13 @@ module.exports = {
   "mlflow.assistant.setup.complete.start_chatting": "",
   "mlflow.assistant.setup.connection.back": "",
   "mlflow.assistant.setup.connection.check_again": "",
+  "mlflow.assistant.setup.connection.connect": "",
   "mlflow.assistant.setup.connection.continue": "",
   "mlflow.assistant.setup.connection.copy": "",
   "mlflow.assistant.setup.connection.learn_more": "",
   "mlflow.assistant.setup.footer.back": "",
   "mlflow.assistant.setup.footer.next": "",
+  "mlflow.assistant.setup.ollama.link": "",
   "mlflow.assistant.setup.project.custom_skills_path": "",
   "mlflow.assistant.setup.project.error": "",
   "mlflow.assistant.setup.project.path_input": "",
@@ -858,6 +853,8 @@ module.exports = {
   "mlflow.assistant.setup.project.skills_location": "",
   "mlflow.assistant.setup.project.skills_project": "",
   "mlflow.assistant.setup.provider.continue": "",
+  "mlflow.assistant.setup.provider.model": "",
+  "mlflow.assistant.setup.provider.url": "",
 
   // -- mlflow.charts --
   "mlflow.charts.bar_card_title.dataset_tag": "",
@@ -1067,9 +1064,16 @@ module.exports = {
   "mlflow.experiment.chat-session.metrics.persona-tooltip": "",
   "mlflow.experiment.chat-session.metrics.tokens-tag": "",
   "mlflow.experiment.chat-session.view-trace": "",
+  "mlflow.experiment.edit.name": "",
+  "mlflow.experiment.edit.trace-archival-retention": "",
   "mlflow.experiment.evaluations.ai-judge-tag": "",
   "mlflow.experiment.evaluations.human-judge-tag": "",
   "mlflow.experiment.list.tag.add": "",
+  "mlflow.experiment.metadata_editor.collapse_button": "",
+  "mlflow.experiment.metadata_editor.edit_button": "",
+  "mlflow.experiment.metadata_editor.error": "",
+  "mlflow.experiment.metadata_editor.expand_button": "",
+  "mlflow.experiment.metadata_editor.modal": "",
   "mlflow.experiment.overview": "",
   "mlflow.experiment.overview.detect-issues-button": "",
   "mlflow.experiment.overview.filestore-warning": "",
@@ -1276,6 +1280,8 @@ module.exports = {
   "mlflow.experiment_view.header.experiment_kind_inference_popover.dismiss": "",
   "mlflow.experiment_view.header.experiment_kind_selector": "",
   "mlflow.experiment_view.header.experiment_kind_selector.tooltip": "",
+  "mlflow.experiment_view.header.trace_archival_badge": "",
+  "mlflow.experiment_view.header.trace_archival_badge_tooltip": "",
 
   // -- mlflow.experiment_view_runs_table --
   "mlflow.experiment_view_runs_table.column_header.models.tooltip": "",
@@ -1390,6 +1396,7 @@ module.exports = {
   "mlflow.gateway.edit-endpoint.name-edit-tooltip": "",
   "mlflow.gateway.edit-endpoint.save": "",
   "mlflow.gateway.edit-endpoint.save-tooltip": "",
+  "mlflow.gateway.edit-endpoint.coding-agent-starter-code.copy": "",
   "mlflow.gateway.edit-endpoint.starter-code.api": "",
   "mlflow.gateway.edit-endpoint.starter-code.copy": "",
   "mlflow.gateway.edit-endpoint.starter-code.try-in-browser": "",
@@ -1479,6 +1486,9 @@ module.exports = {
   "mlflow.gateway.model-selector-modal.filter.tools": "",
   "mlflow.gateway.model-selector-modal.radio-group": "",
   "mlflow.gateway.model-selector-modal.search": "",
+  "mlflow.gateway.quick_start.coding_agent.claude-code": "",
+  "mlflow.gateway.quick_start.coding_agent.codex": "",
+  "mlflow.gateway.quick_start.coding_agent.gemini-cli": "",
   "mlflow.gateway.quick_start.anthropic": "",
   "mlflow.gateway.quick_start.browse_all": "",
   "mlflow.gateway.quick_start.browse_all.button": "",
@@ -1567,9 +1577,8 @@ module.exports = {
   // -- mlflow.home --
   "mlflow.home.create_workspace_modal": "",
   "mlflow.home.create_workspace_modal.error": "",
-  "mlflow.home.create_workspace_modal.workspace_artifact_root_input": "",
-  "mlflow.home.create_workspace_modal.workspace_description_input": "",
   "mlflow.home.create_workspace_modal.workspace_name_input": "",
+  "mlflow.home.create_workspace_modal.workspace_settings": "",
   "mlflow.home.demo-banner.launch": "",
   "mlflow.home.experiments.create": "",
   "mlflow.home.experiments.error": "",
@@ -1597,10 +1606,10 @@ module.exports = {
   "mlflow.home.telemetry-alert": "",
   "mlflow.home.workspaces.create": "",
   "mlflow.home.workspaces.create_button": "",
-  "mlflow.home.workspaces.edit_artifact_root": "",
-  "mlflow.home.workspaces.edit_description": "",
-  "mlflow.home.workspaces.edit_input": "",
+  "mlflow.home.workspaces.edit": "",
   "mlflow.home.workspaces.edit_modal": "",
+  "mlflow.home.workspaces.edit_modal.error": "",
+  "mlflow.home.workspaces.edit_workspace": "",
   "mlflow.home.workspaces.error": "",
   "mlflow.home.workspaces.last_used_badge": "",
   "mlflow.home.workspaces.manage_link": "",
@@ -1608,7 +1617,7 @@ module.exports = {
   "mlflow.home.workspaces.pagination": "",
   "mlflow.home.workspaces.retry": "",
   "mlflow.home.workspaces.workspace_link": "",
-  "mlflow.home.workspaces_table.header.artifact_root": "",
+  "mlflow.home.workspaces_table.header.actions": "",
   "mlflow.home.workspaces_table.header.description": "",
   "mlflow.home.workspaces_table.header.manage": "",
   "mlflow.home.workspaces_table.header.name": "",
@@ -2026,6 +2035,16 @@ module.exports = {
   "mlflow.traces-table.group-by-session-button.tooltip": "",
   "mlflow.traces-table.refresh-button": "",
   "mlflow.traces-table.refresh-button.tooltip": "",
+
+  // -- mlflow.usage --
+  "mlflow.usage.metrics_filter": "",
+  "mlflow.usage.metrics_filter.add_row": "",
+  "mlflow.usage.metrics_filter.apply": "",
+  "mlflow.usage.metrics_filter.button": "",
+  "mlflow.usage.metrics_filter.column": "",
+  "mlflow.usage.metrics_filter.delete_row": "",
+  "mlflow.usage.metrics_filter.operator": "",
+  "mlflow.usage.metrics_filter.value": "",
 
   // -- shared.media-rendering-utils --
   "shared.media-rendering-utils.fetch-download": "",

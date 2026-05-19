@@ -47,6 +47,7 @@ jobs:
     permissions:
       contents: read
     strategy:
+      fail-fast: false
       matrix:
         tls: [false, true]
     name: e2e (tls=${{ matrix.tls }})

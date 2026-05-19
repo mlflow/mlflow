@@ -56,6 +56,17 @@ deny_create_app_token_without_permissions contains msg if {
 	)
 }
 
+deny_create_app_token_with_app_id contains msg if {
+	some job_id, job in input.jobs
+	some step in job.steps
+	startswith(step.uses, "actions/create-github-app-token@")
+	step["with"]["app-id"]
+	msg := sprintf(
+		"actions/create-github-app-token in job '%s' uses deprecated 'app-id'. Use 'client-id' instead.",
+		[job_id],
+	)
+}
+
 step_has_app_token_permissions(step) if {
 	some key, _ in step["with"]
 	startswith(key, "permission-")
@@ -401,6 +412,24 @@ deny_upload_artifact_without_if_no_files_found contains msg if {
 		"actions/upload-artifact in job '%s' must set 'if-no-files-found' explicitly.",
 		[job_id],
 	)
+}
+
+deny_matrix_without_fail_fast contains msg if {
+	some job_id, job in input.jobs
+	job.strategy.matrix
+	not has_explicit_fail_fast(job.strategy)
+	msg := sprintf(
+		"strategy.matrix in job '%s' must set 'fail-fast' explicitly (either true or false).",
+		[job_id],
+	)
+}
+
+has_explicit_fail_fast(strategy) if {
+	strategy["fail-fast"] == false
+}
+
+has_explicit_fail_fast(strategy) if {
+	strategy["fail-fast"] == true
 }
 
 deny_mutable_install contains msg if {
