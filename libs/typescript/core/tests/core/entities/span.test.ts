@@ -495,7 +495,7 @@ describe('Span', () => {
       }
     });
 
-    it('should include links in toJson() output', () => {
+    it('should not carry links when a new Span is created from an ended OTel span', () => {
       const traceId = 'tr-12345';
       const span = tracer.startSpan('test');
 
@@ -586,6 +586,29 @@ describe('Span', () => {
       const json = noOpSpan.toJson();
 
       expect(json.links).toEqual([]);
+    });
+
+    it('should serialize link with empty attributes as null', () => {
+      const traceId = 'tr-12345';
+      const span = tracer.startSpan('test');
+
+      try {
+        const mlflowSpan = createMlflowSpan(span, traceId) as LiveSpan;
+
+        mlflowSpan.addLink(
+          new SpanLink({
+            traceId: 'tr-aaaa',
+            spanId: 'aaaa000000000001',
+            attributes: {},
+          }),
+        );
+
+        const json = mlflowSpan.toJson();
+        expect(json.links).toHaveLength(1);
+        expect(json.links![0].attributes).toBeNull();
+      } finally {
+        span.end();
+      }
     });
   });
 });
