@@ -129,7 +129,7 @@ resource_pattern='*')` slot define workspace-wide access:
 
 - `USE` on `(workspace, *)` — the **Workspace Member** grant.
   - Confers workspace membership: the user can list and enter the workspace.
-  - Allows creating new experiments and registered models within it.
+  - Allows creating new resources (e.g., experiments, registered models) within it.
   - Does **not** grant per-resource read access. Resource-level permissions
     still require an explicit grant (per-resource, resource-type wildcard,
     or the server `default_permission` floor).
