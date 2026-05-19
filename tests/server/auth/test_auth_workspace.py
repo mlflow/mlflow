@@ -523,6 +523,58 @@ def test_filter_list_workspaces_filters_to_allowed(monkeypatch):
     assert [ws["name"] for ws in payload["workspaces"]] == ["team-a"]
 
 
+def test_list_workspaces_hides_workspace_with_only_synthetic_resource_grant(tmp_path, monkeypatch):
+    # Pins the docs scenario: a user with only a per-resource grant (e.g.
+    # ``(experiment, exp-456, EDIT)``) inside team-a does NOT see team-a in
+    # ``mlflow.list_workspaces()`` — workspace visibility requires a
+    # workspace-scoped role assignment, not a synthetic per-resource grant.
+    #
+    # The grant lives on Carol's synthetic ``__user_<id>__`` role with a
+    # single ``(experiment, exp-456, EDIT)`` row — no ``(workspace, *)``
+    # grant. ``list_accessible_workspace_names`` should treat this as "no
+    # workspace-level access" and filter team-a out.
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    monkeypatch.setattr(
+        auth_module,
+        "auth_config",
+        auth_module.auth_config._replace(grant_default_workspace_access=False),
+        raising=False,
+    )
+
+    db_uri = f"sqlite:///{tmp_path / 'auth-store.db'}"
+    auth_store = SqlAlchemyStore()
+    auth_store.init_db(db_uri)
+    monkeypatch.setattr(auth_module, "store", auth_store, raising=False)
+
+    auth_store.create_user("carol", "supersecurepassword", is_admin=False)
+    # Direct per-resource grant via ``grant_user_permission`` — writes to
+    # Carol's synthetic ``__user_<id>__`` role in team-a. This is exactly the
+    # surface the admin UI's "Direct permissions" section sits on top of.
+    with workspace_context.WorkspaceContext("team-a"):
+        auth_store.grant_user_permission("carol", "experiment", "exp-456", "EDIT")
+
+    monkeypatch.setattr(
+        auth_module, "authenticate_request", lambda: SimpleNamespace(username="carol")
+    )
+
+    response = Response(
+        json.dumps({"workspaces": [{"name": "team-a"}, {"name": "team-b"}]}),
+        mimetype="application/json",
+    )
+    auth_module.filter_list_workspaces(response)
+    payload = json.loads(response.get_data(as_text=True))
+    # protobuf-to-JSON omits empty repeated fields, so an empty list of
+    # workspaces serializes as ``{}``. Both forms mean "Carol sees no
+    # workspaces", which is what the docs claim.
+    assert [ws["name"] for ws in payload.get("workspaces", [])] == [], (
+        "A direct-permission-only user must not see team-a in list_workspaces; "
+        "only workspace-scoped role assignments confer visibility."
+    )
+
+    auth_store.engine.dispose()
+
+
 def test_list_workspaces_filters_to_role_assigned_workspaces(tmp_path, monkeypatch):
     # End-to-end guard for the list_accessible_workspace_names fix: alice has NO
     # legacy workspace_permissions rows — her only workspace membership is via a
