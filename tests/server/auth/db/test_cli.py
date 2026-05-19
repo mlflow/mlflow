@@ -145,7 +145,7 @@ def test_upgrade_from_legacy_database(tmp_path: Path) -> None:
     assert "scorer_permissions" in tables
     assert "registered_model_permissions" in tables
     assert "workspace_permissions" in tables
-    assert version[0] == "e5f6a7b8c9d0"
+    assert version[0] == "f1a2b3c4d5e6"
     assert user == ("testuser", 1)
 
 
@@ -517,3 +517,240 @@ def _snapshot_legacy_tables(db: Path) -> dict[str, list[tuple[object, ...]]]:
             cursor.execute(query)
             snapshot[table] = cursor.fetchall()
     return snapshot
+
+
+def _seed_registered_model_tags(db: Path, prompt_names: list[str]) -> None:
+    """Create a minimal stand-in for the tracking ``registered_model_tags``
+    table and seed it with ``is_prompt='true'`` rows for each given name. The
+    real schema has more columns; the migration only joins on
+    ``key``, ``value`` and ``name``, so this is enough for the classifier.
+    """
+    with sqlite3.connect(db) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "CREATE TABLE registered_model_tags ("
+            "workspace VARCHAR(63) NOT NULL DEFAULT 'default', "
+            "name VARCHAR(256) NOT NULL, "
+            "key VARCHAR(250) NOT NULL, "
+            "value VARCHAR(5000), "
+            "PRIMARY KEY (workspace, key, name))"
+        )
+        cursor.executemany(
+            "INSERT INTO registered_model_tags (workspace, name, key, value) "
+            "VALUES ('default', ?, 'mlflow.prompt.is_prompt', 'true')",
+            [(n,) for n in prompt_names],
+        )
+        conn.commit()
+
+
+def test_promote_prompt_resource_type_rewrites_prompt_grants(tmp_path: Path) -> None:
+    # Prompt-tagged names flip to `prompt`; non-prompt names + wildcard rows stay
+    # on `registered_model`.
+    runner = CliRunner()
+    db = tmp_path / "test.db"
+    db_url = f"sqlite:///{db}"
+
+    # Step to the pre-promotion head.
+    res = runner.invoke(
+        cli.upgrade,
+        ["--url", db_url, "--revision", "e5f6a7b8c9d0"],
+        catch_exceptions=False,
+    )
+    assert res.exit_code == 0, res.output
+
+    _seed_registered_model_tags(db, prompt_names=["prompt-foo", "prompt-bar"])
+
+    with sqlite3.connect(db) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO users (id, username, password_hash, is_admin) VALUES (1, 'alice', 'h', 0)"
+        )
+        cursor.execute(
+            "INSERT INTO roles (id, workspace, name) VALUES (1, 'default', '__user_1__')"
+        )
+        cursor.execute("INSERT INTO user_role_assignments (user_id, role_id) VALUES (1, 1)")
+        cursor.executemany(
+            "INSERT INTO role_permissions "
+            "(role_id, resource_type, resource_pattern, permission) VALUES (?, ?, ?, ?)",
+            [
+                (1, "registered_model", "prompt-foo", "READ"),
+                (1, "registered_model", "prompt-bar", "MANAGE"),
+                (1, "registered_model", "model-baz", "EDIT"),
+                (1, "registered_model", "*", "EDIT"),
+            ],
+        )
+        conn.commit()
+
+    # Run the prompt-promotion migration.
+    res = runner.invoke(cli.upgrade, ["--url", db_url], catch_exceptions=False)
+    assert res.exit_code == 0, res.output
+
+    with sqlite3.connect(db) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT resource_type, resource_pattern, permission FROM role_permissions "
+            "ORDER BY resource_pattern, resource_type"
+        )
+        rows = cursor.fetchall()
+
+    assert rows == [
+        # Wildcard stays on registered_model (covers RMs in workspace; rewriting
+        # would silently revoke RM access).
+        ("registered_model", "*", "EDIT"),
+        # Non-prompt name keeps its resource_type.
+        ("registered_model", "model-baz", "EDIT"),
+        # Prompt-tagged names flip to ``prompt``.
+        ("prompt", "prompt-bar", "MANAGE"),
+        ("prompt", "prompt-foo", "READ"),
+    ]
+
+
+def test_promote_prompt_resource_type_workspace_collision_isolated(tmp_path: Path) -> None:
+    # Same name across workspaces: prompt in team-a, registered_model in team-b.
+    # Only the team-a grant should flip.
+    runner = CliRunner()
+    db = tmp_path / "test.db"
+    db_url = f"sqlite:///{db}"
+
+    res = runner.invoke(
+        cli.upgrade,
+        ["--url", db_url, "--revision", "e5f6a7b8c9d0"],
+        catch_exceptions=False,
+    )
+    assert res.exit_code == 0, res.output
+
+    # Same name ``foo`` in two workspaces — prompt in team-a, registered_model
+    # in team-b. Only the team-a grant should flip.
+    with sqlite3.connect(db) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "CREATE TABLE registered_model_tags ("
+            "workspace VARCHAR(63) NOT NULL, "
+            "name VARCHAR(256) NOT NULL, "
+            "key VARCHAR(250) NOT NULL, "
+            "value VARCHAR(5000), "
+            "PRIMARY KEY (workspace, key, name))"
+        )
+        cursor.execute(
+            "INSERT INTO registered_model_tags (workspace, name, key, value) "
+            "VALUES ('team-a', 'foo', 'mlflow.prompt.is_prompt', 'true')"
+        )
+        cursor.execute(
+            "INSERT INTO users (id, username, password_hash, is_admin) VALUES (1, 'alice', 'h', 0)"
+        )
+        cursor.executemany(
+            "INSERT INTO roles (id, workspace, name) VALUES (?, ?, ?)",
+            [(1, "team-a", "role-a"), (2, "team-b", "role-b")],
+        )
+        cursor.executemany(
+            "INSERT INTO role_permissions "
+            "(role_id, resource_type, resource_pattern, permission) VALUES (?, ?, ?, ?)",
+            [
+                # team-a grant should flip to ``prompt`` (foo IS a prompt in team-a).
+                (1, "registered_model", "foo", "MANAGE"),
+                # team-b grant must stay ``registered_model`` (foo is a regular RM in team-b).
+                (2, "registered_model", "foo", "READ"),
+            ],
+        )
+        conn.commit()
+
+    res = runner.invoke(cli.upgrade, ["--url", db_url], catch_exceptions=False)
+    assert res.exit_code == 0, res.output
+
+    with sqlite3.connect(db) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT r.workspace, rp.resource_type, rp.resource_pattern, rp.permission "
+            "FROM role_permissions rp JOIN roles r ON r.id = rp.role_id "
+            "ORDER BY r.workspace"
+        )
+        rows = cursor.fetchall()
+
+    assert rows == [
+        ("team-a", "prompt", "foo", "MANAGE"),
+        ("team-b", "registered_model", "foo", "READ"),
+    ]
+
+
+def test_promote_prompt_resource_type_no_tracking_tables_is_noop(tmp_path: Path) -> None:
+    # Split-DB: without `registered_model_tags` on this connection the migration
+    # is a no-op. Operators run the equivalent UPDATE by hand.
+    runner = CliRunner()
+    db = tmp_path / "test.db"
+    db_url = f"sqlite:///{db}"
+
+    res = runner.invoke(
+        cli.upgrade,
+        ["--url", db_url, "--revision", "e5f6a7b8c9d0"],
+        catch_exceptions=False,
+    )
+    assert res.exit_code == 0, res.output
+
+    with sqlite3.connect(db) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO users (id, username, password_hash, is_admin) VALUES (1, 'alice', 'h', 0)"
+        )
+        cursor.execute(
+            "INSERT INTO roles (id, workspace, name) VALUES (1, 'default', '__user_1__')"
+        )
+        cursor.execute(
+            "INSERT INTO role_permissions "
+            "(role_id, resource_type, resource_pattern, permission) VALUES "
+            "(1, 'registered_model', 'maybe-prompt', 'MANAGE')"
+        )
+        conn.commit()
+
+    res = runner.invoke(cli.upgrade, ["--url", db_url], catch_exceptions=False)
+    assert res.exit_code == 0, res.output
+
+    with sqlite3.connect(db) as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT resource_type, resource_pattern, permission FROM role_permissions")
+        rows = cursor.fetchall()
+    assert rows == [("registered_model", "maybe-prompt", "MANAGE")]
+
+
+def test_promote_prompt_resource_type_downgrade_collapses_to_registered_model(
+    tmp_path: Path,
+) -> None:
+    # `downgrade()` flips every `prompt` row back to `registered_model`. Lossy by
+    # design — collapses to the pre-promotion shared namespace.
+    runner = CliRunner()
+    db = tmp_path / "test.db"
+    db_url = f"sqlite:///{db}"
+
+    res = runner.invoke(
+        cli.upgrade,
+        ["--url", db_url, "--revision", "e5f6a7b8c9d0"],
+        catch_exceptions=False,
+    )
+    assert res.exit_code == 0, res.output
+
+    _seed_registered_model_tags(db, prompt_names=["prompt-foo"])
+
+    with sqlite3.connect(db) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO users (id, username, password_hash, is_admin) VALUES (1, 'alice', 'h', 0)"
+        )
+        cursor.execute(
+            "INSERT INTO roles (id, workspace, name) VALUES (1, 'default', '__user_1__')"
+        )
+        cursor.execute(
+            "INSERT INTO role_permissions "
+            "(role_id, resource_type, resource_pattern, permission) VALUES "
+            "(1, 'registered_model', 'prompt-foo', 'READ')"
+        )
+        conn.commit()
+
+    res = runner.invoke(cli.upgrade, ["--url", db_url], catch_exceptions=False)
+    assert res.exit_code == 0, res.output
+
+    _alembic_downgrade(db_url, "e5f6a7b8c9d0")
+
+    with sqlite3.connect(db) as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT resource_type, resource_pattern FROM role_permissions")
+        rows = cursor.fetchall()
+    assert rows == [("registered_model", "prompt-foo")]

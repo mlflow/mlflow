@@ -1,7 +1,9 @@
+import subprocess
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from mlflow.assistant.providers.base import NotAuthenticatedError
 from mlflow.assistant.providers.claude_code import ClaudeCodeProvider
 from mlflow.assistant.types import EventType
 
@@ -44,6 +46,55 @@ def test_is_available(which_return, expected):
     ):
         provider = ClaudeCodeProvider()
         assert provider.is_available() is expected
+
+
+def test_check_connection_runs_auth_verification_prompt():
+    completed = subprocess.CompletedProcess(
+        args=["claude", "-p", "hi", "--max-turns", "1", "--output-format", "json"],
+        returncode=0,
+        stdout='{"type": "result"}',
+        stderr="",
+    )
+
+    with (
+        patch(
+            "mlflow.assistant.providers.claude_code.shutil.which",
+            return_value="/usr/bin/claude",
+        ),
+        patch(
+            "mlflow.assistant.providers.claude_code.subprocess.run",
+            return_value=completed,
+        ) as mock_run,
+    ):
+        provider = ClaudeCodeProvider()
+        provider.check_connection()
+
+    mock_run.assert_called_once_with(
+        ["claude", "-p", "hi", "--max-turns", "1", "--output-format", "json"],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+
+
+def test_check_connection_raises_not_authenticated_for_auth_error():
+    completed = subprocess.CompletedProcess(
+        args=["claude", "-p", "hi", "--max-turns", "1", "--output-format", "json"],
+        returncode=1,
+        stdout="",
+        stderr="Login required",
+    )
+
+    with (
+        patch(
+            "mlflow.assistant.providers.claude_code.shutil.which",
+            return_value="/usr/bin/claude",
+        ),
+        patch("mlflow.assistant.providers.claude_code.subprocess.run", return_value=completed),
+    ):
+        provider = ClaudeCodeProvider()
+        with pytest.raises(NotAuthenticatedError, match="claude login"):
+            provider.check_connection()
 
 
 @pytest.mark.asyncio

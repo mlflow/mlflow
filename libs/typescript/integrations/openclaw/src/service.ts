@@ -292,6 +292,7 @@ export function createMLflowService(
   let warnedMissingAfterToolSessionKey = false;
   let cleanup: (() => void) | null = null;
   let hooksRegistered = false;
+  let initError: unknown = null;
   let resolvedTrackingUri: string | undefined;
   let resolvedExperimentId: string | undefined;
   let log: { info: (msg: string) => void; warn: (msg: string) => void } = {
@@ -458,9 +459,11 @@ export function createMLflowService(
 
     try {
       init({ trackingUri, experimentId });
-    } catch {
+    } catch (err) {
+      initError = err;
       return;
     }
+    initError = null;
 
     hooksRegistered = true;
     resolvedTrackingUri = trackingUri;
@@ -798,9 +801,13 @@ export function createMLflowService(
       registerHooks();
 
       if (!hooksRegistered) {
-        ctx.logger.warn(
-          'mlflow: tracing is disabled (missing trackingUri/experimentId or explicitly disabled)',
-        );
+        if (initError) {
+          ctx.logger.warn(`mlflow: tracing is disabled (init failed: ${String(initError)})`);
+        } else {
+          ctx.logger.warn(
+            'mlflow: tracing is disabled (missing trackingUri/experimentId or explicitly disabled)',
+          );
+        }
         return;
       }
       ctx.logger.info(

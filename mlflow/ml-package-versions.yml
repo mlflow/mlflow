@@ -458,6 +458,9 @@ transformers:
         # https://github.com/huggingface/transformers/issues/38269
         "== 4.52.1",
         "== 4.52.2",
+        # 5.0.0 broke the TAPAS table-QA and Whisper ASR pipelines; fixed in later 5.x patches.
+        # https://github.com/huggingface/transformers/issues/43792
+        "== 5.0.0",
       ]
     requirements:
       ">= 0.0.0": [

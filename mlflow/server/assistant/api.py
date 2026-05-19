@@ -1,10 +1,3 @@
-"""
-Assistant API endpoints for MLflow Server.
-
-This module provides endpoints for integrating AI assistants with MLflow UI,
-enabling AI-powered helper through a chat interface.
-"""
-
 import ipaddress
 import uuid
 from pathlib import Path
@@ -16,23 +9,35 @@ from pydantic import BaseModel, Field
 
 from mlflow.assistant import clear_project_path_cache, get_project_path
 from mlflow.assistant.config import AssistantConfig, PermissionsConfig, ProjectConfig
+from mlflow.assistant.providers import list_providers
 from mlflow.assistant.providers.base import (
     CLINotInstalledError,
     NotAuthenticatedError,
+    ProviderNotConfiguredError,
     clear_config_cache,
 )
-from mlflow.assistant.providers.claude_code import ClaudeCodeProvider
 from mlflow.assistant.skill_installer import install_skills, list_installed_skills
 from mlflow.assistant.types import EventType
 from mlflow.server.assistant.session import SessionManager, terminate_session_process
 
-# TODO: Hardcoded provider until supporting multiple providers
-_provider = ClaudeCodeProvider()
+
+def _get_provider(name: str):
+    for p in list_providers():
+        if p.name == name:
+            return p
+    return None
 
 
-# Update the message when we support proxy access
+def _get_selected_provider():
+    config = AssistantConfig.load()
+    for provider_name, provider_config in config.providers.items():
+        if provider_config.selected:
+            return _get_provider(provider_name)
+    return None
+
+
 _BLOCK_REMOTE_ACCESS_ERROR_MSG = (
-    "Assistant API is only accessible from the same host where the mLflow server is running."
+    "Assistant API is only accessible from the same host where the MLflow server is running."
 )
 
 
@@ -175,7 +180,15 @@ async def stream_response(request: Request, session_id: str) -> StreamingRespons
 
     async def event_generator() -> AsyncGenerator[str, None]:
         nonlocal session
-        async for event in _provider.astream(
+        provider = _get_selected_provider()
+        if provider is None:
+            from mlflow.assistant.types import Event
+
+            yield Event.from_error(
+                "No assistant provider is configured or available."
+            ).to_sse_event()
+            return
+        async for event in provider.astream(
             prompt=pending_message.content,
             tracking_uri=tracking_uri,
             session_id=session.provider_session_id,
@@ -231,25 +244,12 @@ async def patch_session(session_id: str, request: SessionPatchRequest) -> Sessio
 
 @assistant_router.get("/providers/{provider}/health")
 async def provider_health_check(provider: str) -> dict[str, str]:
-    """
-    Check if a specific provider is ready (CLI installed and authenticated).
-
-    Args:
-        provider: The provider name (e.g., "claude_code").
-
-    Returns:
-        200 with { status: "ok" } if ready.
-
-    Raises:
-        HTTPException 404: If provider is not found.
-        HTTPException 412: If preconditions not met (CLI not installed or not authenticated).
-    """
-    # TODO: Support multiple providers via registry
-    if provider != _provider.name:
+    p = _get_provider(provider)
+    if p is None:
         raise HTTPException(status_code=404, detail=f"Provider '{provider}' not found")
 
     try:
-        _provider.check_connection()
+        p.check_connection()
     except CLINotInstalledError as e:
         raise HTTPException(status_code=412, detail=str(e))
     except NotAuthenticatedError as e:
@@ -289,7 +289,9 @@ async def update_config(request: ConfigUpdateRequest) -> ConfigResponse:
     # Update providers
     if request.providers:
         for name, provider_data in request.providers.items():
-            model = provider_data.get("model", "default")
+            existing = config.providers.get(name)
+            model = provider_data.get("model") or (existing.model if existing else "default")
+            base_url = provider_data.get("base_url")
             permissions = None
             if "permissions" in provider_data:
                 perm_data = provider_data["permissions"]
@@ -298,7 +300,13 @@ async def update_config(request: ConfigUpdateRequest) -> ConfigResponse:
                     allow_read_docs=perm_data.get("allow_read_docs", True),
                     full_access=perm_data.get("full_access", False),
                 )
-            config.set_provider(name, model, permissions)
+            selected = provider_data.get("selected", False)
+            if selected:
+                config.set_provider(name, model, permissions, base_url=base_url)
+            else:
+                config.update_provider(
+                    name, model=model, permissions=permissions, base_url=base_url
+                )
 
     # Update projects
     if request.projects:
@@ -348,7 +356,6 @@ async def install_skills_endpoint(request: SkillsInstallRequest) -> SkillsInstal
     """
     config = AssistantConfig.load()
 
-    # Resolve project_path for "project" type
     project_path: Path | None = None
     if request.type == "project":
         if not request.experiment_id:
@@ -361,12 +368,18 @@ async def install_skills_endpoint(request: SkillsInstallRequest) -> SkillsInstal
             )
         project_path = Path(project_location)
 
-    # Get the destination path to install skills to
+    provider = _get_selected_provider()
+    if provider is None:
+        raise HTTPException(
+            status_code=412,
+            detail="No assistant provider is configured or available.",
+        )
+
     match request.type:
         case "global":
-            destination = _provider.resolve_skills_path(Path.home())
+            destination = provider.resolve_skills_path(Path.home())
         case "project":
-            destination = _provider.resolve_skills_path(project_path)
+            destination = provider.resolve_skills_path(project_path)
         case "custom":
             destination = Path(request.custom_path).expanduser()
 
@@ -380,3 +393,29 @@ async def install_skills_endpoint(request: SkillsInstallRequest) -> SkillsInstal
     installed = install_skills(destination)
 
     return SkillsInstallResponse(installed_skills=installed, skills_directory=str(destination))
+
+
+@assistant_router.get("/providers/{provider}/models")
+async def list_provider_models(provider: str, base_url: str | None = None) -> dict[str, Any]:
+    p = _get_provider(provider)
+    if p is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Provider '{provider}' not found",
+        )
+
+    try:
+        models = p.list_models(base_url)
+        return {"models": models}
+    except NotImplementedError:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Model listing is not supported for provider '{provider}'",
+        )
+    except CLINotInstalledError as e:
+        raise HTTPException(status_code=412, detail=str(e))
+    except ProviderNotConfiguredError as e:
+        raise HTTPException(
+            status_code=503,
+            detail=str(e),
+        )
