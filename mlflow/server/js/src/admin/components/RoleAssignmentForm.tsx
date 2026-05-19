@@ -11,7 +11,8 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FieldLabel } from './FieldLabel';
-import { useRolesQuery } from '../hooks';
+import { useCurrentUserIsAdmin, useRolesQuery } from '../hooks';
+import { useActiveWorkspace } from '../../workspaces/utils/WorkspaceUtils';
 import type { Role } from '../types';
 
 export interface RoleAssignmentValue {
@@ -40,8 +41,13 @@ const formatRoleLabel = (role: Role): string =>
 export const RoleAssignmentForm = ({ value, onChange, disabled }: RoleAssignmentFormProps) => {
   const { theme } = useDesignSystemTheme();
   const [search, setSearch] = useState('');
-  // Pass undefined to fetch roles across every workspace.
-  const { data: rolesData, isLoading } = useRolesQuery(undefined);
+  // Per-workspace scope: platform admins fetch unscoped; workspace
+  // managers pass the active workspace. Suppress when none is active.
+  const isAdmin = useCurrentUserIsAdmin();
+  const activeWorkspace = useActiveWorkspace();
+  const queryWorkspace = isAdmin ? undefined : (activeWorkspace ?? undefined);
+  const queryEnabled = isAdmin || Boolean(activeWorkspace);
+  const { data: rolesData, isLoading, error } = useRolesQuery(queryWorkspace, { enabled: queryEnabled });
   const roles = useMemo(() => rolesData?.roles ?? [], [rolesData]);
 
   // Pin "default" workspace's roles first; sort the rest alphabetically
@@ -71,6 +77,13 @@ export const RoleAssignmentForm = ({ value, onChange, disabled }: RoleAssignment
     return `${selectedRoles.length} roles selected`;
   }, [selectedRoles]);
 
+  // ``DialogCombobox`` calls ``renderDisplayedValue`` once per entry in
+  // ``value`` (joined by ``,``); collapse to a single summary label so the
+  // count text renders once. Items' checked state is driven by each
+  // ``DialogComboboxOptionListCheckboxItem``'s explicit ``checked`` prop —
+  // pinned by ``RoleAssignmentForm.test.tsx``.
+  const triggerValue = useMemo(() => (triggerText ? [triggerText] : []), [triggerText]);
+
   const toggleRole = (roleId: number) => {
     const next = value.roleIds.includes(roleId)
       ? value.roleIds.filter((id) => id !== roleId)
@@ -82,23 +95,23 @@ export const RoleAssignmentForm = ({ value, onChange, disabled }: RoleAssignment
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
       <div>
         <FieldLabel>Roles</FieldLabel>
-        {isLoading ? (
+        {!queryEnabled ? (
+          <Typography.Text color="secondary">
+            Select a workspace from the workspace selector to choose roles.
+          </Typography.Text>
+        ) : isLoading ? (
           <div css={{ padding: theme.spacing.sm }}>
             <Spinner size="small" />
           </div>
+        ) : error ? (
+          <Typography.Text color="error">Failed to load roles for this workspace.</Typography.Text>
         ) : roles.length === 0 ? (
           <Typography.Text color="secondary">No roles available. Create a role first.</Typography.Text>
         ) : (
-          <DialogCombobox
-            componentId="admin.role_assignment.roles"
-            label="Roles"
-            multiSelect
-            value={selectedRoles.map(formatRoleLabel)}
-          >
+          <DialogCombobox componentId="admin.role_assignment.roles" label="Roles" multiSelect value={triggerValue}>
             <DialogComboboxTrigger
               withInlineLabel={false}
               placeholder="Select one or more roles"
-              renderDisplayedValue={() => triggerText}
               onClear={() => onChange({ roleIds: [] })}
               width="100%"
               disabled={disabled}

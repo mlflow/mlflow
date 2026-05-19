@@ -324,6 +324,16 @@ class XTestViz:
 
         return "\n".join(lines)
 
+    def filter_latest_not_success(self, data_rows: list[JobResult]) -> list[JobResult]:
+        """Keep only jobs whose latest run for each name was not a success."""
+        latest_per_name: dict[str, JobResult] = {}
+        for r in data_rows:
+            cur = latest_per_name.get(r.name)
+            if cur is None or r.started_at > cur.started_at:
+                latest_per_name[r.name] = r
+        keep = {name for name, r in latest_per_name.items() if r.conclusion != "success"}
+        return [r for r in data_rows if r.name in keep]
+
     def render_results_table(self, data_rows: list[JobResult]) -> str:
         """Render job data as a markdown table."""
         if not data_rows:
@@ -362,11 +372,15 @@ async def main() -> None:
         print("Set GH_TOKEN environment variable or use --token option.", file=sys.stderr)
 
     visualizer = XTestViz(github_token=token, repo=args.repo)
-    data_rows = await visualizer.fetch_all_jobs(args.days)
+    raw_rows = await visualizer.fetch_all_jobs(args.days)
+    data_rows = visualizer.filter_latest_not_success(raw_rows)
     if args.json_output:
         Path(args.json_output).write_text(visualizer.render_json(data_rows))
     if not data_rows:
-        print("No workflow runs found in the specified time period.")
+        if raw_rows:
+            print("All latest cross-version tests succeeded.")
+        else:
+            print("No workflow runs found in the specified time period.")
     else:
         print(visualizer.render_results_table(data_rows))
 

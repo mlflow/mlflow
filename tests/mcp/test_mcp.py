@@ -93,6 +93,7 @@ async def test_list_tools(client: Client):
         "set_trace_tag",
         "update_deployment",
         "update_deployment_endpoint",
+        "update_experiment",
         "update_model_pip_requirements",
         "update_trace_assessment",
     ]

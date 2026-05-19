@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Button,
@@ -11,94 +11,81 @@ import {
   TableRow,
   Tabs,
   Tag,
+  Tooltip,
   Typography,
   UserIcon,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { ScrollablePageWrapper } from '@mlflow/mlflow/src/common/components/ScrollablePageWrapper';
-import { useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
-import { Link, useSearchParams } from '../../common/utils/RoutingUtils';
-import { performLogout } from '../auth-utils';
+import { Link, useLocation, useSearchParams } from '../../common/utils/RoutingUtils';
+import { useActiveWorkspace } from '../../workspaces/utils/WorkspaceUtils';
 import { ConfirmationModal } from '../ConfirmationModal';
-import AdminRoutes from '../routes';
+import AdminRoutes, { AdminRoutePaths } from '../routes';
 import { useTableSelection } from '../useTableSelection';
 import {
+  useCurrentUserAdminWorkspaces,
+  useCurrentUserIsAdmin,
+  useCurrentUserIsWorkspaceAdmin,
   useCurrentUserQuery,
   useUsersQuery,
   useDeleteUser,
   useRolesQuery,
   useDeleteRole,
-  useUserRolesQuery,
   useWithSettingsReturnTo,
 } from '../hooks';
 import { isWorkspaceAdminRole } from '../types';
 import { CreateUserModal } from '../components/CreateUserModal';
 import { CreateRoleModal } from '../components/CreateRoleModal';
-
-// Renders one line per role assigned to a user, formatted as
-// `<workspace> → <role_name>`. Mirrors the `<scope> → <value>` shape used
-// elsewhere in the admin UI (e.g. the Account page's permission lines like
-// `experiment:* → READ`). Each row issues its own request — React Query
-// caches per-username so subsequent re-renders don't re-fetch.
-const UserRolesCell = ({ username }: { username: string }) => {
-  const { theme } = useDesignSystemTheme();
-  const { data, isLoading, error } = useUserRolesQuery(username);
-  if (isLoading) {
-    return <Spinner size="small" />;
-  }
-  if (error) {
-    // Distinguish "no roles assigned" from "we couldn't load roles" — failing
-    // silently to "—" hides 403/500s from admins reviewing user state.
-    return (
-      <Typography.Text color="error" size="sm">
-        Failed to load
-      </Typography.Text>
-    );
-  }
-  const roles = data?.roles ?? [];
-  if (roles.length === 0) {
-    return <Typography.Text color="secondary">—</Typography.Text>;
-  }
-  return (
-    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs / 2 }}>
-      {roles.map((role) => (
-        <Typography.Text key={role.id} size="sm">
-          <code>{role.workspace}</code> → {role.name}
-        </Typography.Text>
-      ))}
-    </div>
-  );
-};
+import { UserRolesCell } from '../components/UserRolesCell';
 
 const UsersTab = () => {
   const { theme } = useDesignSystemTheme();
-  const queryClient = useQueryClient();
-  const { data: usersData, isLoading, error: queryError } = useUsersQuery();
-  const { data: currentUserData } = useCurrentUserQuery();
+  const { data: usersData, isLoading: usersLoading, error: queryError } = useUsersQuery();
+  const { data: currentUserData, isLoading: currentUserLoading } = useCurrentUserQuery();
   const currentUsername = currentUserData?.user?.username;
+  // Block render until ``currentUsername`` is known: otherwise ``isSelf``
+  // would be ``false`` for every row while the query is in-flight, leaving
+  // a window where a fast "Select all" + Delete click would include the
+  // current user in the targets (caught by the backend self-delete guard,
+  // but a confusing partial-failure for the admin).
+  const isLoading = usersLoading || currentUserLoading;
   const deleteUser = useDeleteUser();
   const withReturnTo = useWithSettingsReturnTo();
+  // Bulk-delete + row checkboxes are platform-admin-only; Create User is
+  // open to workspace admins. ``rolesScopeWorkspace`` keeps the per-row
+  // Roles cell aligned with the page's per-workspace scope: workspace
+  // managers should only see roles in the active workspace, including for
+  // their own row (the backend self-check returns global roles).
+  const isAdmin = useCurrentUserIsAdmin();
+  const isWorkspaceAdmin = useCurrentUserIsWorkspaceAdmin();
+  const canCreateUser = isAdmin || isWorkspaceAdmin;
+  const activeWorkspace = useActiveWorkspace();
+  const rolesScopeWorkspace = isAdmin ? null : activeWorkspace;
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const users = useMemo(() => usersData?.users ?? [], [usersData]);
+  // Admins cannot delete their own account (the backend rejects it too);
+  // pass a self-less view to the selection hook so ``Select all`` skips the
+  // current user and the running count never includes them.
+  const selectableUsers = useMemo(
+    () => (currentUsername == null ? users : users.filter((u) => u.username !== currentUsername)),
+    [users, currentUsername],
+  );
   const {
     visibleSelected: visibleSelectedUsernames,
     isAllSelected: allSelected,
     toggleItem: toggleUserSelection,
     toggleAll: toggleSelectAll,
     clear: clearSelection,
-  } = useTableSelection(users, 'username');
+  } = useTableSelection(selectableUsers, 'username');
 
   const handleBulkDelete = async () => {
     setError(null);
     const targets = Array.from(visibleSelectedUsernames);
-    // Detect self-delete *before* firing the requests so we can fall through
-    // to ``performLogout`` even if e.g. only the self-delete row succeeds.
-    const includesSelfDelete = currentUsername != null && visibleSelectedUsernames.has(currentUsername);
     const results = await Promise.allSettled(targets.map((u) => deleteUser.mutateAsync(u)));
     const failures = results.filter((r) => r.status === 'rejected') as PromiseRejectedResult[];
     if (failures.length > 0) {
@@ -106,15 +93,6 @@ const UsersTab = () => {
     }
     clearSelection();
     setBulkDeleteOpen(false);
-    // If the current user just deleted themselves and the request succeeded,
-    // the browser still has stale Basic Auth credentials that will 401 every
-    // subsequent request. Force a logout to clear the cached realm.
-    const selfDeleteIndex = currentUsername != null ? targets.indexOf(currentUsername) : -1;
-    const selfDeleteSucceeded =
-      includesSelfDelete && selfDeleteIndex >= 0 && results[selfDeleteIndex]?.status === 'fulfilled';
-    if (selfDeleteSucceeded) {
-      await performLogout(queryClient);
-    }
   };
 
   if (isLoading) {
@@ -163,37 +141,41 @@ const UsersTab = () => {
       {error && (
         <Alert componentId="admin.users.error" type="error" message={error} closable onClose={() => setError(null)} />
       )}
-      <div
-        css={{
-          display: 'flex',
-          justifyContent: 'flex-end',
-          alignItems: 'center',
-          gap: theme.spacing.sm,
-        }}
-      >
-        <Button
-          componentId="admin.users.bulk_delete_button"
-          danger
-          disabled={visibleSelectedUsernames.size === 0}
-          onClick={() => setBulkDeleteOpen(true)}
+      {canCreateUser && (
+        <div
+          css={{
+            display: 'flex',
+            justifyContent: 'flex-end',
+            alignItems: 'center',
+            gap: theme.spacing.sm,
+          }}
         >
-          {visibleSelectedUsernames.size === 0 ? (
-            <FormattedMessage
-              defaultMessage="Delete"
-              description="Bulk-delete button on the users table (no rows selected)"
-            />
-          ) : (
-            <FormattedMessage
-              defaultMessage="Delete ({count})"
-              description="Bulk-delete button on the users table"
-              values={{ count: visibleSelectedUsernames.size }}
-            />
+          {isAdmin && (
+            <Button
+              componentId="admin.users.bulk_delete_button"
+              danger
+              disabled={visibleSelectedUsernames.size === 0}
+              onClick={() => setBulkDeleteOpen(true)}
+            >
+              {visibleSelectedUsernames.size === 0 ? (
+                <FormattedMessage
+                  defaultMessage="Delete"
+                  description="Bulk-delete button on the users table (no rows selected)"
+                />
+              ) : (
+                <FormattedMessage
+                  defaultMessage="Delete ({count})"
+                  description="Bulk-delete button on the users table"
+                  values={{ count: visibleSelectedUsernames.size }}
+                />
+              )}
+            </Button>
           )}
-        </Button>
-        <Button componentId="admin.users.create_button" type="primary" onClick={() => setShowCreateModal(true)}>
-          <FormattedMessage defaultMessage="Create User" description="Button to create a new user" />
-        </Button>
-      </div>
+          <Button componentId="admin.users.create_button" type="primary" onClick={() => setShowCreateModal(true)}>
+            <FormattedMessage defaultMessage="Create User" description="Button to create a new user" />
+          </Button>
+        </div>
+      )}
       <Table
         scrollable
         noMinHeight
@@ -205,14 +187,16 @@ const UsersTab = () => {
         }}
       >
         <TableRow isHeader>
-          <TableHeader componentId="admin.users.select_header" css={{ flex: 0, minWidth: 40, maxWidth: 40 }}>
-            <Checkbox
-              componentId="admin.users.select_all"
-              isChecked={allSelected}
-              onChange={toggleSelectAll}
-              aria-label="Select all users"
-            />
-          </TableHeader>
+          {isAdmin && (
+            <TableHeader componentId="admin.users.select_header" css={{ flex: 0, minWidth: 40, maxWidth: 40 }}>
+              <Checkbox
+                componentId="admin.users.select_all"
+                isChecked={allSelected}
+                onChange={toggleSelectAll}
+                aria-label="Select all users"
+              />
+            </TableHeader>
+          )}
           <TableHeader componentId="admin.users.username_header" css={{ flex: 2 }}>
             <FormattedMessage defaultMessage="Username" description="Users table username header" />
           </TableHeader>
@@ -226,38 +210,61 @@ const UsersTab = () => {
             <FormattedMessage defaultMessage="Admin" description="Users table admin header" />
           </TableHeader>
         </TableRow>
-        {users.map((user) => (
-          <TableRow key={user.username}>
-            <TableCell css={{ flex: 0, minWidth: 40, maxWidth: 40 }}>
-              <Checkbox
-                componentId="admin.users.select_row"
-                isChecked={visibleSelectedUsernames.has(user.username)}
-                onChange={() => toggleUserSelection(user.username)}
-                aria-label={`Select user ${user.username}`}
-              />
-            </TableCell>
-            <TableCell css={{ flex: 2 }}>
-              <Link
-                componentId="admin.users.username_link"
-                to={withReturnTo(AdminRoutes.getUserDetailRoute(user.username))}
-              >
-                {user.username}
-              </Link>
-            </TableCell>
-            <TableCell css={{ flex: 2 }}>
-              <UserRolesCell username={user.username} />
-            </TableCell>
-            <TableCell css={{ flex: 1 }}>
-              {user.is_admin ? (
-                <Tag componentId="admin.users.admin_tag" color="indigo">
-                  Admin
-                </Tag>
-              ) : (
-                <Typography.Text color="secondary">—</Typography.Text>
+        {users.map((user) => {
+          const isSelf = user.username === currentUsername;
+          const rowCheckbox = (
+            <Checkbox
+              componentId="admin.users.select_row"
+              isChecked={visibleSelectedUsernames.has(user.username)}
+              isDisabled={isSelf}
+              onChange={() => toggleUserSelection(user.username)}
+              aria-label={isSelf ? `Cannot select your own account (${user.username})` : `Select user ${user.username}`}
+            />
+          );
+          return (
+            <TableRow key={user.username}>
+              {isAdmin && (
+                <TableCell css={{ flex: 0, minWidth: 40, maxWidth: 40 }}>
+                  {isSelf ? (
+                    <Tooltip
+                      componentId="admin.users.select_row.self_tooltip"
+                      content={
+                        <FormattedMessage
+                          defaultMessage="You cannot delete your own account."
+                          description="Tooltip explaining why the row checkbox is disabled for the current user"
+                        />
+                      }
+                    >
+                      <span>{rowCheckbox}</span>
+                    </Tooltip>
+                  ) : (
+                    rowCheckbox
+                  )}
+                </TableCell>
               )}
-            </TableCell>
-          </TableRow>
-        ))}
+              <TableCell css={{ flex: 2 }}>
+                <Link
+                  componentId="admin.users.username_link"
+                  to={withReturnTo(AdminRoutes.getUserDetailRoute(user.username))}
+                >
+                  {user.username}
+                </Link>
+              </TableCell>
+              <TableCell css={{ flex: 2 }}>
+                <UserRolesCell roles={user.roles ?? []} scopeWorkspace={rolesScopeWorkspace} />
+              </TableCell>
+              <TableCell css={{ flex: 1 }}>
+                {user.is_admin ? (
+                  <Tag componentId="admin.users.admin_tag" color="indigo">
+                    Admin
+                  </Tag>
+                ) : (
+                  <Typography.Text color="secondary">—</Typography.Text>
+                )}
+              </TableCell>
+            </TableRow>
+          );
+        })}
       </Table>
       <CreateUserModal open={showCreateModal} onClose={() => setShowCreateModal(false)} />
       <ConfirmationModal
@@ -280,7 +287,17 @@ const UsersTab = () => {
 
 const RolesTab = () => {
   const { theme } = useDesignSystemTheme();
-  const { data: rolesData, isLoading, error: queryError } = useRolesQuery();
+  // Per-workspace scope: platform admins fetch unscoped; workspace managers
+  // pass the active workspace (only one viewable at a time on this page).
+  // ``canManageRoles`` checks the *active* workspace specifically — managing
+  // workspace A while currently in B means we can't create/delete here.
+  const isAdmin = useCurrentUserIsAdmin();
+  const adminWorkspaces = useCurrentUserAdminWorkspaces();
+  const activeWorkspace = useActiveWorkspace();
+  const canManageRoles = isAdmin || (activeWorkspace !== null && adminWorkspaces.has(activeWorkspace));
+  const queryWorkspace = isAdmin ? undefined : (activeWorkspace ?? undefined);
+  const queryEnabled = isAdmin || Boolean(activeWorkspace);
+  const { data: rolesData, isLoading, error: queryError } = useRolesQuery(queryWorkspace, { enabled: queryEnabled });
   const deleteRole = useDeleteRole();
   const withReturnTo = useWithSettingsReturnTo();
 
@@ -308,6 +325,26 @@ const RolesTab = () => {
     clearSelection();
     setBulkDeleteOpen(false);
   };
+
+  // No active workspace + non-admin: skip the guaranteed 403, prompt instead.
+  if (!queryEnabled) {
+    return (
+      <Empty
+        title={
+          <FormattedMessage
+            defaultMessage="Select a workspace"
+            description="Roles tab empty state shown to workspace admins without an active workspace"
+          />
+        }
+        description={
+          <FormattedMessage
+            defaultMessage="Pick a workspace from the workspace selector to see its roles."
+            description="Roles tab empty state body when no workspace is selected"
+          />
+        }
+      />
+    );
+  }
 
   if (isLoading) {
     return (
@@ -363,28 +400,32 @@ const RolesTab = () => {
           gap: theme.spacing.sm,
         }}
       >
-        <Button
-          componentId="admin.roles.bulk_delete_button"
-          danger
-          disabled={visibleSelectedRoleIds.size === 0}
-          onClick={() => setBulkDeleteOpen(true)}
-        >
-          {visibleSelectedRoleIds.size === 0 ? (
-            <FormattedMessage
-              defaultMessage="Delete"
-              description="Bulk-delete button on the roles table (no rows selected)"
-            />
-          ) : (
-            <FormattedMessage
-              defaultMessage="Delete ({count})"
-              description="Bulk-delete button on the roles table"
-              values={{ count: visibleSelectedRoleIds.size }}
-            />
-          )}
-        </Button>
-        <Button componentId="admin.roles.create_button" type="primary" onClick={() => setShowCreateModal(true)}>
-          <FormattedMessage defaultMessage="Create Role" description="Button to create a new role" />
-        </Button>
+        {canManageRoles && (
+          <Button
+            componentId="admin.roles.bulk_delete_button"
+            danger
+            disabled={visibleSelectedRoleIds.size === 0}
+            onClick={() => setBulkDeleteOpen(true)}
+          >
+            {visibleSelectedRoleIds.size === 0 ? (
+              <FormattedMessage
+                defaultMessage="Delete"
+                description="Bulk-delete button on the roles table (no rows selected)"
+              />
+            ) : (
+              <FormattedMessage
+                defaultMessage="Delete ({count})"
+                description="Bulk-delete button on the roles table"
+                values={{ count: visibleSelectedRoleIds.size }}
+              />
+            )}
+          </Button>
+        )}
+        {canManageRoles && (
+          <Button componentId="admin.roles.create_button" type="primary" onClick={() => setShowCreateModal(true)}>
+            <FormattedMessage defaultMessage="Create Role" description="Button to create a new role" />
+          </Button>
+        )}
       </div>
       <Table
         scrollable
@@ -397,14 +438,16 @@ const RolesTab = () => {
         }}
       >
         <TableRow isHeader>
-          <TableHeader componentId="admin.roles.select_header" css={{ flex: 0, minWidth: 40, maxWidth: 40 }}>
-            <Checkbox
-              componentId="admin.roles.select_all"
-              isChecked={allSelected}
-              onChange={toggleSelectAll}
-              aria-label="Select all roles"
-            />
-          </TableHeader>
+          {canManageRoles && (
+            <TableHeader componentId="admin.roles.select_header" css={{ flex: 0, minWidth: 40, maxWidth: 40 }}>
+              <Checkbox
+                componentId="admin.roles.select_all"
+                isChecked={allSelected}
+                onChange={toggleSelectAll}
+                aria-label="Select all roles"
+              />
+            </TableHeader>
+          )}
           <TableHeader componentId="admin.roles.name_header" css={{ flex: 2 }}>
             <FormattedMessage defaultMessage="Name" description="Roles table name header" />
           </TableHeader>
@@ -423,14 +466,16 @@ const RolesTab = () => {
         </TableRow>
         {roles.map((role) => (
           <TableRow key={role.id}>
-            <TableCell css={{ flex: 0, minWidth: 40, maxWidth: 40 }}>
-              <Checkbox
-                componentId="admin.roles.select_row"
-                isChecked={visibleSelectedRoleIds.has(role.id)}
-                onChange={() => toggleRoleSelection(role.id)}
-                aria-label={`Select role ${role.name}`}
-              />
-            </TableCell>
+            {canManageRoles && (
+              <TableCell css={{ flex: 0, minWidth: 40, maxWidth: 40 }}>
+                <Checkbox
+                  componentId="admin.roles.select_row"
+                  isChecked={visibleSelectedRoleIds.has(role.id)}
+                  onChange={() => toggleRoleSelection(role.id)}
+                  aria-label={`Select role ${role.name}`}
+                />
+              </TableCell>
+            )}
             <TableCell css={{ flex: 2 }}>
               <Link componentId="admin.roles.name_link" to={withReturnTo(AdminRoutes.getRoleDetailRoute(role.id))}>
                 {role.name}
@@ -476,6 +521,27 @@ const AdminPage = () => {
   const tabFromUrl = searchParams.get('tab');
   const activeTab = tabFromUrl === 'roles' ? 'roles' : 'users';
 
+  const activeWorkspace = useActiveWorkspace();
+  // Mode is path-driven, not role-driven: ``/admin`` is the cross-workspace
+  // platform-admin view; ``/admin/ws`` (with the workspace name in the
+  // ``?workspace=`` query param) is the per-workspace management view. A
+  // deep link reads the same way for anyone authorized to follow it, and
+  // the ``?workspace=`` value is still picked up by ``WorkspaceRouterSync``
+  // to keep the global ``activeWorkspace`` in sync.
+  const { pathname } = useLocation();
+  const isWorkspaceScoped = pathname === AdminRoutePaths.workspaceManagementPage;
+
+  // The route definition's static ``getPageTitle`` is set by ``MlflowRootRoute``
+  // *after* this component's effects (parent effects run after children's), so
+  // we override on a microtask to land last and reflect the per-workspace
+  // header in the browser tab.
+  useEffect(() => {
+    const desired = isWorkspaceScoped ? 'Workspace Manager - MLflow' : 'Platform Admin - MLflow';
+    queueMicrotask(() => {
+      document.title = desired;
+    });
+  }, [isWorkspaceScoped]);
+
   return (
     <ScrollablePageWrapper>
       <div css={{ padding: theme.spacing.md, display: 'flex', flexDirection: 'column', gap: theme.spacing.lg }}>
@@ -492,9 +558,28 @@ const AdminPage = () => {
               <UserIcon />
             </div>
             <Typography.Title withoutMargins level={2}>
-              <FormattedMessage defaultMessage="Platform Admin" description="Admin page title" />
+              {isWorkspaceScoped ? (
+                <FormattedMessage
+                  defaultMessage="Workspace Manager"
+                  description="Admin page title shown when the URL is scoped to a single workspace via ?workspace=…"
+                />
+              ) : (
+                <FormattedMessage
+                  defaultMessage="Platform Admin"
+                  description="Admin page title shown when the URL has no ?workspace=… (cross-workspace platform-admin view)"
+                />
+              )}
             </Typography.Title>
           </div>
+          {isWorkspaceScoped && (
+            <Typography.Text color="secondary">
+              <FormattedMessage
+                defaultMessage="Workspace: {workspace}"
+                description="Subtitle on the admin page identifying the active workspace when the URL is per-workspace scoped"
+                values={{ workspace: <code>{activeWorkspace}</code> }}
+              />
+            </Typography.Text>
+          )}
         </div>
         <Tabs.Root
           componentId="admin.tabs"

@@ -2682,7 +2682,7 @@ class _TransformersWrapper:
         """
         Parse the return type from a FeatureExtractionPipeline output. The mixed types for
         input are present depending on how the pyfunc is instantiated. For model serving usage,
-        the returned type from MLServer will be a numpy.ndarray type, otherwise, the return
+        the returned type will be a numpy.ndarray type, otherwise, the return
         within a manually executed pyfunc (i.e., for udf usage), the return will be a collection
         of nested lists.
 

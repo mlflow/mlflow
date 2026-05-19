@@ -1,7 +1,13 @@
 import { TraceInfo } from '../core/entities/trace_info';
 import { Trace } from '../core/entities/trace';
-import { CreateExperiment, DeleteExperiment, GetTraceInfoV3, StartTraceV3 } from './spec';
-import { makeRequest } from './utils';
+import {
+  CreateExperiment,
+  DeleteExperiment,
+  GetExperimentByName,
+  GetTraceInfoV3,
+  StartTraceV3,
+} from './spec';
+import { makeRequest, MlflowHttpError } from './utils';
 import { TraceData } from '../core/entities/trace_data';
 import { ArtifactsClient, getArtifactsClient } from './artifacts';
 import { AuthProvider, HeadersProvider } from '../auth';
@@ -120,6 +126,35 @@ export class MlflowClient {
       payload,
     );
     return response.experiment_id;
+  }
+
+  /**
+   * Get an experiment by name.
+   */
+  async getExperimentByName(name: string): Promise<{ experimentId: string; name: string } | null> {
+    const url = GetExperimentByName.getEndpoint(this.hostUrl, name);
+    try {
+      const response = await makeRequest<GetExperimentByName.Response>(
+        'GET',
+        url,
+        this.headersProvider,
+      );
+      if (!response.experiment?.experiment_id || !response.experiment?.name) {
+        return null;
+      }
+      return {
+        experimentId: response.experiment.experiment_id,
+        name: response.experiment.name,
+      };
+    } catch (error) {
+      if (
+        error instanceof MlflowHttpError &&
+        (error.status === 404 || error.errorCode === 'RESOURCE_DOES_NOT_EXIST')
+      ) {
+        return null;
+      }
+      throw error;
+    }
   }
 
   /**

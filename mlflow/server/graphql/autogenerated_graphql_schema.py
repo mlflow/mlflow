@@ -247,6 +247,7 @@ class MlflowExperiment(graphene.ObjectType):
     last_update_time = LongString()
     creation_time = LongString()
     tags = graphene.List(graphene.NonNull(MlflowExperimentTag))
+    effective_trace_archival_retention = graphene.String()
 
 
 class MlflowGetExperimentResponse(graphene.ObjectType):

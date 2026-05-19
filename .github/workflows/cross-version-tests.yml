@@ -77,7 +77,6 @@ jobs:
       - uses: ./.github/actions/setup-python
         with:
           pin-micro-version: false
-          enable-uv-cache: false
       - name: Install dependencies
         run: |
           uv pip install --system -r dev/requirements.txt

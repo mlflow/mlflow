@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/bundle/stop.js\"",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/bundle/stop.cjs\"",
             "timeout": 120
           }
         ]

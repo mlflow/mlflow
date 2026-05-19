@@ -1,5 +1,6 @@
 import copy
 import logging
+from collections.abc import Iterable
 from dataclasses import asdict
 from typing import TYPE_CHECKING, Any
 
@@ -58,6 +59,23 @@ def _get_embedding_batch_size(litellm_model: str) -> int:
     if litellm_model.startswith("databricks/"):
         return _DATABRICKS_EMBEDDING_BATCH_SIZE
     return _DEFAULT_EMBEDDING_BATCH_SIZE
+
+
+def _generate_fingerprint(
+    examples: Iterable["dspy.Example"],
+) -> frozenset[tuple[str | None, int | None]]:
+    """Set of (assessment_id, last_update_time_ms) for a collection of resolved examples.
+    Used to detect whether the in-memory representation of a trace matches its current
+    state — the same shape applies whether the examples come from a fresh
+    ``trace_to_dspy_example`` call or from in-memory episodic memory filtered by trace_id.
+    """
+    return frozenset(
+        (
+            getattr(ex, "_assessment_id", None),
+            getattr(ex, "_last_update_time_ms", None),
+        )
+        for ex in examples
+    )
 
 
 _MODEL_API_DOC = {
@@ -366,10 +384,7 @@ class MemoryAugmentedJudge(Judge):
         for trace_id in self._episodic_trace_ids:
             trace = mlflow.get_trace(trace_id, silent=True)
             if trace is not None:
-                trace_examples = trace_to_dspy_example(trace, self._base_judge)
-                for example in trace_examples:
-                    example._trace_id = trace.info.trace_id
-                    examples.append(example)
+                examples.extend(trace_to_dspy_example(trace, self._base_judge))
             else:
                 missing_ids.append(trace_id)
 
@@ -458,27 +473,12 @@ class MemoryAugmentedJudge(Judge):
         """
         trace_ids_to_remove = {trace.info.trace_id for trace in traces}
 
-        # Filter examples to retain based on trace ids
-        examples_to_retain = [
-            example
-            for example in self._episodic_memory
-            if not (hasattr(example, "_trace_id") and example._trace_id in trace_ids_to_remove)
-        ]
-        if len(examples_to_retain) == len(self._episodic_memory):
+        if not any(
+            getattr(ex, "_trace_id", None) in trace_ids_to_remove for ex in self._episodic_memory
+        ):
             _logger.warning("No feedback records found for the provided traces")
             return self
 
-        # Filter guidelines to retain based on source_trace_ids
-        # - Always retain user-provided guidelines (those without source_trace_ids)
-        # - Delete guideline only if ALL of its source traces were removed
-        guidelines_to_retain = [
-            guideline
-            for guideline in self._semantic_memory
-            if guideline.source_trace_ids is None
-            or any(tid not in trace_ids_to_remove for tid in guideline.source_trace_ids)
-        ]
-
-        # Reinitialize new judge
         new_judge = MemoryAugmentedJudge(
             base_judge=self._base_judge,
             reflection_lm=self._reflection_lm,
@@ -486,9 +486,11 @@ class MemoryAugmentedJudge(Judge):
             embedding_model=self._embedding_model,
             embedding_dim=self._embedding_dim,
         )
+        new_judge._episodic_memory = list(self._episodic_memory)
+        new_judge._episodic_trace_ids = list(self._episodic_trace_ids)
+        new_judge._semantic_memory = copy.deepcopy(self._semantic_memory)
 
-        new_judge._semantic_memory = guidelines_to_retain
-        new_judge._episodic_memory = examples_to_retain
+        new_judge._apply_unalign_inplace(trace_ids_to_remove)
         new_judge._build_episodic_memory()
 
         _logger.debug(
@@ -497,6 +499,34 @@ class MemoryAugmentedJudge(Judge):
             f"Semantic memory size: {len(new_judge._semantic_memory)} guidelines."
         )
         return new_judge
+
+    def _in_memory_fingerprint(self, trace_id: str) -> frozenset[tuple[str | None, int | None]]:
+        return _generate_fingerprint(
+            ex for ex in self._episodic_memory if getattr(ex, "_trace_id", None) == trace_id
+        )
+
+    def _apply_unalign_inplace(self, trace_ids_to_remove: set[str]) -> None:
+        # Mutates self; does not rebuild the episodic search index (caller's responsibility).
+        self._episodic_memory = [
+            ex
+            for ex in self._episodic_memory
+            if getattr(ex, "_trace_id", None) not in trace_ids_to_remove
+        ]
+        self._episodic_trace_ids = [
+            tid for tid in self._episodic_trace_ids if tid not in trace_ids_to_remove
+        ]
+        # Drop a guideline only when ALL of its source traces are being removed —
+        # i.e., retain ``g`` if ``source_trace_ids`` has at least one tid outside the
+        # remove set, or if it has no recorded sources (user-provided guidelines).
+        # A cross-trace guideline aggregates signal from each of its source traces,
+        # so refreshing one source doesn't invalidate the signal that came from the
+        # others.
+        self._semantic_memory = [
+            g
+            for g in self._semantic_memory
+            if g.source_trace_ids is None
+            or any(tid not in trace_ids_to_remove for tid in g.source_trace_ids)
+        ]
 
     def _distill_new_guidelines(self, new_examples: list["dspy.Example"]) -> None:
         """
@@ -632,14 +662,31 @@ class MemAlignOptimizer(AlignmentOptimizer):
 
     def align(self, judge: Judge, traces: list[Trace]) -> MemoryAugmentedJudge:
         """
-        Align judge with human feedback from traces.
+        Align a judge with human feedback from traces.
+
+        When ``judge`` is already a :py:class:`MemoryAugmentedJudge` (e.g., the
+        result of a prior ``align`` call), per-trace behavior is:
+
+        - Traces whose human assessments are byte-identical to what is already
+          in memory are skipped — no LM call, no index rebuild.
+        - Traces in memory whose assessments have been edited, added, or
+          partially removed are refreshed: stale episodes are dropped and
+          replaced with examples derived from the current trace state.
+        - Traces not yet in memory are added.
+        - Traces whose human assessments have been *fully* removed raise
+          :py:class:`MlflowException`. To remove a trace's contribution to
+          memory, call :py:meth:`MemoryAugmentedJudge.unalign` directly —
+          re-aligning with empty assessments is not a supported retraction
+          path. Likewise, traces that have never had any human assessments
+          for ``judge.name`` raise rather than being silently skipped.
 
         Args:
-            judge: Judge to align
-            traces: Traces containing human feedback
+            judge: Judge to align (or re-align if already a
+                :py:class:`MemoryAugmentedJudge`).
+            traces: Traces containing human feedback.
 
         Returns:
-            Memory-augmented judge aligned with feedback
+            Memory-augmented judge aligned with feedback.
         """
         try:
             if not traces:
@@ -649,24 +696,6 @@ class MemAlignOptimizer(AlignmentOptimizer):
 
             _logger.debug(f"Starting MemAlign alignment with {len(traces)} traces")
 
-            new_examples = []
-            for trace in traces:
-                examples = trace_to_dspy_example(trace, judge)
-                for example in examples:
-                    example._trace_id = trace.info.trace_id
-                    new_examples.append(example)
-
-            if not new_examples:
-                raise MlflowException(
-                    f"No valid feedback records found in traces. "
-                    f"Ensure traces contain human assessments with name '{judge.name}'",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
-
-            _logger.debug(
-                f"Created {len(new_examples)} new feedback records from {len(traces)} traces"
-            )
-
             memory_judge = MemoryAugmentedJudge(
                 base_judge=judge,
                 reflection_lm=self._reflection_lm,
@@ -675,9 +704,78 @@ class MemAlignOptimizer(AlignmentOptimizer):
                 embedding_dim=self._embedding_dim,
             )
 
-            memory_judge._add_examples_to_memory(new_examples)
+            # Build resolved examples once per incoming trace; reused for both change
+            # detection and memory updates. Last-write-wins on duplicate trace_ids gives
+            # us in-batch dedup for free (handles align(judge, [t, t])).
+            examples_by_trace = {
+                trace.info.trace_id: trace_to_dspy_example(trace, judge) for trace in traces
+            }
 
-            _logger.debug(f"MemAlign alignment completed successfully on {len(traces)} examples.")
+            # Classify each trace as: emptied-from-memory (retraction attempt),
+            # never-had-feedback (user error), skip (identical to memory), refresh
+            # (in memory but assessments changed), or new (not in memory).
+            trace_ids_with_empty_assessments: set[str] = set()
+            trace_ids_with_no_feedback: set[str] = set()
+            trace_ids_to_refresh: set[str] = set()
+            examples_to_align: list["dspy.Example"] = []
+            for tid, examples in examples_by_trace.items():
+                new_fp = _generate_fingerprint(examples)
+                old_fp = memory_judge._in_memory_fingerprint(tid)
+                if not examples:
+                    # Any trace that resolves to zero examples blocks the call. We
+                    # split the two cases so the error message points at the right
+                    # remediation: unalign() for retraction, log_feedback() for
+                    # missing feedback. Both are loud rather than silently dropped
+                    # because mixing one with valid traces would otherwise hide a
+                    # likely user bug (wrong trace IDs / missing feedback / etc.).
+                    if old_fp:
+                        trace_ids_with_empty_assessments.add(tid)
+                    else:
+                        trace_ids_with_no_feedback.add(tid)
+                elif not old_fp:
+                    examples_to_align.extend(examples)
+                elif old_fp != new_fp:
+                    trace_ids_to_refresh.add(tid)
+                    examples_to_align.extend(examples)
+
+            if trace_ids_with_empty_assessments:
+                raise MlflowException(
+                    f"Cannot retract feedback by re-aligning with empty assessments. "
+                    f"{len(trace_ids_with_empty_assessments)} trace(s) had their human "
+                    f"assessments removed: {sorted(trace_ids_with_empty_assessments)}. "
+                    f"Use unalign(traces=...) to remove traces from memory.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+
+            if trace_ids_with_no_feedback:
+                raise MlflowException(
+                    f"No valid feedback records found for {len(trace_ids_with_no_feedback)} "
+                    f"trace(s): {sorted(trace_ids_with_no_feedback)}. Ensure traces contain "
+                    f"human assessments with name '{judge.name}'.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+
+            if not examples_to_align:
+                # Reachable only when every incoming trace was a no-op skip; the
+                # raises above already cover all empty-example paths. Skip can
+                # only fire when ``judge`` is already a MemoryAugmentedJudge — a
+                # vanilla Judge has no in-memory fingerprints to match against —
+                # so returning the input is type-safe and avoids handing back the
+                # freshly-built ``memory_judge`` whose retriever is uninitialized.
+                assert isinstance(judge, MemoryAugmentedJudge)
+                _logger.debug("MemAlign alignment skipped: all traces unchanged in memory.")
+                return judge
+
+            if trace_ids_to_refresh:
+                memory_judge._apply_unalign_inplace(trace_ids_to_refresh)
+
+            memory_judge._add_examples_to_memory(examples_to_align)
+
+            _logger.debug(
+                f"MemAlign alignment completed: "
+                f"refreshed={len(trace_ids_to_refresh)}, "
+                f"added={len(examples_to_align)} examples."
+            )
             return memory_judge
 
         except Exception as e:

@@ -14,7 +14,12 @@ from mlflow.gateway.providers.base import (
     _client_provides_auth,
 )
 from mlflow.gateway.providers.openai_compatible import OpenAICompatibleAdapter
-from mlflow.gateway.providers.utils import send_request, send_stream_request
+from mlflow.gateway.providers.utils import (
+    proxy_root_url,
+    send_proxy_request,
+    send_request,
+    send_stream_request,
+)
 from mlflow.gateway.schemas import chat, completions, embeddings
 from mlflow.gateway.uc_function_utils import (
     _UC_FUNCTION,
@@ -610,6 +615,22 @@ class OpenAIProvider(BaseProvider):
             if token_usage:
                 return token_usage
         return {}
+
+    async def _proxy(
+        self,
+        path: str,
+        payload: dict[str, Any],
+        headers: dict[str, str] | None = None,
+    ) -> dict[str, Any] | AsyncIterable[Any]:
+        gen = send_proxy_request(
+            self._get_headers(None, headers), proxy_root_url(self.base_url), path, payload
+        )
+        meta = await gen.__anext__()
+        if meta["is_streaming"]:
+            return gen
+        body = await gen.__anext__()
+        await gen.aclose()
+        return body
 
     async def _passthrough(
         self,

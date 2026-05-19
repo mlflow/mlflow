@@ -24,6 +24,8 @@ import {
   useUsersQuery,
 } from '../hooks';
 import { AccountQueryKeys } from '../../account/hooks';
+import { isSyntheticUserRole } from '../../account/types';
+import { useActiveWorkspace } from '../../workspaces/utils/WorkspaceUtils';
 import { RoleAssignmentForm, ROLE_ASSIGNMENT_DEFAULT, type RoleAssignmentValue } from './RoleAssignmentForm';
 import { type DirectGrantResourceType } from './DirectPermissionForm';
 import { DirectPermissionsSection, type StagedDirectPermission } from './DirectPermissionsSection';
@@ -72,14 +74,24 @@ export const EditAccessModal = ({ open, onClose, username, onCreateRoleForAllOfT
   const { data: rolesData, isLoading: rolesLoading } = useUserRolesQuery(username);
   const { data: directPermsData, isLoading: directPermsLoading } = useUserPermissionsQuery(username);
   const { data: usersData, isLoading: usersLoading } = useUsersQuery();
-  // Roles list is needed for the Review step's name lookup (the form uses
-  // the dropdown's own label, but the Review step renders by id).
-  const { data: rolesListData } = useRolesQuery(undefined);
+  // Roles list for the Review step's name lookup (the form uses the
+  // dropdown's own label, but the Review step renders by id). Platform
+  // admins fetch unscoped; workspace managers pass the active workspace.
+  // Suppress when none is active to avoid a guaranteed 403.
+  const activeWorkspace = useActiveWorkspace();
+  const rolesListWorkspace = isCurrentUserAdmin ? undefined : (activeWorkspace ?? undefined);
+  const rolesListEnabled = isCurrentUserAdmin || Boolean(activeWorkspace);
+  const { data: rolesListData } = useRolesQuery(rolesListWorkspace, { enabled: rolesListEnabled });
 
   const currentRoleIds = useMemo<number[]>(() => (rolesData?.roles ?? []).map((r) => r.id), [rolesData]);
   const currentDirectPerms = useMemo<StagedDirectPermission[]>(
     () =>
       (directPermsData?.permissions ?? [])
+        // The unified ``/users/permissions/list`` response returns every
+        // permission across every role the user holds. Direct grants live on
+        // the synthetic ``__user_<id>__`` role; filter to just those for the
+        // "Direct permissions" view (custom roles are shown in the Roles tab).
+        .filter((p) => isSyntheticUserRole(p.role_name))
         .filter((p) => isDirectGrantResourceType(p.resource_type))
         .map((p) => ({
           resourceType: p.resource_type as DirectGrantResourceType,
@@ -207,6 +219,9 @@ export const EditAccessModal = ({ open, onClose, username, onCreateRoleForAllOfT
     }
     if (roleIdsTouched.size > 0) {
       queryClient.invalidateQueries({ queryKey: AccountQueryKeys.userRoles(username) });
+      // The Admin Users tab eager-loads each user's roles via
+      // ``useUsersQuery``; invalidate so the per-row Roles cell refreshes.
+      queryClient.invalidateQueries({ queryKey: AdminQueryKeys.users });
       for (const roleId of roleIdsTouched) {
         queryClient.invalidateQueries({ queryKey: AdminQueryKeys.roleUsers(roleId) });
       }

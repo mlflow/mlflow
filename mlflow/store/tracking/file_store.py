@@ -114,6 +114,7 @@ from mlflow.utils.validation import (
     _validate_experiment_artifact_location_length,
     _validate_experiment_id,
     _validate_experiment_name,
+    _validate_experiment_tag,
     _validate_logged_model_name,
     _validate_metric,
     _validate_metric_name,
@@ -460,6 +461,9 @@ class FileStore(AbstractStore):
 
         if artifact_location:
             _validate_experiment_artifact_location_length(artifact_location)
+        if tags:
+            for tag in tags:
+                _validate_experiment_tag(tag.key, tag.value)
 
         self._validate_experiment_does_not_exist(name)
         experiment_id = _generate_unique_integer_id()
@@ -1161,7 +1165,7 @@ class FileStore(AbstractStore):
             experiment_id: String ID of the experiment
             tag: ExperimentRunTag instance to log
         """
-        _validate_tag_name(tag.key)
+        _validate_experiment_tag(tag.key, tag.value)
         experiment = self.get_experiment(experiment_id)
         if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
             raise MlflowException(
@@ -2146,7 +2150,7 @@ class FileStore(AbstractStore):
         experiment_path = self._get_experiment_path(experiment_id, assert_exists=True)
         traces_path = os.path.join(experiment_path, FileStore.TRACES_FOLDER_NAME)
         deleted_traces = 0
-        if max_timestamp_millis:
+        if max_timestamp_millis is not None:
             trace_paths = list_all(traces_path, lambda x: os.path.isdir(x), full_path=True)
             trace_info_and_paths = []
             for trace_path in trace_paths:

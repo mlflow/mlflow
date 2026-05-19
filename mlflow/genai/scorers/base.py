@@ -4,7 +4,7 @@ import inspect
 import json
 import logging
 from contextvars import ContextVar
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, fields
 from enum import Enum
 from typing import Any, Callable, ClassVar, Literal, TypeAlias, TypeVar, overload
 
@@ -153,6 +153,34 @@ class SerializedScorer:
                 "SerializedScorer cannot have multiple types of scorer fields "
                 "present simultaneously"
             )
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "SerializedScorer":
+        """Build a SerializedScorer from a dict, tolerating unknown fields from newer versions.
+
+        Newer mlflow versions sometimes add fields to this dataclass (e.g.
+        ``third_party_scorer_data`` in 3.12). When an older runtime deserializes a payload
+        written by a newer version, raw ``SerializedScorer(**data)`` raises a cryptic
+        ``TypeError: __init__() got an unexpected keyword argument '<field>'``. This
+        wrapper drops the unknown fields and logs a version-aware warning instead, so
+        forward-compatible payloads (additive-only fields) still deserialize.
+        """
+        known_fields = {f.name for f in fields(cls)}
+        if unknown_fields := sorted(set(data) - known_fields):
+            serialized_version = data.get("mlflow_version") or "unknown"
+            scorer_name = data.get("name") or "<unnamed>"
+            _logger.error(
+                "Ignoring unknown field(s) %s while deserializing scorer %r: it was "
+                "serialized with mlflow==%s, but this runtime is on mlflow==%s. "
+                "Upgrade mlflow to >=%s in this environment to pick up these fields.",
+                unknown_fields,
+                scorer_name,
+                serialized_version,
+                mlflow.__version__,
+                serialized_version,
+            )
+            data = {k: v for k, v in data.items() if k in known_fields}
+        return cls(**data)
 
 
 def _record_scorer_call_with_context(func):
@@ -335,9 +363,8 @@ class Scorer(BaseModel):
             serialized = obj
         # Handle dict object
         elif isinstance(obj, dict):
-            # Parse the serialized data using our dataclass
             try:
-                serialized = SerializedScorer(**obj)
+                serialized = SerializedScorer.from_dict(obj)
             except Exception as e:
                 raise MlflowException.invalid_parameter_value(
                     f"Failed to parse serialized scorer data: {e}"

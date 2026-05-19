@@ -1,14 +1,10 @@
-/**
- * Step 1: Provider selection for MLflow Assistant setup.
- */
-
 import { useState } from 'react';
 import { Button, Typography, useDesignSystemTheme } from '@databricks/design-system';
 
 import { toRGBA } from '@mlflow/mlflow/src/common/utils/toRGBA';
 import AnthropicLogo from '@mlflow/mlflow/src/common/static/logos/anthropic.svg';
 import GeminiLogo from '@mlflow/mlflow/src/common/static/logos/gemini.png';
-import OpenAiLogo from '@mlflow/mlflow/src/common/static/logos/openai.svg';
+import OllamaLogo from '@mlflow/mlflow/src/common/static/logos/ollama.png';
 
 interface Provider {
   id: string;
@@ -26,9 +22,16 @@ const PROVIDERS: Provider[] = [
     logo: AnthropicLogo,
     available: true,
   },
+  {
+    id: 'ollama',
+    name: 'Ollama',
+    description: 'AI assistant using a locally running Ollama server. Requires Ollama installed and running.',
+    logo: OllamaLogo,
+    available: true,
+  },
 ];
 
-const COMING_SOON_LOGOS = [OpenAiLogo, GeminiLogo];
+const COMING_SOON_LOGOS = [GeminiLogo];
 
 interface SetupStepProviderProps {
   selectedProvider: string;
