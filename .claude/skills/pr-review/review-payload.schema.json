@@ -61,7 +61,7 @@
       "required": ["path", "body", "line", "side"],
       "properties": {
         "path": {
-          "description": "File path relative to the repo root. Must match a path present in the PR diff.",
+          "description": "File path relative to the repo root. Must be a file with at least one hunk in the PR diff.",
           "type": "string",
           "minLength": 1
         },
@@ -71,21 +71,21 @@
           "pattern": "^(🔴 \\*\\*CRITICAL:\\*\\*|🟡 \\*\\*MODERATE:\\*\\*|🟢 \\*\\*NIT:\\*\\*) "
         },
         "line": {
-          "description": "Line number to anchor to. For multi-line comments, this is the last line of the range.",
+          "description": "Anchor line. Must be inside a diff hunk on the chosen side (added/context on RIGHT, deleted/context on LEFT). For multi-line comments, this is the last line of the range.",
           "type": "integer",
           "minimum": 1
         },
         "side": {
-          "description": "RIGHT for added/modified lines, LEFT for deleted lines.",
+          "description": "RIGHT for the post-merge file (added/context lines), LEFT for the pre-change file (deleted/context lines). RIGHT is the common case.",
           "$ref": "#/$defs/side"
         },
         "start_line": {
-          "description": "First line of a multi-line comment range. Required together with start_side.",
+          "description": "First line of a multi-line range. Same hunk requirement as `line`, and must be < line. Must be set together with start_side.",
           "type": "integer",
           "minimum": 1
         },
         "start_side": {
-          "description": "Side for start_line. Required together with start_line.",
+          "description": "Side for start_line. Must be set together with start_line.",
           "$ref": "#/$defs/side"
         }
       },
