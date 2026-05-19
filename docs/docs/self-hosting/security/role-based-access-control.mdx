@@ -178,6 +178,14 @@ holds `(experiment, 42, MANAGE)` can grant access without holding
 workspace-wide MANAGE. The role API itself requires workspace MANAGE or
 Platform Admin, since authoring a role is an administrative action.
 
+For reads, the same family includes
+`auth_client.get_user_permission(username, resource_type, resource_id)` —
+returns the resolved effective permission via the same resolver the
+runtime authorization check uses — and
+`auth_client.list_user_permissions(username)`, which returns every grant
+the user holds across all their roles, enriched with `role_id` /
+`role_name` / `workspace`.
+
 ## Common scenarios
 
 The big shift from the legacy permission model: every "give X access to Y"
@@ -422,7 +430,11 @@ The wire surface and `AuthServiceClient` shape change as follows:
 | Pre-RBAC surface                                                                                              | Status      | Replacement                                                                                                    |
 | ------------------------------------------------------------------------------------------------------------- | ----------- | -------------------------------------------------------------------------------------------------------------- |
 | Per-resource permission REST endpoints + `AuthServiceClient` methods (`create_experiment_permission()`, etc.) | **Removed** | `grant_user_permission` / `revoke_user_permission` for one-off direct grants, or the role API for shared sets. |
-| Workspace permission REST endpoints + `AuthServiceClient` methods (`set_workspace_permission()`, etc.)        | **Removed** | The role API: assign the seeded `admin` / `user` role, or author a role carrying `(workspace, *, …)`.          |
+| Workspace permission REST endpoints + `AuthServiceClient` methods (`set_workspace_permission()`, etc.)        | **Removed** | The role API: assign the seeded `admin` / `user` role, or author a role carrying `(workspace, *, ...)`.        |
+
+At the wire level, the ~24 legacy per-resource REST endpoints consolidated
+into four under `/mlflow/users/permissions/*`: `grant`, `revoke`, `get`,
+`list`.
 
 There is no deprecation-warning window: basic-auth was still marked
 experimental, so the carry cost of dozens of deprecation-warning-emitting
