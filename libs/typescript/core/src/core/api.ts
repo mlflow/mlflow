@@ -379,6 +379,7 @@ export function trace<T extends (...args: any[]) => any>(
           attributes: decoratorOptions?.attributes,
           inputs,
           logLevel: decoratorOptions?.logLevel,
+          links: decoratorOptions?.links,
         };
 
         // eslint-disable-next-line @typescript-eslint/no-unsafe-return
@@ -428,6 +429,7 @@ function traceFunction<T extends (...args: any[]) => any>(func: T, options?: Tra
       attributes: options?.attributes,
       inputs: inputs,
       logLevel: options?.logLevel,
+      links: options?.links,
     };
 
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return

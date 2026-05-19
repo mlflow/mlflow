@@ -99,5 +99,26 @@ describe('SpanLink', () => {
       expect(reconstructed.spanId).toBe(original.spanId);
       expect(reconstructed.attributes).toEqual(original.attributes);
     });
+
+    it('should deserialize with null attributes', () => {
+      const json = { trace_id: TRACE_ID, span_id: SPAN_ID, attributes: null };
+      const link = SpanLink.fromJson(json);
+
+      expect(link.traceId).toBe(TRACE_ID);
+      expect(link.spanId).toBe(SPAN_ID);
+      expect(link.attributes).toEqual({});
+    });
+
+    it('should round-trip a no-attribute link through toJson and fromJson', () => {
+      const original = new SpanLink({ traceId: TRACE_ID, spanId: SPAN_ID });
+      const json = original.toJson();
+
+      expect(json.attributes).toBeNull();
+
+      const reconstructed = SpanLink.fromJson(json);
+      expect(reconstructed.traceId).toBe(original.traceId);
+      expect(reconstructed.spanId).toBe(original.spanId);
+      expect(reconstructed.attributes).toEqual({});
+    });
   });
 });
