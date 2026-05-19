@@ -20,7 +20,7 @@ picks up once users exist.
 
 ## Concepts
 
-Three entities — users, roles, resources — connected by two relations:
+Three entities - users, roles, resources - connected by two relations:
 role assignment and permission grants. Roles (and the grants they carry) are
 workspace-scoped when workspaces are enabled; see
 [Workspace isolation](#workspace-isolation) for the on/off delta.
@@ -35,12 +35,12 @@ flowchart LR
     Roles -- role_permissions --> Resources
 ```
 
-- **User** — an actor who wants to access resources.
-- **Resource** — a target entity in MLflow that permissions are
+- **User** - an actor who wants to access resources.
+- **Resource** - a target entity in MLflow that permissions are
   managed on, such as an experiment, a registered model, a prompt,
   a scorer, or an AI Gateway resource (a secret, an endpoint,
   or a model definition).
-- **Role** — a named bundle of permissions on resources.
+- **Role** - a named bundle of permissions on resources.
 
 ## Roles
 
@@ -67,7 +67,7 @@ endpoint, referencing a model definition, creating new experiments /
 registered models within a workspace).
 
 `NO_PERMISSIONS` is the resolver's deny sentinel for workspace-boundary
-cases — e.g., a user with no workspace membership when
+cases - e.g., a user with no workspace membership when
 `grant_default_workspace_access` is off. It is **not grantable** as a role
 permission or a direct grant; the auth server rejects attempts to assign
 it. The effective permission when no role grant matches is the server's
@@ -90,14 +90,14 @@ permission as follows:
 2. **Role-derived grants**: all of the user's roles in the request's workspace
    contribute. Grants that apply to the resource fold via a max, and the
    highest-priority permission wins (`MANAGE` > `EDIT` > `USE` > `READ`).
-   `(workspace, *, MANAGE)` folds into every per-resource check — it grants
+   `(workspace, *, MANAGE)` folds into every per-resource check - it grants
    management of every resource in the workspace. `(workspace, *, USE)`
    does **not** fold into per-resource checks; it confers workspace
    membership and create rights only (see
    [Workspace isolation](#workspace-isolation)).
 3. **Server `default_permission`** (defaults to `READ`): a floor max'd
    into the resolution result. When no role grant matches at all, the
-   floor is the final answer. The floor does **not** lift `NO_PERMISSIONS` —
+   floor is the final answer. The floor does **not** lift `NO_PERMISSIONS` -
    when the resolver returns it for a workspace-boundary reason (no
    workspace membership, missing workspace, lookup error), that deny
    stands. See [Workspace isolation](#workspace-isolation) for when the
@@ -132,14 +132,14 @@ is set; otherwise the effective floor in each named workspace is deny.
 Two grants on the special `(resource_type='workspace',
 resource_pattern='*')` slot define workspace-wide access:
 
-- `USE` on `(workspace, *)` — the **Workspace Member** grant.
+- `USE` on `(workspace, *)` - the **Workspace Member** grant.
   - Confers workspace membership: the user can list and enter the workspace.
   - Allows creating new resources (e.g., experiments, registered models) within it.
   - Does **not** itself grant per-resource access. Read access on
     individual resources comes from the server `default_permission` floor
     (defaults to `READ`); higher tiers require an explicit per-resource or
     resource-type wildcard grant.
-- `MANAGE` on `(workspace, *)` — the **Workspace Manager** grant. Full
+- `MANAGE` on `(workspace, *)` - the **Workspace Manager** grant. Full
   authority within the workspace, including creating roles, granting
   permissions, and managing role assignments. Cannot perform system-wide
   operations such as deleting users.
@@ -164,7 +164,7 @@ For the one-user one-resource case, you don't need to author a single-user
 role. Each user has a reserved per-user role that holds their direct
 grants; the `grant_user_permission` / `revoke_user_permission` APIs and the
 admin UI's _Direct permissions_ section write to it directly. From an
-operator's perspective it's one call or one form field — the reserved role
+operator's perspective it's one call or one form field - the reserved role
 is an implementation detail you never touch.
 
 **Admin UI:** `/admin` → **Users** → click the user → **Edit access** → in
@@ -178,16 +178,16 @@ auth_client.grant_user_permission("alice", "experiment", "42", "EDIT")
 ```
 
 `grant_user_permission` is gated by per-resource MANAGE on the target
-resource — the same authority check the legacy
-`create_experiment_permission()` family used — so an experiment owner who
+resource - the same authority check the legacy
+`create_experiment_permission()` family used - so an experiment owner who
 holds `(experiment, 42, MANAGE)` can grant access without holding
 workspace-wide MANAGE. The role API itself requires workspace MANAGE or
 Platform Admin, since authoring a role is an administrative action.
 
 For reads, the same family includes
-`auth_client.get_user_permission(username, resource_type, resource_id)` —
+`auth_client.get_user_permission(username, resource_type, resource_id)` -
 returns the resolved effective permission via the same resolver the
-runtime authorization check uses — and
+runtime authorization check uses - and
 `auth_client.list_user_permissions(username)`, which returns every grant
 the user holds across all their roles, enriched with `role_id` /
 `role_name` / `workspace`.
@@ -334,7 +334,7 @@ flowchart LR
 ```
 
 <Tabs groupId="rbac-flow">
-<TabItem value="ui" label="Admin UI — from the role">
+<TabItem value="ui" label="Admin UI - from the role">
 
 1. Navigate to `/admin` → **Roles** → click the role.
 2. Click **Edit role**.
@@ -342,7 +342,7 @@ flowchart LR
 4. Review → apply.
 
 </TabItem>
-<TabItem value="ui-per-user" label="Admin UI — from each user">
+<TabItem value="ui-per-user" label="Admin UI - from each user">
 
 1. Navigate to `/admin` → **Users** → click the user.
 2. Click **Edit access**.
@@ -429,7 +429,7 @@ export MLFLOW_RBAC_SEED_DEFAULT_ROLES=false
 If you're upgrading from a release before MLflow 3.13 that used the
 per-resource permission endpoints, the auth-store backfill migration
 translates the legacy permission tables into `role_permissions` rows.
-Existing grants survive the upgrade — only the API surface changes.
+Existing grants survive the upgrade - only the API surface changes.
 
 The wire surface and `AuthServiceClient` shape change as follows:
 
@@ -454,7 +454,7 @@ auth_client.grant_user_permission(username, "experiment", experiment_id, "EDIT")
 ```
 
 **Per-resource MANAGE retains delegation.** A user with `(experiment, 42,
-MANAGE)` can still grant other users access to experiment 42 — the new
+MANAGE)` can still grant other users access to experiment 42 - the new
 `grant_user_permission` / `revoke_user_permission` are gated by the same
 per-resource MANAGE check the legacy endpoints used.
 
