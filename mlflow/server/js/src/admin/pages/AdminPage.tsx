@@ -41,9 +41,15 @@ import { UserRolesCell } from '../components/UserRolesCell';
 
 const UsersTab = () => {
   const { theme } = useDesignSystemTheme();
-  const { data: usersData, isLoading, error: queryError } = useUsersQuery();
-  const { data: currentUserData } = useCurrentUserQuery();
+  const { data: usersData, isLoading: usersLoading, error: queryError } = useUsersQuery();
+  const { data: currentUserData, isLoading: currentUserLoading } = useCurrentUserQuery();
   const currentUsername = currentUserData?.user?.username;
+  // Block render until ``currentUsername`` is known: otherwise ``isSelf``
+  // would be ``false`` for every row while the query is in-flight, leaving
+  // a window where a fast "Select all" + Delete click would include the
+  // current user in the targets (caught by the backend self-delete guard,
+  // but a confusing partial-failure for the admin).
+  const isLoading = usersLoading || currentUserLoading;
   const deleteUser = useDeleteUser();
   const withReturnTo = useWithSettingsReturnTo();
   // Bulk-delete + row checkboxes are platform-admin-only; Create User is
