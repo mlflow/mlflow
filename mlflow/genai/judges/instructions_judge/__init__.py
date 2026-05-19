@@ -582,11 +582,9 @@ class InstructionsJudge(Judge):
                     missing_fields.append("inputs")
                 if missing_outputs:
                     missing_fields.append("outputs")
-                _logger.warning(
-                    "Could not extract %s from the trace root span. Falling back to "
-                    "trace-based (agentic) judge mode; verdict quality may differ. If "
-                    "inputs/outputs live in OTel events (e.g. gen_ai.user.message, "
-                    "gen_ai.choice), use span attributes to avoid falling back.",
+                _logger.info(
+                    "Could not extract %s from the trace root span. "
+                    "Falling back to trace-based judge mode.",
                     " and ".join(missing_fields),
                 )
 
