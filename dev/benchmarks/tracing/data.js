@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779226813159,
+  "lastUpdate": 1779226945053,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -4265,6 +4265,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 7.069197399982841,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "58055473+xodn348@users.noreply.github.com",
+            "name": "Junhyuk Lee",
+            "username": "xodn348"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ee08e0166786b105cd0d17430dbe404cd9a552f9",
+          "message": "fix(tracking): return `<console>` for `mlflow.source.name` when `sys.argv[0]` is empty (#23352)\n\nSigned-off-by: xodn348 <xodn348@tamu.edu>\nCo-authored-by: Yuki Watanabe <31463517+B-Step62@users.noreply.github.com>",
+          "timestamp": "2026-05-19T21:38:26Z",
+          "tree_id": "2d3ec3c94f2f5204416dbaced37679aa1dceaae2",
+          "url": "https://github.com/mlflow/mlflow/commit/ee08e0166786b105cd0d17430dbe404cd9a552f9"
+        },
+        "date": 1779226943838,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 47.32755719999986,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 24.446481030304398,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 21.646982650000744,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 22.47045587719205,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 22.07835120338945,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 31.910170599996942,
             "unit": "ms"
           }
         ]
