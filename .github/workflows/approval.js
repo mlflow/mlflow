@@ -79,6 +79,9 @@ module.exports = async ({ github, context, core }) => {
   const maintainerApproved = reviews.some(
     ({ state, user }) =>
       state === "APPROVED" &&
+      // GitHub returns `user: null` on reviews from accounts that have since
+      // been deleted; skip them rather than crashing on `user.login`.
+      user &&
       (maintainers.includes(user.login) ||
         (user.type.toLowerCase() === "bot" && APPROVED_BOTS.has(user.login)))
   );
