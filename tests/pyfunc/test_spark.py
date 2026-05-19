@@ -840,7 +840,6 @@ def test_spark_udf_embedded_model_server_killed_when_job_canceled(
             port=server_port,
             host="127.0.0.1",
             timeout=timeout,
-            enable_mlserver=False,
             synchronous=False,
         )
 

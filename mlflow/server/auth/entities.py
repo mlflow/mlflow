@@ -461,6 +461,32 @@ class UserRoleAssignment:
         )
 
 
+class GetUserPermissionResult:
+    """Response shape for ``GET /mlflow/users/permissions/get``. ``allowed``
+    mirrors ``Permission.can_use`` (regular access tier); ``permission`` is the
+    resolved effective permission name.
+    """
+
+    def __init__(self, allowed: bool, permission: str):
+        self._allowed = allowed
+        self._permission = permission
+
+    @property
+    def allowed(self) -> bool:
+        return self._allowed
+
+    @property
+    def permission(self) -> str:
+        return self._permission
+
+    def to_json(self):
+        return {"allowed": self.allowed, "permission": self.permission}
+
+    @classmethod
+    def from_json(cls, dictionary):
+        return cls(allowed=dictionary["allowed"], permission=dictionary["permission"])
+
+
 class WorkspacePermission:
     def __init__(self, workspace, user_id, permission):
         if workspace is None or user_id is None or permission is None:

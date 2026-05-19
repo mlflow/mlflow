@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any, AsyncGenerator, Callable
 
 from mlflow.assistant.config import AssistantConfig, ProviderConfig
+from mlflow.assistant.types import Event
 
 
 @lru_cache(maxsize=10)
@@ -76,15 +77,19 @@ class AssistantProvider(ABC):
             Resolved absolute path for skills installation.
         """
 
+    def list_models(self, base_url: str | None = None) -> list[str]:
+        raise NotImplementedError(f"Model listing is not supported for provider '{self.name}'")
+
     @abstractmethod
     def astream(
         self,
         prompt: str,
         tracking_uri: str,
         session_id: str | None = None,
+        mlflow_session_id: str | None = None,
         cwd: Path | None = None,
         context: dict[str, Any] | None = None,
-    ) -> AsyncGenerator[dict[str, Any], None]:
+    ) -> AsyncGenerator[Event, None]:
         """
         Stream responses from the assistant asynchronously.
 
@@ -92,11 +97,11 @@ class AssistantProvider(ABC):
             prompt: The prompt to send to the assistant
             tracking_uri: MLflow tracking server URI for the assistant to use
             session_id: Session ID for conversation continuity
+            mlflow_session_id: MLflow session ID for process tracking / cancellation
             cwd: Working directory for the assistant
             context: Additional context for the assistant, such as information from
                 the current UI page the user is viewing (e.g., experimentId, traceId)
 
         Yields:
-            Event dictionaries with 'type' and 'data' keys.
-            Event types: 'message', 'status', 'done', 'error'
+            Event objects with 'type' and 'data' payloads.
         """
