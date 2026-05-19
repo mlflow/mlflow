@@ -233,7 +233,7 @@ export const CreateRoleModal = ({ open, onClose }: CreateRoleModalProps) => {
           disabled={submitting}
         />
       </LongFormSection>
-      <LongFormSection title="Assigned users" subtitle="(Optional)" hideDivider>
+      <LongFormSection title="Assign users" subtitle="(Optional)" hideDivider>
         <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.sm }}>
           Assign one or more users to this role. You can assign more later from the role detail page.
         </Typography.Text>

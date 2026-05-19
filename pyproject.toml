@@ -61,7 +61,7 @@ dependencies = [
   "skops<1",
   "sqlalchemy<3,>=1.4.0",
   "sqlparse<1,>=0.4.0",
-  "starlette<1",
+  "starlette<2",
   "typing-extensions<5,>=4.0.0",
   "uvicorn<1",
   "waitress<4; platform_system == 'Windows'",
@@ -92,10 +92,6 @@ databricks = [
   "boto3>1",
   "botocore",
   "databricks-agents>=1.2.0,<2.0",
-]
-mlserver = [
-  "mlserver>=1.2.0,!=1.3.1,<2.0.0",
-  "mlserver-mlflow>=1.2.0,!=1.3.1,<2.0.0",
 ]
 gateway = [
   "boto3<2,>=1.28.56",
@@ -192,7 +188,7 @@ lint = [
   "packaging>=25.0",
   "aiohttp",
   "pytest",
-  "types-requests",
+  "requests",
 ]
 pytest = [
   "pytest==9.0.2",
@@ -253,9 +249,6 @@ constraint-dependencies = [
   # litellm 1.82.7 and 1.82.8 contain a malicious .pth file that steals credentials
   # https://github.com/BerriAI/litellm/issues/24512
   "litellm<=1.82.6",
-  # starlette 1.0.0 dropped the `on_startup` parameter from `Router.__init__`, breaking
-  # older fastapi versions (<=0.115.x) that still pass it.
-  "starlette<1",
 ]
 # Prevent third-party libraries from installing uv to avoid conflicts with uv installed
 # by the standalone installer
