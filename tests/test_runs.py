@@ -12,6 +12,7 @@ import mlflow
 from mlflow import experiments
 from mlflow.exceptions import MlflowException
 from mlflow.runs import create_run, link_traces, list_run
+from mlflow.tracing.constant import TraceExperimentTagKey
 
 
 @pytest.fixture(autouse=True)
@@ -354,6 +355,7 @@ def test_get_experiment_json():
         "tags": {"env": "test"},
         "creation_time": exp.creation_time,
         "last_update_time": exp.last_update_time,
+        "effective_trace_archival_retention": exp.effective_trace_archival_retention,
         "trace_location": exp.trace_location,
         "workspace": exp.workspace,
     }
@@ -449,6 +451,7 @@ def test_get_experiment_by_name_json():
         "tags": {"team": "ml"},
         "creation_time": exp.creation_time,
         "last_update_time": exp.last_update_time,
+        "effective_trace_archival_retention": exp.effective_trace_archival_retention,
         "trace_location": exp.trace_location,
         "workspace": "default",
     }
@@ -493,3 +496,101 @@ def test_get_experiment_by_name_deleted():
     output = json.loads(result.output)
     assert output["lifecycle_stage"] == "deleted"
     assert output["name"] == exp_name
+
+
+def test_create_experiment_with_trace_archival_retention():
+    store = mock.Mock()
+    store.create_experiment.return_value = "123"
+
+    with patch("mlflow.experiments._get_store", return_value=store):
+        result = CliRunner().invoke(
+            experiments.create,
+            [
+                "--experiment-name",
+                "trace-policy-exp",
+                "--trace-archival-retention",
+                "30d",
+            ],
+        )
+
+    assert result.exit_code == 0
+    _, kwargs = store.create_experiment.call_args
+    assert kwargs["tags"] is not None
+    assert len(kwargs["tags"]) == 1
+    assert kwargs["tags"][0].key == TraceExperimentTagKey.ARCHIVAL_RETENTION
+    assert kwargs["tags"][0].value == json.dumps({"type": "duration", "value": "30d"})
+
+
+def test_update_experiment_sets_trace_archival_controls():
+    store = mock.Mock()
+    store.get_experiment.return_value = mock.Mock(tags={})
+
+    with patch("mlflow.experiments._get_store", return_value=store):
+        result = CliRunner().invoke(
+            experiments.update_experiment,
+            [
+                "--experiment-id",
+                "123",
+                "--trace-archival-retention",
+                "30d",
+                "--trace-archive-now-older-than",
+                "1d",
+            ],
+        )
+
+    assert result.exit_code == 0
+    assert len(store.set_experiment_tag.call_args_list) == 2
+    first_tag = store.set_experiment_tag.call_args_list[0].args[1]
+    second_tag = store.set_experiment_tag.call_args_list[1].args[1]
+    assert first_tag.key == TraceExperimentTagKey.ARCHIVAL_RETENTION
+    assert first_tag.value == json.dumps({"type": "duration", "value": "30d"})
+    assert second_tag.key == TraceExperimentTagKey.ARCHIVE_NOW
+    assert second_tag.value == json.dumps({"older_than": "1d"})
+
+
+def test_update_experiment_clears_trace_archival_controls():
+    store = mock.Mock()
+    store.get_experiment.return_value = mock.Mock(
+        tags={
+            TraceExperimentTagKey.ARCHIVAL_RETENTION: json.dumps({
+                "type": "duration",
+                "value": "30d",
+            }),
+            TraceExperimentTagKey.ARCHIVE_NOW: json.dumps({}),
+        }
+    )
+
+    with patch("mlflow.experiments._get_store", return_value=store):
+        result = CliRunner().invoke(
+            experiments.update_experiment,
+            [
+                "--experiment-id",
+                "123",
+                "--clear-trace-archival-retention",
+                "--clear-trace-archive-now",
+            ],
+        )
+
+    assert result.exit_code == 0
+    assert store.delete_experiment_tag.call_args_list == [
+        mock.call("123", TraceExperimentTagKey.ARCHIVAL_RETENTION),
+        mock.call("123", TraceExperimentTagKey.ARCHIVE_NOW),
+    ]
+
+
+def test_update_experiment_rejects_conflicting_archive_now_flags():
+    result = CliRunner().invoke(
+        experiments.update_experiment,
+        [
+            "--experiment-id",
+            "123",
+            "--trace-archive-now",
+            "--trace-archive-now-older-than",
+            "1d",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "Cannot specify both --trace-archive-now and --trace-archive-now-older-than" in (
+        result.output
+    )

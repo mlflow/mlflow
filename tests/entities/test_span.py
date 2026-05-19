@@ -588,6 +588,24 @@ def test_span_from_otel_proto_with_pre_encoded_request_id():
     assert mlflow_span.trace_id.startswith("tr-")
 
 
+def test_span_from_otel_proto_can_preserve_request_id_for_round_trip():
+    otel_proto = OTelProtoSpan()
+    otel_proto.trace_id = bytes.fromhex("12345678901234567890123456789012")
+    otel_proto.span_id = bytes.fromhex("1234567890123456")
+    otel_proto.name = "archived_span"
+    otel_proto.start_time_unix_nano = 1000000000
+    otel_proto.end_time_unix_nano = 2000000000
+    otel_proto.status.code = OTelProtoStatus.STATUS_CODE_OK
+
+    attr = otel_proto.attributes.add()
+    attr.key = "mlflow.traceRequestId"
+    _set_otel_proto_anyvalue(attr.value, "tr-abc123")
+
+    mlflow_span = Span.from_otel_proto(otel_proto, preserve_request_id=True)
+
+    assert mlflow_span.trace_id == "tr-abc123"
+
+
 def test_otel_roundtrip_conversion(sample_otel_span_for_conversion):
     # Start with OTel span -> MLflow span
     mlflow_span = Span(sample_otel_span_for_conversion)
