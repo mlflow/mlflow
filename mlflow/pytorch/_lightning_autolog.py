@@ -654,7 +654,9 @@ def patched_fit(original, self, *args, **kwargs):
             model_signature = None
             input_output_tensors_file = os.path.join(tempdir, _INPUT_OUTPUT_TENSORS_FILENAME)
             if os.path.exists(input_output_tensors_file):
-                input_tensor, output_tensor = torch.load(input_output_tensors_file)
+                input_tensor, output_tensor = torch.load(
+                    input_output_tensors_file, weights_only=True
+                )
                 try:
                     input_example = input_tensor.cpu().numpy()
                     with torch.no_grad():
