@@ -2022,16 +2022,16 @@ class SqlAlchemyStore:
             best_permission_name: str | None = None
             for role in roles:
                 for rp in role.permissions:
-                    # Workspace-wide permission — applies to every resource type.
-                    # The unified ``('workspace', '*')`` slot accepts either USE
-                    # (regular workspace member) or MANAGE (workspace admin); the
-                    # permission tier alone distinguishes the two.
+                    # (workspace, *) folds into resource-type queries only for
+                    # MANAGE (workspace admin); USE is the "member can join +
+                    # create" signal and folds only for workspace-tier queries.
                     if rp.resource_type == RESOURCE_TYPE_WORKSPACE and rp.resource_pattern == "*":
-                        best_permission_name = (
-                            max_permission(best_permission_name, rp.permission)
-                            if best_permission_name is not None
-                            else rp.permission
-                        )
+                        if resource_type == RESOURCE_TYPE_WORKSPACE or rp.permission == MANAGE.name:
+                            best_permission_name = (
+                                max_permission(best_permission_name, rp.permission)
+                                if best_permission_name is not None
+                                else rp.permission
+                            )
                         continue
                     # Resource-type-specific permission.
                     if rp.resource_type != resource_type:

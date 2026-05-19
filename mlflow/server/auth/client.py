@@ -1,44 +1,18 @@
-import warnings
-
 from mlflow.server.auth.entities import (
-    ExperimentPermission,
-    GatewayEndpointPermission,
-    GatewayModelDefinitionPermission,
-    GatewaySecretPermission,
     GetUserPermissionResult,
-    RegisteredModelPermission,
     Role,
     RolePermission,
-    ScorerPermission,
     User,
     UserRoleAssignment,
 )
 from mlflow.server.auth.routes import (
     ADD_ROLE_PERMISSION,
     ASSIGN_ROLE,
-    CREATE_EXPERIMENT_PERMISSION,
-    CREATE_GATEWAY_ENDPOINT_PERMISSION,
-    CREATE_GATEWAY_MODEL_DEFINITION_PERMISSION,
-    CREATE_GATEWAY_SECRET_PERMISSION,
-    CREATE_REGISTERED_MODEL_PERMISSION,
     CREATE_ROLE,
-    CREATE_SCORER_PERMISSION,
     CREATE_USER,
-    DELETE_EXPERIMENT_PERMISSION,
-    DELETE_GATEWAY_ENDPOINT_PERMISSION,
-    DELETE_GATEWAY_MODEL_DEFINITION_PERMISSION,
-    DELETE_GATEWAY_SECRET_PERMISSION,
-    DELETE_REGISTERED_MODEL_PERMISSION,
     DELETE_ROLE,
-    DELETE_SCORER_PERMISSION,
     DELETE_USER,
-    GET_EXPERIMENT_PERMISSION,
-    GET_GATEWAY_ENDPOINT_PERMISSION,
-    GET_GATEWAY_MODEL_DEFINITION_PERMISSION,
-    GET_GATEWAY_SECRET_PERMISSION,
-    GET_REGISTERED_MODEL_PERMISSION,
     GET_ROLE,
-    GET_SCORER_PERMISSION,
     GET_USER,
     GET_USER_PERMISSION,
     GRANT_USER_PERMISSION,
@@ -49,32 +23,13 @@ from mlflow.server.auth.routes import (
     REMOVE_ROLE_PERMISSION,
     REVOKE_USER_PERMISSION,
     UNASSIGN_ROLE,
-    UPDATE_EXPERIMENT_PERMISSION,
-    UPDATE_GATEWAY_ENDPOINT_PERMISSION,
-    UPDATE_GATEWAY_MODEL_DEFINITION_PERMISSION,
-    UPDATE_GATEWAY_SECRET_PERMISSION,
-    UPDATE_REGISTERED_MODEL_PERMISSION,
     UPDATE_ROLE,
     UPDATE_ROLE_PERMISSION,
-    UPDATE_SCORER_PERMISSION,
     UPDATE_USER_ADMIN,
     UPDATE_USER_PASSWORD,
 )
 from mlflow.utils.credentials import get_default_host_creds
 from mlflow.utils.rest_utils import http_request, verify_rest_response
-
-_LEGACY_PERMISSION_DEPRECATION_MESSAGE = (
-    "{name} is deprecated and will be removed in a future MLflow release. "
-    "Use the role API (`add_role_permission` + `assign_role`) instead."
-)
-
-
-def _warn_legacy_permission_method(name: str) -> None:
-    warnings.warn(
-        _LEGACY_PERMISSION_DEPRECATION_MESSAGE.format(name=name),
-        FutureWarning,
-        stacklevel=3,
-    )
 
 
 class AuthServiceClient:
@@ -437,280 +392,3 @@ class AuthServiceClient:
             },
         )
         return GetUserPermissionResult.from_json(resp)
-
-    # Legacy per-resource permission methods (deprecated). Backed by synthetic
-    # per-user role grants; prefer ``add_role_permission`` + ``assign_role``.
-
-    def create_experiment_permission(
-        self, experiment_id: str, username: str, permission: str
-    ) -> ExperimentPermission:
-        _warn_legacy_permission_method("create_experiment_permission")
-        resp = self._request(
-            CREATE_EXPERIMENT_PERMISSION,
-            "POST",
-            json={"experiment_id": experiment_id, "username": username, "permission": permission},
-        )
-        return ExperimentPermission.from_json(resp["experiment_permission"])
-
-    def get_experiment_permission(self, experiment_id: str, username: str) -> ExperimentPermission:
-        _warn_legacy_permission_method("get_experiment_permission")
-        resp = self._request(
-            GET_EXPERIMENT_PERMISSION,
-            "GET",
-            params={"experiment_id": experiment_id, "username": username},
-        )
-        return ExperimentPermission.from_json(resp["experiment_permission"])
-
-    def update_experiment_permission(
-        self, experiment_id: str, username: str, permission: str
-    ) -> None:
-        _warn_legacy_permission_method("update_experiment_permission")
-        self._request(
-            UPDATE_EXPERIMENT_PERMISSION,
-            "PATCH",
-            json={"experiment_id": experiment_id, "username": username, "permission": permission},
-        )
-
-    def delete_experiment_permission(self, experiment_id: str, username: str) -> None:
-        _warn_legacy_permission_method("delete_experiment_permission")
-        self._request(
-            DELETE_EXPERIMENT_PERMISSION,
-            "DELETE",
-            json={"experiment_id": experiment_id, "username": username},
-        )
-
-    def create_registered_model_permission(
-        self, name: str, username: str, permission: str
-    ) -> RegisteredModelPermission:
-        _warn_legacy_permission_method("create_registered_model_permission")
-        resp = self._request(
-            CREATE_REGISTERED_MODEL_PERMISSION,
-            "POST",
-            json={"name": name, "username": username, "permission": permission},
-        )
-        return RegisteredModelPermission.from_json(resp["registered_model_permission"])
-
-    def get_registered_model_permission(
-        self, name: str, username: str
-    ) -> RegisteredModelPermission:
-        _warn_legacy_permission_method("get_registered_model_permission")
-        resp = self._request(
-            GET_REGISTERED_MODEL_PERMISSION,
-            "GET",
-            params={"name": name, "username": username},
-        )
-        return RegisteredModelPermission.from_json(resp["registered_model_permission"])
-
-    def update_registered_model_permission(self, name: str, username: str, permission: str) -> None:
-        _warn_legacy_permission_method("update_registered_model_permission")
-        self._request(
-            UPDATE_REGISTERED_MODEL_PERMISSION,
-            "PATCH",
-            json={"name": name, "username": username, "permission": permission},
-        )
-
-    def delete_registered_model_permission(self, name: str, username: str) -> None:
-        _warn_legacy_permission_method("delete_registered_model_permission")
-        self._request(
-            DELETE_REGISTERED_MODEL_PERMISSION,
-            "DELETE",
-            json={"name": name, "username": username},
-        )
-
-    def create_scorer_permission(
-        self, experiment_id: str, scorer_name: str, username: str, permission: str
-    ) -> ScorerPermission:
-        _warn_legacy_permission_method("create_scorer_permission")
-        resp = self._request(
-            CREATE_SCORER_PERMISSION,
-            "POST",
-            json={
-                "experiment_id": experiment_id,
-                "scorer_name": scorer_name,
-                "username": username,
-                "permission": permission,
-            },
-        )
-        return ScorerPermission.from_json(resp["scorer_permission"])
-
-    def get_scorer_permission(
-        self, experiment_id: str, scorer_name: str, username: str
-    ) -> ScorerPermission:
-        _warn_legacy_permission_method("get_scorer_permission")
-        resp = self._request(
-            GET_SCORER_PERMISSION,
-            "GET",
-            params={
-                "experiment_id": experiment_id,
-                "scorer_name": scorer_name,
-                "username": username,
-            },
-        )
-        return ScorerPermission.from_json(resp["scorer_permission"])
-
-    def update_scorer_permission(
-        self, experiment_id: str, scorer_name: str, username: str, permission: str
-    ) -> None:
-        _warn_legacy_permission_method("update_scorer_permission")
-        self._request(
-            UPDATE_SCORER_PERMISSION,
-            "PATCH",
-            json={
-                "experiment_id": experiment_id,
-                "scorer_name": scorer_name,
-                "username": username,
-                "permission": permission,
-            },
-        )
-
-    def delete_scorer_permission(self, experiment_id: str, scorer_name: str, username: str) -> None:
-        _warn_legacy_permission_method("delete_scorer_permission")
-        self._request(
-            DELETE_SCORER_PERMISSION,
-            "DELETE",
-            json={
-                "experiment_id": experiment_id,
-                "scorer_name": scorer_name,
-                "username": username,
-            },
-        )
-
-    # Gateway secret permission methods (deprecated)
-
-    def create_gateway_secret_permission(
-        self, secret_id: str, username: str, permission: str
-    ) -> GatewaySecretPermission:
-        _warn_legacy_permission_method("create_gateway_secret_permission")
-        resp = self._request(
-            CREATE_GATEWAY_SECRET_PERMISSION,
-            "POST",
-            json={"secret_id": secret_id, "username": username, "permission": permission},
-        )
-        return GatewaySecretPermission.from_json(resp["gateway_secret_permission"])
-
-    def get_gateway_secret_permission(
-        self, secret_id: str, username: str
-    ) -> GatewaySecretPermission:
-        _warn_legacy_permission_method("get_gateway_secret_permission")
-        resp = self._request(
-            GET_GATEWAY_SECRET_PERMISSION,
-            "GET",
-            params={"secret_id": secret_id, "username": username},
-        )
-        return GatewaySecretPermission.from_json(resp["gateway_secret_permission"])
-
-    def update_gateway_secret_permission(
-        self, secret_id: str, username: str, permission: str
-    ) -> None:
-        _warn_legacy_permission_method("update_gateway_secret_permission")
-        self._request(
-            UPDATE_GATEWAY_SECRET_PERMISSION,
-            "PATCH",
-            json={"secret_id": secret_id, "username": username, "permission": permission},
-        )
-
-    def delete_gateway_secret_permission(self, secret_id: str, username: str) -> None:
-        _warn_legacy_permission_method("delete_gateway_secret_permission")
-        self._request(
-            DELETE_GATEWAY_SECRET_PERMISSION,
-            "DELETE",
-            json={"secret_id": secret_id, "username": username},
-        )
-
-    # Gateway endpoint permission methods (deprecated)
-
-    def create_gateway_endpoint_permission(
-        self, endpoint_id: str, username: str, permission: str
-    ) -> GatewayEndpointPermission:
-        _warn_legacy_permission_method("create_gateway_endpoint_permission")
-        resp = self._request(
-            CREATE_GATEWAY_ENDPOINT_PERMISSION,
-            "POST",
-            json={"endpoint_id": endpoint_id, "username": username, "permission": permission},
-        )
-        return GatewayEndpointPermission.from_json(resp["gateway_endpoint_permission"])
-
-    def get_gateway_endpoint_permission(
-        self, endpoint_id: str, username: str
-    ) -> GatewayEndpointPermission:
-        _warn_legacy_permission_method("get_gateway_endpoint_permission")
-        resp = self._request(
-            GET_GATEWAY_ENDPOINT_PERMISSION,
-            "GET",
-            params={"endpoint_id": endpoint_id, "username": username},
-        )
-        return GatewayEndpointPermission.from_json(resp["gateway_endpoint_permission"])
-
-    def update_gateway_endpoint_permission(
-        self, endpoint_id: str, username: str, permission: str
-    ) -> None:
-        _warn_legacy_permission_method("update_gateway_endpoint_permission")
-        self._request(
-            UPDATE_GATEWAY_ENDPOINT_PERMISSION,
-            "PATCH",
-            json={"endpoint_id": endpoint_id, "username": username, "permission": permission},
-        )
-
-    def delete_gateway_endpoint_permission(self, endpoint_id: str, username: str) -> None:
-        _warn_legacy_permission_method("delete_gateway_endpoint_permission")
-        self._request(
-            DELETE_GATEWAY_ENDPOINT_PERMISSION,
-            "DELETE",
-            json={"endpoint_id": endpoint_id, "username": username},
-        )
-
-    # Gateway model definition permission methods (deprecated)
-
-    def create_gateway_model_definition_permission(
-        self, model_definition_id: str, username: str, permission: str
-    ) -> GatewayModelDefinitionPermission:
-        _warn_legacy_permission_method("create_gateway_model_definition_permission")
-        resp = self._request(
-            CREATE_GATEWAY_MODEL_DEFINITION_PERMISSION,
-            "POST",
-            json={
-                "model_definition_id": model_definition_id,
-                "username": username,
-                "permission": permission,
-            },
-        )
-        return GatewayModelDefinitionPermission.from_json(
-            resp["gateway_model_definition_permission"]
-        )
-
-    def get_gateway_model_definition_permission(
-        self, model_definition_id: str, username: str
-    ) -> GatewayModelDefinitionPermission:
-        _warn_legacy_permission_method("get_gateway_model_definition_permission")
-        resp = self._request(
-            GET_GATEWAY_MODEL_DEFINITION_PERMISSION,
-            "GET",
-            params={"model_definition_id": model_definition_id, "username": username},
-        )
-        return GatewayModelDefinitionPermission.from_json(
-            resp["gateway_model_definition_permission"]
-        )
-
-    def update_gateway_model_definition_permission(
-        self, model_definition_id: str, username: str, permission: str
-    ) -> None:
-        _warn_legacy_permission_method("update_gateway_model_definition_permission")
-        self._request(
-            UPDATE_GATEWAY_MODEL_DEFINITION_PERMISSION,
-            "PATCH",
-            json={
-                "model_definition_id": model_definition_id,
-                "username": username,
-                "permission": permission,
-            },
-        )
-
-    def delete_gateway_model_definition_permission(
-        self, model_definition_id: str, username: str
-    ) -> None:
-        _warn_legacy_permission_method("delete_gateway_model_definition_permission")
-        self._request(
-            DELETE_GATEWAY_MODEL_DEFINITION_PERMISSION,
-            "DELETE",
-            json={"model_definition_id": model_definition_id, "username": username},
-        )

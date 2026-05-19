@@ -177,23 +177,18 @@ def test_get_current_user(client, monkeypatch):
         ("/api/3.0/mlflow/gateway/model-definitions/permissions/delete", "DELETE"),
     ],
 )
-def test_legacy_permission_endpoints_remain_registered(client, path, method):
+def test_legacy_permission_endpoints_return_404(client, path, method):
+    # Regression guard: the deprecated per-resource permission endpoints were
+    # removed (RFC mprahl review M6+M9 — "rip the band-aid"). Replacement is
+    # the ``grant_user_permission`` / ``revoke_user_permission`` /
+    # ``check_user_permission`` convenience APIs.
     resp = requests.request(
         method, client.tracking_uri + path, auth=(ADMIN_USERNAME, ADMIN_PASSWORD)
     )
-    assert resp.status_code != 404, (
-        f"{method} {path} unexpectedly returned 404 — legacy permission endpoints "
-        "must remain registered for backward compatibility"
+    assert resp.status_code == 404, (
+        f"{method} {path} unexpectedly returned {resp.status_code} — legacy "
+        "permission endpoints must be removed"
     )
-
-
-def test_legacy_client_methods_emit_deprecation_warning(client, monkeypatch):
-    username = random_str()
-    password = random_str()
-    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
-        client.create_user(username, password)
-        with pytest.warns(FutureWarning, match="create_experiment_permission"):
-            client.create_experiment_permission("exp-deprecation", username, "READ")
 
 
 def test_update_user_password(client, monkeypatch):
@@ -551,3 +546,49 @@ def test_unified_permission_endpoints_reachable_at_both_path_prefixes(
         auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
     )
     assert resp.status_code != 404, f"{method} /{api_prefix}{endpoint} unexpectedly returned 404"
+
+
+# Workspace permission methods that the RBAC migration removed from
+# ``AuthServiceClient``. Their replacement is the unified
+# ``grant_user_permission`` / ``revoke_user_permission`` surface. This list
+# guards against accidental re-addition during refactors or merges.
+_REMOVED_WORKSPACE_PERMISSION_METHODS = [
+    "set_workspace_permission",
+    "list_workspace_permissions",
+    "delete_workspace_permission",
+    "list_user_workspace_permissions",
+]
+
+
+@pytest.mark.parametrize("method_name", _REMOVED_WORKSPACE_PERMISSION_METHODS)
+def test_removed_workspace_permission_methods_absent(method_name):
+    fake_client = AuthServiceClient("http://127.0.0.1:1")
+    assert not hasattr(fake_client, method_name), (
+        f"{method_name} was removed in the RBAC migration but is still defined on AuthServiceClient"
+    )
+
+
+# Wire endpoints that the RBAC migration removed. Hitting these paths should
+# not match any registered handler; Flask returns 404 for unregistered paths.
+# Guards against accidental re-registration in ``create_app``.
+@pytest.mark.parametrize(
+    ("path", "method"),
+    [
+        ("/api/2.0/mlflow/workspaces/team-a/permissions/get", "GET"),
+        ("/api/2.0/mlflow/workspaces/team-a/permissions/create", "POST"),
+        ("/api/2.0/mlflow/workspaces/team-a/permissions/update", "PATCH"),
+        ("/api/2.0/mlflow/workspaces/team-a/permissions/delete", "DELETE"),
+        ("/api/3.0/mlflow/workspaces/team-a/permissions/get", "GET"),
+        ("/api/3.0/mlflow/workspaces/team-a/permissions/create", "POST"),
+        ("/api/3.0/mlflow/workspaces/team-a/permissions/update", "PATCH"),
+        ("/api/3.0/mlflow/workspaces/team-a/permissions/delete", "DELETE"),
+    ],
+)
+def test_removed_workspace_permission_endpoints_return_404(client, path, method):
+    resp = requests.request(
+        method, client.tracking_uri + path, auth=(ADMIN_USERNAME, ADMIN_PASSWORD)
+    )
+    assert resp.status_code == 404, (
+        f"{method} {path} was removed in the RBAC migration but returned "
+        f"{resp.status_code} (expected 404)"
+    )
