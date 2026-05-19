@@ -320,8 +320,11 @@ export const EditEndpointFormRenderer = ({
             <Tabs.Content value="overview">
               <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.lg }}>
                 {(() => {
-                  const codingAgent = endpoint?.tags?.find((t) => t.key === CODING_AGENT_TAG_KEY)
-                    ?.value as CodingAgentType | undefined;
+                  const VALID_CODING_AGENTS: CodingAgentType[] = ['claude-code', 'codex', 'gemini-cli'];
+                  const rawAgent = endpoint?.tags?.find((t) => t.key === CODING_AGENT_TAG_KEY)?.value;
+                  const codingAgent = VALID_CODING_AGENTS.includes(rawAgent as CodingAgentType)
+                    ? (rawAgent as CodingAgentType)
+                    : undefined;
                   return (
                     <>
                       {/* Unified Model card — hidden for coding-agent endpoints */}

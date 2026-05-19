@@ -16,6 +16,7 @@ import type { CodingAgentType, ProviderModel, SecretInfo } from '../../types';
 import { formatTokens, formatCost } from '../../utils/formatters';
 import { getModelCapabilities } from '../../utils/getModelCapabilities';
 import type { CreateEndpointFormData } from '../../hooks/useCreateEndpointForm';
+import { CODING_AGENT_LABELS } from '../../hooks/useCreateEndpointForm';
 
 const LONG_FORM_TITLE_WIDTH = 200;
 
@@ -61,11 +62,6 @@ export interface EndpointFormRendererProps {
  * handled by the parent to allow this form to be reused in different contexts
  * (full page, modal, etc.).
  */
-const CODING_AGENT_LABELS = {
-  'claude-code': 'Claude Code',
-  codex: 'OpenAI Codex',
-  'gemini-cli': 'Gemini CLI',
-} satisfies Record<string, string>;
 
 export const EndpointFormRenderer = ({
   mode,

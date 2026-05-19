@@ -13,6 +13,7 @@ import { CopyButton } from '@mlflow/mlflow/src/shared/building_blocks/CopyButton
 import { CodeSnippet } from '@databricks/web-shared/snippet';
 import { TryItPanel } from '../endpoints/TryItPanel';
 import type { CodingAgentType } from '../../types';
+import { CODING_AGENT_LABELS } from '../../hooks/useCreateEndpointForm';
 
 const UNIFIED_COMMENT =
   '# Unified OpenAI compatible API for model invocations. Set the endpoint name as the model parameter.';
@@ -224,12 +225,6 @@ claude`,
 gemini`,
       };
   }
-};
-
-const CODING_AGENT_LABELS: Record<CodingAgentType, string> = {
-  'claude-code': 'Claude Code',
-  codex: 'OpenAI Codex',
-  'gemini-cli': 'Gemini CLI',
 };
 
 interface CodingAgentStarterCardProps {

@@ -15,6 +15,12 @@ import { telemetryClient } from '../../telemetry/TelemetryClient';
 
 export const CODING_AGENT_TAG_KEY = 'mlflow.endpoint.agent';
 
+export const CODING_AGENT_LABELS: Record<CodingAgentType, string> = {
+  'claude-code': 'Claude Code',
+  codex: 'OpenAI Codex',
+  'gemini-cli': 'Gemini CLI',
+};
+
 /**
  * Per-agent hardcoded provider/model config. Coding agents use their own credentials
  * (detected via User-Agent), so no real API key is needed — we store a placeholder secret.
@@ -290,9 +296,7 @@ export function useCreateEndpointForm({
       ? Boolean(existingSecretId)
       : Boolean(newSecretName) && Boolean(newSecretAuthMode) && hasSecretFieldValues;
   // Coding agent endpoints pre-fill all required fields; only the name must be non-empty.
-  const isFormComplete = agentConfig
-    ? Boolean(name)
-    : Boolean(provider) && Boolean(modelName) && isSecretConfigured;
+  const isFormComplete = agentConfig ? Boolean(name) : Boolean(provider) && Boolean(modelName) && isSecretConfigured;
 
   return {
     form,
