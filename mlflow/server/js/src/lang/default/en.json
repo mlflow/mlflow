@@ -3979,6 +3979,10 @@
     "defaultMessage": "Root cause failure:",
     "description": "Evaluation review > assessments > root cause failure > title"
   },
+  "M9X4CX": {
+    "defaultMessage": "You cannot delete your own account.",
+    "description": "Tooltip explaining why the row checkbox is disabled for the current user"
+  },
   "MB3kda": {
     "defaultMessage": "{pendingCount} pending {pendingCount, plural, =1 {change} other {changes}}",
     "description": "Evaluation review > assessments > pending entries counter"

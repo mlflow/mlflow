@@ -743,6 +743,7 @@ module.exports = {
   "admin.users.select_all": "",
   "admin.users.select_header": "",
   "admin.users.select_row": "",
+  "admin.users.select_row.self_tooltip": "",
   "admin.users.username_header": "",
   "admin.users.username_link": "",
   cancel: "",
