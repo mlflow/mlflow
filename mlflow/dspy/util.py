@@ -33,7 +33,7 @@ def save_dspy_module_state(program, file_name: str = "model.json"):
         _logger.warning(f"Failed to save dspy module state: {e}")
 
 
-def log_dspy_module_params(program):
+def log_dspy_module_params(program) -> None:
     """
     Log the parameters of the dspy `Module` as run parameters.
 
@@ -52,7 +52,7 @@ def log_dspy_module_params(program):
         _logger.warning(f"Failed to log dspy module params: {e}")
 
 
-def log_dspy_dataset(dataset: list["Example"], file_name: str):
+def log_dspy_dataset(dataset: list["Example"], file_name: str) -> None:
     """
     Log the DSPy dataset as a table.
 
@@ -70,7 +70,7 @@ def log_dspy_dataset(dataset: list["Example"], file_name: str):
         _logger.warning(f"Failed to log dataset: {e}")
 
 
-def log_dspy_lm_state():
+def log_dspy_lm_state() -> None:
     """
     Log the current DSPy LM state as run parameters.
     This logs the language model configuration from dspy.settings.lm as a JSON string.
@@ -139,7 +139,7 @@ def _flatten_dspy_module_state(
     return items
 
 
-def log_dummy_model_outputs():
+def log_dummy_model_outputs() -> None:
     try:
         from mlflow.dspy.autolog import FLAVOR_NAME
         from mlflow.tracking.fluent import _create_logged_model
