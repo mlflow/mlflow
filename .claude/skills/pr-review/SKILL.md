@@ -140,4 +140,4 @@ Validate before finishing — fix any errors and re-emit until this passes:
 uv run --package skills skills validate-review /tmp/review-payload.json
 ```
 
-Do not post the review or comments by running `gh pr review`, calling GitHub review/comment APIs, or using any other skills that publish feedback to the PR. Stop after writing and validating the local review payload.
+Do not post the review or comments by running `gh pr review`, calling GitHub review/comment APIs, or using any other skills. Stop after writing and validating the local review payload.
