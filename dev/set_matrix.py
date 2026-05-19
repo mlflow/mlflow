@@ -186,7 +186,7 @@ def read_yaml(location, if_error=None):
         raise
 
 
-RELEASE_CUTOFF_DAYS = 14
+RELEASE_CUTOFF_DAYS = 7
 
 
 def get_released_versions(package: Package) -> list[Version]:
