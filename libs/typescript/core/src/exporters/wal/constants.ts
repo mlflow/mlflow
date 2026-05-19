@@ -12,8 +12,11 @@ function readPositiveInt(envName: string, fallback: number): number {
   if (raw === undefined || raw === '') {
     return fallback;
   }
-  const parsed = Number.parseInt(raw, 10);
-  if (!Number.isFinite(parsed) || parsed <= 0) {
+  // `Number` (vs `Number.parseInt`) refuses trailing garbage and unit
+  // suffixes — e.g. "15000abc", "15s", and "10.9" all become NaN or a
+  // non-integer, so the `isInteger` check below rejects them cleanly.
+  const parsed = Number(raw);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
     console.warn(
       `[mlflow][wal] Ignoring invalid ${envName}=${JSON.stringify(raw)}; ` +
         `expected a positive integer. Falling back to default ${fallback}.`,
