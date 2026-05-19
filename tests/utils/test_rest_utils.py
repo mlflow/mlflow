@@ -979,10 +979,9 @@ def test_mlflow_host_creds_workspace_id_equality():
 
 
 def test_oauth_error_when_sdk_enabled(monkeypatch):
-    # Regression for ES-1918390: when MLFLOW_ENABLE_DB_SDK=true and the SDK failed to
-    # initialize, the OAuth error must acknowledge the env var is set and point at the
-    # preceding SDK warning, instead of telling the user to set an env var they have
-    # already set.
+    # When MLFLOW_ENABLE_DB_SDK=true and the SDK failed to initialize, the OAuth error
+    # must acknowledge the env var is set and point at the preceding SDK warning, instead
+    # of telling the user to set an env var they have already set.
     monkeypatch.setenv("MLFLOW_ENABLE_DB_SDK", "true")
     creds = MlflowHostCreds(
         "http://my-host",
