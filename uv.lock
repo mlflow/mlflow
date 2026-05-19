@@ -3948,7 +3948,6 @@ dev = [
     { name = "toml" },
     { name = "ty" },
     { name = "types-pyyaml" },
-    { name = "types-requests" },
     { name = "types-toml" },
     { name = "wheel" },
 ]
@@ -3996,7 +3995,6 @@ lint = [
     { name = "toml" },
     { name = "ty" },
     { name = "types-pyyaml" },
-    { name = "types-requests" },
     { name = "types-toml" },
 ]
 pytest = [
@@ -4138,7 +4136,6 @@ dev = [
     { name = "toml", specifier = "==0.10.2" },
     { name = "ty", specifier = "==0.0.24" },
     { name = "types-pyyaml" },
-    { name = "types-requests" },
     { name = "types-toml" },
     { name = "wheel" },
 ]
@@ -4183,7 +4180,6 @@ lint = [
     { name = "toml", specifier = "==0.10.2" },
     { name = "ty", specifier = "==0.0.24" },
     { name = "types-pyyaml" },
-    { name = "types-requests" },
     { name = "types-toml" },
 ]
 pytest = [
@@ -8079,18 +8075,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/36/85/0d9fafce21be112e977a89677f1ce9d1aef921d745b17c758c93e861c11f/types_pyyaml-6.0.12.20260510.tar.gz", hash = "sha256:09c1f1cb65a6eebea1e2e51ccf4918b8288e152909609a35cdb0d805efd125ad", size = 17831, upload-time = "2026-05-10T05:26:28.136Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/d3/ad/fd618a218925daada7b8a5e7326e662599fa5fdff4a4c44ab2795bd2d9ca/types_pyyaml-6.0.12.20260510-py3-none-any.whl", hash = "sha256:3492eb9ba4d9d833473214c4d5736cccf5f37d93f5854059721e1c84f785309d", size = 20304, upload-time = "2026-05-10T05:26:26.981Z" },
-]
-
-[[package]]
-name = "types-requests"
-version = "2.33.0.20260508"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "urllib3" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/c7/6b/eb226bdd61a982c9a03e02c657fb4ab001733506e6423906ac142331f2e3/types_requests-2.33.0.20260508.tar.gz", hash = "sha256:81b2ae5f0d20967714a6aa5ef9284c05570d7cb06b7de8f2a77b918b63ddd411", size = 23991, upload-time = "2026-05-08T04:50:56.818Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/cb/96/080db0afdf2c5cc5fe512b41354e8d114fe8f65e9510c56ff8dfd40216ce/types_requests-2.33.0.20260508-py3-none-any.whl", hash = "sha256:fa01459cca184229713df03709db46a905325906d27e042cd4fd7ea3d15d3400", size = 20722, upload-time = "2026-05-08T04:50:55.548Z" },
 ]
 
 [[package]]
