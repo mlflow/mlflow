@@ -215,7 +215,7 @@ claude`,
     case 'codex':
       return {
         description: 'Pass the gateway URL as the base URL when running Codex.',
-        bash: `codex --config 'openai_base_url="${base}/gateway/proxy/${endpointName}/v1"' "your prompt here"`,
+        bash: `codex --config 'openai_base_url="${base}/gateway/proxy/${endpointName}/v1"'`,
       };
     case 'gemini-cli':
       return {
