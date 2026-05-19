@@ -583,7 +583,7 @@ export const AssistantChatPanel = () => {
           <AssistantSetupWizard
             experimentId={experimentId}
             onComplete={handleSetupComplete}
-            initialStep="project"
+            initialStep="provider"
             onBack={handleBackFromSettings}
           />
         );

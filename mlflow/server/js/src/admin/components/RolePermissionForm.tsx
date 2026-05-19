@@ -15,7 +15,7 @@ import {
 } from '@databricks/design-system';
 import { FieldLabel } from './FieldLabel';
 import { useResourceOptionsQuery } from '../hooks';
-import { ALL_RESOURCE_PATTERN_LABEL, PERMISSIONS, RESOURCE_TYPES } from '../types';
+import { ALL_RESOURCE_PATTERN_LABEL, PERMISSIONS, RESOURCE_TYPES, getGrantablePermissions } from '../types';
 import { DIRECT_GRANT_RESOURCE_TYPES, type DirectGrantResourceType } from './DirectPermissionForm';
 
 export type RolePermissionScope = 'specific' | 'all';
@@ -117,12 +117,17 @@ export const RolePermissionForm = ({ value, onChange, workspace, disabled }: Rol
           onChange={({ target }) => {
             const next = target.value;
             // Reset scope/resourceId when switching types so a stale
-            // resource id doesn't leak across resource types.
+            // resource id doesn't leak across resource types. Also coerce
+            // ``permission`` into the new type's grantable set — e.g.
+            // ``READ`` is invalid at workspace scope.
+            const nextGrantable = getGrantablePermissions(next);
+            const nextPermission = nextGrantable.includes(value.permission) ? value.permission : nextGrantable[0];
             onChange({
               ...value,
               resourceType: next,
               scope: 'all',
               resourceId: '',
+              permission: nextPermission,
             });
           }}
           disabled={disabled}
@@ -247,7 +252,7 @@ export const RolePermissionForm = ({ value, onChange, workspace, disabled }: Rol
           onChange={({ target }) => onChange({ ...value, permission: target.value })}
           disabled={disabled}
         >
-          {PERMISSIONS.map((p) => (
+          {getGrantablePermissions(value.resourceType).map((p) => (
             <SimpleSelectOption key={p} value={p}>
               {p}
             </SimpleSelectOption>

@@ -24,6 +24,7 @@ import {
   useUsersQuery,
 } from '../hooks';
 import { AccountQueryKeys } from '../../account/hooks';
+import { isSyntheticUserRole } from '../../account/types';
 import { useActiveWorkspace } from '../../workspaces/utils/WorkspaceUtils';
 import { RoleAssignmentForm, ROLE_ASSIGNMENT_DEFAULT, type RoleAssignmentValue } from './RoleAssignmentForm';
 import { type DirectGrantResourceType } from './DirectPermissionForm';
@@ -86,6 +87,11 @@ export const EditAccessModal = ({ open, onClose, username, onCreateRoleForAllOfT
   const currentDirectPerms = useMemo<StagedDirectPermission[]>(
     () =>
       (directPermsData?.permissions ?? [])
+        // The unified ``/users/permissions/list`` response returns every
+        // permission across every role the user holds. Direct grants live on
+        // the synthetic ``__user_<id>__`` role; filter to just those for the
+        // "Direct permissions" view (custom roles are shown in the Roles tab).
+        .filter((p) => isSyntheticUserRole(p.role_name))
         .filter((p) => isDirectGrantResourceType(p.resource_type))
         .map((p) => ({
           resourceType: p.resource_type as DirectGrantResourceType,
