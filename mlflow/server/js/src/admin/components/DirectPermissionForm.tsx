@@ -15,7 +15,7 @@ import {
 } from '@databricks/design-system';
 import { FieldLabel } from './FieldLabel';
 import { useResourceOptionsQuery } from '../hooks';
-import { PERMISSIONS } from '../types';
+import { PERMISSIONS, getGrantablePermissions } from '../types';
 
 // Resource types eligible for per-user direct grants. ``workspace`` is excluded
 // (it's role-only), and ``scorer`` is excluded because its identifier is
@@ -109,13 +109,17 @@ export const DirectPermissionForm = ({
           id="admin-direct-permission-resource-type"
           componentId="admin.direct_permission.resource_type"
           value={value.resourceType}
-          onChange={({ target }) =>
+          onChange={({ target }) => {
+            const next = target.value as DirectGrantResourceType;
+            const nextGrantable = getGrantablePermissions(next);
+            const nextPermission = nextGrantable.includes(value.permission) ? value.permission : nextGrantable[0];
             onChange({
               ...value,
-              resourceType: target.value as DirectGrantResourceType,
+              resourceType: next,
               resourceId: '',
-            })
-          }
+              permission: nextPermission,
+            });
+          }}
           disabled={disabled}
         >
           {DIRECT_GRANT_RESOURCE_TYPES.map((rt) => (
@@ -220,7 +224,7 @@ export const DirectPermissionForm = ({
           onChange={({ target }) => onChange({ ...value, permission: target.value })}
           disabled={disabled}
         >
-          {PERMISSIONS.map((p) => (
+          {getGrantablePermissions(value.resourceType).map((p) => (
             <SimpleSelectOption key={p} value={p}>
               {p}
             </SimpleSelectOption>
