@@ -57,6 +57,27 @@ def test_create_role_same_name_different_workspace(store):
     assert r1.id != r2.id
 
 
+@pytest.mark.parametrize("name", ["__user_1__", "__user_42__", "__user_999999__"])
+def test_create_role_rejects_synthetic_user_name_pattern(store, name):
+    # The ``__user_<id>__`` pattern is reserved for synthetic per-user roles
+    # created internally by ``grant_user_permission``. Allowing an operator
+    # to author a role with that name would let them collide with a real
+    # user's synthetic role and silently attach grants to that user — a
+    # privilege-escalation footgun.
+    with pytest.raises(MlflowException, match="reserved synthetic pattern"):
+        store.create_role(name=name, workspace="ws1")
+
+
+@pytest.mark.parametrize("name", ["__user_1__", "__user_42__"])
+def test_update_role_rejects_synthetic_user_name_pattern(store, name):
+    # The same reservation must apply when *renaming* an existing role —
+    # otherwise the create-time guard could be bypassed by creating with a
+    # normal name and then renaming into the reserved pattern.
+    role = store.create_role(name="viewer", workspace="ws1")
+    with pytest.raises(MlflowException, match="reserved synthetic pattern"):
+        store.update_role(role.id, name=name)
+
+
 def test_get_role(store):
     created = store.create_role(name="editor", workspace="ws1")
     fetched = store.get_role(created.id)
