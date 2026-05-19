@@ -77,7 +77,7 @@ def test_default_experiment_lifecycle(store: SqlAlchemyStore, tmp_path):
     assert another.name == "aNothEr"
 
     if MLFLOW_TRACKING_URI.get():
-        with store.ManagedSessionMaker() as session:
+        with store.ManagedSessionMaker(read_only=False) as session:
             default_exp = (
                 session
                 .query(SqlExperiment)

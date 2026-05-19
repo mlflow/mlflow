@@ -37,7 +37,10 @@ pytorch:
     requirements:
       ">= 0.0.0": ["torchvision", "scikit-learn"]
       ">= 1.8": ["transformers"]
-      "== 2.3.*": ["transformers<5"]
+      # transformers 5.x trips torch.library.infer_schema on EmbeddingBag.forward
+      # for torch < 2.5 (annotations stored as strings under `from __future__`).
+      # https://github.com/huggingface/transformers/issues/42352
+      "< 2.5": ["transformers<5"]
     run: |
       pytest tests/pytorch/test_pytorch_model_export.py tests/pytorch/test_pytorch_metric_value_conversion_utils.py
 
@@ -455,6 +458,9 @@ transformers:
         # https://github.com/huggingface/transformers/issues/38269
         "== 4.52.1",
         "== 4.52.2",
+        # 5.0.0 broke the TAPAS table-QA and Whisper ASR pipelines; fixed in later 5.x patches.
+        # https://github.com/huggingface/transformers/issues/43792
+        "== 5.0.0",
       ]
     requirements:
       ">= 0.0.0": [

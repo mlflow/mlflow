@@ -1,6 +1,5 @@
 """MLflow CLI commands for Assistant integration."""
 
-import shutil
 import sys
 import threading
 import time
@@ -161,23 +160,18 @@ def _prompt_provider() -> AssistantProvider | None:
 
 
 def _check_provider(provider: AssistantProvider) -> bool:
-    """Check if the selected provider is available."""
     click.secho("Step 2/4: Checking Provider", fg="cyan", bold=True)
     click.secho("-" * 30, fg="cyan")
     click.echo()
 
-    # First check if CLI is installed
-    claude_path = shutil.which("claude")
-    if not claude_path:
+    if not provider.is_available():
         click.secho(
-            "Claude Code CLI is not installed. "
-            "Install it with: npm install -g @anthropic-ai/claude-code",
+            f"{provider.display_name} is not available. "
+            "Please ensure it is installed and accessible in your PATH.",
             fg="red",
         )
         click.echo()
         return False
-
-    click.echo(f"Claude CLI found: {claude_path}")
 
     try:
         spinner_msg = "Checking connection... " + click.style(
@@ -470,8 +464,12 @@ def _install_skills(
         case "global":
             skill_path = provider.resolve_skills_path(Path.home())
         case "project":
+            if project_path is None:
+                raise ValueError("project_path is required for 'project' skills location")
             skill_path = provider.resolve_skills_path(project_path)
         case "custom":
+            if skills_config.custom_path is None:
+                raise ValueError("custom_path is required for 'custom' skills location")
             skill_path = Path(skills_config.custom_path).expanduser()
     if installed_skills := install_skills(skill_path):
         for skill in installed_skills:

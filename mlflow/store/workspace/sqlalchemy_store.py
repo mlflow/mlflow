@@ -8,7 +8,7 @@ from cachetools import TTLCache
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 
-from mlflow.entities.workspace import Workspace, WorkspaceDeletionMode
+from mlflow.entities.workspace import TraceArchivalConfig, Workspace, WorkspaceDeletionMode
 from mlflow.environment_variables import (
     MLFLOW_WORKSPACE_ARTIFACT_ROOT_CACHE_CAPACITY,
     MLFLOW_WORKSPACE_ARTIFACT_ROOT_CACHE_TTL_SECONDS,
@@ -30,9 +30,17 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlGatewaySecret,
     SqlJob,
 )
-from mlflow.store.workspace.abstract_store import AbstractStore, WorkspaceNameValidator
+from mlflow.store.workspace.abstract_store import (
+    AbstractStore,
+    ResolvedTraceArchivalConfig,
+    WorkspaceNameValidator,
+)
 from mlflow.store.workspace.dbmodels import SqlWorkspace
 from mlflow.utils.uri import extract_db_type_from_uri
+from mlflow.utils.validation import (
+    _validate_trace_archival_repository_support,
+    _validate_trace_archival_retention_string,
+)
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 _logger = logging.getLogger(__name__)
@@ -77,6 +85,31 @@ class SqlAlchemyStore(AbstractStore):
             ttl=MLFLOW_WORKSPACE_ARTIFACT_ROOT_CACHE_TTL_SECONDS.get(),
         )
         self._artifact_root_cache_lock = Lock()
+        self._trace_archival_config_cache: TTLCache[str, tuple[str | None, str | None]] = TTLCache(
+            maxsize=MLFLOW_WORKSPACE_ARTIFACT_ROOT_CACHE_CAPACITY.get(),
+            ttl=MLFLOW_WORKSPACE_ARTIFACT_ROOT_CACHE_TTL_SECONDS.get(),
+        )
+        self._trace_archival_config_cache_lock = Lock()
+
+    @staticmethod
+    def _validate_workspace_trace_archival_config(
+        trace_archival_location: str | None,
+        trace_archival_retention: str | None,
+    ) -> tuple[str | None, str | None]:
+        validated_location = (
+            _validate_trace_archival_repository_support(
+                trace_archival_location,
+                parameter_name="trace_archival_location",
+            )
+            if trace_archival_location
+            else None
+        )
+        validated_retention = (
+            _validate_trace_archival_retention_string(trace_archival_retention)
+            if trace_archival_retention
+            else None
+        )
+        return validated_location, validated_retention
 
     def list_workspaces(self) -> Iterable[Workspace]:
         with self.ManagedSessionMaker() as session:
@@ -90,12 +123,20 @@ class SqlAlchemyStore(AbstractStore):
 
     def create_workspace(self, workspace: Workspace) -> Workspace:
         WorkspaceNameValidator.validate(workspace.name)
-        with self.ManagedSessionMaker() as session:
+        trace_archival_location, trace_archival_retention = (
+            self._validate_workspace_trace_archival_config(
+                workspace.trace_archival_location,
+                workspace.trace_archival_retention,
+            )
+        )
+        with self.ManagedSessionMaker(read_only=False) as session:
             try:
                 entity = SqlWorkspace(
                     name=workspace.name,
                     description=workspace.description,
                     default_artifact_root=workspace.default_artifact_root or None,
+                    trace_archival_location=trace_archival_location,
+                    trace_archival_retention=trace_archival_retention,
                 )
                 session.add(entity)
                 session.flush()
@@ -109,11 +150,23 @@ class SqlAlchemyStore(AbstractStore):
         # Only update cache after the transaction has successfully committed.
         with self._artifact_root_cache_lock:
             self._artifact_root_cache[workspace.name] = workspace_entity.default_artifact_root
+        with self._trace_archival_config_cache_lock:
+            self._trace_archival_config_cache[workspace.name] = (
+                workspace_entity.trace_archival_location,
+                workspace_entity.trace_archival_retention,
+            )
         _logger.info("Created workspace '%s'", workspace.name)
         return workspace_entity
 
     def update_workspace(self, workspace: Workspace) -> Workspace:
-        with self.ManagedSessionMaker() as session:
+        trace_archival_location, trace_archival_retention = (
+            self._validate_workspace_trace_archival_config(
+                workspace.trace_archival_location,
+                workspace.trace_archival_retention,
+            )
+        )
+
+        with self.ManagedSessionMaker(read_only=False) as session:
             entity = self._get_workspace(session, workspace.name)
             if workspace.description is not None:
                 entity.description = workspace.description
@@ -121,6 +174,10 @@ class SqlAlchemyStore(AbstractStore):
                 # If the default_artifact_root is an empty string, set it to None to "clear" the
                 # value
                 entity.default_artifact_root = workspace.default_artifact_root or None
+            if workspace.trace_archival_location is not None:
+                entity.trace_archival_location = trace_archival_location
+            if workspace.trace_archival_retention is not None:
+                entity.trace_archival_retention = trace_archival_retention
             session.flush()
 
             _logger.info("Updated workspace '%s'", workspace.name)
@@ -128,6 +185,11 @@ class SqlAlchemyStore(AbstractStore):
         # Only update cache after the transaction has successfully committed.
         with self._artifact_root_cache_lock:
             self._artifact_root_cache[workspace.name] = workspace_entity.default_artifact_root
+        with self._trace_archival_config_cache_lock:
+            self._trace_archival_config_cache[workspace.name] = (
+                workspace_entity.trace_archival_location,
+                workspace_entity.trace_archival_retention,
+            )
         return workspace_entity
 
     def delete_workspace(
@@ -141,7 +203,7 @@ class SqlAlchemyStore(AbstractStore):
                 INVALID_STATE,
             )
 
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             entity = self._get_workspace(session, workspace_name)
             try:
                 if mode == WorkspaceDeletionMode.RESTRICT:
@@ -200,6 +262,8 @@ class SqlAlchemyStore(AbstractStore):
                 )
         with self._artifact_root_cache_lock:
             self._artifact_root_cache.pop(workspace_name, None)
+        with self._trace_archival_config_cache_lock:
+            self._trace_archival_config_cache.pop(workspace_name, None)
 
     def get_default_workspace(self) -> Workspace:
         return self.get_workspace(DEFAULT_WORKSPACE_NAME)
@@ -223,6 +287,46 @@ class SqlAlchemyStore(AbstractStore):
             return workspace_root, False
 
         return default_artifact_root, True
+
+    def resolve_trace_archival_config(
+        self,
+        default_trace_archival_root: str,
+        default_retention: str,
+        workspace_name: str,
+    ) -> ResolvedTraceArchivalConfig:
+        with self._trace_archival_config_cache_lock:
+            cached_value = self._trace_archival_config_cache.get(workspace_name, _CACHE_MISS)
+        if cached_value is _CACHE_MISS:
+            with self.ManagedSessionMaker() as session:
+                workspace_row = (
+                    session
+                    .query(
+                        SqlWorkspace.trace_archival_location,
+                        SqlWorkspace.trace_archival_retention,
+                    )
+                    .filter(SqlWorkspace.name == workspace_name)
+                    .one_or_none()
+                )
+                if workspace_row is None:
+                    workspace_root = None
+                    workspace_retention = None
+                else:
+                    workspace_root, workspace_retention = workspace_row
+            with self._trace_archival_config_cache_lock:
+                self._trace_archival_config_cache[workspace_name] = (
+                    workspace_root,
+                    workspace_retention,
+                )
+        else:
+            workspace_root, workspace_retention = cached_value
+
+        return ResolvedTraceArchivalConfig(
+            config=TraceArchivalConfig(
+                location=workspace_root or default_trace_archival_root,
+                retention=workspace_retention or default_retention,
+            ),
+            append_workspace_prefix=not bool(workspace_root),
+        )
 
     @staticmethod
     def _check_set_default_conflicts(session, workspace_name: str) -> None:
