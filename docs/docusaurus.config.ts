@@ -1023,14 +1023,6 @@ const config: Config = {
             from: ['/deployment/deploy-model-locally'],
           },
           {
-            to: '/ml/deployment/deploy-model-to-kubernetes',
-            from: ['/deployment/deploy-model-to-kubernetes'],
-          },
-          {
-            to: '/ml/deployment/deploy-model-to-kubernetes/tutorial',
-            from: ['/deployment/deploy-model-to-kubernetes/tutorial'],
-          },
-          {
             to: '/ml/deployment/deploy-model-to-sagemaker',
             from: ['/deployment/deploy-model-to-sagemaker'],
           },
