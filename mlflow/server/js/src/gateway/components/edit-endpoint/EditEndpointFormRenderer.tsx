@@ -147,7 +147,7 @@ export const EditEndpointFormRenderer = ({
   const isTracesTabDisabled = !experimentId && activeTab !== 'traces';
 
   // Kept as local component state (not URL-backed) to mirror the GatewayUsagePage
-  // pattern: filters affect harts immediately and propagate to the Logs tab only
+  // pattern: filters affect charts immediately and propagate to the Logs tab only
   // when the user clicks a chart-tooltip "View logs" link.
   const [metricFilters, setMetricFilters] = useState<MetricFilter[]>([]);
 

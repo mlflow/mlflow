@@ -19,8 +19,8 @@ import {
 
 /**
  * Curated list of columns the metrics API can filter on with `=`.
- * Add a new entry here AND in `translateToMetricsFilters` and
- * `translateToTracesPageFilters` to expose more dimensions
+ * Add a new entry here AND in `COLUMN_TO_METRICS_FILTER_BUILDER` and
+ * `COLUMN_TO_TRACES_COLUMN_ID` to expose more dimensions.
  */
 export type MetricFilterColumn = 'user' | 'session' | 'state' | 'git_branch' | 'git_commit';
 
