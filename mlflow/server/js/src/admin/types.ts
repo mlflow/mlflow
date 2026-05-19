@@ -87,6 +87,7 @@ export interface ResourceOption {
 export const RESOURCE_TYPES = [
   'experiment',
   'registered_model',
+  'prompt',
   'scorer',
   'gateway_secret',
   'gateway_endpoint',
@@ -95,3 +96,28 @@ export const RESOURCE_TYPES = [
 ] as const;
 
 export const PERMISSIONS = ['READ', 'USE', 'EDIT', 'MANAGE', 'NO_PERMISSIONS'] as const;
+
+/**
+ * Permission levels the picker should expose per resource type, mirroring
+ * the backend's ``_validate_permission_for_resource_type``:
+ * ``workspace`` is ``USE`` / ``MANAGE`` only; gateway types expose ``USE``;
+ * other types hide ``USE`` (no-op over ``READ``); ``NO_PERMISSIONS`` is
+ * hidden everywhere.
+ */
+export const PERMISSIONS_FOR_RESOURCE_TYPE = {
+  experiment: ['READ', 'EDIT', 'MANAGE'],
+  registered_model: ['READ', 'EDIT', 'MANAGE'],
+  prompt: ['READ', 'EDIT', 'MANAGE'],
+  scorer: ['READ', 'EDIT', 'MANAGE'],
+  gateway_secret: ['READ', 'USE', 'EDIT', 'MANAGE'],
+  gateway_endpoint: ['READ', 'USE', 'EDIT', 'MANAGE'],
+  gateway_model_definition: ['READ', 'USE', 'EDIT', 'MANAGE'],
+  workspace: ['USE', 'MANAGE'],
+} satisfies Record<string, readonly string[]>;
+
+export const getGrantablePermissions = (resourceType: string): readonly string[] =>
+  PERMISSIONS_FOR_RESOURCE_TYPE[resourceType as keyof typeof PERMISSIONS_FOR_RESOURCE_TYPE] ?? [
+    'READ',
+    'EDIT',
+    'MANAGE',
+  ];
