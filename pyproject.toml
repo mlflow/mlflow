@@ -188,7 +188,7 @@ lint = [
   "packaging>=25.0",
   "aiohttp",
   "pytest",
-  "types-requests",
+  "requests",
 ]
 pytest = [
   "pytest==9.0.2",
