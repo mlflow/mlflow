@@ -36,6 +36,7 @@ if TYPE_CHECKING:
 from mlflow.entities.metric import MetricWithRunId
 from mlflow.entities.trace import Span, Trace
 from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.workspace import TraceArchivalConfig
 from mlflow.exceptions import MlflowException, MlflowNotImplementedException
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import (
@@ -45,6 +46,7 @@ from mlflow.store.tracking import (
     SEARCH_TRACES_DEFAULT_MAX_RESULTS,
 )
 from mlflow.store.tracking.gateway import GatewayStoreMixin
+from mlflow.store.workspace.abstract_store import ResolvedTraceArchivalConfig
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.utils import mlflow_tags
 from mlflow.utils.annotations import developer_stable, requires_sql_backend
@@ -71,6 +73,11 @@ class AbstractStore(GatewayStoreMixin):
     @property
     def supports_workspaces(self) -> bool:
         """Return whether workspaces are supported by this tracking store."""
+        return False
+
+    @property
+    def supports_trace_archival(self) -> bool:
+        """Return whether server-owned trace archival is supported by this tracking store."""
         return False
 
     @abstractmethod
@@ -315,7 +322,7 @@ class AbstractStore(GatewayStoreMixin):
             raise MlflowException.invalid_parameter_value(
                 "Either `max_timestamp_millis` or `trace_ids` must be specified.",
             )
-        if max_timestamp_millis and trace_ids:
+        if max_timestamp_millis is not None and trace_ids:
             raise MlflowException.invalid_parameter_value(
                 "Only one of `max_timestamp_millis` and `trace_ids` can be specified.",
             )
@@ -399,6 +406,65 @@ class AbstractStore(GatewayStoreMixin):
             List of TraceInfo objects containing only metadata (no spans).
         """
         raise MlflowNotImplementedException()
+
+    def archive_traces(
+        self,
+        *,
+        resolved_trace_archival_location: str,
+        broader_retention: str,
+        long_retention_allowlist: set[str] | list[str] | None = None,
+        max_traces_per_pass: int | None = None,
+    ) -> int:
+        """
+        Archive eligible DB-backed trace payloads into the archival repository.
+
+        Concurrent executions of this method against the same backing store / trace population
+        are not supported.
+
+        Args:
+            resolved_trace_archival_location: Final archival repository root for this archival
+                pass after broader-scope server and workspace resolution has already been applied.
+            broader_retention: Resolved broader-scope retention in the form ``<int><unit>`` where
+                unit is one of ``m``, ``h``, or ``d``. Experiment-level retention overrides are
+                resolved against this value during the pass.
+            long_retention_allowlist: Experiment IDs allowed to exceed the broader-scope
+                retention with a longer experiment-level retention override.
+            max_traces_per_pass: Maximum number of traces to archive in this invocation. When the
+                scheduler applies a pass-level budget across multiple scopes, it passes the
+                remaining budget for the current scope here. If unset, archive all eligible
+                traces.
+
+        Returns:
+            The number of traces archived during the pass.
+        """
+        raise MlflowNotImplementedException()
+
+    def resolve_trace_archival_config(
+        self,
+        *,
+        default_trace_archival_location: str,
+        default_retention: str,
+    ) -> ResolvedTraceArchivalConfig:
+        """
+        Resolve the effective trace archival configuration for the current store context.
+
+        Single-tenant stores use the broader-scope defaults directly. Workspace-aware stores may
+        override this to apply workspace-specific archival settings. Any field left as ``None``
+        inherits the broader-scope default in core.
+
+        Returns:
+            A ``ResolvedTraceArchivalConfig`` describing the effective archival location,
+            retention, and whether additional workspace path scoping should be applied by the
+            caller.
+        """
+
+        return ResolvedTraceArchivalConfig(
+            config=TraceArchivalConfig(
+                location=default_trace_archival_location,
+                retention=default_retention,
+            ),
+            append_workspace_prefix=False,
+        )
 
     def get_online_trace_details(
         self,

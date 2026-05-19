@@ -3226,12 +3226,24 @@ def _create_trace(tracking_uri: str, experiment_id: str, auth: tuple[str, str]) 
 def _grant_experiment_permission(
     tracking_uri: str, experiment_id: str, username: str, permission: str, auth: tuple[str, str]
 ) -> None:
+    # ``grant`` is not upsert — issue a best-effort revoke first so this helper
+    # behaves like the legacy upsert semantics tests relied on.
+    requests.post(
+        url=tracking_uri + "/api/3.0/mlflow/users/permissions/revoke",
+        json={
+            "username": username,
+            "resource_type": "experiment",
+            "resource_id": experiment_id,
+        },
+        auth=auth,
+    )
     _send_rest_tracking_post_request(
         tracking_uri,
-        "/api/2.0/mlflow/experiments/permissions/create",
+        "/api/3.0/mlflow/users/permissions/grant",
         json_payload={
-            "experiment_id": experiment_id,
             "username": username,
+            "resource_type": "experiment",
+            "resource_id": experiment_id,
             "permission": permission,
         },
         auth=auth,
@@ -3305,11 +3317,9 @@ def test_trace_delete_permission(client, monkeypatch):
     assert delete_traces((user1, password1)).status_code == 200
 
     # Upgrade user2 to MANAGE; now allowed
-    requests.patch(
-        url=client.tracking_uri + "/api/2.0/mlflow/experiments/permissions/update",
-        json={"experiment_id": experiment_id, "username": user2, "permission": "MANAGE"},
-        auth=(user1, password1),
-    ).raise_for_status()
+    _grant_experiment_permission(
+        client.tracking_uri, experiment_id, user2, "MANAGE", (user1, password1)
+    )
     assert delete_traces((user2, password2)).status_code == 200
 
 
@@ -3345,11 +3355,9 @@ def test_trace_tag_permission(client, monkeypatch):
     assert delete_tag((user2, password2)).status_code == 403
 
     # Upgrade to EDIT; tag operations now allowed
-    requests.patch(
-        url=client.tracking_uri + "/api/2.0/mlflow/experiments/permissions/update",
-        json={"experiment_id": experiment_id, "username": user2, "permission": "EDIT"},
-        auth=(user1, password1),
-    ).raise_for_status()
+    _grant_experiment_permission(
+        client.tracking_uri, experiment_id, user2, "EDIT", (user1, password1)
+    )
     assert set_tag((user2, password2)).status_code == 200
     assert delete_tag((user2, password2)).status_code == 200
 

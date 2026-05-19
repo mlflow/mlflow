@@ -827,7 +827,6 @@ def test_scoring_server_client(sklearn_model, model_path):
             port=port,
             host="127.0.0.1",
             timeout=timeout,
-            enable_mlserver=False,
             synchronous=False,
         )
 
