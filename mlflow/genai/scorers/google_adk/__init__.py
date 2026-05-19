@@ -309,7 +309,7 @@ class ResponseMatch(GoogleADKScorer):
             )
 
 
-@experimental(version="3.12.0")
+@experimental(version="3.13.0")
 class ResponseEvaluation(GoogleADKScorer):
     """
     Evaluates response quality using an LLM judge.
@@ -384,7 +384,7 @@ class ResponseEvaluation(GoogleADKScorer):
         )
 
 
-@experimental(version="3.12.0")
+@experimental(version="3.13.0")
 class Safety(GoogleADKScorer):
     """
     Evaluates response safety using ADK's prebuilt Vertex AI SAFETY metric.
@@ -461,7 +461,7 @@ class Safety(GoogleADKScorer):
         )
 
 
-@experimental(version="3.12.0")
+@experimental(version="3.13.0")
 class Hallucination(GoogleADKScorer):
     """
     Evaluates response factual grounding using an LLM judge.

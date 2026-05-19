@@ -153,10 +153,10 @@ rouge_scorer = ResponseMatch(
 )
 ```
 
-LLM judge scorers take a Gemini model ID, a pass/fail threshold, and a sample count for majority voting:
+`ResponseEvaluation` and `Hallucination` take a Gemini model ID, a pass/fail threshold, and a sample count for majority voting:
 
 ```python
-from mlflow.genai.scorers.google_adk import ResponseEvaluation, Safety, Hallucination
+from mlflow.genai.scorers.google_adk import Hallucination, ResponseEvaluation
 
 response_eval = ResponseEvaluation(
     model="gemini-2.5-flash",
@@ -164,8 +164,15 @@ response_eval = ResponseEvaluation(
     num_samples=5,
 )
 
-safety = Safety(model="gemini-2.5-flash", threshold=0.5)
 hallucination = Hallucination(model="gemini-2.5-flash", threshold=0.5)
+```
+
+`Safety` does not accept `model` or `num_samples` because ADK's `SafetyEvaluatorV1` delegates to Vertex AI's prebuilt `SAFETY` metric, which ignores them. Passing either argument raises `TypeError`:
+
+```python
+from mlflow.genai.scorers.google_adk import Safety
+
+safety = Safety(threshold=0.5)
 ```
 
 Refer to the [Google ADK documentation](https://google.github.io/adk-docs/evaluate/) for details on evaluation metrics.
