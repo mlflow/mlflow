@@ -91,8 +91,6 @@ The working tree holds the PR merged into the base (`refs/pull/<pr>/merge`), so 
 
 The merge ref's base parent is also reachable as `HEAD^1`. When the diff doesn't show enough (verifying a refactor preserved behavior, reading the full content of a deleted file, or seeing the pre-change version of a heavily modified file), use `git show HEAD^1:<path>` rather than re-fetching via the GitHub API.
 
-Batch independent lookups into a single turn. If you need to read several changed files, grep for a few symbols, or spawn multiple `Explore` agents, issue them as parallel tool calls. Only serialize when a later call depends on an earlier result.
-
 #### Don't comment on
 
 - Pre-existing code. You may read unchanged/context lines to understand the change, but only file findings against the changed lines (added, modified, or deleted), even if surrounding code looks suboptimal.
