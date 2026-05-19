@@ -125,7 +125,7 @@ Determine the review `event`:
 
 ### 4. Emit Local Review Payload
 
-The payload is the only deliverable. Do not post. Write `/tmp/review-payload.json` matching [`review-payload.schema.json`](./review-payload.schema.json), then validate it.
+Write `/tmp/review-payload.json` matching [`review-payload.schema.json`](./review-payload.schema.json), then validate it.
 
 Authoring rules not captured by the schema:
 
