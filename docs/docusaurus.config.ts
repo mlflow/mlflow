@@ -389,6 +389,15 @@ const config: Config = {
             to: '/self-hosting/security/basic-http-auth',
             from: ['/ml/auth'],
           },
+          {
+            to: '/self-hosting#kubernetes',
+            from: [
+              '/ml/deployment/deploy-model-to-kubernetes',
+              '/ml/deployment/deploy-model-to-kubernetes/tutorial',
+              '/deployment/deploy-model-to-kubernetes',
+              '/deployment/deploy-model-to-kubernetes/tutorial',
+            ],
+          },
           // Redirect mlflow 3 pages to migration guide
           {
             to: '/ml/mlflow-3',
