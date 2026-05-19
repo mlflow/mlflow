@@ -50,20 +50,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - name: Resolve PR number and trigger source
+      - name: Resolve PR number
         id: ctx
         env:
-          EVENT_NAME: ${{ github.event_name }}
           ISSUE_PR: ${{ github.event.issue.number }}
-          PR_NUM: ${{ github.event.pull_request.number }}
-        run: |
-          if [ "$EVENT_NAME" = "issue_comment" ]; then
-            echo "pr=$ISSUE_PR" >> "$GITHUB_OUTPUT"
-            echo "trigger=comment" >> "$GITHUB_OUTPUT"
-          else
-            echo "pr=$PR_NUM" >> "$GITHUB_OUTPUT"
-            echo "trigger=auto" >> "$GITHUB_OUTPUT"
-          fi
+        run: echo "pr=$ISSUE_PR" >> "$GITHUB_OUTPUT"
 
       - name: Generate App installation token (multi-repo)
         id: app_token
@@ -80,7 +71,6 @@ jobs:
           permission-issues: write
 
       - name: Annotate trigger comment with run URL
-        if: steps.ctx.outputs.trigger == 'comment'
         env:
           GH_TOKEN: ${{ steps.app_token.outputs.token }}
           REPO: ${{ github.repository }}
@@ -161,9 +151,8 @@ jobs:
         with:
           enable-cache: false
 
-      - name: Parse review flags (comment-triggered only)
+      - name: Parse review flags
         id: flags
-        if: steps.ctx.outputs.trigger == 'comment'
         env:
           BODY: ${{ github.event.comment.body }}
         run: |
@@ -183,9 +172,6 @@ jobs:
           GH_TOKEN: ${{ steps.app_token.outputs.token }}
           PR: ${{ steps.ctx.outputs.pr }}
           REPO: ${{ github.repository }}
-          # FLAGS is empty on auto-triggered runs by design: the flags step
-          # only runs for /review-v2 comments, and there is no comment body to
-          # parse on a pull_request event.
           FLAGS: ${{ steps.flags.outputs.flags }}
         # Inputs flow through env vars rather than ${{ }} interpolation
         # directly into the shell, so an unexpected character in any value
@@ -198,8 +184,8 @@ jobs:
         run: |
           uv run --directory internal/nailaopus nailaopus "$PR" --repo "$REPO" --mlflow-tree "$GITHUB_WORKSPACE/mlflow" --no-dry-run $FLAGS
 
-      - name: React +1 on success (comment-triggered only)
-        if: success() && steps.ctx.outputs.trigger == 'comment'
+      - name: React +1 on success
+        if: success()
         env:
           GH_TOKEN: ${{ steps.app_token.outputs.token }}
           REPO: ${{ github.repository }}
