@@ -110,7 +110,7 @@ test('renderJobSource', () => {
   expect(MlflowUtils.renderJobSource(null, null, null, jobName, null)).toEqual(jobName);
   expect(MlflowUtils.renderJobSource(null, jobId, null, jobName, null)).toMatchInlineSnapshot(`
     <a
-      href="http://localhost/#job/123456"
+      href="http://localhost/jobs/123456"
       onClick={[Function]}
       target="_top"
       title="job xxx"
@@ -120,7 +120,7 @@ test('renderJobSource', () => {
   `);
   expect(MlflowUtils.renderJobSource(null, jobId, null, null, null)).toMatchInlineSnapshot(`
     <a
-      href="http://localhost/#job/123456"
+      href="http://localhost/jobs/123456"
       onClick={[Function]}
       target="_top"
       title="job 123456"
@@ -130,7 +130,7 @@ test('renderJobSource', () => {
   `);
   expect(MlflowUtils.renderJobSource(null, jobId, jobRunId, jobName, null)).toMatchInlineSnapshot(`
     <a
-      href="http://localhost/#job/123456/run/98765"
+      href="http://localhost/jobs/123456/runs/98765"
       onClick={[Function]}
       target="_top"
       title="job xxx"
@@ -140,7 +140,7 @@ test('renderJobSource', () => {
   `);
   expect(MlflowUtils.renderJobSource(null, jobId, jobRunId, null, null)).toMatchInlineSnapshot(`
     <a
-      href="http://localhost/#job/123456/run/98765"
+      href="http://localhost/jobs/123456/runs/98765"
       onClick={[Function]}
       target="_top"
       title="run 98765 of job 123456"
@@ -150,7 +150,7 @@ test('renderJobSource', () => {
   `);
   expect(MlflowUtils.renderJobSource(null, jobId, jobRunId, jobName, null, nameOverride)).toMatchInlineSnapshot(`
     <a
-      href="http://localhost/#job/123456/run/98765"
+      href="http://localhost/jobs/123456/runs/98765"
       onClick={[Function]}
       target="_top"
       title="job xxx"
@@ -160,7 +160,7 @@ test('renderJobSource', () => {
   `);
   expect(MlflowUtils.renderJobSource(queryParams, jobId, jobRunId, jobName, null)).toMatchInlineSnapshot(`
     <a
-      href="http://localhost/?o=123456789#job/123456/run/98765"
+      href="http://localhost/jobs/123456/runs/98765?o=123456789"
       onClick={[Function]}
       target="_top"
       title="job xxx"
@@ -173,7 +173,7 @@ test('renderJobSource', () => {
     MlflowUtils.renderJobSource('?o=123456789', jobId, jobRunId, jobName, 'https://databricks', null),
   ).toMatchInlineSnapshot(`
     <a
-      href="https://databricks/?o=123456789#job/123456/run/98765"
+      href="https://databricks/jobs/123456/runs/98765?o=123456789"
       onClick={[Function]}
       target="_top"
       title="job xxx"
@@ -544,7 +544,7 @@ test('renderSourceFromMetadata', () => {
   };
   expect(MlflowUtils.renderSourceFromMetadata(jobSource)).toMatchInlineSnapshot(`
     <a
-      href="http://localhost/#job/123456/run/987654"
+      href="http://localhost/jobs/123456/runs/987654"
       onClick={[Function]}
       target="_top"
       title="job.py"

@@ -1,4 +1,4 @@
-import { useQuery } from '@databricks/web-shared/query-client';
+import { useQuery } from '../../query-client/queryClient';
 
 import { getAjaxUrl, makeRequest } from '../utils/FetchUtils';
 
@@ -26,14 +26,14 @@ interface UseExperimentVersionsQueryResponseType {
 }
 
 export const useExperimentVersionsQuery = (
-  experimentId: string,
+  experimentId: string | undefined,
   disabled = false,
 ): {
   data: LoggedModel[] | undefined;
   isLoading: boolean;
   error?: Error;
 } => {
-  const queryKey = ['EXPERIMENT_MODEL_VERSIONS', experimentId];
+  const queryKey = ['EXPERIMENT_MODEL_VERSIONS', experimentId ?? ''];
 
   const { data, isLoading, error } = useQuery<UseExperimentVersionsQueryResponseType, Error>({
     queryKey,
@@ -47,7 +47,7 @@ export const useExperimentVersionsQuery = (
     },
     staleTime: Infinity,
     cacheTime: Infinity,
-    enabled: !disabled,
+    enabled: !disabled && Boolean(experimentId),
     refetchOnMount: false,
     retry: false,
   });

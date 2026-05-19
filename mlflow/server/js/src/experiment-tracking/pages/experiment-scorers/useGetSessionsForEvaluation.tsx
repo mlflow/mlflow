@@ -1,9 +1,10 @@
 import { useCallback } from 'react';
 import { searchMlflowTracesQueryFn, SEARCH_MLFLOW_TRACES_QUERY_KEY } from '@databricks/web-shared/genai-traces-table';
-import { QueryClient, useQueryClient } from '@databricks/web-shared/query-client';
-import { groupTracesBySession } from '@databricks/web-shared/genai-traces-table/sessions-table/utils';
-import { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
-import { EvaluateTracesParams } from './types';
+import type { QueryClient } from '@databricks/web-shared/query-client';
+import { useQueryClient } from '@databricks/web-shared/query-client';
+import { groupTracesBySession } from '@databricks/web-shared/genai-traces-table';
+import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
+import type { EvaluateTracesParams } from './types';
 import { isEmpty, sortBy } from 'lodash';
 
 const fetchSessions = async (

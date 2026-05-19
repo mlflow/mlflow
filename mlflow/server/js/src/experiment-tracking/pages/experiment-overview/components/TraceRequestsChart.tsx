@@ -1,27 +1,54 @@
-import React from 'react';
-import { useDesignSystemTheme, ChartLineIcon } from '@databricks/design-system';
+import React, { useCallback, useMemo } from 'react';
+import { useDesignSystemTheme, ChartLineIcon, Button } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine, ReferenceArea } from 'recharts';
 import { useTraceRequestsChartData } from '../hooks/useTraceRequestsChartData';
 import {
   OverviewChartLoadingState,
   OverviewChartErrorState,
   OverviewChartEmptyState,
   OverviewChartHeader,
-  OverviewChartTimeLabel,
   OverviewChartContainer,
-  useChartTooltipStyle,
   useChartXAxisProps,
+  useChartYAxisProps,
+  useChartZoomSelectionProps,
+  DEFAULT_CHART_CONTENT_HEIGHT,
+  ScrollableTooltip,
 } from './OverviewChartComponents';
-import type { OverviewChartProps } from '../types';
+import { useOverviewChartContext } from '../OverviewChartContext';
 
-export const TraceRequestsChart: React.FC<OverviewChartProps> = (props) => {
+interface TraceRequestsChartProps {
+  title?: React.ReactNode;
+}
+
+export const TraceRequestsChart: React.FC<TraceRequestsChartProps> = ({ title }) => {
   const { theme } = useDesignSystemTheme();
-  const tooltipStyle = useChartTooltipStyle();
   const xAxisProps = useChartXAxisProps();
+  const yAxisProps = useChartYAxisProps();
+  const zoomSelectionProps = useChartZoomSelectionProps();
+  const { experimentIds, timeIntervalSeconds } = useOverviewChartContext();
 
-  // Fetch and process requests chart data
-  const { chartData, totalRequests, avgRequests, isLoading, error, hasData } = useTraceRequestsChartData(props);
+  // Fetch and process requests chart data (includes zoom state)
+  const { totalRequests, avgRequests, isLoading, error, hasData, zoom } = useTraceRequestsChartData();
+  const { zoomedData, isZoomed, refAreaLeft, refAreaRight, handleMouseDown, handleMouseMove, handleMouseUp, zoomOut } =
+    zoom;
+
+  const tooltipFormatter = useCallback((value: number) => [`${value}`, 'Requests'] as [string, string], []);
+
+  // Memoize tooltip content to prevent recreation on every render
+  const tooltipContent = useMemo(
+    () => (
+      <ScrollableTooltip
+        formatter={tooltipFormatter}
+        componentId="mlflow.overview.usage.traces.view_traces_link"
+        linkConfig={{
+          experimentId: experimentIds[0],
+          timeIntervalSeconds,
+        }}
+      />
+    ),
+    [experimentIds, timeIntervalSeconds, tooltipFormatter],
+  );
 
   if (isLoading) {
     return <OverviewChartLoadingState />;
@@ -32,25 +59,38 @@ export const TraceRequestsChart: React.FC<OverviewChartProps> = (props) => {
   }
 
   return (
-    <OverviewChartContainer>
-      <OverviewChartHeader
-        icon={<ChartLineIcon />}
-        title={<FormattedMessage defaultMessage="Requests" description="Title for the trace requests chart" />}
-        value={totalRequests.toLocaleString()}
-      />
-      <OverviewChartTimeLabel />
+    <OverviewChartContainer componentId="mlflow.charts.trace_requests">
+      <div css={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <OverviewChartHeader
+          icon={<ChartLineIcon />}
+          title={title ?? <FormattedMessage defaultMessage="Traces" description="Title for the traces chart" />}
+          value={totalRequests.toLocaleString()}
+        />
+        {isZoomed && (
+          <Button componentId="mlflow.charts.trace_requests.zoom_out" size="small" onClick={zoomOut}>
+            <FormattedMessage defaultMessage="Zoom Out" description="Button to reset chart zoom" />
+          </Button>
+        )}
+      </div>
 
       {/* Chart */}
-      <div css={{ height: 200 }}>
+      <div css={{ height: DEFAULT_CHART_CONTENT_HEIGHT, userSelect: 'none' }}>
         {hasData ? (
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+            <BarChart
+              data={zoomedData}
+              margin={{ top: 10, right: 20, left: 10, bottom: 0 }}
+              onMouseDown={handleMouseDown}
+              onMouseMove={handleMouseMove}
+              onMouseUp={handleMouseUp}
+              onMouseLeave={handleMouseUp}
+            >
               <XAxis dataKey="name" {...xAxisProps} />
-              <YAxis hide />
+              <YAxis {...yAxisProps} />
               <Tooltip
-                contentStyle={tooltipStyle}
+                content={tooltipContent}
                 cursor={{ fill: theme.colors.actionTertiaryBackgroundHover }}
-                formatter={(value: number) => [`${value}`, 'Requests']}
+                wrapperStyle={{ pointerEvents: 'auto' }}
               />
               <Bar dataKey="count" fill={theme.colors.blue400} radius={[4, 4, 0, 0]} />
               {avgRequests > 0 && (
@@ -65,6 +105,10 @@ export const TraceRequestsChart: React.FC<OverviewChartProps> = (props) => {
                     fontSize: 10,
                   }}
                 />
+              )}
+              {/* Selection highlight area for zoom */}
+              {refAreaLeft && refAreaRight && (
+                <ReferenceArea x1={refAreaLeft} x2={refAreaRight} {...zoomSelectionProps} />
               )}
             </BarChart>
           </ResponsiveContainer>

@@ -1,43 +1,29 @@
-import { GavelIcon, SegmentedControlGroup, SegmentedControlButton } from '@databricks/design-system';
+import { Button, SidebarCollapseIcon } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
 import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
 
 export const AssessmentPaneToggle = () => {
-  const { assessmentsPaneExpanded, setAssessmentsPaneExpanded, assessmentsPaneEnabled, isInComparisonView } =
+  const { assessmentsPaneExpanded, setAssessmentsPaneExpanded, assessmentsPaneEnabled } =
     useModelTraceExplorerViewState();
 
-  if (isInComparisonView) {
+  if (assessmentsPaneExpanded) {
     return null;
   }
 
   return (
-    <SegmentedControlGroup
-      css={{ display: 'block' }}
-      name="shared.model-trace-explorer.assessments-pane-toggle"
+    <Button
+      disabled={!assessmentsPaneEnabled}
+      type="primary"
       componentId="shared.model-trace-explorer.assessments-pane-toggle"
-      value={assessmentsPaneExpanded}
       size="small"
+      icon={<SidebarCollapseIcon />}
+      onClick={() => setAssessmentsPaneExpanded?.(true)}
     >
-      <SegmentedControlButton
-        value
-        disabled={!assessmentsPaneEnabled}
-        icon={<GavelIcon />}
-        onClick={() => setAssessmentsPaneExpanded?.(!assessmentsPaneExpanded)}
-        css={{
-          '& > span': {
-            display: 'flex',
-            alignItems: 'center',
-          },
-        }}
-      >
-        {!assessmentsPaneExpanded && (
-          <FormattedMessage
-            defaultMessage="Assessments"
-            description="Label for the assessments pane of the model trace explorer."
-          />
-        )}
-      </SegmentedControlButton>
-    </SegmentedControlGroup>
+      <FormattedMessage
+        defaultMessage="Show assessments"
+        description="Label for the button to show the assessments pane"
+      />
+    </Button>
   );
 };

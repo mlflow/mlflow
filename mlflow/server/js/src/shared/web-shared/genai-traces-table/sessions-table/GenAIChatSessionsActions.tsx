@@ -3,12 +3,16 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { Button, Tooltip, DropdownMenu, ChevronDownIcon } from '@databricks/design-system';
 import { useIntl } from '@databricks/i18n';
-import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
-import { displayErrorNotification, displaySuccessNotification } from '@databricks/web-shared/model-trace-explorer';
+import type { ModelTraceInfoV3 } from '../../model-trace-explorer/ModelTrace.types';
+import {
+  displayErrorNotification,
+  displaySuccessNotification,
+} from '../../model-trace-explorer/ModelTraceExplorer.utils';
 
 import type { SessionTableRow } from './types';
 import { GenAiDeleteTraceModal } from '../components/GenAiDeleteTraceModal';
-import type { TraceActions } from '../types';
+import type { RunEvaluationTracesDataEntry, TraceActions } from '../types';
+import { applyTraceInfoV3ToEvalEntry } from '../utils/TraceUtils';
 
 interface GenAIChatSessionsActionsProps {
   experimentId: string;
@@ -26,27 +30,31 @@ export const GenAIChatSessionsActions = (props: GenAIChatSessionsActionsProps) =
     setShowDeleteModal(true);
   }, []);
 
-  // Convert selected sessions to traces for deletion
-  const tracesToDelete = useMemo(() => {
-    const allTracesInSelectedSessions: ModelTraceInfoV3[] = [];
-
+  // Collect all traces from selected sessions
+  const allTracesFromSelectedSessions = useMemo(() => {
+    const allTraces: ModelTraceInfoV3[] = [];
     selectedSessions.forEach((session) => {
-      allTracesInSelectedSessions.push(...session.traces);
+      allTraces.push(...session.traces);
     });
-
-    return allTracesInSelectedSessions.map((trace) => ({
-      evaluationId: trace.trace_id,
-      requestId: trace.client_request_id || trace.trace_id,
-      inputsId: trace.trace_id,
-      inputs: {},
-      outputs: {},
-      targets: {},
-      overallAssessments: [],
-      responseAssessmentsByName: {},
-      metrics: {},
-      traceInfo: trace,
-    }));
+    return allTraces;
   }, [selectedSessions]);
+
+  const selectedTracesForActions: RunEvaluationTracesDataEntry[] = useMemo(() => {
+    return applyTraceInfoV3ToEvalEntry(
+      allTracesFromSelectedSessions.map((trace) => ({
+        evaluationId: trace.trace_id,
+        requestId: trace.client_request_id || trace.trace_id,
+        inputsId: trace.trace_id,
+        inputs: {},
+        outputs: {},
+        targets: {},
+        overallAssessments: [],
+        responseAssessmentsByName: {},
+        metrics: {},
+        traceInfo: trace,
+      })),
+    );
+  }, [allTracesFromSelectedSessions]);
 
   const deleteTraces = useCallback(
     async (experimentId: string, traceIds: string[]) => {
@@ -91,8 +99,9 @@ export const GenAIChatSessionsActions = (props: GenAIChatSessionsActionsProps) =
   );
 
   const hasDeleteAction = Boolean(traceActions?.deleteTracesAction);
+  const hasExportAction = Boolean(traceActions?.exportToEvals);
   const noSessionsSelected = selectedSessions.length === 0;
-  const noActionsAvailable = !hasDeleteAction;
+  const noActionsAvailable = !hasDeleteAction && !hasExportAction;
 
   if (noActionsAvailable) {
     return null;
@@ -102,7 +111,7 @@ export const GenAIChatSessionsActions = (props: GenAIChatSessionsActionsProps) =
     <Button
       componentId="mlflow.chat-sessions.actions-dropdown"
       endIcon={<ChevronDownIcon />}
-      disabled={noSessionsSelected || traceActions?.deleteTracesAction?.isDisabled}
+      disabled={noSessionsSelected}
     >
       {intl.formatMessage(
         {
@@ -128,22 +137,33 @@ export const GenAIChatSessionsActions = (props: GenAIChatSessionsActionsProps) =
               : traceActions?.deleteTracesAction?.disabledReason
           }
         >
-          <DropdownMenu.Trigger asChild>{ActionButton}</DropdownMenu.Trigger>
+          <DropdownMenu.Trigger disabled={noSessionsSelected} asChild>
+            {ActionButton}
+          </DropdownMenu.Trigger>
         </Tooltip>
         <DropdownMenu.Content align="end">
           {hasDeleteAction && (
             <>
-              <DropdownMenu.Item
-                componentId="mlflow.chat-sessions.delete-sessions"
-                onClick={handleDeleteSessions}
-                disabled={traceActions?.deleteTracesAction?.isDisabled}
-                disabledReason={traceActions?.deleteTracesAction?.disabledReason}
-              >
-                {intl.formatMessage({
-                  defaultMessage: 'Delete sessions',
-                  description: 'Delete sessions action',
-                })}
-              </DropdownMenu.Item>
+              {hasExportAction && <DropdownMenu.Separator />}
+              <DropdownMenu.Group>
+                <DropdownMenu.Label>
+                  {intl.formatMessage({
+                    defaultMessage: 'Edit',
+                    description: 'Chat sessions actions dropdown group label for edit actions',
+                  })}
+                </DropdownMenu.Label>
+                <DropdownMenu.Item
+                  componentId="mlflow.chat-sessions.delete-sessions"
+                  onClick={handleDeleteSessions}
+                  disabled={traceActions?.deleteTracesAction?.isDisabled}
+                  disabledReason={traceActions?.deleteTracesAction?.disabledReason}
+                >
+                  {intl.formatMessage({
+                    defaultMessage: 'Delete sessions',
+                    description: 'Delete sessions action',
+                  })}
+                </DropdownMenu.Item>
+              </DropdownMenu.Group>
             </>
           )}
         </DropdownMenu.Content>
@@ -152,7 +172,7 @@ export const GenAIChatSessionsActions = (props: GenAIChatSessionsActionsProps) =
       <GenAiDeleteTraceModal
         experimentIds={[experimentId]}
         visible={showDeleteModal}
-        selectedTraces={tracesToDelete}
+        selectedTraces={selectedTracesForActions}
         handleClose={() => setShowDeleteModal(false)}
         deleteTraces={deleteTraces}
       />

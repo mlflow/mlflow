@@ -4,13 +4,25 @@ import { invalidateMlflowSearchTracesCache } from '@databricks/web-shared/genai-
 
 export const useDeleteTracesMutation = () => {
   const queryClient = useQueryClient();
-  const mutation = useMutation<{ traces_deleted: number }, Error, { experimentId: string; traceRequestIds: string[] }>({
-    mutationFn: async ({ experimentId, traceRequestIds }) => {
+  const mutation = useMutation<
+    { traces_deleted: number },
+    Error,
+    {
+      experimentId: string;
+      traceRequestIds: string[];
+    }
+  >({
+    // prettier-ignore
+    mutationFn: async ({
+      experimentId,
+      traceRequestIds,
+    }) => {
       // Chunk the trace IDs into groups of 100
       const chunks = [];
       for (let i = 0; i < traceRequestIds.length; i += 100) {
         chunks.push(traceRequestIds.slice(i, i + 100));
       }
+
 
       // Make parallel calls for each chunk
       const deletePromises = chunks.map((chunk) => MlflowService.deleteTracesV3(experimentId, chunk));

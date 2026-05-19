@@ -2,11 +2,13 @@
 Utilities for validating user inputs such as metric names and parameter names.
 """
 
+import ipaddress
 import json
 import logging
 import numbers
 import posixpath
 import re
+import socket
 import urllib.parse
 from typing import Any
 
@@ -14,6 +16,7 @@ from mlflow.entities import Dataset, DatasetInput, InputTag, Param, RunTag
 from mlflow.entities.model_registry.prompt_version import PROMPT_TEXT_TAG_KEY
 from mlflow.entities.webhook import WebhookEvent
 from mlflow.environment_variables import (
+    _MLFLOW_WEBHOOK_ALLOW_PRIVATE_IPS,
     _MLFLOW_WEBHOOK_ALLOWED_SCHEMES,
     MLFLOW_ARTIFACT_LOCATION_MAX_LENGTH,
     MLFLOW_TRUNCATE_LONG_VALUES,
@@ -75,6 +78,8 @@ MAX_INPUT_TAG_VALUE_SIZE = 500
 MAX_REGISTERED_MODEL_ALIAS_LENGTH = 255
 MAX_TRACE_TAG_KEY_LENGTH = 250
 MAX_TRACE_TAG_VAL_LENGTH = 8000
+MAX_TRACE_ARCHIVAL_RETENTION_LENGTH = 32
+_TRACE_ARCHIVAL_RETENTION_REGEX = re.compile(r"^[1-9][0-9]*[mhd]$")
 
 PARAM_VALIDATION_MSG = """
 
@@ -127,6 +132,159 @@ def not_integer_value(path, value):
 
 def exceeds_maximum_length(path, limit):
     return f"'{path}' exceeds the maximum length of {limit} characters"
+
+
+def _validate_trace_archival_retention_string(
+    value: Any, *, parameter_name: str | None = None
+) -> str:
+    if not is_string_type(value):
+        if parameter_name is not None:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid value for '{parameter_name}'. Expected a duration in the form "
+                "`<int><unit>`, where unit is one of 'm', 'h', or 'd' (for example '30d' or "
+                "'12h')."
+            )
+        raise MlflowException.invalid_parameter_value(
+            "Trace archival retention must be in the form `<int><unit>`, "
+            "where unit is one of 'm', 'h', or 'd'."
+        )
+
+    trimmed = value.strip()
+    if len(trimmed) > MAX_TRACE_ARCHIVAL_RETENTION_LENGTH:
+        if parameter_name is not None:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid value for '{parameter_name}'. Maximum length is 32 characters."
+            )
+        raise MlflowException.invalid_parameter_value(
+            "Trace archival duration must be at most 32 characters."
+        )
+
+    if _TRACE_ARCHIVAL_RETENTION_REGEX.fullmatch(trimmed) is None:
+        if parameter_name is not None:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid value for '{parameter_name}'. Expected a duration in the form "
+                "`<int><unit>`, where unit is one of 'm', 'h', or 'd' (for example '30d' or "
+                "'12h')."
+            )
+        raise MlflowException.invalid_parameter_value(
+            "Trace archival retention must be in the form `<int><unit>`, "
+            "where unit is one of 'm', 'h', or 'd'."
+        )
+
+    return trimmed
+
+
+def _validate_trace_archival_location(value: Any, *, parameter_name: str | None = None) -> str:
+    if not is_string_type(value):
+        if parameter_name is not None:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid value for '{parameter_name}'. Expected a URI string."
+            )
+        raise MlflowException.invalid_parameter_value(
+            "Trace archival location must be a URI string."
+        )
+
+    trimmed = value.strip()
+    parsed = urllib.parse.urlparse(trimmed)
+    if not parsed.scheme:
+        if parameter_name is not None:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid value for '{parameter_name}'. Expected a URI string."
+            )
+        raise MlflowException.invalid_parameter_value(
+            "Trace archival location must be a URI string."
+        )
+    if parsed.scheme == "mlflow-artifacts":
+        if parameter_name is not None:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid value for '{parameter_name}'. Trace archival location cannot use "
+                "the proxy-only `mlflow-artifacts:` scheme."
+            )
+        raise MlflowException.invalid_parameter_value(
+            "Trace archival location cannot use the proxy-only `mlflow-artifacts:` scheme."
+        )
+    return trimmed
+
+
+def _validate_trace_archival_repository_support(
+    value: Any, *, parameter_name: str | None = None
+) -> str:
+    location = _validate_trace_archival_location(value, parameter_name=parameter_name)
+    parameter_name = parameter_name or "trace_archival_location"
+
+    # Imported lazily to avoid a module import cycle with artifact repository validation helpers.
+    from mlflow.store.artifact.artifact_repo import ArtifactRepository
+    from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
+    from mlflow.store.artifact.databricks_artifact_repo import DatabricksArtifactRepository
+    from mlflow.store.artifact.dbfs_artifact_repo import DbfsRestArtifactRepository
+
+    artifact_repo = get_artifact_repository(location)
+    if isinstance(artifact_repo, DatabricksArtifactRepository):
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid value for '{parameter_name}'. Trace archival location {location!r} "
+            "resolves to a Databricks trace artifact repository that does not support "
+            "archived trace reads."
+        )
+    if isinstance(artifact_repo, DbfsRestArtifactRepository) or (
+        type(artifact_repo).delete_artifacts is ArtifactRepository.delete_artifacts
+    ):
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid value for '{parameter_name}'. Trace archival location {location!r} "
+            "resolves to an artifact repository that does not support deleting archived payloads."
+        )
+    return location
+
+
+def _parse_trace_archival_duration_config(
+    value: str | None,
+    *,
+    duration_key: str,
+    expected_type: str | None = None,
+    allow_missing_duration: bool = False,
+) -> str | None:
+    if value is None:
+        return None
+
+    try:
+        payload = json.loads(value)
+    except Exception as e:
+        raise MlflowException.invalid_parameter_value(
+            "Trace archival config must be encoded as a JSON object."
+        ) from e
+
+    if not isinstance(payload, dict):
+        raise MlflowException.invalid_parameter_value(
+            "Trace archival config must be encoded as a JSON object."
+        )
+
+    if expected_type is not None and payload.get("type") != expected_type:
+        raise MlflowException.invalid_parameter_value(
+            f"Trace archival config must use type '{expected_type}'."
+        )
+
+    duration_value = payload.get(duration_key)
+    if duration_value is None and allow_missing_duration:
+        return None
+
+    return _validate_trace_archival_retention_string(duration_value)
+
+
+def _validate_trace_experiment_tag(key: str, value: Any) -> None:
+    # Import lazily to avoid coupling the generic validation module to tracing at import time.
+    from mlflow.tracing.constant import TraceExperimentTagKey
+
+    if key == TraceExperimentTagKey.ARCHIVAL_RETENTION:
+        _parse_trace_archival_duration_config(
+            value,
+            duration_key="value",
+            expected_type="duration",
+        )
+    elif key == TraceExperimentTagKey.ARCHIVE_NOW:
+        _parse_trace_archival_duration_config(
+            value,
+            duration_key="older_than",
+            allow_missing_duration=True,
+        )
 
 
 def append_to_json_path(currentPath, value):
@@ -283,6 +441,7 @@ def _validate_experiment_tag(key, value):
     _validate_tag_name(key)
     _validate_length_limit("key", MAX_EXPERIMENT_TAG_KEY_LENGTH, key)
     _validate_length_limit("value", MAX_EXPERIMENT_TAG_VAL_LENGTH, value)
+    _validate_trace_experiment_tag(key, value)
 
 
 def _validate_registered_model_tag(key, value):
@@ -500,14 +659,26 @@ def _validate_list_param(param_name: str, param_value: Any, allow_none: bool = F
         )
 
 
-def _validate_model_name(model_name):
-    if model_name is None or model_name == "":
+def _validate_model_name(model_name: str) -> None:
+    if model_name is None or model_name.strip() == "":
         raise MlflowException(missing_value("name"), error_code=INVALID_PARAMETER_VALUE)
+    invalid_chars = ("/", ":")
+    if any(c in model_name for c in invalid_chars):
+        raise MlflowException(
+            f"Invalid model name '{model_name}'. Names cannot contain '/' or ':'.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    if path_not_unique(model_name):
+        raise MlflowException(
+            invalid_value("name", model_name, bad_path_message(model_name)),
+            INVALID_PARAMETER_VALUE,
+        )
 
 
-def _validate_model_renaming(model_new_name):
-    if model_new_name is None or model_new_name == "":
+def _validate_model_renaming(model_new_name: str) -> None:
+    if model_new_name is None or str(model_new_name).strip() == "":
         raise MlflowException(missing_value("new_name"), error_code=INVALID_PARAMETER_VALUE)
+    _validate_model_name(model_new_name)
 
 
 def _validate_model_version(model_version):
@@ -736,6 +907,33 @@ def _validate_webhook_url(url: str) -> None:
             f"Invalid webhook URL scheme: {parsed_url.scheme!r}. "
             f"Allowed schemes are: {', '.join(schemes)}."
         )
+
+    hostname = parsed_url.hostname
+    if not hostname:
+        raise MlflowException.invalid_parameter_value(
+            f"Webhook URL must include a hostname: {url!r}"
+        )
+
+    if not _MLFLOW_WEBHOOK_ALLOW_PRIVATE_IPS.get():
+        try:
+            addr_infos = socket.getaddrinfo(hostname, None)
+        except socket.gaierror as e:
+            raise MlflowException.invalid_parameter_value(
+                f"Cannot resolve webhook URL hostname {hostname!r}: {e}"
+            ) from e
+
+        for addr_info in addr_infos:
+            try:
+                ip = ipaddress.ip_address(addr_info[4][0])
+            except ValueError as e:
+                raise MlflowException.invalid_parameter_value(
+                    f"Webhook URL hostname {hostname!r} resolved to an invalid IP address: {e}"
+                ) from e
+            if not ip.is_global:
+                raise MlflowException.invalid_parameter_value(
+                    f"Webhook URL must not resolve to a non-public IP address. "
+                    f"{hostname!r} resolves to {ip}."
+                )
 
 
 def _validate_webhook_events(events: list[WebhookEvent]) -> None:

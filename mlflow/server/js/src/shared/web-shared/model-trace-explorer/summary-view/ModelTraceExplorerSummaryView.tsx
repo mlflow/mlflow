@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { Empty, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
@@ -13,9 +13,24 @@ import { ASSESSMENT_PANE_MIN_WIDTH } from '../assessments-pane/AssessmentsPane.u
 export const ModelTraceExplorerSummaryView = () => {
   const { theme } = useDesignSystemTheme();
   const [paneWidth, setPaneWidth] = useState(500);
-  const { rootNode, nodeMap, assessmentsPaneEnabled, assessmentsPaneExpanded, isInComparisonView } =
-    useModelTraceExplorerViewState();
+
+  const {
+    rootNode,
+    nodeMap,
+    assessmentsPaneEnabled,
+    assessmentsPaneExpanded,
+    updatePaneSizeRatios,
+    getPaneSizeRatios,
+  } = useModelTraceExplorerViewState();
+
   const allAssessments = useMemo(() => Object.values(nodeMap).flatMap((node) => node.assessments), [nodeMap]);
+
+  const onSizeRatioChange = useCallback(
+    (ratio: number) => {
+      updatePaneSizeRatios({ summarySidebar: ratio });
+    },
+    [updatePaneSizeRatios],
+  );
 
   const intermediateNodes = useIntermediateNodes(rootNode);
 
@@ -37,15 +52,16 @@ export const ModelTraceExplorerSummaryView = () => {
     <AssessmentsPane assessments={allAssessments} traceId={rootNode.traceId} activeSpanId={undefined} />
   );
 
-  return !isInComparisonView && assessmentsPaneEnabled && assessmentsPaneExpanded ? (
+  return assessmentsPaneEnabled && assessmentsPaneExpanded ? (
     <ModelTraceExplorerResizablePane
-      initialRatio={0.75}
+      initialRatio={getPaneSizeRatios().summarySidebar}
       paneWidth={paneWidth}
       setPaneWidth={setPaneWidth}
       leftChild={<ModelTraceExplorerSummarySpans rootNode={rootNode} intermediateNodes={intermediateNodes} />}
       rightChild={AssessmentsPaneComponent}
-      leftMinWidth={SUMMARY_SPANS_MIN_WIDTH}
-      rightMinWidth={ASSESSMENT_PANE_MIN_WIDTH}
+      leftMinWidth={SUMMARY_SPANS_MIN_WIDTH + 2 * theme.spacing.md}
+      rightMinWidth={ASSESSMENT_PANE_MIN_WIDTH + 2 * theme.spacing.sm}
+      onRatioChange={onSizeRatioChange}
     />
   ) : (
     <ModelTraceExplorerSummarySpans rootNode={rootNode} intermediateNodes={intermediateNodes} />

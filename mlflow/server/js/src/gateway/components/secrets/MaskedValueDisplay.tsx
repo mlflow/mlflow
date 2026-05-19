@@ -10,7 +10,7 @@ interface MaskedValueDisplayProps {
 export const MaskedValueDisplay = ({ maskedValue, compact = false }: MaskedValueDisplayProps) => {
   const { theme } = useDesignSystemTheme();
 
-  const entries = useMemo(() => Object.entries(maskedValue), [maskedValue]);
+  const entries = useMemo(() => Object.entries(maskedValue ?? {}), [maskedValue]);
 
   const isSingleValue = entries.length === 1;
   const singleValue = isSingleValue ? entries[0][1] : null;

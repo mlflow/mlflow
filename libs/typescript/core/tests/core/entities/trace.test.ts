@@ -26,7 +26,7 @@ describe('Trace', () => {
       responsePreview: '{"response": "Hi there"}',
       traceMetadata: { key: 'value' },
       tags: { env: 'test' },
-      assessments: []
+      assessments: [],
     });
   }
 
@@ -63,7 +63,7 @@ describe('Trace', () => {
       expect(json.info).toMatchObject({
         trace_id: 'tr-12345',
         request_time: expect.any(String),
-        state: TraceState.OK
+        state: TraceState.OK,
       });
       expect(json.data).toMatchObject({
         spans: [
@@ -75,12 +75,12 @@ describe('Trace', () => {
             start_time_unix_nano: expect.any(BigInt),
             end_time_unix_nano: expect.any(BigInt),
             attributes: {
-              'mlflow.spanType': 'UNKNOWN'
+              'mlflow.spanType': 'UNKNOWN',
             },
             status: { code: 'STATUS_CODE_UNSET' },
-            events: []
-          }
-        ]
+            events: [],
+          },
+        ],
       });
 
       // Round-trip test

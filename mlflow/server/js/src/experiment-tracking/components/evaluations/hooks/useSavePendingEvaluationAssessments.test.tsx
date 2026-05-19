@@ -96,7 +96,7 @@ describe('useSavePendingEvaluationAssessments', () => {
     });
     jest
       .mocked(uploadArtifactApi)
-      .mockImplementation(() => ({ type: 'uploadArtifactApi', payload: deferredPromise } as any));
+      .mockImplementation(() => ({ type: 'uploadArtifactApi', payload: deferredPromise }) as any);
 
     return result;
   };
@@ -104,7 +104,7 @@ describe('useSavePendingEvaluationAssessments', () => {
   beforeEach(() => {
     jest
       .mocked(uploadArtifactApi)
-      .mockImplementation(() => ({ type: 'uploadArtifactApi', payload: Promise.resolve() } as any));
+      .mockImplementation(() => ({ type: 'uploadArtifactApi', payload: Promise.resolve() }) as any);
     jest.mocked(getArtifactChunkedText).mockImplementation(() => {
       return Promise.resolve(JSON.stringify(sampleExistingAssessmentData));
     });

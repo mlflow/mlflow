@@ -10,7 +10,7 @@ import {
   createSpanFilter,
 } from '@databricks/web-shared/model-trace-explorer';
 import { useTraceMetricsQuery } from './useTraceMetricsQuery';
-import type { OverviewChartProps } from '../types';
+import { useOverviewChartContext } from '../OverviewChartContext';
 
 export interface ToolPerformanceData {
   /** Tool name (span_name) */
@@ -37,15 +37,14 @@ export interface UseToolPerformanceSummaryDataResult {
 /**
  * Custom hook that fetches and processes tool performance summary data.
  * Queries span metrics grouped by tool name to get counts, success rates, and latencies.
+ * Uses OverviewChartContext to get chart props.
  *
- * @param props - Chart props including experimentId and time range
  * @returns Tool performance data, loading state, and error state
  */
 export function useToolPerformanceSummaryData({
-  experimentId,
-  startTimeMs,
-  endTimeMs,
-}: Pick<OverviewChartProps, 'experimentId' | 'startTimeMs' | 'endTimeMs'>): UseToolPerformanceSummaryDataResult {
+  enabled = true,
+}: { enabled?: boolean } = {}): UseToolPerformanceSummaryDataResult {
+  const { experimentIds, startTimeMs, endTimeMs } = useOverviewChartContext();
   // Filter for TOOL type spans
   const toolFilter = useMemo(() => [createSpanFilter(SpanFilterKey.TYPE, SpanType.TOOL)], []);
 
@@ -55,7 +54,7 @@ export function useToolPerformanceSummaryData({
     isLoading: isLoadingCounts,
     error: countsError,
   } = useTraceMetricsQuery({
-    experimentId,
+    experimentIds,
     startTimeMs,
     endTimeMs,
     viewType: MetricViewType.SPANS,
@@ -63,6 +62,7 @@ export function useToolPerformanceSummaryData({
     aggregations: [{ aggregation_type: AggregationType.COUNT }],
     filters: toolFilter,
     dimensions: [SpanDimensionKey.SPAN_NAME, SpanDimensionKey.SPAN_STATUS],
+    enabled,
   });
 
   // Query average latency grouped by span_name
@@ -71,7 +71,7 @@ export function useToolPerformanceSummaryData({
     isLoading: isLoadingLatency,
     error: latencyError,
   } = useTraceMetricsQuery({
-    experimentId,
+    experimentIds,
     startTimeMs,
     endTimeMs,
     viewType: MetricViewType.SPANS,
@@ -79,6 +79,7 @@ export function useToolPerformanceSummaryData({
     aggregations: [{ aggregation_type: AggregationType.AVG }],
     filters: toolFilter,
     dimensions: [SpanDimensionKey.SPAN_NAME],
+    enabled,
   });
 
   // Process data into per-tool performance metrics

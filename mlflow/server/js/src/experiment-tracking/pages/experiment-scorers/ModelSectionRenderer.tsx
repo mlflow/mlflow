@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import type { Control, UseFormSetValue } from 'react-hook-form';
 import { Controller, useWatch } from 'react-hook-form';
 import { useDesignSystemTheme, Typography, Input, FormUI } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
-import { COMPONENT_ID_PREFIX, type ScorerFormMode, SCORER_FORM_MODE } from './constants';
+import { useQueryClient } from '@databricks/web-shared/query-client';
+import { type ScorerFormMode, SCORER_FORM_MODE } from './constants';
 import { EndpointSelector } from '../../components/EndpointSelector';
 import {
   ModelProvider,
@@ -11,19 +12,38 @@ import {
   getEndpointNameFromGatewayModel,
   formatGatewayModelFromEndpoint,
 } from '../../../gateway/utils/gatewayUtils';
+import { useExperimentIds } from '../../components/experiment-page/hooks/useExperimentIds';
 import type { LLMScorerFormData } from './LLMScorerFormRenderer';
 
 export interface ModelSectionRendererProps {
   mode: ScorerFormMode;
   control: Control<LLMScorerFormData>;
   setValue: UseFormSetValue<LLMScorerFormData>;
+  onUserSelect?: (fieldName: keyof LLMScorerFormData, value: string) => void;
 }
 
-export const ModelSectionRenderer: React.FC<ModelSectionRendererProps> = ({ mode, control, setValue }) => {
+export const ModelSectionRenderer: React.FC<ModelSectionRendererProps> = ({
+  mode,
+  control,
+  setValue,
+  onUserSelect,
+}) => {
   const { theme } = useDesignSystemTheme();
+  const queryClient = useQueryClient();
+  const [experimentId] = useExperimentIds();
 
   const currentModel = useWatch({ control, name: 'model' });
   const currentEndpointName = getEndpointNameFromGatewayModel(currentModel);
+
+  // When the endpoint name from the scorer doesn't match any loaded endpoint
+  // (e.g., after a rename), invalidate the scorers cache to refetch from the backend.
+  // The backend re-resolves the stored endpoint ID to the current name.
+  const handleEndpointNotFound = useCallback(() => {
+    if (!experimentId) {
+      return;
+    }
+    queryClient.invalidateQueries(['mlflow', 'scheduled-scorers', experimentId]);
+  }, [queryClient, experimentId]);
 
   const [modelProviderState, setModelProvider] = useState<ModelProvider>(() => getModelProvider(currentModel));
   // In DISPLAY mode, always derive from the actual model value since it's read-only.
@@ -32,7 +52,15 @@ export const ModelSectionRenderer: React.FC<ModelSectionRendererProps> = ({ mode
 
   const handleSwitchProvider = (targetProvider: ModelProvider) => {
     setModelProvider(targetProvider);
-    setValue('model', '');
+    setValue('model', '', { shouldValidate: true, shouldDirty: true });
+    // Toggle automatic evaluation based on model provider:
+    // - Disable when switching to non-gateway model (automatic evaluation only works with gateway)
+    // - Re-enable when switching back to gateway model
+    if (targetProvider === ModelProvider.OTHER) {
+      setValue('sampleRate', 0);
+    } else if (targetProvider === ModelProvider.GATEWAY) {
+      setValue('sampleRate', 100);
+    }
   };
 
   const stopPropagationClick = (e: React.MouseEvent) => {
@@ -49,7 +77,7 @@ export const ModelSectionRenderer: React.FC<ModelSectionRendererProps> = ({ mode
         </FormUI.Label>
         <FormUI.Hint>
           <FormattedMessage
-            defaultMessage="Enter a model identifier (e.g., openai:/gpt-4.1-mini). Scorers using direct models can only be run via the SDK, and API keys must be configured in your environment."
+            defaultMessage="Enter a model identifier (e.g., openai:/gpt-4.1-mini). Scorers using direct models must configure API keys in your local environment."
             description="Hint text for direct model input"
           />
         </FormUI.Hint>
@@ -60,7 +88,7 @@ export const ModelSectionRenderer: React.FC<ModelSectionRendererProps> = ({ mode
           render={({ field }) => (
             <Input
               {...field}
-              componentId={`${COMPONENT_ID_PREFIX}.model-input`}
+              componentId="mlflow.experiment-scorers.model-input"
               id="mlflow-experiment-scorers-model"
               disabled={isReadOnly}
               placeholder="openai:/gpt-4.1-mini"
@@ -72,7 +100,7 @@ export const ModelSectionRenderer: React.FC<ModelSectionRendererProps> = ({ mode
         {!isReadOnly && (
           <div css={{ marginTop: theme.spacing.sm }}>
             <Typography.Link
-              componentId={`${COMPONENT_ID_PREFIX}.switch-to-endpoint-link`}
+              componentId="mlflow.experiment-scorers.switch-to-endpoint-link"
               onClick={() => handleSwitchProvider(ModelProvider.GATEWAY)}
               css={{ cursor: 'pointer' }}
             >
@@ -106,9 +134,14 @@ export const ModelSectionRenderer: React.FC<ModelSectionRendererProps> = ({ mode
           <div css={{ marginTop: theme.spacing.sm }} onClick={stopPropagationClick}>
             <EndpointSelector
               currentEndpointName={currentEndpointName}
-              onEndpointSelect={(endpointName) => field.onChange(formatGatewayModelFromEndpoint(endpointName))}
+              onEndpointSelect={(endpointName) => {
+                const modelValue = formatGatewayModelFromEndpoint(endpointName);
+                setValue('model', modelValue, { shouldValidate: true, shouldDirty: true });
+                onUserSelect?.('model', modelValue);
+              }}
               disabled={isReadOnly}
-              componentIdPrefix={`${COMPONENT_ID_PREFIX}.endpoint`}
+              componentIdPrefix="mlflow.experiment-scorers.endpoint"
+              onEndpointNotFound={handleEndpointNotFound}
             />
           </div>
         )}
@@ -118,17 +151,17 @@ export const ModelSectionRenderer: React.FC<ModelSectionRendererProps> = ({ mode
           <Typography.Text color="secondary" size="sm">
             <FormattedMessage
               defaultMessage="Or {enterManually}"
-              description="Text with link to switch to manual model entry"
+              description="Text with link to switch to direct model identifier input"
               values={{
                 enterManually: (
                   <Typography.Link
-                    componentId={`${COMPONENT_ID_PREFIX}.switch-to-manual-link`}
+                    componentId="mlflow.experiment-scorers.switch-to-manual-link"
                     onClick={() => handleSwitchProvider(ModelProvider.OTHER)}
                     css={{ cursor: 'pointer' }}
                   >
                     <FormattedMessage
-                      defaultMessage="enter model manually"
-                      description="Link text to switch to manual model input"
+                      defaultMessage="enter a model identifier"
+                      description="Link text to switch to direct model identifier input"
                     />
                   </Typography.Link>
                 ),

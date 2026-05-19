@@ -14,7 +14,7 @@ const getQueryKey = (loggedModelId: string): UseGetLoggedModelQueryKey => ['GET_
 const queryFn = async ({
   queryKey: [, loggedModelId],
 }: QueryFunctionContext<UseGetLoggedModelQueryKey>): Promise<UseGetLoggedModelQueryResponseType> =>
-  fetchAPI(getAjaxUrl(`ajax-api/2.0/mlflow/logged-models/${loggedModelId}`), 'GET');
+  fetchAPI(getAjaxUrl(`ajax-api/2.0/mlflow/logged-models/${loggedModelId}`));
 
 /**
  * Retrieve logged model from API based on its ID
@@ -69,7 +69,7 @@ export const asyncGetLoggedModel = async (
   failSilently = false,
 ): Promise<UseGetLoggedModelQueryResponseType | undefined> => {
   try {
-    const data = await fetchAPI(getAjaxUrl(`ajax-api/2.0/mlflow/logged-models/${loggedModelId}`), 'GET');
+    const data = await fetchAPI(getAjaxUrl(`ajax-api/2.0/mlflow/logged-models/${loggedModelId}`));
     return data;
   } catch (error) {
     if (failSilently) {

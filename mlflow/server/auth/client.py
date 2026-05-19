@@ -1,30 +1,35 @@
 from mlflow.server.auth.entities import (
-    ExperimentPermission,
-    RegisteredModelPermission,
-    ScorerPermission,
+    GetUserPermissionResult,
+    Role,
+    RolePermission,
     User,
+    UserRoleAssignment,
 )
 from mlflow.server.auth.routes import (
-    CREATE_EXPERIMENT_PERMISSION,
-    CREATE_REGISTERED_MODEL_PERMISSION,
-    CREATE_SCORER_PERMISSION,
+    ADD_ROLE_PERMISSION,
+    ASSIGN_ROLE,
+    CREATE_ROLE,
     CREATE_USER,
-    DELETE_EXPERIMENT_PERMISSION,
-    DELETE_REGISTERED_MODEL_PERMISSION,
-    DELETE_SCORER_PERMISSION,
+    DELETE_ROLE,
     DELETE_USER,
-    GET_EXPERIMENT_PERMISSION,
-    GET_REGISTERED_MODEL_PERMISSION,
-    GET_SCORER_PERMISSION,
+    GET_ROLE,
     GET_USER,
-    UPDATE_EXPERIMENT_PERMISSION,
-    UPDATE_REGISTERED_MODEL_PERMISSION,
-    UPDATE_SCORER_PERMISSION,
+    GET_USER_PERMISSION,
+    GRANT_USER_PERMISSION,
+    LIST_ROLE_PERMISSIONS,
+    LIST_ROLE_USERS,
+    LIST_ROLES,
+    LIST_USER_ROLES,
+    REMOVE_ROLE_PERMISSION,
+    REVOKE_USER_PERMISSION,
+    UNASSIGN_ROLE,
+    UPDATE_ROLE,
+    UPDATE_ROLE_PERMISSION,
     UPDATE_USER_ADMIN,
     UPDATE_USER_PASSWORD,
 )
 from mlflow.utils.credentials import get_default_host_creds
-from mlflow.utils.rest_utils import http_request_safe
+from mlflow.utils.rest_utils import http_request, verify_rest_response
 
 
 class AuthServiceClient:
@@ -41,9 +46,12 @@ class AuthServiceClient:
         """
         self.tracking_uri = tracking_uri
 
-    def _request(self, endpoint, method, **kwargs):
+    def _request(self, endpoint, method, *, expected_status: int = 200, **kwargs):
         host_creds = get_default_host_creds(self.tracking_uri)
-        resp = http_request_safe(host_creds, endpoint, method, **kwargs)
+        resp = http_request(host_creds, endpoint, method, **kwargs)
+        resp = verify_rest_response(resp, endpoint, expected_status=expected_status)
+        if resp.status_code == 204 or not resp.content:
+            return {}
         return resp.json()
 
     def create_user(self, username: str, password: str):
@@ -134,16 +142,23 @@ class AuthServiceClient:
         )
         return User.from_json(resp["user"])
 
-    def update_user_password(self, username: str, password: str):
+    def update_user_password(
+        self, username: str, password: str, current_password: str | None = None
+    ):
         """
         Update the password of a specific user.
 
         Args:
             username: The username.
             password: The new password.
+            current_password: The user's current password. Required when a user
+                is changing their own password (self-service); the server
+                rejects the request otherwise. Admins changing someone else's
+                password may omit this argument.
 
         Raises:
-            mlflow.exceptions.RestException: if the user does not exist
+            mlflow.exceptions.RestException: if the user does not exist, or if
+                ``current_password`` is required and missing or incorrect.
 
         .. code-block:: bash
             :caption: Example
@@ -158,12 +173,21 @@ class AuthServiceClient:
             client = AuthServiceClient("tracking_uri")
             client.create_user("newuser", "newpassword")
 
+            # Admin path — no current_password needed.
             client.update_user_password("newuser", "anotherpassword")
+
+            # Self-service path — current_password required.
+            client.update_user_password(
+                "newuser", "thirdpassword", current_password="anotherpassword"
+            )
         """
+        body = {"username": username, "password": password}
+        if current_password is not None:
+            body["current_password"] = current_password
         self._request(
             UPDATE_USER_PASSWORD,
             "PATCH",
-            json={"username": username, "password": password},
+            json=body,
         )
 
     def update_user_admin(self, username: str, is_admin: bool):
@@ -229,429 +253,142 @@ class AuthServiceClient:
             json={"username": username},
         )
 
-    def create_experiment_permission(self, experiment_id: str, username: str, permission: str):
-        """
-        Create a permission on an experiment for a user.
+    # ---- Role management (RBAC) ----
 
-        Args:
-            experiment_id: The id of the experiment.
-            username: The username.
-            permission: Permission to grant. Must be one of "READ", "EDIT", "MANAGE" and
-                "NO_PERMISSIONS".
+    def create_role(
+        self,
+        workspace: str,
+        name: str,
+        description: str | None = None,
+    ) -> Role:
+        payload = {"workspace": workspace, "name": name}
+        if description is not None:
+            payload["description"] = description
+        resp = self._request(CREATE_ROLE, "POST", json=payload)
+        return Role.from_json(resp["role"])
 
-        Raises:
-            mlflow.exceptions.RestException: if the user does not exist, or a permission already
-                exists for this experiment user pair, or if the permission is invalid. Does not
-                require ``experiment_id`` to be an existing experiment.
+    def get_role(self, role_id: int) -> Role:
+        resp = self._request(GET_ROLE, "GET", params={"role_id": str(role_id)})
+        return Role.from_json(resp["role"])
 
-        Returns:
-            A single :py:class:`mlflow.server.auth.entities.ExperimentPermission` object.
+    def list_roles(self, workspace: str) -> list[Role]:
+        resp = self._request(LIST_ROLES, "GET", params={"workspace": workspace})
+        return [Role.from_json(r) for r in resp["roles"]]
 
-        .. code-block:: bash
-            :caption: Example
+    def update_role(
+        self, role_id: int, name: str | None = None, description: str | None = None
+    ) -> Role:
+        payload: dict[str, object] = {"role_id": role_id}
+        if name is not None:
+            payload["name"] = name
+        if description is not None:
+            payload["description"] = description
+        resp = self._request(UPDATE_ROLE, "PATCH", json=payload)
+        return Role.from_json(resp["role"])
 
-            export MLFLOW_TRACKING_USERNAME=admin
-            export MLFLOW_TRACKING_PASSWORD=password
+    def delete_role(self, role_id: int) -> None:
+        self._request(DELETE_ROLE, "DELETE", json={"role_id": role_id})
 
-        .. code-block:: python
-
-            from mlflow.server.auth.client import AuthServiceClient
-
-            client = AuthServiceClient("tracking_uri")
-            client.create_user("newuser", "newpassword")
-            ep = client.create_experiment_permission("myexperiment", "newuser", "READ")
-
-            print(f"experiment_id: {ep.experiment_id}")
-            print(f"user_id: {ep.user_id}")
-            print(f"permission: {ep.permission}")
-
-        .. code-block:: text
-            :caption: Output
-
-            experiment_id: myexperiment
-            user_id: 3
-            permission: READ
-        """
+    def add_role_permission(
+        self, role_id: int, resource_type: str, resource_pattern: str, permission: str
+    ) -> RolePermission:
         resp = self._request(
-            CREATE_EXPERIMENT_PERMISSION,
-            "POST",
-            json={"experiment_id": experiment_id, "username": username, "permission": permission},
-        )
-        return ExperimentPermission.from_json(resp["experiment_permission"])
-
-    def get_experiment_permission(self, experiment_id: str, username: str):
-        """
-        Get an experiment permission for a user.
-
-        Args:
-            experiment_id: The id of the experiment.
-            username: The username.
-
-        Raises:
-            mlflow.exceptions.RestException: if the user does not exist,
-                or no permission exists for this experiment user pair.
-                Note that the default permission will still be effective even if
-                no permission exists.
-
-        Returns:
-            A single :py:class:`mlflow.server.auth.entities.ExperimentPermission` object.
-
-        .. code-block:: bash
-            :caption: Example
-
-            export MLFLOW_TRACKING_USERNAME=admin
-            export MLFLOW_TRACKING_PASSWORD=password
-
-        .. code-block:: python
-
-            from mlflow.server.auth.client import AuthServiceClient
-
-            client = AuthServiceClient("tracking_uri")
-            client.create_user("newuser", "newpassword")
-            client.create_experiment_permission("myexperiment", "newuser", "READ")
-            ep = client.get_experiment_permission("myexperiment", "newuser")
-            print(f"experiment_id: {ep.experiment_id}")
-            print(f"user_id: {ep.user_id}")
-            print(f"permission: {ep.permission}")
-
-        .. code-block:: text
-            :caption: Output
-
-            experiment_id: myexperiment
-            user_id: 3
-            permission: READ
-        """
-        resp = self._request(
-            GET_EXPERIMENT_PERMISSION,
-            "GET",
-            params={"experiment_id": experiment_id, "username": username},
-        )
-        return ExperimentPermission.from_json(resp["experiment_permission"])
-
-    def update_experiment_permission(self, experiment_id: str, username: str, permission: str):
-        """
-        Update an existing experiment permission for a user.
-
-        Args:
-            experiment_id: The id of the experiment.
-            username: The username.
-            permission: New permission to grant. Must be one of "READ", "EDIT", "MANAGE" and
-                "NO_PERMISSIONS".
-
-        Raises:
-            mlflow.exceptions.RestException: if the user does not exist, or no permission exists for
-                this experiment user pair, or if the permission is invalid
-
-        .. code-block:: bash
-            :caption: Example
-
-            export MLFLOW_TRACKING_USERNAME=admin
-            export MLFLOW_TRACKING_PASSWORD=password
-
-        .. code-block:: python
-
-            from mlflow.server.auth.client import AuthServiceClient
-
-            client = AuthServiceClient("tracking_uri")
-            client.create_user("newuser", "newpassword")
-            client.create_experiment_permission("myexperiment", "newuser", "READ")
-            client.update_experiment_permission("myexperiment", "newuser", "EDIT")
-        """
-        self._request(
-            UPDATE_EXPERIMENT_PERMISSION,
-            "PATCH",
-            json={"experiment_id": experiment_id, "username": username, "permission": permission},
-        )
-
-    def delete_experiment_permission(self, experiment_id: str, username: str):
-        """
-        Delete an existing experiment permission for a user.
-
-        Args:
-            experiment_id: The id of the experiment.
-            username: The username.
-
-        Raises:
-            mlflow.exceptions.RestException: if the user does not exist, or no permission exists for
-                this experiment user pair, or if the permission is invalid.
-                Note that the default permission will still be effective even
-                after the permission has been deleted.
-
-
-        .. code-block:: bash
-            :caption: Example
-
-            export MLFLOW_TRACKING_USERNAME=admin
-            export MLFLOW_TRACKING_PASSWORD=password
-
-        .. code-block:: python
-
-            from mlflow.server.auth.client import AuthServiceClient
-
-            client = AuthServiceClient("tracking_uri")
-            client.create_user("newuser", "newpassword")
-            client.create_experiment_permission("myexperiment", "newuser", "READ")
-            client.delete_experiment_permission("myexperiment", "newuser")
-        """
-        self._request(
-            DELETE_EXPERIMENT_PERMISSION,
-            "DELETE",
-            json={"experiment_id": experiment_id, "username": username},
-        )
-
-    def create_registered_model_permission(self, name: str, username: str, permission: str):
-        """
-        Create a permission on an registered model for a user.
-
-        Args:
-            name: The name of the registered model.
-            username: The username.
-            permission: Permission to grant. Must be one of "READ", "EDIT", "MANAGE" and
-                "NO_PERMISSIONS".
-
-        Raises:
-            mlflow.exceptions.RestException: if the user does not exist,
-                or a permission already exists for this registered model user pair,
-                or if the permission is invalid.
-                Does not require ``name`` to be an existing registered model.
-
-        Returns:
-            A single :py:class:`mlflow.server.auth.entities.RegisteredModelPermission` object.
-        """
-        resp = self._request(
-            CREATE_REGISTERED_MODEL_PERMISSION,
-            "POST",
-            json={"name": name, "username": username, "permission": permission},
-        )
-        return RegisteredModelPermission.from_json(resp["registered_model_permission"])
-
-    def get_registered_model_permission(self, name: str, username: str):
-        """
-        Get an registered model permission for a user.
-
-        Args:
-            name: The name of the registered model.
-            username: The username.
-
-        Raises:
-            mlflow.exceptions.RestException: if the user does not
-                exist, or no permission exists for this registered model user pair. Note that the
-                default permission will still be effective even if no permission exists.
-
-        Returns:
-             A single :py:class:`mlflow.server.auth.entities.RegisteredModelPermission` object.
-
-        .. code-block:: bash
-            :caption: Example
-
-            export MLFLOW_TRACKING_USERNAME=admin
-            export MLFLOW_TRACKING_PASSWORD=password
-
-        .. code-block:: python
-
-            from mlflow.server.auth.client import AuthServiceClient
-
-            client = AuthServiceClient("tracking_uri")
-            client.create_user("newuser", "newpassword")
-            client.create_registered_model_permission("myregisteredmodel", "newuser", "READ")
-            rmp = client.get_registered_model_permission("myregisteredmodel", "newuser")
-
-            print(f"name: {rmp.name}")
-            print(f"user_id: {rmp.user_id}")
-            print(f"permission: {rmp.permission}")
-
-        .. code-block:: text
-            :caption: Output
-
-            name: myregisteredmodel
-            user_id: 3
-            permission: READ
-        """
-        resp = self._request(
-            GET_REGISTERED_MODEL_PERMISSION,
-            "GET",
-            params={"name": name, "username": username},
-        )
-        return RegisteredModelPermission.from_json(resp["registered_model_permission"])
-
-    def update_registered_model_permission(self, name: str, username: str, permission: str):
-        """
-        Update an existing registered model permission for a user.
-
-        Args:
-            name: The name of the registered model.
-            username: The username.
-            permission: New permission to grant. Must be one of "READ", "EDIT", "MANAGE" and
-                "NO_PERMISSIONS".
-
-        Raises:
-            mlflow.exceptions.RestException: if the user does not exist, or no permission exists for
-                this registered model user pair, or if the permission is invalid.
-
-        .. code-block:: bash
-            :caption: Example
-
-            export MLFLOW_TRACKING_USERNAME=admin
-            export MLFLOW_TRACKING_PASSWORD=password
-
-        .. code-block:: python
-
-            from mlflow.server.auth.client import AuthServiceClient
-
-            client = AuthServiceClient("tracking_uri")
-            client.create_user("newuser", "newpassword")
-            client.create_registered_model_permission("myregisteredmodel", "newuser", "READ")
-            client.update_registered_model_permission("myregisteredmodel", "newuser", "EDIT")
-        """
-        self._request(
-            UPDATE_REGISTERED_MODEL_PERMISSION,
-            "PATCH",
-            json={"name": name, "username": username, "permission": permission},
-        )
-
-    def delete_registered_model_permission(self, name: str, username: str):
-        """
-        Delete an existing registered model permission for a user.
-
-        Args:
-            name: The name of the registered model.
-            username: The username.
-
-        Raises:
-            mlflow.exceptions.RestException: if the user does not exist,
-                or no permission exists for this registered model user pair,
-                or if the permission is invalid.
-                Note that the default permission will still be effective even
-                after the permission has been deleted.
-
-        .. code-block:: bash
-            :caption: Example
-
-            export MLFLOW_TRACKING_USERNAME=admin
-            export MLFLOW_TRACKING_PASSWORD=password
-
-        .. code-block:: python
-
-            from mlflow.server.auth.client import AuthServiceClient
-
-            client = AuthServiceClient("tracking_uri")
-            client.create_user("newuser", "newpassword")
-            client.create_registered_model_permission("myregisteredmodel", "newuser", "READ")
-            client.delete_registered_model_permission("myregisteredmodel", "newuser")
-        """
-        self._request(
-            DELETE_REGISTERED_MODEL_PERMISSION,
-            "DELETE",
-            json={"name": name, "username": username},
-        )
-
-    def create_scorer_permission(
-        self, experiment_id: str, scorer_name: str, username: str, permission: str
-    ):
-        """
-        Create a permission on a scorer for a user.
-
-        Args:
-            experiment_id: The id of the experiment containing the scorer.
-            scorer_name: The name of the scorer.
-            username: The username.
-            permission: Permission to grant. Must be one of "READ", "EDIT", "MANAGE" and
-                "NO_PERMISSIONS".
-
-        Raises:
-            mlflow.exceptions.RestException: if the user does not exist,
-                or the scorer permission already exists.
-
-        Returns:
-            A single :py:class:`mlflow.server.auth.entities.ScorerPermission` object.
-        """
-        resp = self._request(
-            CREATE_SCORER_PERMISSION,
+            ADD_ROLE_PERMISSION,
             "POST",
             json={
-                "experiment_id": experiment_id,
-                "scorer_name": scorer_name,
-                "username": username,
+                "role_id": role_id,
+                "resource_type": resource_type,
+                "resource_pattern": resource_pattern,
                 "permission": permission,
             },
         )
-        return ScorerPermission.from_json(resp["scorer_permission"])
+        return RolePermission.from_json(resp["role_permission"])
 
-    def get_scorer_permission(self, experiment_id: str, scorer_name: str, username: str):
-        """
-        Get a scorer permission for a user.
+    def remove_role_permission(self, role_permission_id: int) -> None:
+        self._request(
+            REMOVE_ROLE_PERMISSION, "DELETE", json={"role_permission_id": role_permission_id}
+        )
 
-        Args:
-            experiment_id: The id of the experiment containing the scorer.
-            scorer_name: The name of the scorer.
-            username: The username.
+    def list_role_permissions(self, role_id: int) -> list[RolePermission]:
+        resp = self._request(LIST_ROLE_PERMISSIONS, "GET", params={"role_id": str(role_id)})
+        return [RolePermission.from_json(p) for p in resp["role_permissions"]]
 
-        Raises:
-            mlflow.exceptions.RestException: if the user does not exist,
-                or no permission exists for this scorer user pair.
-
-        Returns:
-            A single :py:class:`mlflow.server.auth.entities.ScorerPermission` object.
-        """
+    def update_role_permission(self, role_permission_id: int, permission: str) -> RolePermission:
         resp = self._request(
-            GET_SCORER_PERMISSION,
+            UPDATE_ROLE_PERMISSION,
+            "PATCH",
+            json={"role_permission_id": role_permission_id, "permission": permission},
+        )
+        return RolePermission.from_json(resp["role_permission"])
+
+    def assign_role(self, username: str, role_id: int) -> UserRoleAssignment:
+        resp = self._request(ASSIGN_ROLE, "POST", json={"username": username, "role_id": role_id})
+        return UserRoleAssignment.from_json(resp["assignment"])
+
+    def unassign_role(self, username: str, role_id: int) -> None:
+        self._request(UNASSIGN_ROLE, "DELETE", json={"username": username, "role_id": role_id})
+
+    def list_user_roles(self, username: str) -> list[Role]:
+        resp = self._request(LIST_USER_ROLES, "GET", params={"username": username})
+        return [Role.from_json(r) for r in resp["roles"]]
+
+    def list_role_users(self, role_id: int) -> list[UserRoleAssignment]:
+        resp = self._request(LIST_ROLE_USERS, "GET", params={"role_id": str(role_id)})
+        return [UserRoleAssignment.from_json(a) for a in resp["assignments"]]
+
+    def list_all_roles(self) -> list[Role]:
+        # Same endpoint as list_roles; omitting the ``workspace`` param returns the
+        # cross-workspace listing (admin-only, enforced server-side).
+        resp = self._request(LIST_ROLES, "GET")
+        return [Role.from_json(r) for r in resp["roles"]]
+
+    # ---- Unified per-user permission convenience APIs ----
+    # Grant / revoke / check one resource permission for a user. Preserve the
+    # legacy per-resource MANAGE delegation (per-resource MANAGE gates writes)
+    # via a uniform ``(resource_type, resource_id)`` shape.
+
+    def grant_user_permission(
+        self,
+        username: str,
+        resource_type: str,
+        resource_id: str,
+        permission: str,
+    ) -> None:
+        self._request(
+            GRANT_USER_PERMISSION,
+            "POST",
+            json={
+                "username": username,
+                "resource_type": resource_type,
+                "resource_id": resource_id,
+                "permission": permission,
+            },
+        )
+
+    def revoke_user_permission(self, username: str, resource_type: str, resource_id: str) -> None:
+        self._request(
+            REVOKE_USER_PERMISSION,
+            "POST",
+            json={
+                "username": username,
+                "resource_type": resource_type,
+                "resource_id": resource_id,
+            },
+        )
+
+    def get_user_permission(
+        self,
+        username: str,
+        resource_type: str,
+        resource_id: str,
+    ) -> GetUserPermissionResult:
+        resp = self._request(
+            GET_USER_PERMISSION,
             "GET",
             params={
-                "experiment_id": experiment_id,
-                "scorer_name": scorer_name,
                 "username": username,
+                "resource_type": resource_type,
+                "resource_id": resource_id,
             },
         )
-        return ScorerPermission.from_json(resp["scorer_permission"])
-
-    def update_scorer_permission(
-        self, experiment_id: str, scorer_name: str, username: str, permission: str
-    ):
-        """
-        Update an existing scorer permission for a user.
-
-        Args:
-            experiment_id: The id of the experiment containing the scorer.
-            scorer_name: The name of the scorer.
-            username: The username.
-            permission: New permission to grant. Must be one of "READ", "EDIT", "MANAGE" and
-                "NO_PERMISSIONS".
-
-        Raises:
-            mlflow.exceptions.RestException: if the user does not exist,
-                or no permission exists for this scorer user pair,
-                or if the permission is invalid.
-        """
-        self._request(
-            UPDATE_SCORER_PERMISSION,
-            "PATCH",
-            json={
-                "experiment_id": experiment_id,
-                "scorer_name": scorer_name,
-                "username": username,
-                "permission": permission,
-            },
-        )
-
-    def delete_scorer_permission(self, experiment_id: str, scorer_name: str, username: str):
-        """
-        Delete an existing scorer permission for a user.
-
-        Args:
-            experiment_id: The id of the experiment containing the scorer.
-            scorer_name: The name of the scorer.
-            username: The username.
-
-        Raises:
-            mlflow.exceptions.RestException: if the user does not exist,
-                or no permission exists for this scorer user pair.
-        """
-        self._request(
-            DELETE_SCORER_PERMISSION,
-            "DELETE",
-            json={
-                "experiment_id": experiment_id,
-                "scorer_name": scorer_name,
-                "username": username,
-            },
-        )
+        return GetUserPermissionResult.from_json(resp)

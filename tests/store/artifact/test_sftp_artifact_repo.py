@@ -1,6 +1,5 @@
 import os
 import posixpath
-from tempfile import NamedTemporaryFile
 
 import pytest
 
@@ -41,20 +40,19 @@ def test_list_artifacts(tmp_path, artifact_path):
 
 
 @pytest.mark.parametrize("artifact_path", [None, "sub_dir", "very/nested/sub/dir"])
-def test_log_artifact(artifact_path):
+def test_log_artifact(artifact_path, tmp_path):
     file_content = "A simple test artifact\nThe artifact is located in: " + str(artifact_path)
-    with NamedTemporaryFile(mode="w") as local, TempDir() as remote:
-        local.write(file_content)
-        local.flush()
-
+    local = tmp_path / "local_file"
+    local.write_text(file_content)
+    with TempDir() as remote:
         sftp_path = "sftp://" + remote.path()
         store = SFTPArtifactRepository(sftp_path)
-        store.log_artifact(local.name, artifact_path)
+        store.log_artifact(str(local), artifact_path)
 
         remote_file = posixpath.join(
             remote.path(),
             "." if artifact_path is None else artifact_path,
-            os.path.basename(local.name),
+            local.name,
         )
         assert posixpath.isfile(remote_file)
 
@@ -95,20 +93,19 @@ def test_log_artifacts(artifact_path):
 
 
 @pytest.mark.parametrize("artifact_path", [None, "sub_dir", "very/nested/sub/dir"])
-def test_delete_artifact(artifact_path):
+def test_delete_artifact(artifact_path, tmp_path):
     file_content = f"A simple test artifact\nThe artifact is located in: {artifact_path}"
-    with NamedTemporaryFile(mode="w") as local, TempDir() as remote:
-        local.write(file_content)
-        local.flush()
-
+    local = tmp_path / "local_file"
+    local.write_text(file_content)
+    with TempDir() as remote:
         sftp_path = f"sftp://{remote.path()}"
         store = SFTPArtifactRepository(sftp_path)
-        store.log_artifact(local.name, artifact_path)
+        store.log_artifact(str(local), artifact_path)
 
         remote_file = posixpath.join(
             remote.path(),
             "." if artifact_path is None else artifact_path,
-            os.path.basename(local.name),
+            local.name,
         )
         assert posixpath.isfile(remote_file)
 

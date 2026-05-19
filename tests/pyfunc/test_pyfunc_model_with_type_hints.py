@@ -137,25 +137,19 @@ class CustomExample2(pydantic.BaseModel):
         # Pydantic Models
         (
             list[CustomExample],
-            Schema(
-                [
-                    ColSpec(
-                        type=Object(
-                            [
-                                Property(name="long_field", dtype=DataType.long),
-                                Property(name="str_field", dtype=DataType.string),
-                                Property(name="bool_field", dtype=DataType.boolean),
-                                Property(name="double_field", dtype=DataType.double),
-                                Property(name="any_field", dtype=AnyType()),
-                                Property(
-                                    name="optional_str", dtype=DataType.string, required=False
-                                ),
-                                Property(name="str_or_none", dtype=DataType.string, required=False),
-                            ]
-                        )
-                    ),
-                ]
-            ),
+            Schema([
+                ColSpec(
+                    type=Object([
+                        Property(name="long_field", dtype=DataType.long),
+                        Property(name="str_field", dtype=DataType.string),
+                        Property(name="bool_field", dtype=DataType.boolean),
+                        Property(name="double_field", dtype=DataType.double),
+                        Property(name="any_field", dtype=AnyType()),
+                        Property(name="optional_str", dtype=DataType.string, required=False),
+                        Property(name="str_or_none", dtype=DataType.string, required=False),
+                    ])
+                ),
+            ]),
             [
                 {
                     "long_field": 123,
@@ -170,30 +164,24 @@ class CustomExample2(pydantic.BaseModel):
         ),
         (
             list[CustomExample2],
-            Schema(
-                [
-                    ColSpec(
-                        type=Object(
-                            [
-                                Property(name="custom_field", dtype=Map(AnyType())),
-                                Property(
-                                    name="messages",
-                                    dtype=Array(
-                                        Object(
-                                            [
-                                                Property(name="role", dtype=DataType.string),
-                                                Property(name="content", dtype=DataType.string),
-                                            ]
-                                        )
-                                    ),
-                                ),
-                                Property(name="optional_int", dtype=DataType.long, required=False),
-                                Property(name="int_or_none", dtype=DataType.long, required=False),
-                            ]
-                        )
-                    )
-                ]
-            ),
+            Schema([
+                ColSpec(
+                    type=Object([
+                        Property(name="custom_field", dtype=Map(AnyType())),
+                        Property(
+                            name="messages",
+                            dtype=Array(
+                                Object([
+                                    Property(name="role", dtype=DataType.string),
+                                    Property(name="content", dtype=DataType.string),
+                                ])
+                            ),
+                        ),
+                        Property(name="optional_int", dtype=DataType.long, required=False),
+                        Property(name="int_or_none", dtype=DataType.long, required=False),
+                    ])
+                )
+            ]),
             [
                 {
                     "custom_field": {"a": 1},
@@ -304,24 +292,20 @@ class CustomExample3(pydantic.BaseModel):
         # Pydantic Models
         (
             list[CustomExample3],
-            StructType(
-                [
-                    StructField("custom_field", MapType(StringType(), ArrayType(StringType()))),
-                    StructField(
-                        "messages",
-                        ArrayType(
-                            StructType(
-                                [
-                                    StructField("role", StringType(), False),
-                                    StructField("content", StringType(), False),
-                                ]
-                            )
-                        ),
+            StructType([
+                StructField("custom_field", MapType(StringType(), ArrayType(StringType()))),
+                StructField(
+                    "messages",
+                    ArrayType(
+                        StructType([
+                            StructField("role", StringType(), False),
+                            StructField("content", StringType(), False),
+                        ])
                     ),
-                    StructField("optional_int", IntegerType()),
-                    StructField("int_or_none", IntegerType()),
-                ]
-            ),
+                ),
+                StructField("optional_int", IntegerType()),
+                StructField("int_or_none", IntegerType()),
+            ]),
             [
                 {
                     "custom_field": {"a": ["a", "b", "c"]},
@@ -636,9 +620,10 @@ def test_callable_local_testing():
         return {m.role: m.content for m in messages}
 
     assert predict([Message(role="admin", content="hello")]) == {"admin": "hello"}
-    assert predict(
-        [{"role": "admin", "content": "hello"}, {"role": "user", "content": "hello"}]
-    ) == {"admin": "hello", "user": "hello"}
+    assert predict([
+        {"role": "admin", "content": "hello"},
+        {"role": "user", "content": "hello"},
+    ]) == {"admin": "hello", "user": "hello"}
     pdf = pd.DataFrame([[{"role": "admin", "content": "hello"}]])
     assert predict(pdf) == {"admin": "hello"}
 
@@ -650,9 +635,10 @@ def test_callable_local_testing():
         )
     pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
     assert pyfunc_model.predict([Message(role="admin", content="hello")]) == {"admin": "hello"}
-    assert pyfunc_model.predict(
-        [{"role": "admin", "content": "hello"}, {"role": "user", "content": "hello"}]
-    ) == {"admin": "hello", "user": "hello"}
+    assert pyfunc_model.predict([
+        {"role": "admin", "content": "hello"},
+        {"role": "user", "content": "hello"},
+    ]) == {"admin": "hello", "user": "hello"}
     assert pyfunc_model.predict(pdf) == {"admin": "hello"}
 
     # without decorator
@@ -707,9 +693,10 @@ def test_python_model_local_testing_data_validation():
 
     model = Model()
     assert model.predict([Message(role="admin", content="hello")]) == {"admin": "hello"}
-    assert model.predict(
-        [{"role": "admin", "content": "hello"}, {"role": "user", "content": "hello"}]
-    ) == {"admin": "hello", "user": "hello"}
+    assert model.predict([
+        {"role": "admin", "content": "hello"},
+        {"role": "user", "content": "hello"},
+    ]) == {"admin": "hello", "user": "hello"}
     pdf = pd.DataFrame([[{"role": "admin", "content": "hello"}]])
     assert model.predict(pdf) == {"admin": "hello"}
 
@@ -719,9 +706,10 @@ def test_python_model_local_testing_data_validation():
         )
     pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
     assert pyfunc_model.predict([Message(role="admin", content="hello")]) == {"admin": "hello"}
-    assert pyfunc_model.predict(
-        [{"role": "admin", "content": "hello"}, {"role": "user", "content": "hello"}]
-    ) == {"admin": "hello", "user": "hello"}
+    assert pyfunc_model.predict([
+        {"role": "admin", "content": "hello"},
+        {"role": "user", "content": "hello"},
+    ]) == {"admin": "hello", "user": "hello"}
     assert pyfunc_model.predict(pdf) == {"admin": "hello"}
 
 
@@ -1118,15 +1106,13 @@ def test_type_hint_warning_not_shown_for_builtin_subclasses():
         # Note: DO NOT USE importlib.reload as classes in the reloaded
         # module are different than original ones, which could cause unintended
         # side effects in other tests.
-        subprocess.check_call(
-            [
-                sys.executable,
-                "-W",
-                "error::UserWarning:mlflow.pyfunc.model",
-                "-c",
-                "import mlflow.pyfunc.model",
-            ]
-        )
+        subprocess.check_call([
+            sys.executable,
+            "-W",
+            "error::UserWarning:mlflow.pyfunc.model",
+            "-c",
+            "import mlflow.pyfunc.model",
+        ])
 
 
 def test_load_context_type_hint():

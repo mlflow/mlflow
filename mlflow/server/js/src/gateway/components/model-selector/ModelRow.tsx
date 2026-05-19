@@ -3,15 +3,15 @@ import { Radio, Tooltip, Typography, useDesignSystemTheme, WarningFillIcon } fro
 import { CostIndicator } from './CostIndicator';
 import { formatTokens } from '../../utils/formatters';
 import type { ProviderModel } from '../../types';
+import { getModelCapabilities } from '../../utils/getModelCapabilities';
 
 interface ModelRowProps {
   model: ProviderModel;
   isSelected: boolean;
-  costTier: number;
   onSelect: (modelId: string) => void;
 }
 
-export const ModelRow = ({ model, isSelected, costTier, onSelect }: ModelRowProps) => {
+export const ModelRow = ({ model, isSelected, onSelect }: ModelRowProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const contextWindow = formatTokens(model.max_input_tokens);
@@ -21,7 +21,7 @@ export const ModelRow = ({ model, isSelected, costTier, onSelect }: ModelRowProp
       onClick={() => onSelect(model.model)}
       css={{
         display: 'grid',
-        gridTemplateColumns: '40px 1fr 110px 80px',
+        gridTemplateColumns: '40px 1fr 110px 100px',
         gap: theme.spacing.sm,
         padding: `${theme.spacing.sm}px ${theme.spacing.md}px`,
         cursor: 'pointer',
@@ -65,14 +65,7 @@ export const ModelRow = ({ model, isSelected, costTier, onSelect }: ModelRowProp
           )}
         </div>
         <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm, display: 'block' }}>
-          {[
-            model.supports_function_calling && 'Tools',
-            model.supports_reasoning && 'Reasoning',
-            model.supports_prompt_caching && 'Caching',
-            model.supports_response_schema && 'Structured',
-          ]
-            .filter(Boolean)
-            .join(', ') || '\u00A0'}
+          {getModelCapabilities(model).join(', ') || '\u00A0'}
         </Typography.Text>
       </div>
       <div css={{ textAlign: 'right' }}>
@@ -81,11 +74,7 @@ export const ModelRow = ({ model, isSelected, costTier, onSelect }: ModelRowProp
         </Typography.Text>
       </div>
       <div css={{ textAlign: 'right' }}>
-        <CostIndicator
-          tier={costTier}
-          inputCost={model.input_cost_per_token}
-          outputCost={model.output_cost_per_token}
-        />
+        <CostIndicator inputCost={model.input_cost_per_token} outputCost={model.output_cost_per_token} />
       </div>
     </div>
   );

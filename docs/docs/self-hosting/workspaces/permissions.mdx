@@ -1,0 +1,190 @@
+import Link from "@docusaurus/Link";
+
+# Workspace Permissions
+
+Workspace-scoped permissions provide convenient access control for all
+resources within a workspace when [authentication](/self-hosting/security/basic-http-auth)
+is enabled. Workspace authorization is expressed through MLflow's role
+system; see <Link to="/self-hosting/security/role-based-access-control">Role-Based Access Control</Link>
+for the full model and API reference. This page covers the workspace-scoped
+specifics.
+
+## Overview
+
+A workspace-level grant is a permission on the special
+`(resource_type='workspace', resource_pattern='*')` slot under a role. It
+applies to **every resource type** in that workspace (experiments, registered
+models, prompts, AI Gateway resources). Two levels are grantable:
+
+- `USE` on `(workspace, *)` is the **Workspace Member** grant. Holders get
+  USE-level access (read + use) to every resource in the workspace, plus
+  the ability to create new experiments and registered models. Per-resource
+  grants can upgrade individual rows. A user _without_ this grant doesn't
+  get a workspace floor; they only get what their specific resource grants
+  provide.
+- `MANAGE` on `(workspace, *)` is the **Workspace Manager** grant. Full
+  authority within the workspace, including granting permissions to other
+  users via roles in this workspace. Cannot perform system-wide operations
+  like deleting users.
+
+A workspace-level grant participates in the same `max` as any per-resource
+grants the user holds, so it acts as a **floor**: per-resource grants can
+upgrade individual rows above the workspace level, but never downgrade them.
+See [Permission resolution](/self-hosting/security/role-based-access-control#permission-resolution)
+on the RBAC page for the full mechanic.
+
+### Example scenarios
+
+1. **Workspace-level grant.** Alice holds the `team-a/user` role, so she has
+   USE-level access (read and use) on every experiment, registered model,
+   and prompt in `team-a`.
+2. **Resource-level upgrade.** Bob holds the `team-a/user` role (`USE`
+   workspace-wide) plus a per-resource grant of `EDIT` on experiment
+   `exp-123`. Bob has USE on every resource in `team-a` and additionally
+   `EDIT` on `exp-123`; the resolver folds matching grants and the
+   higher-priority `EDIT` wins for that resource.
+3. **Direct resource grant without workspace access.** Carol has `EDIT`
+   permission on experiment `exp-456` in `team-a` but no role with
+   workspace-level access. Carol can access `exp-456` only, and the
+   workspace `team-a` does not appear in her `mlflow.list_workspaces()`
+   results.
+
+Because there is no "explicit deny" override (see
+[Permission levels](/self-hosting/security/role-based-access-control#permission-levels)),
+a workspace-level grant covers every resource in the workspace and an absent
+(or lesser) per-resource grant cannot revoke it. To restrict access to a
+specific resource, give the user narrower access in the first place:
+per-resource or resource-type-wildcard roles instead of the seeded
+`<workspace>/user` role.
+
+## Default roles
+
+When `MLFLOW_RBAC_SEED_DEFAULT_ROLES` is on (it is, by default), MLflow seeds
+two roles into every newly created workspace:
+
+| Role    | Permission               | Intent            |
+| ------- | ------------------------ | ----------------- |
+| `admin` | `(workspace, *, MANAGE)` | Workspace Manager |
+| `user`  | `(workspace, *, USE)`    | Workspace Member  |
+
+The user who creates a workspace is automatically assigned its seeded `admin`
+role. See <Link to="/self-hosting/security/role-based-access-control#default-roles">Default roles</Link>
+for how to disable this seeding.
+
+## Granting workspace access
+
+Granting workspace-level access means assigning a role that carries a
+`(workspace, *, USE)` or `(workspace, *, MANAGE)` permission. The default
+seeded `user` and `admin` roles cover the common cases.
+
+### Prerequisites
+
+- Workspaces enabled (`--enable-workspaces`)
+- Authentication enabled (`--app-name basic-auth`)
+- Either Platform Admin privileges, or an existing Workspace Manager role
+  on the target workspace (so you can manage role assignments there)
+
+### Make a user a Workspace Member
+
+In the admin UI: `/admin` → Users → click the user → **Edit access** → in the
+_Role assignments_ section, add `<workspace>/user` → review → apply.
+
+Programmatically:
+
+```python
+from mlflow.server import get_app_client
+
+auth_client = get_app_client("basic-auth", tracking_uri="http://localhost:5000")
+
+# Find the seeded ``user`` role in this workspace by listing roles and
+# selecting by name.
+user_role = next(r for r in auth_client.list_roles("team-a") if r.name == "user")
+auth_client.assign_role(username="alice", role_id=user_role.id)
+```
+
+### Make a user a Workspace Manager
+
+```python
+admin_role = next(r for r in auth_client.list_roles("team-a") if r.name == "admin")
+auth_client.assign_role(username="alice", role_id=admin_role.id)
+```
+
+### Revoke workspace access
+
+In the admin UI: `/admin` → Users → click the user → **Edit access** → in the
+_Role assignments_ section, remove the workspace's `user` or `admin` role.
+
+![Edit access modal showing Role assignments section](/images/self-hosting/rbac-edit-access-roles.png)
+
+Programmatically:
+
+```python
+auth_client.unassign_role(username="alice", role_id=user_role.id)
+```
+
+## Workspace visibility in `list_workspaces()`
+
+`mlflow.list_workspaces()` returns workspaces based on workspace-level access:
+
+- A user with a role that grants `(workspace, *, …)` on a workspace sees that
+  workspace in the list.
+- Direct resource permissions without a workspace-level grant do **not** make a
+  workspace visible. The user can still access the specific resource directly.
+- Platform Admins see every workspace.
+- If `grant_default_workspace_access=true`, the reserved `default` workspace
+  is also visible (and inherits `default_permission`).
+
+```python
+import os
+import mlflow
+
+mlflow.set_tracking_uri("http://localhost:5000")
+
+# alice holds the team-a/user role
+os.environ["MLFLOW_TRACKING_USERNAME"] = "alice"
+os.environ["MLFLOW_TRACKING_PASSWORD"] = "password"
+print([w.name for w in mlflow.list_workspaces()])  # ["team-a"]
+
+# bob holds only a per-resource grant on exp-123 in team-a
+os.environ["MLFLOW_TRACKING_USERNAME"] = "bob"
+os.environ["MLFLOW_TRACKING_PASSWORD"] = "password"
+print([w.name for w in mlflow.list_workspaces()])  # []
+
+# but bob can still access the specific experiment if he knows it exists
+mlflow.set_workspace("team-a")
+mlflow.get_experiment("123")  # works
+```
+
+## Troubleshooting
+
+### Permission denied errors
+
+If users hit permission-denied errors:
+
+1. Verify the user holds a role with workspace-level access:
+
+   ```python
+   roles = auth_client.list_user_roles("alice")
+   for r in roles:
+       print(r.workspace, r.name)
+   ```
+
+2. Confirm the operation needs more than `USE` (e.g., `EDIT` / `MANAGE`).
+   The resolver folds every matching grant and takes the highest-priority
+   permission level, so a workspace `USE` grant is the floor; if no
+   per-resource grant upgrades it, write operations are denied.
+3. Verify the workspace exists and the role is assigned in the right workspace.
+
+### Workspace not visible in `list_workspaces()`
+
+The user needs a role granting workspace-level access in that workspace;
+direct per-resource grants don't suffice. Assign the seeded `user` or `admin`
+role for the workspace, or create a custom role that carries a `(workspace, *, …)`
+permission.
+
+## Next steps
+
+- [Role-Based Access Control](/self-hosting/security/role-based-access-control). The full RBAC model and API reference
+- [Configuration](/self-hosting/workspaces/configuration). Server configuration options
+- [Workspace Providers](/self-hosting/workspaces/workspace-providers). Implement custom providers
+- [Authentication](/self-hosting/security/basic-http-auth). Set up MLflow authentication

@@ -25,6 +25,7 @@ from urllib3.util.retry import Retry
 
 from mlflow.entities.webhook import Webhook, WebhookEvent, WebhookTestResult
 from mlflow.environment_variables import (
+    MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_WEBHOOK_CACHE_TTL,
     MLFLOW_WEBHOOK_DELIVERY_MAX_WORKERS,
     MLFLOW_WEBHOOK_REQUEST_MAX_RETRIES,
@@ -32,6 +33,7 @@ from mlflow.environment_variables import (
 )
 from mlflow.store.model_registry.abstract_store import AbstractStore
 from mlflow.store.model_registry.file_store import FileStore
+from mlflow.utils.validation import _validate_webhook_url
 from mlflow.webhooks.constants import (
     WEBHOOK_DELIVERY_ID_HEADER,
     WEBHOOK_SIGNATURE_HEADER,
@@ -148,6 +150,8 @@ def _send_webhook_request(
     Returns:
         requests.Response object from the webhook request
     """
+    _validate_webhook_url(webhook.url)
+
     # Create webhook payload with metadata
     webhook_payload = {
         "entity": event.entity.value,
@@ -155,6 +159,8 @@ def _send_webhook_request(
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "data": payload,
     }
+    if MLFLOW_ENABLE_WORKSPACES.get():
+        webhook_payload["workspace"] = webhook.workspace
 
     payload_json = json.dumps(webhook_payload)
     payload_bytes = payload_json.encode("utf-8")

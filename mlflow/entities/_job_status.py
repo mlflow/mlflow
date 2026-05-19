@@ -1,6 +1,7 @@
 from enum import Enum
 
 from mlflow.exceptions import MlflowException
+from mlflow.protos.jobs_pb2 import JobStatus as ProtoJobStatus
 
 
 class JobStatus(str, Enum):
@@ -36,6 +37,18 @@ class JobStatus(str, Enum):
     def to_int(self) -> int:
         """Convert JobStatus enum to integer."""
         return next(i for i, e in enumerate(JobStatus) if e == self)
+
+    def to_proto(self) -> int:
+        """Convert JobStatus enum to proto JobStatus enum value."""
+        mapping = {
+            JobStatus.PENDING: ProtoJobStatus.JOB_STATUS_PENDING,
+            JobStatus.RUNNING: ProtoJobStatus.JOB_STATUS_IN_PROGRESS,
+            JobStatus.SUCCEEDED: ProtoJobStatus.JOB_STATUS_COMPLETED,
+            JobStatus.FAILED: ProtoJobStatus.JOB_STATUS_FAILED,
+            JobStatus.TIMEOUT: ProtoJobStatus.JOB_STATUS_FAILED,  # No TIMEOUT in proto
+            JobStatus.CANCELED: ProtoJobStatus.JOB_STATUS_CANCELED,
+        }
+        return mapping.get(self, ProtoJobStatus.JOB_STATUS_UNSPECIFIED)
 
     def __str__(self):
         return self.name

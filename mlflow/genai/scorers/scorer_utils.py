@@ -19,6 +19,37 @@ GATEWAY_PROVIDER = "gateway"
 INSTRUCTIONS_JUDGE_PYDANTIC_DATA = "instructions_judge_pydantic_data"
 BUILTIN_SCORER_PYDANTIC_DATA = "builtin_scorer_pydantic_data"
 
+# Error message used by both the Python client (Scorer._check_can_be_registered) and the
+# server handler (_register_scorer) to consistently reject decorator scorer registration
+# outside of Databricks environments.
+DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR = (
+    "Custom scorer registration (using @scorer decorator) is not supported "
+    "outside of Databricks tracking environments due to security concerns. "
+    "Custom scorers require arbitrary code execution during deserialization.\n\n"
+    "To use custom scorers:\n"
+    "1. Configure MLflow to use a Databricks tracking URI, or\n"
+    "2. Manage your custom scorer code in a source code repository "
+    "(e.g., GitHub) and import it directly, or\n"
+    "3. Use built-in scorers or make_judge() scorers instead."
+)
+
+THIRD_PARTY_SCORER_REGISTRATION_NOT_SUPPORTED_ON_DATABRICKS_ERROR = (
+    "Third-party scorer registration (e.g., RAGAS, DeepEval, TruLens, Phoenix) is not "
+    "supported when using a Databricks tracking URI. Third-party scorers are only "
+    "available for registration against OSS MLflow backends.\n\n"
+    "To use third-party scorers on Databricks, pass them directly to "
+    "`mlflow.genai.evaluate(..., scorers=[...])` without calling `.register()`."
+)
+
+# Restricts dynamic imports during third-party scorer deserialization to this
+# closed set so a malicious payload can't turn `model_validate` into arbitrary import.
+THIRD_PARTY_SCORER_ALLOWED_MODULES = frozenset({
+    "mlflow.genai.scorers.ragas",
+    "mlflow.genai.scorers.deepeval",
+    "mlflow.genai.scorers.trulens",
+    "mlflow.genai.scorers.phoenix",
+})
+
 
 # FunctionBodyExtractor class is forked from https://github.com/unitycatalog/unitycatalog/blob/20dd3820be332ac04deec4e063099fb863eb3392/ai/core/src/unitycatalog/ai/core/utils/callable_utils.py
 class FunctionBodyExtractor(ast.NodeVisitor):
@@ -129,17 +160,15 @@ def recreate_function(source: str, signature: str, func_name: str) -> Callable[.
         )
         from mlflow.genai.judges import CategoricalRating
 
-        import_namespace.update(
-            {
-                "Feedback": Feedback,
-                "Assessment": Assessment,
-                "AssessmentSource": AssessmentSource,
-                "AssessmentError": AssessmentError,
-                "AssessmentSourceType": AssessmentSourceType,
-                "Trace": Trace,
-                "CategoricalRating": CategoricalRating,
-            }
-        )
+        import_namespace.update({
+            "Feedback": Feedback,
+            "Assessment": Assessment,
+            "AssessmentSource": AssessmentSource,
+            "AssessmentError": AssessmentError,
+            "AssessmentSourceType": AssessmentSourceType,
+            "Trace": Trace,
+            "CategoricalRating": CategoricalRating,
+        })
     except ImportError:
         pass  # Some imports might not be available in all contexts
 
@@ -181,6 +210,11 @@ def extract_model_from_serialized_scorer(serialized_data: dict[str, Any]) -> str
         return ij_data.get("model")
     if bs_data := serialized_data.get(BUILTIN_SCORER_PYDANTIC_DATA):
         return bs_data.get("model")
+    if mem_data := serialized_data.get("memory_augmented_judge_data"):
+        base_judge = mem_data.get("base_judge", {})
+        return extract_model_from_serialized_scorer(base_judge)
+    if tp_data := serialized_data.get("third_party_scorer_data"):
+        return tp_data.get("model")
     return None
 
 
@@ -192,7 +226,62 @@ def update_model_in_serialized_scorer(
         result[INSTRUCTIONS_JUDGE_PYDANTIC_DATA] = {**ij_data, "model": new_model}
     elif bs_data := result.get(BUILTIN_SCORER_PYDANTIC_DATA):
         result[BUILTIN_SCORER_PYDANTIC_DATA] = {**bs_data, "model": new_model}
+    elif mem_data := result.get("memory_augmented_judge_data"):
+        result["memory_augmented_judge_data"] = {
+            **mem_data,
+            "base_judge": update_model_in_serialized_scorer(
+                mem_data.get("base_judge", {}), new_model
+            ),
+        }
+    elif tp_data := result.get("third_party_scorer_data"):
+        if tp_data.get("model") is not None:
+            result["third_party_scorer_data"] = {**tp_data, "model": new_model}
     return result
+
+
+def validate_scorer_name(name: str | None) -> None:
+    """
+    Validate the scorer name.
+
+    Args:
+        name: The scorer name to validate.
+
+    Raises:
+        MlflowException: If the name is invalid.
+    """
+    if name is None:
+        raise MlflowException.invalid_parameter_value("Scorer name cannot be None.")
+    if not isinstance(name, str):
+        raise MlflowException.invalid_parameter_value(
+            f"Scorer name must be a string, got {type(name).__name__}."
+        )
+    if not name.strip():
+        raise MlflowException.invalid_parameter_value(
+            "Scorer name cannot be empty or contain only whitespace."
+        )
+
+
+def validate_scorer_model(model: str | None) -> None:
+    """
+    Validate the scorer model string if present.
+
+    Args:
+        model: The model string to validate.
+
+    Raises:
+        MlflowException: If the model is invalid.
+    """
+    if model is None:
+        return
+
+    if not isinstance(model, str):
+        raise MlflowException.invalid_parameter_value(
+            f"Scorer model must be a string, got {type(model).__name__}."
+        )
+    if not model.strip():
+        raise MlflowException.invalid_parameter_value(
+            "Scorer model cannot be empty or contain only whitespace."
+        )
 
 
 def parse_tool_call_expectations(

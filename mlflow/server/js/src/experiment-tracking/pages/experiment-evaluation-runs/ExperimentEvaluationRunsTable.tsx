@@ -1,7 +1,10 @@
 import { useReactTable_unverifiedWithReact18 as useReactTable } from '@databricks/web-shared/react-table';
 import { Empty, Table, TableHeader, TableRow, TableSkeletonRows, Typography } from '@databricks/design-system';
 import type { EvalRunsTableColumnDef } from './ExperimentEvaluationRunsTable.constants';
-import { getExperimentEvalRunsDefaultColumns } from './ExperimentEvaluationRunsTable.constants';
+import {
+  EvalRunsTableKeyedColumnPrefix,
+  getExperimentEvalRunsDefaultColumns,
+} from './ExperimentEvaluationRunsTable.constants';
 import type { OnChangeFn, SortDirection, SortingState } from '@tanstack/react-table';
 import { flexRender, getCoreRowModel, getExpandedRowModel, getSortedRowModel } from '@tanstack/react-table';
 import type { ExpandedState, RowSelectionState } from '@tanstack/react-table';
@@ -9,7 +12,10 @@ import { ExperimentEvaluationRunsTableRow } from './ExperimentEvaluationRunsTabl
 import type { DatasetWithRunType } from '../../components/experiment-page/components/runs/ExperimentViewDatasetDrawer';
 import { useCallback, useMemo, useState, forwardRef } from 'react';
 import { KeyedValueCell, SortableHeaderCell } from './ExperimentEvaluationRunsTableCellRenderers';
-import { getEvalRunCellValueBasedOnColumn } from './ExperimentEvaluationRunsTable.utils';
+import {
+  getEvalRunCellValueBasedOnColumn,
+  parseEvalRunsTableKeyedColumnKey,
+} from './ExperimentEvaluationRunsTable.utils';
 import type { RunEntityOrGroupData } from './ExperimentEvaluationRunsPage.utils';
 import type { ExperimentEvaluationRunsPageMode } from './hooks/useExperimentEvaluationRunsPageMode';
 import { useExperimentEvaluationRunsRowVisibility } from './hooks/useExperimentEvaluationRunsRowVisibility';
@@ -28,9 +34,12 @@ export interface ExperimentEvaluationRunsTableProps {
   setIsDrawerOpen: (isOpen: boolean) => void;
   viewMode: ExperimentEvaluationRunsPageMode;
   onScroll?: React.UIEventHandler<HTMLDivElement>;
+  isGrouped?: boolean;
+  enableImprovedComparison?: boolean;
 }
 
 export const ExperimentEvaluationRunsTable = forwardRef<HTMLDivElement, ExperimentEvaluationRunsTableProps>(
+  // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
   (
     {
       data,
@@ -46,6 +55,8 @@ export const ExperimentEvaluationRunsTable = forwardRef<HTMLDivElement, Experime
       setIsDrawerOpen,
       viewMode,
       onScroll,
+      isGrouped,
+      enableImprovedComparison,
     },
     ref,
   ) => {
@@ -56,8 +67,11 @@ export const ExperimentEvaluationRunsTable = forwardRef<HTMLDivElement, Experime
     const columns = useMemo(() => {
       const allColumns = getExperimentEvalRunsDefaultColumns(viewMode);
 
-      // add a column for each available metric
+      // add a column for each available metric, param, or tag
       uniqueColumns.forEach((column) => {
+        const parsedColumn = parseEvalRunsTableKeyedColumnKey(column);
+        const isMetricColumn = parsedColumn?.columnType === EvalRunsTableKeyedColumnPrefix.METRIC;
+
         allColumns.push({
           id: column,
           accessorFn: (row) => {
@@ -69,7 +83,8 @@ export const ExperimentEvaluationRunsTable = forwardRef<HTMLDivElement, Experime
           cell: KeyedValueCell,
           header: SortableHeaderCell,
           enableSorting: true,
-          sortingFn: 'alphanumeric',
+          // Use 'basic' (numeric) sorting for metrics, 'alphanumeric' for params/tags
+          sortingFn: isMetricColumn ? 'basic' : 'alphanumeric',
           meta: {
             styles: {
               minWidth: 100,
@@ -107,6 +122,13 @@ export const ExperimentEvaluationRunsTable = forwardRef<HTMLDivElement, Experime
         },
         getRowCanExpand: (row) => Boolean(row.subRows?.length),
         onExpandedChange: setExpandedRows,
+        enableRowSelection: (row) => {
+          // Groups are not selectable
+          if ('subRuns' in row.original) {
+            return false;
+          }
+          return true;
+        },
         meta: {
           setSelectedRunUuid,
           setSelectedDatasetWithRun,
@@ -155,6 +177,8 @@ export const ExperimentEvaluationRunsTable = forwardRef<HTMLDivElement, Experime
                 isExpanded={row.getIsExpanded()}
                 isHidden={isRowHidden(row.id, row.index, runStatus)}
                 columns={columns}
+                isGrouped={isGrouped}
+                enableImprovedComparison={enableImprovedComparison}
               />
             );
           })}

@@ -1,9 +1,11 @@
 import base64
+import contextlib
 import json
 import logging
 import random
 import time
 import warnings
+from contextvars import ContextVar
 from functools import lru_cache
 from typing import Any, Callable
 
@@ -21,6 +23,7 @@ from mlflow.environment_variables import (
     MLFLOW_HTTP_REQUEST_TIMEOUT,
     MLFLOW_HTTP_RESPECT_RETRY_AFTER_HEADER,
 )
+from mlflow.error_classification import ErrorClass, SqlState
 from mlflow.exceptions import (
     CUSTOMER_UNAUTHORIZED,
     ERROR_CODE_TO_HTTP_STATUS,
@@ -40,8 +43,29 @@ from mlflow.utils.request_utils import (
     cloud_storage_http_request,  # noqa: F401
 )
 from mlflow.utils.string_utils import strip_suffix
+from mlflow.utils.workspace_context import get_request_workspace
+from mlflow.utils.workspace_utils import WORKSPACE_HEADER_NAME
 
 _logger = logging.getLogger(__name__)
+
+# Generic ContextVar to disable HTTP-layer 429 retries. When True,
+# _retry_databricks_sdk_call_with_exponential_backoff skips retrying on 429 so
+# that rate-limit errors propagate immediately to the caller's own retry logic.
+_DISABLE_429_RETRY = ContextVar("_DISABLE_429_RETRY", default=False)
+
+
+@contextlib.contextmanager
+def disable_429_retry():
+    token = _DISABLE_429_RETRY.set(True)
+    try:
+        yield
+    finally:
+        _DISABLE_429_RETRY.reset(token)
+
+
+def is_429_retry_disabled() -> bool:
+    return _DISABLE_429_RETRY.get()
+
 
 RESOURCE_NON_EXISTENT = "RESOURCE_DOES_NOT_EXIST"
 _REST_API_PATH_PREFIX = "/api/2.0"
@@ -49,12 +73,29 @@ _UC_OSS_REST_API_PATH_PREFIX = "/api/2.1"
 _TRACE_REST_API_PATH_PREFIX = f"{_REST_API_PATH_PREFIX}/mlflow/traces"
 _V3_REST_API_PATH_PREFIX = "/api/3.0"
 _V3_TRACE_REST_API_PATH_PREFIX = f"{_V3_REST_API_PATH_PREFIX}/mlflow/traces"
+_V3_ISSUES_REST_API_PATH_PREFIX = f"{_V3_REST_API_PATH_PREFIX}/mlflow/issues"
 _V4_REST_API_PATH_PREFIX = "/api/4.0"
 _V4_TRACE_REST_API_PATH_PREFIX = f"{_V4_REST_API_PATH_PREFIX}/mlflow/traces"
 _ARMERIA_OK = "200 OK"
 _DATABRICKS_SDK_RETRY_AFTER_SECS_DEPRECATION_WARNING = (
     "The 'retry_after_secs' parameter of DatabricksError is deprecated"
 )
+
+
+def _should_include_workspace_header(endpoint: str) -> bool:
+    """
+    Determine whether to attach the workspace header for a given endpoint.
+
+    Workspace administration endpoints encode the workspace in the path, so the header is redundant
+    (and ignored) for those calls. Other endpoints derive isolation from this header when
+    workspaces are enabled.
+    """
+
+    if not endpoint:
+        return True
+
+    normalized = endpoint if endpoint.startswith("/") else f"/{endpoint}"
+    return "/mlflow/workspaces" not in normalized
 
 
 def http_request(
@@ -119,8 +160,15 @@ def http_request(
     if extra_headers:
         headers = dict(**headers, **extra_headers)
 
+    workspace = get_request_workspace()
+    if workspace and _should_include_workspace_header(endpoint):
+        headers.setdefault(WORKSPACE_HEADER_NAME, workspace)
+
     if traffic_id := _MLFLOW_DATABRICKS_TRAFFIC_ID.get():
         headers["x-databricks-traffic-id"] = traffic_id
+
+    if host_creds.workspace_id:
+        headers["x-databricks-org-id"] = host_creds.workspace_id
 
     if host_creds.use_databricks_sdk:
         from databricks.sdk.errors import DatabricksError
@@ -186,12 +234,10 @@ def http_request(
             response.status_code = ERROR_CODE_TO_HTTP_STATUS.get(e.error_code, 500)
             response.reason = str(e)
             response.encoding = "UTF-8"
-            response._content = json.dumps(
-                {
-                    "error_code": e.error_code,
-                    "message": str(e),
-                }
-            ).encode("UTF-8")
+            response._content = json.dumps({
+                "error_code": e.error_code,
+                "message": str(e),
+            }).encode("UTF-8")
             return response
 
     _validate_max_retries(max_retries)
@@ -273,8 +319,10 @@ def get_workspace_client(
 
     if use_secret_scope_token:
         kwargs = {"host": host, "token": token}
-    else:
+    elif databricks_auth_profile:
         kwargs = {"profile": databricks_auth_profile}
+    else:
+        kwargs = {}
     if timeout is not None:
         kwargs["http_timeout_seconds"] = timeout
     config = Config(
@@ -301,7 +349,11 @@ def http_request_safe(host_creds, endpoint, method, **kwargs):
     return verify_rest_response(response, endpoint)
 
 
-def verify_rest_response(response, endpoint):
+def verify_rest_response(
+    response,
+    endpoint,
+    expected_status: int = 200,
+):
     """Verify the return code and format, raise exception if the request was not successful."""
     # Handle Armeria-specific response case where response text is "200 OK"
     # v1/traces endpoint might return empty response
@@ -309,19 +361,27 @@ def verify_rest_response(response, endpoint):
         response._content = b"{}"  # Update response content to be an empty JSON dictionary
         return response
 
-    # Handle non-200 status codes
-    if response.status_code != 200:
+    # Handle non-expected status codes
+    if response.status_code != expected_status:
         if _can_parse_as_json_object(response.text):
             raise RestException(json.loads(response.text))
         else:
             base_msg = (
                 f"API request to endpoint {endpoint} "
-                f"failed with error code {response.status_code} != 200"
+                f"failed with error code {response.status_code} "
+                f"!= {expected_status}"
             )
+            error_code = get_error_code(response.status_code)
+            error_code_name = ErrorCode.Name(error_code)
             raise MlflowException(
                 f"{base_msg}. Response body: '{response.text}'",
-                error_code=get_error_code(response.status_code),
+                error_code=error_code,
+                sqlstate=SqlState.from_cp_error_code(error_code_name),
+                error_class=ErrorClass.from_cp_error_code(error_code_name),
             )
+
+    if response.status_code == 204:
+        return response
 
     # Skip validation for endpoints (e.g. DBFS file-download API) which may return a non-JSON
     # response
@@ -344,7 +404,7 @@ def _validate_max_retries(max_retries):
             "Cannot be negative.",
             error_code=INVALID_PARAMETER_VALUE,
         )
-    if max_retries >= max_retry_limit:
+    if max_retries > max_retry_limit:
         raise MlflowException(
             message=f"The configured max_retries value ({max_retries}) is "
             f"in excess of the maximum allowable retries ({max_retry_limit})",
@@ -368,7 +428,7 @@ def _validate_backoff_factor(backoff_factor):
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    if backoff_factor >= max_backoff_factor_limit:
+    if backoff_factor > max_backoff_factor_limit:
         raise MlflowException(
             message=f"The configured backoff_factor value ({backoff_factor}) is in excess "
             "of the maximum allowable backoff_factor limit "
@@ -441,6 +501,9 @@ def _retry_databricks_sdk_call_with_exponential_backoff(
         DatabricksError: If all retries are exhausted or non-retryable error occurs
     """
     from databricks.sdk.errors import STATUS_CODE_MAPPING, DatabricksError
+
+    if is_429_retry_disabled():
+        retry_codes = frozenset(c for c in retry_codes if c != 429)
 
     start_time = time.time()
     attempt = 0
@@ -573,6 +636,7 @@ def call_endpoint(
     response_proto,
     extra_headers=None,
     retry_timeout_seconds=None,
+    expected_status: int = 200,
 ):
     # Convert json string to json dictionary, to pass to requests
     if json_body is not None:
@@ -593,7 +657,14 @@ def call_endpoint(
         call_kwargs["json"] = json_body
         response = http_request(**call_kwargs)
 
-    response = verify_rest_response(response, endpoint)
+    response = verify_rest_response(
+        response,
+        endpoint,
+        expected_status=expected_status,
+    )
+    if response.status_code == 204:
+        return response_proto
+
     response_to_parse = response.text
     try:
         js_dict = json.loads(response_to_parse)
@@ -672,6 +743,7 @@ class MlflowHostCreds:
         client_id=None,
         client_secret=None,
         use_secret_scope_token=False,
+        workspace_id=None,
     ):
         if not host:
             raise MlflowException(
@@ -703,6 +775,7 @@ class MlflowHostCreds:
         self.client_id = client_id
         self.client_secret = client_secret
         self.use_secret_scope_token = use_secret_scope_token
+        self.workspace_id = workspace_id
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):

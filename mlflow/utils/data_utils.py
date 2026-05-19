@@ -1,4 +1,5 @@
 import urllib.parse
+from typing import Any
 
 
 def parse_s3_uri(uri):
@@ -14,3 +15,12 @@ def parse_s3_uri(uri):
 def is_uri(string):
     parsed_uri = urllib.parse.urlparse(string)
     return len(parsed_uri.scheme) > 0
+
+
+def is_polars_dataframe(data: Any) -> bool:
+    try:
+        import polars as pl
+
+        return isinstance(data, pl.DataFrame)
+    except ImportError:
+        return False

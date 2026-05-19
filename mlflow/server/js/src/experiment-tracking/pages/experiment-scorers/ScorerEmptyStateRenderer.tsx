@@ -4,22 +4,26 @@ import {
   Empty,
   Button,
   PlusIcon,
+  CodeIcon,
   Spacer,
   GavelIcon,
   Typography,
 } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
-import { COMPONENT_ID_PREFIX } from './constants';
 
-const getProductionMonitoringDocUrl = () => {
-  return 'https://mlflow.org/docs/latest/genai/eval-monitor/';
+const getScorersDocUrl = () => {
+  return 'https://mlflow.org/docs/latest/genai/eval-monitor/scorers/';
 };
 
 interface ScorerEmptyStateRendererProps {
-  onAddScorerClick: () => void;
+  onAddLLMScorerClick: () => void;
+  onAddCustomCodeScorerClick: () => void;
 }
 
-const ScorerEmptyStateRenderer: React.FC<ScorerEmptyStateRendererProps> = ({ onAddScorerClick }) => {
+const ScorerEmptyStateRenderer: React.FC<ScorerEmptyStateRendererProps> = ({
+  onAddLLMScorerClick,
+  onAddCustomCodeScorerClick,
+}) => {
   const { theme } = useDesignSystemTheme();
 
   return (
@@ -50,8 +54,8 @@ const ScorerEmptyStateRenderer: React.FC<ScorerEmptyStateRendererProps> = ({ onA
               values={{
                 learnMore: (
                   <Typography.Link
-                    componentId={`${COMPONENT_ID_PREFIX}.empty-state-learn-more-link`}
-                    href={getProductionMonitoringDocUrl()}
+                    componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_scoreremptystaterenderer_59"
+                    href={getScorersDocUrl()}
                     openInNewTab
                   >
                     <FormattedMessage
@@ -65,13 +69,29 @@ const ScorerEmptyStateRenderer: React.FC<ScorerEmptyStateRendererProps> = ({ onA
           </div>
         }
         button={
-          <Button
-            icon={<PlusIcon />}
-            componentId={`${COMPONENT_ID_PREFIX}.empty-state-add-scorer-button`}
-            onClick={onAddScorerClick}
-          >
-            <FormattedMessage defaultMessage="New judge" description="Button text to add a judge from empty state" />
-          </Button>
+          <div css={{ display: 'flex', gap: theme.spacing.sm }}>
+            <Button
+              type="primary"
+              icon={<PlusIcon />}
+              componentId="mlflow.experiment-scorers.empty-state-add-llm-scorer-button"
+              onClick={onAddLLMScorerClick}
+            >
+              <FormattedMessage
+                defaultMessage="New LLM judge"
+                description="Button text to add an LLM judge from empty state"
+              />
+            </Button>
+            <Button
+              icon={<CodeIcon />}
+              componentId="mlflow.experiment-scorers.empty-state-add-custom-code-scorer-button"
+              onClick={onAddCustomCodeScorerClick}
+            >
+              <FormattedMessage
+                defaultMessage="New custom code judge"
+                description="Button text to add a custom code judge from empty state"
+              />
+            </Button>
+          </div>
         }
       />
     </div>

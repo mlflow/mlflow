@@ -248,9 +248,8 @@ def get_feature_dependencies(model_dir):
     Databricks. In OSS mlflow, the dependencies are always empty ("").
     """
     model = _load_model(model_dir)
-    model_info = model.get_model_info()
     if (
-        model_info.flavors.get("python_function", {}).get("loader_module")
+        model.flavors.get("python_function", {}).get("loader_module")
         == mlflow.models.model._DATABRICKS_FS_LOADER_MODULE
     ):
         raise MlflowException(
@@ -268,7 +267,6 @@ def get_model_version_dependencies(model_dir):
     from mlflow.models.resources import ResourceType
 
     model = _load_model(model_dir)
-    model_info = model.get_model_info()
     dependencies = []
 
     # Try to get model.auth_policy.system_auth_policy.resources. If that is not found or empty,
@@ -324,9 +322,7 @@ def get_model_version_dependencies(model_dir):
         _DATABRICKS_CHAT_ENDPOINT_NAME_KEY = "databricks_chat_endpoint_name"
         _DB_DEPENDENCY_KEY = "databricks_dependency"
 
-        databricks_dependencies = model_info.flavors.get("langchain", {}).get(
-            _DB_DEPENDENCY_KEY, {}
-        )
+        databricks_dependencies = model.flavors.get("langchain", {}).get(_DB_DEPENDENCY_KEY, {})
 
         index_names = _fetch_langchain_dependency_from_model_info(
             databricks_dependencies, _DATABRICKS_VECTOR_SEARCH_INDEX_NAME_KEY
@@ -956,23 +952,31 @@ class UcModelRegistryStore(BaseRestStore):
             created in the backend.
         """
         _require_arg_unspecified(arg_name="run_link", arg_value=run_link)
+        model_id_cleared = False
         if logged_model := self._get_logged_model_from_model_id(model_id):
             run_id = logged_model.source_run_id
+        elif model_id is not None:
+            # _get_logged_model_from_model_id returned None with a non-None model_id, meaning
+            # mlflow.get_logged_model raised RESOURCE_DOES_NOT_EXIST (e.g. model_id belongs to
+            # another workspace during a cross-workspace copy). Clear model_id so the backend
+            # doesn't attempt to resolve an ID that doesn't exist locally.
+            model_id = None
+            model_id_cleared = True
         headers, run = self._get_run_and_headers(run_id)
         if source_workspace_id is None:
             source_workspace_id = self._get_workspace_id(headers)
         notebook_id = self._get_notebook_id(run)
-        lineage_securable_list = self._get_lineage_input_sources(run)
         job_id = self._get_job_id(run)
-        job_run_id = self._get_job_run_id(run)
         extra_headers = None
         if notebook_id is not None or job_id is not None:
+            lineage_securable_list = self._get_lineage_input_sources(run)
             entity_list = []
             lineage_list = None
             if notebook_id is not None:
                 notebook_entity = Notebook(id=str(notebook_id))
                 entity_list.append(Entity(notebook=notebook_entity))
             if job_id is not None:
+                job_run_id = self._get_job_run_id(run)
                 job_entity = Job(id=job_id, job_run_id=job_run_id)
                 entity_list.append(Entity(job=job_entity))
             if lineage_securable_list is not None:
@@ -989,7 +993,9 @@ class UcModelRegistryStore(BaseRestStore):
                 self._validate_model_signature(local_model_dir)
             self._download_model_weights_if_not_saved(local_model_dir)
             feature_deps = get_feature_dependencies(local_model_dir)
-            other_model_deps = get_model_version_dependencies(local_model_dir)
+            other_model_deps = (
+                [] if model_id_cleared else get_model_version_dependencies(local_model_dir)
+            )
             req_body = message_to_json(
                 CreateModelVersionRequest(
                     name=full_name,

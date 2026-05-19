@@ -262,19 +262,17 @@ def _get_classifier_metrics(fitted_estimator, prefix, X, y_true, sample_weight, 
 
     if hasattr(fitted_estimator, "predict_proba"):
         y_pred_proba = fitted_estimator.predict_proba(X)
-        classifier_metrics.extend(
-            [
-                _SklearnMetric(
-                    name=prefix + "log_loss",
-                    function=sklearn.metrics.log_loss,
-                    arguments={
-                        "y_true": y_true,
-                        "y_pred": y_pred_proba,
-                        "sample_weight": sample_weight,
-                    },
-                ),
-            ]
-        )
+        classifier_metrics.extend([
+            _SklearnMetric(
+                name=prefix + "log_loss",
+                function=sklearn.metrics.log_loss,
+                arguments={
+                    "y_true": y_true,
+                    "y_pred": y_pred_proba,
+                    "sample_weight": sample_weight,
+                },
+            ),
+        ])
 
         if _is_metric_supported("roc_auc_score"):
             # For binary case, the parameter `y_score` expect scores must be
@@ -282,21 +280,19 @@ def _get_classifier_metrics(fitted_estimator, prefix, X, y_true, sample_weight, 
             if len(y_pred_proba[0]) == 2:
                 y_pred_proba = y_pred_proba[:, 1]
 
-            classifier_metrics.extend(
-                [
-                    _SklearnMetric(
-                        name=prefix + "roc_auc",
-                        function=sklearn.metrics.roc_auc_score,
-                        arguments={
-                            "y_true": y_true,
-                            "y_score": y_pred_proba,
-                            "average": "weighted",
-                            "sample_weight": sample_weight,
-                            "multi_class": "ovo",
-                        },
-                    ),
-                ]
-            )
+            classifier_metrics.extend([
+                _SklearnMetric(
+                    name=prefix + "roc_auc",
+                    function=sklearn.metrics.roc_auc_score,
+                    arguments={
+                        "y_true": y_true,
+                        "y_score": y_pred_proba,
+                        "average": "weighted",
+                        "sample_weight": sample_weight,
+                        "multi_class": "ovo",
+                    },
+                ),
+            ])
 
     return _get_metrics_value_dict(classifier_metrics)
 
@@ -352,13 +348,11 @@ def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight
         if class_labels is None:
             class_labels = set(y_true)
 
-        with matplotlib.rc_context(
-            {
-                "font.size": min(8.0, 50.0 / len(class_labels)),
-                "axes.labelsize": 8.0,
-                "figure.dpi": 175,
-            }
-        ):
+        with matplotlib.rc_context({
+            "font.size": min(8.0, 50.0 / len(class_labels)),
+            "axes.labelsize": 8.0,
+            "figure.dpi": 175,
+        }):
             _, ax = plt.subplots(1, 1, figsize=(6.0, 4.0))
             return (
                 sklearn.metrics.ConfusionMatrixDisplay.from_estimator(*args, **kwargs, ax=ax)
@@ -386,36 +380,34 @@ def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight
     # The plot_roc_curve and plot_precision_recall_curve can only be
     # supported for binary classifier
     if len(set(y_true)) == 2:
-        classifier_artifacts.extend(
-            [
-                _SklearnArtifact(
-                    name=prefix + "roc_curve",
-                    function=sklearn.metrics.RocCurveDisplay.from_estimator
-                    if is_plot_function_deprecated
-                    else sklearn.metrics.plot_roc_curve,
-                    arguments={
-                        "estimator": fitted_estimator,
-                        "X": X,
-                        "y": y_true,
-                        "sample_weight": sample_weight,
-                    },
-                    title="ROC curve",
-                ),
-                _SklearnArtifact(
-                    name=prefix + "precision_recall_curve",
-                    function=sklearn.metrics.PrecisionRecallDisplay.from_estimator
-                    if is_plot_function_deprecated
-                    else sklearn.metrics.plot_precision_recall_curve,
-                    arguments={
-                        "estimator": fitted_estimator,
-                        "X": X,
-                        "y": y_true,
-                        "sample_weight": sample_weight,
-                    },
-                    title="Precision recall curve",
-                ),
-            ]
-        )
+        classifier_artifacts.extend([
+            _SklearnArtifact(
+                name=prefix + "roc_curve",
+                function=sklearn.metrics.RocCurveDisplay.from_estimator
+                if is_plot_function_deprecated
+                else sklearn.metrics.plot_roc_curve,
+                arguments={
+                    "estimator": fitted_estimator,
+                    "X": X,
+                    "y": y_true,
+                    "sample_weight": sample_weight,
+                },
+                title="ROC curve",
+            ),
+            _SklearnArtifact(
+                name=prefix + "precision_recall_curve",
+                function=sklearn.metrics.PrecisionRecallDisplay.from_estimator
+                if is_plot_function_deprecated
+                else sklearn.metrics.plot_precision_recall_curve,
+                arguments={
+                    "estimator": fitted_estimator,
+                    "X": X,
+                    "y": y_true,
+                    "sample_weight": sample_weight,
+                },
+                title="Precision recall curve",
+            ),
+        ])
 
     return classifier_artifacts
 

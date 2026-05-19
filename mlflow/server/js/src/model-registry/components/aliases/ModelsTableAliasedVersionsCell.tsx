@@ -37,7 +37,10 @@ export const ModelsTableAliasedVersionsCell = ({ model }: ModelsTableAliasedVers
 
   return (
     <div>
-      <Link to={ModelRegistryRoutes.getModelVersionPageRoute(model.name, latestVersionAlias.version)}>
+      <Link
+        componentId="mlflow.model_registry.aliases.version_link"
+        to={ModelRegistryRoutes.getModelVersionPageRoute(model.name, latestVersionAlias.version)}
+      >
         <AliasTag value={latestVersionAlias.alias} css={{ marginRight: 0, cursor: 'pointer' }} />
         : <FormattedMessage {...versionLabel} values={{ version: latestVersionAlias.version }} />
       </Link>
@@ -58,7 +61,10 @@ export const ModelsTableAliasedVersionsCell = ({ model }: ModelsTableAliasedVers
                 componentId="codegen_mlflow_app_src_model-registry_components_aliases_modelstablealiasedversionscell.tsx_57"
                 key={alias}
               >
-                <Link to={ModelRegistryRoutes.getModelVersionPageRoute(model.name, version)}>
+                <Link
+                  componentId="mlflow.model_registry.aliases.overflow_version_link"
+                  to={ModelRegistryRoutes.getModelVersionPageRoute(model.name, version)}
+                >
                   <AliasTag value={alias} css={{ marginRight: 0, cursor: 'pointer' }} />:{' '}
                   <span css={{ color: theme.colors.actionTertiaryTextDefault }}>
                     <FormattedMessage {...versionLabel} values={{ version }} />

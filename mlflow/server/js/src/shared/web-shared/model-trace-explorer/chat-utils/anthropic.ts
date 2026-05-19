@@ -38,6 +38,7 @@ type AnthropicContentBlockParam =
   | AnthropicImageBlockParam
   | AnthropicToolUseBlockParam
   | AnthropicToolResultBlockParam
+  | AnthropicToolSearchToolResultBlockParam
   | AnthropicThinkingBlock;
 // | DocumentBlockParam
 // | RedactedThinkingBlockParam
@@ -84,10 +85,59 @@ type AnthropicToolUseBlock = {
   type: 'tool_use';
 };
 
+// Content blocks that can appear inside a tool_result
+type AnthropicToolReferenceBlockParam = {
+  tool_name: string;
+  type: 'tool_reference';
+};
+
+type AnthropicToolResultContentBlock =
+  | AnthropicTextBlockParam
+  | AnthropicImageBlockParam
+  | AnthropicToolReferenceBlockParam;
+
 type AnthropicToolResultBlockParam = {
-  content: string;
+  content: string | AnthropicToolResultContentBlock[];
   tool_use_id: string;
   type: 'tool_result';
+};
+
+type AnthropicToolSearchToolResultBlockParam = {
+  tool_use_id: string;
+  type: 'tool_search_tool_result';
+  content: {
+    type: 'tool_search_tool_search_result';
+    tool_references: AnthropicToolReferenceBlockParam[];
+  };
+};
+
+// Helper to validate content blocks inside tool_result (text, image, or tool_reference)
+const isAnthropicToolResultContentBlock = (obj: unknown): obj is AnthropicToolResultContentBlock => {
+  if (isNil(obj) || !isObject(obj) || !has(obj, 'type')) {
+    return false;
+  }
+  if (obj.type === 'text' && has(obj, 'text') && isString(obj.text)) {
+    return true;
+  }
+  if (obj.type === 'tool_reference' && has(obj, 'tool_name') && isString(obj.tool_name)) {
+    return true;
+  }
+  if (obj.type === 'image' && has(obj, 'source') && has(obj.source, 'type')) {
+    if (
+      obj.source.type === 'base64' &&
+      has(obj.source, 'media_type') &&
+      isString(obj.source.media_type) &&
+      ['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(obj.source.media_type) &&
+      has(obj.source, 'data') &&
+      isString(obj.source.data)
+    ) {
+      return true;
+    }
+    if (obj.source.type === 'url' && has(obj.source, 'url') && isString(obj.source.url)) {
+      return true;
+    }
+  }
+  return false;
 };
 
 const isAnthropicContentBlockParam = (obj: unknown): obj is AnthropicContentBlockParam => {
@@ -122,7 +172,14 @@ const isAnthropicContentBlockParam = (obj: unknown): obj is AnthropicContentBloc
     }
 
     if (obj.type === 'tool_result' && has(obj, 'tool_use_id') && has(obj, 'content')) {
-      return isString(obj.tool_use_id) && isString(obj.content);
+      // tool_result content can be a string or an array of content blocks (for images)
+      const contentValid =
+        isString(obj.content) || (isArray(obj.content) && obj.content.every(isAnthropicToolResultContentBlock));
+      return isString(obj.tool_use_id) && contentValid;
+    }
+
+    if (obj.type === 'tool_search_tool_result' && has(obj, 'tool_use_id') && has(obj, 'content')) {
+      return true;
     }
 
     if (obj.type === 'thinking' && has(obj, 'thinking') && isString(obj.thinking)) {
@@ -145,7 +202,9 @@ const isAnthropicMessageParam = (obj: unknown): obj is AnthropicMessageParam => 
   return hasRole && hasContent;
 };
 
-const normalizeAnthropicContentBlockParam = (item: AnthropicContentBlockParam): ModelTraceContentParts => {
+const normalizeAnthropicContentBlockParam = (
+  item: AnthropicContentBlockParam | AnthropicToolReferenceBlockParam,
+): ModelTraceContentParts => {
   switch (item.type) {
     case 'text': {
       return { type: 'text', text: item.text };
@@ -153,15 +212,23 @@ const normalizeAnthropicContentBlockParam = (item: AnthropicContentBlockParam): 
     case 'image': {
       switch (item.source.type) {
         case 'base64': {
+          // If data is an mlflow-attachment:// URI (from auto-extraction), use it directly
+          const url = item.source.data.startsWith('mlflow-attachment://')
+            ? item.source.data
+            : `data:${item.source.media_type};base64,${item.source.data}`;
           return {
             type: 'image_url',
-            image_url: { url: `data:${item.source.media_type};base64,${item.source.data}` },
+            image_url: { url },
           };
         }
         case 'url': {
           return { type: 'image_url', image_url: { url: item.source.url } };
         }
       }
+      break;
+    }
+    case 'tool_reference': {
+      return { type: 'text', text: `[Tool: ${item.tool_name}]` };
     }
   }
   throw new Error(`Unsupported content block type: ${(item as any).type}`);
@@ -192,11 +259,32 @@ const processAnthropicMessageContent = (
         },
       });
     } else if (item.type === 'tool_result') {
-      messages.push({
+      // tool_result content can be a string or an array of content blocks (e.g., for images)
+      // Normalize array content to ModelTraceContentParts format, then use prettyPrintChatMessage
+      // to convert to the final ModelTraceChatMessage format (with string content)
+      const normalizedContent = isString(item.content)
+        ? item.content
+        : item.content.map(normalizeAnthropicContentBlockParam);
+      const toolMessage = prettyPrintChatMessage({
+        type: 'message',
         role: 'tool',
         tool_call_id: item.tool_use_id,
-        content: item.content,
+        content: normalizedContent,
       });
+      if (toolMessage) {
+        messages.push(toolMessage);
+      }
+    } else if (item.type === 'tool_search_tool_result') {
+      const normalizedContent = item.content.tool_references.map(normalizeAnthropicContentBlockParam);
+      const toolMessage = prettyPrintChatMessage({
+        type: 'message',
+        role: 'tool',
+        tool_call_id: item.tool_use_id,
+        content: normalizedContent,
+      });
+      if (toolMessage) {
+        messages.push(toolMessage);
+      }
     } else if (item.type === 'thinking') {
       thinkingParts.push((item as any).thinking);
     }

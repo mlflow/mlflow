@@ -19,7 +19,12 @@ export const FallbackToLoggedModelArtifactsInfo = ({ loggedModelId }: { loggedMo
           values={{
             link: (chunks) =>
               experimentId ? (
-                <Link to={Routes.getExperimentLoggedModelDetailsPage(experimentId, loggedModelId)}>{chunks}</Link>
+                <Link
+                  componentId="mlflow.experiment_tracking.artifacts.logged_model_fallback_link"
+                  to={Routes.getExperimentLoggedModelDetailsPage(experimentId, loggedModelId)}
+                >
+                  {chunks}
+                </Link>
               ) : (
                 <>{chunks}</>
               ),

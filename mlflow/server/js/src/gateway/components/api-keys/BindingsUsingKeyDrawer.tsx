@@ -15,8 +15,8 @@ interface BindingsUsingKeyDrawerProps {
 
 const formatResourceType = (resourceType: ResourceType): string => {
   switch (resourceType) {
-    case 'scorer_job':
-      return 'Scorer Job';
+    case 'scorer':
+      return 'Scorer';
     default:
       return resourceType;
   }
@@ -120,6 +120,7 @@ export const BindingsUsingKeyDrawer = ({ open, bindings, endpoints, onClose }: B
                           />
                         </Typography.Text>
                         <Link
+                          componentId="mlflow.gateway.api_keys.binding_endpoint_link"
                           to={GatewayRoutes.getEndpointDetailsRoute(binding.endpoint_id)}
                           css={{
                             fontSize: theme.typography.fontSizeSm,

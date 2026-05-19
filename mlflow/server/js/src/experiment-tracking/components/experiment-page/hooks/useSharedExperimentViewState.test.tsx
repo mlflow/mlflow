@@ -1,5 +1,6 @@
 import { jest, describe, beforeEach, it, expect, test } from '@jest/globals';
 import { renderHook, waitFor } from '@testing-library/react';
+import type { NavigateFunction } from '../../../../common/utils/RoutingUtils';
 import { useSearchParams, useNavigate } from '../../../../common/utils/RoutingUtils';
 
 import { useUpdateExperimentPageSearchFacets } from './useExperimentPageSearchFacets';
@@ -63,7 +64,7 @@ describe('useSharedExperimentViewState', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.mocked(useSearchParams).mockReturnValue([new URLSearchParams(), jest.fn()]);
-    jest.mocked(useNavigate).mockReturnValue(navigateMock);
+    jest.mocked(useNavigate).mockReturnValue(navigateMock as ReturnType<typeof useNavigate>);
     jest.mocked(useUpdateExperimentPageSearchFacets).mockReturnValue(updateSearchFacetsMock);
   });
 

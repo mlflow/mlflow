@@ -14,6 +14,12 @@ import { useRunDetailsPageData } from './run-page/hooks/useRunDetailsPageData';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { DesignSystemProvider } from '@databricks/design-system';
 
+jest.mock('../hooks/useServerInfo', () => ({
+  ...jest.requireActual<typeof import('../hooks/useServerInfo')>('../hooks/useServerInfo'),
+  getWorkspacesEnabledSync: () => false,
+  useWorkspacesEnabled: () => ({ workspacesEnabled: false, loading: false }),
+}));
+
 // Mock tab contents
 jest.mock('./run-page/RunViewMetricCharts', () => ({
   // @ts-expect-error 'props' is of type 'unknown'
@@ -69,7 +75,7 @@ describe('RunView navigation integration test', () => {
           params: {},
           error: null,
           loading: false,
-        } as any),
+        }) as any,
     );
   });
   test('should display overview by default and allow changing the tab', async () => {
@@ -83,25 +89,28 @@ describe('RunView navigation integration test', () => {
     });
 
     await userEvent.click(screen.getByRole('tab', { name: 'Model metrics' }));
-
-    expect(screen.queryByText('overview tab')).not.toBeInTheDocument();
-    expect(screen.queryByText('model metric charts')).toBeInTheDocument();
-    expect(screen.queryByText('system metric charts')).not.toBeInTheDocument();
-    expect(screen.queryByText('artifacts tab')).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByText('overview tab')).not.toBeInTheDocument();
+      expect(screen.queryByText('model metric charts')).toBeInTheDocument();
+      expect(screen.queryByText('system metric charts')).not.toBeInTheDocument();
+      expect(screen.queryByText('artifacts tab')).not.toBeInTheDocument();
+    });
 
     await userEvent.click(screen.getByRole('tab', { name: 'System metrics' }));
-
-    expect(screen.queryByText('overview tab')).not.toBeInTheDocument();
-    expect(screen.queryByText('model metric charts')).not.toBeInTheDocument();
-    expect(screen.queryByText('system metric charts')).toBeInTheDocument();
-    expect(screen.queryByText('artifacts tab')).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByText('overview tab')).not.toBeInTheDocument();
+      expect(screen.queryByText('model metric charts')).not.toBeInTheDocument();
+      expect(screen.queryByText('system metric charts')).toBeInTheDocument();
+      expect(screen.queryByText('artifacts tab')).not.toBeInTheDocument();
+    });
 
     await userEvent.click(screen.getByRole('tab', { name: 'Artifacts' }));
-
-    expect(screen.queryByText('overview tab')).not.toBeInTheDocument();
-    expect(screen.queryByText('model metrics')).not.toBeInTheDocument();
-    expect(screen.queryByText('system metrics')).not.toBeInTheDocument();
-    expect(screen.queryByText('artifacts tab')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByText('overview tab')).not.toBeInTheDocument();
+      expect(screen.queryByText('model metrics')).not.toBeInTheDocument();
+      expect(screen.queryByText('system metrics')).not.toBeInTheDocument();
+      expect(screen.queryByText('artifacts tab')).toBeInTheDocument();
+    });
   });
 
   test('should display artirfact tab if using a targeted artifact URL', async () => {

@@ -185,6 +185,8 @@ def pytorch_custom_env(tmp_path):
 
 
 def _predict(model, data):
+    from torch.fx import GraphModule
+
     dataset = get_dataset(data)
     batch_size = 16
     num_workers = 4
@@ -192,7 +194,9 @@ def _predict(model, data):
         dataset, batch_size=batch_size, num_workers=num_workers, shuffle=False, drop_last=False
     )
     predictions = np.zeros((len(dataloader.sampler),))
-    model.eval()
+
+    if not isinstance(model, GraphModule):
+        model.eval()
     with torch.no_grad():
         for i, batch in enumerate(dataloader):
             y_preds = model(batch[0]).squeeze(dim=1).numpy()
@@ -275,7 +279,7 @@ def test_log_model_no_registered_model_name(module_scoped_subclassed_model):
 def test_raise_exception(sequential_model):
     with TempDir(chdr=True, remove_on_exit=True) as tmp:
         path = tmp.path("model")
-        with pytest.raises(IOError, match="No such file or directory"):
+        with pytest.raises(MlflowException, match="No such artifact"):
             mlflow.pytorch.load_model(path)
 
         with pytest.raises(TypeError, match="Argument 'pytorch_model' should be a torch.nn.Module"):
@@ -975,7 +979,7 @@ def test_extra_files_save_model(create_extra_files, sequential_model):
 def test_log_model_invalid_extra_file_path(sequential_model):
     with (
         mlflow.start_run(),
-        pytest.raises(MlflowException, match="No such file or directory: 'non_existing_file.txt'"),
+        pytest.raises(MlflowException, match="No such artifact: 'non_existing_file.txt'"),
     ):
         mlflow.pytorch.log_model(
             sequential_model,
@@ -1053,6 +1057,15 @@ def test_save_state_dict_can_save_nested_state_dict(model_path):
     assert state_dict_equal(loaded_state_dict, state_dict)
     model.load_state_dict(loaded_state_dict["model"])
     optim.load_state_dict(loaded_state_dict["optim"])
+
+
+def test_load_state_dict_disallows_pickle_deserialization(model_path, monkeypatch):
+    model = get_sequential_model()
+    mlflow.pytorch.save_state_dict(model.state_dict(), model_path)
+
+    monkeypatch.setenv("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", "false")
+    with pytest.raises(MlflowException, match="MLFLOW_ALLOW_PICKLE_DESERIALIZATION"):
+        mlflow.pytorch.load_state_dict(model_path)
 
 
 @pytest.mark.parametrize("not_state_dict", [0, "", get_sequential_model()])
@@ -1204,14 +1217,12 @@ def test_passing_params_to_model(data):
 
 
 def test_log_model_with_datetime_input():
-    df = pd.DataFrame(
-        {
-            "datetime": pd.date_range("2022-01-01", periods=5, freq="D"),
-            "x": np.random.uniform(20, 30, 5),
-            "y": np.random.uniform(2, 4, 5),
-            "z": np.random.uniform(0, 10, 5),
-        }
-    )
+    df = pd.DataFrame({
+        "datetime": pd.date_range("2022-01-01", periods=5, freq="D"),
+        "x": np.random.uniform(20, 30, 5),
+        "y": np.random.uniform(2, 4, 5),
+        "z": np.random.uniform(0, 10, 5),
+    })
     model = get_sequential_model()
     model_info = mlflow.pytorch.log_model(model, name="pytorch", input_example=df)
     assert model_info.signature.inputs.inputs[0].type == DataType.datetime
@@ -1221,3 +1232,146 @@ def test_log_model_with_datetime_input():
         expected_result = model(input_tensor)
     with torch.no_grad():
         np.testing.assert_array_almost_equal(pyfunc_model.predict(df), expected_result, decimal=4)
+
+
+@pytest.mark.skipif(
+    Version(torch.__version__) < Version("2.4"), reason="This test requires torch>=2.4"
+)
+@pytest.mark.parametrize("scripted_model", [False])
+def test_save_and_load_exported_model(sequential_model, model_path, data, sequential_predicted):
+    input_example = data[0].to_numpy(dtype=np.float32)
+
+    mlflow.pytorch.save_model(
+        sequential_model,
+        model_path,
+        serialization_format="pt2",
+        input_example=input_example,
+    )
+
+    # Loading pytorch model
+    sequential_model_loaded = mlflow.pytorch.load_model(model_path)
+    np.testing.assert_array_equal(_predict(sequential_model_loaded, data), sequential_predicted)
+
+    # Loading pyfunc model
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+    np.testing.assert_array_almost_equal(
+        pyfunc_loaded.predict(input_example)[:, 0], sequential_predicted, decimal=4
+    )
+
+
+@pytest.mark.skipif(
+    Version(torch.__version__) < Version("2.4"), reason="This test requires torch>=2.4"
+)
+def test_exported_model_infer_dynamic_dim(tmp_path):
+    class MyModule(torch.nn.Module):
+        def forward(self, x: torch.Tensor) -> torch.Tensor:
+            return torch.sin(x)
+
+    origin_model = MyModule()
+
+    input_example = torch.randn(3, 4, 5).numpy()
+
+    save_path1 = tmp_path / "model1"
+
+    # test exporting model with auto inferred signature,
+    # which sets the first dim (batch dim) of input data as dynamic dim.
+    mlflow.pytorch.save_model(
+        origin_model,
+        save_path1,
+        serialization_format="pt2",
+        input_example=input_example,
+    )
+
+    # Test the exported model works with test data that changes the first dim (batch dim) size.
+    loaded_model1 = mlflow.pytorch.load_model(save_path1)
+
+    test_data1 = torch.randn(6, 4, 5)
+    np.testing.assert_array_almost_equal(
+        loaded_model1(test_data1),
+        origin_model(test_data1),
+        decimal=4,
+    )
+
+    save_path2 = tmp_path / "model2"
+    # test exporting model with provided signature,
+    # which sets the second dim of input data as dynamic dim.
+    mlflow.pytorch.save_model(
+        origin_model,
+        save_path2,
+        serialization_format="pt2",
+        input_example=input_example,
+        signature=ModelSignature(
+            inputs=Schema([TensorSpec(np.dtype("float32"), (3, -1, 5))]),
+        ),
+    )
+
+    # Test the exported model works with test data that changes the second dim (batch dim) size.
+    loaded_model2 = mlflow.pytorch.load_model(save_path2)
+
+    test_data2 = torch.randn(3, 2, 5)
+    np.testing.assert_array_almost_equal(
+        loaded_model2(test_data2),
+        origin_model(test_data2),
+        decimal=4,
+    )
+
+
+@pytest.mark.skipif(
+    Version(torch.__version__) < Version("2.4"), reason="This test requires torch>=2.4"
+)
+@pytest.mark.parametrize("scripted_model", [False])
+def test_load_exported_model_check_device_mismatch(sequential_model, model_path):
+    mlflow.pytorch.save_model(
+        sequential_model,
+        model_path,
+        serialization_format="pt2",
+        input_example=torch.randn(3, 4).numpy(),
+    )
+
+    # test loading model to CPU works
+    mlflow.pytorch.load_model(model_path, device="cpu")
+
+    with pytest.raises(
+        MlflowException,
+        match="it can't be loaded on 'cuda' device.",
+    ):
+        mlflow.pytorch.load_model(model_path, device="cuda")
+
+
+@pytest.mark.skipif(
+    Version(torch.__version__) < Version("2.4"), reason="This test requires torch>=2.4"
+)
+def test_save_and_load_exported_model_with_multi_inputs(model_path):
+
+    class CustomModel(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.linear = torch.nn.Linear(4, 1)
+
+        def forward(self, x, y):
+            with torch.no_grad():
+                return self.linear(x + y)
+
+    model = CustomModel()
+    input_example = (torch.randn(10, 4), torch.randn(10, 4))
+
+    mlflow.pytorch.save_model(
+        model,
+        model_path,
+        serialization_format="pt2",
+        input_example=input_example,
+        signature=ModelSignature(
+            inputs=Schema([
+                TensorSpec(np.dtype("float32"), (-1, 4), "v1"),
+                TensorSpec(np.dtype("float32"), (-1, 4), "v2"),
+            ]),
+        ),
+    )
+
+    model_loaded = mlflow.pytorch.load_model(model_path)
+
+    np.testing.assert_array_almost_equal(
+        model(*input_example),
+        model_loaded(*input_example),
+        decimal=4,
+    )

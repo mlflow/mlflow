@@ -6,12 +6,11 @@ import textwrap
 import tokenize
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterator, TypeAlias
+from typing import Any, Iterable, Iterator, TypeAlias
 
 from typing_extensions import Self
 
 from clint import rules
-from clint.builtin import BUILTIN_MODULES
 from clint.comments import Noqa, iter_comments
 from clint.config import Config
 from clint.index import SymbolIndex
@@ -20,27 +19,47 @@ from clint.utils import get_ignored_rules_for_file
 
 PARAM_REGEX = re.compile(r"\s+:param\s+\w+:", re.MULTILINE)
 RETURN_REGEX = re.compile(r"\s+:returns?:", re.MULTILINE)
-DISABLE_COMMENT_REGEX = re.compile(r"clint:\s*disable=([a-z0-9-]+)")
+DISABLE_COMMENT_REGEX = re.compile(r"clint:\s*disable(-next)?=([a-z0-9-]+(?:\s*,\s*[a-z0-9-]+)*)")
 MARKDOWN_LINK_RE = re.compile(r"\[.+\]\(.+\)")
+# Pre-screen used to skip Python tokenization when no suppression markers are present anywhere in
+# the source. False positives (matches inside string literals) are acceptable because they only
+# cause a fallthrough to the accurate tokenizer-based path.
+_COMMENT_MARKER_PRESCREEN = re.compile(r"clint:\s*disable|noqa\s*:", re.IGNORECASE)
 
 
-def ignore_map(code: str) -> dict[str, set[int]]:
-    """
-    Creates a mapping of rule name to line numbers to ignore.
+@dataclass
+class DisableComment:
+    rule: str
+    line: int
+    column: int
+    comment_line: int
 
-    {
-        "<rule_name>": {<line_number>, ...},
-        ...
-    }
-    """
-    mapping: dict[str, set[int]] = {}
-    readline = iter(code.splitlines(True)).__next__
-    for tok in tokenize.generate_tokens(readline):
-        if tok.type != tokenize.COMMENT:
-            continue
-        if m := DISABLE_COMMENT_REGEX.search(tok.string):
-            mapping.setdefault(m.group(1), set()).add(tok.start[0] - 1)
-    return mapping
+    @classmethod
+    def from_token(cls, token: tokenize.TokenInfo) -> list[Self]:
+        if not (m := DISABLE_COMMENT_REGEX.search(token.string)):
+            return []
+        is_next = m.group(1) is not None
+        comment_line = token.start[0] - 1
+        target_line = comment_line + 1 if is_next else comment_line
+        col = token.start[1] + m.start()
+        return [
+            cls(rule=rule.strip(), line=target_line, column=col, comment_line=comment_line)
+            for rule in m.group(2).split(",")
+        ]
+
+
+def parse_comments(code: str) -> tuple[list[DisableComment], list[Noqa]]:
+    disables: list[DisableComment] = []
+    noqas: list[Noqa] = []
+    # Fast path: most files contain no suppression markers. A cheap regex scan over the raw source
+    # avoids the expensive Python tokenizer in that common case.
+    if not _COMMENT_MARKER_PRESCREEN.search(code):
+        return disables, noqas
+    for token in iter_comments(code):
+        disables.extend(DisableComment.from_token(token))
+        if noqa := Noqa.from_token(token):
+            noqas.append(noqa)
+    return disables, noqas
 
 
 HasLocation: TypeAlias = (
@@ -108,7 +127,7 @@ class Violation:
         return (
             # Since `Range` is 0-indexed, lineno and col_offset are incremented by 1
             f"{self.path}:{cell_loc}{self.range.shift(Position(1, 1))}: "
-            f"{self.rule.id}: {self.rule.message}"
+            f"{self.rule.name}: {self.rule.message}"
         )
 
     def json(self) -> dict[str, str | int | None]:
@@ -354,7 +373,7 @@ class Linter(ast.NodeVisitor):
         *,
         path: Path,
         config: Config,
-        ignore: dict[str, set[int]],
+        disables: list[DisableComment],
         index: SymbolIndex,
         cell: int | None = None,
         offset: Position | None = None,
@@ -365,19 +384,23 @@ class Linter(ast.NodeVisitor):
         Args:
             path: Path to the file being linted.
             config: Linter configuration declared within the pyproject.toml file.
-            ignore: Mapping of rule name to line numbers to ignore.
+            disables: All disable comments found in the source code.
+            index: Symbol index for resolving function signatures.
             cell: Index of the cell being linted in a Jupyter notebook.
             offset: Position offset to apply to the line and column numbers of the violations.
-            index: Symbol index for resolving function signatures.
         """
         self.stack: list[ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef] = []
         self.path = path
         self.config = config
-        self.ignore = ignore
+        self.disables = disables
+        self.ignore: dict[str, set[int]] = {}
+        for dc in disables:
+            self.ignore.setdefault(dc.rule, set()).add(dc.line)
         self.cell = cell
         self.violations: list[Violation] = []
         self.in_TYPE_CHECKING = False
         self.is_mlflow_init_py = path == Path("mlflow", "__init__.py")
+        self.is_test_file = path.name.startswith("test_")
         self.imported_modules: set[str] = set()
         self.lazy_modules: dict[str, Range] = {}
         self.offset = offset or Position(0, 0)
@@ -385,13 +408,20 @@ class Linter(ast.NodeVisitor):
         self.index = index
         self.ignored_rules = get_ignored_rules_for_file(path, config.per_file_ignores)
         self.prev_stmt: ast.stmt | None = None
+        self.used_disables: set[tuple[str, int]] = set()
 
     def _check(self, range: Range, rule: rules.Rule) -> None:
         # Skip rules that are not selected in the config
         if rule.name not in self.config.select:
             return
-        # Check line-level ignores
-        if (lines := self.ignore.get(rule.name)) and range.start.line in lines:
+        # Check line-level ignores (supports both start and end of range)
+        if (lines := self.ignore.get(rule.name)) and (
+            range.start.line in lines or range.end.line in lines
+        ):
+            if range.start.line in lines:
+                self.used_disables.add((rule.name, range.start.line))
+            if range.end.line in lines:
+                self.used_disables.add((rule.name, range.end.line))
             return
         # Check per-file ignores
         if rule.name in self.ignored_rules:
@@ -411,7 +441,7 @@ class Linter(ast.NodeVisitor):
         if (
             isinstance(node.body[0], ast.Expr)
             and isinstance(node.body[0].value, ast.Constant)
-            and isinstance(node.body[0].value.s, str)
+            and isinstance(node.body[0].value.value, str)
         ):
             return node.body[0].value
         return None
@@ -482,8 +512,8 @@ class Linter(ast.NodeVisitor):
     def _redundant_test_docstring(
         self, node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef
     ) -> None:
-        if rule := rules.RedundantTestDocstring.check(node, self.path.name):
-            self._check(Range.from_node(node), rule)
+        if docstring_node := rules.RedundantTestDocstring.check(node, self.path.name):
+            self._check(Range.from_node(docstring_node), rules.RedundantTestDocstring())
 
     def visit(self, node: ast.AST) -> None:
         super().visit(node)
@@ -491,12 +521,12 @@ class Linter(ast.NodeVisitor):
             self.prev_stmt = node
 
     def visit_Module(self, node: ast.Module) -> None:
-        if rule := rules.RedundantTestDocstring.check_module(node, self.path.name):
-            self._check(Range(Position(0, 0)), rule)
+        if docstring_node := rules.RedundantTestDocstring.check_module(node, self.path.name):
+            self._check(Range.from_node(docstring_node), rules.RedundantTestDocstring())
         self.generic_visit(node)
 
     def _is_in_test(self) -> bool:
-        if not self.path.name.startswith("test_"):
+        if not self.is_test_file:
             return False
 
         if not self.stack:
@@ -513,19 +543,24 @@ class Linter(ast.NodeVisitor):
         except SyntaxError:
             return [Violation(rules.ExampleSyntaxError(), path, example.range)]
 
+        disables, noqas = parse_comments(example.code)
+        # Only track disable comments for rules checked in examples
+        disables = [dc for dc in disables if dc.rule in config.example_rules]
         linter = cls(
             path=path,
             config=config,
-            ignore=ignore_map(example.code),
+            disables=disables,
             index=index,
             offset=example.range.start,
         )
         linter.visit(tree)
-        linter.visit_comments(example.code)
+        linter.visit_noqas(noqas)
         if index:
             v = ExampleVisitor(linter, index)
             v.visit(tree)
-        return [v for v in linter.violations if v.rule.name in config.example_rules]
+        linter.post_visit()
+        active_rules = set(config.example_rules) | {rules.UnusedDisableComment.name}
+        return [v for v in linter.violations if v.rule.name in active_rules]
 
     def visit_decorators(self, decorator_list: list[ast.expr]) -> None:
         for decorator in decorator_list:
@@ -560,7 +595,9 @@ class Linter(ast.NodeVisitor):
 
     def _param_mismatch(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
         # TODO: Remove this guard clause to enforce the docstring param checks for all functions
-        if node.name.startswith("_"):
+        if node.name.startswith("_") and not (
+            node.name.startswith("__") and node.name.endswith("__")
+        ):
             return
         if (docstring_node := self._docstring(node)) and isinstance(docstring_node.value, str):
             if (doc_args := _parse_docstring_args(docstring_node.value)) and (
@@ -642,6 +679,14 @@ class Linter(ast.NodeVisitor):
         self._pytest_mark_repeat(node)
         self._mock_patch_as_decorator(node)
         self._redundant_test_docstring(node)
+
+        for arg in node.args.args + node.args.kwonlyargs + node.args.posonlyargs:
+            if arg.annotation:
+                self.visit_type_annotation(arg.annotation)
+
+        if node.returns:
+            self.visit_type_annotation(node.returns)
+
         self.stack.append(node)
         self._no_rst(node)
         self.visit_decorators(node.decorator_list)
@@ -654,8 +699,8 @@ class Linter(ast.NodeVisitor):
         self.resolver.add_import(node)
         for alias in node.names:
             root_module = alias.name.split(".", 1)[0]
-            if self._is_in_function() and root_module in BUILTIN_MODULES:
-                self._check(Range.from_node(node), rules.LazyBuiltinImport())
+            if self._is_in_function() and rules.LazyImport.check(alias.name):
+                self._check(Range.from_node(node), rules.LazyImport())
 
             if (
                 alias.name.split(".", 1)[0] == "typing_extensions"
@@ -678,8 +723,8 @@ class Linter(ast.NodeVisitor):
         self.resolver.add_import_from(node)
 
         root_module = node.module and node.module.split(".", 1)[0]
-        if self._is_in_function() and root_module in BUILTIN_MODULES:
-            self._check(Range.from_node(node), rules.LazyBuiltinImport())
+        if self._is_in_function() and rules.LazyImport.check(node.module):
+            self._check(Range.from_node(node), rules.LazyImport())
 
         if self.in_TYPE_CHECKING and self.is_mlflow_init_py:
             for alias in node.names:
@@ -772,8 +817,8 @@ class Linter(ast.NodeVisitor):
         if rules.UnnamedThread.check(node, self.resolver):
             self._check(Range.from_node(node), rules.UnnamedThread())
 
-        if rules.ThreadPoolExecutorWithoutThreadNamePrefix.check(node, self.resolver):
-            self._check(Range.from_node(node), rules.ThreadPoolExecutorWithoutThreadNamePrefix())
+        if rules.UnnamedThreadPool.check(node, self.resolver):
+            self._check(Range.from_node(node), rules.UnnamedThreadPool())
 
         if rules.IsinstanceUnionSyntax.check(node):
             self._check(Range.from_node(node), rules.IsinstanceUnionSyntax())
@@ -784,14 +829,23 @@ class Linter(ast.NodeVisitor):
         if self._is_in_test() and rules.OsChdirInTest.check(node, self.resolver):
             self._check(Range.from_node(node), rules.OsChdirInTest())
 
-        if self._is_in_test() and rules.TempDirInTest.check(node, self.resolver):
-            self._check(Range.from_node(node), rules.TempDirInTest())
+        if self._is_in_test() and rules.TempfileInTest.check(node, self.resolver):
+            self._check(Range.from_node(node), rules.TempfileInTest())
 
         if self._is_in_test() and rules.MockPatchDictEnviron.check(node, self.resolver):
             self._check(Range.from_node(node), rules.MockPatchDictEnviron())
 
+        if self._is_in_test() and rules.RedundantMockReturnValue.check(node, self.resolver):
+            self._check(Range.from_node(node), rules.RedundantMockReturnValue())
+
         if self._is_in_test() and rules.OsEnvironDeleteInTest.check(node, self.resolver):
             self._check(Range.from_node(node), rules.OsEnvironDeleteInTest())
+
+        if rules.UseGhToken.check(node, self.resolver):
+            self._check(Range.from_node(node), rules.UseGhToken())
+
+        if rule := rules.PreferOsEnviron.check(node, self.resolver):
+            self._check(Range.from_node(node), rule)
 
         self.generic_visit(node)
 
@@ -823,6 +877,17 @@ class Linter(ast.NodeVisitor):
             self._check(Range.from_node(node), rules.PreferDictUnion())
         self.generic_visit(node)
 
+    def visit_Subscript(self, node: ast.Subscript) -> None:
+        if rules.PreferNext.check(node):
+            self._check(Range.from_node(node), rules.PreferNext())
+        self.generic_visit(node)
+
+    def visit_ExceptHandler(self, node: ast.ExceptHandler) -> None:
+        if rules.ExceptBoolOp.check(node):
+            self._check(Range.from_node(node), rules.ExceptBoolOp())
+
+        self.generic_visit(node)
+
     def visit_Compare(self, node: ast.Compare) -> None:
         if rules.MajorVersionCheck.check(node, self.resolver):
             self._check(Range.from_node(node), rules.MajorVersionCheck())
@@ -838,13 +903,14 @@ class Linter(ast.NodeVisitor):
         visitor.visit(node)
 
     def visit_If(self, node: ast.If) -> None:
+        prev = self.in_TYPE_CHECKING
         if (resolved := self.resolver.resolve(node.test)) and resolved == [
             "typing",
             "TYPE_CHECKING",
         ]:
             self.in_TYPE_CHECKING = True
         self.generic_visit(node)
-        self.in_TYPE_CHECKING = False
+        self.in_TYPE_CHECKING = prev
 
     def _check_walrus_operator(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
         visitor = rules.WalrusOperatorVisitor()
@@ -864,10 +930,16 @@ class Linter(ast.NodeVisitor):
                 if range := self.lazy_modules.get(mod):
                     self._check(range, rules.LazyModule())
 
-    def visit_comments(self, src: str) -> None:
-        for comment in iter_comments(src):
-            if noqa := Noqa.from_token(comment):
-                self.visit_noqa(noqa)
+        for dc in self.disables:
+            if (dc.rule, dc.line) not in self.used_disables:
+                self._check(
+                    Range(Position(dc.comment_line, dc.column)),
+                    rules.UnusedDisableComment(dc.rule),
+                )
+
+    def visit_noqas(self, noqas: Iterable[Noqa]) -> None:
+        for noqa in noqas:
+            self.visit_noqa(noqa)
 
     def visit_noqa(self, noqa: Noqa) -> None:
         if rule := rules.DoNotDisable.check(noqa.rules):
@@ -926,9 +998,17 @@ def _lint_cell(
         # Ignore non-python cells such as `!pip install ...`
         return violations
 
-    linter = Linter(path=path, config=config, ignore=ignore_map(src), index=index, cell=cell_index)
+    disables, noqas = parse_comments(src)
+    linter = Linter(
+        path=path,
+        config=config,
+        disables=disables,
+        index=index,
+        cell=cell_index,
+    )
     linter.visit(tree)
-    linter.visit_comments(src)
+    linter.visit_noqas(noqas)
+    linter.post_visit()
     violations.extend(linter.violations)
 
     if not src.strip():
@@ -952,10 +1032,9 @@ def _has_h1_header(cells: list[dict[str, Any]]) -> bool:
     )
 
 
-def lint_file(path: Path, code: str, config: Config, index_path: Path) -> list[Violation]:
+def lint_file(path: Path, code: str, config: Config, index: SymbolIndex) -> list[Violation]:
     if path.is_absolute():
         raise ValueError(f"Path must be relative: {path}")
-    index = SymbolIndex.load(index_path)
     if path.suffix == ".ipynb":
         violations = []
         if cells := json.loads(code).get("cells"):
@@ -987,10 +1066,16 @@ def lint_file(path: Path, code: str, config: Config, index_path: Path) -> list[V
             violations.extend(Linter.visit_example(path, config, code_block, index))
         return violations
     else:
-        linter = Linter(path=path, config=config, ignore=ignore_map(code), index=index)
+        disables, noqas = parse_comments(code)
+        linter = Linter(
+            path=path,
+            config=config,
+            disables=disables,
+            index=index,
+        )
         module = ast.parse(code)
         linter.visit(module)
-        linter.visit_comments(code)
+        linter.visit_noqas(noqas)
         linter.visit_file_content(code)
         linter.post_visit()
         return linter.violations

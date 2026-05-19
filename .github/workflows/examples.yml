@@ -6,7 +6,15 @@ on:
       - opened
       - synchronize
       - reopened
-      - ready_for_review
+    paths-ignore:
+      - "docs/**"
+      - "**.md"
+      - "dev/clint/**"
+      - ".github/workflows/docs.yml"
+      - ".github/workflows/preview-docs.yml"
+      - "mlflow/server/js/**"
+      - ".github/workflows/js.yml"
+      - ".claude/**"
   schedule:
     # Run this action daily at 13:00 UTC
     - cron: "0 13 * * *"
@@ -38,6 +46,7 @@ env:
   MLFLOW_HOME: ${{ github.workspace }}
   MLFLOW_CONDA_HOME: /usr/share/miniconda
   PIP_EXTRA_INDEX_URL: https://download.pytorch.org/whl/cpu
+  PIP_CONSTRAINT: ${{ github.workspace }}/requirements/constraints.txt
   PYTHONFAULTHANDLER: "1"
 
 jobs:
@@ -46,7 +55,7 @@ jobs:
     timeout-minutes: 120
     permissions:
       contents: read
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && github.repository == 'mlflow/dev') || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && github.repository == 'mlflow/dev') || (github.event_name == 'pull_request' && (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot'))
     strategy:
       fail-fast: false
       matrix:
@@ -54,8 +63,9 @@ jobs:
         include:
           - splits: 2
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          persist-credentials: false
           repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
       - uses: ./.github/actions/free-disk-space
@@ -64,11 +74,10 @@ jobs:
         if: github.event_name == 'pull_request'
         env:
           FORCE_RUN_EXAMPLES: ${{ contains(github.event.pull_request.labels.*.name, 'examples.yml') }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          REPO="${{ github.repository }}"
-          PR_NUMBER="${{ github.event.pull_request.number }}"
-          BASE_REF="${{ github.base_ref }}"
-          CHANGED_FILES=$(python dev/list_changed_files.py --repository $REPO --pr-num $PR_NUMBER | grep "tests/examples\|examples" || true);
+          CHANGED_FILES=$(gh pr view "$PR_NUMBER" --json files --jq '.files[].path' | grep "tests/examples\|examples" || true);
           if [ "$FORCE_RUN_EXAMPLES" = "true" ]; then
             EXAMPLES_CHANGED="true"
           else
@@ -83,20 +92,22 @@ jobs:
       - uses: ./.github/actions/setup-pyenv
 
       - name: Install dependencies
-        if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || steps.check-diff.outputs.examples_changed == 'true' }}
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || steps.check-diff.outputs.examples_changed == 'true'
         run: |
           source ./dev/install-common-deps.sh --ml
-          pip install fastapi uvicorn tf-keras
-          sudo apt-get update -y
+          uv pip install --system fastapi uvicorn
           # Required for the transformers example that uses the Whisper model
+          sudo apt-get update
           sudo apt-get install -y ffmpeg
 
       - name: Run example tests
-        if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || steps.check-diff.outputs.examples_changed == 'true' }}
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || steps.check-diff.outputs.examples_changed == 'true'
         env:
           SPARK_LOCAL_IP: localhost
+          SPLITS: ${{ matrix.splits }}
+          GROUP: ${{ matrix.group }}
         run: |
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --serve-wheel tests/examples --durations=30
+          pytest --splits=$SPLITS --group=$GROUP --serve-wheel tests/examples --durations=30
 
       - name: Remove conda environments
         run: |
@@ -111,29 +122,13 @@ jobs:
     timeout-minutes: 120
     permissions:
       contents: read
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && github.repository == 'mlflow/dev') || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && github.repository == 'mlflow/dev') || (github.event_name == 'pull_request' && (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot'))
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          persist-credentials: false
           repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
-      - name: Check diff
-        id: check-diff
-        if: github.event_name == 'pull_request'
-        run: |
-          REPO="${{ github.repository }}"
-          PR_NUMBER="${{ github.event.pull_request.number }}"
-          CHANGED_FILES=$(python dev/list_changed_files.py --repository $REPO --pr-num $PR_NUMBER | grep "Dockerfile\|\.dockerignore" || true);
-          DOCKER_CHANGED=$([[ ! -z "$CHANGED_FILES" ]] && echo "true" || echo "false")
-          echo -e "CHANGED_FILES:\nCHANGED_FILES"
-          echo "DOCKER_CHANGED: $DOCKER_CHANGED"
-          echo "docker_changed=$DOCKER_CHANGED" >> $GITHUB_OUTPUT
-
-      - name: Run docker tests
-        if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || steps.check-diff.outputs.docker_changed == 'true' }}
-        run: |
-          docker build -t mlflow_test_build . && docker images | grep mlflow_test_build
-
       - name: Show disk usage
         run: |
           df -h

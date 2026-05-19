@@ -1,3 +1,4 @@
+// DELETE_BARREL_FILE
 // TBD: this module will provide a space for trace UI components shared
 // between new Tiles UI in webapp and evaluation review UI in MLflow.
 // Eventually everything will be moved to monolith codebase.
@@ -18,18 +19,20 @@ export {
 
 export { useTableSort } from './hooks/useTableSort';
 
-export { GenAiTracesTable } from './GenAITracesTable';
+/**
+ * @deprecated Use `GenAITracesTableBodyContainer` and `GenAITracesTableToolbar` instead for new use cases.
+ */
+export { GenAiTracesTableDeprecated } from './GenAITracesTable';
 export { useGenAiExperimentRunsForComparison } from './hooks/useGenAiExperimentRunsForComparison';
 export { useGenAiTraceEvaluationArtifacts } from './hooks/useGenAiTraceEvaluationArtifacts';
 export {
-  useMlflowTraces,
   useSearchMlflowTraces,
   useMlflowTracesTableMetadata,
   invalidateMlflowSearchTracesCache,
   searchMlflowTracesQueryFn,
   SEARCH_MLFLOW_TRACES_QUERY_KEY,
 } from './hooks/useMlflowTraces';
-export { getEvalTabTotalTracesLimit } from './utils/FeatureUtils';
+export { getEvalTabTotalTracesLimit, shouldEnableSessionGrouping } from './utils/FeatureUtils';
 export { GenAITracesTableToolbar } from './GenAITracesTableToolbar';
 export { GenAiTracesTableSearchInput } from './GenAiTracesTableSearchInput';
 export { GenAITracesTableBodyContainer } from './GenAITracesTableBodyContainer';
@@ -45,6 +48,8 @@ export { MarkdownConverterProvider as GenAiTracesMarkdownConverterProvider } fro
 export { RunColorCircle } from './components/RunColorCircle';
 
 export { useSelectedColumns } from './hooks/useGenAITracesUIState';
+export { useTableSortURL } from './hooks/useTableSortURL';
+export { useColumnsURL } from './hooks/useColumnsURL';
 
 export { GenAiEvaluationTracesReviewModal } from './components/GenAiEvaluationTracesReviewModal';
 
@@ -68,14 +73,21 @@ export {
   RUN_EVALUATION_RESULTS_TAB_SINGLE_RUN,
 } from './utils/EvaluationLogging';
 
+export { SIMULATION_GOAL_KEY, SIMULATION_PERSONA_KEY } from './utils/SessionGroupingUtils';
+
 export {
   getTracesTagKeys,
   getTraceInfoInputs,
   getTraceInfoOutputs,
   convertTraceInfoV3ToRunEvalEntry,
+  getSpanAttribute,
+  formatTraceId,
+  getSpansLocation,
+  TRACKING_STORE_SPANS_LOCATION,
 } from './utils/TraceUtils';
 
 export {
+  INPUTS_COLUMN_ID,
   REQUEST_TIME_COLUMN_ID,
   EXECUTION_DURATION_COLUMN_ID,
   STATE_COLUMN_ID,
@@ -84,7 +96,21 @@ export {
   TOKENS_COLUMN_ID,
   TRACE_ID_COLUMN_ID,
   CUSTOM_METADATA_COLUMN_ID,
+  SESSION_COLUMN_ID,
+  SIMULATION_GOAL_COLUMN_ID,
+  SIMULATION_PERSONA_COLUMN_ID,
+  SPAN_NAME_COLUMN_ID,
+  SPAN_STATUS_COLUMN_ID,
+  USER_COLUMN_ID,
+  ISSUE_ID_COLUMN_ID,
+  ISSUES_COLUMN_ID,
+  GIT_BRANCH_COLUMN_ID,
+  GIT_COMMIT_COLUMN_ID,
 } from './hooks/useTableColumns';
+
+export { ExperimentViewTracesStatusLabels } from './cellRenderers/StatusRenderer';
+
+export { getSimulationColumnsToAdd } from './GenAiTracesTable.utils';
 
 // Test utilities
 export {
@@ -93,10 +119,31 @@ export {
   createTestColumns,
 } from './test-fixtures/EvaluatedTraceTestUtils';
 
-export { shouldUseTracesV4API } from './utils/FeatureUtils';
-export { createTraceLocationForExperiment, createTraceLocationForUCSchema } from './utils/TraceLocationUtils';
+export {
+  shouldUseTracesV4API,
+  shouldUseLongRunningTracesAPI,
+  shouldUseInfinitePaginatedTraces,
+} from './utils/FeatureUtils';
+export {
+  createTraceLocationForExperiment,
+  createTraceLocationForUCSchema,
+  createTraceLocationForUCTablePrefix,
+  createTraceLocationForDestinationPath,
+  isTablePrefixDestinationPath,
+  isV4TraceLocation,
+} from './utils/TraceLocationUtils';
 export type { GetTraceFunction } from './hooks/useGetTrace';
-export { useFetchTraceV4LazyQuery } from './hooks/useFetchTraceV4';
+export { useFetchTraceV4LazyQuery, useFetchTraceV4Query, getTraceV4QueryKey } from './hooks/useFetchTraceV4';
 export { doesTraceSupportV4API } from './utils/TraceLocationUtils';
 export { GenAIChatSessionsTable } from './sessions-table/GenAIChatSessionsTable';
+export { groupTracesBySession } from './sessions-table/utils';
+export { GenAITracesTableBodySkeleton } from './GenAITracesTableBodySkeleton';
 export { useGetTraces } from './hooks/useGetTraces';
+export { useGetTrace } from './hooks/useGetTrace';
+export { ActiveEvaluationContext, useActiveEvaluation } from './hooks/useActiveEvaluation';
+export { isSqlWarehouseTimeoutError } from './utils/ErrorUtils';
+export {
+  GenAiTraceTableRowSelectionProvider,
+  useGenAiTraceTableRowSelection,
+  useIsInsideGenAiTraceTableRowSelectionProvider,
+} from './hooks/useGenAiTraceTableRowSelection';

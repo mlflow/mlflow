@@ -10,7 +10,7 @@ import {
   createSpanFilter,
 } from '@databricks/web-shared/model-trace-explorer';
 import { useTraceMetricsQuery } from './useTraceMetricsQuery';
-import type { OverviewChartProps } from '../types';
+import { useOverviewChartContext } from '../OverviewChartContext';
 
 export interface UseToolCallStatisticsDataResult {
   /** Total number of tool calls */
@@ -32,15 +32,14 @@ export interface UseToolCallStatisticsDataResult {
 /**
  * Custom hook that fetches and processes tool call statistics.
  * Queries span metrics for TOOL type spans and calculates counts and latency.
+ * Uses OverviewChartContext to get chart props.
  *
- * @param props - Chart props including experimentId and time range
  * @returns Tool call statistics, loading state, and error state
  */
 export function useToolCallStatisticsData({
-  experimentId,
-  startTimeMs,
-  endTimeMs,
-}: Pick<OverviewChartProps, 'experimentId' | 'startTimeMs' | 'endTimeMs'>): UseToolCallStatisticsDataResult {
+  enabled = true,
+}: { enabled?: boolean } = {}): UseToolCallStatisticsDataResult {
+  const { experimentIds, startTimeMs, endTimeMs } = useOverviewChartContext();
   // Filter for TOOL type spans
   const toolFilter = useMemo(() => [createSpanFilter(SpanFilterKey.TYPE, SpanType.TOOL)], []);
 
@@ -50,14 +49,15 @@ export function useToolCallStatisticsData({
     isLoading: isLoadingCounts,
     error: countsError,
   } = useTraceMetricsQuery({
-    experimentId,
+    experimentIds,
     startTimeMs,
     endTimeMs,
     viewType: MetricViewType.SPANS,
     metricName: SpanMetricKey.SPAN_COUNT,
     aggregations: [{ aggregation_type: AggregationType.COUNT }],
     filters: toolFilter,
-    dimensions: [SpanDimensionKey.SPAN_STATUS],
+    dimensions: [SpanDimensionKey.SPAN_NAME, SpanDimensionKey.SPAN_STATUS],
+    enabled,
   });
 
   // Query average latency for tool calls
@@ -66,13 +66,14 @@ export function useToolCallStatisticsData({
     isLoading: isLoadingLatency,
     error: latencyError,
   } = useTraceMetricsQuery({
-    experimentId,
+    experimentIds,
     startTimeMs,
     endTimeMs,
     viewType: MetricViewType.SPANS,
     metricName: SpanMetricKey.LATENCY,
     aggregations: [{ aggregation_type: AggregationType.AVG }],
     filters: toolFilter,
+    enabled,
   });
 
   // Calculate statistics from grouped data

@@ -10,11 +10,11 @@ from mlflow.gateway.schemas import chat, completions, embeddings
 
 
 class PaLMProvider(BaseProvider):
-    NAME = "PaLM"
+    DISPLAY_NAME = "PaLM"
     CONFIG_TYPE = PaLMConfig
 
-    def __init__(self, config: EndpointConfig) -> None:
-        super().__init__(config)
+    def __init__(self, config: EndpointConfig, enable_tracing: bool = False) -> None:
+        super().__init__(config, enable_tracing=enable_tracing)
         warnings.warn(
             "PaLM provider is deprecated and will be removed in a future MLflow version.",
             category=FutureWarning,
@@ -33,7 +33,7 @@ class PaLMProvider(BaseProvider):
             payload=payload,
         )
 
-    async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
+    async def _chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
         from fastapi.encoders import jsonable_encoder
 
         payload = jsonable_encoder(payload, exclude_none=True)
@@ -109,7 +109,9 @@ class PaLMProvider(BaseProvider):
             ),
         )
 
-    async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
+    async def _completions(
+        self, payload: completions.RequestPayload
+    ) -> completions.ResponsePayload:
         from fastapi.encoders import jsonable_encoder
 
         payload = jsonable_encoder(payload, exclude_none=True)
@@ -173,7 +175,7 @@ class PaLMProvider(BaseProvider):
             ),
         )
 
-    async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
+    async def _embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
         from fastapi.encoders import jsonable_encoder
 
         payload = jsonable_encoder(payload, exclude_none=True)

@@ -1,0 +1,88 @@
+diff --git a/es/TabNavList/OperationNode.js b/es/TabNavList/OperationNode.js
+index 37ff8829c2f19616e283496facc6a8c018c94386..d1b3c78c6a573b06a15f8dc1c74c82a731f5a8ee 100644
+--- a/es/TabNavList/OperationNode.js
++++ b/es/TabNavList/OperationNode.js
+@@ -22,6 +22,7 @@ function OperationNode(_ref, ref) {
+       editable = _ref.editable,
+       tabBarGutter = _ref.tabBarGutter,
+       rtl = _ref.rtl,
++      getPopupContainer = _ref.getPopupContainer,
+       onTabClick = _ref.onTabClick;
+ 
+   // ======================== Dropdown ========================
+@@ -146,7 +147,8 @@ function OperationNode(_ref, ref) {
+     visible: open,
+     transitionName: moreTransitionName,
+     onVisibleChange: setOpen,
+-    overlayClassName: overlayClassName
++    overlayClassName: overlayClassName,
++    getPopupContainer: getPopupContainer,
+   }, React.createElement("button", {
+     type: "button",
+     className: "".concat(prefixCls, "-nav-more"),
+diff --git a/es/Tabs.js b/es/Tabs.js
+index 0edb730047364a5f0b37fbe2dc9c7d64ccf57127..4eea5ee8a7d697cfbe091ea1c3c7e3c964610c14 100644
+--- a/es/Tabs.js
++++ b/es/Tabs.js
+@@ -73,6 +73,7 @@ function Tabs(_ref, ref) {
+       onChange = _ref.onChange,
+       onTabClick = _ref.onTabClick,
+       onTabScroll = _ref.onTabScroll,
++      getPopupContainer = _ref.getPopupContainer,
+       restProps = _objectWithoutProperties(_ref, ["id", "prefixCls", "className", "children", "direction", "activeKey", "defaultActiveKey", "editable", "animated", "tabPosition", "tabBarGutter", "tabBarStyle", "tabBarExtraContent", "locale", "moreIcon", "moreTransitionName", "destroyInactiveTabPane", "renderTabBar", "onChange", "onTabClick", "onTabScroll"]);
+ 
+   var tabs = parseTabList(children);
+@@ -189,7 +190,8 @@ function Tabs(_ref, ref) {
+     onTabScroll: onTabScroll,
+     extra: tabBarExtraContent,
+     style: tabBarStyle,
+-    panes: children
++    panes: children,
++    getPopupContainer: getPopupContainer,
+   });
+ 
+   if (renderTabBar) {
+diff --git a/lib/TabNavList/OperationNode.js b/lib/TabNavList/OperationNode.js
+index fedc42b43d830ab83e1b604e7611f52a174c3993..c908f8f66120b5cbb0deac0ad1b4e5ff5418d534 100644
+--- a/lib/TabNavList/OperationNode.js
++++ b/lib/TabNavList/OperationNode.js
+@@ -39,6 +39,7 @@ function OperationNode(_ref, ref) {
+       editable = _ref.editable,
+       tabBarGutter = _ref.tabBarGutter,
+       rtl = _ref.rtl,
++      getPopupContainer = _ref.getPopupContainer,
+       onTabClick = _ref.onTabClick;
+ 
+   // ======================== Dropdown ========================
+@@ -163,7 +164,8 @@ function OperationNode(_ref, ref) {
+     visible: open,
+     transitionName: moreTransitionName,
+     onVisibleChange: setOpen,
+-    overlayClassName: overlayClassName
++    overlayClassName: overlayClassName,
++    getPopupContainer: getPopupContainer,
+   }, React.createElement("button", {
+     type: "button",
+     className: "".concat(prefixCls, "-nav-more"),
+diff --git a/lib/Tabs.js b/lib/Tabs.js
+index 8bcb122a86553e5b632851667a11238824bf14f2..b6ebb048949dac5eba209506d998f855babeb5fc 100644
+--- a/lib/Tabs.js
++++ b/lib/Tabs.js
+@@ -92,6 +92,7 @@ function Tabs(_ref, ref) {
+       onChange = _ref.onChange,
+       onTabClick = _ref.onTabClick,
+       onTabScroll = _ref.onTabScroll,
++      getPopupContainer = _ref.getPopupContainer,
+       restProps = (0, _objectWithoutProperties2.default)(_ref, ["id", "prefixCls", "className", "children", "direction", "activeKey", "defaultActiveKey", "editable", "animated", "tabPosition", "tabBarGutter", "tabBarStyle", "tabBarExtraContent", "locale", "moreIcon", "moreTransitionName", "destroyInactiveTabPane", "renderTabBar", "onChange", "onTabClick", "onTabScroll"]);
+   var tabs = parseTabList(children);
+   var rtl = direction === 'rtl';
+@@ -207,7 +208,8 @@ function Tabs(_ref, ref) {
+     onTabScroll: onTabScroll,
+     extra: tabBarExtraContent,
+     style: tabBarStyle,
+-    panes: children
++    panes: children,
++    getPopupContainer: getPopupContainer
+   });
+ 
+   if (renderTabBar) {

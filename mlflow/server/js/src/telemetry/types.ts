@@ -9,4 +9,6 @@ export interface DesignSystemObservabilityEvent {
   componentType: DesignSystemEventProviderComponentTypes;
   componentSubType?: string | null;
   eventType: DesignSystemEventProviderAnalyticsEventTypes;
+  /** Value is only present when the component has valueHasNoPii=true */
+  value?: unknown;
 }

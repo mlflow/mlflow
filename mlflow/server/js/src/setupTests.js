@@ -3,7 +3,7 @@ import { configure } from 'enzyme';
 import Adapter from '@wojtekmaj/enzyme-adapter-react-17';
 
 const setupMockFetch = () => {
-  // eslint-disable-next-line import/no-extraneous-dependencies, no-unreachable, global-require
+  // eslint-disable-next-line import/no-extraneous-dependencies, no-unreachable
   require('whatwg-fetch');
 };
 
@@ -13,6 +13,8 @@ configure({ adapter: new Adapter() });
 // Included to mock local storage in JS tests, see docs at
 // https://www.npmjs.com/package/jest-localstorage-mock#in-create-react-app
 require('jest-localstorage-mock');
+// Included to mock performance API in tests
+require('../__mocks__/performance');
 
 global.setImmediate = (cb) => {
   return setTimeout(cb, 0);
@@ -48,47 +50,22 @@ jest.mock('./i18n/loadMessages', () => ({
   },
 }));
 
-// Mock TelemetryClient which uses import.meta.url (not supported in Jest)
-jest.mock('./telemetry/TelemetryClient', () => ({
-  telemetryClient: {
-    logEvent: jest.fn(),
-    shutdown: jest.fn(),
-    start: jest.fn(),
-  },
-}));
+(() => {
+  // Mock TelemetryClient which uses import.meta.url (not supported in Jest)
+  // eslint-disable-next-line no-unreachable
+  jest.mock('./telemetry/TelemetryClient', () => ({
+    telemetryClient: {
+      logEvent: jest.fn(),
+      shutdown: jest.fn(),
+      start: jest.fn(),
+    },
+  }));
 
-// Mock recharts components to avoid rendering issues in tests
-jest.mock('recharts', () => ({
-  ResponsiveContainer: ({ children }) => <div data-testid="responsive-container">{children}</div>,
-  LineChart: ({ children, data }) => (
-    <div data-testid="line-chart" data-count={data?.length || 0}>
-      {children}
-    </div>
-  ),
-  BarChart: ({ children, data }) => (
-    <div data-testid="bar-chart" data-count={data?.length || 0} data-labels={data?.map((d) => d.name).join(',')}>
-      {children}
-    </div>
-  ),
-  ComposedChart: ({ children, data }) => (
-    <div data-testid="composed-chart" data-count={data?.length || 0}>
-      {children}
-    </div>
-  ),
-  AreaChart: ({ children, data }) => (
-    <div data-testid="area-chart" data-count={data?.length || 0}>
-      {children}
-    </div>
-  ),
-  Line: ({ name }) => <div data-testid={name ? `line-${name}` : 'line'} />,
-  Bar: ({ name }) => <div data-testid={name ? `bar-${name}` : 'bar'} />,
-  Area: ({ name, dataKey }) => <div data-testid={`area-${dataKey}`} data-name={name} />,
-  XAxis: () => <div data-testid="x-axis" />,
-  YAxis: () => <div data-testid="y-axis" />,
-  Tooltip: () => <div data-testid="tooltip" />,
-  Legend: () => <div data-testid="legend" />,
-  ReferenceLine: ({ label }) => <div data-testid="reference-line" data-label={label?.value} />,
-}));
+  // Mock crypto API for tests
+  global.crypto = {
+    randomUUID: () => 'test-uuid-' + Math.random().toString(36).substring(2, 15),
+  };
+})();
 
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
@@ -103,11 +80,6 @@ Object.defineProperty(window, 'matchMedia', {
     dispatchEvent: jest.fn(),
   })),
 });
-
-// Mock crypto API for tests
-global.crypto = {
-  randomUUID: () => 'test-uuid-' + Math.random().toString(36).substring(2, 15),
-};
 
 beforeEach(() => {
   // Prevent unit tests making actual fetch calls,

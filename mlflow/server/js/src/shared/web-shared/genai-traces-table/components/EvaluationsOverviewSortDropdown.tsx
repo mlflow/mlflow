@@ -31,20 +31,21 @@ export interface SortOption {
 }
 
 export const EvaluationsOverviewSortDropdown = React.memo(
+  // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
   ({
     tableSort,
     columns = [],
     onChange,
     enableGrouping,
-    isMetadataLoading,
-    metadataError,
+    isLoading,
+    isError,
   }: {
     tableSort: EvaluationsOverviewTableSort | undefined;
     columns: TracesTableColumn[];
     onChange: (sortOption: SortOption, orderByAsc: boolean) => void;
     enableGrouping?: boolean;
-    isMetadataLoading?: boolean;
-    metadataError?: Error | null;
+    isLoading?: boolean;
+    isError?: boolean;
   }) => {
     const intl = useIntl();
     const { theme } = useDesignSystemTheme();
@@ -157,7 +158,6 @@ export const EvaluationsOverviewSortDropdown = React.memo(
         // metrics.`metric_key_name` => metric_key_name
         const extractedKeyName = tableSort?.key?.match(/^.+\.`(.+)`$/);
         if (extractedKeyName) {
-          // eslint-disable-next-line prefer-destructuring
           sortOptionLabel = extractedKeyName[1];
         }
       }
@@ -183,7 +183,7 @@ export const EvaluationsOverviewSortDropdown = React.memo(
           </Button>
         </DropdownMenu.Trigger>
         <DropdownMenu.Content minWidth={250}>
-          {metadataError ? (
+          {isError ? (
             <div
               css={{
                 display: 'flex',
@@ -201,7 +201,7 @@ export const EvaluationsOverviewSortDropdown = React.memo(
                 description="Error message for fetching traces failed"
               />
             </div>
-          ) : isMetadataLoading ? (
+          ) : isLoading ? (
             <div
               css={{
                 display: 'flex',

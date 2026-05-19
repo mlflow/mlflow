@@ -1,3 +1,8 @@
+from mlflow.exceptions import MlflowException
+from mlflow.server.auth.permissions import get_permission
+from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME, resolve_entity_workspace_name
+
+
 class User:
     def __init__(
         self,
@@ -5,17 +10,11 @@ class User:
         username,
         password_hash,
         is_admin,
-        experiment_permissions=None,
-        registered_model_permissions=None,
-        scorer_permissions=None,
     ):
         self._id = id_
         self._username = username
         self._password_hash = password_hash
         self._is_admin = is_admin
-        self._experiment_permissions = experiment_permissions
-        self._registered_model_permissions = registered_model_permissions
-        self._scorer_permissions = scorer_permissions
 
     @property
     def id(self):
@@ -37,40 +36,11 @@ class User:
     def is_admin(self, is_admin):
         self._is_admin = is_admin
 
-    @property
-    def experiment_permissions(self):
-        return self._experiment_permissions
-
-    @experiment_permissions.setter
-    def experiment_permissions(self, experiment_permissions):
-        self._experiment_permissions = experiment_permissions
-
-    @property
-    def registered_model_permissions(self):
-        return self._registered_model_permissions
-
-    @registered_model_permissions.setter
-    def registered_model_permissions(self, registered_model_permissions):
-        self._registered_model_permissions = registered_model_permissions
-
-    @property
-    def scorer_permissions(self):
-        return self._scorer_permissions
-
-    @scorer_permissions.setter
-    def scorer_permissions(self, scorer_permissions):
-        self._scorer_permissions = scorer_permissions
-
     def to_json(self):
         return {
             "id": self.id,
             "username": self.username,
             "is_admin": self.is_admin,
-            "experiment_permissions": [p.to_json() for p in self.experiment_permissions],
-            "registered_model_permissions": [
-                p.to_json() for p in self.registered_model_permissions
-            ],
-            "scorer_permissions": [p.to_json() for p in self.scorer_permissions],
         }
 
     @classmethod
@@ -80,16 +50,6 @@ class User:
             username=dictionary["username"],
             password_hash="REDACTED",
             is_admin=dictionary["is_admin"],
-            experiment_permissions=[
-                ExperimentPermission.from_json(p) for p in dictionary["experiment_permissions"]
-            ],
-            registered_model_permissions=[
-                RegisteredModelPermission.from_json(p)
-                for p in dictionary["registered_model_permissions"]
-            ],
-            scorer_permissions=[
-                ScorerPermission.from_json(p) for p in dictionary["scorer_permissions"]
-            ],
         )
 
 
@@ -142,10 +102,16 @@ class RegisteredModelPermission:
         name,
         user_id,
         permission,
+        workspace=None,
     ):
+        self._workspace = resolve_entity_workspace_name(workspace)
         self._name = name
         self._user_id = user_id
         self._permission = permission
+
+    @property
+    def workspace(self):
+        return self._workspace
 
     @property
     def name(self):
@@ -165,6 +131,7 @@ class RegisteredModelPermission:
 
     def to_json(self):
         return {
+            "workspace": self.workspace,
             "name": self.name,
             "user_id": self.user_id,
             "permission": self.permission,
@@ -176,6 +143,7 @@ class RegisteredModelPermission:
             name=dictionary["name"],
             user_id=dictionary["user_id"],
             permission=dictionary["permission"],
+            workspace=dictionary.get("workspace"),
         )
 
 
@@ -225,6 +193,343 @@ class ScorerPermission:
         return cls(
             experiment_id=dictionary["experiment_id"],
             scorer_name=dictionary["scorer_name"],
+            user_id=dictionary["user_id"],
+            permission=dictionary["permission"],
+        )
+
+
+class GatewaySecretPermission:
+    def __init__(self, secret_id, user_id, permission):
+        self._secret_id = secret_id
+        self._user_id = user_id
+        self._permission = permission
+
+    @property
+    def secret_id(self):
+        return self._secret_id
+
+    @property
+    def user_id(self):
+        return self._user_id
+
+    @property
+    def permission(self):
+        return self._permission
+
+    @permission.setter
+    def permission(self, permission):
+        self._permission = permission
+
+    def to_json(self):
+        return {
+            "secret_id": self.secret_id,
+            "user_id": self.user_id,
+            "permission": self.permission,
+        }
+
+    @classmethod
+    def from_json(cls, dictionary):
+        return cls(
+            secret_id=dictionary["secret_id"],
+            user_id=dictionary["user_id"],
+            permission=dictionary["permission"],
+        )
+
+
+class GatewayEndpointPermission:
+    def __init__(self, endpoint_id, user_id, permission):
+        self._endpoint_id = endpoint_id
+        self._user_id = user_id
+        self._permission = permission
+
+    @property
+    def endpoint_id(self):
+        return self._endpoint_id
+
+    @property
+    def user_id(self):
+        return self._user_id
+
+    @property
+    def permission(self):
+        return self._permission
+
+    @permission.setter
+    def permission(self, permission):
+        self._permission = permission
+
+    def to_json(self):
+        return {
+            "endpoint_id": self.endpoint_id,
+            "user_id": self.user_id,
+            "permission": self.permission,
+        }
+
+    @classmethod
+    def from_json(cls, dictionary):
+        return cls(
+            endpoint_id=dictionary["endpoint_id"],
+            user_id=dictionary["user_id"],
+            permission=dictionary["permission"],
+        )
+
+
+class GatewayModelDefinitionPermission:
+    def __init__(self, model_definition_id, user_id, permission):
+        self._model_definition_id = model_definition_id
+        self._user_id = user_id
+        self._permission = permission
+
+    @property
+    def model_definition_id(self):
+        return self._model_definition_id
+
+    @property
+    def user_id(self):
+        return self._user_id
+
+    @property
+    def permission(self):
+        return self._permission
+
+    @permission.setter
+    def permission(self, permission):
+        self._permission = permission
+
+    def to_json(self):
+        return {
+            "model_definition_id": self.model_definition_id,
+            "user_id": self.user_id,
+            "permission": self.permission,
+        }
+
+    @classmethod
+    def from_json(cls, dictionary):
+        return cls(
+            model_definition_id=dictionary["model_definition_id"],
+            user_id=dictionary["user_id"],
+            permission=dictionary["permission"],
+        )
+
+
+class Role:
+    def __init__(
+        self,
+        id_,
+        name,
+        workspace,
+        description=None,
+        permissions=None,
+    ):
+        self._id = id_
+        self._name = name
+        self._workspace = workspace
+        self._description = description
+        self._permissions = permissions or []
+
+    @property
+    def id(self):
+        return self._id
+
+    @property
+    def name(self):
+        return self._name
+
+    @name.setter
+    def name(self, name):
+        self._name = name
+
+    @property
+    def workspace(self):
+        return self._workspace
+
+    @property
+    def description(self):
+        return self._description
+
+    @description.setter
+    def description(self, description):
+        self._description = description
+
+    @property
+    def permissions(self):
+        return self._permissions
+
+    def to_json(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "workspace": self.workspace,
+            "description": self.description,
+            "permissions": [p.to_json() for p in self.permissions],
+        }
+
+    @classmethod
+    def from_json(cls, dictionary):
+        return cls(
+            id_=dictionary["id"],
+            name=dictionary["name"],
+            workspace=dictionary.get("workspace", DEFAULT_WORKSPACE_NAME),
+            description=dictionary.get("description"),
+            permissions=[RolePermission.from_json(p) for p in dictionary.get("permissions", [])],
+        )
+
+
+class RolePermission:
+    def __init__(self, id_, role_id, resource_type, resource_pattern, permission):
+        self._id = id_
+        self._role_id = role_id
+        self._resource_type = resource_type
+        self._resource_pattern = resource_pattern
+        self._permission = permission
+
+    @property
+    def id(self):
+        return self._id
+
+    @property
+    def role_id(self):
+        return self._role_id
+
+    @property
+    def resource_type(self):
+        return self._resource_type
+
+    @property
+    def resource_pattern(self):
+        return self._resource_pattern
+
+    @property
+    def permission(self):
+        return self._permission
+
+    @permission.setter
+    def permission(self, permission):
+        self._permission = permission
+
+    def to_json(self):
+        return {
+            "id": self.id,
+            "role_id": self.role_id,
+            "resource_type": self.resource_type,
+            "resource_pattern": self.resource_pattern,
+            "permission": self.permission,
+        }
+
+    @classmethod
+    def from_json(cls, dictionary):
+        return cls(
+            id_=dictionary["id"],
+            role_id=dictionary["role_id"],
+            resource_type=dictionary["resource_type"],
+            resource_pattern=dictionary["resource_pattern"],
+            permission=dictionary["permission"],
+        )
+
+
+class UserRoleAssignment:
+    def __init__(self, id_, user_id, role_id):
+        self._id = id_
+        self._user_id = user_id
+        self._role_id = role_id
+
+    @property
+    def id(self):
+        return self._id
+
+    @property
+    def user_id(self):
+        return self._user_id
+
+    @property
+    def role_id(self):
+        return self._role_id
+
+    def to_json(self):
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "role_id": self.role_id,
+        }
+
+    @classmethod
+    def from_json(cls, dictionary):
+        return cls(
+            id_=dictionary["id"],
+            user_id=dictionary["user_id"],
+            role_id=dictionary["role_id"],
+        )
+
+
+class GetUserPermissionResult:
+    """Response shape for ``GET /mlflow/users/permissions/get``. ``allowed``
+    mirrors ``Permission.can_use`` (regular access tier); ``permission`` is the
+    resolved effective permission name.
+    """
+
+    def __init__(self, allowed: bool, permission: str):
+        self._allowed = allowed
+        self._permission = permission
+
+    @property
+    def allowed(self) -> bool:
+        return self._allowed
+
+    @property
+    def permission(self) -> str:
+        return self._permission
+
+    def to_json(self):
+        return {"allowed": self.allowed, "permission": self.permission}
+
+    @classmethod
+    def from_json(cls, dictionary):
+        return cls(allowed=dictionary["allowed"], permission=dictionary["permission"])
+
+
+class WorkspacePermission:
+    def __init__(self, workspace, user_id, permission):
+        if workspace is None or user_id is None or permission is None:
+            raise MlflowException.invalid_parameter_value(
+                "workspace, user_id, and permission are required."
+            )
+        self._workspace = workspace
+        self._user_id = user_id
+        self._permission = permission
+
+    @property
+    def workspace(self):
+        return self._workspace
+
+    @property
+    def user_id(self):
+        return self._user_id
+
+    @property
+    def permission(self):
+        return self._permission
+
+    @property
+    def can_use(self):
+        return get_permission(self.permission).can_use
+
+    def to_json(self):
+        return {
+            "workspace": self.workspace,
+            "user_id": self.user_id,
+            "permission": self.permission,
+            "can_use": self.can_use,
+        }
+
+    @classmethod
+    def from_json(cls, dictionary):
+        required_fields = ["workspace", "user_id", "permission"]
+        if missing := [field for field in required_fields if field not in dictionary]:
+            raise MlflowException.invalid_parameter_value(
+                f"Missing required fields: {', '.join(missing)}"
+            )
+        return cls(
+            workspace=dictionary["workspace"],
             user_id=dictionary["user_id"],
             permission=dictionary["permission"],
         )

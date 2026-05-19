@@ -32,14 +32,12 @@ def test_validate_scorers_valid():
     def custom_scorer(inputs, outputs):
         return 1.0
 
-    scorers = validate_scorers(
-        [
-            RelevanceToQuery(),
-            Correctness(),
-            Guidelines(guidelines=["Be polite", "Be kind"]),
-            custom_scorer,
-        ]
-    )
+    scorers = validate_scorers([
+        RelevanceToQuery(),
+        Correctness(),
+        Guidelines(guidelines=["Be polite", "Be kind"]),
+        custom_scorer,
+    ])
 
     assert len(scorers) == 4
     assert all(isinstance(scorer, Scorer) for scorer in scorers)
@@ -96,13 +94,11 @@ def test_validate_scorers_invalid_all_scorers():
 
 
 def test_validate_data(mock_logger, sample_rag_trace):
-    data = pd.DataFrame(
-        {
-            "inputs": [{"question": "input1"}, {"question": "input2"}],
-            "outputs": ["output1", "output2"],
-            "trace": [sample_rag_trace, sample_rag_trace],
-        }
-    )
+    data = pd.DataFrame({
+        "inputs": [{"question": "input1"}, {"question": "input2"}],
+        "outputs": ["output1", "output2"],
+        "trace": [sample_rag_trace, sample_rag_trace],
+    })
 
     converted_date = _convert_to_eval_set(data)
     valid_data_for_builtin_scorers(
@@ -117,17 +113,15 @@ def test_validate_data(mock_logger, sample_rag_trace):
 
 
 def test_validate_data_with_expectations(mock_logger, sample_rag_trace):
-    data = pd.DataFrame(
-        {
-            "inputs": [{"question": "input1"}, {"question": "input2"}],
-            "outputs": ["output1", "output2"],
-            "trace": [sample_rag_trace, sample_rag_trace],
-            "expectations": [
-                {"expected_response": "response1", "guidelines": ["Be polite", "Be kind"]},
-                {"expected_response": "response2", "guidelines": ["Be nice", "Be strong"]},
-            ],
-        }
-    )
+    data = pd.DataFrame({
+        "inputs": [{"question": "input1"}, {"question": "input2"}],
+        "outputs": ["output1", "output2"],
+        "trace": [sample_rag_trace, sample_rag_trace],
+        "expectations": [
+            {"expected_response": "response1", "guidelines": ["Be polite", "Be kind"]},
+            {"expected_response": "response2", "guidelines": ["Be nice", "Be strong"]},
+        ],
+    })
 
     converted_date = _convert_to_eval_set(data)
     valid_data_for_builtin_scorers(
@@ -142,12 +136,10 @@ def test_validate_data_with_expectations(mock_logger, sample_rag_trace):
 
 
 def test_global_guidelines_do_not_require_expectations(mock_logger):
-    data = pd.DataFrame(
-        {
-            "inputs": [{"question": "input1"}, {"question": "input2"}],
-            "outputs": ["output1", "output2"],
-        }
-    )
+    data = pd.DataFrame({
+        "inputs": [{"question": "input1"}, {"question": "input2"}],
+        "outputs": ["output1", "output2"],
+    })
     converted_date = _convert_to_eval_set(data)
     valid_data_for_builtin_scorers(
         data=converted_date,
@@ -164,13 +156,11 @@ def test_global_guidelines_do_not_require_expectations(mock_logger):
     ],
 )
 def test_validate_data_with_correctness(expectations, mock_logger):
-    data = pd.DataFrame(
-        {
-            "inputs": [{"question": "input1"}, {"question": "input2"}],
-            "outputs": ["output1", "output2"],
-            "expectations": [expectations, expectations],
-        }
-    )
+    data = pd.DataFrame({
+        "inputs": [{"question": "input1"}, {"question": "input2"}],
+        "outputs": ["output1", "output2"],
+        "expectations": [expectations, expectations],
+    })
 
     converted_date = _convert_to_eval_set(data)
     valid_data_for_builtin_scorers(

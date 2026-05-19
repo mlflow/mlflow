@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import PromptsPage from './PromptsPage';
 import { QueryClientProvider, QueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { setupServer } from '../../../common/utils/setup-msw';
+
 import { IntlProvider } from 'react-intl';
 import { setupTestRouter, testRoute, TestRouter } from '../../../common/utils/RoutingTestUtils';
 import userEvent from '@testing-library/user-event';
@@ -105,10 +106,10 @@ describe('PromptsPage', () => {
 
     renderTestComponent();
     await waitFor(() => {
-      expect(screen.getByText('Prompts')).toBeInTheDocument();
+      expect(screen.getByTestId('create-prompt-empty-state-button')).toBeInTheDocument();
     });
 
-    await userEvent.click(screen.getByText('Create prompt'));
+    await userEvent.click(screen.getByTestId('create-prompt-empty-state-button'));
 
     await waitFor(() => {
       expect(screen.getByRole('dialog')).toBeInTheDocument();
@@ -148,10 +149,10 @@ describe('PromptsPage', () => {
 
     renderTestComponent();
     await waitFor(() => {
-      expect(screen.getByText('Prompts')).toBeInTheDocument();
+      expect(screen.getByTestId('create-prompt-empty-state-button')).toBeInTheDocument();
     });
 
-    await userEvent.click(screen.getByText('Create prompt'));
+    await userEvent.click(screen.getByTestId('create-prompt-empty-state-button'));
 
     await waitFor(() => {
       expect(screen.getByRole('dialog')).toBeInTheDocument();
@@ -238,10 +239,6 @@ describe('PromptsPage', () => {
       });
 
       await waitFor(() => {
-        expect(screen.getByText('Prompts')).toBeInTheDocument();
-      });
-
-      await waitFor(() => {
         expect(screen.getByRole('link', { name: 'exp-prompt1' })).toBeInTheDocument();
       });
     });
@@ -281,10 +278,10 @@ describe('PromptsPage', () => {
       });
 
       await waitFor(() => {
-        expect(screen.getByText('Prompts')).toBeInTheDocument();
+        expect(screen.getByTestId('create-prompt-empty-state-button')).toBeInTheDocument();
       });
 
-      await userEvent.click(screen.getByText('Create prompt'));
+      await userEvent.click(screen.getByTestId('create-prompt-empty-state-button'));
 
       await waitFor(() => {
         expect(screen.getByRole('dialog')).toBeInTheDocument();
@@ -347,10 +344,10 @@ describe('PromptsPage', () => {
       });
 
       await waitFor(() => {
-        expect(screen.getByText('Prompts')).toBeInTheDocument();
+        expect(screen.getByTestId('create-prompt-empty-state-button')).toBeInTheDocument();
       });
 
-      await userEvent.click(screen.getByText('Create prompt'));
+      await userEvent.click(screen.getByTestId('create-prompt-empty-state-button'));
 
       await waitFor(() => {
         expect(screen.getByRole('dialog')).toBeInTheDocument();

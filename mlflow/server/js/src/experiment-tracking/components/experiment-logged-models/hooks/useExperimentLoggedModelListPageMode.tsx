@@ -16,7 +16,11 @@ export const useExperimentLoggedModelListPageMode = () => {
     ExperimentLoggedModelListPageMode.TABLE,
   );
   const setViewMode = (mode: ExperimentLoggedModelListPageMode) => {
-    setParams({ [VIEW_MODE_QUERY_PARAM]: mode });
+    setParams((prevParams) => {
+      const newParams = new URLSearchParams(prevParams);
+      newParams.set(VIEW_MODE_QUERY_PARAM, mode);
+      return newParams;
+    });
   };
   return { viewMode, setViewMode } as const;
 };

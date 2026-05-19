@@ -78,7 +78,8 @@ describe('ShowArtifactPdfView', () => {
 
   test('should call fetchPdf on component update', () => {
     instance = wrapper.instance();
-    instance.fetchPdf = jest.fn();
+    // @ts-expect-error -- TODO(FEINF-4162)
+    jest.spyOn(instance, 'fetchPdf').mockImplementation();
     wrapper.setProps({ path: 'newpath', runUuid: 'newRunId' });
     expect(instance.fetchPdf).toHaveBeenCalledTimes(1);
   });

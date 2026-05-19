@@ -4,7 +4,9 @@ import datasets_pb2 as _datasets_pb2
 from google.protobuf import duration_pb2 as _duration_pb2
 from google.protobuf import field_mask_pb2 as _field_mask_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
+import issues_pb2 as _issues_pb2
 from opentelemetry.proto.trace.v1 import trace_pb2 as _trace_pb2
+import prompt_optimization_pb2 as _prompt_optimization_pb2
 from scalapb import scalapb_pb2 as _scalapb_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
@@ -81,6 +83,44 @@ class GatewayModelLinkageType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper)
     LINKAGE_TYPE_UNSPECIFIED: _ClassVar[GatewayModelLinkageType]
     PRIMARY: _ClassVar[GatewayModelLinkageType]
     FALLBACK: _ClassVar[GatewayModelLinkageType]
+
+class BudgetDurationUnit(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    DURATION_UNIT_UNSPECIFIED: _ClassVar[BudgetDurationUnit]
+    MINUTES: _ClassVar[BudgetDurationUnit]
+    HOURS: _ClassVar[BudgetDurationUnit]
+    DAYS: _ClassVar[BudgetDurationUnit]
+    WEEKS: _ClassVar[BudgetDurationUnit]
+    MONTHS: _ClassVar[BudgetDurationUnit]
+
+class BudgetTargetScope(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    TARGET_SCOPE_UNSPECIFIED: _ClassVar[BudgetTargetScope]
+    GLOBAL: _ClassVar[BudgetTargetScope]
+    WORKSPACE: _ClassVar[BudgetTargetScope]
+
+class BudgetAction(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    BUDGET_ACTION_UNSPECIFIED: _ClassVar[BudgetAction]
+    ALERT: _ClassVar[BudgetAction]
+    REJECT: _ClassVar[BudgetAction]
+
+class BudgetUnit(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    BUDGET_UNIT_UNSPECIFIED: _ClassVar[BudgetUnit]
+    USD: _ClassVar[BudgetUnit]
+
+class GuardrailStage(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    GUARDRAIL_STAGE_UNSPECIFIED: _ClassVar[GuardrailStage]
+    BEFORE: _ClassVar[GuardrailStage]
+    AFTER: _ClassVar[GuardrailStage]
+
+class GuardrailAction(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    GUARDRAIL_ACTION_UNSPECIFIED: _ClassVar[GuardrailAction]
+    VALIDATION: _ClassVar[GuardrailAction]
+    SANITIZATION: _ClassVar[GuardrailAction]
 ACTIVE_ONLY: ViewType
 DELETED_ONLY: ViewType
 ALL: ViewType
@@ -118,6 +158,26 @@ SEQUENTIAL: FallbackStrategy
 LINKAGE_TYPE_UNSPECIFIED: GatewayModelLinkageType
 PRIMARY: GatewayModelLinkageType
 FALLBACK: GatewayModelLinkageType
+DURATION_UNIT_UNSPECIFIED: BudgetDurationUnit
+MINUTES: BudgetDurationUnit
+HOURS: BudgetDurationUnit
+DAYS: BudgetDurationUnit
+WEEKS: BudgetDurationUnit
+MONTHS: BudgetDurationUnit
+TARGET_SCOPE_UNSPECIFIED: BudgetTargetScope
+GLOBAL: BudgetTargetScope
+WORKSPACE: BudgetTargetScope
+BUDGET_ACTION_UNSPECIFIED: BudgetAction
+ALERT: BudgetAction
+REJECT: BudgetAction
+BUDGET_UNIT_UNSPECIFIED: BudgetUnit
+USD: BudgetUnit
+GUARDRAIL_STAGE_UNSPECIFIED: GuardrailStage
+BEFORE: GuardrailStage
+AFTER: GuardrailStage
+GUARDRAIL_ACTION_UNSPECIFIED: GuardrailAction
+VALIDATION: GuardrailAction
+SANITIZATION: GuardrailAction
 
 class Metric(_message.Message):
     __slots__ = ("key", "value", "timestamp", "step", "dataset_name", "dataset_digest", "model_id", "run_id")
@@ -224,7 +284,7 @@ class RunInfo(_message.Message):
     def __init__(self, run_id: _Optional[str] = ..., run_uuid: _Optional[str] = ..., run_name: _Optional[str] = ..., experiment_id: _Optional[str] = ..., user_id: _Optional[str] = ..., status: _Optional[_Union[RunStatus, str]] = ..., start_time: _Optional[int] = ..., end_time: _Optional[int] = ..., artifact_uri: _Optional[str] = ..., lifecycle_stage: _Optional[str] = ...) -> None: ...
 
 class Experiment(_message.Message):
-    __slots__ = ("experiment_id", "name", "artifact_location", "lifecycle_stage", "last_update_time", "creation_time", "tags")
+    __slots__ = ("experiment_id", "name", "artifact_location", "lifecycle_stage", "last_update_time", "creation_time", "tags", "effective_trace_archival_retention")
     EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     ARTIFACT_LOCATION_FIELD_NUMBER: _ClassVar[int]
@@ -232,6 +292,7 @@ class Experiment(_message.Message):
     LAST_UPDATE_TIME_FIELD_NUMBER: _ClassVar[int]
     CREATION_TIME_FIELD_NUMBER: _ClassVar[int]
     TAGS_FIELD_NUMBER: _ClassVar[int]
+    EFFECTIVE_TRACE_ARCHIVAL_RETENTION_FIELD_NUMBER: _ClassVar[int]
     experiment_id: str
     name: str
     artifact_location: str
@@ -239,7 +300,8 @@ class Experiment(_message.Message):
     last_update_time: int
     creation_time: int
     tags: _containers.RepeatedCompositeFieldContainer[ExperimentTag]
-    def __init__(self, experiment_id: _Optional[str] = ..., name: _Optional[str] = ..., artifact_location: _Optional[str] = ..., lifecycle_stage: _Optional[str] = ..., last_update_time: _Optional[int] = ..., creation_time: _Optional[int] = ..., tags: _Optional[_Iterable[_Union[ExperimentTag, _Mapping]]] = ...) -> None: ...
+    effective_trace_archival_retention: str
+    def __init__(self, experiment_id: _Optional[str] = ..., name: _Optional[str] = ..., artifact_location: _Optional[str] = ..., lifecycle_stage: _Optional[str] = ..., last_update_time: _Optional[int] = ..., creation_time: _Optional[int] = ..., tags: _Optional[_Iterable[_Union[ExperimentTag, _Mapping]]] = ..., effective_trace_archival_retention: _Optional[str] = ...) -> None: ...
 
 class DatasetInput(_message.Message):
     __slots__ = ("tags", "dataset")
@@ -566,6 +628,30 @@ class ListArtifacts(_message.Message):
     page_token: str
     def __init__(self, run_id: _Optional[str] = ..., run_uuid: _Optional[str] = ..., path: _Optional[str] = ..., page_token: _Optional[str] = ...) -> None: ...
 
+class CreatePresignedUploadUrl(_message.Message):
+    __slots__ = ("run_id", "path", "expiration")
+    class Response(_message.Message):
+        __slots__ = ("presigned_url", "headers")
+        class HeadersEntry(_message.Message):
+            __slots__ = ("key", "value")
+            KEY_FIELD_NUMBER: _ClassVar[int]
+            VALUE_FIELD_NUMBER: _ClassVar[int]
+            key: str
+            value: str
+            def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+        PRESIGNED_URL_FIELD_NUMBER: _ClassVar[int]
+        HEADERS_FIELD_NUMBER: _ClassVar[int]
+        presigned_url: str
+        headers: _containers.ScalarMap[str, str]
+        def __init__(self, presigned_url: _Optional[str] = ..., headers: _Optional[_Mapping[str, str]] = ...) -> None: ...
+    RUN_ID_FIELD_NUMBER: _ClassVar[int]
+    PATH_FIELD_NUMBER: _ClassVar[int]
+    EXPIRATION_FIELD_NUMBER: _ClassVar[int]
+    run_id: str
+    path: str
+    expiration: int
+    def __init__(self, run_id: _Optional[str] = ..., path: _Optional[str] = ..., expiration: _Optional[int] = ...) -> None: ...
+
 class FileInfo(_message.Message):
     __slots__ = ("path", "is_dir", "file_size")
     PATH_FIELD_NUMBER: _ClassVar[int]
@@ -838,6 +924,17 @@ class BatchGetTraces(_message.Message):
         TRACES_FIELD_NUMBER: _ClassVar[int]
         traces: _containers.RepeatedCompositeFieldContainer[Trace]
         def __init__(self, traces: _Optional[_Iterable[_Union[Trace, _Mapping]]] = ...) -> None: ...
+    TRACE_IDS_FIELD_NUMBER: _ClassVar[int]
+    trace_ids: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, trace_ids: _Optional[_Iterable[str]] = ...) -> None: ...
+
+class BatchGetTraceInfos(_message.Message):
+    __slots__ = ("trace_ids",)
+    class Response(_message.Message):
+        __slots__ = ("trace_infos",)
+        TRACE_INFOS_FIELD_NUMBER: _ClassVar[int]
+        trace_infos: _containers.RepeatedCompositeFieldContainer[TraceInfoV3]
+        def __init__(self, trace_infos: _Optional[_Iterable[_Union[TraceInfoV3, _Mapping]]] = ...) -> None: ...
     TRACE_IDS_FIELD_NUMBER: _ClassVar[int]
     trace_ids: _containers.RepeatedScalarFieldContainer[str]
     def __init__(self, trace_ids: _Optional[_Iterable[str]] = ...) -> None: ...
@@ -1624,6 +1721,19 @@ class GetDatasetRecords(_message.Message):
     page_token: str
     def __init__(self, dataset_id: _Optional[str] = ..., max_results: _Optional[int] = ..., page_token: _Optional[str] = ...) -> None: ...
 
+class DeleteDatasetRecords(_message.Message):
+    __slots__ = ("dataset_id", "dataset_record_ids")
+    class Response(_message.Message):
+        __slots__ = ("deleted_count",)
+        DELETED_COUNT_FIELD_NUMBER: _ClassVar[int]
+        deleted_count: int
+        def __init__(self, deleted_count: _Optional[int] = ...) -> None: ...
+    DATASET_ID_FIELD_NUMBER: _ClassVar[int]
+    DATASET_RECORD_IDS_FIELD_NUMBER: _ClassVar[int]
+    dataset_id: str
+    dataset_record_ids: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, dataset_id: _Optional[str] = ..., dataset_record_ids: _Optional[_Iterable[str]] = ...) -> None: ...
+
 class AddDatasetToExperiments(_message.Message):
     __slots__ = ("dataset_id", "experiment_ids")
     class Response(_message.Message):
@@ -1826,7 +1936,7 @@ class GatewayEndpointModelMapping(_message.Message):
     def __init__(self, mapping_id: _Optional[str] = ..., endpoint_id: _Optional[str] = ..., model_definition_id: _Optional[str] = ..., model_definition: _Optional[_Union[GatewayModelDefinition, _Mapping]] = ..., weight: _Optional[float] = ..., created_at: _Optional[int] = ..., created_by: _Optional[str] = ..., linkage_type: _Optional[_Union[GatewayModelLinkageType, str]] = ..., fallback_order: _Optional[int] = ...) -> None: ...
 
 class GatewayEndpoint(_message.Message):
-    __slots__ = ("endpoint_id", "name", "created_at", "last_updated_at", "model_mappings", "created_by", "last_updated_by", "tags", "routing_strategy", "fallback_config")
+    __slots__ = ("endpoint_id", "name", "created_at", "last_updated_at", "model_mappings", "created_by", "last_updated_by", "tags", "routing_strategy", "fallback_config", "experiment_id", "usage_tracking")
     ENDPOINT_ID_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     CREATED_AT_FIELD_NUMBER: _ClassVar[int]
@@ -1837,6 +1947,8 @@ class GatewayEndpoint(_message.Message):
     TAGS_FIELD_NUMBER: _ClassVar[int]
     ROUTING_STRATEGY_FIELD_NUMBER: _ClassVar[int]
     FALLBACK_CONFIG_FIELD_NUMBER: _ClassVar[int]
+    EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    USAGE_TRACKING_FIELD_NUMBER: _ClassVar[int]
     endpoint_id: str
     name: str
     created_at: int
@@ -1847,7 +1959,9 @@ class GatewayEndpoint(_message.Message):
     tags: _containers.RepeatedCompositeFieldContainer[GatewayEndpointTag]
     routing_strategy: RoutingStrategy
     fallback_config: FallbackConfig
-    def __init__(self, endpoint_id: _Optional[str] = ..., name: _Optional[str] = ..., created_at: _Optional[int] = ..., last_updated_at: _Optional[int] = ..., model_mappings: _Optional[_Iterable[_Union[GatewayEndpointModelMapping, _Mapping]]] = ..., created_by: _Optional[str] = ..., last_updated_by: _Optional[str] = ..., tags: _Optional[_Iterable[_Union[GatewayEndpointTag, _Mapping]]] = ..., routing_strategy: _Optional[_Union[RoutingStrategy, str]] = ..., fallback_config: _Optional[_Union[FallbackConfig, _Mapping]] = ...) -> None: ...
+    experiment_id: str
+    usage_tracking: bool
+    def __init__(self, endpoint_id: _Optional[str] = ..., name: _Optional[str] = ..., created_at: _Optional[int] = ..., last_updated_at: _Optional[int] = ..., model_mappings: _Optional[_Iterable[_Union[GatewayEndpointModelMapping, _Mapping]]] = ..., created_by: _Optional[str] = ..., last_updated_by: _Optional[str] = ..., tags: _Optional[_Iterable[_Union[GatewayEndpointTag, _Mapping]]] = ..., routing_strategy: _Optional[_Union[RoutingStrategy, str]] = ..., fallback_config: _Optional[_Union[FallbackConfig, _Mapping]] = ..., experiment_id: _Optional[str] = ..., usage_tracking: bool = ...) -> None: ...
 
 class GatewayEndpointTag(_message.Message):
     __slots__ = ("key", "value")
@@ -1858,7 +1972,7 @@ class GatewayEndpointTag(_message.Message):
     def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
 
 class GatewayEndpointBinding(_message.Message):
-    __slots__ = ("endpoint_id", "resource_type", "resource_id", "created_at", "last_updated_at", "created_by", "last_updated_by")
+    __slots__ = ("endpoint_id", "resource_type", "resource_id", "created_at", "last_updated_at", "created_by", "last_updated_by", "display_name")
     ENDPOINT_ID_FIELD_NUMBER: _ClassVar[int]
     RESOURCE_TYPE_FIELD_NUMBER: _ClassVar[int]
     RESOURCE_ID_FIELD_NUMBER: _ClassVar[int]
@@ -1866,6 +1980,7 @@ class GatewayEndpointBinding(_message.Message):
     LAST_UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
     CREATED_BY_FIELD_NUMBER: _ClassVar[int]
     LAST_UPDATED_BY_FIELD_NUMBER: _ClassVar[int]
+    DISPLAY_NAME_FIELD_NUMBER: _ClassVar[int]
     endpoint_id: str
     resource_type: str
     resource_id: str
@@ -1873,7 +1988,8 @@ class GatewayEndpointBinding(_message.Message):
     last_updated_at: int
     created_by: str
     last_updated_by: str
-    def __init__(self, endpoint_id: _Optional[str] = ..., resource_type: _Optional[str] = ..., resource_id: _Optional[str] = ..., created_at: _Optional[int] = ..., last_updated_at: _Optional[int] = ..., created_by: _Optional[str] = ..., last_updated_by: _Optional[str] = ...) -> None: ...
+    display_name: str
+    def __init__(self, endpoint_id: _Optional[str] = ..., resource_type: _Optional[str] = ..., resource_id: _Optional[str] = ..., created_at: _Optional[int] = ..., last_updated_at: _Optional[int] = ..., created_by: _Optional[str] = ..., last_updated_by: _Optional[str] = ..., display_name: _Optional[str] = ...) -> None: ...
 
 class CreateGatewaySecret(_message.Message):
     __slots__ = ("secret_name", "secret_value", "provider", "auth_config", "created_by")
@@ -2045,6 +2161,14 @@ class DeleteGatewayModelDefinition(_message.Message):
     model_definition_id: str
     def __init__(self, model_definition_id: _Optional[str] = ...) -> None: ...
 
+class BudgetDuration(_message.Message):
+    __slots__ = ("unit", "value")
+    UNIT_FIELD_NUMBER: _ClassVar[int]
+    VALUE_FIELD_NUMBER: _ClassVar[int]
+    unit: BudgetDurationUnit
+    value: int
+    def __init__(self, unit: _Optional[_Union[BudgetDurationUnit, str]] = ..., value: _Optional[int] = ...) -> None: ...
+
 class FallbackConfig(_message.Message):
     __slots__ = ("strategy", "max_attempts")
     STRATEGY_FIELD_NUMBER: _ClassVar[int]
@@ -2066,7 +2190,7 @@ class GatewayEndpointModelConfig(_message.Message):
     def __init__(self, model_definition_id: _Optional[str] = ..., linkage_type: _Optional[_Union[GatewayModelLinkageType, str]] = ..., weight: _Optional[float] = ..., fallback_order: _Optional[int] = ...) -> None: ...
 
 class CreateGatewayEndpoint(_message.Message):
-    __slots__ = ("name", "model_configs", "created_by", "routing_strategy", "fallback_config")
+    __slots__ = ("name", "model_configs", "created_by", "routing_strategy", "fallback_config", "experiment_id", "usage_tracking")
     class Response(_message.Message):
         __slots__ = ("endpoint",)
         ENDPOINT_FIELD_NUMBER: _ClassVar[int]
@@ -2077,12 +2201,16 @@ class CreateGatewayEndpoint(_message.Message):
     CREATED_BY_FIELD_NUMBER: _ClassVar[int]
     ROUTING_STRATEGY_FIELD_NUMBER: _ClassVar[int]
     FALLBACK_CONFIG_FIELD_NUMBER: _ClassVar[int]
+    EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    USAGE_TRACKING_FIELD_NUMBER: _ClassVar[int]
     name: str
     model_configs: _containers.RepeatedCompositeFieldContainer[GatewayEndpointModelConfig]
     created_by: str
     routing_strategy: RoutingStrategy
     fallback_config: FallbackConfig
-    def __init__(self, name: _Optional[str] = ..., model_configs: _Optional[_Iterable[_Union[GatewayEndpointModelConfig, _Mapping]]] = ..., created_by: _Optional[str] = ..., routing_strategy: _Optional[_Union[RoutingStrategy, str]] = ..., fallback_config: _Optional[_Union[FallbackConfig, _Mapping]] = ...) -> None: ...
+    experiment_id: str
+    usage_tracking: bool
+    def __init__(self, name: _Optional[str] = ..., model_configs: _Optional[_Iterable[_Union[GatewayEndpointModelConfig, _Mapping]]] = ..., created_by: _Optional[str] = ..., routing_strategy: _Optional[_Union[RoutingStrategy, str]] = ..., fallback_config: _Optional[_Union[FallbackConfig, _Mapping]] = ..., experiment_id: _Optional[str] = ..., usage_tracking: bool = ...) -> None: ...
 
 class GetGatewayEndpoint(_message.Message):
     __slots__ = ("endpoint_id", "name")
@@ -2098,7 +2226,7 @@ class GetGatewayEndpoint(_message.Message):
     def __init__(self, endpoint_id: _Optional[str] = ..., name: _Optional[str] = ...) -> None: ...
 
 class UpdateGatewayEndpoint(_message.Message):
-    __slots__ = ("endpoint_id", "name", "updated_by", "model_configs", "routing_strategy", "fallback_config")
+    __slots__ = ("endpoint_id", "name", "updated_by", "model_configs", "routing_strategy", "fallback_config", "experiment_id", "usage_tracking")
     class Response(_message.Message):
         __slots__ = ("endpoint",)
         ENDPOINT_FIELD_NUMBER: _ClassVar[int]
@@ -2110,13 +2238,17 @@ class UpdateGatewayEndpoint(_message.Message):
     MODEL_CONFIGS_FIELD_NUMBER: _ClassVar[int]
     ROUTING_STRATEGY_FIELD_NUMBER: _ClassVar[int]
     FALLBACK_CONFIG_FIELD_NUMBER: _ClassVar[int]
+    EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    USAGE_TRACKING_FIELD_NUMBER: _ClassVar[int]
     endpoint_id: str
     name: str
     updated_by: str
     model_configs: _containers.RepeatedCompositeFieldContainer[GatewayEndpointModelConfig]
     routing_strategy: RoutingStrategy
     fallback_config: FallbackConfig
-    def __init__(self, endpoint_id: _Optional[str] = ..., name: _Optional[str] = ..., updated_by: _Optional[str] = ..., model_configs: _Optional[_Iterable[_Union[GatewayEndpointModelConfig, _Mapping]]] = ..., routing_strategy: _Optional[_Union[RoutingStrategy, str]] = ..., fallback_config: _Optional[_Union[FallbackConfig, _Mapping]] = ...) -> None: ...
+    experiment_id: str
+    usage_tracking: bool
+    def __init__(self, endpoint_id: _Optional[str] = ..., name: _Optional[str] = ..., updated_by: _Optional[str] = ..., model_configs: _Optional[_Iterable[_Union[GatewayEndpointModelConfig, _Mapping]]] = ..., routing_strategy: _Optional[_Union[RoutingStrategy, str]] = ..., fallback_config: _Optional[_Union[FallbackConfig, _Mapping]] = ..., experiment_id: _Optional[str] = ..., usage_tracking: bool = ...) -> None: ...
 
 class DeleteGatewayEndpoint(_message.Message):
     __slots__ = ("endpoint_id",)
@@ -2235,6 +2367,277 @@ class DeleteGatewayEndpointTag(_message.Message):
     key: str
     def __init__(self, endpoint_id: _Optional[str] = ..., key: _Optional[str] = ...) -> None: ...
 
+class GatewayBudgetPolicy(_message.Message):
+    __slots__ = ("budget_policy_id", "budget_unit", "budget_amount", "duration", "target_scope", "budget_action", "created_by", "created_at", "last_updated_by", "last_updated_at")
+    BUDGET_POLICY_ID_FIELD_NUMBER: _ClassVar[int]
+    BUDGET_UNIT_FIELD_NUMBER: _ClassVar[int]
+    BUDGET_AMOUNT_FIELD_NUMBER: _ClassVar[int]
+    DURATION_FIELD_NUMBER: _ClassVar[int]
+    TARGET_SCOPE_FIELD_NUMBER: _ClassVar[int]
+    BUDGET_ACTION_FIELD_NUMBER: _ClassVar[int]
+    CREATED_BY_FIELD_NUMBER: _ClassVar[int]
+    CREATED_AT_FIELD_NUMBER: _ClassVar[int]
+    LAST_UPDATED_BY_FIELD_NUMBER: _ClassVar[int]
+    LAST_UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
+    budget_policy_id: str
+    budget_unit: BudgetUnit
+    budget_amount: float
+    duration: BudgetDuration
+    target_scope: BudgetTargetScope
+    budget_action: BudgetAction
+    created_by: str
+    created_at: int
+    last_updated_by: str
+    last_updated_at: int
+    def __init__(self, budget_policy_id: _Optional[str] = ..., budget_unit: _Optional[_Union[BudgetUnit, str]] = ..., budget_amount: _Optional[float] = ..., duration: _Optional[_Union[BudgetDuration, _Mapping]] = ..., target_scope: _Optional[_Union[BudgetTargetScope, str]] = ..., budget_action: _Optional[_Union[BudgetAction, str]] = ..., created_by: _Optional[str] = ..., created_at: _Optional[int] = ..., last_updated_by: _Optional[str] = ..., last_updated_at: _Optional[int] = ...) -> None: ...
+
+class CreateGatewayBudgetPolicy(_message.Message):
+    __slots__ = ("budget_unit", "budget_amount", "duration", "target_scope", "budget_action", "created_by")
+    class Response(_message.Message):
+        __slots__ = ("budget_policy",)
+        BUDGET_POLICY_FIELD_NUMBER: _ClassVar[int]
+        budget_policy: GatewayBudgetPolicy
+        def __init__(self, budget_policy: _Optional[_Union[GatewayBudgetPolicy, _Mapping]] = ...) -> None: ...
+    BUDGET_UNIT_FIELD_NUMBER: _ClassVar[int]
+    BUDGET_AMOUNT_FIELD_NUMBER: _ClassVar[int]
+    DURATION_FIELD_NUMBER: _ClassVar[int]
+    TARGET_SCOPE_FIELD_NUMBER: _ClassVar[int]
+    BUDGET_ACTION_FIELD_NUMBER: _ClassVar[int]
+    CREATED_BY_FIELD_NUMBER: _ClassVar[int]
+    budget_unit: BudgetUnit
+    budget_amount: float
+    duration: BudgetDuration
+    target_scope: BudgetTargetScope
+    budget_action: BudgetAction
+    created_by: str
+    def __init__(self, budget_unit: _Optional[_Union[BudgetUnit, str]] = ..., budget_amount: _Optional[float] = ..., duration: _Optional[_Union[BudgetDuration, _Mapping]] = ..., target_scope: _Optional[_Union[BudgetTargetScope, str]] = ..., budget_action: _Optional[_Union[BudgetAction, str]] = ..., created_by: _Optional[str] = ...) -> None: ...
+
+class GetGatewayBudgetPolicy(_message.Message):
+    __slots__ = ("budget_policy_id",)
+    class Response(_message.Message):
+        __slots__ = ("budget_policy",)
+        BUDGET_POLICY_FIELD_NUMBER: _ClassVar[int]
+        budget_policy: GatewayBudgetPolicy
+        def __init__(self, budget_policy: _Optional[_Union[GatewayBudgetPolicy, _Mapping]] = ...) -> None: ...
+    BUDGET_POLICY_ID_FIELD_NUMBER: _ClassVar[int]
+    budget_policy_id: str
+    def __init__(self, budget_policy_id: _Optional[str] = ...) -> None: ...
+
+class UpdateGatewayBudgetPolicy(_message.Message):
+    __slots__ = ("budget_policy_id", "budget_unit", "budget_amount", "duration", "target_scope", "budget_action", "updated_by")
+    class Response(_message.Message):
+        __slots__ = ("budget_policy",)
+        BUDGET_POLICY_FIELD_NUMBER: _ClassVar[int]
+        budget_policy: GatewayBudgetPolicy
+        def __init__(self, budget_policy: _Optional[_Union[GatewayBudgetPolicy, _Mapping]] = ...) -> None: ...
+    BUDGET_POLICY_ID_FIELD_NUMBER: _ClassVar[int]
+    BUDGET_UNIT_FIELD_NUMBER: _ClassVar[int]
+    BUDGET_AMOUNT_FIELD_NUMBER: _ClassVar[int]
+    DURATION_FIELD_NUMBER: _ClassVar[int]
+    TARGET_SCOPE_FIELD_NUMBER: _ClassVar[int]
+    BUDGET_ACTION_FIELD_NUMBER: _ClassVar[int]
+    UPDATED_BY_FIELD_NUMBER: _ClassVar[int]
+    budget_policy_id: str
+    budget_unit: BudgetUnit
+    budget_amount: float
+    duration: BudgetDuration
+    target_scope: BudgetTargetScope
+    budget_action: BudgetAction
+    updated_by: str
+    def __init__(self, budget_policy_id: _Optional[str] = ..., budget_unit: _Optional[_Union[BudgetUnit, str]] = ..., budget_amount: _Optional[float] = ..., duration: _Optional[_Union[BudgetDuration, _Mapping]] = ..., target_scope: _Optional[_Union[BudgetTargetScope, str]] = ..., budget_action: _Optional[_Union[BudgetAction, str]] = ..., updated_by: _Optional[str] = ...) -> None: ...
+
+class DeleteGatewayBudgetPolicy(_message.Message):
+    __slots__ = ("budget_policy_id",)
+    class Response(_message.Message):
+        __slots__ = ()
+        def __init__(self) -> None: ...
+    BUDGET_POLICY_ID_FIELD_NUMBER: _ClassVar[int]
+    budget_policy_id: str
+    def __init__(self, budget_policy_id: _Optional[str] = ...) -> None: ...
+
+class ListGatewayBudgetPolicies(_message.Message):
+    __slots__ = ("max_results", "page_token")
+    class Response(_message.Message):
+        __slots__ = ("budget_policies", "next_page_token")
+        BUDGET_POLICIES_FIELD_NUMBER: _ClassVar[int]
+        NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+        budget_policies: _containers.RepeatedCompositeFieldContainer[GatewayBudgetPolicy]
+        next_page_token: str
+        def __init__(self, budget_policies: _Optional[_Iterable[_Union[GatewayBudgetPolicy, _Mapping]]] = ..., next_page_token: _Optional[str] = ...) -> None: ...
+    MAX_RESULTS_FIELD_NUMBER: _ClassVar[int]
+    PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    max_results: int
+    page_token: str
+    def __init__(self, max_results: _Optional[int] = ..., page_token: _Optional[str] = ...) -> None: ...
+
+class ListGatewayBudgetWindows(_message.Message):
+    __slots__ = ()
+    class BudgetWindow(_message.Message):
+        __slots__ = ("budget_policy_id", "window_start_ms", "window_end_ms", "current_spend")
+        BUDGET_POLICY_ID_FIELD_NUMBER: _ClassVar[int]
+        WINDOW_START_MS_FIELD_NUMBER: _ClassVar[int]
+        WINDOW_END_MS_FIELD_NUMBER: _ClassVar[int]
+        CURRENT_SPEND_FIELD_NUMBER: _ClassVar[int]
+        budget_policy_id: str
+        window_start_ms: int
+        window_end_ms: int
+        current_spend: float
+        def __init__(self, budget_policy_id: _Optional[str] = ..., window_start_ms: _Optional[int] = ..., window_end_ms: _Optional[int] = ..., current_spend: _Optional[float] = ...) -> None: ...
+    class Response(_message.Message):
+        __slots__ = ("windows",)
+        WINDOWS_FIELD_NUMBER: _ClassVar[int]
+        windows: _containers.RepeatedCompositeFieldContainer[ListGatewayBudgetWindows.BudgetWindow]
+        def __init__(self, windows: _Optional[_Iterable[_Union[ListGatewayBudgetWindows.BudgetWindow, _Mapping]]] = ...) -> None: ...
+    def __init__(self) -> None: ...
+
+class GatewayGuardrail(_message.Message):
+    __slots__ = ("guardrail_id", "name", "scorer", "stage", "action", "action_endpoint_id", "created_by", "created_at", "last_updated_by", "last_updated_at")
+    GUARDRAIL_ID_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    SCORER_FIELD_NUMBER: _ClassVar[int]
+    STAGE_FIELD_NUMBER: _ClassVar[int]
+    ACTION_FIELD_NUMBER: _ClassVar[int]
+    ACTION_ENDPOINT_ID_FIELD_NUMBER: _ClassVar[int]
+    CREATED_BY_FIELD_NUMBER: _ClassVar[int]
+    CREATED_AT_FIELD_NUMBER: _ClassVar[int]
+    LAST_UPDATED_BY_FIELD_NUMBER: _ClassVar[int]
+    LAST_UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
+    guardrail_id: str
+    name: str
+    scorer: Scorer
+    stage: GuardrailStage
+    action: GuardrailAction
+    action_endpoint_id: str
+    created_by: str
+    created_at: int
+    last_updated_by: str
+    last_updated_at: int
+    def __init__(self, guardrail_id: _Optional[str] = ..., name: _Optional[str] = ..., scorer: _Optional[_Union[Scorer, _Mapping]] = ..., stage: _Optional[_Union[GuardrailStage, str]] = ..., action: _Optional[_Union[GuardrailAction, str]] = ..., action_endpoint_id: _Optional[str] = ..., created_by: _Optional[str] = ..., created_at: _Optional[int] = ..., last_updated_by: _Optional[str] = ..., last_updated_at: _Optional[int] = ...) -> None: ...
+
+class GatewayGuardrailConfig(_message.Message):
+    __slots__ = ("endpoint_id", "guardrail_id", "execution_order", "created_by", "created_at", "guardrail")
+    ENDPOINT_ID_FIELD_NUMBER: _ClassVar[int]
+    GUARDRAIL_ID_FIELD_NUMBER: _ClassVar[int]
+    EXECUTION_ORDER_FIELD_NUMBER: _ClassVar[int]
+    CREATED_BY_FIELD_NUMBER: _ClassVar[int]
+    CREATED_AT_FIELD_NUMBER: _ClassVar[int]
+    GUARDRAIL_FIELD_NUMBER: _ClassVar[int]
+    endpoint_id: str
+    guardrail_id: str
+    execution_order: int
+    created_by: str
+    created_at: int
+    guardrail: GatewayGuardrail
+    def __init__(self, endpoint_id: _Optional[str] = ..., guardrail_id: _Optional[str] = ..., execution_order: _Optional[int] = ..., created_by: _Optional[str] = ..., created_at: _Optional[int] = ..., guardrail: _Optional[_Union[GatewayGuardrail, _Mapping]] = ...) -> None: ...
+
+class CreateGatewayGuardrail(_message.Message):
+    __slots__ = ("name", "scorer_id", "scorer_version", "stage", "action", "action_endpoint_id")
+    class Response(_message.Message):
+        __slots__ = ("guardrail",)
+        GUARDRAIL_FIELD_NUMBER: _ClassVar[int]
+        guardrail: GatewayGuardrail
+        def __init__(self, guardrail: _Optional[_Union[GatewayGuardrail, _Mapping]] = ...) -> None: ...
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    SCORER_ID_FIELD_NUMBER: _ClassVar[int]
+    SCORER_VERSION_FIELD_NUMBER: _ClassVar[int]
+    STAGE_FIELD_NUMBER: _ClassVar[int]
+    ACTION_FIELD_NUMBER: _ClassVar[int]
+    ACTION_ENDPOINT_ID_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    scorer_id: str
+    scorer_version: int
+    stage: GuardrailStage
+    action: GuardrailAction
+    action_endpoint_id: str
+    def __init__(self, name: _Optional[str] = ..., scorer_id: _Optional[str] = ..., scorer_version: _Optional[int] = ..., stage: _Optional[_Union[GuardrailStage, str]] = ..., action: _Optional[_Union[GuardrailAction, str]] = ..., action_endpoint_id: _Optional[str] = ...) -> None: ...
+
+class GetGatewayGuardrail(_message.Message):
+    __slots__ = ("guardrail_id",)
+    class Response(_message.Message):
+        __slots__ = ("guardrail",)
+        GUARDRAIL_FIELD_NUMBER: _ClassVar[int]
+        guardrail: GatewayGuardrail
+        def __init__(self, guardrail: _Optional[_Union[GatewayGuardrail, _Mapping]] = ...) -> None: ...
+    GUARDRAIL_ID_FIELD_NUMBER: _ClassVar[int]
+    guardrail_id: str
+    def __init__(self, guardrail_id: _Optional[str] = ...) -> None: ...
+
+class DeleteGatewayGuardrail(_message.Message):
+    __slots__ = ("guardrail_id",)
+    class Response(_message.Message):
+        __slots__ = ()
+        def __init__(self) -> None: ...
+    GUARDRAIL_ID_FIELD_NUMBER: _ClassVar[int]
+    guardrail_id: str
+    def __init__(self, guardrail_id: _Optional[str] = ...) -> None: ...
+
+class ListGatewayGuardrails(_message.Message):
+    __slots__ = ("max_results", "page_token")
+    class Response(_message.Message):
+        __slots__ = ("guardrails", "next_page_token")
+        GUARDRAILS_FIELD_NUMBER: _ClassVar[int]
+        NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+        guardrails: _containers.RepeatedCompositeFieldContainer[GatewayGuardrail]
+        next_page_token: str
+        def __init__(self, guardrails: _Optional[_Iterable[_Union[GatewayGuardrail, _Mapping]]] = ..., next_page_token: _Optional[str] = ...) -> None: ...
+    MAX_RESULTS_FIELD_NUMBER: _ClassVar[int]
+    PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    max_results: int
+    page_token: str
+    def __init__(self, max_results: _Optional[int] = ..., page_token: _Optional[str] = ...) -> None: ...
+
+class AddGuardrailToEndpoint(_message.Message):
+    __slots__ = ("endpoint_id", "guardrail_id", "execution_order")
+    class Response(_message.Message):
+        __slots__ = ("config",)
+        CONFIG_FIELD_NUMBER: _ClassVar[int]
+        config: GatewayGuardrailConfig
+        def __init__(self, config: _Optional[_Union[GatewayGuardrailConfig, _Mapping]] = ...) -> None: ...
+    ENDPOINT_ID_FIELD_NUMBER: _ClassVar[int]
+    GUARDRAIL_ID_FIELD_NUMBER: _ClassVar[int]
+    EXECUTION_ORDER_FIELD_NUMBER: _ClassVar[int]
+    endpoint_id: str
+    guardrail_id: str
+    execution_order: int
+    def __init__(self, endpoint_id: _Optional[str] = ..., guardrail_id: _Optional[str] = ..., execution_order: _Optional[int] = ...) -> None: ...
+
+class RemoveGuardrailFromEndpoint(_message.Message):
+    __slots__ = ("endpoint_id", "guardrail_id")
+    class Response(_message.Message):
+        __slots__ = ()
+        def __init__(self) -> None: ...
+    ENDPOINT_ID_FIELD_NUMBER: _ClassVar[int]
+    GUARDRAIL_ID_FIELD_NUMBER: _ClassVar[int]
+    endpoint_id: str
+    guardrail_id: str
+    def __init__(self, endpoint_id: _Optional[str] = ..., guardrail_id: _Optional[str] = ...) -> None: ...
+
+class ListEndpointGuardrailConfigs(_message.Message):
+    __slots__ = ("endpoint_id",)
+    class Response(_message.Message):
+        __slots__ = ("configs",)
+        CONFIGS_FIELD_NUMBER: _ClassVar[int]
+        configs: _containers.RepeatedCompositeFieldContainer[GatewayGuardrailConfig]
+        def __init__(self, configs: _Optional[_Iterable[_Union[GatewayGuardrailConfig, _Mapping]]] = ...) -> None: ...
+    ENDPOINT_ID_FIELD_NUMBER: _ClassVar[int]
+    endpoint_id: str
+    def __init__(self, endpoint_id: _Optional[str] = ...) -> None: ...
+
+class UpdateEndpointGuardrailConfig(_message.Message):
+    __slots__ = ("endpoint_id", "guardrail_id", "execution_order")
+    class Response(_message.Message):
+        __slots__ = ("config",)
+        CONFIG_FIELD_NUMBER: _ClassVar[int]
+        config: GatewayGuardrailConfig
+        def __init__(self, config: _Optional[_Union[GatewayGuardrailConfig, _Mapping]] = ...) -> None: ...
+    ENDPOINT_ID_FIELD_NUMBER: _ClassVar[int]
+    GUARDRAIL_ID_FIELD_NUMBER: _ClassVar[int]
+    EXECUTION_ORDER_FIELD_NUMBER: _ClassVar[int]
+    endpoint_id: str
+    guardrail_id: str
+    execution_order: int
+    def __init__(self, endpoint_id: _Optional[str] = ..., guardrail_id: _Optional[str] = ..., execution_order: _Optional[int] = ...) -> None: ...
+
 class GetSecretsConfig(_message.Message):
     __slots__ = ()
     class Response(_message.Message):
@@ -2243,6 +2646,148 @@ class GetSecretsConfig(_message.Message):
         secrets_available: bool
         def __init__(self, secrets_available: bool = ...) -> None: ...
     def __init__(self) -> None: ...
+
+class CreatePromptOptimizationJob(_message.Message):
+    __slots__ = ("experiment_id", "source_prompt_uri", "config", "tags")
+    class Response(_message.Message):
+        __slots__ = ("job",)
+        JOB_FIELD_NUMBER: _ClassVar[int]
+        job: _prompt_optimization_pb2.PromptOptimizationJob
+        def __init__(self, job: _Optional[_Union[_prompt_optimization_pb2.PromptOptimizationJob, _Mapping]] = ...) -> None: ...
+    EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    SOURCE_PROMPT_URI_FIELD_NUMBER: _ClassVar[int]
+    CONFIG_FIELD_NUMBER: _ClassVar[int]
+    TAGS_FIELD_NUMBER: _ClassVar[int]
+    experiment_id: str
+    source_prompt_uri: str
+    config: _prompt_optimization_pb2.PromptOptimizationJobConfig
+    tags: _containers.RepeatedCompositeFieldContainer[_prompt_optimization_pb2.PromptOptimizationJobTag]
+    def __init__(self, experiment_id: _Optional[str] = ..., source_prompt_uri: _Optional[str] = ..., config: _Optional[_Union[_prompt_optimization_pb2.PromptOptimizationJobConfig, _Mapping]] = ..., tags: _Optional[_Iterable[_Union[_prompt_optimization_pb2.PromptOptimizationJobTag, _Mapping]]] = ...) -> None: ...
+
+class GetPromptOptimizationJob(_message.Message):
+    __slots__ = ("job_id",)
+    class Response(_message.Message):
+        __slots__ = ("job",)
+        JOB_FIELD_NUMBER: _ClassVar[int]
+        job: _prompt_optimization_pb2.PromptOptimizationJob
+        def __init__(self, job: _Optional[_Union[_prompt_optimization_pb2.PromptOptimizationJob, _Mapping]] = ...) -> None: ...
+    JOB_ID_FIELD_NUMBER: _ClassVar[int]
+    job_id: str
+    def __init__(self, job_id: _Optional[str] = ...) -> None: ...
+
+class SearchPromptOptimizationJobs(_message.Message):
+    __slots__ = ("experiment_id",)
+    class Response(_message.Message):
+        __slots__ = ("jobs",)
+        JOBS_FIELD_NUMBER: _ClassVar[int]
+        jobs: _containers.RepeatedCompositeFieldContainer[_prompt_optimization_pb2.PromptOptimizationJob]
+        def __init__(self, jobs: _Optional[_Iterable[_Union[_prompt_optimization_pb2.PromptOptimizationJob, _Mapping]]] = ...) -> None: ...
+    EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    experiment_id: str
+    def __init__(self, experiment_id: _Optional[str] = ...) -> None: ...
+
+class CancelPromptOptimizationJob(_message.Message):
+    __slots__ = ("job_id",)
+    class Response(_message.Message):
+        __slots__ = ("job",)
+        JOB_FIELD_NUMBER: _ClassVar[int]
+        job: _prompt_optimization_pb2.PromptOptimizationJob
+        def __init__(self, job: _Optional[_Union[_prompt_optimization_pb2.PromptOptimizationJob, _Mapping]] = ...) -> None: ...
+    JOB_ID_FIELD_NUMBER: _ClassVar[int]
+    job_id: str
+    def __init__(self, job_id: _Optional[str] = ...) -> None: ...
+
+class DeletePromptOptimizationJob(_message.Message):
+    __slots__ = ("job_id",)
+    class Response(_message.Message):
+        __slots__ = ()
+        def __init__(self) -> None: ...
+    JOB_ID_FIELD_NUMBER: _ClassVar[int]
+    job_id: str
+    def __init__(self, job_id: _Optional[str] = ...) -> None: ...
+
+class TraceArchivalConfig(_message.Message):
+    __slots__ = ("location", "retention")
+    LOCATION_FIELD_NUMBER: _ClassVar[int]
+    RETENTION_FIELD_NUMBER: _ClassVar[int]
+    location: str
+    retention: str
+    def __init__(self, location: _Optional[str] = ..., retention: _Optional[str] = ...) -> None: ...
+
+class Workspace(_message.Message):
+    __slots__ = ("name", "description", "default_artifact_root", "trace_archival_config")
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
+    DEFAULT_ARTIFACT_ROOT_FIELD_NUMBER: _ClassVar[int]
+    TRACE_ARCHIVAL_CONFIG_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    description: str
+    default_artifact_root: str
+    trace_archival_config: TraceArchivalConfig
+    def __init__(self, name: _Optional[str] = ..., description: _Optional[str] = ..., default_artifact_root: _Optional[str] = ..., trace_archival_config: _Optional[_Union[TraceArchivalConfig, _Mapping]] = ...) -> None: ...
+
+class ListWorkspaces(_message.Message):
+    __slots__ = ()
+    class Response(_message.Message):
+        __slots__ = ("workspaces",)
+        WORKSPACES_FIELD_NUMBER: _ClassVar[int]
+        workspaces: _containers.RepeatedCompositeFieldContainer[Workspace]
+        def __init__(self, workspaces: _Optional[_Iterable[_Union[Workspace, _Mapping]]] = ...) -> None: ...
+    def __init__(self) -> None: ...
+
+class CreateWorkspace(_message.Message):
+    __slots__ = ("name", "description", "default_artifact_root", "trace_archival_config")
+    class Response(_message.Message):
+        __slots__ = ("workspace",)
+        WORKSPACE_FIELD_NUMBER: _ClassVar[int]
+        workspace: Workspace
+        def __init__(self, workspace: _Optional[_Union[Workspace, _Mapping]] = ...) -> None: ...
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
+    DEFAULT_ARTIFACT_ROOT_FIELD_NUMBER: _ClassVar[int]
+    TRACE_ARCHIVAL_CONFIG_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    description: str
+    default_artifact_root: str
+    trace_archival_config: TraceArchivalConfig
+    def __init__(self, name: _Optional[str] = ..., description: _Optional[str] = ..., default_artifact_root: _Optional[str] = ..., trace_archival_config: _Optional[_Union[TraceArchivalConfig, _Mapping]] = ...) -> None: ...
+
+class GetWorkspace(_message.Message):
+    __slots__ = ("workspace_name",)
+    class Response(_message.Message):
+        __slots__ = ("workspace",)
+        WORKSPACE_FIELD_NUMBER: _ClassVar[int]
+        workspace: Workspace
+        def __init__(self, workspace: _Optional[_Union[Workspace, _Mapping]] = ...) -> None: ...
+    WORKSPACE_NAME_FIELD_NUMBER: _ClassVar[int]
+    workspace_name: str
+    def __init__(self, workspace_name: _Optional[str] = ...) -> None: ...
+
+class UpdateWorkspace(_message.Message):
+    __slots__ = ("workspace_name", "description", "default_artifact_root", "trace_archival_config")
+    class Response(_message.Message):
+        __slots__ = ("workspace",)
+        WORKSPACE_FIELD_NUMBER: _ClassVar[int]
+        workspace: Workspace
+        def __init__(self, workspace: _Optional[_Union[Workspace, _Mapping]] = ...) -> None: ...
+    WORKSPACE_NAME_FIELD_NUMBER: _ClassVar[int]
+    DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
+    DEFAULT_ARTIFACT_ROOT_FIELD_NUMBER: _ClassVar[int]
+    TRACE_ARCHIVAL_CONFIG_FIELD_NUMBER: _ClassVar[int]
+    workspace_name: str
+    description: str
+    default_artifact_root: str
+    trace_archival_config: TraceArchivalConfig
+    def __init__(self, workspace_name: _Optional[str] = ..., description: _Optional[str] = ..., default_artifact_root: _Optional[str] = ..., trace_archival_config: _Optional[_Union[TraceArchivalConfig, _Mapping]] = ...) -> None: ...
+
+class DeleteWorkspace(_message.Message):
+    __slots__ = ("workspace_name",)
+    class Response(_message.Message):
+        __slots__ = ()
+        def __init__(self) -> None: ...
+    WORKSPACE_NAME_FIELD_NUMBER: _ClassVar[int]
+    workspace_name: str
+    def __init__(self, workspace_name: _Optional[str] = ...) -> None: ...
 
 class MlflowService(_service.service): ...
 

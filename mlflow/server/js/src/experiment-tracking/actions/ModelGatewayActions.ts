@@ -10,8 +10,7 @@ import { ModelGatewayRoute, ModelGatewayService } from '../sdk/ModelGatewayServi
 
 const SEARCH_MLFLOW_DEPLOYMENTS_MODEL_ROUTES = 'SEARCH_MLFLOW_DEPLOYMENTS_MODEL_ROUTES';
 
-export interface SearchMlflowDeploymentsModelRoutesAction
-  extends AsyncAction<SearchMlflowDeploymentsModelRoutesResponse> {
+export interface SearchMlflowDeploymentsModelRoutesAction extends AsyncAction<SearchMlflowDeploymentsModelRoutesResponse> {
   type: 'SEARCH_MLFLOW_DEPLOYMENTS_MODEL_ROUTES';
 }
 

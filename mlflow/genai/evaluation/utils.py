@@ -25,6 +25,7 @@ except ImportError:
 if TYPE_CHECKING:
     from mlflow.entities.evaluation_dataset import EvaluationDataset as EntityEvaluationDataset
     from mlflow.genai.datasets import EvaluationDataset as ManagedEvaluationDataset
+    from mlflow.genai.simulators import ConversationSimulator
 
     try:
         import pyspark.sql.dataframe
@@ -36,6 +37,8 @@ if TYPE_CHECKING:
             | list[Trace]
             | ManagedEvaluationDataset
             | EntityEvaluationDataset
+            | ConversationSimulator
+            | None
         )
     except ImportError:
         EvaluationDatasetTypes = (
@@ -44,6 +47,8 @@ if TYPE_CHECKING:
             | list[Trace]
             | ManagedEvaluationDataset
             | EntityEvaluationDataset
+            | ConversationSimulator
+            | None
         )
 
 
@@ -51,31 +56,34 @@ _logger = logging.getLogger(__name__)
 
 USER_DEFINED_ASSESSMENT_NAME_KEY = "_user_defined_assessment_name"
 PGBAR_FORMAT = (
-    "{l_bar}{bar}| {n_fmt}/{total_fmt} [Elapsed: {elapsed}, Remaining: {remaining}] {postfix}"
+    "{l_bar}{bar}| {n_fmt}/{total_fmt} [Elapsed: {elapsed}, Remaining: {remaining}]{postfix}"
 )
 
 
-def _get_eval_data_type(data: "EvaluationDatasetTypes") -> dict[str, Any]:
+def _get_eval_data_type(data: "EvaluationDatasetTypes") -> str:
     data_type = type(data)
 
     if data_type is list:
         if len(data) > 0 and all(isinstance(item, Trace) for item in data):
-            return {"eval_data_type": "list[Trace]"}
-        return {"eval_data_type": "list[dict]"}
+            return "list[Trace]"
+        return "list[dict]"
 
     if data_type is EntityEvaluationDataset:
-        return {"eval_data_type": "EntityEvaluationDataset"}
+        return "EntityEvaluationDataset"
     if data_type is ManagedEvaluationDataset:
-        return {"eval_data_type": "EvaluationDataset"}
+        return "EvaluationDataset"
 
     module = data_type.__module__
     qualname = data_type.__qualname__
 
     if qualname == "DataFrame":
         if module.startswith("pandas"):
-            return {"eval_data_type": "pd.DataFrame"}
+            return "pd.DataFrame"
         if module.startswith("pyspark"):
-            return {"eval_data_type": "pyspark.sql.DataFrame"}
+            return "pyspark.sql.DataFrame"
+
+    if qualname == "ConversationSimulator":
+        return "ConversationSimulator"
 
     return "unknown"
 
@@ -148,7 +156,8 @@ def _convert_to_eval_set(data: "EvaluationDatasetTypes") -> "pd.DataFrame":
     df = _convert_eval_set_to_df(data)
 
     return (
-        df.pipe(_deserialize_trace_column_if_needed)
+        df
+        .pipe(_deserialize_trace_column_if_needed)
         .pipe(_extract_request_response_from_trace)
         .pipe(_extract_expectations_from_trace)
     )
@@ -187,16 +196,30 @@ def _deserialize_inputs_and_expectations_column(df: "pd.DataFrame") -> "pd.DataF
     return df
 
 
+def _deserialize_trace(t):
+    match t:
+        case str():
+            return Trace.from_json(t)
+        case dict():
+            return Trace.from_dict(t)
+        case _:
+            return t
+
+
 def _deserialize_trace_column_if_needed(df: "pd.DataFrame") -> "pd.DataFrame":
     """
-    Deserialize the `trace` column from the dataframe if it is a string.
+    Deserialize the `trace` column from the dataframe if it is a string or dict.
 
     Since MLflow 3.2.0, mlflow.search_traces() returns a pandas DataFrame with a `trace`
     column that is a trace json representation rather than the Trace object itself. This
     function deserializes the `trace` column into a Trace object.
+
+    Additionally, when a Spark DataFrame with a trace column (StructType) is converted
+    to pandas via .toPandas(), the trace column becomes a dict. This function handles
+    that case as well by calling Trace.from_dict().
     """
     if "trace" in df.columns:
-        df["trace"] = df["trace"].apply(lambda t: Trace.from_json(t) if isinstance(t, str) else t)
+        df["trace"] = df["trace"].apply(_deserialize_trace)
     return df
 
 

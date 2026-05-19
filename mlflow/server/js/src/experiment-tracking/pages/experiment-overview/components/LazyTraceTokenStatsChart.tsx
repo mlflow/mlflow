@@ -1,12 +1,16 @@
 import React from 'react';
 import { LegacySkeleton } from '@databricks/design-system';
-import type { OverviewChartProps } from '../types';
 
 const TraceTokenStatsChart = React.lazy(() =>
   import('./TraceTokenStatsChart').then((module) => ({ default: module.TraceTokenStatsChart })),
 );
 
-export const LazyTraceTokenStatsChart: React.FC<OverviewChartProps> = (props) => (
+interface LazyTraceTokenStatsChartProps {
+  title?: React.ReactNode;
+  subtitle?: React.ReactNode;
+}
+
+export const LazyTraceTokenStatsChart: React.FC<LazyTraceTokenStatsChartProps> = (props) => (
   <React.Suspense fallback={<LegacySkeleton active />}>
     <TraceTokenStatsChart {...props} />
   </React.Suspense>

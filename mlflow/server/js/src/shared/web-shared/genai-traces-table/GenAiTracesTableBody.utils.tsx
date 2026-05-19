@@ -7,7 +7,7 @@ import type { IntlShape } from '@databricks/i18n';
 
 import { traceInfoSortingFn } from './GenAiTracesTable.utils';
 import {
-  assessmentCellRenderer,
+  AssessmentCell,
   expectationCellRenderer,
   inputColumnCellRenderer,
   traceInfoCellRenderer,
@@ -18,7 +18,6 @@ import {
   stringifyValue,
 } from './components/GenAiEvaluationTracesReview.utils';
 import { RESPONSE_COLUMN_ID } from './hooks/useTableColumns';
-import { TracesTableColumnType } from './types';
 import type {
   AssessmentValueType,
   EvalTraceComparisonEntry,
@@ -26,8 +25,9 @@ import type {
   AssessmentInfo,
   RunEvaluationResultAssessment,
 } from './types';
+import { TracesTableColumnType } from './types';
 import { timeSinceStr } from './utils/DisplayUtils';
-import type { ModelTraceInfoV3 } from '../model-trace-explorer';
+import type { ModelTraceInfoV3 } from '../model-trace-explorer/ModelTrace.types';
 
 const DEFAULT_ASSESSMENT_CELL_WIDTH_PX = 120;
 const DEFAULT_ASSESSMENTS_CELL_WIDTH_COMPARE_PX = 120;
@@ -133,8 +133,8 @@ export const getColumnConfig = (
     isComparing: boolean;
     theme: ThemeType;
     intl: IntlShape;
-    experimentId: string;
-    onChangeEvaluationId: (evaluationId: string | undefined) => void;
+    experimentId?: string;
+    onChangeEvaluationId: (evaluationId: string | undefined, traceInfo?: ModelTraceInfoV3) => void;
     onTraceTagsEdit?: (trace: ModelTraceInfoV3) => void;
   },
 ): ColumnDef<EvalTraceComparisonEntry> => {
@@ -209,7 +209,13 @@ export const getColumnConfig = (
             assessmentInfo: AssessmentInfo;
             comparisonEntry: EvalTraceComparisonEntry;
           };
-          return assessmentCellRenderer(theme, intl, isComparing, assessmentInfo, comparisonEntry);
+          return (
+            <AssessmentCell
+              isComparing={isComparing}
+              assessmentInfo={assessmentInfo}
+              comparisonEntry={comparisonEntry}
+            />
+          );
         },
       };
     case TracesTableColumnType.EXPECTATION:
@@ -254,15 +260,19 @@ export const getColumnConfig = (
             comparisonEntry: EvalTraceComparisonEntry;
           };
 
+          const { traceIdToTurnMap, searchQuery } = (cell.table?.options?.meta as any) ?? {};
+
           return traceInfoCellRenderer(
-            experimentId,
             isComparing,
             col.id,
             comparisonEntry,
             onChangeEvaluationId,
             intl,
             theme,
+            experimentId,
             onTraceTagsEdit,
+            traceIdToTurnMap,
+            searchQuery,
           );
         },
       };
@@ -385,14 +395,14 @@ function sortPassFailAssessments(a?: RunEvaluationResultAssessment, b?: RunEvalu
     a.stringValue === KnownEvaluationResultAssessmentStringValue.YES
       ? true
       : a.stringValue === KnownEvaluationResultAssessmentStringValue.NO
-      ? false
-      : undefined;
+        ? false
+        : undefined;
   const bIsPassing =
     b.stringValue === KnownEvaluationResultAssessmentStringValue.YES
       ? true
       : b.stringValue === KnownEvaluationResultAssessmentStringValue.NO
-      ? false
-      : undefined;
+        ? false
+        : undefined;
 
   if (aIsPassing === bIsPassing) {
     return 0;

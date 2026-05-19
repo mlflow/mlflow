@@ -9,6 +9,7 @@ from packaging.version import Version
 
 from mlflow.crewai.autolog import (
     patched_class_call,
+    patched_native_tool_call,
     patched_standalone_call,
 )
 from mlflow.telemetry.events import AutologgingEvent
@@ -42,6 +43,10 @@ def autolog(
 
     CREWAI_VERSION = Version(crewai.__version__)
 
+    # _create_long_term_memory was replaced by _save_to_memory in crewai 1.10.0
+    _memory_method = (
+        "_save_to_memory" if CREWAI_VERSION >= Version("1.10.0") else "_create_long_term_memory"
+    )
     class_method_map = {
         "crewai.Crew": ["kickoff", "kickoff_for_each", "train"],
         "crewai.Agent": ["execute_task"],
@@ -49,32 +54,41 @@ def autolog(
         "crewai.LLM": ["call"],
         "crewai.Flow": ["kickoff"],
         "crewai.agents.agent_builder.base_agent_executor_mixin.CrewAgentExecutorMixin": [
-            "_create_long_term_memory"
+            _memory_method
         ],
     }
     standalone_method_map = {}
 
     if CREWAI_VERSION >= Version("0.83.0"):
         # knowledge and memory are not available before 0.83.0
-        class_method_map.update(
-            {
+        # ShortTermMemory/LongTermMemory/EntityMemory were replaced by unified MemoryScope in 1.10.0
+        if CREWAI_VERSION < Version("1.10.0"):
+            class_method_map.update({
                 "crewai.memory.ShortTermMemory": ["save", "search"],
                 "crewai.memory.LongTermMemory": ["save", "search"],
                 "crewai.memory.EntityMemory": ["save", "search"],
-                "crewai.Knowledge": ["query"],
-            }
-        )
-        if CREWAI_VERSION < Version("0.157.0"):
-            class_method_map.update({"crewai.memory.UserMemory": ["save", "search"]})
+            })
+            if CREWAI_VERSION < Version("0.157.0"):
+                class_method_map.update({"crewai.memory.UserMemory": ["save", "search"]})
+        class_method_map.update({"crewai.Knowledge": ["query"]})
 
     # Modern Tool calling support for CrewAI >= 0.114.0
     if CREWAI_VERSION >= Version("0.114.0"):
-        standalone_method_map.update(
-            {"crewai.agents.crew_agent_executor": ["execute_tool_and_check_finality"]}
-        )
+        standalone_method_map.update({
+            "crewai.agents.crew_agent_executor": ["execute_tool_and_check_finality"]
+        })
+
+    # Native function calling support for CrewAI >= 1.9.0
+    native_tool_method_map = {}
+    if CREWAI_VERSION >= Version("1.9.0"):
+        native_tool_method_map["crewai.agents.crew_agent_executor.CrewAgentExecutor"] = [
+            "_handle_native_tool_calls"
+        ]
+
     try:
         _apply_patches(standalone_method_map, _import_module, patched_standalone_call)
         _apply_patches(class_method_map, _import_class, patched_class_call)
+        _apply_patches(native_tool_method_map, _import_class, patched_native_tool_call)
     except (AttributeError, ModuleNotFoundError) as e:
         _logger.error("An exception happens when applying auto-tracing to crewai. Exception: %s", e)
 

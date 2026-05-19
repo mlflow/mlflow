@@ -9,6 +9,7 @@ interface TagAssignmentInputProps extends InputProps {
 
 export const TagAssignmentInput: React.ForwardRefExoticComponent<
   TagAssignmentInputProps & React.RefAttributes<InputRef>
+  // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
 > = forwardRef<InputRef, TagAssignmentInputProps>(({ errorMessage, ...otherProps }: TagAssignmentInputProps, ref) => {
   return (
     <div css={{ flex: 1 }}>

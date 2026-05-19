@@ -6,7 +6,6 @@ on:
       - opened
       - synchronize
       - reopened
-      - ready_for_review
     paths:
       - .github/workflows/uc-oss.yml
       - mlflow/protos/**
@@ -33,10 +32,11 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: read
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && github.repository == 'mlflow/dev') || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && github.repository == 'mlflow/dev') || (github.event_name == 'pull_request' && (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot'))
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          persist-credentials: false
           repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
       - uses: ./.github/actions/setup-python
@@ -45,20 +45,31 @@ jobs:
         run: |
           source ./dev/install-common-deps.sh
 
-      - name: Set up Java 17
-        uses: actions/setup-java@0ab4596768b603586c0de567f2430c30f5b0d2b0 # v3.13.0
-        with:
-          java-version: "17"
-          distribution: "temurin" # Use Temurin distribution of OpenJDK
+      - uses: ./.github/actions/setup-java
 
-      - name: Clone UnityCatalog at tag v0.2.1
+      - name: Clone UnityCatalog at tag v0.4.1
         run: |
-          git clone --branch v0.2.1 --depth 1 https://github.com/unitycatalog/unitycatalog.git
+          git clone --branch v0.4.1 --depth 1 https://github.com/unitycatalog/unitycatalog.git
+          git -C unitycatalog checkout c239a9b437f1acad290cff6e7e02b41699f00ebe
 
       - name: Build uc-oss server
         working-directory: unitycatalog
         run: |
+          # TODO: Remove these two lines once UC OSS releases a version with the
+          # sbt-coursier fix merged in https://github.com/unitycatalog/unitycatalog/blob/main/build.sbt
+          # The legacy sbt-coursier 1.x plugin conflicts with sbt 1.9's built-in
+          # coursier 2.x and causes version properties to resolve as empty strings
+          # (e.g. "junit:junit::"), breaking dependency resolution.
+          sed -i '/io.get-coursier.*sbt-coursier/d' project/plugins.sbt
+          sed -i '/enablePlugins(CoursierPlugin)/d' build.sbt
           build/sbt package
+
+      - name: Configure UC OSS server
+        working-directory: unitycatalog
+        run: |
+          # v0.4.1 requires a managed storage location for model registration.
+          # Set a local file path as the fallback model storage root.
+          echo "storage-root.models=file:///tmp/uc-model-storage" >> etc/conf/server.properties
 
       - name: Run tests for UnityCatalog
         run: |

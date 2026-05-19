@@ -12,6 +12,7 @@ import mlflow
 from mlflow import experiments
 from mlflow.exceptions import MlflowException
 from mlflow.runs import create_run, link_traces, list_run
+from mlflow.tracing.constant import TraceExperimentTagKey
 
 
 @pytest.fixture(autouse=True)
@@ -354,6 +355,9 @@ def test_get_experiment_json():
         "tags": {"env": "test"},
         "creation_time": exp.creation_time,
         "last_update_time": exp.last_update_time,
+        "effective_trace_archival_retention": exp.effective_trace_archival_retention,
+        "trace_location": exp.trace_location,
+        "workspace": exp.workspace,
     }
     assert output == expected
 
@@ -392,7 +396,7 @@ def test_get_experiment_table_no_tags():
 def test_get_experiment_missing_id():
     result = CliRunner().invoke(experiments.get_experiment, [])
     assert result.exit_code != 0
-    assert "Missing option '--experiment-id'" in result.output
+    assert "Must specify exactly one of --experiment-id or --experiment-name" in result.output
 
 
 def test_get_experiment_invalid_id():
@@ -410,3 +414,183 @@ def test_get_experiment_deleted():
     output = json.loads(result.output)
     assert output["lifecycle_stage"] == "deleted"
     assert output["experiment_id"] == exp_id
+
+
+def test_get_experiment_by_name_table():
+    exp_name = "test_get_by_name"
+    exp_id = mlflow.create_experiment(exp_name, tags={"env": "test"})
+
+    result = CliRunner().invoke(
+        experiments.get_experiment, ["--experiment-name", exp_name, "--output", "table"]
+    )
+    assert result.exit_code == 0
+    assert "Experiment ID" in result.output
+    assert exp_id in result.output
+    assert "Name" in result.output
+    assert exp_name in result.output
+    assert "Tags" in result.output
+    assert "env=test" in result.output
+
+
+def test_get_experiment_by_name_json():
+    exp_name = "test_get_by_name_json"
+    exp_id = mlflow.create_experiment(exp_name, tags={"team": "ml"})
+    exp = mlflow.get_experiment(exp_id)
+
+    result = CliRunner().invoke(
+        experiments.get_experiment, ["--experiment-name", exp_name, "--output", "json"]
+    )
+    assert result.exit_code == 0
+
+    output = json.loads(result.output)
+    expected = {
+        "experiment_id": exp_id,
+        "name": exp_name,
+        "artifact_location": exp.artifact_location,
+        "lifecycle_stage": "active",
+        "tags": {"team": "ml"},
+        "creation_time": exp.creation_time,
+        "last_update_time": exp.last_update_time,
+        "effective_trace_archival_retention": exp.effective_trace_archival_retention,
+        "trace_location": exp.trace_location,
+        "workspace": "default",
+    }
+    assert output == expected
+
+
+def test_get_experiment_by_name_short_option():
+    exp_name = "test_short_option"
+    exp_id = mlflow.create_experiment(exp_name)
+
+    result = CliRunner().invoke(experiments.get_experiment, ["-n", exp_name])
+    assert result.exit_code == 0
+    assert exp_id in result.output
+    assert exp_name in result.output
+
+
+def test_get_experiment_by_name_not_found():
+    result = CliRunner().invoke(
+        experiments.get_experiment, ["--experiment-name", "nonexistent_experiment"]
+    )
+    assert result.exit_code != 0
+
+
+def test_get_experiment_both_options_provided():
+    result = CliRunner().invoke(
+        experiments.get_experiment, ["--experiment-id", "0", "--experiment-name", "Default"]
+    )
+    assert result.exit_code != 0
+    assert "Must specify exactly one of --experiment-id or --experiment-name" in result.output
+
+
+def test_get_experiment_by_name_deleted():
+    exp_name = "test_deleted_by_name"
+    exp_id = mlflow.create_experiment(exp_name)
+    mlflow.delete_experiment(exp_id)
+
+    result = CliRunner().invoke(
+        experiments.get_experiment, ["--experiment-name", exp_name, "--output", "json"]
+    )
+    assert result.exit_code == 0
+
+    output = json.loads(result.output)
+    assert output["lifecycle_stage"] == "deleted"
+    assert output["name"] == exp_name
+
+
+def test_create_experiment_with_trace_archival_retention():
+    store = mock.Mock()
+    store.create_experiment.return_value = "123"
+
+    with patch("mlflow.experiments._get_store", return_value=store):
+        result = CliRunner().invoke(
+            experiments.create,
+            [
+                "--experiment-name",
+                "trace-policy-exp",
+                "--trace-archival-retention",
+                "30d",
+            ],
+        )
+
+    assert result.exit_code == 0
+    _, kwargs = store.create_experiment.call_args
+    assert kwargs["tags"] is not None
+    assert len(kwargs["tags"]) == 1
+    assert kwargs["tags"][0].key == TraceExperimentTagKey.ARCHIVAL_RETENTION
+    assert kwargs["tags"][0].value == json.dumps({"type": "duration", "value": "30d"})
+
+
+def test_update_experiment_sets_trace_archival_controls():
+    store = mock.Mock()
+    store.get_experiment.return_value = mock.Mock(tags={})
+
+    with patch("mlflow.experiments._get_store", return_value=store):
+        result = CliRunner().invoke(
+            experiments.update_experiment,
+            [
+                "--experiment-id",
+                "123",
+                "--trace-archival-retention",
+                "30d",
+                "--trace-archive-now-older-than",
+                "1d",
+            ],
+        )
+
+    assert result.exit_code == 0
+    assert len(store.set_experiment_tag.call_args_list) == 2
+    first_tag = store.set_experiment_tag.call_args_list[0].args[1]
+    second_tag = store.set_experiment_tag.call_args_list[1].args[1]
+    assert first_tag.key == TraceExperimentTagKey.ARCHIVAL_RETENTION
+    assert first_tag.value == json.dumps({"type": "duration", "value": "30d"})
+    assert second_tag.key == TraceExperimentTagKey.ARCHIVE_NOW
+    assert second_tag.value == json.dumps({"older_than": "1d"})
+
+
+def test_update_experiment_clears_trace_archival_controls():
+    store = mock.Mock()
+    store.get_experiment.return_value = mock.Mock(
+        tags={
+            TraceExperimentTagKey.ARCHIVAL_RETENTION: json.dumps({
+                "type": "duration",
+                "value": "30d",
+            }),
+            TraceExperimentTagKey.ARCHIVE_NOW: json.dumps({}),
+        }
+    )
+
+    with patch("mlflow.experiments._get_store", return_value=store):
+        result = CliRunner().invoke(
+            experiments.update_experiment,
+            [
+                "--experiment-id",
+                "123",
+                "--clear-trace-archival-retention",
+                "--clear-trace-archive-now",
+            ],
+        )
+
+    assert result.exit_code == 0
+    assert store.delete_experiment_tag.call_args_list == [
+        mock.call("123", TraceExperimentTagKey.ARCHIVAL_RETENTION),
+        mock.call("123", TraceExperimentTagKey.ARCHIVE_NOW),
+    ]
+
+
+def test_update_experiment_rejects_conflicting_archive_now_flags():
+    result = CliRunner().invoke(
+        experiments.update_experiment,
+        [
+            "--experiment-id",
+            "123",
+            "--trace-archive-now",
+            "--trace-archive-now-older-than",
+            "1d",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "Cannot specify both --trace-archive-now and --trace-archive-now-older-than" in (
+        result.output
+    )

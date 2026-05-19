@@ -1,6 +1,6 @@
 import { difference } from 'lodash';
 import { getUUID } from '../../common/utils/ActionUtils';
-import { fetchEndpoint, jsonBigIntResponseParser } from '../../common/utils/FetchUtils';
+import { defaultResponseParser, fetchEndpoint } from '../../common/utils/FetchUtils';
 import type { AsyncAction, ReduxState, ThunkDispatch } from '../../redux-types';
 import { createChartAxisRangeKey } from '../components/runs-charts/components/RunsCharts.common';
 import type { MetricEntity } from '../types';
@@ -12,18 +12,17 @@ interface GetHistoryBulkIntervalResponseType {
 }
 
 export const GET_SAMPLED_METRIC_HISTORY_API_BULK = 'GET_SAMPLED_METRIC_HISTORY_API_BULK';
-export interface GetSampledMetricHistoryBulkAction
-  extends AsyncAction<
-    GetHistoryBulkIntervalResponseType,
-    {
-      id?: string;
-      isRefreshing?: boolean;
-      runUuids: string[];
-      key: string;
-      rangeKey: string;
-      maxResults?: number;
-    }
-  > {
+export interface GetSampledMetricHistoryBulkAction extends AsyncAction<
+  GetHistoryBulkIntervalResponseType,
+  {
+    id?: string;
+    isRefreshing?: boolean;
+    runUuids: string[];
+    key: string;
+    rangeKey: string;
+    maxResults?: number;
+  }
+> {
   type: 'GET_SAMPLED_METRIC_HISTORY_API_BULK';
 }
 
@@ -101,7 +100,7 @@ export const getSampledMetricHistoryBulkAction =
 
     const request = fetchEndpoint({
       relativeUrl: `ajax-api/2.0/mlflow/metrics/get-history-bulk-interval?${queryParams}`,
-      success: jsonBigIntResponseParser,
+      success: defaultResponseParser,
     });
 
     return dispatch({

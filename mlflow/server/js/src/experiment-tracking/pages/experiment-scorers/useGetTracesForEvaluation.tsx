@@ -1,13 +1,22 @@
 import { useCallback } from 'react';
 import { searchMlflowTracesQueryFn, SEARCH_MLFLOW_TRACES_QUERY_KEY } from '@databricks/web-shared/genai-traces-table';
-import { QueryClient, useQueryClient } from '@databricks/web-shared/query-client';
-import { EvaluateTracesParams } from './types';
+import type { QueryClient } from '@databricks/web-shared/query-client';
+import { useQueryClient } from '@databricks/web-shared/query-client';
+import type { EvaluateTracesParams } from './types';
 import { DEFAULT_TRACE_COUNT } from './constants';
 import { isEmpty } from 'lodash';
 
+// prettier-ignore
+type FetchTracesParams = Required<Pick<EvaluateTracesParams, 'itemCount' | 'locations'>>
+;
+
+// prettier-ignore
 const fetchTracesAndGetIds = async (
   queryClient: QueryClient,
-  { itemCount, locations }: Required<Pick<EvaluateTracesParams, 'itemCount' | 'locations'>>,
+  {
+    itemCount,
+    locations,
+  }: FetchTracesParams,
 ) => {
   const modifiedTraceCount = Math.max(itemCount, DEFAULT_TRACE_COUNT);
 

@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useEffect, useRef } from 'react';
 import { FormUI, Radio, Spinner, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { GatewayInput } from '../../common';
@@ -26,7 +26,7 @@ interface ApiKeyConfiguratorProps {
     };
   };
   disabled?: boolean;
-  componentIdPrefix?: string;
+  componentId?: string;
 }
 
 export function ApiKeyConfigurator({
@@ -40,10 +40,11 @@ export function ApiKeyConfigurator({
   isLoadingProviderConfig,
   errors,
   disabled,
-  componentIdPrefix = 'mlflow.gateway.api-key-config',
+  componentId = 'mlflow.gateway.api-key-config',
 }: ApiKeyConfiguratorProps) {
   const { theme } = useDesignSystemTheme();
   const { formatMessage } = useIntl();
+  const outerDomId = useRef(`api-key-${Math.random().toString(36).slice(2, 9)}`).current;
 
   const hasExistingSecrets = existingSecrets.length > 0;
   const hasMultipleAuthModes = authModes.length > 1;
@@ -56,6 +57,19 @@ export function ApiKeyConfigurator({
     }
     return authModes.find((m) => m.mode === defaultAuthMode) ?? authModes[0];
   }, [authModes, value.newSecret.authMode, defaultAuthMode]);
+
+  // Auto-set authMode when it's empty and auth modes are available to ensure the form validation passes
+  useEffect(() => {
+    if (value.mode === 'new' && !value.newSecret.authMode && selectedAuthMode) {
+      onChange({
+        ...value,
+        newSecret: {
+          ...value.newSecret,
+          authMode: selectedAuthMode.mode,
+        },
+      });
+    }
+  }, [value, selectedAuthMode, onChange]);
 
   const handleModeChange = useCallback(
     (mode: 'new' | 'existing') => {
@@ -139,8 +153,8 @@ export function ApiKeyConfigurator({
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
       <Radio.Group
-        componentId={`${componentIdPrefix}.mode`}
-        name={`${componentIdPrefix}.mode`}
+        componentId={`${componentId}.mode`}
+        name={`${outerDomId}.mode`}
         value={value.mode}
         onChange={(e) => handleModeChange(e.target.value as 'new' | 'existing')}
         layout="horizontal"
@@ -181,7 +195,7 @@ export function ApiKeyConfigurator({
           defaultAuthMode={defaultAuthMode}
           errors={errors?.newSecret}
           disabled={disabled}
-          componentIdPrefix={componentIdPrefix}
+          componentId={componentId}
           onNameChange={handleNameChange}
           onAuthModeChange={handleAuthModeChange}
           onSecretFieldChange={handleSecretFieldChange}
@@ -205,7 +219,7 @@ interface NewSecretFormProps {
     configFields?: Record<string, string>;
   };
   disabled?: boolean;
-  componentIdPrefix: string;
+  componentId: string;
   onNameChange: (name: string) => void;
   onAuthModeChange: (mode: string) => void;
   onSecretFieldChange: (fieldName: string, fieldValue: string) => void;
@@ -221,7 +235,7 @@ function NewSecretForm({
   defaultAuthMode,
   errors,
   disabled,
-  componentIdPrefix,
+  componentId,
   onNameChange,
   onAuthModeChange,
   onSecretFieldChange,
@@ -229,6 +243,7 @@ function NewSecretForm({
 }: NewSecretFormProps) {
   const { theme } = useDesignSystemTheme();
   const { formatMessage } = useIntl();
+  const domId = useRef(`api-key-config-${Math.random().toString(36).slice(2, 9)}`).current;
 
   // Combine secret and config fields into a single sorted list
   const sortedFields = useMemo(() => {
@@ -247,13 +262,13 @@ function NewSecretForm({
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
       <div>
-        <FormUI.Label htmlFor={`${componentIdPrefix}.name`}>
+        <FormUI.Label htmlFor={`${domId}.name`}>
           <FormattedMessage defaultMessage="API key name" description="Label for API key name input" />
           <span css={{ color: theme.colors.textValidationDanger }}> *</span>
         </FormUI.Label>
         <GatewayInput
-          id={`${componentIdPrefix}.name`}
-          componentId={`${componentIdPrefix}.name`}
+          id={`${domId}.name`}
+          componentId={`${componentId}.name`}
           value={value.name}
           onChange={(e) => onNameChange(e.target.value)}
           placeholder={formatMessage({
@@ -281,8 +296,8 @@ function NewSecretForm({
             <FormattedMessage defaultMessage="Authentication method" description="Label for auth mode selector" />
           </FormUI.Label>
           <Radio.Group
-            name={`${componentIdPrefix}.auth-mode`}
-            componentId={`${componentIdPrefix}.auth-mode`}
+            name={`${domId}.auth-mode`}
+            componentId={`${componentId}.auth-mode`}
             value={value.authMode || defaultAuthMode}
             onChange={(e) => onAuthModeChange(e.target.value)}
             disabled={disabled}
@@ -307,14 +322,14 @@ function NewSecretForm({
 
       {sortedFields.map((field) => (
         <div key={field.name}>
-          <FormUI.Label htmlFor={`${componentIdPrefix}.${field.fieldType}.${field.name}`}>
+          <FormUI.Label htmlFor={`${domId}.${field.fieldType}.${field.name}`}>
             {formatCredentialFieldName(field.name)}
             {field.required && <span css={{ color: theme.colors.textValidationDanger }}> *</span>}
           </FormUI.Label>
           {field.fieldType === 'secret' ? (
             <SecretInput
-              id={`${componentIdPrefix}.secret.${field.name}`}
-              componentId={`${componentIdPrefix}.secret.${field.name}`}
+              id={`${domId}.secret.${field.name}`}
+              componentId={`${componentId}.secret`}
               value={value.secretFields[field.name] ?? ''}
               onChange={(e) => onSecretFieldChange(field.name, e.target.value)}
               placeholder={field.description}
@@ -323,8 +338,8 @@ function NewSecretForm({
             />
           ) : (
             <GatewayInput
-              id={`${componentIdPrefix}.config.${field.name}`}
-              componentId={`${componentIdPrefix}.config.${field.name}`}
+              id={`${domId}.config.${field.name}`}
+              componentId={`${componentId}.config`}
               value={value.configFields[field.name] ?? ''}
               onChange={(e) => onConfigFieldChange(field.name, e.target.value)}
               placeholder={field.description}

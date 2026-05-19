@@ -1,4 +1,5 @@
-import { SELECTED_TRACE_ID_QUERY_PARAM } from '../../../../experiment-tracking/constants';
+import { SELECTED_TRACE_ID_QUERY_PARAM } from '../../model-trace-explorer/constants';
+
 import MlflowUtils from '../utils/MlflowUtils';
 import { Link } from '../utils/RoutingUtils';
 
@@ -9,10 +10,14 @@ export const SessionIdLinkWrapper = ({
   children,
 }: {
   sessionId: string;
-  experimentId: string;
+  experimentId?: string;
   traceId?: string;
   children: React.ReactElement;
 }) => {
+  if (!experimentId) {
+    return children;
+  }
+
   const baseUrl = MlflowUtils.getExperimentChatSessionPageRoute(experimentId, sessionId);
   const url = traceId
     ? `${baseUrl}?${new URLSearchParams({ [SELECTED_TRACE_ID_QUERY_PARAM]: traceId }).toString()}`
@@ -20,6 +25,7 @@ export const SessionIdLinkWrapper = ({
 
   return (
     <Link
+      componentId="mlflow.genai-traces-table.session_id_link"
       // prettier-ignore
       to={url}
     >

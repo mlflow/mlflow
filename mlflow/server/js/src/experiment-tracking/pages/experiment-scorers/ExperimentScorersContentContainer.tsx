@@ -1,11 +1,22 @@
 import React, { useState } from 'react';
-import { useDesignSystemTheme, ParagraphSkeleton, Button, PlusIcon, Spacer } from '@databricks/design-system';
+import {
+  useDesignSystemTheme,
+  ParagraphSkeleton,
+  PlusIcon,
+  CodeIcon,
+  Spacer,
+  SplitButton,
+  DropdownMenu,
+  CursorPagination,
+} from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 import ScorerCardContainer from './ScorerCardContainer';
 import ScorerModalRenderer from './ScorerModalRenderer';
 import ScorerEmptyStateRenderer from './ScorerEmptyStateRenderer';
+import { shouldPaginateScorers } from '../../../common/utils/FeatureUtils';
 import { useGetScheduledScorers } from './hooks/useGetScheduledScorers';
-import { COMPONENT_ID_PREFIX, SCORER_FORM_MODE } from './constants';
+import { SCORER_FORM_MODE } from './constants';
+import type { ScorerFormData } from './utils/scorerTransformUtils';
 
 interface ExperimentScorersContentContainerProps {
   experimentId: string;
@@ -15,28 +26,37 @@ const ExperimentScorersContentContainer: React.FC<ExperimentScorersContentContai
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const [isModalVisible, setIsModalVisible] = useState(false);
-
+  const [initialScorerType, setInitialScorerType] = useState<ScorerFormData['scorerType']>('llm');
   const scheduledScorersResult = useGetScheduledScorers(experimentId);
   const scorers = scheduledScorersResult.data?.scheduledScorers || [];
+  const isLoading = scheduledScorersResult.isLoading;
+  const isError = scheduledScorersResult.isError;
+  const error = scheduledScorersResult.error;
 
-  const handleNewScorerClick = () => {
+  const handleNewLLMScorerClick = () => {
+    setInitialScorerType('llm');
+    setIsModalVisible(true);
+  };
+
+  const handleNewCustomCodeScorerClick = () => {
+    setInitialScorerType('custom-code');
     setIsModalVisible(true);
   };
 
   // If no scorers exist and we're not currently showing the modal, show empty state
-  const shouldShowEmptyState = scorers.length === 0 && !isModalVisible && !scheduledScorersResult.isLoading;
+  const shouldShowEmptyState = scorers.length === 0 && !isModalVisible && !isLoading;
 
   const closeModal = () => {
     setIsModalVisible(false);
   };
 
   // Handle error state - throw error to be caught by PanelBoundary
-  if (scheduledScorersResult.isError && scheduledScorersResult.error) {
-    throw scheduledScorersResult.error;
+  if (isError && error) {
+    throw error;
   }
 
   // Handle loading state
-  if (scheduledScorersResult.isLoading) {
+  if (isLoading) {
     return (
       <div
         css={{
@@ -63,7 +83,12 @@ const ExperimentScorersContentContainer: React.FC<ExperimentScorersContentContai
 
   // Show empty state when there are no scorers
   if (shouldShowEmptyState) {
-    return <ScorerEmptyStateRenderer onAddScorerClick={handleNewScorerClick} />;
+    return (
+      <ScorerEmptyStateRenderer
+        onAddLLMScorerClick={handleNewLLMScorerClick}
+        onAddCustomCodeScorerClick={handleNewCustomCodeScorerClick}
+      />
+    );
   }
 
   return (
@@ -75,7 +100,7 @@ const ExperimentScorersContentContainer: React.FC<ExperimentScorersContentContai
         overflow: 'auto',
       }}
     >
-      {/* Header with New scorer button */}
+      {/* Header with New judge split button */}
       <div
         css={{
           display: 'flex',
@@ -84,14 +109,29 @@ const ExperimentScorersContentContainer: React.FC<ExperimentScorersContentContai
           padding: theme.spacing.sm,
         }}
       >
-        <Button
+        <SplitButton
           type="primary"
           icon={<PlusIcon />}
-          componentId={`${COMPONENT_ID_PREFIX}.new-scorer-button`}
-          onClick={handleNewScorerClick}
+          componentId="mlflow.experiment-scorers.new-scorer-button"
+          onClick={handleNewLLMScorerClick}
+          menu={
+            <DropdownMenu.Content>
+              <DropdownMenu.Item
+                componentId="mlflow.experiment-scorers.new-custom-code-scorer-menu-item"
+                onClick={handleNewCustomCodeScorerClick}
+                css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}
+              >
+                <CodeIcon />
+                <FormattedMessage
+                  defaultMessage="Custom code judge"
+                  description="Menu item text to create a new custom code judge"
+                />
+              </DropdownMenu.Item>
+            </DropdownMenu.Content>
+          }
         >
-          <FormattedMessage defaultMessage="New judge" description="Button text to create a new judge" />
-        </Button>
+          <FormattedMessage defaultMessage="New LLM judge" description="Button text to create a new LLM judge" />
+        </SplitButton>
       </div>
       <Spacer size="sm" />
       {/* Content area */}
@@ -120,6 +160,7 @@ const ExperimentScorersContentContainer: React.FC<ExperimentScorersContentContai
         onClose={closeModal}
         experimentId={experimentId}
         mode={SCORER_FORM_MODE.CREATE}
+        initialScorerType={initialScorerType}
       />
     </div>
   );

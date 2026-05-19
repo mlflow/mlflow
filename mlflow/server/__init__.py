@@ -2,12 +2,15 @@ import importlib
 import importlib.metadata
 import logging
 import os
+import secrets
 import shlex
+import signal
 import sys
 import tempfile
 import textwrap
 import types
 import warnings
+from pathlib import Path
 
 _logger = logging.getLogger("mlflow.server")
 
@@ -15,6 +18,7 @@ from flask import Flask, Response, send_from_directory
 from packaging.version import Version
 
 from mlflow.environment_variables import (
+    _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN,
     _MLFLOW_SGI_NAME,
     MLFLOW_FLASK_SERVER_SECRET_KEY,
     MLFLOW_SERVER_ENABLE_JOB_EXECUTION,
@@ -28,6 +32,7 @@ from mlflow.server.constants import (
     BACKEND_STORE_URI_ENV_VAR,
     HUEY_STORAGE_PATH_ENV_VAR,
     PROMETHEUS_EXPORTER_ENV_VAR,
+    READ_REPLICA_BACKEND_STORE_URI_ENV_VAR,
     REGISTRY_STORE_URI_ENV_VAR,
     SECRETS_CACHE_MAX_SIZE_ENV_VAR,
     SECRETS_CACHE_TTL_ENV_VAR,
@@ -49,6 +54,10 @@ from mlflow.server.handlers import (
     post_ui_telemetry_handler,
     upload_artifact_handler,
 )
+from mlflow.server.workspace_helpers import (
+    workspace_before_request_handler,
+    workspace_teardown_request_handler,
+)
 from mlflow.utils.os import is_windows
 from mlflow.utils.plugins import get_entry_points
 from mlflow.utils.process import _exec_cmd
@@ -63,8 +72,8 @@ is_running_as_server = (
     "gunicorn" in sys.modules
     or "uvicorn" in sys.modules
     or "waitress" in sys.modules
-    or os.getenv(BACKEND_STORE_URI_ENV_VAR)
-    or os.getenv(SERVE_ARTIFACTS_ENV_VAR)
+    or os.environ.get(BACKEND_STORE_URI_ENV_VAR)
+    or os.environ.get(SERVE_ARTIFACTS_ENV_VAR)
 )
 
 if is_running_as_server:
@@ -72,15 +81,17 @@ if is_running_as_server:
 
     security.init_security_middleware(app)
 
+app.before_request(workspace_before_request_handler)
+app.teardown_request(workspace_teardown_request_handler)
+
 for http_path, handler, methods in handlers.get_endpoints():
     app.add_url_rule(http_path, handler.__name__, handler, methods=methods)
 
-if os.getenv(PROMETHEUS_EXPORTER_ENV_VAR):
+if os.environ.get(PROMETHEUS_EXPORTER_ENV_VAR):
     from mlflow.server.prometheus_exporter import activate_prometheus_exporter
 
-    prometheus_metrics_path = os.getenv(PROMETHEUS_EXPORTER_ENV_VAR)
-    if not os.path.exists(prometheus_metrics_path):
-        os.makedirs(prometheus_metrics_path)
+    prometheus_metrics_path = os.environ.get(PROMETHEUS_EXPORTER_ENV_VAR)
+    os.makedirs(prometheus_metrics_path, exist_ok=True)
     activate_prometheus_exporter(app)
 
 
@@ -282,11 +293,16 @@ def _build_gunicorn_command(gunicorn_opts, host, port, workers, app_name):
     ]
 
 
+_UVICORN_LOG_CONFIG = Path(__file__).parent / "uvicorn_log_config.yaml"
+
+
 def _build_uvicorn_command(
     uvicorn_opts, host, port, workers, app_name, env_file=None, is_factory=False
 ):
     """Build command to run uvicorn server."""
     opts = shlex.split(uvicorn_opts) if uvicorn_opts else []
+    if not any(o == "--log-config" or o.startswith("--log-config=") for o in opts):
+        opts.extend(["--log-config", str(_UVICORN_LOG_CONFIG)])
     cmd = [
         sys.executable,
         "-m",
@@ -310,6 +326,7 @@ def _build_uvicorn_command(
 def _run_server(
     *,
     file_store_path,
+    read_replica_backend_store_uri=None,
     registry_store_uri,
     default_artifact_root,
     serve_artifacts,
@@ -342,6 +359,8 @@ def _run_server(
     env_map = {}
     if file_store_path:
         env_map[BACKEND_STORE_URI_ENV_VAR] = file_store_path
+    if read_replica_backend_store_uri:
+        env_map[READ_REPLICA_BACKEND_STORE_URI_ENV_VAR] = read_replica_backend_store_uri
     if registry_store_uri:
         env_map[REGISTRY_STORE_URI_ENV_VAR] = registry_store_uri
     if default_artifact_root:
@@ -426,7 +445,27 @@ def _run_server(
         # This shouldn't happen given the logic in CLI, but handle it just in case
         raise MlflowException("No server configuration specified.")
 
+    # Check if job execution can be enabled (requirements met)
+    job_execution_enabled = False
     if MLFLOW_SERVER_ENABLE_JOB_EXECUTION.get():
+        from mlflow.server.jobs.utils import _check_requirements
+
+        try:
+            _check_requirements(file_store_path)
+            job_execution_enabled = True
+        except Exception as e:
+            _logger.warning(
+                f"MLflow job execution requirements not met ({e!s}). "
+                "Server will start without job execution support. "
+                "Errors will be surfaced at job invocation time."
+            )
+
+    if app_name == "basic-auth" and job_execution_enabled:
+        # Generate the token here (before forking uvicorn workers) so that all
+        # worker processes and job subprocesses share the same token.
+        env_map[_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name] = secrets.token_hex(32)
+
+    if job_execution_enabled:
         # The `HUEY_STORAGE_PATH_ENV_VAR` is used by both MLflow server handler workers and
         # huey job runner (huey_consumer).
         env_map[HUEY_STORAGE_PATH_ENV_VAR] = (
@@ -435,23 +474,26 @@ def _run_server(
             else tempfile.mkdtemp()
         )
 
-    if MLFLOW_SERVER_ENABLE_JOB_EXECUTION.get():
-        from mlflow.server.jobs.utils import _check_requirements
-
-        try:
-            _check_requirements(file_store_path)
-        except Exception as e:
-            raise MlflowException(
-                f"MLflow job runner requirements checking failed (root error: {e!s}). "
-                "If you don't need MLflow job runner, you can disable it by setting "
-                "environment variable 'MLFLOW_SERVER_ENABLE_JOB_EXECUTION' to 'false'."
-            )
-
     server_proc = _exec_cmd(
-        full_command, extra_env=env_map, capture_output=False, synchronous=False
+        full_command,
+        extra_env=env_map,
+        capture_output=False,
+        synchronous=False,
     )
 
-    if MLFLOW_SERVER_ENABLE_JOB_EXECUTION.get():
+    def _forward_signal(signum, _frame):
+        """Forward signals to the child server process to enable graceful shutdown."""
+        if server_proc.poll() is not None:
+            return
+        try:
+            server_proc.send_signal(signum)
+        except ProcessLookupError:
+            pass
+
+    signal.signal(signal.SIGTERM, _forward_signal)
+    signal.signal(signal.SIGINT, _forward_signal)
+
+    if job_execution_enabled:
         from mlflow.environment_variables import MLFLOW_GATEWAY_URI, MLFLOW_TRACKING_URI
         from mlflow.server.jobs.utils import _launch_job_runner
 

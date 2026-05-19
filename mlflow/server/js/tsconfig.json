@@ -14,9 +14,6 @@
       "@databricks/i18n": [
         "./src/i18n/i18n"
       ],
-      "@databricks/web-shared/query-client": [
-        "./src/common/utils/reactQueryHooks"
-      ],
       "@databricks/web-shared/*": [
         "./src/shared/web-shared/*"
       ]
@@ -52,5 +49,8 @@
   ],
   "ts-node": {
     "swc": true
-  }
+  },
+  "exclude": [
+    "./src/shared/web-shared/**/*"
+  ]
 }

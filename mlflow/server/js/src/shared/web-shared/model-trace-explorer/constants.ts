@@ -13,4 +13,29 @@ export const SESSION_ID_METADATA_KEY = 'mlflow.trace.session';
 export const SOURCE_NAME_METADATA_KEY = 'mlflow.source.name';
 export const SOURCE_TYPE_METADATA_KEY = 'mlflow.source.type';
 export const TOKEN_USAGE_METADATA_KEY = 'mlflow.trace.tokenUsage';
+export const COST_METADATA_KEY = 'mlflow.trace.cost';
 export const MLFLOW_TRACE_USER_KEY = 'mlflow.trace.user';
+export const MLFLOW_GIT_BRANCH_KEY = 'mlflow.source.git.branch';
+export const MLFLOW_GIT_COMMIT_KEY = 'mlflow.source.git.commit';
+
+// Span attribute keys for model and cost info
+export const SPAN_ATTRIBUTE_MODEL_KEY = 'mlflow.llm.model';
+export const SPAN_ATTRIBUTE_COST_KEY = 'mlflow.llm.cost';
+
+// Query parameter for selected trace ID in session pages
+export const SELECTED_TRACE_ID_QUERY_PARAM = 'selectedTraceId';
+export const ASSESSMENT_SESSION_METADATA_KEY = 'mlflow.trace.session';
+
+// Span attribute key for linked gateway trace
+export const SPAN_ATTRIBUTE_LINKED_GATEWAY_TRACE_ID_KEY = 'mlflow.gateway.linkedTraceId';
+
+// Internal assessment names that should be hidden from the UI
+export const INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE = '_issue_discovery_judge';
+
+// Key used in assessment metadata to indicate which document (by index) the assessment references
+export const MLFLOW_SPAN_OUTPUT_KEY = 'span_output_key';
+export const CHUNK_INDEX_KEY = 'chunk_index';
+
+// Threshold (in characters) above which markdown rendering is skipped to prevent
+// browser freezes from extremely large strings (e.g., un-extracted base64 data).
+export const MARKDOWN_RENDER_SIZE_LIMIT = 1_000_000;

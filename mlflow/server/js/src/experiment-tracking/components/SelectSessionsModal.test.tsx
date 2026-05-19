@@ -4,9 +4,14 @@ import userEvent from '@testing-library/user-event';
 import { IntlProvider } from 'react-intl';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { SelectSessionsModal } from './SelectSessionsModal';
-import { useGenAiTraceTableRowSelection } from '../../shared/web-shared/genai-traces-table/hooks/useGenAiTraceTableRowSelection';
-import { GenAIChatSessionsTable, useSearchMlflowTraces } from '@databricks/web-shared/genai-traces-table';
-import { TestRouter, testRoute } from '../../common/utils/RoutingTestUtils';
+import { useGenAiTraceTableRowSelection } from '@databricks/web-shared/genai-traces-table';
+import {
+  GenAIChatSessionsTable,
+  useSearchMlflowTraces,
+  createTraceLocationForExperiment,
+  createTraceLocationForDestinationPath,
+} from '@databricks/web-shared/genai-traces-table';
+import { TestRouter, testRoute, setupTestRouter, waitForRoutesToBeRendered } from '../../common/utils/RoutingTestUtils';
 
 // Mock GenAIChatSessionsTable to keep this test simple
 jest.mock('@databricks/web-shared/genai-traces-table', () => ({
@@ -18,8 +23,10 @@ jest.mock('@databricks/web-shared/genai-traces-table', () => ({
 }));
 
 const testExperimentId = 'test-experiment-123';
+const defaultTraceLocation = createTraceLocationForExperiment(testExperimentId);
 
 describe('SelectSessionsModal', () => {
+  const { history } = setupTestRouter();
   beforeAll(() => {
     // Mock useSearchMlflowTraces to return empty data, we'll mock sessions directly
     jest.mocked(useSearchMlflowTraces).mockReturnValue({
@@ -62,11 +69,16 @@ describe('SelectSessionsModal', () => {
     jest.mocked(GenAIChatSessionsTable).mockImplementation(MockGenAIChatSessionsTable as any);
   });
 
-  const renderTestComponent = (props: { onClose?: () => void; onSuccess?: (sessionIds: string[]) => void }) => {
+  const renderTestComponent = (props: {
+    onClose?: () => void;
+    onSuccess?: (sessionIds: string[]) => void;
+    maxSessionCount?: number;
+  }) => {
     return render(
       <DesignSystemProvider>
         <IntlProvider locale="en">
           <TestRouter
+            history={history}
             routes={[testRoute(<SelectSessionsModal {...props} />, '/experiments/:experimentId')]}
             initialEntries={[`/experiments/${testExperimentId}`]}
           />
@@ -87,6 +99,7 @@ describe('SelectSessionsModal', () => {
   test('should call onSuccess with selected session IDs when OK is clicked', async () => {
     const onSuccessMock = jest.fn();
     renderTestComponent({ onSuccess: onSuccessMock });
+    await waitForRoutesToBeRendered();
 
     // Select two sessions
     await userEvent.click(screen.getByTestId('checkbox-session-1'));
@@ -103,6 +116,7 @@ describe('SelectSessionsModal', () => {
 
   test('should disable OK button if all sessions are deselected', async () => {
     renderTestComponent({});
+    await waitForRoutesToBeRendered();
 
     // Select a session
     await userEvent.click(screen.getByTestId('checkbox-session-1'));
@@ -117,5 +131,30 @@ describe('SelectSessionsModal', () => {
     // The Select button should be disabled again
     selectButton = screen.getByRole('button', { name: /select/i });
     expect(selectButton).toBeDisabled();
+  });
+
+  test('should disable OK button when max session count is exceeded', async () => {
+    renderTestComponent({ maxSessionCount: 2 });
+    await waitForRoutesToBeRendered();
+
+    // Select 3 sessions (exceeds max of 2)
+    await userEvent.click(screen.getByTestId('checkbox-session-1'));
+    await userEvent.click(screen.getByTestId('checkbox-session-2'));
+    await userEvent.click(screen.getByTestId('checkbox-session-3'));
+
+    const selectButton = screen.getByRole('button', { name: /select/i });
+    expect(selectButton).toBeDisabled();
+  });
+
+  test('should enable OK button when selection is within max session count', async () => {
+    renderTestComponent({ maxSessionCount: 2 });
+    await waitForRoutesToBeRendered();
+
+    // Select 2 sessions (within max of 2)
+    await userEvent.click(screen.getByTestId('checkbox-session-1'));
+    await userEvent.click(screen.getByTestId('checkbox-session-2'));
+
+    const selectButton = screen.getByRole('button', { name: /select/i });
+    expect(selectButton).toBeEnabled();
   });
 });

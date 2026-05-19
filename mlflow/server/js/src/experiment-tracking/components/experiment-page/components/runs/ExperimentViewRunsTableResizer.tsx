@@ -79,6 +79,7 @@ export const ExperimentViewRunsTableResizerHandle = React.forwardRef<
     updateRunListHidden: (newValue: boolean) => void;
     runListHidden: boolean;
   }
+  // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
 >(({ updateRunListHidden, runListHidden, ...props }, ref) => {
   const { theme } = useDesignSystemTheme();
 

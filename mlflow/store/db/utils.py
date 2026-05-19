@@ -18,13 +18,20 @@ from sqlalchemy import event, sql
 from sqlalchemy.pool import (
     AssertionPool,
     AsyncAdaptedQueuePool,
-    FallbackAsyncAdaptedQueuePool,
     NullPool,
     QueuePool,
     SingletonThreadPool,
     StaticPool,
 )
 
+# CRITICAL: Import ORM modules to register all table metadata with Base.metadata.
+# _all_tables_exist() depends on Base.metadata.tables being fully populated.
+# If these imports are removed, Base.metadata.tables will be incomplete and
+# _all_tables_exist() will return True even when tables are missing, silently
+# skipping DB initialization/migration.
+import mlflow.store.model_registry.dbmodels.models  # noqa: F401
+import mlflow.store.tracking.dbmodels.models  # noqa: F401
+import mlflow.store.workspace.dbmodels.models  # noqa: F401
 from mlflow.environment_variables import (
     MLFLOW_MYSQL_SSL_CA,
     MLFLOW_MYSQL_SSL_CERT,
@@ -41,33 +48,9 @@ from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
     TEMPORARILY_UNAVAILABLE,
 )
+from mlflow.store.db.base_sql_model import Base
 from mlflow.store.db.db_types import SQLITE
-from mlflow.store.model_registry.dbmodels.models import (
-    SqlModelVersion,
-    SqlModelVersionTag,
-    SqlRegisteredModel,
-    SqlRegisteredModelAlias,
-    SqlRegisteredModelTag,
-)
 from mlflow.store.tracking.dbmodels.initial_models import Base as InitialBase
-from mlflow.store.tracking.dbmodels.models import (
-    SqlDataset,
-    SqlExperiment,
-    SqlExperimentTag,
-    SqlInput,
-    SqlInputTag,
-    SqlJob,
-    SqlLatestMetric,
-    SqlMetric,
-    SqlParam,
-    SqlRun,
-    SqlScorer,
-    SqlScorerVersion,
-    SqlTag,
-    SqlTraceInfo,
-    SqlTraceMetadata,
-    SqlTraceTag,
-)
 
 _logger = logging.getLogger(__name__)
 
@@ -81,33 +64,13 @@ def _get_package_dir():
 
 
 def _all_tables_exist(engine):
-    # Check if the core initial tables exist in the database.
+    # Check if all ORM-defined tables exist in the database.
+    # Derived from Base.metadata.tables so that newly added ORM models are
+    # automatically included without requiring a manual update here.
     # Using issubset() instead of equality so that additional tables added by migrations
     # don't cause this check to fail. This prevents unnecessary calls to _initialize_tables
     # which can cause migration errors like "Can't locate revision identified by 'xxx'".
-    expected_tables = {
-        SqlExperiment.__tablename__,
-        SqlRun.__tablename__,
-        SqlMetric.__tablename__,
-        SqlParam.__tablename__,
-        SqlTag.__tablename__,
-        SqlExperimentTag.__tablename__,
-        SqlLatestMetric.__tablename__,
-        SqlRegisteredModel.__tablename__,
-        SqlModelVersion.__tablename__,
-        SqlRegisteredModelTag.__tablename__,
-        SqlModelVersionTag.__tablename__,
-        SqlRegisteredModelAlias.__tablename__,
-        SqlDataset.__tablename__,
-        SqlInput.__tablename__,
-        SqlInputTag.__tablename__,
-        SqlTraceInfo.__tablename__,
-        SqlTraceTag.__tablename__,
-        SqlTraceMetadata.__tablename__,
-        SqlScorer.__tablename__,
-        SqlScorerVersion.__tablename__,
-        SqlJob.__tablename__,
-    }
+    expected_tables = set(Base.metadata.tables)
     actual_tables = {
         t for t in sqlalchemy.inspect(engine).get_table_names() if not t.startswith("alembic_")
     }
@@ -174,8 +137,11 @@ def _get_managed_session_maker(SessionMaker, db_type):
     automatically closed when the session's associated context is exited.
     """
 
+    # Default to read_only=True to avoid accidentally treating read query as write
+    # and send to the main workers. The test time validation detects when the
+    # actual write query is marked read-only.
     @contextmanager
-    def make_managed_session():
+    def make_managed_session(read_only=True):
         """Provide a transactional scope around a series of operations."""
         with SessionMaker() as session:
             try:
@@ -183,6 +149,21 @@ def _get_managed_session_maker(SessionMaker, db_type):
                     session.execute(sql.text("PRAGMA foreign_keys = ON;"))
                     session.execute(sql.text("PRAGMA busy_timeout = 20000;"))
                     session.execute(sql.text("PRAGMA case_sensitive_like = true;"))
+
+                # Validation that only triggers while testing to make sure the
+                # read_only flag is properly set.
+                if read_only and os.environ.get("PYTEST_CURRENT_TEST"):
+
+                    def _reject_flush(session, flush_context, instances):
+                        raise MlflowException(
+                            "Write operation detected on a read-only session. "
+                            "ManagedSessionMaker creates read-only sessions "
+                            "by default. Pass read_only=False to the constructor "
+                            "to mark it as a write operation.",
+                            error_code=INTERNAL_ERROR,
+                        )
+
+                    event.listen(session, "before_flush", _reject_flush)
                 yield session
                 session.commit()
             except MlflowException:
@@ -201,6 +182,36 @@ def _get_managed_session_maker(SessionMaker, db_type):
             except Exception as e:
                 session.rollback()
                 raise MlflowException(message=e, error_code=INTERNAL_ERROR) from e
+
+    return make_managed_session
+
+
+def _get_routing_session_maker(write_session_maker, read_session_maker, db_type):
+    """
+    Creates a routing-aware managed session factory that directs read operations to a
+    read replica and write operations to the primary database.
+
+    When a read replica URI is configured, read-only operations (marked with
+    ``read_only=True``) use the read replica's session, while all other operations
+    use the primary (write) session. If no read replica is configured, both session
+    makers should be identical and all operations go to the primary database.
+
+    Args:
+        write_session_maker: SQLAlchemy ``sessionmaker`` bound to the primary (write) engine.
+        read_session_maker: SQLAlchemy ``sessionmaker`` bound to the read replica engine.
+        db_type: Database type string (e.g. ``"sqlite"``) forwarded to
+            ``_get_managed_session_maker`` for dialect-specific session configuration.
+
+    Returns:
+        A context-manager factory accepting an optional ``read_only`` keyword argument.
+    """
+    _write = _get_managed_session_maker(write_session_maker, db_type)
+    _read = _get_managed_session_maker(read_session_maker, db_type)
+
+    @contextmanager
+    def make_managed_session(read_only=True):
+        with (_read if read_only else _write)(read_only=read_only) as session:
+            yield session
 
     return make_managed_session
 
@@ -350,12 +361,18 @@ def create_sqlalchemy_engine(db_uri):
         pool_class_map = {
             "AssertionPool": AssertionPool,
             "AsyncAdaptedQueuePool": AsyncAdaptedQueuePool,
-            "FallbackAsyncAdaptedQueuePool": FallbackAsyncAdaptedQueuePool,
             "NullPool": NullPool,
             "QueuePool": QueuePool,
             "SingletonThreadPool": SingletonThreadPool,
             "StaticPool": StaticPool,
         }
+        try:
+            # FallbackAsyncAdaptedQueuePool was removed in SQLAlchemy 2.1
+            from sqlalchemy.pool import FallbackAsyncAdaptedQueuePool
+
+            pool_class_map["FallbackAsyncAdaptedQueuePool"] = FallbackAsyncAdaptedQueuePool
+        except ImportError:
+            pass
         if poolclass not in pool_class_map:
             list_str = " ".join(pool_class_map.keys())
             err_str = (
@@ -384,11 +401,12 @@ def create_sqlalchemy_engine(db_uri):
 
     engine = sqlalchemy.create_engine(db_uri, pool_pre_ping=True, **kwargs)
 
-    # Register REGEXP function for SQLite to enable RLIKE operator support
+    # Register custom functions for SQLite
     if db_uri.startswith("sqlite"):
 
         @event.listens_for(engine, "connect")
-        def _set_sqlite_regexp(dbapi_conn, connection_record):
+        def _register_sqlite_functions(dbapi_conn, connection_record):
+            # Register REGEXP function to enable RLIKE operator support
             def regexp(pattern, string):
                 """Custom REGEXP function for SQLite that uses Python's re module."""
                 if string is None or pattern is None:
@@ -399,5 +417,48 @@ def create_sqlalchemy_engine(db_uri):
                     return False
 
             dbapi_conn.create_function("regexp", 2, regexp)
+
+            # Register PERCENTILE aggregate function (PERCENTILE_CONT with linear interpolation)
+            class PercentileAggregate:
+                def __init__(self):
+                    self.values = []
+                    self.percentile_value = None
+
+                def step(self, value, percentile):
+                    if value is not None:
+                        self.values.append(float(value))
+                    if self.percentile_value is None and percentile is not None:
+                        self.percentile_value = float(percentile)
+
+                def finalize(self):
+                    if not self.values or self.percentile_value is None:
+                        return None
+
+                    sorted_values = sorted(self.values)
+                    n = len(sorted_values)
+                    percentile_ratio = self.percentile_value / 100.0
+
+                    # Linear interpolation: index = percentile_ratio * (n - 1)
+                    index = percentile_ratio * (n - 1)
+                    lower_idx = int(index)
+                    upper_idx = min(lower_idx + 1, n - 1)
+                    fraction = index - lower_idx
+
+                    return sorted_values[lower_idx] + fraction * (
+                        sorted_values[upper_idx] - sorted_values[lower_idx]
+                    )
+
+            dbapi_conn.create_aggregate("percentile", 2, PercentileAggregate)
+
+    # SQLAlchemy's MSSQL dialect calls the base fetch_clause() which generates
+    # "FETCH FIRST n ROWS ONLY" but SQL Server requires "FETCH NEXT n ROWS ONLY".
+    # Register an event listener to rewrite the generated SQL before execution.
+    if db_uri.startswith("mssql"):
+
+        @event.listens_for(engine, "before_cursor_execute", retval=True)
+        def _fix_mssql_fetch_syntax(conn, cursor, statement, parameters, context, executemany):
+            if " FETCH FIRST " in statement:
+                statement = statement.replace(" FETCH FIRST ", " FETCH NEXT ")
+            return statement, parameters
 
     return engine

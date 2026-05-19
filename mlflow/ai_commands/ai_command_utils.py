@@ -64,13 +64,11 @@ def list_commands(namespace: str | None = None) -> list[dict[str, Any]]:
             if namespace and not command_key.startswith(f"{namespace}/"):
                 continue
 
-            commands.append(
-                {
-                    "key": command_key,
-                    "namespace": metadata.get("namespace", ""),
-                    "description": metadata.get("description", "No description"),
-                }
-            )
+            commands.append({
+                "key": command_key,
+                "namespace": metadata.get("namespace", ""),
+                "description": metadata.get("description", "No description"),
+            })
         except Exception:
             # Skip files that can't be read or parsed
             continue

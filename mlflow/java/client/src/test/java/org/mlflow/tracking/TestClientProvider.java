@@ -46,24 +46,7 @@ public class TestClientProvider {
       return client;
     } else {
       Path tempDir = Files.createTempDirectory(getClass().getSimpleName());
-      String mlruns = tempDir.resolve("mlruns").toString();
-      return startServerProcess(mlruns, mlruns);
-    }
-  }
-
-  public MlflowClient initializeClientAndSqlLiteBasedServer() throws IOException {
-    if (serverProcess != null) {
-      throw new IllegalStateException("Previous server process not cleaned up");
-    }
-
-    String trackingUri = System.getenv("MLFLOW_TRACKING_URI");
-    if (trackingUri != null) {
-      logger.info("MLFLOW_TRACKING_URI was set, test will run against that server");
-      client = new MlflowClient(trackingUri);
-      return client;
-    } else {
-      Path tempDir = Files.createTempDirectory(getClass().getSimpleName());
-      String tempDBFile = tempDir.resolve("sqldb").toAbsolutePath().toString();
+      String tempDBFile = tempDir.resolve("mlflow.db").toAbsolutePath().toString();
       return startServerProcess("sqlite:///" + tempDBFile, tempDir.toString());
     }
   }

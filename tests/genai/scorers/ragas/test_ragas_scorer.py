@@ -1,6 +1,8 @@
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
+from pydantic import BaseModel
+from ragas.embeddings.base import BaseRagasEmbedding
 
 import mlflow
 from mlflow.entities.assessment import Feedback
@@ -8,22 +10,30 @@ from mlflow.entities.assessment_source import AssessmentSourceType
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.utils import CategoricalRating
 from mlflow.genai.scorers import FRAMEWORK_METADATA_KEY
-from mlflow.genai.scorers.base import ScorerKind
+from mlflow.genai.scorers.base import Scorer, ScorerKind
 from mlflow.genai.scorers.ragas import (
+    AgentGoalAccuracyWithoutReference,
+    AgentGoalAccuracyWithReference,
+    AnswerRelevancy,
     AspectCritic,
     ContextEntityRecall,
     ContextPrecision,
     ContextRecall,
+    DiscreteMetric,
     ExactMatch,
     FactualCorrectness,
     Faithfulness,
-    InstanceRubrics,
+    InstanceSpecificRubrics,
     NoiseSensitivity,
     RagasScorer,
     RougeScore,
     RubricsScore,
+    SemanticSimilarity,
     StringPresence,
     SummarizationScore,
+    ToolCallAccuracy,
+    ToolCallF1,
+    TopicAdherence,
     get_scorer,
 )
 from mlflow.telemetry.client import TelemetryClient
@@ -32,9 +42,21 @@ from mlflow.telemetry.events import GenAIEvaluateEvent, ScorerCallEvent
 from tests.telemetry.helper_functions import validate_telemetry_record
 
 
+def make_mock_ascore(return_value=1.0, error=None):
+    async def mock_ascore(response=None, reference=None):
+        if error:
+            raise error
+        return return_value
+
+    return mock_ascore
+
+
 @pytest.fixture(autouse=True)
 def mock_get_telemetry_client(mock_telemetry_client: TelemetryClient):
-    with patch("mlflow.telemetry.track.get_telemetry_client", return_value=mock_telemetry_client):
+    with patch(
+        "mlflow.telemetry.track.get_telemetry_client",
+        return_value=mock_telemetry_client,
+    ):
         yield
 
 
@@ -78,13 +100,13 @@ def test_deterministic_metric_does_not_require_model():
 def test_ragas_scorer_with_threshold_returns_categorical():
     judge = get_scorer("ExactMatch")
     judge._metric.threshold = 0.5
-    with patch.object(judge._metric, "single_turn_score", return_value=0.8):
+
+    with patch.object(judge._metric, "ascore", make_mock_ascore(0.8)):
         result = judge(
             inputs="What is MLflow?",
             outputs="MLflow is a platform",
             expectations={"expected_output": "MLflow is a platform"},
         )
-
         assert result.value == CategoricalRating.YES
         assert result.metadata["score"] == 0.8
         assert result.metadata["threshold"] == 0.5
@@ -93,7 +115,8 @@ def test_ragas_scorer_with_threshold_returns_categorical():
 def test_ragas_scorer_with_threshold_returns_no_when_below():
     judge = get_scorer("ExactMatch")
     judge._metric.threshold = 0.5
-    with patch.object(judge._metric, "single_turn_score", return_value=0.0):
+
+    with patch.object(judge._metric, "ascore", make_mock_ascore(0.0)):
         result = judge(
             inputs="What is MLflow?",
             outputs="Databricks is a company",
@@ -119,7 +142,7 @@ def test_ragas_scorer_without_threshold_returns_float():
 def test_ragas_scorer_returns_error_feedback_on_exception():
     judge = get_scorer("ExactMatch")
 
-    with patch.object(judge._metric, "single_turn_score", side_effect=RuntimeError("Test error")):
+    with patch.object(judge._metric, "ascore", make_mock_ascore(error=RuntimeError("Test error"))):
         result = judge(inputs="What is MLflow?", outputs="Test output")
 
     assert isinstance(result, Feedback)
@@ -132,13 +155,16 @@ def test_ragas_scorer_returns_error_feedback_on_exception():
 
 
 def test_unknown_metric_raises_error():
-    with pytest.raises(MlflowException, match="Unknown metric: 'NonExistentMetric'"):
+    with pytest.raises(MlflowException, match="Unknown RAGAS metric: 'NonExistentMetric'"):
         get_scorer("NonExistentMetric")
 
 
 def test_missing_reference_parameter_returns_mlflow_error():
     judge = get_scorer("ContextPrecision")
-    result = judge(inputs="What is MLflow?")
+    result = judge(
+        inputs="What is MLflow?",
+        expectations={"expected_output": "MLflow is a platform"},
+    )
     assert isinstance(result, Feedback)
     assert result.error is not None
     assert "ContextPrecision" in result.error.error_message  # metric name
@@ -161,10 +187,28 @@ def test_missing_reference_parameter_returns_mlflow_error():
         (ExactMatch, "ExactMatch", {}),
         # General Purpose Metrics
         (AspectCritic, "AspectCritic", {"name": "test", "definition": "test"}),
+        (DiscreteMetric, "DiscreteMetric", {"name": "test", "prompt": "test"}),
         (RubricsScore, "RubricsScore", {}),
-        (InstanceRubrics, "InstanceRubrics", {}),
+        (InstanceSpecificRubrics, "InstanceSpecificRubrics", {}),
         # Summarization Metrics
         (SummarizationScore, "SummarizationScore", {}),
+        # Agentic Metrics
+        (TopicAdherence, "TopicAdherence", {}),
+        (ToolCallAccuracy, "ToolCallAccuracy", {}),
+        (ToolCallF1, "ToolCallF1", {}),
+        (AgentGoalAccuracyWithReference, "AgentGoalAccuracyWithReference", {}),
+        (AgentGoalAccuracyWithoutReference, "AgentGoalAccuracyWithoutReference", {}),
+        # Embeddings-based Metrics
+        (
+            AnswerRelevancy,
+            "AnswerRelevancy",
+            {"embeddings": MagicMock(spec=BaseRagasEmbedding)},
+        ),
+        (
+            SemanticSimilarity,
+            "SemanticSimilarity",
+            {"embeddings": MagicMock(spec=BaseRagasEmbedding)},
+        ),
     ],
 )
 def test_namespaced_class_properly_instantiates(scorer_class, expected_metric_name, metric_kwargs):
@@ -180,13 +224,58 @@ def test_ragas_scorer_kind_property():
     assert scorer.kind == ScorerKind.THIRD_PARTY
 
 
-@pytest.mark.parametrize("method_name", ["register", "start", "update", "stop"])
-def test_ragas_scorer_registration_methods_not_supported(method_name):
+def test_ragas_scorer_register_blocked_on_databricks(tmp_path):
     scorer = get_scorer("ExactMatch")
-    method = getattr(scorer, method_name)
+    with patch(
+        "mlflow.genai.scorers.base.is_databricks_uri",
+        return_value=True,
+    ) as mock_is_dbx:
+        with pytest.raises(MlflowException, match="Third-party scorer registration"):
+            scorer.register(name="exact_match")
+        mock_is_dbx.assert_called()
 
-    with pytest.raises(MlflowException, match=f"'{method_name}\\(\\)' is not supported"):
-        method()
+
+def test_ragas_scorer_serialization_round_trip():
+    scorer = ExactMatch()
+    dump = scorer.model_dump()
+    assert dump["third_party_scorer_data"] == {
+        "module": ExactMatch.__module__,
+        "class": "ExactMatch",
+        "metric_name": "ExactMatch",
+        "model": None,
+        "kwargs": {},
+    }
+    restored = Scorer.model_validate(dump)
+    assert isinstance(restored, ExactMatch)
+    assert restored.name == "ExactMatch"
+    assert restored.kind == ScorerKind.THIRD_PARTY
+
+    fb = restored(outputs="Paris", expectations={"expected_output": "Paris"})
+    assert fb.value == 1.0
+
+
+def test_ragas_scorer_serialization_round_trip_preserves_register_name():
+    scorer = ExactMatch()
+    renamed = scorer._create_copy()
+    renamed.name = "exact_match_v1"
+    dump = renamed.model_dump()
+    # metric_name stays bound to the RAGAS class, not the registered name.
+    assert dump["third_party_scorer_data"]["metric_name"] == "ExactMatch"
+
+    restored = Scorer.model_validate(dump)
+    assert restored.name == "exact_match_v1"
+    assert isinstance(restored, ExactMatch)
+
+
+def test_ragas_scorer_llm_metric_serialization_round_trip():
+    scorer = Faithfulness(model="openai:/gpt-4o")
+    dump = scorer.model_dump()
+    assert dump["third_party_scorer_data"]["metric_name"] == "Faithfulness"
+    assert dump["third_party_scorer_data"]["model"] == "openai:/gpt-4o"
+
+    restored = Scorer.model_validate(dump)
+    assert isinstance(restored, Faithfulness)
+    assert restored._model == "openai:/gpt-4o"
 
 
 def test_ragas_scorer_align_not_supported():
@@ -197,9 +286,8 @@ def test_ragas_scorer_align_not_supported():
 
 
 def test_ragas_scorer_kind_property_with_llm_metric():
-    with patch("mlflow.genai.scorers.ragas.create_ragas_model"):
-        scorer = Faithfulness()
-        assert scorer.kind == ScorerKind.THIRD_PARTY
+    scorer = Faithfulness()
+    assert scorer.kind == ScorerKind.THIRD_PARTY
 
 
 @pytest.mark.parametrize(
@@ -211,11 +299,15 @@ def test_ragas_scorer_kind_property_with_llm_metric():
     ids=["direct_instantiation", "get_scorer"],
 )
 def test_ragas_scorer_telemetry_direct_call(
-    enable_telemetry_in_tests, mock_requests, mock_telemetry_client, scorer_factory, expected_class
+    enable_telemetry_in_tests,
+    mock_requests,
+    mock_telemetry_client,
+    scorer_factory,
+    expected_class,
 ):
     ragas_scorer = scorer_factory()
 
-    with patch.object(ragas_scorer._metric, "single_turn_score", return_value=1.0):
+    with patch.object(ragas_scorer._metric, "ascore", make_mock_ascore(1.0)):
         result = ragas_scorer(
             inputs="What is MLflow?",
             outputs="MLflow is a platform",
@@ -233,7 +325,7 @@ def test_ragas_scorer_telemetry_direct_call(
         {
             "scorer_class": expected_class,
             "scorer_kind": "third_party",
-            "is_session_level_scorer": False,
+            "scope": "trace",
             "callsite": "direct_scorer_call",
             "has_feedback_error": False,
         },
@@ -249,7 +341,11 @@ def test_ragas_scorer_telemetry_direct_call(
     ids=["direct_instantiation", "get_scorer"],
 )
 def test_ragas_scorer_telemetry_in_genai_evaluate(
-    enable_telemetry_in_tests, mock_requests, mock_telemetry_client, scorer_factory, expected_class
+    enable_telemetry_in_tests,
+    mock_requests,
+    mock_telemetry_client,
+    scorer_factory,
+    expected_class,
 ):
     ragas_scorer = scorer_factory()
 
@@ -261,7 +357,7 @@ def test_ragas_scorer_telemetry_in_genai_evaluate(
         }
     ]
 
-    with patch.object(ragas_scorer._metric, "single_turn_score", return_value=1.0):
+    with patch.object(ragas_scorer._metric, "ascore", make_mock_ascore(1.0)):
         mlflow.genai.evaluate(data=data, scorers=[ragas_scorer])
 
     validate_telemetry_record(
@@ -271,10 +367,158 @@ def test_ragas_scorer_telemetry_in_genai_evaluate(
         {
             "predict_fn_provided": False,
             "scorer_info": [
-                {"class": expected_class, "kind": "third_party", "scope": "response"},
+                {"class": expected_class, "kind": "third_party", "scope": "trace"},
             ],
             "eval_data_type": "list[dict]",
             "eval_data_size": 1,
             "eval_data_provided_fields": ["expectations", "inputs", "outputs"],
         },
     )
+
+
+@pytest.mark.parametrize(
+    ("scorer_class", "expectations", "sample_assertion"),
+    [
+        (
+            ToolCallAccuracy,
+            {
+                "expected_tool_calls": [
+                    {"name": "weather_check", "arguments": {"location": "Paris"}},
+                ]
+            },
+            lambda sample: sample.reference_tool_calls is not None,
+        ),
+        (
+            TopicAdherence,
+            {"reference_topics": ["machine learning", "data science"]},
+            lambda sample: sample.reference_topics == ["machine learning", "data science"],
+        ),
+        (
+            AgentGoalAccuracyWithReference,
+            {"expected_output": "Table booked at a Chinese restaurant for 8pm"},
+            lambda sample: sample.reference == "Table booked at a Chinese restaurant for 8pm",
+        ),
+    ],
+)
+def test_agentic_scorer_with_expectations(scorer_class, expectations, sample_assertion):
+    scorer = scorer_class()
+
+    async def mock_ascore(sample):
+        assert sample_assertion(sample)
+        return 0.9
+
+    with patch.object(scorer._metric, "ascore", mock_ascore):
+        result = scorer(expectations=expectations)
+
+    assert isinstance(result, Feedback)
+    assert result.name == scorer_class.metric_name
+
+
+# --- Model adapter tests ---
+
+
+def test_gateway_ragas_llm_generate():
+    from mlflow.genai.scorers.llm_backend import ScorerLLMClient
+    from mlflow.genai.scorers.ragas.models import MlflowRagasLLM
+
+    class TestOutput(BaseModel):
+        score: int
+        reason: str
+
+    with patch("mlflow.genai.scorers.llm_backend._get_provider_instance") as mock_gpi:
+        adapter = MlflowRagasLLM(ScorerLLMClient("openai:/gpt-4"))
+    mock_gpi.assert_called_once()
+
+    with patch(
+        "mlflow.genai.scorers.llm_backend._call_llm_provider_api",
+        return_value='{"score": 5, "reason": "Excellent"}',
+    ) as mock_call:
+        result = adapter.generate("Rate this", response_model=TestOutput)
+
+    assert isinstance(result, TestOutput)
+    assert result.score == 5
+    assert result.reason == "Excellent"
+    mock_call.assert_called_once()
+
+
+def test_gateway_ragas_llm_get_model_name():
+    from mlflow.genai.scorers.llm_backend import ScorerLLMClient
+    from mlflow.genai.scorers.ragas.models import MlflowRagasLLM
+
+    with patch("mlflow.genai.scorers.llm_backend._get_provider_instance") as mock_gpi:
+        adapter = MlflowRagasLLM(ScorerLLMClient("anthropic:/claude-3"))
+    mock_gpi.assert_called_once()
+    assert adapter.get_model_name() == "anthropic/claude-3"
+
+
+@pytest.mark.parametrize(
+    ("model_uri", "env_var"),
+    [
+        ("openai:/gpt-4", "OPENAI_API_KEY"),
+        ("anthropic:/claude-3", "ANTHROPIC_API_KEY"),
+    ],
+)
+def test_create_ragas_model_uses_gateway_for_supported_providers(model_uri, env_var, monkeypatch):
+    from mlflow.genai.scorers.ragas.models import MlflowRagasLLM, create_ragas_model
+
+    monkeypatch.setenv(env_var, "test-key")
+    model = create_ragas_model(model_uri)
+    assert isinstance(model, MlflowRagasLLM)
+
+
+def test_create_ragas_model_falls_back_to_litellm_for_unsupported_provider():
+    pytest.importorskip("litellm")
+    from ragas.llms.litellm_llm import LiteLLMStructuredLLM
+
+    from mlflow.genai.scorers.ragas.models import create_ragas_model
+
+    model = create_ragas_model("some_unknown:/model")
+    assert isinstance(model, LiteLLMStructuredLLM)
+
+
+def test_create_ragas_model_uses_gateway_for_gateway_uri():
+    from mlflow.genai.scorers.ragas.models import MlflowRagasLLM, create_ragas_model
+
+    with patch("mlflow.genai.scorers.llm_backend._get_provider_instance"):
+        model = create_ragas_model("gateway:/my-endpoint")
+
+    assert isinstance(model, MlflowRagasLLM)
+
+
+def test_create_ragas_model_uses_databricks_for_bare_uri():
+    from mlflow.genai.scorers.ragas.models import MlflowRagasLLM, create_ragas_model
+
+    model = create_ragas_model("databricks")
+    assert isinstance(model, MlflowRagasLLM)
+
+
+@pytest.mark.parametrize("provider", ["cohere", "mosaicml", "palm"])
+def test_create_ragas_model_registered_but_unsupported_falls_back_to_litellm(provider):
+    pytest.importorskip("litellm")
+    from ragas.llms.litellm_llm import LiteLLMStructuredLLM
+
+    from mlflow.genai.scorers.ragas.models import create_ragas_model
+
+    model = create_ragas_model(f"{provider}:/my-model")
+    assert isinstance(model, LiteLLMStructuredLLM)
+
+
+def test_high_level_scorer_call_chain():
+    """Exercises the full call chain as recommended in docs/blogs:
+    Faithfulness(model=...) → scorer(inputs=..., outputs=..., expectations=...)
+    """
+    scorer = Faithfulness(model="openai:/gpt-4", threshold=0.7)
+    scorer._metric.threshold = 0.7
+
+    with patch.object(scorer._metric, "ascore", make_mock_ascore(0.9)):
+        feedback = scorer(
+            inputs="What is MLflow?",
+            outputs="MLflow is an open-source platform.",
+            expectations={"context": "MLflow is an open-source platform for ML."},
+        )
+
+    assert isinstance(feedback, Feedback)
+    assert feedback.name == "Faithfulness"
+    assert feedback.value == CategoricalRating.YES
+    assert feedback.source.source_type == AssessmentSourceType.LLM_JUDGE
+    assert feedback.source.source_id == "openai:/gpt-4"

@@ -3,6 +3,7 @@ import os
 import pathlib
 import subprocess
 import tempfile
+from contextlib import contextmanager
 from io import BytesIO
 from typing import NamedTuple
 
@@ -15,10 +16,11 @@ from mlflow.artifacts import download_artifacts
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.utils.os import is_windows
 
-from tests.helper_functions import LOCALHOST, get_safe_port
+from tests.helper_functions import LOCALHOST, get_safe_port, kill_process_tree
 from tests.tracking.integration_test_utils import _await_server_up_or_die
 
 
+@contextmanager
 def _launch_server(host, port, backend_store_uri, default_artifact_root, artifacts_destination):
     extra_cmd = [] if is_windows() else ["--gunicorn-opts", "--log-level debug"]
     cmd = [
@@ -36,9 +38,12 @@ def _launch_server(host, port, backend_store_uri, default_artifact_root, artifac
         artifacts_destination,
         *extra_cmd,
     ]
-    process = subprocess.Popen(cmd)
-    _await_server_up_or_die(port)
-    return process
+    with subprocess.Popen(cmd) as process:
+        try:
+            _await_server_up_or_die(port)
+            yield process
+        finally:
+            kill_process_tree(process.pid)
 
 
 class ArtifactsServer(NamedTuple):
@@ -60,17 +65,16 @@ def artifacts_server():
         # Initialize the database before launching the server process
         s = SqlAlchemyStore(backend_store_uri, default_artifact_root)
         s.engine.dispose()
-        process = _launch_server(
+        with _launch_server(
             LOCALHOST,
             port,
             backend_store_uri,
             default_artifact_root,
             ("file:///" + artifacts_destination if is_windows() else artifacts_destination),
-        )
-        yield ArtifactsServer(
-            backend_store_uri, default_artifact_root, artifacts_destination, url, process
-        )
-        process.kill()
+        ) as process:
+            yield ArtifactsServer(
+                backend_store_uri, default_artifact_root, artifacts_destination, url, process
+            )
 
 
 def read_file(path):
@@ -385,7 +389,7 @@ def test_rest_get_artifact_api_log_image(artifacts_server):
     image = np.random.randint(0, 256, size=(100, 100, 3), dtype=np.uint8)
 
     with mlflow.start_run() as run:
-        mlflow.log_image(image, key="dog", step=100, timestamp=100, synchronous=True)
+        mlflow.log_image(image, key="dog", step=20, timestamp=100, synchronous=True)
 
     artifact_list_response = requests.get(
         url=f"{url}/ajax-api/2.0/mlflow/artifacts/list",
@@ -400,7 +404,7 @@ def test_rest_get_artifact_api_log_image(artifacts_server):
         )
         get_artifact_response.raise_for_status()
         assert (
-            "attachment; filename=dog%step%100%timestamp%100"
+            "attachment; filename=dog+step+20+timestamp+100"
             in get_artifact_response.headers["Content-Disposition"]
         )
         if path.endswith("png"):

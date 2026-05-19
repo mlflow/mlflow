@@ -1,7 +1,7 @@
 import { describe, afterEach, test, jest, expect, beforeEach } from '@jest/globals';
 import { renderHook, cleanup, waitFor } from '@testing-library/react';
 import React from 'react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-client';
 import { useBindingsQuery } from './useBindingsQuery';
 import { GatewayApi } from '../api';
 import type { EndpointBinding } from '../types';
@@ -21,9 +21,10 @@ function createWrapper() {
 
 const generateMockBinding = (id: string): EndpointBinding => ({
   endpoint_id: `ep-${id}`,
-  resource_type: 'scorer_job',
+  resource_type: 'scorer',
   resource_id: `job-${id}`,
   created_at: 1700000000000,
+  display_name: `Scorer ${id}`,
 });
 
 describe('useBindingsQuery', () => {

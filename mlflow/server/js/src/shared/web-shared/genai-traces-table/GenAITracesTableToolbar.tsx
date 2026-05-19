@@ -8,14 +8,18 @@ import {
   Tooltip,
   Spinner,
   WarningIcon,
+  Button,
+  RefreshIcon,
+  ToggleButton,
 } from '@databricks/design-system';
-import { useIntl } from '@databricks/i18n';
+import { FormattedMessage, useIntl } from '@databricks/i18n';
 
 import { GenAITracesTableActions } from './GenAITracesTableActions';
 import { GenAiTracesTableFilter } from './GenAiTracesTableFilter';
 import { GenAiTracesTableSearchInput } from './GenAiTracesTableSearchInput';
 import { EvaluationsOverviewColumnSelectorGrouped } from './components/EvaluationsOverviewColumnSelectorGrouped';
 import { EvaluationsOverviewSortDropdown } from './components/EvaluationsOverviewSortDropdown';
+import { DetectIssuesButton } from './components/DetectIssuesButton';
 import type {
   EvaluationsOverviewTableSort,
   TraceActions,
@@ -23,9 +27,11 @@ import type {
   TracesTableColumn,
   TableFilter,
   TableFilterOptions,
+  TraceTablePageSource,
 } from './types';
-import { shouldEnableTagGrouping } from './utils/FeatureUtils';
-import type { ModelTraceInfoV3 } from '../model-trace-explorer';
+import { shouldEnableSessionGrouping, shouldEnableTagGrouping } from './utils/FeatureUtils';
+import { shouldEnableIssueDetection } from '../../../common/utils/FeatureUtils';
+import type { ModelTraceInfoV3 } from '../model-trace-explorer/ModelTrace.types';
 
 interface CountInfo {
   currentCount?: number;
@@ -35,8 +41,11 @@ interface CountInfo {
 }
 
 interface GenAITracesTableToolbarProps {
+  // Component for detect issues button
+  pageSource?: TraceTablePageSource;
+
   // Experiment metadata
-  experimentId: string;
+  experimentId?: string;
 
   // Table metadata
   allColumns: TracesTableColumn[];
@@ -75,14 +84,26 @@ interface GenAITracesTableToolbarProps {
   // available in the new APIs. this param is somewhat confusingly named
   // in OSS, since the "new APIs" still use the v3 prefixes
   usesV4APIs?: boolean;
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
+
+  // Session grouping
+  isGroupedBySession?: boolean;
+  forceGroupBySession?: boolean;
+  onToggleSessionGrouping?: () => void;
+
+  // Issue detection
+  onDetectIssues?: () => void;
 
   // Additional elements to render in the toolbar
   addons?: React.ReactNode;
 }
 
 export const GenAITracesTableToolbar: React.FC<React.PropsWithChildren<GenAITracesTableToolbarProps>> = React.memo(
+  // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
   (props: GenAITracesTableToolbarProps) => {
     const {
+      pageSource = 'experiment-traces',
       searchQuery,
       setSearchQuery,
       filters,
@@ -102,9 +123,16 @@ export const GenAITracesTableToolbar: React.FC<React.PropsWithChildren<GenAITrac
       isMetadataLoading,
       usesV4APIs,
       metadataError,
+      onRefresh,
+      isRefreshing,
+      isGroupedBySession,
+      forceGroupBySession,
+      onToggleSessionGrouping,
+      onDetectIssues,
       addons,
     } = props;
     const { theme } = useDesignSystemTheme();
+    const intl = useIntl();
 
     const onSortChange = useCallback(
       (sortOption, orderByAsc) => {
@@ -112,6 +140,10 @@ export const GenAITracesTableToolbar: React.FC<React.PropsWithChildren<GenAITrac
       },
       [setTableSort],
     );
+
+    // When using V4 APIs, we want users to be able to change filters while the traces are being loaded or there is an error
+    const shouldDisplayErrorState = Boolean(metadataError && !usesV4APIs);
+    const shouldDisplayLoadingState = isMetadataLoading && !usesV4APIs;
 
     return (
       <div
@@ -137,8 +169,8 @@ export const GenAITracesTableToolbar: React.FC<React.PropsWithChildren<GenAITrac
             experimentId={experimentId}
             tableFilterOptions={tableFilterOptions}
             allColumns={allColumns}
-            isMetadataLoading={isMetadataLoading}
-            metadataError={metadataError}
+            isLoading={shouldDisplayLoadingState}
+            isError={shouldDisplayErrorState}
             usesV4APIs={usesV4APIs}
           />
           <EvaluationsOverviewSortDropdown
@@ -146,8 +178,8 @@ export const GenAITracesTableToolbar: React.FC<React.PropsWithChildren<GenAITrac
             columns={selectedColumns}
             onChange={onSortChange}
             enableGrouping={shouldEnableTagGrouping()}
-            isMetadataLoading={isMetadataLoading}
-            metadataError={metadataError}
+            isLoading={shouldDisplayLoadingState}
+            isError={shouldDisplayErrorState}
           />
 
           <EvaluationsOverviewColumnSelectorGrouped
@@ -155,11 +187,72 @@ export const GenAITracesTableToolbar: React.FC<React.PropsWithChildren<GenAITrac
             selectedColumns={selectedColumns}
             toggleColumns={toggleColumns}
             setSelectedColumns={setSelectedColumns}
-            isMetadataLoading={isMetadataLoading}
-            metadataError={metadataError}
+            isLoading={shouldDisplayLoadingState}
+            isError={shouldDisplayErrorState}
           />
-          {traceActions && (
-            <GenAITracesTableActions experimentId={experimentId} traceActions={traceActions} traceInfos={traceInfos} />
+          {traceActions && experimentId && (
+            <GenAITracesTableActions
+              experimentId={experimentId}
+              traceActions={traceActions}
+              traceInfos={traceInfos}
+              // prettier-ignore
+            />
+          )}
+          {shouldEnableSessionGrouping() && onToggleSessionGrouping && !forceGroupBySession && (
+            <Tooltip
+              componentId="mlflow.traces-table.group-by-session-button.tooltip"
+              content={intl.formatMessage({
+                defaultMessage: 'Toggle session grouping',
+                description: 'Tooltip for the group by session button in the traces table toolbar',
+              })}
+            >
+              <ToggleButton
+                componentId="mlflow.traces-table.group-by-session-button"
+                onPressedChange={onToggleSessionGrouping}
+                pressed={isGroupedBySession}
+                aria-label={intl.formatMessage({
+                  defaultMessage: 'Toggle session grouping',
+                  description: 'Aria label for the group by session button in the traces table toolbar',
+                })}
+              >
+                <FormattedMessage
+                  defaultMessage="Group by session"
+                  description="Label for the group by session button in the traces table toolbar"
+                />
+              </ToggleButton>
+            </Tooltip>
+          )}
+          {shouldEnableIssueDetection() && onDetectIssues && (
+            <DetectIssuesButton
+              componentId={
+                pageSource === 'experiment-traces'
+                  ? 'mlflow.traces-table.detect-issues-button'
+                  : pageSource === 'chat-sessions'
+                    ? 'mlflow.chat-sessions.detect-issues-button'
+                    : 'mlflow.run-view-traces.detect-issues-button'
+              }
+              onClick={onDetectIssues}
+            />
+          )}
+          {onRefresh && (
+            <Tooltip
+              componentId="mlflow.traces-table.refresh-button.tooltip"
+              content={intl.formatMessage({
+                defaultMessage: 'Refresh traces',
+                description: 'Tooltip for the refresh traces button in the traces table toolbar',
+              })}
+            >
+              <Button
+                componentId="mlflow.traces-table.refresh-button"
+                icon={<RefreshIcon />}
+                onClick={onRefresh}
+                loading={isRefreshing}
+                aria-label={intl.formatMessage({
+                  defaultMessage: 'Refresh traces',
+                  description: 'Aria label for the refresh traces button in the traces table toolbar',
+                })}
+              />
+            </Tooltip>
           )}
           {addons}
         </TableFilterLayout>

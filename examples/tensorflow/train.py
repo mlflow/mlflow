@@ -144,20 +144,16 @@ if __name__ == "__main__":
                 print(f"Mean squared error for step {epoch}: {train_loss.numpy():0.3f}")
 
         # Log the parameters
-        mlflow.log_params(
-            {
-                "epochs": epochs,
-                "learning_rate": learning_rate,
-                "batch_size": batch_size,
-            }
-        )
+        mlflow.log_params({
+            "epochs": epochs,
+            "learning_rate": learning_rate,
+            "batch_size": batch_size,
+        })
         # Log the final metrics
-        mlflow.log_metrics(
-            {
-                "final_train_loss": train_loss.numpy(),
-                "final_test_loss": test_loss.numpy(),
-            }
-        )
+        mlflow.log_metrics({
+            "final_train_loss": train_loss.numpy(),
+            "final_test_loss": test_loss.numpy(),
+        })
         print(f"\nFinal train loss: {train_loss:0.3f}")
         print(f"Final test loss: {test_loss:0.3f}")
 

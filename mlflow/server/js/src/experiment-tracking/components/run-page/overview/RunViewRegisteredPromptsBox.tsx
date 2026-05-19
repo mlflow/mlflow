@@ -43,7 +43,9 @@ export const RunViewRegisteredPromptsBox = ({
         const displayText = `${promptVersion.name} (v${promptVersion.version})`;
         return (
           <Typography.Text key={displayText} css={{ whiteSpace: 'nowrap' }}>
-            <Link to={to}>{displayText}</Link>
+            <Link componentId="mlflow.run_page.overview.registered_prompt_link" to={to}>
+              {displayText}
+            </Link>
             {index < promptVersions.length - 1 && ','}
           </Typography.Text>
         );

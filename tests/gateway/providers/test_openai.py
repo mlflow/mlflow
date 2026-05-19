@@ -10,7 +10,7 @@ from mlflow.gateway.config import EndpointConfig, OpenAIConfig
 from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
 from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.base import PassthroughAction
-from mlflow.gateway.providers.openai import OpenAIProvider
+from mlflow.gateway.providers.openai import OpenAIAdapter, OpenAIProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
 
 from tests.gateway.tools import (
@@ -100,6 +100,7 @@ async def _run_test_chat(provider):
             "object": "chat.completion",
             "created": 1677858242,
             "model": "gpt-4o-mini",
+            "provider": "openai",
             "choices": [
                 {
                     "message": {
@@ -118,11 +119,9 @@ async def _run_test_chat(provider):
                 "total_tokens": 20,
             },
         }
-        mock_build_client.assert_called_once_with(
-            headers={
-                "Authorization": "Bearer key",
-            }
-        )
+        mock_build_client.assert_called_once()
+        call_headers = mock_build_client.call_args.kwargs["headers"]
+        assert call_headers.get("authorization") == "Bearer key"
         mock_client.post.assert_called_once_with(
             "https://api.openai.com/v1/chat/completions",
             json={
@@ -132,6 +131,40 @@ async def _run_test_chat(provider):
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
         )
+
+
+def test_get_headers_uses_server_key_by_default():
+    provider = OpenAIProvider(EndpointConfig(**chat_config()))
+    merged = provider._get_headers(
+        headers={"authorization": "Bearer client-key", "X-Custom": "value"}
+    )
+    assert merged["authorization"] == "Bearer key"
+    assert merged["X-Custom"] == "value"
+
+
+@pytest.mark.parametrize(
+    "user_agent",
+    [
+        "claude-cli/2.0.37 (external, cli)",
+        "Codex-Desktop/26.422.2437.0",
+        "GeminiCLI/0.39.0/gemini-2.0-pro (darwin; x64)",
+    ],
+)
+def test_get_headers_preserves_client_key_for_credential_agents(user_agent):
+    provider = OpenAIProvider(EndpointConfig(**chat_config()))
+    merged = provider._get_headers(
+        headers={"authorization": "Bearer client-key", "user-agent": user_agent}
+    )
+    assert merged["authorization"] == "Bearer client-key"
+
+
+def test_get_headers_preserves_azure_api_key_for_credential_agents():
+    provider = OpenAIProvider(EndpointConfig(**azure_config(api_type="azure")))
+    merged = provider._get_headers(
+        headers={"api-key": "client-azure-key", "user-agent": "claude-cli/2.0.37 (external, cli)"}
+    )
+    assert merged["api-key"] == "client-azure-key"
+    assert "authorization" not in merged
 
 
 @pytest.mark.asyncio
@@ -197,7 +230,9 @@ async def _run_test_chat_stream(resp, provider):
                 "created": 1,
                 "id": "test-id",
                 "model": "test",
+                "provider": "openai",
                 "object": "chat.completion.chunk",
+                "usage": None,
             },
             {
                 "choices": [
@@ -214,7 +249,9 @@ async def _run_test_chat_stream(resp, provider):
                 "created": 1,
                 "id": "test-id",
                 "model": "test",
+                "provider": "openai",
                 "object": "chat.completion.chunk",
+                "usage": None,
             },
             {
                 "choices": [
@@ -231,20 +268,21 @@ async def _run_test_chat_stream(resp, provider):
                 "created": 1,
                 "id": "test-id",
                 "model": "test",
+                "provider": "openai",
                 "object": "chat.completion.chunk",
+                "usage": None,
             },
         ]
 
-        mock_build_client.assert_called_once_with(
-            headers={
-                "Authorization": "Bearer key",
-            }
-        )
+        mock_build_client.assert_called_once()
+        call_headers = mock_build_client.call_args.kwargs["headers"]
+        assert call_headers.get("authorization") == "Bearer key"
         mock_client.post.assert_called_once_with(
             "https://api.openai.com/v1/chat/completions",
             json={
                 "model": "gpt-4o-mini",
                 "n": 1,
+                "stream_options": {"include_usage": True},
                 **payload,
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
@@ -295,6 +333,7 @@ async def test_chat_stream_with_function_calling():
                 "object": "chat.completion.chunk",
                 "created": 1,
                 "model": "test",
+                "provider": "openai",
                 "choices": [
                     {
                         "index": 0,
@@ -313,12 +352,14 @@ async def test_chat_stream_with_function_calling():
                         },
                     }
                 ],
+                "usage": None,
             },
             {
                 "id": "test-id",
                 "object": "chat.completion.chunk",
                 "created": 1,
                 "model": "test",
+                "provider": "openai",
                 "choices": [
                     {
                         "index": 0,
@@ -337,12 +378,14 @@ async def test_chat_stream_with_function_calling():
                         },
                     }
                 ],
+                "usage": None,
             },
             {
                 "id": "test-id",
                 "object": "chat.completion.chunk",
                 "created": 1,
                 "model": "test",
+                "provider": "openai",
                 "choices": [
                     {
                         "index": 0,
@@ -361,6 +404,7 @@ async def test_chat_stream_with_function_calling():
                         },
                     }
                 ],
+                "usage": None,
             },
         ]
 
@@ -396,12 +440,10 @@ async def _run_test_completions(resp, provider):
             "choices": [{"text": "\n\nThis is a test!", "index": 0, "finish_reason": "stop"}],
             "usage": {"prompt_tokens": 13, "completion_tokens": 7, "total_tokens": 20},
         }
-        mock_build_client.assert_called_once_with(
-            headers={
-                "Authorization": "Bearer key",
-                "OpenAI-Organization": "test-organization",
-            }
-        )
+        mock_build_client.assert_called_once()
+        call_headers = mock_build_client.call_args.kwargs["headers"]
+        assert call_headers.get("authorization") == "Bearer key"
+        assert call_headers.get("OpenAI-Organization") == "test-organization"
         mock_client.post.assert_called_once_with(
             "https://api.openai.com/v1/completions",
             json={
@@ -487,6 +529,7 @@ async def _run_test_completions_stream(resp, provider):
                 "id": "test-id",
                 "model": "test",
                 "object": "text_completion_chunk",
+                "usage": None,
             },
             {
                 "choices": [
@@ -500,6 +543,7 @@ async def _run_test_completions_stream(resp, provider):
                 "id": "test-id",
                 "model": "test",
                 "object": "text_completion_chunk",
+                "usage": None,
             },
             {
                 "choices": [
@@ -513,21 +557,21 @@ async def _run_test_completions_stream(resp, provider):
                 "id": "test-id",
                 "model": "test",
                 "object": "text_completion_chunk",
+                "usage": None,
             },
         ]
 
-        mock_build_client.assert_called_once_with(
-            headers={
-                "Authorization": "Bearer key",
-                "OpenAI-Organization": "test-organization",
-            }
-        )
+        mock_build_client.assert_called_once()
+        call_headers = mock_build_client.call_args.kwargs["headers"]
+        assert call_headers.get("authorization") == "Bearer key"
+        assert call_headers.get("OpenAI-Organization") == "test-organization"
         mock_client.post.assert_called_once_with(
             "https://api.openai.com/v1/completions",
             json={
                 "model": "gpt-4-32k",
                 "n": 1,
                 "prompt": "This is a test",
+                "stream_options": {"include_usage": True},
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
         )
@@ -597,11 +641,9 @@ async def _run_test_embeddings(provider):
             "model": "text-embedding-ada-002",
             "usage": {"prompt_tokens": 8, "total_tokens": 8},
         }
-        mock_build_client.assert_called_once_with(
-            headers={
-                "Authorization": "Bearer key",
-            }
-        )
+        mock_build_client.assert_called_once()
+        call_headers = mock_build_client.call_args.kwargs["headers"]
+        assert call_headers.get("authorization") == "Bearer key"
         mock_client.post.assert_called_once_with(
             "https://api.openai.com/v1/embeddings",
             json={"model": "text-embedding-ada-002", "input": "This is a test"},
@@ -676,11 +718,9 @@ async def test_embeddings_batch_input():
             "model": "text-embedding-ada-002",
             "usage": {"prompt_tokens": 8, "total_tokens": 8},
         }
-        mock_build_client.assert_called_once_with(
-            headers={
-                "Authorization": "Bearer key",
-            }
-        )
+        mock_build_client.assert_called_once()
+        call_headers = mock_build_client.call_args.kwargs["headers"]
+        assert call_headers.get("authorization") == "Bearer key"
         mock_client.post.assert_called_once_with(
             "https://api.openai.com/v1/embeddings",
             json={
@@ -729,11 +769,9 @@ async def test_azure_openai():
             "choices": [{"text": "\n\nThis is a test!", "index": 0, "finish_reason": "stop"}],
             "usage": {"prompt_tokens": 13, "completion_tokens": 7, "total_tokens": 20},
         }
-        mock_build_client.assert_called_once_with(
-            headers={
-                "api-key": "key",
-            }
-        )
+        mock_build_client.assert_called_once()
+        call_headers = mock_build_client.call_args.kwargs["headers"]
+        assert call_headers.get("api-key") == "key"
         mock_client.post.assert_called_once_with(
             (
                 "https://test-azureopenai.openai.azure.com/openai/deployments/test-gpt35"
@@ -767,11 +805,9 @@ async def test_azuread_openai():
             "choices": [{"text": "\n\nThis is a test!", "index": 0, "finish_reason": "stop"}],
             "usage": {"prompt_tokens": 13, "completion_tokens": 7, "total_tokens": 20},
         }
-        mock_build_client.assert_called_once_with(
-            headers={
-                "Authorization": "Bearer key",
-            }
-        )
+        mock_build_client.assert_called_once()
+        call_headers = mock_build_client.call_args.kwargs["headers"]
+        assert call_headers.get("authorization") == "Bearer key"
         mock_client.post.assert_called_once_with(
             (
                 "https://test-azureopenai.openai.azure.com/openai/deployments/test-gpt35"
@@ -912,6 +948,7 @@ async def test_openai_passthrough_chat():
             "X-Request-ID": "req-123",
             "host": "example.com",
             "content-length": "100",
+            "authorization": "Bearer key",
         }
         response = await provider.passthrough(
             PassthroughAction.OPENAI_CHAT, payload, headers=custom_headers
@@ -925,7 +962,7 @@ async def test_openai_passthrough_chat():
         assert call_kwargs["payload"]["messages"] == [{"role": "user", "content": "Hello"}]
 
         # Verify provider headers are propagated correctly
-        assert call_kwargs["headers"]["Authorization"] == "Bearer key"
+        assert call_kwargs["headers"]["authorization"] == "Bearer key"
 
         # Verify custom headers are propagated correctly
         assert call_kwargs["headers"]["X-Custom-Header"] == "custom-value"
@@ -980,7 +1017,7 @@ async def test_openai_passthrough_embeddings():
         assert call_kwargs["payload"]["input"] == "Test input"
 
         # Verify provider headers are propagated correctly
-        assert call_kwargs["headers"]["Authorization"] == "Bearer key"
+        assert call_kwargs["headers"]["authorization"] == "Bearer key"
 
         # Verify custom headers are propagated correctly
         assert call_kwargs["headers"]["X-Custom-Header"] == "custom-value"
@@ -1028,7 +1065,7 @@ async def test_openai_passthrough_responses():
         assert call_kwargs["payload"]["instructions"] == "You are a helpful assistant"
 
         # Verify provider headers are propagated correctly
-        assert call_kwargs["headers"]["Authorization"] == "Bearer key"
+        assert call_kwargs["headers"]["authorization"] == "Bearer key"
 
         # Verify custom headers are propagated correctly
         assert call_kwargs["headers"]["X-Trace-ID"] == "trace-456"
@@ -1100,6 +1137,19 @@ async def test_azure_openai_passthrough_chat_removes_model():
 
 
 @pytest.mark.asyncio
+async def test_validate_passthrough_action_error_shows_correct_endpoint():
+    config = chat_config()
+    provider = OpenAIProvider(EndpointConfig(**config))
+
+    with pytest.raises(
+        AIGatewayException,
+        match=r"Unsupported passthrough endpoint "
+        r"'/gemini/v1beta/models/\{endpoint_name\}:generateContent' for OpenAI provider",
+    ):
+        provider._validate_passthrough_action(PassthroughAction.GEMINI_GENERATE_CONTENT)
+
+
+@pytest.mark.asyncio
 async def test_chat_with_structured_output():
     config = EndpointConfig(**chat_config())
     provider = OpenAIProvider(config)
@@ -1155,3 +1205,247 @@ async def test_chat_with_structured_output():
             response.choices[0].message.content == '{"steps": ["1 + 1 = 2"], "final_answer": "2"}'
         )
         assert response.choices[0].finish_reason == "stop"
+
+
+# Tests for passthrough token extraction
+def test_extract_passthrough_token_usage():
+    provider = OpenAIProvider(EndpointConfig(**chat_config()))
+    result = {
+        "id": "chatcmpl-123",
+        "object": "chat.completion",
+        "usage": {
+            "prompt_tokens": 10,
+            "completion_tokens": 20,
+            "total_tokens": 30,
+        },
+    }
+    token_usage = provider._extract_passthrough_token_usage(PassthroughAction.OPENAI_CHAT, result)
+    assert token_usage == {
+        "input_tokens": 10,
+        "output_tokens": 20,
+        "total_tokens": 30,
+    }
+
+
+def test_extract_passthrough_token_usage_no_usage():
+    provider = OpenAIProvider(EndpointConfig(**chat_config()))
+    result = {
+        "id": "chatcmpl-123",
+        "object": "chat.completion",
+    }
+    token_usage = provider._extract_passthrough_token_usage(PassthroughAction.OPENAI_CHAT, result)
+    assert token_usage is None
+
+
+def test_extract_passthrough_token_usage_partial():
+    provider = OpenAIProvider(EndpointConfig(**chat_config()))
+    result = {
+        "usage": {
+            "prompt_tokens": 10,
+        },
+    }
+    token_usage = provider._extract_passthrough_token_usage(PassthroughAction.OPENAI_CHAT, result)
+    assert token_usage == {"input_tokens": 10}
+
+
+def test_extract_streaming_token_usage():
+    provider = OpenAIProvider(EndpointConfig(**chat_config()))
+    chunk = (
+        b'data: {"id":"chatcmpl-123","usage":'
+        b'{"prompt_tokens":10,"completion_tokens":20,"total_tokens":30}}\n\n'
+    )
+    result = provider._extract_streaming_token_usage(chunk)
+    assert result == {
+        "input_tokens": 10,
+        "output_tokens": 20,
+        "total_tokens": 30,
+    }
+
+
+def test_extract_streaming_token_usage_no_usage_in_chunk():
+    provider = OpenAIProvider(EndpointConfig(**chat_config()))
+    chunk = b'data: {"id":"chatcmpl-123","choices":[{"delta":{"content":"Hello"}}]}\n\n'
+    result = provider._extract_streaming_token_usage(chunk)
+    assert result == {}
+
+
+def test_extract_streaming_token_usage_done_chunk():
+    provider = OpenAIProvider(EndpointConfig(**chat_config()))
+    chunk = b"data: [DONE]\n\n"
+    result = provider._extract_streaming_token_usage(chunk)
+    assert result == {}
+
+
+def test_extract_streaming_token_usage_invalid_json():
+    provider = OpenAIProvider(EndpointConfig(**chat_config()))
+    chunk = b"data: {invalid json}\n\n"
+    result = provider._extract_streaming_token_usage(chunk)
+    assert result == {}
+
+
+def test_extract_streaming_token_usage_non_data_line():
+    provider = OpenAIProvider(EndpointConfig(**chat_config()))
+    chunk = b"event: message\n\n"
+    result = provider._extract_streaming_token_usage(chunk)
+    assert result == {}
+
+
+def test_extract_streaming_token_usage_responses_api():
+    provider = OpenAIProvider(EndpointConfig(**chat_config()))
+    # Responses API returns usage in data.response.usage with input_tokens/output_tokens
+    chunk = (
+        b'data: {"type":"response.completed","response":{"id":"resp_123",'
+        b'"usage":{"input_tokens":9,"output_tokens":65,"total_tokens":74}}}\n'
+    )
+    result = provider._extract_streaming_token_usage(chunk)
+    assert result == {
+        "input_tokens": 9,
+        "output_tokens": 65,
+        "total_tokens": 74,
+    }
+
+
+def test_extract_passthrough_token_usage_with_cached_tokens():
+    provider = OpenAIProvider(EndpointConfig(**chat_config()))
+    result = {
+        "id": "chatcmpl-123",
+        "usage": {
+            "prompt_tokens": 50,
+            "completion_tokens": 20,
+            "total_tokens": 70,
+            "prompt_tokens_details": {"cached_tokens": 30},
+        },
+    }
+    token_usage = provider._extract_passthrough_token_usage(PassthroughAction.OPENAI_CHAT, result)
+    assert token_usage == {
+        "input_tokens": 50,
+        "output_tokens": 20,
+        "total_tokens": 70,
+        "cache_read_input_tokens": 30,
+    }
+
+
+def test_extract_passthrough_token_usage_responses_api_with_cached_tokens():
+    provider = OpenAIProvider(EndpointConfig(**chat_config()))
+    result = {
+        "id": "resp_123",
+        "usage": {
+            "input_tokens": 100,
+            "output_tokens": 50,
+            "total_tokens": 150,
+            "input_tokens_details": {"cached_tokens": 40},
+        },
+    }
+    token_usage = provider._extract_passthrough_token_usage(
+        PassthroughAction.OPENAI_RESPONSES, result
+    )
+    assert token_usage == {
+        "input_tokens": 100,
+        "output_tokens": 50,
+        "total_tokens": 150,
+        "cache_read_input_tokens": 40,
+    }
+
+
+def test_extract_streaming_token_usage_with_cached_tokens():
+    provider = OpenAIProvider(EndpointConfig(**chat_config()))
+    chunk = (
+        b'data: {"id":"chatcmpl-123","usage":'
+        b'{"prompt_tokens":50,"completion_tokens":20,"total_tokens":70,'
+        b'"prompt_tokens_details":{"cached_tokens":30}}}\n\n'
+    )
+    result = provider._extract_streaming_token_usage(chunk)
+    assert result == {
+        "input_tokens": 50,
+        "output_tokens": 20,
+        "total_tokens": 70,
+        "cache_read_input_tokens": 30,
+    }
+
+
+def test_extract_streaming_token_usage_responses_api_with_cached_tokens():
+    provider = OpenAIProvider(EndpointConfig(**chat_config()))
+    chunk = (
+        b'data: {"type":"response.completed","response":{"id":"resp_123",'
+        b'"usage":{"input_tokens":100,"output_tokens":50,"total_tokens":150,'
+        b'"input_tokens_details":{"cached_tokens":40}}}}\n'
+    )
+    result = provider._extract_streaming_token_usage(chunk)
+    assert result == {
+        "input_tokens": 100,
+        "output_tokens": 50,
+        "total_tokens": 150,
+        "cache_read_input_tokens": 40,
+    }
+
+
+def test_openai_adapter_build_chat_usage_with_cached_tokens():
+    usage_data = {
+        "prompt_tokens": 50,
+        "completion_tokens": 20,
+        "total_tokens": 70,
+        "prompt_tokens_details": {"cached_tokens": 30},
+    }
+    usage = OpenAIAdapter._build_chat_usage(usage_data)
+    assert usage.prompt_tokens == 50
+    assert usage.completion_tokens == 20
+    assert usage.total_tokens == 70
+    assert usage.prompt_tokens_details is not None
+    assert usage.prompt_tokens_details.cached_tokens == 30
+
+
+def test_openai_adapter_build_chat_usage_without_cached_tokens():
+    usage_data = {
+        "prompt_tokens": 50,
+        "completion_tokens": 20,
+        "total_tokens": 70,
+    }
+    usage = OpenAIAdapter._build_chat_usage(usage_data)
+    assert usage.prompt_tokens == 50
+    assert usage.completion_tokens == 20
+    assert usage.total_tokens == 70
+    assert usage.prompt_tokens_details is None
+
+
+@pytest.mark.asyncio
+async def test_proxy_non_streaming():
+    provider = OpenAIProvider(EndpointConfig(**chat_config()))
+    mock_client = mock_http_client(MockAsyncResponse(chat_response()))
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        result = await provider.proxy(
+            path="v1/chat/completions",
+            payload={"messages": [{"role": "user", "content": "Hello"}]},
+        )
+
+    assert result["id"] == "chatcmpl-abc123"
+    mock_client.post.assert_called_once_with(
+        "https://api.openai.com/v1/chat/completions",
+        json={"messages": [{"role": "user", "content": "Hello"}]},
+        timeout=mock.ANY,
+    )
+
+
+@pytest.mark.asyncio
+async def test_proxy_streaming():
+    provider = OpenAIProvider(EndpointConfig(**chat_config()))
+    chunk_data = (
+        b'data: {"id":"chatcmpl-1","object":"chat.completion.chunk","created":1,'
+        b'"model":"gpt-4o-mini","choices":[{"index":0,"delta":{"content":"Hi"},'
+        b'"finish_reason":null}]}\n\n'
+    )
+    chunks = [chunk_data, b"data: [DONE]\n\n"]
+    mock_client = mock_http_client(
+        MockAsyncStreamingResponse(chunks, headers={"Content-Type": "text/event-stream"})
+    )
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        result = await provider.proxy(
+            path="v1/chat/completions",
+            payload={"messages": [{"role": "user", "content": "Hello"}], "stream": True},
+        )
+        collected = [chunk async for chunk in result]
+
+    assert len(collected) == 2
+    assert b"chatcmpl-1" in collected[0]
+    assert b"[DONE]" in collected[1]

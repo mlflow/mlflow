@@ -1,19 +1,26 @@
-import { isNil } from 'lodash';
-import { useState } from 'react';
+import { isEmpty, isNil } from 'lodash';
+import { useMemo, useState } from 'react';
 
-import { Typography, useDesignSystemTheme, NewWindowIcon } from '@databricks/design-system';
+import { FileDocumentIcon, Typography, useDesignSystemTheme, NewWindowIcon } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
-import { GenAIMarkdownRenderer } from '@databricks/web-shared/genai-markdown-renderer';
+import { GenAIMarkdownRenderer } from '../../genai-markdown-renderer/GenAIMarkdownRenderer';
 
 import { AssessmentDisplayValue } from './AssessmentDisplayValue';
 import { FeedbackErrorItem } from './FeedbackErrorItem';
 import { FeedbackHistoryModal } from './FeedbackHistoryModal';
 import { SpanNameDetailViewLink } from './SpanNameDetailViewLink';
-import type { FeedbackAssessment } from '../ModelTrace.types';
+import type { FeedbackAssessment, RetrieverDocument } from '../ModelTrace.types';
+import { getAssessmentDocumentIndex, isChunkRelevanceAssessment } from '../ModelTraceExplorer.utils';
 import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
 import { Link, useParams } from '../RoutingUtils';
-import { MLFLOW_ASSESSMENT_JUDGE_COST, MLFLOW_ASSESSMENT_SCORER_TRACE_ID } from '../constants';
+import {
+  ASSESSMENT_SESSION_METADATA_KEY,
+  MLFLOW_ASSESSMENT_JUDGE_COST,
+  MLFLOW_ASSESSMENT_SCORER_TRACE_ID,
+} from '../constants';
 import { getExperimentPageTracesTabRoute } from '../routes';
+import { ModelTraceHeaderSessionIdTag } from '../ModelTraceHeaderSessionIdTag';
+import { formatCostUSD } from '../CostUtils';
 
 export const FeedbackItemContent = ({ feedback }: { feedback: FeedbackAssessment }) => {
   const [isHistoryModalVisible, setIsHistoryModalVisible] = useState(false);
@@ -24,9 +31,21 @@ export const FeedbackItemContent = ({ feedback }: { feedback: FeedbackAssessment
   const value = feedback.feedback.value;
 
   const associatedSpan = feedback.span_id ? nodeMap[feedback.span_id] : null;
+  // indicate if the assessment is session-level
+  const sessionId = feedback.metadata?.[ASSESSMENT_SESSION_METADATA_KEY];
+  const showSessionTag = activeView === 'summary' && !isEmpty(sessionId);
   // the summary view displays all assessments regardless of span, so
   // we need some way to indicate which span an assessment is associated with.
-  const showAssociatedSpan = activeView === 'summary' && associatedSpan;
+  const showAssociatedSpan = activeView === 'summary' && associatedSpan && !showSessionTag;
+
+  const documentPreview = useMemo(() => {
+    if (!isChunkRelevanceAssessment(feedback) || !associatedSpan?.outputs) return null;
+    const documentIndex = getAssessmentDocumentIndex(feedback);
+    if (documentIndex === undefined) return null;
+    const outputs = associatedSpan.outputs as RetrieverDocument[];
+    if (!Array.isArray(outputs) || documentIndex >= outputs.length) return null;
+    return outputs[documentIndex]?.page_content ?? null;
+  }, [feedback, associatedSpan]);
 
   const judgeTraceId = feedback.metadata?.[MLFLOW_ASSESSMENT_SCORER_TRACE_ID];
   const judgeTraceHref = judgeTraceId && experimentId ? getJudgeTraceHref(experimentId, judgeTraceId) : undefined;
@@ -42,12 +61,7 @@ export const FeedbackItemContent = ({ feedback }: { feedback: FeedbackAssessment
       return undefined;
     }
 
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 6,
-    }).format(numericCost);
+    return formatCostUSD(numericCost);
   })();
   const shouldShowCostSection = Boolean(formattedCost);
 
@@ -66,6 +80,54 @@ export const FeedbackItemContent = ({ feedback }: { feedback: FeedbackAssessment
             <FormattedMessage defaultMessage="Span" description="Label for the associated span of an assessment" />
           </Typography.Text>
           <SpanNameDetailViewLink node={associatedSpan} />
+        </div>
+      )}
+      {showSessionTag && (
+        <div
+          css={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: theme.spacing.xs,
+          }}
+        >
+          <Typography.Text size="sm" color="secondary">
+            <FormattedMessage
+              defaultMessage="Session"
+              description="Label for the session to which an assessment belongs"
+            />
+          </Typography.Text>
+          <ModelTraceHeaderSessionIdTag
+            experimentId={experimentId ?? ''}
+            sessionId={sessionId ?? ''}
+            traceId={feedback.trace_id}
+            handleCopy={() => {}}
+            hideLabel
+          />
+        </div>
+      )}
+      {documentPreview && (
+        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+          <Typography.Text size="sm" color="secondary">
+            <FormattedMessage
+              defaultMessage="Doc"
+              description="Label for the document preview in a chunk relevance assessment"
+            />
+          </Typography.Text>
+          <div
+            css={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: theme.spacing.xs,
+              padding: theme.spacing.xs,
+              borderRadius: theme.borders.borderRadiusSm,
+              backgroundColor: theme.colors.backgroundSecondary,
+            }}
+          >
+            <FileDocumentIcon css={{ flexShrink: 0, color: theme.colors.textSecondary }} />
+            <Typography.Text ellipsis size="sm" css={{ color: theme.colors.textSecondary }}>
+              {documentPreview}
+            </Typography.Text>
+          </div>
         </div>
       )}
       {isNil(feedback.feedback.error) && (
@@ -112,7 +174,7 @@ export const FeedbackItemContent = ({ feedback }: { feedback: FeedbackAssessment
             />
           </Typography.Text>
           <div css={{ '& > div:last-of-type': { marginBottom: 0 } }}>
-            <GenAIMarkdownRenderer>{feedback.rationale}</GenAIMarkdownRenderer>
+            <GenAIMarkdownRenderer compact>{feedback.rationale}</GenAIMarkdownRenderer>
           </div>
         </div>
       )}
@@ -128,7 +190,12 @@ export const FeedbackItemContent = ({ feedback }: { feedback: FeedbackAssessment
         </div>
       )}
       {judgeTraceHref && (
-        <Link to={judgeTraceHref} target="_blank" rel="noreferrer">
+        <Link
+          componentId="mlflow.model_trace_explorer.feedback_item.judge_trace_link"
+          to={judgeTraceHref}
+          target="_blank"
+          rel="noreferrer"
+        >
           <span css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
             <FormattedMessage
               defaultMessage="View trace"

@@ -31,7 +31,7 @@ pyyaml:
 protobuf:
   pip_release: protobuf
   minimum: "3.12.0"
-  max_major_version: 6
+  max_major_version: 7
 
 requests:
   pip_release: requests
@@ -40,7 +40,7 @@ requests:
 
 packaging:
   pip_release: packaging
-  max_major_version: 25
+  max_major_version: 26
 
 importlib_metadata:
   pip_release: importlib_metadata
@@ -49,7 +49,7 @@ importlib_metadata:
   # (e.g. 'sklearn' -> 'scikit-learn'). importlib_metadata 3.7.0 or newer supports this function:
   # https://github.com/python/importlib_metadata/blob/main/CHANGES.rst#v370
   minimum: "3.7.0"
-  max_major_version: 8
+  max_major_version: 9
   unsupported: ["4.7.0"]
 
 sqlparse:
@@ -62,7 +62,7 @@ sqlparse:
 cachetools:
   pip_release: cachetools
   minimum: "5.0.0"
-  max_major_version: 6
+  max_major_version: 7
 
 # 1.9.0 is the minimum supported version as NoOpTracer was introduced in 1.9.0
 opentelemetry-api:
@@ -97,6 +97,10 @@ typing-extensions:
 
 fastapi:
   pip_release: fastapi
+  max_major_version: 0
+
+starlette:
+  pip_release: starlette
   max_major_version: 0
 
 uvicorn:

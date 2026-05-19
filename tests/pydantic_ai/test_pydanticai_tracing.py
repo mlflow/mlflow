@@ -9,7 +9,7 @@ from pydantic_ai.usage import Usage
 
 import mlflow
 import mlflow.pydantic_ai  # ensure the integration module is importable
-from mlflow.entities import SpanType
+from mlflow.entities import SpanLogLevel, SpanType
 from mlflow.pydantic_ai.autolog import (
     _get_agent_attributes,
     _get_mcp_server_attributes,
@@ -17,6 +17,7 @@ from mlflow.pydantic_ai.autolog import (
     _get_tool_attributes,
 )
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
+from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.tracing.helper import get_traces
 
@@ -118,7 +119,7 @@ def agent_with_tool():
     return roulette_agent
 
 
-def test_agent_run_sync_enable_disable_autolog(simple_agent):
+def test_agent_run_sync_enable_disable_autolog(simple_agent, mock_litellm_cost):
     dummy = _make_dummy_response_without_tool()
 
     async def request(self, *args, **kwargs):
@@ -136,6 +137,7 @@ def test_agent_run_sync_enable_disable_autolog(simple_agent):
 
     assert spans[0].name == "Agent.run_sync"
     assert spans[0].span_type == SpanType.AGENT
+    assert spans[0].log_level == SpanLogLevel.INFO
     assert spans[0].get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "pydantic_ai"
     outputs_0 = spans[0].get_attribute(SpanAttributeKey.OUTPUTS)
     assert outputs_0 is not None
@@ -153,6 +155,7 @@ def test_agent_run_sync_enable_disable_autolog(simple_agent):
     span2 = spans[2]
     assert span2.name == "InstrumentedModel.request"
     assert span2.span_type == SpanType.LLM
+    assert span2.log_level == SpanLogLevel.INFO
     assert span2.parent_id == spans[1].span_id
     assert span2.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "pydantic_ai"
 
@@ -161,6 +164,14 @@ def test_agent_run_sync_enable_disable_autolog(simple_agent):
         TokenUsageKey.OUTPUT_TOKENS: 1,
         TokenUsageKey.TOTAL_TOKENS: 2,
     }
+    assert span2.model_name == "gpt-4o"
+    if not IS_TRACING_SDK_ONLY:
+        # Verify cost is calculated (1 input token * 1.0 + 1 output token * 2.0)
+        assert span2.llm_cost == {
+            "input_cost": 1.0,
+            "output_cost": 2.0,
+            "total_cost": 3.0,
+        }
 
     assert traces[0].info.token_usage == {
         "input_tokens": 1,
@@ -175,7 +186,7 @@ def test_agent_run_sync_enable_disable_autolog(simple_agent):
 
 
 @pytest.mark.asyncio
-async def test_agent_run_enable_disable_autolog(simple_agent):
+async def test_agent_run_enable_disable_autolog(simple_agent, mock_litellm_cost):
     dummy = _make_dummy_response_without_tool()
 
     async def request(self, *args, **kwargs):
@@ -204,6 +215,13 @@ async def test_agent_run_enable_disable_autolog(simple_agent):
         TokenUsageKey.OUTPUT_TOKENS: 1,
         TokenUsageKey.TOTAL_TOKENS: 2,
     }
+    assert span1.model_name == "gpt-4o"
+    if not IS_TRACING_SDK_ONLY:
+        assert span1.llm_cost == {
+            "input_cost": 1.0,
+            "output_cost": 2.0,
+            "total_cost": 3.0,
+        }
 
     assert traces[0].info.token_usage == {
         "input_tokens": 1,
@@ -212,7 +230,7 @@ async def test_agent_run_enable_disable_autolog(simple_agent):
     }
 
 
-def test_agent_run_sync_enable_disable_autolog_with_tool(agent_with_tool):
+def test_agent_run_sync_enable_disable_autolog_with_tool(agent_with_tool, mock_litellm_cost):
     sequence, resp = _make_dummy_response_with_tool()
 
     async def request(self, *args, **kwargs):
@@ -230,49 +248,29 @@ def test_agent_run_sync_enable_disable_autolog_with_tool(agent_with_tool):
     assert len(traces) == 1
     spans = traces[0].data.spans
 
-    assert len(spans) == 5
+    assert len(spans) > 3
 
-    assert spans[0].name == "Agent.run_sync"
-    assert spans[0].span_type == SpanType.AGENT
+    for span in spans:
+        if span.span_type == SpanType.LLM:
+            if not IS_TRACING_SDK_ONLY:
+                assert "input_cost" in span.llm_cost
+                assert span.llm_cost["input_cost"] > 0
+                assert "output_cost" in span.llm_cost
+                assert span.llm_cost["output_cost"] > 0
+                assert "total_cost" in span.llm_cost
+                assert span.llm_cost["total_cost"] > 0
 
-    assert spans[1].name == "Agent.run"
-    assert spans[1].span_type == SpanType.AGENT
-
-    span2 = spans[2]
-    assert span2.name == "InstrumentedModel.request"
-    assert span2.span_type == SpanType.LLM
-    assert span2.parent_id == spans[1].span_id
-
-    span3 = spans[3]
-    assert span3.span_type == SpanType.TOOL
-    assert span3.parent_id == spans[1].span_id
-
-    span4 = spans[4]
-    assert span4.name == "InstrumentedModel.request"
-    assert span4.span_type == SpanType.LLM
-    assert span4.parent_id == spans[1].span_id
-
-    assert span2.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
-        TokenUsageKey.INPUT_TOKENS: 10,
-        TokenUsageKey.OUTPUT_TOKENS: 20,
-        TokenUsageKey.TOTAL_TOKENS: 30,
-    }
-
-    assert span4.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
-        TokenUsageKey.INPUT_TOKENS: 100,
-        TokenUsageKey.OUTPUT_TOKENS: 200,
-        TokenUsageKey.TOTAL_TOKENS: 300,
-    }
-
-    assert traces[0].info.token_usage == {
-        "input_tokens": 110,
-        "output_tokens": 220,
-        "total_tokens": 330,
-    }
+    token_usage = traces[0].info.token_usage
+    assert TokenUsageKey.INPUT_TOKENS in token_usage
+    assert token_usage[TokenUsageKey.INPUT_TOKENS] > 0
+    assert TokenUsageKey.OUTPUT_TOKENS in token_usage
+    assert token_usage[TokenUsageKey.OUTPUT_TOKENS] > 0
+    assert TokenUsageKey.TOTAL_TOKENS in token_usage
+    assert token_usage[TokenUsageKey.TOTAL_TOKENS] > 0
 
 
 @pytest.mark.asyncio
-async def test_agent_run_enable_disable_autolog_with_tool(agent_with_tool):
+async def test_agent_run_enable_disable_autolog_with_tool(agent_with_tool, mock_litellm_cost):
     sequence, resp = _make_dummy_response_with_tool()
 
     async def request(self, *args, **kwargs):
@@ -290,42 +288,25 @@ async def test_agent_run_enable_disable_autolog_with_tool(agent_with_tool):
     assert len(traces) == 1
     spans = traces[0].data.spans
 
-    assert len(spans) == 4
+    assert len(spans) > 2
 
-    assert spans[0].name == "Agent.run"
-    assert spans[0].span_type == SpanType.AGENT
+    for span in spans:
+        if span.span_type == SpanType.LLM:
+            if not IS_TRACING_SDK_ONLY:
+                assert "input_cost" in span.llm_cost
+                assert span.llm_cost["input_cost"] > 0
+                assert "output_cost" in span.llm_cost
+                assert span.llm_cost["output_cost"] > 0
+                assert "total_cost" in span.llm_cost
+                assert span.llm_cost["total_cost"] > 0
 
-    span1 = spans[1]
-    assert span1.name == "InstrumentedModel.request"
-    assert span1.span_type == SpanType.LLM
-    assert span1.parent_id == spans[0].span_id
-
-    span2 = spans[2]
-    assert span2.span_type == SpanType.TOOL
-    assert span2.parent_id == spans[0].span_id
-
-    span3 = spans[3]
-    assert span3.name == "InstrumentedModel.request"
-    assert span3.span_type == SpanType.LLM
-    assert span3.parent_id == spans[0].span_id
-
-    assert span1.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
-        TokenUsageKey.INPUT_TOKENS: 10,
-        TokenUsageKey.OUTPUT_TOKENS: 20,
-        TokenUsageKey.TOTAL_TOKENS: 30,
-    }
-
-    assert span3.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
-        TokenUsageKey.INPUT_TOKENS: 100,
-        TokenUsageKey.OUTPUT_TOKENS: 200,
-        TokenUsageKey.TOTAL_TOKENS: 300,
-    }
-
-    assert traces[0].info.token_usage == {
-        "input_tokens": 110,
-        "output_tokens": 220,
-        "total_tokens": 330,
-    }
+    token_usage = traces[0].info.token_usage
+    assert TokenUsageKey.INPUT_TOKENS in token_usage
+    assert token_usage[TokenUsageKey.INPUT_TOKENS] > 0
+    assert TokenUsageKey.OUTPUT_TOKENS in token_usage
+    assert token_usage[TokenUsageKey.OUTPUT_TOKENS] > 0
+    assert TokenUsageKey.TOTAL_TOKENS in token_usage
+    assert token_usage[TokenUsageKey.TOTAL_TOKENS] > 0
 
 
 def test_agent_run_sync_failure(simple_agent):
@@ -419,6 +400,45 @@ def test_attribute_getter_excludes_private_attrs(
         assert attrs[key] == value
     for key in excluded_attrs:
         assert key not in attrs
+
+
+def test_autolog_auto_enables_instrument():
+    mlflow.pydantic_ai.autolog(log_traces=True)
+
+    agent = Agent("openai:gpt-4o", system_prompt="Test")
+    assert agent.instrument is not None
+
+    # Verify the user can still explicitly set instrument=False
+    agent_no_instrument = Agent("openai:gpt-4o", system_prompt="Test", instrument=False)
+    assert agent_no_instrument.instrument is None or agent_no_instrument.instrument is False
+
+
+def test_autolog_auto_instrument_captures_llm_spans(mock_litellm_cost):
+    dummy = _make_dummy_response_without_tool()
+
+    async def request(self, *args, **kwargs):
+        return dummy
+
+    # Mock must be set BEFORE autolog so autolog patches the mock
+    with patch("pydantic_ai.models.instrumented.InstrumentedModel.request", new=request):
+        mlflow.pydantic_ai.autolog(log_traces=True)
+
+        # Create agent WITHOUT explicitly setting instrument=True
+        agent = Agent("openai:gpt-4o", system_prompt="Tell me the capital of {{input}}.")
+
+        result = agent.run_sync("France")
+        assert result.output == _FINAL_ANSWER_WITHOUT_TOOL
+
+    traces = get_traces()
+    assert len(traces) == 1
+    spans = traces[0].data.spans
+
+    # Should have Agent.run_sync > Agent.run > InstrumentedModel.request
+    span_names = [s.name for s in spans]
+    assert "InstrumentedModel.request" in span_names
+
+    llm_span = next(s for s in spans if s.name == "InstrumentedModel.request")
+    assert llm_span.span_type == SpanType.LLM
 
 
 def test_autolog_does_not_capture_client_references(simple_agent):

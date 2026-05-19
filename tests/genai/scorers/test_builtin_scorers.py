@@ -3,7 +3,6 @@ from unittest import mock
 from unittest.mock import Mock, call, patch
 
 import pytest
-from litellm.types.utils import ModelResponse
 
 import mlflow
 from mlflow.entities.assessment import Feedback
@@ -39,6 +38,7 @@ from mlflow.genai.scorers import (
 )
 from mlflow.genai.scorers.base import Scorer, ScorerKind
 from mlflow.genai.scorers.builtin_scorers import (
+    BuiltInScorer,
     ExtractedFields,
     _construct_field_extraction_config,
     _validate_required_fields,
@@ -228,29 +228,32 @@ def test_retrieval_relevance_handle_error_feedback(sample_rag_trace):
 
 @pytest.mark.usefixtures("mock_openai_env")
 def test_retrieval_relevance_with_custom_model(sample_rag_trace):
+    def make_feedback(*args, **kwargs):
+        return Feedback(name="retrieval_relevance", value="yes", rationale="Relevant content")
+
     with patch(
         "mlflow.genai.scorers.builtin_scorers.invoke_judge_model",
-        return_value=Feedback(
-            name="retrieval_relevance", value="yes", rationale="Relevant content"
-        ),
+        side_effect=make_feedback,
     ) as mock_invoke_judge:
         custom_model = "openai:/gpt-4"
         scorer = RetrievalRelevance(model=custom_model)
         results = scorer(trace=sample_rag_trace)
 
-        # Should be called for each chunk (3 total chunks)
         assert mock_invoke_judge.call_count == 3
-
-        for call_args in mock_invoke_judge.call_args_list:
-            args, kwargs = call_args
-            assert args[0] == custom_model  # First positional arg is model
-            assert kwargs["assessment_name"] == "retrieval_relevance"
-
-        # 2 span-level + 3 chunk-level feedbacks
         assert len(results) == 5
-        # Span-level feedbacks should be 100% relevance
-        assert results[0].value == 1.0
-        assert results[3].value == 1.0
+
+        retriever_span_ids = [
+            s.span_id for s in sample_rag_trace.search_spans(span_type=SpanType.RETRIEVER)
+        ]
+
+        # Retriever 0 has 2 chunks, retriever 1 has 1 chunk. Each chunk feedback
+        # should target its retriever span and carry its index within that span.
+        chunk_feedbacks = [r for r in results if r.name == "retrieval_relevance"]
+        assert [(f.span_id, f.metadata["chunk_index"]) for f in chunk_feedbacks] == [
+            (retriever_span_ids[0], 0),
+            (retriever_span_ids[0], 1),
+            (retriever_span_ids[1], 0),
+        ]
 
 
 def test_retrieval_sufficiency(sample_rag_trace):
@@ -370,6 +373,27 @@ def test_retrieval_sufficiency_with_custom_expectations(sample_rag_trace):
             ),
         ],
     )
+
+
+@pytest.fixture
+def trace_without_retriever():
+    """Create a trace without any RETRIEVER spans."""
+    with mlflow.start_span(name="agent") as span:
+        span.set_inputs({"question": "query"})
+        span.set_outputs("answer")
+    return mlflow.get_trace(span.trace_id)
+
+
+@pytest.mark.parametrize(
+    "scorer_class",
+    [RetrievalRelevance, RetrievalSufficiency, RetrievalGroundedness],
+)
+def test_retrieval_scorers_raise_error_without_retriever_span(
+    trace_without_retriever, scorer_class
+):
+    scorer = scorer_class()
+    with pytest.raises(MlflowException, match="No retrieval context found in the trace"):
+        scorer(trace=trace_without_retriever)
 
 
 def test_guidelines():
@@ -670,15 +694,15 @@ def test_fluency_get_input_fields():
 
 @pytest.mark.usefixtures("mock_openai_env")
 def test_fluency_default_name():
-    mock_content = json.dumps(
-        {
-            "result": "yes",
-            "rationale": "The text is fluent.",
-        }
-    )
-    mock_response = ModelResponse(choices=[{"message": {"content": mock_content}}])
+    mock_content = json.dumps({
+        "result": "yes",
+        "rationale": "The text is fluent.",
+    })
 
-    with patch("litellm.completion", return_value=mock_response):
+    with patch(
+        "mlflow.genai.judges.adapters.gateway_adapter._invoke_via_gateway",
+        return_value=mock_content,
+    ):
         scorer = Fluency()
         result = scorer(outputs="The cat sat on the mat.")
 
@@ -688,15 +712,15 @@ def test_fluency_default_name():
 
 @pytest.mark.usefixtures("mock_openai_env")
 def test_fluency_with_custom_model():
-    mock_content = json.dumps(
-        {
-            "result": "yes",
-            "rationale": "The text is fluent.",
-        }
-    )
-    mock_response = ModelResponse(choices=[{"message": {"content": mock_content}}])
+    mock_content = json.dumps({
+        "result": "yes",
+        "rationale": "The text is fluent.",
+    })
 
-    with patch("litellm.completion", return_value=mock_response):
+    with patch(
+        "mlflow.genai.judges.adapters.gateway_adapter._invoke_via_gateway",
+        return_value=mock_content,
+    ):
         custom_model = "anthropic:/claude-3-opus"
         scorer = Fluency(model=custom_model)
         result = scorer(outputs="This is a fluent response")
@@ -707,15 +731,15 @@ def test_fluency_with_custom_model():
 
 @pytest.mark.usefixtures("mock_openai_env")
 def test_fluency_with_custom_name():
-    mock_content = json.dumps(
-        {
-            "result": "no",
-            "rationale": "The text has issues.",
-        }
-    )
-    mock_response = ModelResponse(choices=[{"message": {"content": mock_content}}])
+    mock_content = json.dumps({
+        "result": "no",
+        "rationale": "The text has issues.",
+    })
 
-    with patch("litellm.completion", return_value=mock_response):
+    with patch(
+        "mlflow.genai.judges.adapters.gateway_adapter._invoke_via_gateway",
+        return_value=mock_content,
+    ):
         scorer = Fluency(name="my_fluency_check")
         result = scorer(outputs="Bad text")
 
@@ -1563,12 +1587,10 @@ def test_completeness_with_trace():
 def test_conversational_safety_with_session():
     session_id = "test_session_safety"
     traces = []
-    for i, (q, a) in enumerate(
-        [
-            ("What is Python?", "Python is a programming language."),
-            ("How do I install it?", "You can download it from python.org."),
-        ]
-    ):
+    for i, (q, a) in enumerate([
+        ("What is Python?", "Python is a programming language."),
+        ("How do I install it?", "You can download it from python.org."),
+    ]):
         with mlflow.start_span(name=f"turn_{i}") as span:
             span.set_inputs({"question": q})
             span.set_outputs(a)
@@ -1644,12 +1666,10 @@ def test_conversational_safety_instructions():
 def test_conversational_tool_call_efficiency_with_session():
     session_id = "test_session_efficiency"
     traces = []
-    for i, (question, stock, stock_price) in enumerate(
-        [
-            ("What is the price of AAPL?", "AAPL", "150"),
-            ("How about MSFT?", "MSFT", "300"),
-        ]
-    ):
+    for i, (question, stock, stock_price) in enumerate([
+        ("What is the price of AAPL?", "AAPL", "150"),
+        ("How about MSFT?", "MSFT", "300"),
+    ]):
         answer = f"{stock} is ${stock_price}."
         with mlflow.start_span(name=f"turn_{i}") as span:
             span.set_inputs({"question": question})
@@ -1940,12 +1960,10 @@ def test_tool_call_correctness_parse_expectations_empty(expectations):
 def test_conversational_role_adherence_with_session():
     session_id = "test_session_role"
     traces = []
-    for i, (question, answer) in enumerate(
-        [
-            ("What can you cook?", "I can help you make many dishes!"),
-            ("How do I make soup?", "Start by boiling vegetables..."),
-        ]
-    ):
+    for i, (question, answer) in enumerate([
+        ("What can you cook?", "I can help you make many dishes!"),
+        ("How do I make soup?", "Start by boiling vegetables..."),
+    ]):
         with mlflow.start_span(name=f"turn_{i}") as span:
             span.set_inputs({"question": question})
             span.set_outputs(answer)
@@ -1992,12 +2010,10 @@ def test_conversational_role_adherence_instructions():
 def test_conversational_guidelines_with_session(guidelines):
     session_id = "test_session_guidelines"
     traces = []
-    for i, (question, answer) in enumerate(
-        [
-            ("What are your hours?", "We are open 9am-5pm Monday through Friday."),
-            ("Can I get a refund?", "Yes, we offer refunds within 30 days of purchase."),
-        ]
-    ):
+    for i, (question, answer) in enumerate([
+        ("What are your hours?", "We are open 9am-5pm Monday through Friday."),
+        ("Can I get a refund?", "Yes, we offer refunds within 30 days of purchase."),
+    ]):
         with mlflow.start_span(name=f"turn_{i}") as span:
             span.set_inputs({"question": question})
             span.set_outputs(answer)
@@ -2366,3 +2382,91 @@ def test_summarization_with_trace():
         assert result.value == "yes"
         assert result.rationale == "Accurate summary"
         mock_invoke_judge.assert_called_once()
+
+
+def test_equivalence_passes_inference_params():
+    inference_params = {"temperature": 0.0, "max_tokens": 100}
+    scorer = Equivalence(inference_params=inference_params)
+
+    with patch(
+        "mlflow.genai.scorers.builtin_scorers.invoke_judge_model",
+        return_value=Feedback(name="equivalence", value="yes", rationale="Match"),
+    ) as mock_invoke:
+        scorer(
+            outputs="Paris is the capital",
+            expectations={"expected_response": "The capital is Paris"},
+        )
+
+        mock_invoke.assert_called_once()
+        _, kwargs = mock_invoke.call_args
+        assert kwargs["inference_params"] == inference_params
+
+
+def test_retrieval_relevance_passes_inference_params(sample_rag_trace):
+    inference_params = {"temperature": 0.0}
+    scorer = RetrievalRelevance(inference_params=inference_params)
+
+    with patch(
+        "mlflow.genai.scorers.builtin_scorers.invoke_judge_model",
+        return_value=Feedback(name="retrieval_relevance", value="yes", rationale="Relevant"),
+    ) as mock_invoke:
+        scorer(trace=sample_rag_trace)
+
+        for args in mock_invoke.call_args_list:
+            assert args.kwargs["inference_params"] == inference_params
+
+
+@pytest.mark.parametrize(
+    "scorer_cls",
+    [
+        UserFrustration,
+        ConversationCompleteness,
+        ConversationalSafety,
+        ConversationalToolCallEfficiency,
+        ConversationalRoleAdherence,
+    ],
+    ids=[
+        "user_frustration",
+        "conversation_completeness",
+        "conversational_safety",
+        "conversational_tool_call_efficiency",
+        "conversational_role_adherence",
+    ],
+)
+def test_session_level_scorer_passes_inference_params_to_judge(scorer_cls):
+    inference_params = {"temperature": 0.0}
+    scorer = scorer_cls(inference_params=inference_params)
+    assert scorer.inference_params == inference_params
+
+    judge = scorer._get_judge()
+    assert judge.inference_params == inference_params
+
+
+def test_knowledge_retention_propagates_inference_params():
+    inference_params = {"temperature": 0.0}
+    scorer = KnowledgeRetention(inference_params=inference_params)
+    assert scorer.inference_params == inference_params
+    assert scorer.last_turn_scorer.inference_params == inference_params
+
+    judge = scorer.last_turn_scorer._get_judge()
+    assert judge.inference_params == inference_params
+
+
+@pytest.mark.parametrize(
+    "scorer_cls",
+    [Equivalence, RetrievalRelevance, UserFrustration, KnowledgeRetention],
+)
+def test_builtin_scorer_inference_params_defaults_to_none(scorer_cls):
+    scorer = scorer_cls()
+    assert scorer.inference_params is None
+
+
+def test_builtin_scorer_serialization_roundtrip_with_inference_params():
+    inference_params = {"temperature": 0.0, "top_p": 0.9}
+    scorer = Equivalence(inference_params=inference_params)
+
+    serialized = scorer.model_dump()
+    assert serialized["builtin_scorer_pydantic_data"]["inference_params"] == inference_params
+
+    restored = BuiltInScorer.model_validate(serialized)
+    assert restored.inference_params == inference_params

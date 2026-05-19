@@ -58,7 +58,7 @@ export class MlflowArtifactsClient implements ArtifactsClient {
     const traceDataJson = await makeRequest<SerializedTraceData>(
       'GET',
       artifactUrl,
-      this.headersProvider
+      this.headersProvider,
     );
 
     // Parse JSON back to TraceData (equivalent to Python's try_read_trace_data)
@@ -66,7 +66,7 @@ export class MlflowArtifactsClient implements ArtifactsClient {
       return TraceData.fromJson(traceDataJson);
     } catch (error) {
       throw new Error(
-        `Failed to parse trace data JSON: ${error instanceof Error ? error.message : String(error)}`
+        `Failed to parse trace data JSON: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }

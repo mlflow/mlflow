@@ -2,8 +2,6 @@
 
 This file provides guidance to Claude Code when working with the MLflow frontend code in this directory.
 
-**For contribution guidelines, code standards, and additional development information not covered here, please refer to [CONTRIBUTING.md](../../../CONTRIBUTING.md).**
-
 ## Consistency is Critical
 
 **IMPORTANT**: Always be consistent with the rest of the repository. This is extremely important!
@@ -108,6 +106,21 @@ Example import:
 import { Button, Modal, Input } from '@databricks/design-system';
 ```
 
+### Avoid HTML Elements When Design System Alternatives Exist
+
+**Prefer `Button` from `@databricks/design-system` over raw HTML `<button>` elements** for most interactive actions:
+
+```typescript
+// ✅ GOOD - Use DuBois Button for actions
+<Button componentId="my-feature.action" type="tertiary" onClick={handleClick}>
+  Click me
+</Button>
+
+// ❌ BAD - Avoid raw HTML button for typical actions
+<button type="button" onClick={handleClick}>
+  Click me
+</button>
+```
 ### Theme Usage
 
 Use the design system theme for consistent styling:
@@ -131,6 +144,54 @@ const Component = () => {
   );
 };
 ```
+
+### Empty States
+
+**IMPORTANT**: Empty states must always be centered both vertically and horizontally within their container.
+
+When implementing empty states using the `Empty` component from `@databricks/design-system`, always wrap it in a centered container with styles to override the Design System's internal layout:
+
+```typescript
+import { Empty, SearchIcon } from '@databricks/design-system';
+
+// ✅ GOOD - Empty state centered in container with Design System style overrides
+const emptyComponent = (
+  <div
+    css={{
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      height: '100%',       // Take full height of parent
+      minHeight: 400,       // Ensure minimum height for visibility
+      width: '100%',
+      // Override Design System's Empty component internal styles
+      '& > div': {
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
+      },
+    }}
+  >
+    <Empty
+      description="No items found. Try clearing your filters."
+      image={<SearchIcon />}
+    />
+  </div>
+);
+
+// ❌ BAD - Empty state not centered
+const emptyComponent = <Empty description="No items found" image={<SearchIcon />} />;
+```
+
+Key points for empty states:
+- Use `display: 'flex'` with `alignItems: 'center'` and `justifyContent: 'center'`
+- Set `height: '100%'` to fill the parent container's height
+- Set `minHeight` (typically 400px or more) to ensure vertical centering is visible
+- Always set `width: '100%'` to ensure proper horizontal centering
+- **CRITICAL**: Override the Design System's `Empty` component internal wrapper styles using `'& > div'` selector to ensure it takes full height and centers content
+- Use meaningful icons and descriptions to guide users
 
 ### Spacing Guidelines
 

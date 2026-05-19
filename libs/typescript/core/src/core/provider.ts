@@ -21,7 +21,7 @@ export function initializeSDK(): void {
 
     const client = new MlflowClient({
       trackingUri: config.trackingUri,
-      authProvider
+      authProvider,
     });
     const exporter = new MlflowSpanExporter(client);
     processor = new MlflowSpanProcessor(exporter);

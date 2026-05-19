@@ -32,7 +32,7 @@ export class Trace {
   toJson(): SerializedTrace {
     return {
       info: this.info.toJson(),
-      data: this.data.toJson()
+      data: this.data.toJson(),
     };
   }
 

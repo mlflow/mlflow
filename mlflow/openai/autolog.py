@@ -22,6 +22,7 @@ from mlflow.tracing.constant import (
     TokenUsageKey,
     TraceMetadataKey,
 )
+from mlflow.tracing.distributed import _get_tracing_headers_from_span
 from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import TraceJSONEncoder
@@ -38,6 +39,7 @@ def autolog(
     disable_for_unsupported_versions=False,
     silent=False,
     log_traces=True,
+    disable_openai_agent_tracer=True,
 ):
     """
     Enables (or disables) and configures autologging from OpenAI to MLflow.
@@ -58,6 +60,8 @@ def autolog(
             autologging.
         log_traces: If ``True``, traces are logged for OpenAI models. If ``False``, no traces are
             collected during inference. Default to ``True``.
+        disable_openai_agent_tracer: If ``True``, disable the OpenAI Agent SDK tracer. If ``False``,
+            enable the OpenAI Agent SDK tracer. Default to ``True``.
     """
     if Version(importlib.metadata.version("openai")).major < 1:
         raise MlflowException("OpenAI autologging is only supported for openai >= 1.0.0")
@@ -77,22 +81,26 @@ def autolog(
     try:
         from agents.run import AgentRunner
 
-        from mlflow.openai._agent_tracer import _patched_agent_run
+        from mlflow.openai._agent_tracer import _patched_agent_run, _patched_agent_run_streamed
 
         # NB: The OpenAI's built-in tracer does not capture inputs/outputs of the
         # root span, which is not inconvenient. Therefore, we add a patch for the
         # runner.run() method instead.
         safe_patch(FLAVOR_NAME, AgentRunner, "run", _patched_agent_run)
+        safe_patch(FLAVOR_NAME, AgentRunner, "run_streamed", _patched_agent_run_streamed)
 
         from mlflow.openai._agent_tracer import (
             add_mlflow_trace_processor,
+            clear_trace_processors,
             remove_mlflow_trace_processor,
         )
 
-        if log_traces and not disable:
-            add_mlflow_trace_processor()
-        else:
+        if disable or not log_traces:
             remove_mlflow_trace_processor()
+        else:
+            if disable_openai_agent_tracer:
+                clear_trace_processors()
+            add_mlflow_trace_processor()
     except ImportError:
         pass
 
@@ -133,6 +141,14 @@ def _autolog(
     for task in (AsyncChatCompletions, AsyncCompletions, AsyncEmbeddings):
         safe_patch(FLAVOR_NAME, task, "create", async_patched_call)
 
+    try:
+        from openai.resources.images import AsyncImages, Images
+
+        safe_patch(FLAVOR_NAME, Images, "generate", patched_call)
+        safe_patch(FLAVOR_NAME, AsyncImages, "generate", async_patched_call)
+    except ImportError:
+        pass
+
     if hasattr(AsyncChatCompletions, "parse"):
         # In openai>=1.92.0, `AsyncChatCompletions` has a `parse` method:
         # https://github.com/openai/openai-python/commit/0e358ed66b317038705fb38958a449d284f3cb88
@@ -171,6 +187,14 @@ def _get_span_type_and_message_format(task: type) -> tuple[str, str]:
         Embeddings: SpanType.EMBEDDING,
         AsyncEmbeddings: SpanType.EMBEDDING,
     }
+
+    try:
+        from openai.resources.images import AsyncImages, Images
+
+        span_type_mapping[Images] = SpanType.TOOL
+        span_type_mapping[AsyncImages] = SpanType.TOOL
+    except ImportError:
+        pass
 
     try:
         # Only available in openai>=1.40.0
@@ -235,6 +259,7 @@ def patched_call(original, self, *args, **kwargs):
 
     if config.log_traces:
         span = _start_span(self, kwargs, run_id)
+        _inject_tracing_headers(kwargs, span)
 
     # Execute the original function
     try:
@@ -257,6 +282,7 @@ async def async_patched_call(original, self, *args, **kwargs):
 
     if config.log_traces:
         span = _start_span(self, kwargs, run_id)
+        _inject_tracing_headers(kwargs, span)
 
     # Execute the original function
     try:
@@ -356,16 +382,21 @@ def _process_last_chunk(
             output = None
         elif is_responses_api:
             output = _reconstruct_response_from_stream(output)
-        elif output[0].object in ["text_completion", "chat.completion.chunk"]:
+        elif completion_chunks := _filter_completion_stream_chunks(output):
             # Reconstruct a completion object from streaming chunks
-            output = _reconstruct_completion_from_stream(output)
+            output = _reconstruct_completion_from_stream(completion_chunks)
             # Set usage information on span if available
-            if usage := getattr(chunk, "usage", None):
+            if usage := _get_completion_stream_usage(completion_chunks):
                 usage_dict = {
                     TokenUsageKey.INPUT_TOKENS: usage.prompt_tokens,
                     TokenUsageKey.OUTPUT_TOKENS: usage.completion_tokens,
                     TokenUsageKey.TOTAL_TOKENS: usage.total_tokens,
                 }
+
+                # Extract cached tokens if available in the streaming chunk
+                if details := getattr(usage, "prompt_tokens_details", None):
+                    if (cached := getattr(details, "cached_tokens", None)) is not None:
+                        usage_dict[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached
                 span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage_dict)
 
         _end_span_on_success(span, inputs, output, is_responses_api)
@@ -375,6 +406,21 @@ def _process_last_chunk(
         )
 
 
+def _filter_completion_stream_chunks(chunks: list[Any]) -> list[Any]:
+    return [
+        chunk
+        for chunk in chunks
+        if getattr(chunk, "object", None) in {"text_completion", "chat.completion.chunk"}
+    ]
+
+
+def _get_completion_stream_usage(chunks: list[Any]) -> Any:
+    for chunk in reversed(chunks):
+        if usage := getattr(chunk, "usage", None):
+            return usage
+    return None
+
+
 def _reconstruct_completion_from_stream(chunks: list[Any]) -> Any:
     """
     Reconstruct a completion object from streaming chunks.
@@ -382,6 +428,10 @@ def _reconstruct_completion_from_stream(chunks: list[Any]) -> Any:
     This preserves the structure and metadata that would be present in a non-streaming
     completion response, including ID, model, timestamps, usage, etc.
     """
+    chunks = _filter_completion_stream_chunks(chunks)
+    if not chunks:
+        return None
+
     if chunks[0].object == "text_completion":
         # Handling for the deprecated Completions API. Keep the legacy behavior for now.
         def _extract_content(chunk: Any) -> str:
@@ -467,6 +517,15 @@ def _is_response_output_item_done_event(chunk: Any) -> bool:
         return isinstance(chunk, ResponseOutputItemDoneEvent)
     except ImportError:
         return False
+
+
+def _inject_tracing_headers(kwargs: dict[str, Any], span: LiveSpan):
+    try:
+        if tracing_headers := _get_tracing_headers_from_span(span):
+            existing = kwargs.get("extra_headers") or {}
+            kwargs["extra_headers"] = tracing_headers | existing
+    except Exception:
+        _logger.debug("Failed to inject tracing headers", exc_info=True)
 
 
 def _end_span_on_exception(span: LiveSpan, e: Exception):

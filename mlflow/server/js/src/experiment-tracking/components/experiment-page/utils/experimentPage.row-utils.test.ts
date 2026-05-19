@@ -25,7 +25,7 @@ const LOGGED_MODEL = { LOGGED_MODEL: true };
 
 // Do not test tag->logged model transformation
 // @ts-expect-error Type '{ LOGGED_MODEL: boolean; }' is missing properties
-Utils.getLoggedModelsFromTags = jest.fn<typeof Utils.getLoggedModelsFromTags>().mockReturnValue([LOGGED_MODEL]);
+jest.spyOn(Utils, 'getLoggedModelsFromTags').mockImplementation().mockReturnValue([LOGGED_MODEL]);
 
 const MOCK_EXPERIMENTS = [
   {

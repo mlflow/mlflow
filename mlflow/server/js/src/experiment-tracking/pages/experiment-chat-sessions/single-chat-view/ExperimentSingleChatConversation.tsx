@@ -9,7 +9,6 @@ import {
   Button,
   importantify,
   ParagraphSkeleton,
-  Spacer,
   TitleSkeleton,
   Typography,
   useDesignSystemTheme,
@@ -23,7 +22,7 @@ export const ExperimentSingleChatConversation = ({
   traces,
   selectedTurnIndex,
   setSelectedTurnIndex = noop,
-  setSelectedTrace = noop,
+  setSelectedTrace,
   chatRefs,
   getAssessmentTitle,
 }: {
@@ -94,12 +93,12 @@ export const ExperimentSingleChatConversation = ({
                 color="primary"
                 css={[
                   {
-                    visibility: isActive ? 'visible' : 'hidden',
+                    visibility: isActive && setSelectedTrace ? 'visible' : 'hidden',
                   },
                   // Required for button to have an outstanding background over the chat turn hover state
                   importantify({ backgroundColor: theme.colors.backgroundPrimary }),
                 ]}
-                onClick={() => setSelectedTrace(trace)}
+                onClick={() => setSelectedTrace?.(trace)}
               >
                 <FormattedMessage
                   defaultMessage="View full trace"
@@ -107,16 +106,10 @@ export const ExperimentSingleChatConversation = ({
                 />
               </Button>
             </div>
+            {/* TODO: add turn-level metrics */}
             <SingleChatTurnMessages key={traceId} trace={trace} />
             {shouldEnableAssessmentsInSessions() && (
-              <>
-                <Spacer size="sm" />
-                <SingleChatTurnAssessments
-                  trace={trace}
-                  getAssessmentTitle={getAssessmentTitle}
-                  onAddAssessmentsClick={() => setSelectedTrace(trace)}
-                />
-              </>
+              <SingleChatTurnAssessments trace={trace} getAssessmentTitle={getAssessmentTitle} />
             )}
           </div>
         );

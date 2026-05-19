@@ -2,11 +2,11 @@ import transformers
 
 import mlflow
 
-task = "text2text-generation"
+task = "text-generation"
 
 generation_pipeline = transformers.pipeline(
     task=task,
-    model="declare-lab/flan-alpaca-base",
+    model="gpt2",
 )
 
 input_example = ["prompt 1", "prompt 2", "prompt 3"]

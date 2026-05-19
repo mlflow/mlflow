@@ -1,16 +1,16 @@
 import { describe, jest, beforeAll, beforeEach, it, expect, afterEach } from '@jest/globals';
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { rest } from 'msw';
 import { setupServer } from 'msw/node';
 import React from 'react';
 
 import { DesignSystemProvider } from '@databricks/design-system';
 import { IntlProvider } from '@databricks/i18n';
-import { QueryClientProvider, QueryClient } from '@databricks/web-shared/query-client';
+import { QueryClientProvider, QueryClient } from '../../query-client/queryClient';
 
 import { useCreateAssessment } from './useCreateAssessment';
 import { useTraceCachedActions } from './useTraceCachedActions';
-import { shouldUseTracesV4API } from '../FeatureUtils';
+import { shouldUseTracesV4API, shouldEnableAssessmentsInSessions } from '../FeatureUtils';
 import type { Assessment, ModelTraceInfoV3, ModelTraceLocation } from '../ModelTrace.types';
 import type { CreateAssessmentPayload } from '../api';
 import { ModelTraceExplorerUpdateTraceContextProvider } from '../contexts/UpdateTraceContext';
@@ -18,10 +18,15 @@ import { ModelTraceExplorerUpdateTraceContextProvider } from '../contexts/Update
 jest.mock('../FeatureUtils', () => ({
   shouldUseTracesV4API: jest.fn(),
   doesTraceSupportV4API: jest.fn(() => true),
+  shouldEnableAssessmentsInSessions: jest.fn(() => false),
 }));
 
-jest.mock('@databricks/web-shared/global-settings', () => ({
+jest.mock('../../global-settings/getUser', () => ({
+  ...jest.requireActual<typeof import('../../global-settings/getUser')>('../../global-settings/getUser'),
   getUser: jest.fn(() => 'test-user@databricks.com'),
+}));
+jest.mock('../../global-settings/getOrgID', () => ({
+  ...jest.requireActual<typeof import('../../global-settings/getOrgID')>('../../global-settings/getOrgID'),
   getOrgID: jest.fn(() => '123456'),
 }));
 
@@ -46,17 +51,26 @@ describe('useCreateAssessment', () => {
     tags: {},
   };
 
-  const wrapper = ({ children }: { children: React.ReactNode }) => (
+  const wrapper = ({ children, chatSessionId }: { children: React.ReactNode; chatSessionId?: string }) => (
     <IntlProvider locale="en">
       <DesignSystemProvider>
         <QueryClientProvider client={new QueryClient()}>
-          <ModelTraceExplorerUpdateTraceContextProvider modelTraceInfo={mockTraceInfo} sqlWarehouseId="warehouse-123">
+          <ModelTraceExplorerUpdateTraceContextProvider
+            modelTraceInfo={mockTraceInfo}
+            sqlWarehouseId="warehouse-123"
+            chatSessionId={chatSessionId}
+          >
             {children}
           </ModelTraceExplorerUpdateTraceContextProvider>
         </QueryClientProvider>
       </DesignSystemProvider>
     </IntlProvider>
   );
+
+  const getCustomWrapper =
+    (chatSessionId?: string) =>
+    ({ children }: { children: React.ReactNode }) =>
+      wrapper({ children, chatSessionId });
 
   const mockNewAssessmentResponse = {
     assessment: {
@@ -78,7 +92,10 @@ describe('useCreateAssessment', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    renderHook(() => useTraceCachedActions()).result.current.resetCache();
+    const cacheActionHookResult = renderHook(() => useTraceCachedActions());
+    act(() => {
+      cacheActionHookResult.result.current.resetCache();
+    });
   });
 
   describe('when V4 API is disabled', () => {
@@ -349,6 +366,51 @@ describe('useCreateAssessment', () => {
 
       await waitFor(() => expect(onSuccess).toHaveBeenCalled());
       expect(onSettled).toHaveBeenCalled();
+    });
+  });
+
+  describe('when session-level assessments are enabled', () => {
+    beforeEach(() => {
+      jest.mocked(shouldUseTracesV4API).mockReturnValue(false);
+      jest.mocked(shouldEnableAssessmentsInSessions).mockReturnValue(true);
+    });
+
+    it('should include chat session ID from the context in assessment metadata', async () => {
+      const createSpy = jest.fn();
+      server.use(
+        rest.post('*/ajax-api/*/mlflow/traces/trace-123/assessments', async (req, res, ctx) => {
+          createSpy(await req.json());
+          return res(ctx.json(mockNewAssessmentResponse));
+        }),
+      );
+
+      const { result } = renderHook(() => useCreateAssessment({ traceId: 'trace-123' }), {
+        wrapper: getCustomWrapper('session-id-456'),
+      });
+
+      result.current.createAssessmentMutation({
+        assessment: {
+          assessment_name: 'Correctness',
+          trace_id: 'trace-123',
+          source: {
+            source_type: 'HUMAN',
+            source_id: 'test-user@databricks.com',
+          },
+        },
+      });
+
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+      // The chat session ID should be included in the created assessment metadata
+      expect(createSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          assessment: expect.objectContaining({
+            metadata: expect.objectContaining({
+              'mlflow.trace.session': 'session-id-456',
+            }),
+          }),
+        }),
+      );
     });
   });
 });

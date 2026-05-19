@@ -20,7 +20,7 @@ import type { ScheduledScorer } from './types';
 import { getTypeDisplayName, getTypeIcon, getTypeColor, getStatusTag } from './scorerCardUtils';
 import LLMScorerFormRenderer, { type LLMScorerFormData } from './LLMScorerFormRenderer';
 import CustomCodeScorerFormRenderer, { type CustomCodeScorerFormData } from './CustomCodeScorerFormRenderer';
-import { COMPONENT_ID_PREFIX, SCORER_FORM_MODE } from './constants';
+import { SCORER_FORM_MODE } from './constants';
 
 interface ScorerCardOverflowMenuProps {
   onDelete: () => void;
@@ -38,10 +38,17 @@ const ScorerCardOverflowMenu: React.FC<ScorerCardOverflowMenuProps> = ({ onDelet
   return (
     <DropdownMenu.Root>
       <DropdownMenu.Trigger asChild>
-        <Button componentId={`${COMPONENT_ID_PREFIX}.overflow-button`} size="small" icon={<OverflowIcon />} />
+        <Button
+          componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_scorercardrenderer_41"
+          size="small"
+          icon={<OverflowIcon />}
+        />
       </DropdownMenu.Trigger>
       <DropdownMenu.Content align="end">
-        <DropdownMenu.Item componentId={`${COMPONENT_ID_PREFIX}.delete-button`} onClick={handleClick}>
+        <DropdownMenu.Item
+          componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_scorercardrenderer_45"
+          onClick={handleClick}
+        >
           <DropdownMenu.IconWrapper>
             <TrashIcon />
           </DropdownMenu.IconWrapper>
@@ -80,7 +87,7 @@ const ScorerCardRenderer: React.FC<ScorerCardRendererProps> = ({
 
   return (
     <Card
-      componentId={`${COMPONENT_ID_PREFIX}.scorer-card`}
+      componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_scorercardrenderer_85"
       css={{
         padding: theme.spacing.md,
         position: 'relative',
@@ -100,7 +107,7 @@ const ScorerCardRenderer: React.FC<ScorerCardRendererProps> = ({
         }}
       >
         <Button
-          componentId={`${COMPONENT_ID_PREFIX}.expand-button`}
+          componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_scorercardrenderer_106"
           icon={isExpanded ? <ChevronDownIcon /> : <ChevronRightIcon />}
           size="small"
           type="tertiary"
@@ -116,7 +123,7 @@ const ScorerCardRenderer: React.FC<ScorerCardRendererProps> = ({
               {scorer.name}
             </Typography.Title>
             <Tag
-              componentId={`${COMPONENT_ID_PREFIX}.scorer-type-tag`}
+              componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_scorercardrenderer_123"
               color={getTypeColor(scorer)}
               icon={getTypeIcon(scorer)}
             >
@@ -132,7 +139,7 @@ const ScorerCardRenderer: React.FC<ScorerCardRendererProps> = ({
                 alignItems: 'center',
               }}
             >
-              {!scorer.disableMonitoring && !isNil(scorer.sampleRate) && (
+              {!isNil(scorer.sampleRate) && (
                 <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
                   <Typography.Hint>
                     <FormattedMessage defaultMessage="Sample rate:" description="Sample rate label for scorer" />
@@ -146,10 +153,10 @@ const ScorerCardRenderer: React.FC<ScorerCardRendererProps> = ({
                   </Typography.Hint>
                 </div>
               )}
-              {!scorer.disableMonitoring && !isNil(scorer.sampleRate) && scorer.filterString && (
+              {!isNil(scorer.sampleRate) && scorer.filterString && (
                 <CircleIcon css={{ color: theme.colors.textSecondary, fontSize: '6px' }} />
               )}
-              {!scorer.disableMonitoring && scorer.filterString && (
+              {scorer.filterString && (
                 <Typography.Hint>
                   <FormattedMessage
                     defaultMessage="Filter: {filterString}"
@@ -171,17 +178,15 @@ const ScorerCardRenderer: React.FC<ScorerCardRendererProps> = ({
           ) : null}
         </div>
         <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
-          {!scorer.disableMonitoring && (
-            <Tag
-              componentId={`${COMPONENT_ID_PREFIX}.scorer-status-tag`}
-              color={getStatusTag(scorer, intl).color}
-              icon={getStatusTag(scorer, intl).icon}
-            >
-              {getStatusTag(scorer, intl).text}
-            </Tag>
-          )}
+          <Tag
+            componentId="mlflow.experiment-scorers.scorer-status-tag"
+            color={getStatusTag(scorer, intl).color}
+            icon={getStatusTag(scorer, intl).icon}
+          >
+            {getStatusTag(scorer, intl).text}
+          </Tag>
           <Button
-            componentId={`${COMPONENT_ID_PREFIX}.edit-button`}
+            componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_scorercardrenderer_179"
             size="small"
             icon={<PencilIcon />}
             onClick={onEditClick}

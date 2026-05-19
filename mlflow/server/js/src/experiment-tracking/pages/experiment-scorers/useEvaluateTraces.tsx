@@ -1,32 +1,34 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
-import { isEvaluatingSessionsInScorersEnabled, isRunningScorersEnabled } from '../../../common/utils/FeatureUtils';
+import { isRunningScorersEnabled } from '../../../common/utils/FeatureUtils';
 import { fetchOrFail, getAjaxUrl } from '../../../common/utils/FetchUtils';
-import type { ModelTrace } from '@databricks/web-shared/model-trace-explorer';
-import type {
-  ModelTraceLocationMlflowExperiment,
-  ModelTraceLocationUcSchema,
-} from '@databricks/web-shared/model-trace-explorer';
+import { TracesServiceV3, type ModelTrace } from '@databricks/web-shared/model-trace-explorer';
+import type { ModelTraceSearchLocation } from '@databricks/web-shared/model-trace-explorer';
 import {
   extractFromTrace,
   buildSystemPrompt,
   buildUserPrompt,
   extractTemplateVariables,
 } from '../../utils/evaluationUtils';
-import { searchMlflowTracesQueryFn, SEARCH_MLFLOW_TRACES_QUERY_KEY } from '@databricks/web-shared/genai-traces-table';
-import { DEFAULT_TRACE_COUNT, RETRIEVAL_ASSESSMENTS, ScorerEvaluationScope } from './constants';
+import {
+  searchMlflowTracesQueryFn,
+  SEARCH_MLFLOW_TRACES_QUERY_KEY,
+  isV4TraceLocation,
+} from '@databricks/web-shared/genai-traces-table';
+import { RETRIEVAL_ASSESSMENTS } from './constants';
 import {
   extractInputs,
   extractOutputs,
   extractRetrievalContext,
   extractExpectations,
-  type TraceRetrievalContexts,
   type RetrievalContext,
 } from '../../utils/TraceUtils';
-import { EvaluateChatCompletionsParams, EvaluateTracesParams } from './types';
+import type { EvaluateChatCompletionsParams, EvaluateTracesParams } from './types';
 import { useGetTraceIdsForEvaluation } from './useGetTracesForEvaluation';
-import { getMlflowTraceV3ForEvaluation, JudgeEvaluationResult } from './useEvaluateTraces.common';
+import type { JudgeEvaluationResult } from './useEvaluateTraces.common';
+import type { ScorerEvaluation, ScorerFinishedEvent } from './useEvaluateTracesAsync';
 import { useEvaluateTracesAsync } from './useEvaluateTracesAsync';
+import { TrackingJobStatus } from '../../../common/hooks/useGetTrackingServerJobStatus';
 
 /**
  * Response from the chat completions API
@@ -44,6 +46,19 @@ interface ChatCompletionsRequest {
   user_prompt: string;
   system_prompt?: string | null;
   experiment_id: string;
+}
+
+/**
+ * Result from evaluating a judge on a single trace.
+ * Always returns results as an array, even for single-result assessments.
+ * This simplifies rendering logic as components can always iterate over results.
+ */
+export interface AssessmentResult {
+  assessment_id?: string;
+  result: string | null;
+  rationale: string | null;
+  error: string | null;
+  span_name?: string;
 }
 
 async function callChatCompletions(
@@ -299,10 +314,18 @@ function parseAssessmentResponse(
  * State returned by useEvaluateTraces
  */
 export interface EvaluateTracesState {
-  data: JudgeEvaluationResult[] | null;
+  latestEvaluation: JudgeEvaluationResult[] | null;
   isLoading: boolean;
   error: Error | null;
-  reset: () => void;
+  /**
+   * Reset/cancel evaluations. If requestKey is provided, cancels only that evaluation.
+   * Otherwise, cancels all running evaluations.
+   */
+  reset: (requestKey?: string) => void;
+  /**
+   * Results of all evaluations
+   */
+  allEvaluations?: Record<string, ScorerEvaluation>;
 }
 
 /**
@@ -317,8 +340,8 @@ export function useEvaluateTraces({
   /**
    * Callback to be called when the evaluation is finished.
    */
-  onScorerFinished?: () => void;
-} = {}): [(params: EvaluateTracesParams) => Promise<JudgeEvaluationResult[] | void>, EvaluateTracesState] {
+  onScorerFinished?: (event: ScorerFinishedEvent) => void;
+} = {}): [(params: EvaluateTracesParams) => Promise<JudgeEvaluationResult[] | string | void>, EvaluateTracesState] {
   const [isLoading, setIsLoading] = useState(false);
   const [data, setData] = useState<JudgeEvaluationResult[] | null>(null);
   const [error, setError] = useState<Error | null>(null);
@@ -326,15 +349,8 @@ export function useEvaluateTraces({
   const getTraceIdsForEvaluation = useGetTraceIdsForEvaluation();
   const invocationCounterRef = useRef(0);
 
-  /**
-   * Enables asynchronous evaluation. If enabled, the evaluation will be done as a
-   * queued job on the server and the results will be polled for asynchronously.
-   */
-  const usingAsyncMode = isEvaluatingSessionsInScorersEnabled();
-
   const evaluateTracesSync = useCallback(
     async (params: EvaluateTracesParams): Promise<JudgeEvaluationResult[]> => {
-      // Track this invocation to ensure only the latest one calls onScorerFinished
       invocationCounterRef.current += 1;
       const currentInvocationId = invocationCounterRef.current;
 
@@ -356,9 +372,10 @@ export function useEvaluateTraces({
 
             try {
               // Fetch trace data with React Query caching
+              // prettier-ignore
               fullTrace = await queryClient.fetchQuery({
                 queryKey: ['GetMlflowTraceV3', traceId],
-                queryFn: () => getMlflowTraceV3ForEvaluation(traceId),
+                queryFn: () => TracesServiceV3.getTraceV3(traceId),
                 staleTime: Infinity,
                 cacheTime: Infinity,
               });
@@ -371,10 +388,6 @@ export function useEvaluateTraces({
 
                 // Extract template variables from instructions to filter what gets included in user prompt
                 const templateVariables = extractTemplateVariables(judgeInstructions);
-
-                if (templateVariables.includes('trace')) {
-                  throw new Error('The trace variable is not supported when running the scorer on a sample of traces');
-                }
 
                 // Build prompts
                 const systemPrompt = buildSystemPrompt(judgeInstructions);
@@ -562,26 +575,36 @@ export function useEvaluateTraces({
         // Flatten results - each trace can produce multiple results (one per retrieval span)
         const evaluationResults: JudgeEvaluationResult[] = evaluationResultsNested.flat();
 
-        setData(evaluationResults);
-
-        // Only call onScorerFinished if this is still the latest invocation
-        if (currentInvocationId === invocationCounterRef.current && onScorerFinished) {
-          onScorerFinished();
+        // Skip state updates if this invocation was cancelled/superseded
+        if (currentInvocationId === invocationCounterRef.current) {
+          setData(evaluationResults);
+          onScorerFinished?.({
+            // Generate a semi-unique request key for the evaluation
+            requestKey: Date.now().toString(),
+            status: TrackingJobStatus.SUCCEEDED,
+            results: evaluationResults,
+          });
         }
 
         return evaluationResults;
       } catch (err) {
         const errorObj = err instanceof Error ? err : new Error(String(err));
-        setError(errorObj);
+        if (currentInvocationId === invocationCounterRef.current) {
+          setError(errorObj);
+        }
         throw errorObj;
       } finally {
-        setIsLoading(false);
+        if (currentInvocationId === invocationCounterRef.current) {
+          setIsLoading(false);
+        }
       }
     },
     [queryClient, getTraceIdsForEvaluation, onScorerFinished],
   );
 
-  const reset = useCallback(() => {
+  // In sync mode, reset clears state and invalidates in-flight invocations
+  const reset = useCallback((_requestKey?: string) => {
+    invocationCounterRef.current += 1;
     setData(null);
     setError(null);
     setIsLoading(false);
@@ -591,19 +614,7 @@ export function useEvaluateTraces({
     onScorerFinished,
   });
 
-  if (usingAsyncMode) {
-    return [evaluateTracesAsync, asyncEvaluationState] as const;
-  }
-
-  return [
-    evaluateTracesSync,
-    {
-      data,
-      isLoading,
-      error,
-      reset,
-    },
-  ] as const;
+  return [evaluateTracesAsync, asyncEvaluationState] as const;
 }
 
 /**
@@ -611,13 +622,17 @@ export function useEvaluateTraces({
  */
 export interface PrefetchTracesParams {
   traceCount: number;
-  locations: (ModelTraceLocationMlflowExperiment | ModelTraceLocationUcSchema)[];
+  locations: ModelTraceSearchLocation[];
 }
 
 /**
  * React hook for prefetching traces to populate React Query cache
  */
-export function usePrefetchTraces({ traceCount, locations }: PrefetchTracesParams): void {
+// prettier-ignore
+export function usePrefetchTraces({
+  traceCount,
+  locations,
+}: PrefetchTracesParams): void {
   const queryClient = useQueryClient();
   const isRunningScorersFeatureEnabled = isRunningScorersEnabled();
 
@@ -654,20 +669,27 @@ export function usePrefetchTraces({ traceCount, locations }: PrefetchTracesParam
         const traceIds = traces.map((trace) => trace.trace_id).filter((id): id is string => Boolean(id));
 
         // Prefetch all individual trace get queries (suppress individual errors)
+
         await Promise.allSettled(
-          traceIds.map((traceId) =>
-            queryClient.prefetchQuery({
+          traceIds.map((traceId) => {
+            return queryClient.prefetchQuery({
               queryKey: ['GetMlflowTraceV3', traceId],
-              queryFn: () => getMlflowTraceV3ForEvaluation(traceId),
+              queryFn: () => TracesServiceV3.getTraceV3(traceId),
               staleTime: Infinity,
               cacheTime: Infinity,
-            }),
-          ),
+            });
+          }),
         );
       } catch {
         // Silently fail - prefetching is optional and shouldn't cause errors
       }
     };
     prefetchTraces();
-  }, [isRunningScorersFeatureEnabled, traceCount, locations, queryClient]);
+    // prettier-ignore
+  }, [
+    isRunningScorersFeatureEnabled,
+    traceCount,
+    locations,
+    queryClient,
+  ]);
 }

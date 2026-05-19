@@ -1,3 +1,4 @@
+import threading
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
@@ -13,19 +14,41 @@ import mlflow
 from mlflow.entities.assessment import Expectation, Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.span import SpanType
+from mlflow.entities.trace import Trace
+from mlflow.entities.trace_data import TraceData
 from mlflow.exceptions import MlflowException
 from mlflow.genai.datasets import EvaluationDataset, create_dataset
 from mlflow.genai.evaluation.entities import EvaluationResult
+from mlflow.genai.evaluation.harness import (
+    AUTO_INITIAL_RPS,
+    _should_clone_trace,
+    backpressure_buffer,
+)
+from mlflow.genai.evaluation.rate_limiter import RPSRateLimiter
 from mlflow.genai.scorers.base import scorer
 from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
+from mlflow.genai.simulators import ConversationSimulator
 from mlflow.server import handlers
 from mlflow.server.fastapi_app import app
 from mlflow.server.handlers import initialize_backend_stores
 from mlflow.tracing.constant import AssessmentMetadataKey, TraceMetadataKey
 
 from tests.helper_functions import get_safe_port
-from tests.tracing.helper import get_traces
+from tests.tracing.helper import (
+    create_test_trace_info,
+    create_test_trace_info_with_uc_table,
+    get_traces,
+)
 from tests.tracking.integration_test_utils import ServerThread
+
+
+@pytest.fixture
+def mlflow_experiment_trace():
+    return Trace(
+        info=create_test_trace_info(trace_id="tr-123", experiment_id="exp-123"),
+        data=TraceData(spans=[]),
+    )
+
 
 _DUMMY_CHAT_RESPONSE = {
     "id": "1",
@@ -79,6 +102,30 @@ def relevance(inputs, outputs):
 @mlflow.trace(span_type=SpanType.EVALUATOR)
 def has_trace(trace):
     return trace is not None
+
+
+class FailingSessionScorer(mlflow.genai.Scorer):
+    def __init__(self):
+        super().__init__(name="failing_session_scorer")
+
+    @property
+    def is_session_level_scorer(self) -> bool:
+        return True
+
+    def __call__(self, session=None, **kwargs):
+        raise ValueError("Session scorer error")
+
+
+class WorkingSessionScorer(mlflow.genai.Scorer):
+    def __init__(self):
+        super().__init__(name="working_session_scorer")
+
+    @property
+    def is_session_level_scorer(self) -> bool:
+        return True
+
+    def __call__(self, session=None, **kwargs):
+        return len(session or [])
 
 
 def _validate_assessments(traces):
@@ -174,6 +221,8 @@ class ServerConfig:
 def server_config(request, tmp_path: Path, db_uri: str):
     """Provides an MLflow Tracking API client pointed at the local tracking server."""
     config = request.param
+    if config.backend_type == "file":
+        pytest.skip("FileStore is no longer supported.")
 
     match config.backend_type:
         case "file":
@@ -442,36 +491,7 @@ def test_evaluate_with_managed_dataset(is_in_databricks):
             dataset = create_dataset(
                 uc_table_name="mlflow.managed.dataset", experiment_id="exp-123"
             )
-            dataset.merge_records(
-                [
-                    {
-                        "inputs": {"question": "What is MLflow?"},
-                        "expectations": {
-                            "expected_response": "MLflow is a tool for ML",
-                            "max_length": 100,
-                        },
-                    },
-                    {
-                        "inputs": {"question": "What is Spark?"},
-                        "expectations": {
-                            "expected_response": "Spark is a fast data processing engine",
-                            "max_length": 1,
-                        },
-                    },
-                ]
-            )
-
-            result = mlflow.genai.evaluate(
-                data=dataset,
-                predict_fn=TestModel().predict,
-                scorers=[exact_match, is_concise, relevance, has_trace],
-            )
-    else:
-        dataset = create_dataset(
-            name="eval_test_dataset", tags={"source": "test", "version": "1.0"}
-        )
-        dataset.merge_records(
-            [
+            dataset.merge_records([
                 {
                     "inputs": {"question": "What is MLflow?"},
                     "expectations": {
@@ -486,8 +506,33 @@ def test_evaluate_with_managed_dataset(is_in_databricks):
                         "max_length": 1,
                     },
                 },
-            ]
+            ])
+
+            result = mlflow.genai.evaluate(
+                data=dataset,
+                predict_fn=TestModel().predict,
+                scorers=[exact_match, is_concise, relevance, has_trace],
+            )
+    else:
+        dataset = create_dataset(
+            name="eval_test_dataset", tags={"source": "test", "version": "1.0"}
         )
+        dataset.merge_records([
+            {
+                "inputs": {"question": "What is MLflow?"},
+                "expectations": {
+                    "expected_response": "MLflow is a tool for ML",
+                    "max_length": 100,
+                },
+            },
+            {
+                "inputs": {"question": "What is Spark?"},
+                "expectations": {
+                    "expected_response": "Spark is a fast data processing engine",
+                    "max_length": 1,
+                },
+            },
+        ])
 
         result = mlflow.genai.evaluate(
             data=dataset,
@@ -651,6 +696,10 @@ def test_trace_input_can_contain_string_input(pass_full_dataframe, is_in_databri
 
 
 def test_max_workers_env_var(monkeypatch):
+    # Disable rate limits so auto-derivation doesn't override the default
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT", "0")
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_SCORER_RATE_LIMIT", "0")
+
     def _validate_max_workers(expected_max_workers):
         with mock.patch(
             "mlflow.genai.evaluation.harness.ThreadPoolExecutor", wraps=ThreadPoolExecutor
@@ -682,12 +731,10 @@ def test_max_workers_env_var(monkeypatch):
 
 
 def test_dataset_name_is_logged_correctly(is_in_databricks):
-    data = pd.DataFrame(
-        {
-            "inputs": [{"question": "What is MLflow?"}],
-            "outputs": ["MLflow is a tool for ML"],
-        }
-    )
+    data = pd.DataFrame({
+        "inputs": [{"question": "What is MLflow?"}],
+        "outputs": ["MLflow is a tool for ML"],
+    })
 
     with mlflow.start_run() as run:
         mlflow.genai.evaluate(
@@ -709,12 +756,10 @@ def test_dataset_name_is_logged_correctly(is_in_databricks):
 def test_evaluate_with_dataset_preserves_name(is_in_databricks):
     from mlflow.entities import Dataset as DatasetEntity
 
-    data = pd.DataFrame(
-        {
-            "inputs": [{"question": "What is MLflow?"}],
-            "outputs": ["MLflow is a tool for ML"],
-        }
-    )
+    data = pd.DataFrame({
+        "inputs": [{"question": "What is MLflow?"}],
+        "outputs": ["MLflow is a tool for ML"],
+    })
 
     mock_managed_dataset = MagicMock(spec=EvaluationDataset)
     type(mock_managed_dataset).name = mock.PropertyMock(return_value="my_managed_dataset")
@@ -766,12 +811,10 @@ def test_evaluate_with_managed_dataset_preserves_name():
     mock_managed_dataset.created_by = None
     mock_managed_dataset.last_update_time = None
     mock_managed_dataset.last_updated_by = None
-    mock_managed_dataset.to_df.return_value = pd.DataFrame(
-        {
-            "inputs": [{"question": "What is MLflow?"}],
-            "outputs": ["MLflow is a tool for ML"],
-        }
-    )
+    mock_managed_dataset.to_df.return_value = pd.DataFrame({
+        "inputs": [{"question": "What is MLflow?"}],
+        "outputs": ["MLflow is a tool for ML"],
+    })
 
     dataset = EvaluationDataset(mock_managed_dataset)
 
@@ -919,9 +962,9 @@ def test_evaluate_without_inputs_in_eval_dataset():
 
     trace_df = mlflow.search_traces()
     trace_df["inputs"] = None
-    trace_df["expectations"] = pd.Series(
-        [{"expected_response": answer, "max_length": 100} for answer in answers]
-    )
+    trace_df["expectations"] = pd.Series([
+        {"expected_response": answer, "max_length": 100} for answer in answers
+    ])
 
     result = mlflow.genai.evaluate(
         data=trace_df,
@@ -1137,7 +1180,24 @@ def test_evaluate_with_mixed_single_turn_and_multi_turn_scorers(server_config):
     # Validate that all single-turn scores are the same (based on our dummy response)
     response_lengths = result_df["response_length/value"].dropna()
     # All responses should be "Answer to: Qx" format, so lengths should be consistent
-    assert all(length > 0 for length in response_lengths), "All response lengths should be positive"
+    assert all(length > 0 for length in response_lengths)
+
+    # Verify multi-turn assessments were persisted to the backend (not just in-memory).
+    # Fetch each trace from the backend and check the first trace of each session has
+    # the conversation_length assessment logged.
+    all_traces = mlflow.search_traces(
+        locations=[run.info.experiment_id],
+        run_id=result.run_id,
+        return_type="list",
+    )
+    for trace in all_traces:
+        assessment_names = {a.name for a in trace.info.assessments}
+        has_session = "mlflow.trace.session" in trace.info.trace_metadata
+        is_first_in_session = "conversation_length" in assessment_names
+        if has_session and is_first_in_session:
+            a = next(a for a in trace.info.assessments if a.name == "conversation_length")
+            assert isinstance(a, Feedback)
+            assert a.value in (2.0, 3.0)
 
 
 def test_evaluate_with_evaluation_dataset_and_session_level_scorers():
@@ -1256,9 +1316,12 @@ def test_max_scorer_workers_env_var(monkeypatch):
                 ],
                 scorers=scorers_list,
             )
-            # ThreadPoolExecutor is called twice: harness loop + scorer loop
-            # The second call is for scorers
-            scorer_call = mock_executor.call_args_list[1]
+            # Find the scorer pool call by its thread_name_prefix
+            scorer_call = next(
+                call
+                for call in mock_executor.call_args_list
+                if call[1].get("thread_name_prefix") == "MlflowGenAIEvalScorer"
+            )
             assert scorer_call[1]["max_workers"] == expected_max_workers
 
     # default scorer workers is 10, but limited by number of scorers (3)
@@ -1275,3 +1338,667 @@ def test_max_scorer_workers_env_var(monkeypatch):
     # set to 1 for sequential execution
     monkeypatch.setenv("MLFLOW_GENAI_EVAL_MAX_SCORER_WORKERS", "1")
     _validate_scorer_max_workers(expected_max_workers=1, num_scorers=3)
+
+
+# ===================== ConversationSimulator Integration Tests =====================
+
+
+def test_evaluate_with_conversation_simulator_requires_predict_fn():
+    simulator = ConversationSimulator(
+        test_cases=[{"goal": "Learn about MLflow"}],
+        max_turns=2,
+    )
+
+    with pytest.raises(MlflowException, match="predict_fn is required"):
+        mlflow.genai.evaluate(
+            data=simulator,
+            scorers=[has_trace],
+        )
+
+
+def test_evaluate_with_conversation_simulator_empty_simulation_error():
+    def failing_predict_fn(input: list[dict[str, Any]], **kwargs):
+        raise Exception("Simulated failure")
+
+    simulator = ConversationSimulator(
+        test_cases=[{"goal": "Learn about MLflow"}],
+        max_turns=2,
+    )
+
+    with mock.patch(
+        "mlflow.genai.simulators.simulator.invoke_model_without_tracing"
+    ) as mock_invoke:
+        # Simulate a failure that produces no traces
+        mock_invoke.side_effect = Exception("LLM call failed")
+
+        with pytest.raises(MlflowException, match="Simulation produced no traces"):
+            mlflow.genai.evaluate(
+                data=simulator,
+                predict_fn=failing_predict_fn,
+                scorers=[has_trace],
+            )
+
+
+def test_session_level_evaluation_with_predict_fn_without_simulator():
+    class SessionScorer(mlflow.genai.Scorer):
+        def __init__(self):
+            super().__init__(name="session_scorer")
+
+        @property
+        def is_session_level_scorer(self):
+            return True
+
+        def __call__(self, session=None, **kwargs):
+            return len(session or [])
+
+    data = [
+        {"inputs": {"question": "What is MLflow?"}, "outputs": "MLflow is a tool"},
+    ]
+
+    with pytest.raises(
+        MlflowException,
+        match=(
+            r"Session-level scorers require traces with session IDs.*"
+            r"session_scorer.*"
+            r"Either pass a ConversationSimulator to `data` with `predict_fn`"
+        ),
+    ):
+        mlflow.genai.evaluate(
+            data=data,
+            predict_fn=TestModel().predict,
+            scorers=[SessionScorer()],
+        )
+
+
+def test_evaluate_with_conversation_simulator_calls_simulate():
+    simulator = ConversationSimulator(
+        test_cases=[{"goal": "Learn MLflow"}],
+        max_turns=2,
+    )
+
+    def mock_predict_fn(input: list[dict[str, Any]], **kwargs):
+        return {"output": "Mock response"}
+
+    with mock.patch.object(simulator, "simulate") as mock_simulate:
+        # Return empty list to trigger the "no traces" error
+        mock_simulate.return_value = []
+
+        with pytest.raises(MlflowException, match="Simulation produced no traces"):
+            mlflow.genai.evaluate(
+                data=simulator,
+                predict_fn=mock_predict_fn,
+                scorers=[has_trace],
+            )
+
+        # Verify simulate was called with predict_fn
+        mock_simulate.assert_called_once_with(mock_predict_fn)
+
+
+@scorer
+def always_pass(outputs):
+    return True
+
+
+@pytest.mark.parametrize(
+    ("expectations_values", "expected_count"),
+    [
+        ([None, {}], 2),
+        ([float("nan")], 1),
+        ([{"expected": "value"}, None, {}], 3),
+    ],
+)
+def test_evaluate_handles_empty_expectations(expectations_values, expected_count):
+    data = [
+        {
+            "inputs": {"question": f"Q{i}"},
+            "outputs": f"A{i}",
+            "expectations": exp,
+        }
+        for i, exp in enumerate(expectations_values)
+    ]
+
+    result = mlflow.genai.evaluate(data=data, scorers=[always_pass])
+
+    assert result is not None
+    assert result.metrics is not None
+    assert result.result_df is not None
+    assert len(result.result_df) == expected_count
+    assert result.metrics["always_pass/mean"] == 1.0
+
+
+from mlflow.genai.simulators.simulator import BaseSimulatedUserAgent
+
+
+class MockUserAgent(BaseSimulatedUserAgent):
+    def __init__(self, **kwargs):
+        pass
+
+    def generate_message(self, context):
+        if context.turn == 0:
+            return f"Hello, I want to {context.goal}"
+        return "[GOAL ACHIEVED]"
+
+
+def test_evaluate_with_simulator_creates_single_run(tmp_path):
+    mlflow.set_tracking_uri(f"sqlite:///{tmp_path}/mlflow.db")
+    mlflow.set_experiment("test-experiment")
+
+    simulator = ConversationSimulator(
+        test_cases=[{"goal": "get help"}],
+        max_turns=2,
+        user_agent_class=MockUserAgent,
+    )
+
+    def mock_predict_fn(input: list[dict[str, Any]], **kwargs):
+        return {"content": "Response"}
+
+    with mock.patch(
+        "mlflow.genai.simulators.simulator.invoke_model_without_tracing",
+        return_value='{"rationale": "Goal achieved!", "result": "yes"}',
+    ):
+        mlflow.genai.evaluate(data=simulator, predict_fn=mock_predict_fn, scorers=[])
+
+    runs = mlflow.search_runs()
+    assert len(runs) == 1
+
+
+def test_evaluate_with_simulator_within_parent_run(tmp_path):
+    mlflow.set_tracking_uri(f"sqlite:///{tmp_path}/mlflow.db")
+    mlflow.set_experiment("test-experiment")
+
+    simulator = ConversationSimulator(
+        test_cases=[{"goal": "get help"}],
+        max_turns=2,
+        user_agent_class=MockUserAgent,
+    )
+
+    def mock_predict_fn(input: list[dict[str, Any]], **kwargs):
+        return {"content": "Response"}
+
+    with mock.patch(
+        "mlflow.genai.simulators.simulator.invoke_model_without_tracing",
+        return_value='{"rationale": "Goal achieved!", "result": "yes"}',
+    ):
+        with mlflow.start_run(run_name="parent-run") as parent_run:
+            parent_run_id = parent_run.info.run_id
+            mlflow.genai.evaluate(data=simulator, predict_fn=mock_predict_fn, scorers=[])
+            assert mlflow.active_run().info.run_id == parent_run_id
+
+    runs = mlflow.search_runs()
+    assert len(runs) == 1
+    assert runs.iloc[0]["tags.mlflow.runName"] == "parent-run"
+
+
+# ===================== Rate Limiting & Pipelining Tests =====================
+
+
+def test_predict_rate_limiter_is_wired_to_predict_fn(monkeypatch):
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT", "100")
+
+    with mock.patch.object(
+        RPSRateLimiter, "acquire", autospec=True, side_effect=lambda self: None
+    ) as mock_acquire:
+        data = [{"inputs": {"q": f"Q{i}"}} for i in range(5)]
+        mlflow.genai.evaluate(data=data, predict_fn=lambda q: "answer", scorers=[])
+        assert mock_acquire.call_count == 5
+
+
+def test_scorer_rate_limiter_is_wired_to_scorers(monkeypatch):
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_SCORER_RATE_LIMIT", "100")
+
+    with mock.patch.object(
+        RPSRateLimiter, "acquire", autospec=True, side_effect=lambda self: None
+    ) as mock_acquire:
+        data = [{"inputs": {"q": f"Q{i}"}, "outputs": "a"} for i in range(3)]
+        mlflow.genai.evaluate(data=data, scorers=[always_pass, always_pass])
+        # 3 items x 2 scorers = 6 scorer acquire calls (no predict_fn → no predict acquires)
+        assert mock_acquire.call_count == 6
+
+
+def test_pipelining_scores_while_predicts_pending(monkeypatch):
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_MAX_WORKERS", "2")
+
+    # Gate that blocks predicts after the first batch completes
+    gate = threading.Event()
+    predict_call_count = 0
+    predict_lock = threading.Lock()
+    scoring_started_while_predicts_pending = threading.Event()
+
+    def gated_predict_fn(q):
+        nonlocal predict_call_count
+        with predict_lock:
+            predict_call_count += 1
+            call_num = predict_call_count
+        # Let the first 2 predictions through immediately, block the rest
+        if call_num > 2:
+            gate.wait(timeout=5)
+        return "answer"
+
+    @scorer
+    def signaling_scorer(outputs):
+        # If we're scoring while predicts are still pending, signal success
+        with predict_lock:
+            current_predicts = predict_call_count
+        if (
+            current_predicts > 0 and current_predicts < 6
+        ):  # 6 total items, so some must still be pending
+            scoring_started_while_predicts_pending.set()
+        return True
+
+    data = [{"inputs": {"q": f"Q{i}"}} for i in range(6)]
+
+    try:
+        # Run evaluate in a background thread so we can release the gate
+        result_holder = []
+
+        def run_eval():
+            result = mlflow.genai.evaluate(
+                data=data, predict_fn=gated_predict_fn, scorers=[signaling_scorer]
+            )
+            result_holder.append(result)
+
+        eval_thread = threading.Thread(name="test-evaluation-eval", target=run_eval)
+        eval_thread.start()
+
+        # Wait for scoring to signal it started while predicts are pending
+        signaled = scoring_started_while_predicts_pending.wait(timeout=10)
+
+        # Release all blocked predicts
+        gate.set()
+        eval_thread.join(timeout=30)
+
+        assert signaled
+    finally:
+        gate.set()  # Ensure we don't leave threads blocked
+
+
+def test_backpressure_limits_in_flight_items(monkeypatch):
+    workers = 2
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_MAX_WORKERS", str(workers))
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT", "0")
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_SCORER_RATE_LIMIT", "0")
+    # Skip pre-flight predict_fn call that runs outside the backpressure semaphore
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_SKIP_TRACE_VALIDATION", "true")
+    buffer = backpressure_buffer(workers)
+
+    max_in_flight = 0
+    in_flight = 0
+    lock = threading.Lock()
+    predict_done = threading.Semaphore(0)
+    score_gate = threading.Event()
+
+    def tracking_predict(q):
+        nonlocal in_flight, max_in_flight
+        with lock:
+            in_flight += 1
+            max_in_flight = max(max_in_flight, in_flight)
+        predict_done.release()
+        return "answer"
+
+    @scorer
+    def blocking_scorer(outputs):
+        score_gate.wait()
+        nonlocal in_flight
+        with lock:
+            in_flight -= 1
+        return True
+
+    num_items = 3 * buffer
+    data = [{"inputs": {"q": f"Q{i}"}} for i in range(num_items)]
+
+    eval_thread = threading.Thread(
+        name="test-evaluation-blocking",
+        target=lambda: mlflow.genai.evaluate(
+            data=data, predict_fn=tracking_predict, scorers=[blocking_scorer]
+        ),
+    )
+
+    try:
+        eval_thread.start()
+
+        # Wait for exactly `buffer` predicts to complete. The semaphore guarantees
+        # each acquire() returns once a predict runs. After this, the submit thread
+        # is blocked on the backpressure semaphore and no more predicts can run
+        # (scorers are blocked on score_gate).
+        for _ in range(buffer):
+            predict_done.acquire()
+
+        with lock:
+            observed_max = max_in_flight
+    finally:
+        score_gate.set()
+        eval_thread.join()
+
+    # The semaphore bounds in-flight items. Without backpressure all
+    # num_items would pile up.
+    assert observed_max == buffer
+
+
+def test_evaluate_logs_scorer_failure_summary():
+    @scorer
+    def failing_scorer(inputs, outputs):
+        raise ValueError("Model endpoint not found")
+
+    @scorer
+    def working_scorer(inputs, outputs):
+        return True
+
+    data = [
+        {
+            "inputs": {"question": "What is MLflow?"},
+            "outputs": "MLflow is a platform",
+        },
+        {
+            "inputs": {"question": "What is Python?"},
+            "outputs": "Python is a language",
+        },
+    ]
+
+    with mock.patch("mlflow.genai.evaluation.harness._logger.warning") as mock_warning:
+        result = mlflow.genai.evaluate(
+            data=data,
+            scorers=[failing_scorer, working_scorer],
+        )
+
+        # Evaluation should complete without raising an exception
+        assert "working_scorer/mean" in result.metrics
+
+        # Verify warning was logged with failure summary
+        warning_calls = [call.args[0] for call in mock_warning.call_args_list]
+        failure_warnings = [
+            msg
+            for msg in warning_calls
+            if "Some scorer invocations failed during evaluation" in msg
+        ]
+        warning_message = failure_warnings[0]
+        assert "'failing_scorer': 2/2 failed" in warning_message
+        assert "Check individual trace assessments for detailed error messages" in warning_message
+
+
+def test_evaluate_no_warning_when_all_scorers_succeed():
+    @scorer
+    def working_scorer_1(inputs, outputs):
+        return True
+
+    @scorer
+    def working_scorer_2(inputs, outputs):
+        return False
+
+    data = [
+        {
+            "inputs": {"question": "What is MLflow?"},
+            "outputs": "MLflow is a platform",
+        },
+    ]
+
+    with mock.patch("mlflow.genai.evaluation.harness._logger.warning") as mock_warning:
+        result = mlflow.genai.evaluate(
+            data=data,
+            scorers=[working_scorer_1, working_scorer_2],
+        )
+
+        assert "working_scorer_1/mean" in result.metrics
+        assert "working_scorer_2/mean" in result.metrics
+        warning_calls = [call.args[0] for call in mock_warning.call_args_list]
+        assert not any(
+            "Some scorer invocations failed during evaluation" in msg for msg in warning_calls
+        )
+
+
+def test_evaluate_logs_scorer_failure_summary_with_multi_turn_scorers():
+
+    @mlflow.trace
+    def model(question, session_id):
+        mlflow.update_current_trace(metadata={"mlflow.trace.session": session_id})
+        return f"Answer to {question}"
+
+    model("Q1", session_id="session_1")
+    trace_1 = mlflow.get_trace(mlflow.get_last_active_trace_id())
+
+    model("Q2", session_id="session_1")
+    trace_2 = mlflow.get_trace(mlflow.get_last_active_trace_id())
+
+    model("Q3", session_id="session_2")
+    trace_3 = mlflow.get_trace(mlflow.get_last_active_trace_id())
+
+    dataset = create_dataset(name="multi_turn_failure_test")
+    dataset.merge_records([trace_1, trace_2, trace_3])
+
+    with mock.patch("mlflow.genai.evaluation.harness._logger.warning") as mock_warning:
+        result = mlflow.genai.evaluate(
+            data=dataset,
+            scorers=[FailingSessionScorer(), WorkingSessionScorer()],
+        )
+
+        assert "working_session_scorer/mean" in result.metrics
+
+        warning_calls = [call.args[0] for call in mock_warning.call_args_list]
+        failure_warnings = [
+            msg
+            for msg in warning_calls
+            if "Some scorer invocations failed during evaluation" in msg
+        ]
+        assert len(failure_warnings) > 0
+        warning_message = failure_warnings[0]
+        assert "'failing_session_scorer': 2/2 failed" in warning_message
+        assert "Check individual trace assessments for detailed error messages" in warning_message
+
+
+def test_evaluate_logs_scorer_failure_summary_with_mixed_scorers():
+    @scorer
+    def failing_single_turn(inputs, outputs):
+        raise ValueError("Single turn scorer error")
+
+    @mlflow.trace
+    def model(question, session_id):
+        mlflow.update_current_trace(metadata={"mlflow.trace.session": session_id})
+        return f"Answer to {question}"
+
+    model("Q1", session_id="session_1")
+    trace_1 = mlflow.get_trace(mlflow.get_last_active_trace_id())
+
+    model("Q2", session_id="session_1")
+    trace_2 = mlflow.get_trace(mlflow.get_last_active_trace_id())
+
+    model("Q3", session_id="session_2")
+    trace_3 = mlflow.get_trace(mlflow.get_last_active_trace_id())
+
+    model("Q4", session_id="session_2")
+    trace_4 = mlflow.get_trace(mlflow.get_last_active_trace_id())
+
+    # Create dataset from traces
+    dataset = create_dataset(name="mixed_scorer_failure_test")
+    dataset.merge_records([trace_1, trace_2, trace_3, trace_4])
+
+    with mock.patch("mlflow.genai.evaluation.harness._logger.warning") as mock_warning:
+        result = mlflow.genai.evaluate(
+            data=dataset,
+            scorers=[
+                failing_single_turn,
+                always_pass,
+                FailingSessionScorer(),
+                WorkingSessionScorer(),
+            ],
+        )
+
+        assert "always_pass/mean" in result.metrics
+        assert "working_session_scorer/mean" in result.metrics
+
+        warning_calls = [call.args[0] for call in mock_warning.call_args_list]
+        failure_warnings = [
+            msg
+            for msg in warning_calls
+            if "Some scorer invocations failed during evaluation" in msg
+        ]
+        assert len(failure_warnings) > 0
+        warning_message = failure_warnings[0]
+        assert "'failing_single_turn': 4/4 failed" in warning_message
+        assert "'failing_session_scorer': 2/2 failed" in warning_message
+        assert "Check individual trace assessments for detailed error messages" in warning_message
+
+
+def test_no_rate_limit_backward_compat(monkeypatch):
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT", "0")
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_SCORER_RATE_LIMIT", "0")
+    data = [
+        {
+            "inputs": {"question": "What is MLflow?"},
+            "outputs": "MLflow is a tool for ML",
+            "expectations": {"expected_response": "MLflow is a tool for ML", "max_length": 100},
+        },
+    ]
+
+    result = mlflow.genai.evaluate(data=data, scorers=[exact_match, is_concise])
+
+    assert result.metrics["exact_match/mean"] == 1.0
+    assert result.metrics["is_concise/mean"] == 1.0
+
+
+# ===================== Retry & Adaptive Rate Limiting Tests =====================
+
+
+def test_predict_retries_on_429(monkeypatch):
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT", "0")
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_MAX_RETRIES", "3")
+
+    attempts = []
+
+    def flaky_predict(q):
+        attempts.append(1)
+        # First call is the pre-flight validation check — let it pass.
+        # Fail on calls 2 and 3, succeed on call 4.
+        if 1 < len(attempts) < 4:
+            raise Exception("429 Too Many Requests")
+        return "answer"
+
+    data = [{"inputs": {"q": "Q1"}}]
+    result = mlflow.genai.evaluate(data=data, predict_fn=flaky_predict, scorers=[always_pass])
+
+    # 1 validation + 1 fail + 1 fail + 1 success = 4 total
+    assert len(attempts) == 4
+    assert result.metrics["always_pass/mean"] == 1.0
+
+
+def test_scorer_retries_on_429(monkeypatch):
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT", "0")
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_SCORER_RATE_LIMIT", "0")
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_MAX_RETRIES", "3")
+
+    attempts = []
+
+    @scorer
+    def flaky_scorer(outputs):
+        attempts.append(1)
+        if len(attempts) < 3:
+            raise Exception("429 Too Many Requests")
+        return True
+
+    data = [{"inputs": {"q": "Q1"}, "outputs": "a"}]
+    result = mlflow.genai.evaluate(data=data, scorers=[flaky_scorer])
+
+    assert len(attempts) == 3
+    assert result.metrics["flaky_scorer/mean"] == 1.0
+
+
+def test_adaptive_rate_reduces_on_429(monkeypatch):
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT", "auto")
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_MAX_RETRIES", "3")
+
+    rate_after_throttle = []
+
+    original_report_throttle = RPSRateLimiter.report_throttle
+
+    def spy_report_throttle(self):
+        original_report_throttle(self)
+        rate_after_throttle.append(self._rps)
+
+    attempts = []
+
+    def flaky_predict(q):
+        attempts.append(1)
+        # First call is the pre-flight validation check — let it pass.
+        # Fail on call 2 to trigger a throttle event.
+        if len(attempts) == 2:
+            raise Exception("429 Too Many Requests")
+        return "answer"
+
+    data = [{"inputs": {"q": f"Q{i}"}} for i in range(3)]
+
+    with mock.patch.object(RPSRateLimiter, "report_throttle", spy_report_throttle):
+        result = mlflow.genai.evaluate(data=data, predict_fn=flaky_predict, scorers=[always_pass])
+
+    assert result.metrics["always_pass/mean"] == 1.0
+    # At least one throttle event observed, and the rate was reduced
+    assert len(rate_after_throttle) >= 1
+    assert rate_after_throttle[0] < AUTO_INITIAL_RPS
+
+
+@pytest.mark.parametrize(
+    ("trace_or_none", "run_id"),
+    [
+        (None, "run-1"),
+        (
+            Trace(
+                info=create_test_trace_info_with_uc_table(
+                    trace_id="tr-uc", catalog_name="catalog", schema_name="schema"
+                ),
+                data=TraceData(spans=[]),
+            ),
+            "run-1",
+        ),
+    ],
+    ids=["none_trace", "uc_schema_trace"],
+)
+def test_should_clone_trace_returns_false_early(trace_or_none, run_id):
+    assert _should_clone_trace(trace_or_none, run_id=run_id) is False
+
+
+@pytest.mark.parametrize(
+    ("experiment_id", "expected"),
+    [
+        ("exp-999", True),
+        ("exp-123", False),
+    ],
+    ids=["different_experiment", "matching_experiment"],
+)
+def test_should_clone_trace_with_explicit_experiment_id(
+    mlflow_experiment_trace, experiment_id, expected
+):
+    with mock.patch(
+        "mlflow.genai.evaluation.harness._does_store_support_trace_linking",
+        return_value=True,
+    ) as mock_store:
+        result = _should_clone_trace(
+            mlflow_experiment_trace, run_id="run-1", experiment_id=experiment_id
+        )
+    assert result is expected
+    if expected is False:
+        mock_store.assert_called_once()
+
+
+def test_should_clone_trace_falls_back_to_get_experiment_id_when_none(mlflow_experiment_trace):
+    with (
+        mock.patch(
+            "mlflow.tracking.fluent._get_experiment_id",
+            return_value="exp-999",
+        ) as mock_get_exp,
+        mock.patch(
+            "mlflow.genai.evaluation.harness._does_store_support_trace_linking",
+            return_value=True,
+        ),
+    ):
+        result = _should_clone_trace(mlflow_experiment_trace, run_id="run-1", experiment_id=None)
+        mock_get_exp.assert_called_once()
+    assert result is True
+
+
+def test_should_clone_trace_does_not_call_get_experiment_id_when_provided(mlflow_experiment_trace):
+    with (
+        mock.patch("mlflow.tracking.fluent._get_experiment_id") as mock_get_exp,
+        mock.patch(
+            "mlflow.genai.evaluation.harness._does_store_support_trace_linking",
+            return_value=True,
+        ),
+    ):
+        _should_clone_trace(mlflow_experiment_trace, run_id="run-1", experiment_id="exp-123")
+        mock_get_exp.assert_not_called()

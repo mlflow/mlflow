@@ -1,3 +1,4 @@
+import type { DocumentTitleHandle } from '../common/utils/RoutingUtils';
 import { createLazyRouteElement } from '../common/utils/RoutingUtils';
 import { GatewayPageId, GatewayRoutePaths } from './routes';
 
@@ -7,21 +8,37 @@ export const getGatewayRouteDefs = () => {
       path: GatewayRoutePaths.gatewayPage,
       element: createLazyRouteElement(() => import('./pages/GatewayPage')),
       pageId: GatewayPageId.gatewayPage,
+      handle: { getPageTitle: () => 'AI Gateway' } satisfies DocumentTitleHandle,
       children: [
         {
           path: 'api-keys',
-          element: createLazyRouteElement(() => import('./pages/ApiKeysPage')),
+          element: createLazyRouteElement(() => import('./pages/RedirectApiKeysToSettings')),
           pageId: GatewayPageId.apiKeysPage,
+          handle: { getPageTitle: () => 'API Keys' } satisfies DocumentTitleHandle,
+        },
+        {
+          path: 'usage',
+          element: createLazyRouteElement(() => import('./pages/GatewayUsagePage')),
+          pageId: GatewayPageId.usagePage,
+          handle: { getPageTitle: () => 'Usage' } satisfies DocumentTitleHandle,
+        },
+        {
+          path: 'budgets',
+          element: createLazyRouteElement(() => import('./pages/BudgetsPage')),
+          pageId: GatewayPageId.budgetsPage,
+          handle: { getPageTitle: () => 'Budgets' } satisfies DocumentTitleHandle,
         },
         {
           path: 'endpoints/create',
           element: createLazyRouteElement(() => import('./pages/CreateEndpointPage')),
           pageId: GatewayPageId.createEndpointPage,
+          handle: { getPageTitle: () => 'Create Endpoint' } satisfies DocumentTitleHandle,
         },
         {
           path: 'endpoints/:endpointId',
           element: createLazyRouteElement(() => import('./pages/EndpointPage')),
           pageId: GatewayPageId.endpointDetailsPage,
+          handle: { getPageTitle: (params) => `Endpoint ${params['endpointId']}` } satisfies DocumentTitleHandle,
         },
       ],
     },

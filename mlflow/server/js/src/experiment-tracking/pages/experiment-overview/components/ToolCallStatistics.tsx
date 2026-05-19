@@ -11,21 +11,12 @@ import { useToolCallStatisticsData } from '../hooks/useToolCallStatisticsData';
 import { formatCount, formatLatency } from '../utils/chartUtils';
 import { StatCard } from './OverviewLayoutComponents';
 import { OverviewChartErrorState } from './OverviewChartComponents';
-import type { OverviewChartProps } from '../types';
 
-export const ToolCallStatistics: React.FC<Omit<OverviewChartProps, 'timeIntervalSeconds' | 'timeBuckets'>> = ({
-  experimentId,
-  startTimeMs,
-  endTimeMs,
-}) => {
+export const ToolCallStatistics: React.FC = () => {
   const { theme } = useDesignSystemTheme();
 
   // Fetch and process tool call statistics using the custom hook
-  const { totalCalls, failedCalls, successRate, avgLatency, isLoading, error } = useToolCallStatisticsData({
-    experimentId,
-    startTimeMs,
-    endTimeMs,
-  });
+  const { totalCalls, failedCalls, successRate, avgLatency, isLoading, error } = useToolCallStatisticsData();
 
   if (error) {
     return <OverviewChartErrorState />;
@@ -41,8 +32,8 @@ export const ToolCallStatistics: React.FC<Omit<OverviewChartProps, 'timeInterval
     >
       <StatCard
         icon={<WrenchIcon />}
-        iconColor={theme.colors.blue600}
-        iconBgColor={theme.colors.blue100}
+        iconColor={theme.colors.blue500}
+        iconBgColor={`${theme.colors.blue500}1A`}
         value={formatCount(totalCalls)}
         label={
           <FormattedMessage defaultMessage="Total Tool Calls" description="Label for total tool calls statistic" />
@@ -50,25 +41,25 @@ export const ToolCallStatistics: React.FC<Omit<OverviewChartProps, 'timeInterval
         isLoading={isLoading}
       />
       <StatCard
-        icon={<CheckCircleIcon />}
-        iconColor={theme.colors.green600}
-        iconBgColor={theme.colors.green100}
-        value={`${successRate.toFixed(2)}%`}
-        label={<FormattedMessage defaultMessage="Success Rate" description="Label for success rate statistic" />}
-        isLoading={isLoading}
-      />
-      <StatCard
         icon={<ClockIcon />}
-        iconColor={theme.colors.yellow600}
-        iconBgColor={theme.colors.yellow100}
+        iconColor={theme.colors.yellow500}
+        iconBgColor={`${theme.colors.yellow500}1A`}
         value={formatLatency(avgLatency)}
         label={<FormattedMessage defaultMessage="Avg Latency" description="Label for average latency statistic" />}
         isLoading={isLoading}
       />
       <StatCard
+        icon={<CheckCircleIcon />}
+        iconColor={theme.colors.green500}
+        iconBgColor={`${theme.colors.green500}1A`}
+        value={`${successRate.toFixed(2)}%`}
+        label={<FormattedMessage defaultMessage="Success Rate" description="Label for success rate statistic" />}
+        isLoading={isLoading}
+      />
+      <StatCard
         icon={<XCircleFillIcon />}
-        iconColor={theme.colors.red600}
-        iconBgColor={theme.colors.red100}
+        iconColor={theme.colors.red500}
+        iconBgColor={`${theme.colors.red500}1A`}
         value={formatCount(failedCalls)}
         label={<FormattedMessage defaultMessage="Failed Calls" description="Label for failed calls statistic" />}
         isLoading={isLoading}

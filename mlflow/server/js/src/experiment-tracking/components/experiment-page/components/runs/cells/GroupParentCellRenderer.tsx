@@ -137,6 +137,7 @@ export const GroupParentCellRenderer = ({ data, isComparingRuns }: GroupParentCe
           }
         >
           <Link
+            componentId="mlflow.experiment_tracking.runs_table.group_parent_link"
             to={urlToRunUuidsFilter}
             target="_blank"
             css={{

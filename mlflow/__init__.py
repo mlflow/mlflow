@@ -57,7 +57,10 @@ from mlflow import tracing  # noqa: F401
 from mlflow.environment_variables import MLFLOW_CONFIGURE_LOGGING
 from mlflow.exceptions import MlflowException
 from mlflow.utils.lazy_load import LazyLoader
-from mlflow.utils.logging_utils import _configure_mlflow_loggers
+from mlflow.utils.logging_utils import (
+    _configure_mlflow_loggers,
+    _install_sensitive_query_param_filter,
+)
 
 # Lazily load mlflow flavors to avoid excessive dependencies.
 anthropic = LazyLoader("mlflow.anthropic", globals(), "mlflow.anthropic")
@@ -67,6 +70,7 @@ autogen = LazyLoader("mlflow.autogen", globals(), "mlflow.autogen")
 bedrock = LazyLoader("mlflow.bedrock", globals(), "mlflow.bedrock")
 catboost = LazyLoader("mlflow.catboost", globals(), "mlflow.catboost")
 crewai = LazyLoader("mlflow.crewai", globals(), "mlflow.crewai")
+diffusers = LazyLoader("mlflow.diffusers", globals(), "mlflow.diffusers")
 dspy = LazyLoader("mlflow.dspy", globals(), "mlflow.dspy")
 gemini = LazyLoader("mlflow.gemini", globals(), "mlflow.gemini")
 groq = LazyLoader("mlflow.groq", globals(), "mlflow.groq")
@@ -78,10 +82,10 @@ langchain = LazyLoader("mlflow.langchain", globals(), "mlflow.langchain")
 lightgbm = LazyLoader("mlflow.lightgbm", globals(), "mlflow.lightgbm")
 litellm = LazyLoader("mlflow.litellm", globals(), "mlflow.litellm")
 llama_index = LazyLoader("mlflow.llama_index", globals(), "mlflow.llama_index")
-llm = LazyLoader("mlflow.llm", globals(), "mlflow.llm")
 metrics = LazyLoader("mlflow.metrics", globals(), "mlflow.metrics")
 mistral = LazyLoader("mlflow.mistral", globals(), "mlflow.mistral")
 onnx = LazyLoader("mlflow.onnx", globals(), "mlflow.onnx")
+otel = LazyLoader("mlflow.otel", globals(), "mlflow.otel")
 openai = LazyLoader("mlflow.openai", globals(), "mlflow.openai")
 paddle = LazyLoader("mlflow.paddle", globals(), "mlflow.paddle")
 pmdarima = LazyLoader("mlflow.pmdarima", globals(), "mlflow.pmdarima")
@@ -121,6 +125,7 @@ if TYPE_CHECKING:
         bedrock,
         catboost,
         crewai,
+        diffusers,
         dspy,
         gemini,
         groq,
@@ -132,11 +137,11 @@ if TYPE_CHECKING:
         lightgbm,
         litellm,
         llama_index,
-        llm,
         metrics,
         mistral,
         onnx,
         openai,
+        otel,
         paddle,
         pmdarima,
         prophet,
@@ -159,6 +164,8 @@ if TYPE_CHECKING:
         xgboost,
     )
 
+_install_sensitive_query_param_filter()
+
 if MLFLOW_CONFIGURE_LOGGING.get() is True:
     _configure_mlflow_loggers(root_module_name=__name__)
 
@@ -169,9 +176,11 @@ from mlflow.tracing.assessment import (
     log_assessment,
     log_expectation,
     log_feedback,
+    log_issue,
     override_feedback,
     update_assessment,
 )
+from mlflow.tracing.context import context
 from mlflow.tracing.fluent import (
     add_trace,
     delete_trace_tag,
@@ -180,6 +189,7 @@ from mlflow.tracing.fluent import (
     get_last_active_trace_id,
     get_trace,
     log_trace,
+    search_sessions,
     search_traces,
     set_trace_tag,
     start_span,
@@ -208,6 +218,7 @@ __all__ = [
     "active_run",
     # Tracing APIs
     "add_trace",
+    "context",
     "delete_trace_tag",
     "flush_trace_async_logging",
     "get_active_trace_id",
@@ -215,6 +226,7 @@ __all__ = [
     "get_last_active_trace_id",
     "get_trace",
     "log_trace",
+    "search_sessions",
     "search_traces",
     "set_trace_tag",
     "start_span",
@@ -228,6 +240,7 @@ __all__ = [
     "update_assessment",
     "log_expectation",
     "log_feedback",
+    "log_issue",
     "override_feedback",
 ]
 
@@ -263,6 +276,14 @@ if not IS_TRACING_SDK_ONLY:
         set_model_version_tag,
         set_prompt_alias,
     )
+    from mlflow.tracking._workspace.fluent import (
+        create_workspace,
+        delete_workspace,
+        get_workspace,
+        list_workspaces,
+        set_workspace,
+        update_workspace,
+    )
     from mlflow.tracking.fluent import (
         ActiveModel,
         ActiveRun,
@@ -286,6 +307,7 @@ if not IS_TRACING_SDK_ONLY:
         get_logged_model,
         get_parent_run,
         get_run,
+        import_checkpoints,
         initialize_logged_model,
         last_active_run,
         last_logged_model,
@@ -331,7 +353,9 @@ if not IS_TRACING_SDK_ONLY:
         "clear_active_model",
         "create_experiment",
         "create_external_model",
+        "create_workspace",
         "delete_experiment",
+        "delete_workspace",
         "delete_run",
         "delete_tag",
         "disable_system_metrics_logging",
@@ -346,7 +370,9 @@ if not IS_TRACING_SDK_ONLY:
         "get_artifact_uri",
         "get_experiment",
         "get_experiment_by_name",
+        "import_checkpoints",
         "get_logged_model",
+        "get_workspace",
         "get_parent_run",
         "get_registry_uri",
         "get_run",
@@ -378,6 +404,7 @@ if not IS_TRACING_SDK_ONLY:
         "search_logged_models",
         "search_model_versions",
         "search_registered_models",
+        "list_workspaces",
         "search_runs",
         "search_prompts",
         "set_active_model",
@@ -391,6 +418,7 @@ if not IS_TRACING_SDK_ONLY:
         "set_system_metrics_sampling_interval",
         "set_tag",
         "set_tags",
+        "set_workspace",
         "start_run",
         "validate_evaluation_results",
         "Image",
@@ -399,11 +427,11 @@ if not IS_TRACING_SDK_ONLY:
         # imports from mlflow will be deprecated in the future.
         "load_prompt",
         "register_prompt",
-        "search_prompts",
         "set_prompt_alias",
         "delete_prompt_alias",
         "set_logged_model_tags",
         "delete_logged_model_tag",
+        "update_workspace",
     ]
 
 

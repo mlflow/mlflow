@@ -1,0 +1,953 @@
+import json
+from contextlib import contextmanager
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+import mlflow
+from mlflow.entities.assessment import Assessment, AssessmentSource, Feedback
+from mlflow.entities.assessment_source import AssessmentSourceType
+from mlflow.entities.trace import Trace
+from mlflow.exceptions import MlflowException
+from mlflow.genai.judges import make_judge
+from mlflow.genai.judges.optimizers import MemAlignOptimizer
+from mlflow.genai.judges.optimizers.memalign.optimizer import (
+    _DATABRICKS_EMBEDDING_BATCH_SIZE,
+    _DEFAULT_EMBEDDING_BATCH_SIZE,
+    MemoryAugmentedJudge,
+)
+from mlflow.genai.scorers.base import Scorer, ScorerKind, SerializedScorer
+
+_HUMAN_SOURCE = AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="user1")
+
+
+def _start_test_trace(span_name: str, inputs: str = "input", outputs: str = "output") -> str:
+    with mlflow.start_span(name=span_name) as span:
+        span.set_inputs({"inputs": inputs})
+        span.set_outputs({"outputs": outputs})
+    return mlflow.get_last_active_trace_id()
+
+
+def _log_human_feedback(trace_id: str, value: str, rationale: str = "") -> Assessment:
+    return mlflow.log_feedback(
+        trace_id=trace_id,
+        name="test_judge",
+        value=value,
+        rationale=rationale,
+        source=_HUMAN_SOURCE,
+    )
+
+
+def _update_human_feedback(
+    trace_id: str, assessment_id: str, value: str, rationale: str = ""
+) -> Assessment:
+    return mlflow.update_assessment(
+        trace_id=trace_id,
+        assessment_id=assessment_id,
+        assessment=Feedback(
+            name="test_judge", value=value, rationale=rationale, source=_HUMAN_SOURCE
+        ),
+    )
+
+
+def _refresh(trace: Trace) -> Trace:
+    return mlflow.get_trace(trace.info.trace_id)
+
+
+@pytest.fixture
+def sample_judge():
+    return make_judge(
+        name="test_judge",
+        instructions="Evaluate if {{ outputs }} correctly answers {{ inputs }}",
+        model="openai:/gpt-4",
+    )
+
+
+@pytest.fixture
+def mock_embedder():
+    with patch("dspy.Embedder") as mock_embedder_class:
+        mock_embedder = MagicMock()
+        mock_embedder_class.return_value = mock_embedder
+        yield mock_embedder
+
+
+@pytest.fixture
+def mock_search():
+    with patch("dspy.retrievers.Embeddings") as mock_embeddings_class:
+        mock_search = MagicMock()
+        mock_embeddings_class.return_value = mock_search
+        yield mock_search
+
+
+@pytest.fixture
+def mock_distillation_lm():
+    with patch(
+        "mlflow.genai.judges.optimizers.memalign.utils.construct_dspy_lm"
+    ) as mock_construct_lm:
+        mock_lm = MagicMock()
+        mock_construct_lm.return_value = mock_lm
+        yield mock_lm
+
+
+@contextmanager
+def mock_apis(guidelines=None, batch_size=50):
+    """Context manager for mocking API calls with optional guideline configuration."""
+    if guidelines is None:
+        guidelines = []
+
+    # _create_batches returns list of batches; mock returns single batch with all indices
+    # based on actual input size
+    def create_batches_side_effect(examples_data, indices, **kwargs):
+        # Return single batch containing all indices
+        return [list(indices)]
+
+    with (
+        patch("dspy.retrievers.Embeddings") as mock_embeddings_class,
+        patch("dspy.Embedder") as mock_embedder_class,
+        patch(
+            "mlflow.genai.judges.optimizers.memalign.utils.construct_dspy_lm"
+        ) as mock_construct_lm,
+        patch(
+            "mlflow.genai.judges.optimizers.memalign.utils._create_batches",
+            side_effect=create_batches_side_effect,
+        ) as mock_create_batches,
+    ):
+        # Mock distillation LM - include source_trace_ids for guidelines to be retained
+        mock_lm = MagicMock()
+        guidelines_json = {
+            "guidelines": [
+                {"guideline_text": g, "source_trace_ids": list(range(batch_size))}
+                for g in guidelines
+            ]
+        }
+        mock_lm.return_value = [f"{guidelines_json}".replace("'", '"')]
+        mock_construct_lm.return_value = mock_lm
+
+        mock_embedder = MagicMock()
+        mock_embedder_class.return_value = mock_embedder
+
+        mock_search = MagicMock()
+        mock_embeddings_class.return_value = mock_search
+
+        yield {
+            "lm": mock_lm,
+            "embedder": mock_embedder,
+            "search": mock_search,
+            "construct_lm": mock_construct_lm,
+            "embedder_class": mock_embedder_class,
+            "embeddings_class": mock_embeddings_class,
+            "create_batches": mock_create_batches,
+        }
+
+
+@pytest.fixture
+def sample_traces():
+    traces = []
+    for i in range(5):
+        trace_id = _start_test_trace(f"test_span_{i}", f"input_{i}", f"output_{i}")
+        _log_human_feedback(trace_id, value="yes", rationale=f"Reason {i}")
+        traces.append(mlflow.get_trace(trace_id))
+    return traces
+
+
+def test_init_default_config():
+    optimizer = MemAlignOptimizer()
+    assert optimizer._retrieval_k == 5
+    assert optimizer._embedding_model == "openai:/text-embedding-3-small"
+    assert optimizer._embedding_dim == 512
+
+
+def test_init_custom_config():
+    optimizer = MemAlignOptimizer(
+        reflection_lm="openai:/gpt-4",
+        retrieval_k=3,
+        embedding_dim=256,
+    )
+    assert optimizer._reflection_lm == "openai:/gpt-4"
+    assert optimizer._retrieval_k == 3
+    assert optimizer._embedding_dim == 256
+
+
+def test_align_empty_traces_raises_error(sample_judge):
+    optimizer = MemAlignOptimizer()
+    with pytest.raises(MlflowException, match="No traces provided"):
+        optimizer.align(sample_judge, [])
+
+
+def test_align_no_valid_feedback_raises_error(sample_judge):
+    # Create a trace without any assessments - trace_to_dspy_example will return None
+    with mlflow.start_span(name="test_span") as span:
+        span.set_inputs({"inputs": "test input"})
+        span.set_outputs({"outputs": "test output"})
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+
+    optimizer = MemAlignOptimizer()
+    with pytest.raises(MlflowException, match="No valid feedback records found"):
+        optimizer.align(sample_judge, [trace])
+
+
+def test_align_creates_memory_augmented_judge(sample_judge, sample_traces):
+    with mock_apis(guidelines=["Guideline 1", "Guideline 2"]):
+        optimizer = MemAlignOptimizer(retrieval_k=3)
+        aligned_judge = optimizer.align(sample_judge, sample_traces[:3])
+
+        assert aligned_judge is not None
+        assert aligned_judge.name == sample_judge.name
+        assert aligned_judge.model == sample_judge.model
+        assert len(aligned_judge._episodic_memory) == 3
+        assert len(aligned_judge._semantic_memory) == 2
+
+
+def test_unalign_removes_traces(sample_judge, sample_traces):
+    with mock_apis(guidelines=["Guideline 1"]):
+        optimizer = MemAlignOptimizer()
+        aligned_judge = optimizer.align(sample_judge, sample_traces)
+
+        # Verify all examples are present
+        num_examples = len(aligned_judge._episodic_memory)
+        assert num_examples == len(sample_traces)
+
+        traces_to_remove = [sample_traces[1], sample_traces[3]]
+        unaligned_judge = aligned_judge.unalign(traces=traces_to_remove)
+
+        # Verify examples for traces 1 and 3 are removed
+        assert len(unaligned_judge._episodic_memory) == num_examples - 2
+        remaining_trace_ids = {
+            ex._trace_id for ex in unaligned_judge._episodic_memory if hasattr(ex, "_trace_id")
+        }
+        expected_remaining_trace_ids = {
+            sample_traces[i].info.trace_id for i in range(len(sample_traces)) if i not in [1, 3]
+        }
+        assert remaining_trace_ids == expected_remaining_trace_ids
+
+
+def test_unalign_no_matching_traces_returns_same_judge(sample_judge, sample_traces):
+    with mock_apis(guidelines=[]):
+        optimizer = MemAlignOptimizer()
+        aligned_judge = optimizer.align(sample_judge, sample_traces[:3])
+
+        # Create trace with non-existent ID
+        mock_trace = MagicMock()
+        mock_trace.info.trace_id = "trace_999"
+
+        unaligned_judge = aligned_judge.unalign(traces=[mock_trace])
+        assert unaligned_judge is aligned_judge
+        assert len(unaligned_judge._episodic_memory) == 3
+
+
+def test_judge_call_uses_semantic_memory(sample_judge, sample_traces):
+    with mock_apis(guidelines=["Be concise", "Be clear"]):
+        optimizer = MemAlignOptimizer()
+        aligned_judge = optimizer.align(sample_judge, sample_traces[:1])
+
+        assert len(aligned_judge._semantic_memory) == 2
+        guideline_texts = [g.guideline_text for g in aligned_judge._semantic_memory]
+        assert "Be concise" in guideline_texts
+        assert "Be clear" in guideline_texts
+
+
+def test_judge_call_retrieves_relevant_examples(sample_judge, sample_traces):
+    with mock_apis(guidelines=[]) as mocks:
+        # Configure search to return specific indices
+        search_results = MagicMock()
+        search_results.indices = [0, 2]
+        mocks["search"].return_value = search_results
+
+        optimizer = MemAlignOptimizer()
+        aligned_judge = optimizer.align(sample_judge, sample_traces[:3])
+
+        # Mock the predict module to return a result
+        mock_prediction = MagicMock()
+        mock_prediction.result = "yes"
+        mock_prediction.rationale = "Test rationale"
+        aligned_judge._predict_module = MagicMock(return_value=mock_prediction)
+
+        assessment = aligned_judge(inputs="test input", outputs="test output")
+        mocks["search"].assert_called_once()
+        assert "retrieved_example_trace_ids" in assessment.metadata
+        # Should return trace IDs, not indices
+        retrieved_trace_ids = assessment.metadata["retrieved_example_trace_ids"]
+        assert len(retrieved_trace_ids) == 2
+        # Verify they're actual trace IDs from the sample traces
+        expected_trace_ids = [sample_traces[0].info.trace_id, sample_traces[2].info.trace_id]
+        assert retrieved_trace_ids == expected_trace_ids
+
+
+def test_memory_augmented_judge_properties(sample_judge, sample_traces):
+    with mock_apis(guidelines=["Guideline 1"]):
+        optimizer = MemAlignOptimizer()
+        aligned_judge = optimizer.align(sample_judge, sample_traces[:1])
+
+        assert aligned_judge.name == sample_judge.name
+        assert aligned_judge.model == sample_judge.model
+        assert aligned_judge.get_input_fields() == sample_judge.get_input_fields()
+
+        assert sample_judge.instructions in aligned_judge.instructions
+        assert "Distilled Guidelines" in aligned_judge.instructions
+        assert "Guideline 1" in aligned_judge.instructions
+
+
+def test_incremental_alignment_preserves_examples(sample_judge, sample_traces):
+    with mock_apis(guidelines=["Guideline 1"]):
+        optimizer = MemAlignOptimizer()
+
+        judge_v2 = optimizer.align(sample_judge, sample_traces[:2])
+        assert len(judge_v2._episodic_memory) == 2
+        assert judge_v2._base_judge is sample_judge
+
+        judge_v3 = optimizer.align(judge_v2, sample_traces[2:4])
+        assert len(judge_v3._episodic_memory) == 4
+        assert judge_v3._base_judge is sample_judge
+
+        trace_ids_in_v3 = {
+            ex._trace_id for ex in judge_v3._episodic_memory if hasattr(ex, "_trace_id")
+        }
+        expected_trace_ids = {sample_traces[i].info.trace_id for i in range(4)}
+        assert trace_ids_in_v3 == expected_trace_ids
+
+
+def test_incremental_alignment_preserves_trace_ids(sample_judge, sample_traces):
+    with mock_apis(guidelines=["Guideline 1"]):
+        optimizer = MemAlignOptimizer()
+
+        judge_v2 = optimizer.align(sample_judge, sample_traces[:2])
+        batch1_ids = {t.info.trace_id for t in sample_traces[:2]}
+        assert set(judge_v2._episodic_trace_ids) == batch1_ids
+
+        judge_v3 = optimizer.align(judge_v2, sample_traces[2:4])
+        all_ids = batch1_ids | {t.info.trace_id for t in sample_traces[2:4]}
+        assert set(judge_v3._episodic_trace_ids) == all_ids
+
+
+def test_incremental_alignment_with_single_example(sample_judge, sample_traces):
+    with mock_apis(guidelines=[]):
+        optimizer = MemAlignOptimizer()
+
+        judge_v2 = optimizer.align(sample_judge, sample_traces[:1])
+        assert len(judge_v2._episodic_memory) == 1
+
+        judge_v3 = optimizer.align(judge_v2, sample_traces[1:3])
+        assert len(judge_v3._episodic_memory) == 3
+
+
+def test_incremental_alignment_after_deserialization(sample_judge, sample_traces):
+    with mock_apis(guidelines=["Guideline 1"]):
+        optimizer = MemAlignOptimizer()
+
+        aligned_v1 = optimizer.align(sample_judge, sample_traces[:3])
+        assert len(aligned_v1._episodic_memory) == 3
+
+        dumped = aligned_v1.model_dump()
+        serialized = SerializedScorer(**dumped)
+        deserialized = MemoryAugmentedJudge._from_serialized(serialized)
+
+        assert deserialized._episodic_memory == []
+        assert len(deserialized._episodic_trace_ids) == 3
+
+        trace_map = {t.info.trace_id: t for t in sample_traces[:3]}
+        with patch(
+            "mlflow.genai.judges.optimizers.memalign.optimizer.mlflow.get_trace",
+            side_effect=lambda tid, **kwargs: trace_map.get(tid),
+        ):
+            aligned_v2 = optimizer.align(deserialized, sample_traces[3:5])
+
+        assert len(aligned_v2._episodic_memory) == 5
+
+
+def test_incremental_alignment_redistills_guidelines(sample_judge, sample_traces):
+    # First alignment: distills "Guideline A"
+    with mock_apis(guidelines=["Guideline A"]):
+        optimizer = MemAlignOptimizer()
+        judge_v2 = optimizer.align(sample_judge, sample_traces[:2])
+        assert len(judge_v2._semantic_memory) == 1
+        guideline_texts = [g.guideline_text for g in judge_v2._semantic_memory]
+        assert "Guideline A" in guideline_texts
+
+    # Second alignment: distills "Guideline B" from ALL examples (old + new)
+    with mock_apis(guidelines=["Guideline B"]):
+        judge_v3 = optimizer.align(judge_v2, sample_traces[2:4])
+        # Should have both old + new guidelines (re-distilled from all examples)
+        assert len(judge_v3._semantic_memory) == 2
+        guideline_texts = [g.guideline_text for g in judge_v3._semantic_memory]
+        assert "Guideline A" in guideline_texts
+        assert "Guideline B" in guideline_texts
+
+
+def test_unalign_filters_guidelines_by_source_ids(sample_judge, sample_traces):
+    # Test that unalign() filters guidelines based on source_ids
+    with mock_apis(guidelines=["Guideline 1", "Guideline 2"]):
+        optimizer = MemAlignOptimizer()
+        aligned_judge = optimizer.align(sample_judge, sample_traces)
+        assert len(aligned_judge._semantic_memory) == 2
+
+        # Unalign some traces - should filter guidelines based on source_trace_ids
+        traces_to_remove = [sample_traces[1], sample_traces[3]]
+        unaligned_judge = aligned_judge.unalign(traces=traces_to_remove)
+        # Unalign doesn't redistill, it filters guidelines based on source_trace_ids
+        # Guidelines without source_trace_ids are retained
+        # Guidelines are deleted only if ALL source traces were removed
+        # Since mock_apis doesn't provide source_trace_ids, all guidelines are retained
+        assert len(unaligned_judge._episodic_memory) == 3  # 5 - 2 removed
+        assert len(unaligned_judge._semantic_memory) == 2
+
+
+# =============================================================================
+# Serialization Tests
+# =============================================================================
+
+
+def test_memory_augmented_judge_kind_property(sample_judge, sample_traces):
+    with mock_apis(guidelines=[]):
+        optimizer = MemAlignOptimizer()
+        aligned_judge = optimizer.align(sample_judge, sample_traces[:1])
+
+        assert aligned_judge.kind == ScorerKind.MEMORY_AUGMENTED
+
+
+def test_memory_augmented_judge_model_dump(sample_judge, sample_traces):
+    with mock_apis(guidelines=["Guideline A", "Guideline B"]):
+        optimizer = MemAlignOptimizer(
+            reflection_lm="openai:/gpt-4o-mini",
+            retrieval_k=3,
+            embedding_model="openai:/text-embedding-3-small",
+            embedding_dim=256,
+        )
+        aligned_judge = optimizer.align(sample_judge, sample_traces[:3])
+
+        dumped = aligned_judge.model_dump()
+
+        # Verify top-level structure
+        assert "memory_augmented_judge_data" in dumped
+        assert dumped["name"] == sample_judge.name
+
+        data = dumped["memory_augmented_judge_data"]
+        assert "base_judge" in data
+        assert "episodic_trace_ids" in data
+        assert "semantic_memory" in data
+
+        # Verify config fields
+        assert data["reflection_lm"] == "openai:/gpt-4o-mini"
+        assert data["retrieval_k"] == 3
+        assert data["embedding_model"] == "openai:/text-embedding-3-small"
+        assert data["embedding_dim"] == 256
+
+        # Verify episodic trace IDs are extracted
+        expected_trace_ids = [t.info.trace_id for t in sample_traces[:3]]
+        assert set(data["episodic_trace_ids"]) == set(expected_trace_ids)
+
+        # Verify semantic memory is serialized
+        assert len(data["semantic_memory"]) == 2
+        guideline_texts = [g["guideline_text"] for g in data["semantic_memory"]]
+        assert "Guideline A" in guideline_texts
+        assert "Guideline B" in guideline_texts
+
+
+def test_memory_augmented_judge_from_serialized(sample_judge, sample_traces):
+    with mock_apis(guidelines=["Be concise", "Be accurate"]):
+        optimizer = MemAlignOptimizer(
+            reflection_lm="openai:/gpt-4",
+            retrieval_k=7,
+            embedding_model="openai:/text-embedding-3-large",
+            embedding_dim=1024,
+        )
+        aligned_judge = optimizer.align(sample_judge, sample_traces[:2])
+
+        dumped = aligned_judge.model_dump()
+        serialized = SerializedScorer(**dumped)
+        restored = MemoryAugmentedJudge._from_serialized(serialized)
+
+        # Verify config fields are restored
+        assert restored._reflection_lm == "openai:/gpt-4"
+        assert restored._retrieval_k == 7
+        assert restored._embedding_model == "openai:/text-embedding-3-large"
+        assert restored._embedding_dim == 1024
+
+        # Verify semantic memory is restored
+        assert len(restored._semantic_memory) == 2
+        guideline_texts = [g.guideline_text for g in restored._semantic_memory]
+        assert "Be concise" in guideline_texts
+        assert "Be accurate" in guideline_texts
+
+        # Verify lazy initialization state (_embedder is None means deferred)
+        assert restored._embedder is None
+        assert restored._episodic_memory == []
+        assert len(restored._episodic_trace_ids) == 2
+
+        # Verify deferred components are None
+        assert restored._base_signature is None
+        assert restored._retriever is None
+        assert restored._predict_module is None
+
+
+def test_scorer_model_validate_routes_to_memory_augmented_judge(sample_judge, sample_traces):
+    with mock_apis(guidelines=[]):
+        optimizer = MemAlignOptimizer()
+        aligned_judge = optimizer.align(sample_judge, sample_traces[:1])
+
+        dumped = aligned_judge.model_dump()
+        restored = Scorer.model_validate(dumped)
+
+        assert isinstance(restored, MemoryAugmentedJudge)
+        assert restored.name == sample_judge.name
+
+
+def test_scorer_model_validate_json_routes_to_memory_augmented_judge(sample_judge, sample_traces):
+    with mock_apis(guidelines=[]):
+        optimizer = MemAlignOptimizer()
+        aligned_judge = optimizer.align(sample_judge, sample_traces[:1])
+
+        dumped = aligned_judge.model_dump()
+        restored = Scorer.model_validate_json(json.dumps(dumped))
+
+        assert isinstance(restored, MemoryAugmentedJudge)
+        assert restored.name == sample_judge.name
+
+
+def test_memory_augmented_judge_round_trip_serialization(sample_judge, sample_traces):
+    with mock_apis(guidelines=["Test guideline"]):
+        optimizer = MemAlignOptimizer(
+            reflection_lm="openai:/gpt-4o-mini",
+            retrieval_k=5,
+            embedding_model="openai:/text-embedding-3-small",
+            embedding_dim=512,
+        )
+        original_judge = optimizer.align(sample_judge, sample_traces[:3])
+
+        dumped = original_judge.model_dump()
+        serialized = SerializedScorer(**dumped)
+        restored_judge = MemoryAugmentedJudge._from_serialized(serialized)
+
+        # Verify config matches
+        assert restored_judge.name == original_judge.name
+        assert restored_judge._reflection_lm == original_judge._reflection_lm
+        assert restored_judge._retrieval_k == original_judge._retrieval_k
+        assert restored_judge._embedding_model == original_judge._embedding_model
+        assert restored_judge._embedding_dim == original_judge._embedding_dim
+
+        # Verify semantic memory matches
+        original_guidelines = [g.guideline_text for g in original_judge._semantic_memory]
+        restored_guidelines = [g.guideline_text for g in restored_judge._semantic_memory]
+        assert original_guidelines == restored_guidelines
+
+        # Verify episodic trace IDs match
+        assert set(restored_judge._episodic_trace_ids) == set(original_judge._episodic_trace_ids)
+
+
+def test_memory_augmented_judge_lazy_init_triggered_on_call(sample_judge, sample_traces):
+    with mock_apis(guidelines=[]):
+        optimizer = MemAlignOptimizer()
+        aligned_judge = optimizer.align(sample_judge, sample_traces[:2])
+
+        dumped = aligned_judge.model_dump()
+        serialized = SerializedScorer(**dumped)
+        restored = MemoryAugmentedJudge._from_serialized(serialized)
+
+        # Verify deferred state (_embedder is None means not initialized)
+        assert restored._embedder is None
+
+        # Mock mlflow.get_trace and predict module for the call
+        trace_map = {t.info.trace_id: t for t in sample_traces[:2]}
+        with (
+            patch(
+                "mlflow.genai.judges.optimizers.memalign.optimizer.mlflow.get_trace",
+                side_effect=lambda tid, **kwargs: trace_map.get(tid),
+            ) as mock_get_trace,
+            patch("dspy.Embedder") as mock_embedder_class,
+            patch("dspy.Predict") as mock_predict_class,
+            patch("dspy.retrievers.Embeddings"),
+        ):
+            mock_embedder_class.return_value = MagicMock()
+            mock_prediction = MagicMock()
+            mock_prediction.result = "yes"
+            mock_prediction.rationale = "Test"
+            mock_predict_instance = MagicMock(return_value=mock_prediction)
+            mock_predict_class.return_value = mock_predict_instance
+
+            restored(inputs="test", outputs="test")
+
+            # Verify initialization happened
+            assert restored._embedder is not None
+            assert mock_get_trace.call_count == 2
+
+
+def test_memory_augmented_judge_lazy_init_logs_warning_for_missing_traces(
+    sample_judge, sample_traces
+):
+    with mock_apis(guidelines=[]):
+        optimizer = MemAlignOptimizer()
+        aligned_judge = optimizer.align(sample_judge, sample_traces[:3])
+
+        dumped = aligned_judge.model_dump()
+        serialized = SerializedScorer(**dumped)
+        restored = MemoryAugmentedJudge._from_serialized(serialized)
+
+        # Mock get_trace to return only 1 of 3 traces (simulating missing traces)
+        first_trace = sample_traces[0]
+
+        def mock_get_trace_fn(tid, **kwargs):
+            if tid == first_trace.info.trace_id:
+                return first_trace
+            return None
+
+        with (
+            patch(
+                "mlflow.genai.judges.optimizers.memalign.optimizer.mlflow.get_trace",
+                side_effect=mock_get_trace_fn,
+            ),
+            patch("dspy.Embedder"),
+            patch("dspy.Predict") as mock_predict_class,
+            patch("dspy.retrievers.Embeddings"),
+            patch("mlflow.genai.judges.optimizers.memalign.optimizer._logger") as mock_logger,
+        ):
+            mock_prediction = MagicMock()
+            mock_prediction.result = "yes"
+            mock_prediction.rationale = "Test"
+            mock_predict_instance = MagicMock(return_value=mock_prediction)
+            mock_predict_class.return_value = mock_predict_instance
+
+            restored(inputs="test", outputs="test")
+
+            mock_logger.warning.assert_called_once()
+            warning_msg = mock_logger.warning.call_args[0][0]
+            assert "Could not find 2 traces" in warning_msg
+            assert "Judge will operate with partial memory" in warning_msg
+
+
+def test_memory_augmented_judge_create_copy_preserves_trace_ids(sample_judge, sample_traces):
+    with mock_apis(guidelines=["Test guideline"]):
+        optimizer = MemAlignOptimizer()
+        aligned_judge = optimizer.align(sample_judge, sample_traces[:3])
+
+        assert len(aligned_judge._episodic_trace_ids) == 3
+
+        judge_copy = aligned_judge._create_copy()
+
+        # Copy should have trace IDs and be in deferred state
+        assert judge_copy._embedder is None
+        assert judge_copy._episodic_memory == []
+        assert set(judge_copy._episodic_trace_ids) == set(aligned_judge._episodic_trace_ids)
+
+
+def test_judge_call_uses_json_adapter(sample_judge, sample_traces):
+    with mock_apis(guidelines=[]) as mocks:
+        mocks["search"].return_value = MagicMock(indices=[0])
+
+        optimizer = MemAlignOptimizer()
+        aligned_judge = optimizer.align(sample_judge, sample_traces[:1])
+
+        mock_prediction = MagicMock()
+        mock_prediction.result = "yes"
+        mock_prediction.rationale = "Test rationale"
+        aligned_judge._predict_module = MagicMock(return_value=mock_prediction)
+
+        with patch("dspy.context") as mock_context:
+            mock_context.return_value.__enter__ = MagicMock()
+            mock_context.return_value.__exit__ = MagicMock(return_value=False)
+            aligned_judge(inputs="test input", outputs="test output")
+
+            mock_context.assert_called_once()
+            adapter_arg = mock_context.call_args.kwargs["adapter"]
+            from dspy.adapters.json_adapter import JSONAdapter
+
+            assert isinstance(adapter_arg, JSONAdapter)
+
+
+def test_memory_augmented_judge_extracts_inputs_outputs_from_trace(sample_judge, sample_traces):
+    with mock_apis(guidelines=[]) as mocks:
+        mocks["search"].return_value = MagicMock(indices=[])
+
+        optimizer = MemAlignOptimizer()
+        aligned_judge = optimizer.align(sample_judge, sample_traces[:1])
+
+        mock_prediction = MagicMock()
+        mock_prediction.result = "yes"
+        mock_prediction.rationale = "Test rationale"
+        aligned_judge._predict_module = MagicMock(return_value=mock_prediction)
+
+        # Call with only trace - inputs/outputs should be extracted from trace
+        test_trace = sample_traces[0]
+        aligned_judge(trace=test_trace)
+
+        # Verify predict_module was called with extracted inputs/outputs
+        call_kwargs = aligned_judge._predict_module.call_args.kwargs
+        assert call_kwargs["inputs"] == {"inputs": "input_0"}
+        assert call_kwargs["outputs"] == {"outputs": "output_0"}
+
+
+@pytest.mark.parametrize(
+    ("embedding_model", "expected_batch_size"),
+    [
+        ("endpoints:/databricks-bge-large-en", _DATABRICKS_EMBEDDING_BATCH_SIZE),
+        ("databricks:/my-embedding-endpoint", _DATABRICKS_EMBEDDING_BATCH_SIZE),
+        ("openai:/text-embedding-3-small", _DEFAULT_EMBEDDING_BATCH_SIZE),
+    ],
+)
+def test_embedder_batch_size(sample_judge, sample_traces, embedding_model, expected_batch_size):
+    with mock_apis(guidelines=[]) as mocks:
+        optimizer = MemAlignOptimizer(embedding_model=embedding_model)
+        optimizer.align(sample_judge, sample_traces[:1])
+
+        _, kwargs = mocks["embedder_class"].call_args
+        assert kwargs["batch_size"] == expected_batch_size
+
+
+# =============================================================================
+# Re-alignment / deduplication tests
+# =============================================================================
+
+
+def test_realign_on_same_traces_does_not_duplicate_memory(sample_judge, sample_traces):
+    with mock_apis(guidelines=["Guideline A"]) as mocks:
+        optimizer = MemAlignOptimizer()
+        judge_v1 = optimizer.align(sample_judge, sample_traces[:3])
+
+        v1_episodic_count = len(judge_v1._episodic_memory)
+        v1_trace_ids = sorted(judge_v1._episodic_trace_ids)
+        v1_semantic_count = len(judge_v1._semantic_memory)
+        v1_lm_calls = mocks["lm"].call_count
+
+        judge_v2 = optimizer.align(judge_v1, sample_traces[:3])
+
+        assert len(judge_v2._episodic_memory) == v1_episodic_count
+        assert sorted(judge_v2._episodic_trace_ids) == v1_trace_ids
+        assert len(judge_v2._semantic_memory) == v1_semantic_count
+        # No additional reflection-LM calls — the all-skipped path short-circuits.
+        assert mocks["lm"].call_count == v1_lm_calls
+
+
+def test_realign_replaces_changed_trace_content(sample_judge, sample_traces):
+    with mock_apis(guidelines=[]) as mocks:
+        optimizer = MemAlignOptimizer()
+        judge_v1 = optimizer.align(sample_judge, sample_traces[:3])
+        v1_lm_calls = mocks["lm"].call_count
+
+        target = sample_traces[0]
+        [original] = target.info.assessments
+        _update_human_feedback(
+            trace_id=target.info.trace_id,
+            assessment_id=original.assessment_id,
+            value="no",
+            rationale="Updated reason",
+        )
+        target = _refresh(target)
+
+        judge_v2 = optimizer.align(judge_v1, [target, sample_traces[1], sample_traces[2]])
+
+        assert len(judge_v2._episodic_memory) == 3
+        examples_for_t0 = [
+            ex
+            for ex in judge_v2._episodic_memory
+            if getattr(ex, "_trace_id", None) == target.info.trace_id
+        ]
+        assert len(examples_for_t0) == 1
+        assert examples_for_t0[0].result == "no"
+        assert examples_for_t0[0].rationale == "Updated reason"
+        # One additional reflection-LM call: the refreshed example was re-distilled.
+        assert mocks["lm"].call_count == v1_lm_calls + 1
+
+
+def test_realign_updates_majority_resolution(sample_judge):
+    trace_id = _start_test_trace("majority_trace")
+    _log_human_feedback(trace_id, value="yes", rationale="ra")
+    _log_human_feedback(trace_id, value="yes", rationale="rb")
+    feedback_c = _log_human_feedback(trace_id, value="yes", rationale="rc")
+    feedback_d = _log_human_feedback(trace_id, value="no", rationale="rd")
+    _log_human_feedback(trace_id, value="no", rationale="re")
+    trace = mlflow.get_trace(trace_id)
+
+    with mock_apis(guidelines=[]):
+        optimizer = MemAlignOptimizer()
+        judge_v1 = optimizer.align(sample_judge, [trace])
+
+        assert len(judge_v1._episodic_memory) == 3
+        assert sorted(ex.rationale for ex in judge_v1._episodic_memory) == ["ra", "rb", "rc"]
+        for ex in judge_v1._episodic_memory:
+            assert ex.result == "yes"
+
+        # Edit: c flips to "no", d flips to "yes". Majority is still "yes" (a, b, d).
+        _update_human_feedback(
+            trace_id=trace_id,
+            assessment_id=feedback_c.assessment_id,
+            value="no",
+            rationale="rc-updated",
+        )
+        _update_human_feedback(
+            trace_id=trace_id,
+            assessment_id=feedback_d.assessment_id,
+            value="yes",
+            rationale="rd-updated",
+        )
+        trace = mlflow.get_trace(trace_id)
+
+        judge_v2 = optimizer.align(judge_v1, [trace])
+
+        assert len(judge_v2._episodic_memory) == 3
+        for ex in judge_v2._episodic_memory:
+            assert ex.result == "yes"
+        assert sorted(ex.rationale for ex in judge_v2._episodic_memory) == [
+            "ra",
+            "rb",
+            "rd-updated",
+        ]
+
+
+def test_realign_after_assessment_removal(sample_judge):
+    trace_id = _start_test_trace("removal_trace")
+    _log_human_feedback(trace_id, value="yes", rationale="ra")
+    _log_human_feedback(trace_id, value="yes", rationale="rb")
+    feedback_c = _log_human_feedback(trace_id, value="yes", rationale="rc")
+    trace = mlflow.get_trace(trace_id)
+
+    with mock_apis(guidelines=[]):
+        optimizer = MemAlignOptimizer()
+        judge_v1 = optimizer.align(sample_judge, [trace])
+        assert len(judge_v1._episodic_memory) == 3
+
+        mlflow.delete_assessment(trace_id=trace_id, assessment_id=feedback_c.assessment_id)
+        trace = mlflow.get_trace(trace_id)
+
+        judge_v2 = optimizer.align(judge_v1, [trace])
+
+        assert len(judge_v2._episodic_memory) == 2
+        assert sorted(ex.rationale for ex in judge_v2._episodic_memory) == ["ra", "rb"]
+
+
+def test_realign_after_deserialization(sample_judge, sample_traces):
+    with mock_apis(guidelines=["Guideline A"]):
+        optimizer = MemAlignOptimizer()
+        judge_v1 = optimizer.align(sample_judge, sample_traces[:3])
+
+        dumped = judge_v1.model_dump()
+        serialized = SerializedScorer(**dumped)
+        deserialized = MemoryAugmentedJudge._from_serialized(serialized)
+
+        assert deserialized._episodic_memory == []
+        assert set(deserialized._episodic_trace_ids) == {t.info.trace_id for t in sample_traces[:3]}
+
+        # Re-align with 3 overlapping + 1 new trace; mock get_trace for reconstruction
+        trace_map = {t.info.trace_id: t for t in sample_traces[:4]}
+        with patch(
+            "mlflow.genai.judges.optimizers.memalign.optimizer.mlflow.get_trace",
+            side_effect=lambda tid, **kwargs: trace_map.get(tid),
+        ):
+            judge_v2 = optimizer.align(deserialized, sample_traces[:4])
+
+        assert len(judge_v2._episodic_memory) == 4
+        assert set(judge_v2._episodic_trace_ids) == {t.info.trace_id for t in sample_traces[:4]}
+
+
+def test_realign_mixed_unchanged_changed_and_new(sample_judge, sample_traces):
+    with mock_apis(guidelines=[]):
+        optimizer = MemAlignOptimizer()
+        judge_v1 = optimizer.align(sample_judge, sample_traces[:3])
+
+        t1 = sample_traces[1]
+        [original] = t1.info.assessments
+        _update_human_feedback(
+            trace_id=t1.info.trace_id,
+            assessment_id=original.assessment_id,
+            value="no",
+            rationale="t1 updated",
+        )
+        t1_updated = _refresh(t1)
+
+        judge_v2 = optimizer.align(judge_v1, [sample_traces[0], t1_updated, sample_traces[3]])
+
+        # Final memory: t0 (unchanged), t1 (updated), t2 (preserved — not in this call), t3 (new)
+        assert len(judge_v2._episodic_memory) == 4
+        assert set(judge_v2._episodic_trace_ids) == {
+            sample_traces[i].info.trace_id for i in [0, 1, 2, 3]
+        }
+
+        examples_for_t1 = [
+            ex
+            for ex in judge_v2._episodic_memory
+            if getattr(ex, "_trace_id", None) == t1_updated.info.trace_id
+        ]
+        assert len(examples_for_t1) == 1
+        assert examples_for_t1[0].result == "no"
+        assert examples_for_t1[0].rationale == "t1 updated"
+
+
+def test_realign_after_unalign_roundtrip(sample_judge, sample_traces):
+    with mock_apis(guidelines=["Guideline A"]):
+        optimizer = MemAlignOptimizer()
+        judge_v1 = optimizer.align(sample_judge, sample_traces[:3])
+        v1_trace_ids = set(judge_v1._episodic_trace_ids)
+        v1_episodic_count = len(judge_v1._episodic_memory)
+
+        unaligned = judge_v1.unalign(traces=sample_traces[:3])
+        assert unaligned._episodic_memory == []
+        assert unaligned._episodic_trace_ids == []
+
+        judge_v3 = optimizer.align(unaligned, sample_traces[:3])
+
+        assert set(judge_v3._episodic_trace_ids) == v1_trace_ids
+        assert len(judge_v3._episodic_memory) == v1_episodic_count
+
+
+def test_align_dedupes_traces_within_a_single_call(sample_judge, sample_traces):
+    with mock_apis(guidelines=[]) as mocks:
+        optimizer = MemAlignOptimizer()
+        judge = optimizer.align(sample_judge, [sample_traces[0], sample_traces[0]])
+
+        assert len(judge._episodic_memory) == 1
+        assert judge._episodic_trace_ids == [sample_traces[0].info.trace_id]
+        # In-batch dedup: distillation runs once for the single resolved example,
+        # not twice for the duplicate trace.
+        assert mocks["lm"].call_count == 1
+
+
+def test_realign_with_all_empty_assessments_raises(sample_judge, sample_traces):
+    with mock_apis(guidelines=[]):
+        optimizer = MemAlignOptimizer()
+        judge_v1 = optimizer.align(sample_judge, sample_traces[:3])
+
+        for trace in sample_traces[:3]:
+            for assessment in trace.info.assessments:
+                mlflow.delete_assessment(
+                    trace_id=trace.info.trace_id, assessment_id=assessment.assessment_id
+                )
+        refreshed = [_refresh(t) for t in sample_traces[:3]]
+
+        with pytest.raises(MlflowException, match="Cannot retract feedback"):
+            optimizer.align(judge_v1, refreshed)
+
+
+def test_realign_with_partial_empty_assessments_raises(sample_judge, sample_traces):
+    # Even when some incoming traces are valid, any trace whose previously-aligned
+    # assessments have been emptied must block the entire call — retractions go
+    # through unalign(), not through a side-effect of align().
+    with mock_apis(guidelines=[]):
+        optimizer = MemAlignOptimizer()
+        judge_v1 = optimizer.align(sample_judge, sample_traces[:3])
+        v1_trace_ids = set(judge_v1._episodic_trace_ids)
+        v1_episodic_count = len(judge_v1._episodic_memory)
+
+        target = sample_traces[0]
+        for assessment in target.info.assessments:
+            mlflow.delete_assessment(
+                trace_id=target.info.trace_id, assessment_id=assessment.assessment_id
+            )
+        emptied = _refresh(target)
+
+        with pytest.raises(MlflowException, match="Cannot retract feedback"):
+            optimizer.align(judge_v1, [emptied, sample_traces[1], sample_traces[3]])
+
+        # No state mutation on the prior judge.
+        assert set(judge_v1._episodic_trace_ids) == v1_trace_ids
+        assert len(judge_v1._episodic_memory) == v1_episodic_count
+
+
+def test_align_with_partial_no_feedback_traces_raises(sample_judge, sample_traces):
+    # A trace that was never previously aligned and has no human assessments is
+    # treated as user error (likely wrong trace IDs / missing feedback) and blocks
+    # the call regardless of whether other valid traces are present.
+    no_feedback_trace_id = _start_test_trace("no_feedback_span")
+    no_feedback_trace = mlflow.get_trace(no_feedback_trace_id)
+
+    with mock_apis(guidelines=[]):
+        optimizer = MemAlignOptimizer()
+        with pytest.raises(MlflowException, match="No valid feedback records found"):
+            optimizer.align(sample_judge, [no_feedback_trace, sample_traces[0]])

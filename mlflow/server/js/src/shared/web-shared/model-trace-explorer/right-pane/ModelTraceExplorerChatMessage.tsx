@@ -2,22 +2,108 @@ import { isNil } from 'lodash';
 import { useState } from 'react';
 
 import {
-  Button,
   ChevronDownIcon,
   ChevronRightIcon,
-  ChevronUpIcon,
   LightbulbIcon,
+  Modal,
+  Spinner,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
-import { GenAIMarkdownRenderer } from '@databricks/web-shared/genai-markdown-renderer';
+import { GenAIMarkdownRenderer } from '../../genai-markdown-renderer/GenAIMarkdownRenderer';
+import { DownloadLink, exceedsRenderSizeLimit } from '../../media-rendering-utils';
+import {
+  attachmentAwareUrlTransform,
+  isAttachmentUri,
+  parseAttachmentUri,
+  useAttachmentUrl,
+} from '../attachment-utils';
+import { ModelTraceExplorerAttachmentRenderer } from '../field-renderers/ModelTraceExplorerAttachmentRenderer';
 
 import { ModelTraceExplorerChatMessageHeader } from './ModelTraceExplorerChatMessageHeader';
-import { CONTENT_TRUNCATION_LIMIT } from './ModelTraceExplorerChatRenderer.utils';
+import {
+  CONTENT_TRUNCATION_LIMIT,
+  getDisplayLength,
+  truncatePreservingImages,
+} from './ModelTraceExplorerChatRenderer.utils';
 import { ModelTraceExplorerToolCallMessage } from './ModelTraceExplorerToolCallMessage';
-import { CodeSnippetRenderMode, type ModelTraceChatMessage } from '../ModelTrace.types';
+import { CodeSnippetRenderMode, type ModelTraceChatMessage, type ModelTraceInputAudio } from '../ModelTrace.types';
+import { MARKDOWN_RENDER_SIZE_LIMIT } from '../constants';
 import { ModelTraceExplorerCodeSnippetBody } from '../ModelTraceExplorerCodeSnippetBody';
+
+function ClickToExpandImage({ src, alt }: { src: string; alt?: string }) {
+  const { theme } = useDesignSystemTheme();
+  const [previewVisible, setPreviewVisible] = useState(false);
+  return (
+    <>
+      <img
+        src={src}
+        alt={alt}
+        css={{
+          maxWidth: '100%',
+          maxHeight: 200,
+          cursor: 'pointer',
+          '&:hover': { boxShadow: `0 0 4px ${theme.colors.border}` },
+        }}
+        onClick={() => setPreviewVisible(true)}
+      />
+      <Modal
+        componentId="shared.model-trace-explorer.image-preview"
+        title=""
+        visible={previewVisible}
+        onCancel={() => setPreviewVisible(false)}
+        onOk={() => setPreviewVisible(false)}
+      >
+        <img src={src} alt={alt} css={{ maxWidth: '100%', maxHeight: '70vh', display: 'block' }} />
+      </Modal>
+    </>
+  );
+}
+
+function AttachmentImage({ src, alt }: { src?: string; alt?: string }) {
+  const { url, contentLength, contentType, loading, error, triggerDownload } = useAttachmentUrl(src ?? null);
+  if (loading) {
+    return <Spinner size="small" />;
+  }
+  if ((url || triggerDownload) && contentType && exceedsRenderSizeLimit(contentType, contentLength)) {
+    return (
+      <DownloadLink
+        url={url}
+        contentType={contentType}
+        contentLength={contentLength}
+        onFetchDownload={triggerDownload}
+      />
+    );
+  }
+  if (error || !url) {
+    return <span>{`[${alt ?? 'Failed to load image'}]`}</span>;
+  }
+  return <ClickToExpandImage src={url} alt={alt} />;
+}
+
+const attachmentAwareImgRenderer = ({ src, alt }: { src?: string; alt?: string }) => {
+  if (src && isAttachmentUri(src)) {
+    const parsed = parseAttachmentUri(src);
+    if (parsed && !parsed.contentType.startsWith('image/')) {
+      // Non-image attachments (PDF, audio, etc.) use the full AttachmentRenderer
+      return (
+        <ModelTraceExplorerAttachmentRenderer
+          title=""
+          attachmentId={parsed.attachmentId}
+          traceId={parsed.traceId}
+          contentType={parsed.contentType}
+          size={parsed.size}
+        />
+      );
+    }
+    return <AttachmentImage src={src} alt={alt} />;
+  }
+  if (src) {
+    return <ClickToExpandImage src={src} alt={alt} />;
+  }
+  return <img src={src} alt={alt} css={{ maxWidth: '100%' }} />;
+};
 
 const tryGetJsonContent = (content: string) => {
   try {
@@ -58,6 +144,23 @@ function ModelTraceExplorerChatMessageContent({
     );
   }
 
+  if (content.length > MARKDOWN_RENDER_SIZE_LIMIT) {
+    return (
+      <div css={{ padding: theme.spacing.sm, paddingTop: 0 }}>
+        <Typography.Text color="secondary">
+          <FormattedMessage
+            defaultMessage="Content too large to render ({size}). Displaying as plain text."
+            description="Message shown when chat content exceeds the markdown rendering size limit"
+            values={{ size: `${(content.length / 1_000_000).toFixed(1)}MB` }}
+          />
+        </Typography.Text>
+        <pre css={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all', maxHeight: 400, overflow: 'auto', fontSize: 12 }}>
+          {content.slice(0, 10_000)}
+        </pre>
+      </div>
+    );
+  }
+
   return (
     <div
       css={{
@@ -69,7 +172,12 @@ function ModelTraceExplorerChatMessageContent({
         marginBottom: -theme.typography.fontSizeBase,
       }}
     >
-      <GenAIMarkdownRenderer>{content}</GenAIMarkdownRenderer>
+      <GenAIMarkdownRenderer
+        components={{ img: attachmentAwareImgRenderer }}
+        urlTransform={attachmentAwareUrlTransform}
+      >
+        {content}
+      </GenAIMarkdownRenderer>
     </div>
   );
 }
@@ -136,6 +244,73 @@ function ModelTraceExplorerReasoningSection({ reasoning }: { reasoning: string }
   );
 }
 
+function getAudioMimeType(format: string): string {
+  switch (format) {
+    case 'mp3':
+      return 'audio/mpeg';
+    default:
+      return `audio/${format}`;
+  }
+}
+
+function AttachmentAudioPlayer({ uri }: { uri: string }) {
+  const { url, contentLength, contentType, loading, error, triggerDownload } = useAttachmentUrl(uri);
+  if (loading) {
+    return <Spinner size="small" />;
+  }
+  if ((url || triggerDownload) && contentType && exceedsRenderSizeLimit(contentType, contentLength)) {
+    return (
+      <DownloadLink
+        url={url}
+        contentType={contentType}
+        contentLength={contentLength}
+        onFetchDownload={triggerDownload}
+      />
+    );
+  }
+  if (error || !url) {
+    return (
+      <Typography.Text color="error">
+        <FormattedMessage
+          defaultMessage="Failed to load audio attachment"
+          description="Error message when trace audio attachment fails to load"
+        />
+      </Typography.Text>
+    );
+  }
+  // eslint-disable-next-line jsx-a11y/media-has-caption
+  return <audio controls css={{ width: '100%', maxWidth: 500 }} src={url} />;
+}
+
+function ModelTraceExplorerAudioPlayer({ audioParts }: { audioParts: ModelTraceInputAudio[] }) {
+  const { theme } = useDesignSystemTheme();
+
+  return (
+    <>
+      {audioParts.map((audio, index) => (
+        <div
+          key={index}
+          css={{
+            padding: theme.spacing.sm,
+            paddingTop: 0,
+          }}
+        >
+          {isAttachmentUri(audio.data) ? (
+            <AttachmentAudioPlayer uri={audio.data} />
+          ) : (
+            // eslint-disable-next-line jsx-a11y/media-has-caption
+            <audio
+              controls
+              css={{ width: '100%', maxWidth: 500 }}
+              src={`data:${getAudioMimeType(audio.format)};base64,${audio.data}`}
+            />
+          )}
+        </div>
+      ))}
+    </>
+  );
+}
+
 export function ModelTraceExplorerChatMessage({
   message,
   className,
@@ -152,9 +327,13 @@ export function ModelTraceExplorerChatMessage({
   const shouldDisplayCodeSnippet = isJson && (message.role === 'tool' || message.role === 'function');
   // if the content is JSON, truncation will be handled by the code
   // snippet. otherwise, we need to truncate the content manually.
-  const isExpandable = !shouldDisplayCodeSnippet && content.length > CONTENT_TRUNCATION_LIMIT;
+  // Increase truncation limit when attachment refs are present since the refs themselves
+  // are lightweight (~120 chars each) and truncating mid-ref breaks markdown rendering.
+  const attachmentRefCount = content.split('mlflow-attachment://').length - 1;
+  const effectiveLimit = CONTENT_TRUNCATION_LIMIT + attachmentRefCount * 150;
+  const isExpandable = !shouldDisplayCodeSnippet && getDisplayLength(content) > effectiveLimit;
 
-  const displayedContent = isExpandable && !expanded ? `${content.slice(0, CONTENT_TRUNCATION_LIMIT)}...` : content;
+  const displayedContent = isExpandable && !expanded ? truncatePreservingImages(content, effectiveLimit) : content;
 
   return (
     <div
@@ -162,8 +341,6 @@ export function ModelTraceExplorerChatMessage({
         display: 'flex',
         flexDirection: 'column',
         width: '100%',
-        borderRadius: theme.borders.borderRadiusSm,
-        border: `1px solid ${theme.colors.border}`,
         backgroundColor: theme.colors.backgroundPrimary,
         overflow: 'hidden',
       }}
@@ -181,26 +358,30 @@ export function ModelTraceExplorerChatMessage({
           message.tool_calls.map((toolCall) => (
             <ModelTraceExplorerToolCallMessage key={toolCall.id} toolCall={toolCall} />
           ))}
+        {/* Text content renders before audio parts. The markdown renderer and audio
+            player are separate rendering paths, so original part interleaving is not
+            preserved. Text-first matches the typical pattern where prompts precede
+            media (see https://developers.openai.com/api/docs/guides/audio). */}
         <ModelTraceExplorerChatMessageContent
           content={displayedContent}
           shouldDisplayCodeSnippet={shouldDisplayCodeSnippet}
         />
+        {message.audioParts && message.audioParts.length > 0 && (
+          <ModelTraceExplorerAudioPlayer audioParts={message.audioParts} />
+        )}
       </div>
       {isExpandable && (
-        <Button
+        <Typography.Link
           componentId={
             expanded
               ? 'shared.model-trace-explorer.chat-message-see-less'
               : 'shared.model-trace-explorer.chat-message-see-more'
           }
-          icon={expanded ? <ChevronUpIcon /> : <ChevronDownIcon />}
-          type="tertiary"
           onClick={() => setExpanded(!expanded)}
           css={{
+            padding: theme.spacing.sm,
             display: 'flex',
-            width: '100%',
-            padding: theme.spacing.md,
-            borderRadius: '0px !important',
+            alignItems: 'center',
           }}
         >
           {expanded ? (
@@ -214,7 +395,7 @@ export function ModelTraceExplorerChatMessage({
               description="A button label in a message renderer that expands truncated content when clicked."
             />
           )}
-        </Button>
+        </Typography.Link>
       )}
     </div>
   );

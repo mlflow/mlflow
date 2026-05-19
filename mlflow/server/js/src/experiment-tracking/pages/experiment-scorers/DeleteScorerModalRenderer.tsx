@@ -3,7 +3,6 @@ import { DangerModal, Alert, useDesignSystemTheme } from '@databricks/design-sys
 import { FormattedMessage } from '@databricks/i18n';
 import type { ScheduledScorer } from './types';
 import type { PredefinedError } from '@databricks/web-shared/errors';
-import { COMPONENT_ID_PREFIX } from './constants';
 
 interface DeleteScorerModalRendererProps {
   isOpen: boolean;
@@ -25,7 +24,7 @@ export const DeleteScorerModalRenderer: React.FC<DeleteScorerModalRendererProps>
   const { theme } = useDesignSystemTheme();
   return (
     <DangerModal
-      componentId={`${COMPONENT_ID_PREFIX}.delete-modal`}
+      componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_deletescorermodalrenderer_28"
       title={
         <FormattedMessage defaultMessage="Delete judge" description="Title for the delete judge confirmation modal" />
       }
@@ -42,7 +41,7 @@ export const DeleteScorerModalRenderer: React.FC<DeleteScorerModalRendererProps>
         />
         {error && (
           <Alert
-            componentId={`${COMPONENT_ID_PREFIX}.delete-modal-error`}
+            componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_deletescorermodalrenderer_46"
             type="error"
             message={error.message || error.displayMessage}
             closable={false}

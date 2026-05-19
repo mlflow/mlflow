@@ -38,6 +38,7 @@ from langchain_core.tools import Tool
 from langchain_openai import ChatOpenAI
 from langchain_text_splitters.character import CharacterTextSplitter
 from packaging import version
+from pydantic import BaseModel
 from pyspark.sql import SparkSession
 
 import mlflow
@@ -88,7 +89,7 @@ LANGCHAIN_V1_SKIP_REASON = "Pickle serialization is not supported for LangChain 
 skip_if_v1 = pytest.mark.skipif(IS_LANGCHAIN_v1, reason=LANGCHAIN_V1_SKIP_REASON)
 
 # The mock OAI completion endpoint returns payload as it is
-TEST_CONTENT = '[{"role": "user", "content": "What is MLflow?"}]'
+TEST_CONTENT = [{"role": "user", "content": "What is MLflow?"}]
 
 SIMPLE_MODEL_CODE_PATH = "tests/langchain/sample_code/simple_runnable.py"
 
@@ -184,7 +185,7 @@ def test_langchain_native_log_and_load_model():
     # Predict
     loaded_model = mlflow.pyfunc.load_model(logged_model.model_uri)
     result = loaded_model.predict([{"product": "MLflow"}])
-    assert result == [TEST_CONTENT]
+    assert result == [json.dumps(TEST_CONTENT)]
 
     # Predict stream
     result = loaded_model.predict_stream([{"product": "MLflow"}])
@@ -284,7 +285,6 @@ def test_log_and_load_retriever_chain(tmp_path):
     def load_retriever(persist_directory):
         import numpy as np
         from langchain.embeddings.base import Embeddings
-        from pydantic import BaseModel
 
         class DeterministicDummyEmbeddings(Embeddings, BaseModel):
             size: int
@@ -591,7 +591,7 @@ def test_predict_with_callbacks_supports_chat_response_conversion(fake_chat_mode
 @skip_if_v1
 def test_save_load_runnable_parallel():
     runnable = RunnableParallel({"llm": create_openai_runnable()})
-    expected_result = {"llm": TEST_CONTENT}
+    expected_result = {"llm": json.dumps(TEST_CONTENT)}
     assert runnable.invoke({"product": "MLflow"}) == expected_result
     with mlflow.start_run():
         model_info = mlflow.langchain.log_model(
@@ -855,21 +855,17 @@ def test_chat_with_history(spark, fake_chat_model):
     assert loaded_model.invoke(input_example) == "Databricks"
     pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
     input_schema = pyfunc_loaded_model.metadata.get_input_schema()
-    assert input_schema == Schema(
-        [
-            ColSpec(
-                Array(
-                    Object(
-                        [
-                            Property("role", DataType.string),
-                            Property("content", DataType.string),
-                        ]
-                    )
-                ),
-                "messages",
-            )
-        ]
-    )
+    assert input_schema == Schema([
+        ColSpec(
+            Array(
+                Object([
+                    Property("role", DataType.string),
+                    Property("content", DataType.string),
+                ])
+            ),
+            "messages",
+        )
+    ])
     assert pyfunc_loaded_model.predict(input_example) == ["Databricks"]
 
     udf = mlflow.pyfunc.spark_udf(spark, model_info.model_uri, result_type="string")
@@ -1046,78 +1042,64 @@ def test_pyfunc_builtin_chat_request_conversion_fails_gracefully():
     # Verify that messages aren't converted to LangChain format if extra keys are present,
     # under the assumption that additional keys can't be specified when calling LangChain invoke()
     # / batch() with chat messages
-    assert pyfunc_loaded_model.predict(
-        {
-            "messages": [{"role": "user", "content": "blah"}],
-            "extrakey": "extra",
-        }
-    ) == [
+    assert pyfunc_loaded_model.predict({
+        "messages": [{"role": "user", "content": "blah"}],
+        "extrakey": "extra",
+    }) == [
         {"role": "user", "content": "blah"},
     ]
 
     # Verify that messages aren't converted to LangChain format if role / content are missing
     # or extra keys are present in the message
-    assert pyfunc_loaded_model.predict(
-        {
-            "messages": [{"content": "blah"}],
-        }
-    ) == [
+    assert pyfunc_loaded_model.predict({
+        "messages": [{"content": "blah"}],
+    }) == [
         {"content": "blah"},
     ]
-    assert pyfunc_loaded_model.predict(
-        {
-            "messages": [{"role": "user", "content": "blah"}, {}],
-        }
-    ) == [
+    assert pyfunc_loaded_model.predict({
+        "messages": [{"role": "user", "content": "blah"}, {}],
+    }) == [
         {"role": "user", "content": "blah"},
         {},
     ]
-    assert pyfunc_loaded_model.predict(
-        {
-            "messages": [{"role": "user", "content": 123}],
-        }
-    ) == [
+    assert pyfunc_loaded_model.predict({
+        "messages": [{"role": "user", "content": 123}],
+    }) == [
         {"role": "user", "content": 123},
     ]
 
     # Verify behavior for batches of message histories
-    assert pyfunc_loaded_model.predict(
-        [
-            {
-                "messages": "not an array",
-            },
-            {
-                "messages": [{"role": "user", "content": "content"}],
-            },
-        ]
-    ) == [
+    assert pyfunc_loaded_model.predict([
+        {
+            "messages": "not an array",
+        },
+        {
+            "messages": [{"role": "user", "content": "content"}],
+        },
+    ]) == [
         "not an array",
         [{"role": "user", "content": "content"}],
     ]
-    assert pyfunc_loaded_model.predict(
-        [
-            {
-                "messages": [{"role": "user", "content": "content"}],
-            },
-            {"messages": [{"role": "user", "content": "content"}], "extrakey": "extra"},
-        ]
-    ) == [
+    assert pyfunc_loaded_model.predict([
+        {
+            "messages": [{"role": "user", "content": "content"}],
+        },
+        {"messages": [{"role": "user", "content": "content"}], "extrakey": "extra"},
+    ]) == [
         [{"role": "user", "content": "content"}],
         [{"role": "user", "content": "content"}],
     ]
-    assert pyfunc_loaded_model.predict(
-        [
-            {
-                "messages": [{"role": "user", "content": "content"}],
-            },
-            {
-                "messages": [
-                    {"role": "user", "content": "content"},
-                    {"role": "user", "content": 123},
-                ],
-            },
-        ]
-    ) == [
+    assert pyfunc_loaded_model.predict([
+        {
+            "messages": [{"role": "user", "content": "content"}],
+        },
+        {
+            "messages": [
+                {"role": "user", "content": "content"},
+                {"role": "user", "content": 123},
+            ],
+        },
+    ]) == [
         [{"role": "user", "content": "content"}],
         [{"role": "user", "content": "content"}, {"role": "user", "content": 123}],
     ]
@@ -1248,23 +1230,21 @@ def test_save_load_chain_as_code(chain_path, model_config, monkeypatch):
 
     request_id = "mock_request_id"
     tracer = MlflowLangchainTracer(prediction_context=Context(request_id))
-    input_example = {"messages": [{"role": "user", "content": TEST_CONTENT}]}
+    input_example = {"messages": [{"role": "user", "content": json.dumps(TEST_CONTENT)}]}
     response = pyfunc_loaded_model._model_impl._predict_with_callbacks(
         data=input_example, callback_handlers=[tracer]
     )
     assert response["choices"][0]["message"]["content"] == "Databricks"
     trace = pop_trace(request_id)
-    assert trace["info"]["tags"][DependenciesSchemasType.RETRIEVERS.value] == json.dumps(
-        [
-            {
-                "doc_uri": "doc-uri",
-                "name": "retriever",
-                "other_columns": ["column1", "column2"],
-                "primary_key": "primary-key",
-                "text_column": "text-column",
-            }
-        ]
-    )
+    assert trace["info"]["tags"][DependenciesSchemasType.RETRIEVERS.value] == json.dumps([
+        {
+            "doc_uri": "doc-uri",
+            "name": "retriever",
+            "other_columns": ["column1", "column2"],
+            "primary_key": "primary-key",
+            "text_column": "text-column",
+        }
+    ])
 
 
 @pytest.mark.parametrize(
@@ -1492,7 +1472,8 @@ def test_save_load_chain_as_code_optional_code_path(chain_path):
     assert loaded_model.invoke(input_example) == answer
     pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
     assert (
-        pyfunc_loaded_model.predict(input_example)[0]
+        pyfunc_loaded_model
+        .predict(input_example)[0]
         .get("choices")[0]
         .get("message")
         .get("content")
@@ -1700,13 +1681,11 @@ def test_simple_chat_model_stream_with_callbacks(fake_chat_stream_model):
 @skip_if_v1
 def test_langchain_model_save_load_with_listeners(fake_chat_model):
     # Migrate this to models-from-code
-    prompt = ChatPromptTemplate.from_messages(
-        [
-            ("system", "You are a helpful assistant."),
-            MessagesPlaceholder(variable_name="history"),
-            ("human", "{question}"),
-        ]
-    )
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", "You are a helpful assistant."),
+        MessagesPlaceholder(variable_name="history"),
+        ("human", "{question}"),
+    ])
 
     def retrieve_history(input):
         return {"history": [], "question": input["question"], "name": input["name"]}

@@ -1,4 +1,3 @@
-import json
 import os
 import shutil
 import subprocess
@@ -10,22 +9,32 @@ from unittest import mock
 from urllib.parse import unquote, urlparse
 from urllib.request import url2pathname
 
+import click
 import numpy as np
-import pandas as pd
 import pytest
 import requests
 from botocore.stub import Stubber
 from click.testing import CliRunner
 
 import mlflow
-from mlflow import pyfunc
 from mlflow.cli import cli, doctor, gc, server
 from mlflow.data import numpy_dataset
-from mlflow.entities import ViewType
+from mlflow.entities import Metric, ViewType
+from mlflow.entities.logged_model import LoggedModelParameter, LoggedModelTag
+from mlflow.environment_variables import (
+    MLFLOW_ENABLE_WORKSPACES,
+    MLFLOW_TRACE_ARCHIVAL_CONFIG,
+    MLFLOW_WORKSPACE_STORE_URI,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.server import handlers
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.jobs.sqlalchemy_store import SqlAlchemyJobStore
+from mlflow.store.tracking.dbmodels.models import (
+    SqlLoggedModelMetric,
+    SqlLoggedModelParam,
+    SqlLoggedModelTag,
+)
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.utils.os import is_windows
@@ -33,9 +42,8 @@ from mlflow.utils.rest_utils import augmented_raise_for_status
 from mlflow.utils.time import get_current_time_millis
 
 from tests.helper_functions import (
-    PROTOBUF_REQUIREMENT,
     get_safe_port,
-    pyfunc_serve_and_score_model,
+    kill_process_tree,
 )
 from tests.tracking.integration_test_utils import _await_server_up_or_die
 
@@ -43,15 +51,21 @@ from tests.tracking.integration_test_utils import _await_server_up_or_die
 @pytest.mark.parametrize("command", ["server"])
 def test_mlflow_server_command(command):
     port = get_safe_port()
-    cmd = ["mlflow", command, "--port", str(port)]
-    process = subprocess.Popen(cmd)
-    try:
-        _await_server_up_or_die(port)
-        resp = requests.get(f"http://localhost:{port}/health")
-        augmented_raise_for_status(resp)
-        assert resp.text == "OK"
-    finally:
-        process.kill()
+    with subprocess.Popen([
+        sys.executable,
+        "-m",
+        "mlflow",
+        command,
+        "--port",
+        str(port),
+    ]) as process:
+        try:
+            _await_server_up_or_die(port)
+            resp = requests.get(f"http://localhost:{port}/health")
+            augmented_raise_for_status(resp)
+            assert resp.text == "OK"
+        finally:
+            kill_process_tree(process.pid)
 
 
 def test_server_static_prefix_validation():
@@ -71,12 +85,29 @@ def test_server_static_prefix_validation():
         run_server_mock.assert_not_called()
 
 
+def test_server_cli_fails_when_workspace_env_set():
+    env = os.environ.copy()
+    # Trigger server-mode guard in mlflow.server.__init__
+    env["_MLFLOW_SERVER_SERVE_ARTIFACTS"] = "1"
+    env["MLFLOW_WORKSPACE"] = "team-a"
+
+    result = subprocess.run(
+        [sys.executable, "-m", "mlflow", "server", "--port", "0"],
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    assert result.returncode != 0
+    assert "MLFLOW_WORKSPACE=team-a is client-only" in result.stderr
+
+
 def test_server_uvicorn_options():
     with mock.patch("mlflow.server._run_server") as run_server_mock:
         # Test default behavior (uvicorn should be used when no server options specified)
         CliRunner().invoke(server)
         run_server_mock.assert_called_once_with(
             file_store_path=mock.ANY,
+            read_replica_backend_store_uri=mock.ANY,
             registry_store_uri=mock.ANY,
             default_artifact_root=mock.ANY,
             serve_artifacts=mock.ANY,
@@ -101,6 +132,7 @@ def test_server_uvicorn_options():
         CliRunner().invoke(server, ["--uvicorn-opts", "--loop asyncio --limit-concurrency 100"])
         run_server_mock.assert_called_once_with(
             file_store_path=mock.ANY,
+            read_replica_backend_store_uri=mock.ANY,
             registry_store_uri=mock.ANY,
             default_artifact_root=mock.ANY,
             serve_artifacts=mock.ANY,
@@ -128,6 +160,7 @@ def test_server_dev_mode():
         CliRunner().invoke(server, ["--dev"])
         run_server_mock.assert_called_once_with(
             file_store_path=mock.ANY,
+            read_replica_backend_store_uri=mock.ANY,
             registry_store_uri=mock.ANY,
             default_artifact_root=mock.ANY,
             serve_artifacts=mock.ANY,
@@ -155,6 +188,7 @@ def test_server_gunicorn_options():
         CliRunner().invoke(server, ["--gunicorn-opts", "--timeout 120 --max-requests 1000"])
         run_server_mock.assert_called_once_with(
             file_store_path=mock.ANY,
+            read_replica_backend_store_uri=mock.ANY,
             registry_store_uri=mock.ANY,
             default_artifact_root=mock.ANY,
             serve_artifacts=mock.ANY,
@@ -193,7 +227,9 @@ def test_server_initializes_backend_store_when_tracking_enabled():
         ):
             result = runner.invoke(server)
     assert result.exit_code == 0
-    init_backend_mock.assert_called_once_with(mock.ANY, mock.ANY, mock.ANY)
+    init_backend_mock.assert_called_once_with(
+        mock.ANY, mock.ANY, mock.ANY, workspace_store_uri=None, read_replica_backend_store_uri=None
+    )
     run_server_mock.assert_called_once()
 
 
@@ -215,20 +251,421 @@ def test_server_skips_backend_store_init_in_artifacts_only_mode():
 def test_server_mlflow_artifacts_options():
     handlers._tracking_store = None
     handlers._model_registry_store = None
-    runner = CliRunner()
-    with runner.isolated_filesystem():
-        with mock.patch("mlflow.server._run_server") as run_server_mock:
-            runner.invoke(server, ["--artifacts-only"])
-            run_server_mock.assert_called_once()
-        with mock.patch("mlflow.server._run_server") as run_server_mock:
-            runner.invoke(server, ["--serve-artifacts"])
-            run_server_mock.assert_called_once()
-        with mock.patch("mlflow.server._run_server") as run_server_mock:
-            runner.invoke(server, ["--no-serve-artifacts"])
-            run_server_mock.assert_called_once()
-        with mock.patch("mlflow.server._run_server") as run_server_mock:
-            runner.invoke(server, ["--artifacts-only"])
-            run_server_mock.assert_called_once()
+    with mock.patch(
+        "mlflow.tracking._tracking_service.utils._has_existing_mlruns_data", return_value=False
+    ):
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            with mock.patch("mlflow.server._run_server") as run_server_mock:
+                runner.invoke(server, ["--artifacts-only"])
+                run_server_mock.assert_called_once()
+            with mock.patch("mlflow.server._run_server") as run_server_mock:
+                runner.invoke(server, ["--serve-artifacts"])
+                run_server_mock.assert_called_once()
+            with mock.patch("mlflow.server._run_server") as run_server_mock:
+                runner.invoke(server, ["--no-serve-artifacts"])
+                run_server_mock.assert_called_once()
+            with mock.patch("mlflow.server._run_server") as run_server_mock:
+                runner.invoke(server, ["--artifacts-only"])
+                run_server_mock.assert_called_once()
+
+
+def test_server_artifacts_only_conflicts_with_enable_workspaces():
+    with pytest.raises(
+        click.UsageError, match="--enable-workspaces cannot be combined with --artifacts-only"
+    ):
+        CliRunner().invoke(
+            server,
+            ["--artifacts-only", "--enable-workspaces"],
+            catch_exceptions=False,
+            standalone_mode=False,
+        )
+
+
+def _write_trace_archival_config(
+    tmp_path: Path,
+    *,
+    enabled: bool = True,
+    location: str = "s3://archive/default",
+    retention: str = "30d",
+    long_retention_allowlist: list[str] | None = None,
+    interval_seconds: int | None = None,
+    max_traces_per_pass: int | None = None,
+) -> Path:
+    lines = [
+        "trace_archival:",
+        f"  enabled: {'true' if enabled else 'false'}",
+        f"  location: {location}",
+        f"  retention: {retention}",
+    ]
+    if long_retention_allowlist is not None:
+        lines.append("  long_retention_allowlist:")
+        lines.extend(f'    - "{entry}"' for entry in long_retention_allowlist)
+    if interval_seconds is not None:
+        lines.append(f"  interval_seconds: {interval_seconds}")
+    if max_traces_per_pass is not None:
+        lines.append(f"  max_traces_per_pass: {max_traces_per_pass}")
+
+    config_path = tmp_path / "trace-archival.yaml"
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    config_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return config_path
+
+
+def test_server_artifacts_only_conflicts_with_trace_archival_config(tmp_path):
+    config_path = _write_trace_archival_config(tmp_path)
+
+    with pytest.raises(
+        click.UsageError,
+        match="--trace-archival-config cannot be combined with --artifacts-only",
+    ):
+        CliRunner().invoke(
+            server,
+            ["--artifacts-only", "--trace-archival-config", str(config_path)],
+            catch_exceptions=False,
+            standalone_mode=False,
+        )
+
+
+def test_server_artifacts_only_conflicts_with_trace_archival_config_env_var(tmp_path):
+    config_path = _write_trace_archival_config(tmp_path)
+    MLFLOW_TRACE_ARCHIVAL_CONFIG.set(str(config_path))
+    try:
+        with pytest.raises(
+            click.UsageError,
+            match="--trace-archival-config cannot be combined with --artifacts-only",
+        ):
+            CliRunner().invoke(
+                server,
+                ["--artifacts-only"],
+                catch_exceptions=False,
+                standalone_mode=False,
+            )
+    finally:
+        MLFLOW_TRACE_ARCHIVAL_CONFIG.unset()
+
+
+def test_server_workspace_uri_sets_env_when_workspaces_enabled(tmp_path):
+    handlers._tracking_store = None
+    handlers._model_registry_store = None
+    workspace_uri = f"sqlite:///{tmp_path / 'workspace.db'}"
+    backend_uri = f"sqlite:///{tmp_path / 'backend.db'}"
+    artifact_root_path = tmp_path / "artifacts"
+    artifact_root_path.mkdir()
+    artifact_root = artifact_root_path.as_uri()
+
+    MLFLOW_WORKSPACE_STORE_URI.unset()
+    MLFLOW_ENABLE_WORKSPACES.unset()
+    MLFLOW_TRACE_ARCHIVAL_CONFIG.unset()
+
+    try:
+        with (
+            mock.patch("mlflow.server._run_server") as run_server_mock,
+            mock.patch("mlflow.server.handlers.initialize_backend_stores") as init_backend,
+        ):
+            result = CliRunner().invoke(
+                server,
+                [
+                    "--enable-workspaces",
+                    "--workspace-store-uri",
+                    workspace_uri,
+                    "--backend-store-uri",
+                    backend_uri,
+                    "--registry-store-uri",
+                    backend_uri,
+                    "--default-artifact-root",
+                    artifact_root,
+                ],
+                catch_exceptions=False,
+                standalone_mode=False,
+            )
+        assert result.exit_code == 0
+        run_server_mock.assert_called_once()
+        init_backend.assert_called_once_with(
+            backend_uri,
+            backend_uri,
+            artifact_root,
+            workspace_store_uri=workspace_uri,
+            read_replica_backend_store_uri=None,
+        )
+        assert MLFLOW_WORKSPACE_STORE_URI.get() == workspace_uri
+        assert MLFLOW_ENABLE_WORKSPACES.get() is True
+    finally:
+        MLFLOW_WORKSPACE_STORE_URI.unset()
+        MLFLOW_ENABLE_WORKSPACES.unset()
+        MLFLOW_TRACE_ARCHIVAL_CONFIG.unset()
+
+
+def test_server_trace_archival_config_sets_env(tmp_path):
+    handlers._tracking_store = None
+    handlers._model_registry_store = None
+    backend_uri = f"sqlite:///{tmp_path / 'backend.db'}"
+    artifact_root = (tmp_path / "artifacts").as_uri()
+    config_path = _write_trace_archival_config(
+        tmp_path,
+        long_retention_allowlist=["1", "2"],
+        interval_seconds=42,
+        max_traces_per_pass=1000,
+    )
+
+    MLFLOW_TRACE_ARCHIVAL_CONFIG.unset()
+
+    try:
+        with (
+            mock.patch("mlflow.server._run_server") as run_server_mock,
+            mock.patch("mlflow.server.handlers.initialize_backend_stores") as init_backend,
+        ):
+            result = CliRunner().invoke(
+                server,
+                [
+                    "--backend-store-uri",
+                    backend_uri,
+                    "--registry-store-uri",
+                    backend_uri,
+                    "--default-artifact-root",
+                    artifact_root,
+                    "--trace-archival-config",
+                    str(config_path),
+                ],
+                catch_exceptions=False,
+                standalone_mode=False,
+            )
+        assert result.exit_code == 0
+        run_server_mock.assert_called_once()
+        init_backend.assert_called_once()
+        assert MLFLOW_TRACE_ARCHIVAL_CONFIG.get() == str(config_path)
+    finally:
+        MLFLOW_TRACE_ARCHIVAL_CONFIG.unset()
+
+
+def test_server_trace_archival_config_env_var_sets_env(tmp_path):
+    handlers._tracking_store = None
+    handlers._model_registry_store = None
+    backend_uri = f"sqlite:///{tmp_path / 'backend.db'}"
+    artifact_root = (tmp_path / "artifacts").as_uri()
+    config_path = _write_trace_archival_config(tmp_path, long_retention_allowlist=["1", "2", "3"])
+
+    MLFLOW_TRACE_ARCHIVAL_CONFIG.unset()
+
+    try:
+        MLFLOW_TRACE_ARCHIVAL_CONFIG.set(str(config_path))
+        with (
+            mock.patch("mlflow.server._run_server") as run_server_mock,
+            mock.patch("mlflow.server.handlers.initialize_backend_stores") as init_backend,
+        ):
+            result = CliRunner().invoke(
+                server,
+                [
+                    "--backend-store-uri",
+                    backend_uri,
+                    "--registry-store-uri",
+                    backend_uri,
+                    "--default-artifact-root",
+                    artifact_root,
+                ],
+                catch_exceptions=False,
+                standalone_mode=False,
+            )
+        assert result.exit_code == 0
+        run_server_mock.assert_called_once()
+        init_backend.assert_called_once()
+        assert MLFLOW_TRACE_ARCHIVAL_CONFIG.get() == str(config_path)
+    finally:
+        MLFLOW_TRACE_ARCHIVAL_CONFIG.unset()
+
+
+def test_server_trace_archival_config_cli_overrides_env_var(tmp_path):
+    handlers._tracking_store = None
+    handlers._model_registry_store = None
+    backend_uri = f"sqlite:///{tmp_path / 'backend.db'}"
+    artifact_root = (tmp_path / "artifacts").as_uri()
+    env_config_path = _write_trace_archival_config(tmp_path / "env")
+    cli_config_path = _write_trace_archival_config(tmp_path / "cli", interval_seconds=42)
+
+    MLFLOW_TRACE_ARCHIVAL_CONFIG.unset()
+
+    try:
+        MLFLOW_TRACE_ARCHIVAL_CONFIG.set(str(env_config_path))
+        with (
+            mock.patch("mlflow.server._run_server") as run_server_mock,
+            mock.patch("mlflow.server.handlers.initialize_backend_stores") as init_backend,
+        ):
+            result = CliRunner().invoke(
+                server,
+                [
+                    "--backend-store-uri",
+                    backend_uri,
+                    "--registry-store-uri",
+                    backend_uri,
+                    "--default-artifact-root",
+                    artifact_root,
+                    "--trace-archival-config",
+                    str(cli_config_path),
+                ],
+                catch_exceptions=False,
+                standalone_mode=False,
+            )
+        assert result.exit_code == 0
+        run_server_mock.assert_called_once()
+        init_backend.assert_called_once()
+        assert MLFLOW_TRACE_ARCHIVAL_CONFIG.get() == str(cli_config_path)
+    finally:
+        MLFLOW_TRACE_ARCHIVAL_CONFIG.unset()
+
+
+def test_server_trace_archival_scheduler_defaults_disabled(tmp_path):
+    handlers._tracking_store = None
+    handlers._model_registry_store = None
+    backend_uri = f"sqlite:///{tmp_path / 'backend.db'}"
+    artifact_root = (tmp_path / "artifacts").as_uri()
+
+    MLFLOW_TRACE_ARCHIVAL_CONFIG.unset()
+
+    try:
+        with (
+            mock.patch("mlflow.server._run_server") as run_server_mock,
+            mock.patch("mlflow.server.handlers.initialize_backend_stores") as init_backend,
+        ):
+            result = CliRunner().invoke(
+                server,
+                [
+                    "--backend-store-uri",
+                    backend_uri,
+                    "--registry-store-uri",
+                    backend_uri,
+                    "--default-artifact-root",
+                    artifact_root,
+                ],
+                catch_exceptions=False,
+                standalone_mode=False,
+            )
+        assert result.exit_code == 0
+        run_server_mock.assert_called_once()
+        init_backend.assert_called_once()
+    finally:
+        MLFLOW_TRACE_ARCHIVAL_CONFIG.unset()
+
+
+def test_server_trace_archival_config_missing_file(tmp_path):
+    result = CliRunner().invoke(
+        server,
+        ["--trace-archival-config", str(tmp_path / "missing.yaml")],
+    )
+
+    assert result.exit_code != 0
+    assert "does not exist" in result.output
+
+
+def test_server_trace_archival_config_rejects_invalid_yaml(tmp_path):
+    config_path = tmp_path / "trace-archival.yaml"
+    config_path.write_text("trace_archival: [\n", encoding="utf-8")
+
+    result = CliRunner().invoke(server, ["--trace-archival-config", str(config_path)])
+
+    assert result.exit_code != 0
+    assert "Invalid trace archival config file" in result.output
+    assert "Failed to parse YAML" in result.output
+
+
+def test_server_trace_archival_config_rejects_invalid_experiment_id(tmp_path):
+    config_path = _write_trace_archival_config(
+        tmp_path,
+        long_retention_allowlist=["1", "invalid id"],
+    )
+
+    result = CliRunner().invoke(server, ["--trace-archival-config", str(config_path)])
+
+    assert result.exit_code != 0
+    assert "Invalid experiment ID: 'invalid id'" in result.output
+
+
+def test_server_trace_archival_config_rejects_invalid_interval(tmp_path):
+    config_path = _write_trace_archival_config(tmp_path, interval_seconds=0)
+
+    result = CliRunner().invoke(server, ["--trace-archival-config", str(config_path)])
+
+    assert result.exit_code != 0
+    assert "'trace_archival.interval_seconds' must be a positive integer" in result.output
+
+
+def test_server_trace_archival_config_rejects_invalid_max_traces_per_pass(tmp_path):
+    config_path = _write_trace_archival_config(tmp_path, max_traces_per_pass=0)
+
+    result = CliRunner().invoke(server, ["--trace-archival-config", str(config_path)])
+
+    assert result.exit_code != 0
+    assert "'trace_archival.max_traces_per_pass' must be a positive integer" in result.output
+
+
+def test_server_trace_archival_config_requires_archival_capable_tracking_store(tmp_path):
+    handlers._tracking_store = None
+    handlers._model_registry_store = None
+    backend_uri = f"sqlite:///{tmp_path / 'backend.db'}"
+    artifact_root = (tmp_path / "artifacts").as_uri()
+    config_path = _write_trace_archival_config(tmp_path)
+    mock_tracking_store = mock.Mock(supports_trace_archival=False)
+
+    with (
+        mock.patch("mlflow.server._run_server") as run_server_mock,
+        mock.patch("mlflow.server.handlers._get_tracking_store", return_value=mock_tracking_store),
+        mock.patch("mlflow.server.handlers._get_model_registry_store", return_value=None),
+    ):
+        result = CliRunner().invoke(
+            server,
+            [
+                "--backend-store-uri",
+                backend_uri,
+                "--registry-store-uri",
+                backend_uri,
+                "--default-artifact-root",
+                artifact_root,
+                "--trace-archival-config",
+                str(config_path),
+            ],
+        )
+
+    assert result.exit_code != 0
+    assert "Error initializing backend store" in result.output
+    run_server_mock.assert_not_called()
+
+
+def test_server_trace_archival_config_allows_disabled_config_on_unsupported_tracking_store(
+    tmp_path,
+):
+    handlers._tracking_store = None
+    handlers._model_registry_store = None
+    backend_uri = f"sqlite:///{tmp_path / 'backend.db'}"
+    artifact_root = (tmp_path / "artifacts").as_uri()
+    config_path = _write_trace_archival_config(tmp_path, enabled=False)
+    mock_tracking_store = mock.Mock(supports_trace_archival=False)
+    MLFLOW_TRACE_ARCHIVAL_CONFIG.unset()
+
+    try:
+        with (
+            mock.patch("mlflow.server._run_server") as run_server_mock,
+            mock.patch(
+                "mlflow.server.handlers._get_tracking_store", return_value=mock_tracking_store
+            ),
+            mock.patch("mlflow.server.handlers._get_model_registry_store", return_value=None),
+        ):
+            result = CliRunner().invoke(
+                server,
+                [
+                    "--backend-store-uri",
+                    backend_uri,
+                    "--registry-store-uri",
+                    backend_uri,
+                    "--default-artifact-root",
+                    artifact_root,
+                    "--trace-archival-config",
+                    str(config_path),
+                ],
+            )
+
+        assert result.exit_code == 0
+        run_server_mock.assert_called_once()
+    finally:
+        MLFLOW_TRACE_ARCHIVAL_CONFIG.unset()
 
 
 @pytest.mark.parametrize("command", [server])
@@ -312,19 +749,15 @@ def test_registry_store_uri_different_from_tracking_store(command):
 
 
 @pytest.fixture
-def sqlite_store():
-    fd, temp_dbfile = tempfile.mkstemp()
-    # Close handle immediately so that we can remove the file later on in Windows
-    os.close(fd)
-    db_uri = f"sqlite:///{temp_dbfile}"
-    store = SqlAlchemyStore(db_uri, "artifact_folder")
-    yield (store, db_uri)
-    os.remove(temp_dbfile)
-    shutil.rmtree("artifact_folder", ignore_errors=True)
+def sqlite_store(db_uri: str, tmp_path: Path) -> tuple[SqlAlchemyStore, str]:
+    artifact_uri = (tmp_path / "artifacts").as_uri()
+    store = SqlAlchemyStore(db_uri, artifact_uri)
+    return (store, db_uri)
 
 
 @pytest.fixture
 def file_store():
+    pytest.skip("FileStore is no longer supported.")
     ROOT_LOCATION = os.path.join(tempfile.gettempdir(), "test_mlflow_gc")
     file_store_uri = f"file:///{ROOT_LOCATION}"
     yield (FileStore(ROOT_LOCATION), file_store_uri)
@@ -352,16 +785,14 @@ def test_mlflow_gc_sqlite(sqlite_store, create_artifacts_in_run):
     store = sqlite_store[0]
     run = _create_run_in_store(store, create_artifacts=create_artifacts_in_run)
     store.delete_run(run.info.run_id)
-    subprocess.check_call(
-        [
-            sys.executable,
-            "-m",
-            "mlflow",
-            "gc",
-            "--backend-store-uri",
-            sqlite_store[1],
-        ]
-    )
+    subprocess.check_call([
+        sys.executable,
+        "-m",
+        "mlflow",
+        "gc",
+        "--backend-store-uri",
+        sqlite_store[1],
+    ])
     runs = store.search_runs(experiment_ids=["0"], filter_string="", run_view_type=ViewType.ALL)
     assert len(runs) == 0
     with pytest.raises(MlflowException, match=r"Run .+ not found"):
@@ -398,32 +829,36 @@ def test_mlflow_gc_sqlite_older_than(sqlite_store):
     assert len(runs) == 1
 
     time.sleep(1)
-    subprocess.check_output(
-        [
-            sys.executable,
-            "-m",
-            "mlflow",
-            "gc",
-            "--backend-store-uri",
-            sqlite_store[1],
-            "--older-than",
-            "1s",
-            "--run-ids",
-            run.info.run_id,
-        ]
-    )
+    subprocess.check_output([
+        sys.executable,
+        "-m",
+        "mlflow",
+        "gc",
+        "--backend-store-uri",
+        sqlite_store[1],
+        "--older-than",
+        "1s",
+        "--run-ids",
+        run.info.run_id,
+    ])
     runs = store.search_runs(experiment_ids=["0"], filter_string="", run_view_type=ViewType.ALL)
     assert len(runs) == 0
 
 
 @pytest.mark.parametrize("create_artifacts_in_run", [True, False])
 def test_mlflow_gc_file_store(file_store, create_artifacts_in_run):
+    pytest.skip("FileStore is no longer supported.")
     store = file_store[0]
     run = _create_run_in_store(store, create_artifacts=create_artifacts_in_run)
     store.delete_run(run.info.run_id)
-    subprocess.check_output(
-        [sys.executable, "-m", "mlflow", "gc", "--backend-store-uri", file_store[1]]
-    )
+    subprocess.check_output([
+        sys.executable,
+        "-m",
+        "mlflow",
+        "gc",
+        "--backend-store-uri",
+        file_store[1],
+    ])
     runs = store.search_runs(experiment_ids=["0"], filter_string="", run_view_type=ViewType.ALL)
     assert len(runs) == 0
     with pytest.raises(MlflowException, match=r"Run .+ not found"):
@@ -434,11 +869,32 @@ def test_mlflow_gc_file_store(file_store, create_artifacts_in_run):
 
 
 def test_mlflow_gc_file_store_passing_explicit_run_ids(file_store):
+    pytest.skip("FileStore is no longer supported.")
     store = file_store[0]
     run = _create_run_in_store(store)
     store.delete_run(run.info.run_id)
-    subprocess.check_output(
-        [
+    subprocess.check_output([
+        sys.executable,
+        "-m",
+        "mlflow",
+        "gc",
+        "--backend-store-uri",
+        file_store[1],
+        "--run-ids",
+        run.info.run_id,
+    ])
+    runs = store.search_runs(experiment_ids=["0"], filter_string="", run_view_type=ViewType.ALL)
+    assert len(runs) == 0
+    with pytest.raises(MlflowException, match=r"Run .+ not found"):
+        store.get_run(run.info.run_id)
+
+
+def test_mlflow_gc_not_deleted_run(file_store):
+    pytest.skip("FileStore is no longer supported.")
+    store = file_store[0]
+    run = _create_run_in_store(store)
+    with pytest.raises(subprocess.CalledProcessError, match=r".+"):
+        subprocess.check_output([
             sys.executable,
             "-m",
             "mlflow",
@@ -447,35 +903,13 @@ def test_mlflow_gc_file_store_passing_explicit_run_ids(file_store):
             file_store[1],
             "--run-ids",
             run.info.run_id,
-        ]
-    )
-    runs = store.search_runs(experiment_ids=["0"], filter_string="", run_view_type=ViewType.ALL)
-    assert len(runs) == 0
-    with pytest.raises(MlflowException, match=r"Run .+ not found"):
-        store.get_run(run.info.run_id)
-
-
-def test_mlflow_gc_not_deleted_run(file_store):
-    store = file_store[0]
-    run = _create_run_in_store(store)
-    with pytest.raises(subprocess.CalledProcessError, match=r".+"):
-        subprocess.check_output(
-            [
-                sys.executable,
-                "-m",
-                "mlflow",
-                "gc",
-                "--backend-store-uri",
-                file_store[1],
-                "--run-ids",
-                run.info.run_id,
-            ]
-        )
+        ])
     runs = store.search_runs(experiment_ids=["0"], filter_string="", run_view_type=ViewType.ALL)
     assert len(runs) == 1
 
 
 def test_mlflow_gc_file_store_older_than(file_store):
+    pytest.skip("FileStore is no longer supported.")
     store = file_store[0]
     run = _create_run_in_store(store)
     store.delete_run(run.info.run_id)
@@ -502,26 +936,27 @@ def test_mlflow_gc_file_store_older_than(file_store):
     assert len(runs) == 1
 
     time.sleep(1)
-    subprocess.check_output(
-        [
-            sys.executable,
-            "-m",
-            "mlflow",
-            "gc",
-            "--backend-store-uri",
-            file_store[1],
-            "--older-than",
-            "1s",
-            "--run-ids",
-            run.info.run_id,
-        ]
-    )
+    subprocess.check_output([
+        sys.executable,
+        "-m",
+        "mlflow",
+        "gc",
+        "--backend-store-uri",
+        file_store[1],
+        "--older-than",
+        "1s",
+        "--run-ids",
+        run.info.run_id,
+    ])
     runs = store.search_runs(experiment_ids=["0"], filter_string="", run_view_type=ViewType.ALL)
     assert len(runs) == 0
 
 
 @pytest.mark.parametrize("get_store_details", ["file_store", "sqlite_store"])
 def test_mlflow_gc_experiments(get_store_details, request):
+    if get_store_details == "file_store":
+        pytest.skip("FileStore is no longer supported.")
+
     def invoke_gc(*args):
         return CliRunner().invoke(gc, args, catch_exceptions=False)
 
@@ -548,9 +983,10 @@ def test_mlflow_gc_experiments(get_store_details, request):
     store.delete_experiment(exp_id_3)
     invoke_gc("--backend-store-uri", uri, "--experiment-ids", exp_id_2)
     experiments = store.search_experiments(view_type=ViewType.ALL)
-    assert sorted([e.experiment_id for e in experiments]) == sorted(
-        [exp_id_3, store.DEFAULT_EXPERIMENT_ID]
-    )
+    assert sorted([e.experiment_id for e in experiments]) == sorted([
+        exp_id_3,
+        store.DEFAULT_EXPERIMENT_ID,
+    ])
 
     with mock.patch("time.time", return_value=0) as mock_time:
         exp_id_4 = store.create_experiment("4")
@@ -559,9 +995,10 @@ def test_mlflow_gc_experiments(get_store_details, request):
 
     invoke_gc("--backend-store-uri", uri, "--older-than", "1d")
     experiments = store.search_experiments(view_type=ViewType.ALL)
-    assert sorted([e.experiment_id for e in experiments]) == sorted(
-        [exp_id_3, store.DEFAULT_EXPERIMENT_ID]
-    )
+    assert sorted([e.experiment_id for e in experiments]) == sorted([
+        exp_id_3,
+        store.DEFAULT_EXPERIMENT_ID,
+    ])
 
     invoke_gc("--backend-store-uri", uri, "--experiment-ids", exp_id_3, "--older-than", "0s")
     experiments = store.search_experiments(view_type=ViewType.ALL)
@@ -579,23 +1016,64 @@ def test_mlflow_gc_experiments(get_store_details, request):
             "10d10h10m10s",
         )
     experiments = store.search_experiments(view_type=ViewType.ALL)
-    assert sorted([e.experiment_id for e in experiments]) == sorted(
-        [exp_id_5, store.DEFAULT_EXPERIMENT_ID]
+    assert sorted([e.experiment_id for e in experiments]) == sorted([
+        exp_id_5,
+        store.DEFAULT_EXPERIMENT_ID,
+    ])
+
+
+def test_mlflow_gc_experiment_with_logged_model_params_tags_and_metrics(sqlite_store):
+    store, uri = sqlite_store
+    exp_id = store.create_experiment("exp_with_logged_model")
+    run = store.create_run(exp_id, user_id="user", start_time=0, tags=[], run_name="run")
+    run_id = run.info.run_id
+    model = store.create_logged_model(experiment_id=exp_id)
+
+    store.log_logged_model_params(
+        model_id=model.model_id,
+        params=[
+            LoggedModelParameter(key="param1", value="value1"),
+            LoggedModelParameter(key="param2", value="value2"),
+        ],
     )
+    store.set_logged_model_tags(
+        model_id=model.model_id,
+        tags=[
+            LoggedModelTag(key="tag1", value="value1"),
+            LoggedModelTag(key="tag2", value="value2"),
+        ],
+    )
+    store._log_model_metrics(
+        run_id=run_id,
+        metrics=[Metric(key="m1", value=1.0, timestamp=0, step=0, model_id=model.model_id)],
+        experiment_id=exp_id,
+    )
+
+    store.delete_experiment(exp_id)
+
+    result = CliRunner().invoke(gc, ["--backend-store-uri", uri], catch_exceptions=False)
+    assert result.exit_code == 0
+
+    experiments = store.search_experiments(view_type=ViewType.ALL)
+    assert [e.experiment_id for e in experiments] == [store.DEFAULT_EXPERIMENT_ID]
+
+    with pytest.raises(MlflowException, match=r".+ not found"):
+        store.get_logged_model(model.model_id)
+
+    with store.ManagedSessionMaker() as session:
+        for table in [SqlLoggedModelParam, SqlLoggedModelTag, SqlLoggedModelMetric]:
+            assert session.query(table).count() == 0
 
 
 @pytest.fixture
-def sqlite_store_with_s3_artifact_repository():
-    fd, temp_dbfile = tempfile.mkstemp()
-    # Close handle immediately so that we can remove the file later on in Windows
-    os.close(fd)
-    db_uri = f"sqlite:///{temp_dbfile}"
+def sqlite_store_with_s3_artifact_repository(
+    tmp_path: Path,
+) -> tuple[SqlAlchemyStore, str, str]:
+    db_path = tmp_path / "mlflow.db"
+    db_uri = f"sqlite:///{db_path}"
     s3_uri = "s3://mlflow"
     store = SqlAlchemyStore(db_uri, s3_uri)
-
-    yield (store, db_uri, s3_uri)
-
-    os.remove(temp_dbfile)
+    return (store, db_uri, s3_uri)
 
 
 def test_mlflow_gc_sqlite_with_s3_artifact_repository(
@@ -637,77 +1115,35 @@ def test_mlflow_gc_sqlite_with_s3_artifact_repository(
             store.get_run(run.info.run_id)
 
 
-@pytest.mark.skip(reason="mlserver is incompatible with the latest version of pydantic")
-@pytest.mark.parametrize(
-    "enable_mlserver",
-    [
-        # MLServer is not supported in Windows yet, so let's skip this test in that case.
-        # https://github.com/SeldonIO/MLServer/issues/361
-        pytest.param(
-            True,
-            marks=pytest.mark.skipif(is_windows(), reason="MLServer is not supported in Windows"),
-        ),
-        False,
-    ],
-)
-def test_mlflow_models_serve(enable_mlserver):
-    class MyModel(pyfunc.PythonModel):
-        def predict(self, context, model_input, params=None):
-            return np.array([1, 2, 3])
-
-    model = MyModel()
-
-    with mlflow.start_run():
-        if enable_mlserver:
-            # We need MLServer to be present on the Conda environment, so we'll
-            # add that as an extra requirement.
-            mlflow.pyfunc.log_model(
-                name="model",
-                python_model=model,
-                extra_pip_requirements=[
-                    "mlserver>=1.2.0,!=1.3.1",
-                    "mlserver-mlflow>=1.2.0,!=1.3.1",
-                    PROTOBUF_REQUIREMENT,
-                ],
-            )
-        else:
-            mlflow.pyfunc.log_model(name="model", python_model=model)
-        model_uri = mlflow.get_artifact_uri("model")
-
-    data = pd.DataFrame({"a": [0]})
-
-    extra_args = ["--env-manager", "local"]
-    if enable_mlserver:
-        extra_args.append("--enable-mlserver")
-
-    scoring_response = pyfunc_serve_and_score_model(
-        model_uri=model_uri,
-        data=data,
-        content_type=pyfunc.scoring_server.CONTENT_TYPE_JSON,
-        extra_args=extra_args,
-    )
-    assert scoring_response.status_code == 200
-    served_model_preds = np.array(json.loads(scoring_response.content)["predictions"])
-    np.testing.assert_array_equal(served_model_preds, model.predict(data, None))
-
-
 def test_mlflow_tracking_disabled_in_artifacts_only_mode(tmp_path: Path):
     port = get_safe_port()
-    cmd = ["mlflow", "server", "--port", str(port), "--artifacts-only"]
-    process = subprocess.Popen(cmd, cwd=tmp_path)
-    _await_server_up_or_die(port)
-    resp = requests.get(f"http://localhost:{port}/api/2.0/mlflow/experiments/search")
-    assert (
-        "Endpoint: /api/2.0/mlflow/experiments/search disabled due to the mlflow server running "
-        "in `--artifacts-only` mode." in resp.text
-    )
-    process.kill()
+    env = {**os.environ}
+    env.pop(MLFLOW_TRACE_ARCHIVAL_CONFIG.name, None)
+    with subprocess.Popen(
+        [sys.executable, "-m", "mlflow", "server", "--port", str(port), "--artifacts-only"],
+        cwd=tmp_path,
+        env=env,
+    ) as process:
+        try:
+            _await_server_up_or_die(port)
+            resp = requests.get(f"http://localhost:{port}/api/2.0/mlflow/experiments/search")
+            assert (
+                "Endpoint: /api/2.0/mlflow/experiments/search disabled due to the mlflow "
+                "server running in `--artifacts-only` mode." in resp.text
+            )
+        finally:
+            kill_process_tree(process.pid)
 
 
 def test_mlflow_artifact_list_in_artifacts_only_mode(tmp_path: Path):
     port = get_safe_port()
-    cmd = ["mlflow", "server", "--port", str(port), "--artifacts-only"]
-    with subprocess.Popen(cmd, cwd=tmp_path) as process:
+    env = {**os.environ}
+    env.pop(MLFLOW_TRACE_ARCHIVAL_CONFIG.name, None)
+    with subprocess.Popen(
+        [sys.executable, "-m", "mlflow", "server", "--port", str(port), "--artifacts-only"],
+        cwd=tmp_path,
+        env=env,
+    ) as process:
         try:
             _await_server_up_or_die(port)
             resp = requests.get(f"http://localhost:{port}/api/2.0/mlflow-artifacts/artifacts")
@@ -715,23 +1151,30 @@ def test_mlflow_artifact_list_in_artifacts_only_mode(tmp_path: Path):
             assert resp.status_code == 200
             assert resp.text == "{}"
         finally:
-            process.kill()
+            kill_process_tree(process.pid)
 
 
 def test_mlflow_artifact_service_unavailable_when_no_server_artifacts_is_specified():
     port = get_safe_port()
-    cmd = ["mlflow", "server", "--port", str(port), "--no-serve-artifacts"]
-    process = subprocess.Popen(cmd)
-    try:
-        _await_server_up_or_die(port)
-        endpoint = "/api/2.0/mlflow-artifacts/artifacts"
-        resp = requests.get(f"http://localhost:{port}{endpoint}")
-        assert (
-            f"Endpoint: {endpoint} disabled due to the mlflow server running with "
-            "`--no-serve-artifacts`" in resp.text
-        )
-    finally:
-        process.kill()
+    with subprocess.Popen([
+        sys.executable,
+        "-m",
+        "mlflow",
+        "server",
+        "--port",
+        str(port),
+        "--no-serve-artifacts",
+    ]) as process:
+        try:
+            _await_server_up_or_die(port)
+            endpoint = "/api/2.0/mlflow-artifacts/artifacts"
+            resp = requests.get(f"http://localhost:{port}{endpoint}")
+            assert (
+                f"Endpoint: {endpoint} disabled due to the mlflow server running with "
+                "`--no-serve-artifacts`" in resp.text
+            )
+        finally:
+            kill_process_tree(process.pid)
 
 
 def test_mlflow_artifact_only_prints_warning_for_configs():
@@ -799,9 +1242,7 @@ def test_doctor():
 
 def test_env_file_loading(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     # Setup: Create an experiment using the Python SDK
-    # Use file:// URI format for cross-platform compatibility
-    mlruns_path = tmp_path / "mlruns"
-    test_tracking_uri = mlruns_path.as_uri()  # This creates proper file:// URI
+    test_tracking_uri = f"sqlite:///{tmp_path / 'mlflow.db'}"
     test_experiment_name = "test_experiment_from_env"
 
     # Create experiment using SDK
@@ -928,9 +1369,14 @@ def test_mlflow_gc_with_datasets(sqlite_store):
     experiments = store.search_experiments(view_type=ViewType.ALL)
     assert len(experiments) == 2
 
-    subprocess.check_call(
-        [sys.executable, "-m", "mlflow", "gc", "--backend-store-uri", sqlite_store[1]]
-    )
+    subprocess.check_call([
+        sys.executable,
+        "-m",
+        "mlflow",
+        "gc",
+        "--backend-store-uri",
+        sqlite_store[1],
+    ])
     experiments = store.search_experiments(view_type=ViewType.ALL)
 
     # only default is left after GC
@@ -942,6 +1388,8 @@ def test_mlflow_gc_with_datasets(sqlite_store):
 
 @pytest.mark.parametrize("get_store_details", ["file_store", "sqlite_store"])
 def test_mlflow_gc_logged_model(get_store_details, request):
+    if get_store_details == "file_store":
+        pytest.skip("FileStore is no longer supported.")
     store, uri = request.getfixturevalue(get_store_details)
     exp_id = store.create_experiment("exp")
     model = store.create_logged_model(experiment_id=exp_id)
@@ -955,6 +1403,8 @@ def test_mlflow_gc_logged_model(get_store_details, request):
 
 @pytest.mark.parametrize("get_store_details", ["file_store", "sqlite_store"])
 def test_mlflow_gc_logged_models_older_than(get_store_details, request):
+    if get_store_details == "file_store":
+        pytest.skip("FileStore is no longer supported.")
     store, uri = request.getfixturevalue(get_store_details)
     exp_id = store.create_experiment("exp")
     old_time = time.time() - (2 * 24 * 60 * 60)
@@ -963,18 +1413,16 @@ def test_mlflow_gc_logged_models_older_than(get_store_details, request):
 
     store.delete_logged_model(model.model_id)
 
-    subprocess.check_call(
-        [
-            sys.executable,
-            "-m",
-            "mlflow",
-            "gc",
-            "--backend-store-uri",
-            uri,
-            "--older-than",
-            "1d",
-        ]
-    )
+    subprocess.check_call([
+        sys.executable,
+        "-m",
+        "mlflow",
+        "gc",
+        "--backend-store-uri",
+        uri,
+        "--older-than",
+        "1d",
+    ])
 
     retrieved_model = store.get_logged_model(model.model_id, allow_deleted=True)
     assert retrieved_model.model_id == model.model_id
@@ -982,6 +1430,8 @@ def test_mlflow_gc_logged_models_older_than(get_store_details, request):
 
 @pytest.mark.parametrize("get_store_details", ["file_store", "sqlite_store"])
 def test_mlflow_gc_logged_models_deletes_when_older_than(get_store_details, request):
+    if get_store_details == "file_store":
+        pytest.skip("FileStore is no longer supported.")
     store, uri = request.getfixturevalue(get_store_details)
     exp_id = store.create_experiment("exp")
     model = store.create_logged_model(experiment_id=exp_id)
@@ -990,18 +1440,16 @@ def test_mlflow_gc_logged_models_deletes_when_older_than(get_store_details, requ
     with mock.patch("mlflow.utils.time.get_current_time_millis", return_value=old_deletion_ms):
         store.delete_logged_model(model.model_id)
 
-    subprocess.check_call(
-        [
-            sys.executable,
-            "-m",
-            "mlflow",
-            "gc",
-            "--backend-store-uri",
-            uri,
-            "--older-than",
-            "1d",
-        ]
-    )
+    subprocess.check_call([
+        sys.executable,
+        "-m",
+        "mlflow",
+        "gc",
+        "--backend-store-uri",
+        uri,
+        "--older-than",
+        "1d",
+    ])
 
     with pytest.raises(MlflowException, match=r".+ not found"):
         store.get_logged_model(model.model_id)
@@ -1009,6 +1457,8 @@ def test_mlflow_gc_logged_models_deletes_when_older_than(get_store_details, requ
 
 @pytest.mark.parametrize("get_store_details", ["file_store", "sqlite_store"])
 def test_mlflow_gc_logged_models_mixed_time(get_store_details, request):
+    if get_store_details == "file_store":
+        pytest.skip("FileStore is no longer supported.")
     store, uri = request.getfixturevalue(get_store_details)
     exp_id = store.create_experiment("exp")
     old_model = store.create_logged_model(experiment_id=exp_id)
@@ -1022,18 +1472,16 @@ def test_mlflow_gc_logged_models_mixed_time(get_store_details, request):
         current_time_mock.return_value = int(time.time() * 1000)
         store.delete_logged_model(recent_model.model_id)
 
-    subprocess.check_call(
-        [
-            sys.executable,
-            "-m",
-            "mlflow",
-            "gc",
-            "--backend-store-uri",
-            uri,
-            "--older-than",
-            "1d",
-        ]
-    )
+    subprocess.check_call([
+        sys.executable,
+        "-m",
+        "mlflow",
+        "gc",
+        "--backend-store-uri",
+        uri,
+        "--older-than",
+        "1d",
+    ])
 
     with pytest.raises(MlflowException, match=r".+ not found"):
         store.get_logged_model(old_model.model_id)
@@ -1043,16 +1491,13 @@ def test_mlflow_gc_logged_models_mixed_time(get_store_details, request):
 
 
 @pytest.fixture
-def sqlite_store_with_jobs():
-    fd, temp_dbfile = tempfile.mkstemp()
-    os.close(fd)
-    db_uri = f"sqlite:///{temp_dbfile}"
-    tracking_store = SqlAlchemyStore(db_uri, "artifact_folder_jobs")
+def sqlite_store_with_jobs(
+    db_uri: str, tmp_path: Path
+) -> tuple[SqlAlchemyStore, SqlAlchemyJobStore, str]:
+    artifact_uri = (tmp_path / "artifacts").as_uri()
+    tracking_store = SqlAlchemyStore(db_uri, artifact_uri)
     job_store = SqlAlchemyJobStore(db_uri)
-    yield (tracking_store, job_store, db_uri)
-    os.remove(temp_dbfile)
-    if os.path.exists("artifact_folder_jobs"):
-        shutil.rmtree("artifact_folder_jobs")
+    return (tracking_store, job_store, db_uri)
 
 
 def _create_test_job(job_store, job_name="test_job", finalize=True):
@@ -1067,7 +1512,7 @@ def _create_test_job(job_store, job_name="test_job", finalize=True):
 def _set_job_creation_time(job_store, job_id, creation_time_ms):
     from mlflow.store.tracking.dbmodels.models import SqlJob
 
-    with job_store.ManagedSessionMaker() as session:
+    with job_store.ManagedSessionMaker(read_only=False) as session:
         job = session.query(SqlJob).filter(SqlJob.id == job_id).first()
         job.creation_time = creation_time_ms
 
@@ -1078,16 +1523,14 @@ def test_mlflow_gc_no_jobs_deleted_without_jobs_flag(sqlite_store_with_jobs):
     job1 = _create_test_job(job_store, "job1")
     job2 = _create_test_job(job_store, "job2")
 
-    subprocess.check_call(
-        [
-            sys.executable,
-            "-m",
-            "mlflow",
-            "gc",
-            "--backend-store-uri",
-            db_uri,
-        ]
-    )
+    subprocess.check_call([
+        sys.executable,
+        "-m",
+        "mlflow",
+        "gc",
+        "--backend-store-uri",
+        db_uri,
+    ])
 
     retrieved_job1 = job_store.get_job(job1.job_id)
     retrieved_job2 = job_store.get_job(job2.job_id)
@@ -1102,17 +1545,15 @@ def test_mlflow_gc_all_jobs_deleted_with_jobs_flag(sqlite_store_with_jobs):
     job2 = _create_test_job(job_store, "job2")
     job3 = _create_test_job(job_store, "job3")
 
-    subprocess.check_call(
-        [
-            sys.executable,
-            "-m",
-            "mlflow",
-            "gc",
-            "--backend-store-uri",
-            db_uri,
-            "--jobs",
-        ]
-    )
+    subprocess.check_call([
+        sys.executable,
+        "-m",
+        "mlflow",
+        "gc",
+        "--backend-store-uri",
+        db_uri,
+        "--jobs",
+    ])
 
     with pytest.raises(MlflowException, match=r"Job .+ not found"):
         job_store.get_job(job1.job_id)
@@ -1129,18 +1570,16 @@ def test_mlflow_gc_specific_jobs_deleted_with_job_ids(sqlite_store_with_jobs):
     job2 = _create_test_job(job_store, "job2")
     job3 = _create_test_job(job_store, "job3")
 
-    subprocess.check_call(
-        [
-            sys.executable,
-            "-m",
-            "mlflow",
-            "gc",
-            "--backend-store-uri",
-            db_uri,
-            "--job-ids",
-            f"{job1.job_id},{job2.job_id}",
-        ]
-    )
+    subprocess.check_call([
+        sys.executable,
+        "-m",
+        "mlflow",
+        "gc",
+        "--backend-store-uri",
+        db_uri,
+        "--job-ids",
+        f"{job1.job_id},{job2.job_id}",
+    ])
 
     with pytest.raises(MlflowException, match=r"Job .+ not found"):
         job_store.get_job(job1.job_id)
@@ -1160,19 +1599,17 @@ def test_mlflow_gc_jobs_deleted_with_older_than_flag(sqlite_store_with_jobs):
     one_hour_ago = get_current_time_millis() - (60 * 60 * 1000)
     _set_job_creation_time(job_store, old_job.job_id, one_hour_ago)
 
-    subprocess.check_call(
-        [
-            sys.executable,
-            "-m",
-            "mlflow",
-            "gc",
-            "--backend-store-uri",
-            db_uri,
-            "--jobs",
-            "--older-than",
-            "30m",
-        ]
-    )
+    subprocess.check_call([
+        sys.executable,
+        "-m",
+        "mlflow",
+        "gc",
+        "--backend-store-uri",
+        db_uri,
+        "--jobs",
+        "--older-than",
+        "30m",
+    ])
 
     with pytest.raises(MlflowException, match=r"Job .+ not found"):
         job_store.get_job(old_job.job_id)
@@ -1190,20 +1627,18 @@ def test_mlflow_gc_job_ids_with_older_than_filter(sqlite_store_with_jobs):
     one_hour_ago = get_current_time_millis() - (60 * 60 * 1000)
     _set_job_creation_time(job_store, old_job.job_id, one_hour_ago)
 
-    subprocess.check_call(
-        [
-            sys.executable,
-            "-m",
-            "mlflow",
-            "gc",
-            "--backend-store-uri",
-            db_uri,
-            "--job-ids",
-            new_job.job_id,
-            "--older-than",
-            "30m",
-        ]
-    )
+    subprocess.check_call([
+        sys.executable,
+        "-m",
+        "mlflow",
+        "gc",
+        "--backend-store-uri",
+        db_uri,
+        "--job-ids",
+        new_job.job_id,
+        "--older-than",
+        "30m",
+    ])
 
     retrieved_new_job = job_store.get_job(new_job.job_id)
     assert retrieved_new_job.job_id == new_job.job_id
@@ -1246,17 +1681,15 @@ def test_mlflow_gc_only_deletes_finalized_jobs(sqlite_store_with_jobs):
     canceled_job = job_store.get_job(canceled_job.job_id)
     assert canceled_job.status == JobStatus.CANCELED
 
-    subprocess.check_call(
-        [
-            sys.executable,
-            "-m",
-            "mlflow",
-            "gc",
-            "--backend-store-uri",
-            db_uri,
-            "--jobs",
-        ]
-    )
+    subprocess.check_call([
+        sys.executable,
+        "-m",
+        "mlflow",
+        "gc",
+        "--backend-store-uri",
+        db_uri,
+        "--jobs",
+    ])
 
     retrieved_pending = job_store.get_job(pending_job.job_id)
     assert retrieved_pending.job_id == pending_job.job_id

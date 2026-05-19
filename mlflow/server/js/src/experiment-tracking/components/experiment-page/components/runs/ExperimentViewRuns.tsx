@@ -73,6 +73,7 @@ const createCurrentTime = () => {
 const INITIAL_RUN_COLUMN_SIZE = 295;
 const CHARTS_MIN_WIDTH = 350;
 
+// eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
 export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) => {
   const [compareRunsMode] = useExperimentPageViewMode();
   const {

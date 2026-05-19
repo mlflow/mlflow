@@ -5,15 +5,18 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { Controller, useFormContext } from 'react-hook-form';
 import { ProviderSelect } from '../create-endpoint';
 import { ModelSelect } from '../create-endpoint/ModelSelect';
+import { UsageTrackingConfigurator } from '../edit-endpoint/UsageTrackingConfigurator';
 import { ApiKeyConfigurator } from '../model-configuration/components/ApiKeyConfigurator';
 import { useApiKeyConfiguration } from '../model-configuration/hooks/useApiKeyConfiguration';
 import type { ApiKeyConfiguration, SecretMode } from '../model-configuration/types';
 import { formatProviderName } from '../../utils/providerUtils';
 import { LongFormSection } from '../../../common/components/long-form/LongFormSection';
 import { LongFormSummary } from '../../../common/components/long-form/LongFormSummary';
-import type { ProviderModel, SecretInfo } from '../../types';
+import type { CodingAgentType, ProviderModel, SecretInfo } from '../../types';
 import { formatTokens, formatCost } from '../../utils/formatters';
+import { getModelCapabilities } from '../../utils/getModelCapabilities';
 import type { CreateEndpointFormData } from '../../hooks/useCreateEndpointForm';
+import { CODING_AGENT_LABELS } from '../../hooks/useCreateEndpointForm';
 
 const LONG_FORM_TITLE_WIDTH = 200;
 
@@ -36,6 +39,8 @@ export interface EndpointFormRendererProps {
   isFormComplete: boolean;
   /** Whether any fields have changed from their initial values (edit mode only) */
   hasChanges?: boolean;
+  /** When set, hides model/connections fields and shows a coding-agent banner */
+  codingAgent?: CodingAgentType;
   /** Form submission handler */
   onSubmit: (values: EndpointFormData) => Promise<void>;
   /** Cancel handler */
@@ -43,7 +48,7 @@ export interface EndpointFormRendererProps {
   /** Handler for name field blur (for duplicate checking) */
   onNameBlur: () => void;
   /** Component ID prefix for telemetry */
-  componentIdPrefix?: string;
+  componentId?: string;
   /** When true, adapts layout for use inside containers like modals */
   embedded?: boolean;
 }
@@ -57,6 +62,7 @@ export interface EndpointFormRendererProps {
  * handled by the parent to allow this form to be reused in different contexts
  * (full page, modal, etc.).
  */
+
 export const EndpointFormRenderer = ({
   mode,
   isSubmitting,
@@ -66,10 +72,11 @@ export const EndpointFormRenderer = ({
   selectedModel,
   isFormComplete,
   hasChanges = true,
+  codingAgent,
   onSubmit,
   onCancel,
   onNameBlur,
-  componentIdPrefix = `mlflow.gateway.${mode}-endpoint`,
+  componentId = `mlflow.gateway.endpoint`,
   embedded = false,
 }: EndpointFormRendererProps) => {
   const { theme } = useDesignSystemTheme();
@@ -116,18 +123,18 @@ export const EndpointFormRenderer = ({
         description: 'Tooltip shown when submit button is disabled due to incomplete form',
       })
     : mode === 'edit' && !hasChanges
-    ? intl.formatMessage({
-        defaultMessage: 'No changes to save',
-        description: 'Tooltip shown when save button is disabled due to no changes',
-      })
-    : undefined;
+      ? intl.formatMessage({
+          defaultMessage: 'No changes to save',
+          description: 'Tooltip shown when save button is disabled due to no changes',
+        })
+      : undefined;
 
   return (
     <>
       {error && (
         <div css={{ padding: embedded ? 0 : `0 ${theme.spacing.md}px` }}>
           <Alert
-            componentId={`${componentIdPrefix}.error`}
+            componentId={`${componentId}.error`}
             closable={false}
             message={errorMessage}
             type="error"
@@ -175,8 +182,8 @@ export const EndpointFormRenderer = ({
               render={({ field, fieldState }) => (
                 <div>
                   <GatewayInput
-                    id={`${componentIdPrefix}.name`}
-                    componentId={`${componentIdPrefix}.name`}
+                    id={`${componentId}.name`}
+                    componentId={`${componentId}.name`}
                     {...field}
                     onChange={(e) => {
                       field.onChange(e);
@@ -199,79 +206,127 @@ export const EndpointFormRenderer = ({
             />
           </LongFormSection>
 
-          {/* Model Section */}
-          <LongFormSection
-            titleWidth={LONG_FORM_TITLE_WIDTH}
-            title={intl.formatMessage({
-              defaultMessage: 'Model',
-              description: 'Section title for model configuration',
-            })}
-            hideDivider
-          >
-            <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+          {/* Usage Tracking Section (only in create mode) */}
+          {mode === 'create' && (
+            <LongFormSection
+              titleWidth={LONG_FORM_TITLE_WIDTH}
+              title={intl.formatMessage({
+                defaultMessage: 'Usage Tracking',
+                description: 'Section title for usage tracking configuration',
+              })}
+            >
               <Controller
                 control={form.control}
-                name="provider"
-                rules={{ required: 'Provider is required' }}
-                render={({ field, fieldState }) => (
-                  <ProviderSelect
-                    value={field.value}
-                    onChange={(value) => {
-                      field.onChange(value);
-                      form.setValue('modelName', '');
-                      form.setValue('existingSecretId', '');
-                      form.setValue('secretMode', 'new');
-                      form.setValue('newSecret', {
-                        name: '',
-                        authMode: '',
-                        secretFields: {},
-                        configFields: {},
-                      });
-                    }}
-                    error={fieldState.error?.message}
-                    componentIdPrefix={`${componentIdPrefix}.provider`}
-                  />
-                )}
-              />
-              <Controller
-                control={form.control}
-                name="modelName"
-                rules={{ required: 'Model is required' }}
-                render={({ field, fieldState }) => (
-                  <ModelSelect
-                    provider={provider}
+                name="usageTracking"
+                render={({ field }) => (
+                  <UsageTrackingConfigurator
                     value={field.value}
                     onChange={field.onChange}
-                    error={fieldState.error?.message}
-                    componentIdPrefix={`${componentIdPrefix}.model`}
+                    componentId="mlflow.gateway.create-endpoint.usage-tracking"
                   />
                 )}
               />
+            </LongFormSection>
+          )}
 
-              {/* Connections subsection - nested within Model */}
-              {provider && (
-                <div css={{ marginTop: theme.spacing.sm }}>
-                  <Typography.Text bold css={{ display: 'block', marginBottom: theme.spacing.sm }}>
-                    <FormattedMessage
-                      defaultMessage="Connections"
-                      description="Subsection header for API key configuration"
+          {/* Model Section — hidden for coding agents (values are pre-filled) */}
+          {codingAgent ? (
+            <LongFormSection
+              titleWidth={LONG_FORM_TITLE_WIDTH}
+              title={intl.formatMessage({
+                defaultMessage: 'Model',
+                description: 'Section title for model configuration',
+              })}
+              hideDivider
+            >
+              <Alert
+                componentId={`${componentId}.coding-agent-info`}
+                closable={false}
+                type="info"
+                message={intl.formatMessage(
+                  {
+                    defaultMessage:
+                      '{agentName} uses its own credentials, so no API key is required. The provider and model are pre-configured.',
+                    description: 'Info message shown on coding agent endpoint creation form',
+                  },
+                  { agentName: CODING_AGENT_LABELS[codingAgent] ?? codingAgent },
+                )}
+              />
+            </LongFormSection>
+          ) : (
+            <LongFormSection
+              titleWidth={LONG_FORM_TITLE_WIDTH}
+              title={intl.formatMessage({
+                defaultMessage: 'Model',
+                description: 'Section title for model configuration',
+              })}
+              hideDivider
+            >
+              <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+                <Controller
+                  control={form.control}
+                  name="provider"
+                  rules={{ required: 'Provider is required' }}
+                  render={({ field, fieldState }) => (
+                    <ProviderSelect
+                      value={field.value}
+                      onChange={(value) => {
+                        field.onChange(value);
+                        form.setValue('modelName', '');
+                        form.setValue('existingSecretId', '');
+                        form.setValue('secretMode', 'new');
+                        form.setValue('newSecret', {
+                          name: '',
+                          authMode: '',
+                          secretFields: {},
+                          configFields: {},
+                        });
+                      }}
+                      error={fieldState.error?.message}
+                      componentId={`${componentId}.provider`}
                     />
-                  </Typography.Text>
-                  <ApiKeyConfigurator
-                    value={apiKeyConfig}
-                    onChange={handleApiKeyChange}
-                    provider={provider}
-                    existingSecrets={existingSecrets}
-                    isLoadingSecrets={isLoadingSecrets}
-                    authModes={authModes}
-                    defaultAuthMode={defaultAuthMode}
-                    isLoadingProviderConfig={isLoadingProviderConfig}
-                    componentIdPrefix={`${componentIdPrefix}.api-key`}
-                  />
-                </div>
-              )}
-            </div>
-          </LongFormSection>
+                  )}
+                />
+                <Controller
+                  control={form.control}
+                  name="modelName"
+                  rules={{ required: 'Model is required' }}
+                  render={({ field, fieldState }) => (
+                    <ModelSelect
+                      provider={provider}
+                      value={field.value}
+                      onChange={field.onChange}
+                      error={fieldState.error?.message}
+                      componentId={`${componentId}.model`}
+                    />
+                  )}
+                />
+
+                {/* Connections subsection - nested within Model */}
+                {provider && (
+                  <div css={{ marginTop: theme.spacing.sm }}>
+                    <Typography.Text bold css={{ display: 'block', marginBottom: theme.spacing.sm }}>
+                      <FormattedMessage
+                        defaultMessage="Connections"
+                        description="Subsection header for API key configuration"
+                      />
+                    </Typography.Text>
+                    <ApiKeyConfigurator
+                      value={apiKeyConfig}
+                      onChange={handleApiKeyChange}
+                      provider={provider}
+                      existingSecrets={existingSecrets}
+                      isLoadingSecrets={isLoadingSecrets}
+                      authModes={authModes}
+                      defaultAuthMode={defaultAuthMode}
+                      isLoadingProviderConfig={isLoadingProviderConfig}
+                      componentId={`${componentId}.api-key`}
+                    />
+                  </div>
+                )}
+              </div>
+            </LongFormSection>
+          )}
         </div>
 
         {/* Summary sidebar */}
@@ -351,12 +406,12 @@ export const EndpointFormRenderer = ({
           flexShrink: 0,
         }}
       >
-        <Button componentId={`${componentIdPrefix}.cancel`} onClick={onCancel}>
+        <Button componentId={`${componentId}.cancel`} onClick={onCancel}>
           <FormattedMessage defaultMessage="Cancel" description="Cancel button" />
         </Button>
-        <Tooltip componentId={`${componentIdPrefix}.submit-tooltip`} content={buttonTooltip}>
+        <Tooltip componentId={`${componentId}.submit-tooltip`} content={buttonTooltip}>
           <Button
-            componentId={`${componentIdPrefix}.submit`}
+            componentId={`${componentId}.submit`}
             type="primary"
             onClick={form.handleSubmit(onSubmit)}
             loading={isSubmitting}
@@ -379,9 +434,7 @@ const ModelSummary = ({ model, modelName }: { model: ProviderModel | undefined; 
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
 
-  const capabilities: string[] = [];
-  if (model?.supports_function_calling) capabilities.push('Tools');
-  if (model?.supports_reasoning) capabilities.push('Reasoning');
+  const capabilities = getModelCapabilities(model);
 
   const contextWindow = formatTokens(model?.max_input_tokens);
   const inputCost = formatCost(model?.input_cost_per_token);

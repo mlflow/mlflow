@@ -8,7 +8,7 @@ export const useCreateSecret = () => {
   return useMutation<CreateSecretInfoResponse, Error, CreateSecretRequest>({
     mutationFn: (request) => GatewayApi.createSecret(request),
     onSuccess: () => {
-      queryClient.invalidateQueries(['gateway_secrets']);
+      queryClient.invalidateQueries({ queryKey: ['gateway_secrets'] });
     },
   });
 };

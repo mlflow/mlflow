@@ -10,13 +10,14 @@ import {
 } from '@databricks/web-shared/model-trace-explorer';
 import { useTraceMetricsQuery } from './useTraceMetricsQuery';
 import { formatTimestampForTraceMetrics, useTimestampValueMap } from '../utils/chartUtils';
-import type { OverviewChartProps } from '../types';
+import { useOverviewChartContext } from '../OverviewChartContext';
 
 export interface TokenStatsChartDataPoint {
   name: string;
   p50: number;
   p90: number;
   p99: number;
+  timestampMs: number;
 }
 
 export interface UseTraceTokenStatsChartDataResult {
@@ -35,24 +36,22 @@ export interface UseTraceTokenStatsChartDataResult {
 /**
  * Custom hook that fetches and processes token stats chart data.
  * Encapsulates all data-fetching and processing logic for the token stats chart.
+ * Uses OverviewChartContext to get chart props.
  *
- * @param props - Chart props including experimentId, time range, and buckets
  * @returns Processed chart data, loading state, and error state
  */
 export function useTraceTokenStatsChartData({
-  experimentId,
-  startTimeMs,
-  endTimeMs,
-  timeIntervalSeconds,
-  timeBuckets,
-}: OverviewChartProps): UseTraceTokenStatsChartDataResult {
+  enabled = true,
+}: { enabled?: boolean } = {}): UseTraceTokenStatsChartDataResult {
+  const { experimentIds, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets, filters } =
+    useOverviewChartContext();
   // Fetch token stats with p50, p90, p99 aggregations grouped by time
   const {
     data: tokenStatsData,
     isLoading: isLoadingTimeSeries,
     error: timeSeriesError,
   } = useTraceMetricsQuery({
-    experimentId,
+    experimentIds,
     startTimeMs,
     endTimeMs,
     viewType: MetricViewType.TRACES,
@@ -63,20 +62,26 @@ export function useTraceTokenStatsChartData({
       { aggregation_type: AggregationType.PERCENTILE, percentile_value: P99 },
     ],
     timeIntervalSeconds,
+    filters,
+    enabled,
   });
 
-  // Fetch overall average tokens (without time bucketing) for the header
+  // Fetch overall average tokens (without time bucketing) for the header.
+  // Uses [SUM, AVG] so React Query deduplicates with the identical call
+  // in useTraceTokenUsageChartData.
   const {
     data: avgTokensData,
     isLoading: isLoadingAvg,
     error: avgError,
   } = useTraceMetricsQuery({
-    experimentId,
+    experimentIds,
     startTimeMs,
     endTimeMs,
     viewType: MetricViewType.TRACES,
     metricName: TraceMetricKey.TOTAL_TOKENS,
-    aggregations: [{ aggregation_type: AggregationType.AVG }],
+    aggregations: [{ aggregation_type: AggregationType.SUM }, { aggregation_type: AggregationType.AVG }],
+    filters,
+    enabled,
   });
 
   const tokenStatsDataPoints = useMemo(() => tokenStatsData?.data_points || [], [tokenStatsData?.data_points]);
@@ -106,6 +111,7 @@ export function useTraceTokenStatsChartData({
         p50: stats?.p50 || 0,
         p90: stats?.p90 || 0,
         p99: stats?.p99 || 0,
+        timestampMs,
       };
     });
   }, [timeBuckets, tokenStatsByTimestamp, timeIntervalSeconds]);

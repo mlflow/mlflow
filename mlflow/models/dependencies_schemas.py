@@ -124,15 +124,13 @@ def set_retriever_schema(
             existing_schema["doc_uri"] = doc_uri
             existing_schema["other_columns"] = other_columns or []
     else:
-        retriever_schemas.append(
-            {
-                "primary_key": primary_key,
-                "text_column": text_column,
-                "doc_uri": doc_uri,
-                "other_columns": other_columns or [],
-                "name": name,
-            }
-        )
+        retriever_schemas.append({
+            "primary_key": primary_key,
+            "text_column": text_column,
+            "doc_uri": doc_uri,
+            "other_columns": other_columns or [],
+            "name": name,
+        })
 
     globals()[DependenciesSchemasType.RETRIEVERS.value] = retriever_schemas
 

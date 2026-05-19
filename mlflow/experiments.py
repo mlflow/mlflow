@@ -4,10 +4,15 @@ import os
 import click
 
 import mlflow
-from mlflow.entities import ViewType
+from mlflow.entities import ExperimentTag, ViewType
+from mlflow.exceptions import MlflowException
+from mlflow.mcp.decorator import mlflow_mcp
+from mlflow.protos import databricks_pb2
+from mlflow.tracing.constant import TraceExperimentTagKey
 from mlflow.tracking import _get_store, fluent
 from mlflow.utils.data_utils import is_uri
 from mlflow.utils.string_utils import _create_table
+from mlflow.utils.validation import _validate_trace_archival_retention_string
 
 EXPERIMENT_ID = click.option("--experiment-id", "-x", type=click.STRING, required=True)
 
@@ -19,6 +24,25 @@ def _validate_max_results(ctx, param, value):
     return value
 
 
+def _validate_trace_archival_duration(ctx, param, value):
+    if value is None:
+        return None
+
+    try:
+        return _validate_trace_archival_retention_string(value)
+    except MlflowException as e:
+        raise click.BadParameter(e.message) from e
+
+
+def _encode_trace_archival_retention_tag(retention):
+    return json.dumps({"type": "duration", "value": retention})
+
+
+def _encode_trace_archive_now_tag(older_than=None):
+    payload = {} if older_than is None else {"older_than": older_than}
+    return json.dumps(payload)
+
+
 @click.group("experiments")
 def commands():
     """
@@ -28,6 +52,7 @@ def commands():
 
 
 @commands.command()
+@mlflow_mcp(tool_name="create_experiment")
 @click.option("--experiment-name", "-n", type=click.STRING, required=True)
 @click.option(
     "--artifact-location",
@@ -38,7 +63,17 @@ def commands():
     "more info on the properties of artifact location. "
     "If no location is provided, the tracking server will pick a default.",
 )
-def create(experiment_name, artifact_location):
+@click.option(
+    "--trace-archival-retention",
+    type=click.STRING,
+    callback=_validate_trace_archival_duration,
+    help=(
+        "Configure the experiment-level trace archival retention override as a duration like "
+        "'30d' or '12h'. This only configures server-owned archival policy; it does not execute "
+        "archival directly."
+    ),
+)
+def create(experiment_name, artifact_location, trace_archival_retention):
     """
     Create an experiment.
 
@@ -50,11 +85,149 @@ def create(experiment_name, artifact_location):
     as subfolders.
     """
     store = _get_store()
-    exp_id = store.create_experiment(experiment_name, artifact_location)
+    tags = None
+    if trace_archival_retention is not None:
+        tags = [
+            ExperimentTag(
+                TraceExperimentTagKey.ARCHIVAL_RETENTION,
+                _encode_trace_archival_retention_tag(trace_archival_retention),
+            )
+        ]
+    exp_id = store.create_experiment(experiment_name, artifact_location, tags=tags)
     click.echo(f"Created experiment '{experiment_name}' with id {exp_id}")
 
 
+@commands.command("update")
+@mlflow_mcp(tool_name="update_experiment")
+@EXPERIMENT_ID
+@click.option(
+    "--trace-archival-retention",
+    type=click.STRING,
+    callback=_validate_trace_archival_duration,
+    help=(
+        "Set the experiment-level trace archival retention override as a duration like '30d' "
+        "or '12h'. This only configures server-owned archival policy."
+    ),
+)
+@click.option(
+    "--clear-trace-archival-retention",
+    is_flag=True,
+    default=False,
+    help="Clear the experiment-level trace archival retention override so broader policy applies.",
+)
+@click.option(
+    "--trace-archive-now",
+    is_flag=True,
+    default=False,
+    help=(
+        "Request archive-now processing for this experiment on the next scheduler pass. "
+        "This only marks the experiment; it does not execute archival directly."
+    ),
+)
+@click.option(
+    "--trace-archive-now-older-than",
+    type=click.STRING,
+    callback=_validate_trace_archival_duration,
+    help=(
+        "Request archive-now processing for traces older than the given duration on the next "
+        "scheduler pass. This only marks the experiment; it does not execute archival directly."
+    ),
+)
+@click.option(
+    "--clear-trace-archive-now",
+    is_flag=True,
+    default=False,
+    help="Clear a pending archive-now request for this experiment.",
+)
+def update_experiment(
+    experiment_id,
+    trace_archival_retention,
+    clear_trace_archival_retention,
+    trace_archive_now,
+    trace_archive_now_older_than,
+    clear_trace_archive_now,
+):
+    """
+    Update experiment trace archival policy controls.
+
+    The trace archival options configure or request server-owned archival behavior. They do not
+    execute archival work directly from the client.
+    """
+    if trace_archival_retention is not None and clear_trace_archival_retention:
+        raise click.UsageError(
+            "Cannot specify both --trace-archival-retention and --clear-trace-archival-retention."
+        )
+    if trace_archive_now and trace_archive_now_older_than is not None:
+        raise click.UsageError(
+            "Cannot specify both --trace-archive-now and --trace-archive-now-older-than."
+        )
+    if clear_trace_archive_now and (trace_archive_now or trace_archive_now_older_than is not None):
+        raise click.UsageError(
+            "Cannot specify --clear-trace-archive-now together with archive-now request flags."
+        )
+    if not any([
+        trace_archival_retention is not None,
+        clear_trace_archival_retention,
+        trace_archive_now,
+        trace_archive_now_older_than is not None,
+        clear_trace_archive_now,
+    ]):
+        raise click.UsageError("Must specify at least one update option.")
+
+    store = _get_store()
+    experiment = store.get_experiment(experiment_id)
+    existing_tags = experiment.tags
+    changes = []
+
+    if trace_archival_retention is not None:
+        store.set_experiment_tag(
+            experiment_id,
+            ExperimentTag(
+                TraceExperimentTagKey.ARCHIVAL_RETENTION,
+                _encode_trace_archival_retention_tag(trace_archival_retention),
+            ),
+        )
+        changes.append(f"set trace archival retention to {trace_archival_retention}")
+    elif clear_trace_archival_retention:
+        if TraceExperimentTagKey.ARCHIVAL_RETENTION in existing_tags:
+            store.delete_experiment_tag(experiment_id, TraceExperimentTagKey.ARCHIVAL_RETENTION)
+            changes.append("cleared trace archival retention override")
+        else:
+            changes.append("trace archival retention override was already unset")
+
+    if trace_archive_now:
+        store.set_experiment_tag(
+            experiment_id,
+            ExperimentTag(
+                TraceExperimentTagKey.ARCHIVE_NOW,
+                _encode_trace_archive_now_tag(),
+            ),
+        )
+        changes.append("requested archive-now on the next scheduler pass")
+    elif trace_archive_now_older_than is not None:
+        store.set_experiment_tag(
+            experiment_id,
+            ExperimentTag(
+                TraceExperimentTagKey.ARCHIVE_NOW,
+                _encode_trace_archive_now_tag(trace_archive_now_older_than),
+            ),
+        )
+        changes.append(
+            "requested archive-now for traces older than "
+            f"{trace_archive_now_older_than} on the next scheduler pass"
+        )
+    elif clear_trace_archive_now:
+        if TraceExperimentTagKey.ARCHIVE_NOW in existing_tags:
+            store.delete_experiment_tag(experiment_id, TraceExperimentTagKey.ARCHIVE_NOW)
+            changes.append("cleared pending archive-now request")
+        else:
+            changes.append("archive-now request was already unset")
+
+    click.echo(f"Updated experiment {experiment_id}: " + "; ".join(changes) + ".")
+
+
 @commands.command("search")
+@mlflow_mcp(tool_name="search_experiments")
 @click.option(
     "--view",
     "-v",
@@ -89,16 +262,28 @@ def search_experiments(view, max_results):
 
 
 @commands.command("get")
-@EXPERIMENT_ID
+@mlflow_mcp(tool_name="get_experiment")
+@click.option(
+    "--experiment-id",
+    "-x",
+    type=click.STRING,
+    help="ID of the experiment to retrieve.",
+)
+@click.option(
+    "--experiment-name",
+    "-n",
+    type=click.STRING,
+    help="Name of the experiment to retrieve.",
+)
 @click.option(
     "--output",
     type=click.Choice(["json", "table"]),
     default="table",
     help="Output format: 'table' (default) or 'json'.",
 )
-def get_experiment(experiment_id, output):
+def get_experiment(experiment_id, experiment_name, output):
     """
-    Get details of an experiment by ID.
+    Get details of an experiment by ID or name.
 
     Displays experiment information including name, artifact location, lifecycle stage,
     tags, creation time, and last update time.
@@ -108,17 +293,37 @@ def get_experiment(experiment_id, output):
 
     .. code-block:: bash
 
-        # Get experiment in table format (default)
+        # Get experiment by ID in table format (default)
         mlflow experiments get --experiment-id 1
 
-        # Get experiment in JSON format
-        mlflow experiments get --experiment-id 1 --output json
+        # Get experiment by name
+        mlflow experiments get --experiment-name "My Experiment"
 
-        # Using short option
+        # Get experiment in JSON format
+        mlflow experiments get --experiment-name "My Experiment" --output json
+
+        # Using short options
         mlflow experiments get -x 0
+        mlflow experiments get -n "Default"
     """
+    # Validate mutual exclusivity
+    if (experiment_id is not None and experiment_name is not None) or (
+        experiment_id is None and experiment_name is None
+    ):
+        raise click.UsageError("Must specify exactly one of --experiment-id or --experiment-name.")
+
     store = _get_store()
-    experiment = store.get_experiment(experiment_id)
+
+    # Retrieve experiment by ID or name
+    if experiment_id is not None:
+        experiment = store.get_experiment(experiment_id)
+    else:
+        experiment = store.get_experiment_by_name(experiment_name)
+        if experiment is None:
+            raise MlflowException(
+                f"Experiment with name '{experiment_name}' does not exist.",
+                databricks_pb2.RESOURCE_DOES_NOT_EXIST,
+            )
 
     if output == "json":
         experiment_dict = dict(experiment)
@@ -145,6 +350,7 @@ def get_experiment(experiment_id, output):
 
 
 @commands.command("delete")
+@mlflow_mcp(tool_name="delete_experiment")
 @EXPERIMENT_ID
 def delete_experiment(experiment_id):
     """
@@ -168,6 +374,7 @@ def delete_experiment(experiment_id):
 
 
 @commands.command("restore")
+@mlflow_mcp(tool_name="restore_experiment")
 @EXPERIMENT_ID
 def restore_experiment(experiment_id):
     """
@@ -181,6 +388,7 @@ def restore_experiment(experiment_id):
 
 
 @commands.command("rename")
+@mlflow_mcp(tool_name="rename_experiment")
 @EXPERIMENT_ID
 @click.option("--new-name", type=click.STRING, required=True)
 def rename_experiment(experiment_id, new_name):

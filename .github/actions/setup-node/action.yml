@@ -3,12 +3,16 @@ description: "Set up Node"
 inputs:
   node-version:
     description: "Node version to use."
-    default: 20
+    default: 24
     required: false
 
 runs:
   using: "composite"
   steps:
-    - uses: actions/setup-node@cdca7365b2dadb8aad0a33bc7601856ffabcc48e # v4.3.0
+    - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
       with:
         node-version: ${{ inputs.node-version }}
+    - run: |
+        # min-release-age requires npm >= 11.10.0 (https://github.com/npm/cli/releases/tag/v11.10.0)
+        npm install -g npm@"^11.10.0"
+      shell: bash

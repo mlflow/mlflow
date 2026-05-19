@@ -475,9 +475,9 @@ def _get_train_test_dataset():
 
 
 def _predict(spacy_model, test_x):
-    return pd.DataFrame(
-        {"predictions": test_x.iloc[:, 0].apply(lambda text: spacy_model(text).cats)}
-    )
+    return pd.DataFrame({
+        "predictions": test_x.iloc[:, 0].apply(lambda text: spacy_model(text).cats)
+    })
 
 
 def test_virtualenv_subfield_points_to_correct_path(spacy_model_with_data, model_path):

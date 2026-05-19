@@ -3,7 +3,7 @@ import ImageBox from '@site/src/components/ImageBox';
 
 # Evaluate & Monitor FAQ
 
-This page addresses frequently asked questions about MLflow's GenAI evaluation.
+This page addresses frequently asked questions about MLflow's evaluation framework for LLM applications and AI agents.
 
 ## Where can I find the evaluation results in MLflow UI?
 
@@ -98,7 +98,7 @@ with mlflow.start_run(run_name="My Evaluation Run") as run:
 
 ## How do I use Databricks Model Serving endpoints as the predict function?
 
-MLflow provides <APILink fn="mlflow.genai.to_predict_fn" />, which wraps a Databricks Model Serving endpoint so it behaves like a predict function compatible with GenAI evaluation.
+MLflow provides <APILink fn="mlflow.genai.to_predict_fn" />, which wraps a Databricks Model Serving endpoint so it behaves like a predict function compatible with the evaluation framework.
 
 The wrapper:
 

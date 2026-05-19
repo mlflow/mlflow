@@ -11,6 +11,7 @@ export interface KeyValueTagFullViewModalProps {
   isKeyValueTagFullViewModalVisible: boolean;
 }
 
+// eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
 export const KeyValueTagFullViewModal = React.memo((props: KeyValueTagFullViewModalProps) => {
   const { theme } = useDesignSystemTheme();
 

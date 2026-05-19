@@ -1,8 +1,15 @@
+from unittest import mock
+
 import pytest
 
 from mlflow.gateway.providers.utils import (
+    SUPPORTED_ACCEPT_ENCODING,
+    _aiohttp_post,
+    proxy_root_url,
     rename_payload_keys,
 )
+
+from tests.gateway.tools import MockAsyncResponse, mock_http_client
 
 
 def test_rename_payload_keys():
@@ -34,3 +41,32 @@ def test_rename_payload_keys():
 )
 def test_rename_payload_keys_parameterized(payload, mapping, expected):
     assert rename_payload_keys(payload, mapping) == expected
+
+
+@pytest.mark.asyncio
+async def test_aiohttp_post_includes_supported_accept_encoding():
+    mock_client = mock_http_client(MockAsyncResponse({}))
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_session_cls:
+        async with _aiohttp_post(
+            headers={"Authorization": "Bearer key"},
+            base_url="https://api.example.com",
+            path="/v1/chat",
+            payload={"model": "x"},
+        ):
+            pass
+        mock_session_cls.assert_called_once()
+        call_headers = mock_session_cls.call_args.kwargs["headers"]
+        assert call_headers.get("Accept-Encoding") == SUPPORTED_ACCEPT_ENCODING
+
+
+@pytest.mark.parametrize(
+    ("base_url", "expected"),
+    [
+        ("https://api.anthropic.com/v1", "https://api.anthropic.com"),
+        ("https://api.openai.com/v1", "https://api.openai.com"),
+        ("https://api.groq.com/openai/v1", "https://api.groq.com/openai"),
+        ("https://api.example.com/v1/", "https://api.example.com"),
+    ],
+)
+def test_proxy_root_url(base_url, expected):
+    assert proxy_root_url(base_url) == expected

@@ -2,14 +2,20 @@
 name: add-review-comment
 description: Add a review comment to a GitHub pull request.
 allowed-tools:
-  - Bash
+  - Bash(gh api:*)
+  - Bash(gh pr view:*)
+  - Bash(uv run --package skills skills fetch-diff:*)
 ---
 
 # Add Review Comment
 
 Adds a review comment to a specific line in a GitHub pull request.
 
-## Usage
+## Step 1: Locate the line to comment on
+
+Use the `fetch-diff` skill (optionally piped through `grep`) to locate the line to comment on.
+
+## Step 2: Post the comment
 
 **Single-line comment:**
 
@@ -20,7 +26,8 @@ gh api repos/<owner>/<repo>/pulls/<pr_number>/comments \
   -f path=<file_path> \
   -F line=<line_number> \
   -f side=<side> \
-  -f commit_id="$(gh pr view <pr_number> --repo <owner>/<repo> --json headRefOid -q .headRefOid)"
+  -f commit_id="$(gh pr view <pr_number> --repo <owner>/<repo> --json headRefOid -q .headRefOid)" \
+  --jq '.html_url'
 ```
 
 **Multi-line comment:**
@@ -34,7 +41,8 @@ gh api repos/<owner>/<repo>/pulls/<pr_number>/comments \
   -f start_side=<side> \
   -F line=<last_line> \
   -f side=<side> \
-  -f commit_id="$(gh pr view <pr_number> --repo <owner>/<repo> --json headRefOid -q .headRefOid)"
+  -f commit_id="$(gh pr view <pr_number> --repo <owner>/<repo> --json headRefOid -q .headRefOid)" \
+  --jq '.html_url'
 ```
 
 ## Parameters

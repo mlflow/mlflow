@@ -13,5 +13,12 @@ export const RunViewUserLinkBox = ({
   tags: Record<string, KeyValueEntity>;
 }) => {
   const user = Utils.getUser(runInfo, tags);
-  return <Link to={Routes.searchRunsByUser(runInfo?.experimentId ?? '', user)}>{user}</Link>;
+  return (
+    <Link
+      componentId="mlflow.run_page.overview.user_link"
+      to={Routes.searchRunsByUser(runInfo?.experimentId ?? '', user)}
+    >
+      {user}
+    </Link>
+  );
 };

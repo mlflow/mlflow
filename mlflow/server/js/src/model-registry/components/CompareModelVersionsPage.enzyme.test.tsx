@@ -23,8 +23,10 @@ describe('CompareModelVersionPage', () => {
 
   beforeEach(() => {
     // TODO: remove global fetch mock by explicitly mocking all the service API calls
-    // @ts-expect-error TS(2322): Type 'Mock<Promise<{ ok: true; status: number; tex... Remove this comment to see the full error message
-    global.fetch = jest.fn(() => Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('') }));
+    jest
+      .spyOn(global, 'fetch')
+      // @ts-expect-error TS(2322): Type 'Mock<Promise<{ ok: true; status: number; tex... Remove this comment to see the full error message
+      .mockImplementation(() => Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('') }));
     const modelName = 'normal-model-name';
     minimalProps = {
       location: {
@@ -50,6 +52,7 @@ describe('CompareModelVersionPage', () => {
     });
   });
 
+  // eslint-disable-next-line jest/expect-expect -- TODO(FEINF-1337)
   test('should render with minimal props and store without exploding', () => {
     wrapper = mount(
       <Provider store={minimalStore}>

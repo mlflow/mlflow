@@ -7,6 +7,14 @@ import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/util
 import { MetricViewType, AggregationType, TraceMetricKey } from '@databricks/web-shared/model-trace-explorer';
 import { setupServer } from '../../../../common/utils/setup-msw';
 import { rest } from 'msw';
+import { OverviewChartProvider } from '../OverviewChartContext';
+import { getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
+
+const mockShouldEnableBatchedTokenMetricQueries = jest.fn<() => boolean>();
+jest.mock('../../../../common/utils/FeatureUtils', () => ({
+  ...jest.requireActual<Record<string, unknown>>('../../../../common/utils/FeatureUtils'),
+  shouldEnableBatchedTokenMetricQueries: () => mockShouldEnableBatchedTokenMetricQueries(),
+}));
 
 // Helper to create an input tokens data point
 const createInputTokensDataPoint = (timeBucket: string, sum: number) => ({
@@ -22,11 +30,26 @@ const createOutputTokensDataPoint = (timeBucket: string, sum: number) => ({
   values: { [AggregationType.SUM]: sum },
 });
 
-// Helper to create a total tokens data point (no time bucket)
+// Helper to create a cache read tokens data point
+const createCacheReadTokensDataPoint = (timeBucket: string, sum: number) => ({
+  metric_name: TraceMetricKey.CACHE_READ_INPUT_TOKENS,
+  dimensions: { time_bucket: timeBucket },
+  values: { [AggregationType.SUM]: sum },
+});
+
+// Helper to create a cache creation tokens data point
+const createCacheCreationTokensDataPoint = (timeBucket: string, sum: number) => ({
+  metric_name: TraceMetricKey.CACHE_CREATION_INPUT_TOKENS,
+  dimensions: { time_bucket: timeBucket },
+  values: { [AggregationType.SUM]: sum },
+});
+
+// Helper to create a total tokens data point (no time bucket).
+// Includes both SUM and AVG to match the combined aggregations query.
 const createTotalTokensDataPoint = (sum: number) => ({
   metric_name: TraceMetricKey.TOTAL_TOKENS,
   dimensions: {},
-  values: { [AggregationType.SUM]: sum },
+  values: { [AggregationType.SUM]: sum, [AggregationType.AVG]: sum },
 });
 
 describe('TraceTokenUsageChart', () => {
@@ -43,9 +66,9 @@ describe('TraceTokenUsageChart', () => {
     new Date('2025-12-22T12:00:00Z').getTime(),
   ];
 
-  // Default props reused across tests
-  const defaultProps = {
-    experimentId: testExperimentId,
+  // Context props reused across tests
+  const defaultContextProps = {
+    experimentIds: [testExperimentId],
     startTimeMs,
     endTimeMs,
     timeIntervalSeconds,
@@ -63,28 +86,60 @@ describe('TraceTokenUsageChart', () => {
       },
     });
 
-  const renderComponent = (props: Partial<typeof defaultProps> = {}) => {
+  const renderComponent = (contextOverrides: Partial<typeof defaultContextProps> = {}) => {
     const queryClient = createQueryClient();
+    const contextProps = { ...defaultContextProps, ...contextOverrides };
     return renderWithIntl(
       <QueryClientProvider client={queryClient}>
         <DesignSystemProvider>
-          <TraceTokenUsageChart {...defaultProps} {...props} />
+          <OverviewChartProvider {...contextProps}>
+            <TraceTokenUsageChart />
+          </OverviewChartProvider>
         </DesignSystemProvider>
       </QueryClientProvider>,
     );
   };
 
-  // Helper to setup MSW handler for trace metrics endpoint with routing based on metric_name
-  const setupTraceMetricsHandler = (inputDataPoints: any[], outputDataPoints: any[], totalDataPoints: any[]) => {
+  // Helper to setup MSW handler for trace metrics endpoint.
+  // Routes on metric_names (batched path) or metric_name (singular path).
+  const setupTraceMetricsHandler = (
+    inputDataPoints: any[],
+    outputDataPoints: any[],
+    totalDataPoints: any[],
+    cacheReadDataPoints: any[] = [],
+    cacheCreationDataPoints: any[] = [],
+  ) => {
     server.use(
-      rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+      rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), async (req, res, ctx) => {
         const body = await req.json();
-        const metricName = body.metric_name;
-        if (metricName === TraceMetricKey.INPUT_TOKENS) {
+        const metricNames: string[] = body.metric_names ?? [];
+        const metricName: string | undefined = body.metric_name;
+        // Batched token time-series query: returns combined input + output data points
+        if (metricNames.includes(TraceMetricKey.INPUT_TOKENS) && metricNames.includes(TraceMetricKey.OUTPUT_TOKENS)) {
+          return res(ctx.json({ data_points: [...inputDataPoints, ...outputDataPoints] }));
+        }
+        // Cache read tokens (metricName may be auto-promoted to metric_names when batching is enabled)
+        if (
+          metricName === TraceMetricKey.CACHE_READ_INPUT_TOKENS ||
+          metricNames.includes(TraceMetricKey.CACHE_READ_INPUT_TOKENS)
+        ) {
+          return res(ctx.json({ data_points: cacheReadDataPoints }));
+        }
+        // Cache creation tokens (metricName may be auto-promoted to metric_names when batching is enabled)
+        if (
+          metricName === TraceMetricKey.CACHE_CREATION_INPUT_TOKENS ||
+          metricNames.includes(TraceMetricKey.CACHE_CREATION_INPUT_TOKENS)
+        ) {
+          return res(ctx.json({ data_points: cacheCreationDataPoints }));
+        }
+        // Single-metric queries (non-batched path or total_tokens)
+        if (metricName === TraceMetricKey.INPUT_TOKENS || metricNames.includes(TraceMetricKey.INPUT_TOKENS)) {
           return res(ctx.json({ data_points: inputDataPoints }));
-        } else if (metricName === TraceMetricKey.OUTPUT_TOKENS) {
+        }
+        if (metricName === TraceMetricKey.OUTPUT_TOKENS || metricNames.includes(TraceMetricKey.OUTPUT_TOKENS)) {
           return res(ctx.json({ data_points: outputDataPoints }));
-        } else if (metricName === TraceMetricKey.TOTAL_TOKENS) {
+        }
+        if (metricName === TraceMetricKey.TOTAL_TOKENS || metricNames.includes(TraceMetricKey.TOTAL_TOKENS)) {
           return res(ctx.json({ data_points: totalDataPoints }));
         }
         return res(ctx.json({ data_points: [] }));
@@ -94,6 +149,8 @@ describe('TraceTokenUsageChart', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    // Enable batching by default so existing tests exercise the batched path
+    mockShouldEnableBatchedTokenMetricQueries.mockReturnValue(true);
     // Default: return empty data points
     setupTraceMetricsHandler([], [], []);
   });
@@ -170,11 +227,11 @@ describe('TraceTokenUsageChart', () => {
       renderComponent();
 
       await waitFor(() => {
-        expect(screen.getByTestId('area-chart')).toBeInTheDocument();
+        expect(screen.getByTestId('composed-chart')).toBeInTheDocument();
       });
 
       // Verify the area chart has all time buckets (3 buckets for 2-hour range with 1hr interval)
-      expect(screen.getByTestId('area-chart')).toHaveAttribute('data-count', '3');
+      expect(screen.getByTestId('composed-chart')).toHaveAttribute('data-count', '3');
     });
 
     it('should display both input and output token areas', async () => {
@@ -222,13 +279,77 @@ describe('TraceTokenUsageChart', () => {
       });
     });
 
-    it('should display "Over time" label', async () => {
-      setupTraceMetricsHandler(mockInputDataPoints, mockOutputDataPoints, mockTotalDataPoints);
+    it('should display cache read tokens in subtitle when present', async () => {
+      const mockCacheReadDataPoints = [
+        createCacheReadTokensDataPoint('2025-12-22T10:00:00Z', 10000),
+        createCacheReadTokensDataPoint('2025-12-22T11:00:00Z', 15000),
+      ];
+
+      setupTraceMetricsHandler(mockInputDataPoints, mockOutputDataPoints, mockTotalDataPoints, mockCacheReadDataPoints);
+
+      renderComponent();
+
+      // Cached: 10000 + 15000 = 25000 => 25.00K cache read
+      await waitFor(() => {
+        expect(screen.getByText(/25\.00K cache read/)).toBeInTheDocument();
+      });
+    });
+
+    it('should render cache read tokens line when data is present', async () => {
+      const mockCacheReadDataPoints = [
+        createCacheReadTokensDataPoint('2025-12-22T10:00:00Z', 10000),
+        createCacheReadTokensDataPoint('2025-12-22T11:00:00Z', 15000),
+      ];
+
+      setupTraceMetricsHandler(mockInputDataPoints, mockOutputDataPoints, mockTotalDataPoints, mockCacheReadDataPoints);
 
       renderComponent();
 
       await waitFor(() => {
-        expect(screen.getByText('Over time')).toBeInTheDocument();
+        expect(screen.getByTestId('line-(Cache Read)')).toBeInTheDocument();
+      });
+    });
+
+    it('should display cache creation tokens in subtitle when present', async () => {
+      const mockCacheCreationDataPoints = [
+        createCacheCreationTokensDataPoint('2025-12-22T10:00:00Z', 5000),
+        createCacheCreationTokensDataPoint('2025-12-22T11:00:00Z', 8000),
+      ];
+
+      setupTraceMetricsHandler(
+        mockInputDataPoints,
+        mockOutputDataPoints,
+        mockTotalDataPoints,
+        [],
+        mockCacheCreationDataPoints,
+      );
+
+      renderComponent();
+
+      // Cache creation: 5000 + 8000 = 13000 => 13.00K cache write
+      await waitFor(() => {
+        expect(screen.getByText(/13\.00K cache write/)).toBeInTheDocument();
+      });
+    });
+
+    it('should render cache creation tokens line when data is present', async () => {
+      const mockCacheCreationDataPoints = [
+        createCacheCreationTokensDataPoint('2025-12-22T10:00:00Z', 5000),
+        createCacheCreationTokensDataPoint('2025-12-22T11:00:00Z', 8000),
+      ];
+
+      setupTraceMetricsHandler(
+        mockInputDataPoints,
+        mockOutputDataPoints,
+        mockTotalDataPoints,
+        [],
+        mockCacheCreationDataPoints,
+      );
+
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByTestId('line-(Cache Write)')).toBeInTheDocument();
       });
     });
 
@@ -267,14 +388,15 @@ describe('TraceTokenUsageChart', () => {
   });
 
   describe('API call parameters', () => {
-    it('should call API for input tokens with correct parameters', async () => {
-      let capturedInputRequest: any = null;
+    it('should call API with batched metric_names for input and output tokens', async () => {
+      let capturedBatchedRequest: any = null;
 
       server.use(
         rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
           const body = await req.json();
-          if (body.metric_name === TraceMetricKey.INPUT_TOKENS) {
-            capturedInputRequest = body;
+          const metricNames: string[] = body.metric_names ?? [];
+          if (metricNames.includes(TraceMetricKey.INPUT_TOKENS) && metricNames.includes(TraceMetricKey.OUTPUT_TOKENS)) {
+            capturedBatchedRequest = body;
           }
           return res(ctx.json({ data_points: [] }));
         }),
@@ -283,36 +405,10 @@ describe('TraceTokenUsageChart', () => {
       renderComponent();
 
       await waitFor(() => {
-        expect(capturedInputRequest).toMatchObject({
+        expect(capturedBatchedRequest).toMatchObject({
           experiment_ids: [testExperimentId],
           view_type: MetricViewType.TRACES,
-          metric_name: TraceMetricKey.INPUT_TOKENS,
-          aggregations: [{ aggregation_type: AggregationType.SUM }],
-          time_interval_seconds: 3600,
-        });
-      });
-    });
-
-    it('should call API for output tokens with correct parameters', async () => {
-      let capturedOutputRequest: any = null;
-
-      server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
-          const body = await req.json();
-          if (body.metric_name === TraceMetricKey.OUTPUT_TOKENS) {
-            capturedOutputRequest = body;
-          }
-          return res(ctx.json({ data_points: [] }));
-        }),
-      );
-
-      renderComponent();
-
-      await waitFor(() => {
-        expect(capturedOutputRequest).toMatchObject({
-          experiment_ids: [testExperimentId],
-          view_type: MetricViewType.TRACES,
-          metric_name: TraceMetricKey.OUTPUT_TOKENS,
+          metric_names: [TraceMetricKey.INPUT_TOKENS, TraceMetricKey.OUTPUT_TOKENS],
           aggregations: [{ aggregation_type: AggregationType.SUM }],
           time_interval_seconds: 3600,
         });
@@ -325,7 +421,8 @@ describe('TraceTokenUsageChart', () => {
       server.use(
         rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
           const body = await req.json();
-          if (body.metric_name === TraceMetricKey.TOTAL_TOKENS) {
+          const metricNames: string[] = body.metric_names ?? [];
+          if (metricNames.includes(TraceMetricKey.TOTAL_TOKENS)) {
             capturedTotalRequest = body;
           }
           return res(ctx.json({ data_points: [] }));
@@ -335,11 +432,12 @@ describe('TraceTokenUsageChart', () => {
       renderComponent();
 
       await waitFor(() => {
+        // With batching enabled (default), metricName is auto-promoted to metric_names
         expect(capturedTotalRequest).toMatchObject({
           experiment_ids: [testExperimentId],
           view_type: MetricViewType.TRACES,
-          metric_name: TraceMetricKey.TOTAL_TOKENS,
-          aggregations: [{ aggregation_type: AggregationType.SUM }],
+          metric_names: [TraceMetricKey.TOTAL_TOKENS],
+          aggregations: [{ aggregation_type: AggregationType.SUM }, { aggregation_type: AggregationType.AVG }],
         });
         // Should NOT have time_interval_seconds for total tokens query
         expect(capturedTotalRequest?.time_interval_seconds).toBeUndefined();
@@ -352,7 +450,8 @@ describe('TraceTokenUsageChart', () => {
       server.use(
         rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
           const body = await req.json();
-          if (body.metric_name === TraceMetricKey.INPUT_TOKENS) {
+          const metricNames: string[] = body.metric_names ?? [];
+          if (metricNames.includes(TraceMetricKey.INPUT_TOKENS) && metricNames.includes(TraceMetricKey.OUTPUT_TOKENS)) {
             capturedRequest = body;
           }
           return res(ctx.json({ data_points: [] }));
@@ -391,7 +490,7 @@ describe('TraceTokenUsageChart', () => {
 
       // Should still render with all 3 time buckets
       await waitFor(() => {
-        expect(screen.getByTestId('area-chart')).toHaveAttribute('data-count', '3');
+        expect(screen.getByTestId('composed-chart')).toHaveAttribute('data-count', '3');
       });
     });
 
@@ -406,7 +505,7 @@ describe('TraceTokenUsageChart', () => {
 
       // Should still render the chart with all time buckets
       await waitFor(() => {
-        expect(screen.getByTestId('area-chart')).toHaveAttribute('data-count', '3');
+        expect(screen.getByTestId('composed-chart')).toHaveAttribute('data-count', '3');
       });
 
       // Should display 0 when total tokens is not available
@@ -436,7 +535,7 @@ describe('TraceTokenUsageChart', () => {
 
       // Should still render the chart with all generated time buckets (all with 0 values)
       await waitFor(() => {
-        expect(screen.getByTestId('area-chart')).toHaveAttribute('data-count', '3');
+        expect(screen.getByTestId('composed-chart')).toHaveAttribute('data-count', '3');
       });
     });
 
@@ -451,7 +550,7 @@ describe('TraceTokenUsageChart', () => {
 
       // Should render chart with all 3 time buckets (missing ones filled with 0)
       await waitFor(() => {
-        expect(screen.getByTestId('area-chart')).toHaveAttribute('data-count', '3');
+        expect(screen.getByTestId('composed-chart')).toHaveAttribute('data-count', '3');
       });
     });
 
@@ -471,8 +570,50 @@ describe('TraceTokenUsageChart', () => {
 
       // Should render chart with all 3 time buckets
       await waitFor(() => {
-        expect(screen.getByTestId('area-chart')).toHaveAttribute('data-count', '3');
+        expect(screen.getByTestId('composed-chart')).toHaveAttribute('data-count', '3');
       });
+    });
+  });
+
+  describe('non-batched mode (feature flag off)', () => {
+    beforeEach(() => {
+      mockShouldEnableBatchedTokenMetricQueries.mockReturnValue(false);
+    });
+
+    it('should fire separate queries for input and output tokens', async () => {
+      // In non-batched mode, the hook sends metric_name (singular)
+      server.use(
+        rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), async (req, res, ctx) => {
+          const body = await req.json();
+          if (body.metric_name === TraceMetricKey.INPUT_TOKENS) {
+            return res(
+              ctx.json({
+                data_points: [createInputTokensDataPoint('2025-12-22T10:00:00Z', 1000)],
+              }),
+            );
+          }
+          if (body.metric_name === TraceMetricKey.OUTPUT_TOKENS) {
+            return res(
+              ctx.json({
+                data_points: [createOutputTokensDataPoint('2025-12-22T10:00:00Z', 500)],
+              }),
+            );
+          }
+          if (body.metric_name === TraceMetricKey.TOTAL_TOKENS) {
+            return res(ctx.json({ data_points: [createTotalTokensDataPoint(1500)] }));
+          }
+          return res(ctx.json({ data_points: [] }));
+        }),
+      );
+
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByTestId('composed-chart')).toBeInTheDocument();
+      });
+
+      // Verify total tokens displays correctly
+      expect(screen.getByText('1.50K')).toBeInTheDocument();
     });
   });
 });

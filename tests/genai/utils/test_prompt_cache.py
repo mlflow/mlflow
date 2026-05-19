@@ -74,6 +74,26 @@ def test_delete_prompt_by_alias():
     assert cache.get(key2) == "value2"  # staging still cached
 
 
+def test_delete_all_prompt_entries():
+    cache = PromptCache.get_instance()
+    key1 = PromptCacheKey.from_parts("my-prompt", version=1)
+    key2 = PromptCacheKey.from_parts("my-prompt", version=2)
+    key3 = PromptCacheKey.from_parts("my-prompt", alias="latest")
+    key4 = PromptCacheKey.from_parts("other-prompt", version=1)
+
+    cache.set(key1, "value1")
+    cache.set(key2, "value2")
+    cache.set(key3, "value3")
+    cache.set(key4, "value4")
+
+    cache.delete_all("my-prompt")
+
+    assert cache.get(key1) is None
+    assert cache.get(key2) is None
+    assert cache.get(key3) is None
+    assert cache.get(key4) == "value4"
+
+
 def test_clear():
     cache = PromptCache.get_instance()
     key1 = PromptCacheKey.from_parts("prompt1", version=1)
@@ -131,7 +151,9 @@ def test_concurrent_get_instance():
         except Exception as e:
             errors.append(e)
 
-    threads = [threading.Thread(target=get_instance) for _ in range(10)]
+    threads = [
+        threading.Thread(name=f"prompt-cache-singleton-{i}", target=get_instance) for i in range(10)
+    ]
     for t in threads:
         t.start()
     for t in threads:
@@ -163,8 +185,8 @@ def test_concurrent_operations():
 
     threads = []
     for i in range(5):
-        threads.append(threading.Thread(target=writer, args=(i,)))
-        threads.append(threading.Thread(target=reader, args=(i,)))
+        threads.append(threading.Thread(name=f"prompt-cache-writer-{i}", target=writer, args=(i,)))
+        threads.append(threading.Thread(name=f"prompt-cache-reader-{i}", target=reader, args=(i,)))
 
     for t in threads:
         t.start()

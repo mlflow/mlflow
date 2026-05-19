@@ -29,7 +29,7 @@ describe('API', () => {
     experimentId = await client.createExperiment(experimentName);
     mlflow.init({
       trackingUri: TEST_TRACKING_URI,
-      experimentId: experimentId
+      experimentId: experimentId,
     });
   });
 
@@ -60,7 +60,7 @@ describe('API', () => {
       expect(trace.info.state).toBe(TraceState.OK);
       expect(trace.info.requestTime).toBeCloseTo(convertHrTimeToMs(span.startTime));
       expect(trace.info.executionDuration).toBeCloseTo(
-        convertHrTimeToMs(span.endTime!) - convertHrTimeToMs(span.startTime)
+        convertHrTimeToMs(span.endTime!) - convertHrTimeToMs(span.startTime),
       );
 
       expect(trace.data.spans.length).toBe(1);
@@ -82,13 +82,13 @@ describe('API', () => {
         spanType: SpanType.LLM,
         inputs: { prompt: 'Hello, world!' },
         attributes: { model: 'gpt-4' },
-        startTimeNs: 1e9 // 1 second
+        startTimeNs: 1e9, // 1 second
       });
       span.end({
         outputs: { response: 'Hello, world!' },
         attributes: { model: 'gpt-4' },
         status: SpanStatusCode.ERROR,
-        endTimeNs: 3e9 // 3 seconds
+        endTimeNs: 3e9, // 3 seconds
       });
 
       // Validate traces pushed to the backend
@@ -125,7 +125,7 @@ describe('API', () => {
       expect(trace.info.state).toBe(TraceState.ERROR);
       expect(trace.info.requestTime).toBeCloseTo(convertHrTimeToMs(span.startTime));
       expect(trace.info.executionDuration).toBeCloseTo(
-        convertHrTimeToMs(span.endTime!) - convertHrTimeToMs(span.startTime)
+        convertHrTimeToMs(span.endTime!) - convertHrTimeToMs(span.startTime),
       );
       expect(trace.data.spans.length).toBe(1);
 
@@ -244,7 +244,7 @@ describe('API', () => {
             span.setInputs({ operation: 'async error' });
             await new Promise((resolve) => setTimeout(resolve, 10));
             throw new Error('Async error');
-          })
+          }),
         ).rejects.toThrow('Async error');
 
         const trace = await getLastActiveTrace();
@@ -270,8 +270,8 @@ describe('API', () => {
               name: 'add',
               spanType: SpanType.TOOL,
               inputs: { a, b },
-              attributes: { operation: 'addition' }
-            }
+              attributes: { operation: 'addition' },
+            },
           );
           return sum;
         };
@@ -310,8 +310,8 @@ describe('API', () => {
               name: 'fetchUserData',
               spanType: SpanType.RETRIEVER,
               inputs: { userId },
-              attributes: { service: 'user-api', version: 1 }
-            }
+              attributes: { service: 'user-api', version: 1 },
+            },
           );
         };
 
@@ -328,7 +328,7 @@ describe('API', () => {
         expect(loggedSpan.outputs).toEqual({
           id: 'user-123',
           name: 'John Doe',
-          email: 'john@example.com'
+          email: 'john@example.com',
         });
         expect(loggedSpan.attributes['service']).toBe('user-api');
         expect(loggedSpan.attributes['version']).toBe(1);
@@ -346,8 +346,8 @@ describe('API', () => {
               },
               {
                 name: 'child',
-                inputs: { nested: true }
-              }
+                inputs: { nested: true },
+              },
             );
 
             parentSpan.setOutputs({ childResult });
@@ -355,8 +355,8 @@ describe('API', () => {
           },
           {
             name: 'parent',
-            inputs: { operation: 'parent operation' }
-          }
+            inputs: { operation: 'parent operation' },
+          },
         );
 
         expect(result).toBe('child result');
@@ -396,7 +396,7 @@ describe('API', () => {
       it('should handle complex return objects', async () => {
         const complexObject = {
           data: [1, 2, 3],
-          metadata: { type: 'array', length: 3 }
+          metadata: { type: 'array', length: 3 },
         };
 
         const result = mlflow.withSpan((span) => {
@@ -433,7 +433,7 @@ describe('API', () => {
                     childSpan.setOutputs({ processed: true });
                     return 'child1-result';
                   },
-                  { name: 'trace1-child1', inputs: { childId: 1 } }
+                  { name: 'trace1-child1', inputs: { childId: 1 } },
                 ),
                 mlflow.withSpan(
                   async (childSpan) => {
@@ -444,19 +444,19 @@ describe('API', () => {
                         await new Promise((resolve) => setTimeout(resolve, 1));
                         return 'grandchild-result';
                       },
-                      { name: 'trace1-grandchild', inputs: { grandchildId: 1 } }
+                      { name: 'trace1-grandchild', inputs: { grandchildId: 1 } },
                     );
                     childSpan.setOutputs({ grandchildResult });
                     return 'child2-result';
                   },
-                  { name: 'trace1-child2', inputs: { childId: 2 } }
-                )
+                  { name: 'trace1-child2', inputs: { childId: 2 } },
+                ),
               ]);
 
               parentSpan.setOutputs({ childResults });
               return childResults;
             },
-            { name: 'trace1-parent', inputs: { traceId: 1 } }
+            { name: 'trace1-parent', inputs: { traceId: 1 } },
           ),
 
           // Second independent trace running concurrently
@@ -469,13 +469,13 @@ describe('API', () => {
                   await new Promise((resolve) => setTimeout(resolve, 2));
                   return 'trace2-child-result';
                 },
-                { name: 'trace2-child', inputs: { childId: 1 } }
+                { name: 'trace2-child', inputs: { childId: 1 } },
               );
 
               parentSpan.setOutputs({ childResult: result });
               return result;
             },
-            { name: 'trace2-parent', inputs: { traceId: 2 } }
+            { name: 'trace2-parent', inputs: { traceId: 2 } },
           ),
 
           // Third independent trace with synchronous operation
@@ -485,8 +485,8 @@ describe('API', () => {
               span.setOutputs({ immediate: true });
               return 'trace3-result';
             },
-            { name: 'trace3-simple', inputs: { traceId: 3 } }
-          )
+            { name: 'trace3-simple', inputs: { traceId: 3 } },
+          ),
         ]);
 
         // Verify results
@@ -577,7 +577,7 @@ describe('API', () => {
       const tracedFunc = mlflow.trace(myFunc, {
         name: 'custom_span_name',
         spanType: SpanType.LLM,
-        attributes: { key: 'value' }
+        attributes: { key: 'value' },
       });
 
       const result = tracedFunc(2, 3);
@@ -601,7 +601,7 @@ describe('API', () => {
 
       const tracedFunc = mlflow.trace(myAsyncFunc, {
         name: 'async_span',
-        spanType: SpanType.CHAIN
+        spanType: SpanType.CHAIN,
       });
 
       const result = await tracedFunc(10, 20);
@@ -625,7 +625,7 @@ describe('API', () => {
         function myInlineFunc(a: number, b: number) {
           return a + b;
         },
-        { spanType: SpanType.AGENT }
+        { spanType: SpanType.AGENT },
       );
 
       const result = myFunc(3, 4);
@@ -650,7 +650,7 @@ describe('API', () => {
           await new Promise((resolve) => setTimeout(resolve, 5));
           return `Response to: ${prompt}`;
         },
-        { spanType: SpanType.LLM }
+        { spanType: SpanType.LLM },
       );
 
       const result = await myFunc('Hello');
@@ -696,7 +696,7 @@ describe('API', () => {
         await new Promise((resolve) => setTimeout(resolve, 5));
         throw new Error('Async test error');
       },
-      { name: 'async_error_span', spanType: SpanType.LLM }
+      { name: 'async_error_span', spanType: SpanType.LLM },
     );
 
     await expect(errorFunc()).rejects.toThrow('Async test error');
@@ -729,7 +729,7 @@ describe('API', () => {
           expect(activeSpan?.spanId).toBe(span.spanId);
           expect(activeSpan?.traceId).toBe(span.traceId);
         },
-        { name: 'test-span' }
+        { name: 'test-span' },
       );
     });
 
@@ -785,7 +785,7 @@ describe('API', () => {
 
       expect(consoleDebugSpy).toHaveBeenCalledWith(
         'Failed to map arguments values to names',
-        expect.any(Error)
+        expect.any(Error),
       );
 
       consoleDebugSpy.mockRestore();
@@ -890,7 +890,7 @@ describe('API', () => {
       const testInstance = new TestClass();
       const tracedMethod = mlflow.trace(testInstance.multiply.bind(testInstance), {
         name: 'bound_multiply_method',
-        spanType: SpanType.TOOL
+        spanType: SpanType.TOOL,
       });
 
       const result = tracedMethod(7);
@@ -916,7 +916,7 @@ describe('API', () => {
 
       expect(consoleSpy).toHaveBeenCalledWith(
         'No active trace found. Please create a span using `withSpan` or ' +
-          '`@trace` before calling `updateCurrentTrace`.'
+          '`@trace` before calling `updateCurrentTrace`.',
       );
 
       consoleSpy.mockRestore();
@@ -928,15 +928,15 @@ describe('API', () => {
           mlflow.updateCurrentTrace({
             tags: {
               fruit: 'apple',
-              color: 'red'
+              color: 'red',
             },
             metadata: {
               'mlflow.source.name': 'test.ts',
-              'mlflow.source.git.commit': '1234567890'
-            }
+              'mlflow.source.git.commit': '1234567890',
+            },
           });
         },
-        { name: 'test-span' }
+        { name: 'test-span' },
       );
 
       const trace = await getLastActiveTrace();
@@ -958,20 +958,200 @@ describe('API', () => {
       expect(trace.info.clientRequestId).toBe('req-12345');
     });
 
+    it('should update sessionId and user', async () => {
+      void mlflow.withSpan(
+        (_span) => {
+          mlflow.updateCurrentTrace({
+            sessionId: 'sess-123',
+            user: 'user-456',
+          });
+        },
+        { name: 'test-span' },
+      );
+
+      const trace = await getLastActiveTrace();
+      expect(trace.info.traceMetadata['mlflow.trace.session']).toBe('sess-123');
+      expect(trace.info.traceMetadata['mlflow.trace.user']).toBe('user-456');
+    });
+
+    it('should merge sessionId and user with explicit metadata', async () => {
+      void mlflow.withSpan(
+        (_span) => {
+          mlflow.updateCurrentTrace({
+            sessionId: 'sess-abc',
+            user: 'user-xyz',
+            metadata: {
+              'custom.key': 'custom-value',
+            },
+          });
+        },
+        { name: 'test-span' },
+      );
+
+      const trace = await getLastActiveTrace();
+      expect(trace.info.traceMetadata['mlflow.trace.session']).toBe('sess-abc');
+      expect(trace.info.traceMetadata['mlflow.trace.user']).toBe('user-xyz');
+      expect(trace.info.traceMetadata['custom.key']).toBe('custom-value');
+    });
+
     it('should update request and response previews', async () => {
       void mlflow.withSpan(
         (_span) => {
           mlflow.updateCurrentTrace({
             requestPreview: 'Custom request preview',
-            responsePreview: 'Custom response preview'
+            responsePreview: 'Custom response preview',
           });
         },
-        { name: 'test-span' }
+        { name: 'test-span' },
       );
 
       const trace = await getLastActiveTrace();
       expect(trace.info.requestPreview).toBe('Custom request preview');
       expect(trace.info.responsePreview).toBe('Custom response preview');
+    });
+  });
+
+  describe('tracingContext', () => {
+    it('should inject metadata and tags into traces created within scope', async () => {
+      mlflow.tracingContext(
+        {
+          metadata: { custom_key: 'custom_value' },
+          tags: { my_tag: 'tag_value' },
+        },
+        () => {
+          void mlflow.withSpan((_span) => {}, { name: 'test-span' });
+        },
+      );
+
+      const trace = await getLastActiveTrace();
+      expect(trace.info.traceMetadata['custom_key']).toBe('custom_value');
+      expect(trace.info.tags['my_tag']).toBe('tag_value');
+    });
+
+    it('should not inject metadata into traces created outside scope', async () => {
+      mlflow.tracingContext(
+        {
+          metadata: { scoped_key: 'scoped_value' },
+        },
+        () => {
+          // Trace created inside scope
+        },
+      );
+
+      // Trace created outside scope
+      void mlflow.withSpan((_span) => {}, { name: 'outside-span' });
+
+      const trace = await getLastActiveTrace();
+      expect(trace.info.traceMetadata['scoped_key']).toBeUndefined();
+    });
+
+    it('should merge nested contexts with inner values winning', async () => {
+      mlflow.tracingContext(
+        {
+          metadata: { outer_key: 'outer_val', shared: 'outer' },
+          tags: { outer_tag: 'outer' },
+        },
+        () => {
+          mlflow.tracingContext(
+            {
+              metadata: { inner_key: 'inner_val', shared: 'inner' },
+              tags: { inner_tag: 'inner' },
+            },
+            () => {
+              void mlflow.withSpan((_span) => {}, { name: 'nested-span' });
+            },
+          );
+        },
+      );
+
+      const trace = await getLastActiveTrace();
+      expect(trace.info.traceMetadata['outer_key']).toBe('outer_val');
+      expect(trace.info.traceMetadata['inner_key']).toBe('inner_val');
+      expect(trace.info.traceMetadata['shared']).toBe('inner');
+      expect(trace.info.tags['outer_tag']).toBe('outer');
+      expect(trace.info.tags['inner_tag']).toBe('inner');
+    });
+
+    it('should suppress traces when enabled is false', () => {
+      let spanInstance: mlflow.LiveSpan | null = null;
+
+      mlflow.tracingContext({ enabled: false }, () => {
+        void mlflow.withSpan((span) => {
+          spanInstance = span;
+        });
+      });
+
+      // The span should be a NoOpSpan (trace ID is the no-op sentinel)
+      expect(spanInstance).not.toBeNull();
+      expect(spanInstance!.traceId).toBe('no-op-span-trace-id');
+    });
+
+    it('should inherit enabled=false from outer context', () => {
+      let spanInstance: mlflow.LiveSpan | null = null;
+
+      mlflow.tracingContext({ enabled: false }, () => {
+        mlflow.tracingContext({ metadata: { key: 'val' } }, () => {
+          void mlflow.withSpan((span) => {
+            spanInstance = span;
+          });
+        });
+      });
+
+      expect(spanInstance).not.toBeNull();
+      expect(spanInstance!.traceId).toBe('no-op-span-trace-id');
+    });
+
+    it('should support async functions', async () => {
+      await mlflow.tracingContext(
+        {
+          metadata: { async_key: 'async_value' },
+        },
+        async () => {
+          await mlflow.withSpan(
+            async (_span) => {
+              await new Promise((resolve) => setTimeout(resolve, 10));
+            },
+            { name: 'async-span' },
+          );
+        },
+      );
+
+      const trace = await getLastActiveTrace();
+      expect(trace.info.traceMetadata['async_key']).toBe('async_value');
+    });
+
+    it('should inject sessionId and user into trace metadata', async () => {
+      mlflow.tracingContext(
+        {
+          sessionId: 'sess-123',
+          user: 'user-456',
+        },
+        () => {
+          void mlflow.withSpan((_span) => {}, { name: 'test-span' });
+        },
+      );
+
+      const trace = await getLastActiveTrace();
+      expect(trace.info.traceMetadata['mlflow.trace.session']).toBe('sess-123');
+      expect(trace.info.traceMetadata['mlflow.trace.user']).toBe('user-456');
+    });
+
+    it('should inject sessionId and user alongside explicit metadata', async () => {
+      mlflow.tracingContext(
+        {
+          sessionId: 'sess-abc',
+          user: 'user-xyz',
+          metadata: { 'custom.key': 'custom-value' },
+        },
+        () => {
+          void mlflow.withSpan((_span) => {}, { name: 'test-span' });
+        },
+      );
+
+      const trace = await getLastActiveTrace();
+      expect(trace.info.traceMetadata['mlflow.trace.session']).toBe('sess-abc');
+      expect(trace.info.traceMetadata['mlflow.trace.user']).toBe('user-xyz');
+      expect(trace.info.traceMetadata['custom.key']).toBe('custom-value');
     });
   });
 });

@@ -1,21 +1,28 @@
 import { useMonitoringFilters } from '@mlflow/mlflow/src/experiment-tracking/hooks/useMonitoringFilters';
-import { createTraceLocationForExperiment, useSearchMlflowTraces } from '@databricks/web-shared/genai-traces-table';
+import {
+  createTraceLocationForExperiment,
+  GenAITracesTableBodySkeleton,
+  useSearchMlflowTraces,
+  isSqlWarehouseTimeoutError,
+} from '@databricks/web-shared/genai-traces-table';
 import { FormattedMessage } from '@databricks/i18n';
 import { Button, DangerIcon, Empty, ParagraphSkeleton, SearchIcon } from '@databricks/design-system';
 import { getNamedDateFilters } from './utils/dateUtils';
 import { useGetExperimentQuery } from '@mlflow/mlflow/src/experiment-tracking/hooks/useExperimentQuery';
 import { useMemo } from 'react';
 import { useIntl } from '@databricks/i18n';
-import { getExperimentKindFromTags } from '@mlflow/mlflow/src/experiment-tracking/utils/ExperimentKindUtils';
-import { ExperimentKind } from '@mlflow/mlflow/src/experiment-tracking/constants';
+import {
+  useExperimentKind,
+  isGenAIExperimentKind,
+} from '@mlflow/mlflow/src/experiment-tracking/utils/ExperimentKindUtils';
 import { TracesViewTableNoTracesQuickstart } from '../../../traces/quickstart/TracesViewTableNoTracesQuickstart';
-import type {
-  ModelTraceLocationMlflowExperiment,
-  ModelTraceLocationUcSchema,
+import {
+  shouldEnableTracesTableStatePersistence,
+  type ModelTraceSearchLocation,
 } from '@databricks/web-shared/model-trace-explorer';
 
 export const TracesV3EmptyState = (props: {
-  traceSearchLocations: (ModelTraceLocationMlflowExperiment | ModelTraceLocationUcSchema)[];
+  traceSearchLocations: ModelTraceSearchLocation[];
   experimentIds: string[];
   loggedModelId?: string;
   isCallDisabled?: boolean;
@@ -41,14 +48,15 @@ export const TracesV3EmptyState = (props: {
     experimentId: experimentIds[0],
   });
   const experiment = experimentEntity;
-  const experimentKind = getExperimentKindFromTags(experiment?.tags);
+  const experimentKind = useExperimentKind(experiment?.tags);
 
-  const isGenAIExperiment =
-    experimentKind === ExperimentKind.GENAI_DEVELOPMENT || experimentKind === ExperimentKind.GENAI_DEVELOPMENT_INFERRED;
+  const isGenAIExperiment = experimentKind ? isGenAIExperimentKind(experimentKind) : false;
 
   const hasMoreTraces = traces && traces.length > 0;
 
-  const [monitoringFilters, setMonitoringFilters] = useMonitoringFilters();
+  const [monitoringFilters, setMonitoringFilters] = useMonitoringFilters({
+    persist: shouldEnableTracesTableStatePersistence(),
+  });
 
   const namedDateFilters = useMemo(() => getNamedDateFilters(intl), [intl]);
 
@@ -59,23 +67,27 @@ export const TracesV3EmptyState = (props: {
   );
 
   if (isLoading || isExperimentLoading) {
-    return (
-      <>
-        {[...Array(10).keys()].map((i) => (
-          <ParagraphSkeleton label="Loading..." key={i} seed={`s-${i}`} />
-        ))}
-      </>
-    );
+    return <GenAITracesTableBodySkeleton />;
   }
 
   if (error) {
+    const errorAsError = error instanceof Error ? error : new Error(String(error));
     return (
       <Empty
         image={<DangerIcon />}
         title={
           <FormattedMessage defaultMessage="Fetching traces failed" description="Fetching traces failed message" />
         }
-        description={String(error)}
+        description={
+          isSqlWarehouseTimeoutError(errorAsError)
+            ? intl.formatMessage({
+                defaultMessage:
+                  'The SQL query timed out. Please retry, and if the problem persists, try selecting a larger SQL warehouse.',
+                description:
+                  'Traces empty state > SQL warehouse timeout error description with CTA to select larger warehouse',
+              })
+            : String(error)
+        }
       />
     );
   }
@@ -105,5 +117,11 @@ export const TracesV3EmptyState = (props: {
       />
     );
   }
-  return <TracesViewTableNoTracesQuickstart baseComponentId="mlflow.traces" />;
+  return (
+    <TracesViewTableNoTracesQuickstart
+      baseComponentId="mlflow.traces"
+      experimentName={experiment?.name ?? undefined}
+      experimentId={experiment?.experimentId ?? undefined}
+    />
+  );
 };

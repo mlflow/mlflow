@@ -11,6 +11,21 @@ from mlflow.entities import (
     GatewaySecretInfo,
     RoutingStrategy,
 )
+from mlflow.entities.gateway_budget_policy import (
+    BudgetAction,
+    BudgetDuration,
+    BudgetTargetScope,
+    BudgetUnit,
+    GatewayBudgetPolicy,
+)
+from mlflow.entities.gateway_guardrail import (
+    GatewayGuardrail,
+    GatewayGuardrailConfig,
+    GuardrailAction,
+    GuardrailStage,
+)
+from mlflow.store.entities.paged_list import PagedList
+from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 
 
 class GatewayStoreMixin:
@@ -217,6 +232,8 @@ class GatewayStoreMixin:
         created_by: str | None = None,
         routing_strategy: RoutingStrategy | None = None,
         fallback_config: FallbackConfig | None = None,
+        experiment_id: str | None = None,
+        usage_tracking: bool = True,
     ) -> GatewayEndpoint:
         """
         Create a new endpoint with references to existing model definitions.
@@ -229,6 +246,11 @@ class GatewayStoreMixin:
             created_by: Username of the creator.
             routing_strategy: Routing strategy for the endpoint.
             fallback_config: Fallback configuration (includes strategy and max_attempts).
+            experiment_id: ID of the MLflow experiment where traces are logged.
+                          Only used when usage_tracking is True. If not provided
+                          and usage_tracking is True, an experiment will be auto-created.
+            usage_tracking: Whether to enable usage tracking for this endpoint.
+                           When True, traces will be logged for endpoint invocations.
 
         Returns:
             Endpoint entity with model_mappings populated.
@@ -258,6 +280,8 @@ class GatewayStoreMixin:
         routing_strategy: RoutingStrategy | None = None,
         fallback_config: FallbackConfig | None = None,
         model_configs: list[GatewayEndpointModelConfig] | None = None,
+        experiment_id: str | None = None,
+        usage_tracking: bool | None = None,
     ) -> GatewayEndpoint:
         """
         Update an endpoint's configuration.
@@ -269,6 +293,11 @@ class GatewayStoreMixin:
             routing_strategy: Optional new routing strategy for the endpoint.
             fallback_config: Optional fallback configuration (includes strategy and max_attempts).
             model_configs: Optional new list of model configurations (replaces all linkages).
+            experiment_id: Optional new experiment ID for tracing.
+            usage_tracking: Optional flag to enable/disable usage tracking.
+                           When set to True, enables usage tracking and auto-creates
+                           experiment if not provided. When set to False, disables
+                           usage tracking (experiment_id is cleared).
 
         Returns:
             Updated Endpoint entity.
@@ -350,7 +379,7 @@ class GatewayStoreMixin:
 
         Args:
             endpoint_id: ID of the endpoint to bind.
-            resource_type: Type of resource (e.g., "scorer_job").
+            resource_type: Type of resource (e.g., "scorer").
             resource_id: Unique identifier for the resource instance.
             created_by: Username of the creator.
 
@@ -410,5 +439,242 @@ class GatewayStoreMixin:
         Args:
             endpoint_id: ID of the endpoint.
             key: Tag key to delete.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    # Budget Policy APIs
+
+    def create_budget_policy(
+        self,
+        budget_unit: BudgetUnit,
+        budget_amount: float,
+        duration: BudgetDuration,
+        target_scope: BudgetTargetScope,
+        budget_action: BudgetAction,
+        created_by: str | None = None,
+    ) -> GatewayBudgetPolicy:
+        """
+        Create a new budget policy.
+
+        Args:
+            budget_unit: Budget measurement unit (e.g. USD).
+            budget_amount: Budget limit amount.
+            duration: Fixed time window (unit + length pair).
+            target_scope: Scope of the budget (GLOBAL or WORKSPACE).
+            budget_action: Action when budget is exceeded.
+            created_by: Username of the creator.
+
+        Returns:
+            GatewayBudgetPolicy entity.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def get_budget_policy(
+        self,
+        budget_policy_id: str,
+    ) -> GatewayBudgetPolicy:
+        """
+        Retrieve a budget policy by ID.
+
+        Args:
+            budget_policy_id: ID of the budget policy.
+
+        Returns:
+            GatewayBudgetPolicy entity.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def update_budget_policy(
+        self,
+        budget_policy_id: str,
+        budget_unit: BudgetUnit | None = None,
+        budget_amount: float | None = None,
+        duration: BudgetDuration | None = None,
+        target_scope: BudgetTargetScope | None = None,
+        budget_action: BudgetAction | None = None,
+        updated_by: str | None = None,
+    ) -> GatewayBudgetPolicy:
+        """
+        Update a budget policy.
+
+        Args:
+            budget_policy_id: ID of the budget policy to update.
+            budget_unit: Optional new budget unit.
+            budget_amount: Optional new budget amount.
+            duration: Optional new fixed time window (unit + length pair).
+            target_scope: Optional new target type.
+            budget_action: Optional new budget action.
+            updated_by: Username of the updater.
+
+        Returns:
+            Updated GatewayBudgetPolicy entity.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def delete_budget_policy(self, budget_policy_id: str) -> None:
+        """
+        Delete a budget policy.
+
+        Args:
+            budget_policy_id: ID of the budget policy to delete.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def list_budget_policies(
+        self,
+        max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
+        page_token: str | None = None,
+    ) -> PagedList[GatewayBudgetPolicy]:
+        """
+        List budget policies.
+
+        Returns:
+            PagedList of GatewayBudgetPolicy entities.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def sum_gateway_trace_cost(
+        self,
+        start_time_ms: int,
+        end_time_ms: int,
+        workspace: str | None = None,
+    ) -> float:
+        """
+        Sum total_cost from span metrics for gateway traces within a time range.
+
+        Args:
+            start_time_ms: Window start in epoch milliseconds (inclusive).
+            end_time_ms: Window end in epoch milliseconds (exclusive).
+            workspace: If provided, filter to traces in experiments belonging
+                to this workspace.
+
+        Returns:
+            Total cost in USD.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    # Guardrail APIs
+
+    def create_gateway_guardrail(
+        self,
+        name: str,
+        scorer_id: str,
+        scorer_version: int,
+        stage: GuardrailStage,
+        action: GuardrailAction,
+        action_endpoint_id: str | None = None,
+        created_by: str | None = None,
+    ) -> GatewayGuardrail:
+        """
+        Create a new guardrail backed by a scorer.
+
+        Args:
+            name: Human-readable name for the guardrail.
+            scorer_id: ID of the MLflow scorer to use as judge.
+            scorer_version: Version of the scorer.
+            stage: Whether the guardrail runs BEFORE or AFTER LLM invocation.
+            action: Whether the guardrail validates (blocks) or sanitizes (modifies).
+            action_endpoint_id: Optional gateway endpoint ID for the LLM used
+                by the action (e.g. sanitization rewrite endpoint).
+            created_by: Username of the creator.
+
+        Returns:
+            GatewayGuardrail entity.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def get_gateway_guardrail(self, guardrail_id: str) -> GatewayGuardrail:
+        """
+        Retrieve a guardrail by ID.
+
+        Args:
+            guardrail_id: ID of the guardrail.
+
+        Returns:
+            GatewayGuardrail entity.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def delete_gateway_guardrail(self, guardrail_id: str) -> None:
+        """
+        Delete a guardrail. CASCADE deletes any guardrail_configs referencing it.
+
+        Args:
+            guardrail_id: ID of the guardrail to delete.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def list_gateway_guardrails(
+        self,
+        max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
+        page_token: str | None = None,
+    ) -> PagedList[GatewayGuardrail]:
+        """
+        List guardrails with pagination.
+
+        Args:
+            max_results: Maximum number of results to return.
+            page_token: Page token for pagination.
+
+        Returns:
+            PagedList of GatewayGuardrail entities.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def add_guardrail_to_endpoint(
+        self,
+        endpoint_id: str,
+        guardrail_id: str,
+        execution_order: int | None = None,
+        created_by: str | None = None,
+    ) -> GatewayGuardrailConfig:
+        """
+        Enable a guardrail on a gateway endpoint.
+
+        Args:
+            endpoint_id: ID of the endpoint.
+            guardrail_id: ID of the guardrail to add.
+            execution_order: Execution priority. Lower values run first. NULL if unspecified.
+            created_by: Username of the creator.
+
+        Returns:
+            GatewayGuardrailConfig entity.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def update_endpoint_guardrail_config(
+        self,
+        endpoint_id: str,
+        guardrail_id: str,
+        execution_order: int | None = None,
+    ) -> GatewayGuardrailConfig:
+        raise NotImplementedError(self.__class__.__name__)
+
+    def remove_guardrail_from_endpoint(
+        self,
+        endpoint_id: str,
+        guardrail_id: str,
+    ) -> None:
+        """
+        Remove a guardrail from a gateway endpoint.
+
+        Args:
+            endpoint_id: ID of the endpoint.
+            guardrail_id: ID of the guardrail to remove.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def list_endpoint_guardrail_configs(
+        self,
+        endpoint_id: str,
+    ) -> list[GatewayGuardrailConfig]:
+        """
+        List guardrail configs for an endpoint, ordered by execution order.
+
+        Args:
+            endpoint_id: ID of the endpoint.
+
+        Returns:
+            List of GatewayGuardrailConfig entities ordered by ``execution_order``.
         """
         raise NotImplementedError(self.__class__.__name__)

@@ -225,14 +225,12 @@ class SearchTracesTool(JudgeTool):
 
         _logger.debug(
             "Searching for traces with properties:\n\n"
-            + "\n".join(
-                [
-                    f"* experiment_id={experiment_id}",
-                    f"* filter_string={filter_string}",
-                    f"* order_by={order_by}",
-                    f"* max_results={max_results}",
-                ]
-            )
+            + "\n".join([
+                f"* experiment_id={experiment_id}",
+                f"* filter_string={filter_string}",
+                f"* order_by={order_by}",
+                f"* max_results={max_results}",
+            ])
         )
 
         try:

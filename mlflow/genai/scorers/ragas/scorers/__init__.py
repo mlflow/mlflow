@@ -4,6 +4,13 @@ from typing import ClassVar
 
 from mlflow.genai.judges.builtin import _MODEL_API_DOC
 from mlflow.genai.scorers.ragas import RagasScorer
+from mlflow.genai.scorers.ragas.scorers.agentic_metrics import (
+    AgentGoalAccuracyWithoutReference,
+    AgentGoalAccuracyWithReference,
+    ToolCallAccuracy,
+    ToolCallF1,
+    TopicAdherence,
+)
 from mlflow.genai.scorers.ragas.scorers.comparison_metrics import (
     BleuScore,
     ChrfScore,
@@ -14,6 +21,7 @@ from mlflow.genai.scorers.ragas.scorers.comparison_metrics import (
     StringPresence,
 )
 from mlflow.genai.scorers.ragas.scorers.rag_metrics import (
+    AnswerRelevancy,
     ContextEntityRecall,
     ContextPrecision,
     ContextRecall,
@@ -21,6 +29,7 @@ from mlflow.genai.scorers.ragas.scorers.rag_metrics import (
     NoiseSensitivity,
     NonLLMContextPrecisionWithReference,
     NonLLMContextRecall,
+    SemanticSimilarity,
 )
 from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import format_docstring
@@ -50,6 +59,59 @@ class AspectCritic(RagasScorer):
     """
 
     metric_name: ClassVar[str] = "AspectCritic"
+
+
+@experimental(version="3.9.0")
+@format_docstring(_MODEL_API_DOC)
+class DiscreteMetric(RagasScorer):
+    """
+    Evaluates the output based on a custom prompt with discrete scoring.
+
+    This metric allows you to define a custom evaluation prompt that returns
+    discrete values (e.g., "pass"/"fail", scores 0-10, etc.).
+
+    Args:
+        name: Name for this metric instance.
+        prompt: Custom prompt template for evaluation (required). Should contain
+            placeholders for evaluation inputs that will be formatted at runtime.
+        model: {{ model }}
+        **metric_kwargs: Additional metric-specific parameters.
+
+    Examples:
+        .. code-block:: python
+
+            from mlflow.genai.scorers.ragas import DiscreteMetric
+
+            scorer = DiscreteMetric(
+                name="clarity",
+                prompt='''Rate the clarity of the response on a scale of 0-10.
+                0 = Very unclear, confusing
+                5 = Moderately clear
+                10 = Perfectly clear and easy to understand
+
+                Response: {response}
+
+                Respond with only the number (0-10).''',
+                allowed_values=[num for num in range(10)],
+            )
+            feedback = scorer(trace=trace)
+    """
+
+    metric_name: ClassVar[str] = "DiscreteMetric"
+
+    # override to have name and prompt as required parameters
+    def __init__(
+        self,
+        name: str,
+        prompt: str,
+        **metric_kwargs,
+    ):
+        super().__init__(
+            metric_name=self.metric_name,
+            name=name,
+            prompt=prompt,
+            **metric_kwargs,
+        )
 
 
 @experimental(version="3.8.0")
@@ -86,12 +148,12 @@ class RubricsScore(RagasScorer):
 
 @experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
-class InstanceRubrics(RagasScorer):
+class InstanceSpecificRubrics(RagasScorer):
     """
     Evaluates the output based on instance-specific rubrics.
 
-    Unlike RubricsScore which uses one rubric for all evaluations, InstanceRubrics allows
-    you to define different rubrics for each evaluation instance.
+    Unlike RubricsScore which uses one rubric for all evaluations, InstanceSpecificRubrics
+    allows you to define different rubrics for each evaluation instance.
 
     Args:
         model: {{ model }}
@@ -100,9 +162,9 @@ class InstanceRubrics(RagasScorer):
     Examples:
         .. code-block:: python
 
-            from mlflow.genai.scorers.ragas import InstanceRubrics
+            from mlflow.genai.scorers.ragas import InstanceSpecificRubrics
 
-            scorer = InstanceRubrics(model="openai:/gpt-4")
+            scorer = InstanceSpecificRubrics(model="openai:/gpt-4")
 
             # Evaluate relevance with custom rubric
             feedback1 = scorer(
@@ -131,7 +193,7 @@ class InstanceRubrics(RagasScorer):
             )
     """
 
-    metric_name: ClassVar[str] = "InstanceRubrics"
+    metric_name: ClassVar[str] = "InstanceSpecificRubrics"
 
 
 @experimental(version="3.8.0")
@@ -159,6 +221,72 @@ class SummarizationScore(RagasScorer):
     metric_name: ClassVar[str] = "SummarizationScore"
 
 
+@experimental(version="3.9.0")
+@format_docstring(_MODEL_API_DOC)
+class AnswerAccuracy(RagasScorer):
+    """
+    Evaluates the accuracy of the answer compared to the expectations.
+
+    Args:
+        model: {{ model }}
+        **metric_kwargs: Additional metric-specific parameters
+
+    Examples:
+        .. code-block:: python
+
+            from mlflow.genai.scorers.ragas import AnswerAccuracy
+
+            scorer = AnswerAccuracy(model="openai:/gpt-4")
+            feedback = scorer(trace=trace)
+    """
+
+    metric_name: ClassVar[str] = "AnswerAccuracy"
+
+
+@experimental(version="3.9.0")
+@format_docstring(_MODEL_API_DOC)
+class ContextRelevance(RagasScorer):
+    """
+    Evaluates the relevance of retrieved contexts to the user's question.
+
+    Args:
+        model: {{ model }}
+        **metric_kwargs: Additional metric-specific parameters
+
+    Examples:
+        .. code-block:: python
+
+            from mlflow.genai.scorers.ragas import ContextRelevance
+
+            scorer = ContextRelevance(model="openai:/gpt-4")
+            feedback = scorer(trace=trace)
+    """
+
+    metric_name: ClassVar[str] = "ContextRelevance"
+
+
+@experimental(version="3.9.0")
+@format_docstring(_MODEL_API_DOC)
+class ResponseGroundedness(RagasScorer):
+    """
+    Evaluates whether the response is grounded in the retrieved contexts.
+
+    Args:
+        model: {{ model }}
+        **metric_kwargs: Additional metric-specific parameters
+
+    Examples:
+        .. code-block:: python
+
+            from mlflow.genai.scorers.ragas import ResponseGroundedness
+
+            scorer = ResponseGroundedness(model="openai:/gpt-4")
+            feedback = scorer(trace=trace)
+    """
+
+    metric_name: ClassVar[str] = "ResponseGroundedness"
+
+
 __all__ = [
     # RAG metrics
     "ContextPrecision",
@@ -168,6 +296,12 @@ __all__ = [
     "ContextEntityRecall",
     "NoiseSensitivity",
     "Faithfulness",
+    "AnswerRelevancy",
+    "SemanticSimilarity",
+    # NVIDIA metrics
+    "AnswerAccuracy",
+    "ContextRelevance",
+    "ResponseGroundedness",
     # Comparison metrics
     "FactualCorrectness",
     "NonLLMStringSimilarity",
@@ -178,8 +312,15 @@ __all__ = [
     "ExactMatch",
     # General purpose metrics
     "AspectCritic",
+    "DiscreteMetric",
     "RubricsScore",
-    "InstanceRubrics",
+    "InstanceSpecificRubrics",
+    # Agentic metrics
+    "TopicAdherence",
+    "ToolCallAccuracy",
+    "ToolCallF1",
+    "AgentGoalAccuracyWithReference",
+    "AgentGoalAccuracyWithoutReference",
     # Other tasks
     "SummarizationScore",
 ]

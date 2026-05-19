@@ -1,5 +1,6 @@
 ---
 sidebar_position: 2
+description: Get started with managed MLflow on Databricks using a free trial account for experiment tracking, tracing, and model management.
 ---
 
 import { APILink } from "@site/src/components/APILink";
@@ -21,7 +22,7 @@ Do you already have a Databricks trial account? [Click here](https://login.datab
 
 ## First Steps
 
-When you login for the first time, you will be directed to the MLflow Tracing tutorial, giving you an opportunity to try out one of the most powerful GenAI features that MLflow has to offer.
+When you login for the first time, you will be directed to the MLflow Tracing tutorial, giving you an opportunity to try out one of the most powerful LLM and AI agent features that MLflow has to offer.
 
 Simply click on either of the two tutorials and you will be able to test out MLflow's instrumentation capabilities within minutes.
 
@@ -110,6 +111,29 @@ mlflow.login()
 Databricks Host (should begin with https://):  https://<your workspace host>.cloud.databricks.com/
 Token:  ········
 2025/02/19 12:26:24 INFO mlflow.utils.credentials: Successfully connected to MLflow hosted tracking server! Host: https://<your workspace host>.cloud.databricks.com.
+```
+
+#### Alternative: Databricks Unified Authentication
+
+If you prefer to use environment variables or other Databricks authentication methods (Azure CLI, OIDC, OAuth M2M, Azure Managed Identity), MLflow supports all [Databricks unified authentication](https://docs.databricks.com/en/dev-tools/auth/index.html#unified-authentication) methods when `MLFLOW_ENABLE_DB_SDK` is enabled (this is the default).
+
+Simply set the appropriate environment variables for your authentication method:
+
+```bash
+# Example: Azure CLI authentication
+export DATABRICKS_HOST="https://your-workspace.cloud.databricks.com"
+export MLFLOW_TRACKING_URI="databricks"
+# MLflow will use your Azure CLI credentials automatically
+```
+
+For OIDC-based authentication:
+
+```bash
+export DATABRICKS_HOST="https://your-workspace.cloud.databricks.com"
+export DATABRICKS_AUTH_TYPE="file-oidc"
+export DATABRICKS_CLIENT_ID="your-client-id"
+export DATABRICKS_OIDC_TOKEN_FILE="/path/to/token"
+export MLFLOW_TRACKING_URI="databricks"
 ```
 
 #### Connect MLflow Session to Databricks Workspace

@@ -51,7 +51,7 @@ assistant = ConversableAgent(
 # The user proxy agent is used for interacting with the assistant agent
 # and executes tool calls.
 user_proxy = ConversableAgent(
-    name="Tool Agent",
+    name="ToolAgent",
     llm_config=False,
     is_termination_msg=lambda msg: msg.get("content") is not None and "TERMINATE" in msg["content"],
     human_input_mode="NEVER",

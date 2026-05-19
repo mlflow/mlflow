@@ -2,9 +2,13 @@
 mlruns/
 mlartifacts/
 outputs/
-mlruns.db
+mlruns*.db
 mlflow.db
+# SQLite WAL mode temporary files
+*-shm
+*-wal
 **/basic_auth.db
+mlflow/protos/protos.json
 
 # Mac
 .DS_Store
@@ -20,6 +24,7 @@ __pycache__
 # Distribution / packaging
 .Python
 build/
+bundle/
 develop-eggs/
 dist/
 downloads/
@@ -130,10 +135,15 @@ a.md
 # Ignore a gunicorn config file
 gunicorn.conf.py
 
+# Personal Claude Code instructions
+CLAUDE.local.md
+
 # ignore everything in .claude
 .claude/*
-# except commands and skills
 !.claude/commands/
 !.claude/skills/
 !.claude/hooks/
+!.claude/rules/
+!.claude/scripts/
 !.claude/settings.json
+!.claude/statusline.sh

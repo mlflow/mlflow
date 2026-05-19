@@ -7,10 +7,14 @@ import ImageBox from "@site/src/components/ImageBox";
 
 # MLflow Tracking Quickstart
 
-:::tip
+:::info
 
 Looking for using MLflow for LLMs/Agent development? Checkout the <ins>[MLflow for GenAI](/genai) documentation</ins> instead. This guide is intended for data scientists who train traditional machine learning models, such as decision trees.
 
+:::
+
+:::tip MLflow Assistant
+Need help setting up tracking? Try <ins>[MLflow Assistant](/genai/getting-started/try-assistant)</ins> - a powerful AI assistant that can help you set up MLflow tracking for your project.
 :::
 
 Welcome to MLflow! The purpose of this quickstart is to provide a quick guide to the most essential core APIs of MLflow Tracking. In just a few minutes of following along with this quickstart, you will learn:
@@ -26,6 +30,10 @@ MLflow is available on PyPI. If you don't already have it installed on your syst
 ```bash
 pip install mlflow
 ```
+
+:::info
+See [Secure Installs](/self-hosting/security/secure-installs) to learn how to pin dependencies to known good versions using hash checking and upload-time filtering.
+:::
 
 Then, follow the instructions in the [Set Up MLflow](/ml/getting-started/running-notebooks) guide to set up MLflow.
 
@@ -52,15 +60,12 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_sc
 X, y = datasets.load_iris(return_X_y=True)
 
 # Split the data into training and test sets
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.2, random_state=42
-)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
 # Define the model hyperparameters
 params = {
     "solver": "lbfgs",
     "max_iter": 1000,
-    "multi_class": "auto",
     "random_state": 8888,
 }
 ```

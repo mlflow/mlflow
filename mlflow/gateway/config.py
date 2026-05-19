@@ -11,6 +11,10 @@ import yaml
 from pydantic import ConfigDict, ValidationError, field_validator, model_validator
 from pydantic.json import pydantic_encoder
 
+from mlflow.environment_variables import (
+    MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_ENV,
+    MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.base_models import ConfigModel, LimitModel, ResponseModel
 from mlflow.gateway.constants import (
@@ -24,6 +28,7 @@ from mlflow.gateway.utils import (
     is_valid_ai21labs_model,
     is_valid_endpoint_name,
     is_valid_mosiacml_chat_model,
+    normalize_databricks_base_url,
 )
 
 _logger = logging.getLogger(__name__)
@@ -52,6 +57,14 @@ class Provider(str, Enum):
     MISTRAL = "mistral"
     TOGETHERAI = "togetherai"
     LITELLM = "litellm"
+    AZURE = "azure"
+    GROQ = "groq"
+    DEEPSEEK = "deepseek"
+    XAI = "xai"
+    OPENROUTER = "openrouter"
+    OLLAMA = "ollama"
+    VERTEX_AI = "vertex_ai"
+    PORTKEY = "portkey"
 
     @classmethod
     def values(cls):
@@ -70,6 +83,21 @@ class EndpointType(str, Enum):
     LLM_V1_COMPLETIONS = "llm/v1/completions"
     LLM_V1_CHAT = "llm/v1/chat"
     LLM_V1_EMBEDDINGS = "llm/v1/embeddings"
+
+
+class GatewayRequestType(str, Enum):
+    """
+    Gateway request types for the Gateway endpoints.
+    """
+
+    UNIFIED_CHAT = "unified/chat"
+    UNIFIED_EMBEDDINGS = "unified/embeddings"
+    PASSTHROUGH_MODEL_OPENAI_CHAT = "passthrough/model/openai-chat"
+    PASSTHROUGH_MODEL_OPENAI_EMBEDDINGS = "passthrough/model/openai-embeddings"
+    PASSTHROUGH_MODEL_OPENAI_RESPONSES = "passthrough/model/openai-responses"
+    PASSTHROUGH_MODEL_ANTHROPIC_MESSAGES = "passthrough/model/anthropic-messages"
+    PASSTHROUGH_MODEL_GEMINI_GENERATE_CONTENT = "passthrough/model/gemini-generateContent"
+    RAW_PROXY = "proxy/raw"
 
 
 class CohereConfig(ConfigModel):
@@ -168,6 +196,7 @@ class OpenAIConfig(ConfigModel):
 class AnthropicConfig(ConfigModel):
     anthropic_api_key: str
     anthropic_version: str = "2023-06-01"
+    anthropic_api_base: str = "https://api.anthropic.com/v1"
 
     @field_validator("anthropic_api_key", mode="before")
     def validate_anthropic_api_key(cls, value):
@@ -217,9 +246,13 @@ class AWSIdAndKey(AWSBaseConfig):
     aws_session_token: str | None = None
 
 
+class AWSBearerToken(AWSBaseConfig):
+    aws_bearer_token: str
+
+
 class AmazonBedrockConfig(ConfigModel):
     # order here is important, at least for pydantic<2
-    aws_config: AWSRole | AWSIdAndKey | AWSBaseConfig
+    aws_config: AWSBearerToken | AWSRole | AWSIdAndKey | AWSBaseConfig
 
 
 class MistralConfig(ConfigModel):
@@ -230,16 +263,69 @@ class MistralConfig(ConfigModel):
         return _resolve_api_key_from_input(value)
 
 
+class _AuthConfigKey:
+    """Keys used in auth configuration."""
+
+    AUTH_MODE = "auth_mode"
+    API_KEY = "api_key"
+    API_BASE = "api_base"
+
+
+class _OpenAICompatibleConfig(ConfigModel):
+    """Config for providers that use the OpenAI-compatible API format.
+
+    Args:
+        api_key: API key for authentication (resolved via ``_resolve_api_key_from_input``).
+        api_base: Optional base URL override. When ``None``, the provider's
+            ``DEFAULT_API_BASE`` class attribute is used instead.
+    """
+
+    api_key: str
+    api_base: str | None = None
+
+    @field_validator("api_key", mode="before")
+    def validate_api_key(cls, value):
+        return _resolve_api_key_from_input(value)
+
+
+class VertexAIConfig(ConfigModel):
+    vertex_project: str
+    vertex_location: str | None = None
+    vertex_credentials: str | None = None
+
+
 class LiteLLMConfig(ConfigModel):
     litellm_provider: str | None = None
-    litellm_api_key: str | None = None
-    litellm_api_base: str | None = None
+    litellm_auth_config: dict[str, Any] | None = None
 
-    @field_validator("litellm_api_key", mode="before")
-    def validate_litellm_api_key(cls, value):
-        if value is None:
-            return None
-        return _resolve_api_key_from_input(value)
+    @model_validator(mode="before")
+    def validate_litellm_auth_config(cls, values):
+        if not isinstance(values, dict):
+            return values
+
+        auth_config = values.get("litellm_auth_config")
+        if auth_config is None or not isinstance(auth_config, dict):
+            return values
+
+        auth_config = dict(auth_config)
+
+        # Remove MLflow-specific auth_mode as it's not supported by LiteLLM
+        auth_config.pop(_AuthConfigKey.AUTH_MODE, None)
+
+        # Resolve API key from environment variable or file
+        api_key = auth_config.get(_AuthConfigKey.API_KEY)
+        if isinstance(api_key, str):
+            auth_config[_AuthConfigKey.API_KEY] = _resolve_api_key_from_input(api_key)
+
+        # Normalize Databricks base URL to include /serving-endpoints
+        provider = values.get("litellm_provider")
+        if provider == Provider.DATABRICKS and (
+            api_base := auth_config.get(_AuthConfigKey.API_BASE)
+        ):
+            auth_config[_AuthConfigKey.API_BASE] = normalize_databricks_base_url(api_base)
+
+        values["litellm_auth_config"] = auth_config
+        return values
 
 
 class ModelInfo(ResponseModel):
@@ -253,36 +339,38 @@ def _resolve_api_key_from_input(api_key_input):
 
     Input formats accepted:
 
+    - environment variable name that stores the api key (prefixed with ``$``)
+      (only when ``MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_ENV`` is ``true``)
     - Path to a file as a string which will have the key loaded from it
-    - environment variable name that stores the api key
+      (only when ``MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE`` is ``true``)
     - the api key itself
     """
-
     if not isinstance(api_key_input, str):
         raise MlflowException.invalid_parameter_value(
             "The api key provided is not a string. Please provide either an environment "
             "variable key, a path to a file containing the api key, or the api key itself"
         )
 
-    # try reading as an environment variable
-    if api_key_input.startswith("$"):
+    # try reading as an environment variable (only for legacy YAML-config gateway)
+    if api_key_input.startswith("$") and MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_ENV.get():
         env_var_name = api_key_input[1:]
-        if env_var := os.getenv(env_var_name):
+        if env_var := os.environ.get(env_var_name):
             return env_var
         else:
             raise MlflowException.invalid_parameter_value(
                 f"Environment variable {env_var_name!r} is not set"
             )
 
-    # try reading from a local path
-    file = pathlib.Path(api_key_input)
-    try:
-        if file.is_file():
-            return file.read_text()
-    except OSError:
-        # `is_file` throws an OSError if `api_key_input` exceeds the maximum filename length
-        # (e.g., 255 characters on Unix).
-        pass
+    # try reading from a local path (only for legacy YAML-config gateway)
+    if MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE.get():
+        file = pathlib.Path(api_key_input)
+        try:
+            if file.is_file():
+                return file.read_text()
+        except OSError:
+            # `is_file` throws an OSError if `api_key_input` exceeds the maximum filename length
+            # (e.g., 255 characters on Unix).
+            pass
 
     # if the key itself is passed, return
     return api_key_input

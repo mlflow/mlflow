@@ -1,31 +1,31 @@
-import type { RowSelectionState, Updater } from '@tanstack/react-table';
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useMemo, useCallback } from 'react';
 
 import { useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
-import type { Assessment, ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
-import { AssessmentSchemaContextProvider } from '@databricks/web-shared/model-trace-explorer';
+import type { Assessment, ModelTraceInfoV3 } from '../model-trace-explorer/ModelTrace.types';
+import { AssessmentSchemaContextProvider } from '../model-trace-explorer/contexts/AssessmentSchemaContext';
 
 import { computeEvaluationsComparison } from './GenAiTracesTable.utils';
 import { GenAiTracesTableBody } from './GenAiTracesTableBody';
 import { useActiveEvaluation } from './hooks/useActiveEvaluation';
+import { useGenAiTraceTableRowSelection } from './hooks/useGenAiTraceTableRowSelection';
 import type { GetTraceFunction } from './hooks/useGetTrace';
-import { FilterOperator, TracesTableColumnGroup, TracesTableColumnType } from './types';
 import type {
   AssessmentFilter,
+  AssessmentCountMetrics,
   AssessmentInfo,
   TracesTableColumn,
   EvaluationsOverviewTableSort,
   TableFilter,
 } from './types';
+import { FilterOperator, TracesTableColumnGroup, TracesTableColumnType } from './types';
 import { sortAssessmentInfos } from './utils/AggregationUtils';
 import { shouldEnableTagGrouping } from './utils/FeatureUtils';
 import { applyTraceInfoV3ToEvalEntry, DEFAULT_RUN_PLACEHOLDER_NAME } from './utils/TraceUtils';
-import { useGenAiTraceTableRowSelection } from './hooks/useGenAiTraceTableRowSelection';
 
 interface GenAITracesTableBodyContainerProps {
   // Experiment metadata
-  experimentId: string;
+  experimentId?: string;
   currentRunDisplayName?: string;
   runUuid?: string;
   compareToRunUuid?: string;
@@ -56,10 +56,30 @@ interface GenAITracesTableBodyContainerProps {
   /**
    * Whether to display a loading overlay over the table
    */
-  displayLoadingOverlay?: boolean;
+  isTableLoading?: boolean;
+
+  /**
+   * Whether to group traces by session
+   */
+  isGroupedBySession: boolean;
+
+  /**
+   * Current search query; when set, matching text in the Request column is highlighted.
+   */
+  searchQuery?: string;
+
+  // Infinite scroll props (active when shouldUseInfinitePaginatedTraces is true)
+  fetchNextPage?: () => void;
+  hasNextPage?: boolean;
+  isFetchingNextPage?: boolean;
+
+  // Server-side assessment count data (active when shouldUseInfinitePaginatedTraces is true)
+  assessmentCountMetrics?: AssessmentCountMetrics;
+  compareAssessmentCountMetrics?: AssessmentCountMetrics;
 }
 
 const GenAITracesTableBodyContainerImpl: React.FC<React.PropsWithChildren<GenAITracesTableBodyContainerProps>> =
+  // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
   React.memo((props: GenAITracesTableBodyContainerProps) => {
     const {
       experimentId,
@@ -79,7 +99,14 @@ const GenAITracesTableBodyContainerImpl: React.FC<React.PropsWithChildren<GenAIT
       allColumns,
       getRunColor,
       enableRowSelection = true,
-      displayLoadingOverlay = false,
+      isTableLoading = false,
+      isGroupedBySession,
+      searchQuery,
+      fetchNextPage,
+      hasNextPage,
+      isFetchingNextPage,
+      assessmentCountMetrics,
+      compareAssessmentCountMetrics,
     } = props;
     const { theme } = useDesignSystemTheme();
 
@@ -211,13 +238,13 @@ const GenAITracesTableBodyContainerImpl: React.FC<React.PropsWithChildren<GenAIT
             gap: theme.spacing.md,
             width: '100%',
             flex: 1,
-            overflowY: 'hidden',
+            overflow: 'hidden',
           }}
         >
           <div
             css={{
               flex: 1,
-              overflowY: 'hidden',
+              overflow: 'hidden',
               position: 'relative',
             }}
           >
@@ -245,7 +272,14 @@ const GenAITracesTableBodyContainerImpl: React.FC<React.PropsWithChildren<GenAIT
                 getTrace={getTrace}
                 onTraceTagsEdit={onTraceTagsEdit}
                 enableGrouping={shouldEnableTagGrouping()}
-                displayLoadingOverlay={displayLoadingOverlay}
+                isTableLoading={isTableLoading}
+                isGroupedBySession={isGroupedBySession}
+                searchQuery={searchQuery}
+                fetchNextPage={fetchNextPage}
+                hasNextPage={hasNextPage}
+                isFetchingNextPage={isFetchingNextPage}
+                assessmentCountMetrics={assessmentCountMetrics}
+                compareAssessmentCountMetrics={compareAssessmentCountMetrics}
               />
             </AssessmentSchemaContextProvider>
           </div>

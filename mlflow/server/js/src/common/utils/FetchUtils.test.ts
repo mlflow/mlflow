@@ -5,37 +5,42 @@
  * annotations are already looking good, please remove this comment.
  */
 
-import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
+import { jest, describe, it, expect, beforeEach, afterEach, beforeAll, afterAll } from '@jest/globals';
 import {
   defaultResponseParser,
+  getDefaultHeaders,
   getDefaultHeadersFromCookies,
   HTTPMethods,
   HTTPRetryStatuses,
-  jsonBigIntResponseParser,
   parseResponse,
   yamlResponseParser,
   retry,
   fetchEndpointRaw,
   fetchEndpoint,
   getJson,
-  getBigIntJson,
-  putBigIntJson,
-  patchBigIntJson,
   getYaml,
   putJson,
   putYaml,
   patchJson,
   patchYaml,
   postJson,
-  postBigIntJson,
   postYaml,
   deleteJson,
-  deleteBigIntJson,
   deleteYaml,
 } from './FetchUtils';
 import { ErrorWrapper } from './ErrorWrapper';
+import { setActiveWorkspace } from '../../workspaces/utils/WorkspaceUtils';
 
 describe('FetchUtils', () => {
+  beforeAll(() => {
+    setActiveWorkspace('default');
+  });
+
+  afterAll(() => {
+    jest.restoreAllMocks();
+    setActiveWorkspace(null);
+  });
+
   describe('getDefaultHeadersFromCookies', () => {
     it('empty cookie should result in no headers', () => {
       expect(getDefaultHeadersFromCookies('')).toEqual({});
@@ -44,6 +49,20 @@ describe('FetchUtils', () => {
       expect(
         getDefaultHeadersFromCookies(`a=b; mlflow-request-header-My-CSRF=1; mlflow-request-header-Hello=World; c=d`),
       ).toEqual({ 'My-CSRF': '1', Hello: 'World' });
+    });
+  });
+  describe('getDefaultHeaders', () => {
+    afterEach(() => {
+      setActiveWorkspace(null);
+    });
+
+    it('includes default workspace header when none selected', () => {
+      expect(getDefaultHeaders('')).toMatchObject({ 'X-MLFLOW-WORKSPACE': 'default' });
+    });
+
+    it('includes active workspace header when selected', () => {
+      setActiveWorkspace('team-a');
+      expect(getDefaultHeaders('')).toMatchObject({ 'X-MLFLOW-WORKSPACE': 'team-a' });
     });
   });
   describe('parseResponse', () => {
@@ -73,13 +92,22 @@ describe('FetchUtils', () => {
       await new Promise(setImmediate);
       expect(mockResolve).toHaveBeenCalledWith({ a: 123, b: 'flying monkey' });
     });
-    it('jsonBigIntResponseParser', async () => {
+    it('defaultResponseParser preserves decimal metrics as numbers', async () => {
       const mockResponse = {
-        text: () => Promise.resolve('{"a": 11111111222222223333333344444445555555555}'),
+        text: () => Promise.resolve('{"metric":{"value":0.00011124613492593128}}'),
       };
-      jsonBigIntResponseParser({ resolve: mockResolve, response: mockResponse });
+      defaultResponseParser({ resolve: mockResolve, response: mockResponse });
       await new Promise(setImmediate);
-      expect(mockResolve).toHaveBeenCalledWith({ a: '11111111222222223333333344444445555555555' });
+      expect(mockResolve).toHaveBeenCalledWith({ metric: { value: 0.00011124613492593128 } });
+      expect(mockResolve.mock.calls[0][0].metric.value).toBeCloseTo(0.00011124613492593128);
+    });
+    it('defaultResponseParser returns objects with a standard prototype', async () => {
+      const mockResponse = {
+        text: () => Promise.resolve('{"metric":{"value":1}}'),
+      };
+      defaultResponseParser({ resolve: mockResolve, response: mockResponse });
+      await new Promise(setImmediate);
+      expect(Object.getPrototypeOf(mockResolve.mock.calls[0][0])).toBe(Object.prototype);
     });
     it('yamlResponseParser', async () => {
       const mockResponse = {
@@ -100,6 +128,8 @@ describe('FetchUtils', () => {
     let relativeUrl: any;
     let mockData: any;
     beforeEach(() => {
+      // Ensure workspace is set for these tests (may be cleared by other tests)
+      setActiveWorkspace('default');
       mockResponse = {
         ok: true,
         status: 200,
@@ -123,11 +153,17 @@ describe('FetchUtils', () => {
     it('default headerOptions and options are expected', () => {
       Object.values(HTTPMethods).forEach(async (method) => {
         await fetchEndpointRaw({ relativeUrl, method, data: mockData });
-        expect(mockFetch).toHaveBeenCalledWith(relativeUrl, {
-          dataType: 'json',
-          headers: { 'Content-Type': 'application/json; charset=utf-8' },
-          method,
-        });
+        expect(mockFetch).toHaveBeenCalledWith(
+          relativeUrl,
+          expect.objectContaining({
+            dataType: 'json',
+            method,
+            headers: expect.objectContaining({
+              'Content-Type': 'application/json; charset=utf-8',
+              'X-MLFLOW-WORKSPACE': 'default',
+            }),
+          }),
+        );
       });
     });
     it('overridden headerOptions and options are propagated correctly', () => {
@@ -141,12 +177,19 @@ describe('FetchUtils', () => {
           headerOptions: customHeaders,
           options: customOptions,
         });
-        expect(mockFetch).toHaveBeenCalledWith(relativeUrl, {
-          dataType: 'text',
-          headers: { 'Content-Type': 'application/text', zzz_header: '123456' },
-          method,
-          redirect: 'follow',
-        });
+        expect(mockFetch).toHaveBeenCalledWith(
+          relativeUrl,
+          expect.objectContaining({
+            dataType: 'text',
+            headers: expect.objectContaining({
+              'Content-Type': 'application/text',
+              zzz_header: '123456',
+              'X-MLFLOW-WORKSPACE': 'default',
+            }),
+            method,
+            redirect: 'follow',
+          }),
+        );
       });
     });
     it('setting timeout triggers setTimeout', async () => {
@@ -292,7 +335,7 @@ describe('FetchUtils', () => {
     it('fetchEndpoint resolves on ok response', async () => {
       const okResponse = { ok: true, status: 200, text: () => Promise.resolve('{"dope": "ape"}') };
       // @ts-expect-error TS(2322): Type 'Mock<Promise<{ ok: boolean; status: number; ... Remove this comment to see the full error message
-      global.fetch = jest.fn(() => Promise.resolve(okResponse));
+      jest.spyOn(global, 'fetch').mockImplementation(() => Promise.resolve(okResponse));
       await expect(fetchEndpoint({ relativeUrl: 'http://localhost:3000' })).resolves.toEqual({
         dope: 'ape',
       });
@@ -312,7 +355,7 @@ describe('FetchUtils', () => {
         };
         const responses = [...Array(2).fill(tooManyRequestsResponse), okResponse];
         // pop the head of the array on each call
-        global.fetch = jest.fn(() => Promise.resolve(responses.shift()));
+        jest.spyOn(global, 'fetch').mockImplementation(() => Promise.resolve(responses.shift()));
         await expect(
           fetchEndpoint({
             relativeUrl: 'http://localhost:3000',
@@ -331,7 +374,7 @@ describe('FetchUtils', () => {
           text: () => Promise.resolve('{error_code: "TooManyRequests", message: "TooManyRequests"}'),
         };
         const responses = Array(3).fill(tooManyRequestsResponse);
-        global.fetch = jest.fn(() => Promise.resolve(responses.shift()));
+        jest.spyOn(global, 'fetch').mockImplementation(() => Promise.resolve(responses.shift()));
         await expect(
           fetchEndpoint({
             relativeUrl: 'http://localhost:3000',
@@ -348,7 +391,7 @@ describe('FetchUtils', () => {
         text: () => Promise.resolve('{error_code: "PermissionDenied", message: "PermissionDenied"}'),
       };
       // @ts-expect-error TS(2322): Type 'Mock<Promise<{ ok: boolean; status: number; ... Remove this comment to see the full error message
-      global.fetch = jest.fn(() => Promise.resolve(permissionDeniedResponse));
+      jest.spyOn(global, 'fetch').mockImplementation(() => Promise.resolve(permissionDeniedResponse));
       await expect(
         fetchEndpoint({
           relativeUrl: 'http://localhost:3000',
@@ -359,7 +402,7 @@ describe('FetchUtils', () => {
     });
     it('fetchEndpoint rejects on random exceptions', async () => {
       const randomError = new Error('something went wrong...');
-      global.fetch = jest.fn(() => Promise.reject(randomError));
+      jest.spyOn(global, 'fetch').mockImplementation(() => Promise.reject(randomError));
       await expect(
         fetchEndpoint({
           relativeUrl: 'http://localhost:3000',
@@ -375,6 +418,8 @@ describe('FetchUtils', () => {
     let relativeUrl: any;
     let mockData: any;
     beforeEach(() => {
+      // Ensure workspace is set for these tests (may be cleared by other tests)
+      setActiveWorkspace('default');
       mockResponse = {
         ok: true,
         status: 200,
@@ -396,62 +441,79 @@ describe('FetchUtils', () => {
       jest.clearAllMocks();
     });
     it('GET requests bake data in query params', () => {
-      [getJson, getBigIntJson, getYaml].forEach(async (getCall) => {
+      [getJson, getYaml].forEach(async (getCall) => {
         await getCall({ relativeUrl, data: mockData });
         expect(mockFetch).toHaveBeenCalledWith(
           `${relativeUrl}?group_id=12345&user_id=qwerty&experimental_user=false&null_field=null`,
-          {
+          expect.objectContaining({
             dataType: 'json',
-            headers: { 'Content-Type': 'application/json; charset=utf-8' },
             method: 'GET',
-          },
+            headers: expect.objectContaining({
+              'Content-Type': 'application/json; charset=utf-8',
+              'X-MLFLOW-WORKSPACE': 'default',
+            }),
+          }),
         );
       });
     });
     it('other requests pass data to request body', () => {
       [
         { fetchCall: putJson, method: HTTPMethods.PUT },
-        { fetchCall: putBigIntJson, method: HTTPMethods.PUT },
         { fetchCall: putYaml, method: HTTPMethods.PUT },
         { fetchCall: patchJson, method: HTTPMethods.PATCH },
-        { fetchCall: patchBigIntJson, method: HTTPMethods.PATCH },
         { fetchCall: patchYaml, method: HTTPMethods.PATCH },
         { fetchCall: postJson, method: HTTPMethods.POST },
-        { fetchCall: postBigIntJson, method: HTTPMethods.POST },
         { fetchCall: postYaml, method: HTTPMethods.POST },
         { fetchCall: deleteJson, method: HTTPMethods.DELETE },
-        { fetchCall: deleteBigIntJson, method: HTTPMethods.DELETE },
         { fetchCall: deleteYaml, method: HTTPMethods.DELETE },
       ].forEach((args) => {
         const { fetchCall, method } = args;
         const mockArrayData = [1, undefined, null, 2];
         const mockStringData = '[1, undefined, null, 2]';
         fetchCall({ relativeUrl, data: mockData });
-        expect(mockFetch).toHaveBeenLastCalledWith(relativeUrl, {
-          dataType: 'json',
-          body: JSON.stringify({
-            group_id: 12345,
-            user_id: 'qwerty',
-            experimental_user: false,
-            null_field: null,
+        expect(mockFetch).toHaveBeenLastCalledWith(
+          relativeUrl,
+          expect.objectContaining({
+            dataType: 'json',
+            body: JSON.stringify({
+              group_id: 12345,
+              user_id: 'qwerty',
+              experimental_user: false,
+              null_field: null,
+            }),
+            headers: expect.objectContaining({
+              'Content-Type': 'application/json; charset=utf-8',
+              'X-MLFLOW-WORKSPACE': 'default',
+            }),
+            method,
           }),
-          headers: { 'Content-Type': 'application/json; charset=utf-8' },
-          method,
-        });
+        );
         fetchCall({ relativeUrl, data: mockArrayData });
-        expect(mockFetch).toHaveBeenLastCalledWith(relativeUrl, {
-          dataType: 'json',
-          body: JSON.stringify([1, null, 2]),
-          headers: { 'Content-Type': 'application/json; charset=utf-8' },
-          method,
-        });
+        expect(mockFetch).toHaveBeenLastCalledWith(
+          relativeUrl,
+          expect.objectContaining({
+            dataType: 'json',
+            body: JSON.stringify([1, null, 2]),
+            headers: expect.objectContaining({
+              'Content-Type': 'application/json; charset=utf-8',
+              'X-MLFLOW-WORKSPACE': 'default',
+            }),
+            method,
+          }),
+        );
         fetchCall({ relativeUrl, data: mockStringData });
-        expect(mockFetch).toHaveBeenCalledWith(relativeUrl, {
-          dataType: 'json',
-          body: mockStringData,
-          headers: { 'Content-Type': 'application/json; charset=utf-8' },
-          method,
-        });
+        expect(mockFetch).toHaveBeenCalledWith(
+          relativeUrl,
+          expect.objectContaining({
+            dataType: 'json',
+            body: mockStringData,
+            headers: expect.objectContaining({
+              'Content-Type': 'application/json; charset=utf-8',
+              'X-MLFLOW-WORKSPACE': 'default',
+            }),
+            method,
+          }),
+        );
       });
     });
   });

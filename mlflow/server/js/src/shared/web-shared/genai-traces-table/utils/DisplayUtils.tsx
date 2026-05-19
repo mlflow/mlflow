@@ -1,4 +1,5 @@
 import { isNil } from 'lodash';
+import React from 'react';
 
 import type { IntlShape } from '@databricks/i18n';
 import { FormattedMessage } from '@databricks/i18n';
@@ -11,6 +12,25 @@ const NUM_DECIMALS_PERCENTAGE_DISPLAY = 1;
 export function displayPercentage(fraction: number, numDecimalsDisplayPercentage = NUM_DECIMALS_PERCENTAGE_DISPLAY) {
   // We wrap in a Number to remove trailing zeros (4.00 => 4).
   return Number((fraction * 100).toFixed(numDecimalsDisplayPercentage)).toString();
+}
+
+/**
+ * Parse a duration string like "34.00000000000002ms" or "5.100s", round the numeric
+ * part to up to 3 decimals, strip trailing zeros, and reattach the unit.
+ */
+export function normalizeDurationString(val?: string): string | undefined {
+  if (val === undefined) {
+    return undefined;
+  }
+  const floatVal = parseFloat(val);
+  const unit = val
+    ?.replace?.(/[0-9.]/g, '')
+    .trim()
+    .toLowerCase();
+  if (isNil(floatVal) || isNaN(floatVal)) {
+    return undefined;
+  }
+  return [floatVal.toFixed(3).replace(/\.?0+$/, ''), unit].filter(Boolean).join('');
 }
 
 export function displayFloat(value: number | undefined | null, numDecimals = 3) {
@@ -36,28 +56,19 @@ export function getDisplayOverallScoreAndChange(
   aggregateType: 'average' | 'percentage-true' | 'categorical';
 } {
   if (assessmentInfo.dtype === 'numeric') {
-    // Compute the average score for displayScore, and the change in average for displayScoreChange.
-    const currentNumericValues = assessmentDisplayInfo.currentNumericValues;
-    const otherNumericValues = assessmentDisplayInfo.otherNumericValues;
+    const currentAverage = assessmentDisplayInfo.currentNumericAverage ?? NaN;
+    const otherAverage = assessmentDisplayInfo.otherNumericAverage;
 
-    let currentAverage = NaN;
-    let otherAverage = NaN;
-    if (currentNumericValues) {
-      currentAverage = currentNumericValues.reduce((a, b) => a + b, 0) / currentNumericValues.length;
-    }
-    if (otherNumericValues) {
-      otherAverage = otherNumericValues.reduce((a, b) => a + b, 0) / otherNumericValues.length;
-    }
     const displayScore = displayFloat(currentAverage, 2);
-    const scoreChange = otherNumericValues ? currentAverage - otherAverage : undefined;
+    const scoreChange = otherAverage !== undefined ? currentAverage - otherAverage : undefined;
     const changeDirection = scoreChange ? (scoreChange > 0 ? 'up' : 'down') : 'none';
 
     const displayScoreChange = scoreChange
       ? changeDirection === 'up'
         ? `+${displayFloat(Math.abs(scoreChange), 2)}`
         : changeDirection === 'down'
-        ? `-${displayFloat(Math.abs(scoreChange), 2)}`
-        : '+0'
+          ? `-${displayFloat(Math.abs(scoreChange), 2)}`
+          : '+0'
       : undefined;
 
     return {
@@ -204,6 +215,49 @@ export function timeSinceStr(date: any, referenceDate = new Date()) {
 export function escapeCssSpecialCharacters(str: string) {
   // eslint-disable-next-line no-useless-escape
   return str.replace(/([!"#$%&'()*+,\.\/:;\s<=>?@[\\\]^`{|}~])/g, '\\$1');
+}
+
+/** Escape special regex characters so the string can be used in a RegExp literally. */
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Wraps case-insensitive matches of searchQuery in text with <mark>.
+ * Returns the original text as-is if searchQuery is empty or no match.
+ * Used to highlight search matches in the trace list (e.g. Request column).
+ */
+export function highlightSearchInText(text: string, searchQuery: string | undefined): React.ReactNode {
+  if (!text || !searchQuery?.trim()) {
+    return text;
+  }
+  const escaped = escapeRegex(searchQuery.trim());
+  const regex = new RegExp(`(${escaped})`, 'gi');
+  const parts = text.split(regex);
+  if (parts.length <= 1) {
+    return text;
+  }
+  // With a capturing group, split() includes matches: [nonMatch, match, nonMatch, match, ...]
+  return (
+    <>
+      {parts.map((part, i) =>
+        i % 2 === 1 ? (
+          <mark
+            key={i}
+            css={{
+              backgroundColor: 'var(--trace-search-highlight-bg, rgba(255, 212, 0, 0.35))',
+              padding: 0,
+              margin: 0,
+            }}
+          >
+            {part}
+          </mark>
+        ) : (
+          <React.Fragment key={i}>{part}</React.Fragment>
+        ),
+      )}
+    </>
+  );
 }
 
 // Adapted from query-insights/utils/numberUtils

@@ -17,7 +17,7 @@ import { ExperimentPageTabName } from '../../../constants';
 import { Link, useLocation, useParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import Routes from '@mlflow/mlflow/src/experiment-tracking/routes';
 import invariant from 'invariant';
-import { isTracesRelatedTab } from './utils';
+import { isTracesRelatedTab, getTimeRangeQueryString } from './utils';
 import { useLogTelemetryEvent } from '@mlflow/mlflow/src/telemetry/hooks/useLogTelemetryEvent';
 import { useMemo } from 'react';
 
@@ -64,7 +64,7 @@ export const ExperimentPageSideNavSection = ({
             }}
           />
           <Typography.Text className={FULL_WIDTH_CLASS_NAME} size="sm" color="secondary">
-            {getExperimentPageSideNavSectionLabel(sectionKey as ExperimentPageSideNavSectionKey)}
+            {getExperimentPageSideNavSectionLabel(sectionKey as ExperimentPageSideNavSectionKey, items)}
           </Typography.Text>
         </div>
       )}
@@ -79,10 +79,11 @@ export const ExperimentPageSideNavSection = ({
 
         return (
           <Link
+            componentId="mlflow.experiment_tracking.side_nav.section_item_link"
             key={`${sectionKey}-${item.tabName}`}
             to={{
               pathname: Routes.getExperimentPageTabRoute(experimentId, item.tabName),
-              search: preserveQueryParams ? search : undefined,
+              search: preserveQueryParams ? search : getTimeRangeQueryString(search),
             }}
             onClick={() =>
               logTelemetryEvent({
@@ -110,7 +111,7 @@ export const ExperimentPageSideNavSection = ({
               }}
             >
               <Tooltip
-                componentId={`mlflow.experiment-page.side-nav.${sectionKey}.${item.tabName}.tooltip`}
+                componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_page_tabs_side_nav_experimentpagesidenavsection_93"
                 content={item.label}
                 side="right"
                 delayDuration={0}

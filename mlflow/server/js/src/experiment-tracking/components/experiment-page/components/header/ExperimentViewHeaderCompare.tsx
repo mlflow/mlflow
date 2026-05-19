@@ -9,6 +9,7 @@ import Routes from '@mlflow/mlflow/src/experiment-tracking/routes';
 /**
  * Header for experiment compare page. Displays title and breadcrumbs.
  */
+// eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
 export const ExperimentViewHeaderCompare = React.memo(({ experiments }: { experiments: ExperimentEntity[] }) => {
   const pageTitle = useMemo(
     () => (
@@ -26,6 +27,7 @@ export const ExperimentViewHeaderCompare = React.memo(({ experiments }: { experi
   const breadcrumbs = useMemo(
     () => [
       <Link
+        componentId="mlflow.experiment_tracking.compare_header.experiments_breadcrumb_link"
         key={Routes.experimentsObservatoryRoute}
         to={Routes.experimentsObservatoryRoute}
         data-testid="experiment-observatory-link"

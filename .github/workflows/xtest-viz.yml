@@ -6,7 +6,6 @@ on:
       - opened
       - synchronize
       - reopened
-      - ready_for_review
     paths:
       - .github/workflows/xtest-viz.yml
       - dev/xtest_viz.py
@@ -31,24 +30,34 @@ jobs:
         github.repository == 'mlflow/dev'
       ) || (
         github.event_name == 'pull_request' &&
-        github.event.pull_request.draft == false
+        (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
       )
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
 
       - name: Set up Python
         uses: ./.github/actions/setup-python
 
       - name: Generate cross-version test visualization
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "## Cross-Version Test Results" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Generated:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          uv run dev/xtest_viz.py \
-            --days 14 \
-            --repo mlflow/dev >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## Cross-Version Test Results"
+            echo ""
+            echo "**Generated:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+            echo ""
+            uv run dev/xtest_viz.py --days 14 --repo mlflow/dev --json-output results.json
+          } >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload JSON results
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: xtest-viz
+          path: results.json
+          retention-days: 3
+          if-no-files-found: error

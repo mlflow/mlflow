@@ -18,16 +18,6 @@ describe('providerUtils', () => {
       expect(formatProviderName('databricks')).toBe('Databricks');
     });
 
-    it('returns display name for Vertex AI variants', () => {
-      expect(formatProviderName('vertex_ai-anthropic')).toBe('Vertex AI (Anthropic)');
-      expect(formatProviderName('vertex_ai-llama3')).toBe('Vertex AI (Llama 3)');
-      expect(formatProviderName('vertex_ai-mistral')).toBe('Vertex AI (Mistral)');
-    });
-
-    it('formats unknown Vertex AI variants', () => {
-      expect(formatProviderName('vertex_ai-some-new-model')).toBe('Vertex AI (Some New Model)');
-    });
-
     it('formats unknown providers with title case', () => {
       expect(formatProviderName('some_unknown_provider')).toBe('Some Unknown Provider');
     });

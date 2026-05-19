@@ -44,6 +44,7 @@ type ExperimentViewRunsControlsProps = {
  * filters and run related actions (delete, restore, download CSV).
  */
 export const ExperimentViewRunsControls = React.memo(
+  // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
   ({
     runsData,
     viewState,

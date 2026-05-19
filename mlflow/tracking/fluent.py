@@ -33,15 +33,18 @@ from mlflow.entities import (
     ViewType,
 )
 from mlflow.entities.lifecycle_stage import LifecycleStage
+from mlflow.entities.trace_location import UnityCatalog
 from mlflow.environment_variables import (
     _MLFLOW_ACTIVE_MODEL_ID,
     _MLFLOW_ENABLE_SGC_RUN_RESUMPTION_FOR_DATABRICKS_JOBS,
+    _MLFLOW_ENABLE_UC_TRACE_UPSELL,
     MLFLOW_ACTIVE_MODEL_ID,
     MLFLOW_ENABLE_ASYNC_LOGGING,
     MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING,
     MLFLOW_EXPERIMENT_ID,
     MLFLOW_EXPERIMENT_NAME,
     MLFLOW_RUN_ID,
+    MLFLOW_TRACING_SQL_WAREHOUSE_ID,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
@@ -51,9 +54,12 @@ from mlflow.protos.databricks_pb2 import (
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.telemetry.events import AutologgingEvent
 from mlflow.telemetry.track import _record_event
-from mlflow.tracing.provider import _get_trace_exporter
+from mlflow.tracing.provider import (
+    _get_trace_exporter,
+)
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
 from mlflow.tracking._tracking_service.utils import _resolve_tracking_uri
+from mlflow.tracking._uc_upsell import show_existing_experiment_upsell, show_new_experiment_upsell
 from mlflow.utils import get_results_from_paginated_fn
 from mlflow.utils.annotations import experimental
 from mlflow.utils.async_logging.run_operations import RunOperations
@@ -75,6 +81,7 @@ from mlflow.utils.import_hooks import register_post_import_hook
 from mlflow.utils.mlflow_tags import (
     MLFLOW_DATABRICKS_SGC_RESUME_RUN_JOB_RUN_ID_PREFIX,
     MLFLOW_DATASET_CONTEXT,
+    MLFLOW_EXPERIMENT_DATABRICKS_TRACE_DESTINATION_PATH,
     MLFLOW_EXPERIMENT_PRIMARY_METRIC_GREATER_IS_BETTER,
     MLFLOW_EXPERIMENT_PRIMARY_METRIC_NAME,
     MLFLOW_MODEL_IS_EXTERNAL,
@@ -84,7 +91,12 @@ from mlflow.utils.mlflow_tags import (
 )
 from mlflow.utils.thread_utils import ThreadLocalVariable
 from mlflow.utils.time import get_current_time_millis
-from mlflow.utils.validation import _validate_experiment_id_type, _validate_run_id
+from mlflow.utils.uri import is_databricks_uri
+from mlflow.utils.validation import (
+    _validate_experiment_id_type,
+    _validate_logged_model_name,
+    _validate_run_id,
+)
 from mlflow.version import IS_TRACING_SDK_ONLY
 
 if not IS_TRACING_SDK_ONLY:
@@ -131,7 +143,9 @@ _experiment_lock = threading.Lock()
 
 
 def set_experiment(
-    experiment_name: str | None = None, experiment_id: str | None = None
+    experiment_name: str | None = None,
+    experiment_id: str | None = None,
+    trace_location: UnityCatalog | None = None,
 ) -> Experiment:
     """
     Set the given experiment as the active experiment. The experiment must either be specified by
@@ -148,6 +162,9 @@ def set_experiment(
         experiment_name: Case sensitive name of the experiment to be activated.
         experiment_id: ID of the experiment to be activated. If an experiment with this ID
             does not exist, an exception is thrown.
+        trace_location: Optional UC trace location used to configure the experiment-derived
+            tracing destination. Must be an instance of
+            ``mlflow.entities.trace_location.UnityCatalog(...)``.
 
     Returns:
         An instance of :py:class:`mlflow.entities.Experiment` representing the new active
@@ -185,6 +202,8 @@ def set_experiment(
 
     client = TrackingServiceClient(_resolve_tracking_uri())
 
+    is_newly_created = False
+
     with _experiment_lock:
         if experiment_id is None:
             experiment = client.get_experiment_by_name(experiment_name)
@@ -204,6 +223,7 @@ def set_experiment(
                     raise
 
                 experiment = client.get_experiment(experiment_id)
+                is_newly_created = True
         else:
             experiment = client.get_experiment(experiment_id)
             if experiment is None:
@@ -223,14 +243,111 @@ def set_experiment(
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
+    if (
+        _MLFLOW_ENABLE_UC_TRACE_UPSELL.get()
+        and trace_location is None
+        and is_databricks_uri(_resolve_tracking_uri())
+        and MLFLOW_EXPERIMENT_DATABRICKS_TRACE_DESTINATION_PATH not in experiment.tags
+    ):
+        if is_newly_created:
+            show_new_experiment_upsell()
+        else:
+            show_existing_experiment_upsell()
+
+    if trace_location is not None and trace_location.table_prefix is None:
+        trace_location = UnityCatalog(
+            catalog_name=trace_location.catalog_name,
+            schema_name=trace_location.schema_name,
+            table_prefix=experiment.experiment_id,
+        )
+
+    try:
+        resolved_location = _resolve_experiment_to_trace_location(
+            experiment=experiment,
+            trace_location=trace_location,
+        )
+    except MlflowException as e:
+        if is_newly_created and trace_location is not None:
+            raise MlflowException.invalid_parameter_value(
+                f"Experiment '{experiment.name}' (ID: {experiment.experiment_id}) was created "
+                f"but linking to trace location '{trace_location.full_table_prefix}' failed: "
+                f"{e.message} Please fix the issue and call set_experiment again to retry."
+            ) from e
+        raise
+
     global _active_experiment_id
     _active_experiment_id = experiment.experiment_id
 
     # Set 'MLFLOW_EXPERIMENT_ID' environment variable
     # so that subprocess can inherit it.
     MLFLOW_EXPERIMENT_ID.set(_active_experiment_id)
+    if resolved_location is not None:
+        experiment.trace_location = resolved_location
+
+    _sync_trace_destination_and_provider(resolved_location)
 
     return experiment
+
+
+def _sync_trace_destination_and_provider(
+    resolved_location: UnityCatalog | None,
+) -> None:
+    from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION, provider
+
+    # If the tracer provider has already been initialized, reset it so the
+    # next trace re-derives the correct processor chain from the new experiment.
+    if provider.once._done:
+        provider.reset()
+
+    _MLFLOW_TRACE_USER_DESTINATION.set(resolved_location)
+
+
+def _resolve_experiment_to_trace_location(
+    experiment: Experiment,
+    trace_location: UnityCatalog | None,
+) -> UnityCatalog | None:
+    """Resolve the trace destination for an experiment without mutating state.
+
+    All validation and network calls happen here. The caller is responsible
+    for committing the result (setting experiment-derived destination, etc.).
+
+    Returns:
+        The resolved UnityCatalog location if one was configured, or None.
+    """
+    if trace_location is None:
+        return None
+    if not isinstance(trace_location, UnityCatalog):
+        raise MlflowException.invalid_parameter_value(
+            "`trace_location` must be an instance of `mlflow.entities.trace_location.UnityCatalog`."
+        )
+
+    if not is_databricks_uri(_resolve_tracking_uri()):
+        raise MlflowException.invalid_parameter_value(
+            "`trace_location` is only supported with a Databricks tracking URI."
+        )
+
+    # Check if experiment is already linked via the destination path tag (no backend call).
+    if destination_path := experiment.tags.get(MLFLOW_EXPERIMENT_DATABRICKS_TRACE_DESTINATION_PATH):
+        if destination_path == trace_location.full_table_prefix:
+            return experiment.trace_location
+        raise MlflowException.invalid_parameter_value(
+            f"Experiment '{experiment.name}' is already linked to a different "
+            f"trace location '{destination_path}'."
+        )
+
+    # No existing link — register and link via backend.
+    from mlflow.tracing.client import TracingClient
+
+    tracing_client = TracingClient()
+    resolved = tracing_client._create_or_get_trace_location(
+        trace_location,
+        MLFLOW_TRACING_SQL_WAREHOUSE_ID.get(),
+    )
+    tracing_client._link_trace_location(
+        experiment_id=experiment.experiment_id,
+        location=resolved,
+    )
+    return resolved
 
 
 def _set_experiment_primary_metric(
@@ -773,9 +890,7 @@ def get_run(run_id: str) -> Run:
         with mlflow.start_run() as run:
             mlflow.log_param("p", 0)
         run_id = run.info.run_id
-        print(
-            f"run_id: {run_id}; lifecycle_stage: {mlflow.get_run(run_id).info.lifecycle_stage}"
-        )
+        print(f"run_id: {run_id}; lifecycle_stage: {mlflow.get_run(run_id).info.lifecycle_stage}")
 
     .. code-block:: text
         :caption: Output
@@ -881,10 +996,25 @@ def flush_trace_async_logging(terminate=False) -> None:
     Args:
         terminate: If True, shut down the logging threads after flushing.
     """
+    # Flush ALL batch span processors and their exporters' async queues.
+    # When set_destination() is called multiple times, each call creates a new
+    # tracer provider, processor, and exporter. The registry tracks all of them
+    # so we drain both layers: span queue → exporter → async DB write queue.
+    from mlflow.tracing.processor.base_mlflow import flush_all_batch_processors
+
     try:
-        _get_trace_exporter()._async_queue.flush(terminate=terminate)
+        flush_all_batch_processors(terminate=terminate)
     except Exception as e:
-        _logger.error(f"Failed to flush trace async logging: {e}")
+        _logger.debug(f"Failed to flush batch processors: {e}", exc_info=True)
+
+    # When batch processor is disabled (no registry entries), the current exporter
+    # may still have an _async_queue that needs draining (SimpleSpanProcessor path).
+    try:
+        if trace_exporter := _get_trace_exporter():
+            if hasattr(trace_exporter, "_async_queue"):
+                trace_exporter._async_queue.flush(terminate=terminate)
+    except Exception as e:
+        _logger.debug(f"Failed to flush trace exporter async queue: {e}", exc_info=True)
 
 
 def set_experiment_tag(key: str, value: Any) -> None:
@@ -2176,6 +2306,7 @@ def create_experiment(
     name: str,
     artifact_location: str | None = None,
     tags: dict[str, Any] | None = None,
+    trace_location: UnityCatalog | None = None,
 ) -> str:
     """
     Create an experiment.
@@ -2185,6 +2316,10 @@ def create_experiment(
         artifact_location: The location to store run artifacts. If not provided, the server picks
             an appropriate default.
         tags: An optional dictionary of string keys and values to set as tags on the experiment.
+        trace_location: Optional UC trace location to link to the experiment. Must be an instance
+            of ``mlflow.entities.trace_location.UnityCatalog(...)``. If ``table_prefix`` is not
+            set, it defaults to the experiment ID. Note: call ``mlflow.set_experiment`` afterward
+            to activate the experiment and sync the trace provider.
 
     Returns:
         String ID of the created experiment.
@@ -2220,7 +2355,32 @@ def create_experiment(
         Lifecycle_stage: active
         Creation timestamp: 1662004217511
     """
-    return MlflowClient().create_experiment(name, artifact_location, tags)
+    client = MlflowClient()
+    experiment_id = client.create_experiment(name, artifact_location, tags)
+
+    if trace_location is not None:
+        experiment = client.get_experiment(experiment_id)
+
+        if trace_location.table_prefix is None:
+            trace_location = UnityCatalog(
+                catalog_name=trace_location.catalog_name,
+                schema_name=trace_location.schema_name,
+                table_prefix=experiment_id,
+            )
+
+        try:
+            _resolve_experiment_to_trace_location(
+                experiment=experiment,
+                trace_location=trace_location,
+            )
+        except MlflowException as e:
+            raise MlflowException.invalid_parameter_value(
+                f"Experiment '{name}' (ID: {experiment_id}) was created "
+                f"but linking to trace location '{trace_location.full_table_prefix}' failed: "
+                f"{e.message} Please delete the experiment and retry."
+            ) from e
+
+    return experiment_id
 
 
 def delete_experiment(experiment_id: str) -> None:
@@ -2405,6 +2565,8 @@ def _create_logged_model(
     model_type: str | None = None,
     experiment_id: str | None = None,
     flavor: str | None = None,
+    serialization_format: str | None = None,
+    uses_uv: bool = False,
 ) -> LoggedModel:
     """
     Create a new LoggedModel in the ``PENDING`` state.
@@ -2420,7 +2582,12 @@ def _create_logged_model(
                     enables you to easily search for this model and compare it to other models of
                     type ``"agent"`` in the future.
         experiment_id: The experiment ID of the experiment to which the model belongs.
-        flavor: The flavor of the model.
+        flavor: The flavor of the model, recorded for telemetry and analytics only; it does not
+                affect the stored LoggedModel.
+        serialization_format: The serialization format of the model, recorded for telemetry and
+                              analytics only; it does not affect the stored LoggedModel.
+        uses_uv: Whether the model uses uv dependency management, recorded for telemetry and
+                 analytics only; it does not affect the stored LoggedModel.
 
     Returns:
         A new LoggedModel in the ``PENDING`` state.
@@ -2443,6 +2610,8 @@ def _create_logged_model(
         params=params,
         model_type=model_type,
         flavor=flavor,
+        serialization_format=serialization_format,
+        uses_uv=uses_uv,
     )
 
 
@@ -2475,6 +2644,138 @@ def log_model_params(params: dict[str, str], model_id: str | None = None) -> Non
     """
     model_id = model_id or get_active_model_id()
     MlflowClient().log_model_params(model_id, params)
+
+
+def import_checkpoints(
+    checkpoint_path: str,
+    source_run_id: str | None = None,
+    model_prefix: str | None = None,
+    overwrite_checkpoints: bool = False,
+) -> list[LoggedModel]:
+    """
+    Create external models for all top-level files and directories under the specified
+    checkpoint path.
+
+    This API only supports Databricks runtime currently.
+
+    Args:
+        checkpoint_path: Path that contains the checkpoints.
+            Only Databricks Unity Catalog Volume path is supported for now.
+            It must follows the
+            "/Volumes/<catalog_identifier>/<schema_identifier>/<volume_identifier>/<path_to_checkpoints_directory>"
+            format specified https://docs.databricks.com/aws/en/sql/language-manual/sql-ref-volumes#volume-naming-and-reference.
+            Note: Each path must be isolated from other models and runs.
+        source_run_id: ID of the MLflow source run that these checkpoints were trained with.
+            If not provided, uses the current active run if available.
+        model_prefix: String prefix to prepend to the name of each external model created from
+            each checkpoint. If not provided, no prefix is applied.
+        overwrite_checkpoints: If True and existing models are found with the same name in the
+            associated experiment, they will be deleted and recreated to point to the latest
+            checkpoint. Defaults to False.
+
+    Returns:
+        List of imported models. If 'overwrite_checkpoints' is True, the list only contains
+            new created models, otherwise the list contains new created models for the new model
+            names and existing models for the existing model names.
+
+    Example:
+
+    .. code-block:: python
+
+        import mlflow
+
+        # Optionally start a run so `source_run_id` can be inferred
+        with mlflow.start_run() as run:
+            # ... training code that writes checkpoints to a UC Volume ...
+            logged_models = mlflow.import_checkpoints(
+                checkpoint_path=(
+                    "/Volumes/mycatalog/myschema/myvolume/mytrainingmodel/trainingrun1/checkpoints"
+                ),
+                # You can omit `source_run_id` if there is an active run.
+                # source_run_id=run.info.run_id,
+                model_prefix="my_model_",
+                overwrite_checkpoints=True,
+            )
+    """
+    from databricks.sdk import WorkspaceClient
+
+    # Validate checkpoint_path before accessing workspace files
+    if not isinstance(checkpoint_path, str) or not checkpoint_path.strip().startswith("/Volumes/"):
+        raise MlflowException(
+            "Parameter 'checkpoint_path' must be a non-empty string pointing to a Unity Catalog "
+            "Volume path that contains checkpoints, e.g. '/Volumes/...'",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    # Resolve source_run_id from the active run if not provided
+    if source_run_id is None:
+        if run := active_run():
+            source_run_id = run.info.run_id
+        else:
+            raise MlflowException.invalid_parameter_value(
+                "Please set 'source_run_id' or start an active run before calling "
+                "'import_checkpoints'."
+            )
+
+    # Resolve experiment ID to operate against
+    exp_id = MlflowClient().get_run(source_run_id).info.experiment_id
+
+    ws = WorkspaceClient()
+    top_level_paths = [
+        entry.path.rstrip("/") for entry in ws.files.list_directory_contents(checkpoint_path)
+    ]
+
+    imported_models: list[LoggedModel] = []
+    client = MlflowClient()
+
+    if not top_level_paths:
+        _logger.warning(
+            f"No checkpoints were found at path '{checkpoint_path}'. "
+            "Please verify that 'checkpoint_path' is correct and accessible."
+        )
+        return []
+
+    for sub_checkpoint_path in top_level_paths:
+        base_name = os.path.basename(sub_checkpoint_path)
+
+        model_name = model_prefix + base_name if model_prefix else base_name
+
+        try:
+            _validate_logged_model_name(model_name)
+        except MlflowException as e:
+            _logger.warning(
+                f"The model name is invalid (root error: {e!s}), skip importing the "
+                f"model with name '{model_name}' from checkpoint folder '{sub_checkpoint_path}'."
+            )
+            continue
+
+        existing_models = [
+            model
+            for model in search_logged_models(
+                experiment_ids=[exp_id],
+                filter_string=f"name = '{model_name}'",
+                output_format="list",
+            )
+            if model.source_run_id == source_run_id
+        ]
+
+        if not existing_models or overwrite_checkpoints:
+            # Create a new model pointing to this checkpoint path.
+            created_model = create_external_model(
+                name=model_name,
+                source_run_id=source_run_id,
+                tags={"original_artifact_path": sub_checkpoint_path},
+                experiment_id=exp_id,
+            )
+            imported_models.append(created_model)
+        else:
+            imported_models.extend(existing_models)
+
+        if existing_models and overwrite_checkpoints:
+            for model in existing_models:
+                client.delete_logged_model(model.model_id)
+
+    return imported_models
 
 
 def finalize_logged_model(
@@ -3594,7 +3895,9 @@ def set_active_model(*, name: str | None = None, model_id: str | None = None) ->
 
 
         predict("abc")
-        traces = mlflow.search_traces(model_id=mlflow.get_active_model_id(), return_type="list")
+        traces = mlflow.search_traces(
+            model_id=mlflow.get_active_model_id(), return_type="list", flush=True
+        )
         assert len(traces) == 1
     """
     return _set_active_model(name=name, model_id=model_id, set_by_user=True)

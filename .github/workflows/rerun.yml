@@ -8,7 +8,7 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 defaults:
   run:
@@ -20,7 +20,12 @@ jobs:
     timeout-minutes: 5
     permissions:
       contents: read
-    if: github.event.review.state == 'approved' && contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.review.author_association)
+    if: >-
+      github.event.review.state == 'approved' &&
+      (
+        contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.review.author_association) ||
+        (github.event.review.user.login == 'mlflow-app[bot]' && github.event.review.user.type == 'Bot')
+      )
     steps:
       - name: Upload PR number
         env:
@@ -28,7 +33,9 @@ jobs:
         run: |
           mkdir -p /tmp/pr
           echo $PR_NUMBER > /tmp/pr/pr_number
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: pr_number
           path: /tmp/pr/
+          retention-days: 1
+          if-no-files-found: error

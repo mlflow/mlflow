@@ -318,6 +318,7 @@ class BuiltInScorer(Judge):
 
     name: str
     required_columns: set[str] = set()
+    inference_params: dict[str, Any] | None = None
 
     @property
     @abstractmethod
@@ -359,7 +360,7 @@ class BuiltInScorer(Judge):
                 )
 
             try:
-                serialized = SerializedScorer(**obj)
+                serialized = SerializedScorer.from_dict(obj)
             except Exception as e:
                 raise MlflowException.invalid_parameter_value(
                     f"Failed to parse serialized scorer data: {e}"
@@ -368,8 +369,10 @@ class BuiltInScorer(Judge):
         try:
             scorer_class = getattr(builtin_scorers, serialized.builtin_scorer_class)
         except AttributeError:
+            # error_code is INVALID_PARAMETER_VALUE but this is an attribute lookup failure
             raise MlflowException.invalid_parameter_value(
-                f"Unknown builtin scorer class: {serialized.builtin_scorer_class}"
+                f"Unknown builtin scorer class: {serialized.builtin_scorer_class}",
+                error_class="ATTRIBUTE_NOT_FOUND",
             )
 
         constructor_args = serialized.builtin_scorer_pydantic_data or {}
@@ -396,6 +399,8 @@ class RetrievalRelevance(BuiltInScorer):
     Args:
         name: The name of the scorer. Defaults to "retrieval_relevance".
         model: {{ model }}
+        inference_params: Optional dictionary of inference parameters (e.g., temperature,
+            top_p, max_tokens) to pass to the judge model for fine-grained control.
 
     Example (direct usage):
 
@@ -405,7 +410,10 @@ class RetrievalRelevance(BuiltInScorer):
         from mlflow.genai.scorers import RetrievalRelevance
 
         trace = mlflow.get_trace("<your-trace-id>")
-        feedbacks = RetrievalRelevance(name="my_retrieval_relevance")(trace=trace)
+        feedbacks = RetrievalRelevance(
+            name="my_retrieval_relevance",
+            inference_params={"temperature": 0.0},
+        )(trace=trace)
         print(feedbacks)
 
     Example (with evaluate):
@@ -432,6 +440,10 @@ class RetrievalRelevance(BuiltInScorer):
     def instructions(self) -> str:
         """Get the instructions of what this scorer evaluates."""
         return "Evaluates whether each retrieved context chunk is relevant to the input request."
+
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
 
     def get_input_fields(self) -> list[JudgeField]:
         """
@@ -470,6 +482,12 @@ class RetrievalRelevance(BuiltInScorer):
         request = extract_request_from_trace(trace)
         span_id_to_context = extract_retrieval_context_from_trace(trace)
 
+        if not span_id_to_context:
+            raise MlflowException(
+                "No retrieval context found in the trace. The RetrievalRelevance "
+                "scorer requires the trace to contain at least one span with type 'RETRIEVER'."
+            )
+
         feedbacks = []
         for span_id, context in span_id_to_context.items():
             feedbacks.extend(self._compute_span_relevance(span_id, request, context))
@@ -487,14 +505,28 @@ class RetrievalRelevance(BuiltInScorer):
         if model == "databricks":
             from databricks.agents.evals.judges import chunk_relevance
 
+            if self.inference_params:
+                _logger.warning(
+                    "inference_params are not supported with the Databricks managed judge "
+                    "and will be ignored."
+                )
             chunk_feedbacks = chunk_relevance(
                 request=request, retrieved_context=chunks, assessment_name=self.name
             )
         else:
-            for chunk in chunks:
+            for i, chunk in enumerate(chunks):
                 prompt = get_prompt(request=request, context=chunk["content"])
-                feedback = invoke_judge_model(model, prompt, assessment_name=self.name)
+                feedback = invoke_judge_model(
+                    model,
+                    prompt,
+                    assessment_name=self.name,
+                    inference_params=self.inference_params,
+                )
                 sanitized_feedback = _sanitize_scorer_feedback(feedback)
+                sanitized_feedback.metadata = {
+                    **(sanitized_feedback.metadata or {}),
+                    "chunk_index": i,
+                }
                 chunk_feedbacks.append(sanitized_feedback)
 
         for feedback in chunk_feedbacks:
@@ -561,6 +593,10 @@ class RetrievalSufficiency(BuiltInScorer):
         """Get the instructions of what this scorer evaluates."""
         return CONTEXT_SUFFICIENCY_PROMPT_INSTRUCTIONS
 
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
+
     def get_input_fields(self) -> list[JudgeField]:
         """
         Get the input fields for the RetrievalSufficiency judge.
@@ -613,6 +649,12 @@ class RetrievalSufficiency(BuiltInScorer):
         """
         request = extract_request_from_trace(trace)
         span_id_to_context = extract_retrieval_context_from_trace(trace)
+
+        if not span_id_to_context:
+            raise MlflowException(
+                "No retrieval context found in the trace. The RetrievalSufficiency "
+                "scorer requires the trace to contain at least one span with type 'RETRIEVER'."
+            )
 
         expectations = expectations or {}
         expected_facts = expectations.get("expected_facts")
@@ -687,6 +729,10 @@ class RetrievalGroundedness(BuiltInScorer):
         """Get the instructions of what this scorer evaluates."""
         return GROUNDEDNESS_PROMPT_INSTRUCTIONS
 
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
+
     def get_input_fields(self) -> list[JudgeField]:
         """
         Get the input fields for the RetrievalGroundedness judge.
@@ -721,6 +767,13 @@ class RetrievalGroundedness(BuiltInScorer):
         request = extract_request_from_trace(trace)
         response = extract_response_from_trace(trace)
         span_id_to_context = extract_retrieval_context_from_trace(trace)
+
+        if not span_id_to_context:
+            raise MlflowException(
+                "No retrieval context found in the trace. The RetrievalGroundedness "
+                "scorer requires the trace to contain at least one span with type 'RETRIEVER'."
+            )
+
         feedbacks = []
         for span_id, context in span_id_to_context.items():
             feedback = judges.is_grounded(
@@ -785,6 +838,10 @@ class ToolCallEfficiency(BuiltInScorer):
     @property
     def instructions(self) -> str:
         return TOOL_CALL_EFFICIENCY_PROMPT_INSTRUCTIONS
+
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
 
     def get_input_fields(self) -> list[JudgeField]:
         return [
@@ -919,6 +976,10 @@ class ToolCallCorrectness(BuiltInScorer):
     @property
     def instructions(self) -> str:
         return TOOL_CALL_CORRECTNESS_PROMPT_INSTRUCTIONS
+
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
 
     def get_input_fields(self) -> list[JudgeField]:
         fields = [
@@ -1172,6 +1233,10 @@ class Guidelines(BuiltInScorer):
         """Get the instructions of what this scorer evaluates."""
         return GUIDELINES_PROMPT_INSTRUCTIONS
 
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
+
     def get_input_fields(self) -> list[JudgeField]:
         """
         Get the input fields for the Guidelines judge.
@@ -1292,6 +1357,10 @@ class ExpectationsGuidelines(BuiltInScorer):
     def instructions(self) -> str:
         """Get the instructions of what this scorer evaluates."""
         return "Evaluates adherence to per-example guidelines provided in the expectations column."
+
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
 
     def get_input_fields(self) -> list[JudgeField]:
         """
@@ -1444,6 +1513,10 @@ class RelevanceToQuery(BuiltInScorer):
         """Get the instructions of what this scorer evaluates."""
         return RELEVANCE_TO_QUERY_PROMPT_INSTRUCTIONS
 
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
+
     def get_input_fields(self) -> list[JudgeField]:
         """
         Get the input fields for the RelevanceToQuery judge.
@@ -1552,6 +1625,10 @@ class Safety(BuiltInScorer):
     def instructions(self) -> str:
         """Get the instructions of what this scorer evaluates."""
         return "Ensures responses do not contain harmful, offensive, or toxic content."
+
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
 
     def get_input_fields(self) -> list[JudgeField]:
         """
@@ -1668,8 +1745,7 @@ class Correctness(BuiltInScorer):
                 ),
                 "expectations": {
                     "expected_response": (
-                        "reduceByKey aggregates data before shuffling. "
-                        "groupByKey shuffles all data"
+                        "reduceByKey aggregates data before shuffling. groupByKey shuffles all data"
                     ),
                 },
             }
@@ -1689,6 +1765,10 @@ class Correctness(BuiltInScorer):
     def instructions(self) -> str:
         """Get the instructions of what this scorer evaluates."""
         return CORRECTNESS_PROMPT_INSTRUCTIONS
+
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
 
     def validate_columns(self, columns: set[str]) -> None:
         super().validate_columns(columns)
@@ -1847,6 +1927,10 @@ class Fluency(BuiltInScorer):
     )
     _judge: Judge | None = pydantic.PrivateAttr(default=None)
 
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
+
     def _get_judge(self) -> Judge:
         if self._judge is None:
             self._judge = InstructionsJudge(
@@ -1854,7 +1938,7 @@ class Fluency(BuiltInScorer):
                 instructions=self.instructions,
                 model=self.model,
                 description=self.description,
-                feedback_value_type=Literal["yes", "no"],
+                feedback_value_type=self.feedback_value_type,
             )
         return self._judge
 
@@ -1892,6 +1976,8 @@ class Equivalence(BuiltInScorer):
     Args:
         name: The name of the scorer. Defaults to "equivalence".
         model: {{ model }}
+        inference_params: Optional dictionary of inference parameters (e.g., temperature,
+            top_p, max_tokens) to pass to the judge model for fine-grained control.
 
     Example (direct usage):
 
@@ -1939,6 +2025,10 @@ class Equivalence(BuiltInScorer):
     def instructions(self) -> str:
         """Get the instructions of what this scorer evaluates."""
         return EQUIVALENCE_PROMPT_INSTRUCTIONS
+
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
 
     def validate_columns(self, columns: set[str]) -> None:
         super().validate_columns(columns)
@@ -2060,7 +2150,9 @@ class Equivalence(BuiltInScorer):
             output=outputs_str,
             expected_output=expectations_str,
         )
-        feedback = invoke_judge_model(model, prompt, assessment_name=assessment_name)
+        feedback = invoke_judge_model(
+            model, prompt, assessment_name=assessment_name, inference_params=self.inference_params
+        )
 
         return _sanitize_feedback(feedback)
 
@@ -2078,6 +2170,7 @@ class SessionLevelScorer(Judge):
     """
 
     required_columns: set[str] = {"trace"}
+    inference_params: dict[str, Any] | None = None
     _judge: Judge | None = pydantic.PrivateAttr(default=None)
 
     @abstractmethod
@@ -2209,13 +2302,18 @@ class UserFrustration(BuiltInSessionLevelScorer):
     model: str | None = None
     description: str = "Evaluate the user's frustration state throughout the conversation."
 
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["none", "resolved", "unresolved"]
+
     def _create_judge(self) -> Judge:
         return InstructionsJudge(
             name=self.name,
             instructions=self.instructions,
             model=self.model,
             description=self.description,
-            feedback_value_type=Literal["none", "resolved", "unresolved"],
+            feedback_value_type=self.feedback_value_type,
+            inference_params=self.inference_params,
         )
 
     @property
@@ -2282,14 +2380,19 @@ class ConversationCompleteness(BuiltInSessionLevelScorer):
         "the conversation."
     )
 
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
+
     def _create_judge(self) -> Judge:
         return InstructionsJudge(
             name=self.name,
             instructions=self.instructions,
             model=self.model,
             description=self.description,
-            feedback_value_type=Literal["yes", "no"],
+            feedback_value_type=self.feedback_value_type,
             generate_rationale_first=True,
+            inference_params=self.inference_params,
         )
 
     @property
@@ -2358,14 +2461,19 @@ class ConversationalSafety(BuiltInSessionLevelScorer):
         "checking for harmful content and safety guideline failures."
     )
 
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
+
     def _create_judge(self) -> Judge:
         return InstructionsJudge(
             name=self.name,
             instructions=self.instructions,
             model=self.model,
             description=self.description,
-            feedback_value_type=Literal["yes", "no"],
+            feedback_value_type=self.feedback_value_type,
             generate_rationale_first=True,
+            inference_params=self.inference_params,
         )
 
     @property
@@ -2420,9 +2528,7 @@ class ConversationalToolCallEfficiency(BuiltInSessionLevelScorer):
             filter_string=f"metadata.`mlflow.trace.session` = '{session_id}'",
             return_type="list",
         )
-        result = mlflow.genai.evaluate(
-            data=session, scorers=[ConversationalToolCallEfficiency()]
-        )
+        result = mlflow.genai.evaluate(data=session, scorers=[ConversationalToolCallEfficiency()])
     """
 
     name: str = CONVERSATIONAL_TOOL_CALL_EFFICIENCY_ASSESSMENT_NAME
@@ -2432,15 +2538,20 @@ class ConversationalToolCallEfficiency(BuiltInSessionLevelScorer):
         "efficient, checking for redundant calls, unnecessary calls, and poor tool selection."
     )
 
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
+
     def _create_judge(self) -> Judge:
         return InstructionsJudge(
             name=self.name,
             instructions=self.instructions,
             model=self.model,
             description=self.description,
-            feedback_value_type=Literal["yes", "no"],
+            feedback_value_type=self.feedback_value_type,
             generate_rationale_first=True,
             include_tool_calls_in_conversation=True,
+            inference_params=self.inference_params,
         )
 
     @property
@@ -2505,14 +2616,19 @@ class ConversationalRoleAdherence(BuiltInSessionLevelScorer):
         "a conversation, checking for persona consistency and boundary violations."
     )
 
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
+
     def _create_judge(self) -> Judge:
         return InstructionsJudge(
             name=self.name,
             instructions=self.instructions,
             model=self.model,
             description=self.description,
-            feedback_value_type=Literal["yes", "no"],
+            feedback_value_type=self.feedback_value_type,
             generate_rationale_first=True,
+            inference_params=self.inference_params,
         )
 
     @property
@@ -2591,14 +2707,19 @@ class ConversationalGuidelines(BuiltInSessionLevelScorer):
         "with the provided guidelines."
     )
 
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
+
     def _create_judge(self) -> Judge:
         return InstructionsJudge(
             name=self.name,
             instructions=self.instructions,
             model=self.model,
             description=self.description,
-            feedback_value_type=Literal["yes", "no"],
+            feedback_value_type=self.feedback_value_type,
             generate_rationale_first=True,
+            inference_params=self.inference_params,
         )
 
     @property
@@ -2631,13 +2752,18 @@ class _LastTurnKnowledgeRetention(SessionLevelScorer):
         "provided by users in earlier conversation turns."
     )
 
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
+
     def _create_judge(self) -> Judge:
         return InstructionsJudge(
             name=self.name,
             instructions=self.instructions,
             model=self.model,
             description=self.description,
-            feedback_value_type=Literal["yes", "no"],
+            feedback_value_type=self.feedback_value_type,
+            inference_params=self.inference_params,
         )
 
     @property
@@ -2708,11 +2834,12 @@ class KnowledgeRetention(BuiltInSessionLevelScorer):
     )
 
     def model_post_init(self, __context: Any) -> None:
-        """Propagate model parameter to the inner last_turn_scorer after initialization."""
-        if self.model is not None:
-            # Make a copy to avoid mutating the caller's scorer
+        if self.model is not None or self.inference_params is not None:
             self.last_turn_scorer = copy.deepcopy(self.last_turn_scorer)
-            self.last_turn_scorer.model = self.model
+            if self.model is not None:
+                self.last_turn_scorer.model = self.model
+            if self.inference_params is not None:
+                self.last_turn_scorer.inference_params = self.inference_params
 
     def _create_judge(self) -> Judge:
         """
@@ -2737,6 +2864,10 @@ class KnowledgeRetention(BuiltInSessionLevelScorer):
             "and does not use instructions directly."
         )
 
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
+
     def __call__(
         self,
         *,
@@ -2750,7 +2881,7 @@ class KnowledgeRetention(BuiltInSessionLevelScorer):
         Args:
             session: List of traces from the same conversation session.
             expectations: Not used for this scorer.
-            **kwargs: Additional arguments (will raise TypeError if provided).
+            kwargs: Additional arguments (will raise TypeError if provided).
 
         Returns:
             A single Feedback object with value "yes" or "no", plus detailed rationale
@@ -2884,6 +3015,10 @@ class Completeness(BuiltInScorer):
     )
     _judge: Judge | None = pydantic.PrivateAttr(default=None)
 
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
+
     def _get_judge(self) -> Judge:
         if self._judge is None:
             self._judge = InstructionsJudge(
@@ -2891,7 +3026,7 @@ class Completeness(BuiltInScorer):
                 instructions=self.instructions,
                 model=self.model,
                 description=self.description,
-                feedback_value_type=Literal["yes", "no"],
+                feedback_value_type=self.feedback_value_type,
             )
         return self._judge
 
@@ -2986,6 +3121,10 @@ class Summarization(BuiltInScorer):
     )
     _judge: Judge | None = pydantic.PrivateAttr(default=None)
 
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
+
     def _get_judge(self) -> Judge:
         if self._judge is None:
             self._judge = InstructionsJudge(
@@ -2993,7 +3132,7 @@ class Summarization(BuiltInScorer):
                 instructions=self.instructions,
                 model=self.model,
                 description=self.description,
-                feedback_value_type=Literal["yes", "no"],
+                feedback_value_type=self.feedback_value_type,
             )
         return self._judge
 

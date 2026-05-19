@@ -9,8 +9,14 @@ from mlflow.gateway.providers.base import (
     BaseProvider,
     PassthroughAction,
     ProviderAdapter,
+    _client_provides_auth,
 )
-from mlflow.gateway.providers.utils import rename_payload_keys, send_request, send_stream_request
+from mlflow.gateway.providers.utils import (
+    rename_payload_keys,
+    send_proxy_request,
+    send_request,
+    send_stream_request,
+)
 from mlflow.gateway.schemas import (
     chat as chat_schema,
 )
@@ -95,6 +101,10 @@ class GeminiAdapter(ProviderAdapter):
                     status_code=422, detail=f"Invalid parameter {k2}. Use {k1} instead."
                 )
 
+        if "max_completion_tokens" in payload:
+            if "max_tokens" not in payload:
+                payload["max_tokens"] = payload.pop("max_completion_tokens")
+
         payload = rename_payload_keys(payload, GENERATION_CONFIG_KEY_MAPPING)
 
         contents = []
@@ -116,15 +126,13 @@ class GeminiAdapter(ProviderAdapter):
                             call_id_to_function_name_map[tool_call["id"]] = tool_call["function"][
                                 "name"
                             ]
-                            gemini_function_calls.append(
-                                {
-                                    "functionCall": {
-                                        "id": tool_call["id"],
-                                        "name": tool_call["function"]["name"],
-                                        "args": json.loads(tool_call["function"]["arguments"]),
-                                    }
+                            gemini_function_calls.append({
+                                "functionCall": {
+                                    "id": tool_call["id"],
+                                    "name": tool_call["function"]["name"],
+                                    "args": json.loads(tool_call["function"]["arguments"]),
                                 }
-                            )
+                            })
                 if gemini_function_calls:
                     contents.append({"role": "model", "parts": gemini_function_calls})
                 else:
@@ -135,21 +143,19 @@ class GeminiAdapter(ProviderAdapter):
                 system_message["parts"].append({"text": message["content"]})
             elif role == "tool":
                 call_id = message["tool_call_id"]
-                contents.append(
-                    {
-                        "role": "user",
-                        "parts": [
-                            {
-                                "functionResponse": {
-                                    "id": call_id,
-                                    # the function name field is required by Gemini request format
-                                    "name": call_id_to_function_name_map[call_id],
-                                    "response": json.loads(message["content"]),
-                                }
+                contents.append({
+                    "role": "user",
+                    "parts": [
+                        {
+                            "functionResponse": {
+                                "id": call_id,
+                                # the function name field is required by Gemini request format
+                                "name": call_id_to_function_name_map[call_id],
+                                "response": json.loads(message["content"]),
                             }
-                        ],
-                    }
-                )
+                        }
+                    ],
+                })
 
         gemini_payload = {"contents": contents}
 
@@ -160,14 +166,13 @@ class GeminiAdapter(ProviderAdapter):
             gemini_payload["generationConfig"] = generation_config
 
         # Transform response_format for Gemini structured outputs
-        # Gemini uses responseSchema in generationConfig
         if response_format := payload.pop("response_format", None):
             if response_format.get("type") == "json_schema" and "json_schema" in response_format:
                 if "generationConfig" not in gemini_payload:
                     gemini_payload["generationConfig"] = {}
-                gemini_payload["generationConfig"]["responseSchema"] = response_format[
+                gemini_payload["generationConfig"]["responseJsonSchema"] = response_format[
                     "json_schema"
-                ]
+                ]["schema"]
                 gemini_payload["generationConfig"]["responseMimeType"] = "application/json"
 
         # convert tool definition to Gemini format
@@ -184,13 +189,11 @@ class GeminiAdapter(ProviderAdapter):
                     )
 
                 tool_function = tool["function"]
-                function_declarations.append(
-                    {
-                        "name": tool_function["name"],
-                        "description": tool_function["description"],
-                        "parametersJsonSchema": tool_function["parameters"],
-                    }
-                )
+                function_declarations.append({
+                    "name": tool_function["name"],
+                    "description": tool_function["description"],
+                    "parametersJsonSchema": tool_function["parameters"],
+                })
 
             gemini_payload["tools"] = [{"functionDeclarations": function_declarations}]
 
@@ -267,6 +270,20 @@ class GeminiAdapter(ProviderAdapter):
         )
 
     @classmethod
+    def _build_chat_usage(cls, usage_metadata: dict[str, Any]) -> chat_schema.ChatUsage:
+        prompt_tokens_details = None
+        if "cachedContentTokenCount" in usage_metadata:
+            prompt_tokens_details = chat_schema.PromptTokensDetails(
+                cached_tokens=usage_metadata["cachedContentTokenCount"]
+            )
+        return chat_schema.ChatUsage(
+            prompt_tokens=usage_metadata.get("promptTokenCount"),
+            completion_tokens=usage_metadata.get("candidatesTokenCount"),
+            total_tokens=usage_metadata.get("totalTokenCount"),
+            prompt_tokens_details=prompt_tokens_details,
+        )
+
+    @classmethod
     def model_to_chat(cls, resp, config):
         # Documentation: https://ai.google.dev/api/generate-content
         #
@@ -322,11 +339,7 @@ class GeminiAdapter(ProviderAdapter):
             object="chat.completion",
             model=config.model.name,
             choices=choices,
-            usage=chat_schema.ChatUsage(
-                prompt_tokens=usage_metadata.get("promptTokenCount", None),
-                completion_tokens=usage_metadata.get("candidatesTokenCount", None),
-                total_tokens=usage_metadata.get("totalTokenCount", None),
-            ),
+            usage=cls._build_chat_usage(usage_metadata),
         )
 
     @classmethod
@@ -384,12 +397,18 @@ class GeminiAdapter(ProviderAdapter):
             )
         current_time = int(time.time())
 
+        # Extract usage from usageMetadata (available in final chunk)
+        usage = None
+        if usage_metadata := resp.get("usageMetadata"):
+            usage = cls._build_chat_usage(usage_metadata)
+
         return chat_schema.StreamResponsePayload(
             id=f"gemini-chat-stream-{current_time}",
             object="chat.completion.chunk",
             created=current_time,
             model=config.model.name,
             choices=choices,
+            usage=usage,
         )
 
     @classmethod
@@ -605,7 +624,7 @@ class GeminiAdapter(ProviderAdapter):
 
 
 class GeminiProvider(BaseProvider):
-    NAME = "Gemini"
+    DISPLAY_NAME = "Gemini"
     CONFIG_TYPE = GeminiConfig
 
     PASSTHROUGH_PROVIDER_PATHS = {
@@ -613,8 +632,8 @@ class GeminiProvider(BaseProvider):
         PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT: "{model}:streamGenerateContent?alt=sse",
     }
 
-    def __init__(self, config: EndpointConfig) -> None:
-        super().__init__(config)
+    def __init__(self, config: EndpointConfig, enable_tracing: bool = False) -> None:
+        super().__init__(config, enable_tracing=enable_tracing)
         if config.model.config is None or not isinstance(config.model.config, GeminiConfig):
             raise TypeError(f"Unexpected config type {config.model.config}")
         self.gemini_config: GeminiConfig = config.model.config
@@ -644,7 +663,10 @@ class GeminiProvider(BaseProvider):
             client_headers = headers.copy()
             client_headers.pop("host", None)
             client_headers.pop("content-length", None)
-            # Don't override api key header
+            if _client_provides_auth(headers):
+                # Preserve the client's own credentials for subscription-based tools
+                # (e.g. Claude Code, Codex, Gemini CLI) instead of using the server key.
+                result_headers.pop("x-goog-api-key", None)
             result_headers = client_headers | result_headers
 
         return result_headers
@@ -657,6 +679,14 @@ class GeminiProvider(BaseProvider):
     def adapter_class(self):
         return GeminiAdapter
 
+    def get_endpoint_url(self, route_type: str) -> str:
+        model_name = self.config.model.name
+        if route_type in ("llm/v1/chat", "llm/v1/completions"):
+            return f"{self.base_url}/{model_name}:generateContent"
+        elif route_type == "llm/v1/embeddings":
+            return f"{self.base_url}/{model_name}:embedContent"
+        raise ValueError(f"Invalid route type {route_type}")
+
     async def _request(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
         return await send_request(
             headers=self.headers,
@@ -665,7 +695,7 @@ class GeminiProvider(BaseProvider):
             payload=payload,
         )
 
-    async def embeddings(
+    async def _embeddings(
         self, payload: embeddings_schema.RequestPayload
     ) -> embeddings_schema.ResponsePayload:
         from fastapi.encoders import jsonable_encoder
@@ -688,7 +718,7 @@ class GeminiProvider(BaseProvider):
         )
         return self.adapter_class.model_to_embeddings(resp, self.config)
 
-    async def completions(
+    async def _completions(
         self, payload: completions_schema.RequestPayload
     ) -> completions_schema.ResponsePayload:
         from fastapi.encoders import jsonable_encoder
@@ -706,7 +736,7 @@ class GeminiProvider(BaseProvider):
 
         return self.adapter_class.model_to_completions(resp, self.config)
 
-    async def completions_stream(
+    async def _completions_stream(
         self, payload: completions_schema.RequestPayload
     ) -> AsyncIterable[completions_schema.StreamResponsePayload]:
         from fastapi.encoders import jsonable_encoder
@@ -732,7 +762,7 @@ class GeminiProvider(BaseProvider):
             resp = json.loads(data)
             yield self.adapter_class.model_to_completions_streaming(resp, self.config)
 
-    async def chat(self, payload: chat_schema.RequestPayload) -> chat_schema.ResponsePayload:
+    async def _chat(self, payload: chat_schema.RequestPayload) -> chat_schema.ResponsePayload:
         from fastapi.encoders import jsonable_encoder
 
         payload = jsonable_encoder(payload, exclude_none=True)
@@ -748,7 +778,7 @@ class GeminiProvider(BaseProvider):
 
         return self.adapter_class.model_to_chat(resp, self.config)
 
-    async def chat_stream(
+    async def _chat_stream(
         self, payload: chat_schema.RequestPayload
     ) -> AsyncIterable[chat_schema.StreamResponsePayload]:
         from fastapi.encoders import jsonable_encoder
@@ -776,12 +806,96 @@ class GeminiProvider(BaseProvider):
             resp = json.loads(data)
             yield self.adapter_class.model_to_chat_streaming(resp, self.config)
 
-    async def passthrough(
+    def _extract_passthrough_token_usage(
+        self, action: PassthroughAction, result: dict[str, Any]
+    ) -> dict[str, int] | None:
+        """
+        Extract token usage from Gemini passthrough response.
+
+        Gemini response format:
+        {
+            "usageMetadata": {
+                "promptTokenCount": int,
+                "candidatesTokenCount": int,
+                "totalTokenCount": int
+            }
+        }
+        """
+        usage_metadata = result.get("usageMetadata")
+        return self._extract_token_usage_from_dict(
+            usage_metadata,
+            "promptTokenCount",
+            "candidatesTokenCount",
+            "totalTokenCount",
+            cache_read_key="cachedContentTokenCount",
+        )
+
+    def _extract_streaming_token_usage(self, chunk: bytes) -> dict[str, int]:
+        """
+        Extract token usage from Gemini streaming chunks.
+
+        Gemini streaming format uses SSE with usageMetadata in chunks (typically final chunk):
+        data: {"candidates": [...], "usageMetadata": {"promptTokenCount": X, ...}}
+
+        Returns:
+            A dictionary with token usage found in this chunk.
+        """
+        try:
+            chunk_str = chunk.decode("utf-8").strip()
+            if not chunk_str:
+                return {}
+
+            # Parse SSE format - look for data lines
+            for line in chunk_str.split("\n"):
+                line = line.strip()
+                if not line.startswith("data:"):
+                    continue
+
+                data_str = line[5:].strip()
+                if not data_str or data_str == "[DONE]":
+                    continue
+
+                data = json.loads(data_str)
+
+                # Extract usageMetadata if present
+                usage_metadata = data.get("usageMetadata")
+                if token_usage := self._extract_token_usage_from_dict(
+                    usage_metadata,
+                    "promptTokenCount",
+                    "candidatesTokenCount",
+                    "totalTokenCount",
+                    cache_read_key="cachedContentTokenCount",
+                ):
+                    return token_usage
+
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            pass
+
+        return {}
+
+    async def _proxy(
+        self,
+        path: str,
+        payload: dict[str, Any],
+        headers: dict[str, str] | None = None,
+    ) -> dict[str, Any] | AsyncIterable[Any]:
+        # base_url includes /v1beta/models; the caller's path already starts with
+        # v1beta/models/..., so use the bare origin to avoid double-prefixing.
+        api_origin = "https://generativelanguage.googleapis.com"
+        gen = send_proxy_request(self._get_headers(None, headers), api_origin, path, payload)
+        meta = await gen.__anext__()
+        if meta["is_streaming"]:
+            return gen
+        body = await gen.__anext__()
+        await gen.aclose()
+        return body
+
+    async def _passthrough(
         self,
         action: PassthroughAction,
         payload: dict[str, Any],
         headers: dict[str, str] | None = None,
-    ) -> dict[str, Any] | AsyncIterable[bytes]:
+    ) -> dict[str, Any] | AsyncIterable[Any]:
         provider_path = self._validate_passthrough_action(action)
         provider_path = provider_path.format(model=self.config.model.name)
 
@@ -790,12 +904,13 @@ class GeminiProvider(BaseProvider):
         is_streaming = action == PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT
 
         if is_streaming:
-            return send_stream_request(
+            stream = send_stream_request(
                 headers=request_headers,
                 base_url=self.base_url,
                 path=provider_path,
                 payload=payload,
             )
+            return self._stream_passthrough_with_usage(stream)
         else:
             return await send_request(
                 headers=request_headers,

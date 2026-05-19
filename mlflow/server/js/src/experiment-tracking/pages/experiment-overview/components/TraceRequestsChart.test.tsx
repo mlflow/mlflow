@@ -1,17 +1,24 @@
 import { jest, describe, it, expect, beforeEach } from '@jest/globals';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, fireEvent } from '@testing-library/react';
 import { renderWithIntl } from '../../../../common/utils/TestUtils.react18';
 import { TraceRequestsChart } from './TraceRequestsChart';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
-import { MetricViewType, AggregationType, TraceMetricKey } from '@databricks/web-shared/model-trace-explorer';
+import {
+  MetricViewType,
+  AggregationType,
+  TraceMetricKey,
+  TraceDimensionKey,
+} from '@databricks/web-shared/model-trace-explorer';
 import { setupServer } from '../../../../common/utils/setup-msw';
 import { rest } from 'msw';
+import { OverviewChartProvider } from '../OverviewChartContext';
+import { getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 
-// Helper to create a single data point
-const createTraceCountDataPoint = (timeBucket: string, count: number) => ({
+// Helper to create a data point with trace_status dimension
+const createTraceCountDataPoint = (timeBucket: string, count: number, status = 'OK') => ({
   metric_name: TraceMetricKey.TRACE_COUNT,
-  dimensions: { time_bucket: timeBucket },
+  dimensions: { time_bucket: timeBucket, [TraceDimensionKey.TRACE_STATUS]: status },
   values: { [AggregationType.COUNT]: count },
 });
 
@@ -29,9 +36,9 @@ describe('TraceRequestsChart', () => {
     new Date('2025-12-22T12:00:00Z').getTime(),
   ];
 
-  // Default props reused across tests
-  const defaultProps = {
-    experimentId: testExperimentId,
+  // Context props reused across tests
+  const defaultContextProps = {
+    experimentIds: [testExperimentId],
     startTimeMs,
     endTimeMs,
     timeIntervalSeconds,
@@ -49,12 +56,15 @@ describe('TraceRequestsChart', () => {
       },
     });
 
-  const renderComponent = (props: Partial<typeof defaultProps> = {}) => {
+  const renderComponent = (contextOverrides: Partial<typeof defaultContextProps> = {}) => {
     const queryClient = createQueryClient();
+    const contextProps = { ...defaultContextProps, ...contextOverrides };
     return renderWithIntl(
       <QueryClientProvider client={queryClient}>
         <DesignSystemProvider>
-          <TraceRequestsChart {...defaultProps} {...props} />
+          <OverviewChartProvider {...contextProps}>
+            <TraceRequestsChart />
+          </OverviewChartProvider>
         </DesignSystemProvider>
       </QueryClientProvider>,
     );
@@ -63,7 +73,7 @@ describe('TraceRequestsChart', () => {
   // Helper to setup MSW handler for trace metrics endpoint
   const setupTraceMetricsHandler = (dataPoints: any[]) => {
     server.use(
-      rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+      rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), (_req, res, ctx) => {
         return res(ctx.json({ data_points: dataPoints }));
       }),
     );
@@ -78,7 +88,7 @@ describe('TraceRequestsChart', () => {
   describe('loading state', () => {
     it('should render loading skeleton while data is being fetched', async () => {
       server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+        rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), (_req, res, ctx) => {
           return res(ctx.delay('infinite'));
         }),
       );
@@ -86,14 +96,14 @@ describe('TraceRequestsChart', () => {
       renderComponent();
 
       // Check that actual chart content is not rendered during loading
-      expect(screen.queryByText('Requests')).not.toBeInTheDocument();
+      expect(screen.queryByText('Traces')).not.toBeInTheDocument();
     });
   });
 
   describe('error state', () => {
     it('should render error message when API call fails', async () => {
       server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+        rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), (_req, res, ctx) => {
           return res(ctx.status(500), ctx.json({ error_code: 'INTERNAL_ERROR', message: 'API Error' }));
         }),
       );
@@ -129,10 +139,13 @@ describe('TraceRequestsChart', () => {
   });
 
   describe('with data', () => {
+    // Data points include trace_status dimension; the hook sums across statuses per bucket
     const mockDataPoints = [
-      createTraceCountDataPoint('2025-12-22T10:00:00Z', 42),
-      createTraceCountDataPoint('2025-12-22T11:00:00Z', 58),
-      createTraceCountDataPoint('2025-12-22T12:00:00Z', 100),
+      createTraceCountDataPoint('2025-12-22T10:00:00Z', 40, 'OK'),
+      createTraceCountDataPoint('2025-12-22T10:00:00Z', 2, 'ERROR'),
+      createTraceCountDataPoint('2025-12-22T11:00:00Z', 55, 'OK'),
+      createTraceCountDataPoint('2025-12-22T11:00:00Z', 3, 'ERROR'),
+      createTraceCountDataPoint('2025-12-22T12:00:00Z', 100, 'OK'),
     ];
 
     it('should render chart with all time buckets', async () => {
@@ -153,19 +166,19 @@ describe('TraceRequestsChart', () => {
 
       renderComponent();
 
-      // Total should be 42 + 58 + 100 = 200
+      // Total should be 40+2 + 55+3 + 100 = 200
       await waitFor(() => {
         expect(screen.getByText('200')).toBeInTheDocument();
       });
     });
 
-    it('should display the "Requests" title', async () => {
+    it('should display the "Traces" title', async () => {
       setupTraceMetricsHandler(mockDataPoints);
 
       renderComponent();
 
       await waitFor(() => {
-        expect(screen.getByText('Requests')).toBeInTheDocument();
+        expect(screen.getByText('Traces')).toBeInTheDocument();
       });
     });
 
@@ -210,7 +223,7 @@ describe('TraceRequestsChart', () => {
   });
 
   describe('API call parameters', () => {
-    it('should call API with correct parameters', async () => {
+    it('should call API with correct parameters including trace_status dimension', async () => {
       let capturedRequest: any = null;
 
       server.use(
@@ -228,6 +241,7 @@ describe('TraceRequestsChart', () => {
           view_type: MetricViewType.TRACES,
           metric_name: TraceMetricKey.TRACE_COUNT,
           aggregations: [{ aggregation_type: AggregationType.COUNT }],
+          dimensions: [TraceDimensionKey.TRACE_STATUS],
         });
       });
     });
@@ -289,7 +303,7 @@ describe('TraceRequestsChart', () => {
       setupTraceMetricsHandler([
         {
           metric_name: TraceMetricKey.TRACE_COUNT,
-          dimensions: { time_bucket: '2025-12-22T10:00:00Z' },
+          dimensions: { time_bucket: '2025-12-22T10:00:00Z', [TraceDimensionKey.TRACE_STATUS]: 'OK' },
           values: {}, // Missing COUNT value - will be treated as 0
         },
         createTraceCountDataPoint('2025-12-22T11:00:00Z', 50),
@@ -308,7 +322,7 @@ describe('TraceRequestsChart', () => {
       setupTraceMetricsHandler([
         {
           metric_name: TraceMetricKey.TRACE_COUNT,
-          dimensions: {}, // Missing time_bucket - won't be mapped to any bucket
+          dimensions: { [TraceDimensionKey.TRACE_STATUS]: 'OK' }, // Missing time_bucket
           values: { [AggregationType.COUNT]: 25 },
         },
       ]);
@@ -319,8 +333,76 @@ describe('TraceRequestsChart', () => {
       await waitFor(() => {
         expect(screen.getByTestId('bar-chart')).toHaveAttribute('data-count', '3');
       });
-      // Total count still includes the data point
+      // Total count still includes the data point (summed in totalRequests)
       expect(screen.getByText('25')).toBeInTheDocument();
+    });
+  });
+
+  describe('zoom functionality', () => {
+    const mockDataPoints = [
+      createTraceCountDataPoint('2025-12-22T10:00:00Z', 40, 'OK'),
+      createTraceCountDataPoint('2025-12-22T10:00:00Z', 2, 'ERROR'),
+      createTraceCountDataPoint('2025-12-22T11:00:00Z', 55, 'OK'),
+      createTraceCountDataPoint('2025-12-22T11:00:00Z', 3, 'ERROR'),
+      createTraceCountDataPoint('2025-12-22T12:00:00Z', 100, 'OK'),
+    ];
+
+    it('should not show zoom out button initially', async () => {
+      setupTraceMetricsHandler(mockDataPoints);
+
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByText('Traces')).toBeInTheDocument();
+      });
+
+      // Zoom Out button should not be visible when not zoomed
+      expect(screen.queryByText('Zoom Out')).not.toBeInTheDocument();
+    });
+
+    it('should render chart with correct data count initially', async () => {
+      setupTraceMetricsHandler(mockDataPoints);
+
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByTestId('bar-chart')).toBeInTheDocument();
+      });
+
+      // Initial state: all 3 data points visible
+      expect(screen.getByTestId('bar-chart')).toHaveAttribute('data-count', '3');
+    });
+
+    it('should display initial average based on all data points', async () => {
+      setupTraceMetricsHandler(mockDataPoints);
+
+      renderComponent();
+
+      // Average should be (42 + 58 + 100) / 3 = 66.67, rounded to 67
+      await waitFor(() => {
+        const referenceLine = screen.getByTestId('reference-line');
+        expect(referenceLine).toBeInTheDocument();
+        expect(referenceLine).toHaveAttribute('data-label', 'AVG (67)');
+      });
+    });
+
+    it('should have mouse event handlers attached to chart', async () => {
+      setupTraceMetricsHandler(mockDataPoints);
+
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByTestId('bar-chart')).toBeInTheDocument();
+      });
+
+      const chart = screen.getByTestId('bar-chart');
+
+      // Verify mouse events can be fired without errors (handlers are wired up)
+      expect(() => {
+        fireEvent.mouseDown(chart);
+        fireEvent.mouseMove(chart);
+        fireEvent.mouseUp(chart);
+      }).not.toThrow();
     });
   });
 });

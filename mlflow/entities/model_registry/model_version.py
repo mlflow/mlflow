@@ -6,8 +6,10 @@ from mlflow.entities.model_registry.model_version_deployment_job_state import (
 )
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.entities.model_registry.model_version_tag import ModelVersionTag
+from mlflow.prompt.constants import IS_PROMPT_TAG_KEY
 from mlflow.protos.model_registry_pb2 import ModelVersion as ProtoModelVersion
 from mlflow.protos.model_registry_pb2 import ModelVersionTag as ProtoModelVersionTag
+from mlflow.utils.workspace_utils import resolve_entity_workspace_name
 
 
 class ModelVersion(_ModelRegistryEntity):
@@ -37,6 +39,7 @@ class ModelVersion(_ModelRegistryEntity):
         params: list[ModelParam] | None = None,
         metrics: list[Metric] | None = None,
         deployment_job_state: ModelVersionDeploymentJobState | None = None,
+        workspace: str | None = None,
     ):
         super().__init__()
         self._name: str = name
@@ -57,6 +60,7 @@ class ModelVersion(_ModelRegistryEntity):
         self._params: list[ModelParam] | None = params
         self._metrics: list[Metric] | None = metrics
         self._deployment_job_state: ModelVersionDeploymentJobState | None = deployment_job_state
+        self._workspace: str = resolve_entity_workspace_name(workspace)
 
     @property
     def name(self) -> str:
@@ -141,6 +145,10 @@ class ModelVersion(_ModelRegistryEntity):
         """Dictionary of tag key (string) -> tag value for the current model version."""
         return self._tags
 
+    def _is_prompt(self):
+        """Check if the model version is a prompt version."""
+        return self._tags.get(IS_PROMPT_TAG_KEY, "false").lower() == "true"
+
     @property
     def aliases(self) -> list[str]:
         """List of aliases (string) for the current model version."""
@@ -169,6 +177,10 @@ class ModelVersion(_ModelRegistryEntity):
     def deployment_job_state(self) -> ModelVersionDeploymentJobState | None:
         """Deployment job state for the current model version."""
         return self._deployment_job_state
+
+    @property
+    def workspace(self) -> str:
+        return self._workspace
 
     @classmethod
     def _properties(cls) -> list[str]:
@@ -231,9 +243,9 @@ class ModelVersion(_ModelRegistryEntity):
             model_version.status = ModelVersionStatus.from_string(self.status)
         if self.status_message:
             model_version.status_message = self.status_message
-        model_version.tags.extend(
-            [ProtoModelVersionTag(key=key, value=value) for key, value in self._tags.items()]
-        )
+        model_version.tags.extend([
+            ProtoModelVersionTag(key=key, value=value) for key, value in self._tags.items()
+        ])
         model_version.aliases.extend(self.aliases)
         if self.deployment_job_state is not None:
             ModelVersionDeploymentJobState.to_proto(self.deployment_job_state)

@@ -4,12 +4,13 @@ import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/util
 import { renderHook, waitFor } from '@testing-library/react';
 import { NotFoundError, InternalServerError } from '@databricks/web-shared/errors';
 import { useGetScheduledScorers } from './useGetScheduledScorers';
-import { listScheduledScorers, type MLflowScorer } from '../api';
+import { listScheduledScorers, getOnlineScoringConfigs, type MLflowScorer } from '../api';
 
 // Mock external dependencies
 jest.mock('../api');
 
 const mockListScheduledScorers = jest.mocked(listScheduledScorers);
+const mockGetOnlineScoringConfigs = jest.mocked(getOnlineScoringConfigs);
 
 describe('useGetScheduledScorers', () => {
   let queryClient: QueryClient;
@@ -70,9 +71,43 @@ describe('useGetScheduledScorers', () => {
     });
 
     jest.clearAllMocks();
+
+    // Default mock for getOnlineScoringConfigs - returns empty configs
+    mockGetOnlineScoringConfigs.mockResolvedValue({ configs: [] });
   });
 
   describe('Golden Path - Successful Operations', () => {
+    it('should merge online scoring configs (returned as array) into scorers', async () => {
+      // This test verifies the fix for the bug where online configs weren't being merged
+      // because the backend returns an array but the frontend expected an object keyed by scorer_id
+      mockListScheduledScorers.mockResolvedValue(mockApiResponse);
+      mockGetOnlineScoringConfigs.mockResolvedValue({
+        configs: [
+          { scorer_id: 'scorer-id-1', sample_rate: 0.5, filter_string: 'status = "OK"' },
+          { scorer_id: 'scorer-id-2', sample_rate: 1.0 },
+        ],
+      });
+
+      const { result } = renderHook(() => useGetScheduledScorers(mockExperimentId), {
+        wrapper: ({ children }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>,
+      });
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      expect(result.current.isSuccess).toBe(true);
+
+      // Verify online configs were merged - sampleRate should be set (converted from 0-1 to 0-100)
+      const scorers = result.current.data?.scheduledScorers;
+      expect(scorers?.[0].sampleRate).toBe(50); // 0.5 * 100
+      expect(scorers?.[0].filterString).toBe('status = "OK"');
+      expect(scorers?.[1].sampleRate).toBe(100); // 1.0 * 100
+      expect(scorers?.[1].filterString).toBeUndefined();
+
+      expect(mockGetOnlineScoringConfigs).toHaveBeenCalledWith(['scorer-id-1', 'scorer-id-2']);
+    });
+
     it('should successfully fetch and transform scheduled scorers', async () => {
       // Arrange
       const initialCache = queryClient.getQueryData(['mlflow', 'scheduled-scorers', mockExperimentId]);
@@ -103,7 +138,7 @@ describe('useGetScheduledScorers', () => {
             guidelines: ['Test guideline 1', 'Test guideline 2'],
             sampleRate: undefined, // Not included in MLflowScorer
             version: 1,
-            disableMonitoring: true,
+            disableMonitoring: false,
             is_instructions_judge: false,
             model: undefined,
           },
@@ -115,7 +150,7 @@ describe('useGetScheduledScorers', () => {
             originalFuncName: 'my_scorer',
             sampleRate: undefined,
             version: 1,
-            disableMonitoring: true,
+            disableMonitoring: false,
           },
         ],
       });

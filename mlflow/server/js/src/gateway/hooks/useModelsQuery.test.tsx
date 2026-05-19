@@ -1,7 +1,7 @@
 import { describe, afterEach, test, jest, expect, beforeEach } from '@jest/globals';
 import { renderHook, cleanup, waitFor } from '@testing-library/react';
 import React from 'react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-client';
 import { useModelsQuery } from './useModelsQuery';
 import { GatewayApi } from '../api';
 import type { ProviderModel } from '../types';

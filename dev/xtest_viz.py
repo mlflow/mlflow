@@ -1,7 +1,5 @@
 # /// script
 # dependencies = [
-#     "pandas",
-#     "tabulate",
 #     "aiohttp",
 # ]
 # ///
@@ -34,27 +32,33 @@ Where:
 
 import argparse
 import asyncio
+import json
 import os
 import re
 import sys
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta
-from typing import Any
+from pathlib import Path
+from typing import Any, cast
 
 import aiohttp
-import pandas as pd
 
 
 @dataclass
 class JobResult:
     name: str
+    conclusion: str
     date: str
-    status: str
+    started_at: str
+    completed_at: str
+    failed_step: str | None
+    html_url: str
+    logs_url: str
 
 
 class XTestViz:
     def __init__(self, github_token: str | None = None, repo: str = "mlflow/dev"):
-        self.github_token = github_token or os.getenv("GITHUB_TOKEN")
+        self.github_token = github_token or os.environ.get("GH_TOKEN")
         self.repo = repo
         self.per_page = 30
         self.headers: dict[str, str] = {}
@@ -105,7 +109,7 @@ class XTestViz:
         """Make an async HTTP GET request and return JSON response."""
         async with session.get(url, headers=self.headers, params=params) as response:
             response.raise_for_status()
-            return await response.json()
+            return cast(dict[str, Any], await response.json())
 
     async def get_workflow_runs(
         self, session: aiohttp.ClientSession, days_back: int = 30
@@ -186,20 +190,24 @@ class XTestViz:
         data_rows = []
 
         for job in jobs:
-            emoji = self.status_to_emoji(job["conclusion"])
-            if emoji is None:  # Skip this job
+            conclusion = job["conclusion"]
+            if self.status_to_emoji(conclusion) is None:  # Skip this job
                 continue
 
-            job_url = job["html_url"]
-            status_link = f"[{emoji}]({job_url})"
-
-            parsed_name = self.parse_job_name(job["name"])
-
+            failed_step = next(
+                (s["name"] for s in job.get("steps", []) if s.get("conclusion") == "failure"),
+                None,
+            )
             data_rows.append(
                 JobResult(
-                    name=parsed_name,
+                    name=self.parse_job_name(job["name"]),
+                    conclusion=conclusion,
                     date=run_date,
-                    status=status_link,
+                    started_at=job["started_at"],
+                    completed_at=job["completed_at"],
+                    failed_step=failed_step,
+                    html_url=job["html_url"],
+                    logs_url=f"{job['url']}/logs",
                 )
             )
 
@@ -221,10 +229,10 @@ class XTestViz:
             tasks = [self._fetch_run_jobs(session, run) for run in workflow_runs]
 
             results = await asyncio.gather(*tasks, return_exceptions=True)
-            data_rows = []
+            data_rows: list[JobResult] = []
 
             for i, result in enumerate(results, 1):
-                if isinstance(result, Exception):
+                if isinstance(result, BaseException):
                     print(f"  Error fetching jobs for run {i}: {result}", file=sys.stderr)
                 else:
                     data_rows.extend(result)
@@ -235,37 +243,107 @@ class XTestViz:
 
             return data_rows
 
+    def _pivot_job_results(
+        self, data_rows: list[JobResult]
+    ) -> tuple[dict[str, dict[str, str]], list[str], list[str]]:
+        """Pivot job results data into a format suitable for table rendering.
+
+        Args:
+            data_rows: List of job results to pivot
+
+        Returns:
+            Tuple of (pivot_data, sorted_dates, sorted_names) where:
+            - pivot_data: Dictionary mapping name -> date -> status
+            - sorted_dates: List of dates sorted in reverse chronological order
+            - sorted_names: List of test names sorted alphabetically
+        """
+        pivot_data: dict[str, dict[str, str]] = {}
+        all_dates: set[str] = set()
+
+        for row in data_rows:
+            if row.name not in pivot_data:
+                pivot_data[row.name] = {}
+            # Use first occurrence for each name-date combination
+            if row.date not in pivot_data[row.name]:
+                emoji = self.status_to_emoji(row.conclusion)
+                pivot_data[row.name][row.date] = f"[{emoji}]({row.html_url})"
+            all_dates.add(row.date)
+
+        # Sort dates in reverse order (newest first)
+        sorted_dates = sorted(all_dates, reverse=True)
+
+        # Sort names alphabetically
+        sorted_names = sorted(pivot_data.keys())
+
+        return pivot_data, sorted_dates, sorted_names
+
+    def _build_markdown_table(
+        self,
+        pivot_data: dict[str, dict[str, str]],
+        sorted_dates: list[str],
+        sorted_names: list[str],
+    ) -> str:
+        """Build a markdown table from pivoted data.
+
+        Args:
+            pivot_data: Dictionary mapping name -> date -> status
+            sorted_dates: List of dates (columns) in desired order
+            sorted_names: List of test names (rows) in desired order
+
+        Returns:
+            Markdown-formatted table as a string
+        """
+        headers = ["Name"] + sorted_dates
+
+        # Calculate column widths
+        col_widths = [len(h) for h in headers]
+        for name in sorted_names:
+            col_widths[0] = max(col_widths[0], len(name))
+            for i, date in enumerate(sorted_dates, 1):
+                value = pivot_data[name].get(date, "—")
+                col_widths[i] = max(col_widths[i], len(value))
+
+        # Build table rows
+        lines = []
+
+        # Header row
+        header_row = "| " + " | ".join(h.ljust(col_widths[i]) for i, h in enumerate(headers)) + " |"
+        lines.append(header_row)
+
+        # Separator row
+        separator = "| " + " | ".join("-" * w for w in col_widths) + " |"
+        lines.append(separator)
+
+        # Data rows
+        for name in sorted_names:
+            row_values = [name.ljust(col_widths[0])]
+            for i, date in enumerate(sorted_dates, 1):
+                value = pivot_data[name].get(date, "—")
+                row_values.append(value.ljust(col_widths[i]))
+            lines.append("| " + " | ".join(row_values) + " |")
+
+        return "\n".join(lines)
+
+    def filter_latest_not_success(self, data_rows: list[JobResult]) -> list[JobResult]:
+        """Keep only jobs whose latest run for each name was not a success."""
+        latest_per_name: dict[str, JobResult] = {}
+        for r in data_rows:
+            cur = latest_per_name.get(r.name)
+            if cur is None or r.started_at > cur.started_at:
+                latest_per_name[r.name] = r
+        keep = {name for name, r in latest_per_name.items() if r.conclusion != "success"}
+        return [r for r in data_rows if r.name in keep]
+
     def render_results_table(self, data_rows: list[JobResult]) -> str:
         """Render job data as a markdown table."""
         if not data_rows:
             return "No test jobs found."
 
-        df_data = [{"Name": row.name, "Date": row.date, "Status": row.status} for row in data_rows]
-        df = pd.DataFrame(df_data)
+        pivot_data, sorted_dates, sorted_names = self._pivot_job_results(data_rows)
+        return self._build_markdown_table(pivot_data, sorted_dates, sorted_names)
 
-        pivot_df = df.pivot_table(
-            index="Name",
-            columns="Date",
-            values="Status",
-            aggfunc="first",
-        )
-
-        pivot_df = pivot_df[sorted(pivot_df.columns, reverse=True)]
-
-        pivot_df = pivot_df.sort_index()
-
-        pivot_df = pivot_df.fillna("—")
-
-        pivot_df = pivot_df.reset_index()
-
-        return pivot_df.to_markdown(index=False, tablefmt="pipe")
-
-    async def generate_results_table(self, days_back: int = 30) -> str:
-        """Generate markdown table of cross-version test results."""
-        data_rows = await self.fetch_all_jobs(days_back)
-        if not data_rows:
-            return "No workflow runs found in the specified time period."
-        return self.render_results_table(data_rows)
+    def render_json(self, data_rows: list[JobResult]) -> str:
+        return json.dumps([asdict(r) for r in data_rows], indent=2)
 
 
 async def main() -> None:
@@ -278,20 +356,33 @@ async def main() -> None:
         default="mlflow/dev",
         help="GitHub repository in owner/repo format (default: mlflow/dev)",
     )
-    parser.add_argument("--token", help="GitHub token (default: use GITHUB_TOKEN env var)")
+    parser.add_argument("--token", help="GitHub token (default: use GH_TOKEN env var)")
+    parser.add_argument(
+        "--json-output",
+        help="If set, also write JSON results to this path.",
+    )
 
     args = parser.parse_args()
 
-    token = args.token or os.getenv("GITHUB_TOKEN")
+    token = args.token or os.environ.get("GH_TOKEN")
     if not token:
         print(
             "Warning: No GitHub token provided. API requests may be rate-limited.", file=sys.stderr
         )
-        print("Set GITHUB_TOKEN environment variable or use --token option.", file=sys.stderr)
+        print("Set GH_TOKEN environment variable or use --token option.", file=sys.stderr)
 
     visualizer = XTestViz(github_token=token, repo=args.repo)
-    output = await visualizer.generate_results_table(args.days)
-    print(output)
+    raw_rows = await visualizer.fetch_all_jobs(args.days)
+    data_rows = visualizer.filter_latest_not_success(raw_rows)
+    if args.json_output:
+        Path(args.json_output).write_text(visualizer.render_json(data_rows))
+    if not data_rows:
+        if raw_rows:
+            print("All latest cross-version tests succeeded.")
+        else:
+            print("No workflow runs found in the specified time period.")
+    else:
+        print(visualizer.render_results_table(data_rows))
 
 
 if __name__ == "__main__":

@@ -1,16 +1,19 @@
-# MLflow with Docker Compose (PostgreSQL + MinIO)
+# MLflow with Docker Compose (PostgreSQL + S3-Compatible Storage)
 
-This directory provides a **Docker Compose** setup for running **MLflow** locally with a **PostgreSQL** backend store and **MinIO** (S3-compatible) artifact storage. It's intended for quick evaluation and local development.
+This directory provides a **Docker Compose** setup for running **MLflow** locally with a **PostgreSQL** backend store and **RustFS** for S3-compatible artifact storage.
 
 ---
 
 ## Overview
 
-- **MLflow Tracking Server** — exposed on your host (default `http://localhost:5000`).
-- **PostgreSQL** — persists MLflow's metadata (experiments, runs, params, metrics).
-- **MinIO** — stores run artifacts via an S3-compatible API.
+- **MLflow Tracking Server**  
+  Serves the REST API and UI (default: `http://localhost:5000`).
 
-Compose automatically reads configuration from a local `.env` file in this directory.
+- **PostgreSQL**  
+  Stores MLflow's metadata (experiments, runs, params, metrics).
+
+- **RustFS Artifact Storage**  
+  Stores model files and run artifacts.
 
 ---
 
@@ -18,10 +21,10 @@ Compose automatically reads configuration from a local `.env` file in this direc
 
 - **Git**
 - **Docker** and **Docker Compose**
-  - Windows/macOS: [Docker Desktop](https://www.docker.com/products/docker-desktop/)
-  - Linux: Docker Engine + the `docker compose` plugin
+- On macOS/Windows: Docker Desktop
+- On Linux: Docker Engine + compose plugin
 
-Verify your setup:
+Verify installation:
 
 ```bash
 docker --version
@@ -34,51 +37,70 @@ docker compose version
 
 ```bash
 git clone https://github.com/mlflow/mlflow.git
-cd docker-compose
+cd mlflow/docker-compose/
 ```
 
 ---
 
 ## 2. Configure Environment
 
-Copy the example environment file and modify as needed:
+Copy and customize the environment file:
 
 ```bash
 cp .env.dev.example .env
 ```
 
-The `.env` file defines container image tags, ports, credentials, and storage configuration. Open it and review values before starting the stack.
+The `.env` file defines:
 
-**Common variables** :
+- MLflow server port
+- PostgreSQL credentials
+- S3 bucket name
+- S3-compatible endpoint URL
+- Backend-specific configuration for RustFS
 
-- **MLflow**
-  - `MLFLOW_PORT=5000` — host port for the MLflow UI/API
-  - `MLFLOW_ARTIFACTS_DESTINATION=s3://mlflow/` — artifact store URI
-  - `MLFLOW_S3_ENDPOINT_URL=http://minio:9000` — S3 endpoint (inside the Compose network)
+**Common variables**:
+
 - **PostgreSQL**
+
   - `POSTGRES_USER=mlflow`
   - `POSTGRES_PASSWORD=mlflow`
   - `POSTGRES_DB=mlflow`
-- **MinIO (S3-compatible)**
-  - `MINIO_ROOT_USER=minio`
-  - `MINIO_ROOT_PASSWORD=minio123`
-  - `MINIO_HOST=minio`
-  - `MINIO_PORT=9000`
-  - `MINIO_BUCKET=mlflow`
+
+- **S3**
+
+  - `AWS_ACCESS_KEY_ID=s3admin`
+  - `AWS_SECRET_ACCESS_KEY=s3admin`
+  - `AWS_DEFAULT_REGION=us-east-1`
+  - `S3_BUCKET=mlflow`
+
+- **RustFS**
+
+  - `RUSTFS_CONSOLE_ENABLE=true`
+
+- **MLflow**
+  - `MLFLOW_VERSION=latest`
+  - `MLFLOW_HOST=0.0.0.0`
+  - `MLFLOW_PORT=5000`
+  - `MLFLOW_BACKEND_STORE_URI=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}`
+  - `MLFLOW_ARTIFACTS_DESTINATION=s3://${S3_BUCKET}`
+  - `MLFLOW_S3_ENDPOINT_URL=http://storage:9000`
 
 ---
 
 ## 3. Launch the Stack
 
+Inside directory **mlflow/docker-compose**:
+
 ```bash
 docker compose up -d
 ```
 
-This:
+This will:
 
-- Builds/pulls images as needed
-- Creates a user-defined network
-- Starts **postgres**, **minio**, and **mlflow** containers
+- Start PostgreSQL
+- Start RustFS
+- Start MLflow
+- Create the S3 bucket if it doesn't exist
 
 Check status:
 
@@ -86,7 +108,7 @@ Check status:
 docker compose ps
 ```
 
-View logs (useful on first run):
+Tail logs:
 
 ```bash
 docker compose logs -f
@@ -96,66 +118,110 @@ docker compose logs -f
 
 ## 4. Access MLflow
 
-Open the MLflow UI:
+Once running:
 
-- **URL**: `http://localhost:5000` (or the port set in `.env`)
+- Open `http://localhost:5000` (or the port defined in `.env`)
 
-You can now create experiments, run training scripts, and log metrics, parameters, and artifacts to this local MLflow instance.
+You can now log runs, metrics, artifacts, and models to your local MLflow instance.
 
 ---
 
 ## 5. Shutdown
 
-To stop and remove the containers and network:
+To stop and remove containers:
 
 ```bash
 docker compose down
 ```
 
-> Data is preserved in Docker **volumes**. To remove volumes as well (irreversible), run:
->
-> ```bash
-> docker compose down -v
-> ```
+To reset everything, including volumes:
+
+```bash
+docker compose down -v
+```
 
 ---
 
 ## Tips & Troubleshooting
 
-- **Verify connectivity**  
-  If MLflow can't write artifacts, confirm your S3 settings:
+### RustFS Notes (important)
 
-  - `MLFLOW_DEFAULT_ARTIFACT_ROOT` points to your MinIO bucket (e.g., `s3://mlflow/`)
-  - `MLFLOW_S3_ENDPOINT_URL` is reachable from the MLflow container (often `http://minio:9000`)
+- Set **server domains/host** so virtual-hosted requests can be resolved by RustFS:
 
-- **Resetting the environment**  
-  If you want a clean slate, stop the stack and remove volumes:
-
-  ```bash
-  docker compose down -v
-  docker compose up -d
+  ```env
+  RUSTFS_SERVER_DOMAINS=storage:9000
   ```
 
-- **Logs**
+  (match the compose service DNS name)
 
-  - MLflow server: `docker compose logs -f mlflow`
-  - PostgreSQL: `docker compose logs -f postgres`
-  - MinIO: `docker compose logs -f minio`
+- Prefer AWS CLI **`s3api`** for bucket creation. Some S3 clients default to **path-style** on custom endpoints; if bucket creation fails with `InvalidBucketName`, switch to `s3api` or a client like MinIO `mc`.
 
-- **Port conflicts**  
-  If `5000` (or any other port) is in use, change it in `.env` and restart:
-  ```bash
-  docker compose down
-  docker compose up -d
+- Inside MLflow, use the internal endpoint:
+  ```env
+  MLFLOW_S3_ENDPOINT_URL=http://storage:9000
+  MLFLOW_ARTIFACTS_DESTINATION=s3://mlflow/
   ```
+
+### Healthcheck Example
+
+RustFS usually responds on `/health` with a json that contains the status of the server:
+
+```sh
+curl -s http://127.0.0.1:9000/health | grep -q '\"status\"\\s*:\\s*\"ok\"'
+```
+
+Use that in a container healthcheck (no `-f`, 4xx may appear during bootstrap).
 
 ---
 
-## How It Works (at a Glance)
+### Artifact Upload Issues
 
-- MLflow uses **PostgreSQL** as the _backend store_ for experiment/run metadata.
-- MLflow uses **MinIO** as the _artifact store_ via S3 APIs.
-- Docker Compose wires services on a shared network; MLflow talks to PostgreSQL and MinIO by container name (e.g., `postgres`, `minio`).
+Verify:
+
+- `MLFLOW_ARTIFACTS_DESTINATION=s3://<bucket>/`
+- `MLFLOW_S3_ENDPOINT_URL=http://<service>:<port>`
+- AWS credentials match the backend configuration
+
+To verify S3 storage is working:
+
+```bash
+aws --endpoint-url=${MLFLOW_S3_ENDPOINT_URL} s3api list-buckets
+
+echo hi > /tmp/t.txt
+aws --endpoint-url=${MLFLOW_S3_ENDPOINT_URL} s3 cp /tmp/t.txt s3://${S3_BUCKET}/t.txt
+aws --endpoint-url=${MLFLOW_S3_ENDPOINT_URL} s3 cp s3://${S3_BUCKET}/t.txt -
+```
+
+If this passes, MLflow can read and write artifacts to RustFS.
+
+### Troubleshooting
+
+- `InvalidBucketName` on create-bucket → use `s3api` (virtual-host friendly) or MinIO `mc`; ensure `RUSTFS_SERVER_DOMAINS` matches the S3 hostname.
+- Endpoint issues from MLflow → make sure `MLFLOW_S3_ENDPOINT_URL` uses the **service name** visible from MLflow (e.g., `http://storage:9000`).
+
+### Resetting the Environment
+
+```bash
+docker compose down -v
+docker compose up -d
+```
+
+### Logs
+
+```bash
+docker compose logs -f mlflow
+docker compose logs -f postgres
+docker compose logs -f storage
+```
+
+### Port Conflicts
+
+Edit `.env` and restart containers:
+
+```bash
+docker compose down
+docker compose up -d
+```
 
 ---
 

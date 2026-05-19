@@ -60,11 +60,17 @@ export const ExperimentLoggedModelDetailsHeader = ({
 
   const breadcrumbs = [
     // eslint-disable-next-line react/jsx-key
-    <Link to={Routes.getExperimentPageTabRoute(experimentId, ExperimentPageTabName.Models)}>
+    <Link
+      componentId="mlflow.logged_models.details_header.experiment_link"
+      to={Routes.getExperimentPageTabRoute(experimentId, ExperimentPageTabName.Models)}
+    >
       {getExperimentName()}
     </Link>,
     // eslint-disable-next-line react/jsx-key
-    <Link to={Routes.getExperimentPageTabRoute(experimentId, ExperimentPageTabName.Models)}>
+    <Link
+      componentId="mlflow.logged_models.details_header.models_tab_link"
+      to={Routes.getExperimentPageTabRoute(experimentId, ExperimentPageTabName.Models)}
+    >
       <FormattedMessage
         defaultMessage="Models"
         description="Breadcrumb for models tab of experiments page on the logged model details page"

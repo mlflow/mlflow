@@ -10,13 +10,14 @@ import {
 } from '@databricks/web-shared/model-trace-explorer';
 import { useTraceMetricsQuery } from './useTraceMetricsQuery';
 import { formatTimestampForTraceMetrics, useTimestampValueMap } from '../utils/chartUtils';
-import type { OverviewChartProps } from '../types';
+import { useOverviewChartContext } from '../OverviewChartContext';
 
 export interface LatencyChartDataPoint {
   name: string;
   p50: number;
   p90: number;
   p99: number;
+  timestampMs: number;
 }
 
 export interface UseTraceLatencyChartDataResult {
@@ -35,24 +36,22 @@ export interface UseTraceLatencyChartDataResult {
 /**
  * Custom hook that fetches and processes latency chart data.
  * Encapsulates all data-fetching and processing logic for the latency chart.
+ * Uses OverviewChartContext to get chart props.
  *
- * @param props - Chart props including experimentId, time range, and buckets
  * @returns Processed chart data, loading state, and error state
  */
 export function useTraceLatencyChartData({
-  experimentId,
-  startTimeMs,
-  endTimeMs,
-  timeIntervalSeconds,
-  timeBuckets,
-}: OverviewChartProps): UseTraceLatencyChartDataResult {
+  enabled = true,
+}: { enabled?: boolean } = {}): UseTraceLatencyChartDataResult {
+  const { experimentIds, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets, filters } =
+    useOverviewChartContext();
   // Fetch latency metrics with p50, p90, p99 aggregations grouped by time
   const {
     data: latencyData,
     isLoading: isLoadingTimeSeries,
     error: timeSeriesError,
   } = useTraceMetricsQuery({
-    experimentId,
+    experimentIds,
     startTimeMs,
     endTimeMs,
     viewType: MetricViewType.TRACES,
@@ -63,6 +62,8 @@ export function useTraceLatencyChartData({
       { aggregation_type: AggregationType.PERCENTILE, percentile_value: P99 },
     ],
     timeIntervalSeconds,
+    filters,
+    enabled,
   });
 
   // Fetch overall average latency (without time bucketing) for the header
@@ -71,12 +72,14 @@ export function useTraceLatencyChartData({
     isLoading: isLoadingAvg,
     error: avgError,
   } = useTraceMetricsQuery({
-    experimentId,
+    experimentIds,
     startTimeMs,
     endTimeMs,
     viewType: MetricViewType.TRACES,
     metricName: TraceMetricKey.LATENCY,
     aggregations: [{ aggregation_type: AggregationType.AVG }],
+    filters,
+    enabled,
   });
 
   const latencyDataPoints = useMemo(() => latencyData?.data_points || [], [latencyData?.data_points]);
@@ -106,6 +109,7 @@ export function useTraceLatencyChartData({
         p50: latency?.p50 || 0,
         p90: latency?.p90 || 0,
         p99: latency?.p99 || 0,
+        timestampMs,
       };
     });
   }, [timeBuckets, latencyByTimestamp, timeIntervalSeconds]);

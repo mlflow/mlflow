@@ -9,6 +9,7 @@ export interface DateCellRendererProps {
   value: RunRowDateAndNestInfo;
 }
 
+// eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
 export const DateCellRenderer = React.memo(({ value }: DateCellRendererProps) => {
   const { startTime, referenceTime, runStatus } = value || {};
   const intl = useIntl();

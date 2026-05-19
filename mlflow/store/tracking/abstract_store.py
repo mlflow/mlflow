@@ -7,6 +7,9 @@ from mlflow.entities import (
     Assessment,
     DatasetInput,
     DatasetRecord,
+    Issue,
+    IssueSeverity,
+    IssueStatus,
     LoggedModel,
     LoggedModelInput,
     LoggedModelOutput,
@@ -25,10 +28,15 @@ from mlflow.entities.trace_metrics import (
 
 if TYPE_CHECKING:
     from mlflow.entities import EvaluationDataset
-    from mlflow.genai.scorers.online.entities import OnlineScorer, OnlineScoringConfig
+    from mlflow.genai.scorers.online.entities import (
+        CompletedSession,
+        OnlineScorer,
+        OnlineScoringConfig,
+    )
 from mlflow.entities.metric import MetricWithRunId
 from mlflow.entities.trace import Span, Trace
 from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.workspace import TraceArchivalConfig
 from mlflow.exceptions import MlflowException, MlflowNotImplementedException
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import (
@@ -38,6 +46,7 @@ from mlflow.store.tracking import (
     SEARCH_TRACES_DEFAULT_MAX_RESULTS,
 )
 from mlflow.store.tracking.gateway import GatewayStoreMixin
+from mlflow.store.workspace.abstract_store import ResolvedTraceArchivalConfig
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.utils import mlflow_tags
 from mlflow.utils.annotations import developer_stable, requires_sql_backend
@@ -60,6 +69,16 @@ class AbstractStore(GatewayStoreMixin):
         derived class would be forced to create one.
         """
         self._async_logging_queue = AsyncLoggingQueue(logging_func=self.log_batch)
+
+    @property
+    def supports_workspaces(self) -> bool:
+        """Return whether workspaces are supported by this tracking store."""
+        return False
+
+    @property
+    def supports_trace_archival(self) -> bool:
+        """Return whether server-owned trace archival is supported by this tracking store."""
+        return False
 
     @abstractmethod
     def search_experiments(
@@ -303,7 +322,7 @@ class AbstractStore(GatewayStoreMixin):
             raise MlflowException.invalid_parameter_value(
                 "Either `max_timestamp_millis` or `trace_ids` must be specified.",
             )
-        if max_timestamp_millis and trace_ids:
+        if max_timestamp_millis is not None and trace_ids:
             raise MlflowException.invalid_parameter_value(
                 "Only one of `max_timestamp_millis` and `trace_ids` can be specified.",
             )
@@ -388,6 +407,65 @@ class AbstractStore(GatewayStoreMixin):
         """
         raise MlflowNotImplementedException()
 
+    def archive_traces(
+        self,
+        *,
+        resolved_trace_archival_location: str,
+        broader_retention: str,
+        long_retention_allowlist: set[str] | list[str] | None = None,
+        max_traces_per_pass: int | None = None,
+    ) -> int:
+        """
+        Archive eligible DB-backed trace payloads into the archival repository.
+
+        Concurrent executions of this method against the same backing store / trace population
+        are not supported.
+
+        Args:
+            resolved_trace_archival_location: Final archival repository root for this archival
+                pass after broader-scope server and workspace resolution has already been applied.
+            broader_retention: Resolved broader-scope retention in the form ``<int><unit>`` where
+                unit is one of ``m``, ``h``, or ``d``. Experiment-level retention overrides are
+                resolved against this value during the pass.
+            long_retention_allowlist: Experiment IDs allowed to exceed the broader-scope
+                retention with a longer experiment-level retention override.
+            max_traces_per_pass: Maximum number of traces to archive in this invocation. When the
+                scheduler applies a pass-level budget across multiple scopes, it passes the
+                remaining budget for the current scope here. If unset, archive all eligible
+                traces.
+
+        Returns:
+            The number of traces archived during the pass.
+        """
+        raise MlflowNotImplementedException()
+
+    def resolve_trace_archival_config(
+        self,
+        *,
+        default_trace_archival_location: str,
+        default_retention: str,
+    ) -> ResolvedTraceArchivalConfig:
+        """
+        Resolve the effective trace archival configuration for the current store context.
+
+        Single-tenant stores use the broader-scope defaults directly. Workspace-aware stores may
+        override this to apply workspace-specific archival settings. Any field left as ``None``
+        inherits the broader-scope default in core.
+
+        Returns:
+            A ``ResolvedTraceArchivalConfig`` describing the effective archival location,
+            retention, and whether additional workspace path scoping should be applied by the
+            caller.
+        """
+
+        return ResolvedTraceArchivalConfig(
+            config=TraceArchivalConfig(
+                location=default_trace_archival_location,
+                retention=default_retention,
+            ),
+            append_workspace_prefix=False,
+        )
+
     def get_online_trace_details(
         self,
         trace_id: str,
@@ -430,6 +508,43 @@ class AbstractStore(GatewayStoreMixin):
             not be meaningful in such cases.
         """
         raise NotImplementedError
+
+    def find_completed_sessions(
+        self,
+        experiment_id: str,
+        min_last_trace_timestamp_ms: int,
+        max_last_trace_timestamp_ms: int,
+        max_results: int | None = None,
+        filter_string: str | None = None,
+    ) -> list["CompletedSession"]:
+        """
+        Find completed sessions based on their last trace timestamp.
+
+        A completed session is one whose last trace timestamp falls within the specified
+        time window [min_last_trace_timestamp_ms, max_last_trace_timestamp_ms] and has
+        no traces after max_last_trace_timestamp_ms (i.e., the session is not ongoing).
+
+        Sessions are ordered by (last_trace_timestamp_ms ASC, session_id ASC) to ensure
+        deterministic and stable ordering, especially when timestamp ties occur. This is
+        useful when repeatedly calling this method with a ``max_results`` limit.
+
+        Args:
+            experiment_id: The experiment to search.
+            min_last_trace_timestamp_ms: Lower bound for session's last trace timestamp (inclusive).
+                Sessions with last trace before this time are excluded.
+            max_last_trace_timestamp_ms: Upper bound for session's last trace timestamp (inclusive).
+                Sessions with any traces after this time are excluded.
+            max_results: Maximum number of sessions to return. If None, returns all
+                matching sessions.
+            filter_string: Optional filter string to apply to the first trace in each session.
+                Uses the same syntax as search_traces. If provided, only sessions whose
+                first trace matches this filter will be included.
+
+        Returns:
+            List of CompletedSession objects sorted by (last_trace_timestamp_ms ASC,
+            session_id ASC).
+        """
+        raise NotImplementedError(self.__class__.__name__)
 
     def query_trace_metrics(
         self,
@@ -553,6 +668,95 @@ class AbstractStore(GatewayStoreMixin):
         """
         raise NotImplementedError
 
+    def create_issue(
+        self,
+        experiment_id: str,
+        name: str,
+        description: str,
+        status: IssueStatus = IssueStatus.PENDING,
+        severity: IssueSeverity | None = None,
+        root_causes: list[str] | None = None,
+        source_run_id: str | None = None,
+        categories: list[str] | None = None,
+        created_by: str | None = None,
+    ) -> Issue:
+        """
+        Create a new issue.
+
+        Args:
+            experiment_id: The experiment ID.
+            name: Short descriptive name for the issue.
+            description: Detailed description of the issue.
+            status: Issue status. Defaults to IssueStatus.PENDING.
+            severity: Optional severity level indicator.
+            root_causes: Optional list of root cause analyses.
+            source_run_id: Optional MLflow run ID that discovered this issue.
+            categories: Optional list of categories for the issue.
+            created_by: Optional identifier for who created this issue.
+
+        Returns:
+            The created Issue entity.
+        """
+        raise MlflowNotImplementedException()
+
+    def get_issue(self, issue_id: str) -> Issue:
+        """
+        Get an issue by ID.
+
+        Args:
+            issue_id: The ID of the issue to retrieve.
+
+        Returns:
+            The Issue entity.
+        """
+        raise MlflowNotImplementedException()
+
+    def update_issue(
+        self,
+        issue_id: str,
+        status: IssueStatus | None = None,
+        name: str | None = None,
+        description: str | None = None,
+        severity: IssueSeverity | None = None,
+    ) -> Issue:
+        """
+        Update an existing issue.
+
+        Args:
+            issue_id: The ID of the issue to update.
+            status: Optional new status.
+            name: Optional new name for the issue.
+            description: Optional new description.
+            severity: Optional new severity level.
+
+        Returns:
+            The updated Issue entity.
+        """
+        raise MlflowNotImplementedException()
+
+    def search_issues(
+        self,
+        experiment_id: str | None = None,
+        filter_string: str | None = None,
+        max_results: int | None = None,
+        page_token: str | None = None,
+        include_trace_count: bool = False,
+    ) -> PagedList[Issue]:
+        """
+        Search for issues matching the given filters.
+
+        Args:
+            experiment_id: Optional experiment ID to filter by.
+            filter_string: Optional filter string for advanced filtering.
+            max_results: Maximum number of results to return.
+            page_token: Token for pagination.
+            include_trace_count: Whether to include the count of traces impacted by each issue.
+
+        Returns:
+            A PagedList of Issue entities.
+        """
+        raise MlflowNotImplementedException()
+
     def log_spans(self, location: str, spans: list[Span], tracking_uri=None) -> list[Span]:
         """
         Log multiple span entities to the tracking store.
@@ -560,14 +764,12 @@ class AbstractStore(GatewayStoreMixin):
         Args:
             location: The location to log spans to. Can be either experiment ID or the
                 full UC table name.
-            spans: List of Span entities to log. All spans must belong to the same trace.
+            spans: List of Span entities to log. Spans may belong to different traces;
+                the store will group them by trace_id internally.
             tracking_uri: The tracking URI to use. Default to None.
 
         Returns:
             List of logged Span entities.
-
-        Raises:
-            MlflowException: If spans belong to different traces.
         """
         raise NotImplementedError
 
@@ -577,13 +779,10 @@ class AbstractStore(GatewayStoreMixin):
 
         Args:
             location: The location to log spans to.
-            spans: List of Span entities to log. All spans must belong to the same trace.
+            spans: List of Span entities to log. Spans may belong to different traces.
 
         Returns:
             List of logged Span entities.
-
-        Raises:
-            MlflowException: If spans belong to different traces.
         """
         raise NotImplementedError
 
@@ -1193,6 +1392,24 @@ class AbstractStore(GatewayStoreMixin):
         raise NotImplementedError(self.__class__.__name__)
 
     @requires_sql_backend
+    def delete_dataset_records(
+        self,
+        dataset_id: str,
+        dataset_record_ids: list[str],
+    ) -> int:
+        """
+        Delete records from an evaluation dataset.
+
+        Args:
+            dataset_id: The ID of the dataset.
+            dataset_record_ids: List of record IDs to delete.
+
+        Returns:
+            The number of records deleted.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
     def set_dataset_tags(self, dataset_id: str, tags: dict[str, Any]) -> None:
         """
         Set tags for an evaluation dataset.
@@ -1325,13 +1542,13 @@ class AbstractStore(GatewayStoreMixin):
             f"Unlinking traces from runs is not implemented for {self.__class__.__name__}."
         )
 
-    def link_prompts_to_trace(self, _trace_id: str, _prompt_versions: list[PromptVersion]) -> None:
+    def link_prompts_to_trace(self, trace_id: str, prompt_versions: list[PromptVersion]) -> None:
         """
         Link multiple prompt versions to a trace by creating entity associations.
 
         Args:
-            _trace_id: ID of the trace to link prompt versions to.
-            _prompt_versions: List of PromptVersion objects to link.
+            trace_id: ID of the trace to link prompt versions to.
+            prompt_versions: List of PromptVersion objects to link.
 
         Raises:
             NotImplementedError: If the operation is not supported by this store.

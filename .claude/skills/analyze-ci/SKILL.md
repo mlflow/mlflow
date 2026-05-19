@@ -1,36 +1,61 @@
 ---
 name: analyze-ci
 description: Analyze failed GitHub Action jobs for a pull request.
+argument-hint: "url(s) of failed GitHub Action jobs, workflow runs, or PRs"
 allowed-tools:
-  - Bash
+  - Bash(uv run --package skills skills fetch-logs:*)
+  - Read
 ---
 
 # Analyze CI Failures
 
-This skill analyzes logs from failed GitHub Action jobs using Claude.
+Fetch logs from failed GitHub Action jobs and produce a focused per-job failure summary.
 
 ## Prerequisites
 
-- **GitHub Token**: Auto-detected via `gh auth token`, or set `GITHUB_TOKEN` env var
+- **GitHub Token**: Auto-detected via `gh auth token`, or set `GH_TOKEN`.
+- Single-quote URLs when invoking to keep the shell from interpreting `?` and other special characters in the URL.
 
-## Usage
+## Steps
+
+1. **Fetch logs.** Run:
+
+   ```bash
+   uv run --package skills skills fetch-logs $ARGUMENTS
+   ```
+
+   The command prints one block per failed job containing the workflow/job name, URL, failed step, and paths to the cached raw log, failed-step log, and (optional) package versions file.
+
+2. **Read each failed-step log and summarize it.** For every block, Read the file at its `Failed step log:` path, then identify:
+
+   - The root cause.
+   - Specific error messages (assertion errors, exceptions, stack traces).
+   - Full pytest test names where applicable (e.g. `tests/test_foo.py::test_bar`).
+   - A short log snippet showing the error context.
+
+3. **Format each summary** with these fields, then a blank line, then the 1-2 paragraph summary.
+
+   - `Failed job: <workflow name> / <job name>`
+   - `Failed step: <step name>`
+   - `URL: <job_url>`
+   - `Raw log: <raw_log_path>`
+   - `Failed step log: <failed_step_log_path>`
+   - `Package versions: <package_versions_path>` (if present)
+
+   Preserve the `Raw log:`, `Failed step log:`, and `Package versions:` paths verbatim from step 1 so downstream agents can grep deeper.
+
+## Invocation examples
 
 ```bash
-# Analyze all failed jobs in a PR
-uv run .claude/skills/analyze-ci/analyze_ci.py <pr_url>
+# All failed jobs on a PR
+/analyze-ci https://github.com/mlflow/mlflow/pull/19601
 
-# Analyze specific job URLs directly
-uv run .claude/skills/analyze-ci/analyze_ci.py <job_url> [job_url ...]
-```
+# All failed jobs in one workflow run
+/analyze-ci https://github.com/mlflow/mlflow/actions/runs/22626454465
 
-Output: A concise failure summary with root cause, error messages, test names, and relevant log snippets.
+# Specific job by URL
+/analyze-ci https://github.com/mlflow/mlflow/actions/runs/12345/job/67890
 
-## Examples
-
-```bash
-# Analyze CI failures for a PR
-uv run .claude/skills/analyze-ci/analyze_ci.py https://github.com/mlflow/mlflow/pull/19601
-
-# Analyze specific job URLs directly
-uv run .claude/skills/analyze-ci/analyze_ci.py https://github.com/mlflow/mlflow/actions/runs/12345/job/67890
+# Multiple URLs at once
+/analyze-ci https://github.com/mlflow/mlflow/actions/runs/123/job/456 https://github.com/mlflow/mlflow/actions/runs/789/job/012
 ```

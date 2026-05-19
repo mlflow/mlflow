@@ -38,7 +38,8 @@ def test_write_to_delta_fails_without_spark():
 def spark_session_with_delta():
     with tempfile.TemporaryDirectory() as tmpdir:
         with (
-            SparkSession.builder.master("local[*]")
+            SparkSession.builder
+            .master("local[*]")
             .config("spark.jars.packages", "io.delta:delta-spark_2.13:4.0.0")
             .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
             .config(
@@ -93,7 +94,8 @@ def test_write_eval_table_to_delta(spark_session_with_delta):
         eval_table = results.tables["eval_results_table"].sort_values("text").reset_index(drop=True)
 
         eval_table_from_delta = (
-            spark_session.read.format("delta")
+            spark_session.read
+            .format("delta")
             .load(f"{tmpdir}/my_path")
             .toPandas()
             .sort_values("text")

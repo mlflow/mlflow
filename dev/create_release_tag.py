@@ -32,7 +32,7 @@ import os
 import subprocess
 
 
-def main(new_version: str, remote: str, dry_run: bool = False):
+def main(new_version: str, remote: str, dry_run: bool = False) -> None:
     release_tag = f"v{new_version}"
     subprocess.check_call(["git", "tag", release_tag])
     subprocess.check_call(["git", "push", remote, release_tag, *(["--dry-run"] if dry_run else [])])

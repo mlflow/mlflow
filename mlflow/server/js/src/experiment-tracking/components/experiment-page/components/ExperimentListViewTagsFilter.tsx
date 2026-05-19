@@ -66,7 +66,7 @@ export function ExperimentListViewTagsFilter({ tagsFilter, setTagsFilter }: Prop
           <Fragment key={field.id}>
             <RHFControlledComponents.Input
               id={`${field.id}-key`}
-              componentId={`mlflow.experiment_list_view.tag_filter.key_input_${index}`}
+              componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_components_experiment_page_components_experimentlistviewtagsfilter_69"
               name={`tagsFilter.${index}.key`}
               control={control}
               aria-label={labels.key}
@@ -83,7 +83,7 @@ export function ExperimentListViewTagsFilter({ tagsFilter, setTagsFilter }: Prop
             />
             <RHFControlledComponents.Input
               id={`${field.id}-value`}
-              componentId={`mlflow.experiment_list_view.tag_filter.value_input_${index}`}
+              componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_components_experiment_page_components_experimentlistviewtagsfilter_87"
               name={`tagsFilter.${index}.value`}
               control={control}
               aria-label={labels.value}
@@ -91,7 +91,7 @@ export function ExperimentListViewTagsFilter({ tagsFilter, setTagsFilter }: Prop
               required
             />
             <Button
-              componentId={`mlflow.experiment_list_view.tag_filter.remove_filter_button_${index}`}
+              componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_components_experiment_page_components_experimentlistviewtagsfilter_96"
               type="tertiary"
               onClick={() => remove(index)}
               disabled={fields.length === 1}

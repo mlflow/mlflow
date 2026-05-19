@@ -15,6 +15,8 @@ import {
 } from '@databricks/web-shared/model-trace-explorer';
 import { setupServer } from '../../../../common/utils/setup-msw';
 import { rest } from 'msw';
+import { OverviewChartProvider } from '../OverviewChartContext';
+import { getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 
 // Helper to create a latency percentile data point
 const createLatencyDataPoint = (timeBucket: string, p50: number, p90: number, p99: number) => ({
@@ -48,9 +50,9 @@ describe('TraceLatencyChart', () => {
     new Date('2025-12-22T12:00:00Z').getTime(),
   ];
 
-  // Default props reused across tests
-  const defaultProps = {
-    experimentId: testExperimentId,
+  // Context props reused across tests
+  const defaultContextProps = {
+    experimentIds: [testExperimentId],
     startTimeMs,
     endTimeMs,
     timeIntervalSeconds,
@@ -68,12 +70,15 @@ describe('TraceLatencyChart', () => {
       },
     });
 
-  const renderComponent = (props: Partial<typeof defaultProps> = {}) => {
+  const renderComponent = (contextOverrides: Partial<typeof defaultContextProps> = {}) => {
     const queryClient = createQueryClient();
+    const contextProps = { ...defaultContextProps, ...contextOverrides };
     return renderWithIntl(
       <QueryClientProvider client={queryClient}>
         <DesignSystemProvider>
-          <TraceLatencyChart {...defaultProps} {...props} />
+          <OverviewChartProvider {...contextProps}>
+            <TraceLatencyChart />
+          </OverviewChartProvider>
         </DesignSystemProvider>
       </QueryClientProvider>,
     );
@@ -82,7 +87,7 @@ describe('TraceLatencyChart', () => {
   // Helper to setup MSW handler for trace metrics endpoint with routing based on aggregations
   const setupTraceMetricsHandler = (percentileDataPoints: any[], avgDataPoints: any[]) => {
     server.use(
-      rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+      rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), async (req, res, ctx) => {
         const body = await req.json();
         // Check if this is a percentile request or AVG request
         const hasPercentileAggregation = body.aggregations?.some(
@@ -105,7 +110,7 @@ describe('TraceLatencyChart', () => {
   describe('loading state', () => {
     it('should render loading skeleton while data is being fetched', async () => {
       server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+        rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), (_req, res, ctx) => {
           return res(ctx.delay('infinite'));
         }),
       );
@@ -120,7 +125,7 @@ describe('TraceLatencyChart', () => {
   describe('error state', () => {
     it('should render error message when time series API call fails', async () => {
       server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+        rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), (_req, res, ctx) => {
           return res(ctx.status(500), ctx.json({ error_code: 'INTERNAL_ERROR', message: 'API Error' }));
         }),
       );
@@ -193,9 +198,9 @@ describe('TraceLatencyChart', () => {
 
       renderComponent();
 
-      // Average is 250ms
+      // Average is 250ms (formatted as "250.00ms" by formatLatency)
       await waitFor(() => {
-        expect(screen.getByText('250 ms')).toBeInTheDocument();
+        expect(screen.getByText('250.00ms')).toBeInTheDocument();
       });
     });
 
@@ -209,24 +214,14 @@ describe('TraceLatencyChart', () => {
       });
     });
 
-    it('should display "Over time" label', async () => {
-      setupTraceMetricsHandler(mockPercentileDataPoints, mockAvgDataPoints);
-
-      renderComponent();
-
-      await waitFor(() => {
-        expect(screen.getByText('Over time')).toBeInTheDocument();
-      });
-    });
-
     it('should format latency in seconds for values >= 1000ms', async () => {
       setupTraceMetricsHandler(mockPercentileDataPoints, [createAvgLatencyDataPoint(1500)]);
 
       renderComponent();
 
-      // 1500ms should be displayed as 1.50 sec
+      // 1500ms should be displayed as 1.50s
       await waitFor(() => {
-        expect(screen.getByText('1.50 sec')).toBeInTheDocument();
+        expect(screen.getByText('1.50s')).toBeInTheDocument();
       });
     });
 
@@ -238,7 +233,7 @@ describe('TraceLatencyChart', () => {
       await waitFor(() => {
         const referenceLine = screen.getByTestId('reference-line');
         expect(referenceLine).toBeInTheDocument();
-        expect(referenceLine).toHaveAttribute('data-label', 'AVG (250 ms)');
+        expect(referenceLine).toHaveAttribute('data-label', 'AVG (250.00ms)');
       });
     });
 
@@ -260,7 +255,7 @@ describe('TraceLatencyChart', () => {
       let capturedPercentileRequest: any = null;
 
       server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+        rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), async (req, res, ctx) => {
           const body = await req.json();
           const hasPercentileAggregation = body.aggregations?.some(
             (a: any) => a.aggregation_type === AggregationType.PERCENTILE,
@@ -292,7 +287,7 @@ describe('TraceLatencyChart', () => {
       let capturedAvgRequest: any = null;
 
       server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+        rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), async (req, res, ctx) => {
           const body = await req.json();
           const hasAvgAggregation = body.aggregations?.some((a: any) => a.aggregation_type === AggregationType.AVG);
           if (hasAvgAggregation) {
@@ -318,7 +313,7 @@ describe('TraceLatencyChart', () => {
       let capturedRequest: any = null;
 
       server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+        rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), async (req, res, ctx) => {
           const body = await req.json();
           // Capture request with time_interval_seconds (percentile request)
           if (body.time_interval_seconds !== undefined) {
@@ -339,7 +334,7 @@ describe('TraceLatencyChart', () => {
       let capturedRequest: any = null;
 
       server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+        rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), async (req, res, ctx) => {
           const body = await req.json();
           // Capture request with time_interval_seconds (percentile request)
           if (body.time_interval_seconds !== undefined) {
@@ -360,7 +355,7 @@ describe('TraceLatencyChart', () => {
       let capturedRequest: any = null;
 
       server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+        rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), async (req, res, ctx) => {
           const body = await req.json();
           // Capture request with time_interval_seconds (percentile request)
           if (body.time_interval_seconds !== undefined) {

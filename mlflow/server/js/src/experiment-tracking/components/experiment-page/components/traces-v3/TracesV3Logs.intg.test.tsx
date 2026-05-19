@@ -130,7 +130,7 @@ describe('TracesV3Logs - integration test', () => {
 
   const renderTestComponent = (additionalProps: Partial<ComponentProps<typeof TracesV3Logs>> = {}) => {
     const defaultProps: ComponentProps<typeof TracesV3Logs> = {
-      experimentId: testExperimentId,
+      experimentIds: [testExperimentId],
       endpointName: testEndpointName,
       timeRange: {
         startTime: '2024-01-01T00:00:00Z',
@@ -215,7 +215,7 @@ describe('TracesV3Logs - integration test', () => {
     // Wrap in ApolloProvider for this test
     const mockApolloClient = new ApolloClient({ uri: '/graphql', cache: new InMemoryCache() });
     const defaultProps = {
-      experimentId: testExperimentId,
+      experimentIds: [testExperimentId],
       endpointName: testEndpointName,
       timeRange: {
         startTime: '2024-01-01T00:00:00Z',
@@ -252,7 +252,7 @@ describe('TracesV3Logs - integration test', () => {
       expect(screen.queryByText('Loading...')).not.toBeInTheDocument();
     });
     // Now check for the empty state text
-    expect(await screen.findByText(/No traces recorded/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Start tracing your LLM application/i)).toBeInTheDocument();
   });
 
   it('renders traces table when traces exist', async () => {
@@ -311,7 +311,7 @@ describe('TracesV3Logs - integration test', () => {
     expect(screen.getByText('0.85')).toBeInTheDocument(); // quality_score value
 
     // Verify search input is also present
-    expect(screen.getByPlaceholderText('Search traces by request')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Search traces by id, request, or response')).toBeInTheDocument();
   });
 
   it('handles traces error state', async () => {
@@ -420,6 +420,6 @@ describe('TracesV3Logs - integration test', () => {
     expect(screen.getByText('0.75')).toBeInTheDocument(); // trace-2 quality_score
 
     // Verify search input is also present
-    expect(screen.getByPlaceholderText('Search traces by request')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Search traces by id, request, or response')).toBeInTheDocument();
   });
 });

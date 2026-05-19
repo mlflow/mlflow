@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 
-import type { QueryFunctionContext } from '@databricks/web-shared/query-client';
-import { useQueries } from '@databricks/web-shared/query-client';
+import type { QueryFunctionContext } from '../../query-client/queryClient';
+import { useQueries } from '../../query-client/queryClient';
 
 import { GenAiTraceEvaluationArtifactFile } from '../enum';
 import type {

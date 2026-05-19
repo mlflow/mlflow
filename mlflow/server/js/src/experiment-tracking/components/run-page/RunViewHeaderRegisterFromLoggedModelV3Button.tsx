@@ -65,6 +65,7 @@ export const RunViewHeaderRegisterFromLoggedModelV3Button = ({
                   <div css={{ marginRight: theme.spacing.md }}>{model.info?.name}</div>
                   <DropdownMenu.HintColumn>
                     <Link
+                      componentId="mlflow.run_page.header.register_model_v3_view_link"
                       target="_blank"
                       to={Routes.getExperimentLoggedModelDetailsPage(experimentId, model.info?.model_id ?? '')}
                     >

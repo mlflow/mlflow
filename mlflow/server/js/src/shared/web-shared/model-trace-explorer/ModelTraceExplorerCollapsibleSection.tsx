@@ -7,23 +7,31 @@ export const ModelTraceExplorerCollapsibleSection = ({
   title,
   children,
   withBorder = false,
+  isExceptionSection = false,
   className,
 }: {
   sectionKey: string;
   title: React.ReactNode;
   children: React.ReactNode;
   withBorder?: boolean;
+  isExceptionSection?: boolean;
   className?: string;
 }) => {
   const [expanded, setExpanded] = useState(true);
   const { theme } = useDesignSystemTheme();
+
+  const borderColor = isExceptionSection ? theme.colors.actionDangerPrimaryBackgroundDefault : theme.colors.border;
+  const headerBackground = isExceptionSection
+    ? `${theme.colors.actionDangerPrimaryBackgroundDefault}15`
+    : theme.colors.backgroundSecondary;
+  const contentBackground = isExceptionSection ? theme.colors.backgroundPrimary : undefined;
+
   return (
     <div
       className={className}
       css={{
         display: 'flex',
         flexDirection: 'column',
-        borderRadius: theme.borders.borderRadiusMd,
       }}
     >
       <div
@@ -33,13 +41,9 @@ export const ModelTraceExplorerCollapsibleSection = ({
           flexDirection: 'row',
           gap: theme.spacing.xs,
           padding: withBorder ? theme.spacing.sm : 0,
-          background: withBorder ? theme.colors.backgroundSecondary : undefined,
-          borderTopLeftRadius: theme.borders.borderRadiusMd,
-          borderTopRightRadius: theme.borders.borderRadiusMd,
-          borderBottomLeftRadius: expanded ? 0 : theme.borders.borderRadiusMd,
-          borderBottomRightRadius: expanded ? 0 : theme.borders.borderRadiusMd,
-          border: withBorder ? `1px solid ${theme.colors.border}` : undefined,
+          background: withBorder ? headerBackground : undefined,
           marginBottom: withBorder ? 0 : theme.spacing.sm,
+          borderBlock: withBorder ? `1px solid ${borderColor}` : undefined,
         }}
       >
         <Button
@@ -56,11 +60,8 @@ export const ModelTraceExplorerCollapsibleSection = ({
       {expanded && (
         <div
           css={{
-            border: withBorder ? `1px solid ${theme.colors.border}` : undefined,
-            borderTop: 'none',
-            borderBottomLeftRadius: withBorder ? theme.borders.borderRadiusMd : undefined,
-            borderBottomRightRadius: withBorder ? theme.borders.borderRadiusMd : undefined,
             padding: withBorder ? theme.spacing.sm : 0,
+            background: contentBackground,
           }}
         >
           {children}

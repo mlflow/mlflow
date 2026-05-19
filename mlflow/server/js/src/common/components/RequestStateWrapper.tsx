@@ -22,7 +22,6 @@ type RequestStateWrapperProps = {
   requests: any[];
   requestIds?: string[];
   requestIdsWith404sToIgnore?: string[];
-  description?: any; // TODO: PropTypes.oneOf(Object.values(LoadingDescription))
   permissionDeniedView?: React.ReactNode;
   suppressErrorThrow?: boolean;
   customRequestErrorHandlerFn?: (
@@ -110,8 +109,6 @@ export class RequestStateWrapper extends Component<RequestStateWrapperProps, Req
 
 export const triggerError = (requests: any) => {
   // This triggers the OOPS error boundary.
-  // eslint-disable-next-line no-console -- TODO(FEINF-3587)
-  console.error('ERROR', requests);
   throw Error(`${DEFAULT_ERROR_MESSAGE}: ${requests.error}`);
 };
 

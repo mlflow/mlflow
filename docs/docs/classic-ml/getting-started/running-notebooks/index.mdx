@@ -10,6 +10,10 @@ import TabsWrapper from "@site/src/components/TabsWrapper";
 
 # Connect Your Development Environment to MLflow
 
+:::tip MLflow Assistant
+Need help setting up MLflow? Try <ins>[MLflow Assistant](/genai/getting-started/try-assistant)</ins> - a powerful AI assistant that can help you set up MLflow for your project.
+:::
+
 This guide shows you how to connect your development environment to an MLflow Experiment. You can run MLflow on your local machine, self-host the open source MLflow service, or use a managed offering, such as Databricks Managed MLflow.
 
 ## Prerequisites
@@ -42,6 +46,10 @@ This guide shows you how to connect your development environment to an MLflow Ex
         ```bash
         pip install --upgrade "mlflow>=3.1"
         ```
+
+        :::info
+        See [Secure Installs](/self-hosting/security/secure-installs) to learn how to pin dependencies to known good versions using hash checking and upload-time filtering.
+        :::
 
         <br/>
 
@@ -156,7 +164,7 @@ This guide shows you how to connect your development environment to an MLflow Ex
     Install MLflow with Databricks connectivity:
 
     ```bash
-    pip install --upgrade "mlflow[databricks]>=3.1"
+    pip install --upgrade 'mlflow[databricks]>=3.1'
     ```
 
     <br/>
@@ -233,7 +241,7 @@ This guide shows you how to connect your development environment to an MLflow Ex
     Databricks runtimes include MLflow, but for the best experience, update to the latest version:
 
     ```bash
-    %pip install --upgrade "mlflow[databricks]>=3.1"
+    %pip install --upgrade 'mlflow[databricks]>=3.1'
     dbutils.library.restartPython()
     ```
     <br/>

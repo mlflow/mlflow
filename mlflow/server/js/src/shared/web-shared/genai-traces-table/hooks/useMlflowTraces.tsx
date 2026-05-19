@@ -2,63 +2,76 @@ import { isNil } from 'lodash';
 import { useMemo } from 'react';
 
 import { useIntl } from '@databricks/i18n';
-import type { NetworkRequestError } from '@databricks/web-shared/errors';
-import { matchPredefinedErrorFromResponse } from '@databricks/web-shared/errors';
-import type { QueryClient, UseQueryOptions, UseQueryResult } from '@databricks/web-shared/query-client';
-import { useQuery } from '@databricks/web-shared/query-client';
+import type { NetworkRequestError } from '../../errors/PredefinedErrors';
+import type { QueryClient } from '../../query-client/queryClient';
+import { useQuery, useInfiniteQuery } from '../../query-client/queryClient';
+import {
+  isV4TraceId,
+  parseV4TraceId,
+  parseTraceV4SerializedLocation,
+  createTraceV4SerializedLocation,
+} from '../../model-trace-explorer/ModelTraceExplorer.utils';
 
-import { useGenAiTraceEvaluationArtifacts } from './useGenAiTraceEvaluationArtifacts';
 import {
   EXECUTION_DURATION_COLUMN_ID,
   REQUEST_TIME_COLUMN_ID,
   RUN_NAME_COLUMN_ID,
+  SESSION_COLUMN_ID,
   STATE_COLUMN_ID,
   USER_COLUMN_ID,
   LOGGED_MODEL_COLUMN_ID,
-  LINKED_PROMPTS_COLUMN_ID,
   TRACE_NAME_COLUMN_ID,
   SOURCE_COLUMN_ID,
   useTableColumns,
+  LINKED_PROMPTS_COLUMN_ID,
   CUSTOM_METADATA_COLUMN_ID,
   SPAN_NAME_COLUMN_ID,
   SPAN_TYPE_COLUMN_ID,
+  SPAN_STATUS_COLUMN_ID,
   SPAN_CONTENT_COLUMN_ID,
+  INPUTS_COLUMN_ID,
+  RESPONSE_COLUMN_ID,
+  ISSUE_ID_COLUMN_ID,
+  GIT_BRANCH_COLUMN_ID,
+  GIT_COMMIT_COLUMN_ID,
 } from './useTableColumns';
-import {
-  TracesServiceV4,
-  type ModelTraceInfoV3,
-  type ModelTraceLocationMlflowExperiment,
-  type ModelTraceLocationUcSchema,
-} from '../../model-trace-explorer';
+import { TracesServiceV4, fetchTraceInfoV3 } from '../../model-trace-explorer/api';
+import type { ModelTraceInfoV3, ModelTraceSearchLocation } from '../../model-trace-explorer/ModelTrace.types';
 import { SourceCellRenderer } from '../cellRenderers/Source/SourceRenderer';
-import type { GenAiTraceEvaluationArtifactFile } from '../enum';
-import { FilterOperator, TracesTableColumnGroup } from '../types';
 import type {
   TableFilterOption,
   EvaluationsOverviewTableSort,
   AssessmentFilter,
-  RunEvaluationTracesDataEntry,
   TableFilter,
   TableFilterOptions,
+} from '../types';
+import {
+  FilterOperator,
+  HiddenFilterOperator,
+  TracesTableColumnGroup,
+  TracesTableColumnType,
+  isNullOperator,
 } from '../types';
 import { ERROR_KEY, getAssessmentInfos } from '../utils/AggregationUtils';
 import { filterEvaluationResults } from '../utils/EvaluationsFilterUtils';
 import {
-  shouldEnableUnifiedEvalTab,
   getMlflowTracesSearchPageSize,
   getEvalTabTotalTracesLimit,
   shouldUseTracesV4API,
+  shouldUseLongRunningTracesAPI,
+  shouldUseInfinitePaginatedTraces,
 } from '../utils/FeatureUtils';
-import { fetchFn, getAjaxUrl } from '../utils/FetchUtils';
+import { fetchAPI, getAjaxUrl } from '../utils/FetchUtils';
 import MlflowUtils from '../utils/MlflowUtils';
 import {
   convertTraceInfoV3ToRunEvalEntry,
   filterTracesByAssessmentSourceRunId,
   getCustomMetadataKeyFromColumnId,
 } from '../utils/TraceUtils';
+import { isV4TraceLocation } from '../utils/TraceLocationUtils';
 
 interface SearchMlflowTracesRequest {
-  locations?: (ModelTraceLocationMlflowExperiment | ModelTraceLocationUcSchema)[];
+  locations?: ModelTraceSearchLocation[];
   filter?: string;
   max_results: number;
   page_token?: string;
@@ -68,9 +81,139 @@ interface SearchMlflowTracesRequest {
 }
 
 export const SEARCH_MLFLOW_TRACES_QUERY_KEY = 'searchMlflowTraces';
+const TRACE_ID_LOOKUP_QUERY_KEY = 'traceIdLookup';
 
 export const invalidateMlflowSearchTracesCache = ({ queryClient }: { queryClient: QueryClient }) => {
   queryClient.invalidateQueries({ queryKey: [SEARCH_MLFLOW_TRACES_QUERY_KEY] });
+};
+
+/**
+ * Hex string pattern: 32-char hex strings (common backend trace ID format).
+ */
+const HEX_TRACE_ID_PATTERN = /^[0-9a-fA-F]{32}$/;
+
+/**
+ * Detects whether a search query looks like a trace ID.
+ * Supports:
+ *   - Full V4 trace ID: trace:/catalog.schema/abc123...
+ *   - Backend trace ID: 32-character hex string (e.g. 11301f0bdf2dfa5a762a4bac74b45db1)
+ */
+export const extractTraceIdFromSearchQuery = (
+  searchQuery: string,
+): { backendTraceId: string; traceLocation?: string } | undefined => {
+  const trimmed = searchQuery.trim();
+
+  // Check for V4 full trace ID format: trace:/location/traceId
+  if (isV4TraceId(trimmed)) {
+    const parsed = parseV4TraceId(trimmed);
+    if (parsed?.trace_id && parsed?.trace_location) {
+      return { backendTraceId: parsed.trace_id, traceLocation: parsed.trace_location };
+    }
+    return undefined;
+  }
+
+  // Check for plain backend trace ID (32-char hex string)
+  if (HEX_TRACE_ID_PATTERN.test(trimmed)) {
+    return { backendTraceId: trimmed };
+  }
+
+  return undefined;
+};
+
+/**
+ * Hook that looks up a single trace by trace ID when the search query appears to be a trace ID.
+ * Uses get_trace / batch get API to fetch the trace directly, since trace_id is not a
+ * searchable field in the search traces API.
+ */
+const useTraceIdLookup = ({
+  searchQuery,
+  locations,
+  sqlWarehouseId,
+  enabled = true,
+}: {
+  searchQuery?: string;
+  locations?: ModelTraceSearchLocation[];
+  sqlWarehouseId?: string;
+  enabled?: boolean;
+}): { data: ModelTraceInfoV3 | undefined; isLoading: boolean } => {
+  const traceIdInfo = useMemo(() => {
+    if (!searchQuery) return undefined;
+    return extractTraceIdFromSearchQuery(searchQuery);
+  }, [searchQuery]);
+
+  const isQueryEnabled = enabled && !isNil(traceIdInfo);
+  const usingV4APIs = locations?.some(isV4TraceLocation) && shouldUseTracesV4API();
+
+  const result = useQuery<ModelTraceInfoV3 | undefined, NetworkRequestError>({
+    refetchOnWindowFocus: false,
+    enabled: isQueryEnabled,
+    queryKey: [TRACE_ID_LOOKUP_QUERY_KEY, traceIdInfo?.backendTraceId, traceIdInfo?.traceLocation],
+    queryFn: async () => {
+      if (!traceIdInfo) return undefined;
+
+      const { backendTraceId, traceLocation: traceLocationString } = traceIdInfo;
+
+      try {
+        if (usingV4APIs && traceLocationString) {
+          // Only look up traces in locations linked to the current experiment
+          const isLinkedLocation = locations?.some(
+            (loc) => createTraceV4SerializedLocation(loc) === traceLocationString,
+          );
+          if (!isLinkedLocation) return undefined;
+
+          const traceLocation = parseTraceV4SerializedLocation(traceLocationString);
+          const response = await TracesServiceV4.getBatchTracesV4({
+            traceIds: [backendTraceId],
+            traceLocation,
+          });
+          return response?.traces?.[0]?.trace_info;
+        } else if (usingV4APIs && locations && locations.length > 0) {
+          // For V4 APIs without a location in the trace ID, try each location
+          let lastError: unknown;
+          for (const location of locations) {
+            try {
+              const response = await TracesServiceV4.getBatchTracesV4({
+                traceIds: [backendTraceId],
+                traceLocation: location,
+              });
+              if (response?.traces?.[0]?.trace_info) {
+                return response.traces[0].trace_info;
+              }
+            } catch (error) {
+              lastError = error;
+            }
+          }
+          // If every location returned empty, the trace wasn't found
+          if (!lastError) return undefined;
+          // If every location errored, throw the last one so react-query
+          // marks it as failed rather than caching undefined as success
+          throw lastError;
+        } else {
+          // For V3 APIs, use the V3 fetch
+          const response = await fetchTraceInfoV3({ traceId: backendTraceId });
+          return response?.trace?.trace_info;
+        }
+      } catch (error) {
+        if (error instanceof Error && 'status' in error && (error as NetworkRequestError).status === 404) {
+          return undefined;
+        }
+        throw error;
+      }
+    },
+    retry: false,
+  });
+
+  return {
+    data: result.data ?? undefined,
+    // Only report loading when the query is actually enabled
+    isLoading: isQueryEnabled && result.isLoading,
+  };
+};
+
+const defaultTableSort: EvaluationsOverviewTableSort = {
+  asc: false,
+  key: REQUEST_TIME_COLUMN_ID,
+  type: TracesTableColumnType.TRACE_INFO,
 };
 
 export const useMlflowTracesTableMetadata = ({
@@ -83,8 +226,9 @@ export const useMlflowTracesTableMetadata = ({
   sqlWarehouseId,
   disabled,
   networkFilters,
+  filterByAssessmentSourceRun = false,
 }: {
-  locations: (ModelTraceLocationMlflowExperiment | ModelTraceLocationUcSchema)[];
+  locations: ModelTraceSearchLocation[];
   runUuid?: string;
   timeRange?: { startTime?: string; endTime?: string };
   otherRunUuid?: string;
@@ -103,9 +247,19 @@ export const useMlflowTracesTableMetadata = ({
   sqlWarehouseId?: string;
   disabled?: boolean;
   networkFilters?: TableFilter[];
+  /**
+   * If true, filters traces by assessment source run ID. This is used in the eval tab
+   * to only show assessments that were created by the current evaluation run.
+   * Defaults to false for other tabs (traces, labeling, etc.).
+   */
+  filterByAssessmentSourceRun?: boolean;
 }) => {
   const intl = useIntl();
   const filter = createMlflowSearchFilter(runUuid, timeRange, networkFilters, filterByLoggedModelId);
+  const usingV4APIs = locations?.some(isV4TraceLocation) && shouldUseTracesV4API();
+
+  const orderBy = createMlflowSearchOrderBy(defaultTableSort);
+
   const {
     data: traces,
     isLoading: isInnerLoading,
@@ -116,8 +270,12 @@ export const useMlflowTracesTableMetadata = ({
     loggedModelId,
     sqlWarehouseId,
     enabled: !disabled,
+    orderBy,
   });
-  const filteredTraces = useMemo(() => filterTracesByAssessmentSourceRunId(traces, runUuid), [traces, runUuid]);
+  const filteredTraces = useMemo(
+    () => (filterByAssessmentSourceRun ? filterTracesByAssessmentSourceRunId(traces, runUuid) : traces),
+    [traces, runUuid, filterByAssessmentSourceRun],
+  );
 
   const otherFilter = createMlflowSearchFilter(otherRunUuid, timeRange);
   const {
@@ -130,11 +288,12 @@ export const useMlflowTracesTableMetadata = ({
     enabled: !disabled && Boolean(otherRunUuid),
     loggedModelId,
     sqlWarehouseId,
+    orderBy,
   });
 
   const filteredOtherTraces = useMemo(
-    () => filterTracesByAssessmentSourceRunId(otherTraces, otherRunUuid),
-    [otherTraces, otherRunUuid],
+    () => (filterByAssessmentSourceRun ? filterTracesByAssessmentSourceRunId(otherTraces, otherRunUuid) : otherTraces),
+    [otherTraces, otherRunUuid, filterByAssessmentSourceRun],
   );
 
   const evaluatedTraces = useMemo(() => {
@@ -240,12 +399,25 @@ const getNetworkAndClientFilters = (
     clientFilters: TableFilter[];
   }>(
     (acc, filter) => {
+      // IS NULL / IS NOT NULL operators should always go to network filters
+      // since they don't require a value and are handled by the backend
+      if (filter.column === TracesTableColumnGroup.ASSESSMENT && isNullOperator(filter.operator)) {
+        acc.networkFilters.push(filter);
+        return acc;
+      }
+
       // Assessment filters with undefined or 'Error' value must always be filtered client-side
       // because the backend cannot query for absence of an assessment or error state.
       // Note: filter.value is already converted from string 'undefined' to actual undefined by useFilters
+      //
+      // All numeric assessment filters are handled client-side because the backend
+      // does not yet support numeric assessment comparisons.
+      const isNumericValue =
+        typeof filter.value === 'number' ||
+        (typeof filter.value === 'string' && !isNaN(Number(filter.value)) && filter.value.trim() !== '');
       const isClientOnlyAssessmentFilter =
         filter.column === TracesTableColumnGroup.ASSESSMENT &&
-        (filter.value === undefined || filter.value === ERROR_KEY);
+        (filter.value === undefined || filter.value === ERROR_KEY || isNumericValue);
 
       if (isClientOnlyAssessmentFilter) {
         acc.clientFilters.push(filter);
@@ -274,8 +446,10 @@ export const useSearchMlflowTraces = ({
   tableSort,
   loggedModelId,
   sqlWarehouseId,
+  filterByAssessmentSourceRun = false,
+  enablePagination = true,
 }: {
-  locations: (ModelTraceLocationMlflowExperiment | ModelTraceLocationUcSchema)[];
+  locations: ModelTraceSearchLocation[];
   runUuid?: string | null;
   timeRange?: { startTime?: string; endTime?: string };
   searchQuery?: string;
@@ -299,12 +473,27 @@ export const useSearchMlflowTraces = ({
   loggedModelId?: string;
   sqlWarehouseId?: string;
   tableSort?: EvaluationsOverviewTableSort;
+  /**
+   * If true, filters traces by assessment source run ID. This is used in the eval tab
+   * to only show assessments that were created by the current evaluation run.
+   * Defaults to false for other tabs (traces, labeling, etc.).
+   */
+  filterByAssessmentSourceRun?: boolean;
+  /**
+   * When false, forces the eager-fetch path even when infinite pagination is globally enabled.
+   * Used to disable pagination in run comparison mode where both runs need complete data
+   * to join on inputs.
+   */
+  enablePagination?: boolean;
 }): {
   data: ModelTraceInfoV3[] | undefined;
   isLoading: boolean;
   isFetching: boolean;
-  error?: NetworkRequestError;
-  refetchMlflowTraces?: UseQueryResult<ModelTraceInfoV3[], NetworkRequestError>['refetch'];
+  error?: NetworkRequestError | Error;
+  refetchMlflowTraces?: () => void;
+  fetchNextPage?: () => void;
+  hasNextPage?: boolean;
+  isFetchingNextPage?: boolean;
 } => {
   // Client-side filtering is always disabled in OSS MLflow. It is only used in Databricks.
   const useClientSideFiltering = false;
@@ -323,12 +512,24 @@ export const useSearchMlflowTraces = ({
   );
   const orderBy = createMlflowSearchOrderBy(tableSort);
 
+  // When the search query looks like a trace ID, look it up directly via get_trace API
+  // since trace_id is not a searchable field in the search traces API.
+  const { data: traceIdLookupResult, isLoading: isTraceIdLookupLoading } = useTraceIdLookup({
+    searchQuery,
+    locations,
+    sqlWarehouseId,
+    enabled: !disabled,
+  });
+
   const {
     data: traces,
     isLoading: isInnerLoading,
     isFetching: isInnerFetching,
     error,
     refetch: refetchMlflowTraces,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
   } = useSearchMlflowTracesInner({
     locations,
     filter,
@@ -338,21 +539,35 @@ export const useSearchMlflowTraces = ({
     orderBy,
     loggedModelId,
     sqlWarehouseId,
+    enablePagination,
   });
+
+  // Merge the trace ID lookup result with the search results. If the lookup found a trace,
+  // prepend it to the list (if not already present) so it appears in the results.
+  const tracesWithIdLookup = useMemo(() => {
+    if (!traceIdLookupResult || !traces) {
+      return traces;
+    }
+    const alreadyPresent = traces.some((t) => t.trace_id === traceIdLookupResult.trace_id);
+    if (alreadyPresent) {
+      return traces;
+    }
+    return [traceIdLookupResult, ...traces];
+  }, [traces, traceIdLookupResult]);
 
   // TODO: Remove this once mlflow apis support filtering
   const evalTraceComparisonEntries = useMemo(() => {
-    if (!traces) {
+    if (!tracesWithIdLookup) {
       return undefined;
     }
 
-    return traces.map((trace) => {
+    return tracesWithIdLookup.map((trace) => {
       return {
         currentRunValue: convertTraceInfoV3ToRunEvalEntry(trace),
         otherRunValue: undefined,
       };
     });
-  }, [traces]);
+  }, [tracesWithIdLookup]);
 
   const filteredTraces: ModelTraceInfoV3[] | undefined = useMemo(() => {
     if (!evalTraceComparisonEntries) return undefined;
@@ -377,6 +592,7 @@ export const useSearchMlflowTraces = ({
       return {
         assessmentName: filter.key || '',
         filterValue: filter.value,
+        filterOperator: filter.operator as FilterOperator,
         run: currentRunDisplayName || '',
       };
     });
@@ -398,8 +614,8 @@ export const useSearchMlflowTraces = ({
   }, [evalTraceComparisonEntries, clientFilters, searchQuery, currentRunDisplayName, useClientSideFiltering]);
 
   const tracesFilteredBySourceRun = useMemo(
-    () => filterTracesByAssessmentSourceRunId(filteredTraces, runUuid),
-    [filteredTraces, runUuid],
+    () => (filterByAssessmentSourceRun ? filterTracesByAssessmentSourceRunId(filteredTraces, runUuid) : filteredTraces),
+    [filteredTraces, runUuid, filterByAssessmentSourceRun],
   );
 
   if (disabled) {
@@ -412,10 +628,13 @@ export const useSearchMlflowTraces = ({
 
   return {
     data: tracesFilteredBySourceRun,
-    isLoading: isInnerLoading,
+    isLoading: isInnerLoading || isTraceIdLookupLoading,
     isFetching: isInnerFetching,
     error: error || undefined,
     refetchMlflowTraces,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
   };
 };
 
@@ -434,7 +653,7 @@ export const searchMlflowTracesQueryFn = async ({
   sqlWarehouseId,
 }: {
   signal?: AbortSignal;
-  locations?: (ModelTraceLocationMlflowExperiment | ModelTraceLocationUcSchema)[];
+  locations?: ModelTraceSearchLocation[];
   filter?: string;
   pageSize?: number;
   limit?: number;
@@ -442,7 +661,7 @@ export const searchMlflowTracesQueryFn = async ({
   loggedModelId?: string;
   sqlWarehouseId?: string;
 }): Promise<ModelTraceInfoV3[]> => {
-  const usingV4APIs = locations?.some((location) => location.type === 'UC_SCHEMA') && shouldUseTracesV4API();
+  const usingV4APIs = locations?.some(isV4TraceLocation) && shouldUseTracesV4API();
 
   if (usingV4APIs) {
     return TracesServiceV4.searchTracesV4({
@@ -450,6 +669,7 @@ export const searchMlflowTracesQueryFn = async ({
       orderBy,
       locations,
       filter,
+      pageSize: pageSizeProp,
     });
   }
   let allTraces: ModelTraceInfoV3[] = [];
@@ -472,16 +692,11 @@ export const searchMlflowTracesQueryFn = async ({
     if (pageToken) {
       payload.page_token = pageToken;
     }
-    const queryResponse = await fetchFn(getAjaxUrl('ajax-api/3.0/mlflow/traces/search'), {
+    const json = (await fetchAPI(getAjaxUrl('ajax-api/3.0/mlflow/traces/search'), {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
+      body: payload,
       signal,
-    });
-    if (!queryResponse.ok) throw matchPredefinedErrorFromResponse(queryResponse);
-    const json = (await queryResponse.json()) as { traces: ModelTraceInfoV3[]; next_page_token?: string };
+    })) as { traces: ModelTraceInfoV3[]; next_page_token?: string };
     const traces = json.traces;
     if (!isNil(traces)) {
       allTraces = allTraces.concat(traces);
@@ -494,9 +709,128 @@ export const searchMlflowTracesQueryFn = async ({
   return allTraces;
 };
 
+interface UseSearchMlflowTracesInnerParams {
+  locations?: ModelTraceSearchLocation[];
+  filter?: string;
+  pageSize?: number;
+  limit?: number;
+  orderBy?: string[];
+  loggedModelId?: string;
+  sqlWarehouseId?: string;
+  enabled?: boolean;
+  enablePagination?: boolean;
+}
+
+interface UseSearchMlflowTracesInnerResult {
+  data: ModelTraceInfoV3[] | undefined;
+  isLoading: boolean;
+  isFetching: boolean;
+  error?: NetworkRequestError | Error | null;
+  refetch: () => void;
+  fetchNextPage?: () => void;
+  hasNextPage?: boolean;
+  isFetchingNextPage?: boolean;
+}
+
 /**
- * Fetches all mlflow traces for a given location/filter in a synchronous loop.
- * The results of all the traces are cached under a single key.
+ * Query cache config for trace search. Exported for tests.
+ * keepPreviousData in both modes prevents the trace list from "bouncing" (disappearing
+ * and showing a full loading skeleton) when search/filter changes.
+ */
+export function getSearchMlflowTracesQueryCacheConfig(usingV4APIs: boolean) {
+  return {
+    keepPreviousData: true,
+    refetchOnWindowFocus: false,
+    // For V4 APIs, we use server-side filtering for all filters. Since it's server-side, we
+    // do not need to cache indefinitely.
+    // In previous APIs, we relied on client-side filtering so we want to cache indefinitely.
+    ...(usingV4APIs ? {} : { staleTime: Infinity, cacheTime: Infinity }),
+  };
+}
+
+const SEARCH_TRACES_INFINITE_PAGE_SIZE = 100;
+
+type SearchMlflowTracesResponse = {
+  traces: ModelTraceInfoV3[];
+  next_page_token?: string;
+};
+
+/**
+ * Fetches traces using useInfiniteQuery, loading one page at a time.
+ * Enabled only when shouldUseInfinitePaginatedTraces() is true.
+ */
+const useSearchMlflowTracesInfinite = ({
+  locations,
+  filter,
+  orderBy,
+  loggedModelId,
+  sqlWarehouseId,
+  enabled = true,
+}: Omit<UseSearchMlflowTracesInnerParams, 'limit' | 'pageSize'>): UseSearchMlflowTracesInnerResult => {
+  const { data, isLoading, isFetching, isFetchingNextPage, fetchNextPage, hasNextPage, refetch, error } =
+    useInfiniteQuery<SearchMlflowTracesResponse, NetworkRequestError>({
+      keepPreviousData: true,
+      refetchOnWindowFocus: false,
+      staleTime: Infinity,
+      cacheTime: Infinity,
+      enabled,
+      queryKey: [
+        SEARCH_MLFLOW_TRACES_QUERY_KEY,
+        'infinite',
+        {
+          locations,
+          filter,
+          orderBy,
+          loggedModelId,
+          sqlWarehouseId,
+        },
+      ],
+      queryFn: async ({ signal, pageParam }) => {
+        const payload: SearchMlflowTracesRequest = {
+          locations,
+          filter,
+          max_results: SEARCH_TRACES_INFINITE_PAGE_SIZE,
+          order_by: orderBy,
+        };
+        if (loggedModelId && sqlWarehouseId) {
+          payload.model_id = loggedModelId;
+          payload.sql_warehouse_id = sqlWarehouseId;
+        }
+        if (pageParam) {
+          payload.page_token = pageParam;
+        }
+        return fetchAPI(getAjaxUrl('ajax-api/3.0/mlflow/traces/search'), {
+          method: 'POST',
+          body: payload,
+          signal,
+        }) as Promise<SearchMlflowTracesResponse>;
+      },
+      getNextPageParam: (lastPage) => lastPage.next_page_token,
+    });
+
+  const allTraces = useMemo(() => data?.pages.flatMap((page) => page.traces).filter(Boolean), [data]);
+
+  return {
+    data: allTraces,
+    isLoading,
+    isFetching,
+    error,
+    refetch,
+    fetchNextPage,
+    hasNextPage: hasNextPage ?? false,
+    isFetchingNextPage,
+  };
+};
+
+/**
+ * Fetches all mlflow traces for a given location/filter.
+ * Uses either the regular API or long-running async API based on feature flags.
+ *
+ * When using long-running API:
+ * - Initiates an async search operation
+ * - Polls for completion
+ * - Returns progress information via `longRunningProgress`
+ *
  * TODO: De-dup with useSearchMlflowTraces defined in webapp/web/js/genai
  */
 const useSearchMlflowTracesInner = ({
@@ -507,38 +841,31 @@ const useSearchMlflowTracesInner = ({
   orderBy,
   loggedModelId,
   sqlWarehouseId,
-  enabled,
-  ...rest
-}: {
-  locations?: (ModelTraceLocationMlflowExperiment | ModelTraceLocationUcSchema)[];
-  filter?: string;
-  pageSize?: number;
-  limit?: number;
-  orderBy?: string[];
-  loggedModelId?: string;
-  sqlWarehouseId?: string;
-} & Omit<UseQueryOptions<ModelTraceInfoV3[], NetworkRequestError>, 'queryFn'>) => {
-  const usingV4APIs = locations?.some((location) => location.type === 'UC_SCHEMA') && shouldUseTracesV4API();
+  enabled = true,
+  enablePagination = true,
+}: UseSearchMlflowTracesInnerParams): UseSearchMlflowTracesInnerResult => {
+  const usingV4APIs = locations?.some(isV4TraceLocation) && shouldUseTracesV4API();
+  const usingLongRunningAPI = usingV4APIs && shouldUseLongRunningTracesAPI();
+  const usingInfinitePagination = !usingV4APIs && shouldUseInfinitePaginatedTraces() && enablePagination;
 
-  // In V4 API, we use server-side for all filters so we can keep previous data to smooth out UX and use default cache values.
-  // In previous APIs, we relied on client-side filtering so we want to cache indefinitely.
-  const queryCacheConfig = useMemo(
-    () =>
-      usingV4APIs
-        ? {
-            keepPreviousData: true,
-            refetchOnWindowFocus: false,
-          }
-        : {
-            staleTime: Infinity,
-            cacheTime: Infinity,
-          },
-    [usingV4APIs],
-  );
+  const queryCacheConfig = useMemo(() => getSearchMlflowTracesQueryCacheConfig(Boolean(usingV4APIs)), [usingV4APIs]);
 
-  return useQuery<ModelTraceInfoV3[], NetworkRequestError>({
+  const sqlWarehouseQueryKey = usingV4APIs ? sqlWarehouseId : undefined;
+
+  // Infinite paginated search (only active when feature flag is enabled)
+  const infiniteResult = useSearchMlflowTracesInfinite({
+    locations,
+    filter,
+    orderBy,
+    loggedModelId,
+    sqlWarehouseId,
+    enabled: enabled && usingInfinitePagination,
+  });
+
+  // Standard synchronous search (only active when not using long-running API or infinite pagination)
+  const syncResult = useQuery<ModelTraceInfoV3[], NetworkRequestError>({
     ...queryCacheConfig,
-    enabled,
+    enabled: enabled && !usingLongRunningAPI && !usingInfinitePagination,
     queryKey: [
       SEARCH_MLFLOW_TRACES_QUERY_KEY,
       {
@@ -546,7 +873,7 @@ const useSearchMlflowTracesInner = ({
         filter,
         orderBy,
         loggedModelId,
-        sqlWarehouseId,
+        sqlWarehouseQueryKey,
         pageSize: pageSizeProp,
       },
     ],
@@ -561,57 +888,13 @@ const useSearchMlflowTracesInner = ({
         loggedModelId,
         sqlWarehouseId,
       }),
-    ...rest,
   });
-};
 
-/**
- * Builds evaluation trace entries from search results if no artifact data is present.
- * Falls back to provided artifactData when available or on error.
- *
- * @param artifactData - Existing evaluation trace entries from artifacts.
- * @param searchRes - Query result containing TraceInfoV3 entries.
- * @returns A list of RunEvaluationTracesDataEntry either from artifactData or initialized from search results. Also
- * returns shouldUseTraceV3 indicating if we are using artifacts or trace v3 results from search
- */
-const buildTracesFromSearchAndArtifacts = (
-  artifactData: RunEvaluationTracesDataEntry[],
-  searchRes: UseQueryResult<ModelTraceInfoV3[], NetworkRequestError>,
-  runUuid?: string | null,
-): {
-  data: RunEvaluationTracesDataEntry[];
-  shouldUseTraceV3: boolean;
-  error?: NetworkRequestError;
-} => {
-  const { data: searchData, error } = searchRes;
-  const filteredSearchData = filterTracesByAssessmentSourceRunId(searchData, runUuid);
-
-  if (artifactData.length > 0 || error || !filteredSearchData || filteredSearchData.length === 0) {
-    return { data: artifactData, shouldUseTraceV3: false, error: error || undefined };
+  if (usingInfinitePagination) {
+    return infiniteResult;
   }
 
-  // We want to start using information from TraceInfoV3 downstream rather
-  // than RunEvaluationTracesDataEntry, so fill in all properties as empty
-  // except for traceInfo.
-  return {
-    data: filteredSearchData
-      .filter((trace): trace is ModelTraceInfoV3 => trace !== null && trace !== undefined)
-      .map((trace) => {
-        return {
-          evaluationId: '',
-          requestId: '',
-          inputs: {},
-          inputsId: '',
-          outputs: {},
-          targets: {},
-          overallAssessments: [],
-          responseAssessmentsByName: {},
-          metrics: {},
-          traceInfo: trace,
-        };
-      }),
-    shouldUseTraceV3: true,
-  };
+  return syncResult;
 };
 
 export const createMlflowSearchFilter = (
@@ -626,7 +909,14 @@ export const createMlflowSearchFilter = (
     filter.push(`attributes.run_id = '${runUuid}'`);
   }
   if (searchQuery) {
-    filter.push(`span.attributes.\`mlflow.spanInputs\` ILIKE '%${searchQuery}%'`);
+    filter.push(
+      // If the query is a trace ID, use a direct indexed lookup on request_id
+      // instead of trace.text ILIKE which scans the spans.content column.
+      // See: https://github.com/mlflow/mlflow/discussions/21193
+      /^tr-[0-9a-f]{32}$/i.test(searchQuery)
+        ? `attributes.request_id = '${searchQuery.toLowerCase()}'`
+        : `trace.text ILIKE '%${searchQuery}%'`,
+    );
   }
   if (timeRange) {
     const timestampField = 'attributes.timestamp_ms';
@@ -651,7 +941,14 @@ export const createMlflowSearchFilter = (
               networkFilter.key.includes('.') || networkFilter.key.includes(' ')
                 ? `${tagField}.\`${networkFilter.key}\``
                 : `${tagField}.${networkFilter.key}`;
-            filter.push(`${fieldName} ${networkFilter.operator} '${networkFilter.value}'`);
+            if (
+              networkFilter.operator === FilterOperator.IS_NULL ||
+              networkFilter.operator === FilterOperator.IS_NOT_NULL
+            ) {
+              filter.push(`${fieldName} ${networkFilter.operator}`);
+            } else {
+              filter.push(`${fieldName} ${networkFilter.operator} '${networkFilter.value}'`);
+            }
           }
           break;
         case EXECUTION_DURATION_COLUMN_ID:
@@ -664,6 +961,13 @@ export const createMlflowSearchFilter = (
           break;
         case USER_COLUMN_ID:
           filter.push(`request_metadata."mlflow.trace.user" = '${networkFilter.value}'`);
+          break;
+        case SESSION_COLUMN_ID:
+          if (networkFilter.operator === 'CONTAINS') {
+            filter.push(`request_metadata.mlflow.trace.session ILIKE '%${networkFilter.value}%'`);
+          } else {
+            filter.push(`request_metadata.mlflow.trace.session = '${networkFilter.value}'`);
+          }
           break;
         case RUN_NAME_COLUMN_ID:
           filter.push(`attributes.run_id = '${networkFilter.value}'`);
@@ -681,10 +985,23 @@ export const createMlflowSearchFilter = (
         case SOURCE_COLUMN_ID:
           filter.push(`request_metadata."mlflow.source.name" ${networkFilter.operator} '${networkFilter.value}'`);
           break;
+        case GIT_BRANCH_COLUMN_ID:
+          filter.push(`request_metadata."mlflow.source.git.branch" ${networkFilter.operator} '${networkFilter.value}'`);
+          break;
+        case GIT_COMMIT_COLUMN_ID:
+          filter.push(`request_metadata."mlflow.source.git.commit" ${networkFilter.operator} '${networkFilter.value}'`);
+          break;
         case TracesTableColumnGroup.ASSESSMENT:
-          // Skip 'undefined' values - these must be filtered client-side since they represent
-          // absence of an assessment, which cannot be queried on the backend
-          if (networkFilter.value !== 'undefined') {
+          // Handle IS NULL / IS NOT NULL operators for assessments
+          // Note: This is not supported in managed backend
+          if (
+            networkFilter.operator === FilterOperator.IS_NULL ||
+            networkFilter.operator === FilterOperator.IS_NOT_NULL
+          ) {
+            filter.push(`feedback.\`${networkFilter.key}\` ${networkFilter.operator}`);
+          } else if (networkFilter.value !== 'undefined') {
+            // Skip 'undefined' values - these must be filtered client-side since they represent
+            // absence of an assessment, which cannot be queried on the backend
             filter.push(`feedback.\`${networkFilter.key}\` ${networkFilter.operator} '${networkFilter.value}'`);
           }
           break;
@@ -701,6 +1018,10 @@ export const createMlflowSearchFilter = (
             filter.push(`span.name ${networkFilter.operator} '${networkFilter.value}'`);
           }
           break;
+        case INPUTS_COLUMN_ID:
+        case RESPONSE_COLUMN_ID:
+          filter.push(`${networkFilter.column} ${networkFilter.operator} '${networkFilter.value}'`);
+          break;
         case SPAN_TYPE_COLUMN_ID:
           if (networkFilter.operator === '=') {
             // Use ILIKE instead of = for case-insensitive matching (better UX for span type filtering)
@@ -711,15 +1032,24 @@ export const createMlflowSearchFilter = (
             filter.push(`span.type ${networkFilter.operator} '${networkFilter.value}'`);
           }
           break;
+        case SPAN_STATUS_COLUMN_ID:
+          // Span status uses exact match (OK, ERROR, UNSET)
+          filter.push(`span.status ${networkFilter.operator} '${networkFilter.value}'`);
+          break;
         case SPAN_CONTENT_COLUMN_ID:
           if (networkFilter.operator === 'CONTAINS') {
             filter.push(`span.content ILIKE '%${networkFilter.value}%'`);
           }
           break;
+        case ISSUE_ID_COLUMN_ID:
+          filter.push(`${ISSUE_ID_COLUMN_ID} ${networkFilter.operator} '${networkFilter.value}'`);
+          break;
         default:
           if (networkFilter.column.startsWith(CUSTOM_METADATA_COLUMN_ID)) {
             const columnKey = `request_metadata.${getCustomMetadataKeyFromColumnId(networkFilter.column)}`;
-            if (networkFilter.operator === FilterOperator.CONTAINS) {
+            if (networkFilter.operator === HiddenFilterOperator.IS_NOT_NULL) {
+              filter.push(`${columnKey} IS NOT NULL`);
+            } else if (networkFilter.operator === FilterOperator.CONTAINS) {
               filter.push(`${columnKey} ILIKE '%${networkFilter.value}%'`);
             } else {
               filter.push(`${columnKey} ${networkFilter.operator} '${networkFilter.value}'`);
@@ -751,75 +1081,4 @@ const createMlflowSearchOrderBy = (tableSort?: EvaluationsOverviewTableSort): st
     default:
       return [];
   }
-};
-
-/**
- * Fetches all mlflow traces for a given experiment id and run id.
- * It returns the traces from artifacts storage if they exist and uses search API otherwise.
- *
- * @param experimentId - The experiment id to fetch traces for.
- * @param runUuid - The run id to fetch traces for. If not provided, it will fetch traces for the entire experiment.
- * @param traceTablesLoggedInRun - The trace tables logged in run to fetch traces for. Only used for fetching from artifacts storage. If not provided, it will fetch from all artifacts
- * @param disabled - Whether to disable the traces call.
- * @param timeRange - The time range to fetch traces for. Start/End time should be in milliseconds since epoch.
- */
-export const useMlflowTraces = (
-  experimentId?: string | null,
-  runUuid?: string | null,
-  traceTablesLoggedInRun?: GenAiTraceEvaluationArtifactFile[],
-  disabled?: boolean,
-  timeRange?: {
-    startTime: string | undefined;
-    endTime: string | undefined;
-  },
-): {
-  data: RunEvaluationTracesDataEntry[];
-  isLoading: boolean;
-  refetchMlflowTraces?: () => Promise<any>;
-  shouldUseTraceV3: boolean;
-  error?: NetworkRequestError;
-} => {
-  const isUnifiedEvalTabEnabled = shouldEnableUnifiedEvalTab();
-
-  const isExperimentIdValid = Boolean(experimentId && experimentId.length > 0);
-  const isArtifactCallEnabled = Boolean(!disabled && runUuid);
-  const isTracesCallEnabled = isExperimentIdValid && Boolean(isUnifiedEvalTabEnabled && !disabled);
-
-  const { data: artifactData, isLoading: isArtifactLoading } = useGenAiTraceEvaluationArtifacts(
-    {
-      runUuid: runUuid || '',
-      ...{ artifacts: traceTablesLoggedInRun ? traceTablesLoggedInRun : undefined },
-    },
-    { disabled: !isArtifactCallEnabled },
-  );
-
-  const filter = createMlflowSearchFilter(runUuid, timeRange);
-
-  const searchRes = useSearchMlflowTracesInner({
-    locations: [{ mlflow_experiment: { experiment_id: experimentId ?? '' }, type: 'MLFLOW_EXPERIMENT' }],
-    filter,
-    enabled: isTracesCallEnabled,
-  });
-
-  if (disabled) {
-    return {
-      data: [],
-      isLoading: false,
-      shouldUseTraceV3: false,
-    };
-  }
-
-  if (!isUnifiedEvalTabEnabled) {
-    return {
-      data: artifactData || [],
-      isLoading: isArtifactLoading,
-      shouldUseTraceV3: false,
-    };
-  }
-
-  return {
-    ...buildTracesFromSearchAndArtifacts(artifactData || [], searchRes, runUuid),
-    isLoading: isArtifactLoading || (searchRes.isLoading && isTracesCallEnabled),
-    refetchMlflowTraces: searchRes.refetch,
-  };
 };

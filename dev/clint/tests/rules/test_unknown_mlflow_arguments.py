@@ -2,11 +2,12 @@ from pathlib import Path
 
 import pytest
 from clint.config import Config
+from clint.index import SymbolIndex
 from clint.linter import Position, Range, lint_file
 from clint.rules.unknown_mlflow_arguments import UnknownMlflowArguments
 
 
-def test_unknown_mlflow_arguments(index_path: Path) -> None:
+def test_unknown_mlflow_arguments(index: SymbolIndex) -> None:
     code = '''
 def bad():
     """
@@ -31,14 +32,14 @@ def good():
         select={UnknownMlflowArguments.name},
         example_rules=[UnknownMlflowArguments.name],
     )
-    violations = lint_file(Path("test.py"), code, config, index_path)
+    violations = lint_file(Path("test.py"), code, config, index)
     assert len(violations) == 1
     assert all(isinstance(v.rule, UnknownMlflowArguments) for v in violations)
     assert violations[0].range == Range(Position(7, 8))
 
 
 @pytest.mark.parametrize("suffix", [".md", ".mdx"])
-def test_unknown_mlflow_arguments_markdown(index_path: Path, suffix: str) -> None:
+def test_unknown_mlflow_arguments_markdown(index: SymbolIndex, suffix: str) -> None:
     code = """
 # Bad
 
@@ -60,7 +61,7 @@ mlflow.log_param(key="k", value="v")
         select={UnknownMlflowArguments.name},
         example_rules=[UnknownMlflowArguments.name],
     )
-    violations = lint_file(Path("test").with_suffix(suffix), code, config, index_path)
+    violations = lint_file(Path("test").with_suffix(suffix), code, config, index)
     assert len(violations) == 1
     assert all(isinstance(v.rule, UnknownMlflowArguments) for v in violations)
     assert violations[0].range == Range(Position(6, 0))

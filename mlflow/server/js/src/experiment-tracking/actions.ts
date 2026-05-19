@@ -12,7 +12,7 @@ import { getUUID } from '../common/utils/ActionUtils';
 import { ErrorCodes } from '../common/constants';
 import { isArray, isObject } from 'lodash';
 import { ViewType } from './sdk/MlflowEnums';
-import { fetchEndpoint, jsonBigIntResponseParser } from '../common/utils/FetchUtils';
+import { defaultResponseParser, fetchEndpoint } from '../common/utils/FetchUtils';
 import { stringify as queryStringStringify } from 'qs';
 import { fetchEvaluationTableArtifact } from './sdk/EvaluationArtifactService';
 import type { EvaluationDataReduxState } from './reducers/EvaluationDataReducer';
@@ -115,15 +115,14 @@ const createRunApi = (experimentId: string, tags?: any, run_name?: string) => {
   };
 };
 
-export interface UploadArtifactApiAction
-  extends AsyncAction<
-    any,
-    {
-      id: string;
-      runUuid: string;
-      filePath: string;
-    }
-  > {
+export interface UploadArtifactApiAction extends AsyncAction<
+  any,
+  {
+    id: string;
+    runUuid: string;
+    filePath: string;
+  }
+> {
   type: 'UPLOAD_ARTIFACT_API';
 }
 export const UPLOAD_ARTIFACT_API = 'UPLOAD_ARTIFACT_API';
@@ -138,7 +137,7 @@ export const uploadArtifactApi = (runUuid: any, filePath: any, fileContent: any)
     relativeUrl: `ajax-api/2.0/mlflow/upload-artifact?${queryParams}`,
     method: 'POST',
     body: JSON.stringify(fileContent),
-    success: jsonBigIntResponseParser,
+    success: defaultResponseParser,
     // Retry the call every time an artifact upload fails
     errorCondition: (res: Response) => !res || !res.ok,
     // Retry for maximum 3 times
@@ -443,8 +442,10 @@ export const listArtifactsLoggedModelApi = (
  * Reducer will populate image keys.
  */
 export const LIST_IMAGES_API = 'LIST_IMAGES_API';
-export interface ListImagesAction
-  extends AsyncAction<ArtifactListFilesResponse, { id: string; runUuid: string; path?: string }> {
+export interface ListImagesAction extends AsyncAction<
+  ArtifactListFilesResponse,
+  { id: string; runUuid: string; path?: string }
+> {
   type: 'LIST_IMAGES_API';
 }
 export const listImagesApi = (runUuid: string, autorefresh = false, id = getUUID()) => {
@@ -620,7 +621,7 @@ export const getEvaluationTableArtifact =
     const { evaluationData: existingEvaluationData } = getState();
     const alreadyInStore = Boolean(
       existingEvaluationData.evaluationArtifactsByRunUuid[runUuid]?.[artifactPath] ||
-        existingEvaluationData.evaluationArtifactsLoadingByRunUuid[runUuid]?.[artifactPath],
+      existingEvaluationData.evaluationArtifactsLoadingByRunUuid[runUuid]?.[artifactPath],
     );
     if (forceRefresh || !alreadyInStore) {
       return dispatch({
@@ -635,8 +636,10 @@ export const getEvaluationTableArtifact =
 /**
  * Defines shape of the fulfilled GET_EVALUATION_ARTIFACT action
  */
-export interface GetEvaluationTableArtifactAction
-  extends AsyncAction<EvaluationArtifactTable, { runUuid: string; artifactPath: string }> {
+export interface GetEvaluationTableArtifactAction extends AsyncAction<
+  EvaluationArtifactTable,
+  { runUuid: string; artifactPath: string }
+> {
   type: 'GET_EVALUATION_TABLE_ARTIFACT';
 }
 export const GET_EVALUATION_TABLE_ARTIFACT = 'GET_EVALUATION_TABLE_ARTIFACT';

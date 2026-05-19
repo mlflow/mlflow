@@ -1,4 +1,5 @@
 import { TableSkeleton, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { escapeRegExp } from 'lodash';
 import type { ICellRendererParams } from '@ag-grid-community/core';
 import { FormattedMessage } from 'react-intl';
 import React from 'react';
@@ -30,13 +31,14 @@ interface EvaluationTextCellRendererProps extends ICellRendererParams {
  * Internal use component - breaks down the rendered text into chunks and highlights
  * particular part found by the provided substring.
  */
+// eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
 const HighlightedText = React.memo(({ text, highlight }: { text: string; highlight: string }) => {
   const { theme } = useDesignSystemTheme();
   if (!highlight) {
     return <>{text}</>;
   }
 
-  const parts = text.split(new RegExp(`(${highlight})`, 'gi'));
+  const parts = text.split(new RegExp(`(${escapeRegExp(highlight)})`, 'gi'));
 
   return (
     <>
@@ -56,7 +58,6 @@ const HighlightedText = React.memo(({ text, highlight }: { text: string; highlig
 /**
  * Component used to render a single text cell in the evaluation artifacts comparison table.
  */
-/* eslint-disable complexity */
 export const EvaluationTextCellRenderer = ({
   value,
   context,

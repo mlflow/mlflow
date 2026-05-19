@@ -1,36 +1,58 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { ChartLineIcon, useDesignSystemTheme } from '@databricks/design-system';
-import { FormattedMessage } from 'react-intl';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { useToolUsageChartData } from '../hooks/useToolUsageChartData';
+import { useItemSelection } from '../hooks/useItemSelection';
 import {
   OverviewChartLoadingState,
   OverviewChartErrorState,
   OverviewChartEmptyState,
   OverviewChartHeader,
   OverviewChartContainer,
-  OverviewChartTimeLabel,
-  useChartTooltipStyle,
+  ScrollableTooltip,
   useChartXAxisProps,
-  useChartLegendFormatter,
+  useChartYAxisProps,
+  useScrollableLegendProps,
 } from './OverviewChartComponents';
-import { formatCount, useLegendHighlight, useToolColors } from '../utils/chartUtils';
-import type { OverviewChartProps } from '../types';
+import { ItemSelector } from './ItemSelector';
+import { formatCount, useLegendHighlight, useChartColors } from '../utils/chartUtils';
 
 /**
  * Chart showing tool usage over time as a stacked bar chart.
  * Each bar is broken down by tool, with each tool having a different color.
  */
-export const ToolUsageChart: React.FC<OverviewChartProps> = (props) => {
+export const ToolUsageChart: React.FC = () => {
   const { theme } = useDesignSystemTheme();
-  const tooltipStyle = useChartTooltipStyle();
+  const intl = useIntl();
   const xAxisProps = useChartXAxisProps();
-  const legendFormatter = useChartLegendFormatter();
+  const yAxisProps = useChartYAxisProps();
+  const scrollableLegendProps = useScrollableLegendProps();
   const { getOpacity, handleLegendMouseEnter, handleLegendMouseLeave } = useLegendHighlight();
-  const { getToolColor } = useToolColors();
+  const { getChartColor } = useChartColors();
 
   // Fetch and process tool usage chart data
-  const { chartData, toolNames, isLoading, error, hasData } = useToolUsageChartData(props);
+  const { chartData, toolNames, isLoading, error, hasData } = useToolUsageChartData();
+
+  // Tool selection state
+  const { displayedItems, isAllSelected, selectorLabel, handleSelectAllToggle, handleItemToggle } = useItemSelection(
+    toolNames,
+    {
+      allSelected: intl.formatMessage({
+        defaultMessage: 'All tools',
+        description: 'Label for tool selector when all tools are selected',
+      }),
+      noneSelected: intl.formatMessage({
+        defaultMessage: 'No tools selected',
+        description: 'Label for tool selector when no tools are selected',
+      }),
+    },
+  );
+
+  const tooltipFormatter = useCallback(
+    (value: number, name: string) => [formatCount(value), name] as [string, string],
+    [],
+  );
 
   if (isLoading) {
     return <OverviewChartLoadingState />;
@@ -41,42 +63,62 @@ export const ToolUsageChart: React.FC<OverviewChartProps> = (props) => {
   }
 
   return (
-    <OverviewChartContainer>
-      <OverviewChartHeader
-        icon={<ChartLineIcon />}
-        title={<FormattedMessage defaultMessage="Tool Usage Over Time" description="Title for the tool usage chart" />}
-      />
-
-      <OverviewChartTimeLabel />
+    <OverviewChartContainer componentId="mlflow.charts.tool_usage">
+      <div css={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <OverviewChartHeader
+          icon={<ChartLineIcon />}
+          title={
+            <FormattedMessage defaultMessage="Tool Usage Over Time" description="Title for the tool usage chart" />
+          }
+        />
+        {hasData && (
+          <ItemSelector
+            componentId="mlflow.charts.tool_usage.tool_selector"
+            itemNames={toolNames}
+            displayedItems={displayedItems}
+            isAllSelected={isAllSelected}
+            selectorLabel={selectorLabel}
+            onSelectAllToggle={handleSelectAllToggle}
+            onItemToggle={handleItemToggle}
+          />
+        )}
+      </div>
 
       {/* Chart */}
-      <div css={{ height: 200, marginTop: theme.spacing.sm }}>
-        {hasData ? (
+      <div css={{ height: 300, marginTop: theme.spacing.sm }}>
+        {hasData && displayedItems.length > 0 ? (
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
               <XAxis dataKey="timestamp" {...xAxisProps} />
-              <YAxis hide />
+              <YAxis {...yAxisProps} />
               <Tooltip
-                contentStyle={tooltipStyle}
+                content={
+                  <ScrollableTooltip
+                    formatter={tooltipFormatter}
+                    componentId="mlflow.overview.usage.traces.view_traces_link"
+                  />
+                }
                 cursor={{ fill: theme.colors.actionTertiaryBackgroundHover }}
-                formatter={(value: number, name: string) => [formatCount(value), name]}
+                wrapperStyle={{ pointerEvents: 'auto' }}
               />
-              {toolNames.map((toolName, index) => (
-                <Bar
-                  key={toolName}
-                  dataKey={toolName}
-                  stackId="tools"
-                  fill={getToolColor(index)}
-                  fillOpacity={getOpacity(toolName)}
-                />
-              ))}
+              {displayedItems.map((toolName) => {
+                const originalIndex = toolNames.indexOf(toolName);
+                return (
+                  <Bar
+                    key={toolName}
+                    dataKey={toolName}
+                    stackId="tools"
+                    fill={getChartColor(originalIndex)}
+                    fillOpacity={getOpacity(toolName)}
+                  />
+                );
+              })}
               <Legend
                 verticalAlign="bottom"
                 iconType="square"
-                height={36}
                 onMouseEnter={handleLegendMouseEnter}
                 onMouseLeave={handleLegendMouseLeave}
-                formatter={legendFormatter}
+                {...scrollableLegendProps}
               />
             </BarChart>
           </ResponsiveContainer>

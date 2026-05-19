@@ -21,6 +21,7 @@ export interface ToggleIconButtonProps extends ButtonProps {
  * TODO: replace this component with the one from DuBois design system when available.
  */
 const ToggleIconButton = React.forwardRef<HTMLButtonElement, ToggleIconButtonProps>(
+  // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
   (props: ToggleIconButtonProps, ref) => {
     const {
       pressed,

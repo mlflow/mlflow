@@ -51,7 +51,7 @@ public class ModelRegistryMlflowClientTest {
 
     @BeforeTest
     public void before() throws IOException {
-        client = testClientProvider.initializeClientAndSqlLiteBasedServer();
+        client = testClientProvider.initializeClientAndServer();
         modelName = "Model-" + UUID.randomUUID().toString();
 
         String expName = createExperimentName();

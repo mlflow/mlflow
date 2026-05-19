@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import {
   ArrowLeftIcon,
   BeakerIcon,
@@ -6,13 +6,14 @@ import {
   Button,
   InfoBookIcon,
   ParagraphSkeleton,
+  Tag,
   TitleSkeleton,
   Tooltip,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { FormattedMessage } from 'react-intl';
-import { Link } from '../../../../../common/utils/RoutingUtils';
+import { FormattedMessage, useIntl } from 'react-intl';
+import { createMLflowRoutePath, Link, useLocation, useNavigate } from '../../../../../common/utils/RoutingUtils';
 import Routes from '../../../../routes';
 import { ExperimentViewCopyTitle } from './ExperimentViewCopyTitle';
 import type { ExperimentEntity } from '../../../../types';
@@ -22,13 +23,16 @@ import { ExperimentViewArtifactLocation } from '../ExperimentViewArtifactLocatio
 import { ExperimentViewCopyExperimentId } from './ExperimentViewCopyExperimentId';
 import { ExperimentViewCopyArtifactLocation } from './ExperimentViewCopyArtifactLocation';
 import { InfoPopover } from '@databricks/design-system';
-import { TabSelectorBar } from './tab-selector-bar/TabSelectorBar';
 import { ExperimentViewHeaderShareButton } from './ExperimentViewHeaderShareButton';
-import { getExperimentKindFromTags, isGenAIExperimentKind } from '../../../../utils/ExperimentKindUtils';
+import { useExperimentKind, isGenAIExperimentKind } from '../../../../utils/ExperimentKindUtils';
 import { ExperimentViewManagementMenu } from './ExperimentViewManagementMenu';
-import { shouldEnableExperimentPageSideTabs } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
+import { shouldEnableWorkflowBasedNavigation } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 
-import { ExperimentKind } from '../../../../constants';
+import { ExperimentKind, ExperimentPageTabName } from '../../../../constants';
+import { useGetExperimentPageActiveTabByRoute } from '../../hooks/useGetExperimentPageActiveTabByRoute';
+import { useWorkflowType } from '@mlflow/mlflow/src/common/contexts/WorkflowTypeContext';
+import { getTabDisplayIcon, getTabDisplayName } from './ExperimentViewHeader.utils';
+import { formatTraceArchivalRetentionForDisplay } from '../../../../../common/utils/traceArchival';
 
 const getDocLinkHref = (experimentKind: ExperimentKind) => {
   if (isGenAIExperimentKind(experimentKind)) {
@@ -42,6 +46,7 @@ const getDocLinkHref = (experimentKind: ExperimentKind) => {
  * controls for renaming, deleting and editing permissions.
  */
 export const ExperimentViewHeader = React.memo(
+  // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
   ({
     experiment,
     inferredExperimentKind,
@@ -49,7 +54,6 @@ export const ExperimentViewHeader = React.memo(
     uiState,
     setEditing,
     experimentKindSelector,
-    refetchExperiment,
   }: {
     experiment: ExperimentEntity;
     inferredExperimentKind?: ExperimentKind;
@@ -57,25 +61,74 @@ export const ExperimentViewHeader = React.memo(
     uiState?: ExperimentPageUIState;
     setEditing: (editing: boolean) => void;
     experimentKindSelector?: React.ReactNode;
-    refetchExperiment?: () => Promise<unknown>;
   }) => {
     const { theme } = useDesignSystemTheme();
+    const intl = useIntl();
+    const navigate = useNavigate();
+    const location = useLocation();
+    const handleBack = useCallback(() => {
+      const pathSegments = location.pathname.split('/').filter(Boolean);
+
+      // Unlike /chat-sessions/:sessionId where popping a segment lands on a
+      // valid list page, /overview/:overviewTab has no /overview landing page.
+      // Strip the sub-tab so back navigation treats it like other top-level tabs.
+      if (pathSegments[0] === 'experiments' && pathSegments[2] === 'overview') {
+        pathSegments.splice(3);
+      }
+
+      // Navigate to /experiments for tab pages (up to 3 segments: /experiments/ID/tab)
+      // For deeper paths, remove last segment to navigate to parent
+      if (pathSegments.length <= 3 && pathSegments[0] === 'experiments') {
+        navigate(Routes.experimentsObservatoryRoute);
+      } else {
+        pathSegments.pop();
+        navigate(createMLflowRoutePath('/') + pathSegments.join('/'));
+      }
+    }, [location.pathname, navigate]);
+    const experimentIds = useMemo(() => (experiment ? [experiment?.experimentId] : []), [experiment]);
+
+    // In OSS, we don't need to show the docs link anymore as the link is in the sidebar
+    const showDocsLink = false;
+
+    // Extract the last part of the experiment name
+    const { tabName: activeTabByRoute } = useGetExperimentPageActiveTabByRoute();
+    const { workflowType } = useWorkflowType();
+    const tabDisplayName = activeTabByRoute ? getTabDisplayName(activeTabByRoute, workflowType) : undefined;
+    const normalizedExperimentName = useMemo(() => experiment.name.split('/').pop(), [experiment.name]);
+    const traceArchivalRetention =
+      formatTraceArchivalRetentionForDisplay(experiment.effectiveTraceArchivalRetention?.trim(), intl) || undefined;
+    const shouldShowTraceArchivalBadge =
+      activeTabByRoute === ExperimentPageTabName.Traces ||
+      activeTabByRoute === ExperimentPageTabName.ChatSessions ||
+      activeTabByRoute === ExperimentPageTabName.SingleChatSession;
+    const experimentTitle =
+      shouldEnableWorkflowBasedNavigation() && tabDisplayName ? tabDisplayName : normalizedExperimentName;
+
     const breadcrumbs: React.ReactNode[] = useMemo(
       () => [
         // eslint-disable-next-line react/jsx-key
-        <Link to={Routes.experimentsObservatoryRoute} data-testid="experiment-observatory-link">
+        <Link
+          key="observatory"
+          componentId="mlflow.experiment_tracking.header.experiments_breadcrumb_link"
+          to={Routes.experimentsObservatoryRoute}
+          data-testid="experiment-observatory-link"
+        >
           <FormattedMessage
             defaultMessage="Experiments"
             description="Breadcrumb nav item to link to the list of experiments page"
           />
         </Link>,
+        <Link
+          key="experiment"
+          componentId="mlflow.experiment_tracking.header.experiment_name_breadcrumb_link"
+          to={Routes.getExperimentPageRoute(experiment.experimentId ?? '')}
+          data-testid="experiment-link"
+        >
+          {normalizedExperimentName}
+        </Link>,
       ],
-      [],
+      [experiment.experimentId, normalizedExperimentName],
     );
-    const experimentIds = useMemo(() => (experiment ? [experiment?.experimentId] : []), [experiment]);
-
-    // Extract the last part of the experiment name
-    const normalizedExperimentName = useMemo(() => experiment.name.split('/').pop(), [experiment.name]);
 
     const getInfoTooltip = () => {
       return (
@@ -114,14 +167,25 @@ export const ExperimentViewHeader = React.memo(
                 : <ExperimentViewArtifactLocation artifactLocation={experiment.artifactLocation} />{' '}
                 <ExperimentViewCopyArtifactLocation experiment={experiment} />
               </div>
+              {traceArchivalRetention && (
+                <div style={{ whiteSpace: 'nowrap' }}>
+                  <FormattedMessage
+                    defaultMessage="Trace Archival Retention"
+                    description="Label for displaying the experiment trace archival retention"
+                  />
+                  : {traceArchivalRetention}
+                </div>
+              )}
             </div>
           </InfoPopover>
         </div>
       );
     };
 
-    const experimentKind = inferredExperimentKind ?? getExperimentKindFromTags(experiment.tags);
+    const experimentKindFromContext = useExperimentKind(experiment.tags);
+    const experimentKind = inferredExperimentKind ?? experimentKindFromContext;
     const docLinkHref = getDocLinkHref(experimentKind ?? ExperimentKind.NO_INFERRED_TYPE);
+    const showBreadcrumbs = shouldEnableWorkflowBasedNavigation();
 
     return (
       <div
@@ -129,10 +193,10 @@ export const ExperimentViewHeader = React.memo(
           display: 'flex',
           flexDirection: 'column',
           gap: theme.spacing.xs,
-          marginBottom: shouldEnableExperimentPageSideTabs() ? theme.spacing.xs : theme.spacing.sm,
+          marginBottom: theme.spacing.xs,
         }}
       >
-        {!shouldEnableExperimentPageSideTabs() && (
+        {showBreadcrumbs && (
           <Breadcrumb includeTrailingCaret>
             {breadcrumbs.map((breadcrumb, index) => (
               <Breadcrumb.Item key={index}>{breadcrumb}</Breadcrumb.Item>
@@ -142,34 +206,33 @@ export const ExperimentViewHeader = React.memo(
         <div
           css={{
             display: 'grid',
-            gridTemplateColumns: shouldEnableExperimentPageSideTabs() ? '1fr auto auto' : '1fr 1fr 1fr',
+            gridTemplateColumns: '1fr auto auto',
           }}
         >
           <div
             css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center', overflow: 'hidden', minWidth: 250 }}
           >
-            {shouldEnableExperimentPageSideTabs() && (
-              <>
-                <Link to={Routes.experimentsObservatoryRoute}>
-                  <Button
-                    componentId="mlflow.experiment-page.header.back-icon-button"
-                    type="tertiary"
-                    icon={<ArrowLeftIcon />}
-                  />
-                </Link>
-                <div
-                  css={{
-                    borderRadius: theme.borders.borderRadiusSm,
-                    backgroundColor: theme.colors.backgroundSecondary,
-                    padding: theme.spacing.sm,
-                  }}
-                >
-                  <BeakerIcon />
-                </div>
-              </>
+            {!shouldEnableWorkflowBasedNavigation() && (
+              <Button
+                componentId="mlflow.experiment-page.header.back-icon-button"
+                data-testid="experiment-view-header-back-button"
+                type="tertiary"
+                icon={<ArrowLeftIcon />}
+                onClick={handleBack}
+              />
             )}
+            <div
+              css={{
+                borderRadius: theme.borders.borderRadiusSm,
+                backgroundColor: theme.colors.backgroundSecondary,
+                padding: theme.spacing.sm,
+              }}
+            >
+              {getTabDisplayIcon(activeTabByRoute)}
+            </div>
             <Tooltip
               content={normalizedExperimentName}
+              open={shouldEnableWorkflowBasedNavigation() ? false : undefined}
               componentId="mlflow.experiment_view.header.experiment-name-tooltip"
             >
               <span
@@ -187,31 +250,49 @@ export const ExperimentViewHeader = React.memo(
                     whiteSpace: 'nowrap',
                   }}
                 >
-                  {normalizedExperimentName}
+                  {experimentTitle}
                 </Typography.Title>
               </span>
             </Tooltip>
             {experimentKindSelector}
+            {traceArchivalRetention && shouldShowTraceArchivalBadge && (
+              <div css={{ display: 'flex', alignItems: 'center' }}>
+                <Tooltip
+                  componentId="mlflow.experiment_view.header.trace_archival_badge_tooltip"
+                  content={
+                    <FormattedMessage
+                      defaultMessage="Archived traces remain accessible, but searching within span content no longer works after archival."
+                      description="Tooltip explaining the trace archival badge behavior"
+                    />
+                  }
+                >
+                  <Tag
+                    componentId="mlflow.experiment_view.header.trace_archival_badge"
+                    color="turquoise"
+                    css={{ margin: 0 }}
+                  >
+                    <FormattedMessage
+                      defaultMessage="Archive after: {retention}"
+                      description="Badge showing the active trace archival retention for the experiment"
+                      values={{ retention: traceArchivalRetention }}
+                    />
+                  </Tag>
+                </Tooltip>
+              </div>
+            )}
             {getInfoTooltip()}
           </div>
-          {shouldEnableExperimentPageSideTabs() ? <div /> : <TabSelectorBar experimentKind={experimentKind} />}
+          <div />
           <div
             css={{ display: 'flex', gap: theme.spacing.sm, justifyContent: 'flex-end', marginLeft: theme.spacing.sm }}
           >
-            {shouldEnableExperimentPageSideTabs() && (
-              <ExperimentViewManagementMenu
-                experiment={experiment}
-                setEditing={setEditing}
-                refetchExperiment={refetchExperiment}
-              />
-            )}
+            <ExperimentViewManagementMenu experiment={experiment} setEditing={setEditing} />
             <ExperimentViewHeaderShareButton
-              type={shouldEnableExperimentPageSideTabs() ? undefined : 'primary'}
               experimentIds={experimentIds}
               searchFacetsState={searchFacetsState}
               uiState={uiState}
             />
-            {shouldEnableExperimentPageSideTabs() && (
+            {showDocsLink && (
               <Typography.Link
                 componentId="mlflow.experiment-page.header.docs-link"
                 href={docLinkHref}
@@ -225,13 +306,6 @@ export const ExperimentViewHeader = React.memo(
                   />
                 </Button>
               </Typography.Link>
-            )}
-            {!shouldEnableExperimentPageSideTabs() && (
-              <ExperimentViewManagementMenu
-                experiment={experiment}
-                setEditing={setEditing}
-                refetchExperiment={refetchExperiment}
-              />
             )}
           </div>
         </div>

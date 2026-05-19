@@ -2,9 +2,11 @@ import json
 import os
 import subprocess
 import tarfile
+from pathlib import Path
 
+from mlflow.exceptions import MlflowException
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
-from mlflow.utils.file_utils import get_or_create_tmp_dir
+from mlflow.utils.file_utils import check_tarfile_security, get_or_create_tmp_dir
 
 _CACHE_MAP_FILE_NAME = "db_connect_artifact_cache.json"
 
@@ -104,11 +106,17 @@ class DBConnectArtifactCache:
         Get unpacked artifact directory path, you can only call this method
         inside Databricks Connect spark UDF sandbox.
         """
+        from pyspark.taskcontext import TaskContext
+
         if cache_key not in self._cache:
             raise RuntimeError(f"The artifact '{cache_key}' does not exist.")
         archive_file_name = self._cache[cache_key]
 
         if session_id := os.environ.get("DB_SESSION_UUID"):
+            task_context = TaskContext.get()
+            if hasattr(task_context, "artifactDir"):
+                return os.path.join(task_context.artifactDir(), "archives", archive_file_name)
+
             return (
                 f"/local_disk0/.ephemeral_nfs/artifacts/{session_id}/archives/{archive_file_name}"
             )
@@ -138,7 +146,20 @@ def archive_directory(input_dir, archive_file_path):
 
 
 def extract_archive_to_dir(archive_path, dest_dir):
+    check_tarfile_security(archive_path)
     os.makedirs(dest_dir, exist_ok=True)
     with tarfile.open(archive_path, "r") as tar:
-        tar.extractall(path=dest_dir)
+        _safe_extractall(tar, dest_dir)
     return dest_dir
+
+
+def _safe_extractall(tar, dest_dir):
+    resolved_dest = Path(dest_dir).resolve()
+    for member in tar.getmembers():
+        member_path = (resolved_dest / member.name).resolve()
+        if not (member_path == resolved_dest or resolved_dest in member_path.parents):
+            raise MlflowException.invalid_parameter_value(
+                f"Tar archive member {member.name!r} would be extracted outside "
+                f"the destination directory."
+            )
+        tar.extract(member, path=resolved_dest)

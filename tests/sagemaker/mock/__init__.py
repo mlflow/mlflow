@@ -118,9 +118,9 @@ class SageMakerResponse(BaseResponse):
         single response.
         """
         endpoint_summaries = self.sagemaker_backend.list_endpoints()
-        return json.dumps(
-            {"Endpoints": [summary.response_object for summary in endpoint_summaries]}
-        )
+        return json.dumps({
+            "Endpoints": [summary.response_object for summary in endpoint_summaries]
+        })
 
     def list_endpoint_configs(self):
         """
@@ -132,9 +132,9 @@ class SageMakerResponse(BaseResponse):
         """
         # Note:
         endpoint_config_summaries = self.sagemaker_backend.list_endpoint_configs()
-        return json.dumps(
-            {"EndpointConfigs": [summary.response_object for summary in endpoint_config_summaries]}
-        )
+        return json.dumps({
+            "EndpointConfigs": [summary.response_object for summary in endpoint_config_summaries]
+        })
 
     def list_models(self):
         """
@@ -251,13 +251,11 @@ class SageMakerResponse(BaseResponse):
         single response.
         """
         transform_job_summaries = self.sagemaker_backend.list_transform_jobs()
-        return json.dumps(
-            {
-                "TransformJobSummaries": [
-                    summary.response_object for summary in transform_job_summaries
-                ]
-            }
-        )
+        return json.dumps({
+            "TransformJobSummaries": [
+                summary.response_object for summary in transform_job_summaries
+            ]
+        })
 
 
 class SageMakerBackend(BaseBackend):

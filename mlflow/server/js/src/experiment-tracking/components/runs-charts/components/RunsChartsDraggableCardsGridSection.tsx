@@ -3,7 +3,7 @@ import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import { useUpdateRunsChartsUIConfiguration } from '../hooks/useRunsChartsUIConfiguration';
 import type { RunsChartsCardConfig } from '../runs-charts.types';
 import type { RunsChartsRunData } from './RunsCharts.common';
-import { isEmptyChartCard } from './RunsCharts.common';
+import { createEmptyChartCardPredicate } from './RunsCharts.common';
 import { useMediaQuery } from '@databricks/web-shared/hooks';
 import { Global } from '@emotion/react';
 import { FormattedMessage } from 'react-intl';
@@ -44,6 +44,7 @@ interface RunsChartsDraggableCardsGridProps {
 
 // Renders draggable cards grid in a single chart section
 export const RunsChartsDraggableCardsGridSection = memo(
+  // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
   ({
     cardsConfig,
     sectionConfig,
@@ -57,7 +58,7 @@ export const RunsChartsDraggableCardsGridSection = memo(
     // If below medium breakpoint, display only 1 card per row.
     // Otherwise, use section configuration or fall back to 3 columns.
     const isCompactMode = useMediaQuery(`(max-width: ${theme.responsive.breakpoints.md}px)`);
-    const columns = isCompactMode ? 1 : sectionConfig.columns ?? 3;
+    const columns = isCompactMode ? 1 : (sectionConfig.columns ?? 3);
 
     // Use card height from the section configuration or fall back to 360 pixels.
     const cardHeight = sectionConfig.cardHeight ?? 360;
@@ -158,11 +159,12 @@ export const RunsChartsDraggableCardsGridSection = memo(
     );
 
     const cardsToRender = useMemo(() => {
+      const isEmptyChartCard = createEmptyChartCardPredicate(chartRunData);
       return cardsConfig.filter((cardConfig) => {
         if (!hideEmptyCharts) {
           return true;
         }
-        return !isEmptyChartCard(chartRunData, cardConfig);
+        return !isEmptyChartCard(cardConfig);
       });
     }, [cardsConfig, chartRunData, hideEmptyCharts]);
 

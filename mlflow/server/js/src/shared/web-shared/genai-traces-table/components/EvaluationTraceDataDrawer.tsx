@@ -2,8 +2,8 @@ import { isNil } from 'lodash';
 
 import { Drawer, Empty, Spacer, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
-import type { ModelTrace } from '@databricks/web-shared/model-trace-explorer';
-import { ModelTraceExplorer } from '@databricks/web-shared/model-trace-explorer';
+import type { ModelTrace } from '../../model-trace-explorer/ModelTrace.types';
+import { ModelTraceExplorer } from '../../model-trace-explorer/ModelTraceExplorer';
 
 export const EvaluationTraceDataDrawer = ({
   requestId,

@@ -15,7 +15,7 @@ describe('ShowArtifactVideoView', () => {
   const getArtifactMock = jest.fn(() => Promise.resolve(DUMMY_BLOB));
 
   beforeAll(() => {
-    global.URL.createObjectURL = jest.fn(() => 'blob://dummy-url');
+    jest.spyOn(global.URL, 'createObjectURL').mockImplementation(() => 'blob://dummy-url');
     global.URL.revokeObjectURL = jest.fn();
   });
 

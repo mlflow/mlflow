@@ -107,9 +107,12 @@ export const useEditKeyValueTagsModal = <T extends { tags?: KeyValueEntity[] }>(
   const onKeyChangeCallback = (key: string | undefined) => {
     const tag = key ? finalTags.get(key) : undefined;
     /**
-     * If a tag value exists for provided key, set the value to the existing tag value
+     * If a tag value exists for provided key, set the value to the existing tag value.
+     * Otherwise, leave the current value intact so the user's input is not cleared.
      */
-    form.setValue('value', tag?.value ?? '');
+    if (tag) {
+      form.setValue('value', tag.value);
+    }
   };
 
   const handleTagDelete = ({ key }: KeyValueEntity) => {
@@ -122,6 +125,13 @@ export const useEditKeyValueTagsModal = <T extends { tags?: KeyValueEntity[] }>(
   const onSubmit = () => {
     // Do not accept form if no value provided while it's required
     if (valueRequired && !formValues.value.trim()) {
+      form.setError('value', {
+        type: 'required',
+        message: intl.formatMessage({
+          defaultMessage: 'A tag value is required',
+          description: 'Key-value tag editor modal > Value required error message',
+        }),
+      });
       return;
     }
 
@@ -245,7 +255,11 @@ export const useEditKeyValueTagsModal = <T extends { tags?: KeyValueEntity[] }>(
                 defaultMessage: 'Type a value',
                 description: 'Key-value tag editor modal > Value input placeholder',
               })}
+              validationState={form.formState.errors.value ? 'error' : undefined}
             />
+            {form.formState.errors.value && (
+              <FormUI.Message type="error" message={form.formState.errors.value.message} />
+            )}
           </div>
         </div>
         <Tooltip

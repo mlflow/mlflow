@@ -1,4 +1,4 @@
-import { compact, isNil } from 'lodash';
+import { compact } from 'lodash';
 import { useCallback, useLayoutEffect, useMemo, useState } from 'react';
 
 import type {
@@ -8,6 +8,7 @@ import type {
   SpanFilterState,
   ModelTrace,
 } from '../ModelTrace.types';
+import { SpanLogLevel } from '../ModelTrace.types';
 import { searchTree } from '../ModelTraceExplorer.utils';
 import {
   getSpanNodeParentIds,
@@ -20,7 +21,7 @@ const getDefaultSpanFilterState = (treeNodes: ModelTraceSpanNode[]): SpanFilterS
 
   // populate the spanTypeDisplayState with
   // all span types that exist on the trace
-  if (treeNodes) {
+  if (treeNodes && treeNodes.length > 0) {
     const allSpanTypes = compact(getTimelineTreeNodesList<ModelTraceSpanNode>(treeNodes).map((node) => node.type));
     allSpanTypes.forEach((spanType) => {
       spanTypeDisplayState[spanType] = true;
@@ -31,6 +32,8 @@ const getDefaultSpanFilterState = (treeNodes: ModelTraceSpanNode[]): SpanFilterS
     showParents: true,
     showExceptions: true,
     spanTypeDisplayState,
+    // DEBUG is the lowest level, so the default threshold shows every span.
+    minLogLevel: SpanLogLevel.DEBUG,
   };
 };
 
@@ -80,15 +83,22 @@ export const useModelTraceSearch = ({
   const [searchFilter, setSearchFilter] = useState<string>('');
   const [spanFilterState, setSpanFilterState] = useState<SpanFilterState>(() => getDefaultSpanFilterState(treeNodes));
   const [activeMatchIndex, setActiveMatchIndex] = useState(0);
-  const treeNodesKeys = treeNodes.map((n) => n.key).join(',');
+  const treeNodesKeys = useMemo(() => treeNodes.map((n) => n.key).join(','), [treeNodes]);
   const { filteredTreeNodes, matches } = useMemo(() => {
+    if (!treeNodes || treeNodes.length === 0) {
+      return {
+        filteredTreeNodes: [],
+        matches: [],
+      };
+    }
+
     // Run search over each root and merge results
     const merged = treeNodes.map((root) => searchTree(root, searchFilter, spanFilterState));
     return {
       filteredTreeNodes: merged.flatMap((r) => r.filteredTreeNodes),
       matches: merged.flatMap((r) => r.matches),
     };
-    // use the span ID to determine whether the state should be recomputed.
+    // use the span IDs to determine whether the state should be recomputed.
     // using the whole object seems to cause the state to be reset at
     // unexpected times.
     // eslint-disable-next-line react-hooks/exhaustive-deps

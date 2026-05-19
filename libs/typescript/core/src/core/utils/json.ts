@@ -13,7 +13,7 @@ const JSONBigInt = require('./json-bigint/index.js');
 const JSONBig: JSON = JSONBigInt({
   useNativeBigInt: true,
   alwaysParseAsBig: false,
-  storeAsString: false
+  storeAsString: false,
 });
 
 /**
@@ -37,7 +37,7 @@ export function safeJsonStringify(value: any): string {
       return {
         name: val.name,
         message: val.message,
-        stack: val.stack
+        stack: val.stack,
       };
     }
 

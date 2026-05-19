@@ -6,6 +6,8 @@ import { AggregationType, SpanMetricKey, SpanDimensionKey } from '@databricks/we
 import type { ReactNode } from 'react';
 import { setupServer } from '../../../../common/utils/setup-msw';
 import { rest } from 'msw';
+import { OverviewChartProvider } from '../OverviewChartContext';
+import { getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 
 // Helper to create a tool latency data point
 const createToolLatencyDataPoint = (timeBucket: string, toolName: string, avgLatency: number) => ({
@@ -29,8 +31,8 @@ describe('useToolLatencyChartData', () => {
     new Date('2025-12-22T12:00:00Z').getTime(),
   ];
 
-  const defaultProps = {
-    experimentId: testExperimentId,
+  const contextProps = {
+    experimentIds: [testExperimentId],
     startTimeMs,
     endTimeMs,
     timeIntervalSeconds,
@@ -48,17 +50,20 @@ describe('useToolLatencyChartData', () => {
       },
     });
 
-  const createWrapper = () => {
+  const createWrapper = (contextOverrides: Partial<typeof contextProps> = {}) => {
     const queryClient = createQueryClient();
+    const mergedContextProps = { ...contextProps, ...contextOverrides };
     return ({ children }: { children: ReactNode }) => (
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      <QueryClientProvider client={queryClient}>
+        <OverviewChartProvider {...mergedContextProps}>{children}</OverviewChartProvider>
+      </QueryClientProvider>
     );
   };
 
   // Helper to setup MSW handler for the trace metrics endpoint
   const setupTraceMetricsHandler = (dataPoints: any[]) => {
     server.use(
-      rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+      rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), (_req, res, ctx) => {
         return res(ctx.json({ data_points: dataPoints }));
       }),
     );
@@ -73,12 +78,12 @@ describe('useToolLatencyChartData', () => {
   describe('loading state', () => {
     it('should return isLoading true while fetching', async () => {
       server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+        rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), (_req, res, ctx) => {
           return res(ctx.delay('infinite'));
         }),
       );
 
-      const { result } = renderHook(() => useToolLatencyChartData(defaultProps), {
+      const { result } = renderHook(() => useToolLatencyChartData(), {
         wrapper: createWrapper(),
       });
 
@@ -90,12 +95,12 @@ describe('useToolLatencyChartData', () => {
   describe('error state', () => {
     it('should return error when API call fails', async () => {
       server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+        rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), (_req, res, ctx) => {
           return res(ctx.status(500), ctx.json({ error: 'API Error' }));
         }),
       );
 
-      const { result } = renderHook(() => useToolLatencyChartData(defaultProps), {
+      const { result } = renderHook(() => useToolLatencyChartData(), {
         wrapper: createWrapper(),
       });
 
@@ -109,7 +114,7 @@ describe('useToolLatencyChartData', () => {
     it('should return hasData false when no data points', async () => {
       // Default handler returns empty array
 
-      const { result } = renderHook(() => useToolLatencyChartData(defaultProps), {
+      const { result } = renderHook(() => useToolLatencyChartData(), {
         wrapper: createWrapper(),
       });
 
@@ -125,16 +130,13 @@ describe('useToolLatencyChartData', () => {
     it('should return hasData false when time range is not provided', async () => {
       // Default handler returns empty array
 
-      const { result } = renderHook(
-        () =>
-          useToolLatencyChartData({
-            ...defaultProps,
-            startTimeMs: undefined,
-            endTimeMs: undefined,
-            timeBuckets: [],
-          }),
-        { wrapper: createWrapper() },
-      );
+      const { result } = renderHook(() => useToolLatencyChartData(), {
+        wrapper: createWrapper({
+          startTimeMs: undefined,
+          endTimeMs: undefined,
+          timeBuckets: [],
+        }),
+      });
 
       await waitFor(() => {
         expect(result.current.isLoading).toBe(false);
@@ -152,7 +154,7 @@ describe('useToolLatencyChartData', () => {
         createToolLatencyDataPoint('2025-12-22T11:00:00Z', 'beta_tool', 150),
       ]);
 
-      const { result } = renderHook(() => useToolLatencyChartData(defaultProps), {
+      const { result } = renderHook(() => useToolLatencyChartData(), {
         wrapper: createWrapper(),
       });
 
@@ -170,7 +172,7 @@ describe('useToolLatencyChartData', () => {
         createToolLatencyDataPoint('2025-12-22T12:00:00Z', 'tool_a', 200),
       ]);
 
-      const { result } = renderHook(() => useToolLatencyChartData(defaultProps), {
+      const { result } = renderHook(() => useToolLatencyChartData(), {
         wrapper: createWrapper(),
       });
 
@@ -191,7 +193,7 @@ describe('useToolLatencyChartData', () => {
         createToolLatencyDataPoint('2025-12-22T10:00:00Z', 'tool_a', 100),
       ]);
 
-      const { result } = renderHook(() => useToolLatencyChartData(defaultProps), {
+      const { result } = renderHook(() => useToolLatencyChartData(), {
         wrapper: createWrapper(),
       });
 
@@ -218,7 +220,7 @@ describe('useToolLatencyChartData', () => {
         createToolLatencyDataPoint('2025-12-22T10:00:00Z', 'tool_b', 50),
       ]);
 
-      const { result } = renderHook(() => useToolLatencyChartData(defaultProps), {
+      const { result } = renderHook(() => useToolLatencyChartData(), {
         wrapper: createWrapper(),
       });
 
@@ -248,7 +250,7 @@ describe('useToolLatencyChartData', () => {
         createToolLatencyDataPoint('2025-12-22T10:00:00Z', 'valid_tool', 50),
       ]);
 
-      const { result } = renderHook(() => useToolLatencyChartData(defaultProps), {
+      const { result } = renderHook(() => useToolLatencyChartData(), {
         wrapper: createWrapper(),
       });
 
@@ -263,7 +265,7 @@ describe('useToolLatencyChartData', () => {
     it('should return hasData true when there are tool names', async () => {
       setupTraceMetricsHandler([createToolLatencyDataPoint('2025-12-22T10:00:00Z', 'tool_a', 100)]);
 
-      const { result } = renderHook(() => useToolLatencyChartData(defaultProps), {
+      const { result } = renderHook(() => useToolLatencyChartData(), {
         wrapper: createWrapper(),
       });
 
@@ -280,13 +282,13 @@ describe('useToolLatencyChartData', () => {
       let capturedBody: any = null;
 
       server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+        rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), async (req, res, ctx) => {
           capturedBody = await req.json();
           return res(ctx.json({ data_points: [] }));
         }),
       );
 
-      renderHook(() => useToolLatencyChartData(defaultProps), {
+      renderHook(() => useToolLatencyChartData(), {
         wrapper: createWrapper(),
       });
 
@@ -301,13 +303,13 @@ describe('useToolLatencyChartData', () => {
       let capturedBody: any = null;
 
       server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+        rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), async (req, res, ctx) => {
           capturedBody = await req.json();
           return res(ctx.json({ data_points: [] }));
         }),
       );
 
-      renderHook(() => useToolLatencyChartData(defaultProps), {
+      renderHook(() => useToolLatencyChartData(), {
         wrapper: createWrapper(),
       });
 
@@ -322,13 +324,13 @@ describe('useToolLatencyChartData', () => {
       let capturedBody: any = null;
 
       server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+        rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), async (req, res, ctx) => {
           capturedBody = await req.json();
           return res(ctx.json({ data_points: [] }));
         }),
       );
 
-      renderHook(() => useToolLatencyChartData(defaultProps), {
+      renderHook(() => useToolLatencyChartData(), {
         wrapper: createWrapper(),
       });
 

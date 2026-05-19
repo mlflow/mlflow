@@ -2,6 +2,7 @@ import { isEqual } from 'lodash';
 import React, { createContext, useCallback, useMemo, useState } from 'react';
 import { mapErrorWrapperToPredefinedError } from '../../../../common/utils/ErrorUtils';
 import { shouldUsePredefinedErrorsInExperimentTracking } from '../../../../common/utils/FeatureUtils';
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { ErrorWrapper } from '../../../../common/utils/ErrorWrapper';
 import RequestStateWrapper from '../../../../common/components/RequestStateWrapper';
 import Utils from '../../../../common/utils/Utils';
@@ -122,8 +123,8 @@ export const GetExperimentsContextProvider = ({
   return (
     <GetExperimentsContext.Provider value={contextValue}>
       <RequestStateWrapper
+        // prettier-ignore
         shouldOptimisticallyRender
-        // eslint-disable-next-line no-trailing-spaces
         requestIds={fetchExperimentsRequestIds}
       >
         {renderFn}

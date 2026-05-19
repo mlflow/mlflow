@@ -171,14 +171,14 @@ export const PromoteModelButton = (props: PromoteModelButtonImplProps) => {
       >
         <FormattedMessage
           defaultMessage="Promote model"
-          description="Button text to pomote the model to a different registered model"
+          description="Button text to promote the model to a different registered model"
         />
       </Button>
       <Modal
         title={
           <FormattedMessage
             defaultMessage="Promote {sourceModelName} version {sourceModelVersion}"
-            description="Modal title to pomote the model to a different registered model"
+            description="Modal title to promote the model to a different registered model"
             values={{ sourceModelName: modelVersion.name, sourceModelVersion: modelVersion.version }}
           />
         }
