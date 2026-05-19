@@ -24,7 +24,7 @@ import type { EditEndpointFormData } from '../../hooks/useEditEndpointForm';
 import { TrafficSplitConfigurator } from './TrafficSplitConfigurator';
 import { FallbackModelsConfigurator } from './FallbackModelsConfigurator';
 import { CodingAgentStarterCard, StarterCodeCard } from './StarterCodeCard';
-import { CODING_AGENT_TAG_KEY } from '../../hooks/useCreateEndpointForm';
+import { CODING_AGENT_TAG_KEY, VALID_CODING_AGENTS } from '../../hooks/useCreateEndpointForm';
 import type { CodingAgentType } from '../../types';
 import { EditableEndpointName } from './EditableEndpointName';
 import { GatewayUsageSection } from './GatewayUsageSection';
@@ -320,7 +320,6 @@ export const EditEndpointFormRenderer = ({
             <Tabs.Content value="overview">
               <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.lg }}>
                 {(() => {
-                  const VALID_CODING_AGENTS: CodingAgentType[] = ['claude-code', 'codex', 'gemini-cli'];
                   const rawAgent = endpoint?.tags?.find((t) => t.key === CODING_AGENT_TAG_KEY)?.value;
                   const codingAgent = VALID_CODING_AGENTS.includes(rawAgent as CodingAgentType)
                     ? (rawAgent as CodingAgentType)

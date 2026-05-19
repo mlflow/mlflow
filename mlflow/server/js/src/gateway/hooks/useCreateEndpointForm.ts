@@ -15,6 +15,8 @@ import { telemetryClient } from '../../telemetry/TelemetryClient';
 
 export const CODING_AGENT_TAG_KEY = 'mlflow.endpoint.agent';
 
+export const VALID_CODING_AGENTS: CodingAgentType[] = ['claude-code', 'codex', 'gemini-cli'];
+
 export const CODING_AGENT_LABELS: Record<CodingAgentType, string> = {
   'claude-code': 'Claude Code',
   codex: 'OpenAI Codex',
@@ -196,11 +198,17 @@ export function useCreateEndpointForm({
       });
 
       if (codingAgent) {
-        await setEndpointTag({
-          endpoint_id: endpointResponse.endpoint.endpoint_id,
-          key: CODING_AGENT_TAG_KEY,
-          value: codingAgent,
-        });
+        // Best-effort: tag the endpoint. If this fails, the endpoint still exists and we
+        // navigate to it — the tag is cosmetic (controls the starter-code card variant).
+        try {
+          await setEndpointTag({
+            endpoint_id: endpointResponse.endpoint.endpoint_id,
+            key: CODING_AGENT_TAG_KEY,
+            value: codingAgent,
+          });
+        } catch {
+          // Intentionally swallowed — endpoint creation succeeded.
+        }
       }
 
       telemetryClient.logEventWithMetadata_I_CONFIRM_THERE_IS_NO_PII(

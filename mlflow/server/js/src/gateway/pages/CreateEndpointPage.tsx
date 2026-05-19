@@ -5,7 +5,7 @@ import { Breadcrumb, Typography, useDesignSystemTheme } from '@databricks/design
 import { FormattedMessage } from 'react-intl';
 import { Link, useLocation, useNavigate } from '../../common/utils/RoutingUtils';
 import { ScrollablePageWrapper } from '../../common/components/ScrollablePageWrapper';
-import { useCreateEndpointForm } from '../hooks/useCreateEndpointForm';
+import { useCreateEndpointForm, VALID_CODING_AGENTS } from '../hooks/useCreateEndpointForm';
 import { getReadableErrorMessage } from '../utils/errorUtils';
 import { EndpointFormRenderer } from '../components/endpoint-form';
 import GatewayRoutes from '../routes';
@@ -96,8 +96,6 @@ interface PrefillState {
   codingAgent?: CodingAgentType;
 }
 
-const CODING_AGENT_VALUES: CodingAgentType[] = ['claude-code', 'codex', 'gemini-cli'];
-
 const parsePrefillState = (raw: unknown): PrefillState | null => {
   if (raw === null || raw === undefined || typeof raw !== 'object') return null;
   const obj = raw as Record<string, unknown>;
@@ -108,7 +106,7 @@ const parsePrefillState = (raw: unknown): PrefillState | null => {
     endpointName: typeof obj['endpointName'] === 'string' ? obj['endpointName'] : undefined,
     secretName: typeof obj['secretName'] === 'string' ? obj['secretName'] : undefined,
     codingAgent:
-      typeof codingAgentRaw === 'string' && CODING_AGENT_VALUES.includes(codingAgentRaw as CodingAgentType)
+      typeof codingAgentRaw === 'string' && VALID_CODING_AGENTS.includes(codingAgentRaw as CodingAgentType)
         ? (codingAgentRaw as CodingAgentType)
         : undefined,
   };
