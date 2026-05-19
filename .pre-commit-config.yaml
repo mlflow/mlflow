@@ -222,9 +222,9 @@ repos:
         stages: [pre-commit]
         require_serial: true
 
-      - id: action-pins
-        name: action-pins
-        entry: uv run --frozen --only-group lint dev/check_action_pins.py
+      - id: check-actions
+        name: check-actions
+        entry: uv run --frozen --only-group lint dev/check_actions.py
         language: system
         files: '^\.github/(workflows|actions)/.*\.ya?ml$'
         pass_filenames: false

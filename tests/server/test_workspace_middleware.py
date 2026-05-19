@@ -121,6 +121,7 @@ def test_server_info_workspaces_enabled(monkeypatch):
     assert resp.status_code == 200
     data = resp.get_json()
     assert data["workspaces_enabled"] is True
+    assert data["trace_archival_enabled"] is False
 
     # Disable workspaces and ensure the endpoint reflects the change.
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
@@ -128,6 +129,7 @@ def test_server_info_workspaces_enabled(monkeypatch):
     assert resp.status_code == 200
     data = resp.get_json()
     assert data["workspaces_enabled"] is False
+    assert data["trace_archival_enabled"] is False
 
 
 def test_server_info_skips_workspace_resolution(monkeypatch):
@@ -145,6 +147,7 @@ def test_server_info_skips_workspace_resolution(monkeypatch):
     assert resp.status_code == 200
     data = resp.get_json()
     assert data["workspaces_enabled"] is True
+    assert data["trace_archival_enabled"] is False
 
 
 def test_server_info_with_workspace_header_when_workspaces_disabled(monkeypatch):
@@ -156,6 +159,7 @@ def test_server_info_with_workspace_header_when_workspaces_disabled(monkeypatch)
     assert resp.status_code == 200
     data = resp.get_json()
     assert data["workspaces_enabled"] is False
+    assert data["trace_archival_enabled"] is False
 
 
 def test_fastapi_wsgi_flask_workspace_propagation(monkeypatch):

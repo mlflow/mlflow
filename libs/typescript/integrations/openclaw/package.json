@@ -1,6 +1,6 @@
 {
   "name": "@mlflow/mlflow-openclaw",
-  "version": "0.2.0-rc.0",
+  "version": "0.2.0",
   "description": "OpenClaw integration package for MLflow Tracing",
   "repository": {
     "type": "git",
@@ -26,12 +26,16 @@
     "typescript"
   ],
   "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "scripts": {
+    "build": "tsc",
     "lint": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
     "test": "jest",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "prepublishOnly": "npm run build"
   },
   "dependencies": {
     "@clack/prompts": "^1.1.0",
@@ -56,14 +60,11 @@
   },
   "openclaw": {
     "extensions": [
-      "./index.ts"
+      "./dist/index.js"
     ]
   },
   "files": [
-    "index.ts",
-    "src/service.ts",
-    "src/configure.ts",
-    "src/openclaw-plugin-sdk.d.ts",
+    "dist/",
     "openclaw.plugin.json",
     "README.md"
   ]

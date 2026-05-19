@@ -1,21 +1,22 @@
 name: NaiLaOpus
 
 on:
+  # `/review-v2` is the only trigger. We previously also auto-ran on
+  # `pull_request` (opened/ready_for_review/reopened) but pulled it back:
+  # fork PRs (the common case for maintainer PRs) don't get base-repo
+  # secrets on `pull_request` events, and the `pull_request_target`
+  # alternative trips clint's pwn-requests anti-pattern check on
+  # actions/checkout of PR head. Living with the convenience cost of
+  # one typed `/review-v2` comment is cleaner than maintaining a lint
+  # exception or splitting the workflow into LLM-runner + poster jobs.
   issue_comment:
     types: [created]
-  # Auto-trigger on PR open/ready is deferred until comment-based runs have
-  # been validated on real PRs. Re-enable by uncommenting these lines.
-  # pull_request:
-  #   types: [opened, ready_for_review]
 
 concurrency:
   # Single group per PR. cancel-in-progress is false so each /review-v2
-  # invocation finishes; subsequent invocations on the same PR queue behind
-  # it. The orchestrator's head_sha cache dedupes against same-SHA runs, so
-  # /review-v2 --no-cache is the only way to force a re-review. The fallback
-  # to github.event.pull_request.number is retained for the commented-out
-  # auto-trigger path.
-  group: nailaopus-${{ github.event.issue.number || github.event.pull_request.number }}
+  # invocation finishes; subsequent invocations on the same PR queue
+  # behind it. The orchestrator's head_sha cache dedupes same-SHA runs.
+  group: nailaopus-${{ github.event.issue.number }}
   cancel-in-progress: false
 
 defaults:
@@ -30,33 +31,30 @@ jobs:
     # `.github/policy.rego`'s require-explicit-permissions rule.
     permissions:
       contents: read
-    # The pull_request auto-trigger branch is commented out above; keep the
-    # comment-trigger gate here. The dropped branch required
-    # head.repo.full_name == github.repository (no fork PRs) and was
-    # restricted to MEMBER/COLLABORATOR/OWNER PR authors — both will need to
-    # be reinstated when the auto-trigger is re-enabled.
+    # Two layers of gating, both at the job level so that non-maintainer PRs
+    # never load the App-token secret or run any step at all (no observable
+    # side effects, no review burden on each step before a runtime gate):
+    #   1. Comment author must be a maintainer (prevents random users from
+    #      triggering the bot via `/review-v2`).
+    #   2. PR author must be a maintainer (prevents review of community-
+    #      authored PRs whose diff content could contain prompt-injection
+    #      attempts against the LLM).
+    # `issue_comment` payloads expose both associations directly, so we
+    # can do this check without an extra `gh api` step.
     if: |
       github.event_name == 'issue_comment' &&
       github.event.issue.pull_request != null &&
       startsWith(github.event.comment.body, '/review-v2') &&
-      contains(fromJSON('["MEMBER", "COLLABORATOR", "OWNER"]'), github.event.comment.author_association)
+      contains(fromJSON('["MEMBER", "COLLABORATOR", "OWNER"]'), github.event.comment.author_association) &&
+      contains(fromJSON('["MEMBER", "COLLABORATOR", "OWNER"]'), github.event.issue.author_association)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - name: Resolve PR number and trigger source
+      - name: Resolve PR number
         id: ctx
         env:
-          EVENT_NAME: ${{ github.event_name }}
           ISSUE_PR: ${{ github.event.issue.number }}
-          PR_NUM: ${{ github.event.pull_request.number }}
-        run: |
-          if [ "$EVENT_NAME" = "issue_comment" ]; then
-            echo "pr=$ISSUE_PR" >> "$GITHUB_OUTPUT"
-            echo "trigger=comment" >> "$GITHUB_OUTPUT"
-          else
-            echo "pr=$PR_NUM" >> "$GITHUB_OUTPUT"
-            echo "trigger=auto" >> "$GITHUB_OUTPUT"
-          fi
+        run: echo "pr=$ISSUE_PR" >> "$GITHUB_OUTPUT"
 
       - name: Generate App installation token (multi-repo)
         id: app_token
@@ -73,7 +71,6 @@ jobs:
           permission-issues: write
 
       - name: Annotate trigger comment with run URL
-        if: steps.ctx.outputs.trigger == 'comment'
         env:
           GH_TOKEN: ${{ steps.app_token.outputs.token }}
           REPO: ${{ github.repository }}
@@ -89,31 +86,6 @@ jobs:
           orig=$(gh api "repos/$REPO/issues/comments/$COMMENT_ID" --jq .body)
           body=$(printf '%s\n\n---\n\n🚀 [NaiLaOpus running...](%s)' "$orig" "$run_url")
           gh api "repos/$REPO/issues/comments/$COMMENT_ID" -X PATCH -f body="$body" || true
-
-      - name: Reject fork PRs (comment-triggered only)
-        if: steps.ctx.outputs.trigger == 'comment'
-        env:
-          GH_TOKEN: ${{ steps.app_token.outputs.token }}
-          PR: ${{ steps.ctx.outputs.pr }}
-          REPO: ${{ github.repository }}
-          SERVER_URL: ${{ github.server_url }}
-          RUN_ID: ${{ github.run_id }}
-        run: |
-          # The issue_comment payload does not carry head_repo, so we fetch
-          # it here and refuse to run if the PR head is on a fork. The
-          # sparse-checkout above prevents fork code from executing on the
-          # runner, but the App-token + Anthropic key are still in scope, so
-          # we're being conservative for the bridge launch. Lifting this
-          # restriction (review.yml already allows fork PRs via the
-          # issue_comment path) is tracked as a followup, pending an
-          # explicit security review of the secret-exposure surface.
-          head_repo=$(gh api "repos/$REPO/pulls/$PR" --jq .head.repo.full_name)
-          if [ "$head_repo" != "$REPO" ]; then
-            run_url="$SERVER_URL/$REPO/actions/runs/$RUN_ID"
-            body=$(printf 'Refusing to run NaiLaOpus on fork PR (head=`%s`). See [run logs](%s).\n\n---\nPosted by `NaiLaOpus` (auto-generated).' "$head_repo" "$run_url")
-            gh api "repos/$REPO/issues/$PR/comments" -X POST -f body="$body" || true
-            exit 1
-          fi
 
       - name: Enforce per-PR daily rate limit
         env:
@@ -162,6 +134,12 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           repository: mlflow/internal
+          # Pinned to a specific commit so production reviews are reproducible
+          # and a bad orchestrator change can't silently break the bot. To bump,
+          # open a new PR that updates this SHA to the latest mlflow/internal
+          # main after reviewing the diff. We'll migrate to release tags once
+          # the bump cadence is stable; see mlflow/internal for the policy.
+          ref: ee5492f55a011e67dfe9643f74b3f8fb3ae52d27
           sparse-checkout: |
             nailaopus
           path: internal
@@ -170,10 +148,11 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
+        with:
+          enable-cache: false
 
-      - name: Parse review flags (comment-triggered only)
+      - name: Parse review flags
         id: flags
-        if: steps.ctx.outputs.trigger == 'comment'
         env:
           BODY: ${{ github.event.comment.body }}
         run: |
@@ -182,7 +161,7 @@ jobs:
           if echo "$BODY" | grep -q -- '--hybrid'; then flags="$flags --hybrid"; fi
           echo "flags=$flags" >> "$GITHUB_OUTPUT"
 
-      - name: Run NaiLaOpus (dry-run by default; Bridge 2 adds --no-dry-run to enable posting)
+      - name: Run NaiLaOpus
         env:
           # EXPERIMENTAL_ANTHROPIC_API_KEY isolates the bot's spend from
           # any other workflow on this repo that uses Anthropic (e.g. the
@@ -193,9 +172,6 @@ jobs:
           GH_TOKEN: ${{ steps.app_token.outputs.token }}
           PR: ${{ steps.ctx.outputs.pr }}
           REPO: ${{ github.repository }}
-          # FLAGS is empty on auto-triggered runs by design: the flags step
-          # only runs for /review-v2 comments, and there is no comment body to
-          # parse on a pull_request event.
           FLAGS: ${{ steps.flags.outputs.flags }}
         # Inputs flow through env vars rather than ${{ }} interpolation
         # directly into the shell, so an unexpected character in any value
@@ -206,10 +182,10 @@ jobs:
         # from the orchestrator package without a separate `uv pip install`
         # step; uv caches the env between invocations.
         run: |
-          uv run --directory internal/nailaopus nailaopus "$PR" --repo "$REPO" --mlflow-tree "$GITHUB_WORKSPACE/mlflow" $FLAGS
+          uv run --directory internal/nailaopus nailaopus "$PR" --repo "$REPO" --mlflow-tree "$GITHUB_WORKSPACE/mlflow" --no-dry-run $FLAGS
 
-      - name: React +1 on success (comment-triggered only)
-        if: success() && steps.ctx.outputs.trigger == 'comment'
+      - name: React +1 on success
+        if: success()
         env:
           GH_TOKEN: ${{ steps.app_token.outputs.token }}
           REPO: ${{ github.repository }}
