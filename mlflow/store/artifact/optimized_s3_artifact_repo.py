@@ -327,6 +327,11 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
             # Objects listed directly will be files
             for obj in result.get("Contents", []):
                 file_path = obj.get("Key")
+                # Skip directory-marker objects (0-byte keys ending in "/") that the S3
+                # console and some S3-compatible backends (e.g. Hitachi HCP) create.
+                # They surface as phantom files and may 404 on download.
+                if file_path.endswith("/") and int(obj.get("Size", 0)) == 0:
+                    continue
                 self._verify_listed_object_contains_artifact_path_prefix(
                     listed_object_path=file_path, artifact_path=artifact_path
                 )

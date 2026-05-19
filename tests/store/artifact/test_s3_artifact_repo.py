@@ -250,6 +250,31 @@ def test_file_and_directories_artifacts_are_logged_and_listed_successfully_in_ba
     assert nested_artifacts_listing == [("nested/c.txt", False, 1)]
 
 
+@pytest.mark.parametrize("repo_cls", [S3ArtifactRepository, OptimizedS3ArtifactRepository])
+def test_list_artifacts_skips_directory_marker_objects(s3_artifact_root, repo_cls):
+    repo = repo_cls(posixpath.join(s3_artifact_root, "some/path"))
+
+    mock_s3 = mock.Mock()
+    mock_paginator = mock.Mock()
+    mock_s3.get_paginator.return_value = mock_paginator
+    mock_paginator.paginate.return_value = [
+        {
+            "Contents": [
+                {"Key": "some/path/", "Size": 0},
+                {"Key": "some/path/empty_dir/", "Size": 0},
+                {"Key": "some/path/a.txt", "Size": 1},
+            ],
+            "CommonPrefixes": [{"Prefix": "some/path/empty_dir/"}],
+        }
+    ]
+
+    with mock.patch.object(repo, "_get_s3_client", return_value=mock_s3):
+        infos = repo.list_artifacts()
+
+    listing = sorted((f.path, f.is_dir, f.file_size) for f in infos)
+    assert listing == [("a.txt", False, 1), ("empty_dir", True, None)]
+
+
 def test_download_directory_artifact_succeeds_when_artifact_root_is_s3_bucket_root(
     s3_artifact_root, tmp_path
 ):

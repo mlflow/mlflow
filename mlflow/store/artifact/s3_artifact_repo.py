@@ -425,16 +425,12 @@ class S3ArtifactRepository(
                 subdir_rel_path = posixpath.relpath(path=subdir_path, start=artifact_path)
                 subdir_rel_path = subdir_rel_path.removesuffix("/")
                 infos.append(FileInfo(subdir_rel_path, True, None))
-            # Objects listed directly will be files.
-            # Skip 0-byte objects whose key ends with "/" — these are directory markers
-            # created by the S3 console or some S3-compatible backends (e.g. Hitachi HCP).
-            # Treating them as regular files produces confusing listings and download
-            # failures (the backend may return 404 for the marker object).
             for obj in result.get("Contents", []):
                 file_path = obj.get("Key")
+                # Skip directory-marker objects (0-byte keys ending in "/") that the S3
+                # console and some S3-compatible backends (e.g. Hitachi HCP) create.
+                # They surface as phantom files and may 404 on download.
                 if file_path.endswith("/") and int(obj.get("Size", 0)) == 0:
-                    # Directory marker — already represented as a CommonPrefix entry;
-                    # skip to avoid duplicate / phantom file entries.
                     continue
                 self._verify_listed_object_contains_artifact_path_prefix(
                     listed_object_path=file_path, artifact_path=artifact_path
