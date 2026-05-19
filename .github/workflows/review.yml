@@ -175,7 +175,7 @@ jobs:
 
           parser = argparse.ArgumentParser(add_help=False)
           parser.add_argument("-m", "--model", choices=MODEL_CHOICES, default=default_model)
-          parser.add_argument("-e", "--effort", choices=EFFORT_CHOICES, default="medium")
+          parser.add_argument("-e", "--effort", choices=EFFORT_CHOICES, default="high")
           args, leftover = parser.parse_known_args(head.split())
 
           prompt = (" ".join(leftover) + sep + tail).strip()
