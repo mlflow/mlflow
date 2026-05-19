@@ -113,7 +113,7 @@ jobs:
           ARTIFACT_NAME: docs-build-${{ github.event.workflow_run.id }}
         run: |
           ARTIFACT_ID=$(gh api "repos/$REPO/actions/runs/$RUN_ID/artifacts?name=$ARTIFACT_NAME" \
-            --jq '.artifacts[0].id')
+            --jq '.artifacts[0].id // empty')
           if [ -z "$ARTIFACT_ID" ]; then
             echo "::error::Artifact $ARTIFACT_NAME not found for run $RUN_ID"
             exit 1
