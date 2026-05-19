@@ -1490,17 +1490,27 @@ def _entity_is_prompt(entity) -> bool:
 
     Unifies the two response-filtering paths in ``filter_search_*`` — initial
     response rows arrive as protos (via ``parse_dict``), refetched rows arrive
-    as ORM entities (``PagedList[RegisteredModel]``). Dispatch order matters:
-    ``RegisteredModel.tags`` strips the ``mlflow.prompt.is_prompt`` tag from
-    its public dict so users don't see it, so we must call ``_is_prompt()``
-    on that entity rather than reading ``.tags`` directly.
+    as ORM entities (``PagedList[RegisteredModel]`` / ``[ModelVersion]``).
+    Both ORM entities expose ``_is_prompt()``; protos don't, so we fall back
+    to scanning the repeated ``.tags`` field for the prompt marker.
     """
     if hasattr(entity, "_is_prompt"):
         return entity._is_prompt()
-    tags = entity.tags
-    if isinstance(tags, dict):
-        return tags.get(IS_PROMPT_TAG_KEY, "false").lower() == "true"
-    return any(t.key == IS_PROMPT_TAG_KEY and t.value.lower() == "true" for t in tags)
+    return any(t.key == IS_PROMPT_TAG_KEY and t.value.lower() == "true" for t in entity.tags)
+
+
+def _rm_or_prompt_read_predicate(username: str) -> Callable[[Any], bool]:
+    """Build a ``p(entity) -> bool`` for filtering shared registered-model /
+    model-version search responses. Classifies each row by its
+    ``mlflow.prompt.is_prompt`` tag and consults the matching grant namespace.
+    """
+    can_read_rm = _role_based_read_predicate(username, "registered_model")
+    can_read_prompt = _role_based_read_predicate(username, "prompt")
+
+    def can_read(entity) -> bool:
+        return (can_read_prompt if _entity_is_prompt(entity) else can_read_rm)(entity.name)
+
+    return can_read
 
 
 def _role_based_read_predicate(username: str, resource_type: str) -> Callable[[str], bool]:
@@ -3018,11 +3028,7 @@ def filter_search_registered_models(resp: Response):
     # row by its ``mlflow.prompt.is_prompt`` tag and check the correct grant
     # namespace. Without this, a user holding only a ``(prompt, foo, READ)``
     # grant would have prompt ``foo`` silently filtered out of the response.
-    can_read_rm = _role_based_read_predicate(username, "registered_model")
-    can_read_prompt = _role_based_read_predicate(username, "prompt")
-
-    def can_read(entity) -> bool:
-        return (can_read_prompt if _entity_is_prompt(entity) else can_read_rm)(entity.name)
+    can_read = _rm_or_prompt_read_predicate(username)
 
     # filter out unreadable
     for rm in list(response_message.registered_models):
@@ -3077,11 +3083,7 @@ def filter_search_model_versions(resp: Response):
     # Prompt versions and model versions share the same REST surface; classify
     # each row by its ``mlflow.prompt.is_prompt`` tag so a prompt-version
     # carrying a ``(prompt, name, READ)`` grant isn't dropped on the floor.
-    can_read_rm = _role_based_read_predicate(username, "registered_model")
-    can_read_prompt = _role_based_read_predicate(username, "prompt")
-
-    def can_read(entity) -> bool:
-        return (can_read_prompt if _entity_is_prompt(entity) else can_read_rm)(entity.name)
+    can_read = _rm_or_prompt_read_predicate(username)
 
     # filter out model versions whose parent model is unreadable
     for mv in list(response_message.model_versions):
