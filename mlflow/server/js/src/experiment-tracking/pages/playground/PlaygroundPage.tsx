@@ -1,10 +1,12 @@
 import {
+  Alert,
   Button,
   Header,
   HoverCard,
   Notification,
   PlayIcon,
   Spacer,
+  Spinner,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
@@ -13,22 +15,21 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { ScrollablePageWrapper } from '../../../common/components/ScrollablePageWrapper';
 import ErrorUtils from '../../../common/utils/ErrorUtils';
 import { withErrorBoundary } from '../../../common/utils/withErrorBoundary';
-import { CompletionOutputPanel } from './components/CompletionOutputPanel';
 import { PlaygroundTopBar } from './components/PlaygroundTopBar';
 import { PromptInputPanel } from './components/PromptInputPanel';
 import { PromptRegistryPicker } from './components/PromptRegistryPicker';
 import type { PromptLoadPayload } from './components/PromptRegistryPicker';
 import { useChatCompletionMutation } from './hooks/useChatCompletionMutation';
-import type { ChatMessage, PlaygroundParams, ResponseFormat, ResponseFormatType, ToolChoice } from './types';
+import type { ConversationMessage, PlaygroundParams, ResponseFormat, ResponseFormatType, ToolChoice } from './types';
 import { getEmptyVariables, isToolsValueEmpty, substituteVariables } from './utils';
 
-const EMPTY_USER_MESSAGE: ChatMessage = { role: 'user', content: '' };
+const EMPTY_USER_MESSAGE: ConversationMessage = { role: 'user', content: '' };
 
 const PlaygroundPage = () => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const [endpointName, setEndpointName] = useState<string>('');
-  const [messages, setMessages] = useState<ChatMessage[]>([{ ...EMPTY_USER_MESSAGE }]);
+  const [messages, setMessages] = useState<ConversationMessage[]>([{ ...EMPTY_USER_MESSAGE }]);
   const [params, setParams] = useState<PlaygroundParams>({});
   const [variables, setVariables] = useState<Record<string, string>>({});
   const [toolsText, setToolsText] = useState<string>('');
@@ -42,7 +43,7 @@ const PlaygroundPage = () => {
     withSettings: boolean;
   } | null>(null);
 
-  const { mutate, data, error, isLoading } = useChatCompletionMutation();
+  const { mutate, error, isLoading, reset } = useChatCompletionMutation();
 
   useEffect(() => {
     if (!loadedToast) return;
@@ -185,20 +186,38 @@ const PlaygroundPage = () => {
         },
       };
     }
-    mutate({
-      model: endpointName,
-      messages: substituteVariables(messages, variables),
-      ...(params.temperature !== undefined && { temperature: params.temperature }),
-      ...(params.max_tokens !== undefined && { max_tokens: params.max_tokens }),
-      ...(params.top_p !== undefined && { top_p: params.top_p }),
-      ...(params.top_k !== undefined && { top_k: params.top_k }),
-      ...(params.presence_penalty !== undefined && { presence_penalty: params.presence_penalty }),
-      ...(params.frequency_penalty !== undefined && { frequency_penalty: params.frequency_penalty }),
-      ...(params.stop && params.stop.length > 0 && { stop: params.stop }),
-      ...(tools && { tools }),
-      ...(tools && { tool_choice: toolChoice }),
-      ...(response_format && { response_format }),
-    });
+    const wireMessages = substituteVariables(messages, variables).map(({ role, content }) => ({ role, content }));
+    mutate(
+      {
+        model: endpointName,
+        messages: wireMessages,
+        ...(params.temperature !== undefined && { temperature: params.temperature }),
+        ...(params.max_tokens !== undefined && { max_tokens: params.max_tokens }),
+        ...(params.top_p !== undefined && { top_p: params.top_p }),
+        ...(params.top_k !== undefined && { top_k: params.top_k }),
+        ...(params.presence_penalty !== undefined && { presence_penalty: params.presence_penalty }),
+        ...(params.frequency_penalty !== undefined && { frequency_penalty: params.frequency_penalty }),
+        ...(params.stop && params.stop.length > 0 && { stop: params.stop }),
+        ...(tools && { tools }),
+        ...(tools && { tool_choice: toolChoice }),
+        ...(response_format && { response_format }),
+      },
+      {
+        onSuccess: (response) => {
+          const assistant = response.choices?.[0]?.message;
+          if (!assistant?.content) return;
+          const appended: ConversationMessage = { ...assistant, usage: response.usage };
+          setMessages((current) => [...current, appended, { ...EMPTY_USER_MESSAGE }]);
+        },
+      },
+    );
+  };
+
+  const conversationIsEmpty = messages.length <= 1 && !messages[0]?.content?.trim();
+
+  const handleClearConversation = () => {
+    setMessages([{ ...EMPTY_USER_MESSAGE }]);
+    reset();
   };
 
   return (
@@ -247,7 +266,55 @@ const PlaygroundPage = () => {
       <Spacer size="sm" shrinks={false} />
       <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md, flex: 1, minHeight: 0 }}>
         <PromptInputPanel messages={messages} onChange={setMessages} />
-        <div css={{ display: 'flex', justifyContent: 'flex-end' }}>
+        {isLoading && (
+          <div css={{ display: 'flex', justifyContent: 'center', padding: theme.spacing.md }}>
+            <Spinner />
+          </div>
+        )}
+        {!isLoading &&
+          error &&
+          (() => {
+            const status = (error as { status?: number }).status;
+            const detail = status ? `HTTP ${status} — ${error.message}` : error.message;
+            return (
+              <Alert
+                type="error"
+                componentId="mlflow.playground.output.error"
+                closable={false}
+                message={
+                  <FormattedMessage
+                    defaultMessage="Chat completion failed"
+                    description="Title of the error alert shown on the playground when a chat completion request fails"
+                  />
+                }
+                description={
+                  <pre
+                    css={{
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-word',
+                      margin: 0,
+                      fontFamily: 'inherit',
+                      maxHeight: 240,
+                      overflow: 'auto',
+                    }}
+                  >
+                    {detail}
+                  </pre>
+                }
+              />
+            );
+          })()}
+        <div css={{ display: 'flex', justifyContent: 'flex-end', gap: theme.spacing.sm }}>
+          <Button
+            componentId="mlflow.playground.clear"
+            disabled={conversationIsEmpty}
+            onClick={handleClearConversation}
+          >
+            <FormattedMessage
+              defaultMessage="Clear conversation"
+              description="Label for the button that resets the playground conversation to an empty user message"
+            />
+          </Button>
           {(() => {
             const submitButton = (
               <Button
@@ -299,8 +366,6 @@ const PlaygroundPage = () => {
             );
           })()}
         </div>
-        <Spacer size="sm" />
-        <CompletionOutputPanel response={data} error={error ?? undefined} isLoading={isLoading} />
       </div>
 
       <PromptRegistryPicker
