@@ -66,10 +66,13 @@ The grantable permission levels for resource-scoped permissions are:
 endpoint, referencing a model definition, creating new experiments /
 registered models within a workspace).
 
-`NO_PERMISSIONS` exists as the deny-by-default sentinel. It's the effective
-state of any `(user, resource)` pair with no matching grant in the resolver's
-chain. It is **not grantable** as a role permission or a direct grant; the
-auth server rejects attempts to assign it.
+`NO_PERMISSIONS` is the resolver's deny sentinel for workspace-boundary
+cases — e.g., a user with no workspace membership when
+`grant_default_workspace_access` is off. It is **not grantable** as a role
+permission or a direct grant; the auth server rejects attempts to assign
+it. The effective permission when no role grant matches is the server's
+`default_permission` (`READ` by default; see
+[Permission resolution](#permission-resolution)).
 
 Because grants are folded via a max (see
 [Permission resolution](#permission-resolution)), RBAC has no
@@ -92,10 +95,12 @@ permission as follows:
    does **not** fold into per-resource checks; it confers workspace
    membership and create rights only (see
    [Workspace isolation](#workspace-isolation)).
-3. **Server `default_permission`**: a floor max'd into the resolution
-   result. `NO_PERMISSIONS` (explicit deny) is preserved — the floor does
-   not lift it. When no role grant matches at all, the floor is the final
-   answer. See [Workspace isolation](#workspace-isolation) for when the
+3. **Server `default_permission`** (defaults to `READ`): a floor max'd
+   into the resolution result. When no role grant matches at all, the
+   floor is the final answer. The floor does **not** lift `NO_PERMISSIONS` —
+   when the resolver returns it for a workspace-boundary reason (no
+   workspace membership, missing workspace, lookup error), that deny
+   stands. See [Workspace isolation](#workspace-isolation) for when the
    floor applies in multi-workspace mode.
 
 ## Workspace isolation
@@ -130,10 +135,11 @@ resource_pattern='*')` slot define workspace-wide access:
 - `USE` on `(workspace, *)` — the **Workspace Member** grant.
   - Confers workspace membership: the user can list and enter the workspace.
   - Allows creating new resources (e.g., experiments, registered models) within it.
-  - Does **not** grant per-resource read access. Resource-level permissions
-    still require an explicit grant (per-resource, resource-type wildcard,
-    or the server `default_permission` floor).
-- `MANAGE` on `(workspace, *)` — the **Workspace Admin** grant. Full
+  - Does **not** itself grant per-resource access. Read access on
+    individual resources comes from the server `default_permission` floor
+    (defaults to `READ`); higher tiers require an explicit per-resource or
+    resource-type wildcard grant.
+- `MANAGE` on `(workspace, *)` — the **Workspace Manager** grant. Full
   authority within the workspace, including creating roles, granting
   permissions, and managing role assignments. Cannot perform system-wide
   operations such as deleting users.
@@ -144,13 +150,13 @@ The seeded `admin` and `user` roles each carry one of these grants; see
 ### User tiers
 
 The admin UI uses **Platform Admin** for the first tier and **Workspace
-Admin** for the second; the doc uses the same labels.
+Manager** for the second; the doc uses the same labels.
 
-| Tier            | How it's expressed                          | Capability                                                                     |
-| --------------- | ------------------------------------------- | ------------------------------------------------------------------------------ |
-| Platform Admin  | `is_admin = true` on the user row           | Unrestricted system-wide. Sole bearer of user delete and bulk operations.      |
-| Workspace Admin | Holds `(workspace, *, MANAGE)` via any role | Full authority within those workspaces; can manage roles, users, and grants.   |
-| Regular user    | Any other authenticated identity            | No admin UI access; authorization flows through role-derived permissions only. |
+| Tier              | How it's expressed                          | Capability                                                                     |
+| ----------------- | ------------------------------------------- | ------------------------------------------------------------------------------ |
+| Platform Admin    | `is_admin = true` on the user row           | Unrestricted system-wide. Sole bearer of user delete and bulk operations.      |
+| Workspace Manager | Holds `(workspace, *, MANAGE)` via any role | Full authority within those workspaces; can manage roles, users, and grants.   |
+| Regular user      | Any other authenticated identity            | No admin UI access; authorization flows through role-derived permissions only. |
 
 ### Direct grants without a role
 
@@ -194,7 +200,7 @@ once as a role and assign users to it. Both the admin UI and the
 `AuthServiceClient` go through the same role-based primitives.
 
 The examples below assume multi-workspace mode and that you've
-authenticated as a Platform Admin or as a Workspace Admin of `ml-research`.
+authenticated as a Platform Admin or as a Workspace Manager of `ml-research`.
 
 ```python
 from mlflow.server import get_app_client
@@ -281,7 +287,7 @@ for member in ("alice", "bob", "carol"):
 </TabItem>
 </Tabs>
 
-### 3. Make a user a Workspace Admin
+### 3. Make a user a Workspace Manager
 
 Every newly created workspace is seeded with a default `admin` role (and a
 `user` role; see [Default roles](#default-roles)). Promoting a user means
@@ -368,7 +374,7 @@ reached from two entry points:
 - **Platform Admins** (`is_admin = true`) navigate to `/admin` via the
   sidebar `Manage` entry. The page renders cross-workspace: every user in
   the system, every role in every workspace.
-- **Workspace Admins** click a gear icon on the home-page workspaces table
+- **Workspace Managers** click a gear icon on the home-page workspaces table
   next to a workspace they administer. The link lands at
   `/admin/ws?workspace=<name>`, the per-workspace view scoped to roles and
   users they can see.
@@ -389,7 +395,7 @@ previewed in a Review step before they're applied.
 ### Managing Roles
 
 The Roles tab lists roles in the active scope (all roles for Platform Admins;
-the active workspace's roles for Workspace Admins). **Create role** opens a
+the active workspace's roles for Workspace Managers). **Create role** opens a
 single-page form with three sections (_Role details_, _Permissions_,
 _Assigned users_) and submits them in one shot. **Edit role** on the role
 detail page mirrors the same shape.
@@ -405,7 +411,7 @@ two roles into every newly created workspace:
 
 | Role    | Permission               | Intent                                                                                                 |
 | ------- | ------------------------ | ------------------------------------------------------------------------------------------------------ |
-| `admin` | `(workspace, *, MANAGE)` | Workspace Admin. Full authority within the workspace.                                                  |
+| `admin` | `(workspace, *, MANAGE)` | Workspace Manager. Full authority within the workspace.                                                  |
 | `user`  | `(workspace, *, USE)`    | Workspace Member. Reads every resource in the workspace; can create experiments and registered models. |
 
 The user who creates the workspace is automatically assigned the seeded `admin`
