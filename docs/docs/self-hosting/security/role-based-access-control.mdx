@@ -85,15 +85,18 @@ permission as follows:
 
 1. **Platform Admin bypass**: `is_admin = true` short-circuits to allow.
 2. **Role-derived grants**: all of the user's roles in the request's workspace
-   contribute. Every grant that applies to the resource is folded together
-   via a max, and the highest-priority permission wins
-   (`MANAGE` > `EDIT` > `USE` > `READ`). A `(workspace, *, ...)` row
-   participates in the same max because it applies to all resources in the
-   workspace, so a workspace-level grant acts as a floor that per-resource
-   grants can upgrade but never downgrade.
-3. **Server `default_permission`**: the server-wide fallback permission level.
-   When no role grant matches, this value is used as the floor. Behavior
-   varies with workspace mode; see [Workspace isolation](#workspace-isolation).
+   contribute. Grants that apply to the resource fold via a max, and the
+   highest-priority permission wins (`MANAGE` > `EDIT` > `USE` > `READ`).
+   `(workspace, *, MANAGE)` folds into every per-resource check — it grants
+   management of every resource in the workspace. `(workspace, *, USE)`
+   does **not** fold into per-resource checks; it confers workspace
+   membership and create rights only (see
+   [Workspace isolation](#workspace-isolation)).
+3. **Server `default_permission`**: a floor max'd into the resolution
+   result. `NO_PERMISSIONS` (explicit deny) is preserved — the floor does
+   not lift it. When no role grant matches at all, the floor is the final
+   answer. See [Workspace isolation](#workspace-isolation) for when the
+   floor applies in multi-workspace mode.
 
 ## Workspace isolation
 
@@ -117,19 +120,19 @@ for any `(user, resource)` pair.
 **Multi-workspace (`--enable-workspaces`).** Named workspaces become
 first-class. The home page renders a workspace switcher; the admin UI gets
 a per-workspace entry point (`/admin/ws?workspace=<name>`); roles must be
-created in a specific workspace. The server's `default_permission` falls
-back only to the reserved `default` workspace when
-`grant_default_workspace_access` is set; otherwise the effective default in
-each named workspace is deny.
+created in a specific workspace. The server's `default_permission` applies
+as the floor in named workspaces only when `grant_default_workspace_access`
+is set; otherwise the effective floor in each named workspace is deny.
 
 Two grants on the special `(resource_type='workspace',
 resource_pattern='*')` slot define workspace-wide access:
 
 - `USE` on `(workspace, *)` — the **Workspace Member** grant.
-  - Gives the user access to the workspace.
-  - Allows creating new resources (experiments, registered models) within it.
-  - Sets the per-resource permission floor to `default_permission` when
-    `grant_default_workspace_access` is true; otherwise `NO_PERMISSIONS`.
+  - Confers workspace membership: the user can list and enter the workspace.
+  - Allows creating new experiments and registered models within it.
+  - Does **not** grant per-resource read access. Resource-level permissions
+    still require an explicit grant (per-resource, resource-type wildcard,
+    or the server `default_permission` floor).
 - `MANAGE` on `(workspace, *)` — the **Workspace Admin** grant. Full
   authority within the workspace, including creating roles, granting
   permissions, and managing role assignments. Cannot perform system-wide
