@@ -14,6 +14,7 @@ from mlflow.entities import ViewType, trace_location
 from mlflow.entities.span import Span, create_mlflow_span
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_state import TraceState
+from mlflow.entities.workspace import Workspace
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES, MLFLOW_TRACKING_URI
 from mlflow.store.db.db_types import MSSQL, MYSQL, POSTGRES, SQLITE
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
@@ -166,6 +167,29 @@ def _cleanup_database(store: SqlAlchemyStore):
         # Recreate the default experiment (id=0) so that tests using the global registry
         # cache (e.g., mlflow.start_run()) can still find it after cleanup.
         store._create_default_experiment(session)
+
+    if isinstance(store, WorkspaceAwareSqlAlchemyStore):
+        provider = store._get_workspace_provider_instance()
+
+        # Reset workspace-level overrides when tests share a cached workspace store
+        # against a long-lived backend store URI.
+        for workspace in provider.list_workspaces():
+            if workspace.name != DEFAULT_WORKSPACE_NAME:
+                provider.delete_workspace(workspace.name)
+
+        provider.update_workspace(
+            Workspace(
+                name=DEFAULT_WORKSPACE_NAME,
+                default_artifact_root="",
+                trace_archival_location="",
+                trace_archival_retention="",
+            )
+        )
+
+        with provider._artifact_root_cache_lock:
+            provider._artifact_root_cache.clear()
+        with provider._trace_archival_config_cache_lock:
+            provider._trace_archival_config_cache.clear()
 
 
 def _create_experiments(store: SqlAlchemyStore, names) -> str | list[str]:

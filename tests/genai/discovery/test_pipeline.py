@@ -66,6 +66,17 @@ def create_identified_issue(**kwargs) -> _IdentifiedIssue:
     return _IdentifiedIssue(**defaults)
 
 
+def test_identified_issue_defaults_example_indices():
+    issue = _IdentifiedIssue.model_validate({
+        "name": "Issue: Test",
+        "description": "A test",
+        "root_cause": "Unknown",
+        "severity": "low",
+        "categories": [],
+    })
+    assert issue.example_indices == []
+
+
 def test_discover_issues_no_experiment():
     with (
         patch("mlflow.genai.discovery.pipeline._get_experiment_id", return_value=None),

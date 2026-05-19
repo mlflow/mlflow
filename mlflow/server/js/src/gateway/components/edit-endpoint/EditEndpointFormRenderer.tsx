@@ -23,7 +23,9 @@ import { LongFormSummary } from '../../../common/components/long-form/LongFormSu
 import type { EditEndpointFormData } from '../../hooks/useEditEndpointForm';
 import { TrafficSplitConfigurator } from './TrafficSplitConfigurator';
 import { FallbackModelsConfigurator } from './FallbackModelsConfigurator';
-import { StarterCodeCard } from './StarterCodeCard';
+import { CodingAgentStarterCard, StarterCodeCard } from './StarterCodeCard';
+import { CODING_AGENT_TAG_KEY, VALID_CODING_AGENTS } from '../../hooks/useCreateEndpointForm';
+import type { CodingAgentType } from '../../types';
 import { EditableEndpointName } from './EditableEndpointName';
 import { GatewayUsageSection } from './GatewayUsageSection';
 import type { Endpoint, EndpointModelMapping } from '../../types';
@@ -317,73 +319,88 @@ export const EditEndpointFormRenderer = ({
           <div css={{ flex: 1 }}>
             <Tabs.Content value="overview">
               <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.lg }}>
-                {/* Unified Model card */}
-                <div
-                  css={{
-                    padding: theme.spacing.md,
-                    border: `1px solid ${theme.colors.border}`,
-                    borderRadius: theme.borders.borderRadiusMd,
-                    backgroundColor: theme.colors.backgroundSecondary,
-                  }}
-                >
-                  <Typography.Title level={3} css={{ margin: 0 }}>
-                    <FormattedMessage
-                      defaultMessage="Model"
-                      description="Gateway > Endpoint details > Section title for model configuration card"
-                    />
-                  </Typography.Title>
+                {(() => {
+                  const rawAgent = endpoint?.tags?.find((t) => t.key === CODING_AGENT_TAG_KEY)?.value;
+                  const codingAgent = VALID_CODING_AGENTS.includes(rawAgent as CodingAgentType)
+                    ? (rawAgent as CodingAgentType)
+                    : undefined;
+                  return (
+                    <>
+                      {/* Unified Model card — hidden for coding-agent endpoints */}
+                      {!codingAgent && (
+                        <div
+                          css={{
+                            padding: theme.spacing.md,
+                            border: `1px solid ${theme.colors.border}`,
+                            borderRadius: theme.borders.borderRadiusMd,
+                            backgroundColor: theme.colors.backgroundSecondary,
+                          }}
+                        >
+                          <Typography.Title level={3} css={{ margin: 0 }}>
+                            <FormattedMessage
+                              defaultMessage="Model"
+                              description="Gateway > Endpoint details > Section title for model configuration card"
+                            />
+                          </Typography.Title>
 
-                  {/* Primary sub-section */}
-                  <div
-                    css={{
-                      marginTop: theme.spacing.md,
-                      padding: theme.spacing.md,
-                      border: `1px solid ${theme.colors.border}`,
-                      borderRadius: theme.borders.borderRadiusMd,
-                      backgroundColor: theme.colors.backgroundPrimary,
-                    }}
-                  >
-                    <Typography.Title level={4} css={{ margin: 0 }}>
-                      <FormattedMessage
-                        defaultMessage="Primary Model"
-                        description="Gateway > Endpoint details > Sub-section title for primary traffic split models"
-                      />
-                    </Typography.Title>
+                          {/* Primary sub-section */}
+                          <div
+                            css={{
+                              marginTop: theme.spacing.md,
+                              padding: theme.spacing.md,
+                              border: `1px solid ${theme.colors.border}`,
+                              borderRadius: theme.borders.borderRadiusMd,
+                              backgroundColor: theme.colors.backgroundPrimary,
+                            }}
+                          >
+                            <Typography.Title level={4} css={{ margin: 0 }}>
+                              <FormattedMessage
+                                defaultMessage="Primary Model"
+                                description="Gateway > Endpoint details > Sub-section title for primary traffic split models"
+                              />
+                            </Typography.Title>
 
-                    <div css={{ marginTop: theme.spacing.md }}>
-                      <Controller
-                        control={form.control}
-                        name="trafficSplitModels"
-                        render={({ field }) => (
-                          <TrafficSplitConfigurator
-                            value={field.value}
-                            onChange={field.onChange}
-                            componentId="mlflow.gateway.edit-endpoint.traffic-split"
+                            <div css={{ marginTop: theme.spacing.md }}>
+                              <Controller
+                                control={form.control}
+                                name="trafficSplitModels"
+                                render={({ field }) => (
+                                  <TrafficSplitConfigurator
+                                    value={field.value}
+                                    onChange={field.onChange}
+                                    componentId="mlflow.gateway.edit-endpoint.traffic-split"
+                                  />
+                                )}
+                              />
+                            </div>
+                          </div>
+
+                          <Controller
+                            control={form.control}
+                            name="fallbackModels"
+                            render={({ field }) => (
+                              <FallbackModelsConfigurator
+                                value={field.value}
+                                onChange={field.onChange}
+                                componentId="mlflow.gateway.edit-endpoint.fallback"
+                              />
+                            )}
                           />
-                        )}
-                      />
-                    </div>
-                  </div>
+                        </div>
+                      )}
 
-                  <Controller
-                    control={form.control}
-                    name="fallbackModels"
-                    render={({ field }) => (
-                      <FallbackModelsConfigurator
-                        value={field.value}
-                        onChange={field.onChange}
-                        componentId="mlflow.gateway.edit-endpoint.fallback"
-                      />
-                    )}
-                  />
-                </div>
-
-                {endpoint && (
-                  <StarterCodeCard
-                    endpointName={endpoint.name}
-                    provider={getStarterCodeProvider(endpoint.model_mappings)}
-                  />
-                )}
+                      {endpoint &&
+                        (codingAgent ? (
+                          <CodingAgentStarterCard endpointName={endpoint.name} codingAgent={codingAgent} />
+                        ) : (
+                          <StarterCodeCard
+                            endpointName={endpoint.name}
+                            provider={getStarterCodeProvider(endpoint.model_mappings)}
+                          />
+                        ))}
+                    </>
+                  );
+                })()}
               </div>
             </Tabs.Content>
 

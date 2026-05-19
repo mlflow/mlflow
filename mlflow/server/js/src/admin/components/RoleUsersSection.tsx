@@ -47,6 +47,13 @@ export const RoleUsersSection = ({ value, onChange, disabled }: RoleUsersSection
     return `${value.length} users selected`;
   }, [value]);
 
+  // ``DialogCombobox`` calls ``renderDisplayedValue`` once per entry in
+  // ``value`` (joined by ``,``); collapse to a single summary label so the
+  // count text renders once. Items' checked state is driven by each
+  // ``DialogComboboxOptionListCheckboxItem``'s explicit ``checked`` prop —
+  // pinned by ``RoleUsersSection.test.tsx``.
+  const triggerValue = useMemo(() => (triggerText ? [triggerText] : []), [triggerText]);
+
   const toggleUser = (username: string) => {
     if (selectedSet.has(username)) {
       onChange(value.filter((u) => u !== username));
@@ -65,11 +72,10 @@ export const RoleUsersSection = ({ value, onChange, disabled }: RoleUsersSection
       ) : users.length === 0 ? (
         <Typography.Text color="secondary">No users available.</Typography.Text>
       ) : (
-        <DialogCombobox componentId="admin.role_users.users" label="Users" multiSelect value={value}>
+        <DialogCombobox componentId="admin.role_users.users" label="Users" multiSelect value={triggerValue}>
           <DialogComboboxTrigger
             withInlineLabel={false}
             placeholder="Select one or more users"
-            renderDisplayedValue={() => triggerText}
             onClear={() => onChange([])}
             width="100%"
             disabled={disabled}
