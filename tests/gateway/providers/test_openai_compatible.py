@@ -431,6 +431,52 @@ def test_model_to_chat_with_tool_calls():
     assert result.choices[0].message.tool_calls[0].id == "call_1"
 
 
+def test_model_to_chat_streaming_missing_finish_reason():
+    # Anthropic-compatible providers omit finish_reason on intermediate chunks.
+    # model_to_chat_streaming must not raise KeyError for those chunks.
+    config = _make_endpoint_config()
+    chunk = {
+        "id": "chatcmpl-1",
+        "object": "chat.completion.chunk",
+        "created": 1,
+        "model": "test-model",
+        "choices": [
+            {
+                "index": 0,
+                "delta": {"role": "assistant", "content": "Hello"},
+                # finish_reason intentionally absent (Anthropic intermediate chunk)
+            }
+        ],
+    }
+    result = OpenAICompatibleAdapter.model_to_chat_streaming(chunk, config)
+    assert isinstance(result, chat.StreamResponsePayload)
+    assert result.choices[0].finish_reason is None
+    assert result.choices[0].delta.content == "Hello"
+
+
+@pytest.mark.asyncio
+async def test_chat_stream_anthropic_compatible_no_finish_reason():
+    # Simulate an Anthropic-compatible endpoint that omits finish_reason on intermediate chunks.
+    provider = _make_provider()
+    chunk_data = (
+        b'data: {"id":"chatcmpl-1","object":"chat.completion.chunk","created":1,'
+        b'"model":"test-model","choices":[{"index":0,"delta":{"role":"assistant",'
+        b'"content":"Hi"}}]}\n\n'
+    )
+    chunks = [chunk_data, b"data: [DONE]\n\n"]
+    mock_client = mock_http_client(MockAsyncStreamingResponse(chunks))
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        payload = chat.RequestPayload(
+            messages=[{"role": "user", "content": "Hello"}],
+        )
+        responses = [chunk async for chunk in provider.chat_stream(payload)]
+
+    assert len(responses) == 1
+    assert responses[0].choices[0].finish_reason is None
+    assert responses[0].choices[0].delta.content == "Hi"
+
+
 # --- config tests ---
 
 
