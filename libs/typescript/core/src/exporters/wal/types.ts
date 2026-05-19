@@ -44,6 +44,4 @@ export interface WalRecord {
  * `Map<id, WalRecord>`, applying tombstones as deletions. The "current"
  * set of pending records is whatever survives the replay.
  */
-export type WalLine =
-  | { type: 'append'; record: WalRecord }
-  | { type: 'tombstone'; id: string };
+export type WalLine = { type: 'append'; record: WalRecord } | { type: 'tombstone'; id: string };
