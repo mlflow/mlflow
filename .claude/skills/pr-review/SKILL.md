@@ -130,7 +130,7 @@ Write `/tmp/review-payload.json` matching [`review-payload.schema.json`](./revie
 Authoring rules not captured by the schema:
 
 - One comment per distinct finding, anchored to the most relevant changed line. For repeated identical issues, leave a single representative comment rather than flagging every instance.
-- Anchors must land in a diff hunk. For findings about out-of-diff code, anchor to the nearest changed line and name the actual location in the body.
+- Anchors must land in a diff hunk. For findings about out-of-diff code, anchor to any changed line (prefer the same file when it has hunks) and name the actual `path:line` in the body.
 - Keep comments constructive and specific: state the problem, why it matters, and a concrete suggestion when possible.
 - Use suggestion blocks for simple fixes — fence with ` ```suggestion ` and preserve original indentation.
 - If you have no findings, emit an empty `comments` array.
