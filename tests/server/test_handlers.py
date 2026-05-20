@@ -1,10 +1,12 @@
 import json
+import urllib.parse
 import uuid
 from dataclasses import asdict
 from datetime import datetime, timezone
 from unittest import mock
 
 import pytest
+from flask import Response
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 
 import mlflow
@@ -186,6 +188,7 @@ from mlflow.server.handlers import (
     _query_trace_metrics,
     _register_scorer,
     _rename_registered_model,
+    _response_with_file_attachment_headers,
     _search_evaluation_datasets_handler,
     _search_experiments,
     _search_issues,
@@ -3981,6 +3984,86 @@ def test_download_artifact_streams_in_chunks(enable_serve_artifacts, tmp_path):
         # Verify that all data is correctly streamed
         streamed_data = b"".join(response_chunks)
         assert streamed_data == test_data
+
+
+@pytest.mark.parametrize(
+    ("file_path", "expected_simple", "expected_quoted"),
+    [
+        # No-extension fully-CJK filename: NFKD normalization strips every
+        # character, so the helper must fall back to a safe non-empty
+        # ``filename=`` value rather than emitting ``filename=;``.
+        ("日本語", "download", "%E6%97%A5%E6%9C%AC%E8%AA%9E"),
+        ("Tribeč_mountains.html", "Tribec_mountains.html", "Tribe%C4%8D_mountains.html"),
+        (
+            "time_series_eeeúaaa_aaaaaal_39.html",
+            "time_series_eeeuaaa_aaaaaal_39.html",
+            "time_series_eee%C3%BAaaa_aaaaaal_39.html",
+        ),
+        ("日本語.txt", ".txt", "%E6%97%A5%E6%9C%AC%E8%AA%9E.txt"),
+    ],
+)
+def test_response_with_file_attachment_headers_encodes_non_ascii_filename(
+    file_path, expected_simple, expected_quoted
+):
+    with app.test_request_context():
+        response = _response_with_file_attachment_headers(file_path, Response())
+
+    header = response.headers["Content-Disposition"]
+    # The Content-Disposition header value must be ASCII-encodable so that
+    # WSGI/ASGI adapters (e.g., starlette's WSGIMiddleware) can serialize
+    # the response without raising UnicodeEncodeError. See GH-23208.
+    header.encode("ascii")
+    assert header == f"attachment; filename={expected_simple}; filename*=UTF-8''{expected_quoted}"
+
+
+def test_response_with_file_attachment_headers_ascii_filename_unchanged():
+    with app.test_request_context():
+        response = _response_with_file_attachment_headers("model.pkl", Response())
+
+    assert response.headers["Content-Disposition"] == "attachment; filename=model.pkl"
+
+
+@pytest.mark.parametrize(
+    ("filename", "expected_simple", "expected_quoted"),
+    [
+        # See sibling unit test for why this empty-fallback case leads.
+        ("日本語", "download", "%E6%97%A5%E6%9C%AC%E8%AA%9E"),
+        ("Tribeč_mountains.html", "Tribec_mountains.html", "Tribe%C4%8D_mountains.html"),
+        (
+            "time_series_eeeúaaa_aaaaaal_39.html",
+            "time_series_eeeuaaa_aaaaaal_39.html",
+            "time_series_eee%C3%BAaaa_aaaaaal_39.html",
+        ),
+        ("日本語.txt", ".txt", "%E6%97%A5%E6%9C%AC%E8%AA%9E.txt"),
+    ],
+)
+def test_download_artifact_endpoint_non_ascii_filename(
+    enable_serve_artifacts, monkeypatch, tmp_path, filename, expected_simple, expected_quoted
+):
+    # End-to-end coverage for the `_download_artifact` HTTP path. Exercises the
+    # full `/api/2.0/mlflow-artifacts/artifacts/<artifact_path>` route to guard
+    # against regressions where the WSGI/ASGI adapter serializes the
+    # `Content-Disposition` header and rejects raw non-ASCII bytes. See GH-23208.
+    artifact_root = tmp_path / "artifacts"
+    artifact_root.mkdir()
+    file_contents = b"hello from " + filename.encode("utf-8")
+    (artifact_root / filename).write_bytes(file_contents)
+
+    # ``.as_uri()`` not ``str()``: on Windows ``str(WindowsPath)`` is ``C:\...``
+    # which mlflow's artifact registry parses as scheme=``C`` and 500s.
+    monkeypatch.setenv(ARTIFACTS_DESTINATION_ENV_VAR, artifact_root.as_uri())
+    monkeypatch.setattr("mlflow.server.handlers._artifact_repo", None)
+
+    quoted_path = urllib.parse.quote(filename)
+    with app.test_client() as c:
+        response = c.get(f"/api/2.0/mlflow-artifacts/artifacts/{quoted_path}")
+
+    assert response.status_code == 200
+    assert response.get_data() == file_contents
+
+    header = response.headers["Content-Disposition"]
+    header.encode("ascii")
+    assert header == f"attachment; filename={expected_simple}; filename*=UTF-8''{expected_quoted}"
 
 
 def test_create_prompt_optimization_job(mock_tracking_store):

@@ -1,6 +1,5 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/mlflow/mlflow/.claude/skills/pr-review/review-payload.schema.json",
   "title": "PR Review Payload",
   "description": "Payload emitted by the pr-review skill and posted via POST /repos/{owner}/{repo}/pulls/{pull_number}/reviews.",
   "type": "object",
@@ -41,7 +40,7 @@
             "items": {
               "properties": {
                 "body": {
-                  "not": { "pattern": "^🔴 \\*\\*CRITICAL:" }
+                  "not": { "$ref": "#/$defs/criticalPrefix" }
                 }
               }
             }
@@ -55,6 +54,18 @@
       "type": "string",
       "enum": ["LEFT", "RIGHT"]
     },
+    "criticalPrefix": {
+      "type": "string",
+      "pattern": "^🔴 \\*\\*CRITICAL:\\*\\* "
+    },
+    "moderatePrefix": {
+      "type": "string",
+      "pattern": "^🟡 \\*\\*MODERATE:\\*\\* "
+    },
+    "nitPrefix": {
+      "type": "string",
+      "pattern": "^🟢 \\*\\*NIT:\\*\\* "
+    },
     "comment": {
       "type": "object",
       "additionalProperties": false,
@@ -67,8 +78,11 @@
         },
         "body": {
           "description": "Comment body. Must start with '🔴 **CRITICAL:** ', '🟡 **MODERATE:** ', or '🟢 **NIT:** '.",
-          "type": "string",
-          "pattern": "^(🔴 \\*\\*CRITICAL:\\*\\*|🟡 \\*\\*MODERATE:\\*\\*|🟢 \\*\\*NIT:\\*\\*) "
+          "anyOf": [
+            { "$ref": "#/$defs/criticalPrefix" },
+            { "$ref": "#/$defs/moderatePrefix" },
+            { "$ref": "#/$defs/nitPrefix" }
+          ]
         },
         "line": {
           "description": "Anchor line. Must be inside a diff hunk on the chosen side (added/context on RIGHT, deleted/context on LEFT). For multi-line comments, this is the last line of the range.",

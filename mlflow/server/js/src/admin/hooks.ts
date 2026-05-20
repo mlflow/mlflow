@@ -301,13 +301,6 @@ export const useResourceOptionsQuery = (resourceType: string) => {
     retry: false,
     refetchOnWindowFocus: false,
   });
-  const gatewayModelDefinitions = useQuery({
-    queryKey: AdminQueryKeys.resourceOptions('gateway_model_definition'),
-    queryFn: AdminApi.listGatewayModelDefinitionsLite,
-    enabled: resourceType === 'gateway_model_definition',
-    retry: false,
-    refetchOnWindowFocus: false,
-  });
 
   let options: ResourceOption[] = [];
   let isLoading = false;
@@ -330,13 +323,6 @@ export const useResourceOptionsQuery = (resourceType: string) => {
     case 'gateway_endpoint':
       options = (gatewayEndpoints.data?.endpoints ?? []).map((e) => ({ id: e.endpoint_id, name: e.name }));
       ({ isLoading, error } = gatewayEndpoints);
-      break;
-    case 'gateway_model_definition':
-      options = (gatewayModelDefinitions.data?.model_definitions ?? []).map((m) => ({
-        id: m.model_definition_id,
-        name: m.name,
-      }));
-      ({ isLoading, error } = gatewayModelDefinitions);
       break;
   }
   return { options, isLoading, error };
