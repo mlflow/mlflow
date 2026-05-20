@@ -42,11 +42,7 @@ const directPermKey = (p: { resourceType: string; resourceId: string; permission
   `${p.resourceType}::${p.resourceId}::${p.permission}`;
 
 const isDirectGrantResourceType = (rt: string): rt is DirectGrantResourceType =>
-  rt === 'experiment' ||
-  rt === 'registered_model' ||
-  rt === 'gateway_secret' ||
-  rt === 'gateway_endpoint' ||
-  rt === 'gateway_model_definition';
+  rt === 'experiment' || rt === 'registered_model' || rt === 'gateway_secret' || rt === 'gateway_endpoint';
 
 interface AccessDiff {
   rolesToAssign: number[];

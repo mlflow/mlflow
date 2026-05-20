@@ -84,6 +84,9 @@ export interface ResourceOption {
   name: string;
 }
 
+// ``gateway_model_definition`` is a valid backend resource type but isn't
+// surfaced anywhere in the admin UI — left out of every frontend enum,
+// label map, and picker query. Re-add when it becomes user-facing.
 export const RESOURCE_TYPES = [
   'experiment',
   'registered_model',
@@ -91,7 +94,6 @@ export const RESOURCE_TYPES = [
   'scorer',
   'gateway_secret',
   'gateway_endpoint',
-  'gateway_model_definition',
   'workspace',
 ] as const;
 
@@ -111,7 +113,6 @@ export const PERMISSIONS_FOR_RESOURCE_TYPE = {
   scorer: ['READ', 'EDIT', 'MANAGE'],
   gateway_secret: ['READ', 'USE', 'EDIT', 'MANAGE'],
   gateway_endpoint: ['READ', 'USE', 'EDIT', 'MANAGE'],
-  gateway_model_definition: ['READ', 'USE', 'EDIT', 'MANAGE'],
   workspace: ['USE', 'MANAGE'],
 } satisfies Record<string, readonly string[]>;
 

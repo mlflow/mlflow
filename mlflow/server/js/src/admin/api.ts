@@ -268,11 +268,4 @@ export const AdminApi = {
       error: defaultErrorHandler,
     }) as Promise<{ endpoints?: { endpoint_id: string; name: string }[] }>;
   },
-
-  listGatewayModelDefinitionsLite: () => {
-    return fetchEndpoint({
-      relativeUrl: 'ajax-api/3.0/mlflow/gateway/model-definitions/list',
-      error: defaultErrorHandler,
-    }) as Promise<{ model_definitions?: { model_definition_id: string; name: string }[] }>;
-  },
 };

@@ -59,7 +59,6 @@ const RESOURCE_TYPE_LABEL: Record<DirectGrantResourceType, string> = {
   registered_model: 'Registered model',
   gateway_secret: 'Gateway secret',
   gateway_endpoint: 'Gateway endpoint',
-  gateway_model_definition: 'Gateway model definition',
 };
 
 const isPickableResourceType = (rt: string): rt is DirectGrantResourceType =>
