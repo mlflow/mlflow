@@ -1,6 +1,5 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/mlflow/mlflow/.claude/skills/pr-review/review-payload.schema.json",
   "title": "PR Review Payload",
   "description": "Payload emitted by the pr-review skill and posted via POST /repos/{owner}/{repo}/pulls/{pull_number}/reviews.",
   "type": "object",
@@ -41,7 +40,7 @@
             "items": {
               "properties": {
                 "body": {
-                  "not": { "pattern": "^🔴 \\*\\*CRITICAL:" }
+                  "not": { "$ref": "#/$defs/criticalPrefix" }
                 }
               }
             }
@@ -55,37 +54,52 @@
       "type": "string",
       "enum": ["LEFT", "RIGHT"]
     },
+    "criticalPrefix": {
+      "type": "string",
+      "pattern": "^🔴 \\*\\*CRITICAL:\\*\\* "
+    },
+    "moderatePrefix": {
+      "type": "string",
+      "pattern": "^🟡 \\*\\*MODERATE:\\*\\* "
+    },
+    "nitPrefix": {
+      "type": "string",
+      "pattern": "^🟢 \\*\\*NIT:\\*\\* "
+    },
     "comment": {
       "type": "object",
       "additionalProperties": false,
       "required": ["path", "body", "line", "side"],
       "properties": {
         "path": {
-          "description": "File path relative to the repo root. Must match a path present in the PR diff.",
+          "description": "File path relative to the repo root. Must be a file with at least one hunk in the PR diff.",
           "type": "string",
           "minLength": 1
         },
         "body": {
           "description": "Comment body. Must start with '🔴 **CRITICAL:** ', '🟡 **MODERATE:** ', or '🟢 **NIT:** '.",
-          "type": "string",
-          "pattern": "^(🔴 \\*\\*CRITICAL:\\*\\*|🟡 \\*\\*MODERATE:\\*\\*|🟢 \\*\\*NIT:\\*\\*) "
+          "anyOf": [
+            { "$ref": "#/$defs/criticalPrefix" },
+            { "$ref": "#/$defs/moderatePrefix" },
+            { "$ref": "#/$defs/nitPrefix" }
+          ]
         },
         "line": {
-          "description": "Line number to anchor to. For multi-line comments, this is the last line of the range.",
+          "description": "Anchor line. Must be inside a diff hunk on the chosen side (added/context on RIGHT, deleted/context on LEFT). For multi-line comments, this is the last line of the range.",
           "type": "integer",
           "minimum": 1
         },
         "side": {
-          "description": "RIGHT for added/modified lines, LEFT for deleted lines.",
+          "description": "RIGHT for the post-merge file (added/context lines), LEFT for the pre-change file (deleted/context lines). RIGHT is the common case.",
           "$ref": "#/$defs/side"
         },
         "start_line": {
-          "description": "First line of a multi-line comment range. Required together with start_side.",
+          "description": "First line of a multi-line range. Same hunk requirement as `line`, and must be < line. Must be set together with start_side.",
           "type": "integer",
           "minimum": 1
         },
         "start_side": {
-          "description": "Side for start_line. Required together with start_line.",
+          "description": "Side for start_line. Must be set together with start_line.",
           "$ref": "#/$defs/side"
         }
       },

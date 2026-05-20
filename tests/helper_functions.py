@@ -288,11 +288,8 @@ def pyfunc_scoring_endpoint(
     ] + (extra_args or [])
 
     with _start_scoring_proc(cmd=scoring_cmd, env=env, stdout=stdout, stderr=stdout) as proc:
-        validate_version = "--enable-mlserver" not in (extra_args or [])
         try:
-            with RestEndpoint(
-                proc, port, activity_polling_timeout_seconds, validate_version=validate_version
-            ) as endpoint:
+            with RestEndpoint(proc, port, activity_polling_timeout_seconds) as endpoint:
                 yield endpoint
         finally:
             proc.terminate()

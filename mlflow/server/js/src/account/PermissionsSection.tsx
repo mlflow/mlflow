@@ -11,12 +11,18 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
-import type { DirectPermission, Role } from './types';
+import type { Role, UserRolePermissionRow } from './types';
 import { formatResourcePattern } from './types';
 
 interface Props {
   roles: Role[];
-  directPermissions: DirectPermission[];
+  /**
+   * Direct grants only — rows on the user's synthetic ``__user_<id>__``
+   * role. The caller is responsible for filtering ``GET /users/permissions/list``
+   * to that role (e.g. via ``isSyntheticUserRole``) before passing here, so
+   * role-derived rows aren't double-counted alongside the ``roles`` prop.
+   */
+  directPermissions: UserRolePermissionRow[];
   isLoading?: boolean;
   /** Non-fatal - surfaces inline so direct grants still render. */
   rolesError?: unknown;

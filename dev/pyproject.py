@@ -361,11 +361,6 @@ def build(package_type: PackageType) -> None:
                     "botocore",
                     "databricks-agents>=1.2.0,<2.0",
                 ],
-                "mlserver": [
-                    # Required to serve models through MLServer
-                    "mlserver>=1.2.0,!=1.3.1,<2.0.0",
-                    "mlserver-mlflow>=1.2.0,!=1.3.1,<2.0.0",
-                ],
                 "gateway": gateways_requirements,
                 "genai": genai_requirements,
                 # click 8.3.0 causes MLflow MCP server to fail: https://github.com/mlflow/mlflow/issues/18747

@@ -18,6 +18,7 @@ import {
   type DirectGrantResourceType,
   type DirectPermissionValue,
 } from './DirectPermissionForm';
+import { getResourceTypeLabel } from '../types';
 
 /**
  * One staged direct grant. ``scope`` is always ``'specific'`` today because
@@ -100,7 +101,7 @@ export const DirectPermissionsSection = ({
           {value.map((p, i) => (
             <TableRow key={`${p.resourceType}-${p.resourceId}-${p.permission}-${i}`}>
               <TableCell css={{ flex: 1 }}>
-                <Tag componentId="admin.direct_permissions.staged_type_tag">{p.resourceType}</Tag>
+                <Tag componentId="admin.direct_permissions.staged_type_tag">{getResourceTypeLabel(p.resourceType)}</Tag>
               </TableCell>
               <TableCell css={{ flex: 2 }}>
                 <code>{p.resourceId}</code>

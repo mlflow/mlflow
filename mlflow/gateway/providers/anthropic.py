@@ -15,7 +15,13 @@ from mlflow.gateway.providers.base import (
     ProviderAdapter,
     _client_provides_auth,
 )
-from mlflow.gateway.providers.utils import rename_payload_keys, send_request, send_stream_request
+from mlflow.gateway.providers.utils import (
+    proxy_root_url,
+    rename_payload_keys,
+    send_proxy_request,
+    send_request,
+    send_stream_request,
+)
 from mlflow.gateway.schemas import chat, completions
 from mlflow.gateway.utils import parse_sse_lines
 from mlflow.tracing.constant import TokenUsageKey
@@ -718,6 +724,22 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
                     usage[TokenUsageKey.OUTPUT_TOKENS] = output_tokens
         # Anthropic's input_tokens excludes cache tokens; normalize to include them.
         return _normalize_anthropic_input_tokens(usage) or usage
+
+    async def _proxy(
+        self,
+        path: str,
+        payload: dict[str, Any],
+        headers: dict[str, str] | None = None,
+    ) -> dict[str, Any] | AsyncIterable[Any]:
+        gen = send_proxy_request(
+            self._get_headers(payload, headers), proxy_root_url(self.base_url), path, payload
+        )
+        meta = await gen.__anext__()
+        if meta["is_streaming"]:
+            return gen
+        body = await gen.__anext__()
+        await gen.aclose()
+        return body
 
     async def _passthrough(
         self,
