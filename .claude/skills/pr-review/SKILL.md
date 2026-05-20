@@ -56,7 +56,7 @@ Invoke the [`fetch-diff`](../fetch-diff/SKILL.md) skill.
 
 #### Applicable repo style rules
 
-The stdout of this command is the contents of every `.claude/rules/*.md` file whose `paths` glob matches a changed file. Treat it as additional reviewer context:
+Loads repository style rules applicable to the changed files:
 
 ```bash
 git diff --name-only HEAD^1 | uv run --package skills skills load-rules
