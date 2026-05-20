@@ -42,7 +42,7 @@ The `<owner>`/`<repo>`/`<pr_number>` placeholders in the steps below refer to th
 
 ### 1. Gather context (run in parallel)
 
-These four reads are independent. Issue them as parallel tool calls in a single turn, not sequentially.
+These reads are independent. Issue them as parallel tool calls in a single turn, not sequentially.
 
 #### PR title and description
 
@@ -53,6 +53,14 @@ gh pr view <pr_number> --repo "<owner>/<repo>" --json title,body
 #### PR diff hunks
 
 Invoke the [`fetch-diff`](../fetch-diff/SKILL.md) skill.
+
+#### Applicable repo style rules
+
+Loads repository style rules applicable to the changed files:
+
+```bash
+git diff --name-only HEAD^1 | uv run --package skills skills load-rules
+```
 
 #### Existing review threads
 
