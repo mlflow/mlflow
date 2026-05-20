@@ -51,6 +51,15 @@ _LAZY_IMPORTS = {
     "get_all_scorers",
 }
 
+# Deterministic NLP scorers
+_DETERMINISTIC_NLP_IMPORTS = {
+    "BERTScore",
+    "METEOR",
+    "Readability",
+    "Sentiment",
+    "LevenshteinRatio",
+}
+
 
 def __getattr__(name):
     """Lazily import builtin scorers to avoid circular dependency."""
@@ -59,6 +68,12 @@ def __getattr__(name):
         from mlflow.genai.scorers import builtin_scorers
 
         return getattr(builtin_scorers, name)
+    
+    if name in _DETERMINISTIC_NLP_IMPORTS:
+        # Import deterministic NLP scorers
+        from mlflow.genai.scorers import deterministic_nlp_scorers
+
+        return getattr(deterministic_nlp_scorers, name)
 
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
@@ -72,7 +87,7 @@ def __dir__():
     # Get the default module attributes
     module_attrs = list(globals().keys())
     # Add the lazy imports
-    return sorted(set(module_attrs) | _LAZY_IMPORTS)
+    return sorted(set(module_attrs) | _LAZY_IMPORTS | _DETERMINISTIC_NLP_IMPORTS)
 
 
 # The TYPE_CHECKING block below is for static analysis tools only.
@@ -102,6 +117,13 @@ if TYPE_CHECKING:
         ToolCallEfficiency,
         UserFrustration,
         get_all_scorers,
+    )
+    from mlflow.genai.scorers.deterministic_nlp_scorers import (
+        BERTScore,
+        METEOR,
+        Readability,
+        Sentiment,
+        LevenshteinRatio,
     )
 
 __all__ = [
@@ -133,4 +155,10 @@ __all__ = [
     "get_scorer",
     "list_scorers",
     "delete_scorer",
+    # Deterministic NLP scorers
+    "BERTScore",
+    "METEOR",
+    "Readability",
+    "Sentiment",
+    "LevenshteinRatio",
 ]
