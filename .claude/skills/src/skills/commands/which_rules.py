@@ -8,6 +8,8 @@ import re
 import sys
 from pathlib import Path
 
+import yaml
+
 RULES_DIR = Path(__file__).parents[4] / "rules"
 REPO_ROOT = Path(__file__).parents[5]
 
@@ -35,30 +37,19 @@ def glob_to_regex(pattern: str) -> re.Pattern[str]:
 
 
 def parse_frontmatter_paths(text: str) -> list[str]:
-    """Extract ``paths`` values from a leading YAML frontmatter block.
-
-    Supports a single quoted/unquoted scalar or a YAML list. Returns [] when
-    there is no frontmatter or no ``paths`` key.
-    """
     if not text.startswith("---\n"):
         return []
     end = text.find("\n---", 4)
     if end == -1:
         return []
-    patterns: list[str] = []
-    in_list = False
-    for line in text[4:end].splitlines():
-        if in_list:
-            if m := re.match(r"\s*-\s*(.+?)\s*$", line):
-                patterns.append(m.group(1).strip("\"'"))
-                continue
-            in_list = False
-        if m := re.match(r"paths:\s*(.*)$", line):
-            if value := m.group(1).strip():
-                patterns.append(value.strip("\"'"))
-            else:
-                in_list = True
-    return patterns
+    front = yaml.safe_load(text[4:end]) or {}
+    match front.get("paths") if isinstance(front, dict) else None:
+        case str() as scalar:
+            return [scalar]
+        case list() as items:
+            return [v for v in items if isinstance(v, str)]
+        case _:
+            return []
 
 
 def matching_rules(changed: list[str], rules_dir: Path = RULES_DIR) -> list[Path]:
@@ -84,7 +75,7 @@ def register(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) ->
 
 
 def run(args: argparse.Namespace) -> None:
-    changed = [line.strip() for line in sys.stdin if line.strip()]
+    changed = [s for line in sys.stdin if (s := line.strip())]
     if not changed:
         return
     for rule in matching_rules(changed):

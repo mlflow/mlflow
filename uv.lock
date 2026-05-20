@@ -7436,6 +7436,7 @@ dependencies = [
     { name = "aiohttp" },
     { name = "jsonschema" },
     { name = "pydantic" },
+    { name = "pyyaml" },
     { name = "typing-extensions" },
 ]
 
@@ -7444,6 +7445,7 @@ requires-dist = [
     { name = "aiohttp" },
     { name = "jsonschema" },
     { name = "pydantic" },
+    { name = "pyyaml" },
     { name = "typing-extensions" },
 ]
 
