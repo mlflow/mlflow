@@ -219,6 +219,36 @@ def test_update_user_password(client, monkeypatch):
         client.update_user_password(username, new_password)
 
 
+def test_update_user_password_self_service_rejects_same_password(client, monkeypatch):
+    # Self-service: rotating to the existing value is a no-op and almost
+    # always a UI mistake. Cheap equality check against the supplied
+    # ``current_password`` rather than re-authenticating.
+    username = random_str()
+    password = random_str()
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        client.create_user(username, password)
+    with (
+        User(username, password, monkeypatch),
+        pytest.raises(MlflowException, match=r"differ from the current password") as exc,
+    ):
+        client.update_user_password(username, password, current_password=password)
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+def test_update_user_password_admin_allows_same_password(client, monkeypatch):
+    # Admin path has no ``current_password``, so we can't equality-check
+    # cheaply; rejecting via bcrypt would leak a same-vs-different oracle
+    # to any admin probing a candidate. Allow the silent no-op instead.
+    username = random_str()
+    password = random_str()
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        client.create_user(username, password)
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        client.update_user_password(username, password)
+    with User(username, password, monkeypatch):
+        client.get_user(username)
+
+
 def test_self_service_password_change_requires_current_password(client, monkeypatch):
     # Defense-in-depth: a user changing their own password must re-assert the
     # current password. Admins changing someone else's password don't (and

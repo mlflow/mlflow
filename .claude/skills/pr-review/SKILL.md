@@ -54,14 +54,6 @@ gh pr view <pr_number> --repo "<owner>/<repo>" --json title,body
 
 Invoke the [`fetch-diff`](../fetch-diff/SKILL.md) skill.
 
-#### Applicable repo style rules
-
-Loads repository style rules applicable to the changed files:
-
-```bash
-git diff --name-only HEAD^1 | uv run --package skills skills load-rules
-```
-
 #### Existing review threads
 
 Up to 100 threads (open, resolved, and outdated) with up to 20 comments each, so you can avoid duplicating prior feedback:
@@ -89,11 +81,15 @@ gh api graphql -F owner=<owner> -F repo=<repo> -F pr=<pr_number> \
   }'
 ```
 
-#### Payload schema
+### 2. Load repository style rules
 
-Read [`review-payload.schema.json`](./review-payload.schema.json) so it's in context for step 4.
+Load the repository style rules applicable to the changed files:
 
-### 2. In-Depth Analysis
+```bash
+git diff --name-only HEAD^1 | uv run --package skills skills load-rules
+```
+
+### 3. In-Depth Analysis
 
 The working tree holds the PR merged into the base (`refs/pull/<pr>/merge`), so file contents reflect the post-merge state. Explore it for context beyond the diff (existing patterns, call sites of changed symbols, file conventions).
 
@@ -112,9 +108,9 @@ Evaluate the changed code across these dimensions:
 - **Efficiency**: needless N+1 queries, redundant work in hot paths, allocations in tight loops
 - **Readability & maintainability**: unclear names, dead code, premature abstractions, comments that restate the code
 - **Test coverage**: new behavior lacks tests, tests assert on the wrong thing, mocks hide real failures
-- **Style guide**: see `.claude/rules/` for language-specific rules and `CLAUDE.md` for repo conventions
+- **Style guide**: violations of the rules loaded in step 2
 
-### 3. Decision Point
+### 4. Decision Point
 
 Classify each finding by severity (matches `.github/instructions/code-review.instructions.md`):
 
@@ -129,9 +125,9 @@ Determine the review `event`:
 - **No CRITICAL findings** -> `event: "APPROVE"`
 - **Any CRITICAL finding** -> `event: "COMMENT"`
 
-### 4. Emit Local Review Payload
+### 5. Emit Local Review Payload
 
-Write `/tmp/review-payload.json` matching [`review-payload.schema.json`](./review-payload.schema.json), then validate it.
+Read [`review-payload.schema.json`](./review-payload.schema.json), then write `/tmp/review-payload.json` matching it and validate.
 
 Authoring rules not captured by the schema:
 
