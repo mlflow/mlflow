@@ -186,7 +186,8 @@ trace_archival:
     - 12345
 ```
 
-Then start the server with that configuration in the environment:
+Then start the server with that configuration, either through the environment or with the
+`--trace-archival-config` flag:
 
 ```bash
 export MLFLOW_TRACE_ARCHIVAL_CONFIG=/etc/mlflow/trace-archival.yaml
@@ -194,6 +195,12 @@ export MLFLOW_TRACE_ARCHIVAL_CONFIG=/etc/mlflow/trace-archival.yaml
 mlflow server \
   --backend-store-uri postgresql://user:pass@localhost/mlflow \
   --default-artifact-root s3://mlflow-artifacts
+
+# Or pass the config path directly
+mlflow server \
+  --backend-store-uri postgresql://user:pass@localhost/mlflow \
+  --default-artifact-root s3://mlflow-artifacts \
+  --trace-archival-config /etc/mlflow/trace-archival.yaml
 ```
 
 - `interval_seconds` controls how often the scheduler checks for archival work.

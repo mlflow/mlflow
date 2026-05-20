@@ -65,9 +65,9 @@ When the effective retention is known, MLflow surfaces it in trace-focused exper
 />
 
 ::::warning Archival cannot be undone
-MLflow does not provide an unarchive operation that moves archived span payloads back into the
-tracking store. Archived traces remain readable, but once archival completes you should treat the
-storage transition as permanent.
+MLflow does not currently support restoring archived span payloads back to the tracking store.
+Archived traces remain readable, but once archival completes, the trace continues to be served from
+archive storage rather than the database.
 ::::
 
 ### Before You Configure Retention
