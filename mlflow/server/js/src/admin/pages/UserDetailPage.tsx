@@ -28,7 +28,7 @@ import { useWorkspacesEnabled } from '../../experiment-tracking/hooks/useServerI
 import AdminRoutes from '../routes';
 import { EditAccessModal } from '../components/EditAccessModal';
 import { PermissionsSection } from '../../account/PermissionsSection';
-import { isWorkspaceAdminRole } from '../types';
+import { isSyntheticUserRole, isWorkspaceAdminRole } from '../types';
 
 const UserDetailPage = () => {
   const { theme } = useDesignSystemTheme();
@@ -64,13 +64,17 @@ const UserDetailPage = () => {
   const [editAccessOpen, setEditAccessOpen] = useState(false);
 
   const user = useMemo(() => usersData?.users?.find((u) => u.username === username), [usersData, username]);
-  const allRoles = rolesData?.roles ?? [];
+  // Strip synthetic ``__user_N__`` roles — they back per-user direct
+  // grants and are rendered separately by the Permissions section.
+  const allRoles = useMemo(() => (rolesData?.roles ?? []).filter((r) => !isSyntheticUserRole(r.name)), [rolesData]);
   const roles = isAdmin || !activeWorkspace ? allRoles : allRoles.filter((r) => r.workspace === activeWorkspace);
-  const allDirectPermissions = directPermsData?.permissions ?? [];
-  // Direct permissions also carry ``workspace``; same scope rule.
-  // ``workspace: null`` means the underlying resource was deleted — keep
-  // those visible to platform admins, drop for workspace managers (the
-  // grant isn't actionable in any specific workspace anyway).
+  // ``GET /users/permissions/list`` returns every permission across every
+  // role the user holds; filter to the synthetic ``__user_<id>__`` role to
+  // get just the direct grants. Role-derived permissions are handled
+  // separately via the ``roles`` union in ``PermissionsSection``.
+  const allDirectPermissions = (directPermsData?.permissions ?? []).filter((p) => isSyntheticUserRole(p.role_name));
+  // Direct permissions also carry ``workspace`` — same scope rule as roles:
+  // workspace managers only see grants in the active workspace.
   const directPermissions =
     isAdmin || !activeWorkspace
       ? allDirectPermissions

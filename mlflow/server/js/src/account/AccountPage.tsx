@@ -31,7 +31,7 @@ import {
   useUserRolesQuery,
 } from './hooks';
 import { PermissionsSection } from './PermissionsSection';
-import { DEFAULT_WORKSPACE_NAME, isWorkspaceAdminRole } from './types';
+import { DEFAULT_WORKSPACE_NAME, isSyntheticUserRole, isWorkspaceAdminRole } from './types';
 import type { Role } from './types';
 
 /**
@@ -94,11 +94,17 @@ const AccountPage = () => {
   const allRoles = useMemo(() => rolesData?.roles ?? [], [rolesData]);
 
   const { data: directPermsData, isLoading: directPermsLoading, error: directPermsError } = useMyPermissionsQuery();
-  const allDirectPermissions = useMemo(() => directPermsData?.permissions ?? [], [directPermsData]);
+  // ``GET /users/current/permissions`` returns every permission across every
+  // role; filter to the synthetic ``__user_<id>__`` role for direct grants.
+  // Role-derived rows are unioned in ``PermissionsSection`` via the ``roles``
+  // prop, so leaving them in would double-count.
+  const allDirectPermissions = useMemo(
+    () => (directPermsData?.permissions ?? []).filter((p) => isSyntheticUserRole(p.role_name)),
+    [directPermsData],
+  );
 
   // Single-tenant mode hides the Workspace column, so stale non-default
-  // rows would look like duplicates. Filter them out; null workspace
-  // (deleted resource) stays - could belong to any workspace.
+  // rows would look like duplicates. Filter them out.
   const roles = useMemo(
     () => (workspacesEnabled ? allRoles : allRoles.filter((r) => r.workspace === DEFAULT_WORKSPACE_NAME)),
     [allRoles, workspacesEnabled],
@@ -107,7 +113,7 @@ const AccountPage = () => {
     () =>
       workspacesEnabled
         ? allDirectPermissions
-        : allDirectPermissions.filter((p) => p.workspace == null || p.workspace === DEFAULT_WORKSPACE_NAME),
+        : allDirectPermissions.filter((p) => p.workspace === DEFAULT_WORKSPACE_NAME),
     [allDirectPermissions, workspacesEnabled],
   );
 

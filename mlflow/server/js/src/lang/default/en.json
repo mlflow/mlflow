@@ -399,6 +399,10 @@
     "defaultMessage": "No retrieval logged",
     "description": "Evaluation review > retrieval section > no values"
   },
+  "0BguZN": {
+    "defaultMessage": "State",
+    "description": "Gateway endpoint usage > metrics filter > state column option label"
+  },
   "0ElvS9": {
     "defaultMessage": "Y-axis:",
     "description": "Label text for y-axis in contour plot comparison in MLflow"
@@ -3979,6 +3983,10 @@
     "defaultMessage": "Root cause failure:",
     "description": "Evaluation review > assessments > root cause failure > title"
   },
+  "M9X4CX": {
+    "defaultMessage": "You cannot delete your own account.",
+    "description": "Tooltip explaining why the row checkbox is disabled for the current user"
+  },
   "MB3kda": {
     "defaultMessage": "{pendingCount} pending {pendingCount, plural, =1 {change} other {changes}}",
     "description": "Evaluation review > assessments > pending entries counter"
@@ -4742,6 +4750,10 @@
   "QUMV9L": {
     "defaultMessage": "On",
     "description": "Runs charts > line chart > display points > on setting label"
+  },
+  "QWcxD+": {
+    "defaultMessage": "State",
+    "description": "Gateway usage overview > metrics filter > state column option label"
   },
   "QXLV8h": {
     "defaultMessage": "Error",
@@ -7587,6 +7599,10 @@
     "defaultMessage": "Failed to delete some endpoints. Please try again.",
     "description": "Gateway > Bulk delete endpoints modal > Error message"
   },
+  "gsF5IQ": {
+    "defaultMessage": "{agentName} uses its own credentials, so no API key is required. The provider and model are pre-configured.",
+    "description": "Info message shown on coding agent endpoint creation form"
+  },
   "gt4t2m": {
     "defaultMessage": "Issue detection completed",
     "description": "Issue detection progress > Step label when completed"
@@ -8326,6 +8342,10 @@
   "ktiuki": {
     "defaultMessage": "Get Link",
     "description": "Title text for get-link modal"
+  },
+  "kwqwaU": {
+    "defaultMessage": "View starter code",
+    "description": "Title for coding agent starter code card on endpoint overview"
   },
   "kzfRC2": {
     "defaultMessage": "Impacted traces: {count}",

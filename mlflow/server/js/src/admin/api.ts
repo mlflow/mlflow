@@ -203,106 +203,36 @@ export const AdminApi = {
     });
   },
 
-  // Legacy per-resource permission CRUD endpoints. These are REST (not AJAX) and
-  // continue to work pre/post Phase 2: post-migration the auth backend rewires
-  // them to write `role_permissions` rows under a synthetic per-user role. Only
-  // the create paths are exposed here - the user-permissions page is a write
-  // surface today (no per-user listing API exists pre-Phase 2).
+  // Unified per-user permission convenience APIs (replace the 10 legacy
+  // per-resource ``create`` / ``delete`` endpoints removed in this PR).
+  // The server resolves ``(resource_type, resource_id)`` against the user's
+  // synthetic ``__user_<id>__`` role; resource-type validation lives on the
+  // store layer.
   grantUserPermission: (resourceType: string, resourceId: string, username: string, permission: string) => {
-    const body = (extra: Record<string, string>) => JSON.stringify({ ...extra, username, permission });
-    switch (resourceType) {
-      case 'experiment':
-        return fetchEndpoint({
-          relativeUrl: 'api/2.0/mlflow/experiments/permissions/create',
-          method: 'POST',
-          body: body({ experiment_id: resourceId }),
-          error: defaultErrorHandler,
-        });
-      case 'registered_model':
-        return fetchEndpoint({
-          relativeUrl: 'api/2.0/mlflow/registered-models/permissions/create',
-          method: 'POST',
-          body: body({ name: resourceId }),
-          error: defaultErrorHandler,
-        });
-      case 'gateway_secret':
-        return fetchEndpoint({
-          relativeUrl: 'api/3.0/mlflow/gateway/secrets/permissions/create',
-          method: 'POST',
-          body: body({ secret_id: resourceId }),
-          error: defaultErrorHandler,
-        });
-      case 'gateway_endpoint':
-        return fetchEndpoint({
-          relativeUrl: 'api/3.0/mlflow/gateway/endpoints/permissions/create',
-          method: 'POST',
-          body: body({ endpoint_id: resourceId }),
-          error: defaultErrorHandler,
-        });
-      case 'gateway_model_definition':
-        return fetchEndpoint({
-          relativeUrl: 'api/3.0/mlflow/gateway/model-definitions/permissions/create',
-          method: 'POST',
-          body: body({ model_definition_id: resourceId }),
-          error: defaultErrorHandler,
-        });
-      default:
-        return Promise.reject(
-          new Error(
-            `Granting per-user permission for resource_type=${resourceType} is not supported. ` +
-              'Use a role assignment instead.',
-          ),
-        );
-    }
+    return fetchEndpoint({
+      relativeUrl: 'ajax-api/3.0/mlflow/users/permissions/grant',
+      method: 'POST',
+      body: JSON.stringify({
+        username,
+        resource_type: resourceType,
+        resource_id: resourceId,
+        permission,
+      }),
+      error: defaultErrorHandler,
+    });
   },
 
-  // Revoke a per-user direct permission. Mirror of ``grantUserPermission`` —
-  // dispatches by ``resource_type`` to the matching ``DELETE_*_PERMISSION``
-  // endpoint. The backend treats the (resource, user) pair as the primary
-  // key, so no permission level is required to delete.
   revokeUserPermission: (resourceType: string, resourceId: string, username: string) => {
-    const body = (extra: Record<string, string>) => JSON.stringify({ ...extra, username });
-    switch (resourceType) {
-      case 'experiment':
-        return fetchEndpoint({
-          relativeUrl: 'api/2.0/mlflow/experiments/permissions/delete',
-          method: 'DELETE',
-          body: body({ experiment_id: resourceId }),
-          error: defaultErrorHandler,
-        });
-      case 'registered_model':
-        return fetchEndpoint({
-          relativeUrl: 'api/2.0/mlflow/registered-models/permissions/delete',
-          method: 'DELETE',
-          body: body({ name: resourceId }),
-          error: defaultErrorHandler,
-        });
-      case 'gateway_secret':
-        return fetchEndpoint({
-          relativeUrl: 'api/3.0/mlflow/gateway/secrets/permissions/delete',
-          method: 'DELETE',
-          body: body({ secret_id: resourceId }),
-          error: defaultErrorHandler,
-        });
-      case 'gateway_endpoint':
-        return fetchEndpoint({
-          relativeUrl: 'api/3.0/mlflow/gateway/endpoints/permissions/delete',
-          method: 'DELETE',
-          body: body({ endpoint_id: resourceId }),
-          error: defaultErrorHandler,
-        });
-      case 'gateway_model_definition':
-        return fetchEndpoint({
-          relativeUrl: 'api/3.0/mlflow/gateway/model-definitions/permissions/delete',
-          method: 'DELETE',
-          body: body({ model_definition_id: resourceId }),
-          error: defaultErrorHandler,
-        });
-      default:
-        return Promise.reject(
-          new Error(`Revoking per-user permission for resource_type=${resourceType} is not supported.`),
-        );
-    }
+    return fetchEndpoint({
+      relativeUrl: 'ajax-api/3.0/mlflow/users/permissions/revoke',
+      method: 'POST',
+      body: JSON.stringify({
+        username,
+        resource_type: resourceType,
+        resource_id: resourceId,
+      }),
+      error: defaultErrorHandler,
+    });
   },
 
   // Lightweight resource lookups for populating the per-user grant form.
@@ -337,12 +267,5 @@ export const AdminApi = {
       relativeUrl: 'ajax-api/3.0/mlflow/gateway/endpoints/list',
       error: defaultErrorHandler,
     }) as Promise<{ endpoints?: { endpoint_id: string; name: string }[] }>;
-  },
-
-  listGatewayModelDefinitionsLite: () => {
-    return fetchEndpoint({
-      relativeUrl: 'ajax-api/3.0/mlflow/gateway/model-definitions/list',
-      error: defaultErrorHandler,
-    }) as Promise<{ model_definitions?: { model_definition_id: string; name: string }[] }>;
   },
 };

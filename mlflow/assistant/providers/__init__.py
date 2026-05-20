@@ -1,10 +1,12 @@
 from mlflow.assistant.providers.base import AssistantProvider
 from mlflow.assistant.providers.claude_code import ClaudeCodeProvider
+from mlflow.assistant.providers.codex import CodexProvider
 from mlflow.assistant.providers.ollama import OllamaProvider
 
 __all__ = [
     "AssistantProvider",
     "ClaudeCodeProvider",
+    "CodexProvider",
     "OllamaProvider",
     "list_providers",
 ]
@@ -12,6 +14,7 @@ __all__ = [
 _PROVIDERS: list[type[AssistantProvider]] = [
     ClaudeCodeProvider,
     OllamaProvider,
+    CodexProvider,
 ]
 
 

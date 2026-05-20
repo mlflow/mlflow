@@ -88,6 +88,14 @@ LANGCHAIN_V1_SKIP_REASON = "Pickle serialization is not supported for LangChain 
 # Reusable decorator for skipping tests on LangChain v1
 skip_if_v1 = pytest.mark.skipif(IS_LANGCHAIN_v1, reason=LANGCHAIN_V1_SKIP_REASON)
 
+# langchain 0.3.30 removed legacy `.save()` from VectorStoreRetriever and chain classes,
+# so the object-based `mlflow.langchain.log_model(chain, ...)` path raises NotImplementedError.
+# Users on these versions should migrate to models-from-code.
+skip_if_legacy_save_removed = pytest.mark.skipif(
+    version.parse(langchain.__version__) >= version.parse("0.3.30"),
+    reason="VectorStoreRetriever.save() removed in langchain 0.3.30+; use models-from-code",
+)
+
 # The mock OAI completion endpoint returns payload as it is
 TEST_CONTENT = [{"role": "user", "content": "What is MLflow?"}]
 
@@ -270,6 +278,7 @@ def assert_equal_retrievers(retriever, expected_retriever):
 
 
 @skip_if_v1
+@skip_if_legacy_save_removed
 def test_log_and_load_retriever_chain(tmp_path):
     # Create the vector db, persist the db to a local fs folder
     loader = TextLoader("tests/langchain/state_of_the_union.txt")
@@ -365,6 +374,7 @@ def load_requests_wrapper(_):
 
 
 @skip_if_v1
+@skip_if_legacy_save_removed
 def test_agent_with_unpicklable_tools(tmp_path):
     from langchain.agents import AgentType, initialize_agent
 
@@ -635,6 +645,7 @@ def test_save_load_chain_with_model_paths():
 
 
 @skip_if_v1
+@skip_if_legacy_save_removed
 def test_save_load_rag(tmp_path, spark, fake_chat_model):
     # TODO: Migrate to models-from-code
     # Create the vector db, persist the db to a local fs folder

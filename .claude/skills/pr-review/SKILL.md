@@ -1,6 +1,6 @@
 ---
 name: pr-review
-description: Review a GitHub pull request and emit a single review payload (comments + approval decision) for the workflow to validate and post
+description: Review a GitHub pull request and emit a validated local review payload (comments + approval decision)
 disable-model-invocation: true
 allowed-tools:
   - Read
@@ -40,24 +40,28 @@ The `<owner>`/`<repo>`/`<pr_number>` placeholders in the steps below refer to th
 
 ## Instructions
 
-### 1. Fetch PR context
+### 1. Gather context (run in parallel)
 
-Fetch the PR title and description:
+These reads are independent. Issue them as parallel tool calls in a single turn, not sequentially.
+
+#### PR title and description
 
 ```bash
 gh pr view <pr_number> --repo "<owner>/<repo>" --json title,body
 ```
 
-### 2. Fetch PR Diff
+#### PR diff hunks
 
-Fetch the diff hunks via the `fetch-diff` skill.
+Invoke the [`fetch-diff`](../fetch-diff/SKILL.md) skill.
 
-### 3. Fetch Existing Review Comments
+#### Existing review threads
 
-Fetch up to 100 review threads on the PR (open, resolved, and outdated, with up to 20 comments each) so you can avoid duplicating prior feedback:
+Up to 100 threads (open, resolved, and outdated) with up to 20 comments each, so you can avoid duplicating prior feedback:
 
 ```bash
-gh api graphql -F owner=<owner> -F repo=<repo> -F pr=<pr_number> -f query='
+gh api graphql -F owner=<owner> -F repo=<repo> -F pr=<pr_number> \
+  --jq '.data.repository.pullRequest.reviewThreads.nodes | map(.comments = .comments.nodes)' \
+  -f query='
   query($owner: String!, $repo: String!, $pr: Int!) {
     repository(owner: $owner, name: $repo) {
       pullRequest(number: $pr) {
@@ -77,7 +81,15 @@ gh api graphql -F owner=<owner> -F repo=<repo> -F pr=<pr_number> -f query='
   }'
 ```
 
-### 4. In-Depth Analysis
+### 2. Load repository style rules
+
+Load the repository style rules applicable to the changed files:
+
+```bash
+git diff --name-only HEAD^1 | uv run --package skills skills load-rules
+```
+
+### 3. In-Depth Analysis
 
 The working tree holds the PR merged into the base (`refs/pull/<pr>/merge`), so file contents reflect the post-merge state. Explore it for context beyond the diff (existing patterns, call sites of changed symbols, file conventions).
 
@@ -96,9 +108,9 @@ Evaluate the changed code across these dimensions:
 - **Efficiency**: needless N+1 queries, redundant work in hot paths, allocations in tight loops
 - **Readability & maintainability**: unclear names, dead code, premature abstractions, comments that restate the code
 - **Test coverage**: new behavior lacks tests, tests assert on the wrong thing, mocks hide real failures
-- **Style guide**: see `.claude/rules/` for language-specific rules and `CLAUDE.md` for repo conventions
+- **Style guide**: violations of the rules loaded in step 2
 
-### 5. Decision Point
+### 4. Decision Point
 
 Classify each finding by severity (matches `.github/instructions/code-review.instructions.md`):
 
@@ -113,15 +125,14 @@ Determine the review `event`:
 - **No CRITICAL findings** -> `event: "APPROVE"`
 - **Any CRITICAL finding** -> `event: "COMMENT"`
 
-### 6. Emit Review Payload
+### 5. Emit Local Review Payload
 
-Your only output is `/tmp/review-payload.json`. Do not call any GitHub write APIs (e.g., `gh pr review`, `gh api -X POST /repos/{owner}/{repo}/pulls/{pr}/reviews`).
-
-Read [`review-payload.schema.json`](./review-payload.schema.json) for the full payload spec (field types, required fields, patterns, enums) and write `/tmp/review-payload.json` matching it.
+Read [`review-payload.schema.json`](./review-payload.schema.json), then write `/tmp/review-payload.json` matching it and validate.
 
 Authoring rules not captured by the schema:
 
 - One comment per distinct finding, anchored to the most relevant changed line. For repeated identical issues, leave a single representative comment rather than flagging every instance.
+- Anchors must land in a diff hunk. For findings about out-of-diff code, anchor to any changed line (prefer the same file when it has hunks) and name the actual `path:line` in the body.
 - Keep comments constructive and specific: state the problem, why it matters, and a concrete suggestion when possible.
 - Use suggestion blocks for simple fixes — fence with ` ```suggestion ` and preserve original indentation.
 - If you have no findings, emit an empty `comments` array.
@@ -131,3 +142,5 @@ Validate before finishing — fix any errors and re-emit until this passes:
 ```bash
 uv run --package skills skills validate-review /tmp/review-payload.json
 ```
+
+Do not post the review or comments by running `gh pr review`, calling GitHub review/comment APIs, or using any other skills. Stop after writing and validating the local review payload.

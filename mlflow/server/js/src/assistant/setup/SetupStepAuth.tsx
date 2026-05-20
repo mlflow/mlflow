@@ -1,5 +1,6 @@
 import type { AuthState } from '../types';
 import { ClaudeCodeAuth } from './ClaudeCodeAuth';
+import { CodexAuth } from './CodexAuth';
 import { OllamaAuth } from './OllamaAuth';
 
 interface SetupStepAuthProps {
@@ -20,6 +21,17 @@ export const SetupStepAuth = ({
   if (provider === 'ollama') {
     return (
       <OllamaAuth
+        cachedAuthStatus={cachedAuthStatus}
+        onAuthStatusChange={onAuthStatusChange}
+        onBack={onBack}
+        onContinue={onContinue}
+      />
+    );
+  }
+
+  if (provider === 'codex') {
+    return (
+      <CodexAuth
         cachedAuthStatus={cachedAuthStatus}
         onAuthStatusChange={onAuthStatusChange}
         onBack={onBack}
