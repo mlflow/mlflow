@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779289784061,
+  "lastUpdate": 1779305981175,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -4535,6 +4535,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 8.372532199996385,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "147849970+SuperSonnix71@users.noreply.github.com",
+            "name": "Sonny",
+            "username": "SuperSonnix71"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9e7d61e5422ab4d9cdd451d82df2c479305143ca",
+          "message": "Add OpenAI Codex CLI as assistant provider (#22566)\n\nSigned-off-by: Sonny M <sonny@Sonnys-MacBook-Pro-2.local>\nSigned-off-by: SuperSonnix71 <sonnym@hotmail.se>\nSigned-off-by: Sonny <sonnym@terranex.ai>\nCo-authored-by: Claude <noreply@anthropic.com>",
+          "timestamp": "2026-05-20T19:35:30Z",
+          "tree_id": "f70c5c200e8401fde3e2ed34c3fd9d7523f2b89c",
+          "url": "https://github.com/mlflow/mlflow/commit/9e7d61e5422ab4d9cdd451d82df2c479305143ca"
+        },
+        "date": 1779305979777,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 51.499552849998054,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 29.516302911762228,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 27.29573356000401,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 26.50510630188656,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 16.58241500000675,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 9.643898799993167,
             "unit": "ms"
           }
         ]
