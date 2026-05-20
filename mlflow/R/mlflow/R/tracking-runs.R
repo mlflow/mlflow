@@ -420,6 +420,15 @@ mlflow_set_terminated <- function(status, end_time, run_id, client) {
   mlflow_get_run(client = client, run_id = response$run_info$run_uuid)
 }
 
+mlflow_parse_runs_uri <- function(run_uri) {
+  rest <- sub("^runs:/", "", run_uri)
+  parts <- strsplit(rest, "/", fixed = TRUE)[[1]]
+  list(
+    run_id = parts[[1]],
+    path = if (length(parts) > 1) paste(parts[-1], collapse = "/") else ""
+  )
+}
+
 #' Download Artifacts
 #'
 #' Download an artifact file or directory from a run to a local directory if applicable,
@@ -432,6 +441,7 @@ mlflow_set_terminated <- function(status, end_time, run_id, client) {
 mlflow_download_artifacts <- function(path, run_id = NULL, client = NULL) {
   run_id <- resolve_run_id(run_id)
   client <- resolve_client(client)
+
   result <- mlflow_cli(
     "artifacts", "download",
     "--run-id", run_id,
@@ -452,6 +462,30 @@ mlflow_download_artifacts <- function(path, run_id = NULL, client = NULL) {
 
 # ' Download Artifacts from URI.
 mlflow_download_artifacts_from_uri <- function(artifact_uri, client = mlflow_client()) {
+  client <- resolve_client(client)
+
+  if (dir.exists(artifact_uri)) {
+    return(normalizePath(artifact_uri, winslash = "/", mustWork = TRUE))
+  }
+
+  if (mlflow_is_plain_models_uri(artifact_uri)) {
+    model_path <- mlflow_download_model_uri(artifact_uri, client = client)
+    if (!is.null(model_path)) return(model_path)
+  }
+
+  if (grepl("^file://", artifact_uri)) {
+    file_path <- sub("^file://", "", artifact_uri)
+    if (!file.exists(file_path)) {
+      stop(paste("Artifact path does not exist:", artifact_uri), call. = FALSE)
+    }
+    return(normalizePath(file_path, winslash = "/", mustWork = TRUE))
+  }
+
+  if (grepl("^runs:/", artifact_uri)) {
+    parsed <- mlflow_parse_runs_uri(artifact_uri)
+    return(mlflow_download_artifacts(path = parsed$path, run_id = parsed$run_id, client = client))
+  }
+
   result <- mlflow_cli("artifacts", "download", "-u", artifact_uri, echo = FALSE, client = client)
   # NB: The return type from the artifacts download instruction from the cli can be either
   # a path as a "string" (character vector in R with length of 1) or as a string with a newline
@@ -490,6 +524,7 @@ mlflow_download_artifacts_from_uri <- function(artifact_uri, client = mlflow_cli
 #' @export
 mlflow_log_artifact <- function(path, artifact_path = NULL, run_id = NULL, client = NULL) {
   c(client, run_id) %<-% resolve_client_and_run_id(client, run_id)
+
   artifact_param <- NULL
   if (!is.null(artifact_path)) artifact_param <- "--artifact-path"
 

@@ -6,7 +6,7 @@ get_executing_file_name <- function() {
   pattern <- "^--file="
   v <- grep(pattern, commandArgs(), value = TRUE)
   file_name <- gsub(pattern, "", v)
-  if (length(file_name)) file_name
+  if (length(file_name) && !identical(file_name, "-")) file_name
 }
 
 get_source_name <- function() {
@@ -227,4 +227,14 @@ resolve_client <- function(client) {
     if (!inherits(client, "mlflow_client")) stop("`client` must be an `mlflow_client` object.", call. = FALSE)
     client
   }
+}
+
+resolve_registry_client <- function(client) {
+  client <- resolve_client(client)
+  client$registry_client %||% client
+}
+
+is_uc_registry_uri <- function(client) {
+  client <- resolve_client(client)
+  identical(client$registry_uri$scheme, "databricks-uc")
 }

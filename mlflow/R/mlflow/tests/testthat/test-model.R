@@ -92,11 +92,11 @@ test_that("mlflow can log model and load it back with a uri", {
   temp_in  <- tempfile(fileext = ".json")
   temp_out  <- tempfile(fileext = ".json")
   jsonlite::write_json(list(dataframe_records=0:10), temp_in)
-  mlflow:::mlflow_cli("models", "predict", "-m", runs_uri, "-i", temp_in, "-o", temp_out,
+  mlflow_cli("models", "predict", "-m", runs_uri, "-i", temp_in, "-o", temp_out,
                       "--content-type", "json", "--env-manager", "uv", "--install-mlflow")
   prediction <- unlist(jsonlite::read_json(temp_out))
   expect_true(5 == prediction)
-  mlflow:::mlflow_cli("models", "predict", "-m", actual_uri, "-i", temp_in, "-o", temp_out,
+  mlflow_cli("models", "predict", "-m", actual_uri, "-i", temp_in, "-o", temp_out,
                       "--content-type", "json", "--env-manager", "uv", "--install-mlflow")
   prediction <- unlist(jsonlite::read_json(temp_out))
   expect_true(5 == prediction)
@@ -132,4 +132,165 @@ test_that("mlflow can save and load attributes of model flavor correctly", {
 
   expect_equal(attributes(model$flavor)$spec$key1, "value1")
   expect_equal(attributes(model$flavor)$spec$key2, "value2")
+})
+
+test_that("mlflow_log_model supports signature parameter", {
+  lm_model <- lm(Sepal.Width ~ Sepal.Length, iris)
+  model <- crate(~ stats::predict(lm_model, .x), lm_model = lm_model)
+  signature <- list(
+    inputs = list(x = "double"),
+    outputs = list(y = "double")
+  )
+  logged_path <- NULL
+  logged_model_spec <- NULL
+
+  with_mocked_bindings(.package = "mlflow",
+    mlflow_log_artifact = function(path, artifact_path = NULL, run_id = NULL, client = NULL) {
+      logged_path <<- path
+      invisible(path)
+    },
+    mlflow_get_active_run_id_or_start_run = function() "run-123",
+    mlflow_record_logged_model = function(model_spec, run_id = NULL, client = NULL) {
+      logged_model_spec <<- model_spec
+      invisible(NULL)
+    }, {
+      mlflow_log_model(model, "signed_model", signature = signature)
+      spec <- yaml::read_yaml(file.path(logged_path, "MLmodel"))
+      inputs <- jsonlite::fromJSON(spec$signature$inputs, simplifyDataFrame = FALSE)
+      outputs <- jsonlite::fromJSON(spec$signature$outputs, simplifyDataFrame = FALSE)
+      expect_equal(inputs[[1]]$name, "x")
+      expect_equal(inputs[[1]]$type, "double")
+      expect_true(inputs[[1]]$required)
+      expect_equal(outputs[[1]]$name, "y")
+      expect_equal(outputs[[1]]$type, "double")
+      expect_true(outputs[[1]]$required)
+    })
+  expect_type(logged_model_spec$signature$inputs, "character")
+  expect_type(logged_model_spec$signature$outputs, "character")
+})
+
+test_that("mlflow_log_model rejects data.frame signature fields", {
+  lm_model <- lm(Sepal.Width ~ Sepal.Length, iris)
+  model <- crate(~ stats::predict(lm_model, .x), lm_model = lm_model)
+
+  expect_error(
+    mlflow_log_model(
+      model,
+      "signed_model",
+      signature = data.frame(inputs = "x", outputs = "y")
+    ),
+    "`signature` must be a named list, not a data.frame",
+    fixed = TRUE
+  )
+
+  expect_error(
+    mlflow_log_model(
+      model,
+      "signed_model",
+      signature = list(
+        inputs = data.frame(name = "x", type = "double"),
+        outputs = list(y = "double")
+      )
+    ),
+    "must be a named list, not a data.frame"
+  )
+
+  expect_error(
+    mlflow_log_model(model, "signed_model", signature = list()),
+    "`signature` must include `inputs` or `outputs`",
+    fixed = TRUE
+  )
+})
+
+test_that("models URI parser supports aliases, versions, and stages", {
+  expect_true(mlflow_is_plain_models_uri("models:/zacdav.default.model/12"))
+  expect_false(mlflow_is_plain_models_uri("models://profile/zacdav.default.model/12"))
+
+  alias_uri <- mlflow_parse_models_uri("models:/zacdav.default.model@champion")
+  expect_equal(alias_uri$name, "zacdav.default.model")
+  expect_null(alias_uri$version)
+  expect_null(alias_uri$stage)
+  expect_equal(alias_uri$alias, "champion")
+
+  version_uri <- mlflow_parse_models_uri("models:/zacdav.default.model/12")
+  expect_equal(version_uri$name, "zacdav.default.model")
+  expect_equal(version_uri$version, "12")
+  expect_null(version_uri$stage)
+  expect_null(version_uri$alias)
+
+  stage_uri <- mlflow_parse_models_uri("models:/workspace_model/Staging")
+  expect_equal(stage_uri$name, "workspace_model")
+  expect_null(stage_uri$version)
+  expect_equal(stage_uri$stage, "Staging")
+  expect_null(stage_uri$alias)
+
+  expect_error(
+    mlflow_parse_models_uri("models:/workspace_model@"),
+    "Model alias URIs"
+  )
+})
+
+test_that("models URI alias resolves via registry helper", {
+  model_name <- basename(tempfile("model_"))
+  lm_model <- lm(Sepal.Width ~ Sepal.Length, iris)
+  model <- crate(~ stats::predict(lm_model, .x), lm_model = lm_model)
+  path <- file.path(tempdir(), model_name)
+  mlflow_save_model(model, path = path)
+
+  with_mocked_bindings(.package = "mlflow",
+    mlflow_get_model_version_by_alias = function(name, alias, client = NULL) {
+      list(model_version = list(version = "9"))
+    },
+    mlflow_get_model_version_download_uri = function(name, version, client = NULL) {
+      path
+    }, {
+      loaded <- mlflow_load_model("models:/zacdav.default.model@prod")
+      pred <- mlflow_predict(loaded, iris[1:3, ])
+      expect_equal(as.numeric(pred), as.numeric(stats::predict(lm_model, iris[1:3, ])))
+    })
+})
+
+test_that("Unity Catalog models URI alias downloads via UC helper", {
+  model_name <- basename(tempfile("model_"))
+  lm_model <- lm(Sepal.Width ~ Sepal.Length, iris)
+  model <- crate(~ stats::predict(lm_model, .x), lm_model = lm_model)
+  path <- file.path(tempdir(), model_name)
+  mlflow_save_model(model, path = path)
+
+  mock_client <- new_mlflow_client_impl(
+    get_host_creds = function() new_mlflow_host_creds(host = "https://adb.example.com", token = "x"),
+    get_cli_env = list
+  )
+  mock_client$registry_uri <- list(scheme = "databricks-uc")
+
+  downloaded <- NULL
+  with_mocked_bindings(.package = "mlflow",
+    mlflow_get_model_version_by_alias = function(name, alias, client = NULL) {
+      list(model_version = list(version = "9"))
+    },
+    mlflow_download_uc_model_version = function(name, version, client = NULL) {
+      downloaded <<- list(name = name, version = version, client = client)
+      path
+    }, {
+      loaded <- mlflow_load_model("models:/zacdav.default.model@prod", client = mock_client)
+      pred <- mlflow_predict(loaded, iris[1:3, ])
+      expect_equal(as.numeric(pred), as.numeric(stats::predict(lm_model, iris[1:3, ])))
+    })
+
+  expect_equal(downloaded$name, "zacdav.default.model")
+  expect_equal(downloaded$version, "9")
+  expect_identical(downloaded$client, mock_client)
+})
+
+test_that("Unity Catalog models URI stages fail with alias guidance", {
+  mock_client <- new_mlflow_client_impl(
+    get_host_creds = function() new_mlflow_host_creds(host = "https://adb.example.com", token = "x"),
+    get_cli_env = list
+  )
+  mock_client$registry_uri <- list(scheme = "databricks-uc")
+
+  expect_error(
+    mlflow_download_model_uri("models:/zacdav.default.model/Staging", client = mock_client),
+    "aliases"
+  )
 })

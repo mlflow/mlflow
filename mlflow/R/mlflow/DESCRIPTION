@@ -1,7 +1,7 @@
 Type: Package
 Package: mlflow
 Title: Interface to 'MLflow'
-Version: 3.12.1
+Version: 3.12.2
 Authors@R: 
     c(person(given = "Ben",
              family = "Wilson",
@@ -61,7 +61,7 @@ Suggests:
     reticulate,
     xgboost
 Encoding: UTF-8
-RoxygenNote: 7.1.2
+RoxygenNote: 7.3.2
 Collate:
     'cast-utils.R'
     'cli.R'

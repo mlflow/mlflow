@@ -4,13 +4,16 @@
 \alias{mlflow_log_model}
 \title{Log Model}
 \usage{
-mlflow_log_model(model, artifact_path, ...)
+mlflow_log_model(model, artifact_path, signature = NULL, ...)
 }
 \arguments{
 \item{model}{The model that will perform a prediction.}
 
 \item{artifact_path}{Destination path where this MLflow compatible model
 will be saved.}
+
+\item{signature}{Optional model signature with named-list `inputs` and `outputs`,
+e.g. `list(inputs = list(feature = "double"), outputs = list(prediction = "double"))`.}
 
 \item{...}{Optional additional arguments passed to `mlflow_save_model()` when persisting the
 model. For example, `conda_env = /path/to/conda.yaml` may be passed to specify a conda

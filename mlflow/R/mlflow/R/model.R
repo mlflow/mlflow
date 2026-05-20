@@ -14,6 +14,70 @@ mlflow_save_model <- function(model, path, model_spec = list(), ...) {
   UseMethod("mlflow_save_model")
 }
 
+mlflow_normalize_signature_field <- function(field, name) {
+  if (is.character(field) && length(field) == 1) {
+    return(list(name = as.character(name), type = as.character(field), required = TRUE))
+  }
+  if (is.list(field)) {
+    if (is.null(field$type)) {
+      stop(sprintf("Signature field `%s` must include `type`.", name), call. = FALSE)
+    }
+    field <- c(list(name = as.character(name)), field[setdiff(names(field), "name")])
+    if (is.null(field$required)) {
+      field$required <- TRUE
+    }
+    return(field)
+  }
+  stop(
+    sprintf("Signature field `%s` must be a scalar type string or a list with `type`.", name),
+    call. = FALSE
+  )
+}
+
+mlflow_normalize_signature_fields <- function(fields, field_set) {
+  if (is.null(fields)) return(NULL)
+  if (is.data.frame(fields)) {
+    stop(
+      sprintf("Signature `%s` must be a named list, not a data.frame.", field_set),
+      call. = FALSE
+    )
+  }
+  if (!is.list(fields) || is.null(names(fields)) || any(!nzchar(names(fields)))) {
+    stop(
+      sprintf("Signature `%s` must be a named list, e.g. list(feature = \"double\").", field_set),
+      call. = FALSE
+    )
+  }
+  unname(purrr::imap(fields, mlflow_normalize_signature_field))
+}
+
+mlflow_signature_schema_json <- function(fields) {
+  if (is.null(fields)) return(NULL)
+  as.character(jsonlite::toJSON(fields, auto_unbox = TRUE))
+}
+
+mlflow_normalize_signature <- function(signature) {
+  if (is.null(signature)) return(NULL)
+  if (is.data.frame(signature)) {
+    stop("`signature` must be a named list, not a data.frame.", call. = FALSE)
+  }
+  if (!is.list(signature)) {
+    stop("`signature` must be a list with `inputs` and `outputs`.", call. = FALSE)
+  }
+  normalized <- list(
+    inputs = mlflow_signature_schema_json(
+      mlflow_normalize_signature_fields(signature$inputs, "inputs")
+    ),
+    outputs = mlflow_signature_schema_json(
+      mlflow_normalize_signature_fields(signature$outputs, "outputs")
+    )
+  )
+  if (is.null(normalized$inputs) && is.null(normalized$outputs)) {
+    stop("`signature` must include `inputs` or `outputs`.", call. = FALSE)
+  }
+  normalized
+}
+
 #' Log Model
 #'
 #' Logs a model for this run. Similar to `mlflow_save_model()`
@@ -22,19 +86,26 @@ mlflow_save_model <- function(model, path, model_spec = list(), ...) {
 #' @param model The model that will perform a prediction.
 #' @param artifact_path Destination path where this MLflow compatible model
 #'   will be saved.
+#' @param signature Optional model signature with named-list `inputs` and `outputs`,
+#'   e.g. `list(inputs = list(feature = "double"), outputs = list(prediction = "double"))`.
 #' @param ... Optional additional arguments passed to `mlflow_save_model()` when persisting the
 #'   model. For example, `conda_env = /path/to/conda.yaml` may be passed to specify a conda
 #'   dependencies file for flavors (e.g. keras) that support conda environments.
 #'
 #' @export
-mlflow_log_model <- function(model, artifact_path, ...) {
+mlflow_log_model <- function(model, artifact_path, signature = NULL, ...) {
   temp_path <- fs::path_temp(artifact_path)
-  model_spec <- mlflow_save_model(model, path = temp_path, model_spec = list(
+  signature <- mlflow_normalize_signature(signature)
+  model_spec <- list(
     utc_time_created = mlflow_timestamp(),
     run_id = mlflow_get_active_run_id_or_start_run(),
     artifact_path = artifact_path,
     flavors = list()
-  ), ...)
+  )
+  if (!is.null(signature)) {
+    model_spec$signature <- signature
+  }
+  model_spec <- mlflow_save_model(model, path = temp_path, model_spec = model_spec, ...)
   res <- mlflow_log_artifact(path = temp_path, artifact_path = artifact_path)
   tryCatch({ mlflow_record_logged_model(model_spec) }, error = function(e) {
     warning(paste("Logging model metadata to the tracking server has failed, possibly due to older",
@@ -64,6 +135,88 @@ mlflow_timestamp <- function() {
   )
 }
 
+mlflow_is_plain_models_uri <- function(model_uri) {
+  grepl("^models:/[^/]", model_uri)
+}
+
+mlflow_parse_models_uri <- function(model_uri) {
+  rest <- sub("^models:/", "", model_uri)
+  parts <- strsplit(rest, "/", fixed = TRUE)[[1]]
+  if (!nzchar(rest) || length(parts) > 2 || !nzchar(parts[[1]])) {
+    stop(
+      "Model URIs must be of the form `models:/name/version` or `models:/name@alias`.",
+      call. = FALSE
+    )
+  }
+
+  if (length(parts) == 2) {
+    suffix <- parts[[2]]
+    if (!nzchar(suffix)) {
+      stop(
+        "Model URIs must include a non-empty version, stage, or alias.",
+        call. = FALSE
+      )
+    }
+    return(list(
+      name = parts[[1]],
+      version = if (grepl("^[0-9]+$", suffix)) suffix else NULL,
+      stage = if (grepl("^[0-9]+$", suffix)) NULL else suffix,
+      alias = NULL
+    ))
+  }
+
+  alias_pos <- gregexpr("@", rest, fixed = TRUE)[[1]]
+  if (alias_pos[[1]] != -1L) {
+    at <- alias_pos[[length(alias_pos)]]
+    name <- substr(rest, 1, at - 1)
+    alias <- substr(rest, at + 1, nchar(rest))
+    if (!nzchar(name) || !nzchar(alias)) {
+      stop(
+        "Model alias URIs must be of the form `models:/name@alias`.",
+        call. = FALSE
+      )
+    }
+    return(list(name = name, version = NULL, stage = NULL, alias = alias))
+  }
+
+  list(name = rest, version = NULL, stage = NULL, alias = NULL)
+}
+
+mlflow_resolve_model_uri_version <- function(parsed, client) {
+  if (is.null(parsed$alias)) {
+    return(parsed$version)
+  }
+
+  alias_resp <- mlflow_get_model_version_by_alias(parsed$name, parsed$alias, client = client)
+  mv <- alias_resp$model_version %||% alias_resp
+  if (is.null(mv$version) || !nchar(mv$version)) {
+    stop("Unable to resolve model alias to a concrete model version.", call. = FALSE)
+  }
+  mv$version
+}
+
+mlflow_download_model_uri <- function(model_uri, client) {
+  parsed <- mlflow_parse_models_uri(model_uri)
+  version <- mlflow_resolve_model_uri_version(parsed, client)
+
+  if (is_uc_registry_uri(client)) {
+    if (!is.null(parsed$stage)) {
+      mlflow_uc_stage_error("mlflow_load_model")
+    }
+    if (is.null(version) || !nchar(version)) {
+      stop("Unity Catalog model URIs must include a concrete version or alias.", call. = FALSE)
+    }
+    return(mlflow_download_uc_model_version(parsed$name, version, client = client))
+  }
+
+  if (is.null(parsed$alias)) {
+    return(NULL)
+  }
+
+  resolved_uri <- mlflow_get_model_version_download_uri(parsed$name, version, client = client)
+  mlflow_download_artifacts_from_uri(resolved_uri, client = client)
+}
+
 #' Load MLflow Model
 #'
 #' Loads an MLflow model. MLflow models can have multiple model flavors. Not all flavors / models
@@ -75,7 +228,12 @@ mlflow_timestamp <- function() {
 #' case there are multiple flavors available.
 #' @export
 mlflow_load_model <- function(model_uri, flavor = NULL, client = mlflow_client()) {
-  model_path <- mlflow_download_artifacts_from_uri(model_uri, client = client)
+  model_path <- NULL
+  if (mlflow_is_plain_models_uri(model_uri)) {
+    model_path <- mlflow_download_model_uri(model_uri, client = client)
+  }
+
+  model_path <- model_path %||% mlflow_download_artifacts_from_uri(model_uri, client = client)
   supported_flavors <- supported_model_flavors()
   spec <- yaml::read_yaml(fs::path(model_path, "MLmodel"))
   available_flavors <- intersect(names(spec$flavors), supported_flavors)

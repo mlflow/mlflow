@@ -45,25 +45,31 @@ get_rest_config <- function(host_creds) {
 }
 
 mlflow_rest <- function( ..., client, query = NULL, data = NULL, verb = "GET", version = "2.0",
-                         max_rate_limit_interval=60) {
+                         max_rate_limit_interval=60, path_prefix = mlflow_rest_path(version)) {
   host_creds <- client$get_host_creds()
   rest_config <- get_rest_config(host_creds)
   args <- list(...)
   api_url <- file.path(
     host_creds$host,
-    mlflow_rest_path(version),
+    path_prefix,
     paste(args, collapse = "/")
   )
   req_headers <- do.call(httr::add_headers, rest_config$headers)
+  json_body <- if (is.null(data)) NULL else rapply(data, as.character, how = "replace")
   get_response <- switch(
     verb,
     GET = function() {
-      httr::GET( api_url, query = query, mlflow_rest_timeout(), config = rest_config$config,
-           req_headers)
+      if (is.null(data)) {
+        httr::GET(api_url, query = query, mlflow_rest_timeout(), config = rest_config$config,
+                  req_headers)
+      } else {
+        httr::VERB("GET", api_url, query = query, body = json_body, encode = "json",
+                   mlflow_rest_timeout(), config = rest_config$config, req_headers)
+      }
     },
     POST = function(){
       httr::POST( api_url,
-            body = if (is.null(data)) NULL else rapply(data, as.character, how = "replace"),
+            body = json_body,
             encode = "json",
             mlflow_rest_timeout(),
             config = rest_config$config,
@@ -72,7 +78,7 @@ mlflow_rest <- function( ..., client, query = NULL, data = NULL, verb = "GET", v
     },
     PATCH = function(){
       httr::PATCH( api_url,
-            body = if (is.null(data)) NULL else rapply(data, as.character, how = "replace"),
+            body = json_body,
             encode = "json",
             mlflow_rest_timeout(),
             config = rest_config$config,
@@ -81,7 +87,7 @@ mlflow_rest <- function( ..., client, query = NULL, data = NULL, verb = "GET", v
     },
     DELETE = function() {
       httr::DELETE(api_url,
-              body = if (is.null(data)) NULL else rapply(data, as.character, how = "replace"),
+              body = json_body,
               encode = "json",
               mlflow_rest_timeout(),
               config = rest_config$config,
@@ -122,4 +128,28 @@ mlflow_rest <- function( ..., client, query = NULL, data = NULL, verb = "GET", v
   }
   text <- httr::content(response, "text", encoding = "UTF-8")
   jsonlite::fromJSON(text, simplifyVector = FALSE)
+}
+
+mlflow_registry_rest_path <- function(client, version = "2.0") {
+  if (is_uc_registry_uri(client)) {
+    "api/2.0/mlflow/unity-catalog"
+  } else {
+    mlflow_rest_path(version)
+  }
+}
+
+mlflow_registry_rest <- function(..., client, query = NULL, data = NULL, verb = "GET",
+                                 version = "2.0", max_rate_limit_interval = 60) {
+  client <- resolve_client(client)
+  registry_client <- resolve_registry_client(client)
+  mlflow_rest(
+    ...,
+    client = registry_client,
+    query = query,
+    data = data,
+    verb = verb,
+    version = version,
+    max_rate_limit_interval = max_rate_limit_interval,
+    path_prefix = mlflow_registry_rest_path(client, version = version)
+  )
 }
