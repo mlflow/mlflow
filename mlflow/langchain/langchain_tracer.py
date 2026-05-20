@@ -15,6 +15,7 @@ from langchain_core.outputs import (
     GenerationChunk,
     LLMResult,
 )
+from langgraph.errors import GraphInterrupt
 from tenacity import RetryCallState
 
 import mlflow
