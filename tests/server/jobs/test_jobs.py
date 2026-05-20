@@ -32,7 +32,7 @@ from mlflow.server.jobs.utils import (
     _enqueue_unfinished_jobs,
     _exec_job,
 )
-from mlflow.store.jobs.abstract_store import JobTerminalStateUpdateException
+from mlflow.store.jobs.abstract_store import JobTerminalStateUpdateException, JobUpdateStatus
 from mlflow.store.jobs.sqlalchemy_store import SqlAlchemyJobStore
 from mlflow.store.jobs.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyJobStore
 from mlflow.store.tracking.dbmodels.models import SqlJob, SqlJobLock
@@ -403,7 +403,7 @@ def test_retry_or_fail_job_clears_transient_fields_on_exhaustion(monkeypatch, tm
     job = store.create_job("test_job", "{}")
     store.start_job(job.job_id)
 
-    with store.ManagedSessionMaker() as session:
+    with store.ManagedSessionMaker(read_only=False) as session:
         session.query(SqlJob).filter(SqlJob.id == job.job_id).update({
             SqlJob.lease_expires_at: int(time.time() * 1000),
             SqlJob.status_message: "running",
@@ -438,12 +438,273 @@ def test_retry_or_fail_job_clears_transient_fields_on_exhaustion(monkeypatch, tm
         assert sql_job.scoped_permissions is None
 
 
+def test_retry_or_fail_job_rejects_needs_recovery_jobs(monkeypatch, tmp_path: Path):
+    monkeypatch.setenv("MLFLOW_SERVER_JOB_TRANSIENT_ERROR_MAX_RETRIES", "0")
+    backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
+    store = SqlAlchemyJobStore(backend_store_uri)
+
+    job = store.create_job("test_job", "{}")
+    store.claim_job(job.job_id, lease_duration=30.0)
+    assert store.reattach_job(job.job_id, lease_duration=30.0) == JobUpdateStatus.WRONG_STATE
+    assert store.requeue_job(job.job_id) == JobUpdateStatus.WRONG_STATE
+    assert store.mark_job_needs_recovery(job.job_id) == JobUpdateStatus.APPLIED
+
+    with pytest.raises(MlflowException, match="cannot fail \\(must be RUNNING\\)"):
+        store.retry_or_fail_job(job.job_id, "retry exhausted")
+
+
+def test_retry_or_fail_job_rejects_pending_jobs(monkeypatch, tmp_path: Path):
+    monkeypatch.setenv("MLFLOW_SERVER_JOB_TRANSIENT_ERROR_MAX_RETRIES", "0")
+    backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
+    store = SqlAlchemyJobStore(backend_store_uri)
+
+    job = store.create_job("test_job", "{}")
+
+    with pytest.raises(MlflowException, match="cannot fail \\(must be RUNNING\\)"):
+        store.retry_or_fail_job(job.job_id, "retry exhausted")
+
+
+def test_retry_or_fail_job_returns_incremented_retry_count(monkeypatch, tmp_path: Path):
+    monkeypatch.setenv("MLFLOW_SERVER_JOB_TRANSIENT_ERROR_MAX_RETRIES", "2")
+    backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
+    store = SqlAlchemyJobStore(backend_store_uri)
+
+    job = store.create_job("test_job", "{}")
+    store.claim_job(job.job_id, lease_duration=30.0)
+
+    retry_count = store.retry_or_fail_job(job.job_id, "retry me")
+
+    assert retry_count == 1
+    assert store.get_job(job.job_id).retry_count == 1
+
+
+def test_claim_job_and_renew_lease(tmp_path: Path):
+    backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
+    store = SqlAlchemyJobStore(backend_store_uri)
+
+    job = store.create_job("test_job", "{}")
+
+    with pytest.raises(MlflowException, match="must be provided when renewing a job lease"):
+        store.renew_job_lease(job.job_id, None)
+
+    assert store.renew_job_lease(job.job_id, 30.0) == JobUpdateStatus.WRONG_STATE
+    assert store.claim_job(job.job_id, lease_duration=5.0) == JobUpdateStatus.APPLIED
+    assert store.claim_job(job.job_id, lease_duration=5.0) == JobUpdateStatus.WRONG_STATE
+
+    claimed_job = store.get_job(job.job_id)
+    assert claimed_job.status == JobStatus.RUNNING
+    assert claimed_job.lease_expires_at is not None
+    assert claimed_job.lease_expires_at > int(time.time() * 1000)
+
+    first_lease_expiration = claimed_job.lease_expires_at
+    assert store.renew_job_lease(job.job_id, 30.0) == JobUpdateStatus.APPLIED
+
+    renewed_job = store.get_job(job.job_id)
+    assert renewed_job.lease_expires_at is not None
+    assert renewed_job.lease_expires_at > first_lease_expiration
+
+
+def test_claim_job_respects_workspace_isolation(tmp_path: Path, workspaces_enabled):
+    backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
+    store_cls = WorkspaceAwareSqlAlchemyJobStore if workspaces_enabled else SqlAlchemyJobStore
+    store = store_cls(backend_store_uri)
+
+    if workspaces_enabled:
+        with WorkspaceContext("workspace-b"):
+            job = store.create_job("test_job", "{}")
+
+        with pytest.raises(MlflowException, match=f"Job with ID {job.job_id} not found"):
+            store.claim_job(job.job_id, lease_duration=5.0)
+
+        with WorkspaceContext("workspace-b"):
+            assert store.claim_job(job.job_id, lease_duration=5.0) == JobUpdateStatus.APPLIED
+    else:
+        job = store.create_job("test_job", "{}")
+        assert store.claim_job(job.job_id, lease_duration=5.0) == JobUpdateStatus.APPLIED
+
+
+def test_claim_job_is_atomic(tmp_path: Path, workspaces_enabled):
+    backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
+    store_cls = WorkspaceAwareSqlAlchemyJobStore if workspaces_enabled else SqlAlchemyJobStore
+    store = store_cls(backend_store_uri)
+
+    job = store.create_job("test.function", '{"param": "value"}')
+    assert job.status == JobStatus.PENDING
+
+    with concurrent.futures.ThreadPoolExecutor(
+        max_workers=5, thread_name_prefix="test-concurrent-claims"
+    ) as executor:
+        futures = [executor.submit(store.claim_job, job.job_id, 5.0) for _ in range(5)]
+        results = [f.result() for f in concurrent.futures.as_completed(futures)]
+
+    assert results.count(JobUpdateStatus.APPLIED) == 1
+    assert results.count(JobUpdateStatus.WRONG_STATE) == 4
+    assert store.get_job(job.job_id).status == JobStatus.RUNNING
+
+
+def test_lifecycle_transitions_raise_for_missing_job(tmp_path: Path):
+    backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
+    store = SqlAlchemyJobStore(backend_store_uri)
+    missing_job_id = "missing-job-id"
+
+    with pytest.raises(MlflowException, match=f"Job with ID {missing_job_id} not found"):
+        store.claim_job(missing_job_id, lease_duration=5.0)
+
+    with pytest.raises(MlflowException, match=f"Job with ID {missing_job_id} not found"):
+        store.renew_job_lease(missing_job_id, 5.0)
+
+    with pytest.raises(MlflowException, match=f"Job with ID {missing_job_id} not found"):
+        store.mark_job_needs_recovery(missing_job_id)
+
+    with pytest.raises(MlflowException, match=f"Job with ID {missing_job_id} not found"):
+        store.reattach_job(missing_job_id, lease_duration=5.0)
+
+    with pytest.raises(MlflowException, match=f"Job with ID {missing_job_id} not found"):
+        store.requeue_job(missing_job_id)
+
+
+def test_retry_job_clears_transient_fields(tmp_path: Path):
+    backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
+    store = SqlAlchemyJobStore(backend_store_uri)
+
+    job = store.create_job("test_job", "{}")
+    store.claim_job(job.job_id, lease_duration=30.0)
+
+    with store.ManagedSessionMaker(read_only=False) as session:
+        session.query(SqlJob).filter(SqlJob.id == job.job_id).update({
+            SqlJob.status_message: "running",
+            SqlJob.progress: {"completed": 1, "total": 2},
+            SqlJob.progress_updated_at: int(time.time() * 1000),
+            SqlJob.token_hash: "abc123",
+            SqlJob.scoped_permissions: [
+                {
+                    "resource_type": "experiment",
+                    "resource_identifier": "1",
+                    "workspace": None,
+                    "permission": "EDIT",
+                }
+            ],
+        })
+
+    retry_count = store.retry_job(job.job_id)
+    assert retry_count == 1
+
+    updated_job = store.get_job(job.job_id)
+    assert updated_job.status == JobStatus.PENDING
+    assert updated_job.retry_count == 1
+    assert updated_job.result is None
+    assert updated_job.status_message is None
+    assert updated_job.progress is None
+    assert updated_job.progress_updated_at is None
+    assert updated_job.token_hash is None
+    assert updated_job.scoped_permissions is None
+    assert updated_job.lease_expires_at is None
+
+
+def test_report_job_result_clears_transient_fields(tmp_path: Path):
+    backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
+    store = SqlAlchemyJobStore(backend_store_uri)
+
+    job = store.create_job("test_job", "{}")
+    store.claim_job(job.job_id, lease_duration=30.0)
+
+    with store.ManagedSessionMaker(read_only=False) as session:
+        session.query(SqlJob).filter(SqlJob.id == job.job_id).update({
+            SqlJob.status_message: "running",
+            SqlJob.progress: {"completed": 1, "total": 2},
+            SqlJob.progress_updated_at: int(time.time() * 1000),
+            SqlJob.token_hash: "abc123",
+            SqlJob.scoped_permissions: [
+                {
+                    "resource_type": "experiment",
+                    "resource_identifier": "1",
+                    "workspace": None,
+                    "permission": "EDIT",
+                }
+            ],
+        })
+
+    assert store.report_job_result(job.job_id, JobStatus.SUCCEEDED, result='{"ok": true}') is None
+
+    with pytest.raises(MlflowException, match="already finalized"):
+        store.report_job_result(job.job_id, JobStatus.SUCCEEDED, result='{"ok": true}')
+
+    updated_job = store.get_job(job.job_id)
+    assert updated_job.status == JobStatus.SUCCEEDED
+    assert updated_job.parsed_result == {"ok": True}
+    assert updated_job.status_message is None
+    assert updated_job.progress is None
+    assert updated_job.progress_updated_at is None
+    assert updated_job.token_hash is None
+    assert updated_job.scoped_permissions is None
+    assert updated_job.lease_expires_at is None
+
+
+def test_recovery_transitions_preserve_and_clear_expected_fields(tmp_path: Path):
+    backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
+    store = SqlAlchemyJobStore(backend_store_uri)
+
+    job = store.create_job("test_job", "{}")
+    store.claim_job(job.job_id, lease_duration=30.0)
+
+    with store.ManagedSessionMaker(read_only=False) as session:
+        session.query(SqlJob).filter(SqlJob.id == job.job_id).update({
+            SqlJob.status_message: "running",
+            SqlJob.progress: {"phase": "scoring", "completed": 1, "total": 2, "unit": "trace"},
+            SqlJob.progress_updated_at: int(time.time() * 1000),
+            SqlJob.token_hash: "abc123",
+            SqlJob.scoped_permissions: [
+                {
+                    "resource_type": "experiment",
+                    "resource_identifier": "1",
+                    "workspace": None,
+                    "permission": "EDIT",
+                }
+            ],
+        })
+
+    assert store.mark_job_needs_recovery(job.job_id) == JobUpdateStatus.APPLIED
+
+    recovery_job = store.get_job(job.job_id)
+    assert recovery_job.status == JobStatus.NEEDS_RECOVERY
+    assert recovery_job.lease_expires_at is None
+    assert recovery_job.status_message == "running"
+    assert recovery_job.progress == JobProgress(phase="scoring", completed=1, total=2, unit="trace")
+    assert recovery_job.token_hash == "abc123"
+    assert recovery_job.scoped_permissions == [
+        JobScopedPermission(
+            resource_type="experiment",
+            resource_identifier="1",
+            workspace=None,
+            permission="EDIT",
+        )
+    ]
+
+    assert store.reattach_job(job.job_id, lease_duration=30.0) == JobUpdateStatus.APPLIED
+    running_job = store.get_job(job.job_id)
+    assert running_job.status == JobStatus.RUNNING
+    assert running_job.lease_expires_at is not None
+
+    assert store.mark_job_needs_recovery(job.job_id) == JobUpdateStatus.APPLIED
+    assert store.requeue_job(job.job_id) == JobUpdateStatus.APPLIED
+
+    pending_job = store.get_job(job.job_id)
+    assert pending_job.status == JobStatus.PENDING
+    assert pending_job.result is None
+    assert pending_job.status_message is None
+    assert pending_job.progress is None
+    assert pending_job.progress_updated_at is None
+    assert pending_job.token_hash is None
+    assert pending_job.scoped_permissions is None
+    assert pending_job.lease_expires_at is None
+
+
 def test_job_progress_hydrates_to_dataclass(tmp_path: Path):
     backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
     store = SqlAlchemyJobStore(backend_store_uri)
 
     job = store.create_job("test_job", "{}")
-    with store.ManagedSessionMaker() as session:
+    with store.ManagedSessionMaker(read_only=False) as session:
         session.query(SqlJob).filter(SqlJob.id == job.job_id).update({
             SqlJob.progress: {
                 "phase": "scoring",
@@ -522,7 +783,7 @@ def test_job_scoped_permissions_payload_hydrates_to_dataclass(tmp_path: Path):
     store = SqlAlchemyJobStore(backend_store_uri)
 
     job = store.create_job("test_job", "{}")
-    with store.ManagedSessionMaker() as session:
+    with store.ManagedSessionMaker(read_only=False) as session:
         session.query(SqlJob).filter(SqlJob.id == job.job_id).update({
             SqlJob.scoped_permissions: [
                 {
@@ -562,7 +823,7 @@ def test_job_scoped_permissions_payload_defaults_permission_to_read(tmp_path: Pa
     store = SqlAlchemyJobStore(backend_store_uri)
 
     job = store.create_job("test_job", "{}")
-    with store.ManagedSessionMaker() as session:
+    with store.ManagedSessionMaker(read_only=False) as session:
         session.query(SqlJob).filter(SqlJob.id == job.job_id).update({
             SqlJob.scoped_permissions: [
                 {
@@ -953,7 +1214,7 @@ def test_delete_jobs_only_deletes_finalized(tmp_path: Path):
 
     needs_recovery_job = store.create_job("needs_recovery_job", "{}")
     store.start_job(needs_recovery_job.job_id)
-    with store.ManagedSessionMaker() as session:
+    with store.ManagedSessionMaker(read_only=False) as session:
         session.query(SqlJob).filter(SqlJob.id == needs_recovery_job.job_id).update({
             SqlJob.status: JobStatus.NEEDS_RECOVERY.to_int(),
             SqlJob.last_update_time: int(time.time() * 1000),
@@ -1389,7 +1650,7 @@ def test_delete_jobs_cascades_job_locks(tmp_path: Path):
     store.start_job(job.job_id)
     store.finish_job(job.job_id, "result")
 
-    with store.ManagedSessionMaker() as session:
+    with store.ManagedSessionMaker(read_only=False) as session:
         session.add(
             SqlJobLock(
                 lock_key="finished_job:1234",

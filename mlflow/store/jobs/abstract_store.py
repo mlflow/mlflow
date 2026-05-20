@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from enum import Enum
 from typing import Any, Iterator
 
 from mlflow.entities._job import Job, JobProgress
@@ -16,6 +17,13 @@ class JobTerminalStateUpdateException(MlflowException):
             f"The Job {job_id} is already finalized with status: {status}, it can't be updated.",
             error_code=INVALID_PARAMETER_VALUE,
         )
+
+
+class JobUpdateStatus(str, Enum):
+    """Outcome of a conditional job state transition."""
+
+    APPLIED = "APPLIED"
+    WRONG_STATE = "WRONG_STATE"
 
 
 @developer_stable
@@ -41,6 +49,114 @@ class AbstractJobStore(ABC):
 
         Returns:
             Job entity instance
+        """
+
+    @abstractmethod
+    def claim_job(self, job_id: str, lease_duration: float | None = None) -> JobUpdateStatus:
+        """
+        Conditionally claim a pending job for execution.
+
+        Args:
+            job_id: The ID of the job to claim
+            lease_duration: Optional lease duration in seconds. When provided,
+                the store should persist the corresponding lease expiry while
+                transitioning the row to ``RUNNING``.
+
+        Returns:
+            ``APPLIED`` if the job transitioned from ``PENDING`` to
+            ``RUNNING``, ``WRONG_STATE`` if the row exists but was no longer
+            claimable
+        """
+
+    @abstractmethod
+    def renew_job_lease(self, job_id: str, lease_duration: float) -> JobUpdateStatus:
+        """
+        Renew the short-lived lease for a running job.
+
+        Args:
+            job_id: The ID of the job whose lease should be renewed
+            lease_duration: New lease duration in seconds, measured from the
+                time the renewal is persisted.
+
+        Returns:
+            ``APPLIED`` if the lease was renewed, ``WRONG_STATE`` if the row
+            exists but is no longer in a renewable state
+        """
+
+    @abstractmethod
+    def retry_job(self, job_id: str) -> int:
+        """
+        Transition a running job back to ``PENDING`` for another attempt.
+
+        Args:
+            job_id: The ID of the job to retry
+
+        Returns:
+            The incremented retry count
+        """
+
+    @abstractmethod
+    def mark_job_needs_recovery(self, job_id: str) -> JobUpdateStatus:
+        """
+        Transition a stale running job to ``NEEDS_RECOVERY``.
+
+        Args:
+            job_id: The ID of the job to mark for recovery
+
+        Returns:
+            ``APPLIED`` if the transition succeeded, ``WRONG_STATE`` if the
+            row exists but is no longer in a recoverable running state
+        """
+
+    @abstractmethod
+    def reattach_job(self, job_id: str, lease_duration: float | None = None) -> JobUpdateStatus:
+        """
+        Transition a recovery-owned job back to ``RUNNING``.
+
+        Args:
+            job_id: The ID of the job to reattach to active monitoring
+            lease_duration: Optional new lease duration in seconds to apply
+                when the job returns to ``RUNNING``.
+
+        Returns:
+            ``APPLIED`` if the transition succeeded, ``WRONG_STATE`` if the
+            row exists but is no longer in ``NEEDS_RECOVERY``
+        """
+
+    @abstractmethod
+    def requeue_job(self, job_id: str) -> JobUpdateStatus:
+        """
+        Transition a recovery-owned job back to ``PENDING`` without incrementing retries.
+
+        Args:
+            job_id: The ID of the job to requeue
+
+        Returns:
+            ``APPLIED`` if the transition succeeded, ``WRONG_STATE`` if the
+            row exists but is no longer in ``NEEDS_RECOVERY``
+        """
+
+    @abstractmethod
+    def report_job_result(
+        self,
+        job_id: str,
+        status: JobStatus,
+        result: str | None = None,
+        error_message: str | None = None,
+        is_transient_error: bool = False,
+    ) -> None:
+        """
+        Persist a terminal job outcome for framework-owned execution.
+
+        Args:
+            job_id: The ID of the job to terminalize
+            status: Terminal status to persist
+            result: Serialized successful result payload, when applicable
+            error_message: Human-readable terminal error payload, when
+                applicable.
+            is_transient_error: Executor-side retry classification. Stores do
+                not persist this flag today, but callers may use this signature
+                to match the job-result contract.
         """
 
     @abstractmethod
