@@ -11,7 +11,7 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FieldLabel } from './FieldLabel';
-import { formatResourcePattern } from '../types';
+import { formatResourcePattern, getResourceTypeLabel } from '../types';
 import {
   RolePermissionForm,
   ROLE_PERMISSION_DRAFT_DEFAULT,
@@ -110,7 +110,7 @@ export const RolePermissionsSection = ({ value, onChange, workspace, disabled }:
           {value.map((p, i) => (
             <TableRow key={`${p.resourceType}-${p.resourcePattern}-${p.permission}-${i}`}>
               <TableCell css={{ flex: 1 }}>
-                <Tag componentId="admin.role_permissions.staged_type_tag">{p.resourceType}</Tag>
+                <Tag componentId="admin.role_permissions.staged_type_tag">{getResourceTypeLabel(p.resourceType)}</Tag>
               </TableCell>
               <TableCell css={{ flex: 1 }}>
                 <code>{formatResourcePattern(p.resourcePattern)}</code>

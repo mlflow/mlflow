@@ -97,6 +97,26 @@ export const RESOURCE_TYPES = [
   'workspace',
 ] as const;
 
+/**
+ * User-facing labels for resource types. Used by the role and direct
+ * permission pickers so admins see "Registered model" / "LLM connection"
+ * instead of raw discriminators like ``registered_model`` /
+ * ``gateway_secret``. ``gateway_secret`` is surfaced as "LLM connection"
+ * to match the product page that exposes those secrets.
+ */
+export const RESOURCE_TYPE_LABELS = {
+  experiment: 'Experiment',
+  registered_model: 'Registered model',
+  prompt: 'Prompt',
+  scorer: 'Scorer',
+  gateway_secret: 'LLM connection',
+  gateway_endpoint: 'LLM endpoint',
+  workspace: 'Workspace',
+} satisfies Record<(typeof RESOURCE_TYPES)[number], string>;
+
+export const getResourceTypeLabel = (resourceType: string): string =>
+  RESOURCE_TYPE_LABELS[resourceType as keyof typeof RESOURCE_TYPE_LABELS] ?? resourceType;
+
 export const PERMISSIONS = ['READ', 'USE', 'EDIT', 'MANAGE', 'NO_PERMISSIONS'] as const;
 
 /**
