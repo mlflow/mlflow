@@ -2665,9 +2665,8 @@ def test_trace_only_template_uses_two_messages_with_empty_user(mock_invoke_judge
 
     user_msg = prompt[1]
     assert user_msg.role == "user"
-    assert (
-        user_msg.content == "Follow the instructions from the first message"
-    )  # Placeholder user message for trace-only
+    # Must disclaim the chat as input/response, or the LLM self-grades.
+    assert "not the input or response being judged" in user_msg.content
 
 
 def test_no_warning_when_extracting_fields_from_trace(mock_invoke_judge_model):
