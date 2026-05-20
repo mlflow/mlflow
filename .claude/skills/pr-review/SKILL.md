@@ -93,10 +93,10 @@ The merge ref's base parent is also reachable as `HEAD^1`. When the diff doesn't
 
 #### Load applicable repo style rules
 
-Read every file printed by:
+The output of the following command contains the `.claude/rules/*.md` files whose `paths` glob matches the changed files. Treat its stdout as additional context for the review:
 
 ```bash
-git diff --name-only HEAD^1 | uv run --package skills skills which-rules
+git diff --name-only HEAD^1 | uv run --package skills skills print-rules
 ```
 
 #### Don't comment on

@@ -1,5 +1,5 @@
 # ruff: noqa: T201
-"""Print .claude/rules/*.md files whose path globs match a set of changed files."""
+"""Print contents of .claude/rules/*.md files whose path globs match changed files."""
 
 from __future__ import annotations
 
@@ -42,8 +42,10 @@ def parse_frontmatter_paths(text: str) -> list[str]:
     end = text.find("\n---", 4)
     if end == -1:
         return []
-    front = yaml.safe_load(text[4:end]) or {}
-    match front.get("paths") if isinstance(front, dict) else None:
+    front = yaml.safe_load(text[4:end])
+    if not isinstance(front, dict):
+        return []
+    match front.get("paths"):
         case str() as scalar:
             return [scalar]
         case list() as items:
@@ -66,10 +68,10 @@ def matching_rules(changed: list[str], rules_dir: Path = RULES_DIR) -> list[Path
 
 def register(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     subparsers.add_parser(
-        "which-rules",
+        "print-rules",
         help=(
-            "Read newline-separated file paths from stdin and print .claude/rules/*.md "
-            "files whose `paths` glob matches at least one path"
+            "Read newline-separated file paths from stdin and print the contents of "
+            "`.claude/rules/*.md` files whose `paths` glob matches at least one path"
         ),
     ).set_defaults(func=run)
 
@@ -79,4 +81,7 @@ def run(args: argparse.Namespace) -> None:
     if not changed:
         return
     for rule in matching_rules(changed):
-        print(rule.relative_to(REPO_ROOT))
+        rel = rule.relative_to(REPO_ROOT)
+        body = rule.read_text()
+        print(f"================ {rel} ================")
+        print(body if body.endswith("\n") else body + "\n")
