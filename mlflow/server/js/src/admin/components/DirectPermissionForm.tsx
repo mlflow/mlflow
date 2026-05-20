@@ -15,7 +15,7 @@ import {
 } from '@databricks/design-system';
 import { FieldLabel } from './FieldLabel';
 import { useResourceOptionsQuery } from '../hooks';
-import { PERMISSIONS, getGrantablePermissions } from '../types';
+import { PERMISSIONS, getGrantablePermissions, getResourceTypeLabel } from '../types';
 
 // Resource types eligible for per-user direct grants. ``workspace`` is excluded
 // (it's role-only), and ``scorer`` is excluded because its identifier is
@@ -26,18 +26,9 @@ export const DIRECT_GRANT_RESOURCE_TYPES = [
   'registered_model',
   'gateway_secret',
   'gateway_endpoint',
-  'gateway_model_definition',
 ] as const;
 
 export type DirectGrantResourceType = (typeof DIRECT_GRANT_RESOURCE_TYPES)[number];
-
-const RESOURCE_TYPE_LABEL: Record<DirectGrantResourceType, string> = {
-  experiment: 'Experiment',
-  registered_model: 'Registered model',
-  gateway_secret: 'Gateway secret',
-  gateway_endpoint: 'Gateway endpoint',
-  gateway_model_definition: 'Gateway model definition',
-};
 
 export type DirectPermissionScope = 'specific' | 'all';
 
@@ -99,7 +90,7 @@ export const DirectPermissionForm = ({
 
   const selectedOption = resourceOptions.find((o) => o.id === value.resourceId);
   const renderOption = (o: { id: string; name: string }) => (o.name === o.id ? o.name : `${o.name} (${o.id})`);
-  const typeLabel = RESOURCE_TYPE_LABEL[value.resourceType];
+  const typeLabel = getResourceTypeLabel(value.resourceType);
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
@@ -124,7 +115,7 @@ export const DirectPermissionForm = ({
         >
           {DIRECT_GRANT_RESOURCE_TYPES.map((rt) => (
             <SimpleSelectOption key={rt} value={rt}>
-              {RESOURCE_TYPE_LABEL[rt]}
+              {getResourceTypeLabel(rt)}
             </SimpleSelectOption>
           ))}
         </SimpleSelect>

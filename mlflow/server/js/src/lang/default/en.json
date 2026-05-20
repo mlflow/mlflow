@@ -399,6 +399,10 @@
     "defaultMessage": "No retrieval logged",
     "description": "Evaluation review > retrieval section > no values"
   },
+  "0BguZN": {
+    "defaultMessage": "State",
+    "description": "Gateway endpoint usage > metrics filter > state column option label"
+  },
   "0ElvS9": {
     "defaultMessage": "Y-axis:",
     "description": "Label text for y-axis in contour plot comparison in MLflow"
@@ -4746,6 +4750,10 @@
   "QUMV9L": {
     "defaultMessage": "On",
     "description": "Runs charts > line chart > display points > on setting label"
+  },
+  "QWcxD+": {
+    "defaultMessage": "State",
+    "description": "Gateway usage overview > metrics filter > state column option label"
   },
   "QXLV8h": {
     "defaultMessage": "Error",

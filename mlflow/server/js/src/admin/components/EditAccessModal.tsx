@@ -24,7 +24,7 @@ import {
   useUsersQuery,
 } from '../hooks';
 import { AccountQueryKeys } from '../../account/hooks';
-import { isSyntheticUserRole } from '../../account/types';
+import { isSyntheticUserRole } from '../types';
 import { useActiveWorkspace } from '../../workspaces/utils/WorkspaceUtils';
 import { RoleAssignmentForm, ROLE_ASSIGNMENT_DEFAULT, type RoleAssignmentValue } from './RoleAssignmentForm';
 import { type DirectGrantResourceType } from './DirectPermissionForm';
@@ -42,11 +42,7 @@ const directPermKey = (p: { resourceType: string; resourceId: string; permission
   `${p.resourceType}::${p.resourceId}::${p.permission}`;
 
 const isDirectGrantResourceType = (rt: string): rt is DirectGrantResourceType =>
-  rt === 'experiment' ||
-  rt === 'registered_model' ||
-  rt === 'gateway_secret' ||
-  rt === 'gateway_endpoint' ||
-  rt === 'gateway_model_definition';
+  rt === 'experiment' || rt === 'registered_model' || rt === 'gateway_secret' || rt === 'gateway_endpoint';
 
 interface AccessDiff {
   rolesToAssign: number[];
@@ -83,7 +79,13 @@ export const EditAccessModal = ({ open, onClose, username, onCreateRoleForAllOfT
   const rolesListEnabled = isCurrentUserAdmin || Boolean(activeWorkspace);
   const { data: rolesListData } = useRolesQuery(rolesListWorkspace, { enabled: rolesListEnabled });
 
-  const currentRoleIds = useMemo<number[]>(() => (rolesData?.roles ?? []).map((r) => r.id), [rolesData]);
+  // Synthetic ``__user_N__`` roles anchor direct grants — must not enter the
+  // editable set, or the picker's "Clear" would unassign them and orphan
+  // every direct grant.
+  const currentRoleIds = useMemo<number[]>(
+    () => (rolesData?.roles ?? []).filter((r) => !isSyntheticUserRole(r.name)).map((r) => r.id),
+    [rolesData],
+  );
   const currentDirectPerms = useMemo<StagedDirectPermission[]>(
     () =>
       (directPermsData?.permissions ?? [])

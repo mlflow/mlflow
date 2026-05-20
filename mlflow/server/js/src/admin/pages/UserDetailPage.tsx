@@ -28,8 +28,7 @@ import { useWorkspacesEnabled } from '../../experiment-tracking/hooks/useServerI
 import AdminRoutes from '../routes';
 import { EditAccessModal } from '../components/EditAccessModal';
 import { PermissionsSection } from '../../account/PermissionsSection';
-import { isSyntheticUserRole } from '../../account/types';
-import { isWorkspaceAdminRole } from '../types';
+import { isSyntheticUserRole, isWorkspaceAdminRole } from '../types';
 
 const UserDetailPage = () => {
   const { theme } = useDesignSystemTheme();
@@ -65,7 +64,9 @@ const UserDetailPage = () => {
   const [editAccessOpen, setEditAccessOpen] = useState(false);
 
   const user = useMemo(() => usersData?.users?.find((u) => u.username === username), [usersData, username]);
-  const allRoles = rolesData?.roles ?? [];
+  // Strip synthetic ``__user_N__`` roles — they back per-user direct
+  // grants and are rendered separately by the Permissions section.
+  const allRoles = useMemo(() => (rolesData?.roles ?? []).filter((r) => !isSyntheticUserRole(r.name)), [rolesData]);
   const roles = isAdmin || !activeWorkspace ? allRoles : allRoles.filter((r) => r.workspace === activeWorkspace);
   // ``GET /users/permissions/list`` returns every permission across every
   // role the user holds; filter to the synthetic ``__user_<id>__`` role to

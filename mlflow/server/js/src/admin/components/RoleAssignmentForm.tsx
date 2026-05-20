@@ -13,7 +13,7 @@ import {
 import { FieldLabel } from './FieldLabel';
 import { useCurrentUserIsAdmin, useRolesQuery } from '../hooks';
 import { useActiveWorkspace } from '../../workspaces/utils/WorkspaceUtils';
-import type { Role } from '../types';
+import { isSyntheticUserRole, type Role } from '../types';
 
 export interface RoleAssignmentValue {
   roleIds: number[];
@@ -48,7 +48,10 @@ export const RoleAssignmentForm = ({ value, onChange, disabled }: RoleAssignment
   const queryWorkspace = isAdmin ? undefined : (activeWorkspace ?? undefined);
   const queryEnabled = isAdmin || Boolean(activeWorkspace);
   const { data: rolesData, isLoading, error } = useRolesQuery(queryWorkspace, { enabled: queryEnabled });
-  const roles = useMemo(() => rolesData?.roles ?? [], [rolesData]);
+  // Synthetic ``__user_N__`` roles back per-user direct grants. They
+  // shouldn't appear in the role picker — picking them would assign a
+  // role tied to another user's direct grants.
+  const roles = useMemo(() => (rolesData?.roles ?? []).filter((r) => !isSyntheticUserRole(r.name)), [rolesData]);
 
   // Pin "default" workspace's roles first; sort the rest alphabetically
   // by workspace then by role name, so the dropdown order is stable.
