@@ -42,7 +42,7 @@ The `<owner>`/`<repo>`/`<pr_number>` placeholders in the steps below refer to th
 
 ### 1. Gather context (run in parallel)
 
-These four reads are independent. Issue them as parallel tool calls in a single turn, not sequentially.
+These five reads are independent. Issue them as parallel tool calls in a single turn, not sequentially.
 
 #### PR title and description
 
@@ -53,6 +53,14 @@ gh pr view <pr_number> --repo "<owner>/<repo>" --json title,body
 #### PR diff hunks
 
 Invoke the [`fetch-diff`](../fetch-diff/SKILL.md) skill.
+
+#### Applicable repo style rules
+
+The stdout of this command is the contents of every `.claude/rules/*.md` file whose `paths` glob matches a changed file. Treat it as additional reviewer context:
+
+```bash
+git diff --name-only HEAD^1 | uv run --package skills skills load-rules
+```
 
 #### Existing review threads
 
@@ -90,14 +98,6 @@ Read [`review-payload.schema.json`](./review-payload.schema.json) so it's in con
 The working tree holds the PR merged into the base (`refs/pull/<pr>/merge`), so file contents reflect the post-merge state. Explore it for context beyond the diff (existing patterns, call sites of changed symbols, file conventions).
 
 The merge ref's base parent is also reachable as `HEAD^1`. When the diff doesn't show enough (verifying a refactor preserved behavior, reading the full content of a deleted file, or seeing the pre-change version of a heavily modified file), use `git show HEAD^1:<path>` rather than re-fetching via the GitHub API.
-
-#### Load applicable repo style rules
-
-The output of the following command contains the `.claude/rules/*.md` files whose `paths` glob matches the changed files. Treat its stdout as additional context for the review:
-
-```bash
-git diff --name-only HEAD^1 | uv run --package skills skills load-rules
-```
 
 #### Don't comment on
 
