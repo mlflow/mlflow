@@ -4058,7 +4058,7 @@ requires-dist = [
     { name = "importlib-metadata", specifier = ">=3.7.0,!=4.7.0,<10" },
     { name = "kubernetes", marker = "extra == 'extras'" },
     { name = "kubernetes", marker = "extra == 'kubernetes'" },
-    { name = "langchain", marker = "extra == 'langchain'", specifier = ">=0.3.26,<=1.2.15" },
+    { name = "langchain", marker = "extra == 'langchain'", specifier = ">=0.3.26,<=1.3.0" },
     { name = "matplotlib", specifier = "<4" },
     { name = "mlflow-dbstore", marker = "extra == 'sqlserver'" },
     { name = "mlflow-jfrog-plugin", marker = "extra == 'jfrog'" },
