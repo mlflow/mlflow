@@ -403,7 +403,7 @@ def test_retry_or_fail_job_clears_transient_fields_on_exhaustion(monkeypatch, tm
     job = store.create_job("test_job", "{}")
     store.start_job(job.job_id)
 
-    with store.ManagedSessionMaker() as session:
+    with store.ManagedSessionMaker(read_only=False) as session:
         session.query(SqlJob).filter(SqlJob.id == job.job_id).update({
             SqlJob.lease_expires_at: int(time.time() * 1000),
             SqlJob.status_message: "running",
@@ -570,7 +570,7 @@ def test_retry_job_clears_transient_fields(tmp_path: Path):
     job = store.create_job("test_job", "{}")
     store.claim_job(job.job_id, lease_duration=30.0)
 
-    with store.ManagedSessionMaker() as session:
+    with store.ManagedSessionMaker(read_only=False) as session:
         session.query(SqlJob).filter(SqlJob.id == job.job_id).update({
             SqlJob.status_message: "running",
             SqlJob.progress: {"completed": 1, "total": 2},
@@ -608,7 +608,7 @@ def test_report_job_result_clears_transient_fields(tmp_path: Path):
     job = store.create_job("test_job", "{}")
     store.claim_job(job.job_id, lease_duration=30.0)
 
-    with store.ManagedSessionMaker() as session:
+    with store.ManagedSessionMaker(read_only=False) as session:
         session.query(SqlJob).filter(SqlJob.id == job.job_id).update({
             SqlJob.status_message: "running",
             SqlJob.progress: {"completed": 1, "total": 2},
@@ -647,7 +647,7 @@ def test_recovery_transitions_preserve_and_clear_expected_fields(tmp_path: Path)
     job = store.create_job("test_job", "{}")
     store.claim_job(job.job_id, lease_duration=30.0)
 
-    with store.ManagedSessionMaker() as session:
+    with store.ManagedSessionMaker(read_only=False) as session:
         session.query(SqlJob).filter(SqlJob.id == job.job_id).update({
             SqlJob.status_message: "running",
             SqlJob.progress: {"phase": "scoring", "completed": 1, "total": 2, "unit": "trace"},
@@ -704,7 +704,7 @@ def test_job_progress_hydrates_to_dataclass(tmp_path: Path):
     store = SqlAlchemyJobStore(backend_store_uri)
 
     job = store.create_job("test_job", "{}")
-    with store.ManagedSessionMaker() as session:
+    with store.ManagedSessionMaker(read_only=False) as session:
         session.query(SqlJob).filter(SqlJob.id == job.job_id).update({
             SqlJob.progress: {
                 "phase": "scoring",
@@ -783,7 +783,7 @@ def test_job_scoped_permissions_payload_hydrates_to_dataclass(tmp_path: Path):
     store = SqlAlchemyJobStore(backend_store_uri)
 
     job = store.create_job("test_job", "{}")
-    with store.ManagedSessionMaker() as session:
+    with store.ManagedSessionMaker(read_only=False) as session:
         session.query(SqlJob).filter(SqlJob.id == job.job_id).update({
             SqlJob.scoped_permissions: [
                 {
@@ -823,7 +823,7 @@ def test_job_scoped_permissions_payload_defaults_permission_to_read(tmp_path: Pa
     store = SqlAlchemyJobStore(backend_store_uri)
 
     job = store.create_job("test_job", "{}")
-    with store.ManagedSessionMaker() as session:
+    with store.ManagedSessionMaker(read_only=False) as session:
         session.query(SqlJob).filter(SqlJob.id == job.job_id).update({
             SqlJob.scoped_permissions: [
                 {
@@ -1214,7 +1214,7 @@ def test_delete_jobs_only_deletes_finalized(tmp_path: Path):
 
     needs_recovery_job = store.create_job("needs_recovery_job", "{}")
     store.start_job(needs_recovery_job.job_id)
-    with store.ManagedSessionMaker() as session:
+    with store.ManagedSessionMaker(read_only=False) as session:
         session.query(SqlJob).filter(SqlJob.id == needs_recovery_job.job_id).update({
             SqlJob.status: JobStatus.NEEDS_RECOVERY.to_int(),
             SqlJob.last_update_time: int(time.time() * 1000),
@@ -1650,7 +1650,7 @@ def test_delete_jobs_cascades_job_locks(tmp_path: Path):
     store.start_job(job.job_id)
     store.finish_job(job.job_id, "result")
 
-    with store.ManagedSessionMaker() as session:
+    with store.ManagedSessionMaker(read_only=False) as session:
         session.add(
             SqlJobLock(
                 lock_key="finished_job:1234",
