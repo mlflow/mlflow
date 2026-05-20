@@ -179,7 +179,7 @@ def _get_repl_id():
     """
     if repl_id := get_databricks_repl_id():
         return repl_id
-    main_file = sys.argv[0] if len(sys.argv) > 0 else "<console>"
+    main_file = sys.argv[0] if (sys.argv and sys.argv[0]) else "<console>"
     return f"PythonSubscriber[{main_file}][{uuid.uuid4().hex}]"
 
 

@@ -6,12 +6,13 @@ import {
   Button,
   InfoBookIcon,
   ParagraphSkeleton,
+  Tag,
   TitleSkeleton,
   Tooltip,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { FormattedMessage } from 'react-intl';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { createMLflowRoutePath, Link, useLocation, useNavigate } from '../../../../../common/utils/RoutingUtils';
 import Routes from '../../../../routes';
 import { ExperimentViewCopyTitle } from './ExperimentViewCopyTitle';
@@ -27,10 +28,11 @@ import { useExperimentKind, isGenAIExperimentKind } from '../../../../utils/Expe
 import { ExperimentViewManagementMenu } from './ExperimentViewManagementMenu';
 import { shouldEnableWorkflowBasedNavigation } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 
-import { ExperimentKind } from '../../../../constants';
+import { ExperimentKind, ExperimentPageTabName } from '../../../../constants';
 import { useGetExperimentPageActiveTabByRoute } from '../../hooks/useGetExperimentPageActiveTabByRoute';
 import { useWorkflowType } from '@mlflow/mlflow/src/common/contexts/WorkflowTypeContext';
 import { getTabDisplayIcon, getTabDisplayName } from './ExperimentViewHeader.utils';
+import { formatTraceArchivalRetentionForDisplay } from '../../../../../common/utils/traceArchival';
 
 const getDocLinkHref = (experimentKind: ExperimentKind) => {
   if (isGenAIExperimentKind(experimentKind)) {
@@ -52,7 +54,6 @@ export const ExperimentViewHeader = React.memo(
     uiState,
     setEditing,
     experimentKindSelector,
-    refetchExperiment,
   }: {
     experiment: ExperimentEntity;
     inferredExperimentKind?: ExperimentKind;
@@ -60,9 +61,9 @@ export const ExperimentViewHeader = React.memo(
     uiState?: ExperimentPageUIState;
     setEditing: (editing: boolean) => void;
     experimentKindSelector?: React.ReactNode;
-    refetchExperiment?: () => Promise<unknown>;
   }) => {
     const { theme } = useDesignSystemTheme();
+    const intl = useIntl();
     const navigate = useNavigate();
     const location = useLocation();
     const handleBack = useCallback(() => {
@@ -94,6 +95,12 @@ export const ExperimentViewHeader = React.memo(
     const { workflowType } = useWorkflowType();
     const tabDisplayName = activeTabByRoute ? getTabDisplayName(activeTabByRoute, workflowType) : undefined;
     const normalizedExperimentName = useMemo(() => experiment.name.split('/').pop(), [experiment.name]);
+    const traceArchivalRetention =
+      formatTraceArchivalRetentionForDisplay(experiment.effectiveTraceArchivalRetention?.trim(), intl) || undefined;
+    const shouldShowTraceArchivalBadge =
+      activeTabByRoute === ExperimentPageTabName.Traces ||
+      activeTabByRoute === ExperimentPageTabName.ChatSessions ||
+      activeTabByRoute === ExperimentPageTabName.SingleChatSession;
     const experimentTitle =
       shouldEnableWorkflowBasedNavigation() && tabDisplayName ? tabDisplayName : normalizedExperimentName;
 
@@ -160,6 +167,15 @@ export const ExperimentViewHeader = React.memo(
                 : <ExperimentViewArtifactLocation artifactLocation={experiment.artifactLocation} />{' '}
                 <ExperimentViewCopyArtifactLocation experiment={experiment} />
               </div>
+              {traceArchivalRetention && (
+                <div style={{ whiteSpace: 'nowrap' }}>
+                  <FormattedMessage
+                    defaultMessage="Trace Archival Retention"
+                    description="Label for displaying the experiment trace archival retention"
+                  />
+                  : {traceArchivalRetention}
+                </div>
+              )}
             </div>
           </InfoPopover>
         </div>
@@ -239,17 +255,38 @@ export const ExperimentViewHeader = React.memo(
               </span>
             </Tooltip>
             {experimentKindSelector}
+            {traceArchivalRetention && shouldShowTraceArchivalBadge && (
+              <div css={{ display: 'flex', alignItems: 'center' }}>
+                <Tooltip
+                  componentId="mlflow.experiment_view.header.trace_archival_badge_tooltip"
+                  content={
+                    <FormattedMessage
+                      defaultMessage="Archived traces remain accessible, but searching within span content no longer works after archival."
+                      description="Tooltip explaining the trace archival badge behavior"
+                    />
+                  }
+                >
+                  <Tag
+                    componentId="mlflow.experiment_view.header.trace_archival_badge"
+                    color="turquoise"
+                    css={{ margin: 0 }}
+                  >
+                    <FormattedMessage
+                      defaultMessage="Archive after: {retention}"
+                      description="Badge showing the active trace archival retention for the experiment"
+                      values={{ retention: traceArchivalRetention }}
+                    />
+                  </Tag>
+                </Tooltip>
+              </div>
+            )}
             {getInfoTooltip()}
           </div>
           <div />
           <div
             css={{ display: 'flex', gap: theme.spacing.sm, justifyContent: 'flex-end', marginLeft: theme.spacing.sm }}
           >
-            <ExperimentViewManagementMenu
-              experiment={experiment}
-              setEditing={setEditing}
-              refetchExperiment={refetchExperiment}
-            />
+            <ExperimentViewManagementMenu experiment={experiment} setEditing={setEditing} />
             <ExperimentViewHeaderShareButton
               experimentIds={experimentIds}
               searchFacetsState={searchFacetsState}

@@ -46,7 +46,7 @@ PASSTHROUGH_ROUTES = {
 # When one of these tools is detected, the gateway preserves the client's auth header
 # instead of overwriting it with the server-side API key.
 # - Claude Code sends:  claude-cli/<version> (external, cli)
-# - OpenAI Codex sends: Codex-Desktop/<version>
+# - OpenAI Codex sends: codex-tui/<version>, codex_cli_rs/<version>, etc. (prefix: "codex")
 # - Gemini CLI sends:   GeminiCLI/<version>/<model> (<platform>; <arch>)
 #
 # Security note: User-Agent strings are not cryptographically verified, so any HTTP
@@ -56,7 +56,7 @@ PASSTHROUGH_ROUTES = {
 # account). Admins who need to enforce server-side key usage exclusively (for billing
 # attribution or rate limiting) should leave the endpoint's auth unconfigured or
 # restrict network-level access to trusted clients.
-_USER_CREDENTIAL_AGENTS = ("claude-cli/", "codex-desktop/", "geminicli/")
+_USER_CREDENTIAL_AGENTS = ("claude-cli", "codex", "geminicli")
 
 # Auth header names that subscription-based CLI tools may include.
 _CLIENT_AUTH_HEADERS = ("authorization", "x-api-key", "x-goog-api-key", "api-key")
@@ -68,7 +68,7 @@ def _client_provides_auth(headers: dict[str, str] | None) -> bool:
         return False
     lower_headers = {k.lower(): v for k, v in headers.items()}
     user_agent = lower_headers.get("user-agent", "").lower()
-    is_credential_agent = any(user_agent.startswith(agent) for agent in _USER_CREDENTIAL_AGENTS)
+    is_credential_agent = any(agent in user_agent for agent in _USER_CREDENTIAL_AGENTS)
     has_auth = any(key in lower_headers for key in _CLIENT_AUTH_HEADERS)
     return is_credential_agent and has_auth
 
@@ -181,6 +181,17 @@ class BaseProvider(ABC):
             f"{self.DISPLAY_NAME} models.",
         )
 
+    async def _proxy(
+        self,
+        path: str,
+        payload: dict[str, Any],
+        headers: dict[str, str] | None = None,
+    ) -> dict[str, Any] | AsyncIterable[Any]:
+        raise AIGatewayException(
+            status_code=501,
+            detail=f"The proxy endpoint is not implemented for {self.DISPLAY_NAME} models.",
+        )
+
     # -------------------------------------------------------------------------
     # Public methods (with optional tracing)
     # -------------------------------------------------------------------------
@@ -257,6 +268,49 @@ class BaseProvider(ABC):
         except Exception as e:
             with mlflow.start_span(span_type=SpanType.LLM, name=self._get_span_name()) as span:
                 span.set_attributes({**self._get_provider_attributes(), "action": action.value})
+                raise e
+
+    async def proxy(
+        self,
+        path: str,
+        payload: dict[str, Any],
+        headers: dict[str, str] | None = None,
+    ) -> dict[str, Any] | AsyncIterable[Any]:
+        if not self._enable_tracing:
+            return await self._proxy(path, payload, headers)
+
+        try:
+            result = await self._proxy(path, payload, headers)
+            if isinstance(result, AsyncIterable):
+
+                @mlflow.trace(span_type=SpanType.LLM, name=self._get_span_name())
+                async def proxy():
+                    span = mlflow.get_current_active_span()
+                    if span is not None:
+                        span.set_attributes({
+                            **self._get_provider_attributes(),
+                            "proxy_path": path,
+                        })
+                    async for chunk in result:
+                        yield chunk
+
+                return proxy()
+            else:
+
+                @mlflow.trace(span_type=SpanType.LLM, name=self._get_span_name())
+                async def proxy():
+                    span = mlflow.get_current_active_span()
+                    if span is not None:
+                        span.set_attributes({
+                            **self._get_provider_attributes(),
+                            "proxy_path": path,
+                        })
+                    return result
+
+                return await proxy()
+        except Exception as e:
+            with mlflow.start_span(span_type=SpanType.LLM, name=self._get_span_name()) as span:
+                span.set_attributes({**self._get_provider_attributes(), "proxy_path": path})
                 raise e
 
     # -------------------------------------------------------------------------
@@ -630,6 +684,15 @@ class TrafficRouteProvider(BaseProvider):
         prov = self._get_provider()
         return await prov.passthrough(action, payload, headers)
 
+    async def proxy(
+        self,
+        path: str,
+        payload: dict[str, Any],
+        headers: dict[str, str] | None = None,
+    ) -> dict[str, Any] | AsyncIterable[Any]:
+        prov = self._get_provider()
+        return await prov.proxy(path, payload, headers)
+
 
 class FallbackProvider(BaseProvider):
     """
@@ -772,6 +835,14 @@ class FallbackProvider(BaseProvider):
         headers: dict[str, str] | None = None,
     ) -> dict[str, Any] | AsyncIterable[Any]:
         return await self._execute_with_fallback("passthrough", action, payload, headers)
+
+    async def proxy(
+        self,
+        path: str,
+        payload: dict[str, Any],
+        headers: dict[str, str] | None = None,
+    ) -> dict[str, Any] | AsyncIterable[Any]:
+        return await self._execute_with_fallback("proxy", path, payload, headers)
 
 
 class ProviderAdapter(ABC):

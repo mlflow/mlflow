@@ -13,7 +13,7 @@ jest.mock('../../actions', () => ({
   deleteExperimentApi: jest.fn(() => ({ type: 'action', meta: {}, payload: Promise.resolve({}) })),
 }));
 
-describe('RenameExperimentModal', () => {
+describe('BulkDeleteExperimentModal', () => {
   let minimalProps: any;
 
   beforeEach(() => {

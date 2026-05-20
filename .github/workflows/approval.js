@@ -75,11 +75,15 @@ module.exports = async ({ github, context, core }) => {
     repo: context.repo.repo,
     pull_number: context.issue.number,
   });
+  const APPROVED_BOTS = new Set(["mlflow-app[bot]", "nailaopus[bot]"]);
   const maintainerApproved = reviews.some(
     ({ state, user }) =>
       state === "APPROVED" &&
+      // GitHub returns `user: null` on reviews from accounts that have since
+      // been deleted; skip them rather than crashing on `user.login`.
+      user &&
       (maintainers.includes(user.login) ||
-        (user.type.toLowerCase() === "bot" && user.login === "mlflow-app[bot]"))
+        (user.type.toLowerCase() === "bot" && APPROVED_BOTS.has(user.login)))
   );
 
   const files = await github.paginate(github.rest.pulls.listFiles, {

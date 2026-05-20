@@ -146,6 +146,16 @@ def test_workspace_is_a_valid_resource_type():
     assert "workspace" in VALID_RESOURCE_TYPES
 
 
+def test_prompt_is_a_first_class_resource_type():
+    """``prompt`` is promoted out from under ``registered_model`` so RBAC can
+    address prompts directly. A grant on registered_model named ``foo`` must
+    not satisfy a request for prompt ``foo`` — that isolation lives in the
+    resolver, but the resource_type itself must exist in the valid set.
+    """
+    assert "prompt" in VALID_RESOURCE_TYPES
+    assert "prompt" != "registered_model"
+
+
 # ---- Scope-aware validator --------------------------------------------------
 
 
@@ -168,12 +178,13 @@ def test_grantable_permission_sets_pin_simplified_model():
 def test_validate_resource_grant_accepts_grantable(permission):
     _validate_permission_for_resource_type(permission, "experiment")
     _validate_permission_for_resource_type(permission, "registered_model")
+    _validate_permission_for_resource_type(permission, "prompt")
     _validate_permission_for_resource_type(permission, "scorer")
 
 
 @pytest.mark.parametrize(
     "resource_type",
-    ["experiment", "registered_model", "scorer", "gateway_endpoint"],
+    ["experiment", "registered_model", "prompt", "scorer", "gateway_endpoint"],
 )
 def test_validate_resource_grant_rejects_no_permissions(resource_type):
     with pytest.raises(MlflowException, match="NO_PERMISSIONS"):

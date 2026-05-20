@@ -16,12 +16,10 @@ module.exports = function (app) {
       changeOrigin: true,
     }),
   );
-  // The legacy per-resource permission CRUD endpoints (e.g.
-  // ``/api/2.0/mlflow/experiments/permissions/create``) are exposed under
-  // ``/api`` rather than ``/ajax-api``. Without this proxy line, the dev
-  // server returns its SPA fallback (200 + index.html) for those POSTs and
-  // the frontend silently treats the grant as successful even though the
-  // backend never saw the request.
+  // Forward any REST (``/api``) traffic to the backend. The admin UI uses
+  // ``/ajax-api`` everywhere; this proxy is here for any future direct REST
+  // callers and to keep the dev server from returning its SPA fallback
+  // (200 + index.html) on accidental ``/api`` POSTs.
   app.use(
     createProxyMiddleware('/api', {
       target: proxyTarget,
