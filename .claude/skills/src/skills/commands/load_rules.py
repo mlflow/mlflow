@@ -82,6 +82,5 @@ def run(args: argparse.Namespace) -> None:
         return
     for rule in matching_rules(changed):
         rel = rule.relative_to(REPO_ROOT)
-        body = rule.read_text()
         print(f"================ {rel} ================")
-        print(body if body.endswith("\n") else body + "\n")
+        print(rule.read_text())
