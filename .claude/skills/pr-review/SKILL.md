@@ -91,6 +91,14 @@ The working tree holds the PR merged into the base (`refs/pull/<pr>/merge`), so 
 
 The merge ref's base parent is also reachable as `HEAD^1`. When the diff doesn't show enough (verifying a refactor preserved behavior, reading the full content of a deleted file, or seeing the pre-change version of a heavily modified file), use `git show HEAD^1:<path>` rather than re-fetching via the GitHub API.
 
+#### Load applicable repo style rules
+
+Read every file printed by:
+
+```bash
+git diff --name-only HEAD^1 | uv run --package skills skills which-rules
+```
+
 #### Don't comment on
 
 - Pre-existing code. You may read unchanged/context lines to understand the change, but only file findings against the changed lines (added, modified, or deleted), even if surrounding code looks suboptimal.

@@ -1,6 +1,12 @@
 import argparse
 
-from skills.commands import fetch_diff, fetch_logs, fetch_unresolved_comments, validate_review
+from skills.commands import (
+    fetch_diff,
+    fetch_logs,
+    fetch_unresolved_comments,
+    validate_review,
+    which_rules,
+)
 
 
 def main() -> None:
@@ -11,6 +17,7 @@ def main() -> None:
     fetch_logs.register(subparsers)
     fetch_unresolved_comments.register(subparsers)
     validate_review.register(subparsers)
+    which_rules.register(subparsers)
 
     args = parser.parse_args()
     args.func(args)
