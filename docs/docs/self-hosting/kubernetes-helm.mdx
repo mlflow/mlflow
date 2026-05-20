@@ -38,7 +38,7 @@ helm install mlflow ./charts \
   --create-namespace \
   --set storage.enabled=true \
   --set mlflow.backendStoreUri="sqlite:////mlflow/mlflow.db" \
-  --set mlflow.defaultArtifactRoot="/mlflow/artifacts"
+  --set mlflow.artifactsDestination="/mlflow/artifacts"
 ```
 
 ### 2. Wait for the pod to become ready
@@ -50,14 +50,14 @@ kubectl get pods -n mlflow -w
 You should see:
 
 ```
-NAME                      READY   STATUS    RESTARTS   AGE
-mlflow-xxxxxxxx x-xxxxx   1/1     Running   0          30s
+NAME                             READY   STATUS    RESTARTS   AGE
+mlflow-mlflow-xxxxxxxxxx-xxxxx   1/1     Running   0          30s
 ```
 
 ### 3. Access the UI
 
 ```bash
-kubectl port-forward -n mlflow svc/mlflow 5000:5000
+kubectl port-forward -n mlflow svc/mlflow-mlflow 5000:5000
 ```
 
 Open [http://localhost:5000](http://localhost:5000) in your browser.
@@ -102,7 +102,6 @@ kubectl create secret generic s3-credentials \
 
 ```yaml title="my-values.yaml"
 mlflow:
-  defaultArtifactRoot: "s3://my-bucket/mlflow"
   artifactsDestination: "s3://my-bucket/mlflow"
 
 env:
