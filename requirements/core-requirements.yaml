@@ -25,7 +25,7 @@ flask-cors:
 
 numpy:
   pip_release: numpy
-  max_major_version: 2
+  max_major_version: 4
 
 scipy:
   pip_release: scipy
@@ -33,12 +33,12 @@ scipy:
 
 pandas:
   pip_release: pandas
-  max_major_version: 2
+  max_major_version: 4
 
 sqlalchemy:
   pip_release: sqlalchemy
   minimum: "1.4.0"
-  max_major_version: 2
+  max_major_version: 4
 
 cryptography:
   pip_release: cryptography
@@ -47,7 +47,7 @@ cryptography:
 
 gunicorn:
   pip_release: gunicorn
-  max_major_version: 25
+  max_major_version: 45
   markers: "platform_system != 'Windows'"
 
 waitress:
@@ -66,7 +66,7 @@ skops:
 pyarrow:
   pip_release: pyarrow
   minimum: "4.0.0"
-  max_major_version: 23
+  max_major_version: 43
 
 matplotlib:
   pip_release: matplotlib
@@ -79,7 +79,7 @@ graphene:
 huey:
   pip_release: huey
   minimum: "2.5.4"
-  max_major_version: 2
+  max_major_version: 4
 
 aiohttp:
   pip_release: aiohttp
