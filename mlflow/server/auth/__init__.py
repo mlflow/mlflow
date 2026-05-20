@@ -3569,6 +3569,13 @@ def update_user_password():
                 "Current password does not match.",
                 INVALID_PARAMETER_VALUE,
             )
+        # Self-service only: equality avoids re-running bcrypt, and admin
+        # paths skip it so they don't leak a same-vs-different oracle.
+        if password == current_password:
+            raise MlflowException(
+                "New password must differ from the current password.",
+                INVALID_PARAMETER_VALUE,
+            )
     store.update_user(username, password=password)
     _invalidate_user_auth_cache(username)
     return make_response({})
