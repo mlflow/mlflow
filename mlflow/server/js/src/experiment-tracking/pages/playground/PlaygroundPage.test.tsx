@@ -603,9 +603,9 @@ describe('PlaygroundPage', () => {
     await userEvent.click(screen.getByRole('button', { name: /submit/i }));
 
     await waitFor(() => {
-      expect(screen.getByText(/prompt: 5/)).toBeInTheDocument();
+      expect(screen.getByText(/input: 5/)).toBeInTheDocument();
     });
-    expect(screen.getByText(/completion: 3/)).toBeInTheDocument();
+    expect(screen.getByText(/output: 3/)).toBeInTheDocument();
     expect(screen.getByText(/total: 8/)).toBeInTheDocument();
   });
 

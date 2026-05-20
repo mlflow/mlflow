@@ -106,11 +106,11 @@ export const PromptInputPanel = ({ messages, onChange }: Props) => {
               {message.usage && (
                 <Typography.Hint>
                   <FormattedMessage
-                    defaultMessage="Tokens — prompt: {prompt}, completion: {completion}, total: {total}"
-                    description="Token usage footer on the playground completion output panel"
+                    defaultMessage="Tokens — input: {input}, output: {output}, total: {total}"
+                    description="Token usage footer rendered below each assistant reply on the playground page"
                     values={{
-                      prompt: message.usage.prompt_tokens ?? '—',
-                      completion: message.usage.completion_tokens ?? '—',
+                      input: message.usage.prompt_tokens ?? '—',
+                      output: message.usage.completion_tokens ?? '—',
                       total: message.usage.total_tokens ?? '—',
                     }}
                   />
