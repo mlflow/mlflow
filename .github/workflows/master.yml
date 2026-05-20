@@ -441,5 +441,6 @@ jobs:
             --ignore=tests/server/auth \
             --ignore=tests/data/test_spark_dataset.py \
             --ignore=tests/data/test_spark_dataset_source.py \
+            --ignore=tests/data/test_delta_dataset_source.py \
             --ignore=tests/docker \
             --ignore=tests/demo
