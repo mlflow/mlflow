@@ -152,8 +152,8 @@ class TestMETEOR:
             expectations={"expected_output": text},
         )
 
-        # Identical texts should have perfect score
-        assert feedback.value == 1.0
+        # Identical texts should have very high score (METEOR may not be exactly 1.0)
+        assert feedback.value >= 0.99
 
     def test_meteor_import_error(self, monkeypatch):
         """Test METEOR raises error when nltk not installed."""
