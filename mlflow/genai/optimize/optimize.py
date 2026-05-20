@@ -1,3 +1,4 @@
+import json
 import logging
 import uuid
 from concurrent.futures import ThreadPoolExecutor
@@ -212,10 +213,18 @@ def optimize_prompts(
     eval_fn = _build_eval_fn(predict_fn, metric_fn) if has_train_data else None
 
     target_prompts = [load_prompt(prompt_uri) for prompt_uri in prompt_uris]
-    if not all(prompt.is_text_prompt for prompt in target_prompts):
-        raise MlflowException("Only text prompts can be optimized")
 
-    target_prompts_dict = {prompt.name: prompt.template for prompt in target_prompts}
+    # Chat prompts have a `list[dict]` template, but the optimizer contract
+    # (`BasePromptOptimizer.optimize`) is `target_prompts: dict[str, str]`.
+    # We JSON-serialize chat templates here so that optimizers can reflect on
+    # them as opaque text, then deserialize back to `list[dict]` when patching
+    # the prompt template during evaluation and when re-registering the
+    # optimized prompt.
+    chat_prompt_names = {prompt.name for prompt in target_prompts if not prompt.is_text_prompt}
+    target_prompts_dict = {
+        prompt.name: prompt.template if prompt.is_text_prompt else json.dumps(prompt.template)
+        for prompt in target_prompts
+    }
     target_prompts_model_config = {prompt.name: prompt.model_config for prompt in target_prompts}
 
     with (
@@ -235,7 +244,7 @@ def optimize_prompts(
         optimized_prompts = [
             register_prompt(
                 name=prompt_name,
-                template=prompt,
+                template=json.loads(prompt) if prompt_name in chat_prompt_names else prompt,
                 model_config=target_prompts_model_config.get(prompt_name),
             )
             for prompt_name, prompt in optimizer_output.optimized_prompts.items()
@@ -282,11 +291,18 @@ def _build_eval_fn(
         used_prompts = set()
 
         @property
-        def _template_patch(self) -> str:
+        def _template_patch(self):
             template_name = self.name
             if template_name in candidate_prompts:
                 used_prompts.add(template_name)
-                return candidate_prompts[template_name]
+                candidate = candidate_prompts[template_name]
+                # Chat prompts are JSON-serialized in candidate_prompts so that
+                # optimizers can reflect on them as a `dict[str, str]`. Restore
+                # the `list[dict]` shape here so downstream `prompt.format()`
+                # and `predict_fn` see the structure they expect.
+                if not self.is_text_prompt:
+                    return json.loads(candidate)
+                return candidate
             return self._tags.get(PROMPT_TEXT_TAG_KEY, "")
 
         patch = _wrap_patch(PromptVersion, "template", _template_patch)
