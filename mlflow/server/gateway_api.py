@@ -8,8 +8,9 @@ functionality directly into the MLflow tracking server.
 
 import functools
 import logging
+import sys
 import time
-from collections.abc import Callable
+from collections.abc import AsyncIterable, Callable
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
@@ -39,6 +40,7 @@ from mlflow.gateway.guardrail_utils import (
     extract_auth_headers,
     load_guardrails,
     run_post_llm_guardrails,
+    run_post_llm_guardrails_passthrough,
     run_pre_llm_guardrails,
 )
 from mlflow.gateway.guardrails import (
@@ -59,6 +61,8 @@ from mlflow.gateway.schemas import chat, embeddings
 from mlflow.gateway.tracing_utils import (
     aggregate_anthropic_messages_stream_chunks,
     aggregate_chat_stream_chunks,
+    aggregate_gemini_stream_generate_content_chunks,
+    aggregate_openai_responses_stream_chunks,
     maybe_traced_gateway_call,
 )
 from mlflow.gateway.utils import safe_stream, to_sse_chunk, translate_http_exception
@@ -75,6 +79,7 @@ from mlflow.telemetry.events import GatewayInvocationEvent, GatewayInvocationTyp
 from mlflow.telemetry.track import _record_event
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracking._tracking_service.utils import _get_store
+from mlflow.types.chat import ChatCompletionRequest
 from mlflow.utils.provider_filter import is_provider_allowed, normalize_provider_name
 from mlflow.utils.workspace_context import get_request_workspace
 
@@ -172,12 +177,32 @@ def _record_gateway_invocation(invocation_type: GatewayInvocationType) -> Callab
                 raise
             finally:
                 duration_ms = int((time.perf_counter() - start_time) * 1000)
+                provider_duration = int(provider_call_duration_ms.get())
+                is_streaming = isinstance(result, StreamingResponse)
                 params = {
-                    "is_streaming": isinstance(result, StreamingResponse),
+                    "is_streaming": is_streaming,
                     "invocation_type": invocation_type,
                 }
+                # provider_call_duration_ms is only updated by send_request()
+                # (non-streaming); send_stream_request() never sets it, so
+                # timing fields would always be 0 for streaming responses.
+                if not is_streaming:
+                    params["provider_duration_ms"] = provider_duration
+                    params["gateway_overhead_ms"] = max(0, duration_ms - provider_duration)
                 if caller:
                     params["caller"] = caller
+                if request is not None:
+                    params["has_traceparent"] = request.headers.get("traceparent") is not None
+                    auth_mod = sys.modules.get("mlflow.server.auth")
+                    params["auth_enabled"] = auth_mod.is_auth_enabled() if auth_mod else False
+                    if endpoint_id := getattr(request.state, "endpoint_id", None):
+                        params["endpoint_id"] = endpoint_id
+                    # Prefer the actual provider from the response (set by
+                    # BaseProvider after the call) over the endpoint config
+                    # estimate, which may not reflect traffic-split/fallback.
+                    actual_provider = getattr(result, "provider", None)
+                    if provider := (actual_provider or getattr(request.state, "provider", None)):
+                        params["provider"] = provider
                 _record_event(
                     GatewayInvocationEvent,
                     params=params,
@@ -197,6 +222,21 @@ def _record_gateway_invocation(invocation_type: GatewayInvocationType) -> Callab
         return wrapper
 
     return decorator
+
+
+def _set_gateway_telemetry_state(request: Request, endpoint_config) -> None:
+    """Set endpoint_id and provider on request.state for telemetry attribution."""
+    request.state.endpoint_id = endpoint_config.endpoint_id
+    if endpoint_config.models:
+        primary_model = next(
+            (
+                m
+                for m in endpoint_config.models
+                if m.linkage_type == GatewayModelLinkageType.PRIMARY
+            ),
+            endpoint_config.models[0],
+        )
+        request.state.provider = str(primary_model.provider)
 
 
 def _build_openai_compatible_config(model_config: "GatewayModelConfig"):
@@ -276,8 +316,13 @@ def _build_endpoint_config(
         anthropic_config = {
             "anthropic_api_key": model_config.secret_value.get(_AuthConfigKey.API_KEY),
         }
-        if model_config.auth_config and "version" in model_config.auth_config:
-            anthropic_config["anthropic_version"] = model_config.auth_config["version"]
+        if model_config.auth_config:
+            if "version" in model_config.auth_config:
+                anthropic_config["anthropic_version"] = model_config.auth_config["version"]
+            if _AuthConfigKey.API_BASE in model_config.auth_config:
+                anthropic_config["anthropic_api_base"] = model_config.auth_config[
+                    _AuthConfigKey.API_BASE
+                ]
         provider_config = AnthropicConfig(**anthropic_config)
     elif model_config.provider == Provider.MISTRAL:
         provider_config = MistralConfig(
@@ -293,6 +338,7 @@ def _build_endpoint_config(
         Provider.XAI,
         Provider.OPENROUTER,
         Provider.OLLAMA,
+        Provider.PORTKEY,
     }:
         provider_config = _build_openai_compatible_config(model_config)
     elif normalize_provider_name(model_config.provider) == Provider.DATABRICKS:
@@ -571,6 +617,7 @@ async def invocations(endpoint_name: str, request: Request):
 
     _validate_store(store)
     endpoint_config = get_endpoint_config(endpoint_name=endpoint_name, store=store)
+    _set_gateway_telemetry_state(request, endpoint_config)
     check_budget_limit(store, endpoint_config, workspace=workspace)
     guardrails, auth_headers = _get_guardrails_and_auth(store, endpoint_config, request)
 
@@ -599,6 +646,7 @@ async def invocations(endpoint_name: str, request: Request):
                     payload.model_dump(),
                     auth_headers=auth_headers,
                     usage_tracking=endpoint_config.usage_tracking,
+                    payload_schema=ChatCompletionRequest.model_json_schema(),
                 )
                 async for chunk in provider.chat_stream(chat.RequestPayload(**request_dict)):
                     yield chunk
@@ -626,6 +674,7 @@ async def invocations(endpoint_name: str, request: Request):
                     payload.model_dump(),
                     auth_headers=auth_headers,
                     usage_tracking=endpoint_config.usage_tracking,
+                    payload_schema=ChatCompletionRequest.model_json_schema(),
                 )
                 modified_payload = chat.RequestPayload(**request_dict)
                 response = await provider.chat(modified_payload)
@@ -710,6 +759,7 @@ async def chat_completions(request: Request):
     provider, endpoint_config = _create_provider_from_endpoint_name(
         store, endpoint_name, EndpointType.LLM_V1_CHAT
     )
+    _set_gateway_telemetry_state(request, endpoint_config)
     check_budget_limit(store, endpoint_config, workspace=workspace)
     guardrails, auth_headers = _get_guardrails_and_auth(store, endpoint_config, request)
 
@@ -730,6 +780,7 @@ async def chat_completions(request: Request):
                 payload.model_dump(),
                 auth_headers=auth_headers,
                 usage_tracking=endpoint_config.usage_tracking,
+                payload_schema=ChatCompletionRequest.model_json_schema(),
             )
             async for chunk in provider.chat_stream(chat.RequestPayload(**request_dict)):
                 yield chunk
@@ -757,6 +808,7 @@ async def chat_completions(request: Request):
                 payload.model_dump(),
                 auth_headers=auth_headers,
                 usage_tracking=endpoint_config.usage_tracking,
+                payload_schema=ChatCompletionRequest.model_json_schema(),
             )
             modified_payload = chat.RequestPayload(**request_dict)
             response = await provider.chat(modified_payload)
@@ -815,20 +867,27 @@ async def openai_passthrough_chat(request: Request):
     provider, endpoint_config = _create_provider_from_endpoint_name(
         store, endpoint_name, EndpointType.LLM_V1_CHAT
     )
+    _set_gateway_telemetry_state(request, endpoint_config)
     check_budget_limit(store, endpoint_config, workspace=workspace)
+    guardrails, auth_headers = _get_guardrails_and_auth(store, endpoint_config, request)
 
     if body.get("stream", False):
-        stream = await provider.passthrough(
-            action=PassthroughAction.OPENAI_CHAT, payload=body, headers=headers
-        )
-
-        # Wrap stream iteration in an async generator so @mlflow.trace properly captures chunks
-        async def yield_stream(body: dict[str, Any]):
+        # Post-LLM guardrails are not applied to streaming responses.
+        async def _guarded_stream(body: dict[str, Any]):
+            request_dict = await run_pre_llm_guardrails(
+                guardrails,
+                body,
+                auth_headers=auth_headers,
+                usage_tracking=endpoint_config.usage_tracking,
+            )
+            stream = await provider.passthrough(
+                action=PassthroughAction.OPENAI_CHAT, payload=request_dict, headers=headers
+            )
             async for chunk in stream:
                 yield chunk
 
         traced_stream = maybe_traced_gateway_call(
-            yield_stream,
+            _guarded_stream,
             endpoint_config,
             user_metadata,
             request_headers=headers,
@@ -839,17 +898,35 @@ async def openai_passthrough_chat(request: Request):
             safe_stream(traced_stream(body), as_bytes=True), media_type="text/event-stream"
         )
 
-    traced_passthrough = maybe_traced_gateway_call(
-        provider.passthrough,
-        endpoint_config,
-        user_metadata,
-        request_headers=headers,
-        request_type=GatewayRequestType.PASSTHROUGH_MODEL_OPENAI_CHAT,
-        on_complete=make_budget_on_complete(store, workspace),
-    )
-    return await traced_passthrough(
-        action=PassthroughAction.OPENAI_CHAT, payload=body, headers=headers
-    )
+    async def _guarded_passthrough(body: dict[str, Any]) -> dict[str, Any]:
+        body = await run_pre_llm_guardrails(
+            guardrails,
+            body,
+            auth_headers=auth_headers,
+            usage_tracking=endpoint_config.usage_tracking,
+        )
+        response = await provider.passthrough(
+            action=PassthroughAction.OPENAI_CHAT, payload=body, headers=headers
+        )
+        return await run_post_llm_guardrails_passthrough(
+            guardrails,
+            body,
+            response,
+            auth_headers=auth_headers,
+            usage_tracking=endpoint_config.usage_tracking,
+        )
+
+    try:
+        return await maybe_traced_gateway_call(
+            _guarded_passthrough,
+            endpoint_config,
+            user_metadata,
+            request_headers=headers,
+            request_type=GatewayRequestType.PASSTHROUGH_MODEL_OPENAI_CHAT,
+            on_complete=make_budget_on_complete(store, workspace),
+        )(body)
+    except GuardrailViolation as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.OPENAI_EMBEDDINGS], response_model=None)
@@ -882,7 +959,19 @@ async def openai_passthrough_embeddings(request: Request):
     provider, endpoint_config = _create_provider_from_endpoint_name(
         store, endpoint_name, EndpointType.LLM_V1_EMBEDDINGS
     )
+    _set_gateway_telemetry_state(request, endpoint_config)
     check_budget_limit(store, endpoint_config, workspace=workspace)
+    guardrails, auth_headers = _get_guardrails_and_auth(store, endpoint_config, request)
+
+    try:
+        body = await run_pre_llm_guardrails(
+            guardrails,
+            body,
+            auth_headers=auth_headers,
+            usage_tracking=endpoint_config.usage_tracking,
+        )
+    except GuardrailViolation as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
     traced_passthrough = maybe_traced_gateway_call(
         provider.passthrough,
@@ -892,6 +981,8 @@ async def openai_passthrough_embeddings(request: Request):
         request_type=GatewayRequestType.PASSTHROUGH_MODEL_OPENAI_EMBEDDINGS,
         on_complete=make_budget_on_complete(store, workspace),
     )
+    # Post-LLM guardrails are skipped for embeddings: responses are float vectors
+    # that content judges cannot meaningfully evaluate.
     return await traced_passthrough(
         action=PassthroughAction.OPENAI_EMBEDDINGS, payload=body, headers=headers
     )
@@ -931,22 +1022,30 @@ async def openai_passthrough_responses(request: Request):
     provider, endpoint_config = _create_provider_from_endpoint_name(
         store, endpoint_name, EndpointType.LLM_V1_CHAT
     )
+    _set_gateway_telemetry_state(request, endpoint_config)
     check_budget_limit(store, endpoint_config, workspace=workspace)
+    guardrails, auth_headers = _get_guardrails_and_auth(store, endpoint_config, request)
 
     if body.get("stream", False):
-        stream = await provider.passthrough(
-            action=PassthroughAction.OPENAI_RESPONSES, payload=body, headers=headers
-        )
-
-        # Wrap stream iteration in an async generator so @mlflow.trace properly captures chunks
-        async def yield_stream(body: dict[str, Any]):
+        # Post-LLM guardrails are not applied to streaming responses.
+        async def _guarded_stream(body: dict[str, Any]):
+            request_dict = await run_pre_llm_guardrails(
+                guardrails,
+                body,
+                auth_headers=auth_headers,
+                usage_tracking=endpoint_config.usage_tracking,
+            )
+            stream = await provider.passthrough(
+                action=PassthroughAction.OPENAI_RESPONSES, payload=request_dict, headers=headers
+            )
             async for chunk in stream:
                 yield chunk
 
         traced_stream = maybe_traced_gateway_call(
-            yield_stream,
+            _guarded_stream,
             endpoint_config,
             user_metadata,
+            output_reducer=aggregate_openai_responses_stream_chunks,
             request_headers=headers,
             request_type=GatewayRequestType.PASSTHROUGH_MODEL_OPENAI_RESPONSES,
             on_complete=make_budget_on_complete(store, workspace),
@@ -955,17 +1054,35 @@ async def openai_passthrough_responses(request: Request):
             safe_stream(traced_stream(body), as_bytes=True), media_type="text/event-stream"
         )
 
-    traced_passthrough = maybe_traced_gateway_call(
-        provider.passthrough,
-        endpoint_config,
-        user_metadata,
-        request_headers=headers,
-        request_type=GatewayRequestType.PASSTHROUGH_MODEL_OPENAI_RESPONSES,
-        on_complete=make_budget_on_complete(store, workspace),
-    )
-    return await traced_passthrough(
-        action=PassthroughAction.OPENAI_RESPONSES, payload=body, headers=headers
-    )
+    async def _guarded_passthrough(body: dict[str, Any]) -> dict[str, Any]:
+        body = await run_pre_llm_guardrails(
+            guardrails,
+            body,
+            auth_headers=auth_headers,
+            usage_tracking=endpoint_config.usage_tracking,
+        )
+        response = await provider.passthrough(
+            action=PassthroughAction.OPENAI_RESPONSES, payload=body, headers=headers
+        )
+        return await run_post_llm_guardrails_passthrough(
+            guardrails,
+            body,
+            response,
+            auth_headers=auth_headers,
+            usage_tracking=endpoint_config.usage_tracking,
+        )
+
+    try:
+        return await maybe_traced_gateway_call(
+            _guarded_passthrough,
+            endpoint_config,
+            user_metadata,
+            request_headers=headers,
+            request_type=GatewayRequestType.PASSTHROUGH_MODEL_OPENAI_RESPONSES,
+            on_complete=make_budget_on_complete(store, workspace),
+        )(body)
+    except GuardrailViolation as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.ANTHROPIC_MESSAGES], response_model=None)
@@ -1002,42 +1119,69 @@ async def anthropic_passthrough_messages(request: Request):
     provider, endpoint_config = _create_provider_from_endpoint_name(
         store, endpoint_name, EndpointType.LLM_V1_CHAT
     )
+    _set_gateway_telemetry_state(request, endpoint_config)
     check_budget_limit(store, endpoint_config, workspace=workspace)
+    guardrails, auth_headers = _get_guardrails_and_auth(store, endpoint_config, request)
 
     if body.get("stream", False):
-        stream = await provider.passthrough(
-            action=PassthroughAction.ANTHROPIC_MESSAGES, payload=body, headers=headers
-        )
-
-        # Wrap stream iteration in an async generator so @mlflow.trace properly captures chunks
-        async def yield_stream(body: dict[str, Any]):
+        # Post-LLM guardrails are not applied to streaming responses.
+        async def _guarded_stream(body: dict[str, Any]):
+            request_dict = await run_pre_llm_guardrails(
+                guardrails,
+                body,
+                auth_headers=auth_headers,
+                usage_tracking=endpoint_config.usage_tracking,
+            )
+            stream = await provider.passthrough(
+                action=PassthroughAction.ANTHROPIC_MESSAGES, payload=request_dict, headers=headers
+            )
             async for chunk in stream:
                 yield chunk
 
         traced_stream = maybe_traced_gateway_call(
-            yield_stream,
+            _guarded_stream,
             endpoint_config,
             user_metadata,
             output_reducer=aggregate_anthropic_messages_stream_chunks,
             request_headers=headers,
             request_type=GatewayRequestType.PASSTHROUGH_MODEL_ANTHROPIC_MESSAGES,
             on_complete=make_budget_on_complete(store, workspace),
+            message_format="anthropic",
         )
         return StreamingResponse(
             safe_stream(traced_stream(body), as_bytes=True), media_type="text/event-stream"
         )
 
-    traced_passthrough = maybe_traced_gateway_call(
-        provider.passthrough,
-        endpoint_config,
-        user_metadata,
-        request_headers=headers,
-        request_type=GatewayRequestType.PASSTHROUGH_MODEL_ANTHROPIC_MESSAGES,
-        on_complete=make_budget_on_complete(store, workspace),
-    )
-    return await traced_passthrough(
-        action=PassthroughAction.ANTHROPIC_MESSAGES, payload=body, headers=headers
-    )
+    async def _guarded_passthrough(body: dict[str, Any]) -> dict[str, Any]:
+        body = await run_pre_llm_guardrails(
+            guardrails,
+            body,
+            auth_headers=auth_headers,
+            usage_tracking=endpoint_config.usage_tracking,
+        )
+        response = await provider.passthrough(
+            action=PassthroughAction.ANTHROPIC_MESSAGES, payload=body, headers=headers
+        )
+        return await run_post_llm_guardrails_passthrough(
+            guardrails,
+            body,
+            response,
+            auth_headers=auth_headers,
+            usage_tracking=endpoint_config.usage_tracking,
+        )
+
+    try:
+        return await maybe_traced_gateway_call(
+            _guarded_passthrough,
+            endpoint_config,
+            user_metadata,
+            request_headers=headers,
+            request_type=GatewayRequestType.PASSTHROUGH_MODEL_ANTHROPIC_MESSAGES,
+            on_complete=make_budget_on_complete(store, workspace),
+            message_format="anthropic",
+        )(body)
+    except GuardrailViolation as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @gateway_router.post(
@@ -1074,18 +1218,40 @@ async def gemini_passthrough_generate_content(endpoint_name: str, request: Reque
     provider, endpoint_config = _create_provider_from_endpoint_name(
         store, endpoint_name, EndpointType.LLM_V1_CHAT
     )
+    _set_gateway_telemetry_state(request, endpoint_config)
     check_budget_limit(store, endpoint_config, workspace=workspace)
-    traced_passthrough = maybe_traced_gateway_call(
-        provider.passthrough,
-        endpoint_config,
-        user_metadata,
-        request_headers=headers,
-        request_type=GatewayRequestType.PASSTHROUGH_MODEL_GEMINI_GENERATE_CONTENT,
-        on_complete=make_budget_on_complete(store, workspace),
-    )
-    return await traced_passthrough(
-        action=PassthroughAction.GEMINI_GENERATE_CONTENT, payload=body, headers=headers
-    )
+    guardrails, auth_headers = _get_guardrails_and_auth(store, endpoint_config, request)
+
+    async def _guarded_passthrough(body: dict[str, Any]) -> dict[str, Any]:
+        body = await run_pre_llm_guardrails(
+            guardrails,
+            body,
+            auth_headers=auth_headers,
+            usage_tracking=endpoint_config.usage_tracking,
+        )
+        response = await provider.passthrough(
+            action=PassthroughAction.GEMINI_GENERATE_CONTENT, payload=body, headers=headers
+        )
+        return await run_post_llm_guardrails_passthrough(
+            guardrails,
+            body,
+            response,
+            auth_headers=auth_headers,
+            usage_tracking=endpoint_config.usage_tracking,
+        )
+
+    try:
+        return await maybe_traced_gateway_call(
+            _guarded_passthrough,
+            endpoint_config,
+            user_metadata,
+            request_headers=headers,
+            request_type=GatewayRequestType.PASSTHROUGH_MODEL_GEMINI_GENERATE_CONTENT,
+            on_complete=make_budget_on_complete(store, workspace),
+            message_format="gemini",
+        )(body)
+    except GuardrailViolation as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @gateway_router.post(
@@ -1122,25 +1288,144 @@ async def gemini_passthrough_stream_generate_content(endpoint_name: str, request
     provider, endpoint_config = _create_provider_from_endpoint_name(
         store, endpoint_name, EndpointType.LLM_V1_CHAT
     )
+    _set_gateway_telemetry_state(request, endpoint_config)
     check_budget_limit(store, endpoint_config, workspace=workspace)
+    guardrails, auth_headers = _get_guardrails_and_auth(store, endpoint_config, request)
 
-    stream = await provider.passthrough(
-        action=PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT, payload=body, headers=headers
-    )
-
-    # Wrap stream iteration in an async generator so @mlflow.trace properly captures chunks
-    async def yield_stream(body: dict[str, Any]):
+    # Post-LLM guardrails are not applied to streaming responses.
+    async def _guarded_stream(body: dict[str, Any]):
+        request_dict = await run_pre_llm_guardrails(
+            guardrails,
+            body,
+            auth_headers=auth_headers,
+            usage_tracking=endpoint_config.usage_tracking,
+        )
+        stream = await provider.passthrough(
+            action=PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT,
+            payload=request_dict,
+            headers=headers,
+        )
         async for chunk in stream:
             yield chunk
 
     traced_stream = maybe_traced_gateway_call(
-        yield_stream,
+        _guarded_stream,
         endpoint_config,
         user_metadata,
+        output_reducer=aggregate_gemini_stream_generate_content_chunks,
         request_headers=headers,
         request_type=GatewayRequestType.PASSTHROUGH_MODEL_GEMINI_GENERATE_CONTENT,
         on_complete=make_budget_on_complete(store, workspace),
+        message_format="gemini",
     )
     return StreamingResponse(
         safe_stream(traced_stream(body), as_bytes=True), media_type="text/event-stream"
     )
+
+
+@gateway_router.post("/proxy/{endpoint_name}/{path:path}", response_model=None)
+@translate_http_exception
+@_record_gateway_invocation(GatewayInvocationType.RAW_PROXY)
+async def raw_proxy(endpoint_name: str, path: str, request: Request):
+    """
+    Raw proxy endpoint.
+
+    Routes the request payload as-is to the upstream provider at
+    <provider_base_url>/<path>, using the credentials configured for the named
+    endpoint. Unlike the typed passthrough routes, the ``model`` field in the
+    payload is NOT replaced with the value from the endpoint config.
+
+    Streaming is detected automatically from the response Content-Type
+    (``text/event-stream`` or ``application/x-ndjson``), so this endpoint
+    supports providers like Gemini that signal streaming via Content-Type rather
+    than a ``"stream": true`` request flag.
+
+    Example:
+        POST /gateway/proxy/my-openai-endpoint/chat/completions
+        {
+            "model": "gpt-4o",
+            "messages": [{"role": "user", "content": "Hello"}]
+        }
+    """
+    body = await _get_request_body(request)
+    user_metadata = _get_user_metadata(request)
+    store = _get_store()
+    workspace = get_request_workspace()
+    _validate_store(store)
+    headers = dict(request.headers)
+    # Preserve upstream query parameters (e.g. Gemini's ?alt=sse for SSE streaming).
+    if qs := request.url.query:
+        path = f"{path}?{qs}"
+    # The proxy route is type-agnostic; EndpointType is only used to satisfy
+    # EndpointConfig construction and has no effect on proxy behavior (the proxy
+    # bypasses typed routing entirely). LLM_V1_CHAT is used as the default since
+    # the DB does not store a per-endpoint type for DB-backed gateway endpoints.
+    provider, endpoint_config = _create_provider_from_endpoint_name(
+        store, endpoint_name, EndpointType.LLM_V1_CHAT
+    )
+    _set_gateway_telemetry_state(request, endpoint_config)
+    check_budget_limit(store, endpoint_config, workspace=workspace)
+    guardrails, auth_headers = _get_guardrails_and_auth(store, endpoint_config, request)
+
+    # _do_proxy is always an async generator so maybe_traced_gateway_call can wrap it
+    # consistently regardless of whether the upstream responds with a streaming or
+    # non-streaming body.  For streaming responses it yields raw bytes; for
+    # non-streaming responses it yields a single dict.  The route handler peeks at
+    # the first item to decide how to respond to the client.
+    async def _do_proxy(body: dict[str, Any]):
+        try:
+            body = await run_pre_llm_guardrails(
+                guardrails,
+                body,
+                auth_headers=auth_headers,
+                usage_tracking=endpoint_config.usage_tracking,
+            )
+        except GuardrailViolation as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+        result = await provider.proxy(path, body, headers)
+
+        if isinstance(result, AsyncIterable):
+            # Post-LLM guardrails are not applied to streaming responses.
+            async for chunk in result:
+                yield chunk
+        else:
+            try:
+                result = await run_post_llm_guardrails_passthrough(
+                    guardrails,
+                    body,
+                    result,
+                    auth_headers=auth_headers,
+                    usage_tracking=endpoint_config.usage_tracking,
+                )
+            except GuardrailViolation as e:
+                raise HTTPException(status_code=400, detail=str(e))
+            yield result
+
+    traced_proxy = maybe_traced_gateway_call(
+        _do_proxy,
+        endpoint_config,
+        user_metadata,
+        request_headers=headers,
+        request_type=GatewayRequestType.RAW_PROXY,
+        on_complete=make_budget_on_complete(store, workspace),
+    )
+
+    gen = traced_proxy(body)
+    try:
+        first = await gen.__anext__()
+    except StopAsyncIteration:
+        # _do_proxy raised before yielding (e.g. guardrail violation, provider 501).
+        # The original HTTPException already propagated; re-raise a generic 500 as fallback.
+        raise HTTPException(status_code=500, detail="Proxy handler exited without a response.")
+    if isinstance(first, bytes):
+
+        async def _prepend(first_chunk, rest):
+            yield first_chunk
+            async for chunk in rest:
+                yield chunk
+
+        return StreamingResponse(
+            safe_stream(_prepend(first, gen), as_bytes=True), media_type="text/event-stream"
+        )
+    return first

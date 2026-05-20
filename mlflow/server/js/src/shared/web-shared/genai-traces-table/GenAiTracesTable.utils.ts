@@ -21,6 +21,8 @@ import {
   SIMULATION_PERSONA_COLUMN_ID,
   LINKED_PROMPTS_COLUMN_ID,
   ISSUES_COLUMN_ID,
+  GIT_BRANCH_COLUMN_ID,
+  GIT_COMMIT_COLUMN_ID,
 } from './hooks/useTableColumns';
 import type { TracesTableColumn, EvalTraceComparisonEntry, RunEvaluationTracesDataEntry } from './types';
 import { TracesTableColumnGroup, TracesTableColumnType } from './types';
@@ -196,6 +198,10 @@ export const getTraceInfoValueWithColId = (traceInfo: ModelTraceInfoV3, colId: s
       return traceInfo.trace_metadata?.['mlflow.simulation.persona'];
     case LINKED_PROMPTS_COLUMN_ID:
       return traceInfo.tags?.['mlflow.linkedPrompts'];
+    case GIT_BRANCH_COLUMN_ID:
+      return traceInfo.trace_metadata?.['mlflow.source.git.branch'];
+    case GIT_COMMIT_COLUMN_ID:
+      return traceInfo.trace_metadata?.['mlflow.source.git.commit'];
     default:
       // Return null for unknown column IDs to avoid breaking the UI
       return null;

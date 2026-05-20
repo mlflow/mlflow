@@ -304,7 +304,6 @@ class ClaudeCodeProvider(AssistantProvider):
                     echo("Authentication verified")
                 return
 
-            # Check for common auth errors in stderr
             stderr = result.stderr.lower()
             if "auth" in stderr or "login" in stderr or "unauthorized" in stderr:
                 error_msg = "Not authenticated. Please run: claude login"
@@ -417,6 +416,9 @@ class ClaudeCodeProvider(AssistantProvider):
                 save_process_pid(mlflow_session_id, process.pid)
 
             try:
+                if process.stdout is None:
+                    raise RuntimeError("Claude CLI stdout pipe was not created")
+
                 async for line in process.stdout:
                     line_str = line.decode("utf-8").strip()
                     if not line_str:
@@ -448,7 +450,9 @@ class ClaudeCodeProvider(AssistantProvider):
                 return
 
             if process.returncode != 0:
-                stderr = await process.stderr.read()
+                stderr = b""
+                if process.stderr is not None:
+                    stderr = await process.stderr.read()
                 error_msg = (
                     stderr.decode("utf-8").strip()
                     or f"Process exited with code {process.returncode}"
@@ -504,7 +508,7 @@ class ClaudeCodeProvider(AssistantProvider):
                                             is_error=block.get("is_error"),
                                         )
                                     )
-                            msg = Message(role="user", content=user_content_blocks)
+                        msg = Message(role="user", content=user_content_blocks)
                     else:
                         msg = Message(role="user", content=data["message"]["content"])
                     return Event.from_message(msg)

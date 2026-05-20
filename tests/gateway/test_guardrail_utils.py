@@ -13,6 +13,7 @@ from mlflow.entities.scorer import ScorerVersion
 from mlflow.gateway.guardrail_utils import (
     load_guardrails,
     run_post_llm_guardrails,
+    run_post_llm_guardrails_passthrough,
     run_pre_llm_guardrails,
 )
 from mlflow.gateway.guardrails import GuardrailViolation, JudgeGuardrail
@@ -182,6 +183,48 @@ async def test_run_post_llm_guardrails_blocks():
 async def test_run_post_llm_guardrails_no_guardrails_returns_response():
     response = _make_response_payload()
     result = await run_post_llm_guardrails([], _make_request_payload(), response)
+    assert result is response
+
+
+# ─── run_post_llm_guardrails_passthrough ─────────────────────────────────────
+
+
+def _make_passthrough_response():
+    return {"candidates": [{"content": {"parts": [{"text": "hi"}]}}]}
+
+
+@pytest.mark.asyncio
+async def test_run_post_llm_guardrails_passthrough_passes():
+    g = _make_judge("AFTER")
+    req = _make_request_payload()
+    response = _make_passthrough_response()
+    result = await run_post_llm_guardrails_passthrough([g], req, response)
+    assert result == response
+    assert g.scorer.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_run_post_llm_guardrails_passthrough_skips_before_stage():
+    g = _make_judge("BEFORE")
+    response = _make_passthrough_response()
+    result = await run_post_llm_guardrails_passthrough([g], _make_request_payload(), response)
+    assert result is response
+    assert g.scorer.call_count == 0
+
+
+@pytest.mark.asyncio
+async def test_run_post_llm_guardrails_passthrough_blocks():
+    g = _make_judge("AFTER", passing=False)
+    with pytest.raises(GuardrailViolation, match="blocked"):
+        await run_post_llm_guardrails_passthrough(
+            [g], _make_request_payload(), _make_passthrough_response()
+        )
+
+
+@pytest.mark.asyncio
+async def test_run_post_llm_guardrails_passthrough_no_guardrails_returns_response():
+    response = _make_passthrough_response()
+    result = await run_post_llm_guardrails_passthrough([], _make_request_payload(), response)
     assert result is response
 
 

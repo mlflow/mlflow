@@ -25,6 +25,7 @@ from mlflow.environment_variables import (
     MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_EXPERIMENT_ID,
     MLFLOW_EXPERIMENT_NAME,
+    MLFLOW_TRACE_ARCHIVAL_CONFIG,
     MLFLOW_WORKSPACE,
     MLFLOW_WORKSPACE_STORE_URI,
 )
@@ -36,6 +37,9 @@ from mlflow.store.tracking import (
     DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
 )
 from mlflow.store.workspace.utils import get_default_workspace_optional
+from mlflow.telemetry.events import TrackingServerStartEvent
+from mlflow.telemetry.track import _record_event
+from mlflow.tracing.trace_archival_config import load_trace_archival_server_config
 from mlflow.tracking import _get_store
 from mlflow.tracking._tracking_service.utils import (
     _get_default_tracking_uri,
@@ -374,6 +378,19 @@ def _validate_static_prefix(ctx, param, value):
     "to the ./mlruns directory.",
 )
 @click.option(
+    "--read-replica-backend-store-uri",
+    envvar="MLFLOW_READ_REPLICA_BACKEND_STORE_URI",
+    metavar="URI",
+    default=None,
+    help="URI for a read-only database replica. When specified, read operations "
+    "(e.g. search_runs, get_experiment) are routed to this URI while write operations "
+    "use --backend-store-uri. Enables horizontal scaling via database read replicas. "
+    "If not specified, all operations use --backend-store-uri. "
+    "Note: there is no automatic failover to the primary if the replica becomes "
+    "unavailable. Cloud-managed databases (Aurora, RDS) handle this at the DNS level. "
+    "For self-hosted setups, use a connection proxy (PgBouncer, HAProxy) for failover.",
+)
+@click.option(
     "--registry-store-uri",
     envvar="MLFLOW_REGISTRY_STORE_URI",
     metavar="URI",
@@ -456,6 +473,14 @@ def _validate_static_prefix(ctx, param, value):
     ),
 )
 @click.option(
+    "--trace-archival-config",
+    envvar=MLFLOW_TRACE_ARCHIVAL_CONFIG.name,
+    type=click.Path(exists=True, dir_okay=False, readable=True, path_type=Path),
+    metavar="PATH",
+    default=None,
+    help=("Path to the YAML config file for server-owned trace archival."),
+)
+@click.option(
     "--dev",
     is_flag=True,
     default=False,
@@ -513,6 +538,7 @@ def _validate_static_prefix(ctx, param, value):
 def server(
     ctx,
     backend_store_uri,
+    read_replica_backend_store_uri,
     registry_store_uri,
     default_artifact_root,
     serve_artifacts,
@@ -530,6 +556,7 @@ def server(
     waitress_opts,
     expose_prometheus,
     app_name,
+    trace_archival_config,
     dev,
     uvicorn_opts,
     secrets_cache_ttl,
@@ -590,20 +617,7 @@ def server(
         and ctx.get_parameter_source("enable_workspaces") != ParameterSource.COMMANDLINE
     ):
         enable_workspaces = MLFLOW_ENABLE_WORKSPACES.get()
-
     assert_server_workspace_env_unset()
-
-    # Keep environment flag in sync with the resolved boolean so server-side gating
-    # (which reads MLFLOW_ENABLE_WORKSPACES.get()) has a single source of truth.
-    os.environ[MLFLOW_ENABLE_WORKSPACES.name] = "true" if enable_workspaces else "false"
-    if enable_workspaces and workspace_store_uri:
-        os.environ[MLFLOW_WORKSPACE_STORE_URI.name] = workspace_store_uri
-    elif workspace_store_uri:
-        click.echo(
-            "Ignoring --workspace-store-uri because workspaces are not enabled. "
-            "Use --enable-workspaces to activate workspace mode.",
-            err=True,
-        )
 
     if disable_security_middleware:
         os.environ["MLFLOW_SERVER_DISABLE_SECURITY_MIDDLEWARE"] = "true"
@@ -639,7 +653,31 @@ def server(
     default_artifact_root = resolve_default_artifact_root(
         serve_artifacts, default_artifact_root, backend_store_uri
     )
-    artifacts_only_config_validation(artifacts_only, backend_store_uri, enable_workspaces)
+    artifacts_only_config_validation(
+        artifacts_only,
+        backend_store_uri,
+        enable_workspaces,
+        trace_archival_config_path=str(trace_archival_config) if trace_archival_config else None,
+    )
+    if trace_archival_config is not None:
+        try:
+            load_trace_archival_server_config(trace_archival_config)
+        except MlflowException as e:
+            raise click.UsageError(e.message) from e
+
+    # Keep environment flag in sync with the resolved boolean so server-side gating
+    # (which reads MLFLOW_ENABLE_WORKSPACES.get()) has a single source of truth.
+    os.environ[MLFLOW_ENABLE_WORKSPACES.name] = "true" if enable_workspaces else "false"
+    if enable_workspaces and workspace_store_uri:
+        os.environ[MLFLOW_WORKSPACE_STORE_URI.name] = workspace_store_uri
+    elif workspace_store_uri:
+        click.echo(
+            "Ignoring --workspace-store-uri because workspaces are not enabled. "
+            "Use --enable-workspaces to activate workspace mode.",
+            err=True,
+        )
+    if trace_archival_config is not None:
+        os.environ[MLFLOW_TRACE_ARCHIVAL_CONFIG.name] = str(trace_archival_config)
 
     if not artifacts_only:
         try:
@@ -648,6 +686,7 @@ def server(
                 registry_store_uri,
                 default_artifact_root,
                 workspace_store_uri=workspace_store_uri,
+                read_replica_backend_store_uri=read_replica_backend_store_uri,
             )
         except Exception as e:
             _logger.error("Error initializing backend store")
@@ -681,9 +720,25 @@ def server(
             parts.append(f"CORS origins: {', '.join(origins_list)}")
         click.echo(". ".join(parts) + ".", err=True)
 
+    _record_event(
+        TrackingServerStartEvent,
+        TrackingServerStartEvent.parse({
+            "backend_store_uri": backend_store_uri,
+            "serve_artifacts": serve_artifacts,
+            "artifacts_only": artifacts_only,
+            "expose_prometheus": expose_prometheus,
+            "app_name": app_name,
+            "enable_workspaces": enable_workspaces,
+            "workers": workers,
+            "dev": dev,
+        })
+        or {},
+    )
+
     try:
         _run_server(
             file_store_path=backend_store_uri,
+            read_replica_backend_store_uri=read_replica_backend_store_uri,
             registry_store_uri=registry_store_uri,
             default_artifact_root=default_artifact_root,
             serve_artifacts=serve_artifacts,

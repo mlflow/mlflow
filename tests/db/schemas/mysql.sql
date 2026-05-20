@@ -146,6 +146,8 @@ CREATE TABLE workspaces (
 	name VARCHAR(63) NOT NULL,
 	description TEXT,
 	default_artifact_root TEXT,
+	trace_archival_location TEXT,
+	trace_archival_retention VARCHAR(32),
 	PRIMARY KEY (name)
 )
 
@@ -336,6 +338,7 @@ CREATE TABLE trace_info (
 	client_request_id VARCHAR(50),
 	request_preview VARCHAR(1000),
 	response_preview VARCHAR(1000),
+	db_payload_generation INTEGER DEFAULT '0' NOT NULL,
 	PRIMARY KEY (request_id),
 	CONSTRAINT fk_trace_info_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
 )

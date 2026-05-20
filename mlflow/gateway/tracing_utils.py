@@ -10,6 +10,7 @@ import mlflow
 from mlflow.entities import SpanStatus, SpanType
 from mlflow.entities.trace_location import MlflowExperimentLocation
 from mlflow.gateway.config import GatewayRequestType
+from mlflow.gateway.constants import MLFLOW_GATEWAY_CALLER_HEADER
 from mlflow.gateway.schemas.chat import StreamResponsePayload
 from mlflow.gateway.utils import parse_sse_lines
 from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig
@@ -27,6 +28,24 @@ class _ModelSpanInfo:
     status: SpanStatus | None = None
     start_time_ns: int | None = None
     end_time_ns: int | None = None
+
+
+def _extract_caller(request_headers: dict[str, str] | None) -> str | None:
+    """Extract a caller identifier from request headers.
+
+    Checks the ``X-MLflow-Gateway-Caller`` header first, then falls back to the
+    product token of the ``User-Agent`` header (the part before the first ``/``).
+    Returns ``None`` when no useful identifier is found.
+    """
+    if not request_headers:
+        return None
+    lower = {k.lower(): v for k, v in request_headers.items()}
+    if caller := lower.get(MLFLOW_GATEWAY_CALLER_HEADER.lower()):
+        return caller
+    if user_agent := lower.get("user-agent", ""):
+        if product := user_agent.split("/")[0].strip():
+            return product
+    return None
 
 
 def _maybe_unwrap_single_arg_input(args: tuple[Any], kwargs: dict[str, Any]):
@@ -167,6 +186,7 @@ def maybe_traced_gateway_call(
     request_headers: dict[str, str] | None = None,
     request_type: GatewayRequestType | None = None,
     on_complete: Callable[[], None] | None = None,
+    message_format: str | None = None,
 ) -> Callable[..., Any]:
     """
     Wrap a gateway function with tracing.
@@ -181,6 +201,9 @@ def maybe_traced_gateway_call(
         request_type: The type of gateway request (e.g., GatewayRequestType.CHAT).
         on_complete: A no-arg callback invoked inside the trace context after the
             provider call completes (in ``finally``).
+        message_format: Optional message format string (e.g. ``"anthropic"``,
+            ``"gemini"``) stored as ``mlflow.message.format`` on the span so the
+            UI can render the Chat tab for provider-native response shapes.
 
     Returns:
         A traced version of the function.
@@ -191,9 +214,13 @@ def maybe_traced_gateway_call(
     if not endpoint_config.usage_tracking:
         return func
 
+    span_attributes = _gateway_span_attributes(endpoint_config, request_headers)
+    if message_format:
+        span_attributes[SpanAttributeKey.MESSAGE_FORMAT] = message_format
+
     trace_kwargs = {
         "name": _gateway_span_name(endpoint_config),
-        "attributes": _gateway_span_attributes(endpoint_config, request_headers),
+        "attributes": span_attributes,
         "output_reducer": output_reducer,
         "trace_destination": MlflowExperimentLocation(endpoint_config.experiment_id),
     }
@@ -203,6 +230,8 @@ def maybe_traced_gateway_call(
     combined_metadata[TraceMetadataKey.GATEWAY_ENDPOINT_ID] = endpoint_config.endpoint_id
     if request_type:
         combined_metadata[TraceMetadataKey.GATEWAY_REQUEST_TYPE] = request_type
+    if caller := _extract_caller(request_headers):
+        combined_metadata[TraceMetadataKey.GATEWAY_CALLER] = caller
 
     # Wrap function to set metadata inside the trace context
     if inspect.isasyncgenfunction(func):
@@ -468,3 +497,151 @@ def aggregate_anthropic_messages_stream_chunks(
         result["usage"] = usage
 
     return result
+
+
+def aggregate_gemini_stream_generate_content_chunks(
+    chunks: list[bytes],
+) -> dict[str, Any] | None:
+    """
+    Aggregate raw Gemini ``streamGenerateContent`` SSE chunks into a single response.
+
+    Each streaming event is a complete JSON object in the Gemini
+    ``GenerateContentResponse`` format. Text parts are concatenated across all events;
+    function-call parts and metadata (``finishReason``, ``usageMetadata``) are taken
+    from the last event that carries them.
+
+    Returns a dict matching the Gemini non-streaming ``generateContent`` response shape::
+
+        {
+            "candidates": [
+                {
+                    "content": {
+                        "parts": [
+                            {"text": "..."},
+                            {"functionCall": {"name": "...", "args": {...}}},
+                        ],
+                        "role": "model",
+                    },
+                    "finishReason": "STOP",
+                    "index": 0,
+                }
+            ],
+            "usageMetadata": {
+                "promptTokenCount": N,
+                "candidatesTokenCount": M,
+                "totalTokenCount": T,
+            },
+        }
+
+    Returns ``None`` if *chunks* is empty or contains no parseable events.
+    """
+    if not chunks:
+        return None
+
+    # Concatenate before parsing: aiohttp yields arbitrary-sized byte chunks that
+    # can split a single SSE "data:" line across multiple pieces.
+    combined = b"".join(chunks)
+
+    # candidate index → accumulated state
+    candidates_state: dict[int, dict[str, Any]] = {}
+    usage_metadata: dict[str, Any] | None = None
+
+    for event in parse_sse_lines(combined):
+        for cand_idx, candidate in enumerate(event.get("candidates", [])):
+            idx = candidate.get("index", cand_idx)
+            state = candidates_state.setdefault(
+                idx,
+                {
+                    "role": "model",
+                    "text_parts": [],
+                    "function_call_parts": [],
+                    "finish_reason": None,
+                },
+            )
+            content = candidate.get("content", {})
+            if role := content.get("role"):
+                state["role"] = role
+            for part in content.get("parts", []):
+                if "text" in part:
+                    state["text_parts"].append(part["text"])
+                elif "functionCall" in part:
+                    state["function_call_parts"].append(part["functionCall"])
+            if finish_reason := candidate.get("finishReason"):
+                state["finish_reason"] = finish_reason
+        if um := event.get("usageMetadata"):
+            usage_metadata = um
+
+    if not candidates_state:
+        return None
+
+    candidates = []
+    for idx, state in sorted(candidates_state.items()):
+        parts: list[dict[str, Any]] = []
+        if text := "".join(state["text_parts"]):
+            parts.append({"text": text})
+        parts.extend({"functionCall": fc} for fc in state["function_call_parts"])
+        candidates.append({
+            "content": {"parts": parts, "role": state["role"]},
+            "finishReason": state["finish_reason"],
+            "index": idx,
+        })
+
+    result: dict[str, Any] = {"candidates": candidates}
+    if usage_metadata:
+        result["usageMetadata"] = usage_metadata
+    return result
+
+
+def aggregate_openai_responses_stream_chunks(
+    chunks: list[bytes],
+) -> dict[str, Any] | None:
+    """
+    Aggregate raw OpenAI Responses API SSE streaming chunks into a single response object.
+
+    The OpenAI Responses streaming API emits a ``response.completed`` event that contains
+    the fully-assembled response object — including all output items, content parts, and
+    token usage. This function locates that event and returns its ``response`` field,
+    giving the same shape as a non-streaming Responses API call::
+
+        {
+            "id": "resp_...",
+            "object": "response",
+            "status": "completed",
+            "output": [
+                {
+                    "type": "message",
+                    "role": "assistant",
+                    "content": [{"type": "output_text", "text": "..."}],
+                }
+            ],
+            "usage": {"input_tokens": N, "output_tokens": M, "total_tokens": T},
+            ...
+        }
+
+    Returns ``None`` if *chunks* is empty or contains no ``response.completed`` event.
+    """
+    if not chunks:
+        return None
+
+    # Scan chunks incrementally to avoid materializing a second full copy of the
+    # stream bytes.  aiohttp yields arbitrary-sized byte chunks that can bisect a
+    # ``data:`` line, so we carry any trailing incomplete line into the next
+    # iteration rather than joining everything up front.
+    leftover = b""
+    for chunk in chunks:
+        data = leftover + chunk
+        # Split on newlines, keeping the last (potentially incomplete) segment.
+        lines = data.split(b"\n")
+        leftover = lines[-1]
+        complete = b"\n".join(lines[:-1]) + b"\n"
+        for event in parse_sse_lines(complete):
+            if event.get("type") == "response.completed":
+                return event.get("response")
+
+    # Flush any remaining bytes that were not followed by a newline.
+    if leftover:
+        for event in parse_sse_lines(leftover):
+            if event.get("type") == "response.completed":
+                return event.get("response")
+
+    return None

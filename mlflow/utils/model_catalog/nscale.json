@@ -13,7 +13,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "Qwen/Qwen2.5-Coder-32B-Instruct": {
       "mode": "chat",
@@ -27,7 +28,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "Qwen/Qwen2.5-Coder-3B-Instruct": {
       "mode": "chat",
@@ -41,7 +43,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "Qwen/Qwen2.5-Coder-7B-Instruct": {
       "mode": "chat",
@@ -55,7 +58,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "deepseek-ai/DeepSeek-R1-Distill-Llama-70B": {
       "mode": "chat",
@@ -69,7 +73,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "deepseek-ai/DeepSeek-R1-Distill-Llama-8B": {
       "mode": "chat",
@@ -83,7 +88,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B": {
       "mode": "chat",
@@ -97,7 +103,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "deepseek-ai/DeepSeek-R1-Distill-Qwen-14B": {
       "mode": "chat",
@@ -111,7 +118,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B": {
       "mode": "chat",
@@ -125,7 +133,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B": {
       "mode": "chat",
@@ -139,7 +148,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "meta-llama/Llama-3.1-8B-Instruct": {
       "mode": "chat",
@@ -153,7 +163,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "meta-llama/Llama-3.3-70B-Instruct": {
       "mode": "chat",
@@ -167,7 +178,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "meta-llama/Llama-4-Scout-17B-16E-Instruct": {
       "mode": "chat",
@@ -181,7 +193,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "mistralai/mixtral-8x22b-instruct-v0.1": {
       "mode": "chat",
@@ -195,7 +208,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     }
   }
 }

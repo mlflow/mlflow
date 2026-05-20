@@ -72,7 +72,8 @@ repos:
             dev/tests/.*\.py|
             dev/benchmarks/gateway/fake_server\.py|
             dev/benchmarks/gateway/benchmark\.py|
-            dev/benchmarks/gateway/run\.py
+            dev/benchmarks/gateway/run\.py|
+            dev/benchmarks/tracing/.*\.py
           )$
         entry: uv run --frozen --only-group lint mypy
         require_serial: true
@@ -221,9 +222,9 @@ repos:
         stages: [pre-commit]
         require_serial: true
 
-      - id: action-pins
-        name: action-pins
-        entry: uv run --frozen --only-group lint dev/check_action_pins.py
+      - id: check-actions
+        name: check-actions
+        entry: uv run --frozen --only-group lint dev/check_actions.py
         language: system
         files: '^\.github/(workflows|actions)/.*\.ya?ml$'
         pass_filenames: false
@@ -292,3 +293,11 @@ repos:
         language: fail
         entry: "Filenames must not contain spaces"
         files: " "
+
+      - id: skills
+        name: skills
+        entry: uv run --frozen --only-group lint dev/check_skills.py
+        language: system
+        files: '(^|/)SKILL\.md$'
+        stages: [pre-commit]
+        require_serial: true

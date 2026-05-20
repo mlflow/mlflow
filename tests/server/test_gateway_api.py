@@ -277,6 +277,41 @@ def test_create_provider_from_endpoint_name_anthropic(store: SqlAlchemyStore):
 
     assert isinstance(provider, AnthropicProvider)
     assert provider.config.model.config.anthropic_api_key == "sk-ant-test"
+    assert provider.base_url == "https://api.anthropic.com/v1"
+
+
+def test_create_provider_from_endpoint_name_anthropic_with_api_base(store: SqlAlchemyStore):
+    secret = store.create_gateway_secret(
+        secret_name="anthropic-proxy-key",
+        secret_value={"api_key": "sk-ant-proxy-test"},
+        provider="anthropic",
+        auth_config={"api_base": "http://localhost:6655/anthropic/v1"},
+    )
+    model_def = store.create_gateway_model_definition(
+        name="claude-proxy-model",
+        secret_id=secret.secret_id,
+        provider="anthropic",
+        model_name="claude-3-7-sonnet",
+    )
+    endpoint = store.create_gateway_endpoint(
+        name="test-anthropic-proxy-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+    )
+
+    provider, _ = _create_provider_from_endpoint_name(
+        store, endpoint.name, EndpointType.LLM_V1_CHAT
+    )
+
+    assert isinstance(provider, AnthropicProvider)
+    assert provider.config.model.config.anthropic_api_key == "sk-ant-proxy-test"
+    assert provider.config.model.config.anthropic_api_base == "http://localhost:6655/anthropic/v1"
+    assert provider.base_url == "http://localhost:6655/anthropic/v1"
 
 
 def test_create_provider_from_endpoint_name_mistral(store: SqlAlchemyStore):
@@ -1535,12 +1570,12 @@ async def test_openai_passthrough_chat_streaming(store: SqlAlchemyStore):
     ) as mock_send_stream:
         response = await openai_passthrough_chat(mock_request)
 
-        assert mock_send_stream.called
         assert isinstance(response, StreamingResponse)
         assert response.media_type == "text/event-stream"
 
         chunks = [chunk async for chunk in response.body_iterator]
 
+        assert mock_send_stream.called
         assert len(chunks) == 3
         assert b"Hello" in chunks[0]
         assert b"world" in chunks[1]
@@ -1604,12 +1639,12 @@ async def test_openai_passthrough_responses_streaming(store: SqlAlchemyStore):
     ) as mock_send_stream:
         response = await openai_passthrough_responses(mock_request)
 
-        assert mock_send_stream.called
         assert isinstance(response, StreamingResponse)
         assert response.media_type == "text/event-stream"
 
         chunks = [chunk async for chunk in response.body_iterator]
 
+        assert mock_send_stream.called
         assert len(chunks) == 8
         assert b"response.created" in chunks[0]
         assert b"response.output_item.added" in chunks[1]
@@ -1741,11 +1776,12 @@ async def test_anthropic_passthrough_messages_streaming(store: SqlAlchemyStore):
     ) as mock_send_stream:
         response = await anthropic_passthrough_messages(mock_request)
 
-        assert mock_send_stream.called
         assert isinstance(response, StreamingResponse)
         assert response.media_type == "text/event-stream"
 
         chunks = [chunk async for chunk in response.body_iterator]
+
+        assert mock_send_stream.called
 
         assert len(chunks) == 7
         assert b"message_start" in chunks[0]
@@ -1892,11 +1928,12 @@ async def test_gemini_passthrough_stream_generate_content(store: SqlAlchemyStore
             "gemini-stream-passthrough-endpoint", mock_request
         )
 
-        assert mock_send_stream.called
         assert isinstance(response, StreamingResponse)
         assert response.media_type == "text/event-stream"
 
         chunks = [chunk async for chunk in response.body_iterator]
+
+        assert mock_send_stream.called
 
         assert len(chunks) == 3
         assert b"Hello" in chunks[0]

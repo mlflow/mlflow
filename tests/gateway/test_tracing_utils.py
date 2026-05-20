@@ -1,3 +1,4 @@
+import asyncio
 import json
 from typing import Any
 
@@ -5,11 +6,15 @@ import pytest
 
 import mlflow
 from mlflow.entities import SpanType
+from mlflow.gateway.constants import MLFLOW_GATEWAY_CALLER_HEADER
 from mlflow.gateway.schemas.chat import StreamResponsePayload
 from mlflow.gateway.tracing_utils import (
+    _extract_caller,
     _get_model_span_info,
     aggregate_anthropic_messages_stream_chunks,
     aggregate_chat_stream_chunks,
+    aggregate_gemini_stream_generate_content_chunks,
+    aggregate_openai_responses_stream_chunks,
     maybe_traced_gateway_call,
 )
 from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig
@@ -307,6 +312,27 @@ async def test_maybe_traced_gateway_call_with_output_reducer(endpoint_config):
     assert output["choices"][0]["message"]["content"] == "Hello world"
     assert output["choices"][0]["finish_reason"] == "stop"
     assert output["usage"]["total_tokens"] == 7
+
+
+@pytest.mark.asyncio
+async def test_maybe_traced_gateway_call_with_message_format(endpoint_config):
+    async def mock_async_func(payload):
+        return {"id": "msg_1", "type": "message", "role": "assistant", "content": []}
+
+    traced_func = maybe_traced_gateway_call(
+        mock_async_func,
+        endpoint_config,
+        message_format="anthropic",
+    )
+    await traced_func({"messages": [{"role": "user", "content": "hi"}]})
+
+    traces = get_traces()
+    assert len(traces) == 1
+    trace = traces[0]
+
+    span_name_to_span = {span.name: span for span in trace.data.spans}
+    gateway_span = span_name_to_span[f"gateway/{endpoint_config.endpoint_name}"]
+    assert gateway_span.get_attribute("mlflow.message.format") == "anthropic"
 
 
 @pytest.mark.asyncio
@@ -842,3 +868,243 @@ def test_aggregate_anthropic_messages_stream_chunks_cache_tokens():
         "cache_creation_input_tokens": 2,
         "output_tokens": 8,
     }
+
+
+# ---------------------------------------------------------------------------
+# Tests for aggregate_openai_responses_stream_chunks
+# ---------------------------------------------------------------------------
+
+_RESPONSES_CREATED = (
+    b'data: {"type":"response.created","response":{"id":"resp_1","object":"response",'
+    b'"created_at":1741290958,"status":"in_progress","output":[],"usage":null}}\n'
+)
+_RESPONSES_TEXT_DELTA = (
+    b'data: {"type":"response.output_text.delta","item_id":"msg_1",'
+    b'"output_index":0,"content_index":0,"delta":"Hi"}\n'
+)
+_RESPONSES_TEXT_DONE = (
+    b'data: {"type":"response.output_text.done","item_id":"msg_1",'
+    b'"output_index":0,"content_index":0,"text":"Hi there!"}\n'
+)
+_RESPONSES_COMPLETED = (
+    b'data: {"type":"response.completed","response":{"id":"resp_1","object":"response",'
+    b'"created_at":1741290958,"status":"completed",'
+    b'"output":[{"id":"msg_1","type":"message","status":"completed","role":"assistant",'
+    b'"content":[{"type":"output_text","text":"Hi there!","annotations":[]}]}],'
+    b'"usage":{"input_tokens":37,"output_tokens":11,"total_tokens":48}}}\n'
+)
+
+
+def test_aggregate_openai_responses_stream_chunks_empty():
+    assert aggregate_openai_responses_stream_chunks([]) is None
+
+
+def test_aggregate_openai_responses_stream_chunks_no_completed_event():
+    chunks = [_RESPONSES_CREATED, _RESPONSES_TEXT_DELTA]
+    assert aggregate_openai_responses_stream_chunks(chunks) is None
+
+
+def test_aggregate_openai_responses_stream_chunks_basic():
+    chunks = [
+        _RESPONSES_CREATED,
+        _RESPONSES_TEXT_DELTA,
+        _RESPONSES_TEXT_DONE,
+        _RESPONSES_COMPLETED,
+    ]
+    result = aggregate_openai_responses_stream_chunks(chunks)
+
+    assert result["id"] == "resp_1"
+    assert result["object"] == "response"
+    assert result["status"] == "completed"
+    assert len(result["output"]) == 1
+    assert result["output"][0]["role"] == "assistant"
+    assert result["output"][0]["content"][0]["text"] == "Hi there!"
+    assert result["usage"] == {"input_tokens": 37, "output_tokens": 11, "total_tokens": 48}
+
+
+def test_aggregate_openai_responses_stream_chunks_split_sse_lines():
+    # Simulate aiohttp yielding a chunk that splits the data: line mid-way.
+    mid = len(_RESPONSES_COMPLETED) // 2
+    chunks = [
+        _RESPONSES_CREATED,
+        _RESPONSES_COMPLETED[:mid],
+        _RESPONSES_COMPLETED[mid:],
+    ]
+    result = aggregate_openai_responses_stream_chunks(chunks)
+
+    assert result is not None
+    assert result["id"] == "resp_1"
+    assert result["status"] == "completed"
+
+
+def test_aggregate_openai_responses_stream_chunks_returns_completed_response():
+    # When multiple events are packed into a single bytes chunk, the
+    # completed response is still extracted correctly.
+    combined = _RESPONSES_CREATED + _RESPONSES_TEXT_DELTA + _RESPONSES_COMPLETED
+    result = aggregate_openai_responses_stream_chunks([combined])
+
+    assert result["status"] == "completed"
+    assert result["usage"]["total_tokens"] == 48
+
+
+# ---------------------------------------------------------------------------
+# Tests for aggregate_gemini_stream_generate_content_chunks
+# ---------------------------------------------------------------------------
+
+
+def _gemini_sse(event: dict[str, Any]) -> bytes:
+    return f"data: {json.dumps(event)}\n".encode()
+
+
+def _gemini_text_chunk(text: str, finish_reason: str | None = None) -> bytes:
+    candidate: dict[str, Any] = {"content": {"parts": [{"text": text}], "role": "model"}}
+    if finish_reason:
+        candidate["finishReason"] = finish_reason
+    return _gemini_sse({"candidates": [candidate]})
+
+
+def test_aggregate_gemini_stream_chunks_empty():
+    assert aggregate_gemini_stream_generate_content_chunks([]) is None
+
+
+def test_aggregate_gemini_stream_chunks_no_parseable_events():
+    chunks = [b"event: ping\n", b"data: [DONE]\n"]
+    assert aggregate_gemini_stream_generate_content_chunks(chunks) is None
+
+
+def test_aggregate_gemini_stream_chunks_text():
+    chunks = [
+        _gemini_text_chunk("Hello"),
+        _gemini_text_chunk(" world", finish_reason="STOP"),
+        _gemini_sse({
+            "usageMetadata": {
+                "promptTokenCount": 10,
+                "candidatesTokenCount": 5,
+                "totalTokenCount": 15,
+            }
+        }),
+    ]
+    result = aggregate_gemini_stream_generate_content_chunks(chunks)
+
+    assert len(result["candidates"]) == 1
+    cand = result["candidates"][0]
+    assert cand["content"]["parts"] == [{"text": "Hello world"}]
+    assert cand["content"]["role"] == "model"
+    assert cand["finishReason"] == "STOP"
+    assert result["usageMetadata"] == {
+        "promptTokenCount": 10,
+        "candidatesTokenCount": 5,
+        "totalTokenCount": 15,
+    }
+
+
+def test_aggregate_gemini_stream_chunks_tool_call():
+    chunks = [
+        _gemini_sse({
+            "candidates": [
+                {
+                    "content": {
+                        "parts": [
+                            {"functionCall": {"name": "get_weather", "args": {"city": "Paris"}}}
+                        ],
+                        "role": "model",
+                    },
+                    "finishReason": "STOP",
+                    "index": 0,
+                }
+            ]
+        }),
+        _gemini_sse({
+            "usageMetadata": {
+                "promptTokenCount": 8,
+                "candidatesTokenCount": 12,
+                "totalTokenCount": 20,
+            }
+        }),
+    ]
+    result = aggregate_gemini_stream_generate_content_chunks(chunks)
+
+    cand = result["candidates"][0]
+    assert cand["content"]["parts"] == [
+        {"functionCall": {"name": "get_weather", "args": {"city": "Paris"}}}
+    ]
+    assert cand["finishReason"] == "STOP"
+
+
+def test_aggregate_gemini_stream_chunks_split_sse_lines():
+    chunk_bytes = _gemini_text_chunk("Hi", finish_reason="STOP")
+    mid = len(chunk_bytes) // 2
+    result = aggregate_gemini_stream_generate_content_chunks([chunk_bytes[:mid], chunk_bytes[mid:]])
+
+    assert result is not None
+    assert result["candidates"][0]["content"]["parts"] == [{"text": "Hi"}]
+
+
+@pytest.mark.parametrize(
+    ("finish_reasons", "expected"),
+    [
+        ([None, None, "STOP"], "STOP"),
+        ([None, "stop", None], "stop"),
+        ([None, None, None], None),
+    ],
+)
+def test_aggregate_gemini_stream_chunks_finish_reason(finish_reasons, expected):
+    chunks = [_gemini_text_chunk(f"t{i}", finish_reason=fr) for i, fr in enumerate(finish_reasons)]
+    result = aggregate_gemini_stream_generate_content_chunks(chunks)
+    assert result["candidates"][0]["finishReason"] == expected
+
+
+# ---------------------------------------------------------------------------
+# _extract_caller tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("headers", "expected"),
+    [
+        (None, None),
+        ({}, None),
+        ({"User-Agent": "openai-python/1.0.0"}, "openai-python"),
+        ({"user-agent": "claude-cli/1.2.3"}, "claude-cli"),
+        ({"User-Agent": "GeminiCLI/1.0 (Linux; x64)"}, "GeminiCLI"),
+        ({"User-Agent": "anthropic/0.20.0 CPython/3.11.0 Darwin/23.0.0"}, "anthropic"),
+        (
+            {MLFLOW_GATEWAY_CALLER_HEADER: "judge", "User-Agent": "openai-python/1.0.0"},
+            "judge",
+        ),
+        ({MLFLOW_GATEWAY_CALLER_HEADER: "judge"}, "judge"),
+        ({"User-Agent": "   "}, None),
+    ],
+)
+def test_extract_caller(headers, expected):
+    assert _extract_caller(headers) == expected
+
+
+def test_maybe_traced_gateway_call_records_caller(endpoint_config):
+    async def fake_func(payload):
+        return {"ok": True}
+
+    traced = maybe_traced_gateway_call(
+        fake_func,
+        endpoint_config,
+        request_headers={"User-Agent": "openai-python/1.0.0"},
+    )
+
+    asyncio.get_event_loop().run_until_complete(traced({"prompt": "hi"}))
+
+    traces = get_traces()
+    assert traces
+    assert traces[0].info.request_metadata.get(TraceMetadataKey.GATEWAY_CALLER) == "openai-python"
+
+
+def test_maybe_traced_gateway_call_no_caller_when_no_headers(endpoint_config):
+    async def fake_func(payload):
+        return {"ok": True}
+
+    traced = maybe_traced_gateway_call(fake_func, endpoint_config, request_headers=None)
+
+    asyncio.get_event_loop().run_until_complete(traced({"prompt": "hi"}))
+
+    traces = get_traces()
+    assert traces
+    assert TraceMetadataKey.GATEWAY_CALLER not in (traces[0].info.request_metadata or {})

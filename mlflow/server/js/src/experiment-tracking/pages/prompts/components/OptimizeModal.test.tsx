@@ -1,5 +1,5 @@
 import { describe, expect, it, jest } from '@jest/globals';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { IntlProvider } from 'react-intl';
 import { DesignSystemProvider } from '@databricks/design-system';
@@ -75,6 +75,7 @@ describe('OptimizeModal', () => {
   });
 
   it('calls onCancel when modal is closed', async () => {
+    const user = userEvent.setup();
     const onCancel = jest.fn();
     renderComponent({
       visible: true,
@@ -84,9 +85,11 @@ describe('OptimizeModal', () => {
     });
 
     // Find and click the close button (X button in the modal header)
-    const closeButton = screen.getByRole('button', { name: /close/i });
-    await userEvent.click(closeButton);
+    const closeButton = await screen.findByRole('button', { name: /close/i });
+    await user.click(closeButton);
 
-    expect(onCancel).toHaveBeenCalledTimes(1);
+    await waitFor(() => {
+      expect(onCancel).toHaveBeenCalledTimes(1);
+    });
   });
 });
