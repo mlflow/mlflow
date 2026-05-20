@@ -1,5 +1,5 @@
 import { Typography, useDesignSystemTheme } from '@databricks/design-system';
-import type { Role } from '../types';
+import { isSyntheticUserRole, type Role } from '../types';
 
 export interface UserRolesCellProps {
   roles: readonly Role[];
@@ -13,10 +13,13 @@ export interface UserRolesCellProps {
  * managers see only roles in workspaces they administer).
  * ``scopeWorkspace`` further narrows to the active workspace for the
  * per-workspace admin page, so the cell matches the page scope.
+ * Synthetic ``__user_N__`` roles are filtered out — they're per-user
+ * direct-grant bookkeeping, not real role assignments.
  */
 export const UserRolesCell = ({ roles: allRoles, scopeWorkspace }: UserRolesCellProps) => {
   const { theme } = useDesignSystemTheme();
-  const roles = scopeWorkspace ? allRoles.filter((r) => r.workspace === scopeWorkspace) : allRoles;
+  const visibleRoles = allRoles.filter((r) => !isSyntheticUserRole(r.name));
+  const roles = scopeWorkspace ? visibleRoles.filter((r) => r.workspace === scopeWorkspace) : visibleRoles;
   if (roles.length === 0) {
     return <Typography.Text color="secondary">—</Typography.Text>;
   }

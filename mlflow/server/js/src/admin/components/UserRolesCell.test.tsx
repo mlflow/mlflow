@@ -66,4 +66,20 @@ describe('UserRolesCell', () => {
     expect(screen.getByText('foo')).toBeInTheDocument();
     expect(screen.getByText('bar')).toBeInTheDocument();
   });
+
+  it('hides synthetic __user_N__ roles regardless of scopeWorkspace', () => {
+    // Synthetic per-user roles back direct grants; they must never appear in
+    // the cell. Pin both the unscoped and the workspace-scoped paths.
+    renderWithDesignSystem(
+      <UserRolesCell
+        roles={[
+          role({ id: 1, name: '__user_1__', workspace: 'default' }),
+          role({ id: 2, name: 'editor', workspace: 'default' }),
+        ]}
+        scopeWorkspace={null}
+      />,
+    );
+    expect(screen.queryByText(/__user_1__/)).not.toBeInTheDocument();
+    expect(screen.getByText(/editor/)).toBeInTheDocument();
+  });
 });
