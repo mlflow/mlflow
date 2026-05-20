@@ -34,7 +34,7 @@ import {
   useDeleteRole,
   useWithSettingsReturnTo,
 } from '../hooks';
-import { isWorkspaceAdminRole } from '../types';
+import { isSyntheticUserRole, isWorkspaceAdminRole } from '../types';
 import { CreateUserModal } from '../components/CreateUserModal';
 import { CreateRoleModal } from '../components/CreateRoleModal';
 import { UserRolesCell } from '../components/UserRolesCell';
@@ -305,7 +305,10 @@ const RolesTab = () => {
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const roles = useMemo(() => rolesData?.roles ?? [], [rolesData]);
+  // Hide synthetic ``__user_N__`` roles: they're a backend bookkeeping
+  // device for per-user direct grants, not real role definitions an admin
+  // would manage from this table.
+  const roles = useMemo(() => (rolesData?.roles ?? []).filter((r) => !isSyntheticUserRole(r.name)), [rolesData]);
   const {
     visibleSelected: visibleSelectedRoleIds,
     isAllSelected: allSelected,
