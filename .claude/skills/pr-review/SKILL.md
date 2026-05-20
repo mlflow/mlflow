@@ -42,7 +42,7 @@ The `<owner>`/`<repo>`/`<pr_number>` placeholders in the steps below refer to th
 
 ### 1. Gather context (run in parallel)
 
-These five reads are independent. Issue them as parallel tool calls in a single turn, not sequentially.
+These reads are independent. Issue them as parallel tool calls in a single turn, not sequentially.
 
 #### PR title and description
 
