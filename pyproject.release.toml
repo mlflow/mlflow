@@ -40,7 +40,7 @@ dependencies = [
   "huey<4,>=2.5.4",
   "matplotlib<4",
   "numpy<3",
-  "pandas<4",
+  "pandas<3",
   "pyarrow<25,>=4.0.0",
   "scikit-learn<2",
   "scipy<2",
