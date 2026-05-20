@@ -109,6 +109,13 @@ genai = [
   "uvicorn[standard]<1",
   "watchfiles<2",
 ]
+nlp-scorers = [
+  "bert-score>=0.3.13",
+  "nltk>=3.8",
+  "textstat>=0.7.3",
+  "vaderSentiment>=3.3.2",
+  "python-Levenshtein>=0.21.0",
+]
 mcp = ["fastmcp<4,>=2.0.0", "click!=8.3.0"]
 azure = ["azure-storage-blob>=12", "azure-identity>=1.6.1"]
 sqlserver = ["mlflow-dbstore"]
