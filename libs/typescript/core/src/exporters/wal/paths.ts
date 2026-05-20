@@ -3,8 +3,19 @@
  *
  * A spool is shared across all Claude Code sessions (and other MLflow TS
  * integrations) that resolve to the same `MLFLOW_WAL_DIR` for a single OS
- * user. The WAL data files (`queue.log`, `failed.log`, `daemon.log`)
- * always live inside the resolved spool root.
+ * user. The WAL files always live inside the resolved spool root:
+ *
+ * - `queue.log` — single file, compacted on the fly. The hot work queue.
+ * - `failed.log.<YYYY-MM-DD>` — daily-rotated dead-letter file. Append-only
+ *   forever; never compacted. The suffix comes from the *UTC* date so the
+ *   day boundary is stable across timezones and matches the `…Z` ISO
+ *   timestamps written inside `daemon.log`.
+ * - `daemon.log.<YYYY-MM-DD>` — daily-rotated diagnostic stream. Same UTC
+ *   convention as `failed.log`.
+ *
+ * "Rotation" is stateless: every write resolves its path from the current
+ * date, so a writer that crosses midnight UTC lands subsequent lines in
+ * the next-day file with no rename, no detection, no coordination.
  *
  * The daemon's singleton lock is scoped per `(user, spool root)` on both
  * platforms; its exact location depends on the platform and the resolved
@@ -57,19 +68,44 @@ export function getWalPath(): string {
 }
 
 /**
- * Append-only dead-letter file containing records that have exhausted
- * `MLFLOW_TRACE_MAX_RETRY_ATTEMPTS` attempts. Records here are durable and
- * inspectable / replayable by operators; the daemon never re-reads this file.
+ * `YYYY-MM-DD` in UTC. Used as the suffix on `failed.log` and `daemon.log`
+ * so the two files rotate daily without any explicit rename. UTC keeps the
+ * boundary stable across the timezones a multi-region rollout will hit and
+ * matches the `…Z` ISO timestamps the daemon writes inside the files.
+ *
+ * Exposed as an optional argument purely so tests can pin the date.
  */
-export function getDeadLetterPath(): string {
-  return join(getWalDir(), 'failed.log');
+function dateSuffix(d: Date = new Date()): string {
+  const yyyy = d.getUTCFullYear().toString().padStart(4, '0');
+  const mm = (d.getUTCMonth() + 1).toString().padStart(2, '0');
+  const dd = d.getUTCDate().toString().padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+/**
+ * Append-only dead-letter file containing records whose retry-budget window
+ * (`MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT`) has elapsed. Records here are
+ * durable and inspectable / replayable by operators; the daemon never
+ * re-reads this file.
+ *
+ * Rotated daily by the UTC date in the filename suffix. Day boundaries that
+ * occur mid-write naturally split lines into the next-day file because the
+ * path is resolved from the clock at every `appendDeadLetter` call.
+ */
+export function getDeadLetterPath(now: Date = new Date()): string {
+  return join(getWalDir(), `failed.log.${dateSuffix(now)}`);
 }
 
 /**
  * Daemon log file with diagnostic lines (retries, DLQ entries, fatal errors).
+ *
+ * Same daily-by-UTC rotation as {@link getDeadLetterPath}: the daemon's
+ * `log()` helper resolves this on every line, so a daemon that spans
+ * midnight writes earlier lines to the `…<today>` file and later lines to
+ * the `…<tomorrow>` file with no explicit handoff.
  */
-export function getDaemonLogPath(): string {
-  return join(getWalDir(), 'daemon.log');
+export function getDaemonLogPath(now: Date = new Date()): string {
+  return join(getWalDir(), `daemon.log.${dateSuffix(now)}`);
 }
 
 /**

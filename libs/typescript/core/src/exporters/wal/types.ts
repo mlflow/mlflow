@@ -23,8 +23,19 @@
  *   factories inside the daemon's batch loop.
  * - `attempts`, `nextAttemptAt`: retry state. `nextAttemptAt` is the unix
  *   ms epoch before which the daemon skips this record on a batch tick.
+ *   `attempts` is incremented per failure and kept for diagnostics only;
+ *   the dead-letter gate is wall-clock based via `firstAttemptAt`.
+ * - `firstAttemptAt`: unix ms epoch of the daemon's first upload attempt
+ *   on this record. Anchored once and preserved across retries (the
+ *   retry copy keeps the original anchor). Used as the start of the
+ *   retry-budget window measured against
+ *   `MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT`. `undefined` until the
+ *   first attempt — daemons fall back to `createdAt` when the field is
+ *   missing so records written by older daemon versions still upgrade
+ *   cleanly.
  * - `createdAt`: when the record first entered the WAL (unix ms). Used
- *   for diagnostics / ordering only; not part of retry semantics.
+ *   for diagnostics / ordering and as a fallback anchor when
+ *   `firstAttemptAt` is absent.
  */
 export interface WalRecord {
   id: string;
@@ -35,6 +46,7 @@ export interface WalRecord {
   attempts: number;
   nextAttemptAt: number;
   createdAt: number;
+  firstAttemptAt?: number;
 }
 
 /**
