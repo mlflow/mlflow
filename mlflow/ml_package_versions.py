@@ -143,7 +143,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "0.2.5",
-            "maximum": "1.95.0"
+            "maximum": "1.84.1"
         }
     },
     "smolagents": {
@@ -410,7 +410,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "0.37.0",
-            "maximum": "0.38.0"
+            "maximum": "0.37.1"
         }
     },
     "haystack": {

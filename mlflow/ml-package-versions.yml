@@ -539,7 +539,7 @@ diffusers:
       uv pip install --system git+https://github.com/huggingface/diffusers
   models:
     minimum: "0.37.0"
-    maximum: "0.38.0"
+    maximum: "0.37.1"
     requirements:
       ">= 0.0.0": ["transformers", "safetensors", "accelerate", "peft", "torch"]
     run: |
@@ -937,7 +937,7 @@ pydantic_ai:
         "git+https://github.com/pydantic/pydantic-ai.git#egg=pydantic-ai"
   autologging:
     minimum: "0.2.5"
-    maximum: "1.95.0"
+    maximum: "1.84.1"
     requirements:
       ">= 0.0.0": ["mcp"]
     run: pytest tests/pydantic_ai
