@@ -10,8 +10,10 @@ from pathlib import Path
 
 import yaml
 
-RULES_DIR = Path(__file__).parents[4] / "rules"
-REPO_ROOT = Path(__file__).parents[5]
+from skills.utils import get_repo_root
+
+REPO_ROOT = get_repo_root()
+RULES_DIR = REPO_ROOT / ".claude" / "rules"
 
 
 def glob_to_regex(pattern: str) -> re.Pattern[str]:
@@ -60,7 +62,7 @@ def matching_rules(changed: list[str], rules_dir: Path = RULES_DIR) -> list[Path
         patterns = parse_frontmatter_paths(rule.read_text())
         if not patterns:
             continue
-        regexes = [glob_to_regex(p) for p in patterns]
+        regexes = map(glob_to_regex, patterns)
         if any(r.match(p) for r in regexes for p in changed):
             matched.append(rule)
     return matched
