@@ -1,5 +1,5 @@
 # ruff: noqa: T201
-"""Print contents of .claude/rules/*.md files whose path globs match changed files."""
+"""Load contents of .claude/rules/*.md files whose path globs match changed files."""
 
 from __future__ import annotations
 
@@ -68,7 +68,7 @@ def matching_rules(changed: list[str], rules_dir: Path = RULES_DIR) -> list[Path
 
 def register(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     subparsers.add_parser(
-        "print-rules",
+        "load-rules",
         help=(
             "Read newline-separated file paths from stdin and print the contents of "
             "`.claude/rules/*.md` files whose `paths` glob matches at least one path"
