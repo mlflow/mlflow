@@ -23,4 +23,11 @@ describe('RolePermissionForm — permission picker filtering', () => {
     await userEvent.click(await screen.findByRole('option', { name: 'workspace' }));
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ resourceType: 'workspace', permission: 'USE' }));
   });
+
+  it('does not offer gateway_model_definition (intentionally removed from RESOURCE_TYPES)', async () => {
+    renderWithDesignSystem(<RolePermissionForm value={ROLE_PERMISSION_DRAFT_DEFAULT} onChange={() => {}} />);
+    const resourceTypeTrigger = document.getElementById('admin-role-permission-form-resource-type')!;
+    await userEvent.click(resourceTypeTrigger);
+    expect(screen.queryByRole('option', { name: 'gateway_model_definition' })).not.toBeInTheDocument();
+  });
 });

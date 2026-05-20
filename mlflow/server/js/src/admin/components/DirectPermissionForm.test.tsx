@@ -28,4 +28,11 @@ describe('DirectPermissionForm — permission picker filtering', () => {
     await userEvent.click(await screen.findByRole('option', { name: 'Experiment' }));
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ resourceType: 'experiment', permission: 'READ' }));
   });
+
+  it('does not offer gateway_model_definition (intentionally removed from DIRECT_GRANT_RESOURCE_TYPES)', async () => {
+    renderWithDesignSystem(<DirectPermissionForm value={DIRECT_PERMISSION_DEFAULT} onChange={() => {}} />);
+    const resourceTypeTrigger = document.getElementById('admin-direct-permission-resource-type')!;
+    await userEvent.click(resourceTypeTrigger);
+    expect(screen.queryByRole('option', { name: 'Gateway model definition' })).not.toBeInTheDocument();
+  });
 });
