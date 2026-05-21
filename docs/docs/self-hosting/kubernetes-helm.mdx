@@ -171,6 +171,27 @@ helm install mlflow ./charts \
   -f my-values.yaml
 ```
 
+### Workspaces
+
+[Workspaces](/self-hosting/workspaces) partition experiments, registered models, prompts, and artifacts across teams on a shared server. Enabling workspaces requires a SQL database backend (PostgreSQL, MySQL, or MSSQL — not a file-based store) and a `defaultArtifactRoot`.
+
+```yaml title="my-values.yaml"
+server:
+  flag_options:
+    - enable_workspaces
+```
+
+When `garbageCollection` is enabled, set `allWorkspaces: true` so the GC job cleans up soft-deleted resources across every workspace instead of only the default one:
+
+```yaml title="my-values.yaml"
+garbageCollection:
+  enabled: true
+  schedule: "0 2 * * 0"
+  allWorkspaces: true
+```
+
+See [Getting Started with Workspaces](/self-hosting/workspaces/getting-started) for workspace creation and client configuration.
+
 ## Configuration Reference
 
 ### Persistent Local Storage
