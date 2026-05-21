@@ -327,7 +327,7 @@ Once the server is running (via port-forward or Ingress), point the MLflow clien
 ```python
 import mlflow
 
-mlflow.set_tracking_uri("http://localhost:5000")   # or your Ingress hostname
+mlflow.set_tracking_uri("http://localhost:5000")  # or your Ingress hostname
 
 with mlflow.start_run():
     mlflow.log_param("learning_rate", 0.01)
