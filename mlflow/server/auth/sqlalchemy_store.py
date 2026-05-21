@@ -268,12 +268,18 @@ class SqlAlchemyStore:
 
     @classmethod
     def _reject_synthetic_role_name(cls, name: str) -> None:
-        """Guard user-facing role CRUD against the reserved synthetic pattern."""
-        if cls._is_synthetic_role_name(name):
+        """Guard user-facing role CRUD against the reserved synthetic namespace.
+
+        Reject any name starting with ``__user_`` (not just the strict
+        ``__user_<digits>__`` synthetic pattern): the whole prefix is reserved
+        so a future change to the synthetic naming scheme can't be hijacked by
+        an admin-created role that lined up with the older format.
+        """
+        if name.startswith(cls._SYNTHETIC_ROLE_PREFIX):
             raise MlflowException.invalid_parameter_value(
-                f"Role name {name!r} matches the reserved synthetic pattern "
-                "'__user_<id>__' used by the per-user permission representation. "
-                "Choose a different name."
+                f"Role name {name!r} uses the reserved '__user_' prefix, which "
+                "is held for the per-user permission representation. Choose a "
+                "different name."
             )
 
     def _get_or_create_synthetic_user_role(self, session, user_id: int, workspace: str) -> SqlRole:
