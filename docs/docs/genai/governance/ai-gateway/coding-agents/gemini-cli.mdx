@@ -18,17 +18,7 @@ Route [Gemini CLI](https://github.com/google-gemini/gemini-cli) through the MLfl
 
 ## Step 1: Create a Gemini Endpoint
 
-Navigate to the **AI Gateway** tab at `http://localhost:5000/#/gateway` and click **Create Endpoint**.
-
-- **Provider:** Gemini
-- **Model:** choose any model as the actual model is selected on Gemini CLI
-- **Endpoint name:** choose a name, e.g. `my-gemini-endpoint`
-- **Authentication:** select **API Key** based authentication
-- **LLM Connection:** select an existing connection or create a new one (see [Create an LLM Connection](/genai/governance/ai-gateway/api-keys/create-and-manage))
-
-:::tip
-The server-side API key in the LLM Connection can be set to a dummy value (e.g. `dummy`). The gateway detects Gemini CLI's `User-Agent` and forwards the client's own `GEMINI_API_KEY` to the upstream provider instead.
-:::
+Navigate to the **AI Gateway** tab at `http://localhost:5000/#/gateway` and click **Gemini CLI** in the quick start. Then click "create" to create an endpoint.
 
 ## Step 2: Configure Environment Variables
 
