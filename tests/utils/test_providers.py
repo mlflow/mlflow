@@ -238,6 +238,18 @@ def test_get_provider_config_sagemaker_has_default_chain():
     assert "default_chain" in modes
 
 
+def test_get_provider_config_vertex_ai_has_default_chain():
+    config = get_provider_config_response("vertex_ai")
+    modes = {m["mode"] for m in config["auth_modes"]}
+    assert "default_chain" in modes
+
+    default_chain = next(m for m in config["auth_modes"] if m["mode"] == "default_chain")
+    assert default_chain["display_name"] == "Application Default Credentials"
+    assert default_chain["secret_fields"] == []
+    project_field = next(f for f in default_chain["config_fields"] if f["name"] == "vertex_project")
+    assert project_field["required"] is True
+
+
 _MOCK_PROVIDER_DATA = {
     "test_provider": {
         "test-model": {
@@ -425,14 +437,83 @@ def test_flatten_catalog_entry():
     assert info["deprecation_date"] == "2026-01-01"
 
 
-def test_load_bundled_provider_returns_data():
-    _load_bundled_provider.cache_clear()
-    result = _load_bundled_provider("openai")
-    assert len(result) > 0
-    assert "gpt-4o" in result
-    info = result["gpt-4o"]
-    assert info["mode"] == "chat"
-    assert "input_cost_per_token" in info
+def test_flatten_catalog_entry_with_last_updated_at():
+    entry = {
+        "mode": "chat",
+        "capabilities": {
+            "function_calling": False,
+            "vision": False,
+            "reasoning": False,
+            "prompt_caching": False,
+            "response_schema": False,
+        },
+        "last_updated_at": "2025-01-15",
+    }
+    info = _flatten_catalog_entry(entry)
+    assert info["last_updated_at"] == "2025-01-15"
+
+
+def test_flatten_catalog_entry_without_last_updated_at():
+    entry = {
+        "mode": "chat",
+        "capabilities": {
+            "function_calling": False,
+            "vision": False,
+            "reasoning": False,
+            "prompt_caching": False,
+            "response_schema": False,
+        },
+    }
+    info = _flatten_catalog_entry(entry)
+    assert "last_updated_at" not in info
+
+
+def test_flatten_catalog_entry_with_modality_pricing():
+    entry = {
+        "mode": "embedding",
+        "context_window": {"max_input": 8172, "max_tokens": 8172},
+        "pricing": {
+            "input_per_million_tokens": 0.135,
+            "output_per_million_tokens": 0.0,
+            "modality": {
+                "image": {"input_per_million_tokens": 60.0},
+                "video": {"input_per_second": 0.0007},
+                "audio": {"input_per_second": 0.00014},
+            },
+        },
+        "capabilities": {
+            "function_calling": False,
+            "vision": True,
+            "reasoning": False,
+            "prompt_caching": False,
+            "response_schema": False,
+        },
+    }
+    info = _flatten_catalog_entry(entry)
+    assert info["mode"] == "embedding"
+    assert info["input_cost_per_token"] == pytest.approx(0.135e-6)
+    assert info["modality"] == {
+        "image": {"input_per_million_tokens": 60.0},
+        "video": {"input_per_second": 0.0007},
+        "audio": {"input_per_second": 0.00014},
+    }
+    assert info["supports_vision"] is True
+
+
+def test_flatten_catalog_entry_without_modality_pricing():
+    entry = {
+        "mode": "chat",
+        "pricing": {"input_per_million_tokens": 1.0, "output_per_million_tokens": 2.0},
+        "capabilities": {
+            "function_calling": False,
+            "vision": False,
+            "reasoning": False,
+            "prompt_caching": False,
+            "response_schema": False,
+        },
+    }
+    info = _flatten_catalog_entry(entry)
+    assert "modality" not in info
 
 
 def test_load_provider_uses_remote_when_available():

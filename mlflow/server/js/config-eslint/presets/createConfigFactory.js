@@ -102,10 +102,10 @@ function createConfigFactory(options = {}) {
     '@typescript-eslint/no-non-null-assertion': 'off',
     // Disable compat checks in tests as they always run with the same Node.js version
     'compat/compat': 'off',
-    // '@databricks/no-uncaught-localstorage-setitem': 'off',
+    '@databricks/no-uncaught-localstorage-setitem': 'off',
 
     // Allow direct localStorage in tests
-    // '@databricks/no-direct-storage': 'off',
+    '@databricks/no-direct-storage': 'off',
 
     'react/no-unused-prop-types': 'off',
 
@@ -113,23 +113,12 @@ function createConfigFactory(options = {}) {
     'no-lookahead-lookbehind-regexp/no-lookahead-lookbehind-regexp': 'off',
 
     // Allow hardcoded colors in tests for assertions
-    // '@databricks/no-hardcoded-colors': 'off',
-    // Allow hardcoded doc links in tests for assertions
-    // '@databricks/no-hardcoded-doc-links': 'off',
-    // Allow top-level dbguidelinks calls in tests for assertions
-    // '@databricks/no-top-level-dbguidelinks-calls': 'off',
+    '@databricks/no-hardcoded-colors': 'off',
     // No need to warn about unstable nested components in tests
-    // '@databricks/no-unstable-nested-components': 'off',
-    // Allow direct QueryClientProvider in tests (use workspace scoped providers in app code)
-    // '@databricks/no-query-client-provider': 'off',
-    // Allow singleton QueryClient instances in tests
-    // '@databricks/no-singleton-query-client': 'off',
-    // Allow singleton ApolloClient and ApolloProvider in tests
-    // '@databricks/no-singleton-apollo-client': 'off',
-    // '@databricks/no-apollo-client-provider': 'off',
+    '@databricks/no-unstable-nested-components': 'off',
     // '@databricks/semantic-html-single-main': 'off',
 
-    // '@databricks/no-use-react-table': ['error', { requireWrapper: false }],
+    '@databricks/no-use-react-table': ['error', { requireWrapper: false }],
   };
 
   // Rules for .test.ext files and .jest.ext files
@@ -139,26 +128,26 @@ function createConfigFactory(options = {}) {
   };
 
   const jestCommonRules = {
-    // NOTE(FEINF-1783): Require Jest globals to be imported
-    // '@databricks/no-restricted-globals-with-module': [
-    //   'error',
-    //   {
-    //     afterAll: '@jest/globals',
-    //     afterEach: '@jest/globals',
-    //     beforeAll: '@jest/globals',
-    //     beforeEach: '@jest/globals',
-    //     describe: '@jest/globals',
-    //     expect: '@jest/globals',
-    //     it: '@jest/globals',
-    //     jest: '@jest/globals',
-    //     test: '@jest/globals',
-    //   },
-    // ],
-    // NOTE(FEINF-4111): Disallow untyped jest.requireActual() calls
-    // '@databricks/no-untyped-jest-require-actual': 'error',
-    // NOTE(FEINF-4390): Disallow mocking window.{history,location} in tests
-    // '@databricks/no-mock-location': 'error',
-    // '@databricks/no-restricted-jest-mock-modules': 'error',
+    // Require Jest globals to be imported
+    '@databricks/no-restricted-globals-with-module': [
+      'error',
+      {
+        afterAll: '@jest/globals',
+        afterEach: '@jest/globals',
+        beforeAll: '@jest/globals',
+        beforeEach: '@jest/globals',
+        describe: '@jest/globals',
+        expect: '@jest/globals',
+        it: '@jest/globals',
+        jest: '@jest/globals',
+        test: '@jest/globals',
+      },
+    ],
+    // Disallow untyped jest.requireActual() calls
+    '@databricks/no-untyped-jest-require-actual': 'error',
+    // Disallow mocking window.{history,location} in tests
+    '@databricks/no-mock-location': 'error',
+    '@databricks/no-restricted-jest-mock-modules': 'error',
     // Consider any function prefixed with "expect" to be an assertion function
     // Also allow "expect" prefixed functions on objects like simpleSelectTestUtils.expect*
     'jest/expect-expect': ['error', { assertFunctionNames: ['expect*', '*.expect*'] }],
@@ -169,7 +158,7 @@ function createConfigFactory(options = {}) {
     'jest/valid-title': ['error', { ignoreTypeOfDescribeName: true, ignoreTypeOfTestName: true }],
     'jest/prefer-jest-mocked': 'error',
 
-    // NOTE(FEINF-4359): Disable this rule because the autofix logic for
+    // Disable this rule because the autofix logic for
     // `toHaveTextContent` is weird with how it handles non-literals.
     // See https://github.com/testing-library/eslint-plugin-jest-dom/issues/337.
     'jest-dom/prefer-to-have-text-content': 'off',
@@ -654,64 +643,46 @@ function createConfigFactory(options = {}) {
       /**
        * databricks rules
        */
-      // '@databricks/require-tool-schema-strict-mode': 'error',
-      // '@databricks/no-direct-react-root': 'error',
-      // '@databricks/no-direct-safe-flags-access': 'error',
-      // '@databricks/no-preview-metadata-prefix-in-safex': 'error',
-      // '@databricks/no-disable-lint': 'error',
-      // '@databricks/no-double-negation': 'error',
-      // '@databricks/no-global-uninitialized': 'error',
-      // '@databricks/no-hardcoded-colors': 'error',
-      // '@databricks/no-hardcoded-doc-links': 'error',
-      // '@databricks/no-top-level-dbguidelinks-calls': 'error',
-      // '@databricks/no-missing-react-hook-dependency-array': 'error',
-      // Prevent direct usage of QueryClientProvider in app code
-      // '@databricks/no-query-client-provider': options.allowQueryClientProvider ? 'off' : 'error',
-      // Prevent singleton QueryClient instances - use workspace-scoped queryClientByWorkspace instead
-      // '@databricks/no-singleton-query-client': 'error',
-      // Prevent singleton ApolloClient and ApolloProvider usage (use workspace-scoped patterns instead)
-      // '@databricks/no-singleton-apollo-client': 'error',
-      // '@databricks/no-apollo-client-provider': 'error',
-      // '@databricks/no-restricted-imports-regexp': [
-      //   'error',
-      //   {
-      //     patterns: [...require('../shared/no-restricted-imports-regexp-base')],
-      //   },
-      // ],
-      // '@databricks/avoid-manual-logerror': 'error',
-      // '@databricks/no-uncaught-localstorage-setitem': 'error',
-      // '@databricks/no-direct-storage': 'error',
-      // '@databricks/no-wrapper-formui-label': 'error',
-      // '@databricks/no-window-top': 'error',
+      '@databricks/no-disable-lint': 'error',
+      '@databricks/no-double-negation': 'error',
+      '@databricks/no-hardcoded-colors': 'error',
+      '@databricks/no-passive-modal-button-labels': 'error',
+      '@databricks/no-missing-react-hook-dependency-array': 'error',
+      '@databricks/no-restricted-imports-regexp': [
+        'error',
+        {
+          patterns: [...require('../shared/no-restricted-imports-regexp-base')],
+        },
+      ],
+      '@databricks/no-uncaught-localstorage-setitem': 'error',
+      '@databricks/no-direct-storage': 'error',
+      '@databricks/no-wrapper-formui-label': 'error',
+      '@databricks/no-window-top': 'error',
       '@databricks/no-dynamic-property-value': 'error',
-      // '@databricks/no-new-object-or-array-in-zustand-selector': 'error',
-      // '@databricks/no-unstable-nested-components': [
-      //   'error',
-      //   {
-      //     allowAsPropsInElements: [
-      //       { name: 'FormattedMessage', props: ['values'] },
-      //       { name: 'PanelBoundary', props: ['fallbackRender'] },
-      //       { name: 'Column', props: ['cellRenderer'] },
-      //       { name: 'Table', props: ['noRowsRenderer', 'rowRenderer'] },
-      //       { name: 'List', props: ['noRowsRenderer', 'rowRenderer'] },
-      //       { name: 'Grid', props: ['noContentRenderer'] },
-      //       { name: 'Collapse', props: ['expandIcon'] },
-      //       { name: 'LegacySelect', props: ['dangerouslySetAntdProps.dropdownRender'] },
-      //       { name: 'RHFControlledComponents.LegacySelect', props: ['dangerouslySetAntdProps.dropdownRender'] },
-      //     ],
-      //     allowAsPropsInFunctionCalls: ['formatMessage'],
-      //   },
-      // ],
-      // '@databricks/no-out-of-root-relative-imports': 'error',
-      // '@databricks/no-dollar-signs-in-jsxtext': 'error',
-      // '@databricks/no-react-prop-types': 'error',
-      // '@databricks/prefer-project-alias-imports': 'error',
-      // '@databricks/no-unauthorized-lakeviewconfig-usage': 'error',
-      // '@databricks/no-instanceof-apollo-error': 'error',
-      // '@databricks/no-use-react-table': ['error', { requireWrapper: true }],
-      // '@databricks/no-const-object-record-string': 'error',
-      // '@databricks/react-lazy-only-at-top-level': 'error',
-      // '@databricks/realtime-metric-labels-as-const': 'error',
+      '@databricks/no-new-object-or-array-in-zustand-selector': 'error',
+      '@databricks/no-unstable-nested-components': [
+        'error',
+        {
+          allowAsPropsInElements: [
+            { name: 'FormattedMessage', props: ['values'] },
+            { name: 'PanelBoundary', props: ['fallbackRender'] },
+            { name: 'Column', props: ['cellRenderer'] },
+            { name: 'Table', props: ['noRowsRenderer', 'rowRenderer'] },
+            { name: 'List', props: ['noRowsRenderer', 'rowRenderer'] },
+            { name: 'Grid', props: ['noContentRenderer'] },
+            { name: 'Collapse', props: ['expandIcon'] },
+            { name: 'LegacySelect', props: ['dangerouslySetAntdProps.dropdownRender'] },
+            { name: 'RHFControlledComponents.LegacySelect', props: ['dangerouslySetAntdProps.dropdownRender'] },
+          ],
+          allowAsPropsInFunctionCalls: ['formatMessage'],
+        },
+      ],
+      '@databricks/no-out-of-root-relative-imports': 'error',
+      '@databricks/no-dollar-signs-in-jsxtext': 'error',
+      '@databricks/no-react-prop-types': 'error',
+      '@databricks/no-use-react-table': ['error', { requireWrapper: true }],
+      '@databricks/no-const-object-record-string': 'error',
+      '@databricks/react-lazy-only-at-top-level': 'error',
 
       'no-unused-vars': 'off',
       '@typescript-eslint/no-unused-vars': [
@@ -881,20 +852,11 @@ function createConfigFactory(options = {}) {
         files: OverrideFiles.STORYBOOK,
         rules: {
           // Allow direct localStorage in Storybook tests
-          // '@databricks/no-direct-storage': 'off',
+          '@databricks/no-direct-storage': 'off',
           // Disable no-non-null-assertion in Storybook files as there's no harm in hitting wrong assertions
           '@typescript-eslint/no-non-null-assertion': 'off',
           // Stories are often defined as anonymous default exports
           'import/no-anonymous-default-export': 'off',
-          // Disable no-hardcoded-doc-links in Storybook files as they can hardcoded links.
-          // '@databricks/no-hardcoded-doc-links': 'off',
-          // Do not enforce QueryClientProvider rule in Storybook files
-          // '@databricks/no-query-client-provider': 'off',
-          // Allow singleton QueryClient instances in Storybook files
-          // '@databricks/no-singleton-query-client': 'off',
-          // Do not enforce Apollo singleton rules in Storybook files
-          // '@databricks/no-singleton-apollo-client': 'off',
-          // '@databricks/no-apollo-client-provider': 'off',
         },
       },
       {

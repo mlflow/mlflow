@@ -23,6 +23,7 @@ type SkillsLocation = 'global' | 'project' | 'custom';
 
 interface SetupStepProjectProps {
   experimentId?: string;
+  provider?: string;
   onBack: () => void;
   onComplete: () => void;
   /** Custom label for the save/finish button */
@@ -31,20 +32,29 @@ interface SetupStepProjectProps {
   backLabel?: string;
 }
 
-const GLOBAL_SKILLS_PATH = '~/.claude/skills';
+const PROVIDER_SKILLS_DIR = {
+  claude_code: '.claude/skills',
+  ollama: '.ollama/skills',
+  codex: '.codex/skills',
+} satisfies Record<string, string>;
+
+const getSkillsDir = (provider: string): string =>
+  (PROVIDER_SKILLS_DIR as Record<string, string | undefined>)[provider] ?? `.${provider}/skills`;
 
 const deriveSkillsLocation = (
   skillsLocation: string | undefined,
   projectPath: string,
+  provider: string,
 ): { location: SkillsLocation; customPath: string } => {
   if (!skillsLocation) {
     return { location: 'global', customPath: '' };
   }
-  const globalPath = GLOBAL_SKILLS_PATH.replace('~', '');
+  const skillsDir = getSkillsDir(provider);
+  const globalPath = `~/${skillsDir}`.replace('~', '');
   if (skillsLocation.endsWith(globalPath)) {
     return { location: 'global', customPath: '' };
   }
-  if (projectPath && skillsLocation.endsWith(`${projectPath}/.claude/skills`)) {
+  if (projectPath && skillsLocation.endsWith(`${projectPath}/${skillsDir}`)) {
     return { location: 'project', customPath: '' };
   }
   return { location: 'custom', customPath: skillsLocation };
@@ -52,6 +62,7 @@ const deriveSkillsLocation = (
 
 export const SetupStepProject = ({
   experimentId,
+  provider = 'claude_code',
   onBack,
   onComplete,
   nextLabel = 'Finish',
@@ -76,11 +87,11 @@ export const SetupStepProject = ({
   useEffect(() => {
     if (!config) return;
 
-    const provider = config.providers?.['claude_code'];
-    if (provider?.permissions) {
-      setEditFiles(provider.permissions.allow_edit_files ?? true);
-      setReadDocs(provider.permissions.allow_read_docs ?? true);
-      setFullPermission(provider.permissions.full_access ?? false);
+    const providerConfig = config.providers?.[provider];
+    if (providerConfig?.permissions) {
+      setEditFiles(providerConfig.permissions.allow_edit_files ?? true);
+      setReadDocs(providerConfig.permissions.allow_read_docs ?? true);
+      setFullPermission(providerConfig.permissions.full_access ?? false);
     }
 
     let currentProjectPath = '';
@@ -90,10 +101,10 @@ export const SetupStepProject = ({
     }
 
     // Initialize skills location from config
-    const { location, customPath } = deriveSkillsLocation(config.skills_location, currentProjectPath);
+    const { location, customPath } = deriveSkillsLocation(config.skills_location, currentProjectPath, provider);
     setSkillsLocation(location);
     setCustomSkillsPath(customPath);
-  }, [config, experimentId]);
+  }, [config, experimentId, provider]);
 
   const handleSave = useCallback(async () => {
     setIsSaving(true);
@@ -101,10 +112,11 @@ export const SetupStepProject = ({
 
     try {
       // Build config update - always mark provider as selected (setup complete)
+      const existingModel = config?.providers?.[provider]?.model ?? 'default';
       const configUpdate: Parameters<typeof updateConfig>[0] = {
         providers: {
-          claude_code: {
-            model: 'default',
+          [provider]: {
+            model: existingModel,
             selected: true,
             permissions: {
               allow_edit_files: editFiles,
@@ -150,6 +162,8 @@ export const SetupStepProject = ({
     }
   }, [
     experimentId,
+    provider,
+    config,
     projectPath,
     skillsLocation,
     customSkillsPath,
@@ -193,6 +207,7 @@ export const SetupStepProject = ({
                 </Checkbox>
                 <Tooltip
                   componentId="mlflow.assistant.setup.project.perm_mlflow_cli_tooltip"
+                  disableHoverableContent={false}
                   content="Allow running MLflow commands to fetch traces, runs, and experiment data. This is required for the assistant to work properly."
                 >
                   <QuestionMarkIcon
@@ -211,6 +226,7 @@ export const SetupStepProject = ({
                 </Checkbox>
                 <Tooltip
                   componentId="mlflow.assistant.setup.project.perm_read_docs_tooltip"
+                  disableHoverableContent={false}
                   content="Allow fetching content from mlflow.org documentation to get the latest information about MLflow and make accurate suggestions."
                 >
                   <QuestionMarkIcon
@@ -229,6 +245,7 @@ export const SetupStepProject = ({
                 </Checkbox>
                 <Tooltip
                   componentId="mlflow.assistant.setup.project.perm_edit_files_tooltip"
+                  disableHoverableContent={false}
                   content="Allow modifying files in your project directory. Required if you want to use the assistant to work on your project code, e.g., writing evaluation scripts, fixing bugs, etc."
                 >
                   <QuestionMarkIcon
@@ -320,7 +337,7 @@ export const SetupStepProject = ({
                 <Radio componentId="mlflow.assistant.setup.project.skills_global" value="global">
                   <Typography.Text>Global</Typography.Text>
                   <Typography.Text color="secondary" css={{ marginLeft: theme.spacing.xs }}>
-                    (~/.claude/skills/)
+                    (~/{getSkillsDir(provider)}/)
                   </Typography.Text>
                 </Radio>
 
@@ -331,7 +348,9 @@ export const SetupStepProject = ({
                 >
                   <Typography.Text color={!projectPath.trim() ? 'secondary' : undefined}>Project</Typography.Text>
                   <Typography.Text color="secondary" css={{ marginLeft: theme.spacing.xs }}>
-                    {projectPath.trim() ? `(${projectPath.trim()}/.claude/skills/)` : '(requires project path)'}
+                    {projectPath.trim()
+                      ? `(${projectPath.trim()}/${getSkillsDir(provider)}/)`
+                      : '(requires project path)'}
                   </Typography.Text>
                 </Radio>
 
@@ -376,7 +395,7 @@ export const SetupStepProject = ({
         nextLabel={nextLabel}
         backLabel={backLabel}
         isLoading={isSaving}
-        nextDisabled={!!error}
+        nextDisabled={Boolean(error)}
       />
     </div>
   );

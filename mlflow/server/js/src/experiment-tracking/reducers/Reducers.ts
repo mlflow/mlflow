@@ -218,7 +218,7 @@ export const runInfoOrderByUuid = (state: string[] = [], action: any) => {
 export const modelVersionsByRunUuid = (state = {}, action: any) => {
   switch (action.type) {
     case fulfilled(SEARCH_MODEL_VERSIONS): {
-      let newState: Record<string, ModelVersionInfoEntity[]> = { ...state };
+      let newState = { ...state } satisfies Record<string, ModelVersionInfoEntity[]>;
       const updatedState: Record<string, ModelVersionInfoEntity[]> = {};
       if (action.payload) {
         const modelVersions: ModelVersionInfoEntity[] = action.payload[getProtoField('model_versions')];

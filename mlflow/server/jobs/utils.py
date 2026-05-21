@@ -28,6 +28,7 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.server.constants import HUEY_STORAGE_PATH_ENV_VAR, MLFLOW_SERVER_UP_TIME
+from mlflow.tracing.trace_archival_service import run_trace_archival_scheduler
 from mlflow.utils.environment import _PythonEnv
 from mlflow.utils.import_hooks import register_post_import_hook
 from mlflow.utils.process import _exec_cmd
@@ -614,9 +615,10 @@ def _load_function(fullname: str) -> Callable[..., Any]:
             f"Module not found for function '{fullname}'",
         )
     except AttributeError:
-        # Function doesn't exist in the module
+        # error_code is INVALID_PARAMETER_VALUE but this is an attribute lookup failure
         raise MlflowException.invalid_parameter_value(
             f"Function not found in module for '{fullname}'",
+            error_class="ATTRIBUTE_NOT_FOUND",
         )
 
 
@@ -779,3 +781,18 @@ def register_periodic_tasks(huey_instance) -> None:
             _logger.exception(f"Online scoring scheduler failed: {e!r}")
 
     _logger.info("Registered online_scoring_scheduler periodic task (runs every 1 minute)")
+
+    @huey_instance.periodic_task(crontab(minute="*/1"))
+    # Prevent concurrent execution if scheduler takes longer than 1 minute.
+    @huey_instance.lock_task("trace-archival-scheduler-lock")
+    def trace_archival_scheduler():
+        """Runs every minute and delegates scheduling cadence to the archival service."""
+        try:
+            run_trace_archival_scheduler()
+        except Exception as e:
+            _logger.exception(f"Trace archival scheduler failed: {e!r}")
+
+    _logger.info(
+        "Registered trace_archival_scheduler periodic task (polls every 1 minute and "
+        "no-ops when trace archival is disabled or unconfigured)"
+    )

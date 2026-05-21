@@ -90,7 +90,7 @@ export const ActionPicker = ({
       title: <FormattedMessage defaultMessage="Block" description="Block action title" />,
       description: (
         <FormattedMessage
-          defaultMessage="Reject the request or response entirely and return an error."
+          defaultMessage="Return a 400 error with the guardrail name and reason. The original request or response is not passed through."
           description="Block action description"
         />
       ),

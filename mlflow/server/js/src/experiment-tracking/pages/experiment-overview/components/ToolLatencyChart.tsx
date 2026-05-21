@@ -102,6 +102,7 @@ export const ToolLatencyChart: React.FC = () => {
                   />
                 }
                 cursor={{ stroke: theme.colors.actionTertiaryBackgroundHover }}
+                wrapperStyle={{ pointerEvents: 'auto' }}
               />
               {displayedItems.map((toolName) => {
                 const originalIndex = toolNames.indexOf(toolName);

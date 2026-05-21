@@ -966,17 +966,17 @@ class UcModelRegistryStore(BaseRestStore):
         if source_workspace_id is None:
             source_workspace_id = self._get_workspace_id(headers)
         notebook_id = self._get_notebook_id(run)
-        lineage_securable_list = self._get_lineage_input_sources(run)
         job_id = self._get_job_id(run)
-        job_run_id = self._get_job_run_id(run)
         extra_headers = None
         if notebook_id is not None or job_id is not None:
+            lineage_securable_list = self._get_lineage_input_sources(run)
             entity_list = []
             lineage_list = None
             if notebook_id is not None:
                 notebook_entity = Notebook(id=str(notebook_id))
                 entity_list.append(Entity(notebook=notebook_entity))
             if job_id is not None:
+                job_run_id = self._get_job_run_id(run)
                 job_entity = Job(id=job_id, job_run_id=job_run_id)
                 entity_list.append(Entity(job=job_entity))
             if lineage_securable_list is not None:

@@ -14,6 +14,7 @@ on:
       - ".github/workflows/preview-docs.yml"
       - "mlflow/server/js/**"
       - ".github/workflows/js.yml"
+      - ".claude/**"
   workflow_dispatch:
     inputs:
       repository:
@@ -74,6 +75,8 @@ jobs:
           ref: ${{ github.event.inputs.ref }}
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
+        with:
+          pin-micro-version: false
       - name: Install dependencies
         run: |
           uv pip install --system -r dev/requirements.txt
@@ -95,9 +98,9 @@ jobs:
               enable_dev_tests: labelNames.includes("enable-dev-tests"),
               only_latest: labelNames.includes("only-latest"),
             };
-      - name: Test set_matrix.py
+      - name: Test flavors CLI
         run: |
-          python -m pytest --noconftest dev/tests
+          python -m pytest --noconftest dev/flavors/tests
       - id: set-matrix
         name: Set matrix
         env:
@@ -118,11 +121,11 @@ jobs:
             CHANGED_FILES=$(gh pr view "$PR_NUMBER" --json files --jq '.files[].path' | grep -v '^mlflow/server/js' || true)
             NO_DEV_FLAG=$([ "$ENABLE_DEV_TESTS" == "true" ] && echo "" || echo "--no-dev")
             ONLY_LATEST_FLAG=$([ "$ONLY_LATEST" == "true" ] && echo "--only-latest" || echo "")
-            python dev/set_matrix.py --ref-versions-yaml "$REF_VERSIONS_YAML" --changed-files "$CHANGED_FILES" $NO_DEV_FLAG $ONLY_LATEST_FLAG
+            flavors matrix --ref-versions-yaml "$REF_VERSIONS_YAML" --changed-files "$CHANGED_FILES" $NO_DEV_FLAG $ONLY_LATEST_FLAG
           elif [ "$EVENT_NAME" = "workflow_dispatch" ]; then
-            python dev/set_matrix.py --flavors "$FLAVORS" --versions "$VERSIONS"
+            flavors matrix --flavors "$FLAVORS" --versions "$VERSIONS"
           else
-            python dev/set_matrix.py
+            flavors matrix
           fi
 
   test1:
@@ -186,7 +189,6 @@ jobs:
         run: |
           eval "$MATRIX_INSTALL"
       - uses: ./.github/actions/show-versions
-      - uses: ./.github/actions/pipdeptree
       - name: Pre-test
         if: matrix.pre_test
         env:

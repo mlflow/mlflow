@@ -40,7 +40,7 @@ const PRIMITIVE_TYPE_OPTIONS = [
   { value: 'str', label: 'String' },
 ] as const;
 
-const OUTPUT_TYPE_KIND_DISPLAY_MAP: Record<string, string> = {
+const OUTPUT_TYPE_KIND_DISPLAY_MAP = {
   default: 'Default',
   bool: 'Boolean',
   int: 'Integer',
@@ -49,14 +49,14 @@ const OUTPUT_TYPE_KIND_DISPLAY_MAP: Record<string, string> = {
   categorical: 'Categorical',
   dict: 'Dictionary',
   list: 'List',
-};
+} satisfies Record<string, string>;
 
-const PRIMITIVE_TYPE_DISPLAY_MAP: Record<string, string> = {
+const PRIMITIVE_TYPE_DISPLAY_MAP = {
   bool: 'Boolean',
   int: 'Integer',
   float: 'Float',
   str: 'String',
-};
+} satisfies Record<string, string>;
 
 const OutputTypeSection: React.FC<OutputTypeSectionProps> = ({ mode, control }) => {
   const { theme } = useDesignSystemTheme();
@@ -102,7 +102,9 @@ const OutputTypeSection: React.FC<OutputTypeSectionProps> = ({ mode, control }) 
                       defaultMessage: 'Select output type',
                       description: 'Placeholder for output type selection',
                     })}
-                    renderDisplayedValue={(value) => OUTPUT_TYPE_KIND_DISPLAY_MAP[value] || value}
+                    renderDisplayedValue={(value) =>
+                      OUTPUT_TYPE_KIND_DISPLAY_MAP[value as keyof typeof OUTPUT_TYPE_KIND_DISPLAY_MAP] || value
+                    }
                   />
                   {!isReadOnly && (
                     <DialogComboboxContent maxHeight={350}>
@@ -151,7 +153,9 @@ const OutputTypeSection: React.FC<OutputTypeSectionProps> = ({ mode, control }) 
                           defaultMessage: 'Select value type',
                           description: 'Placeholder for dict value type',
                         })}
-                        renderDisplayedValue={(value) => PRIMITIVE_TYPE_DISPLAY_MAP[value] || value}
+                        renderDisplayedValue={(value) =>
+                          PRIMITIVE_TYPE_DISPLAY_MAP[value as keyof typeof PRIMITIVE_TYPE_DISPLAY_MAP] || value
+                        }
                       />
                       {!isReadOnly && (
                         <DialogComboboxContent maxHeight={200}>
@@ -199,7 +203,9 @@ const OutputTypeSection: React.FC<OutputTypeSectionProps> = ({ mode, control }) 
                           defaultMessage: 'Select element type',
                           description: 'Placeholder for list element type',
                         })}
-                        renderDisplayedValue={(value) => PRIMITIVE_TYPE_DISPLAY_MAP[value] || value}
+                        renderDisplayedValue={(value) =>
+                          PRIMITIVE_TYPE_DISPLAY_MAP[value as keyof typeof PRIMITIVE_TYPE_DISPLAY_MAP] || value
+                        }
                       />
                       {!isReadOnly && (
                         <DialogComboboxContent maxHeight={200}>

@@ -1,5 +1,6 @@
 import logging
 import os
+import subprocess
 from subprocess import Popen
 from typing import Literal
 from urllib.parse import urlparse
@@ -53,7 +54,6 @@ WORKDIR /opt/mlflow
 {install_model_and_deps}
 
 ENV MLFLOW_DISABLE_ENV_CREATION={disable_env_creation}
-ENV ENABLE_MLSERVER={enable_mlserver}
 
 # granting read/write access and conditional execution authority to all child directories
 # and files to allow for deployment to AWS Sagemaker Serverless Endpoints
@@ -84,7 +84,6 @@ def generate_dockerfile(
     entrypoint: str,
     env_manager: Literal["conda", "local", "virtualenv"] = em.CONDA,
     mlflow_home: str | None = None,
-    enable_mlserver: bool = False,
     disable_env_creation_at_runtime: bool = True,
     install_java: bool | None = None,
 ):
@@ -131,7 +130,6 @@ def generate_dockerfile(
                 install_mlflow=install_mlflow_steps,
                 install_model_and_deps=model_install_steps,
                 entrypoint=entrypoint,
-                enable_mlserver=enable_mlserver,
                 disable_env_creation=disable_env_creation_at_runtime,
             )
         )
@@ -193,14 +191,27 @@ def _pip_mlflow_install_step(dockerfile_context_dir, mlflow_home):
         return f"# Install MLflow\nRUN pip install mlflow=={VERSION}"
 
 
-def build_image_from_context(context_dir: str, image_name: str):
-    import docker
+def build_image_from_context(context_dir: str, image_name: str, network: str | None = None):
+    try:
+        import docker
 
-    client = docker.from_env()
+        client = docker.from_env()
+        docker_version = int(client.version()["Version"].split(".")[0])
+    except Exception:
+        try:
+            result = subprocess.run(
+                ["docker", "version", "--format", "{{.Server.Version}}"],
+                capture_output=True,
+                text=True,
+            )
+            docker_version = int(result.stdout.strip().split(".")[0])
+        except Exception:
+            docker_version = 0
     # In Docker < 19, `docker build` doesn't support the `--platform` option
-    is_platform_supported = int(client.version()["Version"].split(".")[0]) >= 19
+    is_platform_supported = docker_version >= 19
     # Enforcing the AMD64 architecture build for Apple M1 users
     platform_option = ["--platform", "linux/amd64"] if is_platform_supported else []
+    network_option = ["--network", network] if network else []
     commands = [
         "docker",
         "build",
@@ -209,6 +220,7 @@ def build_image_from_context(context_dir: str, image_name: str):
         "-f",
         "Dockerfile",
         *platform_option,
+        *network_option,
         ".",
     ]
     proc = Popen(commands, cwd=context_dir)

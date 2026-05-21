@@ -56,6 +56,12 @@ def _parse_abfss_uri(uri):
     domain_suffix = match.group(3)
     path = parsed.path
     path = path.removeprefix("/")
+    # Decode percent-encoded characters so the Azure SDK re-quotes exactly once.
+    # Without this, an encoded %20 becomes %2520 on the wire and any SAS signature
+    # minted over the decoded path fails validation with AuthenticationFailed.
+    # lstrip("/") strips any leading slash re-introduced by decoding "%2F", so
+    # downstream ADLS calls always receive a relative path.
+    path = urllib.parse.unquote(path).lstrip("/")
     return filesystem, account_name, domain_suffix, path
 
 

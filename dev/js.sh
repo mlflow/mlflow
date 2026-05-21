@@ -8,6 +8,11 @@
 
 set -euo pipefail
 
+if [ -n "${CI:-}" ]; then
+  echo "Skipping dev/js.sh on CI (prettier runs in js.yml)" >&2
+  exit 0
+fi
+
 cmd="${1:-}"
 shift || true
 
@@ -33,7 +38,7 @@ done
 case "$cmd" in
   fmt)
     # Use npx to avoid slow `yarn install --immutable`
-    [ ${#files[@]} -gt 0 ] && npx --min-release-age=14 "prettier@$(jq -r '.devDependencies.prettier' package.json)" --write --ignore-unknown "${files[@]}"
+    [ ${#files[@]} -gt 0 ] && npx --min-release-age=7 "prettier@$(jq -r '.devDependencies.prettier' package.json)" --write --ignore-unknown "${files[@]}"
     ;;
   # TODO: Add eslint, i18n, type-check commands if needed
   *)

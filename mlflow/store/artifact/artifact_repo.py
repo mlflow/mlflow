@@ -9,13 +9,14 @@ from abc import ABC, ABCMeta, abstractmethod
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from mlflow.entities.file_info import FileInfo
 from mlflow.entities.multipart_upload import (
     CreateMultipartUploadResponse,
     MultipartUploadPart,
 )
+from mlflow.entities.trace_data import TraceData
 from mlflow.exceptions import (
     MlflowException,
     MlflowTraceDataCorrupted,
@@ -34,6 +35,9 @@ from mlflow.utils.async_logging.async_artifacts_logging_queue import (
 )
 from mlflow.utils.file_utils import ArtifactProgressBar, create_tmp_dir
 from mlflow.utils.validation import bad_path_message, path_not_unique
+
+if TYPE_CHECKING:
+    from mlflow.entities.span import Span
 
 # Constants used to determine max level of parallelism to use while uploading/downloading artifacts.
 # Max threads to use for parallelism.
@@ -406,6 +410,29 @@ class ArtifactRepository:
                 raise MlflowTraceDataNotFound(artifact_path=TRACE_DATA_FILE_NAME) from e
             return try_read_trace_data(temp_file)
 
+    def download_archived_trace_data(self) -> TraceData:
+        """
+        Download archived trace data from ``traces.pb``.
+
+        Returns:
+            The archived trace data. If the archived payload is missing, returns an empty
+            ``TraceData`` so callers can continue surfacing trace metadata.
+        """
+        from mlflow.tracing.otel.otel_archival import TRACE_ARCHIVAL_FILENAME
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_file = Path(temp_dir, TRACE_ARCHIVAL_FILENAME)
+            try:
+                self._download_file(TRACE_ARCHIVAL_FILENAME, temp_file)
+            except Exception:
+                _logger.warning(
+                    "Archived trace payload is missing for path=%s; returning empty spans.",
+                    TRACE_ARCHIVAL_FILENAME,
+                    exc_info=_logger.isEnabledFor(logging.DEBUG),
+                )
+                return TraceData(spans=[])
+            return TraceData(spans=_try_read_trace_data_pb(temp_file))
+
     def download_trace_attachment(self, path: str) -> bytes:
         _validate_attachment_path(path)
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -421,6 +448,38 @@ class ArtifactRepository:
             trace_data: The json-serialized trace data to upload.
         """
         with write_local_temp_trace_data_file(trace_data) as temp_file:
+            self.log_artifact(temp_file)
+
+    def upload_archived_trace_data(self, trace_data: TraceData) -> None:
+        """
+        Upload archived trace data as OTLP protobuf to ``traces.pb``.
+
+        Args:
+            trace_data: The archived trace data as a ``TraceData`` object.
+        """
+        from mlflow.exceptions import MlflowTraceArchivalMalformedTrace
+        from mlflow.tracing.otel.otel_archival import spans_to_traces_data_pb
+
+        if not isinstance(trace_data, TraceData):
+            raise MlflowException.invalid_parameter_value(
+                "Archived trace data must be a TraceData object."
+            )
+        try:
+            data = spans_to_traces_data_pb(trace_data.spans)
+        except (MlflowException, TypeError, ValueError) as e:
+            raise MlflowTraceArchivalMalformedTrace(str(e)) from e
+        self.upload_archived_trace_data_bytes(data)
+
+    def upload_archived_trace_data_bytes(self, data: bytes) -> None:
+        """
+        Upload serialized archived trace data bytes to ``traces.pb``.
+
+        Backends can override this hook to avoid the default temp-file staging path when their
+        storage SDK supports in-memory uploads or more efficient multipart transfer primitives.
+        Overriding is useful for remote object stores where direct byte uploads can reduce local
+        disk I/O and let the backend apply transport-specific optimizations.
+        """
+        with _write_local_temp_trace_data_pb_file(data) as temp_file:
             self.log_artifact(temp_file)
 
     def upload_attachment(self, attachment_id: str, content_bytes: bytes) -> None:
@@ -439,6 +498,16 @@ def write_local_temp_trace_data_file(trace_data: str):
         yield temp_file
 
 
+@contextmanager
+def _write_local_temp_trace_data_pb_file(data: bytes):
+    from mlflow.tracing.otel.otel_archival import TRACE_ARCHIVAL_FILENAME
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_file = Path(temp_dir, TRACE_ARCHIVAL_FILENAME)
+        temp_file.write_bytes(data)
+        yield temp_file
+
+
 def try_read_trace_data(trace_data_path):
     if not os.path.exists(trace_data_path):
         raise MlflowTraceDataNotFound(artifact_path=trace_data_path)
@@ -449,6 +518,20 @@ def try_read_trace_data(trace_data_path):
     try:
         return json.loads(data)
     except json.decoder.JSONDecodeError as e:
+        raise MlflowTraceDataCorrupted(artifact_path=trace_data_path) from e
+
+
+def _try_read_trace_data_pb(trace_data_path) -> list["Span"]:
+    from mlflow.tracing.otel.otel_archival import traces_data_pb_to_spans
+
+    if not os.path.exists(trace_data_path):
+        raise MlflowTraceDataNotFound(artifact_path=trace_data_path)
+    data = Path(trace_data_path).read_bytes()
+    if not data:
+        raise MlflowTraceDataCorrupted(artifact_path=trace_data_path)
+    try:
+        return traces_data_pb_to_spans(data)
+    except Exception as e:
         raise MlflowTraceDataCorrupted(artifact_path=trace_data_path) from e
 
 
@@ -528,6 +611,27 @@ class MultipartDownloadMixin(ABC):
         """
 
 
+class PresignedUploadMixin(ABC):
+    """
+    Mixin that defines the API for artifact repositories that support presigned
+    URL uploads, i.e. generating presigned URLs for direct upload to cloud storage.
+    """
+
+    @abstractmethod
+    def create_presigned_upload_url(self, artifact_path, expiration=900):
+        """
+        Generate a presigned URL for uploading an artifact directly to cloud storage.
+
+        Args:
+            artifact_path: Relative path within the run's artifact directory
+                          (e.g. "models/model.pkl").
+            expiration: URL expiration time in seconds (default: 900).
+
+        Returns:
+            CreatePresignedUploadResponse with presigned_url and headers.
+        """
+
+
 def verify_artifact_path(artifact_path):
     if artifact_path and path_not_unique(artifact_path):
         raise MlflowException(
@@ -543,7 +647,9 @@ def _validate_attachment_path(path: str) -> None:
         if str(parsed) != path:
             raise ValueError("Non-canonical UUID format")
     except (ValueError, AttributeError, TypeError):
+        # error_code is INVALID_PARAMETER_VALUE but this is an attribute/type validation failure
         raise MlflowException(
             f"Invalid attachment path: '{path}'. Attachment path must be a valid UUID.",
             error_code=INVALID_PARAMETER_VALUE,
+            error_class="ATTRIBUTE_NOT_FOUND",
         )

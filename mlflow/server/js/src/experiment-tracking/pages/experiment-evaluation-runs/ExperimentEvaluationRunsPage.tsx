@@ -433,8 +433,10 @@ const ExperimentEvaluationRunsPageImpl = () => {
                 css={{ whiteSpace: 'nowrap' }}
                 openInNewTab
               >
-                {/* eslint-disable-next-line formatjs/enforce-description */}
-                <FormattedMessage defaultMessage="Learn more" />
+                <FormattedMessage
+                  defaultMessage="Learn more"
+                  description="Link text to learn more about evaluation runs"
+                />
               </Typography.Link>
             ),
           }}
@@ -562,6 +564,9 @@ const ExperimentEvaluationRunsPageImpl = () => {
                 flex: 1,
                 minHeight: '0px',
                 paddingLeft: theme.spacing.sm,
+                alignItems: 'center',
+                maxWidth: '100%',
+                boxSizing: 'border-box',
               }}
             >
               {renderActiveTab(selectedRunUuid)}

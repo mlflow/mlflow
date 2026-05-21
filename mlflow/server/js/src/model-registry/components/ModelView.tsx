@@ -355,8 +355,6 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
             {/* @ts-expect-error TS(2532): Object is possibly 'undefined'. */}
             {Utils.formatTimestamp(model.last_updated_timestamp, this.props.intl)}
           </Descriptions.Item>
-          {/* Reported during ESLint upgrade */}
-          {/* eslint-disable-next-line react/prop-types */}
           {(model as any).user_id && (
             <Descriptions.Item
               data-testid="model-view-metadata-item"
@@ -365,7 +363,6 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
                 description: 'Lable name for the creator under details tab on the model view page',
               })}
             >
-              {/* eslint-disable-next-line react/prop-types */}
               <div>{(model as any).user_id}</div>
             </Descriptions.Item>
           )}
@@ -391,8 +388,6 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
             </span>
           }
           forceOpen={showDescriptionEditor}
-          // Reported during ESLint upgrade
-          // eslint-disable-next-line react/prop-types
           defaultCollapsed={!(model as any).description}
           data-testid="model-description-section"
         >
