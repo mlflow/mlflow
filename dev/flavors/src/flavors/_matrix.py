@@ -254,10 +254,10 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--versions-yaml",
         required=False,
-        default="mlflow/ml-package-versions.yml",
+        default=VERSIONS_YAML_PATH,
         help=(
-            "URL or local file path of the config yaml. Defaults to "
-            "'mlflow/ml-package-versions.yml' on the branch where this script is running."
+            f"Local file path of the config yaml. Defaults to '{VERSIONS_YAML_PATH}' "
+            "on the branch where this script is running."
         ),
     )
     parser.add_argument(
@@ -265,7 +265,7 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
         required=False,
         default=None,
         help=(
-            "URL or local file path of the reference config yaml which will be compared with the "
+            "Local file path of the reference config yaml which will be compared with the "
             "config specified by `--versions-yaml` in order to identify the config updates."
         ),
     )
