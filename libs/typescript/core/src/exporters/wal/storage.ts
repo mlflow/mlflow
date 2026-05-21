@@ -125,7 +125,12 @@ export function appendTombstone(id: string): Promise<void> {
 }
 
 /**
- * Append `record` to the dead-letter file (`failed.log`).
+ * Append `record` to the dead-letter file (`failed.log.<YYYY-MM-DD>`).
+ *
+ * The path is resolved per call via {@link getDeadLetterPath}, so the
+ * concrete file name reflects the current UTC date — a record written at
+ * 23:59:59 UTC and another at 00:00:00 UTC land in two adjacent dated
+ * files automatically, with no in-process rotation state to maintain.
  *
  * Dead-lettering does not tombstone the live queue on its own; callers
  * (the daemon) should pair this with {@link appendTombstone} so that the
