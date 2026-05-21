@@ -8,40 +8,6 @@
 
 /**
  * One queued trace upload, serialized to a single JSONL line.
- *
- * Field semantics:
- * - `id`: a fresh uuid v4 per WAL row (not the MLflow trace id). Retries
- *   tombstone the old row and re-append a new row with a fresh `id`, so
- *   per-attempt rows are independently tombstone-addressable. The MLflow
- *   trace id lives inside `traceInfo`.
- * - `trackingUri`: routing key. The daemon groups records by this field
- *   and uses one memoized `MlflowClient` per distinct value.
- * - `experimentId`: captured at hook time so the daemon does not need to
- *   re-resolve experiments at upload time.
- * - `traceInfo` / `traceData`: results of `TraceInfo.toJson()` and
- *   `TraceData.toJson()`. Deserialized via the corresponding `fromJson`
- *   factories inside the daemon's batch loop.
- * - `attempts`, `nextAttemptAt`: retry state. `nextAttemptAt` is the unix
- *   ms epoch before which the daemon skips this record on a batch tick.
- *   `attempts` is incremented per failure and indexes into the exponential
- *   `backoff(attempt)` schedule, *separate from* the wall-clock dead-letter
- *   gate (which is governed by `firstAttemptAt` vs
- *   `MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT`). The two governors are
- *   orthogonal: `attempts` controls *how long to wait between retries*,
- *   the wall-clock budget controls *whether to keep retrying*. Mirrors
- *   Python's `_retry_databricks_sdk_call_with_exponential_backoff`, which
- *   keeps both `attempt`-indexed backoff and `retry_timeout_seconds`.
- * - `firstAttemptAt`: unix ms epoch of the daemon's first upload attempt
- *   on this record. Anchored once and preserved across retries (the
- *   retry copy keeps the original anchor). Used as the start of the
- *   retry-budget window measured against
- *   `MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT`. `undefined` until the
- *   first attempt — daemons fall back to `createdAt` when the field is
- *   missing so records written by older daemon versions still upgrade
- *   cleanly.
- * - `createdAt`: when the record first entered the WAL (unix ms). Used
- *   for diagnostics / ordering and as a fallback anchor when
- *   `firstAttemptAt` is absent.
  */
 export interface WalRecord {
   id: string;
@@ -55,11 +21,4 @@ export interface WalRecord {
   firstAttemptAt?: number;
 }
 
-/**
- * Discriminated union for a single line of the WAL file.
- *
- * Readers (`storage.readPending`) replay the file linewise into a
- * `Map<id, WalRecord>`, applying tombstones as deletions. The "current"
- * set of pending records is whatever survives the replay.
- */
 export type WalLine = { type: 'append'; record: WalRecord } | { type: 'tombstone'; id: string };

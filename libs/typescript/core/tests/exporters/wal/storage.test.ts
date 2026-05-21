@@ -3,10 +3,7 @@
 // dozens of real fs operations the rest of the suite needs. Hoisted by
 // ts-jest above the storage.ts import so storage's
 // `import { ... } from 'node:fs/promises'` resolves to the mocked bindings.
-//
-// Test-file fs imports below (e.g. `from 'fs/promises'`) intentionally use
-// the un-prefixed specifier so they stay backed by the real module — the
-// mock only intercepts the storage module's view of `node:fs/promises`.
+
 jest.mock('node:fs/promises', () => {
   const actual = jest.requireActual<typeof import('node:fs/promises')>('node:fs/promises');
   return {
@@ -51,10 +48,7 @@ function makeRecord(idSuffix: string, overrides: Partial<WalRecord> = {}): WalRe
 
 describe('wal/storage', () => {
   let walDir: string;
-  // Capture the developer's pre-test value so we restore (not just unset)
-  // in afterEach. Without this, running `MLFLOW_WAL_DIR=/some/dir jest`
-  // would lose the override for every later test in the same worker.
-  // Mirrors the pattern in paths.test.ts.
+
   const originalWalDir = process.env.MLFLOW_WAL_DIR;
 
   beforeEach(async () => {
@@ -87,13 +81,6 @@ describe('wal/storage', () => {
   });
 
   it('round-trips bigint fields (regression for SerializedSpan timestamps)', async () => {
-    // `SerializedSpan.start_time_unix_nano` is a `bigint`; native
-    // `JSON.stringify` throws on those. The storage layer uses JSONBig
-    // so spans coming out of `Span.toJson()` survive a WAL round-trip
-    // unchanged. The value here is intentionally above
-    // `Number.MAX_SAFE_INTEGER` to catch a regression to plain
-    // `JSON.parse(JSON.stringify(...))` (which would silently lose
-    // precision rather than throw).
     const startNs = 1_750_000_000_123_456_789n;
     const record = makeRecord('bigint', {
       traceData: {
@@ -216,22 +203,10 @@ describe('wal/storage', () => {
   });
 
   it('does not double-write records appended between the startSize stat and readPending', async () => {
-    // Regression: an earlier shape called `readPending()` unbounded, so
-    // a cross-process append landing between compact's first `stat`
-    // (capturing `startSize`) and the end of the stream would be
-    // included BOTH in `liveRecords` AND in the tail-byte copy that
-    // covers `[startSize, currentSize)` — producing a duplicate
-    // `{type:"append"}` line in the compacted file. The fix bounds
-    // `readPending` to `[0, startSize)` so the two sources cannot
-    // overlap.
+
     await appendRecord(makeRecord('a'));
     const walPath = getWalPath();
 
-    // Real stat used to compute the pre-injection size; we delegate the
-    // first mocked call to it, then inject one extra append line to
-    // mimic another process writing between compact's first stat and
-    // readPending. Returning the pre-injection stats keeps `startSize`
-    // honest.
     const realStat = jest.requireActual<typeof import('node:fs/promises')>('node:fs/promises').stat;
     let injected = false;
     statMock.mockImplementationOnce(async (path) => {
@@ -248,8 +223,7 @@ describe('wal/storage', () => {
     expect(injected).toBe(true);
 
     // After compaction the WAL must contain exactly two append lines,
-    // one per record, with no duplicate of `wal-b`. Without the
-    // bounding fix this assertion fails (three lines, `wal-b` repeated).
+    // one per record, with no duplicate of `wal-b`.
     const lines = (await readFile(walPath, 'utf8')).split('\n').filter((l) => l.length > 0);
     expect(lines).toHaveLength(2);
     const ids = lines.map((l) => (JSON.parse(l) as { record: WalRecord }).record.id).sort();
