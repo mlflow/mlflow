@@ -62,7 +62,7 @@ export function getDaemonLogPath(now: Date = new Date()): string {
 }
 
 /**
- * Stable per (user, wal_dir)` identifier used to scope the daemon lock
+ * Stable per (user, wal_dir) identifier used to scope the daemon lock
  */
 function getScopedLockId(): string {
   const sanitizedUser = userInfo().username.replace(/[^a-zA-Z0-9_-]/g, '_');

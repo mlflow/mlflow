@@ -26,10 +26,11 @@ class SerialQueue {
   }
 }
 
-const queueWriter = new SerialQueue();
+export const queueWriter = new SerialQueue();
+
 const deadLetterWriter = new SerialQueue();
 
-async function ensureParentDir(filePath: string): Promise<void> {
+export async function ensureParentDir(filePath: string): Promise<void> {
   await mkdir(dirname(filePath), { recursive: true });
 }
 
@@ -54,9 +55,6 @@ async function appendJsonLine(path: string, line: WalLine): Promise<void> {
 
 /**
  * Append a pending trace upload to the WAL.
- *
- * Returns when the line is durable on disk (post-fsync). Callers may safely
- * exit immediately after this resolves.
  */
 export function appendRecord(record: WalRecord): Promise<void> {
   return queueWriter.run(() => appendJsonLine(getWalPath(), { type: 'append', record }));
@@ -82,22 +80,14 @@ export function appendDeadLetter(record: WalRecord): Promise<void> {
 /**
  * Replay `queue.log` and return the set of records still considered pending.
  */
-export async function readPending(opts: { byteLimit?: number } = {}): Promise<WalRecord[]> {
+export async function readPending(): Promise<WalRecord[]> {
   const path = getWalPath();
   if (!existsSync(path)) {
     return [];
   }
-  // Empty snapshot: don't open the stream at all
-  if (opts.byteLimit !== undefined && opts.byteLimit <= 0) {
-    return [];
-  }
 
   const alive = new Map<string, WalRecord>();
-  const streamOpts: Parameters<typeof createReadStream>[1] =
-    opts.byteLimit !== undefined
-      ? { encoding: 'utf8', start: 0, end: opts.byteLimit - 1 }
-      : { encoding: 'utf8' };
-  const stream = createReadStream(path, streamOpts);
+  const stream = createReadStream(path, { encoding: 'utf8' });
   const rl = createInterface({ input: stream, crlfDelay: Infinity });
 
   for await (const line of rl) {
@@ -141,8 +131,7 @@ export function compact(): Promise<void> {
       return;
     }
 
-    const startSize = (await stat(path)).size;
-    const liveRecords = await readPending({ byteLimit: startSize });
+    const liveRecords = await readPending();
 
     const tmpPath = `${path}.tmp.${process.pid}`;
     const tmpFh = await open(tmpPath, 'w');
@@ -154,20 +143,6 @@ export function compact(): Promise<void> {
         );
         await tmpFh.write(buf);
       }
-
-      const currentSize = (await stat(path)).size;
-      if (currentSize > startSize) {
-        const tailLength = currentSize - startSize;
-        const tail = Buffer.alloc(tailLength);
-        const srcFh = await open(path, 'r');
-        try {
-          await srcFh.read(tail, 0, tailLength, startSize);
-        } finally {
-          await srcFh.close();
-        }
-        await tmpFh.write(tail);
-      }
-
       await tmpFh.sync();
       await tmpFh.close();
       await rename(tmpPath, path);

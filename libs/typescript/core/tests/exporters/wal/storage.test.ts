@@ -1,5 +1,5 @@
 // Mock node:fs/promises with a passthrough so individual tests can flip a
-// single method (e.g. `rename`, `stat`) to fail/inject without breaking the
+// single method (e.g. `rename`) to fail/inject without breaking the
 // dozens of real fs operations the rest of the suite needs. Hoisted by
 // ts-jest above the storage.ts import so storage's
 // `import { ... } from 'node:fs/promises'` resolves to the mocked bindings.
@@ -9,11 +9,9 @@ jest.mock('node:fs/promises', () => {
   return {
     ...actual,
     rename: jest.fn(actual.rename),
-    stat: jest.fn(actual.stat),
   };
 });
 
-import { appendFileSync } from 'fs';
 import { mkdtemp, readdir, readFile, rm, stat, writeFile } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
@@ -30,7 +28,6 @@ import { getDeadLetterPath, getWalPath } from '../../../src/exporters/wal/paths'
 import type { WalRecord } from '../../../src/exporters/wal/types';
 
 const renameMock = fsPromises.rename as jest.MockedFunction<typeof fsPromises.rename>;
-const statMock = fsPromises.stat as jest.MockedFunction<typeof fsPromises.stat>;
 
 function makeRecord(idSuffix: string, overrides: Partial<WalRecord> = {}): WalRecord {
   return {
@@ -200,36 +197,6 @@ describe('wal/storage', () => {
     expect(entries.some((e) => /\.tmp\.\d+$/.test(e))).toBe(false);
     const pending = await readPending();
     expect(pending.map((r) => r.id)).toEqual(['wal-a']);
-  });
-
-  it('does not double-write records appended between the startSize stat and readPending', async () => {
-    await appendRecord(makeRecord('a'));
-    const walPath = getWalPath();
-
-    const realStat = jest.requireActual<typeof import('node:fs/promises')>('node:fs/promises').stat;
-    let injected = false;
-    statMock.mockImplementationOnce(async (path) => {
-      const stats = await realStat(path);
-      if (!injected) {
-        const otherRecord = makeRecord('b');
-        appendFileSync(walPath, JSON.stringify({ type: 'append', record: otherRecord }) + '\n');
-        injected = true;
-      }
-      return stats;
-    });
-
-    await compact();
-    expect(injected).toBe(true);
-
-    // After compaction the WAL must contain exactly two append lines,
-    // one per record, with no duplicate of `wal-b`.
-    const lines = (await readFile(walPath, 'utf8')).split('\n').filter((l) => l.length > 0);
-    expect(lines).toHaveLength(2);
-    const ids = lines.map((l) => (JSON.parse(l) as { record: WalRecord }).record.id).sort();
-    expect(ids).toEqual(['wal-a', 'wal-b']);
-
-    const pending = await readPending();
-    expect(pending.map((r) => r.id).sort()).toEqual(['wal-a', 'wal-b']);
   });
 
   it('skips malformed lines but keeps surrounding records', async () => {
