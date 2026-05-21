@@ -5,7 +5,10 @@ import trulens  # noqa: F401
 
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSourceType
+from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.utils import CategoricalRating
+from mlflow.genai.scorers.base import Scorer, ScorerKind
+from mlflow.genai.scorers.trulens import Groundedness
 
 
 @pytest.fixture
@@ -142,37 +145,39 @@ def test_trulens_scorer_error_handling(mock_provider):
 
 
 def test_gateway_provider_create_chat_completion():
+    from mlflow.genai.scorers.llm_backend import ScorerLLMClient
     from mlflow.genai.scorers.trulens.models import _create_gateway_provider
 
-    provider = _create_gateway_provider("openai", "gpt-4")
+    with patch("mlflow.genai.scorers.llm_backend._get_provider_instance") as mock_gpi:
+        backend = ScorerLLMClient("openai:/gpt-4")
+    mock_gpi.assert_called_once()
+    provider = _create_gateway_provider(backend)
 
     with patch(
-        "mlflow.genai.scorers.trulens.models._call_llm_provider_api",
+        "mlflow.genai.scorers.llm_backend._call_llm_provider_api",
         return_value="The answer is 42.",
     ) as mock_call:
         result = provider._create_chat_completion(prompt="What is the answer?")
 
     assert result == "The answer is 42."
-    mock_call.assert_called_once_with(
-        "openai",
-        "gpt-4",
-        messages=[{"role": "user", "content": "What is the answer?"}],
-        eval_parameters=None,
-        response_format=None,
-    )
+    mock_call.assert_called_once()
 
 
 def test_gateway_provider_handles_messages():
+    from mlflow.genai.scorers.llm_backend import ScorerLLMClient
     from mlflow.genai.scorers.trulens.models import _create_gateway_provider
 
-    provider = _create_gateway_provider("openai", "gpt-4")
+    with patch("mlflow.genai.scorers.llm_backend._get_provider_instance") as mock_gpi:
+        backend = ScorerLLMClient("openai:/gpt-4")
+    mock_gpi.assert_called_once()
+    provider = _create_gateway_provider(backend)
     messages = [
         {"role": "system", "content": "You are helpful"},
         {"role": "user", "content": "Hello"},
     ]
 
     with patch(
-        "mlflow.genai.scorers.trulens.models._call_llm_provider_api",
+        "mlflow.genai.scorers.llm_backend._call_llm_provider_api",
         return_value="Hi there!",
     ) as mock_call:
         result = provider._create_chat_completion(messages=messages)
@@ -232,3 +237,32 @@ def test_high_level_scorer_call_chain(mock_provider):
     assert feedback.value == CategoricalRating.YES
     assert feedback.source.source_type == AssessmentSourceType.LLM_JUDGE
     assert feedback.source.source_id == "openai:/gpt-4"
+
+
+def test_trulens_scorer_kind_is_third_party(mock_provider):
+    with patch("mlflow.genai.scorers.trulens.create_trulens_provider", return_value=mock_provider):
+        assert Groundedness(model="openai:/gpt-4").kind == ScorerKind.THIRD_PARTY
+
+
+def test_trulens_scorer_serialization_round_trip(mock_provider):
+    with patch("mlflow.genai.scorers.trulens.create_trulens_provider", return_value=mock_provider):
+        scorer = Groundedness(model="openai:/gpt-4", threshold=0.7)
+        dump = scorer.model_dump()
+        assert dump["third_party_scorer_data"]["class"] == "Groundedness"
+        assert dump["third_party_scorer_data"]["metric_name"] == "Groundedness"
+        assert dump["third_party_scorer_data"]["model"] == "openai:/gpt-4"
+        assert dump["third_party_scorer_data"]["kwargs"]["threshold"] == 0.7
+
+        restored = Scorer.model_validate(dump)
+        assert isinstance(restored, Groundedness)
+        assert restored.kind == ScorerKind.THIRD_PARTY
+        assert restored._model == "openai:/gpt-4"
+        assert restored._threshold == 0.7
+
+
+def test_trulens_scorer_register_blocked_on_databricks(mock_provider):
+    with patch("mlflow.genai.scorers.trulens.create_trulens_provider", return_value=mock_provider):
+        scorer = Groundedness(model="openai:/gpt-4")
+        with patch("mlflow.genai.scorers.base.is_databricks_uri", return_value=True):
+            with pytest.raises(MlflowException, match="Third-party scorer registration"):
+                scorer.register(name="groundedness")

@@ -14,20 +14,20 @@ from mlflow.genai.scorers.deepeval.utils import (
 
 def test_create_deepeval_model_databricks():
     model = create_deepeval_model("databricks")
-    assert model.__class__.__name__ == "DatabricksDeepEvalLLM"
+    assert model.__class__.__name__ == "MlflowDeepEvalLLM"
     assert model.get_model_name() == "databricks"
 
 
 def test_create_deepeval_model_databricks_serving_endpoint():
     model = create_deepeval_model("databricks:/my-endpoint")
-    assert model.__class__.__name__ == "GatewayDeepEvalLLM"
+    assert model.__class__.__name__ == "MlflowDeepEvalLLM"
     assert model.get_model_name() == "databricks/my-endpoint"
 
 
 def test_create_deepeval_model_openai(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     model = create_deepeval_model("openai:/gpt-4")
-    assert model.__class__.__name__ == "GatewayDeepEvalLLM"
+    assert model.__class__.__name__ == "MlflowDeepEvalLLM"
     assert model.get_model_name() == "openai/gpt-4"
 
 

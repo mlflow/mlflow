@@ -46,10 +46,18 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "## Cross-Version Test Results" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Generated:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          uv run dev/xtest_viz.py \
-            --days 14 \
-            --repo mlflow/dev >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## Cross-Version Test Results"
+            echo ""
+            echo "**Generated:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+            echo ""
+            uv run dev/xtest_viz.py --days 14 --repo mlflow/dev --json-output results.json
+          } >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload JSON results
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: xtest-viz
+          path: results.json
+          retention-days: 3
+          if-no-files-found: error

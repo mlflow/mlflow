@@ -14,20 +14,20 @@ from mlflow.entities.gateway_budget_policy import (
     BudgetUnit,
     GatewayBudgetPolicy,
 )
-from mlflow.gateway.budget_tracker import get_budget_tracker
-from mlflow.gateway.tracing_utils import maybe_traced_gateway_call
-from mlflow.server.gateway_budget import (
+from mlflow.gateway.budget import (
     calculate_existing_cost_for_windows,
     check_budget_limit,
     fire_budget_exceeded_webhooks,
     make_budget_on_complete,
     maybe_refresh_budget_policies,
 )
+from mlflow.gateway.budget_tracker import get_budget_tracker
+from mlflow.gateway.tracing_utils import maybe_traced_gateway_call
 from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig
 from mlflow.tracing.constant import CostKey, SpanAttributeKey
 from mlflow.tracking.fluent import _get_experiment_id
 
-_DELIVER_FUNC = "mlflow.server.gateway_budget.deliver_webhook"
+_DELIVER_FUNC = "mlflow.gateway.budget.deliver_webhook"
 
 
 @pytest.fixture(autouse=True)
@@ -59,6 +59,7 @@ def _make_endpoint_config(experiment_id=None):
         endpoint_id="ep-test",
         endpoint_name="test-endpoint",
         experiment_id=experiment_id or _get_experiment_id(),
+        usage_tracking=True,
         models=[],
     )
 

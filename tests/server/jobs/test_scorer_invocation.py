@@ -279,7 +279,7 @@ def mock_gateway_server():
 
     port = get_safe_port()
     server = HTTPServer(("127.0.0.1", port), MockGatewayHandler)
-    thread = threading.Thread(target=server.serve_forever)
+    thread = threading.Thread(name="scorer-invocation-server", target=server.serve_forever)
     thread.daemon = True
     thread.start()
     yield f"http://127.0.0.1:{port}"

@@ -57,7 +57,7 @@ def test_copy_trace_with_metadata():
     new_trace_id = copy_trace_to_experiment(trace_dict)
 
     # Verify metadata was copied correctly
-    trace = mlflow.get_trace(new_trace_id)
+    trace = mlflow.get_trace(new_trace_id, flush=True)
     metadata = trace.info.trace_metadata
 
     assert metadata["mlflow.trace.session"] == "session123"
@@ -72,7 +72,7 @@ def test_copy_trace_missing_info():
     new_trace_id = copy_trace_to_experiment(trace_dict)
 
     assert new_trace_id is not None
-    trace = mlflow.get_trace(new_trace_id)
+    trace = mlflow.get_trace(new_trace_id, flush=True)
     assert trace is not None
 
 
@@ -92,7 +92,7 @@ def test_copy_trace_missing_metadata():
     new_trace_id = copy_trace_to_experiment(trace_dict)
 
     assert new_trace_id is not None
-    trace = mlflow.get_trace(new_trace_id)
+    trace = mlflow.get_trace(new_trace_id, flush=True)
 
     # Tags should still be copied
     tags = trace.info.tags
@@ -116,7 +116,7 @@ def test_copy_trace_empty_metadata_dict():
     new_trace_id = copy_trace_to_experiment(trace_dict)
 
     assert new_trace_id is not None
-    trace = mlflow.get_trace(new_trace_id)
+    trace = mlflow.get_trace(new_trace_id, flush=True)
 
     # Tags should still be copied
     tags = trace.info.tags

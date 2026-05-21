@@ -23,9 +23,6 @@ const QUERY = `
           createdAt
           author { login __typename }
           authorAssociation
-          closingIssuesReferences(first: 1) {
-            totalCount
-          }
           timelineItems(
             last: 10
             itemTypes: [ISSUE_COMMENT, PULL_REQUEST_REVIEW, PULL_REQUEST_COMMIT, REOPENED_EVENT]
@@ -81,19 +78,12 @@ const isStale = (lastActivityDate) => {
   return (Date.now() - lastActivityDate) / MS_PER_DAY > STALE_DAYS;
 };
 
-const COPILOT_BOT = "copilot-swe-agent";
-
 const shouldProcessPR = (pr) => {
-  // Skip PRs not authored by members or Copilot
+  // Skip PRs not authored by members or bots
   const memberAssociations = ["MEMBER", "OWNER", "COLLABORATOR"];
   const isMember = memberAssociations.includes(pr.authorAssociation);
-  const isCopilot = pr.author?.__typename === "Bot" && pr.author?.login === COPILOT_BOT;
-  if (!isMember && !isCopilot) {
-    return false;
-  }
-
-  // Skip PRs that close issues
-  if (pr.closingIssuesReferences.totalCount > 0) {
+  const isBotAuthor = pr.author?.__typename === "Bot";
+  if (!isMember && !isBotAuthor) {
     return false;
   }
 

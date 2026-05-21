@@ -170,8 +170,16 @@ def test_publish_multithread_consume_single_thread():
             artifacts_sent.append(artifact)
 
     run_operations = []
-    t1 = threading.Thread(target=_send_artifact, args=(async_logging_queue, run_operations))
-    t2 = threading.Thread(target=_send_artifact, args=(async_logging_queue, run_operations))
+    t1 = threading.Thread(
+        name="test-async-artifacts-1",
+        target=_send_artifact,
+        args=(async_logging_queue, run_operations),
+    )
+    t2 = threading.Thread(
+        name="test-async-artifacts-2",
+        target=_send_artifact,
+        args=(async_logging_queue, run_operations),
+    )
 
     t1.start()
     t2.start()

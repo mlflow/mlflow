@@ -28,6 +28,7 @@ from mlflow.entities import (
     RunTag,
     SourceType,
     Span,
+    SpanLogLevel,
     SpanStatusCode,
     SpanType,
     Trace,
@@ -63,6 +64,7 @@ from mlflow.store.tracking import SEARCH_EVALUATION_DATASETS_MAX_RESULTS, SEARCH
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore as SqlAlchemyTrackingStore
 from mlflow.tracing.constant import SpansLocation, TraceMetadataKey, TraceTagKey
 from mlflow.tracing.provider import _get_tracer, trace_disabled
+from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import TraceJSONEncoder
 from mlflow.tracking import set_registry_uri
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
@@ -345,6 +347,85 @@ def test_client_get_trace_from_artifact_repo(mock_store, mock_artifact_repo):
     assert trace.data.spans[0].status.status_code == SpanStatusCode.OK
 
 
+def test_client_get_trace_from_archive_repo(mock_store, mock_artifact_repo):
+    trace_info = TraceInfo(
+        trace_id="tr-1234567",
+        trace_location=TraceLocation.from_experiment_id("0"),
+        request_time=123,
+        execution_duration=456,
+        state=TraceState.OK,
+        tags={
+            "mlflow.artifactLocation": "dbfs:/path/to/artifacts",
+            TraceTagKey.SPANS_LOCATION: SpansLocation.ARCHIVE_REPO,
+            TraceTagKey.ARCHIVE_LOCATION: "dbfs:/path/to/archive",
+        },
+    )
+    trace_data = TraceData.from_dict({
+        "request": '{"prompt": "What is the meaning of life?"}',
+        "response": '{"answer": 42}',
+        "spans": [
+            {
+                "name": "predict",
+                "context": {
+                    "trace_id": "0x123456789",
+                    "span_id": "0x12345",
+                },
+                "parent_id": None,
+                "start_time": 123000000,
+                "end_time": 579000000,
+                "status_code": "OK",
+                "status_message": "",
+                "attributes": {
+                    "mlflow.traceRequestId": '"tr-1234567"',
+                    "mlflow.spanType": '"LLM"',
+                    "mlflow.spanFunctionName": '"predict"',
+                    "mlflow.spanInputs": '{"prompt": "What is the meaning of life?"}',
+                    "mlflow.spanOutputs": '{"answer": 42}',
+                },
+                "events": [],
+            }
+        ],
+    })
+    mock_store.get_trace_info.return_value = trace_info
+    mock_store.get_trace.return_value = Trace(info=trace_info, data=trace_data)
+
+    trace = MlflowClient().get_trace("1234567")
+
+    mock_store.get_trace_info.assert_called_once_with("1234567")
+    mock_store.get_trace.assert_called_once_with("1234567")
+    mock_store.batch_get_traces.assert_not_called()
+    mock_artifact_repo.download_archived_trace_data.assert_not_called()
+    mock_artifact_repo.download_trace_data.assert_not_called()
+    assert trace.info.tags[TraceTagKey.ARCHIVE_LOCATION] == "dbfs:/path/to/archive"
+    assert trace.data.spans[0].name == "predict"
+
+
+def test_client_get_trace_from_archive_repo_returns_empty_spans_when_payload_missing(
+    mock_store, mock_artifact_repo
+):
+    trace_info = TraceInfo(
+        trace_id="tr-1234567",
+        trace_location=TraceLocation.from_experiment_id("0"),
+        request_time=123,
+        execution_duration=456,
+        state=TraceState.OK,
+        tags={
+            "mlflow.artifactLocation": "dbfs:/path/to/artifacts",
+            TraceTagKey.SPANS_LOCATION: SpansLocation.ARCHIVE_REPO,
+            TraceTagKey.ARCHIVE_LOCATION: "dbfs:/path/to/archive",
+        },
+    )
+    mock_store.get_trace_info.return_value = trace_info
+    mock_store.get_trace.return_value = Trace(info=trace_info, data=TraceData(spans=[]))
+
+    trace = MlflowClient().get_trace("1234567")
+
+    assert trace.info.trace_id == "tr-1234567"
+    assert trace.data.spans == []
+    mock_store.get_trace.assert_called_once_with("1234567")
+    mock_artifact_repo.download_archived_trace_data.assert_not_called()
+
+
 def test_client_get_trace_throws_for_missing_or_corrupted_data(mock_store, mock_artifact_repo):
     mock_store.get_trace_info.return_value = TraceInfo(
         trace_id="1234567",
@@ -368,6 +449,49 @@ def test_client_get_trace_throws_for_missing_or_corrupted_data(mock_store, mock_
         match="Trace with ID 1234567 cannot be loaded because its span data is corrupted",
     ):
         MlflowClient().get_trace("1234567")
+
+
+def test_client_get_trace_throws_for_missing_location_metadata(mock_store, mock_artifact_repo):
+    mock_store.get_trace_info.return_value = TraceInfo(
+        trace_id="1234567",
+        trace_location=TraceLocation.from_experiment_id("0"),
+        request_time=123,
+        execution_duration=456,
+        state=TraceState.OK,
+        tags={},
+    )
+
+    with pytest.raises(
+        MlflowException,
+        match="Trace with ID 1234567 cannot be loaded because its span data is corrupted",
+    ):
+        MlflowClient().get_trace("1234567")
+
+    mock_artifact_repo.download_trace_data.assert_not_called()
+    mock_artifact_repo.download_archived_trace_data.assert_not_called()
+
+
+def test_client_get_trace_from_archive_repo_does_not_require_archive_location_tag(
+    mock_store, mock_artifact_repo
+):
+    trace_info = TraceInfo(
+        trace_id="tr-1234567",
+        trace_location=TraceLocation.from_experiment_id("0"),
+        request_time=123,
+        execution_duration=456,
+        state=TraceState.OK,
+        tags={TraceTagKey.SPANS_LOCATION: SpansLocation.ARCHIVE_REPO},
+    )
+    mock_store.get_trace_info.return_value = trace_info
+    mock_store.get_trace.return_value = Trace(info=trace_info, data=TraceData(spans=[]))
+
+    trace = MlflowClient().get_trace("1234567")
+
+    assert trace.info.trace_id == "tr-1234567"
+    assert trace.data.spans == []
+    mock_store.get_trace.assert_called_once_with("1234567")
+    mock_artifact_repo.download_trace_data.assert_not_called()
+    mock_artifact_repo.download_archived_trace_data.assert_not_called()
 
 
 @pytest.mark.parametrize("include_spans", [True, False])
@@ -695,6 +819,8 @@ def reset_prompt_cache():
 @pytest.fixture(params=["file", "sqlalchemy"])
 def tracking_uri(request, tmp_path, db_uri):
     """Set an MLflow Tracking URI with different type of backend."""
+    if request.param == "file":
+        pytest.skip("FileStore is no longer supported.")
     if "MLFLOW_SKINNY" in os.environ and request.param == "sqlalchemy":
         pytest.skip("SQLAlchemy store is not available in skinny.")
 
@@ -785,7 +911,7 @@ def test_start_and_end_trace(tracking_uri, with_active_run, async_logging_enable
     if async_logging_enabled:
         mlflow.flush_trace_async_logging(terminate=True)
 
-    trace_id = mlflow.get_trace(mlflow.get_last_active_trace_id()).info.trace_id
+    trace_id = mlflow.get_trace(mlflow.get_last_active_trace_id(), flush=True).info.trace_id
 
     # Validate that trace is logged to the backend
     trace = client.get_trace(trace_id)
@@ -816,6 +942,7 @@ def test_start_and_end_trace(tracking_uri, with_active_run, async_logging_enable
         "mlflow.experimentId": experiment_id,
         "mlflow.traceRequestId": trace.info.trace_id,
         "mlflow.spanType": "UNKNOWN",
+        "mlflow.spanLogLevel": SpanLogLevel.DEBUG,
         "mlflow.spanInputs": {"x": 1, "y": 2},
         "mlflow.spanOutputs": {"output": 25},
     }
@@ -825,6 +952,7 @@ def test_start_and_end_trace(tracking_uri, with_active_run, async_logging_enable
     assert child_span_1.attributes == {
         "mlflow.traceRequestId": trace.info.trace_id,
         "mlflow.spanType": "LLM",
+        "mlflow.spanLogLevel": SpanLogLevel.INFO,
         "mlflow.spanInputs": {"z": 3},
         "mlflow.spanOutputs": {"output": 5},
         "delta": 2,
@@ -835,6 +963,7 @@ def test_start_and_end_trace(tracking_uri, with_active_run, async_logging_enable
     assert child_span_2.attributes == {
         "mlflow.traceRequestId": trace.info.trace_id,
         "mlflow.spanType": "UNKNOWN",
+        "mlflow.spanLogLevel": SpanLogLevel.DEBUG,
         "mlflow.spanInputs": {"t": 5},
         "mlflow.spanOutputs": {"output": 25},
     }
@@ -851,7 +980,7 @@ def test_start_and_end_trace_capture_falsy_input_and_output(tracking_uri):
     client.end_span(trace_id=root.trace_id, span_id=span.span_id, outputs=False)
     client.end_trace(trace_id=root.trace_id, outputs="")
 
-    trace = client.get_trace(root.trace_id)
+    trace = client.get_trace(root.trace_id, flush=True)
     assert trace.data.spans[0].inputs == []
     assert trace.data.spans[0].outputs == ""
     assert trace.data.spans[1].inputs == 0
@@ -1125,17 +1254,17 @@ def test_log_trace(tracking_uri):
     )
     client.end_trace(span.trace_id, status="OK")
 
-    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id(), flush=True)
 
     # Purge all traces in the backend once
     client.delete_traces(experiment_id=experiment_id, trace_ids=[trace.info.trace_id])
     assert client.search_traces(locations=[experiment_id]) == []
 
-    # Log the trace manually
+    # Log the trace manually — _log_trace triggers async export via span processor
     new_trace_id = client._log_trace(trace)
 
-    # Validate the trace is added to the backend
-    backend_traces = client.search_traces(locations=[experiment_id])
+    # Validate the trace is added to the backend (flush=True waits for async writes)
+    backend_traces = client.search_traces(locations=[experiment_id], flush=True)
     assert len(backend_traces) == 1
     assert backend_traces[0].info.trace_id == new_trace_id  # new request ID is assigned
     assert backend_traces[0].info.experiment_id == experiment_id
@@ -1149,7 +1278,7 @@ def test_log_trace(tracking_uri):
     # If the experiment ID is None in the given trace, it should be set to the default experiment
     trace.info.experiment_id = None
     new_trace_id = client._log_trace(trace)
-    backend_traces = client.search_traces(locations=[DEFAULT_EXPERIMENT_ID])
+    backend_traces = client.search_traces(locations=[DEFAULT_EXPERIMENT_ID], flush=True)
     assert len(backend_traces) == 1
 
 
@@ -1211,7 +1340,7 @@ def test_set_and_delete_trace_tag_on_active_trace(monkeypatch):
     client.set_trace_tag(trace_id, "foo", "bar")
     client.end_trace(trace_id)
 
-    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id(), flush=True)
     assert trace.info.tags["foo"] == "bar"
 
 
@@ -1224,6 +1353,55 @@ def test_set_trace_tag_on_logged_trace(mock_store):
     ])
 
 
+@pytest.mark.parametrize(
+    "key",
+    [
+        TraceTagKey.SPANS_LOCATION,
+        TraceTagKey.ARCHIVE_LOCATION,
+        TraceTagKey.ARCHIVAL_FAILURE,
+    ],
+)
+def test_set_trace_tag_skips_immutable_internal_tags_on_active_trace(monkeypatch, key):
+    monkeypatch.setenv(MLFLOW_TRACKING_USERNAME.name, "bob")
+    monkeypatch.setattr(mlflow.tracking.context.default_context, "_get_source_name", lambda: "test")
+
+    client = mlflow.tracking.MlflowClient()
+    root_span = client.start_trace(name="test")
+    trace_id = root_span.trace_id
+
+    with patch("mlflow.tracing.client._logger") as mock_logger:
+        client.set_trace_tag(trace_id, key, "s3://bucket/archive/test")
+
+    client.end_trace(trace_id)
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id(), flush=True)
+    if key == TraceTagKey.SPANS_LOCATION:
+        assert trace.info.tags[key] == SpansLocation.TRACKING_STORE.value
+    else:
+        assert key not in trace.info.tags
+    mock_logger.warning.assert_called_once_with(
+        f"Tag '{key}' is immutable and cannot be set on a trace."
+    )
+
+
+@pytest.mark.parametrize(
+    "key",
+    [
+        TraceTagKey.SPANS_LOCATION,
+        TraceTagKey.ARCHIVE_LOCATION,
+        TraceTagKey.ARCHIVAL_FAILURE,
+    ],
+)
+def test_set_trace_tag_skips_immutable_internal_tags(mock_store, key):
+    with patch("mlflow.tracing.client._logger") as mock_logger:
+        mlflow.tracking.MlflowClient().set_trace_tag("test", key, "s3://bucket/archive/test")
+
+    mock_store.set_trace_tag.assert_not_called()
+    mock_logger.warning.assert_called_once_with(
+        f"Tag '{key}' is immutable and cannot be set on a trace."
+    )
+
+
 def test_delete_trace_tag_on_active_trace(monkeypatch):
     monkeypatch.setenv(MLFLOW_TRACKING_USERNAME.name, "bob")
     monkeypatch.setattr(mlflow.tracking.context.default_context, "_get_source_name", lambda: "test")
@@ -1234,7 +1412,7 @@ def test_delete_trace_tag_on_active_trace(monkeypatch):
     client.delete_trace_tag(trace_id, "foo")
     client.end_trace(trace_id)
 
-    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id(), flush=True)
     assert "baz" in trace.info.tags
     assert "foo" not in trace.info.tags
 
@@ -1242,6 +1420,78 @@ def test_delete_trace_tag_on_active_trace(monkeypatch):
 def test_delete_trace_tag_on_logged_trace(mock_store):
     mlflow.tracking.MlflowClient().delete_trace_tag("test", "foo")
     mock_store.delete_trace_tag.assert_called_once_with("test", "foo")
+
+
+@pytest.mark.parametrize(
+    "key",
+    [
+        TraceTagKey.SPANS_LOCATION,
+        TraceTagKey.ARCHIVE_LOCATION,
+    ],
+)
+def test_delete_trace_tag_skips_immutable_internal_tags_on_active_trace(monkeypatch, key):
+    monkeypatch.setenv(MLFLOW_TRACKING_USERNAME.name, "bob")
+    monkeypatch.setattr(mlflow.tracking.context.default_context, "_get_source_name", lambda: "test")
+
+    client = mlflow.tracking.MlflowClient()
+    root_span = client.start_trace(name="test", tags={"foo": "bar"})
+    trace_id = root_span.trace_id
+
+    with patch("mlflow.tracing.client._logger") as mock_logger:
+        client.delete_trace_tag(trace_id, key)
+
+    client.end_trace(trace_id)
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id(), flush=True)
+    assert trace.info.tags["foo"] == "bar"
+    if key == TraceTagKey.SPANS_LOCATION:
+        assert trace.info.tags[key] == SpansLocation.TRACKING_STORE.value
+    else:
+        assert key not in trace.info.tags
+    mock_logger.warning.assert_called_once_with(
+        f"Tag '{key}' is immutable and cannot be deleted on a trace."
+    )
+
+
+@pytest.mark.parametrize(
+    "key",
+    [
+        TraceTagKey.SPANS_LOCATION,
+        TraceTagKey.ARCHIVE_LOCATION,
+    ],
+)
+def test_delete_trace_tag_skips_immutable_internal_tags(mock_store, key):
+    with patch("mlflow.tracing.client._logger") as mock_logger:
+        mlflow.tracking.MlflowClient().delete_trace_tag("test", key)
+
+    mock_store.delete_trace_tag.assert_not_called()
+    mock_logger.warning.assert_called_once_with(
+        f"Tag '{key}' is immutable and cannot be deleted on a trace."
+    )
+
+
+def test_delete_trace_tag_allows_clearing_archival_failure_on_active_trace(monkeypatch):
+    monkeypatch.setenv(MLFLOW_TRACKING_USERNAME.name, "bob")
+    monkeypatch.setattr(mlflow.tracking.context.default_context, "_get_source_name", lambda: "test")
+
+    client = mlflow.tracking.MlflowClient()
+    root_span = client.start_trace(name="test", tags={"foo": "bar"})
+    trace_id = root_span.trace_id
+    with InMemoryTraceManager.get_instance().get_trace(trace_id) as trace:
+        trace.info.tags[TraceTagKey.ARCHIVAL_FAILURE] = "MALFORMED_TRACE"
+
+    client.delete_trace_tag(trace_id, TraceTagKey.ARCHIVAL_FAILURE)
+    client.end_trace(trace_id)
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id(), flush=True)
+    assert trace.info.tags["foo"] == "bar"
+    assert TraceTagKey.ARCHIVAL_FAILURE not in trace.info.tags
+
+
+def test_delete_trace_tag_allows_clearing_archival_failure_on_logged_trace(mock_store):
+    mlflow.tracking.MlflowClient().delete_trace_tag("test", TraceTagKey.ARCHIVAL_FAILURE)
+
+    mock_store.delete_trace_tag.assert_called_once_with("test", TraceTagKey.ARCHIVAL_FAILURE)
 
 
 def test_client_create_experiment(mock_store):
@@ -2050,23 +2300,24 @@ def test_enable_async_logging(mock_store, setup_async_logging):
 
 
 def test_file_store_download_upload_trace_data(tmp_path):
+    pytest.skip("FileStore is no longer supported.")
     with _use_tracking_uri(tmp_path.joinpath("mlruns").as_uri()):
         client = MlflowClient()
         span = client.start_trace("test", inputs={"test": 1})
         client.end_trace(span.trace_id, outputs={"result": 2})
-        trace = mlflow.get_trace(span.trace_id)
-        trace_data = client.get_trace(span.trace_id).data
+        trace = mlflow.get_trace(span.trace_id, flush=True)
+        trace_data = client.get_trace(span.trace_id, flush=True).data
         assert trace_data.request == trace.data.request
         assert trace_data.response == trace.data.response
 
 
-def test_get_trace_throw_if_trace_id_is_online_trace_id():
+def test_get_trace_throw_if_trace_id_is_online_trace_id(db_uri):
     client = MlflowClient("databricks")
     trace_id = "3a3c3b56-910a-4721-8d02-0333eda5f37e"
     with pytest.raises(MlflowException, match="Traces from inference tables can only be loaded"):
         client.get_trace(trace_id)
 
-    another_client = MlflowClient("mlruns")
+    another_client = MlflowClient(db_uri)
     with pytest.raises(MlflowException, match=r"Trace with ID '[\w-]+' not found"):
         another_client.get_trace(trace_id)
 
@@ -2074,6 +2325,8 @@ def test_get_trace_throw_if_trace_id_is_online_trace_id():
 @pytest.fixture(params=["file", "sqlalchemy"])
 def registry_uri(request, tmp_path, db_uri):
     """Set an MLflow Model Registry URI with different type of backend."""
+    if request.param == "file":
+        pytest.skip("FileStore is no longer supported.")
     if "MLFLOW_SKINNY" in os.environ and request.param == "sqlalchemy":
         pytest.skip("SQLAlchemy store is not available in skinny.")
 
@@ -3406,6 +3659,7 @@ def test_mlflow_client_search_datasets_defaults(mock_store):
 
 @pytest.mark.skipif(is_windows(), reason="FileStore URI handling issues on Windows")
 def test_mlflow_client_datasets_filestore_not_supported(tmp_path):
+    pytest.skip("FileStore is no longer supported.")
     file_store_uri = str(tmp_path)
     client = MlflowClient(tracking_uri=file_store_uri)
 
@@ -3634,6 +3888,7 @@ def test_mlflow_get_trace_with_sqlalchemy_store(tmp_path: Path) -> None:
             pass
 
         trace_id = span.trace_id
+        mlflow.flush_trace_async_logging()
         sql_alchemy_store_module = "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore"
         with (
             mock.patch(f"{sql_alchemy_store_module}.get_trace") as mock_get_trace,

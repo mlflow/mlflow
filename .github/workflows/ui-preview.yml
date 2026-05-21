@@ -147,9 +147,11 @@ jobs:
           name: app-deploy
           path: /tmp/app-deploy/
           retention-days: 1
+          if-no-files-found: error
 
   deploy:
     needs: build
+    # Static-IP runner required for IP allowlisting
     runs-on: ubuntu-ui-preview
     permissions:
       pull-requests: write
@@ -173,6 +175,7 @@ jobs:
           DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
           DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
           DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
+          DATABRICKS_AUTH_TYPE: oauth-m2m
           APP_NAME: ${{ github.event_name == 'push' && 'mlflow-ui-preview-dev' || format('mlflow-ui-preview-pr-{0}', github.event.pull_request.number) }}
           APP_DESCRIPTION: ${{ github.event.pull_request.html_url || format('{0}/{1}', github.server_url, github.repository) }}
         run: |
@@ -217,6 +220,7 @@ jobs:
           DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
           DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
           DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
+          DATABRICKS_AUTH_TYPE: oauth-m2m
           APP_NAME: ${{ github.event_name == 'push' && 'mlflow-ui-preview-dev' || format('mlflow-ui-preview-pr-{0}', github.event.pull_request.number) }}
           WORKSPACE_PATH: /Users/${{ secrets.DATABRICKS_CLIENT_ID }}/apps/${{ github.event_name == 'push' && 'mlflow-ui-preview-dev' || format('mlflow-ui-preview-pr-{0}', github.event.pull_request.number) }}
         run: |
@@ -274,6 +278,7 @@ jobs:
       github.event_name != 'push'
       && github.event.action == 'closed'
       && contains(github.event.pull_request.labels.*.name, 'ui-preview')
+    # Static-IP runner required for IP allowlisting
     runs-on: ubuntu-ui-preview
     permissions:
       pull-requests: write
@@ -290,6 +295,7 @@ jobs:
           DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
           DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
           DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
+          DATABRICKS_AUTH_TYPE: oauth-m2m
           APP_NAME: mlflow-ui-preview-pr-${{ github.event.pull_request.number }}
         run: |
           if databricks apps get "$APP_NAME" > /dev/null 2>&1; then

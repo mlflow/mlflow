@@ -360,7 +360,7 @@ class BuiltInScorer(Judge):
                 )
 
             try:
-                serialized = SerializedScorer(**obj)
+                serialized = SerializedScorer.from_dict(obj)
             except Exception as e:
                 raise MlflowException.invalid_parameter_value(
                     f"Failed to parse serialized scorer data: {e}"
@@ -369,8 +369,10 @@ class BuiltInScorer(Judge):
         try:
             scorer_class = getattr(builtin_scorers, serialized.builtin_scorer_class)
         except AttributeError:
+            # error_code is INVALID_PARAMETER_VALUE but this is an attribute lookup failure
             raise MlflowException.invalid_parameter_value(
-                f"Unknown builtin scorer class: {serialized.builtin_scorer_class}"
+                f"Unknown builtin scorer class: {serialized.builtin_scorer_class}",
+                error_class="ATTRIBUTE_NOT_FOUND",
             )
 
         constructor_args = serialized.builtin_scorer_pydantic_data or {}

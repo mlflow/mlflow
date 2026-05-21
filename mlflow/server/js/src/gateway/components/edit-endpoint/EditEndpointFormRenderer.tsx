@@ -3,7 +3,7 @@ import {
   Alert,
   Breadcrumb,
   Button,
-  InfoFillIcon,
+  InfoTooltip,
   Spinner,
   Switch,
   Tabs,
@@ -14,21 +14,51 @@ import {
 import { FormattedMessage, useIntl } from 'react-intl';
 import type { UseFormReturn } from 'react-hook-form';
 import { Controller } from 'react-hook-form';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import GatewayRoutes from '../../routes';
+import Routes from '../../../experiment-tracking/routes';
+import { SETTINGS_SECTION_LLM_CONNECTIONS } from '../../../settings/settingsSectionConstants';
 import { GatewayLabel } from '../../../common/components/GatewayNewTag';
 import { LongFormSummary } from '../../../common/components/long-form/LongFormSummary';
 import type { EditEndpointFormData } from '../../hooks/useEditEndpointForm';
 import { TrafficSplitConfigurator } from './TrafficSplitConfigurator';
 import { FallbackModelsConfigurator } from './FallbackModelsConfigurator';
-import { StarterCodeCard } from './StarterCodeCard';
+import { CodingAgentStarterCard, StarterCodeCard } from './StarterCodeCard';
+import { CODING_AGENT_TAG_KEY, VALID_CODING_AGENTS } from '../../hooks/useCreateEndpointForm';
+import type { CodingAgentType } from '../../types';
 import { EditableEndpointName } from './EditableEndpointName';
 import { GatewayUsageSection } from './GatewayUsageSection';
-import type { Endpoint } from '../../types';
+import type { Endpoint, EndpointModelMapping } from '../../types';
+import { GuardrailsTabContent } from '../guardrails/GuardrailsTabContent';
 import { TracesV3Logs } from '../../../experiment-tracking/components/experiment-page/components/traces-v3/TracesV3Logs';
 import { MonitoringConfigProvider } from '../../../experiment-tracking/hooks/useMonitoringConfig';
 import { useMonitoringFiltersTimeRange } from '../../../experiment-tracking/hooks/useMonitoringFilters';
 import { TracesV3DateSelector } from '../../../experiment-tracking/components/experiment-page/components/traces-v3/TracesV3DateSelector';
+import { ExperimentViewTracesStatusLabels } from '@databricks/web-shared/genai-traces-table';
+import { MetricsFilter } from '../../../common/components/MetricsFilter';
+import {
+  translateToMetricsFilters,
+  translateToTracesPageFilters,
+  TRACE_STATE_VALUES,
+  type MetricFilter,
+  type MetricFilterColumnOption,
+} from '../../../common/components/MetricsFilter.utils';
+
+/**
+ * Returns the provider string to pass to StarterCodeCard.
+ * If all models share the same passthrough API (treating openai and azure as equivalent),
+ * returns the first model's provider so the passthrough tab is shown.
+ * Otherwise returns undefined so only the MLflow Chat Completions tab is shown.
+ */
+export const getStarterCodeProvider = (modelMappings: EndpointModelMapping[]): string | undefined => {
+  const normalized = new Set(
+    modelMappings.map((m) => {
+      const p = m.model_definition?.provider;
+      return p === 'azure' ? 'openai' : p;
+    }),
+  );
+  return normalized.size <= 1 ? modelMappings[0]?.model_definition?.provider : undefined;
+};
 
 const LogsTabContent = ({ experimentId }: { experimentId: string }) => {
   const { theme } = useDesignSystemTheme();
@@ -79,6 +109,7 @@ export interface EditEndpointFormRendererProps {
   onSubmit: (values: EditEndpointFormData) => Promise<void>;
   onCancel: () => void;
   onNameUpdate: (newName: string) => Promise<void>;
+  onUsageTrackingUpdate: (enabled: boolean) => Promise<void>;
 }
 
 export const EditEndpointFormRenderer = ({
@@ -95,11 +126,12 @@ export const EditEndpointFormRenderer = ({
   onSubmit,
   onCancel,
   onNameUpdate,
+  onUsageTrackingUpdate,
 }: EditEndpointFormRendererProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const [searchParams, setSearchParams] = useSearchParams();
-  const VALID_TABS = ['overview', 'usage', 'traces'] as const;
+  const VALID_TABS = ['overview', 'guardrails', 'usage', 'traces'] as const;
   const tabParam = searchParams.get('tab');
   // Support legacy ?tab=configuration URLs
   const normalizedTab = tabParam === 'configuration' ? 'overview' : tabParam;
@@ -112,8 +144,34 @@ export const EditEndpointFormRenderer = ({
   const experimentId = form.watch('experimentId');
 
   // Don't disable tabs that were requested via URL query param
+  const isGuardrailsTabDisabled = !experimentId && activeTab !== 'guardrails';
   const isUsageTabDisabled = !experimentId && activeTab !== 'usage';
   const isTracesTabDisabled = !experimentId && activeTab !== 'traces';
+
+  // Kept as local component state (not URL-backed) to mirror the GatewayUsagePage
+  // pattern: filters affect charts immediately and propagate to the Logs tab only
+  // when the user clicks a chart-tooltip "View logs" link.
+  const [metricFilters, setMetricFilters] = useState<MetricFilter[]>([]);
+
+  const chartFilters = useMemo(() => translateToMetricsFilters(metricFilters), [metricFilters]);
+  const tracesNavigationFilters = useMemo(() => translateToTracesPageFilters(metricFilters), [metricFilters]);
+
+  const metricsFilterColumnOptions = useMemo<MetricFilterColumnOption[]>(
+    () => [
+      {
+        value: 'state',
+        label: intl.formatMessage({
+          defaultMessage: 'State',
+          description: 'Gateway endpoint usage > metrics filter > state column option label',
+        }),
+        valueOptions: TRACE_STATE_VALUES.map((value) => ({
+          value,
+          label: intl.formatMessage(ExperimentViewTracesStatusLabels[value]),
+        })),
+      },
+    ],
+    [intl],
+  );
 
   const tooltipLinkUrlBuilder = useMemo(() => {
     if (!endpoint) return undefined;
@@ -122,11 +180,19 @@ export const EditEndpointFormRenderer = ({
         tab: 'traces',
         startTime: new Date(timestampMs).toISOString(),
         endTime: new Date(timestampMs + timeIntervalSeconds * 1000).toISOString(),
+        filters: tracesNavigationFilters,
       });
-  }, [endpoint]);
+  }, [endpoint, tracesNavigationFilters]);
 
   const totalWeight = trafficSplitModels.reduce((sum, m) => sum + m.weight, 0);
   const isValidTotal = Math.abs(totalWeight - 100) < 0.01;
+
+  const uniqueSecretNames = useMemo(
+    () => [
+      ...new Set(endpoint?.model_mappings.map((m) => m.model_definition?.secret_name).filter(Boolean) as string[]),
+    ],
+    [endpoint?.model_mappings],
+  );
 
   if (isLoadingEndpoint) {
     return (
@@ -218,6 +284,24 @@ export const EditEndpointFormRenderer = ({
             <Tabs.Trigger value="overview">
               <FormattedMessage defaultMessage="Overview" description="Tab label for endpoint overview" />
             </Tabs.Trigger>
+            {isGuardrailsTabDisabled ? (
+              <Tooltip
+                componentId="mlflow.gateway.endpoint.guardrails-tab-tooltip"
+                content={intl.formatMessage({
+                  defaultMessage: 'Enable Usage Tracking in the Overview tab to configure guardrails',
+                  description:
+                    'Tooltip shown on disabled Guardrails tab explaining that usage tracking must be enabled first',
+                })}
+              >
+                <Tabs.Trigger value="guardrails" disabled>
+                  <FormattedMessage defaultMessage="Guardrails" description="Tab label for endpoint guardrails" />
+                </Tabs.Trigger>
+              </Tooltip>
+            ) : (
+              <Tabs.Trigger value="guardrails">
+                <FormattedMessage defaultMessage="Guardrails" description="Tab label for endpoint guardrails" />
+              </Tabs.Trigger>
+            )}
             {isUsageTabDisabled ? (
               <Tooltip
                 componentId="mlflow.gateway.endpoint.usage-tab-tooltip"
@@ -270,90 +354,115 @@ export const EditEndpointFormRenderer = ({
           <div css={{ flex: 1 }}>
             <Tabs.Content value="overview">
               <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.lg }}>
-                {endpoint && (
-                  <StarterCodeCard
-                    endpointName={endpoint.name}
-                    provider={endpoint.model_mappings[0]?.model_definition?.provider}
-                  />
-                )}
+                {(() => {
+                  const rawAgent = endpoint?.tags?.find((t) => t.key === CODING_AGENT_TAG_KEY)?.value;
+                  const codingAgent = VALID_CODING_AGENTS.includes(rawAgent as CodingAgentType)
+                    ? (rawAgent as CodingAgentType)
+                    : undefined;
+                  return (
+                    <>
+                      {/* Unified Model card — hidden for coding-agent endpoints */}
+                      {!codingAgent && (
+                        <div
+                          css={{
+                            padding: theme.spacing.md,
+                            border: `1px solid ${theme.colors.border}`,
+                            borderRadius: theme.borders.borderRadiusMd,
+                            backgroundColor: theme.colors.backgroundSecondary,
+                          }}
+                        >
+                          <Typography.Title level={3} css={{ margin: 0 }}>
+                            <FormattedMessage
+                              defaultMessage="Model"
+                              description="Gateway > Endpoint details > Section title for model configuration card"
+                            />
+                          </Typography.Title>
 
-                <div
-                  css={{
-                    padding: theme.spacing.md,
-                    border: `1px solid ${theme.colors.border}`,
-                    borderRadius: theme.borders.borderRadiusMd,
-                    backgroundColor: theme.colors.backgroundSecondary,
-                  }}
-                >
-                  <Typography.Title level={3}>
-                    <FormattedMessage
-                      defaultMessage="Priority 1 (Traffic Split)"
-                      description="Section title for traffic split"
-                    />
-                  </Typography.Title>
-                  <Typography.Text color="secondary" css={{ display: 'block', marginTop: theme.spacing.xs }}>
-                    <FormattedMessage
-                      defaultMessage="Models in this priority will be tested first, with traffic split load balancing"
-                      description="Traffic split description"
-                    />
-                  </Typography.Text>
+                          {/* Primary sub-section */}
+                          <div
+                            css={{
+                              marginTop: theme.spacing.md,
+                              padding: theme.spacing.md,
+                              border: `1px solid ${theme.colors.border}`,
+                              borderRadius: theme.borders.borderRadiusMd,
+                              backgroundColor: theme.colors.backgroundPrimary,
+                            }}
+                          >
+                            <Typography.Title level={4} css={{ margin: 0 }}>
+                              <FormattedMessage
+                                defaultMessage="Primary Model"
+                                description="Gateway > Endpoint details > Sub-section title for primary traffic split models"
+                              />
+                            </Typography.Title>
 
-                  <div css={{ marginTop: theme.spacing.lg }}>
-                    <Controller
-                      control={form.control}
-                      name="trafficSplitModels"
-                      render={({ field }) => (
-                        <TrafficSplitConfigurator
-                          value={field.value}
-                          onChange={field.onChange}
-                          componentId="mlflow.gateway.edit-endpoint.traffic-split"
-                        />
+                            <div css={{ marginTop: theme.spacing.md }}>
+                              <Controller
+                                control={form.control}
+                                name="trafficSplitModels"
+                                render={({ field }) => (
+                                  <TrafficSplitConfigurator
+                                    value={field.value}
+                                    onChange={field.onChange}
+                                    componentId="mlflow.gateway.edit-endpoint.traffic-split"
+                                  />
+                                )}
+                              />
+                            </div>
+                          </div>
+
+                          <Controller
+                            control={form.control}
+                            name="fallbackModels"
+                            render={({ field }) => (
+                              <FallbackModelsConfigurator
+                                value={field.value}
+                                onChange={field.onChange}
+                                componentId="mlflow.gateway.edit-endpoint.fallback"
+                              />
+                            )}
+                          />
+                        </div>
                       )}
-                    />
-                  </div>
-                </div>
 
-                <div
-                  css={{
-                    padding: theme.spacing.md,
-                    border: `1px solid ${theme.colors.border}`,
-                    borderRadius: theme.borders.borderRadiusMd,
-                    backgroundColor: theme.colors.backgroundSecondary,
-                  }}
-                >
-                  <Typography.Title level={3}>
-                    <FormattedMessage
-                      defaultMessage="Priority 2 (Fallback)"
-                      description="Section title for fallback models"
-                    />
-                  </Typography.Title>
-                  <Typography.Text color="secondary" css={{ display: 'block', marginTop: theme.spacing.xs }}>
-                    <FormattedMessage
-                      defaultMessage="Models in this priority will be tested second, after models in Priority 1 have failed. Models will be attempted in order from top to bottom."
-                      description="Fallback models description"
-                    />
-                  </Typography.Text>
-
-                  <div css={{ marginTop: theme.spacing.lg }}>
-                    <Controller
-                      control={form.control}
-                      name="fallbackModels"
-                      render={({ field }) => (
-                        <FallbackModelsConfigurator
-                          value={field.value}
-                          onChange={field.onChange}
-                          componentId="mlflow.gateway.edit-endpoint.fallback"
-                        />
-                      )}
-                    />
-                  </div>
-                </div>
+                      {endpoint &&
+                        (codingAgent ? (
+                          <CodingAgentStarterCard endpointName={endpoint.name} codingAgent={codingAgent} />
+                        ) : (
+                          <StarterCodeCard
+                            endpointName={endpoint.name}
+                            provider={getStarterCodeProvider(endpoint.model_mappings)}
+                          />
+                        ))}
+                    </>
+                  );
+                })()}
               </div>
+            </Tabs.Content>
+
+            <Tabs.Content value="guardrails">
+              {endpoint && (
+                <GuardrailsTabContent
+                  endpointName={endpoint.name}
+                  endpointId={endpoint.endpoint_id}
+                  experimentId={experimentId}
+                />
+              )}
             </Tabs.Content>
 
             <Tabs.Content value="usage">
               {experimentId && (
-                <GatewayUsageSection experimentId={experimentId} tooltipLinkUrlBuilder={tooltipLinkUrlBuilder} />
+                <GatewayUsageSection
+                  experimentId={experimentId}
+                  tooltipLinkUrlBuilder={tooltipLinkUrlBuilder}
+                  additionalControls={
+                    <MetricsFilter
+                      filters={metricFilters}
+                      setFilters={setMetricFilters}
+                      columnOptions={metricsFilterColumnOptions}
+                    />
+                  }
+                  filters={chartFilters}
+                />
               )}
             </Tabs.Content>
 
@@ -399,23 +508,30 @@ export const EditEndpointFormRenderer = ({
                     </Typography.Text>
                   </div>
 
-                  {endpoint.model_mappings[0]?.model_definition?.secret_name && (
+                  {uniqueSecretNames.length > 0 && (
                     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
                       <Typography.Text bold color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
-                        <FormattedMessage defaultMessage="API key" description="Label for endpoint API key" />
+                        <FormattedMessage
+                          defaultMessage="{count, plural, =1 {API key} other {API keys}}"
+                          description="Label for endpoint API key(s)"
+                          values={{ count: uniqueSecretNames.length }}
+                        />
                       </Typography.Text>
-                      <Link
-                        componentId="mlflow.gateway.edit-endpoint.api-key-link"
-                        to={GatewayRoutes.apiKeysPageRoute}
-                        css={{
-                          fontSize: theme.typography.fontSizeSm,
-                          color: theme.colors.actionPrimaryBackgroundDefault,
-                          textDecoration: 'none',
-                          '&:hover': { textDecoration: 'underline' },
-                        }}
-                      >
-                        {endpoint.model_mappings[0].model_definition.secret_name}
-                      </Link>
+                      {uniqueSecretNames.map((secretName) => (
+                        <Link
+                          key={secretName}
+                          componentId="mlflow.gateway.edit-endpoint.api-key-link"
+                          to={Routes.getSettingsSectionRoute(SETTINGS_SECTION_LLM_CONNECTIONS)}
+                          css={{
+                            fontSize: theme.typography.fontSizeSm,
+                            color: theme.colors.actionPrimaryBackgroundDefault,
+                            textDecoration: 'none',
+                            '&:hover': { textDecoration: 'underline' },
+                          }}
+                        >
+                          {secretName}
+                        </Link>
+                      ))}
                     </div>
                   )}
 
@@ -427,18 +543,14 @@ export const EditEndpointFormRenderer = ({
                           description="Label for usage tracking toggle in sidebar"
                         />
                       </Typography.Text>
-                      <Tooltip
+                      <InfoTooltip
                         componentId="mlflow.gateway.edit-endpoint.usage-tracking-info"
                         content={intl.formatMessage({
                           defaultMessage:
                             'When enabled, all requests to this endpoint will be logged as traces. This allows you to monitor usage, debug issues, and analyze performance.',
                           description: 'Tooltip explaining what usage tracking does',
                         })}
-                      >
-                        <InfoFillIcon
-                          css={{ width: 14, height: 14, color: theme.colors.textSecondary, cursor: 'help' }}
-                        />
-                      </Tooltip>
+                      />
                     </div>
                     <Controller
                       control={form.control}
@@ -448,7 +560,8 @@ export const EditEndpointFormRenderer = ({
                           <Switch
                             componentId="mlflow.gateway.edit-endpoint.usage-tracking.toggle"
                             checked={field.value}
-                            onChange={(checked) => field.onChange(checked)}
+                            onChange={(checked) => void onUsageTrackingUpdate(checked)}
+                            disabled={isSubmitting}
                             aria-label="Enable usage tracking"
                           />
                           <Typography.Text css={{ fontSize: theme.typography.fontSizeSm }}>
@@ -469,7 +582,7 @@ export const EditEndpointFormRenderer = ({
         </div>
       </Tabs.Root>
 
-      {activeTab === 'overview' && (
+      {hasChanges && activeTab === 'overview' && (
         <div
           css={{
             display: 'flex',
@@ -496,12 +609,7 @@ export const EditEndpointFormRenderer = ({
                       defaultMessage: 'Please configure at least one model in traffic split',
                       description: 'Tooltip shown when save button is disabled due to incomplete form',
                     })
-                  : !hasChanges
-                    ? intl.formatMessage({
-                        defaultMessage: 'No changes to save',
-                        description: 'Tooltip shown when save button is disabled due to no changes',
-                      })
-                    : undefined
+                  : undefined
             }
           >
             <Button
@@ -509,7 +617,7 @@ export const EditEndpointFormRenderer = ({
               type="primary"
               onClick={form.handleSubmit(onSubmit)}
               loading={isSubmitting}
-              disabled={!isFormComplete || !hasChanges}
+              disabled={!isFormComplete}
             >
               <FormattedMessage defaultMessage="Save changes" description="Save changes button" />
             </Button>

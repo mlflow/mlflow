@@ -1,0 +1,110 @@
+# Daily benchmark for the MLflow AI Gateway to catch performance regressions.
+# Runs against both sqlite (1 instance) and postgres (4 instances + nginx) backends.
+#
+# THRESHOLD CALIBRATION: The default threshold values below are conservative
+# starting points. Run this workflow a few times and tighten thresholds to
+# ~2x the observed average. Override per-run via workflow_dispatch inputs.
+name: MLflow Gateway Benchmark
+
+on:
+  schedule:
+    # Run daily at 06:00 UTC (off-peak; slow-tests runs at 13:00)
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+    inputs:
+      requests:
+        description: "Requests per run"
+        required: false
+        default: "200"
+      max_concurrent:
+        description: "Max concurrent requests (blank = use per-backend default: 10 for both)"
+        required: false
+        default: ""
+      max_p50_ms:
+        description: "Max P50 latency ms (blank = use per-backend default)"
+        required: false
+        default: ""
+      max_p99_ms:
+        description: "Max P99 latency ms (blank = use per-backend default)"
+        required: false
+        default: ""
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    if: (github.event_name == 'schedule' && github.repository == 'mlflow/mlflow') || github.event_name == 'workflow_dispatch'
+    strategy:
+      fail-fast: false
+      matrix:
+        backend: [sqlite, postgres]
+        include:
+          - backend: sqlite
+            instances: 1
+            default_max_concurrent: 10
+            default_max_p50_ms: 300
+            default_max_p99_ms: 800
+          - backend: postgres
+            instances: 4
+            default_max_concurrent: 10
+            default_max_p50_ms: 400
+            default_max_p99_ms: 1000
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-python
+      - name: Install dependencies
+        env:
+          BACKEND: ${{ matrix.backend }}
+        run: |
+          uv sync --extra gateway
+          if [[ "$BACKEND" == "postgres" ]]; then
+            uv pip install "psycopg2-binary>=2.9,<3"
+          fi
+      - name: Run benchmark (${{ matrix.backend }})
+        env:
+          MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT: "true"
+          MLFLOW_USE_BATCH_SPAN_PROCESSOR: "true"
+          MLFLOW_ENABLE_ASYNC_TRACE_LOGGING: "true"
+          BACKEND: ${{ matrix.backend }}
+          INSTANCES: ${{ matrix.instances }}
+          DEFAULT_MAX_CONCURRENT: ${{ matrix.default_max_concurrent }}
+          DEFAULT_MAX_P50_MS: ${{ matrix.default_max_p50_ms }}
+          DEFAULT_MAX_P99_MS: ${{ matrix.default_max_p99_ms }}
+          REQUESTS: ${{ github.event_name == 'workflow_dispatch' && inputs.requests || '200' }}
+          MAX_CONCURRENT_OVERRIDE: ${{ github.event_name == 'workflow_dispatch' && inputs.max_concurrent || '' }}
+          MAX_P50_MS_OVERRIDE: ${{ github.event_name == 'workflow_dispatch' && inputs.max_p50_ms || '' }}
+          MAX_P99_MS_OVERRIDE: ${{ github.event_name == 'workflow_dispatch' && inputs.max_p99_ms || '' }}
+        run: |
+          MAX_CONCURRENT="${MAX_CONCURRENT_OVERRIDE:-$DEFAULT_MAX_CONCURRENT}"
+          MAX_P50_MS="${MAX_P50_MS_OVERRIDE:-$DEFAULT_MAX_P50_MS}"
+          MAX_P99_MS="${MAX_P99_MS_OVERRIDE:-$DEFAULT_MAX_P99_MS}"
+          ARGS=(
+            --instances "$INSTANCES"
+            --database "$BACKEND"
+            --requests "$REQUESTS"
+            --max-concurrent "$MAX_CONCURRENT"
+            --max-p50-ms "$MAX_P50_MS"
+            --max-p99-ms "$MAX_P99_MS"
+            --runs 3
+          )
+          uv run --no-sync dev/benchmarks/gateway/run.py "${ARGS[@]}" \
+            --output "benchmark-results-$BACKEND.json"
+      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        if: always()
+        with:
+          name: benchmark-results-${{ matrix.backend }}-${{ github.run_id }}
+          path: benchmark-results-${{ matrix.backend }}.json
+          retention-days: 30
+          if-no-files-found: warn

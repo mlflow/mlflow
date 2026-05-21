@@ -2665,9 +2665,8 @@ def test_trace_only_template_uses_two_messages_with_empty_user(mock_invoke_judge
 
     user_msg = prompt[1]
     assert user_msg.role == "user"
-    assert (
-        user_msg.content == "Follow the instructions from the first message"
-    )  # Placeholder user message for trace-only
+    # Must disclaim the chat as input/response, or the LLM self-grades.
+    assert "not the input or response being judged" in user_msg.content
 
 
 def test_no_warning_when_extracting_fields_from_trace(mock_invoke_judge_model):
@@ -4118,3 +4117,24 @@ def test_conversation_with_timing_parameter(mock_invoke_judge_model, include_tim
 
     assert ("Response duration:" in conversation_content) is include_timing
     assert ("slowest spans:" in conversation_content) is include_timing
+
+
+def test_make_judge_preserves_non_ascii_in_template_variables():
+    judge = make_judge(
+        name="unicode_judge",
+        instructions="Evaluate: {{ inputs }} {{ outputs }} {{ expectations }}",
+        feedback_value_type=int,
+        model="openai:/gpt-4",
+    )
+
+    user_message = judge._build_user_message(
+        inputs={"query": "café résumé"},
+        outputs={"text": "éÉàç"},
+        expectations={"expected": "日本語テスト"},
+        conversation=None,
+    )
+
+    assert "éÉàç" in user_message
+    assert "\\u00e9" not in user_message
+    assert "café résumé" in user_message
+    assert "日本語テスト" in user_message

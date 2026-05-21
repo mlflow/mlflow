@@ -4,9 +4,14 @@ import pathlib
 import posixpath
 
 import pytest
+from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 
+from mlflow.entities.span import Span, SpanAttributeKey
+from mlflow.entities.trace_data import TraceData
 from mlflow.exceptions import MlflowException, MlflowTraceDataCorrupted, MlflowTraceDataNotFound
 from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
+from mlflow.tracing.otel.otel_archival import TRACE_ARCHIVAL_FILENAME, spans_to_traces_data_pb
+from mlflow.tracing.utils import build_otel_context
 from mlflow.utils.file_utils import TempDir
 
 
@@ -245,6 +250,71 @@ def test_trace_data(local_artifact_repo):
     assert local_artifact_repo.download_trace_data() == mock_trace_data
 
 
+def _make_span() -> Span:
+    otel_span = OTelReadableSpan(
+        name="test-span",
+        context=build_otel_context(1, 10),
+        start_time=1_000_000,
+        end_time=2_000_000,
+        attributes={
+            SpanAttributeKey.REQUEST_ID: json.dumps("tr-abc123"),
+            SpanAttributeKey.INPUTS: json.dumps({"q": "hello"}),
+            SpanAttributeKey.OUTPUTS: json.dumps({"a": "world"}),
+            SpanAttributeKey.SPAN_TYPE: json.dumps("UNKNOWN"),
+        },
+    )
+    return Span(otel_span)
+
+
+def test_archived_trace_data_errors(local_artifact_repo):
+    assert (
+        local_artifact_repo.download_archived_trace_data().to_dict()
+        == TraceData(spans=[]).to_dict()
+    )
+
+    trace_pb_path = pathlib.Path(local_artifact_repo.artifact_dir, TRACE_ARCHIVAL_FILENAME)
+    trace_pb_path.write_bytes(b"")
+    with pytest.raises(MlflowTraceDataCorrupted, match=r"Trace data is corrupted for path="):
+        local_artifact_repo.download_archived_trace_data()
+
+
+def test_upload_archived_trace_data_rejects_empty_spans(local_artifact_repo):
+    with pytest.raises(MlflowException, match="at least one span"):
+        local_artifact_repo.upload_archived_trace_data(TraceData(spans=[]))
+
+
+def test_trace_data_artifact_repo(local_artifact_repo):
+    trace_data = TraceData(spans=[_make_span()]).to_dict()
+
+    local_artifact_repo.upload_trace_data(json.dumps(trace_data))
+
+    restored = local_artifact_repo.download_trace_data()
+    assert restored == trace_data
+
+
+def test_upload_archived_trace_data_rejects_non_trace_data(local_artifact_repo):
+    with pytest.raises(MlflowException, match="Archived trace data must be a TraceData object."):
+        local_artifact_repo.upload_archived_trace_data("not-trace-data")
+
+
+def test_archived_trace_data_with_trace_data_object(local_artifact_repo):
+    trace_data = TraceData(spans=[_make_span()])
+
+    local_artifact_repo.upload_archived_trace_data(trace_data)
+
+    restored = local_artifact_repo.download_archived_trace_data()
+    assert restored.to_dict() == trace_data.to_dict()
+
+
+def test_upload_archived_trace_data_bytes(local_artifact_repo):
+    trace_data = TraceData(spans=[_make_span()])
+
+    local_artifact_repo.upload_archived_trace_data_bytes(spans_to_traces_data_pb(trace_data.spans))
+
+    restored = local_artifact_repo.download_archived_trace_data()
+    assert restored.to_dict() == trace_data.to_dict()
+
+
 @pytest.fixture
 def external_secret_dir(tmp_path):
     secret_dir = tmp_path.parent / "secrets_outside"
@@ -328,3 +398,20 @@ def test_symlink_within_artifact_dir_allowed(
         artifacts = local_artifact_repo.list_artifacts("link_to_subdir")
         assert len(artifacts) == 1
         assert artifacts[0].path == "link_to_subdir/file.txt"
+
+
+def test_list_artifacts_on_file_returns_empty(local_artifact_repo, local_artifact_root):
+    artifact_path = os.path.join(local_artifact_root, "file.txt")
+    with open(artifact_path, "w") as f:
+        f.write("data")
+    assert local_artifact_repo.list_artifacts("file.txt") == []
+
+
+@pytest.mark.parametrize("dst_path_provided", [True, False])
+def test_download_artifacts_nonexistent_raises_resource_does_not_exist(
+    local_artifact_repo, tmp_path, dst_path_provided
+):
+    dst = str(tmp_path) if dst_path_provided else None
+    with pytest.raises(MlflowException, match="No such artifact") as exc_info:
+        local_artifact_repo.download_artifacts("nonexistent.txt", dst_path=dst)
+    assert exc_info.value.error_code == "RESOURCE_DOES_NOT_EXIST"

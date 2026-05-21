@@ -18,7 +18,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "codestral-2508": {
       "mode": "chat",
@@ -37,7 +38,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "codestral-embed": {
       "mode": "embedding",
@@ -54,7 +56,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "codestral-embed-2505": {
       "mode": "embedding",
@@ -71,7 +74,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "codestral-latest": {
       "mode": "chat",
@@ -90,7 +94,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "codestral-mamba-latest": {
       "mode": "chat",
@@ -109,7 +114,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "devstral-2512": {
       "mode": "chat",
@@ -128,7 +134,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "devstral-latest": {
       "mode": "chat",
@@ -147,7 +154,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "devstral-medium-2507": {
       "mode": "chat",
@@ -166,7 +174,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "devstral-medium-latest": {
       "mode": "chat",
@@ -185,7 +194,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "devstral-small-2505": {
       "mode": "chat",
@@ -204,7 +214,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "devstral-small-2507": {
       "mode": "chat",
@@ -223,7 +234,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "devstral-small-latest": {
       "mode": "chat",
@@ -242,7 +254,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "labs-devstral-small-2512": {
       "mode": "chat",
@@ -261,7 +274,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "magistral-medium-1-2-2509": {
       "mode": "chat",
@@ -280,7 +294,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "magistral-medium-2506": {
       "mode": "chat",
@@ -299,7 +314,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "magistral-medium-2509": {
       "mode": "chat",
@@ -318,7 +334,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "magistral-medium-latest": {
       "mode": "chat",
@@ -337,7 +354,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "magistral-small-1-2-2509": {
       "mode": "chat",
@@ -356,7 +374,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "magistral-small-2506": {
       "mode": "chat",
@@ -375,7 +394,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "magistral-small-latest": {
       "mode": "chat",
@@ -394,7 +414,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "ministral-3-14b-2512": {
       "mode": "chat",
@@ -413,7 +434,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "ministral-3-3b-2512": {
       "mode": "chat",
@@ -432,7 +454,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "ministral-3-8b-2512": {
       "mode": "chat",
@@ -451,7 +474,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "mistral-embed": {
       "mode": "embedding",
@@ -468,7 +492,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "mistral-large-2402": {
       "mode": "chat",
@@ -487,7 +512,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "mistral-large-2407": {
       "mode": "chat",
@@ -506,7 +532,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "mistral-large-2411": {
       "mode": "chat",
@@ -525,7 +552,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "mistral-large-2512": {
       "mode": "chat",
@@ -544,7 +572,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "mistral-large-3": {
       "mode": "chat",
@@ -563,7 +592,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "mistral-large-latest": {
       "mode": "chat",
@@ -582,7 +612,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "mistral-medium": {
       "mode": "chat",
@@ -601,7 +632,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "mistral-medium-2312": {
       "mode": "chat",
@@ -620,7 +652,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "mistral-medium-2505": {
       "mode": "chat",
@@ -639,7 +672,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "mistral-medium-3-1-2508": {
       "mode": "chat",
@@ -658,7 +692,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "mistral-medium-latest": {
       "mode": "chat",
@@ -677,7 +712,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "mistral-small": {
       "mode": "chat",
@@ -696,7 +732,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "mistral-small-3-2-2506": {
       "mode": "chat",
@@ -715,7 +752,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "mistral-small-latest": {
       "mode": "chat",
@@ -734,7 +772,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "mistral-tiny": {
       "mode": "chat",
@@ -753,7 +792,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "open-codestral-mamba": {
       "mode": "chat",
@@ -772,7 +812,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "open-mistral-7b": {
       "mode": "chat",
@@ -791,7 +832,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "open-mistral-nemo": {
       "mode": "chat",
@@ -810,7 +852,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "open-mistral-nemo-2407": {
       "mode": "chat",
@@ -829,7 +872,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "open-mixtral-8x22b": {
       "mode": "chat",
@@ -848,7 +892,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "open-mixtral-8x7b": {
       "mode": "chat",
@@ -867,7 +912,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "pixtral-12b-2409": {
       "mode": "chat",
@@ -886,7 +932,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "pixtral-large-2411": {
       "mode": "chat",
@@ -905,7 +952,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "pixtral-large-latest": {
       "mode": "chat",
@@ -924,7 +972,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     }
   }
 }

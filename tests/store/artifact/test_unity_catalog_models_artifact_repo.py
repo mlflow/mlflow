@@ -6,6 +6,7 @@ import pytest
 from google.cloud.storage import Client
 from requests import Response
 
+import mlflow
 from mlflow import MlflowClient
 from mlflow.entities.file_info import FileInfo
 from mlflow.exceptions import MlflowException
@@ -317,8 +318,6 @@ def test_uc_models_artifact_repo_list_artifacts_uses_temporary_creds(monkeypatch
 
 
 def test_get_feature_dependencies_doesnt_throw():
-    import mlflow
-
     class MyModel(mlflow.pyfunc.PythonModel):
         def predict(self, context, model_input):
             return model_input
@@ -332,6 +331,45 @@ def test_get_feature_dependencies_doesnt_throw():
         )
         == ""
     )
+
+
+def test_get_feature_dependencies_works_when_experiment_not_found():
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input):
+            return model_input
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(name="model", python_model=MyModel())
+
+    # Simulate cross-workspace scenario: get_logged_model would fail
+    with mock.patch(
+        "mlflow.get_logged_model",
+        side_effect=MlflowException("RESOURCE_DOES_NOT_EXIST"),
+    ) as mock_get_logged_model:
+        result = mlflow.store._unity_catalog.registry.rest_store.get_feature_dependencies(
+            model_info.model_uri
+        )
+        assert result == ""
+        mock_get_logged_model.assert_not_called()
+
+
+def test_get_model_version_dependencies_works_when_experiment_not_found():
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input):
+            return model_input
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(name="model", python_model=MyModel())
+
+    with mock.patch(
+        "mlflow.get_logged_model",
+        side_effect=MlflowException("RESOURCE_DOES_NOT_EXIST"),
+    ) as mock_get_logged_model:
+        result = mlflow.store._unity_catalog.registry.rest_store.get_model_version_dependencies(
+            model_info.model_uri
+        )
+        assert result == []
+        mock_get_logged_model.assert_not_called()
 
 
 def test_store_use_presigned_url_store_when_disabled(monkeypatch):

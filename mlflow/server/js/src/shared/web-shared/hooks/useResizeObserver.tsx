@@ -55,6 +55,7 @@ export function useResizeObserver<ElementType extends Element>({
     observerRef.current = new ResizeObserver(onResize);
   }
 
+  // eslint-disable-next-line @databricks/no-missing-react-hook-dependency-array
   useEffect(() => {
     const rootElement = typeof rootRef === 'function' ? rootRef() : rootRef.current;
     if (rootElement) {

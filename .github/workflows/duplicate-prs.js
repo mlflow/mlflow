@@ -25,6 +25,7 @@ const QUERY = `
           url
           author { login }
           authorAssociation
+          labels(first: 20) { nodes { name } }
           closingIssuesReferences(first: 10) {
             nodes {
               number
@@ -42,6 +43,9 @@ const shouldProcessPR = (pr) => {
   if (memberAssociations.includes(pr.authorAssociation)) {
     return false;
   }
+  // Skip PRs already labeled as duplicate
+  const labels = pr.labels?.nodes?.map((l) => l.name) ?? [];
+  if (labels.includes(DUPLICATE_LABEL)) return false;
   return true;
 };
 

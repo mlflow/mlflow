@@ -12,6 +12,14 @@ MLflow's trace search functionality allows you to leverage SQL-like syntax to fi
 **Local File Store offers only limited search capabilities and can become slow as data volume grows.** As of MLflow 3.6.0, the FileStore is deprecated. We recommend migrating to a SQL-backed store or Databricks for improved performance and more robust search functionality.
 :::
 
+::::note
+**Archived traces and content search**.
+Archived traces remain viewable in MLflow, but filters that depend on stored span payloads, such as
+`trace.text` and `span.content`, no longer match once that payload has been archived out of the SQL
+store. Tag, metadata, status, and other trace-level filters continue to work. See
+[Archive Traces](/genai/tracing/observe-with-traces/archive-traces) for details.
+::::
+
 ## Search Traces Overview
 
 When working with MLflow tracing in production environments, you'll often have thousands of traces across different experiments representing various model inferences, LLM calls, or ML pipeline executions. The `search_traces` API helps you find specific traces based on their execution characteristics, metadata, tags, and other attributes - making trace analysis and debugging much more efficient.
@@ -55,19 +63,19 @@ The `search_traces` API uses a SQL-like Domain Specific Language (DSL) for query
 
 ### Supported Filters and Comparators
 
-| Field Type           | Fields                                                               | Operators                                                     | Examples                                    |
-| -------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------- | ------------------------------------------- |
-| **Trace Status**     | `trace.status`                                                       | `=`, `!=`                                                     | trace.status = "OK"                         |
-| **Trace Timestamps** | `trace.timestamp_ms`, `trace.execution_time_ms`, `trace.end_time_ms` | `=`, `!=`, `>`, `<`, `>=`, `<=`                               | trace.end_time_ms > 1762408895531           |
-| **Trace IDs**        | `trace.run_id`                                                       | `=`                                                           | trace.run_id = "run_id"                     |
-| **String Fields**    | `trace.client_request_id`, `trace.name`                              | `=`, `!=`, `LIKE`, `ILIKE`, `RLIKE`                           | trace.name LIKE "%Generate%"                |
-| **Linked Prompts**   | `prompt`                                                             | `=` (format: `"name/version"`)                                | prompt = "qa-system-prompt/4"               |
-| **Span Name/Type**   | `span.name`, `span.type`                                             | `=`, `!=`, `LIKE`, `ILIKE`, `RLIKE`                           | span.type RLIKE "^LLM"                      |
-| **Tags**             | `tag.<key>`                                                          | `=`, `!=`, `LIKE`, `ILIKE`, `RLIKE`, `IS NULL`, `IS NOT NULL` | tag.key = "value"                           |
-| **Metadata**         | `metadata.<key>`                                                     | `=`, `!=`, `LIKE`, `ILIKE`, `RLIKE`, `IS NULL`, `IS NOT NULL` | metadata.\`mlflow.trace.user\` = "user_123" |
-| **Feedback**         | `feedback.<name>`                                                    | `=`, `!=`, `LIKE`, `ILIKE`, `RLIKE`                           | feedback.rating = "excellent"               |
-| **Expectations**     | `expectation.<name>`                                                 | `=`, `!=`, `LIKE`, `ILIKE`, `RLIKE`                           | expectation.result = "pass"                 |
-| **Full Text**        | `trace.text`                                                         | `LIKE` (with `%` wildcards)                                   | trace.text LIKE "%tell me a story"          |
+| Field Type                                | Fields                                                               | Operators                                                     | Examples                                    |
+| ----------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------- | ------------------------------------------- |
+| **Trace Status**                          | `trace.status`                                                       | `=`, `!=`                                                     | trace.status = "OK"                         |
+| **Trace Timestamps**                      | `trace.timestamp_ms`, `trace.execution_time_ms`, `trace.end_time_ms` | `=`, `!=`, `>`, `<`, `>=`, `<=`                               | trace.end_time_ms > 1762408895531           |
+| **Trace IDs**                             | `trace.run_id`                                                       | `=`                                                           | trace.run_id = "run_id"                     |
+| **String Fields**                         | `trace.client_request_id`, `trace.name`                              | `=`, `!=`, `LIKE`, `ILIKE`, `RLIKE`                           | trace.name LIKE "%Generate%"                |
+| **Linked Prompts**                        | `prompt`                                                             | `=` (format: `"name/version"`)                                | prompt = "qa-system-prompt/4"               |
+| **Span Name/Type**                        | `span.name`, `span.type`                                             | `=`, `!=`, `LIKE`, `ILIKE`, `RLIKE`                           | span.type RLIKE "^LLM"                      |
+| **Tags**                                  | `tag.<key>`                                                          | `=`, `!=`, `LIKE`, `ILIKE`, `RLIKE`, `IS NULL`, `IS NOT NULL` | tag.key = "value"                           |
+| **Metadata**                              | `metadata.<key>`                                                     | `=`, `!=`, `LIKE`, `ILIKE`, `RLIKE`, `IS NULL`, `IS NOT NULL` | metadata.\`mlflow.trace.user\` = "user_123" |
+| **Feedback**                              | `feedback.<name>`                                                    | `=`, `!=`, `LIKE`, `ILIKE`, `RLIKE`                           | feedback.rating = "excellent"               |
+| **Expectations**                          | `expectation.<name>`                                                 | `=`, `!=`, `LIKE`, `ILIKE`, `RLIKE`                           | expectation.result = "pass"                 |
+| **Full Text** (OSS SQLAlchemy store only) | `trace.text`                                                         | `LIKE` (with `%` wildcards)                                   | trace.text LIKE "%tell me a story"          |
 
 **Value Syntax:**
 
@@ -84,7 +92,7 @@ The `search_traces` API uses a SQL-like Domain Specific Language (DSL) for query
 
 ### Example Queries
 
-#### Full Text Search
+#### Full Text Search (OSS SQLAlchemy store only)
 
 Search for any contents existing in your trace.
 

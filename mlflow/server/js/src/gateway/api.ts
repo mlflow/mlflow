@@ -16,6 +16,8 @@ import type {
   UpdateEndpointRequest,
   UpdateEndpointResponse,
   ListEndpointsResponse,
+  SetEndpointTagRequest,
+  SetEndpointTagResponse,
   CreateModelDefinitionRequest,
   CreateModelDefinitionResponse,
   GetModelDefinitionResponse,
@@ -37,6 +39,16 @@ import type {
   UpdateBudgetPolicyResponse,
   ListBudgetPoliciesResponse,
   ListBudgetWindowsResponse,
+  CreateGatewayGuardrailRequest,
+  CreateGatewayGuardrailResponse,
+  GetGatewayGuardrailResponse,
+  ListGatewayGuardrailsResponse,
+  AddGuardrailToEndpointRequest,
+  AddGuardrailToEndpointResponse,
+  RemoveGuardrailFromEndpointRequest,
+  ListEndpointGuardrailConfigsResponse,
+  UpdateEndpointGuardrailConfigRequest,
+  UpdateEndpointGuardrailConfigResponse,
 } from './types';
 
 const defaultErrorHandler = async ({
@@ -182,6 +194,15 @@ export const GatewayApi = {
       body: JSON.stringify({ endpoint_id: endpointId }),
       error: defaultErrorHandler,
     });
+  },
+
+  setEndpointTag: (request: SetEndpointTagRequest) => {
+    return fetchEndpoint({
+      relativeUrl: 'ajax-api/3.0/mlflow/gateway/endpoints/set-tag',
+      method: 'POST',
+      body: JSON.stringify(request),
+      error: defaultErrorHandler,
+    }) as Promise<SetEndpointTagResponse>;
   },
 
   listEndpoints: (provider?: string) => {
@@ -369,5 +390,79 @@ export const GatewayApi = {
       relativeUrl: 'ajax-api/3.0/mlflow/gateway/budgets/windows',
       error: defaultErrorHandler,
     }) as Promise<ListBudgetWindowsResponse>;
+  },
+
+  // Guardrails
+  createGuardrail: (request: CreateGatewayGuardrailRequest) => {
+    return fetchEndpoint({
+      relativeUrl: 'ajax-api/3.0/mlflow/gateway/guardrails/create',
+      method: 'POST',
+      body: JSON.stringify(request),
+      error: defaultErrorHandler,
+    }) as Promise<CreateGatewayGuardrailResponse>;
+  },
+
+  getGuardrail: (guardrailId: string) => {
+    return fetchEndpoint({
+      relativeUrl: `ajax-api/3.0/mlflow/gateway/guardrails/get?guardrail_id=${encodeURIComponent(guardrailId)}`,
+      error: defaultErrorHandler,
+    }) as Promise<GetGatewayGuardrailResponse>;
+  },
+
+  deleteGuardrail: (guardrailId: string) => {
+    return fetchEndpoint({
+      relativeUrl: 'ajax-api/3.0/mlflow/gateway/guardrails/delete',
+      method: 'DELETE',
+      body: JSON.stringify({ guardrail_id: guardrailId }),
+      error: defaultErrorHandler,
+    });
+  },
+
+  listGuardrails: (maxResults?: number, pageToken?: string) => {
+    const params = new URLSearchParams();
+    if (maxResults) {
+      params.append('max_results', maxResults.toString());
+    }
+    if (pageToken) {
+      params.append('page_token', pageToken);
+    }
+    return fetchEndpoint({
+      relativeUrl: `ajax-api/3.0/mlflow/gateway/guardrails/list?${params.toString()}`,
+      error: defaultErrorHandler,
+    }) as Promise<ListGatewayGuardrailsResponse>;
+  },
+
+  addGuardrailToEndpoint: (request: AddGuardrailToEndpointRequest) => {
+    return fetchEndpoint({
+      relativeUrl: 'ajax-api/3.0/mlflow/gateway/guardrails/add-to-endpoint',
+      method: 'POST',
+      body: JSON.stringify(request),
+      error: defaultErrorHandler,
+    }) as Promise<AddGuardrailToEndpointResponse>;
+  },
+
+  removeGuardrailFromEndpoint: (request: RemoveGuardrailFromEndpointRequest) => {
+    return fetchEndpoint({
+      relativeUrl: 'ajax-api/3.0/mlflow/gateway/guardrails/remove-from-endpoint',
+      method: 'DELETE',
+      body: JSON.stringify(request),
+      error: defaultErrorHandler,
+    });
+  },
+
+  listEndpointGuardrailConfigs: (endpointId: string) => {
+    return fetchEndpoint({
+      relativeUrl: `ajax-api/3.0/mlflow/gateway/guardrails/list-for-endpoint?endpoint_id=${encodeURIComponent(endpointId)}`,
+      error: defaultErrorHandler,
+    }) as Promise<ListEndpointGuardrailConfigsResponse>;
+  },
+
+  updateEndpointGuardrailConfig: (request: UpdateEndpointGuardrailConfigRequest) => {
+    return fetchEndpoint({
+      relativeUrl: 'ajax-api/3.0/mlflow/gateway/guardrails/update-config',
+      method: 'PATCH',
+      body: JSON.stringify(request),
+      error: defaultErrorHandler,
+    }) as Promise<UpdateEndpointGuardrailConfigResponse>;
   },
 };

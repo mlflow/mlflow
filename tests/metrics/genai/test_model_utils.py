@@ -717,8 +717,8 @@ def test_score_model_databricks(monkeypatch):
     assert response == "\n\nThis is a test!"
     call_kwargs = mock_request.call_args[1]
     assert (
-        "serving-endpoints/databricks-meta-llama-3-3-70b-instruct/invocations"
-        in call_kwargs["endpoint"]
+        call_kwargs["endpoint"]
+        == "https://my-workspace.databricks.com/serving-endpoints/chat/completions"
     )
 
 
@@ -788,3 +788,16 @@ def test_score_model_does_not_retry_on_other_400_errors(monkeypatch):
                     },
                 },
             )
+
+
+def test_send_request_uses_timeout_from_env_var(monkeypatch):
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_LLM_TIMEOUT", "2")
+
+    with mock.patch("requests.post") as mock_post:
+        mock_post.return_value.json.return_value = {}
+        mock_post.return_value.raise_for_status.return_value = None
+
+        _send_request("", {}, {})
+
+        _, kwargs = mock_post.call_args
+        assert kwargs["timeout"] == 2

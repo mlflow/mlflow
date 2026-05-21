@@ -407,7 +407,7 @@ export type FetchAPIOptions = Omit<RequestInit, 'body'> & {
 
 // Helper method to make a request to the backend.
 export const fetchAPI = async (url: string, options: FetchAPIOptions = {}) => {
-  const { method, headers, body, ...restOptions } = options;
+  const { method, headers: extraHeaders, body, ...restOptions } = options;
 
   let cookieString = '';
   if (typeof document !== 'undefined' && typeof document.cookie === 'string') {
@@ -420,7 +420,7 @@ export const fetchAPI = async (url: string, options: FetchAPIOptions = {}) => {
     headers: {
       ...getDefaultHeaders(cookieString),
       ...(body ? { 'Content-Type': 'application/json' } : {}),
-      ...headers,
+      ...extraHeaders,
     },
     ...(body && { body: serializeRequestBody(body) }),
   };
@@ -466,8 +466,7 @@ export async function fetchOrFail(input: RequestInfo | URL, options?: RequestIni
       ...options?.headers,
     },
   };
-
-  // eslint-disable-next-line no-restricted-globals -- See go/spog-fetch
+  // eslint-disable-next-line no-restricted-globals -- only used by OSS
   const response = await fetch(input, fetchOptions);
   if (!response.ok) {
     const error = matchPredefinedErrorFromResponse(response);

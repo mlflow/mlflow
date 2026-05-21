@@ -25,7 +25,6 @@ export const LaunchDemoCard = () => {
       setWorkflowType(WorkflowType.GENAI);
       navigate(url);
     } catch (error) {
-      // fail silently
       navigate('/experiments');
     } finally {
       setIsLoading(false);

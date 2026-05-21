@@ -21,13 +21,17 @@ import {
 import { useLegendHighlight, getLineDotStyle } from '../utils/chartUtils';
 import { useOverviewChartContext } from '../OverviewChartContext';
 
-export const TraceErrorsChart: React.FC = () => {
+interface TraceErrorsChartProps {
+  enableTraceNavigation?: boolean;
+}
+
+export const TraceErrorsChart: React.FC<TraceErrorsChartProps> = ({ enableTraceNavigation = true }) => {
   const { theme } = useDesignSystemTheme();
   const xAxisProps = useChartXAxisProps();
   const yAxisProps = useChartYAxisProps();
   const scrollableLegendProps = useScrollableLegendProps();
   const { getOpacity, handleLegendMouseEnter, handleLegendMouseLeave } = useLegendHighlight();
-  const { experimentIds, timeIntervalSeconds } = useOverviewChartContext();
+  const { experimentIds, timeIntervalSeconds, tracesNavigationFilters } = useOverviewChartContext();
   const navigate = useNavigate();
 
   // Fetch and process errors chart data
@@ -41,16 +45,18 @@ export const TraceErrorsChart: React.FC = () => {
     return [`${value.toFixed(1)}%`, name] as [string, string];
   }, []);
 
-  // Handle click on tooltip link to navigate to traces filtered by error status
+  // Handle click on tooltip link to navigate to traces filtered by error status,
+  // merging in any active MetricsFilter selections supplied by the page via context.
   const handleViewTraces = useCallback(
     (_label: string | undefined, dataPoint?: { timestampMs?: number }) => {
       if (dataPoint?.timestampMs === undefined) return;
       const url = getTracesFilteredByTimeRangeUrl(experimentIds[0], dataPoint.timestampMs, timeIntervalSeconds, [
         createSpanStatusEqualsFilter('ERROR'),
+        ...(tracesNavigationFilters ?? []),
       ]);
       navigate(url);
     },
-    [experimentIds, timeIntervalSeconds, navigate],
+    [experimentIds, timeIntervalSeconds, tracesNavigationFilters, navigate],
   );
 
   if (isLoading) {
@@ -89,12 +95,17 @@ export const TraceErrorsChart: React.FC = () => {
                   <ScrollableTooltip
                     formatter={tooltipFormatter}
                     componentId="mlflow.overview.usage.errors.view_traces_link"
-                    linkConfig={{
-                      onLinkClick: handleViewTraces,
-                    }}
+                    linkConfig={
+                      enableTraceNavigation
+                        ? {
+                            onLinkClick: handleViewTraces,
+                          }
+                        : undefined
+                    }
                   />
                 }
                 cursor={{ fill: theme.colors.actionTertiaryBackgroundHover }}
+                wrapperStyle={{ pointerEvents: 'auto' }}
               />
               <Bar
                 yAxisId="left"

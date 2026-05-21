@@ -1,8 +1,5 @@
 import { getTraceTokenUsage, type ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
-import {
-  SIMULATION_GOAL_KEY,
-  SIMULATION_PERSONA_KEY,
-} from '@mlflow/mlflow/src/shared/web-shared/genai-traces-table/utils/SessionGroupingUtils';
+import { SIMULATION_GOAL_KEY, SIMULATION_PERSONA_KEY } from '@databricks/web-shared/genai-traces-table';
 import { first, last } from 'lodash';
 import { useMemo } from 'react';
 

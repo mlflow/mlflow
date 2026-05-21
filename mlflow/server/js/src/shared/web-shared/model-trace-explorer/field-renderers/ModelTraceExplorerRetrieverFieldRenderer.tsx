@@ -22,10 +22,12 @@ export const ModelTraceExplorerRetrieverFieldRenderer = ({
 
   return (
     <div
+      data-testid="model-trace-explorer-retriever-field-renderer"
       css={{
         backgroundColor: theme.colors.backgroundPrimary,
         borderRadius: theme.borders.borderRadiusSm,
         border: `1px solid ${theme.colors.border}`,
+        marginInline: theme.spacing.sm,
       }}
     >
       {title && (

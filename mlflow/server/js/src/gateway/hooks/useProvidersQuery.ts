@@ -13,6 +13,8 @@ export const useProvidersQuery = () => {
   const queryResult = useQuery<ProvidersResponse, Error, ProvidersResponse, ProvidersQueryKey>(['gateway_providers'], {
     queryFn,
     retry: false,
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
   });
 
   return {

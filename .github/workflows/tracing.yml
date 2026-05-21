@@ -1,4 +1,4 @@
-name: 🔍 Tracing SDK Test
+name: Tracing SDK Test
 
 on:
   pull_request:
@@ -14,6 +14,7 @@ on:
       - ".github/workflows/preview-docs.yml"
       - "mlflow/server/js/**"
       - ".github/workflows/js.yml"
+      - ".claude/**"
   push:
     branches:
       - master

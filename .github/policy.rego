@@ -40,6 +40,38 @@ safe_pull_request_target_workflow if {
 	input.name == "UI Preview"
 }
 
+deny_create_app_token_without_permissions contains msg if {
+	some job_id, job in input.jobs
+	some step in job.steps
+	startswith(step.uses, "actions/create-github-app-token@")
+	not step_has_app_token_permissions(step)
+	msg := sprintf(
+		concat("", [
+			"actions/create-github-app-token in job '%s' must explicitly request permissions ",
+			"via 'permission-<name>: <level>' inputs (e.g., permission-contents: write) for ",
+			"least-privilege access. See ",
+			"https://github.com/actions/create-github-app-token#create-a-token-with-specific-permissions",
+		]),
+		[job_id],
+	)
+}
+
+deny_create_app_token_with_app_id contains msg if {
+	some job_id, job in input.jobs
+	some step in job.steps
+	startswith(step.uses, "actions/create-github-app-token@")
+	step["with"]["app-id"]
+	msg := sprintf(
+		"actions/create-github-app-token in job '%s' uses deprecated 'app-id'. Use 'client-id' instead.",
+		[job_id],
+	)
+}
+
+step_has_app_token_permissions(step) if {
+	some key, _ in step["with"]
+	startswith(key, "permission-")
+}
+
 deny_unnecessary_github_token contains msg if {
 	some job in input.jobs
 	some step in job.steps
@@ -197,6 +229,20 @@ deny_interpolation_in_run contains msg if {
 	)
 }
 
+deny_interpolation_in_run contains msg if {
+	not input.jobs
+	input.runs.steps
+	some i, step in input.runs.steps
+	regex.match(`\$\{\{`, step.run)
+	msg := sprintf(
+		concat("", [
+			"Direct ${{ }} interpolation in run block of composite action step #%d. ",
+			"Use env: to pass the value and reference it as $VAR in the script.",
+		]),
+		[i + 1],
+	)
+}
+
 deny_interpolation_in_github_script contains msg if {
 	some job_id, job in input.jobs
 	some step in job.steps
@@ -208,6 +254,21 @@ deny_interpolation_in_github_script contains msg if {
 			"Use env: to pass the value and reference it as process.env.VAR in the script.",
 		]),
 		[job_id],
+	)
+}
+
+deny_interpolation_in_github_script contains msg if {
+	not input.jobs
+	input.runs.steps
+	some i, step in input.runs.steps
+	startswith(step.uses, "actions/github-script@")
+	regex.match(`\$\{\{`, step["with"].script)
+	msg := sprintf(
+		concat("", [
+			"Direct ${{ }} interpolation in github-script of composite action step #%d. ",
+			"Use env: to pass the value and reference it as process.env.VAR in the script.",
+		]),
+		[i + 1],
 	)
 }
 
@@ -329,6 +390,46 @@ has_explicit_persist_credentials(step) if {
 
 has_explicit_persist_credentials(step) if {
 	step["with"]["persist-credentials"] == true
+}
+
+deny_upload_artifact_without_retention contains msg if {
+	some job_id, job in input.jobs
+	some step in job.steps
+	startswith(step.uses, "actions/upload-artifact@")
+	not step["with"]["retention-days"]
+	msg := sprintf(
+		"actions/upload-artifact in job '%s' must set 'retention-days' explicitly.",
+		[job_id],
+	)
+}
+
+deny_upload_artifact_without_if_no_files_found contains msg if {
+	some job_id, job in input.jobs
+	some step in job.steps
+	startswith(step.uses, "actions/upload-artifact@")
+	not step["with"]["if-no-files-found"]
+	msg := sprintf(
+		"actions/upload-artifact in job '%s' must set 'if-no-files-found' explicitly.",
+		[job_id],
+	)
+}
+
+deny_matrix_without_fail_fast contains msg if {
+	some job_id, job in input.jobs
+	job.strategy.matrix
+	not has_explicit_fail_fast(job.strategy)
+	msg := sprintf(
+		"strategy.matrix in job '%s' must set 'fail-fast' explicitly (either true or false).",
+		[job_id],
+	)
+}
+
+has_explicit_fail_fast(strategy) if {
+	strategy["fail-fast"] == false
+}
+
+has_explicit_fail_fast(strategy) if {
+	strategy["fail-fast"] == true
 }
 
 deny_mutable_install contains msg if {

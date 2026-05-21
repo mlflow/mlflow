@@ -51,6 +51,7 @@ const DesignSystemProviders: React.FC<React.PropsWithChildren<unknown>> = ({ chi
 };
 
 export const AppComponent = () => {
+  // eslint-disable-next-line @databricks/no-singleton-query-client -- OSS notebook renderer is standalone, not workspace-scoped
   const queryClient = useMemo(() => new QueryClient(), []);
 
   return (
@@ -66,4 +67,5 @@ export const AppComponent = () => {
   );
 };
 
+// eslint-disable-next-line @databricks/no-direct-react-root -- We should probably try to migrate this one? (FEINF-4568)
 ReactDOM.render(<AppComponent />, document.getElementById('root'));

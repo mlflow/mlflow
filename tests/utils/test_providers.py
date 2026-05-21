@@ -1,9 +1,15 @@
+import json
 from unittest import mock
 
 import pytest
 
+from mlflow.exceptions import MlflowException
 from mlflow.utils.providers import (
+    _fetch_remote_provider,
+    _flatten_catalog_entry,
+    _get_remote_cache,
     _list_provider_names,
+    _load_bundled_provider,
     _load_provider,
     _normalize_provider,
     cost_per_token,
@@ -45,8 +51,9 @@ def test_list_provider_names_excludes_non_json():
         assert not p.endswith(".py")
 
 
-def test_load_provider_returns_models():
-    _load_provider.cache_clear()
+def test_load_provider_returns_models(monkeypatch):
+    monkeypatch.setenv("MLFLOW_MODEL_CATALOG_URI", "")
+    _load_bundled_provider.cache_clear()
     models = _load_provider("openai")
     assert len(models) > 0
     assert "gpt-4o" in models
@@ -56,13 +63,15 @@ def test_load_provider_returns_models():
     assert info["input_cost_per_token"] > 0
 
 
-def test_load_provider_returns_empty_for_unknown():
-    _load_provider.cache_clear()
+def test_load_provider_returns_empty_for_unknown(monkeypatch):
+    monkeypatch.setenv("MLFLOW_MODEL_CATALOG_URI", "")
+    _load_bundled_provider.cache_clear()
     assert _load_provider("nonexistent_provider_xyz") == {}
 
 
-def test_load_provider_flattens_pricing():
-    _load_provider.cache_clear()
+def test_load_provider_flattens_pricing(monkeypatch):
+    monkeypatch.setenv("MLFLOW_MODEL_CATALOG_URI", "")
+    _load_bundled_provider.cache_clear()
     models = _load_provider("anthropic")
     model = next(iter(models.values()))
     # Should have flat ModelInfo keys, not nested pricing/capabilities
@@ -179,6 +188,39 @@ def test_get_models_dedupes_models_after_normalization():
         assert len(models) == 1
 
 
+def test_get_all_providers_with_allowed_filter(monkeypatch):
+    data = {
+        "openai": {"gpt-4o": {"mode": "chat"}},
+        "anthropic": {"claude-3-5-sonnet": {"mode": "chat"}},
+        "gemini": {"gemini-1.5-pro": {"mode": "chat"}},
+    }
+    with _mock_catalog(data)[0], _mock_catalog(data)[1]:
+        monkeypatch.setenv("MLFLOW_GATEWAY_ALLOWED_PROVIDERS", "openai,anthropic")
+        providers = get_all_providers()
+        assert "openai" in providers
+        assert "anthropic" in providers
+        assert "gemini" not in providers
+
+
+def test_get_models_filters_with_allowed_providers(monkeypatch):
+    data = {
+        "openai": {"gpt-4o": {"mode": "chat", "supports_function_calling": True}},
+        "anthropic": {"claude-3-5-sonnet": {"mode": "chat", "supports_function_calling": True}},
+        "gemini": {"gemini-1.5-pro": {"mode": "chat", "supports_function_calling": True}},
+    }
+    with _mock_catalog(data)[0], _mock_catalog(data)[1]:
+        monkeypatch.setenv("MLFLOW_GATEWAY_ALLOWED_PROVIDERS", "openai")
+        models = get_models()
+        providers_in_result = {m["provider"] for m in models}
+        assert providers_in_result == {"openai"}
+
+
+def test_get_provider_config_rejects_provider_not_in_allowed_list(monkeypatch):
+    monkeypatch.setenv("MLFLOW_GATEWAY_ALLOWED_PROVIDERS", "anthropic")
+    with pytest.raises(MlflowException, match="not allowed"):
+        get_provider_config_response("openai")
+
+
 def test_get_provider_config_bedrock_has_default_chain():
     config = get_provider_config_response("bedrock")
     modes = {m["mode"] for m in config["auth_modes"]}
@@ -194,6 +236,18 @@ def test_get_provider_config_sagemaker_has_default_chain():
     config = get_provider_config_response("sagemaker")
     modes = {m["mode"] for m in config["auth_modes"]}
     assert "default_chain" in modes
+
+
+def test_get_provider_config_vertex_ai_has_default_chain():
+    config = get_provider_config_response("vertex_ai")
+    modes = {m["mode"] for m in config["auth_modes"]}
+    assert "default_chain" in modes
+
+    default_chain = next(m for m in config["auth_modes"] if m["mode"] == "default_chain")
+    assert default_chain["display_name"] == "Application Default Credentials"
+    assert default_chain["secret_fields"] == []
+    project_field = next(f for f in default_chain["config_fields"] if f["name"] == "vertex_project")
+    assert project_field["required"] is True
 
 
 _MOCK_PROVIDER_DATA = {
@@ -224,6 +278,9 @@ def mock_model_cost():
         mock.patch(
             "mlflow.utils.providers._load_provider", side_effect=_mock_load_provider
         ) as m_load,
+        mock.patch(
+            "mlflow.utils.providers._load_bundled_provider", side_effect=_mock_load_provider
+        ),
         mock.patch(
             "mlflow.utils.providers._list_provider_names",
             return_value=list(_MOCK_PROVIDER_DATA.keys()),
@@ -326,6 +383,10 @@ def test_cost_per_token_no_cache_cost_falls_back_to_input_rate():
             side_effect=lambda p: no_cache_data.get(p, {}),
         ),
         mock.patch(
+            "mlflow.utils.providers._load_bundled_provider",
+            side_effect=lambda p: no_cache_data.get(p, {}),
+        ),
+        mock.patch(
             "mlflow.utils.providers._list_provider_names",
             return_value=list(no_cache_data.keys()),
         ),
@@ -341,3 +402,153 @@ def test_cost_per_token_no_cache_cost_falls_back_to_input_rate():
         # cache_read: 200 * 1e-6 = 0.0002 (same rate as regular)
         assert input_cost == pytest.approx(0.001)
         assert output_cost == pytest.approx(0.001)
+
+
+def test_flatten_catalog_entry():
+    entry = {
+        "mode": "chat",
+        "context_window": {"max_input": 128000, "max_output": 16384},
+        "pricing": {
+            "input_per_million_tokens": 2.5,
+            "output_per_million_tokens": 10.0,
+            "cache_read_per_million_tokens": 1.25,
+            "cache_write_per_million_tokens": 5.0,
+        },
+        "capabilities": {
+            "function_calling": True,
+            "vision": True,
+            "reasoning": False,
+            "prompt_caching": True,
+            "response_schema": True,
+        },
+        "deprecation_date": "2026-01-01",
+    }
+    info = _flatten_catalog_entry(entry)
+    assert info["mode"] == "chat"
+    assert info["max_input_tokens"] == 128000
+    assert info["max_output_tokens"] == 16384
+    assert info["input_cost_per_token"] == pytest.approx(2.5e-6)
+    assert info["output_cost_per_token"] == pytest.approx(1e-5)
+    assert info["cache_read_input_token_cost"] == pytest.approx(1.25e-6)
+    assert info["cache_creation_input_token_cost"] == pytest.approx(5e-6)
+    assert info["supports_function_calling"] is True
+    assert info["supports_vision"] is True
+    assert info["supports_reasoning"] is False
+    assert info["deprecation_date"] == "2026-01-01"
+
+
+def test_flatten_catalog_entry_with_last_updated_at():
+    entry = {
+        "mode": "chat",
+        "capabilities": {
+            "function_calling": False,
+            "vision": False,
+            "reasoning": False,
+            "prompt_caching": False,
+            "response_schema": False,
+        },
+        "last_updated_at": "2025-01-15",
+    }
+    info = _flatten_catalog_entry(entry)
+    assert info["last_updated_at"] == "2025-01-15"
+
+
+def test_flatten_catalog_entry_without_last_updated_at():
+    entry = {
+        "mode": "chat",
+        "capabilities": {
+            "function_calling": False,
+            "vision": False,
+            "reasoning": False,
+            "prompt_caching": False,
+            "response_schema": False,
+        },
+    }
+    info = _flatten_catalog_entry(entry)
+    assert "last_updated_at" not in info
+
+
+def test_flatten_catalog_entry_with_modality_pricing():
+    entry = {
+        "mode": "embedding",
+        "context_window": {"max_input": 8172, "max_tokens": 8172},
+        "pricing": {
+            "input_per_million_tokens": 0.135,
+            "output_per_million_tokens": 0.0,
+            "modality": {
+                "image": {"input_per_million_tokens": 60.0},
+                "video": {"input_per_second": 0.0007},
+                "audio": {"input_per_second": 0.00014},
+            },
+        },
+        "capabilities": {
+            "function_calling": False,
+            "vision": True,
+            "reasoning": False,
+            "prompt_caching": False,
+            "response_schema": False,
+        },
+    }
+    info = _flatten_catalog_entry(entry)
+    assert info["mode"] == "embedding"
+    assert info["input_cost_per_token"] == pytest.approx(0.135e-6)
+    assert info["modality"] == {
+        "image": {"input_per_million_tokens": 60.0},
+        "video": {"input_per_second": 0.0007},
+        "audio": {"input_per_second": 0.00014},
+    }
+    assert info["supports_vision"] is True
+
+
+def test_flatten_catalog_entry_without_modality_pricing():
+    entry = {
+        "mode": "chat",
+        "pricing": {"input_per_million_tokens": 1.0, "output_per_million_tokens": 2.0},
+        "capabilities": {
+            "function_calling": False,
+            "vision": False,
+            "reasoning": False,
+            "prompt_caching": False,
+            "response_schema": False,
+        },
+    }
+    info = _flatten_catalog_entry(entry)
+    assert "modality" not in info
+
+
+def test_load_provider_uses_remote_when_available():
+    remote_data = {"test-model": {"mode": "chat", "input_cost_per_token": 1e-6}}
+    with mock.patch(
+        "mlflow.utils.providers._fetch_remote_provider", return_value=remote_data
+    ) as mock_remote:
+        result = _load_provider("openai")
+        mock_remote.assert_called_once_with("openai")
+        assert result is remote_data
+
+
+def test_load_provider_falls_back_to_bundled_when_remote_fails():
+    with mock.patch(
+        "mlflow.utils.providers._fetch_remote_provider", return_value=None
+    ) as mock_remote:
+        result = _load_provider("openai")
+        mock_remote.assert_called_once_with("openai")
+        assert len(result) > 0
+        assert "gpt-4o" in result
+
+
+def test_fetch_remote_provider_disabled_when_url_empty(monkeypatch):
+    monkeypatch.setenv("MLFLOW_MODEL_CATALOG_URI", "")
+    assert _fetch_remote_provider("openai") is None
+
+
+def test_fetch_remote_provider_supports_file_url(tmp_path, monkeypatch):
+    catalog = {
+        "schema_version": "1.0",
+        "models": {"test-model": {"mode": "chat", "pricing": {"input_per_million_tokens": 1.0}}},
+    }
+    (tmp_path / "test_provider.json").write_text(json.dumps(catalog))
+    monkeypatch.setenv("MLFLOW_MODEL_CATALOG_URI", tmp_path.as_uri())
+    _get_remote_cache().clear()
+    result = _fetch_remote_provider("test_provider")
+    assert result is not None
+    assert "test-model" in result

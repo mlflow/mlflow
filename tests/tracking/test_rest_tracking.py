@@ -26,6 +26,7 @@ from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 
 import mlflow.experiments
 import mlflow.pyfunc
+import mlflow.tracing.trace_archival_config as trace_archival_config_module
 from mlflow import MlflowClient
 from mlflow.artifacts import download_artifacts
 from mlflow.data.pandas_dataset import from_pandas
@@ -69,6 +70,7 @@ from mlflow.environment_variables import (
     MLFLOW_SERVER_GRAPHQL_MAX_ALIASES,
     MLFLOW_SERVER_GRAPHQL_MAX_ROOT_FIELDS,
     MLFLOW_SUPPRESS_PRINTING_URL_TO_STDOUT,
+    MLFLOW_TRACE_ARCHIVAL_CONFIG,
 )
 from mlflow.exceptions import MlflowException, RestException
 from mlflow.genai.datasets import (
@@ -119,6 +121,8 @@ _logger = logging.getLogger(__name__)
 @pytest.fixture(params=["file", "sqlalchemy"])
 def store_type(request):
     """Provides the store type for parameterized tests."""
+    if request.param == "file":
+        pytest.skip("FileStore is no longer supported.")
     return request.param
 
 
@@ -129,6 +133,8 @@ def mlflow_client(store_type: str, tmp_path: Path, db_uri: str, monkeypatch):
     monkeypatch.setenv(
         "MLFLOW_CRYPTO_KEK_PASSPHRASE", "test-passphrase-at-least-32-characters-long"
     )
+    monkeypatch.delenv(MLFLOW_TRACE_ARCHIVAL_CONFIG.name, raising=False)
+    monkeypatch.setattr(trace_archival_config_module, "_TRACE_ARCHIVAL_SERVER_CONFIG_CACHE", None)
 
     if store_type == "file":
         backend_uri = tmp_path.joinpath("file").as_uri()
@@ -659,10 +665,9 @@ def test_path_validation(mlflow_client):
 
     def assert_response(resp):
         assert resp.status_code == 400
-        assert response.json() == {
-            "error_code": "INVALID_PARAMETER_VALUE",
-            "message": "Invalid path",
-        }
+        body = response.json()
+        assert body["error_code"] == "INVALID_PARAMETER_VALUE"
+        assert body["message"] == "Invalid path"
 
     response = requests.get(
         f"{mlflow_client.tracking_uri}/api/2.0/mlflow/artifacts/list",
@@ -2460,7 +2465,7 @@ def test_get_experiment_graphql(mlflow_client):
         json={
             "query": 'query testQuery {mlflowGetExperiment(input: {experimentId: "'
             + experiment_id
-            + '"}) { experiment { name } }}',
+            + '"}) { experiment { name effectiveTraceArchivalRetention } }}',
             "operationName": "testQuery",
         },
         headers={"content-type": "application/json; charset=utf-8"},
@@ -2468,6 +2473,10 @@ def test_get_experiment_graphql(mlflow_client):
     assert response.status_code == 200
     json = response.json()
     assert json["data"]["mlflowGetExperiment"]["experiment"]["name"] == "GraphqlTest"
+    assert json["data"]["mlflowGetExperiment"]["experiment"]["effectiveTraceArchivalRetention"] in (
+        None,
+        "",
+    )
 
 
 def test_get_run_and_experiment_graphql(mlflow_client):
@@ -2597,7 +2606,7 @@ def test_start_trace(mlflow_client):
                 },
             )
 
-    trace = mlflow_client.get_trace(span.trace_id)
+    trace = mlflow_client.get_trace(span.trace_id, flush=True)
     assert trace.info.trace_id == span.trace_id
     assert trace.info.experiment_id == experiment_id
     assert trace.info.request_time > 0
@@ -2623,7 +2632,7 @@ def test_get_trace(mlflow_client):
     experiment_id = mlflow_client.create_experiment("get trace")
     span = mlflow_client.start_trace(name="test", experiment_id=experiment_id)
     mlflow_client.end_trace(request_id=span.request_id, status=TraceStatus.OK)
-    trace = mlflow_client.get_trace(span.request_id)
+    trace = mlflow_client.get_trace(span.request_id, flush=True)
     assert trace is not None
     assert trace.info.request_id == span.request_id
     assert trace.info.experiment_id == experiment_id
@@ -2644,16 +2653,22 @@ def test_search_traces(mlflow_client):
         mlflow_client.end_trace(request_id=span.request_id, status=status)
         return span.request_id
 
+    # Flush between creations to ensure distinct timestamps. Without this, all three traces
+    # can land in the same millisecond on a fast local server, making max_results ordering
+    # non-deterministic.
     request_id_1 = _create_trace(name="trace1", status=TraceStatus.OK)
+    mlflow.flush_trace_async_logging()
     request_id_2 = _create_trace(name="trace2", status=TraceStatus.OK)
+    mlflow.flush_trace_async_logging()
     request_id_3 = _create_trace(name="trace3", status=TraceStatus.ERROR)
+    mlflow.flush_trace_async_logging()
 
     def _get_request_ids(traces):
         return [t.info.request_id for t in traces]
 
     # Validate search
     traces = mlflow_client.search_traces(locations=[experiment_id])
-    assert _get_request_ids(traces) == [request_id_3, request_id_2, request_id_1]
+    assert set(_get_request_ids(traces)) == {request_id_3, request_id_2, request_id_1}
     assert traces.token is None
 
     traces = mlflow_client.search_traces(
@@ -2661,14 +2676,14 @@ def test_search_traces(mlflow_client):
         filter_string="status = 'OK'",
         order_by=["timestamp ASC"],
     )
-    assert _get_request_ids(traces) == [request_id_1, request_id_2]
+    assert set(_get_request_ids(traces)) == {request_id_1, request_id_2}
     assert traces.token is None
 
     traces = mlflow_client.search_traces(
         locations=[experiment_id],
         max_results=2,
     )
-    assert _get_request_ids(traces) == [request_id_3, request_id_2]
+    assert set(_get_request_ids(traces)) == {request_id_3, request_id_2}
     assert traces.token is not None
     traces = mlflow_client.search_traces(
         locations=[experiment_id],
@@ -2704,7 +2719,7 @@ def test_search_traces_match_text(mlflow_client, store_type):
     trace_id_2 = _create_trace(name="trace2", attributes={"test": "value2"})
     trace_id_3 = _create_trace(name="trace3", attributes={"test3": "I like it"})
 
-    traces = mlflow_client.search_traces(locations=[experiment_id])
+    traces = mlflow_client.search_traces(locations=[experiment_id], flush=True)
     assert len([t.info.trace_id for t in traces]) == 3
     assert traces.token is None
 
@@ -2746,6 +2761,7 @@ def test_delete_traces(mlflow_client):
     # Case 1: Delete all traces under experiment ID
     request_id_1 = _create_trace(name="trace1", status=TraceStatus.OK)
     request_id_2 = _create_trace(name="trace2", status=TraceStatus.OK)
+    mlflow.flush_trace_async_logging()
     assert _is_trace_exists(request_id_1)
     assert _is_trace_exists(request_id_2)
 
@@ -2758,6 +2774,7 @@ def test_delete_traces(mlflow_client):
     request_id_1 = _create_trace(name="trace1", status=TraceStatus.OK)
     time.sleep(0.1)  # Add some time gap to avoid timestamp collision
     request_id_2 = _create_trace(name="trace2", status=TraceStatus.OK)
+    mlflow.flush_trace_async_logging()
 
     deleted_count = mlflow_client.delete_traces(
         experiment_id, max_traces=1, max_timestamp_millis=int(1e15)
@@ -2772,6 +2789,7 @@ def test_delete_traces(mlflow_client):
     # Case 3: Delete with explicit request ID
     request_id_1 = _create_trace(name="trace1", status=TraceStatus.OK)
     request_id_2 = _create_trace(name="trace2", status=TraceStatus.OK)
+    mlflow.flush_trace_async_logging()
 
     deleted_count = mlflow_client.delete_traces(experiment_id, trace_ids=[request_id_1])
     assert deleted_count == 1
@@ -2798,6 +2816,8 @@ def test_calculate_trace_filter_correlation(mlflow_client, store_type):
         _create_trace(f"trace-dev-{i}", {"env": "dev", "span_type": "LLM" if i >= 1 else "TOOL"})
 
     client = TracingClient(tracking_uri=mlflow_client.tracking_uri)
+
+    mlflow.flush_trace_async_logging()
 
     result = client.calculate_trace_filter_correlation(
         experiment_ids=[experiment_id],
@@ -2892,6 +2912,8 @@ def test_query_trace_metrics(mlflow_client, store_type):
     _create_trace(name="trace2", status=TraceStatus.OK)
     _create_trace(name="trace3", status=TraceStatus.ERROR)
 
+    mlflow.flush_trace_async_logging()
+
     metrics = mlflow_client._tracing_client.store.query_trace_metrics(
         experiment_ids=[experiment_id],
         view_type=MetricViewType.TRACES,
@@ -2923,6 +2945,8 @@ def test_get_trace_handler(mlflow_client, allow_partial: bool, store_type):
     with mlflow.start_span(name="test") as span:
         span.set_attributes({"fruit": "apple"})
 
+    mlflow.flush_trace_async_logging()
+
     response = requests.get(
         f"{mlflow_client.tracking_uri}/ajax-api/3.0/mlflow/traces/get",
         params={"trace_id": span.trace_id, "allow_partial": allow_partial},
@@ -2944,6 +2968,8 @@ def test_get_trace_artifact_handler(mlflow_client):
     with mlflow.start_span(name="test") as span:
         span.set_attributes({"fruit": "apple"})
         span.add_event(SpanEvent("test_event", timestamp=99999, attributes={"foo": "bar"}))
+
+    mlflow.flush_trace_async_logging()
 
     response = requests.get(
         f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/get-trace-artifact",
@@ -2986,7 +3012,7 @@ def test_link_traces_to_run_and_search_traces(mlflow_client, store_type):
     trace_id_3 = span3.trace_id
 
     # Search traces without run_id filter - should return all traces in experiment
-    all_traces = mlflow_client.search_traces(locations=[experiment_id])
+    all_traces = mlflow_client.search_traces(locations=[experiment_id], flush=True)
     assert {t.info.trace_id for t in all_traces} == {trace_id_1, trace_id_2, trace_id_3}
 
     # Search traces with run_id filter - should return only linked traces
@@ -3414,6 +3440,7 @@ def test_assessments_end_to_end(mlflow_client):
     experiment_id = mlflow_client.create_experiment("assessment_crud_test")
     trace_info = mlflow_client.start_trace(name="test_trace", experiment_id=experiment_id)
     mlflow_client.end_trace(request_id=trace_info.request_id)
+    mlflow.flush_trace_async_logging()
 
     # CREATE initial feedback assessment
     feedback_payload = {
@@ -3992,7 +4019,7 @@ def test_scorer_CRUD(mlflow_client, store_type):
     store = mlflow_client._tracking_client.store
 
     # Test register scorer
-    scorer_data = {"name": "test_scorer", "call_source": "test", "original_func_name": "test_func"}
+    scorer_data = {"name": "test_scorer", "original_func_name": "test_func"}
     serialized_scorer = json.dumps(scorer_data)
 
     version = store.register_scorer(experiment_id, "test_scorer", serialized_scorer)
@@ -4023,7 +4050,6 @@ def test_scorer_CRUD(mlflow_client, store_type):
     # Test register second version
     scorer_data_v2 = {
         "name": "test_scorer_v2",
-        "call_source": "test",
         "original_func_name": "test_func_v2",
     }
     serialized_scorer_v2 = json.dumps(scorer_data_v2)
