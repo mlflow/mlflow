@@ -43,3 +43,7 @@ Build mlflow server args from .Values.server.
 - --{{ . | replace "_" "-" }}
 {{- end }}
 {{- end }}
+
+{{- define "mlflow.migrationJobName" -}}
+{{ include "mlflow.fullname" . }}-migrate
+{{- end }}
