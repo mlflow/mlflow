@@ -58,7 +58,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-05-20"
     },
     "databricks-claude-opus-4": {
       "mode": "chat",
@@ -78,7 +78,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-05-20"
     },
     "databricks-claude-opus-4-1": {
       "mode": "chat",
@@ -98,7 +98,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-05-20"
     },
     "databricks-claude-opus-4-5": {
       "mode": "chat",
@@ -118,7 +118,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-05-20"
     },
     "databricks-claude-opus-4-6": {
       "mode": "chat",
@@ -128,8 +128,8 @@
         "max_tokens": 64000
       },
       "pricing": {
-        "input_per_million_tokens": 15.00002,
-        "output_per_million_tokens": 75.00003
+        "input_per_million_tokens": 5.00003,
+        "output_per_million_tokens": 25.00001
       },
       "capabilities": {
         "function_calling": true,
@@ -148,8 +148,8 @@
         "max_tokens": 64000
       },
       "pricing": {
-        "input_per_million_tokens": 15.00002,
-        "output_per_million_tokens": 75.00003
+        "input_per_million_tokens": 5.00003,
+        "output_per_million_tokens": 25.00001
       },
       "capabilities": {
         "function_calling": true,
@@ -178,7 +178,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-05-20"
     },
     "databricks-claude-sonnet-4-1": {
       "mode": "chat",
@@ -198,7 +198,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-05-20"
     },
     "databricks-claude-sonnet-4-5": {
       "mode": "chat",
@@ -218,7 +218,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-05-20"
     },
     "databricks-claude-sonnet-4-6": {
       "mode": "chat",
@@ -248,8 +248,8 @@
         "max_tokens": 65535
       },
       "pricing": {
-        "input_per_million_tokens": 0.30002,
-        "output_per_million_tokens": 2.49998
+        "input_per_million_tokens": 0.37499,
+        "output_per_million_tokens": 3.12501
       },
       "capabilities": {
         "function_calling": true,
@@ -258,7 +258,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-05-20"
     },
     "databricks-gemini-2-5-pro": {
       "mode": "chat",
@@ -268,8 +268,8 @@
         "max_tokens": 65536
       },
       "pricing": {
-        "input_per_million_tokens": 1.24999,
-        "output_per_million_tokens": 9.99999
+        "input_per_million_tokens": 1.56247,
+        "output_per_million_tokens": 12.49997
       },
       "capabilities": {
         "function_calling": true,
@@ -278,7 +278,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-05-20"
     },
     "databricks-gemini-3-1-flash-lite": {
       "mode": "chat",
@@ -288,8 +288,8 @@
         "max_tokens": 65535
       },
       "pricing": {
-        "input_per_million_tokens": 0.09999,
-        "output_per_million_tokens": 0.39998
+        "input_per_million_tokens": 0.31248,
+        "output_per_million_tokens": 1.87502
       },
       "capabilities": {
         "function_calling": true,
@@ -308,8 +308,8 @@
         "max_tokens": 65536
       },
       "pricing": {
-        "input_per_million_tokens": 1.24999,
-        "output_per_million_tokens": 9.99999
+        "input_per_million_tokens": 2.49998,
+        "output_per_million_tokens": 15.00002
       },
       "capabilities": {
         "function_calling": true,
@@ -328,8 +328,8 @@
         "max_tokens": 65535
       },
       "pricing": {
-        "input_per_million_tokens": 0.30002,
-        "output_per_million_tokens": 2.49998
+        "input_per_million_tokens": 1.87502,
+        "output_per_million_tokens": 11.24998
       },
       "capabilities": {
         "function_calling": true,
@@ -348,8 +348,8 @@
         "max_tokens": 65535
       },
       "pricing": {
-        "input_per_million_tokens": 0.30002,
-        "output_per_million_tokens": 2.49998
+        "input_per_million_tokens": 0.62503,
+        "output_per_million_tokens": 3.74997
       },
       "capabilities": {
         "function_calling": true,
@@ -368,8 +368,8 @@
         "max_tokens": 65536
       },
       "pricing": {
-        "input_per_million_tokens": 1.24999,
-        "output_per_million_tokens": 9.99999
+        "input_per_million_tokens": 2.49998,
+        "output_per_million_tokens": 15.00002
       },
       "capabilities": {
         "function_calling": true,
@@ -403,7 +403,7 @@
     "databricks-gpt-5": {
       "mode": "chat",
       "context_window": {
-        "max_input": 272000,
+        "max_input": 400000,
         "max_output": 128000,
         "max_tokens": 128000
       },
@@ -418,12 +418,12 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-05-20"
     },
     "databricks-gpt-5-1": {
       "mode": "chat",
       "context_window": {
-        "max_input": 272000,
+        "max_input": 400000,
         "max_output": 128000,
         "max_tokens": 128000
       },
@@ -438,7 +438,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-05-20"
     },
     "databricks-gpt-5-1-codex-max": {
       "mode": "chat",
@@ -448,8 +448,8 @@
         "max_tokens": 128000
       },
       "pricing": {
-        "input_per_million_tokens": 3.00001,
-        "output_per_million_tokens": 15.00002
+        "input_per_million_tokens": 1.24999,
+        "output_per_million_tokens": 9.99999
       },
       "capabilities": {
         "function_calling": false,
@@ -468,8 +468,8 @@
         "max_tokens": 128000
       },
       "pricing": {
-        "input_per_million_tokens": 0.49998,
-        "output_per_million_tokens": 2.00001
+        "input_per_million_tokens": 0.24997,
+        "output_per_million_tokens": 1.99997
       },
       "capabilities": {
         "function_calling": false,
@@ -488,8 +488,8 @@
         "max_tokens": 128000
       },
       "pricing": {
-        "input_per_million_tokens": 1.24999,
-        "output_per_million_tokens": 9.99999
+        "input_per_million_tokens": 1.75,
+        "output_per_million_tokens": 14.0
       },
       "capabilities": {
         "function_calling": false,
@@ -508,8 +508,8 @@
         "max_tokens": 128000
       },
       "pricing": {
-        "input_per_million_tokens": 1.24999,
-        "output_per_million_tokens": 9.99999
+        "input_per_million_tokens": 1.75,
+        "output_per_million_tokens": 14.0
       },
       "capabilities": {
         "function_calling": false,
@@ -528,8 +528,8 @@
         "max_tokens": 128000
       },
       "pricing": {
-        "input_per_million_tokens": 1.24999,
-        "output_per_million_tokens": 9.99999
+        "input_per_million_tokens": 1.75,
+        "output_per_million_tokens": 14.0
       },
       "capabilities": {
         "function_calling": false,
@@ -548,8 +548,8 @@
         "max_tokens": 128000
       },
       "pricing": {
-        "input_per_million_tokens": 1.24999,
-        "output_per_million_tokens": 9.99999
+        "input_per_million_tokens": 2.49998,
+        "output_per_million_tokens": 15.00002
       },
       "capabilities": {
         "function_calling": false,
@@ -568,8 +568,8 @@
         "max_tokens": 128000
       },
       "pricing": {
-        "input_per_million_tokens": 0.24997,
-        "output_per_million_tokens": 1.99997
+        "input_per_million_tokens": 0.74998,
+        "output_per_million_tokens": 4.50002
       },
       "capabilities": {
         "function_calling": false,
@@ -588,8 +588,8 @@
         "max_tokens": 128000
       },
       "pricing": {
-        "input_per_million_tokens": 0.04998,
-        "output_per_million_tokens": 0.39998
+        "input_per_million_tokens": 0.19999,
+        "output_per_million_tokens": 1.24999
       },
       "capabilities": {
         "function_calling": false,
@@ -608,8 +608,8 @@
         "max_tokens": 128000
       },
       "pricing": {
-        "input_per_million_tokens": 1.24999,
-        "output_per_million_tokens": 9.99999
+        "input_per_million_tokens": 5.00003,
+        "output_per_million_tokens": 30.00003
       },
       "capabilities": {
         "function_calling": false,
@@ -628,8 +628,8 @@
         "max_tokens": 128000
       },
       "pricing": {
-        "input_per_million_tokens": 2.49998,
-        "output_per_million_tokens": 19.99998
+        "input_per_million_tokens": 30.00003,
+        "output_per_million_tokens": 180.00003
       },
       "capabilities": {
         "function_calling": false,
@@ -643,7 +643,7 @@
     "databricks-gpt-5-mini": {
       "mode": "chat",
       "context_window": {
-        "max_input": 272000,
+        "max_input": 400000,
         "max_output": 128000,
         "max_tokens": 128000
       },
@@ -658,12 +658,12 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-05-20"
     },
     "databricks-gpt-5-nano": {
       "mode": "chat",
       "context_window": {
-        "max_input": 272000,
+        "max_input": 400000,
         "max_output": 128000,
         "max_tokens": 128000
       },
@@ -678,7 +678,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-05-20"
     },
     "databricks-gpt-oss-120b": {
       "mode": "chat",
