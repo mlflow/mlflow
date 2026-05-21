@@ -310,9 +310,10 @@ export const useRunsColumnDefinitions = ({
 
     // If we are only comparing runs, that's it - we cut off the list after the run name column.
     // This behavior might be revisited and changed later.
-    if (isComparingRuns) {
-      return columns;
-    }
+    // [EDIT]: We enable columns in CHART mode as requested.
+    // if (isComparingRuns) {
+    //   return columns;
+    // }
 
     // Date and expander selection column
     columns.push({
@@ -558,7 +559,7 @@ export const useRunsColumnDefinitions = ({
   );
 
   useEffect(() => {
-    if (!columnApi || isComparingRuns) {
+    if (!columnApi) {
       return;
     }
     for (const canonicalKey of canonicalSortKeys) {
