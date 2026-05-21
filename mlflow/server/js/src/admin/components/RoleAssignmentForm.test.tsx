@@ -19,6 +19,8 @@ jest.mock('../hooks', () => ({
         { id: 1, name: 'reader', workspace: 'default', description: null, permissions: [] },
         { id: 2, name: 'writer', workspace: 'default', description: null, permissions: [] },
         { id: 3, name: 'admin', workspace: 'default', description: null, permissions: [] },
+        // Synthetic per-user role — must be filtered out of the dropdown.
+        { id: 99, name: '__user_99__', workspace: 'default', description: null, permissions: [] },
       ],
     },
     isLoading: false,
@@ -66,5 +68,12 @@ describe('RoleAssignmentForm — multi-select trigger', () => {
     expect(readerOption).toHaveAttribute('aria-selected', 'true');
     expect(writerOption).toHaveAttribute('aria-selected', 'false');
     expect(adminOption).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('hides synthetic __user_N__ roles from the dropdown options', async () => {
+    renderWithDesignSystem(<RoleAssignmentForm value={{ roleIds: [] }} onChange={() => {}} />);
+    await userEvent.click(screen.getByRole('combobox'));
+    await screen.findByRole('option', { name: /default\/reader/ });
+    expect(screen.queryByRole('option', { name: /__user_99__/ })).not.toBeInTheDocument();
   });
 });
