@@ -2,7 +2,7 @@
 import importlib.metadata
 import re
 
-VERSION = "3.12.1.dev0"
+VERSION = "3.13.0rc0"
 
 
 def is_release_version():
