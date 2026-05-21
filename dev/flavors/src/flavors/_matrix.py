@@ -1,31 +1,32 @@
 """
-A script to set a matrix for the cross version tests for MLflow Models / autologging integrations.
+Generate the cross-version test matrix from `mlflow/ml-package-versions.yml`.
 
-# Usage:
+# Usage
 
 ```
 # Test all items
-python dev/set_matrix.py
+flavors matrix
 
 # Exclude items for dev versions
-python dev/set_matrix.py --no-dev
+flavors matrix --no-dev
 
 # Test items affected by config file updates
-python dev/set_matrix.py --ref-versions-yaml /path/to/ref-versions.yml
+flavors matrix --ref-versions-yaml /path/to/ref-versions.yml
 
 # Test items affected by flavor module updates
-python dev/set_matrix.py --changed-files "mlflow/sklearn/__init__.py"
+flavors matrix --changed-files "mlflow/sklearn/__init__.py"
 
 # Test a specific flavor
-python dev/set_matrix.py --flavors sklearn
+flavors matrix --flavors sklearn
 
 # Test a specific version
-python dev/set_matrix.py --versions 1.1.1
+flavors matrix --versions 1.1.1
 ```
 """
 
+from __future__ import annotations
+
 import argparse
-import asyncio
 import json
 import os
 import re
@@ -34,123 +35,19 @@ import shutil
 import sys
 import warnings
 from collections import defaultdict
-from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterator, TypeVar
 
 import requests
-import yaml
 from packaging.specifiers import SpecifierSet
-from packaging.version import Version as OriginalVersion
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict
 from pypi import Package, get_packages
 
-VERSIONS_YAML_PATH = "mlflow/ml-package-versions.yml"
-DEV_VERSION = "dev"
-# Treat "dev" as "newer than any existing versions"
-DEV_NUMERIC = "9999.9999.9999"
+from flavors._loader import VERSIONS_YAML_PATH, load, load_or_default
+from flavors._releases import get_released_versions
+from flavors._schema import DEV_NUMERIC, DEV_VERSION, FlavorConfig, PackageInfo, Version
 
 T = TypeVar("T")
-
-
-class Version(OriginalVersion):
-    def __init__(self, version: str, release_date: datetime | None = None):
-        self._is_dev = version == DEV_VERSION
-        self._release_date = release_date
-        super().__init__(DEV_NUMERIC if self._is_dev else version)
-
-    def __str__(self):
-        return DEV_VERSION if self._is_dev else super().__str__()
-
-    @classmethod
-    def create_dev(cls):
-        return cls(DEV_VERSION, datetime.now(timezone.utc))
-
-    @property
-    def days_since_release(self) -> int | None:
-        """
-        Compute the number of days since this version was released.
-        Returns None if release date is not available.
-        """
-        if self._release_date is None:
-            return None
-        delta = datetime.now(timezone.utc) - self._release_date
-        return delta.days
-
-
-class PackageInfo(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    pip_release: str
-    install_dev: str | None = None
-    module_name: str | None = None
-    genai: bool = False
-    repo: str | None = None
-
-
-class TestConfig(BaseModel):
-    minimum: Version
-    maximum: Version
-    unsupported: list[SpecifierSet] | None = None
-    requirements: dict[str, list[str]] | None = None
-    python: dict[str, str] | None = None
-    runs_on: dict[str, str] | None = None
-    java: dict[str, str] | None = None
-    run: str
-    allow_unreleased_max_version: bool | None = None
-    pre_test: str | None = None
-    test_every_n_versions: int = 1
-    test_tracing_sdk: bool = False
-    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
-
-    @field_validator("minimum", mode="before")
-    @classmethod
-    def validate_minimum(cls, v):
-        return Version(v)
-
-    @field_validator("maximum", mode="before")
-    @classmethod
-    def validate_maximum(cls, v):
-        return Version(v)
-
-    @field_validator("unsupported", mode="before")
-    @classmethod
-    def validate_unsupported(cls, v):
-        return [SpecifierSet(x) for x in v] if v else None
-
-    @field_validator("python", mode="before")
-    @classmethod
-    def validate_python_requirements(cls, v):
-        if v is None:
-            return v
-
-        # Read the minimum Python version from .python-version file
-        python_version_file = Path(".python-version")
-        min_python_version = python_version_file.read_text().strip()
-
-        # Check if any value in the python dict matches the minimum version
-        for version in v.values():
-            if version == min_python_version:
-                raise ValueError(f"Unnecessary Python version requirement: {version}")
-
-        return v
-
-
-class FlavorConfig(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    package_info: PackageInfo
-    models: TestConfig | None = None
-    autologging: TestConfig | None = None
-
-    @property
-    def categories(self) -> list[tuple[str, TestConfig]]:
-        cs = []
-        if self.models:
-            cs.append(("models", self.models))
-        if self.autologging:
-            cs.append(("autologging", self.autologging))
-        return cs
 
 
 class MatrixItem(BaseModel):
@@ -172,33 +69,6 @@ class MatrixItem(BaseModel):
 
     def __hash__(self):
         return hash(frozenset(dict(self)))
-
-
-def read_yaml(location, if_error=None):
-    try:
-        with open(location) as f:
-            yaml_dict = yaml.safe_load(f)
-        return {name: FlavorConfig(**cfg) for name, cfg in yaml_dict.items()}
-    except Exception as e:
-        if if_error is not None:
-            print(f"Failed to read '{location}' due to: `{e}`")
-            return if_error
-        raise
-
-
-RELEASE_CUTOFF_DAYS = 7
-
-
-def get_released_versions(package: Package) -> list[Version]:
-    cutoff = datetime.now(tz=timezone.utc) - timedelta(days=RELEASE_CUTOFF_DAYS)
-    versions: list[Version] = []
-    for release in package.releases:
-        if release.yanked or release.upload_time >= cutoff:
-            continue
-        if release.version.is_devrelease or release.version.is_prerelease:
-            continue
-        versions.append(Version(str(release.version), release.upload_time))
-    return versions
 
 
 def get_latest_micro_versions(versions):
@@ -380,15 +250,14 @@ def split_by_comma(x):
     return [s for item in x.split(",") if (s := item.strip())]
 
 
-def parse_args(args):
-    parser = argparse.ArgumentParser(description="Set a test matrix for the cross version tests")
+def add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--versions-yaml",
         required=False,
-        default="mlflow/ml-package-versions.yml",
+        default=VERSIONS_YAML_PATH,
         help=(
-            "URL or local file path of the config yaml. Defaults to "
-            "'mlflow/ml-package-versions.yml' on the branch where this script is running."
+            f"Local file path of the config yaml. Defaults to '{VERSIONS_YAML_PATH}' "
+            "on the branch where this script is running."
         ),
     )
     parser.add_argument(
@@ -396,7 +265,7 @@ def parse_args(args):
         required=False,
         default=None,
         help=(
-            "URL or local file path of the reference config yaml which will be compared with the "
+            "Local file path of the reference config yaml which will be compared with the "
             "config specified by `--versions-yaml` in order to identify the config updates."
         ),
     )
@@ -442,6 +311,10 @@ def parse_args(args):
         ),
     )
 
+
+def parse_args(args):
+    parser = argparse.ArgumentParser(description="Set a test matrix for the cross version tests")
+    add_arguments(parser)
     return parser.parse_args(args)
 
 
@@ -679,9 +552,9 @@ async def expand_config(config: dict[str, Any], *, is_ref: bool = False) -> set[
 def apply_changed_files(changed_files, matrix):
     all_flavors = {x.flavor for x in matrix}
     changed_flavors = (
-        # If this file has been changed, re-run all tests
+        # If matrix-generation code itself changed, re-run all tests.
         all_flavors
-        if str(Path(__file__).relative_to(Path.cwd())) in changed_files
+        if any(f.startswith("dev/flavors/") for f in changed_files)
         else get_changed_flavors(changed_files, all_flavors)
     )
 
@@ -692,9 +565,8 @@ def apply_changed_files(changed_files, matrix):
     return set(filter(lambda x: x.flavor in changed_flavors, matrix))
 
 
-async def generate_matrix(args):
-    args = parse_args(args)
-    config = read_yaml(args.versions_yaml)
+async def _generate(args: argparse.Namespace) -> set[MatrixItem]:
+    config = load(args.versions_yaml)
     if (args.ref_versions_yaml, args.changed_files).count(None) == 2:
         matrix = await expand_config(config)
     else:
@@ -702,7 +574,7 @@ async def generate_matrix(args):
         mat = await expand_config(config)
 
         if args.ref_versions_yaml:
-            ref_config = read_yaml(args.ref_versions_yaml, if_error={})
+            ref_config = load_or_default(args.ref_versions_yaml, default={})
             ref_matrix = await expand_config(ref_config, is_ref=True)
             matrix.update(mat.difference(ref_matrix))
 
@@ -726,6 +598,10 @@ async def generate_matrix(args):
         matrix = {max(group, key=lambda x: x.version) for group in groups.values()}
 
     return set(matrix)
+
+
+async def generate_matrix(args: list[str]) -> set[MatrixItem]:
+    return await _generate(parse_args(args))
 
 
 class CustomEncoder(json.JSONEncoder):
@@ -759,15 +635,15 @@ def split(matrix, n):
         yield chunk
 
 
-async def main(args):
+async def run(args: argparse.Namespace) -> None:
     # https://docs.github.com/en/actions/learn-github-actions/usage-limits-billing-and-administration#usage-limits
     # > A job matrix can generate a maximum of 256 jobs per workflow run.
     MAX_ITEMS = 256
     NUM_JOBS = 2
 
     print(divider("Parameters"))
-    print(json.dumps(args, indent=2))
-    matrix = await generate_matrix(args)
+    print(json.dumps(vars(args), indent=2, default=str))
+    matrix = await _generate(args)
     matrix = sorted(matrix, key=lambda x: (x.name, x.category, x.version))
     assert len(matrix) <= MAX_ITEMS * 2, f"Too many jobs: {len(matrix)} > {MAX_ITEMS * NUM_JOBS}"
     for idx, mat in enumerate(split(matrix, NUM_JOBS), start=1):
@@ -777,7 +653,3 @@ async def main(args):
         if "GITHUB_ACTIONS" in os.environ:
             set_action_output(f"matrix{idx}", json.dumps(mat, cls=CustomEncoder))
             set_action_output(f"is_matrix{idx}_empty", "true" if len(mat) == 0 else "false")
-
-
-if __name__ == "__main__":
-    asyncio.run(main(sys.argv[1:]))
