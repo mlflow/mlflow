@@ -91,6 +91,52 @@ garbageCollection:
       cpu: 500m
       memory: 512Mi
 
+# Database migrations via a Job that runs `mlflow db upgrade`.
+# Ensures the database schema is up-to-date before the MLflow Deployment
+# is started. Strongly recommended when using external databases
+# (PostgreSQL, MySQL, etc.) or when upgrading MLflow versions.
+migrations:
+  # Set to true to create the migration Job. Default: false.
+  enabled: false
+
+  # Helm hook weight. Lower number = executed earlier (before Deployment).
+  hookWeight: "-10"
+
+  # Maximum time (in seconds) the migration Job is allowed to run.
+  activeDeadlineSeconds: 300
+
+  # Number of retries before the Job is marked as failed.
+  backoffLimit: 3
+
+  # Resources for the migration Job container.
+  # Can be configured independently from the main MLflow Deployment.
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
+  # Extra environment variables added only to the migration Job.
+  extraEnv: []
+  # Example:
+  # extraEnv:
+  #   - name: MLFLOW_DATABASE_PASSWORD
+  #     valueFrom:
+  #       secretKeyRef:
+  #         name: mlflow-db-secret
+  #         key: password
+
+  # Extra volume mounts added only to the migration Job container.
+  extraVolumeMounts: []
+  # Example:
+  # extraVolumeMounts:
+  #   - name: custom-ca
+  #     mountPath: /etc/ssl/certs/custom-ca.crt
+  #     subPath: ca.crt
+  #     readOnly: true
+
 # Kubernetes Service exposing the MLflow server.
 service:
   # Service type: ClusterIP, NodePort, or LoadBalancer.
