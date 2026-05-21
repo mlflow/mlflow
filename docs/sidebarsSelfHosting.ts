@@ -109,7 +109,7 @@ const sidebarsSelfHosting: SidebarsConfig = {
     {
       type: 'doc',
       id: 'kubernetes-helm',
-      label: 'Kubernetes (Helm)',
+      label: 'Deploying MLflow on Kubernetes (Helm)',
     },
     {
       type: 'category',

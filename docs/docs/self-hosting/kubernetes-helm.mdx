@@ -192,6 +192,33 @@ garbageCollection:
 
 See [Getting Started with Workspaces](/self-hosting/workspaces/getting-started) for workspace creation and client configuration.
 
+### Basic HTTP Auth
+
+MLflow's built-in basic-auth plugin requires a CSRF secret key. Store it in a Kubernetes Secret:
+
+```bash
+kubectl create secret generic mlflow-auth-secret \
+  --namespace mlflow \
+  --from-literal=secret-key="$(openssl rand -hex 32)"
+```
+
+Reference the secret and enable the plugin in your values file:
+
+```yaml title="my-values.yaml"
+server:
+  value_options:
+    app_name: "basic-auth"
+
+env:
+  - name: MLFLOW_FLASK_SERVER_SECRET_KEY
+    valueFrom:
+      secretKeyRef:
+        name: mlflow-auth-secret
+        key: secret-key
+```
+
+See [Basic HTTP Auth](/self-hosting/security/basic-http-auth) for user and permission management.
+
 ## Configuration Reference
 
 ### Persistent Local Storage
@@ -206,7 +233,7 @@ storage:
 
 mlflow:
   backendStoreUri: "sqlite:////mlflow/mlflow.db"
-  defaultArtifactRoot: "/mlflow/artifacts"
+  artifactsDestination: "/mlflow/artifacts"
 ```
 
 ### Prometheus Metrics
@@ -253,8 +280,6 @@ server:
     host: "0.0.0.0"
     port: 5000
     workers: 4
-    # Enable basic-auth plugin:
-    # app_name: "basic-auth"
 
   flag_options: []
   # - no_serve_artifacts
