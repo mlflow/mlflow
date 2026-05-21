@@ -20,6 +20,7 @@ torch = false
 [manifest]
 members = [
     "clint",
+    "flavors",
     "mlflow",
     "mlflow-test-plugin",
     "pypi",
@@ -1865,6 +1866,27 @@ version = "25.12.19"
 source = { registry = "https://pypi.org/simple" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/e8/2d/d2a548598be01649e2d46231d151a6c56d10b964d94043a335ae56ea2d92/flatbuffers-25.12.19-py2.py3-none-any.whl", hash = "sha256:7634f50c427838bb021c2d66a3d1168e9d199b0607e6329399f04846d42e20b4", size = 26661, upload-time = "2025-12-19T23:16:13.622Z" },
+]
+
+[[package]]
+name = "flavors"
+version = "0.1.0"
+source = { editable = "dev/flavors" }
+dependencies = [
+    { name = "packaging" },
+    { name = "pydantic" },
+    { name = "pypi" },
+    { name = "pyyaml" },
+    { name = "requests" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "packaging" },
+    { name = "pydantic", specifier = ">=2.0" },
+    { name = "pypi", editable = "dev/pypi" },
+    { name = "pyyaml" },
+    { name = "requests" },
 ]
 
 [[package]]
@@ -3923,6 +3945,7 @@ dev = [
     { name = "aiohttp" },
     { name = "build" },
     { name = "clint" },
+    { name = "flavors" },
     { name = "mlflow-test-plugin" },
     { name = "mypy" },
     { name = "opentelemetry-exporter-otlp-proto-grpc" },
@@ -3984,6 +4007,7 @@ docs = [
 lint = [
     { name = "aiohttp" },
     { name = "clint" },
+    { name = "flavors" },
     { name = "mypy" },
     { name = "packaging" },
     { name = "pre-commit" },
@@ -4112,6 +4136,7 @@ dev = [
     { name = "aiohttp" },
     { name = "build" },
     { name = "clint", editable = "dev/clint" },
+    { name = "flavors", editable = "dev/flavors" },
     { name = "mlflow-test-plugin", editable = "tests/resources/mlflow-test-plugin" },
     { name = "mypy", specifier = "==1.17.1" },
     { name = "opentelemetry-exporter-otlp-proto-grpc" },
@@ -4171,6 +4196,7 @@ docs = [
 lint = [
     { name = "aiohttp" },
     { name = "clint", editable = "dev/clint" },
+    { name = "flavors", editable = "dev/flavors" },
     { name = "mypy", specifier = "==1.17.1" },
     { name = "packaging", specifier = ">=25.0" },
     { name = "pre-commit", specifier = "==4.0.1" },
