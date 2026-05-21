@@ -44,19 +44,16 @@ export const useSetInitialTimeFilter = ({
     sqlWarehouseId,
   });
 
-  // endTime must come from the response (stable across renders), not
-  // `new Date()`, otherwise this effect's deps churn and refetch in a loop.
   useEffect(() => {
     if (!shouldFetchForEmptyCheck || emptyCheckLoading || !emptyCheckTraces || emptyCheckTraces.length === 0) {
       return;
     }
-    const newestTrace = emptyCheckTraces[0];
     const oldestTrace = emptyCheckTraces[emptyCheckTraces.length - 1];
     setMonitoringFilters(
       {
         startTimeLabel: 'CUSTOM',
         startTime: oldestTrace.request_time,
-        endTime: newestTrace.request_time,
+        endTime: new Date().toISOString(),
       },
       true,
     );

@@ -10,7 +10,7 @@ import { FormattedMessage } from '@databricks/i18n';
 import { Button, DangerIcon, Empty, ParagraphSkeleton, SearchIcon } from '@databricks/design-system';
 import { getNamedDateFilters } from './utils/dateUtils';
 import { useGetExperimentQuery } from '@mlflow/mlflow/src/experiment-tracking/hooks/useExperimentQuery';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useIntl } from '@databricks/i18n';
 import {
   useExperimentKind,
@@ -52,17 +52,15 @@ export const TracesV3EmptyState = (props: {
     refetchInterval: isCallDisabled || hasSeenTrace ? false : EMPTY_STATE_POLL_INTERVAL_MS,
   });
 
-  // Track whether the probe has settled at least once since this mount, so
-  // `keepPreviousData` cached values from prior activity don't briefly drive
-  // the render or fire `refresh()` on remount (e.g. after a delete-all).
-  const [initialFetchDone, setInitialFetchDone] = useState(false);
-  useEffect(() => {
-    if (!isFetching && !initialFetchDone) {
-      setInitialFetchDone(true);
-    }
-  }, [isFetching, initialFetchDone]);
+  // Gate `hasAnyTraces` on a fresh fetch so `keepPreviousData` cached values
+  // from prior activity don't briefly drive the render or fire `refresh()` on
+  // remount (e.g. after a delete-all). One-way latch — a ref is enough.
+  const initialFetchDoneRef = useRef(false);
+  if (!isFetching && !initialFetchDoneRef.current) {
+    initialFetchDoneRef.current = true;
+  }
 
-  const hasAnyTraces = initialFetchDone && Boolean(traces && traces.length > 0);
+  const hasAnyTraces = initialFetchDoneRef.current && Boolean(traces && traces.length > 0);
 
   useEffect(() => {
     if (hasAnyTraces && !hasSeenTrace) {
