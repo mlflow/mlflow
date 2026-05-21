@@ -203,7 +203,6 @@ describe('wal/storage', () => {
   });
 
   it('does not double-write records appended between the startSize stat and readPending', async () => {
-
     await appendRecord(makeRecord('a'));
     const walPath = getWalPath();
 
