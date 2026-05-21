@@ -62,7 +62,7 @@ kubectl port-forward -n mlflow svc/mlflow-mlflow 5000:5000
 
 Open [http://localhost:5000](http://localhost:5000) in your browser.
 
-:::warning SQLite is not production-safe
+:::warning[SQLite is not production-safe]
 
 SQLite and local file storage are not suitable for multi-user or high-concurrency deployments.
 For production, use a PostgreSQL backend and a cloud object store. See [Production Deployment](#production-deployment) below.
@@ -310,7 +310,7 @@ helm upgrade mlflow ./charts \
 helm uninstall mlflow --namespace mlflow
 ```
 
-:::warning PersistentVolumeClaims are not deleted
+:::warning[PersistentVolumeClaims are not deleted]
 
 `helm uninstall` does not remove PersistentVolumeClaims. If `storage.enabled=true`, delete the PVC manually after uninstalling:
 
