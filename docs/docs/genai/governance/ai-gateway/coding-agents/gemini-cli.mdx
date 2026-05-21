@@ -18,14 +18,14 @@ Route [Gemini CLI](https://github.com/google-gemini/gemini-cli) through the MLfl
 
 ## Step 1: Create a Gemini Endpoint
 
-Navigate to the **AI Gateway** tab at `http://localhost:5000/#/gateway` and click **Gemini CLI** in the quick start. Then click "create" to create an endpoint.
+Navigate to the **AI Gateway** tab at `http://localhost:5000/#/gateway` and click **Gemini CLI** in the quick start. Then click "create" to create an endpoint. The endpoint name is pre-filled as `gemini-cli` — you can change it, but make sure to use the same name in the next step.
 
 ## Step 2: Configure Environment Variables
 
 Set the following environment variables so Gemini CLI routes through the gateway and uses your endpoint:
 
 ```bash
-export GOOGLE_GEMINI_BASE_URL="http://localhost:5000/gateway/proxy/my-gemini-endpoint"
+export GOOGLE_GEMINI_BASE_URL="http://localhost:5000/gateway/proxy/gemini-cli"
 export GEMINI_API_KEY="your-google-api-key"
 ```
 

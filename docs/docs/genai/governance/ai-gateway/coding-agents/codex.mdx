@@ -18,14 +18,14 @@ Route [OpenAI Codex](https://github.com/openai/codex) through the MLflow AI Gate
 
 ## Step 1: Create an OpenAI Endpoint
 
-Navigate to the **AI Gateway** tab at `http://localhost:5000/#/gateway` and click **Codex** in the quick start. Then click "create" to create an endpoint.
+Navigate to the **AI Gateway** tab at `http://localhost:5000/#/gateway` and click **OpenAI Codex** in the quick start. Then click "create" to create an endpoint. The endpoint name is pre-filled as `codex` — you can change it, but make sure to use the same name in the next step.
 
 ## Step 2: Run Codex
 
 Configure Codex to point to the gateway base URL and run it.
 
 ```bash
-codex --config 'openai_base_url="http://localhost:5000/gateway/proxy/my-codex-endpoint/v1"'
+codex --config 'openai_base_url="http://localhost:5000/gateway/proxy/codex/v1"'
 ```
 
 For a persistent setup, add the same value to `~/.codex/config.toml`:
