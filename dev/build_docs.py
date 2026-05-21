@@ -113,6 +113,9 @@ def build_docs(args: argparse.Namespace) -> None:
     print(f"Building docs for MLflow {release_version}")
 
     subprocess.check_call(["uv", "sync", "--group", "docs", "--extra", "gateway"], cwd=mlflow_dir)
+    subprocess.check_call(
+        ["uv", "pip", "install", "-r", "requirements/torch.txt"], cwd=mlflow_dir
+    )
     docs_dir = mlflow_dir / "docs"
     env = {**os.environ, "GTM_ID": args.gtm_id}
     subprocess.check_call(["npm", "ci"], cwd=docs_dir, env=env)
