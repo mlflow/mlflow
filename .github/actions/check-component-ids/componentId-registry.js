@@ -1779,6 +1779,7 @@ module.exports = {
   "mlflow.overview.usage.traces.view_traces_link": "",
 
   // -- mlflow.playground --
+  "mlflow.playground.clear": "",
   "mlflow.playground.load_from_registry": "",
   "mlflow.playground.output.error": "",
   "mlflow.playground.params.drawer": "",

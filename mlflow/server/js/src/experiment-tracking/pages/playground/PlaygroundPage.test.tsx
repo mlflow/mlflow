@@ -77,15 +77,16 @@ describe('PlaygroundPage', () => {
     });
   });
 
-  it('renders the page header and the empty completion output by default', async () => {
+  it('renders the page header with a single empty user composer by default', async () => {
     renderPlayground();
 
     await waitFor(() => {
       expect(screen.getByText('Playground')).toBeInTheDocument();
     });
 
-    expect(screen.getByText('Submit a message to see the response here.')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Type a message')).toHaveValue('');
     expect(screen.getByRole('button', { name: /submit/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /clear conversation/i })).toBeDisabled();
     expect(screen.getByRole('button', { name: /load prompt from registry/i })).toBeInTheDocument();
   });
 
@@ -359,8 +360,12 @@ describe('PlaygroundPage', () => {
       );
     });
 
-    // The template in the message panel is preserved (un-substituted).
-    expect(screen.getByPlaceholderText('Type a message')).toHaveValue(template);
+    // The template in the user composer is preserved (un-substituted). After a
+    // successful submit the multi-turn flow appends a fresh empty composer, so
+    // we query by index — the first textarea is the original turn.
+    await waitFor(() => {
+      expect(screen.getAllByPlaceholderText('Type a message')[0]).toHaveValue(template);
+    });
   });
 
   const stubPromptVersion = (
@@ -505,6 +510,129 @@ describe('PlaygroundPage', () => {
       expect(screen.getByText('Chat completion failed')).toBeInTheDocument();
     });
     expect(screen.getByText('HTTP 400 — Gemini rejected schema: foo')).toBeInTheDocument();
+  });
+
+  it('appends the assistant reply as a read-only Markdown card and a fresh user composer on success', async () => {
+    jest.spyOn(PlaygroundApi, 'chatCompletion').mockResolvedValue({
+      choices: [{ index: 0, message: { role: 'assistant', content: '**Hi back!**' }, finish_reason: 'stop' }],
+    });
+
+    renderPlayground();
+
+    const endpointInput = await screen.findByTestId('endpoint-selector-test-input');
+    await userEvent.type(endpointInput, 'my-endpoint');
+    await userEvent.type(screen.getByPlaceholderText('Type a message'), 'Hello');
+
+    await userEvent.click(screen.getByRole('button', { name: /submit/i }));
+
+    // The assistant reply renders as Markdown (the `**Hi back!**` source emits a <strong>).
+    await waitFor(() => {
+      expect(screen.getByText('Hi back!').tagName.toLowerCase()).toBe('strong');
+    });
+
+    // A fresh empty composer is appended (there are now 2 user textareas: the original + the new draft).
+    const composers = screen.getAllByPlaceholderText('Type a message');
+    expect(composers).toHaveLength(2);
+    expect(composers[0]).toHaveValue('Hello');
+    expect(composers[1]).toHaveValue('');
+
+    // Submit is disabled again because the new composer is empty.
+    expect(screen.getByRole('button', { name: /submit/i })).toBeDisabled();
+
+    // Clear conversation is now enabled because the conversation is non-empty.
+    expect(screen.getByRole('button', { name: /clear conversation/i })).toBeEnabled();
+  });
+
+  it('sends the full conversation history on the follow-up submit, stripping per-turn usage', async () => {
+    const chatCompletionSpy = jest
+      .spyOn(PlaygroundApi, 'chatCompletion')
+      .mockResolvedValueOnce({
+        choices: [{ index: 0, message: { role: 'assistant', content: 'Sure!' }, finish_reason: 'stop' }],
+        usage: { prompt_tokens: 4, completion_tokens: 1, total_tokens: 5 },
+      })
+      .mockResolvedValueOnce({
+        choices: [{ index: 0, message: { role: 'assistant', content: 'More details.' }, finish_reason: 'stop' }],
+      });
+
+    renderPlayground();
+
+    const endpointInput = await screen.findByTestId('endpoint-selector-test-input');
+    await userEvent.type(endpointInput, 'my-endpoint');
+    await userEvent.type(screen.getByPlaceholderText('Type a message'), 'Hello');
+
+    await userEvent.click(screen.getByRole('button', { name: /submit/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Sure!')).toBeInTheDocument();
+    });
+
+    // Type into the freshly appended composer and submit again.
+    const composers = screen.getAllByPlaceholderText('Type a message');
+    await userEvent.type(composers[1], 'Tell me more');
+    await userEvent.click(screen.getByRole('button', { name: /submit/i }));
+
+    await waitFor(() => {
+      expect(chatCompletionSpy).toHaveBeenCalledTimes(2);
+    });
+
+    // Second call carries user1 + assistant1 + user2, and the assistant entry is
+    // stripped to {role, content} — no `usage` leaks over the wire.
+    expect(chatCompletionSpy).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        messages: [
+          { role: 'user', content: 'Hello' },
+          { role: 'assistant', content: 'Sure!' },
+          { role: 'user', content: 'Tell me more' },
+        ],
+      }),
+    );
+  });
+
+  it('renders the per-turn token usage hint inside the assistant card', async () => {
+    jest.spyOn(PlaygroundApi, 'chatCompletion').mockResolvedValue({
+      choices: [{ index: 0, message: { role: 'assistant', content: 'Greeting!' }, finish_reason: 'stop' }],
+      usage: { prompt_tokens: 5, completion_tokens: 3, total_tokens: 8 },
+    });
+
+    renderPlayground();
+
+    const endpointInput = await screen.findByTestId('endpoint-selector-test-input');
+    await userEvent.type(endpointInput, 'my-endpoint');
+    await userEvent.type(screen.getByPlaceholderText('Type a message'), 'Hi');
+
+    await userEvent.click(screen.getByRole('button', { name: /submit/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/input: 5/)).toBeInTheDocument();
+    });
+    expect(screen.getByText(/output: 3/)).toBeInTheDocument();
+    expect(screen.getByText(/total: 8/)).toBeInTheDocument();
+  });
+
+  it('clears the conversation back to a single empty composer and drops any prior error', async () => {
+    jest
+      .spyOn(PlaygroundApi, 'chatCompletion')
+      .mockRejectedValue(Object.assign(new Error('Gemini rejected schema: foo'), { status: 400 }));
+
+    renderPlayground();
+
+    const endpointInput = await screen.findByTestId('endpoint-selector-test-input');
+    await userEvent.type(endpointInput, 'my-endpoint');
+    await userEvent.type(screen.getByPlaceholderText('Type a message'), 'Hello');
+
+    await userEvent.click(screen.getByRole('button', { name: /submit/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Chat completion failed')).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByRole('button', { name: /clear conversation/i }));
+
+    expect(screen.getAllByPlaceholderText('Type a message')).toHaveLength(1);
+    expect(screen.getByPlaceholderText('Type a message')).toHaveValue('');
+    expect(screen.queryByText('Chat completion failed')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /clear conversation/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /submit/i })).toBeDisabled();
   });
 
   it('exposes a hook that posts to the chat completions API', async () => {

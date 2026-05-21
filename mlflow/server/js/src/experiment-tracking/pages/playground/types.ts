@@ -5,6 +5,12 @@ export interface ChatMessage {
   content: string;
 }
 
+// In-app message type that may carry per-turn usage data on assistant replies.
+// Stripped to `{role, content}` before being sent to the gateway.
+export interface ConversationMessage extends ChatMessage {
+  usage?: ChatCompletionUsage;
+}
+
 export type ResponseFormatType = 'text' | 'json_object' | 'json_schema';
 
 export type ResponseFormat =
