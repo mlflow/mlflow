@@ -18,6 +18,7 @@ import { ScrollablePageWrapper } from '@mlflow/mlflow/src/common/components/Scro
 import { Link, useParams, useSearchParams } from '../../common/utils/RoutingUtils';
 import AdminRoutes from '../routes';
 import { useRoleDetailQuery, useRoleUsersQuery, useUsersQuery, useWithSettingsReturnTo } from '../hooks';
+import { useWorkspacesEnabled } from '../../experiment-tracking/hooks/useServerInfo';
 import { formatResourcePattern, isWorkspaceAdminRole } from '../types';
 import { EditRoleModal } from '../components/EditRoleModal';
 
@@ -159,6 +160,10 @@ const RoleDetailPage = () => {
   const isValidRoleId = Number.isFinite(roleId);
 
   const { data: roleData, isLoading, error: loadError } = useRoleDetailQuery(roleId);
+  // Default to the multi-tenant labels while server-info is in-flight so
+  // the tag and subtitle don't reflow once the query settles.
+  const { workspacesEnabled, loading: workspacesEnabledLoading } = useWorkspacesEnabled();
+  const showWorkspaceLabels = workspacesEnabledLoading || workspacesEnabled;
   const withReturnTo = useWithSettingsReturnTo();
   const [searchParams, setSearchParams] = useSearchParams();
   const tabFromUrl = searchParams.get('tab');
@@ -242,15 +247,16 @@ const RoleDetailPage = () => {
                   {role.name}
                 </Typography.Title>
                 {isWorkspaceAdminRole(role) && (
-                  // Match the rolesTable column header ("Workspace Manager")
-                  // and the per-row tag text ("Manager") used elsewhere.
+                  // Mirror the AdminPage roles table: "Manager" in multi-tenant
+                  // mode, "Admin" in single-tenant.
                   <Tag componentId="admin.role.admin_tag" color="indigo">
-                    Manager
+                    {showWorkspaceLabels ? 'Manager' : 'Admin'}
                   </Tag>
                 )}
               </div>
               <Typography.Text color="secondary">
-                {role.description || 'No description'} · Workspace: {role.workspace}
+                {role.description || 'No description'}
+                {showWorkspaceLabels ? ` · Workspace: ${role.workspace}` : ''}
               </Typography.Text>
             </div>
             <Button componentId="admin.role.edit_button" type="primary" onClick={() => setEditRoleOpen(true)}>

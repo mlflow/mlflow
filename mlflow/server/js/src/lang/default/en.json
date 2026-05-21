@@ -5419,6 +5419,10 @@
     "defaultMessage": "Create endpoint",
     "description": "Page title for create endpoint"
   },
+  "UlkINy": {
+    "defaultMessage": "Admin",
+    "description": "Roles table column flagging admin roles when workspaces are disabled"
+  },
   "UmwZQv": {
     "defaultMessage": "using Prompt Engineering",
     "description": "String for creating a new run with prompt engineering modal"
