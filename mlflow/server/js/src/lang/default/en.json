@@ -3335,6 +3335,10 @@
     "defaultMessage": "Metrics",
     "description": "Label for the ungrouped metrics column group in the logged model column selector"
   },
+  "EfT7KE": {
+    "defaultMessage": "Clear conversation",
+    "description": "Label for the button that resets the playground conversation to an empty user message"
+  },
   "EiFPFP": {
     "defaultMessage": "Custom Guardrail",
     "description": "Custom guardrail type name"
@@ -6735,10 +6739,6 @@
     "defaultMessage": "Cancel",
     "description": "A label for the cancel button in the prompt creation modal in the prompt management UI"
   },
-  "WPM8Ok": {
-    "defaultMessage": "Submit a message to see the response here.",
-    "description": "Empty state for the playground completion output panel"
-  },
   "WQwCH6": {
     "defaultMessage": "Aliased versions",
     "description": "Column title for aliased versions in the registered model page"
@@ -8695,6 +8695,10 @@
     "defaultMessage": "Trace name",
     "description": "Column label for trace name"
   },
+  "fqdOQi": {
+    "defaultMessage": "Tokens — input: {input}, output: {output}, total: {total}",
+    "description": "Token usage footer rendered below each assistant reply on the playground page"
+  },
   "frPtD/": {
     "defaultMessage": "Metrics",
     "description": "Row group title for metrics of runs on the experiment compare runs page"
@@ -10402,10 +10406,6 @@
   "nYSJgH": {
     "defaultMessage": "Show all parent spans",
     "description": "Checkbox label for a setting that enables showing all parent spans in the trace explorer regardless of filter conditions."
-  },
-  "nZow1J": {
-    "defaultMessage": "Tokens — prompt: {prompt}, completion: {completion}, total: {total}",
-    "description": "Token usage footer on the playground completion output panel"
   },
   "naivho": {
     "defaultMessage": "of",
