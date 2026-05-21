@@ -23,8 +23,14 @@
  *   factories inside the daemon's batch loop.
  * - `attempts`, `nextAttemptAt`: retry state. `nextAttemptAt` is the unix
  *   ms epoch before which the daemon skips this record on a batch tick.
- *   `attempts` is incremented per failure and kept for diagnostics only;
- *   the dead-letter gate is wall-clock based via `firstAttemptAt`.
+ *   `attempts` is incremented per failure and indexes into the exponential
+ *   `backoff(attempt)` schedule, *separate from* the wall-clock dead-letter
+ *   gate (which is governed by `firstAttemptAt` vs
+ *   `MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT`). The two governors are
+ *   orthogonal: `attempts` controls *how long to wait between retries*,
+ *   the wall-clock budget controls *whether to keep retrying*. Mirrors
+ *   Python's `_retry_databricks_sdk_call_with_exponential_backoff`, which
+ *   keeps both `attempt`-indexed backoff and `retry_timeout_seconds`.
  * - `firstAttemptAt`: unix ms epoch of the daemon's first upload attempt
  *   on this record. Anchored once and preserved across retries (the
  *   retry copy keeps the original anchor). Used as the start of the

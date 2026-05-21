@@ -62,9 +62,12 @@ function readNonNegativeInt(envName: string, fallback: number): number {
  * that would exceed the budget, the record is dead-lettered instead of
  * re-appended. This mirrors Python's
  * `_retry_databricks_sdk_call_with_exponential_backoff`.
+ *
+ * `0` is a legitimate value, not "invalid → fall back to default": it
+ * means "dead-letter on the first failure" and matches Python exactly.
  */
 export const RETRY_TIMEOUT_MS: number =
-  readPositiveInt('MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT', 500) * 1_000;
+  readNonNegativeInt('MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT', 500) * 1_000;
 
 /**
  * Interval between daemon batch loop iterations, in milliseconds.

@@ -48,12 +48,21 @@ import { WalLine, WalRecord } from './types';
  * `Promise` returned by `run`), but they do not break the chain — subsequent
  * tasks still run. This matters because a transient `EIO` on one append must
  * not poison every later append in the same process.
+ *
+ * The `tail` invariant: it is always a fulfilled `Promise<void>`. The
+ * `result.then(() => {}, () => {})` rebind below swallows both outcomes,
+ * so by induction every later `run` reads a fulfilled `this.tail`. The
+ * `.catch(() => {})` before `.then(fn)` is therefore strictly defensive
+ * — it costs one extra microtask per enqueue (negligible next to the
+ * `fsync` we're already gated on) and keeps the next-task scheduling
+ * correct even if a future refactor accidentally lets `this.tail`
+ * reject (e.g. by inlining the chain or removing the rebind).
  */
 class SerialQueue {
   private tail: Promise<void> = Promise.resolve();
 
   run<T>(fn: () => Promise<T>): Promise<T> {
-    const result = this.tail.then(fn, fn);
+    const result = this.tail.catch(() => {}).then(fn);
     this.tail = result.then(
       () => {},
       () => {},
@@ -134,15 +143,31 @@ export function appendDeadLetter(record: WalRecord): Promise<void> {
  * Unknown line types and malformed lines (failed `JSON.parse`) are silently
  * skipped with a `console.debug` so a single torn write cannot block the
  * whole batch. Returns an empty array if the WAL file does not exist yet.
+ *
+ * The optional `byteLimit` bounds the read to `[0, byteLimit)`. {@link compact}
+ * uses this to snapshot the WAL at the same byte offset it captures with
+ * `stat`, so cross-process appends that land mid-read do not end up in
+ * `liveRecords` AND in the tail-byte copy (which would double-write them).
+ * Every other caller (e.g. the daemon's batch loop) omits the option and
+ * reads to EOF as before.
  */
-export async function readPending(): Promise<WalRecord[]> {
+export async function readPending(opts: { byteLimit?: number } = {}): Promise<WalRecord[]> {
   const path = getWalPath();
   if (!existsSync(path)) {
     return [];
   }
+  // Empty snapshot: don't open the stream at all (createReadStream would
+  // reject `end: -1`).
+  if (opts.byteLimit !== undefined && opts.byteLimit <= 0) {
+    return [];
+  }
 
   const alive = new Map<string, WalRecord>();
-  const stream = createReadStream(path, { encoding: 'utf8' });
+  const streamOpts: Parameters<typeof createReadStream>[1] =
+    opts.byteLimit !== undefined
+      ? { encoding: 'utf8', start: 0, end: opts.byteLimit - 1 }
+      : { encoding: 'utf8' };
+  const stream = createReadStream(path, streamOpts);
   const rl = createInterface({ input: stream, crlfDelay: Infinity });
 
   for await (const line of rl) {
@@ -188,7 +213,12 @@ export async function readPending(): Promise<WalRecord[]> {
  *      `[startSize, currentSize)` (representing concurrent appends from
  *      other processes) into the tmp file. These bytes are guaranteed to
  *      consist of full lines because writers fsync after each line.
- *   5. fsync the tmp file and atomically rename it onto `queue.log`.
+ *   5. fsync, close, and atomically rename the tmp file onto `queue.log`.
+ *
+ * Steps 3–5 all live inside the same try / catch so that a failure in
+ * close or rename — not just in the write/sync block — still triggers
+ * the tmp-file cleanup. Otherwise a flaky FS could orphan one
+ * `queue.log.tmp.<pid>` per daemon lifetime.
  *
  * The whole thing runs inside the in-process queue writer so it cannot
  * interleave with in-process appends. Cross-process appends that land
@@ -202,7 +232,7 @@ export function compact(): Promise<void> {
     }
 
     const startSize = (await stat(path)).size;
-    const liveRecords = await readPending();
+    const liveRecords = await readPending({ byteLimit: startSize });
 
     const tmpPath = `${path}.tmp.${process.pid}`;
     const tmpFh = await open(tmpPath, 'w');
@@ -229,14 +259,13 @@ export function compact(): Promise<void> {
       }
 
       await tmpFh.sync();
+      await tmpFh.close();
+      await rename(tmpPath, path);
     } catch (err) {
       await tmpFh.close().catch(() => {});
       await unlink(tmpPath).catch(() => {});
       throw err;
     }
-    await tmpFh.close();
-
-    await rename(tmpPath, path);
   });
 }
 

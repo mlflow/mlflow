@@ -1,6 +1,26 @@
-import { mkdtemp, readFile, rm, stat, writeFile } from 'fs/promises';
+// Mock node:fs/promises with a passthrough so individual tests can flip a
+// single method (e.g. `rename`, `stat`) to fail/inject without breaking the
+// dozens of real fs operations the rest of the suite needs. Hoisted by
+// ts-jest above the storage.ts import so storage's
+// `import { ... } from 'node:fs/promises'` resolves to the mocked bindings.
+//
+// Test-file fs imports below (e.g. `from 'fs/promises'`) intentionally use
+// the un-prefixed specifier so they stay backed by the real module — the
+// mock only intercepts the storage module's view of `node:fs/promises`.
+jest.mock('node:fs/promises', () => {
+  const actual = jest.requireActual<typeof import('node:fs/promises')>('node:fs/promises');
+  return {
+    ...actual,
+    rename: jest.fn(actual.rename),
+    stat: jest.fn(actual.stat),
+  };
+});
+
+import { appendFileSync } from 'fs';
+import { mkdtemp, readdir, readFile, rm, stat, writeFile } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
+import * as fsPromises from 'node:fs/promises';
 import {
   appendDeadLetter,
   appendRecord,
@@ -11,6 +31,9 @@ import {
 } from '../../../src/exporters/wal/storage';
 import { getDeadLetterPath, getWalPath } from '../../../src/exporters/wal/paths';
 import type { WalRecord } from '../../../src/exporters/wal/types';
+
+const renameMock = fsPromises.rename as jest.MockedFunction<typeof fsPromises.rename>;
+const statMock = fsPromises.stat as jest.MockedFunction<typeof fsPromises.stat>;
 
 function makeRecord(idSuffix: string, overrides: Partial<WalRecord> = {}): WalRecord {
   return {
@@ -28,6 +51,11 @@ function makeRecord(idSuffix: string, overrides: Partial<WalRecord> = {}): WalRe
 
 describe('wal/storage', () => {
   let walDir: string;
+  // Capture the developer's pre-test value so we restore (not just unset)
+  // in afterEach. Without this, running `MLFLOW_WAL_DIR=/some/dir jest`
+  // would lose the override for every later test in the same worker.
+  // Mirrors the pattern in paths.test.ts.
+  const originalWalDir = process.env.MLFLOW_WAL_DIR;
 
   beforeEach(async () => {
     walDir = await mkdtemp(join(tmpdir(), 'mlflow-wal-'));
@@ -35,7 +63,11 @@ describe('wal/storage', () => {
   });
 
   afterEach(async () => {
-    delete process.env.MLFLOW_WAL_DIR;
+    if (originalWalDir === undefined) {
+      delete process.env.MLFLOW_WAL_DIR;
+    } else {
+      process.env.MLFLOW_WAL_DIR = originalWalDir;
+    }
     await rm(walDir, { recursive: true, force: true });
   });
 
@@ -159,6 +191,72 @@ describe('wal/storage', () => {
   it('is a no-op when compacting a non-existent WAL', async () => {
     await expect(compact()).resolves.toBeUndefined();
     await expect(stat(getWalPath())).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
+  it('cleans up the tmp file when rename throws after a successful write', async () => {
+    // Regression: an earlier shape had `close()` and `rename()` outside
+    // the try/catch, so a flaky FS at the rename step would orphan one
+    // `queue.log.tmp.<pid>` per failed compaction. The fix moved both
+    // into the try so the catch's `unlink(tmpPath)` always runs on
+    // failure regardless of which step blew up.
+    await appendRecord(makeRecord('a'));
+
+    renameMock.mockRejectedValueOnce(
+      Object.assign(new Error('EBUSY: simulated rename failure'), { code: 'EBUSY' }),
+    );
+
+    await expect(compact()).rejects.toThrow(/simulated rename failure/);
+
+    // After the failed compaction, the WAL itself is unchanged and no
+    // `.tmp.<pid>` orphan remains in the spool dir.
+    const entries = await readdir(walDir);
+    expect(entries.some((e) => /\.tmp\.\d+$/.test(e))).toBe(false);
+    const pending = await readPending();
+    expect(pending.map((r) => r.id)).toEqual(['wal-a']);
+  });
+
+  it('does not double-write records appended between the startSize stat and readPending', async () => {
+    // Regression: an earlier shape called `readPending()` unbounded, so
+    // a cross-process append landing between compact's first `stat`
+    // (capturing `startSize`) and the end of the stream would be
+    // included BOTH in `liveRecords` AND in the tail-byte copy that
+    // covers `[startSize, currentSize)` — producing a duplicate
+    // `{type:"append"}` line in the compacted file. The fix bounds
+    // `readPending` to `[0, startSize)` so the two sources cannot
+    // overlap.
+    await appendRecord(makeRecord('a'));
+    const walPath = getWalPath();
+
+    // Real stat used to compute the pre-injection size; we delegate the
+    // first mocked call to it, then inject one extra append line to
+    // mimic another process writing between compact's first stat and
+    // readPending. Returning the pre-injection stats keeps `startSize`
+    // honest.
+    const realStat = jest.requireActual<typeof import('node:fs/promises')>('node:fs/promises').stat;
+    let injected = false;
+    statMock.mockImplementationOnce(async (path) => {
+      const stats = await realStat(path);
+      if (!injected) {
+        const otherRecord = makeRecord('b');
+        appendFileSync(walPath, JSON.stringify({ type: 'append', record: otherRecord }) + '\n');
+        injected = true;
+      }
+      return stats;
+    });
+
+    await compact();
+    expect(injected).toBe(true);
+
+    // After compaction the WAL must contain exactly two append lines,
+    // one per record, with no duplicate of `wal-b`. Without the
+    // bounding fix this assertion fails (three lines, `wal-b` repeated).
+    const lines = (await readFile(walPath, 'utf8')).split('\n').filter((l) => l.length > 0);
+    expect(lines).toHaveLength(2);
+    const ids = lines.map((l) => (JSON.parse(l) as { record: WalRecord }).record.id).sort();
+    expect(ids).toEqual(['wal-a', 'wal-b']);
+
+    const pending = await readPending();
+    expect(pending.map((r) => r.id).sort()).toEqual(['wal-a', 'wal-b']);
   });
 
   it('skips malformed lines but keeps surrounding records', async () => {
