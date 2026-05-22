@@ -124,23 +124,3 @@ mlflow_rest <- function( ..., client, query = NULL, data = NULL, verb = "GET", v
   text <- httr::content(response, "text", encoding = "UTF-8")
   jsonlite::fromJSON(text, simplifyVector = FALSE)
 }
-
-mlflow_registry_rest <- function(..., client, query = NULL, data = NULL, verb = "GET",
-                                 version = "2.0", max_rate_limit_interval = 60) {
-  client <- resolve_client(client)
-  registry_client <- client$registry_client %||% client
-  mlflow_rest(
-    ...,
-    client = registry_client,
-    query = query,
-    data = data,
-    verb = verb,
-    version = version,
-    max_rate_limit_interval = max_rate_limit_interval,
-    path_prefix = if (is_uc_registry_uri(client)) {
-      "api/2.0/mlflow/unity-catalog"
-    } else {
-      mlflow_rest_path(version)
-    }
-  )
-}

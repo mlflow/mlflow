@@ -14,7 +14,7 @@ get_mock_client <- function() {
 
 test_that("mlflow can register a model", {
   with_mocked_bindings(.package = "mlflow",
-            mlflow_registry_rest = function(...) {
+            mlflow_rest = function(...) {
       args <- list(...)
       expect_true(paste(args[1:2], collapse = "/") == "registered-models/create")
 
@@ -43,7 +43,7 @@ test_that("mlflow can register a model", {
 test_that("mlflow can register a model with tags and description", {
   with_mocked_bindings(
     .package = "mlflow",
-    mlflow_registry_rest = function(...) {
+    mlflow_rest = function(...) {
       args <- list(...)
       expect_true(paste(args[1:2], collapse = "/") == "registered-models/create")
 
@@ -79,7 +79,7 @@ test_that("mlflow can register a model with tags and description", {
 
 test_that("mlflow can get a registered model", {
   with_mocked_bindings(.package = "mlflow",
-    mlflow_registry_rest = function(...) {
+    mlflow_rest = function(...) {
       args <- list(...)
       expect_true(paste(args[1:2], collapse = "/") == "registered-models/get")
       expect_equal(args$verb, "GET")
@@ -96,7 +96,7 @@ test_that("mlflow can get a registered model", {
 
 test_that("mlflow can rename a registered model", {
   with_mocked_bindings(.package = "mlflow",
-    mlflow_registry_rest = function(...) {
+    mlflow_rest = function(...) {
       args <- list(...)
       expect_equal(paste(args[1:2], collapse = "/"), "registered-models/rename")
       expect_equal(args$verb, "POST")
@@ -115,7 +115,7 @@ test_that("mlflow can rename a registered model", {
 
 test_that("mlflow can update a model", {
   with_mocked_bindings(.package = "mlflow",
-    mlflow_registry_rest = function(...) {
+    mlflow_rest = function(...) {
       args <- list(...)
       expect_equal(paste(args[1:2], collapse = "/"), "registered-models/update")
       expect_equal(args$verb, "PATCH")
@@ -135,7 +135,7 @@ test_that("mlflow can update a model", {
 
 test_that("mlflow can delete a model", {
   with_mocked_bindings(.package = "mlflow",
-    mlflow_registry_rest = function(...) {
+    mlflow_rest = function(...) {
       args <- list(...)
       expect_equivalent(paste(args[1:2], collapse = "/"), "registered-models/delete")
       expect_equal(args$data$name, "test_model")
@@ -148,7 +148,7 @@ test_that("mlflow can delete a model", {
 
 test_that("mlflow can retrieve a list of registered models without args", {
   with_mocked_bindings(.package = "mlflow",
-    mlflow_registry_rest = function(...) {
+    mlflow_rest = function(...) {
       args <- list(...)
       expect_true(paste(args[1:2], collapse = "/") == "registered-models/search")
       expect_equal(args$verb, "POST")
@@ -167,7 +167,7 @@ test_that("mlflow can retrieve a list of registered models without args", {
 
 test_that("mlflow can retrieve a list of registered models with args", {
   with_mocked_bindings(.package = "mlflow",
-    mlflow_registry_rest = function(...) {
+    mlflow_rest = function(...) {
       args <- list(...)
       expect_true(paste(args[1:2], collapse = "/") == "registered-models/search")
       expect_equal(args$verb, "POST")
@@ -216,7 +216,7 @@ test_that("Unity Catalog registered model search uses UC GET shape", {
   mock_client$registry_client <- mock_client
 
   with_mocked_bindings(.package = "mlflow",
-    mlflow_registry_rest = function(...) {
+    mlflow_rest = function(...) {
       args <- list(...)
       expect_equal(paste(args[1:2], collapse = "/"), "registered-models/search")
       expect_equal(args$verb, "GET")
@@ -257,7 +257,7 @@ test_that("Unity Catalog registered model search rejects workspace-only options"
 
 test_that("mlflow can retrieve a list of model versions", {
   with_mocked_bindings(.package = "mlflow",
-    mlflow_registry_rest = function(...) {
+    mlflow_rest = function(...) {
       args <- list(...)
       expect_true(paste(args[1:2],
                   collapse = "/") == "registered-models/get-latest-versions")
@@ -272,7 +272,7 @@ test_that("mlflow can retrieve a list of model versions", {
 
 test_that("mlflow can retrieve a list of model versions for given stages", {
   with_mocked_bindings(.package = "mlflow",
-    mlflow_registry_rest = function(...) {
+    mlflow_rest = function(...) {
       args <- list(...)
       expect_true(paste(args[1:2],
                   collapse = "/") == "registered-models/get-latest-versions")
@@ -288,7 +288,7 @@ test_that("mlflow can retrieve a list of model versions for given stages", {
 
 test_that("mlflow can create a model version", {
   with_mocked_bindings(.package = "mlflow",
-    mlflow_registry_rest = function(...) {
+    mlflow_rest = function(...) {
       args <- list(...)
       expect_true(paste(args[1:2],
                   collapse = "/") == "model-versions/create")
@@ -308,7 +308,7 @@ test_that("mlflow can create a model version", {
 
 test_that("mlflow can get a model version", {
   with_mocked_bindings(.package = "mlflow",
-    mlflow_registry_rest = function(...) {
+    mlflow_rest = function(...) {
       args <- list(...)
       expect_true(paste(args[1:2],
                   collapse = "/") == "model-versions/get")
@@ -328,7 +328,7 @@ test_that("mlflow can get a model version", {
 
 test_that("mlflow can update a model version", {
   with_mocked_bindings(.package = "mlflow",
-    mlflow_registry_rest = function(...) {
+    mlflow_rest = function(...) {
       args <- list(...)
       expect_true(paste(args[1:2],
                         collapse = "/") == "model-versions/update")
@@ -349,7 +349,7 @@ test_that("mlflow can update a model version", {
 
 test_that("mlflow can delete a model version", {
   with_mocked_bindings(.package = "mlflow",
-            mlflow_registry_rest = function(...) {
+            mlflow_rest = function(...) {
               args <- list(...)
               expect_true(paste(args[1:2],
                                 collapse = "/") == "model-versions/delete")
@@ -369,7 +369,7 @@ test_that("mlflow can delete a model version", {
 
 test_that("mlflow can transition a model", {
   with_mocked_bindings(.package = "mlflow",
-    mlflow_registry_rest = function(...) {
+    mlflow_rest = function(...) {
       args <- list(...)
       expect_true(paste(args[1:2],
                   collapse = "/") == "model-versions/transition-stage")
@@ -394,7 +394,7 @@ test_that("Unity Catalog model stages fail locally with alias guidance", {
   mock_client$registry_client <- mock_client
 
   with_mocked_bindings(.package = "mlflow",
-    mlflow_registry_rest = function(...) stop("unexpected registry call"), {
+    mlflow_rest = function(...) stop("unexpected registry call"), {
       expect_error(
         mlflow_get_latest_versions(name = testthat_uc_model_name, client = mock_client),
         "aliases"
@@ -413,7 +413,7 @@ test_that("Unity Catalog model stages fail locally with alias guidance", {
 
 test_that("mlflow can set model version tag", {
   with_mocked_bindings(.package = "mlflow",
-    mlflow_registry_rest = function(...) {
+    mlflow_rest = function(...) {
       args <- list(...)
       expect_true(paste(args[1:2],
                   collapse = "/") == "model-versions/set-tag")
@@ -443,7 +443,7 @@ test_that("mlflow_set_model_version_tag resolves stage with provided client", {
       resolved_client <<- client
       list(list(version = "11"))
     },
-    mlflow_registry_rest = function(...) {
+    mlflow_rest = function(...) {
       args <- list(...)
       tagged_version <<- args$data$version
       list()
@@ -461,15 +461,17 @@ test_that("mlflow_set_model_version_tag resolves stage with provided client", {
   expect_equal(tagged_version, "11")
 })
 
-test_that("registry rest routes to Unity Catalog path prefix when configured", {
+test_that("registry calls use Unity Catalog path prefix and registry client", {
   mock_client <- get_mock_client()
+  registry_client <- get_mock_client()
   mock_client$registry_uri <- list(scheme = "databricks-uc")
-  mock_client$registry_client <- mock_client
+  mock_client$registry_client <- registry_client
 
   with_mocked_bindings(.package = "mlflow",
     mlflow_rest = function(...) {
       args <- list(...)
       expect_equal(args$path_prefix, "api/2.0/mlflow/unity-catalog")
+      expect_identical(args$client, registry_client)
       list(model_version = list(name = "mymodel", version = "1"))
     }, {
       mlflow_get_model_version("mymodel", version = "1", client = mock_client)
@@ -512,7 +514,7 @@ test_that("mlflow_register_model delegates to mlflow_create_model_version", {
 test_that("model alias APIs call registered-models alias endpoint", {
   calls <- list()
   with_mocked_bindings(.package = "mlflow",
-    mlflow_registry_rest = function(...) {
+    mlflow_rest = function(...) {
       args <- list(...)
       calls[[length(calls) + 1]] <<- args
       if (identical(args$verb, "GET")) {

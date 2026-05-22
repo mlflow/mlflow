@@ -55,6 +55,14 @@ mlflow_uc_stage_error <- function(method) {
   )
 }
 
+mlflow_registry_path_prefix <- function(client) {
+  if (is_uc_registry_uri(client)) {
+    "api/2.0/mlflow/unity-catalog"
+  } else {
+    mlflow_rest_path("2.0")
+  }
+}
+
 #' Create registered model
 #'
 #' Creates a new registered model in the model registry
@@ -67,13 +75,16 @@ mlflow_uc_stage_error <- function(method) {
 mlflow_create_registered_model <- function(name, tags = NULL,
                                            description = NULL, client = NULL) {
   client <- resolve_client(client)
+  path_prefix <- mlflow_registry_path_prefix(client)
+  client <- client$registry_client %||% client
 
-  response <- mlflow_registry_rest(
+  response <- mlflow_rest(
     "registered-models",
     "create",
     client = client,
     verb = "POST",
     version = "2.0",
+    path_prefix = path_prefix,
     data = list(
       name = cast_string(name),
       tags = tags,
@@ -93,13 +104,16 @@ mlflow_create_registered_model <- function(name, tags = NULL,
 #' @export
 mlflow_get_registered_model <- function(name, client = NULL) {
   client <- resolve_client(client)
+  path_prefix <- mlflow_registry_path_prefix(client)
+  client <- client$registry_client %||% client
 
-  response <- mlflow_registry_rest(
+  response <- mlflow_rest(
     "registered-models",
     "get",
     client = client,
     verb = "GET",
     version = "2.0",
+    path_prefix = path_prefix,
     query = list(name = name)
   )
 
@@ -116,13 +130,16 @@ mlflow_get_registered_model <- function(name, client = NULL) {
 #' @export
 mlflow_rename_registered_model <- function(name, new_name, client = NULL) {
   client <- resolve_client(client)
+  path_prefix <- mlflow_registry_path_prefix(client)
+  client <- client$registry_client %||% client
 
-  response <- mlflow_registry_rest(
+  response <- mlflow_rest(
     "registered-models",
     "rename",
     client = client,
     verb = "POST",
     version = "2.0",
+    path_prefix = path_prefix,
     data = list(
       name = cast_string(name),
       new_name = cast_string(new_name)
@@ -142,13 +159,16 @@ mlflow_rename_registered_model <- function(name, new_name, client = NULL) {
 #' @export
 mlflow_update_registered_model <- function(name, description, client = NULL) {
   client <- resolve_client(client)
+  path_prefix <- mlflow_registry_path_prefix(client)
+  client <- client$registry_client %||% client
 
-  response <- mlflow_registry_rest(
+  response <- mlflow_rest(
     "registered-models",
     "update",
     client = client,
     verb = "PATCH",
     version = "2.0",
+    path_prefix = path_prefix,
     data = list(
       name = cast_string(name),
       description = cast_string(description)
@@ -167,13 +187,16 @@ mlflow_update_registered_model <- function(name, description, client = NULL) {
 #' @export
 mlflow_delete_registered_model <- function(name, client = NULL) {
   client <- resolve_client(client)
+  path_prefix <- mlflow_registry_path_prefix(client)
+  client <- client$registry_client %||% client
 
-  response <- mlflow_registry_rest(
+  response <- mlflow_rest(
     "registered-models",
     "delete",
     client = client,
     verb = "DELETE",
     version = "2.0",
+    path_prefix = path_prefix,
     data = list(name = cast_string(name))
   )
 }
@@ -197,20 +220,24 @@ mlflow_search_registered_models <- function(filter = NULL,
                                             page_token = NULL,
                                             client = NULL) {
   client <- resolve_client(client)
+  uc_registry <- is_uc_registry_uri(client)
+  path_prefix <- mlflow_registry_path_prefix(client)
+  client <- client$registry_client %||% client
 
-  if (is_uc_registry_uri(client)) {
+  if (uc_registry) {
     if (!is.null(filter)) {
       stop("Unity Catalog registered model search does not support `filter`.", call. = FALSE)
     }
     if (length(order_by) > 0) {
       stop("Unity Catalog registered model search does not support `order_by`.", call. = FALSE)
     }
-    response <- mlflow_registry_rest(
+    response <- mlflow_rest(
       "registered-models",
       "search",
       client = client,
       verb = "GET",
       version = "2.0",
+      path_prefix = path_prefix,
       query = list(
         max_results = max_results,
         page_token = page_token
@@ -222,12 +249,13 @@ mlflow_search_registered_models <- function(filter = NULL,
     ))
   }
 
-  response <- mlflow_registry_rest(
+  response <- mlflow_rest(
     "registered-models",
     "search",
     client = client,
     verb = "POST",
     version = "2.0",
+    path_prefix = path_prefix,
     data = list(
       filter = filter,
       max_results = max_results,
@@ -258,7 +286,9 @@ mlflow_get_latest_versions <- function(name, stages = list(), client = NULL) {
     mlflow_uc_stage_error("mlflow_get_latest_versions")
   }
 
-  response <- mlflow_registry_rest(
+  client <- client$registry_client %||% client
+
+  response <- mlflow_rest(
     "registered-models",
     "get-latest-versions",
     client = client,
@@ -315,7 +345,9 @@ mlflow_create_model_version <- function(name, source, run_id = NULL,
     return(mlflow_get_model_version(name, version, client = client))
   }
 
-  response <- mlflow_registry_rest(
+  client <- client$registry_client %||% client
+
+  response <- mlflow_rest(
     "model-versions",
     "create",
     client = client,
@@ -342,13 +374,16 @@ mlflow_create_model_version <- function(name, source, run_id = NULL,
 #' @export
 mlflow_get_model_version <- function(name, version, client = NULL) {
   client <- resolve_client(client)
+  path_prefix <- mlflow_registry_path_prefix(client)
+  client <- client$registry_client %||% client
 
-  response <- mlflow_registry_rest(
+  response <- mlflow_rest(
     "model-versions",
     "get",
     client = client,
     verb = "GET",
     version = "2.0",
+    path_prefix = path_prefix,
     query = list(
       name = name,
       version = version
@@ -392,12 +427,15 @@ mlflow_register_model <- function(model_uri, name, run_id = NULL, tags = NULL,
 #' @export
 mlflow_set_registered_model_alias <- function(name, alias, version, client = NULL, ...) {
   client <- resolve_client(client)
-  mlflow_registry_rest(
+  path_prefix <- mlflow_registry_path_prefix(client)
+  client <- client$registry_client %||% client
+  mlflow_rest(
     "registered-models",
     "alias",
     client = client,
     verb = "POST",
     version = "2.0",
+    path_prefix = path_prefix,
     data = list(
       name = cast_string(name),
       alias = cast_string(alias),
@@ -416,12 +454,15 @@ mlflow_set_registered_model_alias <- function(name, alias, version, client = NUL
 #' @export
 mlflow_get_model_version_by_alias <- function(name, alias, client = NULL, ...) {
   client <- resolve_client(client)
-  response <- mlflow_registry_rest(
+  path_prefix <- mlflow_registry_path_prefix(client)
+  client <- client$registry_client %||% client
+  response <- mlflow_rest(
     "registered-models",
     "alias",
     client = client,
     verb = "GET",
     version = "2.0",
+    path_prefix = path_prefix,
     query = list(
       name = cast_string(name),
       alias = cast_string(alias)
@@ -442,13 +483,16 @@ mlflow_get_model_version_by_alias <- function(name, alias, client = NULL, ...) {
 mlflow_update_model_version <- function(name, version, description,
                                         client = NULL) {
   client <- resolve_client(client)
+  path_prefix <- mlflow_registry_path_prefix(client)
+  client <- client$registry_client %||% client
 
-  response <- mlflow_registry_rest(
+  response <- mlflow_rest(
     "model-versions",
     "update",
     client = client,
     verb = "PATCH",
     version = "2.0",
+    path_prefix = path_prefix,
     data = list(
       name = name,
       version = version,
@@ -467,13 +511,16 @@ mlflow_update_model_version <- function(name, version, description,
 #' @export
 mlflow_delete_model_version <- function(name, version, client = NULL) {
   client <- resolve_client(client)
+  path_prefix <- mlflow_registry_path_prefix(client)
+  client <- client$registry_client %||% client
 
-  response <- mlflow_registry_rest(
+  response <- mlflow_rest(
     "model-versions",
     "delete",
     client = client,
     verb = "DELETE",
     version = "2.0",
+    path_prefix = path_prefix,
     data = list(
       name = cast_string(name),
       version = cast_string(version)
@@ -500,7 +547,9 @@ mlflow_transition_model_version_stage <- function(name, version, stage,
     mlflow_uc_stage_error("mlflow_transition_model_version_stage")
   }
 
-  response <- mlflow_registry_rest(
+  client <- client$registry_client %||% client
+
+  response <- mlflow_rest(
     "model-versions",
     "transition-stage",
     client = client,
@@ -555,9 +604,13 @@ mlflow_set_model_version_tag <- function(name, version = NULL, key = NULL, value
     version <- latest_versions[[1]]$version
   }
 
-  response <- mlflow_registry_rest(
+  path_prefix <- mlflow_registry_path_prefix(client)
+  client <- client$registry_client %||% client
+
+  response <- mlflow_rest(
     "model-versions", "set-tag",
     client = client, verb = "POST",
+    path_prefix = path_prefix,
     data = list(
       name = name,
       version = version,
