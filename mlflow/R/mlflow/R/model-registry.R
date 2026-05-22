@@ -21,49 +21,7 @@ mlflow_python_tags <- function(tags) {
   result
 }
 
-mlflow_uc_create_model_version_code <- function() {
-  paste(c(
-    "import json",
-    "import sys",
-    "from mlflow.tracking import MlflowClient",
-    "",
-    "with open(sys.argv[1], encoding='utf-8') as handle:",
-    "    payload = json.load(handle)",
-    "",
-    "kwargs = {",
-    "    key: value",
-    "    for key, value in {",
-    "        'name': payload['name'],",
-    "        'source': payload['source'],",
-    "        'run_id': payload.get('run_id'),",
-    "        'tags': payload.get('tags'),",
-    "        'run_link': payload.get('run_link'),",
-    "        'description': payload.get('description'),",
-    "    }.items()",
-    "    if value is not None",
-    "}",
-    "model_version = MlflowClient().create_model_version(**kwargs)",
-    "keys = [",
-    "    'name', 'version', 'creation_timestamp', 'last_updated_timestamp',",
-    "    'description', 'user_id', 'current_stage', 'source', 'run_id',",
-    "    'status', 'status_message', 'run_link', 'aliases', 'model_id',",
-    "]",
-    "result = {}",
-    "for key in keys:",
-    "    value = getattr(model_version, key, None)",
-    "    if value is not None:",
-    "        result[key] = list(value) if isinstance(value, tuple) else value",
-    "if getattr(model_version, 'tags', None):",
-    "    result['tags'] = model_version.tags",
-    "print(json.dumps(result))"
-  ), collapse = "\n")
-}
-
-mlflow_python_json <- function(code, payload, client) {
-  payload_file <- tempfile(fileext = ".json")
-  on.exit(unlink(payload_file), add = TRUE)
-  jsonlite::write_json(payload, payload_file, auto_unbox = TRUE, null = "null")
-
+mlflow_python_env <- function(client) {
   env <- if (is.null(client)) list() else client$get_cli_env()
   tracking_uri <- if (is.null(client)) {
     mlflow_get_tracking_uri()
@@ -75,16 +33,27 @@ mlflow_python_json <- function(code, payload, client) {
   } else {
     client$registry_uri$raw_uri %||% mlflow_get_registry_uri()
   }
-  env <- modifyList(list(
+  modifyList(list(
     MLFLOW_TRACKING_URI = tracking_uri,
     MLFLOW_REGISTRY_URI = registry_uri
   ), env)
+}
+
+mlflow_python_create_model_version <- function(payload, client) {
+  payload_file <- tempfile(fileext = ".json")
+  on.exit(unlink(payload_file), add = TRUE)
+  jsonlite::write_json(payload, payload_file, auto_unbox = TRUE, null = "null")
 
   response <- tryCatch({
-    withr::with_envvar(env, {
+    withr::with_envvar(mlflow_python_env(client), {
       run(
         python_bin(),
-        c("-c", code, payload_file),
+        c("-c", paste(c(
+          "import json, sys",
+          "from mlflow.tracking import MlflowClient",
+          "with open(sys.argv[1], encoding='utf-8') as handle:",
+          "    print(MlflowClient().create_model_version(**json.load(handle)).version)"
+        ), collapse = "\n"), payload_file),
         echo = mlflow_is_verbose(),
         echo_cmd = mlflow_is_verbose()
       )
@@ -94,7 +63,13 @@ mlflow_python_json <- function(code, payload, client) {
          conditionMessage(e), call. = FALSE)
   })
 
-  jsonlite::fromJSON(response$stdout, simplifyVector = FALSE)
+  lines <- strsplit(response$stdout, "\n", fixed = TRUE)[[1]]
+  lines <- lines[nzchar(lines)]
+  version <- tail(lines, 1)
+  if (length(version) == 0 || !nchar(version)) {
+    stop("Python MLflow did not return a Unity Catalog model version.", call. = FALSE)
+  }
+  version
 }
 
 mlflow_download_uc_model_version <- function(name, version, client = NULL) {
@@ -118,8 +93,7 @@ mlflow_download_uc_model_version <- function(name, version, client = NULL) {
 mlflow_uc_create_model_version <- function(name, source, run_id = NULL, tags = NULL, run_link = NULL,
                                            description = NULL, client = NULL) {
   client <- resolve_client(client)
-  mlflow_python_json(
-    mlflow_uc_create_model_version_code(),
+  version <- mlflow_python_create_model_version(
     list(
       name = name,
       source = source,
@@ -130,6 +104,7 @@ mlflow_uc_create_model_version <- function(name, source, run_id = NULL, tags = N
     ),
     client = client
   )
+  mlflow_get_model_version(name, version, client = client)
 }
 
 mlflow_uc_stage_error <- function(method) {
