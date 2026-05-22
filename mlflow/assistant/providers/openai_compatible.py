@@ -31,11 +31,12 @@ from mlflow.assistant.types import Event, Message, ToolResultBlock, ToolUseBlock
 _logger = logging.getLogger(__name__)
 
 # OpenAI-compatible servers have no server-side session state, so we encode
-# the full message history as JSON in the session_id field. 50 KB is a
-# conservative safety net: well below typical LLM context windows and small
-# enough that it does not bloat the HTTP response payload. Older turns are
+# the full message history as JSON in the session_id field. 500 KB stays
+# well below typical LLM context windows (gpt-5.4-mini handles ~200K tokens
+# / roughly 800 KB of UTF-8 text) and gives tool-heavy multi-turn
+# conversations enough headroom to avoid frequent trimming. Older turns are
 # dropped first; the system message at index 0 is always kept.
-_MAX_SESSION_BYTES = 50 * 1024
+_MAX_SESSION_BYTES = 500 * 1024
 _JSON_LIST_OVERHEAD_BYTES = 2
 _JSON_LIST_SEPARATOR_BYTES = 2
 
@@ -63,15 +64,35 @@ def _message_size_bytes(message: dict[str, Any]) -> int:
     return len(json.dumps(message).encode())
 
 
-def _trim_session(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    message_sizes = [_message_size_bytes(message) for message in messages]
-    total_size = _JSON_LIST_OVERHEAD_BYTES + sum(message_sizes)
-    if len(message_sizes) > 1:
-        total_size += (len(message_sizes) - 1) * _JSON_LIST_SEPARATOR_BYTES
+def _total_session_bytes(messages: list[dict[str, Any]]) -> int:
+    if not messages:
+        return _JSON_LIST_OVERHEAD_BYTES
+    sizes = [_message_size_bytes(m) for m in messages]
+    separators = max(0, len(sizes) - 1) * _JSON_LIST_SEPARATOR_BYTES
+    return _JSON_LIST_OVERHEAD_BYTES + sum(sizes) + separators
 
-    while total_size > _MAX_SESSION_BYTES and len(messages) > 2:
-        messages.pop(1)
-        total_size -= message_sizes.pop(1) + _JSON_LIST_SEPARATOR_BYTES
+
+def _trim_session(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Trim oldest conversation turns until the JSON-encoded size fits.
+
+    Drops whole user-rooted turn groups (user message + the assistant/tool
+    messages that follow it up to the next user message). Popping single
+    messages would leave orphaned `tool` messages whose `tool_call_id`
+    points at an assistant message that was already removed; OpenAI rejects
+    those silently with an empty completion.
+    """
+    while _total_session_bytes(messages) > _MAX_SESSION_BYTES and len(messages) > 2:
+        # End of the oldest turn = index of the next `user` message after
+        # the first non-system message.
+        end = 2
+        while end < len(messages) and messages[end].get("role") != "user":
+            end += 1
+        if end >= len(messages):
+            # Only one turn exists after the system message; we cannot drop
+            # anything without losing the active turn. Stop and let the
+            # gateway return a clear "context too long" error.
+            break
+        del messages[1:end]
     return messages
 
 
