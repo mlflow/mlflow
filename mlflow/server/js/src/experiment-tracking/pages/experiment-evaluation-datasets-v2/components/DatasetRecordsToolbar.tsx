@@ -9,7 +9,6 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { DatasetRefreshButton } from './DatasetRefreshButton';
 
 export interface DatasetRecordsToolbarProps {
   /** Local search input value. Owned by the controller's `useDebouncedSearchInput`. */
@@ -119,16 +118,6 @@ export const DatasetRecordsToolbar = ({
         </div>
       )}
       <div css={{ flex: 1 }} />
-      <DatasetRefreshButton
-        componentId="mlflow.eval-datasets-v2.records.refresh"
-        onRefresh={onRefresh}
-        isFetching={isRefreshing}
-        lastRefreshTime={lastRefreshTime}
-        ariaLabel={intl.formatMessage({
-          defaultMessage: 'Refresh records',
-          description: 'Aria label for the refresh button on the V2 dataset records page',
-        })}
-      />
       <Button
         componentId="mlflow.eval-datasets-v2.records.add-record"
         type="primary"

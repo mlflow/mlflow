@@ -1,11 +1,5 @@
 import invariant from 'invariant';
-import {
-  Empty,
-  ParagraphSkeleton,
-  TitleSkeleton,
-  Typography,
-  useDesignSystemTheme,
-} from '@databricks/design-system';
+import { Empty, ParagraphSkeleton, TitleSkeleton, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { Link, useParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import Routes from '@mlflow/mlflow/src/experiment-tracking/routes';

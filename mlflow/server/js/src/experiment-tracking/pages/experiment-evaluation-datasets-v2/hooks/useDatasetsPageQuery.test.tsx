@@ -1,9 +1,16 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-nocheck — punting test typing; see PR2 plan in branch import { jest, describe, beforeEach, afterEach, test, expect } from '@jest/globals';
 import React from 'react';
 import { renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-client';
 import { workspaceFetch } from '@databricks/web-shared/spog/workspace-console';
 import { useDatasetsPageQuery } from './useDatasetsPageQuery';
+import { jest } from '@jest/globals';
+import { describe } from '@jest/globals';
+import { beforeEach } from '@jest/globals';
+import { afterEach } from '@jest/globals';
+import { test } from '@jest/globals';
+import { expect } from '@jest/globals';
 
 jest.mock('@databricks/web-shared/spog/workspace-console', () => ({
   workspaceFetch: jest.fn(),

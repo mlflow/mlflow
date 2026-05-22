@@ -1,6 +1,10 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-nocheck — punting test typing; see PR2 plan in branch import { describe, expect, test } from '@jest/globals';
 import { act, renderHook } from '@testing-library/react';
 import { useDatasetRecordEditorState } from './useDatasetRecordEditorState';
+import { describe } from '@jest/globals';
+import { test } from '@jest/globals';
+import { expect } from '@jest/globals';
 
 describe('useDatasetRecordEditorState', () => {
   test('initial state is clean and matches the stringified initial value', () => {

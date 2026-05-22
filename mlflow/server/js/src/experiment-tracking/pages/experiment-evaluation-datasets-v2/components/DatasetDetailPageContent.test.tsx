@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-nocheck — punting test typing; see PR2 plan in branch import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -12,6 +13,12 @@ import { renderDatasetsPage } from '../test-utils/renderDatasetsPage';
 import { mockEmptyResponse, mockJsonResponse } from '../test-utils/mockResponses';
 import { SEARCH_DEBOUNCE_MS } from '../utils/constants';
 import type { JsonRecordEditorProps } from './JsonRecordEditor';
+import { jest } from '@jest/globals';
+import { describe } from '@jest/globals';
+import { beforeEach } from '@jest/globals';
+import { afterEach } from '@jest/globals';
+import { test } from '@jest/globals';
+import { expect } from '@jest/globals';
 
 // `workspaceFetch` is imported by the local `useDatasetsQueries.tsx` from the package barrel,
 // so the barrel mock intercepts every call from that file (single-record upsert/delete/create,

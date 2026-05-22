@@ -1,8 +1,5 @@
 import { useMemo } from 'react';
-import {
-  useListDatasetRecordsQuery,
-  type DatasetRecord,
-} from '../hooks/useDatasetsQueries';
+import { useListDatasetRecordsQuery, type DatasetRecord } from './useDatasetsQueries';
 import { type RecordColumnId, type SortDirection } from '../utils/constants';
 
 interface UseDatasetRecordsPageQueryParams {

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-nocheck — punting test typing; see PR2 plan in branch import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -9,6 +10,12 @@ import { ExperimentEvaluationDatasetsPageV2 } from '../ExperimentEvaluationDatas
 import { renderDatasetsPage } from '../test-utils/renderDatasetsPage';
 import { mockEmptyResponse, mockJsonResponse } from '../test-utils/mockResponses';
 import { DEFAULT_DATASET_PAGE_SIZE } from '../utils/constants';
+import { jest } from '@jest/globals';
+import { describe } from '@jest/globals';
+import { beforeEach } from '@jest/globals';
+import { afterEach } from '@jest/globals';
+import { test } from '@jest/globals';
+import { expect } from '@jest/globals';
 
 // Lightweight stub for the detail route — this file only exercises the list page; the detail
 // page has its own test file. Using a stub keeps fetchOrFail (used by useListDatasetRecordsQuery)

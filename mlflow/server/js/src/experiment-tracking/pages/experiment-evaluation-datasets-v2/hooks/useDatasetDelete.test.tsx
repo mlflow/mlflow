@@ -1,11 +1,18 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-nocheck — punting test typing; see PR2 plan in branch import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { IntlProvider } from 'react-intl';
 import type { ReactNode } from 'react';
-import type { Dataset } from '../hooks/useDatasetsQueries';
-import { useDeleteDatasetMutation } from '../hooks/useDatasetsQueries';
+import type { Dataset } from './useDatasetsQueries';
+import { useDeleteDatasetMutation } from './useDatasetsQueries';
 import type { DatasetNotifyApi } from './useDatasetNotifications';
 import { useDatasetDelete } from './useDatasetDelete';
+import { jest } from '@jest/globals';
+import { describe } from '@jest/globals';
+import { beforeEach } from '@jest/globals';
+import { afterEach } from '@jest/globals';
+import { test } from '@jest/globals';
+import { expect } from '@jest/globals';
 
 jest.mock('../hooks/useDatasetsQueries', () => ({
   useDeleteDatasetMutation: jest.fn(),

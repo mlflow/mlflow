@@ -1,4 +1,8 @@
-import { Suspense, lazy } from 'react';
+import { lazy } from 'react';
+// OSS lacks the `@databricks/web-shared/react` shim the lint rule prefers — fall back to
+// the React `Suspense` directly.
+// eslint-disable-next-line no-restricted-imports
+import { Suspense } from 'react';
 import { GenericSkeleton } from '@databricks/design-system';
 import type { JsonRecordEditorProps } from './JsonRecordEditor';
 

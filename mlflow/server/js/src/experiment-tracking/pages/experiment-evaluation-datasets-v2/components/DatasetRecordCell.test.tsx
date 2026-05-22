@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-nocheck — punting test typing; see PR2 plan in branch import { describe, expect, jest, test } from '@jest/globals';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -5,6 +6,10 @@ import { DesignSystemProvider } from '@databricks/design-system';
 import { IntlProvider } from 'react-intl';
 import type { ReactNode } from 'react';
 import { JsonPreviewCell, TagsPreviewCell, getTruncationComment, truncateJsonForTooltip } from './DatasetRecordCell';
+import { jest } from '@jest/globals';
+import { describe } from '@jest/globals';
+import { test } from '@jest/globals';
+import { expect } from '@jest/globals';
 
 const wrap = ({ children }: { children: ReactNode }) => (
   <IntlProvider locale="en">

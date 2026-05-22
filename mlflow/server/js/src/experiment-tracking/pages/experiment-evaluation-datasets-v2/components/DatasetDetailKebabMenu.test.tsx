@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-nocheck — punting test typing; see PR2 plan in branch import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -8,6 +9,12 @@ import { DatasetDetailKebabMenu } from './DatasetDetailKebabMenu';
 import type { DatasetNotifyApi } from '../hooks/useDatasetNotifications';
 import { renderDatasetsPage } from '../test-utils/renderDatasetsPage';
 import { mockEmptyResponse } from '../test-utils/mockResponses';
+import { jest } from '@jest/globals';
+import { describe } from '@jest/globals';
+import { beforeEach } from '@jest/globals';
+import { afterEach } from '@jest/globals';
+import { test } from '@jest/globals';
+import { expect } from '@jest/globals';
 
 jest.mock('@databricks/web-shared/spog/workspace-console', () => ({
   workspaceFetch: jest.fn(),

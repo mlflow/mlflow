@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Editor, { loader } from '@monaco-editor/react';
 import type { Monaco, OnMount } from '@monaco-editor/react';
+// The wildcard imports are required: `loader.config({ monaco })` needs the full namespace
+// to hand to `@monaco-editor/react`, and `Monaco_.editor.IStandaloneCodeEditor` is only
+// reachable via the namespace import. No granular alternative exists.
+// eslint-disable-next-line no-restricted-imports
+import * as monaco from 'monaco-editor';
+// eslint-disable-next-line no-restricted-imports
 import type * as Monaco_ from 'monaco-editor';
 import { Typography, useDesignSystemTheme } from '@databricks/design-system';
 
@@ -23,10 +29,11 @@ export interface JsonRecordEditorProps {
   onSaveShortcut?: () => void;
 }
 
-// Configure the loader once at module-load to use the locally-bundled monaco-editor copy
-// (shipped by `monaco-editor-webpack-plugin`) instead of fetching from the CDN. Without this
-// the editor 404s in air-gapped environments and slows the initial open by ~500ms otherwise.
-loader.config({ paths: { vs: '/static-files/static/js/vs' } });
+// Hand `@monaco-editor/react` the already-bundled `monaco` module instead of letting it
+// fetch the AMD loader from a CDN (or a non-existent local `vs/` path). This is the way
+// you use `@monaco-editor/react` together with `MonacoWebpackPlugin` — the plugin handles
+// chunking + workers, the loader just consumes the module directly.
+loader.config({ monaco });
 
 const heightToPx = (h: string): number => {
   const n = parseInt(h, 10);

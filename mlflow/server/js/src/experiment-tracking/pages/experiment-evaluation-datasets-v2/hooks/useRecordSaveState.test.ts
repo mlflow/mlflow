@@ -1,10 +1,17 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-nocheck — punting test typing; see PR2 plan in branch import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-client';
-import type { DatasetRecord } from '../hooks/useDatasetsQueries';
-import { useUpsertDatasetRecordsMutation } from '../hooks/useDatasetsQueries';
+import type { DatasetRecord } from './useDatasetsQueries';
+import { useUpsertDatasetRecordsMutation } from './useDatasetsQueries';
 import { useRecordSaveState } from './useRecordSaveState';
+import { jest } from '@jest/globals';
+import { describe } from '@jest/globals';
+import { beforeEach } from '@jest/globals';
+import { afterEach } from '@jest/globals';
+import { test } from '@jest/globals';
+import { expect } from '@jest/globals';
 
 // Mock just the mutation hook from the legacy queries module — the rest of the file (types,
 // fetch helpers) is left intact. The mock lets each test drive `mutate`'s success/error

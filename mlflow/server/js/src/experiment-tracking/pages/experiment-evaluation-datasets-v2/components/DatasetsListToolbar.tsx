@@ -3,7 +3,6 @@ import { Input, type InputRef, SearchIcon, useDesignSystemTheme } from '@databri
 import { useIntl } from 'react-intl';
 import { CreateDatasetButton } from './CreateDatasetModal';
 import type { Dataset } from '../hooks/useDatasetsQueries';
-import { DatasetRefreshButton } from './DatasetRefreshButton';
 
 export interface DatasetsListToolbarProps {
   experimentId: string;
@@ -72,16 +71,6 @@ export const DatasetsListToolbar = ({
         css={{ maxWidth: 360 }}
       />
       <div css={{ flex: 1 }} />
-      <DatasetRefreshButton
-        componentId="mlflow.eval-datasets-v2.list.refresh"
-        onRefresh={onRefresh}
-        isFetching={isRefreshing}
-        lastRefreshTime={lastRefreshTime}
-        ariaLabel={intl.formatMessage({
-          defaultMessage: 'Refresh datasets',
-          description: 'Aria label for the refresh button on the V2 evaluation datasets list page',
-        })}
-      />
       <CreateDatasetButton
         experimentId={experimentId}
         onSuccess={onDatasetCreated}

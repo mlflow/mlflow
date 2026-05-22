@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo } from 'react';
-import type { DatasetRecord } from '../hooks/useDatasetsQueries';
+import type { DatasetRecord } from './useDatasetsQueries';
 import { useDatasetRecordsPageQuery } from './useDatasetRecordsPageQuery';
 import { useDatasetRecordsUrlState } from './useDatasetRecordsUrlState';
 import { useBulkRecordSelection } from './useBulkRecordSelection';

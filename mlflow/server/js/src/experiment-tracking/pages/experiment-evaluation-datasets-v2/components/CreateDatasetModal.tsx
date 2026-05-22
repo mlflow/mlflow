@@ -27,11 +27,7 @@ interface CreateDatasetButtonProps {
  * `useCreateEvaluationDatasetMutation`, so `onSuccess` / `refetch` callbacks are no-ops in
  * OSS — kept for prop-shape parity with universe.
  */
-export const CreateDatasetButton = ({
-  experimentId,
-  buttonText,
-  buttonProps = {},
-}: CreateDatasetButtonProps) => {
+export const CreateDatasetButton = ({ experimentId, buttonText, buttonProps = {} }: CreateDatasetButtonProps) => {
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -49,11 +45,7 @@ export const CreateDatasetButton = ({
           />
         )}
       </Button>
-      <CreateEvaluationDatasetModal
-        visible={open}
-        experimentId={experimentId}
-        onCancel={() => setOpen(false)}
-      />
+      <CreateEvaluationDatasetModal visible={open} experimentId={experimentId} onCancel={() => setOpen(false)} />
     </>
   );
 };

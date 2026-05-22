@@ -24,7 +24,6 @@ import { BulkDeleteRecordsModal } from './BulkDeleteRecordsModal';
 import { DatasetDetailKebabMenu } from './DatasetDetailKebabMenu';
 import { SidePanelResizeHandle } from './SidePanelResizeHandle';
 import { TraceModal } from './TraceModal';
-import { useSqlWarehouseContext } from '../../experiment-page-tabs/SqlWarehouseContext';
 import { DEFAULT_RECORD_PAGE_SIZE } from '../utils/constants';
 
 /**
@@ -59,7 +58,6 @@ const useNavigationBlock = () => {
     };
   };
 };
-
 
 const SIDE_PANEL_DEFAULT_WIDTH = 640;
 const SIDE_PANEL_MIN_WIDTH = 400;
@@ -106,7 +104,10 @@ export const DatasetDetailPageContent = ({ experimentId, datasetId, dataset }: D
   // overlay the entire page and keeps the side panel free of SQL-warehouse plumbing.
   const [isTraceModalOpen, setIsTraceModalOpen] = useState(false);
   const [selectedTraceId, setSelectedTraceId] = useState<string>('');
-  const { warehouseId: selectedSqlWarehouseId } = useSqlWarehouseContext();
+  // OSS has no SQL-warehouse context provider mounted around the datasets route, so
+  // `useSqlWarehouseContext()` would throw. The TraceModal stub ignores this value anyway —
+  // wire it back when OSS adds warehouse plumbing.
+  const selectedSqlWarehouseId: string | undefined = undefined;
 
   // Side panel width persists globally (one preference across all datasets / experiments),
   // since it expresses the user's preferred layout — not anything dataset-specific. React

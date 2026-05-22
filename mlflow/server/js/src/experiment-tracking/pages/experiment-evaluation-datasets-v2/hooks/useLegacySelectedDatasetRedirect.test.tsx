@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-nocheck — punting test typing; see PR2 plan in branch import { afterEach, describe, expect, jest, test } from '@jest/globals';
 import { render, screen, waitFor } from '@testing-library/react';
 import {
@@ -7,6 +8,11 @@ import {
   waitForRoutesToBeRendered,
 } from '@mlflow/mlflow/src/common/utils/RoutingTestUtils';
 import { useLegacySelectedDatasetRedirect } from './useLegacySelectedDatasetRedirect';
+import { describe } from '@jest/globals';
+import { afterEach } from '@jest/globals';
+import { jest } from '@jest/globals';
+import { test } from '@jest/globals';
+import { expect } from '@jest/globals';
 
 const Probe = () => {
   const { isRedirecting } = useLegacySelectedDatasetRedirect();

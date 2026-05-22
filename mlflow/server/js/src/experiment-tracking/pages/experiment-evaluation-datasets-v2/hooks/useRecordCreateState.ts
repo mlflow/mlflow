@@ -1,10 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useQueryClient } from '@databricks/web-shared/query-client';
-import type { DatasetRecord } from '../hooks/useDatasetsQueries';
-import {
-  listDatasetRecordsQueryKey,
-  useCreateDatasetRecordMutation,
-} from '../hooks/useDatasetsQueries';
+import type { DatasetRecord } from './useDatasetsQueries';
+import { listDatasetRecordsQueryKey, useCreateDatasetRecordMutation } from './useDatasetsQueries';
 import type { SaveStatus } from '../components/DatasetRecordDetailFooter';
 import { getDefaultRecord, validateSchemaConsistency } from '../utils/datasetSchemaUtils';
 import { useDatasetRecordEditorState } from './useDatasetRecordEditorState';

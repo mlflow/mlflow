@@ -1,6 +1,6 @@
 import { useQuery } from '@databricks/web-shared/query-client';
 import { fetchAPI, getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
-import type { Dataset } from '../hooks/useDatasetsQueries';
+import type { Dataset } from './useDatasetsQueries';
 import { DEFAULT_DATASETS_ORDER_BY } from '../utils/constants';
 
 export const V2_DATASETS_PAGE_QUERY_KEY = 'v2ListDatasetsPage';

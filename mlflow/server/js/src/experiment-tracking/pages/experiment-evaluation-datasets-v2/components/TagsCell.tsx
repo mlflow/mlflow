@@ -4,10 +4,7 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { useQueryClient } from '@databricks/web-shared/query-client';
 import { KeyValueTagFullViewModal } from './KeyValueTagFullViewModal';
 import type { DatasetRecord } from '../hooks/useDatasetsQueries';
-import {
-  listDatasetRecordsQueryKey,
-  useUpsertDatasetRecordsMutation,
-} from '../hooks/useDatasetsQueries';
+import { listDatasetRecordsQueryKey, useUpsertDatasetRecordsMutation } from '../hooks/useDatasetsQueries';
 
 interface TagsCellProps {
   record: DatasetRecord;

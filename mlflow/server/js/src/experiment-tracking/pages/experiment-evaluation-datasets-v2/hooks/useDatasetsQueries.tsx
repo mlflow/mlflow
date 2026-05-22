@@ -67,20 +67,29 @@ interface OssDataset {
   experiment_ids?: string[];
 }
 
+interface OssDatasetRecordSource {
+  source_type?: string;
+  source_data?: { [key: string]: any } | string;
+}
+
 interface OssDatasetRecord {
   dataset_record_id: string;
   dataset_id?: string;
-  inputs?: string;
-  expectations?: string;
-  tags?: string;
-  source?: string;
+  // The OSS GET handler returns these as parsed dicts (see `DatasetRecord.to_dict()` —
+  // it `json.loads`es each field before re-serializing the outer envelope). The upsert
+  // endpoint accepts the same dict shape on the way back in, so the adapter passes them
+  // through untouched in both directions.
+  inputs?: { [key: string]: any };
+  expectations?: { [key: string]: any };
+  tags?: { [key: string]: string };
+  source?: OssDatasetRecordSource;
   source_id?: string;
   source_type?: string;
   created_time?: number;
   last_update_time?: number;
   created_by?: string;
   last_updated_by?: string;
-  outputs?: string;
+  outputs?: { [key: string]: any };
 }
 
 interface SearchDatasetsResponse {
@@ -101,10 +110,18 @@ interface UpsertDatasetRecordsResponse {
 
 const msToIso = (ms?: number): string => (typeof ms === 'number' ? new Date(ms).toISOString() : '');
 
-const parseDict = (value: string | undefined): { [key: string]: any } => {
-  if (!value) return {};
-  const parsed = parseJSONSafe(value);
-  return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? (parsed as { [key: string]: any }) : {};
+/**
+ * Defensive dict coercion. The OSS server returns these fields as already-parsed dicts,
+ * but if anything ever ships a JSON-string version (a custom store, an old build), we'd
+ * rather fall back gracefully than throw.
+ */
+const coerceDict = (value: { [key: string]: any } | string | undefined): { [key: string]: any } => {
+  if (value === undefined || value === null) return {};
+  if (typeof value === 'string') {
+    const parsed = parseJSONSafe(value);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  }
+  return value;
 };
 
 const ossDatasetToUniverse = (raw: OssDataset): Dataset => ({
@@ -124,21 +141,16 @@ const ossDatasetToUniverse = (raw: OssDataset): Dataset => ({
 });
 
 /**
- * Decodes the OSS record `source` blob into the shape v2 components expect. OSS stores
- * `source` as a JSON string with `{ source_type, source_data }`; v2 wants a discriminated
- * `{ human?, document?, trace? }` union. The mapping is best-effort — unknown source_types
- * yield `undefined` so the UI falls through to its neutral state.
+ * Decodes the OSS record `source` field into the shape v2 components expect. OSS returns
+ * `source` as `{ source_type, source_data: dict }`; v2 wants a discriminated
+ * `{ human?, document?, trace? }` union. Unknown source_types yield `undefined` so the UI
+ * falls through to its neutral state.
  */
 const parseRecordSource = (raw: OssDatasetRecord): DatasetRecord['source'] => {
-  if (!raw.source) return undefined;
-  const parsed = parseJSONSafe(raw.source) as {
-    source_type?: string;
-    source_data?: string | { [key: string]: any };
-  } | null;
-  if (!parsed || !parsed.source_type) return undefined;
-  const data =
-    typeof parsed.source_data === 'string' ? (parseJSONSafe(parsed.source_data) ?? {}) : (parsed.source_data ?? {});
-  switch (parsed.source_type) {
+  const src = raw.source;
+  if (!src || !src.source_type) return undefined;
+  const data = typeof src.source_data === 'string' ? (parseJSONSafe(src.source_data) ?? {}) : (src.source_data ?? {});
+  switch (src.source_type) {
     case 'HUMAN':
       return { human: { user_name: (data as any).user_name ?? '' } };
     case 'DOCUMENT':
@@ -156,31 +168,32 @@ const ossRecordToUniverse = (raw: OssDatasetRecord): DatasetRecord => ({
   last_updated_by: raw.last_updated_by,
   create_time: msToIso(raw.created_time),
   last_update_time: msToIso(raw.last_update_time),
-  inputs: parseDict(raw.inputs),
-  expectations: parseDict(raw.expectations),
-  tags: parseDict(raw.tags) as { [key: string]: string },
+  inputs: coerceDict(raw.inputs),
+  expectations: coerceDict(raw.expectations),
+  tags: coerceDict(raw.tags) as { [key: string]: string },
   source: parseRecordSource(raw),
 });
 
 /**
- * Inverse of `ossRecordToUniverse` for writes. Universe-shaped fields are re-serialized into
- * the JSON-string blobs OSS expects. Fields not present in `record` are omitted so the server
- * can interpret an omitted key as "leave alone" when the upsert handler supports it; callers
- * that need replace-semantics must populate every key explicitly.
+ * Inverse of `ossRecordToUniverse` for writes. The OSS upsert endpoint expects records with
+ * dict-shaped `inputs` / `expectations` / `tags` / `source` (the same shape the GET handler
+ * returns), so we pass them through unchanged. Fields not present in `record` are omitted
+ * so the server can interpret an omitted key as "leave alone" when the upsert handler
+ * supports it; callers that need replace-semantics must populate every key explicitly.
  */
 const universeRecordToOss = (record: Partial<DatasetRecord>): Partial<OssDatasetRecord> => {
   const out: Partial<OssDatasetRecord> = {};
   if (record.dataset_record_id !== undefined) out.dataset_record_id = record.dataset_record_id;
-  if (record.inputs !== undefined) out.inputs = JSON.stringify(record.inputs);
-  if (record.expectations !== undefined) out.expectations = JSON.stringify(record.expectations);
-  if (record.tags !== undefined) out.tags = JSON.stringify(record.tags);
+  if (record.inputs !== undefined) out.inputs = record.inputs;
+  if (record.expectations !== undefined) out.expectations = record.expectations;
+  if (record.tags !== undefined) out.tags = record.tags;
   if (record.source !== undefined) {
     if (record.source.human) {
-      out.source = JSON.stringify({ source_type: 'HUMAN', source_data: JSON.stringify(record.source.human) });
+      out.source = { source_type: 'HUMAN', source_data: record.source.human };
     } else if (record.source.document) {
-      out.source = JSON.stringify({ source_type: 'DOCUMENT', source_data: JSON.stringify(record.source.document) });
+      out.source = { source_type: 'DOCUMENT', source_data: record.source.document };
     } else if (record.source.trace) {
-      out.source = JSON.stringify({ source_type: 'TRACE', source_data: JSON.stringify(record.source.trace) });
+      out.source = { source_type: 'TRACE', source_data: record.source.trace };
     }
   }
   return out;

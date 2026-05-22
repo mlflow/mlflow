@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-nocheck — punting test typing; see PR2 plan in branch import { type ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals';
 import { act, renderHook, waitFor } from '@testing-library/react';
@@ -10,7 +11,7 @@ import {
   TestRouter,
   waitForRoutesToBeRendered,
 } from '@mlflow/mlflow/src/common/utils/RoutingTestUtils';
-import type { Dataset, DatasetRecord } from '../hooks/useDatasetsQueries';
+import type { Dataset, DatasetRecord } from './useDatasetsQueries';
 import { useDatasetRecordsController } from './useDatasetRecordsController';
 
 const mockDataset: Dataset = {

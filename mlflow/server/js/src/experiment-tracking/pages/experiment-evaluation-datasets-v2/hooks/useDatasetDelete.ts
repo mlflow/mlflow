@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
-import { useDeleteDatasetMutation, type Dataset } from '../hooks/useDatasetsQueries';
+import { useDeleteDatasetMutation, type Dataset } from './useDatasetsQueries';
 import type { DatasetNotifyApi } from './useDatasetNotifications';
 
 export interface UseDatasetDeleteOptions {

@@ -31,11 +31,16 @@ export const RECORD_COLUMN_IDS = [
 ] as const;
 export type RecordColumnId = (typeof RECORD_COLUMN_IDS)[number];
 
-/** Columns visible by default. Users can toggle the rest in via the column selector. */
+/**
+ * Columns visible by default. Users can toggle the rest in via the column selector.
+ *
+ * `source` is hidden in OSS because the `Dataset` proto has no `source` / `source_type`
+ * fields yet — the column renders empty for every row. Re-enable in
+ * `DEFAULT_VISIBLE_RECORD_COLUMNS` once the OSS schema grows those fields.
+ */
 export const DEFAULT_VISIBLE_RECORD_COLUMNS: readonly RecordColumnId[] = [
   'inputs',
   'expectations',
-  'source',
   'last_updated',
   'tags',
 ];
