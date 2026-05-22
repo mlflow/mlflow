@@ -32,7 +32,7 @@ async function waitFor(
 
 describe('wal/supervisor', () => {
   let walDir: string;
-  
+
   const originalWalDir = process.env.MLFLOW_WAL_DIR;
   const originalDaemonExecutable = process.env.MLFLOW_TRACE_DAEMON_EXECUTABLE;
 

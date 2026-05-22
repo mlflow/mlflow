@@ -23,10 +23,6 @@ function makeRecord(idSuffix: string, overrides: Partial<WalRecord> = {}): WalRe
 
 describe('wal/batching_writer', () => {
   let walDir: string;
-  // Capture the developer's pre-test value so we restore (not just unset)
-  // in afterEach. Mirrors the pattern in paths.test.ts so running
-  // `MLFLOW_WAL_DIR=/some/dir jest` doesn't lose the override for later
-  // tests in the same worker.
   const originalWalDir = process.env.MLFLOW_WAL_DIR;
 
   beforeEach(async () => {
@@ -54,12 +50,6 @@ describe('wal/batching_writer', () => {
   });
 
   it('coalesces concurrent submits into a single fsync (group commit)', async () => {
-    // Spy on FileHandle.sync via the prototype so we count every fsync
-    // the writer issues regardless of which fd it opens. With group
-    // commit, N submissions made in the same tick must collapse into a
-    // single fsync. The probe fd is closed immediately after we grab
-    // the prototype so Node's "FileHandle closed by GC" guard never
-    // trips.
     const probeFh = await fsPromises.open(join(walDir, '.probe'), 'w');
     const fdProto = Object.getPrototypeOf(probeFh) as { sync: () => Promise<void> };
     await probeFh.close();
@@ -103,22 +93,6 @@ describe('wal/batching_writer', () => {
   });
 
   it('produces well-formed lines when batched submits interleave with direct writers', async () => {
-    // BatchingWriter.submit defers the actual file write to a
-    // setImmediate so it can coalesce same-tick submissions; a
-    // tombstone or direct appendRecord called inline therefore lands
-    // on queue.log before the deferred batch. We can't pin a specific
-    // ordering here, but two invariants must hold regardless of the
-    // interleaving: (1) every line in queue.log is valid JSON (no
-    // torn writes thanks to the shared SerialQueue), and (2) the
-    // visible record after the tombstone shadows the submitted
-    // record. We pick a tombstone for an id that the writer also
-    // submits and confirm that id is *not* in `readPending` —
-    // whichever wrote first, the tombstone always wins because
-    // `appendRecord(r1)` followed by `appendTombstone(r1.id)` and
-    // `appendTombstone(r1.id)` followed by `appendRecord(r1)` both
-    // collapse to "r1 hidden" under {@link readPending}'s replay
-    // semantics (tombstone shadows earlier appends; an append after a
-    // tombstone wins, but our writer never re-submits the same id).
     const writer = new BatchingWriter();
     const r1 = makeRecord('mixed-1');
     const r2 = makeRecord('mixed-2');
@@ -137,9 +111,6 @@ describe('wal/batching_writer', () => {
       }).not.toThrow();
     }
 
-    // Either ordering of tombstone vs. r1's append leaves r2 visible;
-    // r1's pending state depends on the interleaving and is not part
-    // of the contract under test.
     const pending = await readPending();
     expect(pending.map((r) => r.id)).toContain(r2.id);
   });
