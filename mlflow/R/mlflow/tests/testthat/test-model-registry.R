@@ -1,7 +1,6 @@
 context("Model Registry")
 
 testthat_uc_model_name <- "test_catalog.test_schema.model"
-testthat_uc_model_path <- "/Models/test_catalog/test_schema/model/4"
 
 get_mock_client <- function() {
   client <- new_mlflow_client_impl(
@@ -536,545 +535,70 @@ test_that("model alias APIs call registered-models alias endpoint", {
   expect_equal(calls[[2]]$verb, "GET")
 })
 
-test_that("UC model source materialization is explicit", {
-  model_dir <- tempfile("uc-local-model-")
-  dir.create(model_dir, recursive = TRUE, showWarnings = FALSE)
-  on.exit(unlink(model_dir, recursive = TRUE), add = TRUE)
-
-  expect_equal(
-    mlflow_materialize_local_model(model_dir, client = get_mock_client()),
-    normalizePath(model_dir, winslash = "/", mustWork = TRUE)
-  )
-})
-
-test_that("UC source materialization does not hide generic download errors", {
-  with_mocked_bindings(.package = "mlflow",
-    mlflow_download_artifacts_from_uri = function(artifact_uri, client = mlflow_client()) {
-      stop("download failed", call. = FALSE)
-    }, {
-      expect_error(
-        mlflow_materialize_local_model("models:/missing/1", client = get_mock_client()),
-        "download failed"
-      )
-    })
-})
-
-test_that("UC create model version calls create credentials upload finalize", {
-  model_dir <- file.path(tempdir(), paste0("uc-model-", as.integer(Sys.time())))
-  dir.create(model_dir, recursive = TRUE, showWarnings = FALSE)
-  on.exit(unlink(model_dir, recursive = TRUE), add = TRUE)
-
-  yaml::write_yaml(
-    list(
-      signature = list(
-        inputs = list(list(name = "x", type = "double")),
-        outputs = list(list(name = "y", type = "double"))
-      ),
-      flavors = list(crate = list(model = "crate.bin"))
-    ),
-    file.path(model_dir, "MLmodel")
-  )
-  saveRDS(list(v = 1), file.path(model_dir, "crate.bin"))
-
+test_that("UC create model version delegates to Python MLflow CLI", {
   mock_client <- get_mock_client()
   mock_client$registry_uri <- list(scheme = "databricks-uc")
-  mock_client$registry_client <- mock_client
 
-  calls <- list()
+  cli_args <- NULL
   with_mocked_bindings(.package = "mlflow",
-    mlflow_materialize_local_model = function(source, client) model_dir,
-    mlflow_uc_sdk_models_artifact_repository_enabled = function(client) FALSE,
-    mlflow_upload_model_dir_for_uc = function(model_dir, model_version, credentials,
-                                              client = NULL) {
-      calls[[length(calls) + 1]] <<- list(kind = "upload", version = model_version$version)
-      TRUE
-    },
-    mlflow_registry_rest = function(...) {
-      args <- list(...)
-      calls[[length(calls) + 1]] <<- args
-      endpoint <- paste(args[1:2], collapse = "/")
-      if (identical(endpoint, "model-versions/create")) {
-        return(list(model_version = list(name = testthat_uc_model_name, version = "3")))
-      }
-      if (identical(endpoint, "model-versions/generate-temporary-credentials")) {
-        return(list(credentials = list(storage_mode = "DEFAULT_STORAGE")))
-      }
-      if (identical(endpoint, "model-versions/finalize")) {
-        return(list(model_version = list(name = testthat_uc_model_name, version = "3")))
-      }
-      stop("unexpected endpoint")
-    }, {
-      result <- mlflow_create_model_version(
-        name = testthat_uc_model_name,
-        source = model_dir,
-        run_id = "rid-1",
-        client = mock_client
-      )
-      expect_equal(result$version, "3")
-    })
-
-  expect_equal(paste(calls[[1]][1:2], collapse = "/"), "model-versions/create")
-  expect_equal(
-    paste(calls[[2]][1:2], collapse = "/"),
-    "model-versions/generate-temporary-credentials"
-  )
-  expect_equal(calls[[3]]$kind, "upload")
-  expect_equal(paste(calls[[4]][1:2], collapse = "/"), "model-versions/finalize")
-})
-
-test_that("UC create model version delegates customer-managed storage to Python", {
-  model_dir <- tempfile("uc-customer-managed-")
-  dir.create(model_dir, recursive = TRUE, showWarnings = FALSE)
-  on.exit(unlink(model_dir, recursive = TRUE), add = TRUE)
-
-  yaml::write_yaml(
-    list(
-      signature = list(outputs = list(list(name = "y", type = "double"))),
-      flavors = list(crate = list(model = "crate.bin"))
-    ),
-    file.path(model_dir, "MLmodel")
-  )
-  saveRDS(list(v = 1), file.path(model_dir, "crate.bin"))
-
-  mock_client <- get_mock_client()
-  mock_client$registry_uri <- list(scheme = "databricks-uc")
-  mock_client$registry_client <- mock_client
-
-  calls <- list()
-  python_called <- FALSE
-  with_mocked_bindings(.package = "mlflow",
-    mlflow_materialize_local_model = function(source, client) model_dir,
-    mlflow_uc_sdk_models_artifact_repository_enabled = function(client) FALSE,
-    mlflow_upload_and_finalize_uc_model_version_with_python = function(model_dir, model_version,
-                                                                       client) {
-      python_called <<- TRUE
-      expect_equal(model_version$name, testthat_uc_model_name)
-      expect_equal(model_version$version, "5")
-      list(name = model_version$name, version = model_version$version, status = "READY")
-    },
-    mlflow_registry_rest = function(...) {
-      args <- list(...)
-      calls[[length(calls) + 1]] <<- args
-      endpoint <- paste(args[1:2], collapse = "/")
-      if (identical(endpoint, "model-versions/create")) {
-        return(list(model_version = list(name = testthat_uc_model_name, version = "5")))
-      }
-      if (identical(endpoint, "model-versions/generate-temporary-credentials")) {
-        return(list(credentials = list(storage_mode = "CUSTOMER_HOSTED")))
-      }
-      if (identical(endpoint, "model-versions/finalize")) {
-        stop("unexpected R finalize")
-      }
-      stop("unexpected endpoint")
-    }, {
-      result <- mlflow_create_model_version(
-        name = testthat_uc_model_name,
-        source = model_dir,
-        client = mock_client
-      )
-      expect_equal(result$status, "READY")
-    })
-
-  expect_true(python_called)
-  expect_equal(length(calls), 2)
-})
-
-test_that("UC create model version uses SDK files without temporary credentials", {
-  model_dir <- tempfile("uc-sdk-create-")
-  dir.create(model_dir, recursive = TRUE, showWarnings = FALSE)
-  on.exit(unlink(model_dir, recursive = TRUE), add = TRUE)
-
-  yaml::write_yaml(
-    list(
-      signature = list(outputs = list(list(name = "y", type = "double"))),
-      flavors = list(crate = list(model = "crate.bin"))
-    ),
-    file.path(model_dir, "MLmodel")
-  )
-  saveRDS(list(v = 1), file.path(model_dir, "crate.bin"))
-
-  mock_client <- get_mock_client()
-  mock_client$registry_uri <- list(scheme = "databricks-uc")
-  mock_client$registry_client <- mock_client
-
-  calls <- character()
-  uploaded <- FALSE
-  with_mocked_bindings(.package = "mlflow",
-    mlflow_materialize_local_model = function(source, client) model_dir,
-    mlflow_uc_sdk_models_artifact_repository_enabled = function(client) TRUE,
-    mlflow_uc_model_version_credentials = function(...) stop("unexpected credentials request"),
-    mlflow_upload_model_dir_to_uc_databricks_files = function(model_dir, model_version,
-                                                              client, files) {
-      uploaded <<- TRUE
-      expect_equal(model_version$name, testthat_uc_model_name)
-      expect_equal(model_version$version, "6")
-      expect_equal(sort(basename(files)), sort(c("MLmodel", "crate.bin")))
-      invisible(TRUE)
-    },
-    mlflow_registry_rest = function(...) {
-      args <- list(...)
-      endpoint <- paste(args[1:2], collapse = "/")
-      calls <<- c(calls, endpoint)
-      if (identical(endpoint, "model-versions/create")) {
-        return(list(model_version = list(name = testthat_uc_model_name, version = "6")))
-      }
-      if (identical(endpoint, "model-versions/finalize")) {
-        return(list(model_version = list(
-          name = testthat_uc_model_name,
-          version = "6",
-          status = "READY"
-        )))
-      }
-      stop("unexpected endpoint")
-    }, {
-      result <- mlflow_create_model_version(
-        name = testthat_uc_model_name,
-        source = model_dir,
-        client = mock_client
-      )
-      expect_equal(result$status, "READY")
-    })
-
-  expect_true(uploaded)
-  expect_equal(calls, c("model-versions/create", "model-versions/finalize"))
-})
-
-test_that("UC DEFAULT_STORAGE credentials upload through Databricks files", {
-  model_dir <- tempfile("uc-databricks-files-")
-  dir.create(file.path(model_dir, "nested"), recursive = TRUE, showWarnings = FALSE)
-  on.exit(unlink(model_dir, recursive = TRUE), add = TRUE)
-
-  writeLines("flavors: {}", file.path(model_dir, "MLmodel"))
-  writeLines("payload", file.path(model_dir, "nested", "crate.bin"))
-
-  mock_client <- get_mock_client()
-  model_version <- list(name = testthat_uc_model_name, version = "4")
-  upload_urls <- character()
-  uploaded_files <- character()
-
-  with_mocked_bindings(.package = "mlflow",
-    mlflow_uc_create_upload_url = function(client, path) {
-      upload_urls <<- c(upload_urls, path)
-      list(url = paste0("https://signed.example.com/", basename(path)), headers = character())
-    },
-    mlflow_upload_file_to_signed_url = function(url, file, headers = character()) {
-      uploaded_files <<- c(uploaded_files, basename(file))
-      invisible(TRUE)
-    }, {
-      mlflow_upload_model_dir_for_uc(
-        model_dir = model_dir,
-        model_version = model_version,
-        credentials = list(storage_mode = "DEFAULT_STORAGE"),
-        client = mock_client
-      )
-    })
-
-  expect_true(paste0(testthat_uc_model_path, "/MLmodel") %in% upload_urls)
-  expect_true(paste0(testthat_uc_model_path, "/nested/crate.bin") %in% upload_urls)
-  expect_equal(sort(uploaded_files), c("crate.bin", "MLmodel"))
-})
-
-test_that("UC Databricks files listing recurses and paginates", {
-  calls <- list()
-  root <- testthat_uc_model_path
-
-  with_mocked_bindings(.package = "mlflow",
-    mlflow_uc_list_databricks_file_dir = function(client, path, page_token = NULL) {
-      calls[[length(calls) + 1]] <<- list(path = path, page_token = page_token)
-      if (identical(path, root) && is.null(page_token)) {
-        return(list(
-          contents = list(
-            list(path = paste0(root, "/nested/"), is_directory = TRUE),
-            list(path = paste0(root, "/MLmodel"), is_directory = FALSE)
-          ),
-          next_page_token = "next"
-        ))
-      }
-      if (identical(path, paste0(root, "/nested"))) {
-        return(list(
-          contents = list(list(path = paste0(root, "/nested/crate.bin"), is_directory = FALSE))
-        ))
-      }
-      if (identical(path, root) && identical(page_token, "next")) {
-        return(list(
-          contents = list(list(path = paste0(root, "/conda.yaml"), is_directory = FALSE))
-        ))
-      }
-      stop("unexpected list call")
-    }, {
-      files <- mlflow_uc_databricks_files(get_mock_client(), root)
-    })
-
-  expect_equal(sort(files), sort(c(
-    paste0(root, "/MLmodel"),
-    paste0(root, "/nested/crate.bin"),
-    paste0(root, "/conda.yaml")
-  )))
-  expect_equal(calls[[3]]$page_token, "next")
-})
-
-test_that("UC Databricks files listing sends page token in GET body", {
-  with_mocked_bindings(.package = "mlflow",
-    mlflow_rest = function(...) {
-      args <- list(...)
-      expect_equal(
-        paste(args[1:3], collapse = "/"),
-        paste0("fs/directories", testthat_uc_model_path)
-      )
-      expect_equal(args$verb, "GET")
-      expect_equal(args$path_prefix, "api/2.0")
-      expect_null(args$query)
-      expect_equal(args$data$page_token, "next")
-      list(contents = list())
-    }, {
-      mlflow_uc_list_databricks_file_dir(
-        client = get_mock_client(),
-        path = testthat_uc_model_path,
-        page_token = "next"
-      )
-    })
-})
-
-test_that("UC Databricks files download requests signed URLs per file", {
-  mock_client <- get_mock_client()
-  model_version <- list(name = testthat_uc_model_name, version = "4")
-  downloaded_files <- character()
-  requested_urls <- character()
-
-  with_mocked_bindings(.package = "mlflow",
-    mlflow_uc_databricks_files = function(client, root) {
+    mlflow_cli = function(..., client = NULL, echo = TRUE) {
+      cli_args <<- unlist(list(...), use.names = FALSE)
       expect_identical(client, mock_client)
-      expect_equal(root, testthat_uc_model_path)
-      c(
-        paste0(testthat_uc_model_path, "/MLmodel"),
-        paste0(testthat_uc_model_path, "/nested/crate.bin")
-      )
-    },
-    mlflow_uc_create_download_url = function(client, path) {
-      requested_urls <<- c(requested_urls, path)
-      list(url = paste0("https://signed.example.com/", basename(path)), headers = character())
-    },
-    mlflow_download_file_from_signed_url = function(url, local_file, headers = character()) {
-      downloaded_files <<- c(downloaded_files, local_file)
-      dir.create(dirname(local_file), recursive = TRUE, showWarnings = FALSE)
-      writeLines("payload", local_file)
-      local_file
+      expect_false(echo)
+      list(stdout = '{"name":"test_catalog.test_schema.model","version":"8","status":"READY"}')
     }, {
-      out <- mlflow_download_model_dir_from_uc_databricks_files(model_version, client = mock_client)
-      expect_true(file.exists(file.path(out, "MLmodel")))
-      expect_true(file.exists(file.path(out, "nested", "crate.bin")))
+      result <- mlflow_create_model_version(
+        name = testthat_uc_model_name,
+        source = "runs:/rid/model",
+        run_id = "rid",
+        description = "registered from R",
+        tags = list(owner = "mlflow-r"),
+        client = mock_client
+      )
     })
 
-  expect_equal(requested_urls, c(
-    paste0(testthat_uc_model_path, "/MLmodel"),
-    paste0(testthat_uc_model_path, "/nested/crate.bin")
+  expect_equal(result$version, "8")
+  expect_equal(cli_args, c(
+    "models", "register",
+    "--model-uri", "runs:/rid/model",
+    "--name", testthat_uc_model_name,
+    "--output", "json",
+    "--run-id", "rid",
+    "--description", "registered from R",
+    "--tag", "owner=mlflow-r"
   ))
-  expect_true(any(grepl("nested/crate\\.bin$", gsub("\\\\", "/", downloaded_files))))
 })
 
-test_that("UC model version download uses Databricks files helper when credentials require it", {
+test_that("UC model version download delegates to Python MLflow artifacts CLI", {
   mock_client <- get_mock_client()
-  called <- FALSE
 
+  cli_args <- NULL
   with_mocked_bindings(.package = "mlflow",
-    mlflow_get_model_version = function(name, version, client = NULL) {
-      list(name = name, version = version)
-    },
-    mlflow_uc_sdk_models_artifact_repository_enabled = function(client) FALSE,
-    mlflow_uc_model_version_credentials = function(name, version, operation, client) {
-      list(storage_mode = "DEFAULT_STORAGE")
-    },
-    mlflow_get_model_version_download_uri = function(...) stop("unexpected download URI call"),
-    mlflow_download_model_dir_from_uc_databricks_files = function(model_version, client) {
-      called <<- TRUE
-      "downloaded-model"
+    mlflow_cli = function(..., client = NULL, echo = TRUE) {
+      cli_args <<- unlist(list(...), use.names = FALSE)
+      expect_identical(client, mock_client)
+      expect_false(echo)
+      list(stdout = "\n/tmp/downloaded-model\n")
     }, {
-      expect_equal(
-        mlflow_download_uc_model_version(testthat_uc_model_name, "4", client = mock_client),
-        "downloaded-model"
-      )
+      result <- mlflow_download_uc_model_version(testthat_uc_model_name, "4", client = mock_client)
     })
 
-  expect_true(called)
+  expect_equal(result, "/tmp/downloaded-model")
+  expect_equal(cli_args, c(
+    "artifacts", "download",
+    "--artifact-uri", sprintf("models:/%s/4", testthat_uc_model_name)
+  ))
 })
 
-test_that("UC SDK models artifact repository uses Databricks file URLs for download", {
-  mock_client <- get_mock_client()
-  called <- FALSE
-
+test_that("UC model version download errors when Python MLflow returns no path", {
   with_mocked_bindings(.package = "mlflow",
-    mlflow_get_model_version = function(name, version, client = NULL) {
-      list(name = name, version = version, storage_location = "s3://bucket/path/to/model")
-    },
-    mlflow_uc_sdk_models_artifact_repository_enabled = function(client) TRUE,
-    mlflow_uc_model_version_credentials = function(...) stop("unexpected credentials request"),
-    mlflow_get_model_version_download_uri = function(...) stop("unexpected download URI call"),
-    mlflow_download_model_dir_from_uc_databricks_files = function(model_version, client) {
-      called <<- TRUE
-      "downloaded-model"
+    mlflow_cli = function(..., client = NULL, echo = TRUE) {
+      list(stdout = "\n")
     }, {
-      expect_equal(
-        mlflow_download_uc_model_version(testthat_uc_model_name, "4", client = mock_client),
-        "downloaded-model"
-      )
-    })
-
-  expect_true(called)
-})
-
-test_that("UC SDK models artifact repository capability is read from registry endpoint", {
-  with_mocked_bindings(.package = "mlflow",
-    mlflow_registry_rest = function(...) {
-      args <- list(...)
-      expect_equal(
-        args[[1]],
-        "registered-models:is-databricks-sdk-models-artifact-repository-enabled"
-      )
-      expect_equal(args$verb, "GET")
-      list(is_databricks_sdk_models_artifact_repository_enabled = TRUE)
-    }, {
-      expect_true(mlflow_uc_sdk_models_artifact_repository_enabled(get_mock_client()))
-    })
-})
-
-test_that("UC unsupported temporary credentials fail before finalization", {
-  model_dir <- tempfile("uc-unsupported-credentials-")
-  dir.create(model_dir, recursive = TRUE, showWarnings = FALSE)
-  on.exit(unlink(model_dir, recursive = TRUE), add = TRUE)
-
-  writeLines("flavors: {}", file.path(model_dir, "MLmodel"))
-
-  expect_error(
-    mlflow_upload_model_dir_for_uc(
-      model_dir = model_dir,
-      model_version = list(name = testthat_uc_model_name, version = "4"),
-      credentials = list(gcp_oauth_token = list(oauth_token = "x")),
-      client = get_mock_client()
-    ),
-    "non-default model-version storage credentials",
-    fixed = TRUE
-  )
-})
-
-test_that("UC customer-managed download delegates to Python", {
-  mock_client <- get_mock_client()
-  python_called <- FALSE
-  with_mocked_bindings(.package = "mlflow",
-    mlflow_get_model_version = function(name, version, client = NULL) {
-      list(name = name, version = version, storage_location = "s3://bucket/path/to/model")
-    },
-    mlflow_uc_model_version_credentials = function(name, version, operation, client) {
-      list(
-        aws_temp_credentials = list(
-          access_key_id = "access-key",
-          secret_access_key = "secret-key",
-          session_token = "session-token"
-        )
-      )
-    },
-    mlflow_uc_sdk_models_artifact_repository_enabled = function(client) FALSE,
-    mlflow_download_artifacts_from_uri = function(...) stop("unexpected artifact download"),
-    mlflow_download_uc_model_version_with_python = function(name, version, client) {
-      python_called <<- TRUE
-      expect_equal(name, testthat_uc_model_name)
-      expect_equal(version, "4")
-      "downloaded-model"
-    }, {
-      expect_equal(
-        mlflow_download_uc_model_version(testthat_uc_model_name, "4", client = mock_client),
-        "downloaded-model"
-      )
-    })
-
-  expect_true(python_called)
-})
-
-test_that("UC customer-managed download does not use generic download URI lookup", {
-  mock_client <- get_mock_client()
-  with_mocked_bindings(.package = "mlflow",
-    mlflow_get_model_version = function(name, version, client = NULL) {
-      list(name = name, version = version)
-    },
-    mlflow_uc_model_version_credentials = function(name, version, operation, client) {
-      list(gcp_oauth_token = list(oauth_token = "x"))
-    },
-    mlflow_uc_sdk_models_artifact_repository_enabled = function(client) FALSE,
-    mlflow_get_model_version_download_uri = function(...) stop("unexpected download URI lookup"),
-    mlflow_download_artifacts_from_uri = function(...) stop("unexpected artifact download"),
-    mlflow_download_uc_model_version_with_python = function(name, version, client) {
-      "downloaded-model"
-    }, {
-      expect_equal(
-        mlflow_download_uc_model_version(testthat_uc_model_name, "4", client = mock_client),
-        "downloaded-model"
-      )
-    })
-})
-
-test_that("UC create model version fails fast when signature is missing", {
-  model_dir <- file.path(tempdir(), paste0("uc-no-signature-", as.integer(Sys.time())))
-  dir.create(model_dir, recursive = TRUE, showWarnings = FALSE)
-  on.exit(unlink(model_dir, recursive = TRUE), add = TRUE)
-  yaml::write_yaml(
-    list(flavors = list(crate = list(model = "crate.bin"))),
-    file.path(model_dir, "MLmodel")
-  )
-  saveRDS(list(v = 1), file.path(model_dir, "crate.bin"))
-
-  mock_client <- get_mock_client()
-  mock_client$registry_uri <- list(scheme = "databricks-uc")
-  mock_client$registry_client <- mock_client
-
-  with_mocked_bindings(.package = "mlflow",
-    mlflow_materialize_local_model = function(source, client) model_dir, {
       expect_error(
-        mlflow_create_model_version(
-          name = testthat_uc_model_name,
-          source = model_dir,
-          client = mock_client
-        ),
-        "must include a model signature"
+        mlflow_download_uc_model_version(testthat_uc_model_name, "4", client = get_mock_client()),
+        "did not return a downloaded Unity Catalog model path",
+        fixed = TRUE
       )
-  })
-})
-
-test_that("UC signature validation requires output type specifications", {
-  model_dir <- tempfile("uc-signature-")
-  dir.create(model_dir, recursive = TRUE, showWarnings = FALSE)
-  on.exit(unlink(model_dir, recursive = TRUE), add = TRUE)
-
-  yaml::write_yaml(
-    list(
-      signature = list(outputs = list(list(name = "prediction", type = "double"))),
-      flavors = list(crate = list(model = "crate.bin"))
-    ),
-    file.path(model_dir, "MLmodel")
-  )
-  expect_true(mlflow_validate_uc_model_signature(model_dir))
-
-  yaml::write_yaml(
-    list(
-      signature = list(inputs = list(list(name = "feature", type = "double"))),
-      flavors = list(crate = list(model = "crate.bin"))
-    ),
-    file.path(model_dir, "MLmodel")
-  )
-  expect_error(
-    mlflow_validate_uc_model_signature(model_dir),
-    "output type specifications",
-    fixed = TRUE
-  )
-
-  yaml::write_yaml(
-    list(
-      signature = list(outputs = ""),
-      flavors = list(crate = list(model = "crate.bin"))
-    ),
-    file.path(model_dir, "MLmodel")
-  )
-  expect_error(
-    mlflow_validate_uc_model_signature(model_dir),
-    "output type specifications",
-    fixed = TRUE
-  )
+    })
 })

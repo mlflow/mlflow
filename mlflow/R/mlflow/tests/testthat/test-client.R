@@ -222,3 +222,29 @@ test_that("mlflow_cli passes registry URI env", {
   expect_equal(env$tracking_uri, "http://tracking")
   expect_equal(env$registry_uri, "http://registry")
 })
+
+test_that("mlflow_cli uses client tracking and registry URIs", {
+  mock_client <- new_mlflow_client_impl(get_host_creds = function() {
+    new_mlflow_host_creds(host = "localhost")
+  })
+  mock_client$tracking_uri <- list(raw_uri = "databricks://PROFILE")
+  mock_client$registry_uri <- list(raw_uri = "databricks-uc://PROFILE")
+
+  env <- NULL
+  with_mocked_bindings(.package = "mlflow",
+    python_bin = function() "/usr/bin/python",
+    python_mlflow_bin = function() "/usr/bin/mlflow",
+    run = function(command = NULL, args = character(), echo = TRUE, echo_cmd = FALSE,
+                   stderr_callback = NULL) {
+      env <<- list(
+        tracking_uri = Sys.getenv("MLFLOW_TRACKING_URI"),
+        registry_uri = Sys.getenv("MLFLOW_REGISTRY_URI")
+      )
+      list(stdout = "")
+    }, {
+      mlflow_cli("experiments", "list", client = mock_client)
+    })
+
+  expect_equal(env$tracking_uri, "databricks://PROFILE")
+  expect_equal(env$registry_uri, "databricks-uc://PROFILE")
+})

@@ -1,11 +1,16 @@
+import json
 import logging
 
 import click
 
+from mlflow.exceptions import MlflowException
 from mlflow.mcp.decorator import mlflow_mcp
 from mlflow.models import python_api
 from mlflow.models.flavor_backend_registry import get_flavor_backend
 from mlflow.models.model import update_model_requirements
+from mlflow.protos.databricks_pb2 import ALREADY_EXISTS, RESOURCE_ALREADY_EXISTS, ErrorCode
+from mlflow.tracking import MlflowClient
+from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.utils import cli_args
 from mlflow.utils import env_manager as _EnvManager
 
@@ -111,6 +116,99 @@ class KeyValueType(click.ParamType):
         if "=" not in value:
             self.fail(f"{value!r} is not a valid key value pair, expecting `key=value`", param, ctx)
         return value.split("=", 1)
+
+
+def _model_version_to_dict(model_version):
+    keys = [
+        "name",
+        "version",
+        "creation_timestamp",
+        "last_updated_timestamp",
+        "description",
+        "user_id",
+        "current_stage",
+        "source",
+        "run_id",
+        "status",
+        "status_message",
+        "run_link",
+        "aliases",
+        "model_id",
+    ]
+    result = {}
+    for key in keys:
+        value = getattr(model_version, key, None)
+        if value is not None:
+            result[key] = list(value) if isinstance(value, tuple) else value
+    if tags := getattr(model_version, "tags", None):
+        result["tags"] = tags
+    return result
+
+
+@commands.command("register")
+@cli_args.MODEL_URI
+@click.option("--name", "-n", required=True, help="Registered model name.")
+@cli_args.RUN_ID
+@click.option("--run-link", help="Link to the run that generated this model version.")
+@click.option("--description", help="Description for the model version.")
+@click.option(
+    "--tag",
+    "tags",
+    default=None,
+    type=KeyValueType(),
+    multiple=True,
+    help="Model version tag as key=value. May be specified multiple times.",
+)
+@click.option(
+    "--await-registration-for",
+    default=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
+    show_default=True,
+    type=click.INT,
+    help="Seconds to wait for the model version to finish registering.",
+)
+@click.option(
+    "--output",
+    default="text",
+    show_default=True,
+    type=click.Choice(["text", "json"]),
+    help="Output format.",
+)
+def register(
+    model_uri,
+    name,
+    run_id,
+    run_link,
+    description,
+    tags,
+    await_registration_for,
+    output,
+):
+    """
+    Register an MLflow model.
+    """
+    client = MlflowClient()
+    try:
+        client.create_registered_model(name)
+    except MlflowException as e:
+        if e.error_code not in (
+            ErrorCode.Name(RESOURCE_ALREADY_EXISTS),
+            ErrorCode.Name(ALREADY_EXISTS),
+        ):
+            raise
+
+    model_version = client.create_model_version(
+        name=name,
+        source=model_uri,
+        run_id=run_id,
+        tags=dict(tags),
+        run_link=run_link,
+        description=description,
+        await_creation_for=await_registration_for,
+    )
+    if output == "json":
+        click.echo(json.dumps(_model_version_to_dict(model_version)))
+    else:
+        click.echo(f"Created version '{model_version.version}' of model '{model_version.name}'.")
 
 
 @commands.command("predict")

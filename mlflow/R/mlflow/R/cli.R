@@ -23,10 +23,20 @@ mlflow_cli <- function(...,
   verbose <- mlflow_is_verbose()
   python <- dirname(python_bin())
   mlflow_bin <- python_mlflow_bin()
+  tracking_uri <- if (is.null(client)) {
+    mlflow_get_tracking_uri()
+  } else {
+    client$tracking_uri$raw_uri %||% mlflow_get_tracking_uri()
+  }
+  registry_uri <- if (is.null(client)) {
+    mlflow_get_registry_uri()
+  } else {
+    client$registry_uri$raw_uri %||% mlflow_get_registry_uri()
+  }
   env <- modifyList(list(
     PATH = paste(python, Sys.getenv("PATH"), sep = ":"),
-    MLFLOW_TRACKING_URI = mlflow_get_tracking_uri(),
-    MLFLOW_REGISTRY_URI = mlflow_get_registry_uri(),
+    MLFLOW_TRACKING_URI = tracking_uri,
+    MLFLOW_REGISTRY_URI = registry_uri,
     MLFLOW_BIN = mlflow_bin,
     MLFLOW_PYTHON_BIN = python_bin()
   ), env)
