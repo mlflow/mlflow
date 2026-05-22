@@ -131,10 +131,14 @@ mlflow_normalize_signature <- function(signature) {
   if (is.null(inputs) && is.null(outputs)) {
     stop("`signature` must include `inputs` or `outputs`.", call. = FALSE)
   }
-  list(
-    inputs = if (is.null(inputs)) NULL else jsonlite::toJSON(inputs, auto_unbox = TRUE),
-    outputs = if (is.null(outputs)) NULL else jsonlite::toJSON(outputs, auto_unbox = TRUE)
-  )
+  normalized <- list(inputs = NULL, outputs = NULL)
+  if (!is.null(inputs)) {
+    normalized$inputs <- jsonlite::toJSON(inputs, auto_unbox = TRUE)
+  }
+  if (!is.null(outputs)) {
+    normalized$outputs <- jsonlite::toJSON(outputs, auto_unbox = TRUE)
+  }
+  normalized
 }
 
 #' Log Model
