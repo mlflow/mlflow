@@ -124,6 +124,36 @@ export class TraceInfo {
               full_table_name: this.traceLocation.inferenceTable.fullTableName,
             }
           : undefined,
+        uc_schema: this.traceLocation.ucSchema
+          ? {
+              catalog_name: this.traceLocation.ucSchema.catalogName,
+              schema_name: this.traceLocation.ucSchema.schemaName,
+              ...(this.traceLocation.ucSchema.otelSpansTableName
+                ? { otel_spans_table_name: this.traceLocation.ucSchema.otelSpansTableName }
+                : {}),
+              ...(this.traceLocation.ucSchema.otelLogsTableName
+                ? { otel_logs_table_name: this.traceLocation.ucSchema.otelLogsTableName }
+                : {}),
+            }
+          : undefined,
+        uc_table_prefix: this.traceLocation.ucTablePrefix
+          ? {
+              catalog_name: this.traceLocation.ucTablePrefix.catalogName,
+              schema_name: this.traceLocation.ucTablePrefix.schemaName,
+              ...(this.traceLocation.ucTablePrefix.tablePrefix
+                ? { table_prefix: this.traceLocation.ucTablePrefix.tablePrefix }
+                : {}),
+              ...(this.traceLocation.ucTablePrefix.otelSpansTableName
+                ? { otel_spans_table_name: this.traceLocation.ucTablePrefix.otelSpansTableName }
+                : {}),
+              ...(this.traceLocation.ucTablePrefix.otelLogsTableName
+                ? { otel_logs_table_name: this.traceLocation.ucTablePrefix.otelLogsTableName }
+                : {}),
+              ...(this.traceLocation.ucTablePrefix.annotationsTableName
+                ? { annotations_table_name: this.traceLocation.ucTablePrefix.annotationsTableName }
+                : {}),
+            }
+          : undefined,
       },
       request_preview: this.requestPreview,
       response_preview: this.responsePreview,
@@ -182,6 +212,24 @@ export class TraceInfo {
         inferenceTable: json.trace_location?.inference_table
           ? { fullTableName: json.trace_location.inference_table.full_table_name }
           : undefined,
+        ucSchema: json.trace_location?.uc_schema
+          ? {
+              catalogName: json.trace_location.uc_schema.catalog_name,
+              schemaName: json.trace_location.uc_schema.schema_name,
+              otelSpansTableName: json.trace_location.uc_schema.otel_spans_table_name,
+              otelLogsTableName: json.trace_location.uc_schema.otel_logs_table_name,
+            }
+          : undefined,
+        ucTablePrefix: json.trace_location?.uc_table_prefix
+          ? {
+              catalogName: json.trace_location.uc_table_prefix.catalog_name,
+              schemaName: json.trace_location.uc_table_prefix.schema_name,
+              tablePrefix: json.trace_location.uc_table_prefix.table_prefix,
+              otelSpansTableName: json.trace_location.uc_table_prefix.otel_spans_table_name,
+              otelLogsTableName: json.trace_location.uc_table_prefix.otel_logs_table_name,
+              annotationsTableName: json.trace_location.uc_table_prefix.annotations_table_name,
+            }
+          : undefined,
       },
       requestPreview: json.request_preview,
       responsePreview: json.response_preview,
@@ -209,6 +257,20 @@ export interface SerializedTraceInfo {
     };
     inference_table?: {
       full_table_name: string;
+    };
+    uc_schema?: {
+      catalog_name: string;
+      schema_name: string;
+      otel_spans_table_name?: string;
+      otel_logs_table_name?: string;
+    };
+    uc_table_prefix?: {
+      catalog_name: string;
+      schema_name: string;
+      table_prefix?: string;
+      otel_spans_table_name?: string;
+      otel_logs_table_name?: string;
+      annotations_table_name?: string;
     };
   };
   request_preview?: string;

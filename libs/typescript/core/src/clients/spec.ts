@@ -79,6 +79,37 @@ export namespace DeleteExperiment {
 }
 
 /**
+ * Create trace info using the V4 API path. Used for Databricks Unity Catalog
+ * backed traces (UC schema or UC table prefix locations).
+ *
+ * Endpoint: POST /api/4.0/mlflow/traces/{location}/{otel_trace_id}/info
+ * where `{location}` is "catalog.schema" or "catalog.schema.table_prefix",
+ * and `{otel_trace_id}` is the hex OTel trace ID (no `trace:/<location>/` prefix).
+ */
+export namespace CreateTraceInfoV4 {
+  export const getEndpoint = (host: string, location: string, otelTraceId: string) =>
+    `${host}/api/4.0/mlflow/traces/${encodeURIComponent(location)}/${otelTraceId}/info`;
+
+  export interface Request {
+    trace_info: Parameters<typeof TraceInfo.fromJson>[0];
+  }
+
+  // Backend returns a TraceInfo proto serialized as JSON.
+  export type Response = Parameters<typeof TraceInfo.fromJson>[0];
+}
+
+/**
+ * OTLP span upload endpoint for Databricks Unity Catalog backed traces.
+ *
+ * Endpoint: POST /api/2.0/otel/v1/traces
+ * Required header: `X-Databricks-UC-Table-Name: <fully_qualified_spans_table>`
+ * Content-Type: application/json (OTLP/HTTP+JSON)
+ */
+export namespace ExportOtlpTraces {
+  export const getEndpoint = (host: string) => `${host}/api/2.0/otel/v1/traces`;
+}
+
+/**
  * Get credentials for uploading trace data to the artifact store. Only used for Databricks.
  */
 export namespace GetCredentialsForTraceDataUpload {

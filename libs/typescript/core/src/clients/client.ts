@@ -2,7 +2,9 @@ import { TraceInfo } from '../core/entities/trace_info';
 import { Trace } from '../core/entities/trace';
 import {
   CreateExperiment,
+  CreateTraceInfoV4,
   DeleteExperiment,
+  ExportOtlpTraces,
   GetExperimentByName,
   GetTraceInfoV3,
   StartTraceV3,
@@ -11,6 +13,12 @@ import { makeRequest, MlflowHttpError } from './utils';
 import { TraceData } from '../core/entities/trace_data';
 import { ArtifactsClient, getArtifactsClient } from './artifacts';
 import { AuthProvider, HeadersProvider } from '../auth';
+import { DATABRICKS_UC_TABLE_HEADER } from '../core/constants';
+import {
+  OtlpExportTraceServiceRequest,
+  spansToOtlpRequest,
+} from '../exporters/otlp';
+import type { ReadableSpan as OTelReadableSpan } from '@opentelemetry/sdk-trace-base';
 
 /**
  * Client for MLflow tracing operations.
@@ -71,6 +79,62 @@ export class MlflowClient {
       payload,
     );
     return TraceInfo.fromJson(response.trace.trace_info);
+  }
+
+  /**
+   * Create a new TraceInfo record in the Databricks V4 (Unity Catalog)
+   * trace-info endpoint. Used for UC-backed traces so that trace-level
+   * tags and metadata persist alongside spans uploaded via OTLP.
+   *
+   * Corresponds to Python's `DatabricksRestStore._start_trace_v4`.
+   *
+   * @param location - The UC location string ("catalog.schema" or
+   *                   "catalog.schema.table_prefix") that comes from
+   *                   the trace ID `trace:/<location>/<hex>`.
+   * @param otelTraceId - The hex OTel trace ID portion.
+   * @param traceInfo - The full TraceInfo to persist; the backend reads
+   *                    `tags`, `trace_metadata`, `state`, durations, etc.
+   */
+  async createTraceInfoV4(
+    location: string,
+    otelTraceId: string,
+    traceInfo: TraceInfo,
+  ): Promise<TraceInfo> {
+    const url = CreateTraceInfoV4.getEndpoint(this.hostUrl, location, otelTraceId);
+    const payload: CreateTraceInfoV4.Request = { trace_info: traceInfo.toJson() };
+    const response = await makeRequest<CreateTraceInfoV4.Response>(
+      'POST',
+      url,
+      this.headersProvider,
+      payload,
+    );
+    return TraceInfo.fromJson(response);
+  }
+
+  /**
+   * Upload OTel spans to a Databricks Unity Catalog location via the OTLP
+   * HTTP+JSON endpoint. The `spansTableName` is the fully qualified spans
+   * table (catalog.schema.table) and is forwarded as the
+   * `X-Databricks-UC-Table-Name` header used by Databricks to route the
+   * payload to the correct UC location.
+   */
+  async exportOtlpSpansToUc(
+    spans: OTelReadableSpan[],
+    spansTableName: string,
+  ): Promise<void> {
+    if (spans.length === 0) {
+      return;
+    }
+    const url = ExportOtlpTraces.getEndpoint(this.hostUrl);
+    const payload: OtlpExportTraceServiceRequest = spansToOtlpRequest(spans);
+    await makeRequest<void>(
+      'POST',
+      url,
+      this.headersProvider,
+      payload,
+      undefined,
+      { [DATABRICKS_UC_TABLE_HEADER]: spansTableName },
+    );
   }
 
   // === TRACE RETRIEVAL METHODS ===
