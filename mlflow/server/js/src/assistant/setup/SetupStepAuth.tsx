@@ -42,14 +42,10 @@ export const SetupStepAuth = ({
   }
 
   if (provider === 'mlflow_gateway') {
-    return (
-      <MLflowGatewayAuth
-        cachedAuthStatus={cachedAuthStatus}
-        onAuthStatusChange={onAuthStatusChange}
-        onBack={onBack}
-        onContinue={onContinue}
-      />
-    );
+    // MLflowGatewayAuth has no auth status to cache — the gateway lives
+    // in the same MLflow server, so we drop the cachedAuthStatus /
+    // onAuthStatusChange props that the other Auth components consume.
+    return <MLflowGatewayAuth onBack={onBack} onContinue={onContinue} />;
   }
 
   return (

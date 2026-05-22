@@ -240,10 +240,10 @@ export const listProviderModels = async (provider: string, baseUrl: string, apiK
   // referer headers.
   const params = new URLSearchParams({ base_url: baseUrl });
   const url = `${API_BASE}/providers/${encodeURIComponent(provider)}/models?${params.toString()}`;
-  const headers: Record<string, string> = { ...getDefaultHeaders(document.cookie) };
-  if (apiKey) {
-    headers['X-API-Key'] = apiKey;
-  }
+  const headers = {
+    ...getDefaultHeaders(document.cookie),
+    ...(apiKey ? { 'X-API-Key': apiKey } : {}),
+  };
   const response = await fetch(url, { headers });
   if (!response.ok) {
     const data = await response.json();

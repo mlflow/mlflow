@@ -471,7 +471,8 @@ def test_list_ollama_models_returns_model_list(client):
 def test_list_models_reads_api_key_from_header_not_query(client):
     """api_key must travel as the X-API-Key header so it stays out of access
     logs, browser history, and referer headers. This test pins that
-    contract and verifies the value reaches the provider unchanged."""
+    contract and verifies the value reaches the provider unchanged.
+    """
     mock_provider = MockProvider()
     mock_provider.list_models = MagicMock(return_value=["llama3"])
 
@@ -484,15 +485,14 @@ def test_list_models_reads_api_key_from_header_not_query(client):
 
     assert response.status_code == 200
     assert response.json() == {"models": ["llama3"]}
-    mock_provider.list_models.assert_called_once_with(
-        "http://localhost:11434", "sk-test-secret"
-    )
+    mock_provider.list_models.assert_called_once_with("http://localhost:11434", "sk-test-secret")
 
 
 def test_list_models_ignores_api_key_query_param(client):
     """Defense in depth: even if a caller passes api_key as a query param,
     the endpoint must not forward it to the provider — that would re-enable
-    the access-log leak the header migration was meant to prevent."""
+    the access-log leak the header migration was meant to prevent.
+    """
     mock_provider = MockProvider()
     mock_provider.list_models = MagicMock(return_value=["llama3"])
 

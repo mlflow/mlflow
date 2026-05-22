@@ -132,10 +132,10 @@ def config_file(tmp_path):
         # Partial-tag-at-tail: a chunk ending with a prefix of "<think>"
         # must not leak that prefix to the user — it must be held back as
         # the remainder so the next chunk can complete the tag.
-        ("foo<thi", False, "foo", "<thi", False),
+        ("foo<th", False, "foo", "<th", False),
         ("foo<", False, "foo", "<", False),
         # Same for the closing tag while inside a think span.
-        ("secret</thi", True, "", "</thi", True),
+        ("secret</th", True, "", "</th", True),
         ("secret<", True, "", "<", True),
         # Plain "<" at the end with no following partial isn't a hold case
         # outside a think span — but the prefix-match logic still treats
@@ -154,13 +154,14 @@ def test_strip_think_blocks_completes_partial_tag_across_chunks():
     """Reproduces the SSE-frame split that previously leaked `<think>` to
     the user. Frame 1 ends mid-opening-tag; frame 2 supplies the rest of
     the tag plus the secret content and the closing tag. The combined
-    behavior must emit nothing user-visible (only "foo")."""
-    emit1, remaining1, in_think1 = _strip_think_blocks("foo<thi", False)
+    behavior must emit nothing user-visible (only "foo").
+    """
+    emit1, remaining1, in_think1 = _strip_think_blocks("foo<th", False)
     assert emit1 == "foo"
-    assert remaining1 == "<thi"
+    assert remaining1 == "<th"
     assert in_think1 is False
 
-    emit2, remaining2, in_think2 = _strip_think_blocks(remaining1 + "nk>secret</think>", in_think1)
+    emit2, remaining2, in_think2 = _strip_think_blocks(remaining1 + "ink>secret</think>", in_think1)
     assert emit2 == ""
     assert remaining2 == ""
     assert in_think2 is False

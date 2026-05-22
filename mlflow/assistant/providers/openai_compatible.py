@@ -107,7 +107,7 @@ def _trailing_partial_tag_len(buf: str, tag: str) -> int:
 
     Used to hold back partial `<think>` / `</think>` markers that may be
     completed by the next streamed chunk. Example: if `buf` ends with
-    "foo<thi" and `tag` is "<think>", this returns 4 (the "<thi" tail).
+    "foo<th" and `tag` is "<think>", this returns 3 (the "<th" tail).
     """
     max_n = min(len(buf), len(tag) - 1)
     for n in range(max_n, 0, -1):
@@ -121,7 +121,7 @@ def _strip_think_blocks(buf: str, in_think: bool) -> tuple[str, str, bool]:
 
     Returns (emit_text, remaining_buf, new_in_think_flag). The remaining_buf
     holds a partial open/close tag that should be re-fed next chunk so that
-    a tag split across SSE frames (e.g. "foo<thi" then "nk>secret</think>")
+    a tag split across SSE frames (e.g. "foo<th" then "ink>secret</think>")
     doesn't leak <think> markup to the user.
     """
     emit = ""
@@ -141,8 +141,7 @@ def _strip_think_blocks(buf: str, in_think: bool) -> tuple[str, str, bool]:
             if start == -1:
                 # No opening tag visible. Hold a potential partial opening
                 # tag at the tail; emit everything before it.
-                hold = _trailing_partial_tag_len(buf, "<think>")
-                if hold:
+                if hold := _trailing_partial_tag_len(buf, "<think>"):
                     emit += buf[:-hold]
                     return emit, buf[-hold:], in_think
                 emit += buf
@@ -268,9 +267,7 @@ class OpenAICompatibleProvider(AssistantProvider):
 
     def list_models(self, base_url: str | None = None, api_key: str | None = None) -> list[str]:
         if self._list_models_fn is None:
-            raise NotImplementedError(
-                f"Model listing is not supported for provider '{self.name}'"
-            )
+            raise NotImplementedError(f"Model listing is not supported for provider '{self.name}'")
         resolved = self._resolve_base_url(base_url)
         if not resolved:
             raise ProviderNotConfiguredError(f"{self._display_name} base URL is not configured.")
