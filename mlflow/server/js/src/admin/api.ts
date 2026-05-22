@@ -268,4 +268,56 @@ export const AdminApi = {
       error: defaultErrorHandler,
     }) as Promise<{ endpoints?: { endpoint_id: string; name: string }[] }>;
   },
+
+  // Cross-experiment ``ListScorers``: omitting ``experiment_id`` returns every
+  // scorer in the active workspace. The auth-side ``filter_list_scorers``
+  // ``AFTER_REQUEST_PATH_HANDLERS`` entry filters the response by the caller's
+  // experiment + scorer read predicates. ``resource_pattern`` is computed
+  // client-side via ``scorerResourcePattern`` to match
+  // ``SqlAlchemyStore._scorer_pattern``.
+  listScorersLite: () => {
+    return fetchEndpoint({
+      relativeUrl: 'ajax-api/3.0/mlflow/scorers/list',
+      error: defaultErrorHandler,
+    }) as Promise<{ scorers?: Scorer[] }>;
+  },
+
+  // Prompts share the registered-models table (tagged with
+  // ``mlflow.prompt.is_prompt = 'true'``). The existing search endpoint with
+  // a tag filter is enough — ``filter_search_registered_models`` classifies
+  // each row by the same tag and applies ``_role_based_read_predicate('prompt')``,
+  // so a dedicated prompt list-lite handler isn't needed.
+  listPromptsLite: () => {
+    const filter = encodeURIComponent("tag.mlflow.prompt.is_prompt = 'true'");
+    return fetchEndpoint({
+      relativeUrl: `ajax-api/2.0/mlflow/registered-models/search?max_results=1000&filter=${filter}`,
+      error: defaultErrorHandler,
+    }) as Promise<{ registered_models?: { name: string }[] }>;
+  },
+};
+
+/** Shape of one scorer row from the generic ``ListScorers`` response. */
+export interface Scorer {
+  experiment_id: number;
+  scorer_name: string;
+  scorer_version?: number;
+  scorer_id?: string;
+}
+
+/**
+ * Composite RBAC resource pattern for a scorer. Mirrors the server's
+ * ``SqlAlchemyStore._scorer_pattern`` exactly so the picker's submitted id
+ * lines up byte-for-byte with persisted grants.
+ *
+ * Python's ``urllib.parse.quote(name, safe='')`` percent-encodes more
+ * characters than JS's ``encodeURIComponent`` — notably ``*'!()``, which JS
+ * preserves but Python escapes. Patch over the gap so a scorer name with any
+ * of those characters still resolves the grant on the server side.
+ */
+export const scorerResourcePattern = (experimentId: number | string, scorerName: string): string => {
+  const encoded = encodeURIComponent(scorerName).replace(
+    /[*'!()]/g,
+    (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`,
+  );
+  return `${experimentId}/${encoded}`;
 };

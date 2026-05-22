@@ -1,4 +1,5 @@
 import { Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { useWorkspacesEnabled } from '../../experiment-tracking/hooks/useServerInfo';
 import { isSyntheticUserRole, type Role } from '../types';
 
 export interface UserRolesCellProps {
@@ -14,10 +15,18 @@ export interface UserRolesCellProps {
  * ``scopeWorkspace`` further narrows to the active workspace for the
  * per-workspace admin page, so the cell matches the page scope.
  * Synthetic ``__user_N__`` roles are filtered out — they're per-user
- * direct-grant bookkeeping, not real role assignments.
+ * direct-grant bookkeeping, not real role assignments. When the server is
+ * in single-tenant mode (workspaces disabled), the workspace prefix is
+ * dropped since every role lives in ``default``.
  */
 export const UserRolesCell = ({ roles: allRoles, scopeWorkspace }: UserRolesCellProps) => {
   const { theme } = useDesignSystemTheme();
+  const { workspacesEnabled, loading } = useWorkspacesEnabled();
+  // While the server-info query is in-flight, default to the multi-tenant
+  // layout so the cell doesn't flicker from name-only to prefixed once the
+  // value settles. Single-tenant servers briefly show the prefix on a cold
+  // load, then drop it.
+  const showWorkspacePrefix = loading || workspacesEnabled;
   const visibleRoles = allRoles.filter((r) => !isSyntheticUserRole(r.name));
   const roles = scopeWorkspace ? visibleRoles.filter((r) => r.workspace === scopeWorkspace) : visibleRoles;
   if (roles.length === 0) {
@@ -27,7 +36,13 @@ export const UserRolesCell = ({ roles: allRoles, scopeWorkspace }: UserRolesCell
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs / 2 }}>
       {roles.map((role) => (
         <Typography.Text key={role.id} size="sm">
-          <code>{role.workspace}</code> → {role.name}
+          {showWorkspacePrefix ? (
+            <>
+              <code>{role.workspace}</code> → {role.name}
+            </>
+          ) : (
+            role.name
+          )}
         </Typography.Text>
       ))}
     </div>
