@@ -1314,12 +1314,11 @@ serving_example = load_serving_example(model_info.model_uri)
 
 # Validate it works by running prediction in an isolated environment
 # that mirrors the serving environment.
-result = mlflow.models.predict(
+mlflow.models.predict(
     model_uri=model_info.model_uri,
     input_data=serving_example,
     env_manager="uv",
 )
-print(f"Validation result: {result}")
 
 # Test with local server
 # mlflow models serve --model-uri <model_uri>
