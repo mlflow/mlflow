@@ -63,8 +63,7 @@ get_databricks_config_for_profile <- function(profile) {
 #' @importFrom utils modifyList
 new_databricks_config <- function(config_source,
                                   config_vars) {
-  host_cred_vars <- config_vars[intersect(names(config_variable_map), names(config_vars))]
-  res <- do.call(new_mlflow_host_creds, host_cred_vars)
+  res <- do.call(new_mlflow_host_creds, config_vars)
   res$config_source <- config_source
   res
 }

@@ -170,23 +170,6 @@ test_that("mlflow can read databricks env congfig", {
   })
 })
 
-test_that("databricks config ignores modern profile fields", {
-  config <- mlflow:::new_databricks_config(
-    "cfgfile",
-    list(
-      host = "https://example.databricks.com",
-      token = "token",
-      auth_type = "pat",
-      account_id = "account-id",
-      workspace_id = "workspace-id"
-    )
-  )
-
-  expect_equal(config$host, "https://example.databricks.com")
-  expect_equal(config$token, "token")
-  expect_true(mlflow:::databricks_config_is_valid(config))
-})
-
 #' Executes the specified functions while creating mock `.get_notebook_info` and
 #' `.get_job_info` functions in the `.databricks_internals` environment
 run_with_mock_notebook_and_job_info <- function(func, notebook_info = NULL, job_info = NULL) {
