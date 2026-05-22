@@ -15,8 +15,13 @@ import {
 } from '@databricks/design-system';
 import { FieldLabel } from './FieldLabel';
 import { useResourceOptionsQuery } from '../hooks';
-import { ALL_RESOURCE_PATTERN_LABEL, PERMISSIONS, RESOURCE_TYPES, getGrantablePermissions } from '../types';
-import { DIRECT_GRANT_RESOURCE_TYPES, type DirectGrantResourceType } from './DirectPermissionForm';
+import {
+  ALL_RESOURCE_PATTERN_LABEL,
+  PERMISSIONS,
+  RESOURCE_TYPES,
+  getGrantablePermissions,
+  getResourceTypeLabel,
+} from '../types';
 
 export type RolePermissionScope = 'specific' | 'all';
 
@@ -32,8 +37,8 @@ export interface RolePermissionDraft {
   scope: RolePermissionScope;
   /**
    * Holds the chosen resource id when ``scope === 'specific'``, or the
-   * free-text pattern when ``resourceType === 'scorer'`` (which has no
-   * pre-built resource picker today).
+   * free-text pattern when ``resourceType`` is in ``FREETEXT_RESOURCE_TYPES``
+   * (scorer, prompt) which have no pre-built resource picker today.
    */
   resourceId: string;
   permission: string;
@@ -54,16 +59,13 @@ export const ROLE_PERMISSION_DRAFT_DEFAULT: RolePermissionDraft = {
   permission: PERMISSIONS[0],
 };
 
-const RESOURCE_TYPE_LABEL: Record<DirectGrantResourceType, string> = {
-  experiment: 'Experiment',
-  registered_model: 'Registered model',
-  gateway_secret: 'Gateway secret',
-  gateway_endpoint: 'Gateway endpoint',
-  gateway_model_definition: 'Gateway model definition',
-};
-
-const isPickableResourceType = (rt: string): rt is DirectGrantResourceType =>
-  (DIRECT_GRANT_RESOURCE_TYPES as readonly string[]).includes(rt);
+// Resource types with no id picker yet — render a free-text pattern input
+// instead of the standard ``Specific/All`` radio + ``DialogCombobox``.
+// ``scorer`` ids are composite (experiment_id + scorer_name); ``prompt`` is
+// stored as a registered model with the ``mlflow.prompt.is_prompt`` tag and
+// has no lite-list endpoint to filter on. ``RolePermissionsSection`` reads
+// the typed value off ``resourceId`` for both.
+const FREETEXT_RESOURCE_TYPES = new Set(['scorer', 'prompt']);
 
 /**
  * Add a permission to a role. Mirrors ``DirectPermissionForm``'s
@@ -75,19 +77,15 @@ const isPickableResourceType = (rt: string): rt is DirectGrantResourceType =>
  * - ``workspace``: the only valid pattern is ``*`` (the role's own
  *   workspace), so the scope radio is hidden and we render a static
  *   "Workspace: <name>" line.
- * - ``scorer``: no pre-built picker exists for composite scorer ids,
- *   so the scope radio is hidden and we fall back to a free-text
- *   pattern input. ``RolePermissionsSection`` reads the typed value
- *   off ``resourceId`` for this branch.
+ * - ``FREETEXT_RESOURCE_TYPES`` (scorer, prompt): no pre-built picker
+ *   exists, so we hide the scope radio and fall back to a free-text
+ *   pattern input.
  */
 export const RolePermissionForm = ({ value, onChange, workspace, disabled }: RolePermissionFormProps) => {
   const { theme } = useDesignSystemTheme();
   const [resourceSearch, setResourceSearch] = useState('');
 
-  const isPickable = isPickableResourceType(value.resourceType);
-  const typeLabel = isPickable
-    ? RESOURCE_TYPE_LABEL[value.resourceType as DirectGrantResourceType]
-    : value.resourceType;
+  const typeLabel = getResourceTypeLabel(value.resourceType);
 
   const {
     options: resourceOptions,
@@ -134,7 +132,7 @@ export const RolePermissionForm = ({ value, onChange, workspace, disabled }: Rol
         >
           {RESOURCE_TYPES.map((rt) => (
             <SimpleSelectOption key={rt} value={rt}>
-              {rt}
+              {getResourceTypeLabel(rt)}
             </SimpleSelectOption>
           ))}
         </SimpleSelect>
@@ -150,18 +148,20 @@ export const RolePermissionForm = ({ value, onChange, workspace, disabled }: Rol
             </Typography.Text>
           </Typography.Text>
         </div>
-      ) : value.resourceType === 'scorer' ? (
+      ) : FREETEXT_RESOURCE_TYPES.has(value.resourceType) ? (
         <div>
           <FieldLabel>Resource Pattern</FieldLabel>
           <Input
-            componentId="admin.role_permission_form.scorer_pattern"
+            componentId="admin.role_permission_form.freetext_pattern"
             value={value.resourceId}
             onChange={(e) => onChange({ ...value, scope: 'specific', resourceId: e.target.value })}
-            placeholder='Specific scorer id, or "all" to apply to every scorer'
+            placeholder={`Specific ${typeLabel.toLowerCase()} id, or "all" to apply to every ${typeLabel.toLowerCase()}`}
             disabled={disabled}
           />
           <Typography.Text color="secondary" size="sm" css={{ display: 'block', marginTop: theme.spacing.xs }}>
-            Scorer resource ids are composite (experiment_id + scorer_name); the picker isn't available yet.
+            {value.resourceType === 'scorer'
+              ? 'Scorer resource ids are composite (experiment_id + scorer_name); the picker isn’t available yet.'
+              : `${typeLabel} picker isn’t available yet; enter the resource id or "all".`}
           </Typography.Text>
         </div>
       ) : (
@@ -266,7 +266,7 @@ export const RolePermissionForm = ({ value, onChange, workspace, disabled }: Rol
 /** True when the draft is ready to be added to the staged list. */
 export const isRolePermissionDraftFillable = (draft: RolePermissionDraft): boolean => {
   if (draft.resourceType === 'workspace') return true;
-  if (draft.resourceType === 'scorer') return draft.resourceId.trim().length > 0;
+  if (FREETEXT_RESOURCE_TYPES.has(draft.resourceType)) return draft.resourceId.trim().length > 0;
   return draft.scope === 'all' || (draft.scope === 'specific' && draft.resourceId.trim().length > 0);
 };
 
@@ -278,6 +278,6 @@ export const isRolePermissionDraftFillable = (draft: RolePermissionDraft): boole
  */
 export const draftToResourcePattern = (draft: RolePermissionDraft): string => {
   if (draft.resourceType === 'workspace') return ALL_RESOURCE_PATTERN_LABEL;
-  if (draft.resourceType === 'scorer') return draft.resourceId.trim();
+  if (FREETEXT_RESOURCE_TYPES.has(draft.resourceType)) return draft.resourceId.trim();
   return draft.scope === 'all' ? ALL_RESOURCE_PATTERN_LABEL : draft.resourceId.trim();
 };

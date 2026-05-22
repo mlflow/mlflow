@@ -65,6 +65,12 @@ def test_path_containment_blocks_escape(workspace):
     assert "Permission denied" in result
 
 
+def test_bash_works_without_cwd():
+    result, is_error = _run(execute_tool("Bash", {"command": "python3 -c \"print('hello')\""}))
+    assert not is_error
+    assert "hello" in result
+
+
 def test_bash_blocks_non_mlflow_commands():
     result, is_error = _run(execute_tool("Bash", {"command": "echo hello"}))
     assert is_error

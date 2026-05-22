@@ -80,6 +80,16 @@ The <Funnel className="inline-block w-6" /> filter dropdown allows you to filter
 
 <ImageBox src="/images/llms/tracing/trace-ui-filter.png" alt="Searching traces" />
 
+### Viewing Trace Archival Status
+
+When trace archival is enabled for an experiment, MLflow shows an `Archive after: ...` badge on
+trace-focused experiment views so you can see the effective retention at a glance.
+
+Archived traces remain accessible, but searches that depend on span payloads stop working after
+those payloads move out of the tracking store. See
+[Archive Traces](/genai/tracing/observe-with-traces/archive-traces) for the retention model,
+scheduler behavior, and setup options.
+
 ### Deleting Traces
 
 The UI supports bulk deletion of traces. Simply select the traces you want to delete by checking the checkboxes, and then pressing the "Delete" button. See [Delete Traces](/genai/tracing/observe-with-traces/delete-traces) for how to delete traces programmatically.
