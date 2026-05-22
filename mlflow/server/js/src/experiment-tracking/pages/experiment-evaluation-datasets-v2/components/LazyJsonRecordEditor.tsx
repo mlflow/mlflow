@@ -1,9 +1,26 @@
+import { Suspense, lazy } from 'react';
+import { GenericSkeleton } from '@databricks/design-system';
 import type { JsonRecordEditorProps } from './JsonRecordEditor';
-import { JsonRecordEditor } from './JsonRecordEditor';
 
 /**
- * OSS stub for the lazy editor wrapper. Universe lazy-loads Monaco off the critical path;
- * the OSS stub is a textarea, so lazy-loading buys nothing and we re-export directly. Kept
- * as a separate file so callers' imports don't change.
+ * Lazy-loads `JsonRecordEditor` so the Monaco bundle (~1 MB gz with our restricted languages
+ * config) stays out of the main app chunk. The record side panel is the only consumer in
+ * v2, so users who never open it never download Monaco.
  */
-export const LazyJsonRecordEditor = (props: JsonRecordEditorProps) => <JsonRecordEditor {...props} />;
+const LazyEditor = lazy(async () => {
+  const mod = await import('./JsonRecordEditor');
+  return { default: mod.JsonRecordEditor };
+});
+
+export const LazyJsonRecordEditor = (props: JsonRecordEditorProps) => (
+  <Suspense
+    fallback={
+      <GenericSkeleton
+        style={{ height: props.height ?? '240px', width: '100%' }}
+        loadingDescription="JsonRecordEditor"
+      />
+    }
+  >
+    <LazyEditor {...props} />
+  </Suspense>
+);

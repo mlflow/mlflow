@@ -4,6 +4,7 @@ const fs = require('fs');
 const TsconfigPathsPlugin = require('tsconfig-paths-webpack-plugin');
 const webpack = require('webpack');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
+const MonacoWebpackPlugin = require('monaco-editor-webpack-plugin');
 
 const proxyTarget = process.env.MLFLOW_PROXY;
 const useProxyServer = !!proxyTarget && !process.env.MLFLOW_DEV_PROXY_MODE;
@@ -466,6 +467,14 @@ module.exports = function () {
         new webpack.EnvironmentPlugin({
           MLFLOW_SHOW_GDPR_PURGING_MESSAGES: process.env.MLFLOW_SHOW_GDPR_PURGING_MESSAGES ? 'true' : 'false',
           MLFLOW_USE_ABSOLUTE_AJAX_URLS: process.env.MLFLOW_USE_ABSOLUTE_AJAX_URLS ? 'true' : 'false',
+        }),
+        // Only the dataset record editor uses Monaco today, and only for JSON. Restricting
+        // languages + dropping the search/quickCommand features keeps the lazy chunk to ~1MB
+        // gz instead of the full ~3MB.
+        new MonacoWebpackPlugin({
+          languages: ['json'],
+          features: ['!gotoSymbol', '!documentSymbols'],
+          filename: 'static/js/monaco-[name].worker.[contenthash:8].js',
         }),
       ],
     },

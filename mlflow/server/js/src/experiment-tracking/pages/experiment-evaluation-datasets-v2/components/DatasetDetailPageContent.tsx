@@ -28,13 +28,36 @@ import { useSqlWarehouseContext } from '../../experiment-page-tabs/SqlWarehouseC
 import { DEFAULT_RECORD_PAGE_SIZE } from '../utils/constants';
 
 /**
- * OSS stub for `useNavigationBlock` (Databricks-internal hook). The real version intercepts
- * react-router transitions so callers can prompt-on-unsaved-changes. OSS doesn't have an
- * equivalent yet, so we no-op — the panel still works, but users can navigate away while
- * the editor has unsaved JSON. TODO: wire to react-router-dom-v5-compat `useBlocker`.
+ * OSS implementation of `useNavigationBlock` — what universe gets from
+ * `@databricks/web-shared/routing`. Covers the tab-close / refresh case via `beforeunload`,
+ * which is the most common "I lost my work" scenario.
+ *
+ * Limitation: in-app navigation (clicking another row, breadcrumb, side-nav) is NOT
+ * intercepted. react-router v6.7+ added `useBlocker` for that; OSS is on 6.4.1 today, so
+ * we'd need a router bump first. Universe's `block(handler)` callback receives a `retry`
+ * fn for the modal flow — our stub returns a no-op handler since `beforeunload` resolves
+ * synchronously through the browser-native confirm dialog instead.
  */
 const useNavigationBlock = () => {
-  return (_handler: (tx: { retry: () => void }) => void) => () => {};
+  const activeRef = useRef(false);
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (!activeRef.current) return undefined;
+      // Modern browsers display their own generic message, but Chrome/Firefox still
+      // require `preventDefault` + `returnValue` to opt into the prompt.
+      e.preventDefault();
+      e.returnValue = '';
+      return '';
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, []);
+  return (_handler: (tx: { retry: () => void }) => void) => {
+    activeRef.current = true;
+    return () => {
+      activeRef.current = false;
+    };
+  };
 };
 
 
