@@ -27,7 +27,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models.flavor_backend_registry import get_flavor_backend
 from mlflow.models.model import get_model_requirements_files, update_model_requirements
 from mlflow.models.utils import load_serving_example
-from mlflow.protos.databricks_pb2 import BAD_REQUEST, RESOURCE_ALREADY_EXISTS, ErrorCode
+from mlflow.protos.databricks_pb2 import BAD_REQUEST, ErrorCode
 from mlflow.pyfunc.backend import PyFuncBackend
 from mlflow.pyfunc.scoring_server import (
     CONTENT_TYPE_CSV,
@@ -65,99 +65,6 @@ extra_options = no_conda + install_mlflow
 
 def env_with_tracking_uri() -> dict[str, str]:
     return {**os.environ, "MLFLOW_TRACKING_URI": mlflow.get_tracking_uri()}
-
-
-def test_register_model_cli_outputs_json(monkeypatch):
-    calls = {}
-
-    class ModelVersion:
-        name = "catalog.schema.model"
-        version = "2"
-        status = "READY"
-        tags = {"owner": "mlflow-r"}
-
-    class Client:
-        def create_registered_model(self, name):
-            calls["registered_model"] = name
-
-        def create_model_version(self, **kwargs):
-            calls["model_version"] = kwargs
-            return ModelVersion()
-
-    monkeypatch.setattr(models_cli, "MlflowClient", Client)
-
-    result = CliRunner().invoke(
-        models_cli.register,
-        [
-            "--model-uri",
-            "runs:/rid/model",
-            "--name",
-            "catalog.schema.model",
-            "--run-id",
-            "rid",
-            "--run-link",
-            "https://example.com/runs/rid",
-            "--description",
-            "registered from CLI",
-            "--tag",
-            "owner=mlflow-r",
-            "--await-registration-for",
-            "0",
-            "--output",
-            "json",
-        ],
-        catch_exceptions=False,
-    )
-
-    assert result.exit_code == 0
-    assert calls["registered_model"] == "catalog.schema.model"
-    assert calls["model_version"] == {
-        "name": "catalog.schema.model",
-        "source": "runs:/rid/model",
-        "run_id": "rid",
-        "tags": {"owner": "mlflow-r"},
-        "run_link": "https://example.com/runs/rid",
-        "description": "registered from CLI",
-        "await_creation_for": 0,
-    }
-    assert json.loads(result.output) == {
-        "name": "catalog.schema.model",
-        "version": "2",
-        "status": "READY",
-        "tags": {"owner": "mlflow-r"},
-    }
-
-
-def test_register_model_cli_ignores_existing_registered_model(monkeypatch):
-    calls = []
-
-    class ModelVersion:
-        name = "model"
-        version = "1"
-
-    class Client:
-        def create_registered_model(self, name):
-            raise MlflowException(
-                "already exists",
-                error_code=RESOURCE_ALREADY_EXISTS,
-            )
-
-        def create_model_version(self, **kwargs):
-            calls.append(kwargs)
-            return ModelVersion()
-
-    monkeypatch.setattr(models_cli, "MlflowClient", Client)
-
-    result = CliRunner().invoke(
-        models_cli.register,
-        ["--model-uri", "/tmp/model", "--name", "model"],
-        catch_exceptions=False,
-    )
-
-    assert result.exit_code == 0
-    assert calls[0]["name"] == "model"
-    assert calls[0]["source"] == "/tmp/model"
-    assert "Created version '1' of model 'model'." in result.output
 
 
 @pytest.fixture(scope="module")

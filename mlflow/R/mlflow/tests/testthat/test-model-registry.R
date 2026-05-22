@@ -535,17 +535,17 @@ test_that("model alias APIs call registered-models alias endpoint", {
   expect_equal(calls[[2]]$verb, "GET")
 })
 
-test_that("UC create model version delegates to Python MLflow CLI", {
+test_that("UC create model version delegates artifact handling to Python MLflow", {
   mock_client <- get_mock_client()
   mock_client$registry_uri <- list(scheme = "databricks-uc")
 
-  cli_args <- NULL
+  python_payload <- NULL
   with_mocked_bindings(.package = "mlflow",
-    mlflow_cli = function(..., client = NULL, echo = TRUE) {
-      cli_args <<- unlist(list(...), use.names = FALSE)
+    mlflow_python_json = function(code, payload, client) {
+      expect_true(grepl("create_model_version", code, fixed = TRUE))
+      python_payload <<- payload
       expect_identical(client, mock_client)
-      expect_false(echo)
-      list(stdout = '{"name":"test_catalog.test_schema.model","version":"8","status":"READY"}')
+      list(name = testthat_uc_model_name, version = "8", status = "READY")
     }, {
       result <- mlflow_create_model_version(
         name = testthat_uc_model_name,
@@ -558,15 +558,39 @@ test_that("UC create model version delegates to Python MLflow CLI", {
     })
 
   expect_equal(result$version, "8")
-  expect_equal(cli_args, c(
-    "models", "register",
-    "--model-uri", "runs:/rid/model",
-    "--name", testthat_uc_model_name,
-    "--output", "json",
-    "--run-id", "rid",
-    "--description", "registered from R",
-    "--tag", "owner=mlflow-r"
-  ))
+  expect_equal(python_payload$name, testthat_uc_model_name)
+  expect_equal(python_payload$source, "runs:/rid/model")
+  expect_equal(python_payload$run_id, "rid")
+  expect_equal(python_payload$description, "registered from R")
+  expect_equal(python_payload$tags, list(owner = "mlflow-r"))
+})
+
+test_that("Python MLflow JSON call uses client tracking and registry URIs", {
+  mock_client <- get_mock_client()
+  mock_client$tracking_uri <- list(raw_uri = "databricks://PROFILE")
+  mock_client$registry_uri <- list(raw_uri = "databricks-uc://PROFILE")
+
+  env <- NULL
+  args <- NULL
+  with_mocked_bindings(.package = "mlflow",
+    python_bin = function() "/usr/bin/python",
+    mlflow_is_verbose = function() FALSE,
+    run = function(command = NULL, args = character(), echo = TRUE, echo_cmd = FALSE,
+                   stderr_callback = NULL) {
+      env <<- list(
+        tracking_uri = Sys.getenv("MLFLOW_TRACKING_URI"),
+        registry_uri = Sys.getenv("MLFLOW_REGISTRY_URI")
+      )
+      args <<- args
+      list(stdout = '{"version":"1"}')
+    }, {
+      result <- mlflow_python_json("print('{}')", list(name = "model"), client = mock_client)
+    })
+
+  expect_equal(result$version, "1")
+  expect_equal(env$tracking_uri, "databricks://PROFILE")
+  expect_equal(env$registry_uri, "databricks-uc://PROFILE")
+  expect_equal(args[1], "-c")
 })
 
 test_that("UC model version download delegates to Python MLflow artifacts CLI", {

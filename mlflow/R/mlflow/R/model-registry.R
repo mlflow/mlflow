@@ -10,17 +10,90 @@ mlflow_registry_tags_payload <- function(tags) {
   tags
 }
 
-mlflow_cli_tag_params <- function(tags) {
+mlflow_python_tags <- function(tags) {
   tags <- mlflow_registry_tags_payload(tags)
-  if (is.null(tags)) return(character())
+  if (is.null(tags)) return(NULL)
 
-  unlist(lapply(tags, function(tag) {
-    c("--tag", paste(cast_string(tag$key), cast_string(tag$value, allow_na = TRUE), sep = "="))
-  }), use.names = FALSE)
+  result <- list()
+  for (tag in tags) {
+    result[[cast_string(tag$key)]] <- cast_string(tag$value, allow_na = TRUE)
+  }
+  result
 }
 
-mlflow_cli_json <- function(args, client) {
-  response <- mlflow_cli(args, client = client, echo = mlflow_is_verbose())
+mlflow_uc_create_model_version_code <- function() {
+  paste(c(
+    "import json",
+    "import sys",
+    "from mlflow.tracking import MlflowClient",
+    "",
+    "with open(sys.argv[1], encoding='utf-8') as handle:",
+    "    payload = json.load(handle)",
+    "",
+    "kwargs = {",
+    "    key: value",
+    "    for key, value in {",
+    "        'name': payload['name'],",
+    "        'source': payload['source'],",
+    "        'run_id': payload.get('run_id'),",
+    "        'tags': payload.get('tags'),",
+    "        'run_link': payload.get('run_link'),",
+    "        'description': payload.get('description'),",
+    "    }.items()",
+    "    if value is not None",
+    "}",
+    "model_version = MlflowClient().create_model_version(**kwargs)",
+    "keys = [",
+    "    'name', 'version', 'creation_timestamp', 'last_updated_timestamp',",
+    "    'description', 'user_id', 'current_stage', 'source', 'run_id',",
+    "    'status', 'status_message', 'run_link', 'aliases', 'model_id',",
+    "]",
+    "result = {}",
+    "for key in keys:",
+    "    value = getattr(model_version, key, None)",
+    "    if value is not None:",
+    "        result[key] = list(value) if isinstance(value, tuple) else value",
+    "if getattr(model_version, 'tags', None):",
+    "    result['tags'] = model_version.tags",
+    "print(json.dumps(result))"
+  ), collapse = "\n")
+}
+
+mlflow_python_json <- function(code, payload, client) {
+  payload_file <- tempfile(fileext = ".json")
+  on.exit(unlink(payload_file), add = TRUE)
+  jsonlite::write_json(payload, payload_file, auto_unbox = TRUE, null = "null")
+
+  env <- if (is.null(client)) list() else client$get_cli_env()
+  tracking_uri <- if (is.null(client)) {
+    mlflow_get_tracking_uri()
+  } else {
+    client$tracking_uri$raw_uri %||% mlflow_get_tracking_uri()
+  }
+  registry_uri <- if (is.null(client)) {
+    mlflow_get_registry_uri()
+  } else {
+    client$registry_uri$raw_uri %||% mlflow_get_registry_uri()
+  }
+  env <- modifyList(list(
+    MLFLOW_TRACKING_URI = tracking_uri,
+    MLFLOW_REGISTRY_URI = registry_uri
+  ), env)
+
+  response <- tryCatch({
+    withr::with_envvar(env, {
+      run(
+        python_bin(),
+        c("-c", code, payload_file),
+        echo = mlflow_is_verbose(),
+        echo_cmd = mlflow_is_verbose()
+      )
+    })
+  }, error = function(e) {
+    stop("Python MLflow failed to handle Unity Catalog model artifacts: ",
+         conditionMessage(e), call. = FALSE)
+  })
+
   jsonlite::fromJSON(response$stdout, simplifyVector = FALSE)
 }
 
@@ -45,18 +118,18 @@ mlflow_download_uc_model_version <- function(name, version, client = NULL) {
 mlflow_uc_create_model_version <- function(name, source, run_id = NULL, tags = NULL, run_link = NULL,
                                            description = NULL, client = NULL) {
   client <- resolve_client(client)
-  args <- c(
-    "models", "register",
-    "--model-uri", source,
-    "--name", name,
-    "--output", "json"
+  mlflow_python_json(
+    mlflow_uc_create_model_version_code(),
+    list(
+      name = name,
+      source = source,
+      run_id = run_id,
+      tags = mlflow_python_tags(tags),
+      run_link = run_link,
+      description = description
+    ),
+    client = client
   )
-  if (!is.null(run_id)) args <- c(args, "--run-id", run_id)
-  if (!is.null(run_link)) args <- c(args, "--run-link", run_link)
-  if (!is.null(description)) args <- c(args, "--description", description)
-  args <- c(args, mlflow_cli_tag_params(tags))
-
-  mlflow_cli_json(args, client)
 }
 
 mlflow_uc_stage_error <- function(method) {
