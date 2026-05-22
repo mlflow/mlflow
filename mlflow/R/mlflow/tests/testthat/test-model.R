@@ -170,6 +170,62 @@ test_that("mlflow_log_model supports signature parameter", {
   expect_type(logged_model_spec$signature$outputs, "character")
 })
 
+test_that("signature normalization validates nested schema shapes", {
+  signature <- list(
+    inputs = list(
+      payload = list(
+        type = "object",
+        properties = list(
+          score = "double",
+          tags = list(type = "array", items = "string")
+        )
+      )
+    ),
+    outputs = list(
+      prediction = list(type = "map", values = "double", required = FALSE)
+    )
+  )
+
+  normalized <- mlflow_normalize_signature(signature)
+  inputs <- jsonlite::fromJSON(normalized$inputs, simplifyDataFrame = FALSE)
+  outputs <- jsonlite::fromJSON(normalized$outputs, simplifyDataFrame = FALSE)
+
+  expect_equal(inputs[[1]]$name, "payload")
+  expect_equal(inputs[[1]]$type, "object")
+  expect_equal(inputs[[1]]$properties$score$type, "double")
+  expect_true(inputs[[1]]$properties$score$required)
+  expect_equal(inputs[[1]]$properties$tags$type, "array")
+  expect_equal(inputs[[1]]$properties$tags$items$type, "string")
+
+  expect_equal(outputs[[1]]$name, "prediction")
+  expect_equal(outputs[[1]]$type, "map")
+  expect_equal(outputs[[1]]$values$type, "double")
+  expect_false(outputs[[1]]$required)
+})
+
+test_that("signature normalization rejects invalid nested schema shapes", {
+  expect_error(
+    mlflow_normalize_signature(list(inputs = list(x = list(type = "unknown")))),
+    "Unsupported signature type `unknown`",
+    fixed = TRUE
+  )
+  expect_error(
+    mlflow_normalize_signature(list(inputs = list(x = list(type = "array")))),
+    "must include `items`",
+    fixed = TRUE
+  )
+  expect_error(
+    mlflow_normalize_signature(list(inputs = list(x = list(type = "object", properties = list())))),
+    "must include named `properties`",
+    fixed = TRUE
+  )
+  expect_error(
+    mlflow_normalize_signature(list(inputs = list(x = list(type = "double", required = "yes")))),
+    "invalid `required` value",
+    fixed = TRUE
+  )
+})
+
 test_that("mlflow_log_model rejects data.frame signature fields", {
   lm_model <- lm(Sepal.Width ~ Sepal.Length, iris)
   model <- crate(~ stats::predict(lm_model, .x), lm_model = lm_model)
