@@ -26,13 +26,12 @@ config_variable_map <- list(
 
 databricks_config_as_env <- function(config) {
   if (config$config_source != "cfgfile") { # pass the auth info via environment vars
-    res <- config[intersect(names(config_variable_map), names(config))]
-    res <- res[!is.na(res)]
+    res <- config[!is.na(config)]
     res$config_source <- NULL
-    if (!is.null(res$insecure) && !as.logical(res$insecure)) {
+    if (!as.logical(res$insecure)) {
       res$insecure <- NULL
     }
-    names(res) <- unname(unlist(config_variable_map[names(res)]))
+    names(res) <- lapply(names(res), function (x) config_variable_map[[x]])
     res
   } else if (!is.na(Sys.getenv(DATABRICKS_CONFIG_FILE, NA))) {
     list(DATABRICKS_CONFIG_FILE = Sys.getenv(DATABRICKS_CONFIG_FILE))
@@ -58,17 +57,15 @@ get_databricks_config_for_profile <- function(profile) {
   if (!(profile %in% names(config))) {
     stop(paste("Missing profile '", profile, "'.", sep = ""))
   }
-  new_databricks_config(config_source = "cfgfile", config[[profile]], profile = profile)
+  new_databricks_config(config_source = "cfgfile", config[[profile]])
 }
 
 #' @importFrom utils modifyList
 new_databricks_config <- function(config_source,
-                                  config_vars,
-                                  profile = NA) {
+                                  config_vars) {
   host_cred_vars <- config_vars[intersect(names(config_variable_map), names(config_vars))]
   res <- do.call(new_mlflow_host_creds, host_cred_vars)
   res$config_source <- config_source
-  res$profile <- profile
   res
 }
 

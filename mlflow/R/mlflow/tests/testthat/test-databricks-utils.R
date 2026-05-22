@@ -179,13 +179,11 @@ test_that("databricks config ignores modern profile fields", {
       auth_type = "pat",
       account_id = "account-id",
       workspace_id = "workspace-id"
-    ),
-    profile = "DEFAULT"
+    )
   )
 
   expect_equal(config$host, "https://example.databricks.com")
   expect_equal(config$token, "token")
-  expect_equal(config$profile, "DEFAULT")
   expect_true(mlflow:::databricks_config_is_valid(config))
 })
 
