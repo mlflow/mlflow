@@ -308,7 +308,7 @@ def update(skip_yml=False):
                 )
 
         save_file(new_src, yml_path)
-        asyncio.run(prune_unused_requirements(yml_path))
+        asyncio.run(prune_unused_requirements(yml_path, packages=packages))
 
     update_ml_package_versions_py(yml_path)
 

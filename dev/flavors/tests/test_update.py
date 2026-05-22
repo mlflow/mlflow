@@ -48,16 +48,16 @@ def run_test(src, src_expected, mock_packages):
     versions_yaml.parent.mkdir()
     versions_yaml.write_text(src)
 
-    async def noop(*_args, **_kwargs):
-        return None
-
     with (
         mock.patch("flavors._update.get_packages", new=fake_get_packages),
         mock.patch("flavors._update.check_pypi_accessibility") as mock_check,
-        mock.patch("flavors._update.prune_unused_requirements", new=noop),
+        mock.patch(
+            "flavors._update.prune_unused_requirements", new_callable=mock.AsyncMock
+        ) as mock_prune,
     ):
         _update.update()
         mock_check.assert_called_once()
+        mock_prune.assert_called_once()
 
     assert versions_yaml.read_text() == src_expected
 

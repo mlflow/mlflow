@@ -95,6 +95,28 @@ sklearn:
     assert '"== dev"' in out
 
 
+def test_drops_specifier_containing_dev_substring(tmp_path):
+    # `"< 4.52.0.dev0"` is a real PEP 440 spec, not the dev sentinel —
+    # it should be prunable when out of range even with install_dev set.
+    src = """\
+transformers:
+  package_info:
+    pip_release: "transformers"
+    install_dev: |
+      uv pip install --system git+https://github.com/huggingface/transformers.git
+  models:
+    minimum: "5.0.0"
+    maximum: "5.0.0"
+    requirements:
+      "< 4.52.0.dev0": ["accelerate<1"]
+    run: |
+      pytest tests/transformers
+"""
+    mock_packages = {"transformers": make_package(["5.0.0"])}
+    out = run_prune(src, mock_packages, tmp_path)
+    assert "4.52.0.dev0" not in out
+
+
 def test_does_not_rewrite_when_nothing_to_prune(tmp_path):
     src = """\
 sklearn:
@@ -111,7 +133,7 @@ sklearn:
     mock_packages = {"scikit-learn": make_package(["1.5.0", "1.6.0", "1.7.0", "1.8.0"])}
     yml = tmp_path / "ml-package-versions.yml"
     yml.write_text(src)
-    mtime = yml.stat().st_mtime
+    mtime_ns = yml.stat().st_mtime_ns
 
     async def fake_get_packages(names):
         return [mock_packages[n] for n in names]
@@ -119,5 +141,5 @@ sklearn:
     with mock.patch("flavors._prune.get_packages", new=fake_get_packages):
         asyncio.run(prune_unused_requirements(yml))
 
-    assert yml.stat().st_mtime == mtime
+    assert yml.stat().st_mtime_ns == mtime_ns
     assert yml.read_text() == src
