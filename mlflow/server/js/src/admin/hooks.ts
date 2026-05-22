@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@mlflow/mlflow/src/common
 import { useSearchParams } from '../common/utils/RoutingUtils';
 import { SETTINGS_RETURN_TO_PARAM } from '../settings/settingsSectionConstants';
 import { AccountQueryKeys } from '../account/hooks';
-import { AdminApi } from './api';
+import { AdminApi, scorerResourcePattern } from './api';
 import type {
   AddPermissionRequest,
   CreateRoleRequest,
@@ -12,6 +12,7 @@ import type {
   UpdateAdminRequest,
   UpdateRoleRequest,
 } from './types';
+import { ALL_RESOURCE_PATTERN } from './types';
 
 // Re-export account-side hooks so admin pages can keep importing them via
 // ``./hooks``. The canonical home is account/hooks.
@@ -273,10 +274,13 @@ export const useRevokeUserPermission = () => {
  * ``ResourceOption[]`` so the consumer doesn't have to switch on shape.
  */
 export const useResourceOptionsQuery = (resourceType: string) => {
+  // Also fired for ``scorer`` so the picker can join scorers to their
+  // experiment names client-side — keeps ``experiment_name`` off the
+  // ``Scorer`` proto (it's a UI concern, per Tome's review).
   const experiments = useQuery({
     queryKey: AdminQueryKeys.resourceOptions('experiment'),
     queryFn: AdminApi.listExperimentsLite,
-    enabled: resourceType === 'experiment',
+    enabled: resourceType === 'experiment' || resourceType === 'scorer',
     retry: false,
     refetchOnWindowFocus: false,
   });
@@ -298,6 +302,20 @@ export const useResourceOptionsQuery = (resourceType: string) => {
     queryKey: AdminQueryKeys.resourceOptions('gateway_endpoint'),
     queryFn: AdminApi.listGatewayEndpointsLite,
     enabled: resourceType === 'gateway_endpoint',
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+  const scorers = useQuery({
+    queryKey: AdminQueryKeys.resourceOptions('scorer'),
+    queryFn: AdminApi.listScorersLite,
+    enabled: resourceType === 'scorer',
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+  const prompts = useQuery({
+    queryKey: AdminQueryKeys.resourceOptions('prompt'),
+    queryFn: AdminApi.listPromptsLite,
+    enabled: resourceType === 'prompt',
     retry: false,
     refetchOnWindowFocus: false,
   });
@@ -324,6 +342,39 @@ export const useResourceOptionsQuery = (resourceType: string) => {
       options = (gatewayEndpoints.data?.endpoints ?? []).map((e) => ({ id: e.endpoint_id, name: e.name }));
       ({ isLoading, error } = gatewayEndpoints);
       break;
+    case 'scorer': {
+      // ``id`` is the composite ``<experiment_id>/<urlencoded scorer_name>``
+      // computed client-side to match the backend's ``_scorer_pattern`` — the
+      // picker sets ``draft.resourceId = id``, which is what the staged grant
+      // submits as its ``resource_pattern``. Display label disambiguates two
+      // same-named scorers in different experiments by looking up the name
+      // in the parallel-fetched experiments list (the ``Scorer`` proto itself
+      // doesn't carry it — UI concern, kept off the wire); falls back to the
+      // raw experiment id when the lookup misses.
+      const experimentNameById = new Map(
+        (experiments.data?.experiments ?? []).map((e) => [e.experiment_id, e.name] as const),
+      );
+      options = (scorers.data?.scorers ?? []).map((s) => ({
+        id: scorerResourcePattern(s.experiment_id, s.scorer_name),
+        name: `${s.scorer_name} (in ${experimentNameById.get(String(s.experiment_id)) ?? s.experiment_id})`,
+      }));
+      isLoading = scorers.isLoading || experiments.isLoading;
+      error = scorers.error ?? experiments.error;
+      break;
+    }
+    case 'prompt':
+      // Prompts are identified by name (same as registered_models); the lite
+      // call hits ``registered-models/search`` with a tag filter, so the
+      // response shape is ``{registered_models: [{name}]}``.
+      options = (prompts.data?.registered_models ?? []).map((p) => ({ id: p.name, name: p.name }));
+      ({ isLoading, error } = prompts);
+      break;
   }
+  // A resource literally named ``*`` would collide with the wildcard scope
+  // (backend stores both as ``resource_pattern = '*'``), so drop it from the
+  // picker — selecting it would silently grant access to ALL resources of
+  // the type. Users that genuinely need an all-resources grant should use
+  // the wildcard radio.
+  options = options.filter((o) => o.id !== ALL_RESOURCE_PATTERN);
   return { options, isLoading, error };
 };
