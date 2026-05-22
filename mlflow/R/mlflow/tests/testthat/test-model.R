@@ -3,6 +3,7 @@ context("Model")
 library("carrier")
 
 testthat_model_name <- basename(tempfile("model_"))
+testthat_uc_model_name <- "test_catalog.test_schema.model"
 
 teardown({
   mlflow_clear_test_dir(testthat_model_name)
@@ -203,17 +204,21 @@ test_that("mlflow_log_model rejects data.frame signature fields", {
 })
 
 test_that("models URI parser supports aliases, versions, and stages", {
-  expect_true(mlflow_is_plain_models_uri("models:/zacdav.default.model/12"))
-  expect_false(mlflow_is_plain_models_uri("models://profile/zacdav.default.model/12"))
+  expect_true(mlflow_is_plain_models_uri(
+    paste0("models:/", testthat_uc_model_name, "/12")
+  ))
+  expect_false(mlflow_is_plain_models_uri(
+    paste0("models://profile/", testthat_uc_model_name, "/12")
+  ))
 
-  alias_uri <- mlflow_parse_models_uri("models:/zacdav.default.model@champion")
-  expect_equal(alias_uri$name, "zacdav.default.model")
+  alias_uri <- mlflow_parse_models_uri(paste0("models:/", testthat_uc_model_name, "@champion"))
+  expect_equal(alias_uri$name, testthat_uc_model_name)
   expect_null(alias_uri$version)
   expect_null(alias_uri$stage)
   expect_equal(alias_uri$alias, "champion")
 
-  version_uri <- mlflow_parse_models_uri("models:/zacdav.default.model/12")
-  expect_equal(version_uri$name, "zacdav.default.model")
+  version_uri <- mlflow_parse_models_uri(paste0("models:/", testthat_uc_model_name, "/12"))
+  expect_equal(version_uri$name, testthat_uc_model_name)
   expect_equal(version_uri$version, "12")
   expect_null(version_uri$stage)
   expect_null(version_uri$alias)
@@ -244,7 +249,7 @@ test_that("models URI alias resolves via registry helper", {
     mlflow_get_model_version_download_uri = function(name, version, client = NULL) {
       path
     }, {
-      loaded <- mlflow_load_model("models:/zacdav.default.model@prod")
+      loaded <- mlflow_load_model(paste0("models:/", testthat_uc_model_name, "@prod"))
       pred <- mlflow_predict(loaded, iris[1:3, ])
       expect_equal(as.numeric(pred), as.numeric(stats::predict(lm_model, iris[1:3, ])))
     })
@@ -258,7 +263,9 @@ test_that("Unity Catalog models URI alias downloads via UC helper", {
   mlflow_save_model(model, path = path)
 
   mock_client <- new_mlflow_client_impl(
-    get_host_creds = function() new_mlflow_host_creds(host = "https://adb.example.com", token = "x"),
+    get_host_creds = function() {
+      new_mlflow_host_creds(host = "https://adb.example.com", token = "x")
+    },
     get_cli_env = list
   )
   mock_client$registry_uri <- list(scheme = "databricks-uc")
@@ -272,25 +279,33 @@ test_that("Unity Catalog models URI alias downloads via UC helper", {
       downloaded <<- list(name = name, version = version, client = client)
       path
     }, {
-      loaded <- mlflow_load_model("models:/zacdav.default.model@prod", client = mock_client)
+      loaded <- mlflow_load_model(
+        paste0("models:/", testthat_uc_model_name, "@prod"),
+        client = mock_client
+      )
       pred <- mlflow_predict(loaded, iris[1:3, ])
       expect_equal(as.numeric(pred), as.numeric(stats::predict(lm_model, iris[1:3, ])))
     })
 
-  expect_equal(downloaded$name, "zacdav.default.model")
+  expect_equal(downloaded$name, testthat_uc_model_name)
   expect_equal(downloaded$version, "9")
   expect_identical(downloaded$client, mock_client)
 })
 
 test_that("Unity Catalog models URI stages fail with alias guidance", {
   mock_client <- new_mlflow_client_impl(
-    get_host_creds = function() new_mlflow_host_creds(host = "https://adb.example.com", token = "x"),
+    get_host_creds = function() {
+      new_mlflow_host_creds(host = "https://adb.example.com", token = "x")
+    },
     get_cli_env = list
   )
   mock_client$registry_uri <- list(scheme = "databricks-uc")
 
   expect_error(
-    mlflow_download_model_uri("models:/zacdav.default.model/Staging", client = mock_client),
+    mlflow_download_model_uri(
+      paste0("models:/", testthat_uc_model_name, "/Staging"),
+      client = mock_client
+    ),
     "aliases"
   )
 })

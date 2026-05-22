@@ -45,47 +45,40 @@ mlflow_materialize_local_model <- function(source, client) {
 }
 
 mlflow_registry_headers <- function(headers) {
-  named_headers <- list()
+  named_headers <- character()
   for (h in headers %||% list()) {
     key <- h$key %||% h$name
     value <- h$value
     if (!is.null(key) && !is.null(value)) {
-      named_headers[[key]] <- value
+      named_headers[key] <- value
     }
   }
   named_headers
 }
 
-mlflow_upload_file_to_signed_url <- function(url, local_file, headers = list()) {
-  req_headers <- if (length(headers) > 0) do.call(httr::add_headers, headers) else NULL
+mlflow_upload_file_to_signed_url <- function(url, local_file, headers = character()) {
+  req_headers <- httr::add_headers(.headers = headers)
   body <- httr::upload_file(local_file, type = "application/octet-stream")
-  resp <- if (is.null(req_headers)) {
-    httr::PUT(url, body = body, mlflow_rest_timeout())
-  } else {
-    httr::PUT(url, body = body, mlflow_rest_timeout(), req_headers)
-  }
+  resp <- httr::PUT(url, body = body, mlflow_rest_timeout(), req_headers)
   if (resp$status_code >= 400) {
     stop(sprintf("Signed URL upload failed with HTTP %s.", resp$status_code), call. = FALSE)
   }
   invisible(TRUE)
 }
 
-mlflow_download_file_from_signed_url <- function(url, local_file, headers = list()) {
-  req_headers <- if (length(headers) > 0) do.call(httr::add_headers, headers) else NULL
-  resp <- if (is.null(req_headers)) {
-    httr::GET(url, mlflow_rest_timeout())
-  } else {
-    httr::GET(url, mlflow_rest_timeout(), req_headers)
-  }
+mlflow_download_file_from_signed_url <- function(url, local_file, headers = character()) {
+  req_headers <- httr::add_headers(.headers = headers)
+  dir.create(dirname(local_file), recursive = TRUE, showWarnings = FALSE)
+  write_disk <- httr::write_disk(local_file, overwrite = TRUE)
+  resp <- httr::GET(url, mlflow_rest_timeout(), write_disk, req_headers)
   if (resp$status_code >= 400) {
+    unlink(local_file)
     stop(sprintf("Signed URL download failed with HTTP %s.", resp$status_code), call. = FALSE)
   }
-  dir.create(dirname(local_file), recursive = TRUE, showWarnings = FALSE)
-  writeBin(httr::content(resp, "raw"), local_file)
   local_file
 }
 
-mlflow_uc_default_storage_path <- function(model_name, version, artifact_path = NULL) {
+mlflow_uc_databricks_file_path <- function(model_name, version, artifact_path = NULL) {
   parts <- c("/Models", strsplit(model_name, "\\.")[[1]], cast_string(version))
   if (!is.null(artifact_path) && nchar(artifact_path)) {
     parts <- c(parts, artifact_path)
@@ -96,11 +89,6 @@ mlflow_uc_default_storage_path <- function(model_name, version, artifact_path = 
 mlflow_uc_uses_default_storage <- function(credentials) {
   storage_mode <- credentials$storage_mode %||% credentials$storageMode
   identical(storage_mode, "DEFAULT_STORAGE")
-}
-
-mlflow_uc_uses_databricks_file_urls <- function(credentials, client) {
-  mlflow_uc_uses_default_storage(credentials) ||
-    mlflow_uc_sdk_models_artifact_repository_enabled(client)
 }
 
 mlflow_uc_sdk_models_artifact_repository_enabled <- function(client) {
@@ -184,7 +172,7 @@ mlflow_uc_create_download_url <- function(client, path) {
   )
 }
 
-mlflow_uc_list_default_storage_dir <- function(client, path, page_token = NULL) {
+mlflow_uc_list_databricks_file_dir <- function(client, path, page_token = NULL) {
   data <- if (!is.null(page_token) && nchar(page_token)) {
     list(page_token = page_token)
   } else {
@@ -202,12 +190,12 @@ mlflow_uc_list_default_storage_dir <- function(client, path, page_token = NULL) 
   )
 }
 
-mlflow_uc_default_storage_files <- function(client, root) {
+mlflow_uc_databricks_files <- function(client, root) {
   collect_dir <- function(path) {
     files <- character()
     next_token <- NULL
     repeat {
-      response <- mlflow_uc_list_default_storage_dir(client, path, page_token = next_token)
+      response <- mlflow_uc_list_databricks_file_dir(client, path, page_token = next_token)
       for (entry in response$contents %||% list()) {
         entry_path <- entry$path
         if (is.null(entry_path) || !nchar(entry_path)) next
@@ -228,29 +216,29 @@ mlflow_uc_default_storage_files <- function(client, root) {
   collect_dir(root)
 }
 
-mlflow_upload_model_dir_to_uc_default_storage <- function(model_dir, model_version, client, files) {
+mlflow_upload_model_dir_to_uc_databricks_files <- function(model_dir, model_version, client, files) {
   if (is.null(model_version$name) || is.null(model_version$version)) {
-    stop("Unity Catalog default storage upload requires model name and version.", call. = FALSE)
+    stop("Unity Catalog Databricks file upload requires model name and version.", call. = FALSE)
   }
   registry_client <- resolve_registry_client(client)
   for (f in files) {
     rel <- fs::path_rel(f, start = model_dir)
     rel <- gsub("\\\\", "/", rel)
-    remote <- mlflow_uc_default_storage_path(model_version$name, model_version$version, rel)
+    remote <- mlflow_uc_databricks_file_path(model_version$name, model_version$version, rel)
     upload <- mlflow_uc_create_upload_url(registry_client, remote)
     mlflow_upload_file_to_signed_url(upload$url, f, headers = upload$headers)
   }
   invisible(TRUE)
 }
 
-mlflow_download_model_dir_from_uc_default_storage <- function(model_version, client) {
+mlflow_download_model_dir_from_uc_databricks_files <- function(model_version, client) {
   if (is.null(model_version$name) || is.null(model_version$version)) {
-    stop("Unity Catalog default storage download requires model name and version.", call. = FALSE)
+    stop("Unity Catalog Databricks file download requires model name and version.", call. = FALSE)
   }
 
   registry_client <- resolve_registry_client(client)
-  root <- mlflow_uc_default_storage_path(model_version$name, model_version$version)
-  files <- mlflow_uc_default_storage_files(registry_client, root)
+  root <- mlflow_uc_databricks_file_path(model_version$name, model_version$version)
+  files <- mlflow_uc_databricks_files(registry_client, root)
   if (length(files) == 0) {
     stop(sprintf("No Unity Catalog model files found under `%s`.", root), call. = FALSE)
   }
@@ -413,6 +401,11 @@ mlflow_download_uc_model_version_with_python <- function(name, version, client) 
 mlflow_download_uc_model_version <- function(name, version, client = NULL) {
   client <- resolve_client(client)
   model_version <- mlflow_get_model_version(name, version, client = client)
+
+  if (mlflow_uc_sdk_models_artifact_repository_enabled(client)) {
+    return(mlflow_download_model_dir_from_uc_databricks_files(model_version, client))
+  }
+
   credentials <- mlflow_uc_model_version_credentials(
     name = name,
     version = model_version$version %||% version,
@@ -420,8 +413,8 @@ mlflow_download_uc_model_version <- function(name, version, client = NULL) {
     client = client
   )
 
-  if (mlflow_uc_uses_databricks_file_urls(credentials, client)) {
-    return(mlflow_download_model_dir_from_uc_default_storage(model_version, client))
+  if (mlflow_uc_uses_default_storage(credentials)) {
+    return(mlflow_download_model_dir_from_uc_databricks_files(model_version, client))
   }
 
   if (length(credentials) > 0) {
@@ -443,8 +436,8 @@ mlflow_download_uc_model_version <- function(name, version, client = NULL) {
 mlflow_upload_model_dir_for_uc <- function(model_dir, model_version, credentials, client = NULL) {
   files <- mlflow_uc_local_model_files(model_dir)
 
-  if (mlflow_uc_uses_databricks_file_urls(credentials, client)) {
-    return(mlflow_upload_model_dir_to_uc_default_storage(
+  if (mlflow_uc_uses_default_storage(credentials)) {
+    return(mlflow_upload_model_dir_to_uc_databricks_files(
       model_dir = model_dir,
       model_version = model_version,
       client = client,
@@ -454,10 +447,8 @@ mlflow_upload_model_dir_for_uc <- function(model_dir, model_version, credentials
 
   stop(
     "Unity Catalog returned non-default model-version storage credentials. ",
-    "The model version was not finalized because the R client currently supports ",
-    "Databricks default storage for direct UC model uploads. Use Python MLflow for ",
-    "customer-managed UC storage, or configure UC managed storage that returns ",
-    "default Databricks file upload URLs.",
+    "The model version was not finalized because direct R uploads require ",
+    "Databricks file URLs. Use Python MLflow for customer-managed UC storage.",
     call. = FALSE
   )
 }
@@ -486,22 +477,32 @@ mlflow_uc_create_model_version <- function(name, source, run_id = NULL, tags = N
 
   model_version <- create_resp$model_version
   model_version$name <- model_version$name %||% name
-  credentials <- mlflow_uc_model_version_credentials(
-    name = name,
-    version = model_version$version,
-    operation = "MODEL_VERSION_OPERATION_READ_WRITE",
-    client = client
-  )
 
-  if (!mlflow_uc_uses_databricks_file_urls(credentials, client) && length(credentials) > 0) {
-    return(mlflow_upload_and_finalize_uc_model_version_with_python(
-      local_model,
-      model_version,
+  if (mlflow_uc_sdk_models_artifact_repository_enabled(client)) {
+    mlflow_upload_model_dir_to_uc_databricks_files(
+      model_dir = local_model,
+      model_version = model_version,
+      client = client,
+      files = mlflow_uc_local_model_files(local_model)
+    )
+  } else {
+    credentials <- mlflow_uc_model_version_credentials(
+      name = name,
+      version = model_version$version,
+      operation = "MODEL_VERSION_OPERATION_READ_WRITE",
       client = client
-    ))
-  }
+    )
 
-  mlflow_upload_model_dir_for_uc(local_model, model_version, credentials, client = client)
+    if (!mlflow_uc_uses_default_storage(credentials) && length(credentials) > 0) {
+      return(mlflow_upload_and_finalize_uc_model_version_with_python(
+        local_model,
+        model_version,
+        client = client
+      ))
+    }
+
+    mlflow_upload_model_dir_for_uc(local_model, model_version, credentials, client = client)
+  }
 
   finalize_resp <- mlflow_registry_rest(
     "model-versions",
