@@ -1,7 +1,13 @@
 import { mkdtemp, rm } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join, resolve } from 'path';
-import { getLockSocketPath, getWalDir, getWalPath } from '../../../src/exporters/wal/paths';
+import {
+  getDaemonLogPath,
+  getDeadLetterPath,
+  getLockSocketPath,
+  getWalDir,
+  getWalPath,
+} from '../../../src/exporters/wal/paths';
 
 describe('wal/paths', () => {
   const originalEnv = process.env.MLFLOW_WAL_DIR;
@@ -115,6 +121,56 @@ describe('wal/paths', () => {
     it('lives inside the resolved WAL dir', () => {
       process.env.MLFLOW_WAL_DIR = '/tmp/foo';
       expect(getWalPath()).toBe(join(resolve('/tmp/foo'), 'queue.log'));
+    });
+  });
+
+  describe('daily rotation of failed.log / daemon.log', () => {
+    beforeEach(() => {
+      process.env.MLFLOW_WAL_DIR = '/tmp/wal-rotation';
+    });
+
+    it('suffixes failed.log with the UTC date of the supplied Date', () => {
+      const d = new Date('2026-05-20T12:34:56.000Z');
+      expect(getDeadLetterPath(d)).toBe(
+        join(resolve('/tmp/wal-rotation'), 'failed.log.2026-05-20'),
+      );
+    });
+
+    it('suffixes daemon.log with the UTC date of the supplied Date', () => {
+      const d = new Date('2026-05-20T12:34:56.000Z');
+      expect(getDaemonLogPath(d)).toBe(join(resolve('/tmp/wal-rotation'), 'daemon.log.2026-05-20'));
+    });
+
+    it('rolls failed.log to the next day across midnight UTC', () => {
+      const lastSecondOfDay = new Date('2026-05-20T23:59:59.999Z');
+      const firstInstantOfNextDay = new Date('2026-05-21T00:00:00.000Z');
+      expect(getDeadLetterPath(lastSecondOfDay)).toMatch(/failed\.log\.2026-05-20$/);
+      expect(getDeadLetterPath(firstInstantOfNextDay)).toMatch(/failed\.log\.2026-05-21$/);
+    });
+
+    it('rolls daemon.log to the next day across midnight UTC', () => {
+      const lastSecondOfDay = new Date('2026-05-20T23:59:59.999Z');
+      const firstInstantOfNextDay = new Date('2026-05-21T00:00:00.000Z');
+      expect(getDaemonLogPath(lastSecondOfDay)).toMatch(/daemon\.log\.2026-05-20$/);
+      expect(getDaemonLogPath(firstInstantOfNextDay)).toMatch(/daemon\.log\.2026-05-21$/);
+    });
+
+    it('uses UTC date, not local date, regardless of the process timezone', () => {
+      // 2026-05-20T18:00:00 UTC = 2026-05-21T02:00:00 in UTC+8 (e.g. Singapore).
+      // The suffix must reflect UTC, not the host TZ.
+      const d = new Date('2026-05-20T18:00:00.000Z');
+      expect(getDaemonLogPath(d)).toMatch(/daemon\.log\.2026-05-20$/);
+      expect(getDeadLetterPath(d)).toMatch(/failed\.log\.2026-05-20$/);
+    });
+
+    it('zero-pads month and day', () => {
+      const earlyDay = new Date('2026-01-03T12:00:00.000Z');
+      expect(getDaemonLogPath(earlyDay)).toMatch(/daemon\.log\.2026-01-03$/);
+    });
+
+    it('defaults to "now" when called without an argument', () => {
+      expect(getDaemonLogPath()).toMatch(/daemon\.log\.\d{4}-\d{2}-\d{2}$/);
+      expect(getDeadLetterPath()).toMatch(/failed\.log\.\d{4}-\d{2}-\d{2}$/);
     });
   });
 });
