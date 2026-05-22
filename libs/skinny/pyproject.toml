@@ -89,7 +89,7 @@ genai = [
   "uvicorn[standard]<1",
   "watchfiles<2",
 ]
-mcp = ["fastmcp<4,>=2.0.0", "click!=8.3.0"]
+mcp = ["fastmcp<4,>=2.7.0", "click!=8.3.0"]
 azure = ["azure-storage-blob>=12", "azure-identity>=1.6.1"]
 sqlserver = ["mlflow-dbstore"]
 aliyun-oss = ["aliyunstoreplugin"]
