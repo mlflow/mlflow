@@ -186,37 +186,7 @@ test_that("databricks config ignores modern profile fields", {
   expect_equal(config$host, "https://example.databricks.com")
   expect_equal(config$token, "token")
   expect_equal(config$profile, "DEFAULT")
-  expect_equal(config$auth_type, "pat")
   expect_true(mlflow:::databricks_config_is_valid(config))
-})
-
-test_that("databricks-cli auth profiles use CLI token cache", {
-  with_mocked_bindings(.package = "mlflow",
-    databricks_cli_access_token = function(profile = NA) {
-      expect_equal(profile, "DEFAULT")
-      "cli-token"
-    }, {
-      config <- mlflow:::new_databricks_config(
-        "cfgfile",
-        list(
-          host = "https://example.databricks.com",
-          auth_type = "databricks-cli",
-          account_id = "account-id",
-          workspace_id = "workspace-id"
-        ),
-        profile = "DEFAULT"
-      )
-
-      expect_equal(config$config_source, "databricks-cli")
-      expect_equal(config$token, "cli-token")
-      expect_true(mlflow:::databricks_config_is_valid(config))
-
-      env <- mlflow:::databricks_config_as_env(config)
-      expect_equal(env$DATABRICKS_HOST, "https://example.databricks.com")
-      expect_equal(env$DATABRICKS_TOKEN, "cli-token")
-      expect_null(env$account_id)
-      expect_null(env$workspace_id)
-    })
 })
 
 #' Executes the specified functions while creating mock `.get_notebook_info` and

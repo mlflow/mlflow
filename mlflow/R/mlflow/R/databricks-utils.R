@@ -61,49 +61,14 @@ get_databricks_config_for_profile <- function(profile) {
   new_databricks_config(config_source = "cfgfile", config[[profile]], profile = profile)
 }
 
-databricks_cli_access_token <- function(profile = NA) {
-  cli <- Sys.which("databricks")
-  if (!nchar(cli)) {
-    return(NA)
-  }
-
-  args <- c("auth", "token")
-  if (!is.na(profile) && nchar(profile)) {
-    args <- c(args, profile)
-  }
-  args <- c(args, "--output", "json")
-
-  output <- suppressWarnings(tryCatch(
-    system2(cli, args, stdout = TRUE, stderr = FALSE),
-    error = function(e) character()
-  ))
-  if (length(output) == 0 || !is.null(attr(output, "status"))) {
-    return(NA)
-  }
-
-  token <- tryCatch({
-    parsed <- jsonlite::fromJSON(paste(output, collapse = "\n"), simplifyVector = FALSE)
-    parsed$access_token %||% parsed$token %||% NA
-  }, error = function(e) NA)
-
-  token
-}
-
 #' @importFrom utils modifyList
 new_databricks_config <- function(config_source,
                                   config_vars,
                                   profile = NA) {
-  auth_type <- config_vars$auth_type %||% config_vars$authType
-  if (identical(auth_type, "databricks-cli") && is.na(config_vars$token %||% NA)) {
-    config_vars$token <- databricks_cli_access_token(profile)
-    config_source <- "databricks-cli"
-  }
-
   host_cred_vars <- config_vars[intersect(names(config_variable_map), names(config_vars))]
   res <- do.call(new_mlflow_host_creds, host_cred_vars)
   res$config_source <- config_source
   res$profile <- profile
-  res$auth_type <- auth_type %||% NA
   res
 }
 
