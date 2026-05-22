@@ -32,12 +32,14 @@ def get_git_repo_url(path: str) -> str | None:
     except ImportError as e:
         _logger.warning(
             "Failed to import Git (the Git executable is probably not on your PATH),"
-            " so Git SHA is not available. Error: %s",
+            " so Git repository URL is not available. Error: %s",
             e,
         )
         return None
 
     try:
+        if os.path.isfile(path):
+            path = os.path.dirname(os.path.abspath(path))
         repo = Repo(path, search_parent_directories=True)
         url = next((remote.url for remote in repo.remotes), None)
         return _strip_credentials_from_url(url) if url is not None else None
@@ -81,14 +83,14 @@ def get_git_branch(path: str) -> str | None:
     except ImportError as e:
         _logger.warning(
             "Failed to import Git (the Git executable is probably not on your PATH),"
-            " so Git SHA is not available. Error: %s",
+            " so Git branch is not available. Error: %s",
             e,
         )
         return None
 
     try:
         if os.path.isfile(path):
-            path = os.path.dirname(path)
+            path = os.path.dirname(os.path.abspath(path))
         repo = Repo(path, search_parent_directories=True)
         return repo.active_branch.name
     except Exception:

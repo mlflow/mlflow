@@ -72,8 +72,7 @@ def test_git_run_context_caching(patch_script_name):
         context = GitRunContext()
         context.in_context()
         context.tags()
-
-    assert mock_repo.call_count == 3
-    context.in_context()
-    context.tags()
-    assert mock_repo.call_count == 3
+        assert mock_repo.call_count == 3
+        context.in_context()
+        context.tags()
+        assert mock_repo.call_count == 3
