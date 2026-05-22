@@ -1,0 +1,96 @@
+/**
+ * Daemon supervisor - handles the "is the uploader daemon alive? if not,
+ * spawn one" check invoked by `WalSpanExporter` on each WAL append.
+ */
+
+import { spawn } from 'node:child_process';
+import { createConnection } from 'node:net';
+import { createRequire } from 'node:module';
+import { dirname, join } from 'node:path';
+import { getLockSocketPath } from './paths';
+
+const PROBE_TIMEOUT_MS = 1000;
+
+/**
+ * Probe the daemon's liveness lock with a short timeout.
+ *
+ * Returns:
+ * - `true` if the socket/pipe at `getLockSocketPath()` is currently
+ *   accepting connections (i.e. a daemon has bound it).
+ * - `false` on any error (ENOENT — no socket file; ECONNREFUSED — a
+ *   stale socket file with no listener) or on probe timeout.
+ */
+export function isDaemonAlive(): Promise<boolean> {
+  return new Promise((resolve) => {
+    const socketPath = getLockSocketPath();
+    const socket = createConnection(socketPath);
+
+    let settled = false;
+    const finish = (alive: boolean): void => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      socket.destroy();
+      resolve(alive);
+    };
+
+    const timer = setTimeout(() => finish(false), PROBE_TIMEOUT_MS);
+
+    socket.once('connect', () => {
+      clearTimeout(timer);
+      finish(true);
+    });
+    socket.once('error', () => {
+      clearTimeout(timer);
+      finish(false);
+    });
+  });
+}
+
+/**
+ * Resolve the absolute path of the daemon entry point.
+ *
+ * Precedence:
+ *   1. `MLFLOW_TRACE_DAEMON_EXECUTABLE` env var — used by tests and
+ *      advanced operators who want to override the bundled daemon.
+ *   2. The bundled daemon at `<@mlflow/core install dir>/bundle/daemon.cjs`.
+ */
+export function resolveDaemonEntry(): string {
+  const override = process.env.MLFLOW_TRACE_DAEMON_EXECUTABLE;
+  if (override !== undefined && override !== '') {
+    return override;
+  }
+  const pkgJsonModule = '@mlflow' + '/core' + '/package.json';
+  const requireFromHere = createRequire(__filename);
+  const pkgJsonPath = requireFromHere.resolve(pkgJsonModule);
+  return join(dirname(pkgJsonPath), 'bundle', 'daemon.cjs');
+}
+
+/**
+ * Fork a detached daemon process. Assumes no daemon is currently bound —
+ * the caller is responsible for guarding with {@link isDaemonAlive}.
+ */
+export function spawnDaemon(): void {
+  const entry = resolveDaemonEntry();
+  const child = spawn(process.execPath, [entry], {
+    detached: true,
+    stdio: 'ignore',
+    env: process.env,
+  });
+  child.unref();
+}
+
+/**
+ * Ensure a daemon is alive; spawn one if not.
+ */
+export async function ensureDaemon(): Promise<void> {
+  try {
+    if (await isDaemonAlive()) {
+      return;
+    }
+    spawnDaemon();
+  } catch (err) {
+    console.error('[mlflow][wal] ensureDaemon failed:', err);
+  }
+}
