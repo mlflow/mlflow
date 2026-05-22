@@ -1,3 +1,7 @@
+# CI runners can be slow to boot a local tracking server; the package default
+# of 10s for mlflow_validate_server times out intermittently.
+options(mlflow.connect.wait = 30)
+
 mlflow_clear_test_dir <- function(path) {
   purrr::safely(mlflow_end_run)()
   mlflow:::mlflow_set_active_experiment_id(NULL)
