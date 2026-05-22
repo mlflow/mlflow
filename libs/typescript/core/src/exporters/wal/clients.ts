@@ -10,7 +10,8 @@ const cache = new Map<string, MlflowClient>();
 /**
  * Return the cached `MlflowClient` for `trackingUri`, constructing it
  * lazily on first access. Subsequent calls with the same URI return the
- * same instance.
+ * same instance unless an explicit {@link clearClientForUri} happened
+ * in between (typically driven by the upload loop's auth-error retry).
  */
 export function clientForUri(trackingUri: string): MlflowClient {
   const cached = cache.get(trackingUri);
@@ -23,6 +24,20 @@ export function clientForUri(trackingUri: string): MlflowClient {
   return client;
 }
 
+/**
+ * Drop the cached client for `trackingUri` only, leaving other URIs'
+ * entries intact. Called by the upload loop on 401 / 403 so the next
+ * `clientForUri(uri)` call rebuilds the client with freshly-resolved
+ * credentials. No-op if no entry exists for `trackingUri`.
+ */
+export function clearClientForUri(trackingUri: string): void {
+  cache.delete(trackingUri);
+}
+
+/**
+ * Drop all cached clients. Intended for daemon shutdown paths and
+ * tests; not part of the steady-state batch loop.
+ */
 export function clearClientCache(): void {
   cache.clear();
 }

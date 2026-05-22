@@ -1,5 +1,5 @@
 /**
- * Group-commit writer for IPC-submitted WAL records.
+ * Group-commit writer for WAL lines.
  */
 
 import { open, FileHandle } from 'node:fs/promises';
@@ -19,12 +19,24 @@ export class BatchingWriter {
   private flushScheduled = false;
 
   /**
-   * Enqueue `record` for the next batch flush. Resolves once the
-   * record (and its batch-mates) have been fsynced to `queue.log`.
+   * Enqueue an append for `record`. Resolves once the record (and its
+   * batch-mates) have been fsynced to `queue.log`.
    */
   submit(record: WalRecord): Promise<void> {
+    return this.enqueue({ type: 'append', record });
+  }
+
+  /**
+   * Enqueue a tombstone for `id`. Resolves once the tombstone (and its
+   * batch-mates) have been fsynced to `queue.log`.
+   */
+  submitTombstone(id: string): Promise<void> {
+    return this.enqueue({ type: 'tombstone', id });
+  }
+
+  private enqueue(line: WalLine): Promise<void> {
     return new Promise<void>((resolve, reject) => {
-      this.pending.push({ line: { type: 'append', record }, resolve, reject });
+      this.pending.push({ line, resolve, reject });
       this.scheduleFlush();
     });
   }

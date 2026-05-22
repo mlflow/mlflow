@@ -78,19 +78,41 @@ export function spawnDaemon(): void {
     stdio: 'ignore',
     env: process.env,
   });
+
+  child.once('error', (err) => {
+    console.error(`[mlflow][wal] daemon spawn failed (entry=${entry}):`, err);
+  });
+
+  child.once('exit', (code, signal) => {
+    if (code != null && code !== 0) {
+      console.error(
+        `[mlflow][wal] daemon exited unexpectedly: entry=${entry} code=${code} signal=${signal ?? 'none'}`,
+      );
+    }
+  });
   child.unref();
 }
+
+let spawnInFlight: Promise<void> | null = null;
 
 /**
  * Ensure a daemon is alive; spawn one if not.
  */
-export async function ensureDaemon(): Promise<void> {
-  try {
-    if (await isDaemonAlive()) {
-      return;
-    }
-    spawnDaemon();
-  } catch (err) {
-    console.error('[mlflow][wal] ensureDaemon failed:', err);
+export function ensureDaemon(): Promise<void> {
+  if (spawnInFlight != null) {
+    return spawnInFlight;
   }
+  spawnInFlight = (async () => {
+    try {
+      if (await isDaemonAlive()) {
+        return;
+      }
+      spawnDaemon();
+    } catch (err) {
+      console.error('[mlflow][wal] ensureDaemon failed:', err);
+    } finally {
+      spawnInFlight = null;
+    }
+  })();
+  return spawnInFlight;
 }

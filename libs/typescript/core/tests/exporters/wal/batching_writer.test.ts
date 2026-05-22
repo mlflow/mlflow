@@ -21,6 +21,33 @@ function makeRecord(idSuffix: string, overrides: Partial<WalRecord> = {}): WalRe
   };
 }
 
+/**
+ * Install a `jest.spyOn` on `FileHandle.prototype.sync` so the
+ * group-commit tests below can count fsync invocations issued by the
+ * production code. We discover the prototype by opening a throwaway
+ * handle and walking one step up its prototype chain — that's where
+ * `sync` is defined today, and where every FileHandle instance
+ * (including the ones `BatchingWriter` opens internally) inherits it
+ * from.
+ *
+ * The precondition assertion guards against a future Node release
+ * moving `sync` off this prototype (or inlining it into a C++ binding
+ * that bypasses the JS surface): without it, a missing method would
+ * either make `jest.spyOn` throw a generic
+ * "Cannot spy the sync property because it is not a function" error,
+ * or — if the spy installed but never fired — make the test fail with
+ * the equally confusing "expected 0 to be greater than or equal to 1".
+ * The precondition gives operators a one-line breadcrumb pointing at
+ * the actual cause.
+ */
+async function spyOnFileHandleSync(walDir: string): Promise<jest.SpyInstance> {
+  const probeFh = await fsPromises.open(join(walDir, '.probe'), 'w');
+  const fdProto = Object.getPrototypeOf(probeFh) as { sync?: () => Promise<void> };
+  await probeFh.close();
+  expect(typeof fdProto.sync).toBe('function');
+  return jest.spyOn(fdProto as { sync: () => Promise<void> }, 'sync');
+}
+
 describe('wal/batching_writer', () => {
   let walDir: string;
   const originalWalDir = process.env.MLFLOW_WAL_DIR;
@@ -50,10 +77,7 @@ describe('wal/batching_writer', () => {
   });
 
   it('coalesces concurrent submits into a single fsync (group commit)', async () => {
-    const probeFh = await fsPromises.open(join(walDir, '.probe'), 'w');
-    const fdProto = Object.getPrototypeOf(probeFh) as { sync: () => Promise<void> };
-    await probeFh.close();
-    const syncSpy = jest.spyOn(fdProto, 'sync');
+    const syncSpy = await spyOnFileHandleSync(walDir);
     try {
       const writer = new BatchingWriter();
       const records = Array.from({ length: 25 }, (_, i) =>
@@ -113,5 +137,69 @@ describe('wal/batching_writer', () => {
 
     const pending = await readPending();
     expect(pending.map((r) => r.id)).toContain(r2.id);
+  });
+
+  it('persists a single submitted tombstone after the ack', async () => {
+    const writer = new BatchingWriter();
+    const record = makeRecord('t-single');
+    await writer.submit(record);
+    await writer.submitTombstone(record.id);
+
+    const lines = (await readFile(getWalPath(), 'utf8')).split('\n').filter((l) => l.length > 0);
+    expect(lines).toHaveLength(2);
+    expect(JSON.parse(lines[1])).toEqual({ type: 'tombstone', id: record.id });
+
+    // Tombstone has shadowed the append: nothing should remain pending.
+    const pending = await readPending();
+    expect(pending.find((r) => r.id === record.id)).toBeUndefined();
+  });
+
+  it('resolves submitTombstone() only after the byte is durable', async () => {
+    // Symmetric to the submit() ack-after-fsync test: the post-ack file
+    // read must observe the tombstone, otherwise tombstones could be
+    // ack'd before being durable and a daemon crash mid-batch would
+    // resurrect already-uploaded records on the next pass.
+    const writer = new BatchingWriter();
+    const id = 'wal-t-durable';
+    await writer.submitTombstone(id);
+
+    const contents = await readFile(getWalPath(), 'utf8');
+    expect(contents).toContain(`"id":"${id}"`);
+    expect(contents).toContain('"type":"tombstone"');
+  });
+
+  it('coalesces appends and tombstones into a single fsync when submitted in the same tick', async () => {
+    // The whole point of routing tombstones through the BatchingWriter:
+    // a tombstone storm from the upload loop should batch with concurrent
+    // hook submits instead of paying its own fsync per call.
+    const syncSpy = await spyOnFileHandleSync(walDir);
+    try {
+      const writer = new BatchingWriter();
+      const records = Array.from({ length: 10 }, (_, i) => makeRecord(`mix-a-${i}`));
+      const tombstoneIds = Array.from({ length: 10 }, (_, i) => `mix-t-${i}`);
+
+      const syncsBefore = syncSpy.mock.calls.length;
+      await Promise.all([
+        ...records.map((r) => writer.submit(r)),
+        ...tombstoneIds.map((id) => writer.submitTombstone(id)),
+      ]);
+      const syncsAfter = syncSpy.mock.calls.length;
+
+      // Same shape guarantee as the append-only group-commit test: a
+      // stray tick may split the batch into two, but never N fsyncs for
+      // N submits.
+      expect(syncsAfter - syncsBefore).toBeLessThanOrEqual(2);
+      expect(syncsAfter - syncsBefore).toBeGreaterThanOrEqual(1);
+
+      const lines = (await readFile(getWalPath(), 'utf8')).split('\n').filter((l) => l.length > 0);
+      expect(lines).toHaveLength(records.length + tombstoneIds.length);
+
+      const tombstoneLines = lines.filter((l) => l.includes('"type":"tombstone"'));
+      const appendLines = lines.filter((l) => l.includes('"type":"append"'));
+      expect(tombstoneLines).toHaveLength(tombstoneIds.length);
+      expect(appendLines).toHaveLength(records.length);
+    } finally {
+      syncSpy.mockRestore();
+    }
   });
 });
