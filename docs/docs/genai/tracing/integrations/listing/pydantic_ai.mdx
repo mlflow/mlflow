@@ -48,6 +48,9 @@ import mlflow
 # Turn on auto tracing by calling mlflow.pydantic_ai.autolog()
 mlflow.pydantic_ai.autolog()
 
+:::note
+MLflow PydanticAI autologging requires `pydantic-ai>=1.63.0` for full support including streaming (`run_stream_sync`) and tool tracing.
+:::
 
 # Optional: Set a tracking URI and an experiment
 mlflow.set_tracking_uri("http://localhost:5000")
