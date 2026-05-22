@@ -118,11 +118,6 @@ mlflow_normalize_signature_fields <- function(fields, field_set) {
   unname(purrr::imap(fields, ~ mlflow_normalize_signature_field(.x, .y, field_set)))
 }
 
-mlflow_signature_schema_json <- function(fields) {
-  if (is.null(fields)) return(NULL)
-  as.character(jsonlite::toJSON(fields, auto_unbox = TRUE))
-}
-
 mlflow_normalize_signature <- function(signature) {
   if (is.null(signature)) return(NULL)
   if (is.data.frame(signature)) {
@@ -131,18 +126,15 @@ mlflow_normalize_signature <- function(signature) {
   if (!is.list(signature)) {
     stop("`signature` must be a list with `inputs` and `outputs`.", call. = FALSE)
   }
-  normalized <- list(
-    inputs = mlflow_signature_schema_json(
-      mlflow_normalize_signature_fields(signature$inputs, "inputs")
-    ),
-    outputs = mlflow_signature_schema_json(
-      mlflow_normalize_signature_fields(signature$outputs, "outputs")
-    )
-  )
-  if (is.null(normalized$inputs) && is.null(normalized$outputs)) {
+  inputs <- mlflow_normalize_signature_fields(signature$inputs, "inputs")
+  outputs <- mlflow_normalize_signature_fields(signature$outputs, "outputs")
+  if (is.null(inputs) && is.null(outputs)) {
     stop("`signature` must include `inputs` or `outputs`.", call. = FALSE)
   }
-  normalized
+  list(
+    inputs = if (is.null(inputs)) NULL else jsonlite::toJSON(inputs, auto_unbox = TRUE),
+    outputs = if (is.null(outputs)) NULL else jsonlite::toJSON(outputs, auto_unbox = TRUE)
+  )
 }
 
 #' Log Model
