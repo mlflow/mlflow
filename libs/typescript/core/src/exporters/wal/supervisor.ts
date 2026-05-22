@@ -102,7 +102,7 @@ export function ensureDaemon(): Promise<void> {
   if (spawnInFlight != null) {
     return spawnInFlight;
   }
-  spawnInFlight = (async () => {
+  const inFlight = (async () => {
     try {
       if (await isDaemonAlive()) {
         return;
@@ -114,5 +114,6 @@ export function ensureDaemon(): Promise<void> {
       spawnInFlight = null;
     }
   })();
-  return spawnInFlight;
+  spawnInFlight = inFlight;
+  return inFlight;
 }

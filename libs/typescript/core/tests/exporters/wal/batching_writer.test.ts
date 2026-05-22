@@ -21,31 +21,22 @@ function makeRecord(idSuffix: string, overrides: Partial<WalRecord> = {}): WalRe
   };
 }
 
-/**
- * Install a `jest.spyOn` on `FileHandle.prototype.sync` so the
- * group-commit tests below can count fsync invocations issued by the
- * production code. We discover the prototype by opening a throwaway
- * handle and walking one step up its prototype chain — that's where
- * `sync` is defined today, and where every FileHandle instance
- * (including the ones `BatchingWriter` opens internally) inherits it
- * from.
- *
- * The precondition assertion guards against a future Node release
- * moving `sync` off this prototype (or inlining it into a C++ binding
- * that bypasses the JS surface): without it, a missing method would
- * either make `jest.spyOn` throw a generic
- * "Cannot spy the sync property because it is not a function" error,
- * or — if the spy installed but never fired — make the test fail with
- * the equally confusing "expected 0 to be greater than or equal to 1".
- * The precondition gives operators a one-line breadcrumb pointing at
- * the actual cause.
- */
 async function spyOnFileHandleSync(walDir: string): Promise<jest.SpyInstance> {
-  const probeFh = await fsPromises.open(join(walDir, '.probe'), 'w');
-  const fdProto = Object.getPrototypeOf(probeFh) as { sync?: () => Promise<void> };
-  await probeFh.close();
-  expect(typeof fdProto.sync).toBe('function');
-  return jest.spyOn(fdProto as { sync: () => Promise<void> }, 'sync');
+  let spy: jest.SpyInstance | undefined;
+  try {
+    const probeFh = await fsPromises.open(join(walDir, '.probe'), 'w');
+    const fdProto = Object.getPrototypeOf(probeFh) as { sync?: () => Promise<void> };
+    await probeFh.close();
+    expect(typeof fdProto.sync).toBe('function');
+    spy = jest.spyOn(fdProto as { sync: () => Promise<void> }, 'sync');
+    return spy;
+  } catch (err) {
+    // `spy` is undefined for any throw before the install, so the
+    // optional chain is a no-op; if the install succeeded and a later
+    // line throws, this restores the prototype before propagating.
+    spy?.mockRestore();
+    throw err;
+  }
 }
 
 describe('wal/batching_writer', () => {

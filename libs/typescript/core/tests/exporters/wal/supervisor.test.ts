@@ -1,6 +1,6 @@
 import * as childProcess from 'node:child_process';
 import { existsSync } from 'fs';
-import { mkdtemp, readFile, rm, writeFile } from 'fs/promises';
+import { mkdtemp, readFile, rm, unlink, writeFile } from 'fs/promises';
 import { createServer, Server } from 'net';
 import { tmpdir } from 'os';
 import { join } from 'path';
@@ -139,6 +139,15 @@ describe('wal/supervisor', () => {
           }
         }
       }
+      if (process.platform !== 'win32') {
+        try {
+          await unlink(getLockSocketPath());
+        } catch {
+          // ENOENT (no stale file from this test) or any other error —
+          // best-effort cleanup; the next test's beforeEach reseeds
+          // everything regardless.
+        }
+      }
     });
 
     it('spawns a daemon when none is alive', async () => {
@@ -213,21 +222,6 @@ describe('wal/supervisor', () => {
     });
 
     it('catches synchronous spawn failures via the outer ensureDaemon catch', async () => {
-      // The per-child `'error'` / `'exit'` listeners installed by
-      // `spawnDaemon` only fire for *async* failures (the binary started
-      // but the entry script blew up). Synchronous failures from
-      // `spawn()` itself — libuv refusing the args, or
-      // `resolveDaemonEntry()` throwing on a broken package-resolution
-      // path — rely on the outer try/catch in `ensureDaemon`'s IIFE.
-      // Without that catch, `spawnInFlight` would settle as a rejected
-      // promise and hooks would crash on cold spawn failures the
-      // per-child listener can't help with.
-      //
-      // The top-of-file `jest.mock('node:child_process', ...)` installs
-      // a passthrough mock; here we override the next `spawn` call
-      // (and only that one) with a synchronous throw. The override
-      // is scoped to this test via `mockImplementationOnce`, so the
-      // adjacent coalescing test below sees real spawn behavior again.
       const spawnMock = childProcess.spawn as jest.MockedFunction<typeof childProcess.spawn>;
       spawnMock.mockImplementationOnce(() => {
         throw new Error('synthetic synchronous spawn failure');
