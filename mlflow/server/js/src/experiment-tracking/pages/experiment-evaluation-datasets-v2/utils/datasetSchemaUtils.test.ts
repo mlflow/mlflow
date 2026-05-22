@@ -1,10 +1,6 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-// @ts-nocheck — punting test typing; see PR2 plan in branch import { describe, expect, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import type { DatasetRecord } from '../hooks/useDatasetsQueries';
 import { getDefaultRecord, validateSchemaConsistency } from './datasetSchemaUtils';
-import { describe } from '@jest/globals';
-import { test } from '@jest/globals';
-import { expect } from '@jest/globals';
 
 const makeRecord = (id: string, inputs: Record<string, unknown>): DatasetRecord =>
   ({ dataset_record_id: id, inputs }) as DatasetRecord;

@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-// @ts-nocheck — punting test typing; see PR2 plan in branch import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals';
+import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { DesignSystemProvider } from '@databricks/design-system';
@@ -9,12 +8,6 @@ import type { ReactNode } from 'react';
 import type { DatasetRecord } from '../hooks/useDatasetsQueries';
 import { useUpsertDatasetRecordsMutation } from '../hooks/useDatasetsQueries';
 import { TagsCell } from './TagsCell';
-import { jest } from '@jest/globals';
-import { describe } from '@jest/globals';
-import { beforeEach } from '@jest/globals';
-import { afterEach } from '@jest/globals';
-import { test } from '@jest/globals';
-import { expect } from '@jest/globals';
 
 // Mock the mutation hook so we can pause / drive its resolution per-call. The cache itself is
 // real (via QueryClientProvider below); `TagsCell` reads from it through `useQueryClient` to

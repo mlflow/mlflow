@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-// @ts-nocheck — punting test typing; see PR2 plan in branch import { afterEach, describe, expect, jest, test } from '@jest/globals';
+import { afterEach, describe, expect, jest, test } from '@jest/globals';
 import { useEffect } from 'react';
 import { act, renderHook } from '@testing-library/react';
 import { useLocation } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
@@ -10,11 +9,6 @@ import {
   waitForRoutesToBeRendered,
 } from '@mlflow/mlflow/src/common/utils/RoutingTestUtils';
 import { useDatasetRecordsUrlState } from './useDatasetRecordsUrlState';
-import { describe } from '@jest/globals';
-import { afterEach } from '@jest/globals';
-import { jest } from '@jest/globals';
-import { test } from '@jest/globals';
-import { expect } from '@jest/globals';
 
 describe('useDatasetRecordsUrlState', () => {
   // setupTestRouter registers beforeAll/afterAll hooks; must live at describe scope.
@@ -22,7 +16,7 @@ describe('useDatasetRecordsUrlState', () => {
 
   let lastSearch = '';
   const LocationSpy = () => {
-    const search = useLocation((loc) => loc.search);
+    const search = useLocation().search;
     useEffect(() => {
       lastSearch = search;
     }, [search]);

@@ -1,9 +1,5 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-// @ts-nocheck — punting test typing; see PR2 plan in branch import { describe, expect, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import { clampPageIndex } from './clampPageIndex';
-import { describe } from '@jest/globals';
-import { test } from '@jest/globals';
-import { expect } from '@jest/globals';
 
 describe('clampPageIndex', () => {
   test('returns the input when pageIndex is in range', () => {
