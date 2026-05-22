@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 
-from flavors import _matrix, _update
+from flavors import _lint, _matrix, _update
 
 
 def main() -> None:
@@ -30,6 +30,15 @@ def main() -> None:
     )
     _update.add_arguments(update_parser)
     update_parser.set_defaults(func=_update.run)
+
+    lint_parser = subparsers.add_parser(
+        "lint",
+        help="Lint ml-package-versions.yml.",
+        description=_lint.__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    _lint.add_arguments(lint_parser)
+    lint_parser.set_defaults(func=_lint.run)
 
     args = parser.parse_args()
     args.func(args)

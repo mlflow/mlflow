@@ -44,6 +44,7 @@ async def prune_unused_requirements(
 
     yaml = YAML()
     yaml.preserve_quotes = True
+    yaml.indent(mapping=2, sequence=4, offset=2)
     with open(yml_path) as f:
         raw = yaml.load(f)
 
@@ -63,10 +64,10 @@ async def prune_unused_requirements(
             ]
             if not unused:
                 continue
-            requirements_node = raw[name][category]["requirements"]
+            req = raw[name][category]["requirements"]
             for specifier in unused:
-                del requirements_node[specifier]
-            if not requirements_node:
+                del req[specifier]
+            if not req:
                 del raw[name][category]["requirements"]
             changed = True
 

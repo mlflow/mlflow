@@ -181,6 +181,15 @@ repos:
         require_serial: true
         pass_filenames: false
 
+      - id: mlver-lint
+        name: ml-package-versions-lint
+        entry: "uv run --frozen --package flavors flavors lint"
+        files: '^mlflow/ml-package-versions\.yml$'
+        language: system
+        stages: [pre-commit]
+        require_serial: true
+        pass_filenames: false
+
       - id: lint-proto
         name: lint-proto
         entry: |

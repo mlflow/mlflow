@@ -15,7 +15,9 @@ sklearn:
     minimum: "1.5.0"
     maximum: "1.8.0"
     requirements:
-      ">= 0.0.0": ["matplotlib", "polars"]
+      ">= 0.0.0":
+        - "matplotlib"
+        - "polars"
     run: |
       pytest tests/sklearn/test_sklearn_autolog.py
 
@@ -35,12 +37,16 @@ pytorch:
     minimum: "2.3.1"
     maximum: "2.11.0"
     requirements:
-      ">= 0.0.0": ["torchvision", "scikit-learn"]
-      ">= 1.8": ["transformers"]
+      ">= 0.0.0":
+        - "torchvision"
+        - "scikit-learn"
+      ">= 1.8":
+        - "transformers"
       # transformers 5.x trips torch.library.infer_schema on EmbeddingBag.forward
       # for torch < 2.5 (annotations stored as strings under `from __future__`).
       # https://github.com/huggingface/transformers/issues/42352
-      "< 2.5": ["transformers<5"]
+      "< 2.5":
+        - "transformers<5"
     run: |
       pytest tests/pytorch/test_pytorch_model_export.py tests/pytorch/test_pytorch_metric_value_conversion_utils.py
 
@@ -48,7 +54,8 @@ pytorch:
     minimum: "2.3.1"
     maximum: "2.11.0"
     requirements:
-      ">= 0.0.0": ["tensorboard"]
+      ">= 0.0.0":
+        - "tensorboard"
     run: |
       pytest tests/pytorch/test_tensorboard_autolog.py
 
@@ -66,14 +73,12 @@ pytorch-lightning:
     maximum: "2.6.1"
     requirements:
       ">= 0.0.0":
-        [
-          "scikit-learn",
-          "torchvision",
-          "protobuf<4.0.0",
-          "tensorboard",
-          "greenlet<3",
-          "pytorch-forecasting",
-        ]
+        - "scikit-learn"
+        - "torchvision"
+        - "protobuf<4.0.0"
+        - "tensorboard"
+        - "greenlet<3"
+        - "pytorch-forecasting"
     run: |
       pytest tests/pytorch/test_pytorch_autolog.py
 
@@ -81,7 +86,8 @@ pytorch-lightning:
     minimum: "2.2.5"
     maximum: "2.6.1"
     requirements:
-      ">= 0.0.0": ["pytorch-forecasting"]
+      ">= 0.0.0":
+        - "pytorch-forecasting"
     run: |
       pytest tests/pytorch/test_forecasting_model.py
 
@@ -96,8 +102,10 @@ keras:
     minimum: "3.4.0"
     maximum: "3.14.1"
     requirements:
-      ">= 3.0.0": ["jax[cpu]>0.4"]
-      "< 3.10.0": ["jax[cpu]<0.6"]
+      ">= 3.0.0":
+        - "jax[cpu]>0.4"
+      "< 3.10.0":
+        - "jax[cpu]<0.6"
     run: |
       export KERAS_BACKEND=jax
       pytest tests/keras/test_callback.py
@@ -106,8 +114,10 @@ keras:
     minimum: "3.4.0"
     maximum: "3.14.1"
     requirements:
-      ">= 3.0.0": ["jax[cpu]>0.4"]
-      "< 3.10.0": ["jax[cpu]<0.6"]
+      ">= 3.0.0":
+        - "jax[cpu]>0.4"
+      "< 3.10.0":
+        - "jax[cpu]<0.6"
     run: |
       export KERAS_BACKEND=jax
       pytest tests/keras/test_autolog.py
@@ -124,8 +134,13 @@ tensorflow:
     maximum: "2.21.0"
     requirements:
       # Requirements to run tests for keras
-      ">= 0.0.0": ["scikit-learn", "pyspark", "pyarrow", "transformers!=4.38.0,!=4.38.1"]
-      ">= 2.21.0": ["tensorboard"]
+      ">= 0.0.0":
+        - "scikit-learn"
+        - "pyspark"
+        - "pyarrow"
+        - "transformers!=4.38.0,!=4.38.1"
+      ">= 2.21.0":
+        - "tensorboard"
     run: |
       pytest \
         tests/tensorflow/test_tensorflow2_core_model_export.py \
@@ -137,8 +152,10 @@ tensorflow:
     minimum: "2.16.2"
     maximum: "2.21.0"
     requirements:
-      "== dev": ["scikit-learn"]
-      ">= 2.21.0": ["tensorboard"]
+      "== dev":
+        - "scikit-learn"
+      ">= 2.21.0":
+        - "tensorboard"
     run: |
       pytest tests/tensorflow/test_tensorflow2_autolog.py
 
@@ -153,7 +170,8 @@ xgboost:
     minimum: "2.1.0"
     maximum: "3.2.0"
     requirements:
-      ">= 0.0.0": ["scikit-learn"]
+      ">= 0.0.0":
+        - "scikit-learn"
     run: |
       pytest tests/xgboost/test_xgboost_model_export.py
 
@@ -161,7 +179,9 @@ xgboost:
     minimum: "2.1.0"
     maximum: "3.2.0"
     requirements:
-      ">= 0.0.0": ["scikit-learn", "matplotlib"]
+      ">= 0.0.0":
+        - "scikit-learn"
+        - "matplotlib"
     run: |
       pytest tests/xgboost/test_xgboost_autolog.py
 
@@ -178,7 +198,8 @@ lightgbm:
     minimum: "4.4.0"
     maximum: "4.6.0"
     requirements:
-      ">= 0.0.0": ["scikit-learn"]
+      ">= 0.0.0":
+        - "scikit-learn"
     run: |
       pytest tests/lightgbm/test_lightgbm_model_export.py
 
@@ -186,7 +207,10 @@ lightgbm:
     minimum: "4.4.0"
     maximum: "4.6.0"
     requirements:
-      ">= 0.0.0": ["scikit-learn", "matplotlib", "polars"]
+      ">= 0.0.0":
+        - "scikit-learn"
+        - "matplotlib"
+        - "polars"
     run: |
       pytest tests/lightgbm/test_lightgbm_autolog.py
 
@@ -198,8 +222,10 @@ catboost:
     minimum: "1.2.6"
     maximum: "1.2.10"
     requirements:
-      ">= 0.0.0": ["scikit-learn"]
-      "< 1.3": ["numpy<2"]
+      ">= 0.0.0":
+        - "scikit-learn"
+      "< 1.3":
+        - "numpy<2"
     run: |
       pytest tests/catboost/test_catboost_model_export.py
 
@@ -226,7 +252,11 @@ onnx:
     minimum: "1.17.0"
     maximum: "1.21.0"
     requirements:
-      ">= 0.0.0": ["onnxruntime", "onnxscript", "torch", "scikit-learn"]
+      ">= 0.0.0":
+        - "onnxruntime"
+        - "onnxscript"
+        - "torch"
+        - "scikit-learn"
     run: |
       pytest tests/onnx/test_onnx_model_export.py
 
@@ -242,15 +272,15 @@ semantic_kernel:
     minimum: "1.34.0"
     maximum: "1.41.3"
     requirements:
-      ">= 1.34.0": [
-          "pydantic>=2.0,<2.12",
+      ">= 1.34.0":
+        - "pydantic>=2.0,<2.12"
           # 1.99.2 ~ 1.99.8 have unintended breaking changes:
           # https://github.com/openai/openai-python/issues/2525
-          "openai>=1.99.9",
-        ]
+        - "openai>=1.99.9"
       # semantic-kernel>=1.36.1 depends on azure-ai-agents>=1.2.0b3 (pre-release).
       # Explicitly specifying the prerelease requirement allows uv to resolve it without --prerelease=allow.
-      ">= 1.36.1": ["azure-ai-agents>=1.2.0b3"]
+      ">= 1.36.1":
+        - "azure-ai-agents>=1.2.0b3"
     run: |
       pytest tests/semantic_kernel/test_semantic_kernel_autolog.py
 
@@ -265,7 +295,8 @@ spacy:
     minimum: "3.7.5"
     maximum: "3.8.14"
     requirements:
-      "< 3.8": ["numpy<2"]
+      "< 3.8":
+        - "numpy<2"
     run: |
       pytest tests/spacy/test_spacy_model_export.py
 
@@ -311,12 +342,21 @@ spark:
     # NB: Allow unreleased maximum versions for the pyspark package to support models and
     # autologging use cases in environments where newer versions of pyspark are available
     # prior to their release on PyPI (e.g. Databricks)
-    allow_unreleased_max_version: True
+    allow_unreleased_max_version: true
     requirements:
-      ">= 0.0.0": ["boto3", "scikit-learn", "pyarrow", "numpy<2"]
-      "< 3.4.0": ["pandas<2"]
-      ">= 3.5.0": ["torch<2.6.0", "scikit-learn", "torcheval"]
-      ">= 3.5.0, < dev": ["pyspark[connect]"]
+      ">= 0.0.0":
+        - "boto3"
+        - "scikit-learn"
+        - "pyarrow"
+        - "numpy<2"
+      "< 3.4.0":
+        - "pandas<2"
+      ">= 3.5.0":
+        - "torch<2.6.0"
+        - "scikit-learn"
+        - "torcheval"
+      ">= 3.5.0, < dev":
+        - "pyspark[connect]"
     run: |
       SAGEMAKER_OUT=$(mktemp)
       if mlflow sagemaker build-and-push-container --no-push --mlflow-home . > $SAGEMAKER_OUT 2>&1; then
@@ -340,10 +380,13 @@ spark:
     # NB: Allow unreleased maximum versions for the pyspark package to support models and
     # autologging use cases in environments where newer versions of pyspark are available
     # prior to their release on PyPI (e.g. Databricks)
-    allow_unreleased_max_version: True
+    allow_unreleased_max_version: true
     requirements:
-      ">= 0.0.0": ["scikit-learn", "numpy<2"]
-      "< 3.4.0": ["pandas<2"]
+      ">= 0.0.0":
+        - "scikit-learn"
+        - "numpy<2"
+      "< 3.4.0":
+        - "pandas<2"
     run: |
       # Build Java package
       # Pyspark 4.0 ('dev' version) exclusively supports Scala 2.13
@@ -375,9 +418,11 @@ prophet:
     maximum: "1.3.0"
     requirements:
       # Prophet does not handle numpy 2 yet. https://github.com/facebook/prophet/issues/2595
-      ">= 0.0.0": ["numpy<2"]
+      ">= 0.0.0":
+        - "numpy<2"
       # cmdstanpy>=1.3.0 is not compatible with prophet<=1.2.0: https://github.com/facebook/prophet/issues/2697
-      "<= 1.2.0": ["cmdstanpy<1.3.0"]
+      "<= 1.2.0":
+        - "cmdstanpy<1.3.0"
       # Avoid holidays 0.25 due to https://github.com/dr-prodigy/python-holidays/issues/1200 on
       # older version of prophet. Compatibility updates have been released as part of the 1.1.4
       # release of prophet.
@@ -396,13 +441,12 @@ pmdarima:
     minimum: "2.1.0"
     maximum: "2.1.1"
     requirements:
-      ">= 0.0.0": [
-          "prophet",
+      ">= 0.0.0":
+        - "prophet"
           # Avoid holidays 0.25 due to https://github.com/dr-prodigy/python-holidays/issues/1200
-          "holidays!=0.25",
+        - "holidays!=0.25"
           # TODO: Try the latest version of moto (https://github.com/getmoto/moto/issues/8498) and remove this pin
-          "boto3<1.36",
-        ]
+        - "boto3<1.36"
     run: |
       pytest tests/pmdarima/test_pmdarima_model_export.py
 
@@ -450,41 +494,42 @@ transformers:
     minimum: "4.41.1"
     maximum: "5.8.1"
     test_every_n_versions: 4
-    unsupported: [
-        # Avoid this patch: https://github.com/huggingface/transformers/pull/29032
-        ">=4.38.0,<4.39.0",
-        # https://github.com/huggingface/transformers/issues/38269
-        "== 4.52.1",
-        "== 4.52.2",
-        # 5.0.0 broke the TAPAS table-QA and Whisper ASR pipelines; fixed in later 5.x patches.
-        # https://github.com/huggingface/transformers/issues/43792
-        "== 5.0.0",
-      ]
+    unsupported: [">=4.38.0,<4.39.0", "== 4.52.1", "== 4.52.2", "== 5.0.0"]
     requirements:
-      ">= 0.0.0": [
-          "datasets",
+      ">= 0.0.0":
+        - "datasets"
           # 0.22.0 is broken: https://github.com/huggingface/huggingface_hub/issues/2157
-          "huggingface_hub!=0.22.0",
-          "hf_transfer",
-          "torch",
-          "torchvision",
-          "tensorflow",
-          "peft", # optimized fine-tuning library developed by Hugging Face
-          "accelerate", # required for large torch models where weights will not fit in RAM
-          "librosa", # required for transformers audio pipelines for bitrate conversion
-          "ffmpeg", # required for transformers audio pipelines for audio byte to numpy conversion
-          "sentencepiece", # required for transformers text2text generation pipeline
-          "protobuf<=3.20.3", # fix error `Couldn't build proto file into descriptor pool: duplicate file name sentencepiece_model.proto`
-          "typing_extensions>=4.6.0", # fix error for SqlAlchemy == 2.0.25 cannot import name 'TypeAliasType' from 'typing_extensions'
+        - "huggingface_hub!=0.22.0"
+        - "hf_transfer"
+        - "torch"
+        - "torchvision"
+        - "tensorflow"
+        - "peft"
+          # optimized fine-tuning library developed by Hugging Face
+        - "accelerate"
+          # required for large torch models where weights will not fit in RAM
+        - "librosa"
+          # required for transformers audio pipelines for bitrate conversion
+        - "ffmpeg"
+          # required for transformers audio pipelines for audio byte to numpy conversion
+        - "sentencepiece"
+          # required for transformers text2text generation pipeline
+        - "protobuf<=3.20.3"
+          # fix error `Couldn't build proto file into descriptor pool: duplicate file name sentencepiece_model.proto`
+        - "typing_extensions>=4.6.0"
+          # fix error for SqlAlchemy == 2.0.25 cannot import name 'TypeAliasType' from 'typing_extensions'
           # TODO: Try the latest version of moto (https://github.com/getmoto/moto/issues/8498) and remove this pin
-          "boto3<1.36",
-        ]
+        - "boto3<1.36"
       # peft >= 0.14 relies on classes from newer versions of transformers
-      "< 4.45": ["peft<0.14.0"]
+      "< 4.45":
+        - "peft<0.14.0"
       # peft >= 0.18 requires transformers.modeling_layers which was added in transformers 4.52.0
-      "< 4.52": ["peft<0.18.0"]
-      ">= 4.38.2": ["tf-keras"] # Transformers doesn't support Keras 3.0. tf-keras needs to be installed.
-      "< 4.52.0.dev0": ["accelerate<1"]
+      "< 4.52":
+        - "peft<0.18.0"
+      ">= 4.38.2": # Transformers doesn't support Keras 3.0. tf-keras needs to be installed.
+        - "tf-keras"
+      "< 4.52.0.dev0":
+        - "accelerate<1"
     pre_test: |
       sudo apt-get update
       sudo apt-get install -y ffmpeg
@@ -499,35 +544,36 @@ transformers:
     minimum: "4.41.1"
     maximum: "5.8.1"
     test_every_n_versions: 4
-    unsupported: [
-        # https://github.com/huggingface/transformers/issues/38269
-        "== 4.52.1",
-        "== 4.52.2",
-      ]
+    unsupported: ["== 4.52.1", "== 4.52.2"]
     requirements:
-      ">= 0.0.0": [
-          "datasets",
+      ">= 0.0.0":
+        - "datasets"
           # 0.22.0 is broken: https://github.com/huggingface/huggingface_hub/issues/2157
-          "huggingface_hub!=0.22.0",
-          "hf_transfer",
-          "torch",
-          "torchvision",
-          "tensorflow",
-          "optuna",
+        - "huggingface_hub!=0.22.0"
+        - "hf_transfer"
+        - "torch"
+        - "torchvision"
+        - "tensorflow"
+        - "optuna"
           # TODO: Try the latest version of moto (https://github.com/getmoto/moto/issues/8498) and remove this pin
-          "boto3<1.36",
-        ]
-      ">= 4.38.2": ["tf-keras"] # Transformers doesn't support Keras 3.0. tf-keras needs to be installed.
-      # sentence-transformers 5.1.2 introduces breaking changes with AcceleratorConfig
-      "< 4.42": ["sentence-transformers<5.1.2"]
+        - "boto3<1.36"
+      ">= 4.38.2": # Transformers doesn't support Keras 3.0. tf-keras needs to be installed.
+        # sentence-transformers 5.1.2 introduces breaking changes with AcceleratorConfig
+        - "tf-keras"
+      "< 4.42":
+        - "sentence-transformers<5.1.2"
       # sentence-transformers 5.4 passes `processing_class` to transformers Trainer,
       # which was added in transformers 4.46.0
-      "< 4.46": ["sentence-transformers<5.4"]
-      "< 4.52.0.dev0": ["accelerate<1"]
+      "< 4.46":
+        - "sentence-transformers<5.4"
+      "< 4.52.0.dev0":
+        - "accelerate<1"
       # transformers 5.x requires accelerate>=1.1.0 for Trainer
-      ">= 5.0": ["accelerate>=1.1.0"]
+      ">= 5.0":
+        - "accelerate>=1.1.0"
       # setfit is incompatible with transformers 5.x (imports removed `default_logdir` from training_args)
-      "< 5.0": ["setfit"]
+      "< 5.0":
+        - "setfit"
     run: |
       pytest tests/transformers/test_transformers_autolog.py
 
@@ -541,7 +587,12 @@ diffusers:
     minimum: "0.37.0"
     maximum: "0.37.1"
     requirements:
-      ">= 0.0.0": ["transformers", "safetensors", "accelerate", "peft", "torch"]
+      ">= 0.0.0":
+        - "transformers"
+        - "safetensors"
+        - "accelerate"
+        - "peft"
+        - "torch"
     run: |
       pytest tests/diffusers/test_diffusers_model_export.py
 
@@ -556,15 +607,14 @@ openai:
     minimum: "1.80.0"
     maximum: "2.36.0"
     requirements:
-      ">= 0.0.0": [
-          "pyspark",
-          "tiktoken",
-          "aiohttp",
-          "tenacity",
+      ">= 0.0.0":
+        - "pyspark"
+        - "tiktoken"
+        - "aiohttp"
+        - "tenacity"
           # Required to run tests/openai/mock_openai.py
-          "fastapi",
-          "uvicorn",
-        ]
+        - "fastapi"
+        - "uvicorn"
     run: |
       pytest tests/openai --ignore-glob="*autolog.py"
     # Our CI runs tests for every minor version of the library by default, which results in
@@ -574,15 +624,15 @@ openai:
     minimum: "1.80.0"
     maximum: "2.36.0"
     requirements:
-      ">= 0.0.0": [
-          "tiktoken",
-          "tenacity",
+      ">= 0.0.0":
+        - "tiktoken"
+        - "tenacity"
           # Required to run tests/openai/mock_openai.py
-          "fastapi",
-          "uvicorn",
-        ]
+        - "fastapi"
+        - "uvicorn"
       # minimum version supported by openai-agents>=0.2.0
-      ">= 1.93.1": ["openai-agents"]
+      ">= 1.93.1":
+        - "openai-agents"
     run: |
       pytest tests/openai/*_autolog.py
     test_every_n_versions: 10
@@ -599,14 +649,16 @@ dspy:
     minimum: "2.6.27"
     maximum: "3.2.1"
     requirements:
-      ">= 0.0.0": ["openai"]
+      ">= 0.0.0":
+        - "openai"
     run: |
       pytest tests/dspy --ignore tests/dspy/test_dspy_autolog.py
   autologging:
     minimum: "2.6.27"
     maximum: "3.2.1"
     requirements:
-      ">= 0.0.0": ["openai"]
+      ">= 0.0.0":
+        - "openai"
     run: |
       pytest tests/dspy/test_dspy_autolog.py
     test_tracing_sdk: true
@@ -622,43 +674,39 @@ langchain:
     # Where the large package update was made (langchain-core, community, ...)
     minimum: "0.3.26"
     maximum: "1.3.0"
-    unsupported: [
-        # Chain.save() broken in 0.3.28 due to model_dump() regression: https://github.com/langchain-ai/langchain/issues/35665
-        "== 0.3.28",
-      ]
+    unsupported: ["== 0.3.28"]
     requirements:
-      ">= 0.0.0": [
-          "pyspark",
-          "transformers",
-          "torch",
-          "torchvision",
-          "openai",
-          "google-search-results",
-          "psutil",
-          "faiss-cpu",
-          "langchain-experimental",
-          "numexpr",
-          "hf_transfer",
-          "langchain-huggingface",
-          "langchain-openai",
-          "langgraph",
+      ">= 0.0.0":
+        - "pyspark"
+        - "transformers"
+        - "torch"
+        - "torchvision"
+        - "openai"
+        - "google-search-results"
+        - "psutil"
+        - "faiss-cpu"
+        - "langchain-experimental"
+        - "numexpr"
+        - "hf_transfer"
+        - "langchain-huggingface"
+        - "langchain-openai"
+        - "langgraph"
           # Required to run tests/openai/mock_openai.py
-          "fastapi",
-          "uvicorn",
+        - "fastapi"
+        - "uvicorn"
           # Required for testing Databricks dependency extraction
-          "databricks-langchain",
-          "databricks-vectorsearch",
+        - "databricks-langchain"
+        - "databricks-vectorsearch"
           # Required for testing uc tools
-          "unitycatalog-langchain",
-        ]
-      ">= 1.0.0": [
-          # required for testing legacy modules
-          "langchain-classic",
-        ]
+        - "unitycatalog-langchain"
+      ">= 1.0.0":
+        # required for testing legacy modules
+        - "langchain-classic"
       # `langgraph-prebuilt >= 1.0.9` imports `ExecutionInfo`/`ServerInfo` from
       # `langgraph.runtime`, which only exist in `langgraph >= 1.1.5`. `langchain < 1.2`
       # pins `langgraph < 1.1.0`, so hold `langgraph-prebuilt` back to a compatible version.
-      "< 1.2": ["langgraph-prebuilt<1.0.9"]
+      "< 1.2":
+        - "langgraph-prebuilt<1.0.9"
     pre_test: |
       # Installing both pyspark and databricks-connect causes a conflict
       pip uninstall -y databricks-connect
@@ -674,24 +722,25 @@ langchain:
     minimum: "0.3.26"
     maximum: "1.3.0"
     requirements:
-      ">= 0.0.0": [
-          "openai",
-          "google-search-results",
-          "faiss-cpu",
+      ">= 0.0.0":
+        - "openai"
+        - "google-search-results"
+        - "faiss-cpu"
           # Required to run tests/openai/mock_openai.py
-          "fastapi",
-          "uvicorn",
+        - "fastapi"
+        - "uvicorn"
           # Some model logging/loading requires langchain community
-          "langchain-community",
+        - "langchain-community"
           # Need to bump FasAPI version to support pydantic v2
-          "fastapi>=0.100.0",
-          "langchain-openai>=0.2.0",
-        ]
-      ">= 1.0.0": ["langchain-classic"]
+        - "fastapi>=0.100.0"
+        - "langchain-openai>=0.2.0"
+      ">= 1.0.0":
+        - "langchain-classic"
       # `langgraph-prebuilt >= 1.0.9` imports `ExecutionInfo`/`ServerInfo` from
       # `langgraph.runtime`, which only exist in `langgraph >= 1.1.5`. `langchain < 1.2`
       # pins `langgraph < 1.1.0`, so hold `langgraph-prebuilt` back to a compatible version.
-      "< 1.2": ["langgraph-prebuilt<1.0.9"]
+      "< 1.2":
+        - "langgraph-prebuilt<1.0.9"
     pre_test: |
       # Installing both pyspark and databricks-connect causes a conflict
       pip uninstall -y databricks-connect
@@ -715,19 +764,21 @@ langgraph:
     minimum: "0.4.6"
     maximum: "1.2.0"
     requirements:
-      ">= 0.0.0": [
-          "langchain",
-          "langchain_openai",
+      ">= 0.0.0":
+        - "langchain"
+        - "langchain_openai"
           # Required to run tests/openai/mock_openai.py
-          "fastapi",
-          "uvicorn",
-        ]
-      ">= 0.3.0": ["langgraph-prebuilt"]
+        - "fastapi"
+        - "uvicorn"
+      ">= 0.3.0":
+        - "langgraph-prebuilt"
       # `langgraph == 0.4.*` is incompatible with `langgraph-prebuilt >= 0.5`
-      "== 0.4.*": ["langgraph-prebuilt<0.5"]
+      "== 0.4.*":
+        - "langgraph-prebuilt<0.5"
       # `langgraph-prebuilt >= 1.0.9` imports `ExecutionInfo`/`ServerInfo` from
       # `langgraph.runtime`, which only exist in `langgraph >= 1.1.5`.
-      "< 1.1.5": ["langgraph-prebuilt<1.0.9"]
+      "< 1.1.5":
+        - "langgraph-prebuilt<1.0.9"
     run: |
       pytest tests/langgraph --ignore tests/langgraph/test_langgraph_autolog.py
 
@@ -735,19 +786,21 @@ langgraph:
     minimum: "0.4.6"
     maximum: "1.2.0"
     requirements:
-      ">= 0.0.0": [
-          "langchain",
-          "langchain_openai",
+      ">= 0.0.0":
+        - "langchain"
+        - "langchain_openai"
           # Required to run tests/openai/mock_openai.py
-          "fastapi",
-          "uvicorn",
-        ]
-      ">= 0.3.0": ["langgraph-prebuilt"]
+        - "fastapi"
+        - "uvicorn"
+      ">= 0.3.0":
+        - "langgraph-prebuilt"
       # `langgraph == 0.4.*` is incompatible with `langgraph-prebuilt >= 0.5`
-      "== 0.4.*": ["langgraph-prebuilt<0.5"]
+      "== 0.4.*":
+        - "langgraph-prebuilt<0.5"
       # `langgraph-prebuilt >= 1.0.9` imports `ExecutionInfo`/`ServerInfo` from
       # `langgraph.runtime`, which only exist in `langgraph >= 1.1.5`.
-      "< 1.1.5": ["langgraph-prebuilt<1.0.9"]
+      "< 1.1.5":
+        - "langgraph-prebuilt<1.0.9"
     run: |
       pytest tests/langgraph/test_langgraph_autolog.py
     test_tracing_sdk: true
@@ -769,23 +822,26 @@ llama_index:
       # llama-index-llms-databricks (requires llama-index-llms-openai-like<0.6)
       - ">= 0.14.17"
     requirements:
-      ">= 0.0.0": [
-          # Versions 1.99.2 - 1.99.8 contain regressions:
-          # https://github.com/openai/openai-python/issues/2525
-          "openai>=1.99.9",
+      ">= 0.0.0":
+        # Versions 1.99.2 - 1.99.8 contain regressions:
+        # https://github.com/openai/openai-python/issues/2525
+        - "openai>=1.99.9"
           # Required to test Databricks integration
-          "llama-index-llms-databricks",
-          "llama-index-embeddings-databricks",
+        - "llama-index-llms-databricks"
+        - "llama-index-embeddings-databricks"
           # Required to run tests/openai/mock_openai.py
-          "fastapi",
-          "uvicorn",
-        ]
+        - "fastapi"
+        - "uvicorn"
       # llama-index-vector-stores-qdrant 0.7+ requires qdrant-client>=1.13 which
       # conflicts with llama-index 0.12.x dependency resolution.
       # TODO: qdrant-client 1.16 is currently broken with llama-index until
       # https://github.com/run-llama/llama_index/issues/20271 is resolved
-      ">= 0.13.0": ["llama-index-vector-stores-qdrant", "qdrant-client<1.16.0"]
-    run: pytest tests/llama_index --ignore tests/llama_index/test_llama_index_autolog.py --ignore tests/llama_index/test_llama_index_tracer.py
+      ">= 0.13.0":
+        - "llama-index-vector-stores-qdrant"
+        - "qdrant-client<1.16.0"
+    run: pytest tests/llama_index --ignore
+      tests/llama_index/test_llama_index_autolog.py --ignore
+      tests/llama_index/test_llama_index_tracer.py
   autologging:
     minimum: "0.12.38"
     maximum: "0.14.21"
@@ -794,15 +850,15 @@ llama_index:
       # llama-index-llms-databricks (requires llama-index-llms-openai-like<0.6)
       - ">= 0.14.17"
     requirements:
-      ">= 0.0.0": [
-          # Versions 1.99.2 - 1.99.8 contain regressions:
-          # https://github.com/openai/openai-python/issues/2525
-          "openai>=1.99.9",
+      ">= 0.0.0":
+        # Versions 1.99.2 - 1.99.8 contain regressions:
+        # https://github.com/openai/openai-python/issues/2525
+        - "openai>=1.99.9"
           # Required to run tests/openai/mock_openai.py
-          "fastapi",
-          "uvicorn",
-        ]
-    run: pytest tests/llama_index/test_llama_index_autolog.py tests/llama_index/test_llama_index_tracer.py
+        - "fastapi"
+        - "uvicorn"
+    run: pytest tests/llama_index/test_llama_index_autolog.py
+      tests/llama_index/test_llama_index_tracer.py
     test_tracing_sdk: true
 
 ag2:
@@ -814,13 +870,12 @@ ag2:
     minimum: "0.9.2"
     maximum: "0.12.3"
     requirements:
-      ">= 0.0.0": [
-          # Required to run tests/openai/mock_openai.py
-          "fastapi",
-          "uvicorn",
-          "openai",
-          "numpy<2",
-        ]
+      ">= 0.0.0":
+        # Required to run tests/openai/mock_openai.py
+        - "fastapi"
+        - "uvicorn"
+        - "openai"
+        - "numpy<2"
     run: pytest tests/ag2
 
 autogen:
@@ -832,14 +887,13 @@ autogen:
     minimum: "0.6.0"
     maximum: "0.7.5"
     requirements:
-      ">= 0.0.0": [
-          # Required to run tests/openai/mock_openai.py
-          "fastapi",
-          "uvicorn",
-          "autogen_ext",
+      ">= 0.0.0":
+        # Required to run tests/openai/mock_openai.py
+        - "fastapi"
+        - "uvicorn"
+        - "autogen_ext"
           # TODO: remove this pin after https://github.com/pydantic/pydantic/issues/12348 is resolved
-          "pydantic<2.12.0",
-        ]
+        - "pydantic<2.12.0"
     run: pytest tests/autogen
     test_tracing_sdk: true
 
@@ -908,9 +962,14 @@ agno:
     minimum: "1.7.0"
     maximum: "2.6.5"
     requirements:
-      ">= 0.0.0": ["anthropic", "yfinance"]
-      ">= 2.0.0": ["opentelemetry-exporter-otlp", "openinference-instrumentation-agno"]
-      "<= 2.4.8": ["openinference-instrumentation-agno==0.1.20"]
+      ">= 0.0.0":
+        - "anthropic"
+        - "yfinance"
+      ">= 2.0.0":
+        - "opentelemetry-exporter-otlp"
+        - "openinference-instrumentation-agno"
+      "<= 2.4.8":
+        - "openinference-instrumentation-agno==0.1.20"
     run: pytest tests/agno
     test_tracing_sdk: true
 
@@ -939,7 +998,8 @@ pydantic_ai:
     minimum: "0.2.5"
     maximum: "1.94.0"
     requirements:
-      ">= 0.0.0": ["mcp"]
+      ">= 0.0.0":
+        - "mcp"
     run: pytest tests/pydantic_ai
     test_tracing_sdk: true
     test_every_n_versions: 10
@@ -956,10 +1016,12 @@ smolagents:
     minimum: "1.17.0"
     maximum: "1.24.0"
     requirements:
-      "< 1.21.0": ["duckduckgo-search"]
+      "< 1.21.0":
+        - "duckduckgo-search"
       # `duckduckgo_search` has been renamed to `ddgs`:
       # https://github.com/huggingface/smolagents/pull/1593
-      ">= 1.21.0": ["ddgs"]
+      ">= 1.21.0":
+        - "ddgs"
     run: pytest tests/smolagents
     test_tracing_sdk: true
 
@@ -1023,18 +1085,17 @@ sentence_transformers:
     minimum: "3.0.0"
     maximum: "5.5.0"
     requirements:
-      ">= 0.0.0": [
-          "pyspark",
-          "torch>1.6",
-          "transformers>4.25",
-          "hf_transfer",
+      ">= 0.0.0":
+        - "pyspark"
+        - "torch>1.6"
+        - "transformers>4.25"
+        - "hf_transfer"
           # Required by a test model (nomic-ai/nomic-embed-text-v1.5)
-          "einops",
+        - "einops"
           # TODO: Try the latest version of moto (https://github.com/getmoto/moto/issues/8498) and remove this pin
-          "boto3<1.36",
+        - "boto3<1.36"
           # Fix for https://github.com/huggingface/transformers/issues/37326
-          "accelerate",
-        ]
+        - "accelerate"
     run: |
       pytest tests/sentence_transformers/test_sentence_transformers_model_export.py
 
@@ -1045,7 +1106,8 @@ johnsnowlabs:
     minimum: "5.3.6"
     maximum: "6.4.0"
     requirements:
-      ">= 0.0.0": ["pandas<=1.5.3"]
+      ">= 0.0.0":
+        - "pandas<=1.5.3"
     run: |
       if [ ! -z "$JOHNSNOWLABS_LICENSE_JSON" ]; then
         pytest tests/johnsnowlabs/test_johnsnowlabs_model_export.py
