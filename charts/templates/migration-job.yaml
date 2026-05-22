@@ -1,11 +1,11 @@
 {{- if .Values.migrations.enabled }}
 {{- if and (not .Values.mlflow.backendStoreUri) (not .Values.mlflow.backendStoreUriFrom) }}
-{{- fail "mlflow.backendStoreUri or mlflow.backendStoreUriFrom is required" }}
+{{- fail "mlflow.backendStoreUri or mlflow.backendStoreUriFrom is required when migrations.enabled=true" }}
 {{- end }}
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: "{{ include "mlflow.fullname" . }}-migrate"
+  name: "{{ include "mlflow.migrationJobName" . }}"
   labels:
     {{- include "mlflow.labels" . | nindent 4 }}
   annotations:
@@ -15,6 +15,7 @@ metadata:
 spec:
   backoffLimit: {{ .Values.migrations.backoffLimit }}
   activeDeadlineSeconds: {{ .Values.migrations.activeDeadlineSeconds }}
+  ttlSecondsAfterFinished: {{ .Values.migrations.ttlSecondsAfterFinished }}
   template:
     metadata:
       {{- with .Values.podAnnotations }}

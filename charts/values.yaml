@@ -96,29 +96,26 @@ garbageCollection:
 # is started. Strongly recommended when using external databases
 # (PostgreSQL, MySQL, etc.) or when upgrading MLflow versions.
 migrations:
-  # Set to true to create the migration Job. Default: false.
+  # Set to true to create the migration Job. Default: false (no migration job).
   enabled: false
-
-  # Helm hook weight. Lower number = executed earlier (before Deployment).
+  # Helm hook weight. Lower number = executed earlier.
   hookWeight: "-10"
-
   # Maximum time (in seconds) the migration Job is allowed to run.
   activeDeadlineSeconds: 300
-
   # Number of retries before the Job is marked as failed.
   backoffLimit: 3
-
+  # TTL for successful Jobs (prevents accumulation of completed Jobs)
+  ttlSecondsAfterFinished: 86400
   # Resources for the migration Job container.
-  # Can be configured independently from the main MLflow Deployment.
+  # Adjust if your migrations are heavy (large schema, many experiments).
   resources:
     requests:
-      cpu: 200m
-      memory: 512Mi
+      cpu: 300m
+      memory: 768Mi
     limits:
       cpu: 1000m
-      memory: 1Gi
-
-  # Extra environment variables added only to the migration Job.
+      memory: 1.5Gi
+  # Extra environment variables for the migration Job only
   extraEnv: []
   # Example:
   # extraEnv:
@@ -127,7 +124,6 @@ migrations:
   #       secretKeyRef:
   #         name: mlflow-db-secret
   #         key: password
-
   # Extra volume mounts added only to the migration Job container.
   extraVolumeMounts: []
   # Example:

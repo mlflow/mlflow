@@ -206,6 +206,14 @@ helm install mlflow ./charts \
 ```bash
 helm upgrade mlflow ./charts --namespace mlflow -f my-values.yaml
 ```
+### Database Migrations
+
+When using an external database (PostgreSQL, MySQL, MSSQL, etc.), it is strongly recommended to enable database migrations:
+
+```yaml
+migrations:
+  enabled: true
+```
 
 ## Uninstalling
 
