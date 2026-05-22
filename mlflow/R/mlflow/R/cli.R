@@ -26,6 +26,7 @@ mlflow_cli <- function(...,
   env <- modifyList(list(
     PATH = paste(python, Sys.getenv("PATH"), sep = ":"),
     MLFLOW_TRACKING_URI = mlflow_get_tracking_uri(),
+    MLFLOW_REGISTRY_URI = mlflow_get_registry_uri(),
     MLFLOW_BIN = mlflow_bin,
     MLFLOW_PYTHON_BIN = python_bin()
   ), env)

@@ -192,3 +192,33 @@ test_that("registry URI defaults and setters work", {
   .globals$registry_uri <- NULL
   expect_equal(mlflow_get_registry_uri(), "http://localhost:5000")
 })
+
+test_that("mlflow_cli passes registry URI env", {
+  old_tracking <- mlflow_get_tracking_uri()
+  old_registry <- .globals$registry_uri
+  on.exit({
+    mlflow_set_tracking_uri(old_tracking)
+    .globals$registry_uri <- old_registry
+  }, add = TRUE)
+
+  mlflow_set_tracking_uri("http://tracking")
+  mlflow_set_registry_uri("http://registry")
+
+  env <- NULL
+  with_mocked_bindings(.package = "mlflow",
+    python_bin = function() "/usr/bin/python",
+    python_mlflow_bin = function() "/usr/bin/mlflow",
+    run = function(command = NULL, args = character(), echo = TRUE, echo_cmd = FALSE,
+                   stderr_callback = NULL) {
+      env <<- list(
+        tracking_uri = Sys.getenv("MLFLOW_TRACKING_URI"),
+        registry_uri = Sys.getenv("MLFLOW_REGISTRY_URI")
+      )
+      list(stdout = "")
+    }, {
+      mlflow_cli("experiments", "list", client = NULL)
+    })
+
+  expect_equal(env$tracking_uri, "http://tracking")
+  expect_equal(env$registry_uri, "http://registry")
+})
