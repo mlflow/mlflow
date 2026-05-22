@@ -1,26 +1,3 @@
-# Convert named `tags` lists into REST key/value tag objects.
-mlflow_registry_tags_payload <- function(tags) {
-  if (is.null(tags)) return(NULL)
-  if (is.list(tags) && !is.null(names(tags))) {
-    return(unname(purrr::imap(tags, ~ list(
-      key = cast_string(.y),
-      value = cast_string(.x, allow_na = TRUE)
-    ))))
-  }
-  tags
-}
-
-mlflow_python_tags <- function(tags) {
-  tags <- mlflow_registry_tags_payload(tags)
-  if (is.null(tags)) return(NULL)
-
-  result <- list()
-  for (tag in tags) {
-    result[[cast_string(tag$key)]] <- cast_string(tag$value, allow_na = TRUE)
-  }
-  result
-}
-
 mlflow_python_env <- function(client) {
   env <- if (is.null(client)) list() else client$get_cli_env()
   tracking_uri <- if (is.null(client)) {
@@ -90,23 +67,6 @@ mlflow_download_uc_model_version <- function(name, version, client = NULL) {
   path
 }
 
-mlflow_uc_create_model_version <- function(name, source, run_id = NULL, tags = NULL, run_link = NULL,
-                                           description = NULL, client = NULL) {
-  client <- resolve_client(client)
-  version <- mlflow_python_create_model_version(
-    list(
-      name = name,
-      source = source,
-      run_id = run_id,
-      tags = mlflow_python_tags(tags),
-      run_link = run_link,
-      description = description
-    ),
-    client = client
-  )
-  mlflow_get_model_version(name, version, client = client)
-}
-
 mlflow_uc_stage_error <- function(method) {
   stop(
     sprintf("`%s()` is unsupported for Unity Catalog models. ", method),
@@ -136,7 +96,7 @@ mlflow_create_registered_model <- function(name, tags = NULL,
     version = "2.0",
     data = list(
       name = cast_string(name),
-      tags = mlflow_registry_tags_payload(tags),
+      tags = tags,
       description = description
     )
   )
@@ -351,15 +311,28 @@ mlflow_create_model_version <- function(name, source, run_id = NULL,
   client <- resolve_client(client)
 
   if (is_uc_registry_uri(client)) {
-    return(mlflow_uc_create_model_version(
-      name = name,
-      source = source,
-      run_id = run_id,
-      tags = tags,
-      run_link = run_link,
-      description = description,
+    # Python MlflowClient.create_model_version() expects tags as a map, not
+    # REST key/value objects.
+    tag_map <- tags
+    if (!is.null(tags) && (is.null(names(tags)) || any(names(tags) == ""))) {
+      tag_map <- list()
+      for (tag in tags) {
+        tag_map[[cast_string(tag$key)]] <- cast_string(tag$value, allow_na = TRUE)
+      }
+    }
+
+    version <- mlflow_python_create_model_version(
+      list(
+        name = name,
+        source = source,
+        run_id = run_id,
+        tags = tag_map,
+        run_link = run_link,
+        description = description
+      ),
       client = client
-    ))
+    )
+    return(mlflow_get_model_version(name, version, client = client))
   }
 
   response <- mlflow_registry_rest(
@@ -373,7 +346,7 @@ mlflow_create_model_version <- function(name, source, run_id = NULL,
       source = source,
       run_id = run_id,
       run_link = run_link,
-      tags = mlflow_registry_tags_payload(tags),
+      tags = tags,
       description = description
     )
   )
