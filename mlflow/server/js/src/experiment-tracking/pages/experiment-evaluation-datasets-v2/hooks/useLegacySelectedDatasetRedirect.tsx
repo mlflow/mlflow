@@ -20,7 +20,7 @@ export const useLegacySelectedDatasetRedirect = () => {
   const { experimentId } = useParams();
   invariant(experimentId, 'Experiment ID must be defined');
 
-  const search = useLocation((loc) => loc.search);
+  const search = useLocation().search;
   const navigate = useNavigate();
 
   // Parse once per location change; cheap, and avoids stale closures.

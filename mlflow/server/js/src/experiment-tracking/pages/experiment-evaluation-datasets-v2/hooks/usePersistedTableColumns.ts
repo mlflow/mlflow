@@ -47,7 +47,6 @@ export const usePersistedTableColumns = <ColumnId extends string>({
     version: COLUMN_STORAGE_VERSION,
     // Spread to a mutable copy — useLocalStorage stores a mutable array.
     initialValue: [...defaultVisible],
-    scoped: true,
   });
 
   // Iterate `allColumns` rather than `stored` so the returned order is always the

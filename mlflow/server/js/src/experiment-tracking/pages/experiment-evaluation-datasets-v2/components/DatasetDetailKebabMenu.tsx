@@ -13,7 +13,7 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { useNavigate } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import Routes from '@mlflow/mlflow/src/experiment-tracking/routes';
 import { ExperimentPageTabName } from '@mlflow/mlflow/src/experiment-tracking/constants';
-import { createUcPath } from '@mlflow/mlflow/src/experiment-tracking/components/automl/utils';
+
 import type { Dataset } from '../hooks/useDatasetsQueries';
 import { useDatasetDelete } from '../hooks/useDatasetDelete';
 import type { DatasetNotifyApi } from '../hooks/useDatasetNotifications';
@@ -52,7 +52,8 @@ export const DatasetDetailKebabMenu = ({ experimentId, dataset, notify }: Datase
     datasetDelete.requestDelete(dataset);
   }, [datasetDelete, dataset]);
 
-  const ucPath = createUcPath(dataset.name);
+  // OSS has no Unity Catalog link target — hide the "View in Unity Catalog" menu item.
+  const ucPath: string | undefined = undefined;
   const hasMetadata = Boolean(dataset.digest || dataset.schema || dataset.profile);
   const [metadataModalOpen, setMetadataModalOpen] = useState(false);
 

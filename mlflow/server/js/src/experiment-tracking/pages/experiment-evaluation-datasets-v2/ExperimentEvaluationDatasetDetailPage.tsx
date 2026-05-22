@@ -106,7 +106,7 @@ const ExperimentEvaluationDatasetDetailPageImpl = () => {
                     description="Body shown when the V2 evaluation dataset detail page fails to fetch its dataset"
                   />
                 </Typography.Paragraph>
-                <Link to={listRoute}>
+                <Link componentId="mlflow.eval-datasets-v2.detail.back-to-datasets" to={listRoute}>
                   <FormattedMessage
                     defaultMessage="Back to datasets"
                     description="Link returning the user to the V2 evaluation datasets list page after a fetch error"

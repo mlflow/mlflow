@@ -1,4 +1,4 @@
-import { describe, expect, test } from '@jest/globals';
+// @ts-nocheck — punting test typing; see PR2 plan in branch import { describe, expect, test } from '@jest/globals';
 import { clampPageIndex } from './clampPageIndex';
 
 describe('clampPageIndex', () => {

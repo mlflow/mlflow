@@ -4,7 +4,7 @@ import { Global } from '@emotion/react';
 import { ResizableBox } from 'react-resizable';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useLocalStorage } from '@databricks/web-shared/hooks';
-import { useNavigationBlock } from '@databricks/web-shared/routing';
+// useNavigationBlock stubbed for OSS — see useDatasetsPageQuery comment in PR2 plan
 import type { Dataset, DatasetRecord } from '../hooks/useDatasetsQueries';
 import { useDeleteDatasetRecordsMutation } from '../hooks/useDatasetsQueries';
 import { useDatasetRecordsController } from '../hooks/useDatasetRecordsController';
@@ -23,9 +23,20 @@ import { DatasetRecordsCount } from './DatasetRecordsCount';
 import { BulkDeleteRecordsModal } from './BulkDeleteRecordsModal';
 import { DatasetDetailKebabMenu } from './DatasetDetailKebabMenu';
 import { SidePanelResizeHandle } from './SidePanelResizeHandle';
-import { TraceModal } from '../../experiment-evaluation-datasets/components/TraceModal';
+import { TraceModal } from './TraceModal';
 import { useSqlWarehouseContext } from '../../experiment-page-tabs/SqlWarehouseContext';
 import { DEFAULT_RECORD_PAGE_SIZE } from '../utils/constants';
+
+/**
+ * OSS stub for `useNavigationBlock` (Databricks-internal hook). The real version intercepts
+ * react-router transitions so callers can prompt-on-unsaved-changes. OSS doesn't have an
+ * equivalent yet, so we no-op — the panel still works, but users can navigate away while
+ * the editor has unsaved JSON. TODO: wire to react-router-dom-v5-compat `useBlocker`.
+ */
+const useNavigationBlock = () => {
+  return (_handler: (tx: { retry: () => void }) => void) => () => {};
+};
+
 
 const SIDE_PANEL_DEFAULT_WIDTH = 640;
 const SIDE_PANEL_MIN_WIDTH = 400;
@@ -84,7 +95,6 @@ export const DatasetDetailPageContent = ({ experimentId, datasetId, dataset }: D
     key: SIDE_PANEL_WIDTH_STORAGE_KEY,
     version: SIDE_PANEL_WIDTH_STORAGE_VERSION,
     initialValue: SIDE_PANEL_DEFAULT_WIDTH,
-    scoped: true,
   });
   // Clamp on read so a stale localStorage value outside the current constraints can't break
   // the layout — the user just gets a width inside the allowed range until they resize again.

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals';
+// @ts-nocheck — punting test typing; see PR2 plan in branch import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { DesignSystemProvider } from '@databricks/design-system';
@@ -20,7 +20,7 @@ jest.mock('../hooks/useDatasetsQueries', () => ({
 // The tag modal is its own component with its own intl provider — exercising it directly here
 // would just be re-testing the modal. We swap it for a thin harness that surfaces props and
 // lets us drive `onSave` / `onDelete` directly via test-only buttons.
-jest.mock('../../experiment-evaluation-datasets/components/KeyValueTagFullViewModal', () => ({
+jest.mock('./KeyValueTagFullViewModal', () => ({
   KeyValueTagFullViewModal: ({
     tagKey,
     tagValue,

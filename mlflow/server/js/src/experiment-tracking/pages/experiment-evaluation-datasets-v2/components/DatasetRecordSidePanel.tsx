@@ -1,7 +1,11 @@
 import { useEffect } from 'react';
 import { Button, CloseIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { formatDateTime } from '@databricks/web-shared/date-time';
+// Tiny intl-based date formatter; replaces @databricks/web-shared/date-time which OSS lacks.
+const formatDateTime = (input: string | undefined, intl: { formatDate: (d: Date, opts?: Intl.DateTimeFormatOptions) => string }) => {
+  if (!input) return '';
+  return intl.formatDate(new Date(input), { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+};
 import type { DatasetRecord } from '../hooks/useDatasetsQueries';
 import { LazyJsonRecordEditor } from './LazyJsonRecordEditor';
 import { DatasetRecordDetailFooter } from './DatasetRecordDetailFooter';

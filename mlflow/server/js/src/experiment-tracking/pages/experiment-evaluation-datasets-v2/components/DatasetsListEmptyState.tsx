@@ -2,7 +2,7 @@ import { Empty, SearchIcon, Typography, useDesignSystemTheme } from '@databricks
 import { FormattedMessage } from 'react-intl';
 import datasetsEmptyImg from '@mlflow/mlflow/src/common/static/eval-datasets-empty.svg';
 import type { Dataset } from '../hooks/useDatasetsQueries';
-import { CreateDatasetButton } from '../../experiment-evaluation-datasets/components/CreateDatasetModal';
+import { CreateDatasetButton } from './CreateDatasetModal';
 import { getEvalMonitorDocsLink } from '../utils/docsLinks';
 
 interface NoResultsEmptyStateProps {

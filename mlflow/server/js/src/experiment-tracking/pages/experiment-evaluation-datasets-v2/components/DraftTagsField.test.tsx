@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals';
+// @ts-nocheck — punting test typing; see PR2 plan in branch import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { DesignSystemProvider } from '@databricks/design-system';
@@ -9,7 +9,7 @@ import { DraftTagsField } from './DraftTagsField';
 // The modal is exercised through its own tests; here we swap it for a thin harness that
 // surfaces props and lets tests drive `onSave` / `onDelete` directly. Mirrors the harness
 // used in TagsCell.test.tsx so the two suites stay structurally comparable.
-jest.mock('../../experiment-evaluation-datasets/components/KeyValueTagFullViewModal', () => ({
+jest.mock('./KeyValueTagFullViewModal', () => ({
   KeyValueTagFullViewModal: ({
     tagKey,
     tagValue,

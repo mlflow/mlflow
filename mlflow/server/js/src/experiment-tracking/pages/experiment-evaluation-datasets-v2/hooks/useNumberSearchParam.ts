@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { useSearchParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
+import { useSearchParamSelector } from './useSearchParamSelector';
 
 interface UseNumberSearchParamOptions {
   /** URL search-param key. */
@@ -26,7 +26,7 @@ export const useNumberSearchParam = ({
   defaultValue,
   min = 1,
 }: UseNumberSearchParamOptions): [number, (next: number) => void] => {
-  const [value, setSearchParams] = useSearchParams((params) => parseNumber(params.get(key), defaultValue, min));
+  const [value, setSearchParams] = useSearchParamSelector((params) => parseNumber(params.get(key), defaultValue, min));
 
   const setValue = useCallback(
     (next: number) => {

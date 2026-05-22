@@ -51,7 +51,7 @@ export const DatasetsBreadcrumbs = ({ experimentId, datasetName, rightActions }:
         <Breadcrumb includeTrailingCaret={false}>
           <Breadcrumb.Item>
             {showTrailingCrumb ? (
-              <Link to={listRoute}>
+              <Link componentId="mlflow.eval-datasets-v2.breadcrumb.datasets" to={listRoute}>
                 <FormattedMessage
                   defaultMessage="Datasets"
                   description="Breadcrumb label for the V2 evaluation datasets list page"

@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, DangerModal, type InputRef, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { useNavigate, useSearchParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
+import { useNavigate } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
+import { useSearchParamSelector } from '../hooks/useSearchParamSelector';
 import Routes from '@mlflow/mlflow/src/experiment-tracking/routes';
 import type { Dataset } from '../hooks/useDatasetsQueries';
 import { DatasetsListEmptyState, DatasetsListNoResultsEmptyState } from './DatasetsListEmptyState';
@@ -29,7 +30,7 @@ export const DatasetsListPage = ({ experimentId }: DatasetsListPageProps) => {
   const searchInputRef = useRef<InputRef>(null);
   useSlashFocusSearch(searchInputRef);
 
-  const [searchValue, setSearchValue] = useSearchParams((params) => params.get(Q_PARAM) ?? '');
+  const [searchValue, setSearchValue] = useSearchParamSelector((params) => params.get(Q_PARAM) ?? '');
   const setSearch = useCallback(
     (next: string) => {
       setSearchValue((params) => {

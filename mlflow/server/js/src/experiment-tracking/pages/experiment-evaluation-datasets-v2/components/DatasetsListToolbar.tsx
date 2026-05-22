@@ -1,7 +1,7 @@
 import { type RefObject } from 'react';
 import { Input, type InputRef, SearchIcon, useDesignSystemTheme } from '@databricks/design-system';
 import { useIntl } from 'react-intl';
-import { CreateDatasetButton } from '../../experiment-evaluation-datasets/components/CreateDatasetModal';
+import { CreateDatasetButton } from './CreateDatasetModal';
 import type { Dataset } from '../hooks/useDatasetsQueries';
 import { DatasetRefreshButton } from './DatasetRefreshButton';
 

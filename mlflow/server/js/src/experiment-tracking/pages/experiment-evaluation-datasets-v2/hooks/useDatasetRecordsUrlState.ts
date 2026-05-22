@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { useSearchParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
+import { useSearchParamSelector } from './useSearchParamSelector';
 import { useNumberSearchParam } from './useNumberSearchParam';
 import {
   DEFAULT_SORT_COLUMN,
@@ -44,11 +44,11 @@ interface DatasetRecordsUrlState {
  * column id, so an unrecognized `?sort=` value silently degrades to default ordering.
  */
 export const useDatasetRecordsUrlState = (): DatasetRecordsUrlState => {
-  const [search, setSearchParams] = useSearchParams((params) => params.get(Q_PARAM) ?? '');
+  const [search, setSearchParams] = useSearchParamSelector((params) => params.get(Q_PARAM) ?? '');
   const [pageIndex, setPageIndex] = useNumberSearchParam({ key: PAGE_PARAM, defaultValue: 1, min: 1 });
-  const [recordId] = useSearchParams((params) => params.get(RECORD_ID_PARAM) ?? undefined);
-  const [sortRaw] = useSearchParams((params) => params.get(SORT_PARAM));
-  const [dirRaw] = useSearchParams((params) => params.get(DIR_PARAM));
+  const [recordId] = useSearchParamSelector((params) => params.get(RECORD_ID_PARAM) ?? undefined);
+  const [sortRaw] = useSearchParamSelector((params) => params.get(SORT_PARAM));
+  const [dirRaw] = useSearchParamSelector((params) => params.get(DIR_PARAM));
 
   const sort: RecordColumnId = isRecordColumnId(sortRaw) ? sortRaw : DEFAULT_SORT_COLUMN;
   const dir: SortDirection = dirRaw === 'asc' ? 'asc' : dirRaw === 'desc' ? 'desc' : DEFAULT_SORT_DIR;

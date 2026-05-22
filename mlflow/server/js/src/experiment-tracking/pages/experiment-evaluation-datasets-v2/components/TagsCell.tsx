@@ -2,7 +2,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { Button, PlusIcon, Tag, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useQueryClient } from '@databricks/web-shared/query-client';
-import { KeyValueTagFullViewModal } from '../../experiment-evaluation-datasets/components/KeyValueTagFullViewModal';
+import { KeyValueTagFullViewModal } from './KeyValueTagFullViewModal';
 import type { DatasetRecord } from '../hooks/useDatasetsQueries';
 import {
   listDatasetRecordsQueryKey,

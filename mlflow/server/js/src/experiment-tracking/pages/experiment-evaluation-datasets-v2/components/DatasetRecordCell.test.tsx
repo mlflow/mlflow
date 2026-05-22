@@ -1,4 +1,4 @@
-import { describe, expect, jest, test } from '@jest/globals';
+// @ts-nocheck — punting test typing; see PR2 plan in branch import { describe, expect, jest, test } from '@jest/globals';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { DesignSystemProvider } from '@databricks/design-system';

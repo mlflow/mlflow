@@ -126,7 +126,7 @@ export const DatasetsListTable = ({
           : datasets.map((dataset) => (
               <TableRow key={dataset.dataset_id}>
                 <TableCell css={nameCellStyles}>
-                  <Link
+                  <Link componentId="mlflow.eval-datasets-v2.list.dataset-link"
                     to={Routes.getExperimentPageDatasetDetailRoute(experimentId, dataset.dataset_id)}
                     css={truncateCss}
                   >

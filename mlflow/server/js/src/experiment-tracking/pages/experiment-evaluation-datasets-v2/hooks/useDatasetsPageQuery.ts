@@ -1,6 +1,5 @@
 import { useQuery } from '@databricks/web-shared/query-client';
-import { workspaceFetch } from '@databricks/web-shared/spog/workspace-console';
-import { getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
+import { fetchAPI, getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 import type { Dataset } from '../hooks/useDatasetsQueries';
 import { DEFAULT_DATASETS_ORDER_BY } from '../utils/constants';
 
@@ -20,65 +19,28 @@ interface UseDatasetsPageQueryParams {
   pageToken: string | undefined;
 }
 
-/**
- * Escapes a single quote for embedding inside an `experiment_id='X'`-style filter.
- * Backend uses SQL-style filter syntax; quoting prevents injection from user-typed search.
- * No spaces around `=`: the managed-evals RPC pre-validator (QueryConstraint.isValidQuery)
- * anchors a regex that rejects whitespace before `=`, so this output must stay tight.
- */
-const escapeFilterLiteral = (value: string) => value.replace(/'/g, "''");
-
-/**
- * Strips SQL LIKE wildcards (`%` matches any run; `_` matches one char) from user-typed
- * search input. Without this, a search for `100%` becomes a true wildcard match and a search
- * for `data_set_1` lets `_` match any single character — both surprise the user.
- *
- * Stripping (rather than escaping with `ESCAPE 'X'`) is forced by the backend: the managed-
- * evals filter grammar (`managed-evals/src/common/DatasetSearchFilter.scala`) recognizes only
- * `=`, `!=`, `LIKE`, `ILIKE` and would reject any `ESCAPE` clause we tried to send. Dataset
- * names almost never contain literal `%` or `_`, so the lost fidelity is acceptable.
- */
-const stripLikeWildcards = (value: string) => value.replace(/[%_]/g, '');
-
-const buildFilterString = (experimentId: string, nameFilter: string) => {
-  const clauses = [`experiment_id='${escapeFilterLiteral(experimentId)}'`];
-  const sanitized = stripLikeWildcards(nameFilter.trim());
-  if (sanitized) {
-    clauses.push(`name ILIKE '%${escapeFilterLiteral(sanitized)}%'`);
-  }
-  return clauses.join(' AND ');
-};
-
 const fetchDatasetsPage = async ({
   experimentId,
   nameFilter,
   pageSize,
   pageToken,
 }: UseDatasetsPageQueryParams): Promise<ListDatasetsPageResponse> => {
-  const params = new URLSearchParams({
-    filter: buildFilterString(experimentId, nameFilter),
-    page_size: String(pageSize),
-    order_by: DEFAULT_DATASETS_ORDER_BY,
-  });
-  if (pageToken) {
-    params.set('page_token', pageToken);
-  }
-
-  const res = await workspaceFetch(`${getAjaxUrl('ajax-api/2.0/managed-evals/datasets')}?${params}`);
-  if (!res.ok) {
-    let message = `Failed to fetch datasets: ${res.status} ${res.statusText}`;
-    try {
-      const body = await res.json();
-      if (body?.message) {
-        message = body.message;
-      }
-    } catch {
-      // body wasn't JSON; fall back to the status line.
-    }
-    throw new Error(message);
-  }
-
-  return res.json();
+  // OSS speaks the v3 search endpoint with a JSON body — different from universe's
+  // GET-with-filter-string managed-evals endpoint. Filter syntax is also different
+  // (`name ILIKE`), so `buildFilterString` is unused here; we pass the raw nameFilter
+  // through and let the OSS handler build its own filter.
+  const trimmedFilter = nameFilter.trim();
+  const filterString = trimmedFilter ? `name ILIKE '%${trimmedFilter.replace(/'/g, "''")}%'` : undefined;
+  return (await fetchAPI(getAjaxUrl('ajax-api/3.0/mlflow/datasets/search'), {
+    method: 'POST',
+    body: {
+      experiment_ids: [experimentId],
+      filter_string: filterString,
+      order_by: [DEFAULT_DATASETS_ORDER_BY],
+      max_results: pageSize,
+      page_token: pageToken,
+    },
+  })) as ListDatasetsPageResponse;
 };
 
 /**
