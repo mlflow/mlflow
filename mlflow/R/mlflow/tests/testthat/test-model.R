@@ -93,11 +93,11 @@ test_that("mlflow can log model and load it back with a uri", {
   temp_in  <- tempfile(fileext = ".json")
   temp_out  <- tempfile(fileext = ".json")
   jsonlite::write_json(list(dataframe_records=0:10), temp_in)
-  mlflow_cli("models", "predict", "-m", runs_uri, "-i", temp_in, "-o", temp_out,
+  mlflow:::mlflow_cli("models", "predict", "-m", runs_uri, "-i", temp_in, "-o", temp_out,
                       "--content-type", "json", "--env-manager", "uv", "--install-mlflow")
   prediction <- unlist(jsonlite::read_json(temp_out))
   expect_true(5 == prediction)
-  mlflow_cli("models", "predict", "-m", actual_uri, "-i", temp_in, "-o", temp_out,
+  mlflow:::mlflow_cli("models", "predict", "-m", actual_uri, "-i", temp_in, "-o", temp_out,
                       "--content-type", "json", "--env-manager", "uv", "--install-mlflow")
   prediction <- unlist(jsonlite::read_json(temp_out))
   expect_true(5 == prediction)
@@ -259,109 +259,32 @@ test_that("mlflow_log_model rejects data.frame signature fields", {
   )
 })
 
-test_that("models URI parser supports aliases, versions, and stages", {
-  expect_true(mlflow_is_plain_models_uri(
-    paste0("models:/", testthat_uc_model_name, "/12")
-  ))
-  expect_false(mlflow_is_plain_models_uri(
-    paste0("models://profile/", testthat_uc_model_name, "/12")
-  ))
-
-  alias_uri <- mlflow_parse_models_uri(paste0("models:/", testthat_uc_model_name, "@champion"))
-  expect_equal(alias_uri$name, testthat_uc_model_name)
-  expect_null(alias_uri$version)
-  expect_null(alias_uri$stage)
-  expect_equal(alias_uri$alias, "champion")
-
-  version_uri <- mlflow_parse_models_uri(paste0("models:/", testthat_uc_model_name, "/12"))
-  expect_equal(version_uri$name, testthat_uc_model_name)
-  expect_equal(version_uri$version, "12")
-  expect_null(version_uri$stage)
-  expect_null(version_uri$alias)
-
-  stage_uri <- mlflow_parse_models_uri("models:/workspace_model/Staging")
-  expect_equal(stage_uri$name, "workspace_model")
-  expect_null(stage_uri$version)
-  expect_equal(stage_uri$stage, "Staging")
-  expect_null(stage_uri$alias)
-
-  expect_error(
-    mlflow_parse_models_uri("models:/workspace_model@"),
-    "Model alias URIs"
-  )
-})
-
-test_that("models URI alias resolves via registry helper", {
+test_that("model URI downloads are delegated unchanged to artifacts CLI", {
   model_name <- basename(tempfile("model_"))
   lm_model <- lm(Sepal.Width ~ Sepal.Length, iris)
   model <- crate(~ stats::predict(lm_model, .x), lm_model = lm_model)
   path <- file.path(tempdir(), model_name)
   mlflow_save_model(model, path = path)
 
-  with_mocked_bindings(.package = "mlflow",
-    mlflow_get_model_version_by_alias = function(name, alias, client = NULL) {
-      list(model_version = list(version = "9"))
-    },
-    mlflow_get_model_version_download_uri = function(name, version, client = NULL) {
-      path
-    }, {
-      loaded <- mlflow_load_model(paste0("models:/", testthat_uc_model_name, "@prod"))
-      pred <- mlflow_predict(loaded, iris[1:3, ])
-      expect_equal(as.numeric(pred), as.numeric(stats::predict(lm_model, iris[1:3, ])))
-    })
-})
-
-test_that("Unity Catalog models URI alias downloads via UC helper", {
-  model_name <- basename(tempfile("model_"))
-  lm_model <- lm(Sepal.Width ~ Sepal.Length, iris)
-  model <- crate(~ stats::predict(lm_model, .x), lm_model = lm_model)
-  path <- file.path(tempdir(), model_name)
-  mlflow_save_model(model, path = path)
-
+  model_uri <- paste0("models:/", testthat_uc_model_name, "@prod")
   mock_client <- new_mlflow_client_impl(
     get_host_creds = function() {
-      new_mlflow_host_creds(host = "https://adb.example.com", token = "x")
+      new_mlflow_host_creds(host = "localhost")
     },
     get_cli_env = list
   )
-  mock_client$registry_uri <- list(scheme = "databricks-uc")
-
-  downloaded <- NULL
+  cli_args <- NULL
   with_mocked_bindings(.package = "mlflow",
-    mlflow_get_model_version_by_alias = function(name, alias, client = NULL) {
-      list(model_version = list(version = "9"))
-    },
-    mlflow_download_uc_model_version = function(name, version, client = NULL) {
-      downloaded <<- list(name = name, version = version, client = client)
-      path
+    mlflow_cli = function(..., echo = TRUE, client = NULL) {
+      cli_args <<- unlist(list(...), use.names = FALSE)
+      expect_false(echo)
+      expect_identical(client, mock_client)
+      list(stdout = paste0("\n", path, "\n"))
     }, {
-      loaded <- mlflow_load_model(
-        paste0("models:/", testthat_uc_model_name, "@prod"),
-        client = mock_client
-      )
+      loaded <- mlflow_load_model(model_uri, client = mock_client)
       pred <- mlflow_predict(loaded, iris[1:3, ])
       expect_equal(as.numeric(pred), as.numeric(stats::predict(lm_model, iris[1:3, ])))
     })
 
-  expect_equal(downloaded$name, testthat_uc_model_name)
-  expect_equal(downloaded$version, "9")
-  expect_identical(downloaded$client, mock_client)
-})
-
-test_that("Unity Catalog models URI stages fail with alias guidance", {
-  mock_client <- new_mlflow_client_impl(
-    get_host_creds = function() {
-      new_mlflow_host_creds(host = "https://adb.example.com", token = "x")
-    },
-    get_cli_env = list
-  )
-  mock_client$registry_uri <- list(scheme = "databricks-uc")
-
-  expect_error(
-    mlflow_download_model_uri(
-      paste0("models:/", testthat_uc_model_name, "/Staging"),
-      client = mock_client
-    ),
-    "aliases"
-  )
+  expect_equal(cli_args, c("artifacts", "download", "-u", model_uri))
 })

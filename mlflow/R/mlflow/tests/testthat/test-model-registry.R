@@ -603,37 +603,3 @@ test_that("Python MLflow create call uses client tracking and registry URIs", {
   expect_equal(args[1], "-c")
   expect_true(grepl("create_model_version", args[2], fixed = TRUE))
 })
-
-test_that("UC model version download delegates to Python MLflow artifacts CLI", {
-  mock_client <- get_mock_client()
-
-  cli_args <- NULL
-  with_mocked_bindings(.package = "mlflow",
-    mlflow_cli = function(..., client = NULL, echo = TRUE) {
-      cli_args <<- unlist(list(...), use.names = FALSE)
-      expect_identical(client, mock_client)
-      expect_false(echo)
-      list(stdout = "\n/tmp/downloaded-model\n")
-    }, {
-      result <- mlflow_download_uc_model_version(testthat_uc_model_name, "4", client = mock_client)
-    })
-
-  expect_equal(result, "/tmp/downloaded-model")
-  expect_equal(cli_args, c(
-    "artifacts", "download",
-    "--artifact-uri", sprintf("models:/%s/4", testthat_uc_model_name)
-  ))
-})
-
-test_that("UC model version download errors when Python MLflow returns no path", {
-  with_mocked_bindings(.package = "mlflow",
-    mlflow_cli = function(..., client = NULL, echo = TRUE) {
-      list(stdout = "\n")
-    }, {
-      expect_error(
-        mlflow_download_uc_model_version(testthat_uc_model_name, "4", client = get_mock_client()),
-        "did not return a downloaded Unity Catalog model path",
-        fixed = TRUE
-      )
-    })
-})

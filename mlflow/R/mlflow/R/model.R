@@ -198,88 +198,6 @@ mlflow_timestamp <- function() {
   )
 }
 
-mlflow_is_plain_models_uri <- function(model_uri) {
-  grepl("^models:/[^/]", model_uri)
-}
-
-mlflow_parse_models_uri <- function(model_uri) {
-  rest <- sub("^models:/", "", model_uri)
-  parts <- strsplit(rest, "/", fixed = TRUE)[[1]]
-  if (!nzchar(rest) || length(parts) > 2 || !nzchar(parts[[1]])) {
-    stop(
-      "Model URIs must be of the form `models:/name/version` or `models:/name@alias`.",
-      call. = FALSE
-    )
-  }
-
-  if (length(parts) == 2) {
-    suffix <- parts[[2]]
-    if (!nzchar(suffix)) {
-      stop(
-        "Model URIs must include a non-empty version, stage, or alias.",
-        call. = FALSE
-      )
-    }
-    return(list(
-      name = parts[[1]],
-      version = if (grepl("^[0-9]+$", suffix)) suffix else NULL,
-      stage = if (grepl("^[0-9]+$", suffix)) NULL else suffix,
-      alias = NULL
-    ))
-  }
-
-  alias_pos <- gregexpr("@", rest, fixed = TRUE)[[1]]
-  if (alias_pos[[1]] != -1L) {
-    at <- alias_pos[[length(alias_pos)]]
-    name <- substr(rest, 1, at - 1)
-    alias <- substr(rest, at + 1, nchar(rest))
-    if (!nzchar(name) || !nzchar(alias)) {
-      stop(
-        "Model alias URIs must be of the form `models:/name@alias`.",
-        call. = FALSE
-      )
-    }
-    return(list(name = name, version = NULL, stage = NULL, alias = alias))
-  }
-
-  list(name = rest, version = NULL, stage = NULL, alias = NULL)
-}
-
-mlflow_resolve_model_uri_version <- function(parsed, client) {
-  if (is.null(parsed$alias)) {
-    return(parsed$version)
-  }
-
-  alias_resp <- mlflow_get_model_version_by_alias(parsed$name, parsed$alias, client = client)
-  mv <- alias_resp$model_version %||% alias_resp
-  if (is.null(mv$version) || !nchar(mv$version)) {
-    stop("Unable to resolve model alias to a concrete model version.", call. = FALSE)
-  }
-  mv$version
-}
-
-mlflow_download_model_uri <- function(model_uri, client) {
-  parsed <- mlflow_parse_models_uri(model_uri)
-  version <- mlflow_resolve_model_uri_version(parsed, client)
-
-  if (is_uc_registry_uri(client)) {
-    if (!is.null(parsed$stage)) {
-      mlflow_uc_stage_error("mlflow_load_model")
-    }
-    if (is.null(version) || !nchar(version)) {
-      stop("Unity Catalog model URIs must include a concrete version or alias.", call. = FALSE)
-    }
-    return(mlflow_download_uc_model_version(parsed$name, version, client = client))
-  }
-
-  if (is.null(parsed$alias)) {
-    return(NULL)
-  }
-
-  resolved_uri <- mlflow_get_model_version_download_uri(parsed$name, version, client = client)
-  mlflow_download_artifacts_from_uri(resolved_uri, client = client)
-}
-
 #' Load MLflow Model
 #'
 #' Loads an MLflow model. MLflow models can have multiple model flavors. Not all flavors / models
@@ -291,12 +209,7 @@ mlflow_download_model_uri <- function(model_uri, client) {
 #' case there are multiple flavors available.
 #' @export
 mlflow_load_model <- function(model_uri, flavor = NULL, client = mlflow_client()) {
-  model_path <- NULL
-  if (mlflow_is_plain_models_uri(model_uri)) {
-    model_path <- mlflow_download_model_uri(model_uri, client = client)
-  }
-
-  model_path <- model_path %||% mlflow_download_artifacts_from_uri(model_uri, client = client)
+  model_path <- mlflow_download_artifacts_from_uri(model_uri, client = client)
   supported_flavors <- supported_model_flavors()
   spec <- yaml::read_yaml(fs::path(model_path, "MLmodel"))
   available_flavors <- intersect(names(spec$flavors), supported_flavors)

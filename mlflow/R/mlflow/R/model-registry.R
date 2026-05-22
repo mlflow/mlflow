@@ -1,4 +1,8 @@
-mlflow_python_env <- function(client) {
+mlflow_python_create_model_version <- function(payload, client) {
+  payload_file <- tempfile(fileext = ".json")
+  on.exit(unlink(payload_file), add = TRUE)
+  jsonlite::write_json(payload, payload_file, auto_unbox = TRUE, null = "null")
+
   env <- if (is.null(client)) list() else client$get_cli_env()
   tracking_uri <- if (is.null(client)) {
     mlflow_get_tracking_uri()
@@ -10,19 +14,13 @@ mlflow_python_env <- function(client) {
   } else {
     client$registry_uri$raw_uri %||% mlflow_get_registry_uri()
   }
-  modifyList(list(
+  env <- modifyList(list(
     MLFLOW_TRACKING_URI = tracking_uri,
     MLFLOW_REGISTRY_URI = registry_uri
   ), env)
-}
-
-mlflow_python_create_model_version <- function(payload, client) {
-  payload_file <- tempfile(fileext = ".json")
-  on.exit(unlink(payload_file), add = TRUE)
-  jsonlite::write_json(payload, payload_file, auto_unbox = TRUE, null = "null")
 
   response <- tryCatch({
-    withr::with_envvar(mlflow_python_env(client), {
+    withr::with_envvar(env, {
       run(
         python_bin(),
         c("-c", paste(c(
@@ -47,24 +45,6 @@ mlflow_python_create_model_version <- function(payload, client) {
     stop("Python MLflow did not return a Unity Catalog model version.", call. = FALSE)
   }
   version
-}
-
-mlflow_download_uc_model_version <- function(name, version, client = NULL) {
-  client <- resolve_client(client)
-
-  response <- mlflow_cli(
-    "artifacts", "download",
-    "--artifact-uri", sprintf("models:/%s/%s", name, cast_string(version)),
-    client = client,
-    echo = mlflow_is_verbose()
-  )
-  lines <- strsplit(response$stdout, "\n", fixed = TRUE)[[1]]
-  lines <- lines[nzchar(lines)]
-  path <- tail(lines, 1)
-  if (length(path) == 0 || !nchar(path)) {
-    stop("Python MLflow did not return a downloaded Unity Catalog model path.", call. = FALSE)
-  }
-  path
 }
 
 mlflow_uc_stage_error <- function(method) {
@@ -376,22 +356,6 @@ mlflow_get_model_version <- function(name, version, client = NULL) {
   )
 
   return(response$model_version)
-}
-
-mlflow_get_model_version_download_uri <- function(name, version, client = NULL) {
-  client <- resolve_client(client)
-  response <- mlflow_registry_rest(
-    "model-versions",
-    "get-download-uri",
-    client = client,
-    verb = "GET",
-    version = "2.0",
-    query = list(
-      name = name,
-      version = cast_string(version)
-    )
-  )
-  response$artifact_uri %||% response$artifactUri
 }
 
 #' Register model URI under a model name

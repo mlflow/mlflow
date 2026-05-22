@@ -59,13 +59,8 @@ mlflow_rest <- function( ..., client, query = NULL, data = NULL, verb = "GET", v
   get_response <- switch(
     verb,
     GET = function() {
-      if (is.null(data)) {
-        httr::GET(api_url, query = query, mlflow_rest_timeout(), config = rest_config$config,
-                  req_headers)
-      } else {
-        httr::VERB("GET", api_url, query = query, body = json_body, encode = "json",
-                   mlflow_rest_timeout(), config = rest_config$config, req_headers)
-      }
+      httr::GET(api_url, query = query, mlflow_rest_timeout(), config = rest_config$config,
+                req_headers)
     },
     POST = function(){
       httr::POST( api_url,
@@ -130,18 +125,10 @@ mlflow_rest <- function( ..., client, query = NULL, data = NULL, verb = "GET", v
   jsonlite::fromJSON(text, simplifyVector = FALSE)
 }
 
-mlflow_registry_rest_path <- function(client, version = "2.0") {
-  if (is_uc_registry_uri(client)) {
-    "api/2.0/mlflow/unity-catalog"
-  } else {
-    mlflow_rest_path(version)
-  }
-}
-
 mlflow_registry_rest <- function(..., client, query = NULL, data = NULL, verb = "GET",
                                  version = "2.0", max_rate_limit_interval = 60) {
   client <- resolve_client(client)
-  registry_client <- resolve_registry_client(client)
+  registry_client <- client$registry_client %||% client
   mlflow_rest(
     ...,
     client = registry_client,
@@ -150,6 +137,10 @@ mlflow_registry_rest <- function(..., client, query = NULL, data = NULL, verb = 
     verb = verb,
     version = version,
     max_rate_limit_interval = max_rate_limit_interval,
-    path_prefix = mlflow_registry_rest_path(client, version = version)
+    path_prefix = if (is_uc_registry_uri(client)) {
+      "api/2.0/mlflow/unity-catalog"
+    } else {
+      mlflow_rest_path(version)
+    }
   )
 }
