@@ -1093,6 +1093,12 @@ const sidebarsGenAI: SidebarsConfig = {
       },
     },
     {
+      type: 'doc',
+      id: 'playground',
+      label: 'LLM Playground',
+      className: 'sidebar-top-level-category',
+    },
+    {
       type: 'html',
       value: '<b>More Features</b>',
       defaultStyle: true,
