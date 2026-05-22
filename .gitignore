@@ -147,3 +147,4 @@ CLAUDE.local.md
 !.claude/scripts/
 !.claude/settings.json
 !.claude/statusline.sh
+.agent/
