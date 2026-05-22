@@ -45,7 +45,7 @@ from pypi import Package, get_packages
 
 from flavors._loader import VERSIONS_YAML_PATH, load, load_or_default
 from flavors._releases import get_released_versions
-from flavors._schema import DEV_NUMERIC, DEV_VERSION, FlavorConfig, PackageInfo, Version
+from flavors._schema import DEV_NUMERIC, DEV_VERSION, FlavorConfig, TestConfig, Version
 
 T = TypeVar("T")
 
@@ -389,44 +389,33 @@ def _get_test_files_from_pytest_command(cmd, test_dir):
     return executed_files - ignore_files
 
 
-def validate_requirements(
-    requirements: dict[str, list[str]],
-    name: str,
-    category: str,
-    package_info: PackageInfo,
-    versions: list[Version],
-) -> None:
+def compute_matrix_versions(
+    flavor: str, cfg: TestConfig, all_versions: list[Version]
+) -> list[Version]:
     """
-    Validate that the requirements specified in the config don't contain unused items.
-    Here's an example of invalid requirements:
-
-    ```
-    sklearn:
-        package_info:
-            pip_release: "scikit-learn"
-        autologging:
-            minimum: "1.3.0"
-            maximum: "1.5.0"
-            requirements:
-                "< 1.0.0": ["numpy<2.0"]    # Unused
-                ">= 1.4.0": ["numpy>=2.0"]  # Used
-    ```
+    Apply the same filter chain `expand_config` uses to derive the version list
+    a flavor/category's matrix items run against.
     """
-    for specifier in requirements:
-        if "dev" in specifier and package_info.install_dev:
-            continue
+    versions = filter_versions(
+        flavor,
+        all_versions,
+        cfg.minimum,
+        cfg.maximum,
+        cfg.unsupported or [],
+        allow_unreleased_max_version=cfg.allow_unreleased_max_version or False,
+    )
+    versions = get_latest_micro_versions(versions)
 
-        # Does this version specifier (e.g. '< 1.0.0') match at least one version?
-        # If not, raise an error.
-        spec_set = SpecifierSet(specifier)
-        if not any(map(spec_set.contains, versions)):
-            raise ValueError(
-                f"Found unused requirements {specifier!r} for {name} / {category}. "
-                "Please remove it or adjust the version specifier."
-            )
+    if cfg.test_every_n_versions > 1:
+        versions = sorted(versions)[:: -cfg.test_every_n_versions][::-1]
+
+    if cfg.minimum not in versions and cfg.minimum in all_versions:
+        versions.append(cfg.minimum)
+
+    return versions
 
 
-async def expand_config(config: dict[str, Any], *, is_ref: bool = False) -> set[MatrixItem]:
+async def expand_config(config: dict[str, Any]) -> set[MatrixItem]:
     matrix = set()
     pip_releases = list({fc.package_info.pip_release for fc in config.values()})
     packages = dict(zip(pip_releases, await get_packages(pip_releases)))
@@ -442,26 +431,7 @@ async def expand_config(config: dict[str, Any], *, is_ref: bool = False) -> set[
         )
         validate_test_coverage(name, flavor_config)
         for category, cfg in flavor_config.categories:
-            versions = filter_versions(
-                flavor,
-                all_versions,
-                cfg.minimum,
-                cfg.maximum,
-                cfg.unsupported or [],
-                allow_unreleased_max_version=cfg.allow_unreleased_max_version or False,
-            )
-            versions = get_latest_micro_versions(versions)
-
-            # Test every n minor versions if specified
-            if cfg.test_every_n_versions > 1:
-                versions = sorted(versions)[:: -cfg.test_every_n_versions][::-1]
-
-            # Always test the minimum version
-            if cfg.minimum not in versions and cfg.minimum in all_versions:
-                versions.append(cfg.minimum)
-
-            if not is_ref and cfg.requirements:
-                validate_requirements(cfg.requirements, name, category, package_info, versions)
+            versions = compute_matrix_versions(flavor, cfg, all_versions)
 
             for ver in versions:
                 requirements = [f"{package_info.pip_release}=={ver}"]
@@ -575,7 +545,7 @@ async def _generate(args: argparse.Namespace) -> set[MatrixItem]:
 
         if args.ref_versions_yaml:
             ref_config = load_or_default(args.ref_versions_yaml, default={})
-            ref_matrix = await expand_config(ref_config, is_ref=True)
+            ref_matrix = await expand_config(ref_config)
             matrix.update(mat.difference(ref_matrix))
 
         if args.changed_files:

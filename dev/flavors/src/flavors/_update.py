@@ -26,6 +26,7 @@ import yaml
 from packaging.version import Version as PkgVersion
 from pypi import Package, get_packages
 
+from flavors._prune import prune_unused_requirements
 from flavors._releases import RELEASE_CUTOFF_DAYS
 
 PYPI_URL = os.environ.get("PYPI_URL", "https://pypi.org").rstrip("/")
@@ -307,6 +308,7 @@ def update(skip_yml=False):
                 )
 
         save_file(new_src, yml_path)
+        asyncio.run(prune_unused_requirements(yml_path))
 
     update_ml_package_versions_py(yml_path)
 
