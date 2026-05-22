@@ -332,6 +332,35 @@ mlflow_uc_python_artifact_code <- function() {
   ), collapse = "\n")
 }
 
+mlflow_uc_python_process_uri <- function(uri, default) {
+  if (is.null(uri)) return(default)
+  scheme <- uri$scheme %||% NA_character_
+  path <- uri$path %||% NA_character_
+  if (!is.na(scheme) && scheme %in% c("databricks", "databricks-uc") &&
+      (is.na(path) || !nchar(path))) {
+    return(scheme)
+  }
+  uri$raw_uri %||% default
+}
+
+mlflow_uc_python_process_env <- function(client) {
+  env <- if (is.null(client)) list() else client$get_cli_env()
+  tracking_uri <- if (is.null(client)) {
+    mlflow_get_tracking_uri()
+  } else {
+    mlflow_uc_python_process_uri(client$tracking_uri, mlflow_get_tracking_uri())
+  }
+  registry_uri <- if (is.null(client)) {
+    mlflow_get_registry_uri()
+  } else {
+    mlflow_uc_python_process_uri(client$registry_uri, mlflow_get_registry_uri())
+  }
+  modifyList(list(
+    MLFLOW_TRACKING_URI = tracking_uri,
+    MLFLOW_REGISTRY_URI = registry_uri
+  ), env)
+}
+
 mlflow_uc_run_python_artifact_bridge <- function(payload, client) {
   payload_file <- tempfile(fileext = ".json")
   output_file <- tempfile(fileext = ".json")
@@ -340,7 +369,7 @@ mlflow_uc_run_python_artifact_bridge <- function(payload, client) {
   jsonlite::write_json(payload, payload_file, auto_unbox = TRUE, null = "null")
 
   tryCatch({
-    withr::with_envvar(mlflow_cli_env(client), {
+    withr::with_envvar(mlflow_uc_python_process_env(client), {
       processx::run(
         python_bin(),
         c("-c", mlflow_uc_python_artifact_code(), payload_file, output_file),

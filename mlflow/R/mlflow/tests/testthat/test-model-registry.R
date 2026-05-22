@@ -937,6 +937,24 @@ test_that("UC SDK models artifact repository capability is read from registry en
     })
 })
 
+test_that("UC Python bridge receives Databricks auth and registry URI env", {
+  mock_client <- new_mlflow_client_impl(
+    get_host_creds = function() new_mlflow_host_creds(host = "https://example.com", token = "x"),
+    get_cli_env = function() list(
+      DATABRICKS_HOST = "https://example.com",
+      DATABRICKS_TOKEN = "x"
+    )
+  )
+  mock_client$tracking_uri <- list(raw_uri = "databricks://", scheme = "databricks", path = NA)
+  mock_client$registry_uri <- list(raw_uri = "databricks-uc://", scheme = "databricks-uc", path = NA)
+
+  env <- mlflow_uc_python_process_env(mock_client)
+  expect_equal(env$DATABRICKS_HOST, "https://example.com")
+  expect_equal(env$DATABRICKS_TOKEN, "x")
+  expect_equal(env$MLFLOW_TRACKING_URI, "databricks")
+  expect_equal(env$MLFLOW_REGISTRY_URI, "databricks-uc")
+})
+
 test_that("UC unsupported temporary credentials fail before finalization", {
   model_dir <- tempfile("uc-unsupported-credentials-")
   dir.create(model_dir, recursive = TRUE, showWarnings = FALSE)
