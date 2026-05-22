@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779384534380,
+  "lastUpdate": 1779418894396,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -4859,6 +4859,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 11.165163399999756,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "31463517+B-Step62@users.noreply.github.com",
+            "name": "Yuki Watanabe",
+            "username": "B-Step62"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1c491e70c19e1d7668b19419d8c9754a9632f4e3",
+          "message": "[Security] Remove dead cloudpickle.load fallback in job subprocess entry (#23294)\n\nSigned-off-by: B-Step62 <yuki.watanabe@databricks.com>\nCo-authored-by: jeongbeannnn <jeongbeannnn@users.noreply.github.com>",
+          "timestamp": "2026-05-22T02:57:49Z",
+          "tree_id": "63afcd211fba0fbb983e089ebbab93526fe81780",
+          "url": "https://github.com/mlflow/mlflow/commit/1c491e70c19e1d7668b19419d8c9754a9632f4e3"
+        },
+        "date": 1779418893679,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 41.57006765000091,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 23.42881267647101,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 23.122036600001177,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 23.918751929823962,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 26.64147574999934,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 10.386014200000204,
             "unit": "ms"
           }
         ]
