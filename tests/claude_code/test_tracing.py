@@ -286,8 +286,8 @@ def test_process_transcript_falls_back_to_snapshot_when_get_trace_fails(
 ):
     """Simulates the eventual-consistency scenario where the trace is created and
     exported, but the post-export get_trace round-trip returns None. The caller
-    must still receive a non-None Trace so that stop-hook callers don't
-    mis-report a successful creation as a failure.
+    must still receive a non-None Trace so that stop-hook callers don't treat
+    a successful creation as a failure.
     """
     monkeypatch.setattr(tracing_module.mlflow, "get_trace", lambda *args, **kwargs: None)
 
