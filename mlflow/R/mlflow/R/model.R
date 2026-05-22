@@ -14,131 +14,84 @@ mlflow_save_model <- function(model, path, model_spec = list(), ...) {
   UseMethod("mlflow_save_model")
 }
 
-mlflow_signature_supported_types <- c(
-  "boolean", "integer", "long", "float", "double", "string", "binary", "datetime",
-  "array", "object", "map", "any", "sparkml_vector"
-)
+# R only expands convenience shorthand before writing `MLmodel`. MLflow schema
+# validation is left to Python MLflow when the model metadata is parsed or used.
+mlflow_signature_format_type_spec <- function(type_spec) {
+  # Strings are the R shorthand for a field type, e.g. "double".
+  if (is.character(type_spec) && length(type_spec) == 1 && !is.na(type_spec) && nzchar(type_spec)) {
+    type_spec <- list(type = as.character(type_spec))
+  }
 
-mlflow_signature_scalar_string <- function(value) {
-  is.character(value) && length(value) == 1 && !is.na(value) && nzchar(value)
+  if (!is.list(type_spec)) {
+    return(type_spec)
+  }
+
+  if (!is.null(type_spec$items)) {
+    type_spec$items <- mlflow_signature_format_type_spec(type_spec$items)
+  }
+  if (!is.null(type_spec$properties) && is.list(type_spec$properties)) {
+    type_spec$properties <- lapply(type_spec$properties, mlflow_signature_format_type_spec)
+  }
+  if (!is.null(type_spec$values)) {
+    type_spec$values <- mlflow_signature_format_type_spec(type_spec$values)
+  }
+
+  type_spec
 }
 
-mlflow_normalize_signature_node <- function(node, path, default_required = FALSE) {
-  if (mlflow_signature_scalar_string(node)) {
-    node <- list(type = as.character(node))
+mlflow_signature_format_named_field <- function(type_spec, name) {
+  type_spec <- mlflow_signature_format_type_spec(type_spec)
+  if (is.list(type_spec) && !is.null(names(type_spec))) {
+    c(list(name = as.character(name)), type_spec[setdiff(names(type_spec), "name")])
+  } else {
+    list(name = as.character(name), type = type_spec)
   }
-
-  if (is.data.frame(node) || !is.list(node)) {
-    stop(
-      sprintf("Signature field `%s` must be a scalar type string or a list with `type`.", path),
-      call. = FALSE
-    )
-  }
-
-  if (!mlflow_signature_scalar_string(node$type)) {
-    stop(sprintf("Signature field `%s` must include a scalar `type`.", path), call. = FALSE)
-  }
-
-  node$type <- as.character(node$type)
-  if (!node$type %in% mlflow_signature_supported_types) {
-    stop(sprintf("Unsupported signature type `%s` in `%s`.", node$type, path), call. = FALSE)
-  }
-
-  if (!is.null(node$required)) {
-    valid_required <- is.logical(node$required) &&
-      length(node$required) == 1 &&
-      !is.na(node$required)
-    if (!valid_required) {
-      stop(sprintf("Signature field `%s` has invalid `required` value.", path), call. = FALSE)
-    }
-  } else if (default_required) {
-    node$required <- TRUE
-  }
-
-  if (identical(node$type, "array")) {
-    if (is.null(node$items)) {
-      stop(sprintf("Signature array `%s` must include `items`.", path), call. = FALSE)
-    }
-    node$items <- mlflow_normalize_signature_node(node$items, paste0(path, ".items"))
-  } else if (identical(node$type, "object")) {
-    node$properties <- mlflow_normalize_signature_properties(node$properties, path)
-  } else if (identical(node$type, "map")) {
-    if (is.null(node$values)) {
-      stop(sprintf("Signature map `%s` must include `values`.", path), call. = FALSE)
-    }
-    node$values <- mlflow_normalize_signature_node(node$values, paste0(path, ".values"))
-  }
-
-  node
 }
 
-mlflow_normalize_signature_properties <- function(properties, path) {
+mlflow_signature_schema_as_json <- function(schema, schema_name) {
+  if (is.null(schema)) return(NULL)
+  schema_names <- names(schema)
+  # Allow compact R shorthand: c(feature = "double").
   if (
-    is.null(properties) || is.data.frame(properties) || !is.list(properties) ||
-      length(properties) == 0 || is.null(names(properties)) || any(!nzchar(names(properties)))
+    is.character(schema) && length(schema) > 0 &&
+      !is.null(schema_names) && !anyNA(schema_names) && all(nzchar(schema_names))
   ) {
-    stop(sprintf("Signature object `%s` must include named `properties`.", path), call. = FALSE)
+    schema <- unname(purrr::imap(as.list(schema), mlflow_signature_format_named_field))
+    return(jsonlite::toJSON(schema, auto_unbox = TRUE))
+  }
+  if (!is.list(schema) || length(schema) == 0) {
+    stop(sprintf("`signature$%s` must be a non-empty list.", schema_name), call. = FALSE)
   }
 
-  purrr::imap(properties, function(property, name) {
-    mlflow_normalize_signature_node(
-      property,
-      paste0(path, ".properties.", name),
-      default_required = TRUE
-    )
-  })
-}
-
-mlflow_normalize_signature_field <- function(field, name, field_set) {
-  field <- mlflow_normalize_signature_node(
-    field,
-    paste0(field_set, ".", name),
-    default_required = TRUE
-  )
-  c(list(name = as.character(name)), field[setdiff(names(field), "name")])
-}
-
-mlflow_normalize_signature_fields <- function(fields, field_set) {
-  if (is.null(fields)) return(NULL)
-  if (is.data.frame(fields)) {
-    stop(
-      sprintf("Signature `%s` must be a named list, not a data.frame.", field_set),
-      call. = FALSE
-    )
+  # A single anonymous type spec is one schema field.
+  if (!is.null(schema$type)) {
+    schema <- list(mlflow_signature_format_type_spec(schema))
+  } else if (is.null(schema_names) || anyNA(schema_names) || any(!nzchar(schema_names))) {
+    # Unnamed lists are treated as already being a list of MLflow field specs.
+    schema <- lapply(schema, mlflow_signature_format_type_spec)
+  } else {
+    schema <- unname(purrr::imap(schema, mlflow_signature_format_named_field))
   }
-  if (
-    !is.list(fields) || length(fields) == 0 ||
-      is.null(names(fields)) || any(!nzchar(names(fields)))
-  ) {
-    stop(
-      sprintf("Signature `%s` must be a named list, e.g. list(feature = \"double\").", field_set),
-      call. = FALSE
-    )
-  }
-  unname(purrr::imap(fields, ~ mlflow_normalize_signature_field(.x, .y, field_set)))
+
+  jsonlite::toJSON(schema, auto_unbox = TRUE)
 }
 
-mlflow_normalize_signature <- function(signature) {
+mlflow_signature_for_model_spec <- function(signature) {
   if (is.null(signature)) return(NULL)
-  if (is.data.frame(signature)) {
-    stop("`signature` must be a named list, not a data.frame.", call. = FALSE)
-  }
+
   if (!is.list(signature)) {
-    stop("`signature` must be a list with `inputs` and `outputs`.", call. = FALSE)
+    stop("`signature` must be a list with `inputs` and/or `outputs`.", call. = FALSE)
   }
-  inputs <- mlflow_normalize_signature_fields(signature$inputs, "inputs")
-  outputs <- mlflow_normalize_signature_fields(signature$outputs, "outputs")
-  if (is.null(inputs) && is.null(outputs)) {
-    stop("`signature` must include `inputs` or `outputs`.", call. = FALSE)
+  if (is.null(signature$inputs) && is.null(signature$outputs)) {
+    stop("`signature` must include `inputs` and/or `outputs`.", call. = FALSE)
   }
-  normalized <- list(inputs = NULL, outputs = NULL)
-  if (!is.null(inputs)) {
-    normalized$inputs <- jsonlite::toJSON(inputs, auto_unbox = TRUE)
+  if (!is.null(signature$inputs)) {
+    signature$inputs <- mlflow_signature_schema_as_json(signature$inputs, "inputs")
   }
-  if (!is.null(outputs)) {
-    normalized$outputs <- jsonlite::toJSON(outputs, auto_unbox = TRUE)
+  if (!is.null(signature$outputs)) {
+    signature$outputs <- mlflow_signature_schema_as_json(signature$outputs, "outputs")
   }
-  normalized
+  purrr::compact(signature)
 }
 
 #' Log Model
@@ -158,7 +111,7 @@ mlflow_normalize_signature <- function(signature) {
 #' @export
 mlflow_log_model <- function(model, artifact_path, signature = NULL, ...) {
   temp_path <- fs::path_temp(artifact_path)
-  signature <- mlflow_normalize_signature(signature)
+  signature <- mlflow_signature_for_model_spec(signature)
   model_spec <- list(
     utc_time_created = mlflow_timestamp(),
     run_id = mlflow_get_active_run_id_or_start_run(),

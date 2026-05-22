@@ -40,10 +40,10 @@ mlflow_python_create_model_version <- function(payload, client) {
 
   lines <- strsplit(response$stdout, "\n", fixed = TRUE)[[1]]
   lines <- lines[nzchar(lines)]
-  version <- tail(lines, 1)
-  if (length(version) == 0 || !nchar(version)) {
+  if (length(lines) == 0) {
     stop("Python MLflow did not return a Unity Catalog model version.", call. = FALSE)
   }
+  version <- lines[[length(lines)]]
   version
 }
 

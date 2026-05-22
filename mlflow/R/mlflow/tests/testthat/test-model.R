@@ -161,23 +161,22 @@ test_that("mlflow_log_model supports signature parameter", {
       outputs <- jsonlite::fromJSON(spec$signature$outputs, simplifyDataFrame = FALSE)
       expect_equal(inputs[[1]]$name, "x")
       expect_equal(inputs[[1]]$type, "double")
-      expect_true(inputs[[1]]$required)
       expect_equal(outputs[[1]]$name, "y")
       expect_equal(outputs[[1]]$type, "double")
-      expect_true(outputs[[1]]$required)
     })
   expect_type(logged_model_spec$signature$inputs, "character")
   expect_type(logged_model_spec$signature$outputs, "character")
 })
 
-test_that("signature normalization validates nested schema shapes", {
+test_that("signature formatting expands recursive type shorthand", {
   signature <- list(
     inputs = list(
       payload = list(
         type = "object",
         properties = list(
           score = "double",
-          tags = list(type = "array", items = "string")
+          tags = list(type = "array", items = "string"),
+          metadata = list(type = "map", values = list(type = "array", items = "string"))
         )
       )
     ),
@@ -186,16 +185,18 @@ test_that("signature normalization validates nested schema shapes", {
     )
   )
 
-  normalized <- mlflow_normalize_signature(signature)
-  inputs <- jsonlite::fromJSON(normalized$inputs, simplifyDataFrame = FALSE)
-  outputs <- jsonlite::fromJSON(normalized$outputs, simplifyDataFrame = FALSE)
+  formatted <- mlflow_signature_for_model_spec(signature)
+  inputs <- jsonlite::fromJSON(formatted$inputs, simplifyDataFrame = FALSE)
+  outputs <- jsonlite::fromJSON(formatted$outputs, simplifyDataFrame = FALSE)
 
   expect_equal(inputs[[1]]$name, "payload")
   expect_equal(inputs[[1]]$type, "object")
   expect_equal(inputs[[1]]$properties$score$type, "double")
-  expect_true(inputs[[1]]$properties$score$required)
   expect_equal(inputs[[1]]$properties$tags$type, "array")
   expect_equal(inputs[[1]]$properties$tags$items$type, "string")
+  expect_equal(inputs[[1]]$properties$metadata$type, "map")
+  expect_equal(inputs[[1]]$properties$metadata$values$type, "array")
+  expect_equal(inputs[[1]]$properties$metadata$values$items$type, "string")
 
   expect_equal(outputs[[1]]$name, "prediction")
   expect_equal(outputs[[1]]$type, "map")
@@ -203,58 +204,71 @@ test_that("signature normalization validates nested schema shapes", {
   expect_false(outputs[[1]]$required)
 })
 
-test_that("signature normalization rejects invalid nested schema shapes", {
+test_that("signature formatting does not validate MLflow schema semantics", {
+  formatted <- mlflow_signature_for_model_spec(list(
+    inputs = list(
+      x = list(type = "unknown"),
+      y = list(type = "array")
+    )
+  ))
+  inputs <- jsonlite::fromJSON(formatted$inputs, simplifyDataFrame = FALSE)
+
+  expect_equal(inputs[[1]]$name, "x")
+  expect_equal(inputs[[1]]$type, "unknown")
+  expect_equal(inputs[[2]]$name, "y")
+  expect_equal(inputs[[2]]$type, "array")
+  expect_null(inputs[[2]]$items)
+})
+
+test_that("signature formatting accepts list-shaped MLflow schema", {
+  schema <- list(list(name = "x", type = "double"))
+
+  formatted <- mlflow_signature_for_model_spec(list(inputs = schema))
+  inputs <- jsonlite::fromJSON(formatted$inputs, simplifyDataFrame = FALSE)
+
+  expect_equal(inputs[[1]]$name, "x")
+  expect_equal(inputs[[1]]$type, "double")
+})
+
+test_that("signature formatting accepts named type vectors", {
+  formatted <- mlflow_signature_for_model_spec(list(inputs = c(x = "double")))
+  inputs <- jsonlite::fromJSON(formatted$inputs, simplifyDataFrame = FALSE)
+
+  expect_equal(inputs[[1]]$name, "x")
+  expect_equal(inputs[[1]]$type, "double")
+})
+
+test_that("signature formatting requires top-level list", {
   expect_error(
-    mlflow_normalize_signature(list(inputs = list(x = list(type = "unknown")))),
-    "Unsupported signature type `unknown`",
-    fixed = TRUE
-  )
-  expect_error(
-    mlflow_normalize_signature(list(inputs = list(x = list(type = "array")))),
-    "must include `items`",
-    fixed = TRUE
-  )
-  expect_error(
-    mlflow_normalize_signature(list(inputs = list(x = list(type = "object", properties = list())))),
-    "must include named `properties`",
-    fixed = TRUE
-  )
-  expect_error(
-    mlflow_normalize_signature(list(inputs = list(x = list(type = "double", required = "yes")))),
-    "invalid `required` value",
+    mlflow_signature_for_model_spec("double"),
+    "`signature` must be a list",
     fixed = TRUE
   )
 })
 
-test_that("mlflow_log_model rejects data.frame signature fields", {
-  lm_model <- lm(Sepal.Width ~ Sepal.Length, iris)
-  model <- crate(~ stats::predict(lm_model, .x), lm_model = lm_model)
-
+test_that("signature formatting requires inputs or outputs", {
   expect_error(
-    mlflow_log_model(
-      model,
-      "signed_model",
-      signature = data.frame(inputs = "x", outputs = "y")
-    ),
-    "`signature` must be a named list, not a data.frame",
+    mlflow_signature_for_model_spec(list()),
+    "`signature` must include `inputs` and/or `outputs`",
     fixed = TRUE
   )
 
-  expect_error(
-    mlflow_log_model(
-      model,
-      "signed_model",
-      signature = list(
-        inputs = data.frame(name = "x", type = "double"),
-        outputs = list(y = "double")
-      )
-    ),
-    "must be a named list, not a data.frame"
+  expect_equal(
+    names(mlflow_signature_for_model_spec(list(inputs = list(x = "double")))),
+    "inputs"
   )
-
+  expect_equal(
+    names(mlflow_signature_for_model_spec(list(outputs = list(y = "double")))),
+    "outputs"
+  )
   expect_error(
-    mlflow_log_model(model, "signed_model", signature = list()),
-    "`signature` must include `inputs` or `outputs`",
+    mlflow_signature_for_model_spec(list(inputs = "double")),
+    "`signature$inputs` must be a non-empty list",
+    fixed = TRUE
+  )
+  expect_error(
+    mlflow_signature_for_model_spec(list(outputs = "double")),
+    "`signature$outputs` must be a non-empty list",
     fixed = TRUE
   )
 })

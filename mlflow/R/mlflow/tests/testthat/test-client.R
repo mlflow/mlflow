@@ -171,6 +171,10 @@ test_that("registry URI defaults and setters work", {
   expect_equal(client$registry_uri$scheme, "databricks-uc")
   expect_equal(client$registry_uri$path, "PROFILE")
 
+  client <- mlflow_client("databricks")
+  expect_equal(client$tracking_uri$raw_uri, "databricks")
+  expect_equal(client$registry_uri$raw_uri, "databricks-uc")
+
   with_envvar(c(MLFLOW_REGISTRY_URI = "databricks://PROD"), {
     .globals$registry_uri <- NULL
     expect_equal(mlflow_get_registry_uri(), "databricks://PROD")
