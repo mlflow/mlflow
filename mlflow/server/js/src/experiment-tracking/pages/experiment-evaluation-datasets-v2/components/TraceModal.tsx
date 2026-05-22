@@ -9,18 +9,11 @@ export interface TraceModalProps {
   onClose: () => void;
   /** v3 (tr-…) or v4 (trace:/…) trace id to load. */
   traceId: string;
-  experimentId: string;
-  /** Universe passes the workspace's SQL warehouse here; OSS doesn't use it. */
-  selectedSqlWarehouseId?: string;
 }
 
 /**
- * Drawer wrapper around `ModelTraceExplorer` for the dataset record side panel's
- * "open trace" affordance. Mirrors `EvaluationTraceDataDrawer` from genai-traces-table —
- * same fetch pattern (`useGetTracesById([traceId])`) and the same Drawer layout.
- *
- * Universe's version uses managed-evals + an SQL warehouse. OSS just hits the v3 traces
- * endpoint directly through the shared `useGetTracesById`, ignoring `selectedSqlWarehouseId`.
+ * Drawer wrapping `ModelTraceExplorer` for the dataset record side panel's "open trace"
+ * affordance. Mirrors the pattern in `EvaluationTraceDataDrawer` from genai-traces-table.
  */
 export const TraceModal = ({ visible, onClose, traceId }: TraceModalProps) => {
   const { theme } = useDesignSystemTheme();

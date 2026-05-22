@@ -4,29 +4,21 @@ import { useState } from 'react';
 import { CreateEvaluationDatasetModal } from '../../experiment-evaluation-datasets/components/CreateEvaluationDatasetModal';
 import type { Dataset } from '../hooks/useDatasetsQueries';
 
+/**
+ * Trigger + modal for "Create dataset" on the v2 datasets list page. Wraps OSS's existing
+ * `CreateEvaluationDatasetModal` with the button surface the v2 toolbar expects. The wrapped
+ * modal owns its own success path (cache invalidation via `useCreateEvaluationDatasetMutation`),
+ * so the `onSuccess` / `refetch` props from universe call sites are accepted but unused —
+ * threading the created dataset back through to the caller is tracked as a followup.
+ */
 interface CreateDatasetButtonProps {
   experimentId: string;
-  /**
-   * Universe fires this with the newly-created dataset so callers can route into it. OSS
-   * doesn't thread the created dataset through `CreateEvaluationDatasetModal` here yet, so
-   * the callback is currently never invoked — list pages rely on the mutation hook's cache
-   * invalidation to surface the new row. Prop is kept for shape parity with universe.
-   */
   onSuccess?: (dataset: Dataset) => void;
   refetch?: () => void;
   buttonText?: React.ReactNode;
-  /** Pass-through to the underlying Button — `css` allowed. */
   buttonProps?: Record<string, unknown>;
 }
 
-/**
- * Trigger + modal for "Create dataset" on the v2 datasets list page.
- *
- * OSS-only adapter: wraps `CreateEvaluationDatasetModal` (the existing OSS modal) with the
- * button surface the v2 toolbar expects. The modal handles its own success path via
- * `useCreateEvaluationDatasetMutation`, so `onSuccess` / `refetch` callbacks are no-ops in
- * OSS — kept for prop-shape parity with universe.
- */
 export const CreateDatasetButton = ({ experimentId, buttonText, buttonProps = {} }: CreateDatasetButtonProps) => {
   const [open, setOpen] = useState(false);
   return (

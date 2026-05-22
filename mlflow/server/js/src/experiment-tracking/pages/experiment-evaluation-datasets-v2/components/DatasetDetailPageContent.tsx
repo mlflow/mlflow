@@ -101,13 +101,9 @@ export const DatasetDetailPageContent = ({ experimentId, datasetId, dataset }: D
 
   // Trace explorer modal — opened from the side panel's Source row when a record is
   // trace-sourced. Hosting it here (instead of inside the side panel) lets the modal
-  // overlay the entire page and keeps the side panel free of SQL-warehouse plumbing.
+  // overlay the entire page.
   const [isTraceModalOpen, setIsTraceModalOpen] = useState(false);
   const [selectedTraceId, setSelectedTraceId] = useState<string>('');
-  // OSS has no SQL-warehouse context provider mounted around the datasets route, so
-  // `useSqlWarehouseContext()` would throw. The TraceModal stub ignores this value anyway —
-  // wire it back when OSS adds warehouse plumbing.
-  const selectedSqlWarehouseId: string | undefined = undefined;
 
   // Side panel width persists globally (one preference across all datasets / experiments),
   // since it expresses the user's preferred layout — not anything dataset-specific. React
@@ -525,13 +521,7 @@ export const DatasetDetailPageContent = ({ experimentId, datasetId, dataset }: D
         />
       </DangerModal>
 
-      <TraceModal
-        visible={isTraceModalOpen}
-        onClose={() => setIsTraceModalOpen(false)}
-        traceId={selectedTraceId}
-        experimentId={experimentId}
-        selectedSqlWarehouseId={selectedSqlWarehouseId ?? undefined}
-      />
+      <TraceModal visible={isTraceModalOpen} onClose={() => setIsTraceModalOpen(false)} traceId={selectedTraceId} />
 
       {notificationContainer}
     </div>

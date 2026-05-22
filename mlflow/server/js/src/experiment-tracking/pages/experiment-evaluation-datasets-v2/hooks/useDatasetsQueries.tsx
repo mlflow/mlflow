@@ -13,11 +13,9 @@ import { parseJSONSafe } from '@mlflow/mlflow/src/common/utils/TagUtils';
 
 export const listDatasetRecordsQueryKey = (datasetId: string) => ['listDatasetRecords', datasetId] as const;
 const getDatasetQueryKey = (datasetId: string | undefined) => ['getDataset', datasetId] as const;
-const listDatasetsQueryKey = (experimentId: string) => ['listDatasets', experimentId] as const;
 const v2DatasetsPageQueryKey = (experimentId: string) => ['v2ListDatasetsPage', experimentId] as const;
 
 const RECORDS_PAGE_SIZE = 500;
-const DATASETS_PAGE_SIZE = 500;
 
 export interface Dataset {
   dataset_id: string;
@@ -92,11 +90,6 @@ interface OssDatasetRecord {
   outputs?: { [key: string]: any };
 }
 
-interface SearchDatasetsResponse {
-  datasets?: OssDataset[];
-  next_page_token?: string;
-}
-
 interface GetDatasetRecordsResponse {
   // JSON-stringified array of OssDatasetRecord.
   records: string;
@@ -110,19 +103,7 @@ interface UpsertDatasetRecordsResponse {
 
 const msToIso = (ms?: number): string => (typeof ms === 'number' ? new Date(ms).toISOString() : '');
 
-/**
- * Defensive dict coercion. The OSS server returns these fields as already-parsed dicts,
- * but if anything ever ships a JSON-string version (a custom store, an old build), we'd
- * rather fall back gracefully than throw.
- */
-const coerceDict = (value: { [key: string]: any } | string | undefined): { [key: string]: any } => {
-  if (value === undefined || value === null) return {};
-  if (typeof value === 'string') {
-    const parsed = parseJSONSafe(value);
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
-  }
-  return value;
-};
+const orEmpty = (value: { [key: string]: any } | undefined): { [key: string]: any } => value ?? {};
 
 const ossDatasetToUniverse = (raw: OssDataset): Dataset => ({
   dataset_id: raw.dataset_id,
@@ -168,9 +149,9 @@ const ossRecordToUniverse = (raw: OssDatasetRecord): DatasetRecord => ({
   last_updated_by: raw.last_updated_by,
   create_time: msToIso(raw.created_time),
   last_update_time: msToIso(raw.last_update_time),
-  inputs: coerceDict(raw.inputs),
-  expectations: coerceDict(raw.expectations),
-  tags: coerceDict(raw.tags) as { [key: string]: string },
+  inputs: orEmpty(raw.inputs),
+  expectations: orEmpty(raw.expectations),
+  tags: orEmpty(raw.tags) as { [key: string]: string },
   source: parseRecordSource(raw),
 });
 
@@ -220,38 +201,6 @@ export function useGetDatasetQuery(datasetId?: string, options: UseGetDatasetQue
     refetchOnWindowFocus: false,
     retry: options.retry ?? 3,
     enabled: Boolean(datasetId),
-  });
-}
-
-/**
- * Eagerly fetches every dataset for `experimentId` by walking `next_page_token` in the query
- * function. v2 also has its own paginated `useDatasetsPageQuery` for the new list page — this
- * hook is preserved only for callers that still expect the legacy flat-list semantics
- * (`useCreateDatasetMutation`'s cache write, primarily).
- */
-export function useListDatasetsQuery(experimentId: string) {
-  return useQuery({
-    queryKey: listDatasetsQueryKey(experimentId),
-    queryFn: async (): Promise<Dataset[]> => {
-      const out: Dataset[] = [];
-      let pageToken: string | undefined;
-      do {
-        const response = (await fetchAPI(getAjaxUrl('ajax-api/3.0/mlflow/datasets/search'), {
-          method: 'POST',
-          body: {
-            experiment_ids: [experimentId],
-            max_results: DATASETS_PAGE_SIZE,
-            order_by: ['created_time DESC'],
-            page_token: pageToken,
-          },
-        })) as SearchDatasetsResponse;
-        response.datasets?.forEach((d) => out.push(ossDatasetToUniverse(d)));
-        pageToken = response.next_page_token;
-      } while (pageToken);
-      return out;
-    },
-    cacheTime: 5 * 60 * 1000,
-    refetchOnWindowFocus: false,
   });
 }
 
@@ -428,41 +377,18 @@ export function useCreateDatasetRecordMutation(datasetId: string) {
   });
 }
 
-export function useCreateDatasetMutation(experimentId: string) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async ({ name, experimentIds }: { name: string; experimentIds?: string[] }): Promise<Dataset> => {
-      const response = (await fetchAPI(getAjaxUrl('ajax-api/3.0/mlflow/datasets/create'), {
-        method: 'POST',
-        body: { name, experiment_ids: experimentIds ?? [experimentId] },
-      })) as { dataset: OssDataset };
-      return ossDatasetToUniverse(response.dataset);
-    },
-    onSuccess: (newDataset) => {
-      queryClient.setQueryData<Dataset[]>(listDatasetsQueryKey(experimentId), (prev) =>
-        prev ? [newDataset, ...prev] : [newDataset],
-      );
-      queryClient.invalidateQueries({ queryKey: v2DatasetsPageQueryKey(experimentId) });
-    },
-  });
-}
-
 export function useDeleteDatasetMutation(experimentId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (datasetId: string): Promise<void> => {
       await fetchAPI(getAjaxUrl(`ajax-api/3.0/mlflow/datasets/${datasetId}`), { method: 'DELETE' });
     },
-    onSuccess: async (_data, datasetId) => {
-      // Drop the per-dataset cache entry alongside the two list keys so any open V2 detail
-      // view (or a Back-navigation landing on the deleted dataset's URL) sees a fresh 404
-      // rather than the stale metadata returned by `useGetDatasetQuery`.
+    onSuccess: (_data, datasetId) => {
+      // Drop the per-dataset cache entry so any open V2 detail view (or a Back-navigation
+      // landing on the deleted dataset's URL) sees a fresh 404 rather than the stale
+      // metadata returned by `useGetDatasetQuery`. The list page rereads via the paginated
+      // key below.
       queryClient.removeQueries({ queryKey: getDatasetQueryKey(datasetId) });
-      queryClient.setQueryData<Dataset[]>(
-        listDatasetsQueryKey(experimentId),
-        (prev) => prev?.filter((d) => d.dataset_id !== datasetId) ?? prev,
-      );
-      queryClient.invalidateQueries({ queryKey: listDatasetsQueryKey(experimentId) });
       queryClient.invalidateQueries({ queryKey: v2DatasetsPageQueryKey(experimentId) });
     },
   });
