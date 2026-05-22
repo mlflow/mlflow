@@ -2675,50 +2675,74 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             List of mlflow.entities.scorer.ScorerVersion objects
             (latest version for each scorer name) with gateway endpoint IDs resolved to names.
         """
+        # Validate the experiment, then delegate to the more general
+        # cross-experiment query. Single-experiment ``order_by`` collapses to
+        # ``scorer_name`` because every row shares the same ``experiment_id``.
+        experiment = self.get_experiment(experiment_id)
+        self._check_experiment_is_active(experiment)
+        return self.list_scorers_across_experiments([experiment.experiment_id])
+
+    # SQLite caps bound parameters at 999 by default; pick a chunk size well
+    # below that so callers (e.g. the admin scorer picker passing up to 1000
+    # experiment ids per page) don't trip ``too many SQL variables``.
+    _LIST_SCORERS_CHUNK_SIZE = 500
+
+    def list_scorers_across_experiments(self, experiment_ids: list[str]) -> list[ScorerVersion]:
+        """
+        Batched ``list_scorers``: returns the latest-version scorer for every
+        ``(experiment_id, scorer_name)`` pair across the given experiments in
+        a single query plan per chunk. Used by the RBAC admin scorer picker
+        to avoid N+1 round trips. ``experiment_id`` validation and
+        active-status checks are skipped — the caller is expected to have
+        already filtered.
+        """
+        if not experiment_ids:
+            return []
         with self.ManagedSessionMaker() as session:
-            # Validate experiment exists and is active
-            experiment = self.get_experiment(experiment_id)
-            self._check_experiment_is_active(experiment)
-
-            # First, get all scorer_ids for this experiment
-            scorer_ids = [
-                scorer.scorer_id
-                for scorer in session
-                .query(SqlScorer.scorer_id)
-                .filter(SqlScorer.experiment_id == experiment.experiment_id)
-                .all()
-            ]
-
+            scorer_ids: list[str] = []
+            for chunk_start in range(0, len(experiment_ids), self._LIST_SCORERS_CHUNK_SIZE):
+                chunk = experiment_ids[chunk_start : chunk_start + self._LIST_SCORERS_CHUNK_SIZE]
+                scorer_ids.extend(
+                    row.scorer_id
+                    for row in session
+                    .query(SqlScorer.scorer_id)
+                    .filter(SqlScorer.experiment_id.in_(chunk))
+                    .all()
+                )
             if not scorer_ids:
                 return []
-
-            # Query the latest version for each scorer_id
-            latest_versions = (
-                session
-                .query(
-                    SqlScorerVersion.scorer_id,
-                    func.max(SqlScorerVersion.scorer_version).label("max_version"),
+            # ``scorer_ids`` is also chunked for the same reason; build the
+            # latest-version subquery + final query per chunk and concat.
+            sql_scorer_versions: list[SqlScorerVersion] = []
+            for chunk_start in range(0, len(scorer_ids), self._LIST_SCORERS_CHUNK_SIZE):
+                chunk = scorer_ids[chunk_start : chunk_start + self._LIST_SCORERS_CHUNK_SIZE]
+                latest_versions = (
+                    session
+                    .query(
+                        SqlScorerVersion.scorer_id,
+                        func.max(SqlScorerVersion.scorer_version).label("max_version"),
+                    )
+                    .filter(SqlScorerVersion.scorer_id.in_(chunk))
+                    .group_by(SqlScorerVersion.scorer_id)
+                    .subquery()
                 )
-                .filter(SqlScorerVersion.scorer_id.in_(scorer_ids))
-                .group_by(SqlScorerVersion.scorer_id)
-                .subquery()
-            )
-
-            # Query the actual scorer version records with the latest versions
-            sql_scorer_versions = (
-                session
-                .query(SqlScorerVersion)
-                .join(
-                    latest_versions,
-                    (SqlScorerVersion.scorer_id == latest_versions.c.scorer_id)
-                    & (SqlScorerVersion.scorer_version == latest_versions.c.max_version),
+                sql_scorer_versions.extend(
+                    session
+                    .query(SqlScorerVersion)
+                    .join(
+                        latest_versions,
+                        (SqlScorerVersion.scorer_id == latest_versions.c.scorer_id)
+                        & (SqlScorerVersion.scorer_version == latest_versions.c.max_version),
+                    )
+                    .join(SqlScorer, SqlScorerVersion.scorer_id == SqlScorer.scorer_id)
+                    .order_by(SqlScorer.experiment_id, SqlScorer.scorer_name)
+                    .all()
                 )
-                .join(SqlScorer, SqlScorerVersion.scorer_id == SqlScorer.scorer_id)
-                .order_by(SqlScorer.scorer_name)
-                .all()
+            # Per-chunk order_by isn't globally stable across chunks, so
+            # restore deterministic (experiment_id, scorer_name) ordering.
+            sql_scorer_versions.sort(
+                key=lambda sv: (sv.scorer.experiment_id, sv.scorer.scorer_name)
             )
-
-            # Batch resolve gateway endpoint IDs to names
             resolved_scorers = self._batch_resolve_endpoint_in_serialized_scorers([
                 sv.serialized_scorer for sv in sql_scorer_versions
             ])
