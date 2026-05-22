@@ -3,10 +3,9 @@ from pathlib import Path
 from unittest import mock
 
 import pytest
+from flavors import _update
+from flavors._update import VersionInfo
 from pypi import Package
-
-from dev import update_ml_package_versions
-from dev.update_ml_package_versions import VersionInfo
 
 
 def _iso8601(dt: datetime) -> str:
@@ -50,10 +49,10 @@ def run_test(src, src_expected, mock_packages):
     versions_yaml.write_text(src)
 
     with (
-        mock.patch("dev.update_ml_package_versions.get_packages", new=fake_get_packages),
-        mock.patch("dev.update_ml_package_versions.check_pypi_accessibility") as mock_check,
+        mock.patch("flavors._update.get_packages", new=fake_get_packages),
+        mock.patch("flavors._update.check_pypi_accessibility") as mock_check,
     ):
-        update_ml_package_versions.update()
+        _update.update()
         mock_check.assert_called_once()
 
     assert versions_yaml.read_text() == src_expected
