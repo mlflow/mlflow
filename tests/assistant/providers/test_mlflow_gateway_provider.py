@@ -31,7 +31,11 @@ def test_list_models_is_not_implemented():
         _gateway_provider().list_models()
 
 
-def test_check_connection_no_ops_without_backend_listing():
+def test_check_connection_raises_when_no_backend_probe():
     # The provider has no backend listing strategy, so check_connection
-    # cannot probe and must succeed without raising.
-    _gateway_provider().check_connection()
+    # must surface that explicitly rather than silently returning OK —
+    # otherwise the health endpoint would claim a successful probe that
+    # never ran. The frontend talks to the gateway endpoints API directly
+    # for verification.
+    with pytest.raises(NotImplementedError, match="verified by the frontend"):
+        _gateway_provider().check_connection()

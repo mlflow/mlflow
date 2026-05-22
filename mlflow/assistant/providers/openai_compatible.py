@@ -32,10 +32,9 @@ _logger = logging.getLogger(__name__)
 
 # OpenAI-compatible servers have no server-side session state, so we encode
 # the full message history as JSON in the session_id field. 500 KB stays
-# well below typical LLM context windows (gpt-5.4-mini handles ~200K tokens
-# / roughly 800 KB of UTF-8 text) and gives tool-heavy multi-turn
-# conversations enough headroom to avoid frequent trimming. Older turns are
-# dropped first; the system message at index 0 is always kept.
+# well below typical LLM context windows and gives tool-heavy multi-turn
+# conversations enough headroom to avoid frequent trimming. Older turns
+# are dropped first; the system message at index 0 is always kept.
 _MAX_SESSION_BYTES = 500 * 1024
 _JSON_LIST_OVERHEAD_BYTES = 2
 _JSON_LIST_SEPARATOR_BYTES = 2
@@ -93,26 +92,59 @@ def _trim_session(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
             # gateway return a clear "context too long" error.
             break
         del messages[1:end]
+    if _total_session_bytes(messages) > _MAX_SESSION_BYTES:
+        _logger.warning(
+            "Session payload still exceeds %d bytes after trimming; the active "
+            "turn is too large to drop. The gateway will likely return a "
+            "context-length error.",
+            _MAX_SESSION_BYTES,
+        )
     return messages
+
+
+def _trailing_partial_tag_len(buf: str, tag: str) -> int:
+    """Length of the longest suffix of `buf` that is a non-empty prefix of `tag`.
+
+    Used to hold back partial `<think>` / `</think>` markers that may be
+    completed by the next streamed chunk. Example: if `buf` ends with
+    "foo<thi" and `tag` is "<think>", this returns 4 (the "<thi" tail).
+    """
+    max_n = min(len(buf), len(tag) - 1)
+    for n in range(max_n, 0, -1):
+        if tag.startswith(buf[-n:]):
+            return n
+    return 0
 
 
 def _strip_think_blocks(buf: str, in_think: bool) -> tuple[str, str, bool]:
     """Strip <think>...</think> spans that some reasoning models emit inline.
 
     Returns (emit_text, remaining_buf, new_in_think_flag). The remaining_buf
-    holds a partial open/close tag that should be re-fed next chunk.
+    holds a partial open/close tag that should be re-fed next chunk so that
+    a tag split across SSE frames (e.g. "foo<thi" then "nk>secret</think>")
+    doesn't leak <think> markup to the user.
     """
     emit = ""
     while buf:
         if in_think:
             end = buf.find("</think>")
             if end == -1:
-                return emit, "", in_think
+                # Don't emit anything while inside a think span. Hold a
+                # potential partial closing tag at the tail so the next
+                # chunk can complete it.
+                hold = _trailing_partial_tag_len(buf, "</think>")
+                return emit, buf[-hold:] if hold else "", in_think
             buf = buf[end + len("</think>") :]
             in_think = False
         else:
             start = buf.find("<think>")
             if start == -1:
+                # No opening tag visible. Hold a potential partial opening
+                # tag at the tail; emit everything before it.
+                hold = _trailing_partial_tag_len(buf, "<think>")
+                if hold:
+                    emit += buf[:-hold]
+                    return emit, buf[-hold:], in_think
                 emit += buf
                 return emit, "", in_think
             emit += buf[:start]
@@ -206,8 +238,14 @@ class OpenAICompatibleProvider(AssistantProvider):
     def check_connection(self, echo: Callable[[str], None] | None = None) -> None:
         if self._list_models_fn is None:
             # Presets without a backend listing strategy (e.g. the in-server
-            # MLflow Gateway) have their connection verified by the frontend.
-            return
+            # MLflow Gateway) cannot be probed from the assistant backend —
+            # the frontend talks directly to the gateway endpoints API for
+            # verification. Surface this clearly so the health endpoint
+            # doesn't claim a successful probe it did not perform.
+            raise NotImplementedError(
+                f"{self._display_name} connection is verified by the frontend; "
+                "the assistant backend has no probe to run."
+            )
         base_url = self._resolve_base_url()
         if not base_url:
             raise NotAuthenticatedError(
@@ -316,7 +354,11 @@ class OpenAICompatibleProvider(AssistantProvider):
         try:
             async with aiohttp.ClientSession() as session:
                 while True:
-                    accumulated_text = ""
+                    # `visible_text` accumulates the post-<think>-strip text
+                    # that gets persisted into `messages`. Storing the raw
+                    # pre-strip stream would re-feed the model's own
+                    # reasoning back to it on the next turn.
+                    visible_text = ""
                     tool_calls_acc: list[dict[str, Any]] = []
                     in_think = False
                     think_buf = ""
@@ -364,10 +406,10 @@ class OpenAICompatibleProvider(AssistantProvider):
                             delta = choices[0].get("delta") or {}
 
                             if text := delta.get("content") or "":
-                                accumulated_text += text
                                 think_buf += text
                                 emit, think_buf, in_think = _strip_think_blocks(think_buf, in_think)
                                 if emit:
+                                    visible_text += emit
                                     yield Event.from_stream_event({
                                         "type": "content_delta",
                                         "delta": {"text": emit},
@@ -378,8 +420,8 @@ class OpenAICompatibleProvider(AssistantProvider):
                                     _merge_tool_call_chunk(tool_calls_acc, tc)
 
                     if not tool_calls_acc:
-                        if accumulated_text:
-                            messages.append({"role": "assistant", "content": accumulated_text})
+                        if visible_text:
+                            messages.append({"role": "assistant", "content": visible_text})
                         break
 
                     # Normalize accumulated tool calls into the OpenAI assistant
@@ -397,7 +439,7 @@ class OpenAICompatibleProvider(AssistantProvider):
                     ]
                     messages.append({
                         "role": "assistant",
-                        "content": accumulated_text,
+                        "content": visible_text,
                         "tool_calls": assistant_tool_calls,
                     })
 

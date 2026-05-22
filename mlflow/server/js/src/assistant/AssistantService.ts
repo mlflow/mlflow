@@ -235,14 +235,16 @@ export const sendMessageStream = async (
 };
 
 export const listProviderModels = async (provider: string, baseUrl: string, apiKey?: string): Promise<string[]> => {
+  // api_key is sent as an X-API-Key header (not a query param) so the
+  // bearer token doesn't end up in access logs, browser history, or
+  // referer headers.
   const params = new URLSearchParams({ base_url: baseUrl });
-  if (apiKey) {
-    params.set('api_key', apiKey);
-  }
   const url = `${API_BASE}/providers/${encodeURIComponent(provider)}/models?${params.toString()}`;
-  const response = await fetch(url, {
-    headers: { ...getDefaultHeaders(document.cookie) },
-  });
+  const headers: Record<string, string> = { ...getDefaultHeaders(document.cookie) };
+  if (apiKey) {
+    headers['X-API-Key'] = apiKey;
+  }
+  const response = await fetch(url, { headers });
   if (!response.ok) {
     const data = await response.json();
     throw new Error(data.detail || `Failed to list models for provider '${provider}': ${response.statusText}`);

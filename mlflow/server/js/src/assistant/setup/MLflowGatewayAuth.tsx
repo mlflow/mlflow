@@ -14,13 +14,9 @@ import { useEndpointsQuery } from '../../gateway/hooks/useEndpointsQuery';
 import { GatewayRoutePaths } from '../../gateway/routes';
 import { updateConfig } from '../AssistantService';
 import { useAssistantConfigQuery } from '../hooks/useAssistantConfigQuery';
-import type { AuthState } from '../types';
-
 const PROVIDER_ID = 'mlflow_gateway';
 
 interface MLflowGatewayAuthProps {
-  cachedAuthStatus?: AuthState;
-  onAuthStatusChange: (status: AuthState) => void;
   onBack: () => void;
   onContinue: () => void;
 }
@@ -28,6 +24,11 @@ interface MLflowGatewayAuthProps {
 export const MLflowGatewayAuth = ({ onBack, onContinue }: MLflowGatewayAuthProps) => {
   const { theme } = useDesignSystemTheme();
   const { config } = useAssistantConfigQuery();
+  // TODO: filter to chat-capable endpoints once the gateway schema exposes a
+  // task / endpoint_type field. Today the gateway is model-based and does
+  // not surface task type, so non-chat endpoints can be selected and will
+  // 4xx at chat-time. EndpointSelector renders the model name so users
+  // have *some* signal, but it's not a substitute for type-aware filtering.
   const { data: endpoints, isLoading, error, refetch } = useEndpointsQuery();
   const [selectedEndpoint, setSelectedEndpoint] = useState<string>('');
 

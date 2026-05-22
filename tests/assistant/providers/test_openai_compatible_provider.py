@@ -129,6 +129,18 @@ def config_file(tmp_path):
         ("<think>partial", False, "", "", True),
         ("rest of thought</think>after", True, "after", "", False),
         ("plain", True, "", "", True),
+        # Partial-tag-at-tail: a chunk ending with a prefix of "<think>"
+        # must not leak that prefix to the user — it must be held back as
+        # the remainder so the next chunk can complete the tag.
+        ("foo<thi", False, "foo", "<thi", False),
+        ("foo<", False, "foo", "<", False),
+        # Same for the closing tag while inside a think span.
+        ("secret</thi", True, "", "</thi", True),
+        ("secret<", True, "", "<", True),
+        # Plain "<" at the end with no following partial isn't a hold case
+        # outside a think span — but the prefix-match logic still treats
+        # it as a potential opening "<think>" start. That's the safe
+        # default: hold one char, emit it next round if it doesn't grow.
     ],
 )
 def test_strip_think_blocks(buf, in_think, expected_emit, expected_remaining, expected_in_think):
@@ -136,6 +148,22 @@ def test_strip_think_blocks(buf, in_think, expected_emit, expected_remaining, ex
     assert emit == expected_emit
     assert remaining == expected_remaining
     assert new_in_think is expected_in_think
+
+
+def test_strip_think_blocks_completes_partial_tag_across_chunks():
+    """Reproduces the SSE-frame split that previously leaked `<think>` to
+    the user. Frame 1 ends mid-opening-tag; frame 2 supplies the rest of
+    the tag plus the secret content and the closing tag. The combined
+    behavior must emit nothing user-visible (only "foo")."""
+    emit1, remaining1, in_think1 = _strip_think_blocks("foo<thi", False)
+    assert emit1 == "foo"
+    assert remaining1 == "<thi"
+    assert in_think1 is False
+
+    emit2, remaining2, in_think2 = _strip_think_blocks(remaining1 + "nk>secret</think>", in_think1)
+    assert emit2 == ""
+    assert remaining2 == ""
+    assert in_think2 is False
 
 
 def test_merge_tool_call_chunk_accumulates_arguments():

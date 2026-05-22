@@ -54,8 +54,7 @@ const deriveSkillsLocation = (
     return { location: 'global', customPath: '' };
   }
   const skillsDir = getSkillsDir(provider);
-  const globalPath = `~/${skillsDir}`.replace('~', '');
-  if (skillsLocation.endsWith(globalPath)) {
+  if (skillsLocation.endsWith(`/${skillsDir}`)) {
     return { location: 'global', customPath: '' };
   }
   if (projectPath && skillsLocation.endsWith(`${projectPath}/${skillsDir}`)) {
