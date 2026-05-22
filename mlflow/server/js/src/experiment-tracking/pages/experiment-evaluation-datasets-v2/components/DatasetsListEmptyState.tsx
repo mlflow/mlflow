@@ -3,7 +3,6 @@ import { FormattedMessage } from 'react-intl';
 import datasetsEmptyImg from '@mlflow/mlflow/src/common/static/eval-datasets-empty.svg';
 import type { Dataset } from '../hooks/useDatasetsQueries';
 import { CreateDatasetButton } from './CreateDatasetModal';
-import { getEvalMonitorDocsLink } from '../utils/docsLinks';
 
 interface NoResultsEmptyStateProps {
   searchQuery: string;
@@ -94,7 +93,7 @@ export const DatasetsListEmptyState = ({ experimentId, onDatasetCreated, refetch
             learnMoreLink: (
               <Typography.Link
                 componentId="mlflow.eval-datasets-v2.list.learn-more-link"
-                href={getEvalMonitorDocsLink('build-eval-dataset')}
+                href="https://mlflow.org/docs/latest/genai/datasets"
                 openInNewTab
               >
                 <FormattedMessage

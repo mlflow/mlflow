@@ -8,7 +8,6 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
-import { getEvalMonitorDocsLink } from '../utils/docsLinks';
 
 interface NoRecordsEmptyStateProps {
   onAddRecord: () => void;
@@ -61,7 +60,7 @@ export const DatasetRecordsEmptyState = ({ onAddRecord }: NoRecordsEmptyStatePro
             sdkLink: (
               <Typography.Link
                 componentId="mlflow.eval-datasets-v2.records.empty.sdk-docs-link"
-                href={getEvalMonitorDocsLink('build-eval-dataset')}
+                href="https://mlflow.org/docs/latest/genai/datasets"
                 openInNewTab
               >
                 <FormattedMessage
