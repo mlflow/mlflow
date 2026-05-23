@@ -56,6 +56,22 @@ export namespace CreateExperiment {
   }
 }
 
+/** Get Experiment (used for UC destination auto-resolution) */
+export namespace GetExperiment {
+  export const getEndpoint = (host: string, experimentId: string) =>
+    `${host}/api/2.0/mlflow/experiments/get?experiment_id=${encodeURIComponent(experimentId)}`;
+
+  export interface Response {
+    experiment?: {
+      experiment_id: string;
+      name: string;
+      artifact_location?: string;
+      lifecycle_stage?: string;
+      tags?: { key: string; value: string }[];
+    };
+  }
+}
+
 /** Get Experiment By Name */
 export namespace GetExperimentByName {
   export const getEndpoint = (host: string, experimentName: string) =>
@@ -90,9 +106,11 @@ export namespace CreateTraceInfoV4 {
   export const getEndpoint = (host: string, location: string, otelTraceId: string) =>
     `${host}/api/4.0/mlflow/traces/${encodeURIComponent(location)}/${otelTraceId}/info`;
 
-  export interface Request {
-    trace_info: Parameters<typeof TraceInfo.fromJson>[0];
-  }
+  // The Databricks RPC convention extracts `location_id` and `trace_info.trace_id`
+  // from the URL path; the HTTP body is the serialized TraceInfo proto directly
+  // (not wrapped in `{ trace_info: ... }`). Mirrors Python's
+  // `message_to_json(trace_info.to_proto())`.
+  export type Request = Parameters<typeof TraceInfo.fromJson>[0];
 
   // Backend returns a TraceInfo proto serialized as JSON.
   export type Response = Parameters<typeof TraceInfo.fromJson>[0];

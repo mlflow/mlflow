@@ -1,5 +1,32 @@
 import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
+import { ROOT_CONTEXT, SpanKind } from '@opentelemetry/api';
+import {
+  BasicTracerProvider,
+  ReadableSpan as OTelReadableSpan,
+  Span as OTelSpan,
+} from '@opentelemetry/sdk-trace-base';
+
+// Mock the OTLP proto exporter. The real implementation does dynamic
+// `import('http')` calls that Jest needs --experimental-vm-modules to run.
+// We assert on constructor args (url + UC table header) and assume the
+// upstream OTel library serializes correctly.
+const mockExport = jest.fn();
+const mockShutdown = jest.fn().mockResolvedValue(undefined);
+const exporterCtors: { url?: string; headers?: Record<string, string> }[] = [];
+jest.mock('@opentelemetry/exporter-trace-otlp-proto', () => ({
+  OTLPTraceExporter: jest.fn().mockImplementation((cfg: { url?: string; headers?: Record<string, string> }) => {
+    exporterCtors.push(cfg);
+    return {
+      export: (spans: unknown[], cb: (r: { code: number }) => void) => {
+        mockExport(spans);
+        cb({ code: 0 });
+      },
+      shutdown: mockShutdown,
+    };
+  }),
+}));
+
 import { AuthProvider } from '../../src/auth';
 import { MlflowClient } from '../../src/clients/client';
 import {
@@ -13,6 +40,7 @@ import {
   TRACE_SCHEMA_VERSION_V4,
   TraceMetadataKey,
 } from '../../src/core/constants';
+import { resolveDestinationFromExperiment } from '../../src/core/destination';
 
 const testHost = 'https://dbc-12345.cloud.databricks.com';
 const testToken = 'test-token';
@@ -95,61 +123,92 @@ describe('MlflowClient UC methods', () => {
     const returned = await client.createTraceInfoV4(location, otelTraceId, traceInfo);
 
     expect(capturedUrl).toContain(`/api/4.0/mlflow/traces/${encodeURIComponent(location)}/${otelTraceId}/info`);
+    // Body is the TraceInfo JSON directly (Databricks RPC convention).
     expect(capturedBody).toMatchObject({
-      trace_info: {
-        trace_id: traceInfo.traceId,
-        tags: { user_id: 'u1', family_id: 'f1', conversation_id: 'c1' },
-        trace_metadata: { [TraceMetadataKey.SCHEMA_VERSION]: TRACE_SCHEMA_VERSION_V4 },
-        trace_location: {
-          type: TraceLocationType.UC_TABLE_PREFIX,
-          uc_table_prefix: {
-            catalog_name: 'cat',
-            schema_name: 'sch',
-            table_prefix: 'tbl',
-          },
+      trace_id: traceInfo.traceId,
+      tags: { user_id: 'u1', family_id: 'f1', conversation_id: 'c1' },
+      trace_metadata: { [TraceMetadataKey.SCHEMA_VERSION]: TRACE_SCHEMA_VERSION_V4 },
+      trace_location: {
+        type: TraceLocationType.UC_TABLE_PREFIX,
+        uc_table_prefix: {
+          catalog_name: 'cat',
+          schema_name: 'sch',
+          table_prefix: 'tbl',
         },
       },
     });
     expect(returned.traceLocation.ucTablePrefix?.otelSpansTableName).toBe('cat.sch.tbl_otel_spans');
   });
 
-  it('exportOtlpSpansToUc POSTs OTLP-JSON with the UC table name header', async () => {
-    let capturedHeaders: Headers | null = null;
-    let capturedBody: any = null;
-    server.use(
-      http.post(`${testHost}/api/2.0/otel/v1/traces`, async ({ request }) => {
-        capturedHeaders = request.headers;
-        capturedBody = await request.json();
-        return HttpResponse.json({}, { status: 200 });
-      }),
-    );
+  it('exportOtlpSpansToUc constructs an OTLP proto exporter with the UC table header', async () => {
+    exporterCtors.length = 0;
+    mockExport.mockClear();
 
-    const fakeSpan = {
-      spanContext: () => ({ traceId: 'aabb', spanId: 'ccdd', traceFlags: 1, isRemote: false }),
-      parentSpanContext: undefined,
-      name: 'root',
-      kind: 1,
-      startTime: [1, 0],
-      endTime: [2, 0],
-      attributes: { 'user.id': 'u1' },
-      events: [],
-      status: { code: 1 },
-      resource: { attributes: {} },
-      instrumentationScope: { name: 'mlflow-tracing' },
-    } as any;
+    const provider = new BasicTracerProvider();
+    const tracer = provider.getTracer('uc-test');
+    const span = tracer.startSpan('root', { kind: SpanKind.INTERNAL }, ROOT_CONTEXT) as OTelSpan;
+    span.setAttribute('user.id', 'u1');
+    span.end();
 
-    await client.exportOtlpSpansToUc([fakeSpan], 'cat.sch.tbl_otel_spans');
-
-    expect(capturedHeaders).not.toBeNull();
-    expect(capturedHeaders!.get(DATABRICKS_UC_TABLE_HEADER.toLowerCase())).toBe(
+    await client.exportOtlpSpansToUc(
+      [span as unknown as OTelReadableSpan],
       'cat.sch.tbl_otel_spans',
     );
-    expect(capturedBody.resourceSpans).toHaveLength(1);
-    expect(capturedBody.resourceSpans[0].scopeSpans[0].spans[0].name).toBe('root');
+
+    expect(exporterCtors).toHaveLength(1);
+    expect(exporterCtors[0].url).toBe(`${testHost}/api/2.0/otel/v1/traces`);
+    expect(exporterCtors[0].headers?.[DATABRICKS_UC_TABLE_HEADER]).toBe('cat.sch.tbl_otel_spans');
+    expect(exporterCtors[0].headers?.['Authorization']).toBe(`Bearer ${testToken}`);
+    expect(mockExport).toHaveBeenCalledTimes(1);
+    expect((mockExport.mock.calls[0][0] as unknown[])[0]).toBe(span);
   });
 
   it('exportOtlpSpansToUc short-circuits with no spans', async () => {
     // No mock registered: if it tried to hit the network the call would throw.
     await expect(client.exportOtlpSpansToUc([], 'cat.sch.tbl_otel_spans')).resolves.toBeUndefined();
+  });
+
+  it('resolveDestinationFromExperiment reads Databricks trace tags', async () => {
+    server.use(
+      http.get(`${testHost}/api/2.0/mlflow/experiments/get`, ({ request }) => {
+        const url = new URL(request.url);
+        expect(url.searchParams.get('experiment_id')).toBe('123');
+        return HttpResponse.json({
+          experiment: {
+            experiment_id: '123',
+            name: 'test-exp',
+            tags: [
+              { key: 'mlflow.experiment.databricksTraceDestinationPath', value: 'cat.sch.prefix' },
+              {
+                key: 'mlflow.experiment.databricksTraceSpanStorageTable',
+                value: 'cat.sch.prefix_otel_spans',
+              },
+              {
+                key: 'mlflow.experiment.databricksTraceLogStorageTable',
+                value: 'cat.sch.prefix_otel_logs',
+              },
+            ],
+          },
+        });
+      }),
+    );
+
+    const dest = await resolveDestinationFromExperiment(client, '123');
+    expect(dest).not.toBeNull();
+    expect(dest!.kind).toBe('uc_table_prefix');
+    expect(dest!.location.tablePrefix).toBe('prefix');
+    expect(dest!.location.otelSpansTableName).toBe('cat.sch.prefix_otel_spans');
+    expect(dest!.location.otelLogsTableName).toBe('cat.sch.prefix_otel_logs');
+  });
+
+  it('resolveDestinationFromExperiment returns null for non-UC experiments', async () => {
+    server.use(
+      http.get(`${testHost}/api/2.0/mlflow/experiments/get`, () =>
+        HttpResponse.json({
+          experiment: { experiment_id: '456', name: 'plain-exp', tags: [] },
+        }),
+      ),
+    );
+    await expect(resolveDestinationFromExperiment(client, '456')).resolves.toBeNull();
   });
 });

@@ -6,6 +6,19 @@ import {
   ReadableSpan as OTelReadableSpan,
   Span as OTelSpan,
 } from '@opentelemetry/sdk-trace-base';
+
+// Mock the OTLP proto exporter (Jest can't load its dynamic http imports).
+const exporterCtors: { url?: string; headers?: Record<string, string> }[] = [];
+jest.mock('@opentelemetry/exporter-trace-otlp-proto', () => ({
+  OTLPTraceExporter: jest.fn().mockImplementation((cfg: { url?: string; headers?: Record<string, string> }) => {
+    exporterCtors.push(cfg);
+    return {
+      export: (_spans: unknown[], cb: (r: { code: number }) => void) => cb({ code: 0 }),
+      shutdown: () => Promise.resolve(),
+    };
+  }),
+}));
+
 import { AuthProvider } from '../../src/auth';
 import { MlflowClient } from '../../src/clients/client';
 import {
@@ -47,7 +60,6 @@ function makeOtelRootSpan(): OTelSpan {
 describe('DatabricksUCTableSpanProcessor + Exporter end-to-end', () => {
   let server: ReturnType<typeof setupServer>;
   let traceInfoCalls: { url: string; body: any }[];
-  let otlpCalls: { headers: Headers; body: any }[];
 
   beforeAll(() => {
     server = setupServer();
@@ -60,7 +72,7 @@ describe('DatabricksUCTableSpanProcessor + Exporter end-to-end', () => {
 
   beforeEach(() => {
     traceInfoCalls = [];
-    otlpCalls = [];
+    exporterCtors.length = 0;
     server.resetHandlers();
     server.use(
       http.post(
@@ -69,7 +81,7 @@ describe('DatabricksUCTableSpanProcessor + Exporter end-to-end', () => {
           const body = (await request.json()) as any;
           traceInfoCalls.push({ url: request.url, body });
           return HttpResponse.json({
-            trace_id: body.trace_info.trace_id,
+            trace_id: body.trace_id,
             trace_location: {
               type: TraceLocationType.UC_TABLE_PREFIX,
               uc_table_prefix: {
@@ -79,21 +91,16 @@ describe('DatabricksUCTableSpanProcessor + Exporter end-to-end', () => {
                 otel_spans_table_name: 'cat.sch.tbl_otel_spans',
               },
             },
-            request_time: body.trace_info.request_time,
-            execution_duration: body.trace_info.execution_duration,
-            state: body.trace_info.state,
-            trace_metadata: body.trace_info.trace_metadata,
-            tags: body.trace_info.tags,
+            request_time: body.request_time,
+            execution_duration: body.execution_duration,
+            state: body.state,
+            trace_metadata: body.trace_metadata,
+            tags: body.tags,
             assessments: [],
           });
           void params;
         },
       ),
-      http.post(`${testHost}/api/2.0/otel/v1/traces`, async ({ request }) => {
-        const body = await request.json();
-        otlpCalls.push({ headers: request.headers, body });
-        return HttpResponse.json({}, { status: 200 });
-      }),
     );
   });
 
@@ -134,7 +141,9 @@ describe('DatabricksUCTableSpanProcessor + Exporter end-to-end', () => {
     await processor.forceFlush();
 
     expect(traceInfoCalls).toHaveLength(1);
-    const posted = traceInfoCalls[0].body.trace_info;
+    // The Databricks RPC convention sends the TraceInfo JSON directly as the
+    // body (not wrapped in `{ trace_info: ... }`), so the body IS the trace info.
+    const posted = traceInfoCalls[0].body;
     expect(posted.trace_id).toBe(mlflowTraceId);
     expect(posted.tags).toEqual({ user_id: 'u1', family_id: 'f1', conversation_id: 'c1' });
     expect(posted.trace_metadata[TraceMetadataKey.SCHEMA_VERSION]).toBe(TRACE_SCHEMA_VERSION_V4);
@@ -144,10 +153,10 @@ describe('DatabricksUCTableSpanProcessor + Exporter end-to-end', () => {
       table_prefix: 'tbl',
     });
 
-    expect(otlpCalls).toHaveLength(1);
-    expect(otlpCalls[0].headers.get(DATABRICKS_UC_TABLE_HEADER.toLowerCase())).toBe(
+    expect(exporterCtors).toHaveLength(1);
+    expect(exporterCtors[0].url).toBe(`${testHost}/api/2.0/otel/v1/traces`);
+    expect(exporterCtors[0].headers?.[DATABRICKS_UC_TABLE_HEADER]).toBe(
       'cat.sch.tbl_otel_spans',
     );
-    expect(otlpCalls[0].body.resourceSpans[0].scopeSpans[0].spans[0].name).toBe('root');
   });
 });

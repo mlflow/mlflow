@@ -5,6 +5,7 @@ import {
   CreateTraceInfoV4,
   DeleteExperiment,
   ExportOtlpTraces,
+  GetExperiment,
   GetExperimentByName,
   GetTraceInfoV3,
   StartTraceV3,
@@ -14,11 +15,9 @@ import { TraceData } from '../core/entities/trace_data';
 import { ArtifactsClient, getArtifactsClient } from './artifacts';
 import { AuthProvider, HeadersProvider } from '../auth';
 import { DATABRICKS_UC_TABLE_HEADER } from '../core/constants';
-import {
-  OtlpExportTraceServiceRequest,
-  spansToOtlpRequest,
-} from '../exporters/otlp';
+import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-proto';
 import type { ReadableSpan as OTelReadableSpan } from '@opentelemetry/sdk-trace-base';
+import { ExportResultCode, type ExportResult } from '@opentelemetry/core';
 
 /**
  * Client for MLflow tracing operations.
@@ -101,7 +100,7 @@ export class MlflowClient {
     traceInfo: TraceInfo,
   ): Promise<TraceInfo> {
     const url = CreateTraceInfoV4.getEndpoint(this.hostUrl, location, otelTraceId);
-    const payload: CreateTraceInfoV4.Request = { trace_info: traceInfo.toJson() };
+    const payload: CreateTraceInfoV4.Request = traceInfo.toJson();
     const response = await makeRequest<CreateTraceInfoV4.Response>(
       'POST',
       url,
@@ -113,10 +112,15 @@ export class MlflowClient {
 
   /**
    * Upload OTel spans to a Databricks Unity Catalog location via the OTLP
-   * HTTP+JSON endpoint. The `spansTableName` is the fully qualified spans
-   * table (catalog.schema.table) and is forwarded as the
+   * HTTP+protobuf endpoint. The `spansTableName` is the fully qualified
+   * spans table (catalog.schema.table) and is forwarded as the
    * `X-Databricks-UC-Table-Name` header used by Databricks to route the
    * payload to the correct UC location.
+   *
+   * Uses `@opentelemetry/exporter-trace-otlp-proto` which serializes the
+   * spans to the OTLP `ExportTraceServiceRequest` protobuf wire format —
+   * the Databricks endpoint only accepts `application/x-protobuf`, not
+   * the OTLP/HTTP+JSON form.
    */
   async exportOtlpSpansToUc(
     spans: OTelReadableSpan[],
@@ -125,16 +129,33 @@ export class MlflowClient {
     if (spans.length === 0) {
       return;
     }
-    const url = ExportOtlpTraces.getEndpoint(this.hostUrl);
-    const payload: OtlpExportTraceServiceRequest = spansToOtlpRequest(spans);
-    await makeRequest<void>(
-      'POST',
-      url,
-      this.headersProvider,
-      payload,
-      undefined,
-      { [DATABRICKS_UC_TABLE_HEADER]: spansTableName },
-    );
+    // Fetch fresh auth headers for every export so OAuth-rotated tokens are
+    // honored. The exporter takes a static headers map at construction time,
+    // so we rebuild it per call rather than caching an instance.
+    const authHeaders = await this.headersProvider();
+    const exporter = new OTLPTraceExporter({
+      url: ExportOtlpTraces.getEndpoint(this.hostUrl),
+      headers: {
+        ...authHeaders,
+        [DATABRICKS_UC_TABLE_HEADER]: spansTableName,
+      },
+    });
+    try {
+      await new Promise<void>((resolve, reject) => {
+        exporter.export(spans, (result: ExportResult) => {
+          if (result.code === ExportResultCode.SUCCESS) {
+            resolve();
+          } else {
+            reject(
+              result.error ?? new Error(`OTLP span export failed with code ${result.code}`),
+            );
+          }
+        });
+      });
+    } finally {
+      // Drain any pending state so the exporter doesn't keep handles open.
+      await exporter.shutdown().catch(() => undefined);
+    }
   }
 
   // === TRACE RETRIEVAL METHODS ===
@@ -190,6 +211,36 @@ export class MlflowClient {
       payload,
     );
     return response.experiment_id;
+  }
+
+  /**
+   * Get an experiment by ID, including its tags. Used to auto-resolve UC
+   * trace destinations from a Databricks-linked experiment.
+   */
+  async getExperiment(
+    experimentId: string,
+  ): Promise<{ experimentId: string; name: string; tags: Record<string, string> } | null> {
+    const url = GetExperiment.getEndpoint(this.hostUrl, experimentId);
+    try {
+      const response = await makeRequest<GetExperiment.Response>('GET', url, this.headersProvider);
+      const exp = response.experiment;
+      if (!exp?.experiment_id) {
+        return null;
+      }
+      const tags: Record<string, string> = {};
+      for (const tag of exp.tags ?? []) {
+        tags[tag.key] = tag.value;
+      }
+      return { experimentId: exp.experiment_id, name: exp.name, tags };
+    } catch (error) {
+      if (
+        error instanceof MlflowHttpError &&
+        (error.status === 404 || error.errorCode === 'RESOURCE_DOES_NOT_EXIST')
+      ) {
+        return null;
+      }
+      throw error;
+    }
   }
 
   /**

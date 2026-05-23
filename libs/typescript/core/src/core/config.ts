@@ -240,7 +240,7 @@ export function init(config: MLflowTracingInitOptions): void {
   // Store the config
   globalConfig = { ...effectiveConfig };
 
-  // Initialize SDK with new configuration
+  // Initialize SDK with new configuration.
   initializeSDK();
 }
 

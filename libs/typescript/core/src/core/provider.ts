@@ -11,7 +11,6 @@ import {
   getDestination,
   setDestination,
   TraceDestination,
-  unityCatalogDestination,
   ucSchemaDestination,
 } from './destination';
 import { MlflowClient } from '../clients';
@@ -21,30 +20,33 @@ let sdk: NodeSDK | null = null;
 let processor: SpanProcessor | null = null;
 
 /**
- * Parse the `MLFLOW_UC_TABLE` environment variable into a TraceDestination.
- * Accepts "catalog.schema" (UC schema) or "catalog.schema.table_prefix"
- * (UC table prefix). Returns null when the env var is unset or malformed.
+ * Parse the `MLFLOW_TRACING_DESTINATION` environment variable into a UC
+ * trace destination. Matches Python: only the two-segment `catalog.schema`
+ * form is accepted as a UC schema destination. To target a UC table prefix,
+ * call `setDestination(unityCatalogDestination({...}))` explicitly (Python's
+ * equivalent is `set_experiment(trace_location=UnityCatalog(...))`).
  */
 function destinationFromEnv(): TraceDestination | null {
-  const raw = process.env.MLFLOW_UC_TABLE;
+  const raw = process.env.MLFLOW_TRACING_DESTINATION;
   if (!raw) {
     return null;
   }
   const parts = raw.split('.');
-  if (parts.length === 2) {
+  if (parts.length === 2 && parts[0] && parts[1]) {
     return ucSchemaDestination({ catalogName: parts[0], schemaName: parts[1] });
   }
   if (parts.length === 3) {
-    return unityCatalogDestination({
-      catalogName: parts[0],
-      schemaName: parts[1],
-      tablePrefix: parts[2],
-    });
+    throw new Error(
+      `MLFLOW_TRACING_DESTINATION=${raw}: UC table-prefix destinations ` +
+        '(<catalog>.<schema>.<table_prefix>) are not supported via this env var. ' +
+        'Use setDestination(unityCatalogDestination({ catalogName, schemaName, tablePrefix })) ' +
+        'before init() instead.',
+    );
   }
-  console.warn(
-    `MLFLOW_UC_TABLE=${raw} is not in "catalog.schema" or "catalog.schema.table_prefix" format; ignoring.`,
+  throw new Error(
+    `MLFLOW_TRACING_DESTINATION=${raw} could not be parsed. ` +
+      'Expected format: <catalog>.<schema>.',
   );
-  return null;
 }
 
 export function initializeSDK(): void {
@@ -63,7 +65,13 @@ export function initializeSDK(): void {
       authProvider,
     });
 
-    // Resolve UC destination: explicit setDestination() wins over MLFLOW_UC_TABLE.
+    // Resolve UC destination in precedence order:
+    //   1. explicit setDestination(...)
+    //   2. MLFLOW_TRACING_DESTINATION env var
+    // For auto-resolution from a linked Databricks experiment, customers
+    // must call `await resolveDestinationFromExperiment(client, experimentId)`
+    // and pass the result to `setDestination(...)` before `init(...)`.
+    // We can't do that here because `init()` is sync and GetExperiment is async.
     let destination = getDestination();
     if (!destination) {
       const envDestination = destinationFromEnv();

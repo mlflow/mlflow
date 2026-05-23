@@ -1,4 +1,19 @@
+import type { MlflowClient } from '../clients/client';
 import type { UCSchemaLocation, UnityCatalogLocation } from './entities/trace_location';
+
+/**
+ * Databricks experiment tag keys carrying the linked UC trace location.
+ * Matches Python's `MLFLOW_EXPERIMENT_DATABRICKS_TRACE_*` constants in
+ * mlflow/utils/mlflow_tags.py.
+ */
+export const DATABRICKS_TRACE_DESTINATION_PATH_TAG =
+  'mlflow.experiment.databricksTraceDestinationPath';
+export const DATABRICKS_TRACE_SPAN_STORAGE_TABLE_TAG =
+  'mlflow.experiment.databricksTraceSpanStorageTable';
+export const DATABRICKS_TRACE_LOG_STORAGE_TABLE_TAG =
+  'mlflow.experiment.databricksTraceLogStorageTable';
+export const DATABRICKS_TRACE_ANNOTATIONS_TABLE_TAG =
+  'mlflow.experiment.databricksTraceAnnotationsTable';
 
 /**
  * A user-configured destination for traces, mirroring Python's
@@ -93,4 +108,58 @@ export function getDestination(): TraceDestination | null {
  */
 export function resetDestination(): void {
   currentDestination = null;
+}
+
+/**
+ * Parse a UC table-prefix destination from the Databricks experiment tags
+ * (`mlflow.experiment.databricksTrace*`). Returns null if the experiment is
+ * not linked to a UC trace destination.
+ *
+ * Mirrors Python's `Experiment._resolve_trace_location_from_tags`.
+ */
+export function destinationFromExperimentTags(
+  tags: Record<string, string>,
+): UnityCatalogDestination | null {
+  const path = tags[DATABRICKS_TRACE_DESTINATION_PATH_TAG];
+  if (!path) {
+    return null;
+  }
+  const parts = path.split('.');
+  if (parts.length !== 3) {
+    return null;
+  }
+  const [catalogName, schemaName, tablePrefix] = parts;
+  return {
+    kind: 'uc_table_prefix',
+    location: {
+      catalogName,
+      schemaName,
+      tablePrefix,
+      otelSpansTableName: tags[DATABRICKS_TRACE_SPAN_STORAGE_TABLE_TAG],
+      otelLogsTableName: tags[DATABRICKS_TRACE_LOG_STORAGE_TABLE_TAG],
+      annotationsTableName: tags[DATABRICKS_TRACE_ANNOTATIONS_TABLE_TAG],
+    },
+  };
+}
+
+/**
+ * Fetch the experiment and, if it's linked to a UC trace location via the
+ * Databricks experiment tags, return a `UnityCatalogDestination` with the
+ * backend-provided spans / logs / annotations table names populated.
+ *
+ * Returns null when the experiment has no UC trace destination tags or the
+ * GetExperiment call returns 404.
+ *
+ * Mirrors Python's `_resolve_experiment_uc_location` in
+ * `mlflow/tracing/provider.py`.
+ */
+export async function resolveDestinationFromExperiment(
+  client: MlflowClient,
+  experimentId: string,
+): Promise<UnityCatalogDestination | null> {
+  const experiment = await client.getExperiment(experimentId);
+  if (!experiment) {
+    return null;
+  }
+  return destinationFromExperimentTags(experiment.tags);
 }

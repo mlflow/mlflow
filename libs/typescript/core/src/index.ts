@@ -11,6 +11,7 @@ import { tracingContext } from './core/context';
 import { flushTraces } from './core/provider';
 import {
   getDestination,
+  resolveDestinationFromExperiment,
   setDestination,
   ucSchemaDestination,
   unityCatalogDestination,
@@ -31,6 +32,7 @@ export {
   withSpan,
   setDestination,
   getDestination,
+  resolveDestinationFromExperiment,
   unityCatalogDestination,
   ucSchemaDestination,
   MlflowClient,

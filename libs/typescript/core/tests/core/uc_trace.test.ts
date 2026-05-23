@@ -13,6 +13,11 @@ import {
   parseTraceIdV4,
 } from '../../src/core/utils/trace_id';
 import {
+  DATABRICKS_TRACE_ANNOTATIONS_TABLE_TAG,
+  DATABRICKS_TRACE_DESTINATION_PATH_TAG,
+  DATABRICKS_TRACE_LOG_STORAGE_TABLE_TAG,
+  DATABRICKS_TRACE_SPAN_STORAGE_TABLE_TAG,
+  destinationFromExperimentTags,
   setDestination,
   getDestination,
   resetDestination,
@@ -21,7 +26,6 @@ import {
 } from '../../src/core/destination';
 import { TraceInfo } from '../../src/core/entities/trace_info';
 import { TraceState } from '../../src/core/entities/trace_state';
-import { spansToOtlpRequest } from '../../src/exporters/otlp';
 
 describe('Trace ID v4 helpers', () => {
   it('parses a v4 trace ID into location and otel trace ID', () => {
@@ -95,6 +99,40 @@ describe('setDestination / getDestination', () => {
   });
 });
 
+describe('destinationFromExperimentTags', () => {
+  it('returns null when the experiment has no Databricks trace tags', () => {
+    expect(destinationFromExperimentTags({})).toBeNull();
+    expect(destinationFromExperimentTags({ unrelated: 'x' })).toBeNull();
+  });
+
+  it('returns null when the destination path is not three-segment', () => {
+    expect(
+      destinationFromExperimentTags({
+        [DATABRICKS_TRACE_DESTINATION_PATH_TAG]: 'cat.sch',
+      }),
+    ).toBeNull();
+  });
+
+  it('parses a UC table-prefix destination and copies the spans / logs / annotations tables', () => {
+    const dest = destinationFromExperimentTags({
+      [DATABRICKS_TRACE_DESTINATION_PATH_TAG]: 'cat.sch.prefix',
+      [DATABRICKS_TRACE_SPAN_STORAGE_TABLE_TAG]: 'cat.sch.prefix_otel_spans',
+      [DATABRICKS_TRACE_LOG_STORAGE_TABLE_TAG]: 'cat.sch.prefix_otel_logs',
+      [DATABRICKS_TRACE_ANNOTATIONS_TABLE_TAG]: 'cat.sch.prefix_annotations',
+    });
+    expect(dest).not.toBeNull();
+    expect(dest!.kind).toBe('uc_table_prefix');
+    expect(dest!.location).toEqual({
+      catalogName: 'cat',
+      schemaName: 'sch',
+      tablePrefix: 'prefix',
+      otelSpansTableName: 'cat.sch.prefix_otel_spans',
+      otelLogsTableName: 'cat.sch.prefix_otel_logs',
+      annotationsTableName: 'cat.sch.prefix_annotations',
+    });
+  });
+});
+
 describe('TraceInfo serialization with UC locations', () => {
   it('serializes and deserializes a UC table-prefix TraceLocation', () => {
     const info = new TraceInfo({
@@ -139,39 +177,3 @@ describe('TraceInfo serialization with UC locations', () => {
   });
 });
 
-describe('OTLP serialization', () => {
-  it('returns an empty resourceSpans for no input', () => {
-    expect(spansToOtlpRequest([])).toEqual({ resourceSpans: [] });
-  });
-
-  it('encodes a single span with attributes and status', () => {
-    const fakeSpan = {
-      spanContext: () => ({ traceId: 'aabb', spanId: 'ccdd', traceFlags: 1, isRemote: false }),
-      parentSpanContext: undefined,
-      name: 'root',
-      kind: 1,
-      startTime: [1, 500] as [number, number],
-      endTime: [2, 0] as [number, number],
-      attributes: { 'user.id': 'u1', 'mlflow.spanType': 'CHAIN' },
-      events: [],
-      status: { code: 1, message: undefined },
-      resource: { attributes: { 'service.name': 'svc' } },
-      instrumentationScope: { name: 'mlflow-tracing' },
-    } as unknown as Parameters<typeof spansToOtlpRequest>[0][number];
-
-    const req = spansToOtlpRequest([fakeSpan]);
-    expect(req.resourceSpans).toHaveLength(1);
-    expect(req.resourceSpans[0].scopeSpans).toHaveLength(1);
-    const otlpSpan = req.resourceSpans[0].scopeSpans[0].spans[0];
-    expect(otlpSpan.traceId).toBe('aabb');
-    expect(otlpSpan.name).toBe('root');
-    expect(otlpSpan.startTimeUnixNano).toBe('1000000500');
-    expect(otlpSpan.endTimeUnixNano).toBe('2000000000');
-    expect(otlpSpan.status.code).toBe(1);
-    const attrMap = Object.fromEntries(
-      otlpSpan.attributes.map((kv) => [kv.key, kv.value.stringValue]),
-    );
-    expect(attrMap['user.id']).toBe('u1');
-    expect(attrMap['mlflow.spanType']).toBe('CHAIN');
-  });
-});
