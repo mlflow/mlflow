@@ -1880,6 +1880,11 @@ dependencies = [
     { name = "requests" },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "packaging" },
@@ -1888,6 +1893,9 @@ requires-dist = [
     { name = "pyyaml" },
     { name = "requests" },
 ]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest" }]
 
 [[package]]
 name = "fonttools"

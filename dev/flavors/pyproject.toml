@@ -9,5 +9,8 @@ dependencies = ["packaging", "pydantic>=2.0", "pypi", "pyyaml", "requests"]
 [project.scripts]
 flavors = "flavors._cli:main"
 
+[dependency-groups]
+dev = ["pytest"]
+
 [tool.uv.sources]
 pypi = { workspace = true }
