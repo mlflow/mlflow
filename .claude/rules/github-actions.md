@@ -20,7 +20,7 @@ runs-on: ubuntu-slim
 
 ## Use Workflow Context Instead of Fetching
 
-If the trigger event already carries the data, read it from the `github` context instead of calling `gh` or `actions/github-script`. Extra API calls burn rate-limit budget and add a flaky network hop for nothing. Passing context values through `env:` (rather than inlining `${{ }}` inside `run:`) also avoids the [script-injection foot-gun](https://docs.github.com/en/actions/reference/security/secure-use#good-practices-for-mitigating-script-injection-attacks) when the field could ever be user-controlled (e.g., `title`, `body`, `head.ref`).
+If the trigger event already carries the data, read it from the `github` context instead of calling `gh` or `actions/github-script`. Extra API calls burn rate-limit budget and add a flaky network hop for nothing.
 
 ```yaml
 # Bad
