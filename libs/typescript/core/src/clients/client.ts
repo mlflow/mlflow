@@ -122,10 +122,7 @@ export class MlflowClient {
    * the Databricks endpoint only accepts `application/x-protobuf`, not
    * the OTLP/HTTP+JSON form.
    */
-  async exportOtlpSpansToUc(
-    spans: OTelReadableSpan[],
-    spansTableName: string,
-  ): Promise<void> {
+  async exportOtlpSpansToUc(spans: OTelReadableSpan[], spansTableName: string): Promise<void> {
     if (spans.length === 0) {
       return;
     }
@@ -146,9 +143,7 @@ export class MlflowClient {
           if (result.code === ExportResultCode.SUCCESS) {
             resolve();
           } else {
-            reject(
-              result.error ?? new Error(`OTLP span export failed with code ${result.code}`),
-            );
+            reject(result.error ?? new Error(`OTLP span export failed with code ${result.code}`));
           }
         });
       });

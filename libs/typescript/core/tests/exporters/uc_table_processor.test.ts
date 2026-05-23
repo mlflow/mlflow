@@ -10,13 +10,15 @@ import {
 // Mock the OTLP proto exporter (Jest can't load its dynamic http imports).
 const exporterCtors: { url?: string; headers?: Record<string, string> }[] = [];
 jest.mock('@opentelemetry/exporter-trace-otlp-proto', () => ({
-  OTLPTraceExporter: jest.fn().mockImplementation((cfg: { url?: string; headers?: Record<string, string> }) => {
-    exporterCtors.push(cfg);
-    return {
-      export: (_spans: unknown[], cb: (r: { code: number }) => void) => cb({ code: 0 }),
-      shutdown: () => Promise.resolve(),
-    };
-  }),
+  OTLPTraceExporter: jest
+    .fn()
+    .mockImplementation((cfg: { url?: string; headers?: Record<string, string> }) => {
+      exporterCtors.push(cfg);
+      return {
+        export: (_spans: unknown[], cb: (r: { code: number }) => void) => cb({ code: 0 }),
+        shutdown: () => Promise.resolve(),
+      };
+    }),
 }));
 
 import { AuthProvider } from '../../src/auth';
@@ -32,10 +34,7 @@ import {
   DATABRICKS_UC_TABLE_HEADER,
 } from '../../src/core/constants';
 import { InMemoryTraceManager } from '../../src/core/trace_manager';
-import {
-  TraceLocationType,
-  isUcTraceLocation,
-} from '../../src/core/entities/trace_location';
+import { TraceLocationType, isUcTraceLocation } from '../../src/core/entities/trace_location';
 
 const testHost = 'https://dbc-12345.cloud.databricks.com';
 
@@ -155,8 +154,6 @@ describe('DatabricksUCTableSpanProcessor + Exporter end-to-end', () => {
 
     expect(exporterCtors).toHaveLength(1);
     expect(exporterCtors[0].url).toBe(`${testHost}/api/2.0/otel/v1/traces`);
-    expect(exporterCtors[0].headers?.[DATABRICKS_UC_TABLE_HEADER]).toBe(
-      'cat.sch.tbl_otel_spans',
-    );
+    expect(exporterCtors[0].headers?.[DATABRICKS_UC_TABLE_HEADER]).toBe('cat.sch.tbl_otel_spans');
   });
 });

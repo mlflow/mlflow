@@ -29,7 +29,9 @@ import { TraceState } from '../../src/core/entities/trace_state';
 
 describe('Trace ID v4 helpers', () => {
   it('parses a v4 trace ID into location and otel trace ID', () => {
-    const [location, otelId] = parseTraceIdV4('trace:/cat.sch.tbl/abcdef1234567890abcdef1234567890');
+    const [location, otelId] = parseTraceIdV4(
+      'trace:/cat.sch.tbl/abcdef1234567890abcdef1234567890',
+    );
     expect(location).toBe('cat.sch.tbl');
     expect(otelId).toBe('abcdef1234567890abcdef1234567890');
   });
@@ -93,8 +95,9 @@ describe('setDestination / getDestination', () => {
   });
 
   it('rejects empty UC fields', () => {
-    expect(() => unityCatalogDestination({ catalogName: '', schemaName: 's', tablePrefix: 't' }))
-      .toThrow(/catalogName/);
+    expect(() =>
+      unityCatalogDestination({ catalogName: '', schemaName: 's', tablePrefix: 't' }),
+    ).toThrow(/catalogName/);
     expect(() => ucSchemaDestination({ catalogName: 'c', schemaName: '' })).toThrow(/schemaName/);
   });
 });
@@ -176,4 +179,3 @@ describe('TraceInfo serialization with UC locations', () => {
     expect(roundTripped.traceLocation.ucSchema?.schemaName).toBe('sch');
   });
 });
-

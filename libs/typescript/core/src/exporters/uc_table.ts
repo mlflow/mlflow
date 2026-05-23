@@ -8,11 +8,7 @@ import {
 } from '@opentelemetry/sdk-trace-base';
 import { createAndRegisterMlflowSpan } from '../core/api';
 import { MlflowClient } from '../clients';
-import {
-  SpanAttributeKey,
-  TRACE_SCHEMA_VERSION_V4,
-  TraceMetadataKey,
-} from '../core/constants';
+import { SpanAttributeKey, TRACE_SCHEMA_VERSION_V4, TraceMetadataKey } from '../core/constants';
 import { getConfiguredTraceMetadata, getConfiguredTraceTags } from '../core/context';
 import {
   TraceDestination,
@@ -262,7 +258,10 @@ export class DatabricksUCTableSpanExporter implements SpanExporter {
 
       // Step 2: upload spans via OTLP.
       try {
-        await this._client.exportOtlpSpansToUc(trace.data.spans.map((s) => s._span), spansTable);
+        await this._client.exportOtlpSpansToUc(
+          trace.data.spans.map((s) => s._span),
+          spansTable,
+        );
       } catch (error) {
         if (!this._hasRaisedSpanExportError) {
           console.warn(`Failed to export UC spans for ${trace.info.traceId}:`, error);

@@ -15,16 +15,18 @@ const mockExport = jest.fn();
 const mockShutdown = jest.fn().mockResolvedValue(undefined);
 const exporterCtors: { url?: string; headers?: Record<string, string> }[] = [];
 jest.mock('@opentelemetry/exporter-trace-otlp-proto', () => ({
-  OTLPTraceExporter: jest.fn().mockImplementation((cfg: { url?: string; headers?: Record<string, string> }) => {
-    exporterCtors.push(cfg);
-    return {
-      export: (spans: unknown[], cb: (r: { code: number }) => void) => {
-        mockExport(spans);
-        cb({ code: 0 });
-      },
-      shutdown: mockShutdown,
-    };
-  }),
+  OTLPTraceExporter: jest
+    .fn()
+    .mockImplementation((cfg: { url?: string; headers?: Record<string, string> }) => {
+      exporterCtors.push(cfg);
+      return {
+        export: (spans: unknown[], cb: (r: { code: number }) => void) => {
+          mockExport(spans);
+          cb({ code: 0 });
+        },
+        shutdown: mockShutdown,
+      };
+    }),
 }));
 
 import { AuthProvider } from '../../src/auth';
@@ -122,7 +124,9 @@ describe('MlflowClient UC methods', () => {
 
     const returned = await client.createTraceInfoV4(location, otelTraceId, traceInfo);
 
-    expect(capturedUrl).toContain(`/api/4.0/mlflow/traces/${encodeURIComponent(location)}/${otelTraceId}/info`);
+    expect(capturedUrl).toContain(
+      `/api/4.0/mlflow/traces/${encodeURIComponent(location)}/${otelTraceId}/info`,
+    );
     // Body is the TraceInfo JSON directly (Databricks RPC convention).
     expect(capturedBody).toMatchObject({
       trace_id: traceInfo.traceId,

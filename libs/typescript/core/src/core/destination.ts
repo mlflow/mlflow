@@ -49,9 +49,7 @@ export function unityCatalogDestination(args: {
   tablePrefix: string;
 }): UnityCatalogDestination {
   if (!args.catalogName || !args.schemaName || !args.tablePrefix) {
-    throw new Error(
-      'unityCatalogDestination requires catalogName, schemaName, and tablePrefix.',
-    );
+    throw new Error('unityCatalogDestination requires catalogName, schemaName, and tablePrefix.');
   }
   return {
     kind: 'uc_table_prefix',
