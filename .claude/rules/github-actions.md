@@ -18,6 +18,25 @@ runs-on: ubuntu-latest
 runs-on: ubuntu-slim
 ```
 
+## Use Workflow Context Instead of Fetching
+
+If the trigger event already carries the data, read it from the `github` context instead of calling `gh` or `actions/github-script`. Extra API calls burn rate-limit budget and add a flaky network hop for nothing.
+
+```yaml
+# Bad
+- env:
+    GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  run: |
+    PR_NUMBER=$(gh pr view ${{ github.event.pull_request.html_url }} --json number -q .number)
+
+# Good
+- env:
+    PR_NUMBER: ${{ github.event.pull_request.number }}
+  run: echo "PR #$PR_NUMBER"
+```
+
+Only fetch when the data isn't in the payload (e.g., check runs, review threads, changed files on `issue_comment`).
+
 ## Prefer `gh` CLI over `actions/github-script`
 
 For simple GitHub API operations (commenting, labeling, cancelling runs, etc.),
