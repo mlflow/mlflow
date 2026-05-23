@@ -332,6 +332,9 @@ jobs:
               const summary = resultEvent.is_error ? 'Error' : 'Result';
               const formatted = JSON.stringify(resultEvent, null, 2);
               resultLine += `\n<details><summary>${summary}</summary>\n\n\`\`\`json\n${formatted}\n\`\`\`\n\n</details>`;
+              if (resultEvent.is_error && /529|Overloaded/i.test(resultEvent.result || '')) {
+                resultLine += `\n\nThe Claude API is overloaded. Check [status.claude.com](https://status.claude.com/) and retry.`;
+              }
             } else if (failed) {
               resultLine += `\n\nSee [workflow logs](${workflowUrl}) for details.`;
             }
