@@ -233,7 +233,7 @@ print(f"Total prompts across pages: {len(all_prompts)}")
 :::tip
 
 Any registered prompt can be loaded directly into the
-[**LLM Playground**](/genai/playground) for interactive testing against an
+[**LLM Playground**](/genai/prompt-registry/playground) for interactive testing against an
 [AI Gateway](/genai/governance/ai-gateway) endpoint. Chat-typed prompts preserve
 their full message structure, and any stored **model config** is applied
 automatically.
@@ -653,7 +653,7 @@ print(langchain_prompt.input_variables)
 
 #### Q: Can I test a registered prompt in the MLflow UI?
 
-A: Yes. Open the [**LLM Playground**](/genai/playground) and click **Load prompt from registry** to pull any prompt version into the conversation. Chat-typed prompts keep their full message structure, text-typed prompts load as a single user message, and any stored **model config** (model, temperature, max_tokens, response format) is applied automatically.
+A: Yes. Open the [**LLM Playground**](/genai/prompt-registry/playground) and click **Load prompt from registry** to pull any prompt version into the conversation. Chat-typed prompts keep their full message structure, text-typed prompts load as a single user message, and any stored **model config** (model, temperature, max_tokens, response format) is applied automatically.
 
 #### Q: Is Prompt Registry integrated with the Prompt Engineering UI?
 
