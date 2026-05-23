@@ -61,10 +61,6 @@ def get_package_version_infos(package: Package) -> list[VersionInfo]:
     ]
 
 
-def get_latest_version(candidates: set[str]) -> str:
-    return max(candidates, key=PkgVersion)
-
-
 def update_version(src: str, key: str, new_version: str, category: str, update_max: bool) -> str:
     """
     Examples
@@ -289,7 +285,7 @@ def update(skip_yml: bool = False) -> None:
                 unsupported = config[category].get("unsupported", [])
                 # exclude unsupported versions
                 supported_versions = set(version_strs).difference(unsupported)
-                latest_version = get_latest_version(supported_versions)
+                latest_version = max(supported_versions, key=PkgVersion)
 
                 if PkgVersion(latest_version) <= PkgVersion(max_ver):
                     continue

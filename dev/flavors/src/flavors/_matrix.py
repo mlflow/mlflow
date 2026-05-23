@@ -320,8 +320,7 @@ def parse_args(args: list[str]) -> argparse.Namespace:
     return parser.parse_args(args)
 
 
-def get_flavor(name: str) -> str:
-    return {"pytorch-lightning": "pytorch"}.get(name, name)
+FLAVOR_NAME_ALIASES = {"pytorch-lightning": "pytorch"}
 
 
 def validate_test_coverage(flavor: str, config: FlavorConfig) -> None:
@@ -435,7 +434,7 @@ async def expand_config(
     pip_releases = list({fc.package_info.pip_release for fc in config.values()})
     packages = dict(zip(pip_releases, await get_packages(pip_releases)))
     for name, flavor_config in config.items():
-        flavor = get_flavor(name)
+        flavor = FLAVOR_NAME_ALIASES.get(name, name)
         package_info = flavor_config.package_info
         package = packages[package_info.pip_release]
         all_versions = get_released_versions(package)
@@ -657,4 +656,4 @@ async def run(args: argparse.Namespace) -> None:
         print(json.dumps(payload, indent=2, cls=CustomEncoder))
         if "GITHUB_ACTIONS" in os.environ:
             set_action_output(f"matrix{idx}", json.dumps(payload, cls=CustomEncoder))
-            set_action_output(f"is_matrix{idx}_empty", "true" if len(payload) == 0 else "false")
+            set_action_output(f"is_matrix{idx}_empty", "true" if len(mat) == 0 else "false")
