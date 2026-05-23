@@ -557,7 +557,7 @@ def apply_changed_files(changed_files: list[str], matrix: set[MatrixItem]) -> se
     changed_flavors = (
         # If matrix-generation code itself changed, re-run all tests.
         all_flavors
-        if any(f.startswith("dev/flavors/") for f in changed_files)
+        if any(f.startswith("dev/flavors/src/") for f in changed_files)
         else get_changed_flavors(changed_files, all_flavors)
     )
 
