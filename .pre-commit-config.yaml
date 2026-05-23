@@ -67,7 +67,6 @@ repos:
             dev/gen_rest_api\.py|
             dev/proto_plugin\.py|
             dev/update_ml_package_versions\.py|
-            dev/flavors/.*\.py|
             dev/proto_to_graphql/.*\.py|
             dev/benchmarks/gateway/fake_server\.py|
             dev/benchmarks/gateway/benchmark\.py|
