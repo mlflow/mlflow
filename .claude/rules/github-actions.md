@@ -26,8 +26,9 @@ If the trigger event already carries the data, read it from the `github` context
 # Bad
 - env:
     GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    PR_URL: ${{ github.event.pull_request.html_url }}
   run: |
-    PR_NUMBER=$(gh pr view --json number -q .number)
+    PR_NUMBER=$(gh pr view "$PR_URL" --json number -q .number)
 
 # Good
 - env:
