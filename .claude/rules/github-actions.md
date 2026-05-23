@@ -26,14 +26,14 @@ If the trigger event already carries the data, read it from the `github` context
 # Bad
 - env:
     GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    PR_URL: ${{ github.event.pull_request.html_url }}
+    PR_NUMBER: ${{ github.event.pull_request.number }}
   run: |
-    PR_NUMBER=$(gh pr view "$PR_URL" --json number -q .number)
+    HEAD_SHA=$(gh pr view "$PR_NUMBER" --json headRefOid -q .headRefOid)
 
 # Good
 - env:
-    PR_NUMBER: ${{ github.event.pull_request.number }}
-  run: echo "PR #$PR_NUMBER"
+    HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+  run: echo "$HEAD_SHA"
 ```
 
 Only fetch when the data isn't in the payload (e.g., check runs, review threads, changed files on `issue_comment`).
