@@ -7,7 +7,6 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-import mlflow
 from mlflow.assistant import clear_project_path_cache, get_project_path
 from mlflow.assistant.config import AssistantConfig, PermissionsConfig, ProjectConfig
 from mlflow.assistant.providers import list_providers
@@ -19,7 +18,6 @@ from mlflow.assistant.providers.base import (
 )
 from mlflow.assistant.skill_installer import install_skills, list_installed_skills
 from mlflow.assistant.types import EventType
-from mlflow.genai.agent_server import invoke
 from mlflow.server.assistant.session import SessionManager, terminate_session_process
 
 
