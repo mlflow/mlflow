@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Button,
@@ -108,18 +108,37 @@ export const EditRoleModal = ({ open, onClose, roleId }: EditRoleModalProps) => 
 
   const stateLoaded = !roleLoading && !assignmentsLoading && !usersLoading;
 
+  // ``prefilledRef`` gates the data-fill effect against background
+  // refetches that would clobber in-progress edits.
+  const prefilledRef = useRef(false);
+
+  // Reset transient UI state only on open — refetches must not bounce
+  // the user back to edit or wipe a partial-failure error.
   useEffect(() => {
     if (!open) {
       return;
     }
     setStep('edit');
+    setSubmitting(false);
+    setError(null);
+    prefilledRef.current = false;
+  }, [open]);
+
+  // Pre-fill editable fields once per open, after backing queries resolve.
+  useEffect(() => {
+    if (!open) {
+      prefilledRef.current = false;
+      return;
+    }
+    if (prefilledRef.current || !stateLoaded) {
+      return;
+    }
     setName(currentName);
     setDescription(currentDescription);
     setPermissions([...currentPermissions]);
     setUsernames([...currentUsernames]);
-    setSubmitting(false);
-    setError(null);
-  }, [open, currentName, currentDescription, currentPermissions, currentUsernames]);
+    prefilledRef.current = true;
+  }, [open, stateLoaded, currentName, currentDescription, currentPermissions, currentUsernames]);
 
   // --- Diff ---
   const diff = useMemo<RoleDiff>(() => {
@@ -173,7 +192,8 @@ export const EditRoleModal = ({ open, onClose, roleId }: EditRoleModalProps) => 
   }, [currentPermissions]);
 
   const handleConfirm = useCallback(async () => {
-    setError(null);
+    // ``error`` is already cleared by the "Review changes" transition;
+    // skipping a redundant reset here also avoids the flicker.
     setSubmitting(true);
     const failures: string[] = [];
 
@@ -270,7 +290,10 @@ export const EditRoleModal = ({ open, onClose, roleId }: EditRoleModalProps) => 
             <Button
               componentId="admin.edit_role_modal.review"
               type="primary"
-              onClick={() => setStep('review')}
+              onClick={() => {
+                setError(null);
+                setStep('review');
+              }}
               disabled={!hasAnyChange || !stateLoaded || !name.trim()}
             >
               Review changes
@@ -300,13 +323,19 @@ export const EditRoleModal = ({ open, onClose, roleId }: EditRoleModalProps) => 
       }
     >
       {error && (
+        // Sticky so partial-failure errors stay visible during scroll.
         <Alert
           componentId="admin.edit_role_modal.error"
           type="error"
           message={error}
           closable
           onClose={() => setError(null)}
-          css={{ marginBottom: theme.spacing.md }}
+          css={{
+            marginBottom: theme.spacing.md,
+            position: 'sticky',
+            top: 0,
+            zIndex: 1,
+          }}
         />
       )}
 

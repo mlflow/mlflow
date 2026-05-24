@@ -9,6 +9,7 @@ import re
 import tempfile
 import threading
 import time
+import unicodedata
 import urllib
 from functools import partial, wraps
 from typing import Any, Callable
@@ -1055,13 +1056,40 @@ def _get_validated_flask_request_json(
     return request_json
 
 
+def _content_disposition_attachment(filename: str) -> str:
+    """
+    Build an RFC 6266 / RFC 5987 ``Content-Disposition`` value for an attachment.
+
+    HTTP headers must be ASCII-encodable; ASGI adapters such as starlette's
+    ``WSGIMiddleware`` raise ``UnicodeEncodeError`` on raw non-ASCII bytes. For
+    filenames containing non-ASCII characters, emit an ASCII ``filename=``
+    fallback alongside a percent-encoded ``filename*=UTF-8''…`` parameter.
+    """
+    try:
+        filename.encode("ascii")
+    except UnicodeEncodeError:
+        # ``or "download"`` ensures a well-formed ``filename=<value>`` parameter
+        # even when normalization strips every character (e.g. ``日本語`` with no
+        # extension). Clients that ignore ``filename*`` still get a usable name.
+        ascii_fallback = (
+            unicodedata.normalize("NFKD", filename).encode("ascii", "ignore").decode("ascii")
+            or "download"
+        )
+        # safe = RFC 5987 attr-char
+        quoted = urllib.parse.quote(filename, safe="!#$&+-.^_`|~")
+        return f"attachment; filename={ascii_fallback}; filename*=UTF-8''{quoted}"
+    return f"attachment; filename={filename}"
+
+
 def _response_with_file_attachment_headers(file_path, response):
     mime_type = _guess_mime_type(file_path)
     filename = pathlib.Path(file_path).name
     response.mimetype = mime_type
     content_disposition_header_name = "Content-Disposition"
     if content_disposition_header_name not in response.headers:
-        response.headers[content_disposition_header_name] = f"attachment; filename={filename}"
+        response.headers[content_disposition_header_name] = _content_disposition_attachment(
+            filename
+        )
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["Content-Type"] = mime_type
     return response
@@ -4915,10 +4943,30 @@ def _register_scorer():
 def _list_scorers():
     request_message = _get_request_message(
         ListScorers(),
-        schema={"experiment_id": [_assert_required, _assert_string]},
+        schema={"experiment_id": [_assert_string]},
     )
     response_message = ListScorers.Response()
-    scorers = _get_tracking_store().list_scorers(request_message.experiment_id)
+    store = _get_tracking_store()
+    if request_message.experiment_id:
+        scorers = store.list_scorers(request_message.experiment_id)
+    else:
+        # Cross-experiment listing: walk the active workspace's experiments
+        # via the workspace-aware ``search_experiments`` pagination, then
+        # batch the scorer fetch through ``list_scorers_across_experiments``.
+        # Auth-side ``filter_list_scorers`` applies per-row RBAC filtering on
+        # the response.
+        experiment_ids: list[str] = []
+        page_token: str | None = None
+        while True:
+            page = store.search_experiments(
+                view_type=ViewType.ACTIVE_ONLY,
+                max_results=1000,
+                page_token=page_token,
+            )
+            experiment_ids.extend(e.experiment_id for e in page)
+            if not (page_token := page.token):
+                break
+        scorers = store.list_scorers_across_experiments(experiment_ids)
     response_message.scorers.extend([scorer.to_proto() for scorer in scorers])
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))

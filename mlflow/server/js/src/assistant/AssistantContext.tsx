@@ -56,12 +56,11 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   // Use ref to track active EventSource for cancellation
   const eventSourceRef = useRef<EventSource | null>(null);
 
-  const appendToStreamingMessage = useCallback((text: string) => {
-    // Add newline separator if there's already content (e.g. reasoning)
-    if (streamingMessageRef.current && !streamingMessageRef.current.endsWith('\n') && !text.startsWith('\n')) {
-      streamingMessageRef.current += '\n\n';
-    }
-    streamingMessageRef.current += text;
+  // Throttle streaming updates to avoid overwhelming React with re-renders
+  const rafPendingRef = useRef<number | null>(null);
+
+  const flushStreamingMessage = useCallback(() => {
+    rafPendingRef.current = null;
     setMessages((prev) => {
       const lastMessage = prev[prev.length - 1];
       if (lastMessage && lastMessage.role === 'assistant' && lastMessage.isStreaming) {
@@ -71,11 +70,26 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     });
   }, []);
 
+  const appendToStreamingMessage = useCallback(
+    (text: string) => {
+      streamingMessageRef.current += text;
+      if (rafPendingRef.current === null) {
+        rafPendingRef.current = requestAnimationFrame(flushStreamingMessage);
+      }
+    },
+    [flushStreamingMessage],
+  );
+
   const finalizeStreamingMessage = useCallback(() => {
+    // Cancel any pending RAF and do a final flush with isStreaming: false
+    if (rafPendingRef.current !== null) {
+      cancelAnimationFrame(rafPendingRef.current);
+      rafPendingRef.current = null;
+    }
     setMessages((prev) => {
       const lastMessage = prev[prev.length - 1];
       if (lastMessage && lastMessage.role === 'assistant' && lastMessage.isStreaming) {
-        return [...prev.slice(0, -1), { ...lastMessage, isStreaming: false }];
+        return [...prev.slice(0, -1), { ...lastMessage, content: streamingMessageRef.current, isStreaming: false }];
       }
       return prev;
     });
@@ -103,8 +117,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     setIsLoadingConfig(true);
     try {
       const config = await getConfig();
-      // Setup is complete if claude_code provider is selected
-      const isComplete = config.providers?.['claude_code']?.selected === true;
+      const isComplete = Object.values(config.providers ?? {}).some((p) => p.selected === true);
       setSetupComplete(isComplete);
     } catch {
       // On error, assume setup is not complete
@@ -115,7 +128,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const completeSetup = useCallback(() => {
-    // Refresh config after setup completes to update the UI
+    setSetupComplete(true);
     refreshConfig();
   }, [refreshConfig]);
 
@@ -123,6 +136,20 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     refreshConfig();
   }, [refreshConfig]);
+
+  // Cancel pending RAF and close EventSource on unmount
+  useEffect(() => {
+    return () => {
+      if (rafPendingRef.current !== null) {
+        cancelAnimationFrame(rafPendingRef.current);
+        rafPendingRef.current = null;
+      }
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
+      }
+    };
+  }, []);
 
   const handleStreamError = useCallback((errorMsg: string) => {
     setError(errorMsg);

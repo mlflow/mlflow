@@ -1,9 +1,23 @@
-import { describe, it, expect } from '@jest/globals';
+import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import React from 'react';
 import { renderWithDesignSystem, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 
 import { UserRolesCell } from './UserRolesCell';
 import type { Role } from '../types';
+import { useWorkspacesEnabled } from '../../experiment-tracking/hooks/useServerInfo';
+
+// ``useWorkspacesEnabled`` hits a React Query under the hood; mock it to
+// keep these tests provider-free. Cases override the return per-test via
+// ``mockReturnValue`` to exercise both the multi- and single-tenant paths.
+jest.mock('../../experiment-tracking/hooks/useServerInfo', () => ({
+  useWorkspacesEnabled: jest.fn(),
+}));
+
+const mockUseWorkspacesEnabled = jest.mocked(useWorkspacesEnabled);
+
+beforeEach(() => {
+  mockUseWorkspacesEnabled.mockReturnValue({ workspacesEnabled: true, loading: false });
+});
 
 const role = (overrides: Partial<Role>): Role => ({
   id: 1,
@@ -65,5 +79,41 @@ describe('UserRolesCell', () => {
     );
     expect(screen.getByText('foo')).toBeInTheDocument();
     expect(screen.getByText('bar')).toBeInTheDocument();
+  });
+
+  it('hides synthetic __user_N__ roles regardless of scopeWorkspace', () => {
+    // Synthetic per-user roles back direct grants; they must never appear in
+    // the cell. Pin both the unscoped and the workspace-scoped paths.
+    renderWithDesignSystem(
+      <UserRolesCell
+        roles={[
+          role({ id: 1, name: '__user_1__', workspace: 'default' }),
+          role({ id: 2, name: 'editor', workspace: 'default' }),
+        ]}
+        scopeWorkspace={null}
+      />,
+    );
+    expect(screen.queryByText(/__user_1__/)).not.toBeInTheDocument();
+    expect(screen.getByText(/editor/)).toBeInTheDocument();
+  });
+
+  it('renders only the role name (no workspace prefix) in single-tenant mode', () => {
+    mockUseWorkspacesEnabled.mockReturnValue({ workspacesEnabled: false, loading: false });
+    renderWithDesignSystem(
+      <UserRolesCell roles={[role({ id: 1, name: 'editor', workspace: 'default' })]} scopeWorkspace={null} />,
+    );
+    expect(screen.getByText('editor')).toBeInTheDocument();
+    expect(screen.queryByText('default')).not.toBeInTheDocument();
+  });
+
+  it('keeps the workspace prefix while the server-info query is loading', () => {
+    // Avoids a hide-then-show flicker: until we know the server is
+    // single-tenant, render the multi-tenant layout.
+    mockUseWorkspacesEnabled.mockReturnValue({ workspacesEnabled: false, loading: true });
+    renderWithDesignSystem(
+      <UserRolesCell roles={[role({ id: 1, name: 'editor', workspace: 'foo' })]} scopeWorkspace={null} />,
+    );
+    expect(screen.getByText('foo')).toBeInTheDocument();
+    expect(screen.getByText(/editor/)).toBeInTheDocument();
   });
 });

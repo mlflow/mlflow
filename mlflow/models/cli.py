@@ -32,7 +32,6 @@ def commands():
 @cli_args.ENV_MANAGER
 @cli_args.NO_CONDA
 @cli_args.INSTALL_MLFLOW
-@cli_args.ENABLE_MLSERVER
 def serve(
     model_uri,
     port,
@@ -42,7 +41,6 @@ def serve(
     env_manager=None,
     no_conda=False,
     install_mlflow=False,
-    enable_mlserver=False,
 ):
     """
     Serve a model saved with MLflow by launching a webserver on the specified host and port.
@@ -103,9 +101,7 @@ def serve(
 
     return get_flavor_backend(
         model_uri, env_manager=env_manager, workers=workers, install_mlflow=install_mlflow
-    ).serve(
-        model_uri=model_uri, port=port, host=host, timeout=timeout, enable_mlserver=enable_mlserver
-    )
+    ).serve(model_uri=model_uri, port=port, host=host, timeout=timeout)
 
 
 class KeyValueType(click.ParamType):
@@ -214,7 +210,6 @@ def prepare_env(
 @cli_args.MLFLOW_HOME
 @cli_args.INSTALL_JAVA
 @cli_args.INSTALL_MLFLOW
-@cli_args.ENABLE_MLSERVER
 def generate_dockerfile(
     model_uri,
     output_directory,
@@ -222,7 +217,6 @@ def generate_dockerfile(
     mlflow_home,
     install_java,
     install_mlflow,
-    enable_mlserver,
 ):
     """
     Generates a directory with Dockerfile whose default entrypoint serves an MLflow model at port
@@ -242,7 +236,6 @@ def generate_dockerfile(
             mlflow_home=mlflow_home,
             install_java=install_java,
             install_mlflow=install_mlflow,
-            enable_mlserver=enable_mlserver,
         )
         _logger.info("Generated Dockerfile in directory %s", output_directory)
     else:
@@ -261,7 +254,6 @@ def generate_dockerfile(
 @cli_args.MLFLOW_HOME
 @cli_args.INSTALL_JAVA
 @cli_args.INSTALL_MLFLOW
-@cli_args.ENABLE_MLSERVER
 def build_docker(**kwargs):
     """
     Builds a Docker image whose default entrypoint serves an MLflow model at port 8080, using the

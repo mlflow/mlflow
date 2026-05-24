@@ -2030,6 +2030,34 @@
       },
       "last_updated_at": "2026-04-24"
     },
+    "gpt-realtime-2": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 32000,
+        "max_output": 4096,
+        "max_tokens": 4096
+      },
+      "pricing": {
+        "input_per_million_tokens": 4.0,
+        "output_per_million_tokens": 16.0,
+        "cache_read_per_million_tokens": 0.4,
+        "modality": {
+          "audio": {
+            "cache_write_per_million_tokens": 0.4,
+            "input_per_million_tokens": 32.0,
+            "output_per_million_tokens": 64.0
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-18"
+    },
     "gpt-realtime-2025-08-28": {
       "mode": "chat",
       "context_window": {
