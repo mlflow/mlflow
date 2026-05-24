@@ -26,4 +26,9 @@ def load_or_default(path: str | Path, default: Any) -> Any:
 
 def load_raw(path: str | Path) -> dict[str, Any]:
     with open(path) as f:
-        return yaml.safe_load(f)
+        data = yaml.safe_load(f)
+    if not isinstance(data, dict):
+        raise ValueError(
+            f"Expected a YAML mapping at top level of {path}, got {type(data).__name__}"
+        )
+    return data

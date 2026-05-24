@@ -13,16 +13,16 @@ DEV_NUMERIC = "9999.9999.9999"
 
 
 class Version(OriginalVersion):
-    def __init__(self, version: str, release_date: datetime | None = None):
+    def __init__(self, version: str, release_date: datetime | None = None) -> None:
         self._is_dev = version == DEV_VERSION
         self._release_date = release_date
         super().__init__(DEV_NUMERIC if self._is_dev else version)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return DEV_VERSION if self._is_dev else super().__str__()
 
     @classmethod
-    def create_dev(cls):
+    def create_dev(cls) -> Version:
         return cls(DEV_VERSION, datetime.now(timezone.utc))
 
     @property
@@ -64,22 +64,22 @@ class TestConfig(BaseModel):
 
     @field_validator("minimum", mode="before")
     @classmethod
-    def validate_minimum(cls, v):
+    def validate_minimum(cls, v: str) -> Version:
         return Version(v)
 
     @field_validator("maximum", mode="before")
     @classmethod
-    def validate_maximum(cls, v):
+    def validate_maximum(cls, v: str) -> Version:
         return Version(v)
 
     @field_validator("unsupported", mode="before")
     @classmethod
-    def validate_unsupported(cls, v):
+    def validate_unsupported(cls, v: list[str] | None) -> list[SpecifierSet] | None:
         return [SpecifierSet(x) for x in v] if v else None
 
     @field_validator("python", mode="before")
     @classmethod
-    def validate_python_requirements(cls, v):
+    def validate_python_requirements(cls, v: dict[str, str] | None) -> dict[str, str] | None:
         if v is None:
             return v
 
@@ -104,7 +104,7 @@ class FlavorConfig(BaseModel):
 
     @property
     def categories(self) -> list[tuple[str, TestConfig]]:
-        cs = []
+        cs: list[tuple[str, TestConfig]] = []
         if self.models:
             cs.append(("models", self.models))
         if self.autologging:

@@ -25,6 +25,7 @@ class PassthroughAction(str, Enum):
     OPENAI_CHAT = "openai_chat"
     OPENAI_EMBEDDINGS = "openai_embeddings"
     OPENAI_RESPONSES = "openai_responses"
+    OPENAI_RESPONSES_COMPACT = "openai_responses_compact"
     ANTHROPIC_MESSAGES = "anthropic_messages"
     GEMINI_GENERATE_CONTENT = "gemini_generate_content"
     GEMINI_STREAM_GENERATE_CONTENT = "gemini_stream_generate_content"
@@ -35,6 +36,7 @@ PASSTHROUGH_ROUTES = {
     PassthroughAction.OPENAI_CHAT: "/openai/v1/chat/completions",
     PassthroughAction.OPENAI_EMBEDDINGS: "/openai/v1/embeddings",
     PassthroughAction.OPENAI_RESPONSES: "/openai/v1/responses",
+    PassthroughAction.OPENAI_RESPONSES_COMPACT: "/openai/v1/responses/compact",
     PassthroughAction.ANTHROPIC_MESSAGES: "/anthropic/v1/messages",
     PassthroughAction.GEMINI_GENERATE_CONTENT: "/gemini/v1beta/models/{endpoint_name}:generateContent",  # noqa: E501
     PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT: "/gemini/v1beta/models/{endpoint_name}:streamGenerateContent",  # noqa: E501
