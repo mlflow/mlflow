@@ -116,6 +116,19 @@ describe('destinationFromExperimentTags', () => {
     ).toBeNull();
   });
 
+  it('returns null when any path segment is empty', () => {
+    expect(
+      destinationFromExperimentTags({
+        [DATABRICKS_TRACE_DESTINATION_PATH_TAG]: 'cat.sch.',
+      }),
+    ).toBeNull();
+    expect(
+      destinationFromExperimentTags({
+        [DATABRICKS_TRACE_DESTINATION_PATH_TAG]: '.sch.prefix',
+      }),
+    ).toBeNull();
+  });
+
   it('parses a UC table-prefix destination and copies the spans / logs / annotations tables', () => {
     const dest = destinationFromExperimentTags({
       [DATABRICKS_TRACE_DESTINATION_PATH_TAG]: 'cat.sch.prefix',

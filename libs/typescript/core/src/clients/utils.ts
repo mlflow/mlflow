@@ -66,12 +66,10 @@ export async function makeRequest<T>(
   headerProvider: HeadersProvider,
   body?: any,
   timeout?: number,
-  extraHeaders?: Record<string, string>,
 ): Promise<T> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeout ?? getDefaultTimeout());
-  const baseHeaders = await headerProvider();
-  const headers = extraHeaders ? { ...baseHeaders, ...extraHeaders } : baseHeaders;
+  const headers = await headerProvider();
 
   try {
     const response = await fetch(url, {

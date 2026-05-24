@@ -121,7 +121,8 @@ export namespace CreateTraceInfoV4 {
  *
  * Endpoint: POST /api/2.0/otel/v1/traces
  * Required header: `X-Databricks-UC-Table-Name: <fully_qualified_spans_table>`
- * Content-Type: application/json (OTLP/HTTP+JSON)
+ * Content-Type: application/x-protobuf (OTLP/HTTP+protobuf); the Databricks
+ * endpoint does not accept the OTLP/HTTP+JSON form.
  */
 export namespace ExportOtlpTraces {
   export const getEndpoint = (host: string) => `${host}/api/2.0/otel/v1/traces`;

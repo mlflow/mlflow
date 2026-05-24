@@ -1,4 +1,4 @@
-import { ExportResult } from '@opentelemetry/core';
+import { ExportResult, ExportResultCode } from '@opentelemetry/core';
 import { Context } from '@opentelemetry/api';
 import {
   Span as OTelSpan,
@@ -113,8 +113,7 @@ export class DatabricksUCTableSpanProcessor implements SpanProcessor {
 
       span.setAttribute(SpanAttributeKey.TRACE_ID, JSON.stringify(traceId));
     } else {
-      const traceId =
-        InMemoryTraceManager.getInstance().getMlflowTraceIdFromOtelId(otelTraceId) || '';
+      const traceId = InMemoryTraceManager.getInstance().getMlflowTraceIdFromOtelId(otelTraceId);
       if (!traceId) {
         console.warn(`No trace ID found for span ${span.name}. Skipping.`);
         return;
@@ -194,13 +193,14 @@ export class DatabricksUCTableSpanProcessor implements SpanProcessor {
 export class DatabricksUCTableSpanExporter implements SpanExporter {
   private _client: MlflowClient;
   private _pendingExports: Record<string, Promise<void>> = {};
+  private _hasRaisedMissingSpansTableWarning = false;
   private _hasRaisedSpanExportError = false;
 
   constructor(client: MlflowClient) {
     this._client = client;
   }
 
-  export(spans: OTelReadableSpan[], _resultCallback: (result: ExportResult) => void): void {
+  export(spans: OTelReadableSpan[], resultCallback: (result: ExportResult) => void): void {
     for (const span of spans) {
       if (span.parentSpanContext?.spanId) {
         continue;
@@ -218,6 +218,10 @@ export class DatabricksUCTableSpanExporter implements SpanExporter {
       });
       this._pendingExports[trace.info.traceId] = exportPromise;
     }
+    // Fire-and-forget: backend errors are logged inside exportTraceToBackend
+    // and intentionally not surfaced (matches Python `_log_spans`). Resolve
+    // the callback synchronously so the SpanExporter contract is honored.
+    resultCallback({ code: ExportResultCode.SUCCESS });
   }
 
   private async exportTraceToBackend(trace: Trace): Promise<void> {
@@ -246,12 +250,12 @@ export class DatabricksUCTableSpanExporter implements SpanExporter {
       if (!spansTable) {
         // Without a spans table we can't upload spans, but the trace info
         // (including tags) is already persisted in step 1.
-        if (!this._hasRaisedSpanExportError) {
+        if (!this._hasRaisedMissingSpansTableWarning) {
           console.warn(
             `No OTel spans table resolved for UC trace ${trace.info.traceId}; ` +
               `spans will not be exported. Tags and metadata are still persisted.`,
           );
-          this._hasRaisedSpanExportError = true;
+          this._hasRaisedMissingSpansTableWarning = true;
         }
         return;
       }

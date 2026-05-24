@@ -123,7 +123,7 @@ export function destinationFromExperimentTags(
     return null;
   }
   const parts = path.split('.');
-  if (parts.length !== 3) {
+  if (parts.length !== 3 || parts.some((p) => !p)) {
     return null;
   }
   const [catalogName, schemaName, tablePrefix] = parts;
