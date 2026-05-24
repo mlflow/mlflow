@@ -90,11 +90,11 @@ Deterministic scorers do not require an LLM judge:
 
 LLM judge scorers use a Gemini model to grade the agent's response:
 
-| Scorer                                                                                            | What does it evaluate?                                                | ADK Docs                                            |
-| ------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- | --------------------------------------------------- |
-| <APILink fn="mlflow.genai.scorers.google_adk.ResponseEvaluation">ResponseEvaluation</APILink>     | Does the agent's response match the expected response (LLM judge)?    | [Link](https://google.github.io/adk-docs/evaluate/) |
-| <APILink fn="mlflow.genai.scorers.google_adk.Safety">Safety</APILink>                             | Is the agent's response safe and free of harmful content?             | [Link](https://google.github.io/adk-docs/evaluate/) |
-| <APILink fn="mlflow.genai.scorers.google_adk.Hallucination">Hallucination</APILink>               | Is the agent's response factually grounded (not hallucinated)?        | [Link](https://google.github.io/adk-docs/evaluate/) |
+| Scorer                                                                                        | What does it evaluate?                                             | ADK Docs                                            |
+| --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ | --------------------------------------------------- |
+| <APILink fn="mlflow.genai.scorers.google_adk.ResponseEvaluation">ResponseEvaluation</APILink> | Does the agent's response match the expected response (LLM judge)? | [Link](https://google.github.io/adk-docs/evaluate/) |
+| <APILink fn="mlflow.genai.scorers.google_adk.Safety">Safety</APILink>                         | Is the agent's response safe and free of harmful content?          | [Link](https://google.github.io/adk-docs/evaluate/) |
+| <APILink fn="mlflow.genai.scorers.google_adk.Hallucination">Hallucination</APILink>           | Is the agent's response factually grounded (not hallucinated)?     | [Link](https://google.github.io/adk-docs/evaluate/) |
 
 :::note
 LLM judge scorers require a model that ADK's `LlmRegistry` can resolve, such as `gemini-2.5-flash`. MLflow model URIs like `databricks` or `openai:/gpt-4o` are not supported by these scorers.
