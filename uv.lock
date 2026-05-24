@@ -1880,6 +1880,11 @@ dependencies = [
     { name = "requests" },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "packaging" },
@@ -1888,6 +1893,9 @@ requires-dist = [
     { name = "pyyaml" },
     { name = "requests" },
 ]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest" }]
 
 [[package]]
 name = "fonttools"
@@ -4069,7 +4077,7 @@ requires-dist = [
     { name = "fastapi", specifier = "<1" },
     { name = "fastapi", marker = "extra == 'gateway'", specifier = "<1" },
     { name = "fastapi", marker = "extra == 'genai'", specifier = "<1" },
-    { name = "fastmcp", marker = "extra == 'mcp'", specifier = ">=2.0.0,<4" },
+    { name = "fastmcp", marker = "extra == 'mcp'", specifier = ">=2.7.0,<4" },
     { name = "flask", specifier = "<4" },
     { name = "flask-cors", specifier = "<7" },
     { name = "flask-wtf", marker = "extra == 'auth'", specifier = "<2" },
