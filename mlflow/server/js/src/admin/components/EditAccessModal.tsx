@@ -27,22 +27,23 @@ import { AccountQueryKeys } from '../../account/hooks';
 import { isSyntheticUserRole } from '../types';
 import { useActiveWorkspace } from '../../workspaces/utils/WorkspaceUtils';
 import { RoleAssignmentForm, ROLE_ASSIGNMENT_DEFAULT, type RoleAssignmentValue } from './RoleAssignmentForm';
-import { type DirectGrantResourceType } from './DirectPermissionForm';
+import { DIRECT_GRANT_RESOURCE_TYPES, type DirectGrantResourceType } from './DirectPermissionForm';
 import { DirectPermissionsSection, type StagedDirectPermission } from './DirectPermissionsSection';
 
 export interface EditAccessModalProps {
   open: boolean;
   onClose: () => void;
   username: string;
-  /** Optional: bridge to the Create Role flow when "All <type>" is picked. */
-  onCreateRoleForAllOfType?: (resourceType: DirectGrantResourceType) => void;
 }
 
 const directPermKey = (p: { resourceType: string; resourceId: string; permission: string }) =>
   `${p.resourceType}::${p.resourceId}::${p.permission}`;
 
+// Derived from the form's source of truth so a new direct-grant type can't
+// drift between the form (where it's offered) and the modal (where existing
+// grants of that type are bucketed into the direct view).
 const isDirectGrantResourceType = (rt: string): rt is DirectGrantResourceType =>
-  rt === 'experiment' || rt === 'registered_model' || rt === 'gateway_secret' || rt === 'gateway_endpoint';
+  (DIRECT_GRANT_RESOURCE_TYPES as readonly string[]).includes(rt);
 
 interface AccessDiff {
   rolesToAssign: number[];
@@ -59,7 +60,7 @@ interface AccessDiff {
  * Review step surfaces every add / remove / promote / demote so the
  * admin can confirm before destructive parts land.
  */
-export const EditAccessModal = ({ open, onClose, username, onCreateRoleForAllOfType }: EditAccessModalProps) => {
+export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProps) => {
   const { theme } = useDesignSystemTheme();
   const queryClient = useQueryClient();
   const grantPermission = useGrantUserPermission();
@@ -383,7 +384,6 @@ export const EditAccessModal = ({ open, onClose, username, onCreateRoleForAllOfT
                 <DirectPermissionsSection
                   value={directPermissions}
                   onChange={setDirectPermissions}
-                  onCreateRoleForAllOfType={onCreateRoleForAllOfType}
                   disabled={submitting}
                 />
               </LongFormSection>

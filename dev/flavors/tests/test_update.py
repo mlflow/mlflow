@@ -32,7 +32,7 @@ def package_from_versions(versions: list[str]) -> Package:
 
 
 @pytest.fixture(autouse=True)
-def change_working_directory(tmp_path, monkeypatch):
+def change_working_directory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """
     Changes the current working directory to a temporary directory to avoid modifying files in the
     repository.
@@ -40,8 +40,8 @@ def change_working_directory(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
 
 
-def run_test(src, src_expected, mock_packages):
-    async def fake_get_packages(names):
+def run_test(src: str, src_expected: str, mock_packages: dict[str, Package]) -> None:
+    async def fake_get_packages(names: list[str]) -> list[Package]:
         return [mock_packages[n] for n in names]
 
     versions_yaml = Path("mlflow/ml-package-versions.yml")
@@ -58,7 +58,7 @@ def run_test(src, src_expected, mock_packages):
     assert versions_yaml.read_text() == src_expected
 
 
-def test_multiple_flavors_are_correctly_updated():
+def test_multiple_flavors_are_correctly_updated() -> None:
     src = """
 sklearn:
   package_info:
@@ -90,7 +90,7 @@ xgboost:
     run_test(src, src_expected, mock_packages)
 
 
-def test_both_models_and_autologging_are_updated():
+def test_both_models_and_autologging_are_updated() -> None:
     src = """
 sklearn:
   package_info:
@@ -115,7 +115,7 @@ sklearn:
     run_test(src, src_expected, mock_packages)
 
 
-def test_pre_and_dev_versions_are_ignored():
+def test_pre_and_dev_versions_are_ignored() -> None:
     src = """
 sklearn:
   package_info:
@@ -142,7 +142,7 @@ sklearn:
     run_test(src, src_expected, mock_packages)
 
 
-def test_unsupported_versions_are_ignored():
+def test_unsupported_versions_are_ignored() -> None:
     src = """
 sklearn:
   package_info:
@@ -163,7 +163,7 @@ sklearn:
     run_test(src, src_expected, mock_packages)
 
 
-def test_freeze_field_prevents_updating_maximum_version():
+def test_freeze_field_prevents_updating_maximum_version() -> None:
     src = """
 sklearn:
   package_info:
@@ -184,7 +184,7 @@ sklearn:
     run_test(src, src_expected, mock_packages)
 
 
-def test_update_min_supported_version():
+def test_update_min_supported_version() -> None:
     src = """
 sklearn:
   package_info:
@@ -211,7 +211,7 @@ sklearn:
     run_test(src, src_expected, mock_packages)
 
 
-def test_update_min_supported_version_for_dead_package():
+def test_update_min_supported_version_for_dead_package() -> None:
     src = """
 sklearn:
   package_info:
