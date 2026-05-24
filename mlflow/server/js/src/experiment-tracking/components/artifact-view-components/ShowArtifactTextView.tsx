@@ -11,7 +11,43 @@ import { ArtifactViewErrorState } from './ArtifactViewErrorState';
 import type { LoggedModelArtifactViewerProps } from './ArtifactViewComponents.types';
 import { fetchArtifactUnified } from './utils/fetchArtifactUnified';
 
-const LARGE_ARTIFACT_SIZE = 100 * 1024;
+const LARGE_ARTIFACT_SIZE = 1024 * 1024;
+// Beyond this size, skip the syntax highlighter entirely and render as
+// plain text in a <pre> block. Prism creates a DOM node per token, so
+// multi-megabyte files can freeze the browser tab.
+const MAX_HIGHLIGHTER_SIZE = 1024 * 1024;
+
+type SyntaxHighlighterErrorBoundaryProps = {
+  fallback: React.ReactNode;
+  children: React.ReactNode;
+};
+
+type SyntaxHighlighterErrorBoundaryState = {
+  hasError: boolean;
+};
+
+/**
+ * Catches render errors from the syntax highlighter (e.g. files with
+ * problematic content or that are too large for Prism to tokenize) and
+ * falls back to a plain-text rendering instead of crashing the page.
+ */
+export class SyntaxHighlighterErrorBoundary extends Component<
+  SyntaxHighlighterErrorBoundaryProps,
+  SyntaxHighlighterErrorBoundaryState
+> {
+  state: SyntaxHighlighterErrorBoundaryState = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return this.props.fallback;
+    }
+    return this.props.children;
+  }
+}
 
 type Props = DesignSystemHocProps & {
   runUuid: string;
@@ -61,8 +97,10 @@ class ShowArtifactTextView extends Component<Props, State> {
     if (this.state.error) {
       return <ArtifactViewErrorState className="artifact-text-view-error" />;
     } else {
+      const textLength = this.state.text ? (this.state.text as string).length : 0;
+      const isVeryLargeFile = textLength > MAX_HIGHLIGHTER_SIZE;
       const isLargeFile = (this.props.size || 0) > LARGE_ARTIFACT_SIZE;
-      const language = isLargeFile ? 'text' : getLanguage(this.props.path);
+      const language = isLargeFile || isVeryLargeFile ? 'text' : getLanguage(this.props.path);
       const { theme } = this.props.designSystemThemeApi;
 
       const overrideStyles = {
@@ -78,14 +116,39 @@ class ShowArtifactTextView extends Component<Props, State> {
       };
       const renderedContent = this.state.text ? prettifyArtifactText(language, this.state.text) : this.state.text;
 
+      const plainTextFallback = (
+        <pre
+          style={{
+            ...overrideStyles,
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-all',
+            color: theme.colors.textPrimary,
+            backgroundColor: theme.colors.backgroundPrimary,
+            margin: 0,
+          }}
+        >
+          {renderedContent ?? ''}
+        </pre>
+      );
+
+      if (isVeryLargeFile) {
+        return (
+          <div className="mlflow-ShowArtifactPage">
+            <div className="text-area-border-box">{plainTextFallback}</div>
+          </div>
+        );
+      }
+
       const syntaxStyle = theme.isDarkMode ? darkStyle : style;
 
       return (
         <div className="mlflow-ShowArtifactPage">
           <div className="text-area-border-box">
-            <SyntaxHighlighter language={language} style={syntaxStyle} customStyle={overrideStyles}>
-              {renderedContent ?? ''}
-            </SyntaxHighlighter>
+            <SyntaxHighlighterErrorBoundary fallback={plainTextFallback}>
+              <SyntaxHighlighter language={language} style={syntaxStyle} customStyle={overrideStyles}>
+                {renderedContent ?? ''}
+              </SyntaxHighlighter>
+            </SyntaxHighlighterErrorBoundary>
           </div>
         </div>
       );
