@@ -216,6 +216,7 @@ jobs:
           timeout 20m claude \
             --model "$MODEL" \
             --effort "$EFFORT" \
+            --max-budget-usd 5 \
             --print \
             --verbose \
             --output-format stream-json \
