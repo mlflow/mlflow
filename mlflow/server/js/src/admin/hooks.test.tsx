@@ -4,7 +4,7 @@ import React from 'react';
 import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-client';
 
 import { AdminApi } from './api';
-import { useResourceOptionsQuery, useRolesQuery, useUsersQuery } from './hooks';
+import { useResourceOptionsQuery, useRolesQuery, useUsersQuery, useUserPermissionsQuery } from './hooks';
 
 jest.mock('./api', () => ({
   ...jest.requireActual<typeof import('./api')>('./api'),
@@ -17,6 +17,7 @@ jest.mock('./api', () => ({
     listGatewayEndpointsLite: jest.fn(),
     listUsers: jest.fn(),
     listRoles: jest.fn(),
+    listUserPermissions: jest.fn(),
   },
 }));
 
@@ -279,5 +280,134 @@ describe('useRolesQuery', () => {
     const { result } = renderHook(() => useRolesQuery(), { wrapper: makeWrapper() });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data?.roles).toEqual([namedRole]);
+  });
+});
+
+describe('workspace-scoped queries — switching workspace re-fetches with the new header', () => {
+  // The same QueryClient is shared across both hooks in each test so cache
+  // behavior (key separation, prefix invalidation) matches what the modals see.
+  const sharedWrapper = () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    return ({ children }: { children: React.ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    );
+  };
+
+  it('useResourceOptionsQuery re-fetches experiments when workspace prop changes', async () => {
+    // Workspace A returns one set of experiments; switching to B returns a
+    // different set. Pins that the cache key includes ``workspace`` (otherwise
+    // React Query would serve A's stale entry under the same key).
+    mockedApi.listExperimentsLite.mockImplementation((workspace?: string) => {
+      if (workspace === 'wsA') {
+        return Promise.resolve({
+          experiments: [{ experiment_id: '1', name: 'fraud-A' }],
+        });
+      }
+      return Promise.resolve({ experiments: [{ experiment_id: '2', name: 'churn-B' }] });
+    });
+
+    const wrapper = sharedWrapper();
+    const { result, rerender } = renderHook(
+      ({ workspace }: { workspace: string }) => useResourceOptionsQuery('experiment', workspace),
+      { initialProps: { workspace: 'wsA' }, wrapper },
+    );
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.options).toEqual([{ id: '1', name: 'fraud-A' }]);
+
+    rerender({ workspace: 'wsB' });
+    await waitFor(() => expect(result.current.options).toEqual([{ id: '2', name: 'churn-B' }]));
+
+    // Two separate fetches: one per workspace key.
+    expect(mockedApi.listExperimentsLite).toHaveBeenCalledTimes(2);
+    expect(mockedApi.listExperimentsLite).toHaveBeenNthCalledWith(1, 'wsA');
+    expect(mockedApi.listExperimentsLite).toHaveBeenNthCalledWith(2, 'wsB');
+  });
+
+  it('useResourceOptionsQuery cycles A → B → A correctly (each workspace gets its own data)', async () => {
+    // Pin that the cache key keeps per-workspace data separate even after
+    // round-trip switching. React Query may issue a background refetch when
+    // returning to A (default ``staleTime: 0``), so we don't assert on call
+    // count — only on the data the consumer sees being correct each step.
+    mockedApi.listExperimentsLite.mockImplementation((workspace?: string) =>
+      Promise.resolve({
+        experiments: [{ experiment_id: workspace === 'wsA' ? '1' : '2', name: `exp-${workspace}` }],
+      }),
+    );
+
+    const wrapper = sharedWrapper();
+    const { result, rerender } = renderHook(
+      ({ workspace }: { workspace: string }) => useResourceOptionsQuery('experiment', workspace),
+      { initialProps: { workspace: 'wsA' }, wrapper },
+    );
+    await waitFor(() => expect(result.current.options[0]?.name).toBe('exp-wsA'));
+    rerender({ workspace: 'wsB' });
+    await waitFor(() => expect(result.current.options[0]?.name).toBe('exp-wsB'));
+    rerender({ workspace: 'wsA' });
+    await waitFor(() => expect(result.current.options[0]?.name).toBe('exp-wsA'));
+  });
+
+  it('useUserPermissionsQuery re-fetches when workspace changes', async () => {
+    // The pre-fill bug we just fixed: ``EditAccessModal`` would fetch the
+    // user's grants from the session-active workspace, then revoke against
+    // whatever the dropdown selected. Pin that the hook is now workspace-keyed
+    // so pre-filled rows match the workspace the revoke will target.
+    mockedApi.listUserPermissions.mockImplementation((_username: string, workspace?: string) =>
+      Promise.resolve({
+        is_admin: false,
+        permissions: [
+          {
+            role_id: 42,
+            role_name: '__user_42__',
+            workspace: workspace ?? 'default',
+            resource_type: 'experiment',
+            resource_pattern: workspace === 'wsA' ? 'exp-A' : 'exp-B',
+            permission: 'READ',
+          },
+        ],
+      }),
+    );
+
+    const wrapper = sharedWrapper();
+    const { result, rerender } = renderHook(
+      ({ workspace }: { workspace: string }) => useUserPermissionsQuery('pat', workspace),
+      { initialProps: { workspace: 'wsA' }, wrapper },
+    );
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.data?.permissions?.[0]?.resource_pattern).toBe('exp-A');
+
+    rerender({ workspace: 'wsB' });
+    await waitFor(() => expect(result.current.data?.permissions?.[0]?.resource_pattern).toBe('exp-B'));
+
+    expect(mockedApi.listUserPermissions).toHaveBeenCalledTimes(2);
+    expect(mockedApi.listUserPermissions).toHaveBeenNthCalledWith(1, 'pat', 'wsA');
+    expect(mockedApi.listUserPermissions).toHaveBeenNthCalledWith(2, 'pat', 'wsB');
+  });
+
+  it('different resource types and workspaces share a single QueryClient without cross-contamination', async () => {
+    // Pins that the cache identity is (resourceType, workspace), not just
+    // resourceType. The modal hosts pickers for several types simultaneously
+    // (only one is ``enabled`` at a time, but they all share a key namespace);
+    // switching workspace must not bleed type-A's data into type-B's slot.
+    mockedApi.listExperimentsLite.mockResolvedValueOnce({
+      experiments: [{ experiment_id: '1', name: 'wsA-exp' }],
+    });
+    mockedApi.listRegisteredModelsLite.mockResolvedValueOnce({
+      registered_models: [{ name: 'wsB-model' }],
+    });
+
+    const wrapper = sharedWrapper();
+    const { result: experimentsInA } = renderHook(() => useResourceOptionsQuery('experiment', 'wsA'), { wrapper });
+    const { result: modelsInB } = renderHook(() => useResourceOptionsQuery('registered_model', 'wsB'), { wrapper });
+
+    await waitFor(() => expect(experimentsInA.current.isLoading).toBe(false));
+    await waitFor(() => expect(modelsInB.current.isLoading).toBe(false));
+
+    expect(experimentsInA.current.options).toEqual([{ id: '1', name: 'wsA-exp' }]);
+    expect(modelsInB.current.options).toEqual([{ id: 'wsB-model', name: 'wsB-model' }]);
+    // Each hit its own endpoint once — neither call leaked into the other.
+    expect(mockedApi.listExperimentsLite).toHaveBeenCalledTimes(1);
+    expect(mockedApi.listRegisteredModelsLite).toHaveBeenCalledTimes(1);
   });
 });
