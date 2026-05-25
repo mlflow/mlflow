@@ -721,6 +721,47 @@ def test_tool_calling_loop(mock_trace):
     assert json.loads(output.response) == {"result": "yes", "rationale": "Trace looks good"}
 
 
+def test_token_counts_accumulated_across_iterations(mock_trace):
+    # Tokens from all iterations (including tool-call rounds) should be summed,
+    # matching LiteLLM adapter behavior which accumulates cost across iterations.
+    tool_call_response = _chat_response(
+        None,
+        tool_calls=[
+            {"id": "c1", "type": "function", "function": {"name": "get_trace_info", "arguments": "{}"}}
+        ],
+        usage={"prompt_tokens": 100, "completion_tokens": 20, "total_tokens": 120},
+    )
+    final_response = _chat_response(
+        json.dumps({"result": "yes", "rationale": "ok"}),
+        usage={"prompt_tokens": 150, "completion_tokens": 30, "total_tokens": 180},
+    )
+
+    with (
+        mock.patch(
+            "mlflow.genai.judges.adapters.gateway_adapter._get_provider_instance",
+            return_value=_mock_provider(),
+        ),
+        mock.patch(
+            "mlflow.genai.judges.adapters.gateway_adapter.send_chat_request",
+            side_effect=[tool_call_response, final_response],
+        ),
+        mock.patch(
+            "mlflow.genai.judges.adapters.gateway_adapter._process_tool_calls",
+            return_value=[ChatMessage(role="tool", content="{}", tool_call_id="c1", name="get_trace_info")],
+        ),
+    ):
+        output = GatewayAdapter()._invoke_and_handle_tools(
+            provider="openai",
+            model_name="gpt-4",
+            messages=[ChatMessage(role="user", content="evaluate this")],
+            trace=mock_trace,
+            num_retries=3,
+        )
+
+    assert output.num_prompt_tokens == 250     # 100 + 150
+    assert output.num_completion_tokens == 50  # 20 + 30
+
+
 def test_context_window_error_triggers_pruning(mock_trace):
     final_response = _chat_response(json.dumps({"result": "yes", "rationale": "ok"}))
 

@@ -567,6 +567,8 @@ class GatewayAdapter(BaseJudgeAdapter):
         max_context_tokens = _get_max_context_tokens(provider, model_name)
         max_iterations = MLFLOW_JUDGE_MAX_ITERATIONS.get()
         iteration_count = 0
+        total_prompt_tokens: int | None = None
+        total_completion_tokens: int | None = None
 
         while True:
             iteration_count += 1
@@ -637,12 +639,17 @@ class GatewayAdapter(BaseJudgeAdapter):
                 # Use the provider adapter to normalize the response
                 message, usage = _parse_response_message(response_data, provider_instance)
 
+                if (prompt_tokens := usage.get("prompt_tokens")) is not None:
+                    total_prompt_tokens = (total_prompt_tokens or 0) + prompt_tokens
+                if (completion_tokens := usage.get("completion_tokens")) is not None:
+                    total_completion_tokens = (total_completion_tokens or 0) + completion_tokens
+
                 if not message.tool_calls:
                     return InvokeOutput(
                         response=message.content,
                         request_id=response_data.get("id"),
-                        num_prompt_tokens=usage.get("prompt_tokens"),
-                        num_completion_tokens=usage.get("completion_tokens"),
+                        num_prompt_tokens=total_prompt_tokens,
+                        num_completion_tokens=total_completion_tokens,
                     )
 
                 judge_messages.append(message)
