@@ -278,8 +278,13 @@ export class DatabricksUCTableSpanExporter implements SpanExporter {
   }
 
   async forceFlush(): Promise<void> {
-    await Promise.all(Object.values(this._pendingExports));
-    this._pendingExports = {};
+    // Each export self-removes from `_pendingExports` in its `finally` block.
+    // Loop so exports started during the await are still awaited, instead of
+    // resetting the map (which would silently drop new in-flight exports and
+    // make `shutdown()` lose track of them).
+    while (Object.keys(this._pendingExports).length > 0) {
+      await Promise.all(Object.values(this._pendingExports));
+    }
   }
 
   async shutdown(): Promise<void> {

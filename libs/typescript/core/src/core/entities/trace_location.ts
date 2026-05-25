@@ -57,9 +57,16 @@ export interface InferenceTableLocation {
 export interface UCSchemaLocation {
   catalogName: string;
   schemaName: string;
-  /** Backend-populated fully qualified spans table name, or default. */
+  /**
+   * Backend-populated bare spans table name (no catalog/schema prefix).
+   * The full name is `${catalogName}.${schemaName}.${otelSpansTableName}`,
+   * computed by `getOtelSpansTableName`.
+   */
   otelSpansTableName?: string;
-  /** Backend-populated fully qualified logs table name, or default. */
+  /**
+   * Backend-populated bare logs table name (no catalog/schema prefix).
+   * The full name is `${catalogName}.${schemaName}.${otelLogsTableName}`.
+   */
   otelLogsTableName?: string;
 }
 
