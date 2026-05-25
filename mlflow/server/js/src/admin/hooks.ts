@@ -291,6 +291,9 @@ export const useGrantUserPermission = () => {
       // surfaced by ``listUserRoles``, so a single ``userRoles`` invalidation
       // refreshes both the Roles tab and the Direct Permissions view.
       queryClient.invalidateQueries({ queryKey: AccountQueryKeys.userRoles(variables.username) });
+      // Also invalidate the workspace-scoped direct-permissions query so the
+      // EditAccessModal pre-fill reflects the new grant on next open.
+      queryClient.invalidateQueries({ queryKey: AdminQueryKeys.userPermissions(variables.username) });
     },
   });
 };
@@ -303,6 +306,7 @@ export const useRevokeUserPermission = () => {
       AdminApi.revokeUserPermission(request.resource_type, request.resource_id, request.username, request.workspace),
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: AccountQueryKeys.userRoles(variables.username) });
+      queryClient.invalidateQueries({ queryKey: AdminQueryKeys.userPermissions(variables.username) });
     },
   });
 };

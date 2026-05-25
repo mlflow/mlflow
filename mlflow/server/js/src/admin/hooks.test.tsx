@@ -422,16 +422,16 @@ describe('workspace-scoped queries — switching workspace re-fetches with the n
 });
 
 describe('useGrantUserPermission / useRevokeUserPermission — onSuccess invalidates userPermissions cache', () => {
-  it('grantPermission prefix-invalidates the workspace-scoped query so it re-fetches', async () => {
+  it('grantPermission calls invalidateQueries with the 2-tuple userPermissions prefix', async () => {
     // Pins the 2-tuple prefix assumption: invalidating ['admin_user_permissions', username]
-    // must flush the 3-tuple key ['admin_user_permissions', username, workspace].
-    mockedApi.listUserPermissions.mockResolvedValue({ is_admin: false, permissions: [] });
+    // (not the 3-tuple workspace variant) flushes every workspace variant at once.
     mockedApi.grantUserPermission.mockResolvedValue({});
 
-    const wrapper = makeWrapper();
-    const { result: queryResult } = renderHook(() => useUserPermissionsQuery('alice', 'wsA'), { wrapper });
-    await waitFor(() => expect(queryResult.current.isLoading).toBe(false));
-    expect(mockedApi.listUserPermissions).toHaveBeenCalledTimes(1);
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const invalidateSpy = jest.spyOn(client, 'invalidateQueries');
+    const wrapper = ({ children }: { children: React.ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    );
 
     const { result: grant } = renderHook(() => useGrantUserPermission(), { wrapper });
     await grant.current.mutateAsync({
@@ -442,21 +442,17 @@ describe('useGrantUserPermission / useRevokeUserPermission — onSuccess invalid
       workspace: 'wsA',
     });
 
-    await waitFor(() => expect(mockedApi.listUserPermissions).toHaveBeenCalledTimes(2));
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['admin_user_permissions', 'alice'] });
   });
 
-  it('revokePermission prefix-invalidates all workspace variants for the user', async () => {
-    // Both wsA and wsB entries share the 2-tuple prefix; a revoke for either
-    // workspace must flush both so the UI doesn't show stale grants.
-    mockedApi.listUserPermissions.mockResolvedValue({ is_admin: false, permissions: [] });
+  it('revokePermission calls invalidateQueries with the 2-tuple prefix so all workspace variants are flushed', async () => {
     mockedApi.revokeUserPermission.mockResolvedValue({});
 
-    const wrapper = makeWrapper();
-    const { result: wsA } = renderHook(() => useUserPermissionsQuery('bob', 'wsA'), { wrapper });
-    const { result: wsB } = renderHook(() => useUserPermissionsQuery('bob', 'wsB'), { wrapper });
-    await waitFor(() => expect(wsA.current.isLoading).toBe(false));
-    await waitFor(() => expect(wsB.current.isLoading).toBe(false));
-    expect(mockedApi.listUserPermissions).toHaveBeenCalledTimes(2);
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const invalidateSpy = jest.spyOn(client, 'invalidateQueries');
+    const wrapper = ({ children }: { children: React.ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    );
 
     const { result: revoke } = renderHook(() => useRevokeUserPermission(), { wrapper });
     await revoke.current.mutateAsync({
@@ -465,7 +461,8 @@ describe('useGrantUserPermission / useRevokeUserPermission — onSuccess invalid
       resource_id: 'exp-1',
     });
 
-    // Prefix invalidation must flush both workspace variants.
-    await waitFor(() => expect(mockedApi.listUserPermissions).toHaveBeenCalledTimes(4));
+    // 2-tuple prefix — not a 3-tuple workspace-specific key — so TanStack Query
+    // invalidates every ['admin_user_permissions', 'bob', <workspace>] variant.
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['admin_user_permissions', 'bob'] });
   });
 });

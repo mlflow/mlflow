@@ -15,21 +15,32 @@ jest.mock('../hooks', () => ({
     roles: ['admin_roles'],
     roleUsers: (roleId: number) => ['admin_role_users', roleId],
     resourceOptions: (resourceType: string) => ['admin_resource_options', resourceType],
+    userPermissions: (username: string) => ['admin_user_permissions', username],
   },
   useCurrentUserIsAdmin: () => false,
   useGrantUserPermission: () => ({ mutateAsync: jest.fn() }),
   useRevokeUserPermission: () => ({ mutateAsync: jest.fn() }),
   useRolesQuery: () => ({ data: { roles: [] }, isLoading: false, error: null }),
+  useUserPermissionsQuery: () => ({ data: { permissions: [] }, isLoading: false }),
   useUserRolesQuery: (username: string) => mockUseUserRolesQuery(username),
   useUsersQuery: () => ({
     data: { users: [{ id: 1, username: 'alice', is_admin: false, roles: [] }] },
     isLoading: false,
     error: null,
   }),
+  useWorkspaceOptions: () => [],
 }));
 
 jest.mock('../../workspaces/utils/WorkspaceUtils', () => ({
   useActiveWorkspace: () => null,
+}));
+
+jest.mock('../../workspaces/hooks/useWorkspaces', () => ({
+  useWorkspaces: () => ({ workspaces: [], isLoading: false }),
+}));
+
+jest.mock('../../experiment-tracking/hooks/useServerInfo', () => ({
+  useWorkspacesEnabled: () => ({ workspacesEnabled: false }),
 }));
 
 jest.mock('@mlflow/mlflow/src/common/utils/reactQueryHooks', () => ({
