@@ -88,10 +88,8 @@ export class BatchingWriter {
     }
 
     try {
-      for (const item of batch) {
-        const buf = Buffer.from(JSONBig.stringify(item.line) + '\n', 'utf8');
-        await fh.write(buf);
-      }
+      const buffers = batch.map((item) => Buffer.from(JSONBig.stringify(item.line) + '\n', 'utf8'));
+      await fh.writev(buffers);
       await fh.sync();
     } catch (err) {
       const error = err as Error;
