@@ -377,7 +377,7 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
               type="error"
               message="Failed to load access state"
               description={
-                (rolesError as Error)?.message ||
+                (rolesError instanceof Error ? rolesError.message : null) ||
                 `An error occurred while fetching the current access for ${username}. Close the modal and try again.`
               }
             />
