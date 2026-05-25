@@ -61,30 +61,18 @@ export function resolveDaemonEntry(): string {
   if (override !== undefined && override !== '') {
     return override;
   }
-  // DO NOT collapse this into a plain string literal. The concatenation
-  // hides the specifier from esbuild's static scanner (which walks every
-  // literal passed to `require.resolve(...)`) so the lookup stays
-  // runtime-only. The design requires the daemon to run in its own
-  // long-lived process - separate from any individual hook invocation -
-  // so the hook can exit immediately after appending to the WAL while
-  // the daemon handles uploads, retries, and group-commit batching
-  // across many concurrent hooks.
+  // DO NOT collapse this into a plain string literal. esbuild
+  // evaluates `require.resolve(literal)` at build time and bakes the
+  // resolved (developer-machine) path directly into the shipped
+  // bundle. On end users' machines that path does not exist, so
+  // `spawn` fails with ENOENT and traces silently stop uploading
+  // while the WAL grows unbounded. The string-concat hides the
+  // specifier from esbuild's AST scanner so the lookup runs at
+  // runtime against the user's own node_modules.
   //
-  // If a literal specifier appeared here, a consumer re-bundling
-  // @mlflow/core into their own hook (e.g. claude-code's
-  // `bundle/stop.cjs`) would suffer two bundler-induced regressions:
-  //   (a) esbuild inlines @mlflow/core's package.json contents into the
-  //       consumer bundle, so `dirname(pkgJsonPath)` resolves to the
-  //       *consumer's* bundle dir instead of @mlflow/core's install
-  //       dir, and `join(..., 'bundle', 'daemon.cjs')` points at a
-  //       file that does not exist.
-  //   (b) esbuild follows the path forward and inlines the entire
-  //       `bundle/daemon.cjs` source into the hook bundle - bloating
-  //       it by many MB (OTel SDKs, Databricks SDK, HTTP stack, retry
-  //       logic) and making it tempting to `require()` the daemon
-  //       in-process, which would re-couple hook latency to backend
-  //       latency and break the "one daemon per host, N hooks" model.
-  // Both outcomes are bad; the string-concat prevents both.
+  // This defense lives in the supervisor (not in consumers' esbuild
+  // configs) because every plugin-marketplace consumer must bundle
+  // @mlflow/core into their hook to ship as a self-contained file.
   const pkgJsonModule = '@mlflow' + '/core' + '/package.json';
   const requireFromHere = createRequire(__filename);
   const pkgJsonPath = requireFromHere.resolve(pkgJsonModule);
