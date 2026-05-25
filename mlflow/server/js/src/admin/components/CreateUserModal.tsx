@@ -277,7 +277,7 @@ export const CreateUserModal = ({ open, onClose }: CreateUserModalProps) => {
               componentId="admin.create_user_modal.grant_workspace"
               value={grantWorkspace}
               onChange={({ target }) => setGrantWorkspace(target.value)}
-              disabled={submitting}
+              disabled={submitting || createdUsername !== null}
             >
               {workspaceOptions.map((w) => (
                 <SimpleSelectOption key={w} value={w}>

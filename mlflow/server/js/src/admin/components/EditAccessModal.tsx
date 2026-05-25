@@ -173,9 +173,11 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
     if (!stateLoaded || filledForWorkspaceRef.current === grantWorkspace) {
       return;
     }
-    setRoleValue({ roleIds: [...currentRoleIds] });
+    if (filledForWorkspaceRef.current === null) {
+      setRoleValue({ roleIds: [...currentRoleIds] });
+      setIsAdmin(currentIsAdmin);
+    }
     setDirectPermissions([...currentDirectPerms]);
-    setIsAdmin(currentIsAdmin);
     filledForWorkspaceRef.current = grantWorkspace;
   }, [open, stateLoaded, grantWorkspace, currentRoleIds, currentDirectPerms, currentIsAdmin]);
 
@@ -315,6 +317,7 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
       return;
     }
     setError(failures.join('\n'));
+    filledForWorkspaceRef.current = null;
     setStep('edit');
     setSubmitting(false);
   }, [diff, isAdmin, username, grantWorkspace, queryClient, grantPermission, revokePermission, onClose, renderRoleId]);
