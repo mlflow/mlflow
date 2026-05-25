@@ -68,7 +68,7 @@ export const RoleAssignmentForm = ({ value, onChange, disabled }: RoleAssignment
   // grants, not user-authored roles). A server-side cascade is the proper
   // fix; this client-side filter is a stopgap so the picker doesn't show
   // unselectable roles.
-  const { workspaces } = useWorkspaces(isAdmin);
+  const { workspaces, isLoading: workspacesLoading } = useWorkspaces(isAdmin);
   const knownWorkspaceNames = useMemo(() => {
     const names = new Set<string>([DEFAULT_WORKSPACE_NAME]);
     for (const w of workspaces) names.add(w.name);
@@ -84,9 +84,11 @@ export const RoleAssignmentForm = ({ value, onChange, disabled }: RoleAssignment
         // Workspace managers see only their active workspace's roles, which
         // the server already scoped; skip the orphan filter to avoid an
         // unnecessary ``useWorkspaces`` dependency. Platform admins see the
-        // cross-workspace listing and need the orphan check.
-        .filter((r) => !isAdmin || knownWorkspaceNames.has(r.workspace)),
-    [rolesData, isAdmin, knownWorkspaceNames],
+        // cross-workspace listing and need the orphan check. Skip the filter
+        // while the workspace list is still loading to avoid a transient flash
+        // where cross-workspace roles disappear until the query resolves.
+        .filter((r) => !isAdmin || workspacesLoading || knownWorkspaceNames.has(r.workspace)),
+    [rolesData, isAdmin, workspacesLoading, knownWorkspaceNames],
   );
 
   // Pin "default" workspace's roles first; sort the rest alphabetically
