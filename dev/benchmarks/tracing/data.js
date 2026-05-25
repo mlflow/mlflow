@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779681672581,
+  "lastUpdate": 1779682212640,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -5237,6 +5237,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 10.387216200001603,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "kishor.radhakrishnan@outlook.com",
+            "name": "kishor-rkrishnan",
+            "username": "kishor-rkrishnan"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "fee05488d0b3757cf2d6426d8c07f1fb9a52e14e",
+          "message": "Fix pydantic-ai >= 1.78.0 ToolManager module rename (#23508) (#23528)\n\nSigned-off-by: kishor-rkrishnan <286408206+kishor-rkrishnan@users.noreply.github.com>\nCo-authored-by: kishor-rkrishnan <286408206+kishor-rkrishnan@users.noreply.github.com>\nCo-authored-by: Claude <noreply@anthropic.com>",
+          "timestamp": "2026-05-25T12:08:50+08:00",
+          "tree_id": "02be545de284388aac2875e35778c804b06b98ca",
+          "url": "https://github.com/mlflow/mlflow/commit/fee05488d0b3757cf2d6426d8c07f1fb9a52e14e"
+        },
+        "date": 1779682211540,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 46.761292250005226,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 22.881415823526236,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 20.558515475403006,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 21.413983896550313,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 21.45838316363221,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 9.169968800006245,
             "unit": "ms"
           }
         ]
