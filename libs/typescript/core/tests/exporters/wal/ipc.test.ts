@@ -102,11 +102,17 @@ describe('wal/ipc submitRecord', () => {
 
   it('throws after exhausting retries when no daemon is listening', async () => {
     // No server bound; submitRecord should retry, fail to reach
-    // anyone, and surface a connect error to the caller. We don't
-    // want to wait the full ~3.85s backoff in CI, so we override the
-    // socket path to something that ENOENTs immediately on every
-    // retry (no kernel timeouts) and rely on the bounded retry count
-    // to give up quickly.
+    // anyone, and surface a connect error to the caller. The full
+    // CONNECT_RETRY_DELAYS_MS sleeps (~3.85s) still elapse - we
+    // don't currently inject those in tests - but pointing
+    // MLFLOW_WAL_DIR at a tmpdir guarantees each connect attempt
+    // fails fast with ENOENT instead of stacking on top of the
+    // (much longer) per-attempt kernel connect timeout that would
+    // fire against an unreachable bound socket. The 10s test
+    // timeout accommodates the configured backoff with margin; if
+    // retry latency ever becomes a CI bottleneck the fix is to make
+    // CONNECT_RETRY_DELAYS_MS injectable rather than to chase it
+    // here.
     const r = makeRecord('c');
     await expect(submitRecord(r)).rejects.toMatchObject({
       code: expect.stringMatching(/ECONNREFUSED|ENOENT/),
@@ -181,8 +187,9 @@ describe('wal/ipc createIpcConnectionHandler', () => {
 
   it('rejects oversized requests without exhausting memory', async () => {
     // Stream bytes well past the 16 MiB cap without ever sending a
-    // newline. The handler should respond with ok=false and close the
-    // socket instead of letting `buffer` grow unbounded.
+    // newline. The handler should respond with ok=false, pause its
+    // read side so the kernel buffer stops growing, and half-close
+    // the write side so we observe a clean `'end'` here.
     const writer = new BatchingWriter();
     server = await startHandlerServer(writer);
 
@@ -210,7 +217,54 @@ describe('wal/ipc createIpcConnectionHandler', () => {
       });
       socket.on('data', (chunk) => chunks.push(chunk));
       socket.on('end', () => resolve(Buffer.concat(chunks).toString('utf8').trim()));
-      socket.on('error', reject);
+      socket.on('error', (err: NodeJS.ErrnoException) => {
+        // EPIPE can surface from the pump's writes once the daemon
+        // pauses reading and our kernel send buffer eventually fills.
+        // That's expected; the contract we care about is that the
+        // daemon replied before that backpressure hit.
+        if (err.code === 'EPIPE') {
+          return;
+        }
+        reject(err);
+      });
+    });
+    const parsed = JSON.parse(result) as IpcResponse;
+    expect(parsed.ok).toBe(false);
+    if (!parsed.ok) {
+      expect(parsed.error).toMatch(/exceeds max size/);
+    }
+  }, 15_000);
+
+  it('measures the cap in wire bytes, not UTF-16 code units', async () => {
+    const writer = new BatchingWriter();
+    server = await startHandlerServer(writer);
+
+    const { createConnection } = await import('node:net');
+    const result = await new Promise<string>((resolve, reject) => {
+      const socket = createConnection(getLockSocketPath());
+      const chunks: Buffer[] = [];
+      socket.on('connect', () => {
+        const cjkChunk = Buffer.from('中'.repeat(349_525), 'utf8');
+        const pump = (remaining: number): void => {
+          if (remaining === 0 || socket.destroyed) {
+            return;
+          }
+          if (!socket.write(cjkChunk)) {
+            socket.once('drain', () => pump(remaining - 1));
+            return;
+          }
+          setImmediate(() => pump(remaining - 1));
+        };
+        pump(17);
+      });
+      socket.on('data', (chunk) => chunks.push(chunk));
+      socket.on('end', () => resolve(Buffer.concat(chunks).toString('utf8').trim()));
+      socket.on('error', (err: NodeJS.ErrnoException) => {
+        if (err.code === 'EPIPE') {
+          return;
+        }
+        reject(err);
+      });
     });
     const parsed = JSON.parse(result) as IpcResponse;
     expect(parsed.ok).toBe(false);

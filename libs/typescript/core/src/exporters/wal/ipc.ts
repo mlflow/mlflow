@@ -153,6 +153,7 @@ function sendRequest(payload: string): Promise<IpcResponse> {
  */
 function handleConnection(writer: BatchingWriter, socket: Socket): void {
   let buffer = '';
+  let bytesReceived = 0;
   let dispatched = false;
 
   socket.on('error', (err: NodeJS.ErrnoException) => {
@@ -170,13 +171,18 @@ function handleConnection(writer: BatchingWriter, socket: Socket): void {
       // today; ignore them rather than reject
       return;
     }
+    bytesReceived += chunk.length;
     buffer += chunk.toString('utf8');
-    if (buffer.length > MAX_REQUEST_BYTES) {
+    if (bytesReceived > MAX_REQUEST_BYTES) {
       dispatched = true;
+      socket.pause();
       sendResponse(socket, {
         ok: false,
         error: `request exceeds max size ${MAX_REQUEST_BYTES} bytes without newline terminator`,
       });
+      const destroyTimer = setTimeout(() => socket.destroy(), 500);
+      destroyTimer.unref();
+      socket.once('close', () => clearTimeout(destroyTimer));
       return;
     }
     const newlineIdx = buffer.indexOf('\n');
