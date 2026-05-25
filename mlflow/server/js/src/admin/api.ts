@@ -13,7 +13,7 @@ import type {
   UpdateAdminRequest,
   UpdateRoleRequest,
 } from './types';
-import type { UpdatePasswordRequest, UserResponse } from '../account/types';
+import type { ListMyPermissionsResponse, UpdatePasswordRequest, UserResponse } from '../account/types';
 
 const defaultErrorHandler = async ({
   reject,
@@ -163,7 +163,6 @@ export const AdminApi = {
       ...workspaceHeader(workspace),
     }) as Promise<ListMyPermissionsResponse>;
   },
-
 
   // User CRUD (admin-only)
   listUsers: () => {

@@ -22,6 +22,7 @@ import {
   useGrantUserPermission,
   useRevokeUserPermission,
   useRolesQuery,
+  useUserPermissionsQuery,
   useUserRolesQuery,
   useUsersQuery,
   useWorkspaceOptions,
@@ -86,7 +87,7 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
   const [grantWorkspace, setGrantWorkspace] = useState<string>(initialGrantWorkspace);
 
   // --- Current state from backend (used to pre-fill + compute diff) ---
-  const { data: rolesData, isLoading: rolesLoading } = useUserRolesQuery(username);
+  const { data: rolesData, isLoading: rolesLoading, error: rolesError } = useUserRolesQuery(username);
   const { data: directPermsData, isLoading: directPermsLoading } = useUserPermissionsQuery(username, grantWorkspace);
   const { data: usersData, isLoading: usersLoading } = useUsersQuery();
   // Roles list for the Review step's name lookup (the form uses the
