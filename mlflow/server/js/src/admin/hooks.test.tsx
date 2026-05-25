@@ -4,7 +4,7 @@ import React from 'react';
 import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-client';
 
 import { AdminApi } from './api';
-import { useResourceOptionsQuery } from './hooks';
+import { useResourceOptionsQuery, useRolesQuery, useUsersQuery } from './hooks';
 
 jest.mock('./api', () => ({
   ...jest.requireActual<typeof import('./api')>('./api'),
@@ -15,6 +15,8 @@ jest.mock('./api', () => ({
     listScorersLite: jest.fn(),
     listGatewaySecretsLite: jest.fn(),
     listGatewayEndpointsLite: jest.fn(),
+    listUsers: jest.fn(),
+    listRoles: jest.fn(),
   },
 }));
 
@@ -236,5 +238,46 @@ describe('useResourceOptionsQuery — wildcard collision guard', () => {
     });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.options.map((o) => o.id)).toEqual(['greeting']);
+  });
+});
+
+const namedRole = {
+  id: 7,
+  name: 'editors',
+  workspace: 'default',
+  description: '',
+  permissions: [],
+};
+const syntheticRole = {
+  id: 42,
+  name: '__user_1__',
+  workspace: 'default',
+  description: '',
+  permissions: [],
+};
+
+describe('useUsersQuery', () => {
+  it('drops synthetic __user_<id>__ roles from each user', async () => {
+    mockedApi.listUsers.mockResolvedValueOnce({
+      users: [
+        { id: 1, username: 'pat', is_admin: false, roles: [namedRole, syntheticRole] },
+        { id: 2, username: 'alex', is_admin: false, roles: [syntheticRole] },
+      ],
+    });
+
+    const { result } = renderHook(() => useUsersQuery(), { wrapper: makeWrapper() });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data?.users[0].roles).toEqual([namedRole]);
+    expect(result.current.data?.users[1].roles).toEqual([]);
+  });
+});
+
+describe('useRolesQuery', () => {
+  it('drops synthetic __user_<id>__ roles from the response', async () => {
+    mockedApi.listRoles.mockResolvedValueOnce({ roles: [namedRole, syntheticRole] });
+
+    const { result } = renderHook(() => useRolesQuery(), { wrapper: makeWrapper() });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data?.roles).toEqual([namedRole]);
   });
 });
