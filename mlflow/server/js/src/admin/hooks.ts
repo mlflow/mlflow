@@ -49,9 +49,6 @@ export const useWithSettingsReturnTo = () => {
   );
 };
 
-// ``resourceOptions`` returns the full key (no invalidations).
-// ``userPermissions`` returns a 2-tuple prefix; the hook appends ``workspace``
-// so the prefix matches every workspace variant on grant/revoke invalidation.
 export const AdminQueryKeys = {
   users: ['admin_users'] as const,
   roles: ['admin_roles'] as const,
@@ -59,20 +56,6 @@ export const AdminQueryKeys = {
   roleUsers: (roleId: number) => ['admin_role_users', roleId] as const,
   resourceOptions: (resourceType: string, workspace: string | undefined) =>
     ['admin_resource_options', resourceType, workspace ?? ''] as const,
-  userPermissions: (username: string) => ['admin_user_permissions', username] as const,
-};
-
-/** Direct (non-role-derived) grants for an arbitrary user. Admin / self / WP-admin-of-target.
- * ``workspace`` (when set) scopes to that workspace's per-user grants;
- * key extends the 2-tuple prefix so invalidate-by-prefix clears all variants. */
-export const useUserPermissionsQuery = (username: string, workspace?: string) => {
-  return useQuery({
-    queryKey: [...AdminQueryKeys.userPermissions(username), workspace ?? ''],
-    queryFn: () => AdminApi.listUserPermissions(username, workspace),
-    enabled: Boolean(username),
-    retry: false,
-    refetchOnWindowFocus: false,
-  });
 };
 
 // User queries and mutations
@@ -291,9 +274,6 @@ export const useGrantUserPermission = () => {
       // surfaced by ``listUserRoles``, so a single ``userRoles`` invalidation
       // refreshes both the Roles tab and the Direct Permissions view.
       queryClient.invalidateQueries({ queryKey: AccountQueryKeys.userRoles(variables.username) });
-      // Also invalidate the workspace-scoped direct-permissions query so the
-      // EditAccessModal pre-fill reflects the new grant on next open.
-      queryClient.invalidateQueries({ queryKey: AdminQueryKeys.userPermissions(variables.username) });
     },
   });
 };
@@ -306,7 +286,6 @@ export const useRevokeUserPermission = () => {
       AdminApi.revokeUserPermission(request.resource_type, request.resource_id, request.username, request.workspace),
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: AccountQueryKeys.userRoles(variables.username) });
-      queryClient.invalidateQueries({ queryKey: AdminQueryKeys.userPermissions(variables.username) });
     },
   });
 };

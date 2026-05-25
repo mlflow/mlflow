@@ -22,7 +22,6 @@ import {
   useGrantUserPermission,
   useRevokeUserPermission,
   useRolesQuery,
-  useUserPermissionsQuery,
   useUserRolesQuery,
   useUsersQuery,
   useWorkspaceOptions,
@@ -76,10 +75,6 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
 
   // Platform-admin-only workspace selector for direct-grant targeting.
   // Workspace managers stay locked to their session-active workspace.
-  // Declared up-front so ``useUserPermissionsQuery`` can scope the pre-fill
-  // to the same workspace the modal will grant / revoke into — otherwise the
-  // pre-filled rows come from workspace A while the revoke targets B, and
-  // removing a row no-ops on the server.
   const { workspacesEnabled } = useWorkspacesEnabled();
   const showWorkspaceSelector = isCurrentUserAdmin && workspacesEnabled;
   const { workspaces } = useWorkspaces(showWorkspaceSelector);
@@ -88,7 +83,6 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
 
   // --- Current state from backend (used to pre-fill + compute diff) ---
   const { data: rolesData, isLoading: rolesLoading, error: rolesError } = useUserRolesQuery(username);
-  const { data: directPermsData, isLoading: directPermsLoading } = useUserPermissionsQuery(username, grantWorkspace);
   const { data: usersData, isLoading: usersLoading } = useUsersQuery();
   // Roles list for the Review step's name lookup (the form uses the
   // dropdown's own label, but the Review step renders by id). Platform
@@ -136,7 +130,7 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
 
   const workspaceOptions = useWorkspaceOptions(workspaces);
 
-  const stateLoaded = !rolesLoading && !directPermsLoading && !usersLoading;
+  const stateLoaded = !rolesLoading && !usersLoading;
 
   // ``filledForWorkspaceRef`` tracks which workspace's data was last pre-filled
   // into editable state. The pre-fill effect re-runs when this stops matching

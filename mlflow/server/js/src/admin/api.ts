@@ -13,7 +13,7 @@ import type {
   UpdateAdminRequest,
   UpdateRoleRequest,
 } from './types';
-import type { ListMyPermissionsResponse, UpdatePasswordRequest, UserResponse } from '../account/types';
+import type { UpdatePasswordRequest, UserResponse } from '../account/types';
 
 const defaultErrorHandler = async ({
   reject,
@@ -146,22 +146,6 @@ export const AdminApi = {
       relativeUrl,
       error: defaultErrorHandler,
     }) as Promise<ListAssignmentsResponse>;
-  },
-
-  // Direct permissions for an arbitrary user (admin / self / WP-admin-of-target).
-  // The response shape mirrors ``/users/current/permissions``. ``workspace``
-  // (when set) overrides the ``X-MLFLOW-WORKSPACE`` header so the modal can
-  // read grants from a workspace other than the session-active one — paired
-  // with the grant/revoke workspace override so pre-filled rows and the
-  // submit-time mutations target the same workspace.
-  listUserPermissions: (username: string, workspace?: string) => {
-    const params = new URLSearchParams();
-    params.append('username', username);
-    return fetchEndpoint({
-      relativeUrl: `ajax-api/3.0/mlflow/users/permissions/list?${params.toString()}`,
-      error: defaultErrorHandler,
-      ...workspaceHeader(workspace),
-    }) as Promise<ListMyPermissionsResponse>;
   },
 
   // User CRUD (admin-only)
