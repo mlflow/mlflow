@@ -34,6 +34,10 @@ const SUBMIT_TIMEOUT_MS = 10_000;
 
 const CONNECT_RETRY_DELAYS_MS = [50, 100, 250, 500, 1000, 2000];
 
+const DAEMON_NO_RESPONSE_CODE = 'EDAEMONNORESPONSE';
+
+const MAX_REQUEST_BYTES = 16 * 1024 * 1024;
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -43,7 +47,13 @@ function isConnectError(err: unknown): boolean {
     return false;
   }
   const code = (err as { code?: string }).code;
-  return code === 'ECONNREFUSED' || code === 'ENOENT' || code === 'EPIPE' || code === 'ECONNRESET';
+  return (
+    code === 'ECONNREFUSED' ||
+    code === 'ENOENT' ||
+    code === 'EPIPE' ||
+    code === 'ECONNRESET' ||
+    code === DAEMON_NO_RESPONSE_CODE
+  );
 }
 
 /**
@@ -112,12 +122,12 @@ function sendRequest(payload: string): Promise<IpcResponse> {
     socket.on('data', (chunk) => chunks.push(chunk));
     socket.once('end', () => {
       clearTimeout(timer);
-      const text = Buffer.concat(chunks).toString('utf8').replace(/\n$/, '');
+      const text = Buffer.concat(chunks).toString('utf8').trimEnd();
       if (text === '') {
         finish(() =>
           reject(
             Object.assign(new Error('Daemon closed connection without responding'), {
-              code: 'ECONNRESET',
+              code: DAEMON_NO_RESPONSE_CODE,
             }),
           ),
         );
@@ -145,7 +155,12 @@ function handleConnection(writer: BatchingWriter, socket: Socket): void {
   let buffer = '';
   let dispatched = false;
 
-  socket.on('error', () => {
+  socket.on('error', (err: NodeJS.ErrnoException) => {
+    if (err.code !== 'ECONNRESET' && err.code !== 'EPIPE') {
+      console.error(
+        `[mlflow][wal] ipc connection error: code=${err.code ?? 'none'} message=${err.message}`,
+      );
+    }
     socket.destroy();
   });
 
@@ -156,6 +171,14 @@ function handleConnection(writer: BatchingWriter, socket: Socket): void {
       return;
     }
     buffer += chunk.toString('utf8');
+    if (buffer.length > MAX_REQUEST_BYTES) {
+      dispatched = true;
+      sendResponse(socket, {
+        ok: false,
+        error: `request exceeds max size ${MAX_REQUEST_BYTES} bytes without newline terminator`,
+      });
+      return;
+    }
     const newlineIdx = buffer.indexOf('\n');
     if (newlineIdx < 0) {
       return;
