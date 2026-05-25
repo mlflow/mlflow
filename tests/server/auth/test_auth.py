@@ -3507,7 +3507,7 @@ def test_trace_artifact_authorization(
 
 @pytest.mark.parametrize(
     "client",
-    [{"MLFLOW_AUTH_CONFIG_PATH": "tests/server/auth/fixtures/no_permission_auth.ini"}],
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
     indirect=True,
 )
 def test_trace_batch_get_permission(client, monkeypatch):
