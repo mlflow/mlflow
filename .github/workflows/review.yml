@@ -175,7 +175,7 @@ jobs:
           parser = argparse.ArgumentParser(add_help=False)
           parser.add_argument("-m", "--model", choices=MODEL_CHOICES, default=default_model)
           parser.add_argument("-e", "--effort", choices=EFFORT_CHOICES, default="high")
-          args, _ = parser.parse_known_args(head.split())
+          args = parser.parse_args(head.split())
 
           sys.stdout.write(f"model={args.model}\neffort={args.effort}\n")
           EOF
