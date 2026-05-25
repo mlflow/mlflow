@@ -4,7 +4,14 @@ import React from 'react';
 import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-client';
 
 import { AdminApi } from './api';
-import { useResourceOptionsQuery, useRolesQuery, useUsersQuery, useUserPermissionsQuery } from './hooks';
+import {
+  useResourceOptionsQuery,
+  useRolesQuery,
+  useUsersQuery,
+  useUserPermissionsQuery,
+  useGrantUserPermission,
+  useRevokeUserPermission,
+} from './hooks';
 
 jest.mock('./api', () => ({
   ...jest.requireActual<typeof import('./api')>('./api'),
@@ -18,6 +25,8 @@ jest.mock('./api', () => ({
     listUsers: jest.fn(),
     listRoles: jest.fn(),
     listUserPermissions: jest.fn(),
+    grantUserPermission: jest.fn(),
+    revokeUserPermission: jest.fn(),
   },
 }));
 
@@ -409,5 +418,54 @@ describe('workspace-scoped queries — switching workspace re-fetches with the n
     // Each hit its own endpoint once — neither call leaked into the other.
     expect(mockedApi.listExperimentsLite).toHaveBeenCalledTimes(1);
     expect(mockedApi.listRegisteredModelsLite).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('useGrantUserPermission / useRevokeUserPermission — onSuccess invalidates userPermissions cache', () => {
+  it('grantPermission prefix-invalidates the workspace-scoped query so it re-fetches', async () => {
+    // Pins the 2-tuple prefix assumption: invalidating ['admin_user_permissions', username]
+    // must flush the 3-tuple key ['admin_user_permissions', username, workspace].
+    mockedApi.listUserPermissions.mockResolvedValue({ is_admin: false, permissions: [] });
+    mockedApi.grantUserPermission.mockResolvedValue({});
+
+    const wrapper = makeWrapper();
+    const { result: queryResult } = renderHook(() => useUserPermissionsQuery('alice', 'wsA'), { wrapper });
+    await waitFor(() => expect(queryResult.current.isLoading).toBe(false));
+    expect(mockedApi.listUserPermissions).toHaveBeenCalledTimes(1);
+
+    const { result: grant } = renderHook(() => useGrantUserPermission(), { wrapper });
+    await grant.current.mutateAsync({
+      username: 'alice',
+      resource_type: 'experiment',
+      resource_id: 'exp-1',
+      permission: 'READ',
+      workspace: 'wsA',
+    });
+
+    await waitFor(() => expect(mockedApi.listUserPermissions).toHaveBeenCalledTimes(2));
+  });
+
+  it('revokePermission prefix-invalidates all workspace variants for the user', async () => {
+    // Both wsA and wsB entries share the 2-tuple prefix; a revoke for either
+    // workspace must flush both so the UI doesn't show stale grants.
+    mockedApi.listUserPermissions.mockResolvedValue({ is_admin: false, permissions: [] });
+    mockedApi.revokeUserPermission.mockResolvedValue({});
+
+    const wrapper = makeWrapper();
+    const { result: wsA } = renderHook(() => useUserPermissionsQuery('bob', 'wsA'), { wrapper });
+    const { result: wsB } = renderHook(() => useUserPermissionsQuery('bob', 'wsB'), { wrapper });
+    await waitFor(() => expect(wsA.current.isLoading).toBe(false));
+    await waitFor(() => expect(wsB.current.isLoading).toBe(false));
+    expect(mockedApi.listUserPermissions).toHaveBeenCalledTimes(2);
+
+    const { result: revoke } = renderHook(() => useRevokeUserPermission(), { wrapper });
+    await revoke.current.mutateAsync({
+      username: 'bob',
+      resource_type: 'experiment',
+      resource_id: 'exp-1',
+    });
+
+    // Prefix invalidation must flush both workspace variants.
+    await waitFor(() => expect(mockedApi.listUserPermissions).toHaveBeenCalledTimes(4));
   });
 });
