@@ -54,18 +54,6 @@ export const AdminQueryKeys = {
   roleDetail: (roleId: number) => ['admin_role', roleId] as const,
   roleUsers: (roleId: number) => ['admin_role_users', roleId] as const,
   resourceOptions: (resourceType: string) => ['admin_resource_options', resourceType] as const,
-  userPermissions: (username: string) => ['admin_user_permissions', username] as const,
-};
-
-/** Direct (non-role-derived) grants for an arbitrary user. Admin / self / WP-admin-of-target. */
-export const useUserPermissionsQuery = (username: string) => {
-  return useQuery({
-    queryKey: AdminQueryKeys.userPermissions(username),
-    queryFn: () => AdminApi.listUserPermissions(username),
-    enabled: Boolean(username),
-    retry: false,
-    refetchOnWindowFocus: false,
-  });
 };
 
 // User queries and mutations
@@ -246,10 +234,10 @@ export const useGrantUserPermission = () => {
     mutationFn: (request: { resource_type: string; resource_id: string; username: string; permission: string }) =>
       AdminApi.grantUserPermission(request.resource_type, request.resource_id, request.username, request.permission),
     onSuccess: (_data, variables) => {
-      // Refresh the per-user roles cell (Admin Users tab + Account page)
-      // and the per-user direct-permissions list (UserDetailPage).
+      // Direct grants flow through the synthetic ``__user_<id>__`` role
+      // surfaced by ``listUserRoles``, so a single ``userRoles`` invalidation
+      // refreshes both the Roles tab and the Direct Permissions view.
       queryClient.invalidateQueries({ queryKey: AccountQueryKeys.userRoles(variables.username) });
-      queryClient.invalidateQueries({ queryKey: AdminQueryKeys.userPermissions(variables.username) });
     },
   });
 };
@@ -262,7 +250,6 @@ export const useRevokeUserPermission = () => {
       AdminApi.revokeUserPermission(request.resource_type, request.resource_id, request.username),
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: AccountQueryKeys.userRoles(variables.username) });
-      queryClient.invalidateQueries({ queryKey: AdminQueryKeys.userPermissions(variables.username) });
     },
   });
 };
