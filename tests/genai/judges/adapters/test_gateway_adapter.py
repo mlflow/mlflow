@@ -1123,8 +1123,6 @@ def test_invoke_with_tools_sets_judge_cost_in_metadata(mock_trace):
 
 
 def test_invoke_with_tools_no_judge_cost_when_tokens_unavailable(mock_trace):
-    from mlflow.tracing.constant import AssessmentMetadataKey
-
     adapter = GatewayAdapter()
     mock_output = InvokeOutput(
         response=json.dumps({"result": "yes", "rationale": "Looks good"}),
