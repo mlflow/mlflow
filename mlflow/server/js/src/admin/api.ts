@@ -13,7 +13,7 @@ import type {
   UpdateAdminRequest,
   UpdateRoleRequest,
 } from './types';
-import type { ListMyPermissionsResponse, UpdatePasswordRequest, UserResponse } from '../account/types';
+import type { UpdatePasswordRequest, UserResponse } from '../account/types';
 
 const defaultErrorHandler = async ({
   reject,
@@ -146,17 +146,6 @@ export const AdminApi = {
       relativeUrl,
       error: defaultErrorHandler,
     }) as Promise<ListAssignmentsResponse>;
-  },
-
-  // Direct permissions for an arbitrary user (admin / self / WP-admin-of-target).
-  // The response shape mirrors ``/users/current/permissions``.
-  listUserPermissions: (username: string) => {
-    const params = new URLSearchParams();
-    params.append('username', username);
-    return fetchEndpoint({
-      relativeUrl: `ajax-api/3.0/mlflow/users/permissions/list?${params.toString()}`,
-      error: defaultErrorHandler,
-    }) as Promise<ListMyPermissionsResponse>;
   },
 
   // User CRUD (admin-only)

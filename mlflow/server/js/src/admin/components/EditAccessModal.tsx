@@ -19,7 +19,6 @@ import {
   useGrantUserPermission,
   useRevokeUserPermission,
   useRolesQuery,
-  useUserPermissionsQuery,
   useUserRolesQuery,
   useUsersQuery,
 } from '../hooks';
@@ -69,7 +68,6 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
 
   // --- Current state from backend (used to pre-fill + compute diff) ---
   const { data: rolesData, isLoading: rolesLoading } = useUserRolesQuery(username);
-  const { data: directPermsData, isLoading: directPermsLoading } = useUserPermissionsQuery(username);
   const { data: usersData, isLoading: usersLoading } = useUsersQuery();
   // Roles list for the Review step's name lookup (the form uses the
   // dropdown's own label, but the Review step renders by id). Platform
@@ -87,21 +85,21 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
     () => (rolesData?.roles ?? []).filter((r) => !isSyntheticUserRole(r.name)).map((r) => r.id),
     [rolesData],
   );
+  // Direct grants live on the synthetic ``__user_<id>__`` role surfaced by
+  // ``useUserRolesQuery``; flatten its nested ``permissions`` to recover the
+  // editable list (custom roles are shown in the Roles tab).
   const currentDirectPerms = useMemo<StagedDirectPermission[]>(
     () =>
-      (directPermsData?.permissions ?? [])
-        // The unified ``/users/permissions/list`` response returns every
-        // permission across every role the user holds. Direct grants live on
-        // the synthetic ``__user_<id>__`` role; filter to just those for the
-        // "Direct permissions" view (custom roles are shown in the Roles tab).
-        .filter((p) => isSyntheticUserRole(p.role_name))
+      (rolesData?.roles ?? [])
+        .filter((r) => isSyntheticUserRole(r.name))
+        .flatMap((r) => r.permissions ?? [])
         .filter((p) => isDirectGrantResourceType(p.resource_type))
         .map((p) => ({
           resourceType: p.resource_type as DirectGrantResourceType,
           resourceId: p.resource_pattern,
           permission: p.permission,
         })),
-    [directPermsData],
+    [rolesData],
   );
   const currentIsAdmin = useMemo(
     () => Boolean(usersData?.users?.find((u) => u.username === username)?.is_admin),
@@ -116,7 +114,7 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const stateLoaded = !rolesLoading && !directPermsLoading && !usersLoading;
+  const stateLoaded = !rolesLoading && !usersLoading;
 
   // ``prefilledRef`` gates the data-fill effect against background
   // refetches that would clobber in-progress edits.
