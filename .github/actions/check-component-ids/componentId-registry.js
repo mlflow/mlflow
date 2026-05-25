@@ -665,6 +665,7 @@ module.exports = {
   "admin.edit_access_modal.error": "",
   "admin.edit_access_modal.is_admin": "",
   "admin.edit_access_modal.review": "",
+  "admin.edit_access_modal.roles_error": "",
   "admin.edit_role_modal": "",
   "admin.edit_role_modal.back": "",
   "admin.edit_role_modal.cancel": "",
