@@ -4,6 +4,7 @@ import { useSearchParams } from '../common/utils/RoutingUtils';
 import { SETTINGS_RETURN_TO_PARAM } from '../settings/settingsSectionConstants';
 import { AccountQueryKeys } from '../account/hooks';
 import { AdminApi, scorerResourcePattern } from './api';
+import { isSyntheticUserRole } from '../account/types';
 import type {
   AddPermissionRequest,
   CreateRoleRequest,
@@ -60,7 +61,19 @@ export const AdminQueryKeys = {
 export const useUsersQuery = () => {
   return useQuery({
     queryKey: AdminQueryKeys.users,
-    queryFn: AdminApi.listUsers,
+    queryFn: async () => {
+      const data = await AdminApi.listUsers();
+      // Drop synthetic ``__user_<id>__`` roles from each user's roles
+      // list. They're a backend implementation detail for direct grants
+      // and shouldn't appear in human-facing user/role tables.
+      return {
+        ...data,
+        users: data.users.map((u) => ({
+          ...u,
+          roles: u.roles?.filter((r) => !isSyntheticUserRole(r.name)),
+        })),
+      };
+    },
     retry: false,
     refetchOnWindowFocus: false,
   });
@@ -112,7 +125,13 @@ export const useRolesQuery = (workspaces?: string | readonly string[], options: 
   }, [workspaces]);
   return useQuery({
     queryKey: [...AdminQueryKeys.roles, normalized],
-    queryFn: () => AdminApi.listRoles(normalized),
+    queryFn: async () => {
+      const data = await AdminApi.listRoles(normalized);
+      // Synthetic ``__user_<id>__`` roles back direct grants and are not
+      // human-facing. Drop them at the source so every consumer
+      // (tables, dropdowns, name lookups) stays in sync.
+      return { ...data, roles: data.roles.filter((r) => !isSyntheticUserRole(r.name)) };
+    },
     retry: false,
     refetchOnWindowFocus: false,
     // Callers pass ``enabled: false`` to skip a fetch they know will 403.
