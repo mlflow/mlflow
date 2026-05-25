@@ -16,6 +16,9 @@ defaults:
 
 jobs:
   update-labels:
+    if: >-
+      (github.event_name == 'release' && !github.event.release.prerelease) ||
+      (github.event_name == 'workflow_dispatch' && !contains(github.event.inputs.release_version, 'rc'))
     runs-on: ubuntu-slim
     timeout-minutes: 10
     permissions:
