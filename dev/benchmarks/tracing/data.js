@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779654033203,
+  "lastUpdate": 1779681672581,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -5183,6 +5183,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 56.138221400004795,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "debusinha2009@gmail.com",
+            "name": "Debu Sinha",
+            "username": "debu-sinha"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "78c26e15886f83faa63e14d22f4a034d211b8d73",
+          "message": "Add Google ADK LLM judge scorers (`Hallucination`, `Safety`, `ResponseEvaluation`) (#22496)\n\nSigned-off-by: debu-sinha <debusinha2009@gmail.com>\nSigned-off-by: B-Step62 <yuki.watanabe@databricks.com>\nCo-authored-by: B-Step62 <yuki.watanabe@databricks.com>\nCo-authored-by: Claude <noreply@anthropic.com>",
+          "timestamp": "2026-05-25T03:57:33Z",
+          "tree_id": "a6e762ca937212e687cef3887e61dcbeca3f0608",
+          "url": "https://github.com/mlflow/mlflow/commit/78c26e15886f83faa63e14d22f4a034d211b8d73"
+        },
+        "date": 1779681671704,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 45.0936986500011,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 25.559186242426016,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 23.70014682758563,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 25.788493040817208,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 17.003177285711704,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 10.387216200001603,
             "unit": "ms"
           }
         ]
