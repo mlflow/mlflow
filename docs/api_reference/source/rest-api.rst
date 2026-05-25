@@ -1371,14 +1371,14 @@ Request Structure
 
 
 
-List all scorers for an experiment.
+List all scorers, optionally scoped to a single experiment.
 
 
-+---------------+------------+--------------------+
-|  Field Name   |    Type    |    Description     |
-+===============+============+====================+
-| experiment_id | ``STRING`` | The experiment ID. |
-+---------------+------------+--------------------+
++---------------+------------+-----------------------------------------------------------------------------------------------------------------------------------+
+|  Field Name   |    Type    |                                                            Description                                                            |
++===============+============+===================================================================================================================================+
+| experiment_id | ``STRING`` | The experiment ID. If empty, returns scorers across all experiments in the active workspace (used by the admin-UI scorer picker). |
++---------------+------------+-----------------------------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowListScorersResponse:
 

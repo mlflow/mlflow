@@ -28,4 +28,49 @@ describe('DirectPermissionForm — permission picker filtering', () => {
     await userEvent.click(await screen.findByRole('option', { name: 'Experiment' }));
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ resourceType: 'experiment', permission: 'READ' }));
   });
+
+  it('does not offer gateway_model_definition (intentionally removed from DIRECT_GRANT_RESOURCE_TYPES)', async () => {
+    renderWithDesignSystem(<DirectPermissionForm value={DIRECT_PERMISSION_DEFAULT} onChange={() => {}} />);
+    const resourceTypeTrigger = document.getElementById('admin-direct-permission-resource-type')!;
+    await userEvent.click(resourceTypeTrigger);
+    expect(screen.queryByRole('option', { name: 'Gateway model definition' })).not.toBeInTheDocument();
+  });
+
+  it('offers prompt and scorer alongside the other direct-grant types', async () => {
+    // Parity with the role picker minus workspace (which the backend
+    // rejects on the per-user convenience API).
+    renderWithDesignSystem(<DirectPermissionForm value={DIRECT_PERMISSION_DEFAULT} onChange={() => {}} />);
+    const resourceTypeTrigger = document.getElementById('admin-direct-permission-resource-type')!;
+    await userEvent.click(resourceTypeTrigger);
+    expect(await screen.findByRole('option', { name: 'Prompt' })).toBeInTheDocument();
+    expect(await screen.findByRole('option', { name: 'Scorer' })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: 'Workspace' })).not.toBeInTheDocument();
+  });
+
+  it('switches to All scope without writing the wildcard into resourceId', async () => {
+    // The wildcard is derived from scope at staging time so a resource
+    // literally named ``*`` can't masquerade as an all-of-type grant.
+    const onChange = jest.fn();
+    renderWithDesignSystem(<DirectPermissionForm value={DIRECT_PERMISSION_DEFAULT} onChange={onChange} />);
+    await userEvent.click(screen.getByRole('radio', { name: /^All experiments$/ }));
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ scope: 'all', resourceId: '' }));
+  });
+
+  it('preserves the All scope when resource type changes', async () => {
+    // The form is still submittable because ``isDirectPermissionSubmittable``
+    // short-circuits on ``scope === 'all'`` regardless of ``resourceId``.
+    const onChange = jest.fn();
+    renderWithDesignSystem(
+      <DirectPermissionForm
+        value={{ resourceType: 'experiment', scope: 'all', resourceId: '', permission: 'READ' }}
+        onChange={onChange}
+      />,
+    );
+    const resourceTypeTrigger = document.getElementById('admin-direct-permission-resource-type')!;
+    await userEvent.click(resourceTypeTrigger);
+    await userEvent.click(await screen.findByRole('option', { name: 'Registered model' }));
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ resourceType: 'registered_model', scope: 'all', resourceId: '' }),
+    );
+  });
 });

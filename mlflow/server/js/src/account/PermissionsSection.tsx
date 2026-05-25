@@ -11,23 +11,20 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
-import type { Role, UserRolePermissionRow } from './types';
-import { formatResourcePattern } from './types';
+import type { Role } from './types';
+import { formatResourcePattern, isSyntheticUserRole } from './types';
 
 interface Props {
-  roles: Role[];
   /**
-   * Direct grants only — rows on the user's synthetic ``__user_<id>__``
-   * role. The caller is responsible for filtering ``GET /users/permissions/list``
-   * to that role (e.g. via ``isSyntheticUserRole``) before passing here, so
-   * role-derived rows aren't double-counted alongside the ``roles`` prop.
+   * Every role the user holds — including the synthetic ``__user_<id>__``
+   * role(s) that back direct grants. The component splits them on display:
+   * synthetic rows render with the localized ``Direct`` label; everything
+   * else renders with the role name as Source.
    */
-  directPermissions: UserRolePermissionRow[];
+  roles: Role[];
   isLoading?: boolean;
-  /** Non-fatal - surfaces inline so direct grants still render. */
+  /** Non-fatal - surfaces inline so any rows we have still render. */
   rolesError?: unknown;
-  /** Non-fatal - surfaces inline so role-derived rows still render. */
-  directPermsError?: unknown;
   /** Scopes the component IDs emitted by this section. */
   componentId: string;
   /** When false, the Workspace column is hidden. Defaults to true. */
@@ -51,15 +48,7 @@ const rowKey = (workspace: string | null, resource_type: string, resource_patter
  * ``(type, pattern, permission)`` granted in two workspaces stays as
  * two rows.
  */
-export const PermissionsSection = ({
-  roles,
-  directPermissions,
-  isLoading,
-  rolesError,
-  directPermsError,
-  componentId,
-  workspacesEnabled = true,
-}: Props) => {
+export const PermissionsSection = ({ roles, isLoading, rolesError, componentId, workspacesEnabled = true }: Props) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
 
@@ -80,17 +69,18 @@ export const PermissionsSection = ({
         byKey.set(key, { workspace, resource_type, resource_pattern, permission, sources: new Set([source]) });
       }
     };
-    for (const role of roles) {
-      for (const p of role.permissions ?? []) {
-        upsert(role.workspace, p.resource_type, p.resource_pattern, p.permission, role.name);
-      }
-    }
     const directLabel = intl.formatMessage({
       defaultMessage: 'Direct',
       description: 'Source label for a per-resource permission granted directly to the user (not via a role)',
     });
-    for (const p of directPermissions) {
-      upsert(p.workspace, p.resource_type, p.resource_pattern, p.permission, directLabel);
+    for (const role of roles) {
+      // Synthetic ``__user_N__`` roles back per-user direct grants; render
+      // them under the localized ``Direct`` label rather than the synthetic
+      // role name.
+      const source = isSyntheticUserRole(role.name) ? directLabel : role.name;
+      for (const p of role.permissions ?? []) {
+        upsert(role.workspace, p.resource_type, p.resource_pattern, p.permission, source);
+      }
     }
     return Array.from(byKey.values()).sort((a, b) => {
       const aw = a.workspace ?? '';
@@ -100,7 +90,7 @@ export const PermissionsSection = ({
       if (a.resource_pattern !== b.resource_pattern) return a.resource_pattern.localeCompare(b.resource_pattern);
       return a.permission.localeCompare(b.permission);
     });
-  }, [roles, directPermissions, intl]);
+  }, [roles, intl]);
 
   return (
     <>
@@ -109,33 +99,14 @@ export const PermissionsSection = ({
           componentId={`${componentId}.roles_error`}
           type="warning"
           message={intl.formatMessage({
-            defaultMessage: 'Failed to load role-derived permissions',
+            defaultMessage: 'Failed to load permissions',
             description: 'Alert title shown when the roles query fails on the permissions section',
           })}
           description={
             (rolesError as Error)?.message ||
             intl.formatMessage({
-              defaultMessage: 'Showing direct grants only - role-derived permissions are unavailable.',
-              description:
-                'Alert description shown when only direct grants are available because role-derived permissions failed to load',
-            })
-          }
-        />
-      ) : null}
-      {directPermsError ? (
-        <Alert
-          componentId={`${componentId}.direct_permissions_error`}
-          type="warning"
-          message={intl.formatMessage({
-            defaultMessage: 'Failed to load direct permissions',
-            description: 'Alert title shown when the direct-permissions query fails',
-          })}
-          description={
-            (directPermsError as Error)?.message ||
-            intl.formatMessage({
-              defaultMessage: 'Showing role-derived permissions only - direct grants are unavailable.',
-              description:
-                'Alert description shown when only role-derived permissions are available because direct grants failed to load',
+              defaultMessage: 'Permissions for this user are temporarily unavailable.',
+              description: 'Alert description shown when role-derived permissions failed to load',
             })
           }
         />

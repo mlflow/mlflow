@@ -1,31 +1,32 @@
 """
-A script to set a matrix for the cross version tests for MLflow Models / autologging integrations.
+Generate the cross-version test matrix from `mlflow/ml-package-versions.yml`.
 
-# Usage:
+# Usage
 
 ```
 # Test all items
-python dev/set_matrix.py
+flavors matrix
 
 # Exclude items for dev versions
-python dev/set_matrix.py --no-dev
+flavors matrix --no-dev
 
 # Test items affected by config file updates
-python dev/set_matrix.py --ref-versions-yaml /path/to/ref-versions.yml
+flavors matrix --ref-versions-yaml /path/to/ref-versions.yml
 
 # Test items affected by flavor module updates
-python dev/set_matrix.py --changed-files "mlflow/sklearn/__init__.py"
+flavors matrix --changed-files "mlflow/sklearn/__init__.py"
 
 # Test a specific flavor
-python dev/set_matrix.py --flavors sklearn
+flavors matrix --flavors sklearn
 
 # Test a specific version
-python dev/set_matrix.py --versions 1.1.1
+flavors matrix --versions 1.1.1
 ```
 """
 
+from __future__ import annotations
+
 import argparse
-import asyncio
 import json
 import os
 import re
@@ -34,123 +35,19 @@ import shutil
 import sys
 import warnings
 from collections import defaultdict
-from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterator, TypeVar
 
 import requests
-import yaml
 from packaging.specifiers import SpecifierSet
-from packaging.version import Version as OriginalVersion
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict
 from pypi import Package, get_packages
 
-VERSIONS_YAML_PATH = "mlflow/ml-package-versions.yml"
-DEV_VERSION = "dev"
-# Treat "dev" as "newer than any existing versions"
-DEV_NUMERIC = "9999.9999.9999"
+from flavors._loader import VERSIONS_YAML_PATH, load, load_or_default
+from flavors._releases import get_released_versions
+from flavors._schema import DEV_NUMERIC, DEV_VERSION, FlavorConfig, PackageInfo, Version
 
 T = TypeVar("T")
-
-
-class Version(OriginalVersion):
-    def __init__(self, version: str, release_date: datetime | None = None):
-        self._is_dev = version == DEV_VERSION
-        self._release_date = release_date
-        super().__init__(DEV_NUMERIC if self._is_dev else version)
-
-    def __str__(self):
-        return DEV_VERSION if self._is_dev else super().__str__()
-
-    @classmethod
-    def create_dev(cls):
-        return cls(DEV_VERSION, datetime.now(timezone.utc))
-
-    @property
-    def days_since_release(self) -> int | None:
-        """
-        Compute the number of days since this version was released.
-        Returns None if release date is not available.
-        """
-        if self._release_date is None:
-            return None
-        delta = datetime.now(timezone.utc) - self._release_date
-        return delta.days
-
-
-class PackageInfo(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    pip_release: str
-    install_dev: str | None = None
-    module_name: str | None = None
-    genai: bool = False
-    repo: str | None = None
-
-
-class TestConfig(BaseModel):
-    minimum: Version
-    maximum: Version
-    unsupported: list[SpecifierSet] | None = None
-    requirements: dict[str, list[str]] | None = None
-    python: dict[str, str] | None = None
-    runs_on: dict[str, str] | None = None
-    java: dict[str, str] | None = None
-    run: str
-    allow_unreleased_max_version: bool | None = None
-    pre_test: str | None = None
-    test_every_n_versions: int = 1
-    test_tracing_sdk: bool = False
-    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
-
-    @field_validator("minimum", mode="before")
-    @classmethod
-    def validate_minimum(cls, v):
-        return Version(v)
-
-    @field_validator("maximum", mode="before")
-    @classmethod
-    def validate_maximum(cls, v):
-        return Version(v)
-
-    @field_validator("unsupported", mode="before")
-    @classmethod
-    def validate_unsupported(cls, v):
-        return [SpecifierSet(x) for x in v] if v else None
-
-    @field_validator("python", mode="before")
-    @classmethod
-    def validate_python_requirements(cls, v):
-        if v is None:
-            return v
-
-        # Read the minimum Python version from .python-version file
-        python_version_file = Path(".python-version")
-        min_python_version = python_version_file.read_text().strip()
-
-        # Check if any value in the python dict matches the minimum version
-        for version in v.values():
-            if version == min_python_version:
-                raise ValueError(f"Unnecessary Python version requirement: {version}")
-
-        return v
-
-
-class FlavorConfig(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    package_info: PackageInfo
-    models: TestConfig | None = None
-    autologging: TestConfig | None = None
-
-    @property
-    def categories(self) -> list[tuple[str, TestConfig]]:
-        cs = []
-        if self.models:
-            cs.append(("models", self.models))
-        if self.autologging:
-            cs.append(("autologging", self.autologging))
-        return cs
 
 
 class MatrixItem(BaseModel):
@@ -170,42 +67,15 @@ class MatrixItem(BaseModel):
     pre_test: str | None = None
     model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(frozenset(dict(self)))
 
 
-def read_yaml(location, if_error=None):
-    try:
-        with open(location) as f:
-            yaml_dict = yaml.safe_load(f)
-        return {name: FlavorConfig(**cfg) for name, cfg in yaml_dict.items()}
-    except Exception as e:
-        if if_error is not None:
-            print(f"Failed to read '{location}' due to: `{e}`")
-            return if_error
-        raise
-
-
-RELEASE_CUTOFF_DAYS = 7
-
-
-def get_released_versions(package: Package) -> list[Version]:
-    cutoff = datetime.now(tz=timezone.utc) - timedelta(days=RELEASE_CUTOFF_DAYS)
-    versions: list[Version] = []
-    for release in package.releases:
-        if release.yanked or release.upload_time >= cutoff:
-            continue
-        if release.version.is_devrelease or release.version.is_prerelease:
-            continue
-        versions.append(Version(str(release.version), release.upload_time))
-    return versions
-
-
-def get_latest_micro_versions(versions):
+def get_latest_micro_versions(versions: list[Version]) -> list[Version]:
     """
     Returns the latest micro version in each minor version.
     """
-    by_minor = {}
+    by_minor: dict[tuple[int, ...], Version] = {}
     for ver in sorted(versions, reverse=True):
         by_minor.setdefault(ver.release[:2], ver)
     return list(by_minor.values())
@@ -218,7 +88,7 @@ def filter_versions(
     max_ver: Version,
     unsupported: list[SpecifierSet],
     allow_unreleased_max_version: bool = False,
-):
+) -> list[Version]:
     """
     Returns the versions that satisfy the following conditions:
     1. Newer than or equal to `min_ver`.
@@ -226,7 +96,7 @@ def filter_versions(
     3. Not in `unsupported`.
     """
 
-    def _is_supported(v):
+    def _is_supported(v: Version) -> bool:
         for specified_set in unsupported:
             if v in specified_set:
                 return False
@@ -237,7 +107,9 @@ def filter_versions(
             # Exclude versions uploaded very recently to avoid testing unstable or potentially
             # buggy releases. Newly released versions may have unresolved issues
             # (see: https://github.com/huggingface/transformers/issues/34370).
-            v.major <= max_ver.major and v.days_since_release and v.days_since_release >= 1
+            v.major <= max_ver.major
+            and v.days_since_release is not None
+            and v.days_since_release >= 1
         )
 
     def _check_min(v: Version) -> bool:
@@ -249,11 +121,11 @@ def filter_versions(
 FLAVOR_FILE_PATTERN = re.compile(r"^(mlflow|tests)/(.+?)(_autolog(ging)?)?(\.py|/)")
 
 
-def get_changed_flavors(changed_files, flavors):
+def get_changed_flavors(changed_files: list[str], flavors: set[str]) -> set[str]:
     """
     Detects changed flavors from a list of changed files.
     """
-    changed_flavors = set()
+    changed_flavors: set[str] = set()
     for f in changed_files:
         match = FLAVOR_FILE_PATTERN.match(f)
         if match and match.group(2) in flavors:
@@ -277,12 +149,12 @@ def _find_matches(spec: dict[str, T], version: str) -> Iterator[T]:
             yield val
 
 
-def get_matched_requirements(requirements, version=None):
+def get_matched_requirements(requirements: dict[str, list[str]], version: str) -> list[str]:
     if not isinstance(requirements, dict):
         raise TypeError(
             f"Invalid object type for `requirements`: '{type(requirements)}'. Must be dict."
         )
-    reqs = set()
+    reqs: set[str] = set()
     for packages in _find_matches(requirements, version):
         reqs.update(packages)
     return sorted(reqs)
@@ -311,7 +183,7 @@ def _requires_python_from_repo(repo_url: str) -> str | None:
         resp = requests.get(raw_url, timeout=10)
         resp.raise_for_status()
     except requests.HTTPError as e:
-        if e.response.status_code == 404:
+        if e.response is not None and e.response.status_code == 404:
             print(f"  pyproject.toml not found at {raw_url}", file=sys.stderr)
             return None
         raise
@@ -363,32 +235,31 @@ def get_runs_on(runs_on: dict[str, str] | None, version: str) -> str:
     return _get_spec_value(runs_on, version, "ubuntu-latest")
 
 
-def remove_comments(s):
+def remove_comments(s: str) -> str:
     return "\n".join(l for l in s.strip().split("\n") if not l.strip().startswith("#"))
 
 
-def make_pip_install_command(packages):
+def make_pip_install_command(packages: list[str]) -> str:
     return "uv pip install --system " + " ".join(f"'{x}'" for x in packages)
 
 
-def divider(title, length=None):
+def divider(title: str, length: int | None = None) -> str:
     length = length or shutil.get_terminal_size(fallback=(80, 24))[0]
     return "\n" + f" {title} ".center(length, "=") + "\n"
 
 
-def split_by_comma(x):
+def split_by_comma(x: str) -> list[str]:
     return [s for item in x.split(",") if (s := item.strip())]
 
 
-def parse_args(args):
-    parser = argparse.ArgumentParser(description="Set a test matrix for the cross version tests")
+def add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--versions-yaml",
         required=False,
-        default="mlflow/ml-package-versions.yml",
+        default=VERSIONS_YAML_PATH,
         help=(
-            "URL or local file path of the config yaml. Defaults to "
-            "'mlflow/ml-package-versions.yml' on the branch where this script is running."
+            f"Local file path of the config yaml. Defaults to '{VERSIONS_YAML_PATH}' "
+            "on the branch where this script is running."
         ),
     )
     parser.add_argument(
@@ -396,7 +267,7 @@ def parse_args(args):
         required=False,
         default=None,
         help=(
-            "URL or local file path of the reference config yaml which will be compared with the "
+            "Local file path of the reference config yaml which will be compared with the "
             "config specified by `--versions-yaml` in order to identify the config updates."
         ),
     )
@@ -442,14 +313,17 @@ def parse_args(args):
         ),
     )
 
+
+def parse_args(args: list[str]) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Set a test matrix for the cross version tests")
+    add_arguments(parser)
     return parser.parse_args(args)
 
 
-def get_flavor(name):
-    return {"pytorch-lightning": "pytorch"}.get(name, name)
+FLAVOR_NAME_ALIASES = {"pytorch-lightning": "pytorch"}
 
 
-def validate_test_coverage(flavor: str, config: FlavorConfig):
+def validate_test_coverage(flavor: str, config: FlavorConfig) -> None:
     """
     Validate that all test files for the flavor are executed in the cross-version tests.
 
@@ -499,14 +373,14 @@ def _get_test_files(test_dir_or_path: str) -> set[Path]:
     return set()
 
 
-def _get_test_files_from_pytest_command(cmd, test_dir):
+def _get_test_files_from_pytest_command(cmd: str, test_dir: str) -> set[Path]:
     parser = argparse.ArgumentParser()
     parser.add_argument("--ignore", action="append")
     parser.add_argument("paths", nargs="*")
     args = parser.parse_known_args(shlex.split(cmd))[0]
 
-    executed_files = set()
-    ignore_files = set()
+    executed_files: set[Path] = set()
+    ignore_files: set[Path] = set()
     for path in args.paths:
         if path.startswith(test_dir):
             executed_files |= _get_test_files(path)
@@ -553,12 +427,14 @@ def validate_requirements(
             )
 
 
-async def expand_config(config: dict[str, Any], *, is_ref: bool = False) -> set[MatrixItem]:
-    matrix = set()
+async def expand_config(
+    config: dict[str, FlavorConfig], *, is_ref: bool = False
+) -> set[MatrixItem]:
+    matrix: set[MatrixItem] = set()
     pip_releases = list({fc.package_info.pip_release for fc in config.values()})
     packages = dict(zip(pip_releases, await get_packages(pip_releases)))
     for name, flavor_config in config.items():
-        flavor = get_flavor(name)
+        flavor = FLAVOR_NAME_ALIASES.get(name, name)
         package_info = flavor_config.package_info
         package = packages[package_info.pip_release]
         all_versions = get_released_versions(package)
@@ -596,7 +472,7 @@ async def expand_config(config: dict[str, Any], *, is_ref: bool = False) -> set[
                 install = make_pip_install_command(requirements)
                 run = remove_comments(cfg.run)
                 python = get_python_version(cfg.python, package, str(ver), package_info.repo)
-                runs_on = get_runs_on(cfg.runs_on, ver)
+                runs_on = get_runs_on(cfg.runs_on, str(ver))
                 java = get_java_version(cfg.java, str(ver))
 
                 matrix.add(
@@ -676,12 +552,12 @@ async def expand_config(config: dict[str, Any], *, is_ref: bool = False) -> set[
     return matrix
 
 
-def apply_changed_files(changed_files, matrix):
+def apply_changed_files(changed_files: list[str], matrix: set[MatrixItem]) -> set[MatrixItem]:
     all_flavors = {x.flavor for x in matrix}
     changed_flavors = (
-        # If this file has been changed, re-run all tests
+        # If matrix-generation code itself changed, re-run all tests.
         all_flavors
-        if str(Path(__file__).relative_to(Path.cwd())) in changed_files
+        if any(f.startswith("dev/flavors/src/") for f in changed_files)
         else get_changed_flavors(changed_files, all_flavors)
     )
 
@@ -692,9 +568,8 @@ def apply_changed_files(changed_files, matrix):
     return set(filter(lambda x: x.flavor in changed_flavors, matrix))
 
 
-async def generate_matrix(args):
-    args = parse_args(args)
-    config = read_yaml(args.versions_yaml)
+async def _generate(args: argparse.Namespace) -> set[MatrixItem]:
+    config = load(args.versions_yaml)
     if (args.ref_versions_yaml, args.changed_files).count(None) == 2:
         matrix = await expand_config(config)
     else:
@@ -702,7 +577,7 @@ async def generate_matrix(args):
         mat = await expand_config(config)
 
         if args.ref_versions_yaml:
-            ref_config = read_yaml(args.ref_versions_yaml, if_error={})
+            ref_config = load_or_default(args.ref_versions_yaml, default={})
             ref_matrix = await expand_config(ref_config, is_ref=True)
             matrix.update(mat.difference(ref_matrix))
 
@@ -711,25 +586,31 @@ async def generate_matrix(args):
 
     # Apply the filtering arguments
     if args.no_dev:
-        matrix = filter(lambda x: x.version != Version.create_dev(), matrix)
+        dev_ver = Version.create_dev()
+        matrix = {x for x in matrix if x.version != dev_ver}
 
     if args.flavors:
-        matrix = filter(lambda x: x.flavor in args.flavors, matrix)
+        matrix = {x for x in matrix if x.flavor in args.flavors}
 
     if args.versions:
-        matrix = filter(lambda x: x.version in map(Version, args.versions), matrix)
+        target_versions = list(map(Version, args.versions))
+        matrix = {x for x in matrix if x.version in target_versions}
 
     if args.only_latest:
-        groups = defaultdict(list)
+        groups: dict[tuple[str, str], list[MatrixItem]] = defaultdict(list)
         for item in matrix:
             groups[(item.name, item.category)].append(item)
         matrix = {max(group, key=lambda x: x.version) for group in groups.values()}
 
-    return set(matrix)
+    return matrix
+
+
+async def generate_matrix(args: list[str]) -> set[MatrixItem]:
+    return await _generate(parse_args(args))
 
 
 class CustomEncoder(json.JSONEncoder):
-    def default(self, o):
+    def default(self, o: Any) -> Any:
         if isinstance(o, MatrixItem):
             return o.model_dump(exclude_none=True)
         elif isinstance(o, Version):
@@ -737,18 +618,18 @@ class CustomEncoder(json.JSONEncoder):
         return super().default(o)
 
 
-def set_action_output(name, value):
-    with open(os.environ.get("GITHUB_OUTPUT"), "a") as f:
+def set_action_output(name: str, value: str) -> None:
+    with open(os.environ["GITHUB_OUTPUT"], "a") as f:
         f.write(f"{name}={value}\n")
 
 
-def split(matrix, n):
-    grouped_by_name = defaultdict(list)
+def split(matrix: list[MatrixItem], n: int) -> Iterator[list[MatrixItem]]:
+    grouped_by_name: dict[str, list[MatrixItem]] = defaultdict(list)
     for item in matrix:
         grouped_by_name[item.name].append(item)
 
     num = len(matrix) // n
-    chunk = []
+    chunk: list[MatrixItem] = []
     for group in grouped_by_name.values():
         chunk.extend(group)
         if len(chunk) >= num:
@@ -759,25 +640,20 @@ def split(matrix, n):
         yield chunk
 
 
-async def main(args):
+async def run(args: argparse.Namespace) -> None:
     # https://docs.github.com/en/actions/learn-github-actions/usage-limits-billing-and-administration#usage-limits
     # > A job matrix can generate a maximum of 256 jobs per workflow run.
     MAX_ITEMS = 256
     NUM_JOBS = 2
 
     print(divider("Parameters"))
-    print(json.dumps(args, indent=2))
-    matrix = await generate_matrix(args)
-    matrix = sorted(matrix, key=lambda x: (x.name, x.category, x.version))
+    print(json.dumps(vars(args), indent=2, default=str))
+    matrix = sorted(await _generate(args), key=lambda x: (x.name, x.category, x.version))
     assert len(matrix) <= MAX_ITEMS * 2, f"Too many jobs: {len(matrix)} > {MAX_ITEMS * NUM_JOBS}"
     for idx, mat in enumerate(split(matrix, NUM_JOBS), start=1):
-        mat = {"include": mat, "job_name": [x.job_name for x in mat]}
+        payload = {"include": mat, "job_name": [x.job_name for x in mat]}
         print(divider(f"Matrix {idx}"))
-        print(json.dumps(mat, indent=2, cls=CustomEncoder))
+        print(json.dumps(payload, indent=2, cls=CustomEncoder))
         if "GITHUB_ACTIONS" in os.environ:
-            set_action_output(f"matrix{idx}", json.dumps(mat, cls=CustomEncoder))
+            set_action_output(f"matrix{idx}", json.dumps(payload, cls=CustomEncoder))
             set_action_output(f"is_matrix{idx}_empty", "true" if len(mat) == 0 else "false")
-
-
-if __name__ == "__main__":
-    asyncio.run(main(sys.argv[1:]))
