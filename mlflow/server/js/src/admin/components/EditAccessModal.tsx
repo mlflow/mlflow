@@ -67,7 +67,7 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
   const isCurrentUserAdmin = useCurrentUserIsAdmin();
 
   // --- Current state from backend (used to pre-fill + compute diff) ---
-  const { data: rolesData, isLoading: rolesLoading } = useUserRolesQuery(username);
+  const { data: rolesData, isLoading: rolesLoading, error: rolesError } = useUserRolesQuery(username);
   const { data: usersData, isLoading: usersLoading } = useUsersQuery();
   // Roles list for the Review step's name lookup (the form uses the
   // dropdown's own label, but the Review step renders by id). Platform
@@ -133,19 +133,21 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
   }, [open]);
 
   // Pre-fill editable fields once per open, after backing queries resolve.
+  // Skip on ``rolesError`` so a 403 / network failure doesn't silently
+  // overwrite the user's actual access with an empty staged state.
   useEffect(() => {
     if (!open) {
       prefilledRef.current = false;
       return;
     }
-    if (prefilledRef.current || !stateLoaded) {
+    if (prefilledRef.current || !stateLoaded || rolesError) {
       return;
     }
     setRoleValue({ roleIds: [...currentRoleIds] });
     setDirectPermissions([...currentDirectPerms]);
     setIsAdmin(currentIsAdmin);
     prefilledRef.current = true;
-  }, [open, stateLoaded, currentRoleIds, currentDirectPerms, currentIsAdmin]);
+  }, [open, stateLoaded, rolesError, currentRoleIds, currentDirectPerms, currentIsAdmin]);
 
   // --- Diff computation ---
   const diff = useMemo<AccessDiff>(() => {
@@ -305,7 +307,7 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
                 setError(null);
                 setStep('review');
               }}
-              disabled={!hasAnyChange || !stateLoaded}
+              disabled={!hasAnyChange || !stateLoaded || Boolean(rolesError)}
             >
               Review changes
             </Button>
@@ -367,6 +369,18 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
             >
               <Spinner size="small" />
             </div>
+          ) : rolesError ? (
+            // Block the form on a failed roles fetch so the empty pre-fill
+            // doesn't masquerade as the user's actual access.
+            <Alert
+              componentId="admin.edit_access_modal.roles_error"
+              type="error"
+              message="Failed to load access state"
+              description={
+                (rolesError as Error)?.message ||
+                `An error occurred while fetching the current access for ${username}. Close the modal and try again.`
+              }
+            />
           ) : (
             <>
               <LongFormSection title="Role assignments">
