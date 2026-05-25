@@ -48,6 +48,7 @@ from mlflow.genai.judges.utils.tool_calling_utils import (
     _raise_iteration_limit_exceeded,
     _remove_oldest_tool_call_pair,
 )
+from mlflow.genai.utils.llm_utils import _lookup_model_cost
 from mlflow.genai.utils.message_utils import pydantic_to_response_format
 from mlflow.metrics.genai.model_utils import (
     _call_llm_provider_api,
@@ -366,16 +367,21 @@ class GatewayAdapter(BaseJudgeAdapter):
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-        # When a trace is provided, use the tool-calling loop.
-        # "endpoints" (deployment endpoints) don't support provider-based tool calling.
-        if input_params.trace is not None:
-            if input_params.model_provider == "endpoints":
-                raise MlflowException(
-                    "Trace-based tool calling is not supported for deployment endpoints "
-                    "(endpoints:/...). Use a direct provider URI (e.g. openai:/gpt-4) instead.",
-                    error_code=BAD_REQUEST,
-                )
+        # For all providers except "endpoints", always use the tool-calling loop —
+        # even when trace=None (no tools). _invoke_with_tools extracts token usage
+        # from the API response which enables JUDGE_COST tracking.
+        # "endpoints" (Databricks model serving) uses score_model_on_payload and
+        # does not support the provider-based request/response transformation.
+        if input_params.model_provider != "endpoints":
             return self._invoke_with_tools(input_params)
+
+        # "endpoints" provider: trace-based tool calling is not supported.
+        if input_params.trace is not None:
+            raise MlflowException(
+                "Trace-based tool calling is not supported for deployment endpoints "
+                "(endpoints:/...). Use a direct provider URI (e.g. openai:/gpt-4) instead.",
+                error_code=BAD_REQUEST,
+            )
 
         if isinstance(input_params.prompt, str):
             prompt = input_params.prompt
@@ -478,7 +484,17 @@ class GatewayAdapter(BaseJudgeAdapter):
                 error_code=BAD_REQUEST,
             ) from e
 
+        cost = None
+        if output.num_prompt_tokens is not None and output.num_completion_tokens is not None:
+            cost = _lookup_model_cost(
+                input_params.model_uri,
+                output.num_prompt_tokens,
+                output.num_completion_tokens,
+            )
+
         metadata = {}
+        if cost is not None:
+            metadata[AssessmentMetadataKey.JUDGE_COST] = cost
         if output.num_prompt_tokens is not None:
             metadata[AssessmentMetadataKey.JUDGE_INPUT_TOKENS] = output.num_prompt_tokens
         if output.num_completion_tokens is not None:
@@ -501,6 +517,7 @@ class GatewayAdapter(BaseJudgeAdapter):
             request_id=output.request_id,
             num_prompt_tokens=output.num_prompt_tokens,
             num_completion_tokens=output.num_completion_tokens,
+            cost=cost,
         )
 
     # TODO: Consider extending _call_llm_provider_api to accept `tools` and return
