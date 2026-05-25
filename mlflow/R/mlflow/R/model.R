@@ -102,8 +102,8 @@ mlflow_signature_for_model_spec <- function(signature) {
 #' @param model The model that will perform a prediction.
 #' @param artifact_path Destination path where this MLflow compatible model
 #'   will be saved.
-#' @param signature Optional model signature with named-list `inputs` and `outputs`,
-#'   e.g. `list(inputs = list(feature = "double"), outputs = list(prediction = "double"))`.
+#' @param signature Optional model signature with `inputs` and/or `outputs`.
+#'   Each schema can be a list or a named character vector.
 #' @param ... Optional additional arguments passed to `mlflow_save_model()` when persisting the
 #'   model. For example, `conda_env = /path/to/conda.yaml` may be passed to specify a conda
 #'   dependencies file for flavors (e.g. keras) that support conda environments.
@@ -160,6 +160,10 @@ mlflow_timestamp <- function() {
 #' @template roxlate-client
 #' @param flavor Optional flavor specification (string). Can be used to load a particular flavor in
 #' case there are multiple flavors available.
+#' @examples
+#' \dontrun{
+#' mlflow_load_model("models:/catalog.schema.model@champion")
+#' }
 #' @export
 mlflow_load_model <- function(model_uri, flavor = NULL, client = mlflow_client()) {
   model_path <- mlflow_download_artifacts_from_uri(model_uri, client = client)

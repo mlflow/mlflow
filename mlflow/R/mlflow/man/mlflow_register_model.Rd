@@ -2,7 +2,7 @@
 % Please edit documentation in R/model-registry.R
 \name{mlflow_register_model}
 \alias{mlflow_register_model}
-\title{Register model URI under a model name}
+\title{Register a model}
 \usage{
 mlflow_register_model(
   model_uri,
@@ -34,5 +34,14 @@ MLflow will use the tracking server associated with the current tracking URI.}
 \item{...}{Additional arguments forwarded to `mlflow_create_model_version()`.}
 }
 \description{
-Register model URI under a model name
+Registers an MLflow model URI under a registered model name.
+}
+\details{
+Use a fully qualified registered model name when your registry requires one,
+  for example `catalog.schema.model`.
+}
+\examples{
+\dontrun{
+mlflow_register_model("runs:/<run_id>/model", "catalog.schema.model")
+}
 }

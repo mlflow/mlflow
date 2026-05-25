@@ -11,7 +11,8 @@ mlflow_client(tracking_uri = NULL, registry_uri = NULL)
 set by `mlflow_set_tracking_uri()`.}
 
 \item{registry_uri}{The registry URI. If not provided, defaults to
-`mlflow_get_registry_uri()`.}
+`mlflow_get_registry_uri()`. For Databricks model registry, use `databricks-uc`
+or `databricks-uc://<profile>`.}
 }
 \description{
 Initializes and returns an MLflow client that communicates with the tracking server or store

@@ -19,5 +19,9 @@ MLflow will use the tracking server associated with the current tracking URI.}
 \item{...}{Reserved for future options.}
 }
 \description{
-Get model version by alias
+Resolves an alias to a registered model version.
+}
+\details{
+To load the aliased model contents, use
+  `mlflow_load_model("models:/<model_name>@<alias>")`.
 }

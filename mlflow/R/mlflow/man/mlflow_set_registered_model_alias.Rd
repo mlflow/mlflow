@@ -21,5 +21,14 @@ MLflow will use the tracking server associated with the current tracking URI.}
 \item{...}{Reserved for future options.}
 }
 \description{
-Set a model alias
+Assigns an alias to a registered model version.
+}
+\details{
+Load an aliased model with `mlflow_load_model("models:/<model_name>@<alias>")`.
+}
+\examples{
+\dontrun{
+mlflow_set_registered_model_alias("catalog.schema.model", "champion", 1)
+mlflow_load_model("models:/catalog.schema.model@champion")
+}
 }

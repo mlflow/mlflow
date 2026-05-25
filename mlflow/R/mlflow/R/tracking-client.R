@@ -154,7 +154,8 @@ new_mlflow_client.mlflow_https <- function(tracking_uri) {
 #' @param tracking_uri The tracking URI. If not provided, defaults to the service
 #'  set by `mlflow_set_tracking_uri()`.
 #' @param registry_uri The registry URI. If not provided, defaults to
-#'  `mlflow_get_registry_uri()`.
+#'  `mlflow_get_registry_uri()`. For Databricks model registry, use `databricks-uc`
+#'  or `databricks-uc://<profile>`.
 #' @export
 mlflow_client <- function(tracking_uri = NULL, registry_uri = NULL) {
   tracking_uri_raw <- tracking_uri %||% mlflow_get_tracking_uri()

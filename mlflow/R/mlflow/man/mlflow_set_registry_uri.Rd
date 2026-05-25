@@ -12,3 +12,8 @@ mlflow_set_registry_uri(uri)
 \description{
 Specifies the URI to the model registry service used for model registry operations.
 }
+\details{
+For Databricks model registry, use `databricks-uc` or
+  `databricks-uc://<profile>`. When the tracking URI is `databricks`,
+  this is the default registry URI.
+}

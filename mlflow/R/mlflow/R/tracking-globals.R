@@ -61,6 +61,9 @@ mlflow_get_tracking_uri <- function() {
 #' Specifies the URI to the model registry service used for model registry operations.
 #'
 #' @param uri The URI to the model registry service.
+#' @details For Databricks model registry, use `databricks-uc` or
+#'   `databricks-uc://<profile>`. When the tracking URI is `databricks`,
+#'   this is the default registry URI.
 #'
 #' @export
 mlflow_set_registry_uri <- function(uri) {

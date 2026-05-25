@@ -207,11 +207,13 @@ mlflow_delete_registered_model <- function(name, client = NULL) {
 #'
 #' @param filter A filter expression used to identify specific registered models.
 #'   The syntax is a subset of SQL which allows only ANDing together binary operations.
-#'   Example: "name = 'my_model_name' and tag.key = 'value1'"
+#'   Example: "name = 'my_model_name' and tag.key = 'value1'". Not supported when the
+#'   registry URI is `databricks-uc`.
 #' @param max_results Maximum number of registered models to retrieve.
 #' @param page_token Pagination token to go to the next page based on a
 #'   previous query.
 #' @param order_by List of registered model properties to order by. Example: "name".
+#'   Not supported when the registry URI is `databricks-uc`.
 #' @template roxlate-client
 #' @export
 mlflow_search_registered_models <- function(filter = NULL,
@@ -277,6 +279,8 @@ mlflow_search_registered_models <- function(filter = NULL,
 #' @param name Name of the model.
 #' @param stages A list of desired stages. If the input list is NULL, return
 #'   latest versions for ALL_STAGES.
+#' @details Stages are not supported when the registry URI is `databricks-uc`. Use
+#'   `mlflow_get_model_version_by_alias()` or load an aliased model URI instead.
 #' @template roxlate-client
 #' @export
 mlflow_get_latest_versions <- function(name, stages = list(), client = NULL) {
@@ -313,6 +317,8 @@ mlflow_get_latest_versions <- function(name, stages = list(), client = NULL) {
 #' @param run_link MLflow run link - This is the exact link of the run that
 #'   generated this model version.
 #' @param description Description for model version.
+#' @details Use a fully qualified registered model name when your registry requires one,
+#'   for example `catalog.schema.model`.
 #' @template roxlate-client
 #' @export
 mlflow_create_model_version <- function(name, source, run_id = NULL,
@@ -393,7 +399,9 @@ mlflow_get_model_version <- function(name, version, client = NULL) {
   return(response$model_version)
 }
 
-#' Register model URI under a model name
+#' Register a model
+#'
+#' Registers an MLflow model URI under a registered model name.
 #'
 #' @param model_uri URI indicating the location of model artifacts.
 #' @param name Register model under this name.
@@ -402,6 +410,12 @@ mlflow_get_model_version <- function(name, version, client = NULL) {
 #' @param tags Additional metadata.
 #' @param description Description for model version.
 #' @param ... Additional arguments forwarded to `mlflow_create_model_version()`.
+#' @details Use a fully qualified registered model name when your registry requires one,
+#'   for example `catalog.schema.model`.
+#' @examples
+#' \dontrun{
+#' mlflow_register_model("runs:/<run_id>/model", "catalog.schema.model")
+#' }
 #' @template roxlate-client
 #' @export
 mlflow_register_model <- function(model_uri, name, run_id = NULL, tags = NULL,
@@ -419,10 +433,18 @@ mlflow_register_model <- function(model_uri, name, run_id = NULL, tags = NULL,
 
 #' Set a model alias
 #'
+#' Assigns an alias to a registered model version.
+#'
 #' @param name Name of the registered model.
 #' @param alias Alias to set.
 #' @param version Model version number.
 #' @param ... Reserved for future options.
+#' @details Load an aliased model with `mlflow_load_model("models:/<model_name>@<alias>")`.
+#' @examples
+#' \dontrun{
+#' mlflow_set_registered_model_alias("catalog.schema.model", "champion", 1)
+#' mlflow_load_model("models:/catalog.schema.model@champion")
+#' }
 #' @template roxlate-client
 #' @export
 mlflow_set_registered_model_alias <- function(name, alias, version, client = NULL, ...) {
@@ -447,9 +469,13 @@ mlflow_set_registered_model_alias <- function(name, alias, version, client = NUL
 
 #' Get model version by alias
 #'
+#' Resolves an alias to a registered model version.
+#'
 #' @param name Name of the registered model.
 #' @param alias Alias to resolve.
 #' @param ... Reserved for future options.
+#' @details To load the aliased model contents, use
+#'   `mlflow_load_model("models:/<model_name>@<alias>")`.
 #' @template roxlate-client
 #' @export
 mlflow_get_model_version_by_alias <- function(name, alias, client = NULL, ...) {
@@ -532,6 +558,9 @@ mlflow_delete_model_version <- function(name, version, client = NULL) {
 #'
 #' Transition a model version to a different stage.
 #'
+#' Stages are not supported when the registry URI is `databricks-uc`. Use model aliases
+#' for registries that reject stages.
+#'
 #' @param name Name of the registered model.
 #' @param version Model version number.
 #' @param stage Transition `model_version` to this stage.
@@ -571,6 +600,8 @@ mlflow_transition_model_version_stage <- function(name, version, stage,
 #' Set a tag for the model version.
 #' When stage is set, tag will be set for latest model version of the stage.
 #' Setting both version and stage parameter will result in error.
+#' Stages are not supported when the registry URI is `databricks-uc`; set `version`
+#' directly in that case.
 #'
 #' @param name Registered model name.
 #' @param version Registered model version.
