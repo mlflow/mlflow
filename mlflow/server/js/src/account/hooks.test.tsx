@@ -111,7 +111,7 @@ describe('useMyPermissionsQuery (gated on known username)', () => {
     mockedApi.getCurrentUser.mockResolvedValueOnce({
       user: { id: 1, username: 'pat', is_admin: false },
     });
-    mockedApi.listMyPermissions.mockResolvedValueOnce({ permissions: [] });
+    mockedApi.listMyPermissions.mockResolvedValueOnce({ is_admin: false, permissions: [] });
 
     const { result } = renderHook(() => useMyPermissionsQuery(), { wrapper: makeWrapper() });
 

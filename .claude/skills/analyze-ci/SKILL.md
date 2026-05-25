@@ -1,9 +1,7 @@
 ---
 name: analyze-ci
 description: Analyze failed GitHub Action jobs for a pull request.
-model: haiku
-context: fork
-agent: general-purpose
+argument-hint: "url(s) of failed GitHub Action jobs, workflow runs, or PRs"
 allowed-tools:
   - Bash(uv run --package skills skills fetch-logs:*)
   - Read
@@ -50,11 +48,14 @@ Fetch logs from failed GitHub Action jobs and produce a focused per-job failure 
 
 ```bash
 # All failed jobs on a PR
-/analyze-ci 'https://github.com/mlflow/mlflow/pull/19601'
+/analyze-ci https://github.com/mlflow/mlflow/pull/19601
 
 # All failed jobs in one workflow run
-/analyze-ci 'https://github.com/mlflow/mlflow/actions/runs/22626454465'
+/analyze-ci https://github.com/mlflow/mlflow/actions/runs/22626454465
 
 # Specific job by URL
-/analyze-ci 'https://github.com/mlflow/mlflow/actions/runs/12345/job/67890'
+/analyze-ci https://github.com/mlflow/mlflow/actions/runs/12345/job/67890
+
+# Multiple URLs at once
+/analyze-ci https://github.com/mlflow/mlflow/actions/runs/123/job/456 https://github.com/mlflow/mlflow/actions/runs/789/job/012
 ```

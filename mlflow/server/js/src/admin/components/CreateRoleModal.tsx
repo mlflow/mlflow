@@ -53,6 +53,9 @@ export const CreateRoleModal = ({ open, onClose }: CreateRoleModalProps) => {
   const [usernames, setUsernames] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Set after the role lands; lets retries skip ``createRole`` and
+  // just re-run the failed best-effort follow-ups.
+  const [createdRoleId, setCreatedRoleId] = useState<number | null>(null);
 
   const workspaceOptions = useMemo(() => {
     const others = new Set<string>();
@@ -71,34 +74,40 @@ export const CreateRoleModal = ({ open, onClose }: CreateRoleModalProps) => {
       setUsernames([]);
       setSubmitting(false);
       setError(null);
+      setCreatedRoleId(null);
     }
   }, [open]);
 
-  const canSubmit = name.trim().length > 0;
+  // Retry mode skips the name guard (the field is also disabled).
+  const canSubmit = createdRoleId !== null || name.trim().length > 0;
 
   const handleSubmit = useCallback(async () => {
-    setError(null);
+    // No ``setError(null)`` upfront — would hide/show flicker as the
+    // async path resets it. Every branch below replaces or closes.
     const trimmedName = name.trim();
-    if (!trimmedName) {
+    if (createdRoleId === null && !trimmedName) {
       setError('Role name cannot be empty');
       return;
     }
 
     setSubmitting(true);
 
-    let roleId: number;
-    try {
-      const request: CreateRoleRequest = {
-        name: trimmedName,
-        workspace,
-        description: description || undefined,
-      };
-      const created = await createRole.mutateAsync(request);
-      roleId = created.role.id;
-    } catch (e: any) {
-      setError(e?.message || 'Failed to create role');
-      setSubmitting(false);
-      return;
+    let roleId = createdRoleId;
+    if (roleId === null) {
+      try {
+        const request: CreateRoleRequest = {
+          name: trimmedName,
+          workspace,
+          description: description || undefined,
+        };
+        const created = await createRole.mutateAsync(request);
+        roleId = created.role.id;
+        setCreatedRoleId(roleId);
+      } catch (e: any) {
+        setError(e?.message || 'Failed to create role');
+        setSubmitting(false);
+        return;
+      }
     }
 
     // Best-effort: partial failures are surfaced, but the role itself
@@ -138,7 +147,7 @@ export const CreateRoleModal = ({ open, onClose }: CreateRoleModalProps) => {
         `\nFinish wiring up the role from the role detail page.`,
     );
     setSubmitting(false);
-  }, [name, workspace, description, permissions, usernames, createRole, onClose]);
+  }, [name, workspace, description, permissions, usernames, createdRoleId, createRole, onClose]);
 
   return (
     <Modal
@@ -159,19 +168,25 @@ export const CreateRoleModal = ({ open, onClose }: CreateRoleModalProps) => {
             loading={submitting}
             disabled={!canSubmit}
           >
-            Create role
+            {createdRoleId !== null ? 'Retry failed grants' : 'Create role'}
           </Button>
         </div>
       }
     >
       {error && (
+        // Sticky so partial-failure errors stay visible during scroll.
         <Alert
           componentId="admin.create_role_modal.error"
           type="error"
           message={error}
           closable
           onClose={() => setError(null)}
-          css={{ marginBottom: theme.spacing.md }}
+          css={{
+            marginBottom: theme.spacing.md,
+            position: 'sticky',
+            top: 0,
+            zIndex: 1,
+          }}
         />
       )}
       <LongFormSection title="Role details">
@@ -184,7 +199,7 @@ export const CreateRoleModal = ({ open, onClose }: CreateRoleModalProps) => {
               onChange={(e) => setName(e.target.value)}
               placeholder="Enter role name"
               autoFocus
-              disabled={submitting}
+              disabled={submitting || createdRoleId !== null}
             />
           </div>
           {workspacesEnabled && (
@@ -195,7 +210,7 @@ export const CreateRoleModal = ({ open, onClose }: CreateRoleModalProps) => {
                 componentId="admin.create_role_modal.workspace"
                 value={workspace}
                 onChange={({ target }) => setWorkspace(target.value)}
-                disabled={submitting}
+                disabled={submitting || createdRoleId !== null}
               >
                 {workspaceOptions.map((w) => (
                   <SimpleSelectOption key={w} value={w}>
@@ -212,7 +227,7 @@ export const CreateRoleModal = ({ open, onClose }: CreateRoleModalProps) => {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Enter description (optional)"
-              disabled={submitting}
+              disabled={submitting || createdRoleId !== null}
             />
           </div>
           <Typography.Paragraph css={{ color: theme.colors.textSecondary, marginTop: theme.spacing.sm }}>
@@ -222,7 +237,7 @@ export const CreateRoleModal = ({ open, onClose }: CreateRoleModalProps) => {
           </Typography.Paragraph>
         </div>
       </LongFormSection>
-      <LongFormSection title="Permissions" subtitle="(Optional)">
+      <LongFormSection title="Permissions">
         <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.sm }}>
           Add one or more permissions to this role. You can add more later from the role detail page.
         </Typography.Text>
@@ -233,7 +248,7 @@ export const CreateRoleModal = ({ open, onClose }: CreateRoleModalProps) => {
           disabled={submitting}
         />
       </LongFormSection>
-      <LongFormSection title="Assigned users" subtitle="(Optional)" hideDivider>
+      <LongFormSection title="Assign users" hideDivider>
         <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.sm }}>
           Assign one or more users to this role. You can assign more later from the role detail page.
         </Typography.Text>

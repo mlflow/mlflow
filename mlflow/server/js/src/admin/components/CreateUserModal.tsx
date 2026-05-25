@@ -39,6 +39,9 @@ export const CreateUserModal = ({ open, onClose }: CreateUserModalProps) => {
   const [directPermissions, setDirectPermissions] = useState<StagedDirectPermission[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Set after the user lands; lets retries skip ``createUser`` and
+  // just re-run the failed best-effort follow-ups.
+  const [createdUsername, setCreatedUsername] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -49,28 +52,36 @@ export const CreateUserModal = ({ open, onClose }: CreateUserModalProps) => {
       setDirectPermissions([]);
       setSubmitting(false);
       setError(null);
+      setCreatedUsername(null);
     }
   }, [open]);
 
   const wantsRoles = roleValue.roleIds.length > 0;
   const wantsDirect = directPermissions.length > 0;
-  const canSubmit = Boolean(username.trim() && password);
+  // Retry mode skips the credential guard (the fields are also disabled).
+  const canSubmit = createdUsername !== null || Boolean(username.trim() && password);
 
   const handleSubmit = useCallback(async () => {
-    setError(null);
+    // No ``setError(null)`` upfront — would hide/show flicker as the
+    // async path resets it. Every branch below replaces or closes.
     const trimmedUsername = username.trim();
-    if (!trimmedUsername || !password) {
+    if (createdUsername === null && (!trimmedUsername || !password)) {
       setError('Username and password are required');
       return;
     }
 
     setSubmitting(true);
-    try {
-      await createUser.mutateAsync({ username: trimmedUsername, password });
-    } catch (e: any) {
-      setError(e?.message || 'Failed to create user');
-      setSubmitting(false);
-      return;
+    // Skip the create step if a prior submission already landed it; we
+    // only need to retry the failed best-effort follow-ups.
+    if (createdUsername === null) {
+      try {
+        await createUser.mutateAsync({ username: trimmedUsername, password });
+        setCreatedUsername(trimmedUsername);
+      } catch (e: any) {
+        setError(e?.message || 'Failed to create user');
+        setSubmitting(false);
+        return;
+      }
     }
 
     // The user exists. Treat the follow-up steps as best-effort: surface
@@ -134,6 +145,7 @@ export const CreateUserModal = ({ open, onClose }: CreateUserModalProps) => {
     wantsDirect,
     roleValue.roleIds,
     directPermissions,
+    createdUsername,
     createUser,
     queryClient,
     grantPermission,
@@ -159,19 +171,29 @@ export const CreateUserModal = ({ open, onClose }: CreateUserModalProps) => {
             loading={submitting}
             disabled={!canSubmit}
           >
-            {isAdmin || wantsRoles || wantsDirect ? 'Create user and grant access' : 'Create user'}
+            {createdUsername !== null
+              ? 'Retry failed grants'
+              : isAdmin || wantsRoles || wantsDirect
+                ? 'Create user and grant access'
+                : 'Create user'}
           </Button>
         </div>
       }
     >
       {error && (
+        // Sticky so partial-failure errors stay visible during scroll.
         <Alert
           componentId="admin.create_user_modal.error"
           type="error"
           message={error}
           closable
           onClose={() => setError(null)}
-          css={{ marginBottom: theme.spacing.md }}
+          css={{
+            marginBottom: theme.spacing.md,
+            position: 'sticky',
+            top: 0,
+            zIndex: 1,
+          }}
         />
       )}
       <LongFormSection title="User details">
@@ -184,7 +206,7 @@ export const CreateUserModal = ({ open, onClose }: CreateUserModalProps) => {
               onChange={(e) => setUsername(e.target.value)}
               placeholder="Enter username"
               autoFocus
-              disabled={submitting}
+              disabled={submitting || createdUsername !== null}
             />
           </div>
           <div>
@@ -195,7 +217,7 @@ export const CreateUserModal = ({ open, onClose }: CreateUserModalProps) => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Enter password"
-              disabled={submitting}
+              disabled={submitting || createdUsername !== null}
             />
           </div>
         </div>

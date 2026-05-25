@@ -14,7 +14,7 @@ import yaml
 from pypi import Package, get_packages
 
 PACKAGE_NAMES = ["tracing", "skinny", "core", "gateway"]
-RELEASE_CUTOFF_DAYS = 14
+RELEASE_CUTOFF_DAYS = 7
 PYPI_URL = os.environ.get("PYPI_URL", "https://pypi.org").rstrip("/")
 
 
