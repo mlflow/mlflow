@@ -223,6 +223,26 @@ CREATE TABLE experiment_tags (
 )
 
 
+CREATE TABLE label_schemas (
+	schema_id VARCHAR(36) NOT NULL,
+	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
+	experiment_id INTEGER NOT NULL,
+	name VARCHAR(150) NOT NULL,
+	type VARCHAR(16) NOT NULL,
+	title VARCHAR(256) NOT NULL,
+	instruction TEXT,
+	enable_comment BOOLEAN DEFAULT '0' NOT NULL,
+	input_type VARCHAR(32) NOT NULL,
+	input_config TEXT NOT NULL,
+	created_by VARCHAR(255),
+	created_time BIGINT NOT NULL,
+	last_update_time BIGINT NOT NULL,
+	CONSTRAINT label_schemas_pk PRIMARY KEY (schema_id),
+	CONSTRAINT fk_label_schemas_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id) ON DELETE CASCADE,
+	CONSTRAINT uq_label_schemas_workspace_exp_name UNIQUE (workspace, experiment_id, name)
+)
+
+
 CREATE TABLE logged_models (
 	model_id VARCHAR(36) NOT NULL,
 	experiment_id INTEGER NOT NULL,

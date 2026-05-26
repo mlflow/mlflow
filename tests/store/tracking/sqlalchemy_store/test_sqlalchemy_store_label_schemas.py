@@ -377,7 +377,7 @@ def test_create_validation_rejects_bad_inputs(store, kwargs, match):
         "input": InputPassFail(positive_label="Pass", negative_label="Fail"),
     }
     with pytest.raises(MlflowException, match=match):
-        store.create_label_schema(**{**defaults, **kwargs})
+        store.create_label_schema(**(defaults | kwargs))
 
 
 def test_round_trip_preserves_categorical_multi_select(store):

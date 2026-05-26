@@ -222,6 +222,25 @@ CREATE TABLE experiment_tags (
 )
 
 
+CREATE TABLE label_schemas (
+	schema_id VARCHAR(36) NOT NULL,
+	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
+	experiment_id INTEGER NOT NULL,
+	name VARCHAR(150) NOT NULL,
+	type VARCHAR(16) NOT NULL,
+	title VARCHAR(256) NOT NULL,
+	instruction TEXT,
+	enable_comment TINYINT DEFAULT '0' NOT NULL,
+	input_type VARCHAR(32) NOT NULL,
+	input_config TEXT NOT NULL,
+	created_by VARCHAR(255),
+	created_time BIGINT NOT NULL,
+	last_update_time BIGINT NOT NULL,
+	PRIMARY KEY (schema_id),
+	CONSTRAINT fk_label_schemas_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id) ON DELETE CASCADE
+)
+
+
 CREATE TABLE logged_models (
 	model_id VARCHAR(36) NOT NULL,
 	experiment_id INTEGER NOT NULL,
@@ -413,38 +432,6 @@ CREATE TABLE endpoint_tags (
 )
 
 
-CREATE TABLE guardrails (
-	guardrail_id VARCHAR(36) NOT NULL,
-	name VARCHAR(255) NOT NULL,
-	scorer_id VARCHAR(36) NOT NULL,
-	scorer_version INTEGER NOT NULL,
-	stage VARCHAR(32) NOT NULL,
-	action VARCHAR(32) NOT NULL,
-	action_endpoint_id VARCHAR(36),
-	created_by VARCHAR(255),
-	created_at BIGINT NOT NULL,
-	last_updated_by VARCHAR(255),
-	last_updated_at BIGINT NOT NULL,
-	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
-	PRIMARY KEY (guardrail_id),
-	CONSTRAINT fk_guardrails_scorer_version FOREIGN KEY(scorer_id, scorer_version) REFERENCES scorer_versions (scorer_id, scorer_version),
-	CONSTRAINT fk_guardrails_action_endpoint_id FOREIGN KEY(action_endpoint_id) REFERENCES endpoints (endpoint_id) ON DELETE SET NULL
-)
-
-
-CREATE TABLE guardrail_configs (
-	endpoint_id VARCHAR(36) NOT NULL,
-	guardrail_id VARCHAR(36) NOT NULL,
-	execution_order INTEGER,
-	created_by VARCHAR(255),
-	created_at BIGINT NOT NULL,
-	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
-	PRIMARY KEY (endpoint_id, guardrail_id),
-	CONSTRAINT fk_guardrail_configs_endpoint_id FOREIGN KEY(endpoint_id) REFERENCES endpoints (endpoint_id) ON DELETE CASCADE,
-	CONSTRAINT fk_guardrail_configs_guardrail_id FOREIGN KEY(guardrail_id) REFERENCES guardrails (guardrail_id) ON DELETE CASCADE
-)
-
-
 CREATE TABLE issues (
 	issue_id VARCHAR(36) NOT NULL,
 	experiment_id INTEGER NOT NULL,
@@ -628,6 +615,25 @@ CREATE TABLE trace_tags (
 )
 
 
+CREATE TABLE guardrails (
+	guardrail_id VARCHAR(36) NOT NULL,
+	name VARCHAR(255) NOT NULL,
+	scorer_id VARCHAR(36) NOT NULL,
+	scorer_version INTEGER NOT NULL,
+	stage VARCHAR(32) NOT NULL,
+	action VARCHAR(32) NOT NULL,
+	action_endpoint_id VARCHAR(36),
+	created_by VARCHAR(255),
+	created_at BIGINT NOT NULL,
+	last_updated_by VARCHAR(255),
+	last_updated_at BIGINT NOT NULL,
+	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
+	PRIMARY KEY (guardrail_id),
+	CONSTRAINT fk_guardrails_action_endpoint_id FOREIGN KEY(action_endpoint_id) REFERENCES endpoints (endpoint_id) ON DELETE SET NULL,
+	CONSTRAINT fk_guardrails_scorer_version FOREIGN KEY(scorer_id, scorer_version) REFERENCES scorer_versions (scorer_id, scorer_version)
+)
+
+
 CREATE TABLE span_metrics (
 	trace_id VARCHAR(50) NOT NULL,
 	span_id VARCHAR(50) NOT NULL,
@@ -635,4 +641,17 @@ CREATE TABLE span_metrics (
 	value DOUBLE,
 	PRIMARY KEY (trace_id, span_id, key),
 	CONSTRAINT fk_span_metrics_span FOREIGN KEY(trace_id, span_id) REFERENCES spans (trace_id, span_id) ON DELETE CASCADE
+)
+
+
+CREATE TABLE guardrail_configs (
+	endpoint_id VARCHAR(36) NOT NULL,
+	guardrail_id VARCHAR(36) NOT NULL,
+	execution_order INTEGER,
+	created_by VARCHAR(255),
+	created_at BIGINT NOT NULL,
+	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
+	PRIMARY KEY (endpoint_id, guardrail_id),
+	CONSTRAINT fk_guardrail_configs_endpoint_id FOREIGN KEY(endpoint_id) REFERENCES endpoints (endpoint_id) ON DELETE CASCADE,
+	CONSTRAINT fk_guardrail_configs_guardrail_id FOREIGN KEY(guardrail_id) REFERENCES guardrails (guardrail_id) ON DELETE CASCADE
 )
