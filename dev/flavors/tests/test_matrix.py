@@ -1,8 +1,11 @@
+import asyncio
 import functools
 import re
 import tempfile
+from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
+from typing import Any, Callable, ParamSpec, TypeVar
 from unittest import mock
 
 import pytest
@@ -11,21 +14,24 @@ pytestmark = pytest.mark.skip(
     reason="Disabled by #21985: dev installs use git+ which doesn't respect UV_EXCLUDE_NEWER"
 )
 
-from dev.set_matrix import generate_matrix
+from flavors._matrix import generate_matrix
+
+_P = ParamSpec("_P")
+_R = TypeVar("_R")
 
 
 class MockResponse:
-    def __init__(self, data):
+    def __init__(self, data: dict[str, Any]) -> None:
         self.data = data
 
-    def json(self):
+    def json(self) -> dict[str, Any]:
         return self.data
 
-    def raise_for_status(self):
+    def raise_for_status(self) -> None:
         pass
 
     @classmethod
-    def from_versions(cls, versions):
+    def from_versions(cls, versions: list[str]) -> "MockResponse":
         return cls({
             "releases": {
                 v: [
@@ -39,14 +45,17 @@ class MockResponse:
         })
 
 
-def mock_pypi_api(mock_responses):
-    def requests_get_patch(url, *args, **kwargs):
-        package_name = re.search(r"https://pypi\.org/pypi/(.+)/json", url).group(1)
-        return mock_responses[package_name]
+def mock_pypi_api(
+    mock_responses: dict[str, MockResponse],
+) -> Callable[[Callable[_P, _R]], Callable[_P, _R]]:
+    def requests_get_patch(url: str, *args: Any, **kwargs: Any) -> MockResponse:
+        match = re.search(r"https://pypi\.org/pypi/(.+)/json", url)
+        assert match is not None
+        return mock_responses[match.group(1)]
 
-    def decorator(test_func):
+    def decorator(test_func: Callable[_P, _R]) -> Callable[_P, _R]:
         @functools.wraps(test_func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _R:
             with mock.patch("requests.get", new=requests_get_patch):
                 return test_func(*args, **kwargs)
 
@@ -56,7 +65,7 @@ def mock_pypi_api(mock_responses):
 
 
 @contextmanager
-def mock_ml_package_versions_yml(src_base, src_ref):
+def mock_ml_package_versions_yml(src_base: str, src_ref: str) -> Iterator[list[str]]:
     with tempfile.TemporaryDirectory() as tmp_dir:
         yml_base = Path(tmp_dir).joinpath("base.yml")
         yml_ref = Path(tmp_dir).joinpath("ref.yml")
@@ -104,12 +113,12 @@ MOCK_PYPI_API_RESPONSES = {
     ],
 )
 @mock_pypi_api(MOCK_PYPI_API_RESPONSES)
-def test_flavors(flavors, expected):
+def test_flavors(flavors: str | None, expected: set[str]) -> None:
     with mock_ml_package_versions_yml(MOCK_YAML_SOURCE, "{}") as path_args:
         flavors_args = [] if flavors is None else ["--flavors", flavors]
-        matrix = generate_matrix([*path_args, *flavors_args])
-        flavors = {x.flavor for x in matrix}
-        assert flavors == expected
+        matrix = asyncio.run(generate_matrix([*path_args, *flavors_args]))
+        flavor_names = {x.flavor for x in matrix}
+        assert flavor_names == expected
 
 
 @pytest.mark.parametrize(
@@ -123,39 +132,43 @@ def test_flavors(flavors, expected):
     ],
 )
 @mock_pypi_api(MOCK_PYPI_API_RESPONSES)
-def test_versions(versions, expected):
+def test_versions(versions: str | None, expected: set[str]) -> None:
     with mock_ml_package_versions_yml(MOCK_YAML_SOURCE, "{}") as path_args:
         versions_args = [] if versions is None else ["--versions", versions]
-        matrix = generate_matrix([*path_args, *versions_args])
-        versions = {str(x.version) for x in matrix}
-        assert versions == expected
+        matrix = asyncio.run(generate_matrix([*path_args, *versions_args]))
+        version_strs = {str(x.version) for x in matrix}
+        assert version_strs == expected
 
 
 @mock_pypi_api(MOCK_PYPI_API_RESPONSES)
-def test_flavors_and_versions():
+def test_flavors_and_versions() -> None:
     with mock_ml_package_versions_yml(MOCK_YAML_SOURCE, "{}") as path_args:
-        matrix = generate_matrix([*path_args, "--flavors", "foo,bar", "--versions", "dev"])
+        matrix = asyncio.run(
+            generate_matrix([*path_args, "--flavors", "foo,bar", "--versions", "dev"])
+        )
         flavors = {x.flavor for x in matrix}
         versions = {str(x.version) for x in matrix}
-        assert set(flavors) == {"foo", "bar"}
-        assert set(versions) == {"dev"}
+        assert flavors == {"foo", "bar"}
+        assert versions == {"dev"}
 
 
 @mock_pypi_api(MOCK_PYPI_API_RESPONSES)
-def test_no_dev():
+def test_no_dev() -> None:
     with mock_ml_package_versions_yml(MOCK_YAML_SOURCE, "{}") as path_args:
-        matrix = generate_matrix([*path_args, "--no-dev"])
+        matrix = asyncio.run(generate_matrix([*path_args, "--no-dev"]))
         flavors = {x.flavor for x in matrix}
         versions = {str(x.version) for x in matrix}
-        assert set(flavors) == {"foo", "bar"}
-        assert set(versions) == {"1.0.0", "1.1.1", "1.2.0", "1.3", "1.4"}
+        assert flavors == {"foo", "bar"}
+        assert versions == {"1.0.0", "1.1.1", "1.2.0", "1.3", "1.4"}
 
 
 @mock_pypi_api(MOCK_PYPI_API_RESPONSES)
-def test_changed_files():
+def test_changed_files() -> None:
     with mock_ml_package_versions_yml(MOCK_YAML_SOURCE, MOCK_YAML_SOURCE) as path_args:
-        matrix = generate_matrix([*path_args, "--changed-files", "mlflow/foo/__init__.py"])
+        matrix = asyncio.run(
+            generate_matrix([*path_args, "--changed-files", "mlflow/foo/__init__.py"])
+        )
         flavors = {x.flavor for x in matrix}
         versions = {str(x.version) for x in matrix}
-        assert set(flavors) == {"foo"}
-        assert set(versions) == {"1.0.0", "1.1.1", "1.2.0", "dev"}
+        assert flavors == {"foo"}
+        assert versions == {"1.0.0", "1.1.1", "1.2.0", "dev"}

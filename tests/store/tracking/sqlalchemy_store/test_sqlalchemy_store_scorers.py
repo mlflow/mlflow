@@ -511,6 +511,42 @@ def test_scorer_operations(store: SqlAlchemyStore):
         store.list_scorer_versions(experiment_id, "non_existent_scorer")
 
 
+def test_list_scorers_across_experiments(store: SqlAlchemyStore, monkeypatch):
+    """
+    Batched listing returns the latest-version scorer for every
+    ``(experiment_id, scorer_name)`` pair across the given experiments.
+    Also exercises the IN-list chunking by forcing a tiny chunk size.
+    """
+    exp_a = store.create_experiment("exp_a")
+    exp_b = store.create_experiment("exp_b")
+    exp_c = store.create_experiment("exp_c")
+    store.register_scorer(exp_a, "alpha", '{"v": 1}')
+    store.register_scorer(exp_a, "alpha", '{"v": 2}')
+    store.register_scorer(exp_a, "beta", '{"v": 1}')
+    store.register_scorer(exp_b, "gamma", '{"v": 1}')
+    # exp_c has no scorers — exercise the "no matching ids" early-return.
+
+    assert store.list_scorers_across_experiments([]) == []
+
+    expected = [
+        (exp_a, "alpha", 2),  # latest version of alpha
+        (exp_a, "beta", 1),
+        (exp_b, "gamma", 1),
+    ]
+    scorers = store.list_scorers_across_experiments([exp_a, exp_b, exp_c])
+    assert [(s.experiment_id, s.scorer_name, s.scorer_version) for s in scorers] == expected
+
+    # Subset of experiments only returns scorers for the requested ones.
+    subset = store.list_scorers_across_experiments([exp_b])
+    assert [s.scorer_name for s in subset] == ["gamma"]
+
+    # Force a tiny chunk size to exercise the IN-list chunking loop end-to-end.
+    # Ordering must remain globally deterministic across chunks.
+    monkeypatch.setattr(SqlAlchemyStore, "_LIST_SCORERS_CHUNK_SIZE", 1)
+    chunked = store.list_scorers_across_experiments([exp_a, exp_b, exp_c])
+    assert [(s.experiment_id, s.scorer_name, s.scorer_version) for s in chunked] == expected
+
+
 @pytest.mark.parametrize(
     ("name", "error_match"),
     [
