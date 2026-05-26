@@ -2963,6 +2963,9 @@ message Experiment {
 
   // Effective trace archival retention after broader-scope and experiment overrides are applied.
   optional string effective_trace_archival_retention = 8;
+
+  // Workspace name of the experiment.
+  optional string workspace = 9;
 }
 
 // DatasetInput. Represents a dataset and input tags.
