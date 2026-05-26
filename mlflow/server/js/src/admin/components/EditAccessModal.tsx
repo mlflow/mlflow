@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Button,
@@ -19,33 +19,30 @@ import {
   useGrantUserPermission,
   useRevokeUserPermission,
   useRolesQuery,
-  useUserPermissionsQuery,
   useUserRolesQuery,
   useUsersQuery,
 } from '../hooks';
 import { AccountQueryKeys } from '../../account/hooks';
+import { isSyntheticUserRole } from '../types';
 import { useActiveWorkspace } from '../../workspaces/utils/WorkspaceUtils';
 import { RoleAssignmentForm, ROLE_ASSIGNMENT_DEFAULT, type RoleAssignmentValue } from './RoleAssignmentForm';
-import { type DirectGrantResourceType } from './DirectPermissionForm';
+import { DIRECT_GRANT_RESOURCE_TYPES, type DirectGrantResourceType } from './DirectPermissionForm';
 import { DirectPermissionsSection, type StagedDirectPermission } from './DirectPermissionsSection';
 
 export interface EditAccessModalProps {
   open: boolean;
   onClose: () => void;
   username: string;
-  /** Optional: bridge to the Create Role flow when "All <type>" is picked. */
-  onCreateRoleForAllOfType?: (resourceType: DirectGrantResourceType) => void;
 }
 
 const directPermKey = (p: { resourceType: string; resourceId: string; permission: string }) =>
   `${p.resourceType}::${p.resourceId}::${p.permission}`;
 
+// Derived from the form's source of truth so a new direct-grant type can't
+// drift between the form (where it's offered) and the modal (where existing
+// grants of that type are bucketed into the direct view).
 const isDirectGrantResourceType = (rt: string): rt is DirectGrantResourceType =>
-  rt === 'experiment' ||
-  rt === 'registered_model' ||
-  rt === 'gateway_secret' ||
-  rt === 'gateway_endpoint' ||
-  rt === 'gateway_model_definition';
+  (DIRECT_GRANT_RESOURCE_TYPES as readonly string[]).includes(rt);
 
 interface AccessDiff {
   rolesToAssign: number[];
@@ -62,7 +59,7 @@ interface AccessDiff {
  * Review step surfaces every add / remove / promote / demote so the
  * admin can confirm before destructive parts land.
  */
-export const EditAccessModal = ({ open, onClose, username, onCreateRoleForAllOfType }: EditAccessModalProps) => {
+export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProps) => {
   const { theme } = useDesignSystemTheme();
   const queryClient = useQueryClient();
   const grantPermission = useGrantUserPermission();
@@ -70,8 +67,7 @@ export const EditAccessModal = ({ open, onClose, username, onCreateRoleForAllOfT
   const isCurrentUserAdmin = useCurrentUserIsAdmin();
 
   // --- Current state from backend (used to pre-fill + compute diff) ---
-  const { data: rolesData, isLoading: rolesLoading } = useUserRolesQuery(username);
-  const { data: directPermsData, isLoading: directPermsLoading } = useUserPermissionsQuery(username);
+  const { data: rolesData, isLoading: rolesLoading, error: rolesError } = useUserRolesQuery(username);
   const { data: usersData, isLoading: usersLoading } = useUsersQuery();
   // Roles list for the Review step's name lookup (the form uses the
   // dropdown's own label, but the Review step renders by id). Platform
@@ -82,17 +78,28 @@ export const EditAccessModal = ({ open, onClose, username, onCreateRoleForAllOfT
   const rolesListEnabled = isCurrentUserAdmin || Boolean(activeWorkspace);
   const { data: rolesListData } = useRolesQuery(rolesListWorkspace, { enabled: rolesListEnabled });
 
-  const currentRoleIds = useMemo<number[]>(() => (rolesData?.roles ?? []).map((r) => r.id), [rolesData]);
+  // Synthetic ``__user_N__`` roles anchor direct grants — must not enter the
+  // editable set, or the picker's "Clear" would unassign them and orphan
+  // every direct grant.
+  const currentRoleIds = useMemo<number[]>(
+    () => (rolesData?.roles ?? []).filter((r) => !isSyntheticUserRole(r.name)).map((r) => r.id),
+    [rolesData],
+  );
+  // Direct grants live on the synthetic ``__user_<id>__`` role surfaced by
+  // ``useUserRolesQuery``; flatten its nested ``permissions`` to recover the
+  // editable list (custom roles are shown in the Roles tab).
   const currentDirectPerms = useMemo<StagedDirectPermission[]>(
     () =>
-      (directPermsData?.permissions ?? [])
+      (rolesData?.roles ?? [])
+        .filter((r) => isSyntheticUserRole(r.name))
+        .flatMap((r) => r.permissions ?? [])
         .filter((p) => isDirectGrantResourceType(p.resource_type))
         .map((p) => ({
           resourceType: p.resource_type as DirectGrantResourceType,
           resourceId: p.resource_pattern,
           permission: p.permission,
         })),
-    [directPermsData],
+    [rolesData],
   );
   const currentIsAdmin = useMemo(
     () => Boolean(usersData?.users?.find((u) => u.username === username)?.is_admin),
@@ -107,20 +114,40 @@ export const EditAccessModal = ({ open, onClose, username, onCreateRoleForAllOfT
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const stateLoaded = !rolesLoading && !directPermsLoading && !usersLoading;
+  const stateLoaded = !rolesLoading && !usersLoading;
 
-  // Re-pre-fill whenever the modal opens or the backing data resolves.
+  // ``prefilledRef`` gates the data-fill effect against background
+  // refetches that would clobber in-progress edits.
+  const prefilledRef = useRef(false);
+
+  // Reset transient UI state only on open — refetches must not bounce
+  // the user back to edit or wipe a partial-failure error.
   useEffect(() => {
     if (!open) {
       return;
     }
     setStep('edit');
+    setSubmitting(false);
+    setError(null);
+    prefilledRef.current = false;
+  }, [open]);
+
+  // Pre-fill editable fields once per open, after backing queries resolve.
+  // Skip on ``rolesError`` so a 403 / network failure doesn't silently
+  // overwrite the user's actual access with an empty staged state.
+  useEffect(() => {
+    if (!open) {
+      prefilledRef.current = false;
+      return;
+    }
+    if (prefilledRef.current || !stateLoaded || rolesError) {
+      return;
+    }
     setRoleValue({ roleIds: [...currentRoleIds] });
     setDirectPermissions([...currentDirectPerms]);
     setIsAdmin(currentIsAdmin);
-    setSubmitting(false);
-    setError(null);
-  }, [open, currentRoleIds, currentDirectPerms, currentIsAdmin]);
+    prefilledRef.current = true;
+  }, [open, stateLoaded, rolesError, currentRoleIds, currentDirectPerms, currentIsAdmin]);
 
   // --- Diff computation ---
   const diff = useMemo<AccessDiff>(() => {
@@ -178,7 +205,8 @@ export const EditAccessModal = ({ open, onClose, username, onCreateRoleForAllOfT
   );
 
   const handleConfirm = useCallback(async () => {
-    setError(null);
+    // ``error`` is already cleared by the "Review changes" transition;
+    // skipping a redundant reset here also avoids the flicker.
     setSubmitting(true);
     const failures: string[] = [];
 
@@ -275,8 +303,11 @@ export const EditAccessModal = ({ open, onClose, username, onCreateRoleForAllOfT
             <Button
               componentId="admin.edit_access_modal.review"
               type="primary"
-              onClick={() => setStep('review')}
-              disabled={!hasAnyChange || !stateLoaded}
+              onClick={() => {
+                setError(null);
+                setStep('review');
+              }}
+              disabled={!hasAnyChange || !stateLoaded || Boolean(rolesError)}
             >
               Review changes
             </Button>
@@ -305,16 +336,21 @@ export const EditAccessModal = ({ open, onClose, username, onCreateRoleForAllOfT
       }
     >
       {error && (
+        // Sticky so partial-failure errors stay visible during scroll.
         <Alert
           componentId="admin.edit_access_modal.error"
           type="error"
           message={error}
           closable
           onClose={() => setError(null)}
-          css={{ marginBottom: theme.spacing.md }}
+          css={{
+            marginBottom: theme.spacing.md,
+            position: 'sticky',
+            top: 0,
+            zIndex: 1,
+          }}
         />
       )}
-
       {step === 'edit' ? (
         <>
           <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.md }}>
@@ -333,6 +369,18 @@ export const EditAccessModal = ({ open, onClose, username, onCreateRoleForAllOfT
             >
               <Spinner size="small" />
             </div>
+          ) : rolesError ? (
+            // Block the form on a failed roles fetch so the empty pre-fill
+            // doesn't masquerade as the user's actual access.
+            <Alert
+              componentId="admin.edit_access_modal.roles_error"
+              type="error"
+              message="Failed to load access state"
+              description={
+                (rolesError instanceof Error ? rolesError.message : null) ||
+                `An error occurred while fetching the current access for ${username}. Close the modal and try again.`
+              }
+            />
           ) : (
             <>
               <LongFormSection title="Role assignments">
@@ -348,7 +396,6 @@ export const EditAccessModal = ({ open, onClose, username, onCreateRoleForAllOfT
                 <DirectPermissionsSection
                   value={directPermissions}
                   onChange={setDirectPermissions}
-                  onCreateRoleForAllOfType={onCreateRoleForAllOfType}
                   disabled={submitting}
                 />
               </LongFormSection>

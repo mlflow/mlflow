@@ -113,7 +113,7 @@ describe('init() with Databricks tracking URI auto-resolves UC trace location', 
 
     expect(getExperimentCalls).toEqual(['123']);
 
-    withSpan(() => {}, { name: 'root' });
+    void withSpan(() => {}, { name: 'root' });
     await flushTraces();
 
     expect(v4TraceInfoCalls).toHaveLength(1);
@@ -131,7 +131,7 @@ describe('init() with Databricks tracking URI auto-resolves UC trace location', 
 
     await init({ trackingUri: 'databricks', experimentId: '456' });
 
-    withSpan(() => {}, { name: 'root' });
+    void withSpan(() => {}, { name: 'root' });
     await flushTraces();
 
     // V4 endpoint must not be hit when UC isn't configured.

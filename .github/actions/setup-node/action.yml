@@ -5,15 +5,6 @@ inputs:
     description: "Node version to use."
     default: 24
     required: false
-  # NOTE: `cache` / `cache-dependency-path` are currently ignored; caching is hardcoded off below.
-  cache:
-    description: "Package manager to cache (e.g., npm, yarn)."
-    default: ""
-    required: false
-  cache-dependency-path:
-    description: "Path to dependency file(s) for cache key generation."
-    default: ""
-    required: false
 
 runs:
   using: "composite"
@@ -21,9 +12,6 @@ runs:
     - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
       with:
         node-version: ${{ inputs.node-version }}
-        # Hardcoded to empty to avoid cache-poisoning exposure. To re-enable, wire back to ${{ inputs.cache }} / ${{ inputs.cache-dependency-path }}.
-        cache: ""
-        cache-dependency-path: ""
     - run: |
         # min-release-age requires npm >= 11.10.0 (https://github.com/npm/cli/releases/tag/v11.10.0)
         npm install -g npm@"^11.10.0"

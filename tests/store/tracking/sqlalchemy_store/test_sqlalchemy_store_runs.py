@@ -106,7 +106,7 @@ def test_run_tag_model(store: SqlAlchemyStore):
     # to insert a tag with a given run UUID, the UUID must be present in
     # the runs table
     run = _run_factory(store)
-    with store.ManagedSessionMaker() as session:
+    with store.ManagedSessionMaker(read_only=False) as session:
         new_tag = models.SqlTag(run_uuid=run.info.run_id, key="test", value="val")
         session.add(new_tag)
         session.commit()
@@ -122,7 +122,7 @@ def test_metric_model(store: SqlAlchemyStore):
     # to insert a metric with a given run UUID, the UUID must be present in
     # the runs table
     run = _run_factory(store)
-    with store.ManagedSessionMaker() as session:
+    with store.ManagedSessionMaker(read_only=False) as session:
         new_metric = models.SqlMetric(run_uuid=run.info.run_id, key="accuracy", value=0.89)
         session.add(new_metric)
         session.commit()
@@ -140,7 +140,7 @@ def test_param_model(store: SqlAlchemyStore):
     # to insert a parameter with a given run UUID, the UUID must be present in
     # the runs table
     run = _run_factory(store)
-    with store.ManagedSessionMaker() as session:
+    with store.ManagedSessionMaker(read_only=False) as session:
         new_param = models.SqlParam(run_uuid=run.info.run_id, key="accuracy", value="test param")
         session.add(new_param)
         session.commit()
@@ -163,13 +163,13 @@ def test_run_needs_uuid(store: SqlAlchemyStore):
     # exceptions, including IntegrityError (sqlite) and FlushError (MysQL).
     # Therefore, we check for the more generic 'SQLAlchemyError'
     with pytest.raises(MlflowException, match=regex) as exception_context:
-        with store.ManagedSessionMaker() as session:
+        with store.ManagedSessionMaker(read_only=False) as session:
             session.add(models.SqlRun())
     assert exception_context.value.error_code == ErrorCode.Name(BAD_REQUEST)
 
 
 def test_run_data_model(store: SqlAlchemyStore):
-    with store.ManagedSessionMaker() as session:
+    with store.ManagedSessionMaker(read_only=False) as session:
         run_id = uuid.uuid4().hex
         m1 = models.SqlMetric(run_uuid=run_id, key="accuracy", value=0.89)
         m2 = models.SqlMetric(run_uuid=run_id, key="recall", value=0.89)
@@ -1606,7 +1606,7 @@ def test_search_with_max_results(store: SqlAlchemyStore):
     exp = _create_experiments(store, "search_with_max_results")
     # Bulk insert runs using SQLAlchemy for performance
     run_uuids = [uuid.uuid4().hex for _ in range(1200)]
-    with store.ManagedSessionMaker() as session:
+    with store.ManagedSessionMaker(read_only=False) as session:
         session.add_all(
             SqlRun(
                 run_uuid=run_uuid,
@@ -1748,7 +1748,7 @@ def test_search_runs_run_name(store: SqlAlchemyStore):
     # TODO: Test attribute-based search after set_tag
 
     # Test run name filter works for runs logged in MLflow <= 1.29.0
-    with store.ManagedSessionMaker() as session:
+    with store.ManagedSessionMaker(read_only=False) as session:
         sql_run1 = session.query(SqlRun).filter(SqlRun.run_uuid == run1.info.run_id).one()
         sql_run1.name = ""
 
