@@ -456,11 +456,12 @@ export function createMLflowService(
       return;
     }
 
-    try {
-      init({ trackingUri, experimentId });
-    } catch {
-      return;
-    }
+    // OpenClaw plugin lifecycle requires hooks to register synchronously during
+    // start(), so fire-and-forget the async init. Pre-init spans are dropped by
+    // the SDK if init hasn't resolved yet; subsequent spans flow once it does.
+    void init({ trackingUri, experimentId }).catch((err) => {
+      log.warn(`mlflow: init failed: ${String(err)}`);
+    });
 
     hooksRegistered = true;
     resolvedTrackingUri = trackingUri;

@@ -25,7 +25,7 @@ describe('tracedOpenAI', () => {
     // Create a new experiment
     const experimentName = `test-experiment-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
     experimentId = await client.createExperiment(experimentName);
-    mlflow.init({
+    await mlflow.init({
       trackingUri: TEST_TRACKING_URI,
       experimentId: experimentId,
     });

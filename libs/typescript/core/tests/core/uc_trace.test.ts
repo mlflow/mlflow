@@ -1,6 +1,5 @@
 import {
   TraceLocationType,
-  createTraceLocationFromUcSchema,
   createTraceLocationFromUcTablePrefix,
   getOtelSpansTableName,
   getUcLocationString,
@@ -17,12 +16,7 @@ import {
   DATABRICKS_TRACE_DESTINATION_PATH_TAG,
   DATABRICKS_TRACE_LOG_STORAGE_TABLE_TAG,
   DATABRICKS_TRACE_SPAN_STORAGE_TABLE_TAG,
-  destinationFromExperimentTags,
-  setDestination,
-  getDestination,
-  resetDestination,
-  unityCatalogDestination,
-  ucSchemaDestination,
+  ucLocationFromExperimentTags,
 } from '../../src/core/destination';
 import { TraceInfo } from '../../src/core/entities/trace_info';
 import { TraceState } from '../../src/core/entities/trace_state';
@@ -48,21 +42,12 @@ describe('Trace ID v4 helpers', () => {
   });
 
   it('constructs v4 and v3 IDs in their canonical formats', () => {
-    expect(constructTraceIdV4('cat.sch', 'deadbeef')).toBe('trace:/cat.sch/deadbeef');
+    expect(constructTraceIdV4('cat.sch.tbl', 'deadbeef')).toBe('trace:/cat.sch.tbl/deadbeef');
     expect(generateTraceIdV3('deadbeef')).toBe('tr-deadbeef');
   });
 });
 
 describe('UC trace location helpers', () => {
-  it('builds a UC schema TraceLocation and returns its location string', () => {
-    const loc = createTraceLocationFromUcSchema('cat', 'sch');
-    expect(loc.type).toBe(TraceLocationType.UC_SCHEMA);
-    expect(isUcTraceLocation(loc)).toBe(true);
-    expect(getUcLocationString(loc)).toBe('cat.sch');
-    // Default UC schema spans table name is appended.
-    expect(getOtelSpansTableName(loc)).toBe('cat.sch.mlflow_experiment_trace_otel_spans');
-  });
-
   it('builds a UC table-prefix TraceLocation and returns its location string', () => {
     const loc = createTraceLocationFromUcTablePrefix('cat', 'sch', 'agent');
     expect(loc.type).toBe(TraceLocationType.UC_TABLE_PREFIX);
@@ -75,42 +60,15 @@ describe('UC trace location helpers', () => {
   });
 });
 
-describe('setDestination / getDestination', () => {
-  afterEach(() => resetDestination());
-
-  it('round-trips a Unity Catalog destination', () => {
-    const dest = unityCatalogDestination({
-      catalogName: 'cat',
-      schemaName: 'sch',
-      tablePrefix: 'agent',
-    });
-    setDestination(dest);
-    expect(getDestination()).toBe(dest);
-  });
-
-  it('round-trips a UC schema destination', () => {
-    const dest = ucSchemaDestination({ catalogName: 'cat', schemaName: 'sch' });
-    setDestination(dest);
-    expect(getDestination()).toBe(dest);
-  });
-
-  it('rejects empty UC fields', () => {
-    expect(() =>
-      unityCatalogDestination({ catalogName: '', schemaName: 's', tablePrefix: 't' }),
-    ).toThrow(/catalogName/);
-    expect(() => ucSchemaDestination({ catalogName: 'c', schemaName: '' })).toThrow(/schemaName/);
-  });
-});
-
-describe('destinationFromExperimentTags', () => {
+describe('ucLocationFromExperimentTags', () => {
   it('returns null when the experiment has no Databricks trace tags', () => {
-    expect(destinationFromExperimentTags({})).toBeNull();
-    expect(destinationFromExperimentTags({ unrelated: 'x' })).toBeNull();
+    expect(ucLocationFromExperimentTags({})).toBeNull();
+    expect(ucLocationFromExperimentTags({ unrelated: 'x' })).toBeNull();
   });
 
   it('returns null when the destination path is not three-segment', () => {
     expect(
-      destinationFromExperimentTags({
+      ucLocationFromExperimentTags({
         [DATABRICKS_TRACE_DESTINATION_PATH_TAG]: 'cat.sch',
       }),
     ).toBeNull();
@@ -118,27 +76,26 @@ describe('destinationFromExperimentTags', () => {
 
   it('returns null when any path segment is empty', () => {
     expect(
-      destinationFromExperimentTags({
+      ucLocationFromExperimentTags({
         [DATABRICKS_TRACE_DESTINATION_PATH_TAG]: 'cat.sch.',
       }),
     ).toBeNull();
     expect(
-      destinationFromExperimentTags({
+      ucLocationFromExperimentTags({
         [DATABRICKS_TRACE_DESTINATION_PATH_TAG]: '.sch.prefix',
       }),
     ).toBeNull();
   });
 
-  it('parses a UC table-prefix destination and copies the spans / logs / annotations tables', () => {
-    const dest = destinationFromExperimentTags({
+  it('parses a UC table-prefix location and copies the spans / logs / annotations tables', () => {
+    const loc = ucLocationFromExperimentTags({
       [DATABRICKS_TRACE_DESTINATION_PATH_TAG]: 'cat.sch.prefix',
       [DATABRICKS_TRACE_SPAN_STORAGE_TABLE_TAG]: 'cat.sch.prefix_otel_spans',
       [DATABRICKS_TRACE_LOG_STORAGE_TABLE_TAG]: 'cat.sch.prefix_otel_logs',
       [DATABRICKS_TRACE_ANNOTATIONS_TABLE_TAG]: 'cat.sch.prefix_annotations',
     });
-    expect(dest).not.toBeNull();
-    expect(dest!.kind).toBe('uc_table_prefix');
-    expect(dest!.location).toEqual({
+    expect(loc).not.toBeNull();
+    expect(loc).toEqual({
       catalogName: 'cat',
       schemaName: 'sch',
       tablePrefix: 'prefix',
@@ -174,21 +131,5 @@ describe('TraceInfo serialization with UC locations', () => {
     expect(roundTripped.traceLocation.ucTablePrefix?.schemaName).toBe('sch');
     expect(roundTripped.traceLocation.ucTablePrefix?.tablePrefix).toBe('tbl');
     expect(roundTripped.tags).toEqual({ user_id: 'u1', family_id: 'f1' });
-  });
-
-  it('serializes and deserializes a UC schema TraceLocation', () => {
-    const info = new TraceInfo({
-      traceId: 'trace:/cat.sch/abc',
-      traceLocation: createTraceLocationFromUcSchema('cat', 'sch'),
-      requestTime: 1700000000000,
-      state: TraceState.OK,
-    });
-    const json = info.toJson();
-    expect(json.trace_location.type).toBe(TraceLocationType.UC_SCHEMA);
-    expect(json.trace_location.uc_schema).toEqual({ catalog_name: 'cat', schema_name: 'sch' });
-
-    const roundTripped = TraceInfo.fromJson(json);
-    expect(roundTripped.traceLocation.ucSchema?.catalogName).toBe('cat');
-    expect(roundTripped.traceLocation.ucSchema?.schemaName).toBe('sch');
   });
 });

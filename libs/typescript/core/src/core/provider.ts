@@ -7,51 +7,30 @@ import {
 import { NodeSDK } from '@opentelemetry/sdk-node';
 import { SpanProcessor } from '@opentelemetry/sdk-trace-base';
 import { getConfig, getAuthProvider } from './config';
-import {
-  getDestination,
-  setDestination,
-  TraceDestination,
-  ucSchemaDestination,
-} from './destination';
+import { ucLocationFromExperimentTags } from './destination';
+import { isDatabricksUri } from '../auth';
 import { MlflowClient } from '../clients';
+import type { UnityCatalogLocation } from './entities/trace_location';
 
 let sdk: NodeSDK | null = null;
 // Keep a reference to the active span processor for flushing.
 let processor: SpanProcessor | null = null;
 
 /**
- * Parse the `MLFLOW_TRACING_DESTINATION` environment variable into a UC
- * trace destination. Matches Python: only the two-segment `catalog.schema`
- * form is accepted as a UC schema destination. To target a UC table prefix,
- * call `setDestination(unityCatalogDestination({...}))` explicitly (Python's
- * equivalent is `set_experiment(trace_location=UnityCatalog(...))`).
+ * Initialize the OpenTelemetry SDK and span processor.
+ *
+ * For Databricks tracking URIs, this fetches the experiment via the
+ * `GetExperiment` API and, when the experiment is linked to a Unity Catalog
+ * trace destination via the `mlflow.experiment.databricksTrace*` tags,
+ * wires up the V4 UC span processor + exporter so that `updateCurrentTrace`
+ * tags persist on UC-backed traces.
+ *
+ * Mirrors the Python `mlflow.tracing.provider.set_destination` +
+ * `mlflow.set_experiment` flow.
  */
-function destinationFromEnv(): TraceDestination | null {
-  const raw = process.env.MLFLOW_TRACING_DESTINATION;
-  if (!raw) {
-    return null;
-  }
-  const parts = raw.split('.');
-  if (parts.length === 2 && parts[0] && parts[1]) {
-    return ucSchemaDestination({ catalogName: parts[0], schemaName: parts[1] });
-  }
-  if (parts.length === 3) {
-    throw new Error(
-      `MLFLOW_TRACING_DESTINATION=${raw}: UC table-prefix destinations ` +
-        '(<catalog>.<schema>.<table_prefix>) are not supported via this env var. ' +
-        'Use setDestination(unityCatalogDestination({ catalogName, schemaName, tablePrefix })) ' +
-        'before init() instead.',
-    );
-  }
-  throw new Error(
-    `MLFLOW_TRACING_DESTINATION=${raw} could not be parsed. ` +
-      'Expected format: <catalog>.<schema>.',
-  );
-}
-
-export function initializeSDK(): void {
+export async function initializeSDK(): Promise<void> {
   if (sdk) {
-    sdk.shutdown().catch((error) => {
+    await sdk.shutdown().catch((error) => {
       console.error('Error shutting down existing SDK:', error);
     });
   }
@@ -65,25 +44,11 @@ export function initializeSDK(): void {
       authProvider,
     });
 
-    // Resolve UC destination in precedence order:
-    //   1. explicit setDestination(...)
-    //   2. MLFLOW_TRACING_DESTINATION env var
-    // For auto-resolution from a linked Databricks experiment, customers
-    // must call `await resolveDestinationFromExperiment(client, experimentId)`
-    // and pass the result to `setDestination(...)` before `init(...)`.
-    // We can't do that here because `init()` is sync and GetExperiment is async.
-    let destination = getDestination();
-    if (!destination) {
-      const envDestination = destinationFromEnv();
-      if (envDestination) {
-        setDestination(envDestination);
-        destination = envDestination;
-      }
-    }
+    const ucLocation = await resolveUcLocation(client, config.trackingUri, config.experimentId);
 
-    if (destination) {
+    if (ucLocation) {
       const ucExporter = new DatabricksUCTableSpanExporter(client);
-      processor = new DatabricksUCTableSpanProcessor(ucExporter, destination);
+      processor = new DatabricksUCTableSpanProcessor(ucExporter, ucLocation);
     } else {
       const exporter = new MlflowSpanExporter(client);
       processor = new MlflowSpanProcessor(exporter);
@@ -93,6 +58,29 @@ export function initializeSDK(): void {
     sdk.start();
   } catch (error) {
     console.error('Failed to initialize MLflow tracing:', error);
+  }
+}
+
+async function resolveUcLocation(
+  client: MlflowClient,
+  trackingUri: string,
+  experimentId: string,
+): Promise<UnityCatalogLocation | null> {
+  if (!isDatabricksUri(trackingUri)) {
+    return null;
+  }
+  try {
+    const experiment = await client.getExperiment(experimentId);
+    if (!experiment) {
+      return null;
+    }
+    return ucLocationFromExperimentTags(experiment.tags);
+  } catch (error) {
+    console.warn(
+      `Failed to resolve Unity Catalog trace location for experiment ${experimentId}:`,
+      error,
+    );
+    return null;
   }
 }
 

@@ -1,6 +1,7 @@
 import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
-import { context, SpanKind, ROOT_CONTEXT } from '@opentelemetry/api';
+import { context, SpanKind, ROOT_CONTEXT, trace as otelTrace } from '@opentelemetry/api';
+import { AsyncLocalStorageContextManager } from '@opentelemetry/context-async-hooks';
 import {
   BasicTracerProvider,
   ReadableSpan as OTelReadableSpan,
@@ -27,12 +28,8 @@ import {
   DatabricksUCTableSpanExporter,
   DatabricksUCTableSpanProcessor,
 } from '../../src/exporters/uc_table';
-import { unityCatalogDestination } from '../../src/core/destination';
-import {
-  TRACE_SCHEMA_VERSION_V4,
-  TraceMetadataKey,
-  DATABRICKS_UC_TABLE_HEADER,
-} from '../../src/core/constants';
+import { updateCurrentTrace } from '../../src/core/api';
+import { TraceMetadataKey, DATABRICKS_UC_TABLE_HEADER } from '../../src/core/constants';
 import { InMemoryTraceManager } from '../../src/core/trace_manager';
 import { TraceLocationType, isUcTraceLocation } from '../../src/core/entities/trace_location';
 
@@ -59,13 +56,21 @@ function makeOtelRootSpan(): OTelSpan {
 describe('DatabricksUCTableSpanProcessor + Exporter end-to-end', () => {
   let server: ReturnType<typeof setupServer>;
   let traceInfoCalls: { url: string; body: any }[];
+  let contextManager: AsyncLocalStorageContextManager;
 
   beforeAll(() => {
+    // Default NoopContextManager makes context.with() a no-op, so
+    // updateCurrentTrace can't locate the active span. Wire a real manager.
+    contextManager = new AsyncLocalStorageContextManager();
+    contextManager.enable();
+    context.setGlobalContextManager(contextManager);
     server = setupServer();
     server.listen();
   });
 
   afterAll(() => {
+    contextManager.disable();
+    context.disable();
     server.close();
   });
 
@@ -103,37 +108,40 @@ describe('DatabricksUCTableSpanProcessor + Exporter end-to-end', () => {
     );
   });
 
-  it('persists trace tags via V4 endpoint and uploads spans via OTLP with UC header', async () => {
+  it('persists tags set via updateCurrentTrace through the V4 endpoint and uploads spans via OTLP', async () => {
     const client = new MlflowClient({
       trackingUri: 'databricks',
       authProvider: mockAuthProvider,
     });
-    const dest = unityCatalogDestination({
-      catalogName: 'cat',
-      schemaName: 'sch',
-      tablePrefix: 'tbl',
-    });
+    const location = { catalogName: 'cat', schemaName: 'sch', tablePrefix: 'tbl' };
     const exporter = new DatabricksUCTableSpanExporter(client);
-    const processor = new DatabricksUCTableSpanProcessor(exporter, dest);
+    const processor = new DatabricksUCTableSpanProcessor(exporter, location);
 
     const span = makeOtelRootSpan();
     processor.onStart(span, context.active());
 
-    // Simulate `updateCurrentTrace({ tags: ... })`: the user mutates the
-    // in-memory TraceInfo recorded by the processor in onStart.
     const otelTraceId = span.spanContext().traceId;
     const mgr = InMemoryTraceManager.getInstance();
     const mlflowTraceId = mgr.getMlflowTraceIdFromOtelId(otelTraceId)!;
     expect(mlflowTraceId.startsWith('trace:/cat.sch.tbl/')).toBe(true);
+
+    // Drive the public `updateCurrentTrace` API with the span as the OTel
+    // active context — the UC processor must be the one mutating the in-memory
+    // TraceInfo so the tags reach the V4 endpoint.
+    context.with(otelTrace.setSpan(context.active(), span), () => {
+      updateCurrentTrace({
+        tags: { user_id: 'u1', family_id: 'f1', conversation_id: 'c1' },
+      });
+    });
+
     const trace = mgr.getTrace(mlflowTraceId)!;
-    Object.assign(trace.info.tags, {
+    expect(isUcTraceLocation(trace.info.traceLocation)).toBe(true);
+    expect(trace.info.traceMetadata[TraceMetadataKey.SCHEMA_VERSION]).toBe('4');
+    expect(trace.info.tags).toMatchObject({
       user_id: 'u1',
       family_id: 'f1',
       conversation_id: 'c1',
     });
-
-    expect(isUcTraceLocation(trace.info.traceLocation)).toBe(true);
-    expect(trace.info.traceMetadata[TraceMetadataKey.SCHEMA_VERSION]).toBe(TRACE_SCHEMA_VERSION_V4);
 
     span.end();
     processor.onEnd(span as unknown as OTelReadableSpan);
@@ -145,7 +153,7 @@ describe('DatabricksUCTableSpanProcessor + Exporter end-to-end', () => {
     const posted = traceInfoCalls[0].body;
     expect(posted.trace_id).toBe(mlflowTraceId);
     expect(posted.tags).toEqual({ user_id: 'u1', family_id: 'f1', conversation_id: 'c1' });
-    expect(posted.trace_metadata[TraceMetadataKey.SCHEMA_VERSION]).toBe(TRACE_SCHEMA_VERSION_V4);
+    expect(posted.trace_metadata[TraceMetadataKey.SCHEMA_VERSION]).toBe('4');
     expect(posted.trace_location.uc_table_prefix).toEqual({
       catalog_name: 'cat',
       schema_name: 'sch',

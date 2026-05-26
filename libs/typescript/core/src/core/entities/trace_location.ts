@@ -18,12 +18,6 @@ export enum TraceLocationType {
   INFERENCE_TABLE = 'INFERENCE_TABLE',
 
   /**
-   * Trace is stored under a Databricks Unity Catalog schema (no fixed
-   * table prefix). The backend selects default span/log table names.
-   */
-  UC_SCHEMA = 'UC_SCHEMA',
-
-  /**
    * Trace is stored under a Databricks Unity Catalog table prefix.
    * The user-supplied prefix determines the span/log table names.
    */
@@ -48,26 +42,6 @@ export interface InferenceTableLocation {
    * The fully qualified name of the inference table where the trace is stored
    */
   fullTableName: string;
-}
-
-/**
- * Interface representing a Databricks Unity Catalog schema location.
- * Mirrors Python's `UCSchemaLocation`.
- */
-export interface UCSchemaLocation {
-  catalogName: string;
-  schemaName: string;
-  /**
-   * Backend-populated bare spans table name (no catalog/schema prefix).
-   * The full name is `${catalogName}.${schemaName}.${otelSpansTableName}`,
-   * computed by `getOtelSpansTableName`.
-   */
-  otelSpansTableName?: string;
-  /**
-   * Backend-populated bare logs table name (no catalog/schema prefix).
-   * The full name is `${catalogName}.${schemaName}.${otelLogsTableName}`.
-   */
-  otelLogsTableName?: string;
 }
 
 /**
@@ -109,23 +83,9 @@ export interface TraceLocation {
   inferenceTable?: InferenceTableLocation;
 
   /**
-   * The Databricks UC schema location. Set when type is UC_SCHEMA.
-   */
-  ucSchema?: UCSchemaLocation;
-
-  /**
    * The Databricks UC table-prefix location. Set when type is UC_TABLE_PREFIX.
    */
   ucTablePrefix?: UnityCatalogLocation;
-}
-
-const UC_SCHEMA_DEFAULT_SPANS_TABLE_NAME = 'mlflow_experiment_trace_otel_spans';
-
-/**
- * Returns "catalog.schema" for a UC schema location.
- */
-export function ucSchemaLocationString(location: UCSchemaLocation): string {
-  return `${location.catalogName}.${location.schemaName}`;
 }
 
 /**
@@ -150,9 +110,6 @@ export function getUcLocationString(traceLocation: TraceLocation): string | null
   if (traceLocation.type === TraceLocationType.UC_TABLE_PREFIX && traceLocation.ucTablePrefix) {
     return ucTablePrefixLocationString(traceLocation.ucTablePrefix);
   }
-  if (traceLocation.type === TraceLocationType.UC_SCHEMA && traceLocation.ucSchema) {
-    return ucSchemaLocationString(traceLocation.ucSchema);
-  }
   return null;
 }
 
@@ -164,11 +121,6 @@ export function getUcLocationString(traceLocation: TraceLocation): string | null
 export function getOtelSpansTableName(traceLocation: TraceLocation): string | null {
   if (traceLocation.type === TraceLocationType.UC_TABLE_PREFIX && traceLocation.ucTablePrefix) {
     return traceLocation.ucTablePrefix.otelSpansTableName ?? null;
-  }
-  if (traceLocation.type === TraceLocationType.UC_SCHEMA && traceLocation.ucSchema) {
-    const loc = traceLocation.ucSchema;
-    const table = loc.otelSpansTableName ?? UC_SCHEMA_DEFAULT_SPANS_TABLE_NAME;
-    return `${loc.catalogName}.${loc.schemaName}.${table}`;
   }
   return null;
 }
@@ -183,19 +135,6 @@ export function createTraceLocationFromExperimentId(experimentId: string): Trace
     mlflowExperiment: {
       experimentId: experimentId,
     },
-  };
-}
-
-/**
- * Create a TraceLocation from a Databricks UC schema (no fixed table prefix).
- */
-export function createTraceLocationFromUcSchema(
-  catalogName: string,
-  schemaName: string,
-): TraceLocation {
-  return {
-    type: TraceLocationType.UC_SCHEMA,
-    ucSchema: { catalogName, schemaName },
   };
 }
 
@@ -217,8 +156,5 @@ export function createTraceLocationFromUcTablePrefix(
  * True iff the trace is stored in a Databricks Unity Catalog location.
  */
 export function isUcTraceLocation(traceLocation: TraceLocation): boolean {
-  return (
-    traceLocation.type === TraceLocationType.UC_SCHEMA ||
-    traceLocation.type === TraceLocationType.UC_TABLE_PREFIX
-  );
+  return traceLocation.type === TraceLocationType.UC_TABLE_PREFIX;
 }

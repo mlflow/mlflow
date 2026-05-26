@@ -105,7 +105,7 @@ interface Message {
  * Initialize the MLflow tracing SDK if not already initialized.
  * Requires MLFLOW_TRACKING_URI and MLFLOW_EXPERIMENT_ID environment variables.
  */
-function ensureInitialized(): boolean {
+async function ensureInitialized(): Promise<boolean> {
   if (initialized) {
     return true;
   }
@@ -128,7 +128,7 @@ function ensureInitialized(): boolean {
   }
 
   try {
-    init({ trackingUri, experimentId });
+    await init({ trackingUri, experimentId });
     initialized = true;
     if (DEBUG) {
       console.error('[mlflow] SDK initialized successfully');
@@ -490,7 +490,7 @@ export const MLflowTracingPlugin: Plugin = (input: PluginInput): Promise<Hooks> 
       }
 
       // Initialize SDK on first use
-      if (!ensureInitialized()) {
+      if (!(await ensureInitialized())) {
         return;
       }
 

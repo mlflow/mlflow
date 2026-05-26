@@ -37,12 +37,7 @@ import {
 } from '../../src/core/entities/trace_location';
 import { TraceInfo } from '../../src/core/entities/trace_info';
 import { TraceState } from '../../src/core/entities/trace_state';
-import {
-  DATABRICKS_UC_TABLE_HEADER,
-  TRACE_SCHEMA_VERSION_V4,
-  TraceMetadataKey,
-} from '../../src/core/constants';
-import { resolveDestinationFromExperiment } from '../../src/core/destination';
+import { DATABRICKS_UC_TABLE_HEADER, TraceMetadataKey } from '../../src/core/constants';
 
 const testHost = 'https://dbc-12345.cloud.databricks.com';
 const testToken = 'test-token';
@@ -88,7 +83,7 @@ describe('MlflowClient UC methods', () => {
       executionDuration: 1500,
       state: TraceState.OK,
       tags: { user_id: 'u1', family_id: 'f1', conversation_id: 'c1' },
-      traceMetadata: { [TraceMetadataKey.SCHEMA_VERSION]: TRACE_SCHEMA_VERSION_V4 },
+      traceMetadata: { [TraceMetadataKey.SCHEMA_VERSION]: '4' },
     });
 
     let capturedBody: unknown = null;
@@ -131,7 +126,7 @@ describe('MlflowClient UC methods', () => {
     expect(capturedBody).toMatchObject({
       trace_id: traceInfo.traceId,
       tags: { user_id: 'u1', family_id: 'f1', conversation_id: 'c1' },
-      trace_metadata: { [TraceMetadataKey.SCHEMA_VERSION]: TRACE_SCHEMA_VERSION_V4 },
+      trace_metadata: { [TraceMetadataKey.SCHEMA_VERSION]: '4' },
       trace_location: {
         type: TraceLocationType.UC_TABLE_PREFIX,
         uc_table_prefix: {
@@ -170,49 +165,5 @@ describe('MlflowClient UC methods', () => {
   it('exportOtlpSpansToUc short-circuits with no spans', async () => {
     // No mock registered: if it tried to hit the network the call would throw.
     await expect(client.exportOtlpSpansToUc([], 'cat.sch.tbl_otel_spans')).resolves.toBeUndefined();
-  });
-
-  it('resolveDestinationFromExperiment reads Databricks trace tags', async () => {
-    server.use(
-      http.get(`${testHost}/api/2.0/mlflow/experiments/get`, ({ request }) => {
-        const url = new URL(request.url);
-        expect(url.searchParams.get('experiment_id')).toBe('123');
-        return HttpResponse.json({
-          experiment: {
-            experiment_id: '123',
-            name: 'test-exp',
-            tags: [
-              { key: 'mlflow.experiment.databricksTraceDestinationPath', value: 'cat.sch.prefix' },
-              {
-                key: 'mlflow.experiment.databricksTraceSpanStorageTable',
-                value: 'cat.sch.prefix_otel_spans',
-              },
-              {
-                key: 'mlflow.experiment.databricksTraceLogStorageTable',
-                value: 'cat.sch.prefix_otel_logs',
-              },
-            ],
-          },
-        });
-      }),
-    );
-
-    const dest = await resolveDestinationFromExperiment(client, '123');
-    expect(dest).not.toBeNull();
-    expect(dest!.kind).toBe('uc_table_prefix');
-    expect(dest!.location.tablePrefix).toBe('prefix');
-    expect(dest!.location.otelSpansTableName).toBe('cat.sch.prefix_otel_spans');
-    expect(dest!.location.otelLogsTableName).toBe('cat.sch.prefix_otel_logs');
-  });
-
-  it('resolveDestinationFromExperiment returns null for non-UC experiments', async () => {
-    server.use(
-      http.get(`${testHost}/api/2.0/mlflow/experiments/get`, () =>
-        HttpResponse.json({
-          experiment: { experiment_id: '456', name: 'plain-exp', tags: [] },
-        }),
-      ),
-    );
-    await expect(resolveDestinationFromExperiment(client, '456')).resolves.toBeNull();
   });
 });

@@ -270,7 +270,7 @@ export async function ensureInitialized(): Promise<boolean> {
       return true;
     }
 
-    init({
+    await init({
       trackingUri: config.trackingUri,
       experimentId: resolvedExperiment.experimentId,
     });

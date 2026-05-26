@@ -180,7 +180,7 @@ let globalAuthProvider: AuthProvider | null = null;
  * }
  * ```
  */
-export function init(config: MLflowTracingInitOptions): void {
+export async function init(config: MLflowTracingInitOptions): Promise<void> {
   const trackingUri = config.trackingUri ?? process.env.MLFLOW_TRACKING_URI;
   const experimentId = config.experimentId ?? process.env.MLFLOW_EXPERIMENT_ID;
 
@@ -240,8 +240,8 @@ export function init(config: MLflowTracingInitOptions): void {
   // Store the config
   globalConfig = { ...effectiveConfig };
 
-  // Initialize SDK with new configuration.
-  initializeSDK();
+  // Initialize SDK with new configuration
+  await initializeSDK();
 }
 
 /**

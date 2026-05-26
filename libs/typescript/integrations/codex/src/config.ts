@@ -54,7 +54,7 @@ export function resolveTracingConfig(options: ResolveConfigOptions = {}): Tracin
  * Initialize the MLflow SDK with tracking URI and experiment settings.
  * No-ops if already initialized or if required config is missing.
  */
-export function ensureInitialized(): boolean {
+export async function ensureInitialized(): Promise<boolean> {
   if (initialized) {
     return true;
   }
@@ -69,7 +69,7 @@ export function ensureInitialized(): boolean {
     return false;
   }
 
-  init({ trackingUri, experimentId });
+  await init({ trackingUri, experimentId });
   initialized = true;
   return true;
 }

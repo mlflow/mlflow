@@ -8,17 +8,13 @@ import {
 } from '@opentelemetry/sdk-trace-base';
 import { createAndRegisterMlflowSpan } from '../core/api';
 import { MlflowClient } from '../clients';
-import { SpanAttributeKey, TRACE_SCHEMA_VERSION_V4, TraceMetadataKey } from '../core/constants';
+import { SpanAttributeKey, TraceMetadataKey } from '../core/constants';
 import { getConfiguredTraceMetadata, getConfiguredTraceTags } from '../core/context';
-import {
-  TraceDestination,
-  UcSchemaDestination,
-  UnityCatalogDestination,
-} from '../core/destination';
 import { TraceInfo } from '../core/entities/trace_info';
 import {
   TraceLocation,
   TraceLocationType,
+  UnityCatalogLocation,
   getOtelSpansTableName,
   getUcLocationString,
 } from '../core/entities/trace_location';
@@ -30,22 +26,6 @@ import { aggregateUsageFromSpans, convertHrTimeToMs } from '../core/utils';
 import { executeOnSpanEndHooks, executeOnSpanStartHooks } from './span_processor_hooks';
 
 /**
- * Build the TraceLocation for a UC destination.
- */
-function traceLocationForDestination(destination: TraceDestination): TraceLocation {
-  if (destination.kind === 'uc_table_prefix') {
-    return {
-      type: TraceLocationType.UC_TABLE_PREFIX,
-      ucTablePrefix: { ...destination.location },
-    };
-  }
-  return {
-    type: TraceLocationType.UC_SCHEMA,
-    ucSchema: { ...destination.location },
-  };
-}
-
-/**
  * Span processor for Databricks Unity Catalog backed traces.
  *
  * Mirrors Python's `DatabricksUCTableSpanProcessor`:
@@ -55,17 +35,17 @@ function traceLocationForDestination(destination: TraceDestination): TraceLocati
  *     can mutate the in-memory record before export
  *   - delegates to a UC-aware SpanExporter for trace info + OTLP span upload
  *
- * This processor replaces the V3 `MlflowSpanProcessor` when a UC destination is
- * configured via `setDestination(...)`. Customers no longer need to inject
- * their own `BatchSpanProcessor` + OTLP exporter for UC traces.
+ * Wired up by `init({ trackingUri, experimentId })` when the linked Databricks
+ * experiment carries `mlflow.experiment.databricksTrace*` tags pointing at a UC
+ * destination.
  */
 export class DatabricksUCTableSpanProcessor implements SpanProcessor {
   private _exporter: SpanExporter;
-  private _destination: UnityCatalogDestination | UcSchemaDestination;
+  private _location: UnityCatalogLocation;
 
-  constructor(exporter: SpanExporter, destination: UnityCatalogDestination | UcSchemaDestination) {
+  constructor(exporter: SpanExporter, location: UnityCatalogLocation) {
     this._exporter = exporter;
-    this._destination = destination;
+    this._location = location;
   }
 
   onStart(span: OTelSpan, _parentContext: Context): void {
@@ -73,12 +53,14 @@ export class DatabricksUCTableSpanProcessor implements SpanProcessor {
 
     if (!span.parentSpanContext?.spanId) {
       // Root span: build the V4 trace ID and TraceInfo for this trace.
-      const traceLocation = traceLocationForDestination(this._destination);
+      const traceLocation: TraceLocation = {
+        type: TraceLocationType.UC_TABLE_PREFIX,
+        ucTablePrefix: { ...this._location },
+      };
       const locationString = getUcLocationString(traceLocation);
       if (!locationString) {
-        // Shouldn't happen given the destination kinds, but guard anyway.
         console.warn(
-          `Unable to derive UC location string for destination ${this._destination.kind}; skipping trace registration.`,
+          `Unable to derive UC location string for ${JSON.stringify(this._location)}; skipping trace registration.`,
         );
         return;
       }
@@ -86,7 +68,7 @@ export class DatabricksUCTableSpanProcessor implements SpanProcessor {
       const traceId = constructTraceIdV4(locationString, otelTraceId);
 
       const traceMetadata: Record<string, string> = {
-        [TraceMetadataKey.SCHEMA_VERSION]: TRACE_SCHEMA_VERSION_V4,
+        [TraceMetadataKey.SCHEMA_VERSION]: '4',
       };
       const ctxMetadata = getConfiguredTraceMetadata();
       if (ctxMetadata) {
@@ -170,8 +152,9 @@ export class DatabricksUCTableSpanProcessor implements SpanProcessor {
   }
 
   async forceFlush(): Promise<void> {
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    await this._exporter.forceFlush!();
+    if (typeof this._exporter.forceFlush === 'function') {
+      await this._exporter.forceFlush();
+    }
   }
 }
 
@@ -187,8 +170,8 @@ export class DatabricksUCTableSpanProcessor implements SpanProcessor {
  *      the `X-Databricks-UC-Table-Name` header pointing to the trace's UC
  *      spans table.
  *
- * Errors in step 2 are logged but do not surface to user code, matching the
- * non-fatal behavior of `_log_spans` on the Python side.
+ * Errors in either step are logged but do not surface to user code, matching
+ * the non-fatal behavior of `_log_spans` on the Python side.
  */
 export class DatabricksUCTableSpanExporter implements SpanExporter {
   private _client: MlflowClient;
@@ -268,7 +251,7 @@ export class DatabricksUCTableSpanExporter implements SpanExporter {
         );
       } catch (error) {
         if (!this._hasRaisedSpanExportError) {
-          console.warn(`Failed to export UC spans for ${trace.info.traceId}:`, error);
+          console.error(`Failed to export UC spans for ${trace.info.traceId}:`, error);
           this._hasRaisedSpanExportError = true;
         }
       }

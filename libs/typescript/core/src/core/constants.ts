@@ -129,11 +129,6 @@ export const TRACE_ID_PREFIX = 'tr-';
 export const TRACE_ID_V4_PREFIX = 'trace:/';
 
 /**
- * Trace schema version used for Databricks Unity Catalog backed traces.
- */
-export const TRACE_SCHEMA_VERSION_V4 = '4';
-
-/**
  * HTTP header used to route OTLP span uploads to a specific Databricks
  * Unity Catalog table when sending to /api/2.0/otel/v1/traces.
  */

@@ -14,7 +14,7 @@ import type { StopHookInput } from '../types.js';
 
 export async function runStopHook(): Promise<void> {
   try {
-    if (!ensureInitialized()) {
+    if (!(await ensureInitialized())) {
       return;
     }
     const input = await readStdin<StopHookInput>();

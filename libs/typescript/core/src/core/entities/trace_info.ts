@@ -2,6 +2,64 @@ import type { TraceLocation, TraceLocationType } from './trace_location';
 import type { TraceState } from './trace_state';
 import { TraceMetadataKey } from '../constants';
 
+interface SerializedTraceLocation {
+  type: TraceLocationType;
+  mlflow_experiment?: { experiment_id: string };
+  inference_table?: { full_table_name: string };
+  uc_table_prefix?: {
+    catalog_name: string;
+    schema_name: string;
+    table_prefix?: string;
+    otel_spans_table_name?: string;
+    otel_logs_table_name?: string;
+    annotations_table_name?: string;
+  };
+}
+
+function serializeTraceLocation(loc: TraceLocation): SerializedTraceLocation {
+  const out: SerializedTraceLocation = { type: loc.type };
+  if (loc.mlflowExperiment) {
+    out.mlflow_experiment = { experiment_id: loc.mlflowExperiment.experimentId };
+  }
+  if (loc.inferenceTable) {
+    out.inference_table = { full_table_name: loc.inferenceTable.fullTableName };
+  }
+  if (loc.ucTablePrefix) {
+    const uc = loc.ucTablePrefix;
+    out.uc_table_prefix = {
+      catalog_name: uc.catalogName,
+      schema_name: uc.schemaName,
+      ...(uc.tablePrefix ? { table_prefix: uc.tablePrefix } : {}),
+      ...(uc.otelSpansTableName ? { otel_spans_table_name: uc.otelSpansTableName } : {}),
+      ...(uc.otelLogsTableName ? { otel_logs_table_name: uc.otelLogsTableName } : {}),
+      ...(uc.annotationsTableName ? { annotations_table_name: uc.annotationsTableName } : {}),
+    };
+  }
+  return out;
+}
+
+function deserializeTraceLocation(json: SerializedTraceLocation | undefined): TraceLocation {
+  return {
+    type: json?.type as TraceLocationType,
+    mlflowExperiment: json?.mlflow_experiment
+      ? { experimentId: json.mlflow_experiment.experiment_id }
+      : undefined,
+    inferenceTable: json?.inference_table
+      ? { fullTableName: json.inference_table.full_table_name }
+      : undefined,
+    ucTablePrefix: json?.uc_table_prefix
+      ? {
+          catalogName: json.uc_table_prefix.catalog_name,
+          schemaName: json.uc_table_prefix.schema_name,
+          tablePrefix: json.uc_table_prefix.table_prefix,
+          otelSpansTableName: json.uc_table_prefix.otel_spans_table_name,
+          otelLogsTableName: json.uc_table_prefix.otel_logs_table_name,
+          annotationsTableName: json.uc_table_prefix.annotations_table_name,
+        }
+      : undefined,
+  };
+}
+
 /**
  * Interface for token usage information
  */
@@ -112,49 +170,7 @@ export class TraceInfo {
     return {
       trace_id: this.traceId,
       client_request_id: this.clientRequestId,
-      trace_location: {
-        type: this.traceLocation.type,
-        mlflow_experiment: this.traceLocation.mlflowExperiment
-          ? {
-              experiment_id: this.traceLocation.mlflowExperiment.experimentId,
-            }
-          : undefined,
-        inference_table: this.traceLocation.inferenceTable
-          ? {
-              full_table_name: this.traceLocation.inferenceTable.fullTableName,
-            }
-          : undefined,
-        uc_schema: this.traceLocation.ucSchema
-          ? {
-              catalog_name: this.traceLocation.ucSchema.catalogName,
-              schema_name: this.traceLocation.ucSchema.schemaName,
-              ...(this.traceLocation.ucSchema.otelSpansTableName
-                ? { otel_spans_table_name: this.traceLocation.ucSchema.otelSpansTableName }
-                : {}),
-              ...(this.traceLocation.ucSchema.otelLogsTableName
-                ? { otel_logs_table_name: this.traceLocation.ucSchema.otelLogsTableName }
-                : {}),
-            }
-          : undefined,
-        uc_table_prefix: this.traceLocation.ucTablePrefix
-          ? {
-              catalog_name: this.traceLocation.ucTablePrefix.catalogName,
-              schema_name: this.traceLocation.ucTablePrefix.schemaName,
-              ...(this.traceLocation.ucTablePrefix.tablePrefix
-                ? { table_prefix: this.traceLocation.ucTablePrefix.tablePrefix }
-                : {}),
-              ...(this.traceLocation.ucTablePrefix.otelSpansTableName
-                ? { otel_spans_table_name: this.traceLocation.ucTablePrefix.otelSpansTableName }
-                : {}),
-              ...(this.traceLocation.ucTablePrefix.otelLogsTableName
-                ? { otel_logs_table_name: this.traceLocation.ucTablePrefix.otelLogsTableName }
-                : {}),
-              ...(this.traceLocation.ucTablePrefix.annotationsTableName
-                ? { annotations_table_name: this.traceLocation.ucTablePrefix.annotationsTableName }
-                : {}),
-            }
-          : undefined,
-      },
+      trace_location: serializeTraceLocation(this.traceLocation),
       request_preview: this.requestPreview,
       response_preview: this.responsePreview,
       request_time: new Date(this.requestTime).toISOString(),
@@ -200,37 +216,10 @@ export class TraceInfo {
    * @returns TraceInfo instance
    */
   static fromJson(json: SerializedTraceInfo): TraceInfo {
-    /* eslint-disable @typescript-eslint/no-unsafe-member-access */
     return new TraceInfo({
       traceId: json.trace_id,
       clientRequestId: json.client_request_id,
-      traceLocation: {
-        type: json.trace_location?.type as TraceLocationType,
-        mlflowExperiment: json.trace_location?.mlflow_experiment
-          ? { experimentId: json.trace_location.mlflow_experiment.experiment_id }
-          : undefined,
-        inferenceTable: json.trace_location?.inference_table
-          ? { fullTableName: json.trace_location.inference_table.full_table_name }
-          : undefined,
-        ucSchema: json.trace_location?.uc_schema
-          ? {
-              catalogName: json.trace_location.uc_schema.catalog_name,
-              schemaName: json.trace_location.uc_schema.schema_name,
-              otelSpansTableName: json.trace_location.uc_schema.otel_spans_table_name,
-              otelLogsTableName: json.trace_location.uc_schema.otel_logs_table_name,
-            }
-          : undefined,
-        ucTablePrefix: json.trace_location?.uc_table_prefix
-          ? {
-              catalogName: json.trace_location.uc_table_prefix.catalog_name,
-              schemaName: json.trace_location.uc_table_prefix.schema_name,
-              tablePrefix: json.trace_location.uc_table_prefix.table_prefix,
-              otelSpansTableName: json.trace_location.uc_table_prefix.otel_spans_table_name,
-              otelLogsTableName: json.trace_location.uc_table_prefix.otel_logs_table_name,
-              annotationsTableName: json.trace_location.uc_table_prefix.annotations_table_name,
-            }
-          : undefined,
-      },
+      traceLocation: deserializeTraceLocation(json.trace_location),
       requestPreview: json.request_preview,
       responsePreview: json.response_preview,
       requestTime: json.request_time != null ? new Date(json.request_time).getTime() : Date.now(),
@@ -243,36 +232,13 @@ export class TraceInfo {
       tags: json.tags || {},
       assessments: json.assessments || [],
     });
-    /* eslint-enable @typescript-eslint/no-unsafe-member-access */
   }
 }
 
 export interface SerializedTraceInfo {
   trace_id: string;
   client_request_id?: string;
-  trace_location: {
-    type: TraceLocationType;
-    mlflow_experiment?: {
-      experiment_id: string;
-    };
-    inference_table?: {
-      full_table_name: string;
-    };
-    uc_schema?: {
-      catalog_name: string;
-      schema_name: string;
-      otel_spans_table_name?: string;
-      otel_logs_table_name?: string;
-    };
-    uc_table_prefix?: {
-      catalog_name: string;
-      schema_name: string;
-      table_prefix?: string;
-      otel_spans_table_name?: string;
-      otel_logs_table_name?: string;
-      annotations_table_name?: string;
-    };
-  };
+  trace_location: SerializedTraceLocation;
   request_preview?: string;
   response_preview?: string;
   // "request_time": "2025-06-15T14:07:41.282Z"
