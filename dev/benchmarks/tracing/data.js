@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779736782546,
+  "lastUpdate": 1779768567266,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -5453,6 +5453,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 8.658172200023273,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "weichen.xu@databricks.com",
+            "name": "WeichenXu",
+            "username": "WeichenXu123"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "607e88cc22e546c26428c7fd7ed708a625ac6d78",
+          "message": "fix: UI does not show Judge costs (#23586)\n\nSigned-off-by: Weichen Xu <weichen.xu@databricks.com>\nSigned-off-by: WeichenXu <weichen.xu@databricks.com>\nCo-authored-by: Copilot Autofix powered by AI <175728472+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-05-26T04:05:57Z",
+          "tree_id": "43f94afa30be0c05546f9fece8555a3162bb62d3",
+          "url": "https://github.com/mlflow/mlflow/commit/607e88cc22e546c26428c7fd7ed708a625ac6d78"
+        },
+        "date": 1779768566506,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 38.55189885000172,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 25.20706745714116,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 22.99057138709564,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 25.275399127272635,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 16.93724633333223,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 7.259100999999646,
             "unit": "ms"
           }
         ]
