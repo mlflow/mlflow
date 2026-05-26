@@ -54,6 +54,7 @@ export function resolveTracingConfig(options: ResolveConfigOptions = {}): Tracin
  * Initialize the MLflow SDK with tracking URI and experiment settings.
  * No-ops if already initialized or if required config is missing.
  */
+// eslint-disable-next-line require-await, @typescript-eslint/require-await
 export async function ensureInitialized(): Promise<boolean> {
   if (initialized) {
     return true;
@@ -69,7 +70,7 @@ export async function ensureInitialized(): Promise<boolean> {
     return false;
   }
 
-  await init({ trackingUri, experimentId });
+  init({ trackingUri, experimentId });
   initialized = true;
   return true;
 }

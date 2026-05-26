@@ -4,6 +4,21 @@ import { initializeSDK } from './provider';
 import { AuthProvider, createAuthProvider, isDatabricksUri } from '../auth';
 
 /**
+ * User-facing shape for specifying a Databricks Unity Catalog trace location.
+ *
+ * All three fields are required. Unlike Python's
+ * `mlflow.set_experiment(trace_location=UnityCatalog(...))`, the TS SDK does
+ * not upsert the underlying UC trace location, so it can't default
+ * `tablePrefix` to anything sensible - the customer must point at a
+ * trace location that is already provisioned in the workspace.
+ */
+export interface UnityCatalogLocationOptions {
+  catalogName: string;
+  schemaName: string;
+  tablePrefix: string;
+}
+
+/**
  * Validate that a URI has a proper protocol (http or https)
  * @param uri The URI to validate
  * @returns true if valid, false otherwise
@@ -69,6 +84,18 @@ export interface MLflowTracingConfig {
    * Can also be set via MLFLOW_TRACKING_TOKEN environment variable.
    */
   trackingServerToken?: string;
+
+  /**
+   * Optional Databricks Unity Catalog trace location. When provided, the SDK
+   * generates V4 trace IDs and persists trace tags / metadata via the V4
+   * `CreateTraceInfo` endpoint, mirroring Python's
+   * `mlflow.set_experiment(trace_location=UnityCatalog(...))`. When omitted,
+   * traces use the V3 experiment-backed path.
+   *
+   * The UC trace location must already be provisioned in the workspace; the
+   * TS SDK does not upsert it.
+   */
+  traceLocation?: UnityCatalogLocationOptions;
 }
 
 /**
@@ -92,6 +119,12 @@ let globalAuthProvider: AuthProvider | null = null;
 /**
  * Configure the MLflow tracing SDK with tracking location settings.
  * This must be called before using other tracing functions.
+ *
+ * Call once per process. Calling `init()` again will tear down the existing
+ * OpenTelemetry SDK and start a fresh one, but the underlying NodeSDK
+ * shutdown is asynchronous and may race with subsequent tracer registration;
+ * configuration is intended to be set up once at startup, not reconfigured
+ * mid-process.
  *
  * ## Authentication
  *
@@ -167,6 +200,19 @@ let globalAuthProvider: AuthProvider | null = null;
  *   trackingServerToken: "my-token"
  * });
  *
+ * // Option 8: Databricks Unity Catalog trace location.
+ * // Mirrors Python's `mlflow.set_experiment(..., trace_location=UnityCatalog(...))`.
+ * // The UC trace location must already be provisioned for this workspace.
+ * init({
+ *   trackingUri: "databricks",
+ *   experimentId: "123456789",
+ *   traceLocation: {
+ *     catalogName: "my_catalog",
+ *     schemaName: "my_schema",
+ *     tablePrefix: "my_prefix",
+ *   },
+ * });
+ *
  * // Now you can use tracing functions
  * function add(a: number, b: number) {
  *   return withSpan(
@@ -180,7 +226,7 @@ let globalAuthProvider: AuthProvider | null = null;
  * }
  * ```
  */
-export async function init(config: MLflowTracingInitOptions): Promise<void> {
+export function init(config: MLflowTracingInitOptions): void {
   const trackingUri = config.trackingUri ?? process.env.MLFLOW_TRACKING_URI;
   const experimentId = config.experimentId ?? process.env.MLFLOW_EXPERIMENT_ID;
 
@@ -241,7 +287,7 @@ export async function init(config: MLflowTracingInitOptions): Promise<void> {
   globalConfig = { ...effectiveConfig };
 
   // Initialize SDK with new configuration
-  await initializeSDK();
+  initializeSDK();
 }
 
 /**

@@ -22,74 +22,20 @@ import { withSpan } from '../../src/core/api';
 
 const testHost = 'https://dbc-12345.cloud.databricks.com';
 
-describe('init() with Databricks tracking URI auto-resolves UC trace location', () => {
+// `init()` is documented as call-once-per-process: NodeSDK's background
+// shutdown can race with a subsequent start and clobber the global tracer
+// provider. This file therefore only exercises a single `init()` call.
+// UC processor + exporter behavior is covered in detail by the unit tests
+// in `tests/exporters/uc_table*.test.ts`; this file just verifies that
+// `init()` wires up the UC processor when `traceLocation` is provided.
+describe('init() with traceLocation wires the UC span processor', () => {
   let server: ReturnType<typeof setupServer>;
-  let getExperimentCalls: string[];
-  let v4TraceInfoCalls: { url: string; body: any }[];
+  const v4TraceInfoCalls: { url: string; body: any }[] = [];
 
   beforeAll(() => {
     process.env.DATABRICKS_HOST = testHost;
     process.env.DATABRICKS_TOKEN = 'test-token';
-    server = setupServer();
-    server.listen();
-  });
-
-  afterAll(() => {
-    server.close();
-    delete process.env.DATABRICKS_HOST;
-    delete process.env.DATABRICKS_TOKEN;
-  });
-
-  beforeEach(() => {
-    getExperimentCalls = [];
-    v4TraceInfoCalls = [];
-    exporterCtors.length = 0;
-    server.resetHandlers();
-    // Catch-all V3 + V4 + OTLP handlers so deferred exports from previous
-    // tests don't hit unmatched-request warnings on this test's reset state.
-    server.use(
-      http.post(`${testHost}/api/3.0/mlflow/traces`, async ({ request }) => {
-        const body = (await request.json()) as any;
-        return HttpResponse.json({ trace: body.trace });
-      }),
-      http.post(
-        `${testHost}/api/4.0/mlflow/traces/:location/:otelTraceId/info`,
-        async ({ request }) => {
-          const body = (await request.json()) as any;
-          return HttpResponse.json({
-            trace_id: body.trace_id,
-            trace_location: body.trace_location,
-            request_time: body.request_time,
-            execution_duration: body.execution_duration,
-            state: body.state,
-            trace_metadata: body.trace_metadata,
-            tags: body.tags,
-            assessments: [],
-          });
-        },
-      ),
-    );
-  });
-
-  it('wires the UC processor when the experiment carries Databricks UC trace tags', async () => {
-    server.use(
-      http.get(`${testHost}/api/2.0/mlflow/experiments/get`, ({ request }) => {
-        const url = new URL(request.url);
-        getExperimentCalls.push(url.searchParams.get('experiment_id') ?? '');
-        return HttpResponse.json({
-          experiment: {
-            experiment_id: '123',
-            name: 'uc-exp',
-            tags: [
-              { key: 'mlflow.experiment.databricksTraceDestinationPath', value: 'cat.sch.prefix' },
-              {
-                key: 'mlflow.experiment.databricksTraceSpanStorageTable',
-                value: 'cat.sch.prefix_otel_spans',
-              },
-            ],
-          },
-        });
-      }),
+    server = setupServer(
       http.post(
         `${testHost}/api/4.0/mlflow/traces/:location/:otelTraceId/info`,
         async ({ request }) => {
@@ -108,33 +54,31 @@ describe('init() with Databricks tracking URI auto-resolves UC trace location', 
         },
       ),
     );
+    server.listen();
 
-    await init({ trackingUri: 'databricks', experimentId: '123' });
+    init({
+      trackingUri: 'databricks',
+      experimentId: '4118495900667593',
+      traceLocation: { catalogName: 'cat', schemaName: 'sch', tablePrefix: 'agent' },
+    });
+  });
 
-    expect(getExperimentCalls).toEqual(['123']);
+  afterAll(() => {
+    server.close();
+    delete process.env.DATABRICKS_HOST;
+    delete process.env.DATABRICKS_TOKEN;
+  });
 
+  it('routes spans through the V4 endpoint with the configured UC location', async () => {
     void withSpan(() => {}, { name: 'root' });
     await flushTraces();
 
     expect(v4TraceInfoCalls).toHaveLength(1);
-    expect(v4TraceInfoCalls[0].body.trace_id).toMatch(/^trace:\/cat\.sch\.prefix\//);
-  });
-
-  it('falls back to the V3 processor when the experiment has no UC trace tags', async () => {
-    server.use(
-      http.get(`${testHost}/api/2.0/mlflow/experiments/get`, () =>
-        HttpResponse.json({
-          experiment: { experiment_id: '456', name: 'plain', tags: [] },
-        }),
-      ),
-    );
-
-    await init({ trackingUri: 'databricks', experimentId: '456' });
-
-    void withSpan(() => {}, { name: 'root' });
-    await flushTraces();
-
-    // V4 endpoint must not be hit when UC isn't configured.
-    expect(v4TraceInfoCalls).toHaveLength(0);
+    expect(v4TraceInfoCalls[0].body.trace_id).toMatch(/^trace:\/cat\.sch\.agent\//);
+    expect(v4TraceInfoCalls[0].body.trace_location.uc_table_prefix).toEqual({
+      catalog_name: 'cat',
+      schema_name: 'sch',
+      table_prefix: 'agent',
+    });
   });
 });

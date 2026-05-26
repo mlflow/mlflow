@@ -28,11 +28,11 @@ describe('Config', () => {
         delete process.env.MLFLOW_EXPERIMENT_ID;
       });
 
-      it('should read tracking configuration from environment variables when not provided', async () => {
+      it('should read tracking configuration from environment variables when not provided', () => {
         process.env.MLFLOW_TRACKING_URI = 'http://env-tracking-host:5000';
         process.env.MLFLOW_EXPERIMENT_ID = 'env-experiment-id';
 
-        await init({});
+        init({});
 
         const result = getConfig();
         expect(result.trackingUri).toBe('http://env-tracking-host:5000');
@@ -40,30 +40,30 @@ describe('Config', () => {
         expect(result.host).toBe('http://env-tracking-host:5000');
       });
 
-      it('should throw an error when trackingUri is missing from both config and environment', async () => {
+      it('should throw an error when trackingUri is missing from both config and environment', () => {
         process.env.MLFLOW_EXPERIMENT_ID = 'env-experiment-id';
 
-        await expect(init({ experimentId: 'config-experiment-id' })).rejects.toThrow(
+        expect(() => init({ experimentId: 'config-experiment-id' })).toThrow(
           'An MLflow Tracking URI is required, please provide the trackingUri option to init, or set the MLFLOW_TRACKING_URI environment variable',
         );
       });
 
-      it('should throw an error when experimentId is missing from both config and environment', async () => {
+      it('should throw an error when experimentId is missing from both config and environment', () => {
         process.env.MLFLOW_TRACKING_URI = 'http://env-tracking-host:5000';
 
-        await expect(init({ trackingUri: 'http://explicit-host:5000' })).rejects.toThrow(
+        expect(() => init({ trackingUri: 'http://explicit-host:5000' })).toThrow(
           'An MLflow experiment ID is required, please provide the experimentId option to init, or set the MLFLOW_EXPERIMENT_ID environment variable',
         );
       });
     });
 
-    it('should initialize with MLflow tracking server configuration', async () => {
+    it('should initialize with MLflow tracking server configuration', () => {
       const config = {
         trackingUri: 'http://localhost:5000',
         experimentId: '123456789',
       };
 
-      await init(config);
+      init(config);
 
       const result = getConfig();
       expect(result.trackingUri).toBe('http://localhost:5000');
@@ -71,53 +71,53 @@ describe('Config', () => {
       expect(result.host).toBe('http://localhost:5000');
     });
 
-    it('should throw error if trackingUri is missing', async () => {
+    it('should throw error if trackingUri is missing', () => {
       const config = {
         trackingUri: '',
         experimentId: '123456789',
       };
 
-      await expect(init(config)).rejects.toThrow(
+      expect(() => init(config)).toThrow(
         'An MLflow Tracking URI is required, please provide the trackingUri option to init, or set the MLFLOW_TRACKING_URI environment variable',
       );
     });
 
-    it('should throw error if experimentId is missing', async () => {
+    it('should throw error if experimentId is missing', () => {
       const config = {
         trackingUri: 'http://localhost:5000',
         experimentId: '',
       };
 
-      await expect(init(config)).rejects.toThrow(
+      expect(() => init(config)).toThrow(
         'An MLflow experiment ID is required, please provide the experimentId option to init, or set the MLFLOW_EXPERIMENT_ID environment variable',
       );
     });
 
-    it('should throw error if trackingUri is not a string', async () => {
+    it('should throw error if trackingUri is not a string', () => {
       const config = {
         trackingUri: 123 as any,
         experimentId: '123456789',
       };
 
-      await expect(init(config)).rejects.toThrow('trackingUri must be a string');
+      expect(() => init(config)).toThrow('trackingUri must be a string');
     });
 
-    it('should throw error if experimentId is not a string', async () => {
+    it('should throw error if experimentId is not a string', () => {
       const config = {
         trackingUri: 'http://localhost:5000',
         experimentId: 123 as any,
       };
 
-      await expect(init(config)).rejects.toThrow('experimentId must be a string');
+      expect(() => init(config)).toThrow('experimentId must be a string');
     });
 
-    it('should throw error for malformed trackingUri', async () => {
+    it('should throw error for malformed trackingUri', () => {
       const config = {
         trackingUri: 'not-a-valid-uri',
         experimentId: '123456789',
       };
 
-      await expect(init(config)).rejects.toThrow(
+      expect(() => init(config)).toThrow(
         "Invalid trackingUri: 'not-a-valid-uri'. Must be a valid HTTP or HTTPS URL, or 'databricks' / 'databricks://<profile>'.",
       );
     });
@@ -143,17 +143,17 @@ describe('Config', () => {
         delete process.env.DATABRICKS_TOKEN;
       });
 
-      it('should throw error if host not found anywhere', async () => {
+      it('should throw error if host not found anywhere', () => {
         const config = {
           trackingUri: 'databricks',
           experimentId: '123456789',
           databricksConfigPath: '/nonexistent/path/.databrickscfg',
         };
 
-        await expect(init(config)).rejects.toThrow('Databricks host not found');
+        expect(() => init(config)).toThrow('Databricks host not found');
       });
 
-      it('should read host from config file when env var not set', async () => {
+      it('should read host from config file when env var not set', () => {
         const configContent = `[DEFAULT]
 host = https://config-workspace.databricks.com
 token = dapi123456789abcdef`;
@@ -166,13 +166,13 @@ token = dapi123456789abcdef`;
           databricksConfigPath: configPath,
         };
 
-        await init(config);
+        init(config);
 
         const result = getConfig();
         expect(result.host).toBe('https://config-workspace.databricks.com');
       });
 
-      it('should read host from specific profile in config file', async () => {
+      it('should read host from specific profile in config file', () => {
         const configContent = `[DEFAULT]
 host = https://default-workspace.databricks.com
 token = default-token
@@ -189,13 +189,13 @@ token = dev-token`;
           databricksConfigPath: configPath,
         };
 
-        await init(config);
+        init(config);
 
         const result = getConfig();
         expect(result.host).toBe('https://dev-workspace.databricks.com');
       });
 
-      it('should use DATABRICKS_HOST from environment', async () => {
+      it('should use DATABRICKS_HOST from environment', () => {
         process.env.DATABRICKS_HOST = 'https://env-workspace.databricks.com';
         process.env.DATABRICKS_TOKEN = 'env-token';
 
@@ -204,14 +204,14 @@ token = dev-token`;
           experimentId: '123456789',
         };
 
-        await init(config);
+        init(config);
 
         const result = getConfig();
         expect(result.host).toBe('https://env-workspace.databricks.com');
         expect(result.databricksToken).toBe('env-token');
       });
 
-      it('should use explicit host/token over environment', async () => {
+      it('should use explicit host/token over environment', () => {
         process.env.DATABRICKS_HOST = 'https://env-workspace.databricks.com';
         process.env.DATABRICKS_TOKEN = 'env-token';
 
@@ -222,14 +222,14 @@ token = dev-token`;
           databricksToken: 'override-token',
         };
 
-        await init(config);
+        init(config);
 
         const result = getConfig();
         expect(result.host).toBe('https://override-workspace.databricks.com');
         expect(result.databricksToken).toBe('override-token');
       });
 
-      it('should prefer env var over config file for host', async () => {
+      it('should prefer env var over config file for host', () => {
         process.env.DATABRICKS_HOST = 'https://env-workspace.databricks.com';
 
         const configContent = `[DEFAULT]
@@ -244,14 +244,14 @@ token = dapi123456789abcdef`;
           databricksConfigPath: configPath,
         };
 
-        await init(config);
+        init(config);
 
         const result = getConfig();
         // Env var takes precedence over config file
         expect(result.host).toBe('https://env-workspace.databricks.com');
       });
 
-      it('should handle empty profile name in URI', async () => {
+      it('should handle empty profile name in URI', () => {
         const configContent = `[DEFAULT]
 host = https://default-workspace.databricks.com
 token = dapi123456789abcdef`;
@@ -264,7 +264,7 @@ token = dapi123456789abcdef`;
           databricksConfigPath: configPath,
         };
 
-        await init(config);
+        init(config);
 
         const result = getConfig();
         expect(result.host).toBe('https://default-workspace.databricks.com');

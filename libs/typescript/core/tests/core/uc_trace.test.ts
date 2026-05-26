@@ -54,9 +54,15 @@ describe('UC trace location helpers', () => {
     expect(isUcTraceLocation(loc)).toBe(true);
     expect(getUcLocationString(loc)).toBe('cat.sch.agent');
     expect(ucTablePrefixLocationString(loc.ucTablePrefix!)).toBe('cat.sch.agent');
-    // Without a backend-populated spans table the helper returns null - the
-    // exporter will then skip OTLP span upload but still persist trace info.
-    expect(getOtelSpansTableName(loc)).toBeNull();
+    // Default spans table convention: `<prefix>_otel_spans` under the same
+    // catalog/schema. Customers can override by setting otelSpansTableName.
+    expect(getOtelSpansTableName(loc)).toBe('cat.sch.agent_otel_spans');
+  });
+
+  it('respects an explicit backend-populated spans table name', () => {
+    const loc = createTraceLocationFromUcTablePrefix('cat', 'sch', 'agent');
+    loc.ucTablePrefix!.otelSpansTableName = 'cat.sch.custom_spans';
+    expect(getOtelSpansTableName(loc)).toBe('cat.sch.custom_spans');
   });
 });
 

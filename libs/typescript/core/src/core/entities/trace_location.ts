@@ -117,10 +117,22 @@ export function getUcLocationString(traceLocation: TraceLocation): string | null
  * Get the fully qualified OTel spans table name to use as the
  * `X-Databricks-UC-Table-Name` header when exporting spans for this
  * trace via OTLP.
+ *
+ * Falls back to `<catalog>.<schema>.<table_prefix>_otel_spans`, which is the
+ * default spans table name Databricks creates when a UC trace location is
+ * provisioned. Customers with a custom backend-provisioned spans table can
+ * override by setting `ucTablePrefix.otelSpansTableName`.
  */
 export function getOtelSpansTableName(traceLocation: TraceLocation): string | null {
   if (traceLocation.type === TraceLocationType.UC_TABLE_PREFIX && traceLocation.ucTablePrefix) {
-    return traceLocation.ucTablePrefix.otelSpansTableName ?? null;
+    const loc = traceLocation.ucTablePrefix;
+    if (loc.otelSpansTableName) {
+      return loc.otelSpansTableName;
+    }
+    if (loc.tablePrefix) {
+      return `${loc.catalogName}.${loc.schemaName}.${loc.tablePrefix}_otel_spans`;
+    }
+    return null;
   }
   return null;
 }

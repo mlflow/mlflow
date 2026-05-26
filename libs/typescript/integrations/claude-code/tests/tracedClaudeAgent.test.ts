@@ -143,7 +143,7 @@ describe('createTracedQuery (integration)', () => {
     client = new MlflowClient({ trackingUri: TEST_TRACKING_URI, authProvider });
     const experimentName = `claude-code-agent-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     experimentId = await client.createExperiment(experimentName);
-    await mlflow.init({ trackingUri: TEST_TRACKING_URI, experimentId });
+    mlflow.init({ trackingUri: TEST_TRACKING_URI, experimentId });
   });
 
   afterAll(async () => {

@@ -229,6 +229,7 @@ export function writeTracingSettings(
   saveSettings(settingsPath, settings);
 }
 
+// eslint-disable-next-line require-await, @typescript-eslint/require-await
 export async function ensureInitialized(): Promise<boolean> {
   const config = getEffectiveTracingConfig();
   if (!config.enabled) {
@@ -270,7 +271,7 @@ export async function ensureInitialized(): Promise<boolean> {
       return true;
     }
 
-    await init({
+    init({
       trackingUri: config.trackingUri,
       experimentId: resolvedExperiment.experimentId,
     });

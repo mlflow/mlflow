@@ -27,7 +27,7 @@ describe('tracedAnthropic', () => {
     const experimentName = `anthropic-test-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     experimentId = await client.createExperiment(experimentName);
 
-    await mlflow.init({
+    mlflow.init({
       trackingUri: TEST_TRACKING_URI,
       experimentId,
     });

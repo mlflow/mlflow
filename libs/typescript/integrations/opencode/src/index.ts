@@ -105,6 +105,7 @@ interface Message {
  * Initialize the MLflow tracing SDK if not already initialized.
  * Requires MLFLOW_TRACKING_URI and MLFLOW_EXPERIMENT_ID environment variables.
  */
+// eslint-disable-next-line require-await, @typescript-eslint/require-await
 async function ensureInitialized(): Promise<boolean> {
   if (initialized) {
     return true;
@@ -128,7 +129,7 @@ async function ensureInitialized(): Promise<boolean> {
   }
 
   try {
-    await init({ trackingUri, experimentId });
+    init({ trackingUri, experimentId });
     initialized = true;
     if (DEBUG) {
       console.error('[mlflow] SDK initialized successfully');

@@ -6,9 +6,7 @@ import {
 } from '../exporters/uc_table';
 import { NodeSDK } from '@opentelemetry/sdk-node';
 import { SpanProcessor } from '@opentelemetry/sdk-trace-base';
-import { getConfig, getAuthProvider } from './config';
-import { ucLocationFromExperimentTags } from './destination';
-import { isDatabricksUri } from '../auth';
+import { getConfig, getAuthProvider, type UnityCatalogLocationOptions } from './config';
 import { MlflowClient } from '../clients';
 import type { UnityCatalogLocation } from './entities/trace_location';
 
@@ -19,18 +17,22 @@ let processor: SpanProcessor | null = null;
 /**
  * Initialize the OpenTelemetry SDK and span processor.
  *
- * For Databricks tracking URIs, this fetches the experiment via the
- * `GetExperiment` API and, when the experiment is linked to a Unity Catalog
- * trace destination via the `mlflow.experiment.databricksTrace*` tags,
- * wires up the V4 UC span processor + exporter so that `updateCurrentTrace`
- * tags persist on UC-backed traces.
+ * When `config.traceLocation` is provided, wires up the V4 Databricks Unity
+ * Catalog span processor + exporter so that `updateCurrentTrace` tags persist
+ * on UC-backed traces. Otherwise installs the V3 experiment-backed processor.
  *
- * Mirrors the Python `mlflow.tracing.provider.set_destination` +
- * `mlflow.set_experiment` flow.
+ * TODO: Auto-resolve UC location from the linked Databricks experiment's
+ * `mlflow.experiment.databricksTrace*` tags so customers don't have to pass
+ * `traceLocation` explicitly. This needs `GetExperiment` to run, and Node
+ * has no idiomatic way to do a synchronous HTTP request from `init()`
+ * (the documented `worker_threads` + `Atomics.wait` pattern is for CPU-bound
+ * work, not for converting async I/O into sync). The likely path is a
+ * buffering processor that queues spans until the async fetch resolves;
+ * until that lands, customers configure UC explicitly via `traceLocation`.
  */
-export async function initializeSDK(): Promise<void> {
+export function initializeSDK(): void {
   if (sdk) {
-    await sdk.shutdown().catch((error) => {
+    sdk.shutdown().catch((error) => {
       console.error('Error shutting down existing SDK:', error);
     });
   }
@@ -44,9 +46,8 @@ export async function initializeSDK(): Promise<void> {
       authProvider,
     });
 
-    const ucLocation = await resolveUcLocation(client, config.trackingUri, config.experimentId);
-
-    if (ucLocation) {
+    if (config.traceLocation) {
+      const ucLocation = resolveUcLocation(config.traceLocation);
       const ucExporter = new DatabricksUCTableSpanExporter(client);
       processor = new DatabricksUCTableSpanProcessor(ucExporter, ucLocation);
     } else {
@@ -61,27 +62,23 @@ export async function initializeSDK(): Promise<void> {
   }
 }
 
-async function resolveUcLocation(
-  client: MlflowClient,
-  trackingUri: string,
-  experimentId: string,
-): Promise<UnityCatalogLocation | null> {
-  if (!isDatabricksUri(trackingUri)) {
-    return null;
-  }
-  try {
-    const experiment = await client.getExperiment(experimentId);
-    if (!experiment) {
-      return null;
-    }
-    return ucLocationFromExperimentTags(experiment.tags);
-  } catch (error) {
-    console.warn(
-      `Failed to resolve Unity Catalog trace location for experiment ${experimentId}:`,
-      error,
+/**
+ * Validate the user-supplied UC location and return it as a
+ * `UnityCatalogLocation`. All three fields are required; the SDK does not
+ * upsert UC trace locations, so we cannot default any of them.
+ */
+function resolveUcLocation(options: UnityCatalogLocationOptions): UnityCatalogLocation {
+  if (!options.catalogName || !options.schemaName || !options.tablePrefix) {
+    throw new Error(
+      'traceLocation requires catalogName, schemaName, and tablePrefix. The UC ' +
+        'trace location must already be provisioned in the workspace.',
     );
-    return null;
   }
+  return {
+    catalogName: options.catalogName,
+    schemaName: options.schemaName,
+    tablePrefix: options.tablePrefix,
+  };
 }
 
 export function getTracer(module_name: string): Tracer {
