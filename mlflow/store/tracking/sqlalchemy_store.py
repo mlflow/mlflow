@@ -143,6 +143,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlInput,
     SqlInputTag,
     SqlIssue,
+    SqlLabelSchema,
     SqlLatestMetric,
     SqlLoggedModel,
     SqlLoggedModelMetric,
@@ -7947,6 +7948,313 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 secret_id=sql_secret.secret_id,
                 secret_name=sql_secret.secret_name,
             )
+
+    # ------------------------------------------------------------------
+    # Label schemas (DAIS-2026): see mlflow/genai/label_schemas/ for the
+    # entity dataclasses and validation rules.
+    # ------------------------------------------------------------------
+
+    def _label_schema_query(self, session):
+        return self._get_query(session, SqlLabelSchema)
+
+    def _validate_experiment_exists(self, session, experiment_id):
+        sql_experiment = (
+            self
+            ._get_query(session, SqlExperiment)
+            .filter(SqlExperiment.experiment_id == int(experiment_id))
+            .one_or_none()
+        )
+        if sql_experiment is None:
+            raise MlflowException(
+                f"Experiment with id '{experiment_id}' not found.",
+                error_code=RESOURCE_DOES_NOT_EXIST,
+            )
+
+    def create_label_schema(
+        self,
+        experiment_id,
+        *,
+        name,
+        type,
+        title,
+        input,
+        instruction=None,
+        enable_comment=False,
+    ):
+        """See :py:meth:`mlflow.store.tracking.abstract_store.AbstractStore.create_label_schema`."""
+        from mlflow.genai.label_schemas.label_schemas import LabelSchema, LabelSchemaType
+        from mlflow.genai.label_schemas.validation import validate_schema_for_create
+
+        validate_schema_for_create(
+            name=name, type=type, title=title, input=input, instruction=instruction
+        )
+
+        with self.ManagedSessionMaker(read_only=False) as session:
+            self._validate_experiment_exists(session, experiment_id)
+
+            existing = (
+                self
+                ._label_schema_query(session)
+                .filter(
+                    SqlLabelSchema.experiment_id == int(experiment_id),
+                    SqlLabelSchema.name == name,
+                )
+                .one_or_none()
+            )
+            if existing is not None:
+                raise MlflowException(
+                    f"Label schema with name '{name}' already exists for experiment "
+                    f"'{experiment_id}'.",
+                    error_code=RESOURCE_ALREADY_EXISTS,
+                )
+
+            schema_id = f"{SqlLabelSchema.LABEL_SCHEMA_ID_PREFIX}{uuid.uuid4().hex}"
+            entity = LabelSchema(
+                schema_id=schema_id,
+                experiment_id=str(experiment_id),
+                name=name,
+                type=LabelSchemaType(str(type)),
+                title=title,
+                input=input,
+                instruction=instruction,
+                enable_comment=enable_comment,
+            )
+            sql_schema = self._with_workspace_field(SqlLabelSchema.from_mlflow_entity(entity))
+            session.add(sql_schema)
+            session.flush()
+            return sql_schema.to_mlflow_entity()
+
+    def get_label_schema(self, schema_id):
+        """See :py:meth:`mlflow.store.tracking.abstract_store.AbstractStore.get_label_schema`."""
+        with self.ManagedSessionMaker() as session:
+            sql_schema = (
+                self
+                ._label_schema_query(session)
+                .filter(SqlLabelSchema.schema_id == schema_id)
+                .one_or_none()
+            )
+            if sql_schema is None:
+                raise MlflowException(
+                    f"Label schema with id '{schema_id}' not found.",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
+            return sql_schema.to_mlflow_entity()
+
+    def get_label_schema_by_name(self, experiment_id, name):
+        """See :py:meth:`AbstractStore.get_label_schema_by_name`."""
+        with self.ManagedSessionMaker() as session:
+            sql_schema = (
+                self
+                ._label_schema_query(session)
+                .filter(
+                    SqlLabelSchema.experiment_id == int(experiment_id),
+                    SqlLabelSchema.name == name,
+                )
+                .one_or_none()
+            )
+            if sql_schema is None:
+                raise MlflowException(
+                    f"Label schema with name '{name}' not found for experiment '{experiment_id}'.",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
+            return sql_schema.to_mlflow_entity()
+
+    def list_label_schemas(self, experiment_id, max_results=100, page_token=None):
+        """See :py:meth:`AbstractStore.list_label_schemas`."""
+        offset = SearchUtils.parse_start_offset_from_page_token(page_token) if page_token else 0
+        with self.ManagedSessionMaker() as session:
+            self._validate_experiment_exists(session, experiment_id)
+
+            results = (
+                self
+                ._label_schema_query(session)
+                .filter(SqlLabelSchema.experiment_id == int(experiment_id))
+                .order_by(SqlLabelSchema.created_time.desc(), SqlLabelSchema.schema_id.asc())
+                .offset(offset)
+                .limit(max_results + 1)
+                .all()
+            )
+
+            next_token = None
+            if len(results) > max_results:
+                results = results[:max_results]
+                next_token = SearchUtils.create_page_token(offset + max_results)
+
+            entities = [r.to_mlflow_entity() for r in results]
+            return PagedList(entities, next_token)
+
+    def update_label_schema(
+        self,
+        schema_id,
+        *,
+        name=None,
+        title=None,
+        instruction=None,
+        enable_comment=None,
+        input=None,
+    ):
+        """See :py:meth:`AbstractStore.update_label_schema`.
+
+        Sparse update; ``type`` is immutable post-create and is not
+        accepted. Rename collisions are detected before the write.
+        """
+        from mlflow.genai.label_schemas.validation import validate_schema_for_update
+
+        with self.ManagedSessionMaker(read_only=False) as session:
+            sql_schema = (
+                self
+                ._label_schema_query(session)
+                .filter(SqlLabelSchema.schema_id == schema_id)
+                .one_or_none()
+            )
+            if sql_schema is None:
+                raise MlflowException(
+                    f"Label schema with id '{schema_id}' not found.",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
+
+            existing_entity = sql_schema.to_mlflow_entity()
+            validate_schema_for_update(
+                existing=existing_entity,
+                name=name,
+                title=title,
+                instruction=instruction,
+                enable_comment=enable_comment,
+                input=input,
+            )
+
+            if name is not None and name != sql_schema.name:
+                collision = (
+                    self
+                    ._label_schema_query(session)
+                    .filter(
+                        SqlLabelSchema.experiment_id == sql_schema.experiment_id,
+                        SqlLabelSchema.name == name,
+                        SqlLabelSchema.schema_id != schema_id,
+                    )
+                    .one_or_none()
+                )
+                if collision is not None:
+                    raise MlflowException(
+                        f"Label schema with name '{name}' already exists for experiment "
+                        f"'{sql_schema.experiment_id}'.",
+                        error_code=RESOURCE_ALREADY_EXISTS,
+                    )
+                sql_schema.name = name
+            if title is not None:
+                sql_schema.title = title
+            if instruction is not None:
+                sql_schema.instruction = instruction
+            if enable_comment is not None:
+                sql_schema.enable_comment = enable_comment
+            if input is not None:
+                from mlflow.store.tracking.dbmodels.models import _input_to_dict
+
+                input_type, input_config = _input_to_dict(input)
+                sql_schema.input_type = input_type
+                sql_schema.input_config = input_config
+
+            sql_schema.last_update_time = get_current_time_millis()
+            session.flush()
+            return sql_schema.to_mlflow_entity()
+
+    def upsert_label_schema(
+        self,
+        experiment_id,
+        *,
+        name,
+        type,
+        title,
+        input,
+        instruction=None,
+        enable_comment=False,
+    ):
+        """See :py:meth:`AbstractStore.upsert_label_schema`.
+
+        Single-transaction create-or-replace. If ``(experiment_id, name)``
+        already exists, all updatable fields are replaced (the existing
+        ``type`` is enforced; mismatched ``type`` is rejected).
+        """
+        from mlflow.genai.label_schemas.label_schemas import LabelSchemaType
+        from mlflow.genai.label_schemas.validation import validate_schema_for_create
+        from mlflow.store.tracking.dbmodels.models import _input_to_dict
+
+        validate_schema_for_create(
+            name=name, type=type, title=title, input=input, instruction=instruction
+        )
+        type_str = str(LabelSchemaType(str(type)))
+
+        with self.ManagedSessionMaker(read_only=False) as session:
+            self._validate_experiment_exists(session, experiment_id)
+
+            sql_schema = (
+                self
+                ._label_schema_query(session)
+                .filter(
+                    SqlLabelSchema.experiment_id == int(experiment_id),
+                    SqlLabelSchema.name == name,
+                )
+                .one_or_none()
+            )
+
+            now = get_current_time_millis()
+            if sql_schema is None:
+                # Create path.
+                schema_id = f"{SqlLabelSchema.LABEL_SCHEMA_ID_PREFIX}{uuid.uuid4().hex}"
+                input_type, input_config = _input_to_dict(input)
+                sql_schema = self._with_workspace_field(
+                    SqlLabelSchema(
+                        schema_id=schema_id,
+                        experiment_id=int(experiment_id),
+                        name=name,
+                        type=type_str,
+                        title=title,
+                        instruction=instruction,
+                        enable_comment=enable_comment,
+                        input_type=input_type,
+                        input_config=input_config,
+                        created_time=now,
+                        last_update_time=now,
+                    )
+                )
+                session.add(sql_schema)
+            else:
+                # Replace path. Enforce type immutability.
+                if sql_schema.type != type_str:
+                    raise MlflowException(
+                        f"Cannot change `type` of label schema '{name}' from "
+                        f"'{sql_schema.type}' to '{type_str}'; `type` is immutable.",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
+                input_type, input_config = _input_to_dict(input)
+                sql_schema.title = title
+                sql_schema.instruction = instruction
+                sql_schema.enable_comment = enable_comment
+                sql_schema.input_type = input_type
+                sql_schema.input_config = input_config
+                sql_schema.last_update_time = now
+
+            session.flush()
+            return sql_schema.to_mlflow_entity()
+
+    def delete_label_schema(self, schema_id):
+        """See :py:meth:`AbstractStore.delete_label_schema`.
+
+        No-op when the schema doesn't exist. Assessments whose ``name``
+        matches this schema retain their data and render as free-form
+        values in the UI after deletion (soft reference).
+        """
+        with self.ManagedSessionMaker(read_only=False) as session:
+            sql_schema = (
+                self
+                ._label_schema_query(session)
+                .filter(SqlLabelSchema.schema_id == schema_id)
+                .one_or_none()
+            )
+            if sql_schema is None:
+                _logger.warning(f"Label schema with id '{schema_id}' not found; delete is a no-op.")
+                return
+            session.delete(sql_schema)
 
 
 def _get_sqlalchemy_filter_clauses(parsed, session, dialect):
