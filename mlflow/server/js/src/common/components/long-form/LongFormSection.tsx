@@ -123,7 +123,13 @@ export const LongFormSection = ({
           titleBlock
         )}
       </div>
-      {!collapsed && <div css={{ flexGrow: 1, minWidth: 0 }}>{children}</div>}
+      {/* ``hidden`` (vs. conditional render) keeps the section mounted so any
+          in-progress draft state inside ``children`` (e.g. ``RolePermissionsSection``'s
+          staged grant, ``RoleUsersSection``'s search text) survives a collapse / expand
+          round-trip. */}
+      <div css={{ flexGrow: 1, minWidth: 0 }} hidden={collapsed}>
+        {children}
+      </div>
     </div>
   );
 };
