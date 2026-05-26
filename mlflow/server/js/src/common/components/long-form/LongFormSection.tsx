@@ -1,5 +1,5 @@
-import type { ReactNode } from 'react';
-import { useDesignSystemTheme } from '@databricks/design-system';
+import { useState, type ReactNode } from 'react';
+import { ChevronDownIcon, ChevronRightIcon, useDesignSystemTheme } from '@databricks/design-system';
 
 export interface LongFormSectionProps {
   /** Section title displayed on the left side */
@@ -17,6 +17,14 @@ export interface LongFormSectionProps {
   hideDivider?: boolean;
   /** Optional className for custom styling */
   className?: string;
+  /**
+   * When true, the title becomes a button that toggles the section open
+   * and closed. Use for optional sections so dense modals don't surface
+   * every field on the user at once.
+   */
+  collapsible?: boolean;
+  /** Initial collapsed state when ``collapsible`` is true (default: false). */
+  defaultCollapsed?: boolean;
 }
 
 /**
@@ -31,8 +39,43 @@ export const LongFormSection = ({
   children,
   hideDivider = false,
   className,
+  collapsible = false,
+  defaultCollapsed = false,
 }: LongFormSectionProps) => {
   const { theme } = useDesignSystemTheme();
+  const [collapsed, setCollapsed] = useState(collapsible && defaultCollapsed);
+
+  const titleBlock = (
+    <>
+      <div
+        css={{
+          fontWeight: theme.typography.typographyBoldFontWeight,
+          fontSize: theme.typography.fontSizeLg,
+          display: 'flex',
+          alignItems: 'center',
+          gap: theme.spacing.xs,
+        }}
+      >
+        {title}
+        {collapsible && (
+          <span css={{ display: 'inline-flex', alignItems: 'center', color: theme.colors.textSecondary }}>
+            {collapsed ? <ChevronRightIcon /> : <ChevronDownIcon />}
+          </span>
+        )}
+      </div>
+      {subtitle && (
+        <div
+          css={{
+            marginTop: theme.spacing.xs,
+            fontSize: theme.typography.fontSizeSm,
+            color: theme.colors.textSecondary,
+          }}
+        >
+          {subtitle}
+        </div>
+      )}
+    </>
+  );
 
   return (
     <div
@@ -58,27 +101,29 @@ export const LongFormSection = ({
           },
         }}
       >
-        <div
-          css={{
-            fontWeight: theme.typography.typographyBoldFontWeight,
-            fontSize: theme.typography.fontSizeLg,
-          }}
-        >
-          {title}
-        </div>
-        {subtitle && (
-          <div
+        {collapsible ? (
+          <button
+            type="button"
+            onClick={() => setCollapsed((c) => !c)}
+            aria-expanded={!collapsed}
             css={{
-              marginTop: theme.spacing.xs,
-              fontSize: theme.typography.fontSizeSm,
-              color: theme.colors.textSecondary,
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              cursor: 'pointer',
+              font: 'inherit',
+              color: 'inherit',
+              textAlign: 'left',
+              width: '100%',
             }}
           >
-            {subtitle}
-          </div>
+            {titleBlock}
+          </button>
+        ) : (
+          titleBlock
         )}
       </div>
-      <div css={{ flexGrow: 1, minWidth: 0 }}>{children}</div>
+      {!collapsed && <div css={{ flexGrow: 1, minWidth: 0 }}>{children}</div>}
     </div>
   );
 };

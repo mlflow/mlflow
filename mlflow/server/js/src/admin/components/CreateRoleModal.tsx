@@ -237,7 +237,7 @@ export const CreateRoleModal = ({ open, onClose }: CreateRoleModalProps) => {
           </Typography.Paragraph>
         </div>
       </LongFormSection>
-      <LongFormSection title="Permissions">
+      <LongFormSection title="Permissions" collapsible defaultCollapsed>
         <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.sm }}>
           Add one or more permissions to this role. You can add more later from the role detail page.
         </Typography.Text>
@@ -248,7 +248,7 @@ export const CreateRoleModal = ({ open, onClose }: CreateRoleModalProps) => {
           disabled={submitting}
         />
       </LongFormSection>
-      <LongFormSection title="Assign users" hideDivider>
+      <LongFormSection title="Assign users" hideDivider collapsible defaultCollapsed>
         <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.sm }}>
           Assign one or more users to this role. You can assign more later from the role detail page.
         </Typography.Text>
