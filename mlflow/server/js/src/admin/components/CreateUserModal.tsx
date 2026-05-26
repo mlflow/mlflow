@@ -259,13 +259,13 @@ export const CreateUserModal = ({ open, onClose }: CreateUserModalProps) => {
           </div>
         </div>
       </LongFormSection>
-      <LongFormSection title="Role assignment" subtitle="(Optional)">
+      <LongFormSection title="Role assignment" collapsible defaultCollapsed>
         <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.sm }}>
           Assign one or more existing roles to give this user reusable bundles of permissions.
         </Typography.Text>
         <RoleAssignmentForm value={roleValue} onChange={setRoleValue} disabled={submitting} />
       </LongFormSection>
-      <LongFormSection title="Direct permissions" subtitle="(Optional)" hideDivider={!isCurrentUserAdmin}>
+      <LongFormSection title="Direct permissions" collapsible defaultCollapsed hideDivider={!isCurrentUserAdmin}>
         <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.sm }}>
           Grant one or more one-off permissions on specific resources.
         </Typography.Text>
@@ -299,7 +299,7 @@ export const CreateUserModal = ({ open, onClose }: CreateUserModalProps) => {
         />
       </LongFormSection>
       {isCurrentUserAdmin && (
-        <LongFormSection title="Admin status" subtitle="(Optional)" hideDivider>
+        <LongFormSection title="Admin status" hideDivider>
           <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.sm }}>
             Admins can manage all users, roles, and workspaces.
           </Typography.Text>
