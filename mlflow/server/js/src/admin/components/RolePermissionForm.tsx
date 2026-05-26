@@ -79,7 +79,7 @@ export const RolePermissionForm = ({ value, onChange, workspace, disabled }: Rol
     options: resourceOptions,
     isLoading: resourceOptionsLoading,
     error: resourceOptionsError,
-  } = useResourceOptionsQuery(value.resourceType);
+  } = useResourceOptionsQuery(value.resourceType, workspace);
 
   const filteredOptions = useMemo(() => {
     const trimmed = resourceSearch.trim().toLowerCase();
