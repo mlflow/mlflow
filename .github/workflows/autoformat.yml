@@ -9,6 +9,8 @@ defaults:
   run:
     shell: bash
 
+permissions: {}
+
 jobs:
   check-comment:
     runs-on: ubuntu-slim
@@ -181,7 +183,9 @@ jobs:
       # ************************************************************************
       - if: steps.diff.outputs.api == 'true'
         run: |
-          uv run --group docs --with-requirements "$GITHUB_WORKSPACE/requirements/torch.txt" --extra gateway --directory docs/api_reference make dummy
+          uv sync --group docs --extra gateway
+          uv pip install -r requirements/torch.txt
+          uv run --directory docs/api_reference make dummy
       # ************************************************************************
       # Upload patch
       # ************************************************************************

@@ -1,5 +1,5 @@
 import { describe, test, expect } from '@jest/globals';
-import { getLanguage } from './FileUtils';
+import { getLanguage, TEXT_EXTENSIONS } from './FileUtils';
 
 describe('FileUtils', () => {
   test('getLanguage', () => {
@@ -9,5 +9,10 @@ describe('FileUtils', () => {
     expect(getLanguage('foo')).toBe('foo');
     expect(getLanguage('MLmodel')).toBe('yaml');
     expect(getLanguage('MLproject')).toBe('yaml');
+    expect(getLanguage('events.jsonl')).toBe('json');
+  });
+
+  test('supports jsonl text previews', () => {
+    expect(TEXT_EXTENSIONS.has('jsonl')).toBe(true);
   });
 });

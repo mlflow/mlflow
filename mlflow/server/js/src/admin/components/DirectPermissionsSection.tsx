@@ -18,11 +18,11 @@ import {
   type DirectGrantResourceType,
   type DirectPermissionValue,
 } from './DirectPermissionForm';
-import { getResourceTypeLabel } from '../types';
+import { ALL_RESOURCE_PATTERN, formatResourcePattern, getResourceTypeLabel } from '../types';
 
 /**
- * One staged direct grant. ``scope`` is always ``'specific'`` today because
- * the "All <type>" path requires the post-Phase 2 synthetic-role API.
+ * One staged direct grant. ``resourceId`` carries either a specific resource
+ * id or the wildcard ``'*'`` (for ``All <type>`` grants).
  */
 export interface StagedDirectPermission {
   resourceType: DirectGrantResourceType;
@@ -33,8 +33,9 @@ export interface StagedDirectPermission {
 export interface DirectPermissionsSectionProps {
   value: StagedDirectPermission[];
   onChange: (value: StagedDirectPermission[]) => void;
-  /** Optional: bridge to the Create Role flow when "All <type>" is picked. */
-  onCreateRoleForAllOfType?: (resourceType: DirectGrantResourceType) => void;
+  /** Forwarded to the picker query so the admin can grant resources in a
+   * workspace other than their session-active one. */
+  workspace?: string;
   disabled?: boolean;
 }
 
@@ -43,31 +44,23 @@ export interface DirectPermissionsSectionProps {
  * appends a row to the parent's list; rows can be removed individually;
  * the parent submits the whole list. Mirrors ``RolePermissionsSection``.
  */
-export const DirectPermissionsSection = ({
-  value,
-  onChange,
-  onCreateRoleForAllOfType,
-  disabled,
-}: DirectPermissionsSectionProps) => {
+export const DirectPermissionsSection = ({ value, onChange, workspace, disabled }: DirectPermissionsSectionProps) => {
   const { theme } = useDesignSystemTheme();
   const [draft, setDraft] = useState<DirectPermissionValue>(DIRECT_PERMISSION_DEFAULT);
 
   const handleAdd = () => {
     if (!isDirectPermissionSubmittable(draft)) return;
-    // Skip exact duplicates so the staged list doesn't repeat the same
-    // (type, id, permission) row.
+    // Translate scope to the API-bound resource id here (not in the draft)
+    // so a resource literally named ``*`` can't shadow the wildcard.
+    const resourceId = draft.scope === 'all' ? ALL_RESOURCE_PATTERN : draft.resourceId;
     const isDuplicate = value.some(
-      (p) =>
-        p.resourceType === draft.resourceType && p.resourceId === draft.resourceId && p.permission === draft.permission,
+      (p) => p.resourceType === draft.resourceType && p.resourceId === resourceId && p.permission === draft.permission,
     );
     if (isDuplicate) {
       setDraft(DIRECT_PERMISSION_DEFAULT);
       return;
     }
-    onChange([
-      ...value,
-      { resourceType: draft.resourceType, resourceId: draft.resourceId, permission: draft.permission },
-    ]);
+    onChange([...value, { resourceType: draft.resourceType, resourceId, permission: draft.permission }]);
     setDraft(DIRECT_PERMISSION_DEFAULT);
   };
 
@@ -104,7 +97,7 @@ export const DirectPermissionsSection = ({
                 <Tag componentId="admin.direct_permissions.staged_type_tag">{getResourceTypeLabel(p.resourceType)}</Tag>
               </TableCell>
               <TableCell css={{ flex: 2 }}>
-                <code>{p.resourceId}</code>
+                <code>{formatResourcePattern(p.resourceId)}</code>
               </TableCell>
               <TableCell css={{ flex: 1 }}>
                 <Tag componentId="admin.direct_permissions.staged_level_tag" color="indigo">
@@ -137,12 +130,7 @@ export const DirectPermissionsSection = ({
         }}
       >
         <FieldLabel>Add a permission</FieldLabel>
-        <DirectPermissionForm
-          value={draft}
-          onChange={setDraft}
-          onCreateRoleForAllOfType={onCreateRoleForAllOfType}
-          disabled={disabled}
-        />
+        <DirectPermissionForm value={draft} onChange={setDraft} workspace={workspace} disabled={disabled} />
         <div css={{ display: 'flex', justifyContent: 'flex-end' }}>
           <Button componentId="admin.direct_permissions.add" onClick={handleAdd} disabled={!canAdd || disabled}>
             Add
