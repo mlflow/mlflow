@@ -9,6 +9,7 @@ import "google/protobuf/duration.proto";
 import "google/protobuf/field_mask.proto";
 import "google/protobuf/timestamp.proto";
 import "issues.proto";
+import "label_schemas.proto";
 import "opentelemetry/proto/trace/v1/trace.proto";
 import "prompt_optimization.proto";
 import "scalapb/scalapb.proto";
@@ -1440,6 +1441,143 @@ service MlflowService {
       ]
       visibility: PUBLIC_UNDOCUMENTED
       rpc_doc_title: "Search issues"
+    };
+  }
+
+  // =============================================================================
+  // Label Schema RPCs
+  // =============================================================================
+
+  // Create a new label schema scoped to an experiment.
+  rpc createLabelSchema(mlflow.label_schemas.CreateLabelSchema)
+      returns (mlflow.label_schemas.CreateLabelSchema.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/label-schemas/create"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Create a label schema"
+    };
+  }
+
+  // Get a label schema by ID.
+  rpc getLabelSchema(mlflow.label_schemas.GetLabelSchema)
+      returns (mlflow.label_schemas.GetLabelSchema.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/label-schemas/get"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Get a label schema by ID"
+    };
+  }
+
+  // Get a label schema by (experiment_id, name).
+  rpc getLabelSchemaByName(mlflow.label_schemas.GetLabelSchemaByName)
+      returns (mlflow.label_schemas.GetLabelSchemaByName.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/label-schemas/get-by-name"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Get a label schema by name"
+    };
+  }
+
+  // List label schemas for an experiment, paginated.
+  rpc listLabelSchemas(mlflow.label_schemas.ListLabelSchemas)
+      returns (mlflow.label_schemas.ListLabelSchemas.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/label-schemas/list"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "List label schemas"
+    };
+  }
+
+  // Sparse-update an existing label schema (type is immutable).
+  rpc updateLabelSchema(mlflow.label_schemas.UpdateLabelSchema)
+      returns (mlflow.label_schemas.UpdateLabelSchema.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "PATCH"
+          path: "/mlflow/label-schemas/update"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Update a label schema"
+    };
+  }
+
+  // Atomically create-or-replace a label schema by (experiment_id, name).
+  rpc upsertLabelSchema(mlflow.label_schemas.UpsertLabelSchema)
+      returns (mlflow.label_schemas.UpsertLabelSchema.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/label-schemas/upsert"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Upsert a label schema"
+    };
+  }
+
+  // Delete a label schema by ID. No-op if the schema doesn't exist.
+  rpc deleteLabelSchema(mlflow.label_schemas.DeleteLabelSchema)
+      returns (mlflow.label_schemas.DeleteLabelSchema.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "DELETE"
+          path: "/mlflow/label-schemas/delete"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Delete a label schema"
     };
   }
 
