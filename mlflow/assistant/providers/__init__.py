@@ -1,8 +1,9 @@
+import requests
+
 from mlflow.assistant.providers.base import AssistantProvider
 from mlflow.assistant.providers.claude_code import ClaudeCodeProvider
 from mlflow.assistant.providers.codex import CodexProvider
 from mlflow.assistant.providers.openai_compatible import OpenAICompatibleProvider
-from mlflow.assistant.providers.presets import list_ollama_tags
 
 __all__ = [
     "AssistantProvider",
@@ -21,6 +22,19 @@ def _gateway_chat_url(_base_url: str | None, tracking_uri: str) -> str | None:
     if not tracking_uri:
         return None
     return f"{tracking_uri.rstrip('/')}/gateway/mlflow/v1/chat/completions"
+
+
+def _list_ollama_tags(base_url: str, api_key: str | None = None) -> list[str]:
+    """List models from a local Ollama server via `GET /api/tags`.
+
+    Vanilla Ollama is auth-free, but the api_key is forwarded as a Bearer
+    token when set so users who reverse-proxy Ollama behind an auth layer
+    can still list models.
+    """
+    headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
+    response = requests.get(f"{base_url.rstrip('/')}/api/tags", headers=headers, timeout=10)
+    response.raise_for_status()
+    return [m["model"] for m in response.json().get("models", []) if m.get("model")]
 
 
 def _build_providers() -> list[AssistantProvider]:
@@ -44,7 +58,7 @@ def _build_providers() -> list[AssistantProvider]:
             display_name="Ollama",
             description="AI-powered assistant using a locally running Ollama server.",
             connection_hint="Make sure Ollama is running: ollama serve",
-            list_models_fn=list_ollama_tags,
+            list_models_fn=_list_ollama_tags,
             default_base_url="http://localhost:11434",
         ),
     ]

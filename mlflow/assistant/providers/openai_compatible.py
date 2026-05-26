@@ -441,7 +441,7 @@ class OpenAICompatibleProvider(AssistantProvider):
                     ]
                     messages.append({
                         "role": "assistant",
-                        "content": visible_text,
+                        "content": visible_text or None,
                         "tool_calls": assistant_tool_calls,
                     })
 

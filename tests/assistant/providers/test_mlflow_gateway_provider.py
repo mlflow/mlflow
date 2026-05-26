@@ -1,10 +1,3 @@
-"""Tests for the MLflow AI Gateway preset of OpenAICompatibleProvider.
-
-The gateway preset has no backend model-listing strategy and derives its
-chat URL from the MLflow tracking URI (the same server hosting the
-assistant API).
-"""
-
 import pytest
 
 from mlflow.assistant.providers import list_providers
