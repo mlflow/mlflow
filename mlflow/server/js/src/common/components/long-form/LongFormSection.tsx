@@ -1,5 +1,12 @@
+import * as React from 'react';
 import { useState, type ReactNode } from 'react';
 import { ChevronDownIcon, ChevronRightIcon, useDesignSystemTheme } from '@databricks/design-system';
+
+// React 18.x exposes ``useId`` at runtime, but ``@types/react`` is pinned at
+// 17.x in this repo so the type isn't surfaced. Cast around the gap rather
+// than fall back to ``Math.random()`` (which would mint a fresh id on every
+// render and break DOM-snapshot determinism).
+const useId = (React as unknown as { useId: () => string }).useId;
 
 export interface LongFormSectionProps {
   /** Section title displayed on the left side */
@@ -46,10 +53,7 @@ export const LongFormSection = ({
   const [collapsed, setCollapsed] = useState(collapsible && defaultCollapsed);
   // Stable id wires the toggle button's ``aria-controls`` to the content
   // region's ``id`` so screen readers announce the disclosure relationship.
-  // Lazy ``useState`` initializer locks the id to the component instance.
-  // (``React.useId`` would be cleaner, but ``@types/react`` is pinned at 17.x
-  // even though the runtime is 18.x — fall back to a random suffix.)
-  const [contentId] = useState(() => `long-form-section-${Math.random().toString(36).slice(2)}`);
+  const contentId = useId();
 
   // ``<span>`` (not ``<div>``) so this fragment is valid phrasing content
   // when nested inside the ``<button>`` in the collapsible branch — avoids
@@ -88,14 +92,19 @@ export const LongFormSection = ({
     </>
   );
 
+  // Collapsed sections shrink their vertical padding so the modal actually
+  // becomes shorter — otherwise the row keeps its open-state footprint and
+  // a "compact" form still scrolls.
+  const verticalPadding = collapsed ? theme.spacing.sm : theme.spacing.lg;
+
   return (
     <div
       className={className}
       css={{
         display: 'flex',
         gap: 32,
-        paddingTop: theme.spacing.lg,
-        paddingBottom: theme.spacing.lg,
+        paddingTop: verticalPadding,
+        paddingBottom: verticalPadding,
         borderBottom: hideDivider ? 'none' : `1px solid ${theme.colors.borderDecorative}`,
         '@media (max-width: 1023px)': {
           flexDirection: 'column',

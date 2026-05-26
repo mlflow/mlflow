@@ -34,7 +34,7 @@ describe('LongFormSection — collapsible mode', () => {
     // ``inert`` on the collapsed wrapper is a belt-and-suspenders guarantee:
     // ``hidden`` alone can be overridden by CSS resets, but ``inert``
     // removes the subtree from tab order regardless.
-    const { container } = renderWithDesignSystem(
+    renderWithDesignSystem(
       <LongFormSection title="Permissions" collapsible defaultCollapsed>
         <button type="button">deep button</button>
       </LongFormSection>,
@@ -42,7 +42,10 @@ describe('LongFormSection — collapsible mode', () => {
     const toggle = screen.getByRole('button', { name: /Permissions/ });
     const controlsId = toggle.getAttribute('aria-controls');
     expect(controlsId).toBeTruthy();
-    const region = container.querySelector(`#${controlsId}`);
+    // ``getElementById`` (not ``querySelector('#…')``) because React 18's
+    // ``useId`` produces colon-bracketed ids (`:r0:`) that aren't valid in
+    // CSS selectors without escaping.
+    const region = document.getElementById(controlsId!);
     expect(region).not.toBeNull();
     expect(region).toHaveAttribute('hidden');
     expect(region).toHaveAttribute('inert');
