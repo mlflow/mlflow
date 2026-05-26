@@ -12,13 +12,13 @@ from mlflow.entities.assessment import (
 from mlflow.exceptions import MlflowException
 from mlflow.genai import judges
 from mlflow.genai.evaluation.entities import EvalItem, EvalResult
+from mlflow.genai.judges.adapters.gateway_adapter import InvokeOutput
 from mlflow.genai.judges.utils import CategoricalRating
 from mlflow.genai.scorers import RelevanceToQuery, Safety, Scorer, UserFrustration
 from mlflow.genai.scorers.aggregation import compute_aggregated_metrics
 from mlflow.genai.scorers.base import SerializedScorer
 from mlflow.genai.scorers.builtin_scorers import _sanitize_scorer_feedback
 from mlflow.genai.utils.type import FunctionCall
-from mlflow.genai.judges.adapters.gateway_adapter import InvokeOutput
 from mlflow.types.chat import ChatTool, FunctionToolDefinition
 
 from tests.genai.conftest import databricks_only

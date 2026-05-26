@@ -1322,9 +1322,8 @@ def test_invoke_custom_judge_model(
     model_uri,
     expected_provider,
 ):
-    from mlflow.genai.judges.utils import invoke_judge_model
-
     from mlflow.genai.judges.adapters.gateway_adapter import InvokeOutput
+    from mlflow.genai.judges.utils import invoke_judge_model
 
     mock_response = json.dumps({"result": 0.8, "rationale": "Test rationale"})
 
@@ -1337,7 +1336,10 @@ def test_invoke_custom_judge_model(
         mock_response
         if expected_provider == "endpoints"
         else InvokeOutput(
-            response=mock_response, request_id=None, num_prompt_tokens=None, num_completion_tokens=None
+            response=mock_response,
+            request_id=None,
+            num_prompt_tokens=None,
+            num_completion_tokens=None,
         )
     )
     with mock.patch(mock_target, return_value=mock_return):

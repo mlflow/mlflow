@@ -703,7 +703,10 @@ def test_fluency_default_name():
     with patch(
         "mlflow.genai.judges.adapters.gateway_adapter.GatewayAdapter._invoke_and_handle_tools",
         return_value=InvokeOutput(
-            response=mock_content, request_id=None, num_prompt_tokens=None, num_completion_tokens=None
+            response=mock_content,
+            request_id=None,
+            num_prompt_tokens=None,
+            num_completion_tokens=None,
         ),
     ):
         scorer = Fluency()
@@ -723,7 +726,10 @@ def test_fluency_with_custom_model():
     with patch(
         "mlflow.genai.judges.adapters.gateway_adapter.GatewayAdapter._invoke_and_handle_tools",
         return_value=InvokeOutput(
-            response=mock_content, request_id=None, num_prompt_tokens=None, num_completion_tokens=None
+            response=mock_content,
+            request_id=None,
+            num_prompt_tokens=None,
+            num_completion_tokens=None,
         ),
     ):
         custom_model = "anthropic:/claude-3-opus"
@@ -744,7 +750,10 @@ def test_fluency_with_custom_name():
     with patch(
         "mlflow.genai.judges.adapters.gateway_adapter.GatewayAdapter._invoke_and_handle_tools",
         return_value=InvokeOutput(
-            response=mock_content, request_id=None, num_prompt_tokens=None, num_completion_tokens=None
+            response=mock_content,
+            request_id=None,
+            num_prompt_tokens=None,
+            num_completion_tokens=None,
         ),
     ):
         scorer = Fluency(name="my_fluency_check")

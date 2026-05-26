@@ -170,7 +170,9 @@ def test_invoke_without_trace_uses_tool_calling_loop():
         assessment_name="test_metric",
     )
 
-    with mock.patch.object(adapter, "_invoke_and_handle_tools", return_value=mock_output) as mock_invoke:
+    with mock.patch.object(
+        adapter, "_invoke_and_handle_tools", return_value=mock_output
+    ) as mock_invoke:
         result = adapter.invoke(input_params)
 
     mock_invoke.assert_called_once()
@@ -201,7 +203,9 @@ def test_invoke_parses_response_with_newlines_in_json_strings():
         assessment_name="test_metric",
     )
 
-    with mock.patch.object(adapter, "_invoke_and_handle_tools", return_value=mock_output) as mock_invoke:
+    with mock.patch.object(
+        adapter, "_invoke_and_handle_tools", return_value=mock_output
+    ) as mock_invoke:
         result = adapter.invoke(input_params)
 
     mock_invoke.assert_called_once()
@@ -727,7 +731,11 @@ def test_token_counts_accumulated_across_iterations(mock_trace):
     tool_call_response = _chat_response(
         None,
         tool_calls=[
-            {"id": "c1", "type": "function", "function": {"name": "get_trace_info", "arguments": "{}"}}
+            {
+                "id": "c1",
+                "type": "function",
+                "function": {"name": "get_trace_info", "arguments": "{}"},
+            }
         ],
         usage={"prompt_tokens": 100, "completion_tokens": 20, "total_tokens": 120},
     )
@@ -747,7 +755,9 @@ def test_token_counts_accumulated_across_iterations(mock_trace):
         ),
         mock.patch(
             "mlflow.genai.judges.adapters.gateway_adapter._process_tool_calls",
-            return_value=[ChatMessage(role="tool", content="{}", tool_call_id="c1", name="get_trace_info")],
+            return_value=[
+                ChatMessage(role="tool", content="{}", tool_call_id="c1", name="get_trace_info")
+            ],
         ),
     ):
         output = GatewayAdapter()._invoke_and_handle_tools(
@@ -758,7 +768,7 @@ def test_token_counts_accumulated_across_iterations(mock_trace):
             num_retries=3,
         )
 
-    assert output.num_prompt_tokens == 250     # 100 + 150
+    assert output.num_prompt_tokens == 250  # 100 + 150
     assert output.num_completion_tokens == 50  # 20 + 30
 
 
