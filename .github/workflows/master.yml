@@ -91,9 +91,12 @@ jobs:
       - uses: ./.github/actions/show-versions
       - name: Show uvicorn version
         run: uv run --no-sync python -c "import uvicorn; print(uvicorn.__version__)"
-      - name: Run webhook e2e tests
+      - name: Run server-startup tests
         run: |
-          uv run --no-sync pytest tests/webhooks/test_e2e.py -v
+          uv run --no-sync pytest \
+            tests/webhooks/test_e2e.py \
+            tests/tracking/test_rest_tracking.py \
+            -v
 
   database:
     if: false # TEMP: scoped down for uvicorn unpin experiment
