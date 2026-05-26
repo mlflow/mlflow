@@ -150,11 +150,7 @@ class Experiment(_MlflowObject):
             # `last_update_time` if they are non-zero.
             creation_time=proto.creation_time or None,
             last_update_time=proto.last_update_time or None,
-            workspace=(
-                proto.workspace
-                if proto.HasField("workspace")
-                else None
-            ),
+            workspace=(proto.workspace if proto.HasField("workspace") else None),
             effective_trace_archival_retention=(
                 proto.effective_trace_archival_retention
                 if proto.HasField("effective_trace_archival_retention")

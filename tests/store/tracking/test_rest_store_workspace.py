@@ -110,18 +110,17 @@ def test_workspace_guard_blocks_log_spans(monkeypatch):
     with pytest.raises(MlflowException, match="does not support workspaces"):
         store.log_spans("exp-1", spans)
 
+
 def test_rest_store_get_experiment_has_workspace():
     proto = Experiment(
-        experiment_id="1",  
+        experiment_id="1",
         name="test",
         artifact_location="/tmp",
         workspace="other_workspace",
     )
     response = GetExperiment.Response(experiment=proto)
 
-    with mock.patch.object(
-        RestStore, "_call_endpoint", return_value=response
-    ) as mock_call:
+    with mock.patch.object(RestStore, "_call_endpoint", return_value=response) as mock_call:
         store = RestStore(lambda: MlflowHostCreds("https://hello"))
         result = store.get_experiment("1")
 
