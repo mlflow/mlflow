@@ -169,7 +169,7 @@ python_gencode_replacements = [
     ),
     (
         "import label_schemas_pb2 as label__schemas__pb2",
-        "from . import label_schemas_pb2 as label_schemas_pb2",
+        "from . import label_schemas_pb2 as label__schemas__pb2",
     ),
     (
         "import webhooks_pb2 as webhooks__pb2",

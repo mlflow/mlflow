@@ -8,13 +8,17 @@ syntax = "proto2";
 package mlflow.label_schemas;
 
 import "databricks.proto";
+import "scalapb/scalapb.proto";
 
 option java_package = "org.mlflow.api.proto";
 option py_generic_services = true;
 
 // Type of label schema. Mirrors mlflow.genai.label_schemas.LabelSchemaType.
+// The zero-value `LABEL_SCHEMA_TYPE_UNSPECIFIED` is a defensive sentinel;
+// the handler must reject it explicitly because `validate_required` on a
+// proto2 optional enum only enforces HasField, not value validity, so a
+// client can pass UNSPECIFIED past the wire-level required check.
 enum LabelSchemaType {
-  // Default sentinel; the OSS server rejects unset types.
   LABEL_SCHEMA_TYPE_UNSPECIFIED = 0;
   // Feedback schema: bounded value space (pass/fail, options, min/max).
   FEEDBACK = 1;
@@ -24,7 +28,9 @@ enum LabelSchemaType {
 
 // Polarity hint for feedback-type InputCategorical schemas. Required for
 // feedback-type categorical schemas so the UI knows which direction is
-// positive (e.g., "good" vs "bad" sorting and coloring).
+// positive (e.g., "good" vs "bad" sorting and coloring). Same UNSPECIFIED
+// caveat as LabelSchemaType: the handler must explicitly reject the zero
+// value when the surrounding schema is feedback-typed.
 enum CategoricalSemanticPolarity {
   CATEGORICAL_SEMANTIC_POLARITY_UNSPECIFIED = 0;
   // The first option is the most positive.
@@ -62,12 +68,26 @@ message InputNumeric {
 }
 
 // Discriminated input wrapper. Exactly one input type is set per schema.
+//
+// NOTE on `validate_required`: when a request message uses
+// `LabelSchemaInput input = N [(validate_required) = true]`, the wire-level
+// check only verifies that the wrapper message is set. It does NOT enforce
+// that any oneof variant inside the wrapper is set, so a client can send
+// `{"input": {}}` and pass validation. Handlers must additionally check
+// `request.input.WhichOneof("input") is not None`.
+//
+// Tags 1-3 cover the OSS-supported input types. Tags 4-6 are reserved for
+// the Databricks-only input variants (InputCategoricalList, InputText,
+// InputTextList) in case hybrid scenarios ever need to round-trip them
+// through this proto; do not reuse these tags for new OSS variants.
 message LabelSchemaInput {
   oneof input {
     InputPassFail pass_fail = 1;
     InputCategorical categorical = 2;
     InputNumeric numeric = 3;
   }
+  reserved 4, 5, 6;
+  reserved "categorical_list", "text", "text_list";
 }
 
 // Full label schema entity.
@@ -91,7 +111,7 @@ message LabelSchema {
   // Creation timestamp in milliseconds since epoch.
   optional int64 created_at = 10;
   // Last update timestamp in milliseconds since epoch.
-  optional int64 updated_at = 11;
+  optional int64 last_updated_at = 11;
 }
 
 // Request to create a new label schema.
@@ -111,7 +131,10 @@ message CreateLabelSchema {
   }
 }
 
-// Request to get a label schema by ID.
+// Request to get a label schema by ID. `schema_id` is the OSS-only
+// canonical primary key; Databricks-routed schemas (whose canonical
+// identity is `(review_app_id, name)`) do not round-trip through this
+// RPC. Use GetLabelSchemaByName for the (experiment_id, name) lookup.
 message GetLabelSchema {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
@@ -139,6 +162,9 @@ message ListLabelSchemas {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
   optional string experiment_id = 1 [(validate_required) = true];
+  // Defaults to 100 server-side when unset. Must be a positive integer
+  // not exceeding SEARCH_MAX_RESULTS_THRESHOLD; the handler rejects 0,
+  // negative values, and values above the threshold.
   optional int32 max_results = 2;
   optional string page_token = 3;
 
@@ -149,8 +175,14 @@ message ListLabelSchemas {
 }
 
 // Request to sparse-update an existing label schema. `type` is immutable
-// and is not accepted; pass non-None values only for the fields you want
-// to change.
+// and is intentionally omitted from this message. The handler treats an
+// absent field (HasField=false) as "unchanged" and a set field as the new
+// value; an empty string written for `title` / `instruction` will replace
+// the stored value with the empty string rather than clearing it.
+//
+// `name` may be renamed; existing assessment rows are NOT migrated (their
+// `name` continues to reference the prior schema name), matching the
+// store-layer contract documented on AbstractStore.update_label_schema.
 message UpdateLabelSchema {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 

@@ -1462,6 +1462,12 @@ service MlflowService {
           }
         }
       ]
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        RESOURCE_DOES_NOT_EXIST,
+        ALREADY_EXISTS,
+        INTERNAL_ERROR
+      ]
       visibility: PUBLIC_UNDOCUMENTED
       rpc_doc_title: "Create a label schema"
     };
@@ -1480,6 +1486,11 @@ service MlflowService {
             minor: 0
           }
         }
+      ]
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        RESOURCE_DOES_NOT_EXIST,
+        INTERNAL_ERROR
       ]
       visibility: PUBLIC_UNDOCUMENTED
       rpc_doc_title: "Get a label schema by ID"
@@ -1500,6 +1511,11 @@ service MlflowService {
           }
         }
       ]
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        RESOURCE_DOES_NOT_EXIST,
+        INTERNAL_ERROR
+      ]
       visibility: PUBLIC_UNDOCUMENTED
       rpc_doc_title: "Get a label schema by name"
     };
@@ -1518,6 +1534,11 @@ service MlflowService {
             minor: 0
           }
         }
+      ]
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        RESOURCE_DOES_NOT_EXIST,
+        INTERNAL_ERROR
       ]
       visibility: PUBLIC_UNDOCUMENTED
       rpc_doc_title: "List label schemas"
@@ -1538,6 +1559,12 @@ service MlflowService {
           }
         }
       ]
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        RESOURCE_DOES_NOT_EXIST,
+        ALREADY_EXISTS,
+        INTERNAL_ERROR
+      ]
       visibility: PUBLIC_UNDOCUMENTED
       rpc_doc_title: "Update a label schema"
     };
@@ -1557,6 +1584,11 @@ service MlflowService {
           }
         }
       ]
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        RESOURCE_DOES_NOT_EXIST,
+        INTERNAL_ERROR
+      ]
       visibility: PUBLIC_UNDOCUMENTED
       rpc_doc_title: "Upsert a label schema"
     };
@@ -1575,6 +1607,10 @@ service MlflowService {
             minor: 0
           }
         }
+      ]
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        INTERNAL_ERROR
       ]
       visibility: PUBLIC_UNDOCUMENTED
       rpc_doc_title: "Delete a label schema"
