@@ -1,10 +1,16 @@
-import { describe, it, expect } from '@jest/globals';
+import { describe, it, expect, beforeEach } from '@jest/globals';
 import userEventGlobal from '@testing-library/user-event';
 import React, { useState } from 'react';
 import { renderWithDesignSystem, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { LongFormSection } from './LongFormSection';
 
-const userEvent = userEventGlobal.setup();
+// ``userEvent.setup()`` v14 holds stateful pointer/keyboard state; if a test
+// throws mid-gesture, leftover state can leak into the next test. Re-create
+// per test so each case starts clean.
+let userEvent: ReturnType<typeof userEventGlobal.setup>;
+beforeEach(() => {
+  userEvent = userEventGlobal.setup();
+});
 
 describe('LongFormSection — collapsible mode', () => {
   it('renders children when ``collapsible`` is not set (back-compat: existing call sites stay open)', () => {
@@ -80,7 +86,7 @@ describe('LongFormSection — collapsible mode', () => {
     expect(toggle).toHaveAttribute('aria-expanded', 'false');
   });
 
-  it('preserves child state across a collapse / expand round-trip', async () => {
+  it('preserves child state across a collapse / expand round-trip (starts expanded)', async () => {
     // Pins the reason we use ``hidden`` (not conditional render): a draft
     // typed into ``RolePermissionsSection`` / ``RoleUsersSection`` must
     // survive the user collapsing the section and re-opening it.
@@ -99,5 +105,30 @@ describe('LongFormSection — collapsible mode', () => {
     await userEvent.click(toggle);
     await userEvent.click(toggle);
     expect(screen.getByRole('textbox', { name: 'draft' })).toHaveValue('in-progress');
+  });
+
+  it('preserves child state across an expand / collapse round-trip (starts collapsed)', async () => {
+    // Same guarantee from the other direction: a section that opens with
+    // ``defaultCollapsed`` mounts its children hidden + inert, and any
+    // state added after the first expand must survive a re-collapse.
+    const Inner = () => {
+      const [text, setText] = useState('');
+      return <input aria-label="draft" value={text} onChange={(e) => setText(e.target.value)} />;
+    };
+    renderWithDesignSystem(
+      <LongFormSection title="Permissions" collapsible defaultCollapsed>
+        <Inner />
+      </LongFormSection>,
+    );
+    // Confirm we really started in the hidden state. ``hidden: true`` opts
+    // into matching hidden elements — by default ``getByRole`` filters them
+    // out, which would mask the very state we want to assert on.
+    expect(screen.getByRole('textbox', { name: 'draft', hidden: true })).not.toBeVisible();
+    const toggle = screen.getByRole('button', { name: /Permissions/ });
+    await userEvent.click(toggle);
+    await userEvent.type(screen.getByRole('textbox', { name: 'draft' }), 'opened-then-typed');
+    await userEvent.click(toggle);
+    await userEvent.click(toggle);
+    expect(screen.getByRole('textbox', { name: 'draft' })).toHaveValue('opened-then-typed');
   });
 });

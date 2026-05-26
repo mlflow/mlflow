@@ -1,12 +1,25 @@
-import * as React from 'react';
 import { useState, type ReactNode } from 'react';
 import { ChevronDownIcon, ChevronRightIcon, useDesignSystemTheme } from '@databricks/design-system';
 
 // React 18.x exposes ``useId`` at runtime, but ``@types/react`` is pinned at
-// 17.x in this repo so the type isn't surfaced. Cast around the gap rather
-// than fall back to ``Math.random()`` (which would mint a fresh id on every
-// render and break DOM-snapshot determinism).
-const useId = (React as unknown as { useId: () => string }).useId;
+// 17.x in this repo so the named import doesn't type-check. ``import * as
+// React from 'react'`` would type-check but is blocked by the
+// ``no-restricted-imports`` rule (``Suspense`` must come from
+// ``@databricks/web-shared/react``). Pull the symbol via ``require`` so the
+// type system sees only the narrow shape we use, and fall back to a
+// ``useState``-based counter for the case where ``react-17`` (aliased in
+// devDependencies for Enzyme) is the active runtime — keeps the section
+// from blowing up at the call site instead of at the import.
+// eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
+const reactRuntime = require('react') as { useId?: () => string };
+
+let fallbackIdCounter = 0;
+const useFallbackId = (): string => useState(() => `long-form-section-fallback-${++fallbackIdCounter}`)[0];
+
+// One stable function for the lifetime of the module — Rules-of-Hooks
+// requires the same hook to be called in the same order each render, so the
+// React 18 vs. 17 selection happens once at module load.
+const useStableId: () => string = reactRuntime.useId ?? useFallbackId;
 
 export interface LongFormSectionProps {
   /** Section title displayed on the left side */
@@ -53,7 +66,7 @@ export const LongFormSection = ({
   const [collapsed, setCollapsed] = useState(collapsible && defaultCollapsed);
   // Stable id wires the toggle button's ``aria-controls`` to the content
   // region's ``id`` so screen readers announce the disclosure relationship.
-  const contentId = useId();
+  const contentId = useStableId();
 
   // ``<span>`` (not ``<div>``) so this fragment is valid phrasing content
   // when nested inside the ``<button>`` in the collapsible branch — avoids
@@ -155,9 +168,13 @@ export const LongFormSection = ({
         hidden={collapsed}
         // React 18 accepts ``inert`` as a string-only DOM attribute; the
         // empty string ``""`` is the canonical "on" value per the HTML spec.
-        // TypeScript's ``HTMLAttributes`` didn't add ``inert`` until React 19,
-        // so spread it conditionally to avoid touching the type system.
-        {...(collapsed ? { inert: '' } : {})}
+        // ``HTMLAttributes`` didn't add ``inert`` until React 19, so spread
+        // the attribute through a narrowly-typed cast.
+        // Always pass the key (with ``undefined`` when not collapsed) so
+        // React strips the attribute from the DOM on re-render — omitting
+        // the key from the spread would leave the previous attribute in
+        // place.
+        {...({ inert: collapsed ? '' : undefined } as { inert?: '' })}
         css={{ flexGrow: 1, minWidth: 0 }}
       >
         {children}
