@@ -7,11 +7,20 @@ from mlflow.exceptions import MlflowException
 
 def get_scorer_class(metric_name: str):
     """Return the Google ADK scorer class registered under ``metric_name``."""
-    from mlflow.genai.scorers.google_adk import ResponseMatch, ToolTrajectory
+    from mlflow.genai.scorers.google_adk import (
+        Hallucination,
+        ResponseEvaluation,
+        ResponseMatch,
+        Safety,
+        ToolTrajectory,
+    )
 
     registry = {
-        "ToolTrajectory": ToolTrajectory,
+        "Hallucination": Hallucination,
+        "ResponseEvaluation": ResponseEvaluation,
         "ResponseMatch": ResponseMatch,
+        "Safety": Safety,
+        "ToolTrajectory": ToolTrajectory,
     }
 
     if metric_name not in registry:
