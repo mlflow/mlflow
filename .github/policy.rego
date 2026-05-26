@@ -13,8 +13,19 @@ deny_jobs_without_permissions contains msg if {
 }
 
 deny_top_level_permissions contains msg if {
-	input.permissions
-	msg := "Do not use top-level permissions. Set permissions on the job level."
+	# Workflow files only (composite actions have 'runs')
+	input.jobs
+	not input.permissions
+	msg := concat("", [
+		"Workflow must set top-level 'permissions: {}' to deny all by default. ",
+		"Grant least-privilege permissions per job.",
+	])
+}
+
+deny_top_level_permissions contains msg if {
+	input.jobs
+	input.permissions != {}
+	msg := "Top-level 'permissions' must be empty ({}). Grant least-privilege permissions per job instead."
 }
 
 deny_unsafe_checkout contains msg if {

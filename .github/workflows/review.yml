@@ -16,6 +16,8 @@ defaults:
   run:
     shell: bash
 
+permissions: {}
+
 jobs:
   # Auth gate: only users with admin or maintain role on the repo can trigger
   # the review (plus the Copilot bot). For issue_comment, BOTH the PR author

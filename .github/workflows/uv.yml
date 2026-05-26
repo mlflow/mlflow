@@ -19,6 +19,8 @@ defaults:
   run:
     shell: bash
 
+permissions: {}
+
 jobs:
   uv:
     # Skip scheduled runs on forks

@@ -26,6 +26,8 @@ env:
   MLFLOW_HOME: ${{ github.workspace }}
   MLFLOW_SERVER_ENABLE_JOB_EXECUTION: "false"
 
+permissions: {}
+
 jobs:
   uc-oss-integration-test:
     runs-on: ubuntu-latest
