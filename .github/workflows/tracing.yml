@@ -14,6 +14,7 @@ on:
       - ".github/workflows/preview-docs.yml"
       - "mlflow/server/js/**"
       - ".github/workflows/js.yml"
+      - ".claude/**"
   push:
     branches:
       - master
@@ -35,6 +36,8 @@ env:
   PYTHONUTF8: "1"
   MLFLOW_SERVER_ENABLE_JOB_EXECUTION: "false"
   PIP_CONSTRAINT: ${{ github.workspace }}/requirements/constraints.txt
+
+permissions: {}
 
 jobs:
   core:

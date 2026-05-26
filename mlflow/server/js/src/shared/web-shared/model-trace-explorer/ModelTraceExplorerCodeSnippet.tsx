@@ -78,18 +78,8 @@ export function ModelTraceExplorerCodeSnippet({
   }, [dataIsString, initialRenderMode]);
 
   return (
-    <div
-      css={{
-        position: 'relative',
-      }}
-    >
-      <div
-        css={{
-          borderRadius: theme.borders.borderRadiusSm,
-          border: `1px solid ${theme.colors.border}`,
-          overflow: 'hidden',
-        }}
-      >
+    <div css={{ position: 'relative' }}>
+      <div css={{ overflow: 'hidden' }}>
         {(title || shouldShowRenderModeDropdown) && (
           <div
             css={{
@@ -97,7 +87,8 @@ export function ModelTraceExplorerCodeSnippet({
               flexDirection: 'row',
               justifyContent: 'space-between',
               alignItems: 'center',
-              padding: theme.spacing.sm,
+              paddingInline: theme.spacing.sm,
+              paddingBlock: theme.spacing.xs,
             }}
           >
             {/* TODO: support other types of formatting, e.g. markdown */}
@@ -107,6 +98,7 @@ export function ModelTraceExplorerCodeSnippet({
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',
+                marginLeft: theme.spacing.xs,
               }}
               level={4}
               color="secondary"
@@ -163,14 +155,23 @@ export function ModelTraceExplorerCodeSnippet({
             </div>
           </div>
         )}
-        <ModelTraceExplorerCodeSnippetBody
-          data={data}
-          searchFilter={searchFilter}
-          activeMatch={activeMatch}
-          containsActiveMatch={containsActiveMatch}
-          renderMode={renderMode}
-          initialExpanded={initialExpanded}
-        />
+        <div
+          css={{
+            overflow: 'hidden',
+            border: `1px solid ${theme.colors.border}`,
+            borderRadius: theme.borders.borderRadiusSm,
+            marginInline: theme.spacing.sm,
+          }}
+        >
+          <ModelTraceExplorerCodeSnippetBody
+            data={data}
+            searchFilter={searchFilter}
+            activeMatch={activeMatch}
+            containsActiveMatch={containsActiveMatch}
+            renderMode={renderMode}
+            initialExpanded={initialExpanded}
+          />
+        </div>
       </div>
     </div>
   );

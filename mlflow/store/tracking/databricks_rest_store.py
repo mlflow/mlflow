@@ -1,5 +1,6 @@
 import base64
 import logging
+import time
 from collections import defaultdict
 from datetime import datetime
 from typing import Any
@@ -52,10 +53,12 @@ from mlflow.protos.databricks_tracing_pb2 import (
     DeleteTraceTag,
     GetAssessment,
     GetLocation,
+    GetOperationRequest,
     GetTraceInfo,
     LinkExperimentToUCTraceLocation,
     LinkTraceLocation,
-    SearchTraces,
+    SearchTracesLongRunning,
+    SearchTracesOperation,
     SetTraceTag,
     UnLinkExperimentToUCTraceLocation,
     UpdateAssessment,
@@ -92,6 +95,8 @@ from mlflow.utils.rest_utils import (
 
 DATABRICKS_UC_TABLE_HEADER = "X-Databricks-UC-Table-Name"
 _V5_TRACE_LOCATION_ENDPOINT = "/api/5.0/mlflow/tracing/locations"
+
+_SEARCH_TRACES_POLL_INTERVAL_SECONDS = 1.0
 
 _logger = logging.getLogger(__name__)
 
@@ -472,7 +477,7 @@ class DatabricksTracingRestStore(RestStore):
                         "`<catalog_name>.<schema_name>[.<table_prefix>]` or `<experiment_id>`."
                     )
 
-        request = SearchTraces(
+        request = SearchTracesLongRunning(
             locations=trace_locations,
             filter=filter_string,
             max_results=max_results,
@@ -482,10 +487,11 @@ class DatabricksTracingRestStore(RestStore):
         )
         req_body = message_to_json(request)
         try:
-            response_proto = self._call_endpoint(
-                SearchTraces,
+            operation = self._call_endpoint(
+                SearchTracesLongRunning,
                 req_body,
-                endpoint=f"{_V4_TRACE_REST_API_PATH_PREFIX}/search",
+                endpoint=f"{_V4_TRACE_REST_API_PATH_PREFIX}/search-long-running",
+                response_proto=SearchTracesOperation(),
             )
         except MlflowException as e:
             # There are 2 expected failure cases:
@@ -521,8 +527,31 @@ class DatabricksTracingRestStore(RestStore):
                 page_token=page_token,
             )
 
+        operation = self._poll_search_traces_operation(operation)
+        response_proto = operation.response
         trace_infos = [TraceInfo.from_proto(t) for t in response_proto.trace_infos]
         return trace_infos, response_proto.next_page_token or None
+
+    def _poll_search_traces_operation(
+        self,
+        operation: SearchTracesOperation,
+        *,
+        poll_interval_seconds: float = _SEARCH_TRACES_POLL_INTERVAL_SECONDS,
+    ) -> SearchTracesOperation:
+        while not operation.done:
+            time.sleep(poll_interval_seconds)
+            operation = self._call_endpoint(
+                GetOperationRequest,
+                None,
+                endpoint=f"{_V4_TRACE_REST_API_PATH_PREFIX}/search/operations/{operation.name}",
+                response_proto=SearchTracesOperation(),
+            )
+        if operation.HasField("error"):
+            raise MlflowException(
+                operation.error.message or "Failed to search traces",
+                error_code=operation.error.error_code or ErrorCode.Name(INTERNAL_ERROR),
+            )
+        return operation
 
     def _search_unified_traces(
         self,

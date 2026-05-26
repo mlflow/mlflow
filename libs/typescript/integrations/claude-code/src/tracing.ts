@@ -8,17 +8,10 @@ import {
   SpanType,
   SpanAttributeKey,
   TraceMetadataKey,
-  TokenUsageKey,
   type LiveSpan,
 } from '@mlflow/core';
 
-import type {
-  ContentBlock,
-  SubagentGroup,
-  TokenUsage,
-  ToolResultInfo,
-  TranscriptEntry,
-} from './types.js';
+import type { SubagentGroup, TokenUsage, ToolResultInfo, TranscriptEntry } from './types.js';
 import {
   extractTextContent,
   findFinalAssistantResponse,
@@ -27,6 +20,14 @@ import {
   parseTimestampToNs,
   readTranscript,
 } from './transcript.js';
+import {
+  MAX_PREVIEW_LENGTH,
+  METADATA_KEY_CLAUDE_CODE_VERSION,
+  METADATA_KEY_PERMISSION_MODE,
+  METADATA_KEY_WORKING_DIRECTORY,
+  buildUsageDict,
+  extractContentAndTools,
+} from './_internal.js';
 
 // ============================================================================
 // Constants
@@ -34,46 +35,6 @@ import {
 
 const NANOSECONDS_PER_MS = 1e6;
 const NANOSECONDS_PER_S = 1e9;
-const MAX_PREVIEW_LENGTH = 1000;
-const METADATA_KEY_CLAUDE_CODE_VERSION = 'mlflow.claude_code_version';
-
-// ============================================================================
-// Content and tool extraction
-// ============================================================================
-
-/**
- * Separate text content from tool_use blocks in an assistant response.
- */
-function extractContentAndTools(
-  content: string | ContentBlock[],
-): [string, Array<{ type: 'tool_use'; id: string; name: string; input: Record<string, unknown> }>] {
-  let textContent = '';
-  const toolUses: Array<{
-    type: 'tool_use';
-    id: string;
-    name: string;
-    input: Record<string, unknown>;
-  }> = [];
-
-  if (!Array.isArray(content)) {
-    return [typeof content === 'string' ? content : '', toolUses];
-  }
-
-  for (const part of content) {
-    if (typeof part !== 'object' || part == null || !('type' in part)) {
-      continue;
-    }
-    if (part.type === 'text' && 'text' in part) {
-      textContent += (part as { type: 'text'; text: string }).text;
-    } else if (part.type === 'tool_use') {
-      toolUses.push(
-        part as { type: 'tool_use'; id: string; name: string; input: Record<string, unknown> },
-      );
-    }
-  }
-
-  return [textContent, toolUses];
-}
 
 // ============================================================================
 // Tool result finding
@@ -203,22 +164,11 @@ function getInputMessages(
 // Token usage
 // ============================================================================
 
-/**
- * Set token usage on a span. Input = input_tokens + cache_creation (cache_read excluded).
- */
 function setTokenUsageAttribute(span: LiveSpan, usage: TokenUsage | undefined): void {
   if (!usage) {
     return;
   }
-
-  const inputTokens = (usage.input_tokens ?? 0) + (usage.cache_creation_input_tokens ?? 0);
-  const outputTokens = usage.output_tokens ?? 0;
-
-  span.setAttribute(SpanAttributeKey.TOKEN_USAGE, {
-    [TokenUsageKey.INPUT_TOKENS]: inputTokens,
-    [TokenUsageKey.OUTPUT_TOKENS]: outputTokens,
-    [TokenUsageKey.TOTAL_TOKENS]: inputTokens + outputTokens,
-  });
+  span.setAttribute(SpanAttributeKey.TOKEN_USAGE, buildUsageDict(usage));
 }
 
 // ============================================================================
@@ -564,13 +514,13 @@ export async function processTranscript(transcriptPath: string, sessionId?: stri
           ...trace.info.traceMetadata,
           [TraceMetadataKey.TRACE_SESSION]: sessionId,
           [TraceMetadataKey.TRACE_USER]: process.env.USER ?? '',
-          'mlflow.trace.working_directory': process.cwd(),
+          [METADATA_KEY_WORKING_DIRECTORY]: process.cwd(),
         };
 
         // Capture permission mode
         const permissionMode = lastUserEntry.permissionMode;
         if (permissionMode) {
-          metadata['mlflow.trace.permission_mode'] = permissionMode;
+          metadata[METADATA_KEY_PERMISSION_MODE] = permissionMode;
         }
 
         // Extract Claude Code version from transcript entries

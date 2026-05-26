@@ -135,6 +135,9 @@ a.md
 # Ignore a gunicorn config file
 gunicorn.conf.py
 
+# Personal Claude Code instructions
+CLAUDE.local.md
+
 # ignore everything in .claude
 .claude/*
 !.claude/commands/

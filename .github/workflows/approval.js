@@ -63,21 +63,28 @@ function hasAnyApproval(reviews) {
 }
 
 module.exports = async ({ github, context, core }) => {
+  const { pull_request: pr } = context.payload;
+  const authorLogin = pr?.user?.login;
+  if (authorLogin === "mlflow-app[bot]") {
+    return;
+  }
+
   const maintainers = await getMaintainers({ github, context });
   const reviews = await github.paginate(github.rest.pulls.listReviews, {
     owner: context.repo.owner,
     repo: context.repo.repo,
     pull_number: context.issue.number,
   });
+  const APPROVED_BOTS = new Set(["mlflow-app[bot]", "nailaopus[bot]"]);
   const maintainerApproved = reviews.some(
     ({ state, user }) =>
       state === "APPROVED" &&
+      // GitHub returns `user: null` on reviews from accounts that have since
+      // been deleted; skip them rather than crashing on `user.login`.
+      user &&
       (maintainers.includes(user.login) ||
-        (user.type.toLowerCase() === "bot" && user.login === "mlflow-app[bot]"))
+        (user.type.toLowerCase() === "bot" && APPROVED_BOTS.has(user.login)))
   );
-
-  const { pull_request: pr } = context.payload;
-  const authorLogin = pr?.user?.login;
 
   const files = await github.paginate(github.rest.pulls.listFiles, {
     owner: context.repo.owner,

@@ -18,6 +18,8 @@ defaults:
     shell: bash
     working-directory: docs
 
+permissions: {}
+
 jobs:
   check-external-links:
     # Only run on the main repository
@@ -31,9 +33,6 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-node
-        with:
-          cache: "npm"
-          cache-dependency-path: docs/package-lock.json
       - name: Install dependencies
         run: |
           npm ci

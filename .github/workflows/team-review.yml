@@ -13,6 +13,8 @@ defaults:
   run:
     shell: bash
 
+permissions: {}
+
 jobs:
   review:
     runs-on: ubuntu-slim

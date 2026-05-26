@@ -17,7 +17,7 @@ import { SelectTracesModal } from '../../../SelectTracesModal';
 import { useCreateSecret } from '../../../../../gateway/hooks/useCreateSecret';
 import { ALL_ISSUE_CATEGORIES, type IssueCategory } from './IssueDetectionCategories';
 import { IssueDetectionCategorySelection } from './IssueDetectionCategorySelection';
-import { IssueDetectionModelSelection, type IssueDetectionModelSelectionRef } from './IssueDetectionModelSelection';
+import { GenAIModelSelection, type GenAIModelSelectionRef } from './GenAIModelSelection';
 import { useInvokeIssueDetection } from './hooks/useInvokeIssueDetection';
 
 interface IssueDetectionModalProps {
@@ -38,7 +38,7 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
   const { theme } = useDesignSystemTheme();
   const navigate = useNavigate();
   const location = useLocation();
-  const modelSelectionRef = useRef<IssueDetectionModelSelectionRef>(null);
+  const modelSelectionRef = useRef<GenAIModelSelectionRef>(null);
 
   const [currentStep, setCurrentStep] = useState<1 | 2>(1);
   const [selectedCategories, setSelectedCategories] = useState<Set<IssueCategory>>(new Set(ALL_ISSUE_CATEGORIES));
@@ -159,7 +159,7 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
   }, [resetForm, resetCreateSecret, resetIssueDetection, onClose]);
 
   const isStep1Valid = selectedCategories.size > 0;
-  const isStep2Valid = isModelSelectionValid;
+  const isStep2Valid = isModelSelectionValid && selectedTraceIds.length > 0;
 
   const handleModelSelectionValidityChange = useCallback((isValid: boolean) => {
     setIsModelSelectionValid(isValid);
@@ -246,12 +246,69 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
             onCategoryToggle={handleCategoryToggle}
           />
         ) : (
-          <IssueDetectionModelSelection
-            ref={modelSelectionRef}
-            selectedTraceIds={selectedTraceIds}
-            onSelectTracesClick={() => setIsSelectTracesModalOpen(true)}
-            onValidityChange={handleModelSelectionValidityChange}
-          />
+          <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.lg }}>
+            <div>
+              <Typography.Text bold>
+                <FormattedMessage defaultMessage="Traces" description="Section header for trace selection" />
+              </Typography.Text>
+              <Typography.Text color="secondary" css={{ display: 'block', marginTop: theme.spacing.xs }}>
+                <FormattedMessage
+                  defaultMessage="Select the traces to analyze for issues"
+                  description="Description for trace selection section"
+                />
+              </Typography.Text>
+              <div css={{ marginTop: theme.spacing.sm }}>
+                <Button
+                  componentId="mlflow.traces.issue-detection-modal.select-traces"
+                  data-testid="select-traces"
+                  onClick={() => setIsSelectTracesModalOpen(true)}
+                >
+                  {selectedTraceIds.length > 0 ? (
+                    <FormattedMessage
+                      defaultMessage="{count, plural, one {1 trace selected} other {# traces selected}}"
+                      description="Label showing number of traces selected"
+                      values={{ count: selectedTraceIds.length }}
+                    />
+                  ) : (
+                    <FormattedMessage
+                      defaultMessage="Select traces"
+                      description="Button to open trace selection modal"
+                    />
+                  )}
+                </Button>
+              </div>
+            </div>
+            <GenAIModelSelection
+              ref={modelSelectionRef}
+              onValidityChange={handleModelSelectionValidityChange}
+              showConfigureDirectly
+              componentId="mlflow.traces.issue-detection-modal"
+              description={
+                <>
+                  <FormattedMessage
+                    defaultMessage="Configure the model to power issue detection."
+                    description="Description for model selection in issue detection modal"
+                  />
+                  <br />
+                  <FormattedMessage
+                    defaultMessage="Rough cost: under $0.5 for ~100 traces, actual cost varies by selected model. <link>See benchmark</link>."
+                    description="Approximate USD cost ranges for issue detection as a hint, with link to benchmark docs"
+                    values={{
+                      link: (chunks: React.ReactNode) => (
+                        <a
+                          href="https://mlflow.org/docs/latest/genai/eval-monitor/ai-insights/detect-issues/#cost-benchmark"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          {chunks}
+                        </a>
+                      ),
+                    }}
+                  />
+                </>
+              }
+            />
+          </div>
         )}
       </Modal>
       {isSelectTracesModalOpen && (

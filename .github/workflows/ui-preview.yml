@@ -27,6 +27,8 @@ defaults:
 env:
   COMMENT_MARKER: "<!-- ui-preview -->"
 
+permissions: {}
+
 jobs:
   notify:
     if: >-
@@ -151,6 +153,7 @@ jobs:
 
   deploy:
     needs: build
+    # Static-IP runner required for IP allowlisting
     runs-on: ubuntu-ui-preview
     permissions:
       pull-requests: write
@@ -277,6 +280,7 @@ jobs:
       github.event_name != 'push'
       && github.event.action == 'closed'
       && contains(github.event.pull_request.labels.*.name, 'ui-preview')
+    # Static-IP runner required for IP allowlisting
     runs-on: ubuntu-ui-preview
     permissions:
       pull-requests: write

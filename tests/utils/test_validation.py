@@ -12,6 +12,7 @@ from mlflow.utils.os import is_windows
 from mlflow.utils.validation import (
     MAX_TAG_VAL_LENGTH,
     _is_numeric,
+    _parse_trace_archival_duration_config,
     _validate_batch_log_data,
     _validate_batch_log_limits,
     _validate_db_type_string,
@@ -106,6 +107,33 @@ BAD_ALIAS_NAMES = [
 )
 def test_path_not_unique(path, expected):
     assert path_not_unique(path) is expected
+
+
+def test_parse_trace_archival_duration_config_archive_now():
+    assert (
+        _parse_trace_archival_duration_config(
+            '{"older_than": " 7d "}',
+            duration_key="older_than",
+            allow_missing_duration=True,
+        )
+        == "7d"
+    )
+
+
+def test_parse_trace_archival_duration_config_experiment_retention():
+    assert (
+        _parse_trace_archival_duration_config(
+            '{"type": "duration", "value": "12h"}',
+            duration_key="value",
+            expected_type="duration",
+        )
+        == "12h"
+    )
+
+
+def test_parse_trace_archival_duration_config_rejects_non_object():
+    with pytest.raises(MlflowException, match="JSON object"):
+        _parse_trace_archival_duration_config('["1d"]', duration_key="value")
 
 
 @pytest.mark.parametrize(

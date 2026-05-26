@@ -74,6 +74,20 @@ def _patch_method(cls, method_name):
         safe_patch(FLAVOR_NAME, cls, method_name, patched_class_call)
 
 
+def _get_tool_manager_module_path() -> str:
+    """Return the importable module path for ToolManager.
+
+    pydantic-ai >= 1.78.0 renamed _tool_manager to tool_manager (public).
+    Try the public path first; fall back to the private one for older versions.
+    """
+    try:
+        import pydantic_ai.tool_manager  # noqa: F401
+
+        return "pydantic_ai.tool_manager"
+    except ImportError:
+        return "pydantic_ai._tool_manager"
+
+
 def _tool_manager_uses_execute_tool_call() -> bool:
     """Return True if ToolManager has execute_tool_call (pydantic-ai >= 1.63.0).
 
@@ -81,10 +95,10 @@ def _tool_manager_uses_execute_tool_call() -> bool:
     tool_manager.execute_tool_call() directly rather than handle_call(), so we
     must patch execute_tool_call to capture the TOOL span.
     """
+    module_path = _get_tool_manager_module_path()
     try:
-        from pydantic_ai._tool_manager import ToolManager
-
-        return hasattr(ToolManager, "execute_tool_call")
+        module = __import__(module_path, fromlist=["ToolManager"])
+        return hasattr(module.ToolManager, "execute_tool_call")
     except ImportError:
         return False
 
@@ -111,6 +125,7 @@ def autolog(log_traces: bool = True, disable: bool = False, silent: bool = False
     except ImportError:
         pass
 
+    tool_manager_path = f"{_get_tool_manager_module_path()}.ToolManager"
     class_map = {
         "pydantic_ai.Agent": agent_methods,
         "pydantic_ai.models.instrumented.InstrumentedModel": [
@@ -120,7 +135,7 @@ def autolog(log_traces: bool = True, disable: bool = False, silent: bool = False
         # In pydantic-ai >= 1.63.0, _agent_graph calls execute_tool_call directly,
         # bypassing handle_call. Patch execute_tool_call when available; fall back to
         # handle_call for older versions where execute_tool_call doesn't exist.
-        "pydantic_ai._tool_manager.ToolManager": ["execute_tool_call"]
+        tool_manager_path: ["execute_tool_call"]
         if _tool_manager_uses_execute_tool_call()
         else ["handle_call"],
         "pydantic_ai.mcp.MCPServer": ["call_tool", "list_tools"],

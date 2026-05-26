@@ -354,9 +354,10 @@ def _get_span_type(instance) -> str:
         return SpanType.TOOL
 
     try:
-        from pydantic_ai._tool_manager import ToolManager
+        from mlflow.pydantic_ai import _get_tool_manager_module_path
 
-        if isinstance(instance, ToolManager):
+        _tm_mod = __import__(_get_tool_manager_module_path(), fromlist=["ToolManager"])
+        if isinstance(instance, _tm_mod.ToolManager):
             return SpanType.TOOL
     except ImportError:
         pass

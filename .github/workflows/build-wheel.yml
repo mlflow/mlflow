@@ -19,6 +19,7 @@ on:
       - ".github/workflows/preview-docs.yml"
       - "mlflow/server/js/**"
       - ".github/workflows/js.yml"
+      - ".claude/**"
   workflow_dispatch:
     inputs:
       ref:
@@ -33,6 +34,8 @@ concurrency:
 defaults:
   run:
     shell: bash
+
+permissions: {}
 
 jobs:
   build:
