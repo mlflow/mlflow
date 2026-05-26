@@ -1,3 +1,5 @@
+import time
+
 import pytest
 
 from mlflow.exceptions import MlflowException
@@ -150,16 +152,26 @@ def test_get_by_id_missing(store):
 
 def test_list_orders_by_created_time_desc(store):
     exp_id = _create_experiments(store, "test_list")
+    # Sleep between creates so created_time values are distinct on fast
+    # backends (SQLite millisecond resolution can collide otherwise).
     s1 = _create_pass_fail_schema(store, exp_id, name="first")
+    time.sleep(0.005)
     s2 = _create_pass_fail_schema(store, exp_id, name="second")
+    time.sleep(0.005)
     s3 = _create_pass_fail_schema(store, exp_id, name="third")
 
     schemas = store.list_label_schemas(exp_id)
-    assert len(schemas) == 3
-    # Most recent first
-    assert schemas[0].name == "third"
-    assert schemas[2].name == "first"
-    _ = s1, s2, s3  # silence unused warning
+    assert [s.name for s in schemas] == ["third", "second", "first"]
+    assert [s.created_at for s in schemas] == sorted(
+        [s1.created_at, s2.created_at, s3.created_at], reverse=True
+    )
+
+
+@pytest.mark.parametrize("bad_max_results", [None, 0, -1, 1_000_000])
+def test_list_rejects_invalid_max_results(store, bad_max_results):
+    exp_id = _create_experiments(store, f"test_list_validate_{bad_max_results}")
+    with pytest.raises(MlflowException, match="max_results"):
+        store.list_label_schemas(exp_id, max_results=bad_max_results)
 
 
 def test_list_pagination(store):
@@ -344,6 +356,14 @@ def test_delete_missing_is_noop(store):
         (
             {"input": InputPassFail(positive_label="a" * 65, negative_label="b")},
             "at most 64",
+        ),
+        (
+            {"input": InputNumeric(min_value="not-a-number", max_value=10)},
+            "must be numeric",
+        ),
+        (
+            {"enable_comment": "yes"},
+            "must be a bool",
         ),
     ],
 )

@@ -1759,7 +1759,7 @@ class AbstractStore(GatewayStoreMixin):
             experiment_id: Parent experiment ID.
             name: Schema name (1-150 chars, alphanumeric + underscore;
                 unique within the experiment).
-            type: Schema type ("feedback" only in v1).
+            type: Schema type (``"feedback"`` or ``"expectation"``).
             title: Display title shown to the SME (1-256 chars).
             input: One of ``InputPassFail`` / ``InputCategorical`` /
                 ``InputNumeric``.

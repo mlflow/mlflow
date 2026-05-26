@@ -7980,7 +7980,12 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         from mlflow.genai.label_schemas.validation import validate_schema_for_create
 
         validate_schema_for_create(
-            name=name, type=type, title=title, input=input, instruction=instruction
+            name=name,
+            type=type,
+            title=title,
+            input=input,
+            instruction=instruction,
+            enable_comment=enable_comment,
         )
 
         with self.ManagedSessionMaker(read_only=False) as session:
@@ -8015,7 +8020,17 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             )
             sql_schema = self._with_workspace_field(SqlLabelSchema.from_mlflow_entity(entity))
             session.add(sql_schema)
-            session.flush()
+            try:
+                session.flush()
+            except IntegrityError as e:
+                # Race: another transaction inserted (experiment_id, name) between
+                # the pre-check and the flush. Surface the expected MLflow error
+                # code instead of the raw SQLAlchemy exception.
+                raise MlflowException(
+                    f"Label schema with name '{name}' already exists for experiment "
+                    f"'{experiment_id}'.",
+                    error_code=RESOURCE_ALREADY_EXISTS,
+                ) from e
             return sql_schema.to_mlflow_entity()
 
     def get_label_schema(self, schema_id):
@@ -8055,6 +8070,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
     def list_label_schemas(self, experiment_id, max_results=100, page_token=None):
         """See :py:meth:`AbstractStore.list_label_schemas`."""
+        self._validate_max_results_param(max_results)
         offset = SearchUtils.parse_start_offset_from_page_token(page_token) if page_token else 0
         with self.ManagedSessionMaker() as session:
             self._validate_experiment_exists(session, experiment_id)
@@ -8178,8 +8194,17 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         from mlflow.genai.label_schemas.label_schemas import LabelSchemaType
         from mlflow.genai.label_schemas.validation import validate_schema_for_create
 
+        # Upsert's `enable_comment=None` sentinel means "keep existing on replace,
+        # default to False on create". The validator only sees a bool, so pass
+        # False during create-path validation and let the create/replace branches
+        # below apply the right semantics.
         validate_schema_for_create(
-            name=name, type=type, title=title, input=input, instruction=instruction
+            name=name,
+            type=type,
+            title=title,
+            input=input,
+            instruction=instruction,
+            enable_comment=enable_comment if enable_comment is not None else False,
         )
         type_str = str(LabelSchemaType(str(type)))
 
@@ -8234,7 +8259,16 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 sql_schema.input_config = input_config
                 sql_schema.last_update_time = now
 
-            session.flush()
+            try:
+                session.flush()
+            except IntegrityError as e:
+                # Race on the create path: another transaction inserted
+                # (experiment_id, name) between our read and the flush.
+                raise MlflowException(
+                    f"Label schema with name '{name}' already exists for experiment "
+                    f"'{experiment_id}'.",
+                    error_code=RESOURCE_ALREADY_EXISTS,
+                ) from e
             return sql_schema.to_mlflow_entity()
 
     def delete_label_schema(self, schema_id):

@@ -171,6 +171,14 @@ def _validate_numeric_input(
 ) -> None:
     from mlflow.genai.label_schemas.label_schemas import LabelSchemaType
 
+    for field_name in ("min_value", "max_value"):
+        value = getattr(input_obj, field_name)
+        if value is not None and not isinstance(value, (int, float)):
+            raise _invalid(
+                f"`InputNumeric.{field_name}` must be numeric or None; "
+                f"got {value.__class__.__name__}."
+            )
+
     if type == LabelSchemaType.FEEDBACK:
         if input_obj.min_value is None or input_obj.max_value is None:
             raise _invalid(
@@ -232,6 +240,15 @@ def _validate_schema_type(type_value) -> "LabelSchemaType":
     )
 
 
+def _validate_enable_comment(enable_comment) -> None:
+    # `bool` is a subclass of `int`, so guard against ints sneaking through.
+    if not isinstance(enable_comment, bool):
+        raise _invalid(
+            f"Label schema `enable_comment` must be a bool; "
+            f"got {enable_comment.__class__.__name__}."
+        )
+
+
 def validate_schema_for_create(
     *,
     name: str,
@@ -239,6 +256,7 @@ def validate_schema_for_create(
     title: str,
     input,
     instruction: str | None = None,
+    enable_comment: bool = False,
 ) -> None:
     """Validate fields supplied to ``create_label_schema`` / ``upsert_label_schema``.
 
@@ -249,6 +267,7 @@ def validate_schema_for_create(
     schema_type = _validate_schema_type(type)
     _validate_title(title)
     _validate_instruction(instruction)
+    _validate_enable_comment(enable_comment)
     _validate_input(input, type=schema_type)
 
 
@@ -275,5 +294,7 @@ def validate_schema_for_update(
         _validate_title(title)
     if instruction is not None:
         _validate_instruction(instruction)
+    if enable_comment is not None:
+        _validate_enable_comment(enable_comment)
     if input is not None:
         _validate_input(input, type=existing.type)
