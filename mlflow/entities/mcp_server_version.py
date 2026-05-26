@@ -15,7 +15,6 @@ class MCPServerVersion:
     display_name: str | None = None
     status: MCPStatus = MCPStatus.DRAFT
     tools: list[MCPTool] | None = None
-    transport_types: list[str] | None = None
     aliases: list[str] = field(default_factory=list)
     tags: dict[str, str] = field(default_factory=dict)
     source: str | None = None
