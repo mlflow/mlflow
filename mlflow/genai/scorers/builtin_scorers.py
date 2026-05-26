@@ -64,6 +64,10 @@ from mlflow.genai.judges.prompts.summarization import (
     SUMMARIZATION_ASSESSMENT_NAME,
     SUMMARIZATION_PROMPT,
 )
+from mlflow.genai.judges.prompts.task_success import (
+    TASK_SUCCESS_ASSESSMENT_NAME,
+    TASK_SUCCESS_PROMPT,
+)
 from mlflow.genai.judges.prompts.tool_call_correctness import (
     TOOL_CALL_CORRECTNESS_PROMPT_INSTRUCTIONS,
 )
@@ -3048,6 +3052,115 @@ class Completeness(BuiltInScorer):
                 description=(
                     "The response from the model, e.g. "
                     "'MLflow is an open-source platform for managing the ML lifecycle.'"
+                ),
+            ),
+        ]
+
+    def __call__(
+        self,
+        *,
+        inputs: dict[str, Any] | None = None,
+        outputs: Any | None = None,
+        trace: Trace | None = None,
+    ) -> Feedback:
+        return self._get_judge()(
+            inputs=inputs,
+            outputs=outputs,
+            trace=trace,
+        )
+
+
+@experimental(version="3.12.0")
+@format_docstring(_MODEL_API_DOC)
+class TaskSuccess(BuiltInScorer):
+    """
+    TaskSuccess evaluates whether an AI assistant completed the task described in the
+    user's request.
+
+    This scorer focuses on task completion — whether the agent actually performed the
+    requested action — rather than factual correctness or response quality. It is
+    complementary to Completeness (which checks if all parts of a question were addressed)
+    and Correctness (which checks factual accuracy against ground truth).
+
+    It does not require ground truth data. It returns "yes" or "no".
+
+    You can invoke the scorer directly with a single input for testing, or pass it to
+    ``mlflow.genai.evaluate`` for running full evaluation on a dataset.
+
+    Args:
+        name: The name of the scorer. Defaults to "task_success".
+        model: {{ model }}
+
+    Example (direct usage):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import TaskSuccess
+
+        assessment = TaskSuccess()(
+            inputs={"request": "Book me a flight to NYC for Saturday"},
+            outputs="I've booked Flight A to NYC departing Saturday morning.",
+        )
+        print(assessment)  # Feedback with value "yes" or "no"
+
+    Example (with evaluate):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import TaskSuccess
+
+        data = [
+            {
+                "inputs": {"request": "Book me a flight to NYC for Saturday"},
+                "outputs": "I've booked Flight A to NYC departing Saturday morning.",
+            },
+        ]
+        result = mlflow.genai.evaluate(data=data, scorers=[TaskSuccess()])
+    """
+
+    name: str = TASK_SUCCESS_ASSESSMENT_NAME
+    model: str | None = None
+    required_columns: set[str] = {"inputs", "outputs"}
+    description: str = (
+        "Evaluate whether the assistant completed the task described in the user's request."
+    )
+    _judge: Judge | None = pydantic.PrivateAttr(default=None)
+
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
+
+    def _get_judge(self) -> Judge:
+        if self._judge is None:
+            self._judge = InstructionsJudge(
+                name=self.name,
+                instructions=self.instructions,
+                model=self.model,
+                description=self.description,
+                feedback_value_type=self.feedback_value_type,
+            )
+        return self._judge
+
+    @property
+    def instructions(self) -> str:
+        return TASK_SUCCESS_PROMPT
+
+    def get_input_fields(self) -> list[JudgeField]:
+        return [
+            JudgeField(
+                name="inputs",
+                description=(
+                    "A dictionary of input data, e.g. "
+                    "{'request': 'Book me a flight to NYC for Saturday'}."
+                ),
+            ),
+            JudgeField(
+                name="outputs",
+                description=(
+                    "The response from the model, e.g. "
+                    "'I have booked Flight A to NYC departing Saturday morning.'"
                 ),
             ),
         ]
