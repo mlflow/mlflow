@@ -98,11 +98,12 @@ def is_telemetry_disabled() -> bool:
     try:
         if _IS_MLFLOW_TESTING_TELEMETRY:
             return False
-        # NB: _IS_IN_DATABRICKS is intentionally NOT a disable signal here. When the
-        # tracking URI is databricks:// or databricks-uc://, telemetry is forwarded
-        # to the workspace's own ingestion endpoint (see TelemetryClient._forward_to_databricks).
-        # The non-Databricks (OSS) ingestion path is separately guarded in
-        # TelemetryClient._process_records so it is never hit from inside DBR.
+        # NB: _IS_IN_DATABRICKS is intentionally NOT a disable signal here. When
+        # the tracking URI is databricks:// or databricks-uc://, telemetry is
+        # forwarded to the workspace's own ingestion endpoint via
+        # TelemetryClient._forward_to_databricks. In Databricks workloads the
+        # tracking URI scheme is always one of _DATABRICKS_SCHEMES, so the OSS
+        # ingestion branch in _process_records is never reached.
         return (
             MLFLOW_DISABLE_TELEMETRY.get()
             or os.environ.get("DO_NOT_TRACK", "false").lower() == "true"
