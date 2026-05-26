@@ -22,6 +22,11 @@ MODEL_CHILD_TABLES = [
 # They must also be migrated explicitly during workspace operations.
 OTHER_WORKSPACE_CHILD_TABLES = [
     "guardrail_configs",
+    "mcp_server_versions",
+    "mcp_server_tags",
+    "mcp_server_version_tags",
+    "mcp_server_aliases",
+    "mcp_access_bindings",
 ]
 
 

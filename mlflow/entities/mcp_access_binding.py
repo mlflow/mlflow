@@ -1,9 +1,13 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 from mlflow.entities.mcp_server import MCPRemoteTransportType
 from mlflow.utils.workspace_utils import resolve_entity_workspace_name
+
+if TYPE_CHECKING:
+    from mlflow.entities.mcp_server_version import MCPServerVersion
 
 
 @dataclass
@@ -14,6 +18,7 @@ class MCPAccessBinding:
     transport_type: MCPRemoteTransportType = MCPRemoteTransportType.STREAMABLE_HTTP
     server_version: str | None = None
     server_alias: str | None = None
+    resolved_version: MCPServerVersion | None = field(default=None, repr=False)
     workspace: str | None = None
     created_by: str | None = None
     last_updated_by: str | None = None
