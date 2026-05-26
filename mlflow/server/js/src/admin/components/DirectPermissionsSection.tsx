@@ -33,6 +33,9 @@ export interface StagedDirectPermission {
 export interface DirectPermissionsSectionProps {
   value: StagedDirectPermission[];
   onChange: (value: StagedDirectPermission[]) => void;
+  /** Forwarded to the picker query so the admin can grant resources in a
+   * workspace other than their session-active one. */
+  workspace?: string;
   disabled?: boolean;
 }
 
@@ -41,7 +44,7 @@ export interface DirectPermissionsSectionProps {
  * appends a row to the parent's list; rows can be removed individually;
  * the parent submits the whole list. Mirrors ``RolePermissionsSection``.
  */
-export const DirectPermissionsSection = ({ value, onChange, disabled }: DirectPermissionsSectionProps) => {
+export const DirectPermissionsSection = ({ value, onChange, workspace, disabled }: DirectPermissionsSectionProps) => {
   const { theme } = useDesignSystemTheme();
   const [draft, setDraft] = useState<DirectPermissionValue>(DIRECT_PERMISSION_DEFAULT);
 
@@ -127,7 +130,7 @@ export const DirectPermissionsSection = ({ value, onChange, disabled }: DirectPe
         }}
       >
         <FieldLabel>Add a permission</FieldLabel>
-        <DirectPermissionForm value={draft} onChange={setDraft} disabled={disabled} />
+        <DirectPermissionForm value={draft} onChange={setDraft} workspace={workspace} disabled={disabled} />
         <div css={{ display: 'flex', justifyContent: 'flex-end' }}>
           <Button componentId="admin.direct_permissions.add" onClick={handleAdd} disabled={!canAdd || disabled}>
             Add
