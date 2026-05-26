@@ -14,7 +14,6 @@ beforeEach(() => {
 // realistic response shapes the component awaits. ``jest.fn()``'s default
 // signature is ``() => never``, which would reject the payload.
 const mockCreateUserMutateAsync = jest.fn<(...args: any[]) => any>();
-const mockGrantPermissionMutateAsync = jest.fn<(...args: any[]) => any>();
 
 jest.mock('../hooks', () => ({
   AdminQueryKeys: {
@@ -25,7 +24,14 @@ jest.mock('../hooks', () => ({
   },
   useCreateUser: () => ({ mutateAsync: mockCreateUserMutateAsync }),
   useCurrentUserIsAdmin: () => true,
-  useGrantUserPermission: () => ({ mutateAsync: mockGrantPermissionMutateAsync }),
+  // ``useGrantUserPermission`` is invoked by the modal even though our tests
+  // never stage a direct permission (and so the ``wantsDirect`` branch in
+  // ``handleSubmit`` is skipped). Inline the stub so we don't carry an
+  // unused captured spy.
+  useGrantUserPermission: () => ({ mutateAsync: jest.fn() }),
+  // ``useResourceOptionsQuery`` is reached by ``DirectPermissionForm`` even
+  // when its parent section is collapsed (``hidden`` keeps it mounted), so
+  // the stub has to exist; only the shape matters.
   useResourceOptionsQuery: () => ({ options: [], isLoading: false, error: null }),
   useRolesQuery: () => ({ data: { roles: [] }, isLoading: false, error: null }),
   useWorkspaceOptions: () => ['default'],
@@ -59,7 +65,6 @@ jest.mock('../api', () => ({
 describe('CreateUserModal — collapsible optional sections', () => {
   beforeEach(() => {
     mockCreateUserMutateAsync.mockReset();
-    mockGrantPermissionMutateAsync.mockReset();
   });
 
   it('renders Role assignment + Direct permissions collapsed and Admin status expanded', () => {
@@ -76,12 +81,15 @@ describe('CreateUserModal — collapsible optional sections', () => {
     expect(screen.queryByRole('button', { name: /Admin status/ })).not.toBeInTheDocument();
   });
 
-  it('submits with the optional sections still collapsed (only username + password required)', async () => {
+  it('submits with the optional sections still collapsed and closes the modal on success', async () => {
     // The whole point of collapsing the optional sections is that the admin
     // shouldn't have to interact with them to create a user. Pin that the
-    // submit path works against the default-collapsed state.
+    // submit path works against the default-collapsed state and that the
+    // modal closes itself on success (the only signal that the happy path
+    // ran end-to-end, since there's no toast / redirect to observe).
     mockCreateUserMutateAsync.mockResolvedValue({ user: { username: 'newbie' } });
-    renderWithDesignSystem(<CreateUserModal open onClose={jest.fn()} />);
+    const onClose = jest.fn();
+    renderWithDesignSystem(<CreateUserModal open onClose={onClose} />);
 
     await userEvent.type(screen.getByPlaceholderText('Enter username'), 'newbie');
     await userEvent.type(screen.getByPlaceholderText('Enter password'), 'hunter2');
@@ -95,5 +103,6 @@ describe('CreateUserModal — collapsible optional sections', () => {
     expect(mockCreateUserMutateAsync).toHaveBeenCalledWith(
       expect.objectContaining({ username: 'newbie', password: 'hunter2' }),
     );
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });
