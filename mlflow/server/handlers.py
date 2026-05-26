@@ -105,6 +105,15 @@ from mlflow.protos.issues_pb2 import (
     UpdateIssue,
 )
 from mlflow.protos.jobs_pb2 import JobStatus
+from mlflow.protos.label_schemas_pb2 import (
+    CreateLabelSchema,
+    DeleteLabelSchema,
+    GetLabelSchema,
+    GetLabelSchemaByName,
+    ListLabelSchemas,
+    UpdateLabelSchema,
+    UpsertLabelSchema,
+)
 from mlflow.protos.mlflow_artifacts_pb2 import (
     AbortMultipartUpload,
     CompleteMultipartUpload,
@@ -4444,6 +4453,165 @@ def _search_issues():
     return _wrap_response(response_message)
 
 
+# =============================================================================
+# Label Schema Handlers (OSS-native CRUD; see mlflow/genai/label_schemas/)
+# =============================================================================
+
+
+def _label_schema_type_from_proto(type_proto):
+    """Coerce a `LabelSchemaType` proto enum value into the Python entity enum.
+
+    The handler explicitly rejects the zero-value UNSPECIFIED because proto2
+    `validate_required` on an optional enum only verifies HasField, not value
+    validity.
+    """
+    from mlflow.genai.label_schemas.label_schemas import LabelSchemaType
+
+    return LabelSchemaType.from_proto(type_proto)
+
+
+def _label_schema_input_from_proto(input_proto):
+    """Unwrap a `LabelSchemaInput` oneof, raising if no variant is set."""
+    from mlflow.genai.label_schemas.label_schemas import _input_from_proto
+
+    return _input_from_proto(input_proto)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _create_label_schema():
+    request_message = _get_request_message(
+        CreateLabelSchema(),
+        schema={
+            "experiment_id": [_assert_required, _assert_string],
+            "name": [_assert_required, _assert_string],
+            "title": [_assert_required, _assert_string],
+        },
+    )
+    schema_type = _label_schema_type_from_proto(request_message.type)
+    input_obj = _label_schema_input_from_proto(request_message.input)
+    created = _get_tracking_store().create_label_schema(
+        experiment_id=request_message.experiment_id,
+        name=request_message.name,
+        type=schema_type,
+        title=request_message.title,
+        input=input_obj,
+        instruction=request_message.instruction
+        if request_message.HasField("instruction")
+        else None,
+        enable_comment=request_message.enable_comment,
+    )
+    return _wrap_response(CreateLabelSchema.Response(label_schema=created.to_proto()))
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _get_label_schema():
+    request_message = _get_request_message(
+        GetLabelSchema(),
+        schema={"schema_id": [_assert_required, _assert_string]},
+    )
+    schema = _get_tracking_store().get_label_schema(request_message.schema_id)
+    return _wrap_response(GetLabelSchema.Response(label_schema=schema.to_proto()))
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _get_label_schema_by_name():
+    request_message = _get_request_message(
+        GetLabelSchemaByName(),
+        schema={
+            "experiment_id": [_assert_required, _assert_string],
+            "name": [_assert_required, _assert_string],
+        },
+    )
+    schema = _get_tracking_store().get_label_schema_by_name(
+        request_message.experiment_id, request_message.name
+    )
+    return _wrap_response(GetLabelSchemaByName.Response(label_schema=schema.to_proto()))
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _list_label_schemas():
+    request_message = _get_request_message(
+        ListLabelSchemas(),
+        schema={"experiment_id": [_assert_required, _assert_string]},
+    )
+    max_results = request_message.max_results if request_message.HasField("max_results") else 100
+    page_token = request_message.page_token if request_message.HasField("page_token") else None
+    schemas = _get_tracking_store().list_label_schemas(
+        request_message.experiment_id, max_results=max_results, page_token=page_token
+    )
+    response = ListLabelSchemas.Response(
+        label_schemas=[s.to_proto() for s in schemas],
+        next_page_token=schemas.token or "",
+    )
+    return _wrap_response(response)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _update_label_schema():
+    request_message = _get_request_message(
+        UpdateLabelSchema(),
+        schema={"schema_id": [_assert_required, _assert_string]},
+    )
+    kwargs: dict[str, object] = {}
+    if request_message.HasField("name"):
+        kwargs["name"] = request_message.name
+    if request_message.HasField("title"):
+        kwargs["title"] = request_message.title
+    if request_message.HasField("instruction"):
+        kwargs["instruction"] = request_message.instruction
+    if request_message.HasField("enable_comment"):
+        kwargs["enable_comment"] = request_message.enable_comment
+    if request_message.HasField("input"):
+        kwargs["input"] = _label_schema_input_from_proto(request_message.input)
+    updated = _get_tracking_store().update_label_schema(request_message.schema_id, **kwargs)
+    return _wrap_response(UpdateLabelSchema.Response(label_schema=updated.to_proto()))
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _upsert_label_schema():
+    request_message = _get_request_message(
+        UpsertLabelSchema(),
+        schema={
+            "experiment_id": [_assert_required, _assert_string],
+            "name": [_assert_required, _assert_string],
+            "title": [_assert_required, _assert_string],
+        },
+    )
+    schema_type = _label_schema_type_from_proto(request_message.type)
+    input_obj = _label_schema_input_from_proto(request_message.input)
+    kwargs: dict[str, object] = {}
+    if request_message.HasField("instruction"):
+        kwargs["instruction"] = request_message.instruction
+    if request_message.HasField("enable_comment"):
+        kwargs["enable_comment"] = request_message.enable_comment
+    upserted = _get_tracking_store().upsert_label_schema(
+        experiment_id=request_message.experiment_id,
+        name=request_message.name,
+        type=schema_type,
+        title=request_message.title,
+        input=input_obj,
+        **kwargs,
+    )
+    return _wrap_response(UpsertLabelSchema.Response(label_schema=upserted.to_proto()))
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _delete_label_schema():
+    request_message = _get_request_message(
+        DeleteLabelSchema(),
+        schema={"schema_id": [_assert_required, _assert_string]},
+    )
+    _get_tracking_store().delete_label_schema(request_message.schema_id)
+    return _wrap_response(DeleteLabelSchema.Response())
+
+
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _invoke_issue_detection_handler():
@@ -7212,6 +7380,14 @@ HANDLERS = {
     UpdateIssue: _update_issue,
     GetIssue: _get_issue,
     SearchIssues: _search_issues,
+    # Label Schema APIs (OSS-native)
+    CreateLabelSchema: _create_label_schema,
+    GetLabelSchema: _get_label_schema,
+    GetLabelSchemaByName: _get_label_schema_by_name,
+    ListLabelSchemas: _list_label_schemas,
+    UpdateLabelSchema: _update_label_schema,
+    UpsertLabelSchema: _upsert_label_schema,
+    DeleteLabelSchema: _delete_label_schema,
     # Legacy MLflow Tracing V2 APIs. Kept for backward compatibility but do not use.
     StartTrace: _deprecated_start_trace_v2,
     EndTrace: _deprecated_end_trace_v2,

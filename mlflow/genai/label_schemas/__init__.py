@@ -19,6 +19,8 @@ from mlflow.genai.label_schemas.label_schemas import (
     LabelSchemaType,
 )
 from mlflow.genai.labeling import ReviewApp
+from mlflow.store.entities.paged_list import PagedList
+from mlflow.tracing.client import TracingClient
 
 if TYPE_CHECKING:
     from databricks.agents.review_app import ReviewApp
@@ -26,6 +28,8 @@ if TYPE_CHECKING:
 EXPECTED_FACTS = "expected_facts"
 GUIDELINES = "guidelines"
 EXPECTED_RESPONSE = "expected_response"
+
+_OSS_SCHEMA_INPUT = InputPassFail | InputCategorical | InputNumeric
 
 
 def create_label_schema(
@@ -117,6 +121,112 @@ def delete_label_schema(name: str):
         return None
 
 
+def create_experiment_label_schema(
+    experiment_id: str,
+    *,
+    name: str,
+    type: Literal["feedback", "expectation"],
+    title: str,
+    input: _OSS_SCHEMA_INPUT,
+    instruction: str | None = None,
+    enable_comment: bool = False,
+) -> LabelSchema:
+    """Create a new label schema scoped to an OSS experiment.
+
+    Unlike :func:`create_label_schema` (Databricks-routed, identified by
+    name within a ReviewApp), OSS-native schemas are identified by
+    ``(experiment_id, name)``. The server generates a ``schema_id``
+    returned on the response. Use :func:`upsert_experiment_label_schema`
+    for create-or-replace semantics.
+    """
+    return TracingClient()._create_label_schema(
+        experiment_id=experiment_id,
+        name=name,
+        type=type,
+        title=title,
+        input=input,
+        instruction=instruction,
+        enable_comment=enable_comment,
+    )
+
+
+def get_experiment_label_schema(schema_id: str) -> LabelSchema:
+    """Get an OSS-native label schema by its server-generated ``schema_id``."""
+    return TracingClient()._get_label_schema(schema_id)
+
+
+def get_experiment_label_schema_by_name(experiment_id: str, name: str) -> LabelSchema:
+    """Get an OSS-native label schema by ``(experiment_id, name)``."""
+    return TracingClient()._get_label_schema_by_name(experiment_id, name)
+
+
+def list_experiment_label_schemas(
+    experiment_id: str, max_results: int = 100, page_token: str | None = None
+) -> PagedList[LabelSchema]:
+    """List OSS-native label schemas for an experiment, paginated."""
+    return TracingClient()._list_label_schemas(
+        experiment_id, max_results=max_results, page_token=page_token
+    )
+
+
+def update_experiment_label_schema(
+    schema_id: str,
+    *,
+    name: str | None = None,
+    title: str | None = None,
+    instruction: str | None = None,
+    enable_comment: bool | None = None,
+    input: _OSS_SCHEMA_INPUT | None = None,
+) -> LabelSchema:
+    """Sparse-update an OSS-native label schema.
+
+    ``type`` is immutable and not accepted. Fields left as ``None`` are
+    unchanged on the server. ``enable_comment=None`` is treated as
+    "unchanged"; pass ``True`` or ``False`` to set.
+    """
+    return TracingClient()._update_label_schema(
+        schema_id,
+        name=name,
+        title=title,
+        instruction=instruction,
+        enable_comment=enable_comment,
+        input=input,
+    )
+
+
+def upsert_experiment_label_schema(
+    experiment_id: str,
+    *,
+    name: str,
+    type: Literal["feedback", "expectation"],
+    title: str,
+    input: _OSS_SCHEMA_INPUT,
+    instruction: str | None = None,
+    enable_comment: bool | None = None,
+) -> LabelSchema:
+    """Atomically create-or-replace an OSS-native label schema.
+
+    Identity is ``(experiment_id, name)``. ``type`` is immutable on
+    replace; a type mismatch with the existing row is rejected.
+    Omitting ``enable_comment`` preserves the existing value on replace
+    (and defaults to ``False`` on create).
+    """
+    return TracingClient()._upsert_label_schema(
+        experiment_id=experiment_id,
+        name=name,
+        type=type,
+        title=title,
+        input=input,
+        instruction=instruction,
+        enable_comment=enable_comment,
+    )
+
+
+def delete_experiment_label_schema(schema_id: str) -> None:
+    """Delete an OSS-native label schema. No-op when the schema doesn't exist."""
+    TracingClient()._delete_label_schema(schema_id)
+
+
 __all__ = [
     "EXPECTED_FACTS",
     "GUIDELINES",
@@ -132,4 +242,12 @@ __all__ = [
     "create_label_schema",
     "get_label_schema",
     "delete_label_schema",
+    # OSS-native CRUD (experiment-scoped, server-generated schema_id)
+    "create_experiment_label_schema",
+    "get_experiment_label_schema",
+    "get_experiment_label_schema_by_name",
+    "list_experiment_label_schemas",
+    "update_experiment_label_schema",
+    "upsert_experiment_label_schema",
+    "delete_experiment_label_schema",
 ]

@@ -3,7 +3,10 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal, TypeVar
 
+from mlflow.exceptions import MlflowException
 from mlflow.genai.utils.enum_utils import StrEnum
+from mlflow.protos import label_schemas_pb2 as _ls_pb
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
 if TYPE_CHECKING:
     from databricks.agents.review_app import label_schemas as _label_schemas
@@ -17,6 +20,14 @@ if TYPE_CHECKING:
 
 DatabricksInputType = TypeVar("DatabricksInputType")
 _InputType = TypeVar("_InputType", bound="InputType")
+
+# Proto-string mappings for the polarity enum. Kept symmetric with the
+# generated enum names so adding a new variant only requires one update here.
+_POLARITY_TO_PROTO: dict[str, int] = {
+    "ascending": _ls_pb.ASCENDING,
+    "descending": _ls_pb.DESCENDING,
+}
+_POLARITY_FROM_PROTO: dict[int, str] = {v: k for k, v in _POLARITY_TO_PROTO.items()}
 
 
 class InputType(ABC):
@@ -82,6 +93,25 @@ class InputCategorical(InputType):
     def _from_databricks_input(cls, input_obj: "_InputCategorical") -> "InputCategorical":
         """Create from the internal Databricks input type."""
         return cls(options=input_obj.options)
+
+    def to_proto(self) -> _ls_pb.InputCategorical:
+        proto = _ls_pb.InputCategorical(options=list(self.options), multi_select=self.multi_select)
+        if self.semantic_polarity is not None:
+            proto.semantic_polarity = _POLARITY_TO_PROTO[self.semantic_polarity]
+        return proto
+
+    @classmethod
+    def from_proto(cls, proto: _ls_pb.InputCategorical) -> "InputCategorical":
+        semantic_polarity: Literal["ascending", "descending"] | None = None
+        if proto.HasField("semantic_polarity") and proto.semantic_polarity != (
+            _ls_pb.CATEGORICAL_SEMANTIC_POLARITY_UNSPECIFIED
+        ):
+            semantic_polarity = _POLARITY_FROM_PROTO[proto.semantic_polarity]
+        return cls(
+            options=list(proto.options),
+            semantic_polarity=semantic_polarity,
+            multi_select=proto.multi_select,
+        )
 
 
 @dataclass
@@ -187,6 +217,21 @@ class InputNumeric(InputType):
         """Create from the internal Databricks input type."""
         return cls(min_value=input_obj.min_value, max_value=input_obj.max_value)
 
+    def to_proto(self) -> _ls_pb.InputNumeric:
+        proto = _ls_pb.InputNumeric()
+        if self.min_value is not None:
+            proto.min_value = self.min_value
+        if self.max_value is not None:
+            proto.max_value = self.max_value
+        return proto
+
+    @classmethod
+    def from_proto(cls, proto: _ls_pb.InputNumeric) -> "InputNumeric":
+        return cls(
+            min_value=proto.min_value if proto.HasField("min_value") else None,
+            max_value=proto.max_value if proto.HasField("max_value") else None,
+        )
+
 
 @dataclass
 class InputPassFail(InputType):
@@ -228,12 +273,38 @@ class InputPassFail(InputType):
             "use InputCategorical."
         )
 
+    def to_proto(self) -> _ls_pb.InputPassFail:
+        return _ls_pb.InputPassFail(
+            positive_label=self.positive_label, negative_label=self.negative_label
+        )
+
+    @classmethod
+    def from_proto(cls, proto: _ls_pb.InputPassFail) -> "InputPassFail":
+        return cls(positive_label=proto.positive_label, negative_label=proto.negative_label)
+
 
 class LabelSchemaType(StrEnum):
     """Type of label schema."""
 
     FEEDBACK = "feedback"
     EXPECTATION = "expectation"
+
+    def to_proto(self) -> int:
+        if self is LabelSchemaType.FEEDBACK:
+            return _ls_pb.FEEDBACK
+        return _ls_pb.EXPECTATION
+
+    @classmethod
+    def from_proto(cls, proto: int) -> "LabelSchemaType":
+        if proto == _ls_pb.FEEDBACK:
+            return cls.FEEDBACK
+        if proto == _ls_pb.EXPECTATION:
+            return cls.EXPECTATION
+        raise MlflowException(
+            f"Label schema `type` must be one of FEEDBACK or EXPECTATION; "
+            f"got proto enum value {proto}.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
 
 
 @dataclass(frozen=True)
@@ -322,3 +393,89 @@ class LabelSchema:
             instruction=schema.instruction,
             enable_comment=schema.enable_comment,
         )
+
+    def to_proto(self) -> _ls_pb.LabelSchema:
+        """Convert the OSS-side fields of this LabelSchema to the proto wire form.
+
+        Databricks-only input variants (InputText/InputTextList/InputCategoricalList)
+        are not representable on the proto and will raise; this method is intended
+        for OSS-native schemas only.
+        """
+        proto = _ls_pb.LabelSchema(
+            name=self.name,
+            type=self.type.to_proto(),
+            title=self.title,
+            enable_comment=self.enable_comment,
+            input=_input_to_proto(self.input),
+        )
+        if self.schema_id is not None:
+            proto.schema_id = self.schema_id
+        if self.experiment_id is not None:
+            proto.experiment_id = self.experiment_id
+        if self.instruction is not None:
+            proto.instruction = self.instruction
+        if self.created_by is not None:
+            proto.created_by = self.created_by
+        if self.created_at is not None:
+            proto.created_at = self.created_at
+        if self.updated_at is not None:
+            proto.last_updated_at = self.updated_at
+        return proto
+
+    @classmethod
+    def from_proto(cls, proto: _ls_pb.LabelSchema) -> "LabelSchema":
+        return cls(
+            name=proto.name,
+            type=LabelSchemaType.from_proto(proto.type),
+            title=proto.title,
+            input=_input_from_proto(proto.input),
+            instruction=proto.instruction if proto.HasField("instruction") else None,
+            enable_comment=proto.enable_comment,
+            schema_id=proto.schema_id if proto.HasField("schema_id") else None,
+            experiment_id=proto.experiment_id if proto.HasField("experiment_id") else None,
+            created_by=proto.created_by if proto.HasField("created_by") else None,
+            created_at=proto.created_at if proto.HasField("created_at") else None,
+            updated_at=proto.last_updated_at if proto.HasField("last_updated_at") else None,
+        )
+
+
+def _input_to_proto(input_obj) -> _ls_pb.LabelSchemaInput:
+    """Wrap an OSS-supported input dataclass in a LabelSchemaInput oneof.
+
+    Raises:
+        MlflowException: if `input_obj` is a Databricks-only type
+            (InputText / InputTextList / InputCategoricalList). These have no
+            wire representation; the OSS server rejects them at validate time.
+    """
+    if isinstance(input_obj, InputPassFail):
+        return _ls_pb.LabelSchemaInput(pass_fail=input_obj.to_proto())
+    if isinstance(input_obj, InputCategorical):
+        return _ls_pb.LabelSchemaInput(categorical=input_obj.to_proto())
+    if isinstance(input_obj, InputNumeric):
+        return _ls_pb.LabelSchemaInput(numeric=input_obj.to_proto())
+    raise MlflowException(
+        f"Label schema input of type {input_obj.__class__.__name__!r} cannot be "
+        "serialized to proto. Supported types are InputPassFail, InputCategorical, "
+        "InputNumeric.",
+        error_code=INVALID_PARAMETER_VALUE,
+    )
+
+
+def _input_from_proto(proto: _ls_pb.LabelSchemaInput):
+    """Unwrap a LabelSchemaInput oneof to the matching input dataclass.
+
+    Raises:
+        MlflowException: if no oneof variant is set.
+    """
+    variant = proto.WhichOneof("input")
+    if variant == "pass_fail":
+        return InputPassFail.from_proto(proto.pass_fail)
+    if variant == "categorical":
+        return InputCategorical.from_proto(proto.categorical)
+    if variant == "numeric":
+        return InputNumeric.from_proto(proto.numeric)
+    raise MlflowException(
+        "Label schema `input` must have exactly one of `pass_fail`, `categorical`, "
+        "or `numeric` set; got an empty oneof.",
+        error_code=INVALID_PARAMETER_VALUE,
+    )

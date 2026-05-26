@@ -879,3 +879,80 @@ class TracingClient:
             The Issue entity.
         """
         return self.store.get_issue(issue_id)
+
+    # ----- Label schemas (OSS-native CRUD) -----
+
+    def _create_label_schema(
+        self,
+        experiment_id,
+        *,
+        name,
+        type,
+        title,
+        input,
+        instruction=None,
+        enable_comment=False,
+    ):
+        return self.store.create_label_schema(
+            experiment_id=experiment_id,
+            name=name,
+            type=type,
+            title=title,
+            input=input,
+            instruction=instruction,
+            enable_comment=enable_comment,
+        )
+
+    def _get_label_schema(self, schema_id):
+        return self.store.get_label_schema(schema_id)
+
+    def _get_label_schema_by_name(self, experiment_id, name):
+        return self.store.get_label_schema_by_name(experiment_id, name)
+
+    def _list_label_schemas(self, experiment_id, max_results=100, page_token=None):
+        return self.store.list_label_schemas(
+            experiment_id, max_results=max_results, page_token=page_token
+        )
+
+    def _update_label_schema(
+        self,
+        schema_id,
+        *,
+        name=None,
+        title=None,
+        instruction=None,
+        enable_comment=None,
+        input=None,
+    ):
+        return self.store.update_label_schema(
+            schema_id,
+            name=name,
+            title=title,
+            instruction=instruction,
+            enable_comment=enable_comment,
+            input=input,
+        )
+
+    def _upsert_label_schema(
+        self,
+        experiment_id,
+        *,
+        name,
+        type,
+        title,
+        input,
+        instruction=None,
+        enable_comment=None,
+    ):
+        return self.store.upsert_label_schema(
+            experiment_id=experiment_id,
+            name=name,
+            type=type,
+            title=title,
+            input=input,
+            instruction=instruction,
+            enable_comment=enable_comment,
+        )
+
+    def _delete_label_schema(self, schema_id):
+        return self.store.delete_label_schema(schema_id)
