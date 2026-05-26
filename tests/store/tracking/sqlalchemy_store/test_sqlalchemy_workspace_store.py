@@ -144,6 +144,9 @@ def test_experiments_are_workspace_scoped(workspace_tracking_store):
         exp_a = workspace_tracking_store.get_experiment(exp_a_id)
         assert exp_a.name == "exp-in-a"
         assert exp_a.workspace == "team-a"
+        exp_a_proto = exp_a.to_proto()
+        assert exp_a_proto.HasField("workspace")
+        assert exp_a_proto.workspace == "team-a"
 
         experiments = workspace_tracking_store.search_experiments(ViewType.ACTIVE_ONLY)
         assert {exp.name for exp in experiments} == {"exp-in-a", "shared-name"}
