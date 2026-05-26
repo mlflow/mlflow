@@ -28,6 +28,40 @@ describe('LongFormSection — collapsible mode', () => {
     expect(screen.getByRole('button', { name: /Permissions/ })).toHaveAttribute('aria-expanded', 'false');
   });
 
+  it('wires up the disclosure-widget ARIA relationship + ``inert`` when collapsed', () => {
+    // ARIA: ``aria-controls`` on the toggle button must point at the content
+    // region's ``id`` so screen readers announce what the toggle expands.
+    // ``inert`` on the collapsed wrapper is a belt-and-suspenders guarantee:
+    // ``hidden`` alone can be overridden by CSS resets, but ``inert``
+    // removes the subtree from tab order regardless.
+    const { container } = renderWithDesignSystem(
+      <LongFormSection title="Permissions" collapsible defaultCollapsed>
+        <button type="button">deep button</button>
+      </LongFormSection>,
+    );
+    const toggle = screen.getByRole('button', { name: /Permissions/ });
+    const controlsId = toggle.getAttribute('aria-controls');
+    expect(controlsId).toBeTruthy();
+    const region = container.querySelector(`#${controlsId}`);
+    expect(region).not.toBeNull();
+    expect(region).toHaveAttribute('hidden');
+    expect(region).toHaveAttribute('inert');
+  });
+
+  it('drops ``inert`` when expanded so inner controls are focusable again', async () => {
+    renderWithDesignSystem(
+      <LongFormSection title="Permissions" collapsible defaultCollapsed>
+        <button type="button">deep button</button>
+      </LongFormSection>,
+    );
+    const toggle = screen.getByRole('button', { name: /Permissions/ });
+    await userEvent.click(toggle);
+    const controlsId = toggle.getAttribute('aria-controls')!;
+    const region = document.getElementById(controlsId)!;
+    expect(region).not.toHaveAttribute('hidden');
+    expect(region).not.toHaveAttribute('inert');
+  });
+
   it('toggles visibility on title click when collapsible', async () => {
     renderWithDesignSystem(
       <LongFormSection title="Permissions" collapsible defaultCollapsed>
