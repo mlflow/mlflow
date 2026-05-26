@@ -1,0 +1,96 @@
+import { describe, it, expect, jest, beforeEach } from '@jest/globals';
+import userEventGlobal from '@testing-library/user-event';
+import React from 'react';
+import { renderWithDesignSystem, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
+
+import { CreateUserModal } from './CreateUserModal';
+
+let userEvent: ReturnType<typeof userEventGlobal.setup>;
+beforeEach(() => {
+  userEvent = userEventGlobal.setup();
+});
+
+const mockCreateUserMutateAsync = jest.fn();
+const mockGrantPermissionMutateAsync = jest.fn();
+
+jest.mock('../hooks', () => ({
+  AdminQueryKeys: {
+    users: ['admin_users'],
+    roles: ['admin_roles'],
+    roleUsers: (roleId: number) => ['admin_role_users', roleId],
+    resourceOptions: (resourceType: string) => ['admin_resource_options', resourceType],
+  },
+  useCreateUser: () => ({ mutateAsync: mockCreateUserMutateAsync }),
+  useCurrentUserIsAdmin: () => true,
+  useGrantUserPermission: () => ({ mutateAsync: mockGrantPermissionMutateAsync }),
+  useResourceOptionsQuery: () => ({ options: [], isLoading: false, error: null }),
+  useRolesQuery: () => ({ data: { roles: [] }, isLoading: false, error: null }),
+  useWorkspaceOptions: () => ['default'],
+}));
+
+jest.mock('../../workspaces/utils/WorkspaceUtils', () => ({
+  useActiveWorkspace: () => 'default',
+}));
+
+jest.mock('../../workspaces/hooks/useWorkspaces', () => ({
+  useWorkspaces: () => ({ workspaces: [{ name: 'default' }], isLoading: false }),
+}));
+
+jest.mock('../../experiment-tracking/hooks/useServerInfo', () => ({
+  useWorkspacesEnabled: () => ({ workspacesEnabled: false }),
+}));
+
+jest.mock('@mlflow/mlflow/src/common/utils/reactQueryHooks', () => ({
+  useQueryClient: () => ({ invalidateQueries: jest.fn() }),
+}));
+
+// The submit path also reaches AdminApi directly; stub the methods we touch
+// so a click submit doesn't end up making real network calls.
+jest.mock('../api', () => ({
+  AdminApi: {
+    assignRole: jest.fn(),
+    updateAdmin: jest.fn(),
+  },
+}));
+
+describe('CreateUserModal — collapsible optional sections', () => {
+  beforeEach(() => {
+    mockCreateUserMutateAsync.mockReset();
+    mockGrantPermissionMutateAsync.mockReset();
+  });
+
+  it('renders Role assignment + Direct permissions collapsed and Admin status expanded', () => {
+    // Locks the rationale documented next to ``Admin status`` in the modal:
+    // multi-field optional sections collapse for density; a single-Switch
+    // section stays open because hiding a one-liner behind a click is just
+    // extra friction.
+    renderWithDesignSystem(<CreateUserModal open onClose={jest.fn()} />);
+    expect(screen.getByRole('button', { name: /Role assignment/ })).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByRole('button', { name: /Direct permissions/ })).toHaveAttribute('aria-expanded', 'false');
+    // ``Admin status`` is rendered (the admin mock returns true) but is not
+    // collapsible, so it must not surface a toggle button.
+    expect(screen.getByText('Admin status')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Admin status/ })).not.toBeInTheDocument();
+  });
+
+  it('submits with the optional sections still collapsed (only username + password required)', async () => {
+    // The whole point of collapsing the optional sections is that the admin
+    // shouldn't have to interact with them to create a user. Pin that the
+    // submit path works against the default-collapsed state.
+    mockCreateUserMutateAsync.mockResolvedValue({ user: { username: 'newbie' } });
+    renderWithDesignSystem(<CreateUserModal open onClose={jest.fn()} />);
+
+    await userEvent.type(screen.getByPlaceholderText('Enter username'), 'newbie');
+    await userEvent.type(screen.getByPlaceholderText('Enter password'), 'hunter2');
+    // Sanity-check we're still in the default-collapsed state before submit
+    // — otherwise the test isn't really exercising what we claim.
+    expect(screen.getByRole('button', { name: /Role assignment/ })).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByRole('button', { name: /Direct permissions/ })).toHaveAttribute('aria-expanded', 'false');
+
+    await userEvent.click(screen.getByRole('button', { name: /^Create user$/ }));
+
+    expect(mockCreateUserMutateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({ username: 'newbie', password: 'hunter2' }),
+    );
+  });
+});

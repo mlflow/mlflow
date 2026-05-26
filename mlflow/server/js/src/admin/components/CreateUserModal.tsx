@@ -299,6 +299,9 @@ export const CreateUserModal = ({ open, onClose }: CreateUserModalProps) => {
         />
       </LongFormSection>
       {isCurrentUserAdmin && (
+        // Intentionally not ``collapsible``: ``Admin status`` is a single
+        // Switch row, so hiding it behind a toggle adds an extra click for
+        // no real density win (vs. the multi-field sections above).
         <LongFormSection title="Admin status" hideDivider>
           <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.sm }}>
             Admins can manage all users, roles, and workspaces.
