@@ -26,10 +26,19 @@ jest.mock('../hooks', () => ({
     isLoading: false,
     error: null,
   }),
+  useWorkspaceOptions: () => [],
 }));
 
 jest.mock('../../workspaces/utils/WorkspaceUtils', () => ({
   useActiveWorkspace: () => null,
+}));
+
+jest.mock('../../workspaces/hooks/useWorkspaces', () => ({
+  useWorkspaces: () => ({ workspaces: [], isLoading: false }),
+}));
+
+jest.mock('../../experiment-tracking/hooks/useServerInfo', () => ({
+  useWorkspacesEnabled: () => ({ workspacesEnabled: false }),
 }));
 
 jest.mock('@mlflow/mlflow/src/common/utils/reactQueryHooks', () => ({
