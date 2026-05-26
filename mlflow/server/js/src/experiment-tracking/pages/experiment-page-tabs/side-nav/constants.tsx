@@ -221,22 +221,37 @@ export const useExperimentPageSideNavConfig = ({
           : []),
       ],
       ...ExperimentPageSideNavGenAIConfig,
-      evaluation: enableScorersUI()
-        ? [
-            {
-              label: (
-                <FormattedMessage
-                  defaultMessage="Judges"
-                  description="Label for the judges tab in the MLflow experiment navbar"
-                />
-              ),
-              icon: <GavelIcon />,
-              tabName: ExperimentPageTabName.Judges,
-              componentId: 'mlflow.experiment-side-nav.genai.judges',
-            },
-            ...ExperimentPageSideNavGenAIConfig.evaluation,
-          ]
-        : ExperimentPageSideNavGenAIConfig.evaluation,
+      evaluation: [
+        ...(enableScorersUI()
+          ? [
+              {
+                label: (
+                  <FormattedMessage
+                    defaultMessage="Judges"
+                    description="Label for the judges tab in the MLflow experiment navbar"
+                  />
+                ),
+                icon: <GavelIcon />,
+                tabName: ExperimentPageTabName.Judges,
+                componentId: 'mlflow.experiment-side-nav.genai.judges',
+              },
+            ]
+          : []),
+        // Labeling schemas is OSS-native and not gated by the Judges
+        // feature flag; it ships on by default for GenAI experiments.
+        {
+          label: (
+            <FormattedMessage
+              defaultMessage="Labeling schemas"
+              description="Label for the labeling schemas tab in the MLflow experiment navbar"
+            />
+          ),
+          icon: <TextBoxIcon />,
+          tabName: ExperimentPageTabName.LabelingSchemas,
+          componentId: 'mlflow.experiment-side-nav.genai.label-schemas',
+        },
+        ...ExperimentPageSideNavGenAIConfig.evaluation,
+      ],
     };
 
     return baseConfig;

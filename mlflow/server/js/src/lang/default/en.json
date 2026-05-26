@@ -603,6 +603,10 @@
     "defaultMessage": "True",
     "description": "True assessment label"
   },
+  "1UwV8h": {
+    "defaultMessage": "Feedback-type categorical schemas require a polarity.",
+    "description": "Categorical feedback-type hint"
+  },
   "1VD7Gl": {
     "defaultMessage": "Create judge",
     "description": "Create judge button text"
@@ -658,6 +662,14 @@
   "1oofcq": {
     "defaultMessage": "Show less",
     "description": "Link that collapses an expanded list when clicked"
+  },
+  "1r9zp1": {
+    "defaultMessage": "Failed to save: {message}",
+    "description": "Schema save error"
+  },
+  "1umowE": {
+    "defaultMessage": "Edit label schema",
+    "description": "Edit label schema modal title"
   },
   "1uyr/n": {
     "defaultMessage": "View {count} {count, plural, one {issue} other {issues}}",
@@ -963,6 +975,10 @@
     "defaultMessage": "Set up MLflow AI Gateway",
     "description": "AI Gateway setup guide > Main title"
   },
+  "3lajvL": {
+    "defaultMessage": "Type",
+    "description": "Label schema type input"
+  },
   "3n8Eue": {
     "defaultMessage": "Enter a model name not listed above. Capabilities may not be detected.",
     "description": "Help text for custom model input"
@@ -1235,6 +1251,10 @@
     "defaultMessage": "Select an endpoint to view usage metrics",
     "description": "No endpoint selected message"
   },
+  "5Uft04": {
+    "defaultMessage": "Feedback schemas are bounded (pass/fail, options, or min/max); expectation schemas store ground-truth labels. Type is immutable after create.",
+    "description": "Label schema type hint"
+  },
   "5UrahG": {
     "defaultMessage": "Viewing version {version}",
     "description": "Title of the prompt details page for a given version"
@@ -1347,6 +1367,10 @@
     "defaultMessage": "Search for a field",
     "description": "Placeholder for search input in schema table"
   },
+  "6Fwiif": {
+    "defaultMessage": "Edit",
+    "description": "Edit label schema button"
+  },
   "6HjFD0": {
     "defaultMessage": "Key name",
     "description": "API key name column header"
@@ -1386,6 +1410,10 @@
   "6UqPlE": {
     "defaultMessage": "No parameters recorded",
     "description": "Run page > Overview > Parameters table > No parameters recorded"
+  },
+  "6WFT9R": {
+    "defaultMessage": "Create a schema to define how SMEs label traces in the review UI: pass/fail, categorical, or numeric.",
+    "description": "Label schemas empty state description"
   },
   "6WQ9yl": {
     "defaultMessage": "Unable to load experiment judges",
@@ -1758,6 +1786,10 @@
   "8I9ipd": {
     "defaultMessage": "The provided value is not valid JSON",
     "description": "Error message for invalid JSON in an assessment edit form"
+  },
+  "8SBbmc": {
+    "defaultMessage": "Unable to load label schemas",
+    "description": "Label schemas list error title"
   },
   "8Uwpjw": {
     "defaultMessage": "Create run",
@@ -2571,6 +2603,10 @@
     "defaultMessage": "Metrics",
     "description": "Table title text for metrics table in the model comparison page"
   },
+  "CpTJ/o": {
+    "defaultMessage": "Save",
+    "description": "Save schema button"
+  },
   "CpUD2P": {
     "defaultMessage": "Select traces",
     "description": "Button to open trace selection modal"
@@ -2586,6 +2622,10 @@
   "Csmj/2": {
     "defaultMessage": "Select all runs",
     "description": "Experiment page > runs table > select all rows > accessible label"
+  },
+  "CtxUwl": {
+    "defaultMessage": "Cancel",
+    "description": "Cancel delete button"
   },
   "Cu5P8e": {
     "defaultMessage": "Tokens",
@@ -2630,6 +2670,10 @@
   "D9xvar": {
     "defaultMessage": "Cancel",
     "description": "Button to cancel editing"
+  },
+  "DAgBiT": {
+    "defaultMessage": "Create",
+    "description": "Create schema button"
   },
   "DCC164": {
     "defaultMessage": "GenAI",
@@ -3074,6 +3118,10 @@
   "GDzD7I": {
     "defaultMessage": "Prompt Template",
     "description": "Experiment page > new run modal > prompt examples > prompt template title"
+  },
+  "GG/sJ3": {
+    "defaultMessage": "Cancel",
+    "description": "Modal cancel button"
   },
   "GJWVBA": {
     "defaultMessage": "Inputs",
@@ -3794,6 +3842,10 @@
   "KzC+38": {
     "defaultMessage": "Prompt template examples",
     "description": "Experiment page > new run modal > prompt examples > modal title"
+  },
+  "KzOOxA": {
+    "defaultMessage": "Failed to delete label schema.",
+    "description": "Generic delete label schema error"
   },
   "KzU2hx": {
     "defaultMessage": "Trace status: OK, ERROR, or IN_PROGRESS",
@@ -4583,6 +4635,10 @@
     "defaultMessage": "You don't have permissions to open requested experiment.",
     "description": "A message shown on the experiment page if user has no permissions to open the experiment"
   },
+  "PVjUtg": {
+    "defaultMessage": "1-100 options, each 1-64 characters. Duplicates are removed automatically.",
+    "description": "Categorical options hint"
+  },
   "PX5Nlz": {
     "defaultMessage": "Clear selection",
     "description": "Clear model selection"
@@ -4619,6 +4675,10 @@
     "defaultMessage": "Enter value",
     "description": "Usage overview > filter row > value input placeholder"
   },
+  "PmGZJu": {
+    "defaultMessage": "Alphanumeric and underscore only, up to 150 characters. Immutable after create.",
+    "description": "Label schema name hint"
+  },
   "PmPV+3": {
     "defaultMessage": "Models",
     "description": "Label for the versions tab in the MLflow experiment navbar"
@@ -4626,6 +4686,10 @@
   "Pne4Lp": {
     "defaultMessage": "Maximum of {max} sessions can be selected",
     "description": "Tooltip shown when too many sessions are selected"
+  },
+  "PoYGh9": {
+    "defaultMessage": "Title",
+    "description": "Label schema title input"
   },
   "Potju2": {
     "defaultMessage": "Restore",
@@ -4730,6 +4794,10 @@
   "QMCliz": {
     "defaultMessage": "Measure and compare LLM quality with built-in and custom scorers.",
     "description": "Feature card summary for evaluation"
+  },
+  "QOH2xC": {
+    "defaultMessage": "No label schemas yet",
+    "description": "Label schemas empty state title"
   },
   "QPC4hV": {
     "defaultMessage": "Use other parameters or disable run grouping to continue.",
@@ -5155,6 +5223,10 @@
     "defaultMessage": "Failed to submit",
     "description": "Message text for failing to save changes in editable note in MLflow"
   },
+  "T+QD5T": {
+    "defaultMessage": "Delete",
+    "description": "Delete label schema button"
+  },
   "T/46y0": {
     "defaultMessage": "Machine learning",
     "description": "A short label for custom experiments focused on machine learning"
@@ -5190,6 +5262,10 @@
   "TCAbKZ": {
     "defaultMessage": "Save",
     "description": "Save webhook button"
+  },
+  "TCkOxn": {
+    "defaultMessage": "Positive label",
+    "description": "Pass/Fail positive label input"
   },
   "TKtJIK": {
     "defaultMessage": "Page not found",
@@ -5330,6 +5406,10 @@
   "U82iv6": {
     "defaultMessage": "Registered Models",
     "description": "Text for registered model link in the title for model comparison page"
+  },
+  "UAPTuV": {
+    "defaultMessage": "Delete label schema",
+    "description": "Delete label schema modal title"
   },
   "UCQwvo": {
     "defaultMessage": "Registered prompts",
@@ -5751,6 +5831,10 @@
     "defaultMessage": "Create a role to assign permissions to users.",
     "description": "Empty state description for roles table"
   },
+  "WcBj7j": {
+    "defaultMessage": "New label schema",
+    "description": "Create label schema modal title"
+  },
   "WcHytj": {
     "defaultMessage": "Total Cost",
     "description": "Subtitle for the cost over time chart total"
@@ -5979,6 +6063,10 @@
     "defaultMessage": "Prompt version created",
     "description": "Webhook event label"
   },
+  "XxfvgS": {
+    "defaultMessage": "Min value",
+    "description": "Numeric min value input"
+  },
   "Y++w0Q": {
     "defaultMessage": "Tag key may only contain alphanumeric characters, underscores (_), dashes (-), periods (.), spaces ( ), colons (:) and slashes (/). Key must not start with '/'.",
     "description": "Add new key-value tag modal > Invalid characters or path error"
@@ -6026,6 +6114,10 @@
   "Y7DzTT": {
     "defaultMessage": "Input",
     "description": "Label for the input tokens in the tooltip for the tokens cell."
+  },
+  "Y7Sx1p": {
+    "defaultMessage": "Instruction (optional)",
+    "description": "Label schema instruction input"
   },
   "Y9ZFyN": {
     "defaultMessage": "Download artifact",
@@ -6839,6 +6931,10 @@
     "defaultMessage": "baseline run",
     "description": "Placeholder text shown when no baseline run is selected for comparison"
   },
+  "chgiV+": {
+    "defaultMessage": "Name",
+    "description": "Label schema name input"
+  },
   "ckfi1K": {
     "defaultMessage": "Refresh evaluation runs",
     "description": "Tooltip for the refresh evaluation runs button in the evaluation runs table controls"
@@ -7286,6 +7382,10 @@
   "fBB0xR": {
     "defaultMessage": "Assistant Not Available",
     "description": "Title shown when Assistant is not available for remote servers"
+  },
+  "fDr4HX": {
+    "defaultMessage": "Are you sure you want to delete the label schema {name}? Assessments already collected under this schema are not removed and will render as free-form values in the review UI.",
+    "description": "Delete label schema confirmation prompt"
   },
   "fHI22G": {
     "defaultMessage": "JSON",
@@ -8331,6 +8431,10 @@
     "defaultMessage": "Logged models ({length})",
     "description": "A header for a table of logged models displayed on the run page. The 'length' variable is being replaced with the number of displayed logged models."
   },
+  "kmotLg": {
+    "defaultMessage": "Enable free-form comment alongside the structured input",
+    "description": "Enable comment checkbox"
+  },
   "kmtWGf": {
     "defaultMessage": "{count, plural, one { # trace } other { # traces }} will be deleted.",
     "description": "Experiment page > traces view controls > Delete traces modal > Confirmation message title"
@@ -8482,6 +8586,10 @@
   "lhFnAG": {
     "defaultMessage": "Insufficient",
     "description": "Evaluation results > retrieval sufficiency assessment > negative value label. Displayed if retrieved context is insufficient to generate the expected response."
+  },
+  "lhPOVS": {
+    "defaultMessage": "Labeling schemas",
+    "description": "Labeling schemas page heading"
   },
   "ljOsC9": {
     "defaultMessage": "Cost Over Time",
@@ -8807,6 +8915,10 @@
     "defaultMessage": "https://example.com/webhook",
     "description": "Webhook URL placeholder"
   },
+  "nPOCQM": {
+    "defaultMessage": "Input type",
+    "description": "Label schema input variant selector"
+  },
   "nPWZsh": {
     "defaultMessage": "Make sure that at least one experiment run is visible and available to compare",
     "description": "Experiment page > artifact compare view > empty state for no runs selected > subtitle with the hint"
@@ -8866,6 +8978,10 @@
   "nhqO2Z": {
     "defaultMessage": "Save",
     "description": "Experiment page > artifact compare view > prompt lab artifact synchronization > cancel button label"
+  },
+  "nkh1zr": {
+    "defaultMessage": "Negative label",
+    "description": "Pass/Fail negative label input"
   },
   "nlXn2G": {
     "defaultMessage": "Absolute date and time",
@@ -9515,6 +9631,10 @@
     "defaultMessage": "Relevant",
     "description": "Evaluation results > relevancy assessment > positive value label. Displayed if evaluation result is considered as irrelevant to the query."
   },
+  "rNqDVw": {
+    "defaultMessage": "Options (one per line)",
+    "description": "Categorical options textarea label"
+  },
   "rONS3/": {
     "defaultMessage": "Select value",
     "description": "Usage overview > filter row > value dropdown placeholder"
@@ -9947,6 +10067,10 @@
     "defaultMessage": "Name",
     "description": "Header for the name column in the registered prompts table"
   },
+  "u0nwn8": {
+    "defaultMessage": "New schema",
+    "description": "Create new schema button"
+  },
   "u13xKF": {
     "defaultMessage": "Custom judge",
     "description": "LLM judge option for creating a custom judge"
@@ -9971,6 +10095,10 @@
     "defaultMessage": "Prompt Template",
     "description": "Experiment page > new run modal > prompt template input label"
   },
+  "uBnvKI": {
+    "defaultMessage": "Semantic polarity",
+    "description": "Categorical polarity selector"
+  },
   "uGfscW": {
     "defaultMessage": "The SQL query timed out. Please retry, and if the problem persists, try selecting a larger SQL warehouse.",
     "description": "Evaluation review > evaluations list > SQL warehouse timeout error description with CTA to select larger warehouse"
@@ -9978,6 +10106,14 @@
   "uGgedl": {
     "defaultMessage": "Copy S3 URI to clipboard",
     "description": "Text for the S3 URI copy button in the experiment run dataset drawer"
+  },
+  "uGmTGN": {
+    "defaultMessage": "Max value",
+    "description": "Numeric max value input"
+  },
+  "uHUW9j": {
+    "defaultMessage": "Unable to load label schemas",
+    "description": "Error message when label schemas page fails to load"
   },
   "uHzRht": {
     "defaultMessage": "Total aggregate scores",
@@ -10090,6 +10226,10 @@
   "v+0HXI": {
     "defaultMessage": "Artifact loading",
     "description": "Run page > artifact view > loading skeleton label"
+  },
+  "v+uGcN": {
+    "defaultMessage": "Allow multiple selections (multi-select)",
+    "description": "Categorical multi-select checkbox"
   },
   "v/njcq": {
     "defaultMessage": "Comparing",
@@ -10534,6 +10674,10 @@
   "xdFMIN": {
     "defaultMessage": "Dataset name",
     "description": "Dataset name label"
+  },
+  "xgJQNG": {
+    "defaultMessage": "Required for feedback-type schemas so the UI knows which direction is positive.",
+    "description": "Categorical polarity hint"
   },
   "xgbeVS": {
     "defaultMessage": "Large",

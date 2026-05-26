@@ -1,0 +1,156 @@
+import { useEffect } from 'react';
+import { Button, Modal, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { FormattedMessage, useIntl } from 'react-intl';
+import { useForm, useWatch } from 'react-hook-form';
+
+import { useCreateLabelSchemaMutation } from '../../components/label-schemas/hooks/useCreateLabelSchemaMutation';
+import { useUpdateLabelSchemaMutation } from '../../components/label-schemas/hooks/useUpdateLabelSchemaMutation';
+import type { LabelSchema } from '../../components/label-schemas/types';
+import { LabelSchemaFormRenderer } from './LabelSchemaFormRenderer';
+import {
+  DEFAULT_FORM_VALUES,
+  buildLabelSchemaInputFromForm,
+  getFormValuesFromSchema,
+  validateLabelSchemaForm,
+  type LabelSchemaFormData,
+} from './labelSchemaFormUtils';
+
+export interface LabelSchemaModalProps {
+  experimentId: string;
+  /** When non-null, the modal opens in edit mode pre-populated from the schema. */
+  editingSchema: LabelSchema | null;
+  visible: boolean;
+  onClose: () => void;
+}
+
+export const LabelSchemaModal = ({ experimentId, editingSchema, visible, onClose }: LabelSchemaModalProps) => {
+  const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
+  const isEdit = editingSchema != null;
+  const defaultValues = editingSchema ? getFormValuesFromSchema(editingSchema) : DEFAULT_FORM_VALUES;
+  const { control, handleSubmit, reset, getValues } = useForm<LabelSchemaFormData>({
+    defaultValues,
+  });
+  const watched = useWatch({ control }) as LabelSchemaFormData;
+
+  const createMutation = useCreateLabelSchemaMutation();
+  const updateMutation = useUpdateLabelSchemaMutation();
+  const isSubmitting = createMutation.isCreating || updateMutation.isUpdating;
+  const submitError = createMutation.error ?? updateMutation.error;
+
+  // When the modal switches between create and edit (or between two
+  // different schemas in edit mode), reset the form to the new defaults
+  // so the controls reflect the latest source-of-truth values rather
+  // than the stale mount-time snapshot.
+  useEffect(() => {
+    reset(defaultValues);
+    // We only want to reset when the identity of the source-of-truth
+    // changes (create vs. a specific schema), not on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingSchema?.schema_id]);
+
+  const onSubmit = async (form: LabelSchemaFormData) => {
+    const errors = validateLabelSchemaForm(form);
+    if (Object.keys(errors).length > 0) {
+      // Validation errors are already surfaced inline by the renderer
+      // since `errors` is recomputed on every render from the watched
+      // values; bail out without calling the server.
+      return;
+    }
+    const input = buildLabelSchemaInputFromForm(form);
+    // On edit, the form is the source of truth: whatever the user sees
+    // in the modal IS what they want saved, including unchanged-looking
+    // fields. We send the full form payload on every save rather than
+    // diffing dirty fields, accepting that this can clobber a parallel
+    // edit from another tab. The empty-string instruction case is sent
+    // verbatim per the server contract ("" replaces the stored value);
+    // callers wanting to clear instruction blank the textarea.
+    if (isEdit && editingSchema) {
+      await updateMutation.updateLabelSchemaAsync({
+        schema_id: editingSchema.schema_id,
+        title: form.title,
+        instruction: form.instruction,
+        enable_comment: form.enable_comment,
+        input,
+      });
+    } else {
+      await createMutation.createLabelSchemaAsync({
+        experiment_id: experimentId,
+        name: form.name,
+        type: form.type,
+        title: form.title,
+        input,
+        // On create, omit blank instruction so the server defaults it
+        // to None rather than storing "" verbatim.
+        instruction: form.instruction === '' ? undefined : form.instruction,
+        enable_comment: form.enable_comment,
+      });
+    }
+    reset(DEFAULT_FORM_VALUES);
+    onClose();
+  };
+
+  const handleCancel = () => {
+    reset(defaultValues);
+    onClose();
+  };
+
+  const validationErrors = validateLabelSchemaForm(watched ?? getValues());
+
+  return (
+    <Modal
+      componentId="mlflow.experiment-label-schemas.modal"
+      visible={visible}
+      title={
+        isEdit
+          ? intl.formatMessage({
+              defaultMessage: 'Edit label schema',
+              description: 'Edit label schema modal title',
+            })
+          : intl.formatMessage({
+              defaultMessage: 'New label schema',
+              description: 'Create label schema modal title',
+            })
+      }
+      onCancel={handleCancel}
+      footer={
+        <div css={{ display: 'flex', justifyContent: 'flex-end', gap: theme.spacing.sm }}>
+          <Button componentId="mlflow.experiment-label-schemas.modal.cancel" onClick={handleCancel}>
+            <FormattedMessage defaultMessage="Cancel" description="Modal cancel button" />
+          </Button>
+          <Button
+            componentId="mlflow.experiment-label-schemas.modal.submit"
+            type="primary"
+            loading={isSubmitting}
+            disabled={Object.keys(validationErrors).length > 0}
+            onClick={() => handleSubmit(onSubmit)()}
+          >
+            {isEdit ? (
+              <FormattedMessage defaultMessage="Save" description="Save schema button" />
+            ) : (
+              <FormattedMessage defaultMessage="Create" description="Create schema button" />
+            )}
+          </Button>
+        </div>
+      }
+    >
+      <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+        <LabelSchemaFormRenderer
+          control={control}
+          isEdit={isEdit}
+          errors={validationErrors}
+          watchedValues={{ type: watched?.type ?? 'feedback', inputKind: watched?.inputKind ?? 'pass_fail' }}
+        />
+        {submitError && (
+          <Typography.Text color="error">
+            <FormattedMessage
+              defaultMessage="Failed to save: {message}"
+              description="Schema save error"
+              values={{ message: submitError.message }}
+            />
+          </Typography.Text>
+        )}
+      </div>
+    </Modal>
+  );
+};

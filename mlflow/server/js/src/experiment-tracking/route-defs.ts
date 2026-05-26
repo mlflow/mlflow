@@ -175,6 +175,18 @@ const getExperimentPageRouteDefs = () => {
           } satisfies RouteHandle,
         },
         {
+          path: RoutePaths.experimentPageTabLabelSchemas,
+          pageId: PageId.experimentPageTabLabelSchemas,
+          element: createLazyRouteElement(() => import('./pages/experiment-label-schemas/LabelSchemasPage')),
+          handle: {
+            getPageTitle: (params) => `Labeling schemas - Experiment ${params['experimentId']}`,
+            getAssistantPrompts: () => [
+              'How do I create a label schema?',
+              'What input types are supported for SME labeling?',
+            ],
+          } satisfies RouteHandle,
+        },
+        {
           path: RoutePaths.experimentPageTabDatasets,
           pageId: PageId.experimentPageTabDatasets,
           element: createLazyRouteElement(() => {

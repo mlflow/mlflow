@@ -1,0 +1,329 @@
+import { Checkbox, FormUI, Input, Radio, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { FormattedMessage } from 'react-intl';
+import { Controller, type Control } from 'react-hook-form';
+
+import type { LabelSchemaFormData, LabelSchemaFormErrors, LabelSchemaInputKind } from './labelSchemaFormUtils';
+
+type FormErrors = LabelSchemaFormErrors;
+
+export interface LabelSchemaFormRendererProps {
+  control: Control<LabelSchemaFormData>;
+  /**
+   * On edit, the schema `name`, `type`, and `inputKind` are immutable (the
+   * server enforces this); the form disables them. Create allows all three.
+   */
+  isEdit: boolean;
+  errors: FormErrors;
+  /** Watch values are passed in by the parent so the renderer is pure. */
+  watchedValues: Pick<LabelSchemaFormData, 'type' | 'inputKind'>;
+}
+
+const COMPONENT_PREFIX = 'mlflow.experiment-label-schemas.form';
+
+export const LabelSchemaFormRenderer = ({ control, isEdit, errors, watchedValues }: LabelSchemaFormRendererProps) => {
+  const { theme } = useDesignSystemTheme();
+  const { type, inputKind } = watchedValues;
+  return (
+    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+      <Controller
+        name="name"
+        control={control}
+        render={({ field }) => (
+          <FormUI.Label htmlFor={`${COMPONENT_PREFIX}.name`}>
+            <FormattedMessage defaultMessage="Name" description="Label schema name input" />
+            <Input
+              componentId={`${COMPONENT_PREFIX}.name`}
+              id={`${COMPONENT_PREFIX}.name`}
+              {...field}
+              disabled={isEdit}
+              placeholder="correctness"
+            />
+            <FormUI.Hint>
+              <FormattedMessage
+                defaultMessage="Alphanumeric and underscore only, up to 150 characters. Immutable after create."
+                description="Label schema name hint"
+              />
+            </FormUI.Hint>
+          </FormUI.Label>
+        )}
+      />
+      {errors.name && <FormUI.Message message={errors.name} type="error" />}
+
+      <Controller
+        name="type"
+        control={control}
+        render={({ field }) => (
+          <FormUI.Label htmlFor={`${COMPONENT_PREFIX}.type`}>
+            <FormattedMessage defaultMessage="Type" description="Label schema type input" />
+            <Radio.Group
+              componentId={`${COMPONENT_PREFIX}.type`}
+              name={`${COMPONENT_PREFIX}.type`}
+              value={field.value}
+              onChange={(e) => field.onChange(e.target.value)}
+              disabled={isEdit}
+            >
+              <Radio value="feedback">Feedback</Radio>
+              <Radio value="expectation">Expectation</Radio>
+            </Radio.Group>
+            <FormUI.Hint>
+              <FormattedMessage
+                defaultMessage="Feedback schemas are bounded (pass/fail, options, or min/max); expectation schemas store ground-truth labels. Type is immutable after create."
+                description="Label schema type hint"
+              />
+            </FormUI.Hint>
+          </FormUI.Label>
+        )}
+      />
+
+      <Controller
+        name="title"
+        control={control}
+        render={({ field }) => (
+          <FormUI.Label htmlFor={`${COMPONENT_PREFIX}.title`}>
+            <FormattedMessage defaultMessage="Title" description="Label schema title input" />
+            <Input
+              componentId={`${COMPONENT_PREFIX}.title`}
+              id={`${COMPONENT_PREFIX}.title`}
+              {...field}
+              placeholder="Is the answer correct?"
+            />
+          </FormUI.Label>
+        )}
+      />
+      {errors.title && <FormUI.Message message={errors.title} type="error" />}
+
+      <Controller
+        name="instruction"
+        control={control}
+        render={({ field }) => (
+          <FormUI.Label htmlFor={`${COMPONENT_PREFIX}.instruction`}>
+            <FormattedMessage defaultMessage="Instruction (optional)" description="Label schema instruction input" />
+            <Input.TextArea
+              componentId={`${COMPONENT_PREFIX}.instruction`}
+              id={`${COMPONENT_PREFIX}.instruction`}
+              {...field}
+              rows={3}
+              placeholder="Mark Correct if the answer is factually accurate."
+            />
+          </FormUI.Label>
+        )}
+      />
+      {errors.instruction && <FormUI.Message message={errors.instruction} type="error" />}
+
+      <Controller
+        name="enable_comment"
+        control={control}
+        render={({ field }) => (
+          <Checkbox
+            componentId={`${COMPONENT_PREFIX}.enable-comment`}
+            isChecked={field.value}
+            onChange={(checked) => field.onChange(checked)}
+          >
+            <FormattedMessage
+              defaultMessage="Enable free-form comment alongside the structured input"
+              description="Enable comment checkbox"
+            />
+          </Checkbox>
+        )}
+      />
+
+      <Controller
+        name="inputKind"
+        control={control}
+        render={({ field }) => (
+          <FormUI.Label htmlFor={`${COMPONENT_PREFIX}.input-kind`}>
+            <FormattedMessage defaultMessage="Input type" description="Label schema input variant selector" />
+            <Radio.Group
+              componentId={`${COMPONENT_PREFIX}.input-kind`}
+              name={`${COMPONENT_PREFIX}.input-kind`}
+              value={field.value}
+              onChange={(e) => field.onChange(e.target.value as LabelSchemaInputKind)}
+              disabled={isEdit}
+            >
+              <Radio value="pass_fail">Pass / Fail</Radio>
+              <Radio value="categorical">Categorical</Radio>
+              <Radio value="numeric">Numeric</Radio>
+            </Radio.Group>
+          </FormUI.Label>
+        )}
+      />
+
+      {inputKind === 'pass_fail' && <PassFailFields control={control} errors={errors} />}
+      {inputKind === 'categorical' && <CategoricalFields control={control} errors={errors} type={type} />}
+      {inputKind === 'numeric' && <NumericFields control={control} errors={errors} />}
+    </div>
+  );
+};
+
+const PassFailFields = ({ control, errors }: { control: Control<LabelSchemaFormData>; errors: FormErrors }) => {
+  const { theme } = useDesignSystemTheme();
+  return (
+    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+      <Controller
+        name="passFailPositiveLabel"
+        control={control}
+        render={({ field }) => (
+          <FormUI.Label htmlFor={`${COMPONENT_PREFIX}.pass-fail.positive`}>
+            <FormattedMessage defaultMessage="Positive label" description="Pass/Fail positive label input" />
+            <Input
+              componentId={`${COMPONENT_PREFIX}.pass-fail.positive`}
+              id={`${COMPONENT_PREFIX}.pass-fail.positive`}
+              {...field}
+              placeholder="Correct"
+            />
+          </FormUI.Label>
+        )}
+      />
+      {errors.passFailPositiveLabel && <FormUI.Message message={errors.passFailPositiveLabel} type="error" />}
+      <Controller
+        name="passFailNegativeLabel"
+        control={control}
+        render={({ field }) => (
+          <FormUI.Label htmlFor={`${COMPONENT_PREFIX}.pass-fail.negative`}>
+            <FormattedMessage defaultMessage="Negative label" description="Pass/Fail negative label input" />
+            <Input
+              componentId={`${COMPONENT_PREFIX}.pass-fail.negative`}
+              id={`${COMPONENT_PREFIX}.pass-fail.negative`}
+              {...field}
+              placeholder="Incorrect"
+            />
+          </FormUI.Label>
+        )}
+      />
+      {errors.passFailNegativeLabel && <FormUI.Message message={errors.passFailNegativeLabel} type="error" />}
+    </div>
+  );
+};
+
+const CategoricalFields = ({
+  control,
+  errors,
+  type,
+}: {
+  control: Control<LabelSchemaFormData>;
+  errors: FormErrors;
+  type: LabelSchemaFormData['type'];
+}) => {
+  const { theme } = useDesignSystemTheme();
+  return (
+    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+      <Controller
+        name="categoricalOptions"
+        control={control}
+        render={({ field }) => (
+          <FormUI.Label htmlFor={`${COMPONENT_PREFIX}.categorical.options`}>
+            <FormattedMessage
+              defaultMessage="Options (one per line)"
+              description="Categorical options textarea label"
+            />
+            <Input.TextArea
+              componentId={`${COMPONENT_PREFIX}.categorical.options`}
+              id={`${COMPONENT_PREFIX}.categorical.options`}
+              {...field}
+              rows={5}
+              placeholder={'low\nmedium\nhigh'}
+            />
+            <FormUI.Hint>
+              <FormattedMessage
+                defaultMessage="1-100 options, each 1-64 characters. Duplicates are removed automatically."
+                description="Categorical options hint"
+              />
+            </FormUI.Hint>
+          </FormUI.Label>
+        )}
+      />
+      {errors.categoricalOptions && <FormUI.Message message={errors.categoricalOptions} type="error" />}
+      <Controller
+        name="categoricalPolarity"
+        control={control}
+        render={({ field }) => (
+          <FormUI.Label htmlFor={`${COMPONENT_PREFIX}.categorical.polarity`}>
+            <FormattedMessage defaultMessage="Semantic polarity" description="Categorical polarity selector" />
+            <Radio.Group
+              componentId={`${COMPONENT_PREFIX}.categorical.polarity`}
+              name={`${COMPONENT_PREFIX}.categorical.polarity`}
+              value={field.value === '' ? undefined : field.value}
+              onChange={(e) => field.onChange(e.target.value as LabelSchemaFormData['categoricalPolarity'])}
+            >
+              <Radio value="ascending">Ascending (first option most positive)</Radio>
+              <Radio value="descending">Descending (first option most negative)</Radio>
+            </Radio.Group>
+            <FormUI.Hint>
+              <FormattedMessage
+                defaultMessage="Required for feedback-type schemas so the UI knows which direction is positive."
+                description="Categorical polarity hint"
+              />
+            </FormUI.Hint>
+          </FormUI.Label>
+        )}
+      />
+      {errors.categoricalPolarity && <FormUI.Message message={errors.categoricalPolarity} type="error" />}
+      <Controller
+        name="categoricalMultiSelect"
+        control={control}
+        render={({ field }) => (
+          <Checkbox
+            componentId={`${COMPONENT_PREFIX}.categorical.multi-select`}
+            isChecked={field.value}
+            onChange={(checked) => field.onChange(checked)}
+          >
+            <FormattedMessage
+              defaultMessage="Allow multiple selections (multi-select)"
+              description="Categorical multi-select checkbox"
+            />
+          </Checkbox>
+        )}
+      />
+      {type === 'feedback' && (
+        <Typography.Text color="secondary">
+          <FormattedMessage
+            defaultMessage="Feedback-type categorical schemas require a polarity."
+            description="Categorical feedback-type hint"
+          />
+        </Typography.Text>
+      )}
+    </div>
+  );
+};
+
+const NumericFields = ({ control, errors }: { control: Control<LabelSchemaFormData>; errors: FormErrors }) => {
+  const { theme } = useDesignSystemTheme();
+  return (
+    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+      <Controller
+        name="numericMinValue"
+        control={control}
+        render={({ field }) => (
+          <FormUI.Label htmlFor={`${COMPONENT_PREFIX}.numeric.min`}>
+            <FormattedMessage defaultMessage="Min value" description="Numeric min value input" />
+            <Input
+              componentId={`${COMPONENT_PREFIX}.numeric.min`}
+              id={`${COMPONENT_PREFIX}.numeric.min`}
+              type="number"
+              {...field}
+              placeholder="1"
+            />
+          </FormUI.Label>
+        )}
+      />
+      {errors.numericMinValue && <FormUI.Message message={errors.numericMinValue} type="error" />}
+      <Controller
+        name="numericMaxValue"
+        control={control}
+        render={({ field }) => (
+          <FormUI.Label htmlFor={`${COMPONENT_PREFIX}.numeric.max`}>
+            <FormattedMessage defaultMessage="Max value" description="Numeric max value input" />
+            <Input
+              componentId={`${COMPONENT_PREFIX}.numeric.max`}
+              id={`${COMPONENT_PREFIX}.numeric.max`}
+              type="number"
+              {...field}
+              placeholder="5"
+            />
+          </FormUI.Label>
+        )}
+      />
+      {errors.numericMaxValue && <FormUI.Message message={errors.numericMaxValue} type="error" />}
+    </div>
+  );
+};
