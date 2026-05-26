@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useMutation, useQuery } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { AccountApi } from './api';
-import { isWorkspaceAdminRole } from './types';
+import { isSyntheticUserRole, isWorkspaceAdminRole } from './types';
 import type { UpdatePasswordRequest } from './types';
 
 export const useCurrentUserQuery = () => {
@@ -104,7 +104,13 @@ export const useUpdatePassword = () => {
 export const useUserRolesQuery = (username: string, options: { enabled?: boolean } = {}) => {
   return useQuery({
     queryKey: AccountQueryKeys.userRoles(username),
-    queryFn: () => AccountApi.listUserRoles(username),
+    queryFn: async () => {
+      const data = await AccountApi.listUserRoles(username);
+      // Synthetic ``__user_<id>__`` roles back direct grants and are not
+      // human-facing. Drop them so the per-user roles list never leaks
+      // its own bookkeeping row.
+      return { ...data, roles: data.roles.filter((r) => !isSyntheticUserRole(r.name)) };
+    },
     retry: false,
     refetchOnWindowFocus: false,
     // Callers pass ``enabled: false`` to skip a fetch they know will 403.

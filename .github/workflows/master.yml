@@ -42,6 +42,8 @@ env:
   _MLFLOW_TESTING_TELEMETRY: "true"
   MLFLOW_SERVER_ENABLE_JOB_EXECUTION: "false"
 
+permissions: {}
+
 jobs:
   # python-skinny tests cover a subset of mlflow functionality
   # that is meant to be supported with a smaller dependency footprint.
