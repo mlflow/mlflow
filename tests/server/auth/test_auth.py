@@ -3472,6 +3472,44 @@ def test_trace_get_v3_permission(client, monkeypatch):
     [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
     indirect=True,
 )
+@pytest.mark.parametrize("api_version", ["2.0", "3.0"])
+def test_trace_artifact_authorization(
+    client: MlflowClient, monkeypatch: pytest.MonkeyPatch, api_version: str
+):
+    user1, password1 = create_user(client.tracking_uri)
+    user2, password2 = create_user(client.tracking_uri)
+
+    with User(user1, password1, monkeypatch):
+        experiment_id = client.create_experiment(f"trace_artifact_authz_test_v{api_version}")
+
+    request_id = _create_trace(client.tracking_uri, experiment_id, (user1, password1))
+
+    def get_artifact(auth):
+        return requests.get(
+            url=client.tracking_uri + f"/ajax-api/{api_version}/mlflow/get-trace-artifact",
+            params={"request_id": request_id},
+            auth=auth,
+        )
+
+    # user1 (owner) should be able to access the artifact endpoint (may be 404 if
+    # no artifact has been uploaded, but should NOT be 403)
+    assert get_artifact((user1, password1)).status_code != 403
+
+    # user2 has no permission on the experiment, expect 403
+    assert get_artifact((user2, password2)).status_code == 403
+
+    # Grant READ; user2 can now access the artifact endpoint
+    _grant_experiment_permission(
+        client.tracking_uri, experiment_id, user2, "READ", (user1, password1)
+    )
+    assert get_artifact((user2, password2)).status_code != 403
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
 def test_trace_batch_get_permission(client, monkeypatch):
     user1, password1 = create_user(client.tracking_uri)
     user2, password2 = create_user(client.tracking_uri)

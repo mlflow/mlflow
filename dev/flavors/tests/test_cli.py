@@ -6,7 +6,7 @@ import pytest
 from flavors import _cli
 
 
-def _run(*args: str) -> subprocess.CompletedProcess:
+def _run(*args: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [sys.executable, "-m", "flavors._cli", *args],
         capture_output=True,

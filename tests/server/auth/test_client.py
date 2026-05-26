@@ -1,4 +1,6 @@
+import json
 from contextlib import contextmanager
+from urllib.parse import quote
 
 import pytest
 import requests
@@ -190,6 +192,92 @@ def test_legacy_permission_endpoints_return_404(client, path, method):
         f"{method} {path} unexpectedly returned {resp.status_code} — legacy "
         "permission endpoints must be removed"
     )
+
+
+def _register_scorer(tracking_uri: str, experiment_id: str, name: str, auth) -> None:
+    resp = requests.post(
+        tracking_uri + "/api/3.0/mlflow/scorers/register",
+        json={
+            "experiment_id": experiment_id,
+            "name": name,
+            "serialized_scorer": json.dumps({"v": 1}),
+        },
+        auth=auth,
+    )
+    resp.raise_for_status()
+
+
+def test_list_scorers_cross_experiment(client, monkeypatch):
+    # ``ListScorers`` with no ``experiment_id`` returns scorers across every
+    # experiment in the active workspace, populates ``experiment_name`` per
+    # row, and the SqlAlchemyStore output is globally sorted on
+    # ``(experiment_id, scorer_name)`` (pinned in store-level tests; smoke
+    # check here that the order survives through to the response).
+    url = client.tracking_uri + "/ajax-api/3.0/mlflow/scorers/list"
+
+    # Unauthenticated callers get 401 — ``_before_request`` runs before any
+    # per-route validator.
+    assert requests.get(url).status_code == 401
+
+    exp_a = _create_experiment(client.tracking_uri, monkeypatch, f"xex-a-{random_str()}")
+    exp_b = _create_experiment(client.tracking_uri, monkeypatch, f"xex-b-{random_str()}")
+    admin_auth = (ADMIN_USERNAME, ADMIN_PASSWORD)
+    _register_scorer(client.tracking_uri, exp_a, "alpha", admin_auth)
+    _register_scorer(client.tracking_uri, exp_b, "beta", admin_auth)
+    # Scorer name with a ``/`` exercises the URL-encoding contract; the
+    # client-side ``scorerResourcePattern`` must match the persisted grant
+    # byte-for-byte.
+    _register_scorer(client.tracking_uri, exp_b, "with/slash", admin_auth)
+
+    resp = requests.get(url, auth=admin_auth)
+    assert resp.status_code == 200, resp.text
+    scorers = resp.json()["scorers"]
+
+    by_name = {s["scorer_name"]: s for s in scorers}
+    assert set(by_name) >= {"alpha", "beta", "with/slash"}
+    assert str(by_name["alpha"]["experiment_id"]) == exp_a
+    # Reconstruct the resource pattern client-side and verify it matches the
+    # encoding the auth-side ``_scorer_pattern`` uses.
+    assert f"{by_name['with/slash']['experiment_id']}/{quote('with/slash', safe='')}" == (
+        f"{exp_b}/{quote('with/slash', safe='')}"
+    )
+
+    tuples = [(s["experiment_id"], s["scorer_name"]) for s in scorers]
+    assert tuples == sorted(tuples)
+
+
+def test_list_scorers_cross_experiment_pattern_round_trip(client, monkeypatch):
+    # A scorer literally named ``*`` is the encoding edge case: Python's
+    # ``quote(safe='')`` encodes it as ``%2A`` while JS ``encodeURIComponent``
+    # leaves it bare. The picker reconstructs the composite pattern via the
+    # frontend ``scorerResourcePattern`` helper (which matches Python's
+    # encoding); this test pins that the backend's ``_scorer_pattern`` uses
+    # the same encoding, so a grant placed on the picker-submitted pattern
+    # resolves on subsequent permission checks.
+    admin_auth = (ADMIN_USERNAME, ADMIN_PASSWORD)
+    exp_id = _create_experiment(client.tracking_uri, monkeypatch, f"star-{random_str()}")
+    _register_scorer(client.tracking_uri, exp_id, "*", admin_auth)
+
+    # Grant on the composite pattern the picker would submit.
+    expected_pattern = f"{exp_id}/{quote('*', safe='')}"
+    target, _ = _new_user(client, monkeypatch)
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        client.grant_user_permission(target, "scorer", expected_pattern, "READ")
+        roles = client.list_user_roles(target)
+    synthetic = next(r for r in roles if r.name.startswith("__user_"))
+    grants = [(p.resource_type, p.resource_pattern, p.permission) for p in synthetic.permissions]
+    assert ("scorer", expected_pattern, "READ") in grants
+
+    # Cross-experiment ListScorers should carry the ``*``-named row. Reconstruct
+    # the composite pattern client-side and verify it matches the granted one
+    # byte-for-byte.
+    url = client.tracking_uri + "/ajax-api/3.0/mlflow/scorers/list"
+    resp = requests.get(url, auth=admin_auth)
+    assert resp.status_code == 200, resp.text
+    by_name = {s["scorer_name"]: s for s in resp.json()["scorers"]}
+    assert "*" in by_name
+    reconstructed = f"{by_name['*']['experiment_id']}/{quote('*', safe='')}"
+    assert reconstructed == expected_pattern
 
 
 def test_update_user_password(client, monkeypatch):
