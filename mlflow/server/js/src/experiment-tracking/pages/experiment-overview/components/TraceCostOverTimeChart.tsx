@@ -135,6 +135,7 @@ export const TraceCostOverTimeChart: React.FC = () => {
                   />
                 }
                 cursor={{ stroke: theme.colors.actionTertiaryBackgroundHover }}
+                wrapperStyle={{ pointerEvents: 'auto' }}
               />
               {displayedItems.map((itemName) => {
                 const originalIndex = dimensionValues.indexOf(itemName);

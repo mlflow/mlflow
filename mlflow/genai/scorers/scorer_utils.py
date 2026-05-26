@@ -33,6 +33,23 @@ DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR = (
     "3. Use built-in scorers or make_judge() scorers instead."
 )
 
+THIRD_PARTY_SCORER_REGISTRATION_NOT_SUPPORTED_ON_DATABRICKS_ERROR = (
+    "Third-party scorer registration (e.g., RAGAS, DeepEval, TruLens, Phoenix) is not "
+    "supported when using a Databricks tracking URI. Third-party scorers are only "
+    "available for registration against OSS MLflow backends.\n\n"
+    "To use third-party scorers on Databricks, pass them directly to "
+    "`mlflow.genai.evaluate(..., scorers=[...])` without calling `.register()`."
+)
+
+# Restricts dynamic imports during third-party scorer deserialization to this
+# closed set so a malicious payload can't turn `model_validate` into arbitrary import.
+THIRD_PARTY_SCORER_ALLOWED_MODULES = frozenset({
+    "mlflow.genai.scorers.ragas",
+    "mlflow.genai.scorers.deepeval",
+    "mlflow.genai.scorers.trulens",
+    "mlflow.genai.scorers.phoenix",
+})
+
 
 # FunctionBodyExtractor class is forked from https://github.com/unitycatalog/unitycatalog/blob/20dd3820be332ac04deec4e063099fb863eb3392/ai/core/src/unitycatalog/ai/core/utils/callable_utils.py
 class FunctionBodyExtractor(ast.NodeVisitor):
@@ -196,6 +213,8 @@ def extract_model_from_serialized_scorer(serialized_data: dict[str, Any]) -> str
     if mem_data := serialized_data.get("memory_augmented_judge_data"):
         base_judge = mem_data.get("base_judge", {})
         return extract_model_from_serialized_scorer(base_judge)
+    if tp_data := serialized_data.get("third_party_scorer_data"):
+        return tp_data.get("model")
     return None
 
 
@@ -214,6 +233,9 @@ def update_model_in_serialized_scorer(
                 mem_data.get("base_judge", {}), new_model
             ),
         }
+    elif tp_data := result.get("third_party_scorer_data"):
+        if tp_data.get("model") is not None:
+            result["third_party_scorer_data"] = {**tp_data, "model": new_model}
     return result
 
 

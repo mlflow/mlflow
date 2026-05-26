@@ -57,6 +57,7 @@ from mlflow.server.gateway_api import (
     openai_passthrough_chat,
     openai_passthrough_embeddings,
     openai_passthrough_responses,
+    openai_passthrough_responses_compact,
 )
 from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig, GatewayModelConfig
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
@@ -277,6 +278,41 @@ def test_create_provider_from_endpoint_name_anthropic(store: SqlAlchemyStore):
 
     assert isinstance(provider, AnthropicProvider)
     assert provider.config.model.config.anthropic_api_key == "sk-ant-test"
+    assert provider.base_url == "https://api.anthropic.com/v1"
+
+
+def test_create_provider_from_endpoint_name_anthropic_with_api_base(store: SqlAlchemyStore):
+    secret = store.create_gateway_secret(
+        secret_name="anthropic-proxy-key",
+        secret_value={"api_key": "sk-ant-proxy-test"},
+        provider="anthropic",
+        auth_config={"api_base": "http://localhost:6655/anthropic/v1"},
+    )
+    model_def = store.create_gateway_model_definition(
+        name="claude-proxy-model",
+        secret_id=secret.secret_id,
+        provider="anthropic",
+        model_name="claude-3-7-sonnet",
+    )
+    endpoint = store.create_gateway_endpoint(
+        name="test-anthropic-proxy-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+    )
+
+    provider, _ = _create_provider_from_endpoint_name(
+        store, endpoint.name, EndpointType.LLM_V1_CHAT
+    )
+
+    assert isinstance(provider, AnthropicProvider)
+    assert provider.config.model.config.anthropic_api_key == "sk-ant-proxy-test"
+    assert provider.config.model.config.anthropic_api_base == "http://localhost:6655/anthropic/v1"
+    assert provider.base_url == "http://localhost:6655/anthropic/v1"
 
 
 def test_create_provider_from_endpoint_name_mistral(store: SqlAlchemyStore):
@@ -1485,6 +1521,103 @@ async def test_openai_passthrough_responses(store: SqlAlchemyStore):
 
 
 @pytest.mark.asyncio
+async def test_openai_passthrough_responses_compact(store: SqlAlchemyStore):
+    secret = store.create_gateway_secret(
+        secret_name="openai-responses-compact-key",
+        secret_value={"api_key": "sk-test-responses-compact"},
+        provider="openai",
+    )
+    model_def = store.create_gateway_model_definition(
+        name="openai-responses-compact-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4o",
+    )
+    store.create_gateway_endpoint(
+        name="openai-responses-compact-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+    )
+
+    # Mock OpenAI Responses-compact response: same shape as /responses output
+    mock_response = {
+        "id": "resp-compact-123",
+        "object": "response",
+        "created": 1234567890,
+        "model": "gpt-4o",
+        "status": "completed",
+        "output": [
+            {
+                "role": "assistant",
+                "content": [{"type": "output_text", "text": "Compacted summary"}],
+            }
+        ],
+        "usage": {"input_tokens": 50, "output_tokens": 10, "total_tokens": 60},
+    }
+
+    # Compaction request — typical body carries `previous_response_id` and `model`
+    mock_request = create_mock_request()
+    mock_request.json = AsyncMock(
+        return_value={
+            "model": "openai-responses-compact-endpoint",
+            "previous_response_id": "resp_abc123",
+        }
+    )
+
+    with mock.patch(
+        "mlflow.gateway.providers.openai.send_request", return_value=mock_response
+    ) as mock_send:
+        response = await openai_passthrough_responses_compact(mock_request)
+
+        # Verify send_request was called with the /compact upstream path
+        assert mock_send.called
+        call_kwargs = mock_send.call_args[1]
+        assert call_kwargs["path"] == "responses/compact"
+        assert call_kwargs["payload"]["model"] == "gpt-4o"
+        assert call_kwargs["payload"]["previous_response_id"] == "resp_abc123"
+
+        # Verify response is the raw OpenAI Responses-compact format
+        assert response["id"] == "resp-compact-123"
+        assert response["object"] == "response"
+        assert response["status"] == "completed"
+        assert response["output"][0]["content"][0]["text"] == "Compacted summary"
+
+
+@pytest.mark.asyncio
+async def test_openai_passthrough_responses_compact_rejects_stream():
+    """``/responses/compact`` is unary upstream; the handler must reject a
+    client-supplied ``stream=true`` with HTTP 400 before invoking the provider
+    (whose passthrough machinery treats all non-embeddings actions as
+    stream-capable and would otherwise open an SSE stream against an upstream
+    endpoint that does not support it).
+    """
+    mock_request = create_mock_request()
+    mock_request.json = AsyncMock(
+        return_value={
+            "model": "openai-responses-compact-endpoint",
+            "previous_response_id": "resp_abc123",
+            "stream": True,
+        }
+    )
+
+    # send_request should never be called — the handler rejects before
+    # reaching the provider.
+    with (
+        mock.patch("mlflow.gateway.providers.openai.send_request") as mock_send,
+        pytest.raises(HTTPException, match="stream=true is not supported") as exc_info,
+    ):
+        await openai_passthrough_responses_compact(mock_request)
+
+    assert exc_info.value.status_code == 400
+    assert not mock_send.called
+
+
+@pytest.mark.asyncio
 async def test_openai_passthrough_chat_streaming(store: SqlAlchemyStore):
     secret = store.create_gateway_secret(
         secret_name="openai-stream-passthrough-key",
@@ -1535,12 +1668,12 @@ async def test_openai_passthrough_chat_streaming(store: SqlAlchemyStore):
     ) as mock_send_stream:
         response = await openai_passthrough_chat(mock_request)
 
-        assert mock_send_stream.called
         assert isinstance(response, StreamingResponse)
         assert response.media_type == "text/event-stream"
 
         chunks = [chunk async for chunk in response.body_iterator]
 
+        assert mock_send_stream.called
         assert len(chunks) == 3
         assert b"Hello" in chunks[0]
         assert b"world" in chunks[1]
@@ -1604,12 +1737,12 @@ async def test_openai_passthrough_responses_streaming(store: SqlAlchemyStore):
     ) as mock_send_stream:
         response = await openai_passthrough_responses(mock_request)
 
-        assert mock_send_stream.called
         assert isinstance(response, StreamingResponse)
         assert response.media_type == "text/event-stream"
 
         chunks = [chunk async for chunk in response.body_iterator]
 
+        assert mock_send_stream.called
         assert len(chunks) == 8
         assert b"response.created" in chunks[0]
         assert b"response.output_item.added" in chunks[1]
@@ -1741,11 +1874,12 @@ async def test_anthropic_passthrough_messages_streaming(store: SqlAlchemyStore):
     ) as mock_send_stream:
         response = await anthropic_passthrough_messages(mock_request)
 
-        assert mock_send_stream.called
         assert isinstance(response, StreamingResponse)
         assert response.media_type == "text/event-stream"
 
         chunks = [chunk async for chunk in response.body_iterator]
+
+        assert mock_send_stream.called
 
         assert len(chunks) == 7
         assert b"message_start" in chunks[0]
@@ -1892,11 +2026,12 @@ async def test_gemini_passthrough_stream_generate_content(store: SqlAlchemyStore
             "gemini-stream-passthrough-endpoint", mock_request
         )
 
-        assert mock_send_stream.called
         assert isinstance(response, StreamingResponse)
         assert response.media_type == "text/event-stream"
 
         chunks = [chunk async for chunk in response.body_iterator]
+
+        assert mock_send_stream.called
 
         assert len(chunks) == 3
         assert b"Hello" in chunks[0]

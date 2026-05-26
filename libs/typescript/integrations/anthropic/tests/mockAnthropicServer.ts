@@ -27,6 +27,8 @@ function createMessageResponse(request: MessagesCreateRequest) {
       input_tokens: 128,
       output_tokens: 256,
       total_tokens: 384,
+      cache_read_input_tokens: 64,
+      cache_creation_input_tokens: 32,
     },
     content: [
       {

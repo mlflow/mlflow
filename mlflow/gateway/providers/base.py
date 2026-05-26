@@ -25,6 +25,7 @@ class PassthroughAction(str, Enum):
     OPENAI_CHAT = "openai_chat"
     OPENAI_EMBEDDINGS = "openai_embeddings"
     OPENAI_RESPONSES = "openai_responses"
+    OPENAI_RESPONSES_COMPACT = "openai_responses_compact"
     ANTHROPIC_MESSAGES = "anthropic_messages"
     GEMINI_GENERATE_CONTENT = "gemini_generate_content"
     GEMINI_STREAM_GENERATE_CONTENT = "gemini_stream_generate_content"
@@ -35,10 +36,41 @@ PASSTHROUGH_ROUTES = {
     PassthroughAction.OPENAI_CHAT: "/openai/v1/chat/completions",
     PassthroughAction.OPENAI_EMBEDDINGS: "/openai/v1/embeddings",
     PassthroughAction.OPENAI_RESPONSES: "/openai/v1/responses",
+    PassthroughAction.OPENAI_RESPONSES_COMPACT: "/openai/v1/responses/compact",
     PassthroughAction.ANTHROPIC_MESSAGES: "/anthropic/v1/messages",
     PassthroughAction.GEMINI_GENERATE_CONTENT: "/gemini/v1beta/models/{endpoint_name}:generateContent",  # noqa: E501
     PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT: "/gemini/v1beta/models/{endpoint_name}:streamGenerateContent",  # noqa: E501
 }
+
+# User-agent prefixes for subscription-based CLI tools that carry their own credentials.
+# When one of these tools is detected, the gateway preserves the client's auth header
+# instead of overwriting it with the server-side API key.
+# - Claude Code sends:  claude-cli/<version> (external, cli)
+# - OpenAI Codex sends: codex-tui/<version>, codex_cli_rs/<version>, etc. (prefix: "codex")
+# - Gemini CLI sends:   GeminiCLI/<version>/<model> (<platform>; <arch>)
+#
+# Security note: User-Agent strings are not cryptographically verified, so any HTTP
+# client can claim these prefixes. However, the client must still supply valid upstream
+# credentials for the API call to succeed — bypassing the server key only matters when
+# the client already holds its own valid credentials (e.g., a personal subscription
+# account). Admins who need to enforce server-side key usage exclusively (for billing
+# attribution or rate limiting) should leave the endpoint's auth unconfigured or
+# restrict network-level access to trusted clients.
+_USER_CREDENTIAL_AGENTS = ("claude-cli", "codex", "geminicli")
+
+# Auth header names that subscription-based CLI tools may include.
+_CLIENT_AUTH_HEADERS = ("authorization", "x-api-key", "x-goog-api-key", "api-key")
+
+
+def _client_provides_auth(headers: dict[str, str] | None) -> bool:
+    """Return True when the request comes from a known CLI tool and includes its own auth header."""
+    if not headers:
+        return False
+    lower_headers = {k.lower(): v for k, v in headers.items()}
+    user_agent = lower_headers.get("user-agent", "").lower()
+    is_credential_agent = any(agent in user_agent for agent in _USER_CREDENTIAL_AGENTS)
+    has_auth = any(key in lower_headers for key in _CLIENT_AUTH_HEADERS)
+    return is_credential_agent and has_auth
 
 
 def _get_nested(d: dict[str, Any], key: str) -> Any:
@@ -84,6 +116,8 @@ class BaseProvider(ABC):
 
         self.config = config
         self._enable_tracing = enable_tracing
+        provider = config.model.provider
+        self._provider_name = provider.value if isinstance(provider, Enum) else str(provider)
 
     def get_endpoint_url(self, route_type: str) -> str:
         """Return the full endpoint URL for the given route type.
@@ -147,6 +181,17 @@ class BaseProvider(ABC):
             f"{self.DISPLAY_NAME} models.",
         )
 
+    async def _proxy(
+        self,
+        path: str,
+        payload: dict[str, Any],
+        headers: dict[str, str] | None = None,
+    ) -> dict[str, Any] | AsyncIterable[Any]:
+        raise AIGatewayException(
+            status_code=501,
+            detail=f"The proxy endpoint is not implemented for {self.DISPLAY_NAME} models.",
+        )
+
     # -------------------------------------------------------------------------
     # Public methods (with optional tracing)
     # -------------------------------------------------------------------------
@@ -157,10 +202,13 @@ class BaseProvider(ABC):
         async for chunk in self._maybe_trace_stream_method(
             "chat_stream", self._chat_stream, payload
         ):
+            chunk.provider = self._provider_name
             yield chunk
 
     async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
-        return await self._maybe_trace_method("chat", self._chat, payload)
+        result = await self._maybe_trace_method("chat", self._chat, payload)
+        result.provider = self._provider_name
+        return result
 
     async def completions_stream(
         self, payload: completions.RequestPayload
@@ -220,6 +268,49 @@ class BaseProvider(ABC):
         except Exception as e:
             with mlflow.start_span(span_type=SpanType.LLM, name=self._get_span_name()) as span:
                 span.set_attributes({**self._get_provider_attributes(), "action": action.value})
+                raise e
+
+    async def proxy(
+        self,
+        path: str,
+        payload: dict[str, Any],
+        headers: dict[str, str] | None = None,
+    ) -> dict[str, Any] | AsyncIterable[Any]:
+        if not self._enable_tracing:
+            return await self._proxy(path, payload, headers)
+
+        try:
+            result = await self._proxy(path, payload, headers)
+            if isinstance(result, AsyncIterable):
+
+                @mlflow.trace(span_type=SpanType.LLM, name=self._get_span_name())
+                async def proxy():
+                    span = mlflow.get_current_active_span()
+                    if span is not None:
+                        span.set_attributes({
+                            **self._get_provider_attributes(),
+                            "proxy_path": path,
+                        })
+                    async for chunk in result:
+                        yield chunk
+
+                return proxy()
+            else:
+
+                @mlflow.trace(span_type=SpanType.LLM, name=self._get_span_name())
+                async def proxy():
+                    span = mlflow.get_current_active_span()
+                    if span is not None:
+                        span.set_attributes({
+                            **self._get_provider_attributes(),
+                            "proxy_path": path,
+                        })
+                    return result
+
+                return await proxy()
+        except Exception as e:
+            with mlflow.start_span(span_type=SpanType.LLM, name=self._get_span_name()) as span:
+                span.set_attributes({**self._get_provider_attributes(), "proxy_path": path})
                 raise e
 
     # -------------------------------------------------------------------------
@@ -593,6 +684,15 @@ class TrafficRouteProvider(BaseProvider):
         prov = self._get_provider()
         return await prov.passthrough(action, payload, headers)
 
+    async def proxy(
+        self,
+        path: str,
+        payload: dict[str, Any],
+        headers: dict[str, str] | None = None,
+    ) -> dict[str, Any] | AsyncIterable[Any]:
+        prov = self._get_provider()
+        return await prov.proxy(path, payload, headers)
+
 
 class FallbackProvider(BaseProvider):
     """
@@ -735,6 +835,14 @@ class FallbackProvider(BaseProvider):
         headers: dict[str, str] | None = None,
     ) -> dict[str, Any] | AsyncIterable[Any]:
         return await self._execute_with_fallback("passthrough", action, payload, headers)
+
+    async def proxy(
+        self,
+        path: str,
+        payload: dict[str, Any],
+        headers: dict[str, str] | None = None,
+    ) -> dict[str, Any] | AsyncIterable[Any]:
+        return await self._execute_with_fallback("proxy", path, payload, headers)
 
 
 class ProviderAdapter(ABC):

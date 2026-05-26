@@ -7,6 +7,7 @@ keywords: [langflow, tracing, mlflow, opentelemetry, low-code, visual workflow]
 
 import { OTelIntegrationCard } from "@site/src/components/TracingIntegrations/OTelIntegrationCard";
 import OTelIngest from "@site/docs/genai/tracing/opentelemetry/ingest-shared.mdx";
+import Admonition from "@theme/Admonition";
 
 # Tracing Langflow
 
@@ -22,6 +23,10 @@ export TRACELOOP_HEADERS=x-mlflow-experiment-id=123
 ```
 
 Refer to the [Langflow Traceloop documentation](https://docs.langflow.org/integrations-instana-traceloop) for setting up tracing in Langflow and specify OTLP HTTP exporter with above environment variables.
+
+<Admonition type="note" title="Limitation">
+  This integration exports HTTP-level metrics only. It does not capture LLM-level data such as prompts, responses, or token usage.
+</Admonition>
 
 ## Combine with the MLflow Tracing SDK
 

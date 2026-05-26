@@ -64,6 +64,7 @@ class Provider(str, Enum):
     OPENROUTER = "openrouter"
     OLLAMA = "ollama"
     VERTEX_AI = "vertex_ai"
+    PORTKEY = "portkey"
 
     @classmethod
     def values(cls):
@@ -96,6 +97,7 @@ class GatewayRequestType(str, Enum):
     PASSTHROUGH_MODEL_OPENAI_RESPONSES = "passthrough/model/openai-responses"
     PASSTHROUGH_MODEL_ANTHROPIC_MESSAGES = "passthrough/model/anthropic-messages"
     PASSTHROUGH_MODEL_GEMINI_GENERATE_CONTENT = "passthrough/model/gemini-generateContent"
+    RAW_PROXY = "proxy/raw"
 
 
 class CohereConfig(ConfigModel):
@@ -194,6 +196,7 @@ class OpenAIConfig(ConfigModel):
 class AnthropicConfig(ConfigModel):
     anthropic_api_key: str
     anthropic_version: str = "2023-06-01"
+    anthropic_api_base: str = "https://api.anthropic.com/v1"
 
     @field_validator("anthropic_api_key", mode="before")
     def validate_anthropic_api_key(cls, value):

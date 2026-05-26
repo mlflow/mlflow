@@ -231,6 +231,8 @@ const ExperimentSingleChatSessionPageImpl = () => {
             <div
               css={{
                 height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
                 marginLeft: -theme.spacing.lg,
                 marginRight: -theme.spacing.lg,
                 marginBottom: -theme.spacing.lg,

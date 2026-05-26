@@ -197,6 +197,7 @@ export const sendMessageStream = async (
 
     // Listen for 'done' event (completion)
     eventSource.addEventListener('done', () => {
+      onToolUse?.([]);
       onDone();
       eventSource.close();
     });
@@ -205,20 +206,6 @@ export const sendMessageStream = async (
     eventSource.addEventListener('interrupted', () => {
       onInterrupted?.();
       eventSource.close();
-    });
-
-    eventSource.addEventListener('done', (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        // Backend sends: {"result": null, "session_id": "..."}
-        onToolUse?.([]);
-        onDone();
-        eventSource.close();
-      } catch (err) {
-        onToolUse?.([]);
-        onDone();
-        eventSource.close();
-      }
     });
 
     // Listen for 'error' event
@@ -245,6 +232,19 @@ export const sendMessageStream = async (
     onError(error instanceof Error ? error.message : 'Unknown error');
     return { eventSource: null };
   }
+};
+
+export const listProviderModels = async (provider: string, baseUrl: string): Promise<string[]> => {
+  const url = `${API_BASE}/providers/${encodeURIComponent(provider)}/models?base_url=${encodeURIComponent(baseUrl)}`;
+  const response = await fetch(url, {
+    headers: { ...getDefaultHeaders(document.cookie) },
+  });
+  if (!response.ok) {
+    const data = await response.json();
+    throw new Error(data.detail || `Failed to list models for provider '${provider}': ${response.statusText}`);
+  }
+  const data = await response.json();
+  return data.models as string[];
 };
 
 /**

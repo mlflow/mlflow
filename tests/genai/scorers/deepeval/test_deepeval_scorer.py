@@ -6,9 +6,10 @@ import pytest
 import mlflow
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSourceType
+from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.utils import CategoricalRating
 from mlflow.genai.scorers import FRAMEWORK_METADATA_KEY
-from mlflow.genai.scorers.base import ScorerKind
+from mlflow.genai.scorers.base import Scorer, ScorerKind
 from mlflow.genai.scorers.deepeval import (
     AnswerRelevancy,
     ExactMatch,
@@ -258,15 +259,43 @@ def test_deepeval_scorer_kind_property():
     assert scorer.kind == ScorerKind.THIRD_PARTY
 
 
-@pytest.mark.parametrize("method_name", ["register", "start", "update", "stop"])
-def test_deepeval_scorer_registration_methods_not_supported(method_name):
-    from mlflow.exceptions import MlflowException
-
+def test_deepeval_scorer_register_blocked_on_databricks():
     scorer = get_scorer("ExactMatch")
-    method = getattr(scorer, method_name)
+    with patch(
+        "mlflow.genai.scorers.base.is_databricks_uri",
+        return_value=True,
+    ) as mock_is_dbx:
+        with pytest.raises(MlflowException, match="Third-party scorer registration"):
+            scorer.register(name="exact_match")
+        mock_is_dbx.assert_called()
 
-    with pytest.raises(MlflowException, match=f"'{method_name}\\(\\)' is not supported"):
-        method()
+
+def test_deepeval_scorer_serialization_round_trip():
+    scorer = ExactMatch()
+    dump = scorer.model_dump()
+    assert dump["third_party_scorer_data"]["class"] == "ExactMatch"
+    assert dump["third_party_scorer_data"]["metric_name"] == "ExactMatch"
+    assert dump["third_party_scorer_data"]["model"] is None
+
+    restored = Scorer.model_validate(dump)
+    assert isinstance(restored, ExactMatch)
+    assert restored.name == "ExactMatch"
+    assert restored.kind == ScorerKind.THIRD_PARTY
+
+
+def test_deepeval_scorer_llm_metric_serialization_round_trip(mock_deepeval_model):
+    with patch(
+        "mlflow.genai.scorers.deepeval.create_deepeval_model", return_value=mock_deepeval_model
+    ):
+        scorer = AnswerRelevancy(model="openai:/gpt-4o")
+        dump = scorer.model_dump()
+        assert dump["third_party_scorer_data"]["class"] == "AnswerRelevancy"
+        assert dump["third_party_scorer_data"]["metric_name"] == "AnswerRelevancy"
+        assert dump["third_party_scorer_data"]["model"] == "openai:/gpt-4o"
+
+        restored = Scorer.model_validate(dump)
+        assert isinstance(restored, AnswerRelevancy)
+        assert restored._model == "openai:/gpt-4o"
 
 
 def test_deepeval_scorer_align_not_supported():

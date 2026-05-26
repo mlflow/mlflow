@@ -256,11 +256,21 @@ def http_request(
     elif host_creds.token:
         auth_str = f"Bearer {host_creds.token}"
     elif host_creds.client_secret:
-        raise MlflowException(
-            "To use OAuth authentication, set environmental variable "
-            f"'{MLFLOW_ENABLE_DB_SDK.name}' to true",
-            error_code=CUSTOMER_UNAUTHORIZED,
+        message = (
+            "OAuth authentication using DATABRICKS_CLIENT_ID and DATABRICKS_CLIENT_SECRET "
+            "requires the Databricks SDK to be enabled and successfully initialized. "
+            f"{MLFLOW_ENABLE_DB_SDK.name} is currently set to "
+            f"'{MLFLOW_ENABLE_DB_SDK.get()}'."
         )
+        if MLFLOW_ENABLE_DB_SDK.get():
+            message += (
+                " The SDK is enabled but failed to initialize. See the preceding "
+                "'Failed to create databricks SDK workspace client' warning for the "
+                "underlying error."
+            )
+        else:
+            message += f" Set '{MLFLOW_ENABLE_DB_SDK.name}' to true."
+        raise MlflowException(message, error_code=CUSTOMER_UNAUTHORIZED)
 
     if auth_str:
         headers["Authorization"] = auth_str
@@ -319,8 +329,10 @@ def get_workspace_client(
 
     if use_secret_scope_token:
         kwargs = {"host": host, "token": token}
-    else:
+    elif databricks_auth_profile:
         kwargs = {"profile": databricks_auth_profile}
+    else:
+        kwargs = {}
     if timeout is not None:
         kwargs["http_timeout_seconds"] = timeout
     config = Config(

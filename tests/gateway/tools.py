@@ -69,7 +69,7 @@ class Gateway:
         time.sleep(self.workers)
 
     def request(self, method: str, path: str, *args: Any, **kwargs: Any) -> requests.Response:
-        return requests.request(method, f"{self.url}/{path}", *args, **kwargs)
+        return requests.request(method, f"{self.url}/{path.lstrip('/')}", *args, **kwargs)
 
     def get(self, path: str, *args: Any, **kwargs: Any) -> requests.Response:
         return self.request("GET", path, *args, **kwargs)
@@ -203,7 +203,7 @@ class UvicornGateway:
         self.thread.start()
 
     def request(self, method: str, path: str, *args: Any, **kwargs: Any) -> requests.Response:
-        return requests.request(method, f"{self.url}/{path}", *args, **kwargs)
+        return requests.request(method, f"{self.url}/{path.lstrip('/')}", *args, **kwargs)
 
     def get(self, path: str, *args: Any, **kwargs: Any) -> requests.Response:
         return self.request("GET", path, *args, **kwargs)

@@ -76,11 +76,17 @@ _MODALITY_OUTPUT = re.compile(r"^output_cost_per_([a-z0-9_]+)_token$")
 _MODALITY_CACHE_READ = re.compile(r"^cache_read_input_([a-z0-9_]+)_token_cost$")
 _MODALITY_CACHE_WRITE = re.compile(r"^cache_creation_input_([a-z0-9_]+)_token_cost$")
 _MODALITY_CACHE_READ_ALT = re.compile(r"^cache_read_input_token_cost_per_([a-z0-9_]+)_token$")
+_FLAT_INPUT_PER_SECOND = re.compile(r"^input_cost_per_([a-z]+)_per_second$")
 _EXCLUDED_MODALITIES = {"reasoning"}
 
 
 def _extract_modality_pricing(info: dict[str, Any]) -> dict[str, dict[str, float]]:
-    """Extract modality-specific pricing (audio/image/etc) as per-million-token rates."""
+    """Extract modality-specific pricing (audio/image/video/etc) as per-million-token rates.
+
+    Keyed-per-token keys (e.g. input_cost_per_image_token) are scaled to per-million and
+    stored under input_per_million_tokens for the modality.
+    Per-second rates (e.g. input_cost_per_video_per_second) are stored as input_per_second.
+    """
     modalities: dict[str, dict[str, float]] = {}
     for k, v in info.items():
         if m := _MODALITY_INPUT.match(k):
@@ -111,6 +117,9 @@ def _extract_modality_pricing(info: dict[str, Any]) -> dict[str, dict[str, float
                 continue
             modality_entry = modalities.setdefault(modality, {})
             modality_entry["cache_read_per_million_tokens"] = _to_per_million(v)
+        elif m := _FLAT_INPUT_PER_SECOND.match(k):
+            modality = m.group(1)
+            modalities.setdefault(modality, {})["input_per_second"] = v
 
     return modalities
 
@@ -279,6 +288,55 @@ def _transform_entry(info: dict[str, Any]) -> dict[str, Any] | None:
     return entry
 
 
+_LEGACY_PRICING_KEY_MAP = {
+    "input_per_token": "input_per_million_tokens",
+    "output_per_token": "output_per_million_tokens",
+    "cache_read_per_token": "cache_read_per_million_tokens",
+    "cache_write_per_token": "cache_write_per_million_tokens",
+}
+
+
+def _migrate_pricing_block(pricing: dict[str, Any]) -> dict[str, Any]:
+    """Convert legacy *_per_token keys to *_per_million_tokens in a flat pricing block."""
+    result = {}
+    for k, v in pricing.items():
+        if k in _LEGACY_PRICING_KEY_MAP:
+            result[_LEGACY_PRICING_KEY_MAP[k]] = _to_per_million(v)
+        else:
+            result[k] = v
+    return result
+
+
+def _migrate_legacy_pricing(entry: dict[str, Any]) -> dict[str, Any]:
+    """Migrate legacy *_per_token pricing keys to *_per_million_tokens in a catalog entry.
+
+    Applies the migration at the top level of the pricing block and recursively within
+    service_tiers, long_context, and modality sub-sections.
+    """
+    if "pricing" not in entry:
+        return entry
+
+    entry = {**entry}
+    pricing = _migrate_pricing_block(entry["pricing"])
+
+    if "service_tiers" in pricing:
+        pricing["service_tiers"] = {
+            tier: _migrate_pricing_block(tier_data)
+            for tier, tier_data in pricing["service_tiers"].items()
+        }
+
+    if "long_context" in pricing:
+        pricing["long_context"] = [_migrate_pricing_block(ctx) for ctx in pricing["long_context"]]
+
+    if "modality" in pricing:
+        pricing["modality"] = {
+            mod: _migrate_pricing_block(mod_data) for mod, mod_data in pricing["modality"].items()
+        }
+
+    entry["pricing"] = pricing
+    return entry
+
+
 _LITELLM_URL = (
     "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json"
 )
@@ -297,6 +355,18 @@ def convert(raw: dict[str, Any], output_dir: Path) -> dict[str, int]:
 
     Returns a dict mapping provider names to model counts.
     """
+
+    today = date.today().isoformat()
+
+    # Load existing catalog files first so we can detect which entries have changed
+    output_dir.mkdir(parents=True, exist_ok=True)
+    existing_catalogs: dict[str, dict[str, Any]] = {}
+    for provider_file in output_dir.glob("*.json"):
+        try:
+            existing = json.loads(provider_file.read_text(encoding="utf-8"))
+            existing_catalogs[provider_file.stem] = existing.get("models", {})
+        except (json.JSONDecodeError, OSError) as e:
+            print(f"  Warning: could not read existing {provider_file.name}: {e}")
 
     # Group by provider
     providers: dict[str, dict[str, dict[str, Any]]] = {}
@@ -326,24 +396,33 @@ def convert(raw: dict[str, Any], output_dir: Path) -> dict[str, int]:
         if entry is None:
             continue
 
+        # Determine last_updated_at: carry over existing date if entry is unchanged;
+        # set today if no existing date (first-time backfill or new entry)
+        existing_entry = existing_catalogs.get(provider, {}).get(model_name)
+        if existing_entry is not None:
+            existing_without_last_updated_at = {
+                k: v for k, v in existing_entry.items() if k != "last_updated_at"
+            }
+            if entry == existing_without_last_updated_at:
+                # Entry is unchanged; preserve existing last_updated_at or set today if absent
+                entry["last_updated_at"] = existing_entry.get("last_updated_at") or today
+            else:
+                entry["last_updated_at"] = today
+        else:
+            entry["last_updated_at"] = today
+
         providers.setdefault(provider, {})[model_name] = entry
 
-    # Merge with existing catalog files (preserve models not in upstream)
-    output_dir.mkdir(parents=True, exist_ok=True)
-
     # Merge with existing catalogs: preserve models not in upstream (community additions)
-    for provider_file in output_dir.glob("*.json"):
-        provider = provider_file.stem
+    for provider, existing_models in existing_catalogs.items():
         if provider not in providers:
             providers[provider] = {}
-        try:
-            existing = json.loads(provider_file.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError) as e:
-            print(f"  Warning: could not read existing {provider_file.name}: {e}")
-            continue
-        for model_name, entry in existing.get("models", {}).items():
+        for model_name, entry in existing_models.items():
             if model_name not in providers.get(provider, {}):
-                providers.setdefault(provider, {})[model_name] = entry
+                migrated = _migrate_legacy_pricing(entry)
+                if "last_updated_at" not in migrated:
+                    migrated = {**migrated, "last_updated_at": today}
+                providers.setdefault(provider, {})[model_name] = migrated
 
     stats = {}
     for provider, models in sorted(providers.items()):

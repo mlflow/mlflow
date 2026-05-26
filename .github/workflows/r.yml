@@ -18,6 +18,7 @@ on:
       - ".github/workflows/preview-docs.yml"
       - "mlflow/server/js/**"
       - ".github/workflows/js.yml"
+      - ".claude/**"
   schedule:
     # Run this workflow daily at 13:00 UTC
     - cron: "0 13 * * *"
@@ -33,6 +34,8 @@ defaults:
 env:
   MLFLOW_HOME: ${{ github.workspace }}
   PIP_CONSTRAINT: ${{ github.workspace }}/requirements/constraints.txt
+
+permissions: {}
 
 jobs:
   r:
@@ -52,7 +55,7 @@ jobs:
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
-      - uses: r-lib/actions/setup-r@bd49c52ffe281809afa6f0fecbf37483c5dd0b93 # v2.11.3
+      - uses: r-lib/actions/setup-r@a51a8012b0aab7c32ef9d19bf54da93f3254335e # v2.12.0
       # This step dumps the current set of R dependencies and R version into files to be used
       # as a cache key when caching/restoring R dependencies.
       - name: Dump dependencies
@@ -109,6 +112,8 @@ jobs:
       - name: Run tests
         env:
           LINTR_COMMENT_BOT: false
+          # TODO: Migrate R tests to use a SQLite backend instead of FileStore
+          MLFLOW_ALLOW_FILE_STORE: true
         run: |
           cd tests
           export RETICULATE_PYTHON_BIN=$(which python)
