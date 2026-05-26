@@ -2031,6 +2031,10 @@
     "defaultMessage": "Toggle visibility of runs",
     "description": "Experiment page > runs table > toggle visibility of runs > accessible label"
   },
+  "9HpSuz": {
+    "defaultMessage": "Cancel",
+    "description": "Button to cancel editing a notes comment"
+  },
   "9HzNUt": {
     "defaultMessage": "Unified API for multiple LLM providers with rate limiting.",
     "description": "Feature card summary for AI Gateway"
@@ -2779,6 +2783,10 @@
     "defaultMessage": "No metric charts",
     "description": "Experiment page > compare runs > no metric charts"
   },
+  "D0A9b+": {
+    "defaultMessage": "Add notes about this trace. Each post is saved as a separate comment.",
+    "description": "Tooltip describing the notes section in the assessments pane"
+  },
   "D0jMS6": {
     "defaultMessage": "Register model",
     "description": "Label for a CTA button for registering a ML model version from a logged model"
@@ -3010,6 +3018,10 @@
   "ESmLOR": {
     "defaultMessage": "Using regular expression quick filter. The following query will be used: {filterSample}",
     "description": "Experiment page > control bar > search filter > a label displayed when user has entered a simple query that will be automatically transformed into RLIKE SQL query before being sent to the API"
+  },
+  "ETF1Br": {
+    "defaultMessage": "Add a note...",
+    "description": "Placeholder text in the notes section input"
   },
   "ETbUBU": {
     "defaultMessage": "Rough cost: under $0.5 for ~100 traces, actual cost varies by selected model. <link>See benchmark</link>.",
@@ -4587,6 +4599,10 @@
     "defaultMessage": "Optional secret key",
     "description": "Webhook secret placeholder when creating"
   },
+  "NspSBV": {
+    "defaultMessage": "Post",
+    "description": "Button to post a new notes comment"
+  },
   "NtaCJN": {
     "defaultMessage": "Off",
     "description": "Runs charts > line chart > display points > off setting label"
@@ -5275,10 +5291,6 @@
     "defaultMessage": "Ready",
     "description": "Label for ready state of a experiment logged model"
   },
-  "RsTIRk": {
-    "defaultMessage": "Add personal notes about this trace.",
-    "description": "Tooltip describing the notes section in the assessments pane"
-  },
   "RtKhwd": {
     "defaultMessage": "Dataset",
     "description": "Experiment page > group by runs control > group by dataset"
@@ -5578,6 +5590,10 @@
   "TWnsnV": {
     "defaultMessage": "Run Name",
     "description": "Column header for run name in the evaluation runs table"
+  },
+  "TWyKPp": {
+    "defaultMessage": "Edit note",
+    "description": "Tooltip for editing a notes comment"
   },
   "TXJ9GQ": {
     "defaultMessage": "Learn more about tracing in the {tracingDocs}.",
@@ -7463,6 +7479,10 @@
     "defaultMessage": "Source run",
     "description": "Label for the source run name of a logged model on the logged model details page"
   },
+  "d8hr9c": {
+    "defaultMessage": "Save",
+    "description": "Button to save an edited notes comment"
+  },
   "d9VoXo": {
     "defaultMessage": "Don't see your framework? <a>Browse all integrations</a>.",
     "description": "Link to MLflow tracing integrations doc page above the framework selector"
@@ -8186,6 +8206,10 @@
   "gtvp+Q": {
     "defaultMessage": "Instructions",
     "description": "Guardrail instructions label"
+  },
+  "gvhHdm": {
+    "defaultMessage": "Edit note...",
+    "description": "Placeholder text in the notes section edit input"
   },
   "h0XfC3": {
     "defaultMessage": "Tags",
@@ -11479,6 +11503,10 @@
     "defaultMessage": "Output",
     "description": "Experiment page > new run modal > evaluation output field label"
   },
+  "yjBe73": {
+    "defaultMessage": "Delete note",
+    "description": "Tooltip for deleting a notes comment"
+  },
   "yjerKR": {
     "defaultMessage": "<link>Version {versionNumber}</link>",
     "description": "Link to model version in the model version table"
@@ -11486,10 +11514,6 @@
   "yltiK8": {
     "defaultMessage": "No prompts match your search",
     "description": "No search results message for linked prompts table on logged model details page"
-  },
-  "ymnL+t": {
-    "defaultMessage": "Save",
-    "description": "Button to save notes assessment"
   },
   "ynkoR7": {
     "defaultMessage": "No models versions are registered yet. <link>Learn more</link> about how to register a model version.",
