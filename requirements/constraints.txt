@@ -5,5 +5,3 @@ xgboost<3.1.0
 # litellm 1.82.7 and 1.82.8 contain a malicious .pth file that steals credentials
 # https://github.com/BerriAI/litellm/issues/24512
 litellm<=1.82.6
-# uvicorn 0.47.0 appears to delay multi-worker readiness on CI, causing server health checks to time out
-uvicorn<0.47
