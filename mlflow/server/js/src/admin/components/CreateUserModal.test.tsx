@@ -10,8 +10,11 @@ beforeEach(() => {
   userEvent = userEventGlobal.setup();
 });
 
-const mockCreateUserMutateAsync = jest.fn();
-const mockGrantPermissionMutateAsync = jest.fn();
+// Typed as ``(...args: any[]) => any`` so ``mockResolvedValue`` accepts the
+// realistic response shapes the component awaits. ``jest.fn()``'s default
+// signature is ``() => never``, which would reject the payload.
+const mockCreateUserMutateAsync = jest.fn<(...args: any[]) => any>();
+const mockGrantPermissionMutateAsync = jest.fn<(...args: any[]) => any>();
 
 jest.mock('../hooks', () => ({
   AdminQueryKeys: {
