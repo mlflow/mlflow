@@ -293,7 +293,12 @@ class OpenAICompatibleProvider(AssistantProvider):
         cwd: Path | None = None,
         context: dict[str, Any] | None = None,
     ) -> AsyncGenerator[Event, None]:
-        config = load_config(self.name)
+        config = self._load_config()
+        if config is None:
+            yield Event.from_error(
+                f"{self._display_name} is not configured. {self._connection_hint}"
+            )
+            return
         base_url = (config.base_url or self._default_base_url or "").rstrip("/") or None
         chat_url = self._chat_url_builder(base_url, tracking_uri)
         if not chat_url:

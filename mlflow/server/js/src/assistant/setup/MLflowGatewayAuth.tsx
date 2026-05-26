@@ -51,11 +51,12 @@ export const MLflowGatewayAuth = ({ onBack, onContinue }: MLflowGatewayAuthProps
   }, [endpoints, selectedEndpoint]);
 
   const handleContinue = useCallback(async () => {
-    if (selectedEndpoint) {
-      await updateConfig({
-        providers: { [PROVIDER_ID]: { model: selectedEndpoint, selected: true } },
-      });
+    if (!selectedEndpoint) {
+      return;
     }
+    await updateConfig({
+      providers: { [PROVIDER_ID]: { model: selectedEndpoint, selected: true } },
+    });
     onContinue();
   }, [onContinue, selectedEndpoint]);
 

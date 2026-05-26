@@ -51,7 +51,7 @@ def test_list_models_returns_model_names():
         models = _ollama_provider().list_models("http://localhost:11434")
 
     assert models == ["llama3", "mistral"]
-    mock_get.assert_called_once_with("http://localhost:11434/api/tags", timeout=10)
+    mock_get.assert_called_once_with("http://localhost:11434/api/tags", headers={}, timeout=10)
 
 
 def test_list_models_raises_on_connection_error():
@@ -77,5 +77,5 @@ def test_default_base_url_used_when_unconfigured(tmp_path):
     ):
         models = _ollama_provider().list_models()
     assert models == ["llama3"]
-    mock_get.assert_called_once_with("http://localhost:11434/api/tags", timeout=10)
+    mock_get.assert_called_once_with("http://localhost:11434/api/tags", headers={}, timeout=10)
     clear_config_cache()
