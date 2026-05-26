@@ -58,6 +58,24 @@ function isConnectError(err: unknown): boolean {
 
 /**
  * Send `record` to the running daemon and wait for the post-fsync ACK.
+ *
+ * Delivery semantics: **at-least-once**.
+ *
+ * A successful resolution means the record was durably fsynced to
+ * `queue.log` at least once. A rejection means the daemon could not be
+ * acknowledged after 7 attempts (1 initial + 6 backoffs from
+ * `CONNECT_RETRY_DELAYS_MS`), but the daemon may still have persisted
+ * the record on one of those attempts before the failure surfaced.
+ *
+ * The internal retry loop retries on five connect-class codes:
+ * `ECONNREFUSED`, `ENOENT`, `EPIPE`, `ECONNRESET`, and
+ * `EDAEMONNORESPONSE`. The first two prove the request never reached a
+ * daemon and are safe; the last three can fire *after* the daemon has
+ * already fsynced (e.g. daemon crashed between fsync and ACK, or the
+ * socket reset post-fsync), so a single logical submit can produce
+ * more than one physical line in `queue.log` and more than one
+ * `createTrace` call to the backend.
+ *
  */
 export async function submitRecord(record: WalRecord): Promise<void> {
   const payload = JSONBig.stringify({ op: 'append', record } satisfies IpcRequest) + '\n';
@@ -83,14 +101,7 @@ export async function submitRecord(record: WalRecord): Promise<void> {
     }
   }
 
-  if (lastErr instanceof Error) {
-    throw lastErr;
-  }
-  const wrapped = new Error(`Failed to submit record after retries: ${String(lastErr)}`);
-  if (typeof lastErr === 'object' && lastErr != null && 'code' in lastErr) {
-    (wrapped as { code?: string }).code = (lastErr as { code?: string }).code;
-  }
-  throw wrapped;
+  throw lastErr as Error;
 }
 
 /**
@@ -152,7 +163,7 @@ function sendRequest(payload: string): Promise<IpcResponse> {
  * accepted socket.
  */
 function handleConnection(writer: BatchingWriter, socket: Socket): void {
-  let buffer = '';
+  const chunks: Buffer[] = [];
   let bytesReceived = 0;
   let dispatched = false;
 
@@ -172,7 +183,6 @@ function handleConnection(writer: BatchingWriter, socket: Socket): void {
       return;
     }
     bytesReceived += chunk.length;
-    buffer += chunk.toString('utf8');
     if (bytesReceived > MAX_REQUEST_BYTES) {
       dispatched = true;
       socket.pause();
@@ -185,11 +195,16 @@ function handleConnection(writer: BatchingWriter, socket: Socket): void {
       socket.once('close', () => clearTimeout(destroyTimer));
       return;
     }
-    const newlineIdx = buffer.indexOf('\n');
-    if (newlineIdx < 0) {
+    // Prior chunks contained no newline (otherwise `dispatched` would
+    // be true and we'd have returned above), so only this chunk needs
+    // scanning. `0x0A` is the byte value of '\n'.
+    const newlineInChunk = chunk.indexOf(0x0a);
+    if (newlineInChunk < 0) {
+      chunks.push(chunk);
       return;
     }
-    const line = buffer.slice(0, newlineIdx);
+    chunks.push(chunk.subarray(0, newlineInChunk));
+    const line = Buffer.concat(chunks).toString('utf8');
     dispatched = true;
     void dispatch(writer, socket, line);
   });
@@ -215,6 +230,20 @@ async function dispatch(writer: BatchingWriter, socket: Socket, line: string): P
     return;
   }
 
+  const record = request.record as Partial<WalRecord> | null | undefined;
+  if (
+    typeof record !== 'object' ||
+    record == null ||
+    typeof record.id !== 'string' ||
+    record.id === ''
+  ) {
+    sendResponse(socket, {
+      ok: false,
+      error: 'invalid record: must be an object with a non-empty string id',
+    });
+    return;
+  }
+
   try {
     await writer.submit(request.record);
     sendResponse(socket, { ok: true });
@@ -224,13 +253,12 @@ async function dispatch(writer: BatchingWriter, socket: Socket, line: string): P
 }
 
 function sendResponse(socket: Socket, response: IpcResponse): void {
-  const payload = JSONBig.stringify(response) + '\n';
-
-  try {
-    socket.end(payload);
-  } catch {
-    socket.destroy();
-  }
+  // `socket.end` does not throw synchronously for our inputs (always a
+  // string, never null, never on a not-yet-constructed handle). Any
+  // transport-level failure during the write surfaces asynchronously
+  // via the `'error'` event, which is handled at the top of
+  // handleConnection - no defensive try/catch needed here.
+  socket.end(JSONBig.stringify(response) + '\n');
 }
 
 /**
