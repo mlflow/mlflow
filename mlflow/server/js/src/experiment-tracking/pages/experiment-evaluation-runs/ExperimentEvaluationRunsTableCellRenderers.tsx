@@ -27,7 +27,8 @@ import { TimeAgo } from '@databricks/web-shared/browse';
 import { parseEvalRunsTableKeyedColumnKey } from './ExperimentEvaluationRunsTable.utils';
 import { useMemo } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { EvalRunsTableKeyedColumnPrefix, GIT_SOURCE_TAG_LABELS } from './ExperimentEvaluationRunsTable.constants';
+import { EvalRunsTableKeyedColumnPrefix } from './ExperimentEvaluationRunsTable.constants';
+import { GIT_SOURCE_TAGS } from '../../utils/gitSourceTags';
 import type { RunEntityOrGroupData } from './ExperimentEvaluationRunsPage.utils';
 import { useExperimentEvaluationRunsRowVisibility } from './hooks/useExperimentEvaluationRunsRowVisibility';
 import { RunPageTabName } from '../../constants';
@@ -302,11 +303,11 @@ export const SortableHeaderCell = ({
     const key = parsed?.key ?? column.id;
     const labels =
       parsed?.columnType === EvalRunsTableKeyedColumnPrefix.TAG
-        ? GIT_SOURCE_TAG_LABELS[key as keyof typeof GIT_SOURCE_TAG_LABELS]
+        ? GIT_SOURCE_TAGS[key as keyof typeof GIT_SOURCE_TAGS]
         : undefined;
     return {
       displayedKey: key,
-      friendlyLabel: labels ? intl.formatMessage(labels.display) : null,
+      friendlyLabel: labels ? intl.formatMessage(labels.column) : null,
       // For git source tags, the header shows a friendly label; surface the underlying tag key
       // in the tooltip so users still know how to reference it in filter queries.
       tooltipContent: labels ? (

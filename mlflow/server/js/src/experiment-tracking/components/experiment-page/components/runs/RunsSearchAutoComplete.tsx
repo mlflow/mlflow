@@ -1,6 +1,5 @@
 import { useMemo, useRef } from 'react';
-import { defineMessage, useIntl } from 'react-intl';
-import type { MessageDescriptor } from 'react-intl';
+import { useIntl } from 'react-intl';
 import type { ErrorWrapper } from '../../../../../common/utils/ErrorWrapper';
 import { EntitySearchAutoComplete } from '../../../EntitySearchAutoComplete';
 import type { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selector';
@@ -11,6 +10,7 @@ import type {
 } from '../../../EntitySearchAutoComplete.utils';
 import { cleanEntitySearchTagNames } from '../../../EntitySearchAutoComplete.utils';
 import { shouldUseRegexpBasedAutoRunsSearchFilter } from '../../../../../common/utils/FeatureUtils';
+import { GIT_SOURCE_TAGS, isGitSourceTag } from '../../../../utils/gitSourceTags';
 
 // A default placeholder for the search box
 const SEARCH_BOX_PLACEHOLDER = 'metrics.rmse < 1 and params.model = "tree"';
@@ -34,28 +34,6 @@ const ATTRIBUTE_OPTIONS = [
   'end_time',
   'created',
 ].map((s) => ({ value: `attributes.${s}` }));
-
-/**
- * Friendly dropdown labels for the three git source tags. Surface them in their own "Git" section
- * with short names instead of mixing the raw `mlflow.source.git.*` keys into the generic Tags
- * section.
- */
-const GIT_TAG_FILTER_LABELS = {
-  'mlflow.source.git.commit': defineMessage({
-    defaultMessage: 'commit',
-    description: 'Dropdown label for the git commit tag in the run search autocomplete',
-  }),
-  'mlflow.source.git.branch': defineMessage({
-    defaultMessage: 'branch',
-    description: 'Dropdown label for the git branch tag in the run search autocomplete',
-  }),
-  'mlflow.source.git.repoURL': defineMessage({
-    defaultMessage: 'repository',
-    description: 'Dropdown label for the git repository tag in the run search autocomplete',
-  }),
-} satisfies Record<string, MessageDescriptor>;
-
-const isGitSourceTag = (tag: string): tag is keyof typeof GIT_TAG_FILTER_LABELS => tag in GIT_TAG_FILTER_LABELS;
 
 const mergeDeduplicate = (list1: string[], list2: string[]) => [...new Set([...list1, ...list2])];
 const getTagNames = (tagsList: any[]) => tagsList.flatMap((tagRecord) => Object.keys(tagRecord));
@@ -113,7 +91,7 @@ export const RunsSearchAutoComplete = ({ runsData, ...restProps }: RunsSearchAut
       {
         label: 'Git',
         options: gitTagNames.map((tag) => {
-          const friendlyLabel = intl.formatMessage(GIT_TAG_FILTER_LABELS[tag]);
+          const friendlyLabel = intl.formatMessage(GIT_SOURCE_TAGS[tag].short);
           return {
             value: `tags.\`${tag}\``,
             label: friendlyLabel,

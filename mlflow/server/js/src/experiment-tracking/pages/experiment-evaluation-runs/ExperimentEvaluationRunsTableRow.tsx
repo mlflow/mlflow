@@ -11,7 +11,7 @@ import {
   Tag,
 } from '@databricks/design-system';
 import type { EvalRunsTableColumnDef } from './ExperimentEvaluationRunsTable.constants';
-import { GIT_SOURCE_TAG_LABELS } from './ExperimentEvaluationRunsTable.constants';
+import { GIT_SOURCE_TAGS } from '../../utils/gitSourceTags';
 import type { Row } from '@tanstack/react-table';
 import { flexRender } from '@tanstack/react-table';
 import type { RunEntityOrGroupData } from './ExperimentEvaluationRunsPage.utils';
@@ -69,9 +69,9 @@ const GroupLabel = ({ groupValues }: { groupValues: RunGroupByGroupingValue }): 
 
   const gitLabels =
     groupValues.mode === RunGroupingMode.Tag
-      ? GIT_SOURCE_TAG_LABELS[key as keyof typeof GIT_SOURCE_TAG_LABELS]
+      ? GIT_SOURCE_TAGS[key as keyof typeof GIT_SOURCE_TAGS]
       : undefined;
-  const displayKey = gitLabels ? intl.formatMessage(gitLabels.display) : key;
+  const displayKey = gitLabels ? intl.formatMessage(gitLabels.column) : key;
 
   return <GroupTag key={key} groupKey={displayKey} groupValue={String(groupValues.value)} />;
 };

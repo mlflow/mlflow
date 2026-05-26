@@ -2,6 +2,7 @@ import React from 'react';
 import { shouldEnableMinMaxMetricsOnExperimentPage } from '../../common/utils/FeatureUtils';
 import { MLFLOW_INTERNAL_PREFIX } from '../../common/utils/TagUtils';
 import { sanitizeStringForRegexp } from '../../common/utils/StringUtils';
+import { GIT_SOURCE_TAG_KEYS } from '../utils/gitSourceTags';
 
 export type EntitySearchAutoCompleteOption = {
   label?: string | React.ReactNode;
@@ -56,11 +57,7 @@ const getClausesAndStartIndex = (str: string) => {
  * Internal mlflow.* tags that are useful enough as filter dimensions to surface in autocomplete
  * alongside user-defined tags. Keep this list narrow.
  */
-const SEARCHABLE_INTERNAL_TAGS = new Set<string>([
-  'mlflow.source.git.commit',
-  'mlflow.source.git.branch',
-  'mlflow.source.git.repoURL',
-]);
+const SEARCHABLE_INTERNAL_TAGS = new Set<string>([...GIT_SOURCE_TAG_KEYS]);
 
 /**
  * Filters out internal tag names (except for a small allowlist) and wraps names that include

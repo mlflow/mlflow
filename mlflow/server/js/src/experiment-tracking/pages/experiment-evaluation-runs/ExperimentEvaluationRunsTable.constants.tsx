@@ -15,6 +15,7 @@ import type { Theme, Interpolation } from '@emotion/react';
 import type { RunEntityOrGroupData } from './ExperimentEvaluationRunsPage.utils';
 import { ExperimentEvaluationRunsPageMode } from './hooks/useExperimentEvaluationRunsPageMode';
 import { EvalRunsVisibilityHeaderCell } from './EvalRunsVisibilityHeaderCell';
+import { GIT_SOURCE_TAG_KEYS } from '../../utils/gitSourceTags';
 
 export interface ExperimentEvaluationRunsTableMeta {
   setSelectedRunUuid: (runUuid: string) => void;
@@ -51,56 +52,11 @@ export enum EvalRunsTableKeyedColumnPrefix {
 
 /**
  * Internal mlflow.* tags that are still useful enough as filter / group-by / column dimensions on
- * the evaluation runs page to override the default `isUserFacingTag` hiding rule. Keep narrow.
- *
- * When extending this set, also add a friendly label below.
+ * the evaluation runs page to override the default `isUserFacingTag` hiding rule. Today this is
+ * just the git source tags; extend the shared `GIT_SOURCE_TAGS` map (or union additional keys
+ * here) to add more.
  */
-/**
- * Friendly labels for the git source tags in two contexts on the eval runs page:
- *   - selector: lowercase, used in the Columns and Group by dropdowns (sits under a "Git" header)
- *   - display:  "Git X" form, used as the table column header and the grouped-runs row label
- */
-type GitSourceTagLabel = {
-  selector: MessageDescriptor;
-  display: MessageDescriptor;
-};
-
-export const GIT_SOURCE_TAG_LABELS = {
-  'mlflow.source.git.commit': {
-    selector: defineMessage({
-      defaultMessage: 'commit',
-      description: 'Dropdown label for the git commit tag in eval runs Columns / Group by selectors',
-    }),
-    display: defineMessage({
-      defaultMessage: 'Git commit',
-      description: 'Column header and group label for the git commit tag in the eval runs table',
-    }),
-  },
-  'mlflow.source.git.branch': {
-    selector: defineMessage({
-      defaultMessage: 'branch',
-      description: 'Dropdown label for the git branch tag in eval runs Columns / Group by selectors',
-    }),
-    display: defineMessage({
-      defaultMessage: 'Git branch',
-      description: 'Column header and group label for the git branch tag in the eval runs table',
-    }),
-  },
-  'mlflow.source.git.repoURL': {
-    selector: defineMessage({
-      defaultMessage: 'repository',
-      description: 'Dropdown label for the git repository tag in eval runs Columns / Group by selectors',
-    }),
-    display: defineMessage({
-      defaultMessage: 'Git repository',
-      description: 'Column header and group label for the git repository tag in the eval runs table',
-    }),
-  },
-} satisfies Record<string, GitSourceTagLabel>;
-
-export const EVAL_RUNS_SEARCHABLE_INTERNAL_TAGS: Set<string> = new Set(Object.keys(GIT_SOURCE_TAG_LABELS));
-
-export const isGitSourceTag = (tagKey: string): boolean => tagKey in GIT_SOURCE_TAG_LABELS;
+export const EVAL_RUNS_SEARCHABLE_INTERNAL_TAGS: Set<string> = GIT_SOURCE_TAG_KEYS;
 
 export const EVAL_RUNS_UNSELECTABLE_COLUMNS: Set<string> = new Set([
   EvalRunsTableColumnId.checkbox,

@@ -31,9 +31,8 @@ import {
   EVAL_RUNS_COLUMN_TYPE_LABELS,
   EVAL_RUNS_UNSELECTABLE_COLUMNS,
   EvalRunsTableKeyedColumnPrefix,
-  GIT_SOURCE_TAG_LABELS,
-  isGitSourceTag,
 } from './ExperimentEvaluationRunsTable.constants';
+import { GIT_SOURCE_TAGS, isGitSourceTag } from '../../utils/gitSourceTags';
 import { parseEvalRunsTableKeyedColumnKey } from './ExperimentEvaluationRunsTable.utils';
 import { groupBy } from 'lodash';
 import { ExperimentEvaluationRunsTableGroupBySelector } from './ExperimentEvaluationRunsTableGroupBySelector';
@@ -286,8 +285,8 @@ export const ExperimentEvaluationRunsTableControls = ({
                         </DialogComboboxSectionHeader>
                         {gitColumns.map(([column, selected]) => {
                           const tagKey = parseEvalRunsTableKeyedColumnKey(column)?.key ?? column;
-                          const labels = GIT_SOURCE_TAG_LABELS[tagKey as keyof typeof GIT_SOURCE_TAG_LABELS];
-                          const label = labels ? intl.formatMessage(labels.selector) : tagKey;
+                          const labels = GIT_SOURCE_TAGS[tagKey as keyof typeof GIT_SOURCE_TAGS];
+                          const label = labels ? intl.formatMessage(labels.short) : tagKey;
                           return (
                             <DialogComboboxOptionListCheckboxItem
                               key={column}

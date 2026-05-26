@@ -11,9 +11,8 @@ import {
 import {
   EVAL_RUNS_SEARCHABLE_INTERNAL_TAGS,
   EVAL_RUNS_UNSELECTABLE_COLUMNS,
-  GIT_SOURCE_TAG_LABELS,
-  isGitSourceTag,
 } from './ExperimentEvaluationRunsTable.constants';
+import { GIT_SOURCE_TAGS, isGitSourceTag } from '../../utils/gitSourceTags';
 import {
   RunGroupingAggregateFunction,
   RunGroupingMode,
@@ -158,8 +157,8 @@ export const ExperimentEvaluationRunsTableGroupBySelector = ({
                 </span>
               </DialogComboboxSectionHeader>
               {Array.from(uniqueGitTags).map((tag) => {
-                const labels = GIT_SOURCE_TAG_LABELS[tag as keyof typeof GIT_SOURCE_TAG_LABELS];
-                const label = labels ? intl.formatMessage(labels.selector) : tag;
+                const labels = GIT_SOURCE_TAGS[tag as keyof typeof GIT_SOURCE_TAGS];
+                const label = labels ? intl.formatMessage(labels.short) : tag;
                 return (
                   <DialogComboboxOptionListCheckboxItem
                     key={tag}
