@@ -1449,8 +1449,7 @@ service MlflowService {
   // =============================================================================
 
   // Create a new label schema scoped to an experiment.
-  rpc createLabelSchema(mlflow.label_schemas.CreateLabelSchema)
-      returns (mlflow.label_schemas.CreateLabelSchema.Response) {
+  rpc createLabelSchema(mlflow.label_schemas.CreateLabelSchema) returns (mlflow.label_schemas.CreateLabelSchema.Response) {
     option (rpc) = {
       endpoints: [
         {
@@ -1474,8 +1473,7 @@ service MlflowService {
   }
 
   // Get a label schema by ID.
-  rpc getLabelSchema(mlflow.label_schemas.GetLabelSchema)
-      returns (mlflow.label_schemas.GetLabelSchema.Response) {
+  rpc getLabelSchema(mlflow.label_schemas.GetLabelSchema) returns (mlflow.label_schemas.GetLabelSchema.Response) {
     option (rpc) = {
       endpoints: [
         {
@@ -1498,8 +1496,7 @@ service MlflowService {
   }
 
   // Get a label schema by (experiment_id, name).
-  rpc getLabelSchemaByName(mlflow.label_schemas.GetLabelSchemaByName)
-      returns (mlflow.label_schemas.GetLabelSchemaByName.Response) {
+  rpc getLabelSchemaByName(mlflow.label_schemas.GetLabelSchemaByName) returns (mlflow.label_schemas.GetLabelSchemaByName.Response) {
     option (rpc) = {
       endpoints: [
         {
@@ -1522,8 +1519,7 @@ service MlflowService {
   }
 
   // List label schemas for an experiment, paginated.
-  rpc listLabelSchemas(mlflow.label_schemas.ListLabelSchemas)
-      returns (mlflow.label_schemas.ListLabelSchemas.Response) {
+  rpc listLabelSchemas(mlflow.label_schemas.ListLabelSchemas) returns (mlflow.label_schemas.ListLabelSchemas.Response) {
     option (rpc) = {
       endpoints: [
         {
@@ -1546,8 +1542,7 @@ service MlflowService {
   }
 
   // Sparse-update an existing label schema (type is immutable).
-  rpc updateLabelSchema(mlflow.label_schemas.UpdateLabelSchema)
-      returns (mlflow.label_schemas.UpdateLabelSchema.Response) {
+  rpc updateLabelSchema(mlflow.label_schemas.UpdateLabelSchema) returns (mlflow.label_schemas.UpdateLabelSchema.Response) {
     option (rpc) = {
       endpoints: [
         {
@@ -1571,8 +1566,7 @@ service MlflowService {
   }
 
   // Atomically create-or-replace a label schema by (experiment_id, name).
-  rpc upsertLabelSchema(mlflow.label_schemas.UpsertLabelSchema)
-      returns (mlflow.label_schemas.UpsertLabelSchema.Response) {
+  rpc upsertLabelSchema(mlflow.label_schemas.UpsertLabelSchema) returns (mlflow.label_schemas.UpsertLabelSchema.Response) {
     option (rpc) = {
       endpoints: [
         {
@@ -1595,8 +1589,7 @@ service MlflowService {
   }
 
   // Delete a label schema by ID. No-op if the schema doesn't exist.
-  rpc deleteLabelSchema(mlflow.label_schemas.DeleteLabelSchema)
-      returns (mlflow.label_schemas.DeleteLabelSchema.Response) {
+  rpc deleteLabelSchema(mlflow.label_schemas.DeleteLabelSchema) returns (mlflow.label_schemas.DeleteLabelSchema.Response) {
     option (rpc) = {
       endpoints: [
         {
