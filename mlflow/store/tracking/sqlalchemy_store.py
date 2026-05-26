@@ -162,6 +162,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlTraceMetadata,
     SqlTraceMetrics,
     SqlTraceTag,
+    _input_to_dict,
 )
 from mlflow.store.tracking.gateway.sqlalchemy_mixin import SqlAlchemyGatewayStoreMixin
 from mlflow.store.tracking.utils.sql_trace_metrics_utils import (
@@ -7958,17 +7959,10 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         return self._get_query(session, SqlLabelSchema)
 
     def _validate_experiment_exists(self, session, experiment_id):
-        sql_experiment = (
-            self
-            ._get_query(session, SqlExperiment)
-            .filter(SqlExperiment.experiment_id == int(experiment_id))
-            .one_or_none()
-        )
-        if sql_experiment is None:
-            raise MlflowException(
-                f"Experiment with id '{experiment_id}' not found.",
-                error_code=RESOURCE_DOES_NOT_EXIST,
-            )
+        # Use the canonical helper so we get lifecycle filtering (label
+        # schemas can't be created against soft-deleted experiments) and
+        # consistent INVALID_PARAMETER_VALUE on non-integer IDs.
+        self._get_experiment(session, experiment_id, ViewType.ACTIVE_ONLY)
 
     def create_label_schema(
         self,
@@ -8148,8 +8142,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             if enable_comment is not None:
                 sql_schema.enable_comment = enable_comment
             if input is not None:
-                from mlflow.store.tracking.dbmodels.models import _input_to_dict
-
                 input_type, input_config = _input_to_dict(input)
                 sql_schema.input_type = input_type
                 sql_schema.input_config = input_config
@@ -8167,17 +8159,24 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         title,
         input,
         instruction=None,
-        enable_comment=False,
+        enable_comment=None,
     ):
         """See :py:meth:`AbstractStore.upsert_label_schema`.
 
         Single-transaction create-or-replace. If ``(experiment_id, name)``
         already exists, all updatable fields are replaced (the existing
         ``type`` is enforced; mismatched ``type`` is rejected).
+
+        ``enable_comment`` defaults to ``None``: on create it falls back
+        to ``False``; on replace it leaves the existing value untouched
+        so that omitting the argument never silently flips a previously
+        ``True`` schema back to ``False``. Note: concurrent upserts for
+        the same ``(experiment_id, name)`` race on the read-then-write
+        sequence and the unique constraint makes the race-loser surface
+        as an ``IntegrityError``.
         """
         from mlflow.genai.label_schemas.label_schemas import LabelSchemaType
         from mlflow.genai.label_schemas.validation import validate_schema_for_create
-        from mlflow.store.tracking.dbmodels.models import _input_to_dict
 
         validate_schema_for_create(
             name=name, type=type, title=title, input=input, instruction=instruction
@@ -8199,7 +8198,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
             now = get_current_time_millis()
             if sql_schema is None:
-                # Create path.
+                # Create path; treat omitted enable_comment as False.
                 schema_id = f"{SqlLabelSchema.LABEL_SCHEMA_ID_PREFIX}{uuid.uuid4().hex}"
                 input_type, input_config = _input_to_dict(input)
                 sql_schema = self._with_workspace_field(
@@ -8210,7 +8209,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                         type=type_str,
                         title=title,
                         instruction=instruction,
-                        enable_comment=enable_comment,
+                        enable_comment=enable_comment if enable_comment is not None else False,
                         input_type=input_type,
                         input_config=input_config,
                         created_time=now,
@@ -8229,7 +8228,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 input_type, input_config = _input_to_dict(input)
                 sql_schema.title = title
                 sql_schema.instruction = instruction
-                sql_schema.enable_comment = enable_comment
+                if enable_comment is not None:
+                    sql_schema.enable_comment = enable_comment
                 sql_schema.input_type = input_type
                 sql_schema.input_config = input_config
                 sql_schema.last_update_time = now
@@ -8252,7 +8252,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 .one_or_none()
             )
             if sql_schema is None:
-                _logger.warning(f"Label schema with id '{schema_id}' not found; delete is a no-op.")
+                _logger.debug(f"Label schema with id '{schema_id}' not found; delete is a no-op.")
                 return
             session.delete(sql_schema)
 

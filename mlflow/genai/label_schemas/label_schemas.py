@@ -1,3 +1,4 @@
+import warnings
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal, TypeVar
@@ -59,10 +60,22 @@ class InputCategorical(InputType):
         """Convert to the internal Databricks input type.
 
         The OSS-only ``semantic_polarity`` and ``multi_select`` fields are
-        dropped since Databricks doesn't model them.
+        dropped since Databricks doesn't model them. A warning is emitted
+        when non-default values are silently discarded so callers can
+        detect intent loss.
         """
         from databricks.agents.review_app import label_schemas as _label_schemas
 
+        if self.semantic_polarity is not None or self.multi_select:
+            warnings.warn(
+                "InputCategorical fields `semantic_polarity` and `multi_select` are "
+                "OSS-only and are being dropped when routing this schema to "
+                "Databricks. Set `multi_select=False` (the default) and leave "
+                "`semantic_polarity=None` for Databricks-routed schemas, or use the "
+                "OSS-native schema store.",
+                UserWarning,
+                stacklevel=2,
+            )
         return _label_schemas.InputCategorical(options=self.options)
 
     @classmethod
@@ -176,7 +189,7 @@ class InputNumeric(InputType):
 
 
 @dataclass
-class InputPassFail:
+class InputPassFail(InputType):
     """A Pass/Fail input for collecting feedback from stakeholders.
 
     Renders as a thumbs-up / thumbs-down toggle in the SME review UI. The
@@ -192,7 +205,8 @@ class InputPassFail:
     ``positive_label``.
 
     This input type is OSS-only. Databricks-routed schemas should use
-    :py:class:`InputCategorical` instead.
+    :py:class:`InputCategorical` instead; the Databricks conversion
+    methods raise ``NotImplementedError``.
     """
 
     positive_label: str
@@ -200,6 +214,19 @@ class InputPassFail:
 
     negative_label: str
     """Label shown next to the thumbs-down button (e.g., "Incorrect", "Fail")."""
+
+    def _to_databricks_input(self) -> DatabricksInputType:
+        raise NotImplementedError(
+            "InputPassFail is OSS-only; Databricks-routed schemas should use "
+            "InputCategorical with explicit positive/negative options."
+        )
+
+    @classmethod
+    def _from_databricks_input(cls, input_obj: DatabricksInputType) -> "InputPassFail":
+        raise NotImplementedError(
+            "InputPassFail has no Databricks counterpart; Databricks-routed schemas "
+            "use InputCategorical."
+        )
 
 
 class LabelSchemaType(StrEnum):

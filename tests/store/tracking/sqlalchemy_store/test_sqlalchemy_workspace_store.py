@@ -2398,3 +2398,49 @@ def test_guardrails_reject_missing_scorer_version_in_same_workspace(gateway_work
                 stage=GuardrailStage.BEFORE,
                 action=GuardrailAction.VALIDATION,
             )
+
+
+def test_label_schemas_are_workspace_scoped(workspace_tracking_store):
+    from mlflow.genai.label_schemas.label_schemas import InputPassFail
+
+    with WorkspaceContext("team-a"):
+        exp_a_id = workspace_tracking_store.create_experiment("exp-a")
+        schema_a = workspace_tracking_store.create_label_schema(
+            experiment_id=exp_a_id,
+            name="correctness",
+            type="feedback",
+            title="Correct?",
+            input=InputPassFail(positive_label="Yes", negative_label="No"),
+        )
+
+    with WorkspaceContext("team-b"):
+        exp_b_id = workspace_tracking_store.create_experiment("exp-b")
+        schema_b = workspace_tracking_store.create_label_schema(
+            experiment_id=exp_b_id,
+            name="correctness",
+            type="feedback",
+            title="Correct?",
+            input=InputPassFail(positive_label="Yes", negative_label="No"),
+        )
+
+        # Cross-workspace get-by-id: workspace-b cannot resolve workspace-a's schema.
+        with pytest.raises(MlflowException, match="not found"):
+            workspace_tracking_store.get_label_schema(schema_a.schema_id)
+
+        # Cross-workspace get-by-name: the workspace-filtered query yields no
+        # rows even though `(exp_a_id, "correctness")` is a real row in
+        # workspace-a, so the lookup raises RESOURCE_DOES_NOT_EXIST.
+        with pytest.raises(MlflowException, match="not found"):
+            workspace_tracking_store.get_label_schema_by_name(exp_a_id, "correctness")
+
+        # Cross-workspace delete: silently no-ops (schema is invisible).
+        workspace_tracking_store.delete_label_schema(schema_a.schema_id)
+
+    with WorkspaceContext("team-a"):
+        # Schema A is still intact in its own workspace.
+        intact = workspace_tracking_store.get_label_schema(schema_a.schema_id)
+        assert intact.schema_id == schema_a.schema_id
+
+        # Cross-workspace get-by-id from workspace-a → workspace-b.
+        with pytest.raises(MlflowException, match="not found"):
+            workspace_tracking_store.get_label_schema(schema_b.schema_id)

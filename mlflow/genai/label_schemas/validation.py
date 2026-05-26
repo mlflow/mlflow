@@ -89,9 +89,7 @@ def _validate_instruction(instruction: str | None) -> None:
         return
     if not isinstance(instruction, str):
         cls_name = instruction.__class__.__name__
-        raise _invalid(
-            f"Label schema `instruction` must be a string or None; got {cls_name}."
-        )
+        raise _invalid(f"Label schema `instruction` must be a string or None; got {cls_name}.")
     if len(instruction) > INSTRUCTION_MAX_LENGTH:
         raise _invalid(
             f"Label schema `instruction` must be at most {INSTRUCTION_MAX_LENGTH} characters; "
@@ -149,9 +147,11 @@ def _validate_categorical_input(
     *,
     type: LabelSchemaType,
 ) -> None:
+    from mlflow.genai.label_schemas.label_schemas import LabelSchemaType
+
     _validate_categorical_options(input_obj.options)
 
-    if str(type) == "feedback":
+    if type == LabelSchemaType.FEEDBACK:
         if input_obj.semantic_polarity is None:
             raise _invalid(
                 "Feedback-type schemas with `InputCategorical` must set "
@@ -169,7 +169,9 @@ def _validate_numeric_input(
     *,
     type: LabelSchemaType,
 ) -> None:
-    if str(type) == "feedback":
+    from mlflow.genai.label_schemas.label_schemas import LabelSchemaType
+
+    if type == LabelSchemaType.FEEDBACK:
         if input_obj.min_value is None or input_obj.max_value is None:
             raise _invalid(
                 "Feedback-type schemas with `InputNumeric` must set both "

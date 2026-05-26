@@ -1,4 +1,3 @@
-
 import pytest
 
 from mlflow.exceptions import MlflowException
@@ -293,6 +292,74 @@ def test_delete_missing_is_noop(store):
     store.delete_label_schema("ls-does-not-exist")
 
 
+@pytest.mark.parametrize(
+    ("kwargs", "match"),
+    [
+        (
+            {"input": InputNumeric(min_value=5.0, max_value=5.0)},
+            "strictly less than",
+        ),
+        (
+            {"input": InputNumeric(min_value=10.0, max_value=1.0)},
+            "strictly less than",
+        ),
+        (
+            {
+                "input": InputCategorical(options=[], semantic_polarity="ascending"),
+            },
+            "non-empty list",
+        ),
+        (
+            {
+                "input": InputCategorical(options=["dup", "dup"], semantic_polarity="ascending"),
+            },
+            "deduplicated",
+        ),
+        (
+            {
+                "input": InputCategorical(options=["a" * 65], semantic_polarity="ascending"),
+            },
+            "at most 64 characters",
+        ),
+        (
+            {"name": "a" * 151},
+            "at most 150 characters",
+        ),
+        (
+            {"title": ""},
+            "non-empty string",
+        ),
+        (
+            {"title": "a" * 257},
+            "at most 256 characters",
+        ),
+        (
+            {"instruction": "a" * 1001},
+            "at most 1000 characters",
+        ),
+        (
+            {"input": InputPassFail(positive_label="same", negative_label="same")},
+            "must be distinct",
+        ),
+        (
+            {"input": InputPassFail(positive_label="a" * 65, negative_label="b")},
+            "at most 64",
+        ),
+    ],
+)
+def test_create_validation_rejects_bad_inputs(store, kwargs, match):
+    exp_id = _create_experiments(store, f"test_validation_{abs(hash(match))}")
+    defaults = {
+        "experiment_id": exp_id,
+        "name": "valid_name",
+        "type": "feedback",
+        "title": "Valid title",
+        "input": InputPassFail(positive_label="Pass", negative_label="Fail"),
+    }
+    with pytest.raises(MlflowException, match=match):
+        store.create_label_schema(**{**defaults, **kwargs})
+
+
 def test_round_trip_preserves_categorical_multi_select(store):
     exp_id = _create_experiments(store, "test_round_trip_multi")
     schema = store.create_label_schema(
@@ -311,16 +378,28 @@ def test_round_trip_preserves_categorical_multi_select(store):
     assert fetched.input.options == ["bug", "feature", "ux"]
 
 
-def test_experiment_delete_cascades(store):
+def test_experiment_hard_delete_cascades(store):
     exp_id = _create_experiments(store, "test_cascade")
     schema = _create_pass_fail_schema(store, exp_id)
     assert store.get_label_schema(schema.schema_id).schema_id == schema.schema_id
 
+    # Soft-delete alone does not fire the FK cascade; the row only goes away
+    # when the experiment is hard-deleted.
     store.delete_experiment(exp_id)
-
-    # The schema row should be deleted via FK cascade. Even after the
-    # tombstoned experiment is hard-deleted, the schema should not be
-    # retrievable.
     store._hard_delete_experiment(exp_id)
     with pytest.raises(MlflowException, match="not found"):
         store.get_label_schema(schema.schema_id)
+
+
+def test_label_schemas_blocked_when_experiment_soft_deleted(store):
+    exp_id = _create_experiments(store, "test_soft_delete")
+    schema = _create_pass_fail_schema(store, exp_id)
+
+    store.delete_experiment(exp_id)
+
+    # The pre-existing schema row is unchanged (soft-delete doesn't cascade).
+    assert store.get_label_schema(schema.schema_id).schema_id == schema.schema_id
+
+    # But new writes against the soft-deleted experiment are rejected.
+    with pytest.raises(MlflowException, match="No Experiment with id"):
+        _create_pass_fail_schema(store, exp_id, name="another")

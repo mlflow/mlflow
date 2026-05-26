@@ -3283,7 +3283,7 @@ class SqlLabelSchema(Base):
     validation, but stored as ``Text`` for flexibility).
     """
 
-    enable_comment = Column(Boolean, nullable=False, default=False, server_default=sa.false())
+    enable_comment = Column(Boolean, nullable=False, default=False, server_default="0")
     """
     Whether the SME widget renders a free-form comment input alongside
     the schema-typed value. UI-only hint; not consulted server-side.
@@ -3366,7 +3366,7 @@ class SqlLabelSchema(Base):
         now = get_current_time_millis()
         return cls(
             schema_id=schema.schema_id,
-            experiment_id=int(schema.experiment_id) if schema.experiment_id is not None else None,
+            experiment_id=int(schema.experiment_id),
             name=schema.name,
             type=str(schema.type),
             title=schema.title,

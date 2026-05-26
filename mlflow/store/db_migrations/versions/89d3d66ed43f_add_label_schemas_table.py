@@ -34,7 +34,7 @@ def upgrade():
         sa.Column("type", sa.String(length=16), nullable=False),
         sa.Column("title", sa.String(length=256), nullable=False),
         sa.Column("instruction", sa.Text(), nullable=True),
-        sa.Column("enable_comment", sa.Boolean(), nullable=False, server_default=sa.false()),
+        sa.Column("enable_comment", sa.Boolean(), nullable=False, server_default="0"),
         sa.Column("input_type", sa.String(length=32), nullable=False),
         sa.Column("input_config", sa.Text(), nullable=False),
         sa.Column("created_by", sa.String(length=255), nullable=True),
