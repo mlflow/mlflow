@@ -87,8 +87,8 @@ def send_chat_request(
 ) -> dict[str, Any]:
     """Send a chat completions request with retry logic."""
     last_exception = None
+    timeout = MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()
     for attempt in range(1 + num_retries):
-        timeout = MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()
         try:
             resp = requests.post(
                 url=endpoint,

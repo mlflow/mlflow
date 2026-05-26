@@ -114,7 +114,9 @@ def test_send_chat_request_uses_timeout_from_env_var(monkeypatch):
     mock_response = mock.Mock(status_code=200)
     mock_response.json.return_value = {}
 
-    with mock.patch("requests.post", return_value=mock_response) as mock_post:
+    with mock.patch(
+        "mlflow.genai.judges.adapters.utils.requests.post", return_value=mock_response
+    ) as mock_post:
         result = send_chat_request(
             endpoint="https://example.com/chat",
             headers={"Authorization": "Bearer token"},
@@ -131,7 +133,10 @@ def test_send_chat_request_timeout_error_uses_timeout_from_env_var(monkeypatch):
     monkeypatch.setenv("MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS", "2")
 
     with (
-        mock.patch("requests.post", side_effect=requests.exceptions.Timeout) as mock_post,
+        mock.patch(
+            "mlflow.genai.judges.adapters.utils.requests.post",
+            side_effect=requests.exceptions.Timeout,
+        ) as mock_post,
         pytest.raises(MlflowException, match=r"timed out after 2s"),
     ):
         send_chat_request(
