@@ -5203,7 +5203,9 @@ def test_log_spans_session_id_handling(store: SqlAlchemyStore) -> None:
     store.log_spans(experiment_id, [span1_precedence])
 
     trace_info1_precedence = store.get_trace_info(trace_id1_precedence)
-    assert trace_info1_precedence.trace_metadata.get(TraceMetadataKey.TRACE_SESSION) == "session-456"
+    assert (
+        trace_info1_precedence.trace_metadata.get(TraceMetadataKey.TRACE_SESSION) == "session-456"
+    )
 
     # Existing session ID is preserved
     trace_id2 = f"tr-{uuid.uuid4().hex}"
