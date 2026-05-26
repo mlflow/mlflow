@@ -32,6 +32,12 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlGatewaySecret,
     SqlIssue,
     SqlLoggedModel,
+    SqlMCPAccessBinding,
+    SqlMCPServer,
+    SqlMCPServerAlias,
+    SqlMCPServerTag,
+    SqlMCPServerVersion,
+    SqlMCPServerVersionTag,
     SqlOnlineScoringConfig,
     SqlRun,
     SqlScorer,
@@ -124,6 +130,16 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
 
         if model is SqlGatewayEndpointModelMapping:
             return query.join(SqlGatewayEndpoint).filter(SqlGatewayEndpoint.workspace == workspace)
+
+        if model in (
+            SqlMCPServer,
+            SqlMCPServerVersion,
+            SqlMCPServerTag,
+            SqlMCPServerVersionTag,
+            SqlMCPServerAlias,
+            SqlMCPAccessBinding,
+        ):
+            return query.filter(model.workspace == workspace)
 
         return query
 

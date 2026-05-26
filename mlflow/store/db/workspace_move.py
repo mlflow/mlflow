@@ -20,6 +20,8 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlExperiment,
     SqlExperimentTag,
     SqlJob,
+    SqlMCPServer,
+    SqlMCPServerTag,
 )
 from mlflow.store.workspace.sqlalchemy_store import _WORKSPACE_ROOT_MODELS
 
@@ -42,7 +44,7 @@ class _ResourceSpec:
     # Column used to join the tag table back to the resource table.
     # For experiments the tag table joins via experiment_id, not workspace+name.
     tag_join_column: str | None = None
-    child_tables: tuple[str, ...] = ()
+    child_tables: tuple[str | tuple[str, str], ...] = ()
     child_name_column: str = "name"
     has_unique_name: bool = True
 
@@ -91,6 +93,18 @@ _SPEC_BY_MODEL: dict[type, _ResourceSpec] = {
         model=SqlJob,
         name_column=SqlJob.job_name.key,
         has_unique_name=False,
+    ),
+    SqlMCPServer: _ResourceSpec(
+        model=SqlMCPServer,
+        name_column=SqlMCPServer.name.key,
+        tag_model=SqlMCPServerTag,
+        child_tables=(
+            "mcp_server_versions",
+            "mcp_server_tags",
+            "mcp_server_version_tags",
+            "mcp_server_aliases",
+            ("mcp_access_bindings", "server_name"),
+        ),
     ),
 }
 
@@ -304,7 +318,15 @@ def move_resources(
 
             # Explicitly update child tables because not all backends honour
             # ON UPDATE CASCADE (e.g. SQLite without the foreign_keys pragma).
-            for child_table_name in spec.child_tables:
+            # Each entry is either a table name str (uses spec.child_name_column)
+            # or a (table_name, column_name) tuple for non-standard FK columns.
+            for entry in spec.child_tables:
+                if isinstance(entry, tuple):
+                    child_table_name = entry[0]
+                    col_name = entry[1]
+                else:
+                    child_table_name = entry
+                    col_name = spec.child_name_column
                 child = get_workspace_table(conn, child_table_name)
                 conn.execute(
                     _filtered(
@@ -312,7 +334,7 @@ def move_resources(
                         .update()
                         .where(child.c.workspace == source_workspace)
                         .values(workspace=target_workspace),
-                        child.c[spec.child_name_column],
+                        child.c[col_name],
                     )
                 )
 
