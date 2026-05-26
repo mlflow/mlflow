@@ -111,7 +111,7 @@ describe('useMyPermissionsQuery (gated on known username)', () => {
     mockedApi.getCurrentUser.mockResolvedValueOnce({
       user: { id: 1, username: 'pat', is_admin: false },
     });
-    mockedApi.listMyPermissions.mockResolvedValueOnce({ permissions: [] });
+    mockedApi.listMyPermissions.mockResolvedValueOnce({ is_admin: false, permissions: [] });
 
     const { result } = renderHook(() => useMyPermissionsQuery(), { wrapper: makeWrapper() });
 
@@ -132,6 +132,28 @@ describe('useUserRolesQuery (gated on truthy username)', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(mockedApi.listUserRoles).toHaveBeenCalledWith('pat');
+  });
+
+  it('drops synthetic __user_<id>__ roles from the response', async () => {
+    const namedRole = {
+      id: 7,
+      name: 'editors',
+      workspace: 'default',
+      description: '',
+      permissions: [],
+    };
+    const syntheticRole = {
+      id: 42,
+      name: '__user_1__',
+      workspace: 'default',
+      description: '',
+      permissions: [],
+    };
+    mockedApi.listUserRoles.mockResolvedValueOnce({ roles: [namedRole, syntheticRole] });
+
+    const { result } = renderHook(() => useUserRolesQuery('pat'), { wrapper: makeWrapper() });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data?.roles).toEqual([namedRole]);
   });
 });
 

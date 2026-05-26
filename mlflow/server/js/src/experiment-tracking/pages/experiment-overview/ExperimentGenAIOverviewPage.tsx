@@ -9,6 +9,7 @@ import { DetectIssuesButton } from '../../../shared/web-shared/genai-traces-tabl
 import { useLocalStorage } from '@databricks/web-shared/hooks';
 import { useIsFileStore } from '../../hooks/useServerInfo';
 import { useSqlWarehouseContextSafe } from '../experiment-page-tabs/SqlWarehouseContext';
+import { ExperimentViewTracesStatusLabels } from '@databricks/web-shared/genai-traces-table';
 import { TracesV3DateSelector } from '../../components/experiment-page/components/traces-v3/TracesV3DateSelector';
 import {
   useMonitoringFilters,
@@ -41,6 +42,7 @@ import { MetricsFilter } from '../../../common/components/MetricsFilter';
 import {
   translateToMetricsFilters,
   translateToTracesPageFilters,
+  TRACE_STATE_VALUES,
   type MetricFilter,
   type MetricFilterColumnOption,
 } from '../../../common/components/MetricsFilter.utils';
@@ -167,6 +169,38 @@ const ExperimentGenAIOverviewPageImpl = () => {
         label: intl.formatMessage({
           defaultMessage: 'User',
           description: 'Usage overview > metrics filter > user column option label',
+        }),
+      },
+      {
+        value: 'session',
+        label: intl.formatMessage({
+          defaultMessage: 'Session',
+          description: 'Usage overview > metrics filter > session column option label',
+        }),
+      },
+      {
+        value: 'state',
+        label: intl.formatMessage({
+          defaultMessage: 'State',
+          description: 'Usage overview > metrics filter > state column option label',
+        }),
+        valueOptions: TRACE_STATE_VALUES.map((value) => ({
+          value,
+          label: intl.formatMessage(ExperimentViewTracesStatusLabels[value]),
+        })),
+      },
+      {
+        value: 'git_branch',
+        label: intl.formatMessage({
+          defaultMessage: 'Git branch',
+          description: 'Usage overview > metrics filter > git branch column option label',
+        }),
+      },
+      {
+        value: 'git_commit',
+        label: intl.formatMessage({
+          defaultMessage: 'Git commit',
+          description: 'Usage overview > metrics filter > git commit column option label',
         }),
       },
     ],

@@ -6,6 +6,7 @@ import { setupServer } from '../../common/utils/setup-msw';
 import {
   useServerInfo,
   useIsFileStore,
+  useTraceArchivalEnabled,
   useWorkspacesEnabled,
   getWorkspacesEnabledSync,
   resetServerInfoCache,
@@ -21,7 +22,7 @@ describe('useServerInfo', () => {
   describe('when backend returns FileStore', () => {
     setupServer(
       rest.get('/ajax-api/3.0/mlflow/server-info', (_req, res, ctx) => {
-        return res(ctx.json({ store_type: 'FileStore', workspaces_enabled: false }));
+        return res(ctx.json({ store_type: 'FileStore', workspaces_enabled: false, trace_archival_enabled: false }));
       }),
     );
 
@@ -39,7 +40,9 @@ describe('useServerInfo', () => {
   describe('when backend returns SqlAlchemyStore', () => {
     setupServer(
       rest.get('/ajax-api/3.0/mlflow/server-info', (_req, res, ctx) => {
-        return res(ctx.json({ store_type: 'SqlAlchemyStore', workspaces_enabled: false }));
+        return res(
+          ctx.json({ store_type: 'SqlAlchemyStore', workspaces_enabled: false, trace_archival_enabled: false }),
+        );
       }),
     );
 
@@ -95,7 +98,7 @@ describe('useIsFileStore', () => {
   describe('when backend uses FileStore', () => {
     setupServer(
       rest.get('/ajax-api/3.0/mlflow/server-info', (_req, res, ctx) => {
-        return res(ctx.json({ store_type: 'FileStore', workspaces_enabled: false }));
+        return res(ctx.json({ store_type: 'FileStore', workspaces_enabled: false, trace_archival_enabled: false }));
       }),
     );
 
@@ -111,12 +114,64 @@ describe('useIsFileStore', () => {
   describe('when backend uses SqlAlchemyStore', () => {
     setupServer(
       rest.get('/ajax-api/3.0/mlflow/server-info', (_req, res, ctx) => {
-        return res(ctx.json({ store_type: 'SqlAlchemyStore', workspaces_enabled: false }));
+        return res(
+          ctx.json({ store_type: 'SqlAlchemyStore', workspaces_enabled: false, trace_archival_enabled: false }),
+        );
       }),
     );
 
     test('should return false', async () => {
       const { result } = renderHook(() => useIsFileStore(), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current).toBe(false);
+      });
+    });
+  });
+});
+
+describe('useTraceArchivalEnabled', () => {
+  describe('when backend enables trace archival', () => {
+    setupServer(
+      rest.get('/ajax-api/3.0/mlflow/server-info', (_req, res, ctx) => {
+        return res(ctx.json({ store_type: 'SqlStore', workspaces_enabled: false, trace_archival_enabled: true }));
+      }),
+    );
+
+    test('should return true', async () => {
+      const { result } = renderHook(() => useTraceArchivalEnabled(), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current).toBe(true);
+      });
+    });
+  });
+
+  describe('when backend returns an error', () => {
+    setupServer(
+      rest.get('/ajax-api/3.0/mlflow/server-info', (_req, res, ctx) => {
+        return res(ctx.status(500));
+      }),
+    );
+
+    test('should return false', async () => {
+      const { result } = renderHook(() => useTraceArchivalEnabled(), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current).toBe(false);
+      });
+    });
+  });
+
+  describe('when backend omits trace archival support information', () => {
+    setupServer(
+      rest.get('/ajax-api/3.0/mlflow/server-info', (_req, res, ctx) => {
+        return res(ctx.json({ store_type: 'SqlStore', workspaces_enabled: false }));
+      }),
+    );
+
+    test('should return false for older servers', async () => {
+      const { result } = renderHook(() => useTraceArchivalEnabled(), { wrapper });
 
       await waitFor(() => {
         expect(result.current).toBe(false);
@@ -170,7 +225,7 @@ describe('useWorkspacesEnabled and getWorkspacesEnabledSync', () => {
   describe('when server returns workspaces enabled', () => {
     setupServer(
       rest.get('/ajax-api/3.0/mlflow/server-info', (_req, res, ctx) => {
-        return res(ctx.json({ store_type: 'SqlStore', workspaces_enabled: true }));
+        return res(ctx.json({ store_type: 'SqlStore', workspaces_enabled: true, trace_archival_enabled: false }));
       }),
     );
 
@@ -189,7 +244,7 @@ describe('useWorkspacesEnabled and getWorkspacesEnabledSync', () => {
   describe('when server returns workspaces disabled', () => {
     setupServer(
       rest.get('/ajax-api/3.0/mlflow/server-info', (_req, res, ctx) => {
-        return res(ctx.json({ store_type: 'SqlStore', workspaces_enabled: false }));
+        return res(ctx.json({ store_type: 'SqlStore', workspaces_enabled: false, trace_archival_enabled: false }));
       }),
     );
 
@@ -246,9 +301,8 @@ describe('useWorkspacesEnabled and getWorkspacesEnabledSync', () => {
   describe('when fetch has not completed', () => {
     setupServer(
       rest.get('/ajax-api/3.0/mlflow/server-info', (_req, res, ctx) => {
-        return res(ctx.json({ store_type: 'SqlStore', workspaces_enabled: false }));
-        // Never resolve to simulate pending request
-        return new Promise(() => {});
+        // Never resolve to simulate a pending request.
+        return res(ctx.delay('infinite'));
       }),
     );
 

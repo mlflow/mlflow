@@ -32,6 +32,7 @@ from mlflow.server.constants import (
     BACKEND_STORE_URI_ENV_VAR,
     HUEY_STORAGE_PATH_ENV_VAR,
     PROMETHEUS_EXPORTER_ENV_VAR,
+    READ_REPLICA_BACKEND_STORE_URI_ENV_VAR,
     REGISTRY_STORE_URI_ENV_VAR,
     SECRETS_CACHE_MAX_SIZE_ENV_VAR,
     SECRETS_CACHE_TTL_ENV_VAR,
@@ -325,6 +326,7 @@ def _build_uvicorn_command(
 def _run_server(
     *,
     file_store_path,
+    read_replica_backend_store_uri=None,
     registry_store_uri,
     default_artifact_root,
     serve_artifacts,
@@ -357,6 +359,8 @@ def _run_server(
     env_map = {}
     if file_store_path:
         env_map[BACKEND_STORE_URI_ENV_VAR] = file_store_path
+    if read_replica_backend_store_uri:
+        env_map[READ_REPLICA_BACKEND_STORE_URI_ENV_VAR] = read_replica_backend_store_uri
     if registry_store_uri:
         env_map[REGISTRY_STORE_URI_ENV_VAR] = registry_store_uri
     if default_artifact_root:

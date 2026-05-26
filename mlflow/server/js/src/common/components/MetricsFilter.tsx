@@ -7,6 +7,7 @@ import {
   DialogCombobox,
   DialogComboboxContent,
   DialogComboboxOptionList,
+  DialogComboboxOptionListSearch,
   DialogComboboxOptionListSelectItem,
   DialogComboboxTrigger,
   FilterIcon,
@@ -219,7 +220,13 @@ const FilterRow = ({ rowId, filter, columnOptions, onChange, onDelete }: FilterR
                   key={option.value}
                   value={option.value}
                   checked={option.value === filter.column}
-                  onChange={(value: string) => onChange({ ...filter, column: value as MetricFilterColumn })}
+                  onChange={(value: string) =>
+                    onChange({
+                      ...filter,
+                      column: value as MetricFilterColumn,
+                      value: value === filter.column ? filter.value : '',
+                    })
+                  }
                 >
                   {option.label}
                 </DialogComboboxOptionListSelectItem>
@@ -258,16 +265,53 @@ const FilterRow = ({ rowId, filter, columnOptions, onChange, onDelete }: FilterR
         <FormUI.Label htmlFor={`usage-metrics-filter-value-${rowId}`}>
           <FormattedMessage defaultMessage="Value" description="Usage overview > filter row > value column label" />
         </FormUI.Label>
-        <Input
-          componentId="mlflow.usage.metrics_filter.value"
-          id={`usage-metrics-filter-value-${rowId}`}
-          value={filter.value}
-          onChange={(e) => onChange({ ...filter, value: e.target.value })}
-          placeholder={intl.formatMessage({
-            defaultMessage: 'Enter value',
-            description: 'Usage overview > filter row > value input placeholder',
-          })}
-        />
+        {selectedOption?.valueOptions ? (
+          <DialogCombobox
+            componentId="mlflow.usage.metrics_filter.value"
+            id={`usage-metrics-filter-value-${rowId}`}
+            value={filter.value ? [filter.value] : []}
+          >
+            <DialogComboboxTrigger
+              withInlineLabel={false}
+              placeholder={intl.formatMessage({
+                defaultMessage: 'Select value',
+                description: 'Usage overview > filter row > value dropdown placeholder',
+              })}
+              renderDisplayedValue={() =>
+                selectedOption.valueOptions?.find((o) => o.value === filter.value)?.label ?? ''
+              }
+              width={200}
+              allowClear={false}
+            />
+            <DialogComboboxContent width={200} style={{ zIndex: theme.options.zIndexBase + 100 }}>
+              <DialogComboboxOptionList>
+                <DialogComboboxOptionListSearch onSearch={() => {}}>
+                  {selectedOption.valueOptions.map((option) => (
+                    <DialogComboboxOptionListSelectItem
+                      key={option.value}
+                      value={option.value}
+                      checked={option.value === filter.value}
+                      onChange={(value: string) => onChange({ ...filter, value })}
+                    >
+                      {option.label}
+                    </DialogComboboxOptionListSelectItem>
+                  ))}
+                </DialogComboboxOptionListSearch>
+              </DialogComboboxOptionList>
+            </DialogComboboxContent>
+          </DialogCombobox>
+        ) : (
+          <Input
+            componentId="mlflow.usage.metrics_filter.value"
+            id={`usage-metrics-filter-value-${rowId}`}
+            value={filter.value}
+            onChange={(e) => onChange({ ...filter, value: e.target.value })}
+            placeholder={intl.formatMessage({
+              defaultMessage: 'Enter value',
+              description: 'Usage overview > filter row > value input placeholder',
+            })}
+          />
+        )}
       </div>
 
       {/* Delete row */}

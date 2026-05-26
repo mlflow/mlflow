@@ -42,6 +42,8 @@ env:
   _MLFLOW_TESTING_TELEMETRY: "true"
   MLFLOW_SERVER_ENABLE_JOB_EXECUTION: "false"
 
+permissions: {}
+
 jobs:
   # python-skinny tests cover a subset of mlflow functionality
   # that is meant to be supported with a smaller dependency footprint.
@@ -253,7 +255,7 @@ jobs:
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
-          uv sync --extra mlserver
+          uv sync
           uv pip install \
             -r requirements/test-requirements.txt \
             pyspark langchain langchain-community
@@ -441,5 +443,8 @@ jobs:
             --ignore=tests/server/auth \
             --ignore=tests/data/test_spark_dataset.py \
             --ignore=tests/data/test_spark_dataset_source.py \
+            --ignore=tests/data/test_delta_dataset_source.py \
+            --deselect=tests/data/test_pandas_dataset.py::test_from_pandas_spark_datasource \
+            --deselect=tests/data/test_pandas_dataset.py::test_from_pandas_delta_datasource \
             --ignore=tests/docker \
             --ignore=tests/demo

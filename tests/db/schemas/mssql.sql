@@ -145,6 +145,8 @@ CREATE TABLE workspaces (
 	name VARCHAR(63) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	description VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	default_artifact_root VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	trace_archival_location VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	trace_archival_retention VARCHAR(32) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	CONSTRAINT workspaces_pk PRIMARY KEY (name)
 )
 
@@ -331,6 +333,7 @@ CREATE TABLE trace_info (
 	client_request_id VARCHAR(50) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	request_preview VARCHAR(1000) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	response_preview VARCHAR(1000) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	db_payload_generation INTEGER DEFAULT '0' NOT NULL,
 	CONSTRAINT trace_info_pk PRIMARY KEY (request_id),
 	CONSTRAINT fk_trace_info_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
 )
