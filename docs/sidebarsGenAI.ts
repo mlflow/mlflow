@@ -915,6 +915,11 @@ const sidebarsGenAI: SidebarsConfig = {
               id: 'assessments/expectations',
               label: 'Annotating Ground Truth',
             },
+            {
+              type: 'doc',
+              id: 'assessments/label-schemas',
+              label: 'Label Schemas',
+            },
           ],
         },
         {

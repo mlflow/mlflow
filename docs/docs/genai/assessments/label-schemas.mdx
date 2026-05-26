@@ -1,0 +1,232 @@
+---
+sidebar_label: Label Schemas
+description: Define typed labeling templates that SMEs use to annotate traces in the MLflow review UI - pass/fail, categorical, or numeric inputs with validation.
+---
+
+import { APILink } from "@site/src/components/APILink";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
+# Label Schemas
+
+A label schema defines _how_ a subject-matter expert (SME) annotates a trace
+in the review UI. Each schema specifies one structured input type (pass/fail
+toggle, categorical dropdown, or numeric bound) along with a name, title, and
+optional instruction. Schemas are experiment-scoped: they live alongside the
+traces they describe and are managed independently of any individual review.
+
+This page covers the OSS-native flow. For Databricks-routed workflows that
+use the agent-evaluation Review App, see the
+[Databricks Agent Evaluation docs](https://api-docs.databricks.com/python/databricks-agents/latest/databricks_agent_eval.html)
+and the legacy [`create_label_schema`](#legacy-databricks-routed-surface)
+function.
+
+## Why use a schema?
+
+Without a schema, SMEs leave free-form feedback (unstructured text that's
+useful for triage but hard to aggregate across traces). A schema turns
+feedback collection into structured data:
+
+- **Pass/fail schemas** capture binary judgments with explicit positive and
+  negative labels (e.g., "Correct" vs "Incorrect") so positive vs negative
+  is encoded in the data rather than inferred from option strings.
+- **Categorical schemas** capture multi-option choices ("low" / "medium" /
+  "high") with optional polarity hints so the UI knows which direction is
+  "most positive."
+- **Numeric schemas** capture bounded scores (`1`-`5`, `0.0`-`1.0`) so
+  downstream consumers don't have to infer scale.
+
+The schema becomes the source of truth for the input widget rendered to the
+SME and for the assessment name on the resulting feedback row.
+
+## Quickstart
+
+```python
+import mlflow
+from mlflow.genai.label_schemas import (
+    InputPassFail,
+    create_experiment_label_schema,
+)
+
+# Use the active experiment, or create one explicitly.
+experiment = mlflow.set_experiment("ai-quality-review")
+
+schema = create_experiment_label_schema(
+    experiment_id=experiment.experiment_id,
+    name="correctness",
+    type="feedback",
+    title="Is the answer correct?",
+    input=InputPassFail(positive_label="Correct", negative_label="Incorrect"),
+    instruction="Mark Correct if the response is factually accurate.",
+    enable_comment=True,
+)
+print(schema.schema_id)  # ls-<uuid>
+```
+
+The schema now appears under the **Labeling schemas** tab on the experiment
+page. SMEs reviewing traces from this experiment will see a binary toggle
+(with the labels you set) for assessments named `correctness`.
+
+## Input types
+
+<Tabs>
+  <TabItem value="pass_fail" label="Pass / Fail" default>
+
+Renders as a binary toggle. The stored assessment value is a `bool`;
+`True` corresponds to the positive label.
+
+```python
+from mlflow.genai.label_schemas import InputPassFail
+
+InputPassFail(positive_label="Correct", negative_label="Incorrect")
+```
+
+  </TabItem>
+  <TabItem value="categorical" label="Categorical">
+
+Renders as a dropdown. Use `multi_select=True` to allow multiple selections.
+For feedback-type schemas, `semantic_polarity` is required so the UI knows
+which direction is "most positive":
+
+- `"ascending"` means the first option is the most positive.
+- `"descending"` means the first option is the most negative.
+
+```python
+from mlflow.genai.label_schemas import InputCategorical
+
+InputCategorical(
+    options=["low", "medium", "high"],
+    semantic_polarity="ascending",
+    multi_select=False,
+)
+```
+
+  </TabItem>
+  <TabItem value="numeric" label="Numeric">
+
+Renders as a number input bounded by `min_value` / `max_value`. For
+feedback-type schemas both bounds are required; for expectation-type schemas
+either bound may be omitted.
+
+```python
+from mlflow.genai.label_schemas import InputNumeric
+
+InputNumeric(min_value=1.0, max_value=5.0)
+```
+
+  </TabItem>
+</Tabs>
+
+## Lifecycle
+
+The OSS-native surface in `mlflow.genai.label_schemas`:
+
+| Function | Purpose |
+| --- | --- |
+| <APILink fn="mlflow.genai.label_schemas.create_experiment_label_schema" /> | Create a new schema (shown in the [Quickstart](#quickstart) above). |
+| <APILink fn="mlflow.genai.label_schemas.get_experiment_label_schema" /> | Fetch by server-generated `schema_id`. |
+| <APILink fn="mlflow.genai.label_schemas.get_experiment_label_schema_by_name" /> | Fetch by `(experiment_id, name)`. |
+| <APILink fn="mlflow.genai.label_schemas.list_experiment_label_schemas" /> | Paginated list scoped to an experiment. |
+| <APILink fn="mlflow.genai.label_schemas.update_experiment_label_schema" /> | Sparse-update (retitle, retarget input, rename). `type` is immutable. |
+| <APILink fn="mlflow.genai.label_schemas.upsert_experiment_label_schema" /> | Atomic create-or-replace by `(experiment_id, name)`. |
+| <APILink fn="mlflow.genai.label_schemas.delete_experiment_label_schema" /> | Delete by `schema_id`. Existing assessments survive (their values are kept; they render in the SME review UI without a typed widget). |
+
+```python
+from mlflow.genai.label_schemas import (
+    list_experiment_label_schemas,
+    update_experiment_label_schema,
+    delete_experiment_label_schema,
+)
+
+# List
+for existing in list_experiment_label_schemas(experiment_id=experiment.experiment_id):
+    print(existing.name, existing.input)
+
+# Update (sparse - only set the fields you want to change)
+update_experiment_label_schema(
+    schema_id=schema.schema_id,
+    title="Is the response factually correct?",
+)
+
+# Delete
+delete_experiment_label_schema(schema.schema_id)
+```
+
+### Update semantics
+
+`update_experiment_label_schema` is sparse: fields left as `None` are
+unchanged on the server. Empty strings are real values that replace the
+stored field with `""` rather than a no-op; pass `None` (the default) to
+leave a field alone, or `""` to clear it. `enable_comment=None` means
+"unchanged"; pass `True` or `False` to set explicitly.
+
+Note: the admin UI's **create** form treats a blank instruction textarea as
+"no instruction" (sends `None`), whereas the SDK above sends `""` verbatim
+on update. Callers using the SDK directly get the explicit empty-string
+contract; users going through the admin UI need to use the **update** flow
+to land an empty instruction.
+
+Renaming via `name=...` is permitted on update; collisions with another
+schema's name on the same experiment are rejected with
+`RESOURCE_ALREADY_EXISTS`. The admin UI disables the name field on edit;
+this is a UI-only restriction.
+
+### Upsert semantics
+
+`upsert_experiment_label_schema` is a single-transaction create-or-replace
+keyed on `(experiment_id, name)`. `type` is immutable on replace; a
+mismatch raises `INVALID_PARAMETER_VALUE`. Omitting `enable_comment`
+preserves the existing value on replace (and defaults to `False` on
+create).
+
+## Validation rules
+
+These rules are enforced server-side; the admin UI mirrors them so you get
+immediate feedback before submission.
+
+| Field | Rule |
+| --- | --- |
+| `name` | 1-150 characters, alphanumeric + underscore only (`^[a-zA-Z0-9_]+$`). Renameable via update; the admin UI disables this on edit. |
+| `type` | One of `"feedback"` or `"expectation"`. Immutable after create. |
+| `title` | 1-256 characters. |
+| `instruction` | Optional, up to 1000 characters. |
+| `enable_comment` | `bool`. |
+| `InputPassFail` | Both labels 1-64 characters; must be distinct. |
+| `InputCategorical` | 1-100 options, each 1-64 characters; duplicate options are rejected with `INVALID_PARAMETER_VALUE`. Feedback-type schemas require `semantic_polarity`. |
+| `InputNumeric` | `min_value < max_value` (strict). Feedback-type schemas require both bounds. |
+
+## Admin UI
+
+The same operations are available without code from the **Labeling schemas**
+tab on the experiment page (`/experiments/:experimentId/label-schemas`):
+
+- **Create** opens a typed form with live validation matching the rules
+  above.
+- **Edit** sparse-updates the schema. The input variant and `type` are
+  disabled because they're immutable server-side; `name` is also disabled
+  in the UI even though the SDK allows rename, to reduce accidental edits.
+- **Delete** opens a confirmation modal. Existing assessments using the
+  schema's `name` are not removed; their stored values are retained and
+  rendered in the SME review UI without the typed widget after the schema
+  is gone.
+
+## Legacy: Databricks-routed surface
+
+The legacy <APILink fn="mlflow.genai.label_schemas.create_label_schema" />,
+<APILink fn="mlflow.genai.label_schemas.get_label_schema" />, and
+<APILink fn="mlflow.genai.label_schemas.delete_label_schema" /> functions
+remain available for Databricks workspaces with a ReviewApp. Identity for
+those schemas is just `name` within the workspace's ReviewApp; identity for
+the OSS-native functions documented above is `(experiment_id, name)` with
+a server-generated `schema_id`. Use the legacy functions when you're
+targeting the Databricks ReviewApp; use the `create_experiment_label_schema`
+family for OSS deployments.
+
+## Related
+
+- [Feedback Collection](/genai/assessments/feedback): how schemas drive the
+  feedback assessment name.
+- [Ground Truth Expectations](/genai/assessments/expectations): when to use
+  `type="expectation"` vs `type="feedback"`.
+- [Feedback concept](/genai/concepts/feedback): the entity that schemas
+  produce.
