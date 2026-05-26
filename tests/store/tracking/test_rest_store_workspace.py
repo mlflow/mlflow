@@ -125,5 +125,5 @@ def test_rest_store_get_experiment_has_workspace():
         store = RestStore(lambda: MlflowHostCreds("https://hello"))
         result = store.get_experiment("1")
 
-    assert result.workspace == "acme"
+    assert result.workspace == "other_workspace"
     mock_call.assert_called_once()
