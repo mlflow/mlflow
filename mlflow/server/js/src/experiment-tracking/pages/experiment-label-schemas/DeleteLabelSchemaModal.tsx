@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Button, Modal, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 
@@ -12,7 +13,17 @@ export interface DeleteLabelSchemaModalProps {
 export const DeleteLabelSchemaModal = ({ schema, onClose }: DeleteLabelSchemaModalProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
-  const { deleteLabelSchemaAsync, isDeleting, error } = useDeleteLabelSchemaMutation();
+  const mutation = useDeleteLabelSchemaMutation();
+  const { deleteLabelSchemaAsync, isDeleting, error } = mutation;
+
+  // The mutation hook lives on this continuously-mounted component, so its
+  // `error` state would otherwise persist across schema selections (a
+  // failed delete on schema A would render its error inside the delete
+  // modal for schema B). Reset whenever the target schema changes.
+  useEffect(() => {
+    mutation.reset();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [schema?.schema_id]);
 
   const handleConfirm = async () => {
     if (schema == null) {
@@ -58,7 +69,7 @@ export const DeleteLabelSchemaModal = ({ schema, onClose }: DeleteLabelSchemaMod
           <FormattedMessage
             defaultMessage="Are you sure you want to delete the label schema {name}? Assessments already collected under this schema are not removed and will render as free-form values in the review UI."
             description="Delete label schema confirmation prompt"
-            values={{ name: <Typography.Text bold>{schema?.name}</Typography.Text> }}
+            values={{ name: <Typography.Text bold>{schema?.name ?? ''}</Typography.Text> }}
           />
         </Typography.Text>
         {error && (

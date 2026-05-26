@@ -142,7 +142,7 @@ export const LabelSchemasContentContainer = ({ experimentId }: LabelSchemasConte
           {nextPageToken && (
             <Typography.Text color="secondary">
               <FormattedMessage
-                defaultMessage="Showing the first {count} schemas. Additional schemas exist for this experiment but are not displayed; pagination support is coming."
+                defaultMessage="Additional schemas exist for this experiment but are not displayed. Pagination support is coming; the first {count} are shown above."
                 description="Label schemas list truncation notice"
                 values={{ count: labelSchemas.length }}
               />

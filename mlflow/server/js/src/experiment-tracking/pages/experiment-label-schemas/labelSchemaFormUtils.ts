@@ -146,8 +146,13 @@ export const buildLabelSchemaInputFromForm = (form: LabelSchemaFormData): LabelS
     case 'categorical': {
       const categorical: InputCategorical = {
         options: parseCategoricalOptions(form.categoricalOptions),
-        multi_select: form.categoricalMultiSelect,
       };
+      // Only emit `multi_select` when the user opted into it; absent on the
+      // wire is equivalent to false on the server and keeps the round-trip
+      // lossless for schemas that were created without `multi_select` set.
+      if (form.categoricalMultiSelect) {
+        categorical.multi_select = true;
+      }
       if (form.categoricalPolarity !== '') {
         categorical.semantic_polarity = form.categoricalPolarity;
       }
@@ -164,6 +169,13 @@ export const buildLabelSchemaInputFromForm = (form: LabelSchemaFormData): LabelS
         numeric.max_value = max;
       }
       return { numeric };
+    }
+    default: {
+      // Exhaustiveness guard: if a fourth LabelSchemaInputKind variant is
+      // ever added without updating this switch, TypeScript will refuse the
+      // assignment to `never` here.
+      const _exhaustive: never = form.inputKind;
+      throw new Error(`Unhandled inputKind: ${String(_exhaustive)}`);
     }
   }
 };
@@ -243,10 +255,22 @@ export const validateLabelSchemaForm = (form: LabelSchemaFormData): LabelSchemaF
   }
 
   if (form.inputKind === 'numeric') {
+    // Reject non-empty strings that don't parse as numbers up front so the
+    // user gets a field-level error instead of a vague server-side
+    // INVALID_PARAMETER_VALUE for expectation-type schemas where the
+    // "require both bounds" rule doesn't apply.
+    const minRaw = form.numericMinValue.trim();
+    const maxRaw = form.numericMaxValue.trim();
+    if (minRaw !== '' && Number.isNaN(Number(minRaw))) {
+      errors.numericMinValue = 'Min value must be a number.';
+    }
+    if (maxRaw !== '' && Number.isNaN(Number(maxRaw))) {
+      errors.numericMaxValue = 'Max value must be a number.';
+    }
     const min = parseNumeric(form.numericMinValue);
     const max = parseNumeric(form.numericMaxValue);
     if (form.type === 'feedback' && (min === undefined || max === undefined)) {
-      errors.numericMinValue = 'Feedback-type numeric schemas require both min and max.';
+      errors.numericMinValue = errors.numericMinValue ?? 'Feedback-type numeric schemas require both min and max.';
     }
     if (min !== undefined && max !== undefined && min >= max) {
       errors.numericMaxValue = 'Max must be strictly greater than min.';

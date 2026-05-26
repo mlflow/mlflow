@@ -16,7 +16,7 @@ export interface DeleteLabelSchemaParams {
 export const useDeleteLabelSchemaMutation = () => {
   const queryClient = useQueryClient();
 
-  const { mutate, mutateAsync, isLoading, error } = useMutation<void, Error, DeleteLabelSchemaParams>({
+  const { mutate, mutateAsync, isLoading, error, reset } = useMutation<void, Error, DeleteLabelSchemaParams>({
     mutationFn: async ({ schema_id }) => {
       await fetchAPI(getAjaxUrl('ajax-api/3.0/mlflow/label-schemas/delete'), {
         method: 'DELETE',
@@ -35,5 +35,6 @@ export const useDeleteLabelSchemaMutation = () => {
     deleteLabelSchemaAsync: mutateAsync,
     isDeleting: isLoading,
     error,
+    reset,
   };
 };

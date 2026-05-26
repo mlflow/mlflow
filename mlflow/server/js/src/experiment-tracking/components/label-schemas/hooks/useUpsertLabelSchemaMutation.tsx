@@ -32,7 +32,7 @@ interface UpsertLabelSchemaResponse {
 export const useUpsertLabelSchemaMutation = () => {
   const queryClient = useQueryClient();
 
-  const { mutate, mutateAsync, isLoading, error } = useMutation<
+  const { mutate, mutateAsync, isLoading, error, reset } = useMutation<
     UpsertLabelSchemaResponse,
     Error,
     UpsertLabelSchemaParams
@@ -71,5 +71,6 @@ export const useUpsertLabelSchemaMutation = () => {
     upsertLabelSchemaAsync: mutateAsync,
     isUpserting: isLoading,
     error,
+    reset,
   };
 };

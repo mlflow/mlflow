@@ -28,7 +28,7 @@ export const LabelSchemaModal = ({ experimentId, editingSchema, visible, onClose
   const intl = useIntl();
   const isEdit = editingSchema != null;
   const defaultValues = editingSchema ? getFormValuesFromSchema(editingSchema) : DEFAULT_FORM_VALUES;
-  const { control, handleSubmit, reset, getValues } = useForm<LabelSchemaFormData>({
+  const { control, handleSubmit, reset } = useForm<LabelSchemaFormData>({
     defaultValues,
   });
   const watched = useWatch({ control }) as LabelSchemaFormData;
@@ -41,9 +41,18 @@ export const LabelSchemaModal = ({ experimentId, editingSchema, visible, onClose
   // When the modal switches between create and edit (or between two
   // different schemas in edit mode), reset the form to the new defaults
   // so the controls reflect the latest source-of-truth values rather
-  // than the stale mount-time snapshot.
+  // than the stale mount-time snapshot. The post-success `reset()` in
+  // onSubmit handles the create -> create reopen case (schema_id stays
+  // undefined, so this effect wouldn't refire).
   useEffect(() => {
     reset(defaultValues);
+    // Mutation hook state survives modal close/reopen because the
+    // parent keeps this component mounted; clear stale error banners
+    // when the user opens the modal for a different schema (or pivots
+    // from edit -> create) so they don't see an error from a prior
+    // attempt against an unrelated schema.
+    createMutation.reset();
+    updateMutation.reset();
     // We only want to reset when the identity of the source-of-truth
     // changes (create vs. a specific schema), not on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -65,26 +74,33 @@ export const LabelSchemaModal = ({ experimentId, editingSchema, visible, onClose
     // edit from another tab. The empty-string instruction case is sent
     // verbatim per the server contract ("" replaces the stored value);
     // callers wanting to clear instruction blank the textarea.
-    if (isEdit && editingSchema) {
-      await updateMutation.updateLabelSchemaAsync({
-        schema_id: editingSchema.schema_id,
-        title: form.title,
-        instruction: form.instruction,
-        enable_comment: form.enable_comment,
-        input,
-      });
-    } else {
-      await createMutation.createLabelSchemaAsync({
-        experiment_id: experimentId,
-        name: form.name,
-        type: form.type,
-        title: form.title,
-        input,
-        // On create, omit blank instruction so the server defaults it
-        // to None rather than storing "" verbatim.
-        instruction: form.instruction === '' ? undefined : form.instruction,
-        enable_comment: form.enable_comment,
-      });
+    try {
+      if (isEdit && editingSchema) {
+        await updateMutation.updateLabelSchemaAsync({
+          schema_id: editingSchema.schema_id,
+          title: form.title,
+          instruction: form.instruction,
+          enable_comment: form.enable_comment,
+          input,
+        });
+      } else {
+        await createMutation.createLabelSchemaAsync({
+          experiment_id: experimentId,
+          name: form.name,
+          type: form.type,
+          title: form.title,
+          input,
+          // On create, omit blank instruction so the server defaults it
+          // to None rather than storing "" verbatim.
+          instruction: form.instruction === '' ? undefined : form.instruction,
+          enable_comment: form.enable_comment,
+        });
+      }
+    } catch {
+      // Errors are surfaced in the UI via `submitError`; keep the modal
+      // open so the user sees what went wrong rather than losing the
+      // unsaved form to a transient failure.
+      return;
     }
     reset(DEFAULT_FORM_VALUES);
     onClose();
@@ -95,7 +111,7 @@ export const LabelSchemaModal = ({ experimentId, editingSchema, visible, onClose
     onClose();
   };
 
-  const validationErrors = validateLabelSchemaForm(watched ?? getValues());
+  const validationErrors = validateLabelSchemaForm(watched);
 
   return (
     <Modal

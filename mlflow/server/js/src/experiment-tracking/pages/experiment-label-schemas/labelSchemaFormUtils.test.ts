@@ -98,6 +98,8 @@ describe('getFormValuesFromSchema', () => {
   });
 
   it('round-trips a categorical schema (options joined with newlines)', () => {
+    // multi_select defaults to false; the build path omits it when false
+    // so the round-trip target is the schema with multi_select absent.
     const schema: LabelSchema = {
       schema_id: 'ls-2',
       experiment_id: '1',
@@ -108,13 +110,31 @@ describe('getFormValuesFromSchema', () => {
         categorical: {
           options: ['low', 'medium', 'high'],
           semantic_polarity: 'ascending',
-          multi_select: false,
         },
       },
     };
     const form = getFormValuesFromSchema(schema);
     expect(form.categoricalOptions).toEqual('low\nmedium\nhigh');
     expect(form.categoricalPolarity).toEqual('ascending');
+    expect(buildLabelSchemaInputFromForm(form)).toEqual(schema.input);
+  });
+
+  it('round-trips a categorical schema with multi_select=true', () => {
+    const schema: LabelSchema = {
+      schema_id: 'ls-2b',
+      experiment_id: '1',
+      name: 'tags',
+      type: 'feedback',
+      title: 'Tags',
+      input: {
+        categorical: {
+          options: ['a', 'b'],
+          semantic_polarity: 'ascending',
+          multi_select: true,
+        },
+      },
+    };
+    const form = getFormValuesFromSchema(schema);
     expect(buildLabelSchemaInputFromForm(form)).toEqual(schema.input);
   });
 });
@@ -187,5 +207,87 @@ describe('validateLabelSchemaForm', () => {
       numericMaxValue: '5',
     });
     expect(errors.numericMaxValue).toMatch(/strictly greater/);
+  });
+
+  it('rejects non-numeric min/max even for expectation-type', () => {
+    const errors = validateLabelSchemaForm({
+      ...baseValidForm,
+      type: 'expectation',
+      inputKind: 'numeric',
+      numericMinValue: 'abc',
+      numericMaxValue: '',
+    });
+    expect(errors.numericMinValue).toMatch(/must be a number/);
+  });
+
+  // Boundary tests: lock in client-side length caps against silent drift
+  // from validation.py.
+  it.each([
+    {
+      label: 'title > 256',
+      form: { ...baseValidForm, title: 'a'.repeat(257) },
+      field: 'title' as const,
+      match: /at most 256/,
+    },
+    {
+      label: 'instruction > 1000',
+      form: { ...baseValidForm, instruction: 'a'.repeat(1001) },
+      field: 'instruction' as const,
+      match: /at most 1000/,
+    },
+    {
+      label: 'pass-fail positive label > 64',
+      form: { ...baseValidForm, passFailPositiveLabel: 'a'.repeat(65) },
+      field: 'passFailPositiveLabel' as const,
+      match: /at most 64/,
+    },
+    {
+      label: 'pass-fail negative label > 64',
+      form: { ...baseValidForm, passFailNegativeLabel: 'a'.repeat(65) },
+      field: 'passFailNegativeLabel' as const,
+      match: /at most 64/,
+    },
+    {
+      label: 'categorical options > 100',
+      form: {
+        ...baseValidForm,
+        inputKind: 'categorical' as const,
+        categoricalPolarity: 'ascending' as const,
+        categoricalOptions: Array.from({ length: 101 }, (_, i) => `o${i}`).join('\n'),
+      },
+      field: 'categoricalOptions' as const,
+      match: /at most 100/i,
+    },
+    {
+      label: 'categorical option > 64 chars',
+      form: {
+        ...baseValidForm,
+        inputKind: 'categorical' as const,
+        categoricalPolarity: 'ascending' as const,
+        categoricalOptions: 'a'.repeat(65),
+      },
+      field: 'categoricalOptions' as const,
+      match: /at most 64/,
+    },
+  ])('boundary: $label', ({ form, field, match }) => {
+    const errors = validateLabelSchemaForm(form);
+    expect(errors[field]).toMatch(match);
+  });
+});
+
+describe('numeric round-trip', () => {
+  it('preserves min_value: 0 (verifies formatNumeric uses == null, not falsy)', () => {
+    const schema: LabelSchema = {
+      schema_id: 'ls-3',
+      experiment_id: '1',
+      name: 'rating',
+      type: 'expectation',
+      title: 'Rating',
+      input: { numeric: { min_value: 0, max_value: 10 } },
+    };
+    const form = getFormValuesFromSchema(schema);
+    expect(form.numericMinValue).toEqual('0');
+    expect(form.numericMaxValue).toEqual('10');
+    expect(buildLabelSchemaInputFromForm(form)).toEqual(schema.input);
   });
 });
