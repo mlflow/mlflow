@@ -8,6 +8,8 @@ store and request-message parsing); the wire-format round-trip through
 import json
 from unittest import mock
 
+import pytest
+
 from mlflow.genai.label_schemas.label_schemas import (
     InputCategorical,
     InputNumeric,
@@ -146,7 +148,7 @@ def test_create_label_schema_rejects_empty_oneof():
         mock_store.return_value.create_label_schema.assert_not_called()
 
 
-def test_create_label_schema_categorical_round_trip():
+def test_create_label_schema_routes_categorical_input():
     request_message = CreateLabelSchema(
         experiment_id="1",
         name="severity",
@@ -182,7 +184,70 @@ def test_create_label_schema_categorical_round_trip():
     assert call_kwargs["input"].multi_select is True
 
     body = json.loads(response.get_data())
-    assert body["label_schema"]["input"]["categorical"]["multi_select"] is True
+    cat_body = body["label_schema"]["input"]["categorical"]
+    assert cat_body["multi_select"] is True
+    assert cat_body["semantic_polarity"] == "ASCENDING"
+
+
+@pytest.mark.parametrize(
+    ("handler", "request_message", "store_attr"),
+    [
+        (
+            _upsert_label_schema,
+            UpsertLabelSchema(
+                experiment_id="1",
+                name="x",
+                type=LABEL_SCHEMA_TYPE_UNSPECIFIED,
+                title="X",
+                input=LabelSchemaInput(
+                    pass_fail=ProtoInputPassFail(positive_label="y", negative_label="n")
+                ),
+            ),
+            "upsert_label_schema",
+        ),
+    ],
+)
+def test_upsert_label_schema_rejects_unspecified_type(handler, request_message, store_attr):
+    with (
+        mock.patch(f"{_BASE_PATCH}._get_tracking_store") as mock_store,
+        mock.patch(f"{_BASE_PATCH}._get_request_message", return_value=request_message),
+    ):
+        response = handler()
+        assert response.status_code == 400
+        assert json.loads(response.get_data())["error_code"] == "INVALID_PARAMETER_VALUE"
+        getattr(mock_store.return_value, store_attr).assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("handler", "request_message", "store_attr"),
+    [
+        (
+            _upsert_label_schema,
+            UpsertLabelSchema(
+                experiment_id="1",
+                name="x",
+                type=FEEDBACK,
+                title="X",
+                input=LabelSchemaInput(),
+            ),
+            "upsert_label_schema",
+        ),
+        (
+            _update_label_schema,
+            UpdateLabelSchema(schema_id="ls-1", input=LabelSchemaInput()),
+            "update_label_schema",
+        ),
+    ],
+)
+def test_handler_rejects_empty_oneof(handler, request_message, store_attr):
+    with (
+        mock.patch(f"{_BASE_PATCH}._get_tracking_store") as mock_store,
+        mock.patch(f"{_BASE_PATCH}._get_request_message", return_value=request_message),
+    ):
+        response = handler()
+        assert response.status_code == 400
+        assert json.loads(response.get_data())["error_code"] == "INVALID_PARAMETER_VALUE"
+        getattr(mock_store.return_value, store_attr).assert_not_called()
 
 
 def test_get_label_schema():
@@ -240,7 +305,39 @@ def test_update_label_schema_sparse_fields():
         _update_label_schema, request_message, "update_label_schema", _pass_fail_entity()
     )
     call_kwargs = store.update_label_schema.call_args[1]
+    # Exact-equality is intentional: any extra key here means HasField didn't
+    # gate the sparse update correctly and would corrupt the store-layer's
+    # "None=unchanged" contract.
     assert call_kwargs == {"title": "Updated title", "instruction": "Updated instruction"}
+    store.update_label_schema.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    ("enable_comment_set", "expected_in_kwargs", "expected_value"),
+    [
+        (True, True, True),
+        (False, True, False),
+        (None, False, None),  # omit -> kwargs should not contain enable_comment
+    ],
+    ids=["set-true", "set-false-explicit", "omit"],
+)
+def test_update_label_schema_enable_comment_hasfield_gate(
+    enable_comment_set, expected_in_kwargs, expected_value
+):
+    # Stack 1's update contract: None means "unchanged"; the wire must
+    # distinguish "user said False" from "user didn't say". Verified end-to-end
+    # by sending enable_comment explicitly (True or False) vs omitting it.
+    request_message = UpdateLabelSchema(schema_id="ls-1")
+    if enable_comment_set is not None:
+        request_message.enable_comment = enable_comment_set
+    store, _ = _run_handler(
+        _update_label_schema, request_message, "update_label_schema", _pass_fail_entity()
+    )
+    call_kwargs = store.update_label_schema.call_args[1]
+    if expected_in_kwargs:
+        assert call_kwargs["enable_comment"] is expected_value
+    else:
+        assert "enable_comment" not in call_kwargs
 
 
 def test_update_label_schema_input_replace():
@@ -272,8 +369,77 @@ def test_upsert_label_schema():
     assert call_kwargs["experiment_id"] == "1"
     assert call_kwargs["type"] == LabelSchemaType.EXPECTATION
     # enable_comment + instruction omitted on the wire -> not in kwargs
+    # (preserves stack 1's "None means keep current on replace" semantic)
     assert "enable_comment" not in call_kwargs
     assert "instruction" not in call_kwargs
+    store.upsert_label_schema.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    ("enable_comment_set", "expected_in_kwargs", "expected_value"),
+    [
+        (True, True, True),
+        (False, True, False),
+        (None, False, None),
+    ],
+    ids=["set-true", "set-false-explicit", "omit"],
+)
+def test_upsert_label_schema_enable_comment_hasfield_gate(
+    enable_comment_set, expected_in_kwargs, expected_value
+):
+    # Stack 1's upsert contract: enable_comment=None means "default False on
+    # create, keep current on replace". Wire path must preserve absence.
+    request_message = UpsertLabelSchema(
+        experiment_id="1",
+        name="rating",
+        type=EXPECTATION,
+        title="Rating",
+        input=LabelSchemaInput(numeric=ProtoInputNumeric(min_value=1.0, max_value=5.0)),
+    )
+    if enable_comment_set is not None:
+        request_message.enable_comment = enable_comment_set
+    store, _ = _run_handler(
+        _upsert_label_schema, request_message, "upsert_label_schema", _pass_fail_entity()
+    )
+    call_kwargs = store.upsert_label_schema.call_args[1]
+    if expected_in_kwargs:
+        assert call_kwargs["enable_comment"] is expected_value
+    else:
+        assert "enable_comment" not in call_kwargs
+
+
+@pytest.mark.parametrize("bad_max_results", [0, -1, 100_000])
+def test_list_label_schemas_max_results_bound_check(bad_max_results):
+    # The handler's schema dict wires max_results through _assert_intlike +
+    # _assert_intlike_within_range; the dispatcher inside _get_request_message
+    # converts an AssertionError into MlflowException(INVALID_PARAMETER_VALUE).
+    # Hit the schema directly so we don't have to spin up a Flask app.
+    from mlflow.server.handlers import (
+        _assert_intlike,
+        _assert_intlike_within_range,
+        _validate_param_against_schema,
+    )
+    from mlflow.store.tracking import SEARCH_MAX_RESULTS_THRESHOLD
+
+    schema_fns = [
+        _assert_intlike,
+        lambda x: _assert_intlike_within_range(
+            int(x),
+            1,
+            SEARCH_MAX_RESULTS_THRESHOLD,
+            message=f"max_results must be between 1 and {SEARCH_MAX_RESULTS_THRESHOLD}.",
+        ),
+    ]
+    from mlflow.exceptions import MlflowException
+
+    with pytest.raises(MlflowException, match="max_results") as exc_info:
+        _validate_param_against_schema(
+            schema=schema_fns,
+            param="max_results",
+            value=bad_max_results,
+            proto_parsing_succeeded=False,
+        )
+    assert exc_info.value.error_code == "INVALID_PARAMETER_VALUE"
 
 
 def test_delete_label_schema():

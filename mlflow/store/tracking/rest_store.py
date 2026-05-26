@@ -993,6 +993,9 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
         instruction=None,
         enable_comment=False,
     ):
+        # Lazy import — mlflow.genai.__init__ transitively imports the
+        # artifact-repo registry, which imports RestStore, so a top-level
+        # import here creates a circular load.
         from mlflow.genai.label_schemas.label_schemas import (
             LabelSchema,
             LabelSchemaType,

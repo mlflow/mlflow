@@ -103,6 +103,10 @@ class InputCategorical(InputType):
     @classmethod
     def from_proto(cls, proto: _ls_pb.InputCategorical) -> "InputCategorical":
         semantic_polarity: Literal["ascending", "descending"] | None = None
+        # UNSPECIFIED is normalized to None here (NOT raised like
+        # LabelSchemaType.from_proto does) because semantic_polarity is
+        # genuinely optional for expectation-typed categorical schemas.
+        # The feedback-required check lives at the store-layer validator.
         if proto.HasField("semantic_polarity") and proto.semantic_polarity != (
             _ls_pb.CATEGORICAL_SEMANTIC_POLARITY_UNSPECIFIED
         ):
@@ -397,9 +401,17 @@ class LabelSchema:
     def to_proto(self) -> _ls_pb.LabelSchema:
         """Convert the OSS-side fields of this LabelSchema to the proto wire form.
 
-        Databricks-only input variants (InputText/InputTextList/InputCategoricalList)
-        are not representable on the proto and will raise; this method is intended
-        for OSS-native schemas only.
+        Returns:
+            A populated :py:class:`mlflow.protos.label_schemas_pb2.LabelSchema`
+            proto message. Optional entity fields are only set on the proto
+            when they're non-None on the entity, preserving proto2 HasField
+            semantics for the receiver.
+
+        Raises:
+            MlflowException(INVALID_PARAMETER_VALUE): if ``self.input`` is a
+                Databricks-only variant (``InputText`` / ``InputTextList`` /
+                ``InputCategoricalList``). These have no proto representation;
+                this method is intended for OSS-native schemas only.
         """
         proto = _ls_pb.LabelSchema(
             name=self.name,
@@ -419,11 +431,29 @@ class LabelSchema:
         if self.created_at is not None:
             proto.created_at = self.created_at
         if self.updated_at is not None:
+            # Entity field is `updated_at`; proto field is `last_updated_at`
+            # (matches Databricks RPC convention); SQL column is
+            # `last_update_time` (matches existing SqlExperiment / SqlRun).
             proto.last_updated_at = self.updated_at
         return proto
 
     @classmethod
     def from_proto(cls, proto: _ls_pb.LabelSchema) -> "LabelSchema":
+        """Reconstruct a LabelSchema entity from its proto wire form.
+
+        Args:
+            proto: The proto message to deserialize.
+
+        Returns:
+            A new :py:class:`LabelSchema` with OSS-side fields populated from
+            the proto. Unset optional fields on the proto map to ``None`` on
+            the entity (proto2 HasField semantics preserved).
+
+        Raises:
+            MlflowException(INVALID_PARAMETER_VALUE): if ``proto.type`` is
+                ``LABEL_SCHEMA_TYPE_UNSPECIFIED`` or ``proto.input`` has no
+                oneof variant set.
+        """
         return cls(
             name=proto.name,
             type=LabelSchemaType.from_proto(proto.type),

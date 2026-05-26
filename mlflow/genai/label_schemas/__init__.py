@@ -6,7 +6,7 @@ The API docs can be found here:
 <https://api-docs.databricks.com/python/databricks-agents/latest/databricks_agent_eval.html#review-app>
 """
 
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, TypeAlias
 
 from mlflow.genai.label_schemas.label_schemas import (
     InputCategorical,
@@ -29,7 +29,7 @@ EXPECTED_FACTS = "expected_facts"
 GUIDELINES = "guidelines"
 EXPECTED_RESPONSE = "expected_response"
 
-_OSS_SCHEMA_INPUT = InputPassFail | InputCategorical | InputNumeric
+_OSS_SCHEMA_INPUT: TypeAlias = InputPassFail | InputCategorical | InputNumeric
 
 
 def create_label_schema(
@@ -42,14 +42,16 @@ def create_label_schema(
     enable_comment: bool = False,
     overwrite: bool = False,
 ) -> LabelSchema:
-    """Create a new label schema for the review app.
+    """Create a new label schema for the review app (Databricks-routed).
 
     A label schema defines the type of input that stakeholders will provide when labeling items
     in the review app.
 
     .. note::
-        This functionality is only available in Databricks. Please run
-        `pip install mlflow[databricks]` to use it.
+        This is the Databricks-routed flow; identity is the schema ``name``
+        within the workspace's ReviewApp. For OSS MLflow deployments use
+        :func:`create_experiment_label_schema` instead, whose identity is
+        ``(experiment_id, name)``. Requires `pip install mlflow[databricks]`.
 
     Args:
         name: The name of the label schema. Must be unique across the review app.
@@ -134,10 +136,15 @@ def create_experiment_label_schema(
     """Create a new label schema scoped to an OSS experiment.
 
     Unlike :func:`create_label_schema` (Databricks-routed, identified by
-    name within a ReviewApp), OSS-native schemas are identified by
+    schema name within a ReviewApp), OSS-native schemas are identified by
     ``(experiment_id, name)``. The server generates a ``schema_id``
     returned on the response. Use :func:`upsert_experiment_label_schema`
     for create-or-replace semantics.
+
+    .. note::
+        For Databricks workspaces with a ReviewApp, use
+        :func:`create_label_schema` instead (it routes through the
+        Databricks agents SDK).
     """
     return TracingClient()._create_label_schema(
         experiment_id=experiment_id,
@@ -183,6 +190,12 @@ def update_experiment_label_schema(
     ``type`` is immutable and not accepted. Fields left as ``None`` are
     unchanged on the server. ``enable_comment=None`` is treated as
     "unchanged"; pass ``True`` or ``False`` to set.
+
+    .. note::
+        Empty strings are real values, not "no-op": passing
+        ``instruction=""`` replaces the stored value with the empty
+        string rather than clearing or preserving it. Pass ``None``
+        (the default) to leave the field unchanged.
     """
     return TracingClient()._update_label_schema(
         schema_id,
