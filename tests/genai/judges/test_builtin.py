@@ -18,6 +18,7 @@ from mlflow.genai.scorers.aggregation import compute_aggregated_metrics
 from mlflow.genai.scorers.base import SerializedScorer
 from mlflow.genai.scorers.builtin_scorers import _sanitize_scorer_feedback
 from mlflow.genai.utils.type import FunctionCall
+from mlflow.genai.judges.adapters.gateway_adapter import InvokeOutput
 from mlflow.types.chat import ChatTool, FunctionToolDefinition
 
 from tests.genai.conftest import databricks_only
@@ -218,8 +219,13 @@ def test_builtin_scorer_handles_numeric_boolean_values():
 
 def _mock_score(mock_content):
     return mock.patch(
-        "mlflow.genai.judges.adapters.gateway_adapter.score_model_on_payload",
-        return_value=mock_content,
+        "mlflow.genai.judges.adapters.gateway_adapter.GatewayAdapter._invoke_and_handle_tools",
+        return_value=InvokeOutput(
+            response=mock_content,
+            request_id=None,
+            num_prompt_tokens=None,
+            num_completion_tokens=None,
+        ),
     )
 
 
@@ -242,9 +248,10 @@ def test_meets_guidelines_oss():
     assert feedback.source.source_id == "openai:/gpt-4.1-mini"
 
     mock_score.assert_called_once()
-    kwargs = mock_score.call_args.kwargs
-    assert kwargs["model_uri"] == "openai:/gpt-4.1-mini"
-    prompt = kwargs["payload"]
+    call_kwargs = mock_score.call_args.kwargs
+    assert call_kwargs["provider"] == "openai"
+    assert call_kwargs["model_name"] == "gpt-4.1-mini"
+    prompt = call_kwargs["messages"][0].content
     assert prompt.startswith("Given the following set of guidelines and some inputs")
     assert "What is the capital of France?" in prompt
 
@@ -268,7 +275,7 @@ def test_is_context_relevant_oss():
     assert feedback.source.source_id == "openai:/gpt-4.1-mini"
 
     mock_score.assert_called_once()
-    prompt = mock_score.call_args.kwargs["payload"]
+    prompt = mock_score.call_args.kwargs["messages"][0].content
     assert "Consider the following question and answer" in prompt
     assert "What is the capital of France?" in prompt
     assert "Paris is the capital of France." in prompt
@@ -294,7 +301,7 @@ def test_is_correct_oss():
     assert feedback.source.source_id == "openai:/gpt-4.1-mini"
 
     mock_score.assert_called_once()
-    prompt = mock_score.call_args.kwargs["payload"]
+    prompt = mock_score.call_args.kwargs["messages"][0].content
     assert "Consider the following question, claim and document" in prompt
     assert "What is the capital of France?" in prompt
     assert "Paris is the capital of France." in prompt
@@ -337,7 +344,7 @@ def test_is_context_sufficient_oss():
     assert feedback.source.source_id == "openai:/gpt-4.1-mini"
 
     mock_score.assert_called_once()
-    prompt = mock_score.call_args.kwargs["payload"]
+    prompt = mock_score.call_args.kwargs["messages"][0].content
     assert "Consider the following claim and document" in prompt
     assert "What is the capital of France?" in prompt
     assert "Paris is the capital of France." in prompt
@@ -366,7 +373,7 @@ def test_is_grounded_oss():
     assert feedback.source.source_id == "openai:/gpt-4.1-mini"
 
     mock_score.assert_called_once()
-    prompt = mock_score.call_args.kwargs["payload"]
+    prompt = mock_score.call_args.kwargs["messages"][0].content
     assert "Consider the following claim and document" in prompt
     assert "What is the capital of France?" in prompt
     assert "Paris" in prompt

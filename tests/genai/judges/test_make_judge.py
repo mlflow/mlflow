@@ -35,6 +35,7 @@ from mlflow.genai.scorers.base import Scorer, ScorerKind, SerializedScorer
 from mlflow.genai.scorers.registry import _get_scorer_store
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.utils import build_otel_context
+from mlflow.genai.judges.adapters.gateway_adapter import InvokeOutput
 from mlflow.types.llm import ChatMessage
 
 
@@ -2431,7 +2432,7 @@ def test_make_judge_with_trace_invokes_adapter(mock_trace):
 
 def test_non_context_error_does_not_trigger_pruning():
     with mock.patch(
-        "mlflow.genai.judges.adapters.gateway_adapter._invoke_via_gateway",
+        "mlflow.genai.judges.adapters.gateway_adapter.GatewayAdapter._invoke_and_handle_tools",
         side_effect=MlflowException("some other error"),
     ):
         judge = make_judge(
@@ -2823,10 +2824,16 @@ def test_instructions_judge_repr():
 
 def test_make_judge_with_feedback_value_type():
     mock_content = '{"result": 5, "rationale": "Excellent quality work"}'
+    mock_output = InvokeOutput(
+        response=mock_content,
+        request_id=None,
+        num_prompt_tokens=None,
+        num_completion_tokens=None,
+    )
 
     with mock.patch(
-        "mlflow.genai.judges.adapters.gateway_adapter._invoke_via_gateway",
-        return_value=mock_content,
+        "mlflow.genai.judges.adapters.gateway_adapter.GatewayAdapter._invoke_and_handle_tools",
+        return_value=mock_output,
     ):
         judge = make_judge(
             name="test_judge",
@@ -3112,9 +3119,15 @@ def test_make_judge_with_default_feedback_value_type():
     # Verify execution with default str type
     mock_content = '{"result": "Good quality", "rationale": "The response is clear and accurate"}'
 
+    mock_output = InvokeOutput(
+        response=mock_content,
+        request_id=None,
+        num_prompt_tokens=None,
+        num_completion_tokens=None,
+    )
     with mock.patch(
-        "mlflow.genai.judges.adapters.gateway_adapter._invoke_via_gateway",
-        return_value=mock_content,
+        "mlflow.genai.judges.adapters.gateway_adapter.GatewayAdapter._invoke_and_handle_tools",
+        return_value=mock_output,
     ):
         result = judge(outputs={"text": "Great work!"})
 
