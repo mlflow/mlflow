@@ -7,7 +7,7 @@ const DAYS_TO_CONSIDER = 14;
 const DUPLICATE_LABEL = "duplicate";
 
 const duplicateMessage = (author, issueNumber, keeperPR) =>
-  `@${author} This PR appears to reference the same issue (#${issueNumber}) as #${keeperPR} (opened earlier). If your change is already covered, please consider closing this PR.`;
+  `@${author} This PR appears to reference the same issue (#${issueNumber}) as #${keeperPR} (opened earlier). Closing as a duplicate.`;
 
 // GraphQL query to fetch open PRs created in the last 14 days
 const QUERY = `
@@ -146,12 +146,20 @@ module.exports = async ({ context, github }) => {
           labels: [DUPLICATE_LABEL],
         });
 
-        // Post comment encouraging author to close if duplicate
+        // Post comment explaining the closure
         await github.rest.issues.createComment({
           owner,
           repo,
           issue_number: pr.number,
           body: duplicateMessage(pr.author.login, issueNumber, keeper.number),
+        });
+
+        // Close the duplicate PR
+        await github.rest.pulls.update({
+          owner,
+          repo,
+          pull_number: pr.number,
+          state: "closed",
         });
 
         labelCount++;
