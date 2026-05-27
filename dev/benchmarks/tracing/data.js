@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779844525521,
+  "lastUpdate": 1779849474593,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -5615,6 +5615,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 37.460954999994556,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "contact.rdudhat@gmail.com",
+            "name": "Rudra Dudhat",
+            "username": "RudraDudhat2509"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "60864d582fc522f5900250798a7b2fc6459b725f",
+          "message": "fix: extend `mlflow.sourceRun` metrics filter to cover post-hoc linked OTLP traces (#23591)\n\nSigned-off-by: Rudra Dudhat <contact.rdudhat@gmail.com>\nCo-authored-by: WeichenXu <weichen.xu@databricks.com>",
+          "timestamp": "2026-05-27T02:34:13Z",
+          "tree_id": "8e8e7bac8af194c4673e0394b949d6bbd1bc59df",
+          "url": "https://github.com/mlflow/mlflow/commit/60864d582fc522f5900250798a7b2fc6459b725f"
+        },
+        "date": 1779849473258,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 45.27946434999919,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 20.8609205405408,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 20.380925312500242,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 20.17934913793144,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 19.706245180327688,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 21.565112400003272,
             "unit": "ms"
           }
         ]
