@@ -65,6 +65,11 @@ export const CreateUserModal = ({ open, onClose }: CreateUserModalProps) => {
   const [roleValue, setRoleValue] = useState<RoleAssignmentValue>(ROLE_ASSIGNMENT_DEFAULT);
   const [directPermissions, setDirectPermissions] = useState<StagedDirectPermission[]>([]);
   const [grantWorkspace, setGrantWorkspace] = useState<string>(initialGrantWorkspace);
+  // Reported by ``DirectPermissionsSection`` whenever the in-progress draft
+  // is dirty but not yet stage-able — used to block the modal's submit so
+  // the admin can't silently drop a half-filled permission by clicking
+  // ``Create user`` instead of ``Add``.
+  const [hasUnsavedDirectDraft, setHasUnsavedDirectDraft] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Set after the user lands; lets retries skip ``createUser`` and
@@ -81,6 +86,7 @@ export const CreateUserModal = ({ open, onClose }: CreateUserModalProps) => {
       setRoleValue(ROLE_ASSIGNMENT_DEFAULT);
       setDirectPermissions([]);
       setGrantWorkspace(initialGrantWorkspace);
+      setHasUnsavedDirectDraft(false);
       setSubmitting(false);
       setError(null);
       setCreatedUsername(null);
@@ -94,7 +100,10 @@ export const CreateUserModal = ({ open, onClose }: CreateUserModalProps) => {
   const wantsRoles = roleValue.roleIds.length > 0;
   const wantsDirect = directPermissions.length > 0;
   // Retry mode skips the credential guard (the fields are also disabled).
-  const canSubmit = createdUsername !== null || Boolean(username.trim() && password);
+  // ``hasUnsavedDirectDraft`` blocks submit while the direct-grant picker
+  // sits on a touched-but-not-staged draft — otherwise the click silently
+  // drops the admin's in-progress permission.
+  const canSubmit = !hasUnsavedDirectDraft && (createdUsername !== null || Boolean(username.trim() && password));
 
   const handleSubmit = useCallback(async () => {
     // No ``setError(null)`` upfront — would hide/show flicker as the
@@ -296,6 +305,7 @@ export const CreateUserModal = ({ open, onClose }: CreateUserModalProps) => {
           onChange={setDirectPermissions}
           workspace={grantWorkspace}
           disabled={submitting}
+          onUnsavedInvalidDraftChange={setHasUnsavedDirectDraft}
         />
       </LongFormSection>
       {isCurrentUserAdmin && (

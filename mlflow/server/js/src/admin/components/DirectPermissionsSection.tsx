@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Button,
   CloseIcon,
@@ -7,7 +7,6 @@ import {
   TableHeader,
   TableRow,
   Tag,
-  Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FieldLabel } from './FieldLabel';
@@ -19,6 +18,16 @@ import {
   type DirectPermissionValue,
 } from './DirectPermissionForm';
 import { ALL_RESOURCE_PATTERN, formatResourcePattern, getResourceTypeLabel } from '../types';
+
+// Returns true when the draft differs from the default — i.e. the user has
+// touched the picker. Used to gate the "Clear" affordance and the parent
+// modal's submit lock so we only nag about a draft the user actually
+// engaged with.
+const isDraftDirty = (draft: DirectPermissionValue): boolean =>
+  draft.resourceType !== DIRECT_PERMISSION_DEFAULT.resourceType ||
+  draft.scope !== DIRECT_PERMISSION_DEFAULT.scope ||
+  draft.resourceId !== DIRECT_PERMISSION_DEFAULT.resourceId ||
+  draft.permission !== DIRECT_PERMISSION_DEFAULT.permission;
 
 /**
  * One staged direct grant. ``resourceId`` carries either a specific resource
@@ -37,6 +46,12 @@ export interface DirectPermissionsSectionProps {
    * workspace other than their session-active one. */
   workspace?: string;
   disabled?: boolean;
+  /** Called when the in-progress draft transitions to a "dirty but not
+   * yet submittable" state (e.g. user changed the resource type but
+   * hasn't picked a specific resource yet). Parent modals use this to
+   * block their submit button so the admin can't silently abandon a
+   * partially-filled permission by clicking Create. */
+  onUnsavedInvalidDraftChange?: (hasUnsavedInvalidDraft: boolean) => void;
 }
 
 /**
@@ -44,7 +59,13 @@ export interface DirectPermissionsSectionProps {
  * appends a row to the parent's list; rows can be removed individually;
  * the parent submits the whole list. Mirrors ``RolePermissionsSection``.
  */
-export const DirectPermissionsSection = ({ value, onChange, workspace, disabled }: DirectPermissionsSectionProps) => {
+export const DirectPermissionsSection = ({
+  value,
+  onChange,
+  workspace,
+  disabled,
+  onUnsavedInvalidDraftChange,
+}: DirectPermissionsSectionProps) => {
   const { theme } = useDesignSystemTheme();
   const [draft, setDraft] = useState<DirectPermissionValue>(DIRECT_PERMISSION_DEFAULT);
 
@@ -69,6 +90,16 @@ export const DirectPermissionsSection = ({ value, onChange, workspace, disabled 
   };
 
   const canAdd = isDirectPermissionSubmittable(draft);
+  // A draft is "unsaved-invalid" once the user has changed something
+  // (``isDraftDirty``) but it can't be staged yet (``!isSubmittable``).
+  // This is the case the user typically hits when they pick a resource
+  // type but forget to pick a specific resource — Kris's bug report.
+  const dirty = isDraftDirty(draft);
+  const hasUnsavedInvalidDraft = dirty && !canAdd;
+
+  useEffect(() => {
+    onUnsavedInvalidDraftChange?.(hasUnsavedInvalidDraft);
+  }, [hasUnsavedInvalidDraft, onUnsavedInvalidDraftChange]);
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
@@ -130,8 +161,28 @@ export const DirectPermissionsSection = ({ value, onChange, workspace, disabled 
         }}
       >
         <FieldLabel>Add a permission</FieldLabel>
-        <DirectPermissionForm value={draft} onChange={setDraft} workspace={workspace} disabled={disabled} />
-        <div css={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <DirectPermissionForm
+          value={draft}
+          onChange={setDraft}
+          workspace={workspace}
+          disabled={disabled}
+          showResourceRequiredError={hasUnsavedInvalidDraft && draft.scope === 'specific'}
+        />
+        <div css={{ display: 'flex', justifyContent: 'flex-end', gap: theme.spacing.sm }}>
+          {dirty && (
+            // Escape hatch: if the user changed their mind about staging a
+            // draft, ``Clear`` resets to the default state so the parent
+            // modal's submit unlocks. Only shown when ``dirty`` to avoid
+            // bait-and-switch clicks on a button that does nothing.
+            <Button
+              componentId="admin.direct_permissions.clear"
+              type="tertiary"
+              onClick={() => setDraft(DIRECT_PERMISSION_DEFAULT)}
+              disabled={disabled}
+            >
+              Clear
+            </Button>
+          )}
           <Button componentId="admin.direct_permissions.add" onClick={handleAdd} disabled={!canAdd || disabled}>
             Add
           </Button>

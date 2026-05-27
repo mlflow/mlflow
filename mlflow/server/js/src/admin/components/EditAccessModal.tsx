@@ -127,6 +127,10 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
   const [isAdmin, setIsAdmin] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Block ``Review changes`` while the direct-grant picker holds a touched-
+  // but-not-staged draft, so the admin can't silently abandon a partially
+  // filled permission. Reported by ``DirectPermissionsSection``.
+  const [hasUnsavedDirectDraft, setHasUnsavedDirectDraft] = useState(false);
 
   const workspaceOptions = useWorkspaceOptions(workspaces);
 
@@ -149,6 +153,7 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
     setSubmitting(false);
     setError(null);
     setGrantWorkspace(initialGrantWorkspace);
+    setHasUnsavedDirectDraft(false);
     filledForWorkspaceRef.current = null;
     // ``initialGrantWorkspace`` is derived from the session active workspace;
     // re-seed on open so the dropdown defaults to "where I am right now".
@@ -337,7 +342,7 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
                 setError(null);
                 setStep('review');
               }}
-              disabled={!hasAnyChange || !stateLoaded || Boolean(rolesError)}
+              disabled={!hasAnyChange || !stateLoaded || Boolean(rolesError) || hasUnsavedDirectDraft}
             >
               Review changes
             </Button>
@@ -454,6 +459,7 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
                   onChange={setDirectPermissions}
                   workspace={grantWorkspace}
                   disabled={submitting}
+                  onUnsavedInvalidDraftChange={setHasUnsavedDirectDraft}
                 />
               </LongFormSection>
               {isCurrentUserAdmin && (

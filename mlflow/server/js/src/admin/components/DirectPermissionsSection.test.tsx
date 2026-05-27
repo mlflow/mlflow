@@ -53,3 +53,82 @@ describe('DirectPermissionsSection — staging layer', () => {
     ]);
   });
 });
+
+// ``SimpleSelect`` renders as a radix combobox button (no native ``<select>``);
+// open it, then click the desired option. Same opens-listbox-and-clicks
+// pattern works for all of the form's SimpleSelects (resource type,
+// permission level).
+const changeSimpleSelect = async (componentId: string, optionLabel: string) => {
+  const trigger = document.querySelector<HTMLElement>(`[data-component-id="${componentId}"]`);
+  if (!trigger) throw new Error(`SimpleSelect "${componentId}" not found`);
+  await userEvent.click(trigger);
+  await userEvent.click(await screen.findByRole('option', { name: optionLabel }));
+};
+
+describe('DirectPermissionsSection — unsaved-invalid-draft signal (Kris bug)', () => {
+  it('reports unsaved-invalid=true when the user picks scope=specific with no resource', async () => {
+    // The exact silent-drop case: admin bumps the permission level to MANAGE
+    // (changes from the default READ) but leaves scope on the default
+    // ``specific`` and never picks a specific resource. Section must
+    // surface this state so the parent modal can block submit.
+    mockUseResourceOptionsQuery.mockReturnValue({ options: [], isLoading: false, error: null });
+    const onUnsavedInvalidDraftChange = jest.fn();
+    renderWithDesignSystem(
+      <DirectPermissionsSection
+        value={[]}
+        onChange={jest.fn()}
+        onUnsavedInvalidDraftChange={onUnsavedInvalidDraftChange}
+      />,
+    );
+    // Initial fire: draft starts at default → not dirty → false.
+    expect(onUnsavedInvalidDraftChange).toHaveBeenLastCalledWith(false);
+
+    await changeSimpleSelect('admin.direct_permission.permission_level', 'MANAGE');
+
+    expect(onUnsavedInvalidDraftChange).toHaveBeenLastCalledWith(true);
+
+    // Surfaces the inline error so the admin knows why the modal is locked.
+    expect(screen.getByTestId('admin.direct_permission.resource_required_error')).toBeInTheDocument();
+  });
+
+  it('flips back to unsaved-invalid=false when the user clears the draft', async () => {
+    // ``Clear`` is the escape hatch: if the admin decides not to add a
+    // direct grant after all, resetting the draft to default unlocks the
+    // parent modal's submit.
+    mockUseResourceOptionsQuery.mockReturnValue({ options: [], isLoading: false, error: null });
+    const onUnsavedInvalidDraftChange = jest.fn();
+    renderWithDesignSystem(
+      <DirectPermissionsSection
+        value={[]}
+        onChange={jest.fn()}
+        onUnsavedInvalidDraftChange={onUnsavedInvalidDraftChange}
+      />,
+    );
+    await changeSimpleSelect('admin.direct_permission.permission_level', 'MANAGE');
+    expect(onUnsavedInvalidDraftChange).toHaveBeenLastCalledWith(true);
+
+    await userEvent.click(screen.getByRole('button', { name: /^Clear$/ }));
+    expect(onUnsavedInvalidDraftChange).toHaveBeenLastCalledWith(false);
+    // Inline error disappears once the draft is clean.
+    expect(screen.queryByTestId('admin.direct_permission.resource_required_error')).not.toBeInTheDocument();
+  });
+
+  it('does not flag scope=all as unsaved-invalid (a wildcard grant is submittable on its own)', async () => {
+    // The "specific resource missing" warning is exclusive to scope=specific
+    // — once the user flips to ``All experiments``, the draft is fully
+    // submittable, so the section reports false and the inline error stays
+    // hidden even though the draft is dirty.
+    mockUseResourceOptionsQuery.mockReturnValue({ options: [], isLoading: false, error: null });
+    const onUnsavedInvalidDraftChange = jest.fn();
+    renderWithDesignSystem(
+      <DirectPermissionsSection
+        value={[]}
+        onChange={jest.fn()}
+        onUnsavedInvalidDraftChange={onUnsavedInvalidDraftChange}
+      />,
+    );
+    await userEvent.click(screen.getByRole('radio', { name: /^All experiments$/ }));
+    expect(onUnsavedInvalidDraftChange).toHaveBeenLastCalledWith(false);
+    expect(screen.queryByTestId('admin.direct_permission.resource_required_error')).not.toBeInTheDocument();
+  });
+});
