@@ -590,6 +590,56 @@ def test_search_runs_empty_page_token(mock_get_request_message, mock_tracking_st
     assert call_kwargs["page_token"] is None  # page_token should be None, not ""
 
 
+def test_search_runs_column_aware_filters_pass_through(
+    mock_get_request_message, mock_tracking_store
+):
+    """
+    The new column-aware fields on SearchRuns (metric_keys, exclude_metrics, …) should
+    be plumbed through to the tracking store call.
+    """
+    search_runs_proto = SearchRuns(
+        experiment_ids=["0"],
+        metric_keys=["loss", "accuracy"],
+        exclude_metrics=False,
+        param_keys=["lr"],
+        exclude_params=False,
+        tag_keys=[],
+        exclude_tags=True,
+    )
+    mock_get_request_message.return_value = search_runs_proto
+    mock_tracking_store.search_runs.return_value = PagedList([], None)
+
+    _search_runs()
+
+    call_kwargs = mock_tracking_store.search_runs.call_args.kwargs
+    assert call_kwargs["metric_keys"] == ["loss", "accuracy"]
+    assert call_kwargs["exclude_metrics"] is False
+    assert call_kwargs["param_keys"] == ["lr"]
+    assert call_kwargs["exclude_params"] is False
+    # Empty repeated field becomes None at the boundary to match the "unset" semantic.
+    assert call_kwargs["tag_keys"] is None
+    assert call_kwargs["exclude_tags"] is True
+
+
+def test_search_runs_no_column_filters_pass_none(mock_get_request_message, mock_tracking_store):
+    """
+    When the client doesn't set the new fields, the store sees None / False so that
+    default behaviour (include everything) is preserved.
+    """
+    mock_get_request_message.return_value = SearchRuns(experiment_ids=["0"])
+    mock_tracking_store.search_runs.return_value = PagedList([], None)
+
+    _search_runs()
+
+    call_kwargs = mock_tracking_store.search_runs.call_args.kwargs
+    assert call_kwargs["metric_keys"] is None
+    assert call_kwargs["param_keys"] is None
+    assert call_kwargs["tag_keys"] is None
+    assert call_kwargs["exclude_metrics"] is False
+    assert call_kwargs["exclude_params"] is False
+    assert call_kwargs["exclude_tags"] is False
+
+
 def test_log_batch_api_req(mock_get_request_json):
     mock_get_request_json.return_value = "a" * (MAX_BATCH_LOG_REQUEST_SIZE + 1)
     response = _log_batch()

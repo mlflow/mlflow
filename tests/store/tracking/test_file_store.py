@@ -4072,3 +4072,79 @@ def test_malicious_meta_yaml_in_artifact_folder_path_traversal(tmp_path):
     # The fix should prevent the artifact folder from being treated as a run directory
     with pytest.raises(MlflowException, match="Run 'artifacts' not found"):
         fs.get_run("artifacts")
+
+
+def _seed_filestore_run_with_column_data(store):
+    exp_id = store.create_experiment(f"col-aware-{uuid.uuid4().hex}")
+    run = store.create_run(exp_id, "user", 0, [], "name")
+    run_id = run.info.run_id
+    for key, value in [("loss", 0.1), ("accuracy", 0.9), ("f1", 0.8)]:
+        store.log_metric(run_id, Metric(key=key, value=value, timestamp=0, step=0))
+    for key, value in [("lr", "0.01"), ("batch_size", "32"), ("optimizer", "adam")]:
+        store.log_param(run_id, Param(key=key, value=value))
+    for key, value in [("env", "prod"), ("team", "ml"), ("owner", "alice")]:
+        store.set_tag(run_id, RunTag(key=key, value=value))
+    return exp_id, run_id
+
+
+def test_file_store_search_runs_no_column_filters(store):
+    exp_id, _ = _seed_filestore_run_with_column_data(store)
+    [run] = store.search_runs([exp_id], None, ViewType.ALL)
+    assert set(run.data.metrics) == {"loss", "accuracy", "f1"}
+    assert set(run.data.params) == {"lr", "batch_size", "optimizer"}
+    assert {"env", "team", "owner"}.issubset(run.data.tags)
+
+
+def test_file_store_search_runs_metric_keys_allowlist(store):
+    exp_id, _ = _seed_filestore_run_with_column_data(store)
+    [run] = store.search_runs([exp_id], None, ViewType.ALL, metric_keys=["loss"])
+    assert set(run.data.metrics) == {"loss"}
+    assert set(run.data.params) == {"lr", "batch_size", "optimizer"}
+
+
+def test_file_store_search_runs_exclude_metrics(store):
+    exp_id, _ = _seed_filestore_run_with_column_data(store)
+    [run] = store.search_runs([exp_id], None, ViewType.ALL, exclude_metrics=True)
+    assert run.data.metrics == {}
+
+
+def test_file_store_search_runs_param_keys_allowlist(store):
+    exp_id, _ = _seed_filestore_run_with_column_data(store)
+    [run] = store.search_runs([exp_id], None, ViewType.ALL, param_keys=["lr"])
+    assert set(run.data.params) == {"lr"}
+
+
+def test_file_store_search_runs_exclude_params(store):
+    exp_id, _ = _seed_filestore_run_with_column_data(store)
+    [run] = store.search_runs([exp_id], None, ViewType.ALL, exclude_params=True)
+    assert run.data.params == {}
+
+
+def test_file_store_search_runs_tag_keys_allowlist(store):
+    exp_id, _ = _seed_filestore_run_with_column_data(store)
+    [run] = store.search_runs([exp_id], None, ViewType.ALL, tag_keys=["env"])
+    assert set(run.data.tags) == {"env"}
+
+
+def test_file_store_search_runs_exclude_tags(store):
+    exp_id, _ = _seed_filestore_run_with_column_data(store)
+    [run] = store.search_runs([exp_id], None, ViewType.ALL, exclude_tags=True)
+    assert run.data.tags == {}
+
+
+def test_file_store_search_runs_exclude_takes_precedence(store):
+    exp_id, _ = _seed_filestore_run_with_column_data(store)
+    [run] = store.search_runs(
+        [exp_id],
+        None,
+        ViewType.ALL,
+        metric_keys=["loss", "accuracy"],
+        exclude_metrics=True,
+    )
+    assert run.data.metrics == {}
+
+
+def test_file_store_search_runs_empty_allowlist_treated_as_unset(store):
+    exp_id, _ = _seed_filestore_run_with_column_data(store)
+    [run] = store.search_runs([exp_id], None, ViewType.ALL, metric_keys=[])
+    assert set(run.data.metrics) == {"loss", "accuracy", "f1"}

@@ -1918,6 +1918,12 @@ def search_runs_impl(request_message):
         max_results=max_results,
         order_by=order_by,
         page_token=request_message.page_token or None,
+        metric_keys=list(request_message.metric_keys) or None,
+        exclude_metrics=request_message.exclude_metrics,
+        param_keys=list(request_message.param_keys) or None,
+        exclude_params=request_message.exclude_params,
+        tag_keys=list(request_message.tag_keys) or None,
+        exclude_tags=request_message.exclude_tags,
     )
     response_message.runs.extend([r.to_proto() for r in run_entities])
     if run_entities.token:

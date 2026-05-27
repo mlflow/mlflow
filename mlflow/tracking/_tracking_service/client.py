@@ -828,6 +828,12 @@ class TrackingServiceClient:
         max_results=SEARCH_MAX_RESULTS_DEFAULT,
         order_by=None,
         page_token=None,
+        metric_keys=None,
+        exclude_metrics=False,
+        param_keys=None,
+        exclude_params=False,
+        tag_keys=None,
+        exclude_tags=False,
     ):
         """Search experiments that fit the search criteria.
 
@@ -842,6 +848,14 @@ class TrackingServiceClient:
                 The default ordering is to sort by ``start_time DESC``, then ``run_id``.
             page_token: Token specifying the next page of results. It should be obtained from
                 a ``search_runs`` call.
+            metric_keys: Optional list of metric keys to include in each returned run. If unset,
+                all metrics are returned (current behavior).
+            exclude_metrics: If True, returned runs contain no metric data. Takes precedence
+                over ``metric_keys``.
+            param_keys: Same semantics as ``metric_keys`` for params.
+            exclude_params: Same semantics as ``exclude_metrics`` for params.
+            tag_keys: Same semantics as ``metric_keys`` for tags.
+            exclude_tags: Same semantics as ``exclude_metrics`` for tags.
 
         Returns:
             A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
@@ -859,6 +873,12 @@ class TrackingServiceClient:
             max_results=max_results,
             order_by=order_by,
             page_token=page_token,
+            metric_keys=metric_keys,
+            exclude_metrics=exclude_metrics,
+            param_keys=param_keys,
+            exclude_params=exclude_params,
+            tag_keys=tag_keys,
+            exclude_tags=exclude_tags,
         )
 
     @record_usage_event(CreateLoggedModelEvent)

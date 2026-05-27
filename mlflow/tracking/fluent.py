@@ -3220,6 +3220,12 @@ def search_runs(
     output_format: str = "pandas",
     search_all_experiments: bool = False,
     experiment_names: list[str] | None = None,
+    metric_keys: list[str] | None = None,
+    exclude_metrics: bool = False,
+    param_keys: list[str] | None = None,
+    exclude_params: bool = False,
+    tag_keys: list[str] | None = None,
+    exclude_tags: bool = False,
 ) -> Union[list[Run], "pandas.DataFrame"]:
     """
     Search for Runs that fit the specified criteria.
@@ -3248,6 +3254,15 @@ def search_runs(
             than ``None`` or ``[]`` will result in error if ``experiment_ids``
             is also not ``None`` or ``[]``. ``None`` will default to the active
             experiment if ``experiment_ids`` is ``None`` or ``[]``.
+        metric_keys: Optional list of metric keys to include in each returned run. If unset,
+            all metrics are returned (current behavior). Useful for restricting the response
+            payload to columns the caller actually displays.
+        exclude_metrics: If True, returned runs contain no metric data. Takes precedence
+            over ``metric_keys``.
+        param_keys: Same semantics as ``metric_keys`` for params.
+        exclude_params: Same semantics as ``exclude_metrics`` for params.
+        tag_keys: Same semantics as ``metric_keys`` for tags.
+        exclude_tags: Same semantics as ``exclude_metrics`` for tags.
 
     Returns:
         If output_format is ``list``: a list of :py:class:`mlflow.entities.Run`. If
@@ -3338,6 +3353,12 @@ def search_runs(
                 number_to_get,
                 order_by,
                 next_page_token,
+                metric_keys=metric_keys,
+                exclude_metrics=exclude_metrics,
+                param_keys=param_keys,
+                exclude_params=exclude_params,
+                tag_keys=tag_keys,
+                exclude_tags=exclude_tags,
             )
 
         runs = get_results_from_paginated_fn(

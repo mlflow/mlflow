@@ -3985,3 +3985,74 @@ def test_search_issues_with_trace_count():
     assert result[0].trace_count == 2
     assert result[1].trace_count == 0
     assert result.token is None
+
+
+def test_search_runs_passes_column_filters_through_to_proto():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+
+    with mock.patch("mlflow.utils.rest_utils.http_request") as mock_http:
+        response = mock.MagicMock()
+        response.status_code = 200
+        response.text = '{"runs": [], "next_page_token": ""}'
+        mock_http.return_value = response
+
+        store.search_runs(
+            ["0"],
+            "",
+            ViewType.ACTIVE_ONLY,
+            max_results=10,
+            order_by=None,
+            page_token=None,
+            metric_keys=["loss", "accuracy"],
+            exclude_metrics=False,
+            param_keys=["lr"],
+            exclude_params=False,
+            tag_keys=None,
+            exclude_tags=True,
+        )
+
+        # Only non-default fields are set on the wire — default-False booleans and empty
+        # allowlists are omitted to keep wire payload small and compatible with older servers.
+        expected_message = SearchRuns(
+            experiment_ids=["0"],
+            filter="",
+            run_view_type=ViewType.to_proto(ViewType.ACTIVE_ONLY),
+            max_results=10,
+            order_by=None,
+            page_token=None,
+            metric_keys=["loss", "accuracy"],
+            param_keys=["lr"],
+            exclude_tags=True,
+        )
+        _verify_requests(mock_http, creds, "runs/search", "POST", message_to_json(expected_message))
+
+
+def test_search_runs_without_column_filters_omits_new_fields():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+
+    with mock.patch("mlflow.utils.rest_utils.http_request") as mock_http:
+        response = mock.MagicMock()
+        response.status_code = 200
+        response.text = '{"runs": [], "next_page_token": ""}'
+        mock_http.return_value = response
+
+        store.search_runs(
+            ["0"],
+            "",
+            ViewType.ACTIVE_ONLY,
+            max_results=10,
+            order_by=None,
+            page_token=None,
+        )
+
+        expected_message = SearchRuns(
+            experiment_ids=["0"],
+            filter="",
+            run_view_type=ViewType.to_proto(ViewType.ACTIVE_ONLY),
+            max_results=10,
+            order_by=None,
+            page_token=None,
+        )
+        _verify_requests(mock_http, creds, "runs/search", "POST", message_to_json(expected_message))
