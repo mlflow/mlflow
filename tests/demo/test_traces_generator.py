@@ -3,11 +3,13 @@ import pytest
 from mlflow import MlflowClient, get_experiment_by_name, set_experiment
 from mlflow.demo.base import DEMO_EXPERIMENT_NAME, DemoFeature, DemoResult
 from mlflow.demo.generators.traces import (
+    _PROVIDER_TO_LLM_SPAN_NAME,
     DEMO_TRACE_TYPE_TAG,
     DEMO_VERSION_TAG,
     TracesDemoGenerator,
 )
 from mlflow.entities import SpanType
+from mlflow.tracing.constant import SpanAttributeKey
 
 
 @pytest.fixture
@@ -94,7 +96,9 @@ def test_traces_have_expected_structure():
     assert "render_prompt" in all_span_names
     assert "embed_query" in all_span_names
     assert "retrieve_docs" in all_span_names
-    assert "generate_response" in all_span_names
+    assert "chat.completions.create" in all_span_names  # OpenAI
+    assert "messages.create" in all_span_names  # Anthropic
+    assert "generate_content" in all_span_names  # Google
 
 
 def test_traces_have_version_metadata():
@@ -219,3 +223,85 @@ def test_root_span_outputs_are_chat_renderable():
         assert _has_openai_choices_shape(root.outputs), (
             f"Root span {root.name} does not have OpenAI choices output shape"
         )
+
+
+def test_trace_with_tools_has_react_shape():
+    generator = TracesDemoGenerator()
+    generator.generate()
+
+    experiment = get_experiment_by_name(DEMO_EXPERIMENT_NAME)
+    client = MlflowClient()
+    traces = client.search_traces(locations=[experiment.experiment_id], max_results=100)
+
+    for trace in traces:
+        root = next(s for s in trace.data.spans if s.parent_id is None)
+        children = [s for s in trace.data.spans if s.parent_id == root.span_id]
+        tool_count = sum(1 for s in children if s.span_type == SpanType.TOOL)
+        if tool_count == 0:
+            continue
+        assert len(children) == 2 * tool_count + 1
+        ordered = sorted(children, key=lambda s: s.start_time_ns)
+        expected = [SpanType.LLM, SpanType.TOOL] * tool_count + [SpanType.LLM]
+        assert [s.span_type for s in ordered] == expected
+
+
+def test_intermediate_llm_spans_emit_tool_calls():
+    generator = TracesDemoGenerator()
+    generator.generate()
+
+    experiment = get_experiment_by_name(DEMO_EXPERIMENT_NAME)
+    client = MlflowClient()
+    traces = client.search_traces(locations=[experiment.experiment_id], max_results=100)
+
+    for trace in traces:
+        root = next(s for s in trace.data.spans if s.parent_id is None)
+        children = sorted(
+            (s for s in trace.data.spans if s.parent_id == root.span_id),
+            key=lambda s: s.start_time_ns,
+        )
+        for i, span in enumerate(children):
+            if span.span_type != SpanType.LLM:
+                continue
+            later_tools = [s for s in children[i + 1 :] if s.span_type == SpanType.TOOL]
+            if not later_tools:
+                continue
+            choices = span.outputs.get("choices", [])
+            tool_calls = choices[0].get("message", {}).get("tool_calls") if choices else None
+            assert isinstance(tool_calls, list)
+            assert tool_calls
+
+
+def test_final_llm_span_emits_content():
+    generator = TracesDemoGenerator()
+    generator.generate()
+
+    experiment = get_experiment_by_name(DEMO_EXPERIMENT_NAME)
+    client = MlflowClient()
+    traces = client.search_traces(locations=[experiment.experiment_id], max_results=100)
+
+    for trace in traces:
+        llm_spans = [s for s in trace.data.spans if s.span_type == SpanType.LLM]
+        if not llm_spans:
+            continue
+        last_llm = max(llm_spans, key=lambda s: s.start_time_ns)
+        choices = last_llm.outputs.get("choices", [])
+        content = choices[0].get("message", {}).get("content") if choices else None
+        assert isinstance(content, str)
+        assert content
+
+
+def test_span_name_matches_provider():
+    generator = TracesDemoGenerator()
+    generator.generate()
+
+    experiment = get_experiment_by_name(DEMO_EXPERIMENT_NAME)
+    client = MlflowClient()
+    traces = client.search_traces(locations=[experiment.experiment_id], max_results=100)
+
+    for trace in traces:
+        for span in trace.data.spans:
+            # Multimodal traces are of SpanType.CHAT_MODEL and so will be caught here
+            if span.span_type != SpanType.LLM:
+                continue
+            provider = span.attributes.get(SpanAttributeKey.MODEL_PROVIDER)
+            assert span.name == _PROVIDER_TO_LLM_SPAN_NAME[provider]

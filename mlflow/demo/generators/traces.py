@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import copy
 import hashlib
+import json
 import logging
 import random
 import re
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Literal
+from typing import Any, Literal
 
 import mlflow
 from mlflow.demo.base import (
@@ -24,6 +25,7 @@ from mlflow.demo.data import (
     SESSION_TRACES,
     DemoTrace,
     MultimodalDemoTrace,
+    ToolCall,
     get_multimodal_traces,
 )
 from mlflow.entities import SpanType
@@ -113,6 +115,13 @@ GEMINI_3_PRO = _Model(name="gemini-3-pro", provider="google", pricing=(2.00, 12.
 
 _DEMO_MODELS = (GPT_5_2, CLAUDE_SONNET_4_5, GEMINI_3_PRO)
 
+# Names match what each provider's autolog integration emits for the chat-completion call.
+_PROVIDER_TO_LLM_SPAN_NAME = {
+    "openai": "chat.completions.create",
+    "anthropic": "messages.create",
+    "google": "generate_content",
+}
+
 
 def _compute_cost(model: _Model, prompt_tokens: int, completion_tokens: int) -> dict[str, float]:
     """Compute synthetic cost using approximate per-model pricing."""
@@ -124,6 +133,147 @@ def _compute_cost(model: _Model, prompt_tokens: int, completion_tokens: int) -> 
         "output_cost": output_cost,
         "total_cost": input_cost + output_cost,
     }
+
+
+def _json_type(value: Any) -> str:
+    if isinstance(value, bool):
+        return "boolean"
+    if isinstance(value, int):
+        return "integer"
+    if isinstance(value, float):
+        return "number"
+    if isinstance(value, list):
+        return "array"
+    if isinstance(value, dict):
+        return "object"
+    return "string"
+
+
+def _tool_schemas(tools: list[ToolCall]) -> list[dict[str, Any]]:
+    """Build OpenAI-style function schemas from a list of ToolCall objects."""
+    return [
+        {
+            "type": "function",
+            "function": {
+                "name": tool.name,
+                "description": f"Call the {tool.name} tool.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {k: {"type": _json_type(v)} for k, v in tool.input.items()},
+                    "required": list(tool.input.keys()),
+                },
+            },
+        }
+        for tool in tools
+    ]
+
+
+def _llm_attributes(model: _Model, in_toks: int, out_toks: int) -> dict[str, Any]:
+    return {
+        SpanAttributeKey.CHAT_USAGE: {
+            "input_tokens": in_toks,
+            "output_tokens": out_toks,
+            "total_tokens": in_toks + out_toks,
+        },
+        SpanAttributeKey.MODEL: model.name,
+        SpanAttributeKey.MODEL_PROVIDER: model.provider,
+        SpanAttributeKey.LLM_COST: _compute_cost(model, in_toks, out_toks),
+    }
+
+
+def _emit_react_children(
+    root,
+    tools: list[ToolCall],
+    model: _Model,
+    system_content: str,
+    user_query: str,
+    response: str,
+    start_ns: int,
+    end_ns: int,
+) -> None:
+    """Emit ReAct-style child spans under `root`.
+
+    For N tools, emits N+1 LLM spans alternating with N TOOL spans:
+    LLM(decide call_1) → TOOL(1) → LLM(decide call_2) → TOOL(2) → … → LLM(final).
+
+    If there are no tools, emits a single LLM span.
+    """
+    span_name = _PROVIDER_TO_LLM_SPAN_NAME[model.provider]
+    tool_schemas = _tool_schemas(tools)
+    schemas_token_overhead = _estimate_tokens(json.dumps(tool_schemas))
+    messages = [
+        {"role": "system", "content": system_content},
+        {"role": "user", "content": user_query},
+    ]
+    total_spans = 2 * len(tools) + 1
+    span_duration = max(1, (end_ns - start_ns - 10_000) // total_spans)
+    cursor = start_ns + 5_000
+
+    for idx, tool in enumerate(tools, start=1):
+        call_id = f"call_{idx:03d}"
+        arguments_json = json.dumps(tool.input)
+        tool_call = {
+            "id": call_id,
+            "type": "function",
+            "function": {"name": tool.name, "arguments": arguments_json},
+        }
+
+        in_toks = _estimate_tokens(json.dumps(messages)) + schemas_token_overhead
+        out_toks = _estimate_tokens(tool.name + arguments_json) + 5
+        llm = mlflow.start_span_no_context(
+            name=span_name,
+            span_type=SpanType.LLM,
+            parent_span=root,
+            inputs={"messages": list(messages), "model": model.name, "tools": tool_schemas},
+            attributes=_llm_attributes(model, in_toks, out_toks),
+            start_time_ns=cursor,
+        )
+        llm.set_outputs({
+            "choices": [
+                {
+                    "message": {
+                        "role": "assistant",
+                        "content": None,
+                        "tool_calls": [tool_call],
+                    },
+                    "finish_reason": "tool_calls",
+                }
+            ]
+        })
+        llm.end(end_time_ns=cursor + span_duration)
+        cursor += span_duration
+
+        messages.append({"role": "assistant", "content": None, "tool_calls": [tool_call]})
+
+        tool_span = mlflow.start_span_no_context(
+            name=tool.name,
+            span_type=SpanType.TOOL,
+            parent_span=root,
+            inputs=tool.input,
+            start_time_ns=cursor,
+        )
+        tool_span.set_outputs(tool.output)
+        tool_span.end(end_time_ns=cursor + span_duration)
+        cursor += span_duration
+
+        messages.append({
+            "role": "tool",
+            "tool_call_id": call_id,
+            "content": json.dumps(tool.output),
+        })
+
+    in_toks = _estimate_tokens(json.dumps(messages)) + schemas_token_overhead
+    out_toks = _estimate_tokens(response)
+    final = mlflow.start_span_no_context(
+        name=span_name,
+        span_type=SpanType.LLM,
+        parent_span=root,
+        inputs={"messages": list(messages), "model": model.name, "tools": tool_schemas},
+        attributes=_llm_attributes(model, in_toks, out_toks),
+        start_time_ns=cursor,
+    )
+    final.set_outputs({"choices": [{"message": {"role": "assistant", "content": response}}]})
+    final.end(end_time_ns=end_ns - 5_000)
 
 
 class TracesDemoGenerator(BaseDemoGenerator):
@@ -334,7 +484,7 @@ class TracesDemoGenerator(BaseDemoGenerator):
 
         model = GPT_5_2
         llm = mlflow.start_span_no_context(
-            name="generate_response",
+            name=_PROVIDER_TO_LLM_SPAN_NAME[model.provider],
             span_type=SpanType.LLM,
             parent_span=root,
             inputs={
@@ -373,12 +523,6 @@ class TracesDemoGenerator(BaseDemoGenerator):
         end_ns: int,
     ) -> str | None:
         response = self._get_response(trace_def, version)
-        prompt_tokens = _estimate_tokens(trace_def.query) + 100
-        completion_tokens = _estimate_tokens(response)
-
-        total_duration = end_ns - start_ns
-        tool_duration = int(total_duration * 0.3)
-        llm_start = start_ns + tool_duration + 10000
 
         root = mlflow.start_span_no_context(
             name="agent",
@@ -388,46 +532,16 @@ class TracesDemoGenerator(BaseDemoGenerator):
             start_time_ns=start_ns,
         )
 
-        tool_start = start_ns + 5000
-        for tool in trace_def.tools:
-            tool_span = mlflow.start_span_no_context(
-                name=tool.name,
-                span_type=SpanType.TOOL,
-                parent_span=root,
-                inputs=tool.input,
-                start_time_ns=tool_start,
-            )
-            tool_span.set_outputs(tool.output)
-            tool_span.end(end_time_ns=tool_start + tool_duration // len(trace_def.tools))
-            tool_start += tool_duration // len(trace_def.tools) + 1000
-
-        model = CLAUDE_SONNET_4_5
-        llm = mlflow.start_span_no_context(
-            name="generate_response",
-            span_type=SpanType.LLM,
-            parent_span=root,
-            inputs={
-                "messages": [
-                    {"role": "system", "content": "You are a helpful assistant with tools."},
-                    {"role": "user", "content": trace_def.query},
-                ],
-                "tool_results": [t.output for t in trace_def.tools],
-                "model": model.name,
-            },
-            attributes={
-                SpanAttributeKey.CHAT_USAGE: {
-                    "input_tokens": prompt_tokens,
-                    "output_tokens": completion_tokens,
-                    "total_tokens": prompt_tokens + completion_tokens,
-                },
-                SpanAttributeKey.MODEL: model.name,
-                SpanAttributeKey.MODEL_PROVIDER: model.provider,
-                SpanAttributeKey.LLM_COST: _compute_cost(model, prompt_tokens, completion_tokens),
-            },
-            start_time_ns=llm_start,
+        _emit_react_children(
+            root=root,
+            tools=trace_def.tools,
+            model=CLAUDE_SONNET_4_5,
+            system_content="You are a helpful assistant with tools.",
+            user_query=trace_def.query,
+            response=response,
+            start_ns=start_ns,
+            end_ns=end_ns,
         )
-        llm.set_outputs({"choices": [{"message": {"role": "assistant", "content": response}}]})
-        llm.end(end_time_ns=end_ns - 5000)
 
         root.set_outputs({"choices": [{"message": {"role": "assistant", "content": response}}]})
         root.end(end_time_ns=end_ns)
@@ -500,7 +614,7 @@ class TracesDemoGenerator(BaseDemoGenerator):
 
         model = GEMINI_3_PRO
         llm = mlflow.start_span_no_context(
-            name="generate_response",
+            name=_PROVIDER_TO_LLM_SPAN_NAME[model.provider],
             span_type=SpanType.LLM,
             parent_span=root,
             inputs={
@@ -706,12 +820,6 @@ class TracesDemoGenerator(BaseDemoGenerator):
     ) -> str | None:
         """Create a single turn in a conversation session."""
         response = self._get_response(trace_def, version)
-        prompt_tokens = _estimate_tokens(trace_def.query) + 80
-        completion_tokens = _estimate_tokens(response)
-
-        total_duration = end_ns - start_ns
-        tool_end = start_ns + int(total_duration * 0.3)
-        llm_start = tool_end + 1000
 
         root = mlflow.start_span_no_context(
             name="chat_agent",
@@ -726,45 +834,16 @@ class TracesDemoGenerator(BaseDemoGenerator):
             start_time_ns=start_ns,
         )
 
-        tool_start = start_ns + 5000
-        for tool in trace_def.tools:
-            tool_span = mlflow.start_span_no_context(
-                name=tool.name,
-                span_type=SpanType.TOOL,
-                parent_span=root,
-                inputs=tool.input,
-                start_time_ns=tool_start,
-            )
-            tool_span.set_outputs(tool.output)
-            tool_span.end(end_time_ns=tool_end)
-            tool_start = tool_end + 1000
-
-        model = _DEMO_MODELS[turn % len(_DEMO_MODELS)]
-        llm = mlflow.start_span_no_context(
-            name="generate_response",
-            span_type=SpanType.LLM,
-            parent_span=root,
-            inputs={
-                "messages": [
-                    {"role": "system", "content": "You are an MLflow assistant."},
-                    {"role": "user", "content": trace_def.query},
-                ],
-                "model": model.name,
-            },
-            attributes={
-                SpanAttributeKey.CHAT_USAGE: {
-                    "input_tokens": prompt_tokens,
-                    "output_tokens": completion_tokens,
-                    "total_tokens": prompt_tokens + completion_tokens,
-                },
-                SpanAttributeKey.MODEL: model.name,
-                SpanAttributeKey.MODEL_PROVIDER: model.provider,
-                SpanAttributeKey.LLM_COST: _compute_cost(model, prompt_tokens, completion_tokens),
-            },
-            start_time_ns=llm_start,
+        _emit_react_children(
+            root=root,
+            tools=trace_def.tools,
+            model=_DEMO_MODELS[turn % len(_DEMO_MODELS)],
+            system_content="You are an MLflow assistant.",
+            user_query=trace_def.query,
+            response=response,
+            start_ns=start_ns,
+            end_ns=end_ns,
         )
-        llm.set_outputs({"choices": [{"message": {"role": "assistant", "content": response}}]})
-        llm.end(end_time_ns=end_ns - 5000)
 
         root.set_outputs({"choices": [{"message": {"role": "assistant", "content": response}}]})
         root.end(end_time_ns=end_ns)
