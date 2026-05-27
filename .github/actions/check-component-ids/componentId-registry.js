@@ -1100,6 +1100,20 @@ module.exports = {
   "mlflow.experiment-evaluation-monitoring.trace-info-hover-other-request-time": "",
   "mlflow.experiment-evaluation-monitoring.trace-info-hover-request-time": "",
 
+  // -- mlflow.experiment-label-schemas --
+  "mlflow.experiment-label-schemas.card": "",
+  "mlflow.experiment-label-schemas.card.delete-button": "",
+  "mlflow.experiment-label-schemas.card.edit-button": "",
+  "mlflow.experiment-label-schemas.card.name-tag": "",
+  "mlflow.experiment-label-schemas.card.type-tag": "",
+  "mlflow.experiment-label-schemas.create-button": "",
+  "mlflow.experiment-label-schemas.delete-modal": "",
+  "mlflow.experiment-label-schemas.delete-modal.cancel": "",
+  "mlflow.experiment-label-schemas.delete-modal.confirm": "",
+  "mlflow.experiment-label-schemas.modal": "",
+  "mlflow.experiment-label-schemas.modal.cancel": "",
+  "mlflow.experiment-label-schemas.modal.submit": "",
+
   // -- mlflow.experiment-page --
   "mlflow.experiment-page.header.back-icon-button": "",
   "mlflow.experiment-page.header.docs-link": "",
@@ -1159,6 +1173,7 @@ module.exports = {
   "mlflow.experiment-side-nav.genai.datasets": "",
   "mlflow.experiment-side-nav.genai.evaluation-runs": "",
   "mlflow.experiment-side-nav.genai.judges": "",
+  "mlflow.experiment-side-nav.genai.label-schemas": "",
   "mlflow.experiment-side-nav.genai.overview": "",
   "mlflow.experiment-side-nav.genai.prompts": "",
   "mlflow.experiment-side-nav.genai.sessions": "",

@@ -4247,6 +4247,10 @@
     "defaultMessage": "Comparing {numRuns} Runs from 1 Experiment",
     "description": "Breadcrumb title for compare runs page with single experiment"
   },
+  "NNATWm": {
+    "defaultMessage": "Additional schemas exist for this experiment but are not displayed. Pagination support is coming; the first {count} are shown above.",
+    "description": "Label schemas list truncation notice"
+  },
   "NPlcrl": {
     "defaultMessage": "Clear filters",
     "description": "Button to clear filters in the tags filter popover for experiments page search by tags"
