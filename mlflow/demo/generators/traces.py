@@ -144,7 +144,7 @@ class TracesDemoGenerator(BaseDemoGenerator):
     """
 
     name = DemoFeature.TRACES
-    version = 2
+    version = 3
 
     def generate(self) -> DemoResult:
         self._restore_experiment_if_deleted()
@@ -303,7 +303,7 @@ class TracesDemoGenerator(BaseDemoGenerator):
         root = mlflow.start_span_no_context(
             name="rag_pipeline",
             span_type=SpanType.CHAIN,
-            inputs={"query": trace_def.query},
+            inputs={"messages": [{"role": "user", "content": trace_def.query}]},
             metadata={DEMO_VERSION_TAG: version, DEMO_TRACE_TYPE_TAG: "rag"},
             start_time_ns=start_ns,
         )
@@ -357,10 +357,10 @@ class TracesDemoGenerator(BaseDemoGenerator):
             },
             start_time_ns=llm_start,
         )
-        llm.set_outputs({"response": response})
+        llm.set_outputs({"choices": [{"message": {"role": "assistant", "content": response}}]})
         llm.end(end_time_ns=llm_end)
 
-        root.set_outputs({"response": response})
+        root.set_outputs({"choices": [{"message": {"role": "assistant", "content": response}}]})
         root.end(end_time_ns=end_ns)
 
         return root.trace_id
@@ -383,7 +383,7 @@ class TracesDemoGenerator(BaseDemoGenerator):
         root = mlflow.start_span_no_context(
             name="agent",
             span_type=SpanType.AGENT,
-            inputs={"query": trace_def.query},
+            inputs={"messages": [{"role": "user", "content": trace_def.query}]},
             metadata={DEMO_VERSION_TAG: version, DEMO_TRACE_TYPE_TAG: "agent"},
             start_time_ns=start_ns,
         )
@@ -426,10 +426,10 @@ class TracesDemoGenerator(BaseDemoGenerator):
             },
             start_time_ns=llm_start,
         )
-        llm.set_outputs({"response": response})
+        llm.set_outputs({"choices": [{"message": {"role": "assistant", "content": response}}]})
         llm.end(end_time_ns=end_ns - 5000)
 
-        root.set_outputs({"response": response})
+        root.set_outputs({"choices": [{"message": {"role": "assistant", "content": response}}]})
         root.end(end_time_ns=end_ns)
 
         return root.trace_id
@@ -480,10 +480,7 @@ class TracesDemoGenerator(BaseDemoGenerator):
         root = mlflow.start_span_no_context(
             name="prompt_chain",
             span_type=SpanType.CHAIN,
-            inputs={
-                "query": trace_def.query,
-                "template_variables": variables,
-            },
+            inputs={"messages": [{"role": "user", "content": trace_def.query}]},
             metadata={DEMO_VERSION_TAG: version, DEMO_TRACE_TYPE_TAG: "prompt"},
             start_time_ns=start_ns,
         )
@@ -524,10 +521,10 @@ class TracesDemoGenerator(BaseDemoGenerator):
             },
             start_time_ns=llm_start,
         )
-        llm.set_outputs({"response": response})
+        llm.set_outputs({"choices": [{"message": {"role": "assistant", "content": response}}]})
         llm.end(end_time_ns=end_ns - 5000)
 
-        root.set_outputs({"response": response})
+        root.set_outputs({"choices": [{"message": {"role": "assistant", "content": response}}]})
         root.end(end_time_ns=end_ns)
 
         trace_id = root.trace_id
@@ -719,7 +716,7 @@ class TracesDemoGenerator(BaseDemoGenerator):
         root = mlflow.start_span_no_context(
             name="chat_agent",
             span_type=SpanType.AGENT,
-            inputs={"message": trace_def.query, "turn": turn},
+            inputs={"messages": [{"role": "user", "content": trace_def.query}]},
             metadata={
                 TraceMetadataKey.TRACE_SESSION: versioned_session_id,
                 TraceMetadataKey.TRACE_USER: trace_def.session_user or "user",
@@ -766,10 +763,10 @@ class TracesDemoGenerator(BaseDemoGenerator):
             },
             start_time_ns=llm_start,
         )
-        llm.set_outputs({"role": "assistant", "content": response})
+        llm.set_outputs({"choices": [{"message": {"role": "assistant", "content": response}}]})
         llm.end(end_time_ns=end_ns - 5000)
 
-        root.set_outputs({"response": response})
+        root.set_outputs({"choices": [{"message": {"role": "assistant", "content": response}}]})
         root.end(end_time_ns=end_ns)
 
         return root.trace_id

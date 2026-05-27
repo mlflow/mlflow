@@ -7,6 +7,7 @@ from mlflow.demo.generators.traces import (
     DEMO_VERSION_TAG,
     TracesDemoGenerator,
 )
+from mlflow.entities import SpanType
 
 
 @pytest.fixture
@@ -20,7 +21,7 @@ def traces_generator():
 def test_generator_attributes():
     generator = TracesDemoGenerator()
     assert generator.name == DemoFeature.TRACES
-    assert generator.version == 2
+    assert generator.version == 3
 
 
 def test_data_exists_false_when_no_experiment():
@@ -148,3 +149,73 @@ def test_is_generated_checks_version(traces_generator):
 
     TracesDemoGenerator.version = 99
     assert traces_generator.is_generated() is False
+
+
+def _is_chat_message(obj):
+    return isinstance(obj, dict) and "role" in obj and "content" in obj
+
+
+def _has_openai_choices_shape(outputs):
+    if not isinstance(outputs, dict):
+        return False
+    choices = outputs.get("choices")
+    if not isinstance(choices, list) or not choices:
+        return False
+    return all(_is_chat_message(c.get("message")) for c in choices)
+
+
+def test_root_span_inputs_are_chat_renderable():
+    generator = TracesDemoGenerator()
+    generator.generate()
+
+    experiment = get_experiment_by_name(DEMO_EXPERIMENT_NAME)
+    client = MlflowClient()
+    traces = client.search_traces(locations=[experiment.experiment_id], max_results=100)
+
+    for trace in traces:
+        root = next(s for s in trace.data.spans if s.parent_id is None)
+        inputs = root.inputs
+        assert isinstance(inputs, dict), f"Root span {root.name} inputs is not a dict"
+        messages = inputs.get("messages")
+        assert isinstance(messages, list), f"Root span {root.name} inputs missing 'messages' list"
+        assert messages, f"Root span {root.name} inputs has empty 'messages' list"
+        assert all(_is_chat_message(m) for m in messages), (
+            f"Root span {root.name} has malformed message in inputs"
+        )
+
+
+def test_llm_span_outputs_are_chat_renderable():
+    generator = TracesDemoGenerator()
+    generator.generate()
+
+    experiment = get_experiment_by_name(DEMO_EXPERIMENT_NAME)
+    client = MlflowClient()
+    traces = client.search_traces(locations=[experiment.experiment_id], max_results=100)
+
+    for trace in traces:
+        for span in trace.data.spans:
+            if span.span_type != SpanType.LLM:
+                continue
+            assert _has_openai_choices_shape(span.outputs), (
+                f"LLM span {span.name} in trace {trace.info.trace_id} "
+                f"does not have OpenAI choices output shape"
+            )
+
+
+def test_root_span_outputs_are_chat_renderable():
+    generator = TracesDemoGenerator()
+    generator.generate()
+
+    experiment = get_experiment_by_name(DEMO_EXPERIMENT_NAME)
+    client = MlflowClient()
+    traces = client.search_traces(locations=[experiment.experiment_id], max_results=100)
+
+    for trace in traces:
+        # Multimodal traces use the OpenAI Images / Audio API response shapes,
+        # not ChatCompletions; both render in the UI but via different normalizers.
+        if trace.info.trace_metadata.get(DEMO_TRACE_TYPE_TAG) == "multimodal":
+            continue
+        root = next(s for s in trace.data.spans if s.parent_id is None)
+        assert _has_openai_choices_shape(root.outputs), (
+            f"Root span {root.name} does not have OpenAI choices output shape"
+        )
