@@ -5,5 +5,8 @@ xgboost<3.1.0
 # litellm 1.82.7 and 1.82.8 contain a malicious .pth file that steals credentials
 # https://github.com/BerriAI/litellm/issues/24512
 litellm<=1.82.6
-# uvicorn 0.47.0 appears to delay multi-worker readiness on CI, causing server health checks to time out
-uvicorn<0.47
+# google-adk 2.0.0+ ships an unguarded `import vertexai` in
+# google/adk/dependencies/vertexai.py without declaring vertexai as a runtime
+# dependency, breaking the Safety scorer path on default installs.
+# https://github.com/google/adk-python/issues/5864
+google-adk<2.0
