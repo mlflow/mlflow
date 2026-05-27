@@ -656,6 +656,64 @@ async def test_bedrock_converse_serializes_assistant_tool_call_history():
     assistant_blocks = call_kwargs["messages"][1]["content"]
     tool_uses = [b["toolUse"] for b in assistant_blocks if "toolUse" in b]
     assert tool_uses == [{"toolUseId": "tool_abc123", "name": "add", "input": {"a": 17, "b": 25}}]
+    tool_results = [b["toolResult"] for b in call_kwargs["messages"][2]["content"] if "toolResult" in b]
+    assert tool_results == [{"toolUseId": "tool_abc123", "content": [{"text": "42"}]}]
+    mock_client.converse.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_bedrock_converse_groups_consecutive_tool_results_into_one_user_message():
+    provider = _make_converse_provider()
+    mock_client = mock.Mock()
+    mock_client.converse.return_value = _converse_response()
+
+    with mock.patch.object(provider, "get_bedrock_client", return_value=mock_client):
+        payload = chat.RequestPayload(
+            messages=[
+                {"role": "user", "content": "Compute both sums"},
+                {
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [
+                        {
+                            "id": "tool_abc123",
+                            "type": "function",
+                            "function": {"name": "add", "arguments": '{"a": 17, "b": 25}'},
+                        },
+                        {
+                            "id": "tool_def456",
+                            "type": "function",
+                            "function": {"name": "add", "arguments": '{"a": 10, "b": 5}'},
+                        },
+                    ],
+                },
+                {"role": "tool", "tool_call_id": "tool_abc123", "content": "42"},
+                {"role": "tool", "tool_call_id": "tool_def456", "content": "15"},
+            ],
+            tools=[
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "add",
+                        "description": "Add two integers.",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {"a": {"type": "integer"}, "b": {"type": "integer"}},
+                            "required": ["a", "b"],
+                        },
+                    },
+                }
+            ],
+        )
+        await provider.chat(payload)
+
+    call_kwargs = mock_client.converse.call_args.kwargs
+    assert len(call_kwargs["messages"]) == 3
+    tool_results = [b["toolResult"] for b in call_kwargs["messages"][2]["content"] if "toolResult" in b]
+    assert tool_results == [
+        {"toolUseId": "tool_abc123", "content": [{"text": "42"}]},
+        {"toolUseId": "tool_def456", "content": [{"text": "15"}]},
+    ]
     mock_client.converse.assert_called_once()
 
 
