@@ -121,15 +121,15 @@ InputNumeric(min_value=1.0, max_value=5.0)
 
 The OSS-native surface in `mlflow.genai.label_schemas`:
 
-| Function | Purpose |
-| --- | --- |
-| <APILink fn="mlflow.genai.label_schemas.create_experiment_label_schema" /> | Create a new schema (shown in the [Quickstart](#quickstart) above). |
-| <APILink fn="mlflow.genai.label_schemas.get_experiment_label_schema" /> | Fetch by server-generated `schema_id`. |
-| <APILink fn="mlflow.genai.label_schemas.get_experiment_label_schema_by_name" /> | Fetch by `(experiment_id, name)`. |
-| <APILink fn="mlflow.genai.label_schemas.list_experiment_label_schemas" /> | Paginated list scoped to an experiment. |
-| <APILink fn="mlflow.genai.label_schemas.update_experiment_label_schema" /> | Sparse-update (retitle, retarget input, rename). `type` is immutable. |
-| <APILink fn="mlflow.genai.label_schemas.upsert_experiment_label_schema" /> | Atomic create-or-replace by `(experiment_id, name)`. |
-| <APILink fn="mlflow.genai.label_schemas.delete_experiment_label_schema" /> | Delete by `schema_id`. Existing assessments survive (their values are kept; they render in the SME review UI without a typed widget). |
+| Function                                                                        | Purpose                                                                                                                               |
+| ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| <APILink fn="mlflow.genai.label_schemas.create_experiment_label_schema" />      | Create a new schema (shown in the [Quickstart](#quickstart) above).                                                                   |
+| <APILink fn="mlflow.genai.label_schemas.get_experiment_label_schema" />         | Fetch by server-generated `schema_id`.                                                                                                |
+| <APILink fn="mlflow.genai.label_schemas.get_experiment_label_schema_by_name" /> | Fetch by `(experiment_id, name)`.                                                                                                     |
+| <APILink fn="mlflow.genai.label_schemas.list_experiment_label_schemas" />       | Paginated list scoped to an experiment.                                                                                               |
+| <APILink fn="mlflow.genai.label_schemas.update_experiment_label_schema" />      | Sparse-update (retitle, retarget input, rename). `type` is immutable.                                                                 |
+| <APILink fn="mlflow.genai.label_schemas.upsert_experiment_label_schema" />      | Atomic create-or-replace by `(experiment_id, name)`.                                                                                  |
+| <APILink fn="mlflow.genai.label_schemas.delete_experiment_label_schema" />      | Delete by `schema_id`. Existing assessments survive (their values are kept; they render in the SME review UI without a typed widget). |
 
 ```python
 from mlflow.genai.label_schemas import (
@@ -184,16 +184,16 @@ create).
 These rules are enforced server-side; the admin UI mirrors them so you get
 immediate feedback before submission.
 
-| Field | Rule |
-| --- | --- |
-| `name` | 1-150 characters, alphanumeric + underscore only (`^[a-zA-Z0-9_]+$`). Renameable via update; the admin UI disables this on edit. |
-| `type` | One of `"feedback"` or `"expectation"`. Immutable after create. |
-| `title` | 1-256 characters. |
-| `instruction` | Optional, up to 1000 characters. |
-| `enable_comment` | `bool`. |
-| `InputPassFail` | Both labels 1-64 characters; must be distinct. |
+| Field              | Rule                                                                                                                                                   |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `name`             | 1-150 characters, alphanumeric + underscore only (`^[a-zA-Z0-9_]+$`). Renameable via update; the admin UI disables this on edit.                       |
+| `type`             | One of `"feedback"` or `"expectation"`. Immutable after create.                                                                                        |
+| `title`            | 1-256 characters.                                                                                                                                      |
+| `instruction`      | Optional, up to 1000 characters.                                                                                                                       |
+| `enable_comment`   | `bool`.                                                                                                                                                |
+| `InputPassFail`    | Both labels 1-64 characters; must be distinct.                                                                                                         |
 | `InputCategorical` | 1-100 options, each 1-64 characters; duplicate options are rejected with `INVALID_PARAMETER_VALUE`. Feedback-type schemas require `semantic_polarity`. |
-| `InputNumeric` | `min_value < max_value` (strict). Feedback-type schemas require both bounds. |
+| `InputNumeric`     | `min_value < max_value` (strict). Feedback-type schemas require both bounds.                                                                           |
 
 ## Admin UI
 
@@ -213,6 +213,7 @@ tab on the experiment page (`/experiments/:experimentId/label-schemas`):
 ## Legacy: Databricks-routed surface
 
 The legacy <APILink fn="mlflow.genai.label_schemas.create_label_schema" />,
+
 <APILink fn="mlflow.genai.label_schemas.get_label_schema" />, and
 <APILink fn="mlflow.genai.label_schemas.delete_label_schema" /> functions
 remain available for Databricks workspaces with a ReviewApp. Identity for
