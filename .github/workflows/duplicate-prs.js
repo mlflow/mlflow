@@ -119,7 +119,7 @@ module.exports = async ({ context, github }) => {
     console.log(`Found ${prsByIssue.size} issues with associated PRs`);
 
     // Process each issue that has multiple PRs
-    let labelCount = 0;
+    let closedCount = 0;
     for (const [issueNumber, prs] of prsByIssue.entries()) {
       if (prs.length <= 1) {
         // Only one PR for this issue, no duplicates
@@ -136,25 +136,11 @@ module.exports = async ({ context, github }) => {
       console.log(`  Keeping PR #${keeper.number} (oldest, created ${keeper.createdAt})`);
 
       for (const pr of duplicates) {
-        console.log(`  Labeling PR #${pr.number} as duplicate (created ${pr.createdAt})`);
+        console.log(`  Closing PR #${pr.number} as duplicate (created ${pr.createdAt})`);
 
-        // Add duplicate label
-        await github.rest.issues.addLabels({
-          owner,
-          repo,
-          issue_number: pr.number,
-          labels: [DUPLICATE_LABEL],
-        });
-
-        // Post comment explaining the closure
-        await github.rest.issues.createComment({
-          owner,
-          repo,
-          issue_number: pr.number,
-          body: duplicateMessage(pr.author.login, issueNumber, keeper.number),
-        });
-
-        // Close the duplicate PR
+        // Close first so a failure here leaves the PR open and unlabeled,
+        // letting the next run retry. If we labeled first and then failed
+        // to close, shouldProcessPR would skip the PR forever.
         await github.rest.pulls.update({
           owner,
           repo,
@@ -162,11 +148,25 @@ module.exports = async ({ context, github }) => {
           state: "closed",
         });
 
-        labelCount++;
+        await github.rest.issues.addLabels({
+          owner,
+          repo,
+          issue_number: pr.number,
+          labels: [DUPLICATE_LABEL],
+        });
+
+        await github.rest.issues.createComment({
+          owner,
+          repo,
+          issue_number: pr.number,
+          body: duplicateMessage(pr.author.login, issueNumber, keeper.number),
+        });
+
+        closedCount++;
       }
     }
 
-    console.log(`Labeled ${labelCount} duplicate PRs.`);
+    console.log(`Closed ${closedCount} duplicate PRs.`);
   } catch (error) {
     if (error.status === 429 || error.message?.includes("rate limit")) {
       console.log(`Rate limit hit. Exiting gracefully.`);
