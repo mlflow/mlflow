@@ -55,6 +55,8 @@ env:
   PIP_EXTRA_INDEX_URL: https://download.pytorch.org/whl/cpu
   PIP_CONSTRAINT: ${{ github.workspace }}/requirements/constraints.txt
 
+permissions: {}
+
 jobs:
   set-matrix:
     runs-on: ubuntu-slim
