@@ -1,5 +1,110 @@
 # CHANGELOG
 
+## 3.13.0rc0 (2026-05-27)
+
+MLflow 3.13.0rc0 includes several major features and improvements
+
+Breaking changes:
+
+- [Docs / Scoring] Remove MLServer integration from pyfunc serving backend (#23356, @harupy)
+- [Tracking] RBAC: `default_permission` is a floor; workspace `USE` stops folding into resource lookups (#23379, @PattaraS)
+- [Tracking] Remove deprecated legacy per-resource permission methods + endpoints (#23337, @PattaraS)
+- [Tracing] Replace Python hook used by `mlflow autolog claude` to the new official claude plugin (#23339, @B-Step62)
+- [Docs / Evaluation] Switch default judge alignment optimizer to MemAlign (#23254, @veronicalyu320)
+- [Server-infra / Tracking] RBAC Phase 2: remove legacy permission REST endpoints + client methods (#22859, @PattaraS)
+- [Server-infra / Tracking] RBAC Phase 2: collapse legacy permission tables into `role_permissions` (#22855, @PattaraS)
+- [UI] Allow workspace `USE` to create experiments and registered models (#22941, @PattaraS)
+- [Model Registry / Tracking] Raise error for filesystem backends with opt-out env var (#22773, @harupy)
+
+Features:
+
+- [UI] Cherry-pick: Add OpenAI Codex CLI as assistant provider (#22566) (#23517, @B-Step62)
+- [Tracing] Support settings.local.json for Claude Code tracing config (#23285, @Gkrumbach07)
+- [UI] Add coding-agent endpoint creation flow in AI Gateway UI (#23430, @TomeHirata)
+- [Tracking / UI] Unified per-user permission APIs: `grant` / `revoke` / `get` / `list` under `/mlflow/users/permissions/*` (#23247, @PattaraS)
+- [Evaluation / Tracing] Add `mlflow.genai.test_agent` for automated agent stress-testing (#22990, @serena-ruan)
+- [] Add /gateway/proxy/{endpoint_name}/{path} raw proxy endpoint (#23330, @TomeHirata)
+- [UI] Add Ollama as assistant provider (#22098, @SuperSonnix71)
+- [Model Registry / Tracking] feat(tracking): Add reader/writer instance routing for database replicas (#22910, @ravidarbha)
+- [Tracing / Tracking] Add workspace trace archival configuration plumbing (#22164, @HumairAK)
+- [Prompts / Tracking] Promote `prompt` to a first-class RBAC `resource_type` (#23248, @PattaraS)
+- [Tracing] Publish claude code integration as a plugin and add a setup wizard. (#23218, @B-Step62)
+- [UI] Forward Usage tab MetricsFilter metric filters to chart View traces links by translating to Traces page URL DSL (#23239, @aaronteo-db)
+- [Tracing] Claude Code Agent Typescript (#20414, @joelrobin18)
+- [UI] Adding metric filter component for Experiment Usage tab (#23120, @aaronteo-db)
+- [Tracing] Add `Link` entity and `LiveSpan.add_link()` for OpenTelemetry Span Links (#22797, @khaledsulayman)
+- [Docs / Evaluation] Add Google ADK  and  third-party scorers (#22299, @debu-sinha)
+- [UI] Open `/admin` to workspace managers (scoped per their workspace) (#23086, @PattaraS)
+- [Tracing] Trace `Runner.run_streamed()` in OpenAI Agents SDK autolog (#22962, @ktrk115)
+- [Tracking] Feature/sagemaker build network option (#22996, @pdifranc)
+- [Docs / Tracing / UI] Add log levels for Trace Spans with UI switch to filter (#23017, @rrtheonlyone)
+- [Tracing / UI] Improve trace page empty state onboarding with setup and code blocks (#22533, @vivian-xie-db)
+- [Tracing / Tracking] Add UC traces upsell message for set_experiment calls on Databricks (#23038, @xsh310)
+- [Server-infra / UI] [Admin-UI-3/4] Add Platform Admin pages (#22929, @PattaraS)
+- [UI] [Admin-UI-2/4] Add /account page and bottom-left account widget (#22973, @PattaraS)
+- [Build] Add Helm charts for deploying mlflow to kubernetes cluster (#21973, @WeichenXu123)
+- [Tracking] Fix Databricks unified auth support when MLFLOW_ENABLE_DB_SDK=true (#20599, @vb-dbrks)
+- [Tracking] [Admin-UI-1/4] Add backend auth endpoints (#22928, @PattaraS)
+- [UI] Allow workspace `USE` to create experiments and registered models (#22941, @PattaraS)
+- [Evaluation] Support multiple assessments per trace in MemAlign optimizer (#22846, @veronicalyu320)
+- [Docs / Model Registry / Prompts] Include `workspace` in webhook delivery envelopes when workspaces are enabled (#22873, @copilot-swe-agent)
+- [Server-infra] Seed default RBAC roles and grant creator on workspace creation (#22857, @PattaraS)
+
+Bug fixes:
+
+- [] fenil/fix-response-format-json: Tighten response format JSON schema type (#23290, @fenil210)
+- [Tracking] fix(tracking): return `<console>` for `mlflow.source.name` when `sys.argv[0]` is empty (#23352, @xodn348)
+- [Scoring] Fix UnicodeEncodeError on artifact download with non-ASCII filename (#23241, @1fanwang)
+- [Artifacts / UI] Preserve pdfjs-dist bundles in webpack build (`craco.config.js`) (#23349, @B-Step62)
+- [] Improve misleading DB SDK auth error (#23374, @B-Step62)
+- [Tracing] Make `mlflow.get_trace` V4 retry policy configurable (#23443, @artjen)
+- [Tracking] Release `_post_import_hooks_lock` before firing hooks (#23466, @harupy)
+- [Model Registry / Prompts] RBAC: extend `prompt` resource_type to after-request handlers (#23426, @PattaraS)
+- [Evaluation] Surface mlflow version mismatch when deserializing scorers (#23215, @smoorjani)
+- [Tracing] Ship compiled `dist/` in @mlflow/mlflow-openclaw so `openclaw plugins install` works (#23220, @B-Step62)
+- [Tracing] Fix ended `LiveSpan` state mutation (#23152, @SahilKumar75)
+- [] Fix `AmazonBedrockProvider._build_converse_kwargs` tool-call history and validation for Bedrock Converse (#23223, @copilot-swe-agent)
+- [UI] fenil-fix: experiment name error (#23199, @fenil210)
+- [Tracking] Add workspace isolation on scorers when creating a guardrail (#23115, @mprahl)
+- [Evaluation] [Security] Add `MLFLOW_ALLOW_PICKLE_DESERIALIZATION` guard to `PickleEvaluationArtifact` (#23183, @TomeHirata)
+- [UI] Fix `getExperimentNameValidator` showing incorrect "deleted state" error for active experiments (#23169, @copilot-swe-agent)
+- [Tracking] Fix `runs:/<run_id>/<model_name>` loading by resolving logged-model artifacts via `models:/<model_id>` (#23130, @copilot-swe-agent)
+- [] Fix Vertex AI gateway to use Anthropic API format for Claude models (#23175, @TomeHirata)
+- [Tracing] Fix invalid stop-hook command when using `pixi` environment manager (#23030, @copilot-swe-agent)
+- [] Fix MySQL-incompatible `NULLS LAST` syntax in `list_endpoint_guardrail_configs` (#23168, @copilot-swe-agent)
+- [Evaluation] `gateway`: honor Anthropic `api_base` from secret `auth_config` (#23167, @copilot-swe-agent)
+- [] Fix nested array items being stripped from function tool schemas (#23053, @shyamspr)
+- [Tracing / Tracking] Fix OTLP trace ingestion: double-encoded request ID and missing trace tags (#23067, @sairavuri-sudo)
+- [] Add per-image/video/audio pricing to `amazon.nova-2-multimodal-embeddings-v1:0` in Bedrock catalog (#23117, @copilot-swe-agent)
+- [Evaluation] Skip re-alignment of unchanged traces in `MemAlignOptimizer` (#23008, @veronicalyu320)
+- [Tracing] Fix trace API authorization vulnerability (#23014, @TomeHirata)
+- [Models] Fix `sentence_transformers` pyfunc predict for v5.4+ (#23108, @harupy)
+- [Tracing / UI] Fix grouped trace session counts in the UI (#23012, @lavaFreak)
+- [Tracing] Fix Azure OpenAI streaming usage tracing (#23036, @Genmin)
+- [Tracing] Add `session_count` trace metric for grouped traces (#23011, @lavaFreak)
+- [Evaluation] Fix `gateway_adapter` not forwarding workspace header to judge endpoints (#23047, @sairavuri-sudo)
+- [Scoring] Use `TaskContext.artifactDir` to get the correct unpacked artifacts directory (#22969, @WeichenXu123)
+- [Models / Tracking] Add `MLFLOW_SKIP_PIP_REQUIREMENTS_CHECK` env var to bypass pip validation in air-gapped environments (#22920, @copilot-swe-agent)
+- [Tracking] Aggregate role-based grants in workspace-level permission checks (#22954, @PattaraS)
+- [UI] Fix unclickable "View logs for this period" link in `ScrollableTooltip` when many data series are shown (#22917, @copilot-swe-agent)
+- [] Fix `delete_user` FK constraint failure when user has dependent rows (#22922, @PattaraS)
+- [Tracing] Preserve cache_read tokens in `@mlflow/claude-code` TypeScript plugin for cache observability (#22906, @dgokeeffe)
+- [Tracing] Add OpenClaw tracing plugin (#22717, @B-Step62)
+- [UI] Fix uncaught rejection in `CreateBudgetPolicyModal` submit (#22903, @PattaraS)
+
+Documentation updates:
+
+- [Docs] docs: add Role-Based Access Control page; refresh permissions docs (#23133, @PattaraS)
+- [Docs] Update `codex.mdx` to use Codex `openai_base_url` config (CLI + `~/.codex/config.toml`) (#23272, @copilot-swe-agent)
+- [Docs] Fix `ANTHROPIC_BASE_URL` example in Claude Code gateway docs (#23269, @copilot-swe-agent)
+- [Docs] Add trace integrations docs for n8n and Openweb UI (#23249, @WeichenXu123)
+- [Docs / Tracing] Docs: add Hermes Agent AI Gateway and tracing guides (#23216, @B-Step62)
+- [Docs] Fix webhook auth endpoint placeholders in `basic-http-auth.mdx` (#23198, @copilot-swe-agent)
+
+Small bug fixes and documentation updates:
+
+#23495, #23447, #23448, #23422, #23360, #23322, #23316, #23313, #23085, #23304, #23268, #23084, @kriscon-db; #23494, #23493, #23489, #23473, #23470, #23468, #23467, #23463, #23461, #23459, #23462, #23457, #23454, #23450, #23449, #23427, #23428, #23424, #23411, #23395, #23391, #23390, #23388, #23387, #23386, #23385, #23383, #23380, #23381, #23373, #23372, #23361, #23357, #23354, #23351, #23348, #23343, #23342, #23331, #23321, #23320, #23318, #23315, #23307, #23297, #23288, #23286, #23283, #23262, #23264, #23256, #23260, #23255, #23240, #23228, #23234, #23233, #23230, #23227, #23207, #23203, #23206, #23197, #23187, #23185, #23177, #23166, #23157, #23156, #23154, #23155, #23153, #23149, #23148, #23143, #23142, #23141, #23140, #23135, #23134, #23132, #23131, #23129, #23126, #23123, #23122, #23118, #23112, #23110, #23107, #23105, #23093, #23090, #23010, #23088, #22999, #22998, #22988, #22989, #22987, #22986, #22981, #22975, #22960, #22958, #22602, #22937, #22923, #22912, #22907, #22908, #22898, #22894, #22893, #22892, #22889, #22887, #22886, @harupy; #23423, #23464, #23287, @aaronteo-db; #23409, #23408, #23407, #23406, #23399, #23398, #23452, #22861, #22933, #22888, @PattaraS; #23293, #23440, #23441, #23127, #23182, #23179, #23180, #22992, @B-Step62; #23368, @ynachiket; #23366, @mprahl; #23363, #23333, #23136, #23005, #22777, #22934, #22605, #22497, #22256, @HumairAK; #23282, #23281, #23280, #23279, #23278, #23277, #23276, #23275, #23274, #23173, #23189, #23174, #23171, @TomeHirata; #22832, @james-fletcher-db; #23214, @SomtochiUmeh; #23224, #23103, #23101, #22959, #22924, @copilot-swe-agent; #23038, @xsh310; #22977, @4binas; #22961, #22955, @serena-ruan; #22865, @iis-MarkKuang; #22799, @artjen
+
 ## 3.12.0 (2026-05-04)
 
 MLflow 3.12.0 includes several major features and improvements
