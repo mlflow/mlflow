@@ -399,20 +399,6 @@ class LabelSchema:
         )
 
     def to_proto(self) -> _ls_pb.LabelSchema:
-        """Convert the OSS-side fields of this LabelSchema to the proto wire form.
-
-        Returns:
-            A populated :py:class:`mlflow.protos.label_schemas_pb2.LabelSchema`
-            proto message. Optional entity fields are only set on the proto
-            when they're non-None on the entity, preserving proto2 HasField
-            semantics for the receiver.
-
-        Raises:
-            MlflowException(INVALID_PARAMETER_VALUE): if ``self.input`` is a
-                Databricks-only variant (``InputText`` / ``InputTextList`` /
-                ``InputCategoricalList``). These have no proto representation;
-                this method is intended for OSS-native schemas only.
-        """
         proto = _ls_pb.LabelSchema(
             name=self.name,
             type=self.type.to_proto(),
@@ -439,21 +425,6 @@ class LabelSchema:
 
     @classmethod
     def from_proto(cls, proto: _ls_pb.LabelSchema) -> "LabelSchema":
-        """Reconstruct a LabelSchema entity from its proto wire form.
-
-        Args:
-            proto: The proto message to deserialize.
-
-        Returns:
-            A new :py:class:`LabelSchema` with OSS-side fields populated from
-            the proto. Unset optional fields on the proto map to ``None`` on
-            the entity (proto2 HasField semantics preserved).
-
-        Raises:
-            MlflowException(INVALID_PARAMETER_VALUE): if ``proto.type`` is
-                ``LABEL_SCHEMA_TYPE_UNSPECIFIED`` or ``proto.input`` has no
-                oneof variant set.
-        """
         return cls(
             name=proto.name,
             type=LabelSchemaType.from_proto(proto.type),
