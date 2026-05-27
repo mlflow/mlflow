@@ -3,7 +3,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useDispatch } from 'react-redux';
 import type { ReduxState, ThunkDispatch } from '../../../../redux-types';
 import { loadMoreRunsApi, searchRunsApi } from '../../../actions';
+import { COLUMN_TYPES } from '../../../constants';
 import type { ExperimentPageUIState } from '../models/ExperimentPageUIState';
+import { extractCanonicalSortKey } from '../utils/experimentPage.common-utils';
 import { createSearchRunsParams, fetchModelVersionsForRuns } from '../utils/experimentPage.fetch-utils';
 import type { ExperimentRunsSelectorResult } from '../utils/experimentRuns.selector';
 import { experimentRunsSelector } from '../utils/experimentRuns.selector';
@@ -20,6 +22,10 @@ import type { RunEntity, SearchRunsApiResponse } from '../../../types';
 
 export type FetchRunsHookParams = ReturnType<typeof createSearchRunsParams> & {
   requestedFacets: ExperimentPageSearchFacetsState;
+  // Column-aware fetching allowlists. Empty arrays preserve current behaviour.
+  metricKeys?: string[];
+  paramKeys?: string[];
+  tagKeys?: string[];
 };
 
 export type FetchRunsHookFunction = (
@@ -30,17 +36,45 @@ export type FetchRunsHookFunction = (
   },
 ) => Promise<{ runs: RunEntity[]; next_page_token?: string }>;
 
+// Extracts metric/param/tag keys from the canonical `selectedColumns` list
+// (e.g. `metrics.\`loss\``) so we can pass them as `metric_keys` / `param_keys` /
+// `tag_keys` to the SearchRuns API and get a column-aware (smaller) response.
+// Empty lists preserve current behaviour.
+const extractColumnKeysFromSelection = (selectedColumns: string[] | undefined) => {
+  const metricKeys: string[] = [];
+  const paramKeys: string[] = [];
+  const tagKeys: string[] = [];
+  for (const column of selectedColumns ?? []) {
+    if (column.startsWith(`${COLUMN_TYPES.METRICS}.`)) {
+      metricKeys.push(extractCanonicalSortKey(column, COLUMN_TYPES.METRICS));
+    } else if (column.startsWith(`${COLUMN_TYPES.PARAMS}.`)) {
+      paramKeys.push(extractCanonicalSortKey(column, COLUMN_TYPES.PARAMS));
+    } else if (column.startsWith(`${COLUMN_TYPES.TAGS}.`)) {
+      tagKeys.push(extractCanonicalSortKey(column, COLUMN_TYPES.TAGS));
+    }
+  }
+  return { metricKeys, paramKeys, tagKeys };
+};
+
 // Calculate actual params to use for fetching runs
 const createFetchRunsRequestParams = (
   searchFacets: ExperimentQueryParamsSearchFacets | null,
   experimentIds: string[],
   runsPinned: string[],
+  selectedColumns?: string[],
 ): FetchRunsHookParams | null => {
   if (!searchFacets || !experimentIds.length) {
     return null;
   }
   const searchParams = createSearchRunsParams(experimentIds, { ...searchFacets, runsPinned }, Date.now());
-  return { ...searchParams, requestedFacets: searchFacets };
+  const { metricKeys, paramKeys, tagKeys } = extractColumnKeysFromSelection(selectedColumns);
+  return {
+    ...searchParams,
+    metricKeys,
+    paramKeys,
+    tagKeys,
+    requestedFacets: searchFacets,
+  };
 };
 
 /**
@@ -174,20 +208,36 @@ export const useExperimentRuns = (
     [dispatch, setResultRunsData, loadModelVersions],
   );
 
+  // Stabilise the dependency for the fetch effect — without this, every render would
+  // create a new array reference and re-fire fetchRuns. Joining keeps the closure stable
+  // while still re-triggering when the user changes column selection.
+  const selectedColumnsKey = useMemo(() => (uiState.selectedColumns ?? []).join('|'), [uiState.selectedColumns]);
+
   // Fetch runs when new request params are available
-  // (e.g. after search facets change)
+  // (e.g. after search facets change or selected columns change)
   useEffect(() => {
     if (disabled) {
       return;
     }
-    const requestParams = createFetchRunsRequestParams(searchFacets, experimentIds, cachedPinnedRuns.current);
+    const requestParams = createFetchRunsRequestParams(
+      searchFacets,
+      experimentIds,
+      cachedPinnedRuns.current,
+      uiState.selectedColumns,
+    );
     if (requestParams) {
       fetchRuns(requestParams);
     }
-  }, [fetchRuns, dispatch, disabled, searchFacets, experimentIds]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- selectedColumnsKey replaces uiState.selectedColumns
+  }, [fetchRuns, dispatch, disabled, searchFacets, experimentIds, selectedColumnsKey]);
 
   const loadMoreRuns = async () => {
-    const requestParams = createFetchRunsRequestParams(searchFacets, experimentIds, cachedPinnedRuns.current);
+    const requestParams = createFetchRunsRequestParams(
+      searchFacets,
+      experimentIds,
+      cachedPinnedRuns.current,
+      uiState.selectedColumns,
+    );
     if (!nextPageToken || !requestParams) {
       return [];
     }

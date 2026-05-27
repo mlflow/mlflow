@@ -315,18 +315,36 @@ export const searchRunsPayload = ({
 
   // Array of pinned row IDs which will be fetched with another request
   runsPinned,
+
+  // Column-aware fetching: when provided, the server only returns metrics/params/tags
+  // whose key is in these lists. Empty/undefined preserves current behaviour.
+  // Requires the SearchRuns API extension in #23253.
+  metricKeys,
+  paramKeys,
+  tagKeys,
 }: any) => {
+  const baseSearchRequest: Record<string, unknown> = {
+    experiment_ids: experimentIds,
+    filter: filter,
+    run_view_type: runViewType,
+    max_results: maxResults || RUNS_SEARCH_MAX_RESULTS,
+    order_by: orderBy,
+    page_token: pageToken,
+  };
+  // Only forward the new fields when non-empty so we don't inflate the request body or
+  // confuse older servers that don't understand them.
+  if (metricKeys?.length) {
+    baseSearchRequest['metric_keys'] = metricKeys;
+  }
+  if (paramKeys?.length) {
+    baseSearchRequest['param_keys'] = paramKeys;
+  }
+  if (tagKeys?.length) {
+    baseSearchRequest['tag_keys'] = tagKeys;
+  }
+
   // Let's start with the base request for the runs
-  const promises = [
-    MlflowService.searchRuns({
-      experiment_ids: experimentIds,
-      filter: filter,
-      run_view_type: runViewType,
-      max_results: maxResults || RUNS_SEARCH_MAX_RESULTS,
-      order_by: orderBy,
-      page_token: pageToken,
-    }),
-  ];
+  const promises = [MlflowService.searchRuns(baseSearchRequest)];
 
   // If we want to have pinned runs, fetch them as well
   // using another request with different filter
