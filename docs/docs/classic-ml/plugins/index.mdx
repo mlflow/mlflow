@@ -649,7 +649,7 @@ with mlflow.start_run():
 - `prml.metric`, `prml.comparator`, `prml.threshold`
 - `prml.dataset_id`
 
-For HPO sweeps, descriptive tags can be lifted to experiment scope via `MLFLOW_FALSIFY_TAG_SCOPE=experiment`. The provider never raises into your run.
+For HPO sweeps, descriptive tags can be lifted to experiment scope via `MLFLOW_FALSIFY_TAG_SCOPE=experiment`. The provider never raises exceptions into your run; on failure it logs a debug message and no-ops.
 
 Implements the documented `mlflow.run_context_provider` entry point (above). MIT-licensed. Spec is CC BY 4.0.
 
