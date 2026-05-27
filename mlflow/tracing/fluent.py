@@ -516,6 +516,7 @@ def start_span(
     attributes: dict[str, Any] | None = None,
     trace_destination: TraceLocationBase | None = None,
     log_level: SpanLogLevel | str | None = None,
+    run_id: str | None = None,
 ) -> Generator[LiveSpan, None, None]:
     """
     Context manager to create a new span and start it as the current span in the context.
@@ -576,6 +577,9 @@ def start_span(
             :py:class:`SpanLogLevel <mlflow.entities.SpanLogLevel>` or its name
             (e.g. ``"INFO"``, ``"DEBUG"``). If not provided, the span level is
             resolved from the span type at end time.
+        run_id: The ID of the MLflow run to associate with the trace. If provided, the
+            trace will be linked to this run. This parameter is only applied when creating
+            a root span.
 
     Returns:
         Yields an :py:class:`mlflow.entities.Span` that represents the created span.
@@ -612,6 +616,17 @@ def start_span(
             mlflow_span.set_attributes(attributes)
             if log_level is not None:
                 mlflow_span.set_log_level(log_level)
+
+            if run_id is not None:
+                if mlflow_span.parent_id is not None:
+                    _logger.warning(
+                        "The `run_id` parameter can only be used for root spans, but the span "
+                        f"`{name}` is not a root span. The specified value `{run_id}` "
+                        "will be ignored."
+                    )
+                else:
+                    with trace_manager.get_trace(request_id) as trace:
+                        trace.info.trace_metadata[TraceMetadataKey.SOURCE_RUN] = str(run_id)
 
     except Exception:
         _logger.debug(f"Failed to start span {name}.", exc_info=True)

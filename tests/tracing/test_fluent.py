@@ -25,7 +25,11 @@ from mlflow.entities import (
     TraceData,
     TraceInfo,
 )
-from mlflow.entities.trace_location import TraceLocation, UCSchemaLocation
+from mlflow.entities.trace_location import (
+    MlflowExperimentLocation,
+    TraceLocation,
+    UCSchemaLocation,
+)
 from mlflow.entities.trace_state import TraceState
 from mlflow.environment_variables import MLFLOW_TRACE_SAMPLING_RATIO, MLFLOW_TRACKING_USERNAME
 from mlflow.exceptions import MlflowException
@@ -770,6 +774,62 @@ def test_start_span_context_manager(async_logging_enabled):
         "mlflow.spanOutputs": 25,
     }
     assert child_span_2.start_time_ns <= child_span_2.end_time_ns - 0.1 * 1e6
+
+
+def test_start_span_with_run_id(async_logging_enabled):
+    client = mlflow.MlflowClient()
+    experiment_id = client.create_experiment(f"test_experiment_{uuid.uuid4().hex}")
+    run = client.create_run(experiment_id=experiment_id)
+
+    with mlflow.start_span(
+        name="root_span",
+        trace_destination=MlflowExperimentLocation(experiment_id=experiment_id),
+        run_id=run.info.run_id,
+    ):
+        pass
+
+    traces = mlflow.search_traces(
+        locations=[experiment_id],
+        return_type="list",
+        include_spans=False,
+        flush=True,
+    )
+
+    assert len(traces) == 1
+    trace_info = traces[0].info
+    assert trace_info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run.info.run_id
+
+
+def test_start_span_with_run_id_warns_for_child_span(async_logging_enabled):
+    client = mlflow.MlflowClient()
+    experiment_id = client.create_experiment(f"test_experiment_{uuid.uuid4().hex}")
+    run_1 = client.create_run(experiment_id=experiment_id)
+    run_2 = client.create_run(experiment_id=experiment_id)
+
+    with mock.patch("mlflow.tracing.fluent._logger") as mock_logger:
+        with mlflow.start_span(
+            name="root_span",
+            trace_destination=MlflowExperimentLocation(experiment_id=experiment_id),
+            run_id=run_1.info.run_id,
+        ):
+            with mlflow.start_span(name="child_span", run_id=run_2.info.run_id):
+                pass
+
+    traces = mlflow.search_traces(
+        locations=[experiment_id],
+        return_type="list",
+        include_spans=False,
+        flush=True,
+    )
+
+    assert len(traces) == 1
+    trace_info = traces[0].info
+    assert trace_info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run_1.info.run_id
+    mock_logger.warning.assert_called_once_with(
+        "The `run_id` parameter can only be used for root spans, but the span "
+        f"`child_span` is not a root span. The specified value `{run_2.info.run_id}` "
+        "will be ignored."
+    )
 
 
 def test_start_span_context_manager_with_imperative_apis(async_logging_enabled):
