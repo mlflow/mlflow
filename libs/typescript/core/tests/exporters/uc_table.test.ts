@@ -44,11 +44,11 @@ const testToken = 'test-token';
 
 const mockAuthProvider: AuthProvider = {
   getHost: () => testHost,
-  // eslint-disable-next-line require-await, @typescript-eslint/require-await
-  getHeadersProvider: () => async () => ({
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${testToken}`,
-  }),
+  getHeadersProvider: () => () =>
+    Promise.resolve({
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${testToken}`,
+    }),
   getDatabricksToken: () => testToken,
 };
 

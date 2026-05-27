@@ -1,26 +1,9 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { http, HttpResponse } from 'msw';
-import { setupServer } from 'msw/node';
 import { init, getConfig } from '../../src/core/config';
 
 describe('Config', () => {
-  // Catch-all server: any Databricks experiments GET returns a plain experiment
-  // (no UC tags) so init's auto-resolve falls back to the V3 processor without
-  // hitting the network or warning about ENOTFOUND on fake hosts.
-  const server = setupServer(
-    http.get(/\/api\/2\.0\/mlflow\/experiments\/get/, () =>
-      HttpResponse.json({
-        experiment: { experiment_id: '123', name: 'noop', tags: [] },
-      }),
-    ),
-  );
-
-  beforeAll(() => server.listen());
-  afterAll(() => server.close());
-  afterEach(() => server.resetHandlers());
-
   describe('init and getConfig', () => {
     describe('environment variable resolution', () => {
       afterEach(() => {

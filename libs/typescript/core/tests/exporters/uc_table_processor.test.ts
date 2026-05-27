@@ -37,11 +37,11 @@ const testHost = 'https://dbc-12345.cloud.databricks.com';
 
 const mockAuthProvider: AuthProvider = {
   getHost: () => testHost,
-  // eslint-disable-next-line require-await, @typescript-eslint/require-await
-  getHeadersProvider: () => async () => ({
-    'Content-Type': 'application/json',
-    Authorization: 'Bearer test',
-  }),
+  getHeadersProvider: () => () =>
+    Promise.resolve({
+      'Content-Type': 'application/json',
+      Authorization: 'Bearer test',
+    }),
   getDatabricksToken: () => 'test',
 };
 
