@@ -14,7 +14,7 @@ import type { NotifyPayload } from '../types.js';
 
 export async function runNotifyHook(rawPayload: string): Promise<void> {
   try {
-    if (!(await ensureInitialized())) {
+    if (!ensureInitialized()) {
       return;
     }
 

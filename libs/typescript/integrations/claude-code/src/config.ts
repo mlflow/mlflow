@@ -229,7 +229,6 @@ export function writeTracingSettings(
   saveSettings(settingsPath, settings);
 }
 
-// eslint-disable-next-line require-await, @typescript-eslint/require-await
 export async function ensureInitialized(): Promise<boolean> {
   const config = getEffectiveTracingConfig();
   if (!config.enabled) {
