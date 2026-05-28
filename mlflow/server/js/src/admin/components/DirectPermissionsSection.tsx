@@ -174,7 +174,11 @@ export const DirectPermissionsSection = ({
           onChange={setDraft}
           workspace={workspace}
           disabled={disabled}
-          showResourceRequiredError={hasUnsavedInvalidDraft && draft.scope === 'specific'}
+          // ``hasUnsavedInvalidDraft`` already implies ``scope === 'specific'``
+          // because ``isDirectPermissionSubmittable`` is unconditionally true
+          // for ``scope === 'all'`` (so the dirty+invalid intersection can't
+          // happen at ``scope === 'all'``).
+          showResourceRequiredError={hasUnsavedInvalidDraft}
         />
         <div css={{ display: 'flex', justifyContent: 'flex-end', gap: theme.spacing.sm }}>
           {dirty && (

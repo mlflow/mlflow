@@ -154,7 +154,10 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
     setSubmitting(false);
     setError(null);
     setGrantWorkspace(initialGrantWorkspace);
-    setHasUnsavedDirectDraft(false);
+    // ``hasUnsavedDirectDraft`` isn't reset here — the ``key={String(open)}``
+    // on ``DirectPermissionsSection`` below remounts the section on every
+    // open, and its first commit-time effect fires ``false`` from the
+    // default draft state.
     filledForWorkspaceRef.current = null;
     // ``initialGrantWorkspace`` is derived from the session active workspace;
     // re-seed on open so the dropdown defaults to "where I am right now".

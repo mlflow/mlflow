@@ -14,6 +14,7 @@ beforeEach(() => {
 // realistic response shapes the component awaits. ``jest.fn()``'s default
 // signature is ``() => never``, which would reject the payload.
 const mockCreateUserMutateAsync = jest.fn<(...args: any[]) => any>();
+const mockGrantPermissionMutateAsync = jest.fn<(...args: any[]) => any>();
 
 jest.mock('../hooks', () => ({
   AdminQueryKeys: {
@@ -24,11 +25,7 @@ jest.mock('../hooks', () => ({
   },
   useCreateUser: () => ({ mutateAsync: mockCreateUserMutateAsync }),
   useCurrentUserIsAdmin: () => true,
-  // ``useGrantUserPermission`` is invoked by the modal even though our tests
-  // never stage a direct permission (and so the ``wantsDirect`` branch in
-  // ``handleSubmit`` is skipped). Inline the stub so we don't carry an
-  // unused captured spy.
-  useGrantUserPermission: () => ({ mutateAsync: jest.fn() }),
+  useGrantUserPermission: () => ({ mutateAsync: mockGrantPermissionMutateAsync }),
   // ``useResourceOptionsQuery`` is reached by ``DirectPermissionForm`` even
   // when its parent section is collapsed (``hidden`` keeps it mounted), so
   // the stub has to exist; only the shape matters.
@@ -65,6 +62,7 @@ jest.mock('../api', () => ({
 describe('CreateUserModal — collapsible optional sections', () => {
   beforeEach(() => {
     mockCreateUserMutateAsync.mockReset();
+    mockGrantPermissionMutateAsync.mockReset();
   });
 
   it('renders Role assignment + Direct permissions collapsed and Admin status expanded', () => {
@@ -104,5 +102,49 @@ describe('CreateUserModal — collapsible optional sections', () => {
       expect.objectContaining({ username: 'newbie', password: 'hunter2' }),
     );
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('CreateUserModal — unsaved direct-grant draft and the scope=all gap', () => {
+  beforeEach(() => {
+    mockCreateUserMutateAsync.mockReset();
+    mockGrantPermissionMutateAsync.mockReset();
+  });
+
+  it('documents the scope=all silent-drop: dirty-but-submittable draft is NOT blocked, but the grant is also not staged', async () => {
+    // Gap left open by this PR (flagged in review): the unsaved-invalid-draft
+    // signal only covers dirty + non-submittable drafts (scope='specific'
+    // without a resource), because that's the Kris-bug shape. A scope='all'
+    // draft is dirty + submittable, so the section does NOT lock submit —
+    // but the user still has to click ``Add`` to actually stage the grant.
+    // Closing the modal without ``Add`` drops the intended grant silently.
+    //
+    // This test pins the current behavior so a future change that closes the
+    // gap (auto-stage on submit, or extend the lock to cover this case)
+    // updates the expectation deliberately.
+    mockCreateUserMutateAsync.mockResolvedValue({ user: { username: 'newbie' } });
+    renderWithDesignSystem(<CreateUserModal open onClose={jest.fn()} />);
+
+    // Expand the collapsed Direct permissions section.
+    await userEvent.click(screen.getByRole('button', { name: /Direct permissions/ }));
+    // Flip the scope to "All experiments" — draft is now dirty but
+    // submittable. Crucially the user does NOT click Add.
+    await userEvent.click(screen.getByRole('radio', { name: /^All experiments$/ }));
+
+    await userEvent.type(screen.getByPlaceholderText('Enter username'), 'newbie');
+    await userEvent.type(screen.getByPlaceholderText('Enter password'), 'hunter2');
+
+    // Submit is not blocked — the lock only fires for dirty+invalid.
+    const submit = screen.getByRole('button', { name: /^Create user and grant access$|^Create user$/ });
+    expect(submit).not.toBeDisabled();
+    await userEvent.click(submit);
+
+    // User lands.
+    expect(mockCreateUserMutateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({ username: 'newbie', password: 'hunter2' }),
+    );
+    // …but the all-experiments grant is silently dropped because nothing
+    // was ever staged.
+    expect(mockGrantPermissionMutateAsync).not.toHaveBeenCalled();
   });
 });

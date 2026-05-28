@@ -87,7 +87,11 @@ export const CreateUserModal = ({ open, onClose }: CreateUserModalProps) => {
       setRoleValue(ROLE_ASSIGNMENT_DEFAULT);
       setDirectPermissions([]);
       setGrantWorkspace(initialGrantWorkspace);
-      setHasUnsavedDirectDraft(false);
+      // ``hasUnsavedDirectDraft`` isn't reset here — the ``key={String(open)}``
+      // on ``DirectPermissionsSection`` below remounts the section on every
+      // open, and its first commit-time effect fires ``false`` from the
+      // default draft state. Resetting here too would muddy who owns the
+      // reset.
       setSubmitting(false);
       setError(null);
       setCreatedUsername(null);
