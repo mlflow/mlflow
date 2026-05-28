@@ -2350,16 +2350,18 @@ def upload_artifact_handler():
         )
     path = validate_path_is_safe(path)
 
-    if request.content_length and request.content_length > 10 * 1024 * 1024:
-        raise MlflowException(
-            message="Artifact size is too large. Max size is 10MB.",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
-
     data = request.data
     if not data:
         raise MlflowException(
             message="Request must specify data.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    # Security: enforce size limit even when content_length is None
+    # (e.g., chunked transfer encoding)
+    if len(data) > 10 * 1024 * 1024:
+        raise MlflowException(
+            message="Artifact size is too large. Max size is 10MB.",
             error_code=INVALID_PARAMETER_VALUE,
         )
 
