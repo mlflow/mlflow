@@ -1,7 +1,9 @@
-import { Empty, FormUI, Input, Tag, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { useEffect, useState } from 'react';
+import { Empty, FormUI, Input, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 
 import { LabelSchemaInputRenderer } from '../../components/label-schemas/widgets/LabelSchemaInputRenderer';
+import type { LabelSchemaValue } from '../../components/label-schemas/widgets/LabelSchemaInputRenderer';
 import {
   buildLabelSchemaInputFromForm,
   validateLabelSchemaForm,
@@ -14,14 +16,26 @@ export interface LabelSchemaPreviewProps {
 }
 
 /**
- * Non-interactive renderer of how an SME will see the schema in the
+ * Interactive sandbox renderer of how an SME will see the schema in the
  * review UI. Rendered inside the create / edit modal driven by the
  * form's live `useWatch` values; renders a panel-style header bar +
- * scrollable body so the layout matches the judges flow's
- * `SampleScorerOutputPanelRenderer`.
+ * scrollable body matching the judges flow's
+ * `SampleScorerOutputPanelRenderer`. The preview widget keeps a local
+ * value (and a local comment) so the author can click the dropdown,
+ * type in the comment, etc., without leaking state into the form being
+ * authored.
  */
 export const LabelSchemaPreview = ({ formData }: LabelSchemaPreviewProps) => {
   const { theme } = useDesignSystemTheme();
+
+  // Sandbox state — never read by the form, never submitted. Reset when
+  // the input variant changes so a value from a different shape (e.g.,
+  // an array from multi-select categorical) doesn't leak into the
+  // pass/fail or numeric widget on the next render.
+  const [previewValue, setPreviewValue] = useState<LabelSchemaValue>(null);
+  useEffect(() => {
+    setPreviewValue(null);
+  }, [formData.inputKind]);
 
   const header = (
     <div
@@ -120,7 +134,6 @@ export const LabelSchemaPreview = ({ formData }: LabelSchemaPreviewProps) => {
             flexDirection: 'column',
             gap: theme.spacing.sm,
             opacity: hasErrors ? 0.6 : 1,
-            pointerEvents: 'none',
             backgroundColor: theme.colors.backgroundSecondary,
           }}
         >
@@ -140,33 +153,11 @@ export const LabelSchemaPreview = ({ formData }: LabelSchemaPreviewProps) => {
           <div css={{ marginTop: theme.spacing.sm }}>
             <LabelSchemaInputRenderer
               input={input}
-              value={null}
-              onChange={() => {
-                // The preview is non-interactive; the wrapping
-                // `pointer-events: none` should already prevent the user
-                // from triggering onChange, but the widget contract
-                // requires a handler so we accept and discard.
-              }}
-              disabled
+              value={previewValue}
+              onChange={setPreviewValue}
               componentId="mlflow.experiment-label-schemas.preview"
             />
           </div>
-          {input.categorical && input.categorical.options.length > 0 && (
-            <div
-              css={{
-                display: 'flex',
-                flexWrap: 'wrap',
-                gap: theme.spacing.xs,
-                marginTop: theme.spacing.xs,
-              }}
-            >
-              {input.categorical.options.map((option) => (
-                <Tag key={option} componentId="mlflow.experiment-label-schemas.preview.categorical-option-tag">
-                  {option}
-                </Tag>
-              ))}
-            </div>
-          )}
           {formData.enable_comment && (
             <div css={{ display: 'flex', flexDirection: 'column', marginTop: theme.spacing.sm }}>
               <FormUI.Label htmlFor="mlflow.experiment-label-schemas.preview.comment">
@@ -178,7 +169,6 @@ export const LabelSchemaPreview = ({ formData }: LabelSchemaPreviewProps) => {
               <Input.TextArea
                 componentId="mlflow.experiment-label-schemas.preview.comment"
                 id="mlflow.experiment-label-schemas.preview.comment"
-                disabled
                 rows={2}
                 placeholder=""
               />
