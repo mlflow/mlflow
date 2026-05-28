@@ -9,65 +9,20 @@ import {
 } from './labelSchemaFormUtils';
 
 export interface LabelSchemaPreviewProps {
-  /**
-   * Form data driving the preview. `null` renders an empty state, e.g.
-   * when there are no schemas in the experiment and the user hasn't
-   * opened the create modal yet.
-   */
-  formData: LabelSchemaFormData | null;
+  /** Live form data driving the preview, watched from the create/edit modal. */
+  formData: LabelSchemaFormData;
 }
 
 /**
  * Non-interactive renderer of how an SME will see the schema in the
- * review UI. Single data source: takes a `LabelSchemaFormData` (either
- * derived from a saved schema via `getFormValuesFromSchema` or piped
- * live from the create / edit modal) and renders the title, instruction,
- * and the input widget. The widget surface is rendered behind a
- * `pointer-events: none` overlay so the preview never accepts input.
+ * review UI. Rendered inside the create / edit modal driven by the
+ * form's live `useWatch` values; takes a `LabelSchemaFormData` and
+ * renders the title, instruction, and the input widget. The widget
+ * surface is behind a `pointer-events: none` overlay so the preview
+ * never accepts input.
  */
 export const LabelSchemaPreview = ({ formData }: LabelSchemaPreviewProps) => {
   const { theme } = useDesignSystemTheme();
-
-  if (!formData) {
-    return (
-      <div
-        css={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          height: '100%',
-          minHeight: 400,
-          width: '100%',
-          padding: theme.spacing.lg,
-          // Override the Design System's internal wrapper styles to
-          // properly center the Empty content (per mlflow/server/js
-          // CLAUDE.md empty-states guidance).
-          '& > div': {
-            height: '100%',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'center',
-            alignItems: 'center',
-          },
-        }}
-      >
-        <Empty
-          title={
-            <FormattedMessage
-              defaultMessage="No schema selected"
-              description="Label schema preview empty state title"
-            />
-          }
-          description={
-            <FormattedMessage
-              defaultMessage="Select a schema from the list or create a new one to preview what an SME will see when annotating a trace."
-              description="Label schema preview empty state description"
-            />
-          }
-        />
-      </div>
-    );
-  }
 
   // Build the input variant from the live form. If the form is too
   // incomplete to build a variant (e.g. user just opened the create

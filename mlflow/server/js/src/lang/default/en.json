@@ -2159,10 +2159,6 @@
     "defaultMessage": "No assessments available",
     "description": "Message shown when there are no assessments to display"
   },
-  "AInJq8": {
-    "defaultMessage": "Select a schema from the list or create a new one to preview what an SME will see when annotating a trace.",
-    "description": "Label schema preview empty state description"
-  },
   "AM8DuO": {
     "defaultMessage": "Failed",
     "description": "Run page > Overview > Run status cell > Value for failed state"
@@ -5334,10 +5330,6 @@
   "TannO5": {
     "defaultMessage": "Retrieved {sampledCount} out of {totalCount} total logs ({percentage}%)",
     "description": "Evaluation review > evaluations list > sample info tooltip"
-  },
-  "TdUPSa": {
-    "defaultMessage": "No schema selected",
-    "description": "Label schema preview empty state title"
   },
   "TeN9hs": {
     "defaultMessage": "Traces",

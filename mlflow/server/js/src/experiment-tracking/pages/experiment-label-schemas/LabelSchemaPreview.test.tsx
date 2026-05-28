@@ -16,11 +16,6 @@ const renderWithProviders = (ui: React.ReactElement) =>
   );
 
 describe('LabelSchemaPreview', () => {
-  it('renders an empty state when formData is null', () => {
-    renderWithProviders(<LabelSchemaPreview formData={null} />);
-    expect(screen.getByText('No schema selected')).toBeInTheDocument();
-  });
-
   it('renders title, instruction, and pass-fail widget for a pass_fail schema', () => {
     const formData: LabelSchemaFormData = {
       ...DEFAULT_FORM_VALUES,
