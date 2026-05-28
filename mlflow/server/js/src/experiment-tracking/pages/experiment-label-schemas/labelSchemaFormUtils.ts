@@ -45,7 +45,7 @@ export interface LabelSchemaFormData {
 
   // categorical
   categoricalOptions: string; // newline-joined for textarea
-  categoricalPolarity: 'ascending' | 'descending' | '';
+  categoricalPolarity: 'ASCENDING' | 'DESCENDING' | '';
   categoricalMultiSelect: boolean;
 
   // numeric

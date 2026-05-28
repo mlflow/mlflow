@@ -41,13 +41,13 @@ describe('buildLabelSchemaInputFromForm', () => {
       ...baseValidForm,
       inputKind: 'categorical',
       categoricalOptions: 'low\nmedium\nhigh',
-      categoricalPolarity: 'ascending',
+      categoricalPolarity: 'ASCENDING',
       categoricalMultiSelect: true,
     };
     expect(buildLabelSchemaInputFromForm(form)).toEqual({
       categorical: {
         options: ['low', 'medium', 'high'],
-        semantic_polarity: 'ascending',
+        semantic_polarity: 'ASCENDING',
         multi_select: true,
       },
     });
@@ -109,13 +109,13 @@ describe('getFormValuesFromSchema', () => {
       input: {
         categorical: {
           options: ['low', 'medium', 'high'],
-          semantic_polarity: 'ascending',
+          semantic_polarity: 'ASCENDING',
         },
       },
     };
     const form = getFormValuesFromSchema(schema);
     expect(form.categoricalOptions).toEqual('low\nmedium\nhigh');
-    expect(form.categoricalPolarity).toEqual('ascending');
+    expect(form.categoricalPolarity).toEqual('ASCENDING');
     expect(buildLabelSchemaInputFromForm(form)).toEqual(schema.input);
   });
 
@@ -129,7 +129,7 @@ describe('getFormValuesFromSchema', () => {
       input: {
         categorical: {
           options: ['a', 'b'],
-          semantic_polarity: 'ascending',
+          semantic_polarity: 'ASCENDING',
           multi_select: true,
         },
       },
@@ -252,7 +252,7 @@ describe('validateLabelSchemaForm', () => {
       form: {
         ...baseValidForm,
         inputKind: 'categorical' as const,
-        categoricalPolarity: 'ascending' as const,
+        categoricalPolarity: 'ASCENDING' as const,
         categoricalOptions: Array.from({ length: 101 }, (_, i) => `o${i}`).join('\n'),
       },
       field: 'categoricalOptions' as const,
@@ -263,7 +263,7 @@ describe('validateLabelSchemaForm', () => {
       form: {
         ...baseValidForm,
         inputKind: 'categorical' as const,
-        categoricalPolarity: 'ascending' as const,
+        categoricalPolarity: 'ASCENDING' as const,
         categoricalOptions: 'a'.repeat(65),
       },
       field: 'categoricalOptions' as const,

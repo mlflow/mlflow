@@ -284,8 +284,8 @@ const CategoricalFields = ({ control, errors }: { control: Control<LabelSchemaFo
               value={field.value === '' ? undefined : field.value}
               onChange={(e) => field.onChange(e.target.value as LabelSchemaFormData['categoricalPolarity'])}
             >
-              <Radio value="ascending">Ascending (first option most positive)</Radio>
-              <Radio value="descending">Descending (first option most negative)</Radio>
+              <Radio value="ASCENDING">Ascending (first option most positive)</Radio>
+              <Radio value="DESCENDING">Descending (first option most negative)</Radio>
             </Radio.Group>
           )}
         />
