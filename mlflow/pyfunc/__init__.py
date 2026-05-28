@@ -1483,6 +1483,12 @@ def _create_model_downloading_tmp_dir(should_use_nfs):
 
     root_model_cache_dir = os.path.join(root_tmp_dir, "models")
     os.makedirs(root_model_cache_dir, exist_ok=True)
+    # Restrict permissions to owner: rwx, group: r-x, others: none.
+    # This intermediate directory was created without explicit permissions,
+    # inheriting from the parent and process umask, which could result in
+    # group-writable (0o770) or world-writable permissions.
+    # See CVE-2025-10279 and CVE-2026-4137 / GHSA-f2m9-wcf4-cwwx.
+    os.chmod(root_model_cache_dir, 0o750)
 
     tmp_model_dir = tempfile.mkdtemp(dir=root_model_cache_dir)
     # mkdtemp creates a directory with permission 0o700

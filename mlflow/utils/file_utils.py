@@ -692,6 +692,13 @@ def get_or_create_tmp_dir():
 
         tmp_dir = os.path.join(repl_local_tmp_dir, "mlflow")
         os.makedirs(tmp_dir, exist_ok=True)
+        # Restrict permissions to owner: rwx, group: r-x, others: none.
+        # Without this, the directory inherits permissions from the parent
+        # and the process umask, which may result in world-writable or
+        # group-writable permissions. An attacker with write access can
+        # tamper with model artifacts and achieve arbitrary code execution.
+        # See CVE-2025-10279 and CVE-2026-4137 / GHSA-f2m9-wcf4-cwwx.
+        os.chmod(tmp_dir, 0o750)
     else:
         tmp_dir = tempfile.mkdtemp()
         # mkdtemp creates a directory with permission 0o700
@@ -727,6 +734,14 @@ def get_or_create_nfs_tmp_dir():
 
         tmp_nfs_dir = os.path.join(repl_nfs_tmp_dir, "mlflow")
         os.makedirs(tmp_nfs_dir, exist_ok=True)
+        # Restrict permissions to owner: rwx, group: r-x, others: none.
+        # Without this, the directory inherits permissions from the parent
+        # (a Databricks system directory) and the process umask, which may
+        # result in world-writable (0o777) or group-writable permissions.
+        # An attacker with write access can tamper with model artifacts and
+        # achieve arbitrary code execution via cloudpickle deserialization.
+        # See CVE-2025-10279 and CVE-2026-4137 / GHSA-f2m9-wcf4-cwwx.
+        os.chmod(tmp_nfs_dir, 0o750)
     else:
         tmp_nfs_dir = tempfile.mkdtemp(dir=nfs_root_dir)
         # mkdtemp creates a directory with permission 0o700
