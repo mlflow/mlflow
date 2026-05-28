@@ -577,9 +577,11 @@ def start_span(
             :py:class:`SpanLogLevel <mlflow.entities.SpanLogLevel>` or its name
             (e.g. ``"INFO"``, ``"DEBUG"``). If not provided, the span level is
             resolved from the span type at end time.
-        run_id: The ID of the MLflow run to associate with the trace. If provided, the
-            trace will be linked to this run. This parameter is only applied when creating
-            a root span.
+        run_id: The ID of the MLflow run to associate with the trace. This parameter is
+            only applied when creating a root span. If provided without an explicit
+            `trace_destination`, the trace will be logged to the run's experiment. If an
+            active MLflow run is already set via `mlflow.start_run()`, this parameter takes
+            precedence over the active run.
 
     Returns:
         Yields an :py:class:`mlflow.entities.Span` that represents the created span.
@@ -591,8 +593,15 @@ def start_span(
         return
 
     try:
+        experiment_id = getattr(trace_destination, "experiment_id", None)
+        if run_id is not None and experiment_id is None and get_current_active_span() is None:
+            from mlflow.tracking.client import MlflowClient
+
+            experiment_id = MlflowClient().get_run(run_id).info.experiment_id
+
         otel_span = provider.start_span_in_context(
-            name, experiment_id=trace_destination.experiment_id if trace_destination else None
+            name,
+            experiment_id=experiment_id,
         )
 
         # If the span was dropped by the sampler (e.g., due to sampling ratio),
@@ -626,7 +635,7 @@ def start_span(
                     )
                 else:
                     with trace_manager.get_trace(request_id) as trace:
-                        trace.info.trace_metadata[TraceMetadataKey.SOURCE_RUN] = str(run_id)
+                        trace.info.trace_metadata[TraceMetadataKey.SOURCE_RUN] = run_id
 
     except Exception:
         _logger.debug(f"Failed to start span {name}.", exc_info=True)

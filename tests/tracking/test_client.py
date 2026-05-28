@@ -973,7 +973,7 @@ def test_start_and_end_trace(tracking_uri, with_active_run, async_logging_enable
 def test_start_trace_with_run_id(tracking_uri, async_logging_enabled):
     client = MlflowClient(tracking_uri)
 
-    experiment_id = client.create_experiment("test_experiment")
+    experiment_id = client.create_experiment(f"test_experiment_{uuid.uuid4().hex}")
     run = client.create_run(experiment_id=experiment_id)
 
     root_span = client.start_trace(

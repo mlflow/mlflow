@@ -783,7 +783,6 @@ def test_start_span_with_run_id(async_logging_enabled):
 
     with mlflow.start_span(
         name="root_span",
-        trace_destination=MlflowExperimentLocation(experiment_id=experiment_id),
         run_id=run.info.run_id,
     ):
         pass
@@ -797,7 +796,43 @@ def test_start_span_with_run_id(async_logging_enabled):
 
     assert len(traces) == 1
     trace_info = traces[0].info
+    assert trace_info.experiment_id == experiment_id
     assert trace_info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run.info.run_id
+
+
+def test_start_span_with_run_id_takes_precedence_over_active_run(async_logging_enabled):
+    client = mlflow.MlflowClient()
+    active_experiment_id = client.create_experiment(f"test_experiment_{uuid.uuid4().hex}")
+    explicit_experiment_id = client.create_experiment(f"test_experiment_{uuid.uuid4().hex}")
+    active_run = client.create_run(experiment_id=active_experiment_id)
+    explicit_run = client.create_run(experiment_id=explicit_experiment_id)
+
+    with mlflow.start_run(run_id=active_run.info.run_id):
+        with mlflow.start_span(
+            name="root_span",
+            run_id=explicit_run.info.run_id,
+        ):
+            pass
+
+    traces = mlflow.search_traces(
+        locations=[explicit_experiment_id],
+        return_type="list",
+        include_spans=False,
+        flush=True,
+    )
+
+    assert len(traces) == 1
+    trace_info = traces[0].info
+    assert trace_info.experiment_id == explicit_experiment_id
+    assert trace_info.request_metadata[TraceMetadataKey.SOURCE_RUN] == explicit_run.info.run_id
+
+    active_experiment_traces = mlflow.search_traces(
+        locations=[active_experiment_id],
+        return_type="list",
+        include_spans=False,
+        flush=True,
+    )
+    assert active_experiment_traces == []
 
 
 def test_start_span_with_run_id_warns_for_child_span(async_logging_enabled):
@@ -824,6 +859,7 @@ def test_start_span_with_run_id_warns_for_child_span(async_logging_enabled):
 
     assert len(traces) == 1
     trace_info = traces[0].info
+    assert trace_info.experiment_id == experiment_id
     assert trace_info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run_1.info.run_id
     mock_logger.warning.assert_called_once_with(
         "The `run_id` parameter can only be used for root spans, but the span "
