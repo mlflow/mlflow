@@ -4452,7 +4452,11 @@ def _invoke_issue_detection_handler():
 
     This is a UI-only AJAX endpoint for running issue detection from the frontend.
     """
-    from mlflow.genai.discovery.job import _fetch_provider_credentials, invoke_issue_detection_job
+    from mlflow.genai.discovery.job import (
+        _fetch_provider_base_url,
+        _fetch_provider_credentials,
+        invoke_issue_detection_job,
+    )
     from mlflow.server.jobs import submit_job
 
     _validate_content_type(request, ["application/json"])
@@ -4486,8 +4490,10 @@ def _invoke_issue_detection_handler():
     if secret_id:
         store = _get_tracking_store()
         credentials = _fetch_provider_credentials(store, provider, secret_id)
+        base_url = None if endpoint_name else _fetch_provider_base_url(store, secret_id)
     else:
         credentials = None
+        base_url = None
 
     # Create the run upfront so we can return run_id immediately
     model_name = f"gateway:/{endpoint_name}" if endpoint_name else f"{provider}:/{model}"
@@ -4513,6 +4519,7 @@ def _invoke_issue_detection_handler():
             "categories": categories,
             "run_id": run_id,
             "model": model_name,
+            "base_url": base_url,
         },
         extra_envs=credentials,
     )

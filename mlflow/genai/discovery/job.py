@@ -42,6 +42,17 @@ def _fetch_provider_credentials(
     return credentials
 
 
+def _fetch_provider_base_url(store: SqlAlchemyStore, secret_id: str) -> str | None:
+    """
+    Retrieve the optional provider base URL from secret auth config.
+
+    The base URL is not a secret value; it is stored alongside other provider
+    configuration fields such as Azure API version.
+    """
+    auth_config = store.get_secret_info(secret_id=secret_id).auth_config or {}
+    return auth_config.get("api_base")
+
+
 @job(name="invoke_issue_detection", max_workers=MLFLOW_SERVER_JUDGE_INVOKE_MAX_WORKERS.get())
 def invoke_issue_detection_job(
     experiment_id: str,
@@ -49,6 +60,7 @@ def invoke_issue_detection_job(
     categories: list[str],
     run_id: str,
     model: str | None = None,
+    base_url: str | None = None,
 ):
     """
     Job function to run issue detection on traces.
@@ -68,6 +80,7 @@ def invoke_issue_detection_job(
             model=model,
             run_id=run_id,
             categories=categories,
+            base_url=base_url,
         )
         client.set_terminated(run_id, RunStatus.to_string(RunStatus.FINISHED))
         client.set_tag(run_id, "total_cost_usd", result.total_cost_usd)

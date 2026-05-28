@@ -984,10 +984,11 @@ def test_response_format_capability_cached_globally():
 def test_custom_base_url_overrides_provider():
     response_json = _chat_response(json.dumps({"result": "yes"}))
 
+    provider = _mock_provider(endpoint_url="https://custom.proxy.com/v1/messages")
     with (
         mock.patch(
             "mlflow.genai.judges.adapters.gateway_adapter._get_provider_instance",
-            return_value=_mock_provider(),
+            return_value=provider,
         ),
         mock.patch(
             "mlflow.genai.judges.adapters.gateway_adapter.send_chat_request",
@@ -1004,7 +1005,8 @@ def test_custom_base_url_overrides_provider():
         )
 
     call_kwargs = mock_send.call_args[1]
-    assert "custom.proxy.com" in call_kwargs["endpoint"]
+    assert call_kwargs["endpoint"] == "https://custom.proxy.com/v1/messages"
+    provider.get_endpoint_url.assert_called_once_with("llm/v1/chat")
 
 
 # --- _get_max_context_tokens tests ---

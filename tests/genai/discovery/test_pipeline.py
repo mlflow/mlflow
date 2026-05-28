@@ -856,6 +856,14 @@ def test_build_issue_discovery_scorer_custom_model():
     assert scorer.model == "openai:/gpt-5"
 
 
+def test_build_issue_discovery_scorer_custom_base_url():
+    scorer = build_issue_discovery_scorer(
+        model="openai:/custom-model",
+        base_url="https://llm-proxy.example.com/v1",
+    )
+    assert scorer._base_url == "https://llm-proxy.example.com/v1"
+
+
 def test_build_satisfaction_instructions_categories_conversation():
     instructions = build_satisfaction_instructions(
         use_conversation=True, categories=["hallucination", "tool errors"]

@@ -116,6 +116,7 @@ def _call_llm(
     response_format: type[pydantic.BaseModel] | None = None,
     token_counter: _TokenCounter | None = None,
     inference_params: dict[str, Any] | None = None,
+    base_url: str | None = None,
     max_tokens: int = _DEFAULT_MAX_TOKENS,
     num_retries: int = _DEFAULT_NUM_RETRIES,
 ) -> Any:
@@ -127,6 +128,7 @@ def _call_llm(
             response_format=response_format,
             token_counter=token_counter,
             inference_params=inference_params,
+            base_url=base_url,
             max_tokens=max_tokens,
             num_retries=num_retries,
         )
@@ -137,6 +139,7 @@ def _call_llm(
         response_format=response_format,
         token_counter=token_counter,
         inference_params=inference_params,
+        base_url=base_url,
         max_tokens=max_tokens,
         num_retries=num_retries,
     )
@@ -150,6 +153,7 @@ def _call_llm_via_litellm(
     response_format: type[pydantic.BaseModel] | None = None,
     token_counter: _TokenCounter | None = None,
     inference_params: dict[str, Any] | None = None,
+    base_url: str | None = None,
     max_tokens: int = _DEFAULT_MAX_TOKENS,
     num_retries: int = _DEFAULT_NUM_RETRIES,
 ) -> Any:
@@ -167,7 +171,7 @@ def _call_llm_via_litellm(
         extra_headers = config.extra_headers
     else:
         litellm_model = convert_mlflow_uri_to_litellm(model)
-        api_base = None
+        api_base = base_url
         api_key = None
         extra_headers = None
 
@@ -200,6 +204,7 @@ def _call_llm_via_gateway(
     response_format: type[pydantic.BaseModel] | None = None,
     token_counter: _TokenCounter | None = None,
     inference_params: dict[str, Any] | None = None,
+    base_url: str | None = None,
     max_tokens: int = _DEFAULT_MAX_TOKENS,
     num_retries: int = _DEFAULT_NUM_RETRIES,
 ) -> Any:
@@ -213,7 +218,7 @@ def _call_llm_via_gateway(
     # and Anthropic which both support structured outputs. Also missing:
     # no context window management and no per-request cost tracking.
     provider_name, model_name = _parse_model_uri(model)
-    provider = _get_provider_instance(provider_name, model_name)
+    provider = _get_provider_instance(provider_name, model_name, base_url=base_url)
 
     payload = {"messages": messages, "max_completion_tokens": max_tokens}
     if inference_params:

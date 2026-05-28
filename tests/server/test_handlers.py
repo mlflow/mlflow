@@ -5600,6 +5600,10 @@ def test_invoke_issue_detection_handler_success(monkeypatch):
             "mlflow.genai.discovery.job._fetch_provider_credentials",
             return_value={"OPENAI_API_KEY": "test-key"},
         ) as mock_fetch_creds,
+        mock.patch(
+            "mlflow.genai.discovery.job._fetch_provider_base_url",
+            return_value="https://llm-proxy.example.com/v1",
+        ) as mock_fetch_base_url,
         mock.patch("mlflow.server.jobs.submit_job", return_value=mock_job) as mock_submit_job,
         mock.patch("mlflow.start_run", return_value=mock_run),
         mock.patch("mlflow.set_tag"),
@@ -5617,12 +5621,14 @@ def test_invoke_issue_detection_handler_success(monkeypatch):
         assert json_response["run_id"] == "run-123"
 
         mock_fetch_creds.assert_called_once_with(mock_store.return_value, "openai", "secret-123")
+        mock_fetch_base_url.assert_called_once_with(mock_store.return_value, "secret-123")
         mock_submit_job.assert_called_once()
         call_kwargs = mock_submit_job.call_args.kwargs
         assert call_kwargs["params"]["experiment_id"] == "exp-123"
         assert call_kwargs["params"]["trace_ids"] == ["trace-1", "trace-2"]
         assert call_kwargs["params"]["categories"] == ["correctness", "safety"]
         assert call_kwargs["params"]["model"] == "openai:/gpt-4o"
+        assert call_kwargs["params"]["base_url"] == "https://llm-proxy.example.com/v1"
         assert call_kwargs["extra_envs"] == {"OPENAI_API_KEY": "test-key"}
 
 
@@ -5661,6 +5667,7 @@ def test_invoke_issue_detection_handler_with_endpoint(monkeypatch):
             "mlflow.genai.discovery.job._fetch_provider_credentials",
             return_value={"OPENAI_API_KEY": "test-key"},
         ),
+        mock.patch("mlflow.genai.discovery.job._fetch_provider_base_url") as mock_fetch_base_url,
         mock.patch("mlflow.server.jobs.submit_job", return_value=mock_job) as mock_submit_job,
         mock.patch("mlflow.start_run", return_value=mock_run),
         mock.patch("mlflow.set_tag"),
@@ -5679,6 +5686,8 @@ def test_invoke_issue_detection_handler_with_endpoint(monkeypatch):
 
         call_kwargs = mock_submit_job.call_args.kwargs
         assert call_kwargs["params"]["model"] == "gateway:/my-endpoint"
+        assert call_kwargs["params"]["base_url"] is None
+        mock_fetch_base_url.assert_not_called()
 
 
 def test_invoke_issue_detection_handler_missing_required_params(monkeypatch):

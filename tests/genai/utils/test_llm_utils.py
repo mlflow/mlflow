@@ -202,6 +202,30 @@ def test_call_llm_handles_non_gateway_models():
         assert result == mock_response
 
 
+def test_call_llm_forwards_base_url_to_litellm_for_non_gateway_models():
+    mock_response = mock.MagicMock()
+    mock_response.usage = mock.MagicMock(prompt_tokens=10, completion_tokens=20)
+
+    with (
+        mock.patch("mlflow.genai.utils.llm_utils._is_litellm_available", return_value=True),
+        mock.patch(
+            "mlflow.metrics.genai.model_utils.convert_mlflow_uri_to_litellm",
+            return_value="openai/custom-model",
+        ),
+        mock.patch(
+            "mlflow.genai.judges.adapters.litellm_adapter._invoke_litellm",
+            return_value=mock_response,
+        ) as mock_invoke,
+    ):
+        _call_llm(
+            "openai:/custom-model",
+            [{"role": "user", "content": "test"}],
+            base_url="https://llm-proxy.example.com/v1",
+        )
+
+    assert mock_invoke.call_args.kwargs["api_base"] == "https://llm-proxy.example.com/v1"
+
+
 def test_call_llm_with_json_mode():
     mock_response = mock.MagicMock()
     with (
@@ -366,7 +390,7 @@ def test_call_llm_via_gateway_dispatches_gateway_uri_without_litellm():
         messages = [{"role": "user", "content": "test"}]
         result = _call_llm("gateway:/my-endpoint", messages)
 
-    mock_get_provider.assert_called_once_with("gateway", "my-endpoint")
+    mock_get_provider.assert_called_once_with("gateway", "my-endpoint", base_url=None)
     mock_send.assert_called_once()
     assert result.choices[0].message.content == "gateway response"
 

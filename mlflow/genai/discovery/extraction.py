@@ -173,6 +173,7 @@ def extract_failure_labels(
     analyses: list[_ConversationAnalysis],
     model: str,
     token_counter: _TokenCounter | None = None,
+    base_url: str | None = None,
 ) -> tuple[list[str], list[int]]:
     """
     Extract short failure labels that combine execution path with symptom.
@@ -187,6 +188,7 @@ def extract_failure_labels(
         analyses: Conversation analyses to generate labels for.
         model: Model URI for the label-generation LLM.
         token_counter: Optional token counter for tracking LLM usage.
+        base_url: Optional base URL for direct provider LLM requests.
 
     Returns:
         A tuple of (labels, label_to_analysis) where label_to_analysis[i]
@@ -206,6 +208,7 @@ def extract_failure_labels(
                 {"role": "user", "content": rationale},
             ],
             token_counter=token_counter,
+            base_url=base_url,
         )
         content = response.choices[0].message.content.strip()
         symptoms = [line.lstrip("- ").strip() for line in content.splitlines() if line.strip()]

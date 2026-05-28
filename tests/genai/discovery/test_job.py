@@ -5,6 +5,7 @@ import pytest
 from mlflow.entities.run_status import RunStatus
 from mlflow.exceptions import MlflowException
 from mlflow.genai.discovery.job import (
+    _fetch_provider_base_url,
     _fetch_provider_credentials,
     invoke_issue_detection_job,
 )
@@ -121,6 +122,16 @@ def test_fetch_provider_credentials_azure_partial_auth_config():
     }
 
 
+def test_fetch_provider_base_url():
+    mock_store = mock.MagicMock()
+    mock_store.get_secret_info.return_value.auth_config = {
+        "api_base": "https://llm-proxy.example.com/v1"
+    }
+
+    assert _fetch_provider_base_url(mock_store, "secret-123") == "https://llm-proxy.example.com/v1"
+    mock_store.get_secret_info.assert_called_once_with(secret_id="secret-123")
+
+
 def test_invoke_issue_detection_job_has_metadata():
     assert hasattr(invoke_issue_detection_job, "_job_fn_metadata")
     metadata = invoke_issue_detection_job._job_fn_metadata
@@ -141,7 +152,9 @@ def test_invoke_issue_detection_job_success():
 
     with (
         mock.patch("mlflow.genai.discovery.job.MlflowClient", return_value=mock_client),
-        mock.patch("mlflow.genai.discovery.job.discover_issues", return_value=mock_result),
+        mock.patch(
+            "mlflow.genai.discovery.job.discover_issues", return_value=mock_result
+        ) as mock_discover_issues,
     ):
         mock_client._tracing_client.batch_get_traces.return_value = mock_traces
 
@@ -151,6 +164,7 @@ def test_invoke_issue_detection_job_success():
             categories=["correctness", "safety"],
             run_id="run-123",
             model="openai:/gpt-4o",
+            base_url="https://llm-proxy.example.com/v1",
         )
 
         mock_client.link_traces_to_run.assert_called_once_with(["trace-1", "trace-2"], "run-123")
@@ -164,6 +178,9 @@ def test_invoke_issue_detection_job_success():
         assert result["issues"] == 3
         assert result["total_traces_analyzed"] == 2
         assert result["total_cost_usd"] == 0.15
+        assert mock_discover_issues.call_args.kwargs["base_url"] == (
+            "https://llm-proxy.example.com/v1"
+        )
 
 
 def test_invoke_issue_detection_job_with_endpoint():

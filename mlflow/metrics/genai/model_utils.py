@@ -324,11 +324,9 @@ def _get_provider_instance(
     Args:
         provider: The provider name (e.g. "openai", "anthropic").
         model: The model name (e.g. "gpt-4").
-        base_url: When provided for the ``"gateway"`` provider, skips
-            ``_resolve_gateway_uri()`` and constructs the provider directly
-            from this URL. Used when the caller already knows the gateway URL
-            (e.g. inside the gateway server process where ``MLFLOW_TRACKING_URI``
-            points to the backend store, not an HTTP endpoint).
+        base_url: Optional base URL for direct provider calls. For the
+            ``"gateway"`` provider, skips ``_resolve_gateway_uri()`` and constructs
+            the provider directly from this URL.
     """
     from mlflow.gateway.config import Provider
 
@@ -350,7 +348,10 @@ def _get_provider_instance(
             raise MlflowException.invalid_parameter_value(
                 "OPENAI_API_KEY environment variable must be set to use the openai provider."
             )
-        config = OpenAIConfig(openai_api_key=os.environ["OPENAI_API_KEY"])
+        config = OpenAIConfig(
+            openai_api_key=os.environ["OPENAI_API_KEY"],
+            openai_api_base=base_url,
+        )
         return OpenAIProvider(_get_route_config(config))
 
     elif provider == Provider.AZURE:
@@ -371,7 +372,10 @@ def _get_provider_instance(
     elif provider == Provider.ANTHROPIC:
         from mlflow.gateway.providers.anthropic import AnthropicConfig, AnthropicProvider
 
-        config = AnthropicConfig(anthropic_api_key=os.environ.get("ANTHROPIC_API_KEY"))
+        config = AnthropicConfig(
+            anthropic_api_key=os.environ.get("ANTHROPIC_API_KEY"),
+            anthropic_api_base=base_url or "https://api.anthropic.com/v1",
+        )
         return AnthropicProvider(_get_route_config(config))
 
     elif normalize_provider_name(provider) == Provider.BEDROCK:

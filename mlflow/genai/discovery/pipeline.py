@@ -133,6 +133,7 @@ def _annotate_issue_traces(
     trace_to_session: dict[str, str] | None = None,
     session_first_trace: dict[str, str] | None = None,
     token_counter: _TokenCounter | None = None,
+    base_url: str | None = None,
 ) -> None:
     """
     Log an Issue assessment for each issue on affected traces.
@@ -185,6 +186,7 @@ def _annotate_issue_traces(
                     {"role": "user", "content": user_content},
                 ],
                 token_counter=token_counter,
+                base_url=base_url,
             )
             annotation = (response.choices[0].message.content or "").strip()
         except Exception:
@@ -361,6 +363,7 @@ def _dedup_issues(
     issues: list[_IdentifiedIssue],
     model: str = DEFAULT_MODEL,
     token_counter: _TokenCounter | None = None,
+    base_url: str | None = None,
 ) -> list[_IdentifiedIssue]:
     """Deduplicate issues by asking the LLM to identify groups of equivalent issues."""
     if len(issues) < 2:
@@ -378,6 +381,7 @@ def _dedup_issues(
             [{"role": "user", "content": prompt}],
             response_format=_DedupGroups,
             token_counter=token_counter,
+            base_url=base_url,
         )
         result = _DedupGroups.model_validate_json(response.choices[0].message.content)
     except Exception:
@@ -436,6 +440,7 @@ def _merge_singleton_issues(
     max_issues: int,
     categories: list[str],
     token_counter: _TokenCounter | None = None,
+    base_url: str | None = None,
 ) -> list[_IdentifiedIssue]:
     singletons = [i for i in identified if len(i.example_indices) == 1]
     multi_member = [i for i in identified if len(i.example_indices) > 1]
@@ -450,6 +455,7 @@ def _merge_singleton_issues(
         max_issues,
         categories=categories,
         token_counter=token_counter,
+        base_url=base_url,
     )
     return multi_member + merged
 
@@ -460,12 +466,14 @@ def _cluster_and_identify(
     max_issues: int,
     categories: list[str],
     token_counter: _TokenCounter | None = None,
+    base_url: str | None = None,
 ) -> list[_IdentifiedIssue]:
     """Cluster analyses into identified issues via LLM-based labeling and grouping."""
     labels, label_to_analysis = extract_failure_labels(
         analyses,
         model,
         token_counter=token_counter,
+        base_url=base_url,
     )
     for i, label in enumerate(labels):
         _logger.debug("  [%d] %s", i, label)
@@ -479,6 +487,7 @@ def _cluster_and_identify(
             model,
             categories=categories,
             token_counter=token_counter,
+            base_url=base_url,
         )
     _logger.debug("Clustering produced %d groups", len(cluster_groups))
 
@@ -490,6 +499,7 @@ def _cluster_and_identify(
             label_to_analysis=label_to_analysis,
             categories=categories,
             token_counter=token_counter,
+            base_url=base_url,
         )
 
     max_workers = min(MLFLOW_GENAI_EVAL_MAX_WORKERS.get(), len(cluster_groups))
@@ -504,7 +514,9 @@ def _cluster_and_identify(
             summaries[future_to_idx[future]] = future.result()
 
     identified = _resplit_incoherent_clusters(cluster_groups, summaries, summarize_fn)
-    identified = _dedup_issues(identified, model=model, token_counter=token_counter)
+    identified = _dedup_issues(
+        identified, model=model, token_counter=token_counter, base_url=base_url
+    )
 
     analysis_labels: dict[int, str] = {}
     for label, analysis_idx in zip(labels, label_to_analysis):
@@ -517,6 +529,7 @@ def _cluster_and_identify(
         max_issues,
         categories=categories,
         token_counter=token_counter,
+        base_url=base_url,
     )
 
 
@@ -564,6 +577,7 @@ def build_issue_discovery_scorer(
     model: str | None = None,
     use_conversation: bool = True,
     latency_stats: dict[str, float] | None = None,
+    base_url: str | None = None,
 ) -> Scorer:
     model = model or DEFAULT_MODEL
     categories = categories if categories is not None else DEFAULT_CATEGORIES
@@ -579,6 +593,7 @@ def build_issue_discovery_scorer(
         model=model,
         feedback_value_type=dict[str, str],
         include_timing_in_conversation=include_timing,
+        base_url=base_url,
     )
 
 
@@ -592,6 +607,7 @@ def discover_issues(
     filter_string: str | None = None,
     run_id: str | None = None,
     categories: list[str] = DEFAULT_CATEGORIES,
+    base_url: str | None = None,
 ) -> DiscoverIssuesResult:
     """
     Discover quality and operational issues in traces.
@@ -620,6 +636,7 @@ def discover_issues(
             Ignored when ``traces`` is provided.
         run_id: Run ID to attach issues to. If not provided, a new run will be created.
         categories: Issue categories to search for.
+        base_url: Optional base URL to route direct provider LLM requests through.
 
     Returns:
         A :class:`DiscoverIssuesResult` with discovered issues, run IDs,
@@ -679,6 +696,7 @@ def discover_issues(
             model=model,
             use_conversation=use_conversation,
             latency_stats=latency_stats,
+            base_url=base_url,
         )
         scorers = [default_scorer]
 
@@ -763,7 +781,12 @@ def discover_issues(
     # ---- Phase 3: Cluster & identify ----
     update_status_details({"stage": "Clustering issues..."})
     identified = _cluster_and_identify(
-        analyses, model, max_issues, categories=categories, token_counter=token_counter
+        analyses,
+        model,
+        max_issues,
+        categories=categories,
+        token_counter=token_counter,
+        base_url=base_url,
     )
 
     if not identified:
@@ -801,6 +824,7 @@ def discover_issues(
         trace_to_session=trace_to_session if use_conversation else None,
         session_first_trace=session_first_trace,
         token_counter=token_counter,
+        base_url=base_url,
     )
 
     update_status_details({"stage": "Generating summary..."})

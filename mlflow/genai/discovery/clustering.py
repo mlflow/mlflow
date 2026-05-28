@@ -35,6 +35,7 @@ def cluster_by_llm(
     model: str,
     categories: list[str] | None = None,
     token_counter: _TokenCounter | None = None,
+    base_url: str | None = None,
 ) -> list[list[int]]:
     """
     Use an LLM to group failure labels by execution path and symptom.
@@ -50,6 +51,7 @@ def cluster_by_llm(
         model: Model URI for the clustering LLM.
         categories: Optional issue categories to use as a grouping signal.
         token_counter: Optional token counter for tracking LLM usage.
+        base_url: Optional base URL for direct provider LLM requests.
 
     Returns:
         List of index lists, where each inner list is a cluster of label indices.
@@ -67,6 +69,7 @@ def cluster_by_llm(
         [{"role": "user", "content": prompt}],
         response_format=_ClusterResponse,
         token_counter=token_counter,
+        base_url=base_url,
     )
     content = (response.choices[0].message.content or "").strip()
     if not content:
@@ -103,6 +106,7 @@ def summarize_cluster(
     categories: list[str],
     label_to_analysis: list[int] | None = None,
     token_counter: _TokenCounter | None = None,
+    base_url: str | None = None,
 ) -> _IdentifiedIssue:
     """
     Summarize a cluster of analyses into a single identified issue.
@@ -119,6 +123,7 @@ def summarize_cluster(
         label_to_analysis: Mapping from label index to analysis index.
             When ``None``, label indices are used as analysis indices directly.
         token_counter: Optional token counter for tracking LLM usage.
+        base_url: Optional base URL for direct provider LLM requests.
 
     Returns:
         An ``_IdentifiedIssue`` with synthesized fields and analysis indices.
@@ -152,6 +157,7 @@ def summarize_cluster(
         ],
         response_format=_IdentifiedIssue,
         token_counter=token_counter,
+        base_url=base_url,
     )
 
     content = (response.choices[0].message.content or "").strip()
@@ -174,6 +180,7 @@ def recluster_singletons(
     max_issues: int,
     categories: list[str],
     token_counter: _TokenCounter | None = None,
+    base_url: str | None = None,
 ) -> list[_IdentifiedIssue]:
     """
     Re-cluster singleton issues via a second LLM pass to find better groupings.
@@ -186,6 +193,7 @@ def recluster_singletons(
         max_issues: Maximum number of groups to produce.
         categories: List of valid category names to filter extracted categories.
         token_counter: Optional token counter for tracking LLM usage.
+        base_url: Optional base URL for direct provider LLM requests.
 
     Returns:
         List of issues after re-clustering (merged or original singletons).
@@ -198,7 +206,9 @@ def recluster_singletons(
         idx = singleton.example_indices[0]
         singleton_labels.append(analysis_labels.get(idx, singleton.name))
 
-    new_groups = cluster_by_llm(singleton_labels, max_issues, model, token_counter=token_counter)
+    new_groups = cluster_by_llm(
+        singleton_labels, max_issues, model, token_counter=token_counter, base_url=base_url
+    )
 
     result: list[_IdentifiedIssue] = []
     for group in new_groups:
@@ -208,7 +218,12 @@ def recluster_singletons(
         # Each singleton has exactly one analysis index in example_indices
         merged_indices = [singletons[group_idx].example_indices[0] for group_idx in group]
         merged_issue = summarize_cluster(
-            merged_indices, analyses, model, categories=categories, token_counter=token_counter
+            merged_indices,
+            analyses,
+            model,
+            categories=categories,
+            token_counter=token_counter,
+            base_url=base_url,
         )
         if merged_issue.severity >= IssueSeverity.LOW:
             result.append(merged_issue)
