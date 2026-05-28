@@ -35,12 +35,30 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: python .github/workflows/triage.py test
 
+  decide:
+    if: github.event_name == 'issues'
+    runs-on: ubuntu-slim
+    timeout-minutes: 1
+    permissions: {}
+    outputs:
+      skip: ${{ steps.decide.outputs.skip }}
+    steps:
+      - id: decide
+        env:
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+        run: |
+          # Skip security reports. They should go through the security channel, not auto-triage.
+          # ${var,,} lowercases for case-insensitive match.
+          skip=$([[ "${ISSUE_TITLE,,}" == *security* ]] && echo true || echo false)
+          echo "skip=$skip" >> "$GITHUB_OUTPUT"
+
   # Main job: runs on new issues
   # All new issues are screened for prompt injection; only bug-labeled issues that pass
   # the screen proceed to triage. Comments are only posted for area/uiux bugs; other
   # bugs are triaged silently for observation.
   triage:
-    if: github.event_name == 'issues'
+    needs: decide
+    if: needs.decide.outputs.skip == 'false'
     runs-on: ubuntu-slim
     timeout-minutes: 5
     permissions:
