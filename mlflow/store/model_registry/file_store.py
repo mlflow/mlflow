@@ -144,7 +144,8 @@ class FileStore(AbstractStore):
                 "for migration guidance. As a last resort, if the filesystem backend is "
                 "absolutely required for your workflow, see "
                 "https://mlflow.org/docs/latest/self-hosting/migrate-from-file-store"
-                "#continue-using-the-filesystem-backend.",
+                "#continue-using-the-filesystem-backend "
+                "for how to bypass this exception.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
         self.root_directory = local_file_uri_to_path(root_directory or _default_root_dir())
