@@ -3,7 +3,7 @@ description: "Set up Node"
 inputs:
   node-version:
     description: "Node version to use."
-    default: 24
+    default: "24"
     required: false
 
 runs:
