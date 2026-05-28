@@ -105,46 +105,61 @@ describe('CreateUserModal — collapsible optional sections', () => {
   });
 });
 
-describe('CreateUserModal — unsaved direct-grant draft and the scope=all gap', () => {
+describe('CreateUserModal — discard-confirm gate on unsaved direct-grant draft', () => {
   beforeEach(() => {
     mockCreateUserMutateAsync.mockReset();
     mockGrantPermissionMutateAsync.mockReset();
   });
 
-  it('documents the scope=all silent-drop: dirty-but-submittable draft is NOT blocked, but the grant is also not staged', async () => {
-    // Gap left open by this PR (flagged in review): the unsaved-invalid-draft
-    // signal only covers dirty + non-submittable drafts (scope='specific'
-    // without a resource), because that's the Kris-bug shape. A scope='all'
-    // draft is dirty + submittable, so the section does NOT lock submit —
-    // but the user still has to click ``Add`` to actually stage the grant.
-    // Closing the modal without ``Add`` drops the intended grant silently.
-    //
-    // This test pins the current behavior so a future change that closes the
-    // gap (auto-stage on submit, or extend the lock to cover this case)
-    // updates the expectation deliberately.
+  it('intercepts submit with a discard-confirm dialog when there is an unsaved draft, and proceeds on confirm', async () => {
+    // Admin expands Direct permissions, flips scope to "All experiments",
+    // forgets to click ``Add``, fills creds, clicks Create user. The modal
+    // does NOT silently create the user — it pops a confirm dialog so the
+    // admin can either go back and click ``Add``, or knowingly discard.
     mockCreateUserMutateAsync.mockResolvedValue({ user: { username: 'newbie' } });
     renderWithDesignSystem(<CreateUserModal open onClose={jest.fn()} />);
 
-    // Expand the collapsed Direct permissions section.
     await userEvent.click(screen.getByRole('button', { name: /Direct permissions/ }));
-    // Flip the scope to "All experiments" — draft is now dirty but
-    // submittable. Crucially the user does NOT click Add.
     await userEvent.click(screen.getByRole('radio', { name: /^All experiments$/ }));
 
     await userEvent.type(screen.getByPlaceholderText('Enter username'), 'newbie');
     await userEvent.type(screen.getByPlaceholderText('Enter password'), 'hunter2');
 
-    // Submit is not blocked — the lock only fires for dirty+invalid.
+    // Submit button stays enabled — the gate is the dialog, not a lock.
     const submit = screen.getByRole('button', { name: /^Create user and grant access$|^Create user$/ });
     expect(submit).not.toBeDisabled();
     await userEvent.click(submit);
 
-    // User lands.
+    // Confirm dialog appears; ``createUser`` hasn't been called yet.
+    expect(await screen.findByText('Discard unsaved direct permission?')).toBeInTheDocument();
+    expect(mockCreateUserMutateAsync).not.toHaveBeenCalled();
+
+    // Confirm "Discard and continue" → submit proceeds.
+    await userEvent.click(screen.getByRole('button', { name: /^Discard and continue$/ }));
     expect(mockCreateUserMutateAsync).toHaveBeenCalledWith(
       expect.objectContaining({ username: 'newbie', password: 'hunter2' }),
     );
-    // …but the all-experiments grant is silently dropped because nothing
-    // was ever staged.
+    // Draft was discarded — never staged, never sent.
+    expect(mockGrantPermissionMutateAsync).not.toHaveBeenCalled();
+  });
+
+  it('cancelling the discard-confirm keeps the modal on the edit step without creating the user', async () => {
+    // Same setup — but the admin clicks ``Cancel`` on the dialog because
+    // they meant to ``Add`` the permission. Dialog closes, no API calls
+    // fire, the draft is preserved so the admin can click ``Add`` now.
+    renderWithDesignSystem(<CreateUserModal open onClose={jest.fn()} />);
+
+    await userEvent.click(screen.getByRole('button', { name: /Direct permissions/ }));
+    await userEvent.click(screen.getByRole('radio', { name: /^All experiments$/ }));
+
+    await userEvent.type(screen.getByPlaceholderText('Enter username'), 'newbie');
+    await userEvent.type(screen.getByPlaceholderText('Enter password'), 'hunter2');
+
+    await userEvent.click(screen.getByRole('button', { name: /^Create user and grant access$|^Create user$/ }));
+    expect(await screen.findByText('Discard unsaved direct permission?')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /^Cancel$/ }));
+    expect(mockCreateUserMutateAsync).not.toHaveBeenCalled();
     expect(mockGrantPermissionMutateAsync).not.toHaveBeenCalled();
   });
 });

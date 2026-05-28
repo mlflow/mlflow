@@ -9,13 +9,13 @@ import {
   Spinner,
   Switch,
   Tag,
-  Tooltip,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { FieldLabel } from './FieldLabel';
 import { LongFormSection } from '../../common/components/long-form/LongFormSection';
+import { ConfirmationModal } from '../ConfirmationModal';
 import { AdminApi } from '../api';
 import {
   AdminQueryKeys,
@@ -128,10 +128,13 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
   const [isAdmin, setIsAdmin] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Block ``Review changes`` while the direct-grant picker holds a touched-
-  // but-not-staged draft, so the admin can't silently abandon a partially
-  // filled permission. Reported by ``DirectPermissionsSection``.
+  // Reported by ``DirectPermissionsSection`` whenever the in-progress
+  // draft is dirty (any field touched away from default). Drives a
+  // discard-confirm dialog on the ``Review changes`` button so the admin
+  // can't silently abandon a partially filled permission — but the button
+  // itself stays enabled and the admin can always click through.
   const [hasUnsavedDirectDraft, setHasUnsavedDirectDraft] = useState(false);
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
 
   const workspaceOptions = useWorkspaceOptions(workspaces);
 
@@ -158,6 +161,7 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
     // on ``DirectPermissionsSection`` below remounts the section on every
     // open, and its first commit-time effect fires ``false`` from the
     // default draft state.
+    setShowDiscardConfirm(false);
     filledForWorkspaceRef.current = null;
     // ``initialGrantWorkspace`` is derived from the session active workspace;
     // re-seed on open so the dropdown defaults to "where I am right now".
@@ -339,28 +343,25 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
             <Button componentId="admin.edit_access_modal.cancel" onClick={onClose} disabled={submitting}>
               Cancel
             </Button>
-            {/* Tooltip explains the lock when the only blocker is an
-                unsaved direct-grant draft — the inline error inside the
-                section may be out of view if the admin scrolled past or
-                collapsed it. */}
-            <Tooltip
-              componentId="admin.edit_access_modal.review_blocked_tooltip"
-              content={
-                hasUnsavedDirectDraft ? 'Complete or Clear the unsaved direct permission before reviewing.' : null
-              }
+            <Button
+              componentId="admin.edit_access_modal.review"
+              type="primary"
+              // Submit isn't blocked on an unsaved draft — instead we gate
+              // on it via a discard-confirm dialog so the admin can either
+              // go back and click Add, or knowingly drop the draft and
+              // proceed to the review step.
+              onClick={() => {
+                if (hasUnsavedDirectDraft) {
+                  setShowDiscardConfirm(true);
+                  return;
+                }
+                setError(null);
+                setStep('review');
+              }}
+              disabled={!hasAnyChange || !stateLoaded || Boolean(rolesError)}
             >
-              <Button
-                componentId="admin.edit_access_modal.review"
-                type="primary"
-                onClick={() => {
-                  setError(null);
-                  setStep('review');
-                }}
-                disabled={!hasAnyChange || !stateLoaded || Boolean(rolesError) || hasUnsavedDirectDraft}
-              >
-                Review changes
-              </Button>
-            </Tooltip>
+              Review changes
+            </Button>
           </div>
         ) : (
           <div css={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
@@ -482,7 +483,7 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
                   onChange={setDirectPermissions}
                   workspace={grantWorkspace}
                   disabled={submitting}
-                  onUnsavedInvalidDraftChange={setHasUnsavedDirectDraft}
+                  onUnsavedDraftChange={setHasUnsavedDirectDraft}
                 />
               </LongFormSection>
               {isCurrentUserAdmin && (
@@ -511,6 +512,24 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
           currentIsAdmin={currentIsAdmin}
         />
       )}
+      {/* Discard-confirm gate on ``Review changes``: only intercepts when
+          ``hasUnsavedDirectDraft`` is true (any field touched in the
+          direct-grant picker without a subsequent ``Add`` or ``Clear``).
+          The dialog is the warning surface; the button itself stays
+          enabled so the admin can always click through. */}
+      <ConfirmationModal
+        componentId="admin.edit_access_modal.discard_unsaved_draft"
+        title="Discard unsaved direct permission?"
+        visible={showDiscardConfirm}
+        message="You started adding a direct permission but didn't click Add. Continuing to Review changes will discard it; click Cancel and either Add or Clear the draft to keep your changes."
+        okText="Discard and continue"
+        onCancel={() => setShowDiscardConfirm(false)}
+        onConfirm={() => {
+          setShowDiscardConfirm(false);
+          setError(null);
+          setStep('review');
+        }}
+      />
     </Modal>
   );
 };

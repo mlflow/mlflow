@@ -7,13 +7,13 @@ import {
   SimpleSelect,
   SimpleSelectOption,
   Switch,
-  Tooltip,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FieldLabel } from './FieldLabel';
 import { useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { LongFormSection } from '../../common/components/long-form/LongFormSection';
+import { ConfirmationModal } from '../ConfirmationModal';
 import { AdminApi } from '../api';
 import {
   AdminQueryKeys,
@@ -67,10 +67,12 @@ export const CreateUserModal = ({ open, onClose }: CreateUserModalProps) => {
   const [directPermissions, setDirectPermissions] = useState<StagedDirectPermission[]>([]);
   const [grantWorkspace, setGrantWorkspace] = useState<string>(initialGrantWorkspace);
   // Reported by ``DirectPermissionsSection`` whenever the in-progress draft
-  // is dirty but not yet stage-able — used to block the modal's submit so
-  // the admin can't silently drop a half-filled permission by clicking
-  // ``Create user`` instead of ``Add``.
+  // is dirty (any field touched away from default). The modal uses this to
+  // pop a confirm-discard dialog on submit so the admin can't silently
+  // drop a half-filled permission, but submit is NOT disabled — the admin
+  // can always click through.
   const [hasUnsavedDirectDraft, setHasUnsavedDirectDraft] = useState(false);
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Set after the user lands; lets retries skip ``createUser`` and
@@ -92,6 +94,7 @@ export const CreateUserModal = ({ open, onClose }: CreateUserModalProps) => {
       // open, and its first commit-time effect fires ``false`` from the
       // default draft state. Resetting here too would muddy who owns the
       // reset.
+      setShowDiscardConfirm(false);
       setSubmitting(false);
       setError(null);
       setCreatedUsername(null);
@@ -105,10 +108,7 @@ export const CreateUserModal = ({ open, onClose }: CreateUserModalProps) => {
   const wantsRoles = roleValue.roleIds.length > 0;
   const wantsDirect = directPermissions.length > 0;
   // Retry mode skips the credential guard (the fields are also disabled).
-  // ``hasUnsavedDirectDraft`` blocks submit while the direct-grant picker
-  // sits on a touched-but-not-staged draft — otherwise the click silently
-  // drops the admin's in-progress permission.
-  const canSubmit = !hasUnsavedDirectDraft && (createdUsername !== null || Boolean(username.trim() && password));
+  const canSubmit = createdUsername !== null || Boolean(username.trim() && password);
 
   const handleSubmit = useCallback(async () => {
     // No ``setError(null)`` upfront — would hide/show flicker as the
@@ -215,31 +215,22 @@ export const CreateUserModal = ({ open, onClose }: CreateUserModalProps) => {
           <Button componentId="admin.create_user_modal.cancel" onClick={onClose} disabled={submitting}>
             Cancel
           </Button>
-          {/* Tooltip surfaces why submit is locked when the only blocker is
-              an unsaved draft — without it the disabled button is a dead
-              end, especially in retry mode where the credential fields are
-              already disabled and the only remaining interaction is the
-              direct-grant picker. */}
-          <Tooltip
-            componentId="admin.create_user_modal.submit_blocked_tooltip"
-            content={
-              hasUnsavedDirectDraft ? 'Complete or Clear the unsaved direct permission before submitting.' : null
-            }
+          <Button
+            componentId="admin.create_user_modal.submit"
+            type="primary"
+            // Submit isn't blocked on an unsaved draft — instead we gate on
+            // it via a discard-confirm dialog so the admin can either go
+            // back and click Add, or knowingly drop the draft and proceed.
+            onClick={() => (hasUnsavedDirectDraft ? setShowDiscardConfirm(true) : handleSubmit())}
+            loading={submitting}
+            disabled={!canSubmit}
           >
-            <Button
-              componentId="admin.create_user_modal.submit"
-              type="primary"
-              onClick={handleSubmit}
-              loading={submitting}
-              disabled={!canSubmit}
-            >
-              {createdUsername !== null
-                ? 'Retry failed grants'
-                : isAdmin || wantsRoles || wantsDirect
-                  ? 'Create user and grant access'
-                  : 'Create user'}
-            </Button>
-          </Tooltip>
+            {createdUsername !== null
+              ? 'Retry failed grants'
+              : isAdmin || wantsRoles || wantsDirect
+                ? 'Create user and grant access'
+                : 'Create user'}
+          </Button>
         </div>
       }
     >
@@ -329,7 +320,7 @@ export const CreateUserModal = ({ open, onClose }: CreateUserModalProps) => {
           onChange={setDirectPermissions}
           workspace={grantWorkspace}
           disabled={submitting}
-          onUnsavedInvalidDraftChange={setHasUnsavedDirectDraft}
+          onUnsavedDraftChange={setHasUnsavedDirectDraft}
         />
       </LongFormSection>
       {isCurrentUserAdmin && (
@@ -349,6 +340,22 @@ export const CreateUserModal = ({ open, onClose }: CreateUserModalProps) => {
           />
         </LongFormSection>
       )}
+      {/* Discard-confirm gate: only intercepts when ``hasUnsavedDirectDraft``
+          is true (any field touched in the direct-grant picker without a
+          subsequent ``Add`` or ``Clear``). The dialog is the warning surface;
+          submit itself stays enabled so the admin can always click through. */}
+      <ConfirmationModal
+        componentId="admin.create_user_modal.discard_unsaved_draft"
+        title="Discard unsaved direct permission?"
+        visible={showDiscardConfirm}
+        message="You started adding a direct permission but didn't click Add. Continuing will discard it; click Cancel and either Add or Clear the draft to keep your changes."
+        okText="Discard and continue"
+        onCancel={() => setShowDiscardConfirm(false)}
+        onConfirm={() => {
+          setShowDiscardConfirm(false);
+          handleSubmit();
+        }}
+      />
     </Modal>
   );
 };

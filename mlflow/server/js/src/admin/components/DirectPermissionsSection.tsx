@@ -46,12 +46,13 @@ export interface DirectPermissionsSectionProps {
    * workspace other than their session-active one. */
   workspace?: string;
   disabled?: boolean;
-  /** Called when the in-progress draft transitions to a "dirty but not
-   * yet submittable" state (e.g. user changed the resource type but
-   * hasn't picked a specific resource yet). Parent modals use this to
-   * block their submit button so the admin can't silently abandon a
-   * partially-filled permission by clicking Create. */
-  onUnsavedInvalidDraftChange?: (hasUnsavedInvalidDraft: boolean) => void;
+  /** Called when the in-progress draft becomes dirty (any field touched
+   * away from the default) or returns to clean. Parent modals use this
+   * to pop a confirmation dialog on submit so the admin can't silently
+   * abandon a partially-filled permission by clicking Create — but the
+   * signal does **not** itself disable submit. The user can always
+   * confirm "discard and continue" through the dialog. */
+  onUnsavedDraftChange?: (hasUnsavedDraft: boolean) => void;
 }
 
 /**
@@ -64,7 +65,7 @@ export const DirectPermissionsSection = ({
   onChange,
   workspace,
   disabled,
-  onUnsavedInvalidDraftChange,
+  onUnsavedDraftChange,
 }: DirectPermissionsSectionProps) => {
   const { theme } = useDesignSystemTheme();
   const [draft, setDraft] = useState<DirectPermissionValue>(DIRECT_PERMISSION_DEFAULT);
@@ -90,10 +91,12 @@ export const DirectPermissionsSection = ({
   };
 
   const canAdd = isDirectPermissionSubmittable(draft);
-  // A draft is "unsaved-invalid" once the user has changed something
-  // (``isDraftDirty``) but it can't be staged yet (``!isSubmittable``).
-  // This is the case the user typically hits when they pick a resource
-  // type but forget to pick a specific resource — Kris's bug report.
+  // ``dirty`` covers any field changed away from the default — the parent
+  // modal uses this to gate its discard-confirm dialog so the admin can't
+  // silently abandon ANY in-progress draft (whether it's stage-able yet or
+  // not). The narrower ``hasUnsavedInvalidDraft`` only fires for the
+  // dirty + scope=specific + no-resource shape, since that's the only
+  // state where the inline "Select a specific X" guidance applies.
   const dirty = isDraftDirty(draft);
   const hasUnsavedInvalidDraft = dirty && !canAdd;
 
@@ -101,13 +104,13 @@ export const DirectPermissionsSection = ({
   // value it reports — otherwise a future caller passing an inline arrow
   // function would re-fire the effect on every render. Current call sites
   // (state setters) are stable, but this is the safer contract.
-  const onUnsavedInvalidDraftChangeRef = useRef(onUnsavedInvalidDraftChange);
+  const onUnsavedDraftChangeRef = useRef(onUnsavedDraftChange);
   useEffect(() => {
-    onUnsavedInvalidDraftChangeRef.current = onUnsavedInvalidDraftChange;
-  }, [onUnsavedInvalidDraftChange]);
+    onUnsavedDraftChangeRef.current = onUnsavedDraftChange;
+  }, [onUnsavedDraftChange]);
   useEffect(() => {
-    onUnsavedInvalidDraftChangeRef.current?.(hasUnsavedInvalidDraft);
-  }, [hasUnsavedInvalidDraft]);
+    onUnsavedDraftChangeRef.current?.(dirty);
+  }, [dirty]);
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>

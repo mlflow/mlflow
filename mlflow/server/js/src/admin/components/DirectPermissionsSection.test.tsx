@@ -66,73 +66,62 @@ const changeSimpleSelect = async (componentId: string, optionLabel: string) => {
   await userEvent.click(await screen.findByRole('option', { name: optionLabel }));
 };
 
-describe('DirectPermissionsSection — unsaved-invalid-draft signal', () => {
-  it('reports unsaved-invalid=true when the user picks scope=specific with no resource', async () => {
-    // The exact silent-drop case: admin bumps the permission level to MANAGE
-    // (changes from the default READ) but leaves scope on the default
-    // ``specific`` and never picks a specific resource. Section must
-    // surface this state so the parent modal can block submit.
+describe('DirectPermissionsSection — unsaved-draft signal', () => {
+  it('reports unsaved-draft=true for the dirty + scope=specific + no-resource case, and renders the inline error', async () => {
+    // Admin bumps the permission level to MANAGE (changes from the default
+    // READ) but leaves scope on the default ``specific`` and never picks a
+    // specific resource. ``onUnsavedDraftChange`` must fire ``true`` so the
+    // parent modal can pop the discard-confirm dialog on submit, and the
+    // inline "Select a specific X" error must render to tell the admin
+    // what's missing.
     mockUseResourceOptionsQuery.mockReturnValue({ options: [], isLoading: false, error: null });
-    const onUnsavedInvalidDraftChange = jest.fn();
+    const onUnsavedDraftChange = jest.fn();
     renderWithDesignSystem(
-      <DirectPermissionsSection
-        value={[]}
-        onChange={jest.fn()}
-        onUnsavedInvalidDraftChange={onUnsavedInvalidDraftChange}
-      />,
+      <DirectPermissionsSection value={[]} onChange={jest.fn()} onUnsavedDraftChange={onUnsavedDraftChange} />,
     );
     // ``waitFor`` because the reporting effect fires after the first
     // commit, not synchronously inside ``render`` — otherwise a flaky
     // schedule could let the assertion pass vacuously before the mock is
     // ever called.
-    await waitFor(() => expect(onUnsavedInvalidDraftChange).toHaveBeenLastCalledWith(false));
+    await waitFor(() => expect(onUnsavedDraftChange).toHaveBeenLastCalledWith(false));
 
     await changeSimpleSelect('admin.direct_permission.permission_level', 'MANAGE');
 
-    await waitFor(() => expect(onUnsavedInvalidDraftChange).toHaveBeenLastCalledWith(true));
-
-    // Surfaces the inline error so the admin knows why the modal is locked.
+    await waitFor(() => expect(onUnsavedDraftChange).toHaveBeenLastCalledWith(true));
     expect(screen.getByTestId('admin.direct_permission.resource_required_error')).toBeInTheDocument();
   });
 
-  it('flips back to unsaved-invalid=false when the user clears the draft', async () => {
-    // ``Clear`` is the escape hatch: if the admin decides not to add a
-    // direct grant after all, resetting the draft to default unlocks the
-    // parent modal's submit.
+  it('reports unsaved-draft=true for scope=all (dirty + submittable, parent still wants the discard prompt)', async () => {
+    // Picking "All experiments" is a complete, stage-able draft — but if
+    // the admin then clicks submit without ``Add``, the all-grant is
+    // silently dropped. ``onUnsavedDraftChange`` must fire ``true`` so the
+    // parent modal can pop the discard-confirm dialog. The inline error
+    // stays hidden because "Select a specific X" doesn't apply when the
+    // user has already chosen the wildcard scope.
     mockUseResourceOptionsQuery.mockReturnValue({ options: [], isLoading: false, error: null });
-    const onUnsavedInvalidDraftChange = jest.fn();
+    const onUnsavedDraftChange = jest.fn();
     renderWithDesignSystem(
-      <DirectPermissionsSection
-        value={[]}
-        onChange={jest.fn()}
-        onUnsavedInvalidDraftChange={onUnsavedInvalidDraftChange}
-      />,
+      <DirectPermissionsSection value={[]} onChange={jest.fn()} onUnsavedDraftChange={onUnsavedDraftChange} />,
     );
-    await changeSimpleSelect('admin.direct_permission.permission_level', 'MANAGE');
-    await waitFor(() => expect(onUnsavedInvalidDraftChange).toHaveBeenLastCalledWith(true));
-
-    await userEvent.click(screen.getByRole('button', { name: /^Clear$/ }));
-    await waitFor(() => expect(onUnsavedInvalidDraftChange).toHaveBeenLastCalledWith(false));
-    // Inline error disappears once the draft is clean.
+    await userEvent.click(screen.getByRole('radio', { name: /^All experiments$/ }));
+    await waitFor(() => expect(onUnsavedDraftChange).toHaveBeenLastCalledWith(true));
     expect(screen.queryByTestId('admin.direct_permission.resource_required_error')).not.toBeInTheDocument();
   });
 
-  it('does not flag scope=all as unsaved-invalid (a wildcard grant is submittable on its own)', async () => {
-    // The "specific resource missing" warning is exclusive to scope=specific
-    // — once the user flips to ``All experiments``, the draft is fully
-    // submittable, so the section reports false and the inline error stays
-    // hidden even though the draft is dirty.
+  it('flips back to unsaved-draft=false when the user clears the draft', async () => {
+    // ``Clear`` is the escape hatch: if the admin decides not to add a
+    // direct grant after all, resetting the draft to default silences the
+    // discard prompt without forcing a click-through.
     mockUseResourceOptionsQuery.mockReturnValue({ options: [], isLoading: false, error: null });
-    const onUnsavedInvalidDraftChange = jest.fn();
+    const onUnsavedDraftChange = jest.fn();
     renderWithDesignSystem(
-      <DirectPermissionsSection
-        value={[]}
-        onChange={jest.fn()}
-        onUnsavedInvalidDraftChange={onUnsavedInvalidDraftChange}
-      />,
+      <DirectPermissionsSection value={[]} onChange={jest.fn()} onUnsavedDraftChange={onUnsavedDraftChange} />,
     );
-    await userEvent.click(screen.getByRole('radio', { name: /^All experiments$/ }));
-    await waitFor(() => expect(onUnsavedInvalidDraftChange).toHaveBeenLastCalledWith(false));
+    await changeSimpleSelect('admin.direct_permission.permission_level', 'MANAGE');
+    await waitFor(() => expect(onUnsavedDraftChange).toHaveBeenLastCalledWith(true));
+
+    await userEvent.click(screen.getByRole('button', { name: /^Clear$/ }));
+    await waitFor(() => expect(onUnsavedDraftChange).toHaveBeenLastCalledWith(false));
     expect(screen.queryByTestId('admin.direct_permission.resource_required_error')).not.toBeInTheDocument();
   });
 });
