@@ -6,6 +6,7 @@ from sqlalchemy import Column, Float, and_, case, distinct, exists, func, litera
 from sqlalchemy.orm import aliased
 from sqlalchemy.orm.query import Query
 
+from mlflow.entities.entity_type import EntityAssociationType
 from mlflow.entities.trace_metrics import (
     AggregationType,
     MetricAggregation,
@@ -16,6 +17,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.store.db import db_types
 from mlflow.store.tracking.dbmodels.models import (
     SqlAssessments,
+    SqlEntityAssociation,
     SqlSpan,
     SqlSpanMetrics,
     SqlTraceInfo,
@@ -550,7 +552,24 @@ def _apply_filters(query: Query, filters: list[str], view_type: MetricViewType) 
                                 SqlTraceMetadata.value == parsed_filter.value,
                             )
                         )
-                        query = query.filter(metadata_filter)
+                        if parsed_filter.key == TraceMetadataKey.SOURCE_RUN:
+                            # OTLP traces linked post-hoc via link_traces_to_run() store the
+                            # run association in SqlEntityAssociation, not in trace metadata.
+                            # Include both paths so the filter works regardless of how the
+                            # trace was created.
+                            src_type = EntityAssociationType.TRACE
+                            dst_type = EntityAssociationType.RUN
+                            association_filter = exists().where(
+                                and_(
+                                    SqlEntityAssociation.source_id == SqlTraceInfo.request_id,
+                                    SqlEntityAssociation.source_type == src_type,
+                                    SqlEntityAssociation.destination_type == dst_type,
+                                    SqlEntityAssociation.destination_id == parsed_filter.value,
+                                )
+                            )
+                            query = query.filter(metadata_filter | association_filter)
+                        else:
+                            query = query.filter(metadata_filter)
                     case TraceMetricSearchKey.TAG:
                         tag_filter = exists().where(
                             and_(
