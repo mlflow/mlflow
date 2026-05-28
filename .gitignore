@@ -148,4 +148,5 @@ CLAUDE.local.md
 !.claude/settings.json
 !.claude/statusline.sh
 
+.playwright/
 .playwright-cli/
