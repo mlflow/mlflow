@@ -5,6 +5,8 @@ import { FormattedMessage } from 'react-intl';
 import { LabelSchemaInputRenderer } from '../../components/label-schemas/widgets/LabelSchemaInputRenderer';
 import type { LabelSchemaValue } from '../../components/label-schemas/widgets/LabelSchemaInputRenderer';
 import {
+  PASS_FAIL_NEGATIVE_PLACEHOLDER,
+  PASS_FAIL_POSITIVE_PLACEHOLDER,
   buildLabelSchemaInputFromForm,
   validateLabelSchemaForm,
   type LabelSchemaFormData,
@@ -60,13 +62,24 @@ export const LabelSchemaPreview = ({ formData }: LabelSchemaPreviewProps) => {
     </div>
   );
 
+  // Substitute placeholder defaults for blank pass/fail labels so the
+  // preview button row never shows two empty pills when the author
+  // hasn't typed anything yet. Categorical and numeric fall back to
+  // their own empty-state surfaces (chips list / "No minimum"
+  // placeholder), so only pass/fail needs this fill.
+  const previewFormData: LabelSchemaFormData = {
+    ...formData,
+    passFailPositiveLabel: formData.passFailPositiveLabel || PASS_FAIL_POSITIVE_PLACEHOLDER,
+    passFailNegativeLabel: formData.passFailNegativeLabel || PASS_FAIL_NEGATIVE_PLACEHOLDER,
+  };
+
   // Build the input variant from the live form. If the form is too
   // incomplete to build a variant (e.g. user just opened the create
   // modal and hasn't picked an inputKind that has all required fields),
   // surface a soft empty state rather than a thrown error.
   let input;
   try {
-    input = buildLabelSchemaInputFromForm(formData);
+    input = buildLabelSchemaInputFromForm(previewFormData);
   } catch {
     return (
       <div css={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
