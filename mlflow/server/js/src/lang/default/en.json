@@ -2083,6 +2083,10 @@
     "defaultMessage": "File is too large to preview",
     "description": "Label to indicate that the file is too large to preview"
   },
+  "9yFSzQ": {
+    "defaultMessage": "Delete",
+    "description": "Delete label schema menu item"
+  },
   "9ygCGK": {
     "defaultMessage": "Reset period",
     "description": "Budget reset period label"
@@ -5234,10 +5238,6 @@
   "SzvvXl": {
     "defaultMessage": "Failed to submit",
     "description": "Message text for failing to save changes in editable note in MLflow"
-  },
-  "T+QD5T": {
-    "defaultMessage": "Delete",
-    "description": "Delete label schema button"
   },
   "T/46y0": {
     "defaultMessage": "Machine learning",
@@ -8610,10 +8610,6 @@
   "lhFnAG": {
     "defaultMessage": "Insufficient",
     "description": "Evaluation results > retrieval sufficiency assessment > negative value label. Displayed if retrieved context is insufficient to generate the expected response."
-  },
-  "lhPOVS": {
-    "defaultMessage": "Labeling schemas",
-    "description": "Labeling schemas page heading"
   },
   "ljOsC9": {
     "defaultMessage": "Cost Over Time",

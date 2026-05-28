@@ -1106,9 +1106,10 @@ module.exports = {
 
   // -- mlflow.experiment-label-schemas --
   "mlflow.experiment-label-schemas.card": "",
-  "mlflow.experiment-label-schemas.card.delete-button": "",
+  "mlflow.experiment-label-schemas.card.delete-menu-item": "",
   "mlflow.experiment-label-schemas.card.edit-button": "",
   "mlflow.experiment-label-schemas.card.name-tag": "",
+  "mlflow.experiment-label-schemas.card.overflow-button": "",
   "mlflow.experiment-label-schemas.card.type-tag": "",
   "mlflow.experiment-label-schemas.create-button": "",
   "mlflow.experiment-label-schemas.delete-modal": "",

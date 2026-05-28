@@ -1,4 +1,14 @@
-import { Button, Card, PencilIcon, Tag, TrashIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import {
+  Button,
+  Card,
+  DropdownMenu,
+  OverflowIcon,
+  PencilIcon,
+  Tag,
+  TrashIcon,
+  Typography,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 
 import type { LabelSchema } from '../../components/label-schemas/types';
@@ -35,46 +45,65 @@ export const LabelSchemaCard = ({ schema, onEdit, onDelete }: LabelSchemaCardPro
       data-testid={`label-schema-card-${schema.schema_id}`}
       css={{
         padding: theme.spacing.md,
-        marginBottom: theme.spacing.md,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: theme.spacing.sm,
+        position: 'relative',
+        width: '100%',
+        boxSizing: 'border-box',
       }}
     >
-      <div css={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Typography.Title level={4} withoutMargins>
-          {schema.title}
-        </Typography.Title>
-        <div css={{ display: 'flex', gap: theme.spacing.sm }}>
+      <div
+        css={{
+          display: 'grid',
+          gridTemplateColumns: '1fr auto',
+          gap: theme.spacing.xs,
+          alignItems: 'flex-start',
+        }}
+      >
+        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+          <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
+            <Typography.Title level={4} css={{ margin: 0, marginBottom: '0 !important' }}>
+              {schema.title}
+            </Typography.Title>
+            <Tag componentId="mlflow.experiment-label-schemas.card.type-tag">{schema.type}</Tag>
+          </div>
+          <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
+            <Tag componentId="mlflow.experiment-label-schemas.card.name-tag">{schema.name}</Tag>
+            <Typography.Hint>{describeInput(schema)}</Typography.Hint>
+          </div>
+          {schema.instruction && <Typography.Hint css={{ fontStyle: 'italic' }}>{schema.instruction}</Typography.Hint>}
+        </div>
+        <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
           <Button
             componentId="mlflow.experiment-label-schemas.card.edit-button"
+            size="small"
             icon={<PencilIcon />}
             onClick={() => onEdit(schema)}
             aria-label="Edit label schema"
           >
             <FormattedMessage defaultMessage="Edit" description="Edit label schema button" />
           </Button>
-          <Button
-            componentId="mlflow.experiment-label-schemas.card.delete-button"
-            icon={<TrashIcon />}
-            danger
-            onClick={() => onDelete(schema)}
-            aria-label="Delete label schema"
-          >
-            <FormattedMessage defaultMessage="Delete" description="Delete label schema button" />
-          </Button>
+          <DropdownMenu.Root>
+            <DropdownMenu.Trigger asChild>
+              <Button
+                componentId="mlflow.experiment-label-schemas.card.overflow-button"
+                size="small"
+                icon={<OverflowIcon />}
+                aria-label="More actions"
+              />
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Content align="end">
+              <DropdownMenu.Item
+                componentId="mlflow.experiment-label-schemas.card.delete-menu-item"
+                onClick={() => onDelete(schema)}
+              >
+                <DropdownMenu.IconWrapper>
+                  <TrashIcon />
+                </DropdownMenu.IconWrapper>
+                <FormattedMessage defaultMessage="Delete" description="Delete label schema menu item" />
+              </DropdownMenu.Item>
+            </DropdownMenu.Content>
+          </DropdownMenu.Root>
         </div>
       </div>
-      <div css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center' }}>
-        <Tag componentId="mlflow.experiment-label-schemas.card.name-tag">{schema.name}</Tag>
-        <Tag componentId="mlflow.experiment-label-schemas.card.type-tag">{schema.type}</Tag>
-        <Typography.Text color="secondary">{describeInput(schema)}</Typography.Text>
-      </div>
-      {schema.instruction && (
-        <Typography.Text color="secondary" css={{ fontStyle: 'italic' }}>
-          {schema.instruction}
-        </Typography.Text>
-      )}
     </Card>
   );
 };
