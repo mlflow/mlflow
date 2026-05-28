@@ -4922,10 +4922,10 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     if session_id is None and (
                         span_session_id := span_attributes.get("session.id")
                     ):
-                        session_id = span_session_id
+                        session_id = _try_parse_json_string(span_session_id)
                     # user id used by OTel semantic conventions: https://opentelemetry.io/docs/specs/semconv/registry/attributes/user/#user-id
                     if user_id is None and (span_user_id := span_attributes.get("user.id")):
-                        user_id = span_user_id
+                        user_id = _try_parse_json_string(span_user_id)
                     # Get cost for span metrics
                     span_cost = span_attributes.get(SpanAttributeKey.LLM_COST)
 

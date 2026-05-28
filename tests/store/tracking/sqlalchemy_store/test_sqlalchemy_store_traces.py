@@ -4337,7 +4337,7 @@ def test_log_spans_does_not_overwrite_finalized_trace_info(store: SqlAlchemyStor
     )
     otel_span._attributes = {
         "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
-        "session.id": "session-from-log-spans",
+        "session.id": json.dumps("session-from-log-spans"),
         SpanAttributeKey.CHAT_USAGE: json.dumps({
             "input_tokens": 999,
             "output_tokens": 999,
@@ -5171,7 +5171,7 @@ def test_log_spans_session_id_handling(store: SqlAlchemyStore) -> None:
     otel_span1 = create_test_otel_span(trace_id=trace_id1)
     otel_span1._attributes = {
         "mlflow.traceRequestId": json.dumps(trace_id1, cls=TraceJSONEncoder),
-        "session.id": "session-123",
+        "session.id": json.dumps("session-123"),
     }
     span1 = create_mlflow_span(otel_span1, trace_id1, "LLM")
     store.log_spans(experiment_id, [span1])
@@ -5194,7 +5194,7 @@ def test_log_spans_session_id_handling(store: SqlAlchemyStore) -> None:
     otel_span2 = create_test_otel_span(trace_id=trace_id2)
     otel_span2._attributes = {
         "mlflow.traceRequestId": json.dumps(trace_id2, cls=TraceJSONEncoder),
-        "session.id": "different-session",
+        "session.id": json.dumps("different-session"),
     }
     span2 = create_mlflow_span(otel_span2, trace_id2, "LLM")
     store.log_spans(experiment_id, [span2])
@@ -5220,7 +5220,7 @@ def test_log_spans_user_id_handling(store: SqlAlchemyStore) -> None:
     otel_span1 = create_test_otel_span(trace_id=trace_id1)
     otel_span1._attributes = {
         "mlflow.traceRequestId": json.dumps(trace_id1, cls=TraceJSONEncoder),
-        "user.id": "alice",
+        "user.id": json.dumps("alice"),
     }
     span1 = create_mlflow_span(otel_span1, trace_id1, "LLM")
     store.log_spans(experiment_id, [span1])
@@ -5243,7 +5243,7 @@ def test_log_spans_user_id_handling(store: SqlAlchemyStore) -> None:
     otel_span2 = create_test_otel_span(trace_id=trace_id2)
     otel_span2._attributes = {
         "mlflow.traceRequestId": json.dumps(trace_id2, cls=TraceJSONEncoder),
-        "user.id": "different-user",
+        "user.id": json.dumps("different-user"),
     }
     span2 = create_mlflow_span(otel_span2, trace_id2, "LLM")
     store.log_spans(experiment_id, [span2])
@@ -5265,8 +5265,8 @@ def test_log_spans_user_id_handling(store: SqlAlchemyStore) -> None:
     otel_span4 = create_test_otel_span(trace_id=trace_id4)
     otel_span4._attributes = {
         "mlflow.traceRequestId": json.dumps(trace_id4, cls=TraceJSONEncoder),
-        "session.id": "session-456",
-        "user.id": "bob",
+        "session.id": json.dumps("session-456"),
+        "user.id": json.dumps("bob"),
     }
     span4 = create_mlflow_span(otel_span4, trace_id4, "LLM")
     store.log_spans(experiment_id, [span4])
