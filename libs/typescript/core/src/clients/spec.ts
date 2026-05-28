@@ -6,6 +6,7 @@
  */
 
 import type { TraceInfo } from '../core/entities/trace_info';
+import type { SerializedTraceLocation } from '../core/entities/trace_location';
 import { ArtifactCredentialType } from './artifacts/databricks';
 
 /**
@@ -38,6 +39,26 @@ export namespace GetTraceInfoV3 {
     trace: {
       trace_info: Parameters<typeof TraceInfo.fromJson>[0];
     };
+  }
+}
+
+/**
+ * Search trace metadata using the V3 traces API.
+ */
+export namespace SearchTracesV3 {
+  export const getEndpoint = (host: string) => `${host}/api/3.0/mlflow/traces/search`;
+
+  export interface Request {
+    locations: SerializedTraceLocation[];
+    filter?: string;
+    max_results?: number;
+    order_by?: string[];
+    page_token?: string;
+  }
+
+  export interface Response {
+    traces: Parameters<typeof TraceInfo.fromJson>[0][];
+    next_page_token?: string;
   }
 }
 

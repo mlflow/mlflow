@@ -8,6 +8,7 @@ import {
   GetExperiment,
   GetExperimentByName,
   GetTraceInfoV3,
+  SearchTracesV3,
   StartTraceV3,
 } from './spec';
 import { makeRequest, MlflowHttpError } from './utils';
@@ -15,9 +16,28 @@ import { TraceData } from '../core/entities/trace_data';
 import { ArtifactsClient, getArtifactsClient } from './artifacts';
 import { AuthProvider, HeadersProvider } from '../auth';
 import { DATABRICKS_UC_TABLE_HEADER } from '../core/constants';
+import {
+  createTraceLocationFromExperimentId,
+  serializeTraceLocation,
+  type TraceLocation,
+} from '../core/entities/trace_location';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-proto';
 import type { ReadableSpan as OTelReadableSpan } from '@opentelemetry/sdk-trace-base';
 import { ExportResultCode, type ExportResult } from '@opentelemetry/core';
+
+export interface SearchTracesOptions {
+  experimentIds?: string[];
+  locations?: TraceLocation[];
+  filter?: string;
+  maxResults?: number;
+  orderBy?: string[];
+  pageToken?: string;
+}
+
+export interface SearchTracesResult {
+  traces: TraceInfo[];
+  nextPageToken?: string;
+}
 
 /**
  * Client for MLflow tracing operations.
@@ -179,6 +199,39 @@ export class MlflowClient {
     }
 
     throw new Error(`Invalid response format: missing trace_info: ${JSON.stringify(response)}`);
+  }
+
+  /**
+   * Search trace metadata using the V3 traces API.
+   */
+  async searchTraces(options: SearchTracesOptions): Promise<SearchTracesResult> {
+    const locations = [
+      ...(options.locations ?? []),
+      ...(options.experimentIds ?? []).map(createTraceLocationFromExperimentId),
+    ];
+    if (locations.length === 0) {
+      throw new Error('searchTraces requires at least one experiment ID or trace location.');
+    }
+
+    const url = SearchTracesV3.getEndpoint(this.hostUrl);
+    const payload: SearchTracesV3.Request = {
+      locations: locations.map(serializeTraceLocation),
+      filter: options.filter,
+      max_results: options.maxResults,
+      order_by: options.orderBy,
+      page_token: options.pageToken,
+    };
+    const response = await makeRequest<SearchTracesV3.Response>(
+      'POST',
+      url,
+      this.headersProvider,
+      payload,
+    );
+
+    return {
+      traces: response.traces.map((trace) => TraceInfo.fromJson(trace)),
+      nextPageToken: response.next_page_token || undefined,
+    };
   }
 
   /**
