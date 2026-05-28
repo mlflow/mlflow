@@ -2398,3 +2398,70 @@ def test_guardrails_reject_missing_scorer_version_in_same_workspace(gateway_work
                 stage=GuardrailStage.BEFORE,
                 action=GuardrailAction.VALIDATION,
             )
+
+
+# ---------------------------------------------------------------------------
+# Review assignments — workspace scoping (DAIS-2026 work item #1, stack 1)
+# ---------------------------------------------------------------------------
+
+
+def _create_review_assignment_in_workspace(
+    store, workspace, *, target_id, reviewer="sme@example.com"
+):
+    with WorkspaceContext(workspace):
+        exp_id = store.create_experiment(f"exp-{workspace}-{target_id}")
+        assignment = store.create_review_assignment(
+            experiment_id=exp_id,
+            target_type="trace",
+            target_id=target_id,
+            reviewer=reviewer,
+            assigner="kris@example.com",
+        )
+    return exp_id, assignment
+
+
+def test_review_assignments_are_workspace_scoped(workspace_tracking_store):
+    # Same (target_id, reviewer) in two different workspaces creates
+    # two distinct rows; reads in workspace A never see workspace B's
+    # row (and vice versa).
+    _, a_assignment = _create_review_assignment_in_workspace(
+        workspace_tracking_store, "team-a", target_id="tr-shared"
+    )
+    _, b_assignment = _create_review_assignment_in_workspace(
+        workspace_tracking_store, "team-b", target_id="tr-shared"
+    )
+    assert a_assignment.assignment_id != b_assignment.assignment_id
+
+    with WorkspaceContext("team-a"):
+        # get_review_assignment scoped to team-a finds A but not B.
+        fetched_a = workspace_tracking_store.get_review_assignment(a_assignment.assignment_id)
+        assert fetched_a.assignment_id == a_assignment.assignment_id
+
+        with pytest.raises(MlflowException, match="not found") as excinfo:
+            workspace_tracking_store.get_review_assignment(b_assignment.assignment_id)
+        assert excinfo.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+
+        # list filtered by reviewer in team-a returns only team-a's row.
+        page = workspace_tracking_store.list_review_assignments(reviewer="sme@example.com")
+        assert [a.assignment_id for a in page] == [a_assignment.assignment_id]
+
+        # list_review_assignments_for_target in team-a returns only team-a's row.
+        rows = workspace_tracking_store.list_review_assignments_for_target("tr-shared")
+        assert [r.assignment_id for r in rows] == [a_assignment.assignment_id]
+
+
+def test_review_assignment_delete_is_workspace_scoped(workspace_tracking_store):
+    # Cross-workspace delete is silently a no-op (the workspace
+    # filter excludes the other workspace's row from the delete
+    # query, leaving it intact).
+    _, a_assignment = _create_review_assignment_in_workspace(
+        workspace_tracking_store, "team-a", target_id="tr-1"
+    )
+
+    with WorkspaceContext("team-b"):
+        workspace_tracking_store.delete_review_assignment(a_assignment.assignment_id)
+
+    # team-a's row survives because team-b's delete didn't touch it.
+    with WorkspaceContext("team-a"):
+        fetched = workspace_tracking_store.get_review_assignment(a_assignment.assignment_id)
+        assert fetched.assignment_id == a_assignment.assignment_id

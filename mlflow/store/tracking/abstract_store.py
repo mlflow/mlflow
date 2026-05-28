@@ -28,6 +28,12 @@ from mlflow.entities.trace_metrics import (
 
 if TYPE_CHECKING:
     from mlflow.entities import EvaluationDataset
+    from mlflow.genai.review_assignments import (
+        BulkCreateReviewAssignmentsResult,
+        ReviewAssignment,
+        ReviewAssignmentState,
+        ReviewTargetType,
+    )
     from mlflow.genai.scorers.online.entities import (
         CompletedSession,
         OnlineScorer,
@@ -1732,5 +1738,137 @@ class AbstractStore(GatewayStoreMixin):
         Returns:
             List of OnlineScorer entities with serialized_scorer, sample_rate,
             and filter_string fields populated.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    # ---------- Review assignments (DAIS-2026 work item #1) ----------
+
+    def create_review_assignment(
+        self,
+        *,
+        experiment_id: str,
+        target_type: "ReviewTargetType | str",
+        target_id: str,
+        reviewer: str,
+        assigner: str,
+    ) -> "ReviewAssignment":
+        """Create a single review assignment for a target.
+
+        Identity is ``(target_id, reviewer)``; creating the same pair
+        twice is a no-op and returns the existing row. Callers wanting
+        a multi-row create should use :py:meth:`bulk_create_review_assignments`
+        which is transactional.
+
+        Args:
+            experiment_id: Parent experiment.
+            target_type: One of ``"trace"`` / ``"session"`` / ``"span"``;
+                v1 only ``"trace"`` is fully wired.
+            target_id: The thing being reviewed.
+            reviewer: Free-form reviewer identifier (typically email).
+                Matched case-insensitively against ``AssessmentSource.source_id``
+                by the state-flip side effect.
+            assigner: Who created the assignment.
+
+        Returns:
+            The created (or existing) :py:class:`ReviewAssignment`.
+
+        Raises:
+            MlflowException(INVALID_PARAMETER_VALUE): on validation failure.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def bulk_create_review_assignments(
+        self,
+        *,
+        experiment_id: str,
+        target_type: "ReviewTargetType | str",
+        target_ids: list[str],
+        reviewers: list[str],
+        assigner: str,
+    ) -> "BulkCreateReviewAssignmentsResult":
+        """Create the cross-product of (targets x reviewers) atomically.
+
+        N targets times M reviewers create N*M ``(target_id, reviewer)``
+        rows. Collisions on the unique constraint are silently no-op'd
+        and reported in the ``existing`` bucket of the result; per-row
+        validation errors are reported in the ``failed`` bucket. The
+        whole batch is one DB transaction.
+
+        Args:
+            experiment_id: Parent experiment.
+            target_type: One of ``"trace"`` / ``"session"`` / ``"span"``.
+            target_ids: List of target IDs to assign (de-duplicated by caller).
+            reviewers: List of reviewer identifiers (de-duplicated by caller).
+            assigner: Who created the assignments.
+
+        Returns:
+            :py:class:`BulkCreateReviewAssignmentsResult` with ``created``
+            (list of new ``ReviewAssignment``), ``existing`` (list of
+            already-present ``assignment_id`` strings), and ``failed``
+            (list of ``(target_id, reviewer, error_message)`` triples).
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def get_review_assignment(self, assignment_id: str) -> "ReviewAssignment":
+        """Fetch a single assignment by its server-generated id.
+
+        Raises:
+            MlflowException(RESOURCE_DOES_NOT_EXIST): if no row matches.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def list_review_assignments(
+        self,
+        *,
+        experiment_id: str | None = None,
+        reviewer: str | None = None,
+        state: "ReviewAssignmentState | str | None" = None,
+        target_type: "ReviewTargetType | str | None" = None,
+        max_results: int | None = None,
+        page_token: str | None = None,
+    ) -> "PagedList[ReviewAssignment]":
+        """Paginated list of assignments filtered by any combination of
+        experiment / reviewer / state / target_type.
+
+        At least one of ``experiment_id`` or ``reviewer`` must be set
+        — both predicates are supported by the composite index;
+        unscoped listing would full-table-scan and is rejected with
+        ``INVALID_PARAMETER_VALUE``.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def list_review_assignments_for_target(self, target_id: str) -> list["ReviewAssignment"]:
+        """All assignments against a given target across reviewers.
+
+        Used by the per-trace "Reviewers (N)" widget to render the list
+        of assignees with their state badges.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def update_review_assignment(
+        self,
+        assignment_id: str,
+        *,
+        state: "ReviewAssignmentState | str",
+    ) -> "ReviewAssignment":
+        """Mutate the workflow state of an assignment.
+
+        Only ``state`` is mutable post-create; identity and audit fields
+        are immutable. Stack 3's "mark complete" / "reopen" SDK calls
+        go through here.
+
+        Raises:
+            MlflowException(INVALID_PARAMETER_VALUE): on validation failure.
+            MlflowException(RESOURCE_DOES_NOT_EXIST): if no row matches.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def delete_review_assignment(self, assignment_id: str) -> None:
+        """Hard-delete an assignment by id.
+
+        Idempotent: deleting a non-existent assignment is a no-op (no
+        ``RESOURCE_DOES_NOT_EXIST`` raised). The caller's UX will have
+        already shown the row; a 404 on the delete would just confuse
+        them if a concurrent delete already happened.
         """
         raise NotImplementedError(self.__class__.__name__)

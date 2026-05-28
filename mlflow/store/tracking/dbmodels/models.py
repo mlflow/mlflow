@@ -3227,3 +3227,172 @@ class SqlGatewayGuardrailConfig(Base):
             created_by=self.created_by,
             workspace=self.workspace,
         )
+
+
+class SqlReviewAssignment(Base):
+    """
+    DB model for OSS-native review assignments (DAIS-2026 work item #1).
+
+    One row per ``(target, reviewer)`` pair: a single reviewer is at
+    most once assigned to a single target. ``state`` carries the
+    per-reviewer workflow (``pending`` -> ``in_progress`` -> ``complete``);
+    the ``pending`` -> ``in_progress`` flip is auto-triggered by the
+    store-layer ``create_assessment`` side effect on the first matching
+    Feedback write.
+
+    See ``mlflow/genai/review_assignments/review_assignments.py`` for
+    the entity dataclass and
+    ``mlflow/genai/review_assignments/validation.py`` for the
+    server-side validation rules.
+    """
+
+    __tablename__ = "review_assignments"
+
+    ASSIGNMENT_ID_PREFIX = "ra-"
+
+    assignment_id = Column(String(36), primary_key=True)
+    """
+    Assignment ID: ``String`` (limit 36 characters). *Primary Key* for
+    ``review_assignments`` table.
+    """
+
+    workspace = Column(
+        String(63),
+        nullable=False,
+        default=DEFAULT_WORKSPACE_NAME,
+        server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
+    )
+    """
+    Workspace name that scopes this assignment.
+    """
+
+    experiment_id = Column(
+        Integer,
+        ForeignKey("experiments.experiment_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    """
+    Experiment the assignment belongs to. *Foreign Key* into ``experiments``.
+    Cascade-deletes when the parent experiment is hard-deleted. MLflow's
+    soft-delete (``lifecycle_stage='deleted'``) doesn't fire the cascade,
+    so assignments to soft-deleted experiments survive until the
+    experiment is permanently removed.
+    """
+
+    target_type = Column(String(16), nullable=False)
+    """
+    What kind of object is being reviewed: ``String`` (limit 16).
+    v1 ships ``'trace'`` only; ``'session'`` and ``'span'`` are reserved
+    for forward-compat.
+    """
+
+    target_id = Column(String(50), nullable=False)
+    """
+    The thing being reviewed — trace_id today; session_id or span_id
+    when those target types ship. ``String`` (limit 50).
+    """
+
+    reviewer = Column(String(250), nullable=False)
+    """
+    Who should review this target. Free-form string — typically email
+    on Databricks, username on auth-plugin OSS deployments, anything
+    elsewhere. ``VARCHAR(250)`` to mirror ``SqlAssessments.source_id``
+    so the state-flip side effect's case-insensitive comparison between
+    ``reviewer`` and ``source.source_id`` never sees a value that
+    wouldn't fit the assessment side.
+    """
+
+    assigner = Column(String(250), nullable=False)
+    """
+    Who created the assignment. Same shape as ``reviewer``.
+    """
+
+    state = Column(String(16), nullable=False)
+    """
+    Workflow state: one of ``'pending'``, ``'in_progress'``, ``'complete'``.
+    The pending -> in_progress flip is auto-triggered server-side; the
+    other transitions are explicit reviewer actions.
+    """
+
+    creation_time_ms = Column(BigInteger, nullable=False)
+    """
+    Assignment creation time in milliseconds since epoch.
+    """
+
+    last_update_time_ms = Column(BigInteger, nullable=False)
+    """
+    Time of the most recent state change in milliseconds since epoch.
+    Equals ``creation_time_ms`` for assignments that haven't moved off
+    ``pending``.
+    """
+
+    completed_time_ms = Column(BigInteger, nullable=True)
+    """
+    Time the assignment was marked ``complete`` in milliseconds since
+    epoch; ``NULL`` while still pending or in_progress. Preserved when
+    a complete assignment is reopened back to in_progress so the most
+    recent completion timestamp is recoverable.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("assignment_id", name="review_assignments_pk"),
+        # Identity: one reviewer at most once per target. Bulk-create
+        # treats collisions on this key as silent no-ops.
+        UniqueConstraint(
+            "workspace",
+            "target_id",
+            "reviewer",
+            name="uq_review_assignments_workspace_target_reviewer",
+        ),
+        # "My assignments" query — used by the Reviews page's
+        # `state=pending` / `state=in_progress` tabs and by
+        # `list_my_assignments` SDK.
+        Index(
+            "idx_review_assignments_workspace_experiment_reviewer_state",
+            "workspace",
+            "experiment_id",
+            "reviewer",
+            "state",
+        ),
+        # "Who's reviewing this trace?" query — used by the per-trace
+        # widget that lists assignees + their state badges.
+        Index(
+            "idx_review_assignments_workspace_target_id",
+            "workspace",
+            "target_id",
+        ),
+    )
+
+    def __repr__(self):
+        return (
+            f"<SqlReviewAssignment "
+            f"(id={self.assignment_id}, target={self.target_id}, "
+            f"reviewer={self.reviewer}, state={self.state})>"
+        )
+
+    def to_mlflow_entity(self):
+        """Convert DB model to corresponding MLflow entity.
+
+        Returns:
+            :py:class:`mlflow.genai.review_assignments.ReviewAssignment`.
+        """
+        # Lazy import: `mlflow.genai.review_assignments` transitively
+        # touches entities that import this module at load time.
+        from mlflow.genai.review_assignments import (
+            ReviewAssignment,
+            ReviewAssignmentState,
+            ReviewTargetType,
+        )
+
+        return ReviewAssignment(
+            assignment_id=self.assignment_id,
+            experiment_id=str(self.experiment_id),
+            target_type=ReviewTargetType(self.target_type),
+            target_id=self.target_id,
+            reviewer=self.reviewer,
+            assigner=self.assigner,
+            state=ReviewAssignmentState(self.state),
+            creation_time_ms=self.creation_time_ms,
+            last_update_time_ms=self.last_update_time_ms,
+            completed_time_ms=self.completed_time_ms,
+        )

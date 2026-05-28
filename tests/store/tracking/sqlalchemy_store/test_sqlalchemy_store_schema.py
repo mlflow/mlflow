@@ -376,6 +376,18 @@ def _insert_row(conn, table_name, workspace, overrides=None, seed=1):
             "created_at": seed,
             "workspace": workspace,
         },
+        "review_assignments": {
+            "assignment_id": f"ra_{seed}",
+            "workspace": workspace,
+            "experiment_id": seed,
+            "target_type": "trace",
+            "target_id": f"tr_{seed}",
+            "reviewer": f"reviewer_{seed}@example.com",
+            "assigner": f"assigner_{seed}@example.com",
+            "state": "pending",
+            "creation_time_ms": seed,
+            "last_update_time_ms": seed,
+        },
         "jobs": {
             "id": f"job_{seed}",
             "creation_time": seed,

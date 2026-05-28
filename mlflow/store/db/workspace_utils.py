@@ -22,6 +22,7 @@ MODEL_CHILD_TABLES = [
 # They must also be migrated explicitly during workspace operations.
 OTHER_WORKSPACE_CHILD_TABLES = [
     "guardrail_configs",
+    "review_assignments",
 ]
 
 

@@ -90,6 +90,7 @@ from mlflow.genai.judges.instructions_judge import (
     EXPECTATIONS_FIELD,
     InstructionsJudge,
 )
+from mlflow.genai.review_assignments import ReviewAssignmentState
 from mlflow.genai.scorers.base import Scorer
 from mlflow.genai.scorers.online.entities import (
     CompletedSession,
@@ -151,6 +152,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlMetric,
     SqlOnlineScoringConfig,
     SqlParam,
+    SqlReviewAssignment,
     SqlRun,
     SqlScorer,
     SqlScorerVersion,
@@ -811,6 +813,24 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             # loading_relationships.html#relationship-loading-techniques
             sqlalchemy.orm.subqueryload(SqlExperiment.tags),
         ]
+
+    def _validate_experiment_exists(self, session, experiment_id):
+        """Raise an ``MlflowException`` if the target experiment isn't usable.
+
+        Raises:
+            MlflowException with ``INVALID_PARAMETER_VALUE`` if
+                ``experiment_id`` isn't a parseable integer.
+            MlflowException with ``RESOURCE_DOES_NOT_EXIST`` if no
+                active experiment matches (including soft-deleted ones).
+
+        Used by store methods that create rows scoped to an experiment
+        (e.g. review assignments) so the caller hears about a bad
+        ``experiment_id`` immediately rather than via a downstream
+        foreign-key error from the DB driver.
+        """
+        # Delegate to the canonical lookup so we get lifecycle filtering
+        # and the same error-code mapping the rest of the store uses.
+        self._get_experiment(session, experiment_id, ViewType.ACTIVE_ONLY)
 
     def get_experiment(self, experiment_id):
         effective_retention_context = (
@@ -7947,6 +7967,390 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 secret_id=sql_secret.secret_id,
                 secret_name=sql_secret.secret_name,
             )
+
+    # ------------------------------------------------------------------
+    # Review assignments (DAIS-2026 work item #1). See
+    # ``mlflow/genai/review_assignments/review_assignments.py`` for the
+    # entity dataclasses and ``validation.py`` for the validation +
+    # normalization rules.
+    # ------------------------------------------------------------------
+
+    def _review_assignment_query(self, session):
+        return self._get_query(session, SqlReviewAssignment)
+
+    @staticmethod
+    def _build_review_assignment(
+        *,
+        experiment_id,
+        target_type,
+        target_id,
+        reviewer,
+        assigner,
+        now_ms,
+    ):
+        """Construct an unsaved ``SqlReviewAssignment`` with a fresh id.
+
+        Inputs MUST already be validated + normalized (lowercased
+        reviewer, stripped target_id / assigner) by the caller.
+        Workspace is filled in by ``_with_workspace_field``.
+        """
+        return SqlReviewAssignment(
+            assignment_id=f"{SqlReviewAssignment.ASSIGNMENT_ID_PREFIX}{uuid.uuid4().hex}",
+            experiment_id=int(experiment_id),
+            target_type=str(target_type),
+            target_id=target_id,
+            reviewer=reviewer,
+            assigner=assigner,
+            state=str(ReviewAssignmentState.PENDING),
+            creation_time_ms=now_ms,
+            last_update_time_ms=now_ms,
+            completed_time_ms=None,
+        )
+
+    def _lookup_review_assignment_pair(self, session, target_id, reviewer):
+        """Fetch the row for a ``(target_id, reviewer)`` unique key.
+
+        Inputs MUST already be normalized (``reviewer`` lowercased,
+        ``target_id`` stripped). The constraint is on the case-preserving
+        column; because we always normalize on write, an indexed
+        equality lookup is sufficient and uses the composite UNIQUE
+        index directly.
+        """
+        return (
+            self
+            ._review_assignment_query(session)
+            .filter(
+                SqlReviewAssignment.target_id == target_id,
+                SqlReviewAssignment.reviewer == reviewer,
+            )
+            .one_or_none()
+        )
+
+    def create_review_assignment(
+        self,
+        *,
+        experiment_id,
+        target_type,
+        target_id,
+        reviewer,
+        assigner,
+    ):
+        """See :py:meth:`AbstractStore.create_review_assignment`."""
+        from mlflow.genai.review_assignments.validation import (
+            normalize_assigner,
+            normalize_reviewer,
+            normalize_target_id,
+            validate_assignment_for_create,
+        )
+
+        # Normalize first so validation rules (non-empty, length caps)
+        # apply to the canonical form actually stored.
+        reviewer = normalize_reviewer(reviewer)
+        target_id = normalize_target_id(target_id)
+        assigner = normalize_assigner(assigner)
+        coerced_target_type = validate_assignment_for_create(
+            target_type=target_type,
+            target_id=target_id,
+            reviewer=reviewer,
+            assigner=assigner,
+        )
+
+        with self.ManagedSessionMaker(read_only=False) as session:
+            self._validate_experiment_exists(session, experiment_id)
+
+            # Pre-check on the unique key. Creating the same
+            # ``(target_id, reviewer)`` twice is a no-op — return the
+            # existing row so SDK callers can treat single-create as
+            # idempotent without a separate retry path.
+            existing = self._lookup_review_assignment_pair(session, target_id, reviewer)
+            if existing is not None:
+                return existing.to_mlflow_entity()
+
+            now_ms = get_current_time_millis()
+            sql_assignment = self._with_workspace_field(
+                self._build_review_assignment(
+                    experiment_id=experiment_id,
+                    target_type=coerced_target_type,
+                    target_id=target_id,
+                    reviewer=reviewer,
+                    assigner=assigner,
+                    now_ms=now_ms,
+                )
+            )
+            session.add(sql_assignment)
+            try:
+                # SAVEPOINT around the flush so an IntegrityError
+                # rolls back only this row, not any prior inserts in
+                # the surrounding transaction.
+                with session.begin_nested():
+                    session.flush()
+            except IntegrityError:
+                # Race: a parallel transaction inserted the same
+                # (target_id, reviewer) between the pre-check and
+                # the flush. Re-query and return the now-existing
+                # row so the caller still sees idempotent behaviour.
+                existing = self._lookup_review_assignment_pair(session, target_id, reviewer)
+                if existing is None:
+                    # IntegrityError from something other than the
+                    # unique-key collision (e.g. FK violation). Re-raise
+                    # so the caller gets a real error rather than a
+                    # silent miss.
+                    raise
+                return existing.to_mlflow_entity()
+            return sql_assignment.to_mlflow_entity()
+
+    def bulk_create_review_assignments(
+        self,
+        *,
+        experiment_id,
+        target_type,
+        target_ids,
+        reviewers,
+        assigner,
+    ):
+        """See :py:meth:`AbstractStore.bulk_create_review_assignments`."""
+        from mlflow.genai.review_assignments import (
+            BulkCreateFailure,
+            BulkCreateReviewAssignmentsResult,
+        )
+        from mlflow.genai.review_assignments.validation import (
+            normalize_assigner,
+            normalize_reviewer,
+            normalize_target_id,
+            validate_assignment_for_create,
+        )
+
+        # Normalize assigner once — same value across the whole batch.
+        # A bad assigner is a whole-batch failure (it's not per-pair).
+        assigner = normalize_assigner(assigner)
+
+        # Pre-flight: normalize + validate every pair. Failures land
+        # in the ``failed`` bucket with the raw caller-provided
+        # identifiers so the caller can find them again in their
+        # source data. Successful pairs go through normalized.
+        validated_pairs = []
+        failed = []
+        coerced_target_type = None
+        for target_id in target_ids:
+            for reviewer in reviewers:
+                try:
+                    normalized_target_id = normalize_target_id(target_id)
+                    normalized_reviewer = normalize_reviewer(reviewer)
+                    coerced_target_type = validate_assignment_for_create(
+                        target_type=target_type,
+                        target_id=normalized_target_id,
+                        reviewer=normalized_reviewer,
+                        assigner=assigner,
+                    )
+                except MlflowException as e:
+                    failed.append(
+                        BulkCreateFailure(
+                            target_id=str(target_id),
+                            reviewer=str(reviewer),
+                            error_message=str(e),
+                        )
+                    )
+                else:
+                    validated_pairs.append((normalized_target_id, normalized_reviewer))
+
+        created = []
+        existing_ids = []
+        with self.ManagedSessionMaker(read_only=False) as session:
+            # Validate experiment existence BEFORE per-pair work so a
+            # bad experiment_id raises immediately rather than
+            # silently producing N*M failures with misleading
+            # validation error messages.
+            self._validate_experiment_exists(session, experiment_id)
+
+            # Per-pair pass over the validated pairs. SAVEPOINT around
+            # each flush so a race-condition collision on row K
+            # doesn't roll back rows 1..K-1 already flushed in this
+            # transaction.
+            now_ms = get_current_time_millis()
+            for target_id, reviewer in validated_pairs:
+                hit = self._lookup_review_assignment_pair(session, target_id, reviewer)
+                if hit is not None:
+                    existing_ids.append(hit.assignment_id)
+                    continue
+                sql_assignment = self._with_workspace_field(
+                    self._build_review_assignment(
+                        experiment_id=experiment_id,
+                        target_type=coerced_target_type,
+                        target_id=target_id,
+                        reviewer=reviewer,
+                        assigner=assigner,
+                        now_ms=now_ms,
+                    )
+                )
+                session.add(sql_assignment)
+                try:
+                    with session.begin_nested():
+                        session.flush()
+                except IntegrityError:
+                    # Parallel writer inserted the same row mid-batch.
+                    # SAVEPOINT rolled back only this row; re-fetch
+                    # and record the now-existing id rather than
+                    # failing the whole batch. If the collision wasn't
+                    # the unique key (e.g. FK violation), the lookup
+                    # will miss and we re-raise to surface the real
+                    # error.
+                    hit = self._lookup_review_assignment_pair(session, target_id, reviewer)
+                    if hit is None:
+                        raise
+                    existing_ids.append(hit.assignment_id)
+                else:
+                    created.append(sql_assignment.to_mlflow_entity())
+
+        return BulkCreateReviewAssignmentsResult(
+            created=created,
+            existing=existing_ids,
+            failed=failed,
+        )
+
+    def get_review_assignment(self, assignment_id):
+        """See :py:meth:`AbstractStore.get_review_assignment`."""
+        with self.ManagedSessionMaker() as session:
+            sql_assignment = (
+                self
+                ._review_assignment_query(session)
+                .filter(SqlReviewAssignment.assignment_id == assignment_id)
+                .one_or_none()
+            )
+            if sql_assignment is None:
+                raise MlflowException(
+                    f"Review assignment with id '{assignment_id}' not found.",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
+            return sql_assignment.to_mlflow_entity()
+
+    def list_review_assignments(
+        self,
+        *,
+        experiment_id=None,
+        reviewer=None,
+        state=None,
+        target_type=None,
+        max_results=None,
+        page_token=None,
+    ):
+        """See :py:meth:`AbstractStore.list_review_assignments`."""
+        from mlflow.genai.review_assignments.validation import normalize_reviewer
+
+        # Require at least one indexed scope predicate. Without this
+        # guard a caller can full-table-scan a table that grows
+        # unboundedly per assignment; the composite index serves
+        # (experiment_id, reviewer, state) so either filter is enough.
+        if experiment_id is None and reviewer is None:
+            raise MlflowException(
+                "At least one of `experiment_id` or `reviewer` must be set when "
+                "listing review assignments.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        if max_results is not None:
+            self._validate_max_results_param(max_results)
+        else:
+            max_results = SEARCH_MAX_RESULTS_DEFAULT
+        offset = SearchUtils.parse_start_offset_from_page_token(page_token) if page_token else 0
+
+        with self.ManagedSessionMaker() as session:
+            query = self._review_assignment_query(session)
+            if experiment_id is not None:
+                query = query.filter(SqlReviewAssignment.experiment_id == int(experiment_id))
+            if reviewer is not None:
+                # Normalize the caller-provided value the same way the
+                # write path does so the indexed equality matches.
+                query = query.filter(SqlReviewAssignment.reviewer == normalize_reviewer(reviewer))
+            if state is not None:
+                query = query.filter(SqlReviewAssignment.state == str(state))
+            if target_type is not None:
+                query = query.filter(SqlReviewAssignment.target_type == str(target_type))
+
+            results = (
+                query
+                .order_by(
+                    SqlReviewAssignment.creation_time_ms.desc(),
+                    SqlReviewAssignment.assignment_id.asc(),
+                )
+                .offset(offset)
+                .limit(max_results + 1)
+                .all()
+            )
+
+            next_token = None
+            if len(results) > max_results:
+                results = results[:max_results]
+                next_token = SearchUtils.create_page_token(offset + max_results)
+            return PagedList(
+                [r.to_mlflow_entity() for r in results],
+                next_token,
+            )
+
+    def list_review_assignments_for_target(self, target_id):
+        """See :py:meth:`AbstractStore.list_review_assignments_for_target`."""
+        from mlflow.genai.review_assignments.validation import normalize_target_id
+
+        target_id = normalize_target_id(target_id)
+        with self.ManagedSessionMaker() as session:
+            results = (
+                self
+                ._review_assignment_query(session)
+                .filter(SqlReviewAssignment.target_id == target_id)
+                .order_by(SqlReviewAssignment.creation_time_ms.asc())
+                .all()
+            )
+            return [r.to_mlflow_entity() for r in results]
+
+    def update_review_assignment(self, assignment_id, *, state):
+        """See :py:meth:`AbstractStore.update_review_assignment`."""
+        from mlflow.genai.review_assignments.validation import (
+            validate_assignment_for_update,
+        )
+
+        with self.ManagedSessionMaker(read_only=False) as session:
+            sql_assignment = (
+                self
+                ._review_assignment_query(session)
+                .filter(SqlReviewAssignment.assignment_id == assignment_id)
+                .one_or_none()
+            )
+            if sql_assignment is None:
+                raise MlflowException(
+                    f"Review assignment with id '{assignment_id}' not found.",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
+
+            current_state = ReviewAssignmentState(sql_assignment.state)
+            # Transition-aware validation: enforces the FSM documented
+            # on ``ReviewAssignmentState`` so callers can't manually
+            # walk the workflow back to ``pending``.
+            new_enum = validate_assignment_for_update(
+                current_state=current_state,
+                new_state=state,
+            )
+
+            # Don't bump timestamps if nothing changed; lets reviewers
+            # toggle freely in the UI without polluting the audit log.
+            if current_state == new_enum:
+                return sql_assignment.to_mlflow_entity()
+
+            now_ms = get_current_time_millis()
+            sql_assignment.state = str(new_enum)
+            sql_assignment.last_update_time_ms = now_ms
+            if new_enum == ReviewAssignmentState.COMPLETE:
+                sql_assignment.completed_time_ms = now_ms
+            # On reopen (complete -> in_progress), keep
+            # ``completed_time_ms`` populated with the prior completion
+            # stamp so callers can still surface "last completed at"
+            # even after a reopen.
+            session.flush()
+            return sql_assignment.to_mlflow_entity()
+
+    def delete_review_assignment(self, assignment_id):
+        """See :py:meth:`AbstractStore.delete_review_assignment`."""
+        with self.ManagedSessionMaker(read_only=False) as session:
+            self._review_assignment_query(session).filter(
+                SqlReviewAssignment.assignment_id == assignment_id
+            ).delete(synchronize_session=False)
 
 
 def _get_sqlalchemy_filter_clauses(parsed, session, dialect):

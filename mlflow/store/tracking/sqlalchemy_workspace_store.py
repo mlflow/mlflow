@@ -33,6 +33,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlIssue,
     SqlLoggedModel,
     SqlOnlineScoringConfig,
+    SqlReviewAssignment,
     SqlRun,
     SqlScorer,
     SqlTraceInfo,
@@ -85,6 +86,12 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
             return query.join(
                 SqlExperiment, SqlIssue.experiment_id == SqlExperiment.experiment_id
             ).filter(SqlExperiment.workspace == workspace)
+
+        if model is SqlReviewAssignment:
+            # ReviewAssignment carries its own workspace column (not
+            # joined via experiments) for symmetry with other
+            # OTHER_WORKSPACE_CHILD_TABLES entries. Filter directly.
+            return query.filter(SqlReviewAssignment.workspace == workspace)
 
         if model is SqlLoggedModel:
             workspace_experiment_ids = (
