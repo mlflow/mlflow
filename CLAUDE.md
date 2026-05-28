@@ -86,6 +86,15 @@ If PyPI is unreachable, add `--frozen` to `uv run` commands that should use the 
 uv run --frozen pytest tests/
 ```
 
+### Package Cooldown Period
+
+7-day cooldown on new package releases. Keep these in sync:
+
+- Python: `exclude-newer = "P7D"` in `pyproject.toml` (`torch`/`torchvision` opted out).
+- JavaScript: `min-release-age=7` in `docs/.npmrc` and `libs/typescript/.npmrc`; `npmMinimalAgeGate: 7d` in `mlflow/server/js/.yarnrc.yml`.
+
+Pass `--min-release-age=7` to any new `npx` invocations.
+
 ### Testing
 
 ```bash
