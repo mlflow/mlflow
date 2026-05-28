@@ -280,6 +280,7 @@ class EvaluationDemoGenerator(BaseDemoGenerator):
             filter_string=" AND ".join(filter_parts),
             max_results=100,
             return_type="list",
+            flush=True,
         )
 
     def _add_expectations_to_traces(self, traces: list[Trace]) -> int:

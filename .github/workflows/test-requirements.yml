@@ -31,6 +31,8 @@ defaults:
   run:
     shell: bash
 
+permissions: {}
+
 jobs:
   skinny:
     runs-on: ubuntu-latest

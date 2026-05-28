@@ -33,6 +33,8 @@ defaults:
     shell: bash
     working-directory: docs
 
+permissions: {}
+
 jobs:
   check:
     if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')

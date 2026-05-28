@@ -13,6 +13,8 @@ defaults:
   run:
     shell: bash
 
+permissions: {}
+
 jobs:
   # Test job: runs on PR changes against a fixed set of issues
   test:
