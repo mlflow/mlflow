@@ -598,7 +598,10 @@ class TracesDemoGenerator(BaseDemoGenerator):
         root = mlflow.start_span_no_context(
             name="prompt_chain",
             span_type=SpanType.CHAIN,
-            inputs={"messages": [{"role": "user", "content": trace_def.query}]},
+            inputs={
+                "messages": [{"role": "user", "content": trace_def.query}],
+                "template_variables": variables,
+            },
             metadata={DEMO_VERSION_TAG: version, DEMO_TRACE_TYPE_TAG: "prompt"},
             start_time_ns=start_ns,
         )
@@ -609,7 +612,7 @@ class TracesDemoGenerator(BaseDemoGenerator):
             parent_span=root,
             inputs={
                 "template": actual_template,
-                "variables": variables,
+                "template_variables": variables,
             },
             start_time_ns=start_ns + 1000,
         )
