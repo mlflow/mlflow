@@ -67,7 +67,12 @@ export const LabelSchemaInputCategorical = ({
 
   return (
     <DialogCombobox componentId={componentId} value={comboValue} label={label ?? ''} multiSelect={multiSelect}>
-      <DialogComboboxTrigger disabled={disabled} />
+      <DialogComboboxTrigger
+        disabled={disabled}
+        withInlineLabel={false}
+        placeholder={multiSelect ? 'Select one or more' : 'Select an option'}
+        width="100%"
+      />
       <DialogComboboxContent matchTriggerWidth>
         <DialogComboboxOptionList>
           {input.options.map((option) =>
