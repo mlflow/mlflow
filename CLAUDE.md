@@ -195,15 +195,9 @@ git push origin <your-branch>
 - Inside `gh pr ... --body "$(cat <<'EOF' ... EOF)"`, write backticks plain. The quoted `'EOF'` delimiter already suppresses command substitution, so escaping as `` \` `` is unnecessary and the backslashes get persisted in the PR body, rendering literally instead of as code spans.
 
   ```bash
-  # Bad
   gh pr create --body "$(cat <<'EOF'
-  Updated \`pyproject.toml\` to bump the version.
-  EOF
-  )"
-
-  # Good
-  gh pr create --body "$(cat <<'EOF'
-  Updated `pyproject.toml` to bump the version.
+  Updated \`pyproject.toml\` to bump the version. # BAD
+  Updated `pyproject.toml` to bump the version.   # GOOD
   EOF
   )"
   ```
