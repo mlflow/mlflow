@@ -7,6 +7,7 @@ import {
   SimpleSelect,
   SimpleSelectOption,
   Switch,
+  Tooltip,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
@@ -210,19 +211,31 @@ export const CreateUserModal = ({ open, onClose }: CreateUserModalProps) => {
           <Button componentId="admin.create_user_modal.cancel" onClick={onClose} disabled={submitting}>
             Cancel
           </Button>
-          <Button
-            componentId="admin.create_user_modal.submit"
-            type="primary"
-            onClick={handleSubmit}
-            loading={submitting}
-            disabled={!canSubmit}
+          {/* Tooltip surfaces why submit is locked when the only blocker is
+              an unsaved draft — without it the disabled button is a dead
+              end, especially in retry mode where the credential fields are
+              already disabled and the only remaining interaction is the
+              direct-grant picker. */}
+          <Tooltip
+            componentId="admin.create_user_modal.submit_blocked_tooltip"
+            content={
+              hasUnsavedDirectDraft ? 'Complete or Clear the unsaved direct permission before submitting.' : null
+            }
           >
-            {createdUsername !== null
-              ? 'Retry failed grants'
-              : isAdmin || wantsRoles || wantsDirect
-                ? 'Create user and grant access'
-                : 'Create user'}
-          </Button>
+            <Button
+              componentId="admin.create_user_modal.submit"
+              type="primary"
+              onClick={handleSubmit}
+              loading={submitting}
+              disabled={!canSubmit}
+            >
+              {createdUsername !== null
+                ? 'Retry failed grants'
+                : isAdmin || wantsRoles || wantsDirect
+                  ? 'Create user and grant access'
+                  : 'Create user'}
+            </Button>
+          </Tooltip>
         </div>
       }
     >

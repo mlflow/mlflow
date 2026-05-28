@@ -9,6 +9,7 @@ import {
   Spinner,
   Switch,
   Tag,
+  Tooltip,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
@@ -335,17 +336,28 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
             <Button componentId="admin.edit_access_modal.cancel" onClick={onClose} disabled={submitting}>
               Cancel
             </Button>
-            <Button
-              componentId="admin.edit_access_modal.review"
-              type="primary"
-              onClick={() => {
-                setError(null);
-                setStep('review');
-              }}
-              disabled={!hasAnyChange || !stateLoaded || Boolean(rolesError) || hasUnsavedDirectDraft}
+            {/* Tooltip explains the lock when the only blocker is an
+                unsaved direct-grant draft — the inline error inside the
+                section may be out of view if the admin scrolled past or
+                collapsed it. */}
+            <Tooltip
+              componentId="admin.edit_access_modal.review_blocked_tooltip"
+              content={
+                hasUnsavedDirectDraft ? 'Complete or Clear the unsaved direct permission before reviewing.' : null
+              }
             >
-              Review changes
-            </Button>
+              <Button
+                componentId="admin.edit_access_modal.review"
+                type="primary"
+                onClick={() => {
+                  setError(null);
+                  setStep('review');
+                }}
+                disabled={!hasAnyChange || !stateLoaded || Boolean(rolesError) || hasUnsavedDirectDraft}
+              >
+                Review changes
+              </Button>
+            </Tooltip>
           </div>
         ) : (
           <div css={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>

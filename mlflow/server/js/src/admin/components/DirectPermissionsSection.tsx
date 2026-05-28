@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Button,
   CloseIcon,
@@ -97,9 +97,17 @@ export const DirectPermissionsSection = ({
   const dirty = isDraftDirty(draft);
   const hasUnsavedInvalidDraft = dirty && !canAdd;
 
+  // Ref-wrap the callback so the reporting effect can depend only on the
+  // value it reports — otherwise a future caller passing an inline arrow
+  // function would re-fire the effect on every render. Current call sites
+  // (state setters) are stable, but this is the safer contract.
+  const onUnsavedInvalidDraftChangeRef = useRef(onUnsavedInvalidDraftChange);
   useEffect(() => {
-    onUnsavedInvalidDraftChange?.(hasUnsavedInvalidDraft);
-  }, [hasUnsavedInvalidDraft, onUnsavedInvalidDraftChange]);
+    onUnsavedInvalidDraftChangeRef.current = onUnsavedInvalidDraftChange;
+  }, [onUnsavedInvalidDraftChange]);
+  useEffect(() => {
+    onUnsavedInvalidDraftChangeRef.current?.(hasUnsavedInvalidDraft);
+  }, [hasUnsavedInvalidDraft]);
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>

@@ -156,8 +156,11 @@ export const DirectPermissionForm = ({
               css={{ display: 'block', marginBottom: theme.spacing.xs }}
               data-testid="admin.direct_permission.resource_required_error"
             >
-              Pick a {typeLabel.toLowerCase()} or switch the scope to <strong>All {typeLabel.toLowerCase()}s</strong>{' '}
-              before submitting.
+              {/* "Select a specific X" keeps the "a" article correct
+                  regardless of the resource label (so "a experiment" /
+                  "a endpoint" never slips through). */}
+              Select a specific {typeLabel.toLowerCase()} or switch the scope to{' '}
+              <strong>All {typeLabel.toLowerCase()}s</strong> before submitting.
             </Typography.Text>
           )}
           <DialogCombobox
