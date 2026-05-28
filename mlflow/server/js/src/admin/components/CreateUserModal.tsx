@@ -313,7 +313,14 @@ export const CreateUserModal = ({ open, onClose }: CreateUserModalProps) => {
             </Typography.Text>
           </div>
         )}
+        {/* ``key={String(open)}`` forces a fresh mount each time the modal
+            re-opens, so the section's internal ``draft`` state can't bleed
+            across close → reopen and re-block submit with a phantom
+            previous-session draft (the dialog itself stays mounted via
+            ant Modal default behavior, so the section would otherwise
+            retain its useState). */}
         <DirectPermissionsSection
+          key={String(open)}
           value={directPermissions}
           onChange={setDirectPermissions}
           workspace={grantWorkspace}

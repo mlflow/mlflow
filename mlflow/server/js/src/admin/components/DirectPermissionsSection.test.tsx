@@ -1,6 +1,7 @@
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import { PointerEventsCheckLevel } from '@testing-library/user-event';
 import userEventGlobal from '@testing-library/user-event';
+import { waitFor } from '@testing-library/react';
 import React from 'react';
 import { renderWithDesignSystem, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { DirectPermissionsSection } from './DirectPermissionsSection';
@@ -65,7 +66,7 @@ const changeSimpleSelect = async (componentId: string, optionLabel: string) => {
   await userEvent.click(await screen.findByRole('option', { name: optionLabel }));
 };
 
-describe('DirectPermissionsSection — unsaved-invalid-draft signal (Kris bug)', () => {
+describe('DirectPermissionsSection — unsaved-invalid-draft signal', () => {
   it('reports unsaved-invalid=true when the user picks scope=specific with no resource', async () => {
     // The exact silent-drop case: admin bumps the permission level to MANAGE
     // (changes from the default READ) but leaves scope on the default
@@ -80,12 +81,15 @@ describe('DirectPermissionsSection — unsaved-invalid-draft signal (Kris bug)',
         onUnsavedInvalidDraftChange={onUnsavedInvalidDraftChange}
       />,
     );
-    // Initial fire: draft starts at default → not dirty → false.
-    expect(onUnsavedInvalidDraftChange).toHaveBeenLastCalledWith(false);
+    // ``waitFor`` because the reporting effect fires after the first
+    // commit, not synchronously inside ``render`` — otherwise a flaky
+    // schedule could let the assertion pass vacuously before the mock is
+    // ever called.
+    await waitFor(() => expect(onUnsavedInvalidDraftChange).toHaveBeenLastCalledWith(false));
 
     await changeSimpleSelect('admin.direct_permission.permission_level', 'MANAGE');
 
-    expect(onUnsavedInvalidDraftChange).toHaveBeenLastCalledWith(true);
+    await waitFor(() => expect(onUnsavedInvalidDraftChange).toHaveBeenLastCalledWith(true));
 
     // Surfaces the inline error so the admin knows why the modal is locked.
     expect(screen.getByTestId('admin.direct_permission.resource_required_error')).toBeInTheDocument();
@@ -105,10 +109,10 @@ describe('DirectPermissionsSection — unsaved-invalid-draft signal (Kris bug)',
       />,
     );
     await changeSimpleSelect('admin.direct_permission.permission_level', 'MANAGE');
-    expect(onUnsavedInvalidDraftChange).toHaveBeenLastCalledWith(true);
+    await waitFor(() => expect(onUnsavedInvalidDraftChange).toHaveBeenLastCalledWith(true));
 
     await userEvent.click(screen.getByRole('button', { name: /^Clear$/ }));
-    expect(onUnsavedInvalidDraftChange).toHaveBeenLastCalledWith(false);
+    await waitFor(() => expect(onUnsavedInvalidDraftChange).toHaveBeenLastCalledWith(false));
     // Inline error disappears once the draft is clean.
     expect(screen.queryByTestId('admin.direct_permission.resource_required_error')).not.toBeInTheDocument();
   });
@@ -128,7 +132,7 @@ describe('DirectPermissionsSection — unsaved-invalid-draft signal (Kris bug)',
       />,
     );
     await userEvent.click(screen.getByRole('radio', { name: /^All experiments$/ }));
-    expect(onUnsavedInvalidDraftChange).toHaveBeenLastCalledWith(false);
+    await waitFor(() => expect(onUnsavedInvalidDraftChange).toHaveBeenLastCalledWith(false));
     expect(screen.queryByTestId('admin.direct_permission.resource_required_error')).not.toBeInTheDocument();
   });
 });

@@ -466,7 +466,15 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
                     </Typography.Text>
                   </div>
                 )}
+                {/* ``key={String(open)}`` forces a fresh mount each time
+                    the modal re-opens so the section's internal ``draft``
+                    state can't bleed across close → reopen and re-block
+                    Review with a phantom previous-session draft. The pre-
+                    fill effect re-seeds ``directPermissions`` from the
+                    backend on its own schedule, but the in-progress draft
+                    is owned by the section and needs a remount to reset. */}
                 <DirectPermissionsSection
+                  key={String(open)}
                   value={directPermissions}
                   onChange={setDirectPermissions}
                   workspace={grantWorkspace}
