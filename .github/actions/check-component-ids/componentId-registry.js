@@ -651,6 +651,7 @@ module.exports = {
   "admin.direct_permission.resource_type": "",
   "admin.direct_permission.scope": "",
   "admin.direct_permissions.add": "",
+  "admin.direct_permissions.clear": "",
   "admin.direct_permissions.staged_actions": "",
   "admin.direct_permissions.staged_level": "",
   "admin.direct_permissions.staged_level_tag": "",
