@@ -110,21 +110,6 @@ def test_create_review_assignment_rejects_invalid_target_type(store):
         )
 
 
-@pytest.mark.parametrize("forward_compat_type", ["session", "span"])
-def test_create_review_assignment_rejects_v1_unsupported_target_type(store, forward_compat_type):
-    # ReviewTargetType carries SESSION and SPAN for forward-compat but
-    # v1 ships TRACE only. Reject so we don't store unrenderable rows.
-    exp_id = _create_experiments(store, f"test_create_ra_{forward_compat_type}")
-    with pytest.raises(MlflowException, match="not supported in this release"):
-        store.create_review_assignment(
-            experiment_id=exp_id,
-            target_type=forward_compat_type,
-            target_id="tr-1",
-            reviewer="sme@example.com",
-            assigner="kris@example.com",
-        )
-
-
 # ---------------------------------------------------------------------------
 # bulk_create_review_assignments
 # ---------------------------------------------------------------------------

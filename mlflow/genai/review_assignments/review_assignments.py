@@ -5,17 +5,9 @@ from mlflow.genai.utils.enum_utils import StrEnum
 
 
 class ReviewTargetType(StrEnum):
-    """What kind of object is being reviewed.
-
-    v1 ships ``TRACE`` only. ``SESSION`` and ``SPAN`` are reserved on
-    the wire (the proto enum carries them) so existing assignment rows
-    keep their target-type discriminator stable when those review
-    surfaces land in later releases.
-    """
+    """What kind of object is being reviewed."""
 
     TRACE = "trace"
-    SESSION = "session"
-    SPAN = "span"
 
 
 class ReviewAssignmentState(StrEnum):

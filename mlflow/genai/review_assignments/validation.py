@@ -25,14 +25,6 @@ REVIEWER_MAX_LENGTH = 250
 ASSIGNER_MAX_LENGTH = 250
 TARGET_ID_MAX_LENGTH = 50
 
-# Target types accepted by v1. The enum carries ``SESSION`` and
-# ``SPAN`` for forward-compat (so existing rows keep their
-# discriminator stable when those surfaces ship), but the validator
-# rejects them today to avoid storing assignments that no UI surface
-# can render. When session/span review lands, drop the relevant entry
-# from this set and re-test.
-_V1_ALLOWED_TARGET_TYPES: frozenset[ReviewTargetType] = frozenset({ReviewTargetType.TRACE})
-
 
 def _invalid(message: str) -> MlflowException:
     return MlflowException(message, error_code=INVALID_PARAMETER_VALUE)
@@ -46,21 +38,13 @@ def _validate_non_empty_string(value: object, field: str, max_length: int) -> No
 
 
 def _coerce_target_type(target_type: object) -> ReviewTargetType:
-    """Coerce caller input to ``ReviewTargetType`` and v1-reject."""
     if isinstance(target_type, ReviewTargetType):
-        coerced = target_type
-    else:
-        if target_type not in ReviewTargetType:
-            raise _invalid(
-                f"`target_type` must be one of {ReviewTargetType.values()}; got {target_type!r}."
-            )
-        coerced = ReviewTargetType(target_type)
-    if coerced not in _V1_ALLOWED_TARGET_TYPES:
+        return target_type
+    if target_type not in ReviewTargetType:
         raise _invalid(
-            f"`target_type` {coerced.value!r} is not supported in this release; "
-            f"v1 only accepts {[t.value for t in _V1_ALLOWED_TARGET_TYPES]}."
+            f"`target_type` must be one of {ReviewTargetType.values()}; got {target_type!r}."
         )
-    return coerced
+    return ReviewTargetType(target_type)
 
 
 def _validate_state(state: object) -> None:
