@@ -22,7 +22,7 @@ const mockSchema: LabelSchema = {
   schema_id: 'ls-test-1',
   experiment_id: '1',
   name: 'correctness',
-  type: 'feedback',
+  type: 'FEEDBACK',
   title: 'Is the answer correct?',
   enable_comment: true,
   input: { pass_fail: { positive_label: 'Correct', negative_label: 'Incorrect' } },
@@ -136,7 +136,7 @@ describe('label-schema hooks', () => {
         await result.current.createLabelSchemaAsync({
           experiment_id: '1',
           name: 'correctness',
-          type: 'feedback',
+          type: 'FEEDBACK',
           title: 'Is the answer correct?',
           input: { pass_fail: { positive_label: 'Correct', negative_label: 'Incorrect' } },
           enable_comment: true,
@@ -149,7 +149,7 @@ describe('label-schema hooks', () => {
       expect(requestBody).toHaveBeenCalledWith({
         experiment_id: '1',
         name: 'correctness',
-        type: 'feedback',
+        type: 'FEEDBACK',
         title: 'Is the answer correct?',
         input: { pass_fail: { positive_label: 'Correct', negative_label: 'Incorrect' } },
         enable_comment: true,
@@ -228,7 +228,7 @@ describe('label-schema hooks', () => {
         await result.current.upsertLabelSchemaAsync({
           experiment_id: '1',
           name: 'correctness',
-          type: 'feedback',
+          type: 'FEEDBACK',
           title: 'Is the answer correct?',
           input: { pass_fail: { positive_label: 'Correct', negative_label: 'Incorrect' } },
         });
