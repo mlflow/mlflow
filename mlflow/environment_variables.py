@@ -1553,7 +1553,7 @@ MLFLOW_LOG_UV_FILES = _BooleanEnvironmentVariable("MLFLOW_LOG_UV_FILES", True)
 
 
 #: Specifies whether to allow using the filesystem backend for tracking and model
-#: registry, which is in maintenance mode (no further updates or new features).
+#: registry, which is in maintenance mode (no further updates).
 #: Set to ``True`` to opt out of the error raised when instantiating the file-based
 #: stores and continue using the filesystem backend.
 #: (default: ``False``)

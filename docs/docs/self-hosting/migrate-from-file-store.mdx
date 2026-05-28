@@ -85,7 +85,7 @@ The migration tool preserves your data exactly as it was in the FileStore. No ti
 ## Continue Using the Filesystem Backend
 
 :::warning
-The filesystem backend is in maintenance mode and will not receive further updates or new features. The recommended path is to [migrate](#quick-start) to a database backend using `mlflow migrate-filestore`, which preserves your existing data losslessly.
+The filesystem backend is in maintenance mode and will not receive further updates. The recommended path is to [migrate](#quick-start) to a database backend using `mlflow migrate-filestore`, which preserves your existing data losslessly.
 :::
 
 This escape hatch exists for the rare case where migration is genuinely not an option (for example, browsing read-only `mlruns` data synced from an HPC cluster that cannot run a database, or sharing a directory snapshot across machines via `rsync`). If your workflow does not have such a constraint, please use the migration tool above instead.
