@@ -39,7 +39,7 @@ describe('LabelSchemaPreview', () => {
       title: 'Severity',
       inputKind: 'categorical',
       categoricalOptions: 'low\nmedium\nhigh',
-      categoricalPolarity: 'ascending',
+      categoricalPolarity: 'ASCENDING',
     };
     renderWithProviders(<LabelSchemaPreview formData={formData} />);
     expect(screen.getByText('Severity')).toBeInTheDocument();
