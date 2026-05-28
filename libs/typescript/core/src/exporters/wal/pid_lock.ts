@@ -34,12 +34,10 @@ export async function tryAcquirePidLock(): Promise<PidLock | null> {
   const expectedContent = `${process.pid}\n`;
 
   for (let attempt = 0; attempt < MAX_ACQUIRE_ATTEMPTS; attempt++) {
-    
     const tmpPath = join(getWalDir(), `daemon.pid.${process.pid}.${randomUUID()}.tmp`);
 
-    await writeFile(tmpPath, expectedContent, { flag: 'wx' });
-
     try {
+      await writeFile(tmpPath, expectedContent, { flag: 'wx' });
       await link(tmpPath, lockPath);
       await unlink(tmpPath).catch(() => {});
       return { release: () => releaseLockFile(lockPath, expectedContent) };
@@ -49,7 +47,6 @@ export async function tryAcquirePidLock(): Promise<PidLock | null> {
         throw err;
       }
     }
-
     // EEXIST path. Inspect the holder to decide between conceding and
     // recovering from a stale lockfile left by a crashed daemon.
     let content: string;

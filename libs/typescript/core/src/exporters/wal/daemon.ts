@@ -133,7 +133,9 @@ export interface DaemonLock {
  * On Windows, named pipes are kernel-refcounted: two daemons cannot
  * bind the same pipe name simultaneously regardless of the order of
  * operations. We skip the PID lock there and rely on `listen()`'s
- * native exclusion.
+ * native exclusion — the loser of a concurrent-bind race sees
+ * `EADDRINUSE` from {@link bindUnderPidLock}, which returns `null` so
+ * we concede here the same way the PID-lock-lost path does on POSIX.
  */
 export async function acquireLock(
   onConnection: (socket: Socket) => void = defaultConnectionHandler,
@@ -153,6 +155,13 @@ export async function acquireLock(
   try {
     const socketPath = getLockSocketPath();
     const server = await bindUnderPidLock(socketPath, onConnection);
+    if (server == null) {
+      // Windows-only path: a sibling daemon won the named-pipe race.
+      // No PID lock to release (Windows path; `pidLock` is always
+      // null here). Concede the same way the POSIX PID-lock-lost case
+      // does so the caller can `process.exit(0)` cleanly.
+      return null;
+    }
     return { server, pidLock };
   } catch (err) {
     // Bind path failed after we acquired the PID lock — release it so
@@ -163,17 +172,28 @@ export async function acquireLock(
 }
 
 /**
- * Bind the lock socket under the protection of an already-held PID
- * lock. With the lock held, an `EADDRINUSE` on the first attempt can
- * only mean a leftover socket file from a daemon that crashed without
- * cleanup, so the recovery is a single unlink + rebind. A second
- * `EADDRINUSE` indicates a non-daemon process squatting on our socket
- * path and is surfaced as a fatal error.
+ * Bind the lock socket, with recovery semantics that depend on the
+ * cross-process exclusion guarantee held by the caller.
+ *
+ * Returns:
+ *   - the bound `Server` on success.
+ *   - `null` on Windows when a sibling daemon won the named-pipe bind
+ *     race. POSIX handles the equivalent "sibling won" case via the
+ *     PID lock acquisition earlier in {@link acquireLock}, so this
+ *     return value only fires on Windows.
+ *
+ * The asymmetric handling reflects platform reality: Unix domain
+ * sockets leave a filesystem entry that survives the owning process,
+ * so POSIX needs an unlink + rebind dance for orphan recovery. Windows
+ * named pipes are kernel-refcounted — when the owning process dies
+ * the pipe disappears from the kernel namespace automatically, so
+ * there is no orphan recovery to do; `EADDRINUSE` there can only mean
+ * a live sibling.
  */
 async function bindUnderPidLock(
   socketPath: string,
   onConnection: (socket: Socket) => void,
-): Promise<Server> {
+): Promise<Server | null> {
   const first = await tryBind(socketPath, onConnection);
   if (first.kind === 'bound') {
     return first.server;
@@ -182,13 +202,25 @@ async function bindUnderPidLock(
     throw first.err;
   }
 
-  if (process.platform !== 'win32') {
-    try {
-      await unlink(socketPath);
-    } catch (err) {
-      if (isErrnoException(err) && err.code !== 'ENOENT') {
-        throw err;
-      }
+  // EADDRINUSE on the first attempt. The right action depends on
+  // platform:
+  //   - Windows: no PID lock is held (named pipes provide their own
+  //     kernel-level exclusion), and there is no orphan pipe file to
+  //     unlink. EADDRINUSE here means a live sibling daemon won the
+  //     race; concede by returning null and let `acquireLock`
+  //     propagate that as a clean "another daemon is running" signal.
+  //   - POSIX: we hold the PID lock, so no sibling daemon is racing
+  //     us. EADDRINUSE must be a leftover socket file from a daemon
+  //     that crashed without cleanup. Unlink the orphan and retry.
+  if (process.platform === 'win32') {
+    return null;
+  }
+
+  try {
+    await unlink(socketPath);
+  } catch (err) {
+    if (isErrnoException(err) && err.code !== 'ENOENT') {
+      throw err;
     }
   }
 
@@ -361,7 +393,7 @@ export async function uploadOne(
         `Failed to rebuild client for ${record.trackingUri} after auth error: ${formatError(factoryErr)}`,
       );
 
-      await handleUploadFailure(record, err, writer);
+      await handleUploadFailure(record, factoryErr, writer);
       return;
     }
 
@@ -466,41 +498,46 @@ export async function processBatch(
   );
 }
 
-let shutdownRequested = false;
-
 /**
- * Wire signal handlers so the daemon finishes its current batch and
- * exits cleanly on `SIGTERM` / `SIGINT` rather than being torn down
- * mid-write. The check is consulted at the top of each loop iteration.
+ * Wire SIGTERM / SIGINT handlers to abort the supplied controller so
+ * the daemon finishes its current batch and exits cleanly rather than
+ * being torn down mid-write. The abort is consulted at the top of each
+ * {@link runBatchLoop} iteration.
  */
-function installSignalHandlers(): void {
+function installSignalHandlers(controller: AbortController): void {
   for (const sig of ['SIGTERM', 'SIGINT'] as const) {
     process.on(sig, () => {
       log(`Received ${sig}; will shut down after current batch.`);
-      shutdownRequested = true;
+      controller.abort();
     });
   }
 }
 
 /**
  * The batch loop. Broken out from {@link main} so the dependencies
- * (client factory, writer, timings) can be injected in tests without
- * standing up the full daemon lifecycle.
+ * (client factory, writer, timings, shutdown signal) can be injected
+ * in tests without standing up the full daemon lifecycle.
+ *
+ * Pass an `AbortSignal` to request a graceful shutdown — the loop
+ * finishes its current iteration and returns. Without a signal the
+ * loop only exits via the `idleMs` timeout path (or by throwing).
  */
 export async function runBatchLoop({
   factory = clientForUri,
   writer = new BatchingWriter(),
   batchIntervalMs = BATCH_INTERVAL_MS,
   idleMs = IDLE_MS,
+  signal,
 }: {
   factory?: ClientFactory;
   writer?: BatchingWriter;
   batchIntervalMs?: number;
   idleMs?: number;
+  signal?: AbortSignal;
 } = {}): Promise<void> {
   let lastNonEmpty = Date.now();
 
-  while (!shutdownRequested) {
+  while (signal?.aborted !== true) {
     try {
       const pending = await readPending();
       if (pending.length > 0) {
@@ -542,13 +579,14 @@ export async function main(): Promise<void> {
   }
 
   log(`Daemon started; pid=${process.pid}, walDir=${getWalDir()}`);
-  installSignalHandlers();
+  const shutdown = new AbortController();
+  installSignalHandlers(shutdown);
 
   let exitCode = 0;
   try {
     await pruneOldLogs().catch((err) => log(`Retention sweep failed: ${formatError(err)}`));
     await compact().catch((err) => log(`Startup compact failed: ${formatError(err)}`));
-    await runBatchLoop({ writer: ipcWriter });
+    await runBatchLoop({ writer: ipcWriter, signal: shutdown.signal });
     await compact().catch((err) => log(`Final compact failed: ${formatError(err)}`));
   } catch (err) {
     log(`Daemon main loop crashed: ${formatError(err)}`);

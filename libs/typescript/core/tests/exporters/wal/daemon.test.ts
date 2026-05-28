@@ -465,6 +465,35 @@ describe('wal/daemon', () => {
         expect(failedContents).toContain('"id":"row-401-persistent"');
       });
 
+      it('dead-letters with the factory error when refresh-time factory throws', async () => {
+        const staleCreateTrace = jest
+          .fn()
+          .mockRejectedValue(new MlflowHttpError(401, 'Unauthorized', ''));
+        const stale = makeClient({ createTrace: staleCreateTrace });
+        const factory = jest.fn(() => {
+          throw new Error('credential provider blew up');
+        });
+
+        const longAgo = Date.now() - 600_000;
+        const record = makeRecord({
+          id: 'row-refresh-factory-throws',
+          firstAttemptAt: longAgo,
+        });
+        await uploadOne(record, stale, new BatchingWriter(), factory);
+
+        // Stale client was tried once and got the auth error; the
+        // refresh asked the factory once and that throw aborted the
+        // retry before any fresh client call could happen.
+        expect(staleCreateTrace).toHaveBeenCalledTimes(1);
+        expect(factory).toHaveBeenCalledTimes(1);
+        expect(factory).toHaveBeenCalledWith(record.trackingUri);
+
+        const pending = await readPending();
+        expect(pending).toHaveLength(0);
+        const failedContents = await readFile(getDeadLetterPath(), 'utf8');
+        expect(failedContents).toContain('"id":"row-refresh-factory-throws"');
+      });
+
       it('does not refresh the client on non-auth HTTP errors', async () => {
         const createTrace = jest
           .fn()
@@ -501,7 +530,10 @@ describe('wal/daemon', () => {
 
         expect(factory).not.toHaveBeenCalled();
         const pending = await readPending();
-        expect(pending.find((r) => r.id !== 'row-transport')).toBeDefined();
+        const retry = pending.find((r) => r.id !== 'row-transport');
+        expect(pending.find((r) => r.id === 'row-transport')).toBeUndefined();
+        expect(retry).toBeDefined();
+        expect(retry!.attempts).toBe(1);
       });
     });
   });
