@@ -667,10 +667,6 @@
     "defaultMessage": "Failed to save: {message}",
     "description": "Schema save error"
   },
-  "1umowE": {
-    "defaultMessage": "Edit label schema",
-    "description": "Edit label schema modal title"
-  },
   "1uyr/n": {
     "defaultMessage": "View {count} {count, plural, one {issue} other {issues}}",
     "description": "Issue detection summary > View issues button"
@@ -5863,10 +5859,6 @@
     "defaultMessage": "Create a role to assign permissions to users.",
     "description": "Empty state description for roles table"
   },
-  "WcBj7j": {
-    "defaultMessage": "New label schema",
-    "description": "Create label schema modal title"
-  },
   "WcHytj": {
     "defaultMessage": "Total Cost",
     "description": "Subtitle for the cost over time chart total"
@@ -7399,6 +7391,10 @@
     "defaultMessage": "Select ({count})",
     "description": "Confirm button in the select sessions modal showing number of selected sessions"
   },
+  "f3QSQy": {
+    "defaultMessage": "Edit Labeling Schema",
+    "description": "Edit label schema modal title"
+  },
   "f3cOoh": {
     "defaultMessage": "Post-LLM Guardrails",
     "description": "Pipeline AFTER stage label"
@@ -8754,6 +8750,10 @@
   "mPqBZK": {
     "defaultMessage": "Agent successfully completes actions (tool calls, API steps)",
     "description": "Issue category description for execution"
+  },
+  "mRbdb/": {
+    "defaultMessage": "Create Labeling Schema",
+    "description": "Create label schema modal title"
   },
   "mRc7MY": {
     "defaultMessage": "Expand rows",

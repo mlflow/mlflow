@@ -137,11 +137,11 @@ export const LabelSchemaModal = ({ experimentId, editingSchema, visible, onClose
       title={
         isEdit
           ? intl.formatMessage({
-              defaultMessage: 'Edit label schema',
+              defaultMessage: 'Edit Labeling Schema',
               description: 'Edit label schema modal title',
             })
           : intl.formatMessage({
-              defaultMessage: 'New label schema',
+              defaultMessage: 'Create Labeling Schema',
               description: 'Create label schema modal title',
             })
       }
