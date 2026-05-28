@@ -53,6 +53,15 @@ export interface LabelSchemaFormData {
   numericMaxValue: string;
 }
 
+/**
+ * Placeholder labels for the pass/fail positive/negative inputs. Shared by
+ * the form's `<Input placeholder>` and the preview pane's blank-field
+ * fallback so the preview shows the same example text the author sees in
+ * the empty form field.
+ */
+export const PASS_FAIL_POSITIVE_PLACEHOLDER = 'Correct';
+export const PASS_FAIL_NEGATIVE_PLACEHOLDER = 'Incorrect';
+
 export const DEFAULT_FORM_VALUES: LabelSchemaFormData = {
   name: '',
   type: 'FEEDBACK',

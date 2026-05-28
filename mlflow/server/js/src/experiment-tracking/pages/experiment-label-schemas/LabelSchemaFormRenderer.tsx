@@ -2,7 +2,13 @@ import { Checkbox, FormUI, Input, Radio, useDesignSystemTheme } from '@databrick
 import { FormattedMessage } from 'react-intl';
 import { Controller, type Control } from 'react-hook-form';
 
-import type { LabelSchemaFormData, LabelSchemaFormErrors, LabelSchemaInputKind } from './labelSchemaFormUtils';
+import {
+  PASS_FAIL_NEGATIVE_PLACEHOLDER,
+  PASS_FAIL_POSITIVE_PLACEHOLDER,
+  type LabelSchemaFormData,
+  type LabelSchemaFormErrors,
+  type LabelSchemaInputKind,
+} from './labelSchemaFormUtils';
 
 type FormErrors = LabelSchemaFormErrors;
 
@@ -201,7 +207,7 @@ const PassFailFields = ({ control, errors }: { control: Control<LabelSchemaFormD
               componentId={`${COMPONENT_PREFIX}.pass-fail.positive`}
               id={`${COMPONENT_PREFIX}.pass-fail.positive`}
               {...field}
-              placeholder="Correct"
+              placeholder={PASS_FAIL_POSITIVE_PLACEHOLDER}
             />
           )}
         />
@@ -219,7 +225,7 @@ const PassFailFields = ({ control, errors }: { control: Control<LabelSchemaFormD
               componentId={`${COMPONENT_PREFIX}.pass-fail.negative`}
               id={`${COMPONENT_PREFIX}.pass-fail.negative`}
               {...field}
-              placeholder="Incorrect"
+              placeholder={PASS_FAIL_NEGATIVE_PLACEHOLDER}
             />
           )}
         />
