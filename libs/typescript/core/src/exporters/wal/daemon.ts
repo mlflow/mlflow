@@ -541,14 +541,13 @@ export async function runBatchLoop({
   while (signal?.aborted !== true) {
     try {
       const pending = await readPending();
-      if (pending.length > 0) {
-        lastNonEmpty = Date.now();
-        const now = Date.now();
-        const due = pending.filter((r) => r.nextAttemptAt <= now);
-        if (due.length > 0) {
-          await processBatch(due, writer, factory);
-        }
-      } else if (Date.now() - lastNonEmpty >= idleMs) {
+      const now = Date.now();
+      const due = pending.filter((r) => r.nextAttemptAt <= now);
+      
+      if (due.length > 0) {
+        lastNonEmpty = now;
+        await processBatch(due, writer, factory);
+      } else if (now - lastNonEmpty >= idleMs) {
         log('WAL idle threshold reached; shutting down.');
         return;
       }

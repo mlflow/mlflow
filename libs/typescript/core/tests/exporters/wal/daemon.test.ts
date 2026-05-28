@@ -11,6 +11,7 @@ import {
   processBatch,
   pruneOldLogs,
   releaseLock,
+  runBatchLoop,
   uploadOne,
 } from '../../../src/exporters/wal/daemon';
 import {
@@ -20,7 +21,7 @@ import {
   getPidLockPath,
   getWalPath,
 } from '../../../src/exporters/wal/paths';
-import { readPending } from '../../../src/exporters/wal/storage';
+import { appendRecord, readPending } from '../../../src/exporters/wal/storage';
 import type { WalRecord } from '../../../src/exporters/wal/types';
 import type { MlflowClient } from '../../../src/clients/client';
 import { MlflowHttpError } from '../../../src/clients/utils';
@@ -704,5 +705,58 @@ describe('wal/daemon', () => {
       process.env.MLFLOW_WAL_DIR = join(walDir, 'does-not-exist');
       await expect(pruneOldLogs({ now: NOW, retentionDays: 14 })).resolves.toBeUndefined();
     });
+  });
+
+  describe('runBatchLoop idle semantics', () => {
+    it('shuts down via idleMs when the WAL is empty', async () => {
+      // Baseline: no records seeded → due.length === 0 every
+      // iteration → idle-shutdown branch fires on the first iteration
+      // after `idleMs` elapses.
+      const factory = jest.fn();
+      const start = Date.now();
+      await runBatchLoop({
+        factory,
+        writer: new BatchingWriter(),
+        batchIntervalMs: 10,
+        idleMs: 50,
+      });
+      const elapsed = Date.now() - start;
+      expect(elapsed).toBeGreaterThanOrEqual(50);
+      // Generous upper bound — guards against an accidental infinite
+      // loop while tolerating CI scheduler jitter.
+      expect(elapsed).toBeLessThan(2_000);
+      expect(factory).not.toHaveBeenCalled();
+    });
+
+    it('shuts down via idleMs when all pending records are future-dated', async () => {
+      // Regression test for the bug where `pending.length > 0` short-
+      // circuited the idle-shutdown check, pinning the daemon alive
+      // until each retry matured even though nothing was actually
+      // being worked on. The fix gates the idle check on
+      // `due.length === 0`, so a WAL populated only by future-dated
+      // retries is treated as not-actively-working and the loop
+      // winds down through the normal `idleMs` path.
+      await appendRecord(
+        makeRecord({ id: 'row-future', nextAttemptAt: Date.now() + 60_000 }),
+      );
+      const factory = jest.fn();
+      const start = Date.now();
+      await runBatchLoop({
+        factory,
+        writer: new BatchingWriter(),
+        batchIntervalMs: 10,
+        idleMs: 50,
+      });
+      const elapsed = Date.now() - start;
+      expect(elapsed).toBeGreaterThanOrEqual(50);
+      expect(elapsed).toBeLessThan(2_000);
+      expect(factory).not.toHaveBeenCalled();
+      // The record is still durably parked in the WAL: the supervisor's
+      // next respawn (driven by a fresh IPC submission) will pick it
+      // up and either retry or dead-letter against the original
+      // `firstAttemptAt` budget — at-least-once delivery preserved.
+      expect(await readPending()).toHaveLength(1);
+    });
+
   });
 });
