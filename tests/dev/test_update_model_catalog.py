@@ -298,6 +298,10 @@ def test_convert_end_to_end(tmp_path):
             "litellm_provider": "openai",
             "mode": "image_generation",
         },
+        "sora": {
+            "litellm_provider": "openai",
+            "mode": "video_generation",
+        },
         "ft:gpt-4o:org::id": {
             "litellm_provider": "openai",
             "mode": "chat",
@@ -312,7 +316,7 @@ def test_convert_end_to_end(tmp_path):
 
     stats = convert(input_data, output_dir)
 
-    assert stats == {"anthropic": 1, "bedrock": 1, "openai": 3}
+    assert stats == {"anthropic": 1, "bedrock": 1, "openai": 4}
     assert (output_dir / "openai.json").exists()
     assert (output_dir / "anthropic.json").exists()
     assert (output_dir / "bedrock.json").exists()
@@ -325,6 +329,7 @@ def test_convert_end_to_end(tmp_path):
     # Fine-tuned models should be excluded
     assert "ft:gpt-4o:org::id" not in openai_catalog["models"]
     assert "dall-e-3" in openai_catalog["models"]
+    assert "sora" in openai_catalog["models"]
 
 
 def test_convert_preserves_existing_models(tmp_path):
