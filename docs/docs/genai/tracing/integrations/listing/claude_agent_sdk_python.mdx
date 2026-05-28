@@ -17,8 +17,10 @@ keywords: [claude agent sdk, anthropic, tracing, mlflow, python]
 - Per-call and per-session token usage and cost
 - Latency for each step
 
-:::info Using TypeScript?
+:::info[Using TypeScript?]
+
 This page covers the **Python** Claude Agent SDK. For the TypeScript SDK, see [Tracing the Claude Agent SDK (TypeScript)](/genai/tracing/integrations/listing/claude_agent_sdk_typescript).
+
 :::
 
 ## Setup
@@ -56,7 +58,9 @@ if __name__ == "__main__":
 ```
 
 :::note
+
 Python SDK tracing currently supports `ClaudeSDKClient`. Directly calling `query()` is not traced.
+
 :::
 
 ### Using Claude Agent SDK tracing with MLflow Evaluation

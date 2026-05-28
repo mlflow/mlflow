@@ -17,8 +17,10 @@ keywords: [claude agent sdk, anthropic, tracing, mlflow, typescript, javascript]
 - Per-call and per-session token usage and cost
 - Latency for each step
 
-:::info Using Python?
+:::info[Using Python?]
+
 This page covers the **TypeScript** Claude Agent SDK. For the Python SDK, see [Tracing the Claude Agent SDK (Python)](/genai/tracing/integrations/listing/claude_agent_sdk_python).
+
 :::
 
 ## Setup
@@ -64,7 +66,9 @@ for await (const message of result) {
 ```
 
 :::note
+
 The TypeScript wrapper enables `forwardSubagentText` automatically so nested sub-agent activity is reconstructed in the MLflow trace.
+
 :::
 
 ## Tracking Token Usage and Cost

@@ -26,8 +26,10 @@ import ImageBox from "@site/src/components/ImageBox";
 - Latency and timing for each step
 - Session metadata (working directory, user, model)
 
-:::info Building with the Claude Agent SDK?
+:::info[Building with the Claude Agent SDK?]
+
 This page covers tracing the **Claude Code CLI**. If you're building an application on top of the Claude Agent SDK, see [Claude Agent SDK (Python)](/genai/tracing/integrations/listing/claude_agent_sdk_python) or [Claude Agent SDK (TypeScript)](/genai/tracing/integrations/listing/claude_agent_sdk_typescript) instead.
+
 :::
 
 ## Setup
@@ -49,7 +51,9 @@ claude plugin marketplace add mlflow/mlflow --sparse .claude-plugin
 ```
 
 :::warning
+
 The in-Claude `/plugin marketplace add` command clones the full `mlflow/mlflow` repo and often times out. Use the terminal command above with `--sparse .claude-plugin` instead.
+
 :::
 
 ### Step 2. Install the plugin
