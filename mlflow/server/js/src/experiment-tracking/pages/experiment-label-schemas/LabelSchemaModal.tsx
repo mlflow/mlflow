@@ -31,7 +31,12 @@ export const LabelSchemaModal = ({ experimentId, editingSchema, visible, onClose
   const intl = useIntl();
   const isEdit = editingSchema != null;
   const defaultValues = editingSchema ? getFormValuesFromSchema(editingSchema) : DEFAULT_FORM_VALUES;
-  const { control, handleSubmit, reset } = useForm<LabelSchemaFormData>({
+  const {
+    control,
+    handleSubmit,
+    reset,
+    formState: { isSubmitted },
+  } = useForm<LabelSchemaFormData>({
     defaultValues,
   });
   // `useWatch({ control })` returns `DeepPartial<LabelSchemaFormData>`;
@@ -120,6 +125,10 @@ export const LabelSchemaModal = ({ experimentId, editingSchema, visible, onClose
   };
 
   const validationErrors = validateLabelSchemaForm(watched);
+  // Don't surface inline field errors until the user has attempted at
+  // least one submit (judges flow does the same). The submit button
+  // itself still gates on the full `validationErrors` regardless.
+  const visibleErrors = isSubmitted ? validationErrors : {};
 
   return (
     <Modal
@@ -198,7 +207,7 @@ export const LabelSchemaModal = ({ experimentId, editingSchema, visible, onClose
                   <LabelSchemaFormRenderer
                     control={control}
                     isEdit={isEdit}
-                    errors={validationErrors}
+                    errors={visibleErrors}
                     watchedValues={{ type: watched.type, inputKind: watched.inputKind }}
                   />
                 </div>

@@ -603,10 +603,6 @@
     "defaultMessage": "True",
     "description": "True assessment label"
   },
-  "1UwV8h": {
-    "defaultMessage": "Feedback-type categorical schemas require a polarity.",
-    "description": "Categorical feedback-type hint"
-  },
   "1VD7Gl": {
     "defaultMessage": "Create judge",
     "description": "Create judge button text"
@@ -2979,10 +2975,6 @@
     "defaultMessage": "Endpoint Name",
     "description": "Label for endpoint name input"
   },
-  "FO8GgI": {
-    "defaultMessage": "Preview",
-    "description": "Label schema preview pane heading"
-  },
   "FTx+Hi": {
     "defaultMessage": "(baseline)",
     "description": "A label displayed next to baseline version in the prompt versions comparison view"
@@ -3254,6 +3246,10 @@
   "HHRU4d": {
     "defaultMessage": "Detection progress",
     "description": "Issue detection progress > Title"
+  },
+  "HJk2X8": {
+    "defaultMessage": "Preview",
+    "description": "Label schema preview panel header"
   },
   "HLbyGb": {
     "defaultMessage": "Show more",
@@ -3550,10 +3546,6 @@
   "J45Atg": {
     "defaultMessage": "Key is required if value is present",
     "description": "Error message for required key in tag assignment modal"
-  },
-  "J5SqkV": {
-    "defaultMessage": "This is how an SME will see the schema when annotating a trace.",
-    "description": "Label schema preview pane helper text"
   },
   "J75ziY": {
     "defaultMessage": "No roles",
@@ -4246,6 +4238,10 @@
   "NHlNLj": {
     "defaultMessage": "Description",
     "description": "Label for issue description section"
+  },
+  "NIuF30": {
+    "defaultMessage": "How an SME sees the schema",
+    "description": "Label schema preview panel header subtitle"
   },
   "NJ1bYP": {
     "defaultMessage": "{fieldName} are identical",
