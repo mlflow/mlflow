@@ -40,6 +40,8 @@ defaults:
   run:
     shell: bash
 
+permissions: {}
+
 jobs:
   linux-env-setup:
     runs-on: ubuntu-latest

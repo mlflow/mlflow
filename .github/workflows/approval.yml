@@ -7,6 +7,8 @@ defaults:
   run:
     shell: bash
 
+permissions: {}
+
 jobs:
   check:
     runs-on: ubuntu-slim
