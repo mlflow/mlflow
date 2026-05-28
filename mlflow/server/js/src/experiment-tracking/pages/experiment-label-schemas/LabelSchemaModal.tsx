@@ -55,21 +55,25 @@ export const LabelSchemaModal = ({ experimentId, editingSchema, visible, onClose
   const isSubmitting = createMutation.isCreating || updateMutation.isUpdating;
   const submitError = createMutation.error ?? updateMutation.error;
 
-  // When the modal switches between create and edit (or between two
-  // different schemas in edit mode), reset the form to the new defaults
-  // so the controls reflect the latest source-of-truth values rather
-  // than the stale mount-time snapshot. Mutation hook state survives
-  // modal close/reopen because the parent keeps this component mounted;
-  // clear stale error banners so users don't see an error from a prior
-  // attempt against an unrelated schema.
+  // Reset the form on every modal open and whenever the source-of-truth
+  // schema changes. `useForm` lives in this component and survives close
+  // /reopen because the parent keeps `LabelSchemaModal` mounted; without
+  // resetting on `visible`, react-hook-form's `formState.isSubmitted`
+  // (and stale field values, and mutation errors) carry over to the
+  // next open. That breaks the gated-error UX: opening the modal for
+  // create after a previous attempt shows "Positive label is required"
+  // etc. before the user has touched anything.
   useEffect(() => {
+    if (!visible) {
+      return;
+    }
     reset(defaultValues);
     createMutation.reset();
     updateMutation.reset();
-    // We only want to reset when the identity of the source-of-truth
-    // changes (create vs. a specific schema), not on every render.
+    // We only want to reset when the modal opens or when the
+    // source-of-truth identity changes, not on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editingSchema?.schema_id]);
+  }, [visible, editingSchema?.schema_id]);
 
   const onSubmit = async (form: LabelSchemaFormData) => {
     const errors = validateLabelSchemaForm(form);
