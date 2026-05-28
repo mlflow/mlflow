@@ -1,4 +1,4 @@
-import { Empty, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { Empty, FormUI, Input, Tag, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 
 import { LabelSchemaInputRenderer } from '../../components/label-schemas/widgets/LabelSchemaInputRenderer';
@@ -151,6 +151,39 @@ export const LabelSchemaPreview = ({ formData }: LabelSchemaPreviewProps) => {
               componentId="mlflow.experiment-label-schemas.preview"
             />
           </div>
+          {input.categorical && input.categorical.options.length > 0 && (
+            <div
+              css={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: theme.spacing.xs,
+                marginTop: theme.spacing.xs,
+              }}
+            >
+              {input.categorical.options.map((option) => (
+                <Tag key={option} componentId="mlflow.experiment-label-schemas.preview.categorical-option-tag">
+                  {option}
+                </Tag>
+              ))}
+            </div>
+          )}
+          {formData.enable_comment && (
+            <div css={{ display: 'flex', flexDirection: 'column', marginTop: theme.spacing.sm }}>
+              <FormUI.Label htmlFor="mlflow.experiment-label-schemas.preview.comment">
+                <FormattedMessage
+                  defaultMessage="Comment (optional)"
+                  description="Label schema preview free-form comment label"
+                />
+              </FormUI.Label>
+              <Input.TextArea
+                componentId="mlflow.experiment-label-schemas.preview.comment"
+                id="mlflow.experiment-label-schemas.preview.comment"
+                disabled
+                rows={2}
+                placeholder=""
+              />
+            </div>
+          )}
         </div>
       </div>
     </div>

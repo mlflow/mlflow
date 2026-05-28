@@ -1119,6 +1119,8 @@ module.exports = {
   "mlflow.experiment-label-schemas.modal.cancel": "",
   "mlflow.experiment-label-schemas.modal.submit": "",
   "mlflow.experiment-label-schemas.preview": "",
+  "mlflow.experiment-label-schemas.preview.categorical-option-tag": "",
+  "mlflow.experiment-label-schemas.preview.comment": "",
 
   // -- mlflow.experiment-page --
   "mlflow.experiment-page.header.back-icon-button": "",
