@@ -12,7 +12,11 @@
 // lowercase silently maps to UNSPECIFIED and the server rejects it.
 export type LabelSchemaType = 'FEEDBACK' | 'EXPECTATION';
 
-export type CategoricalSemanticPolarity = 'ascending' | 'descending';
+// Mirrors the proto3 enum names in `label_schemas.proto`. The wire
+// format is the uppercase enum NAME (proto3 JSON convention); sending
+// lowercase silently maps to UNSPECIFIED and the server drops the
+// field. Same gotcha as `LabelSchemaType`.
+export type CategoricalSemanticPolarity = 'ASCENDING' | 'DESCENDING';
 
 export interface InputPassFail {
   positive_label: string;
