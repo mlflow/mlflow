@@ -17,6 +17,8 @@ defaults:
   run:
     shell: bash
 
+permissions: {}
+
 jobs:
   precheck:
     runs-on: ubuntu-slim

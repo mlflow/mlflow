@@ -117,6 +117,20 @@ describe('ShowArtifactTextView', () => {
     });
   });
 
+  // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
+  test('SyntaxHighlighter treats jsonl files as json', (done) => {
+    const getArtifact = jest.fn((artifactLocation) => {
+      return Promise.resolve('{"key1": "val1"}\n{"key2": "val2"}');
+    });
+    const props = { path: 'events.jsonl', runUuid: 'fakeUuid', getArtifact, experimentId: '123' };
+    wrapper = shallow(<ShowArtifactTextView {...props} />).dive();
+    setImmediate(() => {
+      wrapper.update();
+      expect(wrapper.find(SyntaxHighlighter).first().props().language).toBe('json');
+      done();
+    });
+  });
+
   test('should fetch artifacts on component update', () => {
     instance = wrapper.instance();
     // @ts-expect-error -- TODO(FEINF-4162)
@@ -146,5 +160,10 @@ describe('ShowArtifactTextView', () => {
   test('should leave invalid json untouched', () => {
     const outputText = prettifyArtifactText('json', '{"hello');
     expect(outputText).toBe('{"hello');
+  });
+
+  test('should leave jsonl content unformatted', () => {
+    const outputText = prettifyArtifactText('json', '{"key1":"val1"}\n{"key2":"val2"}', 'events.jsonl');
+    expect(outputText).toBe('{"key1":"val1"}\n{"key2":"val2"}');
   });
 });

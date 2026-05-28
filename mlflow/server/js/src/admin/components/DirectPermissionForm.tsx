@@ -42,6 +42,10 @@ export interface DirectPermissionValue {
 export interface DirectPermissionFormProps {
   value: DirectPermissionValue;
   onChange: (value: DirectPermissionValue) => void;
+  /** Target workspace for the picker query. Lets a platform admin grant in a
+   * different workspace than their session-active one. ``undefined`` falls
+   * back to the active-workspace header. */
+  workspace?: string;
   disabled?: boolean;
 }
 
@@ -63,14 +67,14 @@ export const isDirectPermissionSubmittable = (value: DirectPermissionValue): boo
  * staging time so a resource literally named ``*`` can't masquerade as an
  * all-of-type grant.
  */
-export const DirectPermissionForm = ({ value, onChange, disabled }: DirectPermissionFormProps) => {
+export const DirectPermissionForm = ({ value, onChange, workspace, disabled }: DirectPermissionFormProps) => {
   const { theme } = useDesignSystemTheme();
   const [search, setSearch] = useState('');
   const {
     options: resourceOptions,
     isLoading: resourceOptionsLoading,
     error: resourceOptionsError,
-  } = useResourceOptionsQuery(value.resourceType);
+  } = useResourceOptionsQuery(value.resourceType, workspace);
 
   const filteredOptions = useMemo(() => {
     const trimmed = search.trim().toLowerCase();

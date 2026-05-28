@@ -1909,7 +1909,7 @@ def test_create_model_version_with_validation_regex(db_uri: str):
     ) as proc:
         try:
             # Wait for the server to start
-            for _ in range(10):
+            for _ in range(30):
                 try:
                     if requests.get(f"http://localhost:{port}/health").ok:
                         break

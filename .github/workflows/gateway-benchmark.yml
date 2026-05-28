@@ -37,6 +37,8 @@ defaults:
   run:
     shell: bash
 
+permissions: {}
+
 jobs:
   benchmark:
     runs-on: ubuntu-latest

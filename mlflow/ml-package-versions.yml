@@ -910,7 +910,9 @@ agno:
     requirements:
       ">= 0.0.0": ["anthropic", "yfinance"]
       ">= 2.0.0": ["opentelemetry-exporter-otlp", "openinference-instrumentation-agno"]
-      "<= 2.4.8": ["openinference-instrumentation-agno==0.1.20"]
+      # openinference-instrumentation-agno <= 0.1.30 calls wrap_function_wrapper(module=...),
+      # but wrapt 2.0 renamed the kwarg to `target`. Pin wrapt<2 until we can move off 0.1.20.
+      "<= 2.4.8": ["openinference-instrumentation-agno==0.1.20", "wrapt<2"]
     run: pytest tests/agno
     test_tracing_sdk: true
 
