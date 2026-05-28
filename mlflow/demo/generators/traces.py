@@ -150,7 +150,10 @@ def _json_type(value: Any) -> str:
 
 
 def _tool_schemas(tools: list[ToolCall]) -> list[dict[str, Any]]:
-    """Build OpenAI-style function schemas from a list of ToolCall objects."""
+    """
+    Build OpenAI-style function schemas from a list of ToolCall objects.
+    Referenced from: https://developers.openai.com/api/docs/guides/function-calling
+    """
     return [
         {
             "type": "function",

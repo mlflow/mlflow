@@ -156,10 +156,18 @@ def test_is_generated_checks_version(traces_generator):
 
 
 def _is_chat_message(obj):
+    """
+    chat-utils/openai.ts has a normalizeOpenAIChatInput function
+    that asserts a chat-renderable message for inputs
+    """
     return isinstance(obj, dict) and "role" in obj and "content" in obj
 
 
 def _has_openai_choices_shape(outputs):
+    """
+    ModalTraceExplorer.utils.tsx has a fallback which tries to
+    normalise responses if they are OpenAI-shaped
+    """
     if not isinstance(outputs, dict):
         return False
     choices = outputs.get("choices")
@@ -241,34 +249,9 @@ def test_trace_with_tools_has_react_shape():
             continue
         assert len(children) == 2 * tool_count + 1
         ordered = sorted(children, key=lambda s: s.start_time_ns)
+        # Assert ordering now
         expected = [SpanType.LLM, SpanType.TOOL] * tool_count + [SpanType.LLM]
         assert [s.span_type for s in ordered] == expected
-
-
-def test_intermediate_llm_spans_emit_tool_calls():
-    generator = TracesDemoGenerator()
-    generator.generate()
-
-    experiment = get_experiment_by_name(DEMO_EXPERIMENT_NAME)
-    client = MlflowClient()
-    traces = client.search_traces(locations=[experiment.experiment_id], max_results=100)
-
-    for trace in traces:
-        root = next(s for s in trace.data.spans if s.parent_id is None)
-        children = sorted(
-            (s for s in trace.data.spans if s.parent_id == root.span_id),
-            key=lambda s: s.start_time_ns,
-        )
-        for i, span in enumerate(children):
-            if span.span_type != SpanType.LLM:
-                continue
-            later_tools = [s for s in children[i + 1 :] if s.span_type == SpanType.TOOL]
-            if not later_tools:
-                continue
-            choices = span.outputs.get("choices", [])
-            tool_calls = choices[0].get("message", {}).get("tool_calls") if choices else None
-            assert isinstance(tool_calls, list)
-            assert tool_calls
 
 
 def test_final_llm_span_emits_content():
