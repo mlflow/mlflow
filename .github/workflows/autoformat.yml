@@ -9,6 +9,8 @@ defaults:
   run:
     shell: bash
 
+permissions: {}
+
 jobs:
   check-comment:
     runs-on: ubuntu-slim

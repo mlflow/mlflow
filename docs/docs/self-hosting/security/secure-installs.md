@@ -51,7 +51,7 @@ pip install --require-hashes --only-binary :all: -r requirements.txt
 
 Both pip and uv support filtering packages by their upload date, ensuring that dependency resolution only considers packages published before a known point in time. This protects against newly published malicious versions and enables reproducible builds.
 
-:::tip Choosing a date
+:::tip[Choosing a date]
 Use an absolute timestamp set to the last date you audited or verified your dependencies. This ensures reproducible installs. Relative durations like `"7 days"` are convenient for rolling policies but produce different results over time.
 :::
 
