@@ -148,5 +148,4 @@ CLAUDE.local.md
 !.claude/settings.json
 !.claude/statusline.sh
 
-# Playwright CLI workspace (per-command page snapshots)
 .playwright-cli/
