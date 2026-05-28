@@ -4,6 +4,8 @@ import {
   Button,
   ChevronLeftIcon,
   Modal,
+  SimpleSelect,
+  SimpleSelectOption,
   Spinner,
   Switch,
   Tag,
@@ -11,6 +13,7 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
+import { FieldLabel } from './FieldLabel';
 import { LongFormSection } from '../../common/components/long-form/LongFormSection';
 import { AdminApi } from '../api';
 import {
@@ -19,30 +22,33 @@ import {
   useGrantUserPermission,
   useRevokeUserPermission,
   useRolesQuery,
-  useUserPermissionsQuery,
   useUserRolesQuery,
   useUsersQuery,
+  useWorkspaceOptions,
 } from '../hooks';
 import { AccountQueryKeys } from '../../account/hooks';
-import { isSyntheticUserRole } from '../types';
+import { DEFAULT_WORKSPACE_NAME, isSyntheticUserRole } from '../types';
 import { useActiveWorkspace } from '../../workspaces/utils/WorkspaceUtils';
+import { useWorkspaces } from '../../workspaces/hooks/useWorkspaces';
+import { useWorkspacesEnabled } from '../../experiment-tracking/hooks/useServerInfo';
 import { RoleAssignmentForm, ROLE_ASSIGNMENT_DEFAULT, type RoleAssignmentValue } from './RoleAssignmentForm';
-import { type DirectGrantResourceType } from './DirectPermissionForm';
+import { DIRECT_GRANT_RESOURCE_TYPES, type DirectGrantResourceType } from './DirectPermissionForm';
 import { DirectPermissionsSection, type StagedDirectPermission } from './DirectPermissionsSection';
 
 export interface EditAccessModalProps {
   open: boolean;
   onClose: () => void;
   username: string;
-  /** Optional: bridge to the Create Role flow when "All <type>" is picked. */
-  onCreateRoleForAllOfType?: (resourceType: DirectGrantResourceType) => void;
 }
 
 const directPermKey = (p: { resourceType: string; resourceId: string; permission: string }) =>
   `${p.resourceType}::${p.resourceId}::${p.permission}`;
 
+// Derived from the form's source of truth so a new direct-grant type can't
+// drift between the form (where it's offered) and the modal (where existing
+// grants of that type are bucketed into the direct view).
 const isDirectGrantResourceType = (rt: string): rt is DirectGrantResourceType =>
-  rt === 'experiment' || rt === 'registered_model' || rt === 'gateway_secret' || rt === 'gateway_endpoint';
+  (DIRECT_GRANT_RESOURCE_TYPES as readonly string[]).includes(rt);
 
 interface AccessDiff {
   rolesToAssign: number[];
@@ -59,22 +65,29 @@ interface AccessDiff {
  * Review step surfaces every add / remove / promote / demote so the
  * admin can confirm before destructive parts land.
  */
-export const EditAccessModal = ({ open, onClose, username, onCreateRoleForAllOfType }: EditAccessModalProps) => {
+export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProps) => {
   const { theme } = useDesignSystemTheme();
   const queryClient = useQueryClient();
   const grantPermission = useGrantUserPermission();
   const revokePermission = useRevokeUserPermission();
   const isCurrentUserAdmin = useCurrentUserIsAdmin();
+  const activeWorkspace = useActiveWorkspace();
+
+  // Platform-admin-only workspace selector for direct-grant targeting.
+  // Workspace managers stay locked to their session-active workspace.
+  const { workspacesEnabled } = useWorkspacesEnabled();
+  const showWorkspaceSelector = isCurrentUserAdmin && workspacesEnabled;
+  const { workspaces } = useWorkspaces(showWorkspaceSelector);
+  const initialGrantWorkspace = activeWorkspace ?? DEFAULT_WORKSPACE_NAME;
+  const [grantWorkspace, setGrantWorkspace] = useState<string>(initialGrantWorkspace);
 
   // --- Current state from backend (used to pre-fill + compute diff) ---
-  const { data: rolesData, isLoading: rolesLoading } = useUserRolesQuery(username);
-  const { data: directPermsData, isLoading: directPermsLoading } = useUserPermissionsQuery(username);
+  const { data: rolesData, isLoading: rolesLoading, error: rolesError } = useUserRolesQuery(username);
   const { data: usersData, isLoading: usersLoading } = useUsersQuery();
   // Roles list for the Review step's name lookup (the form uses the
   // dropdown's own label, but the Review step renders by id). Platform
   // admins fetch unscoped; workspace managers pass the active workspace.
   // Suppress when none is active to avoid a guaranteed 403.
-  const activeWorkspace = useActiveWorkspace();
   const rolesListWorkspace = isCurrentUserAdmin ? undefined : (activeWorkspace ?? undefined);
   const rolesListEnabled = isCurrentUserAdmin || Boolean(activeWorkspace);
   const { data: rolesListData } = useRolesQuery(rolesListWorkspace, { enabled: rolesListEnabled });
@@ -86,21 +99,21 @@ export const EditAccessModal = ({ open, onClose, username, onCreateRoleForAllOfT
     () => (rolesData?.roles ?? []).filter((r) => !isSyntheticUserRole(r.name)).map((r) => r.id),
     [rolesData],
   );
+  // Direct grants live on the synthetic ``__user_<id>__`` role surfaced by
+  // ``useUserRolesQuery``; flatten its nested ``permissions`` to recover the
+  // editable list (custom roles are shown in the Roles tab).
   const currentDirectPerms = useMemo<StagedDirectPermission[]>(
     () =>
-      (directPermsData?.permissions ?? [])
-        // The unified ``/users/permissions/list`` response returns every
-        // permission across every role the user holds. Direct grants live on
-        // the synthetic ``__user_<id>__`` role; filter to just those for the
-        // "Direct permissions" view (custom roles are shown in the Roles tab).
-        .filter((p) => isSyntheticUserRole(p.role_name))
+      (rolesData?.roles ?? [])
+        .filter((r) => isSyntheticUserRole(r.name))
+        .flatMap((r) => r.permissions ?? [])
         .filter((p) => isDirectGrantResourceType(p.resource_type))
         .map((p) => ({
           resourceType: p.resource_type as DirectGrantResourceType,
           resourceId: p.resource_pattern,
           permission: p.permission,
         })),
-    [directPermsData],
+    [rolesData],
   );
   const currentIsAdmin = useMemo(
     () => Boolean(usersData?.users?.find((u) => u.username === username)?.is_admin),
@@ -115,11 +128,16 @@ export const EditAccessModal = ({ open, onClose, username, onCreateRoleForAllOfT
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const stateLoaded = !rolesLoading && !directPermsLoading && !usersLoading;
+  const workspaceOptions = useWorkspaceOptions(workspaces);
 
-  // ``prefilledRef`` gates the data-fill effect against background
-  // refetches that would clobber in-progress edits.
-  const prefilledRef = useRef(false);
+  const stateLoaded = !rolesLoading && !usersLoading;
+
+  // ``filledForWorkspaceRef`` tracks which workspace's data was last pre-filled
+  // into editable state. The pre-fill effect re-runs when this stops matching
+  // the current ``grantWorkspace`` so switching the dropdown mid-edit re-seeds
+  // ``directPermissions`` from the newly-selected workspace's permissions
+  // (otherwise revoking a pre-filled row would target the wrong workspace).
+  const filledForWorkspaceRef = useRef<string | null>(null);
 
   // Reset transient UI state only on open — refetches must not bounce
   // the user back to edit or wipe a partial-failure error.
@@ -130,23 +148,33 @@ export const EditAccessModal = ({ open, onClose, username, onCreateRoleForAllOfT
     setStep('edit');
     setSubmitting(false);
     setError(null);
-    prefilledRef.current = false;
+    setGrantWorkspace(initialGrantWorkspace);
+    filledForWorkspaceRef.current = null;
+    // ``initialGrantWorkspace`` is derived from the session active workspace;
+    // re-seed on open so the dropdown defaults to "where I am right now".
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  // Pre-fill editable fields once per open, after backing queries resolve.
+  // Pre-fill editable fields after backing queries resolve. Re-runs when
+  // ``grantWorkspace`` changes (so switching the dropdown mid-edit reloads
+  // the pre-filled rows from the newly-selected workspace), but skips when
+  // ``filledForWorkspaceRef`` already matches — so background refetches in
+  // the *same* workspace don't clobber in-progress edits.
   useEffect(() => {
     if (!open) {
-      prefilledRef.current = false;
+      filledForWorkspaceRef.current = null;
       return;
     }
-    if (prefilledRef.current || !stateLoaded) {
+    if (!stateLoaded || filledForWorkspaceRef.current === grantWorkspace) {
       return;
     }
-    setRoleValue({ roleIds: [...currentRoleIds] });
+    if (filledForWorkspaceRef.current === null) {
+      setRoleValue({ roleIds: [...currentRoleIds] });
+      setIsAdmin(currentIsAdmin);
+    }
     setDirectPermissions([...currentDirectPerms]);
-    setIsAdmin(currentIsAdmin);
-    prefilledRef.current = true;
-  }, [open, stateLoaded, currentRoleIds, currentDirectPerms, currentIsAdmin]);
+    filledForWorkspaceRef.current = grantWorkspace;
+  }, [open, stateLoaded, grantWorkspace, currentRoleIds, currentDirectPerms, currentIsAdmin]);
 
   // --- Diff computation ---
   const diff = useMemo<AccessDiff>(() => {
@@ -256,6 +284,7 @@ export const EditAccessModal = ({ open, onClose, username, onCreateRoleForAllOfT
           resource_id: p.resourceId,
           username,
           permission: p.permission,
+          workspace: grantWorkspace,
         });
       } catch (e: any) {
         failures.push(
@@ -269,6 +298,7 @@ export const EditAccessModal = ({ open, onClose, username, onCreateRoleForAllOfT
           resource_type: p.resourceType,
           resource_id: p.resourceId,
           username,
+          workspace: grantWorkspace,
         });
       } catch (e: any) {
         failures.push(
@@ -282,9 +312,10 @@ export const EditAccessModal = ({ open, onClose, username, onCreateRoleForAllOfT
       return;
     }
     setError(failures.join('\n'));
+    filledForWorkspaceRef.current = null;
     setStep('edit');
     setSubmitting(false);
-  }, [diff, isAdmin, username, queryClient, grantPermission, revokePermission, onClose, renderRoleId]);
+  }, [diff, isAdmin, username, grantWorkspace, queryClient, grantPermission, revokePermission, onClose, renderRoleId]);
 
   return (
     <Modal
@@ -306,7 +337,7 @@ export const EditAccessModal = ({ open, onClose, username, onCreateRoleForAllOfT
                 setError(null);
                 setStep('review');
               }}
-              disabled={!hasAnyChange || !stateLoaded}
+              disabled={!hasAnyChange || !stateLoaded || Boolean(rolesError)}
             >
               Review changes
             </Button>
@@ -368,6 +399,18 @@ export const EditAccessModal = ({ open, onClose, username, onCreateRoleForAllOfT
             >
               <Spinner size="small" />
             </div>
+          ) : rolesError ? (
+            // Block the form on a failed roles fetch so the empty pre-fill
+            // doesn't masquerade as the user's actual access.
+            <Alert
+              componentId="admin.edit_access_modal.roles_error"
+              type="error"
+              message="Failed to load access state"
+              description={
+                (rolesError instanceof Error ? rolesError.message : null) ||
+                `An error occurred while fetching the current access for ${username}. Close the modal and try again.`
+              }
+            />
           ) : (
             <>
               <LongFormSection title="Role assignments">
@@ -380,10 +423,36 @@ export const EditAccessModal = ({ open, onClose, username, onCreateRoleForAllOfT
                 <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.sm }}>
                   Current direct permissions are pre-filled. Remove a row to revoke; use the form below to grant more.
                 </Typography.Text>
+                {showWorkspaceSelector && (
+                  <div css={{ marginBottom: theme.spacing.md }}>
+                    <FieldLabel>Workspace</FieldLabel>
+                    <SimpleSelect
+                      id="admin-edit-access-modal-grant-workspace"
+                      componentId="admin.edit_access_modal.grant_workspace"
+                      value={grantWorkspace}
+                      onChange={({ target }) => setGrantWorkspace(target.value)}
+                      disabled={submitting}
+                    >
+                      {workspaceOptions.map((w) => (
+                        <SimpleSelectOption key={w} value={w}>
+                          {w}
+                        </SimpleSelectOption>
+                      ))}
+                    </SimpleSelect>
+                    <Typography.Text
+                      color="secondary"
+                      size="sm"
+                      css={{ display: 'block', marginTop: theme.spacing.xs }}
+                    >
+                      Grants and revokes target this workspace's per-user direct-grant role. Pick a different workspace
+                      to grant access there.
+                    </Typography.Text>
+                  </div>
+                )}
                 <DirectPermissionsSection
                   value={directPermissions}
                   onChange={setDirectPermissions}
-                  onCreateRoleForAllOfType={onCreateRoleForAllOfType}
+                  workspace={grantWorkspace}
                   disabled={submitting}
                 />
               </LongFormSection>

@@ -3787,7 +3787,7 @@ def test_log_model_skip_validating_serving_input_for_local_checkpoint(
 ):
     # input to avoid expensive computation
     model = request.getfixturevalue(model_fixture)
-    with mock.patch("mlflow.models.validate_serving_input") as mock_validate_input:
+    with mock.patch("mlflow.models.utils._validate_serving_input") as mock_validate_input:
         # Ensure mlflow skips serving input validation for local checkpoint
         with mlflow.start_run():
             model_info = mlflow.transformers.log_model(

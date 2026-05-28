@@ -16,6 +16,8 @@ defaults:
   run:
     shell: bash
 
+permissions: {}
+
 jobs:
   # Auth gate: only users with admin or maintain role on the repo can trigger
   # the review (plus the Copilot bot). For issue_comment, BOTH the PR author
@@ -153,7 +155,6 @@ jobs:
           import argparse
           import json
           import os
-          import secrets
           import sys
 
           MODEL_CHOICES = [
@@ -171,19 +172,13 @@ jobs:
           default_model = "claude-opus-4-7" if big else "claude-sonnet-4-6"
 
           body = sys.stdin.read().removeprefix("/review")
-          head, sep, tail = body.partition("\n")
 
           parser = argparse.ArgumentParser(add_help=False)
           parser.add_argument("-m", "--model", choices=MODEL_CHOICES, default=default_model)
           parser.add_argument("-e", "--effort", choices=EFFORT_CHOICES, default="high")
-          args, leftover = parser.parse_known_args(head.split())
+          args = parser.parse_args(body.split())
 
-          prompt = (" ".join(leftover) + sep + tail).strip()
-          # Random delimiter so user input can't terminate the heredoc.
-          delim = f"PROMPT_EOF_{secrets.token_hex(8)}"
-          sys.stdout.write(
-              f"prompt<<{delim}\n{prompt}\n{delim}\nmodel={args.model}\neffort={args.effort}\n"
-          )
+          sys.stdout.write(f"model={args.model}\neffort={args.effort}\n")
           EOF
 
           echo "$COMMENT_BODY" | python /tmp/parse_args.py >> "$GITHUB_OUTPUT"
@@ -196,30 +191,22 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
-          PROMPT: ${{ steps.prompt.outputs.prompt }}
           MODEL: ${{ steps.prompt.outputs.model }}
           EFFORT: ${{ steps.prompt.outputs.effort }}
-          EVENT_NAME: ${{ github.event_name }}
         run: |
           OUTPUT_FILE="/tmp/output.jsonl"
 
-          # Safe construction using arrays - PROMPT is passed as separate argument to prevent shell injection.
           # Both event paths run /pr-review end-to-end against the PR; on
           # pull_request (smoke), Post is gated off so no review is submitted.
-          ARGS=("/pr-review" "$REPO" "$PR_NUMBER")
-          if [ "$EVENT_NAME" = "issue_comment" ] && [ -n "$PROMPT" ]; then
-            ARGS+=("$PROMPT")
-          fi
-
           EXIT_CODE=0
-          # Note: ARGS[*] is intentional - claude CLI expects a single prompt string
           timeout 20m claude \
             --model "$MODEL" \
             --effort "$EFFORT" \
+            --max-budget-usd 5 \
             --print \
             --verbose \
             --output-format stream-json \
-            "${ARGS[*]}" \
+            "/pr-review $REPO $PR_NUMBER" \
             | .claude/scripts/stream.sh "$OUTPUT_FILE" || EXIT_CODE=$?
           if [ "${EXIT_CODE:-0}" -eq 124 ]; then
             echo "Warning: Claude command timed out after 20 minutes"
@@ -332,6 +319,9 @@ jobs:
               const summary = resultEvent.is_error ? 'Error' : 'Result';
               const formatted = JSON.stringify(resultEvent, null, 2);
               resultLine += `\n<details><summary>${summary}</summary>\n\n\`\`\`json\n${formatted}\n\`\`\`\n\n</details>`;
+              if (resultEvent.is_error && /529|Overloaded/i.test(resultEvent.result || '')) {
+                resultLine += `\n\nThe Claude API is overloaded. Check [status.claude.com](https://status.claude.com/) and retry.`;
+              }
             } else if (failed) {
               resultLine += `\n\nSee [workflow logs](${workflowUrl}) for details.`;
             }

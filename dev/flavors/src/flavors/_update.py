@@ -21,6 +21,7 @@ import urllib.request
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import Any
 
 import yaml
 from packaging.version import Version as PkgVersion
@@ -29,16 +30,6 @@ from pypi import Package, get_packages
 from flavors._releases import RELEASE_CUTOFF_DAYS
 
 PYPI_URL = os.environ.get("PYPI_URL", "https://pypi.org").rstrip("/")
-
-
-def read_file(path):
-    with open(path) as f:
-        return f.read()
-
-
-def save_file(src, path):
-    with open(path, "w") as f:
-        f.write(src)
 
 
 def check_pypi_accessibility() -> None:
@@ -70,11 +61,7 @@ def get_package_version_infos(package: Package) -> list[VersionInfo]:
     ]
 
 
-def get_latest_version(candidates):
-    return max(candidates, key=PkgVersion)
-
-
-def update_version(src, key, new_version, category, update_max):
+def update_version(src: str, key: str, new_version: str, category: str, update_max: bool) -> str:
     """
     Examples
     ========
@@ -118,7 +105,7 @@ def update_version(src, key, new_version, category, update_max):
     return re.sub(pattern, rf'\g<1>"{new_version}"', src, flags=re.DOTALL)
 
 
-def extract_field(d, keys):
+def extract_field(d: Any, keys: tuple[str, ...]) -> Any:
     for key in keys:
         if key in d:
             d = d[key]
@@ -127,25 +114,25 @@ def extract_field(d, keys):
     return d
 
 
-def _get_autolog_flavor_module_map(config):
+def _get_autolog_flavor_module_map(config: dict[str, dict[str, Any]]) -> dict[str, str]:
     """
     Parse _ML_PACKAGE_VERSIONS to get the mapping of flavor name to
     the module name to be imported for autologging.
     """
-    autolog_flavor_module_map = {}
-    for flavor, config in config.items():
-        if "autologging" not in config:
+    autolog_flavor_module_map: dict[str, str] = {}
+    for flavor, cfg in config.items():
+        if "autologging" not in cfg:
             continue
-        module_name = config["package_info"].get("module_name", flavor)
+        module_name = cfg["package_info"].get("module_name", flavor)
         autolog_flavor_module_map[flavor] = module_name
 
     return autolog_flavor_module_map
 
 
-def update_ml_package_versions_py(config_path):
+def update_ml_package_versions_py(config_path: Path) -> None:
     with open(config_path) as f:
-        genai_config = {}
-        non_genai_config = {}
+        genai_config: dict[str, dict[str, Any]] = {}
+        non_genai_config: dict[str, dict[str, Any]] = {}
 
         for name, cfg in yaml.load(f, Loader=yaml.SafeLoader).items():
             # Extract required fields
@@ -249,13 +236,13 @@ def get_min_supported_version(versions_infos: list[VersionInfo], genai: bool = F
     return min(recent_versions, key=lambda v: v.upload_time).version
 
 
-def update(skip_yml=False):
+def update(skip_yml: bool = False) -> None:
     if not skip_yml:
         check_pypi_accessibility()
-    yml_path = "mlflow/ml-package-versions.yml"
+    yml_path = Path("mlflow/ml-package-versions.yml")
 
     if not skip_yml:
-        old_src = read_file(yml_path)
+        old_src = yml_path.read_text()
         new_src = old_src
         config_dict = yaml.load(old_src, Loader=yaml.SafeLoader)
         # We currently don't have bandwidth to support newer versions of these flavors.
@@ -294,10 +281,11 @@ def update(skip_yml=False):
                     continue
 
                 max_ver = config[category]["maximum"]
-                versions = [v.version for v in versions_and_upload_times]
+                version_strs = [v.version for v in versions_and_upload_times]
                 unsupported = config[category].get("unsupported", [])
-                versions = set(versions).difference(unsupported)  # exclude unsupported versions
-                latest_version = get_latest_version(versions)
+                # exclude unsupported versions
+                supported_versions = set(version_strs).difference(unsupported)
+                latest_version = max(supported_versions, key=PkgVersion)
 
                 if PkgVersion(latest_version) <= PkgVersion(max_ver):
                     continue
@@ -306,7 +294,7 @@ def update(skip_yml=False):
                     new_src, flavor_key, latest_version, category, update_max=True
                 )
 
-        save_file(new_src, yml_path)
+        yml_path.write_text(new_src)
 
     update_ml_package_versions_py(yml_path)
 

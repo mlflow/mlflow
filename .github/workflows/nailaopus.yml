@@ -23,6 +23,8 @@ defaults:
   run:
     shell: bash
 
+permissions: {}
+
 jobs:
   review:
     # The workflow never uses the default GITHUB_TOKEN — every `gh api`

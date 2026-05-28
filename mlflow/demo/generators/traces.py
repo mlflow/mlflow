@@ -237,6 +237,7 @@ class TracesDemoGenerator(BaseDemoGenerator):
             traces = mlflow.search_traces(
                 locations=[experiment.experiment_id],
                 max_results=1,
+                flush=True,
             )
             return len(traces) > 0
         except Exception:
