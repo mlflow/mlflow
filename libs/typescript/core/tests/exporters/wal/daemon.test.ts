@@ -587,7 +587,7 @@ describe('wal/daemon', () => {
   });
 
   describe('queue.log layout after retry', () => {
-    it('writes tombstone-then-append in order so readPending sees the retry', async () => {
+    it('atomically batches the retry append + original tombstone in one fsync', async () => {
       const createTrace = jest.fn().mockRejectedValueOnce(new Error('first attempt fails'));
       const client = makeClient({ createTrace });
 
@@ -596,18 +596,20 @@ describe('wal/daemon', () => {
 
       const contents = await readFile(getWalPath(), 'utf8');
       const lines = contents.trim().split('\n');
-      // Stop hook would have appended record outside of this test; here we
-      // only see the daemon's two writes: tombstone of the old id (via
-      // the BatchingWriter), then append of the new id with attempts=1
-      // (via appendRecord). The two queueWriter slots run sequentially
-      // so the on-disk order is deterministic.
+      // `handleUploadFailure`'s retry branch enqueues both the new
+      // retry row and the tombstone for the original id on the same
+      // `BatchingWriter` tick, so `drainAndFlush` packs them into a
+      // single `writev` + `fsync`. The on-disk order matches the
+      // enqueue order (append first, then tombstone) and the pair is
+      // atomic — either both lines are durable or neither is, so a
+      // crash between them is structurally impossible.
       expect(lines).toHaveLength(2);
-      const first = JSON.parse(lines[0]) as { type: string; id?: string };
-      const second = JSON.parse(lines[1]) as { type: string; record?: WalRecord };
-      expect(first.type).toBe('tombstone');
-      expect(first.id).toBe('row-order');
-      expect(second.type).toBe('append');
-      expect(second.record!.attempts).toBe(1);
+      const first = JSON.parse(lines[0]) as { type: string; record?: WalRecord };
+      const second = JSON.parse(lines[1]) as { type: string; id?: string };
+      expect(first.type).toBe('append');
+      expect(first.record!.attempts).toBe(1);
+      expect(second.type).toBe('tombstone');
+      expect(second.id).toBe('row-order');
     });
   });
 

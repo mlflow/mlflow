@@ -18,7 +18,7 @@ import { BATCH_INTERVAL_MS, IDLE_MS, LOG_RETENTION_DAYS, RETRY_TIMEOUT_MS } from
 import { createIpcConnectionHandler } from './ipc';
 import { getDaemonLogPath, getLockSocketPath, getWalDir } from './paths';
 import { PidLock, tryAcquirePidLock } from './pid_lock';
-import { appendDeadLetter, appendRecord, compact, readPending, walSize } from './storage';
+import { appendDeadLetter, compact, readPending, walSize } from './storage';
 import { isDaemonAlive } from './supervisor';
 import { WalRecord } from './types';
 
@@ -454,8 +454,9 @@ async function handleUploadFailure(
     `Retry record ${record.id} → ${retry.id} (trace ${traceId}, attempts=${nextAttempts}, ` +
       `delay=${delayMs}ms, elapsed=${elapsedMs}ms): ${formatError(err)}`,
   );
-  await writer.submitTombstone(record.id);
-  await appendRecord(retry);
+  // Both submissions ride the same `BatchingWriter` tick: one `writev`,
+  // one `fsync`, atomic. Either both lines are durable or neither is.
+  await Promise.all([writer.submit(retry), writer.submitTombstone(record.id)]);
 }
 
 export type ClientFactory = (trackingUri: string) => MlflowClient;
