@@ -32,7 +32,11 @@ import { WalRecord } from './types';
  */
 const SUBMIT_TIMEOUT_MS = 10_000;
 
-const CONNECT_RETRY_DELAYS_MS = [50, 100, 250, 500, 1000, 2000];
+const INITIAL_CONNECT_RETRY_DELAY_MS = 50;
+const CONNECT_RETRY_DELAYS_MS = Array.from(
+  { length: 6 },
+  (_, i) => INITIAL_CONNECT_RETRY_DELAY_MS * 2 ** i,
+);
 
 const DAEMON_NO_RESPONSE_CODE = 'EDAEMONNORESPONSE';
 

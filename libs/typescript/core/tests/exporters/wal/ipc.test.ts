@@ -103,7 +103,7 @@ describe('wal/ipc submitRecord', () => {
   it('throws after exhausting retries when no daemon is listening', async () => {
     // No server bound; submitRecord should retry, fail to reach
     // anyone, and surface a connect error to the caller. The full
-    // CONNECT_RETRY_DELAYS_MS sleeps (~3.85s) still elapse - we
+    // CONNECT_RETRY_DELAYS_MS sleeps (~3.15s) still elapse - we
     // don't currently inject those in tests - but pointing
     // MLFLOW_WAL_DIR at a tmpdir guarantees each connect attempt
     // fails fast with ENOENT instead of stacking on top of the
