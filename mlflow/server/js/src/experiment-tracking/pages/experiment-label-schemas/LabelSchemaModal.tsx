@@ -187,6 +187,11 @@ export const LabelSchemaModal = ({ experimentId, editingSchema, visible, onClose
                   css={{
                     flex: 1,
                     overflowY: 'auto',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: theme.spacing.sm,
+                    paddingTop: theme.spacing.sm,
+                    paddingBottom: theme.spacing.md,
                     paddingRight: theme.spacing.md,
                   }}
                 >

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Button, Empty, PlusIcon, Spinner, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { Button, Empty, PlusIcon, Spacer, Spinner, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 
 import { useListLabelSchemasQuery } from '../../components/label-schemas/hooks/useListLabelSchemasQuery';
@@ -80,24 +80,20 @@ export const LabelSchemasContentContainer = ({ experimentId }: LabelSchemasConte
   return (
     <div
       css={{
-        padding: theme.spacing.lg,
         display: 'flex',
         flexDirection: 'column',
-        gap: theme.spacing.md,
         height: '100%',
-        overflowY: 'auto',
+        overflow: 'auto',
       }}
     >
       <div
         css={{
           display: 'flex',
-          justifyContent: 'space-between',
+          justifyContent: 'flex-end',
           alignItems: 'center',
+          padding: theme.spacing.sm,
         }}
       >
-        <Typography.Title level={3} withoutMargins>
-          <FormattedMessage defaultMessage="Labeling schemas" description="Labeling schemas page heading" />
-        </Typography.Title>
         <Button
           componentId="mlflow.experiment-label-schemas.create-button"
           icon={<PlusIcon />}
@@ -107,6 +103,7 @@ export const LabelSchemasContentContainer = ({ experimentId }: LabelSchemasConte
           <FormattedMessage defaultMessage="New schema" description="Create new schema button" />
         </Button>
       </div>
+      <Spacer size="sm" />
 
       {labelSchemas.length === 0 ? (
         <div
@@ -139,7 +136,15 @@ export const LabelSchemasContentContainer = ({ experimentId }: LabelSchemasConte
           />
         </div>
       ) : (
-        <div>
+        <div
+          css={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: theme.spacing.sm,
+            width: '100%',
+            padding: theme.spacing.sm,
+          }}
+        >
           {labelSchemas.map((schema) => (
             <LabelSchemaCard
               key={schema.schema_id}
