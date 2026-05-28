@@ -18,6 +18,19 @@ export interface LabelSchemaInputNumericProps {
  * set; for expectation-type schemas either bound may be missing and
  * the corresponding HTML attribute is simply omitted.
  */
+const buildRangePlaceholder = (min: number | undefined, max: number | undefined): string | undefined => {
+  if (min != null && max != null) {
+    return `${min} – ${max}`;
+  }
+  if (min != null) {
+    return `≥ ${min}`;
+  }
+  if (max != null) {
+    return `≤ ${max}`;
+  }
+  return undefined;
+};
+
 export const LabelSchemaInputNumeric = ({
   input,
   value,
@@ -49,6 +62,7 @@ export const LabelSchemaInputNumeric = ({
       disabled={disabled}
       min={input.min_value}
       max={input.max_value}
+      placeholder={buildRangePlaceholder(input.min_value, input.max_value)}
     />
   );
 };
