@@ -2336,6 +2336,20 @@ def test_upload_artifact_handler_rejects_invalid_requests(mlflow_client):
     )
     assert_response(response, "Request must specify data.")
 
+    # Test that size limit is enforced even with chunked transfer encoding
+    # (content_length is None for chunked encoding)
+    large_data = "x" * (10 * 1024 * 1024 + 1)
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/upload-artifact",
+        params={
+            "run_uuid": created_run.info.run_id,
+            "path": "test.txt",
+        },
+        data=large_data,
+        headers={"Transfer-Encoding": "chunked"},
+    )
+    assert_response(response, "Artifact size is too large")
+
 
 def test_upload_artifact_handler(mlflow_client):
     experiment_id = mlflow_client.create_experiment("upload_artifacts_test")
