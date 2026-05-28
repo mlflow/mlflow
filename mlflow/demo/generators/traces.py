@@ -115,7 +115,8 @@ GEMINI_3_PRO = _Model(name="gemini-3-pro", provider="google", pricing=(2.00, 12.
 
 _DEMO_MODELS = (GPT_5_2, CLAUDE_SONNET_4_5, GEMINI_3_PRO)
 
-# Names match what each provider's autolog integration emits for the chat-completion call.
+# LLM spans use canonical SDK method names
+# Not 100% accurate against production but should be sufficiently understandable for demo purposes
 _PROVIDER_TO_LLM_SPAN_NAME = {
     "openai": "chat.completions.create",
     "anthropic": "messages.create",
