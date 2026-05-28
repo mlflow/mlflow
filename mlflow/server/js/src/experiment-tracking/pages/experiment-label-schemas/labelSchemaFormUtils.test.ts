@@ -84,7 +84,7 @@ describe('getFormValuesFromSchema', () => {
       schema_id: 'ls-1',
       experiment_id: '1',
       name: 'correctness',
-      type: 'feedback',
+      type: 'FEEDBACK',
       title: 'Is the answer correct?',
       instruction: 'Mark Correct if accurate.',
       enable_comment: true,
@@ -104,7 +104,7 @@ describe('getFormValuesFromSchema', () => {
       schema_id: 'ls-2',
       experiment_id: '1',
       name: 'severity',
-      type: 'feedback',
+      type: 'FEEDBACK',
       title: 'Severity',
       input: {
         categorical: {
@@ -124,7 +124,7 @@ describe('getFormValuesFromSchema', () => {
       schema_id: 'ls-2b',
       experiment_id: '1',
       name: 'tags',
-      type: 'feedback',
+      type: 'FEEDBACK',
       title: 'Tags',
       input: {
         categorical: {
@@ -181,7 +181,7 @@ describe('validateLabelSchemaForm', () => {
   it('allows expectation-type categorical without polarity', () => {
     const errors = validateLabelSchemaForm({
       ...baseValidForm,
-      type: 'expectation',
+      type: 'EXPECTATION',
       inputKind: 'categorical',
       categoricalOptions: 'low\nhigh',
       categoricalPolarity: '',
@@ -212,7 +212,7 @@ describe('validateLabelSchemaForm', () => {
   it('rejects non-numeric min/max even for expectation-type', () => {
     const errors = validateLabelSchemaForm({
       ...baseValidForm,
-      type: 'expectation',
+      type: 'EXPECTATION',
       inputKind: 'numeric',
       numericMinValue: 'abc',
       numericMaxValue: '',
@@ -281,7 +281,7 @@ describe('numeric round-trip', () => {
       schema_id: 'ls-3',
       experiment_id: '1',
       name: 'rating',
-      type: 'expectation',
+      type: 'EXPECTATION',
       title: 'Rating',
       input: { numeric: { min_value: 0, max_value: 10 } },
     };

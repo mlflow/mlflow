@@ -62,8 +62,8 @@ export const LabelSchemaFormRenderer = ({ control, isEdit, errors, watchedValues
               onChange={(e) => field.onChange(e.target.value)}
               disabled={isEdit}
             >
-              <Radio value="feedback">Feedback</Radio>
-              <Radio value="expectation">Expectation</Radio>
+              <Radio value="FEEDBACK">Feedback</Radio>
+              <Radio value="EXPECTATION">Expectation</Radio>
             </Radio.Group>
             <FormUI.Hint>
               <FormattedMessage
@@ -274,7 +274,7 @@ const CategoricalFields = ({
           </Checkbox>
         )}
       />
-      {type === 'feedback' && (
+      {type === 'FEEDBACK' && (
         <Typography.Text color="secondary">
           <FormattedMessage
             defaultMessage="Feedback-type categorical schemas require a polarity."

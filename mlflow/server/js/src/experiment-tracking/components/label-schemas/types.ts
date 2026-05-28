@@ -7,7 +7,10 @@
  * authoritative client-side contract.
  */
 
-export type LabelSchemaType = 'feedback' | 'expectation';
+// Mirrors the proto3 enum names in `label_schemas.proto`. The wire
+// format is the uppercase enum NAME (proto3 JSON convention); sending
+// lowercase silently maps to UNSPECIFIED and the server rejects it.
+export type LabelSchemaType = 'FEEDBACK' | 'EXPECTATION';
 
 export type CategoricalSemanticPolarity = 'ascending' | 'descending';
 
