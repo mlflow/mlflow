@@ -13,6 +13,8 @@ defaults:
   run:
     shell: bash
 
+permissions: {}
+
 jobs:
   rerun:
     if: github.event.workflow_run.conclusion == 'success'
