@@ -15,23 +15,23 @@ export interface LabelSchemaFormRendererProps {
   isEdit: boolean;
   errors: FormErrors;
   /** Watch values are passed in by the parent so the renderer is pure. */
-  watchedValues: Pick<LabelSchemaFormData, 'type' | 'inputKind'>;
+  watchedValues: Pick<LabelSchemaFormData, 'inputKind'>;
 }
 
 const COMPONENT_PREFIX = 'mlflow.experiment-label-schemas.form';
 
 export const LabelSchemaFormRenderer = ({ control, isEdit, errors, watchedValues }: LabelSchemaFormRendererProps) => {
   const { theme } = useDesignSystemTheme();
-  const { type, inputKind } = watchedValues;
+  const { inputKind } = watchedValues;
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
       <div css={{ display: 'flex', flexDirection: 'column' }}>
         <FormUI.Label htmlFor={`${COMPONENT_PREFIX}.name`} required>
-          <FormattedMessage defaultMessage="Name" description="Label schema name input" />
+          <FormattedMessage defaultMessage="Assessment name" description="Label schema name input" />
         </FormUI.Label>
         <FormUI.Hint>
           <FormattedMessage
-            defaultMessage="Alphanumeric and underscore only, up to 150 characters. Immutable after create."
+            defaultMessage="A unique identifier for this assessment. Alphanumeric and underscore only, up to 150 characters. Immutable after create."
             description="Label schema name hint"
           />
         </FormUI.Hint>
@@ -53,11 +53,11 @@ export const LabelSchemaFormRenderer = ({ control, isEdit, errors, watchedValues
 
       <div css={{ display: 'flex', flexDirection: 'column' }}>
         <FormUI.Label htmlFor={`${COMPONENT_PREFIX}.type`} required>
-          <FormattedMessage defaultMessage="Type" description="Label schema type input" />
+          <FormattedMessage defaultMessage="Assessment type" description="Label schema type input" />
         </FormUI.Label>
         <FormUI.Hint>
           <FormattedMessage
-            defaultMessage="Feedback schemas are bounded (pass/fail, options, or min/max); expectation schemas store ground-truth labels. Type is immutable after create."
+            defaultMessage="Choose whether this task collects feedback or expectations from reviewers. Use feedback when you want to collect specific information about whether the response was correct. Use expectations to collect ground-truth information for use in evaluation. Immutable after create."
             description="Label schema type hint"
           />
         </FormUI.Hint>
@@ -83,6 +83,12 @@ export const LabelSchemaFormRenderer = ({ control, isEdit, errors, watchedValues
         <FormUI.Label htmlFor={`${COMPONENT_PREFIX}.title`} required>
           <FormattedMessage defaultMessage="Title" description="Label schema title input" />
         </FormUI.Label>
+        <FormUI.Hint>
+          <FormattedMessage
+            defaultMessage="The title displayed to reviewers when completing this assessment."
+            description="Label schema title hint"
+          />
+        </FormUI.Hint>
         <Controller
           name="title"
           control={control}
@@ -91,7 +97,7 @@ export const LabelSchemaFormRenderer = ({ control, isEdit, errors, watchedValues
               componentId={`${COMPONENT_PREFIX}.title`}
               id={`${COMPONENT_PREFIX}.title`}
               {...field}
-              placeholder="Is the answer correct?"
+              placeholder="Title shown to reviewers for this task"
             />
           )}
         />
@@ -100,8 +106,14 @@ export const LabelSchemaFormRenderer = ({ control, isEdit, errors, watchedValues
 
       <div css={{ display: 'flex', flexDirection: 'column' }}>
         <FormUI.Label htmlFor={`${COMPONENT_PREFIX}.instruction`}>
-          <FormattedMessage defaultMessage="Instruction (optional)" description="Label schema instruction input" />
+          <FormattedMessage defaultMessage="Instructions" description="Label schema instruction input" />
         </FormUI.Label>
+        <FormUI.Hint>
+          <FormattedMessage
+            defaultMessage="Optional. Detailed guidance shown to reviewers on how to complete this task."
+            description="Label schema instruction hint"
+          />
+        </FormUI.Hint>
         <Controller
           name="instruction"
           control={control}
@@ -111,29 +123,37 @@ export const LabelSchemaFormRenderer = ({ control, isEdit, errors, watchedValues
               id={`${COMPONENT_PREFIX}.instruction`}
               {...field}
               rows={3}
-              placeholder="Mark Correct if the answer is factually accurate."
+              placeholder="Instructions for reviewers on how to complete this task"
             />
           )}
         />
         {errors.instruction && <FormUI.Message message={errors.instruction} type="error" />}
       </div>
 
-      <Controller
-        name="enable_comment"
-        control={control}
-        render={({ field }) => (
-          <Checkbox
-            componentId={`${COMPONENT_PREFIX}.enable-comment`}
-            isChecked={field.value}
-            onChange={(checked) => field.onChange(checked)}
-          >
-            <FormattedMessage
-              defaultMessage="Enable free-form comment alongside the structured input"
-              description="Enable comment checkbox"
-            />
-          </Checkbox>
-        )}
-      />
+      <div css={{ display: 'flex', flexDirection: 'column' }}>
+        <Controller
+          name="enable_comment"
+          control={control}
+          render={({ field }) => (
+            <Checkbox
+              componentId={`${COMPONENT_PREFIX}.enable-comment`}
+              isChecked={field.value}
+              onChange={(checked) => field.onChange(checked)}
+            >
+              <FormattedMessage
+                defaultMessage="Enable free-form comment alongside the structured input"
+                description="Enable comment checkbox"
+              />
+            </Checkbox>
+          )}
+        />
+        <FormUI.Hint>
+          <FormattedMessage
+            defaultMessage="Allow reviewers to add additional comments alongside their assessment."
+            description="Enable comment checkbox hint"
+          />
+        </FormUI.Hint>
+      </div>
 
       <div css={{ display: 'flex', flexDirection: 'column' }}>
         <FormUI.Label htmlFor={`${COMPONENT_PREFIX}.input-kind`} required>
@@ -159,7 +179,7 @@ export const LabelSchemaFormRenderer = ({ control, isEdit, errors, watchedValues
       </div>
 
       {inputKind === 'pass_fail' && <PassFailFields control={control} errors={errors} />}
-      {inputKind === 'categorical' && <CategoricalFields control={control} errors={errors} type={type} />}
+      {inputKind === 'categorical' && <CategoricalFields control={control} errors={errors} />}
       {inputKind === 'numeric' && <NumericFields control={control} errors={errors} />}
     </div>
   );
@@ -209,15 +229,7 @@ const PassFailFields = ({ control, errors }: { control: Control<LabelSchemaFormD
   );
 };
 
-const CategoricalFields = ({
-  control,
-  errors,
-  type,
-}: {
-  control: Control<LabelSchemaFormData>;
-  errors: FormErrors;
-  type: LabelSchemaFormData['type'];
-}) => {
+const CategoricalFields = ({ control, errors }: { control: Control<LabelSchemaFormData>; errors: FormErrors }) => {
   const { theme } = useDesignSystemTheme();
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
@@ -247,12 +259,12 @@ const CategoricalFields = ({
         {errors.categoricalOptions && <FormUI.Message message={errors.categoricalOptions} type="error" />}
       </div>
       <div css={{ display: 'flex', flexDirection: 'column' }}>
-        <FormUI.Label htmlFor={`${COMPONENT_PREFIX}.categorical.polarity`} required={type === 'FEEDBACK'}>
-          <FormattedMessage defaultMessage="Semantic polarity" description="Categorical polarity selector" />
+        <FormUI.Label htmlFor={`${COMPONENT_PREFIX}.categorical.polarity`}>
+          <FormattedMessage defaultMessage="Semantic polarity (optional)" description="Categorical polarity selector" />
         </FormUI.Label>
         <FormUI.Hint>
           <FormattedMessage
-            defaultMessage="Required for feedback-type schemas so the UI knows which direction is positive."
+            defaultMessage="Hint for the UI: which direction is most positive. Leave blank if the options have no natural order."
             description="Categorical polarity hint"
           />
         </FormUI.Hint>
@@ -301,6 +313,12 @@ const NumericFields = ({ control, errors }: { control: Control<LabelSchemaFormDa
         <FormUI.Label htmlFor={`${COMPONENT_PREFIX}.numeric.min`}>
           <FormattedMessage defaultMessage="Min value" description="Numeric min value input" />
         </FormUI.Label>
+        <FormUI.Hint>
+          <FormattedMessage
+            defaultMessage="Define the acceptable range for numeric input values. Leave blank for no bound."
+            description="Numeric min value hint"
+          />
+        </FormUI.Hint>
         <Controller
           name="numericMinValue"
           control={control}
@@ -310,7 +328,7 @@ const NumericFields = ({ control, errors }: { control: Control<LabelSchemaFormDa
               id={`${COMPONENT_PREFIX}.numeric.min`}
               type="number"
               {...field}
-              placeholder="1"
+              placeholder="No minimum"
             />
           )}
         />
@@ -329,7 +347,7 @@ const NumericFields = ({ control, errors }: { control: Control<LabelSchemaFormDa
               id={`${COMPONENT_PREFIX}.numeric.max`}
               type="number"
               {...field}
-              placeholder="5"
+              placeholder="No maximum"
             />
           )}
         />
