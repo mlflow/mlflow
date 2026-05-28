@@ -16,13 +16,35 @@ export interface LabelSchemaPreviewProps {
 /**
  * Non-interactive renderer of how an SME will see the schema in the
  * review UI. Rendered inside the create / edit modal driven by the
- * form's live `useWatch` values; takes a `LabelSchemaFormData` and
- * renders the title, instruction, and the input widget. The widget
- * surface is behind a `pointer-events: none` overlay so the preview
- * never accepts input.
+ * form's live `useWatch` values; renders a panel-style header bar +
+ * scrollable body so the layout matches the judges flow's
+ * `SampleScorerOutputPanelRenderer`.
  */
 export const LabelSchemaPreview = ({ formData }: LabelSchemaPreviewProps) => {
   const { theme } = useDesignSystemTheme();
+
+  const header = (
+    <div
+      css={{
+        padding: `${theme.spacing.sm}px ${theme.spacing.md}px`,
+        backgroundColor: theme.colors.backgroundSecondary,
+        borderBottom: `1px solid ${theme.colors.border}`,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+      }}
+    >
+      <Typography.Text bold>
+        <FormattedMessage defaultMessage="Preview" description="Label schema preview panel header" />
+      </Typography.Text>
+      <Typography.Hint>
+        <FormattedMessage
+          defaultMessage="How an SME sees the schema"
+          description="Label schema preview panel header subtitle"
+        />
+      </Typography.Hint>
+    </div>
+  );
 
   // Build the input variant from the live form. If the form is too
   // incomplete to build a variant (e.g. user just opened the create
@@ -33,41 +55,42 @@ export const LabelSchemaPreview = ({ formData }: LabelSchemaPreviewProps) => {
     input = buildLabelSchemaInputFromForm(formData);
   } catch {
     return (
-      <div
-        css={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          height: '100%',
-          minHeight: 400,
-          width: '100%',
-          padding: theme.spacing.lg,
-          // Override the Design System's internal wrapper styles to
-          // properly center the Empty content (per mlflow/server/js
-          // CLAUDE.md empty-states guidance).
-          '& > div': {
-            height: '100%',
+      <div css={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+        {header}
+        <div
+          css={{
+            flex: 1,
             display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'center',
             alignItems: 'center',
-          },
-        }}
-      >
-        <Empty
-          title={
-            <FormattedMessage
-              defaultMessage="Preview unavailable"
-              description="Label schema preview render-error empty title"
-            />
-          }
-          description={
-            <FormattedMessage
-              defaultMessage="Continue editing the schema to see a preview."
-              description="Label schema preview render-error empty description"
-            />
-          }
-        />
+            justifyContent: 'center',
+            padding: theme.spacing.lg,
+            // Override the Design System's internal wrapper styles to
+            // properly center the Empty content (per mlflow/server/js
+            // CLAUDE.md empty-states guidance).
+            '& > div': {
+              height: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'center',
+              alignItems: 'center',
+            },
+          }}
+        >
+          <Empty
+            title={
+              <FormattedMessage
+                defaultMessage="Preview unavailable"
+                description="Label schema preview render-error empty title"
+              />
+            }
+            description={
+              <FormattedMessage
+                defaultMessage="Continue editing the schema to see a preview."
+                description="Label schema preview render-error empty description"
+              />
+            }
+          />
+        </div>
       </div>
     );
   }
@@ -76,66 +99,58 @@ export const LabelSchemaPreview = ({ formData }: LabelSchemaPreviewProps) => {
   const hasErrors = Object.keys(validationErrors).length > 0;
 
   return (
-    <div
-      css={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: theme.spacing.md,
-        padding: theme.spacing.lg,
-        height: '100%',
-        overflowY: 'auto',
-      }}
-    >
-      <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-        <Typography.Title level={4} color="secondary" withoutMargins>
-          <FormattedMessage defaultMessage="Preview" description="Label schema preview pane heading" />
-        </Typography.Title>
-        <Typography.Text size="sm" color="secondary">
-          <FormattedMessage
-            defaultMessage="This is how an SME will see the schema when annotating a trace."
-            description="Label schema preview pane helper text"
-          />
-        </Typography.Text>
-      </div>
+    <div css={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      {header}
       <div
         css={{
-          border: `1px dashed ${theme.colors.border}`,
-          borderRadius: theme.borders.borderRadiusMd,
-          padding: theme.spacing.lg,
+          flex: 1,
+          overflowY: 'auto',
+          padding: theme.spacing.md,
           display: 'flex',
           flexDirection: 'column',
-          gap: theme.spacing.sm,
-          opacity: hasErrors ? 0.6 : 1,
-          pointerEvents: 'none',
-          backgroundColor: theme.colors.backgroundSecondary,
+          gap: theme.spacing.md,
         }}
       >
-        {formData.title ? (
-          <Typography.Title level={4} withoutMargins>
-            {formData.title}
-          </Typography.Title>
-        ) : (
-          <Typography.Text color="secondary" css={{ fontStyle: 'italic' }}>
-            <FormattedMessage
-              defaultMessage="(no title yet)"
-              description="Label schema preview placeholder for blank title"
+        <div
+          css={{
+            border: `1px dashed ${theme.colors.border}`,
+            borderRadius: theme.borders.borderRadiusMd,
+            padding: theme.spacing.lg,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: theme.spacing.sm,
+            opacity: hasErrors ? 0.6 : 1,
+            pointerEvents: 'none',
+            backgroundColor: theme.colors.backgroundSecondary,
+          }}
+        >
+          {formData.title ? (
+            <Typography.Title level={4} withoutMargins>
+              {formData.title}
+            </Typography.Title>
+          ) : (
+            <Typography.Text color="secondary" css={{ fontStyle: 'italic' }}>
+              <FormattedMessage
+                defaultMessage="(no title yet)"
+                description="Label schema preview placeholder for blank title"
+              />
+            </Typography.Text>
+          )}
+          {formData.instruction && <Typography.Text color="secondary">{formData.instruction}</Typography.Text>}
+          <div css={{ marginTop: theme.spacing.sm }}>
+            <LabelSchemaInputRenderer
+              input={input}
+              value={null}
+              onChange={() => {
+                // The preview is non-interactive; the wrapping
+                // `pointer-events: none` should already prevent the user
+                // from triggering onChange, but the widget contract
+                // requires a handler so we accept and discard.
+              }}
+              disabled
+              componentId="mlflow.experiment-label-schemas.preview"
             />
-          </Typography.Text>
-        )}
-        {formData.instruction && <Typography.Text color="secondary">{formData.instruction}</Typography.Text>}
-        <div css={{ marginTop: theme.spacing.sm }}>
-          <LabelSchemaInputRenderer
-            input={input}
-            value={null}
-            onChange={() => {
-              // The preview is non-interactive; the wrapping
-              // `pointer-events: none` should already prevent the user
-              // from triggering onChange, but the widget contract
-              // requires a handler so we accept and discard.
-            }}
-            disabled
-            componentId="mlflow.experiment-label-schemas.preview"
-          />
+          </div>
         </div>
       </div>
     </div>
