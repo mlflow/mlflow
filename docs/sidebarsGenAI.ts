@@ -218,6 +218,16 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'tracing/integrations/listing/claude_agent_sdk_python',
+                  label: 'Claude Agent SDK (Python)',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/claude_agent_sdk_typescript',
+                  label: 'Claude Agent SDK (TS)',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/integrations/listing/crewai',
                   label: 'CrewAI',
                 },
