@@ -298,6 +298,24 @@ CREATE TABLE registered_model_tags (
 )
 
 
+CREATE TABLE review_assignments (
+	assignment_id VARCHAR(36) NOT NULL,
+	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
+	experiment_id INTEGER NOT NULL,
+	target_type VARCHAR(16) NOT NULL,
+	target_id VARCHAR(50) NOT NULL,
+	reviewer VARCHAR(250) NOT NULL,
+	assigner VARCHAR(250) NOT NULL,
+	state VARCHAR(16) NOT NULL,
+	creation_time_ms BIGINT NOT NULL,
+	last_update_time_ms BIGINT NOT NULL,
+	completed_time_ms BIGINT,
+	CONSTRAINT review_assignments_pk PRIMARY KEY (assignment_id),
+	CONSTRAINT fk_review_assignments_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id) ON DELETE CASCADE,
+	CONSTRAINT uq_review_assignments_workspace_target_reviewer UNIQUE (workspace, target_id, reviewer)
+)
+
+
 CREATE TABLE runs (
 	run_uuid VARCHAR(32) NOT NULL,
 	name VARCHAR(250),
@@ -636,4 +654,3 @@ CREATE TABLE guardrail_configs (
 	CONSTRAINT fk_guardrail_configs_endpoint_id FOREIGN KEY(endpoint_id) REFERENCES endpoints (endpoint_id) ON DELETE CASCADE,
 	CONSTRAINT fk_guardrail_configs_guardrail_id FOREIGN KEY(guardrail_id) REFERENCES guardrails (guardrail_id) ON DELETE CASCADE
 )
-
