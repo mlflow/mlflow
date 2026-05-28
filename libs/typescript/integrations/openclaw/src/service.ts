@@ -457,13 +457,13 @@ export function createMLflowService(
       return;
     }
 
+    initError = null;
     try {
       init({ trackingUri, experimentId });
     } catch (err) {
       initError = err;
-      return;
+      log.warn(`mlflow: init failed: ${String(err)}`);
     }
-    initError = null;
 
     hooksRegistered = true;
     resolvedTrackingUri = trackingUri;

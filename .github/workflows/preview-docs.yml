@@ -12,6 +12,8 @@ defaults:
   run:
     shell: bash
 
+permissions: {}
+
 jobs:
   main:
     if: github.repository == 'mlflow/mlflow'
