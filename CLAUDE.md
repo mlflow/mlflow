@@ -91,7 +91,7 @@ uv run --frozen pytest tests/
 7-day cooldown on new package releases. Keep these in sync:
 
 - Python: `exclude-newer = "P7D"` in `pyproject.toml` (`torch`/`torchvision` opted out).
-- JavaScript: `min-release-age=7` in `docs/.npmrc` and `libs/typescript/.npmrc`; `npmMinimalAgeGate: 7d` in `mlflow/server/js/.yarnrc.yml`.
+- JavaScript: `min-release-age=7` in `.npmrc`; `npmMinimalAgeGate: 7d` in `.yarnrc.yml`.
 
 Pass `--min-release-age=7` to any new `npx` invocations.
 
