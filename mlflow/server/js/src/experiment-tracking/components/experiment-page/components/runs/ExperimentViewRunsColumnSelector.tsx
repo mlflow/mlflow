@@ -14,6 +14,7 @@ import { FormattedMessage } from 'react-intl';
 import Utils from '../../../../../common/utils/Utils';
 import { ATTRIBUTE_COLUMN_LABELS, COLUMN_TYPES } from '../../../../constants';
 import { useUpdateExperimentViewUIState } from '../../contexts/ExperimentPageUIStateContext';
+import { useExperimentAvailableKeys } from '../../hooks/useExperimentAvailableKeys';
 import { useExperimentIds } from '../../hooks/useExperimentIds';
 import type { ExperimentPageUIState } from '../../models/ExperimentPageUIState';
 import {
@@ -132,8 +133,39 @@ export const ExperimentViewRunsColumnSelector = React.memo(
       [updateUIState],
     );
 
-    // Extract unique list of tags
-    const tagsKeyList = useMemo(() => Utils.getVisibleTagKeyList(runsData.tagsList), [runsData]);
+    // Tag keys already present in the loaded runs response (filtered by mlflow.* prefix).
+    const tagsKeyListFromRuns = useMemo(() => Utils.getVisibleTagKeyList(runsData.tagsList), [runsData]);
+
+    // Discover keys that exist in the experiment but aren't in the current (column-aware)
+    // runs-list response, so the picker can offer columns the user hasn't selected yet.
+    // Lazy: only fires when the picker becomes visible.
+    const {
+      metricKeys: discoverableMetricKeys,
+      paramKeys: discoverableParamKeys,
+      tagKeys: discoverableTagKeys,
+    } = useExperimentAvailableKeys(experimentIds, columnSelectorVisible);
+
+    // Merge runs-derived keys (always available) with the discovery sample (lazy-loaded).
+    // Discovery keys go second so the runs-list order is preserved on first paint.
+    const metricKeyList = useMemo(
+      () => Array.from(new Set([...runsData.metricKeyList, ...discoverableMetricKeys])),
+      [runsData.metricKeyList, discoverableMetricKeys],
+    );
+    const paramKeyList = useMemo(
+      () => Array.from(new Set([...runsData.paramKeyList, ...discoverableParamKeys])),
+      [runsData.paramKeyList, discoverableParamKeys],
+    );
+    const tagsKeyList = useMemo(
+      () =>
+        Array.from(
+          new Set([
+            ...tagsKeyListFromRuns,
+            // Apply the same mlflow.* filter to discovery tags so internal tags don't leak.
+            ...discoverableTagKeys.filter((k) => !k.startsWith('mlflow.')),
+          ]),
+        ),
+      [tagsKeyListFromRuns, discoverableTagKeys],
+    );
 
     // Extract canonical key names for attributes, params, metrics and tags.
     const canonicalKeyNames = useMemo(
@@ -141,11 +173,11 @@ export const ExperimentViewRunsColumnSelector = React.memo(
         [COLUMN_TYPES.ATTRIBUTES]: attributeColumnNames.map((key) =>
           makeCanonicalSortKey(COLUMN_TYPES.ATTRIBUTES, key),
         ),
-        [COLUMN_TYPES.PARAMS]: runsData.paramKeyList.map((key) => makeCanonicalSortKey(COLUMN_TYPES.PARAMS, key)),
-        [COLUMN_TYPES.METRICS]: runsData.metricKeyList.map((key) => makeCanonicalSortKey(COLUMN_TYPES.METRICS, key)),
+        [COLUMN_TYPES.PARAMS]: paramKeyList.map((key) => makeCanonicalSortKey(COLUMN_TYPES.PARAMS, key)),
+        [COLUMN_TYPES.METRICS]: metricKeyList.map((key) => makeCanonicalSortKey(COLUMN_TYPES.METRICS, key)),
         [COLUMN_TYPES.TAGS]: tagsKeyList.map((key) => makeCanonicalSortKey(COLUMN_TYPES.TAGS, key)),
       }),
-      [runsData, attributeColumnNames, tagsKeyList],
+      [paramKeyList, metricKeyList, attributeColumnNames, tagsKeyList],
     );
 
     // This memoized value holds the tree structure generated from
@@ -154,8 +186,8 @@ export const ExperimentViewRunsColumnSelector = React.memo(
       const result = [];
 
       const filteredAttributes = findMatching(attributeColumnNames, filter);
-      const filteredParams = findMatching(runsData.paramKeyList, filter);
-      const filteredMetrics = findMatching(runsData.metricKeyList, filter);
+      const filteredParams = findMatching(paramKeyList, filter);
+      const filteredMetrics = findMatching(metricKeyList, filter);
       const filteredTags = findMatching(tagsKeyList, filter);
 
       if (filteredAttributes.length) {
@@ -203,7 +235,7 @@ export const ExperimentViewRunsColumnSelector = React.memo(
       }
 
       return result;
-    }, [attributeColumnNames, filter, runsData, tagsKeyList]);
+    }, [attributeColumnNames, filter, paramKeyList, metricKeyList, tagsKeyList]);
 
     // This callback toggles entire group of keys
     const toggleGroup = useCallback(
