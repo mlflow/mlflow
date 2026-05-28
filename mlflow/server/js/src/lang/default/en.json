@@ -7871,6 +7871,10 @@
     "defaultMessage": "Enable telemetry",
     "description": "Enable telemetry settings title"
   },
+  "hhCN8k": {
+    "defaultMessage": "Comment (optional)",
+    "description": "Label schema preview free-form comment label"
+  },
   "hjAgZ8": {
     "defaultMessage": "Unified OpenAI compatible API for model invocations. Set the endpoint name as the model parameter.",
     "description": "OpenAI compatible API description"
