@@ -249,16 +249,12 @@ export const validateLabelSchemaForm = (form: LabelSchemaFormData): LabelSchemaF
     } else if (options.some((o) => o.length > 64)) {
       errors.categoricalOptions = 'Each option must be at most 64 characters.';
     }
-    if (form.type === 'FEEDBACK' && form.categoricalPolarity === '') {
-      errors.categoricalPolarity = 'Polarity is required for feedback-type categorical schemas.';
-    }
   }
 
   if (form.inputKind === 'numeric') {
-    // Reject non-empty strings that don't parse as numbers up front so the
-    // user gets a field-level error instead of a vague server-side
-    // INVALID_PARAMETER_VALUE for expectation-type schemas where the
-    // "require both bounds" rule doesn't apply.
+    // Reject non-empty strings that don't parse as numbers up front so
+    // the user gets a field-level error instead of a vague server-side
+    // INVALID_PARAMETER_VALUE.
     const minRaw = form.numericMinValue.trim();
     const maxRaw = form.numericMaxValue.trim();
     if (minRaw !== '' && Number.isNaN(Number(minRaw))) {
@@ -269,9 +265,6 @@ export const validateLabelSchemaForm = (form: LabelSchemaFormData): LabelSchemaF
     }
     const min = parseNumeric(form.numericMinValue);
     const max = parseNumeric(form.numericMaxValue);
-    if (form.type === 'FEEDBACK' && (min === undefined || max === undefined)) {
-      errors.numericMinValue = errors.numericMinValue ?? 'Feedback-type numeric schemas require both min and max.';
-    }
     if (min !== undefined && max !== undefined && min >= max) {
       errors.numericMaxValue = 'Max must be strictly greater than min.';
     }

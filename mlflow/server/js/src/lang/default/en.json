@@ -575,6 +575,10 @@
     "defaultMessage": "Copy",
     "description": "Button text for copy button"
   },
+  "1JfbqS": {
+    "defaultMessage": "Instructions",
+    "description": "Label schema instruction input"
+  },
   "1JiZwB": {
     "defaultMessage": "Did the conversation fully address the user's request?",
     "description": "Hint for ConversationCompleteness template"
@@ -799,6 +803,10 @@
     "defaultMessage": "Hours",
     "description": "Trace archival retention unit option for hours"
   },
+  "2YeJGm": {
+    "defaultMessage": "Optional. Detailed guidance shown to reviewers on how to complete this task.",
+    "description": "Label schema instruction hint"
+  },
   "2a/rR8": {
     "defaultMessage": "Cancel",
     "description": "Key-value tag editor modal > Manage Tag cancel button"
@@ -970,10 +978,6 @@
   "3h/dM6": {
     "defaultMessage": "Set up MLflow AI Gateway",
     "description": "AI Gateway setup guide > Main title"
-  },
-  "3lajvL": {
-    "defaultMessage": "Type",
-    "description": "Label schema type input"
   },
   "3n8Eue": {
     "defaultMessage": "Enter a model name not listed above. Capabilities may not be detected.",
@@ -1246,10 +1250,6 @@
   "5T4wqF": {
     "defaultMessage": "Select an endpoint to view usage metrics",
     "description": "No endpoint selected message"
-  },
-  "5Uft04": {
-    "defaultMessage": "Feedback schemas are bounded (pass/fail, options, or min/max); expectation schemas store ground-truth labels. Type is immutable after create.",
-    "description": "Label schema type hint"
   },
   "5UrahG": {
     "defaultMessage": "Viewing version {version}",
@@ -1702,6 +1702,10 @@
   "7tlSUw": {
     "defaultMessage": "Delete runs",
     "description": "Delete evaluation runs action"
+  },
+  "7uUUk4": {
+    "defaultMessage": "Assessment type",
+    "description": "Label schema type input"
   },
   "7x6xu8": {
     "defaultMessage": "Create prompt",
@@ -2975,6 +2979,10 @@
     "defaultMessage": "Endpoint Name",
     "description": "Label for endpoint name input"
   },
+  "FT8o8L": {
+    "defaultMessage": "Choose whether this task collects feedback or expectations from reviewers. Use feedback when you want to collect specific information about whether the response was correct. Use expectations to collect ground-truth information for use in evaluation. Immutable after create.",
+    "description": "Label schema type hint"
+  },
   "FTx+Hi": {
     "defaultMessage": "(baseline)",
     "description": "A label displayed next to baseline version in the prompt versions comparison view"
@@ -3759,6 +3767,10 @@
     "defaultMessage": "Tags",
     "description": "Header for the tags column in the registered prompts table"
   },
+  "KOHvax": {
+    "defaultMessage": "Assessment name",
+    "description": "Label schema name input"
+  },
   "KObL+y": {
     "defaultMessage": "Endpoints ({count})",
     "description": "Gateway > Endpoints using key drawer > Title"
@@ -3946,6 +3958,10 @@
   "LajLDb": {
     "defaultMessage": "Move to top",
     "description": "Experiment page > compare runs tab > chart header > move to top option"
+  },
+  "Ldrbg7": {
+    "defaultMessage": "Hint for the UI: which direction is most positive. Leave blank if the options have no natural order.",
+    "description": "Categorical polarity hint"
   },
   "LgnR+r": {
     "defaultMessage": "Configure the model to power issue detection.",
@@ -4687,10 +4703,6 @@
     "defaultMessage": "Enter value",
     "description": "Usage overview > filter row > value input placeholder"
   },
-  "PmGZJu": {
-    "defaultMessage": "Alphanumeric and underscore only, up to 150 characters. Immutable after create.",
-    "description": "Label schema name hint"
-  },
   "PmPV+3": {
     "defaultMessage": "Models",
     "description": "Label for the versions tab in the MLflow experiment navbar"
@@ -5114,6 +5126,10 @@
   "SI6n4L": {
     "defaultMessage": "Compare",
     "description": "Label for the compare mode on the registered prompt details page"
+  },
+  "SIfHMK": {
+    "defaultMessage": "Semantic polarity (optional)",
+    "description": "Categorical polarity selector"
   },
   "SJUd4K": {
     "defaultMessage": "Invalid structured output JSON",
@@ -6131,10 +6147,6 @@
     "defaultMessage": "Input",
     "description": "Label for the input tokens in the tooltip for the tokens cell."
   },
-  "Y7Sx1p": {
-    "defaultMessage": "Instruction (optional)",
-    "description": "Label schema instruction input"
-  },
   "Y9ZFyN": {
     "defaultMessage": "Download artifact",
     "description": "Link to download the artifact of the experiment"
@@ -6946,10 +6958,6 @@
   "cfzQMh": {
     "defaultMessage": "baseline run",
     "description": "Placeholder text shown when no baseline run is selected for comparison"
-  },
-  "chgiV+": {
-    "defaultMessage": "Name",
-    "description": "Label schema name input"
   },
   "ckfi1K": {
     "defaultMessage": "Refresh evaluation runs",
@@ -7771,6 +7779,10 @@
     "defaultMessage": "Resource",
     "description": "Permissions table column header for the resource"
   },
+  "hAV2Ld": {
+    "defaultMessage": "Define the acceptable range for numeric input values. Leave blank for no bound.",
+    "description": "Numeric min value hint"
+  },
   "hBAhI8": {
     "defaultMessage": "Copy",
     "description": "Tooltip message displayed on copy action"
@@ -7910,6 +7922,10 @@
   "hr2v8O": {
     "defaultMessage": "To use other providers, create an AI Gateway endpoint and select it.",
     "description": "Hint explaining how to use other providers via Gateway"
+  },
+  "huVW1c": {
+    "defaultMessage": "The title displayed to reviewers when completing this assessment.",
+    "description": "Label schema title hint"
   },
   "hvImg5": {
     "defaultMessage": "No resources are using this key",
@@ -8190,6 +8206,10 @@
   "jIrCsp": {
     "defaultMessage": "Knowledge retention",
     "description": "LLM template option"
+  },
+  "jLeKOR": {
+    "defaultMessage": "A unique identifier for this assessment. Alphanumeric and underscore only, up to 150 characters. Immutable after create.",
+    "description": "Label schema name hint"
   },
   "jMUqD1": {
     "defaultMessage": "Safety",
@@ -9239,6 +9259,10 @@
     "defaultMessage": "Delete prompt",
     "description": "A header for the delete prompt modal"
   },
+  "pB1t1v": {
+    "defaultMessage": "Allow reviewers to add additional comments alongside their assessment.",
+    "description": "Enable comment checkbox hint"
+  },
   "pBUaAK": {
     "defaultMessage": "Are you sure you want to delete this tag？",
     "description": "Title text for confirmation pop-up to delete a tag from table\n                     in MLflow"
@@ -10115,10 +10139,6 @@
     "defaultMessage": "Prompt Template",
     "description": "Experiment page > new run modal > prompt template input label"
   },
-  "uBnvKI": {
-    "defaultMessage": "Semantic polarity",
-    "description": "Categorical polarity selector"
-  },
   "uGfscW": {
     "defaultMessage": "The SQL query timed out. Please retry, and if the problem persists, try selecting a larger SQL warehouse.",
     "description": "Evaluation review > evaluations list > SQL warehouse timeout error description with CTA to select larger warehouse"
@@ -10694,10 +10714,6 @@
   "xdFMIN": {
     "defaultMessage": "Dataset name",
     "description": "Dataset name label"
-  },
-  "xgJQNG": {
-    "defaultMessage": "Required for feedback-type schemas so the UI knows which direction is positive.",
-    "description": "Categorical polarity hint"
   },
   "xgbeVS": {
     "defaultMessage": "Large",

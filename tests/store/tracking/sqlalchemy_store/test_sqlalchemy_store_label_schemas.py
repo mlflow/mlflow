@@ -48,16 +48,17 @@ def test_create_pass_fail_schema(store):
     assert schema.updated_at == schema.created_at
 
 
-def test_create_categorical_schema_requires_polarity_for_feedback(store):
-    exp_id = _create_experiments(store, "test_categorical_feedback")
-    with pytest.raises(MlflowException, match="semantic_polarity"):
-        store.create_label_schema(
-            experiment_id=exp_id,
-            name="severity",
-            type="feedback",
-            title="Severity",
-            input=InputCategorical(options=["low", "high"]),
-        )
+def test_create_categorical_schema_accepts_omitted_polarity(store):
+    exp_id = _create_experiments(store, "test_categorical_no_polarity")
+    schema = store.create_label_schema(
+        experiment_id=exp_id,
+        name="severity",
+        type="feedback",
+        title="Severity",
+        input=InputCategorical(options=["low", "high"]),
+    )
+    assert isinstance(schema.input, InputCategorical)
+    assert schema.input.semantic_polarity is None
 
 
 def test_create_categorical_schema_with_polarity(store):
@@ -79,16 +80,18 @@ def test_create_categorical_schema_with_polarity(store):
     assert schema.input.multi_select is False
 
 
-def test_create_numeric_schema_requires_bounds_for_feedback(store):
-    exp_id = _create_experiments(store, "test_numeric_feedback")
-    with pytest.raises(MlflowException, match="min_value.*max_value"):
-        store.create_label_schema(
-            experiment_id=exp_id,
-            name="rating",
-            type="feedback",
-            title="Rating",
-            input=InputNumeric(),
-        )
+def test_create_numeric_schema_accepts_omitted_bounds(store):
+    exp_id = _create_experiments(store, "test_numeric_no_bounds")
+    schema = store.create_label_schema(
+        experiment_id=exp_id,
+        name="rating",
+        type="feedback",
+        title="Rating",
+        input=InputNumeric(),
+    )
+    assert isinstance(schema.input, InputNumeric)
+    assert schema.input.min_value is None
+    assert schema.input.max_value is None
 
 
 def test_create_rejects_text_input_for_oss(store):

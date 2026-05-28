@@ -208,7 +208,7 @@ export const LabelSchemaModal = ({ experimentId, editingSchema, visible, onClose
                     control={control}
                     isEdit={isEdit}
                     errors={visibleErrors}
-                    watchedValues={{ type: watched.type, inputKind: watched.inputKind }}
+                    watchedValues={{ inputKind: watched.inputKind }}
                   />
                 </div>
               </div>
