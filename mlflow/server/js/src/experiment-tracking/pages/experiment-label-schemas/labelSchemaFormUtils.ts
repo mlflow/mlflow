@@ -55,7 +55,7 @@ export interface LabelSchemaFormData {
 
 export const DEFAULT_FORM_VALUES: LabelSchemaFormData = {
   name: '',
-  type: 'feedback',
+  type: 'FEEDBACK',
   title: '',
   instruction: '',
   enable_comment: false,
@@ -249,7 +249,7 @@ export const validateLabelSchemaForm = (form: LabelSchemaFormData): LabelSchemaF
     } else if (options.some((o) => o.length > 64)) {
       errors.categoricalOptions = 'Each option must be at most 64 characters.';
     }
-    if (form.type === 'feedback' && form.categoricalPolarity === '') {
+    if (form.type === 'FEEDBACK' && form.categoricalPolarity === '') {
       errors.categoricalPolarity = 'Polarity is required for feedback-type categorical schemas.';
     }
   }
@@ -269,7 +269,7 @@ export const validateLabelSchemaForm = (form: LabelSchemaFormData): LabelSchemaF
     }
     const min = parseNumeric(form.numericMinValue);
     const max = parseNumeric(form.numericMaxValue);
-    if (form.type === 'feedback' && (min === undefined || max === undefined)) {
+    if (form.type === 'FEEDBACK' && (min === undefined || max === undefined)) {
       errors.numericMinValue = errors.numericMinValue ?? 'Feedback-type numeric schemas require both min and max.';
     }
     if (min !== undefined && max !== undefined && min >= max) {
