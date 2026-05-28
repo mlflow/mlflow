@@ -142,35 +142,20 @@ def _validate_categorical_options(options) -> None:
         seen.add(opt)
 
 
-def _validate_categorical_input(
-    input_obj: InputCategorical,
-    *,
-    type: LabelSchemaType,
-) -> None:
-    from mlflow.genai.label_schemas.label_schemas import LabelSchemaType
-
+def _validate_categorical_input(input_obj: InputCategorical) -> None:
     _validate_categorical_options(input_obj.options)
 
-    if type == LabelSchemaType.FEEDBACK:
-        if input_obj.semantic_polarity is None:
-            raise _invalid(
-                "Feedback-type schemas with `InputCategorical` must set "
-                "`semantic_polarity` to either 'ascending' or 'descending'."
-            )
-        if input_obj.semantic_polarity not in ("ascending", "descending"):
-            raise _invalid(
-                f"`InputCategorical.semantic_polarity` must be 'ascending' or 'descending'; "
-                f"got {input_obj.semantic_polarity!r}."
-            )
+    if input_obj.semantic_polarity is not None and input_obj.semantic_polarity not in (
+        "ascending",
+        "descending",
+    ):
+        raise _invalid(
+            f"`InputCategorical.semantic_polarity` must be 'ascending' or 'descending'; "
+            f"got {input_obj.semantic_polarity!r}."
+        )
 
 
-def _validate_numeric_input(
-    input_obj: InputNumeric,
-    *,
-    type: LabelSchemaType,
-) -> None:
-    from mlflow.genai.label_schemas.label_schemas import LabelSchemaType
-
+def _validate_numeric_input(input_obj: InputNumeric) -> None:
     for field_name in ("min_value", "max_value"):
         value = getattr(input_obj, field_name)
         if value is not None and not isinstance(value, (int, float)):
@@ -179,12 +164,6 @@ def _validate_numeric_input(
                 f"got {value.__class__.__name__}."
             )
 
-    if type == LabelSchemaType.FEEDBACK:
-        if input_obj.min_value is None or input_obj.max_value is None:
-            raise _invalid(
-                "Feedback-type schemas with `InputNumeric` must set both "
-                "`min_value` and `max_value` (feedback is always bounded)."
-            )
     if input_obj.min_value is not None and input_obj.max_value is not None:
         if input_obj.min_value >= input_obj.max_value:
             raise _invalid(
@@ -193,7 +172,7 @@ def _validate_numeric_input(
             )
 
 
-def _validate_input(input_obj, *, type: LabelSchemaType) -> None:
+def _validate_input(input_obj) -> None:
     # Imported here to avoid a circular import; the entity module is the
     # public surface and may import constants from this module later.
     from mlflow.genai.label_schemas.label_schemas import (
@@ -209,10 +188,10 @@ def _validate_input(input_obj, *, type: LabelSchemaType) -> None:
         _validate_pass_fail_input(input_obj)
         return
     if isinstance(input_obj, InputCategorical):
-        _validate_categorical_input(input_obj, type=type)
+        _validate_categorical_input(input_obj)
         return
     if isinstance(input_obj, InputNumeric):
-        _validate_numeric_input(input_obj, type=type)
+        _validate_numeric_input(input_obj)
         return
 
     cls_name = input_obj.__class__.__name__
@@ -264,11 +243,11 @@ def validate_schema_for_create(
         MlflowException(INVALID_PARAMETER_VALUE): if any field violates the rules.
     """
     _validate_name(name)
-    schema_type = _validate_schema_type(type)
+    _validate_schema_type(type)
     _validate_title(title)
     _validate_instruction(instruction)
     _validate_enable_comment(enable_comment)
-    _validate_input(input, type=schema_type)
+    _validate_input(input)
 
 
 def validate_schema_for_update(
@@ -297,4 +276,4 @@ def validate_schema_for_update(
     if enable_comment is not None:
         _validate_enable_comment(enable_comment)
     if input is not None:
-        _validate_input(input, type=existing.type)
+        _validate_input(input)
