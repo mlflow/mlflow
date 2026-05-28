@@ -1,6 +1,6 @@
 /**
  * Daemon supervisor - handles the "is the uploader daemon alive? if not,
- * spawn one" check invoked by `WalSpanExporter` on each WAL append.
+ * spawn one" check invoked by `MlflowWalSpanExporter` on each WAL append.
  */
 
 import { spawn } from 'node:child_process';
