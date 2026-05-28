@@ -141,10 +141,8 @@ class FileStore(AbstractStore):
                 "MLflow features. The `mlflow migrate-filestore` tool migrates your existing "
                 "data losslessly. See "
                 "https://mlflow.org/docs/latest/self-hosting/migrate-from-file-store "
-                "for migration guidance. If the filesystem backend is "
-                "required for your workflow, see "
-                "https://mlflow.org/docs/latest/self-hosting/migrate-from-file-store#continue-using-the-filesystem-backend "  # noqa: E501
-                "for how to opt out of this exception by setting `MLFLOW_ALLOW_FILE_STORE=true`.",
+                "for migration guidance. If the filesystem backend is required for your "
+                "workflow, set `MLFLOW_ALLOW_FILE_STORE=true` to opt out of this exception.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
         self.root_directory = local_file_uri_to_path(root_directory or _default_root_dir())
