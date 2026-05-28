@@ -23,15 +23,9 @@ import { useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks'
 import { useWorkspacesEnabled } from '../experiment-tracking/hooks/useServerInfo';
 import { useSearchParams } from '../common/utils/RoutingUtils';
 import { performLogout } from './auth-utils';
-import {
-  useCurrentUserQuery,
-  useIsBasicAuth,
-  useMyPermissionsQuery,
-  useUpdatePassword,
-  useUserRolesQuery,
-} from './hooks';
+import { useCurrentUserQuery, useIsBasicAuth, useUpdatePassword, useUserRolesQuery } from './hooks';
 import { PermissionsSection } from './PermissionsSection';
-import { DEFAULT_WORKSPACE_NAME, isWorkspaceAdminRole } from './types';
+import { DEFAULT_WORKSPACE_NAME, isSyntheticUserRole, isWorkspaceAdminRole } from './types';
 import type { Role } from './types';
 
 /**
@@ -91,25 +85,18 @@ const AccountPage = () => {
   };
 
   const { data: rolesData, isLoading: rolesLoading, error: rolesError } = useUserRolesQuery(username);
-  const allRoles = useMemo(() => rolesData?.roles ?? [], [rolesData]);
-
-  const { data: directPermsData, isLoading: directPermsLoading, error: directPermsError } = useMyPermissionsQuery();
-  const allDirectPermissions = useMemo(() => directPermsData?.permissions ?? [], [directPermsData]);
-
-  // Single-tenant mode hides the Workspace column, so stale non-default
-  // rows would look like duplicates. Filter them out; null workspace
-  // (deleted resource) stays - could belong to any workspace.
-  const roles = useMemo(
-    () => (workspacesEnabled ? allRoles : allRoles.filter((r) => r.workspace === DEFAULT_WORKSPACE_NAME)),
-    [allRoles, workspacesEnabled],
-  );
-  const directPermissions = useMemo(
-    () =>
-      workspacesEnabled
-        ? allDirectPermissions
-        : allDirectPermissions.filter((p) => p.workspace == null || p.workspace === DEFAULT_WORKSPACE_NAME),
-    [allDirectPermissions, workspacesEnabled],
-  );
+  // Direct grants live on the synthetic ``__user_<id>__`` role surfaced via
+  // ``listUserRoles`` alongside regular roles. ``PermissionsSection`` splits
+  // them on display (synthetic → "Direct" label, regular → role name), so we
+  // pass the unfiltered list down. The Roles tab below filters synthetic out
+  // separately via ``displayRoles``.
+  // Single-tenant mode hides the Workspace column; drop non-default-workspace
+  // rows so they don't look like duplicates.
+  const roles = useMemo(() => {
+    const all = rolesData?.roles ?? [];
+    return workspacesEnabled ? all : all.filter((r) => r.workspace === DEFAULT_WORKSPACE_NAME);
+  }, [rolesData, workspacesEnabled]);
+  const displayRoles = useMemo(() => roles.filter((r) => !isSyntheticUserRole(r.name)), [roles]);
 
   const handleChangePassword = async () => {
     setError(null);
@@ -173,7 +160,7 @@ const AccountPage = () => {
   };
 
   const rolesEmptyState =
-    roles.length === 0 ? (
+    displayRoles.length === 0 ? (
       <Empty
         title={intl.formatMessage({
           defaultMessage: 'No roles',
@@ -425,7 +412,7 @@ const AccountPage = () => {
                       )}
                     </TableHeader>
                   </TableRow>
-                  {roles.map((role) => (
+                  {displayRoles.map((role) => (
                     <AccountRoleRow key={role.id} role={role} workspacesEnabled={workspacesEnabled} />
                   ))}
                 </Table>
@@ -442,10 +429,8 @@ const AccountPage = () => {
             >
               <PermissionsSection
                 roles={roles}
-                directPermissions={directPermissions}
-                isLoading={rolesLoading || directPermsLoading}
+                isLoading={rolesLoading}
                 rolesError={rolesError}
-                directPermsError={directPermsError}
                 componentId="account"
                 workspacesEnabled={workspacesEnabled}
               />

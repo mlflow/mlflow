@@ -6,6 +6,7 @@ import sys
 import threading
 import time
 import uuid
+import warnings
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict
 from datetime import datetime
@@ -1037,7 +1038,33 @@ def test_search_traces_with_default_experiment_id(mock_client):
     )
 
 
+@pytest.mark.parametrize(
+    ("locations", "filter_string", "expect_warning"),
+    [
+        (["catalog.schema.prefix"], None, True),
+        (["catalog.schema.prefix"], "trace.timestamp_ms > '2024-01-01'", False),
+        (["123"], None, False),
+    ],
+)
+def test_search_traces_warns_on_uc_location_without_time_range(
+    locations, filter_string, expect_warning, mock_client
+):
+    mock_client.search_traces.return_value = PagedList([], token=None)
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        mlflow.search_traces(locations=locations, filter_string=filter_string)
+
+    uc_warnings = [
+        w
+        for w in caught
+        if issubclass(w.category, UserWarning) and "trace.timestamp_ms" in str(w.message)
+    ]
+    assert bool(uc_warnings) == expect_warning
+
+
 @skip_when_testing_trace_sdk
+@pytest.mark.skipif(os.name == "nt", reason="Flaky on Windows")
 def test_search_traces_yields_expected_dataframe_contents(monkeypatch):
     model = DefaultTestModel()
     expected_traces = []

@@ -10,6 +10,8 @@ defaults:
   run:
     shell: bash
 
+permissions: {}
+
 jobs:
   push-images:
     # Only run for version tags (vX.Y.Z); skips non-version release tags like `model-catalog/latest`.

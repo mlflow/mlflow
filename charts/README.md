@@ -49,7 +49,7 @@ helm install mlflow ./charts \
 Access the UI via port-forward:
 
 ```bash
-kubectl port-forward -n mlflow svc/mlflow 5000:5000
+kubectl port-forward -n mlflow svc/mlflow-mlflow 5000:5000
 ```
 
 Then open http://localhost:5000 in your browser.

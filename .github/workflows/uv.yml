@@ -19,6 +19,8 @@ defaults:
   run:
     shell: bash
 
+permissions: {}
+
 jobs:
   uv:
     # Skip scheduled runs on forks
@@ -43,7 +45,6 @@ jobs:
           token: ${{ steps.app-token.outputs.token || github.token }}
       - uses: ./.github/actions/setup-python
         with:
-          enable-uv-cache: false
           pin-micro-version: false
       - name: Run uv lock --upgrade
         run: |
@@ -68,6 +69,9 @@ jobs:
           {
             echo 'This PR was created automatically to update `uv.lock`.'
             echo
+            echo '> [!IMPORTANT]'
+            echo '> This PR is set to auto-merge once CI passes. If any CI checks fail, please investigate and fix them.'
+            echo
             echo '### `uv lock` output'
             echo
             echo '```'
@@ -84,6 +88,7 @@ jobs:
             echo "Updating existing PR #$NUMBER on branch $BRANCH"
             git push --force origin "HEAD:$BRANCH"
             gh pr edit "$NUMBER" --body-file /tmp/pr-body.md
+            gh pr merge "$NUMBER" --auto
           else
             BRANCH="uv-lock-update-$(date -u +%Y-%m-%dT%H-%M-%S)"
             git push origin "HEAD:$BRANCH"

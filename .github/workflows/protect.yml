@@ -21,6 +21,8 @@ defaults:
   run:
     shell: bash
 
+permissions: {}
+
 jobs:
   protect:
     # Skip this job in a merge queue

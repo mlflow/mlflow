@@ -35,7 +35,7 @@ INFO:     Uvicorn running on http://127.0.0.1:8080 (Press CTRL+C to quit)
 
 There are many options to configure the server, refer to [Configure Server](#configure-server) for more details.
 
-:::warning important
+:::warning[important]
 The server listens on http://localhost:5000 by default and only accepts
 connections from the local machine. To let the server accept connections
 from other machines, you will need to pass `--host 0.0.0.0` to listen on
@@ -49,7 +49,7 @@ to specify which domains can access your server. See [Security Configuration](/s
 for details.
 :::
 
-:::tip Read-only Filesystems
+:::tip[Read-only Filesystems]
 When running in containers with read-only root filesystems (common in Kubernetes with `securityContext.readOnlyRootFilesystem: true`),
 configure remote artifact storage using `--artifacts-destination` (artifact serving is enabled by default). The tracking server does not create
 local directories at startup when using remote artifact storage, making it compatible with read-only environments.
@@ -159,6 +159,86 @@ mlflow server --backend-store-uri ./mlruns
 
 SQLite is the default backend and provides good performance and reliability for most use cases. For production deployments with high concurrency, consider using PostgreSQL or MySQL.
 
+### Trace Archival
+
+MLflow can archive older trace span payloads from the tracking database to a configured artifact
+location while keeping the traces readable in the UI and APIs.
+
+::::note
+**Requirements**
+
+Trace archival requires a tracking store that supports server-owned archival. The archival
+`location` must be a real artifact repository URI. The scheduler only archives finalized traces;
+in-progress traces are skipped.
+::::
+
+Create a YAML config file and point `MLFLOW_TRACE_ARCHIVAL_CONFIG` at it:
+
+```yaml title="trace-archival.yaml"
+trace_archival:
+  enabled: true
+  location: s3://mlflow-trace-archive
+  retention: 30d
+  interval_seconds: 300
+  max_traces_per_pass: 1000
+  long_retention_allowlist:
+    # Experiment ID for customer-support-agent-prod
+    - 12345
+```
+
+Then start the server with that configuration, either through the environment or with the
+`--trace-archival-config` flag:
+
+```bash
+export MLFLOW_TRACE_ARCHIVAL_CONFIG=/etc/mlflow/trace-archival.yaml
+
+mlflow server \
+  --backend-store-uri postgresql://user:pass@localhost/mlflow \
+  --default-artifact-root s3://mlflow-artifacts
+
+# Or pass the config path directly
+mlflow server \
+  --backend-store-uri postgresql://user:pass@localhost/mlflow \
+  --default-artifact-root s3://mlflow-artifacts \
+  --trace-archival-config /etc/mlflow/trace-archival.yaml
+```
+
+- `interval_seconds` controls how often the scheduler checks for archival work.
+- `max_traces_per_pass` limits the amount of work in a single pass.
+- `long_retention_allowlist` contains experiment IDs that are allowed to keep traces longer than the
+  broader server or workspace policy.
+
+When workspaces are enabled, trace archival settings are resolved in the following order:
+
+1. Global defaults provide the base archive location and retention period.
+2. Workspace-level `trace_archival_config` overrides those defaults for all traces in the
+   workspace.
+3. Experiment-level settings can further reduce retention for a specific experiment.
+4. If an experiment requests a longer retention period than the broader server or workspace policy,
+   that longer retention is only honored when the experiment's ID appears in
+   `long_retention_allowlist`.
+
+For example, if the global default is 30 days, a workspace is configured for 90 days, and
+experiment `123` is configured for 14 days, traces for experiment `123` are retained for 14 days.
+If experiment `123` is instead configured for 180 days, its traces are retained for 90 days unless
+`123` is added to `long_retention_allowlist`, in which case they are retained for 180 days.
+
+Troubleshooting:
+
+- If trace archival never runs, confirm that `MLFLOW_TRACE_ARCHIVAL_CONFIG` points to a valid YAML
+  file and that `trace_archival.enabled` is `true`.
+- Changes to `MLFLOW_TRACE_ARCHIVAL_CONFIG` are picked up without restarting MLflow. The server
+  refreshes the config automatically with a short cache window (about 5 seconds) and applies
+  updated settings on later scheduler checks. If a config refresh fails, MLflow continues using the
+  last valid config until the file is fixed.
+- If a workspace or experiment does not show an effective retention, check whether archival is
+  disabled, misconfigured, or missing an archival location.
+- If a longer experiment retention is ignored, add that experiment ID to
+  `long_retention_allowlist` in the server config.
+
+See [Archive Traces](/genai/tracing/observe-with-traces/archive-traces) for the end-user workflow
+and archival failure / retry behavior, and [Getting Started with Workspaces](/self-hosting/workspaces/getting-started) for workspace-level examples.
+
 ### Remote artifacts store \{#tracking-server-artifact-store}
 
 #### Using the Tracking Server for proxied artifact access (default)
@@ -175,7 +255,7 @@ mlflow server \
 
 With this setting, MLflow server works as a proxy for accessing remote artifacts. The MLflow clients make HTTP request to the server for fetching artifacts.
 
-:::warning important
+:::warning[important]
 If you are using remote storage, you have to configure the credentials for the server to access the artifacts. Be aware of that The MLflow artifact proxied
 access service enables users to have an _assumed role of access to all artifacts_ that are accessible to the Tracking Server. Refer [Manage Access](/self-hosting/architecture/artifact-store#artifacts-stores-manage-access) for further details.
 :::
@@ -189,7 +269,7 @@ explicit object store destination (e.g., "s3:/my_bucket/mlartifacts") for interf
 - `mlflow-artifacts://<host>:<port>/mlartifacts`
 - `mlflow-artifacts:/mlartifacts`
 
-:::warning important
+:::warning[important]
 The MLflow client caches artifact location information on a per-run basis.
 It is therefore not recommended to alter a run's artifact location before it has terminated.
 :::
@@ -208,7 +288,7 @@ With this setting, the MLflow client still makes minimum HTTP requests to the tr
 but can directly upload artifacts to / download artifacts from the remote storage. While this might not be a good practice for access and
 security governance, it could be useful when you want to avoid the overhead of proxying artifacts through the tracking server.
 
-:::info Use the right configuration keys
+:::info[Use the right configuration keys]
 
 The two options `--serve-artifacts` and `--default-artifact-root` look similar, but they are used for different purposes. When you pick the wrong one, the artifact logging requests will not go through the expected route and may cause access issues. The rule of thumb is:
 
