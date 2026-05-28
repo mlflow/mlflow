@@ -736,9 +736,7 @@ describe('wal/daemon', () => {
       // `due.length === 0`, so a WAL populated only by future-dated
       // retries is treated as not-actively-working and the loop
       // winds down through the normal `idleMs` path.
-      await appendRecord(
-        makeRecord({ id: 'row-future', nextAttemptAt: Date.now() + 60_000 }),
-      );
+      await appendRecord(makeRecord({ id: 'row-future', nextAttemptAt: Date.now() + 60_000 }));
       const factory = jest.fn();
       const start = Date.now();
       await runBatchLoop({
@@ -757,6 +755,5 @@ describe('wal/daemon', () => {
       // `firstAttemptAt` budget — at-least-once delivery preserved.
       expect(await readPending()).toHaveLength(1);
     });
-
   });
 });

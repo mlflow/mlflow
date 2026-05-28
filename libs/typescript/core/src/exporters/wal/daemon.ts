@@ -543,7 +543,7 @@ export async function runBatchLoop({
       const pending = await readPending();
       const now = Date.now();
       const due = pending.filter((r) => r.nextAttemptAt <= now);
-      
+
       if (due.length > 0) {
         lastNonEmpty = now;
         await processBatch(due, writer, factory);
