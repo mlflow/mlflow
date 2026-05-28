@@ -23,22 +23,39 @@ const describeInput = (schema: LabelSchema): string => {
 
 export interface LabelSchemaCardProps {
   schema: LabelSchema;
+  /**
+   * When true, the card renders with a highlighted border indicating it
+   * is the schema currently driving the preview pane.
+   */
+  selected?: boolean;
+  /**
+   * Fires when the card body (anywhere outside the Edit / Delete
+   * buttons) is clicked. Drives preview-pane selection.
+   */
+  onSelect?: (schema: LabelSchema) => void;
   onEdit: (schema: LabelSchema) => void;
   onDelete: (schema: LabelSchema) => void;
 }
 
-export const LabelSchemaCard = ({ schema, onEdit, onDelete }: LabelSchemaCardProps) => {
+export const LabelSchemaCard = ({ schema, selected, onSelect, onEdit, onDelete }: LabelSchemaCardProps) => {
   const { theme } = useDesignSystemTheme();
   return (
     <Card
       componentId="mlflow.experiment-label-schemas.card"
       data-testid={`label-schema-card-${schema.schema_id}`}
+      onClick={onSelect ? () => onSelect(schema) : undefined}
+      aria-pressed={onSelect ? !!selected : undefined}
       css={{
         padding: theme.spacing.md,
         marginBottom: theme.spacing.md,
         display: 'flex',
         flexDirection: 'column',
         gap: theme.spacing.sm,
+        cursor: onSelect ? 'pointer' : 'default',
+        // Use an inset box-shadow for the selection highlight rather
+        // than toggling `borderWidth` (which shifts adjacent cards by
+        // 1px on selection-change). The shadow doesn't affect layout.
+        boxShadow: selected ? `inset 0 0 0 2px ${theme.colors.actionPrimaryBackgroundDefault}` : undefined,
       }}
     >
       <div css={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -49,7 +66,12 @@ export const LabelSchemaCard = ({ schema, onEdit, onDelete }: LabelSchemaCardPro
           <Button
             componentId="mlflow.experiment-label-schemas.card.edit-button"
             icon={<PencilIcon />}
-            onClick={() => onEdit(schema)}
+            onClick={(event) => {
+              // Avoid triggering the card's onSelect when the user
+              // clicks the Edit affordance.
+              event.stopPropagation();
+              onEdit(schema);
+            }}
             aria-label="Edit label schema"
           >
             <FormattedMessage defaultMessage="Edit" description="Edit label schema button" />
@@ -58,7 +80,10 @@ export const LabelSchemaCard = ({ schema, onEdit, onDelete }: LabelSchemaCardPro
             componentId="mlflow.experiment-label-schemas.card.delete-button"
             icon={<TrashIcon />}
             danger
-            onClick={() => onDelete(schema)}
+            onClick={(event) => {
+              event.stopPropagation();
+              onDelete(schema);
+            }}
             aria-label="Delete label schema"
           >
             <FormattedMessage defaultMessage="Delete" description="Delete label schema button" />

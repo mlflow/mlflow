@@ -2159,6 +2159,10 @@
     "defaultMessage": "No assessments available",
     "description": "Message shown when there are no assessments to display"
   },
+  "AInJq8": {
+    "defaultMessage": "Select a schema from the list or create a new one to preview what an SME will see when annotating a trace.",
+    "description": "Label schema preview empty state description"
+  },
   "AM8DuO": {
     "defaultMessage": "Failed",
     "description": "Run page > Overview > Run status cell > Value for failed state"
@@ -2975,6 +2979,10 @@
     "defaultMessage": "Endpoint Name",
     "description": "Label for endpoint name input"
   },
+  "FO8GgI": {
+    "defaultMessage": "Preview",
+    "description": "Label schema preview pane heading"
+  },
   "FTx+Hi": {
     "defaultMessage": "(baseline)",
     "description": "A label displayed next to baseline version in the prompt versions comparison view"
@@ -3542,6 +3550,10 @@
   "J45Atg": {
     "defaultMessage": "Key is required if value is present",
     "description": "Error message for required key in tag assignment modal"
+  },
+  "J5SqkV": {
+    "defaultMessage": "This is how an SME will see the schema when annotating a trace.",
+    "description": "Label schema preview pane helper text"
   },
   "J75ziY": {
     "defaultMessage": "No roles",
@@ -5323,6 +5335,10 @@
     "defaultMessage": "Retrieved {sampledCount} out of {totalCount} total logs ({percentage}%)",
     "description": "Evaluation review > evaluations list > sample info tooltip"
   },
+  "TdUPSa": {
+    "defaultMessage": "No schema selected",
+    "description": "Label schema preview empty state title"
+  },
   "TeN9hs": {
     "defaultMessage": "Traces",
     "description": "Label for the traces tab on the logged model details page"
@@ -5495,6 +5511,10 @@
     "defaultMessage": "Transition to",
     "description": "Text for transitioning a model version to a different stage under\n                 dropdown menu in model version page"
   },
+  "UiURN5": {
+    "defaultMessage": "Preview unavailable",
+    "description": "Label schema preview render-error empty title"
+  },
   "UkVgwL": {
     "defaultMessage": "Create endpoint",
     "description": "Page title for create endpoint"
@@ -5634,6 +5654,10 @@
   "VPU43C": {
     "defaultMessage": "Compare parameter importance",
     "description": "Experiment page > compare runs > parallel coordinates chart > chart not configured warning > title"
+  },
+  "VSFnB3": {
+    "defaultMessage": "Continue editing the schema to see a preview.",
+    "description": "Label schema preview render-error empty description"
   },
   "VSitCY": {
     "defaultMessage": "Top K",
@@ -7222,6 +7246,10 @@
   "eIdMWq": {
     "defaultMessage": "Reset example",
     "description": "Reset example button"
+  },
+  "eKtJZ/": {
+    "defaultMessage": "(no title yet)",
+    "description": "Label schema preview placeholder for blank title"
   },
   "eLgTRT": {
     "defaultMessage": "Key",

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { Button, Modal, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useForm, useWatch } from 'react-hook-form';
@@ -21,9 +21,30 @@ export interface LabelSchemaModalProps {
   editingSchema: LabelSchema | null;
   visible: boolean;
   onClose: () => void;
+  /**
+   * Optional callback fired whenever the live form data changes. The
+   * parent uses this to drive the admin-page preview pane from the
+   * modal's in-flight form state so the SME-view preview updates as the
+   * author types. Receives `null` when the modal is not visible so the
+   * parent can fall back to the selected-schema state.
+   */
+  onFormDataChange?: (data: LabelSchemaFormData | null) => void;
+  /**
+   * Fires with the new schema's `schema_id` after a successful create.
+   * The parent uses this to point the preview pane at the just-created
+   * schema instead of falling back to the previously-selected card.
+   */
+  onCreateSuccess?: (schemaId: string) => void;
 }
 
-export const LabelSchemaModal = ({ experimentId, editingSchema, visible, onClose }: LabelSchemaModalProps) => {
+export const LabelSchemaModal = ({
+  experimentId,
+  editingSchema,
+  visible,
+  onClose,
+  onFormDataChange,
+  onCreateSuccess,
+}: LabelSchemaModalProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const isEdit = editingSchema != null;
@@ -31,12 +52,43 @@ export const LabelSchemaModal = ({ experimentId, editingSchema, visible, onClose
   const { control, handleSubmit, reset } = useForm<LabelSchemaFormData>({
     defaultValues,
   });
-  const watched = useWatch({ control }) as LabelSchemaFormData;
+  // `useWatch({ control })` returns `DeepPartial<LabelSchemaFormData>`;
+  // backfill with `DEFAULT_FORM_VALUES` so downstream consumers (the
+  // preview pane via `onFormDataChange`, the validator) always see a
+  // complete value with `inputKind` defined. Without this, transient
+  // partial states (e.g., between mount and the first `reset`) could
+  // make `buildLabelSchemaInputFromForm` hit its `never` branch.
+  // Memoize so the reference is stable when no form field changed;
+  // otherwise downstream useEffect deps would fire on every render.
+  const watchedPartial = useWatch({ control });
+  const watched = useMemo<LabelSchemaFormData>(() => ({ ...DEFAULT_FORM_VALUES, ...watchedPartial }), [watchedPartial]);
 
   const createMutation = useCreateLabelSchemaMutation();
   const updateMutation = useUpdateLabelSchemaMutation();
   const isSubmitting = createMutation.isCreating || updateMutation.isUpdating;
   const submitError = createMutation.error ?? updateMutation.error;
+
+  // Track which `editingSchema?.schema_id` the form was last reset to
+  // so the pipe effect can skip emitting until reset has propagated.
+  // Without this, on open-for-edit the pipe would emit one render of
+  // stale `watched` values before the reset effect updates the form,
+  // briefly showing pre-open content in the preview pane.
+  const lastResetIdRef = useRef<string | null | undefined>(undefined);
+
+  // Pipe live form state up to the admin-page preview pane while the
+  // modal is open; clear (null) when the modal closes so the parent
+  // falls back to the saved selected-schema preview.
+  useEffect(() => {
+    if (!onFormDataChange) {
+      return;
+    }
+    // Skip while we're between an editingSchema change and the reset
+    // taking effect; the next render after reset will pipe correctly.
+    if (lastResetIdRef.current !== (editingSchema?.schema_id ?? null)) {
+      return;
+    }
+    onFormDataChange(visible ? watched : null);
+  }, [visible, watched, onFormDataChange, editingSchema?.schema_id]);
 
   // When the modal switches between create and edit (or between two
   // different schemas in edit mode), reset the form to the new defaults
@@ -46,6 +98,7 @@ export const LabelSchemaModal = ({ experimentId, editingSchema, visible, onClose
   // undefined, so this effect wouldn't refire).
   useEffect(() => {
     reset(defaultValues);
+    lastResetIdRef.current = editingSchema?.schema_id ?? null;
     // Mutation hook state survives modal close/reopen because the
     // parent keeps this component mounted; clear stale error banners
     // when the user opens the modal for a different schema (or pivots
@@ -84,7 +137,7 @@ export const LabelSchemaModal = ({ experimentId, editingSchema, visible, onClose
           input,
         });
       } else {
-        await createMutation.createLabelSchemaAsync({
+        const created = await createMutation.createLabelSchemaAsync({
           experiment_id: experimentId,
           name: form.name,
           type: form.type,
@@ -95,6 +148,9 @@ export const LabelSchemaModal = ({ experimentId, editingSchema, visible, onClose
           instruction: form.instruction === '' ? undefined : form.instruction,
           enable_comment: form.enable_comment,
         });
+        // Surface the new schema's id so the parent can point the
+        // preview pane at the just-created schema after close.
+        onCreateSuccess?.(created.label_schema.schema_id);
       }
     } catch {
       // Errors are surfaced in the UI via `submitError`; keep the modal

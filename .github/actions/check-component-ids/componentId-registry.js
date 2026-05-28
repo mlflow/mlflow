@@ -1113,6 +1113,7 @@ module.exports = {
   "mlflow.experiment-label-schemas.modal": "",
   "mlflow.experiment-label-schemas.modal.cancel": "",
   "mlflow.experiment-label-schemas.modal.submit": "",
+  "mlflow.experiment-label-schemas.preview": "",
 
   // -- mlflow.experiment-page --
   "mlflow.experiment-page.header.back-icon-button": "",
