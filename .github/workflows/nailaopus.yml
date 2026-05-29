@@ -190,8 +190,9 @@ jobs:
           # parse on a pull_request event.
           FLAGS: ${{ steps.flags.outputs.flags }}
           # MLflow tracing. No-ops unless all three MLFLOW_* vars are set,
-          # so leaving them unset disables tracing without editing this file.
-          MLFLOW_ENABLE_TRACING: "true"
+          # so toggling the repo vars turns tracing on/off without editing
+          # this file.
+          MLFLOW_ENABLE_TRACING: ${{ vars.NAILAOPUS_MLFLOW_ENABLE_TRACING }}
           MLFLOW_TRACKING_URI: ${{ vars.NAILAOPUS_MLFLOW_TRACKING_URI }}
           MLFLOW_EXPERIMENT_ID: ${{ vars.NAILAOPUS_MLFLOW_EXPERIMENT_ID }}
           DATABRICKS_HOST: ${{ vars.NAILAOPUS_DATABRICKS_HOST }}
