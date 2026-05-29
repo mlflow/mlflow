@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780063008238,
+  "lastUpdate": 1780072349794,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -6317,6 +6317,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 23.613462399987384,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "HumairAK@users.noreply.github.com",
+            "name": "Humair Khan",
+            "username": "HumairAK"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "954379c3ba9814b45c6a8bd9b4a25feff28a017d",
+          "message": "Prefer routed ASGI paths in FastAPI auth checks. (#23685)\n\nSigned-off-by: Humair Khan <HumairAK@users.noreply.github.com>",
+          "timestamp": "2026-05-29T16:28:41Z",
+          "tree_id": "543c40a3e50ece54e9c929485def8ccfdb9a9f28",
+          "url": "https://github.com/mlflow/mlflow/commit/954379c3ba9814b45c6a8bd9b4a25feff28a017d"
+        },
+        "date": 1780072348675,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 41.02263725000057,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 22.117319764705414,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 21.47641411475319,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 23.332870491227766,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 15.916709777777607,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 23.20748899999785,
             "unit": "ms"
           }
         ]
