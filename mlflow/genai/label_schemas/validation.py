@@ -19,7 +19,6 @@ it directly.
 
 from __future__ import annotations
 
-import re
 from typing import TYPE_CHECKING
 
 from mlflow.exceptions import MlflowException
@@ -27,9 +26,9 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
 if TYPE_CHECKING:
     from mlflow.genai.label_schemas.label_schemas import (
-        InputCategorical,
         InputNumeric,
         InputPassFail,
+        InputText,
         LabelSchema,
         LabelSchemaType,
     )
@@ -37,12 +36,12 @@ if TYPE_CHECKING:
 
 # Field length and count limits, ported from
 # managed-evals/src/reviewapp/ReviewAppRpcValidatorRequestHook.scala.
+# `name` is the reviewer-facing label and the assessment key; it is free
+# text (MLflow assessment names are unconstrained) so it can read as a
+# prompt, e.g. "Is the answer correct?". There is no separate display
+# title.
 NAME_MIN_LENGTH = 1
-NAME_MAX_LENGTH = 150
-NAME_REGEX = re.compile(r"^[a-zA-Z0-9_]+$")
-
-TITLE_MIN_LENGTH = 1
-TITLE_MAX_LENGTH = 256
+NAME_MAX_LENGTH = 256
 
 INSTRUCTION_MAX_LENGTH = 1000
 
@@ -54,7 +53,9 @@ CATEGORICAL_OPTIONS_MAX_COUNT = 100
 CATEGORICAL_OPTION_MIN_LENGTH = 1
 CATEGORICAL_OPTION_MAX_LENGTH = 64
 
-_SUPPORTED_INPUT_TYPE_NAMES = ("InputPassFail", "InputCategorical", "InputNumeric")
+TEXT_MAX_LENGTH_MIN = 1
+
+_SUPPORTED_INPUT_TYPE_NAMES = ("InputPassFail", "InputCategorical", "InputNumeric", "InputText")
 
 
 def _invalid(message: str) -> MlflowException:
@@ -67,20 +68,6 @@ def _validate_name(name: str) -> None:
     if len(name) > NAME_MAX_LENGTH:
         raise _invalid(
             f"Label schema `name` must be at most {NAME_MAX_LENGTH} characters; got {len(name)}."
-        )
-    if not NAME_REGEX.match(name):
-        raise _invalid(
-            f"Label schema `name` must match {NAME_REGEX.pattern!r} "
-            f"(alphanumeric and underscore only); got {name!r}."
-        )
-
-
-def _validate_title(title: str) -> None:
-    if not isinstance(title, str) or len(title) < TITLE_MIN_LENGTH:
-        raise _invalid(f"Label schema `title` must be a non-empty string; got {title!r}.")
-    if len(title) > TITLE_MAX_LENGTH:
-        raise _invalid(
-            f"Label schema `title` must be at most {TITLE_MAX_LENGTH} characters; got {len(title)}."
         )
 
 
@@ -142,16 +129,17 @@ def _validate_categorical_options(options) -> None:
         seen.add(opt)
 
 
-def _validate_categorical_input(input_obj: InputCategorical) -> None:
-    _validate_categorical_options(input_obj.options)
-
-    if input_obj.semantic_polarity is not None and input_obj.semantic_polarity not in (
-        "ascending",
-        "descending",
-    ):
+def _validate_text_input(input_obj: InputText) -> None:
+    max_length = input_obj.max_length
+    if max_length is None:
+        return
+    if not isinstance(max_length, int) or isinstance(max_length, bool):
         raise _invalid(
-            f"`InputCategorical.semantic_polarity` must be 'ascending' or 'descending'; "
-            f"got {input_obj.semantic_polarity!r}."
+            f"`InputText.max_length` must be an int or None; got {max_length.__class__.__name__}."
+        )
+    if max_length < TEXT_MAX_LENGTH_MIN:
+        raise _invalid(
+            f"`InputText.max_length` must be at least {TEXT_MAX_LENGTH_MIN}; got {max_length}."
         )
 
 
@@ -179,6 +167,7 @@ def _validate_input(input_obj) -> None:
         InputCategorical,
         InputNumeric,
         InputPassFail,
+        InputText,
     )
 
     if input_obj is None:
@@ -188,10 +177,13 @@ def _validate_input(input_obj) -> None:
         _validate_pass_fail_input(input_obj)
         return
     if isinstance(input_obj, InputCategorical):
-        _validate_categorical_input(input_obj)
+        _validate_categorical_options(input_obj.options)
         return
     if isinstance(input_obj, InputNumeric):
         _validate_numeric_input(input_obj)
+        return
+    if isinstance(input_obj, InputText):
+        _validate_text_input(input_obj)
         return
 
     cls_name = input_obj.__class__.__name__
@@ -232,7 +224,6 @@ def validate_schema_for_create(
     *,
     name: str,
     type,
-    title: str,
     input,
     instruction: str | None = None,
     enable_comment: bool = False,
@@ -244,7 +235,6 @@ def validate_schema_for_create(
     """
     _validate_name(name)
     _validate_schema_type(type)
-    _validate_title(title)
     _validate_instruction(instruction)
     _validate_enable_comment(enable_comment)
     _validate_input(input)
@@ -254,7 +244,6 @@ def validate_schema_for_update(
     *,
     existing: LabelSchema,
     name: str | None,
-    title: str | None,
     instruction: str | None,
     enable_comment: bool | None,
     input,
@@ -269,8 +258,6 @@ def validate_schema_for_update(
     """
     if name is not None:
         _validate_name(name)
-    if title is not None:
-        _validate_title(title)
     if instruction is not None:
         _validate_instruction(instruction)
     if enable_comment is not None:
