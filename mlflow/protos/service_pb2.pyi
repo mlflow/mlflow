@@ -7,6 +7,7 @@ from google.protobuf import timestamp_pb2 as _timestamp_pb2
 import issues_pb2 as _issues_pb2
 from opentelemetry.proto.trace.v1 import trace_pb2 as _trace_pb2
 import prompt_optimization_pb2 as _prompt_optimization_pb2
+import review_assignments_pb2 as _review_assignments_pb2
 from scalapb import scalapb_pb2 as _scalapb_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
