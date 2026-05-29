@@ -18,7 +18,7 @@ export interface LabelSchemaPreviewProps {
 }
 
 /**
- * Interactive sandbox renderer of how an SME will see the schema in the
+ * Interactive sandbox renderer of how a reviewer will see the schema in the
  * review UI. Rendered inside the create / edit modal driven by the
  * form's live `useWatch` values; renders a panel-style header bar +
  * scrollable body matching the judges flow's
@@ -55,7 +55,7 @@ export const LabelSchemaPreview = ({ formData }: LabelSchemaPreviewProps) => {
       </Typography.Text>
       <Typography.Hint>
         <FormattedMessage
-          defaultMessage="How an SME sees the schema"
+          defaultMessage="How a reviewer sees the schema"
           description="Label schema preview panel header subtitle"
         />
       </Typography.Hint>

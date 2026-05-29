@@ -129,7 +129,7 @@ export const LabelSchemasContentContainer = ({ experimentId }: LabelSchemasConte
             }
             description={
               <FormattedMessage
-                defaultMessage="Create a schema to define how SMEs label traces in the review UI: pass/fail, categorical, or numeric."
+                defaultMessage="Create a schema to define how reviewers label traces in the review UI: pass/fail, categorical, numeric, or text."
                 description="Label schemas empty state description"
               />
             }
