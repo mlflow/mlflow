@@ -104,7 +104,7 @@ class MockAsyncResponse:
 
     def raise_for_status(self) -> None:
         if 400 <= self.status < 600:
-            raise aiohttp.ClientResponseError(None, None, status=self.status)
+            raise aiohttp.ClientResponseError(None, None, status=self.status, headers=self.headers)
 
     async def json(self) -> dict[str, Any]:
         return self._content

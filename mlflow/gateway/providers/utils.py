@@ -1,8 +1,11 @@
 import time
 from contextlib import asynccontextmanager
 from contextvars import ContextVar
-from typing import Any, AsyncGenerator
+from typing import TYPE_CHECKING, Any, AsyncGenerator
 from urllib.parse import urlparse, urlunparse
+
+if TYPE_CHECKING:
+    import aiohttp
 
 from mlflow.gateway.constants import (
     MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS,
@@ -34,6 +37,28 @@ async def _aiohttp_post(headers: dict[str, str], base_url: str, path: str, paylo
             yield response
 
 
+async def _extract_error_detail(
+    response: "aiohttp.ClientResponse", error: "aiohttp.ClientResponseError"
+) -> Any:
+    content_type = error.headers.get("Content-Type") if error.headers else None
+    if content_type and "application/json" in content_type:
+        try:
+            body = await response.json()
+        except Exception:
+            pass
+        else:
+            match body:
+                case {"error": {"message": str(msg)}}:
+                    return msg
+                case _:
+                    return body
+    try:
+        text = await response.text()
+    except Exception:
+        text = ""
+    return {"message": text or error.message}
+
+
 async def send_request(headers: dict[str, str], base_url: str, path: str, payload: dict[str, Any]):
     """
     Send an HTTP request to a specific URL path with given headers and payload.
@@ -57,6 +82,15 @@ async def send_request(headers: dict[str, str], base_url: str, path: str, payloa
     try:
         async with _aiohttp_post(headers, base_url, path, payload) as response:
             content_type = response.headers.get("Content-Type")
+            try:
+                response.raise_for_status()
+            except aiohttp.ClientResponseError as e:
+                # Surface upstream errors regardless of Content-Type. Some upstreams
+                # omit Content-Type on errors, which would otherwise be masked as
+                # the generic 502 raised below.
+                detail = await _extract_error_detail(response, e)
+                raise HTTPException(status_code=e.status, detail=detail)
+
             if content_type and "application/json" in content_type:
                 js = await response.json()
             elif content_type and "text/plain" in content_type:
@@ -67,11 +101,6 @@ async def send_request(headers: dict[str, str], base_url: str, path: str, payloa
                     detail=f"The returned data type from the route service is not supported. "
                     f"Received content type: {content_type}",
                 )
-            try:
-                response.raise_for_status()
-            except aiohttp.ClientResponseError as e:
-                detail = js.get("error", {}).get("message", e.message) if "error" in js else js
-                raise HTTPException(status_code=e.status, detail=detail)
     finally:
         # Record full provider HTTP time for non-streaming, even when raising.
         provider_call_duration_ms.set(
