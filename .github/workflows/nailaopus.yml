@@ -189,6 +189,14 @@ jobs:
           # only runs for /review-v2 comments, and there is no comment body to
           # parse on a pull_request event.
           FLAGS: ${{ steps.flags.outputs.flags }}
+          # MLflow tracing. No-ops unless all three MLFLOW_* vars are set,
+          # so leaving them unset disables tracing without editing this file.
+          MLFLOW_ENABLE_TRACING: "true"
+          MLFLOW_TRACKING_URI: ${{ vars.NAILAOPUS_MLFLOW_TRACKING_URI }}
+          MLFLOW_EXPERIMENT_ID: ${{ vars.NAILAOPUS_MLFLOW_EXPERIMENT_ID }}
+          DATABRICKS_HOST: ${{ vars.NAILAOPUS_DATABRICKS_HOST }}
+          DATABRICKS_CLIENT_ID: ${{ secrets.NAILAOPUS_DATABRICKS_CLIENT_ID }}
+          DATABRICKS_CLIENT_SECRET: ${{ secrets.NAILAOPUS_DATABRICKS_CLIENT_SECRET }}
         # Inputs flow through env vars rather than ${{ }} interpolation
         # directly into the shell, so an unexpected character in any value
         # (today none reach here, but the pattern is hardening for drift)
