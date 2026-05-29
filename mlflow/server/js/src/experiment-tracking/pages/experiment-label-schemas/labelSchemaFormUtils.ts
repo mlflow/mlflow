@@ -6,8 +6,8 @@
  *   LabelSchema (wire + domain model)
  *     ↓ getFormValuesFromSchema
  *   LabelSchemaFormData (one field per form control)
- *     ↓ buildLabelSchemaInputFromForm + buildLabelSchemaPayloadFromForm
- *   { input: LabelSchemaInput, ...payload }  (back to wire shape)
+ *     ↓ buildLabelSchemaInputFromForm
+ *   { input: LabelSchemaInput }  (back to wire shape)
  *
  * The categorical `options` field is newline-joined in the form
  * (textarea-friendly) and split back into an array on submit; this
@@ -18,13 +18,14 @@ import type {
   InputCategorical,
   InputNumeric,
   InputPassFail,
+  InputText,
   LabelSchema,
   LabelSchemaInput,
   LabelSchemaType,
 } from '../../components/label-schemas/types';
 
 /** Discriminator used in the form to switch which input fieldset is shown. */
-export type LabelSchemaInputKind = 'pass_fail' | 'categorical' | 'numeric';
+export type LabelSchemaInputKind = 'pass_fail' | 'categorical' | 'numeric' | 'text';
 
 /**
  * Flat shape backing the react-hook-form controls. Different input
@@ -34,7 +35,6 @@ export type LabelSchemaInputKind = 'pass_fail' | 'categorical' | 'numeric';
 export interface LabelSchemaFormData {
   name: string;
   type: LabelSchemaType;
-  title: string;
   instruction: string;
   enable_comment: boolean;
   inputKind: LabelSchemaInputKind;
@@ -45,37 +45,37 @@ export interface LabelSchemaFormData {
 
   // categorical
   categoricalOptions: string; // newline-joined for textarea
-  categoricalPolarity: 'ASCENDING' | 'DESCENDING' | '';
   categoricalMultiSelect: boolean;
 
   // numeric
   numericMinValue: string; // empty-string means "not set"
   numericMaxValue: string;
+
+  // text
+  textMaxLength: string; // empty-string means "no limit"
 }
 
 /**
- * Placeholder labels for the pass/fail positive/negative inputs. Shared by
- * the form's `<Input placeholder>` and the preview pane's blank-field
- * fallback so the preview shows the same example text the author sees in
- * the empty form field.
+ * Default labels for the pass/fail positive/negative inputs. Used both as
+ * the form's initial values (so an author can create a thumbs-up/down
+ * schema with zero typing) and as the preview's blank-field fallback.
  */
-export const PASS_FAIL_POSITIVE_PLACEHOLDER = 'Correct';
-export const PASS_FAIL_NEGATIVE_PLACEHOLDER = 'Incorrect';
+export const PASS_FAIL_POSITIVE_DEFAULT = 'Pass';
+export const PASS_FAIL_NEGATIVE_DEFAULT = 'Fail';
 
 export const DEFAULT_FORM_VALUES: LabelSchemaFormData = {
   name: '',
   type: 'FEEDBACK',
-  title: '',
   instruction: '',
   enable_comment: false,
   inputKind: 'pass_fail',
-  passFailPositiveLabel: '',
-  passFailNegativeLabel: '',
+  passFailPositiveLabel: PASS_FAIL_POSITIVE_DEFAULT,
+  passFailNegativeLabel: PASS_FAIL_NEGATIVE_DEFAULT,
   categoricalOptions: '',
-  categoricalPolarity: '',
   categoricalMultiSelect: false,
   numericMinValue: '',
   numericMaxValue: '',
+  textMaxLength: '',
 };
 
 const detectInputKind = (input: LabelSchemaInput): LabelSchemaInputKind => {
@@ -88,6 +88,9 @@ const detectInputKind = (input: LabelSchemaInput): LabelSchemaInputKind => {
   if (input.numeric) {
     return 'numeric';
   }
+  if (input.text) {
+    return 'text';
+  }
   // Should never happen for a server-side-validated schema; fall back so
   // the form at least loads.
   return 'pass_fail';
@@ -99,20 +102,20 @@ export const getFormValuesFromSchema = (schema: LabelSchema): LabelSchemaFormDat
   const passFail: InputPassFail | undefined = schema.input.pass_fail;
   const categorical: InputCategorical | undefined = schema.input.categorical;
   const numeric: InputNumeric | undefined = schema.input.numeric;
+  const text: InputText | undefined = schema.input.text;
   return {
     name: schema.name,
     type: schema.type,
-    title: schema.title,
     instruction: schema.instruction ?? '',
     enable_comment: schema.enable_comment ?? false,
     inputKind: detectInputKind(schema.input),
-    passFailPositiveLabel: passFail?.positive_label ?? '',
-    passFailNegativeLabel: passFail?.negative_label ?? '',
+    passFailPositiveLabel: passFail?.positive_label ?? PASS_FAIL_POSITIVE_DEFAULT,
+    passFailNegativeLabel: passFail?.negative_label ?? PASS_FAIL_NEGATIVE_DEFAULT,
     categoricalOptions: (categorical?.options ?? []).join('\n'),
-    categoricalPolarity: categorical?.semantic_polarity ?? '',
     categoricalMultiSelect: categorical?.multi_select ?? false,
     numericMinValue: formatNumeric(numeric?.min_value),
     numericMaxValue: formatNumeric(numeric?.max_value),
+    textMaxLength: formatNumeric(text?.max_length),
   };
 };
 
@@ -162,9 +165,6 @@ export const buildLabelSchemaInputFromForm = (form: LabelSchemaFormData): LabelS
       if (form.categoricalMultiSelect) {
         categorical.multi_select = true;
       }
-      if (form.categoricalPolarity !== '') {
-        categorical.semantic_polarity = form.categoricalPolarity;
-      }
       return { categorical };
     }
     case 'numeric': {
@@ -179,9 +179,17 @@ export const buildLabelSchemaInputFromForm = (form: LabelSchemaFormData): LabelS
       }
       return { numeric };
     }
+    case 'text': {
+      const text: InputText = {};
+      const maxLength = parseNumeric(form.textMaxLength);
+      if (maxLength !== undefined) {
+        text.max_length = maxLength;
+      }
+      return { text };
+    }
     default: {
-      // Exhaustiveness guard: if a fourth LabelSchemaInputKind variant is
-      // ever added without updating this switch, TypeScript will refuse the
+      // Exhaustiveness guard: if a new LabelSchemaInputKind variant is ever
+      // added without updating this switch, TypeScript will refuse the
       // assignment to `never` here.
       const _exhaustive: never = form.inputKind;
       throw new Error(`Unhandled inputKind: ${String(_exhaustive)}`);
@@ -196,14 +204,13 @@ export const buildLabelSchemaInputFromForm = (form: LabelSchemaFormData): LabelS
  */
 export interface LabelSchemaFormErrors {
   name?: string;
-  title?: string;
   instruction?: string;
   passFailPositiveLabel?: string;
   passFailNegativeLabel?: string;
   categoricalOptions?: string;
-  categoricalPolarity?: string;
   numericMinValue?: string;
   numericMaxValue?: string;
+  textMaxLength?: string;
 }
 
 /** Client-side mirror of the server-side validation rules in validation.py. */
@@ -212,16 +219,8 @@ export const validateLabelSchemaForm = (form: LabelSchemaFormData): LabelSchemaF
 
   if (!form.name) {
     errors.name = 'Name is required.';
-  } else if (form.name.length > 150) {
-    errors.name = 'Name must be at most 150 characters.';
-  } else if (!/^[a-zA-Z0-9_]+$/.test(form.name)) {
-    errors.name = 'Name must be alphanumeric and underscore only.';
-  }
-
-  if (!form.title) {
-    errors.title = 'Title is required.';
-  } else if (form.title.length > 256) {
-    errors.title = 'Title must be at most 256 characters.';
+  } else if (form.name.length > 256) {
+    errors.name = 'Name must be at most 256 characters.';
   }
 
   if (form.instruction.length > 1000) {
@@ -276,6 +275,16 @@ export const validateLabelSchemaForm = (form: LabelSchemaFormData): LabelSchemaF
     const max = parseNumeric(form.numericMaxValue);
     if (min !== undefined && max !== undefined && min >= max) {
       errors.numericMaxValue = 'Max must be strictly greater than min.';
+    }
+  }
+
+  if (form.inputKind === 'text') {
+    const raw = form.textMaxLength.trim();
+    if (raw !== '') {
+      const parsed = Number(raw);
+      if (Number.isNaN(parsed) || !Number.isInteger(parsed) || parsed < 1) {
+        errors.textMaxLength = 'Max length must be a positive whole number, or blank for no limit.';
+      }
     }
   }
 

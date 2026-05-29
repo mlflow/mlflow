@@ -799,10 +799,6 @@
     "defaultMessage": "Hours",
     "description": "Trace archival retention unit option for hours"
   },
-  "2YeJGm": {
-    "defaultMessage": "Optional. Detailed guidance shown to reviewers on how to complete this task.",
-    "description": "Label schema instruction hint"
-  },
   "2a/rR8": {
     "defaultMessage": "Cancel",
     "description": "Key-value tag editor modal > Manage Tag cancel button"
@@ -1423,6 +1419,10 @@
     "defaultMessage": "Contour chart",
     "description": "Experiment tracking > runs charts > add chart menu > contour chart"
   },
+  "6YVVjK": {
+    "defaultMessage": "Rationale (optional)",
+    "description": "Label schema preview free-form rationale label"
+  },
   "6ZhLfu": {
     "defaultMessage": "Visibility",
     "description": "Label for the visibility icon column in the evaluation runs table"
@@ -1699,10 +1699,6 @@
     "defaultMessage": "Delete runs",
     "description": "Delete evaluation runs action"
   },
-  "7uUUk4": {
-    "defaultMessage": "Assessment type",
-    "description": "Label schema type input"
-  },
   "7x6xu8": {
     "defaultMessage": "Create prompt",
     "description": "Label for the create prompt button on the registered prompts page"
@@ -1978,6 +1974,10 @@
   "9MHcPE": {
     "defaultMessage": "Overview",
     "description": "Tab label for endpoint overview"
+  },
+  "9Sxo9h": {
+    "defaultMessage": "Max length",
+    "description": "Text max length input"
   },
   "9TOU1G": {
     "defaultMessage": "No charts in this section",
@@ -2547,6 +2547,10 @@
     "defaultMessage": "Version",
     "description": "Column header for model versions in the evaluation runs table"
   },
+  "CaDd0T": {
+    "defaultMessage": "Collect a free-form rationale alongside the structured input",
+    "description": "Enable rationale checkbox"
+  },
   "CaIW+m": {
     "defaultMessage": "Search guardrails",
     "description": "Search guardrails placeholder"
@@ -2895,6 +2899,10 @@
     "defaultMessage": "Metrics",
     "description": "Label for the ungrouped metrics column group in the logged model column selector"
   },
+  "EhNG/L": {
+    "defaultMessage": "Label type",
+    "description": "Label schema type input"
+  },
   "EiFPFP": {
     "defaultMessage": "Custom Guardrail",
     "description": "Custom guardrail type name"
@@ -2974,10 +2982,6 @@
   "FHJ1NN": {
     "defaultMessage": "Endpoint Name",
     "description": "Label for endpoint name input"
-  },
-  "FT8o8L": {
-    "defaultMessage": "Choose whether this task collects feedback or expectations from reviewers. Use feedback when you want to collect specific information about whether the response was correct. Use expectations to collect ground-truth information for use in evaluation. Immutable after create.",
-    "description": "Label schema type hint"
   },
   "FTx+Hi": {
     "defaultMessage": "(baseline)",
@@ -3346,6 +3350,10 @@
   "Hk9B5H": {
     "defaultMessage": "Delete sessions",
     "description": "Delete sessions and all their traces action"
+  },
+  "HkpRe9": {
+    "defaultMessage": "Lets reviewers explain their reasoning in addition to the structured value.",
+    "description": "Enable rationale checkbox hint"
   },
   "HlqAH9": {
     "defaultMessage": "Output type",
@@ -3763,10 +3771,6 @@
     "defaultMessage": "Tags",
     "description": "Header for the tags column in the registered prompts table"
   },
-  "KOHvax": {
-    "defaultMessage": "Assessment name",
-    "description": "Label schema name input"
-  },
   "KObL+y": {
     "defaultMessage": "Endpoints ({count})",
     "description": "Gateway > Endpoints using key drawer > Title"
@@ -3954,10 +3958,6 @@
   "LajLDb": {
     "defaultMessage": "Move to top",
     "description": "Experiment page > compare runs tab > chart header > move to top option"
-  },
-  "Ldrbg7": {
-    "defaultMessage": "Hint for the UI: which direction is most positive. Leave blank if the options have no natural order.",
-    "description": "Categorical polarity hint"
   },
   "LgnR+r": {
     "defaultMessage": "Configure the model to power issue detection.",
@@ -4659,10 +4659,6 @@
     "defaultMessage": "You don't have permissions to open requested experiment.",
     "description": "A message shown on the experiment page if user has no permissions to open the experiment"
   },
-  "PVjUtg": {
-    "defaultMessage": "1-100 options, each 1-64 characters. Duplicates are removed automatically.",
-    "description": "Categorical options hint"
-  },
   "PX5Nlz": {
     "defaultMessage": "Clear selection",
     "description": "Clear model selection"
@@ -4706,10 +4702,6 @@
   "Pne4Lp": {
     "defaultMessage": "Maximum of {max} sessions can be selected",
     "description": "Tooltip shown when too many sessions are selected"
-  },
-  "PoYGh9": {
-    "defaultMessage": "Title",
-    "description": "Label schema title input"
   },
   "Potju2": {
     "defaultMessage": "Restore",
@@ -5122,10 +5114,6 @@
   "SI6n4L": {
     "defaultMessage": "Compare",
     "description": "Label for the compare mode on the registered prompt details page"
-  },
-  "SIfHMK": {
-    "defaultMessage": "Semantic polarity (optional)",
-    "description": "Categorical polarity selector"
   },
   "SJUd4K": {
     "defaultMessage": "Invalid structured output JSON",
@@ -6951,6 +6939,10 @@
     "defaultMessage": "baseline run",
     "description": "Placeholder text shown when no baseline run is selected for comparison"
   },
+  "chgiV+": {
+    "defaultMessage": "Name",
+    "description": "Label schema name input"
+  },
   "ckfi1K": {
     "defaultMessage": "Refresh evaluation runs",
     "description": "Tooltip for the refresh evaluation runs button in the evaluation runs table controls"
@@ -7123,6 +7115,10 @@
     "defaultMessage": "Run name",
     "description": "Column label for run name"
   },
+  "dY1g+4": {
+    "defaultMessage": "Optional character limit for the free-form text. Leave blank for no limit.",
+    "description": "Text max length hint"
+  },
   "dYbJha": {
     "defaultMessage": "Please provide run name",
     "description": "Experiment page > new run modal > invalid state - no run name provided"
@@ -7227,6 +7223,10 @@
     "defaultMessage": "Click to hide the run",
     "description": "A tooltip for the \"hide\" icon button in the runs chart tooltip"
   },
+  "eGfCxU": {
+    "defaultMessage": "Feedback collects reviewers' judgements; expectation collects ground-truth labels for evaluation. Immutable after create.",
+    "description": "Label schema type hint"
+  },
   "eIWfRN": {
     "defaultMessage": "Discard",
     "description": "Evaluation review > assessments > discard pending assessments button label"
@@ -7234,10 +7234,6 @@
   "eIdMWq": {
     "defaultMessage": "Reset example",
     "description": "Reset example button"
-  },
-  "eKtJZ/": {
-    "defaultMessage": "(no title yet)",
-    "description": "Label schema preview placeholder for blank title"
   },
   "eLgTRT": {
     "defaultMessage": "Key",
@@ -7879,10 +7875,6 @@
     "defaultMessage": "Enable telemetry",
     "description": "Enable telemetry settings title"
   },
-  "hhCN8k": {
-    "defaultMessage": "Comment (optional)",
-    "description": "Label schema preview free-form comment label"
-  },
   "hjAgZ8": {
     "defaultMessage": "Unified OpenAI compatible API for model invocations. Set the endpoint name as the model parameter.",
     "description": "OpenAI compatible API description"
@@ -7918,10 +7910,6 @@
   "hr2v8O": {
     "defaultMessage": "To use other providers, create an AI Gateway endpoint and select it.",
     "description": "Hint explaining how to use other providers via Gateway"
-  },
-  "huVW1c": {
-    "defaultMessage": "The title displayed to reviewers when completing this assessment.",
-    "description": "Label schema title hint"
   },
   "hvImg5": {
     "defaultMessage": "No resources are using this key",
@@ -8203,10 +8191,6 @@
     "defaultMessage": "Knowledge retention",
     "description": "LLM template option"
   },
-  "jLeKOR": {
-    "defaultMessage": "A unique identifier for this assessment. Alphanumeric and underscore only, up to 150 characters. Immutable after create.",
-    "description": "Label schema name hint"
-  },
   "jMUqD1": {
     "defaultMessage": "Safety",
     "description": "Evaluation results > known type of evaluation result assessment > safety assessment. Used to indicate if the result is safe in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Safety: moderate\""
@@ -8471,10 +8455,6 @@
     "defaultMessage": "Logged models ({length})",
     "description": "A header for a table of logged models displayed on the run page. The 'length' variable is being replaced with the number of displayed logged models."
   },
-  "kmotLg": {
-    "defaultMessage": "Enable free-form comment alongside the structured input",
-    "description": "Enable comment checkbox"
-  },
   "kmtWGf": {
     "defaultMessage": "{count, plural, one { # trace } other { # traces }} will be deleted.",
     "description": "Experiment page > traces view controls > Delete traces modal > Confirmation message title"
@@ -8486,6 +8466,10 @@
   "knJfuf": {
     "defaultMessage": "Learn more about the AI Gateway in the {gatewayDocs}.",
     "description": "AI Gateway setup guide > Documentation link"
+  },
+  "ko3wH9": {
+    "defaultMessage": "Shown to reviewers as the label prompt and used as the assessment key. Up to 256 characters. Immutable after create.",
+    "description": "Label schema name hint"
   },
   "ktiuki": {
     "defaultMessage": "Get Link",
@@ -9259,10 +9243,6 @@
     "defaultMessage": "Delete prompt",
     "description": "A header for the delete prompt modal"
   },
-  "pB1t1v": {
-    "defaultMessage": "Allow reviewers to add additional comments alongside their assessment.",
-    "description": "Enable comment checkbox hint"
-  },
   "pBUaAK": {
     "defaultMessage": "Are you sure you want to delete this tag？",
     "description": "Title text for confirmation pop-up to delete a tag from table\n                     in MLflow"
@@ -9454,6 +9434,10 @@
   "qIHqi7": {
     "defaultMessage": "Evaluation runs",
     "description": "Issue detection run details > Breadcrumb > Evaluation runs"
+  },
+  "qIWEjo": {
+    "defaultMessage": "Optional. Detailed guidance shown to reviewers on how to complete this label.",
+    "description": "Label schema instruction hint"
   },
   "qIsNL0": {
     "defaultMessage": "Value",
@@ -10711,6 +10695,10 @@
     "defaultMessage": "Filters{numFilters}",
     "description": "Usage overview > metrics filter dropdown button"
   },
+  "xcXkmG": {
+    "defaultMessage": "1-100 options, each 1-64 characters, in your preferred order. Duplicates are removed automatically.",
+    "description": "Categorical options hint"
+  },
   "xdFMIN": {
     "defaultMessage": "Dataset name",
     "description": "Dataset name label"
@@ -11038,6 +11026,10 @@
   "zZlPwp": {
     "defaultMessage": "Categories",
     "description": "Run page > Overview > Issue categories being detected"
+  },
+  "zbAsb1": {
+    "defaultMessage": "(no name yet)",
+    "description": "Label schema preview placeholder for blank name"
   },
   "zcnCPF": {
     "defaultMessage": "Issues",

@@ -12,8 +12,7 @@ import {
 
 const baseValidForm: LabelSchemaFormData = {
   ...DEFAULT_FORM_VALUES,
-  name: 'correctness',
-  title: 'Is the answer correct?',
+  name: 'Is the answer correct?',
   inputKind: 'pass_fail',
   passFailPositiveLabel: 'Correct',
   passFailNegativeLabel: 'Incorrect',
@@ -36,33 +35,31 @@ describe('buildLabelSchemaInputFromForm', () => {
     });
   });
 
-  it('builds categorical input with polarity and multi_select', () => {
+  it('builds categorical input with multi_select', () => {
     const form: LabelSchemaFormData = {
       ...baseValidForm,
       inputKind: 'categorical',
       categoricalOptions: 'low\nmedium\nhigh',
-      categoricalPolarity: 'ASCENDING',
       categoricalMultiSelect: true,
     };
     expect(buildLabelSchemaInputFromForm(form)).toEqual({
       categorical: {
         options: ['low', 'medium', 'high'],
-        semantic_polarity: 'ASCENDING',
         multi_select: true,
       },
     });
   });
 
-  it('omits semantic_polarity when blank', () => {
+  it('omits multi_select when false', () => {
     const form: LabelSchemaFormData = {
       ...baseValidForm,
       inputKind: 'categorical',
       categoricalOptions: 'a\nb',
-      categoricalPolarity: '',
+      categoricalMultiSelect: false,
     };
     const input = buildLabelSchemaInputFromForm(form);
     expect(input.categorical).toBeDefined();
-    expect(input.categorical?.semantic_polarity).toBeUndefined();
+    expect(input.categorical?.multi_select).toBeUndefined();
   });
 
   it('builds numeric input and skips missing bounds', () => {
@@ -76,6 +73,14 @@ describe('buildLabelSchemaInputFromForm', () => {
       numeric: { min_value: 1 },
     });
   });
+
+  it('builds text input with and without a max length', () => {
+    const withMax: LabelSchemaFormData = { ...baseValidForm, inputKind: 'text', textMaxLength: '500' };
+    expect(buildLabelSchemaInputFromForm(withMax)).toEqual({ text: { max_length: 500 } });
+
+    const noMax: LabelSchemaFormData = { ...baseValidForm, inputKind: 'text', textMaxLength: '' };
+    expect(buildLabelSchemaInputFromForm(noMax)).toEqual({ text: {} });
+  });
 });
 
 describe('getFormValuesFromSchema', () => {
@@ -83,15 +88,14 @@ describe('getFormValuesFromSchema', () => {
     const schema: LabelSchema = {
       schema_id: 'ls-1',
       experiment_id: '1',
-      name: 'correctness',
+      name: 'Is the answer correct?',
       type: 'FEEDBACK',
-      title: 'Is the answer correct?',
       instruction: 'Mark Correct if accurate.',
       enable_comment: true,
       input: { pass_fail: { positive_label: 'Correct', negative_label: 'Incorrect' } },
     };
     const form = getFormValuesFromSchema(schema);
-    expect(form.name).toEqual('correctness');
+    expect(form.name).toEqual('Is the answer correct?');
     expect(form.inputKind).toEqual('pass_fail');
     expect(form.passFailPositiveLabel).toEqual('Correct');
     expect(buildLabelSchemaInputFromForm(form)).toEqual(schema.input);
@@ -103,19 +107,12 @@ describe('getFormValuesFromSchema', () => {
     const schema: LabelSchema = {
       schema_id: 'ls-2',
       experiment_id: '1',
-      name: 'severity',
+      name: 'Severity',
       type: 'FEEDBACK',
-      title: 'Severity',
-      input: {
-        categorical: {
-          options: ['low', 'medium', 'high'],
-          semantic_polarity: 'ASCENDING',
-        },
-      },
+      input: { categorical: { options: ['low', 'medium', 'high'] } },
     };
     const form = getFormValuesFromSchema(schema);
     expect(form.categoricalOptions).toEqual('low\nmedium\nhigh');
-    expect(form.categoricalPolarity).toEqual('ASCENDING');
     expect(buildLabelSchemaInputFromForm(form)).toEqual(schema.input);
   });
 
@@ -123,18 +120,25 @@ describe('getFormValuesFromSchema', () => {
     const schema: LabelSchema = {
       schema_id: 'ls-2b',
       experiment_id: '1',
-      name: 'tags',
+      name: 'Tags',
       type: 'FEEDBACK',
-      title: 'Tags',
-      input: {
-        categorical: {
-          options: ['a', 'b'],
-          semantic_polarity: 'ASCENDING',
-          multi_select: true,
-        },
-      },
+      input: { categorical: { options: ['a', 'b'], multi_select: true } },
     };
     const form = getFormValuesFromSchema(schema);
+    expect(buildLabelSchemaInputFromForm(form)).toEqual(schema.input);
+  });
+
+  it('round-trips a text schema', () => {
+    const schema: LabelSchema = {
+      schema_id: 'ls-4',
+      experiment_id: '1',
+      name: 'Expected answer',
+      type: 'EXPECTATION',
+      input: { text: { max_length: 500 } },
+    };
+    const form = getFormValuesFromSchema(schema);
+    expect(form.inputKind).toEqual('text');
+    expect(form.textMaxLength).toEqual('500');
     expect(buildLabelSchemaInputFromForm(form)).toEqual(schema.input);
   });
 });
@@ -144,19 +148,19 @@ describe('validateLabelSchemaForm', () => {
     expect(validateLabelSchemaForm(baseValidForm)).toEqual({});
   });
 
-  it('rejects an invalid name (hyphens)', () => {
-    const errors = validateLabelSchemaForm({ ...baseValidForm, name: 'bad-name' });
-    expect(errors.name).toMatch(/alphanumeric and underscore/);
+  it('accepts a free-text name with spaces and punctuation', () => {
+    const errors = validateLabelSchemaForm({ ...baseValidForm, name: 'Is the answer correct (per rubric)?' });
+    expect(errors.name).toBeUndefined();
   });
 
-  it('rejects a name longer than 150 characters', () => {
-    const errors = validateLabelSchemaForm({ ...baseValidForm, name: 'a'.repeat(151) });
-    expect(errors.name).toMatch(/at most 150/);
+  it('rejects an empty name', () => {
+    const errors = validateLabelSchemaForm({ ...baseValidForm, name: '' });
+    expect(errors.name).toMatch(/required/);
   });
 
-  it('rejects empty title', () => {
-    const errors = validateLabelSchemaForm({ ...baseValidForm, title: '' });
-    expect(errors.title).toMatch(/required/);
+  it('rejects a name longer than 256 characters', () => {
+    const errors = validateLabelSchemaForm({ ...baseValidForm, name: 'a'.repeat(257) });
+    expect(errors.name).toMatch(/at most 256/);
   });
 
   it('rejects pass-fail labels that match', () => {
@@ -168,35 +172,23 @@ describe('validateLabelSchemaForm', () => {
     expect(errors.passFailNegativeLabel).toMatch(/distinct/);
   });
 
-  it('requires polarity for feedback-type categorical', () => {
+  it('allows categorical without any polarity (no polarity concept anymore)', () => {
     const errors = validateLabelSchemaForm({
       ...baseValidForm,
       inputKind: 'categorical',
       categoricalOptions: 'low\nhigh',
-      categoricalPolarity: '',
     });
-    expect(errors.categoricalPolarity).toMatch(/Polarity is required/);
+    expect(errors).toEqual({});
   });
 
-  it('allows expectation-type categorical without polarity', () => {
-    const errors = validateLabelSchemaForm({
-      ...baseValidForm,
-      type: 'EXPECTATION',
-      inputKind: 'categorical',
-      categoricalOptions: 'low\nhigh',
-      categoricalPolarity: '',
-    });
-    expect(errors.categoricalPolarity).toBeUndefined();
-  });
-
-  it('requires both bounds for feedback-type numeric', () => {
+  it('allows numeric without bounds', () => {
     const errors = validateLabelSchemaForm({
       ...baseValidForm,
       inputKind: 'numeric',
       numericMinValue: '',
       numericMaxValue: '',
     });
-    expect(errors.numericMinValue).toMatch(/require both min and max/);
+    expect(errors).toEqual({});
   });
 
   it('rejects numeric min >= max', () => {
@@ -209,10 +201,9 @@ describe('validateLabelSchemaForm', () => {
     expect(errors.numericMaxValue).toMatch(/strictly greater/);
   });
 
-  it('rejects non-numeric min/max even for expectation-type', () => {
+  it('rejects non-numeric min/max', () => {
     const errors = validateLabelSchemaForm({
       ...baseValidForm,
-      type: 'EXPECTATION',
       inputKind: 'numeric',
       numericMinValue: 'abc',
       numericMaxValue: '',
@@ -220,15 +211,19 @@ describe('validateLabelSchemaForm', () => {
     expect(errors.numericMinValue).toMatch(/must be a number/);
   });
 
+  it('accepts a text schema with a blank max length', () => {
+    const errors = validateLabelSchemaForm({ ...baseValidForm, inputKind: 'text', textMaxLength: '' });
+    expect(errors).toEqual({});
+  });
+
+  it('rejects a non-positive text max length', () => {
+    const errors = validateLabelSchemaForm({ ...baseValidForm, inputKind: 'text', textMaxLength: '0' });
+    expect(errors.textMaxLength).toMatch(/positive whole number/);
+  });
+
   // Boundary tests: lock in client-side length caps against silent drift
   // from validation.py.
   it.each([
-    {
-      label: 'title > 256',
-      form: { ...baseValidForm, title: 'a'.repeat(257) },
-      field: 'title' as const,
-      match: /at most 256/,
-    },
     {
       label: 'instruction > 1000',
       form: { ...baseValidForm, instruction: 'a'.repeat(1001) },
@@ -252,7 +247,6 @@ describe('validateLabelSchemaForm', () => {
       form: {
         ...baseValidForm,
         inputKind: 'categorical' as const,
-        categoricalPolarity: 'ASCENDING' as const,
         categoricalOptions: Array.from({ length: 101 }, (_, i) => `o${i}`).join('\n'),
       },
       field: 'categoricalOptions' as const,
@@ -263,7 +257,6 @@ describe('validateLabelSchemaForm', () => {
       form: {
         ...baseValidForm,
         inputKind: 'categorical' as const,
-        categoricalPolarity: 'ASCENDING' as const,
         categoricalOptions: 'a'.repeat(65),
       },
       field: 'categoricalOptions' as const,
@@ -280,9 +273,8 @@ describe('numeric round-trip', () => {
     const schema: LabelSchema = {
       schema_id: 'ls-3',
       experiment_id: '1',
-      name: 'rating',
+      name: 'Rating',
       type: 'EXPECTATION',
-      title: 'Rating',
       input: { numeric: { min_value: 0, max_value: 10 } },
     };
     const form = getFormValuesFromSchema(schema);

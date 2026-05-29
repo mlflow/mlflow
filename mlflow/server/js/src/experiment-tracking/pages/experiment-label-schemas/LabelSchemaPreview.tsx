@@ -5,8 +5,8 @@ import { FormattedMessage } from 'react-intl';
 import { LabelSchemaInputRenderer } from '../../components/label-schemas/widgets/LabelSchemaInputRenderer';
 import type { LabelSchemaValue } from '../../components/label-schemas/widgets/LabelSchemaInputRenderer';
 import {
-  PASS_FAIL_NEGATIVE_PLACEHOLDER,
-  PASS_FAIL_POSITIVE_PLACEHOLDER,
+  PASS_FAIL_NEGATIVE_DEFAULT,
+  PASS_FAIL_POSITIVE_DEFAULT,
   buildLabelSchemaInputFromForm,
   validateLabelSchemaForm,
   type LabelSchemaFormData,
@@ -69,8 +69,8 @@ export const LabelSchemaPreview = ({ formData }: LabelSchemaPreviewProps) => {
   // placeholder), so only pass/fail needs this fill.
   const previewFormData: LabelSchemaFormData = {
     ...formData,
-    passFailPositiveLabel: formData.passFailPositiveLabel || PASS_FAIL_POSITIVE_PLACEHOLDER,
-    passFailNegativeLabel: formData.passFailNegativeLabel || PASS_FAIL_NEGATIVE_PLACEHOLDER,
+    passFailPositiveLabel: formData.passFailPositiveLabel || PASS_FAIL_POSITIVE_DEFAULT,
+    passFailNegativeLabel: formData.passFailNegativeLabel || PASS_FAIL_NEGATIVE_DEFAULT,
   };
 
   // Build the input variant from the live form. If the form is too
@@ -150,15 +150,15 @@ export const LabelSchemaPreview = ({ formData }: LabelSchemaPreviewProps) => {
             backgroundColor: theme.colors.backgroundSecondary,
           }}
         >
-          {formData.title ? (
+          {formData.name ? (
             <Typography.Title level={4} withoutMargins>
-              {formData.title}
+              {formData.name}
             </Typography.Title>
           ) : (
             <Typography.Text color="secondary" css={{ fontStyle: 'italic' }}>
               <FormattedMessage
-                defaultMessage="(no title yet)"
-                description="Label schema preview placeholder for blank title"
+                defaultMessage="(no name yet)"
+                description="Label schema preview placeholder for blank name"
               />
             </Typography.Text>
           )}
@@ -175,8 +175,8 @@ export const LabelSchemaPreview = ({ formData }: LabelSchemaPreviewProps) => {
             <div css={{ display: 'flex', flexDirection: 'column', marginTop: theme.spacing.sm }}>
               <FormUI.Label htmlFor="mlflow.experiment-label-schemas.preview.comment">
                 <FormattedMessage
-                  defaultMessage="Comment (optional)"
-                  description="Label schema preview free-form comment label"
+                  defaultMessage="Rationale (optional)"
+                  description="Label schema preview free-form rationale label"
                 />
               </FormUI.Label>
               <Input.TextArea

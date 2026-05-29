@@ -3,8 +3,8 @@ import { FormattedMessage } from 'react-intl';
 import { Controller, type Control } from 'react-hook-form';
 
 import {
-  PASS_FAIL_NEGATIVE_PLACEHOLDER,
-  PASS_FAIL_POSITIVE_PLACEHOLDER,
+  PASS_FAIL_NEGATIVE_DEFAULT,
+  PASS_FAIL_POSITIVE_DEFAULT,
   type LabelSchemaFormData,
   type LabelSchemaFormErrors,
   type LabelSchemaInputKind,
@@ -33,11 +33,11 @@ export const LabelSchemaFormRenderer = ({ control, isEdit, errors, watchedValues
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
       <div css={{ display: 'flex', flexDirection: 'column' }}>
         <FormUI.Label htmlFor={`${COMPONENT_PREFIX}.name`} required>
-          <FormattedMessage defaultMessage="Assessment name" description="Label schema name input" />
+          <FormattedMessage defaultMessage="Name" description="Label schema name input" />
         </FormUI.Label>
         <FormUI.Hint>
           <FormattedMessage
-            defaultMessage="A unique identifier for this assessment. Alphanumeric and underscore only, up to 150 characters. Immutable after create."
+            defaultMessage="Shown to reviewers as the label prompt and used as the assessment key. Up to 256 characters. Immutable after create."
             description="Label schema name hint"
           />
         </FormUI.Hint>
@@ -50,7 +50,7 @@ export const LabelSchemaFormRenderer = ({ control, isEdit, errors, watchedValues
               id={`${COMPONENT_PREFIX}.name`}
               {...field}
               disabled={isEdit}
-              placeholder="correctness"
+              placeholder="Is the answer correct?"
             />
           )}
         />
@@ -59,11 +59,11 @@ export const LabelSchemaFormRenderer = ({ control, isEdit, errors, watchedValues
 
       <div css={{ display: 'flex', flexDirection: 'column' }}>
         <FormUI.Label htmlFor={`${COMPONENT_PREFIX}.type`} required>
-          <FormattedMessage defaultMessage="Assessment type" description="Label schema type input" />
+          <FormattedMessage defaultMessage="Label type" description="Label schema type input" />
         </FormUI.Label>
         <FormUI.Hint>
           <FormattedMessage
-            defaultMessage="Choose whether this task collects feedback or expectations from reviewers. Use feedback when you want to collect specific information about whether the response was correct. Use expectations to collect ground-truth information for use in evaluation. Immutable after create."
+            defaultMessage="Feedback collects reviewers' judgements; expectation collects ground-truth labels for evaluation. Immutable after create."
             description="Label schema type hint"
           />
         </FormUI.Hint>
@@ -86,37 +86,12 @@ export const LabelSchemaFormRenderer = ({ control, isEdit, errors, watchedValues
       </div>
 
       <div css={{ display: 'flex', flexDirection: 'column' }}>
-        <FormUI.Label htmlFor={`${COMPONENT_PREFIX}.title`} required>
-          <FormattedMessage defaultMessage="Title" description="Label schema title input" />
-        </FormUI.Label>
-        <FormUI.Hint>
-          <FormattedMessage
-            defaultMessage="The title displayed to reviewers when completing this assessment."
-            description="Label schema title hint"
-          />
-        </FormUI.Hint>
-        <Controller
-          name="title"
-          control={control}
-          render={({ field }) => (
-            <Input
-              componentId={`${COMPONENT_PREFIX}.title`}
-              id={`${COMPONENT_PREFIX}.title`}
-              {...field}
-              placeholder="Title shown to reviewers for this task"
-            />
-          )}
-        />
-        {errors.title && <FormUI.Message message={errors.title} type="error" />}
-      </div>
-
-      <div css={{ display: 'flex', flexDirection: 'column' }}>
         <FormUI.Label htmlFor={`${COMPONENT_PREFIX}.instruction`}>
           <FormattedMessage defaultMessage="Instructions" description="Label schema instruction input" />
         </FormUI.Label>
         <FormUI.Hint>
           <FormattedMessage
-            defaultMessage="Optional. Detailed guidance shown to reviewers on how to complete this task."
+            defaultMessage="Optional. Detailed guidance shown to reviewers on how to complete this label."
             description="Label schema instruction hint"
           />
         </FormUI.Hint>
@@ -129,7 +104,7 @@ export const LabelSchemaFormRenderer = ({ control, isEdit, errors, watchedValues
               id={`${COMPONENT_PREFIX}.instruction`}
               {...field}
               rows={3}
-              placeholder="Instructions for reviewers on how to complete this task"
+              placeholder="Instructions for reviewers on how to complete this label"
             />
           )}
         />
@@ -147,16 +122,16 @@ export const LabelSchemaFormRenderer = ({ control, isEdit, errors, watchedValues
               onChange={(checked) => field.onChange(checked)}
             >
               <FormattedMessage
-                defaultMessage="Enable free-form comment alongside the structured input"
-                description="Enable comment checkbox"
+                defaultMessage="Collect a free-form rationale alongside the structured input"
+                description="Enable rationale checkbox"
               />
             </Checkbox>
           )}
         />
         <FormUI.Hint>
           <FormattedMessage
-            defaultMessage="Allow reviewers to add additional comments alongside their assessment."
-            description="Enable comment checkbox hint"
+            defaultMessage="Lets reviewers explain their reasoning in addition to the structured value."
+            description="Enable rationale checkbox hint"
           />
         </FormUI.Hint>
       </div>
@@ -179,6 +154,7 @@ export const LabelSchemaFormRenderer = ({ control, isEdit, errors, watchedValues
               <Radio value="pass_fail">Pass / Fail</Radio>
               <Radio value="categorical">Categorical</Radio>
               <Radio value="numeric">Numeric</Radio>
+              <Radio value="text">Text</Radio>
             </Radio.Group>
           )}
         />
@@ -187,6 +163,7 @@ export const LabelSchemaFormRenderer = ({ control, isEdit, errors, watchedValues
       {inputKind === 'pass_fail' && <PassFailFields control={control} errors={errors} />}
       {inputKind === 'categorical' && <CategoricalFields control={control} errors={errors} />}
       {inputKind === 'numeric' && <NumericFields control={control} errors={errors} />}
+      {inputKind === 'text' && <TextFields control={control} errors={errors} />}
     </div>
   );
 };
@@ -207,7 +184,7 @@ const PassFailFields = ({ control, errors }: { control: Control<LabelSchemaFormD
               componentId={`${COMPONENT_PREFIX}.pass-fail.positive`}
               id={`${COMPONENT_PREFIX}.pass-fail.positive`}
               {...field}
-              placeholder={PASS_FAIL_POSITIVE_PLACEHOLDER}
+              placeholder={PASS_FAIL_POSITIVE_DEFAULT}
             />
           )}
         />
@@ -225,7 +202,7 @@ const PassFailFields = ({ control, errors }: { control: Control<LabelSchemaFormD
               componentId={`${COMPONENT_PREFIX}.pass-fail.negative`}
               id={`${COMPONENT_PREFIX}.pass-fail.negative`}
               {...field}
-              placeholder={PASS_FAIL_NEGATIVE_PLACEHOLDER}
+              placeholder={PASS_FAIL_NEGATIVE_DEFAULT}
             />
           )}
         />
@@ -245,7 +222,7 @@ const CategoricalFields = ({ control, errors }: { control: Control<LabelSchemaFo
         </FormUI.Label>
         <FormUI.Hint>
           <FormattedMessage
-            defaultMessage="1-100 options, each 1-64 characters. Duplicates are removed automatically."
+            defaultMessage="1-100 options, each 1-64 characters, in your preferred order. Duplicates are removed automatically."
             description="Categorical options hint"
           />
         </FormUI.Hint>
@@ -263,33 +240,6 @@ const CategoricalFields = ({ control, errors }: { control: Control<LabelSchemaFo
           )}
         />
         {errors.categoricalOptions && <FormUI.Message message={errors.categoricalOptions} type="error" />}
-      </div>
-      <div css={{ display: 'flex', flexDirection: 'column' }}>
-        <FormUI.Label htmlFor={`${COMPONENT_PREFIX}.categorical.polarity`}>
-          <FormattedMessage defaultMessage="Semantic polarity (optional)" description="Categorical polarity selector" />
-        </FormUI.Label>
-        <FormUI.Hint>
-          <FormattedMessage
-            defaultMessage="Hint for the UI: which direction is most positive. Leave blank if the options have no natural order."
-            description="Categorical polarity hint"
-          />
-        </FormUI.Hint>
-        <Controller
-          name="categoricalPolarity"
-          control={control}
-          render={({ field }) => (
-            <Radio.Group
-              componentId={`${COMPONENT_PREFIX}.categorical.polarity`}
-              name={`${COMPONENT_PREFIX}.categorical.polarity`}
-              value={field.value === '' ? undefined : field.value}
-              onChange={(e) => field.onChange(e.target.value as LabelSchemaFormData['categoricalPolarity'])}
-            >
-              <Radio value="ASCENDING">Ascending (first option most positive)</Radio>
-              <Radio value="DESCENDING">Descending (first option most negative)</Radio>
-            </Radio.Group>
-          )}
-        />
-        {errors.categoricalPolarity && <FormUI.Message message={errors.categoricalPolarity} type="error" />}
       </div>
       <Controller
         name="categoricalMultiSelect"
@@ -358,6 +308,39 @@ const NumericFields = ({ control, errors }: { control: Control<LabelSchemaFormDa
           )}
         />
         {errors.numericMaxValue && <FormUI.Message message={errors.numericMaxValue} type="error" />}
+      </div>
+    </div>
+  );
+};
+
+const TextFields = ({ control, errors }: { control: Control<LabelSchemaFormData>; errors: FormErrors }) => {
+  const { theme } = useDesignSystemTheme();
+  return (
+    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+      <div css={{ display: 'flex', flexDirection: 'column' }}>
+        <FormUI.Label htmlFor={`${COMPONENT_PREFIX}.text.max-length`}>
+          <FormattedMessage defaultMessage="Max length" description="Text max length input" />
+        </FormUI.Label>
+        <FormUI.Hint>
+          <FormattedMessage
+            defaultMessage="Optional character limit for the free-form text. Leave blank for no limit."
+            description="Text max length hint"
+          />
+        </FormUI.Hint>
+        <Controller
+          name="textMaxLength"
+          control={control}
+          render={({ field }) => (
+            <Input
+              componentId={`${COMPONENT_PREFIX}.text.max-length`}
+              id={`${COMPONENT_PREFIX}.text.max-length`}
+              type="number"
+              {...field}
+              placeholder="No limit"
+            />
+          )}
+        />
+        {errors.textMaxLength && <FormUI.Message message={errors.textMaxLength} type="error" />}
       </div>
     </div>
   );
