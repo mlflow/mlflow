@@ -211,26 +211,39 @@ async def export_traces(
 
         try:
             store.log_spans(x_mlflow_experiment_id, all_spans)
-            if x_mlflow_run_id and completed_trace_ids:
-                store.link_traces_to_run(list(completed_trace_ids), x_mlflow_run_id)
         except NotImplementedError:
             store_name = store.__class__.__name__
             raise HTTPException(
-                status_code=status.HTTP_501_NOT_IMPLEMENTED,
-                detail=f"REST OTLP span logging is not supported by {store_name}",
+                status_code=501,
+                detail=f"REST OTLP span logging is not supported by {store_name}.",
             )
         except MlflowException as e:
             return JSONResponse(
                 status_code=e.get_http_status_code(),
                 content=json.loads(e.serialize_as_json()),
             )
-        except Exception:
-            trace_ids = {s.trace_id for s in all_spans}
-            _logger.exception("Failed to log OpenTelemetry spans for trace(s): %s", trace_ids)
-            raise HTTPException(
-                status_code=422,
-                detail="Failed to log OpenTelemetry spans",
-            )
+        except Exception as e:
+            raise HTTPException(status_code=422, detail="Failed to log OpenTelemetry spans") from e
+
+        if x_mlflow_run_id and completed_trace_ids:
+            try:
+                store.link_traces_to_run(list(completed_trace_ids), x_mlflow_run_id)
+            except NotImplementedError:
+                store_name = store.__class__.__name__
+                raise HTTPException(
+                    status_code=501,
+                    detail=f"REST OTLP trace-to-run linking is not supported by {store_name}.",
+                )
+            except MlflowException as e:
+                return JSONResponse(
+                    status_code=e.get_http_status_code(),
+                    content=json.loads(e.serialize_as_json()),
+                )
+            except Exception as e:
+                raise HTTPException(
+                    status_code=422,
+                    detail="Failed to link OpenTelemetry traces to MLflow run",
+                ) from e
 
         if completed_trace_ids:
             if user_agent and user_agent.startswith(_MLFLOW_PYTHON_CLIENT_USER_AGENT_PREFIX):

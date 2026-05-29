@@ -198,6 +198,36 @@ def test_otlp_endpoint_without_default_workspace_raises_error(monkeypatch):
     assert "Active workspace is required" in response.json()["message"]
 
 
+def test_otlp_endpoint_run_linking_error_has_specific_message(monkeypatch):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
+
+    class DummyTrackingStore:
+        def log_spans(self, experiment_id, spans):
+            pass
+
+        def link_traces_to_run(self, trace_ids, run_id):
+            raise Exception("linking failed")
+
+    monkeypatch.setattr(
+        "mlflow.server.otel_api._get_tracking_store",
+        lambda: DummyTrackingStore(),
+    )
+
+    client = _make_test_client()
+    response = client.post(
+        OTLP_TRACES_PATH,
+        data=_build_otlp_payload(),
+        headers={
+            "Content-Type": "application/x-protobuf",
+            "X-MLflow-Experiment-Id": "42",
+            "X-MLflow-Run-Id": "run-123",
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "Failed to link OpenTelemetry traces to MLflow run"
+
+
 def test_otlp_invalid_content_type(monkeypatch):
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
 
