@@ -105,10 +105,12 @@ export const LabelSchemaFormRenderer = ({ control, isEdit, errors, watchedValues
         />
       </div>
 
-      {/* Compact option checkboxes (Braintrust-style): the assessment type
-          reads as a single boolean toggle, sitting beside the rationale
-          toggle to save vertical space. */}
-      <div css={{ display: 'flex', flexWrap: 'wrap', gap: theme.spacing.lg }}>
+      {/* Compact option checkboxes: the assessment type reads as a single
+          boolean toggle and stacks above the rationale toggle. They're a
+          tight vertical group (the expectation label is too long to sit
+          beside the rationale at the modal width, so a wrapping row left an
+          oversized gap between them). */}
+      <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
         <Controller
           name="type"
           control={control}
