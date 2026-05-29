@@ -12,12 +12,6 @@
 // lowercase silently maps to UNSPECIFIED and the server rejects it.
 export type LabelSchemaType = 'FEEDBACK' | 'EXPECTATION';
 
-// Mirrors the proto3 enum names in `label_schemas.proto`. The wire
-// format is the uppercase enum NAME (proto3 JSON convention); sending
-// lowercase silently maps to UNSPECIFIED and the server drops the
-// field. Same gotcha as `LabelSchemaType`.
-export type CategoricalSemanticPolarity = 'ASCENDING' | 'DESCENDING';
-
 export interface InputPassFail {
   positive_label: string;
   negative_label: string;
@@ -25,7 +19,6 @@ export interface InputPassFail {
 
 export interface InputCategorical {
   options: string[];
-  semantic_polarity?: CategoricalSemanticPolarity;
   multi_select?: boolean;
 }
 
@@ -34,15 +27,20 @@ export interface InputNumeric {
   max_value?: number;
 }
 
+export interface InputText {
+  max_length?: number;
+}
+
 /**
  * Discriminated wrapper matching the proto `LabelSchemaInput` oneof.
- * Exactly one of `pass_fail`, `categorical`, or `numeric` is set on a
- * valid schema; the OSS server rejects an empty wrapper.
+ * Exactly one of `pass_fail`, `categorical`, `numeric`, or `text` is set
+ * on a valid schema; the OSS server rejects an empty wrapper.
  */
 export interface LabelSchemaInput {
   pass_fail?: InputPassFail;
   categorical?: InputCategorical;
   numeric?: InputNumeric;
+  text?: InputText;
 }
 
 export interface LabelSchema {
@@ -50,7 +48,6 @@ export interface LabelSchema {
   experiment_id: string;
   name: string;
   type: LabelSchemaType;
-  title: string;
   instruction?: string;
   enable_comment?: boolean;
   input: LabelSchemaInput;
