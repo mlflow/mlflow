@@ -42,7 +42,7 @@ def patched_standalone_call(original, *args, **kwargs):
 
 
 def _is_internal_flow(instance) -> bool:
-    # crewai 1.x runs an experimental AgentExecutor (a Flow subclass) inside
+    # crewai >= 1.14.5 runs an experimental AgentExecutor (a Flow subclass) inside
     # Agent.execute_task. Skip span creation for it since the Agent span already
     # bounds the same work and crewai marks it with suppress_flow_events=True.
     try:
