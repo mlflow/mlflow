@@ -29,7 +29,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.server.handlers import _get_tracking_store
 from mlflow.telemetry.events import TraceSource, TracesReceivedByServerEvent
 from mlflow.telemetry.track import _record_event
-from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.utils import dump_span_attribute_value
 from mlflow.tracing.utils.otlp import (
     MLFLOW_EXPERIMENT_ID_HEADER,
@@ -199,10 +198,6 @@ async def export_traces(
                             mlflow_span._span._attributes["service.name"] = (
                                 dump_span_attribute_value(resource_service_name)
                             )
-                        if x_mlflow_run_id:
-                            mlflow_span._span._attributes[TraceMetadataKey.SOURCE_RUN] = (
-                                dump_span_attribute_value(x_mlflow_run_id)
-                            )
 
                     all_spans.append(mlflow_span)
                 except Exception:
@@ -216,6 +211,8 @@ async def export_traces(
 
         try:
             store.log_spans(x_mlflow_experiment_id, all_spans)
+            if x_mlflow_run_id and completed_trace_ids:
+                store.link_traces_to_run(list(completed_trace_ids), x_mlflow_run_id)
         except NotImplementedError:
             store_name = store.__class__.__name__
             raise HTTPException(
