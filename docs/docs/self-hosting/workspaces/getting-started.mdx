@@ -11,13 +11,13 @@ Before enabling workspaces, ensure you have:
 - A configured `--default-artifact-root`
 - Database migrations applied via `mlflow db upgrade`
 
-:::warning File-based backends not supported
+:::warning[File-based backends not supported]
 
 Workspaces require a SQL database backend store. File-based tracking and model registry stores (for example `./mlruns` or `file:///...`) are not supported when workspaces are enabled.
 
 :::
 
-:::warning Custom experiment artifact locations are not supported
+:::warning[Custom experiment artifact locations are not supported]
 
 For security, experiments cannot override artifact locations when workspaces are enabled. Workspace
 stores can customize the artifact location at the workspace level.
@@ -214,7 +214,7 @@ mlflow.update_workspace(
 )
 ```
 
-:::note Workspace names are immutable
+:::note[Workspace names are immutable]
 
 Workspace names cannot be changed after creation. Only the description can be updated.
 

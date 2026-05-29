@@ -174,7 +174,7 @@ dev = [
   "skills",
 ]
 lint = [
-  "ruff==0.15.10",
+  "ruff==0.15.13",
   "pre-commit==4.0.1",
   "toml==0.10.2",
   "types-toml",
@@ -190,6 +190,7 @@ lint = [
   "aiohttp",
   "pytest",
   "requests",
+  "check-jsonschema==0.37.2",
 ]
 pytest = [
   "pytest==9.0.2",
@@ -284,7 +285,7 @@ explicit = true
 [tool.ruff]
 line-length = 100
 target-version = "py310"
-required-version = "0.15.10"
+required-version = "0.15.13"
 force-exclude = true
 extend-include = ["*.ipynb"]
 extension = { mdx = "markdown" }

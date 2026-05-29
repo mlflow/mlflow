@@ -542,6 +542,9 @@ diffusers:
     maximum: "0.37.1"
     requirements:
       ">= 0.0.0": ["transformers", "safetensors", "accelerate", "peft", "torch"]
+      # diffusers>=0.38.0 depends on safetensors>=0.8.0rc0 (pre-release).
+      # Explicitly specifying the prerelease requirement allows uv to resolve it without --prerelease=allow.
+      ">= 0.38.0": ["safetensors>=0.8.0rc0"]
     run: |
       pytest tests/diffusers/test_diffusers_model_export.py
 
