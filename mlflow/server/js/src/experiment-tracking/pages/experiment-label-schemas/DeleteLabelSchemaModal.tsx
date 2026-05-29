@@ -67,7 +67,7 @@ export const DeleteLabelSchemaModal = ({ schema, onClose }: DeleteLabelSchemaMod
       <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
         <Typography.Text>
           <FormattedMessage
-            defaultMessage="Are you sure you want to delete the label schema {name}? Assessments already collected under this schema are not removed and will render as free-form values in the review UI."
+            defaultMessage="Are you sure you want to delete the label schema {name}? Labels already collected under this schema are not removed and will render as free-form values in the review UI."
             description="Delete label schema confirmation prompt"
             values={{ name: <Typography.Text bold>{schema?.name ?? ''}</Typography.Text> }}
           />

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Empty, FormUI, Input, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { Empty, Input, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 
 import { LabelSchemaInputRenderer } from '../../components/label-schemas/widgets/LabelSchemaInputRenderer';
@@ -172,13 +172,25 @@ export const LabelSchemaPreview = ({ formData }: LabelSchemaPreviewProps) => {
             />
           </div>
           {formData.enable_comment && (
-            <div css={{ display: 'flex', flexDirection: 'column', marginTop: theme.spacing.sm }}>
-              <FormUI.Label htmlFor="mlflow.experiment-label-schemas.preview.comment">
+            // Nest the rationale under the label (indented + left rule + smaller
+            // hint) so it reads as part of the same assessment rather than a
+            // peer field (item 12).
+            <div
+              css={{
+                display: 'flex',
+                flexDirection: 'column',
+                marginTop: theme.spacing.xs,
+                marginLeft: theme.spacing.md,
+                paddingLeft: theme.spacing.md,
+                borderLeft: `2px solid ${theme.colors.border}`,
+              }}
+            >
+              <Typography.Hint>
                 <FormattedMessage
                   defaultMessage="Rationale (optional)"
                   description="Label schema preview free-form rationale label"
                 />
-              </FormUI.Label>
+              </Typography.Hint>
               <Input.TextArea
                 componentId="mlflow.experiment-label-schemas.preview.comment"
                 id="mlflow.experiment-label-schemas.preview.comment"
