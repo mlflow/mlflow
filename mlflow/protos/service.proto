@@ -11,6 +11,7 @@ import "google/protobuf/timestamp.proto";
 import "issues.proto";
 import "opentelemetry/proto/trace/v1/trace.proto";
 import "prompt_optimization.proto";
+import "review_assignments.proto";
 import "scalapb/scalapb.proto";
 
 option java_package = "org.mlflow.api.proto";
@@ -2609,6 +2610,172 @@ service MlflowService {
       ]
       visibility: PUBLIC
       rpc_doc_title: "Delete Prompt Optimization Job"
+    };
+  }
+
+  // =============================================================================
+  // Review Assignment RPCs
+  // =============================================================================
+
+  // Create a single review assignment. Idempotent on
+  // (workspace, target_id, reviewer).
+  rpc createReviewAssignment(mlflow.review_assignments.CreateReviewAssignment) returns (mlflow.review_assignments.CreateReviewAssignment.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/review-assignments/create"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        RESOURCE_DOES_NOT_EXIST,
+        INTERNAL_ERROR
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Create a review assignment"
+    };
+  }
+
+  // Bulk-create assignments across the cross product of
+  // target_ids x reviewers. Per-row failures don't roll back the batch.
+  rpc bulkCreateReviewAssignments(mlflow.review_assignments.BulkCreateReviewAssignments) returns (mlflow.review_assignments.BulkCreateReviewAssignments.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/review-assignments/bulk-create"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        RESOURCE_DOES_NOT_EXIST,
+        INTERNAL_ERROR
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Bulk-create review assignments"
+    };
+  }
+
+  // Get a single assignment by id.
+  rpc getReviewAssignment(mlflow.review_assignments.GetReviewAssignment) returns (mlflow.review_assignments.GetReviewAssignment.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/review-assignments/get"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        RESOURCE_DOES_NOT_EXIST,
+        INTERNAL_ERROR
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Get a review assignment"
+    };
+  }
+
+  // List assignments filtered by any combination of experiment / reviewer
+  // / state / target_type. At least one of experiment_id or reviewer is
+  // required.
+  rpc listReviewAssignments(mlflow.review_assignments.ListReviewAssignments) returns (mlflow.review_assignments.ListReviewAssignments.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/review-assignments/list"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        INTERNAL_ERROR
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "List review assignments"
+    };
+  }
+
+  // List every reviewer assigned to a target.
+  rpc listReviewAssignmentsForTarget(mlflow.review_assignments.ListReviewAssignmentsForTarget) returns (mlflow.review_assignments.ListReviewAssignmentsForTarget.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/review-assignments/list-for-target"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        INTERNAL_ERROR
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "List review assignments for a target"
+    };
+  }
+
+  // Update the workflow state of an assignment.
+  rpc updateReviewAssignment(mlflow.review_assignments.UpdateReviewAssignment) returns (mlflow.review_assignments.UpdateReviewAssignment.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/review-assignments/update"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        RESOURCE_DOES_NOT_EXIST,
+        INTERNAL_ERROR
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Update a review assignment"
+    };
+  }
+
+  // Delete a review assignment by id. Idempotent.
+  rpc deleteReviewAssignment(mlflow.review_assignments.DeleteReviewAssignment) returns (mlflow.review_assignments.DeleteReviewAssignment.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "DELETE"
+          path: "/mlflow/review-assignments/delete"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        INTERNAL_ERROR
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Delete a review assignment"
     };
   }
 }

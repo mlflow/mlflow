@@ -1,0 +1,186 @@
+// Proto definition for MLflow OSS-native review assignments.
+// An assignment is one row per `(target_id, reviewer)` pair carrying
+// per-reviewer workflow state. The data layer lives in
+// `mlflow/store/tracking/dbmodels/models.py` and
+// `mlflow/genai/review_assignments/`.
+syntax = "proto2";
+
+package mlflow.review_assignments;
+
+import "databricks.proto";
+import "scalapb/scalapb.proto";
+
+option java_package = "org.mlflow.api.proto";
+option py_generic_services = true;
+
+// What kind of object is being reviewed. v1 ships TRACE only; the
+// zero-value UNSPECIFIED is a defensive sentinel that the handler
+// must reject explicitly because `validate_required` on a proto2
+// optional enum only enforces HasField, not value validity.
+enum ReviewTargetType {
+  REVIEW_TARGET_TYPE_UNSPECIFIED = 0;
+  TRACE = 1;
+}
+
+// Per-assignment workflow state. PENDING is one-way: once the
+// state-flip side effect (stack 4) advances it to IN_PROGRESS on the
+// first matching assessment write, there's no documented path back.
+// Same UNSPECIFIED caveat as ReviewTargetType.
+enum ReviewAssignmentState {
+  REVIEW_ASSIGNMENT_STATE_UNSPECIFIED = 0;
+  PENDING = 1;
+  IN_PROGRESS = 2;
+  COMPLETE = 3;
+}
+
+// Full review-assignment entity.
+message ReviewAssignment {
+  // Server-generated identifier (prefix `ra-`).
+  optional string assignment_id = 1;
+  // Parent experiment ID.
+  optional string experiment_id = 2;
+  optional ReviewTargetType target_type = 3;
+  // Trace ID (UUID/hex; case-sensitive).
+  optional string target_id = 4;
+  // Canonical reviewer identifier (lowercased on write).
+  optional string reviewer = 5;
+  // Audit-only identifier of the user who assigned the reviewer
+  // (whitespace-stripped on write; casing preserved).
+  optional string assigner = 6;
+  optional ReviewAssignmentState state = 7;
+  optional int64 creation_time_ms = 8;
+  optional int64 last_update_time_ms = 9;
+  // Set only when state is COMPLETE; absent otherwise.
+  optional int64 completed_time_ms = 10;
+}
+
+// One element of `BulkCreateReviewAssignments.Response.failed`.
+message BulkCreateFailure {
+  optional string target_id = 1;
+  optional string reviewer = 2;
+  optional string error_message = 3;
+}
+
+// Request to create a single review assignment. Idempotent on the
+// `(workspace, target_id, reviewer)` unique key: a repeated create
+// returns the existing row rather than ALREADY_EXISTS.
+message CreateReviewAssignment {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  optional string experiment_id = 1 [(validate_required) = true];
+  optional ReviewTargetType target_type = 2 [(validate_required) = true];
+  optional string target_id = 3 [(validate_required) = true];
+  optional string reviewer = 4 [(validate_required) = true];
+  optional string assigner = 5 [(validate_required) = true];
+
+  message Response {
+    optional ReviewAssignment review_assignment = 1;
+  }
+}
+
+// Request to bulk-create assignments across the cross product of
+// `target_ids x reviewers`. The whole batch is one transaction but
+// per-row failures (validation errors) don't roll back the rest;
+// callers inspect the response buckets.
+//
+// The handler enforces a cap on `len(target_ids) * len(reviewers)`
+// (mirroring `MAX_ENTITIES_PER_BATCH` for log-batch) — a 10k x 10k
+// cross product would wedge the write transaction and blow the gRPC
+// message ceiling on the response. Callers that need more should
+// chunk and call this RPC repeatedly; idempotency on the unique key
+// makes overlap safe.
+message BulkCreateReviewAssignments {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  optional string experiment_id = 1 [(validate_required) = true];
+  optional ReviewTargetType target_type = 2 [(validate_required) = true];
+  repeated string target_ids = 3;
+  repeated string reviewers = 4;
+  optional string assigner = 5 [(validate_required) = true];
+
+  message Response {
+    // Newly inserted rows.
+    repeated ReviewAssignment created = 1;
+    // `assignment_id` strings for rows that already existed at the
+    // unique key. Re-fetch via GetReviewAssignment for state /
+    // timestamps; keeping just the id keeps the response small for
+    // the typical "N x M with mostly new pairs" case.
+    repeated string existing = 2;
+    // Per-row validation failures (whole batch was still committed).
+    repeated BulkCreateFailure failed = 3;
+  }
+}
+
+// Request to fetch one assignment by `assignment_id`.
+message GetReviewAssignment {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  optional string assignment_id = 1 [(validate_required) = true];
+
+  message Response {
+    optional ReviewAssignment review_assignment = 1;
+  }
+}
+
+// Request to list assignments. At least one of `experiment_id` or
+// `reviewer` is required server-side — unscoped full-table scans
+// would be a foot-gun at scale.
+message ListReviewAssignments {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  optional string experiment_id = 1;
+  optional string reviewer = 2;
+  optional ReviewAssignmentState state = 3;
+  // Optional filter. The handler treats both "field absent" and
+  // "field == REVIEW_TARGET_TYPE_UNSPECIFIED" as "no filter"; UNSPECIFIED
+  // is never passed through to the store as a real predicate.
+  optional ReviewTargetType target_type = 4;
+  optional int32 max_results = 5;
+  optional string page_token = 6;
+
+  message Response {
+    repeated ReviewAssignment review_assignments = 1;
+    optional string next_page_token = 2;
+  }
+}
+
+// Request to list every reviewer assigned to a specific target. Used
+// by the trace-detail "who's reviewing this?" widget (stack 4).
+// `target_type` is not on the wire today because v1 only ships TRACE
+// and target IDs are globally unique within TRACE; if session/span
+// review ships later, the store-layer signature and this RPC grow a
+// `target_type` arg together.
+message ListReviewAssignmentsForTarget {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  optional string target_id = 1 [(validate_required) = true];
+
+  message Response {
+    repeated ReviewAssignment review_assignments = 1;
+  }
+}
+
+// Request to update the workflow state of an assignment. Only `state`
+// is mutable; identity and audit fields are immutable. Transitions
+// are enforced server-side (see
+// `mlflow.genai.review_assignments.validation`).
+message UpdateReviewAssignment {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  optional string assignment_id = 1 [(validate_required) = true];
+  optional ReviewAssignmentState state = 2 [(validate_required) = true];
+
+  message Response {
+    optional ReviewAssignment review_assignment = 1;
+  }
+}
+
+// Request to delete an assignment. No-op when the assignment doesn't
+// exist (idempotent).
+message DeleteReviewAssignment {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  optional string assignment_id = 1 [(validate_required) = true];
+
+  message Response {}
+}
