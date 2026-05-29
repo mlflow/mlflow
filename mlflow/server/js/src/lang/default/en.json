@@ -455,6 +455,10 @@
     "defaultMessage": "No image logged at this step",
     "description": "Experiment tracking > runs charts > charts > image plot with history > no image text"
   },
+  "0d/81a": {
+    "defaultMessage": "Collect as an expectation (ground truth) instead of feedback",
+    "description": "Label schema type-as-expectation checkbox"
+  },
   "0eoz8L": {
     "defaultMessage": "Hour",
     "description": "Time unit: hour"
@@ -574,10 +578,6 @@
   "1Iq+NW": {
     "defaultMessage": "Copy",
     "description": "Button text for copy button"
-  },
-  "1JfbqS": {
-    "defaultMessage": "Instructions",
-    "description": "Label schema instruction input"
   },
   "1JiZwB": {
     "defaultMessage": "Did the conversation fully address the user's request?",
@@ -1246,6 +1246,10 @@
   "5UrahG": {
     "defaultMessage": "Viewing version {version}",
     "description": "Title of the prompt details page for a given version"
+  },
+  "5WxRTO": {
+    "defaultMessage": "Define the acceptable range for numeric input values. Leave either bound blank for no limit.",
+    "description": "Numeric range hint"
   },
   "5YOBk/": {
     "defaultMessage": "Export as CSV",
@@ -2547,10 +2551,6 @@
     "defaultMessage": "Version",
     "description": "Column header for model versions in the evaluation runs table"
   },
-  "CaDd0T": {
-    "defaultMessage": "Collect a free-form rationale alongside the structured input",
-    "description": "Enable rationale checkbox"
-  },
   "CaIW+m": {
     "defaultMessage": "Search guardrails",
     "description": "Search guardrails placeholder"
@@ -2898,10 +2898,6 @@
   "EcjcgN": {
     "defaultMessage": "Metrics",
     "description": "Label for the ungrouped metrics column group in the logged model column selector"
-  },
-  "EhNG/L": {
-    "defaultMessage": "Label type",
-    "description": "Label schema type input"
   },
   "EiFPFP": {
     "defaultMessage": "Custom Guardrail",
@@ -3350,10 +3346,6 @@
   "Hk9B5H": {
     "defaultMessage": "Delete sessions",
     "description": "Delete sessions and all their traces action"
-  },
-  "HkpRe9": {
-    "defaultMessage": "Lets reviewers explain their reasoning in addition to the structured value.",
-    "description": "Enable rationale checkbox hint"
   },
   "HlqAH9": {
     "defaultMessage": "Output type",
@@ -6147,6 +6139,10 @@
     "defaultMessage": "Select a provider to configure API key",
     "description": "Message when no provider selected for API key form"
   },
+  "YGtA3F": {
+    "defaultMessage": "Collect a free-form rationale alongside the input",
+    "description": "Enable rationale checkbox"
+  },
   "YIKNtj": {
     "defaultMessage": "An error occurred while creating the budget policy. Please try again.",
     "description": "Generic error message for budget policy creation"
@@ -7223,10 +7219,6 @@
     "defaultMessage": "Click to hide the run",
     "description": "A tooltip for the \"hide\" icon button in the runs chart tooltip"
   },
-  "eGfCxU": {
-    "defaultMessage": "Feedback collects reviewers' judgements; expectation collects ground-truth labels for evaluation. Immutable after create.",
-    "description": "Label schema type hint"
-  },
   "eIWfRN": {
     "defaultMessage": "Discard",
     "description": "Evaluation review > assessments > discard pending assessments button label"
@@ -7771,10 +7763,6 @@
     "defaultMessage": "Resource",
     "description": "Permissions table column header for the resource"
   },
-  "hAV2Ld": {
-    "defaultMessage": "Define the acceptable range for numeric input values. Leave blank for no bound.",
-    "description": "Numeric min value hint"
-  },
   "hBAhI8": {
     "defaultMessage": "Copy",
     "description": "Tooltip message displayed on copy action"
@@ -8238,6 +8226,10 @@
   "jcg8zG": {
     "defaultMessage": "Models",
     "description": "Models column header"
+  },
+  "jeaWWg": {
+    "defaultMessage": "Instructions (optional)",
+    "description": "Label schema instruction input"
   },
   "jhgu6C": {
     "defaultMessage": "A unique identifier for the session or conversation for grouping traces",
@@ -9434,10 +9426,6 @@
   "qIHqi7": {
     "defaultMessage": "Evaluation runs",
     "description": "Issue detection run details > Breadcrumb > Evaluation runs"
-  },
-  "qIWEjo": {
-    "defaultMessage": "Optional. Detailed guidance shown to reviewers on how to complete this label.",
-    "description": "Label schema instruction hint"
   },
   "qIsNL0": {
     "defaultMessage": "Value",
