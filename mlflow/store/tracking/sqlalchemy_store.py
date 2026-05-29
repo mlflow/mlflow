@@ -8648,10 +8648,10 @@ def _get_search_datasets_order_by_clauses(order_by):
 
 def _try_parse_json_string(value: str) -> str:
     try:
-        return json.loads(value)
-    except json.JSONDecodeError:
-        pass
-    return value
+        parsed = json.loads(value)
+    except (json.JSONDecodeError, TypeError):
+        return value
+    return parsed if isinstance(parsed, str) else value
 
 
 @dataclass

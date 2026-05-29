@@ -5276,6 +5276,42 @@ def test_log_spans_user_id_handling(store: SqlAlchemyStore) -> None:
     assert trace_info4.trace_metadata.get(TraceMetadataKey.TRACE_USER) == "bob"
 
 
+@pytest.mark.parametrize(
+    ("attribute_value", "expected"),
+    [
+        pytest.param("session-123", "session-123", id="raw_string"),
+        pytest.param(json.dumps("session-123"), "session-123", id="json_encoded_string"),
+        pytest.param("12345", "12345", id="numeric_looking_raw_string"),
+    ],
+)
+@pytest.mark.parametrize(
+    ("span_attr_key", "metadata_key"),
+    [
+        ("session.id", TraceMetadataKey.TRACE_SESSION),
+        ("user.id", TraceMetadataKey.TRACE_USER),
+    ],
+)
+def test_log_spans_normalizes_session_and_user_id_attributes(
+    store: SqlAlchemyStore,
+    span_attr_key: str,
+    metadata_key: str,
+    attribute_value: str,
+    expected: str,
+) -> None:
+    experiment_id = store.create_experiment(f"normalize_{uuid.uuid4().hex[:8]}")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    otel_span = create_test_otel_span(trace_id=trace_id)
+    otel_span._attributes = {
+        "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
+        span_attr_key: attribute_value,
+    }
+    span = create_mlflow_span(otel_span, trace_id, "LLM")
+    store.log_spans(experiment_id, [span])
+
+    trace_info = store.get_trace_info(trace_id)
+    assert trace_info.trace_metadata.get(metadata_key) == expected
+
+
 def test_find_completed_sessions(store: SqlAlchemyStore):
     """
     Test finding completed sessions based on their last trace timestamp.
