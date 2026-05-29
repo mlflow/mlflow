@@ -36,6 +36,7 @@ _logger = logging.getLogger(__name__)
 
 DEMO_VERSION_TAG = "mlflow.demo.version"
 DEMO_TRACE_TYPE_TAG = "mlflow.demo.trace_type"
+DEMO_SESSION_TURN_TAG = "mlflow.demo.session.turn"
 DEMO_START_TIME_TAG = "mlflow.demo.start_time_ms"
 DEMO_END_TIME_TAG = "mlflow.demo.end_time_ms"
 
@@ -194,6 +195,7 @@ def _emit_react_children(
     response: str,
     start_ns: int,
     end_ns: int,
+    prior_messages: list[dict[str, Any]] | None = None,
 ) -> None:
     """Emit ReAct-style child spans under `root`.
 
@@ -201,14 +203,17 @@ def _emit_react_children(
     LLM(decide call_1) → TOOL(1) → LLM(decide call_2) → TOOL(2) → … → LLM(final).
 
     If there are no tools, emits a single LLM span.
+
+    `prior_messages` is the running conversation history from earlier turns in the
+    same session. It is inserted between the system prompt and the current user query
+    so the LLM sees the full context, the way a real stateful chat agent would.
     """
     span_name = _PROVIDER_TO_LLM_SPAN_NAME[model.provider]
     tool_schemas = _tool_schemas(tools)
     schemas_token_overhead = _estimate_tokens(json.dumps(tool_schemas))
-    messages = [
-        {"role": "system", "content": system_content},
-        {"role": "user", "content": user_query},
-    ]
+    messages = [{"role": "system", "content": system_content}]
+    messages.extend(prior_messages or [])
+    messages.append({"role": "user", "content": user_query})
     total_spans = 2 * len(tools) + 1
     span_duration = max(1, (end_ns - start_ns - 10_000) // total_spans)
     cursor = start_ns + 5_000
@@ -792,6 +797,7 @@ class TracesDemoGenerator(BaseDemoGenerator):
         trace_index = start_index
         min_start_ns = float("inf")
         max_end_ns = 0
+        prior_by_session: dict[str, list[dict[str, Any]]] = {}
 
         for trace_def in SESSION_TRACES:
             if trace_def.session_id != current_session:
@@ -804,10 +810,19 @@ class TracesDemoGenerator(BaseDemoGenerator):
             start_ns, end_ns = _get_trace_timestamps(trace_index, version)
             min_start_ns = min(min_start_ns, start_ns)
             max_end_ns = max(max_end_ns, end_ns)
+            prior = prior_by_session.setdefault(versioned_session_id, [])
             if trace_id := self._create_session_turn_trace(
-                trace_def, turn_counter, version, versioned_session_id, start_ns, end_ns
+                trace_def,
+                turn_counter,
+                version,
+                versioned_session_id,
+                start_ns,
+                end_ns,
+                prior_messages=prior,
             ):
                 trace_ids.append(trace_id)
+            prior.append({"role": "user", "content": trace_def.query})
+            prior.append({"role": "assistant", "content": self._get_response(trace_def, version)})
             trace_index += 1
 
         return _TraceSetResult(
@@ -824,6 +839,7 @@ class TracesDemoGenerator(BaseDemoGenerator):
         versioned_session_id: str,
         start_ns: int,
         end_ns: int,
+        prior_messages: list[dict[str, Any]] | None = None,
     ) -> str | None:
         """Create a single turn in a conversation session."""
         response = self._get_response(trace_def, version)
@@ -837,6 +853,7 @@ class TracesDemoGenerator(BaseDemoGenerator):
                 TraceMetadataKey.TRACE_USER: trace_def.session_user or "user",
                 DEMO_VERSION_TAG: version,
                 DEMO_TRACE_TYPE_TAG: "session",
+                DEMO_SESSION_TURN_TAG: str(turn),
             },
             start_time_ns=start_ns,
         )
@@ -850,6 +867,7 @@ class TracesDemoGenerator(BaseDemoGenerator):
             response=response,
             start_ns=start_ns,
             end_ns=end_ns,
+            prior_messages=prior_messages,
         )
 
         root.set_outputs({"choices": [{"message": {"role": "assistant", "content": response}}]})

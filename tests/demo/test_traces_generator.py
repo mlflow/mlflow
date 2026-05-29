@@ -4,12 +4,13 @@ from mlflow import MlflowClient, get_experiment_by_name, set_experiment
 from mlflow.demo.base import DEMO_EXPERIMENT_NAME, DemoFeature, DemoResult
 from mlflow.demo.generators.traces import (
     _PROVIDER_TO_LLM_SPAN_NAME,
+    DEMO_SESSION_TURN_TAG,
     DEMO_TRACE_TYPE_TAG,
     DEMO_VERSION_TAG,
     TracesDemoGenerator,
 )
 from mlflow.entities import SpanType
-from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.constant import SpanAttributeKey, TraceMetadataKey
 
 
 @pytest.fixture
@@ -288,3 +289,39 @@ def test_span_name_matches_provider():
                 continue
             provider = span.attributes.get(SpanAttributeKey.MODEL_PROVIDER)
             assert span.name == _PROVIDER_TO_LLM_SPAN_NAME[provider]
+
+
+def test_session_turns_thread_prior_history():
+    generator = TracesDemoGenerator()
+    generator.generate()
+
+    experiment = get_experiment_by_name(DEMO_EXPERIMENT_NAME)
+    client = MlflowClient()
+    traces = client.search_traces(locations=[experiment.experiment_id], max_results=100)
+
+    session_traces = [
+        t for t in traces if t.info.trace_metadata.get(DEMO_TRACE_TYPE_TAG) == "session"
+    ]
+    by_session: dict[str, list[str]] = {}
+    for trace in session_traces:
+        sid = trace.info.trace_metadata.get(TraceMetadataKey.TRACE_SESSION)
+        by_session.setdefault(sid, []).append(trace)
+
+    multi_turn_sessions = [ts for ts in by_session.values() if len(ts) > 1]
+    assert multi_turn_sessions, "expected at least one session with multiple turns"
+
+    for turns in multi_turn_sessions:
+        turns.sort(key=lambda t: int(t.info.trace_metadata[DEMO_SESSION_TURN_TAG]))
+        prior_queries: list[str] = []
+        for turn in turns:
+            root = next(s for s in turn.data.spans if s.parent_id is None)
+            first_llm = min(
+                (s for s in turn.data.spans if s.parent_id == root.span_id),
+                key=lambda s: s.start_time_ns,
+            )
+            user_messages = [m for m in first_llm.inputs["messages"] if m.get("role") == "user"]
+            assert [m["content"] for m in user_messages] == [
+                *prior_queries,
+                root.inputs["messages"][0]["content"],
+            ]
+            prior_queries.append(root.inputs["messages"][0]["content"])
