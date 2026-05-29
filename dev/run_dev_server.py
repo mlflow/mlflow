@@ -131,7 +131,7 @@ def main() -> None:
     backend_port = find_free_port(5000)
     frontend_port = find_free_port(3000, avoid=frozenset({backend_port}))
     print(f"Backend:  http://localhost:{backend_port}")
-    print(f"Frontend: http://localhost:{frontend_port}")
+    print(f"Frontend: http://localhost:{frontend_port} (with hot reload)")
 
     children: list[subprocess.Popen[bytes]] = []
     tmp_paths: list[Path] = []
