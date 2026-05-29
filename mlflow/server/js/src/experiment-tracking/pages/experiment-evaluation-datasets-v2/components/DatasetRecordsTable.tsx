@@ -50,7 +50,7 @@ interface DatasetRecordsTableProps {
   selectedRecordId?: string;
   visibleColumns: RecordColumnId[];
   columnSizing: ColumnSizingState;
-  setColumnsSizing: OnChangeFn<ColumnSizingState>;
+  setColumnSizing: OnChangeFn<ColumnSizingState>;
   /** Set of record IDs currently checked for bulk delete. */
   selectedForBulk: Set<string>;
   /** True iff every record currently rendered is in `selectedForBulk`. */
@@ -119,7 +119,7 @@ export const DatasetRecordsTable = ({
   selectedRecordId,
   visibleColumns,
   columnSizing,
-  setColumnsSizing,
+  setColumnSizing,
   selectedForBulk,
   isAllOnPageSelected,
   isSomeOnPageSelected,
@@ -169,7 +169,7 @@ export const DatasetRecordsTable = ({
     state: {
       columnSizing,
     },
-    onColumnSizingChange: setColumnsSizing,
+    onColumnSizingChange: setColumnSizing,
   });
 
   const headersById = Object.fromEntries(table.getHeaderGroups()[0].headers.map((h) => [h.column.id, h]));
