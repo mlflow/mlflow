@@ -3799,7 +3799,7 @@ wheels = [
 
 [[package]]
 name = "mlflow"
-version = "3.13.0rc0"
+version = "3.13.0"
 source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
