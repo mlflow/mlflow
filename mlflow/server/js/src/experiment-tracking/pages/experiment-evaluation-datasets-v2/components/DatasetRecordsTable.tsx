@@ -74,25 +74,8 @@ interface DatasetRecordsTableProps {
 
 const SORTABLE_COLUMN_SET = new Set<RecordColumnId>(SORTABLE_RECORD_COLUMNS);
 
-const cellStylesForColumn = (id: RecordColumnId) => {
-  if (id === 'inputs' || id === 'expectations') return wideCellStyles;
-  if (id === 'source') return narrowCellStyles;
-  if (id === 'tags') return tagsCellStyles;
-  return cellStyles;
-};
-
+// Base cell styles — column width is supplied separately via flexStyleForColumn.
 const cellStyles = { verticalAlign: 'middle' as const };
-// Inputs/expectations carry the bulk of each record's payload — give their
-// cells (and headers) more horizontal room than the metadata columns. Source
-// shrinks because it renders a single short Tag. Tags sits slightly above
-// the default to fit the first-tag pill plus a "+N more" suffix without
-// crowding. Applied symmetrically to header and cell so columns line up.
-const wideCellStyles = { ...cellStyles, flex: 2.5 };
-const WIDE_HEADER_STYLE = { flex: 2.5 } as const;
-const narrowCellStyles = { ...cellStyles, flex: 0.5 };
-const NARROW_HEADER_STYLE = { flex: 0.5 } as const;
-const tagsCellStyles = { ...cellStyles, flex: 1.5 };
-const TAGS_HEADER_STYLE = { flex: 1.5 } as const;
 const stopPropagationProps = {
   // Row click opens the drawer; inner interactive elements (tag pills, etc.) must opt out.
   onClick: (event: React.MouseEvent) => event.stopPropagation(),
@@ -150,15 +133,15 @@ export const DatasetRecordsTable = ({
   };
 
   const columns: ColumnDef<DatasetRecord>[] = [
-    { id: 'dataset_record_id', accessorKey: 'dataset_record_id', header: 'Record ID' },
-    { id: 'inputs', accessorKey: 'inputs', header: 'Inputs' },
-    { id: 'expectations', accessorKey: 'expectations', header: 'Expectations' },
-    { id: 'create_time', accessorKey: 'create_time', header: 'Created' },
-    { id: 'created_by', accessorKey: 'created_by', header: 'Created by' },
-    { id: 'source', accessorKey: 'source', header: 'Source' },
-    { id: 'last_updated', accessorKey: 'last_updated', header: 'Last updated' },
-    { id: 'last_updated_by', accessorKey: 'last_updated_by', header: 'Last updated by' },
-    { id: 'tags', accessorKey: 'tags', header: 'Tags' },
+    { id: 'dataset_record_id', accessorKey: 'dataset_record_id', header: 'Record ID', size: 160 },
+    { id: 'inputs', accessorKey: 'inputs', header: 'Inputs', size: 400 },
+    { id: 'expectations', accessorKey: 'expectations', header: 'Expectations', size: 400 },
+    { id: 'create_time', accessorKey: 'create_time', header: 'Created', size: 120 },
+    { id: 'created_by', accessorKey: 'created_by', header: 'Created by', size: 140 },
+    { id: 'source', accessorKey: 'source', header: 'Source', size: 100 },
+    { id: 'last_updated', accessorKey: 'last_updated', header: 'Last updated', size: 120 },
+    { id: 'last_updated_by', accessorKey: 'last_updated_by', header: 'Last updated by', size: 140 },
+    { id: 'tags', accessorKey: 'tags', header: 'Tags', size: 200 },
   ];
 
   const table = useReactTable({
@@ -170,6 +153,11 @@ export const DatasetRecordsTable = ({
   });
 
   const headersById = Object.fromEntries(table.getHeaderGroups()[0].headers.map((h) => [h.column.id, h]));
+
+  const flexStyleForColumn = (id: RecordColumnId): React.CSSProperties => {
+    const size = table.getColumn(id)?.getSize() ?? 150;
+    return { flex: `0 0 ${size}px` };
+  };
 
   return (
     <div
@@ -202,6 +190,7 @@ export const DatasetRecordsTable = ({
           {isColumnVisible('dataset_record_id') && (
             <TableHeader
               componentId="mlflow.eval-datasets-v2.records.header.record-id"
+              style={flexStyleForColumn('dataset_record_id')}
               {...headerSortProps('dataset_record_id')}
               header={headersById['dataset_record_id']}
               column={headersById['dataset_record_id']?.column}
@@ -213,7 +202,7 @@ export const DatasetRecordsTable = ({
           {isColumnVisible('inputs') && (
             <TableHeader
               componentId="mlflow.eval-datasets-v2.records.header.inputs"
-              style={WIDE_HEADER_STYLE}
+              style={flexStyleForColumn('inputs')}
               header={headersById['inputs']}
               column={headersById['inputs']?.column}
               setColumnSizing={table.setColumnSizing}
@@ -224,7 +213,7 @@ export const DatasetRecordsTable = ({
           {isColumnVisible('expectations') && (
             <TableHeader
               componentId="mlflow.eval-datasets-v2.records.header.expectations"
-              style={WIDE_HEADER_STYLE}
+              style={flexStyleForColumn('expectations')}
               header={headersById['expectations']}
               column={headersById['expectations']?.column}
               setColumnSizing={table.setColumnSizing}
@@ -238,6 +227,7 @@ export const DatasetRecordsTable = ({
           {isColumnVisible('create_time') && (
             <TableHeader
               componentId="mlflow.eval-datasets-v2.records.header.create-time"
+              style={flexStyleForColumn('create_time')}
               {...headerSortProps('create_time')}
               header={headersById['create_time']}
               column={headersById['create_time']?.column}
@@ -252,6 +242,7 @@ export const DatasetRecordsTable = ({
           {isColumnVisible('created_by') && (
             <TableHeader
               componentId="mlflow.eval-datasets-v2.records.header.created-by"
+              style={flexStyleForColumn('created_by')}
               {...headerSortProps('created_by')}
               header={headersById['created_by']}
               column={headersById['created_by']?.column}
@@ -266,7 +257,7 @@ export const DatasetRecordsTable = ({
           {isColumnVisible('source') && (
             <TableHeader
               componentId="mlflow.eval-datasets-v2.records.header.source"
-              style={NARROW_HEADER_STYLE}
+              style={flexStyleForColumn('source')}
               header={headersById['source']}
               column={headersById['source']?.column}
               setColumnSizing={table.setColumnSizing}
@@ -277,6 +268,7 @@ export const DatasetRecordsTable = ({
           {isColumnVisible('last_updated') && (
             <TableHeader
               componentId="mlflow.eval-datasets-v2.records.header.last-updated"
+              style={flexStyleForColumn('last_updated')}
               {...headerSortProps('last_updated')}
               header={headersById['last_updated']}
               column={headersById['last_updated']?.column}
@@ -291,6 +283,7 @@ export const DatasetRecordsTable = ({
           {isColumnVisible('last_updated_by') && (
             <TableHeader
               componentId="mlflow.eval-datasets-v2.records.header.last-updated-by"
+              style={flexStyleForColumn('last_updated_by')}
               {...headerSortProps('last_updated_by')}
               header={headersById['last_updated_by']}
               column={headersById['last_updated_by']?.column}
@@ -305,7 +298,7 @@ export const DatasetRecordsTable = ({
           {isColumnVisible('tags') && (
             <TableHeader
               componentId="mlflow.eval-datasets-v2.records.header.tags"
-              style={TAGS_HEADER_STYLE}
+              style={flexStyleForColumn('tags')}
               header={headersById['tags']}
               column={headersById['tags']?.column}
               setColumnSizing={table.setColumnSizing}
@@ -321,7 +314,7 @@ export const DatasetRecordsTable = ({
                   <TableSkeleton seed={`records-select-${i}`} />
                 </TableCell>
                 {visibleColumns.map((col) => (
-                  <TableCell key={col} css={cellStylesForColumn(col)}>
+                  <TableCell key={col} css={cellStyles} style={flexStyleForColumn(col)}>
                     <TableSkeleton seed={`records-${col}-${i}`} />
                   </TableCell>
                 ))}
@@ -352,7 +345,7 @@ export const DatasetRecordsTable = ({
               // activator components that already render flush-left, so they don't need
               // this override.
               const colCellStyles = {
-                ...cellStylesForColumn(col),
+                ...cellStyles,
                 textAlign: 'left' as const,
                 justifyItems: 'start' as const,
               };
@@ -366,7 +359,13 @@ export const DatasetRecordsTable = ({
                 // line); otherwise echo the raw text so each keystroke shows up immediately.
                 const display = hasValidContent ? JSON.stringify(value) : trimmedText;
                 return (
-                  <TableCell key={col} css={colCellStyles} align="left" wrapContent={false}>
+                  <TableCell
+                    key={col}
+                    css={colCellStyles}
+                    style={flexStyleForColumn(col)}
+                    align="left"
+                    wrapContent={false}
+                  >
                     {isEmpty ? (
                       <Typography.Text color="secondary" size="sm">
                         <FormattedMessage defaultMessage="(empty)" description="Placeholder for an empty JSON cell" />
@@ -391,13 +390,25 @@ export const DatasetRecordsTable = ({
                 const tagEntries = Object.entries(pendingNewRecord.tags);
                 if (tagEntries.length === 0) {
                   return (
-                    <TableCell key={col} css={colCellStyles} align="left" wrapContent={false}>
+                    <TableCell
+                      key={col}
+                      css={colCellStyles}
+                      style={flexStyleForColumn(col)}
+                      align="left"
+                      wrapContent={false}
+                    >
                       <Typography.Text color="secondary">-</Typography.Text>
                     </TableCell>
                   );
                 }
                 return (
-                  <TableCell key={col} css={colCellStyles} align="left" wrapContent={false}>
+                  <TableCell
+                    key={col}
+                    css={colCellStyles}
+                    style={flexStyleForColumn(col)}
+                    align="left"
+                    wrapContent={false}
+                  >
                     <TagsInlinePreviewBody
                       entries={tagEntries}
                       componentId="mlflow.eval-datasets-v2.records.tag.phantom-pill"
@@ -406,7 +417,13 @@ export const DatasetRecordsTable = ({
                 );
               }
               return (
-                <TableCell key={col} css={colCellStyles} align="left" wrapContent={false}>
+                <TableCell
+                  key={col}
+                  css={colCellStyles}
+                  style={flexStyleForColumn(col)}
+                  align="left"
+                  wrapContent={false}
+                >
                   <Typography.Text color="secondary">-</Typography.Text>
                 </TableCell>
               );
@@ -470,12 +487,12 @@ export const DatasetRecordsTable = ({
                   {...stopPropagationProps}
                 />
                 {isColumnVisible('dataset_record_id') && (
-                  <TableCell css={cellStylesForColumn('dataset_record_id')}>
+                  <TableCell css={cellStyles} style={flexStyleForColumn('dataset_record_id')}>
                     <RecordIdCell record={record} onActivate={openDrawer} accessibleLabel={recordIdLabel} />
                   </TableCell>
                 )}
                 {isColumnVisible('inputs') && (
-                  <TableCell css={cellStylesForColumn('inputs')}>
+                  <TableCell css={cellStyles} style={flexStyleForColumn('inputs')}>
                     <JsonPreviewCell
                       value={record.inputs}
                       emptyLabel={
@@ -487,7 +504,7 @@ export const DatasetRecordsTable = ({
                   </TableCell>
                 )}
                 {isColumnVisible('expectations') && (
-                  <TableCell css={cellStylesForColumn('expectations')}>
+                  <TableCell css={cellStyles} style={flexStyleForColumn('expectations')}>
                     <JsonPreviewCell
                       value={record.expectations}
                       emptyLabel={
@@ -499,32 +516,32 @@ export const DatasetRecordsTable = ({
                   </TableCell>
                 )}
                 {isColumnVisible('create_time') && (
-                  <TableCell css={cellStylesForColumn('create_time')}>
+                  <TableCell css={cellStyles} style={flexStyleForColumn('create_time')}>
                     <CreateTimeCell record={record} />
                   </TableCell>
                 )}
                 {isColumnVisible('created_by') && (
-                  <TableCell css={cellStylesForColumn('created_by')}>
+                  <TableCell css={cellStyles} style={flexStyleForColumn('created_by')}>
                     <CreatedByCell record={record} />
                   </TableCell>
                 )}
                 {isColumnVisible('source') && (
-                  <TableCell css={cellStylesForColumn('source')}>
+                  <TableCell css={cellStyles} style={flexStyleForColumn('source')}>
                     <SourceCell record={record} />
                   </TableCell>
                 )}
                 {isColumnVisible('last_updated') && (
-                  <TableCell css={cellStylesForColumn('last_updated')}>
+                  <TableCell css={cellStyles} style={flexStyleForColumn('last_updated')}>
                     <LastUpdatedCell record={record} />
                   </TableCell>
                 )}
                 {isColumnVisible('last_updated_by') && (
-                  <TableCell css={cellStylesForColumn('last_updated_by')}>
+                  <TableCell css={cellStyles} style={flexStyleForColumn('last_updated_by')}>
                     <LastUpdatedByCell record={record} />
                   </TableCell>
                 )}
                 {isColumnVisible('tags') && (
-                  <TableCell css={cellStylesForColumn('tags')}>
+                  <TableCell css={cellStyles} style={flexStyleForColumn('tags')}>
                     <TagsPreviewCell tags={record.tags} onActivate={openDrawer} accessibleLabel={tagsLabel} />
                   </TableCell>
                 )}
