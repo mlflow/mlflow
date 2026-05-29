@@ -1,5 +1,5 @@
+# Daily uploads package snapshots to https://github.com/mlflow/mlflow/releases/tag/nightly.
 name: snapshots
-description: Daily uploads package snapshots to https://github.com/mlflow/mlflow/releases/tag/nightly.
 
 on:
   schedule:

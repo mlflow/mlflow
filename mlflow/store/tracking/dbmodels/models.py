@@ -3270,10 +3270,11 @@ class SqlLabelSchema(Base):
     Cascade-deletes when the parent experiment is deleted.
     """
 
-    name = Column(String(150), nullable=False)
+    name = Column(String(256), nullable=False)
     """
-    Schema name: ``String`` (limit 150 characters). Unique within
-    ``(workspace, experiment_id)``.
+    Schema name: ``String`` (limit 256 characters). Free text shown to
+    reviewers as the label prompt and used as the assessment key. Unique
+    within ``(workspace, experiment_id)``.
     """
 
     type = Column(String(16), nullable=False)
@@ -3281,11 +3282,6 @@ class SqlLabelSchema(Base):
     Schema type: ``String`` (limit 16). One of ``'feedback'`` or
     ``'expectation'``. Immutable after create (enforced at update time
     by the validation module).
-    """
-
-    title = Column(String(256), nullable=False)
-    """
-    Display title shown to the SME: ``String`` (limit 256 characters).
     """
 
     instruction = Column(Text, nullable=True)
@@ -3296,15 +3292,15 @@ class SqlLabelSchema(Base):
 
     enable_comment = Column(Boolean, nullable=False, default=False, server_default="0")
     """
-    Whether the SME widget renders a free-form comment input alongside
+    Whether the reviewer widget renders a free-form comment input alongside
     the schema-typed value. UI-only hint; not consulted server-side.
     """
 
     input_type = Column(String(32), nullable=False)
     """
     Discriminator for the input config payload. One of ``'pass_fail'``,
-    ``'categorical'``, ``'numeric'`` for OSS-native schemas. The
-    Databricks-routed types (``'categorical_list'``, ``'text'``,
+    ``'categorical'``, ``'numeric'``, ``'text'`` for OSS-native schemas. The
+    remaining Databricks-routed types (``'categorical_list'``,
     ``'text_list'``) are not accepted by the OSS-native server.
     """
 
@@ -3352,7 +3348,6 @@ class SqlLabelSchema(Base):
         return LabelSchema(
             name=self.name,
             type=LabelSchemaType(self.type),
-            title=self.title,
             input=_input_from_dict(self.input_type, json.loads(self.input_config)),
             instruction=self.instruction,
             enable_comment=self.enable_comment,
@@ -3380,7 +3375,6 @@ class SqlLabelSchema(Base):
             experiment_id=int(schema.experiment_id),
             name=schema.name,
             type=str(schema.type),
-            title=schema.title,
             instruction=schema.instruction,
             enable_comment=schema.enable_comment,
             input_type=input_type,
@@ -3405,6 +3399,7 @@ def _input_to_dict(input_obj) -> tuple[str, str]:
         InputCategorical,
         InputNumeric,
         InputPassFail,
+        InputText,
     )
 
     if isinstance(input_obj, InputPassFail):
@@ -3416,7 +3411,6 @@ def _input_to_dict(input_obj) -> tuple[str, str]:
     if isinstance(input_obj, InputCategorical):
         config = {
             "options": input_obj.options,
-            "semantic_polarity": input_obj.semantic_polarity,
             "multi_select": input_obj.multi_select,
         }
         return "categorical", json.dumps(config)
@@ -3426,9 +3420,12 @@ def _input_to_dict(input_obj) -> tuple[str, str]:
             "max_value": input_obj.max_value,
         }
         return "numeric", json.dumps(config)
+    if isinstance(input_obj, InputText):
+        config = {"max_length": input_obj.max_length}
+        return "text", json.dumps(config)
     raise ValueError(
         f"Cannot persist label schema input of type {type(input_obj).__name__!r}; "
-        "OSS-supported types are InputPassFail, InputCategorical, InputNumeric."
+        "OSS-supported types are InputPassFail, InputCategorical, InputNumeric, InputText."
     )
 
 
@@ -3438,6 +3435,7 @@ def _input_from_dict(input_type: str, config: dict[str, Any]):
         InputCategorical,
         InputNumeric,
         InputPassFail,
+        InputText,
     )
 
     if input_type == "pass_fail":
@@ -3448,9 +3446,10 @@ def _input_from_dict(input_type: str, config: dict[str, Any]):
     if input_type == "categorical":
         return InputCategorical(
             options=config["options"],
-            semantic_polarity=config.get("semantic_polarity"),
             multi_select=config.get("multi_select", False),
         )
+    if input_type == "text":
+        return InputText(max_length=config.get("max_length"))
     if input_type == "numeric":
         return InputNumeric(
             min_value=config.get("min_value"),
@@ -3458,5 +3457,5 @@ def _input_from_dict(input_type: str, config: dict[str, Any]):
         )
     raise ValueError(
         f"Unknown label schema input_type {input_type!r}; expected one of "
-        "'pass_fail', 'categorical', 'numeric'."
+        "'pass_fail', 'categorical', 'numeric', 'text'."
     )
