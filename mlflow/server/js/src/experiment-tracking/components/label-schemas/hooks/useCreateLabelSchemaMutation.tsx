@@ -8,7 +8,6 @@ export interface CreateLabelSchemaParams {
   experiment_id: string;
   name: string;
   type: LabelSchemaType;
-  title: string;
   input: LabelSchemaInput;
   instruction?: string;
   enable_comment?: boolean;

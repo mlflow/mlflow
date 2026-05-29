@@ -95,7 +95,6 @@ export const LabelSchemaModal = ({ experimentId, editingSchema, visible, onClose
       if (isEdit && editingSchema) {
         await updateMutation.updateLabelSchemaAsync({
           schema_id: editingSchema.schema_id,
-          title: form.title,
           instruction: form.instruction,
           enable_comment: form.enable_comment,
           input,
@@ -105,7 +104,6 @@ export const LabelSchemaModal = ({ experimentId, editingSchema, visible, onClose
           experiment_id: experimentId,
           name: form.name,
           type: form.type,
-          title: form.title,
           input,
           // On create, omit blank instruction so the server defaults it
           // to None rather than storing "" verbatim.

@@ -18,7 +18,6 @@ from mlflow.genai.label_schemas.label_schemas import (
     LabelSchemaType,
 )
 from mlflow.protos.label_schemas_pb2 import (
-    ASCENDING,
     EXPECTATION,
     FEEDBACK,
     LABEL_SCHEMA_TYPE_UNSPECIFIED,
@@ -60,7 +59,6 @@ def _pass_fail_entity(schema_id: str = "ls-1", experiment_id: str = "1") -> Labe
         experiment_id=experiment_id,
         name="correctness",
         type=LabelSchemaType.FEEDBACK,
-        title="Is the answer correct?",
         input=InputPassFail(positive_label="Correct", negative_label="Incorrect"),
         instruction="Mark Correct if accurate.",
         enable_comment=True,
@@ -85,7 +83,6 @@ def test_create_label_schema_routes_pass_fail_input():
         experiment_id="1",
         name="correctness",
         type=FEEDBACK,
-        title="Is the answer correct?",
         input=LabelSchemaInput(
             pass_fail=ProtoInputPassFail(positive_label="Correct", negative_label="Incorrect")
         ),
@@ -99,7 +96,6 @@ def test_create_label_schema_routes_pass_fail_input():
     assert call_kwargs["experiment_id"] == "1"
     assert call_kwargs["name"] == "correctness"
     assert call_kwargs["type"] == LabelSchemaType.FEEDBACK
-    assert call_kwargs["title"] == "Is the answer correct?"
     assert isinstance(call_kwargs["input"], InputPassFail)
     assert call_kwargs["input"].positive_label == "Correct"
     assert call_kwargs["instruction"] == "Mark Correct if accurate."
@@ -115,7 +111,6 @@ def test_create_label_schema_rejects_unspecified_type():
         experiment_id="1",
         name="x",
         type=LABEL_SCHEMA_TYPE_UNSPECIFIED,
-        title="X",
         input=LabelSchemaInput(
             pass_fail=ProtoInputPassFail(positive_label="y", negative_label="n")
         ),
@@ -135,7 +130,6 @@ def test_create_label_schema_rejects_empty_oneof():
         experiment_id="1",
         name="x",
         type=FEEDBACK,
-        title="X",
         input=LabelSchemaInput(),
     )
     with (
@@ -153,11 +147,9 @@ def test_create_label_schema_routes_categorical_input():
         experiment_id="1",
         name="severity",
         type=FEEDBACK,
-        title="Severity",
         input=LabelSchemaInput(
             categorical=ProtoInputCategorical(
                 options=["low", "medium", "high"],
-                semantic_polarity=ASCENDING,
                 multi_select=True,
             )
         ),
@@ -167,10 +159,7 @@ def test_create_label_schema_routes_categorical_input():
         experiment_id="1",
         name="severity",
         type=LabelSchemaType.FEEDBACK,
-        title="Severity",
-        input=InputCategorical(
-            options=["low", "medium", "high"], semantic_polarity="ascending", multi_select=True
-        ),
+        input=InputCategorical(options=["low", "medium", "high"], multi_select=True),
         created_at=1000,
         updated_at=1000,
     )
@@ -180,13 +169,11 @@ def test_create_label_schema_routes_categorical_input():
     call_kwargs = store.create_label_schema.call_args[1]
     assert isinstance(call_kwargs["input"], InputCategorical)
     assert call_kwargs["input"].options == ["low", "medium", "high"]
-    assert call_kwargs["input"].semantic_polarity == "ascending"
     assert call_kwargs["input"].multi_select is True
 
     body = json.loads(response.get_data())
     cat_body = body["label_schema"]["input"]["categorical"]
     assert cat_body["multi_select"] is True
-    assert cat_body["semantic_polarity"] == "ASCENDING"
 
 
 @pytest.mark.parametrize(
@@ -198,7 +185,6 @@ def test_create_label_schema_routes_categorical_input():
                 experiment_id="1",
                 name="x",
                 type=LABEL_SCHEMA_TYPE_UNSPECIFIED,
-                title="X",
                 input=LabelSchemaInput(
                     pass_fail=ProtoInputPassFail(positive_label="y", negative_label="n")
                 ),
@@ -227,7 +213,6 @@ def test_upsert_label_schema_rejects_unspecified_type(handler, request_message, 
                 experiment_id="1",
                 name="x",
                 type=FEEDBACK,
-                title="X",
                 input=LabelSchemaInput(),
             ),
             "upsert_label_schema",
@@ -299,7 +284,7 @@ def test_list_label_schemas_with_pagination_args():
 
 def test_update_label_schema_sparse_fields():
     request_message = UpdateLabelSchema(
-        schema_id="ls-1", title="Updated title", instruction="Updated instruction"
+        schema_id="ls-1", name="Updated name", instruction="Updated instruction"
     )
     store, response = _run_handler(
         _update_label_schema, request_message, "update_label_schema", _pass_fail_entity()
@@ -308,7 +293,7 @@ def test_update_label_schema_sparse_fields():
     # Exact-equality is intentional: any extra key here means HasField didn't
     # gate the sparse update correctly and would corrupt the store-layer's
     # "None=unchanged" contract.
-    assert call_kwargs == {"title": "Updated title", "instruction": "Updated instruction"}
+    assert call_kwargs == {"name": "Updated name", "instruction": "Updated instruction"}
     store.update_label_schema.assert_called_once()
 
 
@@ -359,7 +344,6 @@ def test_upsert_label_schema():
         experiment_id="1",
         name="rating",
         type=EXPECTATION,
-        title="Rating",
         input=LabelSchemaInput(numeric=ProtoInputNumeric(min_value=1.0, max_value=5.0)),
     )
     store, response = _run_handler(
@@ -393,7 +377,6 @@ def test_upsert_label_schema_enable_comment_hasfield_gate(
         experiment_id="1",
         name="rating",
         type=EXPECTATION,
-        title="Rating",
         input=LabelSchemaInput(numeric=ProtoInputNumeric(min_value=1.0, max_value=5.0)),
     )
     if enable_comment_set is not None:

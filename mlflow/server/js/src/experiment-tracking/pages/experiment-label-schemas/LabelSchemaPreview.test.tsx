@@ -16,11 +16,10 @@ const renderWithProviders = (ui: React.ReactElement) =>
   );
 
 describe('LabelSchemaPreview', () => {
-  it('renders title, instruction, and pass-fail widget for a pass_fail schema', () => {
+  it('renders name, instruction, and pass-fail widget for a pass_fail schema', () => {
     const formData: LabelSchemaFormData = {
       ...DEFAULT_FORM_VALUES,
-      name: 'correctness',
-      title: 'Is the answer correct?',
+      name: 'Is the answer correct?',
       instruction: 'Mark Correct if accurate.',
       inputKind: 'pass_fail',
       passFailPositiveLabel: 'Correct',
@@ -36,24 +35,23 @@ describe('LabelSchemaPreview', () => {
   it('renders the categorical widget (DialogCombobox) for a categorical schema', () => {
     const formData: LabelSchemaFormData = {
       ...DEFAULT_FORM_VALUES,
-      title: 'Severity',
+      name: 'Severity',
       inputKind: 'categorical',
       categoricalOptions: 'low\nmedium\nhigh',
-      categoricalPolarity: 'ASCENDING',
     };
     renderWithProviders(<LabelSchemaPreview formData={formData} />);
     expect(screen.getByText('Severity')).toBeInTheDocument();
     // The categorical widget renders a DialogCombobox trigger. Assert
     // the trigger button is in the DOM so a regression that strips
     // the input widget would surface here rather than passing on the
-    // title text alone.
+    // name text alone.
     expect(screen.getByRole('combobox')).toBeInTheDocument();
   });
 
   it('renders the numeric widget (number input) for a numeric schema', () => {
     const formData: LabelSchemaFormData = {
       ...DEFAULT_FORM_VALUES,
-      title: 'Rating',
+      name: 'Rating',
       inputKind: 'numeric',
       numericMinValue: '1',
       numericMaxValue: '5',
@@ -70,15 +68,27 @@ describe('LabelSchemaPreview', () => {
     expect(numberInput.max).toBe('5');
   });
 
-  it('shows a placeholder when title is blank', () => {
+  it('renders the text widget (textarea) for a text schema', () => {
     const formData: LabelSchemaFormData = {
       ...DEFAULT_FORM_VALUES,
-      title: '',
+      name: 'Expected answer',
+      inputKind: 'text',
+      textMaxLength: '200',
+    };
+    renderWithProviders(<LabelSchemaPreview formData={formData} />);
+    expect(screen.getByText('Expected answer')).toBeInTheDocument();
+    expect(screen.getByRole('textbox')).toBeInTheDocument();
+  });
+
+  it('shows a placeholder when name is blank', () => {
+    const formData: LabelSchemaFormData = {
+      ...DEFAULT_FORM_VALUES,
+      name: '',
       inputKind: 'pass_fail',
       passFailPositiveLabel: 'A',
       passFailNegativeLabel: 'B',
     };
     renderWithProviders(<LabelSchemaPreview formData={formData} />);
-    expect(screen.getByText('(no title yet)')).toBeInTheDocument();
+    expect(screen.getByText('(no name yet)')).toBeInTheDocument();
   });
 });

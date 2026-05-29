@@ -21,9 +21,8 @@ import type { LabelSchema } from '../types';
 const mockSchema: LabelSchema = {
   schema_id: 'ls-test-1',
   experiment_id: '1',
-  name: 'correctness',
+  name: 'Is the answer correct?',
   type: 'FEEDBACK',
-  title: 'Is the answer correct?',
   enable_comment: true,
   input: { pass_fail: { positive_label: 'Correct', negative_label: 'Incorrect' } },
   created_at: 1000,
@@ -135,9 +134,8 @@ describe('label-schema hooks', () => {
       await act(async () => {
         await result.current.createLabelSchemaAsync({
           experiment_id: '1',
-          name: 'correctness',
+          name: 'Is the answer correct?',
           type: 'FEEDBACK',
-          title: 'Is the answer correct?',
           input: { pass_fail: { positive_label: 'Correct', negative_label: 'Incorrect' } },
           enable_comment: true,
         });
@@ -148,9 +146,8 @@ describe('label-schema hooks', () => {
       // appear in the deserialized body.
       expect(requestBody).toHaveBeenCalledWith({
         experiment_id: '1',
-        name: 'correctness',
+        name: 'Is the answer correct?',
         type: 'FEEDBACK',
-        title: 'Is the answer correct?',
         input: { pass_fail: { positive_label: 'Correct', negative_label: 'Incorrect' } },
         enable_comment: true,
       });
@@ -171,19 +168,19 @@ describe('label-schema hooks', () => {
       await act(async () => {
         await result.current.updateLabelSchemaAsync({
           schema_id: 'ls-test-1',
-          title: 'Updated title',
-          // name, instruction, enable_comment, input intentionally omitted
+          name: 'Updated name',
+          // instruction, enable_comment, input intentionally omitted
         });
       });
       const body = requestBody.mock.calls[0][0] as Record<string, unknown>;
-      expect(body).toEqual({ schema_id: 'ls-test-1', title: 'Updated title' });
+      expect(body).toEqual({ schema_id: 'ls-test-1', name: 'Updated name' });
     });
 
-    it('forwards empty-string title as a real value (replaces stored field with "")', async () => {
+    it('forwards empty-string instruction as a real value (replaces stored field with "")', async () => {
       // The proto contract treats empty strings as set values (HasField=true)
       // that overwrite the stored field, NOT as "no-op". This pins the
       // documented behavior so a future cleanup that switches to truthy
-      // guards (e.g., `if (params.title)`) would fail this test.
+      // guards (e.g., `if (params.instruction)`) would fail this test.
       const requestBody = jest.fn();
       server.use(
         rest.patch('*/ajax-api/3.0/mlflow/label-schemas/update', async (req, res, ctx) => {
@@ -193,9 +190,9 @@ describe('label-schema hooks', () => {
       );
       const { result } = renderHook(() => useUpdateLabelSchemaMutation(), { wrapper });
       await act(async () => {
-        await result.current.updateLabelSchemaAsync({ schema_id: 'ls-test-1', title: '' });
+        await result.current.updateLabelSchemaAsync({ schema_id: 'ls-test-1', instruction: '' });
       });
-      expect(requestBody.mock.calls[0][0]).toEqual({ schema_id: 'ls-test-1', title: '' });
+      expect(requestBody.mock.calls[0][0]).toEqual({ schema_id: 'ls-test-1', instruction: '' });
     });
 
     it('forwards explicit false for enable_comment', async () => {
@@ -229,7 +226,6 @@ describe('label-schema hooks', () => {
           experiment_id: '1',
           name: 'correctness',
           type: 'FEEDBACK',
-          title: 'Is the answer correct?',
           input: { pass_fail: { positive_label: 'Correct', negative_label: 'Incorrect' } },
         });
       });

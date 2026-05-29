@@ -28,6 +28,10 @@ const describeInput = (schema: LabelSchema): string => {
     const maxStr = max_value == null ? '+∞' : String(max_value);
     return `Numeric (${minStr} … ${maxStr})`;
   }
+  if (schema.input.text) {
+    const { max_length } = schema.input.text;
+    return max_length == null ? 'Text' : `Text (max ${max_length} chars)`;
+  }
   return 'Unknown input';
 };
 
@@ -61,12 +65,11 @@ export const LabelSchemaCard = ({ schema, onEdit, onDelete }: LabelSchemaCardPro
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
           <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
             <Typography.Title level={4} css={{ margin: 0, marginBottom: '0 !important' }}>
-              {schema.title}
+              {schema.name}
             </Typography.Title>
             <Tag componentId="mlflow.experiment-label-schemas.card.type-tag">{schema.type}</Tag>
           </div>
           <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
-            <Tag componentId="mlflow.experiment-label-schemas.card.name-tag">{schema.name}</Tag>
             <Typography.Hint>{describeInput(schema)}</Typography.Hint>
           </div>
           {schema.instruction && <Typography.Hint css={{ fontStyle: 'italic' }}>{schema.instruction}</Typography.Hint>}

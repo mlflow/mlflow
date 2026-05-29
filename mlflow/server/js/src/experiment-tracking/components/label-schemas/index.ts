@@ -1,8 +1,8 @@
 export type {
-  CategoricalSemanticPolarity,
   InputCategorical,
   InputNumeric,
   InputPassFail,
+  InputText,
   LabelSchema,
   LabelSchemaInput,
   LabelSchemaType,

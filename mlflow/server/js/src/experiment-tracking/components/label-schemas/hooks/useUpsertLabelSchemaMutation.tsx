@@ -9,7 +9,6 @@ export interface UpsertLabelSchemaParams {
   experiment_id: string;
   name: string;
   type: LabelSchemaType;
-  title: string;
   input: LabelSchemaInput;
   instruction?: string;
   /**
@@ -45,7 +44,6 @@ export const useUpsertLabelSchemaMutation = () => {
         experiment_id: params.experiment_id,
         name: params.name,
         type: params.type,
-        title: params.title,
         input: params.input,
       };
       if (params.instruction !== undefined) {
