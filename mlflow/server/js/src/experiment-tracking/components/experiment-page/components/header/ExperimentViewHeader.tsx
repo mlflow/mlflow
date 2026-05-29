@@ -47,6 +47,10 @@ const getDocLinkHref = (experimentKind: ExperimentKind) => {
   return 'https://mlflow.org/docs/latest/ml/getting-started/?rel=mlflow_ui';
 };
 
+// Routes where the page itself renders item-level edit/delete actions, so the
+// experiment-level management menu would be a confusing duplicate.
+const ROUTES_WITHOUT_MANAGEMENT_MENU = [RoutePaths.experimentPageTabPromptDetails];
+
 /**
  * Header for a single experiment page. Displays title, breadcrumbs and provides
  * controls for renaming, deleting and editing permissions.
@@ -292,7 +296,7 @@ export const ExperimentViewHeader = React.memo(
           <div
             css={{ display: 'flex', gap: theme.spacing.sm, justifyContent: 'flex-end', marginLeft: theme.spacing.sm }}
           >
-            {!matchPath(RoutePaths.experimentPageTabPromptDetails, location.pathname) && (
+            {!ROUTES_WITHOUT_MANAGEMENT_MENU.some((route) => matchPath(route, location.pathname)) && (
               <ExperimentViewManagementMenu experiment={experiment} setEditing={setEditing} />
             )}
             <ExperimentViewHeaderShareButton
