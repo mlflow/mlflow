@@ -13,8 +13,14 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { createMLflowRoutePath, Link, useLocation, useNavigate } from '../../../../../common/utils/RoutingUtils';
-import Routes from '../../../../routes';
+import {
+  createMLflowRoutePath,
+  Link,
+  matchPath,
+  useLocation,
+  useNavigate,
+} from '../../../../../common/utils/RoutingUtils';
+import Routes, { RoutePaths } from '../../../../routes';
 import { ExperimentViewCopyTitle } from './ExperimentViewCopyTitle';
 import type { ExperimentEntity } from '../../../../types';
 import type { ExperimentPageSearchFacetsState } from '../../models/ExperimentPageSearchFacetsState';
@@ -286,7 +292,9 @@ export const ExperimentViewHeader = React.memo(
           <div
             css={{ display: 'flex', gap: theme.spacing.sm, justifyContent: 'flex-end', marginLeft: theme.spacing.sm }}
           >
-            <ExperimentViewManagementMenu experiment={experiment} setEditing={setEditing} />
+            {!matchPath(RoutePaths.experimentPageTabPromptDetails, location.pathname) && (
+              <ExperimentViewManagementMenu experiment={experiment} setEditing={setEditing} />
+            )}
             <ExperimentViewHeaderShareButton
               experimentIds={experimentIds}
               searchFacetsState={searchFacetsState}
