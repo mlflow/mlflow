@@ -3,11 +3,11 @@ import base64
 import inspect
 import random
 from dataclasses import asdict
+from importlib import metadata
 from pathlib import Path
 from typing import Any
 from unittest.mock import ANY
 
-import importlib_metadata
 import llama_index.core
 import openai
 import pytest
@@ -39,13 +39,13 @@ from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.tracing.helper import get_traces, skip_when_testing_trace_sdk
 
-llama_core_version = Version(importlib_metadata.version("llama-index-core"))
-llama_oai_version = Version(importlib_metadata.version("llama-index-llms-openai"))
+llama_core_version = Version(metadata.version("llama-index-core"))
+llama_oai_version = Version(metadata.version("llama-index-llms-openai"))
 
 # Detect llama-index-workflows version to handle API changes
 try:
-    llama_workflows_version = Version(importlib_metadata.version("llama-index-workflows"))
-except importlib_metadata.PackageNotFoundError:
+    llama_workflows_version = Version(metadata.version("llama-index-workflows"))
+except metadata.PackageNotFoundError:
     llama_workflows_version = None
 
 
