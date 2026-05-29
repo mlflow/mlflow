@@ -76,17 +76,28 @@ interface DatasetRecordsTableProps {
 
 const SORTABLE_COLUMN_SET = new Set<RecordColumnId>(SORTABLE_RECORD_COLUMNS);
 
-// Default starting widths (px) by content class. Columns are user-resizable, so these
-// are only the initial sizes TanStack seeds `columnSizing` with.
-const COLUMN_WIDTH = {
-  narrow: 120, // source, timestamps
-  normal: 160, // ids, usernames, tags
-  wide: 400, // inputs / expectations JSON blobs
+// Per content tier: `basis` is the px width at rest — the initial size TanStack seeds
+// `columnSizing` with, and the size a column locks to on first drag. `grow` is how leftover
+// width is shared among undragged columns once the viewport exceeds the sum of bases, so the
+// JSON columns widen faster than metadata instead of all converging to one width.
+const COLUMN_SIZE = {
+  narrow: { basis: 120, grow: 0.5 }, // source, timestamps
+  normal: { basis: 160, grow: 1 }, // ids, usernames, tags
+  wide: { basis: 400, grow: 2.5 }, // inputs / expectations JSON blobs
 } as const;
 
-// Fallback when a column id has no entry in the table model — effectively unreachable
+// Fallback basis when a column id has no entry in the table model — effectively unreachable
 // since every column is defined, but `getColumn` is typed as possibly-undefined.
-const DEFAULT_COLUMN_WIDTH = COLUMN_WIDTH.normal;
+const DEFAULT_COLUMN_WIDTH = COLUMN_SIZE.normal.basis;
+
+// Floor for resizing — no column should be draggable down to nothing. TanStack's
+// getSize() clamps to minSize on read, so flexStyleForColumn honors this even though
+// the DuBois drag handle writes the raw px delta into columnSizing.
+const COLUMN_MIN_WIDTH = 80;
+
+// A column's basis (its ColumnDef.size) maps back to its tier's grow weight — derived from
+// COLUMN_SIZE so the tier table stays the single source of truth.
+const GROW_BY_BASIS = new Map<number, number>(Object.values(COLUMN_SIZE).map(({ basis, grow }) => [basis, grow]));
 
 // Base cell styles — column width is supplied separately via flexStyleForColumn.
 const cellStyles = { verticalAlign: 'middle' as const };
@@ -149,15 +160,20 @@ export const DatasetRecordsTable = ({
   };
 
   const columns: ColumnDef<DatasetRecord>[] = [
-    { id: 'dataset_record_id', accessorKey: 'dataset_record_id', header: 'Record ID', size: COLUMN_WIDTH.normal },
-    { id: 'inputs', accessorKey: 'inputs', header: 'Inputs', size: COLUMN_WIDTH.wide },
-    { id: 'expectations', accessorKey: 'expectations', header: 'Expectations', size: COLUMN_WIDTH.wide },
-    { id: 'create_time', accessorKey: 'create_time', header: 'Created', size: COLUMN_WIDTH.narrow },
-    { id: 'created_by', accessorKey: 'created_by', header: 'Created by', size: COLUMN_WIDTH.normal },
-    { id: 'source', accessorKey: 'source', header: 'Source', size: COLUMN_WIDTH.narrow },
-    { id: 'last_updated', accessorKey: 'last_updated', header: 'Last updated', size: COLUMN_WIDTH.narrow },
-    { id: 'last_updated_by', accessorKey: 'last_updated_by', header: 'Last updated by', size: COLUMN_WIDTH.normal },
-    { id: 'tags', accessorKey: 'tags', header: 'Tags', size: COLUMN_WIDTH.normal },
+    { id: 'dataset_record_id', accessorKey: 'dataset_record_id', header: 'Record ID', size: COLUMN_SIZE.normal.basis },
+    { id: 'inputs', accessorKey: 'inputs', header: 'Inputs', size: COLUMN_SIZE.wide.basis },
+    { id: 'expectations', accessorKey: 'expectations', header: 'Expectations', size: COLUMN_SIZE.wide.basis },
+    { id: 'create_time', accessorKey: 'create_time', header: 'Created', size: COLUMN_SIZE.narrow.basis },
+    { id: 'created_by', accessorKey: 'created_by', header: 'Created by', size: COLUMN_SIZE.normal.basis },
+    { id: 'source', accessorKey: 'source', header: 'Source', size: COLUMN_SIZE.narrow.basis },
+    { id: 'last_updated', accessorKey: 'last_updated', header: 'Last updated', size: COLUMN_SIZE.narrow.basis },
+    {
+      id: 'last_updated_by',
+      accessorKey: 'last_updated_by',
+      header: 'Last updated by',
+      size: COLUMN_SIZE.normal.basis,
+    },
+    { id: 'tags', accessorKey: 'tags', header: 'Tags', size: COLUMN_SIZE.normal.basis },
   ];
 
   const table = useReactTable({
@@ -166,6 +182,9 @@ export const DatasetRecordsTable = ({
     getCoreRowModel: getCoreRowModel(),
     enableColumnResizing: true,
     columnResizeMode: 'onChange',
+    defaultColumn: {
+      minSize: COLUMN_MIN_WIDTH,
+    },
     state: {
       columnSizing,
     },
@@ -176,7 +195,17 @@ export const DatasetRecordsTable = ({
 
   const flexStyleForColumn = (id: RecordColumnId): React.CSSProperties => {
     const size = table.getColumn(id)?.getSize() ?? DEFAULT_COLUMN_WIDTH;
-    return { flex: `0 0 ${size}px` };
+    // A column only appears in `columnSizing` once the user has dragged it. Until then,
+    // let it grow to absorb leftover width (`size` is the basis, the named default) so the
+    // table fills wide viewports instead of leaving dead space — weighted by the tier's grow
+    // factor so content columns widen faster. Once dragged, lock it to the exact pixel width; columns
+    // the user hasn't touched keep flexing to fill the remainder.
+    const isManuallySized = columnSizing[id] !== undefined;
+    if (isManuallySized) {
+      return { flex: `0 0 ${size}px` };
+    }
+    const grow = GROW_BY_BASIS.get(size) ?? COLUMN_SIZE.normal.grow;
+    return { flex: `${grow} 1 ${size}px`, minWidth: COLUMN_MIN_WIDTH };
   };
 
   return (
