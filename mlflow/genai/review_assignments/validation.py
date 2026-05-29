@@ -18,9 +18,10 @@ from mlflow.genai.review_assignments.review_assignments import (
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
 # Aligned with `SqlReviewAssignment` column widths. The 250 mirrors
-# `SqlAssessments.source_id` so the state-flip side effect, which
-# compares `reviewer` against `source.source_id`, never sees a
-# `reviewer` value that wouldn't fit the assessment side.
+# `SqlAssessments.source_id`: the UI surfaces a reviewer's own
+# assessments alongside their assignment, and keeping the two columns
+# the same width means a `reviewer` value can never be too long to also
+# appear as an assessment `source_id`.
 REVIEWER_MAX_LENGTH = 250
 ASSIGNER_MAX_LENGTH = 250
 TARGET_ID_MAX_LENGTH = 50
@@ -70,36 +71,6 @@ def _validate_state(state: object) -> None:
         return
     if state not in ReviewAssignmentState:
         raise _invalid(f"`state` must be one of {ReviewAssignmentState.values()}; got {state!r}.")
-
-
-# Allowed state transitions enforced by ``update_review_assignment``.
-# ``PENDING`` is a one-way state — once an assessment write flips it
-# to ``IN_PROGRESS``, there's no clean way back, so we don't permit
-# the caller to manually walk back either. Same-state transitions are
-# allowed (the store treats them as no-ops anyway).
-_STATE_TRANSITIONS: dict[ReviewAssignmentState, frozenset[ReviewAssignmentState]] = {
-    ReviewAssignmentState.PENDING: frozenset({
-        ReviewAssignmentState.PENDING,
-        ReviewAssignmentState.IN_PROGRESS,
-    }),
-    ReviewAssignmentState.IN_PROGRESS: frozenset({
-        ReviewAssignmentState.IN_PROGRESS,
-        ReviewAssignmentState.COMPLETE,
-    }),
-    ReviewAssignmentState.COMPLETE: frozenset({
-        ReviewAssignmentState.COMPLETE,
-        ReviewAssignmentState.IN_PROGRESS,
-    }),
-}
-
-
-def _validate_transition(current: ReviewAssignmentState, new: ReviewAssignmentState) -> None:
-    if new not in _STATE_TRANSITIONS[current]:
-        raise _invalid(
-            f"Illegal state transition: {current.value!r} -> {new.value!r}. "
-            f"Allowed from {current.value!r}: "
-            f"{sorted(s.value for s in _STATE_TRANSITIONS[current])}."
-        )
 
 
 def normalize_reviewer(reviewer: object) -> str:
@@ -166,24 +137,20 @@ def validate_assignment_for_create(
     return coerced_target_type
 
 
-def validate_assignment_for_update(
-    *,
-    current_state: ReviewAssignmentState,
-    new_state: object,
-) -> ReviewAssignmentState:
-    """Validate a workflow state update against the transition table.
+def validate_assignment_for_update(*, new_state: object) -> ReviewAssignmentState:
+    """Validate + coerce a workflow state update.
 
     Returns the coerced ``ReviewAssignmentState`` so the caller can
-    write it directly. Only ``state`` is mutable today; identity and
+    write it directly. With two states (``pending`` / ``complete``)
+    every transition is legal, so this only validates that ``new_state``
+    is a known state. Only ``state`` is mutable today; identity and
     audit fields are immutable. If/when additional mutable fields are
     added, extend this validator and the store's
     ``update_review_assignment`` accordingly.
     """
     _validate_state(new_state)
-    coerced = (
+    return (
         ReviewAssignmentState(new_state)
         if not isinstance(new_state, ReviewAssignmentState)
         else new_state
     )
-    _validate_transition(current_state, coerced)
-    return coerced

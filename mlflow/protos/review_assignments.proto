@@ -22,15 +22,13 @@ enum ReviewTargetType {
   TRACE = 1;
 }
 
-// Per-assignment workflow state. PENDING is one-way: once the
-// state-flip side effect (stack 4) advances it to IN_PROGRESS on the
-// first matching assessment write, there's no documented path back.
-// Same UNSPECIFIED caveat as ReviewTargetType.
+// Per-assignment workflow state. Two states: PENDING <-> COMPLETE via
+// explicit mark-complete / reopen. Writing an assessment does not change
+// the state. Same UNSPECIFIED caveat as ReviewTargetType.
 enum ReviewAssignmentState {
   REVIEW_ASSIGNMENT_STATE_UNSPECIFIED = 0;
   PENDING = 1;
-  IN_PROGRESS = 2;
-  COMPLETE = 3;
+  COMPLETE = 2;
 }
 
 // Full review-assignment entity.

@@ -3,10 +3,10 @@
 A ``ReviewAssignment`` is one row per ``(target, reviewer)`` pair: the
 piece of state that says "this trace needs review from this person."
 The companion workflow lives in MLflow's review UI, where reviewers
-post Feedback assessments against the assigned target; the assignment's
-``state`` then auto-flips ``pending -> in_progress`` on the first
-matching assessment write, and reviewers explicitly mark it
-``complete`` when done.
+post Feedback assessments against the assigned target and explicitly
+mark the assignment ``complete`` when done. The assignment has two
+states, ``pending`` and ``complete``; writing an assessment does not
+change the state.
 """
 
 from mlflow.genai.review_assignments.review_assignments import (
@@ -140,8 +140,9 @@ def update_review_assignment(
 ) -> ReviewAssignment:
     """Update the workflow ``state`` of a review assignment.
 
-    Only ``state`` is mutable. Transitions are enforced server-side
-    (``pending`` is one-way; see :class:`ReviewAssignmentState`).
+    Only ``state`` is mutable. ``pending`` and ``complete`` are
+    interchangeable via mark-complete / reopen; reopening clears the
+    completion timestamp. See :class:`ReviewAssignmentState`.
     """
     return TracingClient()._update_review_assignment(assignment_id, state=state)
 

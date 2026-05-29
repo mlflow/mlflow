@@ -8334,13 +8334,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 )
 
             current_state = ReviewAssignmentState(sql_assignment.state)
-            # Transition-aware validation: enforces the FSM documented
-            # on ``ReviewAssignmentState`` so callers can't manually
-            # walk the workflow back to ``pending``.
-            new_enum = validate_assignment_for_update(
-                current_state=current_state,
-                new_state=state,
-            )
+            new_enum = validate_assignment_for_update(new_state=state)
 
             # Don't bump timestamps if nothing changed; lets reviewers
             # toggle freely in the UI without polluting the audit log.
@@ -8352,10 +8346,9 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             sql_assignment.last_update_time_ms = now_ms
             if new_enum == ReviewAssignmentState.COMPLETE:
                 sql_assignment.completed_time_ms = now_ms
-            # On reopen (complete -> in_progress), keep
-            # ``completed_time_ms`` populated with the prior completion
-            # stamp so callers can still surface "last completed at"
-            # even after a reopen.
+            else:
+                # Reopen (complete -> pending) clears the completion stamp.
+                sql_assignment.completed_time_ms = None
             session.flush()
             return sql_assignment.to_mlflow_entity()
 

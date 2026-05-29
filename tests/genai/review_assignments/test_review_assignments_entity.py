@@ -9,7 +9,6 @@ from mlflow.genai.review_assignments.review_assignments import (
 )
 from mlflow.protos.review_assignments_pb2 import (
     COMPLETE,
-    IN_PROGRESS,
     PENDING,
     REVIEW_ASSIGNMENT_STATE_UNSPECIFIED,
     REVIEW_TARGET_TYPE_UNSPECIFIED,
@@ -53,7 +52,6 @@ def test_completed_time_ms_absent_when_none():
     ("state", "proto_value"),
     [
         (ReviewAssignmentState.PENDING, PENDING),
-        (ReviewAssignmentState.IN_PROGRESS, IN_PROGRESS),
         (ReviewAssignmentState.COMPLETE, COMPLETE),
     ],
 )

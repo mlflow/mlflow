@@ -85,13 +85,13 @@ def test_list_review_assignments_delegates():
     paged = PagedList([_assignment()], "tok")
     with patch(f"{_BASE}._list_review_assignments", return_value=paged) as mock_list:
         result = list_review_assignments(
-            experiment_id="1", reviewer="sme@example.com", state="in_progress", max_results=25
+            experiment_id="1", reviewer="sme@example.com", state="complete", max_results=25
         )
         assert result.token == "tok"
         kwargs = mock_list.call_args[1]
         assert kwargs["experiment_id"] == "1"
         assert kwargs["reviewer"] == "sme@example.com"
-        assert kwargs["state"] == "in_progress"
+        assert kwargs["state"] == "complete"
         assert kwargs["max_results"] == 25
 
 

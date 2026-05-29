@@ -17,7 +17,6 @@ from mlflow.genai.review_assignments.review_assignments import (
 )
 from mlflow.protos.review_assignments_pb2 import (
     COMPLETE,
-    IN_PROGRESS,
     PENDING,
     REVIEW_ASSIGNMENT_STATE_UNSPECIFIED,
     REVIEW_TARGET_TYPE_UNSPECIFIED,
@@ -180,18 +179,18 @@ def test_list_review_assignments_routes_filters():
     request_message = ListReviewAssignments(
         experiment_id="1",
         reviewer="sme@example.com",
-        state=IN_PROGRESS,
+        state=COMPLETE,
         target_type=TRACE,
         max_results=50,
     )
-    paged = PagedList([_assignment(state=ReviewAssignmentState.IN_PROGRESS)], "next-tok")
+    paged = PagedList([_assignment(state=ReviewAssignmentState.COMPLETE)], "next-tok")
     store, response = _run_handler(
         _list_review_assignments, request_message, "list_review_assignments", paged
     )
     call_kwargs = store.list_review_assignments.call_args[1]
     assert call_kwargs["experiment_id"] == "1"
     assert call_kwargs["reviewer"] == "sme@example.com"
-    assert call_kwargs["state"] == ReviewAssignmentState.IN_PROGRESS
+    assert call_kwargs["state"] == ReviewAssignmentState.COMPLETE
     assert call_kwargs["target_type"] == ReviewTargetType.TRACE
     assert call_kwargs["max_results"] == 50
 
@@ -282,6 +281,5 @@ def test_delete_review_assignment_routes_args():
 
 def test_proto_state_roundtrip_constants_match():
     assert ReviewAssignmentState.PENDING.to_proto() == PENDING
-    assert ReviewAssignmentState.IN_PROGRESS.to_proto() == IN_PROGRESS
     assert ReviewAssignmentState.COMPLETE.to_proto() == COMPLETE
     assert ReviewTargetType.TRACE.to_proto() == TRACE
