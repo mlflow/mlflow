@@ -21,14 +21,6 @@ if TYPE_CHECKING:
 DatabricksInputType = TypeVar("DatabricksInputType")
 _InputType = TypeVar("_InputType", bound="InputType")
 
-# Proto-string mappings for the polarity enum. Kept symmetric with the
-# generated enum names so adding a new variant only requires one update here.
-_POLARITY_TO_PROTO: dict[str, int] = {
-    "ascending": _ls_pb.ASCENDING,
-    "descending": _ls_pb.DESCENDING,
-}
-_POLARITY_FROM_PROTO: dict[int, str] = {v: k for k, v in _POLARITY_TO_PROTO.items()}
-
 
 class InputType(ABC):
     """Base class for all input types."""
@@ -86,27 +78,11 @@ class InputCategorical(InputType):
         return cls(options=input_obj.options)
 
     def to_proto(self) -> _ls_pb.InputCategorical:
-        proto = _ls_pb.InputCategorical(options=list(self.options), multi_select=self.multi_select)
-        if self.semantic_polarity is not None:
-            proto.semantic_polarity = _POLARITY_TO_PROTO[self.semantic_polarity]
-        return proto
+        return _ls_pb.InputCategorical(options=list(self.options), multi_select=self.multi_select)
 
     @classmethod
     def from_proto(cls, proto: _ls_pb.InputCategorical) -> "InputCategorical":
-        semantic_polarity: Literal["ascending", "descending"] | None = None
-        # UNSPECIFIED is normalized to None here (NOT raised like
-        # LabelSchemaType.from_proto does) because semantic_polarity is
-        # genuinely optional for expectation-typed categorical schemas.
-        # The feedback-required check lives at the store-layer validator.
-        if proto.HasField("semantic_polarity") and proto.semantic_polarity != (
-            _ls_pb.CATEGORICAL_SEMANTIC_POLARITY_UNSPECIFIED
-        ):
-            semantic_polarity = _POLARITY_FROM_PROTO[proto.semantic_polarity]
-        return cls(
-            options=list(proto.options),
-            semantic_polarity=semantic_polarity,
-            multi_select=proto.multi_select,
-        )
+        return cls(options=list(proto.options), multi_select=proto.multi_select)
 
 
 @dataclass
@@ -183,6 +159,16 @@ class InputText(InputType):
     def _from_databricks_input(cls, input_obj: "_InputText") -> "InputText":
         """Create from the internal Databricks input type."""
         return cls(max_length=input_obj.max_length)
+
+    def to_proto(self) -> _ls_pb.InputText:
+        proto = _ls_pb.InputText()
+        if self.max_length is not None:
+            proto.max_length = self.max_length
+        return proto
+
+    @classmethod
+    def from_proto(cls, proto: _ls_pb.InputText) -> "InputText":
+        return cls(max_length=proto.max_length if proto.HasField("max_length") else None)
 
 
 @dataclass
@@ -388,7 +374,6 @@ class LabelSchema:
         proto = _ls_pb.LabelSchema(
             name=self.name,
             type=self.type.to_proto(),
-            title=self.title,
             enable_comment=self.enable_comment,
             input=_input_to_proto(self.input),
         )
@@ -414,7 +399,6 @@ class LabelSchema:
         return cls(
             name=proto.name,
             type=LabelSchemaType.from_proto(proto.type),
-            title=proto.title,
             input=_input_from_proto(proto.input),
             instruction=proto.instruction if proto.HasField("instruction") else None,
             enable_comment=proto.enable_comment,
@@ -431,8 +415,8 @@ def _input_to_proto(input_obj) -> _ls_pb.LabelSchemaInput:
 
     Raises:
         MlflowException: if `input_obj` is a Databricks-only type
-            (InputText / InputTextList / InputCategoricalList). These have no
-            wire representation; the OSS server rejects them at validate time.
+            (InputTextList / InputCategoricalList). These have no wire
+            representation; the OSS server rejects them at validate time.
     """
     if isinstance(input_obj, InputPassFail):
         return _ls_pb.LabelSchemaInput(pass_fail=input_obj.to_proto())
@@ -440,10 +424,12 @@ def _input_to_proto(input_obj) -> _ls_pb.LabelSchemaInput:
         return _ls_pb.LabelSchemaInput(categorical=input_obj.to_proto())
     if isinstance(input_obj, InputNumeric):
         return _ls_pb.LabelSchemaInput(numeric=input_obj.to_proto())
+    if isinstance(input_obj, InputText):
+        return _ls_pb.LabelSchemaInput(text=input_obj.to_proto())
     raise MlflowException(
         f"Label schema input of type {input_obj.__class__.__name__!r} cannot be "
         "serialized to proto. Supported types are InputPassFail, InputCategorical, "
-        "InputNumeric.",
+        "InputNumeric, InputText.",
         error_code=INVALID_PARAMETER_VALUE,
     )
 
@@ -461,8 +447,10 @@ def _input_from_proto(proto: _ls_pb.LabelSchemaInput):
         return InputCategorical.from_proto(proto.categorical)
     if variant == "numeric":
         return InputNumeric.from_proto(proto.numeric)
+    if variant == "text":
+        return InputText.from_proto(proto.text)
     raise MlflowException(
         "Label schema `input` must have exactly one of `pass_fail`, `categorical`, "
-        "or `numeric` set; got an empty oneof.",
+        "`numeric`, or `text` set; got an empty oneof.",
         error_code=INVALID_PARAMETER_VALUE,
     )

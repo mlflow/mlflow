@@ -2409,7 +2409,6 @@ def test_label_schemas_are_workspace_scoped(workspace_tracking_store):
             experiment_id=exp_a_id,
             name="correctness",
             type="feedback",
-            title="Correct?",
             input=InputPassFail(positive_label="Yes", negative_label="No"),
         )
 
@@ -2419,7 +2418,6 @@ def test_label_schemas_are_workspace_scoped(workspace_tracking_store):
             experiment_id=exp_b_id,
             name="correctness",
             type="feedback",
-            title="Correct?",
             input=InputPassFail(positive_label="Yes", negative_label="No"),
         )
 

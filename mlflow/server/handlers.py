@@ -4471,7 +4471,6 @@ def _create_label_schema():
         schema={
             "experiment_id": [_assert_required, _assert_string],
             "name": [_assert_required, _assert_string],
-            "title": [_assert_required, _assert_string],
         },
     )
     schema_type = LabelSchemaType.from_proto(request_message.type)
@@ -4480,7 +4479,6 @@ def _create_label_schema():
         "experiment_id": request_message.experiment_id,
         "name": request_message.name,
         "type": schema_type,
-        "title": request_message.title,
         "input": input_obj,
     }
     if request_message.HasField("instruction"):
@@ -4558,8 +4556,6 @@ def _update_label_schema():
     kwargs: dict[str, object] = {}
     if request_message.HasField("name"):
         kwargs["name"] = request_message.name
-    if request_message.HasField("title"):
-        kwargs["title"] = request_message.title
     if request_message.HasField("instruction"):
         kwargs["instruction"] = request_message.instruction
     if request_message.HasField("enable_comment"):
@@ -4578,7 +4574,6 @@ def _upsert_label_schema():
         schema={
             "experiment_id": [_assert_required, _assert_string],
             "name": [_assert_required, _assert_string],
-            "title": [_assert_required, _assert_string],
         },
     )
     schema_type = LabelSchemaType.from_proto(request_message.type)
@@ -4592,7 +4587,6 @@ def _upsert_label_schema():
         experiment_id=request_message.experiment_id,
         name=request_message.name,
         type=schema_type,
-        title=request_message.title,
         input=input_obj,
         **kwargs,
     )
