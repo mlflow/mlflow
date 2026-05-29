@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef } from 'react';
 import {
   Pagination,
   Table,
@@ -76,28 +77,53 @@ interface DatasetRecordsTableProps {
 
 const SORTABLE_COLUMN_SET = new Set<RecordColumnId>(SORTABLE_RECORD_COLUMNS);
 
-// Per content tier: `basis` is the px width at rest — the initial size TanStack seeds
-// `columnSizing` with, and the size a column locks to on first drag. `grow` is how leftover
-// width is shared among undragged columns once the viewport exceeds the sum of bases, so the
-// JSON columns widen faster than metadata instead of all converging to one width.
+/**
+ * Column sizing model
+ * ===================
+ * Goal: columns flex-fill the viewport on first paint, then pixel-lock so the
+ * user's first drag doesn't snap from the rendered width back to a basis.
+ *
+ * Two phases, both invisible to the user:
+ *   1. First render — `flexStyleForColumn` returns `flex: <grow> 1 <basis>px`;
+ *      CSS flexbox distributes viewport width across columns by tier.
+ *   2. Layout effect (in the component) measures each header's rendered width
+ *      and writes it into `columnSizing` (persisted via localStorage). The
+ *      next render switches every column to `flex: 0 0 <px>px` — pixel-locked.
+ *      Because the layout effect runs before paint, the user only ever sees
+ *      the locked frame.
+ *
+ * Returning visits skip phase 1: `columnSizing` is hydrated from localStorage,
+ * so columns boot straight into pixel-locked mode and the seed effect is a no-op.
+ */
+
+// Sizing tiers. `basis` sets the starting width per column (and the proportions
+// on narrow viewports where there's no leftover to grow into). `grow` shares
+// leftover viewport width — JSON columns absorb more slack than metadata.
 const COLUMN_SIZE = {
-  narrow: { basis: 120, grow: 0.5 }, // source, timestamps
-  normal: { basis: 160, grow: 1 }, // ids, usernames, tags
-  wide: { basis: 400, grow: 2.5 }, // inputs / expectations JSON blobs
+  narrow: { basis: 120, grow: 0.5 }, // timestamps, source
+  normal: { basis: 160, grow: 1 }, //   ids, usernames, tags
+  wide: { basis: 400, grow: 2.5 }, //   inputs / expectations JSON blobs
 } as const;
 
-// Fallback basis when a column id has no entry in the table model — effectively unreachable
-// since every column is defined, but `getColumn` is typed as possibly-undefined.
-const DEFAULT_COLUMN_WIDTH = COLUMN_SIZE.normal.basis;
+// Per-column tier assignment. Single source of truth: each ColumnDef's `size`
+// and the pre-lock flex style both derive from here, so changing a column's
+// tier only requires editing this map.
+const COLUMN_TIERS: Record<RecordColumnId, (typeof COLUMN_SIZE)[keyof typeof COLUMN_SIZE]> = {
+  dataset_record_id: COLUMN_SIZE.normal,
+  inputs: COLUMN_SIZE.wide,
+  expectations: COLUMN_SIZE.wide,
+  create_time: COLUMN_SIZE.narrow,
+  created_by: COLUMN_SIZE.normal,
+  source: COLUMN_SIZE.narrow,
+  last_updated: COLUMN_SIZE.narrow,
+  last_updated_by: COLUMN_SIZE.normal,
+  tags: COLUMN_SIZE.normal,
+};
 
-// Floor for resizing — no column should be draggable down to nothing. TanStack's
-// getSize() clamps to minSize on read, so flexStyleForColumn honors this even though
-// the DuBois drag handle writes the raw px delta into columnSizing.
+// Floor for column resizing. Set on `defaultColumn.minSize`, so TanStack's
+// `getSize()` clamps `columnSizing[id]` to this on read — even if DuBois's
+// drag handle writes a sub-floor value we never render below it.
 const COLUMN_MIN_WIDTH = 80;
-
-// A column's basis (its ColumnDef.size) maps back to its tier's grow weight — derived from
-// COLUMN_SIZE so the tier table stays the single source of truth.
-const GROW_BY_BASIS = new Map<number, number>(Object.values(COLUMN_SIZE).map(({ basis, grow }) => [basis, grow]));
 
 // Base cell styles — column width is supplied separately via flexStyleForColumn.
 const cellStyles = { verticalAlign: 'middle' as const };
@@ -159,21 +185,28 @@ export const DatasetRecordsTable = ({
     };
   };
 
+  // `size` seeds TanStack's internal size before the layout effect runs; it must
+  // match the basis used by `flexStyleForColumn` so both phases agree.
   const columns: ColumnDef<DatasetRecord>[] = [
-    { id: 'dataset_record_id', accessorKey: 'dataset_record_id', header: 'Record ID', size: COLUMN_SIZE.normal.basis },
-    { id: 'inputs', accessorKey: 'inputs', header: 'Inputs', size: COLUMN_SIZE.wide.basis },
-    { id: 'expectations', accessorKey: 'expectations', header: 'Expectations', size: COLUMN_SIZE.wide.basis },
-    { id: 'create_time', accessorKey: 'create_time', header: 'Created', size: COLUMN_SIZE.narrow.basis },
-    { id: 'created_by', accessorKey: 'created_by', header: 'Created by', size: COLUMN_SIZE.normal.basis },
-    { id: 'source', accessorKey: 'source', header: 'Source', size: COLUMN_SIZE.narrow.basis },
-    { id: 'last_updated', accessorKey: 'last_updated', header: 'Last updated', size: COLUMN_SIZE.narrow.basis },
+    {
+      id: 'dataset_record_id',
+      accessorKey: 'dataset_record_id',
+      header: 'Record ID',
+      size: COLUMN_TIERS.dataset_record_id.basis,
+    },
+    { id: 'inputs', accessorKey: 'inputs', header: 'Inputs', size: COLUMN_TIERS.inputs.basis },
+    { id: 'expectations', accessorKey: 'expectations', header: 'Expectations', size: COLUMN_TIERS.expectations.basis },
+    { id: 'create_time', accessorKey: 'create_time', header: 'Created', size: COLUMN_TIERS.create_time.basis },
+    { id: 'created_by', accessorKey: 'created_by', header: 'Created by', size: COLUMN_TIERS.created_by.basis },
+    { id: 'source', accessorKey: 'source', header: 'Source', size: COLUMN_TIERS.source.basis },
+    { id: 'last_updated', accessorKey: 'last_updated', header: 'Last updated', size: COLUMN_TIERS.last_updated.basis },
     {
       id: 'last_updated_by',
       accessorKey: 'last_updated_by',
       header: 'Last updated by',
-      size: COLUMN_SIZE.normal.basis,
+      size: COLUMN_TIERS.last_updated_by.basis,
     },
-    { id: 'tags', accessorKey: 'tags', header: 'Tags', size: COLUMN_SIZE.normal.basis },
+    { id: 'tags', accessorKey: 'tags', header: 'Tags', size: COLUMN_TIERS.tags.basis },
   ];
 
   const table = useReactTable({
@@ -193,23 +226,48 @@ export const DatasetRecordsTable = ({
 
   const headersById = Object.fromEntries(table.getHeaderGroups()[0].headers.map((h) => [h.column.id, h]));
 
-  const flexStyleForColumn = (id: RecordColumnId): React.CSSProperties => {
-    const size = table.getColumn(id)?.getSize() ?? DEFAULT_COLUMN_WIDTH;
-    // A column only appears in `columnSizing` once the user has dragged it. Until then,
-    // let it grow to absorb leftover width (`size` is the basis, the named default) so the
-    // table fills wide viewports instead of leaving dead space — weighted by the tier's grow
-    // factor so content columns widen faster. Once dragged, lock it to the exact pixel width; columns
-    // the user hasn't touched keep flexing to fill the remainder.
-    const isManuallySized = columnSizing[id] !== undefined;
-    if (isManuallySized) {
-      return { flex: `0 0 ${size}px` };
+  const tableRef = useRef<HTMLDivElement>(null);
+
+  // Phase 2 of the column sizing model (see top of file). After first paint,
+  // measure each header's rendered width and write it back into `columnSizing`
+  // so the next render switches the column to pixel-locked mode. Without this,
+  // TanStack's resize handler seeds the drag's start width from `getSize()` —
+  // which returns the basis, not the rendered px — and the first mouse-move
+  // snaps the column back to its basis.
+  //
+  // Existing widths in `columnSizing` (user drags, or values hydrated from
+  // localStorage) take precedence over fresh measurements via `...prev` last.
+  useLayoutEffect(() => {
+    if (!tableRef.current) return;
+    const headers = tableRef.current.querySelectorAll<HTMLElement>('[data-column-id]');
+    const updates: Record<string, number> = {};
+    headers.forEach((header) => {
+      const id = header.dataset['columnId'];
+      if (id && columnSizing[id] === undefined) {
+        updates[id] = header.offsetWidth;
+      }
+    });
+    if (Object.keys(updates).length > 0) {
+      setColumnSizing((prev) => ({ ...updates, ...prev }));
     }
-    const grow = GROW_BY_BASIS.get(size) ?? COLUMN_SIZE.normal.grow;
-    return { flex: `${grow} 1 ${size}px`, minWidth: COLUMN_MIN_WIDTH };
+  }, [visibleColumns, columnSizing, setColumnSizing]);
+
+  // Locked once the column has an entry in `columnSizing` — either a user drag
+  // or a width seeded by the layout effect above (or hydrated from localStorage).
+  // Until then, flex-fill at the tier's basis/grow.
+  const flexStyleForColumn = (id: RecordColumnId): React.CSSProperties => {
+    if (columnSizing[id] !== undefined) {
+      // `getSize()` returns the locked width clamped to `COLUMN_MIN_WIDTH`.
+      const px = table.getColumn(id)?.getSize() ?? COLUMN_TIERS[id].basis;
+      return { flex: `0 0 ${px}px` };
+    }
+    const { basis, grow } = COLUMN_TIERS[id];
+    return { flex: `${grow} 1 ${basis}px`, minWidth: COLUMN_MIN_WIDTH };
   };
 
   return (
     <div
+      ref={tableRef}
       css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}
       role="region"
       aria-busy={isFetching}
@@ -239,6 +297,7 @@ export const DatasetRecordsTable = ({
           {isColumnVisible('dataset_record_id') && (
             <TableHeader
               componentId="mlflow.eval-datasets-v2.records.header.record-id"
+              data-column-id="dataset_record_id"
               style={flexStyleForColumn('dataset_record_id')}
               {...headerSortProps('dataset_record_id')}
               header={headersById['dataset_record_id']}
@@ -251,6 +310,7 @@ export const DatasetRecordsTable = ({
           {isColumnVisible('inputs') && (
             <TableHeader
               componentId="mlflow.eval-datasets-v2.records.header.inputs"
+              data-column-id="inputs"
               style={flexStyleForColumn('inputs')}
               header={headersById['inputs']}
               column={headersById['inputs']?.column}
@@ -262,6 +322,7 @@ export const DatasetRecordsTable = ({
           {isColumnVisible('expectations') && (
             <TableHeader
               componentId="mlflow.eval-datasets-v2.records.header.expectations"
+              data-column-id="expectations"
               style={flexStyleForColumn('expectations')}
               header={headersById['expectations']}
               column={headersById['expectations']?.column}
@@ -276,6 +337,7 @@ export const DatasetRecordsTable = ({
           {isColumnVisible('create_time') && (
             <TableHeader
               componentId="mlflow.eval-datasets-v2.records.header.create-time"
+              data-column-id="create_time"
               style={flexStyleForColumn('create_time')}
               {...headerSortProps('create_time')}
               header={headersById['create_time']}
@@ -291,6 +353,7 @@ export const DatasetRecordsTable = ({
           {isColumnVisible('created_by') && (
             <TableHeader
               componentId="mlflow.eval-datasets-v2.records.header.created-by"
+              data-column-id="created_by"
               style={flexStyleForColumn('created_by')}
               {...headerSortProps('created_by')}
               header={headersById['created_by']}
@@ -306,6 +369,7 @@ export const DatasetRecordsTable = ({
           {isColumnVisible('source') && (
             <TableHeader
               componentId="mlflow.eval-datasets-v2.records.header.source"
+              data-column-id="source"
               style={flexStyleForColumn('source')}
               header={headersById['source']}
               column={headersById['source']?.column}
@@ -317,6 +381,7 @@ export const DatasetRecordsTable = ({
           {isColumnVisible('last_updated') && (
             <TableHeader
               componentId="mlflow.eval-datasets-v2.records.header.last-updated"
+              data-column-id="last_updated"
               style={flexStyleForColumn('last_updated')}
               {...headerSortProps('last_updated')}
               header={headersById['last_updated']}
@@ -332,6 +397,7 @@ export const DatasetRecordsTable = ({
           {isColumnVisible('last_updated_by') && (
             <TableHeader
               componentId="mlflow.eval-datasets-v2.records.header.last-updated-by"
+              data-column-id="last_updated_by"
               style={flexStyleForColumn('last_updated_by')}
               {...headerSortProps('last_updated_by')}
               header={headersById['last_updated_by']}
@@ -347,6 +413,7 @@ export const DatasetRecordsTable = ({
           {isColumnVisible('tags') && (
             <TableHeader
               componentId="mlflow.eval-datasets-v2.records.header.tags"
+              data-column-id="tags"
               style={flexStyleForColumn('tags')}
               header={headersById['tags']}
               column={headersById['tags']?.column}
