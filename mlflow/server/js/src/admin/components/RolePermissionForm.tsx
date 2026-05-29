@@ -6,6 +6,7 @@ import {
   DialogComboboxOptionListSearch,
   DialogComboboxOptionListSelectItem,
   DialogComboboxTrigger,
+  Input,
   Radio,
   SimpleSelect,
   SimpleSelectOption,
@@ -14,7 +15,6 @@ import {
 } from '@databricks/design-system';
 import { FieldLabel } from './FieldLabel';
 import { useResourceOptionsQuery } from '../hooks';
-import { useWorkspacesEnabled } from '../../experiment-tracking/hooks/useServerInfo';
 import {
   ALL_RESOURCE_PATTERN_LABEL,
   PERMISSIONS,
@@ -35,7 +35,11 @@ export type RolePermissionScope = 'specific' | 'all';
 export interface RolePermissionDraft {
   resourceType: string;
   scope: RolePermissionScope;
-  /** Chosen resource id when ``scope === 'specific'``; empty for ``'all'``. */
+  /**
+   * Holds the chosen resource id when ``scope === 'specific'``, or the
+   * free-text pattern when ``resourceType`` is in ``FREETEXT_RESOURCE_TYPES``
+   * (scorer, prompt) which have no pre-built resource picker today.
+   */
   resourceId: string;
   permission: string;
 }
@@ -46,11 +50,6 @@ export interface RolePermissionFormProps {
   /** The role's workspace, displayed read-only when ``workspace`` resource type is picked. */
   workspace?: string;
   disabled?: boolean;
-  /** Render an inline reminder next to the resource picker. The parent
-   * passes ``true`` when the draft has been touched but isn't fillable
-   * yet (resource type changed but no specific resource picked) so the
-   * admin sees why the discard-confirm dialog is about to ask. */
-  showResourceRequiredError?: boolean;
 }
 
 export const ROLE_PERMISSION_DRAFT_DEFAULT: RolePermissionDraft = {
@@ -60,29 +59,31 @@ export const ROLE_PERMISSION_DRAFT_DEFAULT: RolePermissionDraft = {
   permission: PERMISSIONS[0],
 };
 
+// Resource types with no id picker yet — render a free-text pattern input
+// instead of the standard ``Specific/All`` radio + ``DialogCombobox``.
+// ``scorer`` ids are composite (experiment_id + scorer_name); ``prompt`` is
+// stored as a registered model with the ``mlflow.prompt.is_prompt`` tag and
+// has no lite-list endpoint to filter on. ``RolePermissionsSection`` reads
+// the typed value off ``resourceId`` for both.
+const FREETEXT_RESOURCE_TYPES = new Set(['scorer', 'prompt']);
+
 /**
- * Add a permission to a role. Mirrors ``DirectPermissionForm``'s shape
- * (resource type + scope radio + resource picker) plus a ``workspace``
- * special case: the only valid pattern is ``*`` (the role's own
- * workspace), so the scope radio is hidden and we render a static
- * "Workspace: <name>" line.
+ * Add a permission to a role. Mirrors ``DirectPermissionForm``'s
+ * (resource type + scope radio + resource picker) shape so the
+ * role-creation experience reads the same as user-creation's direct
+ * permissions.
+ *
+ * Two role-only special cases:
+ * - ``workspace``: the only valid pattern is ``*`` (the role's own
+ *   workspace), so the scope radio is hidden and we render a static
+ *   "Workspace: <name>" line.
+ * - ``FREETEXT_RESOURCE_TYPES`` (scorer, prompt): no pre-built picker
+ *   exists, so we hide the scope radio and fall back to a free-text
+ *   pattern input.
  */
-export const RolePermissionForm = ({
-  value,
-  onChange,
-  workspace,
-  disabled,
-  showResourceRequiredError = false,
-}: RolePermissionFormProps) => {
+export const RolePermissionForm = ({ value, onChange, workspace, disabled }: RolePermissionFormProps) => {
   const { theme } = useDesignSystemTheme();
   const [resourceSearch, setResourceSearch] = useState('');
-  // Hide ``workspace`` in single-tenant mode where the workspace concept
-  // collapses to the single ``default`` slot.
-  const { workspacesEnabled, loading: workspacesLoading } = useWorkspacesEnabled();
-  const resourceTypes = useMemo(
-    () => (workspacesEnabled || workspacesLoading ? RESOURCE_TYPES : RESOURCE_TYPES.filter((rt) => rt !== 'workspace')),
-    [workspacesEnabled, workspacesLoading],
-  );
 
   const typeLabel = getResourceTypeLabel(value.resourceType);
 
@@ -90,7 +91,7 @@ export const RolePermissionForm = ({
     options: resourceOptions,
     isLoading: resourceOptionsLoading,
     error: resourceOptionsError,
-  } = useResourceOptionsQuery(value.resourceType, workspace);
+  } = useResourceOptionsQuery(value.resourceType);
 
   const filteredOptions = useMemo(() => {
     const trimmed = resourceSearch.trim().toLowerCase();
@@ -129,7 +130,7 @@ export const RolePermissionForm = ({
           }}
           disabled={disabled}
         >
-          {resourceTypes.map((rt) => (
+          {RESOURCE_TYPES.map((rt) => (
             <SimpleSelectOption key={rt} value={rt}>
               {getResourceTypeLabel(rt)}
             </SimpleSelectOption>
@@ -145,6 +146,22 @@ export const RolePermissionForm = ({
             <Typography.Text color="secondary" size="sm">
               (this grant applies to the role's workspace)
             </Typography.Text>
+          </Typography.Text>
+        </div>
+      ) : FREETEXT_RESOURCE_TYPES.has(value.resourceType) ? (
+        <div>
+          <FieldLabel>Resource Pattern</FieldLabel>
+          <Input
+            componentId="admin.role_permission_form.freetext_pattern"
+            value={value.resourceId}
+            onChange={(e) => onChange({ ...value, scope: 'specific', resourceId: e.target.value })}
+            placeholder={`Specific ${typeLabel.toLowerCase()} id, or "all" to apply to every ${typeLabel.toLowerCase()}`}
+            disabled={disabled}
+          />
+          <Typography.Text color="secondary" size="sm" css={{ display: 'block', marginTop: theme.spacing.xs }}>
+            {value.resourceType === 'scorer'
+              ? 'Scorer resource ids are composite (experiment_id + scorer_name); the picker isn’t available yet.'
+              : `${typeLabel} picker isn’t available yet; enter the resource id or "all".`}
           </Typography.Text>
         </div>
       ) : (
@@ -171,17 +188,6 @@ export const RolePermissionForm = ({
           {value.scope === 'specific' && (
             <div>
               <FieldLabel>{typeLabel}</FieldLabel>
-              {showResourceRequiredError && (
-                <Typography.Text
-                  color="error"
-                  size="sm"
-                  css={{ display: 'block', marginBottom: theme.spacing.xs }}
-                  data-testid="admin.role_permission_form.resource_required_error"
-                >
-                  Select a specific {typeLabel.toLowerCase()} or switch the scope to{' '}
-                  <strong>All {typeLabel.toLowerCase()}s</strong> before submitting.
-                </Typography.Text>
-              )}
               <DialogCombobox
                 componentId="admin.role_permission_form.resource_id"
                 label={typeLabel}
@@ -260,6 +266,7 @@ export const RolePermissionForm = ({
 /** True when the draft is ready to be added to the staged list. */
 export const isRolePermissionDraftFillable = (draft: RolePermissionDraft): boolean => {
   if (draft.resourceType === 'workspace') return true;
+  if (FREETEXT_RESOURCE_TYPES.has(draft.resourceType)) return draft.resourceId.trim().length > 0;
   return draft.scope === 'all' || (draft.scope === 'specific' && draft.resourceId.trim().length > 0);
 };
 
@@ -271,5 +278,6 @@ export const isRolePermissionDraftFillable = (draft: RolePermissionDraft): boole
  */
 export const draftToResourcePattern = (draft: RolePermissionDraft): string => {
   if (draft.resourceType === 'workspace') return ALL_RESOURCE_PATTERN_LABEL;
+  if (FREETEXT_RESOURCE_TYPES.has(draft.resourceType)) return draft.resourceId.trim();
   return draft.scope === 'all' ? ALL_RESOURCE_PATTERN_LABEL : draft.resourceId.trim();
 };

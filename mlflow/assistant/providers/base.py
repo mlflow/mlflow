@@ -77,7 +77,7 @@ class AssistantProvider(ABC):
             Resolved absolute path for skills installation.
         """
 
-    def list_models(self, base_url: str | None = None, api_key: str | None = None) -> list[str]:
+    def list_models(self, base_url: str | None = None) -> list[str]:
         raise NotImplementedError(f"Model listing is not supported for provider '{self.name}'")
 
     @abstractmethod

@@ -57,40 +57,30 @@ def test_create_role_same_name_different_workspace(store):
     assert r1.id != r2.id
 
 
-# Sample names matching the reserved ``__user_`` prefix. Includes both the
-# strict synthetic pattern (``__user_<digits>__``) and looser variants
-# (admin-author-able lookalikes) so the broader prefix guard is exercised.
-_RESERVED_USER_PREFIX_NAMES = [
-    "__user_1__",
-    "__user_42__",
-    "__user_999999__",
-    "__user_admin",
-    "__user_alice",
-    "__user_foo_bar",
-    "__user_",
-]
+# Sample names matching the reserved ``__user_<id>__`` pattern. Shared by
+# the create-time and update-time guards so a future pattern addition
+# (e.g. another reserved prefix) lands in both tests automatically.
+_SYNTHETIC_USER_ROLE_NAMES = ["__user_1__", "__user_42__", "__user_999999__"]
 
 
-@pytest.mark.parametrize("name", _RESERVED_USER_PREFIX_NAMES)
-def test_create_role_rejects_reserved_user_prefix(store, name):
-    # The ``__user_`` prefix is reserved for synthetic per-user roles created
-    # internally by ``grant_user_permission``. Allowing an operator to author
-    # a role with that prefix lets them collide with (or shadow) a real
+@pytest.mark.parametrize("name", _SYNTHETIC_USER_ROLE_NAMES)
+def test_create_role_rejects_synthetic_user_name_pattern(store, name):
+    # The ``__user_<id>__`` pattern is reserved for synthetic per-user roles
+    # created internally by ``grant_user_permission``. Allowing an operator
+    # to author a role with that name would let them collide with a real
     # user's synthetic role and silently attach grants to that user — a
-    # privilege-escalation footgun. The guard covers the whole prefix, not
-    # just the strict ``__user_<digits>__`` pattern, so future changes to the
-    # synthetic naming scheme can't be hijacked by an existing collision.
-    with pytest.raises(MlflowException, match="reserved '__user_' prefix"):
+    # privilege-escalation footgun.
+    with pytest.raises(MlflowException, match="reserved synthetic pattern"):
         store.create_role(name=name, workspace="ws1")
 
 
-@pytest.mark.parametrize("name", _RESERVED_USER_PREFIX_NAMES)
-def test_update_role_rejects_reserved_user_prefix(store, name):
+@pytest.mark.parametrize("name", _SYNTHETIC_USER_ROLE_NAMES)
+def test_update_role_rejects_synthetic_user_name_pattern(store, name):
     # The same reservation must apply when *renaming* an existing role —
     # otherwise the create-time guard could be bypassed by creating with a
-    # normal name and then renaming into the reserved prefix.
+    # normal name and then renaming into the reserved pattern.
     role = store.create_role(name="viewer", workspace="ws1")
-    with pytest.raises(MlflowException, match="reserved '__user_' prefix"):
+    with pytest.raises(MlflowException, match="reserved synthetic pattern"):
         store.update_role(role.id, name=name)
 
 

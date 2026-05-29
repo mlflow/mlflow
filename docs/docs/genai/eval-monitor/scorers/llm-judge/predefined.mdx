@@ -115,7 +115,7 @@ results = mlflow.genai.evaluate(
 
 Multi-turn judges evaluate entire conversation sessions rather than individual turns. They require traces with session IDs and are experimental in MLflow 3.7.0. See [Track Users and Sessions](/genai/tracing/track-users-sessions/)
 
-:::info[Multi-Turn Evaluation Requirements]
+:::info Multi-Turn Evaluation Requirements
 Multi-turn judges require:
 
 1. **Session IDs**: Traces must have `mlflow.trace.session` metadata
@@ -132,7 +132,7 @@ Multi-turn judges require:
 | <APILink fn="mlflow.genai.scorers.KnowledgeRetention">KnowledgeRetention</APILink>\*\*                             | Does the assistant correctly retain information from earlier user inputs?  | Yes               |
 | <APILink fn="mlflow.genai.scorers.UserFrustration">UserFrustration</APILink>\*\*                                   | Is the user frustrated? Was the frustration resolved?                      | Yes               |
 
-:::note[Availability]
+:::note Availability
 Safety and RetrievalRelevance judges are currently only available in [Databricks managed MLflow](https://docs.databricks.com/mlflow3/genai/eval-monitor/) and will be open-sourced soon.
 :::
 

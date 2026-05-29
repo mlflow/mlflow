@@ -4943,30 +4943,10 @@ def _register_scorer():
 def _list_scorers():
     request_message = _get_request_message(
         ListScorers(),
-        schema={"experiment_id": [_assert_string]},
+        schema={"experiment_id": [_assert_required, _assert_string]},
     )
     response_message = ListScorers.Response()
-    store = _get_tracking_store()
-    if request_message.experiment_id:
-        scorers = store.list_scorers(request_message.experiment_id)
-    else:
-        # Cross-experiment listing: walk the active workspace's experiments
-        # via the workspace-aware ``search_experiments`` pagination, then
-        # batch the scorer fetch through ``list_scorers_across_experiments``.
-        # Auth-side ``filter_list_scorers`` applies per-row RBAC filtering on
-        # the response.
-        experiment_ids: list[str] = []
-        page_token: str | None = None
-        while True:
-            page = store.search_experiments(
-                view_type=ViewType.ACTIVE_ONLY,
-                max_results=1000,
-                page_token=page_token,
-            )
-            experiment_ids.extend(e.experiment_id for e in page)
-            if not (page_token := page.token):
-                break
-        scorers = store.list_scorers_across_experiments(experiment_ids)
+    scorers = _get_tracking_store().list_scorers(request_message.experiment_id)
     response_message.scorers.extend([scorer.to_proto() for scorer in scorers])
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Button,
@@ -12,7 +12,6 @@ import {
 } from '@databricks/design-system';
 import { FieldLabel } from './FieldLabel';
 import { LongFormSection } from '../../common/components/long-form/LongFormSection';
-import { ConfirmationModal } from '../ConfirmationModal';
 import {
   useAddPermission,
   useAssignRole,
@@ -106,48 +105,21 @@ export const EditRoleModal = ({ open, onClose, roleId }: EditRoleModalProps) => 
   const [usernames, setUsernames] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Reported by ``RolePermissionsSection`` whenever the in-progress draft
-  // is dirty. Drives a discard-confirm dialog on ``Review changes`` so the
-  // admin can't silently abandon a partially-filled permission.
-  const [hasUnsavedDraft, setHasUnsavedDraft] = useState(false);
-  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
 
   const stateLoaded = !roleLoading && !assignmentsLoading && !usersLoading;
 
-  // ``prefilledRef`` gates the data-fill effect against background
-  // refetches that would clobber in-progress edits.
-  const prefilledRef = useRef(false);
-
-  // Reset transient UI state only on open — refetches must not bounce
-  // the user back to edit or wipe a partial-failure error.
   useEffect(() => {
     if (!open) {
       return;
     }
     setStep('edit');
-    setSubmitting(false);
-    setError(null);
-    // ``hasUnsavedDraft`` isn't reset here — the ``key={String(open)}`` on
-    // ``RolePermissionsSection`` below remounts the section on every open.
-    setShowDiscardConfirm(false);
-    prefilledRef.current = false;
-  }, [open]);
-
-  // Pre-fill editable fields once per open, after backing queries resolve.
-  useEffect(() => {
-    if (!open) {
-      prefilledRef.current = false;
-      return;
-    }
-    if (prefilledRef.current || !stateLoaded) {
-      return;
-    }
     setName(currentName);
     setDescription(currentDescription);
     setPermissions([...currentPermissions]);
     setUsernames([...currentUsernames]);
-    prefilledRef.current = true;
-  }, [open, stateLoaded, currentName, currentDescription, currentPermissions, currentUsernames]);
+    setSubmitting(false);
+    setError(null);
+  }, [open, currentName, currentDescription, currentPermissions, currentUsernames]);
 
   // --- Diff ---
   const diff = useMemo<RoleDiff>(() => {
@@ -201,8 +173,7 @@ export const EditRoleModal = ({ open, onClose, roleId }: EditRoleModalProps) => 
   }, [currentPermissions]);
 
   const handleConfirm = useCallback(async () => {
-    // ``error`` is already cleared by the "Review changes" transition;
-    // skipping a redundant reset here also avoids the flicker.
+    setError(null);
     setSubmitting(true);
     const failures: string[] = [];
 
@@ -299,18 +270,7 @@ export const EditRoleModal = ({ open, onClose, roleId }: EditRoleModalProps) => 
             <Button
               componentId="admin.edit_role_modal.review"
               type="primary"
-              // Submit isn't blocked on an unsaved draft — instead we gate
-              // on it via a discard-confirm dialog so the admin can either
-              // go back and click Add, or knowingly drop the draft and
-              // proceed to the review step.
-              onClick={() => {
-                if (hasUnsavedDraft) {
-                  setShowDiscardConfirm(true);
-                  return;
-                }
-                setError(null);
-                setStep('review');
-              }}
+              onClick={() => setStep('review')}
               disabled={!hasAnyChange || !stateLoaded || !name.trim()}
             >
               Review changes
@@ -340,19 +300,13 @@ export const EditRoleModal = ({ open, onClose, roleId }: EditRoleModalProps) => 
       }
     >
       {error && (
-        // Sticky so partial-failure errors stay visible during scroll.
         <Alert
           componentId="admin.edit_role_modal.error"
           type="error"
           message={error}
           closable
           onClose={() => setError(null)}
-          css={{
-            marginBottom: theme.spacing.md,
-            position: 'sticky',
-            top: 0,
-            zIndex: 1,
-          }}
+          css={{ marginBottom: theme.spacing.md }}
         />
       )}
 
@@ -412,16 +366,11 @@ export const EditRoleModal = ({ open, onClose, roleId }: EditRoleModalProps) => 
                 <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.sm }}>
                   Current permissions are pre-filled. Remove a row to revoke; use the form below to add more.
                 </Typography.Text>
-                {/* ``key={String(open)}`` forces a fresh mount on every
-                    reopen so the section's internal ``draft`` can't bleed
-                    across close → reopen. */}
                 <RolePermissionsSection
-                  key={String(open)}
                   value={permissions}
                   onChange={setPermissions}
                   workspace={currentWorkspace}
                   disabled={submitting}
-                  onUnsavedDraftChange={setHasUnsavedDraft}
                 />
               </LongFormSection>
               <LongFormSection title="Assigned users" hideDivider>
@@ -436,21 +385,6 @@ export const EditRoleModal = ({ open, onClose, roleId }: EditRoleModalProps) => 
       ) : (
         <ReviewSummary diff={diff} permissionByIdLabel={permissionByIdLabel} />
       )}
-      <ConfirmationModal
-        componentId="admin.edit_role_modal.discard_unsaved_draft"
-        title="Discard unsaved role permission?"
-        visible={showDiscardConfirm}
-        message="You started adding a permission to this role but didn't click Add. Continuing to Review changes will discard it. Go back to either click Add to stage it, or Clear to drop the draft on the spot."
-        okText="Continue"
-        cancelText="Back"
-        danger={false}
-        onCancel={() => setShowDiscardConfirm(false)}
-        onConfirm={() => {
-          setShowDiscardConfirm(false);
-          setError(null);
-          setStep('review');
-        }}
-      />
     </Modal>
   );
 };

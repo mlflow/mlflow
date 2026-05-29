@@ -3,8 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@mlflow/mlflow/src/common
 import { useSearchParams } from '../common/utils/RoutingUtils';
 import { SETTINGS_RETURN_TO_PARAM } from '../settings/settingsSectionConstants';
 import { AccountQueryKeys } from '../account/hooks';
-import { AdminApi, scorerResourcePattern } from './api';
-import { isSyntheticUserRole } from '../account/types';
+import { AdminApi } from './api';
 import type {
   AddPermissionRequest,
   CreateRoleRequest,
@@ -13,7 +12,6 @@ import type {
   UpdateAdminRequest,
   UpdateRoleRequest,
 } from './types';
-import { ALL_RESOURCE_PATTERN, DEFAULT_WORKSPACE_NAME } from './types';
 
 // Re-export account-side hooks so admin pages can keep importing them via
 // ``./hooks``. The canonical home is account/hooks.
@@ -54,27 +52,26 @@ export const AdminQueryKeys = {
   roles: ['admin_roles'] as const,
   roleDetail: (roleId: number) => ['admin_role', roleId] as const,
   roleUsers: (roleId: number) => ['admin_role_users', roleId] as const,
-  resourceOptions: (resourceType: string, workspace: string | undefined) =>
-    ['admin_resource_options', resourceType, workspace ?? ''] as const,
+  resourceOptions: (resourceType: string) => ['admin_resource_options', resourceType] as const,
+  userPermissions: (username: string) => ['admin_user_permissions', username] as const,
+};
+
+/** Direct (non-role-derived) grants for an arbitrary user. Admin / self / WP-admin-of-target. */
+export const useUserPermissionsQuery = (username: string) => {
+  return useQuery({
+    queryKey: AdminQueryKeys.userPermissions(username),
+    queryFn: () => AdminApi.listUserPermissions(username),
+    enabled: Boolean(username),
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
 };
 
 // User queries and mutations
 export const useUsersQuery = () => {
   return useQuery({
     queryKey: AdminQueryKeys.users,
-    queryFn: async () => {
-      const data = await AdminApi.listUsers();
-      // Drop synthetic ``__user_<id>__`` roles from each user's roles
-      // list. They're a backend implementation detail for direct grants
-      // and shouldn't appear in human-facing user/role tables.
-      return {
-        ...data,
-        users: data.users.map((u) => ({
-          ...u,
-          roles: u.roles?.filter((r) => !isSyntheticUserRole(r.name)),
-        })),
-      };
-    },
+    queryFn: AdminApi.listUsers,
     retry: false,
     refetchOnWindowFocus: false,
   });
@@ -126,13 +123,7 @@ export const useRolesQuery = (workspaces?: string | readonly string[], options: 
   }, [workspaces]);
   return useQuery({
     queryKey: [...AdminQueryKeys.roles, normalized],
-    queryFn: async () => {
-      const data = await AdminApi.listRoles(normalized);
-      // Synthetic ``__user_<id>__`` roles back direct grants and are not
-      // human-facing. Drop them at the source so every consumer
-      // (tables, dropdowns, name lookups) stays in sync.
-      return { ...data, roles: data.roles.filter((r) => !isSyntheticUserRole(r.name)) };
-    },
+    queryFn: () => AdminApi.listRoles(normalized),
     retry: false,
     refetchOnWindowFocus: false,
     // Callers pass ``enabled: false`` to skip a fetch they know will 403.
@@ -251,29 +242,13 @@ export const useRoleUsersQuery = (roleId: number) => {
 export const useGrantUserPermission = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (request: {
-      resource_type: string;
-      resource_id: string;
-      username: string;
-      permission: string;
-      // Optional. When set, overrides the request's workspace header so
-      // the synthetic role lands in that workspace instead of the user's
-      // session-active one. Used by the platform-admin grant-workspace
-      // selector in the user modals.
-      workspace?: string;
-    }) =>
-      AdminApi.grantUserPermission(
-        request.resource_type,
-        request.resource_id,
-        request.username,
-        request.permission,
-        request.workspace,
-      ),
+    mutationFn: (request: { resource_type: string; resource_id: string; username: string; permission: string }) =>
+      AdminApi.grantUserPermission(request.resource_type, request.resource_id, request.username, request.permission),
     onSuccess: (_data, variables) => {
-      // Direct grants flow through the synthetic ``__user_<id>__`` role
-      // surfaced by ``listUserRoles``, so a single ``userRoles`` invalidation
-      // refreshes both the Roles tab and the Direct Permissions view.
+      // Refresh the per-user roles cell (Admin Users tab + Account page)
+      // and the per-user direct-permissions list (UserDetailPage).
       queryClient.invalidateQueries({ queryKey: AccountQueryKeys.userRoles(variables.username) });
+      queryClient.invalidateQueries({ queryKey: AdminQueryKeys.userPermissions(variables.username) });
     },
   });
 };
@@ -282,10 +257,11 @@ export const useGrantUserPermission = () => {
 export const useRevokeUserPermission = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (request: { resource_type: string; resource_id: string; username: string; workspace?: string }) =>
-      AdminApi.revokeUserPermission(request.resource_type, request.resource_id, request.username, request.workspace),
+    mutationFn: (request: { resource_type: string; resource_id: string; username: string }) =>
+      AdminApi.revokeUserPermission(request.resource_type, request.resource_id, request.username),
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: AccountQueryKeys.userRoles(variables.username) });
+      queryClient.invalidateQueries({ queryKey: AdminQueryKeys.userPermissions(variables.username) });
     },
   });
 };
@@ -296,49 +272,32 @@ export const useRevokeUserPermission = () => {
  * fetched (others are gated via ``enabled``). Returns a uniform
  * ``ResourceOption[]`` so the consumer doesn't have to switch on shape.
  */
-export const useResourceOptionsQuery = (resourceType: string, workspace?: string) => {
-  // Also fired for ``scorer`` so the picker can join scorers to their
-  // experiment names client-side — keeps ``experiment_name`` off the
-  // ``Scorer`` proto (it's a UI concern, per Tome's review).
+export const useResourceOptionsQuery = (resourceType: string) => {
   const experiments = useQuery({
-    queryKey: AdminQueryKeys.resourceOptions('experiment', workspace),
-    queryFn: () => AdminApi.listExperimentsLite(workspace),
-    enabled: resourceType === 'experiment' || resourceType === 'scorer',
+    queryKey: AdminQueryKeys.resourceOptions('experiment'),
+    queryFn: AdminApi.listExperimentsLite,
+    enabled: resourceType === 'experiment',
     retry: false,
     refetchOnWindowFocus: false,
   });
   const registeredModels = useQuery({
-    queryKey: AdminQueryKeys.resourceOptions('registered_model', workspace),
-    queryFn: () => AdminApi.listRegisteredModelsLite(workspace),
+    queryKey: AdminQueryKeys.resourceOptions('registered_model'),
+    queryFn: AdminApi.listRegisteredModelsLite,
     enabled: resourceType === 'registered_model',
     retry: false,
     refetchOnWindowFocus: false,
   });
   const gatewaySecrets = useQuery({
-    queryKey: AdminQueryKeys.resourceOptions('gateway_secret', workspace),
-    queryFn: () => AdminApi.listGatewaySecretsLite(workspace),
+    queryKey: AdminQueryKeys.resourceOptions('gateway_secret'),
+    queryFn: AdminApi.listGatewaySecretsLite,
     enabled: resourceType === 'gateway_secret',
     retry: false,
     refetchOnWindowFocus: false,
   });
   const gatewayEndpoints = useQuery({
-    queryKey: AdminQueryKeys.resourceOptions('gateway_endpoint', workspace),
-    queryFn: () => AdminApi.listGatewayEndpointsLite(workspace),
+    queryKey: AdminQueryKeys.resourceOptions('gateway_endpoint'),
+    queryFn: AdminApi.listGatewayEndpointsLite,
     enabled: resourceType === 'gateway_endpoint',
-    retry: false,
-    refetchOnWindowFocus: false,
-  });
-  const scorers = useQuery({
-    queryKey: AdminQueryKeys.resourceOptions('scorer', workspace),
-    queryFn: () => AdminApi.listScorersLite(workspace),
-    enabled: resourceType === 'scorer',
-    retry: false,
-    refetchOnWindowFocus: false,
-  });
-  const prompts = useQuery({
-    queryKey: AdminQueryKeys.resourceOptions('prompt', workspace),
-    queryFn: () => AdminApi.listPromptsLite(workspace),
-    enabled: resourceType === 'prompt',
     retry: false,
     refetchOnWindowFocus: false,
   });
@@ -365,60 +324,6 @@ export const useResourceOptionsQuery = (resourceType: string, workspace?: string
       options = (gatewayEndpoints.data?.endpoints ?? []).map((e) => ({ id: e.endpoint_id, name: e.name }));
       ({ isLoading, error } = gatewayEndpoints);
       break;
-    case 'scorer': {
-      // ``id`` is the composite ``<experiment_id>/<urlencoded scorer_name>``
-      // computed client-side to match the backend's ``_scorer_pattern`` — the
-      // picker sets ``draft.resourceId = id``, which is what the staged grant
-      // submits as its ``resource_pattern``. Display label disambiguates two
-      // same-named scorers in different experiments by looking up the name
-      // in the parallel-fetched experiments list (the ``Scorer`` proto itself
-      // doesn't carry it — UI concern, kept off the wire); falls back to the
-      // raw experiment id when the lookup misses.
-      const experimentNameById = new Map(
-        (experiments.data?.experiments ?? []).map((e) => [e.experiment_id, e.name] as const),
-      );
-      options = (scorers.data?.scorers ?? []).map((s) => ({
-        id: scorerResourcePattern(s.experiment_id, s.scorer_name),
-        name: `${s.scorer_name} (in ${experimentNameById.get(String(s.experiment_id)) ?? s.experiment_id})`,
-      }));
-      isLoading = scorers.isLoading || experiments.isLoading;
-      error = scorers.error ?? experiments.error;
-      break;
-    }
-    case 'prompt':
-      // Prompts are identified by name (same as registered_models); the lite
-      // call hits ``registered-models/search`` with a tag filter, so the
-      // response shape is ``{registered_models: [{name}]}``.
-      options = (prompts.data?.registered_models ?? []).map((p) => ({ id: p.name, name: p.name }));
-      ({ isLoading, error } = prompts);
-      break;
   }
-  // A resource literally named ``*`` would collide with the wildcard scope
-  // (backend stores both as ``resource_pattern = '*'``), so drop it from the
-  // picker — selecting it would silently grant access to ALL resources of
-  // the type. Users that genuinely need an all-resources grant should use
-  // the wildcard radio.
-  options = options.filter((o) => o.id !== ALL_RESOURCE_PATTERN);
   return { options, isLoading, error };
 };
-
-/**
- * Build the ordered list of workspace names for the admin user-modal "Grant
- * in workspace" dropdown. ``DEFAULT_WORKSPACE_NAME`` is always first; the rest
- * follow ``useWorkspaces`` order, deduped against the prepended default.
- *
- * Extracted so the create + edit user modals share one implementation —
- * otherwise the dedup-and-prepend block was copy-pasted in both.
- */
-export const useWorkspaceOptions = (workspaces: ReadonlyArray<{ name: string }>): string[] =>
-  useMemo(() => {
-    const seen = new Set<string>([DEFAULT_WORKSPACE_NAME]);
-    const ordered: string[] = [DEFAULT_WORKSPACE_NAME];
-    for (const w of workspaces) {
-      if (!seen.has(w.name)) {
-        seen.add(w.name);
-        ordered.push(w.name);
-      }
-    }
-    return ordered;
-  }, [workspaces]);

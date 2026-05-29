@@ -20,7 +20,7 @@ provider credentials as you would for accessing them in any other capacity. For 
 and `AWS_SECRET_ACCESS_KEY` environment variables, use an IAM role, or configure a default
 profile in `~/.aws/credentials`.
 
-:::warning[important]
+:::warning important
 Access of credentials and configurations for the artifact storage location are configured **once during the tracking server initialization** instead
 of having to provide access credentials for artifact-based operations through the client APIs. Note that **all users who have access to the
 Tracking Server in this mode will have access to artifacts served through this assumed role**.
@@ -39,7 +39,7 @@ retrieve the location of the artifacts for historical runs using the <APILink fn
 Also, `artifact_location` is a property recorded on <APILink fn="mlflow.entities.Experiment">`mlflow.entities.Experiment`</APILink> for setting the
 default location to store artifacts for all runs for models within a given experiment.
 
-:::warning[important]
+:::warning important
 If you do not specify a `--default-artifact-root` or an artifact URI when creating the experiment
 (for example, `mlflow experiments create --artifact-location s3://<my-bucket>`), the artifact root
 will be set as a path inside the local file store (the hard drive of the computer executing your run). Typically this is not an appropriate location, as the client and

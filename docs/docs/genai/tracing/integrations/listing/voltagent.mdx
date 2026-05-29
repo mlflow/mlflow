@@ -15,7 +15,7 @@ import ImageBox from "@site/src/components/ImageBox";
 
 [MLflow Tracing](/genai/tracing) provides automatic tracing capability for [VoltAgent](https://github.com/VoltAgent/voltagent), an open-source TypeScript framework for building AI agents. MLflow supports tracing for VoltAgent through the [OpenTelemetry](/genai/tracing/opentelemetry) integration.
 
-:::tip[What is VoltAgent?]
+:::tip What is VoltAgent?
 VoltAgent is an open-source TypeScript framework that simplifies the development of AI agent applications by providing modular building blocks, standardized patterns, and abstractions. Whether you're creating chatbots, virtual assistants, automated workflows, or complex multi-agent systems, VoltAgent handles the underlying complexity, allowing you to focus on defining your agents' capabilities and logic.
 :::
 
@@ -48,7 +48,7 @@ Install the OpenTelemetry SDK and OTLP protobuf exporter:
 npm install @opentelemetry/sdk-trace-base @opentelemetry/exporter-trace-otlp-proto dotenv
 ```
 
-:::note[MLflow Trace Translation]
+:::note MLflow Trace Translation
 MLflow automatically translates VoltAgent's semantic conventions for optimal UI visualization:
 
 - **Chat UI**: Converts VoltAgent's message format to standard chat format with `role` and `content` fields for rich message display

@@ -101,7 +101,7 @@ With the design approved, start implementation:
 3. **Define `mlflow.xxx.autolog() function`**: This function will be the main entry point for the integration, which enables tracing when called (e.g., <APILink fn="mlflow.llama_index.autolog" />).
 4. **Write Tests**: Cover edge cases like asynchronous calls, custom data types, and streaming outputs if the library supports them.
 
-:::warning[attention]
+:::warning attention
 There are a few gotchas to watch out for when integrating with MLflow Tracing:
 
 - **Error Handling**: Ensure exceptions are captured and logged to spans with type, message, and stack trace.
@@ -129,7 +129,7 @@ npm run build
 npm run test
 ```
 
-:::warning[attention]
+:::warning attention
 
 - **Trace Shape**: Align span names, attributes, and metadata with the Python integrations so downstream UI components interpret traces correctly.
 - **Streaming & Async Workloads**: Buffer streaming responses or async iterators before logging outputs so they remain consumable by the caller.

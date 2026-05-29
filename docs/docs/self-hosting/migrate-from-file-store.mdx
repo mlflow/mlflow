@@ -82,21 +82,6 @@ The migration tool preserves your data exactly as it was in the FileStore. No ti
 - **Target database must be empty.** The migration tool refuses to write to a database that already contains data to prevent conflicts. If the target file already exists, you will be prompted to overwrite it.
 - **SQLite only.** The migration tool only supports SQLite as the target database. FileStore generates large experiment IDs that exceed the 32-bit integer limit enforced by PostgreSQL and MySQL, but SQLite handles them natively.
 
-## Continue Using the Filesystem Backend
-
-:::warning
-The filesystem backend is in maintenance mode and will not receive further updates. The recommended path is to [migrate](#quick-start) to a database backend using `mlflow migrate-filestore`, which preserves your existing data losslessly.
-:::
-
-This escape hatch exists for the rare case where migration is genuinely not an option (for example, browsing read-only `mlruns` data synced from an HPC cluster that cannot run a database, or sharing a directory snapshot across machines via `rsync`). If your workflow does not have such a constraint, please use the migration tool above instead.
-
-To opt out of the error and continue using the filesystem backend, set the `MLFLOW_ALLOW_FILE_STORE` environment variable before starting the MLflow server or running any client code:
-
-```bash
-export MLFLOW_ALLOW_FILE_STORE=true
-mlflow server --backend-store-uri ./mlruns
-```
-
 ## Feedback
 
 If you run into issues or have feedback (e.g., support for PostgreSQL/MySQL), please comment on [GitHub issue #18534](https://github.com/mlflow/mlflow/issues/18534).

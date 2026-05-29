@@ -54,50 +54,12 @@ from tests.tracking.integration_test_utils import (
     get_safe_port,
 )
 
-_PACKAGED_BASIC_AUTH_INI = Path(auth_module.__file__).parent / "basic_auth.ini"
-_TEST_DIR = Path(__file__).parent
-
-
-def _isolate_auth_config(extra_env: dict[str, str], tmp_path: Path) -> dict[str, str]:
-    """Redirect the auth store's SQLite DB to a tmp_path-scoped file.
-
-    Both the packaged default config (``mlflow/server/auth/basic_auth.ini``)
-    and the static fixture .ini files under ``fixtures/``
-    set ``database_uri = sqlite:///basic_auth.db`` — a *relative* path that
-    the spawned server resolves against its CWD (typically the repo root).
-    Without redirection, every test that boots the auth server shares one
-    ``basic_auth.db`` next to the dev server, leaking users / roles across
-    runs (bug-bash report: "so many users with hash usernames I didn't
-    create manually"). Rewrite the source .ini into ``tmp_path`` with the
-    DB URI swapped for an absolute path, and inject the rewritten copy via
-    ``MLFLOW_AUTH_CONFIG_PATH``.
-
-    Relative ``MLFLOW_AUTH_CONFIG_PATH`` values are anchored to this test
-    file's directory so the helper works regardless of pytest's CWD.
-    """
-    if raw := extra_env.get("MLFLOW_AUTH_CONFIG_PATH"):
-        src_path = Path(raw)
-        if not src_path.is_absolute():
-            src_path = _TEST_DIR / src_path
-    else:
-        src_path = _PACKAGED_BASIC_AUTH_INI
-    isolated_db = tmp_path / "basic_auth.db"
-    isolated_text = re.sub(
-        r"^database_uri\s*=.*$",
-        f"database_uri = sqlite:///{isolated_db}",
-        src_path.read_text(),
-        flags=re.MULTILINE,
-    )
-    dst_path = tmp_path / src_path.name
-    dst_path.write_text(isolated_text)
-    return {**extra_env, "MLFLOW_AUTH_CONFIG_PATH": str(dst_path)}
-
 
 @pytest.fixture
 def client(request, tmp_path):
     path = tmp_path.joinpath("sqlalchemy.db").as_uri()
     backend_uri = ("sqlite://" if is_windows() else "sqlite:////") + path[len("file://") :]
-    extra_env = _isolate_auth_config(getattr(request, "param", {}), tmp_path)
+    extra_env = getattr(request, "param", {})
     extra_env[MLFLOW_FLASK_SERVER_SECRET_KEY.name] = "my-secret-key"
 
     with _init_server(
@@ -115,7 +77,7 @@ def fastapi_client(request, tmp_path):
     """FastAPI client fixture for testing FastAPI-specific middleware (e.g., gateway routes)."""
     path = tmp_path.joinpath("sqlalchemy.db").as_uri()
     backend_uri = ("sqlite://" if is_windows() else "sqlite:////") + path[len("file://") :]
-    extra_env = _isolate_auth_config(getattr(request, "param", {}), tmp_path)
+    extra_env = getattr(request, "param", {})
     extra_env[MLFLOW_FLASK_SERVER_SECRET_KEY.name] = "my-secret-key"
     # Set _MLFLOW_SGI_NAME to "uvicorn" so auth module returns FastAPI app
     extra_env["_MLFLOW_SGI_NAME"] = "uvicorn"
@@ -223,7 +185,7 @@ def test_proxy_artifact_authorization_required(client, monkeypatch):
 
 @pytest.mark.parametrize(
     "client",
-    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    [{"MLFLOW_AUTH_CONFIG_PATH": "tests/server/auth/fixtures/no_permission_auth.ini"}],
     indirect=True,
 )
 def test_proxy_artifact_list_query_param_uses_experiment_permission(client, monkeypatch):
@@ -304,7 +266,7 @@ def _mlflow_create_user_rest(base_uri, headers):
     "client",
     [
         {
-            "MLFLOW_AUTH_CONFIG_PATH": "fixtures/jwt_auth.ini",
+            "MLFLOW_AUTH_CONFIG_PATH": "tests/server/auth/fixtures/jwt_auth.ini",
             "PYTHONPATH": str(Path.cwd() / "examples" / "jwt_auth"),
         }
     ],
@@ -338,7 +300,7 @@ def test_authenticate_jwt(client):
 
 @pytest.mark.parametrize(
     "client",
-    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    [{"MLFLOW_AUTH_CONFIG_PATH": "tests/server/auth/fixtures/no_permission_auth.ini"}],
     indirect=True,
 )
 def test_search_experiments(client, monkeypatch):
@@ -427,7 +389,7 @@ def test_search_experiments(client, monkeypatch):
 
 @pytest.mark.parametrize(
     "client",
-    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    [{"MLFLOW_AUTH_CONFIG_PATH": "tests/server/auth/fixtures/no_permission_auth.ini"}],
     indirect=True,
 )
 def test_search_registered_models(client, monkeypatch):
@@ -515,7 +477,7 @@ def test_search_registered_models(client, monkeypatch):
 
 @pytest.mark.parametrize(
     "client",
-    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    [{"MLFLOW_AUTH_CONFIG_PATH": "tests/server/auth/fixtures/no_permission_auth.ini"}],
     indirect=True,
 )
 def test_search_model_versions(client, monkeypatch):
@@ -555,7 +517,7 @@ def test_search_model_versions(client, monkeypatch):
 
 @pytest.mark.parametrize(
     "client",
-    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    [{"MLFLOW_AUTH_CONFIG_PATH": "tests/server/auth/fixtures/no_permission_auth.ini"}],
     indirect=True,
 )
 def test_graphql_search_model_versions(client, monkeypatch):
@@ -635,7 +597,6 @@ def test_proxy_log_artifacts(monkeypatch, tmp_path):
     backend_uri = f"sqlite:///{tmp_path / 'sqlalchemy.db'}"
     port = get_safe_port()
     host = "localhost"
-    env = _isolate_auth_config({MLFLOW_FLASK_SERVER_SECRET_KEY.name: "my-secret-key"}, tmp_path)
     with subprocess.Popen(
         [
             sys.executable,
@@ -655,7 +616,7 @@ def test_proxy_log_artifacts(monkeypatch, tmp_path):
             "--gunicorn-opts",
             "--log-level debug",
         ],
-        env=env,
+        env={MLFLOW_FLASK_SERVER_SECRET_KEY.name: "my-secret-key"},
     ) as prc:
         try:
             url = f"http://{host}:{port}"
@@ -760,7 +721,7 @@ def test_logged_model(client: MlflowClient, monkeypatch: pytest.MonkeyPatch):
 
 @pytest.mark.parametrize(
     "client",
-    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    [{"MLFLOW_AUTH_CONFIG_PATH": "tests/server/auth/fixtures/no_permission_auth.ini"}],
     indirect=True,
 )
 def test_logged_model_artifact_authorization(client: MlflowClient, monkeypatch: pytest.MonkeyPatch):
@@ -842,7 +803,7 @@ def test_logged_model_artifact_validator_respects_static_prefix(
 
 @pytest.mark.parametrize(
     "client",
-    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    [{"MLFLOW_AUTH_CONFIG_PATH": "tests/server/auth/fixtures/no_permission_auth.ini"}],
     indirect=True,
 )
 def test_search_logged_models(client: MlflowClient, monkeypatch: pytest.MonkeyPatch):
@@ -904,7 +865,7 @@ def test_search_logged_models(client: MlflowClient, monkeypatch: pytest.MonkeyPa
 
 @pytest.mark.parametrize(
     "client",
-    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    [{"MLFLOW_AUTH_CONFIG_PATH": "tests/server/auth/fixtures/no_permission_auth.ini"}],
     indirect=True,
 )
 def test_search_runs(client: MlflowClient, monkeypatch: pytest.MonkeyPatch):
@@ -1141,7 +1102,7 @@ def test_graphql_requires_authentication(client, monkeypatch):
 
 @pytest.mark.parametrize(
     "client",
-    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    [{"MLFLOW_AUTH_CONFIG_PATH": "tests/server/auth/fixtures/no_permission_auth.ini"}],
     indirect=True,
 )
 def test_graphql_get_experiment_authorization(client, monkeypatch):
@@ -1191,7 +1152,7 @@ def test_graphql_get_experiment_authorization(client, monkeypatch):
 
 @pytest.mark.parametrize(
     "client",
-    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    [{"MLFLOW_AUTH_CONFIG_PATH": "tests/server/auth/fixtures/no_permission_auth.ini"}],
     indirect=True,
 )
 def test_graphql_get_run_authorization(client, monkeypatch):
@@ -1245,7 +1206,7 @@ def test_graphql_get_run_authorization(client, monkeypatch):
 
 @pytest.mark.parametrize(
     "client",
-    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    [{"MLFLOW_AUTH_CONFIG_PATH": "tests/server/auth/fixtures/no_permission_auth.ini"}],
     indirect=True,
 )
 def test_graphql_search_runs_authorization(client, monkeypatch):
@@ -1313,7 +1274,7 @@ def test_graphql_search_runs_authorization(client, monkeypatch):
 
 @pytest.mark.parametrize(
     "client",
-    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    [{"MLFLOW_AUTH_CONFIG_PATH": "tests/server/auth/fixtures/no_permission_auth.ini"}],
     indirect=True,
 )
 def test_graphql_list_artifacts_authorization(client, monkeypatch):
@@ -2439,7 +2400,7 @@ def test_gateway_endpoint_requires_fallback_model_definition_use_permission(clie
 
 @pytest.mark.parametrize(
     "client",
-    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    [{"MLFLOW_AUTH_CONFIG_PATH": "tests/server/auth/fixtures/no_permission_auth.ini"}],
     indirect=True,
 )
 def test_prompt_optimization_job_search_permissions(client, monkeypatch):
@@ -3291,7 +3252,7 @@ def _grant_experiment_permission(
 
 @pytest.mark.parametrize(
     "client",
-    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    [{"MLFLOW_AUTH_CONFIG_PATH": "tests/server/auth/fixtures/no_permission_auth.ini"}],
     indirect=True,
 )
 def test_trace_search_permission(client, monkeypatch):
@@ -3403,7 +3364,7 @@ def test_trace_tag_permission(client, monkeypatch):
 
 @pytest.mark.parametrize(
     "client",
-    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    [{"MLFLOW_AUTH_CONFIG_PATH": "tests/server/auth/fixtures/no_permission_auth.ini"}],
     indirect=True,
 )
 def test_trace_get_info_permission(client, monkeypatch):
@@ -3438,7 +3399,7 @@ def test_trace_get_info_permission(client, monkeypatch):
 
 @pytest.mark.parametrize(
     "client",
-    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    [{"MLFLOW_AUTH_CONFIG_PATH": "tests/server/auth/fixtures/no_permission_auth.ini"}],
     indirect=True,
 )
 def test_trace_get_v3_permission(client, monkeypatch):
@@ -3469,7 +3430,7 @@ def test_trace_get_v3_permission(client, monkeypatch):
 
 @pytest.mark.parametrize(
     "client",
-    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    [{"MLFLOW_AUTH_CONFIG_PATH": "tests/server/auth/fixtures/no_permission_auth.ini"}],
     indirect=True,
 )
 def test_trace_batch_get_permission(client, monkeypatch):
@@ -3501,7 +3462,7 @@ def test_trace_batch_get_permission(client, monkeypatch):
 
 @pytest.mark.parametrize(
     "client",
-    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    [{"MLFLOW_AUTH_CONFIG_PATH": "tests/server/auth/fixtures/no_permission_auth.ini"}],
     indirect=True,
 )
 def test_trace_link_to_run_permission(client, monkeypatch):
@@ -3538,7 +3499,7 @@ def test_trace_link_to_run_permission(client, monkeypatch):
 
 @pytest.mark.parametrize(
     "client",
-    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    [{"MLFLOW_AUTH_CONFIG_PATH": "tests/server/auth/fixtures/no_permission_auth.ini"}],
     indirect=True,
 )
 def test_trace_search_v3_permission(client, monkeypatch):
