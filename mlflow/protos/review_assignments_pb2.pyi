@@ -17,13 +17,11 @@ class ReviewAssignmentState(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     REVIEW_ASSIGNMENT_STATE_UNSPECIFIED: _ClassVar[ReviewAssignmentState]
     PENDING: _ClassVar[ReviewAssignmentState]
-    IN_PROGRESS: _ClassVar[ReviewAssignmentState]
     COMPLETE: _ClassVar[ReviewAssignmentState]
 REVIEW_TARGET_TYPE_UNSPECIFIED: ReviewTargetType
 TRACE: ReviewTargetType
 REVIEW_ASSIGNMENT_STATE_UNSPECIFIED: ReviewAssignmentState
 PENDING: ReviewAssignmentState
-IN_PROGRESS: ReviewAssignmentState
 COMPLETE: ReviewAssignmentState
 
 class ReviewAssignment(_message.Message):

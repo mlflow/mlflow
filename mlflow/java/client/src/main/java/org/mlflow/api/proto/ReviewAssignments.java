@@ -119,10 +119,9 @@ public final class ReviewAssignments {
 
   /**
    * <pre>
-   * Per-assignment workflow state. PENDING is one-way: once the
-   * state-flip side effect (stack 4) advances it to IN_PROGRESS on the
-   * first matching assessment write, there's no documented path back.
-   * Same UNSPECIFIED caveat as ReviewTargetType.
+   * Per-assignment workflow state. Two states: PENDING &lt;-&gt; COMPLETE via
+   * explicit mark-complete / reopen. Writing an assessment does not change
+   * the state. Same UNSPECIFIED caveat as ReviewTargetType.
    * </pre>
    *
    * Protobuf enum {@code mlflow.review_assignments.ReviewAssignmentState}
@@ -138,13 +137,9 @@ public final class ReviewAssignments {
      */
     PENDING(1),
     /**
-     * <code>IN_PROGRESS = 2;</code>
+     * <code>COMPLETE = 2;</code>
      */
-    IN_PROGRESS(2),
-    /**
-     * <code>COMPLETE = 3;</code>
-     */
-    COMPLETE(3),
+    COMPLETE(2),
     ;
 
     /**
@@ -156,13 +151,9 @@ public final class ReviewAssignments {
      */
     public static final int PENDING_VALUE = 1;
     /**
-     * <code>IN_PROGRESS = 2;</code>
+     * <code>COMPLETE = 2;</code>
      */
-    public static final int IN_PROGRESS_VALUE = 2;
-    /**
-     * <code>COMPLETE = 3;</code>
-     */
-    public static final int COMPLETE_VALUE = 3;
+    public static final int COMPLETE_VALUE = 2;
 
 
     public final int getNumber() {
@@ -187,8 +178,7 @@ public final class ReviewAssignments {
       switch (value) {
         case 0: return REVIEW_ASSIGNMENT_STATE_UNSPECIFIED;
         case 1: return PENDING;
-        case 2: return IN_PROGRESS;
-        case 3: return COMPLETE;
+        case 2: return COMPLETE;
         default: return null;
       }
     }
@@ -15883,11 +15873,10 @@ public final class ReviewAssignments {
       "ment\022\033\n\rassignment_id\030\001 \001(\tB\004\370\206\031\001\032\n\n\010Res" +
       "ponse:+\342?(\n&com.databricks.rpc.RPC[$this" +
       ".Response]*A\n\020ReviewTargetType\022\"\n\036REVIEW" +
-      "_TARGET_TYPE_UNSPECIFIED\020\000\022\t\n\005TRACE\020\001*l\n" +
+      "_TARGET_TYPE_UNSPECIFIED\020\000\022\t\n\005TRACE\020\001*[\n" +
       "\025ReviewAssignmentState\022\'\n#REVIEW_ASSIGNM" +
-      "ENT_STATE_UNSPECIFIED\020\000\022\013\n\007PENDING\020\001\022\017\n\013" +
-      "IN_PROGRESS\020\002\022\014\n\010COMPLETE\020\003B\031\n\024org.mlflo" +
-      "w.api.proto\220\001\001"
+      "ENT_STATE_UNSPECIFIED\020\000\022\013\n\007PENDING\020\001\022\014\n\010" +
+      "COMPLETE\020\002B\031\n\024org.mlflow.api.proto\220\001\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
