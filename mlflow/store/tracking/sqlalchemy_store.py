@@ -7970,7 +7970,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         *,
         name,
         type,
-        title,
         input,
         instruction=None,
         enable_comment=False,
@@ -7982,7 +7981,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         validate_schema_for_create(
             name=name,
             type=type,
-            title=title,
             input=input,
             instruction=instruction,
             enable_comment=enable_comment,
@@ -8013,7 +8011,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 experiment_id=str(experiment_id),
                 name=name,
                 type=LabelSchemaType(str(type)),
-                title=title,
                 input=input,
                 instruction=instruction,
                 enable_comment=enable_comment,
@@ -8098,7 +8095,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         schema_id,
         *,
         name=None,
-        title=None,
         instruction=None,
         enable_comment=None,
         input=None,
@@ -8127,7 +8123,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             validate_schema_for_update(
                 existing=existing_entity,
                 name=name,
-                title=title,
                 instruction=instruction,
                 enable_comment=enable_comment,
                 input=input,
@@ -8151,8 +8146,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                         error_code=RESOURCE_ALREADY_EXISTS,
                     )
                 sql_schema.name = name
-            if title is not None:
-                sql_schema.title = title
             if instruction is not None:
                 sql_schema.instruction = instruction
             if enable_comment is not None:
@@ -8172,7 +8165,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         *,
         name,
         type,
-        title,
         input,
         instruction=None,
         enable_comment=None,
@@ -8201,7 +8193,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         validate_schema_for_create(
             name=name,
             type=type,
-            title=title,
             input=input,
             instruction=instruction,
             enable_comment=enable_comment if enable_comment is not None else False,
@@ -8232,7 +8223,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                         experiment_id=int(experiment_id),
                         name=name,
                         type=type_str,
-                        title=title,
                         instruction=instruction,
                         enable_comment=enable_comment if enable_comment is not None else False,
                         input_type=input_type,
@@ -8251,7 +8241,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                         error_code=INVALID_PARAMETER_VALUE,
                     )
                 input_type, input_config = _input_to_dict(input)
-                sql_schema.title = title
                 sql_schema.instruction = instruction
                 if enable_comment is not None:
                     sql_schema.enable_comment = enable_comment

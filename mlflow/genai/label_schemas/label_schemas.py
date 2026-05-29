@@ -1,7 +1,7 @@
 import warnings
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Literal, TypeVar
+from typing import TYPE_CHECKING, TypeVar
 
 from mlflow.genai.utils.enum_utils import StrEnum
 
@@ -37,19 +37,12 @@ class InputCategorical(InputType):
     """A categorical input for collecting assessments from stakeholders.
 
     Renders as a single-select dropdown by default; set ``multi_select=True``
-    to render as a multi-select. For feedback-type schemas the
-    ``semantic_polarity`` field is required so the UI knows which option
-    direction is positive (e.g., "good" vs "bad" sorting and coloring).
+    to render as a multi-select. The author controls option ordering
+    directly, so there is no separate polarity hint.
     """
 
     options: list[str]
     """List of available options for the categorical selection."""
-
-    semantic_polarity: Literal["ascending", "descending"] | None = None
-    """Polarity hint for feedback-type schemas. ``ascending`` means the first
-    option is most positive; ``descending`` means the first is most negative.
-    Required for OSS feedback-type schemas; ignored on Databricks-routed
-    schemas."""
 
     multi_select: bool = False
     """When ``True``, the widget allows multiple options to be selected and
@@ -59,20 +52,18 @@ class InputCategorical(InputType):
     def _to_databricks_input(self) -> "_InputCategorical":
         """Convert to the internal Databricks input type.
 
-        The OSS-only ``semantic_polarity`` and ``multi_select`` fields are
-        dropped since Databricks doesn't model them. A warning is emitted
-        when non-default values are silently discarded so callers can
-        detect intent loss.
+        The OSS-only ``multi_select`` field is dropped since Databricks
+        doesn't model it. A warning is emitted when a non-default value is
+        silently discarded so callers can detect intent loss.
         """
         from databricks.agents.review_app import label_schemas as _label_schemas
 
-        if self.semantic_polarity is not None or self.multi_select:
+        if self.multi_select:
             warnings.warn(
-                "InputCategorical fields `semantic_polarity` and `multi_select` are "
-                "OSS-only and are being dropped when routing this schema to "
-                "Databricks. Set `multi_select=False` (the default) and leave "
-                "`semantic_polarity=None` for Databricks-routed schemas, or use the "
-                "OSS-native schema store.",
+                "InputCategorical field `multi_select` is OSS-only and is being "
+                "dropped when routing this schema to Databricks. Set "
+                "`multi_select=False` (the default) for Databricks-routed schemas, "
+                "or use the OSS-native schema store.",
                 UserWarning,
                 stacklevel=2,
             )
@@ -141,9 +132,8 @@ class InputTextList(InputType):
 class InputText(InputType):
     """A free-form text box for collecting assessments from stakeholders.
 
-    .. note::
-        This functionality is only available in Databricks. Please run
-        `pip install mlflow[databricks]` to use it.
+    Supported by both feedback and expectation schemas; use it to capture
+    free-form rationale or ground-truth text from reviewers.
     """
 
     max_length: int | None = None
@@ -253,9 +243,6 @@ class LabelSchema:
     type: LabelSchemaType
     """Type of the label schema, either 'feedback' or 'expectation'."""
 
-    title: str
-    """Display title shown to stakeholders in the labeling review UI."""
-
     input: (
         InputPassFail
         | InputCategorical
@@ -317,7 +304,6 @@ class LabelSchema:
         return cls(
             name=schema.name,
             type=schema.type,
-            title=schema.title,
             input=cls._convert_databricks_input(schema.input),
             instruction=schema.instruction,
             enable_comment=schema.enable_comment,
