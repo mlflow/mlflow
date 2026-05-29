@@ -43,6 +43,8 @@ tail -f /tmp/mlflow-dev-server.log
 
 This uses `uv` (fast Python package manager) to automatically manage dependencies and run the development environment.
 
+> **Note — single environment only.** On startup `dev/run-dev-server.sh` kills _all_ running MLflow `--dev` backends and `yarn start` frontends, matching by command line rather than by directory. That is fine when you run one dev environment at a time, but it will tear down dev servers started from **other git worktrees**. To run multiple worktrees at once, see [Running Multiple Worktrees Concurrently](#running-multiple-worktrees-concurrently) below.
+
 ## Debugging
 
 For debugging errors, enable debug logging (must be set before importing mlflow):
@@ -75,6 +77,36 @@ tail -f /tmp/mlflow-dev-server.log
 ```
 
 **Note**: The MLflow server acts as a proxy, forwarding API requests to your Databricks workspace while serving the local React frontend. This allows you to develop and test UI changes against real Databricks data.
+
+### Running Multiple Worktrees Concurrently
+
+`dev/run-dev-server.sh` kills sibling dev servers on startup (see the note above), so it cannot run two environments at once. To work in several git worktrees simultaneously, skip the wrapper and start the two processes directly — this is the workflow documented in `CONTRIBUTING.md`, and neither process kills the other. Give each worktree its own port pair:
+
+```bash
+# Pick a unique port pair per worktree, e.g. A=5000/3000, B=5001/3001
+BACKEND_PORT=5001
+FRONTEND_PORT=3001
+
+# Terminal 1 — backend (./mlflow.db, ./mlruns, ./mlartifacts are per-worktree)
+uv run mlflow server --port "$BACKEND_PORT" --dev
+
+# Terminal 2 — frontend
+cd mlflow/server/js
+yarn install   # first time per worktree; node_modules is not shared across worktrees
+PORT="$FRONTEND_PORT" \
+MLFLOW_PROXY="http://127.0.0.1:$BACKEND_PORT" \
+MLFLOW_DEV_PROXY_MODE=false \
+yarn start
+# open http://localhost:$FRONTEND_PORT
+```
+
+Nuances:
+
+- `--dev` gives the backend autoreload + debug logging — it is the only thing the wrapper adds over a bare `mlflow server`.
+- `MLFLOW_PROXY` must point at _this_ worktree's backend. If it doesn't, the UI silently talks to a different (or the default `:5000`) backend and shows the wrong worktree's data — this is the most common mistake.
+- `MLFLOW_DEV_PROXY_MODE=false` tells craco to actually use the proxy server.
+- The backend store and artifacts are resolved relative to the current directory (`./mlflow.db`, `./mlruns`, `./mlartifacts`), so each worktree root is isolated automatically. Pointing `MLFLOW_TRACKING_URI`/`MLFLOW_BACKEND_STORE_URI` at an absolute path defeats this isolation.
+- This is a dev-only workflow. Production builds the frontend (`yarn build`) and serves it from the backend, with no separate JS server and no proxy.
 
 ## Development Commands
 

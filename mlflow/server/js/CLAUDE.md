@@ -31,6 +31,8 @@ tail -f /tmp/mlflow-dev-server.log
 
 This provides fast edit-refresh for UI development - changes to React components will automatically reload in the browser.
 
+> **Running multiple git worktrees?** `dev/run-dev-server.sh` kills sibling dev servers on startup and assumes ports `5000`/`3000`, so it cannot run two environments at once. For concurrent worktrees, use the two-process flow with per-worktree ports documented in the root `CLAUDE.md` → "Running Multiple Worktrees Concurrently".
+
 ## Available Yarn Scripts
 
 When running from the repository root, use this pattern:
