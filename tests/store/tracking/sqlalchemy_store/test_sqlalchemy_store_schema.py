@@ -382,7 +382,6 @@ def _insert_row(conn, table_name, workspace, overrides=None, seed=1):
             "experiment_id": seed,
             "name": f"schema_{seed}",
             "type": "feedback",
-            "title": f"Schema {seed}",
             "enable_comment": False,
             "input_type": "pass_fail",
             "input_config": '{"positive_label": "Pass", "negative_label": "Fail"}',
