@@ -150,13 +150,15 @@ export const LabelSchemaModal = ({ experimentId, editingSchema, visible, onClose
       onCancel={handleCancel}
       footer={null}
       destroyOnClose
-      // Label schemas are always two-pane, so the wide width applies
-      // unconditionally. We deliberately do NOT use `verticalSizing="maxed_out"`
-      // (unlike the judges modal): the form is short, so the modal should size
-      // to its content and only grow/scroll once the two-pane area hits the
-      // viewport cap below.
+      // Label schemas are always two-pane, so the wide preset (which
+      // comfortably fits the two 320px panes) applies unconditionally. We
+      // deliberately do NOT stretch the width to the viewport or use
+      // `verticalSizing="maxed_out"` (unlike the judges modal): the modal
+      // keeps the fixed `wide` width and stays centered, sizing to its
+      // content and only growing/scrolling once the two-pane area hits the
+      // viewport cap below. `maxWidth` only kicks in on narrow viewports.
       size="wide"
-      css={{ width: '100% !important' }}
+      css={{ maxWidth: '90vw' }}
     >
       <form onSubmit={handleSubmit(onSubmit)} css={{ display: 'flex', flexDirection: 'column' }}>
         <div
