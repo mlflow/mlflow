@@ -1549,6 +1549,7 @@ module.exports = {
   "mlflow.genai-traces-table.actions-disabled-tooltip": "",
   "mlflow.genai-traces-table.actions-dropdown": "",
   "mlflow.genai-traces-table.assessment-cell-judge-running": "",
+  "mlflow.genai-traces-table.assign-reviewers": "",
   "mlflow.genai-traces-table.average-values-tag": "",
   "mlflow.genai-traces-table.chat_sessions_table.session_row_link": "",
   "mlflow.genai-traces-table.compare-traces": "",
