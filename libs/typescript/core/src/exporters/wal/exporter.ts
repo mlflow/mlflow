@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { ExportResult, ExportResultCode } from '@opentelemetry/core';
 import { ReadableSpan as OTelReadableSpan, SpanExporter } from '@opentelemetry/sdk-trace-base';
-import { getConfig } from '../../core/config';
+import { getConfig, MLflowTracingConfig } from '../../core/config';
 import { InMemoryTraceManager } from '../../core/trace_manager';
 import { submitRecord } from './ipc';
 import { WalRecord } from './types';
@@ -24,12 +24,30 @@ export type SubmitRecord = (record: WalRecord) => Promise<void>;
 export class MlflowWalSpanExporter implements SpanExporter {
   private _pendingSubmits: Set<Promise<void>> = new Set();
   private _submit: SubmitRecord;
+  private _shuttingDown = false;
 
   constructor(opts: { submit?: SubmitRecord } = {}) {
     this._submit = opts.submit ?? submitRecord;
   }
 
   export(spans: OTelReadableSpan[], resultCallback: (result: ExportResult) => void): void {
+    if (this._shuttingDown) {
+      resultCallback({ code: ExportResultCode.FAILED });
+      return;
+    }
+
+    let cfg: MLflowTracingConfig;
+    try {
+      cfg = getConfig();
+    } catch (err) {
+      console.warn(
+        '[mlflow][wal] Tracing config unavailable; Spans will be lost until config is set.',
+        err,
+      );
+      resultCallback({ code: ExportResultCode.FAILED });
+      return;
+    }
+
     for (const span of spans) {
       if (span.parentSpanContext?.spanId) {
         continue;
@@ -44,7 +62,6 @@ export class MlflowWalSpanExporter implements SpanExporter {
 
       traceManager.lastActiveTraceId = trace.info.traceId;
 
-      const cfg = getConfig();
       const record: WalRecord = {
         id: randomUUID(),
         trackingUri: cfg.trackingUri,
@@ -75,13 +92,21 @@ export class MlflowWalSpanExporter implements SpanExporter {
    * was called has been acknowledged (post-fsync). Matches OTel's
    * "flush currently pending" semantic — concurrent `export()` calls
    * during the await are not waited on, and the next `forceFlush` will
-   * pick them up.
+   * pick them up. For "drain everything before exit" semantics, use
+   * {@link shutdown}.
    */
   async forceFlush(): Promise<void> {
     await Promise.all([...this._pendingSubmits]);
   }
 
+  /**
+   * Stop accepting new exports and drain every in-flight IPC submit to
+   * convergence before resolving.
+   */
   async shutdown(): Promise<void> {
-    await this.forceFlush();
+    this._shuttingDown = true;
+    while (this._pendingSubmits.size > 0) {
+      await Promise.all([...this._pendingSubmits]);
+    }
   }
 }

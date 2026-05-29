@@ -4,7 +4,7 @@ import { join } from 'path';
 import { ExportResult, ExportResultCode } from '@opentelemetry/core';
 import { ReadableSpan as OTelReadableSpan } from '@opentelemetry/sdk-trace-base';
 import { MlflowWalSpanExporter } from '../../../src/exporters/wal/exporter';
-import { init } from '../../../src/core/config';
+import { init, resetConfig } from '../../../src/core/config';
 import { InMemoryTraceManager } from '../../../src/core/trace_manager';
 import { Trace } from '../../../src/core/entities/trace';
 import { TraceInfo } from '../../../src/core/entities/trace_info';
@@ -67,6 +67,7 @@ describe('wal/exporter', () => {
 
   afterEach(async () => {
     popTraceSpy.mockRestore();
+    InMemoryTraceManager.reset();
     if (originalWalDir === undefined) {
       delete process.env.MLFLOW_WAL_DIR;
     } else {
@@ -194,11 +195,135 @@ describe('wal/exporter', () => {
     expect(flushResolved).toBe(true);
   });
 
-  it('shutdown defers to forceFlush', async () => {
-    const exporter = new MlflowWalSpanExporter({ submit: () => Promise.resolve() });
-    const flushSpy = jest.spyOn(exporter, 'forceFlush');
+  it('shutdown awaits in-flight submits before resolving', async () => {
+    let release: (() => void) | undefined;
+    const submit = jest.fn<Promise<void>, [WalRecord]>().mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          release = resolve;
+        }),
+    );
+    const exporter = new MlflowWalSpanExporter({ submit });
+
+    popTraceSpy.mockReturnValue(makeTrace('tr-shutdown'));
+    const { callback } = captureExportResult();
+    exporter.export([makeSpan({ traceId: 'otel-1', rootSpan: true })], callback);
+
+    let shutdownResolved = false;
+    const shutdownPromise = exporter.shutdown().then(() => {
+      shutdownResolved = true;
+    });
+
+    // The submit is parked; shutdown must remain pending until we
+    // release it. Yield a few microtasks so any premature resolution
+    // surfaces here rather than silently passing.
+    await new Promise((resolve) => setImmediate(resolve));
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(shutdownResolved).toBe(false);
+
+    release?.();
+    await shutdownPromise;
+    expect(shutdownResolved).toBe(true);
+  });
+
+  it('shutdown rejects subsequent export calls with FAILED per OTel spec', async () => {
+    // OTel SpanExporter.Shutdown spec: "After the call to Shutdown
+    // subsequent calls to Export are not allowed and SHOULD return
+    // a failure." Locks in the post-shutdown contract.
+    const submit = jest.fn<Promise<void>, [WalRecord]>().mockResolvedValue(undefined);
+    const exporter = new MlflowWalSpanExporter({ submit });
     await exporter.shutdown();
-    expect(flushSpy).toHaveBeenCalledTimes(1);
+
+    popTraceSpy.mockReturnValue(makeTrace('tr-post-shutdown'));
+    const { callback, promise } = captureExportResult();
+    exporter.export([makeSpan({ traceId: 'otel-post', rootSpan: true })], callback);
+
+    expect((await promise).code).toBe(ExportResultCode.FAILED);
+    expect(submit).not.toHaveBeenCalled();
+    expect(popTraceSpy).not.toHaveBeenCalled();
+  });
+
+  it('shutdown drains submits that land after the flag is set but before the loop converges', async () => {
+    let releaseFirst: (() => void) | undefined;
+    let releaseSecond: (() => void) | undefined;
+    const submit = jest
+      .fn<Promise<void>, [WalRecord]>()
+      .mockImplementationOnce(
+        () =>
+          new Promise<void>((resolve) => {
+            releaseFirst = resolve;
+          }),
+      )
+      .mockImplementationOnce(
+        () =>
+          new Promise<void>((resolve) => {
+            releaseSecond = resolve;
+          }),
+      );
+    const exporter = new MlflowWalSpanExporter({ submit });
+
+    popTraceSpy
+      .mockReturnValueOnce(makeTrace('tr-first'))
+      .mockReturnValueOnce(makeTrace('tr-second'));
+
+    // Submit #1 is in flight before shutdown is called.
+    const cb1 = captureExportResult();
+    exporter.export([makeSpan({ traceId: 'otel-1', rootSpan: true })], cb1.callback);
+
+    // Simulate the race: submit #2 is initiated BEFORE shutdown flips
+    // the flag (i.e., upstream processor's export is interleaved with
+    // shutdown). #2 lands in `_pendingSubmits` and must be drained.
+    const cb2 = captureExportResult();
+    exporter.export([makeSpan({ traceId: 'otel-2', rootSpan: true })], cb2.callback);
+
+    let shutdownResolved = false;
+    const shutdownPromise = exporter.shutdown().then(() => {
+      shutdownResolved = true;
+    });
+
+    // Release #1; #2 is still parked, so shutdown must stay pending —
+    // proving the drain loop is awaiting more than just the original
+    // snapshot.
+    await new Promise((resolve) => setImmediate(resolve));
+    releaseFirst?.();
+    await new Promise((resolve) => setImmediate(resolve));
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(shutdownResolved).toBe(false);
+
+    releaseSecond?.();
+    await shutdownPromise;
+    expect(shutdownResolved).toBe(true);
+    expect(submit).toHaveBeenCalledTimes(2);
+  });
+
+  it('returns FAILED and warns when getConfig() throws (init not called)', async () => {
+    resetConfig();
+
+    const submit = jest.fn<Promise<void>, [WalRecord]>().mockResolvedValue(undefined);
+    const exporter = new MlflowWalSpanExporter({ submit });
+
+    popTraceSpy.mockReturnValue(makeTrace('tr-no-config'));
+    const span = makeSpan({ traceId: 'otel-no-config', rootSpan: true });
+
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const { callback, promise } = captureExportResult();
+      exporter.export([span], callback);
+
+      const result = await promise;
+      expect(result.code).toBe(ExportResultCode.FAILED);
+      expect(submit).not.toHaveBeenCalled();
+      expect(popTraceSpy).not.toHaveBeenCalled();
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Tracing config unavailable'),
+        expect.any(Error),
+      );
+    } finally {
+      warnSpy.mockRestore();
+      // Restore config defensively so a downstream test that forgets
+      // to re-init doesn't observe the cleared global state.
+      init({ trackingUri: 'http://localhost:5000', experimentId: 'exp-test' });
+    }
   });
 
   it('logs and swallows submit failures so OTel never observes them', async () => {
