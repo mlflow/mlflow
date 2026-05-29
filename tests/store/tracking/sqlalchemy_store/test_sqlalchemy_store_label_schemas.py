@@ -17,12 +17,11 @@ from tests.store.tracking.sqlalchemy_store.conftest import _create_experiments
 pytestmark = pytest.mark.notrackingurimock
 
 
-def _create_pass_fail_schema(store, experiment_id, name="correctness"):
+def _create_pass_fail_schema(store, experiment_id, name="Is the answer correct?"):
     return store.create_label_schema(
         experiment_id=experiment_id,
         name=name,
         type="feedback",
-        title="Is the answer correct?",
         input=InputPassFail(positive_label="Correct", negative_label="Incorrect"),
         instruction="Mark Correct if accurate.",
         enable_comment=True,
@@ -36,9 +35,8 @@ def test_create_pass_fail_schema(store):
 
     assert schema.schema_id.startswith(SqlLabelSchema.LABEL_SCHEMA_ID_PREFIX)
     assert schema.experiment_id == exp_id
-    assert schema.name == "correctness"
+    assert schema.name == "Is the answer correct?"
     assert schema.type == LabelSchemaType.FEEDBACK
-    assert schema.title == "Is the answer correct?"
     assert schema.instruction == "Mark Correct if accurate."
     assert schema.enable_comment is True
     assert isinstance(schema.input, InputPassFail)
@@ -48,35 +46,16 @@ def test_create_pass_fail_schema(store):
     assert schema.updated_at == schema.created_at
 
 
-def test_create_categorical_schema_accepts_omitted_polarity(store):
-    exp_id = _create_experiments(store, "test_categorical_no_polarity")
+def test_create_categorical_schema(store):
+    exp_id = _create_experiments(store, "test_categorical")
     schema = store.create_label_schema(
         experiment_id=exp_id,
-        name="severity",
+        name="Severity",
         type="feedback",
-        title="Severity",
-        input=InputCategorical(options=["low", "high"]),
-    )
-    assert isinstance(schema.input, InputCategorical)
-    assert schema.input.semantic_polarity is None
-
-
-def test_create_categorical_schema_with_polarity(store):
-    exp_id = _create_experiments(store, "test_categorical_polarity")
-    schema = store.create_label_schema(
-        experiment_id=exp_id,
-        name="severity",
-        type="feedback",
-        title="Severity",
-        input=InputCategorical(
-            options=["low", "medium", "high"],
-            semantic_polarity="ascending",
-            multi_select=False,
-        ),
+        input=InputCategorical(options=["low", "medium", "high"], multi_select=False),
     )
     assert isinstance(schema.input, InputCategorical)
     assert schema.input.options == ["low", "medium", "high"]
-    assert schema.input.semantic_polarity == "ascending"
     assert schema.input.multi_select is False
 
 
@@ -84,9 +63,8 @@ def test_create_numeric_schema_accepts_omitted_bounds(store):
     exp_id = _create_experiments(store, "test_numeric_no_bounds")
     schema = store.create_label_schema(
         experiment_id=exp_id,
-        name="rating",
+        name="Rating",
         type="feedback",
-        title="Rating",
         input=InputNumeric(),
     )
     assert isinstance(schema.input, InputNumeric)
@@ -94,28 +72,41 @@ def test_create_numeric_schema_accepts_omitted_bounds(store):
     assert schema.input.max_value is None
 
 
-def test_create_rejects_text_input_for_oss(store):
-    exp_id = _create_experiments(store, "test_text_unsupported")
-    with pytest.raises(MlflowException, match="not supported by the OSS server"):
-        store.create_label_schema(
-            experiment_id=exp_id,
-            name="comment",
-            type="feedback",
-            title="Comment",
-            input=InputText(max_length=500),
-        )
+def test_create_text_schema(store):
+    exp_id = _create_experiments(store, "test_text")
+    schema = store.create_label_schema(
+        experiment_id=exp_id,
+        name="Expected answer",
+        type="expectation",
+        input=InputText(max_length=500),
+    )
+    assert isinstance(schema.input, InputText)
+    assert schema.input.max_length == 500
 
 
-def test_create_rejects_invalid_name(store):
-    exp_id = _create_experiments(store, "test_invalid_name")
-    with pytest.raises(MlflowException, match="alphanumeric and underscore"):
-        store.create_label_schema(
-            experiment_id=exp_id,
-            name="bad-name-with-hyphens",
-            type="feedback",
-            title="X",
-            input=InputPassFail(positive_label="a", negative_label="b"),
-        )
+def test_create_text_schema_accepts_omitted_max_length(store):
+    exp_id = _create_experiments(store, "test_text_no_max")
+    schema = store.create_label_schema(
+        experiment_id=exp_id,
+        name="Notes",
+        type="expectation",
+        input=InputText(),
+    )
+    assert isinstance(schema.input, InputText)
+    assert schema.input.max_length is None
+
+
+def test_create_accepts_free_text_name(store):
+    # `name` is the reviewer-facing prompt and is free text (no longer
+    # constrained to alphanumeric + underscore).
+    exp_id = _create_experiments(store, "test_free_text_name")
+    schema = store.create_label_schema(
+        experiment_id=exp_id,
+        name="Is the answer correct (per the rubric)?",
+        type="feedback",
+        input=InputPassFail(positive_label="a", negative_label="b"),
+    )
+    assert schema.name == "Is the answer correct (per the rubric)?"
 
 
 def test_create_rejects_duplicate_name(store):
@@ -131,7 +122,6 @@ def test_create_rejects_missing_experiment(store):
             experiment_id="99999",
             name="x",
             type="feedback",
-            title="X",
             input=InputPassFail(positive_label="a", negative_label="b"),
         )
 
@@ -144,7 +134,7 @@ def test_get_by_id_and_by_name(store):
     assert by_id.schema_id == schema.schema_id
     assert by_id.input == schema.input
 
-    by_name = store.get_label_schema_by_name(exp_id, "correctness")
+    by_name = store.get_label_schema_by_name(exp_id, "Is the answer correct?")
     assert by_name.schema_id == schema.schema_id
 
 
@@ -199,15 +189,15 @@ def test_update_rename(store):
     exp_id = _create_experiments(store, "test_rename")
     schema = _create_pass_fail_schema(store, exp_id)
 
-    updated = store.update_label_schema(schema.schema_id, name="answer_correctness")
-    assert updated.name == "answer_correctness"
+    updated = store.update_label_schema(schema.schema_id, name="Answer correctness")
+    assert updated.name == "Answer correctness"
 
     # Old name no longer findable
     with pytest.raises(MlflowException, match="not found"):
-        store.get_label_schema_by_name(exp_id, "correctness")
+        store.get_label_schema_by_name(exp_id, "Is the answer correct?")
 
     # New name resolves to same schema_id
-    re_fetched = store.get_label_schema_by_name(exp_id, "answer_correctness")
+    re_fetched = store.get_label_schema_by_name(exp_id, "Answer correctness")
     assert re_fetched.schema_id == schema.schema_id
 
 
@@ -224,10 +214,7 @@ def test_update_sparse_fields(store):
     exp_id = _create_experiments(store, "test_sparse")
     schema = _create_pass_fail_schema(store, exp_id)
 
-    updated = store.update_label_schema(
-        schema.schema_id, title="Updated title", instruction="Updated instruction"
-    )
-    assert updated.title == "Updated title"
+    updated = store.update_label_schema(schema.schema_id, instruction="Updated instruction")
     assert updated.instruction == "Updated instruction"
     # Unchanged fields preserved
     assert updated.name == schema.name
@@ -246,16 +233,15 @@ def test_update_input_replace(store):
 
 def test_update_missing(store):
     with pytest.raises(MlflowException, match="not found"):
-        store.update_label_schema("ls-does-not-exist", title="X")
+        store.update_label_schema("ls-does-not-exist", instruction="X")
 
 
 def test_upsert_creates(store):
     exp_id = _create_experiments(store, "test_upsert_new")
     schema = store.upsert_label_schema(
         experiment_id=exp_id,
-        name="quality",
+        name="Quality",
         type="feedback",
-        title="Quality",
         input=InputNumeric(min_value=1.0, max_value=5.0),
     )
     assert schema.schema_id.startswith(SqlLabelSchema.LABEL_SCHEMA_ID_PREFIX)
@@ -270,11 +256,9 @@ def test_upsert_replaces(store):
         experiment_id=exp_id,
         name=schema.name,
         type="feedback",
-        title="Updated via upsert",
         input=InputPassFail(positive_label="Yes", negative_label="No"),
     )
     assert upserted.schema_id == schema.schema_id
-    assert upserted.title == "Updated via upsert"
     assert upserted.input.positive_label == "Yes"
 
 
@@ -285,9 +269,8 @@ def test_upsert_rejects_type_change(store):
     with pytest.raises(MlflowException, match="type.*immutable"):
         store.upsert_label_schema(
             experiment_id=exp_id,
-            name="correctness",
+            name="Is the answer correct?",
             type="expectation",
-            title="x",
             input=InputPassFail(positive_label="a", negative_label="b"),
         )
 
@@ -319,33 +302,19 @@ def test_delete_missing_is_noop(store):
             "strictly less than",
         ),
         (
-            {
-                "input": InputCategorical(options=[], semantic_polarity="ascending"),
-            },
+            {"input": InputCategorical(options=[])},
             "non-empty list",
         ),
         (
-            {
-                "input": InputCategorical(options=["dup", "dup"], semantic_polarity="ascending"),
-            },
+            {"input": InputCategorical(options=["dup", "dup"])},
             "deduplicated",
         ),
         (
-            {
-                "input": InputCategorical(options=["a" * 65], semantic_polarity="ascending"),
-            },
+            {"input": InputCategorical(options=["a" * 65])},
             "at most 64 characters",
         ),
         (
-            {"name": "a" * 151},
-            "at most 150 characters",
-        ),
-        (
-            {"title": ""},
-            "non-empty string",
-        ),
-        (
-            {"title": "a" * 257},
+            {"name": "a" * 257},
             "at most 256 characters",
         ),
         (
@@ -365,6 +334,10 @@ def test_delete_missing_is_noop(store):
             "must be numeric",
         ),
         (
+            {"input": InputText(max_length=0)},
+            "at least 1",
+        ),
+        (
             {"enable_comment": "yes"},
             "must be a bool",
         ),
@@ -376,7 +349,6 @@ def test_create_validation_rejects_bad_inputs(store, kwargs, match):
         "experiment_id": exp_id,
         "name": "valid_name",
         "type": "feedback",
-        "title": "Valid title",
         "input": InputPassFail(positive_label="Pass", negative_label="Fail"),
     }
     with pytest.raises(MlflowException, match=match):
@@ -387,14 +359,9 @@ def test_round_trip_preserves_categorical_multi_select(store):
     exp_id = _create_experiments(store, "test_round_trip_multi")
     schema = store.create_label_schema(
         experiment_id=exp_id,
-        name="applicable_tags",
+        name="Which tags apply?",
         type="feedback",
-        title="Which tags apply?",
-        input=InputCategorical(
-            options=["bug", "feature", "ux"],
-            semantic_polarity="ascending",
-            multi_select=True,
-        ),
+        input=InputCategorical(options=["bug", "feature", "ux"], multi_select=True),
     )
     fetched = store.get_label_schema(schema.schema_id)
     assert fetched.input.multi_select is True

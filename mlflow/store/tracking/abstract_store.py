@@ -1748,7 +1748,6 @@ class AbstractStore(GatewayStoreMixin):
         *,
         name: str,
         type: str,
-        title: str,
         input: Any,
         instruction: str | None = None,
         enable_comment: bool = False,
@@ -1757,12 +1756,12 @@ class AbstractStore(GatewayStoreMixin):
 
         Args:
             experiment_id: Parent experiment ID.
-            name: Schema name (1-150 chars, alphanumeric + underscore;
-                unique within the experiment).
+            name: Schema name (1-256 chars; unique within the experiment).
+                Shown to reviewers as the label prompt and used as the
+                assessment key.
             type: Schema type (``"feedback"`` or ``"expectation"``).
-            title: Display title shown to the SME (1-256 chars).
             input: One of ``InputPassFail`` / ``InputCategorical`` /
-                ``InputNumeric``.
+                ``InputNumeric`` / ``InputText``.
             instruction: Optional ≤1000-char supplementary guidance.
             enable_comment: UI hint; persisted but not consumed server-side.
 
@@ -1813,7 +1812,6 @@ class AbstractStore(GatewayStoreMixin):
         schema_id: str,
         *,
         name: str | None = None,
-        title: str | None = None,
         instruction: str | None = None,
         enable_comment: bool | None = None,
         input: Any | None = None,
@@ -1838,7 +1836,6 @@ class AbstractStore(GatewayStoreMixin):
         *,
         name: str,
         type: str,
-        title: str,
         input: Any,
         instruction: str | None = None,
         enable_comment: bool = False,
