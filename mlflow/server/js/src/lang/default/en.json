@@ -199,6 +199,10 @@
     "defaultMessage": "A network error occurred.",
     "description": "Generic message for a network error"
   },
+  "/CuPPV": {
+    "defaultMessage": "Rationale (optional)",
+    "description": "Label schema preview free-form rationale placeholder"
+  },
   "/DcBLQ": {
     "defaultMessage": "role",
     "description": "Placeholder for chat message role input"
@@ -1422,10 +1426,6 @@
   "6XfILf": {
     "defaultMessage": "Contour chart",
     "description": "Experiment tracking > runs charts > add chart menu > contour chart"
-  },
-  "6YVVjK": {
-    "defaultMessage": "Rationale (optional)",
-    "description": "Label schema preview free-form rationale label"
   },
   "6ZhLfu": {
     "defaultMessage": "Visibility",

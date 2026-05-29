@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Empty, Input, Typography, useDesignSystemTheme } from '@databricks/design-system';
-import { FormattedMessage } from 'react-intl';
+import { FormattedMessage, useIntl } from 'react-intl';
 
 import { LabelSchemaInputRenderer } from '../../components/label-schemas/widgets/LabelSchemaInputRenderer';
 import type { LabelSchemaValue } from '../../components/label-schemas/widgets/LabelSchemaInputRenderer';
@@ -29,6 +29,7 @@ export interface LabelSchemaPreviewProps {
  */
 export const LabelSchemaPreview = ({ formData }: LabelSchemaPreviewProps) => {
   const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
 
   // Sandbox state — never read by the form, never submitted. Reset when
   // the input variant changes so a value from a different shape (e.g.,
@@ -162,33 +163,36 @@ export const LabelSchemaPreview = ({ formData }: LabelSchemaPreviewProps) => {
               />
             </Typography.Text>
           )}
-          {formData.instruction && <Typography.Text color="secondary">{formData.instruction}</Typography.Text>}
+          {/* The text widget renders the instruction inside its box as a
+              placeholder, so showing it again as a line above would be
+              redundant; other variants have no text box, so keep the line. */}
+          {formData.instruction && formData.inputKind !== 'text' && (
+            <Typography.Text color="secondary">{formData.instruction}</Typography.Text>
+          )}
           <div css={{ marginTop: theme.spacing.sm }}>
             <LabelSchemaInputRenderer
               input={input}
               value={previewValue}
               onChange={setPreviewValue}
               componentId="mlflow.experiment-label-schemas.preview"
+              instruction={formData.instruction}
             />
           </div>
           {formData.enable_comment && (
-            // Keep the rationale box left-aligned with the input above it;
-            // convey that it's secondary to the structured value via the
-            // smaller hint-style label rather than indentation (item 12).
-            <div css={{ display: 'flex', flexDirection: 'column', marginTop: theme.spacing.sm }}>
-              <Typography.Hint>
-                <FormattedMessage
-                  defaultMessage="Rationale (optional)"
-                  description="Label schema preview free-form rationale label"
-                />
-              </Typography.Hint>
-              <Input.TextArea
-                componentId="mlflow.experiment-label-schemas.preview.comment"
-                id="mlflow.experiment-label-schemas.preview.comment"
-                rows={2}
-                placeholder=""
-              />
-            </div>
+            // Rationale is secondary to the structured value; surface its
+            // label as the box's own placeholder rather than a separate
+            // line above it, mirroring how the text widget renders the
+            // instruction inside its box.
+            <Input.TextArea
+              componentId="mlflow.experiment-label-schemas.preview.comment"
+              id="mlflow.experiment-label-schemas.preview.comment"
+              rows={2}
+              css={{ marginTop: theme.spacing.sm }}
+              placeholder={intl.formatMessage({
+                defaultMessage: 'Rationale (optional)',
+                description: 'Label schema preview free-form rationale placeholder',
+              })}
+            />
           )}
         </div>
       </div>
