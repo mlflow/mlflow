@@ -226,6 +226,17 @@ describe('MlflowClient', () => {
       expect(result.traces.map((trace) => trace.traceId)).not.toContain(otherTraceId);
     });
 
+    it('should return an empty result when no traces match', async () => {
+      const result = await client.searchTraces({
+        experimentIds: [experimentId],
+        filter: "tags.searchTracesFilter = 'missing'",
+        maxResults: 10,
+      });
+
+      expect(result.traces).toEqual([]);
+      expect(result.nextPageToken).toBeUndefined();
+    });
+
     it('should reject search without experiment IDs or locations', async () => {
       await expect(client.searchTraces({})).rejects.toThrow(
         'searchTraces requires at least one experiment ID or trace location.',

@@ -229,7 +229,7 @@ export class MlflowClient {
     );
 
     return {
-      traces: response.traces.map((trace) => TraceInfo.fromJson(trace)),
+      traces: (response.traces ?? []).map((trace) => TraceInfo.fromJson(trace)),
       nextPageToken: response.next_page_token || undefined,
     };
   }

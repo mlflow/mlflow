@@ -57,7 +57,7 @@ export namespace SearchTracesV3 {
   }
 
   export interface Response {
-    traces: Parameters<typeof TraceInfo.fromJson>[0][];
+    traces?: Parameters<typeof TraceInfo.fromJson>[0][];
     next_page_token?: string;
   }
 }
