@@ -1403,10 +1403,6 @@
     "defaultMessage": "No parameters recorded",
     "description": "Run page > Overview > Parameters table > No parameters recorded"
   },
-  "6WFT9R": {
-    "defaultMessage": "Create a schema to define how SMEs label traces in the review UI: pass/fail, categorical, or numeric.",
-    "description": "Label schemas empty state description"
-  },
   "6WQ9yl": {
     "defaultMessage": "Unable to load experiment judges",
     "description": "Error message when experiment judges page fails to load"
@@ -3947,6 +3943,10 @@
     "defaultMessage": "Budgets",
     "description": "Budget policies page title"
   },
+  "La0EKA": {
+    "defaultMessage": "How a reviewer sees the schema",
+    "description": "Label schema preview panel header subtitle"
+  },
   "LajLDb": {
     "defaultMessage": "Move to top",
     "description": "Experiment page > compare runs tab > chart header > move to top option"
@@ -4242,10 +4242,6 @@
   "NHlNLj": {
     "defaultMessage": "Description",
     "description": "Label for issue description section"
-  },
-  "NIuF30": {
-    "defaultMessage": "How an SME sees the schema",
-    "description": "Label schema preview panel header subtitle"
   },
   "NJ1bYP": {
     "defaultMessage": "{fieldName} are identical",
@@ -7070,6 +7066,10 @@
   "dNaKCA": {
     "defaultMessage": "Created",
     "description": "Created column header"
+  },
+  "dNgD5R": {
+    "defaultMessage": "Create a schema to define how reviewers label traces in the review UI: pass/fail, categorical, numeric, or text.",
+    "description": "Label schemas empty state description"
   },
   "dPn3az": {
     "defaultMessage": "Tool",
