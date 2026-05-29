@@ -74,6 +74,18 @@ interface DatasetRecordsTableProps {
 
 const SORTABLE_COLUMN_SET = new Set<RecordColumnId>(SORTABLE_RECORD_COLUMNS);
 
+// Default starting widths (px) by content class. Columns are user-resizable, so these
+// are only the initial sizes TanStack seeds `columnSizing` with.
+const COLUMN_WIDTH = {
+  narrow: 120, // source, timestamps
+  normal: 160, // ids, usernames, tags
+  wide: 400, // inputs / expectations JSON blobs
+} as const;
+
+// Fallback when a column id has no entry in the table model — effectively unreachable
+// since every column is defined, but `getColumn` is typed as possibly-undefined.
+const DEFAULT_COLUMN_WIDTH = COLUMN_WIDTH.normal;
+
 // Base cell styles — column width is supplied separately via flexStyleForColumn.
 const cellStyles = { verticalAlign: 'middle' as const };
 const stopPropagationProps = {
@@ -133,15 +145,15 @@ export const DatasetRecordsTable = ({
   };
 
   const columns: ColumnDef<DatasetRecord>[] = [
-    { id: 'dataset_record_id', accessorKey: 'dataset_record_id', header: 'Record ID', size: 160 },
-    { id: 'inputs', accessorKey: 'inputs', header: 'Inputs', size: 400 },
-    { id: 'expectations', accessorKey: 'expectations', header: 'Expectations', size: 400 },
-    { id: 'create_time', accessorKey: 'create_time', header: 'Created', size: 120 },
-    { id: 'created_by', accessorKey: 'created_by', header: 'Created by', size: 140 },
-    { id: 'source', accessorKey: 'source', header: 'Source', size: 100 },
-    { id: 'last_updated', accessorKey: 'last_updated', header: 'Last updated', size: 120 },
-    { id: 'last_updated_by', accessorKey: 'last_updated_by', header: 'Last updated by', size: 140 },
-    { id: 'tags', accessorKey: 'tags', header: 'Tags', size: 200 },
+    { id: 'dataset_record_id', accessorKey: 'dataset_record_id', header: 'Record ID', size: COLUMN_WIDTH.normal },
+    { id: 'inputs', accessorKey: 'inputs', header: 'Inputs', size: COLUMN_WIDTH.wide },
+    { id: 'expectations', accessorKey: 'expectations', header: 'Expectations', size: COLUMN_WIDTH.wide },
+    { id: 'create_time', accessorKey: 'create_time', header: 'Created', size: COLUMN_WIDTH.narrow },
+    { id: 'created_by', accessorKey: 'created_by', header: 'Created by', size: COLUMN_WIDTH.normal },
+    { id: 'source', accessorKey: 'source', header: 'Source', size: COLUMN_WIDTH.narrow },
+    { id: 'last_updated', accessorKey: 'last_updated', header: 'Last updated', size: COLUMN_WIDTH.narrow },
+    { id: 'last_updated_by', accessorKey: 'last_updated_by', header: 'Last updated by', size: COLUMN_WIDTH.normal },
+    { id: 'tags', accessorKey: 'tags', header: 'Tags', size: COLUMN_WIDTH.normal },
   ];
 
   const table = useReactTable({
@@ -155,7 +167,7 @@ export const DatasetRecordsTable = ({
   const headersById = Object.fromEntries(table.getHeaderGroups()[0].headers.map((h) => [h.column.id, h]));
 
   const flexStyleForColumn = (id: RecordColumnId): React.CSSProperties => {
-    const size = table.getColumn(id)?.getSize() ?? 150;
+    const size = table.getColumn(id)?.getSize() ?? DEFAULT_COLUMN_WIDTH;
     return { flex: `0 0 ${size}px` };
   };
 
