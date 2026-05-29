@@ -80,7 +80,7 @@ tail -f /tmp/mlflow-dev-server.log
 
 ### Running Multiple Worktrees Concurrently
 
-`dev/run-dev-server.sh` kills sibling dev servers on startup (see the note above), so it cannot run two environments at once. To work in several git worktrees simultaneously, skip the wrapper and start the two processes directly — this is the workflow documented in `CONTRIBUTING.md`, and neither process kills the other. Give each worktree its own port pair:
+`dev/run-dev-server.sh` kills sibling dev servers on startup (see the note above), so it cannot run two environments at once. To work in several git worktrees simultaneously, skip the wrapper and start the two processes directly, and neither process kills the other. Give each worktree its own port pair:
 
 ```bash
 # Pick a unique port pair per worktree, e.g. A=5000/3000, B=5001/3001
