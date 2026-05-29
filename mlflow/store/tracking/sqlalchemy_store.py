@@ -8126,7 +8126,13 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             normalize_reviewer,
             normalize_target_id,
             validate_assignment_for_create,
+            validate_bulk_create_size,
         )
+
+        # Cap the cross product before doing any work. Enforced here (not
+        # only in the handler) so the in-process SDK path against a local
+        # store is bounded too.
+        validate_bulk_create_size(len(target_ids), len(reviewers))
 
         # Normalize assigner once — same value across the whole batch.
         # A bad assigner is a whole-batch failure (it's not per-pair).

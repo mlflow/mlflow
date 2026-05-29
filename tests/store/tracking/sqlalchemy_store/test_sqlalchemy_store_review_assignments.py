@@ -202,6 +202,20 @@ def test_bulk_create_review_assignments_rejects_unknown_experiment_early(store):
         )
 
 
+def test_bulk_create_review_assignments_rejects_oversized_cross_product(store):
+    # The N*M cap is enforced before any DB work so the in-process SDK
+    # path is bounded, not just the REST handler.
+    exp_id = _create_experiments(store, "test_bulk_oversized")
+    with pytest.raises(MlflowException, match="bulk-create requests at most"):
+        store.bulk_create_review_assignments(
+            experiment_id=exp_id,
+            target_type="trace",
+            target_ids=[f"tr-{i}" for i in range(40)],
+            reviewers=[f"r{i}@example.com" for i in range(40)],
+            assigner="kris@example.com",
+        )
+
+
 # ---------------------------------------------------------------------------
 # get / list
 # ---------------------------------------------------------------------------

@@ -58,6 +58,15 @@ from mlflow.protos.issues_pb2 import (
     SearchIssues,
     UpdateIssue,
 )
+from mlflow.protos.review_assignments_pb2 import (
+    BulkCreateReviewAssignments,
+    CreateReviewAssignment,
+    DeleteReviewAssignment,
+    GetReviewAssignment,
+    ListReviewAssignments,
+    ListReviewAssignmentsForTarget,
+    UpdateReviewAssignment,
+)
 from mlflow.protos.service_pb2 import (
     AddDatasetToExperiments,
     BatchGetTraceInfos,
@@ -150,6 +159,7 @@ from mlflow.utils.rest_utils import (
     _REST_API_PATH_PREFIX,
     _V3_ISSUES_REST_API_PATH_PREFIX,
     _V3_REST_API_PATH_PREFIX,
+    _V3_REVIEW_ASSIGNMENTS_REST_API_PATH_PREFIX,
     _V3_TRACE_REST_API_PATH_PREFIX,
     MlflowHostCreds,
     call_endpoint,
@@ -969,6 +979,146 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
         )
         issues = [Issue.from_proto(issue_proto) for issue_proto in response_proto.issues]
         return PagedList(issues, response_proto.next_page_token or None)
+
+    def create_review_assignment(
+        self, *, experiment_id, target_type, target_id, reviewer, assigner
+    ):
+        # Lazy import — mlflow.genai.__init__ transitively imports the
+        # artifact-repo registry, which imports RestStore, so a top-level
+        # import here creates a circular load.
+        from mlflow.genai.review_assignments.review_assignments import (
+            ReviewAssignment,
+            ReviewTargetType,
+        )
+
+        req = CreateReviewAssignment(
+            experiment_id=str(experiment_id),
+            target_type=ReviewTargetType(target_type).to_proto(),
+            target_id=target_id,
+            reviewer=reviewer,
+            assigner=assigner,
+        )
+        response_proto = self._call_endpoint(
+            CreateReviewAssignment,
+            message_to_json(req),
+            endpoint=f"{_V3_REVIEW_ASSIGNMENTS_REST_API_PATH_PREFIX}/create",
+        )
+        return ReviewAssignment.from_proto(response_proto.review_assignment)
+
+    def bulk_create_review_assignments(
+        self, *, experiment_id, target_type, target_ids, reviewers, assigner
+    ):
+        from mlflow.genai.review_assignments.review_assignments import (
+            BulkCreateFailure,
+            BulkCreateReviewAssignmentsResult,
+            ReviewAssignment,
+            ReviewTargetType,
+        )
+
+        req = BulkCreateReviewAssignments(
+            experiment_id=str(experiment_id),
+            target_type=ReviewTargetType(target_type).to_proto(),
+            target_ids=list(target_ids),
+            reviewers=list(reviewers),
+            assigner=assigner,
+        )
+        response_proto = self._call_endpoint(
+            BulkCreateReviewAssignments,
+            message_to_json(req),
+            endpoint=f"{_V3_REVIEW_ASSIGNMENTS_REST_API_PATH_PREFIX}/bulk-create",
+        )
+        return BulkCreateReviewAssignmentsResult(
+            created=[ReviewAssignment.from_proto(r) for r in response_proto.created],
+            existing=list(response_proto.existing),
+            failed=[
+                BulkCreateFailure(f.target_id, f.reviewer, f.error_message)
+                for f in response_proto.failed
+            ],
+        )
+
+    def get_review_assignment(self, assignment_id):
+        from mlflow.genai.review_assignments.review_assignments import ReviewAssignment
+
+        req = GetReviewAssignment(assignment_id=assignment_id)
+        response_proto = self._call_endpoint(
+            GetReviewAssignment,
+            message_to_json(req),
+            endpoint=f"{_V3_REVIEW_ASSIGNMENTS_REST_API_PATH_PREFIX}/get",
+        )
+        return ReviewAssignment.from_proto(response_proto.review_assignment)
+
+    def list_review_assignments(
+        self,
+        *,
+        experiment_id=None,
+        reviewer=None,
+        state=None,
+        target_type=None,
+        max_results=None,
+        page_token=None,
+    ):
+        from mlflow.genai.review_assignments.review_assignments import (
+            ReviewAssignment,
+            ReviewAssignmentState,
+            ReviewTargetType,
+        )
+
+        req = ListReviewAssignments()
+        if experiment_id is not None:
+            req.experiment_id = str(experiment_id)
+        if reviewer is not None:
+            req.reviewer = reviewer
+        if state is not None:
+            req.state = ReviewAssignmentState(state).to_proto()
+        if target_type is not None:
+            req.target_type = ReviewTargetType(target_type).to_proto()
+        if max_results is not None:
+            req.max_results = max_results
+        if page_token is not None:
+            req.page_token = page_token
+        response_proto = self._call_endpoint(
+            ListReviewAssignments,
+            message_to_json(req),
+            endpoint=f"{_V3_REVIEW_ASSIGNMENTS_REST_API_PATH_PREFIX}/list",
+        )
+        assignments = [ReviewAssignment.from_proto(a) for a in response_proto.review_assignments]
+        return PagedList(assignments, response_proto.next_page_token or None)
+
+    def list_review_assignments_for_target(self, target_id):
+        from mlflow.genai.review_assignments.review_assignments import ReviewAssignment
+
+        req = ListReviewAssignmentsForTarget(target_id=target_id)
+        response_proto = self._call_endpoint(
+            ListReviewAssignmentsForTarget,
+            message_to_json(req),
+            endpoint=f"{_V3_REVIEW_ASSIGNMENTS_REST_API_PATH_PREFIX}/list-for-target",
+        )
+        return [ReviewAssignment.from_proto(a) for a in response_proto.review_assignments]
+
+    def update_review_assignment(self, assignment_id, *, state):
+        from mlflow.genai.review_assignments.review_assignments import (
+            ReviewAssignment,
+            ReviewAssignmentState,
+        )
+
+        req = UpdateReviewAssignment(
+            assignment_id=assignment_id,
+            state=ReviewAssignmentState(state).to_proto(),
+        )
+        response_proto = self._call_endpoint(
+            UpdateReviewAssignment,
+            message_to_json(req),
+            endpoint=f"{_V3_REVIEW_ASSIGNMENTS_REST_API_PATH_PREFIX}/update",
+        )
+        return ReviewAssignment.from_proto(response_proto.review_assignment)
+
+    def delete_review_assignment(self, assignment_id):
+        req = DeleteReviewAssignment(assignment_id=assignment_id)
+        self._call_endpoint(
+            DeleteReviewAssignment,
+            message_to_json(req),
+            endpoint=f"{_V3_REVIEW_ASSIGNMENTS_REST_API_PATH_PREFIX}/delete",
+        )
 
     def log_metric(self, run_id: str, metric: Metric):
         """

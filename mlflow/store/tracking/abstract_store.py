@@ -1761,8 +1761,8 @@ class AbstractStore(GatewayStoreMixin):
 
         Args:
             experiment_id: Parent experiment.
-            target_type: One of ``"trace"`` / ``"session"`` / ``"span"``;
-                v1 only ``"trace"`` is fully wired.
+            target_type: What kind of object is being reviewed. v1 supports
+                ``"trace"`` only.
             target_id: The thing being reviewed.
             reviewer: Free-form reviewer identifier (typically email).
                 Matched case-insensitively against ``AssessmentSource.source_id``
@@ -1796,7 +1796,8 @@ class AbstractStore(GatewayStoreMixin):
 
         Args:
             experiment_id: Parent experiment.
-            target_type: One of ``"trace"`` / ``"session"`` / ``"span"``.
+            target_type: What kind of object is being reviewed. v1 supports
+                ``"trace"`` only.
             target_ids: List of target IDs to assign (de-duplicated by caller).
             reviewers: List of reviewer identifiers (de-duplicated by caller).
             assigner: Who created the assignments.

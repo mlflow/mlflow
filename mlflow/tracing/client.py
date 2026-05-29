@@ -4,7 +4,7 @@ import time
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import nullcontext
-from typing import Sequence
+from typing import TYPE_CHECKING, Sequence
 
 import mlflow
 from mlflow.entities.assessment import Assessment
@@ -54,6 +54,14 @@ from mlflow.tracking._tracking_service.utils import _get_store, _resolve_trackin
 from mlflow.utils import is_uuid
 from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS
 from mlflow.utils.uri import add_databricks_profile_info_to_artifact_uri, is_databricks_uri
+
+if TYPE_CHECKING:
+    from mlflow.genai.review_assignments.review_assignments import (
+        BulkCreateReviewAssignmentsResult,
+        ReviewAssignment,
+        ReviewAssignmentState,
+        ReviewTargetType,
+    )
 
 _logger = logging.getLogger(__name__)
 
@@ -879,3 +887,84 @@ class TracingClient:
             The Issue entity.
         """
         return self.store.get_issue(issue_id)
+
+    def _create_review_assignment(
+        self,
+        experiment_id: str,
+        *,
+        target_type: "ReviewTargetType | str",
+        target_id: str,
+        reviewer: str,
+        assigner: str,
+    ) -> "ReviewAssignment":
+        """Create a single OSS-native review assignment.
+
+        Identity is ``(target_id, reviewer)``; creating the same pair twice
+        is a no-op that returns the existing row.
+        """
+        return self.store.create_review_assignment(
+            experiment_id=experiment_id,
+            target_type=target_type,
+            target_id=target_id,
+            reviewer=reviewer,
+            assigner=assigner,
+        )
+
+    def _bulk_create_review_assignments(
+        self,
+        experiment_id: str,
+        *,
+        target_type: "ReviewTargetType | str",
+        target_ids: list[str],
+        reviewers: list[str],
+        assigner: str,
+    ) -> "BulkCreateReviewAssignmentsResult":
+        """Create the cross product of (targets x reviewers) atomically."""
+        return self.store.bulk_create_review_assignments(
+            experiment_id=experiment_id,
+            target_type=target_type,
+            target_ids=target_ids,
+            reviewers=reviewers,
+            assigner=assigner,
+        )
+
+    def _get_review_assignment(self, assignment_id: str) -> "ReviewAssignment":
+        """Get a review assignment by its server-generated id."""
+        return self.store.get_review_assignment(assignment_id)
+
+    def _list_review_assignments(
+        self,
+        *,
+        experiment_id: str | None = None,
+        reviewer: str | None = None,
+        state: "ReviewAssignmentState | str | None" = None,
+        target_type: "ReviewTargetType | str | None" = None,
+        max_results: int | None = None,
+        page_token: str | None = None,
+    ) -> "PagedList[ReviewAssignment]":
+        """List review assignments filtered by experiment / reviewer / state /
+        target_type. At least one of ``experiment_id`` or ``reviewer`` is
+        required.
+        """
+        return self.store.list_review_assignments(
+            experiment_id=experiment_id,
+            reviewer=reviewer,
+            state=state,
+            target_type=target_type,
+            max_results=max_results,
+            page_token=page_token,
+        )
+
+    def _list_review_assignments_for_target(self, target_id: str) -> "list[ReviewAssignment]":
+        """List every reviewer assigned to a given target."""
+        return self.store.list_review_assignments_for_target(target_id)
+
+    def _update_review_assignment(
+        self, assignment_id: str, *, state: "ReviewAssignmentState | str"
+    ) -> "ReviewAssignment":
+        """Update the workflow state of a review assignment."""
+        return self.store.update_review_assignment(assignment_id, state=state)
+
+    def _delete_review_assignment(self, assignment_id: str) -> None:
+        """Delete a review assignment by id. No-op when it doesn't exist."""
+        self.store.delete_review_assignment(assignment_id)

@@ -25,9 +25,27 @@ REVIEWER_MAX_LENGTH = 250
 ASSIGNER_MAX_LENGTH = 250
 TARGET_ID_MAX_LENGTH = 50
 
+# Cap on the bulk-create cross product (`len(target_ids) * len(reviewers)`).
+# Mirrors `MAX_ENTITIES_PER_BATCH` for log-batch: a single write
+# transaction shouldn't fan out unboundedly, and the response carries the
+# full entity per created row, so an unbounded N*M would blow the gRPC
+# message ceiling. Callers needing more should chunk and call repeatedly;
+# idempotency on the unique key makes overlap safe.
+MAX_BULK_CREATE_ASSIGNMENTS = 1000
+
 
 def _invalid(message: str) -> MlflowException:
     return MlflowException(message, error_code=INVALID_PARAMETER_VALUE)
+
+
+def validate_bulk_create_size(num_targets: int, num_reviewers: int) -> None:
+    total = num_targets * num_reviewers
+    if total > MAX_BULK_CREATE_ASSIGNMENTS:
+        raise _invalid(
+            f"bulk-create requests at most {MAX_BULK_CREATE_ASSIGNMENTS} assignments "
+            f"(len(target_ids) * len(reviewers)); got {num_targets} * {num_reviewers} "
+            f"= {total}. Chunk the request and call repeatedly."
+        )
 
 
 def _validate_non_empty_string(value: object, field: str, max_length: int) -> None:

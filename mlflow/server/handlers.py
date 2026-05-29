@@ -86,10 +86,14 @@ from mlflow.exceptions import (
 from mlflow.gateway.budget import maybe_refresh_budget_policies
 from mlflow.gateway.budget_tracker import _policy_applies, get_budget_tracker
 from mlflow.gateway.utils import is_valid_endpoint_name
+from mlflow.genai.review_assignments.review_assignments import (
+    ReviewAssignmentState,
+    ReviewTargetType,
+)
 from mlflow.genai.scorers.scorer_utils import DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR
 from mlflow.models import Model
 from mlflow.prompt.constants import PROMPT_TEXT_TAG_KEY, PROMPT_TYPE_TAG_KEY
-from mlflow.protos import databricks_pb2
+from mlflow.protos import databricks_pb2, review_assignments_pb2
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
     FEATURE_DISABLED,
@@ -144,6 +148,15 @@ from mlflow.protos.model_registry_pb2 import (
 )
 from mlflow.protos.prompt_optimization_pb2 import (
     PromptOptimizationJob as PromptOptimizationJobProto,
+)
+from mlflow.protos.review_assignments_pb2 import (
+    BulkCreateReviewAssignments,
+    CreateReviewAssignment,
+    DeleteReviewAssignment,
+    GetReviewAssignment,
+    ListReviewAssignments,
+    ListReviewAssignmentsForTarget,
+    UpdateReviewAssignment,
 )
 from mlflow.protos.service_pb2 import (
     AddDatasetToExperiments,
@@ -296,7 +309,11 @@ from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.jobs.abstract_store import AbstractJobStore
 from mlflow.store.model_registry.abstract_store import AbstractStore as AbstractModelRegistryStore
 from mlflow.store.model_registry.rest_store import RestStore as ModelRegistryRestStore
-from mlflow.store.tracking import MAX_RESULTS_QUERY_TRACE_METRICS, SEARCH_MAX_RESULTS_DEFAULT
+from mlflow.store.tracking import (
+    MAX_RESULTS_QUERY_TRACE_METRICS,
+    SEARCH_MAX_RESULTS_DEFAULT,
+    SEARCH_MAX_RESULTS_THRESHOLD,
+)
 from mlflow.store.tracking.abstract_store import AbstractStore as AbstractTrackingStore
 from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
 from mlflow.store.workspace.abstract_store import WorkspaceNameValidator
@@ -4523,6 +4540,167 @@ def _invoke_issue_detection_handler():
     return jsonify({"job_id": job.job_id, "run_id": run_id})
 
 
+# =============================================================================
+# Review Assignment Handlers (OSS-native CRUD; see mlflow/genai/review_assignments/)
+# =============================================================================
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _create_review_assignment():
+    request_message = _get_request_message(
+        CreateReviewAssignment(),
+        schema={
+            "experiment_id": [_assert_required, _assert_string],
+            "target_id": [_assert_required, _assert_string],
+            "reviewer": [_assert_required, _assert_string],
+            "assigner": [_assert_required, _assert_string],
+        },
+    )
+    # from_proto rejects both an unset enum (defaults to UNSPECIFIED) and an
+    # explicit UNSPECIFIED, so it doubles as the validate_required check.
+    target_type = ReviewTargetType.from_proto(request_message.target_type)
+    created = _get_tracking_store().create_review_assignment(
+        experiment_id=request_message.experiment_id,
+        target_type=target_type,
+        target_id=request_message.target_id,
+        reviewer=request_message.reviewer,
+        assigner=request_message.assigner,
+    )
+    return _wrap_response(CreateReviewAssignment.Response(review_assignment=created.to_proto()))
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _bulk_create_review_assignments():
+    request_message = _get_request_message(
+        BulkCreateReviewAssignments(),
+        schema={
+            "experiment_id": [_assert_required, _assert_string],
+            "assigner": [_assert_required, _assert_string],
+        },
+    )
+    target_type = ReviewTargetType.from_proto(request_message.target_type)
+    target_ids = list(request_message.target_ids)
+    reviewers = list(request_message.reviewers)
+    result = _get_tracking_store().bulk_create_review_assignments(
+        experiment_id=request_message.experiment_id,
+        target_type=target_type,
+        target_ids=target_ids,
+        reviewers=reviewers,
+        assigner=request_message.assigner,
+    )
+    response = BulkCreateReviewAssignments.Response(
+        created=[r.to_proto() for r in result.created],
+        existing=result.existing,
+        failed=[f.to_proto() for f in result.failed],
+    )
+    return _wrap_response(response)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _get_review_assignment():
+    request_message = _get_request_message(
+        GetReviewAssignment(),
+        schema={"assignment_id": [_assert_required, _assert_string]},
+    )
+    assignment = _get_tracking_store().get_review_assignment(request_message.assignment_id)
+    return _wrap_response(GetReviewAssignment.Response(review_assignment=assignment.to_proto()))
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _list_review_assignments():
+    request_message = _get_request_message(
+        ListReviewAssignments(),
+        schema={
+            "max_results": [
+                _assert_intlike,
+                lambda x: _assert_intlike_within_range(
+                    int(x),
+                    1,
+                    SEARCH_MAX_RESULTS_THRESHOLD,
+                    message=(f"max_results must be between 1 and {SEARCH_MAX_RESULTS_THRESHOLD}."),
+                ),
+            ],
+        },
+    )
+    # Empty string is treated as "unset" (matches _search_issues): an
+    # explicit "" would otherwise slip past the store's `is None` scope
+    # guard and blow up on int("") deeper down.
+    experiment_id = request_message.experiment_id or None
+    reviewer = request_message.reviewer or None
+    # UNSPECIFIED (set or unset) means "no filter"; only a concrete enum
+    # value becomes a store-layer predicate.
+    state = None
+    if request_message.HasField("state") and (
+        request_message.state != review_assignments_pb2.REVIEW_ASSIGNMENT_STATE_UNSPECIFIED
+    ):
+        state = ReviewAssignmentState.from_proto(request_message.state)
+    target_type = None
+    if request_message.HasField("target_type") and (
+        request_message.target_type != review_assignments_pb2.REVIEW_TARGET_TYPE_UNSPECIFIED
+    ):
+        target_type = ReviewTargetType.from_proto(request_message.target_type)
+    max_results = request_message.max_results if request_message.HasField("max_results") else None
+    page_token = request_message.page_token if request_message.HasField("page_token") else None
+    assignments = _get_tracking_store().list_review_assignments(
+        experiment_id=experiment_id,
+        reviewer=reviewer,
+        state=state,
+        target_type=target_type,
+        max_results=max_results,
+        page_token=page_token,
+    )
+    response = ListReviewAssignments.Response(
+        review_assignments=[a.to_proto() for a in assignments],
+        next_page_token=assignments.token or "",
+    )
+    return _wrap_response(response)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _list_review_assignments_for_target():
+    request_message = _get_request_message(
+        ListReviewAssignmentsForTarget(),
+        schema={"target_id": [_assert_required, _assert_string]},
+    )
+    assignments = _get_tracking_store().list_review_assignments_for_target(
+        request_message.target_id
+    )
+    response = ListReviewAssignmentsForTarget.Response(
+        review_assignments=[a.to_proto() for a in assignments],
+    )
+    return _wrap_response(response)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _update_review_assignment():
+    request_message = _get_request_message(
+        UpdateReviewAssignment(),
+        schema={"assignment_id": [_assert_required, _assert_string]},
+    )
+    state = ReviewAssignmentState.from_proto(request_message.state)
+    updated = _get_tracking_store().update_review_assignment(
+        request_message.assignment_id, state=state
+    )
+    return _wrap_response(UpdateReviewAssignment.Response(review_assignment=updated.to_proto()))
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _delete_review_assignment():
+    request_message = _get_request_message(
+        DeleteReviewAssignment(),
+        schema={"assignment_id": [_assert_required, _assert_string]},
+    )
+    _get_tracking_store().delete_review_assignment(request_message.assignment_id)
+    return _wrap_response(DeleteReviewAssignment.Response())
+
+
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _get_job(job_id):
@@ -7212,6 +7390,14 @@ HANDLERS = {
     UpdateIssue: _update_issue,
     GetIssue: _get_issue,
     SearchIssues: _search_issues,
+    # Review assignments (OSS-native CRUD).
+    CreateReviewAssignment: _create_review_assignment,
+    BulkCreateReviewAssignments: _bulk_create_review_assignments,
+    GetReviewAssignment: _get_review_assignment,
+    ListReviewAssignments: _list_review_assignments,
+    ListReviewAssignmentsForTarget: _list_review_assignments_for_target,
+    UpdateReviewAssignment: _update_review_assignment,
+    DeleteReviewAssignment: _delete_review_assignment,
     # Legacy MLflow Tracing V2 APIs. Kept for backward compatibility but do not use.
     StartTrace: _deprecated_start_trace_v2,
     EndTrace: _deprecated_end_trace_v2,
