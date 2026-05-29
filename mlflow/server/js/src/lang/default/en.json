@@ -63,6 +63,10 @@
     "defaultMessage": "Source Run",
     "description": "Label name for source run metadata in model version page"
   },
+  "+M9wET": {
+    "defaultMessage": "Shown to reviewers as the label prompt and used as the label's key on collected feedback. Up to 256 characters. Immutable after create.",
+    "description": "Label schema name hint"
+  },
   "+Njd07": {
     "defaultMessage": "No sessions found",
     "description": "Title for the empty sessions list in the select sessions modal"
@@ -7395,10 +7399,6 @@
     "defaultMessage": "Assistant Not Available",
     "description": "Title shown when Assistant is not available for remote servers"
   },
-  "fDr4HX": {
-    "defaultMessage": "Are you sure you want to delete the label schema {name}? Assessments already collected under this schema are not removed and will render as free-form values in the review UI.",
-    "description": "Delete label schema confirmation prompt"
-  },
   "fHI22G": {
     "defaultMessage": "JSON",
     "description": "Label for the JSON render mode in the model trace explorer inputs/outputs tab"
@@ -8459,10 +8459,6 @@
     "defaultMessage": "Learn more about the AI Gateway in the {gatewayDocs}.",
     "description": "AI Gateway setup guide > Documentation link"
   },
-  "ko3wH9": {
-    "defaultMessage": "Shown to reviewers as the label prompt and used as the assessment key. Up to 256 characters. Immutable after create.",
-    "description": "Label schema name hint"
-  },
   "ktiuki": {
     "defaultMessage": "Get Link",
     "description": "Title text for get-link modal"
@@ -8950,6 +8946,10 @@
   "nRsCQz": {
     "defaultMessage": "Agents-as-a-judge",
     "description": "Home page news card title three"
+  },
+  "nTeepp": {
+    "defaultMessage": "Are you sure you want to delete the label schema {name}? Labels already collected under this schema are not removed and will render as free-form values in the review UI.",
+    "description": "Delete label schema confirmation prompt"
   },
   "nVndit": {
     "defaultMessage": "Registered on {registeredDate}",

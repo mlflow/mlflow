@@ -197,7 +197,10 @@ export const LabelSchemaModal = ({ experimentId, editingSchema, visible, onClose
                 <div
                   css={{
                     flex: 1,
-                    overflowY: 'auto',
+                    // `scroll` (not `auto`) so the scrollbar is always
+                    // visible — otherwise macOS overlay scrollbars hide it
+                    // and the config below the fold looks like it isn't there.
+                    overflowY: 'scroll',
                     display: 'flex',
                     flexDirection: 'column',
                     gap: theme.spacing.sm,

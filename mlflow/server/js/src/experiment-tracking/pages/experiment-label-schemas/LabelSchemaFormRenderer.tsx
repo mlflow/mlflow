@@ -37,7 +37,7 @@ export const LabelSchemaFormRenderer = ({ control, isEdit, errors, watchedValues
           required
           infoPopoverContents={
             <FormattedMessage
-              defaultMessage="Shown to reviewers as the label prompt and used as the assessment key. Up to 256 characters. Immutable after create."
+              defaultMessage="Shown to reviewers as the label prompt and used as the label's key on collected feedback. Up to 256 characters. Immutable after create."
               description="Label schema name hint"
             />
           }
