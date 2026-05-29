@@ -8,7 +8,6 @@ allowed-tools:
   - Bash
   - Grep
   - Glob
-  - Agent
   - Edit(//tmp/review-payload.json)
 argument-hint: "<owner_repo> <pr_number> [extra_context]"
 arguments: [owner_repo, pr_number, extra_context]
