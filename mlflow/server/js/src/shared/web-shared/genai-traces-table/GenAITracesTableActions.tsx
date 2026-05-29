@@ -128,6 +128,7 @@ const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {
 
   const hasExportAction = Boolean(traceActions?.exportToEvals);
   const hasRunJudgesAction = Boolean(traceActions?.runJudgesAction);
+  const hasAssignReviewersAction = Boolean(traceActions?.assignReviewersAction);
   const hasEditTagsAction = shouldEnableTagGrouping() && Boolean(traceActions?.editTags);
   const hasDeleteAction = Boolean(traceActions?.deleteTracesAction);
 
@@ -138,6 +139,11 @@ const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {
   const handleRunJudges = useCallback(() => {
     const traceIds = compact(selectedTraces.map((trace) => trace.traceInfo?.trace_id));
     traceActions?.runJudgesAction?.showRunJudgesModal(traceIds);
+  }, [selectedTraces, traceActions]);
+
+  const handleAssignReviewers = useCallback(() => {
+    const traceIds = compact(selectedTraces.map((trace) => trace.traceInfo?.trace_id));
+    traceActions?.assignReviewersAction?.showAssignReviewersModal(traceIds);
   }, [selectedTraces, traceActions]);
 
   const selectedSessionCount = useMemo(() => {
@@ -156,7 +162,8 @@ const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {
 
   const isEditTagsDisabled = selectedTraces.length > 1;
   const noTracesSelected = selectedTraces.length === 0;
-  const noActionsAvailable = !hasExportAction && !hasRunJudgesAction && !hasEditTagsAction && !hasDeleteAction;
+  const noActionsAvailable =
+    !hasExportAction && !hasRunJudgesAction && !hasAssignReviewersAction && !hasEditTagsAction && !hasDeleteAction;
   const canCompare = selectedTraces.length >= 2 && selectedTraces.length < 4;
 
   const groupLabelStyles = {
@@ -291,7 +298,7 @@ const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {
                   </DropdownMenu.Group>
                 </>
               )}
-              {(hasEditTagsAction || hasDeleteAction) && (
+              {(hasEditTagsAction || hasDeleteAction || hasAssignReviewersAction) && (
                 <>
                   {(hasExportAction || hasRunJudgesAction) && <DropdownMenu.Separator />}
                   <DropdownMenu.Group>
@@ -301,6 +308,18 @@ const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {
                         description: 'Trace actions dropdown group label',
                       })}
                     </DropdownMenu.Label>
+                    {hasAssignReviewersAction && (
+                      <DropdownMenu.Item
+                        componentId="mlflow.genai-traces-table.assign-reviewers"
+                        css={groupItemStyles}
+                        onClick={handleAssignReviewers}
+                      >
+                        {intl.formatMessage({
+                          defaultMessage: 'Assign reviewers',
+                          description: 'Assign reviewers to selected traces action',
+                        })}
+                      </DropdownMenu.Item>
+                    )}
                     {hasEditTagsAction && (
                       <DropdownMenu.Item
                         componentId="mlflow.genai-traces-table.edit-tags"
@@ -338,6 +357,7 @@ const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {
 
       {traceActions?.editTags?.EditTagsModal}
       {traceActions?.runJudgesAction?.RunJudgesModal}
+      {traceActions?.assignReviewersAction?.AssignReviewersModal}
 
       {showDeleteModal && traceActions?.deleteTracesAction && (
         <GenAiDeleteTraceModal

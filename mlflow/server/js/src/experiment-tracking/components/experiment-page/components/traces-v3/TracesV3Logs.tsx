@@ -75,6 +75,7 @@ import { useQueryClient } from '@databricks/web-shared/query-client';
 import { useSetInitialTimeFilter } from './hooks/useSetInitialTimeFilter';
 import { checkColumnContents } from './utils/columnUtils';
 import { useGetDeleteTracesAction } from './hooks/useGetDeleteTracesAction';
+import { useAssignReviewersOnTracesConfiguration } from './review-assignments/useAssignReviewersOnTracesConfiguration';
 import { ExportTracesToDatasetModal } from '../../../../pages/experiment-evaluation-datasets/components/ExportTracesToDatasetModal';
 import { useRegisterSelectedIds } from '@mlflow/mlflow/src/assistant';
 import { AssistantAwareDrawer } from '@mlflow/mlflow/src/common/components/AssistantAwareDrawer';
@@ -345,6 +346,10 @@ const TracesV3LogsImpl = React.memo(
       runJudgeConfiguration.subscribeToScorerFinished,
     );
 
+    const { showAssignReviewersModal, AssignReviewersModal } = useAssignReviewersOnTracesConfiguration(
+      singleExperimentId ?? '',
+    );
+
     const traceActions: TraceActions = useMemo(() => {
       return {
         deleteTracesAction,
@@ -365,6 +370,14 @@ const TracesV3LogsImpl = React.memo(
             RunJudgesModal,
           },
         }),
+        // Review assignments are experiment-scoped, so only offer the
+        // bulk-assign action when the table is scoped to one experiment.
+        ...(singleExperimentId && {
+          assignReviewersAction: {
+            showAssignReviewersModal,
+            AssignReviewersModal,
+          },
+        }),
       };
     }, [
       deleteTracesAction,
@@ -374,6 +387,9 @@ const TracesV3LogsImpl = React.memo(
       EditTagsModal,
       showRunJudgesModal,
       RunJudgesModal,
+      singleExperimentId,
+      showAssignReviewersModal,
+      AssignReviewersModal,
     ]);
 
     const countInfo = useCountInfo({

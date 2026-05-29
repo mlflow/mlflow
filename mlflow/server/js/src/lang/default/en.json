@@ -655,6 +655,10 @@
     "defaultMessage": "User frustration",
     "description": "LLM template option"
   },
+  "1mqvVF": {
+    "defaultMessage": "Assign reviewers",
+    "description": "Assign reviewers to selected traces action"
+  },
   "1oofcq": {
     "defaultMessage": "Show less",
     "description": "Link that collapses an expanded list when clicked"
@@ -898,6 +902,10 @@
   "37ReeZ": {
     "defaultMessage": "On",
     "description": "Usage tracking enabled state"
+  },
+  "3AxSkb": {
+    "defaultMessage": "Assign ({count})",
+    "description": "Review assignments: confirm button in the assign reviewers modal, with reviewer count"
   },
   "3CWJEU": {
     "defaultMessage": "Issues",
@@ -1930,6 +1938,10 @@
   "9IN1I8": {
     "defaultMessage": "Select as compared version",
     "description": "Label for selecting compared prompt version in the comparison view"
+  },
+  "9IaXWi": {
+    "defaultMessage": "Assigning {traceCount, plural, one {# trace} other {# traces}} for review.",
+    "description": "Review assignments: summary of how many traces the assignment applies to"
   },
   "9J8zoa": {
     "defaultMessage": "An error occurred while rendering this component.",
@@ -3139,6 +3151,10 @@
     "defaultMessage": "Last modified",
     "description": "Column title for last modified timestamp for a model in the registered model page"
   },
+  "Gt9Wpx": {
+    "defaultMessage": "Cancel",
+    "description": "Review assignments: cancel button in the assign reviewers modal"
+  },
   "GyGCX5": {
     "defaultMessage": "Create experiment",
     "description": "Home page experiments empty state CTA"
@@ -3550,6 +3566,10 @@
   "JPd7WA": {
     "defaultMessage": "Key must be unique",
     "description": "Error message for unique key in trace tag assignment modal"
+  },
+  "JQDgTv": {
+    "defaultMessage": "Assign reviewers",
+    "description": "Review assignments: title of the bulk assign reviewers modal"
   },
   "JUTcIz": {
     "defaultMessage": "Time created",
@@ -3982,6 +4002,10 @@
   "M8pHqP": {
     "defaultMessage": "Root cause failure:",
     "description": "Evaluation review > assessments > root cause failure > title"
+  },
+  "M8prSi": {
+    "defaultMessage": "Sign in to assign reviewers.",
+    "description": "Review assignments: tooltip when no current user is available to record as the assigner"
   },
   "M9X4CX": {
     "defaultMessage": "You cannot delete your own account.",
@@ -5951,6 +5975,10 @@
     "defaultMessage": "Direct access to Anthropic's Messages API with Claude-specific features.",
     "description": "Anthropic passthrough description"
   },
+  "XpyduG": {
+    "defaultMessage": "{failedCount, plural, one {# assignment} other {# assignments}} could not be created.",
+    "description": "Review assignments: warning when some assignments in the batch failed to create"
+  },
   "Xs1oJm": {
     "defaultMessage": "Search metric charts",
     "description": "Run page > Charts tab > Filter metric charts input > placeholder"
@@ -7286,6 +7314,10 @@
   "fBB0xR": {
     "defaultMessage": "Assistant Not Available",
     "description": "Title shown when Assistant is not available for remote servers"
+  },
+  "fEDEBT": {
+    "defaultMessage": "Reviewers",
+    "description": "Review assignments: label for the reviewers input"
   },
   "fHI22G": {
     "defaultMessage": "JSON",
@@ -9398,6 +9430,10 @@
   "qvEOHi": {
     "defaultMessage": "MLflow collects usage data to improve the product. To confirm your preferences, please visit the settings page in the navigation sidebar. To learn more about what data is collected, please visit the <documentation>documentation</documentation>.",
     "description": "Telemetry alert description"
+  },
+  "qwZYZ8": {
+    "defaultMessage": "One reviewer per line, or comma-separated (typically email).",
+    "description": "Review assignments: hint describing how to enter reviewers"
   },
   "qz9XeG": {
     "defaultMessage": "Cancel",

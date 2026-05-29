@@ -164,6 +164,11 @@ export interface TraceActions {
     showRunJudgesModal: (traceIds: string[]) => void;
     RunJudgesModal: React.ReactNode;
   };
+
+  assignReviewersAction?: {
+    showAssignReviewersModal: (traceIds: string[]) => void;
+    AssignReviewersModal: React.ReactNode;
+  };
 }
 
 // @deprecated, use TableFilter instead
