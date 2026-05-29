@@ -4,6 +4,7 @@ import type { LabelSchemaInput } from '../types';
 import { LabelSchemaInputCategorical } from './LabelSchemaInputCategorical';
 import { LabelSchemaInputNumeric } from './LabelSchemaInputNumeric';
 import { LabelSchemaInputPassFail } from './LabelSchemaInputPassFail';
+import { LabelSchemaInputText } from './LabelSchemaInputText';
 
 /**
  * Strongly-typed value carrier matching the discriminated `LabelSchemaInput`
@@ -14,6 +15,7 @@ import { LabelSchemaInputPassFail } from './LabelSchemaInputPassFail';
  * - `categorical` single-select: string
  * - `categorical` multi-select: string[]
  * - `numeric`: number
+ * - `text`: string
  *
  * `null` / `undefined` represent the "not yet reviewed" state and are
  * legitimate values across all variants; the renderer's `onChange`
@@ -109,11 +111,22 @@ export const LabelSchemaInputRenderer = ({
       />
     );
   }
+  if (input.text) {
+    return (
+      <LabelSchemaInputText
+        input={input.text}
+        value={typeof value === 'string' ? value : null}
+        onChange={onChange}
+        disabled={disabled}
+        componentId={`${componentId}.text`}
+      />
+    );
+  }
   return (
     <Alert
       componentId={`${componentId}.invalid-input`}
       type="error"
-      message="Invalid label schema: input has no variant set (expected one of pass_fail, categorical, numeric)."
+      message="Invalid label schema: input has no variant set (expected one of pass_fail, categorical, numeric, text)."
       closable={false}
       css={{ color: theme.colors.textValidationDanger }}
     />

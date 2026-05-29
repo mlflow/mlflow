@@ -16,7 +16,6 @@ export interface UpdateLabelSchemaParams {
    * `type` is immutable post-create and is not on this surface.
    */
   name?: string;
-  title?: string;
   instruction?: string;
   enable_comment?: boolean;
   input?: LabelSchemaInput;
@@ -40,9 +39,6 @@ export const useUpdateLabelSchemaMutation = () => {
       const body: UpdateLabelSchemaParams = { schema_id: params.schema_id };
       if (params.name !== undefined) {
         body.name = params.name;
-      }
-      if (params.title !== undefined) {
-        body.title = params.title;
       }
       if (params.instruction !== undefined) {
         body.instruction = params.instruction;

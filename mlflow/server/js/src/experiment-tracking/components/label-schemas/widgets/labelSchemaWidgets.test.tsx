@@ -213,6 +213,22 @@ describe('LabelSchemaInputRenderer', () => {
     expect(screen.getByText('Pick one')).toBeInTheDocument();
   });
 
+  it('dispatches to the text widget when input.text is set', () => {
+    const onChange = jest.fn();
+    renderWithProviders(
+      <LabelSchemaInputRenderer
+        input={{ text: { max_length: 200 } }}
+        value={null}
+        onChange={onChange}
+        componentId="test.dispatcher"
+      />,
+    );
+    const textbox = screen.getByRole('textbox');
+    expect(textbox).toBeInTheDocument();
+    fireEvent.change(textbox, { target: { value: 'hello' } });
+    expect(onChange).toHaveBeenCalledWith('hello');
+  });
+
   it('renders an error Alert when the input wrapper has no variant set', () => {
     renderWithProviders(
       <LabelSchemaInputRenderer input={{}} value={null} onChange={jest.fn()} componentId="test.dispatcher" />,

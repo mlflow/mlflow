@@ -28,10 +28,7 @@ export interface LabelSchemaInputCategoricalProps {
 /**
  * Categorical labeling widget. Renders as a `DialogCombobox` — single-
  * select by default, multi-select when `input.multi_select === true`.
- *
- * The schema's `semantic_polarity` field is a UI hint used by downstream
- * consumers (e.g., to color "most positive" green) and is NOT applied
- * here; this widget renders the options in their authored order.
+ * Options render in their authored order.
  */
 export const LabelSchemaInputCategorical = ({
   input,

@@ -143,135 +143,6 @@ public final class LabelSchemas {
     // @@protoc_insertion_point(enum_scope:mlflow.label_schemas.LabelSchemaType)
   }
 
-  /**
-   * <pre>
-   * Polarity hint for feedback-type InputCategorical schemas. Required for
-   * feedback-type categorical schemas so the UI knows which direction is
-   * positive (e.g., "good" vs "bad" sorting and coloring). Same UNSPECIFIED
-   * caveat as LabelSchemaType: the handler must explicitly reject the zero
-   * value when the surrounding schema is feedback-typed.
-   * </pre>
-   *
-   * Protobuf enum {@code mlflow.label_schemas.CategoricalSemanticPolarity}
-   */
-  public enum CategoricalSemanticPolarity
-      implements com.google.protobuf.ProtocolMessageEnum {
-    /**
-     * <code>CATEGORICAL_SEMANTIC_POLARITY_UNSPECIFIED = 0;</code>
-     */
-    CATEGORICAL_SEMANTIC_POLARITY_UNSPECIFIED(0),
-    /**
-     * <pre>
-     * The first option is the most positive.
-     * </pre>
-     *
-     * <code>ASCENDING = 1;</code>
-     */
-    ASCENDING(1),
-    /**
-     * <pre>
-     * The first option is the most negative.
-     * </pre>
-     *
-     * <code>DESCENDING = 2;</code>
-     */
-    DESCENDING(2),
-    ;
-
-    /**
-     * <code>CATEGORICAL_SEMANTIC_POLARITY_UNSPECIFIED = 0;</code>
-     */
-    public static final int CATEGORICAL_SEMANTIC_POLARITY_UNSPECIFIED_VALUE = 0;
-    /**
-     * <pre>
-     * The first option is the most positive.
-     * </pre>
-     *
-     * <code>ASCENDING = 1;</code>
-     */
-    public static final int ASCENDING_VALUE = 1;
-    /**
-     * <pre>
-     * The first option is the most negative.
-     * </pre>
-     *
-     * <code>DESCENDING = 2;</code>
-     */
-    public static final int DESCENDING_VALUE = 2;
-
-
-    public final int getNumber() {
-      return value;
-    }
-
-    /**
-     * @param value The numeric wire value of the corresponding enum entry.
-     * @return The enum associated with the given numeric wire value.
-     * @deprecated Use {@link #forNumber(int)} instead.
-     */
-    @java.lang.Deprecated
-    public static CategoricalSemanticPolarity valueOf(int value) {
-      return forNumber(value);
-    }
-
-    /**
-     * @param value The numeric wire value of the corresponding enum entry.
-     * @return The enum associated with the given numeric wire value.
-     */
-    public static CategoricalSemanticPolarity forNumber(int value) {
-      switch (value) {
-        case 0: return CATEGORICAL_SEMANTIC_POLARITY_UNSPECIFIED;
-        case 1: return ASCENDING;
-        case 2: return DESCENDING;
-        default: return null;
-      }
-    }
-
-    public static com.google.protobuf.Internal.EnumLiteMap<CategoricalSemanticPolarity>
-        internalGetValueMap() {
-      return internalValueMap;
-    }
-    private static final com.google.protobuf.Internal.EnumLiteMap<
-        CategoricalSemanticPolarity> internalValueMap =
-          new com.google.protobuf.Internal.EnumLiteMap<CategoricalSemanticPolarity>() {
-            public CategoricalSemanticPolarity findValueByNumber(int number) {
-              return CategoricalSemanticPolarity.forNumber(number);
-            }
-          };
-
-    public final com.google.protobuf.Descriptors.EnumValueDescriptor
-        getValueDescriptor() {
-      return getDescriptor().getValues().get(ordinal());
-    }
-    public final com.google.protobuf.Descriptors.EnumDescriptor
-        getDescriptorForType() {
-      return getDescriptor();
-    }
-    public static final com.google.protobuf.Descriptors.EnumDescriptor
-        getDescriptor() {
-      return org.mlflow.api.proto.LabelSchemas.getDescriptor().getEnumTypes().get(1);
-    }
-
-    private static final CategoricalSemanticPolarity[] VALUES = values();
-
-    public static CategoricalSemanticPolarity valueOf(
-        com.google.protobuf.Descriptors.EnumValueDescriptor desc) {
-      if (desc.getType() != getDescriptor()) {
-        throw new java.lang.IllegalArgumentException(
-          "EnumValueDescriptor is not for this type.");
-      }
-      return VALUES[desc.getIndex()];
-    }
-
-    private final int value;
-
-    private CategoricalSemanticPolarity(int value) {
-      this.value = value;
-    }
-
-    // @@protoc_insertion_point(enum_scope:mlflow.label_schemas.CategoricalSemanticPolarity)
-  }
-
   public interface InputPassFailOrBuilder extends
       // @@protoc_insertion_point(interface_extends:mlflow.label_schemas.InputPassFail)
       com.google.protobuf.MessageOrBuilder {
@@ -1213,25 +1084,6 @@ public final class LabelSchemas {
 
     /**
      * <pre>
-     * Polarity hint. Required for feedback-type schemas.
-     * </pre>
-     *
-     * <code>optional .mlflow.label_schemas.CategoricalSemanticPolarity semantic_polarity = 2;</code>
-     * @return Whether the semanticPolarity field is set.
-     */
-    boolean hasSemanticPolarity();
-    /**
-     * <pre>
-     * Polarity hint. Required for feedback-type schemas.
-     * </pre>
-     *
-     * <code>optional .mlflow.label_schemas.CategoricalSemanticPolarity semantic_polarity = 2;</code>
-     * @return The semanticPolarity.
-     */
-    org.mlflow.api.proto.LabelSchemas.CategoricalSemanticPolarity getSemanticPolarity();
-
-    /**
-     * <pre>
      * When true, the widget renders multi-select and the assessment value
      * becomes a list of strings. Defaults to false (single-select).
      * </pre>
@@ -1253,7 +1105,8 @@ public final class LabelSchemas {
   }
   /**
    * <pre>
-   * Categorical (single- or multi-select) input.
+   * Categorical (single- or multi-select) input. Option ordering is
+   * author-controlled, so there is no separate polarity hint.
    * </pre>
    *
    * Protobuf type {@code mlflow.label_schemas.InputCategorical}
@@ -1269,7 +1122,6 @@ public final class LabelSchemas {
     }
     private InputCategorical() {
       options_ = com.google.protobuf.LazyStringArrayList.EMPTY;
-      semanticPolarity_ = 0;
     }
 
     @java.lang.Override
@@ -1312,20 +1164,8 @@ public final class LabelSchemas {
               options_.add(bs);
               break;
             }
-            case 16: {
-              int rawValue = input.readEnum();
-                @SuppressWarnings("deprecation")
-              org.mlflow.api.proto.LabelSchemas.CategoricalSemanticPolarity value = org.mlflow.api.proto.LabelSchemas.CategoricalSemanticPolarity.valueOf(rawValue);
-              if (value == null) {
-                unknownFields.mergeVarintField(2, rawValue);
-              } else {
-                bitField0_ |= 0x00000001;
-                semanticPolarity_ = rawValue;
-              }
-              break;
-            }
             case 24: {
-              bitField0_ |= 0x00000002;
+              bitField0_ |= 0x00000001;
               multiSelect_ = input.readBool();
               break;
             }
@@ -1416,33 +1256,6 @@ public final class LabelSchemas {
       return options_.getByteString(index);
     }
 
-    public static final int SEMANTIC_POLARITY_FIELD_NUMBER = 2;
-    private int semanticPolarity_;
-    /**
-     * <pre>
-     * Polarity hint. Required for feedback-type schemas.
-     * </pre>
-     *
-     * <code>optional .mlflow.label_schemas.CategoricalSemanticPolarity semantic_polarity = 2;</code>
-     * @return Whether the semanticPolarity field is set.
-     */
-    @java.lang.Override public boolean hasSemanticPolarity() {
-      return ((bitField0_ & 0x00000001) != 0);
-    }
-    /**
-     * <pre>
-     * Polarity hint. Required for feedback-type schemas.
-     * </pre>
-     *
-     * <code>optional .mlflow.label_schemas.CategoricalSemanticPolarity semantic_polarity = 2;</code>
-     * @return The semanticPolarity.
-     */
-    @java.lang.Override public org.mlflow.api.proto.LabelSchemas.CategoricalSemanticPolarity getSemanticPolarity() {
-      @SuppressWarnings("deprecation")
-      org.mlflow.api.proto.LabelSchemas.CategoricalSemanticPolarity result = org.mlflow.api.proto.LabelSchemas.CategoricalSemanticPolarity.valueOf(semanticPolarity_);
-      return result == null ? org.mlflow.api.proto.LabelSchemas.CategoricalSemanticPolarity.CATEGORICAL_SEMANTIC_POLARITY_UNSPECIFIED : result;
-    }
-
     public static final int MULTI_SELECT_FIELD_NUMBER = 3;
     private boolean multiSelect_;
     /**
@@ -1456,7 +1269,7 @@ public final class LabelSchemas {
      */
     @java.lang.Override
     public boolean hasMultiSelect() {
-      return ((bitField0_ & 0x00000002) != 0);
+      return ((bitField0_ & 0x00000001) != 0);
     }
     /**
      * <pre>
@@ -1490,9 +1303,6 @@ public final class LabelSchemas {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 1, options_.getRaw(i));
       }
       if (((bitField0_ & 0x00000001) != 0)) {
-        output.writeEnum(2, semanticPolarity_);
-      }
-      if (((bitField0_ & 0x00000002) != 0)) {
         output.writeBool(3, multiSelect_);
       }
       unknownFields.writeTo(output);
@@ -1514,10 +1324,6 @@ public final class LabelSchemas {
       }
       if (((bitField0_ & 0x00000001) != 0)) {
         size += com.google.protobuf.CodedOutputStream
-          .computeEnumSize(2, semanticPolarity_);
-      }
-      if (((bitField0_ & 0x00000002) != 0)) {
-        size += com.google.protobuf.CodedOutputStream
           .computeBoolSize(3, multiSelect_);
       }
       size += unknownFields.getSerializedSize();
@@ -1537,10 +1343,6 @@ public final class LabelSchemas {
 
       if (!getOptionsList()
           .equals(other.getOptionsList())) return false;
-      if (hasSemanticPolarity() != other.hasSemanticPolarity()) return false;
-      if (hasSemanticPolarity()) {
-        if (semanticPolarity_ != other.semanticPolarity_) return false;
-      }
       if (hasMultiSelect() != other.hasMultiSelect()) return false;
       if (hasMultiSelect()) {
         if (getMultiSelect()
@@ -1560,10 +1362,6 @@ public final class LabelSchemas {
       if (getOptionsCount() > 0) {
         hash = (37 * hash) + OPTIONS_FIELD_NUMBER;
         hash = (53 * hash) + getOptionsList().hashCode();
-      }
-      if (hasSemanticPolarity()) {
-        hash = (37 * hash) + SEMANTIC_POLARITY_FIELD_NUMBER;
-        hash = (53 * hash) + semanticPolarity_;
       }
       if (hasMultiSelect()) {
         hash = (37 * hash) + MULTI_SELECT_FIELD_NUMBER;
@@ -1667,7 +1465,8 @@ public final class LabelSchemas {
     }
     /**
      * <pre>
-     * Categorical (single- or multi-select) input.
+     * Categorical (single- or multi-select) input. Option ordering is
+     * author-controlled, so there is no separate polarity hint.
      * </pre>
      *
      * Protobuf type {@code mlflow.label_schemas.InputCategorical}
@@ -1709,10 +1508,8 @@ public final class LabelSchemas {
         super.clear();
         options_ = com.google.protobuf.LazyStringArrayList.EMPTY;
         bitField0_ = (bitField0_ & ~0x00000001);
-        semanticPolarity_ = 0;
-        bitField0_ = (bitField0_ & ~0x00000002);
         multiSelect_ = false;
-        bitField0_ = (bitField0_ & ~0x00000004);
+        bitField0_ = (bitField0_ & ~0x00000002);
         return this;
       }
 
@@ -1747,12 +1544,8 @@ public final class LabelSchemas {
         }
         result.options_ = options_;
         if (((from_bitField0_ & 0x00000002) != 0)) {
-          to_bitField0_ |= 0x00000001;
-        }
-        result.semanticPolarity_ = semanticPolarity_;
-        if (((from_bitField0_ & 0x00000004) != 0)) {
           result.multiSelect_ = multiSelect_;
-          to_bitField0_ |= 0x00000002;
+          to_bitField0_ |= 0x00000001;
         }
         result.bitField0_ = to_bitField0_;
         onBuilt();
@@ -1812,9 +1605,6 @@ public final class LabelSchemas {
             options_.addAll(other.options_);
           }
           onChanged();
-        }
-        if (other.hasSemanticPolarity()) {
-          setSemanticPolarity(other.getSemanticPolarity());
         }
         if (other.hasMultiSelect()) {
           setMultiSelect(other.getMultiSelect());
@@ -1994,65 +1784,6 @@ public final class LabelSchemas {
         return this;
       }
 
-      private int semanticPolarity_ = 0;
-      /**
-       * <pre>
-       * Polarity hint. Required for feedback-type schemas.
-       * </pre>
-       *
-       * <code>optional .mlflow.label_schemas.CategoricalSemanticPolarity semantic_polarity = 2;</code>
-       * @return Whether the semanticPolarity field is set.
-       */
-      @java.lang.Override public boolean hasSemanticPolarity() {
-        return ((bitField0_ & 0x00000002) != 0);
-      }
-      /**
-       * <pre>
-       * Polarity hint. Required for feedback-type schemas.
-       * </pre>
-       *
-       * <code>optional .mlflow.label_schemas.CategoricalSemanticPolarity semantic_polarity = 2;</code>
-       * @return The semanticPolarity.
-       */
-      @java.lang.Override
-      public org.mlflow.api.proto.LabelSchemas.CategoricalSemanticPolarity getSemanticPolarity() {
-        @SuppressWarnings("deprecation")
-        org.mlflow.api.proto.LabelSchemas.CategoricalSemanticPolarity result = org.mlflow.api.proto.LabelSchemas.CategoricalSemanticPolarity.valueOf(semanticPolarity_);
-        return result == null ? org.mlflow.api.proto.LabelSchemas.CategoricalSemanticPolarity.CATEGORICAL_SEMANTIC_POLARITY_UNSPECIFIED : result;
-      }
-      /**
-       * <pre>
-       * Polarity hint. Required for feedback-type schemas.
-       * </pre>
-       *
-       * <code>optional .mlflow.label_schemas.CategoricalSemanticPolarity semantic_polarity = 2;</code>
-       * @param value The semanticPolarity to set.
-       * @return This builder for chaining.
-       */
-      public Builder setSemanticPolarity(org.mlflow.api.proto.LabelSchemas.CategoricalSemanticPolarity value) {
-        if (value == null) {
-          throw new NullPointerException();
-        }
-        bitField0_ |= 0x00000002;
-        semanticPolarity_ = value.getNumber();
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * Polarity hint. Required for feedback-type schemas.
-       * </pre>
-       *
-       * <code>optional .mlflow.label_schemas.CategoricalSemanticPolarity semantic_polarity = 2;</code>
-       * @return This builder for chaining.
-       */
-      public Builder clearSemanticPolarity() {
-        bitField0_ = (bitField0_ & ~0x00000002);
-        semanticPolarity_ = 0;
-        onChanged();
-        return this;
-      }
-
       private boolean multiSelect_ ;
       /**
        * <pre>
@@ -2065,7 +1796,7 @@ public final class LabelSchemas {
        */
       @java.lang.Override
       public boolean hasMultiSelect() {
-        return ((bitField0_ & 0x00000004) != 0);
+        return ((bitField0_ & 0x00000002) != 0);
       }
       /**
        * <pre>
@@ -2091,7 +1822,7 @@ public final class LabelSchemas {
        * @return This builder for chaining.
        */
       public Builder setMultiSelect(boolean value) {
-        bitField0_ |= 0x00000004;
+        bitField0_ |= 0x00000002;
         multiSelect_ = value;
         onChanged();
         return this;
@@ -2106,7 +1837,7 @@ public final class LabelSchemas {
        * @return This builder for chaining.
        */
       public Builder clearMultiSelect() {
-        bitField0_ = (bitField0_ & ~0x00000004);
+        bitField0_ = (bitField0_ & ~0x00000002);
         multiSelect_ = false;
         onChanged();
         return this;
@@ -2192,9 +1923,8 @@ public final class LabelSchemas {
   }
   /**
    * <pre>
-   * Numeric input bounded by min_value / max_value. For feedback-type
-   * schemas both bounds are required; for expectation-type schemas they
-   * are optional.
+   * Numeric input bounded by min_value / max_value. Both bounds are
+   * optional regardless of schema type.
    * </pre>
    *
    * Protobuf type {@code mlflow.label_schemas.InputNumeric}
@@ -2505,9 +2235,8 @@ public final class LabelSchemas {
     }
     /**
      * <pre>
-     * Numeric input bounded by min_value / max_value. For feedback-type
-     * schemas both bounds are required; for expectation-type schemas they
-     * are optional.
+     * Numeric input bounded by min_value / max_value. Both bounds are
+     * optional regardless of schema type.
      * </pre>
      *
      * Protobuf type {@code mlflow.label_schemas.InputNumeric}
@@ -2802,6 +2531,572 @@ public final class LabelSchemas {
 
   }
 
+  public interface InputTextOrBuilder extends
+      // @@protoc_insertion_point(interface_extends:mlflow.label_schemas.InputText)
+      com.google.protobuf.MessageOrBuilder {
+
+    /**
+     * <pre>
+     * Maximum character length. Unset means no limit.
+     * </pre>
+     *
+     * <code>optional int64 max_length = 1;</code>
+     * @return Whether the maxLength field is set.
+     */
+    boolean hasMaxLength();
+    /**
+     * <pre>
+     * Maximum character length. Unset means no limit.
+     * </pre>
+     *
+     * <code>optional int64 max_length = 1;</code>
+     * @return The maxLength.
+     */
+    long getMaxLength();
+  }
+  /**
+   * <pre>
+   * Free-form text input. Supported for both feedback and expectation
+   * schemas (e.g., free-form rationale or ground-truth text).
+   * </pre>
+   *
+   * Protobuf type {@code mlflow.label_schemas.InputText}
+   */
+  public static final class InputText extends
+      com.google.protobuf.GeneratedMessageV3 implements
+      // @@protoc_insertion_point(message_implements:mlflow.label_schemas.InputText)
+      InputTextOrBuilder {
+  private static final long serialVersionUID = 0L;
+    // Use InputText.newBuilder() to construct.
+    private InputText(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+      super(builder);
+    }
+    private InputText() {
+    }
+
+    @java.lang.Override
+    @SuppressWarnings({"unused"})
+    protected java.lang.Object newInstance(
+        UnusedPrivateParameter unused) {
+      return new InputText();
+    }
+
+    @java.lang.Override
+    public final com.google.protobuf.UnknownFieldSet
+    getUnknownFields() {
+      return this.unknownFields;
+    }
+    private InputText(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      this();
+      if (extensionRegistry == null) {
+        throw new java.lang.NullPointerException();
+      }
+      int mutable_bitField0_ = 0;
+      com.google.protobuf.UnknownFieldSet.Builder unknownFields =
+          com.google.protobuf.UnknownFieldSet.newBuilder();
+      try {
+        boolean done = false;
+        while (!done) {
+          int tag = input.readTag();
+          switch (tag) {
+            case 0:
+              done = true;
+              break;
+            case 8: {
+              bitField0_ |= 0x00000001;
+              maxLength_ = input.readInt64();
+              break;
+            }
+            default: {
+              if (!parseUnknownField(
+                  input, unknownFields, extensionRegistry, tag)) {
+                done = true;
+              }
+              break;
+            }
+          }
+        }
+      } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+        throw e.setUnfinishedMessage(this);
+      } catch (java.io.IOException e) {
+        throw new com.google.protobuf.InvalidProtocolBufferException(
+            e).setUnfinishedMessage(this);
+      } finally {
+        this.unknownFields = unknownFields.build();
+        makeExtensionsImmutable();
+      }
+    }
+    public static final com.google.protobuf.Descriptors.Descriptor
+        getDescriptor() {
+      return org.mlflow.api.proto.LabelSchemas.internal_static_mlflow_label_schemas_InputText_descriptor;
+    }
+
+    @java.lang.Override
+    protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+        internalGetFieldAccessorTable() {
+      return org.mlflow.api.proto.LabelSchemas.internal_static_mlflow_label_schemas_InputText_fieldAccessorTable
+          .ensureFieldAccessorsInitialized(
+              org.mlflow.api.proto.LabelSchemas.InputText.class, org.mlflow.api.proto.LabelSchemas.InputText.Builder.class);
+    }
+
+    private int bitField0_;
+    public static final int MAX_LENGTH_FIELD_NUMBER = 1;
+    private long maxLength_;
+    /**
+     * <pre>
+     * Maximum character length. Unset means no limit.
+     * </pre>
+     *
+     * <code>optional int64 max_length = 1;</code>
+     * @return Whether the maxLength field is set.
+     */
+    @java.lang.Override
+    public boolean hasMaxLength() {
+      return ((bitField0_ & 0x00000001) != 0);
+    }
+    /**
+     * <pre>
+     * Maximum character length. Unset means no limit.
+     * </pre>
+     *
+     * <code>optional int64 max_length = 1;</code>
+     * @return The maxLength.
+     */
+    @java.lang.Override
+    public long getMaxLength() {
+      return maxLength_;
+    }
+
+    private byte memoizedIsInitialized = -1;
+    @java.lang.Override
+    public final boolean isInitialized() {
+      byte isInitialized = memoizedIsInitialized;
+      if (isInitialized == 1) return true;
+      if (isInitialized == 0) return false;
+
+      memoizedIsInitialized = 1;
+      return true;
+    }
+
+    @java.lang.Override
+    public void writeTo(com.google.protobuf.CodedOutputStream output)
+                        throws java.io.IOException {
+      if (((bitField0_ & 0x00000001) != 0)) {
+        output.writeInt64(1, maxLength_);
+      }
+      unknownFields.writeTo(output);
+    }
+
+    @java.lang.Override
+    public int getSerializedSize() {
+      int size = memoizedSize;
+      if (size != -1) return size;
+
+      size = 0;
+      if (((bitField0_ & 0x00000001) != 0)) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeInt64Size(1, maxLength_);
+      }
+      size += unknownFields.getSerializedSize();
+      memoizedSize = size;
+      return size;
+    }
+
+    @java.lang.Override
+    public boolean equals(final java.lang.Object obj) {
+      if (obj == this) {
+       return true;
+      }
+      if (!(obj instanceof org.mlflow.api.proto.LabelSchemas.InputText)) {
+        return super.equals(obj);
+      }
+      org.mlflow.api.proto.LabelSchemas.InputText other = (org.mlflow.api.proto.LabelSchemas.InputText) obj;
+
+      if (hasMaxLength() != other.hasMaxLength()) return false;
+      if (hasMaxLength()) {
+        if (getMaxLength()
+            != other.getMaxLength()) return false;
+      }
+      if (!unknownFields.equals(other.unknownFields)) return false;
+      return true;
+    }
+
+    @java.lang.Override
+    public int hashCode() {
+      if (memoizedHashCode != 0) {
+        return memoizedHashCode;
+      }
+      int hash = 41;
+      hash = (19 * hash) + getDescriptor().hashCode();
+      if (hasMaxLength()) {
+        hash = (37 * hash) + MAX_LENGTH_FIELD_NUMBER;
+        hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+            getMaxLength());
+      }
+      hash = (29 * hash) + unknownFields.hashCode();
+      memoizedHashCode = hash;
+      return hash;
+    }
+
+    public static org.mlflow.api.proto.LabelSchemas.InputText parseFrom(
+        java.nio.ByteBuffer data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static org.mlflow.api.proto.LabelSchemas.InputText parseFrom(
+        java.nio.ByteBuffer data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.LabelSchemas.InputText parseFrom(
+        com.google.protobuf.ByteString data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static org.mlflow.api.proto.LabelSchemas.InputText parseFrom(
+        com.google.protobuf.ByteString data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.LabelSchemas.InputText parseFrom(byte[] data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static org.mlflow.api.proto.LabelSchemas.InputText parseFrom(
+        byte[] data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.LabelSchemas.InputText parseFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
+    }
+    public static org.mlflow.api.proto.LabelSchemas.InputText parseFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.LabelSchemas.InputText parseDelimitedFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input);
+    }
+    public static org.mlflow.api.proto.LabelSchemas.InputText parseDelimitedFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.LabelSchemas.InputText parseFrom(
+        com.google.protobuf.CodedInputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
+    }
+    public static org.mlflow.api.proto.LabelSchemas.InputText parseFrom(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
+    }
+
+    @java.lang.Override
+    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() {
+      return DEFAULT_INSTANCE.toBuilder();
+    }
+    public static Builder newBuilder(org.mlflow.api.proto.LabelSchemas.InputText prototype) {
+      return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
+    }
+    @java.lang.Override
+    public Builder toBuilder() {
+      return this == DEFAULT_INSTANCE
+          ? new Builder() : new Builder().mergeFrom(this);
+    }
+
+    @java.lang.Override
+    protected Builder newBuilderForType(
+        com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+      Builder builder = new Builder(parent);
+      return builder;
+    }
+    /**
+     * <pre>
+     * Free-form text input. Supported for both feedback and expectation
+     * schemas (e.g., free-form rationale or ground-truth text).
+     * </pre>
+     *
+     * Protobuf type {@code mlflow.label_schemas.InputText}
+     */
+    public static final class Builder extends
+        com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
+        // @@protoc_insertion_point(builder_implements:mlflow.label_schemas.InputText)
+        org.mlflow.api.proto.LabelSchemas.InputTextOrBuilder {
+      public static final com.google.protobuf.Descriptors.Descriptor
+          getDescriptor() {
+        return org.mlflow.api.proto.LabelSchemas.internal_static_mlflow_label_schemas_InputText_descriptor;
+      }
+
+      @java.lang.Override
+      protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+          internalGetFieldAccessorTable() {
+        return org.mlflow.api.proto.LabelSchemas.internal_static_mlflow_label_schemas_InputText_fieldAccessorTable
+            .ensureFieldAccessorsInitialized(
+                org.mlflow.api.proto.LabelSchemas.InputText.class, org.mlflow.api.proto.LabelSchemas.InputText.Builder.class);
+      }
+
+      // Construct using org.mlflow.api.proto.LabelSchemas.InputText.newBuilder()
+      private Builder() {
+        maybeForceBuilderInitialization();
+      }
+
+      private Builder(
+          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+        super(parent);
+        maybeForceBuilderInitialization();
+      }
+      private void maybeForceBuilderInitialization() {
+        if (com.google.protobuf.GeneratedMessageV3
+                .alwaysUseFieldBuilders) {
+        }
+      }
+      @java.lang.Override
+      public Builder clear() {
+        super.clear();
+        maxLength_ = 0L;
+        bitField0_ = (bitField0_ & ~0x00000001);
+        return this;
+      }
+
+      @java.lang.Override
+      public com.google.protobuf.Descriptors.Descriptor
+          getDescriptorForType() {
+        return org.mlflow.api.proto.LabelSchemas.internal_static_mlflow_label_schemas_InputText_descriptor;
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.LabelSchemas.InputText getDefaultInstanceForType() {
+        return org.mlflow.api.proto.LabelSchemas.InputText.getDefaultInstance();
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.LabelSchemas.InputText build() {
+        org.mlflow.api.proto.LabelSchemas.InputText result = buildPartial();
+        if (!result.isInitialized()) {
+          throw newUninitializedMessageException(result);
+        }
+        return result;
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.LabelSchemas.InputText buildPartial() {
+        org.mlflow.api.proto.LabelSchemas.InputText result = new org.mlflow.api.proto.LabelSchemas.InputText(this);
+        int from_bitField0_ = bitField0_;
+        int to_bitField0_ = 0;
+        if (((from_bitField0_ & 0x00000001) != 0)) {
+          result.maxLength_ = maxLength_;
+          to_bitField0_ |= 0x00000001;
+        }
+        result.bitField0_ = to_bitField0_;
+        onBuilt();
+        return result;
+      }
+
+      @java.lang.Override
+      public Builder clone() {
+        return super.clone();
+      }
+      @java.lang.Override
+      public Builder setField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
+        return super.setField(field, value);
+      }
+      @java.lang.Override
+      public Builder clearField(
+          com.google.protobuf.Descriptors.FieldDescriptor field) {
+        return super.clearField(field);
+      }
+      @java.lang.Override
+      public Builder clearOneof(
+          com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+        return super.clearOneof(oneof);
+      }
+      @java.lang.Override
+      public Builder setRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          int index, java.lang.Object value) {
+        return super.setRepeatedField(field, index, value);
+      }
+      @java.lang.Override
+      public Builder addRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
+        return super.addRepeatedField(field, value);
+      }
+      @java.lang.Override
+      public Builder mergeFrom(com.google.protobuf.Message other) {
+        if (other instanceof org.mlflow.api.proto.LabelSchemas.InputText) {
+          return mergeFrom((org.mlflow.api.proto.LabelSchemas.InputText)other);
+        } else {
+          super.mergeFrom(other);
+          return this;
+        }
+      }
+
+      public Builder mergeFrom(org.mlflow.api.proto.LabelSchemas.InputText other) {
+        if (other == org.mlflow.api.proto.LabelSchemas.InputText.getDefaultInstance()) return this;
+        if (other.hasMaxLength()) {
+          setMaxLength(other.getMaxLength());
+        }
+        this.mergeUnknownFields(other.unknownFields);
+        onChanged();
+        return this;
+      }
+
+      @java.lang.Override
+      public final boolean isInitialized() {
+        return true;
+      }
+
+      @java.lang.Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        org.mlflow.api.proto.LabelSchemas.InputText parsedMessage = null;
+        try {
+          parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
+        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+          parsedMessage = (org.mlflow.api.proto.LabelSchemas.InputText) e.getUnfinishedMessage();
+          throw e.unwrapIOException();
+        } finally {
+          if (parsedMessage != null) {
+            mergeFrom(parsedMessage);
+          }
+        }
+        return this;
+      }
+      private int bitField0_;
+
+      private long maxLength_ ;
+      /**
+       * <pre>
+       * Maximum character length. Unset means no limit.
+       * </pre>
+       *
+       * <code>optional int64 max_length = 1;</code>
+       * @return Whether the maxLength field is set.
+       */
+      @java.lang.Override
+      public boolean hasMaxLength() {
+        return ((bitField0_ & 0x00000001) != 0);
+      }
+      /**
+       * <pre>
+       * Maximum character length. Unset means no limit.
+       * </pre>
+       *
+       * <code>optional int64 max_length = 1;</code>
+       * @return The maxLength.
+       */
+      @java.lang.Override
+      public long getMaxLength() {
+        return maxLength_;
+      }
+      /**
+       * <pre>
+       * Maximum character length. Unset means no limit.
+       * </pre>
+       *
+       * <code>optional int64 max_length = 1;</code>
+       * @param value The maxLength to set.
+       * @return This builder for chaining.
+       */
+      public Builder setMaxLength(long value) {
+        bitField0_ |= 0x00000001;
+        maxLength_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Maximum character length. Unset means no limit.
+       * </pre>
+       *
+       * <code>optional int64 max_length = 1;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearMaxLength() {
+        bitField0_ = (bitField0_ & ~0x00000001);
+        maxLength_ = 0L;
+        onChanged();
+        return this;
+      }
+      @java.lang.Override
+      public final Builder setUnknownFields(
+          final com.google.protobuf.UnknownFieldSet unknownFields) {
+        return super.setUnknownFields(unknownFields);
+      }
+
+      @java.lang.Override
+      public final Builder mergeUnknownFields(
+          final com.google.protobuf.UnknownFieldSet unknownFields) {
+        return super.mergeUnknownFields(unknownFields);
+      }
+
+
+      // @@protoc_insertion_point(builder_scope:mlflow.label_schemas.InputText)
+    }
+
+    // @@protoc_insertion_point(class_scope:mlflow.label_schemas.InputText)
+    private static final org.mlflow.api.proto.LabelSchemas.InputText DEFAULT_INSTANCE;
+    static {
+      DEFAULT_INSTANCE = new org.mlflow.api.proto.LabelSchemas.InputText();
+    }
+
+    public static org.mlflow.api.proto.LabelSchemas.InputText getDefaultInstance() {
+      return DEFAULT_INSTANCE;
+    }
+
+    @java.lang.Deprecated public static final com.google.protobuf.Parser<InputText>
+        PARSER = new com.google.protobuf.AbstractParser<InputText>() {
+      @java.lang.Override
+      public InputText parsePartialFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return new InputText(input, extensionRegistry);
+      }
+    };
+
+    public static com.google.protobuf.Parser<InputText> parser() {
+      return PARSER;
+    }
+
+    @java.lang.Override
+    public com.google.protobuf.Parser<InputText> getParserForType() {
+      return PARSER;
+    }
+
+    @java.lang.Override
+    public org.mlflow.api.proto.LabelSchemas.InputText getDefaultInstanceForType() {
+      return DEFAULT_INSTANCE;
+    }
+
+  }
+
   public interface LabelSchemaInputOrBuilder extends
       // @@protoc_insertion_point(interface_extends:mlflow.label_schemas.LabelSchemaInput)
       com.google.protobuf.MessageOrBuilder {
@@ -2851,6 +3146,21 @@ public final class LabelSchemas {
      */
     org.mlflow.api.proto.LabelSchemas.InputNumericOrBuilder getNumericOrBuilder();
 
+    /**
+     * <code>.mlflow.label_schemas.InputText text = 5;</code>
+     * @return Whether the text field is set.
+     */
+    boolean hasText();
+    /**
+     * <code>.mlflow.label_schemas.InputText text = 5;</code>
+     * @return The text.
+     */
+    org.mlflow.api.proto.LabelSchemas.InputText getText();
+    /**
+     * <code>.mlflow.label_schemas.InputText text = 5;</code>
+     */
+    org.mlflow.api.proto.LabelSchemas.InputTextOrBuilder getTextOrBuilder();
+
     public org.mlflow.api.proto.LabelSchemas.LabelSchemaInput.InputCase getInputCase();
   }
   /**
@@ -2862,8 +3172,8 @@ public final class LabelSchemas {
    * that any oneof variant inside the wrapper is set, so a client can send
    * `{"input": {}}` and pass validation. Handlers must additionally check
    * `request.input.WhichOneof("input") is not None`.
-   * Tags 1-3 cover the OSS-supported input types. Tags 4-6 are reserved for
-   * the Databricks-only input variants (InputCategoricalList, InputText,
+   * Tags 1-3 and 5 cover the OSS-supported input types. Tags 4 and 6 are
+   * reserved for the Databricks-only input variants (InputCategoricalList,
    * InputTextList) in case hybrid scenarios ever need to round-trip them
    * through this proto; do not reuse these tags for new OSS variants.
    * </pre>
@@ -2955,6 +3265,20 @@ public final class LabelSchemas {
               inputCase_ = 3;
               break;
             }
+            case 42: {
+              org.mlflow.api.proto.LabelSchemas.InputText.Builder subBuilder = null;
+              if (inputCase_ == 5) {
+                subBuilder = ((org.mlflow.api.proto.LabelSchemas.InputText) input_).toBuilder();
+              }
+              input_ =
+                  input.readMessage(org.mlflow.api.proto.LabelSchemas.InputText.PARSER, extensionRegistry);
+              if (subBuilder != null) {
+                subBuilder.mergeFrom((org.mlflow.api.proto.LabelSchemas.InputText) input_);
+                input_ = subBuilder.buildPartial();
+              }
+              inputCase_ = 5;
+              break;
+            }
             default: {
               if (!parseUnknownField(
                   input, unknownFields, extensionRegistry, tag)) {
@@ -2996,6 +3320,7 @@ public final class LabelSchemas {
       PASS_FAIL(1),
       CATEGORICAL(2),
       NUMERIC(3),
+      TEXT(5),
       INPUT_NOT_SET(0);
       private final int value;
       private InputCase(int value) {
@@ -3016,6 +3341,7 @@ public final class LabelSchemas {
           case 1: return PASS_FAIL;
           case 2: return CATEGORICAL;
           case 3: return NUMERIC;
+          case 5: return TEXT;
           case 0: return INPUT_NOT_SET;
           default: return null;
         }
@@ -3124,6 +3450,37 @@ public final class LabelSchemas {
       return org.mlflow.api.proto.LabelSchemas.InputNumeric.getDefaultInstance();
     }
 
+    public static final int TEXT_FIELD_NUMBER = 5;
+    /**
+     * <code>.mlflow.label_schemas.InputText text = 5;</code>
+     * @return Whether the text field is set.
+     */
+    @java.lang.Override
+    public boolean hasText() {
+      return inputCase_ == 5;
+    }
+    /**
+     * <code>.mlflow.label_schemas.InputText text = 5;</code>
+     * @return The text.
+     */
+    @java.lang.Override
+    public org.mlflow.api.proto.LabelSchemas.InputText getText() {
+      if (inputCase_ == 5) {
+         return (org.mlflow.api.proto.LabelSchemas.InputText) input_;
+      }
+      return org.mlflow.api.proto.LabelSchemas.InputText.getDefaultInstance();
+    }
+    /**
+     * <code>.mlflow.label_schemas.InputText text = 5;</code>
+     */
+    @java.lang.Override
+    public org.mlflow.api.proto.LabelSchemas.InputTextOrBuilder getTextOrBuilder() {
+      if (inputCase_ == 5) {
+         return (org.mlflow.api.proto.LabelSchemas.InputText) input_;
+      }
+      return org.mlflow.api.proto.LabelSchemas.InputText.getDefaultInstance();
+    }
+
     private byte memoizedIsInitialized = -1;
     @java.lang.Override
     public final boolean isInitialized() {
@@ -3147,6 +3504,9 @@ public final class LabelSchemas {
       if (inputCase_ == 3) {
         output.writeMessage(3, (org.mlflow.api.proto.LabelSchemas.InputNumeric) input_);
       }
+      if (inputCase_ == 5) {
+        output.writeMessage(5, (org.mlflow.api.proto.LabelSchemas.InputText) input_);
+      }
       unknownFields.writeTo(output);
     }
 
@@ -3167,6 +3527,10 @@ public final class LabelSchemas {
       if (inputCase_ == 3) {
         size += com.google.protobuf.CodedOutputStream
           .computeMessageSize(3, (org.mlflow.api.proto.LabelSchemas.InputNumeric) input_);
+      }
+      if (inputCase_ == 5) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeMessageSize(5, (org.mlflow.api.proto.LabelSchemas.InputText) input_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -3197,6 +3561,10 @@ public final class LabelSchemas {
           if (!getNumeric()
               .equals(other.getNumeric())) return false;
           break;
+        case 5:
+          if (!getText()
+              .equals(other.getText())) return false;
+          break;
         case 0:
         default:
       }
@@ -3223,6 +3591,10 @@ public final class LabelSchemas {
         case 3:
           hash = (37 * hash) + NUMERIC_FIELD_NUMBER;
           hash = (53 * hash) + getNumeric().hashCode();
+          break;
+        case 5:
+          hash = (37 * hash) + TEXT_FIELD_NUMBER;
+          hash = (53 * hash) + getText().hashCode();
           break;
         case 0:
         default:
@@ -3331,8 +3703,8 @@ public final class LabelSchemas {
      * that any oneof variant inside the wrapper is set, so a client can send
      * `{"input": {}}` and pass validation. Handlers must additionally check
      * `request.input.WhichOneof("input") is not None`.
-     * Tags 1-3 cover the OSS-supported input types. Tags 4-6 are reserved for
-     * the Databricks-only input variants (InputCategoricalList, InputText,
+     * Tags 1-3 and 5 cover the OSS-supported input types. Tags 4 and 6 are
+     * reserved for the Databricks-only input variants (InputCategoricalList,
      * InputTextList) in case hybrid scenarios ever need to round-trip them
      * through this proto; do not reuse these tags for new OSS variants.
      * </pre>
@@ -3425,6 +3797,13 @@ public final class LabelSchemas {
             result.input_ = numericBuilder_.build();
           }
         }
+        if (inputCase_ == 5) {
+          if (textBuilder_ == null) {
+            result.input_ = input_;
+          } else {
+            result.input_ = textBuilder_.build();
+          }
+        }
         result.bitField0_ = to_bitField0_;
         result.inputCase_ = inputCase_;
         onBuilt();
@@ -3486,6 +3865,10 @@ public final class LabelSchemas {
           }
           case NUMERIC: {
             mergeNumeric(other.getNumeric());
+            break;
+          }
+          case TEXT: {
+            mergeText(other.getText());
             break;
           }
           case INPUT_NOT_SET: {
@@ -3959,6 +4342,147 @@ public final class LabelSchemas {
         onChanged();;
         return numericBuilder_;
       }
+
+      private com.google.protobuf.SingleFieldBuilderV3<
+          org.mlflow.api.proto.LabelSchemas.InputText, org.mlflow.api.proto.LabelSchemas.InputText.Builder, org.mlflow.api.proto.LabelSchemas.InputTextOrBuilder> textBuilder_;
+      /**
+       * <code>.mlflow.label_schemas.InputText text = 5;</code>
+       * @return Whether the text field is set.
+       */
+      @java.lang.Override
+      public boolean hasText() {
+        return inputCase_ == 5;
+      }
+      /**
+       * <code>.mlflow.label_schemas.InputText text = 5;</code>
+       * @return The text.
+       */
+      @java.lang.Override
+      public org.mlflow.api.proto.LabelSchemas.InputText getText() {
+        if (textBuilder_ == null) {
+          if (inputCase_ == 5) {
+            return (org.mlflow.api.proto.LabelSchemas.InputText) input_;
+          }
+          return org.mlflow.api.proto.LabelSchemas.InputText.getDefaultInstance();
+        } else {
+          if (inputCase_ == 5) {
+            return textBuilder_.getMessage();
+          }
+          return org.mlflow.api.proto.LabelSchemas.InputText.getDefaultInstance();
+        }
+      }
+      /**
+       * <code>.mlflow.label_schemas.InputText text = 5;</code>
+       */
+      public Builder setText(org.mlflow.api.proto.LabelSchemas.InputText value) {
+        if (textBuilder_ == null) {
+          if (value == null) {
+            throw new NullPointerException();
+          }
+          input_ = value;
+          onChanged();
+        } else {
+          textBuilder_.setMessage(value);
+        }
+        inputCase_ = 5;
+        return this;
+      }
+      /**
+       * <code>.mlflow.label_schemas.InputText text = 5;</code>
+       */
+      public Builder setText(
+          org.mlflow.api.proto.LabelSchemas.InputText.Builder builderForValue) {
+        if (textBuilder_ == null) {
+          input_ = builderForValue.build();
+          onChanged();
+        } else {
+          textBuilder_.setMessage(builderForValue.build());
+        }
+        inputCase_ = 5;
+        return this;
+      }
+      /**
+       * <code>.mlflow.label_schemas.InputText text = 5;</code>
+       */
+      public Builder mergeText(org.mlflow.api.proto.LabelSchemas.InputText value) {
+        if (textBuilder_ == null) {
+          if (inputCase_ == 5 &&
+              input_ != org.mlflow.api.proto.LabelSchemas.InputText.getDefaultInstance()) {
+            input_ = org.mlflow.api.proto.LabelSchemas.InputText.newBuilder((org.mlflow.api.proto.LabelSchemas.InputText) input_)
+                .mergeFrom(value).buildPartial();
+          } else {
+            input_ = value;
+          }
+          onChanged();
+        } else {
+          if (inputCase_ == 5) {
+            textBuilder_.mergeFrom(value);
+          }
+          textBuilder_.setMessage(value);
+        }
+        inputCase_ = 5;
+        return this;
+      }
+      /**
+       * <code>.mlflow.label_schemas.InputText text = 5;</code>
+       */
+      public Builder clearText() {
+        if (textBuilder_ == null) {
+          if (inputCase_ == 5) {
+            inputCase_ = 0;
+            input_ = null;
+            onChanged();
+          }
+        } else {
+          if (inputCase_ == 5) {
+            inputCase_ = 0;
+            input_ = null;
+          }
+          textBuilder_.clear();
+        }
+        return this;
+      }
+      /**
+       * <code>.mlflow.label_schemas.InputText text = 5;</code>
+       */
+      public org.mlflow.api.proto.LabelSchemas.InputText.Builder getTextBuilder() {
+        return getTextFieldBuilder().getBuilder();
+      }
+      /**
+       * <code>.mlflow.label_schemas.InputText text = 5;</code>
+       */
+      @java.lang.Override
+      public org.mlflow.api.proto.LabelSchemas.InputTextOrBuilder getTextOrBuilder() {
+        if ((inputCase_ == 5) && (textBuilder_ != null)) {
+          return textBuilder_.getMessageOrBuilder();
+        } else {
+          if (inputCase_ == 5) {
+            return (org.mlflow.api.proto.LabelSchemas.InputText) input_;
+          }
+          return org.mlflow.api.proto.LabelSchemas.InputText.getDefaultInstance();
+        }
+      }
+      /**
+       * <code>.mlflow.label_schemas.InputText text = 5;</code>
+       */
+      private com.google.protobuf.SingleFieldBuilderV3<
+          org.mlflow.api.proto.LabelSchemas.InputText, org.mlflow.api.proto.LabelSchemas.InputText.Builder, org.mlflow.api.proto.LabelSchemas.InputTextOrBuilder> 
+          getTextFieldBuilder() {
+        if (textBuilder_ == null) {
+          if (!(inputCase_ == 5)) {
+            input_ = org.mlflow.api.proto.LabelSchemas.InputText.getDefaultInstance();
+          }
+          textBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
+              org.mlflow.api.proto.LabelSchemas.InputText, org.mlflow.api.proto.LabelSchemas.InputText.Builder, org.mlflow.api.proto.LabelSchemas.InputTextOrBuilder>(
+                  (org.mlflow.api.proto.LabelSchemas.InputText) input_,
+                  getParentForChildren(),
+                  isClean());
+          input_ = null;
+        }
+        inputCase_ = 5;
+        onChanged();;
+        return textBuilder_;
+      }
       @java.lang.Override
       public final Builder setUnknownFields(
           final com.google.protobuf.UnknownFieldSet unknownFields) {
@@ -4076,7 +4600,8 @@ public final class LabelSchemas {
 
     /**
      * <pre>
-     * Schema name (1-150 chars, alphanumeric + underscore; unique within experiment).
+     * Schema name (1-256 chars; unique within experiment). Free text shown
+     * to reviewers as the label prompt and used as the assessment key.
      * </pre>
      *
      * <code>optional string name = 3;</code>
@@ -4085,7 +4610,8 @@ public final class LabelSchemas {
     boolean hasName();
     /**
      * <pre>
-     * Schema name (1-150 chars, alphanumeric + underscore; unique within experiment).
+     * Schema name (1-256 chars; unique within experiment). Free text shown
+     * to reviewers as the label prompt and used as the assessment key.
      * </pre>
      *
      * <code>optional string name = 3;</code>
@@ -4094,7 +4620,8 @@ public final class LabelSchemas {
     java.lang.String getName();
     /**
      * <pre>
-     * Schema name (1-150 chars, alphanumeric + underscore; unique within experiment).
+     * Schema name (1-256 chars; unique within experiment). Free text shown
+     * to reviewers as the label prompt and used as the assessment key.
      * </pre>
      *
      * <code>optional string name = 3;</code>
@@ -4113,35 +4640,6 @@ public final class LabelSchemas {
      * @return The type.
      */
     org.mlflow.api.proto.LabelSchemas.LabelSchemaType getType();
-
-    /**
-     * <pre>
-     * Display title shown to the SME (1-256 chars).
-     * </pre>
-     *
-     * <code>optional string title = 5;</code>
-     * @return Whether the title field is set.
-     */
-    boolean hasTitle();
-    /**
-     * <pre>
-     * Display title shown to the SME (1-256 chars).
-     * </pre>
-     *
-     * <code>optional string title = 5;</code>
-     * @return The title.
-     */
-    java.lang.String getTitle();
-    /**
-     * <pre>
-     * Display title shown to the SME (1-256 chars).
-     * </pre>
-     *
-     * <code>optional string title = 5;</code>
-     * @return The bytes for title.
-     */
-    com.google.protobuf.ByteString
-        getTitleBytes();
 
     /**
      * <pre>
@@ -4294,7 +4792,6 @@ public final class LabelSchemas {
       experimentId_ = "";
       name_ = "";
       type_ = 0;
-      title_ = "";
       instruction_ = "";
       createdBy_ = "";
     }
@@ -4360,26 +4857,20 @@ public final class LabelSchemas {
               }
               break;
             }
-            case 42: {
-              com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000010;
-              title_ = bs;
-              break;
-            }
             case 50: {
               com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000020;
+              bitField0_ |= 0x00000010;
               instruction_ = bs;
               break;
             }
             case 56: {
-              bitField0_ |= 0x00000040;
+              bitField0_ |= 0x00000020;
               enableComment_ = input.readBool();
               break;
             }
             case 66: {
               org.mlflow.api.proto.LabelSchemas.LabelSchemaInput.Builder subBuilder = null;
-              if (((bitField0_ & 0x00000080) != 0)) {
+              if (((bitField0_ & 0x00000040) != 0)) {
                 subBuilder = input_.toBuilder();
               }
               input_ = input.readMessage(org.mlflow.api.proto.LabelSchemas.LabelSchemaInput.PARSER, extensionRegistry);
@@ -4387,22 +4878,22 @@ public final class LabelSchemas {
                 subBuilder.mergeFrom(input_);
                 input_ = subBuilder.buildPartial();
               }
-              bitField0_ |= 0x00000080;
+              bitField0_ |= 0x00000040;
               break;
             }
             case 74: {
               com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000100;
+              bitField0_ |= 0x00000080;
               createdBy_ = bs;
               break;
             }
             case 80: {
-              bitField0_ |= 0x00000200;
+              bitField0_ |= 0x00000100;
               createdAt_ = input.readInt64();
               break;
             }
             case 88: {
-              bitField0_ |= 0x00000400;
+              bitField0_ |= 0x00000200;
               lastUpdatedAt_ = input.readInt64();
               break;
             }
@@ -4563,7 +5054,8 @@ public final class LabelSchemas {
     private volatile java.lang.Object name_;
     /**
      * <pre>
-     * Schema name (1-150 chars, alphanumeric + underscore; unique within experiment).
+     * Schema name (1-256 chars; unique within experiment). Free text shown
+     * to reviewers as the label prompt and used as the assessment key.
      * </pre>
      *
      * <code>optional string name = 3;</code>
@@ -4575,7 +5067,8 @@ public final class LabelSchemas {
     }
     /**
      * <pre>
-     * Schema name (1-150 chars, alphanumeric + underscore; unique within experiment).
+     * Schema name (1-256 chars; unique within experiment). Free text shown
+     * to reviewers as the label prompt and used as the assessment key.
      * </pre>
      *
      * <code>optional string name = 3;</code>
@@ -4598,7 +5091,8 @@ public final class LabelSchemas {
     }
     /**
      * <pre>
-     * Schema name (1-150 chars, alphanumeric + underscore; unique within experiment).
+     * Schema name (1-256 chars; unique within experiment). Free text shown
+     * to reviewers as the label prompt and used as the assessment key.
      * </pre>
      *
      * <code>optional string name = 3;</code>
@@ -4638,66 +5132,6 @@ public final class LabelSchemas {
       return result == null ? org.mlflow.api.proto.LabelSchemas.LabelSchemaType.LABEL_SCHEMA_TYPE_UNSPECIFIED : result;
     }
 
-    public static final int TITLE_FIELD_NUMBER = 5;
-    private volatile java.lang.Object title_;
-    /**
-     * <pre>
-     * Display title shown to the SME (1-256 chars).
-     * </pre>
-     *
-     * <code>optional string title = 5;</code>
-     * @return Whether the title field is set.
-     */
-    @java.lang.Override
-    public boolean hasTitle() {
-      return ((bitField0_ & 0x00000010) != 0);
-    }
-    /**
-     * <pre>
-     * Display title shown to the SME (1-256 chars).
-     * </pre>
-     *
-     * <code>optional string title = 5;</code>
-     * @return The title.
-     */
-    @java.lang.Override
-    public java.lang.String getTitle() {
-      java.lang.Object ref = title_;
-      if (ref instanceof java.lang.String) {
-        return (java.lang.String) ref;
-      } else {
-        com.google.protobuf.ByteString bs = 
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        if (bs.isValidUtf8()) {
-          title_ = s;
-        }
-        return s;
-      }
-    }
-    /**
-     * <pre>
-     * Display title shown to the SME (1-256 chars).
-     * </pre>
-     *
-     * <code>optional string title = 5;</code>
-     * @return The bytes for title.
-     */
-    @java.lang.Override
-    public com.google.protobuf.ByteString
-        getTitleBytes() {
-      java.lang.Object ref = title_;
-      if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        title_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
-    }
-
     public static final int INSTRUCTION_FIELD_NUMBER = 6;
     private volatile java.lang.Object instruction_;
     /**
@@ -4710,7 +5144,7 @@ public final class LabelSchemas {
      */
     @java.lang.Override
     public boolean hasInstruction() {
-      return ((bitField0_ & 0x00000020) != 0);
+      return ((bitField0_ & 0x00000010) != 0);
     }
     /**
      * <pre>
@@ -4770,7 +5204,7 @@ public final class LabelSchemas {
      */
     @java.lang.Override
     public boolean hasEnableComment() {
-      return ((bitField0_ & 0x00000040) != 0);
+      return ((bitField0_ & 0x00000020) != 0);
     }
     /**
      * <pre>
@@ -4793,7 +5227,7 @@ public final class LabelSchemas {
      */
     @java.lang.Override
     public boolean hasInput() {
-      return ((bitField0_ & 0x00000080) != 0);
+      return ((bitField0_ & 0x00000040) != 0);
     }
     /**
      * <code>optional .mlflow.label_schemas.LabelSchemaInput input = 8;</code>
@@ -4823,7 +5257,7 @@ public final class LabelSchemas {
      */
     @java.lang.Override
     public boolean hasCreatedBy() {
-      return ((bitField0_ & 0x00000100) != 0);
+      return ((bitField0_ & 0x00000080) != 0);
     }
     /**
      * <pre>
@@ -4883,7 +5317,7 @@ public final class LabelSchemas {
      */
     @java.lang.Override
     public boolean hasCreatedAt() {
-      return ((bitField0_ & 0x00000200) != 0);
+      return ((bitField0_ & 0x00000100) != 0);
     }
     /**
      * <pre>
@@ -4910,7 +5344,7 @@ public final class LabelSchemas {
      */
     @java.lang.Override
     public boolean hasLastUpdatedAt() {
-      return ((bitField0_ & 0x00000400) != 0);
+      return ((bitField0_ & 0x00000200) != 0);
     }
     /**
      * <pre>
@@ -4952,24 +5386,21 @@ public final class LabelSchemas {
         output.writeEnum(4, type_);
       }
       if (((bitField0_ & 0x00000010) != 0)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 5, title_);
-      }
-      if (((bitField0_ & 0x00000020) != 0)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 6, instruction_);
       }
-      if (((bitField0_ & 0x00000040) != 0)) {
+      if (((bitField0_ & 0x00000020) != 0)) {
         output.writeBool(7, enableComment_);
       }
-      if (((bitField0_ & 0x00000080) != 0)) {
+      if (((bitField0_ & 0x00000040) != 0)) {
         output.writeMessage(8, getInput());
       }
-      if (((bitField0_ & 0x00000100) != 0)) {
+      if (((bitField0_ & 0x00000080) != 0)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 9, createdBy_);
       }
-      if (((bitField0_ & 0x00000200) != 0)) {
+      if (((bitField0_ & 0x00000100) != 0)) {
         output.writeInt64(10, createdAt_);
       }
-      if (((bitField0_ & 0x00000400) != 0)) {
+      if (((bitField0_ & 0x00000200) != 0)) {
         output.writeInt64(11, lastUpdatedAt_);
       }
       unknownFields.writeTo(output);
@@ -4995,27 +5426,24 @@ public final class LabelSchemas {
           .computeEnumSize(4, type_);
       }
       if (((bitField0_ & 0x00000010) != 0)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(5, title_);
-      }
-      if (((bitField0_ & 0x00000020) != 0)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(6, instruction_);
       }
-      if (((bitField0_ & 0x00000040) != 0)) {
+      if (((bitField0_ & 0x00000020) != 0)) {
         size += com.google.protobuf.CodedOutputStream
           .computeBoolSize(7, enableComment_);
       }
-      if (((bitField0_ & 0x00000080) != 0)) {
+      if (((bitField0_ & 0x00000040) != 0)) {
         size += com.google.protobuf.CodedOutputStream
           .computeMessageSize(8, getInput());
       }
-      if (((bitField0_ & 0x00000100) != 0)) {
+      if (((bitField0_ & 0x00000080) != 0)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(9, createdBy_);
       }
-      if (((bitField0_ & 0x00000200) != 0)) {
+      if (((bitField0_ & 0x00000100) != 0)) {
         size += com.google.protobuf.CodedOutputStream
           .computeInt64Size(10, createdAt_);
       }
-      if (((bitField0_ & 0x00000400) != 0)) {
+      if (((bitField0_ & 0x00000200) != 0)) {
         size += com.google.protobuf.CodedOutputStream
           .computeInt64Size(11, lastUpdatedAt_);
       }
@@ -5052,11 +5480,6 @@ public final class LabelSchemas {
       if (hasType() != other.hasType()) return false;
       if (hasType()) {
         if (type_ != other.type_) return false;
-      }
-      if (hasTitle() != other.hasTitle()) return false;
-      if (hasTitle()) {
-        if (!getTitle()
-            .equals(other.getTitle())) return false;
       }
       if (hasInstruction() != other.hasInstruction()) return false;
       if (hasInstruction()) {
@@ -5114,10 +5537,6 @@ public final class LabelSchemas {
       if (hasType()) {
         hash = (37 * hash) + TYPE_FIELD_NUMBER;
         hash = (53 * hash) + type_;
-      }
-      if (hasTitle()) {
-        hash = (37 * hash) + TITLE_FIELD_NUMBER;
-        hash = (53 * hash) + getTitle().hashCode();
       }
       if (hasInstruction()) {
         hash = (37 * hash) + INSTRUCTION_FIELD_NUMBER;
@@ -5292,24 +5711,22 @@ public final class LabelSchemas {
         bitField0_ = (bitField0_ & ~0x00000004);
         type_ = 0;
         bitField0_ = (bitField0_ & ~0x00000008);
-        title_ = "";
-        bitField0_ = (bitField0_ & ~0x00000010);
         instruction_ = "";
-        bitField0_ = (bitField0_ & ~0x00000020);
+        bitField0_ = (bitField0_ & ~0x00000010);
         enableComment_ = false;
-        bitField0_ = (bitField0_ & ~0x00000040);
+        bitField0_ = (bitField0_ & ~0x00000020);
         if (inputBuilder_ == null) {
           input_ = null;
         } else {
           inputBuilder_.clear();
         }
-        bitField0_ = (bitField0_ & ~0x00000080);
+        bitField0_ = (bitField0_ & ~0x00000040);
         createdBy_ = "";
-        bitField0_ = (bitField0_ & ~0x00000100);
+        bitField0_ = (bitField0_ & ~0x00000080);
         createdAt_ = 0L;
-        bitField0_ = (bitField0_ & ~0x00000200);
+        bitField0_ = (bitField0_ & ~0x00000100);
         lastUpdatedAt_ = 0L;
-        bitField0_ = (bitField0_ & ~0x00000400);
+        bitField0_ = (bitField0_ & ~0x00000200);
         return this;
       }
 
@@ -5357,34 +5774,30 @@ public final class LabelSchemas {
         if (((from_bitField0_ & 0x00000010) != 0)) {
           to_bitField0_ |= 0x00000010;
         }
-        result.title_ = title_;
+        result.instruction_ = instruction_;
         if (((from_bitField0_ & 0x00000020) != 0)) {
+          result.enableComment_ = enableComment_;
           to_bitField0_ |= 0x00000020;
         }
-        result.instruction_ = instruction_;
         if (((from_bitField0_ & 0x00000040) != 0)) {
-          result.enableComment_ = enableComment_;
-          to_bitField0_ |= 0x00000040;
-        }
-        if (((from_bitField0_ & 0x00000080) != 0)) {
           if (inputBuilder_ == null) {
             result.input_ = input_;
           } else {
             result.input_ = inputBuilder_.build();
           }
+          to_bitField0_ |= 0x00000040;
+        }
+        if (((from_bitField0_ & 0x00000080) != 0)) {
           to_bitField0_ |= 0x00000080;
         }
+        result.createdBy_ = createdBy_;
         if (((from_bitField0_ & 0x00000100) != 0)) {
+          result.createdAt_ = createdAt_;
           to_bitField0_ |= 0x00000100;
         }
-        result.createdBy_ = createdBy_;
         if (((from_bitField0_ & 0x00000200) != 0)) {
-          result.createdAt_ = createdAt_;
-          to_bitField0_ |= 0x00000200;
-        }
-        if (((from_bitField0_ & 0x00000400) != 0)) {
           result.lastUpdatedAt_ = lastUpdatedAt_;
-          to_bitField0_ |= 0x00000400;
+          to_bitField0_ |= 0x00000200;
         }
         result.bitField0_ = to_bitField0_;
         onBuilt();
@@ -5453,13 +5866,8 @@ public final class LabelSchemas {
         if (other.hasType()) {
           setType(other.getType());
         }
-        if (other.hasTitle()) {
-          bitField0_ |= 0x00000010;
-          title_ = other.title_;
-          onChanged();
-        }
         if (other.hasInstruction()) {
-          bitField0_ |= 0x00000020;
+          bitField0_ |= 0x00000010;
           instruction_ = other.instruction_;
           onChanged();
         }
@@ -5470,7 +5878,7 @@ public final class LabelSchemas {
           mergeInput(other.getInput());
         }
         if (other.hasCreatedBy()) {
-          bitField0_ |= 0x00000100;
+          bitField0_ |= 0x00000080;
           createdBy_ = other.createdBy_;
           onChanged();
         }
@@ -5729,7 +6137,8 @@ public final class LabelSchemas {
       private java.lang.Object name_ = "";
       /**
        * <pre>
-       * Schema name (1-150 chars, alphanumeric + underscore; unique within experiment).
+       * Schema name (1-256 chars; unique within experiment). Free text shown
+       * to reviewers as the label prompt and used as the assessment key.
        * </pre>
        *
        * <code>optional string name = 3;</code>
@@ -5740,7 +6149,8 @@ public final class LabelSchemas {
       }
       /**
        * <pre>
-       * Schema name (1-150 chars, alphanumeric + underscore; unique within experiment).
+       * Schema name (1-256 chars; unique within experiment). Free text shown
+       * to reviewers as the label prompt and used as the assessment key.
        * </pre>
        *
        * <code>optional string name = 3;</code>
@@ -5762,7 +6172,8 @@ public final class LabelSchemas {
       }
       /**
        * <pre>
-       * Schema name (1-150 chars, alphanumeric + underscore; unique within experiment).
+       * Schema name (1-256 chars; unique within experiment). Free text shown
+       * to reviewers as the label prompt and used as the assessment key.
        * </pre>
        *
        * <code>optional string name = 3;</code>
@@ -5783,7 +6194,8 @@ public final class LabelSchemas {
       }
       /**
        * <pre>
-       * Schema name (1-150 chars, alphanumeric + underscore; unique within experiment).
+       * Schema name (1-256 chars; unique within experiment). Free text shown
+       * to reviewers as the label prompt and used as the assessment key.
        * </pre>
        *
        * <code>optional string name = 3;</code>
@@ -5802,7 +6214,8 @@ public final class LabelSchemas {
       }
       /**
        * <pre>
-       * Schema name (1-150 chars, alphanumeric + underscore; unique within experiment).
+       * Schema name (1-256 chars; unique within experiment). Free text shown
+       * to reviewers as the label prompt and used as the assessment key.
        * </pre>
        *
        * <code>optional string name = 3;</code>
@@ -5816,7 +6229,8 @@ public final class LabelSchemas {
       }
       /**
        * <pre>
-       * Schema name (1-150 chars, alphanumeric + underscore; unique within experiment).
+       * Schema name (1-256 chars; unique within experiment). Free text shown
+       * to reviewers as the label prompt and used as the assessment key.
        * </pre>
        *
        * <code>optional string name = 3;</code>
@@ -5877,114 +6291,6 @@ public final class LabelSchemas {
         return this;
       }
 
-      private java.lang.Object title_ = "";
-      /**
-       * <pre>
-       * Display title shown to the SME (1-256 chars).
-       * </pre>
-       *
-       * <code>optional string title = 5;</code>
-       * @return Whether the title field is set.
-       */
-      public boolean hasTitle() {
-        return ((bitField0_ & 0x00000010) != 0);
-      }
-      /**
-       * <pre>
-       * Display title shown to the SME (1-256 chars).
-       * </pre>
-       *
-       * <code>optional string title = 5;</code>
-       * @return The title.
-       */
-      public java.lang.String getTitle() {
-        java.lang.Object ref = title_;
-        if (!(ref instanceof java.lang.String)) {
-          com.google.protobuf.ByteString bs =
-              (com.google.protobuf.ByteString) ref;
-          java.lang.String s = bs.toStringUtf8();
-          if (bs.isValidUtf8()) {
-            title_ = s;
-          }
-          return s;
-        } else {
-          return (java.lang.String) ref;
-        }
-      }
-      /**
-       * <pre>
-       * Display title shown to the SME (1-256 chars).
-       * </pre>
-       *
-       * <code>optional string title = 5;</code>
-       * @return The bytes for title.
-       */
-      public com.google.protobuf.ByteString
-          getTitleBytes() {
-        java.lang.Object ref = title_;
-        if (ref instanceof String) {
-          com.google.protobuf.ByteString b = 
-              com.google.protobuf.ByteString.copyFromUtf8(
-                  (java.lang.String) ref);
-          title_ = b;
-          return b;
-        } else {
-          return (com.google.protobuf.ByteString) ref;
-        }
-      }
-      /**
-       * <pre>
-       * Display title shown to the SME (1-256 chars).
-       * </pre>
-       *
-       * <code>optional string title = 5;</code>
-       * @param value The title to set.
-       * @return This builder for chaining.
-       */
-      public Builder setTitle(
-          java.lang.String value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000010;
-        title_ = value;
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * Display title shown to the SME (1-256 chars).
-       * </pre>
-       *
-       * <code>optional string title = 5;</code>
-       * @return This builder for chaining.
-       */
-      public Builder clearTitle() {
-        bitField0_ = (bitField0_ & ~0x00000010);
-        title_ = getDefaultInstance().getTitle();
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * Display title shown to the SME (1-256 chars).
-       * </pre>
-       *
-       * <code>optional string title = 5;</code>
-       * @param value The bytes for title to set.
-       * @return This builder for chaining.
-       */
-      public Builder setTitleBytes(
-          com.google.protobuf.ByteString value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000010;
-        title_ = value;
-        onChanged();
-        return this;
-      }
-
       private java.lang.Object instruction_ = "";
       /**
        * <pre>
@@ -5995,7 +6301,7 @@ public final class LabelSchemas {
        * @return Whether the instruction field is set.
        */
       public boolean hasInstruction() {
-        return ((bitField0_ & 0x00000020) != 0);
+        return ((bitField0_ & 0x00000010) != 0);
       }
       /**
        * <pre>
@@ -6054,7 +6360,7 @@ public final class LabelSchemas {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000020;
+  bitField0_ |= 0x00000010;
         instruction_ = value;
         onChanged();
         return this;
@@ -6068,7 +6374,7 @@ public final class LabelSchemas {
        * @return This builder for chaining.
        */
       public Builder clearInstruction() {
-        bitField0_ = (bitField0_ & ~0x00000020);
+        bitField0_ = (bitField0_ & ~0x00000010);
         instruction_ = getDefaultInstance().getInstruction();
         onChanged();
         return this;
@@ -6087,7 +6393,7 @@ public final class LabelSchemas {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000020;
+  bitField0_ |= 0x00000010;
         instruction_ = value;
         onChanged();
         return this;
@@ -6104,7 +6410,7 @@ public final class LabelSchemas {
        */
       @java.lang.Override
       public boolean hasEnableComment() {
-        return ((bitField0_ & 0x00000040) != 0);
+        return ((bitField0_ & 0x00000020) != 0);
       }
       /**
        * <pre>
@@ -6128,7 +6434,7 @@ public final class LabelSchemas {
        * @return This builder for chaining.
        */
       public Builder setEnableComment(boolean value) {
-        bitField0_ |= 0x00000040;
+        bitField0_ |= 0x00000020;
         enableComment_ = value;
         onChanged();
         return this;
@@ -6142,7 +6448,7 @@ public final class LabelSchemas {
        * @return This builder for chaining.
        */
       public Builder clearEnableComment() {
-        bitField0_ = (bitField0_ & ~0x00000040);
+        bitField0_ = (bitField0_ & ~0x00000020);
         enableComment_ = false;
         onChanged();
         return this;
@@ -6156,7 +6462,7 @@ public final class LabelSchemas {
        * @return Whether the input field is set.
        */
       public boolean hasInput() {
-        return ((bitField0_ & 0x00000080) != 0);
+        return ((bitField0_ & 0x00000040) != 0);
       }
       /**
        * <code>optional .mlflow.label_schemas.LabelSchemaInput input = 8;</code>
@@ -6182,7 +6488,7 @@ public final class LabelSchemas {
         } else {
           inputBuilder_.setMessage(value);
         }
-        bitField0_ |= 0x00000080;
+        bitField0_ |= 0x00000040;
         return this;
       }
       /**
@@ -6196,7 +6502,7 @@ public final class LabelSchemas {
         } else {
           inputBuilder_.setMessage(builderForValue.build());
         }
-        bitField0_ |= 0x00000080;
+        bitField0_ |= 0x00000040;
         return this;
       }
       /**
@@ -6204,7 +6510,7 @@ public final class LabelSchemas {
        */
       public Builder mergeInput(org.mlflow.api.proto.LabelSchemas.LabelSchemaInput value) {
         if (inputBuilder_ == null) {
-          if (((bitField0_ & 0x00000080) != 0) &&
+          if (((bitField0_ & 0x00000040) != 0) &&
               input_ != null &&
               input_ != org.mlflow.api.proto.LabelSchemas.LabelSchemaInput.getDefaultInstance()) {
             input_ =
@@ -6216,7 +6522,7 @@ public final class LabelSchemas {
         } else {
           inputBuilder_.mergeFrom(value);
         }
-        bitField0_ |= 0x00000080;
+        bitField0_ |= 0x00000040;
         return this;
       }
       /**
@@ -6229,14 +6535,14 @@ public final class LabelSchemas {
         } else {
           inputBuilder_.clear();
         }
-        bitField0_ = (bitField0_ & ~0x00000080);
+        bitField0_ = (bitField0_ & ~0x00000040);
         return this;
       }
       /**
        * <code>optional .mlflow.label_schemas.LabelSchemaInput input = 8;</code>
        */
       public org.mlflow.api.proto.LabelSchemas.LabelSchemaInput.Builder getInputBuilder() {
-        bitField0_ |= 0x00000080;
+        bitField0_ |= 0x00000040;
         onChanged();
         return getInputFieldBuilder().getBuilder();
       }
@@ -6278,7 +6584,7 @@ public final class LabelSchemas {
        * @return Whether the createdBy field is set.
        */
       public boolean hasCreatedBy() {
-        return ((bitField0_ & 0x00000100) != 0);
+        return ((bitField0_ & 0x00000080) != 0);
       }
       /**
        * <pre>
@@ -6337,7 +6643,7 @@ public final class LabelSchemas {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000100;
+  bitField0_ |= 0x00000080;
         createdBy_ = value;
         onChanged();
         return this;
@@ -6351,7 +6657,7 @@ public final class LabelSchemas {
        * @return This builder for chaining.
        */
       public Builder clearCreatedBy() {
-        bitField0_ = (bitField0_ & ~0x00000100);
+        bitField0_ = (bitField0_ & ~0x00000080);
         createdBy_ = getDefaultInstance().getCreatedBy();
         onChanged();
         return this;
@@ -6370,7 +6676,7 @@ public final class LabelSchemas {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000100;
+  bitField0_ |= 0x00000080;
         createdBy_ = value;
         onChanged();
         return this;
@@ -6387,7 +6693,7 @@ public final class LabelSchemas {
        */
       @java.lang.Override
       public boolean hasCreatedAt() {
-        return ((bitField0_ & 0x00000200) != 0);
+        return ((bitField0_ & 0x00000100) != 0);
       }
       /**
        * <pre>
@@ -6411,7 +6717,7 @@ public final class LabelSchemas {
        * @return This builder for chaining.
        */
       public Builder setCreatedAt(long value) {
-        bitField0_ |= 0x00000200;
+        bitField0_ |= 0x00000100;
         createdAt_ = value;
         onChanged();
         return this;
@@ -6425,7 +6731,7 @@ public final class LabelSchemas {
        * @return This builder for chaining.
        */
       public Builder clearCreatedAt() {
-        bitField0_ = (bitField0_ & ~0x00000200);
+        bitField0_ = (bitField0_ & ~0x00000100);
         createdAt_ = 0L;
         onChanged();
         return this;
@@ -6442,7 +6748,7 @@ public final class LabelSchemas {
        */
       @java.lang.Override
       public boolean hasLastUpdatedAt() {
-        return ((bitField0_ & 0x00000400) != 0);
+        return ((bitField0_ & 0x00000200) != 0);
       }
       /**
        * <pre>
@@ -6466,7 +6772,7 @@ public final class LabelSchemas {
        * @return This builder for chaining.
        */
       public Builder setLastUpdatedAt(long value) {
-        bitField0_ |= 0x00000400;
+        bitField0_ |= 0x00000200;
         lastUpdatedAt_ = value;
         onChanged();
         return this;
@@ -6480,7 +6786,7 @@ public final class LabelSchemas {
        * @return This builder for chaining.
        */
       public Builder clearLastUpdatedAt() {
-        bitField0_ = (bitField0_ & ~0x00000400);
+        bitField0_ = (bitField0_ & ~0x00000200);
         lastUpdatedAt_ = 0L;
         onChanged();
         return this;
@@ -6588,23 +6894,6 @@ public final class LabelSchemas {
     org.mlflow.api.proto.LabelSchemas.LabelSchemaType getType();
 
     /**
-     * <code>optional string title = 4 [(.mlflow.validate_required) = true];</code>
-     * @return Whether the title field is set.
-     */
-    boolean hasTitle();
-    /**
-     * <code>optional string title = 4 [(.mlflow.validate_required) = true];</code>
-     * @return The title.
-     */
-    java.lang.String getTitle();
-    /**
-     * <code>optional string title = 4 [(.mlflow.validate_required) = true];</code>
-     * @return The bytes for title.
-     */
-    com.google.protobuf.ByteString
-        getTitleBytes();
-
-    /**
      * <code>optional .mlflow.label_schemas.LabelSchemaInput input = 5 [(.mlflow.validate_required) = true];</code>
      * @return Whether the input field is set.
      */
@@ -6667,7 +6956,6 @@ public final class LabelSchemas {
       experimentId_ = "";
       name_ = "";
       type_ = 0;
-      title_ = "";
       instruction_ = "";
     }
 
@@ -6726,15 +7014,9 @@ public final class LabelSchemas {
               }
               break;
             }
-            case 34: {
-              com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000008;
-              title_ = bs;
-              break;
-            }
             case 42: {
               org.mlflow.api.proto.LabelSchemas.LabelSchemaInput.Builder subBuilder = null;
-              if (((bitField0_ & 0x00000010) != 0)) {
+              if (((bitField0_ & 0x00000008) != 0)) {
                 subBuilder = input_.toBuilder();
               }
               input_ = input.readMessage(org.mlflow.api.proto.LabelSchemas.LabelSchemaInput.PARSER, extensionRegistry);
@@ -6742,17 +7024,17 @@ public final class LabelSchemas {
                 subBuilder.mergeFrom(input_);
                 input_ = subBuilder.buildPartial();
               }
-              bitField0_ |= 0x00000010;
+              bitField0_ |= 0x00000008;
               break;
             }
             case 50: {
               com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000020;
+              bitField0_ |= 0x00000010;
               instruction_ = bs;
               break;
             }
             case 56: {
-              bitField0_ |= 0x00000040;
+              bitField0_ |= 0x00000020;
               enableComment_ = input.readBool();
               break;
             }
@@ -7536,54 +7818,6 @@ public final class LabelSchemas {
       return result == null ? org.mlflow.api.proto.LabelSchemas.LabelSchemaType.LABEL_SCHEMA_TYPE_UNSPECIFIED : result;
     }
 
-    public static final int TITLE_FIELD_NUMBER = 4;
-    private volatile java.lang.Object title_;
-    /**
-     * <code>optional string title = 4 [(.mlflow.validate_required) = true];</code>
-     * @return Whether the title field is set.
-     */
-    @java.lang.Override
-    public boolean hasTitle() {
-      return ((bitField0_ & 0x00000008) != 0);
-    }
-    /**
-     * <code>optional string title = 4 [(.mlflow.validate_required) = true];</code>
-     * @return The title.
-     */
-    @java.lang.Override
-    public java.lang.String getTitle() {
-      java.lang.Object ref = title_;
-      if (ref instanceof java.lang.String) {
-        return (java.lang.String) ref;
-      } else {
-        com.google.protobuf.ByteString bs = 
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        if (bs.isValidUtf8()) {
-          title_ = s;
-        }
-        return s;
-      }
-    }
-    /**
-     * <code>optional string title = 4 [(.mlflow.validate_required) = true];</code>
-     * @return The bytes for title.
-     */
-    @java.lang.Override
-    public com.google.protobuf.ByteString
-        getTitleBytes() {
-      java.lang.Object ref = title_;
-      if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        title_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
-    }
-
     public static final int INPUT_FIELD_NUMBER = 5;
     private org.mlflow.api.proto.LabelSchemas.LabelSchemaInput input_;
     /**
@@ -7592,7 +7826,7 @@ public final class LabelSchemas {
      */
     @java.lang.Override
     public boolean hasInput() {
-      return ((bitField0_ & 0x00000010) != 0);
+      return ((bitField0_ & 0x00000008) != 0);
     }
     /**
      * <code>optional .mlflow.label_schemas.LabelSchemaInput input = 5 [(.mlflow.validate_required) = true];</code>
@@ -7618,7 +7852,7 @@ public final class LabelSchemas {
      */
     @java.lang.Override
     public boolean hasInstruction() {
-      return ((bitField0_ & 0x00000020) != 0);
+      return ((bitField0_ & 0x00000010) != 0);
     }
     /**
      * <code>optional string instruction = 6;</code>
@@ -7666,7 +7900,7 @@ public final class LabelSchemas {
      */
     @java.lang.Override
     public boolean hasEnableComment() {
-      return ((bitField0_ & 0x00000040) != 0);
+      return ((bitField0_ & 0x00000020) != 0);
     }
     /**
      * <code>optional bool enable_comment = 7;</code>
@@ -7701,15 +7935,12 @@ public final class LabelSchemas {
         output.writeEnum(3, type_);
       }
       if (((bitField0_ & 0x00000008) != 0)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 4, title_);
-      }
-      if (((bitField0_ & 0x00000010) != 0)) {
         output.writeMessage(5, getInput());
       }
-      if (((bitField0_ & 0x00000020) != 0)) {
+      if (((bitField0_ & 0x00000010) != 0)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 6, instruction_);
       }
-      if (((bitField0_ & 0x00000040) != 0)) {
+      if (((bitField0_ & 0x00000020) != 0)) {
         output.writeBool(7, enableComment_);
       }
       unknownFields.writeTo(output);
@@ -7732,16 +7963,13 @@ public final class LabelSchemas {
           .computeEnumSize(3, type_);
       }
       if (((bitField0_ & 0x00000008) != 0)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(4, title_);
-      }
-      if (((bitField0_ & 0x00000010) != 0)) {
         size += com.google.protobuf.CodedOutputStream
           .computeMessageSize(5, getInput());
       }
-      if (((bitField0_ & 0x00000020) != 0)) {
+      if (((bitField0_ & 0x00000010) != 0)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(6, instruction_);
       }
-      if (((bitField0_ & 0x00000040) != 0)) {
+      if (((bitField0_ & 0x00000020) != 0)) {
         size += com.google.protobuf.CodedOutputStream
           .computeBoolSize(7, enableComment_);
       }
@@ -7773,11 +8001,6 @@ public final class LabelSchemas {
       if (hasType() != other.hasType()) return false;
       if (hasType()) {
         if (type_ != other.type_) return false;
-      }
-      if (hasTitle() != other.hasTitle()) return false;
-      if (hasTitle()) {
-        if (!getTitle()
-            .equals(other.getTitle())) return false;
       }
       if (hasInput() != other.hasInput()) return false;
       if (hasInput()) {
@@ -7816,10 +8039,6 @@ public final class LabelSchemas {
       if (hasType()) {
         hash = (37 * hash) + TYPE_FIELD_NUMBER;
         hash = (53 * hash) + type_;
-      }
-      if (hasTitle()) {
-        hash = (37 * hash) + TITLE_FIELD_NUMBER;
-        hash = (53 * hash) + getTitle().hashCode();
       }
       if (hasInput()) {
         hash = (37 * hash) + INPUT_FIELD_NUMBER;
@@ -7978,18 +8197,16 @@ public final class LabelSchemas {
         bitField0_ = (bitField0_ & ~0x00000002);
         type_ = 0;
         bitField0_ = (bitField0_ & ~0x00000004);
-        title_ = "";
-        bitField0_ = (bitField0_ & ~0x00000008);
         if (inputBuilder_ == null) {
           input_ = null;
         } else {
           inputBuilder_.clear();
         }
-        bitField0_ = (bitField0_ & ~0x00000010);
+        bitField0_ = (bitField0_ & ~0x00000008);
         instruction_ = "";
-        bitField0_ = (bitField0_ & ~0x00000020);
+        bitField0_ = (bitField0_ & ~0x00000010);
         enableComment_ = false;
-        bitField0_ = (bitField0_ & ~0x00000040);
+        bitField0_ = (bitField0_ & ~0x00000020);
         return this;
       }
 
@@ -8031,24 +8248,20 @@ public final class LabelSchemas {
         }
         result.type_ = type_;
         if (((from_bitField0_ & 0x00000008) != 0)) {
-          to_bitField0_ |= 0x00000008;
-        }
-        result.title_ = title_;
-        if (((from_bitField0_ & 0x00000010) != 0)) {
           if (inputBuilder_ == null) {
             result.input_ = input_;
           } else {
             result.input_ = inputBuilder_.build();
           }
+          to_bitField0_ |= 0x00000008;
+        }
+        if (((from_bitField0_ & 0x00000010) != 0)) {
           to_bitField0_ |= 0x00000010;
         }
-        if (((from_bitField0_ & 0x00000020) != 0)) {
-          to_bitField0_ |= 0x00000020;
-        }
         result.instruction_ = instruction_;
-        if (((from_bitField0_ & 0x00000040) != 0)) {
+        if (((from_bitField0_ & 0x00000020) != 0)) {
           result.enableComment_ = enableComment_;
-          to_bitField0_ |= 0x00000040;
+          to_bitField0_ |= 0x00000020;
         }
         result.bitField0_ = to_bitField0_;
         onBuilt();
@@ -8112,16 +8325,11 @@ public final class LabelSchemas {
         if (other.hasType()) {
           setType(other.getType());
         }
-        if (other.hasTitle()) {
-          bitField0_ |= 0x00000008;
-          title_ = other.title_;
-          onChanged();
-        }
         if (other.hasInput()) {
           mergeInput(other.getInput());
         }
         if (other.hasInstruction()) {
-          bitField0_ |= 0x00000020;
+          bitField0_ |= 0x00000010;
           instruction_ = other.instruction_;
           onChanged();
         }
@@ -8369,90 +8577,6 @@ public final class LabelSchemas {
         return this;
       }
 
-      private java.lang.Object title_ = "";
-      /**
-       * <code>optional string title = 4 [(.mlflow.validate_required) = true];</code>
-       * @return Whether the title field is set.
-       */
-      public boolean hasTitle() {
-        return ((bitField0_ & 0x00000008) != 0);
-      }
-      /**
-       * <code>optional string title = 4 [(.mlflow.validate_required) = true];</code>
-       * @return The title.
-       */
-      public java.lang.String getTitle() {
-        java.lang.Object ref = title_;
-        if (!(ref instanceof java.lang.String)) {
-          com.google.protobuf.ByteString bs =
-              (com.google.protobuf.ByteString) ref;
-          java.lang.String s = bs.toStringUtf8();
-          if (bs.isValidUtf8()) {
-            title_ = s;
-          }
-          return s;
-        } else {
-          return (java.lang.String) ref;
-        }
-      }
-      /**
-       * <code>optional string title = 4 [(.mlflow.validate_required) = true];</code>
-       * @return The bytes for title.
-       */
-      public com.google.protobuf.ByteString
-          getTitleBytes() {
-        java.lang.Object ref = title_;
-        if (ref instanceof String) {
-          com.google.protobuf.ByteString b = 
-              com.google.protobuf.ByteString.copyFromUtf8(
-                  (java.lang.String) ref);
-          title_ = b;
-          return b;
-        } else {
-          return (com.google.protobuf.ByteString) ref;
-        }
-      }
-      /**
-       * <code>optional string title = 4 [(.mlflow.validate_required) = true];</code>
-       * @param value The title to set.
-       * @return This builder for chaining.
-       */
-      public Builder setTitle(
-          java.lang.String value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000008;
-        title_ = value;
-        onChanged();
-        return this;
-      }
-      /**
-       * <code>optional string title = 4 [(.mlflow.validate_required) = true];</code>
-       * @return This builder for chaining.
-       */
-      public Builder clearTitle() {
-        bitField0_ = (bitField0_ & ~0x00000008);
-        title_ = getDefaultInstance().getTitle();
-        onChanged();
-        return this;
-      }
-      /**
-       * <code>optional string title = 4 [(.mlflow.validate_required) = true];</code>
-       * @param value The bytes for title to set.
-       * @return This builder for chaining.
-       */
-      public Builder setTitleBytes(
-          com.google.protobuf.ByteString value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000008;
-        title_ = value;
-        onChanged();
-        return this;
-      }
-
       private org.mlflow.api.proto.LabelSchemas.LabelSchemaInput input_;
       private com.google.protobuf.SingleFieldBuilderV3<
           org.mlflow.api.proto.LabelSchemas.LabelSchemaInput, org.mlflow.api.proto.LabelSchemas.LabelSchemaInput.Builder, org.mlflow.api.proto.LabelSchemas.LabelSchemaInputOrBuilder> inputBuilder_;
@@ -8461,7 +8585,7 @@ public final class LabelSchemas {
        * @return Whether the input field is set.
        */
       public boolean hasInput() {
-        return ((bitField0_ & 0x00000010) != 0);
+        return ((bitField0_ & 0x00000008) != 0);
       }
       /**
        * <code>optional .mlflow.label_schemas.LabelSchemaInput input = 5 [(.mlflow.validate_required) = true];</code>
@@ -8487,7 +8611,7 @@ public final class LabelSchemas {
         } else {
           inputBuilder_.setMessage(value);
         }
-        bitField0_ |= 0x00000010;
+        bitField0_ |= 0x00000008;
         return this;
       }
       /**
@@ -8501,7 +8625,7 @@ public final class LabelSchemas {
         } else {
           inputBuilder_.setMessage(builderForValue.build());
         }
-        bitField0_ |= 0x00000010;
+        bitField0_ |= 0x00000008;
         return this;
       }
       /**
@@ -8509,7 +8633,7 @@ public final class LabelSchemas {
        */
       public Builder mergeInput(org.mlflow.api.proto.LabelSchemas.LabelSchemaInput value) {
         if (inputBuilder_ == null) {
-          if (((bitField0_ & 0x00000010) != 0) &&
+          if (((bitField0_ & 0x00000008) != 0) &&
               input_ != null &&
               input_ != org.mlflow.api.proto.LabelSchemas.LabelSchemaInput.getDefaultInstance()) {
             input_ =
@@ -8521,7 +8645,7 @@ public final class LabelSchemas {
         } else {
           inputBuilder_.mergeFrom(value);
         }
-        bitField0_ |= 0x00000010;
+        bitField0_ |= 0x00000008;
         return this;
       }
       /**
@@ -8534,14 +8658,14 @@ public final class LabelSchemas {
         } else {
           inputBuilder_.clear();
         }
-        bitField0_ = (bitField0_ & ~0x00000010);
+        bitField0_ = (bitField0_ & ~0x00000008);
         return this;
       }
       /**
        * <code>optional .mlflow.label_schemas.LabelSchemaInput input = 5 [(.mlflow.validate_required) = true];</code>
        */
       public org.mlflow.api.proto.LabelSchemas.LabelSchemaInput.Builder getInputBuilder() {
-        bitField0_ |= 0x00000010;
+        bitField0_ |= 0x00000008;
         onChanged();
         return getInputFieldBuilder().getBuilder();
       }
@@ -8579,7 +8703,7 @@ public final class LabelSchemas {
        * @return Whether the instruction field is set.
        */
       public boolean hasInstruction() {
-        return ((bitField0_ & 0x00000020) != 0);
+        return ((bitField0_ & 0x00000010) != 0);
       }
       /**
        * <code>optional string instruction = 6;</code>
@@ -8626,7 +8750,7 @@ public final class LabelSchemas {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000020;
+  bitField0_ |= 0x00000010;
         instruction_ = value;
         onChanged();
         return this;
@@ -8636,7 +8760,7 @@ public final class LabelSchemas {
        * @return This builder for chaining.
        */
       public Builder clearInstruction() {
-        bitField0_ = (bitField0_ & ~0x00000020);
+        bitField0_ = (bitField0_ & ~0x00000010);
         instruction_ = getDefaultInstance().getInstruction();
         onChanged();
         return this;
@@ -8651,7 +8775,7 @@ public final class LabelSchemas {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000020;
+  bitField0_ |= 0x00000010;
         instruction_ = value;
         onChanged();
         return this;
@@ -8664,7 +8788,7 @@ public final class LabelSchemas {
        */
       @java.lang.Override
       public boolean hasEnableComment() {
-        return ((bitField0_ & 0x00000040) != 0);
+        return ((bitField0_ & 0x00000020) != 0);
       }
       /**
        * <code>optional bool enable_comment = 7;</code>
@@ -8680,7 +8804,7 @@ public final class LabelSchemas {
        * @return This builder for chaining.
        */
       public Builder setEnableComment(boolean value) {
-        bitField0_ |= 0x00000040;
+        bitField0_ |= 0x00000020;
         enableComment_ = value;
         onChanged();
         return this;
@@ -8690,7 +8814,7 @@ public final class LabelSchemas {
        * @return This builder for chaining.
        */
       public Builder clearEnableComment() {
-        bitField0_ = (bitField0_ & ~0x00000040);
+        bitField0_ = (bitField0_ & ~0x00000020);
         enableComment_ = false;
         onChanged();
         return this;
@@ -13388,23 +13512,6 @@ public final class LabelSchemas {
         getNameBytes();
 
     /**
-     * <code>optional string title = 3;</code>
-     * @return Whether the title field is set.
-     */
-    boolean hasTitle();
-    /**
-     * <code>optional string title = 3;</code>
-     * @return The title.
-     */
-    java.lang.String getTitle();
-    /**
-     * <code>optional string title = 3;</code>
-     * @return The bytes for title.
-     */
-    com.google.protobuf.ByteString
-        getTitleBytes();
-
-    /**
      * <code>optional string instruction = 4;</code>
      * @return Whether the instruction field is set.
      */
@@ -13452,8 +13559,8 @@ public final class LabelSchemas {
    * Request to sparse-update an existing label schema. `type` is immutable
    * and is intentionally omitted from this message. The handler treats an
    * absent field (HasField=false) as "unchanged" and a set field as the new
-   * value; an empty string written for `title` / `instruction` will replace
-   * the stored value with the empty string rather than clearing it.
+   * value; an empty string written for `instruction` will replace the
+   * stored value with the empty string rather than clearing it.
    * `name` may be renamed; existing assessment rows are NOT migrated (their
    * `name` continues to reference the prior schema name), matching the
    * store-layer contract documented on AbstractStore.update_label_schema.
@@ -13473,7 +13580,6 @@ public final class LabelSchemas {
     private UpdateLabelSchema() {
       schemaId_ = "";
       name_ = "";
-      title_ = "";
       instruction_ = "";
     }
 
@@ -13520,26 +13626,20 @@ public final class LabelSchemas {
               name_ = bs;
               break;
             }
-            case 26: {
-              com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000004;
-              title_ = bs;
-              break;
-            }
             case 34: {
               com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000008;
+              bitField0_ |= 0x00000004;
               instruction_ = bs;
               break;
             }
             case 40: {
-              bitField0_ |= 0x00000010;
+              bitField0_ |= 0x00000008;
               enableComment_ = input.readBool();
               break;
             }
             case 50: {
               org.mlflow.api.proto.LabelSchemas.LabelSchemaInput.Builder subBuilder = null;
-              if (((bitField0_ & 0x00000020) != 0)) {
+              if (((bitField0_ & 0x00000010) != 0)) {
                 subBuilder = input_.toBuilder();
               }
               input_ = input.readMessage(org.mlflow.api.proto.LabelSchemas.LabelSchemaInput.PARSER, extensionRegistry);
@@ -13547,7 +13647,7 @@ public final class LabelSchemas {
                 subBuilder.mergeFrom(input_);
                 input_ = subBuilder.buildPartial();
               }
-              bitField0_ |= 0x00000020;
+              bitField0_ |= 0x00000010;
               break;
             }
             default: {
@@ -14311,54 +14411,6 @@ public final class LabelSchemas {
       }
     }
 
-    public static final int TITLE_FIELD_NUMBER = 3;
-    private volatile java.lang.Object title_;
-    /**
-     * <code>optional string title = 3;</code>
-     * @return Whether the title field is set.
-     */
-    @java.lang.Override
-    public boolean hasTitle() {
-      return ((bitField0_ & 0x00000004) != 0);
-    }
-    /**
-     * <code>optional string title = 3;</code>
-     * @return The title.
-     */
-    @java.lang.Override
-    public java.lang.String getTitle() {
-      java.lang.Object ref = title_;
-      if (ref instanceof java.lang.String) {
-        return (java.lang.String) ref;
-      } else {
-        com.google.protobuf.ByteString bs = 
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        if (bs.isValidUtf8()) {
-          title_ = s;
-        }
-        return s;
-      }
-    }
-    /**
-     * <code>optional string title = 3;</code>
-     * @return The bytes for title.
-     */
-    @java.lang.Override
-    public com.google.protobuf.ByteString
-        getTitleBytes() {
-      java.lang.Object ref = title_;
-      if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        title_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
-    }
-
     public static final int INSTRUCTION_FIELD_NUMBER = 4;
     private volatile java.lang.Object instruction_;
     /**
@@ -14367,7 +14419,7 @@ public final class LabelSchemas {
      */
     @java.lang.Override
     public boolean hasInstruction() {
-      return ((bitField0_ & 0x00000008) != 0);
+      return ((bitField0_ & 0x00000004) != 0);
     }
     /**
      * <code>optional string instruction = 4;</code>
@@ -14415,7 +14467,7 @@ public final class LabelSchemas {
      */
     @java.lang.Override
     public boolean hasEnableComment() {
-      return ((bitField0_ & 0x00000010) != 0);
+      return ((bitField0_ & 0x00000008) != 0);
     }
     /**
      * <code>optional bool enable_comment = 5;</code>
@@ -14434,7 +14486,7 @@ public final class LabelSchemas {
      */
     @java.lang.Override
     public boolean hasInput() {
-      return ((bitField0_ & 0x00000020) != 0);
+      return ((bitField0_ & 0x00000010) != 0);
     }
     /**
      * <code>optional .mlflow.label_schemas.LabelSchemaInput input = 6;</code>
@@ -14473,15 +14525,12 @@ public final class LabelSchemas {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 2, name_);
       }
       if (((bitField0_ & 0x00000004) != 0)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 3, title_);
-      }
-      if (((bitField0_ & 0x00000008) != 0)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 4, instruction_);
       }
-      if (((bitField0_ & 0x00000010) != 0)) {
+      if (((bitField0_ & 0x00000008) != 0)) {
         output.writeBool(5, enableComment_);
       }
-      if (((bitField0_ & 0x00000020) != 0)) {
+      if (((bitField0_ & 0x00000010) != 0)) {
         output.writeMessage(6, getInput());
       }
       unknownFields.writeTo(output);
@@ -14500,16 +14549,13 @@ public final class LabelSchemas {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, name_);
       }
       if (((bitField0_ & 0x00000004) != 0)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, title_);
-      }
-      if (((bitField0_ & 0x00000008) != 0)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(4, instruction_);
       }
-      if (((bitField0_ & 0x00000010) != 0)) {
+      if (((bitField0_ & 0x00000008) != 0)) {
         size += com.google.protobuf.CodedOutputStream
           .computeBoolSize(5, enableComment_);
       }
-      if (((bitField0_ & 0x00000020) != 0)) {
+      if (((bitField0_ & 0x00000010) != 0)) {
         size += com.google.protobuf.CodedOutputStream
           .computeMessageSize(6, getInput());
       }
@@ -14537,11 +14583,6 @@ public final class LabelSchemas {
       if (hasName()) {
         if (!getName()
             .equals(other.getName())) return false;
-      }
-      if (hasTitle() != other.hasTitle()) return false;
-      if (hasTitle()) {
-        if (!getTitle()
-            .equals(other.getTitle())) return false;
       }
       if (hasInstruction() != other.hasInstruction()) return false;
       if (hasInstruction()) {
@@ -14576,10 +14617,6 @@ public final class LabelSchemas {
       if (hasName()) {
         hash = (37 * hash) + NAME_FIELD_NUMBER;
         hash = (53 * hash) + getName().hashCode();
-      }
-      if (hasTitle()) {
-        hash = (37 * hash) + TITLE_FIELD_NUMBER;
-        hash = (53 * hash) + getTitle().hashCode();
       }
       if (hasInstruction()) {
         hash = (37 * hash) + INSTRUCTION_FIELD_NUMBER;
@@ -14694,8 +14731,8 @@ public final class LabelSchemas {
      * Request to sparse-update an existing label schema. `type` is immutable
      * and is intentionally omitted from this message. The handler treats an
      * absent field (HasField=false) as "unchanged" and a set field as the new
-     * value; an empty string written for `title` / `instruction` will replace
-     * the stored value with the empty string rather than clearing it.
+     * value; an empty string written for `instruction` will replace the
+     * stored value with the empty string rather than clearing it.
      * `name` may be renamed; existing assessment rows are NOT migrated (their
      * `name` continues to reference the prior schema name), matching the
      * store-layer contract documented on AbstractStore.update_label_schema.
@@ -14743,18 +14780,16 @@ public final class LabelSchemas {
         bitField0_ = (bitField0_ & ~0x00000001);
         name_ = "";
         bitField0_ = (bitField0_ & ~0x00000002);
-        title_ = "";
-        bitField0_ = (bitField0_ & ~0x00000004);
         instruction_ = "";
-        bitField0_ = (bitField0_ & ~0x00000008);
+        bitField0_ = (bitField0_ & ~0x00000004);
         enableComment_ = false;
-        bitField0_ = (bitField0_ & ~0x00000010);
+        bitField0_ = (bitField0_ & ~0x00000008);
         if (inputBuilder_ == null) {
           input_ = null;
         } else {
           inputBuilder_.clear();
         }
-        bitField0_ = (bitField0_ & ~0x00000020);
+        bitField0_ = (bitField0_ & ~0x00000010);
         return this;
       }
 
@@ -14794,22 +14829,18 @@ public final class LabelSchemas {
         if (((from_bitField0_ & 0x00000004) != 0)) {
           to_bitField0_ |= 0x00000004;
         }
-        result.title_ = title_;
+        result.instruction_ = instruction_;
         if (((from_bitField0_ & 0x00000008) != 0)) {
+          result.enableComment_ = enableComment_;
           to_bitField0_ |= 0x00000008;
         }
-        result.instruction_ = instruction_;
         if (((from_bitField0_ & 0x00000010) != 0)) {
-          result.enableComment_ = enableComment_;
-          to_bitField0_ |= 0x00000010;
-        }
-        if (((from_bitField0_ & 0x00000020) != 0)) {
           if (inputBuilder_ == null) {
             result.input_ = input_;
           } else {
             result.input_ = inputBuilder_.build();
           }
-          to_bitField0_ |= 0x00000020;
+          to_bitField0_ |= 0x00000010;
         }
         result.bitField0_ = to_bitField0_;
         onBuilt();
@@ -14870,13 +14901,8 @@ public final class LabelSchemas {
           name_ = other.name_;
           onChanged();
         }
-        if (other.hasTitle()) {
-          bitField0_ |= 0x00000004;
-          title_ = other.title_;
-          onChanged();
-        }
         if (other.hasInstruction()) {
-          bitField0_ |= 0x00000008;
+          bitField0_ |= 0x00000004;
           instruction_ = other.instruction_;
           onChanged();
         }
@@ -15084,97 +15110,13 @@ public final class LabelSchemas {
         return this;
       }
 
-      private java.lang.Object title_ = "";
-      /**
-       * <code>optional string title = 3;</code>
-       * @return Whether the title field is set.
-       */
-      public boolean hasTitle() {
-        return ((bitField0_ & 0x00000004) != 0);
-      }
-      /**
-       * <code>optional string title = 3;</code>
-       * @return The title.
-       */
-      public java.lang.String getTitle() {
-        java.lang.Object ref = title_;
-        if (!(ref instanceof java.lang.String)) {
-          com.google.protobuf.ByteString bs =
-              (com.google.protobuf.ByteString) ref;
-          java.lang.String s = bs.toStringUtf8();
-          if (bs.isValidUtf8()) {
-            title_ = s;
-          }
-          return s;
-        } else {
-          return (java.lang.String) ref;
-        }
-      }
-      /**
-       * <code>optional string title = 3;</code>
-       * @return The bytes for title.
-       */
-      public com.google.protobuf.ByteString
-          getTitleBytes() {
-        java.lang.Object ref = title_;
-        if (ref instanceof String) {
-          com.google.protobuf.ByteString b = 
-              com.google.protobuf.ByteString.copyFromUtf8(
-                  (java.lang.String) ref);
-          title_ = b;
-          return b;
-        } else {
-          return (com.google.protobuf.ByteString) ref;
-        }
-      }
-      /**
-       * <code>optional string title = 3;</code>
-       * @param value The title to set.
-       * @return This builder for chaining.
-       */
-      public Builder setTitle(
-          java.lang.String value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000004;
-        title_ = value;
-        onChanged();
-        return this;
-      }
-      /**
-       * <code>optional string title = 3;</code>
-       * @return This builder for chaining.
-       */
-      public Builder clearTitle() {
-        bitField0_ = (bitField0_ & ~0x00000004);
-        title_ = getDefaultInstance().getTitle();
-        onChanged();
-        return this;
-      }
-      /**
-       * <code>optional string title = 3;</code>
-       * @param value The bytes for title to set.
-       * @return This builder for chaining.
-       */
-      public Builder setTitleBytes(
-          com.google.protobuf.ByteString value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000004;
-        title_ = value;
-        onChanged();
-        return this;
-      }
-
       private java.lang.Object instruction_ = "";
       /**
        * <code>optional string instruction = 4;</code>
        * @return Whether the instruction field is set.
        */
       public boolean hasInstruction() {
-        return ((bitField0_ & 0x00000008) != 0);
+        return ((bitField0_ & 0x00000004) != 0);
       }
       /**
        * <code>optional string instruction = 4;</code>
@@ -15221,7 +15163,7 @@ public final class LabelSchemas {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000008;
+  bitField0_ |= 0x00000004;
         instruction_ = value;
         onChanged();
         return this;
@@ -15231,7 +15173,7 @@ public final class LabelSchemas {
        * @return This builder for chaining.
        */
       public Builder clearInstruction() {
-        bitField0_ = (bitField0_ & ~0x00000008);
+        bitField0_ = (bitField0_ & ~0x00000004);
         instruction_ = getDefaultInstance().getInstruction();
         onChanged();
         return this;
@@ -15246,7 +15188,7 @@ public final class LabelSchemas {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000008;
+  bitField0_ |= 0x00000004;
         instruction_ = value;
         onChanged();
         return this;
@@ -15259,7 +15201,7 @@ public final class LabelSchemas {
        */
       @java.lang.Override
       public boolean hasEnableComment() {
-        return ((bitField0_ & 0x00000010) != 0);
+        return ((bitField0_ & 0x00000008) != 0);
       }
       /**
        * <code>optional bool enable_comment = 5;</code>
@@ -15275,7 +15217,7 @@ public final class LabelSchemas {
        * @return This builder for chaining.
        */
       public Builder setEnableComment(boolean value) {
-        bitField0_ |= 0x00000010;
+        bitField0_ |= 0x00000008;
         enableComment_ = value;
         onChanged();
         return this;
@@ -15285,7 +15227,7 @@ public final class LabelSchemas {
        * @return This builder for chaining.
        */
       public Builder clearEnableComment() {
-        bitField0_ = (bitField0_ & ~0x00000010);
+        bitField0_ = (bitField0_ & ~0x00000008);
         enableComment_ = false;
         onChanged();
         return this;
@@ -15299,7 +15241,7 @@ public final class LabelSchemas {
        * @return Whether the input field is set.
        */
       public boolean hasInput() {
-        return ((bitField0_ & 0x00000020) != 0);
+        return ((bitField0_ & 0x00000010) != 0);
       }
       /**
        * <code>optional .mlflow.label_schemas.LabelSchemaInput input = 6;</code>
@@ -15325,7 +15267,7 @@ public final class LabelSchemas {
         } else {
           inputBuilder_.setMessage(value);
         }
-        bitField0_ |= 0x00000020;
+        bitField0_ |= 0x00000010;
         return this;
       }
       /**
@@ -15339,7 +15281,7 @@ public final class LabelSchemas {
         } else {
           inputBuilder_.setMessage(builderForValue.build());
         }
-        bitField0_ |= 0x00000020;
+        bitField0_ |= 0x00000010;
         return this;
       }
       /**
@@ -15347,7 +15289,7 @@ public final class LabelSchemas {
        */
       public Builder mergeInput(org.mlflow.api.proto.LabelSchemas.LabelSchemaInput value) {
         if (inputBuilder_ == null) {
-          if (((bitField0_ & 0x00000020) != 0) &&
+          if (((bitField0_ & 0x00000010) != 0) &&
               input_ != null &&
               input_ != org.mlflow.api.proto.LabelSchemas.LabelSchemaInput.getDefaultInstance()) {
             input_ =
@@ -15359,7 +15301,7 @@ public final class LabelSchemas {
         } else {
           inputBuilder_.mergeFrom(value);
         }
-        bitField0_ |= 0x00000020;
+        bitField0_ |= 0x00000010;
         return this;
       }
       /**
@@ -15372,14 +15314,14 @@ public final class LabelSchemas {
         } else {
           inputBuilder_.clear();
         }
-        bitField0_ = (bitField0_ & ~0x00000020);
+        bitField0_ = (bitField0_ & ~0x00000010);
         return this;
       }
       /**
        * <code>optional .mlflow.label_schemas.LabelSchemaInput input = 6;</code>
        */
       public org.mlflow.api.proto.LabelSchemas.LabelSchemaInput.Builder getInputBuilder() {
-        bitField0_ |= 0x00000020;
+        bitField0_ |= 0x00000010;
         onChanged();
         return getInputFieldBuilder().getBuilder();
       }
@@ -15513,23 +15455,6 @@ public final class LabelSchemas {
     org.mlflow.api.proto.LabelSchemas.LabelSchemaType getType();
 
     /**
-     * <code>optional string title = 4 [(.mlflow.validate_required) = true];</code>
-     * @return Whether the title field is set.
-     */
-    boolean hasTitle();
-    /**
-     * <code>optional string title = 4 [(.mlflow.validate_required) = true];</code>
-     * @return The title.
-     */
-    java.lang.String getTitle();
-    /**
-     * <code>optional string title = 4 [(.mlflow.validate_required) = true];</code>
-     * @return The bytes for title.
-     */
-    com.google.protobuf.ByteString
-        getTitleBytes();
-
-    /**
      * <code>optional .mlflow.label_schemas.LabelSchemaInput input = 5 [(.mlflow.validate_required) = true];</code>
      * @return Whether the input field is set.
      */
@@ -15594,7 +15519,6 @@ public final class LabelSchemas {
       experimentId_ = "";
       name_ = "";
       type_ = 0;
-      title_ = "";
       instruction_ = "";
     }
 
@@ -15653,15 +15577,9 @@ public final class LabelSchemas {
               }
               break;
             }
-            case 34: {
-              com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000008;
-              title_ = bs;
-              break;
-            }
             case 42: {
               org.mlflow.api.proto.LabelSchemas.LabelSchemaInput.Builder subBuilder = null;
-              if (((bitField0_ & 0x00000010) != 0)) {
+              if (((bitField0_ & 0x00000008) != 0)) {
                 subBuilder = input_.toBuilder();
               }
               input_ = input.readMessage(org.mlflow.api.proto.LabelSchemas.LabelSchemaInput.PARSER, extensionRegistry);
@@ -15669,17 +15587,17 @@ public final class LabelSchemas {
                 subBuilder.mergeFrom(input_);
                 input_ = subBuilder.buildPartial();
               }
-              bitField0_ |= 0x00000010;
+              bitField0_ |= 0x00000008;
               break;
             }
             case 50: {
               com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000020;
+              bitField0_ |= 0x00000010;
               instruction_ = bs;
               break;
             }
             case 56: {
-              bitField0_ |= 0x00000040;
+              bitField0_ |= 0x00000020;
               enableComment_ = input.readBool();
               break;
             }
@@ -16463,54 +16381,6 @@ public final class LabelSchemas {
       return result == null ? org.mlflow.api.proto.LabelSchemas.LabelSchemaType.LABEL_SCHEMA_TYPE_UNSPECIFIED : result;
     }
 
-    public static final int TITLE_FIELD_NUMBER = 4;
-    private volatile java.lang.Object title_;
-    /**
-     * <code>optional string title = 4 [(.mlflow.validate_required) = true];</code>
-     * @return Whether the title field is set.
-     */
-    @java.lang.Override
-    public boolean hasTitle() {
-      return ((bitField0_ & 0x00000008) != 0);
-    }
-    /**
-     * <code>optional string title = 4 [(.mlflow.validate_required) = true];</code>
-     * @return The title.
-     */
-    @java.lang.Override
-    public java.lang.String getTitle() {
-      java.lang.Object ref = title_;
-      if (ref instanceof java.lang.String) {
-        return (java.lang.String) ref;
-      } else {
-        com.google.protobuf.ByteString bs = 
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        if (bs.isValidUtf8()) {
-          title_ = s;
-        }
-        return s;
-      }
-    }
-    /**
-     * <code>optional string title = 4 [(.mlflow.validate_required) = true];</code>
-     * @return The bytes for title.
-     */
-    @java.lang.Override
-    public com.google.protobuf.ByteString
-        getTitleBytes() {
-      java.lang.Object ref = title_;
-      if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        title_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
-    }
-
     public static final int INPUT_FIELD_NUMBER = 5;
     private org.mlflow.api.proto.LabelSchemas.LabelSchemaInput input_;
     /**
@@ -16519,7 +16389,7 @@ public final class LabelSchemas {
      */
     @java.lang.Override
     public boolean hasInput() {
-      return ((bitField0_ & 0x00000010) != 0);
+      return ((bitField0_ & 0x00000008) != 0);
     }
     /**
      * <code>optional .mlflow.label_schemas.LabelSchemaInput input = 5 [(.mlflow.validate_required) = true];</code>
@@ -16545,7 +16415,7 @@ public final class LabelSchemas {
      */
     @java.lang.Override
     public boolean hasInstruction() {
-      return ((bitField0_ & 0x00000020) != 0);
+      return ((bitField0_ & 0x00000010) != 0);
     }
     /**
      * <code>optional string instruction = 6;</code>
@@ -16593,7 +16463,7 @@ public final class LabelSchemas {
      */
     @java.lang.Override
     public boolean hasEnableComment() {
-      return ((bitField0_ & 0x00000040) != 0);
+      return ((bitField0_ & 0x00000020) != 0);
     }
     /**
      * <code>optional bool enable_comment = 7;</code>
@@ -16628,15 +16498,12 @@ public final class LabelSchemas {
         output.writeEnum(3, type_);
       }
       if (((bitField0_ & 0x00000008) != 0)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 4, title_);
-      }
-      if (((bitField0_ & 0x00000010) != 0)) {
         output.writeMessage(5, getInput());
       }
-      if (((bitField0_ & 0x00000020) != 0)) {
+      if (((bitField0_ & 0x00000010) != 0)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 6, instruction_);
       }
-      if (((bitField0_ & 0x00000040) != 0)) {
+      if (((bitField0_ & 0x00000020) != 0)) {
         output.writeBool(7, enableComment_);
       }
       unknownFields.writeTo(output);
@@ -16659,16 +16526,13 @@ public final class LabelSchemas {
           .computeEnumSize(3, type_);
       }
       if (((bitField0_ & 0x00000008) != 0)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(4, title_);
-      }
-      if (((bitField0_ & 0x00000010) != 0)) {
         size += com.google.protobuf.CodedOutputStream
           .computeMessageSize(5, getInput());
       }
-      if (((bitField0_ & 0x00000020) != 0)) {
+      if (((bitField0_ & 0x00000010) != 0)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(6, instruction_);
       }
-      if (((bitField0_ & 0x00000040) != 0)) {
+      if (((bitField0_ & 0x00000020) != 0)) {
         size += com.google.protobuf.CodedOutputStream
           .computeBoolSize(7, enableComment_);
       }
@@ -16700,11 +16564,6 @@ public final class LabelSchemas {
       if (hasType() != other.hasType()) return false;
       if (hasType()) {
         if (type_ != other.type_) return false;
-      }
-      if (hasTitle() != other.hasTitle()) return false;
-      if (hasTitle()) {
-        if (!getTitle()
-            .equals(other.getTitle())) return false;
       }
       if (hasInput() != other.hasInput()) return false;
       if (hasInput()) {
@@ -16743,10 +16602,6 @@ public final class LabelSchemas {
       if (hasType()) {
         hash = (37 * hash) + TYPE_FIELD_NUMBER;
         hash = (53 * hash) + type_;
-      }
-      if (hasTitle()) {
-        hash = (37 * hash) + TITLE_FIELD_NUMBER;
-        hash = (53 * hash) + getTitle().hashCode();
       }
       if (hasInput()) {
         hash = (37 * hash) + INPUT_FIELD_NUMBER;
@@ -16907,18 +16762,16 @@ public final class LabelSchemas {
         bitField0_ = (bitField0_ & ~0x00000002);
         type_ = 0;
         bitField0_ = (bitField0_ & ~0x00000004);
-        title_ = "";
-        bitField0_ = (bitField0_ & ~0x00000008);
         if (inputBuilder_ == null) {
           input_ = null;
         } else {
           inputBuilder_.clear();
         }
-        bitField0_ = (bitField0_ & ~0x00000010);
+        bitField0_ = (bitField0_ & ~0x00000008);
         instruction_ = "";
-        bitField0_ = (bitField0_ & ~0x00000020);
+        bitField0_ = (bitField0_ & ~0x00000010);
         enableComment_ = false;
-        bitField0_ = (bitField0_ & ~0x00000040);
+        bitField0_ = (bitField0_ & ~0x00000020);
         return this;
       }
 
@@ -16960,24 +16813,20 @@ public final class LabelSchemas {
         }
         result.type_ = type_;
         if (((from_bitField0_ & 0x00000008) != 0)) {
-          to_bitField0_ |= 0x00000008;
-        }
-        result.title_ = title_;
-        if (((from_bitField0_ & 0x00000010) != 0)) {
           if (inputBuilder_ == null) {
             result.input_ = input_;
           } else {
             result.input_ = inputBuilder_.build();
           }
+          to_bitField0_ |= 0x00000008;
+        }
+        if (((from_bitField0_ & 0x00000010) != 0)) {
           to_bitField0_ |= 0x00000010;
         }
-        if (((from_bitField0_ & 0x00000020) != 0)) {
-          to_bitField0_ |= 0x00000020;
-        }
         result.instruction_ = instruction_;
-        if (((from_bitField0_ & 0x00000040) != 0)) {
+        if (((from_bitField0_ & 0x00000020) != 0)) {
           result.enableComment_ = enableComment_;
-          to_bitField0_ |= 0x00000040;
+          to_bitField0_ |= 0x00000020;
         }
         result.bitField0_ = to_bitField0_;
         onBuilt();
@@ -17041,16 +16890,11 @@ public final class LabelSchemas {
         if (other.hasType()) {
           setType(other.getType());
         }
-        if (other.hasTitle()) {
-          bitField0_ |= 0x00000008;
-          title_ = other.title_;
-          onChanged();
-        }
         if (other.hasInput()) {
           mergeInput(other.getInput());
         }
         if (other.hasInstruction()) {
-          bitField0_ |= 0x00000020;
+          bitField0_ |= 0x00000010;
           instruction_ = other.instruction_;
           onChanged();
         }
@@ -17298,90 +17142,6 @@ public final class LabelSchemas {
         return this;
       }
 
-      private java.lang.Object title_ = "";
-      /**
-       * <code>optional string title = 4 [(.mlflow.validate_required) = true];</code>
-       * @return Whether the title field is set.
-       */
-      public boolean hasTitle() {
-        return ((bitField0_ & 0x00000008) != 0);
-      }
-      /**
-       * <code>optional string title = 4 [(.mlflow.validate_required) = true];</code>
-       * @return The title.
-       */
-      public java.lang.String getTitle() {
-        java.lang.Object ref = title_;
-        if (!(ref instanceof java.lang.String)) {
-          com.google.protobuf.ByteString bs =
-              (com.google.protobuf.ByteString) ref;
-          java.lang.String s = bs.toStringUtf8();
-          if (bs.isValidUtf8()) {
-            title_ = s;
-          }
-          return s;
-        } else {
-          return (java.lang.String) ref;
-        }
-      }
-      /**
-       * <code>optional string title = 4 [(.mlflow.validate_required) = true];</code>
-       * @return The bytes for title.
-       */
-      public com.google.protobuf.ByteString
-          getTitleBytes() {
-        java.lang.Object ref = title_;
-        if (ref instanceof String) {
-          com.google.protobuf.ByteString b = 
-              com.google.protobuf.ByteString.copyFromUtf8(
-                  (java.lang.String) ref);
-          title_ = b;
-          return b;
-        } else {
-          return (com.google.protobuf.ByteString) ref;
-        }
-      }
-      /**
-       * <code>optional string title = 4 [(.mlflow.validate_required) = true];</code>
-       * @param value The title to set.
-       * @return This builder for chaining.
-       */
-      public Builder setTitle(
-          java.lang.String value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000008;
-        title_ = value;
-        onChanged();
-        return this;
-      }
-      /**
-       * <code>optional string title = 4 [(.mlflow.validate_required) = true];</code>
-       * @return This builder for chaining.
-       */
-      public Builder clearTitle() {
-        bitField0_ = (bitField0_ & ~0x00000008);
-        title_ = getDefaultInstance().getTitle();
-        onChanged();
-        return this;
-      }
-      /**
-       * <code>optional string title = 4 [(.mlflow.validate_required) = true];</code>
-       * @param value The bytes for title to set.
-       * @return This builder for chaining.
-       */
-      public Builder setTitleBytes(
-          com.google.protobuf.ByteString value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000008;
-        title_ = value;
-        onChanged();
-        return this;
-      }
-
       private org.mlflow.api.proto.LabelSchemas.LabelSchemaInput input_;
       private com.google.protobuf.SingleFieldBuilderV3<
           org.mlflow.api.proto.LabelSchemas.LabelSchemaInput, org.mlflow.api.proto.LabelSchemas.LabelSchemaInput.Builder, org.mlflow.api.proto.LabelSchemas.LabelSchemaInputOrBuilder> inputBuilder_;
@@ -17390,7 +17150,7 @@ public final class LabelSchemas {
        * @return Whether the input field is set.
        */
       public boolean hasInput() {
-        return ((bitField0_ & 0x00000010) != 0);
+        return ((bitField0_ & 0x00000008) != 0);
       }
       /**
        * <code>optional .mlflow.label_schemas.LabelSchemaInput input = 5 [(.mlflow.validate_required) = true];</code>
@@ -17416,7 +17176,7 @@ public final class LabelSchemas {
         } else {
           inputBuilder_.setMessage(value);
         }
-        bitField0_ |= 0x00000010;
+        bitField0_ |= 0x00000008;
         return this;
       }
       /**
@@ -17430,7 +17190,7 @@ public final class LabelSchemas {
         } else {
           inputBuilder_.setMessage(builderForValue.build());
         }
-        bitField0_ |= 0x00000010;
+        bitField0_ |= 0x00000008;
         return this;
       }
       /**
@@ -17438,7 +17198,7 @@ public final class LabelSchemas {
        */
       public Builder mergeInput(org.mlflow.api.proto.LabelSchemas.LabelSchemaInput value) {
         if (inputBuilder_ == null) {
-          if (((bitField0_ & 0x00000010) != 0) &&
+          if (((bitField0_ & 0x00000008) != 0) &&
               input_ != null &&
               input_ != org.mlflow.api.proto.LabelSchemas.LabelSchemaInput.getDefaultInstance()) {
             input_ =
@@ -17450,7 +17210,7 @@ public final class LabelSchemas {
         } else {
           inputBuilder_.mergeFrom(value);
         }
-        bitField0_ |= 0x00000010;
+        bitField0_ |= 0x00000008;
         return this;
       }
       /**
@@ -17463,14 +17223,14 @@ public final class LabelSchemas {
         } else {
           inputBuilder_.clear();
         }
-        bitField0_ = (bitField0_ & ~0x00000010);
+        bitField0_ = (bitField0_ & ~0x00000008);
         return this;
       }
       /**
        * <code>optional .mlflow.label_schemas.LabelSchemaInput input = 5 [(.mlflow.validate_required) = true];</code>
        */
       public org.mlflow.api.proto.LabelSchemas.LabelSchemaInput.Builder getInputBuilder() {
-        bitField0_ |= 0x00000010;
+        bitField0_ |= 0x00000008;
         onChanged();
         return getInputFieldBuilder().getBuilder();
       }
@@ -17508,7 +17268,7 @@ public final class LabelSchemas {
        * @return Whether the instruction field is set.
        */
       public boolean hasInstruction() {
-        return ((bitField0_ & 0x00000020) != 0);
+        return ((bitField0_ & 0x00000010) != 0);
       }
       /**
        * <code>optional string instruction = 6;</code>
@@ -17555,7 +17315,7 @@ public final class LabelSchemas {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000020;
+  bitField0_ |= 0x00000010;
         instruction_ = value;
         onChanged();
         return this;
@@ -17565,7 +17325,7 @@ public final class LabelSchemas {
        * @return This builder for chaining.
        */
       public Builder clearInstruction() {
-        bitField0_ = (bitField0_ & ~0x00000020);
+        bitField0_ = (bitField0_ & ~0x00000010);
         instruction_ = getDefaultInstance().getInstruction();
         onChanged();
         return this;
@@ -17580,7 +17340,7 @@ public final class LabelSchemas {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000020;
+  bitField0_ |= 0x00000010;
         instruction_ = value;
         onChanged();
         return this;
@@ -17593,7 +17353,7 @@ public final class LabelSchemas {
        */
       @java.lang.Override
       public boolean hasEnableComment() {
-        return ((bitField0_ & 0x00000040) != 0);
+        return ((bitField0_ & 0x00000020) != 0);
       }
       /**
        * <code>optional bool enable_comment = 7;</code>
@@ -17609,7 +17369,7 @@ public final class LabelSchemas {
        * @return This builder for chaining.
        */
       public Builder setEnableComment(boolean value) {
-        bitField0_ |= 0x00000040;
+        bitField0_ |= 0x00000020;
         enableComment_ = value;
         onChanged();
         return this;
@@ -17619,7 +17379,7 @@ public final class LabelSchemas {
        * @return This builder for chaining.
        */
       public Builder clearEnableComment() {
-        bitField0_ = (bitField0_ & ~0x00000040);
+        bitField0_ = (bitField0_ & ~0x00000020);
         enableComment_ = false;
         onChanged();
         return this;
@@ -18725,6 +18485,11 @@ public final class LabelSchemas {
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_mlflow_label_schemas_InputNumeric_fieldAccessorTable;
   private static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_mlflow_label_schemas_InputText_descriptor;
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_mlflow_label_schemas_InputText_fieldAccessorTable;
+  private static final com.google.protobuf.Descriptors.Descriptor
     internal_static_mlflow_label_schemas_LabelSchemaInput_descriptor;
   private static final 
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
@@ -18816,74 +18581,72 @@ public final class LabelSchemas {
       "\n\023label_schemas.proto\022\024mlflow.label_sche" +
       "mas\032\020databricks.proto\032\025scalapb/scalapb.p" +
       "roto\"?\n\rInputPassFail\022\026\n\016positive_label\030" +
-      "\001 \001(\t\022\026\n\016negative_label\030\002 \001(\t\"\207\001\n\020InputC" +
-      "ategorical\022\017\n\007options\030\001 \003(\t\022L\n\021semantic_" +
-      "polarity\030\002 \001(\01621.mlflow.label_schemas.Ca" +
-      "tegoricalSemanticPolarity\022\024\n\014multi_selec" +
-      "t\030\003 \001(\010\"4\n\014InputNumeric\022\021\n\tmin_value\030\001 \001" +
-      "(\001\022\021\n\tmax_value\030\002 \001(\001\"\200\002\n\020LabelSchemaInp" +
-      "ut\0228\n\tpass_fail\030\001 \001(\0132#.mlflow.label_sch" +
-      "emas.InputPassFailH\000\022=\n\013categorical\030\002 \001(" +
-      "\0132&.mlflow.label_schemas.InputCategorica" +
-      "lH\000\0225\n\007numeric\030\003 \001(\0132\".mlflow.label_sche" +
-      "mas.InputNumericH\000B\007\n\005inputJ\004\010\004\020\005J\004\010\005\020\006J" +
-      "\004\010\006\020\007R\020categorical_listR\004textR\ttext_list" +
-      "\"\256\002\n\013LabelSchema\022\021\n\tschema_id\030\001 \001(\t\022\025\n\re" +
-      "xperiment_id\030\002 \001(\t\022\014\n\004name\030\003 \001(\t\0223\n\004type" +
-      "\030\004 \001(\0162%.mlflow.label_schemas.LabelSchem" +
-      "aType\022\r\n\005title\030\005 \001(\t\022\023\n\013instruction\030\006 \001(" +
-      "\t\022\026\n\016enable_comment\030\007 \001(\010\0225\n\005input\030\010 \001(\013" +
-      "2&.mlflow.label_schemas.LabelSchemaInput" +
-      "\022\022\n\ncreated_by\030\t \001(\t\022\022\n\ncreated_at\030\n \001(\003" +
-      "\022\027\n\017last_updated_at\030\013 \001(\003\"\360\002\n\021CreateLabe" +
-      "lSchema\022\033\n\rexperiment_id\030\001 \001(\tB\004\370\206\031\001\022\022\n\004" +
-      "name\030\002 \001(\tB\004\370\206\031\001\0229\n\004type\030\003 \001(\0162%.mlflow." +
-      "label_schemas.LabelSchemaTypeB\004\370\206\031\001\022\023\n\005t" +
-      "itle\030\004 \001(\tB\004\370\206\031\001\022;\n\005input\030\005 \001(\0132&.mlflow" +
-      ".label_schemas.LabelSchemaInputB\004\370\206\031\001\022\023\n" +
-      "\013instruction\030\006 \001(\t\022\026\n\016enable_comment\030\007 \001" +
-      "(\010\032C\n\010Response\0227\n\014label_schema\030\001 \001(\0132!.m" +
-      "lflow.label_schemas.LabelSchema:+\342?(\n&co" +
-      "m.databricks.rpc.RPC[$this.Response]\"\233\001\n" +
-      "\016GetLabelSchema\022\027\n\tschema_id\030\001 \001(\tB\004\370\206\031\001" +
-      "\032C\n\010Response\0227\n\014label_schema\030\001 \001(\0132!.mlf" +
-      "low.label_schemas.LabelSchema:+\342?(\n&com." +
-      "databricks.rpc.RPC[$this.Response]\"\271\001\n\024G" +
-      "etLabelSchemaByName\022\033\n\rexperiment_id\030\001 \001" +
-      "(\tB\004\370\206\031\001\022\022\n\004name\030\002 \001(\tB\004\370\206\031\001\032C\n\010Response" +
-      "\0227\n\014label_schema\030\001 \001(\0132!.mlflow.label_sc" +
-      "hemas.LabelSchema:+\342?(\n&com.databricks.r" +
-      "pc.RPC[$this.Response]\"\344\001\n\020ListLabelSche" +
-      "mas\022\033\n\rexperiment_id\030\001 \001(\tB\004\370\206\031\001\022\023\n\013max_" +
-      "results\030\002 \001(\005\022\022\n\npage_token\030\003 \001(\t\032]\n\010Res" +
-      "ponse\0228\n\rlabel_schemas\030\001 \003(\0132!.mlflow.la" +
-      "bel_schemas.LabelSchema\022\027\n\017next_page_tok" +
-      "en\030\002 \001(\t:+\342?(\n&com.databricks.rpc.RPC[$t" +
-      "his.Response]\"\237\002\n\021UpdateLabelSchema\022\027\n\ts" +
-      "chema_id\030\001 \001(\tB\004\370\206\031\001\022\014\n\004name\030\002 \001(\t\022\r\n\005ti" +
-      "tle\030\003 \001(\t\022\023\n\013instruction\030\004 \001(\t\022\026\n\016enable" +
-      "_comment\030\005 \001(\010\0225\n\005input\030\006 \001(\0132&.mlflow.l" +
-      "abel_schemas.LabelSchemaInput\032C\n\010Respons" +
-      "e\0227\n\014label_schema\030\001 \001(\0132!.mlflow.label_s" +
-      "chemas.LabelSchema:+\342?(\n&com.databricks." +
-      "rpc.RPC[$this.Response]\"\360\002\n\021UpsertLabelS" +
-      "chema\022\033\n\rexperiment_id\030\001 \001(\tB\004\370\206\031\001\022\022\n\004na" +
-      "me\030\002 \001(\tB\004\370\206\031\001\0229\n\004type\030\003 \001(\0162%.mlflow.la" +
-      "bel_schemas.LabelSchemaTypeB\004\370\206\031\001\022\023\n\005tit" +
-      "le\030\004 \001(\tB\004\370\206\031\001\022;\n\005input\030\005 \001(\0132&.mlflow.l" +
-      "abel_schemas.LabelSchemaInputB\004\370\206\031\001\022\023\n\013i" +
-      "nstruction\030\006 \001(\t\022\026\n\016enable_comment\030\007 \001(\010" +
-      "\032C\n\010Response\0227\n\014label_schema\030\001 \001(\0132!.mlf" +
-      "low.label_schemas.LabelSchema:+\342?(\n&com." +
-      "databricks.rpc.RPC[$this.Response]\"e\n\021De" +
-      "leteLabelSchema\022\027\n\tschema_id\030\001 \001(\tB\004\370\206\031\001" +
-      "\032\n\n\010Response:+\342?(\n&com.databricks.rpc.RP" +
-      "C[$this.Response]*S\n\017LabelSchemaType\022!\n\035" +
-      "LABEL_SCHEMA_TYPE_UNSPECIFIED\020\000\022\014\n\010FEEDB" +
-      "ACK\020\001\022\017\n\013EXPECTATION\020\002*k\n\033CategoricalSem" +
-      "anticPolarity\022-\n)CATEGORICAL_SEMANTIC_PO" +
-      "LARITY_UNSPECIFIED\020\000\022\r\n\tASCENDING\020\001\022\016\n\nD" +
-      "ESCENDING\020\002B\031\n\024org.mlflow.api.proto\220\001\001"
+      "\001 \001(\t\022\026\n\016negative_label\030\002 \001(\t\"R\n\020InputCa" +
+      "tegorical\022\017\n\007options\030\001 \003(\t\022\024\n\014multi_sele" +
+      "ct\030\003 \001(\010J\004\010\002\020\003R\021semantic_polarity\"4\n\014Inp" +
+      "utNumeric\022\021\n\tmin_value\030\001 \001(\001\022\021\n\tmax_valu" +
+      "e\030\002 \001(\001\"\037\n\tInputText\022\022\n\nmax_length\030\001 \001(\003" +
+      "\"\245\002\n\020LabelSchemaInput\0228\n\tpass_fail\030\001 \001(\013" +
+      "2#.mlflow.label_schemas.InputPassFailH\000\022" +
+      "=\n\013categorical\030\002 \001(\0132&.mlflow.label_sche" +
+      "mas.InputCategoricalH\000\0225\n\007numeric\030\003 \001(\0132" +
+      "\".mlflow.label_schemas.InputNumericH\000\022/\n" +
+      "\004text\030\005 \001(\0132\037.mlflow.label_schemas.Input" +
+      "TextH\000B\007\n\005inputJ\004\010\004\020\005J\004\010\006\020\007R\020categorical" +
+      "_listR\ttext_list\"\254\002\n\013LabelSchema\022\021\n\tsche" +
+      "ma_id\030\001 \001(\t\022\025\n\rexperiment_id\030\002 \001(\t\022\014\n\004na" +
+      "me\030\003 \001(\t\0223\n\004type\030\004 \001(\0162%.mlflow.label_sc" +
+      "hemas.LabelSchemaType\022\023\n\013instruction\030\006 \001" +
+      "(\t\022\026\n\016enable_comment\030\007 \001(\010\0225\n\005input\030\010 \001(" +
+      "\0132&.mlflow.label_schemas.LabelSchemaInpu" +
+      "t\022\022\n\ncreated_by\030\t \001(\t\022\022\n\ncreated_at\030\n \001(" +
+      "\003\022\027\n\017last_updated_at\030\013 \001(\003J\004\010\005\020\006R\005title\"" +
+      "\350\002\n\021CreateLabelSchema\022\033\n\rexperiment_id\030\001" +
+      " \001(\tB\004\370\206\031\001\022\022\n\004name\030\002 \001(\tB\004\370\206\031\001\0229\n\004type\030\003" +
+      " \001(\0162%.mlflow.label_schemas.LabelSchemaT" +
+      "ypeB\004\370\206\031\001\022;\n\005input\030\005 \001(\0132&.mlflow.label_" +
+      "schemas.LabelSchemaInputB\004\370\206\031\001\022\023\n\013instru" +
+      "ction\030\006 \001(\t\022\026\n\016enable_comment\030\007 \001(\010\032C\n\010R" +
+      "esponse\0227\n\014label_schema\030\001 \001(\0132!.mlflow.l" +
+      "abel_schemas.LabelSchema:+\342?(\n&com.datab" +
+      "ricks.rpc.RPC[$this.Response]J\004\010\004\020\005R\005tit" +
+      "le\"\233\001\n\016GetLabelSchema\022\027\n\tschema_id\030\001 \001(\t" +
+      "B\004\370\206\031\001\032C\n\010Response\0227\n\014label_schema\030\001 \001(\013" +
+      "2!.mlflow.label_schemas.LabelSchema:+\342?(" +
+      "\n&com.databricks.rpc.RPC[$this.Response]" +
+      "\"\271\001\n\024GetLabelSchemaByName\022\033\n\rexperiment_" +
+      "id\030\001 \001(\tB\004\370\206\031\001\022\022\n\004name\030\002 \001(\tB\004\370\206\031\001\032C\n\010Re" +
+      "sponse\0227\n\014label_schema\030\001 \001(\0132!.mlflow.la" +
+      "bel_schemas.LabelSchema:+\342?(\n&com.databr" +
+      "icks.rpc.RPC[$this.Response]\"\344\001\n\020ListLab" +
+      "elSchemas\022\033\n\rexperiment_id\030\001 \001(\tB\004\370\206\031\001\022\023" +
+      "\n\013max_results\030\002 \001(\005\022\022\n\npage_token\030\003 \001(\t\032" +
+      "]\n\010Response\0228\n\rlabel_schemas\030\001 \003(\0132!.mlf" +
+      "low.label_schemas.LabelSchema\022\027\n\017next_pa" +
+      "ge_token\030\002 \001(\t:+\342?(\n&com.databricks.rpc." +
+      "RPC[$this.Response]\"\235\002\n\021UpdateLabelSchem" +
+      "a\022\027\n\tschema_id\030\001 \001(\tB\004\370\206\031\001\022\014\n\004name\030\002 \001(\t" +
+      "\022\023\n\013instruction\030\004 \001(\t\022\026\n\016enable_comment\030" +
+      "\005 \001(\010\0225\n\005input\030\006 \001(\0132&.mlflow.label_sche" +
+      "mas.LabelSchemaInput\032C\n\010Response\0227\n\014labe" +
+      "l_schema\030\001 \001(\0132!.mlflow.label_schemas.La" +
+      "belSchema:+\342?(\n&com.databricks.rpc.RPC[$" +
+      "this.Response]J\004\010\003\020\004R\005title\"\350\002\n\021UpsertLa" +
+      "belSchema\022\033\n\rexperiment_id\030\001 \001(\tB\004\370\206\031\001\022\022" +
+      "\n\004name\030\002 \001(\tB\004\370\206\031\001\0229\n\004type\030\003 \001(\0162%.mlflo" +
+      "w.label_schemas.LabelSchemaTypeB\004\370\206\031\001\022;\n" +
+      "\005input\030\005 \001(\0132&.mlflow.label_schemas.Labe" +
+      "lSchemaInputB\004\370\206\031\001\022\023\n\013instruction\030\006 \001(\t\022" +
+      "\026\n\016enable_comment\030\007 \001(\010\032C\n\010Response\0227\n\014l" +
+      "abel_schema\030\001 \001(\0132!.mlflow.label_schemas" +
+      ".LabelSchema:+\342?(\n&com.databricks.rpc.RP" +
+      "C[$this.Response]J\004\010\004\020\005R\005title\"e\n\021Delete" +
+      "LabelSchema\022\027\n\tschema_id\030\001 \001(\tB\004\370\206\031\001\032\n\n\010" +
+      "Response:+\342?(\n&com.databricks.rpc.RPC[$t" +
+      "his.Response]*S\n\017LabelSchemaType\022!\n\035LABE" +
+      "L_SCHEMA_TYPE_UNSPECIFIED\020\000\022\014\n\010FEEDBACK\020" +
+      "\001\022\017\n\013EXPECTATION\020\002B\031\n\024org.mlflow.api.pro" +
+      "to\220\001\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -18902,31 +18665,37 @@ public final class LabelSchemas {
     internal_static_mlflow_label_schemas_InputCategorical_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_label_schemas_InputCategorical_descriptor,
-        new java.lang.String[] { "Options", "SemanticPolarity", "MultiSelect", });
+        new java.lang.String[] { "Options", "MultiSelect", });
     internal_static_mlflow_label_schemas_InputNumeric_descriptor =
       getDescriptor().getMessageTypes().get(2);
     internal_static_mlflow_label_schemas_InputNumeric_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_label_schemas_InputNumeric_descriptor,
         new java.lang.String[] { "MinValue", "MaxValue", });
-    internal_static_mlflow_label_schemas_LabelSchemaInput_descriptor =
+    internal_static_mlflow_label_schemas_InputText_descriptor =
       getDescriptor().getMessageTypes().get(3);
+    internal_static_mlflow_label_schemas_InputText_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_mlflow_label_schemas_InputText_descriptor,
+        new java.lang.String[] { "MaxLength", });
+    internal_static_mlflow_label_schemas_LabelSchemaInput_descriptor =
+      getDescriptor().getMessageTypes().get(4);
     internal_static_mlflow_label_schemas_LabelSchemaInput_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_label_schemas_LabelSchemaInput_descriptor,
-        new java.lang.String[] { "PassFail", "Categorical", "Numeric", "Input", });
+        new java.lang.String[] { "PassFail", "Categorical", "Numeric", "Text", "Input", });
     internal_static_mlflow_label_schemas_LabelSchema_descriptor =
-      getDescriptor().getMessageTypes().get(4);
+      getDescriptor().getMessageTypes().get(5);
     internal_static_mlflow_label_schemas_LabelSchema_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_label_schemas_LabelSchema_descriptor,
-        new java.lang.String[] { "SchemaId", "ExperimentId", "Name", "Type", "Title", "Instruction", "EnableComment", "Input", "CreatedBy", "CreatedAt", "LastUpdatedAt", });
+        new java.lang.String[] { "SchemaId", "ExperimentId", "Name", "Type", "Instruction", "EnableComment", "Input", "CreatedBy", "CreatedAt", "LastUpdatedAt", });
     internal_static_mlflow_label_schemas_CreateLabelSchema_descriptor =
-      getDescriptor().getMessageTypes().get(5);
+      getDescriptor().getMessageTypes().get(6);
     internal_static_mlflow_label_schemas_CreateLabelSchema_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_label_schemas_CreateLabelSchema_descriptor,
-        new java.lang.String[] { "ExperimentId", "Name", "Type", "Title", "Input", "Instruction", "EnableComment", });
+        new java.lang.String[] { "ExperimentId", "Name", "Type", "Input", "Instruction", "EnableComment", });
     internal_static_mlflow_label_schemas_CreateLabelSchema_Response_descriptor =
       internal_static_mlflow_label_schemas_CreateLabelSchema_descriptor.getNestedTypes().get(0);
     internal_static_mlflow_label_schemas_CreateLabelSchema_Response_fieldAccessorTable = new
@@ -18934,7 +18703,7 @@ public final class LabelSchemas {
         internal_static_mlflow_label_schemas_CreateLabelSchema_Response_descriptor,
         new java.lang.String[] { "LabelSchema", });
     internal_static_mlflow_label_schemas_GetLabelSchema_descriptor =
-      getDescriptor().getMessageTypes().get(6);
+      getDescriptor().getMessageTypes().get(7);
     internal_static_mlflow_label_schemas_GetLabelSchema_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_label_schemas_GetLabelSchema_descriptor,
@@ -18946,7 +18715,7 @@ public final class LabelSchemas {
         internal_static_mlflow_label_schemas_GetLabelSchema_Response_descriptor,
         new java.lang.String[] { "LabelSchema", });
     internal_static_mlflow_label_schemas_GetLabelSchemaByName_descriptor =
-      getDescriptor().getMessageTypes().get(7);
+      getDescriptor().getMessageTypes().get(8);
     internal_static_mlflow_label_schemas_GetLabelSchemaByName_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_label_schemas_GetLabelSchemaByName_descriptor,
@@ -18958,7 +18727,7 @@ public final class LabelSchemas {
         internal_static_mlflow_label_schemas_GetLabelSchemaByName_Response_descriptor,
         new java.lang.String[] { "LabelSchema", });
     internal_static_mlflow_label_schemas_ListLabelSchemas_descriptor =
-      getDescriptor().getMessageTypes().get(8);
+      getDescriptor().getMessageTypes().get(9);
     internal_static_mlflow_label_schemas_ListLabelSchemas_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_label_schemas_ListLabelSchemas_descriptor,
@@ -18970,11 +18739,11 @@ public final class LabelSchemas {
         internal_static_mlflow_label_schemas_ListLabelSchemas_Response_descriptor,
         new java.lang.String[] { "LabelSchemas", "NextPageToken", });
     internal_static_mlflow_label_schemas_UpdateLabelSchema_descriptor =
-      getDescriptor().getMessageTypes().get(9);
+      getDescriptor().getMessageTypes().get(10);
     internal_static_mlflow_label_schemas_UpdateLabelSchema_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_label_schemas_UpdateLabelSchema_descriptor,
-        new java.lang.String[] { "SchemaId", "Name", "Title", "Instruction", "EnableComment", "Input", });
+        new java.lang.String[] { "SchemaId", "Name", "Instruction", "EnableComment", "Input", });
     internal_static_mlflow_label_schemas_UpdateLabelSchema_Response_descriptor =
       internal_static_mlflow_label_schemas_UpdateLabelSchema_descriptor.getNestedTypes().get(0);
     internal_static_mlflow_label_schemas_UpdateLabelSchema_Response_fieldAccessorTable = new
@@ -18982,11 +18751,11 @@ public final class LabelSchemas {
         internal_static_mlflow_label_schemas_UpdateLabelSchema_Response_descriptor,
         new java.lang.String[] { "LabelSchema", });
     internal_static_mlflow_label_schemas_UpsertLabelSchema_descriptor =
-      getDescriptor().getMessageTypes().get(10);
+      getDescriptor().getMessageTypes().get(11);
     internal_static_mlflow_label_schemas_UpsertLabelSchema_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_label_schemas_UpsertLabelSchema_descriptor,
-        new java.lang.String[] { "ExperimentId", "Name", "Type", "Title", "Input", "Instruction", "EnableComment", });
+        new java.lang.String[] { "ExperimentId", "Name", "Type", "Input", "Instruction", "EnableComment", });
     internal_static_mlflow_label_schemas_UpsertLabelSchema_Response_descriptor =
       internal_static_mlflow_label_schemas_UpsertLabelSchema_descriptor.getNestedTypes().get(0);
     internal_static_mlflow_label_schemas_UpsertLabelSchema_Response_fieldAccessorTable = new
@@ -18994,7 +18763,7 @@ public final class LabelSchemas {
         internal_static_mlflow_label_schemas_UpsertLabelSchema_Response_descriptor,
         new java.lang.String[] { "LabelSchema", });
     internal_static_mlflow_label_schemas_DeleteLabelSchema_descriptor =
-      getDescriptor().getMessageTypes().get(11);
+      getDescriptor().getMessageTypes().get(12);
     internal_static_mlflow_label_schemas_DeleteLabelSchema_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_label_schemas_DeleteLabelSchema_descriptor,

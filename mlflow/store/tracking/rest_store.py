@@ -988,7 +988,6 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
         *,
         name,
         type,
-        title,
         input,
         instruction=None,
         enable_comment=False,
@@ -1007,7 +1006,6 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
             experiment_id=str(experiment_id),
             name=name,
             type=type_proto,
-            title=title,
             input=_input_to_proto(input),
             enable_comment=enable_comment,
         )
@@ -1061,7 +1059,6 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
         schema_id,
         *,
         name=None,
-        title=None,
         instruction=None,
         enable_comment=None,
         input=None,
@@ -1071,8 +1068,6 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
         req = UpdateLabelSchema(schema_id=schema_id)
         if name is not None:
             req.name = name
-        if title is not None:
-            req.title = title
         if instruction is not None:
             req.instruction = instruction
         if enable_comment is not None:
@@ -1092,7 +1087,6 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
         *,
         name,
         type,
-        title,
         input,
         instruction=None,
         enable_comment=None,
@@ -1107,7 +1101,6 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
             experiment_id=str(experiment_id),
             name=name,
             type=LabelSchemaType(str(type)).to_proto(),
-            title=title,
             input=_input_to_proto(input),
         )
         if instruction is not None:
