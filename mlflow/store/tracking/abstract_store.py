@@ -1761,12 +1761,10 @@ class AbstractStore(GatewayStoreMixin):
 
         Args:
             experiment_id: Parent experiment.
-            target_type: One of ``"trace"`` / ``"session"`` / ``"span"``;
-                v1 only ``"trace"`` is fully wired.
+            target_type: What kind of object is being reviewed. v1 supports
+                ``"trace"`` only.
             target_id: The thing being reviewed.
             reviewer: Free-form reviewer identifier (typically email).
-                Matched case-insensitively against ``AssessmentSource.source_id``
-                by the state-flip side effect.
             assigner: Who created the assignment.
 
         Returns:
@@ -1796,7 +1794,8 @@ class AbstractStore(GatewayStoreMixin):
 
         Args:
             experiment_id: Parent experiment.
-            target_type: One of ``"trace"`` / ``"session"`` / ``"span"``.
+            target_type: What kind of object is being reviewed. v1 supports
+                ``"trace"`` only.
             target_ids: List of target IDs to assign (de-duplicated by caller).
             reviewers: List of reviewer identifiers (de-duplicated by caller).
             assigner: Who created the assignments.
@@ -1854,8 +1853,9 @@ class AbstractStore(GatewayStoreMixin):
         """Mutate the workflow state of an assignment.
 
         Only ``state`` is mutable post-create; identity and audit fields
-        are immutable. Stack 3's "mark complete" / "reopen" SDK calls
-        go through here.
+        are immutable. The "mark complete" / "reopen" SDK calls go
+        through here. Reopen (``complete -> pending``) clears
+        ``completed_time_ms``.
 
         Raises:
             MlflowException(INVALID_PARAMETER_VALUE): on validation failure.

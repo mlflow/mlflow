@@ -250,13 +250,13 @@ def test_list_review_assignments_filters_by_state(store):
     exp_id = _create_experiments(store, "test_list_by_state")
     a = _create_assignment(store, exp_id, target_id="tr-1")
     _create_assignment(store, exp_id, target_id="tr-2")
-    store.update_review_assignment(a.assignment_id, state="in_progress")
+    store.update_review_assignment(a.assignment_id, state="complete")
 
     pending_page = store.list_review_assignments(experiment_id=exp_id, state="pending")
-    in_progress_page = store.list_review_assignments(experiment_id=exp_id, state="in_progress")
+    complete_page = store.list_review_assignments(experiment_id=exp_id, state="complete")
 
     assert {a.target_id for a in pending_page} == {"tr-2"}
-    assert {a.target_id for a in in_progress_page} == {"tr-1"}
+    assert {a.target_id for a in complete_page} == {"tr-1"}
 
 
 def test_list_review_assignments_requires_scope_predicate(store):
@@ -285,22 +285,18 @@ def test_list_review_assignments_for_target_returns_all_reviewers(store):
 def test_update_review_assignment_transitions_state(store):
     exp_id = _create_experiments(store, "test_update_ra_state")
     a = _create_assignment(store, exp_id)
-
-    in_progress = store.update_review_assignment(a.assignment_id, state="in_progress")
-    assert in_progress.state == ReviewAssignmentState.IN_PROGRESS
-    assert in_progress.last_update_time_ms >= a.last_update_time_ms
-    assert in_progress.completed_time_ms is None
+    assert a.state == ReviewAssignmentState.PENDING
+    assert a.completed_time_ms is None
 
     complete = store.update_review_assignment(a.assignment_id, state="complete")
     assert complete.state == ReviewAssignmentState.COMPLETE
+    assert complete.last_update_time_ms >= a.last_update_time_ms
     assert complete.completed_time_ms is not None
-    assert complete.completed_time_ms >= in_progress.last_update_time_ms
 
-    reopened = store.update_review_assignment(a.assignment_id, state="in_progress")
-    assert reopened.state == ReviewAssignmentState.IN_PROGRESS
-    # ``completed_time_ms`` is preserved on reopen so the prior
-    # completion timestamp is still recoverable.
-    assert reopened.completed_time_ms == complete.completed_time_ms
+    reopened = store.update_review_assignment(a.assignment_id, state="pending")
+    assert reopened.state == ReviewAssignmentState.PENDING
+    # Reopen clears the completion stamp.
+    assert reopened.completed_time_ms is None
 
 
 def test_update_review_assignment_noop_when_state_unchanged(store):
@@ -321,24 +317,15 @@ def test_update_review_assignment_rejects_unknown_state(store):
         store.update_review_assignment(a.assignment_id, state="not_a_state")
 
 
-@pytest.mark.parametrize(
-    ("from_state", "to_state"),
-    [
-        pytest.param("in_progress", "pending", id="in_progress-to-pending"),
-        pytest.param("complete", "pending", id="complete-to-pending"),
-    ],
-)
-def test_update_review_assignment_rejects_illegal_transitions(store, from_state, to_state):
-    exp_id = _create_experiments(store, f"test_illegal_{from_state}_{to_state}")
+def test_update_review_assignment_reopen_clears_completed_time(store):
+    exp_id = _create_experiments(store, "test_reopen_clears_completed")
     a = _create_assignment(store, exp_id)
-    # Walk to the starting state via legal transitions.
-    if from_state in ("in_progress", "complete"):
-        store.update_review_assignment(a.assignment_id, state="in_progress")
-    if from_state == "complete":
-        store.update_review_assignment(a.assignment_id, state="complete")
+    store.update_review_assignment(a.assignment_id, state="complete")
 
-    with pytest.raises(MlflowException, match="Illegal state transition"):
-        store.update_review_assignment(a.assignment_id, state=to_state)
+    reopened = store.update_review_assignment(a.assignment_id, state="pending")
+
+    assert reopened.state == ReviewAssignmentState.PENDING
+    assert reopened.completed_time_ms is None
 
 
 def test_update_review_assignment_raises_on_missing(store):

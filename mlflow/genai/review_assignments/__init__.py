@@ -3,10 +3,10 @@
 A ``ReviewAssignment`` is one row per ``(target, reviewer)`` pair: the
 piece of state that says "this trace needs review from this person."
 The companion workflow lives in MLflow's review UI, where reviewers
-post Feedback assessments against the assigned target; the assignment's
-``state`` then auto-flips ``pending -> in_progress`` on the first
-matching assessment write, and reviewers explicitly mark it
-``complete`` when done.
+post Feedback assessments against the assigned target and explicitly
+mark the assignment ``complete`` when done. The assignment has two
+states, ``pending`` and ``complete``; writing an assessment does not
+change the state.
 
 The fluent SDK surface (``assign_traces``, ``list_my_assignments``,
 ``mark_assignment_complete``, etc.) lands in stack 3 of this PR

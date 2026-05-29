@@ -13,21 +13,18 @@ class ReviewTargetType(StrEnum):
 class ReviewAssignmentState(StrEnum):
     """Per-assignment workflow state.
 
+    Two states only. State changes only on explicit reviewer action —
+    writing an assessment against the target does NOT advance the
+    assignment.
+
     Transitions:
-        - ``PENDING`` -> ``IN_PROGRESS``: auto-flipped server-side in
-          the same transaction as the first ``log_feedback`` write
-          where ``source.source_id`` matches ``reviewer``
-          (case-insensitively).
-        - ``IN_PROGRESS`` -> ``COMPLETE``: explicit reviewer action via
-          ``mark_assignment_complete``.
-        - ``COMPLETE`` -> ``IN_PROGRESS``: explicit reopen via
-          ``update_review_assignment(state=...)``. ``PENDING`` is a
-          one-way state (post-first-assessment there's no clean
-          way back).
+        - ``PENDING`` -> ``COMPLETE``: explicit "Mark complete" action
+          (sets ``completed_time_ms``).
+        - ``COMPLETE`` -> ``PENDING``: explicit reopen (clears
+          ``completed_time_ms`` back to ``None``).
     """
 
     PENDING = "pending"
-    IN_PROGRESS = "in_progress"
     COMPLETE = "complete"
 
 
@@ -43,9 +40,9 @@ class ReviewAssignment:
     ``reviewer`` and ``assigner`` are free-form strings that should
     match whatever shape ``AssessmentSource.source_id`` takes in the
     caller's deployment — typically email on Databricks, username
-    elsewhere. The store layer compares ``reviewer`` against
-    ``source.source_id`` case-insensitively for the state-flip side
-    effect; callers don't have to worry about casing drift.
+    elsewhere. ``reviewer`` is lowercased on write so the UI can match a
+    reviewer's assignments against their assessments without casing
+    drift.
     """
 
     assignment_id: str
