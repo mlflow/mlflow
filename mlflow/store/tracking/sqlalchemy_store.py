@@ -6382,16 +6382,24 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     if request.parsed_request.older_than_millis is not None
                     else None
                 )
-                if self._get_archive_now_remaining_state(
+                remaining_state = self._get_archive_now_remaining_state(
                     session=session,
                     experiment_id=request.experiment_id,
                     max_timestamp_millis=older_than_cutoff,
-                ) in (
+                )
+                if remaining_state in (
                     _ArchiveNowRemainingState.ARCHIVABLE,
                     _ArchiveNowRemainingState.TRANSIENT,
-                    _ArchiveNowRemainingState.BLOCKED_UNMARKED,
                 ):
                     continue
+                if remaining_state == _ArchiveNowRemainingState.BLOCKED_UNMARKED:
+                    _logger.warning(
+                        "Clearing archive-now request %r on experiment %s. Some matching traces "
+                        "still remain in the tracking store but are not currently archivable "
+                        "and are not marked with an archival failure.",
+                        request.raw_value,
+                        request.experiment_id,
+                    )
 
                 (
                     session
