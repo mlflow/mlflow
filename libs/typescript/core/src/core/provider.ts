@@ -10,24 +10,11 @@ import {
 import { MlflowWalSpanExporter } from '../exporters/wal';
 import { getConfig, getAuthProvider, type UnityCatalogLocationOptions } from './config';
 import type { UnityCatalogLocation } from './entities/trace_location';
+import { asyncExportEnabled } from './utils/env';
 
 let sdk: NodeSDK | null = null;
 // Keep a reference to the active span processor for flushing.
 let processor: SpanProcessor | null = null;
-
-/**
- * Whether to route trace export through the asynchronous WAL +
- * daemon path instead of the legacy synchronous HTTP exporter
- * for the MlflowSpanProcessor.
- */
-export function asyncExportEnabled(): boolean {
-  const raw = process.env.MLFLOW_ENABLE_ASYNC_TRACE_LOGGING;
-  if (raw === undefined || raw === '') {
-    return false;
-  }
-  const lower = raw.toLowerCase();
-  return lower === '1' || lower === 'true';
-}
 
 /**
  * Initialize the OpenTelemetry SDK and span processor.

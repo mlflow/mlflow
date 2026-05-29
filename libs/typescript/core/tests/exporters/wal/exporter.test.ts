@@ -243,7 +243,15 @@ describe('wal/exporter', () => {
     expect(popTraceSpy).not.toHaveBeenCalled();
   });
 
-  it('shutdown drains submits that land after the flag is set but before the loop converges', async () => {
+  it('shutdown awaits all in-flight submits, not just the first to resolve', async () => {
+    // Both `export()` calls run synchronously to completion before
+    // `shutdown()` is invoked, so both submit promises are already
+    // in `_pendingSubmits` when the drain loop takes its first
+    // snapshot. (The `_shuttingDown` flag in `export()` makes the
+    // "submit lands after the flag is set" scenario structurally
+    // impossible in single-threaded JS — once the flag flips, every
+    // export call short-circuits with FAILED before touching the
+    // Set.
     let releaseFirst: (() => void) | undefined;
     let releaseSecond: (() => void) | undefined;
     const submit = jest
@@ -266,13 +274,10 @@ describe('wal/exporter', () => {
       .mockReturnValueOnce(makeTrace('tr-first'))
       .mockReturnValueOnce(makeTrace('tr-second'));
 
-    // Submit #1 is in flight before shutdown is called.
+    // Two submits enter `_pendingSubmits` synchronously, parked on
+    // their respective `release*` resolvers.
     const cb1 = captureExportResult();
     exporter.export([makeSpan({ traceId: 'otel-1', rootSpan: true })], cb1.callback);
-
-    // Simulate the race: submit #2 is initiated BEFORE shutdown flips
-    // the flag (i.e., upstream processor's export is interleaved with
-    // shutdown). #2 lands in `_pendingSubmits` and must be drained.
     const cb2 = captureExportResult();
     exporter.export([makeSpan({ traceId: 'otel-2', rootSpan: true })], cb2.callback);
 
@@ -281,9 +286,9 @@ describe('wal/exporter', () => {
       shutdownResolved = true;
     });
 
-    // Release #1; #2 is still parked, so shutdown must stay pending —
-    // proving the drain loop is awaiting more than just the original
-    // snapshot.
+    // Release submit #1 only. #2 is still parked, so `Promise.all`
+    // inside the drain loop must remain pending — proving shutdown
+    // awaits both, not just one.
     await new Promise((resolve) => setImmediate(resolve));
     releaseFirst?.();
     await new Promise((resolve) => setImmediate(resolve));

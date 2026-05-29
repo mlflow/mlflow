@@ -35,3 +35,17 @@ export const readNonNegativeInt = (envName: string, fallback: number): number =>
   }
   return parsed;
 };
+
+/**
+ * Whether to route trace export through an on-dick WAL queue
+ * drained by a background daemon, instead of the synchronous
+ * HTTP exporter.
+ */
+export function asyncExportEnabled(): boolean {
+  const raw = process.env.MLFLOW_ENABLE_ASYNC_TRACE_LOGGING;
+  if (raw === undefined || raw === '') {
+    return false;
+  }
+  const lower = raw.toLowerCase();
+  return lower === '1' || lower === 'true';
+}
