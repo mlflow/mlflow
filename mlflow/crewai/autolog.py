@@ -41,10 +41,21 @@ def patched_standalone_call(original, *args, **kwargs):
         return result
 
 
+def _is_internal_flow(instance) -> bool:
+    # crewai 1.x runs an experimental AgentExecutor (a Flow subclass) inside
+    # Agent.execute_task. Skip span creation for it since the Agent span already
+    # bounds the same work and crewai marks it with suppress_flow_events=True.
+    try:
+        from crewai.experimental.agent_executor import AgentExecutor
+    except ImportError:
+        return False
+    return isinstance(instance, AgentExecutor)
+
+
 def patched_class_call(original, self, *args, **kwargs):
     config = AutoLoggingConfig.init(flavor_name=mlflow.crewai.FLAVOR_NAME)
 
-    if not config.log_traces:
+    if not config.log_traces or _is_internal_flow(self):
         return original(self, *args, **kwargs)
 
     default_name = f"{self.__class__.__name__}.{original.__name__}"
@@ -201,12 +212,18 @@ def _get_span_type(instance) -> str:
             return SpanType.LLM
         elif isinstance(instance, Flow):
             return SpanType.CHAIN
-        elif isinstance(
-            instance, crewai.agents.agent_builder.base_agent_executor_mixin.CrewAgentExecutorMixin
-        ):
+        CREWAI_VERSION = Version(crewai.__version__)
+        # crewai 1.14.5 renamed base_agent_executor_mixin.CrewAgentExecutorMixin to
+        # base_agent_executor.BaseAgentExecutor
+        if CREWAI_VERSION >= Version("1.14.5"):
+            executor_cls = crewai.agents.agent_builder.base_agent_executor.BaseAgentExecutor
+        else:
+            executor_cls = (
+                crewai.agents.agent_builder.base_agent_executor_mixin.CrewAgentExecutorMixin
+            )
+        if isinstance(instance, executor_cls):
             return SpanType.MEMORY
 
-        CREWAI_VERSION = Version(crewai.__version__)
         # Knowledge and Memory are not available before 0.83.0
         if CREWAI_VERSION >= Version("0.83.0"):
             memory_classes = (
