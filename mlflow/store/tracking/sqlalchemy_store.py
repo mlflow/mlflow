@@ -4922,10 +4922,10 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     if session_id is None and (
                         span_session_id := span_attributes.get("session.id")
                     ):
-                        session_id = span_session_id
+                        session_id = _try_parse_json_string(span_session_id)
                     # user id used by OTel semantic conventions: https://opentelemetry.io/docs/specs/semconv/registry/attributes/user/#user-id
                     if user_id is None and (span_user_id := span_attributes.get("user.id")):
-                        user_id = span_user_id
+                        user_id = _try_parse_json_string(span_user_id)
                     # Get cost for span metrics
                     span_cost = span_attributes.get(SpanAttributeKey.LLM_COST)
 
@@ -6362,16 +6362,24 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     if request.parsed_request.older_than_millis is not None
                     else None
                 )
-                if self._get_archive_now_remaining_state(
+                remaining_state = self._get_archive_now_remaining_state(
                     session=session,
                     experiment_id=request.experiment_id,
                     max_timestamp_millis=older_than_cutoff,
-                ) in (
+                )
+                if remaining_state in (
                     _ArchiveNowRemainingState.ARCHIVABLE,
                     _ArchiveNowRemainingState.TRANSIENT,
-                    _ArchiveNowRemainingState.BLOCKED_UNMARKED,
                 ):
                     continue
+                if remaining_state == _ArchiveNowRemainingState.BLOCKED_UNMARKED:
+                    _logger.warning(
+                        "Clearing archive-now request %r on experiment %s. Some matching traces "
+                        "still remain in the tracking store but are not currently archivable "
+                        "and are not marked with an archival failure.",
+                        request.raw_value,
+                        request.experiment_id,
+                    )
 
                 (
                     session
@@ -8648,10 +8656,10 @@ def _get_search_datasets_order_by_clauses(order_by):
 
 def _try_parse_json_string(value: str) -> str:
     try:
-        return json.loads(value)
-    except json.JSONDecodeError:
-        pass
-    return value
+        parsed = json.loads(value)
+    except (json.JSONDecodeError, TypeError):
+        return value
+    return parsed if isinstance(parsed, str) else value
 
 
 @dataclass
