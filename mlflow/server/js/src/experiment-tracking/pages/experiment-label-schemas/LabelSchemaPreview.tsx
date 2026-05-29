@@ -172,19 +172,10 @@ export const LabelSchemaPreview = ({ formData }: LabelSchemaPreviewProps) => {
             />
           </div>
           {formData.enable_comment && (
-            // Nest the rationale under the label (indented + left rule + smaller
-            // hint) so it reads as part of the same assessment rather than a
-            // peer field (item 12).
-            <div
-              css={{
-                display: 'flex',
-                flexDirection: 'column',
-                marginTop: theme.spacing.xs,
-                marginLeft: theme.spacing.md,
-                paddingLeft: theme.spacing.md,
-                borderLeft: `2px solid ${theme.colors.border}`,
-              }}
-            >
+            // Keep the rationale box left-aligned with the input above it;
+            // convey that it's secondary to the structured value via the
+            // smaller hint-style label rather than indentation (item 12).
+            <div css={{ display: 'flex', flexDirection: 'column', marginTop: theme.spacing.sm }}>
               <Typography.Hint>
                 <FormattedMessage
                   defaultMessage="Rationale (optional)"
