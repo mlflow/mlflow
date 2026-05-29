@@ -134,8 +134,8 @@ describe('CreateUserModal — discard-confirm gate on unsaved direct-grant draft
     expect(await screen.findByText('Discard unsaved direct permission?')).toBeInTheDocument();
     expect(mockCreateUserMutateAsync).not.toHaveBeenCalled();
 
-    // Confirm "Discard and continue" → submit proceeds.
-    await userEvent.click(screen.getByRole('button', { name: /^Discard and continue$/ }));
+    // Confirm "Continue" → submit proceeds.
+    await userEvent.click(screen.getByRole('button', { name: /^Continue$/ }));
     expect(mockCreateUserMutateAsync).toHaveBeenCalledWith(
       expect.objectContaining({ username: 'newbie', password: 'hunter2' }),
     );
@@ -144,7 +144,7 @@ describe('CreateUserModal — discard-confirm gate on unsaved direct-grant draft
   });
 
   it('cancelling the discard-confirm keeps the modal on the edit step without creating the user', async () => {
-    // Same setup — but the admin clicks ``Cancel`` on the dialog because
+    // Same setup — but the admin clicks ``Back`` on the dialog because
     // they meant to ``Add`` the permission. Dialog closes, no API calls
     // fire, the draft is preserved so the admin can click ``Add`` now.
     renderWithDesignSystem(<CreateUserModal open onClose={jest.fn()} />);
@@ -158,7 +158,10 @@ describe('CreateUserModal — discard-confirm gate on unsaved direct-grant draft
     await userEvent.click(screen.getByRole('button', { name: /^Create user and grant access$|^Create user$/ }));
     expect(await screen.findByText('Discard unsaved direct permission?')).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole('button', { name: /^Cancel$/ }));
+    // ``Back`` is unique to the discard-confirm dialog — the outer modal's
+    // secondary button is still labelled ``Cancel``, so the role+name query
+    // resolves unambiguously.
+    await userEvent.click(screen.getByRole('button', { name: /^Back$/ }));
     expect(mockCreateUserMutateAsync).not.toHaveBeenCalled();
     expect(mockGrantPermissionMutateAsync).not.toHaveBeenCalled();
   });

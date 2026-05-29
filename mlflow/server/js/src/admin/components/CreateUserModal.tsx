@@ -348,8 +348,12 @@ export const CreateUserModal = ({ open, onClose }: CreateUserModalProps) => {
         componentId="admin.create_user_modal.discard_unsaved_draft"
         title="Discard unsaved direct permission?"
         visible={showDiscardConfirm}
-        message="You started adding a direct permission but didn't click Add. Continuing will discard it; click Cancel and either Add or Clear the draft to keep your changes."
-        okText="Discard and continue"
+        message="You started adding a direct permission but didn't click Add. Continuing will discard it. Go back to either click Add to stage it, or Clear to drop the draft on the spot."
+        okText="Continue"
+        cancelText="Back"
+        // ``danger=false`` because the OK verb is neutral ("Continue") — the
+        // destructive intent is in the title question, not the button.
+        danger={false}
         onCancel={() => setShowDiscardConfirm(false)}
         onConfirm={() => {
           setShowDiscardConfirm(false);
