@@ -82,9 +82,8 @@ export const DatasetDetailPageContent = ({ experimentId, datasetId, dataset }: D
   const searchInputRef = useRef<InputRef>(null);
   useSlashFocusSearch(searchInputRef);
 
-  const { url, records, selectedRecord, bulk, columns, flags, searchInput, setPageIndex } = useDatasetRecordsController(
-    { experimentId, datasetId },
-  );
+  const { url, records, selectedRecord, bulk, columns, flags, searchInput, setPageIndex, columnWidths } =
+    useDatasetRecordsController({ experimentId, datasetId });
 
   const deleteRecordsMutation = useDeleteDatasetRecordsMutation(datasetId);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
@@ -401,6 +400,8 @@ export const DatasetDetailPageContent = ({ experimentId, datasetId, dataset }: D
                       onRecordSelected={handleRecordSelected}
                       selectedRecordId={url.recordId}
                       visibleColumns={columns.visibleColumns}
+                      columnSizing={columnWidths.columnSizing}
+                      setColumnSizing={columnWidths.setColumnSizing}
                       selectedForBulk={bulk.selected}
                       isAllOnPageSelected={bulk.isAllVisibleChecked}
                       isSomeOnPageSelected={bulk.isSomeVisibleChecked}

@@ -11,8 +11,8 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import type { DatasetRecord } from '../hooks/useDatasetsQueries';
-import { flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
-import type { ColumnDef, RowData } from '@tanstack/react-table';
+import { getCoreRowModel, useReactTable } from '@tanstack/react-table';
+import type { ColumnDef, ColumnSizingState, OnChangeFn } from '@tanstack/react-table';
 import {
   CreatedByCell,
   CreateTimeCell,
@@ -49,6 +49,8 @@ interface DatasetRecordsTableProps {
   onRecordSelected: (record: DatasetRecord) => void;
   selectedRecordId?: string;
   visibleColumns: RecordColumnId[];
+  columnSizing: ColumnSizingState;
+  setColumnsSizing: OnChangeFn<ColumnSizingState>;
   /** Set of record IDs currently checked for bulk delete. */
   selectedForBulk: Set<string>;
   /** True iff every record currently rendered is in `selectedForBulk`. */
@@ -116,6 +118,8 @@ export const DatasetRecordsTable = ({
   onRecordSelected,
   selectedRecordId,
   visibleColumns,
+  columnSizing,
+  setColumnsSizing,
   selectedForBulk,
   isAllOnPageSelected,
   isSomeOnPageSelected,
@@ -162,6 +166,10 @@ export const DatasetRecordsTable = ({
     getCoreRowModel: getCoreRowModel(),
     enableColumnResizing: true,
     columnResizeMode: 'onChange',
+    state: {
+      columnSizing,
+    },
+    onColumnSizingChange: setColumnsSizing,
   });
 
   const headersById = Object.fromEntries(table.getHeaderGroups()[0].headers.map((h) => [h.column.id, h]));

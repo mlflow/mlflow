@@ -13,6 +13,7 @@ import {
   type RecordColumnId,
 } from '../utils/constants';
 import { clampPageIndex } from '../utils/clampPageIndex';
+import { usePersistedColumnWidths } from './usePersistedTableColumnWidths';
 
 interface UseDatasetRecordsControllerParams {
   experimentId: string;
@@ -38,6 +39,7 @@ export interface UseDatasetRecordsControllerResult {
     hasNoRecordsAtAll: boolean;
     hasNoSearchResults: boolean;
   };
+  columnWidths: ReturnType<typeof usePersistedColumnWidths>;
 }
 
 /**
@@ -96,6 +98,7 @@ export const useDatasetRecordsController = ({
     allColumns: RECORD_COLUMN_IDS,
     defaultVisible: DEFAULT_VISIBLE_RECORD_COLUMNS,
   });
+  const columnWidths = usePersistedColumnWidths({ experimentId, datasetId });
 
   const visibleIds = useMemo(() => records.records.map((record) => record.dataset_record_id), [records.records]);
   const bulk = useBulkRecordSelection(visibleIds);
@@ -143,5 +146,6 @@ export const useDatasetRecordsController = ({
     searchInput,
     setPageIndex,
     flags: { hasActiveSearch, hasNoRecordsAtAll, hasNoSearchResults },
+    columnWidths,
   };
 };
