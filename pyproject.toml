@@ -190,6 +190,7 @@ lint = [
   "aiohttp",
   "pytest",
   "requests",
+  "check-jsonschema==0.37.2",
 ]
 pytest = [
   "pytest==9.0.2",

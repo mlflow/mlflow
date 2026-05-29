@@ -180,6 +180,7 @@ trace_archival:
   location: s3://mlflow-trace-archive
   retention: 30d
   interval_seconds: 300
+  # Optional: omit this key to make each scheduler pass unbounded.
   max_traces_per_pass: 1000
   long_retention_allowlist:
     # Experiment ID for customer-support-agent-prod
@@ -204,7 +205,8 @@ mlflow server \
 ```
 
 - `interval_seconds` controls how often the scheduler checks for archival work.
-- `max_traces_per_pass` limits the amount of work in a single pass.
+- `max_traces_per_pass` limits the amount of work in a single pass. If you omit it, the pass is
+  unbounded and MLflow archives every eligible trace it can process in that run.
 - `long_retention_allowlist` contains experiment IDs that are allowed to keep traces longer than the
   broader server or workspace policy.
 
@@ -217,6 +219,13 @@ When workspaces are enabled, trace archival settings are resolved in the followi
 4. If an experiment requests a longer retention period than the broader server or workspace policy,
    that longer retention is only honored when the experiment's ID appears in
    `long_retention_allowlist`.
+
+The archival budget remains server-owned even when workspaces are enabled. `max_traces_per_pass`
+applies to the entire scheduler pass, not to each workspace independently. On each pass MLflow
+shuffles the workspace order, then processes one workspace at a time. That means a workspace visited
+earlier in the shuffled order can consume some or all of the remaining pass budget before later
+workspaces are considered. Within a workspace, `archive-now` candidates are still prioritized before
+regular retention-based archival.
 
 For example, if the global default is 30 days, a workspace is configured for 90 days, and
 experiment `123` is configured for 14 days, traces for experiment `123` are retained for 14 days.
