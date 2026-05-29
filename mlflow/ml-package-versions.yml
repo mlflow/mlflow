@@ -542,6 +542,9 @@ diffusers:
     maximum: "0.37.1"
     requirements:
       ">= 0.0.0": ["transformers", "safetensors", "accelerate", "peft", "torch"]
+      # diffusers>=0.38.0 depends on safetensors>=0.8.0rc0 (pre-release).
+      # Explicitly specifying the prerelease requirement allows uv to resolve it without --prerelease=allow.
+      ">= 0.38.0": ["safetensors>=0.8.0rc0"]
     run: |
       pytest tests/diffusers/test_diffusers_model_export.py
 
@@ -910,7 +913,9 @@ agno:
     requirements:
       ">= 0.0.0": ["anthropic", "yfinance"]
       ">= 2.0.0": ["opentelemetry-exporter-otlp", "openinference-instrumentation-agno"]
-      "<= 2.4.8": ["openinference-instrumentation-agno==0.1.20"]
+      # openinference-instrumentation-agno <= 0.1.30 calls wrap_function_wrapper(module=...),
+      # but wrapt 2.0 renamed the kwarg to `target`. Pin wrapt<2 until we can move off 0.1.20.
+      "<= 2.4.8": ["openinference-instrumentation-agno==0.1.20", "wrapt<2"]
     run: pytest tests/agno
     test_tracing_sdk: true
 
@@ -1009,6 +1014,12 @@ mistral:
     minimum: "1.7.1"
     maximum: "2.4.5"
     requirements:
+      # mistralai 2.x hard-pins opentelemetry-semantic-conventions==0.60b1, which is only
+      # paired with opentelemetry-sdk 1.39.x. mlflow's `.[extras]` install pulls in the
+      # newest sdk, leaving an inconsistent api/sdk/semconv trio that breaks span start
+      # with `TraceFlags.RANDOM_TRACE_ID` AttributeError. Hold the sdk back so the trio
+      # stays aligned with mistralai's semconv pin.
+      ">= 2.0.0": ["opentelemetry-sdk<1.40"]
     run: pytest tests/mistral
     test_tracing_sdk: true
     test_every_n_versions: 10

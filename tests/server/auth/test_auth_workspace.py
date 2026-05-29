@@ -19,6 +19,7 @@ from mlflow.server.auth.routes import (
     GET_METRIC_HISTORY_BULK_INTERVAL,
     GET_MODEL_VERSION_ARTIFACT,
     GET_TRACE_ARTIFACT,
+    GET_TRACE_ARTIFACT_V3,
     SEARCH_DATASETS,
     UPLOAD_ARTIFACT,
 )
@@ -1721,9 +1722,10 @@ def test_create_promptlab_run_validator_uses_workspace_permissions(workspace_per
         assert auth_module.validate_can_create_promptlab_run()
 
 
-def test_trace_artifact_validator_uses_workspace_permissions(workspace_permission_setup):
+@pytest.mark.parametrize("path", [GET_TRACE_ARTIFACT, GET_TRACE_ARTIFACT_V3])
+def test_trace_artifact_validator_uses_workspace_permissions(workspace_permission_setup, path):
     with auth_module.app.test_request_context(
-        GET_TRACE_ARTIFACT,
+        path,
         method="GET",
         query_string={"request_id": "trace-1"},
     ):
@@ -1851,15 +1853,16 @@ def test_create_promptlab_run_validator_denied_without_workspace_permission(
         assert not auth_module.validate_can_create_promptlab_run()
 
 
+@pytest.mark.parametrize("path", [GET_TRACE_ARTIFACT, GET_TRACE_ARTIFACT_V3])
 def test_trace_artifact_validator_denied_without_workspace_permission(
-    workspace_permission_setup,
+    workspace_permission_setup, path
 ):
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, NO_PERMISSIONS.name)
 
     with auth_module.app.test_request_context(
-        GET_TRACE_ARTIFACT,
+        path,
         method="GET",
         query_string={"request_id": "trace-1"},
     ):

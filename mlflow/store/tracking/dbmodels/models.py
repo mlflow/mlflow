@@ -729,6 +729,17 @@ class SqlTraceInfo(Base):
     """
     Experiment ID to which this trace belongs: *Foreign Key* into ``experiments`` table.
     """
+    experiment = relationship(
+        "SqlExperiment",
+        backref=backref("trace_infos", cascade="all, delete-orphan"),
+    )
+    """
+    SQLAlchemy relationship (many:one) with
+    :py:class:`mlflow.store.dbmodels.models.SqlExperiment`. The ``delete-orphan``
+    cascade ensures that ``session.delete(experiment)`` (used by
+    ``_hard_delete_experiment`` and ``mlflow gc``) emits ``DELETE`` statements
+    for all trace_info rows before deleting the parent experiment row.
+    """
     timestamp_ms = Column(BigInteger, nullable=False)
     """
     Start time of the trace, in milliseconds. Named as "request_time" in V3 format.

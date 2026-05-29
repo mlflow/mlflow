@@ -8,6 +8,8 @@ defaults:
   run:
     shell: bash
 
+permissions: {}
+
 jobs:
   close:
     if: github.repository == 'mlflow/mlflow'

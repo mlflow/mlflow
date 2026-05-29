@@ -107,6 +107,22 @@ repos:
         stages: [pre-commit]
         require_serial: true
 
+      - id: check-github-workflows
+        name: check-github-workflows
+        entry: uv run --frozen --only-group lint check-jsonschema --builtin-schema vendor.github-workflows
+        language: system
+        files: ^\.github/workflows/[^/]+\.ya?ml$
+        stages: [pre-commit]
+        require_serial: true
+
+      - id: check-github-actions
+        name: check-github-actions
+        entry: uv run --frozen --only-group lint check-jsonschema --builtin-schema vendor.github-actions
+        language: system
+        files: ^\.github/actions/[^/]+/action\.ya?ml$
+        stages: [pre-commit]
+        require_serial: true
+
       - id: install-bin
         name: install-bin
         entry: uv run --frozen --only-group lint bin/install.py

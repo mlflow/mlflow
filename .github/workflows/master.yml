@@ -42,6 +42,8 @@ env:
   _MLFLOW_TESTING_TELEMETRY: "true"
   MLFLOW_SERVER_ENABLE_JOB_EXECUTION: "false"
 
+permissions: {}
+
 jobs:
   # python-skinny tests cover a subset of mlflow functionality
   # that is meant to be supported with a smaller dependency footprint.
@@ -325,7 +327,7 @@ jobs:
           # install and the corresponding tests until it is republished.
           uv pip install \
             -r requirements/test-requirements.txt \
-            deepeval ragas 'arize-phoenix-evals<3.0.0' trulens trulens-providers-litellm google-adk
+            deepeval ragas 'arize-phoenix-evals<3.0.0' trulens trulens-providers-litellm 'google-adk[gcp]'
       - uses: ./.github/actions/show-versions
       - name: Run GenAI Tests (OSS)
         run: |

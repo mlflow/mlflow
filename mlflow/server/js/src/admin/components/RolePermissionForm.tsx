@@ -46,6 +46,11 @@ export interface RolePermissionFormProps {
   /** The role's workspace, displayed read-only when ``workspace`` resource type is picked. */
   workspace?: string;
   disabled?: boolean;
+  /** Render an inline reminder next to the resource picker. The parent
+   * passes ``true`` when the draft has been touched but isn't fillable
+   * yet (resource type changed but no specific resource picked) so the
+   * admin sees why the discard-confirm dialog is about to ask. */
+  showResourceRequiredError?: boolean;
 }
 
 export const ROLE_PERMISSION_DRAFT_DEFAULT: RolePermissionDraft = {
@@ -62,7 +67,13 @@ export const ROLE_PERMISSION_DRAFT_DEFAULT: RolePermissionDraft = {
  * workspace), so the scope radio is hidden and we render a static
  * "Workspace: <name>" line.
  */
-export const RolePermissionForm = ({ value, onChange, workspace, disabled }: RolePermissionFormProps) => {
+export const RolePermissionForm = ({
+  value,
+  onChange,
+  workspace,
+  disabled,
+  showResourceRequiredError = false,
+}: RolePermissionFormProps) => {
   const { theme } = useDesignSystemTheme();
   const [resourceSearch, setResourceSearch] = useState('');
   // Hide ``workspace`` in single-tenant mode where the workspace concept
@@ -79,7 +90,7 @@ export const RolePermissionForm = ({ value, onChange, workspace, disabled }: Rol
     options: resourceOptions,
     isLoading: resourceOptionsLoading,
     error: resourceOptionsError,
-  } = useResourceOptionsQuery(value.resourceType);
+  } = useResourceOptionsQuery(value.resourceType, workspace);
 
   const filteredOptions = useMemo(() => {
     const trimmed = resourceSearch.trim().toLowerCase();
@@ -160,6 +171,17 @@ export const RolePermissionForm = ({ value, onChange, workspace, disabled }: Rol
           {value.scope === 'specific' && (
             <div>
               <FieldLabel>{typeLabel}</FieldLabel>
+              {showResourceRequiredError && (
+                <Typography.Text
+                  color="error"
+                  size="sm"
+                  css={{ display: 'block', marginBottom: theme.spacing.xs }}
+                  data-testid="admin.role_permission_form.resource_required_error"
+                >
+                  Select a specific {typeLabel.toLowerCase()} or switch the scope to{' '}
+                  <strong>All {typeLabel.toLowerCase()}s</strong> before submitting.
+                </Typography.Text>
+              )}
               <DialogCombobox
                 componentId="admin.role_permission_form.resource_id"
                 label={typeLabel}
