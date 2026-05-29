@@ -37,7 +37,7 @@ export const readNonNegativeInt = (envName: string, fallback: number): number =>
 };
 
 /**
- * Whether to route trace export through an on-dick WAL queue
+ * Whether to route trace export through an on-disk WAL queue
  * drained by a background daemon, instead of the synchronous
  * HTTP exporter.
  */
