@@ -19,7 +19,7 @@ Before implementing any feature:
 
 ```bash
 # MUST be run from the repository root
-nohup uv run dev/run_dev_server.py > /tmp/mlflow-dev-server.log 2>&1 &
+uv run dev/run_dev_server.py > /tmp/mlflow-dev-server.log 2>&1 &
 
 # Monitor the logs
 tail -f /tmp/mlflow-dev-server.log
