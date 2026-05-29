@@ -8,6 +8,7 @@ from mlflow.entities import Workspace
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.server.fastapi_app import add_fastapi_workspace_middleware
 from mlflow.server.otel_api import otel_router
+from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.utils.otlp import OTLP_TRACES_PATH
 from mlflow.utils import workspace_context
 from mlflow.utils.workspace_utils import WORKSPACE_HEADER_NAME
@@ -113,6 +114,43 @@ def test_default_otlp_endpoint_uses_default_workspace(monkeypatch):
     assert captured["requested"] is None
     assert tracking_store.calls[0][0] == "default"
     assert workspace_context.get_request_workspace() is None
+
+
+def test_otlp_endpoint_sets_run_id_on_root_span(monkeypatch):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
+
+    class DummyTrackingStore:
+        def __init__(self):
+            self.calls = []
+
+        def log_spans(self, experiment_id, spans):
+            self.calls.append((experiment_id, spans))
+
+    tracking_store = DummyTrackingStore()
+    monkeypatch.setattr(
+        "mlflow.server.otel_api._get_tracking_store",
+        lambda: tracking_store,
+    )
+
+    client = _make_test_client()
+    response = client.post(
+        OTLP_TRACES_PATH,
+        data=_build_otlp_payload(),
+        headers={
+            "Content-Type": "application/x-protobuf",
+            "X-MLflow-Experiment-Id": "42",
+            "X-MLflow-Run-Id": "run-123",
+        },
+    )
+
+    assert response.status_code == 200
+    assert len(tracking_store.calls) == 1
+
+    experiment_id, spans = tracking_store.calls[0]
+    assert experiment_id == "42"
+    assert len(spans) == 1
+    assert spans[0].parent_id is None
+    assert spans[0]._span._attributes[TraceMetadataKey.SOURCE_RUN] == '"run-123"'
 
 
 def test_otlp_endpoint_without_default_workspace_raises_error(monkeypatch):

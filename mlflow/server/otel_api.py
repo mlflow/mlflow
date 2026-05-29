@@ -29,9 +29,11 @@ from mlflow.exceptions import MlflowException
 from mlflow.server.handlers import _get_tracking_store
 from mlflow.telemetry.events import TraceSource, TracesReceivedByServerEvent
 from mlflow.telemetry.track import _record_event
+from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.utils import dump_span_attribute_value
 from mlflow.tracing.utils.otlp import (
     MLFLOW_EXPERIMENT_ID_HEADER,
+    MLFLOW_RUN_ID_HEADER,
     OTLP_TRACES_PATH,
     _decode_otel_proto_anyvalue,
     decompress_otlp_body,
@@ -95,6 +97,7 @@ otel_router = APIRouter(prefix=OTLP_TRACES_PATH, tags=["OpenTelemetry"])
 async def export_traces(
     request: Request,
     x_mlflow_experiment_id: str = Header(..., alias=MLFLOW_EXPERIMENT_ID_HEADER),
+    x_mlflow_run_id: str | None = Header(default=None, alias=MLFLOW_RUN_ID_HEADER),
     content_type: str | None = Header(default=None),
     content_encoding: str | None = Header(default=None),
     user_agent: str | None = Header(None, alias=_USER_AGENT),
@@ -112,6 +115,7 @@ async def export_traces(
     Args:
         request: OTel ExportTraceServiceRequest in protobuf format
         x_mlflow_experiment_id: Required header containing the experiment ID
+        x_mlflow_run_id: Optional header containing the run ID to associate with ingested traces
         content_type: Content-Type header from the request
         content_encoding: Content-Encoding header from the request
         user_agent: User-Agent header (used to identify MLflow Python client)
@@ -194,6 +198,10 @@ async def export_traces(
                         if resource_service_name:
                             mlflow_span._span._attributes["service.name"] = (
                                 dump_span_attribute_value(resource_service_name)
+                            )
+                        if x_mlflow_run_id:
+                            mlflow_span._span._attributes[TraceMetadataKey.SOURCE_RUN] = (
+                                dump_span_attribute_value(x_mlflow_run_id)
                             )
 
                     all_spans.append(mlflow_span)
