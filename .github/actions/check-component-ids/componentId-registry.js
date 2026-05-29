@@ -1718,6 +1718,14 @@ module.exports = {
   "mlflow.run.row_actions.visibility.tooltip": "",
 
   // -- mlflow.run-page --
+  "mlflow.run-page.run-switcher.clear-compare": "",
+  "mlflow.run-page.run-switcher.compare-btn": "",
+  "mlflow.run-page.run-switcher.compare-tooltip": "",
+  "mlflow.run-page.run-switcher.item": "",
+  "mlflow.run-page.run-switcher.loading": "",
+  "mlflow.run-page.run-switcher.no-results": "",
+  "mlflow.run-page.run-switcher.search": "",
+  "mlflow.run-page.run-switcher.trigger": "",
   "mlflow.run-page.view-mode-switch": "",
 
   // -- mlflow.run-view --

@@ -2,9 +2,10 @@ import { FormattedMessage } from 'react-intl';
 import { Link } from '../../../common/utils/RoutingUtils';
 import { OverflowMenu, PageHeader } from '../../../shared/building_blocks/PageHeader';
 import Routes, { PageId as ExperimentTrackingPageId } from '../../routes';
-import type { ExperimentEntity } from '../../types';
+import type { ExperimentEntity, RunEntity } from '../../types';
 import type { KeyValueEntity } from '../../../common/types';
 import { RunViewModeSwitch, type RunViewModeSwitchProps } from './RunViewModeSwitch';
+import { RunSwitcherDropdown } from './RunSwitcherDropdown';
 import Utils from '../../../common/utils/Utils';
 import { RunViewHeaderRegisterModelButton } from './RunViewHeaderRegisterModelButton';
 import type { UseGetRunQueryResponseExperiment, UseGetRunQueryResponseOutputs } from './hooks/useGetRunQuery';
@@ -53,6 +54,11 @@ export interface RunViewHeaderProps {
   customBreadcrumbs?: ReactNode[];
   /** Props to pass to RunViewModeSwitch for custom tab configuration */
   tabSwitchProps?: Omit<RunViewModeSwitchProps, 'runTags'>;
+  activeTab?: string;
+  comparisonRuns?: RunEntity[];
+  onCompareRun?: (run: RunEntity) => void;
+  onClearComparisons?: () => void;
+  supportsComparison?: boolean;
 }
 
 /**
@@ -74,6 +80,11 @@ export const RunViewHeader = ({
   isLoading,
   customBreadcrumbs,
   tabSwitchProps,
+  activeTab,
+  comparisonRuns,
+  onCompareRun,
+  onClearComparisons,
+  supportsComparison,
 }: RunViewHeaderProps) => {
   const { theme } = useDesignSystemTheme();
   const experimentKind = useExperimentKind(experiment.tags);
@@ -191,6 +202,16 @@ export const RunViewHeader = ({
           <span css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.sm }}>
             <RunViewHeaderIcon />
             <span data-testid="runs-header">{runDisplayName}</span>
+            {activeTab !== undefined && experiment.experimentId && (
+              <RunSwitcherDropdown
+                experimentId={experiment.experimentId}
+                currentRunUuid={runUuid}
+                activeTab={activeTab}
+                comparisonRunUuids={supportsComparison ? comparisonRuns?.map((r) => r.info.runUuid) : undefined}
+                onCompareRun={supportsComparison ? onCompareRun : undefined}
+                onClearComparisons={supportsComparison ? onClearComparisons : undefined}
+              />
+            )}
           </span>
         }
         breadcrumbs={breadcrumbs}
