@@ -5373,7 +5373,7 @@ public final class ReviewAssignments {
    * `target_ids x reviewers`. The whole batch is one transaction but
    * per-row failures (validation errors) don't roll back the rest;
    * callers inspect the response buckets.
-   * The handler enforces a cap on `len(target_ids) * len(reviewers)`
+   * The store enforces a cap on `len(target_ids) * len(reviewers)`
    * (mirroring `MAX_ENTITIES_PER_BATCH` for log-batch) — a 10k x 10k
    * cross product would wedge the write transaction and blow the gRPC
    * message ceiling on the response. Callers that need more should
@@ -7650,7 +7650,7 @@ public final class ReviewAssignments {
      * `target_ids x reviewers`. The whole batch is one transaction but
      * per-row failures (validation errors) don't roll back the rest;
      * callers inspect the response buckets.
-     * The handler enforces a cap on `len(target_ids) * len(reviewers)`
+     * The store enforces a cap on `len(target_ids) * len(reviewers)`
      * (mirroring `MAX_ENTITIES_PER_BATCH` for log-batch) — a 10k x 10k
      * cross product would wedge the write transaction and blow the gRPC
      * message ceiling on the response. Callers that need more should
