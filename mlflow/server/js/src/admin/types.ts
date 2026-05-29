@@ -8,7 +8,6 @@ export {
   ALL_RESOURCE_PATTERN_LABEL,
   DEFAULT_WORKSPACE_NAME,
   formatResourcePattern,
-  isSyntheticUserRole,
   isWorkspaceAdminRole,
   parseResourcePattern,
 } from '../account/types';

@@ -19,7 +19,6 @@ import {
 import { FormattedMessage } from 'react-intl';
 import { ScrollablePageWrapper } from '@mlflow/mlflow/src/common/components/ScrollablePageWrapper';
 import { Link, useLocation, useSearchParams } from '../../common/utils/RoutingUtils';
-import { useWorkspacesEnabled } from '../../experiment-tracking/hooks/useServerInfo';
 import { useActiveWorkspace } from '../../workspaces/utils/WorkspaceUtils';
 import { ConfirmationModal } from '../ConfirmationModal';
 import AdminRoutes, { AdminRoutePaths } from '../routes';
@@ -35,7 +34,7 @@ import {
   useDeleteRole,
   useWithSettingsReturnTo,
 } from '../hooks';
-import { isSyntheticUserRole, isWorkspaceAdminRole } from '../types';
+import { isWorkspaceAdminRole } from '../types';
 import { CreateUserModal } from '../components/CreateUserModal';
 import { CreateRoleModal } from '../components/CreateRoleModal';
 import { UserRolesCell } from '../components/UserRolesCell';
@@ -295,13 +294,6 @@ const RolesTab = () => {
   const isAdmin = useCurrentUserIsAdmin();
   const adminWorkspaces = useCurrentUserAdminWorkspaces();
   const activeWorkspace = useActiveWorkspace();
-  // Hide the per-workspace columns in single-tenant mode. The admin-vs-not
-  // distinction stays meaningful — relabel "Workspace Manager" → "Admin"
-  // to match the user-detail page. Default to the multi-tenant layout
-  // while the server-info query is in-flight so columns don't reflow.
-  const { workspacesEnabled, loading: workspacesEnabledLoading } = useWorkspacesEnabled();
-  const showWorkspaceColumn = workspacesEnabledLoading || workspacesEnabled;
-  const adminTagLabel = workspacesEnabled || workspacesEnabledLoading ? 'Manager' : 'Admin';
   const canManageRoles = isAdmin || (activeWorkspace !== null && adminWorkspaces.has(activeWorkspace));
   const queryWorkspace = isAdmin ? undefined : (activeWorkspace ?? undefined);
   const queryEnabled = isAdmin || Boolean(activeWorkspace);
@@ -313,10 +305,7 @@ const RolesTab = () => {
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Hide synthetic ``__user_N__`` roles: they're a backend bookkeeping
-  // device for per-user direct grants, not real role definitions an admin
-  // would manage from this table.
-  const roles = useMemo(() => (rolesData?.roles ?? []).filter((r) => !isSyntheticUserRole(r.name)), [rolesData]);
+  const roles = useMemo(() => rolesData?.roles ?? [], [rolesData]);
   const {
     visibleSelected: visibleSelectedRoleIds,
     isAllSelected: allSelected,
@@ -462,26 +451,17 @@ const RolesTab = () => {
           <TableHeader componentId="admin.roles.name_header" css={{ flex: 2 }}>
             <FormattedMessage defaultMessage="Name" description="Roles table name header" />
           </TableHeader>
-          {showWorkspaceColumn && (
-            <TableHeader componentId="admin.roles.workspace_header" css={{ flex: 1 }}>
-              <FormattedMessage defaultMessage="Workspace" description="Roles table workspace header" />
-            </TableHeader>
-          )}
+          <TableHeader componentId="admin.roles.workspace_header" css={{ flex: 1 }}>
+            <FormattedMessage defaultMessage="Workspace" description="Roles table workspace header" />
+          </TableHeader>
           <TableHeader componentId="admin.roles.description_header" css={{ flex: 2 }}>
             <FormattedMessage defaultMessage="Description" description="Roles table description header" />
           </TableHeader>
           <TableHeader componentId="admin.roles.admin_role_header" css={{ flex: 1 }}>
-            {showWorkspaceColumn ? (
-              <FormattedMessage
-                defaultMessage="Workspace Manager"
-                description="Roles table column flagging roles that grant workspace-level MANAGE"
-              />
-            ) : (
-              <FormattedMessage
-                defaultMessage="Admin"
-                description="Roles table column flagging admin roles when workspaces are disabled"
-              />
-            )}
+            <FormattedMessage
+              defaultMessage="Workspace Manager"
+              description="Roles table column flagging roles that grant workspace-level MANAGE"
+            />
           </TableHeader>
         </TableRow>
         {roles.map((role) => (
@@ -501,12 +481,12 @@ const RolesTab = () => {
                 {role.name}
               </Link>
             </TableCell>
-            {showWorkspaceColumn && <TableCell css={{ flex: 1 }}>{role.workspace}</TableCell>}
+            <TableCell css={{ flex: 1 }}>{role.workspace}</TableCell>
             <TableCell css={{ flex: 2 }}>{role.description || '-'}</TableCell>
             <TableCell css={{ flex: 1 }}>
               {isWorkspaceAdminRole(role) ? (
                 <Tag componentId="admin.roles.admin_tag" color="indigo">
-                  {adminTagLabel}
+                  Manager
                 </Tag>
               ) : null}
             </TableCell>

@@ -114,11 +114,6 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
-                  id: 'tracing/observe-with-traces/archive-traces',
-                  label: 'Archive Traces',
-                },
-                {
-                  type: 'doc',
                   id: 'tracing/observe-with-traces/delete-traces',
                   label: 'Delete Traces',
                 },
@@ -215,16 +210,6 @@ const sidebarsGenAI: SidebarsConfig = {
                   type: 'doc',
                   id: 'tracing/integrations/listing/autogen',
                   label: 'AutoGen',
-                },
-                {
-                  type: 'doc',
-                  id: 'tracing/integrations/listing/claude_agent_sdk_python',
-                  label: 'Claude Agent SDK (Python)',
-                },
-                {
-                  type: 'doc',
-                  id: 'tracing/integrations/listing/claude_agent_sdk_typescript',
-                  label: 'Claude Agent SDK (TS)',
                 },
                 {
                   type: 'doc',

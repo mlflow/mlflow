@@ -39,7 +39,7 @@ In the current version, audio and text-based large language
 models are supported for use with `pyfunc`, while computer vision, multi-modal, timeseries,
 reinforcement learning, and graph models are only supported for native type loading via <APILink fn="mlflow.transformers.load_model" />
 
-:::warning[attention]
+:::warning attention
 Not all `transformers` pipeline types are supported. See the table below for the list of currently supported Pipeline
 types that can be loaded as `pyfunc`.
 
@@ -49,7 +49,7 @@ Future releases of MLflow will introduce `pyfunc` support for these additional t
 The table below shows the mapping of `transformers` pipeline types to the [python_function (pyfunc) model flavor](/ml/model#pyfunc-model-flavor)
 data type inputs and outputs.
 
-:::warning[important]
+:::warning important
 The inputs and outputs of the `pyfunc` implementation of these pipelines _are not guaranteed to match_ the input types and output types that would
 return from a native use of a given pipeline type. If your use case requires access to scores, top_k results, or other additional references within
 the output from a pipeline inference call, please use the native implementation by loading via <APILink fn="mlflow.transformers.load_model" /> to
@@ -363,7 +363,7 @@ After logging, the components are automatically inserted into the appropriate `P
 The components that are logged can be retrieved in their original structure (a dictionary) by setting the attribute `return_type` to "components" in the `load_model()` API.
 :::
 
-:::warning[attention]
+:::warning attention
 Not all model types are compatible with the pipeline API constructor via component elements. Incompatible models will raise an
 `MLflowException` error stating that the model is missing the _name_or_path_ attribute. In
 the event that this occurs, please construct the model directly via the `transformers.pipeline(<repo name>)` API and save the pipeline object directly.

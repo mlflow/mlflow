@@ -7403,7 +7403,7 @@ def test_archive_traces_marks_serializer_failures_as_malformed_and_excludes_retr
     assert TraceExperimentTagKey.ARCHIVE_NOW not in store.get_experiment(exp_id).tags
 
 
-def test_archive_traces_clears_archive_now_when_only_unmarked_non_archivable_traces_remain(
+def test_archive_traces_keeps_archive_now_when_only_unmarked_non_archivable_traces_remain(
     store: SqlAlchemyStore,
 ):
     exp_id = store.create_experiment("archive-now-terminal-non-archivable")
@@ -7418,26 +7418,18 @@ def test_archive_traces_clears_archive_now_when_only_unmarked_non_archivable_tra
     with TempDir() as tmp:
         archive_root = Path(tmp.path("archive"))
         archive_root.mkdir()
-        with mock.patch.object(sqlalchemy_store_module._logger, "warning") as mock_warning:
-            archived = _archive_traces(
-                store,
-                default_trace_archival_location=archive_root.as_uri(),
-                default_retention="365d",
-                now_millis=now_millis,
-            )
+        archived = _archive_traces(
+            store,
+            default_trace_archival_location=archive_root.as_uri(),
+            default_retention="365d",
+            now_millis=now_millis,
+        )
 
     assert archived == 0
     trace_info = store.get_trace_info(trace_id)
     assert trace_info.tags.get(TraceTagKey.SPANS_LOCATION) is None
     assert TraceTagKey.ARCHIVAL_FAILURE not in trace_info.tags
-    assert TraceExperimentTagKey.ARCHIVE_NOW not in store.get_experiment(exp_id).tags
-    mock_warning.assert_called_once_with(
-        "Clearing archive-now request %r on experiment %s. Some matching traces "
-        "still remain in the tracking store but are not currently archivable "
-        "and are not marked with an archival failure.",
-        "{}",
-        exp_id,
-    )
+    assert TraceExperimentTagKey.ARCHIVE_NOW in store.get_experiment(exp_id).tags
 
 
 def test_archive_traces_raises_unexpected_deserialization_errors(

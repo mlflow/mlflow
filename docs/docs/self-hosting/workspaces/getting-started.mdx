@@ -11,13 +11,13 @@ Before enabling workspaces, ensure you have:
 - A configured `--default-artifact-root`
 - Database migrations applied via `mlflow db upgrade`
 
-:::warning[File-based backends not supported]
+:::warning File-based backends not supported
 
 Workspaces require a SQL database backend store. File-based tracking and model registry stores (for example `./mlruns` or `file:///...`) are not supported when workspaces are enabled.
 
 :::
 
-:::warning[Custom experiment artifact locations are not supported]
+:::warning Custom experiment artifact locations are not supported
 
 For security, experiments cannot override artifact locations when workspaces are enabled. Workspace
 stores can customize the artifact location at the workspace level.
@@ -56,7 +56,6 @@ As an administrator, create a workspace using the MLflow SDK:
 
 ```python
 import mlflow
-from mlflow.entities import TraceArchivalConfig
 
 mlflow.set_tracking_uri("http://localhost:5000")
 
@@ -66,16 +65,9 @@ workspace = mlflow.create_workspace(
     description="Workspace for Team A machine learning projects",
     # Optional: override artifact root for this workspace
     default_artifact_root="s3://team-a-artifacts",
-    # Optional: override the broader trace archival defaults for this workspace
-    trace_archival_config=TraceArchivalConfig(
-        location="s3://mlflow-trace-archive/team-a",
-        retention="14d",
-    ),
 )
 print(f"Created workspace: {workspace.name}")
 ```
-
-If you omit `trace_archival_config`, the workspace inherits the broader server archival settings.
 
 You can also use the REST API directly:
 
@@ -85,11 +77,7 @@ curl -X POST http://localhost:5000/api/3.0/mlflow/workspaces \
   -d '{
     "name": "team-a",
     "description": "Workspace for Team A machine learning projects",
-    "default_artifact_root": "s3://team-a-artifacts",
-    "trace_archival_config": {
-      "location": "s3://mlflow-trace-archive/team-a",
-      "retention": "14d"
-    }
+    "default_artifact_root": "s3://team-a-artifacts"
   }'
 ```
 
@@ -186,35 +174,24 @@ print(f"Workspace: {workspace.name}")
 print(f"Description: {workspace.description}")
 ```
 
-### Update Workspace Settings
+### Update Workspace Description
 
 ```python
 import mlflow
-from mlflow.entities import TraceArchivalConfig
 
 mlflow.set_tracking_uri("http://localhost:5000")
 
-# Update workspace settings
+# Update workspace description
 updated = mlflow.update_workspace(
     name="team-a",
     description="Updated description for Team A",
     # Optional: update (or clear) the workspace artifact root override
     default_artifact_root="s3://team-a-artifacts",
-    trace_archival_config=TraceArchivalConfig(
-        location="s3://mlflow-trace-archive/team-a",
-        retention="7d",
-    ),
 )
 print(f"Updated: {updated.name}")
-
-# Clear the workspace-level archival override and inherit the broader policy
-mlflow.update_workspace(
-    name="team-a",
-    trace_archival_config=TraceArchivalConfig(location="", retention=""),
-)
 ```
 
-:::note[Workspace names are immutable]
+:::note Workspace names are immutable
 
 Workspace names cannot be changed after creation. Only the description can be updated.
 
@@ -249,13 +226,7 @@ curl http://localhost:5000/api/3.0/mlflow/workspaces/team-a
 # Update workspace
 curl -X PATCH http://localhost:5000/api/3.0/mlflow/workspaces/team-a \
   -H "Content-Type: application/json" \
-  -d '{
-    "description": "Updated description",
-    "trace_archival_config": {
-      "location": "s3://mlflow-trace-archive/team-a",
-      "retention": "7d"
-    }
-  }'
+  -d '{"description": "Updated description"}'
 
 # Delete workspace
 curl -X DELETE http://localhost:5000/api/3.0/mlflow/workspaces/team-a

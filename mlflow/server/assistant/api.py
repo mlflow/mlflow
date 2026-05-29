@@ -3,7 +3,7 @@ import uuid
 from pathlib import Path
 from typing import Any, AsyncGenerator, Literal
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
@@ -250,11 +250,6 @@ async def provider_health_check(provider: str) -> dict[str, str]:
 
     try:
         p.check_connection()
-    except NotImplementedError as e:
-        # Presets that delegate verification to the frontend (e.g. the
-        # in-server MLflow AI Gateway). Returning a clear 501 prevents the
-        # wizard from claiming a successful probe that never ran.
-        raise HTTPException(status_code=501, detail=str(e))
     except CLINotInstalledError as e:
         raise HTTPException(status_code=412, detail=str(e))
     except NotAuthenticatedError as e:
@@ -297,7 +292,6 @@ async def update_config(request: ConfigUpdateRequest) -> ConfigResponse:
             existing = config.providers.get(name)
             model = provider_data.get("model") or (existing.model if existing else "default")
             base_url = provider_data.get("base_url")
-            api_key = provider_data.get("api_key")
             permissions = None
             if "permissions" in provider_data:
                 perm_data = provider_data["permissions"]
@@ -308,14 +302,10 @@ async def update_config(request: ConfigUpdateRequest) -> ConfigResponse:
                 )
             selected = provider_data.get("selected", False)
             if selected:
-                config.set_provider(name, model, permissions, base_url=base_url, api_key=api_key)
+                config.set_provider(name, model, permissions, base_url=base_url)
             else:
                 config.update_provider(
-                    name,
-                    model=model,
-                    permissions=permissions,
-                    base_url=base_url,
-                    api_key=api_key,
+                    name, model=model, permissions=permissions, base_url=base_url
                 )
 
     # Update projects
@@ -391,11 +381,6 @@ async def install_skills_endpoint(request: SkillsInstallRequest) -> SkillsInstal
         case "project":
             destination = provider.resolve_skills_path(project_path)
         case "custom":
-            if not request.custom_path:
-                raise HTTPException(
-                    status_code=400,
-                    detail="custom_path is required when type='custom'.",
-                )
             destination = Path(request.custom_path).expanduser()
 
     # Check if skills already exist - skip re-installation
@@ -411,16 +396,7 @@ async def install_skills_endpoint(request: SkillsInstallRequest) -> SkillsInstal
 
 
 @assistant_router.get("/providers/{provider}/models")
-async def list_provider_models(
-    provider: str,
-    base_url: str | None = None,
-    x_api_key: str | None = Header(default=None, alias="X-API-Key"),
-) -> dict[str, Any]:
-    # api_key is read from the X-API-Key header (not a query param) so the
-    # bearer token doesn't land in access logs, browser history, or referer
-    # headers. Localhost-only gating mitigates remote exposure but not
-    # local logging.
-    api_key = x_api_key
+async def list_provider_models(provider: str, base_url: str | None = None) -> dict[str, Any]:
     p = _get_provider(provider)
     if p is None:
         raise HTTPException(
@@ -429,7 +405,7 @@ async def list_provider_models(
         )
 
     try:
-        models = p.list_models(base_url, api_key)
+        models = p.list_models(base_url)
         return {"models": models}
     except NotImplementedError:
         raise HTTPException(

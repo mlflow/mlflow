@@ -1623,18 +1623,6 @@ class AbstractStore(GatewayStoreMixin):
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def list_scorers_across_experiments(self, experiment_ids: list[str]) -> list[ScorerVersion]:
-        """
-        List all scorers across multiple experiments in one batch. The default
-        impl just iterates ``list_scorers`` per experiment; ``SqlAlchemyStore``
-        overrides with a single JOIN for admin pickers that need to enumerate
-        scorers across hundreds of experiments without N+1 round trips.
-        """
-        result: list[ScorerVersion] = []
-        for exp_id in experiment_ids:
-            result.extend(self.list_scorers(exp_id))
-        return result
-
     def get_scorer(self, experiment_id, name, version=None) -> ScorerVersion:
         """
         Get a specific scorer for an experiment.

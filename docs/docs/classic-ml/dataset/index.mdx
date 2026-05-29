@@ -239,7 +239,7 @@ Dataset schema: {"mlflow_colspec": [
 Dataset source: <DatasetSource object>
 ```
 
-:::note[Dataset Properties]
+:::note Dataset Properties
 The `profile` and `schema` properties are implementation-specific and may vary depending on the dataset type (PandasDataset, SparkDataset, etc.). Some dataset types may return `None` for these properties.
 :::
 
@@ -325,7 +325,7 @@ The UI displays:
 
 One of the most powerful features of MLflow datasets is their seamless integration with MLflow's evaluation capabilities. MLflow automatically converts various data types to `EvaluationDataset` objects internally when using `mlflow.models.evaluate()`.
 
-:::info[EvaluationDataset]
+:::info EvaluationDataset
 MLflow uses an internal `EvaluationDataset` class when working with `mlflow.models.evaluate()`. This dataset type is automatically created from your input data and provides optimized hashing and metadata tracking specifically for evaluation workflows.
 :::
 

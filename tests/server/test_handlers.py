@@ -11,7 +11,6 @@ from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 
 import mlflow
 from mlflow.entities import (
-    Experiment,
     GatewayBudgetPolicy,
     Issue,
     IssueSeverity,
@@ -2056,60 +2055,6 @@ def test_list_scorers(mock_get_request_message, mock_tracking_store):
     assert response_data["scorers"][1]["scorer_name"] == "safety_scorer"
     assert response_data["scorers"][1]["scorer_version"] == 2
     assert response_data["scorers"][1]["serialized_scorer"] == "serialized_safety_scorer"
-
-
-def test_list_scorers_cross_experiment(mock_get_request_message, mock_tracking_store):
-    # Empty ``experiment_id`` switches to the cross-experiment branch: the
-    # handler walks ``search_experiments`` via ``page_token`` until exhausted,
-    # then makes a single ``list_scorers_across_experiments`` call with the
-    # collected ids. Mocks below force a 3-page walk so the loop is exercised
-    # end-to-end (not just the first page).
-    mock_get_request_message.return_value = ListScorers()
-
-    def _make_page(items, token):
-        return PagedList(
-            [
-                Experiment(
-                    experiment_id=str(i),
-                    name=f"e-{i}",
-                    artifact_location="",
-                    lifecycle_stage="active",
-                )
-                for i in items
-            ],
-            token,
-        )
-
-    mock_tracking_store.search_experiments.side_effect = [
-        _make_page([1, 2], "tok-1"),
-        _make_page([3], "tok-2"),
-        _make_page([], None),  # terminal page with no token
-    ]
-    mock_tracking_store.list_scorers_across_experiments.return_value = [
-        ScorerVersion(
-            experiment_id=1,
-            scorer_name="alpha",
-            scorer_version=1,
-            serialized_scorer="s",
-            creation_time=0,
-        ),
-    ]
-
-    _list_scorers()
-
-    # ``search_experiments`` is called 3 times: initial + two follow-ups using
-    # the prior page's token. ``list_scorers`` (single-experiment) must NOT be
-    # called on this branch.
-    assert mock_tracking_store.search_experiments.call_count == 3
-    page_tokens = [
-        c.kwargs.get("page_token") for c in mock_tracking_store.search_experiments.call_args_list
-    ]
-    assert page_tokens == [None, "tok-1", "tok-2"]
-    mock_tracking_store.list_scorers.assert_not_called()
-    mock_tracking_store.list_scorers_across_experiments.assert_called_once()
-    # Collected experiment ids: union of every page's items, in order.
-    call_args = mock_tracking_store.list_scorers_across_experiments.call_args
-    assert call_args.args[0] == ["1", "2", "3"]
 
 
 def test_list_scorer_versions(mock_get_request_message, mock_tracking_store):

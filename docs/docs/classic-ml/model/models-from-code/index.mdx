@@ -8,11 +8,11 @@ import { APILink } from "@site/src/components/APILink";
 
 # Models From Code
 
-:::info[availability]
+:::info availability
 Models from Code is available in MLflow 2.12.2 and above. For earlier versions, use the legacy serialization methods outlined in the [Custom Python Model](/ml/model#custom-python-models) documentation.
 :::
 
-:::note[target use cases]
+:::note target use cases
 Models from Code is designed for models without optimized weights (GenAI Agents, applications, custom logic). For traditional ML/DL models with trained weights, use the built-in `log_model()` APIs or custom `PythonModel` with `mlflow.pyfunc.log_model()`.
 :::
 
@@ -56,11 +56,11 @@ Only include imports you actually use. MLflow infers requirements from all top-l
 
 Non-pip installable packages must be specified via `code_paths`. The system doesn't automatically capture external references beyond standard package imports.
 
-:::tip[development workflow]
+:::tip development workflow
 Use a linter to identify unused imports while developing. This keeps your model's requirements clean and deployment lightweight.
 :::
 
-:::warning[security consideration]
+:::warning security consideration
 Model code is stored in plain text. Never include sensitive information like API keys or passwords in your scripts. Use environment variables or secure configuration management instead.
 :::
 

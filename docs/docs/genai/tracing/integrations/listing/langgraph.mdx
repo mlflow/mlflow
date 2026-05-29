@@ -239,7 +239,7 @@ This way, the span for the `check_code` node will have child spans, which record
 
 ![LangGraph Child Span](/images/llms/tracing/langgraph-child-span.png)
 
-:::info[Async Context Propagation]
+:::info Async Context Propagation
 When using async methods like `ainvoke()` with manual `@mlflow.trace` decorators inside LangGraph nodes or tools, enable inline tracer execution to ensure proper context propagation:
 
 ```python

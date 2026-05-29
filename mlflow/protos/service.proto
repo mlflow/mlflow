@@ -4721,12 +4721,11 @@ message RegisterScorer {
   }
 }
 
-// List all scorers, optionally scoped to a single experiment.
+// List all scorers for an experiment.
 message ListScorers {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
-  // The experiment ID. If empty, returns scorers across all experiments
-  // in the active workspace (used by the admin-UI scorer picker).
+  // The experiment ID.
   optional string experiment_id = 1;
 
   message Response {

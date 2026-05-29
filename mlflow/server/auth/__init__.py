@@ -988,18 +988,6 @@ def validate_can_read_experiment():
     return _get_permission_from_experiment_id().can_read
 
 
-def validate_can_read_scorer_list():
-    # ``ListScorers`` accepts an optional ``experiment_id``. When set, gate
-    # on the experiment read permission as usual; when empty, the request is
-    # a cross-experiment listing and ``AFTER_REQUEST_PATH_HANDLERS`` does the
-    # per-row RBAC filtering, so the route itself is open to any authenticated
-    # caller.
-    args = request.args if request.method == "GET" else (request.get_json(silent=True) or {})
-    if not args.get("experiment_id"):
-        return True
-    return _get_permission_from_experiment_id().can_read
-
-
 def validate_can_read_experiment_by_name():
     return _get_permission_from_experiment_name().can_read
 
@@ -2191,7 +2179,7 @@ BEFORE_REQUEST_HANDLERS = {
     GetModelVersionByAlias: _validate_can_read_registered_model_or_prompt,
     # Routes for scorers
     RegisterScorer: validate_can_update_experiment,
-    ListScorers: validate_can_read_scorer_list,
+    ListScorers: validate_can_read_experiment,
     GetScorer: validate_can_read_scorer,
     DeleteScorer: validate_can_delete_scorer,
     ListScorerVersions: validate_can_read_scorer,
@@ -3194,34 +3182,6 @@ def delete_gateway_model_definition_permissions_cascade(resp: Response):
         store.delete_grants_for_resource("gateway_model_definition", model_definition_id)
 
 
-def filter_list_scorers(resp: Response) -> None:
-    """Filter cross-experiment ``ListScorers`` responses to rows the caller can read.
-
-    Single-experiment requests are already gated by ``validate_can_read_scorer_list``
-    (which delegates to ``validate_can_read_experiment``); cross-experiment requests
-    (empty ``experiment_id``) skip that gate so the response can carry scorers from
-    multiple experiments. This filter applies the experiment + scorer read
-    predicates per row so the picker doesn't leak names the caller has no grant on.
-    """
-    if sender_is_admin():
-        return
-
-    response_message = ListScorers.Response()
-    parse_dict(resp.json, response_message)
-
-    username = authenticate_request().username
-    can_read_experiment = _role_based_read_predicate(username, "experiment")
-    can_read_scorer = _role_based_read_predicate(username, "scorer")
-    for scorer in list(response_message.scorers):
-        exp_id = str(scorer.experiment_id)
-        if not can_read_experiment(exp_id):
-            response_message.scorers.remove(scorer)
-            continue
-        if not can_read_scorer(store._scorer_pattern(exp_id, scorer.scorer_name)):
-            response_message.scorers.remove(scorer)
-    resp.data = message_to_json(response_message)
-
-
 AFTER_REQUEST_PATH_HANDLERS = {
     CreateExperiment: set_can_manage_experiment_permission,
     CreateRegisteredModel: set_can_manage_registered_model_permission,
@@ -3232,7 +3192,6 @@ AFTER_REQUEST_PATH_HANDLERS = {
     SearchRegisteredModels: filter_search_registered_models,
     RenameRegisteredModel: rename_registered_model_permission,
     RegisterScorer: set_can_manage_scorer_permission,
-    ListScorers: filter_list_scorers,
     DeleteScorer: delete_scorer_permissions_cascade,
     CreateGatewaySecret: set_can_manage_gateway_secret_permission,
     DeleteGatewaySecret: delete_gateway_secret_permissions_cascade,
@@ -3608,13 +3567,6 @@ def update_user_password():
         if not store.authenticate_user(username, current_password):
             raise MlflowException(
                 "Current password does not match.",
-                INVALID_PARAMETER_VALUE,
-            )
-        # Self-service only: equality avoids re-running bcrypt, and admin
-        # paths skip it so they don't leak a same-vs-different oracle.
-        if password == current_password:
-            raise MlflowException(
-                "New password must differ from the current password.",
                 INVALID_PARAMETER_VALUE,
             )
     store.update_user(username, password=password)

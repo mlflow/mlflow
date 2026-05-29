@@ -34,16 +34,12 @@ interface SetupStepProjectProps {
 
 const PROVIDER_SKILLS_DIR = {
   claude_code: '.claude/skills',
+  ollama: '.ollama/skills',
   codex: '.codex/skills',
 } satisfies Record<string, string>;
 
-// Only Claude Code actually loads skills at runtime; other providers ignore
-// the directory even if we install to it. Update this set if/when more
-// providers gain skill-loading support.
-const PROVIDERS_WITH_SKILLS = new Set<string>(['claude_code']);
-
 const getSkillsDir = (provider: string): string =>
-  (PROVIDER_SKILLS_DIR as Record<string, string | undefined>)[provider] ?? `.agent/skills`;
+  (PROVIDER_SKILLS_DIR as Record<string, string | undefined>)[provider] ?? `.${provider}/skills`;
 
 const deriveSkillsLocation = (
   skillsLocation: string | undefined,
@@ -54,7 +50,8 @@ const deriveSkillsLocation = (
     return { location: 'global', customPath: '' };
   }
   const skillsDir = getSkillsDir(provider);
-  if (skillsLocation.endsWith(`/${skillsDir}`)) {
+  const globalPath = `~/${skillsDir}`.replace('~', '');
+  if (skillsLocation.endsWith(globalPath)) {
     return { location: 'global', customPath: '' };
   }
   if (projectPath && skillsLocation.endsWith(`${projectPath}/${skillsDir}`)) {
@@ -146,19 +143,16 @@ export const SetupStepProject = ({
 
       await updateConfig(configUpdate);
 
-      // Install skills based on selected location. Providers that don't load
-      // skills at runtime (e.g. Ollama, MLflow Gateway) skip this entirely.
-      if (PROVIDERS_WITH_SKILLS.has(provider)) {
-        try {
-          await installSkills(
-            skillsLocation,
-            skillsLocation === 'custom' ? customSkillsPath.trim() : undefined,
-            skillsLocation === 'project' ? experimentId : undefined,
-          );
-          await refetchConfig();
-        } catch {
-          // Silently ignore skills installation errors - user can install later
-        }
+      // Install skills based on selected location
+      try {
+        await installSkills(
+          skillsLocation,
+          skillsLocation === 'custom' ? customSkillsPath.trim() : undefined,
+          skillsLocation === 'project' ? experimentId : undefined,
+        );
+        await refetchConfig();
+      } catch {
+        // Silently ignore skills installation errors - user can install later
       }
 
       onComplete();
@@ -316,74 +310,72 @@ export const SetupStepProject = ({
             )}
           </div>
 
-          {/* Skills Installation Section - only for providers that load skills at runtime */}
-          {PROVIDERS_WITH_SKILLS.has(provider) && (
-            <div>
-              <Typography.Text bold css={{ fontSize: 18, marginBottom: theme.spacing.sm, display: 'block' }}>
-                Skills Location
-              </Typography.Text>
-              <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.md }}>
-                Extend the assistant with specialized MLflow workflows. See{' '}
-                <Typography.Link
-                  componentId="mlflow.assistant.setup.project.skills_link"
-                  href="https://github.com/mlflow/skills"
-                  target="_blank"
-                >
-                  MLflow Skills
-                </Typography.Link>{' '}
-                to find list of skills to be installed.
-              </Typography.Text>
-
-              <Radio.Group
-                componentId="mlflow.assistant.setup.project.skills_location"
-                name="skills-location"
-                value={skillsLocation}
-                onChange={(e) => setSkillsLocation(e.target.value as SkillsLocation)}
+          {/* Skills Installation Section */}
+          <div>
+            <Typography.Text bold css={{ fontSize: 18, marginBottom: theme.spacing.sm, display: 'block' }}>
+              Skills Location
+            </Typography.Text>
+            <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.md }}>
+              Extend the assistant with specialized MLflow workflows. See{' '}
+              <Typography.Link
+                componentId="mlflow.assistant.setup.project.skills_link"
+                href="https://github.com/mlflow/skills"
+                target="_blank"
               >
-                <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
-                  <Radio componentId="mlflow.assistant.setup.project.skills_global" value="global">
-                    <Typography.Text>Global</Typography.Text>
-                    <Typography.Text color="secondary" css={{ marginLeft: theme.spacing.xs }}>
-                      (~/{getSkillsDir(provider)}/)
-                    </Typography.Text>
-                  </Radio>
+                MLflow Skills
+              </Typography.Link>{' '}
+              to find list of skills to be installed.
+            </Typography.Text>
 
-                  <Radio
-                    componentId="mlflow.assistant.setup.project.skills_project"
-                    value="project"
-                    disabled={!projectPath.trim()}
-                  >
-                    <Typography.Text color={!projectPath.trim() ? 'secondary' : undefined}>Project</Typography.Text>
-                    <Typography.Text color="secondary" css={{ marginLeft: theme.spacing.xs }}>
-                      {projectPath.trim()
-                        ? `(${projectPath.trim()}/${getSkillsDir(provider)}/)`
-                        : '(requires project path)'}
-                    </Typography.Text>
-                  </Radio>
+            <Radio.Group
+              componentId="mlflow.assistant.setup.project.skills_location"
+              name="skills-location"
+              value={skillsLocation}
+              onChange={(e) => setSkillsLocation(e.target.value as SkillsLocation)}
+            >
+              <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
+                <Radio componentId="mlflow.assistant.setup.project.skills_global" value="global">
+                  <Typography.Text>Global</Typography.Text>
+                  <Typography.Text color="secondary" css={{ marginLeft: theme.spacing.xs }}>
+                    (~/{getSkillsDir(provider)}/)
+                  </Typography.Text>
+                </Radio>
 
-                  <div>
-                    <Radio componentId="mlflow.assistant.setup.project.skills_custom" value="custom">
-                      <Typography.Text>Custom location</Typography.Text>
-                    </Radio>
-                    {skillsLocation === 'custom' && (
-                      <div css={{ marginTop: theme.spacing.sm, paddingLeft: 24 }}>
-                        <Input
-                          componentId="mlflow.assistant.setup.project.custom_skills_path"
-                          value={customSkillsPath}
-                          onChange={(e) => {
-                            setCustomSkillsPath(e.target.value);
-                            if (error) setError(null);
-                          }}
-                          placeholder="/path/to/skills"
-                          css={{ width: '100%' }}
-                        />
-                      </div>
-                    )}
-                  </div>
+                <Radio
+                  componentId="mlflow.assistant.setup.project.skills_project"
+                  value="project"
+                  disabled={!projectPath.trim()}
+                >
+                  <Typography.Text color={!projectPath.trim() ? 'secondary' : undefined}>Project</Typography.Text>
+                  <Typography.Text color="secondary" css={{ marginLeft: theme.spacing.xs }}>
+                    {projectPath.trim()
+                      ? `(${projectPath.trim()}/${getSkillsDir(provider)}/)`
+                      : '(requires project path)'}
+                  </Typography.Text>
+                </Radio>
+
+                <div>
+                  <Radio componentId="mlflow.assistant.setup.project.skills_custom" value="custom">
+                    <Typography.Text>Custom location</Typography.Text>
+                  </Radio>
+                  {skillsLocation === 'custom' && (
+                    <div css={{ marginTop: theme.spacing.sm, paddingLeft: 24 }}>
+                      <Input
+                        componentId="mlflow.assistant.setup.project.custom_skills_path"
+                        value={customSkillsPath}
+                        onChange={(e) => {
+                          setCustomSkillsPath(e.target.value);
+                          if (error) setError(null);
+                        }}
+                        placeholder="/path/to/skills"
+                        css={{ width: '100%' }}
+                      />
+                    </div>
+                  )}
                 </div>
-              </Radio.Group>
-            </div>
-          )}
+              </div>
+            </Radio.Group>
+          </div>
         </div>
       </div>
 

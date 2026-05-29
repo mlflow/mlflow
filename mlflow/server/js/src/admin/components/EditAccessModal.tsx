@@ -1,11 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Button,
   ChevronLeftIcon,
   Modal,
-  SimpleSelect,
-  SimpleSelectOption,
   Spinner,
   Switch,
   Tag,
@@ -13,9 +11,7 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
-import { FieldLabel } from './FieldLabel';
 import { LongFormSection } from '../../common/components/long-form/LongFormSection';
-import { ConfirmationModal } from '../ConfirmationModal';
 import { AdminApi } from '../api';
 import {
   AdminQueryKeys,
@@ -23,33 +19,30 @@ import {
   useGrantUserPermission,
   useRevokeUserPermission,
   useRolesQuery,
+  useUserPermissionsQuery,
   useUserRolesQuery,
   useUsersQuery,
-  useWorkspaceOptions,
 } from '../hooks';
 import { AccountQueryKeys } from '../../account/hooks';
-import { DEFAULT_WORKSPACE_NAME, isSyntheticUserRole } from '../types';
+import { isSyntheticUserRole } from '../../account/types';
 import { useActiveWorkspace } from '../../workspaces/utils/WorkspaceUtils';
-import { useWorkspaces } from '../../workspaces/hooks/useWorkspaces';
-import { useWorkspacesEnabled } from '../../experiment-tracking/hooks/useServerInfo';
 import { RoleAssignmentForm, ROLE_ASSIGNMENT_DEFAULT, type RoleAssignmentValue } from './RoleAssignmentForm';
-import { DIRECT_GRANT_RESOURCE_TYPES, type DirectGrantResourceType } from './DirectPermissionForm';
+import { type DirectGrantResourceType } from './DirectPermissionForm';
 import { DirectPermissionsSection, type StagedDirectPermission } from './DirectPermissionsSection';
 
 export interface EditAccessModalProps {
   open: boolean;
   onClose: () => void;
   username: string;
+  /** Optional: bridge to the Create Role flow when "All <type>" is picked. */
+  onCreateRoleForAllOfType?: (resourceType: DirectGrantResourceType) => void;
 }
 
 const directPermKey = (p: { resourceType: string; resourceId: string; permission: string }) =>
   `${p.resourceType}::${p.resourceId}::${p.permission}`;
 
-// Derived from the form's source of truth so a new direct-grant type can't
-// drift between the form (where it's offered) and the modal (where existing
-// grants of that type are bucketed into the direct view).
 const isDirectGrantResourceType = (rt: string): rt is DirectGrantResourceType =>
-  (DIRECT_GRANT_RESOURCE_TYPES as readonly string[]).includes(rt);
+  rt === 'experiment' || rt === 'registered_model' || rt === 'gateway_secret' || rt === 'gateway_endpoint';
 
 interface AccessDiff {
   rolesToAssign: number[];
@@ -66,55 +59,42 @@ interface AccessDiff {
  * Review step surfaces every add / remove / promote / demote so the
  * admin can confirm before destructive parts land.
  */
-export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProps) => {
+export const EditAccessModal = ({ open, onClose, username, onCreateRoleForAllOfType }: EditAccessModalProps) => {
   const { theme } = useDesignSystemTheme();
   const queryClient = useQueryClient();
   const grantPermission = useGrantUserPermission();
   const revokePermission = useRevokeUserPermission();
   const isCurrentUserAdmin = useCurrentUserIsAdmin();
-  const activeWorkspace = useActiveWorkspace();
-
-  // Platform-admin-only workspace selector for direct-grant targeting.
-  // Workspace managers stay locked to their session-active workspace.
-  const { workspacesEnabled } = useWorkspacesEnabled();
-  const showWorkspaceSelector = isCurrentUserAdmin && workspacesEnabled;
-  const { workspaces } = useWorkspaces(showWorkspaceSelector);
-  const initialGrantWorkspace = activeWorkspace ?? DEFAULT_WORKSPACE_NAME;
-  const [grantWorkspace, setGrantWorkspace] = useState<string>(initialGrantWorkspace);
 
   // --- Current state from backend (used to pre-fill + compute diff) ---
-  const { data: rolesData, isLoading: rolesLoading, error: rolesError } = useUserRolesQuery(username);
+  const { data: rolesData, isLoading: rolesLoading } = useUserRolesQuery(username);
+  const { data: directPermsData, isLoading: directPermsLoading } = useUserPermissionsQuery(username);
   const { data: usersData, isLoading: usersLoading } = useUsersQuery();
   // Roles list for the Review step's name lookup (the form uses the
   // dropdown's own label, but the Review step renders by id). Platform
   // admins fetch unscoped; workspace managers pass the active workspace.
   // Suppress when none is active to avoid a guaranteed 403.
+  const activeWorkspace = useActiveWorkspace();
   const rolesListWorkspace = isCurrentUserAdmin ? undefined : (activeWorkspace ?? undefined);
   const rolesListEnabled = isCurrentUserAdmin || Boolean(activeWorkspace);
   const { data: rolesListData } = useRolesQuery(rolesListWorkspace, { enabled: rolesListEnabled });
 
-  // Synthetic ``__user_N__`` roles anchor direct grants — must not enter the
-  // editable set, or the picker's "Clear" would unassign them and orphan
-  // every direct grant.
-  const currentRoleIds = useMemo<number[]>(
-    () => (rolesData?.roles ?? []).filter((r) => !isSyntheticUserRole(r.name)).map((r) => r.id),
-    [rolesData],
-  );
-  // Direct grants live on the synthetic ``__user_<id>__`` role surfaced by
-  // ``useUserRolesQuery``; flatten its nested ``permissions`` to recover the
-  // editable list (custom roles are shown in the Roles tab).
+  const currentRoleIds = useMemo<number[]>(() => (rolesData?.roles ?? []).map((r) => r.id), [rolesData]);
   const currentDirectPerms = useMemo<StagedDirectPermission[]>(
     () =>
-      (rolesData?.roles ?? [])
-        .filter((r) => isSyntheticUserRole(r.name))
-        .flatMap((r) => r.permissions ?? [])
+      (directPermsData?.permissions ?? [])
+        // The unified ``/users/permissions/list`` response returns every
+        // permission across every role the user holds. Direct grants live on
+        // the synthetic ``__user_<id>__`` role; filter to just those for the
+        // "Direct permissions" view (custom roles are shown in the Roles tab).
+        .filter((p) => isSyntheticUserRole(p.role_name))
         .filter((p) => isDirectGrantResourceType(p.resource_type))
         .map((p) => ({
           resourceType: p.resource_type as DirectGrantResourceType,
           resourceId: p.resource_pattern,
           permission: p.permission,
         })),
-    [rolesData],
+    [directPermsData],
   );
   const currentIsAdmin = useMemo(
     () => Boolean(usersData?.users?.find((u) => u.username === username)?.is_admin),
@@ -128,66 +108,21 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
   const [isAdmin, setIsAdmin] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Reported by ``DirectPermissionsSection`` whenever the in-progress
-  // draft is dirty (any field touched away from default). Drives a
-  // discard-confirm dialog on the ``Review changes`` button so the admin
-  // can't silently abandon a partially filled permission — but the button
-  // itself stays enabled and the admin can always click through.
-  const [hasUnsavedDirectDraft, setHasUnsavedDirectDraft] = useState(false);
-  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
 
-  const workspaceOptions = useWorkspaceOptions(workspaces);
+  const stateLoaded = !rolesLoading && !directPermsLoading && !usersLoading;
 
-  const stateLoaded = !rolesLoading && !usersLoading;
-
-  // ``filledForWorkspaceRef`` tracks which workspace's data was last pre-filled
-  // into editable state. The pre-fill effect re-runs when this stops matching
-  // the current ``grantWorkspace`` so switching the dropdown mid-edit re-seeds
-  // ``directPermissions`` from the newly-selected workspace's permissions
-  // (otherwise revoking a pre-filled row would target the wrong workspace).
-  const filledForWorkspaceRef = useRef<string | null>(null);
-
-  // Reset transient UI state only on open — refetches must not bounce
-  // the user back to edit or wipe a partial-failure error.
+  // Re-pre-fill whenever the modal opens or the backing data resolves.
   useEffect(() => {
     if (!open) {
       return;
     }
     setStep('edit');
+    setRoleValue({ roleIds: [...currentRoleIds] });
+    setDirectPermissions([...currentDirectPerms]);
+    setIsAdmin(currentIsAdmin);
     setSubmitting(false);
     setError(null);
-    setGrantWorkspace(initialGrantWorkspace);
-    // ``hasUnsavedDirectDraft`` isn't reset here — the ``key={String(open)}``
-    // on ``DirectPermissionsSection`` below remounts the section on every
-    // open, and its first commit-time effect fires ``false`` from the
-    // default draft state.
-    setShowDiscardConfirm(false);
-    filledForWorkspaceRef.current = null;
-    // ``initialGrantWorkspace`` is derived from the session active workspace;
-    // re-seed on open so the dropdown defaults to "where I am right now".
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
-
-  // Pre-fill editable fields after backing queries resolve. Re-runs when
-  // ``grantWorkspace`` changes (so switching the dropdown mid-edit reloads
-  // the pre-filled rows from the newly-selected workspace), but skips when
-  // ``filledForWorkspaceRef`` already matches — so background refetches in
-  // the *same* workspace don't clobber in-progress edits.
-  useEffect(() => {
-    if (!open) {
-      filledForWorkspaceRef.current = null;
-      return;
-    }
-    if (!stateLoaded || filledForWorkspaceRef.current === grantWorkspace) {
-      return;
-    }
-    if (filledForWorkspaceRef.current === null) {
-      setRoleValue({ roleIds: [...currentRoleIds] });
-      setIsAdmin(currentIsAdmin);
-    }
-    setDirectPermissions([...currentDirectPerms]);
-    filledForWorkspaceRef.current = grantWorkspace;
-  }, [open, stateLoaded, grantWorkspace, currentRoleIds, currentDirectPerms, currentIsAdmin]);
+  }, [open, currentRoleIds, currentDirectPerms, currentIsAdmin]);
 
   // --- Diff computation ---
   const diff = useMemo<AccessDiff>(() => {
@@ -245,8 +180,7 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
   );
 
   const handleConfirm = useCallback(async () => {
-    // ``error`` is already cleared by the "Review changes" transition;
-    // skipping a redundant reset here also avoids the flicker.
+    setError(null);
     setSubmitting(true);
     const failures: string[] = [];
 
@@ -297,7 +231,6 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
           resource_id: p.resourceId,
           username,
           permission: p.permission,
-          workspace: grantWorkspace,
         });
       } catch (e: any) {
         failures.push(
@@ -311,7 +244,6 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
           resource_type: p.resourceType,
           resource_id: p.resourceId,
           username,
-          workspace: grantWorkspace,
         });
       } catch (e: any) {
         failures.push(
@@ -325,10 +257,9 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
       return;
     }
     setError(failures.join('\n'));
-    filledForWorkspaceRef.current = null;
     setStep('edit');
     setSubmitting(false);
-  }, [diff, isAdmin, username, grantWorkspace, queryClient, grantPermission, revokePermission, onClose, renderRoleId]);
+  }, [diff, isAdmin, username, queryClient, grantPermission, revokePermission, onClose, renderRoleId]);
 
   return (
     <Modal
@@ -346,19 +277,8 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
             <Button
               componentId="admin.edit_access_modal.review"
               type="primary"
-              // Submit isn't blocked on an unsaved draft — instead we gate
-              // on it via a discard-confirm dialog so the admin can either
-              // go back and click Add, or knowingly drop the draft and
-              // proceed to the review step.
-              onClick={() => {
-                if (hasUnsavedDirectDraft) {
-                  setShowDiscardConfirm(true);
-                  return;
-                }
-                setError(null);
-                setStep('review');
-              }}
-              disabled={!hasAnyChange || !stateLoaded || Boolean(rolesError)}
+              onClick={() => setStep('review')}
+              disabled={!hasAnyChange || !stateLoaded}
             >
               Review changes
             </Button>
@@ -387,21 +307,16 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
       }
     >
       {error && (
-        // Sticky so partial-failure errors stay visible during scroll.
         <Alert
           componentId="admin.edit_access_modal.error"
           type="error"
           message={error}
           closable
           onClose={() => setError(null)}
-          css={{
-            marginBottom: theme.spacing.md,
-            position: 'sticky',
-            top: 0,
-            zIndex: 1,
-          }}
+          css={{ marginBottom: theme.spacing.md }}
         />
       )}
+
       {step === 'edit' ? (
         <>
           <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.md }}>
@@ -420,18 +335,6 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
             >
               <Spinner size="small" />
             </div>
-          ) : rolesError ? (
-            // Block the form on a failed roles fetch so the empty pre-fill
-            // doesn't masquerade as the user's actual access.
-            <Alert
-              componentId="admin.edit_access_modal.roles_error"
-              type="error"
-              message="Failed to load access state"
-              description={
-                (rolesError instanceof Error ? rolesError.message : null) ||
-                `An error occurred while fetching the current access for ${username}. Close the modal and try again.`
-              }
-            />
           ) : (
             <>
               <LongFormSection title="Role assignments">
@@ -444,46 +347,11 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
                 <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.sm }}>
                   Current direct permissions are pre-filled. Remove a row to revoke; use the form below to grant more.
                 </Typography.Text>
-                {showWorkspaceSelector && (
-                  <div css={{ marginBottom: theme.spacing.md }}>
-                    <FieldLabel>Workspace</FieldLabel>
-                    <SimpleSelect
-                      id="admin-edit-access-modal-grant-workspace"
-                      componentId="admin.edit_access_modal.grant_workspace"
-                      value={grantWorkspace}
-                      onChange={({ target }) => setGrantWorkspace(target.value)}
-                      disabled={submitting}
-                    >
-                      {workspaceOptions.map((w) => (
-                        <SimpleSelectOption key={w} value={w}>
-                          {w}
-                        </SimpleSelectOption>
-                      ))}
-                    </SimpleSelect>
-                    <Typography.Text
-                      color="secondary"
-                      size="sm"
-                      css={{ display: 'block', marginTop: theme.spacing.xs }}
-                    >
-                      Grants and revokes target this workspace's per-user direct-grant role. Pick a different workspace
-                      to grant access there.
-                    </Typography.Text>
-                  </div>
-                )}
-                {/* ``key={String(open)}`` forces a fresh mount each time
-                    the modal re-opens so the section's internal ``draft``
-                    state can't bleed across close → reopen and re-block
-                    Review with a phantom previous-session draft. The pre-
-                    fill effect re-seeds ``directPermissions`` from the
-                    backend on its own schedule, but the in-progress draft
-                    is owned by the section and needs a remount to reset. */}
                 <DirectPermissionsSection
-                  key={String(open)}
                   value={directPermissions}
                   onChange={setDirectPermissions}
-                  workspace={grantWorkspace}
+                  onCreateRoleForAllOfType={onCreateRoleForAllOfType}
                   disabled={submitting}
-                  onUnsavedDraftChange={setHasUnsavedDirectDraft}
                 />
               </LongFormSection>
               {isCurrentUserAdmin && (
@@ -512,28 +380,6 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
           currentIsAdmin={currentIsAdmin}
         />
       )}
-      {/* Discard-confirm gate on ``Review changes``: only intercepts when
-          ``hasUnsavedDirectDraft`` is true (any field touched in the
-          direct-grant picker without a subsequent ``Add`` or ``Clear``).
-          The dialog is the warning surface; the button itself stays
-          enabled so the admin can always click through. */}
-      <ConfirmationModal
-        componentId="admin.edit_access_modal.discard_unsaved_draft"
-        title="Discard unsaved direct permission?"
-        visible={showDiscardConfirm}
-        message="You started adding a direct permission but didn't click Add. Continuing to Review changes will discard it. Go back to either click Add to stage it, or Clear to drop the draft on the spot."
-        okText="Continue"
-        cancelText="Back"
-        // ``danger=false`` because the OK verb is neutral ("Continue") — the
-        // destructive intent is in the title question, not the button.
-        danger={false}
-        onCancel={() => setShowDiscardConfirm(false)}
-        onConfirm={() => {
-          setShowDiscardConfirm(false);
-          setError(null);
-          setStep('review');
-        }}
-      />
     </Modal>
   );
 };

@@ -56,7 +56,7 @@ mlflow db move-resources <database_uri> \
 The `--resource-type` value is the database table name (`experiments`, `registered_models`,
 `evaluation_datasets`, `webhooks`, `jobs`).
 
-:::note[Gateway resources not supported]
+:::note Gateway resources not supported
 Gateway resources (`secrets`, `endpoints`, `model_definitions`, `budget_policies`) are not
 supported by this command because they have inter-table foreign-key dependencies that make moving
 them independently unsafe.
@@ -142,7 +142,7 @@ This setting controls how the reserved `default` workspace interacts with `defau
 - **`true`**: The `default` workspace inherits `default_permission` for all authenticated users. The
   `default` workspace also appears in `mlflow.list_workspaces()` results for every user.
 
-:::warning[Recommendation for existing instances]
+:::warning Recommendation for existing instances
 If you are enabling workspaces on an existing MLflow instance that already uses basic-auth, set
 `grant_default_workspace_access = true` for backwards compatibility. Without this, all existing
 resources (which live in the `default` workspace) will become inaccessible to non-admin users who

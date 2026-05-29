@@ -223,14 +223,11 @@ class FileStore(AbstractStore):
         super().__init__()
         if not MLFLOW_ALLOW_FILE_STORE.get():
             raise MlflowException(
-                "The filesystem tracking backend (e.g., './mlruns') is in maintenance mode "
-                "and will not receive further updates. Please migrate to a "
-                "database backend (e.g., 'sqlite:///mlflow.db') to access the latest MLflow "
-                "features. The `mlflow migrate-filestore` tool migrates your existing data "
-                "losslessly. See "
-                "https://mlflow.org/docs/latest/self-hosting/migrate-from-file-store "
-                "for migration guidance. If the filesystem backend is required for your "
-                "workflow, set `MLFLOW_ALLOW_FILE_STORE=true` to opt out of this exception.",
+                "The filesystem tracking backend (e.g., './mlruns') is no longer supported. "
+                "Please migrate to a database backend (e.g., 'sqlite:///mlflow.db'). "
+                "See https://mlflow.org/docs/latest/self-hosting/migrate-from-file-store "
+                "for migration guidance. Set the environment variable "
+                f"'{MLFLOW_ALLOW_FILE_STORE.name}=true' to temporarily opt out of this error.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
         self.root_directory = local_file_uri_to_path(root_directory or _default_root_dir())
