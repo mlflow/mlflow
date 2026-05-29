@@ -32,15 +32,18 @@ export const LabelSchemaFormRenderer = ({ control, isEdit, errors, watchedValues
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
       <div css={{ display: 'flex', flexDirection: 'column' }}>
-        <FormUI.Label htmlFor={`${COMPONENT_PREFIX}.name`} required>
+        <FormUI.Label
+          htmlFor={`${COMPONENT_PREFIX}.name`}
+          required
+          infoPopoverContents={
+            <FormattedMessage
+              defaultMessage="Shown to reviewers as the label prompt and used as the assessment key. Up to 256 characters. Immutable after create."
+              description="Label schema name hint"
+            />
+          }
+        >
           <FormattedMessage defaultMessage="Name" description="Label schema name input" />
         </FormUI.Label>
-        <FormUI.Hint>
-          <FormattedMessage
-            defaultMessage="Shown to reviewers as the label prompt and used as the assessment key. Up to 256 characters. Immutable after create."
-            description="Label schema name hint"
-          />
-        </FormUI.Hint>
         <Controller
           name="name"
           control={control}
@@ -58,43 +61,9 @@ export const LabelSchemaFormRenderer = ({ control, isEdit, errors, watchedValues
       </div>
 
       <div css={{ display: 'flex', flexDirection: 'column' }}>
-        <FormUI.Label htmlFor={`${COMPONENT_PREFIX}.type`} required>
-          <FormattedMessage defaultMessage="Label type" description="Label schema type input" />
-        </FormUI.Label>
-        <FormUI.Hint>
-          <FormattedMessage
-            defaultMessage="Feedback collects reviewers' judgements; expectation collects ground-truth labels for evaluation. Immutable after create."
-            description="Label schema type hint"
-          />
-        </FormUI.Hint>
-        <Controller
-          name="type"
-          control={control}
-          render={({ field }) => (
-            <Radio.Group
-              componentId={`${COMPONENT_PREFIX}.type`}
-              name={`${COMPONENT_PREFIX}.type`}
-              value={field.value}
-              onChange={(e) => field.onChange(e.target.value)}
-              disabled={isEdit}
-            >
-              <Radio value="FEEDBACK">Feedback</Radio>
-              <Radio value="EXPECTATION">Expectation</Radio>
-            </Radio.Group>
-          )}
-        />
-      </div>
-
-      <div css={{ display: 'flex', flexDirection: 'column' }}>
         <FormUI.Label htmlFor={`${COMPONENT_PREFIX}.instruction`}>
-          <FormattedMessage defaultMessage="Instructions" description="Label schema instruction input" />
+          <FormattedMessage defaultMessage="Instructions (optional)" description="Label schema instruction input" />
         </FormUI.Label>
-        <FormUI.Hint>
-          <FormattedMessage
-            defaultMessage="Optional. Detailed guidance shown to reviewers on how to complete this label."
-            description="Label schema instruction hint"
-          />
-        </FormUI.Hint>
         <Controller
           name="instruction"
           control={control}
@@ -112,31 +81,6 @@ export const LabelSchemaFormRenderer = ({ control, isEdit, errors, watchedValues
       </div>
 
       <div css={{ display: 'flex', flexDirection: 'column' }}>
-        <Controller
-          name="enable_comment"
-          control={control}
-          render={({ field }) => (
-            <Checkbox
-              componentId={`${COMPONENT_PREFIX}.enable-comment`}
-              isChecked={field.value}
-              onChange={(checked) => field.onChange(checked)}
-            >
-              <FormattedMessage
-                defaultMessage="Collect a free-form rationale alongside the structured input"
-                description="Enable rationale checkbox"
-              />
-            </Checkbox>
-          )}
-        />
-        <FormUI.Hint>
-          <FormattedMessage
-            defaultMessage="Lets reviewers explain their reasoning in addition to the structured value."
-            description="Enable rationale checkbox hint"
-          />
-        </FormUI.Hint>
-      </div>
-
-      <div css={{ display: 'flex', flexDirection: 'column' }}>
         <FormUI.Label htmlFor={`${COMPONENT_PREFIX}.input-kind`} required>
           <FormattedMessage defaultMessage="Input type" description="Label schema input variant selector" />
         </FormUI.Label>
@@ -147,6 +91,7 @@ export const LabelSchemaFormRenderer = ({ control, isEdit, errors, watchedValues
             <Radio.Group
               componentId={`${COMPONENT_PREFIX}.input-kind`}
               name={`${COMPONENT_PREFIX}.input-kind`}
+              layout="horizontal"
               value={field.value}
               onChange={(e) => field.onChange(e.target.value as LabelSchemaInputKind)}
               disabled={isEdit}
@@ -156,6 +101,45 @@ export const LabelSchemaFormRenderer = ({ control, isEdit, errors, watchedValues
               <Radio value="numeric">Numeric</Radio>
               <Radio value="text">Text</Radio>
             </Radio.Group>
+          )}
+        />
+      </div>
+
+      {/* Compact option checkboxes (Braintrust-style): the assessment type
+          reads as a single boolean toggle, sitting beside the rationale
+          toggle to save vertical space. */}
+      <div css={{ display: 'flex', flexWrap: 'wrap', gap: theme.spacing.lg }}>
+        <Controller
+          name="type"
+          control={control}
+          render={({ field }) => (
+            <Checkbox
+              componentId={`${COMPONENT_PREFIX}.type-expectation`}
+              isChecked={field.value === 'EXPECTATION'}
+              onChange={(checked) => field.onChange(checked ? 'EXPECTATION' : 'FEEDBACK')}
+              isDisabled={isEdit}
+            >
+              <FormattedMessage
+                defaultMessage="Collect as an expectation (ground truth) instead of feedback"
+                description="Label schema type-as-expectation checkbox"
+              />
+            </Checkbox>
+          )}
+        />
+        <Controller
+          name="enable_comment"
+          control={control}
+          render={({ field }) => (
+            <Checkbox
+              componentId={`${COMPONENT_PREFIX}.enable-comment`}
+              isChecked={field.value}
+              onChange={(checked) => field.onChange(checked)}
+            >
+              <FormattedMessage
+                defaultMessage="Collect a free-form rationale alongside the input"
+                description="Enable rationale checkbox"
+              />
+            </Checkbox>
           )}
         />
       </div>
@@ -170,9 +154,10 @@ export const LabelSchemaFormRenderer = ({ control, isEdit, errors, watchedValues
 
 const PassFailFields = ({ control, errors }: { control: Control<LabelSchemaFormData>; errors: FormErrors }) => {
   const { theme } = useDesignSystemTheme();
+  // Positive / negative sit side-by-side (item 9) to save vertical space.
   return (
-    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
-      <div css={{ display: 'flex', flexDirection: 'column' }}>
+    <div css={{ display: 'flex', gap: theme.spacing.md }}>
+      <div css={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
         <FormUI.Label htmlFor={`${COMPONENT_PREFIX}.pass-fail.positive`} required>
           <FormattedMessage defaultMessage="Positive label" description="Pass/Fail positive label input" />
         </FormUI.Label>
@@ -190,7 +175,7 @@ const PassFailFields = ({ control, errors }: { control: Control<LabelSchemaFormD
         />
         {errors.passFailPositiveLabel && <FormUI.Message message={errors.passFailPositiveLabel} type="error" />}
       </div>
-      <div css={{ display: 'flex', flexDirection: 'column' }}>
+      <div css={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
         <FormUI.Label htmlFor={`${COMPONENT_PREFIX}.pass-fail.negative`} required>
           <FormattedMessage defaultMessage="Negative label" description="Pass/Fail negative label input" />
         </FormUI.Label>
@@ -263,18 +248,21 @@ const CategoricalFields = ({ control, errors }: { control: Control<LabelSchemaFo
 
 const NumericFields = ({ control, errors }: { control: Control<LabelSchemaFormData>; errors: FormErrors }) => {
   const { theme } = useDesignSystemTheme();
+  // Min / max sit side-by-side (item 9) to save vertical space.
   return (
-    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
-      <div css={{ display: 'flex', flexDirection: 'column' }}>
-        <FormUI.Label htmlFor={`${COMPONENT_PREFIX}.numeric.min`}>
+    <div css={{ display: 'flex', gap: theme.spacing.md }}>
+      <div css={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+        <FormUI.Label
+          htmlFor={`${COMPONENT_PREFIX}.numeric.min`}
+          infoPopoverContents={
+            <FormattedMessage
+              defaultMessage="Define the acceptable range for numeric input values. Leave either bound blank for no limit."
+              description="Numeric range hint"
+            />
+          }
+        >
           <FormattedMessage defaultMessage="Min value" description="Numeric min value input" />
         </FormUI.Label>
-        <FormUI.Hint>
-          <FormattedMessage
-            defaultMessage="Define the acceptable range for numeric input values. Leave blank for no bound."
-            description="Numeric min value hint"
-          />
-        </FormUI.Hint>
         <Controller
           name="numericMinValue"
           control={control}
@@ -290,7 +278,7 @@ const NumericFields = ({ control, errors }: { control: Control<LabelSchemaFormDa
         />
         {errors.numericMinValue && <FormUI.Message message={errors.numericMinValue} type="error" />}
       </div>
-      <div css={{ display: 'flex', flexDirection: 'column' }}>
+      <div css={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
         <FormUI.Label htmlFor={`${COMPONENT_PREFIX}.numeric.max`}>
           <FormattedMessage defaultMessage="Max value" description="Numeric max value input" />
         </FormUI.Label>
