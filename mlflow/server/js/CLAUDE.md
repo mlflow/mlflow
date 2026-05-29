@@ -21,8 +21,7 @@ Before implementing any feature:
 # MUST be run from the repository root
 uv run dev/run_dev_server.py > /tmp/mlflow-dev-server.log 2>&1 &
 
-# Monitor the logs (server URLs are printed there; the frontend dev
-# server supports hot reload)
+# Monitor the logs (server URLs are printed there)
 tail -f /tmp/mlflow-dev-server.log
 ```
 
