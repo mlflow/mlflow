@@ -150,33 +150,25 @@ export const LabelSchemaModal = ({ experimentId, editingSchema, visible, onClose
       onCancel={handleCancel}
       footer={null}
       destroyOnClose
-      // Label schemas have no narrow-variant analog to the judges flow's
-      // custom-code scorer; the modal is always two-pane, so the wide
-      // sizing props apply unconditionally.
+      // Label schemas are always two-pane, so the wide width applies
+      // unconditionally. We deliberately do NOT use `verticalSizing="maxed_out"`
+      // (unlike the judges modal): the form is short, so the modal should size
+      // to its content and only grow/scroll once the two-pane area hits the
+      // viewport cap below.
       size="wide"
-      verticalSizing="maxed_out"
       css={{ width: '100% !important' }}
-      dangerouslySetAntdProps={{
-        bodyStyle: {
-          display: 'flex',
-          flexDirection: 'column',
-          flex: 1,
-          minHeight: 0,
-          overflow: 'hidden',
-        },
-      }}
     >
-      <form
-        onSubmit={handleSubmit(onSubmit)}
-        css={{
-          display: 'flex',
-          flexDirection: 'column',
-          flex: 1,
-          minHeight: 0,
-          overflow: 'hidden',
-        }}
-      >
-        <div css={{ flex: 1, display: 'flex', minHeight: 0, overflow: 'hidden' }}>
+      <form onSubmit={handleSubmit(onSubmit)} css={{ display: 'flex', flexDirection: 'column' }}>
+        <div
+          css={{
+            display: 'flex',
+            // Grow with content between a sensible floor and a viewport cap;
+            // beyond the cap the form pane scrolls (see its `overflowY`).
+            minHeight: 320,
+            maxHeight: '65vh',
+            overflow: 'hidden',
+          }}
+        >
           <ModelTraceExplorerResizablePane
             initialRatio={0.55}
             paneWidth={leftPaneWidth}
@@ -197,10 +189,10 @@ export const LabelSchemaModal = ({ experimentId, editingSchema, visible, onClose
                 <div
                   css={{
                     flex: 1,
-                    // `scroll` (not `auto`) so the scrollbar is always
-                    // visible — otherwise macOS overlay scrollbars hide it
-                    // and the config below the fold looks like it isn't there.
-                    overflowY: 'scroll',
+                    // Scroll only once the two-pane area hits its `maxHeight`
+                    // cap; with the modal now sizing to content, short forms
+                    // show no scrollbar and no dead space.
+                    overflowY: 'auto',
                     display: 'flex',
                     flexDirection: 'column',
                     gap: theme.spacing.sm,
