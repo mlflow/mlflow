@@ -128,7 +128,6 @@ def create_experiment_label_schema(
     *,
     name: str,
     type: Literal["feedback", "expectation"],
-    title: str,
     input: _OSS_SCHEMA_INPUT,
     instruction: str | None = None,
     enable_comment: bool = False,
@@ -137,7 +136,8 @@ def create_experiment_label_schema(
 
     Unlike :func:`create_label_schema` (Databricks-routed, identified by
     schema name within a ReviewApp), OSS-native schemas are identified by
-    ``(experiment_id, name)``. The server generates a ``schema_id``
+    ``(experiment_id, name)``. The ``name`` is free text shown to
+    reviewers as the label prompt. The server generates a ``schema_id``
     returned on the response. Use :func:`upsert_experiment_label_schema`
     for create-or-replace semantics.
 
@@ -150,7 +150,6 @@ def create_experiment_label_schema(
         experiment_id=experiment_id,
         name=name,
         type=type,
-        title=title,
         input=input,
         instruction=instruction,
         enable_comment=enable_comment,
@@ -180,7 +179,6 @@ def update_experiment_label_schema(
     schema_id: str,
     *,
     name: str | None = None,
-    title: str | None = None,
     instruction: str | None = None,
     enable_comment: bool | None = None,
     input: _OSS_SCHEMA_INPUT | None = None,
@@ -200,7 +198,6 @@ def update_experiment_label_schema(
     return TracingClient()._update_label_schema(
         schema_id,
         name=name,
-        title=title,
         instruction=instruction,
         enable_comment=enable_comment,
         input=input,
@@ -212,7 +209,6 @@ def upsert_experiment_label_schema(
     *,
     name: str,
     type: Literal["feedback", "expectation"],
-    title: str,
     input: _OSS_SCHEMA_INPUT,
     instruction: str | None = None,
     enable_comment: bool | None = None,
@@ -228,7 +224,6 @@ def upsert_experiment_label_schema(
         experiment_id=experiment_id,
         name=name,
         type=type,
-        title=title,
         input=input,
         instruction=instruction,
         enable_comment=enable_comment,

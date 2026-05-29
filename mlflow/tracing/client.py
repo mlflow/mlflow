@@ -13,6 +13,7 @@ if TYPE_CHECKING:
         InputCategorical,
         InputNumeric,
         InputPassFail,
+        InputText,
         LabelSchema,
         LabelSchemaType,
     )
@@ -897,8 +898,7 @@ class TracingClient:
         *,
         name: str,
         type: "LabelSchemaType | str",
-        title: str,
-        input: "InputPassFail | InputCategorical | InputNumeric",
+        input: "InputPassFail | InputCategorical | InputNumeric | InputText",
         instruction: str | None = None,
         enable_comment: bool = False,
     ) -> "LabelSchema":
@@ -906,11 +906,11 @@ class TracingClient:
 
         Args:
             experiment_id: Parent experiment ID.
-            name: Schema name (1-150 chars, alphanumeric + underscore).
+            name: Schema name (1-256 chars). Free text shown to reviewers as
+                the label prompt and used as the assessment key.
             type: ``"feedback"`` or ``"expectation"``.
-            title: Display title shown to SMEs (1-256 chars).
             input: One of :py:class:`InputPassFail` / :py:class:`InputCategorical`
-                / :py:class:`InputNumeric`.
+                / :py:class:`InputNumeric` / :py:class:`InputText`.
             instruction: Optional supplementary guidance (<=1000 chars).
             enable_comment: UI hint; persisted but not consumed server-side.
 
@@ -922,7 +922,6 @@ class TracingClient:
             experiment_id=experiment_id,
             name=name,
             type=type,
-            title=title,
             input=input,
             instruction=instruction,
             enable_comment=enable_comment,
@@ -952,10 +951,9 @@ class TracingClient:
         schema_id: str,
         *,
         name: str | None = None,
-        title: str | None = None,
         instruction: str | None = None,
         enable_comment: bool | None = None,
-        input: "InputPassFail | InputCategorical | InputNumeric | None" = None,
+        input: "InputPassFail | InputCategorical | InputNumeric | InputText | None" = None,
     ) -> "LabelSchema":
         """Sparse-update an OSS-native label schema.
 
@@ -969,7 +967,6 @@ class TracingClient:
         return self.store.update_label_schema(
             schema_id,
             name=name,
-            title=title,
             instruction=instruction,
             enable_comment=enable_comment,
             input=input,
@@ -981,8 +978,7 @@ class TracingClient:
         *,
         name: str,
         type: "LabelSchemaType | str",
-        title: str,
-        input: "InputPassFail | InputCategorical | InputNumeric",
+        input: "InputPassFail | InputCategorical | InputNumeric | InputText",
         instruction: str | None = None,
         enable_comment: bool | None = None,
     ) -> "LabelSchema":
@@ -997,7 +993,6 @@ class TracingClient:
             experiment_id=experiment_id,
             name=name,
             type=type,
-            title=title,
             input=input,
             instruction=instruction,
             enable_comment=enable_comment,
