@@ -586,6 +586,57 @@
       "deprecation_date": "2026-03-09",
       "last_updated_at": "2026-04-24"
     },
+    "gemini-3.1-flash-lite": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 65536,
+        "max_tokens": 65536
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.25,
+        "output_per_million_tokens": 1.5,
+        "cache_read_per_million_tokens": 0.025,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 0.125,
+            "output_per_million_tokens": 0.75,
+            "cache_read_per_million_tokens": 0.0125
+          },
+          "flex": {
+            "input_per_million_tokens": 0.125,
+            "output_per_million_tokens": 0.75,
+            "cache_read_per_million_tokens": 0.0125
+          },
+          "priority": {
+            "input_per_million_tokens": 0.45,
+            "output_per_million_tokens": 2.7,
+            "cache_read_per_million_tokens": 0.045
+          }
+        },
+        "modality": {
+          "audio": {
+            "cache_read_per_million_tokens": 0.05,
+            "input_per_million_tokens": 0.5
+          }
+        },
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_low": 0.014,
+            "search_context_size_medium": 0.014,
+            "search_context_size_high": 0.014
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-05-27"
+    },
     "gemini-3.1-flash-lite-preview": {
       "mode": "chat",
       "context_window": {
@@ -637,6 +688,9 @@
           },
           "image": {
             "input_per_million_tokens": 1.0
+          },
+          "video": {
+            "input_per_second": 3.3333333333333335e-5
           }
         }
       },
@@ -647,7 +701,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-05-11"
     },
     "gemini-3.1-pro-preview": {
       "mode": "chat",
@@ -743,6 +797,46 @@
       },
       "last_updated_at": "2026-04-27"
     },
+    "gemini-3.5-flash": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 65535,
+        "max_tokens": 65535
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.5,
+        "output_per_million_tokens": 9.0,
+        "cache_read_per_million_tokens": 0.15,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 2.7,
+            "output_per_million_tokens": 16.2,
+            "cache_read_per_million_tokens": 0.27
+          }
+        },
+        "modality": {
+          "audio": {
+            "input_per_million_tokens": 1.0
+          }
+        },
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_low": 0.014,
+            "search_context_size_medium": 0.014,
+            "search_context_size_high": 0.014
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-05-20"
+    },
     "gemini-embedding-001": {
       "mode": "embedding",
       "context_window": {
@@ -770,7 +864,15 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.2,
-        "output_per_million_tokens": 0
+        "output_per_million_tokens": 0,
+        "modality": {
+          "audio": {
+            "input_per_second": 0.00016
+          },
+          "video": {
+            "input_per_second": 0.00079
+          }
+        }
       },
       "capabilities": {
         "function_calling": false,
@@ -779,7 +881,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-27"
+      "last_updated_at": "2026-05-11"
     },
     "gemini-embedding-2-preview": {
       "mode": "embedding",
@@ -789,7 +891,15 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.2,
-        "output_per_million_tokens": 0
+        "output_per_million_tokens": 0,
+        "modality": {
+          "audio": {
+            "input_per_second": 0.00016
+          },
+          "video": {
+            "input_per_second": 0.00079
+          }
+        }
       },
       "capabilities": {
         "function_calling": false,
@@ -798,7 +908,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-05-11"
     },
     "gemini-exp-1114": {
       "mode": "chat",
@@ -1043,7 +1153,15 @@
             "input_per_million_tokens": 0,
             "output_per_million_tokens": 0
           }
-        ]
+        ],
+        "modality": {
+          "audio": {
+            "input_per_second": 0
+          },
+          "video": {
+            "input_per_second": 0
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -1052,7 +1170,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-05-11"
     },
     "learnlm-1.5-pro-experimental": {
       "mode": "chat",
@@ -1070,7 +1188,15 @@
             "input_per_million_tokens": 0,
             "output_per_million_tokens": 0
           }
-        ]
+        ],
+        "modality": {
+          "audio": {
+            "input_per_second": 0
+          },
+          "video": {
+            "input_per_second": 0
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -1079,7 +1205,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-05-11"
     },
     "lyria-3-clip-preview": {
       "mode": "chat",

@@ -1,5 +1,6 @@
 import json
 from datetime import datetime
+from unittest import mock
 
 import opentelemetry.trace as trace_api
 import pytest
@@ -587,6 +588,24 @@ def test_span_from_otel_proto_with_pre_encoded_request_id():
     assert mlflow_span.trace_id.startswith("tr-")
 
 
+def test_span_from_otel_proto_can_preserve_request_id_for_round_trip():
+    otel_proto = OTelProtoSpan()
+    otel_proto.trace_id = bytes.fromhex("12345678901234567890123456789012")
+    otel_proto.span_id = bytes.fromhex("1234567890123456")
+    otel_proto.name = "archived_span"
+    otel_proto.start_time_unix_nano = 1000000000
+    otel_proto.end_time_unix_nano = 2000000000
+    otel_proto.status.code = OTelProtoStatus.STATUS_CODE_OK
+
+    attr = otel_proto.attributes.add()
+    attr.key = "mlflow.traceRequestId"
+    _set_otel_proto_anyvalue(attr.value, "tr-abc123")
+
+    mlflow_span = Span.from_otel_proto(otel_proto, preserve_request_id=True)
+
+    assert mlflow_span.trace_id == "tr-abc123"
+
+
 def test_otel_roundtrip_conversion(sample_otel_span_for_conversion):
     # Start with OTel span -> MLflow span
     mlflow_span = Span(sample_otel_span_for_conversion)
@@ -877,6 +896,31 @@ def test_live_span_add_link():
         assert len(otel_span.links) == 1
         assert otel_span.links[0].context.trace_id == 0xABC123
         assert otel_span.links[0].context.span_id == 0xAABBCCDDEEFF0011
+
+
+def test_add_link_after_end_does_not_store_link():
+    from mlflow.entities.link import Link
+
+    trace_id = "tr-12345"
+    tracer = _get_tracer("test")
+    otel_span = tracer.start_span("test_span")
+    span = create_mlflow_span(otel_span, trace_id=trace_id)
+    span.end()
+
+    with mock.patch("mlflow.entities.span._logger.debug") as mock_debug:
+        span.add_link(
+            Link(
+                trace_id="tr-abc123",
+                span_id="aabbccddeeff0011",
+                attributes={"relationship": "triggered_by"},
+            )
+        )
+
+    assert len(span.links) == 0
+    assert len(otel_span.links) == 0
+    mock_debug.assert_called_once_with(
+        "Skipping link addition because the span is no longer recording."
+    )
 
 
 def test_add_link_rejects_invalid_ids():

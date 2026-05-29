@@ -172,7 +172,7 @@ class SqlExperiment(Base):
     def __repr__(self):
         return f"<SqlExperiment ({self.experiment_id}, {self.name})>"
 
-    def to_mlflow_entity(self):
+    def to_mlflow_entity(self, effective_trace_archival_retention: str | None = None):
         """
         Convert DB model to corresponding MLflow entity.
 
@@ -188,6 +188,7 @@ class SqlExperiment(Base):
             creation_time=self.creation_time,
             last_update_time=self.last_update_time,
             workspace=self.workspace,
+            effective_trace_archival_retention=effective_trace_archival_retention,
         )
 
 
@@ -728,6 +729,17 @@ class SqlTraceInfo(Base):
     """
     Experiment ID to which this trace belongs: *Foreign Key* into ``experiments`` table.
     """
+    experiment = relationship(
+        "SqlExperiment",
+        backref=backref("trace_infos", cascade="all, delete-orphan"),
+    )
+    """
+    SQLAlchemy relationship (many:one) with
+    :py:class:`mlflow.store.dbmodels.models.SqlExperiment`. The ``delete-orphan``
+    cascade ensures that ``session.delete(experiment)`` (used by
+    ``_hard_delete_experiment`` and ``mlflow gc``) emits ``DELETE`` statements
+    for all trace_info rows before deleting the parent experiment row.
+    """
     timestamp_ms = Column(BigInteger, nullable=False)
     """
     Start time of the trace, in milliseconds. Named as "request_time" in V3 format.
@@ -754,6 +766,11 @@ class SqlTraceInfo(Base):
     response_preview = Column(String(1000), nullable=True)
     """
     Response preview: `String` (limit 1000 characters). Could be *null*. Newly added in V3 format.
+    """
+    db_payload_generation = Column(Integer, nullable=False, server_default="0")
+    """
+    DB-backed trace payload generation used for concurrency coordination.
+    Defaults to 0.
     """
 
     __table_args__ = (

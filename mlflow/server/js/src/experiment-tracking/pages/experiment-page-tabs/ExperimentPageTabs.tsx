@@ -192,7 +192,6 @@ const ExperimentPageTabsImpl = () => {
         onNoteUpdated={refetchExperiment}
         error={experimentError}
         inferredExperimentKind={inferredExperimentKind}
-        refetchExperiment={refetchExperiment}
         experimentKindSelector={
           !enableWorkflowBasedNavigation ? (
             <ExperimentViewHeaderKindSelector

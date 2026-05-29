@@ -13,8 +13,19 @@ deny_jobs_without_permissions contains msg if {
 }
 
 deny_top_level_permissions contains msg if {
-	input.permissions
-	msg := "Do not use top-level permissions. Set permissions on the job level."
+	# Workflow files only (composite actions have 'runs')
+	input.jobs
+	not input.permissions
+	msg := concat("", [
+		"Workflow must set top-level 'permissions: {}' to deny all by default. ",
+		"Grant least-privilege permissions per job.",
+	])
+}
+
+deny_top_level_permissions contains msg if {
+	input.jobs
+	input.permissions != {}
+	msg := "Top-level 'permissions' must be empty ({}). Grant least-privilege permissions per job instead."
 }
 
 deny_unsafe_checkout contains msg if {
@@ -52,6 +63,17 @@ deny_create_app_token_without_permissions contains msg if {
 			"least-privilege access. See ",
 			"https://github.com/actions/create-github-app-token#create-a-token-with-specific-permissions",
 		]),
+		[job_id],
+	)
+}
+
+deny_create_app_token_with_app_id contains msg if {
+	some job_id, job in input.jobs
+	some step in job.steps
+	startswith(step.uses, "actions/create-github-app-token@")
+	step["with"]["app-id"]
+	msg := sprintf(
+		"actions/create-github-app-token in job '%s' uses deprecated 'app-id'. Use 'client-id' instead.",
 		[job_id],
 	)
 }
@@ -401,6 +423,24 @@ deny_upload_artifact_without_if_no_files_found contains msg if {
 		"actions/upload-artifact in job '%s' must set 'if-no-files-found' explicitly.",
 		[job_id],
 	)
+}
+
+deny_matrix_without_fail_fast contains msg if {
+	some job_id, job in input.jobs
+	job.strategy.matrix
+	not has_explicit_fail_fast(job.strategy)
+	msg := sprintf(
+		"strategy.matrix in job '%s' must set 'fail-fast' explicitly (either true or false).",
+		[job_id],
+	)
+}
+
+has_explicit_fail_fast(strategy) if {
+	strategy["fail-fast"] == false
+}
+
+has_explicit_fail_fast(strategy) if {
+	strategy["fail-fast"] == true
 }
 
 deny_mutable_install contains msg if {

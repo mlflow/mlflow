@@ -7,13 +7,13 @@ import { APILink } from "@site/src/components/APILink";
 
 # Pickle-Free Model format
 
-:::note Experimental
+:::note[Experimental]
 This feature is experimental and may change in future releases.
 :::
 
 Saving models with Python's `pickle` or `cloudpickle` relies on Python's object serialization mechanism, which can execute arbitrary code during deserialization. MLflow supports safer **pickle-free** saving formats for several model flavors. Prefer these formats when possible.
 
-:::warning Upcoming Default Behavior Change
+:::warning[Upcoming Default Behavior Change]
 Pickle-free saving formats will become the **default** in an upcoming MLflow release. **Most users (scikit-learn, LightGBM, LangChain, custom Python) will see no breaking change.** PyTorch users should review the [requirements](#pickle-free-format-for-pytorch-model) — `input_example` will be required and `torch.jit.ScriptModule` is not supported.
 To avoid getting affected by the change, pin the MLflow version or specify `serialization_format="pickle"` in the model logging code.
 :::
@@ -77,7 +77,7 @@ See <APILink fn="mlflow.sklearn.log_model" /> and <APILink fn="mlflow.sklearn.sa
 
 When saving a PyTorch model, saving with `serialization_format="pt2"` uses `torch.export.save` and stores the model as a traced graph instead of pickle serialization format.
 
-:::danger Requirements and Limitations
+:::danger[Requirements and Limitations]
 
 - `torch` >= 2.4
 - An **input_example** is required (and only `Tensor` type inputs are supported for the exported model)

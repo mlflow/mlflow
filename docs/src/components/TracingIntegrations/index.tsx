@@ -24,6 +24,7 @@ type Category =
   | 'Agent Frameworks (Python)'
   | 'Agent Frameworks (TypeScript)'
   | 'Agent Frameworks (Java)'
+  | 'Coding Agents & Long-Running Agents'
   | 'Model Providers'
   | 'Tools'
   | 'Gateways'
@@ -34,6 +35,7 @@ const CATEGORY_ORDER: Category[] = [
   'Agent Frameworks (Python)',
   'Agent Frameworks (TypeScript)',
   'Agent Frameworks (Java)',
+  'Coding Agents & Long-Running Agents',
   'Model Providers',
   'Tools',
   'Gateways',
@@ -91,6 +93,13 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     name: 'Google ADK',
     logoPath: '/images/logos/google-adk-logo.png',
     link: '/genai/tracing/integrations/listing/google-adk',
+    category: 'Agent Frameworks (Python)',
+  },
+  {
+    id: 'claude_agent_sdk_python',
+    name: 'Claude Agent SDK',
+    logoPath: '/images/logos/claude-code-logo.png',
+    link: '/genai/tracing/integrations/listing/claude_agent_sdk_python',
     category: 'Agent Frameworks (Python)',
   },
   {
@@ -250,6 +259,13 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     category: 'Agent Frameworks (TypeScript)',
   },
   {
+    id: 'claude_agent_sdk_typescript',
+    name: 'Claude Agent SDK (TS)',
+    logoPath: '/images/logos/claude-code-logo.png',
+    link: '/genai/tracing/integrations/listing/claude_agent_sdk_typescript',
+    category: 'Agent Frameworks (TypeScript)',
+  },
+  {
     id: 'spring-ai',
     name: 'Spring AI',
     logoPath: '/images/logos/spring-ai-logo.png',
@@ -390,48 +406,55 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     link: '/genai/tracing/integrations/listing/togetherai',
     category: 'Model Providers',
   },
-  // Coding Agents
+  // Coding Agents & Long-Running Agents
   {
     id: 'claude_code',
     name: 'Claude Code',
-    logoPath: '/images/logos/claude-code-logo.png',
+    logoPath: '/images/logos/claude-code-icon.png',
     link: '/genai/tracing/integrations/listing/claude_code',
-    category: 'Coding Agents',
+    category: 'Coding Agents & Long-Running Agents',
   },
   {
     id: 'opencode',
     name: 'OpenCode',
     logoPath: '/images/logos/opencode-logo.png',
     link: '/genai/tracing/integrations/listing/opencode',
-    category: 'Coding Agents',
+    category: 'Coding Agents & Long-Running Agents',
   },
   {
     id: 'openhands',
     name: 'OpenHands',
     logoPath: '/images/logos/openhands-logo.png',
     link: '/genai/tracing/integrations/listing/openhands',
-    category: 'Coding Agents',
+    category: 'Coding Agents & Long-Running Agents',
   },
   {
     id: 'codex',
     name: 'Codex CLI',
     logoPath: '/images/logos/openai-logo-only.png',
     link: '/genai/tracing/integrations/listing/codex',
-    category: 'Coding Agents',
+    category: 'Coding Agents & Long-Running Agents',
   },
   {
     id: 'gemini_cli',
     name: 'Gemini CLI',
     logoPath: '/images/logos/google-gemini-logo.svg',
     link: '/genai/tracing/integrations/listing/gemini_cli',
-    category: 'Coding Agents',
+    category: 'Coding Agents & Long-Running Agents',
+  },
+  {
+    id: 'hermes_agent',
+    name: 'Hermes Agent',
+    logoPath: '/images/logos/hermes-agent-logo.svg',
+    link: '/genai/tracing/integrations/listing/hermes_agent',
+    category: 'Coding Agents & Long-Running Agents',
   },
   {
     id: 'qwen_code',
     name: 'Qwen Code',
     logoPath: '/images/logos/qwen-logo.jpg',
     link: '/genai/tracing/integrations/listing/qwen_code',
-    category: 'Coding Agents',
+    category: 'Coding Agents & Long-Running Agents',
   },
   {
     id: 'instructor',
@@ -537,6 +560,20 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     name: 'Langflow',
     logoPath: '/images/logos/langflow.svg',
     link: '/genai/tracing/integrations/listing/langflow',
+    category: 'No-Code',
+  },
+  {
+    id: 'open-webui',
+    name: 'Open WebUI',
+    logoPath: '/images/logos/open-webui-logo.png',
+    link: '/genai/tracing/integrations/listing/open-webui',
+    category: 'No-Code',
+  },
+  {
+    id: 'n8n',
+    name: 'n8n',
+    logoPath: '/images/logos/n8n-logo.png',
+    link: '/genai/tracing/integrations/listing/n8n',
     category: 'No-Code',
   },
 ];

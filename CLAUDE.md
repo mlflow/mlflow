@@ -30,15 +30,10 @@ MLflow is an open-source platform for managing the end-to-end machine learning l
 
 ```bash
 # Start both MLflow backend and React frontend dev servers
-# (The script will automatically clean up any existing servers)
-nohup uv run bash dev/run-dev-server.sh > /tmp/mlflow-dev-server.log 2>&1 &
+uv run dev/run_dev_server.py > /tmp/mlflow-dev-server.log 2>&1 &
 
-# Monitor the logs
+# Monitor the logs (server URLs are printed there)
 tail -f /tmp/mlflow-dev-server.log
-
-# Servers will be available at:
-# - MLflow backend: http://localhost:5000
-# - React frontend: http://localhost:3000
 ```
 
 This uses `uv` (fast Python package manager) to automatically manage dependencies and run the development environment.
@@ -64,14 +59,10 @@ export MLFLOW_TRACKING_URI="databricks"                        # Must be set to 
 export MLFLOW_REGISTRY_URI="databricks-uc"                     # Use "databricks-uc" for Unity Catalog, or "databricks" for workspace model registry
 
 # Start the dev server with these environment variables
-# (The script will automatically clean up any existing servers)
-nohup uv run bash dev/run-dev-server.sh > /tmp/mlflow-dev-server.log 2>&1 &
+uv run dev/run_dev_server.py > /tmp/mlflow-dev-server.log 2>&1 &
 
-# Monitor the logs
+# Monitor the logs (server URLs are printed there)
 tail -f /tmp/mlflow-dev-server.log
-
-# The MLflow server will now proxy tracking and model registry requests to Databricks
-# Access the UI at http://localhost:3000 to see your Databricks experiments and models
 ```
 
 **Note**: The MLflow server acts as a proxy, forwarding API requests to your Databricks workspace while serving the local React frontend. This allows you to develop and test UI changes against real Databricks data.
@@ -85,6 +76,16 @@ If PyPI is unreachable, add `--frozen` to `uv run` commands that should use the 
 ```bash
 uv run --frozen pytest tests/
 ```
+
+### Package Cooldown Period
+
+7-day cooldown on new package releases to guard against compromised or broken
+versions that get pulled and yanked within a few days. Keep these in sync:
+
+- Python: `exclude-newer = "P7D"` in `pyproject.toml` (`torch`/`torchvision` opted out).
+- JavaScript: `min-release-age=7` in `.npmrc`; `npmMinimalAgeGate: 7d` in `.yarnrc.yml`.
+
+Pass `--min-release-age=7` to any new `npx` invocations.
 
 ### Testing
 
@@ -181,7 +182,16 @@ git push origin <your-branch>
 
 ### Creating Pull Requests
 
-When creating pull requests, read the instructions at the top of [the PR template](./.github/pull_request_template.md) and follow them carefully.
+- Follow the instructions at the top of [the PR template](./.github/pull_request_template.md) carefully.
+- Inside `gh pr ... --body "$(cat <<'EOF' ... EOF)"`, write backticks plain. The quoted `'EOF'` delimiter already suppresses command substitution, so escaping as `` \` `` is unnecessary and the backslashes get persisted in the PR body, rendering literally instead of as code spans.
+
+  ```bash
+  gh pr create --body "$(cat <<'EOF'
+  Updated \`pyproject.toml\` to bump the version. # BAD
+  Updated `pyproject.toml` to bump the version.   # GOOD
+  EOF
+  )"
+  ```
 
 ### Checking CI Status
 

@@ -432,11 +432,17 @@ class InstructionsJudge(Judge):
 
         # Some model providers (like Anthropic) require a user message
         # (i.e. a single-message chat history with role 'system' is not supported),
-        # *and* they require the message to have non-empty content (empty string is not allowed)
+        # *and* they require the message to have non-empty content (empty string is not allowed).
+        # The empty case must explicitly point at the tools, or the judge LLM can self-grade
+        # this chat instead of inspecting the trace.
         return (
             "\n".join(user_message_parts)
             if user_message_parts
-            else "Follow the instructions from the first message"
+            else (
+                "Use the tools to inspect the trace and return the JSON rating per the system "
+                "message. This message and your tool calls in this chat are not the input or "
+                "response being judged. The trace lives only behind the tools."
+            )
         )
 
     def _build_template_values(

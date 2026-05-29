@@ -28,6 +28,8 @@ defaults:
   run:
     shell: bash
 
+permissions: {}
+
 jobs:
   e2e-tests:
     runs-on: ubuntu-latest
