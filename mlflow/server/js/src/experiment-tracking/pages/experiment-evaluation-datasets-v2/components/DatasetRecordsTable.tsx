@@ -11,6 +11,8 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import type { DatasetRecord } from '../hooks/useDatasetsQueries';
+import { flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
+import type { ColumnDef, RowData } from '@tanstack/react-table';
 import {
   CreatedByCell,
   CreateTimeCell,
@@ -147,6 +149,28 @@ export const DatasetRecordsTable = ({
     };
   };
 
+  const columns: ColumnDef<DatasetRecord>[] = [
+    { id: 'dataset_record_id', accessorKey: 'dataset_record_id', header: 'Record ID' },
+    { id: 'inputs', accessorKey: 'inputs', header: 'Inputs' },
+    { id: 'expectations', accessorKey: 'expectations', header: 'Expectations' },
+    { id: 'create_time', accessorKey: 'create_time', header: 'Created' },
+    { id: 'created_by', accessorKey: 'created_by', header: 'Created by' },
+    { id: 'source', accessorKey: 'source', header: 'Source' },
+    { id: 'last_updated', accessorKey: 'last_updated', header: 'Last updated' },
+    { id: 'last_updated_by', accessorKey: 'last_updated_by', header: 'Last updated by' },
+    { id: 'tags', accessorKey: 'tags', header: 'Tags' },
+  ];
+
+  const table = useReactTable({
+    data: records,
+    columns: columns,
+    getCoreRowModel: getCoreRowModel(),
+    enableColumnResizing: true,
+    columnResizeMode: 'onChange',
+  });
+
+  const headersById = Object.fromEntries(table.getHeaderGroups()[0].headers.map((h) => [h.column.id, h]));
+
   return (
     <div
       css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}
@@ -179,17 +203,32 @@ export const DatasetRecordsTable = ({
             <TableHeader
               componentId="mlflow.eval-datasets-v2.records.header.record-id"
               {...headerSortProps('dataset_record_id')}
+              header={headersById['dataset_record_id']}
+              column={headersById['dataset_record_id']?.column}
+              setColumnSizing={table.setColumnSizing}
             >
               <FormattedMessage defaultMessage="Record ID" description="Header for the dataset record id column" />
             </TableHeader>
           )}
           {isColumnVisible('inputs') && (
-            <TableHeader componentId="mlflow.eval-datasets-v2.records.header.inputs" style={WIDE_HEADER_STYLE}>
+            <TableHeader
+              componentId="mlflow.eval-datasets-v2.records.header.inputs"
+              style={WIDE_HEADER_STYLE}
+              header={headersById['inputs']}
+              column={headersById['inputs']?.column}
+              setColumnSizing={table.setColumnSizing}
+            >
               <FormattedMessage defaultMessage="Inputs" description="Header for the dataset record inputs column" />
             </TableHeader>
           )}
           {isColumnVisible('expectations') && (
-            <TableHeader componentId="mlflow.eval-datasets-v2.records.header.expectations" style={WIDE_HEADER_STYLE}>
+            <TableHeader
+              componentId="mlflow.eval-datasets-v2.records.header.expectations"
+              style={WIDE_HEADER_STYLE}
+              header={headersById['expectations']}
+              column={headersById['expectations']?.column}
+              setColumnSizing={table.setColumnSizing}
+            >
               <FormattedMessage
                 defaultMessage="Expectations"
                 description="Header for the dataset record expectations column"
@@ -200,6 +239,9 @@ export const DatasetRecordsTable = ({
             <TableHeader
               componentId="mlflow.eval-datasets-v2.records.header.create-time"
               {...headerSortProps('create_time')}
+              header={headersById['create_time']}
+              column={headersById['create_time']?.column}
+              setColumnSizing={table.setColumnSizing}
             >
               <FormattedMessage
                 defaultMessage="Created"
@@ -211,6 +253,9 @@ export const DatasetRecordsTable = ({
             <TableHeader
               componentId="mlflow.eval-datasets-v2.records.header.created-by"
               {...headerSortProps('created_by')}
+              header={headersById['created_by']}
+              column={headersById['created_by']?.column}
+              setColumnSizing={table.setColumnSizing}
             >
               <FormattedMessage
                 defaultMessage="Created by"
@@ -219,7 +264,13 @@ export const DatasetRecordsTable = ({
             </TableHeader>
           )}
           {isColumnVisible('source') && (
-            <TableHeader componentId="mlflow.eval-datasets-v2.records.header.source" style={NARROW_HEADER_STYLE}>
+            <TableHeader
+              componentId="mlflow.eval-datasets-v2.records.header.source"
+              style={NARROW_HEADER_STYLE}
+              header={headersById['source']}
+              column={headersById['source']?.column}
+              setColumnSizing={table.setColumnSizing}
+            >
               <FormattedMessage defaultMessage="Source" description="Header for the dataset record source column" />
             </TableHeader>
           )}
@@ -227,6 +278,9 @@ export const DatasetRecordsTable = ({
             <TableHeader
               componentId="mlflow.eval-datasets-v2.records.header.last-updated"
               {...headerSortProps('last_updated')}
+              header={headersById['last_updated']}
+              column={headersById['last_updated']?.column}
+              setColumnSizing={table.setColumnSizing}
             >
               <FormattedMessage
                 defaultMessage="Last updated"
@@ -238,6 +292,9 @@ export const DatasetRecordsTable = ({
             <TableHeader
               componentId="mlflow.eval-datasets-v2.records.header.last-updated-by"
               {...headerSortProps('last_updated_by')}
+              header={headersById['last_updated_by']}
+              column={headersById['last_updated_by']?.column}
+              setColumnSizing={table.setColumnSizing}
             >
               <FormattedMessage
                 defaultMessage="Last updated by"
@@ -246,7 +303,13 @@ export const DatasetRecordsTable = ({
             </TableHeader>
           )}
           {isColumnVisible('tags') && (
-            <TableHeader componentId="mlflow.eval-datasets-v2.records.header.tags" style={TAGS_HEADER_STYLE}>
+            <TableHeader
+              componentId="mlflow.eval-datasets-v2.records.header.tags"
+              style={TAGS_HEADER_STYLE}
+              header={headersById['tags']}
+              column={headersById['tags']?.column}
+              setColumnSizing={table.setColumnSizing}
+            >
               <FormattedMessage defaultMessage="Tags" description="Header for the dataset record tags column" />
             </TableHeader>
           )}
