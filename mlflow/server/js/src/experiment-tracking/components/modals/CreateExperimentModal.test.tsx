@@ -10,7 +10,6 @@ import { MlflowService } from '../../sdk/MlflowService';
 import { createMLflowRoutePath } from '../../../common/utils/RoutingUtils';
 import { ErrorCodes } from '../../../common/constants';
 import { ErrorWrapper } from '../../../common/utils/ErrorWrapper';
-import Utils from '../../../common/utils/Utils';
 
 const mockNavigate = jest.fn();
 jest.mock('../../../common/utils/RoutingUtils', () => ({
@@ -99,6 +98,18 @@ describe('CreateExperimentModal', () => {
     expect(createButton).toBeDisabled();
   });
 
+  test('shows error and disables Create when experiment name exceeds 500 characters', async () => {
+    renderTestComponent();
+    const input = screen.getByRole('textbox', { name: /experiment name/i });
+    await userEvent.click(input);
+    await userEvent.paste('a'.repeat(501));
+
+    await waitFor(() => {
+      expect(screen.getByText(/must be 500 characters or less/i)).toBeInTheDocument();
+    });
+    expect(screen.getByRole('button', { name: /create/i })).toBeDisabled();
+  });
+
   test('redirects user to newly-created experiment page on successful creation', async () => {
     const fakeExperimentId = 'fakeExpId';
     jest.mocked(createExperimentApi).mockImplementation(
@@ -124,6 +135,11 @@ describe('CreateExperimentModal', () => {
       expect(onExperimentCreated).toHaveBeenCalled();
       expect(mockNavigate).toHaveBeenCalledWith(createMLflowRoutePath('/experiments/fakeExpId'));
     });
+
+    // Since `isOpen` stays true in this test harness, a successful submit resets the form.
+    await waitFor(() => {
+      expect((screen.getByRole('textbox', { name: /experiment name/i }) as HTMLInputElement).value).toBe('');
+    });
   });
 
   test('passes artifact location to createExperimentApi when provided', async () => {
@@ -147,6 +163,11 @@ describe('CreateExperimentModal', () => {
       // @ts-expect-error -- createExperimentApi has loosely typed params
       expect(createExperimentApi).toHaveBeenCalledWith('myExp', 's3://my-bucket');
     });
+
+    // Wait for async submit to finish to avoid act() warnings.
+    await waitFor(() => {
+      expect((screen.getByRole('textbox', { name: /experiment name/i }) as HTMLInputElement).value).toBe('');
+    });
   });
 
   test('calls onClose when modal X button is clicked', async () => {
@@ -154,6 +175,15 @@ describe('CreateExperimentModal', () => {
     renderTestComponent({ onClose });
 
     await userEvent.click(screen.getByRole('button', { name: /close/i }));
+
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  test('calls onClose when Cancel button is clicked', async () => {
+    const onClose = jest.fn();
+    renderTestComponent({ onClose });
+
+    await userEvent.click(screen.getByRole('button', { name: /cancel/i }));
 
     expect(onClose).toHaveBeenCalled();
   });
@@ -276,10 +306,66 @@ describe('CreateExperimentModal', () => {
       expect(screen.getByRole('button', { name: /create/i })).toBeDisabled();
       expect(createExperimentApi).not.toHaveBeenCalled();
     });
+
+    test('stale async validation does not overwrite current error state', async () => {
+      const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+      const staleNotFoundError = new ErrorWrapper(
+        { error_code: ErrorCodes.RESOURCE_DOES_NOT_EXIST, message: 'not found' },
+        404,
+      );
+
+      let resolveFirst: (val: any) => void;
+      const firstCall = new Promise((resolve) => {
+        resolveFirst = resolve;
+      });
+
+      jest
+        .spyOn(MlflowService, 'getExperimentByName')
+        .mockImplementationOnce(() => firstCall as any)
+        .mockImplementation(() => Promise.reject(staleNotFoundError));
+
+      renderTestComponent();
+      const input = screen.getByRole('textbox', { name: /experiment name/i });
+
+      await user.type(input, 'taken');
+      await act(async () => {
+        jest.advanceTimersByTime(400);
+      });
+
+      await user.clear(input);
+      await user.type(input, 'valid-name');
+      await act(async () => {
+        jest.advanceTimersByTime(400);
+      });
+
+      await act(async () => {
+        resolveFirst!({ experiment: { lifecycleStage: 'active' } });
+      });
+
+      expect(screen.queryByText(/already exists/i)).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /create/i })).toBeEnabled();
+    });
+
+    test('max-length error persists after debounced validation fires', async () => {
+      const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+      renderTestComponent();
+      const input = screen.getByRole('textbox', { name: /experiment name/i });
+
+      await user.click(input);
+      await user.paste('a'.repeat(501));
+
+      await act(async () => {
+        jest.advanceTimersByTime(500);
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText(/must be 500 characters or less/i)).toBeInTheDocument();
+      });
+      expect(screen.getByRole('button', { name: /create/i })).toBeDisabled();
+    });
   });
 
-  test('does not redirect or call onExperimentCreated when API request fails, and shows toast', async () => {
-    const logSpy = jest.spyOn(Utils, 'logErrorAndNotifyUser').mockImplementation(() => {});
+  test('does not redirect and shows inline error when API request fails with Error', async () => {
     jest.mocked(createExperimentApi).mockImplementation(
       () =>
         ({
@@ -301,9 +387,67 @@ describe('CreateExperimentModal', () => {
     await waitFor(() => {
       expect(mockNavigate).not.toHaveBeenCalled();
       expect(onExperimentCreated).not.toHaveBeenCalled();
-      expect(logSpy).toHaveBeenCalled();
+      expect(screen.getByText(/CreateExperiment failed!/)).toBeInTheDocument();
+    });
+  });
+
+  test('shows server error message when API request fails with ErrorWrapper', async () => {
+    jest.mocked(createExperimentApi).mockImplementation(
+      () =>
+        ({
+          type: 'action',
+          meta: {},
+          payload: Promise.reject(
+            new ErrorWrapper(
+              { error_code: 'RESOURCE_ALREADY_EXISTS', message: "Experiment 'test' already exists." },
+              409,
+            ),
+          ),
+        }) as any,
+    );
+
+    renderTestComponent();
+
+    await userEvent.type(screen.getByRole('textbox', { name: /experiment name/i }), 'test');
+    await userEvent.click(screen.getByRole('button', { name: /create/i }));
+
+    await waitFor(() => {
+      expect(mockNavigate).not.toHaveBeenCalled();
+      expect(screen.getByText(/RESOURCE_ALREADY_EXISTS.*Experiment 'test' already exists/)).toBeInTheDocument();
+    });
+  });
+
+  test('prevents double submit when Create is clicked rapidly', async () => {
+    let resolveCreate: (val: any) => void;
+    jest.mocked(createExperimentApi).mockImplementation(
+      () =>
+        ({
+          type: 'action',
+          meta: {},
+          payload: new Promise((resolve) => {
+            resolveCreate = resolve;
+          }),
+        }) as any,
+    );
+
+    renderTestComponent();
+
+    await userEvent.type(screen.getByRole('textbox', { name: /experiment name/i }), 'myExp');
+
+    const createButton = screen.getByRole('button', { name: /create/i });
+    await userEvent.click(createButton);
+
+    expect(createButton).toBeDisabled();
+    await userEvent.click(createButton);
+    expect(createExperimentApi).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      resolveCreate!({ experiment_id: 'id' });
     });
 
-    logSpy.mockRestore();
+    // Wait for async submit handler to complete to avoid act() warnings.
+    await waitFor(() => {
+      expect((screen.getByRole('textbox', { name: /experiment name/i }) as HTMLInputElement).value).toBe('');
+    });
   });
 });

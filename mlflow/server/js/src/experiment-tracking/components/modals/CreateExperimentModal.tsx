@@ -3,15 +3,17 @@ import { shallowEqual, useDispatch, useSelector } from 'react-redux';
 import { FormattedMessage, useIntl } from 'react-intl';
 import debounce from 'lodash/debounce';
 
-import { Modal } from '@databricks/design-system';
+import { Alert, Button, Modal, Spacer, Tooltip, useDesignSystemTheme } from '@databricks/design-system';
 import { useNavigate } from '../../../common/utils/RoutingUtils';
 import Routes from '../../routes';
 import { createExperimentApi } from '../../actions';
 import { getExperiments } from '../../reducers/Reducers';
 import { getExperimentNameValidator } from '../../../common/forms/validations';
-import Utils from '../../../common/utils/Utils';
+import { ErrorWrapper } from '../../../common/utils/ErrorWrapper';
 import { CreateExperimentForm } from './CreateExperimentForm';
 import type { ReduxState, ThunkDispatch } from '@mlflow/mlflow/src/redux-types';
+
+const MAX_EXPERIMENT_NAME_LENGTH = 500;
 
 type CreateExperimentModalProps = {
   isOpen: boolean;
@@ -20,6 +22,7 @@ type CreateExperimentModalProps = {
 };
 
 export const CreateExperimentModal = ({ isOpen, onClose, onExperimentCreated }: CreateExperimentModalProps) => {
+  const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const navigate = useNavigate();
   const dispatch = useDispatch<ThunkDispatch>();
@@ -28,18 +31,34 @@ export const CreateExperimentModal = ({ isOpen, onClose, onExperimentCreated }: 
   const [experimentName, setExperimentName] = useState('');
   const [artifactLocation, setArtifactLocation] = useState('');
   const [nameError, setNameError] = useState('');
+  const [submitError, setSubmitError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const experimentNamesRef = useRef(experimentNames);
   experimentNamesRef.current = experimentNames;
 
   const debouncedValidatorRef = useRef(
-    debounce((value: string) => {
-      const validator = getExperimentNameValidator(() => experimentNamesRef.current);
-      validator(null, value, (error?: string) => {
-        setNameError(error ?? '');
-      });
-    }, 400),
+    (() => {
+      let latestValidationToken = 0;
+      const debounced = debounce((value: string, token: number) => {
+        const validator = getExperimentNameValidator(() => experimentNamesRef.current);
+        validator(null, value, (error?: string) => {
+          if (token === latestValidationToken) {
+            setNameError(error ?? '');
+          }
+        });
+      }, 400);
+      const validate = (value: string) => {
+        const token = ++latestValidationToken;
+        debounced(value, token);
+      };
+      validate.cancel = () => {
+        // Invalidate any in-flight validator callbacks.
+        latestValidationToken++;
+        debounced.cancel();
+      };
+      return validate;
+    })(),
   );
 
   const resetFormState = useCallback(() => {
@@ -47,6 +66,7 @@ export const CreateExperimentModal = ({ isOpen, onClose, onExperimentCreated }: 
     setExperimentName('');
     setArtifactLocation('');
     setNameError('');
+    setSubmitError('');
     setIsSubmitting(false);
   }, []);
 
@@ -65,6 +85,7 @@ export const CreateExperimentModal = ({ isOpen, onClose, onExperimentCreated }: 
 
   const handleNameChange = (value: string) => {
     setExperimentName(value);
+    setSubmitError('');
     if (!value.trim()) {
       debouncedValidatorRef.current.cancel();
       setNameError(
@@ -73,12 +94,36 @@ export const CreateExperimentModal = ({ isOpen, onClose, onExperimentCreated }: 
           description: 'Error message for name requirement in create experiment for MLflow',
         }),
       );
+    } else if (value.length > MAX_EXPERIMENT_NAME_LENGTH) {
+      debouncedValidatorRef.current.cancel();
+      setNameError(
+        intl.formatMessage(
+          {
+            defaultMessage: 'Must be {maxLength} characters or less',
+            description: 'Error message when experiment name exceeds maximum length in create experiment for MLflow',
+          },
+          { maxLength: MAX_EXPERIMENT_NAME_LENGTH },
+        ),
+      );
     } else {
+      setNameError('');
       debouncedValidatorRef.current(value);
     }
   };
 
+  const handleArtifactLocationChange = (value: string) => {
+    setArtifactLocation(value);
+    setSubmitError('');
+  };
+
   const isCreateDisabled = !experimentName.trim() || !!nameError || isSubmitting;
+
+  const disabledReason = !experimentName.trim()
+    ? intl.formatMessage({
+        defaultMessage: 'Please enter an experiment name',
+        description: 'Tooltip when Create button is disabled because experiment name is empty',
+      })
+    : nameError || '';
 
   const validateExperimentName = async (value: string): Promise<string> => {
     const validator = getExperimentNameValidator(() => experimentNamesRef.current);
@@ -90,6 +135,7 @@ export const CreateExperimentModal = ({ isOpen, onClose, onExperimentCreated }: 
   const handleSubmit = async () => {
     if (isCreateDisabled) return;
     debouncedValidatorRef.current.cancel();
+    setSubmitError('');
     setIsSubmitting(true);
     const validationError = await validateExperimentName(experimentName);
     if (validationError) {
@@ -112,9 +158,40 @@ export const CreateExperimentModal = ({ isOpen, onClose, onExperimentCreated }: 
       }
     } catch (e) {
       setIsSubmitting(false);
-      Utils.logErrorAndNotifyUser(e);
+      let message: string;
+      if (e instanceof ErrorWrapper) {
+        message = e.renderHttpError();
+      } else if (e instanceof Error) {
+        message = e.message;
+      } else {
+        message = intl.formatMessage({
+          defaultMessage: 'Failed to create experiment',
+          description: 'Fallback error message when experiment creation fails in MLflow',
+        });
+      }
+      setSubmitError(message);
     }
   };
+
+  const createButton = (
+    <Button
+      componentId="mlflow.experiment.create_experiment_modal.submit"
+      type="primary"
+      onClick={handleSubmit}
+      loading={isSubmitting}
+      disabled={isCreateDisabled}
+    >
+      <FormattedMessage defaultMessage="Create" description="Confirm button text for create experiment modal" />
+    </Button>
+  );
+
+  const wrappedCreateButton = disabledReason ? (
+    <Tooltip componentId="mlflow.experiment.create_experiment_modal.submit_tooltip" content={disabledReason}>
+      <span css={{ display: 'inline-flex' }}>{createButton}</span>
+    </Tooltip>
+  ) : (
+    createButton
+  );
 
   return (
     <Modal
@@ -127,22 +204,43 @@ export const CreateExperimentModal = ({ isOpen, onClose, onExperimentCreated }: 
         />
       }
       visible={isOpen}
-      onOk={handleSubmit}
-      okText={intl.formatMessage({
-        defaultMessage: 'Create',
-        description: 'Confirm button text for create experiment modal',
-      })}
-      okButtonProps={{ disabled: isCreateDisabled }}
-      confirmLoading={isSubmitting}
       onCancel={handleClose}
+      footer={
+        <div css={{ display: 'flex', justifyContent: 'flex-end', gap: theme.spacing.sm }}>
+          <Button componentId="mlflow.experiment.create_experiment_modal.cancel" onClick={handleClose}>
+            <FormattedMessage defaultMessage="Cancel" description="Cancel button text for create experiment modal" />
+          </Button>
+          {wrappedCreateButton}
+        </div>
+      }
     >
-      <CreateExperimentForm
-        experimentName={experimentName}
-        artifactLocation={artifactLocation}
-        nameError={nameError}
-        onNameChange={handleNameChange}
-        onArtifactLocationChange={setArtifactLocation}
-      />
+      <div
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && !e.shiftKey && !isCreateDisabled) {
+            e.preventDefault();
+            handleSubmit();
+          }
+        }}
+      >
+        {submitError && (
+          <>
+            <Alert
+              componentId="mlflow.experiment.create_experiment_modal.error"
+              closable={false}
+              message={submitError}
+              type="error"
+            />
+            <Spacer />
+          </>
+        )}
+        <CreateExperimentForm
+          experimentName={experimentName}
+          artifactLocation={artifactLocation}
+          nameError={nameError}
+          onNameChange={handleNameChange}
+          onArtifactLocationChange={handleArtifactLocationChange}
+        />
+      </div>
     </Modal>
   );
 };
