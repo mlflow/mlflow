@@ -3730,3 +3730,249 @@ def test_link_traces_to_run_duplicate_trace_ids(store: SqlAlchemyStore):
 
     store.link_traces_to_run(["trace-1", "trace-2"], run.info.run_id)
     assert len(store.search_traces(**search_args)[0]) == 4
+
+
+def _seed_run_with_column_data(store: SqlAlchemyStore):
+    """Create a run pre-populated with three metrics, three params, and three tags."""
+    exp_id = _create_experiments(store, f"col-aware-{uuid.uuid4()}")
+    run = _run_factory(store, _get_run_configs(exp_id))
+    run_id = run.info.run_id
+    for key, value in [("loss", 0.1), ("accuracy", 0.9), ("f1", 0.8)]:
+        store.log_metric(run_id, entities.Metric(key=key, value=value, timestamp=0, step=0))
+    for key, value in [("lr", "0.01"), ("batch_size", "32"), ("optimizer", "adam")]:
+        store.log_param(run_id, Param(key=key, value=value))
+    for key, value in [("env", "prod"), ("team", "ml"), ("owner", "alice")]:
+        store.set_tag(run_id, RunTag(key=key, value=value))
+    return exp_id, run_id
+
+
+def test_search_runs_no_column_filters_includes_all(store: SqlAlchemyStore):
+    exp_id, _ = _seed_run_with_column_data(store)
+    [run] = store.search_runs([exp_id], None, ViewType.ALL)
+    assert set(run.data.metrics) == {"loss", "accuracy", "f1"}
+    assert set(run.data.params) == {"lr", "batch_size", "optimizer"}
+    # Tags include the runName system tag plus the three we added.
+    assert {"env", "team", "owner"}.issubset(run.data.tags)
+
+
+def test_search_runs_metric_keys_allowlist(store: SqlAlchemyStore):
+    exp_id, _ = _seed_run_with_column_data(store)
+    [run] = store.search_runs([exp_id], None, ViewType.ALL, metric_keys=["loss", "f1"])
+    assert set(run.data.metrics) == {"loss", "f1"}
+    # Params and tags untouched.
+    assert set(run.data.params) == {"lr", "batch_size", "optimizer"}
+    assert {"env", "team", "owner"}.issubset(run.data.tags)
+
+
+def test_search_runs_exclude_metrics(store: SqlAlchemyStore):
+    exp_id, _ = _seed_run_with_column_data(store)
+    [run] = store.search_runs([exp_id], None, ViewType.ALL, exclude_metrics=True)
+    assert run.data.metrics == {}
+    assert set(run.data.params) == {"lr", "batch_size", "optimizer"}
+
+
+def test_search_runs_param_keys_allowlist(store: SqlAlchemyStore):
+    exp_id, _ = _seed_run_with_column_data(store)
+    [run] = store.search_runs([exp_id], None, ViewType.ALL, param_keys=["lr"])
+    assert set(run.data.params) == {"lr"}
+    assert set(run.data.metrics) == {"loss", "accuracy", "f1"}
+
+
+def test_search_runs_exclude_params(store: SqlAlchemyStore):
+    exp_id, _ = _seed_run_with_column_data(store)
+    [run] = store.search_runs([exp_id], None, ViewType.ALL, exclude_params=True)
+    assert run.data.params == {}
+    assert set(run.data.metrics) == {"loss", "accuracy", "f1"}
+
+
+def test_search_runs_tag_keys_allowlist(store: SqlAlchemyStore):
+    exp_id, _ = _seed_run_with_column_data(store)
+    [run] = store.search_runs([exp_id], None, ViewType.ALL, tag_keys=["env"])
+    # Only the explicitly-requested tag — system tags like mlflow.runName are excluded too.
+    assert set(run.data.tags) == {"env"}
+
+
+def test_search_runs_exclude_tags(store: SqlAlchemyStore):
+    exp_id, _ = _seed_run_with_column_data(store)
+    [run] = store.search_runs([exp_id], None, ViewType.ALL, exclude_tags=True)
+    assert run.data.tags == {}
+
+
+def test_search_runs_exclude_takes_precedence_over_allowlist(store: SqlAlchemyStore):
+    exp_id, _ = _seed_run_with_column_data(store)
+    [run] = store.search_runs(
+        [exp_id],
+        None,
+        ViewType.ALL,
+        metric_keys=["loss", "accuracy"],
+        exclude_metrics=True,
+    )
+    assert run.data.metrics == {}
+
+
+def test_search_runs_combined_filters(store: SqlAlchemyStore):
+    exp_id, _ = _seed_run_with_column_data(store)
+    [run] = store.search_runs(
+        [exp_id],
+        None,
+        ViewType.ALL,
+        metric_keys=["loss"],
+        param_keys=["lr", "batch_size"],
+        exclude_tags=True,
+    )
+    assert set(run.data.metrics) == {"loss"}
+    assert set(run.data.params) == {"lr", "batch_size"}
+    assert run.data.tags == {}
+
+
+def test_search_runs_empty_allowlist_treated_as_unset(store: SqlAlchemyStore):
+    # Empty list is the proto's "field unset" signal — should include everything.
+    exp_id, _ = _seed_run_with_column_data(store)
+    [run] = store.search_runs([exp_id], None, ViewType.ALL, metric_keys=[])
+    assert set(run.data.metrics) == {"loss", "accuracy", "f1"}
+
+
+def test_search_runs_unknown_keys_in_allowlist_yield_empty(store: SqlAlchemyStore):
+    exp_id, _ = _seed_run_with_column_data(store)
+    [run] = store.search_runs([exp_id], None, ViewType.ALL, metric_keys=["does_not_exist"])
+    assert run.data.metrics == {}
+
+
+def _capture_sql(store):
+    """Yield (statements list, listener) and clean up. Use as a context manager."""
+    statements: list[str] = []
+
+    def _handler(_conn, _cursor, statement, _parameters, _context, _executemany):
+        statements.append(statement)
+
+    return statements, _handler
+
+
+def test_search_runs_metric_keys_pushes_where_clause_to_db(store: SqlAlchemyStore):
+    """The metric_keys allowlist must filter at the DB level, not in Python — the
+    selectinload query against latest_metrics must include a WHERE key IN (...) clause.
+    """
+    exp_id, _ = _seed_run_with_column_data(store)
+
+    statements, handler = _capture_sql(store)
+    sqlalchemy.event.listen(store.engine, "before_cursor_execute", handler)
+    try:
+        store.search_runs([exp_id], None, ViewType.ALL, metric_keys=["loss", "f1"])
+    finally:
+        sqlalchemy.event.remove(store.engine, "before_cursor_execute", handler)
+
+    # Find the eager-load query against latest_metrics.
+    latest_metric_stmts = [
+        s for s in statements if re.search(r"\bfrom\s+latest_metrics\b", s, re.IGNORECASE)
+    ]
+    assert latest_metric_stmts, "expected an eager-load query against latest_metrics"
+    # That query must contain a WHERE clause filtering on key — meaning the filter
+    # was pushed to the DB via with_loader_criteria, not applied in Python after fetch.
+    # The column name is rendered as `latest_metrics."key"` on SQLite (because `key` is
+    # a reserved word) and as `latest_metrics.key` on Postgres, so the regex allows both.
+    assert any(
+        re.search(r'latest_metrics\."?key"?\s+IN', s, re.IGNORECASE) for s in latest_metric_stmts
+    ), (
+        "metric_keys allowlist did not produce a `latest_metrics.key IN (...)` SQL clause; "
+        "filter is being applied in Python instead of in the database. SQL was:\n"
+        + "\n".join(latest_metric_stmts)
+    )
+
+
+def test_search_runs_no_filter_emits_unfiltered_latest_metrics_query(store: SqlAlchemyStore):
+    """Sanity-check the SQL fingerprint of the unfiltered case so the filtered-case
+    assertion above is meaningful by contrast.
+    """
+    exp_id, _ = _seed_run_with_column_data(store)
+
+    statements, handler = _capture_sql(store)
+    sqlalchemy.event.listen(store.engine, "before_cursor_execute", handler)
+    try:
+        store.search_runs([exp_id], None, ViewType.ALL)
+    finally:
+        sqlalchemy.event.remove(store.engine, "before_cursor_execute", handler)
+
+    latest_metric_stmts = [
+        s for s in statements if re.search(r"\bfrom\s+latest_metrics\b", s, re.IGNORECASE)
+    ]
+    assert latest_metric_stmts, "expected the eager-load query to fire"
+    # Without a filter there must NOT be a key IN clause — that's the proof the previous
+    # test's assertion isn't just always-true.
+    assert not any(
+        re.search(r'latest_metrics\."?key"?\s+IN', s, re.IGNORECASE) for s in latest_metric_stmts
+    )
+
+
+def test_search_runs_exclude_metrics_query_returns_zero_rows(store: SqlAlchemyStore):
+    """exclude_metrics=True must short-circuit the eager-load with `false` so zero rows
+    come back from latest_metrics. The SQL query may still be issued (selectinload still
+    runs) but its WHERE clause must evaluate to false.
+    """
+    exp_id, _ = _seed_run_with_column_data(store)
+
+    statements, handler = _capture_sql(store)
+    sqlalchemy.event.listen(store.engine, "before_cursor_execute", handler)
+    try:
+        [run] = store.search_runs([exp_id], None, ViewType.ALL, exclude_metrics=True)
+    finally:
+        sqlalchemy.event.remove(store.engine, "before_cursor_execute", handler)
+
+    # Functional check: no metrics in the result.
+    assert run.data.metrics == {}
+    # Structural check: if a query against latest_metrics fired, it must contain a
+    # `false`-like predicate that short-circuits row return. (SQLAlchemy renders
+    # sqlalchemy.false() as the literal `false` or `0`.)
+    latest_metric_stmts = [
+        s for s in statements if re.search(r"\bfrom\s+latest_metrics\b", s, re.IGNORECASE)
+    ]
+    if latest_metric_stmts:
+        assert any(
+            re.search(r"\bWHERE\b.*\b(false|0)\b", s, re.IGNORECASE) for s in latest_metric_stmts
+        ), f"expected a false-predicate in the latest_metrics query, got:\n{latest_metric_stmts}"
+
+
+@pytest.mark.parametrize(
+    ("n_metrics", "allowlist_size"),
+    [
+        (10, 1),
+        (10, 5),
+        (10, 10),
+        (50, 3),
+        (100, 7),
+    ],
+)
+def test_search_runs_response_row_count_matches_allowlist(
+    store: SqlAlchemyStore, n_metrics: int, allowlist_size: int
+):
+    """For N logged metrics and an allowlist of size K (K <= N), the returned run must
+    expose exactly K metrics. This is the explicit assertion behind the diagram's
+    `1,330,461 rows -> ~1,000` size-reduction claim.
+    """
+    exp_id = _create_experiments(store, f"row-count-{uuid.uuid4()}")
+    run = _run_factory(store, _get_run_configs(exp_id))
+    run_id = run.info.run_id
+
+    keys = [f"m_{i:03d}" for i in range(n_metrics)]
+    for k in keys:
+        store.log_metric(run_id, entities.Metric(key=k, value=1.0, timestamp=0, step=0))
+
+    # Baseline: no filter returns everything.
+    [unfiltered] = store.search_runs([exp_id], None, ViewType.ALL)
+    assert len(unfiltered.data.metrics) == n_metrics
+
+    # Filtered: exactly the allowlist comes back.
+    allowlist = keys[:allowlist_size]
+    [filtered] = store.search_runs([exp_id], None, ViewType.ALL, metric_keys=allowlist)
+    assert len(filtered.data.metrics) == allowlist_size
+    assert set(filtered.data.metrics) == set(allowlist)
+
+
+def test_search_runs_response_row_count_with_exclude_is_zero(store: SqlAlchemyStore):
+    exp_id = _create_experiments(store, f"row-count-exclude-{uuid.uuid4()}")
+    run = _run_factory(store, _get_run_configs(exp_id))
+    run_id = run.info.run_id
+    for i in range(50):
+        store.log_metric(run_id, entities.Metric(key=f"m_{i}", value=1.0, timestamp=0, step=0))
+
+    [r] = store.search_runs([exp_id], None, ViewType.ALL, exclude_metrics=True)
+    assert r.data.metrics == {}

@@ -1002,6 +1002,12 @@ class AbstractStore(GatewayStoreMixin):
         max_results=SEARCH_MAX_RESULTS_DEFAULT,
         order_by=None,
         page_token=None,
+        metric_keys=None,
+        exclude_metrics=False,
+        param_keys=None,
+        exclude_params=False,
+        tag_keys=None,
+        exclude_tags=False,
     ):
         """
         Return runs that match the given list of search expressions within the experiments.
@@ -1014,6 +1020,14 @@ class AbstractStore(GatewayStoreMixin):
             order_by: List of order_by clauses.
             page_token: Token specifying the next page of results. It should be obtained from
                 a ``search_runs`` call.
+            metric_keys: If provided, restrict the returned metrics on each run to only those
+                whose key is in this list. ``None`` (default) includes all metrics.
+            exclude_metrics: If True, returned runs contain no metric data. Takes precedence
+                over ``metric_keys``.
+            param_keys: Same semantics as ``metric_keys`` for params.
+            exclude_params: Same semantics as ``exclude_metrics`` for params.
+            tag_keys: Same semantics as ``metric_keys`` for tags.
+            exclude_tags: Same semantics as ``exclude_metrics`` for tags.
 
         Returns:
             A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
@@ -1030,6 +1044,12 @@ class AbstractStore(GatewayStoreMixin):
             max_results,
             order_by,
             page_token,
+            metric_keys=metric_keys,
+            exclude_metrics=exclude_metrics,
+            param_keys=param_keys,
+            exclude_params=exclude_params,
+            tag_keys=tag_keys,
+            exclude_tags=exclude_tags,
         )
         return PagedList(runs, token)
 
@@ -1042,6 +1062,12 @@ class AbstractStore(GatewayStoreMixin):
         max_results,
         order_by,
         page_token,
+        metric_keys=None,
+        exclude_metrics=False,
+        param_keys=None,
+        exclude_params=False,
+        tag_keys=None,
+        exclude_tags=False,
     ):
         """
         Return runs that match the given list of search expressions within the experiments, as

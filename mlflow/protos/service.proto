@@ -3238,6 +3238,33 @@ message SearchRuns {
 
   optional string page_token = 7;
 
+  // If set, only metrics whose key is in this list are included in each returned run.
+  // If unset, all metrics are returned (current behavior).
+  // ``exclude_metrics`` takes precedence: when true, no metrics are returned regardless
+  // of this field.
+  repeated string metric_keys = 8;
+
+  // If true, returned runs contain no metric data. Useful for callers that need run
+  // metadata only (e.g., counting runs across experiments). When false or unset, metrics
+  // are included subject to the ``metric_keys`` filter.
+  optional bool exclude_metrics = 9;
+
+  // If set, only params whose key is in this list are included in each returned run.
+  // If unset, all params are returned (current behavior).
+  // ``exclude_params`` takes precedence.
+  repeated string param_keys = 10;
+
+  // If true, returned runs contain no param data.
+  optional bool exclude_params = 11;
+
+  // If set, only tags whose key is in this list are included in each returned run.
+  // If unset, all tags are returned (current behavior).
+  // ``exclude_tags`` takes precedence.
+  repeated string tag_keys = 12;
+
+  // If true, returned runs contain no tag data.
+  optional bool exclude_tags = 13;
+
   message Response {
     // Runs that match the search criteria.
     repeated Run runs = 1;

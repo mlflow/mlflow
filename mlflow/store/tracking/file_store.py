@@ -189,6 +189,50 @@ class DatasetFilter(TypedDict, total=False):
     dataset_digest: str
 
 
+def _apply_column_filters(
+    run,
+    metric_keys=None,
+    exclude_metrics=False,
+    param_keys=None,
+    exclude_params=False,
+    tag_keys=None,
+    exclude_tags=False,
+):
+    if not (
+        metric_keys or exclude_metrics or param_keys or exclude_params or tag_keys or exclude_tags
+    ):
+        return run
+
+    metric_set = set(metric_keys) if metric_keys else None
+    param_set = set(param_keys) if param_keys else None
+    tag_set = set(tag_keys) if tag_keys else None
+
+    metrics = (
+        []
+        if exclude_metrics
+        else [m for m in run.data._metric_objs if metric_set is None or m.key in metric_set]
+    )
+    params = (
+        []
+        if exclude_params
+        else [
+            Param(k, v) for k, v in run.data.params.items() if param_set is None or k in param_set
+        ]
+    )
+    tags = (
+        []
+        if exclude_tags
+        else [RunTag(k, v) for k, v in run.data.tags.items() if tag_set is None or k in tag_set]
+    )
+
+    return Run(
+        run_info=run.info,
+        run_data=RunData(metrics=metrics, params=params, tags=tags),
+        run_inputs=run.inputs,
+        run_outputs=run.outputs,
+    )
+
+
 class FileStore(AbstractStore):
     TRASH_FOLDER_NAME = ".trash"
     ARTIFACTS_FOLDER_NAME = "artifacts"
@@ -1058,6 +1102,12 @@ class FileStore(AbstractStore):
         max_results,
         order_by,
         page_token,
+        metric_keys=None,
+        exclude_metrics=False,
+        param_keys=None,
+        exclude_params=False,
+        tag_keys=None,
+        exclude_tags=False,
     ):
         if max_results > SEARCH_MAX_RESULTS_THRESHOLD:
             raise MlflowException(
@@ -1072,6 +1122,18 @@ class FileStore(AbstractStore):
         filtered = SearchUtils.filter(runs, filter_string)
         sorted_runs = SearchUtils.sort(filtered, order_by)
         runs, next_page_token = SearchUtils.paginate(sorted_runs, page_token, max_results)
+        runs = [
+            _apply_column_filters(
+                run,
+                metric_keys=metric_keys,
+                exclude_metrics=exclude_metrics,
+                param_keys=param_keys,
+                exclude_params=exclude_params,
+                tag_keys=tag_keys,
+                exclude_tags=exclude_tags,
+            )
+            for run in runs
+        ]
         return runs, next_page_token
 
     def log_metric(self, run_id: str, metric: Metric):

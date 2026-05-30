@@ -1086,17 +1086,44 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
         return PagedList(metric_history, response_proto.next_page_token or None)
 
     def _search_runs(
-        self, experiment_ids, filter_string, run_view_type, max_results, order_by, page_token
+        self,
+        experiment_ids,
+        filter_string,
+        run_view_type,
+        max_results,
+        order_by,
+        page_token,
+        metric_keys=None,
+        exclude_metrics=False,
+        param_keys=None,
+        exclude_params=False,
+        tag_keys=None,
+        exclude_tags=False,
     ):
         experiment_ids = [str(experiment_id) for experiment_id in experiment_ids]
-        sr = SearchRuns(
-            experiment_ids=experiment_ids,
-            filter=filter_string,
-            run_view_type=ViewType.to_proto(run_view_type),
-            max_results=max_results,
-            order_by=order_by,
-            page_token=page_token,
-        )
+        sr_kwargs = {
+            "experiment_ids": experiment_ids,
+            "filter": filter_string,
+            "run_view_type": ViewType.to_proto(run_view_type),
+            "max_results": max_results,
+            "order_by": order_by,
+            "page_token": page_token,
+        }
+        # Only set the new column-filter fields when non-default to keep wire payload small
+        # and compatible with older servers that don't understand them.
+        if metric_keys:
+            sr_kwargs["metric_keys"] = list(metric_keys)
+        if exclude_metrics:
+            sr_kwargs["exclude_metrics"] = True
+        if param_keys:
+            sr_kwargs["param_keys"] = list(param_keys)
+        if exclude_params:
+            sr_kwargs["exclude_params"] = True
+        if tag_keys:
+            sr_kwargs["tag_keys"] = list(tag_keys)
+        if exclude_tags:
+            sr_kwargs["exclude_tags"] = True
+        sr = SearchRuns(**sr_kwargs)
         req_body = message_to_json(sr)
         response_proto = self._call_endpoint(SearchRuns, req_body)
         runs = [Run.from_proto(proto_run) for proto_run in response_proto.runs]

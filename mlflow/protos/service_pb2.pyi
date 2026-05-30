@@ -585,7 +585,7 @@ class GetRun(_message.Message):
     def __init__(self, run_id: _Optional[str] = ..., run_uuid: _Optional[str] = ...) -> None: ...
 
 class SearchRuns(_message.Message):
-    __slots__ = ("experiment_ids", "filter", "run_view_type", "max_results", "order_by", "page_token")
+    __slots__ = ("experiment_ids", "filter", "run_view_type", "max_results", "order_by", "page_token", "metric_keys", "exclude_metrics", "param_keys", "exclude_params", "tag_keys", "exclude_tags")
     class Response(_message.Message):
         __slots__ = ("runs", "next_page_token")
         RUNS_FIELD_NUMBER: _ClassVar[int]
@@ -599,13 +599,25 @@ class SearchRuns(_message.Message):
     MAX_RESULTS_FIELD_NUMBER: _ClassVar[int]
     ORDER_BY_FIELD_NUMBER: _ClassVar[int]
     PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    METRIC_KEYS_FIELD_NUMBER: _ClassVar[int]
+    EXCLUDE_METRICS_FIELD_NUMBER: _ClassVar[int]
+    PARAM_KEYS_FIELD_NUMBER: _ClassVar[int]
+    EXCLUDE_PARAMS_FIELD_NUMBER: _ClassVar[int]
+    TAG_KEYS_FIELD_NUMBER: _ClassVar[int]
+    EXCLUDE_TAGS_FIELD_NUMBER: _ClassVar[int]
     experiment_ids: _containers.RepeatedScalarFieldContainer[str]
     filter: str
     run_view_type: ViewType
     max_results: int
     order_by: _containers.RepeatedScalarFieldContainer[str]
     page_token: str
-    def __init__(self, experiment_ids: _Optional[_Iterable[str]] = ..., filter: _Optional[str] = ..., run_view_type: _Optional[_Union[ViewType, str]] = ..., max_results: _Optional[int] = ..., order_by: _Optional[_Iterable[str]] = ..., page_token: _Optional[str] = ...) -> None: ...
+    metric_keys: _containers.RepeatedScalarFieldContainer[str]
+    exclude_metrics: bool
+    param_keys: _containers.RepeatedScalarFieldContainer[str]
+    exclude_params: bool
+    tag_keys: _containers.RepeatedScalarFieldContainer[str]
+    exclude_tags: bool
+    def __init__(self, experiment_ids: _Optional[_Iterable[str]] = ..., filter: _Optional[str] = ..., run_view_type: _Optional[_Union[ViewType, str]] = ..., max_results: _Optional[int] = ..., order_by: _Optional[_Iterable[str]] = ..., page_token: _Optional[str] = ..., metric_keys: _Optional[_Iterable[str]] = ..., exclude_metrics: bool = ..., param_keys: _Optional[_Iterable[str]] = ..., exclude_params: bool = ..., tag_keys: _Optional[_Iterable[str]] = ..., exclude_tags: bool = ...) -> None: ...
 
 class ListArtifacts(_message.Message):
     __slots__ = ("run_id", "run_uuid", "path", "page_token")

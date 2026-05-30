@@ -22,7 +22,7 @@ import sqlalchemy.orm
 import sqlalchemy.sql.expression as sql
 from sqlalchemy import and_, case, distinct, exists, func, or_, select, sql
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
-from sqlalchemy.orm import Query, Session, aliased, joinedload, selectinload
+from sqlalchemy.orm import Query, Session, aliased, joinedload, selectinload, with_loader_criteria
 from sqlalchemy.sql.elements import ColumnElement
 from sqlalchemy.sql.selectable import Select, Subquery
 
@@ -1039,20 +1039,50 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         return [list(dataset_inputs_per_run[run_uuid].values()) for run_uuid in run_uuids]
 
     @staticmethod
-    def _get_eager_run_query_options():
+    def _get_eager_run_query_options(
+        metric_keys=None,
+        exclude_metrics=False,
+        param_keys=None,
+        exclude_params=False,
+        tag_keys=None,
+        exclude_tags=False,
+    ):
         """
         A list of SQLAlchemy query options that can be used to eagerly load the following
         run attributes when fetching a run: ``latest_metrics``, ``params``, and ``tags``.
+
+        When ``exclude_*`` is True or ``*_keys`` is a non-empty list, a
+        ``with_loader_criteria`` clause is added so the eager load returns only the matching
+        rows (or no rows at all for the exclude case). Default arguments preserve the
+        original "include everything" behavior used by single-run fetches.
         """
-        return [
-            # Use a select in load rather than a joined load in order to minimize the memory
-            # overhead of the eager loading procedure. For more information about relationship
-            # loading techniques, see https://docs.sqlalchemy.org/en/13/orm/
-            # loading_relationships.html#relationship-loading-techniques
+        # Use a select in load rather than a joined load in order to minimize the memory
+        # overhead of the eager loading procedure. For more information about relationship
+        # loading techniques, see https://docs.sqlalchemy.org/en/13/orm/
+        # loading_relationships.html#relationship-loading-techniques
+        options = [
             sqlalchemy.orm.selectinload(SqlRun.latest_metrics),
             sqlalchemy.orm.selectinload(SqlRun.params),
             sqlalchemy.orm.selectinload(SqlRun.tags),
         ]
+
+        def _criteria(entity, exclude, keys):
+            if exclude:
+                return with_loader_criteria(entity, sqlalchemy.false())
+            if keys:
+                return with_loader_criteria(entity, entity.key.in_(keys))
+            return None
+
+        for entity, exclude, keys in (
+            (SqlLatestMetric, exclude_metrics, metric_keys),
+            (SqlParam, exclude_params, param_keys),
+            (SqlTag, exclude_tags, tag_keys),
+        ):
+            criteria = _criteria(entity, exclude, keys)
+            if criteria is not None:
+                options.append(criteria)
+
+        return options
 
     def _check_run_is_active(self, run):
         if run.lifecycle_stage != LifecycleStage.ACTIVE:
@@ -1997,6 +2027,12 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         max_results,
         order_by,
         page_token,
+        metric_keys=None,
+        exclude_metrics=False,
+        param_keys=None,
+        exclude_params=False,
+        tag_keys=None,
+        exclude_tags=False,
     ):
         def compute_next_token(current_size):
             next_token = None
@@ -2043,7 +2079,16 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             stmt = (
                 stmt
                 .distinct()
-                .options(*self._get_eager_run_query_options())
+                .options(
+                    *self._get_eager_run_query_options(
+                        metric_keys=metric_keys,
+                        exclude_metrics=exclude_metrics,
+                        param_keys=param_keys,
+                        exclude_params=exclude_params,
+                        tag_keys=tag_keys,
+                        exclude_tags=exclude_tags,
+                    )
+                )
                 .filter(
                     SqlRun.experiment_id.in_(experiment_ids),
                     SqlRun.lifecycle_stage.in_(stages),
