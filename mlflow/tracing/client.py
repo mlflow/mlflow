@@ -972,32 +972,6 @@ class TracingClient:
             input=input,
         )
 
-    def _upsert_label_schema(
-        self,
-        experiment_id: str,
-        *,
-        name: str,
-        type: "LabelSchemaType | str",
-        input: "InputPassFail | InputCategorical | InputNumeric | InputText",
-        instruction: str | None = None,
-        enable_comment: bool | None = None,
-    ) -> "LabelSchema":
-        """Atomically create-or-replace an OSS-native label schema.
-
-        Identity is ``(experiment_id, name)``. ``type`` is immutable on
-        replace; a type mismatch with the existing row is rejected. Omitting
-        ``enable_comment`` preserves the existing value on replace (and
-        defaults to ``False`` on create).
-        """
-        return self.store.upsert_label_schema(
-            experiment_id=experiment_id,
-            name=name,
-            type=type,
-            input=input,
-            instruction=instruction,
-            enable_comment=enable_comment,
-        )
-
     def _delete_label_schema(self, schema_id: str) -> None:
         """Delete a label schema. No-op when the schema doesn't exist."""
         return self.store.delete_label_schema(schema_id)

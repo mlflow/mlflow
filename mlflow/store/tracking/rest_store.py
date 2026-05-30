@@ -65,7 +65,6 @@ from mlflow.protos.label_schemas_pb2 import (
     GetLabelSchemaByName,
     ListLabelSchemas,
     UpdateLabelSchema,
-    UpsertLabelSchema,
 )
 from mlflow.protos.service_pb2 import (
     AddDatasetToExperiments,
@@ -1078,39 +1077,6 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
             UpdateLabelSchema,
             message_to_json(req),
             endpoint=f"{_V3_LABEL_SCHEMAS_REST_API_PATH_PREFIX}/update",
-        )
-        return LabelSchema.from_proto(response_proto.label_schema)
-
-    def upsert_label_schema(
-        self,
-        experiment_id,
-        *,
-        name,
-        type,
-        input,
-        instruction=None,
-        enable_comment=None,
-    ):
-        from mlflow.genai.label_schemas.label_schemas import (
-            LabelSchema,
-            LabelSchemaType,
-            _input_to_proto,
-        )
-
-        req = UpsertLabelSchema(
-            experiment_id=str(experiment_id),
-            name=name,
-            type=LabelSchemaType(str(type)).to_proto(),
-            input=_input_to_proto(input),
-        )
-        if instruction is not None:
-            req.instruction = instruction
-        if enable_comment is not None:
-            req.enable_comment = enable_comment
-        response_proto = self._call_endpoint(
-            UpsertLabelSchema,
-            message_to_json(req),
-            endpoint=f"{_V3_LABEL_SCHEMAS_REST_API_PATH_PREFIX}/upsert",
         )
         return LabelSchema.from_proto(response_proto.label_schema)
 

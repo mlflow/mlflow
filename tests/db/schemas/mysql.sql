@@ -224,9 +224,8 @@ CREATE TABLE experiment_tags (
 
 CREATE TABLE label_schemas (
 	schema_id VARCHAR(36) NOT NULL,
-	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
 	experiment_id INTEGER NOT NULL,
-	name VARCHAR(256) NOT NULL,
+	name VARCHAR(250) NOT NULL,
 	type VARCHAR(16) NOT NULL,
 	instruction TEXT,
 	enable_comment TINYINT DEFAULT '0' NOT NULL,
