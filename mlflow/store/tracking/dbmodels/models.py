@@ -3231,13 +3231,17 @@ class SqlGatewayGuardrailConfig(Base):
 
 class SqlLabelSchema(Base):
     """
-    DB model for OSS-native label schemas (DAIS-2026 work).
+    DB model for OSS-native label schemas.
 
     Schemas are experiment-scoped UI rendering hints; they do not gate
     or validate assessment writes. See
     ``mlflow/genai/label_schemas/label_schemas.py`` for the entity
     dataclass and ``mlflow/genai/label_schemas/validation.py`` for the
-    server-side validation rules ported from Databricks.
+    server-side validation rules.
+
+    The schema inherits its workspace from the parent experiment (the
+    workspace-aware store filters via a join to ``experiments``), so there
+    is no denormalized ``workspace`` column on this table.
     """
 
     __tablename__ = "label_schemas"
@@ -3250,16 +3254,6 @@ class SqlLabelSchema(Base):
     ``label_schemas`` table.
     """
 
-    workspace = Column(
-        String(63),
-        nullable=False,
-        default=DEFAULT_WORKSPACE_NAME,
-        server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
-    )
-    """
-    Workspace name that scopes this schema.
-    """
-
     experiment_id = Column(
         Integer,
         ForeignKey("experiments.experiment_id", ondelete="CASCADE"),
@@ -3270,11 +3264,12 @@ class SqlLabelSchema(Base):
     Cascade-deletes when the parent experiment is deleted.
     """
 
-    name = Column(String(256), nullable=False)
+    name = Column(String(250), nullable=False)
     """
-    Schema name: ``String`` (limit 256 characters). Free text shown to
-    reviewers as the label prompt and used as the assessment key. Unique
-    within ``(workspace, experiment_id)``.
+    Schema name: ``String`` (limit 250 characters, matching the assessment
+    key/name limit used elsewhere in the tracking store). Free text shown
+    to reviewers as the label prompt and used as the assessment key. Unique
+    within ``experiment_id``.
     """
 
     type = Column(String(16), nullable=False)
@@ -3328,10 +3323,8 @@ class SqlLabelSchema(Base):
 
     __table_args__ = (
         PrimaryKeyConstraint("schema_id", name="label_schemas_pk"),
-        UniqueConstraint(
-            "workspace", "experiment_id", "name", name="uq_label_schemas_workspace_exp_name"
-        ),
-        Index("index_label_schemas_workspace_experiment_id", "workspace", "experiment_id"),
+        UniqueConstraint("experiment_id", "name", name="uq_label_schemas_exp_name"),
+        Index("index_label_schemas_experiment_id", "experiment_id"),
     )
 
     def to_mlflow_entity(self):
@@ -3438,24 +3431,26 @@ def _input_from_dict(input_type: str, config: dict[str, Any]):
         InputText,
     )
 
-    if input_type == "pass_fail":
-        return InputPassFail(
-            positive_label=config["positive_label"],
-            negative_label=config["negative_label"],
-        )
-    if input_type == "categorical":
-        return InputCategorical(
-            options=config["options"],
-            multi_select=config.get("multi_select", False),
-        )
-    if input_type == "text":
-        return InputText(max_length=config.get("max_length"))
-    if input_type == "numeric":
-        return InputNumeric(
-            min_value=config.get("min_value"),
-            max_value=config.get("max_value"),
-        )
-    raise ValueError(
-        f"Unknown label schema input_type {input_type!r}; expected one of "
-        "'pass_fail', 'categorical', 'numeric', 'text'."
-    )
+    match input_type:
+        case "pass_fail":
+            return InputPassFail(
+                positive_label=config["positive_label"],
+                negative_label=config["negative_label"],
+            )
+        case "categorical":
+            return InputCategorical(
+                options=config["options"],
+                multi_select=config.get("multi_select", False),
+            )
+        case "text":
+            return InputText(max_length=config.get("max_length"))
+        case "numeric":
+            return InputNumeric(
+                min_value=config.get("min_value"),
+                max_value=config.get("max_value"),
+            )
+        case _:
+            raise ValueError(
+                f"Unknown label schema input_type {input_type!r}; expected one of "
+                "'pass_fail', 'categorical', 'numeric', 'text'."
+            )
