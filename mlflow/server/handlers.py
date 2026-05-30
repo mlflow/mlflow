@@ -113,7 +113,6 @@ from mlflow.protos.label_schemas_pb2 import (
     GetLabelSchemaByName,
     ListLabelSchemas,
     UpdateLabelSchema,
-    UpsertLabelSchema,
 )
 from mlflow.protos.mlflow_artifacts_pb2 import (
     AbortMultipartUpload,
@@ -4568,33 +4567,6 @@ def _update_label_schema():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
-def _upsert_label_schema():
-    request_message = _get_request_message(
-        UpsertLabelSchema(),
-        schema={
-            "experiment_id": [_assert_required, _assert_string],
-            "name": [_assert_required, _assert_string],
-        },
-    )
-    schema_type = LabelSchemaType.from_proto(request_message.type)
-    input_obj = _input_from_proto(request_message.input)
-    kwargs: dict[str, object] = {}
-    if request_message.HasField("instruction"):
-        kwargs["instruction"] = request_message.instruction
-    if request_message.HasField("enable_comment"):
-        kwargs["enable_comment"] = request_message.enable_comment
-    upserted = _get_tracking_store().upsert_label_schema(
-        experiment_id=request_message.experiment_id,
-        name=request_message.name,
-        type=schema_type,
-        input=input_obj,
-        **kwargs,
-    )
-    return _wrap_response(UpsertLabelSchema.Response(label_schema=upserted.to_proto()))
-
-
-@catch_mlflow_exception
-@_disable_if_artifacts_only
 def _delete_label_schema():
     request_message = _get_request_message(
         DeleteLabelSchema(),
@@ -7378,7 +7350,6 @@ HANDLERS = {
     GetLabelSchemaByName: _get_label_schema_by_name,
     ListLabelSchemas: _list_label_schemas,
     UpdateLabelSchema: _update_label_schema,
-    UpsertLabelSchema: _upsert_label_schema,
     DeleteLabelSchema: _delete_label_schema,
     # Legacy MLflow Tracing V2 APIs. Kept for backward compatibility but do not use.
     StartTrace: _deprecated_start_trace_v2,
