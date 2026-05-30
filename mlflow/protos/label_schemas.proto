@@ -1,6 +1,6 @@
 // Proto definition for MLflow OSS-native label schemas.
-// Schemas are experiment-scoped UI rendering hints that drive SME review
-// widgets in the labeling UI. They do not gate or validate assessment
+// Schemas are experiment-scoped UI rendering hints that drive the
+// reviewer-facing widgets in the labeling UI. They do not gate or validate assessment
 // writes; the entity is intentionally lightweight and the schema_id is
 // soft-referenced from assessments.
 syntax = "proto2";
@@ -22,7 +22,7 @@ enum LabelSchemaType {
   LABEL_SCHEMA_TYPE_UNSPECIFIED = 0;
   // Feedback schema: bounded value space (pass/fail, options, min/max).
   FEEDBACK = 1;
-  // Expectation schema: typically ground-truth labels supplied by SMEs.
+  // Expectation schema: typically ground-truth labels supplied by reviewers.
   EXPECTATION = 2;
 }
 
@@ -197,28 +197,6 @@ message UpdateLabelSchema {
 
   // Tag 3 previously held the now-removed `title` field.
   reserved 3;
-  reserved "title";
-
-  message Response {
-    optional LabelSchema label_schema = 1;
-  }
-}
-
-// Request to atomically create-or-replace a label schema by
-// (experiment_id, name). `type` is immutable; mismatched type on
-// replace is rejected.
-message UpsertLabelSchema {
-  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
-
-  optional string experiment_id = 1 [(validate_required) = true];
-  optional string name = 2 [(validate_required) = true];
-  optional LabelSchemaType type = 3 [(validate_required) = true];
-  optional LabelSchemaInput input = 5 [(validate_required) = true];
-  optional string instruction = 6;
-  optional bool enable_comment = 7;
-
-  // Tag 4 previously held the now-removed `title` field.
-  reserved 4;
   reserved "title";
 
   message Response {
