@@ -135,7 +135,6 @@ The OSS-native surface in `mlflow.genai.label_schemas`:
 | <APILink fn="mlflow.genai.label_schemas.get_experiment_label_schema_by_name" /> | Fetch by `(experiment_id, name)`.                                                                                                 |
 | <APILink fn="mlflow.genai.label_schemas.list_experiment_label_schemas" />       | Paginated list scoped to an experiment.                                                                                           |
 | <APILink fn="mlflow.genai.label_schemas.update_experiment_label_schema" />      | Sparse-update (retarget input, rename, edit instruction). `type` is immutable.                                                    |
-| <APILink fn="mlflow.genai.label_schemas.upsert_experiment_label_schema" />      | Atomic create-or-replace by `(experiment_id, name)`.                                                                              |
 | <APILink fn="mlflow.genai.label_schemas.delete_experiment_label_schema" />      | Delete by `schema_id`. Existing assessments survive (their values are kept; they render in the review UI without a typed widget). |
 
 ```python
@@ -178,14 +177,6 @@ schema's name on the same experiment are rejected with
 `RESOURCE_ALREADY_EXISTS`. The admin UI disables the name field on edit;
 this is a UI-only restriction.
 
-### Upsert semantics
-
-`upsert_experiment_label_schema` is a single-transaction create-or-replace
-keyed on `(experiment_id, name)`. `type` is immutable on replace; a
-mismatch raises `INVALID_PARAMETER_VALUE`. Omitting `enable_comment`
-preserves the existing value on replace (and defaults to `False` on
-create).
-
 ## Validation rules
 
 These rules are enforced server-side; the admin UI mirrors them so you get
@@ -193,7 +184,7 @@ immediate feedback before submission.
 
 | Field              | Rule                                                                                                                                                                                            |
 | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `name`             | 1-256 characters of free text. Shown to reviewers as the label prompt and used as the assessment key. Unique within the experiment; renameable via update (the admin UI disables this on edit). |
+| `name`             | 1-250 characters of free text. Shown to reviewers as the label prompt and used as the assessment key. Unique within the experiment; renameable via update (the admin UI disables this on edit). |
 | `type`             | One of `"feedback"` or `"expectation"`. Immutable after create.                                                                                                                                 |
 | `instruction`      | Optional, up to 1000 characters.                                                                                                                                                                |
 | `enable_comment`   | `bool`.                                                                                                                                                                                         |
