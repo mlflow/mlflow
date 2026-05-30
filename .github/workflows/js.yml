@@ -101,9 +101,5 @@ jobs:
           retention-days: 3
           if-no-files-found: ignore
       - name: Run build
-        env:
-          # Prevent warnings (emitted from react-pdf) from being treated as errors
-          # https://github.com/wojtekmaj/react-pdf/issues/280
-          CI: false
         run: |
           yarn build

@@ -39,6 +39,28 @@
       },
       "last_updated_at": "2026-04-24"
     },
+    "FLUX-1.1-pro": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
+    },
+    "FLUX.1-Kontext-pro": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
+    },
     "Llama-3.2-11B-Vision-Instruct": {
       "mode": "chat",
       "context_window": {
@@ -815,6 +837,17 @@
         "response_schema": false
       },
       "last_updated_at": "2026-04-24"
+    },
+    "flux.2-pro": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
     },
     "global/grok-3": {
       "mode": "chat",

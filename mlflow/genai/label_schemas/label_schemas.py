@@ -182,10 +182,10 @@ class InputNumeric(InputType):
 class InputPassFail(InputType):
     """A Pass/Fail input for collecting feedback from stakeholders.
 
-    Renders as a thumbs-up / thumbs-down toggle in the SME review UI. The
-    ``positive_label`` and ``negative_label`` fields carry the semantic
-    polarity directly so the UI never has to infer "good" vs "bad" from
-    option strings.
+    Renders as a thumbs-up / thumbs-down toggle in the review UI. The
+    ``positive_label`` and ``negative_label`` fields carry the
+    positive/negative meaning directly so the UI never has to infer
+    "good" vs "bad" from option strings.
 
     For example, a correctness schema sets
     ``InputPassFail(positive_label="Correct", negative_label="Incorrect")``;
@@ -263,20 +263,21 @@ class LabelSchema:
     """Whether to enable additional comment functionality for reviewers."""
 
     schema_id: str | None = None
-    """Server-generated identifier for OSS-native schemas. ``None`` for
-    Databricks-routed schemas (identity there is `(review_app_id, name)`)."""
+    """Server-generated identifier, set when the schema is created through
+    the MLflow tracking store. ``None`` for Databricks-routed schemas
+    (identity there is `(review_app_id, name)`)."""
 
     experiment_id: str | None = None
-    """Parent experiment for OSS-native schemas. ``None`` for Databricks-routed."""
+    """Parent experiment. ``None`` for Databricks-routed schemas."""
 
     created_by: str | None = None
-    """User who created the schema (OSS-native)."""
+    """User who created the schema. ``None`` for Databricks-routed schemas."""
 
     created_at: int | None = None
-    """Creation timestamp in milliseconds (OSS-native)."""
+    """Creation timestamp in milliseconds. ``None`` for Databricks-routed schemas."""
 
     updated_at: int | None = None
-    """Last update timestamp in milliseconds (OSS-native)."""
+    """Last update timestamp in milliseconds. ``None`` for Databricks-routed schemas."""
 
     @classmethod
     def _convert_databricks_input(cls, input_obj):
