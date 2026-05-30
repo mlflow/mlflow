@@ -361,6 +361,7 @@ class GatewayEndpoint(_MlflowObject):
     experiment_id: str | None = None
     usage_tracking: bool = True
     workspace: str | None = None
+    calls_per_minute: int | None = None
 
     def __post_init__(self):
         self.workspace = resolve_entity_workspace_name(self.workspace)

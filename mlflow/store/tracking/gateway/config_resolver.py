@@ -242,6 +242,7 @@ def get_endpoint_config(
         result = GatewayEndpointConfig(
             endpoint_id=sql_endpoint.endpoint_id,
             endpoint_name=sql_endpoint.name,
+            calls_per_minute=endpoint_entity.calls_per_minute,
             models=model_configs,
             routing_strategy=endpoint_entity.routing_strategy,
             fallback_config=endpoint_entity.fallback_config,

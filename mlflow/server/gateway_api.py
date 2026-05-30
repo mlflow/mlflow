@@ -57,6 +57,7 @@ from mlflow.gateway.providers.base import (
     TrafficRouteProvider,
 )
 from mlflow.gateway.providers.utils import provider_call_duration_ms
+from mlflow.gateway.rate_limit import check_rate_limit
 from mlflow.gateway.schemas import chat, embeddings
 from mlflow.gateway.tracing_utils import (
     aggregate_anthropic_messages_stream_chunks,
@@ -619,6 +620,7 @@ async def invocations(endpoint_name: str, request: Request):
     endpoint_config = get_endpoint_config(endpoint_name=endpoint_name, store=store)
     _set_gateway_telemetry_state(request, endpoint_config)
     check_budget_limit(store, endpoint_config, workspace=workspace)
+    check_rate_limit(endpoint_config)
     guardrails, auth_headers = _get_guardrails_and_auth(store, endpoint_config, request)
 
     # Detect request type based on payload structure
@@ -761,6 +763,7 @@ async def chat_completions(request: Request):
     )
     _set_gateway_telemetry_state(request, endpoint_config)
     check_budget_limit(store, endpoint_config, workspace=workspace)
+    check_rate_limit(endpoint_config)
     guardrails, auth_headers = _get_guardrails_and_auth(store, endpoint_config, request)
 
     try:
@@ -869,6 +872,7 @@ async def openai_passthrough_chat(request: Request):
     )
     _set_gateway_telemetry_state(request, endpoint_config)
     check_budget_limit(store, endpoint_config, workspace=workspace)
+    check_rate_limit(endpoint_config)
     guardrails, auth_headers = _get_guardrails_and_auth(store, endpoint_config, request)
 
     if body.get("stream", False):
@@ -961,6 +965,7 @@ async def openai_passthrough_embeddings(request: Request):
     )
     _set_gateway_telemetry_state(request, endpoint_config)
     check_budget_limit(store, endpoint_config, workspace=workspace)
+    check_rate_limit(endpoint_config)
     guardrails, auth_headers = _get_guardrails_and_auth(store, endpoint_config, request)
 
     try:
@@ -1018,6 +1023,7 @@ async def _openai_responses_passthrough_unary(
     )
     _set_gateway_telemetry_state(request, endpoint_config)
     check_budget_limit(store, endpoint_config, workspace=workspace)
+    check_rate_limit(endpoint_config)
     guardrails, auth_headers = _get_guardrails_and_auth(store, endpoint_config, request)
 
     async def _guarded_passthrough(body: dict[str, Any]) -> dict[str, Any]:
@@ -1089,6 +1095,7 @@ async def openai_passthrough_responses(request: Request):
         )
         _set_gateway_telemetry_state(request, endpoint_config)
         check_budget_limit(store, endpoint_config, workspace=workspace)
+        check_rate_limit(endpoint_config)
         guardrails, auth_headers = _get_guardrails_and_auth(store, endpoint_config, request)
 
         async def _guarded_stream(body: dict[str, Any]):
@@ -1205,6 +1212,7 @@ async def anthropic_passthrough_messages(request: Request):
     )
     _set_gateway_telemetry_state(request, endpoint_config)
     check_budget_limit(store, endpoint_config, workspace=workspace)
+    check_rate_limit(endpoint_config)
     guardrails, auth_headers = _get_guardrails_and_auth(store, endpoint_config, request)
 
     if body.get("stream", False):
@@ -1304,6 +1312,7 @@ async def gemini_passthrough_generate_content(endpoint_name: str, request: Reque
     )
     _set_gateway_telemetry_state(request, endpoint_config)
     check_budget_limit(store, endpoint_config, workspace=workspace)
+    check_rate_limit(endpoint_config)
     guardrails, auth_headers = _get_guardrails_and_auth(store, endpoint_config, request)
 
     async def _guarded_passthrough(body: dict[str, Any]) -> dict[str, Any]:
@@ -1374,6 +1383,7 @@ async def gemini_passthrough_stream_generate_content(endpoint_name: str, request
     )
     _set_gateway_telemetry_state(request, endpoint_config)
     check_budget_limit(store, endpoint_config, workspace=workspace)
+    check_rate_limit(endpoint_config)
     guardrails, auth_headers = _get_guardrails_and_auth(store, endpoint_config, request)
 
     # Post-LLM guardrails are not applied to streaming responses.
@@ -1449,6 +1459,7 @@ async def raw_proxy(endpoint_name: str, path: str, request: Request):
     )
     _set_gateway_telemetry_state(request, endpoint_config)
     check_budget_limit(store, endpoint_config, workspace=workspace)
+    check_rate_limit(endpoint_config)
     guardrails, auth_headers = _get_guardrails_and_auth(store, endpoint_config, request)
 
     # _do_proxy is always an async generator so maybe_traced_gateway_call can wrap it
