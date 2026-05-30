@@ -8054,6 +8054,10 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
     def get_label_schema_by_name(self, experiment_id, name):
         with self.ManagedSessionMaker() as session:
+            # Validate via the canonical helper so a non-integer experiment ID
+            # raises INVALID_PARAMETER_VALUE (rather than a raw ValueError from
+            # int(...)), matching the other experiment-scoped store methods.
+            self._validate_experiment_exists(session, experiment_id)
             sql_schema = (
                 self
                 ._label_schema_query(session)

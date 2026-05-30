@@ -143,7 +143,9 @@ def _validate_text_input(input_obj: InputText) -> None:
 def _validate_numeric_input(input_obj: InputNumeric) -> None:
     for field_name in ("min_value", "max_value"):
         value = getattr(input_obj, field_name)
-        if value is not None and not isinstance(value, (int, float)):
+        # `bool` is a subclass of `int`; reject it so True/False can't slip
+        # through as 1/0 bounds (mirrors `InputText.max_length`).
+        if value is not None and (not isinstance(value, (int, float)) or isinstance(value, bool)):
             raise MlflowException.invalid_parameter_value(
                 f"`InputNumeric.{field_name}` must be numeric or None; "
                 f"got {value.__class__.__name__}."
@@ -175,6 +177,11 @@ def _validate_input(input_obj) -> None:
         return
     if isinstance(input_obj, InputCategorical):
         _validate_categorical_options(input_obj.options)
+        if not isinstance(input_obj.multi_select, bool):
+            raise MlflowException.invalid_parameter_value(
+                f"`InputCategorical.multi_select` must be a bool; "
+                f"got {input_obj.multi_select.__class__.__name__}."
+            )
         return
     if isinstance(input_obj, InputNumeric):
         _validate_numeric_input(input_obj)
