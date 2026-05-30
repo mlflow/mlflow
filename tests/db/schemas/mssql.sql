@@ -223,9 +223,8 @@ CREATE TABLE experiment_tags (
 
 CREATE TABLE label_schemas (
 	schema_id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
-	workspace VARCHAR(63) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('default') NOT NULL,
 	experiment_id INTEGER NOT NULL,
-	name VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	name VARCHAR(250) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	type VARCHAR(16) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	instruction VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	enable_comment BIT DEFAULT ('0') NOT NULL,
