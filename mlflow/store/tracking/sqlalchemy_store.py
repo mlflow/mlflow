@@ -8161,7 +8161,18 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 sql_schema.input_config = input_config
 
             sql_schema.last_update_time = get_current_time_millis()
-            session.flush()
+            try:
+                session.flush()
+            except IntegrityError as e:
+                # Race: a concurrent create/rename claimed (experiment_id, name)
+                # between the rename pre-check above and this flush. Surface the
+                # expected error code instead of a raw SQLAlchemy exception, as
+                # the create path does.
+                raise MlflowException(
+                    f"Label schema with name '{sql_schema.name}' already exists for "
+                    f"experiment '{sql_schema.experiment_id}'.",
+                    error_code=RESOURCE_ALREADY_EXISTS,
+                ) from e
             return sql_schema.to_mlflow_entity()
 
     def delete_label_schema(self, schema_id):
