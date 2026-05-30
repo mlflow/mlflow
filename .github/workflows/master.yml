@@ -325,9 +325,12 @@ jobs:
           # (removed HallucinationEvaluator/RelevanceEvaluator/etc. and LiteLLMModel)
           # `guardrails-ai` is temporarily unavailable on PyPI; skip both the
           # install and the corresponding tests until it is republished.
+          # TODO: drop the langchain-community<0.4 pin once ragas releases a fix
+          # for the removed `langchain_community.chat_models.vertexai` import.
+          # https://github.com/vibrantlabsai/ragas/issues/2745
           uv pip install \
             -r requirements/test-requirements.txt \
-            deepeval ragas 'arize-phoenix-evals<3.0.0' trulens trulens-providers-litellm 'google-adk[gcp]'
+            deepeval ragas 'arize-phoenix-evals<3.0.0' 'langchain-community<0.4' trulens trulens-providers-litellm 'google-adk[gcp]'
       - uses: ./.github/actions/show-versions
       - name: Run GenAI Tests (OSS)
         run: |
