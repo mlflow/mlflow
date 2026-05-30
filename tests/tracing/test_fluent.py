@@ -51,6 +51,7 @@ from mlflow.tracing.provider import (
     safe_set_span_in_context,
     set_destination,
 )
+from mlflow.tracking import MlflowClient
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.version import IS_TRACING_SDK_ONLY
 
@@ -777,12 +778,13 @@ def test_start_span_context_manager(async_logging_enabled):
 
 
 def test_start_span_with_run_id(async_logging_enabled):
-    client = mlflow.MlflowClient()
+    client = MlflowClient()
     experiment_id = client.create_experiment(f"test_experiment_{uuid.uuid4().hex}")
     run = client.create_run(experiment_id=experiment_id)
 
     with mlflow.start_span(
         name="root_span",
+        trace_destination=MlflowExperimentLocation(experiment_id=experiment_id),
         run_id=run.info.run_id,
     ):
         pass
@@ -801,7 +803,7 @@ def test_start_span_with_run_id(async_logging_enabled):
 
 
 def test_start_span_with_run_id_takes_precedence_over_active_run(async_logging_enabled):
-    client = mlflow.MlflowClient()
+    client = MlflowClient()
     active_experiment_id = client.create_experiment(f"test_experiment_{uuid.uuid4().hex}")
     explicit_experiment_id = client.create_experiment(f"test_experiment_{uuid.uuid4().hex}")
     active_run = client.create_run(experiment_id=active_experiment_id)
@@ -810,12 +812,13 @@ def test_start_span_with_run_id_takes_precedence_over_active_run(async_logging_e
     with mlflow.start_run(run_id=active_run.info.run_id):
         with mlflow.start_span(
             name="root_span",
+            trace_destination=MlflowExperimentLocation(experiment_id=active_experiment_id),
             run_id=explicit_run.info.run_id,
         ):
             pass
 
     traces = mlflow.search_traces(
-        locations=[explicit_experiment_id],
+        locations=[active_experiment_id],
         return_type="list",
         include_spans=False,
         flush=True,
@@ -823,20 +826,12 @@ def test_start_span_with_run_id_takes_precedence_over_active_run(async_logging_e
 
     assert len(traces) == 1
     trace_info = traces[0].info
-    assert trace_info.experiment_id == explicit_experiment_id
+    assert trace_info.experiment_id == active_experiment_id
     assert trace_info.request_metadata[TraceMetadataKey.SOURCE_RUN] == explicit_run.info.run_id
-
-    active_experiment_traces = mlflow.search_traces(
-        locations=[active_experiment_id],
-        return_type="list",
-        include_spans=False,
-        flush=True,
-    )
-    assert active_experiment_traces == []
 
 
 def test_start_span_with_run_id_warns_for_child_span(async_logging_enabled):
-    client = mlflow.MlflowClient()
+    client = MlflowClient()
     experiment_id = client.create_experiment(f"test_experiment_{uuid.uuid4().hex}")
     run_1 = client.create_run(experiment_id=experiment_id)
     run_2 = client.create_run(experiment_id=experiment_id)

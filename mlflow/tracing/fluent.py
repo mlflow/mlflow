@@ -594,10 +594,6 @@ def start_span(
 
     try:
         experiment_id = getattr(trace_destination, "experiment_id", None)
-        if run_id is not None and experiment_id is None and get_current_active_span() is None:
-            from mlflow.tracking.client import MlflowClient
-
-            experiment_id = MlflowClient().get_run(run_id).info.experiment_id
 
         otel_span = provider.start_span_in_context(
             name,
