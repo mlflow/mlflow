@@ -4,7 +4,15 @@
 
 MLflow 3.13.0 includes several major features and improvements
 
-Breaking changes:
+### Major New Features
+
+- **🔐 Role-Based Access Control & Admin UI**: A full RBAC system with reusable roles and workspace-scoped grants, plus a new web Admin UI for managing users, roles, and permissions on self-hosted MLflow.
+- **🗄️ Trace Retention & Auto Archival**: Automatically move aged trace span data out of your SQL backend into object storage (e.g. S3) while keeping every trace fully readable in the UI and APIs.
+- **🤖 One-click coding agent observability**: Onboard Claude Code, OpenAI Codex, or Gemini CLI to the AI Gateway in one click for tracing, usage tracking, budgets, and guardrails, plus new Ollama and OpenAI Codex engines for MLflow Assistant.
+- **☸️ Helm chart for Kubernetes**: An official, production-ready Helm chart for deploying the MLflow tracking server to any Kubernetes cluster.
+- **🪵 Span log levels**: Python-`logging`-style severity levels on spans, with a "Minimum log level" filter in the trace UI to hide low-level noise.
+
+### Breaking Changes
 
 - [Docs / Scoring] Remove MLServer integration from pyfunc serving backend (#23356, @harupy)
 - [Tracking] RBAC: `default_permission` is a floor; workspace `USE` stops folding into resource lookups (#23379, @PattaraS)
@@ -16,7 +24,7 @@ Breaking changes:
 - [UI] Allow workspace `USE` to create experiments and registered models (#22941, @PattaraS)
 - [Model Registry / Tracking] Raise error for filesystem backends with opt-out env var (#22773, @harupy)
 
-Features:
+### Other Assorted Features & Improvements:
 
 - [] Support AI Gateway as a backend of MLflow Assistant (#23559, @B-Step62)
 - [UI] Make admin pickers target the workspace they're granting into (#23543, @PattaraS)
