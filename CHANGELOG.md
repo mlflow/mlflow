@@ -6,27 +6,23 @@ MLflow 3.13.0 includes several major features and improvements
 
 ### Major New Features
 
-- **🔐 Role-Based Access Control & Admin UI**: A full RBAC system with reusable roles and workspace-scoped grants, plus a new web Admin UI for managing users, roles, and permissions on self-hosted MLflow.
-- **🗄️ Trace Retention & Auto Archival**: Automatically move aged trace span data out of your SQL backend into object storage (e.g. S3) while keeping every trace fully readable in the UI and APIs.
-- **🤖 One-click coding agent observability**: Onboard Claude Code, OpenAI Codex, or Gemini CLI to the AI Gateway in one click for tracing, usage tracking, budgets, and guardrails, plus new Ollama and OpenAI Codex engines for MLflow Assistant.
-- **☸️ Helm chart for Kubernetes**: An official, production-ready Helm chart for deploying the MLflow tracking server to any Kubernetes cluster.
-- **🪵 Span log levels**: Python-`logging`-style severity levels on spans, with a "Minimum log level" filter in the trace UI to hide low-level noise.
+- **🔐 [Role-Based Access Control & Admin UI](https://mlflow.org/docs/latest/self-hosting/security/role-based-access-control)**: A full RBAC system with reusable roles and workspace-scoped grants, plus a new web Admin UI for managing users, roles, and permissions on self-hosted MLflow.
+- **🗄️ [Trace Retention & Auto Archival](https://mlflow.org/docs/latest/genai/tracing/observe-with-traces/archive-traces)**: Automatically move aged trace span data out of your SQL backend into object storage (e.g. S3) while keeping every trace fully readable in the UI and APIs.
+- **🤖 [One-click coding agent observability](https://mlflow.org/docs/latest/genai/governance/ai-gateway/coding-agents/)**: Onboard Claude Code, OpenAI Codex, or Gemini CLI to the AI Gateway in one click for tracing, usage tracking, budgets, and guardrails, plus new Ollama and OpenAI Codex engines for MLflow Assistant.
+- **☸️ [Helm chart for Kubernetes](https://mlflow.org/docs/latest/self-hosting/kubernetes-helm)**: An official, production-ready Helm chart for deploying the MLflow tracking server to any Kubernetes cluster.
+- **🪵 [Span log levels](https://mlflow.org/docs/latest/genai/tracing/app-instrumentation/logging)**: Python-`logging`-style severity levels on spans, with a "Minimum log level" filter in the trace UI to hide low-level noise.
 
 ### Breaking Changes
 
-- [Docs / Scoring] Remove MLServer integration from pyfunc serving backend (#23356, @harupy)
-- [Tracking] RBAC: `default_permission` is a floor; workspace `USE` stops folding into resource lookups (#23379, @PattaraS)
-- [Tracking] Remove deprecated legacy per-resource permission methods + endpoints (#23337, @PattaraS)
-- [Tracing] Replace Python hook used by `mlflow autolog claude` to the new official claude plugin (#23339, @B-Step62)
-- [Docs / Evaluation] Switch default judge alignment optimizer to MemAlign (#23254, @veronicalyu320)
-- [Server-infra / Tracking] RBAC Phase 2: remove legacy permission REST endpoints + client methods (#22859, @PattaraS)
-- [Server-infra / Tracking] RBAC Phase 2: collapse legacy permission tables into `role_permissions` (#22855, @PattaraS)
-- [UI] Allow workspace `USE` to create experiments and registered models (#22941, @PattaraS)
-- [Model Registry / Tracking] Raise error for filesystem backends with opt-out env var (#22773, @harupy)
+- [Tracking] **RBAC overhaul**: collapse legacy per-resource permission tables into `role_permissions`; remove the legacy permission REST endpoints, client methods, and per-resource methods; make `default_permission` a floor; and let workspace `USE` create experiments and registered models (#22855, #22859, #22941, #23337, #23379, @PattaraS)
+- [Scoring] Remove MLServer integration from pyfunc serving backend (#23356, @harupy)
+- [Tracing] Replace the Python hook used by `mlflow autolog claude` with the new official Claude plugin (#23339, @B-Step62)
+- [Evaluation] Switch the default judge alignment optimizer to MemAlign (#23254, @veronicalyu320)
+- [Model Registry / Tracking] Raise an error for filesystem backends unless an opt-out env var is set (#22773, @harupy)
 
 ### Other Assorted Features & Improvements:
 
-- [] Support AI Gateway as a backend of MLflow Assistant (#23559, @B-Step62)
+- [UI] Support AI Gateway as a backend of MLflow Assistant (#23559, @B-Step62)
 - [UI] Make admin pickers target the workspace they're granting into (#23543, @PattaraS)
 - [UI] Bring direct-grant picker to parity with role picker (#23420, @PattaraS)
 - [UI] Cherry-pick: Add OpenAI Codex CLI as assistant provider (#22566) (#23517, @B-Step62)
@@ -34,7 +30,7 @@ MLflow 3.13.0 includes several major features and improvements
 - [UI] Add coding-agent endpoint creation flow in AI Gateway UI (#23430, @TomeHirata)
 - [Tracking / UI] Unified per-user permission APIs: `grant` / `revoke` / `get` / `list` under `/mlflow/users/permissions/*` (#23247, @PattaraS)
 - [Evaluation / Tracing] Add `mlflow.genai.test_agent` for automated agent stress-testing (#22990, @serena-ruan)
-- [] Add /gateway/proxy/{endpoint_name}/{path} raw proxy endpoint (#23330, @TomeHirata)
+- [Gateway] Add /gateway/proxy/{endpoint_name}/{path} raw proxy endpoint (#23330, @TomeHirata)
 - [UI] Add Ollama as assistant provider (#22098, @SuperSonnix71)
 - [Model Registry / Tracking] feat(tracking): Add reader/writer instance routing for database replicas (#22910, @ravidarbha)
 - [Tracing / Tracking] Add workspace trace archival configuration plumbing (#22164, @HumairAK)
@@ -67,30 +63,30 @@ Bug fixes:
 - [Tracing] Clear archive-now requests for non-archivable leftovers (#23655, @HumairAK)
 - [Tracking] Forward MLflow client telemetry from inside Databricks workloads (#23483, @smoorjani)
 - [UI] Drop the vestigial `directPermissions` parallel pass; hide synthetic `__user_<id>__` roles on Account/UserDetail (#23578, @PattaraS)
-- [] fenil/fix-response-format-json: Tighten response format JSON schema type (#23290, @fenil210)
+- [Gateway] Tighten response format JSON schema type (#23290, @fenil210)
 - [Tracking] fix(tracking): return `<console>` for `mlflow.source.name` when `sys.argv[0]` is empty (#23352, @xodn348)
 - [Scoring] Fix UnicodeEncodeError on artifact download with non-ASCII filename (#23241, @1fanwang)
 - [Artifacts / UI] Preserve pdfjs-dist bundles in webpack build (`craco.config.js`) (#23349, @B-Step62)
-- [] Improve misleading DB SDK auth error (#23374, @B-Step62)
+- [Tracking] Improve misleading DB SDK auth error (#23374, @B-Step62)
 - [Tracing] Make `mlflow.get_trace` V4 retry policy configurable (#23443, @artjen)
 - [Tracking] Release `_post_import_hooks_lock` before firing hooks (#23466, @harupy)
 - [Model Registry / Prompts] RBAC: extend `prompt` resource_type to after-request handlers (#23426, @PattaraS)
 - [Evaluation] Surface mlflow version mismatch when deserializing scorers (#23215, @smoorjani)
 - [Tracing] Ship compiled `dist/` in @mlflow/mlflow-openclaw so `openclaw plugins install` works (#23220, @B-Step62)
 - [Tracing] Fix ended `LiveSpan` state mutation (#23152, @SahilKumar75)
-- [] Fix `AmazonBedrockProvider._build_converse_kwargs` tool-call history and validation for Bedrock Converse (#23223, @copilot-swe-agent)
+- [Gateway] Fix `AmazonBedrockProvider._build_converse_kwargs` tool-call history and validation for Bedrock Converse (#23223, @copilot-swe-agent)
 - [UI] fenil-fix: experiment name error (#23199, @fenil210)
 - [Tracking] Add workspace isolation on scorers when creating a guardrail (#23115, @mprahl)
 - [Evaluation] [Security] Add `MLFLOW_ALLOW_PICKLE_DESERIALIZATION` guard to `PickleEvaluationArtifact` (#23183, @TomeHirata)
 - [UI] Fix `getExperimentNameValidator` showing incorrect "deleted state" error for active experiments (#23169, @copilot-swe-agent)
 - [Tracking] Fix `runs:/<run_id>/<model_name>` loading by resolving logged-model artifacts via `models:/<model_id>` (#23130, @copilot-swe-agent)
-- [] Fix Vertex AI gateway to use Anthropic API format for Claude models (#23175, @TomeHirata)
+- [Gateway] Fix Vertex AI gateway to use Anthropic API format for Claude models (#23175, @TomeHirata)
 - [Tracing] Fix invalid stop-hook command when using `pixi` environment manager (#23030, @copilot-swe-agent)
-- [] Fix MySQL-incompatible `NULLS LAST` syntax in `list_endpoint_guardrail_configs` (#23168, @copilot-swe-agent)
+- [Gateway] Fix MySQL-incompatible `NULLS LAST` syntax in `list_endpoint_guardrail_configs` (#23168, @copilot-swe-agent)
 - [Evaluation] `gateway`: honor Anthropic `api_base` from secret `auth_config` (#23167, @copilot-swe-agent)
-- [] Fix nested array items being stripped from function tool schemas (#23053, @shyamspr)
+- [Gateway] Fix nested array items being stripped from function tool schemas (#23053, @shyamspr)
 - [Tracing / Tracking] Fix OTLP trace ingestion: double-encoded request ID and missing trace tags (#23067, @sairavuri-sudo)
-- [] Add per-image/video/audio pricing to `amazon.nova-2-multimodal-embeddings-v1:0` in Bedrock catalog (#23117, @copilot-swe-agent)
+- [Gateway] Add per-image/video/audio pricing to `amazon.nova-2-multimodal-embeddings-v1:0` in Bedrock catalog (#23117, @copilot-swe-agent)
 - [Evaluation] Skip re-alignment of unchanged traces in `MemAlignOptimizer` (#23008, @veronicalyu320)
 - [Tracing] Fix trace API authorization vulnerability (#23014, @TomeHirata)
 - [Models] Fix `sentence_transformers` pyfunc predict for v5.4+ (#23108, @harupy)
@@ -102,7 +98,7 @@ Bug fixes:
 - [Models / Tracking] Add `MLFLOW_SKIP_PIP_REQUIREMENTS_CHECK` env var to bypass pip validation in air-gapped environments (#22920, @copilot-swe-agent)
 - [Tracking] Aggregate role-based grants in workspace-level permission checks (#22954, @PattaraS)
 - [UI] Fix unclickable "View logs for this period" link in `ScrollableTooltip` when many data series are shown (#22917, @copilot-swe-agent)
-- [] Fix `delete_user` FK constraint failure when user has dependent rows (#22922, @PattaraS)
+- [Tracking] Fix `delete_user` FK constraint failure when user has dependent rows (#22922, @PattaraS)
 - [Tracing] Preserve cache_read tokens in `@mlflow/claude-code` TypeScript plugin for cache observability (#22906, @dgokeeffe)
 - [Tracing] Add OpenClaw tracing plugin (#22717, @B-Step62)
 - [UI] Fix uncaught rejection in `CreateBudgetPolicyModal` submit (#22903, @PattaraS)
