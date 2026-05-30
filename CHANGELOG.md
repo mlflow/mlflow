@@ -42,7 +42,7 @@ MLflow 3.13.0 includes several major features and improvements
 - [Tracing] Claude Code Agent Typescript (#20414, @joelrobin18)
 - [UI] Adding metric filter component for Experiment Usage tab (#23120, @aaronteo-db)
 - [Tracing] Add `Link` entity and `LiveSpan.add_link()` for OpenTelemetry Span Links (#22797, @khaledsulayman)
-- [Docs / Evaluation] Add Google ADK  and  third-party scorers (#22299, @debu-sinha)
+- [Docs / Evaluation] Add Google ADK and third-party scorers (#22299, @debu-sinha)
 - [UI] Open `/admin` to workspace managers (scoped per their workspace) (#23086, @PattaraS)
 - [Tracing] Trace `Runner.run_streamed()` in OpenAI Agents SDK autolog (#22962, @ktrk115)
 - [Tracking] Feature/sagemaker build network option (#22996, @pdifranc)
