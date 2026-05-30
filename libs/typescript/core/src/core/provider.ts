@@ -1,14 +1,16 @@
 import { trace, Tracer } from '@opentelemetry/api';
+import { NodeSDK } from '@opentelemetry/sdk-node';
+import { SpanProcessor } from '@opentelemetry/sdk-trace-base';
+import { MlflowClient } from '../clients';
 import { MlflowSpanExporter, MlflowSpanProcessor } from '../exporters/mlflow';
 import {
   DatabricksUCTableSpanExporter,
   DatabricksUCTableSpanProcessor,
 } from '../exporters/uc_table';
-import { NodeSDK } from '@opentelemetry/sdk-node';
-import { SpanProcessor } from '@opentelemetry/sdk-trace-base';
+import { MlflowWalSpanExporter } from '../exporters/wal';
 import { getConfig, getAuthProvider, type UnityCatalogLocationOptions } from './config';
-import { MlflowClient } from '../clients';
 import type { UnityCatalogLocation } from './entities/trace_location';
+import { asyncExportEnabled } from './utils/env';
 
 let sdk: NodeSDK | null = null;
 // Keep a reference to the active span processor for flushing.
@@ -51,8 +53,18 @@ export function initializeSDK(): void {
       const ucExporter = new DatabricksUCTableSpanExporter(client);
       processor = new DatabricksUCTableSpanProcessor(ucExporter, ucLocation);
     } else {
-      const exporter = new MlflowSpanExporter(client);
-      processor = new MlflowSpanProcessor(exporter);
+      if (asyncExportEnabled()) {
+        // WAL path: the hook submits records to a daemon over IPC; the
+        // bundled daemon performs the actual auth setup, fsyncs the
+        // record to `queue.log`, and runs the HTTP upload in a separate
+        // process. The IPC client spawns the daemon on first use, so no
+        // client construction or supervisor wiring is needed here.
+        const mlflowWalExporter = new MlflowWalSpanExporter();
+        processor = new MlflowSpanProcessor(mlflowWalExporter);
+      } else {
+        const exporter = new MlflowSpanExporter(client);
+        processor = new MlflowSpanProcessor(exporter);
+      }
     }
 
     sdk = new NodeSDK({ spanProcessors: [processor] });
@@ -87,6 +99,11 @@ export function getTracer(module_name: string): Tracer {
 
 /**
  * Force flush all pending trace exports.
+ *
+ * In WAL mode this only awaits on-disk durability of the WAL appends,
+ * not the upstream HTTP upload — that's the daemon's job and the
+ * caller (e.g. the Claude Code Stop hook) is intentionally decoupled
+ * from backend latency.
  */
 export async function flushTraces(): Promise<void> {
   await processor?.forceFlush();

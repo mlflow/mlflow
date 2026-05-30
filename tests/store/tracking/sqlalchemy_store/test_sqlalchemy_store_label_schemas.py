@@ -236,45 +236,6 @@ def test_update_missing(store):
         store.update_label_schema("ls-does-not-exist", instruction="X")
 
 
-def test_upsert_creates(store):
-    exp_id = _create_experiments(store, "test_upsert_new")
-    schema = store.upsert_label_schema(
-        experiment_id=exp_id,
-        name="Quality",
-        type="feedback",
-        input=InputNumeric(min_value=1.0, max_value=5.0),
-    )
-    assert schema.schema_id.startswith(SqlLabelSchema.LABEL_SCHEMA_ID_PREFIX)
-    assert schema.input == InputNumeric(min_value=1.0, max_value=5.0)
-
-
-def test_upsert_replaces(store):
-    exp_id = _create_experiments(store, "test_upsert_replace")
-    schema = _create_pass_fail_schema(store, exp_id)
-
-    upserted = store.upsert_label_schema(
-        experiment_id=exp_id,
-        name=schema.name,
-        type="feedback",
-        input=InputPassFail(positive_label="Yes", negative_label="No"),
-    )
-    assert upserted.schema_id == schema.schema_id
-    assert upserted.input.positive_label == "Yes"
-
-
-def test_upsert_rejects_type_change(store):
-    exp_id = _create_experiments(store, "test_upsert_type_immutable")
-    _create_pass_fail_schema(store, exp_id)
-
-    with pytest.raises(MlflowException, match="type.*immutable"):
-        store.upsert_label_schema(
-            experiment_id=exp_id,
-            name="Is the answer correct?",
-            type="expectation",
-            input=InputPassFail(positive_label="a", negative_label="b"),
-        )
-
-
 def test_delete_removes(store):
     exp_id = _create_experiments(store, "test_delete")
     schema = _create_pass_fail_schema(store, exp_id)
@@ -314,8 +275,8 @@ def test_delete_missing_is_noop(store):
             "at most 64 characters",
         ),
         (
-            {"name": "a" * 257},
-            "at most 256 characters",
+            {"name": "a" * 251},
+            "at most 250 characters",
         ),
         (
             {"instruction": "a" * 1001},

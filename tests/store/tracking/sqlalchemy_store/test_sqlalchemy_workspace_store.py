@@ -2431,13 +2431,29 @@ def test_label_schemas_are_workspace_scoped(workspace_tracking_store):
         with pytest.raises(MlflowException, match="not found"):
             workspace_tracking_store.get_label_schema_by_name(exp_a_id, "correctness")
 
+        # Cross-workspace update: workspace-b cannot patch workspace-a's schema
+        # (the join to workspace-a's experiment yields no row to update).
+        with pytest.raises(MlflowException, match="not found"):
+            workspace_tracking_store.update_label_schema(schema_a.schema_id, instruction="hijacked")
+
+        # Cross-workspace list: workspace-b cannot list schemas under
+        # workspace-a's experiment, which is itself invisible to workspace-b.
+        with pytest.raises(MlflowException, match="No Experiment with id"):
+            workspace_tracking_store.list_label_schemas(exp_a_id)
+
         # Cross-workspace delete: silently no-ops (schema is invisible).
         workspace_tracking_store.delete_label_schema(schema_a.schema_id)
 
     with WorkspaceContext("team-a"):
-        # Schema A is still intact in its own workspace.
+        # Schema A is still intact in its own workspace (the cross-workspace
+        # update and delete above were no-ops against it).
         intact = workspace_tracking_store.get_label_schema(schema_a.schema_id)
         assert intact.schema_id == schema_a.schema_id
+        assert intact.instruction != "hijacked"
+
+        # Within-workspace list resolves schema A via the experiment join.
+        listed = workspace_tracking_store.list_label_schemas(exp_a_id)
+        assert [s.schema_id for s in listed] == [schema_a.schema_id]
 
         # Cross-workspace get-by-id from workspace-a → workspace-b.
         with pytest.raises(MlflowException, match="not found"):

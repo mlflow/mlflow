@@ -487,8 +487,6 @@ tpe = "tpe"                        # Tree-structured Parzen Estimator (hyperopt/
 TPE = "TPE"                        # Tree-structured Parzen Estimator (hyperopt/optuna)
 indx = "indx"                      # intentional shorthand for index
 Tru = "Tru"                        # TruLens library name prefix
-SME = "SME"                        # subject-matter expert
-SMEs = "SMEs"                      # subject-matter experts
 
 # https://github.com/crate-ci/typos/blob/master/docs/reference.md
 [tool.typos.files]
