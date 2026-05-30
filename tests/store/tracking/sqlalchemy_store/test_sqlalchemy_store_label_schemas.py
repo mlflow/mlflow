@@ -143,6 +143,13 @@ def test_get_by_id_missing(store):
         store.get_label_schema("ls-does-not-exist")
 
 
+def test_get_by_name_rejects_non_integer_experiment(store):
+    # A non-integer experiment ID must raise INVALID_PARAMETER_VALUE, not a raw
+    # ValueError from int(...), matching the other experiment-scoped methods.
+    with pytest.raises(MlflowException, match="must be a valid integer"):
+        store.get_label_schema_by_name("not-an-int", "correctness")
+
+
 def test_list_orders_by_created_time_desc(store):
     exp_id = _create_experiments(store, "test_list")
     # Sleep between creates so created_time values are distinct on fast
@@ -273,6 +280,14 @@ def test_delete_missing_is_noop(store):
         (
             {"input": InputCategorical(options=["a" * 65])},
             "at most 64 characters",
+        ),
+        (
+            {"input": InputCategorical(options=["a"], multi_select=1)},
+            "must be a bool",
+        ),
+        (
+            {"input": InputNumeric(min_value=True, max_value=5.0)},
+            "must be numeric",
         ),
         (
             {"name": "a" * 251},
