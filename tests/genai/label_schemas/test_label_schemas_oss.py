@@ -12,7 +12,6 @@ from unittest.mock import patch
 
 from mlflow.genai.label_schemas import (
     InputCategorical,
-    InputNumeric,
     InputPassFail,
     LabelSchema,
     LabelSchemaType,
@@ -22,7 +21,6 @@ from mlflow.genai.label_schemas import (
     get_experiment_label_schema_by_name,
     list_experiment_label_schemas,
     update_experiment_label_schema,
-    upsert_experiment_label_schema,
 )
 from mlflow.store.entities.paged_list import PagedList
 
@@ -103,22 +101,6 @@ def test_update_experiment_label_schema_replaces_input():
         new_input = InputCategorical(options=["low", "high"])
         update_experiment_label_schema("ls-1", input=new_input)
         assert mock_update.call_args[1]["input"] is new_input
-
-
-def test_upsert_experiment_label_schema_delegates():
-    with patch(f"{_BASE}._upsert_label_schema") as mock_upsert:
-        mock_upsert.return_value = _pass_fail_schema()
-        upsert_experiment_label_schema(
-            experiment_id="1",
-            name="rating",
-            type="expectation",
-            input=InputNumeric(min_value=1.0, max_value=5.0),
-        )
-        kwargs = mock_upsert.call_args[1]
-        assert kwargs["experiment_id"] == "1"
-        assert kwargs["name"] == "rating"
-        assert kwargs["type"] == "expectation"
-        assert isinstance(kwargs["input"], InputNumeric)
 
 
 def test_delete_experiment_label_schema_delegates():

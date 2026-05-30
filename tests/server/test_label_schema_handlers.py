@@ -18,7 +18,6 @@ from mlflow.genai.label_schemas.label_schemas import (
     LabelSchemaType,
 )
 from mlflow.protos.label_schemas_pb2 import (
-    EXPECTATION,
     FEEDBACK,
     LABEL_SCHEMA_TYPE_UNSPECIFIED,
     CreateLabelSchema,
@@ -28,7 +27,6 @@ from mlflow.protos.label_schemas_pb2 import (
     LabelSchemaInput,
     ListLabelSchemas,
     UpdateLabelSchema,
-    UpsertLabelSchema,
 )
 from mlflow.protos.label_schemas_pb2 import (
     InputCategorical as ProtoInputCategorical,
@@ -46,7 +44,6 @@ from mlflow.server.handlers import (
     _get_label_schema_by_name,
     _list_label_schemas,
     _update_label_schema,
-    _upsert_label_schema,
 )
 from mlflow.store.entities.paged_list import PagedList
 
@@ -180,44 +177,6 @@ def test_create_label_schema_routes_categorical_input():
     ("handler", "request_message", "store_attr"),
     [
         (
-            _upsert_label_schema,
-            UpsertLabelSchema(
-                experiment_id="1",
-                name="x",
-                type=LABEL_SCHEMA_TYPE_UNSPECIFIED,
-                input=LabelSchemaInput(
-                    pass_fail=ProtoInputPassFail(positive_label="y", negative_label="n")
-                ),
-            ),
-            "upsert_label_schema",
-        ),
-    ],
-)
-def test_upsert_label_schema_rejects_unspecified_type(handler, request_message, store_attr):
-    with (
-        mock.patch(f"{_BASE_PATCH}._get_tracking_store") as mock_store,
-        mock.patch(f"{_BASE_PATCH}._get_request_message", return_value=request_message),
-    ):
-        response = handler()
-        assert response.status_code == 400
-        assert json.loads(response.get_data())["error_code"] == "INVALID_PARAMETER_VALUE"
-        getattr(mock_store.return_value, store_attr).assert_not_called()
-
-
-@pytest.mark.parametrize(
-    ("handler", "request_message", "store_attr"),
-    [
-        (
-            _upsert_label_schema,
-            UpsertLabelSchema(
-                experiment_id="1",
-                name="x",
-                type=FEEDBACK,
-                input=LabelSchemaInput(),
-            ),
-            "upsert_label_schema",
-        ),
-        (
             _update_label_schema,
             UpdateLabelSchema(schema_id="ls-1", input=LabelSchemaInput()),
             "update_label_schema",
@@ -337,58 +296,6 @@ def test_update_label_schema_input_replace():
     assert isinstance(call_kwargs["input"], InputNumeric)
     assert call_kwargs["input"].min_value == 1.0
     assert call_kwargs["input"].max_value == 5.0
-
-
-def test_upsert_label_schema():
-    request_message = UpsertLabelSchema(
-        experiment_id="1",
-        name="rating",
-        type=EXPECTATION,
-        input=LabelSchemaInput(numeric=ProtoInputNumeric(min_value=1.0, max_value=5.0)),
-    )
-    store, response = _run_handler(
-        _upsert_label_schema, request_message, "upsert_label_schema", _pass_fail_entity()
-    )
-    call_kwargs = store.upsert_label_schema.call_args[1]
-    assert call_kwargs["experiment_id"] == "1"
-    assert call_kwargs["type"] == LabelSchemaType.EXPECTATION
-    # enable_comment + instruction omitted on the wire -> not in kwargs
-    # (preserves stack 1's "None means keep current on replace" semantic)
-    assert "enable_comment" not in call_kwargs
-    assert "instruction" not in call_kwargs
-    store.upsert_label_schema.assert_called_once()
-
-
-@pytest.mark.parametrize(
-    ("enable_comment_set", "expected_in_kwargs", "expected_value"),
-    [
-        (True, True, True),
-        (False, True, False),
-        (None, False, None),
-    ],
-    ids=["set-true", "set-false-explicit", "omit"],
-)
-def test_upsert_label_schema_enable_comment_hasfield_gate(
-    enable_comment_set, expected_in_kwargs, expected_value
-):
-    # Stack 1's upsert contract: enable_comment=None means "default False on
-    # create, keep current on replace". Wire path must preserve absence.
-    request_message = UpsertLabelSchema(
-        experiment_id="1",
-        name="rating",
-        type=EXPECTATION,
-        input=LabelSchemaInput(numeric=ProtoInputNumeric(min_value=1.0, max_value=5.0)),
-    )
-    if enable_comment_set is not None:
-        request_message.enable_comment = enable_comment_set
-    store, _ = _run_handler(
-        _upsert_label_schema, request_message, "upsert_label_schema", _pass_fail_entity()
-    )
-    call_kwargs = store.upsert_label_schema.call_args[1]
-    if expected_in_kwargs:
-        assert call_kwargs["enable_comment"] is expected_value
-    else:
-        assert "enable_comment" not in call_kwargs
 
 
 @pytest.mark.parametrize("bad_max_results", [0, -1, 100_000])
