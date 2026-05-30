@@ -2425,10 +2425,11 @@ def test_label_schemas_are_workspace_scoped(workspace_tracking_store):
         with pytest.raises(MlflowException, match="not found"):
             workspace_tracking_store.get_label_schema(schema_a.schema_id)
 
-        # Cross-workspace get-by-name: the workspace-filtered query yields no
-        # rows even though `(exp_a_id, "correctness")` is a real row in
-        # workspace-a, so the lookup raises RESOURCE_DOES_NOT_EXIST.
-        with pytest.raises(MlflowException, match="not found"):
+        # Cross-workspace get-by-name: get_label_schema_by_name validates the
+        # parent experiment first, and workspace-a's experiment is invisible to
+        # workspace-b, so the lookup fails at experiment validation rather than
+        # at the schema query.
+        with pytest.raises(MlflowException, match="No Experiment with id"):
             workspace_tracking_store.get_label_schema_by_name(exp_a_id, "correctness")
 
         # Cross-workspace update: workspace-b cannot patch workspace-a's schema
