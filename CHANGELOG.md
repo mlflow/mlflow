@@ -14,15 +14,15 @@ MLflow 3.13.0 includes several major features and improvements
 
 ### Breaking Changes
 
-- [Tracking] **RBAC overhaul**: collapse legacy per-resource permission tables into `role_permissions`; remove the legacy permission REST endpoints, client methods, and per-resource methods; make `default_permission` a floor; and let workspace `USE` create experiments and registered models (#22855, #22859, #22941, #23337, #23379, @PattaraS)
-- [Scoring] Remove MLServer integration from pyfunc serving backend (#23356, @harupy)
-- [Tracing] Replace the Python hook used by `mlflow autolog claude` with the new official Claude plugin (#23339, @B-Step62)
-- [Evaluation] Switch the default judge alignment optimizer to MemAlign (#23254, @veronicalyu320)
-- [Model Registry / Tracking] Raise an error for filesystem backends unless an opt-out env var is set (#22773, @harupy)
+- The permission system has been overhauled into a unified Role-Based Access Control model. The legacy per-resource permission tables, REST endpoints, and client methods are removed and replaced by roles backed by `role_permissions`, `default_permission` now acts as a floor rather than an override, and a workspace `USE` grant is sufficient to create experiments and registered models. Code that relied on the old per-resource permission APIs must migrate to the new role-based APIs. (#22855, #22859, #22941, #23337, #23379, @PattaraS)
+- MLServer is no longer available as a pyfunc serving backend. The previously deprecated `enable_mlserver` option has been removed, so `mlflow models serve` always uses the built-in scoring server. (#23356, @harupy)
+- `mlflow autolog claude` no longer installs the old Python autolog hook; Claude Code tracing is now provided by the official Claude plugin, which must be installed separately. (#23339, @B-Step62)
+- The default optimizer used by `judge.align()` is now MemAlign, so existing alignment workflows may produce different judges than before unless an optimizer is passed explicitly. (#23254, @veronicalyu320)
+- Pointing the tracking or model registry store at a local file-system path now raises an error by default; set the documented opt-out environment variable to keep using a file-based store. (#22773, @harupy)
 
 ### Other Assorted Features & Improvements:
 
-- [UI] Support AI Gateway as a backend of MLflow Assistant (#23559, @B-Step62)
+- [Gateway] Support AI Gateway as a backend of MLflow Assistant (#23559, @B-Step62)
 - [UI] Make admin pickers target the workspace they're granting into (#23543, @PattaraS)
 - [UI] Bring direct-grant picker to parity with role picker (#23420, @PattaraS)
 - [UI] Cherry-pick: Add OpenAI Codex CLI as assistant provider (#22566) (#23517, @B-Step62)
@@ -51,9 +51,7 @@ MLflow 3.13.0 includes several major features and improvements
 - [UI] [Admin-UI-2/4] Add /account page and bottom-left account widget (#22973, @PattaraS)
 - [Build] Add Helm charts for deploying mlflow to kubernetes cluster (#21973, @WeichenXu123)
 - [Tracking] Fix Databricks unified auth support when MLFLOW_ENABLE_DB_SDK=true (#20599, @vb-dbrks)
-- [Tracking] [Admin-UI-1/4] Add backend auth endpoints (#22928, @PattaraS)
-- [UI] Allow workspace `USE` to create experiments and registered models (#22941, @PattaraS)
-- [Evaluation] Support multiple assessments per trace in MemAlign optimizer (#22846, @veronicalyu320)
+- [Tracking] [Admin-UI-1/4] Add backend auth endpoints (#22928, @PattaraS)- [Evaluation] Support multiple assessments per trace in MemAlign optimizer (#22846, @veronicalyu320)
 - [Docs / Model Registry / Prompts] Include `workspace` in webhook delivery envelopes when workspaces are enabled (#22873, @copilot-swe-agent)
 - [Server-infra] Seed default RBAC roles and grant creator on workspace creation (#22857, @PattaraS)
 
@@ -118,7 +116,7 @@ Documentation updates:
 
 Small bug fixes and documentation updates:
 
-#23637, #23405, #23181, #23673, #23659, #23293, #23440, #23441, #23127, #23182, #23179, #23180, #22992, @B-Step62; #23557, @AayushShah-904; #23594, #23592, #23583, #23420, #23496, #23417, #23415, #23414, #23413, #23412, #23410, #23409, #23408, #23407, #23406, #23399, #23398, #23452, #22861, #22933, #22888, @PattaraS; #23531, #23282, #23281, #23280, #23279, #23278, #23277, #23276, #23275, #23274, #23173, #23189, #23174, #23171, @TomeHirata; #23495, #23447, #23448, #23422, #23360, #23322, #23316, #23313, #23085, #23304, #23268, #23084, @kriscon-db; #23494, #23493, #23489, #23473, #23470, #23468, #23467, #23463, #23461, #23459, #23462, #23457, #23454, #23450, #23449, #23427, #23428, #23424, #23411, #23395, #23391, #23390, #23388, #23387, #23386, #23385, #23383, #23380, #23381, #23373, #23372, #23361, #23357, #23354, #23351, #23348, #23343, #23342, #23331, #23321, #23320, #23318, #23315, #23307, #23297, #23288, #23286, #23283, #23262, #23264, #23256, #23260, #23255, #23240, #23228, #23234, #23233, #23230, #23227, #23207, #23203, #23206, #23197, #23187, #23185, #23177, #23166, #23157, #23156, #23154, #23155, #23153, #23149, #23148, #23143, #23142, #23141, #23140, #23135, #23134, #23132, #23131, #23129, #23126, #23123, #23122, #23118, #23112, #23110, #23107, #23105, #23093, #23090, #23010, #23088, #22999, #22998, #22988, #22989, #22987, #22986, #22981, #22975, #22960, #22958, #22602, #22937, #22923, #22912, #22907, #22908, #22898, #22894, #22893, #22892, #22889, #22887, #22886, @harupy; #23423, #23464, #23287, @aaronteo-db; #23368, @ynachiket; #23366, @mprahl; #23363, #23333, #23136, #23005, #22777, #22934, #22605, #22497, #22256, @HumairAK; #22832, @james-fletcher-db; #23214, @SomtochiUmeh; #23224, #23103, #23101, #22959, #22924, @copilot-swe-agent; #23038, @xsh310; #22977, @4binas; #22961, #22955, @serena-ruan; #22865, @iis-MarkKuang; #22799, @artjen
+#23637, #23405, #23181, #23673, #23659, #23293, #23440, #23441, #23127, #23182, #23179, #23180, #22992, @B-Step62; #23557, @AayushShah-904; #23594, #23592, #23583, #23496, #23417, #23415, #23414, #23413, #23412, #23410, #23409, #23408, #23407, #23406, #23399, #23398, #23452, #22861, #22933, #22888, @PattaraS; #23531, #23282, #23281, #23280, #23279, #23278, #23277, #23276, #23275, #23274, #23173, #23189, #23174, #23171, @TomeHirata; #23495, #23447, #23448, #23422, #23360, #23322, #23316, #23313, #23085, #23304, #23268, #23084, @kriscon-db; #23494, #23493, #23489, #23473, #23470, #23468, #23467, #23463, #23461, #23459, #23462, #23457, #23454, #23450, #23449, #23427, #23428, #23424, #23411, #23395, #23391, #23390, #23388, #23387, #23386, #23385, #23383, #23380, #23381, #23373, #23372, #23361, #23357, #23354, #23351, #23348, #23343, #23342, #23331, #23321, #23320, #23318, #23315, #23307, #23297, #23288, #23286, #23283, #23262, #23264, #23256, #23260, #23255, #23240, #23228, #23234, #23233, #23230, #23227, #23207, #23203, #23206, #23197, #23187, #23185, #23177, #23166, #23157, #23156, #23154, #23155, #23153, #23149, #23148, #23143, #23142, #23141, #23140, #23135, #23134, #23132, #23131, #23129, #23126, #23123, #23122, #23118, #23112, #23110, #23107, #23105, #23093, #23090, #23010, #23088, #22999, #22998, #22988, #22989, #22987, #22986, #22981, #22975, #22960, #22958, #22602, #22937, #22923, #22912, #22907, #22908, #22898, #22894, #22893, #22892, #22889, #22887, #22886, @harupy; #23423, #23464, #23287, @aaronteo-db; #23368, @ynachiket; #23366, @mprahl; #23363, #23333, #23136, #23005, #22777, #22934, #22605, #22497, #22256, @HumairAK; #22832, @james-fletcher-db; #23214, @SomtochiUmeh; #23224, #23103, #23101, #22959, #22924, @copilot-swe-agent; #22977, @4binas; #22961, #22955, @serena-ruan; #22865, @iis-MarkKuang; #22799, @artjen
 
 ## 3.12.0 (2026-05-04)
 
