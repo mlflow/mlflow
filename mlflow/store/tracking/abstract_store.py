@@ -1,7 +1,7 @@
 import bisect
 import json
 from abc import ABCMeta, abstractmethod
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 from mlflow.entities import (
     Assessment,
@@ -28,7 +28,7 @@ from mlflow.entities.trace_metrics import (
 
 if TYPE_CHECKING:
     from mlflow.entities import EvaluationDataset
-    from mlflow.genai.label_schemas.label_schemas import LabelSchema
+    from mlflow.genai.label_schemas.label_schemas import InputType, LabelSchema
     from mlflow.genai.scorers.online.entities import (
         CompletedSession,
         OnlineScorer,
@@ -1737,7 +1737,7 @@ class AbstractStore(GatewayStoreMixin):
         raise NotImplementedError(self.__class__.__name__)
 
     # ------------------------------------------------------------------
-    # Label schemas (DAIS-2026): UI rendering hints attached to an experiment.
+    # Label schemas: UI rendering hints attached to an experiment.
     # See mlflow/genai/label_schemas/ for the entity dataclasses + validation.
     # ------------------------------------------------------------------
 
@@ -1747,8 +1747,8 @@ class AbstractStore(GatewayStoreMixin):
         experiment_id: str,
         *,
         name: str,
-        type: str,
-        input: Any,
+        type: Literal["feedback", "expectation"],
+        input: "InputType",
         instruction: str | None = None,
         enable_comment: bool = False,
     ) -> "LabelSchema":
@@ -1756,13 +1756,12 @@ class AbstractStore(GatewayStoreMixin):
 
         Args:
             experiment_id: Parent experiment ID.
-            name: Schema name (1-256 chars; unique within the experiment).
-                Shown to reviewers as the label prompt and used as the
-                assessment key.
+            name: Schema name, unique within the experiment. Shown to
+                reviewers as the label prompt and used as the assessment key.
             type: Schema type (``"feedback"`` or ``"expectation"``).
             input: One of ``InputPassFail`` / ``InputCategorical`` /
                 ``InputNumeric`` / ``InputText``.
-            instruction: Optional ≤1000-char supplementary guidance.
+            instruction: Optional supplementary guidance shown to reviewers.
             enable_comment: UI hint; persisted but not consumed server-side.
 
         Returns:
@@ -1814,7 +1813,7 @@ class AbstractStore(GatewayStoreMixin):
         name: str | None = None,
         instruction: str | None = None,
         enable_comment: bool | None = None,
-        input: Any | None = None,
+        input: "InputType | None" = None,
     ) -> "LabelSchema":
         """Sparse update on a label schema.
 
@@ -1826,26 +1825,6 @@ class AbstractStore(GatewayStoreMixin):
             MlflowException(RESOURCE_DOES_NOT_EXIST): if schema_id doesn't exist.
             MlflowException(INVALID_PARAMETER_VALUE): on validation failure.
             MlflowException(RESOURCE_ALREADY_EXISTS): on rename collision.
-        """
-        raise NotImplementedError(self.__class__.__name__)
-
-    @requires_sql_backend
-    def upsert_label_schema(
-        self,
-        experiment_id: str,
-        *,
-        name: str,
-        type: str,
-        input: Any,
-        instruction: str | None = None,
-        enable_comment: bool = False,
-    ) -> "LabelSchema":
-        """Atomic create-or-replace by ``(experiment_id, name)`` in one round-trip.
-
-        Replaces the Databricks Python SDK's two-PATCH ``overwrite=True``
-        choreography with a single transaction. If a schema already exists
-        with the given ``(experiment_id, name)``, all updatable fields are
-        replaced (``type`` immutability still applies on replace).
         """
         raise NotImplementedError(self.__class__.__name__)
 

@@ -164,27 +164,6 @@ class UpdateLabelSchema(_message.Message):
     input: LabelSchemaInput
     def __init__(self, schema_id: _Optional[str] = ..., name: _Optional[str] = ..., instruction: _Optional[str] = ..., enable_comment: bool = ..., input: _Optional[_Union[LabelSchemaInput, _Mapping]] = ...) -> None: ...
 
-class UpsertLabelSchema(_message.Message):
-    __slots__ = ("experiment_id", "name", "type", "input", "instruction", "enable_comment")
-    class Response(_message.Message):
-        __slots__ = ("label_schema",)
-        LABEL_SCHEMA_FIELD_NUMBER: _ClassVar[int]
-        label_schema: LabelSchema
-        def __init__(self, label_schema: _Optional[_Union[LabelSchema, _Mapping]] = ...) -> None: ...
-    EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
-    NAME_FIELD_NUMBER: _ClassVar[int]
-    TYPE_FIELD_NUMBER: _ClassVar[int]
-    INPUT_FIELD_NUMBER: _ClassVar[int]
-    INSTRUCTION_FIELD_NUMBER: _ClassVar[int]
-    ENABLE_COMMENT_FIELD_NUMBER: _ClassVar[int]
-    experiment_id: str
-    name: str
-    type: LabelSchemaType
-    input: LabelSchemaInput
-    instruction: str
-    enable_comment: bool
-    def __init__(self, experiment_id: _Optional[str] = ..., name: _Optional[str] = ..., type: _Optional[_Union[LabelSchemaType, str]] = ..., input: _Optional[_Union[LabelSchemaInput, _Mapping]] = ..., instruction: _Optional[str] = ..., enable_comment: bool = ...) -> None: ...
-
 class DeleteLabelSchema(_message.Message):
     __slots__ = ("schema_id",)
     class Response(_message.Message):

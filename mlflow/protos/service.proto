@@ -1565,29 +1565,6 @@ service MlflowService {
     };
   }
 
-  // Atomically create-or-replace a label schema by (experiment_id, name).
-  rpc upsertLabelSchema(mlflow.label_schemas.UpsertLabelSchema) returns (mlflow.label_schemas.UpsertLabelSchema.Response) {
-    option (rpc) = {
-      endpoints: [
-        {
-          method: "POST"
-          path: "/mlflow/label-schemas/upsert"
-          since: {
-            major: 3
-            minor: 0
-          }
-        }
-      ]
-      error_codes: [
-        INVALID_PARAMETER_VALUE,
-        RESOURCE_DOES_NOT_EXIST,
-        INTERNAL_ERROR
-      ]
-      visibility: PUBLIC_UNDOCUMENTED
-      rpc_doc_title: "Upsert a label schema"
-    };
-  }
-
   // Delete a label schema by ID. No-op if the schema doesn't exist.
   rpc deleteLabelSchema(mlflow.label_schemas.DeleteLabelSchema) returns (mlflow.label_schemas.DeleteLabelSchema.Response) {
     option (rpc) = {

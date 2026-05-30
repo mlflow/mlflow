@@ -112,7 +112,9 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
             return query.filter(SqlEvaluationDataset.workspace == workspace)
 
         if model is SqlLabelSchema:
-            return query.filter(SqlLabelSchema.workspace == workspace)
+            return query.join(
+                SqlExperiment, SqlLabelSchema.experiment_id == SqlExperiment.experiment_id
+            ).filter(SqlExperiment.workspace == workspace)
 
         if model in (
             SqlGatewaySecret,
