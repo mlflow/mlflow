@@ -8,8 +8,10 @@ MLflow 3.13.0 includes several major features and improvements
 
 - **🔐 [Role-Based Access Control & Admin UI](https://mlflow.org/docs/latest/self-hosting/security/role-based-access-control)**: A full RBAC system with reusable roles and workspace-scoped grants, plus a new web Admin UI for managing users, roles, and permissions on self-hosted MLflow.
 - **🗄️ [Trace Retention & Auto Archival](https://mlflow.org/docs/latest/genai/tracing/observe-with-traces/archive-traces)**: Automatically move aged trace span data out of your SQL backend into object storage (e.g. S3) while keeping every trace fully readable in the UI and APIs.
-- **🤖 [One-click coding agent observability](https://mlflow.org/docs/latest/genai/governance/ai-gateway/coding-agents/)**: Onboard Claude Code, OpenAI Codex, or Gemini CLI to the AI Gateway in one click for tracing, usage tracking, budgets, and guardrails, plus new Ollama and OpenAI Codex engines for MLflow Assistant.
+- **🤖 [One-click observability & governance for coding agents](https://mlflow.org/docs/latest/genai/governance/ai-gateway/coding-agents/)**: Onboard Claude Code, OpenAI Codex, or Gemini CLI to the AI Gateway in one click for tracing, usage tracking, budgets, and guardrails.
+- **✨ [New engines for MLflow Assistant](https://mlflow.org/docs/latest/genai/getting-started/try-assistant/)**: Run MLflow Assistant on a local Ollama model, the OpenAI Codex CLI, or any MLflow AI Gateway endpoint, in addition to Claude Code.
 - **☸️ [Helm chart for Kubernetes](https://mlflow.org/docs/latest/self-hosting/kubernetes-helm)**: An official, production-ready Helm chart for deploying the MLflow tracking server to any Kubernetes cluster.
+- **🌐 [Hermes Agent support](https://mlflow.org/docs/latest/genai/governance/ai-gateway/coding-agents/hermes-agent)**: Route the Hermes Agent runtime through the AI Gateway and capture its end-to-end traces in MLflow over OpenTelemetry.
 - **🪵 [Span log levels](https://mlflow.org/docs/latest/genai/tracing/app-instrumentation/logging)**: Python-`logging`-style severity levels on spans, with a "Minimum log level" filter in the trace UI to hide low-level noise.
 
 ### Breaking Changes
@@ -18,7 +20,7 @@ MLflow 3.13.0 includes several major features and improvements
 - MLServer is no longer available as a pyfunc serving backend. The previously deprecated `enable_mlserver` option has been removed, so `mlflow models serve` always uses the built-in scoring server. (#23356, @harupy)
 - `mlflow autolog claude` no longer installs the old Python autolog hook; Claude Code tracing is now provided by the official Claude plugin, which must be installed separately. (#23339, @B-Step62)
 - The default optimizer used by `judge.align()` is now MemAlign, so existing alignment workflows may produce different judges than before unless an optimizer is passed explicitly. (#23254, @veronicalyu320)
-- Pointing the tracking or model registry store at a local file-system path now raises an error by default; set the documented opt-out environment variable to keep using a file-based store. (#22773, @harupy)
+- Pointing the tracking or model registry store at a local file-system path now raises an error by default; set `MLFLOW_ALLOW_FILE_STORE=true` to keep using a file-based store. (#22773, @harupy)
 
 ### Other Assorted Features & Improvements:
 
