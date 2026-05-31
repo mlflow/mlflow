@@ -21,6 +21,26 @@
       },
       "last_updated_at": "2026-04-24"
     },
+    "accounts/fireworks/models/SSD-1B": {
+      "mode": "image_generation",
+      "context_window": {
+        "max_input": 4096,
+        "max_output": 4096,
+        "max_tokens": 4096
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.00013,
+        "output_per_million_tokens": 0.00013
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
+    },
     "accounts/fireworks/models/chronos-hermes-13b-v2": {
       "mode": "chat",
       "context_window": {
@@ -1281,6 +1301,26 @@
       },
       "last_updated_at": "2026-04-24"
     },
+    "accounts/fireworks/models/flux-1-dev-fp8": {
+      "mode": "image_generation",
+      "context_window": {
+        "max_input": 4096,
+        "max_output": 4096,
+        "max_tokens": 4096
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.0005,
+        "output_per_million_tokens": 0.0005
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
+    },
     "accounts/fireworks/models/flux-1-schnell": {
       "mode": "chat",
       "context_window": {
@@ -1300,6 +1340,66 @@
         "response_schema": false
       },
       "last_updated_at": "2026-04-24"
+    },
+    "accounts/fireworks/models/flux-1-schnell-fp8": {
+      "mode": "image_generation",
+      "context_window": {
+        "max_input": 4096,
+        "max_output": 4096,
+        "max_tokens": 4096
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.00035,
+        "output_per_million_tokens": 0.00035
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
+    },
+    "accounts/fireworks/models/flux-kontext-max": {
+      "mode": "image_generation",
+      "context_window": {
+        "max_input": 4096,
+        "max_output": 4096,
+        "max_tokens": 4096
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.08,
+        "output_per_million_tokens": 0.08
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
+    },
+    "accounts/fireworks/models/flux-kontext-pro": {
+      "mode": "image_generation",
+      "context_window": {
+        "max_input": 4096,
+        "max_output": 4096,
+        "max_tokens": 4096
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.04,
+        "output_per_million_tokens": 0.04
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
     },
     "accounts/fireworks/models/gemma-2b-it": {
       "mode": "chat",
@@ -1682,6 +1782,26 @@
         "response_schema": false
       },
       "last_updated_at": "2026-04-24"
+    },
+    "accounts/fireworks/models/japanese-stable-diffusion-xl": {
+      "mode": "image_generation",
+      "context_window": {
+        "max_input": 4096,
+        "max_output": 4096,
+        "max_tokens": 4096
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.00013,
+        "output_per_million_tokens": 0.00013
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
     },
     "accounts/fireworks/models/kat-coder": {
       "mode": "chat",
@@ -3245,6 +3365,46 @@
       },
       "last_updated_at": "2026-04-24"
     },
+    "accounts/fireworks/models/playground-v2-1024px-aesthetic": {
+      "mode": "image_generation",
+      "context_window": {
+        "max_input": 4096,
+        "max_output": 4096,
+        "max_tokens": 4096
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.00013,
+        "output_per_million_tokens": 0.00013
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
+    },
+    "accounts/fireworks/models/playground-v2-5-1024px-aesthetic": {
+      "mode": "image_generation",
+      "context_window": {
+        "max_input": 4096,
+        "max_output": 4096,
+        "max_tokens": 4096
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.00013,
+        "output_per_million_tokens": 0.00013
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
+    },
     "accounts/fireworks/models/pythia-12b": {
       "mode": "chat",
       "context_window": {
@@ -4644,6 +4804,26 @@
         "response_schema": false
       },
       "last_updated_at": "2026-04-24"
+    },
+    "accounts/fireworks/models/stable-diffusion-xl-1024-v1-0": {
+      "mode": "image_generation",
+      "context_window": {
+        "max_input": 4096,
+        "max_output": 4096,
+        "max_tokens": 4096
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.00013,
+        "output_per_million_tokens": 0.00013
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
     },
     "accounts/fireworks/models/stablecode-3b": {
       "mode": "chat",

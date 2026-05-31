@@ -5179,6 +5179,34 @@ def test_log_spans_session_id_handling(store: SqlAlchemyStore) -> None:
     trace_info1 = store.get_trace_info(trace_id1)
     assert trace_info1.trace_metadata.get(TraceMetadataKey.TRACE_SESSION) == "session-123"
 
+    # Session ID gets stored from gen_ai.conversation.id attribute
+    trace_id1_gen_ai = f"tr-{uuid.uuid4().hex}"
+    otel_span1_gen_ai = create_test_otel_span(trace_id=trace_id1_gen_ai)
+    otel_span1_gen_ai._attributes = {
+        "mlflow.traceRequestId": json.dumps(trace_id1_gen_ai, cls=TraceJSONEncoder),
+        "gen_ai.conversation.id": "conv-123",
+    }
+    span1_gen_ai = create_mlflow_span(otel_span1_gen_ai, trace_id1_gen_ai, "LLM")
+    store.log_spans(experiment_id, [span1_gen_ai])
+
+    trace_info1_gen_ai = store.get_trace_info(trace_id1_gen_ai)
+    assert trace_info1_gen_ai.trace_metadata.get(TraceMetadataKey.TRACE_SESSION) == "conv-123"
+
+    trace_id1_precedence = f"tr-{uuid.uuid4().hex}"
+    otel_span1_precedence = create_test_otel_span(trace_id=trace_id1_precedence)
+    otel_span1_precedence._attributes = {
+        "mlflow.traceRequestId": json.dumps(trace_id1_precedence, cls=TraceJSONEncoder),
+        "session.id": "session-456",
+        "gen_ai.conversation.id": "conv-456",
+    }
+    span1_precedence = create_mlflow_span(otel_span1_precedence, trace_id1_precedence, "LLM")
+    store.log_spans(experiment_id, [span1_precedence])
+
+    trace_info1_precedence = store.get_trace_info(trace_id1_precedence)
+    assert (
+        trace_info1_precedence.trace_metadata.get(TraceMetadataKey.TRACE_SESSION) == "session-456"
+    )
+
     # Existing session ID is preserved
     trace_id2 = f"tr-{uuid.uuid4().hex}"
     trace_with_session = TraceInfo(
