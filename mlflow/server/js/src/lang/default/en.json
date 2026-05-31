@@ -427,6 +427,10 @@
     "defaultMessage": "Irrelevant",
     "description": "Evaluation results > relevancy assessment > negative value label. Displayed if evaluation result is considered as irrelevant to the query."
   },
+  "0Ox6UC": {
+    "defaultMessage": "Show run parameters",
+    "description": "Runs charts > components > config > RunsChartsConfigureImageGrid > Show run params toggle"
+  },
   "0QTEQi": {
     "defaultMessage": "Usage",
     "description": "Tab label for usage charts"
@@ -3562,6 +3566,10 @@
   "JW4EB/": {
     "defaultMessage": "On exceeded",
     "description": "Budget on exceeded label"
+  },
+  "JWoyvm": {
+    "defaultMessage": "Run details",
+    "description": "Runs charts > components > config > RunsChartsConfigureImageGrid > Run details section"
   },
   "JYVQuV": {
     "defaultMessage": "Run ID",
