@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780100060099,
+  "lastUpdate": 1780212709536,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -6425,6 +6425,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 17.17750959999762,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60318530+SahilKumar75@users.noreply.github.com",
+            "name": "Sahil Kumar Singh",
+            "username": "SahilKumar75"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a6c9b10cf5d800bf8f6813f9c92726ae07e062dc",
+          "message": "Support mapping gen_ai.conversation.id to MLflow trace session (#23584)\n\nSigned-off-by: Sahil Kumar Singh <sahilkumargreat12@gmail.com>\nSigned-off-by: Weichen Xu <weichen.xu@databricks.com>\nCo-authored-by: Weichen Xu <weichen.xu@databricks.com>",
+          "timestamp": "2026-05-31T07:27:55Z",
+          "tree_id": "12d923e18206126c352dfccffa9f481d920fcd11",
+          "url": "https://github.com/mlflow/mlflow/commit/a6c9b10cf5d800bf8f6813f9c92726ae07e062dc"
+        },
+        "date": 1780212708192,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 42.082569099999034,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 25.457349114287,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 22.227334467744193,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 15.982971250004141,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 25.564479796609078,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 9.500751600000967,
             "unit": "ms"
           }
         ]
