@@ -2976,6 +2976,46 @@ def test_basic_model_with_accelerate_homogeneous_mapping_works(model_path):
     assert loaded(text) == pipeline(text)
 
 
+@pytest.mark.skipif(
+    Version(transformers.__version__) > Version("4.44.2"),
+    reason="Multi-task pipeline (t5) has a loading issue with Transformers 4.45.x. "
+    "See https://github.com/huggingface/transformers/issues/33398 for more details.",
+)
+def test_load_model_with_accelerate_device_map_does_not_pass_device(model_path):
+    """
+    Regression test for https://github.com/mlflow/mlflow/issues/13439.
+
+    When a model is loaded with accelerate (``hf_device_map`` is set on the model, e.g.
+    because the original pipeline was saved with a ``device_map``), ``_load_model`` must not
+    forward the ``device`` argument to ``transformers.pipeline()``.  Doing so raises:
+    ``ValueError: The model has been loaded with `accelerate` and therefore cannot be moved
+    to a specific device.``
+    """
+    task = "translation_en_to_de"
+    architecture = "t5-small"
+    model = transformers.T5ForConditionalGeneration.from_pretrained(
+        pretrained_model_name_or_path=architecture,
+        device_map={"shared": "cpu", "encoder": "cpu", "decoder": "cpu", "lm_head": "cpu"},
+        low_cpu_mem_usage=True,
+    )
+    tokenizer = transformers.T5TokenizerFast.from_pretrained(
+        pretrained_model_name_or_path=architecture, model_max_length=100
+    )
+    pipeline = transformers.pipeline(task=task, model=model, tokenizer=tokenizer)
+    mlflow.transformers.save_model(transformers_model=pipeline, path=model_path)
+
+    # Simulate the case where a GPU is available so that _load_model auto-sets device=0.
+    # Without the fix, this would raise ValueError when the model has hf_device_map.
+    with mock.patch(
+        "mlflow.transformers.is_gpu_available", return_value=True
+    ):
+        # Should not raise ValueError
+        loaded = mlflow.transformers.load_model(model_path)
+
+    text = "Apples are delicious"
+    assert loaded(text) == pipeline(text)
+
+
 def test_qa_model_model_size_bytes(small_qa_pipeline, tmp_path):
     def _calculate_expected_size(path_or_dir):
         # this helper function does not consider subdirectories
