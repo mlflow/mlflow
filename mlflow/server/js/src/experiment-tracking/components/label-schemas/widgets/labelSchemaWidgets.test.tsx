@@ -210,7 +210,7 @@ describe('LabelSchemaInputRenderer', () => {
         label="Pick one"
       />,
     );
-    expect(screen.getByText('Pick one')).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: /Pick one/ })).toBeInTheDocument();
   });
 
   it('dispatches to the text widget when input.text is set', () => {
