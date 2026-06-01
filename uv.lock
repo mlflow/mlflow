@@ -27,7 +27,6 @@ members = [
     "skills",
 ]
 constraints = [
-    { name = "litellm", specifier = "<=1.82.6" },
     { name = "pyspark", specifier = "<4.1.0" },
     { name = "setuptools", specifier = "<82" },
     { name = "xgboost", specifier = "<3.1.0" },
