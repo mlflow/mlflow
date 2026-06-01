@@ -17,8 +17,6 @@ export { useGetLabelSchemaQuery, GET_LABEL_SCHEMA_QUERY_KEY } from './hooks/useG
 export { useListLabelSchemasQuery, LIST_LABEL_SCHEMAS_QUERY_KEY } from './hooks/useListLabelSchemasQuery';
 export { useUpdateLabelSchemaMutation } from './hooks/useUpdateLabelSchemaMutation';
 export type { UpdateLabelSchemaParams } from './hooks/useUpdateLabelSchemaMutation';
-export { useUpsertLabelSchemaMutation } from './hooks/useUpsertLabelSchemaMutation';
-export type { UpsertLabelSchemaParams } from './hooks/useUpsertLabelSchemaMutation';
 
 export { LabelSchemaInputCategorical } from './widgets/LabelSchemaInputCategorical';
 export type {
