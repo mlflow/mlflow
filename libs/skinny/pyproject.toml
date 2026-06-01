@@ -130,6 +130,7 @@ mlflow = [
   "models/notebook_resources/**/*",
   "ai_commands/**/*.md",
   "assistant/skills/**/*",
+  "agent/setup/templates/**/*.md",
 ]
 
 [tool.setuptools.packages.find]

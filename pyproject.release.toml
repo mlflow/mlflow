@@ -132,6 +132,7 @@ mlflow = [
   "models/notebook_resources/**/*",
   "ai_commands/**/*.md",
   "assistant/skills/**/*",
+  "agent/setup/templates/**/*.md",
   "models/container/**/*",
   "server/js/build/**/*",
   "utils/model_catalog/*.json",
