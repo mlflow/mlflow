@@ -82,7 +82,6 @@ class OptimizerConfig:
     extract_instructions: bool = True
 
 
-@experimental(version="3.5.0")
 @dataclass
 class EvaluationResultRecord:
     """
@@ -108,7 +107,6 @@ class EvaluationResultRecord:
     individual_scores: dict[str, float] = field(default_factory=dict)
 
 
-@experimental(version="3.5.0")
 @dataclass
 class PromptOptimizerOutput:
     """
@@ -131,7 +129,6 @@ class PromptOptimizerOutput:
     final_eval_score_per_scorer: dict[str, float] = field(default_factory=dict)
 
 
-@experimental(version="3.5.0")
 @dataclass
 class PromptOptimizationResult:
     """

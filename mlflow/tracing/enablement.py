@@ -14,7 +14,6 @@ from mlflow.version import IS_TRACING_SDK_ONLY
 _logger = logging.getLogger(__name__)
 
 
-@experimental(version="3.5.0")
 def set_experiment_trace_location(
     location: UCSchemaLocation,
     experiment_id: str | None = None,
@@ -111,7 +110,6 @@ def set_experiment_trace_location(
     return uc_schema_location
 
 
-@experimental(version="3.5.0")
 def unset_experiment_trace_location(
     location: UCSchemaLocation,
     experiment_id: str | None = None,

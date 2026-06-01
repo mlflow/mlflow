@@ -1109,7 +1109,6 @@ class TrackingServiceClient:
 
         return self.store.link_traces_to_run(trace_ids, run_id)
 
-    @experimental(version="3.5.0")
     def unlink_traces_from_run(self, trace_ids: list[str], run_id: str) -> None:
         """
         Unlink multiple traces from a run by removing entity associations.

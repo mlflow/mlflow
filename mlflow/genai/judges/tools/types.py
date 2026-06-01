@@ -41,7 +41,6 @@ class SpanInfo:
     attribute_names: list[str]
 
 
-@experimental(version="3.5.0")
 @dataclass
 class JudgeToolExpectation:
     """Expectation for a trace (simplified for judge tools)."""
@@ -54,7 +53,6 @@ class JudgeToolExpectation:
     value: Any
 
 
-@experimental(version="3.5.0")
 @dataclass
 class JudgeToolFeedback:
     """Feedback for a trace (simplified for judge tools)."""
@@ -72,7 +70,6 @@ class JudgeToolFeedback:
     valid: bool | None
 
 
-@experimental(version="3.5.0")
 @dataclass
 class JudgeToolTraceInfo:
     """Information about a single trace (simplified for judge tools)."""

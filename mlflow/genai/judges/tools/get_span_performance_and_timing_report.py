@@ -44,7 +44,6 @@ class ConcurrentPair:
     overlap_s: float
 
 
-@experimental(version="3.5.0")
 class GetSpanPerformanceAndTimingReportTool(JudgeTool):
     """
     A tool that generates a span timing report for a trace.

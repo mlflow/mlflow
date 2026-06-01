@@ -42,7 +42,6 @@ if TYPE_CHECKING:
 _logger = logging.getLogger(__name__)
 
 
-@experimental(version="3.5.0")
 @record_usage_event(PromptOptimizationEvent)
 def optimize_prompts(
     *,

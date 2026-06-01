@@ -21,7 +21,6 @@ EVAL_RESULTS_FILE = "eval_results.json"
 SCORES_FILE = "scores.json"
 
 
-@experimental(version="3.5.0")
 class GepaPromptOptimizer(BasePromptOptimizer):
     """
     A prompt adapter that uses GEPA (Genetic-Pareto) optimization algorithm

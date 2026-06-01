@@ -10,7 +10,6 @@ from mlflow.utils.annotations import experimental
 _EvalFunc = Callable[[dict[str, str], list[dict[str, Any]]], list[EvaluationResultRecord]]
 
 
-@experimental(version="3.5.0")
 class BasePromptOptimizer(ABC):
     @abstractmethod
     def optimize(

@@ -17,7 +17,6 @@ from mlflow.types.llm import FunctionToolDefinition, ToolDefinition, ToolParamsS
 from mlflow.utils.annotations import experimental
 
 
-@experimental(version="3.5.0")
 class GetTracesInSession(JudgeTool):
     """
     Tool for retrieving traces from the same session for multi-turn evaluation.
