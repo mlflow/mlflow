@@ -4,14 +4,14 @@ dbutils.library.restartPython()
 
 from typing import Any
 
-from langchain_community.chat_models import ChatDatabricks, ChatMlflow
+from databricks_langchain import ChatDatabricks
 from langchain_community.document_loaders import TextLoader
 from langchain_community.embeddings.fake import FakeEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_core.callbacks.manager import CallbackManagerForLLMRun
-from langchain_core.messages import BaseMessage
+from langchain_core.messages import AIMessage, BaseMessage
 from langchain_core.output_parsers import StrOutputParser
-from langchain_core.outputs import ChatResult
+from langchain_core.outputs import ChatGeneration, ChatResult
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnablePassthrough
 from langchain_text_splitters.character import CharacterTextSplitter
@@ -35,19 +35,8 @@ def get_fake_chat_model(endpoint="fake-endpoint"):
             run_manager: CallbackManagerForLLMRun | None = None,
             **kwargs: Any,
         ) -> ChatResult:
-            response = {
-                "choices": [
-                    {
-                        "index": 0,
-                        "message": {
-                            "role": "assistant",
-                            "content": f"{base_config.get('response')}",
-                        },
-                        "finish_reason": None,
-                    }
-                ],
-            }
-            return ChatMlflow._create_chat_result(response)
+            message = AIMessage(content=str(base_config.get("response")))
+            return ChatResult(generations=[ChatGeneration(message=message)])
 
         @property
         def _llm_type(self) -> str:
