@@ -2,7 +2,16 @@ import dbutils
 
 dbutils.library.restartPython()
 
+import os
 from typing import Any
+
+# `databricks-langchain` versions older than ~0.9 eagerly construct a
+# `WorkspaceClient` inside `ChatDatabricks.__init__`, which requires
+# Databricks credentials. Cross-version test jobs pin those older releases
+# (e.g. 0.8.2 with `langchain==0.3.30`), so set fake creds before the fake
+# chat model is instantiated below.
+os.environ.setdefault("DATABRICKS_HOST", "https://fake-host")
+os.environ.setdefault("DATABRICKS_TOKEN", "fake-token")
 
 from databricks_langchain import ChatDatabricks
 from langchain_community.document_loaders import TextLoader

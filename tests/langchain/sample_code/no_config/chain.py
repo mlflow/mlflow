@@ -1,4 +1,9 @@
+import os
 from typing import Any
+
+# See `tests/langchain/sample_code/chain.py` for why fake creds are set.
+os.environ.setdefault("DATABRICKS_HOST", "https://fake-host")
+os.environ.setdefault("DATABRICKS_TOKEN", "fake-token")
 
 from databricks_langchain import ChatDatabricks
 from langchain_community.document_loaders import TextLoader
