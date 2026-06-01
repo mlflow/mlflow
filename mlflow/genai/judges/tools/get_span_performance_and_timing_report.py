@@ -14,7 +14,6 @@ from mlflow.entities.trace_info import TraceInfo
 from mlflow.genai.judges.tools.base import JudgeTool
 from mlflow.genai.judges.tools.constants import ToolNames
 from mlflow.types.llm import FunctionToolDefinition, ToolDefinition, ToolParamsSchema
-from mlflow.utils.annotations import experimental
 
 
 @dataclass

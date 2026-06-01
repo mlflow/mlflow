@@ -60,7 +60,6 @@ from mlflow.tracking._tracking_service import utils
 from mlflow.tracking.context import registry as context_registry
 from mlflow.tracking.metric_value_conversion_utils import convert_metric_value_to_float_if_possible
 from mlflow.utils import chunk_list
-from mlflow.utils.annotations import experimental
 from mlflow.utils.async_logging.run_operations import RunOperations, get_combined_run_operations
 from mlflow.utils.databricks_utils import get_workspace_url, is_in_databricks_notebook
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_TYPE, MLFLOW_RUN_TYPE_GENAI_EVALUATE, MLFLOW_USER

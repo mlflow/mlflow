@@ -11,7 +11,6 @@ from typing import Any
 from mlflow.entities.assessment import FeedbackValueType
 from mlflow.entities.span_status import SpanStatus
 from mlflow.entities.trace_state import TraceState
-from mlflow.utils.annotations import experimental
 
 
 @dataclass

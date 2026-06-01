@@ -1,5 +1,4 @@
 from mlflow.exceptions import MlflowException
-from mlflow.utils.annotations import experimental
 from mlflow.utils.uri import is_databricks_uri
 
 

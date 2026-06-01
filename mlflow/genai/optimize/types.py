@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Any, Callable
 
 from mlflow.entities import Feedback, Trace
 from mlflow.entities.model_registry import PromptVersion
-from mlflow.utils.annotations import deprecated, experimental
+from mlflow.utils.annotations import deprecated
 
 if TYPE_CHECKING:
     from mlflow.genai.optimize.optimizers import BasePromptOptimizer

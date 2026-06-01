@@ -7,7 +7,6 @@ import logging
 import mlflow
 from mlflow.entities.trace_location import UCSchemaLocation
 from mlflow.exceptions import MlflowException
-from mlflow.utils.annotations import experimental
 from mlflow.utils.uri import is_databricks_uri
 from mlflow.version import IS_TRACING_SDK_ONLY
 

@@ -26,7 +26,6 @@ from mlflow.types.llm import (
     ToolDefinition,
     ToolParamsSchema,
 )
-from mlflow.utils.annotations import experimental
 
 _logger = logging.getLogger(__name__)
 
