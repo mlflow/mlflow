@@ -936,6 +936,8 @@ mlflow.genai.label_schemas.InputPassFail
 mlflow.genai.label_schemas.InputPassFail.from_proto
 mlflow.genai.label_schemas.InputPassFail.to_proto
 mlflow.genai.label_schemas.InputText
+mlflow.genai.label_schemas.InputText.from_proto
+mlflow.genai.label_schemas.InputText.to_proto
 mlflow.genai.label_schemas.InputTextList
 mlflow.genai.label_schemas.LabelSchema
 mlflow.genai.label_schemas.LabelSchema.from_proto
@@ -960,7 +962,6 @@ mlflow.genai.label_schemas.label_schemas.LabelSchema
 mlflow.genai.label_schemas.label_schemas.LabelSchemaType
 mlflow.genai.label_schemas.list_experiment_label_schemas
 mlflow.genai.label_schemas.update_experiment_label_schema
-mlflow.genai.label_schemas.upsert_experiment_label_schema
 mlflow.genai.labeling.labeling.Agent
 mlflow.genai.labeling.labeling.LabelingSession
 mlflow.genai.labeling.labeling.ReviewApp
