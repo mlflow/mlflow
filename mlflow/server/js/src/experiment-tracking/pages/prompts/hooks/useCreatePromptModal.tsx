@@ -63,6 +63,8 @@ export const useCreatePromptModal = ({
     modelConfig: PromptModelConfigFormData;
     responseFormatJson: string;
   }>({
+    mode: 'onChange',
+    reValidateMode: 'onChange',
     defaultValues: {
       draftName: '',
       draftValue: '',
@@ -77,8 +79,13 @@ export const useCreatePromptModal = ({
 
   const isCreatingNewPrompt = mode === CreatePromptModalMode.CreatePrompt;
   const isCreatingPromptVersion = mode === CreatePromptModalMode.CreatePromptVersion;
-
   const { mutate: mutateCreateVersion, error, reset: errorsReset, isLoading } = useCreateRegisteredPromptMutation();
+  const promptType = form.watch('promptType');
+  const chatMessages = form.watch('chatMessages');
+  const isSubmitDisabled =
+    isLoading ||
+    !form.formState.isValid ||
+    (promptType === PROMPT_TYPE_CHAT && chatMessages.some((message) => !message.content || !message.content.trim()));
 
   const modalElement = (
     <FormProvider {...form}>
@@ -105,7 +112,7 @@ export const useCreatePromptModal = ({
             description="A label for the confirm button in the create prompt modal in the prompt management UI"
           />
         }
-        okButtonProps={{ loading: isLoading }}
+        okButtonProps={{ loading: isLoading, disabled: isSubmitDisabled }}
         onOk={form.handleSubmit(async (values) => {
           const promptName =
             isCreatingPromptVersion && registeredPrompt?.name ? registeredPrompt?.name : values.draftName;
@@ -198,7 +205,15 @@ export const useCreatePromptModal = ({
         )}
         {isCreatingNewPrompt && (
           <>
-            <FormUI.Label htmlFor="mlflow.prompts.create.name">Name:</FormUI.Label>
+            <FormUI.Label htmlFor="mlflow.prompts.create.name">
+              Name: *
+            </FormUI.Label>
+            <FormUI.Hint>
+              <FormattedMessage
+                defaultMessage="Use alphanumeric characters, underscores, hyphens, and dots only."
+                description="Hint for the prompt name field in the prompt creation modal"
+              />
+            </FormUI.Hint>
             <RHFControlledComponents.Input
               control={form.control}
               id="mlflow.prompts.create.name"
@@ -241,31 +256,35 @@ export const useCreatePromptModal = ({
         <Controller
           control={form.control}
           name="promptType"
-          render={({ field }) => (
-            <SegmentedControlGroup
-              name="promptType"
-              componentId="promptType"
-              value={field.value}
-              onChange={field.onChange}
-            >
-              <SegmentedControlButton value={PROMPT_TYPE_TEXT}>
-                <FormattedMessage
-                  defaultMessage="Text"
-                  description="Label for text prompt type in the prompt creation modal"
-                />
-              </SegmentedControlButton>
-              <SegmentedControlButton value={PROMPT_TYPE_CHAT}>
-                <FormattedMessage
-                  defaultMessage="Chat"
-                  description="Label for chat prompt type in the prompt creation modal"
-                />
-              </SegmentedControlButton>
-            </SegmentedControlGroup>
-          )}
+          render={({ field }) => {
+            return (
+              <SegmentedControlGroup
+                name="promptType"
+                componentId="promptType"
+                value={field.value}
+                onChange={field.onChange}
+              >
+                <SegmentedControlButton value={PROMPT_TYPE_TEXT}>
+                  <FormattedMessage
+                    defaultMessage="Text"
+                    description="Label for text prompt type in the prompt creation modal"
+                  />
+                </SegmentedControlButton>
+                <SegmentedControlButton value={PROMPT_TYPE_CHAT}>
+                  <FormattedMessage
+                    defaultMessage="Chat"
+                    description="Label for chat prompt type in the prompt creation modal"
+                  />
+                </SegmentedControlButton>
+              </SegmentedControlGroup>
+            );
+          }}
         />
         <Spacer />
-        <FormUI.Label htmlFor="mlflow.prompts.create.content">Prompt:</FormUI.Label>
-        {form.watch('promptType') === PROMPT_TYPE_CHAT ? (
+        <FormUI.Label htmlFor="mlflow.prompts.create.content">
+          Prompt: *
+        </FormUI.Label>
+        {promptType === PROMPT_TYPE_CHAT ? (
           <ChatMessageCreator name="chatMessages" />
         ) : (
           <RHFControlledComponents.TextArea
@@ -290,7 +309,7 @@ export const useCreatePromptModal = ({
             validationState={form.formState.errors.draftValue ? 'error' : undefined}
           />
         )}
-        {form.watch('promptType') === PROMPT_TYPE_TEXT && form.formState.errors.draftValue && (
+        {promptType === PROMPT_TYPE_TEXT && form.formState.errors.draftValue && (
           <FormUI.Message type="error" message={form.formState.errors.draftValue.message} />
         )}
         <Spacer />
@@ -337,6 +356,12 @@ export const useCreatePromptModal = ({
               name="responseFormatJson"
               autoSize={{ minRows: 4, maxRows: 12 }}
               placeholder='{"type": "object", "properties": { ... }}'
+              rules={{
+                validate: (value) => {
+                  const validation = validateResponseFormatJson(value);
+                  return validation.valid || validation.error;
+                },
+              }}
               validationState={form.formState.errors.responseFormatJson ? 'error' : undefined}
             />
             {form.formState.errors.responseFormatJson && (

@@ -139,6 +139,49 @@ describe('PromptsPage', () => {
     });
   });
 
+  it('should validate the create prompt form while typing', async () => {
+    server.use(getMockedRegisteredPromptsResponse(0), getMockedRegisteredPromptCreateResponse());
+
+    renderTestComponent();
+    await waitFor(() => {
+      expect(screen.getByTestId('create-prompt-empty-state-button')).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByTestId('create-prompt-empty-state-button'));
+
+    await waitFor(() => {
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+    });
+
+    const createButton = screen.getByRole('button', { name: 'Create' });
+    expect(createButton).toBeDisabled();
+
+    await userEvent.type(screen.getByLabelText(/Name:/), 'my new prompt');
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Only alphanumeric characters, underscores, hyphens, and dots are allowed'),
+      ).toBeInTheDocument();
+    });
+    expect(createButton).toBeDisabled();
+
+    await userEvent.clear(screen.getByLabelText(/Name:/));
+    await userEvent.type(screen.getByLabelText(/Name:/), 'prompt-valid');
+    await userEvent.type(screen.getByLabelText(/Prompt:/), 'lorem ipsum');
+
+    await waitFor(() => {
+      expect(createButton).toBeEnabled();
+    });
+
+    await userEvent.click(screen.getByText('Advanced settings (optional)'));
+    await userEvent.type(screen.getByLabelText('Temperature'), 'abc');
+
+    await waitFor(() => {
+      expect(screen.getByText('Temperature must be a number >= 0')).toBeInTheDocument();
+    });
+    expect(createButton).toBeDisabled();
+  });
+
   it('should create a new chat prompt version', async () => {
     const createVersionSpy = jest.fn();
     server.use(

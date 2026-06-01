@@ -16,6 +16,7 @@ import { useCallback } from 'react';
 import { useFormContext, Controller } from 'react-hook-form';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useProviderModelData } from '../hooks/useProviderModelData';
+import { validateModelConfig } from '../utils';
 
 export const ModelConfigForm = () => {
   const { theme } = useDesignSystemTheme();
@@ -41,6 +42,21 @@ export const ModelConfigForm = () => {
   const handleProviderChange = useCallback(() => {
     setValue(getFieldName('modelName'), '');
   }, [setValue, getFieldName]);
+
+  const optionalNumberRule = useCallback(
+    (fieldName: keyof ReturnType<typeof validateModelConfig>) => ({
+      validate: (value: string) => {
+        const trimmed = value?.trim();
+        if (!trimmed) {
+          return true;
+        }
+
+        const errors = validateModelConfig({ [fieldName]: trimmed } as any);
+        return errors[fieldName] || true;
+      },
+    }),
+    [],
+  );
 
   const { providers, providersLoading, models, modelsLoading } = useProviderModelData(
     selectedProvider,
@@ -199,11 +215,19 @@ export const ModelConfigForm = () => {
             <FormUI.Label htmlFor="mlflow.prompts.model_config.temperature">
               <FormattedMessage defaultMessage="Temperature" description="Label for temperature input" />
             </FormUI.Label>
+            <FormUI.Hint>
+              <FormattedMessage
+                defaultMessage="Enter a number greater than or equal to 0."
+                description="Hint for the temperature input in model config form"
+              />
+            </FormUI.Hint>
             <RHFControlledComponents.Input
               control={control}
               id="mlflow.prompts.model_config.temperature"
               componentId="mlflow.prompts.model_config.temperature"
               name={getFieldName('temperature')}
+              placeholder="0.7"
+              rules={optionalNumberRule('temperature')}
               validationState={getError('temperature') ? 'error' : undefined}
             />
             {getError('temperature') && <FormUI.Message type="error" message={getError('temperature')?.message} />}
@@ -214,11 +238,19 @@ export const ModelConfigForm = () => {
             <FormUI.Label htmlFor="mlflow.prompts.model_config.maxTokens">
               <FormattedMessage defaultMessage="Max Tokens" description="Label for max tokens input" />
             </FormUI.Label>
+            <FormUI.Hint>
+              <FormattedMessage
+                defaultMessage="Enter a positive integer."
+                description="Hint for the max tokens input in model config form"
+              />
+            </FormUI.Hint>
             <RHFControlledComponents.Input
               control={control}
               id="mlflow.prompts.model_config.maxTokens"
               componentId="mlflow.prompts.model_config.maxTokens"
               name={getFieldName('maxTokens')}
+              placeholder="1024"
+              rules={optionalNumberRule('maxTokens')}
               validationState={getError('maxTokens') ? 'error' : undefined}
             />
             {getError('maxTokens') && <FormUI.Message type="error" message={getError('maxTokens')?.message} />}
@@ -229,11 +261,19 @@ export const ModelConfigForm = () => {
             <FormUI.Label htmlFor="mlflow.prompts.model_config.topP">
               <FormattedMessage defaultMessage="Top P" description="Label for top P input" />
             </FormUI.Label>
+            <FormUI.Hint>
+              <FormattedMessage
+                defaultMessage="Enter a number between 0 and 1."
+                description="Hint for the top p input in model config form"
+              />
+            </FormUI.Hint>
             <RHFControlledComponents.Input
               control={control}
               id="mlflow.prompts.model_config.topP"
               componentId="mlflow.prompts.model_config.topP"
               name={getFieldName('topP')}
+              placeholder="0.9"
+              rules={optionalNumberRule('topP')}
               validationState={getError('topP') ? 'error' : undefined}
             />
             {getError('topP') && <FormUI.Message type="error" message={getError('topP')?.message} />}
@@ -244,11 +284,19 @@ export const ModelConfigForm = () => {
             <FormUI.Label htmlFor="mlflow.prompts.model_config.topK">
               <FormattedMessage defaultMessage="Top K" description="Label for top K input" />
             </FormUI.Label>
+            <FormUI.Hint>
+              <FormattedMessage
+                defaultMessage="Enter a positive integer."
+                description="Hint for the top k input in model config form"
+              />
+            </FormUI.Hint>
             <RHFControlledComponents.Input
               control={control}
               id="mlflow.prompts.model_config.topK"
               componentId="mlflow.prompts.model_config.topK"
               name={getFieldName('topK')}
+              placeholder="40"
+              rules={optionalNumberRule('topK')}
               validationState={getError('topK') ? 'error' : undefined}
             />
             {getError('topK') && <FormUI.Message type="error" message={getError('topK')?.message} />}
@@ -259,11 +307,19 @@ export const ModelConfigForm = () => {
             <FormUI.Label htmlFor="mlflow.prompts.model_config.frequencyPenalty">
               <FormattedMessage defaultMessage="Frequency Penalty" description="Label for frequency penalty input" />
             </FormUI.Label>
+            <FormUI.Hint>
+              <FormattedMessage
+                defaultMessage="Enter a number between -2 and 2."
+                description="Hint for the frequency penalty input in model config form"
+              />
+            </FormUI.Hint>
             <RHFControlledComponents.Input
               control={control}
               id="mlflow.prompts.model_config.frequencyPenalty"
               componentId="mlflow.prompts.model_config.frequencyPenalty"
               name={getFieldName('frequencyPenalty')}
+              placeholder="0"
+              rules={optionalNumberRule('frequencyPenalty')}
               validationState={getError('frequencyPenalty') ? 'error' : undefined}
             />
             {getError('frequencyPenalty') && (
@@ -276,11 +332,19 @@ export const ModelConfigForm = () => {
             <FormUI.Label htmlFor="mlflow.prompts.model_config.presencePenalty">
               <FormattedMessage defaultMessage="Presence Penalty" description="Label for presence penalty input" />
             </FormUI.Label>
+            <FormUI.Hint>
+              <FormattedMessage
+                defaultMessage="Enter a number between -2 and 2."
+                description="Hint for the presence penalty input in model config form"
+              />
+            </FormUI.Hint>
             <RHFControlledComponents.Input
               control={control}
               id="mlflow.prompts.model_config.presencePenalty"
               componentId="mlflow.prompts.model_config.presencePenalty"
               name={getFieldName('presencePenalty')}
+              placeholder="0"
+              rules={optionalNumberRule('presencePenalty')}
               validationState={getError('presencePenalty') ? 'error' : undefined}
             />
             {getError('presencePenalty') && (
@@ -306,6 +370,12 @@ export const ModelConfigForm = () => {
               defaultMessage: 'e.g., END, ###, STOP',
               description: 'Placeholder for stop sequences input',
             })}
+            rules={{
+              validate: (value) => {
+                const trimmed = value?.trim();
+                return trimmed ? true : true;
+              },
+            }}
             validationState={getError('stopSequences') ? 'error' : undefined}
           />
           {getError('stopSequences') && <FormUI.Message type="error" message={getError('stopSequences')?.message} />}

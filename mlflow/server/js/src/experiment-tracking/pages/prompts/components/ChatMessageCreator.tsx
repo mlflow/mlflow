@@ -94,6 +94,7 @@ export const ChatMessageCreator = ({ name }: { name: string }) => {
   const { fields, insert, remove, replace } = useFieldArray({ control, name });
   const { theme } = useDesignSystemTheme();
   const { formatMessage } = useIntl();
+  const contentErrors = (formState.errors?.[name] as any) ?? [];
 
   const addMessageAfter = (index: number) => insert(index + 1, { role: 'user', content: '' });
 
@@ -123,13 +124,25 @@ export const ChatMessageCreator = ({ name }: { name: string }) => {
               )}
             />
           </Fragment>
-          <RHFControlledComponents.TextArea
-            componentId="mlflow.prompts.chat_creator.content"
-            name={`${name}.${index}.content`}
-            control={control}
-            autoSize={{ minRows: 1, maxRows: 6 }}
-            css={{ width: '100%' }}
-          />
+          <div>
+            <RHFControlledComponents.TextArea
+              componentId="mlflow.prompts.chat_creator.content"
+              name={`${name}.${index}.content`}
+              control={control}
+              autoSize={{ minRows: 1, maxRows: 6 }}
+              css={{ width: '100%' }}
+              rules={{
+                required: formatMessage({
+                  defaultMessage: 'Prompt content is required',
+                  description: 'Validation message for empty chat prompt message content',
+                }),
+              }}
+              validationState={contentErrors?.[index]?.content ? 'error' : undefined}
+            />
+            {contentErrors?.[index]?.content && (
+              <FormUI.Message type="error" message={contentErrors[index].content.message} />
+            )}
+          </div>
           <Button
             componentId="mlflow.prompts.chat_creator.add_after"
             type="tertiary"
