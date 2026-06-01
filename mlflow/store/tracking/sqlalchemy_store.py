@@ -187,6 +187,7 @@ from mlflow.telemetry.track import record_usage_event
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.constant import (
     AssessmentMetadataKey,
+    GenAiSemconvKey,
     SpanAttributeKey,
     SpansLocation,
     TokenUsageKey,
@@ -4922,7 +4923,10 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     # Session ID from OTel semantic conventions:
                     # https://opentelemetry.io/docs/specs/semconv/registry/attributes/session/#session-id
                     if session_id is None and (
-                        span_session_id := span_attributes.get("session.id")
+                        span_session_id := (
+                            span_attributes.get(SpanAttributeKey.SESSION_ID)
+                            or span_attributes.get(GenAiSemconvKey.CONVERSATION_ID)
+                        )
                     ):
                         session_id = _try_parse_json_string(span_session_id)
                     # user id used by OTel semantic conventions: https://opentelemetry.io/docs/specs/semconv/registry/attributes/user/#user-id
