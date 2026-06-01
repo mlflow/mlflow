@@ -125,7 +125,7 @@ describe('LabelSchemaInputCategorical', () => {
         label="Severity"
       />,
     );
-    expect(screen.getByText('Severity')).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: /Severity/ })).toBeInTheDocument();
   });
 
   it('renders multi-select when input.multi_select is true', () => {
@@ -138,7 +138,7 @@ describe('LabelSchemaInputCategorical', () => {
         label="Severity"
       />,
     );
-    expect(screen.getByText('Severity')).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: /Severity/ })).toBeInTheDocument();
   });
 
   it('fires onChange(option) when a single-select option is clicked', () => {
@@ -152,7 +152,7 @@ describe('LabelSchemaInputCategorical', () => {
         label="Severity"
       />,
     );
-    fireEvent.click(screen.getByText('Severity'));
+    fireEvent.click(screen.getByRole('combobox', { name: /Severity/ }));
     fireEvent.click(screen.getByText('medium'));
     expect(onChange).toHaveBeenCalledWith('medium');
   });
@@ -168,7 +168,7 @@ describe('LabelSchemaInputCategorical', () => {
         label="Severity"
       />,
     );
-    fireEvent.click(screen.getByText('Severity'));
+    fireEvent.click(screen.getByRole('combobox', { name: /Severity/ }));
     fireEvent.click(screen.getByText('low'));
     expect(onChange).toHaveBeenCalledWith(['low']);
   });

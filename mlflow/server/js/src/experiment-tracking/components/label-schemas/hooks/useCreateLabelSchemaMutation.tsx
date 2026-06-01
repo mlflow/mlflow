@@ -19,8 +19,8 @@ interface CreateLabelSchemaResponse {
 
 /**
  * Create a new label schema. The server rejects a `(experiment_id, name)`
- * collision with `RESOURCE_ALREADY_EXISTS`; use
- * `useUpsertLabelSchemaMutation` for create-or-replace semantics.
+ * collision with `RESOURCE_ALREADY_EXISTS`; use the update mutation to
+ * edit an existing schema.
  *
  * On success, invalidates the list + by-name query caches so any open
  * admin view picks up the new row.

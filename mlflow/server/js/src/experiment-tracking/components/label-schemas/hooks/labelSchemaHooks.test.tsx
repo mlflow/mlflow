@@ -15,7 +15,6 @@ import { useGetLabelSchemaByNameQuery } from './useGetLabelSchemaByNameQuery';
 import { useGetLabelSchemaQuery } from './useGetLabelSchemaQuery';
 import { useListLabelSchemasQuery } from './useListLabelSchemasQuery';
 import { useUpdateLabelSchemaMutation } from './useUpdateLabelSchemaMutation';
-import { useUpsertLabelSchemaMutation } from './useUpsertLabelSchemaMutation';
 import type { LabelSchema } from '../types';
 
 const mockSchema: LabelSchema = {
@@ -82,7 +81,7 @@ describe('label-schema hooks', () => {
         wrapper,
       });
       await waitFor(() => expect(result.current.isLoading).toEqual(false));
-      expect(result.current.labelSchema?.name).toEqual('correctness');
+      expect(result.current.labelSchema?.name).toEqual(mockSchema.name);
     });
   });
 
@@ -208,30 +207,6 @@ describe('label-schema hooks', () => {
         await result.current.updateLabelSchemaAsync({ schema_id: 'ls-test-1', enable_comment: false });
       });
       expect(requestBody.mock.calls[0][0]).toEqual({ schema_id: 'ls-test-1', enable_comment: false });
-    });
-  });
-
-  describe('useUpsertLabelSchemaMutation', () => {
-    it('omits enable_comment when undefined (preserves replace semantic)', async () => {
-      const requestBody = jest.fn();
-      server.use(
-        rest.post('*/ajax-api/3.0/mlflow/label-schemas/upsert', async (req, res, ctx) => {
-          requestBody(await req.json());
-          return res(ctx.json({ label_schema: mockSchema }));
-        }),
-      );
-      const { result } = renderHook(() => useUpsertLabelSchemaMutation(), { wrapper });
-      await act(async () => {
-        await result.current.upsertLabelSchemaAsync({
-          experiment_id: '1',
-          name: 'correctness',
-          type: 'FEEDBACK',
-          input: { pass_fail: { positive_label: 'Correct', negative_label: 'Incorrect' } },
-        });
-      });
-      const body = requestBody.mock.calls[0][0] as Record<string, unknown>;
-      expect(body).not.toHaveProperty('enable_comment');
-      expect(body).not.toHaveProperty('instruction');
     });
   });
 
