@@ -11,10 +11,10 @@ if TYPE_CHECKING:
     from mlflow.genai.judges.adapters.base_adapter import BaseJudgeAdapter
     from mlflow.types.llm import ChatMessage
 
+from mlflow.environment_variables import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.constants import (
     MLFLOW_GATEWAY_CLIENT_QUERY_RETRY_CODES,
-    MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS,
 )
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INTERNAL_ERROR
 
@@ -87,13 +87,14 @@ def send_chat_request(
 ) -> dict[str, Any]:
     """Send a chat completions request with retry logic."""
     last_exception = None
+    timeout = MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()
     for attempt in range(1 + num_retries):
         try:
             resp = requests.post(
                 url=endpoint,
                 headers={"Content-Type": "application/json", **headers},
                 json=payload,
-                timeout=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS,
+                timeout=timeout,
             )
 
             if resp.status_code == 400:
@@ -129,7 +130,7 @@ def send_chat_request(
                 _sleep_with_backoff(attempt)
                 continue
             raise MlflowException(
-                f"Request to {endpoint} timed out after {MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS}s",
+                f"Request to {endpoint} timed out after {timeout}s",
                 error_code=INTERNAL_ERROR,
             ) from e
         except requests.exceptions.ConnectionError as e:
