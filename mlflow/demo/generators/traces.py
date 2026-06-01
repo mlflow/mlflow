@@ -138,6 +138,9 @@ def _compute_cost(model: _Model, prompt_tokens: int, completion_tokens: int) -> 
 
 
 def _json_type(value: Any) -> str:
+    # Intentionally shallow: nested dicts/lists are reported as bare "object"/"array"
+    # without `properties`/`items`. Fine for a demo schema where we only need the
+    # top-level parameter shape; not a general-purpose JSON Schema generator.
     if isinstance(value, bool):
         return "boolean"
     if isinstance(value, int):
@@ -214,6 +217,8 @@ def _emit_react_children(
     messages = [{"role": "system", "content": system_content}]
     messages.extend(prior_messages or [])
     messages.append({"role": "user", "content": user_query})
+    # span_duration is only used inside the per-tool loop below; when `tools` is empty
+    # the loop is skipped and the lone final LLM span runs from `cursor` to `end_ns - 5_000`.
     total_spans = 2 * len(tools) + 1
     span_duration = max(1, (end_ns - start_ns - 10_000) // total_spans)
     cursor = start_ns + 5_000
