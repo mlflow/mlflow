@@ -19,6 +19,7 @@ from mlflow.projects.utils import (
     _is_valid_branch_name,
     _is_zip_uri,
     _parse_subdirectory,
+    _unzip_repo,
     fetch_and_validate_project,
     get_or_create_run,
     load_project,
@@ -263,3 +264,14 @@ def test_fetch_create_and_log(tmp_path):
         assert entry_point_name == run.data.tags[MLFLOW_PROJECT_ENTRY_POINT]
         assert project_uri == run.data.tags[MLFLOW_SOURCE_NAME]
         assert user_param == run.data.params
+
+
+def test_unzip_repo_rejects_path_traversal(tmp_path):
+    from mlflow.exceptions import MlflowException
+
+    malicious_zip = tmp_path / "malicious.zip"
+    with zipfile.ZipFile(malicious_zip, "w") as zf:
+        zf.writestr("../../../etc/passwd", "pwned")
+
+    with pytest.raises(MlflowException, match="path traversal"):
+        _unzip_repo(str(malicious_zip), str(tmp_path / "dst"))
