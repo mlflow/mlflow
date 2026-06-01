@@ -201,6 +201,7 @@ from mlflow.protos.webhooks_pb2 import (
     WebhookService,
 )
 from mlflow.server import app
+from mlflow.server.asgi_utils import get_routed_asgi_path
 from mlflow.server.auth.config import DEFAULT_AUTHORIZATION_FUNCTION, read_auth_config
 from mlflow.server.auth.entities import GetUserPermissionResult, User
 from mlflow.server.auth.logo import MLFLOW_LOGO
@@ -3934,6 +3935,7 @@ def _authenticate_fastapi_request(request: StarletteRequest) -> User | None:
     if "Authorization" not in request.headers:
         return None
 
+    request_path = get_routed_asgi_path(request)
     auth = request.headers["Authorization"]
     try:
         scheme, credentials = auth.split()
@@ -3951,7 +3953,7 @@ def _authenticate_fastapi_request(request: StarletteRequest) -> User | None:
         internal_token = _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.get()
         if (
             internal_token
-            and request.url.path.startswith("/gateway/")
+            and request_path.startswith("/gateway/")
             and secrets.compare_digest(password, internal_token)
         ):
             return store.get_user(username)
@@ -4126,7 +4128,7 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
 
     @app.middleware("http")
     async def fastapi_permission_middleware(request, call_next):
-        path = request.url.path
+        path = get_routed_asgi_path(request)
 
         # Skip unprotected routes
         if is_unprotected_route(path):

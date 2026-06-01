@@ -65,6 +65,50 @@
       },
       "last_updated_at": "2026-04-24"
     },
+    "50-steps/bedrock/amazon.nova-canvas-v1:0": {
+      "mode": "image_generation",
+      "context_window": {
+        "max_input": 2600
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
+    },
+    "50-steps/stability.stable-diffusion-xl-v0": {
+      "mode": "image_generation",
+      "context_window": {
+        "max_input": 77,
+        "max_tokens": 77
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
+    },
+    "50-steps/stability.stable-diffusion-xl-v1": {
+      "mode": "image_generation",
+      "context_window": {
+        "max_input": 77,
+        "max_tokens": 77
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
+    },
     "ai21.j2-mid-v1": {
       "mode": "chat",
       "context_window": {
@@ -242,6 +286,20 @@
       },
       "last_updated_at": "2026-04-24"
     },
+    "amazon.nova-canvas-v1:0": {
+      "mode": "image_generation",
+      "context_window": {
+        "max_input": 2600
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
+    },
     "amazon.nova-lite-v1:0": {
       "mode": "chat",
       "context_window": {
@@ -358,6 +416,39 @@
         "response_schema": false
       },
       "last_updated_at": "2026-04-24"
+    },
+    "amazon.titan-image-generator-v1": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
+    },
+    "amazon.titan-image-generator-v2": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
+    },
+    "amazon.titan-image-generator-v2:0": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
     },
     "amazon.titan-text-express-v1": {
       "mode": "chat",
@@ -3934,6 +4025,36 @@
       },
       "last_updated_at": "2026-05-18"
     },
+    "max-steps/stability.stable-diffusion-xl-v0": {
+      "mode": "image_generation",
+      "context_window": {
+        "max_input": 77,
+        "max_tokens": 77
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
+    },
+    "max-steps/stability.stable-diffusion-xl-v1": {
+      "mode": "image_generation",
+      "context_window": {
+        "max_input": 77,
+        "max_tokens": 77
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
+    },
     "meta.llama2-13b-chat-v1": {
       "mode": "chat",
       "context_window": {
@@ -5065,6 +5186,96 @@
         "response_schema": false
       },
       "last_updated_at": "2026-04-24"
+    },
+    "stability.sd3-5-large-v1:0": {
+      "mode": "image_generation",
+      "context_window": {
+        "max_input": 77,
+        "max_tokens": 77
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
+    },
+    "stability.sd3-large-v1:0": {
+      "mode": "image_generation",
+      "context_window": {
+        "max_input": 77,
+        "max_tokens": 77
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
+    },
+    "stability.stable-image-core-v1:0": {
+      "mode": "image_generation",
+      "context_window": {
+        "max_input": 77,
+        "max_tokens": 77
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
+    },
+    "stability.stable-image-core-v1:1": {
+      "mode": "image_generation",
+      "context_window": {
+        "max_input": 77,
+        "max_tokens": 77
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
+    },
+    "stability.stable-image-ultra-v1:0": {
+      "mode": "image_generation",
+      "context_window": {
+        "max_input": 77,
+        "max_tokens": 77
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
+    },
+    "stability.stable-image-ultra-v1:1": {
+      "mode": "image_generation",
+      "context_window": {
+        "max_input": 77,
+        "max_tokens": 77
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
     },
     "twelvelabs.marengo-embed-2-7-v1:0": {
       "mode": "embedding",
@@ -6663,6 +6874,20 @@
         "response_schema": true
       },
       "last_updated_at": "2026-04-24"
+    },
+    "us.amazon.nova-canvas-v1:0": {
+      "mode": "image_generation",
+      "context_window": {
+        "max_input": 2600
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
     },
     "us.amazon.nova-lite-v1:0": {
       "mode": "chat",
