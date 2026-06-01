@@ -10,6 +10,8 @@ import click
 
 from mlflow.agent.agents import AGENTS, AgentName, AgentTool, detect_installed, get_agent
 from mlflow.agent.setup.skill_installer import build_task, install_skills, skills_dest
+from mlflow.telemetry.events import AgentSetupEvent
+from mlflow.telemetry.track import _record_event
 
 
 def _git_root(start: Path) -> Path | None:
@@ -80,7 +82,13 @@ def setup(
     agent_name: AgentName | None,
     print_prompt: bool,
 ):
-    """Install the MLflow skill into this repo and launch a coding agent to instrument it."""
+    """[Experimental] Install MLflow skills and launch a coding agent to instrument this repo."""
+    click.secho(
+        "[Experimental] `mlflow agent setup` is experimental and may change without notice.",
+        fg="yellow",
+        err=True,
+    )
+
     repo_root = _git_root(Path.cwd())
     if repo_root is None:
         raise click.ClickException(
@@ -88,6 +96,7 @@ def setup(
         )
 
     agent = _choose_agent(agent_name)
+    _record_event(AgentSetupEvent, {"agent": agent.name, "print_prompt": print_prompt})
 
     dest = skills_dest(repo_root, agent).relative_to(repo_root)
     if click.confirm(f"Install MLflow skills at {dest}/?", default=True, err=True):
