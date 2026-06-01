@@ -5,7 +5,6 @@ from mlflow.tracing.fluent import start_span_no_context
 
 from tests.tracing.helper import get_traces
 
-
 # --- Integration tests for start_span with links ---
 
 
@@ -73,35 +72,6 @@ def test_trace_decorator_with_static_links():
     assert len(traces) == 1
     assert len(traces[0].data.spans[0].links) == 1
     assert traces[0].data.spans[0].links[0].span_id == "0123456789abcdef"
-
-
-def test_trace_decorator_with_callable_links():
-    call_count = 0
-
-    def get_links():
-        nonlocal call_count
-        call_count += 1
-        return [
-            Link(
-                trace_id="tr-0123456789abcdef0123456789abcdef",
-                span_id="0123456789abcdef",
-                attributes={"call": call_count},
-            ),
-        ]
-
-    @mlflow.trace(links=get_links)
-    def my_func(x):
-        return x * 2
-
-    my_func(5)
-    my_func(10)
-
-    traces = get_traces()
-    assert len(traces) == 2
-    assert call_count == 2
-    # Each invocation should have gotten fresh links from the callable
-    for trace_obj in traces:
-        assert len(trace_obj.data.spans[0].links) == 1
 
 
 def test_trace_decorator_with_generator_and_links():
