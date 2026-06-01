@@ -375,6 +375,7 @@ class AssessmentMetricSearchKey:
 # OpenTelemetry GenAI Semantic Convention attribute keys.
 # https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-spans/
 class GenAiSemconvKey:
+    CONVERSATION_ID = "gen_ai.conversation.id"
     OPERATION_NAME = "gen_ai.operation.name"
     REQUEST_MODEL = "gen_ai.request.model"
     RESPONSE_MODEL = "gen_ai.response.model"
