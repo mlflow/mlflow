@@ -29,7 +29,7 @@ EXPECTED_FACTS = "expected_facts"
 GUIDELINES = "guidelines"
 EXPECTED_RESPONSE = "expected_response"
 
-_OSS_SCHEMA_INPUT: TypeAlias = InputPassFail | InputCategorical | InputNumeric
+_OSS_SCHEMA_INPUT: TypeAlias = InputPassFail | InputCategorical | InputNumeric | InputText
 
 
 def create_label_schema(
