@@ -194,6 +194,12 @@ def test_parse_extra_conf():
         _parse_extra_conf("missing_equals_sign")
 
 
+def test_parse_extra_conf_value_contains_equals():
+    # Values such as Kerberos auth_to_local rules contain "=" — must not crash.
+    result = _parse_extra_conf("hadoop.security.auth_to_local=RULE:[2:$1=$0]")
+    assert result == {"hadoop.security.auth_to_local": "RULE:[2:$1=$0]"}
+
+
 def test_delete_artifacts(hdfs_system_mock):
     repo = HdfsArtifactRepository("hdfs:/some_path/maybe/path/")
     hdfs_system_mock.return_value.get_file_info.return_value = pyarrow.fs.FileInfo(
