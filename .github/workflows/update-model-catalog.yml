@@ -68,6 +68,7 @@ jobs:
           git push -f origin refs/tags/model-catalog/latest
 
       - name: Create or update pull request
+        id: pr
         if: steps.diff.outputs.changed == 'true'
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
@@ -82,12 +83,27 @@ jobs:
           existing_pr=$(gh pr list --head "$branch" --state open --json number --jq '.[0].number // empty')
           if [ -n "$existing_pr" ]; then
             echo "Existing open PR #$existing_pr found for branch $branch — skipping PR creation."
+            echo "number=$existing_pr" >> "$GITHUB_OUTPUT"
           else
-            gh pr create \
+            pr_number=$(gh pr create \
               --title "Update model catalog from upstream sources" \
               --body "Daily refresh of model pricing and context window data from LiteLLM, transformed to MLflow-native schema." \
-              --reviewer "TomeHirata"
+              --reviewer "TomeHirata" \
+              --json number --jq '.number')
+            echo "number=$pr_number" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Comment /review on pull request
+        if: steps.diff.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: gh pr comment ${{ steps.pr.outputs.number }} --body "/review"
+
+      - name: Enable auto-merge
+        if: steps.diff.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: gh pr merge ${{ steps.pr.outputs.number }} --auto --squash
 
       - name: Publish to GitHub Releases
         if: steps.diff.outputs.changed == 'true'
