@@ -1,3 +1,4 @@
+import warnings
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, TypeVar
@@ -33,20 +34,39 @@ class InputType(ABC):
 
 @dataclass
 class InputCategorical(InputType):
-    """A single-select dropdown for collecting assessments from stakeholders.
+    """A categorical input for collecting assessments from stakeholders.
 
-    .. note::
-        This functionality is only available in Databricks. Please run
-        `pip install mlflow[databricks]` to use it.
+    Renders as a single-select dropdown by default; set ``multi_select=True``
+    to render as a multi-select. The author controls option ordering
+    directly, so there is no separate polarity hint.
     """
 
     options: list[str]
     """List of available options for the categorical selection."""
 
+    multi_select: bool = False
+    """When ``True``, the widget allows multiple options to be selected and
+    the assessment value becomes a list of strings. Defaults to ``False``
+    (single-select)."""
+
     def _to_databricks_input(self) -> "_InputCategorical":
-        """Convert to the internal Databricks input type."""
+        """Convert to the internal Databricks input type.
+
+        The OSS-only ``multi_select`` field is dropped since Databricks
+        doesn't model it. A warning is emitted when a non-default value is
+        silently discarded so callers can detect intent loss.
+        """
         from databricks.agents.review_app import label_schemas as _label_schemas
 
+        if self.multi_select:
+            warnings.warn(
+                "InputCategorical field `multi_select` is OSS-only and is being "
+                "dropped when routing this schema to Databricks. Set "
+                "`multi_select=False` (the default) for Databricks-routed schemas, "
+                "or use the OSS-native schema store.",
+                UserWarning,
+                stacklevel=2,
+            )
         return _label_schemas.InputCategorical(options=self.options)
 
     @classmethod
@@ -112,9 +132,8 @@ class InputTextList(InputType):
 class InputText(InputType):
     """A free-form text box for collecting assessments from stakeholders.
 
-    .. note::
-        This functionality is only available in Databricks. Please run
-        `pip install mlflow[databricks]` to use it.
+    Supported by both feedback and expectation schemas; use it to capture
+    free-form rationale or ground-truth text from reviewers.
     """
 
     max_length: int | None = None
@@ -159,6 +178,47 @@ class InputNumeric(InputType):
         return cls(min_value=input_obj.min_value, max_value=input_obj.max_value)
 
 
+@dataclass
+class InputPassFail(InputType):
+    """A Pass/Fail input for collecting feedback from stakeholders.
+
+    Renders as a thumbs-up / thumbs-down toggle in the review UI. The
+    ``positive_label`` and ``negative_label`` fields carry the
+    positive/negative meaning directly so the UI never has to infer
+    "good" vs "bad" from option strings.
+
+    For example, a correctness schema sets
+    ``InputPassFail(positive_label="Correct", negative_label="Incorrect")``;
+    a hallucination schema sets
+    ``InputPassFail(positive_label="Hallucinated", negative_label="Grounded")``.
+    The stored assessment value is a ``bool``; ``True`` corresponds to the
+    ``positive_label``.
+
+    This input type is OSS-only. Databricks-routed schemas should use
+    :py:class:`InputCategorical` instead; the Databricks conversion
+    methods raise ``NotImplementedError``.
+    """
+
+    positive_label: str
+    """Label shown next to the thumbs-up button (e.g., "Correct", "Pass")."""
+
+    negative_label: str
+    """Label shown next to the thumbs-down button (e.g., "Incorrect", "Fail")."""
+
+    def _to_databricks_input(self) -> DatabricksInputType:
+        raise NotImplementedError(
+            "InputPassFail is OSS-only; Databricks-routed schemas should use "
+            "InputCategorical with explicit positive/negative options."
+        )
+
+    @classmethod
+    def _from_databricks_input(cls, input_obj: DatabricksInputType) -> "InputPassFail":
+        raise NotImplementedError(
+            "InputPassFail has no Databricks counterpart; Databricks-routed schemas "
+            "use InputCategorical."
+        )
+
+
 class LabelSchemaType(StrEnum):
     """Type of label schema."""
 
@@ -170,30 +230,54 @@ class LabelSchemaType(StrEnum):
 class LabelSchema:
     """A label schema for collecting input from stakeholders.
 
-    .. note::
-        This functionality is only available in Databricks. Please run
-        `pip install mlflow[databricks]` to use it.
+    Identity is ``(experiment_id, name)``. The OSS-side identification
+    fields (``schema_id``, ``experiment_id``, audit timestamps) are
+    populated by the backend when the schema is created via the SDK; they
+    are ``None`` for Databricks-routed schemas where identity lives on the
+    parent ReviewApp.
     """
 
     name: str
-    """Unique name identifier for the label schema."""
+    """Unique name identifier for the label schema within an experiment."""
 
     type: LabelSchemaType
     """Type of the label schema, either 'feedback' or 'expectation'."""
 
-    title: str
-    """Display title shown to stakeholders in the labeling review UI."""
-
-    input: InputCategorical | InputCategoricalList | InputText | InputTextList | InputNumeric
+    input: (
+        InputPassFail
+        | InputCategorical
+        | InputCategoricalList
+        | InputText
+        | InputTextList
+        | InputNumeric
+    )
     """
     Input type specification that defines how stakeholders will provide their assessment
-    (e.g., dropdown, text box, numeric input)
+    (e.g., Pass/Fail toggle, categorical dropdown, text box, numeric input).
     """
+
     instruction: str | None = None
     """Optional detailed instructions shown to stakeholders for guidance."""
 
     enable_comment: bool = False
     """Whether to enable additional comment functionality for reviewers."""
+
+    schema_id: str | None = None
+    """Server-generated identifier, set when the schema is created through
+    the MLflow tracking store. ``None`` for Databricks-routed schemas
+    (identity there is `(review_app_id, name)`)."""
+
+    experiment_id: str | None = None
+    """Parent experiment. ``None`` for Databricks-routed schemas."""
+
+    created_by: str | None = None
+    """User who created the schema. ``None`` for Databricks-routed schemas."""
+
+    created_at: int | None = None
+    """Creation timestamp in milliseconds. ``None`` for Databricks-routed schemas."""
+
+    updated_at: int | None = None
+    """Last update timestamp in milliseconds. ``None`` for Databricks-routed schemas."""
 
     @classmethod
     def _convert_databricks_input(cls, input_obj):
@@ -221,7 +305,6 @@ class LabelSchema:
         return cls(
             name=schema.name,
             type=schema.type,
-            title=schema.title,
             input=cls._convert_databricks_input(schema.input),
             instruction=schema.instruction,
             enable_comment=schema.enable_comment,

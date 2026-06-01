@@ -7,8 +7,9 @@ on:
     paths:
       - .github/workflows/uv.yml
   schedule:
-    # Run this workflow on Monday and Thursday at 1:00 UTC (10:00 JST)
-    - cron: "0 1 * * 1,4"
+    # Run this workflow on Monday and Thursday at 08:00 JST
+    - cron: "0 8 * * 1,4"
+      timezone: "Asia/Tokyo"
   workflow_dispatch:
 
 concurrency:
