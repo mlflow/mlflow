@@ -860,6 +860,95 @@ async def test_tracer_parallel_workflow_with_custom_spans():
     assert inner_result_span.outputs == result
 
 
+@pytest.mark.skipif(
+    llama_core_version < Version("0.11.0"),
+    reason="Workflow was introduced in 0.11.0",
+)
+@pytest.mark.asyncio
+async def test_tracer_workflow_with_async_streaming_response():
+    """
+    Regression test for https://github.com/mlflow/mlflow/issues/18765.
+
+    When a LlamaIndex workflow step returns an AsyncStreamingResponse (e.g. from an
+    async RAG query engine) as the StopEvent result, the span output should be the
+    resolved text once the stream is consumed -- NOT the raw AsyncStreamingResponse
+    object.  Before the fix, the workflow span was closed with the raw object, which
+    either serialised to a useless repr or deadlocked inside a running event loop.
+    """
+    from llama_index.core.base.response.schema import AsyncStreamingResponse
+    from llama_index.core.workflow import StartEvent, StopEvent, Workflow, step
+
+    async def _fake_stream():
+        for token in ["Hello", " ", "world"]:
+            yield token
+
+    class StreamingWorkflow(Workflow):
+        @step
+        async def my_step(self, ev: StartEvent) -> StopEvent:
+            # Simulate a step that returns an async streaming RAG response.
+            # The response_gen is still open (not yet consumed) when the step exits.
+            streaming_response = AsyncStreamingResponse(response_gen=_fake_stream())
+            return StopEvent(result=streaming_response)
+
+    w = StreamingWorkflow(timeout=10, verbose=False)
+    await w.run()
+
+    traces = get_traces()
+    assert len(traces) == 1
+    root_span = traces[0].data.spans[0]
+
+    # For an unconsumed AsyncStreamingResponse, response_txt is None so the
+    # span output must be None rather than the raw object repr.
+    assert root_span.outputs is None, (
+        f"Expected span output to be None for an unconsumed stream, got: {root_span.outputs}"
+    )
+
+
+@pytest.mark.skipif(
+    llama_core_version < Version("0.11.0"),
+    reason="Workflow was introduced in 0.11.0",
+)
+@pytest.mark.asyncio
+async def test_tracer_workflow_with_consumed_async_streaming_response():
+    """
+    Regression test for https://github.com/mlflow/mlflow/issues/18765 (consumed path).
+
+    When a workflow StopEvent carries an AsyncStreamingResponse whose generator has
+    already been consumed (response_txt is set), the span should record the resolved
+    text rather than the raw object.
+    """
+    from llama_index.core.base.response.schema import AsyncStreamingResponse
+    from llama_index.core.workflow import StartEvent, StopEvent, Workflow, step
+
+    async def _fake_stream():
+        for token in ["Hi", " there"]:
+            yield token
+
+    class ConsumedStreamingWorkflow(Workflow):
+        @step
+        async def my_step(self, ev: StartEvent) -> StopEvent:
+            streaming_response = AsyncStreamingResponse(response_gen=_fake_stream())
+            # Consume the generator before returning it (simulates await get_response())
+            await streaming_response.get_response()
+            return StopEvent(result=streaming_response)
+
+    w = ConsumedStreamingWorkflow(timeout=10, verbose=False)
+    await w.run()
+
+    traces = get_traces()
+    assert len(traces) == 1
+    root_span = traces[0].data.spans[0]
+
+    # response_txt was set — the span output should be the resolved text.
+    outputs = root_span.outputs
+    assert not str(outputs).startswith(
+        "<llama_index.core.base.response.schema.AsyncStreamingResponse"
+    ), f"Span output should not be a raw AsyncStreamingResponse repr. Got: {outputs}"
+    # The resolved text should appear in the span output.
+    if outputs is not None:
+        assert "Hi there" in str(outputs)
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize("should_close", [True, False])
 async def test_stream_resolver_with_async_generator(should_close):
