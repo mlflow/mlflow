@@ -27,5 +27,7 @@ export { LabelSchemaInputNumeric } from './widgets/LabelSchemaInputNumeric';
 export type { LabelSchemaInputNumericProps } from './widgets/LabelSchemaInputNumeric';
 export { LabelSchemaInputPassFail } from './widgets/LabelSchemaInputPassFail';
 export type { LabelSchemaInputPassFailProps } from './widgets/LabelSchemaInputPassFail';
+export { LabelSchemaInputText } from './widgets/LabelSchemaInputText';
+export type { LabelSchemaInputTextProps } from './widgets/LabelSchemaInputText';
 export { LabelSchemaInputRenderer } from './widgets/LabelSchemaInputRenderer';
 export type { LabelSchemaInputRendererProps, LabelSchemaValue } from './widgets/LabelSchemaInputRenderer';

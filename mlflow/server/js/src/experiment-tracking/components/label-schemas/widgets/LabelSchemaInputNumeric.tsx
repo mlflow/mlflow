@@ -12,11 +12,9 @@ export interface LabelSchemaInputNumericProps {
 
 /**
  * Numeric labeling widget. Renders as a number input bounded by the
- * schema's `min_value` / `max_value` (each optional independently).
- *
- * For feedback-type schemas the server enforces that both bounds are
- * set; for expectation-type schemas either bound may be missing and
- * the corresponding HTML attribute is simply omitted.
+ * schema's `min_value` / `max_value`. Both bounds are optional and
+ * independent regardless of schema type; a missing bound simply omits
+ * the corresponding HTML attribute.
  */
 const buildRangePlaceholder = (min: number | undefined, max: number | undefined): string | undefined => {
   if (min != null && max != null) {
