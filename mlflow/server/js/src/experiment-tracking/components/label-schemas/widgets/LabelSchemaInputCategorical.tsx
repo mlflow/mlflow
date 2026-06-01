@@ -40,9 +40,10 @@ export const LabelSchemaInputCategorical = ({
 }: LabelSchemaInputCategoricalProps) => {
   const multiSelect = input.multi_select === true;
   // The DialogCombobox `value` prop always wants a string[]; lift the
-  // single-select value into a singleton (or empty) array here. Use
-  // `!= null` so an empty-string option (allowed by `options: string[]`)
-  // still renders as selected rather than getting dropped by truthiness.
+  // single-select value into a singleton (or empty) array here. The
+  // `typeof value === 'string'` guard (rather than a truthiness check)
+  // keeps a falsy-but-valid selected value rendering as selected; only
+  // null/undefined ("not yet reviewed") collapses to an empty array.
   let comboValue: string[];
   if (multiSelect) {
     comboValue = Array.isArray(value) ? value : [];
