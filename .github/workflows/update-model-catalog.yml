@@ -97,13 +97,15 @@ jobs:
         if: steps.diff.outputs.changed == 'true'
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-        run: gh pr comment ${{ steps.pr.outputs.number }} --body "/review"
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+        run: gh pr comment "$PR_NUMBER" --body "/review"
 
       - name: Enable auto-merge
         if: steps.diff.outputs.changed == 'true'
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-        run: gh pr merge ${{ steps.pr.outputs.number }} --auto --squash
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+        run: gh pr merge "$PR_NUMBER" --auto --squash
 
       - name: Publish to GitHub Releases
         if: steps.diff.outputs.changed == 'true'
