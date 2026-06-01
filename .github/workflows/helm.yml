@@ -21,6 +21,8 @@ defaults:
   run:
     shell: bash
 
+permissions: {}
+
 jobs:
   lint:
     runs-on: ubuntu-latest

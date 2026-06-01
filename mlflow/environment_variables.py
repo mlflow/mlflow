@@ -640,6 +640,14 @@ MLFLOW_GATEWAY_RATE_LIMITS_STORAGE_URI = _EnvironmentVariable(
     "MLFLOW_GATEWAY_RATE_LIMITS_STORAGE_URI", str, None
 )
 
+#: Timeout in seconds for Gateway provider requests before they are treated as timed out.
+#: This applies to both gateway provider proxy calls and GenAI judge requests routed through
+#: gateway-compatible providers.
+#: (default: ``300``)
+MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS = _EnvironmentVariable(
+    "MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS", int, 300
+)
+
 #: If True, the gateway will attempt to resolve API keys from environment variables
 #: (``$``-prefixed values). This is only enabled for the legacy YAML-config gateway
 #: (``mlflow gateway start``).
@@ -1172,6 +1180,28 @@ MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT = _EnvironmentVariable(
     "MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT", int, 500
 )
 
+#: Maximum number of seconds ``mlflow.get_trace`` will retry an OTel trace lookup while the trace
+#: has not yet propagated to the backend. The retry loop honors this as a hard deadline.
+#: (default: ``15``)
+MLFLOW_GET_TRACE_OTEL_RETRY_TIMEOUT_SECONDS = _EnvironmentVariable(
+    "MLFLOW_GET_TRACE_OTEL_RETRY_TIMEOUT_SECONDS", int, 15
+)
+
+#: Initial sleep, in seconds, before the first OTel trace lookup retry. Subsequent intervals
+#: double until capped by ``MLFLOW_GET_TRACE_OTEL_MAX_RETRY_INTERVAL_SECONDS``.
+#: (default: ``2.0``)
+MLFLOW_GET_TRACE_OTEL_INITIAL_RETRY_INTERVAL_SECONDS = _EnvironmentVariable(
+    "MLFLOW_GET_TRACE_OTEL_INITIAL_RETRY_INTERVAL_SECONDS", float, 2.0
+)
+
+#: Maximum sleep, in seconds, between two consecutive OTel trace lookup retries. The interval
+#: grows exponentially from ``MLFLOW_GET_TRACE_OTEL_INITIAL_RETRY_INTERVAL_SECONDS`` and is capped
+#: to this value.
+#: (default: ``8.0``)
+MLFLOW_GET_TRACE_OTEL_MAX_RETRY_INTERVAL_SECONDS = _EnvironmentVariable(
+    "MLFLOW_GET_TRACE_OTEL_MAX_RETRY_INTERVAL_SECONDS", float, 8.0
+)
+
 #: Specifies the SQL warehouse ID to use for tracing with Databricks backend.
 #: (default: ``None``)
 MLFLOW_TRACING_SQL_WAREHOUSE_ID = _EnvironmentVariable("MLFLOW_TRACING_SQL_WAREHOUSE_ID", str, None)
@@ -1530,9 +1560,10 @@ MLFLOW_UV_AUTO_DETECT = _BooleanEnvironmentVariable("MLFLOW_UV_AUTO_DETECT", Tru
 MLFLOW_LOG_UV_FILES = _BooleanEnvironmentVariable("MLFLOW_LOG_UV_FILES", True)
 
 
-#: Specifies whether to allow using the deprecated filesystem backend for tracking
-#: and model registry. Set to ``True`` to opt out of the error raised when
-#: instantiating the file-based stores.
+#: Specifies whether to allow using the filesystem backend for tracking and model
+#: registry, which is in maintenance mode (no further updates).
+#: Set to ``True`` to opt out of the error raised when instantiating the file-based
+#: stores and continue using the filesystem backend.
 #: (default: ``False``)
 MLFLOW_ALLOW_FILE_STORE = _BooleanEnvironmentVariable("MLFLOW_ALLOW_FILE_STORE", False)
 

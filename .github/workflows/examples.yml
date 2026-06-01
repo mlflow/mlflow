@@ -49,6 +49,8 @@ env:
   PIP_CONSTRAINT: ${{ github.workspace }}/requirements/constraints.txt
   PYTHONFAULTHANDLER: "1"
 
+permissions: {}
+
 jobs:
   examples:
     runs-on: ubuntu-latest

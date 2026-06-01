@@ -47,7 +47,7 @@ class IssuesDemoGenerator(BaseDemoGenerator):
 
         experiment_id = experiment.experiment_id
         traces = mlflow.search_traces(
-            locations=[experiment_id], max_results=1000, return_type="list"
+            locations=[experiment_id], max_results=1000, return_type="list", flush=True
         )
         failing_traces_by_assessment = {}
 

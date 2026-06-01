@@ -37,6 +37,8 @@ env:
   MLFLOW_SERVER_ENABLE_JOB_EXECUTION: "false"
   PIP_CONSTRAINT: ${{ github.workspace }}/requirements/constraints.txt
 
+permissions: {}
+
 jobs:
   core:
     runs-on: ubuntu-latest
