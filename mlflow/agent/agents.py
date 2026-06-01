@@ -61,10 +61,10 @@ AGENTS: dict[AgentName, AgentTool] = {
 
 
 def get_agent(name: AgentName) -> AgentTool:
-    if name not in AGENTS:
-        available = ", ".join(sorted(AGENTS))
-        raise ValueError(f"Unknown agent {name!r}. Available: {available}")
-    return AGENTS[name]
+    if agent := AGENTS.get(name):
+        return agent
+    available = ", ".join(sorted(AGENTS))
+    raise ValueError(f"Unknown agent {name!r}. Available: {available}")
 
 
 def detect_installed() -> list[AgentTool]:
