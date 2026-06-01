@@ -7,8 +7,8 @@
  * authoritative client-side contract.
  */
 
-// Mirrors the proto3 enum names in `label_schemas.proto`. The wire
-// format is the uppercase enum NAME (proto3 JSON convention); sending
+// Mirrors the proto2 enum names in `label_schemas.proto`. The wire
+// format is the uppercase enum NAME (proto JSON convention); sending
 // lowercase silently maps to UNSPECIFIED and the server rejects it.
 export type LabelSchemaType = 'FEEDBACK' | 'EXPECTATION';
 

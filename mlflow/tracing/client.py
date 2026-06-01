@@ -906,8 +906,9 @@ class TracingClient:
 
         Args:
             experiment_id: Parent experiment ID.
-            name: Schema name (1-256 chars). Free text shown to reviewers as
-                the label prompt and used as the assessment key.
+            name: Schema name. Free text shown to reviewers as the label
+                prompt and used as the assessment key; unique within the
+                experiment.
             type: ``"feedback"`` or ``"expectation"``.
             input: One of :py:class:`InputPassFail` / :py:class:`InputCategorical`
                 / :py:class:`InputNumeric` / :py:class:`InputText`.
