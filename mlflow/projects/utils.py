@@ -11,7 +11,7 @@ from io import BytesIO
 from mlflow import tracking
 from mlflow.entities import Param, SourceType
 from mlflow.environment_variables import MLFLOW_EXPERIMENT_ID, MLFLOW_RUN_ID, MLFLOW_TRACKING_URI
-from mlflow.exceptions import ExecutionException, INVALID_PARAMETER_VALUE, MlflowException
+from mlflow.exceptions import INVALID_PARAMETER_VALUE, ExecutionException, MlflowException
 from mlflow.projects import _project_spec
 from mlflow.tracking import fluent
 from mlflow.tracking.context.default_context import _get_user
@@ -176,15 +176,13 @@ def _fetch_project(uri, version=None):
 
 
 def _unzip_repo(zip_file, dst_dir):
-    root = os.path.normcase(os.path.abspath(dst_dir))
+    root = pathlib.Path(dst_dir).resolve()
     with zipfile.ZipFile(zip_file) as zip_in:
         for member in zip_in.infolist():
-            target = os.path.normcase(os.path.abspath(os.path.join(dst_dir, member.filename)))
+            target = (root / member.filename).resolve()
             try:
-                common_path = os.path.commonpath([root, target])
+                target.relative_to(root)
             except ValueError:
-                common_path = None
-            if common_path != root:
                 raise MlflowException(
                     message=f"Zip file member {member.filename} attempts path traversal",
                     error_code=INVALID_PARAMETER_VALUE,

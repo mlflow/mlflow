@@ -10,7 +10,7 @@ import git
 import pytest
 
 import mlflow
-from mlflow.exceptions import ExecutionException
+from mlflow.exceptions import ExecutionException, MlflowException
 from mlflow.projects import _project_spec
 from mlflow.projects.utils import (
     _fetch_git_repo,
@@ -267,8 +267,6 @@ def test_fetch_create_and_log(tmp_path):
 
 
 def test_unzip_repo_rejects_path_traversal(tmp_path):
-    from mlflow.exceptions import MlflowException
-
     malicious_zip = tmp_path / "malicious.zip"
     with zipfile.ZipFile(malicious_zip, "w") as zf:
         zf.writestr("../../../etc/passwd", "pwned")
