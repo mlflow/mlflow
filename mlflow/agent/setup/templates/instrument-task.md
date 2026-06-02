@@ -6,14 +6,15 @@ guidance.
 
 ## Hard Rules
 
-- **Only add MLflow code.** Do not refactor or modify unrelated code.
 - **One app, one entry point per run.** If the repo has more than one candidate,
   ask the user which to instrument before starting.
 - **Install the latest MLflow.** Use the project's package manager's normal
   install. Do not hard-pin the version unless the user asks.
 - **Don't crash without the tracking server.** If `{tracking_uri}` is
   unreachable at runtime, traces should fail silently — the app must still
-  work.
+  work. To verify quickly without waiting on long client timeouts, run the
+  app with `MLFLOW_HTTP_REQUEST_TIMEOUT=5` and an unreachable URI (e.g.
+  `MLFLOW_TRACKING_URI=http://localhost:1`).
 - **Do not add eval code** unless explicitly requested.
 - **If MLflow is already installed and configured, do not duplicate work.**
   Note the existing setup in the final summary.
