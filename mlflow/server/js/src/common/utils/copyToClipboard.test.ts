@@ -24,7 +24,8 @@ describe('copyToClipboard', () => {
       value: undefined,
       configurable: true,
     });
-    const execCommand = jest.spyOn(document, 'execCommand').mockReturnValue(true);
+    const execCommand = jest.fn().mockReturnValue(true);
+    Object.defineProperty(document, 'execCommand', { value: execCommand, configurable: true });
 
     const result = await copyToClipboard('hello');
 
@@ -37,8 +38,11 @@ describe('copyToClipboard', () => {
       value: undefined,
       configurable: true,
     });
-    jest.spyOn(document, 'execCommand').mockImplementation(() => {
-      throw new Error('not supported');
+    Object.defineProperty(document, 'execCommand', {
+      value: jest.fn().mockImplementation(() => {
+        throw new Error('not supported');
+      }),
+      configurable: true,
     });
 
     const result = await copyToClipboard('hello');
