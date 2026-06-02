@@ -890,7 +890,7 @@ class TracingClient:
         """
         return self.store.get_issue(issue_id)
 
-    # ----- Label schemas (OSS-native CRUD) -----
+    # ----- Label schemas (tracking-store CRUD) -----
 
     def _create_label_schema(
         self,
@@ -902,7 +902,7 @@ class TracingClient:
         instruction: str | None = None,
         enable_comment: bool = False,
     ) -> "LabelSchema":
-        """Create a new OSS-native label schema.
+        """Create a new label schema.
 
         Args:
             experiment_id: Parent experiment ID.
@@ -929,11 +929,11 @@ class TracingClient:
         )
 
     def _get_label_schema(self, schema_id: str) -> "LabelSchema":
-        """Get an OSS-native label schema by its server-generated ``schema_id``."""
+        """Get an label schema by its server-generated ``schema_id``."""
         return self.store.get_label_schema(schema_id)
 
     def _get_label_schema_by_name(self, experiment_id: str, name: str) -> "LabelSchema":
-        """Get an OSS-native label schema by ``(experiment_id, name)``."""
+        """Get an label schema by ``(experiment_id, name)``."""
         return self.store.get_label_schema_by_name(experiment_id, name)
 
     def _list_label_schemas(
@@ -942,7 +942,7 @@ class TracingClient:
         max_results: int = 100,
         page_token: str | None = None,
     ) -> "PagedList[LabelSchema]":
-        """List OSS-native label schemas for an experiment, paginated."""
+        """List label schemas for an experiment, paginated."""
         return self.store.list_label_schemas(
             experiment_id, max_results=max_results, page_token=page_token
         )
@@ -956,7 +956,7 @@ class TracingClient:
         enable_comment: bool | None = None,
         input: "InputPassFail | InputCategorical | InputNumeric | InputText | None" = None,
     ) -> "LabelSchema":
-        """Sparse-update an OSS-native label schema.
+        """Sparse-update an label schema.
 
         ``type`` is immutable post-create and is not accepted. Fields left as
         ``None`` are unchanged on the server. ``enable_comment=None`` is

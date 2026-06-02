@@ -1,13 +1,17 @@
 """
-Databricks Agent Label Schemas Python SDK. For more details see Databricks Agent Evaluation:
-<https://docs.databricks.com/en/generative-ai/agent-evaluation/index.html>
+Label schemas define how reviewers annotate traces in the review UI.
 
-The API docs can be found here:
-<https://api-docs.databricks.com/python/databricks-agents/latest/databricks_agent_eval.html#review-app>
+By default a schema is managed in the MLflow tracking store and scoped to an
+experiment (identity ``(experiment_id, name)``, with a server-generated
+``schema_id``). On a Databricks tracking URI the same functions route to the
+workspace's ReviewApp instead, where a schema is identified by ``name``. The
+per-function notes call out the parameters that apply to only one of the two
+routing targets.
 """
 
 from typing import TYPE_CHECKING, Literal, TypeAlias
 
+from mlflow.exceptions import MlflowException
 from mlflow.genai.label_schemas.label_schemas import (
     InputCategorical,
     InputCategoricalList,
@@ -19,8 +23,11 @@ from mlflow.genai.label_schemas.label_schemas import (
     LabelSchemaType,
 )
 from mlflow.genai.labeling import ReviewApp
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.tracing.client import TracingClient
+from mlflow.tracking import get_tracking_uri
+from mlflow.utils.uri import is_databricks_uri
 
 if TYPE_CHECKING:
     from databricks.agents.review_app import ReviewApp
@@ -29,122 +36,101 @@ EXPECTED_FACTS = "expected_facts"
 GUIDELINES = "guidelines"
 EXPECTED_RESPONSE = "expected_response"
 
-_OSS_SCHEMA_INPUT: TypeAlias = InputPassFail | InputCategorical | InputNumeric | InputText
+_SCHEMA_INPUT: TypeAlias = (
+    InputPassFail
+    | InputCategorical
+    | InputCategoricalList
+    | InputNumeric
+    | InputText
+    | InputTextList
+)
+
+
+def _reject_databricks_only_params(*, title: str | None, overwrite: bool) -> None:
+    # `title` / `overwrite` only apply to the Databricks ReviewApp.
+    if title is not None:
+        raise MlflowException(
+            "`title` is only supported on a Databricks tracking URI (the ReviewApp).",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    if overwrite:
+        raise MlflowException(
+            "`overwrite` is only supported on a Databricks tracking URI (the ReviewApp).",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+
+def _reject_tracking_store_only_params(*, experiment_id: str | None, schema_id: str | None) -> None:
+    # `experiment_id` / `schema_id` only apply to the tracking store; the
+    # ReviewApp identifies schemas by `name`.
+    if experiment_id is not None:
+        raise MlflowException(
+            "`experiment_id` is only supported on a non-Databricks tracking URI.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    if schema_id is not None:
+        raise MlflowException(
+            "`schema_id` is only supported on a non-Databricks tracking URI; use `name`.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
 
 
 def create_label_schema(
     name: str,
     *,
     type: Literal["feedback", "expectation"],
-    title: str,
-    input: InputCategorical | InputCategoricalList | InputText | InputTextList | InputNumeric,
+    input: _SCHEMA_INPUT,
     instruction: str | None = None,
     enable_comment: bool = False,
+    title: str | None = None,
     overwrite: bool = False,
+    experiment_id: str | None = None,
 ) -> LabelSchema:
-    """Create a new label schema for the review app (Databricks-routed).
+    """Create a label schema.
 
-    A label schema defines the type of input that stakeholders will provide when labeling items
-    in the review app.
-
-    .. note::
-        This is the Databricks-routed flow; identity is the schema ``name``
-        within the workspace's ReviewApp. For OSS MLflow deployments use
-        :func:`create_experiment_label_schema` instead, whose identity is
-        ``(experiment_id, name)``. Requires `pip install mlflow[databricks]`.
+    By default the schema is created in the MLflow tracking store, scoped to
+    ``experiment_id`` (the current experiment when omitted) and identified by
+    ``(experiment_id, name)``. On a Databricks tracking URI it is created in
+    the workspace ReviewApp instead, identified by ``name``.
 
     Args:
-        name: The name of the label schema. Must be unique across the review app.
-        type: The type of the label schema. Either "feedback" or "expectation".
-        title: The title of the label schema shown to stakeholders.
-        input: The input type of the label schema.
-        instruction: Optional. The instruction shown to stakeholders.
-        enable_comment: Optional. Whether to enable comments for the label schema.
-        overwrite: Optional. Whether to overwrite the existing label schema with the same name.
+        name: Schema name. Shown to reviewers as the label prompt and used as
+            the assessment key; unique within the experiment.
+        type: ``"feedback"`` or ``"expectation"``.
+        input: The input widget spec (e.g. :py:class:`InputPassFail`,
+            :py:class:`InputCategorical`, :py:class:`InputNumeric`,
+            :py:class:`InputText`).
+        instruction: Optional supplementary guidance shown to reviewers.
+        enable_comment: Whether reviewers can add a free-form rationale.
+        title: Databricks ReviewApp only — display title shown to reviewers.
+        overwrite: Databricks ReviewApp only — replace an existing schema with
+            the same name.
+        experiment_id: Tracking store only — parent experiment; defaults to the
+            current experiment.
 
     Returns:
-        LabelSchema: The created label schema.
+        The created :py:class:`LabelSchema`.
     """
-    from mlflow.genai.labeling.stores import _get_labeling_store  # Nested to avoid circular import
+    if is_databricks_uri(get_tracking_uri()):
+        _reject_tracking_store_only_params(experiment_id=experiment_id, schema_id=None)
+        # Nested to avoid a hard dependency on databricks-agents off Databricks.
+        from mlflow.genai.labeling.stores import _get_labeling_store
 
-    store = _get_labeling_store()
-    return store.create_label_schema(
-        name=name,
-        type=type,
-        title=title,
-        input=input,
-        instruction=instruction,
-        enable_comment=enable_comment,
-        overwrite=overwrite,
-    )
+        return _get_labeling_store().create_label_schema(
+            name=name,
+            type=type,
+            title=title,
+            input=input,
+            instruction=instruction,
+            enable_comment=enable_comment,
+            overwrite=overwrite,
+        )
 
+    _reject_databricks_only_params(title=title, overwrite=overwrite)
+    if experiment_id is None:
+        from mlflow.tracking.fluent import _get_experiment_id
 
-def get_label_schema(name: str) -> LabelSchema:
-    """Get a label schema from the review app.
-
-    .. note::
-        This functionality is only available in Databricks. Please run
-        `pip install mlflow[databricks]` to use it.
-
-    Args:
-        name: The name of the label schema to get.
-
-    Returns:
-        LabelSchema: The label schema.
-    """
-    from mlflow.genai.labeling.stores import _get_labeling_store  # Nested to avoid circular import
-
-    store = _get_labeling_store()
-    return store.get_label_schema(name)
-
-
-def delete_label_schema(name: str):
-    """Delete a label schema from the review app.
-
-    .. note::
-        This functionality is only available in Databricks. Please run
-        `pip install mlflow[databricks]` to use it.
-
-    Args:
-        name: The name of the label schema to delete.
-    """
-    # Nested to avoid circular import
-    from mlflow.genai.labeling.databricks_utils import get_databricks_review_app
-    from mlflow.genai.labeling.stores import DatabricksLabelingStore, _get_labeling_store
-
-    store = _get_labeling_store()
-    store.delete_label_schema(name)
-
-    # For backwards compatibility, return a ReviewApp instance only if using Databricks store
-    if isinstance(store, DatabricksLabelingStore):
-        return ReviewApp(get_databricks_review_app())
-    else:
-        # For non-Databricks stores, we can't return a meaningful ReviewApp
-        return None
-
-
-def create_experiment_label_schema(
-    experiment_id: str,
-    *,
-    name: str,
-    type: Literal["feedback", "expectation"],
-    input: _OSS_SCHEMA_INPUT,
-    instruction: str | None = None,
-    enable_comment: bool = False,
-) -> LabelSchema:
-    """Create a new label schema scoped to an OSS experiment.
-
-    Unlike :func:`create_label_schema` (Databricks-routed, identified by
-    schema name within a ReviewApp), OSS-native schemas are identified by
-    ``(experiment_id, name)``. The ``name`` is free text shown to
-    reviewers as the label prompt. The server generates a ``schema_id``
-    returned on the response.
-
-    .. note::
-        For Databricks workspaces with a ReviewApp, use
-        :func:`create_label_schema` instead (it routes through the
-        Databricks agents SDK).
-    """
+        experiment_id = _get_experiment_id()
     return TracingClient()._create_label_schema(
         experiment_id=experiment_id,
         name=name,
@@ -155,45 +141,133 @@ def create_experiment_label_schema(
     )
 
 
-def get_experiment_label_schema(schema_id: str) -> LabelSchema:
-    """Get an OSS-native label schema by its server-generated ``schema_id``."""
-    return TracingClient()._get_label_schema(schema_id)
+def get_label_schema(
+    name: str | None = None,
+    *,
+    schema_id: str | None = None,
+    experiment_id: str | None = None,
+) -> LabelSchema:
+    """Get a label schema.
+
+    On a Databricks tracking URI, looks up by ``name`` in the ReviewApp.
+    Otherwise looks up in the tracking store by ``schema_id``, or by
+    ``(experiment_id, name)`` when ``schema_id`` is omitted.
+    """
+    if is_databricks_uri(get_tracking_uri()):
+        _reject_tracking_store_only_params(experiment_id=experiment_id, schema_id=schema_id)
+        if name is None:
+            raise MlflowException(
+                "`name` is required on a Databricks tracking URI.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        from mlflow.genai.labeling.stores import _get_labeling_store
+
+        return _get_labeling_store().get_label_schema(name)
+
+    client = TracingClient()
+    if schema_id is not None:
+        if name is not None or experiment_id is not None:
+            raise MlflowException(
+                "Pass either `schema_id` or `(experiment_id, name)`, not both.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        return client._get_label_schema(schema_id)
+    if experiment_id is None or name is None:
+        raise MlflowException(
+            "Provide `schema_id`, or both `experiment_id` and `name`.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    return client._get_label_schema_by_name(experiment_id, name)
 
 
-def get_experiment_label_schema_by_name(experiment_id: str, name: str) -> LabelSchema:
-    """Get an OSS-native label schema by ``(experiment_id, name)``."""
-    return TracingClient()._get_label_schema_by_name(experiment_id, name)
+def delete_label_schema(name: str | None = None, *, schema_id: str | None = None):
+    """Delete a label schema.
+
+    On a Databricks tracking URI, deletes by ``name`` from the ReviewApp (and
+    returns a :py:class:`ReviewApp` for backwards compatibility). Otherwise
+    deletes by ``schema_id`` from the tracking store (a no-op if it doesn't
+    exist) and returns ``None``.
+    """
+    if is_databricks_uri(get_tracking_uri()):
+        if schema_id is not None:
+            raise MlflowException(
+                "`schema_id` is only supported on a non-Databricks tracking URI; use `name`.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        if name is None:
+            raise MlflowException(
+                "`name` is required on a Databricks tracking URI.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        # Nested to avoid circular import.
+        from mlflow.genai.labeling.databricks_utils import get_databricks_review_app
+        from mlflow.genai.labeling.stores import DatabricksLabelingStore, _get_labeling_store
+
+        store = _get_labeling_store()
+        store.delete_label_schema(name)
+        if isinstance(store, DatabricksLabelingStore):
+            return ReviewApp(get_databricks_review_app())
+        return None
+
+    if name is not None:
+        raise MlflowException(
+            "`name` is only supported on a Databricks tracking URI; use `schema_id`.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    if schema_id is None:
+        raise MlflowException("`schema_id` is required.", error_code=INVALID_PARAMETER_VALUE)
+    TracingClient()._delete_label_schema(schema_id)
+    return None
 
 
-def list_experiment_label_schemas(
-    experiment_id: str, max_results: int = 100, page_token: str | None = None
+def list_label_schemas(
+    experiment_id: str | None = None,
+    *,
+    max_results: int = 100,
+    page_token: str | None = None,
 ) -> PagedList[LabelSchema]:
-    """List OSS-native label schemas for an experiment, paginated."""
+    """List label schemas for an experiment, paginated.
+
+    Tracking store only; ``experiment_id`` defaults to the current experiment.
+    Not supported on a Databricks tracking URI — manage ReviewApp schemas in
+    the workspace review UI.
+    """
+    if is_databricks_uri(get_tracking_uri()):
+        raise MlflowException(
+            "list_label_schemas is not supported on a Databricks tracking URI; "
+            "manage label schemas in the workspace review UI.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    if experiment_id is None:
+        from mlflow.tracking.fluent import _get_experiment_id
+
+        experiment_id = _get_experiment_id()
     return TracingClient()._list_label_schemas(
         experiment_id, max_results=max_results, page_token=page_token
     )
 
 
-def update_experiment_label_schema(
+def update_label_schema(
     schema_id: str,
     *,
     name: str | None = None,
     instruction: str | None = None,
     enable_comment: bool | None = None,
-    input: _OSS_SCHEMA_INPUT | None = None,
+    input: _SCHEMA_INPUT | None = None,
 ) -> LabelSchema:
-    """Sparse-update an OSS-native label schema.
+    """Sparse-update a label schema.
 
     ``type`` is immutable and not accepted. Fields left as ``None`` are
-    unchanged on the server. ``enable_comment=None`` is treated as
-    "unchanged"; pass ``True`` or ``False`` to set.
-
-    .. note::
-        Empty strings are real values, not "no-op": passing
-        ``instruction=""`` replaces the stored value with the empty
-        string rather than clearing or preserving it. Pass ``None``
-        (the default) to leave the field unchanged.
+    unchanged on the server; an empty string is a real value that replaces the
+    stored field rather than leaving it untouched. Tracking store only — not
+    supported on a Databricks tracking URI.
     """
+    if is_databricks_uri(get_tracking_uri()):
+        raise MlflowException(
+            "update_label_schema is not supported on a Databricks tracking URI; "
+            "manage label schemas in the workspace review UI.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
     return TracingClient()._update_label_schema(
         schema_id,
         name=name,
@@ -201,11 +275,6 @@ def update_experiment_label_schema(
         enable_comment=enable_comment,
         input=input,
     )
-
-
-def delete_experiment_label_schema(schema_id: str) -> None:
-    """Delete an OSS-native label schema. No-op when the schema doesn't exist."""
-    TracingClient()._delete_label_schema(schema_id)
 
 
 __all__ = [
@@ -223,11 +292,6 @@ __all__ = [
     "create_label_schema",
     "get_label_schema",
     "delete_label_schema",
-    # OSS-native CRUD (experiment-scoped, server-generated schema_id)
-    "create_experiment_label_schema",
-    "get_experiment_label_schema",
-    "get_experiment_label_schema_by_name",
-    "list_experiment_label_schemas",
-    "update_experiment_label_schema",
-    "delete_experiment_label_schema",
+    "list_label_schemas",
+    "update_label_schema",
 ]
