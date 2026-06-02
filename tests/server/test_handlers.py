@@ -5820,7 +5820,9 @@ def test_generate_demo_sets_http_tracking_uri(mock_tracking_store):
 
     original_uri = mlflow.get_tracking_uri()
     with (
-        mock.patch("mlflow.demo.generate_all_demos", side_effect=fake_generate_all_demos),
+        mock.patch(
+            "mlflow.demo.generate_all_demos", side_effect=fake_generate_all_demos
+        ) as mock_generate,
         app.test_client() as c,
     ):
         response = c.post(
@@ -5829,9 +5831,32 @@ def test_generate_demo_sets_http_tracking_uri(mock_tracking_store):
             base_url="http://demo.test:5000",
         )
 
+    mock_generate.assert_called_once()
     assert response.status_code == 200
     assert captured["tracking_uri"] == "http://demo.test:5000"
     assert mlflow.get_tracking_uri() == original_uri
+
+
+def test_generate_demo_includes_static_prefix(mock_tracking_store, monkeypatch):
+    mock_tracking_store.get_experiment_by_name.return_value = None
+    monkeypatch.setenv(STATIC_PREFIX_ENV_VAR, "/myapp")
+    captured = {}
+
+    def fake_generate_all_demos(features=None):
+        captured["tracking_uri"] = mlflow.get_tracking_uri()
+        return []
+
+    with (
+        mock.patch("mlflow.demo.generate_all_demos", side_effect=fake_generate_all_demos),
+        app.test_client() as c,
+    ):
+        c.post(
+            "/ajax-api/3.0/mlflow/demo/generate",
+            json={},
+            base_url="http://demo.test:5000",
+        )
+
+    assert captured["tracking_uri"] == "http://demo.test:5000/myapp"
 
 
 def test_generate_demo_restores_tracking_uri_on_error(mock_tracking_store):

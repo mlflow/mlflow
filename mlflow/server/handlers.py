@@ -6389,9 +6389,13 @@ def _generate_demo():
 
     with _demo_generate_lock:
         # Generators run in-process; mlflow-artifacts:// URI resolution needs
-        # the tracking URI to point back at this server via http(s).
+        # the tracking URI to point back at this server via http(s). Include
+        # the static prefix so prefixed deployments route to /<prefix>/api/...
         original_tracking_uri = mlflow.get_tracking_uri()
-        mlflow.set_tracking_uri(request.host_url.rstrip("/"))
+        tracking_uri = request.host_url.rstrip("/")
+        if prefix := os.environ.get(STATIC_PREFIX_ENV_VAR):
+            tracking_uri += "/" + prefix.strip("/")
+        mlflow.set_tracking_uri(tracking_uri)
         try:
             results = generate_all_demos(features=features)
         finally:
