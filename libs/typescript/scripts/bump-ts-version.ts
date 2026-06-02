@@ -9,25 +9,12 @@
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join } from 'path';
 
-// All integration packages whose version is kept in lockstep with `@mlflow/core`.
-// Some reference `@mlflow/core` via `dependencies`, others via `peerDependencies`,
-// and a few (e.g. vercel) not at all; the bump logic handles each case.
-const INTEGRATION_PACKAGES = [
-  'openai',
-  'anthropic',
-  'gemini',
-  'vercel',
-  'codex',
-  'qwen-code',
-  'claude-code',
-  'opencode',
-  'openclaw',
-];
+// list of packages that contain `@mlflow/core` in peerDependencies
+const INTEGRATION_PACKAGES = ['openai', 'anthropic', 'gemini', 'vercel'];
 
 interface PackageJson {
   name: string;
   version: string;
-  dependencies?: Record<string, string>;
   peerDependencies?: Record<string, string>;
   [key: string]: any;
 }
@@ -81,18 +68,15 @@ function bumpVersion(version: string): void {
     const oldVersion = packageJson.version;
     packageJson.version = version;
 
+    writeFileSync(packagePath, JSON.stringify(packageJson, null, 2) + '\n', 'utf-8');
     console.log(`  ✓ Updated version: ${oldVersion} → ${version}`);
 
-    for (const depType of ['dependencies', 'peerDependencies'] as const) {
-      const deps = packageJson[depType];
-      if (deps && '@mlflow/core' in deps) {
-        const oldDep = deps['@mlflow/core'];
-        deps['@mlflow/core'] = `^${version}`;
-        console.log(`  ✓ Updated ${depType} @mlflow/core: ${oldDep} → ^${version}`);
-      }
+    if (packageJson.peerDependencies && '@mlflow/core' in packageJson.peerDependencies) {
+      const oldPeerDep = packageJson.peerDependencies['@mlflow/core'];
+      packageJson.peerDependencies['@mlflow/core'] = `^${version}`;
+      writeFileSync(packagePath, JSON.stringify(packageJson, null, 2) + '\n', 'utf-8');
+      console.log(`  ✓ Updated peerDependency @mlflow/core: ${oldPeerDep} → ^${version}`);
     }
-
-    writeFileSync(packagePath, JSON.stringify(packageJson, null, 2) + '\n', 'utf-8');
   }
 
   console.log(`\n✅ Successfully bumped TypeScript library versions to ${version}`);

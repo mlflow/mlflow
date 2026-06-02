@@ -37,7 +37,7 @@
     "format:check": "prettier --check ."
   },
   "peerDependencies": {
-    "@mlflow/core": "^0.3.0-rc.0",
+    "@mlflow/core": "^0.2.0",
     "@anthropic-ai/sdk": "^0.71.0"
   },
   "devDependencies": {

@@ -39,7 +39,7 @@
   },
   "dependencies": {
     "@clack/prompts": "^1.1.0",
-    "@mlflow/core": "^0.3.0-rc.0"
+    "@mlflow/core": "^0.2.0"
   },
   "peerDependencies": {
     "openclaw": ">=2026.4.9"

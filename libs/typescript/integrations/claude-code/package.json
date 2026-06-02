@@ -44,7 +44,7 @@
     "format:check": "prettier --check ."
   },
   "dependencies": {
-    "@mlflow/core": "^0.3.0-rc.0"
+    "@mlflow/core": "^0.2.0"
   },
   "peerDependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.2.0"
