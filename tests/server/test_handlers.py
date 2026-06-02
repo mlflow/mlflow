@@ -5847,7 +5847,9 @@ def test_generate_demo_includes_static_prefix(mock_tracking_store, monkeypatch):
         return []
 
     with (
-        mock.patch("mlflow.demo.generate_all_demos", side_effect=fake_generate_all_demos),
+        mock.patch(
+            "mlflow.demo.generate_all_demos", side_effect=fake_generate_all_demos
+        ) as mock_generate,
         app.test_client() as c,
     ):
         c.post(
@@ -5856,6 +5858,7 @@ def test_generate_demo_includes_static_prefix(mock_tracking_store, monkeypatch):
             base_url="http://demo.test:5000",
         )
 
+    mock_generate.assert_called_once()
     assert captured["tracking_uri"] == "http://demo.test:5000/myapp"
 
 
