@@ -1021,6 +1021,7 @@ module.exports = {
   "mlflow.eval-runs.runs-delete-modal": "",
   "mlflow.eval-runs.start-run-button": "",
   "mlflow.eval-runs.start-run-modal": "",
+  "mlflow.eval-runs.start-run-modal.copy-snippet": "",
   "mlflow.eval-runs.table-column-selector": "",
   "mlflow.eval-runs.table-refresh-button": "",
   "mlflow.eval-runs.table-refresh-button.tooltip": "",
