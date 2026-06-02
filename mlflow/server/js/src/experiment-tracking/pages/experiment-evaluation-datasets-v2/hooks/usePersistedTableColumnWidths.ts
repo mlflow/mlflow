@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useLocalStorage } from '@databricks/web-shared/hooks';
 import type { ColumnSizingState, OnChangeFn } from '@tanstack/react-table';
 
@@ -24,8 +24,9 @@ interface PersistedColumnWidths {
 /**
  * Filters out non-positive-finite entries so corrupt/old localStorage values
  * (NaN, strings, null, negatives, 0) can't flow into `flex: 0 0 ${px}px` and
- * collapse a column. Returns the same reference when nothing was filtered, so
- * downstream React hooks that depend on `columnSizing` identity stay stable.
+ * collapse a column. Always returns a fresh object — identity stability across
+ * renders is the caller's job via `useMemo([stored])`, which gates this call
+ * on the `stored` reference returned by `useLocalStorage`.
  */
 const sanitiseStoredWidths = (stored: unknown): ColumnSizingState => {
   if (stored === null || typeof stored !== 'object') return {};
@@ -62,8 +63,27 @@ export const usePersistedTableColumnWidths = ({
   // Memo by `stored` so a clean run of widths keeps a stable reference.
   const columnSizing = useMemo(() => sanitiseStoredWidths(stored), [stored]);
 
+  // Sanitise on the write path too. TanStack's `onColumnSizingChange` uses the
+  // functional-updater form (`prev => ({ ...prev, [id]: nextWidth })`) on every
+  // drag tick; without this wrapper, `prev` would be the *raw* stored value,
+  // so any corrupt entry already in localStorage would be spread into the new
+  // object and re-persisted alongside the user's drag — invisible to the read
+  // side, but lingering forever in storage. By feeding the updater a sanitised
+  // `prev` (and sanitising again before persist for the direct-value form), a
+  // corrupt entry dies on the next write instead of surviving indefinitely.
+  const setColumnSizing: OnChangeFn<ColumnSizingState> = useCallback(
+    (updater) => {
+      setStored((rawPrev) => {
+        const cleanPrev = sanitiseStoredWidths(rawPrev);
+        const next = typeof updater === 'function' ? updater(cleanPrev) : updater;
+        return sanitiseStoredWidths(next);
+      });
+    },
+    [setStored],
+  );
+
   return {
     columnSizing,
-    setColumnSizing: setStored,
+    setColumnSizing,
   };
 };
