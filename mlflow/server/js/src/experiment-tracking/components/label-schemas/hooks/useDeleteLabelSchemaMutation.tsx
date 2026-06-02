@@ -3,6 +3,7 @@ import { fetchAPI, getAjaxUrl } from '../../../../common/utils/FetchUtils';
 import { GET_LABEL_SCHEMA_QUERY_KEY } from './useGetLabelSchemaQuery';
 import { GET_LABEL_SCHEMA_BY_NAME_QUERY_KEY } from './useGetLabelSchemaByNameQuery';
 import { LIST_LABEL_SCHEMAS_QUERY_KEY } from './useListLabelSchemasQuery';
+import { LABEL_SCHEMAS_API_BASE } from './constants';
 
 export interface DeleteLabelSchemaParams {
   schema_id: string;
@@ -18,7 +19,7 @@ export const useDeleteLabelSchemaMutation = () => {
 
   const { mutate, mutateAsync, isLoading, error } = useMutation<void, Error, DeleteLabelSchemaParams>({
     mutationFn: async ({ schema_id }) => {
-      await fetchAPI(getAjaxUrl('ajax-api/3.0/mlflow/label-schemas/delete'), {
+      await fetchAPI(getAjaxUrl(`${LABEL_SCHEMAS_API_BASE}/delete`), {
         method: 'DELETE',
         body: { schema_id },
       });
