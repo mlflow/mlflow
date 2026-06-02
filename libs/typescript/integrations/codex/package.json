@@ -1,6 +1,6 @@
 {
   "name": "@mlflow/codex",
-  "version": "0.3.0-rc.0",
+  "version": "0.2.0",
   "description": "Codex CLI integration package for MLflow Tracing",
   "type": "module",
   "repository": {

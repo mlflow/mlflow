@@ -1,6 +1,6 @@
 {
   "name": "@mlflow/qwen-code",
-  "version": "0.3.0-rc.0",
+  "version": "0.2.0",
   "description": "Qwen Code integration package for MLflow Tracing",
   "type": "module",
   "repository": {
