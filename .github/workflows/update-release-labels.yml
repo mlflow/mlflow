@@ -14,8 +14,13 @@ defaults:
   run:
     shell: bash
 
+permissions: {}
+
 jobs:
   update-labels:
+    if: >-
+      (github.event_name == 'release' && !github.event.release.prerelease) ||
+      (github.event_name == 'workflow_dispatch' && !contains(github.event.inputs.release_version, 'rc'))
     runs-on: ubuntu-slim
     timeout-minutes: 10
     permissions:
@@ -27,6 +32,9 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
+          sparse-checkout: |
+            .github/workflows/update-release-labels.js
+          sparse-checkout-cone-mode: false
 
       - name: Update release labels
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0

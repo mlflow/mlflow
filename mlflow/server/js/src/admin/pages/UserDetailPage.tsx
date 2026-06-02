@@ -17,13 +17,7 @@ import {
 import { ScrollablePageWrapper } from '@mlflow/mlflow/src/common/components/ScrollablePageWrapper';
 import { Link, useParams, useSearchParams } from '../../common/utils/RoutingUtils';
 import { useActiveWorkspace } from '../../workspaces/utils/WorkspaceUtils';
-import {
-  useCurrentUserIsAdmin,
-  useUserPermissionsQuery,
-  useUserRolesQuery,
-  useUsersQuery,
-  useWithSettingsReturnTo,
-} from '../hooks';
+import { useCurrentUserIsAdmin, useUserRolesQuery, useUsersQuery, useWithSettingsReturnTo } from '../hooks';
 import { useWorkspacesEnabled } from '../../experiment-tracking/hooks/useServerInfo';
 import AdminRoutes from '../routes';
 import { EditAccessModal } from '../components/EditAccessModal';
@@ -42,7 +36,6 @@ const UserDetailPage = () => {
   const activeTab = tabFromUrl === 'permissions' ? 'permissions' : 'roles';
 
   const { data: rolesData, isLoading: rolesLoading, error: rolesErrorRaw } = useUserRolesQuery(username);
-  const { data: directPermsData, isLoading: directPermsLoading } = useUserPermissionsQuery(username);
   // ``useUsersQuery`` is admin-only; we use it just to surface the
   // ``is_admin`` flag for this user. Failing this should not block the
   // permissions view, so the error is not fatal here.
@@ -64,24 +57,20 @@ const UserDetailPage = () => {
   const [editAccessOpen, setEditAccessOpen] = useState(false);
 
   const user = useMemo(() => usersData?.users?.find((u) => u.username === username), [usersData, username]);
-  // Strip synthetic ``__user_N__`` roles — they back per-user direct
-  // grants and are rendered separately by the Permissions section.
-  const allRoles = useMemo(() => (rolesData?.roles ?? []).filter((r) => !isSyntheticUserRole(r.name)), [rolesData]);
-  const roles = isAdmin || !activeWorkspace ? allRoles : allRoles.filter((r) => r.workspace === activeWorkspace);
-  // ``GET /users/permissions/list`` returns every permission across every
-  // role the user holds; filter to the synthetic ``__user_<id>__`` role to
-  // get just the direct grants. Role-derived permissions are handled
-  // separately via the ``roles`` union in ``PermissionsSection``.
-  const allDirectPermissions = (directPermsData?.permissions ?? []).filter((p) => isSyntheticUserRole(p.role_name));
-  // Direct permissions also carry ``workspace`` — same scope rule as roles:
-  // workspace managers only see grants in the active workspace.
-  const directPermissions =
-    isAdmin || !activeWorkspace
-      ? allDirectPermissions
-      : allDirectPermissions.filter((p) => p.workspace === activeWorkspace);
+  // Direct grants live on the synthetic ``__user_<id>__`` role surfaced via
+  // ``listUserRoles`` alongside regular roles. ``PermissionsSection`` splits
+  // them on display (synthetic → "Direct" label, regular → role name), so we
+  // pass the unfiltered list down. The Roles tab below filters synthetic out
+  // separately via ``displayRoles``.
+  // Workspace managers see only roles in the active workspace; admins see all.
+  const roles = useMemo(() => {
+    const all = rolesData?.roles ?? [];
+    return isAdmin || !activeWorkspace ? all : all.filter((r) => r.workspace === activeWorkspace);
+  }, [rolesData, isAdmin, activeWorkspace]);
+  const displayRoles = useMemo(() => roles.filter((r) => !isSyntheticUserRole(r.name)), [roles]);
 
   const rolesEmptyState =
-    roles.length === 0 ? (
+    displayRoles.length === 0 ? (
       <Empty
         title="No roles"
         description={
@@ -206,7 +195,7 @@ const UserDetailPage = () => {
                     {workspacesEnabled ? 'Workspace Manager' : 'Admin'}
                   </TableHeader>
                 </TableRow>
-                {roles.map((role) => (
+                {displayRoles.map((role) => (
                   <TableRow key={role.id}>
                     <TableCell css={{ flex: 2 }}>
                       <Link componentId="admin.user_detail.role_link" to={AdminRoutes.getRoleDetailRoute(role.id)}>
@@ -235,18 +224,10 @@ const UserDetailPage = () => {
               gap: theme.spacing.md,
             }}
           >
-            {/*
-             * ``directPermsError`` is intentionally not surfaced: a missing
-             * or empty direct-permissions response degrades silently to
-             * "role-derived rows only", because the fetch isn't load-bearing
-             * for this view (the Roles tab and the Permissions union are
-             * still useful without the direct-grant rows).
-             */}
             <PermissionsSection
               componentId="admin.user_detail.permissions"
               roles={roles}
-              directPermissions={directPermissions}
-              isLoading={rolesLoading || directPermsLoading}
+              isLoading={rolesLoading}
               rolesError={rolesError}
               workspacesEnabled={workspacesEnabled}
             />

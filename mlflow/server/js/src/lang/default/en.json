@@ -4487,6 +4487,10 @@
     "defaultMessage": "Registered at",
     "description": "Column title text for created at timestamp in model version table"
   },
+  "NmWSTV": {
+    "defaultMessage": "Failed to load permissions",
+    "description": "Alert title shown when the roles query fails on the permissions section"
+  },
   "NnO0Lz": {
     "defaultMessage": "MLflow allows you to evaluate your GenAI applications using scorers. Scorers compute quality metrics like relevance, correctness, and custom assessments. Copy the code snippet below to run an evaluation, or visit the documentation for a more in-depth example.",
     "description": "Empty state description for the quality tab in overview page"
@@ -4586,10 +4590,6 @@
   "OH7mDs": {
     "defaultMessage": "Expectations",
     "description": "Column selector label for the expectations column"
-  },
-  "OJBFVt": {
-    "defaultMessage": "Showing role-derived permissions only - direct grants are unavailable.",
-    "description": "Alert description shown when only role-derived permissions are available because direct grants failed to load"
   },
   "OLZyxe": {
     "defaultMessage": "{errorCount, plural, one {# error} other {# errors}}",
@@ -5434,10 +5434,6 @@
   "TCAbKZ": {
     "defaultMessage": "Save",
     "description": "Save webhook button"
-  },
-  "TI/9fP": {
-    "defaultMessage": "Showing direct grants only - role-derived permissions are unavailable.",
-    "description": "Alert description shown when only direct grants are available because role-derived permissions failed to load"
   },
   "TKtJIK": {
     "defaultMessage": "Page not found",
@@ -7726,6 +7722,10 @@
   "fdfi96": {
     "defaultMessage": "Create judge",
     "description": "Button to create a new judge"
+  },
+  "ffHGW/": {
+    "defaultMessage": "Permissions for this user are temporarily unavailable.",
+    "description": "Alert description shown when role-derived permissions failed to load"
   },
   "ffIouW": {
     "defaultMessage": "Retrieval sufficiency assessment is missing. This is likely because your agent is not returning retrieved_context.",
@@ -10111,10 +10111,6 @@
     "defaultMessage": "You are exceeding a limit of {limit} aliases assigned to the single model version",
     "description": "Alias editor > Warning about exceeding aliases limit"
   },
-  "s+Flkm": {
-    "defaultMessage": "Failed to load direct permissions",
-    "description": "Alert title shown when the direct-permissions query fails"
-  },
   "s29iQg": {
     "defaultMessage": "Session",
     "description": "Usage overview > metrics filter > session column option label"
@@ -10166,10 +10162,6 @@
   "sD3+jL": {
     "defaultMessage": "Failed to save webhook",
     "description": "Generic error message informing the user that webhook saving failed"
-  },
-  "sDAqfh": {
-    "defaultMessage": "Failed to load role-derived permissions",
-    "description": "Alert title shown when the roles query fails on the permissions section"
   },
   "sDgkOh": {
     "defaultMessage": "{count, plural, one {# record} other {# records}}",

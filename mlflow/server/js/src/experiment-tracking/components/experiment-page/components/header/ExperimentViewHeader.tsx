@@ -13,8 +13,14 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { createMLflowRoutePath, Link, useLocation, useNavigate } from '../../../../../common/utils/RoutingUtils';
-import Routes from '../../../../routes';
+import {
+  createMLflowRoutePath,
+  Link,
+  matchPath,
+  useLocation,
+  useNavigate,
+} from '../../../../../common/utils/RoutingUtils';
+import Routes, { RoutePaths } from '../../../../routes';
 import { ExperimentViewCopyTitle } from './ExperimentViewCopyTitle';
 import type { ExperimentEntity } from '../../../../types';
 import type { ExperimentPageSearchFacetsState } from '../../models/ExperimentPageSearchFacetsState';
@@ -40,6 +46,10 @@ const getDocLinkHref = (experimentKind: ExperimentKind) => {
   }
   return 'https://mlflow.org/docs/latest/ml/getting-started/?rel=mlflow_ui';
 };
+
+// Routes where the page itself renders item-level edit/delete actions, so the
+// experiment-level management menu would be a confusing duplicate.
+const ROUTES_WITHOUT_MANAGEMENT_MENU = [RoutePaths.experimentPageTabPromptDetails];
 
 /**
  * Header for a single experiment page. Displays title, breadcrumbs and provides
@@ -286,7 +296,9 @@ export const ExperimentViewHeader = React.memo(
           <div
             css={{ display: 'flex', gap: theme.spacing.sm, justifyContent: 'flex-end', marginLeft: theme.spacing.sm }}
           >
-            <ExperimentViewManagementMenu experiment={experiment} setEditing={setEditing} />
+            {!ROUTES_WITHOUT_MANAGEMENT_MENU.some((route) => matchPath(route, location.pathname)) && (
+              <ExperimentViewManagementMenu experiment={experiment} setEditing={setEditing} />
+            )}
             <ExperimentViewHeaderShareButton
               experimentIds={experimentIds}
               searchFacetsState={searchFacetsState}

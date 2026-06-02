@@ -32,6 +32,7 @@ from mlflow.protos.databricks_pb2 import (
     ErrorCode,
 )
 from mlflow.server import auth as auth_module
+from mlflow.server.asgi_utils import get_routed_asgi_path
 from mlflow.server.auth import _authenticate_fastapi_request, _re_compile_path
 from mlflow.server.auth.routes import (
     AJAX_LIST_USERS,
@@ -2975,8 +2976,9 @@ def enable_auth_cache():
         yield cache
 
 
-def _make_request(path, authorization=None):
+def _make_request(path, authorization=None, *, scope_path=None):
     request = mock.Mock()
+    request.scope = {"path": scope_path or path}
     request.url.path = path
     request.headers = {}
     if authorization:
@@ -2985,6 +2987,20 @@ def _make_request(path, authorization=None):
 
 
 # -- Basic auth with internal token (trusted internal requests) --
+
+
+def test_get_fastapi_request_path_prefers_scope_path():
+    request = _make_request("/reconstructed/path", scope_path="/routed/path")
+
+    assert get_routed_asgi_path(request) == "/routed/path"
+
+
+@pytest.mark.parametrize("scope", [None, {}, {"path": ""}, {"path": 123}])
+def test_get_fastapi_request_path_falls_back_to_url(scope):
+    request = _make_request("/reconstructed/path")
+    request.scope = scope
+
+    assert get_routed_asgi_path(request) == "/reconstructed/path"
 
 
 def test_basic_auth_with_internal_token_returns_user(
@@ -3012,6 +3028,42 @@ def test_basic_auth_with_internal_token_deleted_user_returns_none(
     user = _authenticate_fastapi_request(request)
 
     assert user is None
+
+
+def test_basic_auth_with_internal_token_uses_scope_path(
+    mock_auth_store, mock_auth_config, monkeypatch
+):
+    monkeypatch.setenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, "internal-secret")
+    credentials = base64.b64encode(b"alice:internal-secret").decode("ascii")
+    request = _make_request(
+        "/gateway/mlflow/v1/chat",
+        f"Basic {credentials}",
+        scope_path="/api/3.0/mlflow/experiments/list",
+    )
+
+    user = _authenticate_fastapi_request(request)
+
+    assert user.username == "alice"
+    mock_auth_store.authenticate_user.assert_called_once_with("alice", "internal-secret")
+    mock_auth_store.get_user.assert_called_once_with("alice")
+
+
+@pytest.mark.parametrize(
+    "fastapi_client",
+    [{"MLFLOW_SERVER_DISABLE_SECURITY_MIDDLEWARE": "true"}],
+    indirect=True,
+)
+def test_malformed_host_does_not_skip_fastapi_auth(fastapi_client, monkeypatch):
+    monkeypatch.delenv(MLFLOW_TRACKING_USERNAME.name, raising=False)
+    monkeypatch.delenv(MLFLOW_TRACKING_PASSWORD.name, raising=False)
+
+    response = requests.post(
+        url=fastapi_client.tracking_uri + "/ajax-api/3.0/jobs/search",
+        headers={"Host": "example.com/health?x="},
+        json={},
+    )
+
+    assert response.status_code == 401
 
 
 def test_basic_auth_with_wrong_password_falls_through_to_authenticate(
@@ -3465,6 +3517,44 @@ def test_trace_get_v3_permission(client, monkeypatch):
         client.tracking_uri, experiment_id, user2, "READ", (user1, password1)
     )
     assert get_trace_v3((user2, password2)).status_code == 200
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+@pytest.mark.parametrize("api_version", ["2.0", "3.0"])
+def test_trace_artifact_authorization(
+    client: MlflowClient, monkeypatch: pytest.MonkeyPatch, api_version: str
+):
+    user1, password1 = create_user(client.tracking_uri)
+    user2, password2 = create_user(client.tracking_uri)
+
+    with User(user1, password1, monkeypatch):
+        experiment_id = client.create_experiment(f"trace_artifact_authz_test_v{api_version}")
+
+    request_id = _create_trace(client.tracking_uri, experiment_id, (user1, password1))
+
+    def get_artifact(auth):
+        return requests.get(
+            url=client.tracking_uri + f"/ajax-api/{api_version}/mlflow/get-trace-artifact",
+            params={"request_id": request_id},
+            auth=auth,
+        )
+
+    # user1 (owner) should be able to access the artifact endpoint (may be 404 if
+    # no artifact has been uploaded, but should NOT be 403)
+    assert get_artifact((user1, password1)).status_code != 403
+
+    # user2 has no permission on the experiment, expect 403
+    assert get_artifact((user2, password2)).status_code == 403
+
+    # Grant READ; user2 can now access the artifact endpoint
+    _grant_experiment_permission(
+        client.tracking_uri, experiment_id, user2, "READ", (user1, password1)
+    )
+    assert get_artifact((user2, password2)).status_code != 403
 
 
 @pytest.mark.parametrize(

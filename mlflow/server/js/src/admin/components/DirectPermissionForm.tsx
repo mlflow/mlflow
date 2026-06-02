@@ -9,7 +9,6 @@ import {
   Radio,
   SimpleSelect,
   SimpleSelectOption,
-  Tooltip,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
@@ -18,12 +17,13 @@ import { useResourceOptionsQuery } from '../hooks';
 import { PERMISSIONS, getGrantablePermissions, getResourceTypeLabel } from '../types';
 
 // Resource types eligible for per-user direct grants. ``workspace`` is excluded
-// (it's role-only), and ``scorer`` is excluded because its identifier is
-// composite (experiment_id + scorer_name) and the form below assumes a single
-// string id.
+// because the backend's ``grant_user_resource_permission`` rejects it (workspace
+// grants are role-only by design — see ``_reject_workspace_resource_type``).
 export const DIRECT_GRANT_RESOURCE_TYPES = [
   'experiment',
   'registered_model',
+  'prompt',
+  'scorer',
   'gateway_secret',
   'gateway_endpoint',
 ] as const;
@@ -42,9 +42,16 @@ export interface DirectPermissionValue {
 export interface DirectPermissionFormProps {
   value: DirectPermissionValue;
   onChange: (value: DirectPermissionValue) => void;
-  /** Optional: open the Create Role flow pre-filled. Wired by the parent. */
-  onCreateRoleForAllOfType?: (resourceType: DirectGrantResourceType) => void;
+  /** Target workspace for the picker query. Lets a platform admin grant in a
+   * different workspace than their session-active one. ``undefined`` falls
+   * back to the active-workspace header. */
+  workspace?: string;
   disabled?: boolean;
+  /** Render an inline reminder next to the resource picker. The parent
+   * passes ``true`` when the draft has been touched but isn't submittable
+   * yet (e.g. resource type changed but no specific resource picked) so
+   * the user sees why the section is blocking modal submit. */
+  showResourceRequiredError?: boolean;
 }
 
 export const DIRECT_PERMISSION_DEFAULT: DirectPermissionValue = {
@@ -54,23 +61,23 @@ export const DIRECT_PERMISSION_DEFAULT: DirectPermissionValue = {
   permission: PERMISSIONS[0],
 };
 
-/** Submit only when a specific resource is picked. ``scope === 'all'`` lands post-Phase 2. */
+/** Submit when ``scope === 'all'``, or when ``scope === 'specific'`` and the
+ * picker has produced a non-empty resource id. */
 export const isDirectPermissionSubmittable = (value: DirectPermissionValue): boolean =>
-  value.scope === 'specific' && Boolean(value.resourceId);
+  value.scope === 'all' || (value.scope === 'specific' && Boolean(value.resourceId));
 
 /**
- * Pick a per-user direct permission. Two-axis form: specific resource vs.
- * "all of type", and which resource. The "all of type" option is rendered
- * disabled with a tooltip — it requires the post-Phase 2 synthetic-role API.
- * The shape of ``DirectPermissionValue`` already accommodates the future
- * enable: drop the ``disabled`` and route the submit through whatever
- * synthetic-role grant API ships.
+ * Pick a per-user direct permission. ``resourceId`` only holds the user's
+ * specific picked id; the wildcard pattern is derived from ``scope`` at
+ * staging time so a resource literally named ``*`` can't masquerade as an
+ * all-of-type grant.
  */
 export const DirectPermissionForm = ({
   value,
   onChange,
-  onCreateRoleForAllOfType,
+  workspace,
   disabled,
+  showResourceRequiredError = false,
 }: DirectPermissionFormProps) => {
   const { theme } = useDesignSystemTheme();
   const [search, setSearch] = useState('');
@@ -78,7 +85,7 @@ export const DirectPermissionForm = ({
     options: resourceOptions,
     isLoading: resourceOptionsLoading,
     error: resourceOptionsError,
-  } = useResourceOptionsQuery(value.resourceType);
+  } = useResourceOptionsQuery(value.resourceType, workspace);
 
   const filteredOptions = useMemo(() => {
     const trimmed = search.trim().toLowerCase();
@@ -136,30 +143,26 @@ export const DirectPermissionForm = ({
           layout="vertical"
         >
           <Radio value="specific">Specific {typeLabel.toLowerCase()}</Radio>
-          <Tooltip
-            componentId="admin.direct_permission.all_disabled_tooltip"
-            content={`Granting on all ${typeLabel.toLowerCase()}s directly is coming soon. For a similar effect today, create a role with this permission and assign it.`}
-            side="right"
-          >
-            <Radio value="all" disabled>
-              All {typeLabel.toLowerCase()}s
-            </Radio>
-          </Tooltip>
+          <Radio value="all">All {typeLabel.toLowerCase()}s</Radio>
         </Radio.Group>
-        {value.scope === 'all' && onCreateRoleForAllOfType && (
-          <Typography.Text color="secondary" css={{ display: 'block', marginTop: theme.spacing.xs }}>
-            <Typography.Link
-              componentId="admin.direct_permission.create_role_link"
-              onClick={() => onCreateRoleForAllOfType(value.resourceType)}
-            >
-              Create a role with this permission instead →
-            </Typography.Link>
-          </Typography.Text>
-        )}
       </div>
       {value.scope === 'specific' && (
         <div>
           <FieldLabel>{typeLabel}</FieldLabel>
+          {showResourceRequiredError && (
+            <Typography.Text
+              color="error"
+              size="sm"
+              css={{ display: 'block', marginBottom: theme.spacing.xs }}
+              data-testid="admin.direct_permission.resource_required_error"
+            >
+              {/* "Select a specific X" keeps the "a" article correct
+                  regardless of the resource label (so "a experiment" /
+                  "a endpoint" never slips through). */}
+              Select a specific {typeLabel.toLowerCase()} or switch the scope to{' '}
+              <strong>All {typeLabel.toLowerCase()}s</strong> before submitting.
+            </Typography.Text>
+          )}
           <DialogCombobox
             componentId="admin.direct_permission.resource_id"
             label={typeLabel}

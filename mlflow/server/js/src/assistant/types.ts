@@ -130,6 +130,7 @@ export interface ProviderConfig {
   selected: boolean;
   permissions: PermissionsConfig;
   base_url?: string;
+  api_key?: string;
 }
 
 /**

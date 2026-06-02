@@ -99,6 +99,7 @@ basic_proto_files = to_paths(
     "assessments.proto",
     "datasets.proto",
     "issues.proto",
+    "label_schemas.proto",
     "webhooks.proto",
     "jobs.proto",
     "prompt_optimization.proto",
@@ -165,6 +166,10 @@ python_gencode_replacements = [
     (
         "import issues_pb2 as issues__pb2",
         "from . import issues_pb2 as issues__pb2",
+    ),
+    (
+        "import label_schemas_pb2 as label__schemas__pb2",
+        "from . import label_schemas_pb2 as label__schemas__pb2",
     ),
     (
         "import webhooks_pb2 as webhooks__pb2",

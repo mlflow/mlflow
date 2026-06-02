@@ -35,6 +35,8 @@ env:
   MLFLOW_HOME: ${{ github.workspace }}
   PIP_CONSTRAINT: ${{ github.workspace }}/requirements/constraints.txt
 
+permissions: {}
+
 jobs:
   r:
     runs-on: ubuntu-latest
