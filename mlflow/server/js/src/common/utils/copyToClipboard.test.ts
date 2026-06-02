@@ -7,7 +7,7 @@ describe('copyToClipboard', () => {
   });
 
   it('uses navigator.clipboard.writeText in secure contexts', async () => {
-    const writeText = jest.fn().mockResolvedValue(undefined);
+    const writeText = jest.fn().mockImplementation(() => Promise.resolve());
     Object.defineProperty(navigator, 'clipboard', {
       value: { writeText },
       configurable: true,
