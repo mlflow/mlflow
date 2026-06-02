@@ -5,8 +5,8 @@ from aiohttp import ClientTimeout
 from fastapi.encoders import jsonable_encoder
 from pydantic import ValidationError
 
+from mlflow.environment_variables import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
 from mlflow.gateway.config import EndpointConfig
-from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
 from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.cohere import CohereProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
@@ -107,7 +107,7 @@ async def test_chat():
                 "message": "Message 3",
                 "temperature": 1.25,
             },
-            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
         )
 
 
@@ -143,7 +143,7 @@ async def test_chat_with_system_messages():
                 "preamble_override": "System Message 1\nSystem Message 2",
                 "temperature": 1.25,
             },
-            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
         )
 
 
@@ -275,7 +275,7 @@ async def test_chat_stream():
                 "temperature": 1.25,
                 "stream": True,
             },
-            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
         )
 
 
@@ -344,7 +344,7 @@ async def test_completions():
                 "num_generations": 1,
                 "stop_sequences": ["foobar"],
             },
-            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
         )
 
 
@@ -459,7 +459,7 @@ async def test_completions_stream():
                 "num_generations": 1,
                 "stream": True,
             },
-            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
         )
 
 

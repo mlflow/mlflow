@@ -1,6 +1,7 @@
 from unittest import mock
 
 import pytest
+import requests
 
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
@@ -8,7 +9,7 @@ from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
 )
 from mlflow.genai.judges.adapters.gateway_adapter import GatewayAdapter
 from mlflow.genai.judges.adapters.litellm_adapter import LiteLLMAdapter
-from mlflow.genai.judges.adapters.utils import get_adapter
+from mlflow.genai.judges.adapters.utils import get_adapter, send_chat_request
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
 from mlflow.types.llm import ChatMessage
 
@@ -105,3 +106,44 @@ def test_get_adapter_unsupported_without_litellm(
             MlflowException, match=f"No suitable adapter found for model_uri='{model_uri}'"
         ):
             get_adapter(model_uri, prompt)
+
+
+def test_send_chat_request_uses_timeout_from_env_var(monkeypatch):
+    monkeypatch.setenv("MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS", "2")
+
+    mock_response = mock.Mock(status_code=200)
+    mock_response.json.return_value = {}
+
+    with mock.patch(
+        "mlflow.genai.judges.adapters.utils.requests.post", return_value=mock_response
+    ) as mock_post:
+        result = send_chat_request(
+            endpoint="https://example.com/chat",
+            headers={"Authorization": "Bearer token"},
+            payload={"messages": []},
+            num_retries=0,
+        )
+
+    mock_post.assert_called_once()
+    assert mock_post.call_args.kwargs["timeout"] == 2
+    assert result == {}
+
+
+def test_send_chat_request_timeout_error_uses_timeout_from_env_var(monkeypatch):
+    monkeypatch.setenv("MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS", "2")
+
+    with (
+        mock.patch(
+            "mlflow.genai.judges.adapters.utils.requests.post",
+            side_effect=requests.exceptions.Timeout,
+        ) as mock_post,
+        pytest.raises(MlflowException, match=r"timed out after 2s"),
+    ):
+        send_chat_request(
+            endpoint="https://example.com/chat",
+            headers={},
+            payload={"messages": []},
+            num_retries=0,
+        )
+
+    mock_post.assert_called_once()

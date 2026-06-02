@@ -1,6 +1,44 @@
 {
   "schema_version": "1.0",
   "models": {
+    "deep-research-pro-preview-12-2025": {
+      "mode": "image_generation",
+      "context_window": {
+        "max_input": 65536,
+        "max_output": 32768,
+        "max_tokens": 32768
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.0,
+        "output_per_million_tokens": 12.0,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 1.0,
+            "output_per_million_tokens": 6.0
+          }
+        },
+        "modality": {
+          "image": {
+            "output_per_million_tokens": 120.0
+          }
+        },
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_low": 0.035,
+            "search_context_size_medium": 0.035,
+            "search_context_size_high": 0.035
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-05-28"
+    },
     "gemini-1.5-flash": {
       "mode": "embedding",
       "context_window": {
@@ -94,6 +132,26 @@
       },
       "deprecation_date": "2026-06-01",
       "last_updated_at": "2026-04-27"
+    },
+    "gemini-2.0-flash-exp-image-generation": {
+      "mode": "image_generation",
+      "context_window": {
+        "max_input": 32768,
+        "max_output": 32768,
+        "max_tokens": 32768
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.0,
+        "output_per_million_tokens": 0.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
     },
     "gemini-2.0-flash-lite": {
       "mode": "chat",
@@ -220,6 +278,42 @@
         "response_schema": true
       },
       "last_updated_at": "2026-04-27"
+    },
+    "gemini-2.5-flash-image": {
+      "mode": "image_generation",
+      "context_window": {
+        "max_input": 32768,
+        "max_output": 32768,
+        "max_tokens": 32768
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.3,
+        "output_per_million_tokens": 2.5,
+        "cache_read_per_million_tokens": 0.03,
+        "modality": {
+          "audio": {
+            "input_per_million_tokens": 1.0
+          },
+          "image": {
+            "output_per_million_tokens": 30.0
+          }
+        },
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_low": 0.035,
+            "search_context_size_medium": 0.035,
+            "search_context_size_high": 0.035
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-05-28"
     },
     "gemini-2.5-flash-lite": {
       "mode": "chat",
@@ -545,6 +639,44 @@
       },
       "last_updated_at": "2026-04-27"
     },
+    "gemini-3-pro-image-preview": {
+      "mode": "image_generation",
+      "context_window": {
+        "max_input": 65536,
+        "max_output": 32768,
+        "max_tokens": 32768
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.0,
+        "output_per_million_tokens": 12.0,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 1.0,
+            "output_per_million_tokens": 6.0
+          }
+        },
+        "modality": {
+          "image": {
+            "output_per_million_tokens": 120.0
+          }
+        },
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_low": 0.014,
+            "search_context_size_medium": 0.014,
+            "search_context_size_high": 0.014
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-05-28"
+    },
     "gemini-3-pro-preview": {
       "mode": "chat",
       "context_window": {
@@ -585,6 +717,44 @@
       },
       "deprecation_date": "2026-03-09",
       "last_updated_at": "2026-04-24"
+    },
+    "gemini-3.1-flash-image-preview": {
+      "mode": "image_generation",
+      "context_window": {
+        "max_input": 65536,
+        "max_output": 32768,
+        "max_tokens": 32768
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.25,
+        "output_per_million_tokens": 1.5,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 0.125,
+            "output_per_million_tokens": 0.75
+          }
+        },
+        "modality": {
+          "image": {
+            "output_per_million_tokens": 60.0
+          }
+        },
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_low": 0.014,
+            "search_context_size_medium": 0.014,
+            "search_context_size_high": 0.014
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-05-28"
     },
     "gemini-3.1-flash-lite": {
       "mode": "chat",
@@ -1172,6 +1342,61 @@
       },
       "last_updated_at": "2026-05-11"
     },
+    "imagen-3.0-fast-generate-001": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
+    },
+    "imagen-3.0-generate-001": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
+    },
+    "imagen-4.0-fast-generate-001": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
+    },
+    "imagen-4.0-generate-001": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
+    },
+    "imagen-4.0-ultra-generate-001": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
+    },
     "learnlm-1.5-pro-experimental": {
       "mode": "chat",
       "context_window": {
@@ -1246,6 +1471,96 @@
         "response_schema": false
       },
       "last_updated_at": "2026-04-24"
+    },
+    "veo-2.0-generate-001": {
+      "mode": "video_generation",
+      "context_window": {
+        "max_input": 1024,
+        "max_tokens": 1024
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
+    },
+    "veo-3.1-fast-generate-001": {
+      "mode": "video_generation",
+      "context_window": {
+        "max_input": 1024,
+        "max_tokens": 1024
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
+    },
+    "veo-3.1-fast-generate-preview": {
+      "mode": "video_generation",
+      "context_window": {
+        "max_input": 1024,
+        "max_tokens": 1024
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
+    },
+    "veo-3.1-generate-001": {
+      "mode": "video_generation",
+      "context_window": {
+        "max_input": 1024,
+        "max_tokens": 1024
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
+    },
+    "veo-3.1-generate-preview": {
+      "mode": "video_generation",
+      "context_window": {
+        "max_input": 1024,
+        "max_tokens": 1024
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
+    },
+    "veo-3.1-lite-generate-preview": {
+      "mode": "video_generation",
+      "context_window": {
+        "max_input": 1024,
+        "max_tokens": 1024
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
     }
   }
 }
