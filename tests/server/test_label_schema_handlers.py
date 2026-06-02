@@ -1,4 +1,4 @@
-"""Unit tests for the OSS-native label-schema REST handlers.
+"""Unit tests for the tracking-store label-schema REST handlers.
 
 These tests exercise the handler functions directly (mocking the tracking
 store and request-message parsing); the wire-format round-trip through
