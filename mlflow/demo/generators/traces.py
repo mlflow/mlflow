@@ -217,10 +217,22 @@ def _emit_react_children(
     messages = [{"role": "system", "content": system_content}]
     messages.extend(prior_messages or [])
     messages.append({"role": "user", "content": user_query})
-    # span_duration is only used inside the per-tool loop below; when `tools` is empty
-    # the loop is skipped and the lone final LLM span runs from `cursor` to `end_ns - 5_000`.
+    # Each span gets a jittered duration so per-span latency varies trace-to-trace.
+    # Pre-compute all per-span durations and rescale them to fit exactly into the
+    # `[start_ns + 5_000, end_ns - 5_000]` window — this guarantees spans stay
+    # contiguous and non-overlapping even when high jitter draws would otherwise
+    # push the cursor past the end. Seeded by start_ns for determinism.
     total_spans = 2 * len(tools) + 1
-    span_duration = max(1, (end_ns - start_ns - 10_000) // total_spans)
+    budget = max(total_spans, end_ns - start_ns - 10_000)
+    rng = random.Random(start_ns)
+    # Each span's raw weight is uniformly drawn from [0.2, 1.8], giving the longest
+    # span in a trace up to ~9x the duration of the shortest (1.8 / 0.2). The mean
+    # of 1.0 keeps the expected sum equal to `total_spans`, so after rescaling
+    # below each span occupies roughly its drawn fraction of the budget. Tweak this
+    # range to widen or narrow the visible latency spread in the timeline.
+    raw_durations = [rng.uniform(0.2, 1.8) for _ in range(total_spans)]
+    total_raw = sum(raw_durations)
+    span_durations = [max(1, int(d / total_raw * budget)) for d in raw_durations]
     cursor = start_ns + 5_000
 
     for idx, tool in enumerate(tools, start=1):
@@ -254,8 +266,8 @@ def _emit_react_children(
                 }
             ]
         })
-        llm.end(end_time_ns=cursor + span_duration)
-        cursor += span_duration
+        cursor += span_durations[2 * (idx - 1)]
+        llm.end(end_time_ns=cursor)
 
         messages.append({"role": "assistant", "content": None, "tool_calls": [tool_call]})
 
@@ -267,8 +279,8 @@ def _emit_react_children(
             start_time_ns=cursor,
         )
         tool_span.set_outputs(tool.output)
-        tool_span.end(end_time_ns=cursor + span_duration)
-        cursor += span_duration
+        cursor += span_durations[2 * (idx - 1) + 1]
+        tool_span.end(end_time_ns=cursor)
 
         messages.append({
             "role": "tool",
