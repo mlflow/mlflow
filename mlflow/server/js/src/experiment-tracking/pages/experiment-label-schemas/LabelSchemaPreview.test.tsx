@@ -37,7 +37,7 @@ describe('LabelSchemaPreview', () => {
       ...DEFAULT_FORM_VALUES,
       name: 'Severity',
       inputKind: 'categorical',
-      categoricalOptions: 'low\nmedium\nhigh',
+      categoricalOptions: ['low', 'medium', 'high'],
     };
     renderWithProviders(<LabelSchemaPreview formData={formData} />);
     expect(screen.getByText('Severity')).toBeInTheDocument();

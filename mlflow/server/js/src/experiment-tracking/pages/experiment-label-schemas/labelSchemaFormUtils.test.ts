@@ -5,7 +5,7 @@ import {
   DEFAULT_FORM_VALUES,
   buildLabelSchemaInputFromForm,
   getFormValuesFromSchema,
-  parseCategoricalOptions,
+  normalizeCategoricalOptions,
   validateLabelSchemaForm,
   type LabelSchemaFormData,
 } from './labelSchemaFormUtils';
@@ -18,13 +18,13 @@ const baseValidForm: LabelSchemaFormData = {
   passFailNegativeLabel: 'Incorrect',
 };
 
-describe('parseCategoricalOptions', () => {
-  it('splits by newline, trims, dedupes, and drops blanks', () => {
-    expect(parseCategoricalOptions('  low\nmedium \n\nhigh\nlow\n')).toEqual(['low', 'medium', 'high']);
+describe('normalizeCategoricalOptions', () => {
+  it('trims, dedupes, and drops blanks while preserving order', () => {
+    expect(normalizeCategoricalOptions(['  low', 'medium ', '', 'high', 'low'])).toEqual(['low', 'medium', 'high']);
   });
 
-  it('returns an empty array for whitespace-only input', () => {
-    expect(parseCategoricalOptions('   \n\n   ')).toEqual([]);
+  it('returns an empty array for blank-only input', () => {
+    expect(normalizeCategoricalOptions(['   ', '', '  '])).toEqual([]);
   });
 });
 
@@ -39,7 +39,7 @@ describe('buildLabelSchemaInputFromForm', () => {
     const form: LabelSchemaFormData = {
       ...baseValidForm,
       inputKind: 'categorical',
-      categoricalOptions: 'low\nmedium\nhigh',
+      categoricalOptions: ['low', 'medium', 'high'],
       categoricalMultiSelect: true,
     };
     expect(buildLabelSchemaInputFromForm(form)).toEqual({
@@ -54,7 +54,7 @@ describe('buildLabelSchemaInputFromForm', () => {
     const form: LabelSchemaFormData = {
       ...baseValidForm,
       inputKind: 'categorical',
-      categoricalOptions: 'a\nb',
+      categoricalOptions: ['a', 'b'],
       categoricalMultiSelect: false,
     };
     const input = buildLabelSchemaInputFromForm(form);
@@ -101,7 +101,7 @@ describe('getFormValuesFromSchema', () => {
     expect(buildLabelSchemaInputFromForm(form)).toEqual(schema.input);
   });
 
-  it('round-trips a categorical schema (options joined with newlines)', () => {
+  it('round-trips a categorical schema (options as a list)', () => {
     // multi_select defaults to false; the build path omits it when false
     // so the round-trip target is the schema with multi_select absent.
     const schema: LabelSchema = {
@@ -112,7 +112,7 @@ describe('getFormValuesFromSchema', () => {
       input: { categorical: { options: ['low', 'medium', 'high'] } },
     };
     const form = getFormValuesFromSchema(schema);
-    expect(form.categoricalOptions).toEqual('low\nmedium\nhigh');
+    expect(form.categoricalOptions).toEqual(['low', 'medium', 'high']);
     expect(buildLabelSchemaInputFromForm(form)).toEqual(schema.input);
   });
 
@@ -176,7 +176,7 @@ describe('validateLabelSchemaForm', () => {
     const errors = validateLabelSchemaForm({
       ...baseValidForm,
       inputKind: 'categorical',
-      categoricalOptions: 'low\nhigh',
+      categoricalOptions: ['low', 'high'],
     });
     expect(errors).toEqual({});
   });
@@ -243,21 +243,21 @@ describe('validateLabelSchemaForm', () => {
       match: /at most 64/,
     },
     {
-      label: 'categorical options > 100',
+      label: 'categorical options > 10',
       form: {
         ...baseValidForm,
         inputKind: 'categorical' as const,
-        categoricalOptions: Array.from({ length: 101 }, (_, i) => `o${i}`).join('\n'),
+        categoricalOptions: Array.from({ length: 11 }, (_, i) => `o${i}`),
       },
       field: 'categoricalOptions' as const,
-      match: /at most 100/i,
+      match: /at most 10/i,
     },
     {
       label: 'categorical option > 64 chars',
       form: {
         ...baseValidForm,
         inputKind: 'categorical' as const,
-        categoricalOptions: 'a'.repeat(65),
+        categoricalOptions: ['a'.repeat(65)],
       },
       field: 'categoricalOptions' as const,
       match: /at most 64/,
