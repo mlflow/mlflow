@@ -223,3 +223,27 @@ results = mlflow.genai.evaluate(
     scorers=[Safety()],
 )
 ```
+
+### Log evaluation results to an existing training run
+
+By default, `mlflow.genai.evaluate` logs results to the active MLflow run, or creates a new run if none is active. To keep evaluation results with a fine-tuning or training run, resume that run before calling `mlflow.genai.evaluate`.
+
+```python
+import mlflow
+from mlflow.genai.scorers import Correctness
+
+# Fine-tuning or training run
+with mlflow.start_run() as training_run:
+    mlflow.log_params({"base_model": "gpt-4o-mini", "learning_rate": 1e-5})
+    training_run_id = training_run.info.run_id
+
+# Later, evaluate the fine-tuned model and log results to the same run
+with mlflow.start_run(run_id=training_run_id):
+    results = mlflow.genai.evaluate(
+        data=eval_dataset,
+        predict_fn=evaluate_model,
+        scorers=[Correctness()],
+    )
+```
+
+Use this pattern when you want the run page to contain both the training metadata and the evaluation artifacts, metrics, and trace assessments for the resulting model.
