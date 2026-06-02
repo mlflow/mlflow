@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test } from '@jest/globals';
 import { act, renderHook } from '@testing-library/react';
-import { usePersistedColumnWidths } from './usePersistedTableColumnWidths';
+import { usePersistedTableColumnWidths } from './usePersistedTableColumnWidths';
 
-describe('usePersistedColumnWidths', () => {
+describe('usePersistedTableColumnWidths', () => {
   beforeEach(() => {
     window.localStorage.clear();
   });
@@ -13,12 +13,12 @@ describe('usePersistedColumnWidths', () => {
   test('starts empty when nothing is persisted', () => {
     // Defaults live on the ColumnDefs, so the stored map begins empty and only dragged
     // columns ever get written.
-    const { result } = renderHook(() => usePersistedColumnWidths({ experimentId: 'exp-1', datasetId: 'ds-1' }));
+    const { result } = renderHook(() => usePersistedTableColumnWidths({ experimentId: 'exp-1', datasetId: 'ds-1' }));
     expect(result.current.columnSizing).toEqual({});
   });
 
   test('setColumnSizing stores a direct value', () => {
-    const { result } = renderHook(() => usePersistedColumnWidths({ experimentId: 'exp-1', datasetId: 'ds-1' }));
+    const { result } = renderHook(() => usePersistedTableColumnWidths({ experimentId: 'exp-1', datasetId: 'ds-1' }));
 
     act(() => {
       result.current.setColumnSizing({ inputs: 512 });
@@ -30,7 +30,7 @@ describe('usePersistedColumnWidths', () => {
   test('setColumnSizing accepts a functional updater (the shape TanStack calls it with)', () => {
     // onColumnSizingChange hands the setter a `(prev) => next` updater on every drag tick;
     // this guards that the useLocalStorage setter plugs in directly with no adapter.
-    const { result } = renderHook(() => usePersistedColumnWidths({ experimentId: 'exp-1', datasetId: 'ds-1' }));
+    const { result } = renderHook(() => usePersistedTableColumnWidths({ experimentId: 'exp-1', datasetId: 'ds-1' }));
 
     act(() => {
       result.current.setColumnSizing({ inputs: 512 });
@@ -45,34 +45,34 @@ describe('usePersistedColumnWidths', () => {
   test('persists across remounts for the same dataset', () => {
     const params = { experimentId: 'exp-1', datasetId: 'ds-1' };
 
-    const first = renderHook(() => usePersistedColumnWidths(params));
+    const first = renderHook(() => usePersistedTableColumnWidths(params));
     act(() => {
       first.result.current.setColumnSizing({ inputs: 256 });
     });
     first.unmount();
 
-    const second = renderHook(() => usePersistedColumnWidths(params));
+    const second = renderHook(() => usePersistedTableColumnWidths(params));
     expect(second.result.current.columnSizing).toEqual({ inputs: 256 });
   });
 
   test('widths are isolated per dataset', () => {
-    const first = renderHook(() => usePersistedColumnWidths({ experimentId: 'exp-1', datasetId: 'ds-1' }));
+    const first = renderHook(() => usePersistedTableColumnWidths({ experimentId: 'exp-1', datasetId: 'ds-1' }));
     act(() => {
       first.result.current.setColumnSizing({ inputs: 256 });
     });
 
     // Different dataset → its own key → starts empty.
-    const second = renderHook(() => usePersistedColumnWidths({ experimentId: 'exp-1', datasetId: 'ds-2' }));
+    const second = renderHook(() => usePersistedTableColumnWidths({ experimentId: 'exp-1', datasetId: 'ds-2' }));
     expect(second.result.current.columnSizing).toEqual({});
   });
 
   test('widths are isolated per experiment', () => {
-    const first = renderHook(() => usePersistedColumnWidths({ experimentId: 'exp-1', datasetId: 'ds-1' }));
+    const first = renderHook(() => usePersistedTableColumnWidths({ experimentId: 'exp-1', datasetId: 'ds-1' }));
     act(() => {
       first.result.current.setColumnSizing({ inputs: 256 });
     });
 
-    const second = renderHook(() => usePersistedColumnWidths({ experimentId: 'exp-2', datasetId: 'ds-1' }));
+    const second = renderHook(() => usePersistedTableColumnWidths({ experimentId: 'exp-2', datasetId: 'ds-1' }));
     expect(second.result.current.columnSizing).toEqual({});
   });
 });

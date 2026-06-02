@@ -349,7 +349,13 @@ export const DatasetDetailPageContent = ({ experimentId, datasetId, dataset }: D
                       <DatasetRecordsColumnSelector
                         visibleColumns={columns.visibleColumns}
                         onToggleColumn={columns.toggleColumn}
-                        onResetToDefaults={columns.resetToDefaults}
+                        onResetToDefaults={() => {
+                          // Resets both column visibility AND any dragged widths back to
+                          // the viewport-bucket defaults. This is the only in-app way for
+                          // users to recover from a width they no longer want.
+                          columns.resetToDefaults();
+                          columnWidths.setColumnSizing({});
+                        }}
                       />
                       {records.allRecords.length > 0 && (
                         // 1px nudge on top of the toolbar's `sm` gap to give the count

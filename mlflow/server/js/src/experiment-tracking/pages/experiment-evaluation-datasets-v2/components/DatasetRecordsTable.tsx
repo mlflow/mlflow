@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef } from 'react';
+import { useCallback, useMemo } from 'react';
 import {
   Pagination,
   Table,
@@ -80,50 +80,92 @@ const SORTABLE_COLUMN_SET = new Set<RecordColumnId>(SORTABLE_RECORD_COLUMNS);
 /**
  * Column sizing model
  * ===================
- * Goal: columns flex-fill the viewport on first paint, then pixel-lock so the
- * user's first drag doesn't snap from the rendered width back to a basis.
+ * Goal: columns render at a sensible width from the very first frame, without
+ * measuring the DOM. Pick a viewport bucket from `window.innerWidth` at mount,
+ * look up per-column widths from a static table, hand them to TanStack as
+ * `ColumnDef.size`. Persisted user drags (via `usePersistedTableColumnWidths`)
+ * override the bucket defaults on a per-column basis. No `useLayoutEffect`,
+ * no `ResizeObserver`, no DOM measurement.
  *
- * Two phases, both invisible to the user:
- *   1. First render — `flexStyleForColumn` returns `flex: <grow> 1 <basis>px`;
- *      CSS flexbox distributes viewport width across columns by tier.
- *   2. Layout effect (in the component) measures each header's rendered width
- *      and writes it into `columnSizing` (persisted via localStorage). The
- *      next render switches every column to `flex: 0 0 <px>px` — pixel-locked.
- *      Because the layout effect runs before paint, the user only ever sees
- *      the locked frame.
+ * Why bucketed-on-mount, not flex or measured: flex-fill made `getSize()`
+ * disagree with the rendered width, which caused TanStack's drag handler to
+ * "snap" the column from its grown width back to the basis on first drag. DOM
+ * measurement fixed the snap but `offsetWidth` is 0 inside `display: none`
+ * ancestors (inactive tab / collapsed accordion / unopened modal), and the
+ * earlier seed wrote those zeros to localStorage — permanently locking every
+ * column to the minSize floor with no in-app recovery. `window.innerWidth`
+ * doesn't depend on any element being laid out, so the corruption path is
+ * impossible by construction.
  *
- * Returning visits skip phase 1: `columnSizing` is hydrated from localStorage,
- * so columns boot straight into pixel-locked mode and the seed effect is a no-op.
+ * Bucket is fixed per mount — subsequent window resizes don't reflow. Users
+ * who dock/undock to a different display see their dragged columns at the
+ * persisted px regardless of viewport; un-dragged columns adapt to the new
+ * bucket on next visit.
  */
 
-// Sizing tiers. `basis` sets the starting width per column (and the proportions
-// on narrow viewports where there's no leftover to grow into). `grow` shares
-// leftover viewport width — JSON columns absorb more slack than metadata.
-const COLUMN_SIZE = {
-  narrow: { basis: 120, grow: 0.5 }, // timestamps, source
-  normal: { basis: 160, grow: 1 }, //   ids, usernames, tags
-  wide: { basis: 400, grow: 2.5 }, //   inputs / expectations JSON blobs
+// Viewport thresholds (`window.innerWidth`) for each bucket. Boundaries are
+// inclusive lower bound — `pickViewportBucket(1280)` → 'medium'.
+const BREAKPOINT_PX = {
+  medium: 1280,
+  large: 2000,
 } as const;
 
-// Per-column tier assignment. Single source of truth: each ColumnDef's `size`
-// and the pre-lock flex style both derive from here, so changing a column's
-// tier only requires editing this map.
-const COLUMN_TIERS: Record<RecordColumnId, (typeof COLUMN_SIZE)[keyof typeof COLUMN_SIZE]> = {
-  dataset_record_id: COLUMN_SIZE.normal,
-  inputs: COLUMN_SIZE.wide,
-  expectations: COLUMN_SIZE.wide,
-  create_time: COLUMN_SIZE.narrow,
-  created_by: COLUMN_SIZE.normal,
-  source: COLUMN_SIZE.narrow,
-  last_updated: COLUMN_SIZE.narrow,
-  last_updated_by: COLUMN_SIZE.normal,
-  tags: COLUMN_SIZE.normal,
+// Per-bucket, per-tier column widths in px. Edit here to retune defaults.
+const COLUMN_WIDTHS_BY_BREAKPOINT = {
+  small: { narrow: 100, normal: 140, wide: 280 }, // <1280: laptop, narrow window
+  medium: { narrow: 120, normal: 160, wide: 400 }, // 1280-2000: FHD / standard monitor
+  large: { narrow: 130, normal: 180, wide: 560 }, // >=2000: MBP 16" scaled, QHD, 4K, 5K
+} as const;
+
+type ViewportBucket = keyof typeof COLUMN_WIDTHS_BY_BREAKPOINT;
+type ColumnTier = keyof (typeof COLUMN_WIDTHS_BY_BREAKPOINT)['small'];
+
+// Per-column tier assignment. Single source of truth for which bucket entry
+// each column reads — change a column's tier here, not in every header def.
+const TIER_BY_COLUMN: Record<RecordColumnId, ColumnTier> = {
+  dataset_record_id: 'normal',
+  inputs: 'wide',
+  expectations: 'wide',
+  create_time: 'narrow',
+  created_by: 'normal',
+  source: 'narrow',
+  last_updated: 'narrow',
+  last_updated_by: 'normal',
+  tags: 'normal',
 };
 
-// Floor for column resizing. Set on `defaultColumn.minSize`, so TanStack's
-// `getSize()` clamps `columnSizing[id]` to this on read — even if DuBois's
-// drag handle writes a sub-floor value we never render below it.
+const pickViewportBucket = (viewportWidth: number): ViewportBucket => {
+  if (viewportWidth >= BREAKPOINT_PX.large) return 'large';
+  if (viewportWidth >= BREAKPOINT_PX.medium) return 'medium';
+  return 'small';
+};
+
+// Floor + ceiling for column resizing. Both set on `defaultColumn`, so
+// TanStack's `getSize()` clamps `columnSizing[id]` to this range on read —
+// even if DuBois's drag handle writes a value outside it we never render
+// outside the range. Ceiling prevents a runaway drag from making a column
+// thousands of pixels wide and breaking horizontal scroll UX.
 const COLUMN_MIN_WIDTH = 80;
+const COLUMN_MAX_WIDTH = 1200;
+
+// Floor for `window.innerWidth` reads. `window.innerWidth` is non-zero in
+// every realistic scenario, but inside an iframe with `display: none` on the
+// <iframe> element it can be 0 in some browsers. Clamping to 800 routes that
+// edge case (and any absurdly narrow window) into the small bucket cleanly.
+const MIN_VIEWPORT_WIDTH = 800;
+
+// SSR-safe read. `window` is undefined during server-side rendering and in
+// some pre-paint test contexts; fall back to `MIN_VIEWPORT_WIDTH` (→ 'small'
+// bucket) rather than throwing.
+const readViewportWidth = (): number => {
+  if (typeof window === 'undefined') return MIN_VIEWPORT_WIDTH;
+  return Math.max(window.innerWidth, MIN_VIEWPORT_WIDTH);
+};
+
+// `getCoreRowModel()` returns a row-model factory; calling it once at module
+// load gives a stable reference TanStack can identity-check against, instead
+// of allocating a new factory on every render.
+const CORE_ROW_MODEL_FACTORY = getCoreRowModel();
 
 // Base cell styles — column width is supplied separately via flexStyleForColumn.
 const cellStyles = { verticalAlign: 'middle' as const };
@@ -185,38 +227,87 @@ export const DatasetRecordsTable = ({
     };
   };
 
-  // `size` seeds TanStack's internal size before the layout effect runs; it must
-  // match the basis used by `flexStyleForColumn` so both phases agree.
-  const columns: ColumnDef<DatasetRecord>[] = [
-    {
-      id: 'dataset_record_id',
-      accessorKey: 'dataset_record_id',
-      header: 'Record ID',
-      size: COLUMN_TIERS.dataset_record_id.basis,
-    },
-    { id: 'inputs', accessorKey: 'inputs', header: 'Inputs', size: COLUMN_TIERS.inputs.basis },
-    { id: 'expectations', accessorKey: 'expectations', header: 'Expectations', size: COLUMN_TIERS.expectations.basis },
-    { id: 'create_time', accessorKey: 'create_time', header: 'Created', size: COLUMN_TIERS.create_time.basis },
-    { id: 'created_by', accessorKey: 'created_by', header: 'Created by', size: COLUMN_TIERS.created_by.basis },
-    { id: 'source', accessorKey: 'source', header: 'Source', size: COLUMN_TIERS.source.basis },
-    { id: 'last_updated', accessorKey: 'last_updated', header: 'Last updated', size: COLUMN_TIERS.last_updated.basis },
-    {
-      id: 'last_updated_by',
-      accessorKey: 'last_updated_by',
-      header: 'Last updated by',
-      size: COLUMN_TIERS.last_updated_by.basis,
-    },
-    { id: 'tags', accessorKey: 'tags', header: 'Tags', size: COLUMN_TIERS.tags.basis },
-  ];
+  // Pick the bucket once per mount. `readViewportWidth` is SSR-safe and never
+  // returns < MIN_VIEWPORT_WIDTH, so this can't crash or land on a 0 bucket.
+  const columnWidthsForViewport = useMemo(
+    () => COLUMN_WIDTHS_BY_BREAKPOINT[pickViewportBucket(readViewportWidth())],
+    [],
+  );
+
+  // `header` strings are unused at render time — each `<TableHeader>` below
+  // renders its own `<FormattedMessage>`. They exist only to satisfy
+  // `ColumnDef`'s type and any fallback TanStack code path that calls
+  // `flexRender(header)`. Memoised so TanStack doesn't rebuild its column
+  // model on every parent render.
+  const columns = useMemo<ColumnDef<DatasetRecord>[]>(
+    () => [
+      {
+        id: 'dataset_record_id',
+        accessorKey: 'dataset_record_id',
+        header: 'Record ID',
+        size: columnWidthsForViewport[TIER_BY_COLUMN.dataset_record_id],
+      },
+      {
+        id: 'inputs',
+        accessorKey: 'inputs',
+        header: 'Inputs',
+        size: columnWidthsForViewport[TIER_BY_COLUMN.inputs],
+      },
+      {
+        id: 'expectations',
+        accessorKey: 'expectations',
+        header: 'Expectations',
+        size: columnWidthsForViewport[TIER_BY_COLUMN.expectations],
+      },
+      {
+        id: 'create_time',
+        accessorKey: 'create_time',
+        header: 'Created',
+        size: columnWidthsForViewport[TIER_BY_COLUMN.create_time],
+      },
+      {
+        id: 'created_by',
+        accessorKey: 'created_by',
+        header: 'Created by',
+        size: columnWidthsForViewport[TIER_BY_COLUMN.created_by],
+      },
+      {
+        id: 'source',
+        accessorKey: 'source',
+        header: 'Source',
+        size: columnWidthsForViewport[TIER_BY_COLUMN.source],
+      },
+      {
+        id: 'last_updated',
+        accessorKey: 'last_updated',
+        header: 'Last updated',
+        size: columnWidthsForViewport[TIER_BY_COLUMN.last_updated],
+      },
+      {
+        id: 'last_updated_by',
+        accessorKey: 'last_updated_by',
+        header: 'Last updated by',
+        size: columnWidthsForViewport[TIER_BY_COLUMN.last_updated_by],
+      },
+      {
+        id: 'tags',
+        accessorKey: 'tags',
+        header: 'Tags',
+        size: columnWidthsForViewport[TIER_BY_COLUMN.tags],
+      },
+    ],
+    [columnWidthsForViewport],
+  );
 
   const table = useReactTable({
     data: records,
     columns: columns,
-    getCoreRowModel: getCoreRowModel(),
+    getCoreRowModel: CORE_ROW_MODEL_FACTORY,
     enableColumnResizing: true,
     columnResizeMode: 'onChange',
     defaultColumn: {
       minSize: COLUMN_MIN_WIDTH,
+      maxSize: COLUMN_MAX_WIDTH,
     },
     state: {
       columnSizing,
@@ -224,50 +315,28 @@ export const DatasetRecordsTable = ({
     onColumnSizingChange: setColumnSizing,
   });
 
-  const headersById = Object.fromEntries(table.getHeaderGroups()[0].headers.map((h) => [h.column.id, h]));
+  // `table` is stable across renders for the same column set; memo prevents
+  // the Object.fromEntries from running on every parent re-render.
+  const headersById = useMemo(
+    () => Object.fromEntries(table.getHeaderGroups()[0].headers.map((h) => [h.column.id, h])),
+    [table],
+  );
 
-  const tableRef = useRef<HTMLDivElement>(null);
-
-  // Phase 2 of the column sizing model (see top of file). After first paint,
-  // measure each header's rendered width and write it back into `columnSizing`
-  // so the next render switches the column to pixel-locked mode. Without this,
-  // TanStack's resize handler seeds the drag's start width from `getSize()` —
-  // which returns the basis, not the rendered px — and the first mouse-move
-  // snaps the column back to its basis.
-  //
-  // Existing widths in `columnSizing` (user drags, or values hydrated from
-  // localStorage) take precedence over fresh measurements via `...prev` last.
-  useLayoutEffect(() => {
-    if (!tableRef.current) return;
-    const headers = tableRef.current.querySelectorAll<HTMLElement>('[data-column-id]');
-    const updates: Record<string, number> = {};
-    headers.forEach((header) => {
-      const id = header.dataset['columnId'];
-      if (id && columnSizing[id] === undefined) {
-        updates[id] = header.offsetWidth;
-      }
-    });
-    if (Object.keys(updates).length > 0) {
-      setColumnSizing((prev) => ({ ...updates, ...prev }));
-    }
-  }, [visibleColumns, columnSizing, setColumnSizing]);
-
-  // Locked once the column has an entry in `columnSizing` — either a user drag
-  // or a width seeded by the layout effect above (or hydrated from localStorage).
-  // Until then, flex-fill at the tier's basis/grow.
-  const flexStyleForColumn = (id: RecordColumnId): React.CSSProperties => {
-    if (columnSizing[id] !== undefined) {
-      // `getSize()` returns the locked width clamped to `COLUMN_MIN_WIDTH`.
-      const px = table.getColumn(id)?.getSize() ?? COLUMN_TIERS[id].basis;
-      return { flex: `0 0 ${px}px` };
-    }
-    const { basis, grow } = COLUMN_TIERS[id];
-    return { flex: `${grow} 1 ${basis}px`, minWidth: COLUMN_MIN_WIDTH };
-  };
+  // Every column is pixel-locked from frame 1: `getSize()` returns the user's
+  // persisted width when present, otherwise the bucket default we set as
+  // `ColumnDef.size`. Both come from `columnWidthsForViewport[TIER_BY_COLUMN[id]]`
+  // ultimately, so there's no rendered-vs-model mismatch and no drag-start snap.
+  // `getSize()` already clamps to [`COLUMN_MIN_WIDTH`, `COLUMN_MAX_WIDTH`] from
+  // `defaultColumn`, so no extra clamping needed here.
+  const flexStyleForColumn = useCallback(
+    (id: RecordColumnId): React.CSSProperties => ({
+      flex: `0 0 ${table.getColumn(id)?.getSize() ?? columnWidthsForViewport[TIER_BY_COLUMN[id]]}px`,
+    }),
+    [table, columnWidthsForViewport],
+  );
 
   return (
     <div
-      ref={tableRef}
       css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}
       role="region"
       aria-busy={isFetching}
@@ -297,7 +366,6 @@ export const DatasetRecordsTable = ({
           {isColumnVisible('dataset_record_id') && (
             <TableHeader
               componentId="mlflow.eval-datasets-v2.records.header.record-id"
-              data-column-id="dataset_record_id"
               style={flexStyleForColumn('dataset_record_id')}
               {...headerSortProps('dataset_record_id')}
               header={headersById['dataset_record_id']}
@@ -310,7 +378,6 @@ export const DatasetRecordsTable = ({
           {isColumnVisible('inputs') && (
             <TableHeader
               componentId="mlflow.eval-datasets-v2.records.header.inputs"
-              data-column-id="inputs"
               style={flexStyleForColumn('inputs')}
               header={headersById['inputs']}
               column={headersById['inputs']?.column}
@@ -322,7 +389,6 @@ export const DatasetRecordsTable = ({
           {isColumnVisible('expectations') && (
             <TableHeader
               componentId="mlflow.eval-datasets-v2.records.header.expectations"
-              data-column-id="expectations"
               style={flexStyleForColumn('expectations')}
               header={headersById['expectations']}
               column={headersById['expectations']?.column}
@@ -337,7 +403,6 @@ export const DatasetRecordsTable = ({
           {isColumnVisible('create_time') && (
             <TableHeader
               componentId="mlflow.eval-datasets-v2.records.header.create-time"
-              data-column-id="create_time"
               style={flexStyleForColumn('create_time')}
               {...headerSortProps('create_time')}
               header={headersById['create_time']}
@@ -353,7 +418,6 @@ export const DatasetRecordsTable = ({
           {isColumnVisible('created_by') && (
             <TableHeader
               componentId="mlflow.eval-datasets-v2.records.header.created-by"
-              data-column-id="created_by"
               style={flexStyleForColumn('created_by')}
               {...headerSortProps('created_by')}
               header={headersById['created_by']}
@@ -369,7 +433,6 @@ export const DatasetRecordsTable = ({
           {isColumnVisible('source') && (
             <TableHeader
               componentId="mlflow.eval-datasets-v2.records.header.source"
-              data-column-id="source"
               style={flexStyleForColumn('source')}
               header={headersById['source']}
               column={headersById['source']?.column}
@@ -381,7 +444,6 @@ export const DatasetRecordsTable = ({
           {isColumnVisible('last_updated') && (
             <TableHeader
               componentId="mlflow.eval-datasets-v2.records.header.last-updated"
-              data-column-id="last_updated"
               style={flexStyleForColumn('last_updated')}
               {...headerSortProps('last_updated')}
               header={headersById['last_updated']}
@@ -397,7 +459,6 @@ export const DatasetRecordsTable = ({
           {isColumnVisible('last_updated_by') && (
             <TableHeader
               componentId="mlflow.eval-datasets-v2.records.header.last-updated-by"
-              data-column-id="last_updated_by"
               style={flexStyleForColumn('last_updated_by')}
               {...headerSortProps('last_updated_by')}
               header={headersById['last_updated_by']}
@@ -413,7 +474,6 @@ export const DatasetRecordsTable = ({
           {isColumnVisible('tags') && (
             <TableHeader
               componentId="mlflow.eval-datasets-v2.records.header.tags"
-              data-column-id="tags"
               style={flexStyleForColumn('tags')}
               header={headersById['tags']}
               column={headersById['tags']?.column}
