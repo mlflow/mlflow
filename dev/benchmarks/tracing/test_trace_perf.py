@@ -1,8 +1,3 @@
-# Run via:
-#     uv run pytest dev/benchmarks/tracing/ \
-#         --benchmark-only \
-#         --benchmark-json=benchmark-results.json
-
 import random
 
 from _data import generate_trace_data
