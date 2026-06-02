@@ -2695,6 +2695,56 @@ class SearchLoggedModelsPaginationToken:
             )
 
 
+class SearchMCPServerUtils(SearchUtils):
+    """Utility class for parsing MCP server search filters."""
+
+    VALID_SEARCH_ATTRIBUTE_KEYS = {
+        "name",
+        "display_name",
+        "status",
+        "has_access_bindings",
+        "created_at",
+        "last_updated_at",
+    }
+    NUMERIC_ATTRIBUTES = {"created_at", "last_updated_at"}
+
+    @classmethod
+    def validate_list_supported(cls, key: str) -> None:
+        if key not in ("status",):
+            raise MlflowException(
+                f"Only 'status' supports IN comparisons for MCP servers, got '{key}'.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+
+class SearchMCPServerVersionUtils(SearchUtils):
+    """Utility class for parsing MCP server version search filters."""
+
+    VALID_SEARCH_ATTRIBUTE_KEYS = {"name", "version", "status", "created_at", "last_updated_at"}
+    NUMERIC_ATTRIBUTES = {"created_at", "last_updated_at"}
+
+    @classmethod
+    def validate_list_supported(cls, key: str) -> None:
+        if key not in ("status",):
+            raise MlflowException(
+                f"Only 'status' supports IN comparisons for MCP server versions, got '{key}'.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+
+class SearchMCPAccessBindingUtils(SearchUtils):
+    """Utility class for parsing MCP access binding search filters."""
+
+    VALID_SEARCH_ATTRIBUTE_KEYS = {
+        "server_name",
+        "transport_type",
+        "status",
+        "created_at",
+        "last_updated_at",
+    }
+    NUMERIC_ATTRIBUTES = {"created_at", "last_updated_at"}
+
+
 class SearchIssuesUtils(SearchUtils):
     """Utility class for parsing issue search filters."""
 
