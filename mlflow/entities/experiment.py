@@ -133,7 +133,7 @@ class Experiment(_MlflowObject):
                 return None
 
     @property
-    def workspace(self):
+    def workspace(self) -> str:
         """Workspace that owns the experiment, if known."""
         return self._workspace
 
