@@ -230,10 +230,11 @@ By default, `mlflow.genai.evaluate` logs results to the active MLflow run, or cr
 
 ```python
 import mlflow
-from mlflow.genai.scorers import Correctness
+from mlflow.genai.scorers import Safety
 
 # Fine-tuning or training run
 with mlflow.start_run() as training_run:
+    mlflow.set_tag("mlflow.runType", "training")
     mlflow.log_params({"base_model": "gpt-4o-mini", "learning_rate": 1e-5})
     training_run_id = training_run.info.run_id
 
@@ -242,8 +243,8 @@ with mlflow.start_run(run_id=training_run_id):
     results = mlflow.genai.evaluate(
         data=eval_dataset,
         predict_fn=evaluate_model,
-        scorers=[Correctness()],
+        scorers=[Safety()],
     )
 ```
 
-Use this pattern when you want the run page to contain both the training metadata and the evaluation artifacts, metrics, and trace assessments for the resulting model.
+Use this pattern when you want the run page to contain both the training metadata and the evaluation artifacts, metrics, and trace assessments for the resulting model. Set the run type before evaluation if the run should remain classified as a training run.
