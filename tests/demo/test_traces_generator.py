@@ -12,6 +12,7 @@ from mlflow.demo.generators.traces import (
 )
 from mlflow.entities import SpanType
 from mlflow.tracing.constant import SpanAttributeKey, TraceMetadataKey
+from mlflow.tracking._tracking_service.utils import _use_tracking_uri
 
 
 @pytest.fixture
@@ -32,11 +33,15 @@ def generated_traces(tmp_path_factory):
     and the returned traces are in-memory Python objects so consuming tests don't
     need the URI still set when they run. `flush=True` ensures the async trace
     export queue is drained before we read.
+
+    Uses `_use_tracking_uri` (not get/set around `get_tracking_uri()`) so that the
+    pre-fixture state — typically `_tracking_uri = None` falling back to the default
+    — is restored exactly. Calling `set_tracking_uri(get_tracking_uri())` would
+    materialise the default's absolute path and leave it stuck in `_tracking_uri`,
+    poisoning later tests that opt out of the autouse fixture.
     """
     db_path = tmp_path_factory.mktemp("demo_shared") / "mlflow.db"
-    previous_uri = mlflow.get_tracking_uri()
-    mlflow.set_tracking_uri(f"sqlite:///{db_path}")
-    try:
+    with _use_tracking_uri(f"sqlite:///{db_path}"):
         TracesDemoGenerator().generate()
         experiment = get_experiment_by_name(DEMO_EXPERIMENT_NAME)
         return mlflow.search_traces(
@@ -45,8 +50,6 @@ def generated_traces(tmp_path_factory):
             return_type="list",
             flush=True,
         )
-    finally:
-        mlflow.set_tracking_uri(previous_uri)
 
 
 def test_generator_attributes():
