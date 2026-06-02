@@ -898,6 +898,15 @@ class SqlAlchemyMCPServerRegistryMixin:
                     f"Alias '{alias}' not found on MCP server '{name}'",
                     error_code=RESOURCE_DOES_NOT_EXIST,
                 )
+            (
+                self
+                ._get_query(session, SqlMCPAccessBinding)
+                .filter(
+                    SqlMCPAccessBinding.server_name == name,
+                    SqlMCPAccessBinding.server_alias == alias,
+                )
+                .delete(synchronize_session=False)
+            )
             session.delete(alias_row)
 
     # --- Trace linking ---

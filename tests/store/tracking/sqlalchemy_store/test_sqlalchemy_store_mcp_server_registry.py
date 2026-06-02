@@ -692,6 +692,23 @@ def test_delete_mcp_server_alias(store):
         store.get_mcp_server_version_by_alias("s", "stable")
 
 
+def test_delete_mcp_server_alias_cleans_up_alias_bindings(store):
+    store.create_mcp_server_version(_server_json("s", "1.0"), status=MCPStatus.ACTIVE)
+    store.set_mcp_server_alias("s", "stable", "1.0")
+    binding = store.create_mcp_access_binding(
+        "s",
+        "https://alias.example.com",
+        server_alias="stable",
+    )
+    store.delete_mcp_server_alias("s", "stable")
+    with pytest.raises(MlflowException, match="not found"):
+        store.get_mcp_access_binding("s", binding.binding_id)
+    assert len(store.search_mcp_access_bindings(server_name="s")) == 0
+    server = store.get_mcp_server("s")
+    assert server.aliases == {}
+    assert server.access_bindings == []
+
+
 def test_delete_mcp_server_alias_not_found_raises(store):
     store.create_mcp_server("s")
     with pytest.raises(MlflowException, match="not found"):
