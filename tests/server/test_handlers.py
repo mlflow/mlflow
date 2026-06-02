@@ -5808,3 +5808,43 @@ def test_get_rest_path_respects_static_prefix(monkeypatch):
         _get_ajax_path("/mlflow/experiments/search")
         == "/myapp/ajax-api/2.0/mlflow/experiments/search"
     )
+
+
+def test_generate_demo_sets_http_tracking_uri(mock_tracking_store):
+    mock_tracking_store.get_experiment_by_name.return_value = None
+    captured = {}
+
+    def fake_generate_all_demos(features=None):
+        captured["tracking_uri"] = mlflow.get_tracking_uri()
+        return []
+
+    original_uri = mlflow.get_tracking_uri()
+    with (
+        mock.patch("mlflow.demo.generate_all_demos", side_effect=fake_generate_all_demos),
+        app.test_client() as c,
+    ):
+        response = c.post(
+            "/ajax-api/3.0/mlflow/demo/generate",
+            json={},
+            base_url="http://demo.test:5000",
+        )
+
+    assert response.status_code == 200
+    assert captured["tracking_uri"] == "http://demo.test:5000"
+    assert mlflow.get_tracking_uri() == original_uri
+
+
+def test_generate_demo_restores_tracking_uri_on_error(mock_tracking_store):
+    mock_tracking_store.get_experiment_by_name.return_value = None
+
+    def boom(features=None):
+        raise RuntimeError("generator failed")
+
+    original_uri = mlflow.get_tracking_uri()
+    with (
+        mock.patch("mlflow.demo.generate_all_demos", side_effect=boom),
+        app.test_client() as c,
+    ):
+        c.post("/ajax-api/3.0/mlflow/demo/generate", json={})
+
+    assert mlflow.get_tracking_uri() == original_uri

@@ -6388,7 +6388,17 @@ def _generate_demo():
         })
 
     with _demo_generate_lock:
-        results = generate_all_demos(features=features)
+        # Generators run inside the server process where the global tracking URI
+        # defaults to the backend store. The evaluation generator logs artifacts
+        # via `mlflow-artifacts://`, which requires the tracking URI to be an
+        # http(s) URL pointing back at this server so the artifact repo can
+        # resolve the URI through the artifact proxy.
+        original_tracking_uri = mlflow.get_tracking_uri()
+        mlflow.set_tracking_uri(request.host_url.rstrip("/"))
+        try:
+            results = generate_all_demos(features=features)
+        finally:
+            mlflow.set_tracking_uri(original_tracking_uri)
 
     experiment = store.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
     experiment_id = experiment.experiment_id if experiment else None
