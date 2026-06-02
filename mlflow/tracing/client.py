@@ -929,11 +929,11 @@ class TracingClient:
         )
 
     def _get_label_schema(self, schema_id: str) -> "LabelSchema":
-        """Get an label schema by its server-generated ``schema_id``."""
+        """Get a label schema by its server-generated ``schema_id``."""
         return self.store.get_label_schema(schema_id)
 
     def _get_label_schema_by_name(self, experiment_id: str, name: str) -> "LabelSchema":
-        """Get an label schema by ``(experiment_id, name)``."""
+        """Get a label schema by ``(experiment_id, name)``."""
         return self.store.get_label_schema_by_name(experiment_id, name)
 
     def _list_label_schemas(
@@ -956,7 +956,7 @@ class TracingClient:
         enable_comment: bool | None = None,
         input: "InputPassFail | InputCategorical | InputNumeric | InputText | None" = None,
     ) -> "LabelSchema":
-        """Sparse-update an label schema.
+        """Sparse-update a label schema.
 
         ``type`` is immutable post-create and is not accepted. Fields left as
         ``None`` are unchanged on the server. ``enable_comment=None`` is

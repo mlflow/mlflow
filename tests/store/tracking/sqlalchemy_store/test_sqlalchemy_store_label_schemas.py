@@ -238,6 +238,36 @@ def test_update_input_replace(store):
     assert updated.input.negative_label == "Bad"
 
 
+def test_update_rejects_input_variant_change(store):
+    exp_id = _create_experiments(store, "test_variant_immutable")
+    schema = _create_pass_fail_schema(store, exp_id)
+    with pytest.raises(MlflowException, match="input type cannot be changed"):
+        store.update_label_schema(
+            schema.schema_id, input=InputNumeric(min_value=1.0, max_value=5.0)
+        )
+
+
+def test_update_rejects_multi_select_change(store):
+    exp_id = _create_experiments(store, "test_multi_select_immutable")
+    schema = store.create_label_schema(
+        experiment_id=exp_id,
+        name="Severity",
+        type="feedback",
+        input=InputCategorical(options=["low", "high"], multi_select=False),
+    )
+    with pytest.raises(MlflowException, match="multi_select` cannot be changed"):
+        store.update_label_schema(
+            schema.schema_id,
+            input=InputCategorical(options=["low", "high"], multi_select=True),
+        )
+    # Editing the option list (same variant + multi_select) is still allowed.
+    updated = store.update_label_schema(
+        schema.schema_id,
+        input=InputCategorical(options=["low", "medium", "high"], multi_select=False),
+    )
+    assert updated.input.options == ["low", "medium", "high"]
+
+
 def test_update_missing(store):
     with pytest.raises(MlflowException, match="not found"):
         store.update_label_schema("ls-does-not-exist", instruction="X")

@@ -3,6 +3,7 @@ import { fetchAPI, getAjaxUrl } from '../../../../common/utils/FetchUtils';
 import { GET_LABEL_SCHEMA_BY_NAME_QUERY_KEY } from './useGetLabelSchemaByNameQuery';
 import { LIST_LABEL_SCHEMAS_QUERY_KEY } from './useListLabelSchemasQuery';
 import type { LabelSchema, LabelSchemaInput, LabelSchemaType } from '../types';
+import { LABEL_SCHEMAS_API_BASE } from './constants';
 
 export interface CreateLabelSchemaParams {
   experiment_id: string;
@@ -34,7 +35,7 @@ export const useCreateLabelSchemaMutation = () => {
     CreateLabelSchemaParams
   >({
     mutationFn: async (params) => {
-      return (await fetchAPI(getAjaxUrl('ajax-api/3.0/mlflow/label-schemas/create'), {
+      return (await fetchAPI(getAjaxUrl(`${LABEL_SCHEMAS_API_BASE}/create`), {
         method: 'POST',
         body: params,
       })) as CreateLabelSchemaResponse;
