@@ -1141,6 +1141,7 @@ module.exports = {
   "mlflow.evaluations_review.modal.next_eval": "",
   "mlflow.evaluations_review.modal.previous_eval": "",
   "mlflow.evaluations_review.modal.share-button": "",
+  "mlflow.evaluations_review.modal.share-error-notification": "",
   "mlflow.evaluations_review.modal.share-notification": "",
   "mlflow.evaluations_review.modal.share-tooltip": "",
   "mlflow.evaluations_review.next_evaluation_result_button": "",

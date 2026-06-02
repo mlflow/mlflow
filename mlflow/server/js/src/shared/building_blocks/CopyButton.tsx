@@ -38,10 +38,7 @@ export const CopyButton = ({ copyText, showLabel = true, componentId, ...buttonP
             description="Tooltip text shown when copy operation fails"
           />
         ) : (
-          <FormattedMessage
-            defaultMessage="Copied"
-            description="Tooltip text shown when copy operation completes"
-          />
+          <FormattedMessage defaultMessage="Copied" description="Tooltip text shown when copy operation completes" />
         )
       }
       open={showTooltip || showCopyError}
@@ -54,9 +51,7 @@ export const CopyButton = ({ copyText, showLabel = true, componentId, ...buttonP
         onMouseLeave={handleMouseLeave}
         css={{ 'z-index': 1 }}
         children={
-          showLabel ? (
-            <FormattedMessage defaultMessage="Copy" description="Button text for copy button" />
-          ) : undefined
+          showLabel ? <FormattedMessage defaultMessage="Copy" description="Button text for copy button" /> : undefined
         }
         {...buttonProps}
       />
