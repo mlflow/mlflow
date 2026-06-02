@@ -4458,7 +4458,7 @@ def _search_issues():
 
 
 # =============================================================================
-# Label Schema Handlers (OSS-native CRUD; see mlflow/genai/label_schemas/)
+# Label Schema Handlers (tracking-store CRUD; see mlflow/genai/label_schemas/)
 # =============================================================================
 
 
@@ -7344,7 +7344,7 @@ HANDLERS = {
     UpdateIssue: _update_issue,
     GetIssue: _get_issue,
     SearchIssues: _search_issues,
-    # Label Schema APIs (OSS-native)
+    # Label Schema APIs
     CreateLabelSchema: _create_label_schema,
     GetLabelSchema: _get_label_schema,
     GetLabelSchemaByName: _get_label_schema_by_name,
