@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   Button,
@@ -174,10 +174,14 @@ const CollapsibleNoteText = ({ text }: { text: string }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isOverflowing, setIsOverflowing] = useState(false);
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     const el = textRef.current;
     if (!el) return;
-    setIsOverflowing(el.scrollHeight > el.clientHeight + 1);
+    const measure = () => setIsOverflowing(el.scrollHeight > el.clientHeight + 1);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
   }, [text]);
 
   return (
