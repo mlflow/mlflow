@@ -193,7 +193,7 @@ immediate feedback before submission.
 | `instruction`      | Optional, up to 1000 characters.                                                                                                                                                                |
 | `enable_comment`   | `bool`.                                                                                                                                                                                         |
 | `InputPassFail`    | Both labels 1-64 characters; must be distinct.                                                                                                                                                  |
-| `InputCategorical` | 1-100 options, each 1-64 characters; duplicate options are rejected with `INVALID_PARAMETER_VALUE`.                                                                                             |
+| `InputCategorical` | Up to 10 options, each 1-64 characters; duplicate options are rejected with `INVALID_PARAMETER_VALUE`.                                                                                          |
 | `InputNumeric`     | When both bounds are set, `min_value < max_value` (strict). Either bound may be omitted.                                                                                                        |
 | `InputText`        | `max_length`, when set, must be a positive integer; omit it for no limit.                                                                                                                       |
 
