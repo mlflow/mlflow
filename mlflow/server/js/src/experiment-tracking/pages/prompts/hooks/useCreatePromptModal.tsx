@@ -87,7 +87,7 @@ export const useCreatePromptModal = ({
 
   const isPromptContentEmpty =
     watchedPromptType === PROMPT_TYPE_CHAT
-      ? watchedChatMessages.some((m) => !m.content || !m.content.trim())
+      ? watchedChatMessages.length === 0 || watchedChatMessages.some((m) => !m.content || !m.content.trim())
       : !watchedDraftValue?.trim();
   const isSubmitDisabled = (isCreatingNewPrompt && !watchedDraftName?.trim()) || isPromptContentEmpty;
 
