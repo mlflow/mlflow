@@ -3249,34 +3249,70 @@ class SqlMCPServer(Base):
         return f"<SqlMCPServer ({self.name}, {self.workspace})>"
 
     @classmethod
-    def with_resolved_latest(cls, query):
-        pinned_version = aliased(SqlMCPServerVersion, name="pinned_mcp_server_version")
-        latest_candidates = (
+    def _latest_candidates_query(cls):
+        return sa.select(
+            SqlMCPServerVersion.workspace.label("workspace"),
+            SqlMCPServerVersion.name.label("name"),
+            SqlMCPServerVersion.version.label("version"),
+            SqlMCPServerVersion.status.label("status"),
+            sa.func
+            .row_number()
+            .over(
+                partition_by=(SqlMCPServerVersion.workspace, SqlMCPServerVersion.name),
+                order_by=(
+                    SqlMCPServerVersion.created_at.desc(),
+                    SqlMCPServerVersion.version.desc(),
+                ),
+            )
+            .label("row_num"),
+        ).where(SqlMCPServerVersion.status.notin_([MCPStatus.DRAFT.value, MCPStatus.DELETED.value]))
+
+    @classmethod
+    def resolved_status_expression(cls):
+        """Build a SQL expression for the resolved status, usable in .filter().
+
+        Uses correlated subqueries: if latest_version is pinned, use that
+        version's status; otherwise, use the most recent eligible version's status.
+        """
+        candidates = cls._latest_candidates_query().subquery("resolved_status_candidates")
+        pinned_status = (
             sa
-            .select(
-                SqlMCPServerVersion.workspace.label("workspace"),
-                SqlMCPServerVersion.name.label("name"),
-                SqlMCPServerVersion.version.label("version"),
-                SqlMCPServerVersion.status.label("status"),
-                sa.func
-                .row_number()
-                .over(
-                    partition_by=(SqlMCPServerVersion.workspace, SqlMCPServerVersion.name),
-                    order_by=(
-                        SqlMCPServerVersion.created_at.desc(),
-                        SqlMCPServerVersion.version.desc(),
-                    ),
-                )
-                .label("row_num"),
-            )
+            .select(SqlMCPServerVersion.status)
             .where(
-                SqlMCPServerVersion.status.notin_([MCPStatus.DRAFT.value, MCPStatus.DELETED.value])
+                sa.and_(
+                    SqlMCPServerVersion.workspace == cls.workspace,
+                    SqlMCPServerVersion.name == cls.name,
+                    SqlMCPServerVersion.version == cls.latest_version,
+                )
             )
-            .subquery("mcp_latest_candidates")
+            .correlate(cls)
+            .scalar_subquery()
+        )
+        fallback_status = (
+            sa
+            .select(candidates.c.status)
+            .where(
+                sa.and_(
+                    candidates.c.workspace == cls.workspace,
+                    candidates.c.name == cls.name,
+                    candidates.c.row_num == 1,
+                )
+            )
+            .correlate(cls)
+            .scalar_subquery()
+        )
+        # CASE (not COALESCE): a stale pin should resolve to NULL
+        # rather than silently falling back to the latest candidate.
+        return sa.case(
+            (cls.latest_version.is_not(None), pinned_status),
+            else_=fallback_status,
         )
 
-        # CASE (not COALESCE) is intentional: a stale pin should resolve
-        # to NULL rather than silently falling back to the latest candidate.
+    @classmethod
+    def with_resolved_latest(cls, query):
+        pinned_version = aliased(SqlMCPServerVersion, name="pinned_mcp_server_version")
+        latest_candidates = cls._latest_candidates_query().subquery("mcp_latest_candidates")
+
         def _pinned_or_fallback(pinned_col, fallback_col):
             return sa.case(
                 (cls.latest_version.is_not(None), pinned_col),
@@ -3313,10 +3349,17 @@ class SqlMCPServer(Base):
             )
         )
 
-    def to_mlflow_entity(self):
+    def to_mlflow_entity(self, resolved_versions_by_binding_id=None):
         tags = {t.key: t.value for t in self.tags}
         aliases = {a.alias: a.version for a in self.server_aliases}
-        binding_entities = [b.to_mlflow_entity() for b in self.access_bindings]
+        binding_entities = []
+        for binding in self.access_bindings:
+            binding_entity = binding.to_mlflow_entity()
+            if resolved_versions_by_binding_id is not None:
+                binding_entity.resolved_version = resolved_versions_by_binding_id.get(
+                    binding.binding_id
+                )
+            binding_entities.append(binding_entity)
 
         status = MCPStatus(self.resolved_status) if self.resolved_status is not None else None
 
@@ -3517,7 +3560,11 @@ class SqlMCPServerAlias(Base):
 
     server = relationship(
         "SqlMCPServer",
-        backref=backref("server_aliases", cascade="all, delete-orphan"),
+        backref=backref(
+            "server_aliases",
+            cascade="all, delete-orphan",
+            order_by="SqlMCPServerAlias.alias",
+        ),
         foreign_keys=[workspace, name],
     )
 
@@ -3566,8 +3613,27 @@ class SqlMCPAccessBinding(Base):
 
     server = relationship(
         "SqlMCPServer",
-        backref=backref("access_bindings", cascade="all, delete-orphan"),
+        backref=backref(
+            "access_bindings",
+            cascade="all, delete-orphan",
+            order_by="SqlMCPAccessBinding.binding_id",
+        ),
         foreign_keys=[workspace, server_name],
+    )
+
+    # Populated via contains_eager in _binding_query_with_version, which
+    # resolves through both direct server_version and alias paths.
+    # Never auto-loaded (noload) — only filled by explicit JOIN.
+    resolved_version_rel = relationship(
+        "SqlMCPServerVersion",
+        primaryjoin=lambda: sa.and_(
+            SqlMCPAccessBinding.workspace == SqlMCPServerVersion.workspace,
+            SqlMCPAccessBinding.server_name == SqlMCPServerVersion.name,
+            SqlMCPAccessBinding.server_version == SqlMCPServerVersion.version,
+        ),
+        foreign_keys=[workspace, server_name, server_version],
+        viewonly=True,
+        lazy="noload",
     )
 
     __table_args__ = (
@@ -3588,6 +3654,9 @@ class SqlMCPAccessBinding(Base):
         return f"<SqlMCPAccessBinding ({self.binding_id}, {self.server_name})>"
 
     def to_mlflow_entity(self):
+        resolved = None
+        if self.resolved_version_rel:
+            resolved = self.resolved_version_rel.to_mlflow_entity()
         return MCPAccessBinding(
             binding_id=self.binding_id,
             server_name=self.server_name,
@@ -3595,6 +3664,7 @@ class SqlMCPAccessBinding(Base):
             transport_type=MCPRemoteTransportType(self.transport_type),
             server_version=self.server_version,
             server_alias=self.server_alias,
+            resolved_version=resolved,
             workspace=self.workspace,
             created_by=self.created_by,
             last_updated_by=self.last_updated_by,
