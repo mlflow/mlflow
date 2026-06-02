@@ -23,8 +23,8 @@ from typing import Any
 
 SCHEMA_VERSION = "1.0"
 
-# Modes that MLflow cares about for gateway / cost tracking
-_SUPPORTED_MODES = {"chat", "completion", "embedding"}
+# Modes that MLflow catalogs from LiteLLM
+_SUPPORTED_MODES = {"chat", "completion", "embedding", "image_generation", "video_generation"}
 
 # Providers that should be consolidated into a canonical name
 _PROVIDER_CONSOLIDATION = {

@@ -928,6 +928,7 @@ mlflow.genai.judges.utils.CategoricalRating
 mlflow.genai.label_schemas.InputCategorical
 mlflow.genai.label_schemas.InputCategoricalList
 mlflow.genai.label_schemas.InputNumeric
+mlflow.genai.label_schemas.InputPassFail
 mlflow.genai.label_schemas.InputText
 mlflow.genai.label_schemas.InputTextList
 mlflow.genai.label_schemas.LabelSchema
@@ -938,6 +939,7 @@ mlflow.genai.label_schemas.get_label_schema
 mlflow.genai.label_schemas.label_schemas.InputCategorical
 mlflow.genai.label_schemas.label_schemas.InputCategoricalList
 mlflow.genai.label_schemas.label_schemas.InputNumeric
+mlflow.genai.label_schemas.label_schemas.InputPassFail
 mlflow.genai.label_schemas.label_schemas.InputText
 mlflow.genai.label_schemas.label_schemas.InputTextList
 mlflow.genai.label_schemas.label_schemas.LabelSchema
