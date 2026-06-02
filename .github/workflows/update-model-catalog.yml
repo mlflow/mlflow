@@ -28,7 +28,6 @@ jobs:
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
           permission-contents: write
           permission-pull-requests: write
-          permission-issues: write
 
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -86,6 +85,7 @@ jobs:
           if [ -n "$existing_pr" ]; then
             echo "Existing open PR #$existing_pr found for branch $branch — skipping PR creation."
             echo "number=$existing_pr" >> "$GITHUB_OUTPUT"
+            echo "is_new_pr=false" >> "$GITHUB_OUTPUT"
           else
             pr_number=$(gh pr create \
               --title "Update model catalog from upstream sources" \
@@ -93,21 +93,19 @@ jobs:
               --reviewer "TomeHirata" \
               --json number --jq '.number')
             echo "number=$pr_number" >> "$GITHUB_OUTPUT"
+            echo "is_new_pr=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Comment /review on pull request
-        if: steps.diff.outputs.changed == 'true'
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          PR_NUMBER: ${{ steps.pr.outputs.number }}
-        run: gh pr comment "$PR_NUMBER" --body "/review"
-
       - name: Enable auto-merge
-        if: steps.diff.outputs.changed == 'true'
+        if: steps.pr.outputs.is_new_pr == 'true'
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           PR_NUMBER: ${{ steps.pr.outputs.number }}
-        run: gh pr merge "$PR_NUMBER" --auto --squash
+        run: |
+          output=$(gh pr merge "$PR_NUMBER" --auto --squash 2>&1) && exit 0
+          echo "$output" | grep -qi "auto-merge is already enabled" && exit 0
+          echo "$output" >&2
+          exit 1
 
       - name: Publish to GitHub Releases
         if: steps.diff.outputs.changed == 'true'
