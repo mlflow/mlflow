@@ -16,11 +16,13 @@ and an optional instruction. Schemas are experiment-scoped: they live
 alongside the traces they describe and are managed independently of any
 individual review.
 
-This page covers the OSS-native flow. For Databricks-routed workflows that
-use the agent-evaluation Review App, see the
-[Databricks Agent Evaluation docs](https://api-docs.databricks.com/python/databricks-agents/latest/databricks_agent_eval.html)
-and the legacy [`create_label_schema`](#legacy-databricks-routed-surface)
-function.
+The `mlflow.genai.label_schemas` functions work the same everywhere: by
+default a schema is managed in the MLflow tracking store and identified by
+`(experiment_id, name)`. On a Databricks tracking URI the same functions
+route to the workspace's agent-evaluation
+[Review App](https://api-docs.databricks.com/python/databricks-agents/latest/databricks_agent_eval.html)
+instead, where a schema is identified by `name` — see
+[Databricks routing](#databricks-routing).
 
 ## Why use a schema?
 
@@ -45,21 +47,19 @@ used as the assessment name on the resulting feedback row.
 
 ```python
 import mlflow
-from mlflow.genai.label_schemas import (
-    InputPassFail,
-    create_experiment_label_schema,
-)
+from mlflow.genai.label_schemas import InputPassFail, create_label_schema
 
 # Use the active experiment, or create one explicitly.
-experiment = mlflow.set_experiment("ai-quality-review")
+mlflow.set_experiment("ai-quality-review")
 
-schema = create_experiment_label_schema(
-    experiment_id=experiment.experiment_id,
+schema = create_label_schema(
     name="Is the answer correct?",
     type="feedback",
     input=InputPassFail(positive_label="Correct", negative_label="Incorrect"),
     instruction="Mark Correct if the response is factually accurate.",
     enable_comment=True,
+    # experiment_id defaults to the active experiment; pass it explicitly to
+    # target another.
 )
 print(schema.schema_id)  # ls-<uuid>
 ```
@@ -126,41 +126,40 @@ InputText(max_length=500)
 
 ## Lifecycle
 
-The OSS-native surface in `mlflow.genai.label_schemas`:
+The surface in `mlflow.genai.label_schemas`:
 
-| Function                                                                        | Purpose                                                                                                                           |
-| ------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| <APILink fn="mlflow.genai.label_schemas.create_experiment_label_schema" />      | Create a new schema (shown in the [Quickstart](#quickstart) above).                                                               |
-| <APILink fn="mlflow.genai.label_schemas.get_experiment_label_schema" />         | Fetch by server-generated `schema_id`.                                                                                            |
-| <APILink fn="mlflow.genai.label_schemas.get_experiment_label_schema_by_name" /> | Fetch by `(experiment_id, name)`.                                                                                                 |
-| <APILink fn="mlflow.genai.label_schemas.list_experiment_label_schemas" />       | Paginated list scoped to an experiment.                                                                                           |
-| <APILink fn="mlflow.genai.label_schemas.update_experiment_label_schema" />      | Sparse-update (retarget input, rename, edit instruction). `type` is immutable.                                                    |
-| <APILink fn="mlflow.genai.label_schemas.delete_experiment_label_schema" />      | Delete by `schema_id`. Existing assessments survive (their values are kept; they render in the review UI without a typed widget). |
+| Function                                                        | Purpose                                                                                                                           |
+| --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| <APILink fn="mlflow.genai.label_schemas.create_label_schema" /> | Create a new schema (shown in the [Quickstart](#quickstart) above).                                                               |
+| <APILink fn="mlflow.genai.label_schemas.get_label_schema" />    | Fetch by `schema_id`, or by `(experiment_id, name)`.                                                                              |
+| <APILink fn="mlflow.genai.label_schemas.list_label_schemas" />  | Paginated list scoped to an experiment.                                                                                           |
+| <APILink fn="mlflow.genai.label_schemas.update_label_schema" /> | Sparse-update (retarget input, rename, edit instruction). `type` is immutable.                                                    |
+| <APILink fn="mlflow.genai.label_schemas.delete_label_schema" /> | Delete by `schema_id`. Existing assessments survive (their values are kept; they render in the review UI without a typed widget). |
 
 ```python
 from mlflow.genai.label_schemas import (
-    list_experiment_label_schemas,
-    update_experiment_label_schema,
-    delete_experiment_label_schema,
+    list_label_schemas,
+    update_label_schema,
+    delete_label_schema,
 )
 
-# List
-for existing in list_experiment_label_schemas(experiment_id=experiment.experiment_id):
+# List (experiment_id defaults to the active experiment)
+for existing in list_label_schemas():
     print(existing.name, existing.input)
 
 # Update (sparse - only set the fields you want to change)
-update_experiment_label_schema(
+update_label_schema(
     schema_id=schema.schema_id,
     instruction="Mark Correct only if every claim is verifiable.",
 )
 
 # Delete
-delete_experiment_label_schema(schema.schema_id)
+delete_label_schema(schema_id=schema.schema_id)
 ```
 
 ### Update semantics
 
-`update_experiment_label_schema` is sparse: fields left as `None` are
+`update_label_schema` is sparse: fields left as `None` are
 unchanged on the server. Empty strings are real values that replace the
 stored field with `""` rather than a no-op; pass `None` (the default) to
 leave a field alone, or `""` to clear it. `enable_comment=None` means
@@ -208,18 +207,24 @@ tab on the experiment page (`/experiments/:experimentId/label-schemas`):
   rendered in the review UI without the typed widget after the schema
   is gone.
 
-## Legacy: Databricks-routed surface
+## Databricks routing
 
-The legacy <APILink fn="mlflow.genai.label_schemas.create_label_schema" />,
+On a Databricks tracking URI, the same functions route to the workspace's
+ReviewApp instead of the tracking store. The difference is identity and a
+few parameters, not a separate API:
 
-<APILink fn="mlflow.genai.label_schemas.get_label_schema" />, and
-<APILink fn="mlflow.genai.label_schemas.delete_label_schema" /> functions
-remain available for Databricks workspaces with a ReviewApp. Identity for
-those schemas is just `name` within the workspace's ReviewApp; identity for
-the OSS-native functions documented above is `(experiment_id, name)` with
-a server-generated `schema_id`. Use the legacy functions when you're
-targeting the Databricks ReviewApp; use the `create_experiment_label_schema`
-family for OSS deployments.
+- A ReviewApp schema is identified by `name` (not `(experiment_id, name)` /
+  `schema_id`), so `get_label_schema` / `delete_label_schema` take `name`,
+  and `experiment_id` / `schema_id` are rejected.
+- `create_label_schema` accepts the ReviewApp-only `title` (display title)
+  and `overwrite` parameters; these are rejected on the tracking-store path.
+- `list_label_schemas` / `update_label_schema` have no ReviewApp equivalent
+  and raise on a Databricks tracking URI — manage those schemas in the
+  workspace review UI.
+
+See the
+[Databricks Agent Evaluation docs](https://api-docs.databricks.com/python/databricks-agents/latest/databricks_agent_eval.html)
+for the ReviewApp workflow.
 
 ## Related
 
