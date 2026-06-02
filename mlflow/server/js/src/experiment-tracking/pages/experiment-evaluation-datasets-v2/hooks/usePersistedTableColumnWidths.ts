@@ -28,7 +28,7 @@ interface PersistedColumnWidths {
  * renders is the caller's job via `useMemo([stored])`, which gates this call
  * on the `stored` reference returned by `useLocalStorage`.
  */
-const sanitiseStoredWidths = (stored: unknown): ColumnSizingState => {
+const sanitizeStoredWidths = (stored: unknown): ColumnSizingState => {
   if (stored === null || typeof stored !== 'object') return {};
   const entries = Object.entries(stored as Record<string, unknown>).filter(
     ([, value]) => typeof value === 'number' && Number.isFinite(value) && value > 0,
@@ -61,22 +61,22 @@ export const usePersistedTableColumnWidths = ({
   // Sanitise before exposing — protects every reader from corrupt entries
   // (NaN, strings, negatives) that the schema-less storage layer might admit.
   // Memo by `stored` so a clean run of widths keeps a stable reference.
-  const columnSizing = useMemo(() => sanitiseStoredWidths(stored), [stored]);
+  const columnSizing = useMemo(() => sanitizeStoredWidths(stored), [stored]);
 
   // Sanitise on the write path too. TanStack's `onColumnSizingChange` uses the
   // functional-updater form (`prev => ({ ...prev, [id]: nextWidth })`) on every
   // drag tick; without this wrapper, `prev` would be the *raw* stored value,
   // so any corrupt entry already in localStorage would be spread into the new
   // object and re-persisted alongside the user's drag — invisible to the read
-  // side, but lingering forever in storage. By feeding the updater a sanitised
+  // side, but lingering forever in storage. By feeding the updater a sanitized
   // `prev` (and sanitising again before persist for the direct-value form), a
   // corrupt entry dies on the next write instead of surviving indefinitely.
   const setColumnSizing: OnChangeFn<ColumnSizingState> = useCallback(
     (updater) => {
       setStored((rawPrev) => {
-        const cleanPrev = sanitiseStoredWidths(rawPrev);
+        const cleanPrev = sanitizeStoredWidths(rawPrev);
         const next = typeof updater === 'function' ? updater(cleanPrev) : updater;
-        return sanitiseStoredWidths(next);
+        return sanitizeStoredWidths(next);
       });
     },
     [setStored],

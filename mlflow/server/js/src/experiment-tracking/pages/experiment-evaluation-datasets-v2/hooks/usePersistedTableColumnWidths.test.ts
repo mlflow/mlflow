@@ -98,7 +98,7 @@ describe('usePersistedTableColumnWidths', () => {
     // Schema-less storage means corrupt entries (negatives, strings, zero, null)
     // can land in localStorage — from older versions, hand-written debug data, or
     // a buggy seed (the original `useLayoutEffect` would persist `0` widths if it
-    // ran inside a `display: none` ancestor). Guard that the sanitiser strips them
+    // ran inside a `display: none` ancestor). Guard that the sanitizer strips them
     // before they flow into `flex: 0 0 ${px}px` and collapse a column. NaN can't
     // round-trip through JSON, so it isn't covered here — the in-memory test
     // path below exercises the equivalent code branch.
