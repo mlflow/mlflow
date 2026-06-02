@@ -303,6 +303,11 @@ def test_create_mcp_server_version_with_tools(store):
     assert sv.tools[0].name == "web_search"
 
 
+def test_create_mcp_server_version_with_empty_tools_preserves_empty_list(store):
+    sv = store.create_mcp_server_version(_server_json(), tools=[])
+    assert sv.tools == []
+
+
 def test_create_mcp_server_version_with_status(store):
     sv = store.create_mcp_server_version(_server_json(), status=MCPStatus.ACTIVE)
     assert sv.status == MCPStatus.ACTIVE
@@ -356,7 +361,7 @@ def test_get_latest_mcp_server_version_same_timestamp_tiebreaker(store, monkeypa
     assert latest.version == "2.0"
 
     server = store.get_mcp_server("s")
-    assert server.status == MCPStatus.ACTIVE.value
+    assert server.status == MCPStatus.ACTIVE
 
 
 def test_get_latest_mcp_server_version_skips_draft(store):
@@ -441,6 +446,24 @@ def test_update_mcp_server_version_tools(store):
     updated = store.update_mcp_server_version("io.github.test/server", "1.0.0", tools=tools)
     assert len(updated.tools) == 1
     assert updated.tools[0].name == "calculator"
+
+
+def test_update_mcp_server_version_tools_empty_list_preserved(store):
+    store.create_mcp_server_version(
+        _server_json(),
+        tools=[MCPTool(name="calculator")],
+    )
+    updated = store.update_mcp_server_version("io.github.test/server", "1.0.0", tools=[])
+    assert updated.tools == []
+
+
+def test_update_mcp_server_version_tools_none_clears_tools(store):
+    store.create_mcp_server_version(
+        _server_json(),
+        tools=[MCPTool(name="calculator")],
+    )
+    updated = store.update_mcp_server_version("io.github.test/server", "1.0.0", tools=None)
+    assert updated.tools is None
 
 
 def test_update_mcp_server_version_returns_complete_entity(store):
@@ -989,6 +1012,14 @@ def test_update_mcp_access_binding_endpoint_and_transport(store):
     assert updated.transport_type == MCPRemoteTransportType.SSE
 
 
+def test_update_mcp_access_binding_endpoint_url_none_raises(store):
+    _setup_server(store, "s")
+    binding = store.create_mcp_access_binding("s", "https://a.com", server_version="1.0")
+    with pytest.raises(MlflowException, match="endpoint_url cannot be None") as exc:
+        store.update_mcp_access_binding("s", binding.binding_id, endpoint_url=None)
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+
+
 def test_update_mcp_access_binding_both_version_and_alias_raises(store):
     _setup_server(store, "s", aliases={"stable": "1.0"})
     binding = store.create_mcp_access_binding("s", "https://a.com", server_version="1.0")
@@ -1042,6 +1073,26 @@ def test_search_mcp_server_versions_pagination(store):
     assert page2.token is not None
     page3 = store.search_mcp_server_versions("s", max_results=2, page_token=page2.token)
     assert len(page3) == 1
+    assert page3.token is None
+
+
+def test_search_mcp_server_versions_pagination_same_timestamp_uses_version_tiebreaker(
+    store, monkeypatch
+):
+    monkeypatch.setattr(
+        "mlflow.store.tracking.mcp_server_registry.sqlalchemy_mixin.get_current_time_millis",
+        lambda: 1000,
+    )
+    for version in ("beta", "alpha", "gamma"):
+        store.create_mcp_server_version(_server_json("s", version))
+
+    page1 = store.search_mcp_server_versions("s", max_results=1)
+    page2 = store.search_mcp_server_versions("s", max_results=1, page_token=page1.token)
+    page3 = store.search_mcp_server_versions("s", max_results=1, page_token=page2.token)
+
+    assert [v.version for v in page1] == ["alpha"]
+    assert [v.version for v in page2] == ["beta"]
+    assert [v.version for v in page3] == ["gamma"]
     assert page3.token is None
 
 

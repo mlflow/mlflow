@@ -226,7 +226,7 @@ class SqlAlchemyMCPServerRegistryMixin:
 
         now = get_current_time_millis()
         status = status or MCPStatus.DRAFT
-        tools_json = [t.to_dict() for t in tools] if tools else None
+        tools_json = None if tools is None else [t.to_dict() for t in tools]
 
         with self.ManagedSessionMaker() as session:
             existing_server = (
@@ -420,7 +420,7 @@ class SqlAlchemyMCPServerRegistryMixin:
             if display_name is not NOT_SET:
                 sv.display_name = display_name
             if tools is not NOT_SET:
-                sv.tools = [t.to_dict() for t in tools]
+                sv.tools = None if tools is None else [t.to_dict() for t in tools]
 
             sv.last_updated_at = get_current_time_millis()
             session.add(sv)
@@ -716,6 +716,11 @@ class SqlAlchemyMCPServerRegistryMixin:
                 binding.server_alias = server_alias
                 binding.server_version = None
             if endpoint_url is not NOT_SET:
+                if endpoint_url is None:
+                    raise MlflowException(
+                        "MCP access binding endpoint_url cannot be None",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
                 binding.endpoint_url = endpoint_url
             if transport_type is not NOT_SET and transport_type is not None:
                 binding.transport_type = transport_type.value
@@ -1243,6 +1248,9 @@ def _parse_search_mcp_server_versions_order_by(order_by_list):
             clauses.append(column_map[key].asc() if is_ascending else column_map[key].desc())
     if "created_at" not in observed:
         clauses.append(SqlMCPServerVersion.created_at.asc())
+    # Offset pagination needs a deterministic tie-breaker for same-timestamp rows.
+    if "version" not in observed:
+        clauses.append(SqlMCPServerVersion.version.asc())
     return clauses
 
 
