@@ -478,6 +478,14 @@ def test_update_mcp_server_version_returns_complete_entity(store):
     assert updated.tags == {"env": "prod"}
 
 
+def test_update_mcp_server_version_deleted_raises(store):
+    store.create_mcp_server_version(_server_json())
+    store.delete_mcp_server_version("io.github.test/server", "1.0.0")
+    with pytest.raises(MlflowException, match="not found") as exc:
+        store.update_mcp_server_version("io.github.test/server", "1.0.0", display_name="Updated")
+    assert exc.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+
+
 def test_delete_mcp_server_version_soft_delete(store):
     store.create_mcp_server_version(_server_json())
     store.delete_mcp_server_version("io.github.test/server", "1.0.0")
@@ -672,6 +680,23 @@ def test_delete_mcp_server_version_tag(store):
     store.delete_mcp_server_version_tag("s", "1.0", "env")
     sv = store.get_mcp_server_version("s", "1.0")
     assert sv.tags == {}
+
+
+def test_set_mcp_server_version_tag_deleted_version_raises(store):
+    store.create_mcp_server_version(_server_json("s", "1.0"))
+    store.delete_mcp_server_version("s", "1.0")
+    with pytest.raises(MlflowException, match="not found") as exc:
+        store.set_mcp_server_version_tag("s", "1.0", "env", "prod")
+    assert exc.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+
+
+def test_delete_mcp_server_version_tag_deleted_version_raises(store):
+    store.create_mcp_server_version(_server_json("s", "1.0"))
+    store.set_mcp_server_version_tag("s", "1.0", "env", "prod")
+    store.delete_mcp_server_version("s", "1.0")
+    with pytest.raises(MlflowException, match="not found") as exc:
+        store.delete_mcp_server_version_tag("s", "1.0", "env")
+    assert exc.value.error_code == "RESOURCE_DOES_NOT_EXIST"
 
 
 # --- Aliases ---

@@ -286,22 +286,26 @@ class SqlAlchemyMCPServerRegistryMixin:
             .options(subqueryload(SqlMCPServerVersion.version_tags))
         )
 
+    def _get_live_mcp_server_version_or_raise(self, session, name: str, version: str):
+        sv = (
+            self
+            ._mcp_server_version_query(session)
+            .filter(
+                SqlMCPServerVersion.name == name,
+                SqlMCPServerVersion.version == version,
+            )
+            .one_or_none()
+        )
+        if not sv:
+            raise MlflowException(
+                f"MCP server version '{name}' version '{version}' not found",
+                error_code=RESOURCE_DOES_NOT_EXIST,
+            )
+        return sv
+
     def get_mcp_server_version(self, name: str, version: str) -> MCPServerVersion:
         with self.ManagedSessionMaker() as session:
-            sv = (
-                self
-                ._mcp_server_version_query(session)
-                .filter(
-                    SqlMCPServerVersion.name == name,
-                    SqlMCPServerVersion.version == version,
-                )
-                .one_or_none()
-            )
-            if not sv:
-                raise MlflowException(
-                    f"MCP server version '{name}' version '{version}' not found",
-                    error_code=RESOURCE_DOES_NOT_EXIST,
-                )
+            sv = self._get_live_mcp_server_version_or_raise(session, name, version)
             return sv.to_mlflow_entity()
 
     def get_mcp_server_version_by_alias(self, name: str, alias: str) -> MCPServerVersion:
@@ -397,20 +401,7 @@ class SqlAlchemyMCPServerRegistryMixin:
         tools: list[MCPTool] | None = NOT_SET,
     ) -> MCPServerVersion:
         with self.ManagedSessionMaker() as session:
-            sv = (
-                self
-                ._get_query(session, SqlMCPServerVersion)
-                .filter(
-                    SqlMCPServerVersion.name == name,
-                    SqlMCPServerVersion.version == version,
-                )
-                .one_or_none()
-            )
-            if not sv:
-                raise MlflowException(
-                    f"MCP server version '{name}' version '{version}' not found",
-                    error_code=RESOURCE_DOES_NOT_EXIST,
-                )
+            sv = self._get_live_mcp_server_version_or_raise(session, name, version)
 
             if status is not NOT_SET and status is not None:
                 _validate_status_transition(MCPStatus(sv.status), status)
@@ -787,20 +778,7 @@ class SqlAlchemyMCPServerRegistryMixin:
 
     def set_mcp_server_version_tag(self, name: str, version: str, key: str, value: str) -> None:
         with self.ManagedSessionMaker() as session:
-            sv = (
-                self
-                ._get_query(session, SqlMCPServerVersion)
-                .filter(
-                    SqlMCPServerVersion.name == name,
-                    SqlMCPServerVersion.version == version,
-                )
-                .one_or_none()
-            )
-            if not sv:
-                raise MlflowException(
-                    f"MCP server version '{name}' version '{version}' not found",
-                    error_code=RESOURCE_DOES_NOT_EXIST,
-                )
+            self._get_live_mcp_server_version_or_raise(session, name, version)
             existing = (
                 self
                 ._get_query(session, SqlMCPServerVersionTag)
@@ -822,6 +800,7 @@ class SqlAlchemyMCPServerRegistryMixin:
 
     def delete_mcp_server_version_tag(self, name: str, version: str, key: str) -> None:
         with self.ManagedSessionMaker() as session:
+            self._get_live_mcp_server_version_or_raise(session, name, version)
             tag = (
                 self
                 ._get_query(session, SqlMCPServerVersionTag)
