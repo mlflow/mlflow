@@ -10,6 +10,8 @@ from mlflow.entities.mcp_server_version import MCPServerVersion
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 
+NOT_SET = object()
+
 
 class MCPIcon(TypedDict):
     """Icon following the upstream MCP server.json icon schema."""
@@ -86,10 +88,10 @@ class MCPServerRegistryMixin:
     def update_mcp_server(
         self,
         name: str,
-        description: str | None = None,
-        display_name: str | None = None,
-        icons: list[MCPIcon] | None = None,
-        latest_version: str | None = None,
+        description: str | None = NOT_SET,
+        display_name: str | None = NOT_SET,
+        icons: list[MCPIcon] | None = NOT_SET,
+        latest_version: str | None = NOT_SET,
     ) -> MCPServer:
         """Update an existing MCP server's metadata.
 
@@ -204,9 +206,9 @@ class MCPServerRegistryMixin:
         self,
         name: str,
         version: str,
-        display_name: str | None = None,
-        status: MCPStatus | None = None,
-        tools: list[MCPTool] | None = None,
+        display_name: str | None = NOT_SET,
+        status: MCPStatus | None = NOT_SET,
+        tools: list[MCPTool] | None = NOT_SET,
     ) -> MCPServerVersion:
         """Update a version's metadata or status.
 
@@ -299,10 +301,10 @@ class MCPServerRegistryMixin:
         self,
         server_name: str,
         binding_id: int,
-        server_version: str | None = None,
-        server_alias: str | None = None,
-        endpoint_url: str | None = None,
-        transport_type: MCPRemoteTransportType | None = None,
+        server_version: str | None = NOT_SET,
+        server_alias: str | None = NOT_SET,
+        endpoint_url: str | None = NOT_SET,
+        transport_type: MCPRemoteTransportType | None = NOT_SET,
     ) -> MCPAccessBinding:
         """Update an existing access binding.
 
