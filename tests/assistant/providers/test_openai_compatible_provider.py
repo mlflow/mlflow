@@ -1,10 +1,3 @@
-"""Tests for the shared OpenAI-compatible streaming provider.
-
-Exercises the wire-level concerns (SSE parsing, `[DONE]` tolerance, chunked
-`tool_calls` accumulation, `<think>` stripping, session encoding/trimming,
-auth headers) using a stub list_models_fn so no preset-specific code is hit.
-"""
-
 import json
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch

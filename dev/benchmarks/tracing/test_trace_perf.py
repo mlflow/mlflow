@@ -1,10 +1,7 @@
-"""Performance benchmarks for MLflow tracing.
-
-Run via:
-    uv run pytest dev/benchmarks/tracing/ \\
-        --benchmark-only \\
-        --benchmark-json=benchmark-results.json
-"""
+# Run via:
+#     uv run pytest dev/benchmarks/tracing/ \
+#         --benchmark-only \
+#         --benchmark-json=benchmark-results.json
 
 import random
 
