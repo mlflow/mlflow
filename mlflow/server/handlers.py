@@ -6388,11 +6388,8 @@ def _generate_demo():
         })
 
     with _demo_generate_lock:
-        # Generators run inside the server process where the global tracking URI
-        # defaults to the backend store. The evaluation generator logs artifacts
-        # via `mlflow-artifacts://`, which requires the tracking URI to be an
-        # http(s) URL pointing back at this server so the artifact repo can
-        # resolve the URI through the artifact proxy.
+        # Generators run in-process; mlflow-artifacts:// URI resolution needs
+        # the tracking URI to point back at this server via http(s).
         original_tracking_uri = mlflow.get_tracking_uri()
         mlflow.set_tracking_uri(request.host_url.rstrip("/"))
         try:
