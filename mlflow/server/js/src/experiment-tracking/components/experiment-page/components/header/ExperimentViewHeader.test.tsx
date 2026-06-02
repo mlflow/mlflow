@@ -141,6 +141,24 @@ describe('ExperimentViewHeader', () => {
     });
   });
 
+  describe('overflow menu visibility', () => {
+    it('hides the overflow menu trigger on the prompt details route', async () => {
+      await act(async () => {
+        renderComponent(defaultExperiment, '/experiments/1/prompts/test-prompt');
+      });
+
+      expect(screen.queryByTestId('overflow-menu-trigger')).not.toBeInTheDocument();
+    });
+
+    it('keeps the overflow menu trigger on the prompts list route', async () => {
+      await act(async () => {
+        renderComponent(defaultExperiment, '/experiments/1/prompts');
+      });
+
+      expect(screen.getByTestId('overflow-menu-trigger')).toBeInTheDocument();
+    });
+  });
+
   describe('back button navigation', () => {
     it('navigates to /experiments from experiment tab pages', async () => {
       renderComponent(defaultExperiment, '/experiments/1/traces');
