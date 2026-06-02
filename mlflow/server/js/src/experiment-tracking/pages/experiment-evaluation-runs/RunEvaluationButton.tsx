@@ -1,5 +1,5 @@
 import { Button, ChartLineIcon, Modal, Typography, useDesignSystemTheme } from '@databricks/design-system';
-import { CodeSnippet } from '@mlflow/mlflow/src/shared/web-shared/snippet';
+import { CodeSnippet, SnippetCopyAction } from '@mlflow/mlflow/src/shared/web-shared/snippet';
 import { useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 
@@ -52,10 +52,19 @@ export const RunEvaluationButton = ({ experimentId }: { experimentId: string }) 
       description="Instructions for running the evaluation code in OSS"
     />
   );
+  const codeSnippet = getCodeSnippet(experimentId);
   const evalCodeSnippet = (
-    <CodeSnippet theme={theme.isDarkMode ? 'duotoneDark' : 'light'} language="python">
-      {getCodeSnippet(experimentId)}
-    </CodeSnippet>
+    <div css={{ position: 'relative' }}>
+      <SnippetCopyAction
+        componentId="mlflow.eval-runs.start-run-modal.copy-snippet"
+        copyText={codeSnippet}
+        size="small"
+        css={{ position: 'absolute', top: theme.spacing.xs, right: theme.spacing.xs, zIndex: 1 }}
+      />
+      <CodeSnippet theme={theme.isDarkMode ? 'duotoneDark' : 'light'} language="python">
+        {codeSnippet}
+      </CodeSnippet>
+    </div>
   );
 
   return (
