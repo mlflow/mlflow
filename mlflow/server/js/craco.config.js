@@ -347,6 +347,19 @@ module.exports = function () {
     webpack: {
       configure: (webpackConfig, { env }) => {
         webpackConfig.output.publicPath = 'static-files/';
+        // monaco-editor ships vendored CSS (e.g. the hover widget's hover.css) that uses
+        // `justify-content: end`, which autoprefixer flags as "end value has mixed support".
+        // It is third-party CSS we cannot edit, and CRA's production build treats webpack
+        // warnings as errors under CI. Scope the suppression to monaco-editor so the same
+        // warning still surfaces for our own CSS.
+        webpackConfig.ignoreWarnings = [
+          ...(webpackConfig.ignoreWarnings || []),
+          (warning) => {
+            const message = warning?.message ?? '';
+            const resource = warning?.module?.resource ?? '';
+            return /autoprefixer:.*mixed support/.test(message) && resource.includes('monaco-editor');
+          },
+        ];
         webpackConfig = i18nOverrides(webpackConfig);
         webpackConfig = configureIframeCSSPublicPaths(webpackConfig, env);
         webpackConfig = enableOptionalTypescript(webpackConfig);
