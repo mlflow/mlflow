@@ -5845,6 +5845,7 @@ def test_generate_demo_restores_tracking_uri_on_error(mock_tracking_store):
         mock.patch("mlflow.demo.generate_all_demos", side_effect=boom),
         app.test_client() as c,
     ):
-        c.post("/ajax-api/3.0/mlflow/demo/generate", json={})
+        response = c.post("/ajax-api/3.0/mlflow/demo/generate", json={})
 
+    assert response.status_code == 500
     assert mlflow.get_tracking_uri() == original_uri
