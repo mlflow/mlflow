@@ -11,7 +11,7 @@ interface GetLabelSchemaByNameResponse {
 /**
  * Fetch a label schema by `(experiment_id, name)`.
  *
- * The OSS server uses `schema_id` as the canonical primary key but
+ * The server uses `schema_id` as the canonical primary key but
  * `(experiment_id, name)` is unique and recoverable client-side from
  * the user-supplied schema name, so this is the typical lookup path
  * for "does a schema with this name already exist on this experiment?".

@@ -47,7 +47,7 @@ export interface LabelSchemaInputRendererProps {
 
 /**
  * Dispatch a `LabelSchemaInput` to the matching widget. The wrapper
- * carries exactly one of three oneof variants (the OSS server rejects
+ * carries exactly one of three oneof variants (the server rejects
  * an empty wrapper); the renderer surfaces a clear error if no variant
  * is set so the failure mode is named rather than blank-rendered.
  *
