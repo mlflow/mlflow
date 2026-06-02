@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import warnings
 from typing import Annotated, Any, Literal
 from uuid import uuid4
 
-from pydantic import BaseModel, Field, model_serializer
+from pydantic import BaseModel, ConfigDict, Field, model_serializer
 
 
 class TextContentPart(BaseModel):
@@ -148,17 +149,44 @@ class ChatTool(BaseModel):
     function: FunctionToolDefinition | None = None
 
 
+with warnings.catch_warnings():
+    warnings.filterwarnings(
+        "ignore",
+        message='Field name "schema" in "JsonSchemaSpec" shadows an attribute in parent '
+        '"BaseModel"',
+        category=UserWarning,
+    )
+
+    class JsonSchemaSpec(BaseModel):
+        """
+        OpenAI-compatible JSON Schema envelope for structured outputs.
+
+        Attributes:
+            name: The schema name.
+            schema: A JSON Schema definition.
+            strict: Whether model output should strictly follow the schema.
+        """
+
+        model_config = ConfigDict(extra="allow")
+
+        name: str
+        schema: dict[str, Any] = Field(...)
+        strict: bool = True
+
+
 class ResponseFormat(BaseModel):
     """
-    Response format configuration for structured outputs.
+    Response format configuration for structured outputs. Compatible with
+    OpenAI's Chat Completion API.
 
-    Supported formats: {"type": "json_schema", "json_schema": {...}}.
-
-    The schema should follow JSON Schema specification.
+    Supported formats:
+      - {"type": "text"}
+      - {"type": "json_object"}
+      - {"type": "json_schema", "json_schema": {"name": ..., "schema": {...}, "strict": true}}
     """
 
     type: Literal["text", "json_object", "json_schema"]
-    json_schema: dict[str, Any] | None = None
+    json_schema: JsonSchemaSpec | None = None
 
 
 class ToolChoiceFunction(BaseModel):

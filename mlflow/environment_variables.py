@@ -640,6 +640,14 @@ MLFLOW_GATEWAY_RATE_LIMITS_STORAGE_URI = _EnvironmentVariable(
     "MLFLOW_GATEWAY_RATE_LIMITS_STORAGE_URI", str, None
 )
 
+#: Timeout in seconds for Gateway provider requests before they are treated as timed out.
+#: This applies to both gateway provider proxy calls and GenAI judge requests routed through
+#: gateway-compatible providers.
+#: (default: ``300``)
+MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS = _EnvironmentVariable(
+    "MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS", int, 300
+)
+
 #: If True, the gateway will attempt to resolve API keys from environment variables
 #: (``$``-prefixed values). This is only enabled for the legacy YAML-config gateway
 #: (``mlflow gateway start``).
@@ -1172,6 +1180,28 @@ MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT = _EnvironmentVariable(
     "MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT", int, 500
 )
 
+#: Maximum number of seconds ``mlflow.get_trace`` will retry an OTel trace lookup while the trace
+#: has not yet propagated to the backend. The retry loop honors this as a hard deadline.
+#: (default: ``15``)
+MLFLOW_GET_TRACE_OTEL_RETRY_TIMEOUT_SECONDS = _EnvironmentVariable(
+    "MLFLOW_GET_TRACE_OTEL_RETRY_TIMEOUT_SECONDS", int, 15
+)
+
+#: Initial sleep, in seconds, before the first OTel trace lookup retry. Subsequent intervals
+#: double until capped by ``MLFLOW_GET_TRACE_OTEL_MAX_RETRY_INTERVAL_SECONDS``.
+#: (default: ``2.0``)
+MLFLOW_GET_TRACE_OTEL_INITIAL_RETRY_INTERVAL_SECONDS = _EnvironmentVariable(
+    "MLFLOW_GET_TRACE_OTEL_INITIAL_RETRY_INTERVAL_SECONDS", float, 2.0
+)
+
+#: Maximum sleep, in seconds, between two consecutive OTel trace lookup retries. The interval
+#: grows exponentially from ``MLFLOW_GET_TRACE_OTEL_INITIAL_RETRY_INTERVAL_SECONDS`` and is capped
+#: to this value.
+#: (default: ``8.0``)
+MLFLOW_GET_TRACE_OTEL_MAX_RETRY_INTERVAL_SECONDS = _EnvironmentVariable(
+    "MLFLOW_GET_TRACE_OTEL_MAX_RETRY_INTERVAL_SECONDS", float, 8.0
+)
+
 #: Specifies the SQL warehouse ID to use for tracing with Databricks backend.
 #: (default: ``None``)
 MLFLOW_TRACING_SQL_WAREHOUSE_ID = _EnvironmentVariable("MLFLOW_TRACING_SQL_WAREHOUSE_ID", str, None)
@@ -1421,6 +1451,10 @@ MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY = _EnvironmentVariable(
     "MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY", int, 60
 )
 
+#: Specifies the path to the YAML config file for MLflow server-owned trace archival.
+#: (default: ``None``)
+MLFLOW_TRACE_ARCHIVAL_CONFIG = _EnvironmentVariable("MLFLOW_TRACE_ARCHIVAL_CONFIG", str, None)
+
 #: Specifies the maximum number of workers for async judge invocation jobs.
 #: (default: ``10``)
 MLFLOW_SERVER_JUDGE_INVOKE_MAX_WORKERS = _EnvironmentVariable(
@@ -1526,9 +1560,10 @@ MLFLOW_UV_AUTO_DETECT = _BooleanEnvironmentVariable("MLFLOW_UV_AUTO_DETECT", Tru
 MLFLOW_LOG_UV_FILES = _BooleanEnvironmentVariable("MLFLOW_LOG_UV_FILES", True)
 
 
-#: Specifies whether to allow using the deprecated filesystem backend for tracking
-#: and model registry. Set to ``True`` to opt out of the error raised when
-#: instantiating the file-based stores.
+#: Specifies whether to allow using the filesystem backend for tracking and model
+#: registry, which is in maintenance mode (no further updates).
+#: Set to ``True`` to opt out of the error raised when instantiating the file-based
+#: stores and continue using the filesystem backend.
 #: (default: ``False``)
 MLFLOW_ALLOW_FILE_STORE = _BooleanEnvironmentVariable("MLFLOW_ALLOW_FILE_STORE", False)
 
@@ -1540,4 +1575,14 @@ MLFLOW_ALLOW_FILE_STORE = _BooleanEnvironmentVariable("MLFLOW_ALLOW_FILE_STORE",
 #: (default: ``False``)
 MLFLOW_SKIP_PIP_REQUIREMENTS_CHECK = _BooleanEnvironmentVariable(
     "MLFLOW_SKIP_PIP_REQUIREMENTS_CHECK", False
+)
+
+#: Specifies a read-only backend store URI for reader/writer instance routing.
+#: When set, the MLflow tracking server will route read operations (e.g. search_runs,
+#: get_experiment) to this URI and write operations to the primary ``--backend-store-uri``.
+#: This enables horizontal scaling via database read replicas.
+#: If not set, all operations use the primary backend store URI.
+#: (default: ``None``)
+MLFLOW_READ_REPLICA_BACKEND_STORE_URI = _EnvironmentVariable(
+    "MLFLOW_READ_REPLICA_BACKEND_STORE_URI", str, None
 )

@@ -115,7 +115,7 @@ class ScorerVersion(_MlflowObject):
         """
         from mlflow.genai.scorers.base import SerializedScorer
 
-        return SerializedScorer(**json.loads(self._serialized_scorer))
+        return SerializedScorer.from_dict(json.loads(self._serialized_scorer))
 
     @property
     def creation_time(self):

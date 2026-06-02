@@ -50,18 +50,22 @@ def mock_trace():
 
 
 def test_invoke_judge_model_routes_to_gateway_for_openai():
+    mock_output = InvokeOutput(
+        response=_MOCK_JSON, request_id=None, num_prompt_tokens=None, num_completion_tokens=None
+    )
     with mock.patch(
-        "mlflow.genai.judges.adapters.gateway_adapter.score_model_on_payload",
-        return_value=_MOCK_JSON,
-    ) as mock_score:
+        "mlflow.genai.judges.adapters.gateway_adapter.GatewayAdapter._invoke_and_handle_tools",
+        return_value=mock_output,
+    ) as mock_invoke:
         feedback = invoke_judge_model(
             model_uri="openai:/gpt-4",
             prompt="Evaluate this response",
             assessment_name="quality_check",
         )
 
-    mock_score.assert_called_once()
-    assert mock_score.call_args.kwargs["model_uri"] == "openai:/gpt-4"
+    mock_invoke.assert_called_once()
+    assert mock_invoke.call_args.kwargs["provider"] == "openai"
+    assert mock_invoke.call_args.kwargs["model_name"] == "gpt-4"
     assert feedback.name == "quality_check"
     assert feedback.value == "yes"
     assert feedback.source.source_type == AssessmentSourceType.LLM_JUDGE
@@ -69,18 +73,22 @@ def test_invoke_judge_model_routes_to_gateway_for_openai():
 
 
 def test_invoke_judge_model_routes_databricks_uri_to_gateway():
+    mock_output = InvokeOutput(
+        response=_MOCK_JSON, request_id=None, num_prompt_tokens=None, num_completion_tokens=None
+    )
     with mock.patch(
-        "mlflow.genai.judges.adapters.gateway_adapter.score_model_on_payload",
-        return_value=_MOCK_JSON,
-    ) as mock_score:
+        "mlflow.genai.judges.adapters.gateway_adapter.GatewayAdapter._invoke_and_handle_tools",
+        return_value=mock_output,
+    ) as mock_invoke:
         feedback = invoke_judge_model(
             model_uri="databricks:/test-model",
             prompt="Test prompt",
             assessment_name="test_assessment",
         )
 
-    mock_score.assert_called_once()
-    assert mock_score.call_args.kwargs["model_uri"] == "databricks:/test-model"
+    mock_invoke.assert_called_once()
+    assert mock_invoke.call_args.kwargs["provider"] == "databricks"
+    assert mock_invoke.call_args.kwargs["model_name"] == "test-model"
     assert feedback.name == "test_assessment"
     assert feedback.value == "yes"
     assert feedback.source.source_id == "databricks:/test-model"
@@ -123,24 +131,28 @@ def test_invoke_judge_model_with_unsupported_provider():
 
 
 def test_invoke_judge_model_string_prompt():
+    mock_output = InvokeOutput(
+        response=_MOCK_JSON, request_id=None, num_prompt_tokens=None, num_completion_tokens=None
+    )
     with mock.patch(
-        "mlflow.genai.judges.adapters.gateway_adapter.score_model_on_payload",
-        return_value=_MOCK_JSON,
-    ) as mock_score:
+        "mlflow.genai.judges.adapters.gateway_adapter.GatewayAdapter._invoke_and_handle_tools",
+        return_value=mock_output,
+    ) as mock_invoke:
         feedback = invoke_judge_model(
             model_uri="openai:/gpt-4",
             prompt="Evaluate this response",
             assessment_name="quality_check",
         )
 
-    mock_score.assert_called_once_with(
-        model_uri="openai:/gpt-4",
-        payload="Evaluate this response",
-        eval_parameters=None,
-        extra_headers=None,
-        proxy_url=None,
-        endpoint_type="llm/v1/chat",
-    )
+    mock_invoke.assert_called_once()
+    call_kwargs = mock_invoke.call_args.kwargs
+    assert call_kwargs["provider"] == "openai"
+    assert call_kwargs["model_name"] == "gpt-4"
+    messages = call_kwargs["messages"]
+    assert len(messages) == 1
+    assert messages[0].role == "user"
+    assert messages[0].content == "Evaluate this response"
+    assert call_kwargs["inference_params"] is None
     assert feedback.name == "quality_check"
     assert feedback.value == "yes"
     assert feedback.rationale == "The response meets all criteria."
@@ -156,10 +168,13 @@ def test_invoke_judge_model_string_prompt():
     ],
 )
 def test_invoke_judge_model_inference_params_passed_through(inference_params):
+    mock_output = InvokeOutput(
+        response=_MOCK_JSON, request_id=None, num_prompt_tokens=None, num_completion_tokens=None
+    )
     with mock.patch(
-        "mlflow.genai.judges.adapters.gateway_adapter.score_model_on_payload",
-        return_value=_MOCK_JSON,
-    ) as mock_score:
+        "mlflow.genai.judges.adapters.gateway_adapter.GatewayAdapter._invoke_and_handle_tools",
+        return_value=mock_output,
+    ) as mock_invoke:
         invoke_judge_model(
             model_uri="openai:/gpt-4",
             prompt="Evaluate this",
@@ -167,7 +182,7 @@ def test_invoke_judge_model_inference_params_passed_through(inference_params):
             inference_params=inference_params,
         )
 
-    assert mock_score.call_args.kwargs["eval_parameters"] == inference_params
+    assert mock_invoke.call_args.kwargs["inference_params"] == inference_params
 
 
 # ---------------------------------------------------------------------------
@@ -180,21 +195,23 @@ def test_invoke_judge_model_with_chat_messages():
         ChatMessage(role="system", content="You are a helpful assistant"),
         ChatMessage(role="user", content="Evaluate this response"),
     ]
-
+    mock_output = InvokeOutput(
+        response=_MOCK_JSON, request_id=None, num_prompt_tokens=None, num_completion_tokens=None
+    )
     with mock.patch(
-        "mlflow.genai.judges.adapters.gateway_adapter._call_llm_provider_api",
-        return_value=_MOCK_JSON,
-    ) as mock_call:
+        "mlflow.genai.judges.adapters.gateway_adapter.GatewayAdapter._invoke_and_handle_tools",
+        return_value=mock_output,
+    ) as mock_invoke:
         feedback = invoke_judge_model(
             model_uri="openai:/gpt-4",
             prompt=messages,
             assessment_name="quality_check",
         )
 
-    mock_call.assert_called_once()
-    call_kwargs = mock_call.call_args
-    assert call_kwargs[0][0] == "openai"  # provider
-    assert call_kwargs[0][1] == "gpt-4"  # model_name
+    mock_invoke.assert_called_once()
+    call_kwargs = mock_invoke.call_args.kwargs
+    assert call_kwargs["provider"] == "openai"
+    assert call_kwargs["model_name"] == "gpt-4"
     assert feedback.name == "quality_check"
     assert feedback.value == "yes"
 
@@ -260,10 +277,16 @@ def test_invoke_judge_model_with_trace_uses_tool_calling(mock_trace):
 
 
 def test_invoke_judge_model_invalid_json_response():
+    mock_output = InvokeOutput(
+        response="This is not valid JSON",
+        request_id=None,
+        num_prompt_tokens=None,
+        num_completion_tokens=None,
+    )
     with (
         mock.patch(
-            "mlflow.genai.judges.adapters.gateway_adapter.score_model_on_payload",
-            return_value="This is not valid JSON",
+            "mlflow.genai.judges.adapters.gateway_adapter.GatewayAdapter._invoke_and_handle_tools",
+            return_value=mock_output,
         ),
         pytest.raises(MlflowException, match=r"Failed to parse"),
     ):

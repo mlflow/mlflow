@@ -96,6 +96,13 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     category: 'Agent Frameworks (Python)',
   },
   {
+    id: 'claude_agent_sdk_python',
+    name: 'Claude Agent SDK',
+    logoPath: '/images/logos/claude-code-logo.png',
+    link: '/genai/tracing/integrations/listing/claude_agent_sdk_python',
+    category: 'Agent Frameworks (Python)',
+  },
+  {
     id: 'microsoft-agent-framework',
     name: 'Microsoft Agent Framework',
     logoPath: '/images/logos/microsoft-agent-framework-logo.png',
@@ -252,6 +259,13 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     category: 'Agent Frameworks (TypeScript)',
   },
   {
+    id: 'claude_agent_sdk_typescript',
+    name: 'Claude Agent SDK (TS)',
+    logoPath: '/images/logos/claude-code-logo.png',
+    link: '/genai/tracing/integrations/listing/claude_agent_sdk_typescript',
+    category: 'Agent Frameworks (TypeScript)',
+  },
+  {
     id: 'spring-ai',
     name: 'Spring AI',
     logoPath: '/images/logos/spring-ai-logo.png',
@@ -396,7 +410,7 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
   {
     id: 'claude_code',
     name: 'Claude Code',
-    logoPath: '/images/logos/claude-code-logo.png',
+    logoPath: '/images/logos/claude-code-icon.png',
     link: '/genai/tracing/integrations/listing/claude_code',
     category: 'Coding Agents & Long-Running Agents',
   },

@@ -42,6 +42,8 @@ env:
   _MLFLOW_TESTING_TELEMETRY: "true"
   MLFLOW_SERVER_ENABLE_JOB_EXECUTION: "false"
 
+permissions: {}
+
 jobs:
   # python-skinny tests cover a subset of mlflow functionality
   # that is meant to be supported with a smaller dependency footprint.
@@ -253,7 +255,7 @@ jobs:
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
-          uv sync --extra mlserver
+          uv sync
           uv pip install \
             -r requirements/test-requirements.txt \
             pyspark langchain langchain-community
@@ -323,9 +325,13 @@ jobs:
           # (removed HallucinationEvaluator/RelevanceEvaluator/etc. and LiteLLMModel)
           # `guardrails-ai` is temporarily unavailable on PyPI; skip both the
           # install and the corresponding tests until it is republished.
+          # TODO: drop the langchain-community<0.4.2 pin once ragas releases a
+          # fix for the removed `langchain_community.chat_models.vertexai`
+          # import (0.4.2 dropped the shim).
+          # https://github.com/vibrantlabsai/ragas/issues/2745
           uv pip install \
             -r requirements/test-requirements.txt \
-            deepeval ragas 'arize-phoenix-evals<3.0.0' trulens trulens-providers-litellm google-adk
+            deepeval ragas 'arize-phoenix-evals<3.0.0' 'langchain-community<0.4.2' trulens trulens-providers-litellm 'google-adk[gcp]'
       - uses: ./.github/actions/show-versions
       - name: Run GenAI Tests (OSS)
         run: |
@@ -441,5 +447,8 @@ jobs:
             --ignore=tests/server/auth \
             --ignore=tests/data/test_spark_dataset.py \
             --ignore=tests/data/test_spark_dataset_source.py \
+            --ignore=tests/data/test_delta_dataset_source.py \
+            --deselect=tests/data/test_pandas_dataset.py::test_from_pandas_spark_datasource \
+            --deselect=tests/data/test_pandas_dataset.py::test_from_pandas_delta_datasource \
             --ignore=tests/docker \
             --ignore=tests/demo

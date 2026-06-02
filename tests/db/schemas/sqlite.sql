@@ -146,6 +146,8 @@ CREATE TABLE workspaces (
 	name VARCHAR(63) NOT NULL,
 	description TEXT,
 	default_artifact_root TEXT,
+	trace_archival_location TEXT,
+	trace_archival_retention VARCHAR(32),
 	CONSTRAINT workspaces_pk PRIMARY KEY (name)
 )
 
@@ -218,6 +220,24 @@ CREATE TABLE experiment_tags (
 	experiment_id INTEGER NOT NULL,
 	CONSTRAINT experiment_tag_pk PRIMARY KEY (key, experiment_id),
 	FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
+)
+
+
+CREATE TABLE label_schemas (
+	schema_id VARCHAR(36) NOT NULL,
+	experiment_id INTEGER NOT NULL,
+	name VARCHAR(250) NOT NULL,
+	type VARCHAR(16) NOT NULL,
+	instruction TEXT,
+	enable_comment BOOLEAN DEFAULT '0' NOT NULL,
+	input_type VARCHAR(32) NOT NULL,
+	input_config TEXT NOT NULL,
+	created_by VARCHAR(255),
+	created_time BIGINT NOT NULL,
+	last_update_time BIGINT NOT NULL,
+	CONSTRAINT label_schemas_pk PRIMARY KEY (schema_id),
+	CONSTRAINT fk_label_schemas_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id) ON DELETE CASCADE,
+	CONSTRAINT uq_label_schemas_exp_name UNIQUE (experiment_id, name)
 )
 
 
@@ -337,6 +357,7 @@ CREATE TABLE trace_info (
 	client_request_id VARCHAR(50),
 	request_preview VARCHAR(1000),
 	response_preview VARCHAR(1000),
+	db_payload_generation INTEGER DEFAULT '0' NOT NULL,
 	CONSTRAINT trace_info_pk PRIMARY KEY (request_id),
 	CONSTRAINT fk_trace_info_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
 )
@@ -633,4 +654,3 @@ CREATE TABLE guardrail_configs (
 	CONSTRAINT fk_guardrail_configs_endpoint_id FOREIGN KEY(endpoint_id) REFERENCES endpoints (endpoint_id) ON DELETE CASCADE,
 	CONSTRAINT fk_guardrail_configs_guardrail_id FOREIGN KEY(guardrail_id) REFERENCES guardrails (guardrail_id) ON DELETE CASCADE
 )
-

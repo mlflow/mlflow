@@ -3,7 +3,7 @@ import React from 'react';
 import { renderWithDesignSystem, screen, within } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 
 import { PermissionsSection } from './PermissionsSection';
-import type { DirectPermission, Role } from './types';
+import type { Role } from './types';
 
 const role = (overrides: Partial<Role>): Role => ({
   id: 1,
@@ -14,19 +14,19 @@ const role = (overrides: Partial<Role>): Role => ({
   ...overrides,
 });
 
-const direct = (overrides: Partial<DirectPermission>): DirectPermission => ({
-  resource_type: 'experiment',
-  resource_pattern: 'exp-1',
-  permission: 'READ',
-  workspace: 'default',
-  ...overrides,
-});
+// Convenience factory for a synthetic per-user role (renders as "Direct"
+// in the Source column).
+const syntheticRole = (overrides: Partial<Role>): Role =>
+  role({
+    id: 99,
+    name: '__user_1__',
+    permissions: [{ id: 1, role_id: 99, resource_type: 'experiment', resource_pattern: 'exp-1', permission: 'READ' }],
+    ...overrides,
+  });
 
 describe('PermissionsSection', () => {
-  it('renders an empty state when neither roles nor direct grants are present', () => {
-    renderWithDesignSystem(
-      <PermissionsSection roles={[]} directPermissions={[]} componentId="test" workspacesEnabled={false} />,
-    );
+  it('renders an empty state when no roles are present', () => {
+    renderWithDesignSystem(<PermissionsSection roles={[]} componentId="test" workspacesEnabled={false} />);
     expect(screen.getByText('No permissions')).toBeInTheDocument();
     expect(screen.getByText('No resource permissions to show.')).toBeInTheDocument();
   });
@@ -39,25 +39,29 @@ describe('PermissionsSection', () => {
         permissions: [{ id: 1, role_id: 1, resource_type: 'experiment', resource_pattern: '42', permission: 'READ' }],
       }),
     ];
-    renderWithDesignSystem(
-      <PermissionsSection roles={roles} directPermissions={[]} componentId="test" workspacesEnabled={false} />,
-    );
+    renderWithDesignSystem(<PermissionsSection roles={roles} componentId="test" workspacesEnabled={false} />);
     expect(screen.getByText(/experiment:42/)).toBeInTheDocument();
     expect(screen.getByText('READ')).toBeInTheDocument();
     expect(screen.getByText('team-readers')).toBeInTheDocument();
   });
 
-  it('renders direct grants with a localized "Direct" Source', () => {
+  it('renders synthetic __user_N__ rows with a localized "Direct" Source', () => {
     renderWithDesignSystem(
       <PermissionsSection
-        roles={[]}
-        directPermissions={[direct({ permission: 'EDIT' })]}
+        roles={[
+          syntheticRole({
+            permissions: [
+              { id: 1, role_id: 99, resource_type: 'experiment', resource_pattern: 'exp-1', permission: 'EDIT' },
+            ],
+          }),
+        ]}
         componentId="test"
         workspacesEnabled={false}
       />,
     );
     expect(screen.getByText('Direct')).toBeInTheDocument();
     expect(screen.getByText('EDIT')).toBeInTheDocument();
+    expect(screen.queryByText('__user_1__')).not.toBeInTheDocument();
   });
 
   it('dedupes a triple granted via two roles into one row, listing both sources', () => {
@@ -75,12 +79,28 @@ describe('PermissionsSection', () => {
         permissions: [{ id: 2, role_id: 2, resource_type: 'experiment', resource_pattern: '42', permission: 'READ' }],
       }),
     ];
-    renderWithDesignSystem(
-      <PermissionsSection roles={roles} directPermissions={[]} componentId="test" workspacesEnabled={false} />,
-    );
+    renderWithDesignSystem(<PermissionsSection roles={roles} componentId="test" workspacesEnabled={false} />);
     // Sources are sorted alphabetically and joined with ', '.
     expect(screen.getByText('role-a, role-b')).toBeInTheDocument();
     // Only one resource cell - no duplicate row.
+    expect(screen.getAllByText(/experiment:42/)).toHaveLength(1);
+  });
+
+  it('dedupes a role-derived and direct grant on the same triple, joining both labels', () => {
+    // Synthetic and regular role granting the same (ws, type, pattern, perm)
+    // collapse into one row whose Source lists both the role name and "Direct".
+    const roles = [
+      role({
+        id: 1,
+        name: 'team-readers',
+        permissions: [{ id: 1, role_id: 1, resource_type: 'experiment', resource_pattern: '42', permission: 'READ' }],
+      }),
+      syntheticRole({
+        permissions: [{ id: 2, role_id: 99, resource_type: 'experiment', resource_pattern: '42', permission: 'READ' }],
+      }),
+    ];
+    renderWithDesignSystem(<PermissionsSection roles={roles} componentId="test" workspacesEnabled={false} />);
+    expect(screen.getByText('Direct, team-readers')).toBeInTheDocument();
     expect(screen.getAllByText(/experiment:42/)).toHaveLength(1);
   });
 
@@ -101,9 +121,7 @@ describe('PermissionsSection', () => {
         permissions: [{ id: 2, role_id: 2, resource_type: 'experiment', resource_pattern: '42', permission: 'READ' }],
       }),
     ];
-    renderWithDesignSystem(
-      <PermissionsSection roles={roles} directPermissions={[]} componentId="test" workspacesEnabled />,
-    );
+    renderWithDesignSystem(<PermissionsSection roles={roles} componentId="test" workspacesEnabled />);
     expect(screen.getAllByText(/experiment:42/)).toHaveLength(2);
     expect(screen.getByText('ws-a')).toBeInTheDocument();
     expect(screen.getByText('ws-b')).toBeInTheDocument();
@@ -111,61 +129,33 @@ describe('PermissionsSection', () => {
 
   it('hides the Workspace column when workspacesEnabled is false', () => {
     renderWithDesignSystem(
-      <PermissionsSection roles={[]} directPermissions={[direct({})]} componentId="test" workspacesEnabled={false} />,
+      <PermissionsSection roles={[syntheticRole({})]} componentId="test" workspacesEnabled={false} />,
     );
     expect(screen.queryByText('Workspace')).not.toBeInTheDocument();
   });
 
   it('shows the Workspace column when workspacesEnabled is true', () => {
-    renderWithDesignSystem(
-      <PermissionsSection roles={[]} directPermissions={[direct({})]} componentId="test" workspacesEnabled />,
-    );
+    renderWithDesignSystem(<PermissionsSection roles={[syntheticRole({})]} componentId="test" workspacesEnabled />);
     expect(screen.getByText('Workspace')).toBeInTheDocument();
   });
 
   it('surfaces rolesError as a warning Alert above the table', () => {
     renderWithDesignSystem(
       <PermissionsSection
-        roles={[]}
-        directPermissions={[direct({})]}
+        roles={[syntheticRole({})]}
         rolesError={new Error('roles backend exploded')}
         componentId="test"
         workspacesEnabled={false}
       />,
     );
-    expect(screen.getByText('Failed to load role-derived permissions')).toBeInTheDocument();
+    expect(screen.getByText('Failed to load permissions')).toBeInTheDocument();
     expect(screen.getByText('roles backend exploded')).toBeInTheDocument();
-    // Direct grants still render below the alert.
+    // Any rows we managed to receive still render below the alert.
     expect(screen.getByText('Direct')).toBeInTheDocument();
   });
 
-  it('surfaces directPermsError as a warning Alert above the table', () => {
-    const roles = [
-      role({
-        id: 1,
-        name: 'team-readers',
-        permissions: [{ id: 1, role_id: 1, resource_type: 'experiment', resource_pattern: '42', permission: 'READ' }],
-      }),
-    ];
-    renderWithDesignSystem(
-      <PermissionsSection
-        roles={roles}
-        directPermissions={[]}
-        directPermsError={new Error('direct backend exploded')}
-        componentId="test"
-        workspacesEnabled={false}
-      />,
-    );
-    expect(screen.getByText('Failed to load direct permissions')).toBeInTheDocument();
-    expect(screen.getByText('direct backend exploded')).toBeInTheDocument();
-    // Role-derived rows still render.
-    expect(screen.getByText('team-readers')).toBeInTheDocument();
-  });
-
   it('shows a Spinner instead of the table when isLoading', () => {
-    renderWithDesignSystem(
-      <PermissionsSection roles={[]} directPermissions={[]} isLoading componentId="test" workspacesEnabled={false} />,
-    );
+    renderWithDesignSystem(<PermissionsSection roles={[]} isLoading componentId="test" workspacesEnabled={false} />);
     // No table rendered (no header text); the spinner takes the place.
     expect(screen.queryByText('Resource')).not.toBeInTheDocument();
     expect(screen.queryByText('No permissions')).not.toBeInTheDocument();
@@ -195,7 +185,7 @@ describe('PermissionsSection', () => {
       }),
     ];
     const { container } = renderWithDesignSystem(
-      <PermissionsSection roles={roles} directPermissions={[]} componentId="test" workspacesEnabled />,
+      <PermissionsSection roles={roles} componentId="test" workspacesEnabled />,
     );
 
     // Find the resource cells in document order; first-row resource should be

@@ -129,6 +129,8 @@ export interface ProviderConfig {
   model: string;
   selected: boolean;
   permissions: PermissionsConfig;
+  base_url?: string;
+  api_key?: string;
 }
 
 /**

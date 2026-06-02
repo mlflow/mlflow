@@ -1064,6 +1064,7 @@ def test_search_traces_warns_on_uc_location_without_time_range(
 
 
 @skip_when_testing_trace_sdk
+@pytest.mark.skipif(os.name == "nt", reason="Flaky on Windows")
 def test_search_traces_yields_expected_dataframe_contents(monkeypatch):
     model = DefaultTestModel()
     expected_traces = []

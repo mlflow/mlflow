@@ -1,4 +1,5 @@
 import time
+import uuid
 from pathlib import Path
 
 import pytest
@@ -7,13 +8,25 @@ from mlflow import entities
 from mlflow.entities import (
     Experiment,
     ExperimentTag,
+    LoggedModelStatus,
+    RunStatus,
+    TraceState,
     ViewType,
 )
 from mlflow.environment_variables import MLFLOW_TRACKING_URI
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.store.tracking.dbmodels import models
-from mlflow.store.tracking.dbmodels.models import SqlExperiment
+from mlflow.store.tracking.dbmodels.models import (
+    SqlExperiment,
+    SqlLoggedModel,
+    SqlLoggedModelMetric,
+    SqlLoggedModelParam,
+    SqlLoggedModelTag,
+    SqlRun,
+    SqlTraceInfo,
+    TraceState,
+)
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.os import is_windows
@@ -77,7 +90,7 @@ def test_default_experiment_lifecycle(store: SqlAlchemyStore, tmp_path):
     assert another.name == "aNothEr"
 
     if MLFLOW_TRACKING_URI.get():
-        with store.ManagedSessionMaker() as session:
+        with store.ManagedSessionMaker(read_only=False) as session:
             default_exp = (
                 session
                 .query(SqlExperiment)
@@ -399,6 +412,99 @@ def test_search_experiments_filter_by_tag_is_null(store: SqlAlchemyStore):
     # Error: IS NULL on attribute
     with pytest.raises(MlflowException, match="IS NULL / IS NOT NULL is only supported for tags"):
         store.search_experiments(filter_string="name IS NULL")
+
+
+def test_hard_delete_experiment_cascades_to_child_tables(
+    store: SqlAlchemyStore,
+):
+    """Regression: previously ``SqlTraceInfo`` had no relationship to
+    ``SqlExperiment``, so ``session.delete(experiment)`` did not emit DELETE
+    for trace_info rows.
+    """
+    target_exp_id, host_exp_id = (
+        int(eid) for eid in _create_experiments(store, ["fk-cascade-target", "fk-cascade-host"])
+    )
+    request_id = f"tr-{uuid.uuid4()}"
+    model_id = uuid.uuid4().hex
+    # Park the run under host_exp_id so its run_uuid is available to satisfy
+    # the SqlLoggedModelMetric.run_id FK without entering the cascade chain
+    # we're asserting on.
+    run_uuid = uuid.uuid4().hex
+    timestamp_ms = get_current_time_millis()
+
+    with store.ManagedSessionMaker(read_only=False) as session:
+        session.add(
+            SqlRun(
+                run_uuid=run_uuid,
+                experiment_id=host_exp_id,
+                status=RunStatus.to_string(RunStatus.FINISHED),
+                start_time=timestamp_ms,
+                lifecycle_stage=entities.LifecycleStage.ACTIVE,
+            )
+        )
+        session.add(
+            SqlLoggedModel(
+                model_id=model_id,
+                experiment_id=target_exp_id,
+                name="cascade-model",
+                artifact_location="/tmp/artifact",
+                creation_timestamp_ms=timestamp_ms,
+                last_updated_timestamp_ms=timestamp_ms,
+                status=LoggedModelStatus.READY.to_int(),
+            )
+        )
+        session.flush()
+        session.add(
+            SqlTraceInfo(
+                request_id=request_id,
+                experiment_id=target_exp_id,
+                timestamp_ms=timestamp_ms,
+                execution_time_ms=0,
+                status=TraceState.OK.value,
+            )
+        )
+        session.add(
+            SqlLoggedModelMetric(
+                model_id=model_id,
+                metric_name="m",
+                metric_timestamp_ms=timestamp_ms,
+                metric_step=0,
+                metric_value=0.0,
+                experiment_id=target_exp_id,
+                run_id=run_uuid,
+            )
+        )
+        session.add(
+            SqlLoggedModelParam(
+                model_id=model_id,
+                experiment_id=target_exp_id,
+                param_key="p",
+                param_value="v",
+            )
+        )
+        session.add(
+            SqlLoggedModelTag(
+                model_id=model_id,
+                experiment_id=target_exp_id,
+                tag_key="t",
+                tag_value="v",
+            )
+        )
+
+    # _hard_delete_experiment requires the experiment to be soft-deleted first.
+    store.delete_experiment(str(target_exp_id))
+    store._hard_delete_experiment(str(target_exp_id))
+
+    with store.ManagedSessionMaker() as session:
+        for model in (
+            SqlTraceInfo,
+            SqlLoggedModel,
+            SqlLoggedModelMetric,
+            SqlLoggedModelParam,
+            SqlLoggedModelTag,
+        ):
+            remaining = session.query(model).filter_by(experiment_id=target_exp_id).count()
+            assert remaining == 0
 
 
 def test_search_experiments_filter_by_attribute_and_tag(store: SqlAlchemyStore):

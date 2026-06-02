@@ -26,6 +26,7 @@ from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 
 import mlflow.experiments
 import mlflow.pyfunc
+import mlflow.tracing.trace_archival_config as trace_archival_config_module
 from mlflow import MlflowClient
 from mlflow.artifacts import download_artifacts
 from mlflow.data.pandas_dataset import from_pandas
@@ -69,6 +70,7 @@ from mlflow.environment_variables import (
     MLFLOW_SERVER_GRAPHQL_MAX_ALIASES,
     MLFLOW_SERVER_GRAPHQL_MAX_ROOT_FIELDS,
     MLFLOW_SUPPRESS_PRINTING_URL_TO_STDOUT,
+    MLFLOW_TRACE_ARCHIVAL_CONFIG,
 )
 from mlflow.exceptions import MlflowException, RestException
 from mlflow.genai.datasets import (
@@ -131,6 +133,8 @@ def mlflow_client(store_type: str, tmp_path: Path, db_uri: str, monkeypatch):
     monkeypatch.setenv(
         "MLFLOW_CRYPTO_KEK_PASSPHRASE", "test-passphrase-at-least-32-characters-long"
     )
+    monkeypatch.delenv(MLFLOW_TRACE_ARCHIVAL_CONFIG.name, raising=False)
+    monkeypatch.setattr(trace_archival_config_module, "_TRACE_ARCHIVAL_SERVER_CONFIG_CACHE", None)
 
     if store_type == "file":
         backend_uri = tmp_path.joinpath("file").as_uri()
@@ -1905,7 +1909,7 @@ def test_create_model_version_with_validation_regex(db_uri: str):
     ) as proc:
         try:
             # Wait for the server to start
-            for _ in range(10):
+            for _ in range(30):
                 try:
                     if requests.get(f"http://localhost:{port}/health").ok:
                         break
@@ -2332,6 +2336,17 @@ def test_upload_artifact_handler_rejects_invalid_requests(mlflow_client):
     )
     assert_response(response, "Request must specify data.")
 
+    large_data = b"x" * (10 * 1024 * 1024 + 1)
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/upload-artifact",
+        params={
+            "run_uuid": created_run.info.run_id,
+            "path": "test.txt",
+        },
+        data=large_data,
+    )
+    assert_response(response, "Artifact size is too large")
+
 
 def test_upload_artifact_handler(mlflow_client):
     experiment_id = mlflow_client.create_experiment("upload_artifacts_test")
@@ -2461,7 +2476,7 @@ def test_get_experiment_graphql(mlflow_client):
         json={
             "query": 'query testQuery {mlflowGetExperiment(input: {experimentId: "'
             + experiment_id
-            + '"}) { experiment { name } }}',
+            + '"}) { experiment { name effectiveTraceArchivalRetention } }}',
             "operationName": "testQuery",
         },
         headers={"content-type": "application/json; charset=utf-8"},
@@ -2469,6 +2484,10 @@ def test_get_experiment_graphql(mlflow_client):
     assert response.status_code == 200
     json = response.json()
     assert json["data"]["mlflowGetExperiment"]["experiment"]["name"] == "GraphqlTest"
+    assert json["data"]["mlflowGetExperiment"]["experiment"]["effectiveTraceArchivalRetention"] in (
+        None,
+        "",
+    )
 
 
 def test_get_run_and_experiment_graphql(mlflow_client):

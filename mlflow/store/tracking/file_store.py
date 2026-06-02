@@ -114,6 +114,7 @@ from mlflow.utils.validation import (
     _validate_experiment_artifact_location_length,
     _validate_experiment_id,
     _validate_experiment_name,
+    _validate_experiment_tag,
     _validate_logged_model_name,
     _validate_metric,
     _validate_metric_name,
@@ -222,11 +223,14 @@ class FileStore(AbstractStore):
         super().__init__()
         if not MLFLOW_ALLOW_FILE_STORE.get():
             raise MlflowException(
-                "The filesystem tracking backend (e.g., './mlruns') is no longer supported. "
-                "Please migrate to a database backend (e.g., 'sqlite:///mlflow.db'). "
-                "See https://mlflow.org/docs/latest/self-hosting/migrate-from-file-store "
-                "for migration guidance. Set the environment variable "
-                f"'{MLFLOW_ALLOW_FILE_STORE.name}=true' to temporarily opt out of this error.",
+                "The filesystem tracking backend (e.g., './mlruns') is in maintenance mode "
+                "and will not receive further updates. Please migrate to a "
+                "database backend (e.g., 'sqlite:///mlflow.db') to access the latest MLflow "
+                "features. The `mlflow migrate-filestore` tool migrates your existing data "
+                "losslessly. See "
+                "https://mlflow.org/docs/latest/self-hosting/migrate-from-file-store "
+                "for migration guidance. If the filesystem backend is required for your "
+                "workflow, set `MLFLOW_ALLOW_FILE_STORE=true` to opt out of this exception.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
         self.root_directory = local_file_uri_to_path(root_directory or _default_root_dir())
@@ -460,6 +464,9 @@ class FileStore(AbstractStore):
 
         if artifact_location:
             _validate_experiment_artifact_location_length(artifact_location)
+        if tags:
+            for tag in tags:
+                _validate_experiment_tag(tag.key, tag.value)
 
         self._validate_experiment_does_not_exist(name)
         experiment_id = _generate_unique_integer_id()
@@ -1161,7 +1168,7 @@ class FileStore(AbstractStore):
             experiment_id: String ID of the experiment
             tag: ExperimentRunTag instance to log
         """
-        _validate_tag_name(tag.key)
+        _validate_experiment_tag(tag.key, tag.value)
         experiment = self.get_experiment(experiment_id)
         if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
             raise MlflowException(
@@ -2146,7 +2153,7 @@ class FileStore(AbstractStore):
         experiment_path = self._get_experiment_path(experiment_id, assert_exists=True)
         traces_path = os.path.join(experiment_path, FileStore.TRACES_FOLDER_NAME)
         deleted_traces = 0
-        if max_timestamp_millis:
+        if max_timestamp_millis is not None:
             trace_paths = list_all(traces_path, lambda x: os.path.isdir(x), full_path=True)
             trace_info_and_paths = []
             for trace_path in trace_paths:
