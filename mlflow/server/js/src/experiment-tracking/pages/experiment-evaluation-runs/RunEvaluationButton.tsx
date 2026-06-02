@@ -58,8 +58,7 @@ export const RunEvaluationButton = ({ experimentId }: { experimentId: string }) 
       <SnippetCopyAction
         componentId="mlflow.eval-runs.start-run-modal.copy-snippet"
         copyText={codeSnippet}
-        size="small"
-        css={{ position: 'absolute', top: theme.spacing.xs, right: theme.spacing.xs, zIndex: 1 }}
+        css={{ position: 'absolute', top: theme.spacing.xs, right: theme.spacing.xs }}
       />
       <CodeSnippet theme={theme.isDarkMode ? 'duotoneDark' : 'light'} language="python">
         {codeSnippet}
