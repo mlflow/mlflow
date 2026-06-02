@@ -48,11 +48,11 @@ def _choose_agent(preferred: AgentName | None) -> AgentTool:
             click.echo(f"Using {only.display_name} (only installed agent detected).", err=True)
             return only
         case _:
-            click.echo("Multiple agents detected:", err=True)
+            click.secho("Multiple agents detected:", bold=True, err=True)
             for i, a in enumerate(installed, 1):
-                click.echo(f"  {i}. {a.display_name}", err=True)
+                click.echo(f"  {click.style(str(i), fg='cyan')}. {a.display_name}", err=True)
             choice = click.prompt(
-                "Select agent",
+                click.style("Select agent", fg="cyan", bold=True),
                 type=click.IntRange(1, len(installed)),
                 default=1,
                 err=True,
@@ -99,7 +99,11 @@ def setup(
     _record_event(AgentSetupEvent, {"agent": agent.name, "print_prompt": print_prompt})
 
     dest = skills_dest(repo_root, agent).relative_to(repo_root)
-    if click.confirm(f"Install MLflow skills at {dest}/ (this project)?", default=True, err=True):
+    if click.confirm(
+        click.style(f"Install MLflow skills at {dest}/ (this project)?", fg="cyan", bold=True),
+        default=True,
+        err=True,
+    ):
         installed = install_skills(repo_root, agent)
         click.secho(f"Wrote {len(installed)} skill(s) to {dest}/:", fg="green", err=True)
         for name in installed:
@@ -107,7 +111,11 @@ def setup(
     else:
         click.secho("Skipping skill installation.", fg="yellow", err=True)
 
-    tracking_uri = click.prompt("Tracking URI", default="http://localhost:5000", err=True)
+    tracking_uri = click.prompt(
+        click.style("Tracking URI", fg="cyan", bold=True),
+        default="http://localhost:5000",
+        err=True,
+    )
 
     task = build_task(repo_root, agent, tracking_uri)
 
