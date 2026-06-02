@@ -463,10 +463,6 @@
     "defaultMessage": "No image logged at this step",
     "description": "Experiment tracking > runs charts > charts > image plot with history > no image text"
   },
-  "0d/81a": {
-    "defaultMessage": "Collect as an expectation (ground truth) instead of feedback",
-    "description": "Label schema type-as-expectation checkbox"
-  },
   "0eoz8L": {
     "defaultMessage": "Hour",
     "description": "Time unit: hour"
@@ -962,6 +958,10 @@
   "3YddwH": {
     "defaultMessage": "Traffic split percentages must total 100%",
     "description": "Tooltip shown when save button is disabled due to invalid traffic split total"
+  },
+  "3ZAnw6": {
+    "defaultMessage": "Options",
+    "description": "Categorical options list label"
   },
   "3bagxW": {
     "defaultMessage": "<link>Learn more</link>",
@@ -3987,6 +3987,10 @@
     "defaultMessage": "Mark as reviewed",
     "description": "Evaluation review > assessments > mark as reviewed button"
   },
+  "LuOEnE": {
+    "defaultMessage": "Add",
+    "description": "Categorical add-option button"
+  },
   "Lvcsl4": {
     "defaultMessage": "Review and edit the guardrail details, choose placement and action.",
     "description": "Detail modal subtitle"
@@ -6598,6 +6602,10 @@
   "akmaST": {
     "defaultMessage": "Irrelevant",
     "description": "Evaluation results > retrieval relevancy assessment > negative value label. Displayed if evaluation result is considered as irrelevant to the query."
+  },
+  "ap/pp3": {
+    "defaultMessage": "Up to {max} options.",
+    "description": "Categorical options hint"
   },
   "aqMseN": {
     "defaultMessage": "Manage prompt updates and collaborate across teams.",
@@ -9647,10 +9655,6 @@
     "defaultMessage": "Relevant",
     "description": "Evaluation results > relevancy assessment > positive value label. Displayed if evaluation result is considered as irrelevant to the query."
   },
-  "rNqDVw": {
-    "defaultMessage": "Options (one per line)",
-    "description": "Categorical options textarea label"
-  },
   "rONS3/": {
     "defaultMessage": "Select value",
     "description": "Usage overview > filter row > value dropdown placeholder"
@@ -10267,6 +10271,10 @@
     "defaultMessage": "Auto-create experiment",
     "description": "Placeholder for experiment selector when no experiment is selected"
   },
+  "vDnSXw": {
+    "defaultMessage": "Label type",
+    "description": "Label schema feedback-vs-expectation selector label"
+  },
   "vEuvEt": {
     "defaultMessage": "Show first 10",
     "description": "Menu option for showing only 10 first runs in the evaluation runs table"
@@ -10682,10 +10690,6 @@
   "xc+tL4": {
     "defaultMessage": "Filters{numFilters}",
     "description": "Usage overview > metrics filter dropdown button"
-  },
-  "xcXkmG": {
-    "defaultMessage": "1-100 options, each 1-64 characters, in your preferred order. Duplicates are removed automatically.",
-    "description": "Categorical options hint"
   },
   "xdFMIN": {
     "defaultMessage": "Dataset name",

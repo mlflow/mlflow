@@ -1,8 +1,11 @@
-import { Checkbox, FormUI, Input, Radio, useDesignSystemTheme } from '@databricks/design-system';
+import { useState } from 'react';
+import { Button, Checkbox, FormUI, Input, PlusIcon, Radio, Tag, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { Controller, type Control } from 'react-hook-form';
 
+import type { LabelSchemaType } from '../../components/label-schemas/types';
 import {
+  MAX_CATEGORICAL_OPTIONS,
   PASS_FAIL_NEGATIVE_DEFAULT,
   PASS_FAIL_POSITIVE_DEFAULT,
   type LabelSchemaFormData,
@@ -103,31 +106,8 @@ export const LabelSchemaFormRenderer = ({ control, isEdit, errors, watchedValues
             </Radio.Group>
           )}
         />
-      </div>
-
-      {/* Compact option checkboxes: the assessment type reads as a single
-          boolean toggle and stacks above the rationale toggle. They're a
-          tight vertical group (the expectation label is too long to sit
-          beside the rationale at the modal width, so a wrapping row left an
-          oversized gap between them). */}
-      <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
-        <Controller
-          name="type"
-          control={control}
-          render={({ field }) => (
-            <Checkbox
-              componentId={`${COMPONENT_PREFIX}.type-expectation`}
-              isChecked={field.value === 'EXPECTATION'}
-              onChange={(checked) => field.onChange(checked ? 'EXPECTATION' : 'FEEDBACK')}
-              isDisabled={isEdit}
-            >
-              <FormattedMessage
-                defaultMessage="Collect as an expectation (ground truth) instead of feedback"
-                description="Label schema type-as-expectation checkbox"
-              />
-            </Checkbox>
-          )}
-        />
+        {/* Per-input options live with the input-type selector: the rationale
+            toggle always, then multi-select when the type is categorical. */}
         <Controller
           name="enable_comment"
           control={control}
@@ -136,12 +116,60 @@ export const LabelSchemaFormRenderer = ({ control, isEdit, errors, watchedValues
               componentId={`${COMPONENT_PREFIX}.enable-comment`}
               isChecked={field.value}
               onChange={(checked) => field.onChange(checked)}
+              css={{ marginTop: theme.spacing.sm }}
             >
               <FormattedMessage
                 defaultMessage="Collect a free-form rationale alongside the input"
                 description="Enable rationale checkbox"
               />
             </Checkbox>
+          )}
+        />
+        {inputKind === 'categorical' && (
+          <Controller
+            name="categoricalMultiSelect"
+            control={control}
+            render={({ field }) => (
+              <Checkbox
+                componentId={`${COMPONENT_PREFIX}.categorical.multi-select`}
+                isChecked={field.value}
+                onChange={(checked) => field.onChange(checked)}
+                css={{ marginTop: theme.spacing.sm }}
+              >
+                <FormattedMessage
+                  defaultMessage="Allow multiple selections (multi-select)"
+                  description="Categorical multi-select checkbox"
+                />
+              </Checkbox>
+            )}
+          />
+        )}
+      </div>
+
+      {/* Feedback vs. expectation (ground truth): a horizontal radio group
+          mirroring the input-type selector above. Immutable on edit. */}
+      <div css={{ display: 'flex', flexDirection: 'column' }}>
+        <FormUI.Label htmlFor={`${COMPONENT_PREFIX}.type`} required>
+          <FormattedMessage
+            defaultMessage="Label type"
+            description="Label schema feedback-vs-expectation selector label"
+          />
+        </FormUI.Label>
+        <Controller
+          name="type"
+          control={control}
+          render={({ field }) => (
+            <Radio.Group
+              componentId={`${COMPONENT_PREFIX}.type`}
+              name={`${COMPONENT_PREFIX}.type`}
+              layout="horizontal"
+              value={field.value}
+              onChange={(e) => field.onChange(e.target.value as LabelSchemaType)}
+              disabled={isEdit}
+            >
+              <Radio value="FEEDBACK">Feedback</Radio>
+              <Radio value="EXPECTATION">Expectation (ground truth)</Radio>
+            </Radio.Group>
           )}
         />
       </div>
@@ -199,51 +227,113 @@ const PassFailFields = ({ control, errors }: { control: Control<LabelSchemaFormD
   );
 };
 
-const CategoricalFields = ({ control, errors }: { control: Control<LabelSchemaFormData>; errors: FormErrors }) => {
+/**
+ * Editable options list: each existing option is an inline-editable row
+ * with a remove button, and a trailing input adds a new option (Enter or
+ * the Add button). Order is preserved; blanks and duplicates are dropped
+ * on submit by `normalizeCategoricalOptions`.
+ */
+const CategoricalOptionsEditor = ({ value, onChange }: { value: string[]; onChange: (next: string[]) => void }) => {
   const { theme } = useDesignSystemTheme();
+  const [draft, setDraft] = useState('');
+  const atMax = value.length >= MAX_CATEGORICAL_OPTIONS;
+
+  const addDraft = () => {
+    const trimmed = draft.trim();
+    if (trimmed === '' || atMax) {
+      return;
+    }
+    setDraft('');
+    // Skip duplicates silently; normalizeCategoricalOptions would drop them anyway.
+    if (!value.includes(trimmed)) {
+      onChange([...value, trimmed]);
+    }
+  };
+
   return (
-    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
-      <div css={{ display: 'flex', flexDirection: 'column' }}>
-        <FormUI.Label htmlFor={`${COMPONENT_PREFIX}.categorical.options`} required>
-          <FormattedMessage defaultMessage="Options (one per line)" description="Categorical options textarea label" />
-        </FormUI.Label>
-        <FormUI.Hint>
-          <FormattedMessage
-            defaultMessage="1-100 options, each 1-64 characters, in your preferred order. Duplicates are removed automatically."
-            description="Categorical options hint"
-          />
-        </FormUI.Hint>
-        <Controller
-          name="categoricalOptions"
-          control={control}
-          render={({ field }) => (
-            <Input.TextArea
-              componentId={`${COMPONENT_PREFIX}.categorical.options`}
-              id={`${COMPONENT_PREFIX}.categorical.options`}
-              {...field}
-              rows={5}
-              placeholder={'low\nmedium\nhigh'}
-            />
-          )}
+    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
+      <div css={{ display: 'flex', gap: theme.spacing.sm }}>
+        <Input
+          componentId={`${COMPONENT_PREFIX}.categorical.new-option`}
+          id={`${COMPONENT_PREFIX}.categorical.new-option`}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              addDraft();
+            }
+          }}
+          placeholder={atMax ? `Max ${MAX_CATEGORICAL_OPTIONS} options` : 'Add an option'}
+          disabled={atMax}
+          css={{ flex: 1 }}
         />
-        {errors.categoricalOptions && <FormUI.Message message={errors.categoricalOptions} type="error" />}
+        <Button
+          componentId={`${COMPONENT_PREFIX}.categorical.add-option`}
+          icon={<PlusIcon />}
+          onClick={addDraft}
+          disabled={atMax || draft.trim() === ''}
+        >
+          <FormattedMessage defaultMessage="Add" description="Categorical add-option button" />
+        </Button>
       </div>
+      {value.length > 0 && (
+        // Render options as removable tag chips (mirroring the Add/Edit tags
+        // modal), shown below the add box. Chips flow horizontally and wrap;
+        // the list scrolls within its own window once it exceeds it. Options
+        // are unique (deduped on add), so the value is a stable key.
+        <div
+          css={{
+            display: 'flex',
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            gap: theme.spacing.xs,
+            maxHeight: theme.spacing.md * 9,
+            overflowY: 'auto',
+          }}
+        >
+          {value.map((option) => (
+            <Tag
+              key={option}
+              componentId={`${COMPONENT_PREFIX}.categorical.option`}
+              closable
+              onClose={() => onChange(value.filter((o) => o !== option))}
+              css={{
+                paddingTop: theme.spacing.xs,
+                paddingBottom: theme.spacing.xs,
+                paddingLeft: theme.spacing.sm,
+              }}
+            >
+              {option}
+            </Tag>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const CategoricalFields = ({ control, errors }: { control: Control<LabelSchemaFormData>; errors: FormErrors }) => {
+  // `categoricalMultiSelect` lives with the input-type selector (it modifies
+  // the categorical type); this fieldset only owns the options list.
+  return (
+    <div css={{ display: 'flex', flexDirection: 'column' }}>
+      <FormUI.Label htmlFor={`${COMPONENT_PREFIX}.categorical.new-option`} required>
+        <FormattedMessage defaultMessage="Options" description="Categorical options list label" />
+      </FormUI.Label>
+      <FormUI.Hint>
+        <FormattedMessage
+          defaultMessage="Up to {max} options."
+          description="Categorical options hint"
+          values={{ max: MAX_CATEGORICAL_OPTIONS }}
+        />
+      </FormUI.Hint>
       <Controller
-        name="categoricalMultiSelect"
+        name="categoricalOptions"
         control={control}
-        render={({ field }) => (
-          <Checkbox
-            componentId={`${COMPONENT_PREFIX}.categorical.multi-select`}
-            isChecked={field.value}
-            onChange={(checked) => field.onChange(checked)}
-          >
-            <FormattedMessage
-              defaultMessage="Allow multiple selections (multi-select)"
-              description="Categorical multi-select checkbox"
-            />
-          </Checkbox>
-        )}
+        render={({ field }) => <CategoricalOptionsEditor value={field.value} onChange={field.onChange} />}
       />
+      {errors.categoricalOptions && <FormUI.Message message={errors.categoricalOptions} type="error" />}
     </div>
   );
 };

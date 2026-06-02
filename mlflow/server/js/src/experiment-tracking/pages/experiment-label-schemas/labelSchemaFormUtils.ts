@@ -9,9 +9,9 @@
  *     ↓ buildLabelSchemaInputFromForm
  *   { input: LabelSchemaInput }  (back to wire shape)
  *
- * The categorical `options` field is newline-joined in the form
- * (textarea-friendly) and split back into an array on submit; this
- * matches how the scorers form handles `guidelines`.
+ * The categorical `options` field is a `string[]` backing the editable
+ * options list (one input row per option); it's trimmed, deduped, and
+ * stripped of blanks on submit.
  */
 
 import type {
@@ -44,7 +44,7 @@ export interface LabelSchemaFormData {
   passFailNegativeLabel: string;
 
   // categorical
-  categoricalOptions: string; // newline-joined for textarea
+  categoricalOptions: string[]; // one entry per editable option row
   categoricalMultiSelect: boolean;
 
   // numeric
@@ -63,6 +63,9 @@ export interface LabelSchemaFormData {
 export const PASS_FAIL_POSITIVE_DEFAULT = 'Pass';
 export const PASS_FAIL_NEGATIVE_DEFAULT = 'Fail';
 
+/** Maximum number of categorical options a schema may define. */
+export const MAX_CATEGORICAL_OPTIONS = 10;
+
 export const DEFAULT_FORM_VALUES: LabelSchemaFormData = {
   name: '',
   type: 'FEEDBACK',
@@ -71,7 +74,7 @@ export const DEFAULT_FORM_VALUES: LabelSchemaFormData = {
   inputKind: 'pass_fail',
   passFailPositiveLabel: PASS_FAIL_POSITIVE_DEFAULT,
   passFailNegativeLabel: PASS_FAIL_NEGATIVE_DEFAULT,
-  categoricalOptions: '',
+  categoricalOptions: [],
   categoricalMultiSelect: false,
   numericMinValue: '',
   numericMaxValue: '',
@@ -111,7 +114,7 @@ export const getFormValuesFromSchema = (schema: LabelSchema): LabelSchemaFormDat
     inputKind: detectInputKind(schema.input),
     passFailPositiveLabel: passFail?.positive_label ?? PASS_FAIL_POSITIVE_DEFAULT,
     passFailNegativeLabel: passFail?.negative_label ?? PASS_FAIL_NEGATIVE_DEFAULT,
-    categoricalOptions: (categorical?.options ?? []).join('\n'),
+    categoricalOptions: categorical?.options ?? [],
     categoricalMultiSelect: categorical?.multi_select ?? false,
     numericMinValue: formatNumeric(numeric?.min_value),
     numericMaxValue: formatNumeric(numeric?.max_value),
@@ -119,12 +122,12 @@ export const getFormValuesFromSchema = (schema: LabelSchema): LabelSchemaFormDat
   };
 };
 
-/** Parse the textarea-joined options back into a clean, deduplicated array. */
-export const parseCategoricalOptions = (raw: string): string[] => {
+/** Trim, drop blanks, and dedupe the option list (order-preserving). */
+export const normalizeCategoricalOptions = (options: string[]): string[] => {
   const seen = new Set<string>();
   const out: string[] = [];
-  for (const line of raw.split('\n')) {
-    const trimmed = line.trim();
+  for (const option of options) {
+    const trimmed = option.trim();
     if (trimmed === '' || seen.has(trimmed)) {
       continue;
     }
@@ -157,7 +160,7 @@ export const buildLabelSchemaInputFromForm = (form: LabelSchemaFormData): LabelS
       };
     case 'categorical': {
       const categorical: InputCategorical = {
-        options: parseCategoricalOptions(form.categoricalOptions),
+        options: normalizeCategoricalOptions(form.categoricalOptions),
       };
       // Only emit `multi_select` when the user opted into it; absent on the
       // wire is equivalent to false on the server and keeps the round-trip
@@ -248,12 +251,12 @@ export const validateLabelSchemaForm = (form: LabelSchemaFormData): LabelSchemaF
   }
 
   if (form.inputKind === 'categorical') {
-    // Mirror validation.py: 1-100 options, each 1-64 chars (after dedupe + trim).
-    const options = parseCategoricalOptions(form.categoricalOptions);
+    // Up to MAX_CATEGORICAL_OPTIONS options, each 1-64 chars (after dedupe + trim).
+    const options = normalizeCategoricalOptions(form.categoricalOptions);
     if (options.length === 0) {
       errors.categoricalOptions = 'At least one option is required.';
-    } else if (options.length > 100) {
-      errors.categoricalOptions = 'At most 100 options are allowed.';
+    } else if (options.length > MAX_CATEGORICAL_OPTIONS) {
+      errors.categoricalOptions = `At most ${MAX_CATEGORICAL_OPTIONS} options are allowed.`;
     } else if (options.some((o) => o.length > 64)) {
       errors.categoricalOptions = 'Each option must be at most 64 characters.';
     }
