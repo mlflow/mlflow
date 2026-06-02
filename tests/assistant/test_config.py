@@ -85,3 +85,27 @@ def test_update_provider_preserves_permissions():
     config.update_provider("ollama", permissions=new_perms)
 
     assert config.providers["ollama"].permissions.allow_edit_files is False
+
+
+def test_api_key_round_trip(config_file):
+    config = AssistantConfig()
+    config.set_provider(
+        "mlflow_gateway",
+        "gpt-4",
+        base_url="http://gateway.local:5000",
+        api_key="sk-test-123",
+    )
+    config.save()
+
+    loaded = AssistantConfig.load()
+    assert loaded.providers["mlflow_gateway"].api_key == "sk-test-123"
+    assert loaded.providers["mlflow_gateway"].base_url == "http://gateway.local:5000"
+
+
+def test_update_provider_updates_api_key():
+    config = AssistantConfig()
+    config.set_provider("mlflow_gateway", "gpt-4", api_key="sk-old")
+
+    config.update_provider("mlflow_gateway", api_key="sk-new")
+
+    assert config.providers["mlflow_gateway"].api_key == "sk-new"

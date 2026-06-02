@@ -1,9 +1,3 @@
-"""Integration tests for the demo data framework.
-
-These tests run against a real MLflow tracking server to verify that demo data
-is correctly persisted, retrieved, and cleaned up on version bumps.
-"""
-
 from pathlib import Path
 
 import pytest

@@ -123,7 +123,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "0.121.0",
-            "maximum": "1.14.4"
+            "maximum": "1.14.5"
         }
     },
     "agno": {

@@ -3,7 +3,7 @@ description: "Set up Node"
 inputs:
   node-version:
     description: "Node version to use."
-    default: 24
+    default: "24"
     required: false
 
 runs:
@@ -13,6 +13,7 @@ runs:
       with:
         node-version: ${{ inputs.node-version }}
     - run: |
-        # min-release-age requires npm >= 11.10.0 (https://github.com/npm/cli/releases/tag/v11.10.0)
-        npm install -g npm@"^11.10.0"
+        # allowScripts opt-in install-script policy requires npm >= 11.16.0
+        # (https://github.com/npm/cli/pull/9360)
+        npm install -g npm@"^11.16.0"
       shell: bash
