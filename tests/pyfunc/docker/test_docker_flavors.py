@@ -1,7 +1,3 @@
-# Skipped by default; run manually when making changes to the core docker logic:
-#
-#     $ pytest tests/pyfunc/test_docker_flavors.py
-
 import contextlib
 import os
 import shutil
