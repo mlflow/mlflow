@@ -192,8 +192,8 @@ def _validate_input(input_obj) -> None:
 
     cls_name = input_obj.__class__.__name__
     raise MlflowException.invalid_parameter_value(
-        f"Label schema `input` of type {cls_name!r} is not supported by the "
-        f"OSS server. Supported input types are: {', '.join(_SUPPORTED_INPUT_TYPE_NAMES)}."
+        f"Label schema `input` of type {cls_name!r} is not supported. "
+        f"Supported input types are: {', '.join(_SUPPORTED_INPUT_TYPE_NAMES)}."
     )
 
 
@@ -244,6 +244,29 @@ def validate_schema_for_create(
     _validate_input(input)
 
 
+def _validate_input_immutable(existing_input, new_input) -> None:
+    """Reject changes to a schema's input variant or ``multi_select`` on update.
+
+    Both are fixed at creation: switching the variant or toggling
+    ``multi_select`` would silently invalidate every label already collected
+    under the schema. Within-variant edits (e.g. the categorical option list)
+    remain allowed.
+    """
+    from mlflow.genai.label_schemas.label_schemas import InputCategorical
+
+    if type(new_input) is not type(existing_input):
+        raise MlflowException.invalid_parameter_value(
+            "A label schema's input type cannot be changed after creation "
+            f"(existing: {type(existing_input).__name__}, got: {type(new_input).__name__})."
+        )
+    if isinstance(new_input, InputCategorical) and bool(new_input.multi_select) != bool(
+        existing_input.multi_select
+    ):
+        raise MlflowException.invalid_parameter_value(
+            "`InputCategorical.multi_select` cannot be changed after creation."
+        )
+
+
 def validate_schema_for_update(
     *,
     existing: LabelSchema,
@@ -254,7 +277,11 @@ def validate_schema_for_update(
 ) -> None:
     """Validate fields supplied to ``update_label_schema``.
 
-    Enforces `type` immutability implicitly (no `type` parameter is accepted).
+    ``type`` immutability is enforced implicitly (no ``type`` parameter is
+    accepted). The input variant and a categorical schema's ``multi_select``
+    flag are likewise immutable — switching variants or toggling
+    ``multi_select`` would silently invalidate already-collected labels —
+    while within-variant edits (e.g. the option list) remain allowed.
     Validates whichever fields are non-None.
 
     Raises:
@@ -268,3 +295,4 @@ def validate_schema_for_update(
         _validate_enable_comment(enable_comment)
     if input is not None:
         _validate_input(input)
+        _validate_input_immutable(existing.input, input)

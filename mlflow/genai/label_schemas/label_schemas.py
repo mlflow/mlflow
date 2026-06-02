@@ -292,7 +292,7 @@ class LabelSchemaType(StrEnum):
 class LabelSchema:
     """A label schema for collecting input from stakeholders.
 
-    Identity is ``(experiment_id, name)``. The OSS-side identification
+    Identity is ``(experiment_id, name)``. The tracking-store identification
     fields (``schema_id``, ``experiment_id``, audit timestamps) are
     populated by the backend when the schema is created via the SDK; they
     are ``None`` for Databricks-routed schemas where identity lives on the
@@ -413,12 +413,12 @@ class LabelSchema:
 
 
 def _input_to_proto(input_obj) -> _ls_pb.LabelSchemaInput:
-    """Wrap an OSS-supported input dataclass in a LabelSchemaInput oneof.
+    """Wrap a tracking-store input dataclass in a LabelSchemaInput oneof.
 
     Raises:
         MlflowException: if `input_obj` is a Databricks-only type
             (InputTextList / InputCategoricalList). These have no wire
-            representation; the OSS server rejects them at validate time.
+            representation and are rejected during validation.
     """
     if isinstance(input_obj, InputPassFail):
         return _ls_pb.LabelSchemaInput(pass_fail=input_obj.to_proto())

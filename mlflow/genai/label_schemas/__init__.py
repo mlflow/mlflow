@@ -116,6 +116,11 @@ def create_label_schema(
     """
     if is_databricks_uri(get_tracking_uri()):
         _reject_tracking_store_only_params(experiment_id=experiment_id, schema_id=None)
+        if title is None:
+            raise MlflowException(
+                "`title` is required on a Databricks tracking URI (the ReviewApp).",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
         # Nested to avoid a hard dependency on databricks-agents off Databricks.
         from mlflow.genai.labeling.stores import _get_labeling_store
 
@@ -268,10 +273,14 @@ def update_label_schema(
     """
     Sparse-update a label schema.
 
-    ``type`` is immutable and not accepted. Fields left as ``None`` are
-    unchanged on the server; an empty string is a real value that replaces the
-    stored field rather than leaving it untouched. Tracking store only — not
-    supported on a Databricks tracking URI.
+    ``type`` is immutable and not accepted. When ``input`` is provided its
+    variant (pass/fail, categorical, numeric, text) and a categorical
+    schema's ``multi_select`` flag must match the existing schema — only
+    within-variant fields (e.g. the option list) may change; switching
+    either is rejected. Fields left as ``None`` are unchanged on the server;
+    an empty string is a real value that replaces the stored field rather
+    than leaving it untouched. Tracking store only — not supported on a
+    Databricks tracking URI.
     """
     if is_databricks_uri(get_tracking_uri()):
         raise MlflowException(
