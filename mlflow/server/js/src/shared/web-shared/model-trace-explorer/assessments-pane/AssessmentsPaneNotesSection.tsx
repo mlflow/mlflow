@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import {
   Button,
@@ -62,6 +62,7 @@ const NoteItem = ({ note, canEdit }: { note: FeedbackAssessment; canEdit: boolea
   return (
     <div
       css={{
+        position: 'relative',
         display: 'flex',
         flexDirection: 'column',
         gap: theme.spacing.xs,
@@ -69,6 +70,18 @@ const NoteItem = ({ note, canEdit }: { note: FeedbackAssessment; canEdit: boolea
         border: `1px solid ${theme.colors.border}`,
         borderRadius: theme.borders.borderRadiusMd,
         backgroundColor: theme.colors.backgroundSecondary,
+        '&::before': {
+          content: '""',
+          position: 'absolute',
+          left: -theme.spacing.lg + theme.spacing.xs / 2,
+          top: theme.spacing.md,
+          width: theme.spacing.sm + 1,
+          height: theme.spacing.sm + 1,
+          borderRadius: '50%',
+          backgroundColor: theme.colors.backgroundPrimary,
+          border: `2px solid ${theme.colors.border}`,
+          boxSizing: 'border-box',
+        },
       }}
     >
       <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
@@ -84,9 +97,7 @@ const NoteItem = ({ note, canEdit }: { note: FeedbackAssessment; canEdit: boolea
           <div css={{ marginLeft: 'auto', display: 'flex', gap: theme.spacing.xs }}>
             <Tooltip
               componentId="shared.model-trace-explorer.assessment-note-edit-tooltip"
-              content={
-                <FormattedMessage defaultMessage="Edit note" description="Tooltip for editing a notes comment" />
-              }
+              content={<FormattedMessage defaultMessage="Edit comment" description="Tooltip for editing a comment" />}
             >
               <Button
                 componentId="shared.model-trace-explorer.assessment-note-edit"
@@ -99,7 +110,7 @@ const NoteItem = ({ note, canEdit }: { note: FeedbackAssessment; canEdit: boolea
             <Tooltip
               componentId="shared.model-trace-explorer.assessment-note-delete-tooltip"
               content={
-                <FormattedMessage defaultMessage="Delete note" description="Tooltip for deleting a notes comment" />
+                <FormattedMessage defaultMessage="Delete comment" description="Tooltip for deleting a comment" />
               }
             >
               <Button
@@ -121,8 +132,8 @@ const NoteItem = ({ note, canEdit }: { note: FeedbackAssessment; canEdit: boolea
             autoSize={{ minRows: 2, maxRows: 10 }}
             disabled={isUpdating}
             placeholder={intl.formatMessage({
-              defaultMessage: 'Edit note...',
-              description: 'Placeholder text in the notes section edit input',
+              defaultMessage: 'Edit comment...',
+              description: 'Placeholder text in the comments section edit input',
             })}
             onKeyDown={(e) => e.stopPropagation()}
             onChange={(e) => setEditText(e.target.value)}
@@ -134,7 +145,7 @@ const NoteItem = ({ note, canEdit }: { note: FeedbackAssessment; canEdit: boolea
               onClick={cancelEdit}
               disabled={isUpdating}
             >
-              <FormattedMessage defaultMessage="Cancel" description="Button to cancel editing a notes comment" />
+              <FormattedMessage defaultMessage="Cancel" description="Button to cancel editing a comment" />
             </Button>
             <Button
               componentId="shared.model-trace-explorer.assessment-note-edit-save"
@@ -144,12 +155,60 @@ const NoteItem = ({ note, canEdit }: { note: FeedbackAssessment; canEdit: boolea
               loading={isUpdating}
               disabled={editText.trim().length === 0 || isUpdating}
             >
-              <FormattedMessage defaultMessage="Save" description="Button to save an edited notes comment" />
+              <FormattedMessage defaultMessage="Save" description="Button to save an edited comment" />
             </Button>
           </div>
         </>
       ) : (
+        <CollapsibleNoteText text={text} />
+      )}
+    </div>
+  );
+};
+
+const COLLAPSED_LINE_CLAMP = 5;
+
+const CollapsibleNoteText = ({ text }: { text: string }) => {
+  const { theme } = useDesignSystemTheme();
+  const textRef = useRef<HTMLDivElement>(null);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [isOverflowing, setIsOverflowing] = useState(false);
+
+  useLayoutEffect(() => {
+    const el = textRef.current;
+    if (!el) return;
+    setIsOverflowing(el.scrollHeight > el.clientHeight + 1);
+  }, [text]);
+
+  return (
+    <div css={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: theme.spacing.xs }}>
+      <div
+        ref={textRef}
+        css={{
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word',
+          width: '100%',
+          ...(!isExpanded && {
+            display: '-webkit-box',
+            WebkitLineClamp: COLLAPSED_LINE_CLAMP,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+          }),
+        }}
+      >
         <Typography.Text css={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{text}</Typography.Text>
+      </div>
+      {isOverflowing && (
+        <Typography.Link
+          componentId="shared.model-trace-explorer.assessment-note-toggle-expand"
+          onClick={() => setIsExpanded((v) => !v)}
+        >
+          {isExpanded ? (
+            <FormattedMessage defaultMessage="Show less" description="Button to collapse a long comment" />
+          ) : (
+            <FormattedMessage defaultMessage="Show more" description="Button to expand a long comment" />
+          )}
+        </Typography.Link>
       )}
     </div>
   );
@@ -201,32 +260,43 @@ export const AssessmentsPaneNotesSection = ({
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm, marginTop: 'auto' }}>
       <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
         <Typography.Text bold>
-          <FormattedMessage defaultMessage="Notes" description="Header for the notes section in the assessments pane" />
+          <FormattedMessage
+            defaultMessage="Comments"
+            description="Header for the comments section in the assessments pane"
+          />
         </Typography.Text>
         <Tooltip
           componentId="shared.model-trace-explorer.assessment-notes-info-tooltip"
           content={
             <FormattedMessage
-              defaultMessage="Add notes about this trace. Each post is saved as a separate comment."
-              description="Tooltip describing the notes section in the assessments pane"
+              defaultMessage="Add comments about this trace. Each post is saved as a separate comment."
+              description="Tooltip describing the comments section in the assessments pane"
             />
           }
         >
           <InfoSmallIcon css={{ color: theme.colors.textSecondary }} />
         </Tooltip>
       </div>
-      <Input.TextArea
-        componentId="shared.model-trace-explorer.assessment-notes-input"
-        value={draftText}
-        autoSize={{ minRows: 3, maxRows: 10 }}
-        disabled={isCreating}
-        placeholder={intl.formatMessage({
-          defaultMessage: 'Add a note...',
-          description: 'Placeholder text in the notes section input',
-        })}
-        onKeyDown={(e) => e.stopPropagation()}
-        onChange={(e) => setDraftText(e.target.value)}
-      />
+      <div
+        css={{
+          '& textarea.du-bois-light-input': {
+            borderRadius: `${theme.borders.borderRadiusMd}px !important`,
+          },
+        }}
+      >
+        <Input.TextArea
+          componentId="shared.model-trace-explorer.assessment-notes-input"
+          value={draftText}
+          autoSize={{ minRows: 3, maxRows: 10 }}
+          disabled={isCreating}
+          placeholder={intl.formatMessage({
+            defaultMessage: 'Add a comment...',
+            description: 'Placeholder text in the comments section input',
+          })}
+          onKeyDown={(e) => e.stopPropagation()}
+          onChange={(e) => setDraftText(e.target.value)}
+        />
+      </div>
       <div css={{ display: 'flex', justifyContent: 'flex-end' }}>
         <Button
           componentId="shared.model-trace-explorer.assessment-notes-post"
@@ -236,11 +306,28 @@ export const AssessmentsPaneNotesSection = ({
           loading={isCreating}
           disabled={!isDirty || isCreating}
         >
-          <FormattedMessage defaultMessage="Post" description="Button to post a new notes comment" />
+          <FormattedMessage defaultMessage="Post" description="Button to post a new comment" />
         </Button>
       </div>
       {notes.length > 0 && (
-        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+        <div
+          css={{
+            position: 'relative',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: theme.spacing.sm,
+            paddingLeft: theme.spacing.lg,
+            '&::before': {
+              content: '""',
+              position: 'absolute',
+              left: theme.spacing.sm - 1,
+              top: theme.spacing.sm,
+              bottom: theme.spacing.sm,
+              width: 2,
+              backgroundColor: theme.colors.border,
+            },
+          }}
+        >
           {notes.map((note) => (
             <NoteItem key={note.assessment_id} note={note} canEdit={note.source.source_id === user} />
           ))}

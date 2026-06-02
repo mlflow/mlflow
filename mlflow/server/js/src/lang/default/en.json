@@ -143,10 +143,6 @@
     "defaultMessage": "None",
     "description": "A short label for experiments with no experiment kind"
   },
-  "+lNppY": {
-    "defaultMessage": "Notes",
-    "description": "Header for the notes section in the assessments pane"
-  },
   "+mAXPc": {
     "defaultMessage": "No traces found. Try clearing your active filters to see more traces.",
     "description": "Text displayed when no traces are found in the trace review page"
@@ -618,6 +614,10 @@
   "1JiZwB": {
     "defaultMessage": "Did the conversation fully address the user's request?",
     "description": "Hint for ConversationCompleteness template"
+  },
+  "1JubO9": {
+    "defaultMessage": "Show more",
+    "description": "Button to expand a long comment"
   },
   "1NeHsz": {
     "defaultMessage": "{count, plural, one {1 trace selected} other {# traces selected}}",
@@ -1383,6 +1383,10 @@
     "defaultMessage": "Delete",
     "description": "Delete button text"
   },
+  "5rEn4S": {
+    "defaultMessage": "Cancel",
+    "description": "Button to cancel editing a comment"
+  },
   "5umyLP": {
     "defaultMessage": "Edit endpoint name",
     "description": "Aria label for edit endpoint name button"
@@ -2031,10 +2035,6 @@
     "defaultMessage": "Toggle visibility of runs",
     "description": "Experiment page > runs table > toggle visibility of runs > accessible label"
   },
-  "9HpSuz": {
-    "defaultMessage": "Cancel",
-    "description": "Button to cancel editing a notes comment"
-  },
   "9HzNUt": {
     "defaultMessage": "Unified API for multiple LLM providers with rate limiting.",
     "description": "Feature card summary for AI Gateway"
@@ -2254,6 +2254,10 @@
   "AFrm2A": {
     "defaultMessage": "Created {date}",
     "description": "Gateway > Endpoint bindings drawer > Created date"
+  },
+  "AG71QS": {
+    "defaultMessage": "Save",
+    "description": "Button to save an edited comment"
   },
   "AGLzB5": {
     "defaultMessage": "my-api-key",
@@ -2783,10 +2787,6 @@
     "defaultMessage": "No metric charts",
     "description": "Experiment page > compare runs > no metric charts"
   },
-  "D0A9b+": {
-    "defaultMessage": "Add notes about this trace. Each post is saved as a separate comment.",
-    "description": "Tooltip describing the notes section in the assessments pane"
-  },
   "D0jMS6": {
     "defaultMessage": "Register model",
     "description": "Label for a CTA button for registering a ML model version from a logged model"
@@ -3019,10 +3019,6 @@
     "defaultMessage": "Using regular expression quick filter. The following query will be used: {filterSample}",
     "description": "Experiment page > control bar > search filter > a label displayed when user has entered a simple query that will be automatically transformed into RLIKE SQL query before being sent to the API"
   },
-  "ETF1Br": {
-    "defaultMessage": "Add a note...",
-    "description": "Placeholder text in the notes section input"
-  },
   "ETbUBU": {
     "defaultMessage": "Rough cost: under $0.5 for ~100 traces, actual cost varies by selected model. <link>See benchmark</link>.",
     "description": "Approximate USD cost ranges for issue detection as a hint, with link to benchmark docs"
@@ -3038,6 +3034,10 @@
   "EaH1E1": {
     "defaultMessage": "Version {version}",
     "description": "Version display for judge"
+  },
+  "Ecgvng": {
+    "defaultMessage": "Edit comment",
+    "description": "Tooltip for editing a comment"
   },
   "EcjcgN": {
     "defaultMessage": "Metrics",
@@ -4599,10 +4599,6 @@
     "defaultMessage": "Optional secret key",
     "description": "Webhook secret placeholder when creating"
   },
-  "NspSBV": {
-    "defaultMessage": "Post",
-    "description": "Button to post a new notes comment"
-  },
   "NtaCJN": {
     "defaultMessage": "Off",
     "description": "Runs charts > line chart > display points > off setting label"
@@ -4699,6 +4695,10 @@
     "defaultMessage": "Value",
     "description": "Add new key-value tag modal > Value input label"
   },
+  "OSFrMe": {
+    "defaultMessage": "Add comments about this trace. Each post is saved as a separate comment.",
+    "description": "Tooltip describing the comments section in the assessments pane"
+  },
   "OUPWd8": {
     "defaultMessage": "View chat session",
     "description": "Tooltip for the session id tag"
@@ -4766,6 +4766,10 @@
   "OjWQ39": {
     "defaultMessage": "Human feedback",
     "description": "Tooltip content for human feedback"
+  },
+  "OksZcP": {
+    "defaultMessage": "Show less",
+    "description": "Button to collapse a long comment"
   },
   "OlI8fe": {
     "defaultMessage": "On Exceeded",
@@ -5423,6 +5427,10 @@
     "defaultMessage": "Create LLM judge",
     "description": "Title for new LLM judge modal"
   },
+  "SVRXzn": {
+    "defaultMessage": "Comments",
+    "description": "Header for the comments section in the assessments pane"
+  },
   "Sb+wLa": {
     "defaultMessage": "Model configuration stores the LLM settings associated with this prompt.",
     "description": "Help text explaining model configuration purpose"
@@ -5591,10 +5599,6 @@
     "defaultMessage": "Run Name",
     "description": "Column header for run name in the evaluation runs table"
   },
-  "TWyKPp": {
-    "defaultMessage": "Edit note",
-    "description": "Tooltip for editing a notes comment"
-  },
   "TXJ9GQ": {
     "defaultMessage": "Learn more about tracing in the {tracingDocs}.",
     "description": "Instruction to learn more about tracing in the tracing docs"
@@ -5754,6 +5758,10 @@
   "URGtLz": {
     "defaultMessage": "Tool Performance Summary",
     "description": "Title for the tool performance summary section"
+  },
+  "URkleb": {
+    "defaultMessage": "Post",
+    "description": "Button to post a new comment"
   },
   "USJvtX": {
     "defaultMessage": "Automatic evaluation is only available for judges that use gateway endpoints.",
@@ -7479,10 +7487,6 @@
     "defaultMessage": "Source run",
     "description": "Label for the source run name of a logged model on the logged model details page"
   },
-  "d8hr9c": {
-    "defaultMessage": "Save",
-    "description": "Button to save an edited notes comment"
-  },
   "d9VoXo": {
     "defaultMessage": "Don't see your framework? <a>Browse all integrations</a>.",
     "description": "Link to MLflow tracing integrations doc page above the framework selector"
@@ -7566,6 +7570,10 @@
   "ddAFCW": {
     "defaultMessage": "500: Internal server error",
     "description": "Generic 500 user-friendly error for the MLflow UI"
+  },
+  "deifbh": {
+    "defaultMessage": "Add a comment...",
+    "description": "Placeholder text in the comments section input"
   },
   "dl0TeT": {
     "defaultMessage": "Save",
@@ -8206,10 +8214,6 @@
   "gtvp+Q": {
     "defaultMessage": "Instructions",
     "description": "Guardrail instructions label"
-  },
-  "gvhHdm": {
-    "defaultMessage": "Edit note...",
-    "description": "Placeholder text in the notes section edit input"
   },
   "h0XfC3": {
     "defaultMessage": "Tags",
@@ -9915,6 +9919,10 @@
     "defaultMessage": "Pass",
     "description": "Passing assessment label"
   },
+  "pqf6GD": {
+    "defaultMessage": "Delete comment",
+    "description": "Tooltip for deleting a comment"
+  },
   "prRya4": {
     "defaultMessage": "Model",
     "description": "Gateway > Endpoint details > Section title for model configuration card"
@@ -10859,6 +10867,10 @@
     "defaultMessage": "No profile available",
     "description": "Text for no profile available in the experiment run dataset drawer"
   },
+  "uqNaJ4": {
+    "defaultMessage": "Comments",
+    "description": "Column label for the number of comments on a trace"
+  },
   "urvfNd": {
     "defaultMessage": "Cancel",
     "description": "Add new key-value tag modal > Cancel button text"
@@ -11503,10 +11515,6 @@
     "defaultMessage": "Output",
     "description": "Experiment page > new run modal > evaluation output field label"
   },
-  "yjBe73": {
-    "defaultMessage": "Delete note",
-    "description": "Tooltip for deleting a notes comment"
-  },
   "yjerKR": {
     "defaultMessage": "<link>Version {versionNumber}</link>",
     "description": "Link to model version in the model version table"
@@ -11530,6 +11538,10 @@
   "ysF5gb": {
     "defaultMessage": "Default",
     "description": "Label for the default render mode in the model trace explorer inputs/outputs tab"
+  },
+  "yu5Us5": {
+    "defaultMessage": "Edit comment...",
+    "description": "Placeholder text in the comments section edit input"
   },
   "yv5FMp": {
     "defaultMessage": "Add custom feedback to this session.",

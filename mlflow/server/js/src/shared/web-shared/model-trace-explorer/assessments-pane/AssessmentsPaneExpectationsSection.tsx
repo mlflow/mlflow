@@ -1,4 +1,12 @@
-import { Button, PlusIcon, Spacer, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import {
+  Button,
+  ChevronDownIcon,
+  ChevronRightIcon,
+  PlusIcon,
+  Spacer,
+  Typography,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 import type { ExpectationAssessment } from '../ModelTrace.types';
 import { ExpectationItem } from './ExpectationItem';
 import { useMemo, useState } from 'react';
@@ -29,6 +37,7 @@ export const AssessmentsPaneExpectationsSection = ({
   );
 
   const [createFormVisible, setCreateFormVisible] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   const { theme } = useDesignSystemTheme();
   return (
@@ -43,60 +52,85 @@ export const AssessmentsPaneExpectationsSection = ({
           flexShrink: 0,
         }}
       >
-        <Typography.Text bold>
-          <FormattedMessage
-            defaultMessage="Expectations"
-            description="Label for the expectations section in the assessments pane"
-          />{' '}
-          {!isEmpty(sortedExpectations) && <>({sortedExpectations?.length})</>}
-        </Typography.Text>
-        {!isEmpty(sortedExpectations) && <AddExpectationButton onClick={() => setCreateFormVisible(true)} />}
-      </div>
-      {sortedExpectations.length > 0 ? (
-        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm, marginBottom: theme.spacing.sm }}>
-          {sortedExpectations.map((expectation) => (
-            <ExpectationItem expectation={expectation} key={expectation.assessment_id} />
-          ))}
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => setIsCollapsed((v) => !v)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              setIsCollapsed((v) => !v);
+            }
+          }}
+          css={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: theme.spacing.xs,
+            cursor: 'pointer',
+            userSelect: 'none',
+          }}
+        >
+          {isCollapsed ? <ChevronRightIcon /> : <ChevronDownIcon />}
+          <Typography.Text bold>
+            <FormattedMessage
+              defaultMessage="Expectations"
+              description="Label for the expectations section in the assessments pane"
+            />{' '}
+            {!isEmpty(sortedExpectations) && <>({sortedExpectations?.length})</>}
+          </Typography.Text>
         </div>
-      ) : (
-        !createFormVisible && (
+        {!isEmpty(sortedExpectations) && !isCollapsed && (
+          <AddExpectationButton onClick={() => setCreateFormVisible(true)} />
+        )}
+      </div>
+      {!isCollapsed &&
+        (sortedExpectations.length > 0 ? (
           <div
-            css={{
-              textAlign: 'center',
-              borderRadius: theme.spacing.xs,
-              border: `1px dashed ${theme.colors.border}`,
-              padding: `${theme.spacing.md}px ${theme.spacing.md}px`,
-            }}
+            css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm, marginBottom: theme.spacing.sm }}
           >
-            <Typography.Hint>
-              {sessionId ? (
-                <FormattedMessage
-                  defaultMessage="Add a custom expectation to this session."
-                  description="Hint message prompting user to add a new expectation to a session"
-                />
-              ) : (
-                <FormattedMessage
-                  defaultMessage="Add a custom expectation to this trace."
-                  description="Hint message prompting user to add a new expectation to a trace"
-                />
-              )}{' '}
-              <Typography.Link
-                componentId="shared.model-trace-explorer.expectation-learn-more-link"
-                openInNewTab
-                href="https://www.mlflow.org/docs/latest/genai/assessments/expectations/"
-              >
-                <FormattedMessage
-                  defaultMessage="Learn more."
-                  description="Link text for learning more about expectations"
-                />
-              </Typography.Link>
-            </Typography.Hint>
-            <Spacer size="sm" />
-            <AddExpectationButton onClick={() => setCreateFormVisible(true)} />
+            {sortedExpectations.map((expectation) => (
+              <ExpectationItem expectation={expectation} key={expectation.assessment_id} />
+            ))}
           </div>
-        )
-      )}
-      {createFormVisible && (
+        ) : (
+          !createFormVisible && (
+            <div
+              css={{
+                textAlign: 'center',
+                borderRadius: theme.spacing.xs,
+                border: `1px dashed ${theme.colors.border}`,
+                padding: `${theme.spacing.md}px ${theme.spacing.md}px`,
+              }}
+            >
+              <Typography.Hint>
+                {sessionId ? (
+                  <FormattedMessage
+                    defaultMessage="Add a custom expectation to this session."
+                    description="Hint message prompting user to add a new expectation to a session"
+                  />
+                ) : (
+                  <FormattedMessage
+                    defaultMessage="Add a custom expectation to this trace."
+                    description="Hint message prompting user to add a new expectation to a trace"
+                  />
+                )}{' '}
+                <Typography.Link
+                  componentId="shared.model-trace-explorer.expectation-learn-more-link"
+                  openInNewTab
+                  href="https://www.mlflow.org/docs/latest/genai/assessments/expectations/"
+                >
+                  <FormattedMessage
+                    defaultMessage="Learn more."
+                    description="Link text for learning more about expectations"
+                  />
+                </Typography.Link>
+              </Typography.Hint>
+              <Spacer size="sm" />
+              <AddExpectationButton onClick={() => setCreateFormVisible(true)} />
+            </div>
+          )
+        ))}
+      {!isCollapsed && createFormVisible && (
         <AssessmentCreateForm
           spanId={activeSpanId}
           traceId={traceId}

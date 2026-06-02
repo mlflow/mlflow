@@ -2196,6 +2196,7 @@ module.exports = {
   "shared.model-trace-explorer.assessment-note-edit-input": "",
   "shared.model-trace-explorer.assessment-note-edit-save": "",
   "shared.model-trace-explorer.assessment-note-edit-tooltip": "",
+  "shared.model-trace-explorer.assessment-note-toggle-expand": "",
   "shared.model-trace-explorer.assessment-notes-info-tooltip": "",
   "shared.model-trace-explorer.assessment-notes-input": "",
   "shared.model-trace-explorer.assessment-notes-post": "",

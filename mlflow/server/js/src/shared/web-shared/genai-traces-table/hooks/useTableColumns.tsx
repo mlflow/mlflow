@@ -39,6 +39,7 @@ export const SIMULATION_PERSONA_COLUMN_ID = 'simulation_persona';
 export const LINKED_PROMPTS_COLUMN_ID = 'prompt';
 export const ISSUE_ID_COLUMN_ID = 'issue.id';
 export const ISSUES_COLUMN_ID = 'issues';
+export const COMMENTS_COLUMN_ID = 'comments';
 export const GIT_BRANCH_COLUMN_ID = 'git_branch';
 export const GIT_COMMIT_COLUMN_ID = 'git_commit';
 
@@ -265,6 +266,15 @@ export const useTableColumns = (
           label: intl.formatMessage({
             defaultMessage: 'Tokens',
             description: 'Column label for tokens',
+          }),
+          type: TracesTableColumnType.TRACE_INFO,
+          group: TracesTableColumnGroup.INFO,
+        },
+        {
+          id: COMMENTS_COLUMN_ID,
+          label: intl.formatMessage({
+            defaultMessage: 'Comments',
+            description: 'Column label for the number of comments on a trace',
           }),
           type: TracesTableColumnType.TRACE_INFO,
           group: TracesTableColumnGroup.INFO,
