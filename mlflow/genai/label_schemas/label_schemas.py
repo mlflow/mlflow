@@ -55,18 +55,19 @@ class InputCategorical(InputType):
     def _to_databricks_input(self) -> "_InputCategorical":
         """Convert to the internal Databricks input type.
 
-        The OSS-only ``multi_select`` field is dropped since Databricks
-        doesn't model it. A warning is emitted when a non-default value is
-        silently discarded so callers can detect intent loss.
+        The ``multi_select`` field has no Databricks equivalent and is
+        dropped when routing to Databricks. A warning is emitted when a
+        non-default value is silently discarded so callers can detect
+        intent loss.
         """
         from databricks.agents.review_app import label_schemas as _label_schemas
 
         if self.multi_select:
             warnings.warn(
-                "InputCategorical field `multi_select` is OSS-only and is being "
-                "dropped when routing this schema to Databricks. Set "
-                "`multi_select=False` (the default) for Databricks-routed schemas, "
-                "or use the OSS-native schema store.",
+                "InputCategorical field `multi_select` has no Databricks "
+                "equivalent and is being dropped when routing this schema to "
+                "Databricks. Set `multi_select=False` (the default) for "
+                "Databricks-routed schemas, or use the MLflow tracking store.",
                 UserWarning,
                 stacklevel=2,
             )
@@ -229,9 +230,9 @@ class InputPassFail(InputType):
     The stored assessment value is a ``bool``; ``True`` corresponds to the
     ``positive_label``.
 
-    This input type is OSS-only. Databricks-routed schemas should use
-    :py:class:`InputCategorical` instead; the Databricks conversion
-    methods raise ``NotImplementedError``.
+    This input type has no Databricks ReviewApp equivalent. Databricks-routed
+    schemas should use :py:class:`InputCategorical` instead; the Databricks
+    conversion methods raise ``NotImplementedError``.
     """
 
     positive_label: str
@@ -242,8 +243,8 @@ class InputPassFail(InputType):
 
     def _to_databricks_input(self) -> DatabricksInputType:
         raise NotImplementedError(
-            "InputPassFail is OSS-only; Databricks-routed schemas should use "
-            "InputCategorical with explicit positive/negative options."
+            "InputPassFail has no Databricks counterpart; Databricks-routed "
+            "schemas should use InputCategorical with explicit positive/negative options."
         )
 
     @classmethod

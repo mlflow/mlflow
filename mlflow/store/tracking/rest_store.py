@@ -979,7 +979,7 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
         issues = [Issue.from_proto(issue_proto) for issue_proto in response_proto.issues]
         return PagedList(issues, response_proto.next_page_token or None)
 
-    # ----- Label schemas (OSS-native CRUD) -----
+    # ----- Label schemas (tracking-store CRUD) -----
 
     def create_label_schema(
         self,

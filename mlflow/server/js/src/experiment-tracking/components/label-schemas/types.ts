@@ -1,5 +1,5 @@
 /**
- * Wire-format types for OSS-native label schemas.
+ * Wire-format types for label schemas.
  *
  * These mirror the proto definitions in `mlflow/protos/label_schemas.proto`
  * (snake_case on the wire). Server-side validation rules live in
@@ -34,7 +34,7 @@ export interface InputText {
 /**
  * Discriminated wrapper matching the proto `LabelSchemaInput` oneof.
  * Exactly one of `pass_fail`, `categorical`, `numeric`, or `text` is set
- * on a valid schema; the OSS server rejects an empty wrapper.
+ * on a valid schema; the server rejects an empty wrapper.
  */
 export interface LabelSchemaInput {
   pass_fail?: InputPassFail;

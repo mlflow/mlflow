@@ -29,6 +29,14 @@ if not IS_DBX_AGENTS_INSTALLED:
     pytest.skip("Skipping Databricks only test.", allow_module_level=True)
 
 
+@pytest.fixture(autouse=True)
+def _force_databricks_path():
+    # These tests cover the Databricks ReviewApp routing of the fluent
+    # functions, which now dispatch on the tracking URI. Force that branch.
+    with patch("mlflow.genai.label_schemas.is_databricks_uri", return_value=True):
+        yield
+
+
 @pytest.fixture
 def mock_databricks_labeling_store():
     """
