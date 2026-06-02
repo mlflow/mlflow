@@ -88,7 +88,8 @@ def create_label_schema(
     overwrite: bool = False,
     experiment_id: str | None = None,
 ) -> LabelSchema:
-    """Create a label schema.
+    """
+    Create a label schema.
 
     By default the schema is created in the MLflow tracking store, scoped to
     ``experiment_id`` (the current experiment when omitted) and identified by
@@ -150,7 +151,8 @@ def get_label_schema(
     schema_id: str | None = None,
     experiment_id: str | None = None,
 ) -> LabelSchema:
-    """Get a label schema.
+    """
+    Get a label schema.
 
     On a Databricks tracking URI, looks up by ``name`` in the ReviewApp.
     Otherwise looks up in the tracking store by ``schema_id``, or by
@@ -185,7 +187,8 @@ def get_label_schema(
 
 @experimental(version="3.13.0")
 def delete_label_schema(name: str | None = None, *, schema_id: str | None = None):
-    """Delete a label schema.
+    """
+    Delete a label schema.
 
     On a Databricks tracking URI, deletes by ``name`` from the ReviewApp (and
     returns a :py:class:`ReviewApp` for backwards compatibility). Otherwise
@@ -231,7 +234,8 @@ def list_label_schemas(
     max_results: int = 100,
     page_token: str | None = None,
 ) -> PagedList[LabelSchema]:
-    """List label schemas for an experiment, paginated.
+    """
+    List label schemas for an experiment, paginated.
 
     Tracking store only; ``experiment_id`` defaults to the current experiment.
     Not supported on a Databricks tracking URI — manage ReviewApp schemas in
@@ -261,7 +265,8 @@ def update_label_schema(
     enable_comment: bool | None = None,
     input: _SCHEMA_INPUT | None = None,
 ) -> LabelSchema:
-    """Sparse-update a label schema.
+    """
+    Sparse-update a label schema.
 
     ``type`` is immutable and not accepted. Fields left as ``None`` are
     unchanged on the server; an empty string is a real value that replaces the
