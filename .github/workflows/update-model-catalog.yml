@@ -101,7 +101,11 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           PR_NUMBER: ${{ steps.pr.outputs.number }}
-        run: gh pr merge "$PR_NUMBER" --auto --squash || true
+        run: |
+          output=$(gh pr merge "$PR_NUMBER" --auto --squash 2>&1) && exit 0
+          echo "$output" | grep -qi "auto-merge is already enabled" && exit 0
+          echo "$output" >&2
+          exit 1
 
       - name: Publish to GitHub Releases
         if: steps.diff.outputs.changed == 'true'
