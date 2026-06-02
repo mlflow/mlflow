@@ -11,7 +11,7 @@ interface GetLabelSchemaResponse {
 /**
  * Fetch a single label schema by its server-generated `schema_id`.
  *
- * Identity for OSS-native schemas is `(experiment_id, name)` but the
+ * Identity for tracking-store schemas is `(experiment_id, name)` but the
  * canonical primary key on the wire is `schema_id`. Use
  * `useGetLabelSchemaByNameQuery` for the experiment-scoped lookup.
  */
