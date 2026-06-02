@@ -282,6 +282,10 @@ def test_delete_missing_is_noop(store):
             "at most 64 characters",
         ),
         (
+            {"input": InputCategorical(options=[f"o{i}" for i in range(11)])},
+            "at most 10",
+        ),
+        (
             {"input": InputCategorical(options=["a"], multi_select=1)},
             "must be a bool",
         ),
