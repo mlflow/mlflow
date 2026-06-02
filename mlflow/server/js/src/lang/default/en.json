@@ -9523,10 +9523,6 @@
     "defaultMessage": "Enter workspace name",
     "description": "Input placeholder for workspace name in create workspace modal"
   },
-  "oSSri0": {
-    "defaultMessage": "Reset to defaults",
-    "description": "Menu item that resets the dataset records column visibility to defaults"
-  },
   "oShuJS": {
     "defaultMessage": "Logged from",
     "description": "Label for the source (where it was logged from) of a logged model on the logged model details page. It can be e.g. a notebook or a file."
@@ -10870,6 +10866,10 @@
   "vxY1CI": {
     "defaultMessage": "Status",
     "description": "Run page > Overview > Run status section label"
+  },
+  "vyJ4pZ": {
+    "defaultMessage": "Reset to defaults",
+    "description": "Menu item that resets the dataset records column visibility AND widths to defaults"
   },
   "w+Josc": {
     "defaultMessage": "Enter an expectation name",
