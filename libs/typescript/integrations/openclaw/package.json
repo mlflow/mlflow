@@ -1,6 +1,6 @@
 {
   "name": "@mlflow/mlflow-openclaw",
-  "version": "0.2.0",
+  "version": "0.3.0-rc.0",
   "description": "OpenClaw integration package for MLflow Tracing",
   "repository": {
     "type": "git",
@@ -39,7 +39,7 @@
   },
   "dependencies": {
     "@clack/prompts": "^1.1.0",
-    "@mlflow/core": "^0.2.0"
+    "@mlflow/core": "^0.3.0-rc.0"
   },
   "peerDependencies": {
     "openclaw": ">=2026.4.9"
