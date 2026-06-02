@@ -134,6 +134,7 @@ export const LabelSchemaFormRenderer = ({ control, isEdit, errors, watchedValues
                 componentId={`${COMPONENT_PREFIX}.categorical.multi-select`}
                 isChecked={field.value}
                 onChange={(checked) => field.onChange(checked)}
+                isDisabled={isEdit}
                 css={{ marginTop: theme.spacing.sm }}
               >
                 <FormattedMessage
