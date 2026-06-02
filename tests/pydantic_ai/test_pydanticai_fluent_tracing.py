@@ -28,9 +28,12 @@ HAS_RUN_STREAM_SYNC = hasattr(Agent, "run_stream_sync")
 HAS_STABLE_STREAMING_API = PYDANTIC_AI_VERSION >= Version("1.0.0")
 # In pydantic-ai >= 1.63.0, _agent_graph calls execute_tool_call directly instead of handle_call.
 # _tool_manager module doesn't exist in older versions (e.g. 0.2.x).
+# pydantic-ai >= 1.78.0 renamed it to the public tool_manager.
 try:
-    from pydantic_ai._tool_manager import ToolManager as _ToolManager
+    from mlflow.pydantic_ai import _get_tool_manager_module_path
 
+    _tm_mod = __import__(_get_tool_manager_module_path(), fromlist=["ToolManager"])
+    _ToolManager = _tm_mod.ToolManager
     TOOL_MANAGER_SPAN_NAME = (
         "ToolManager.execute_tool_call"
         if hasattr(_ToolManager, "execute_tool_call")

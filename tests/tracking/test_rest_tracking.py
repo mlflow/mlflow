@@ -1,8 +1,3 @@
-"""
-Integration test which starts a local Tracking Server on an ephemeral port,
-and ensures we can use the tracking API to communicate with it.
-"""
-
 import json
 import logging
 import math
@@ -1909,7 +1904,7 @@ def test_create_model_version_with_validation_regex(db_uri: str):
     ) as proc:
         try:
             # Wait for the server to start
-            for _ in range(10):
+            for _ in range(30):
                 try:
                     if requests.get(f"http://localhost:{port}/health").ok:
                         break
@@ -2335,6 +2330,17 @@ def test_upload_artifact_handler_rejects_invalid_requests(mlflow_client):
         },
     )
     assert_response(response, "Request must specify data.")
+
+    large_data = b"x" * (10 * 1024 * 1024 + 1)
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/upload-artifact",
+        params={
+            "run_uuid": created_run.info.run_id,
+            "path": "test.txt",
+        },
+        data=large_data,
+    )
+    assert_response(response, "Artifact size is too large")
 
 
 def test_upload_artifact_handler(mlflow_client):

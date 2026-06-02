@@ -39,6 +39,28 @@
       },
       "last_updated_at": "2026-04-24"
     },
+    "FLUX-1.1-pro": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
+    },
+    "FLUX.1-Kontext-pro": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
+    },
     "Llama-3.2-11B-Vision-Instruct": {
       "mode": "chat",
       "context_window": {
@@ -607,8 +629,7 @@
             "search_context_size_high": 0.01,
             "search_context_size_low": 0.01,
             "search_context_size_medium": 0.01
-          },
-          "tool_use_system_prompt_tokens": 159
+          }
         }
       },
       "capabilities": {
@@ -618,7 +639,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
     },
     "claude-opus-4-7": {
       "mode": "chat",
@@ -637,8 +658,7 @@
             "search_context_size_high": 0.01,
             "search_context_size_low": 0.01,
             "search_context_size_medium": 0.01
-          },
-          "tool_use_system_prompt_tokens": 159
+          }
         }
       },
       "capabilities": {
@@ -648,7 +668,36 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
+    },
+    "claude-opus-4-8": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 200000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 5.0,
+        "output_per_million_tokens": 25.0,
+        "cache_read_per_million_tokens": 0.5,
+        "cache_write_per_million_tokens": 6.25,
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_high": 0.01,
+            "search_context_size_low": 0.01,
+            "search_context_size_medium": 0.01
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-06-01"
     },
     "claude-sonnet-4-5": {
       "mode": "chat",
@@ -683,10 +732,7 @@
         "input_per_million_tokens": 3.0,
         "output_per_million_tokens": 15.0,
         "cache_read_per_million_tokens": 0.3,
-        "cache_write_per_million_tokens": 3.75,
-        "tooling": {
-          "tool_use_system_prompt_tokens": 346
-        }
+        "cache_write_per_million_tokens": 3.75
       },
       "capabilities": {
         "function_calling": true,
@@ -695,7 +741,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
     },
     "deepseek-r1": {
       "mode": "chat",
@@ -815,6 +861,17 @@
         "response_schema": false
       },
       "last_updated_at": "2026-04-24"
+    },
+    "flux.2-pro": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
     },
     "global/grok-3": {
       "mode": "chat",

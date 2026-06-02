@@ -23,6 +23,8 @@ defaults:
   run:
     shell: bash
 
+permissions: {}
+
 jobs:
   review:
     # The workflow never uses the default GITHUB_TOKEN — every `gh api`
@@ -173,6 +175,16 @@ jobs:
           PR: ${{ steps.ctx.outputs.pr }}
           REPO: ${{ github.repository }}
           FLAGS: ${{ steps.flags.outputs.flags }}
+          # MLflow tracing. Unset repo vars/secrets resolve to empty strings,
+          # so tracing stays off until these are populated with non-empty
+          # values; flipping NAILAOPUS_MLFLOW_ENABLE_TRACING toggles it
+          # without editing this file.
+          MLFLOW_ENABLE_TRACING: ${{ vars.NAILAOPUS_MLFLOW_ENABLE_TRACING }}
+          MLFLOW_TRACKING_URI: ${{ vars.NAILAOPUS_MLFLOW_TRACKING_URI }}
+          MLFLOW_EXPERIMENT_ID: ${{ secrets.NAILAOPUS_MLFLOW_EXPERIMENT_ID }}
+          DATABRICKS_HOST: ${{ secrets.NAILAOPUS_DATABRICKS_HOST }}
+          DATABRICKS_CLIENT_ID: ${{ secrets.NAILAOPUS_DATABRICKS_CLIENT_ID }}
+          DATABRICKS_CLIENT_SECRET: ${{ secrets.NAILAOPUS_DATABRICKS_CLIENT_SECRET }}
         # Inputs flow through env vars rather than ${{ }} interpolation
         # directly into the shell, so an unexpected character in any value
         # (today none reach here, but the pattern is hardening for drift)

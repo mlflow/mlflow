@@ -5,6 +5,7 @@ import pytest
 
 from mlflow.entities.assessment import AssessmentError
 from mlflow.entities.assessment_source import AssessmentSourceType
+from mlflow.genai.judges.adapters.gateway_adapter import InvokeOutput
 from mlflow.genai.judges.custom_prompt_judge import _remove_choice_brackets, custom_prompt_judge
 
 from tests.genai.conftest import databricks_only
@@ -12,8 +13,13 @@ from tests.genai.conftest import databricks_only
 
 def _mock_score(return_value):
     return mock.patch(
-        "mlflow.genai.judges.adapters.gateway_adapter.score_model_on_payload",
-        return_value=return_value,
+        "mlflow.genai.judges.adapters.gateway_adapter.GatewayAdapter._invoke_and_handle_tools",
+        return_value=InvokeOutput(
+            response=return_value,
+            request_id=None,
+            num_prompt_tokens=None,
+            num_completion_tokens=None,
+        ),
     )
 
 
@@ -44,9 +50,10 @@ def test_custom_prompt_judge_basic():
     assert feedback.source.source_id == "custom_prompt_judge_quality"
 
     mock_score.assert_called_once()
-    kwargs = mock_score.call_args.kwargs
-    assert kwargs["model_uri"] == "openai:/gpt-4"
-    prompt = kwargs["payload"]
+    call_kwargs = mock_score.call_args.kwargs
+    assert call_kwargs["provider"] == "openai"
+    assert call_kwargs["model_name"] == "gpt-4"
+    prompt = call_kwargs["messages"][0].content
     assert prompt.startswith("Evaluate the response.")
     assert "<request>Test request</request>" in prompt
     assert "good: The response is good." in prompt
@@ -101,9 +108,10 @@ def test_custom_prompt_judge_with_numeric_values():
     assert feedback.rationale == "Decent response."
 
     mock_score.assert_called_once()
-    kwargs = mock_score.call_args.kwargs
-    assert kwargs["model_uri"] == "openai:/gpt-4.1-mini"
-    prompt = kwargs["payload"]
+    call_kwargs = mock_score.call_args.kwargs
+    assert call_kwargs["provider"] == "openai"
+    assert call_kwargs["model_name"] == "gpt-4.1-mini"
+    prompt = call_kwargs["messages"][0].content
     assert prompt.startswith("Rate the response.")
     assert '"rationale": "Reason for the decision.' in prompt
 
@@ -140,7 +148,7 @@ def test_custom_prompt_judge_llm_error():
     """
 
     with mock.patch(
-        "mlflow.genai.judges.adapters.gateway_adapter.score_model_on_payload",
+        "mlflow.genai.judges.adapters.gateway_adapter.GatewayAdapter._invoke_and_handle_tools",
         side_effect=Exception("API Error"),
     ):
         judge = custom_prompt_judge(name="test", prompt_template=prompt_template)

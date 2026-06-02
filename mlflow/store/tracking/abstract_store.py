@@ -1,7 +1,7 @@
 import bisect
 import json
 from abc import ABCMeta, abstractmethod
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 from mlflow.entities import (
     Assessment,
@@ -28,6 +28,7 @@ from mlflow.entities.trace_metrics import (
 
 if TYPE_CHECKING:
     from mlflow.entities import EvaluationDataset
+    from mlflow.genai.label_schemas.label_schemas import InputType, LabelSchema
     from mlflow.genai.scorers.online.entities import (
         CompletedSession,
         OnlineScorer,
@@ -1623,6 +1624,18 @@ class AbstractStore(GatewayStoreMixin):
         """
         raise NotImplementedError(self.__class__.__name__)
 
+    def list_scorers_across_experiments(self, experiment_ids: list[str]) -> list[ScorerVersion]:
+        """
+        List all scorers across multiple experiments in one batch. The default
+        impl just iterates ``list_scorers`` per experiment; ``SqlAlchemyStore``
+        overrides with a single JOIN for admin pickers that need to enumerate
+        scorers across hundreds of experiments without N+1 round trips.
+        """
+        result: list[ScorerVersion] = []
+        for exp_id in experiment_ids:
+            result.extend(self.list_scorers(exp_id))
+        return result
+
     def get_scorer(self, experiment_id, name, version=None) -> ScorerVersion:
         """
         Get a specific scorer for an experiment.
@@ -1720,5 +1733,106 @@ class AbstractStore(GatewayStoreMixin):
         Returns:
             List of OnlineScorer entities with serialized_scorer, sample_rate,
             and filter_string fields populated.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    # ------------------------------------------------------------------
+    # Label schemas: UI rendering hints attached to an experiment.
+    # See mlflow/genai/label_schemas/ for the entity dataclasses + validation.
+    # ------------------------------------------------------------------
+
+    @requires_sql_backend
+    def create_label_schema(
+        self,
+        experiment_id: str,
+        *,
+        name: str,
+        type: Literal["feedback", "expectation"],
+        input: "InputType",
+        instruction: str | None = None,
+        enable_comment: bool = False,
+    ) -> "LabelSchema":
+        """Create a new label schema scoped to an experiment.
+
+        Args:
+            experiment_id: Parent experiment ID.
+            name: Schema name, unique within the experiment. Shown to
+                reviewers as the label prompt and used as the assessment key.
+            type: Schema type (``"feedback"`` or ``"expectation"``).
+            input: One of ``InputPassFail`` / ``InputCategorical`` /
+                ``InputNumeric`` / ``InputText``.
+            instruction: Optional supplementary guidance shown to reviewers.
+            enable_comment: UI hint; persisted but not consumed server-side.
+
+        Returns:
+            The created :py:class:`LabelSchema` with backend-generated
+            ``schema_id`` and audit fields.
+
+        Raises:
+            MlflowException(INVALID_PARAMETER_VALUE): on validation failure.
+            MlflowException(RESOURCE_ALREADY_EXISTS): on
+                ``(experiment_id, name)`` collision.
+            MlflowException(RESOURCE_DOES_NOT_EXIST): if the experiment
+                doesn't exist.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def get_label_schema(self, schema_id: str) -> "LabelSchema":
+        """Fetch a label schema by its server-generated ID.
+
+        Raises:
+            MlflowException(RESOURCE_DOES_NOT_EXIST): if no schema has the given ID.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def get_label_schema_by_name(self, experiment_id: str, name: str) -> "LabelSchema":
+        """Fetch a label schema by ``(experiment_id, name)``.
+
+        Raises:
+            MlflowException(RESOURCE_DOES_NOT_EXIST): if no schema matches.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def list_label_schemas(
+        self,
+        experiment_id: str,
+        max_results: int = 100,
+        page_token: str | None = None,
+    ) -> PagedList["LabelSchema"]:
+        """List label schemas for an experiment, ordered by creation time descending."""
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def update_label_schema(
+        self,
+        schema_id: str,
+        *,
+        name: str | None = None,
+        instruction: str | None = None,
+        enable_comment: bool | None = None,
+        input: "InputType | None" = None,
+    ) -> "LabelSchema":
+        """Sparse update on a label schema.
+
+        ``type`` is immutable post-create and is not accepted as a parameter.
+        Renames are supported (set ``name`` to the new value); existing
+        assessment rows are not migrated.
+
+        Raises:
+            MlflowException(RESOURCE_DOES_NOT_EXIST): if schema_id doesn't exist.
+            MlflowException(INVALID_PARAMETER_VALUE): on validation failure.
+            MlflowException(RESOURCE_ALREADY_EXISTS): on rename collision.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def delete_label_schema(self, schema_id: str) -> None:
+        """Hard-delete a label schema. No-op if it doesn't exist.
+
+        Assessments whose ``name`` matches this schema retain their data
+        but render as free-form values in the UI after deletion.
         """
         raise NotImplementedError(self.__class__.__name__)

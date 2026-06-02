@@ -28,6 +28,8 @@ defaults:
   run:
     shell: bash
 
+permissions: {}
+
 jobs:
   typescript-sdk:
     if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
