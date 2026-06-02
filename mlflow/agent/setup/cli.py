@@ -99,7 +99,7 @@ def setup(
     _record_event(AgentSetupEvent, {"agent": agent.name, "print_prompt": print_prompt})
 
     dest = skills_dest(repo_root, agent).relative_to(repo_root)
-    if click.confirm(f"Install MLflow skills at {dest}/?", default=True, err=True):
+    if click.confirm(f"Install MLflow skills at {dest}/ (this project)?", default=True, err=True):
         installed = install_skills(repo_root, agent)
         click.secho(f"Wrote {len(installed)} skill(s) to {dest}/:", fg="green", err=True)
         for name in installed:
