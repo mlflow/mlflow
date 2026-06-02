@@ -138,7 +138,7 @@ The surface in `mlflow.genai.label_schemas`:
 | <APILink fn="mlflow.genai.label_schemas.create_label_schema" /> | Create a new schema (shown in the [Quickstart](#quickstart) above).                                                               |
 | <APILink fn="mlflow.genai.label_schemas.get_label_schema" />    | Fetch by `schema_id`, or by `(experiment_id, name)`.                                                                              |
 | <APILink fn="mlflow.genai.label_schemas.list_label_schemas" />  | Paginated list scoped to an experiment.                                                                                           |
-| <APILink fn="mlflow.genai.label_schemas.update_label_schema" /> | Sparse-update (retarget input, rename, edit instruction). `type` is immutable.                                                    |
+| <APILink fn="mlflow.genai.label_schemas.update_label_schema" /> | Sparse-update (edit input fields, rename, edit instruction). `type`, input variant, and `multi_select` are immutable.             |
 | <APILink fn="mlflow.genai.label_schemas.delete_label_schema" /> | Delete by `schema_id`. Existing assessments survive (their values are kept; they render in the review UI without a typed widget). |
 
 ```python
@@ -180,6 +180,13 @@ Renaming via `name=...` is permitted on update; collisions with another
 schema's name on the same experiment are rejected with
 `RESOURCE_ALREADY_EXISTS`. The admin UI disables the name field on edit;
 this is a UI-only restriction.
+
+When `input` is provided, only within-variant fields may change. The input
+variant (pass/fail, categorical, numeric, text) and a categorical schema's
+`multi_select` flag are fixed at creation — switching either would silently
+invalidate labels already collected under the schema, so it's rejected with
+`INVALID_PARAMETER_VALUE`. Editing a categorical schema's option list is
+still allowed.
 
 ## Validation rules
 
