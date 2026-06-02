@@ -86,6 +86,7 @@ jobs:
           if [ -n "$existing_pr" ]; then
             echo "Existing open PR #$existing_pr found for branch $branch — skipping PR creation."
             echo "number=$existing_pr" >> "$GITHUB_OUTPUT"
+            echo "is_new_pr=false" >> "$GITHUB_OUTPUT"
           else
             pr_number=$(gh pr create \
               --title "Update model catalog from upstream sources" \
@@ -93,21 +94,22 @@ jobs:
               --reviewer "TomeHirata" \
               --json number --jq '.number')
             echo "number=$pr_number" >> "$GITHUB_OUTPUT"
+            echo "is_new_pr=true" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Comment /review on pull request
-        if: steps.diff.outputs.changed == 'true'
+        if: steps.pr.outputs.is_new_pr == 'true'
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           PR_NUMBER: ${{ steps.pr.outputs.number }}
         run: gh pr comment "$PR_NUMBER" --body "/review"
 
       - name: Enable auto-merge
-        if: steps.diff.outputs.changed == 'true'
+        if: steps.pr.outputs.is_new_pr == 'true'
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           PR_NUMBER: ${{ steps.pr.outputs.number }}
-        run: gh pr merge "$PR_NUMBER" --auto --squash
+        run: gh pr merge "$PR_NUMBER" --auto --squash || true
 
       - name: Publish to GitHub Releases
         if: steps.diff.outputs.changed == 'true'
