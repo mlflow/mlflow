@@ -7891,6 +7891,10 @@
     "defaultMessage": "{count, plural, =1 {1 second} other {# seconds}} ago",
     "description": "Time duration in seconds"
   },
+  "gRWU+A": {
+    "defaultMessage": "Failed to copy to clipboard",
+    "description": "Error message when clipboard copy fails"
+  },
   "gRYO/6": {
     "defaultMessage": "Add records to start evaluating your app. {sdkLink}",
     "description": "Description text for the V2 dataset records empty state"
@@ -9710,6 +9714,10 @@
   "pye4NE": {
     "defaultMessage": "Select an endpoint",
     "description": "Placeholder for endpoint selection dropdown"
+  },
+  "pysVeT": {
+    "defaultMessage": "Copy failed. Clipboard unavailable.",
+    "description": "Tooltip text shown when copy operation fails"
   },
   "pzL5+U": {
     "defaultMessage": "Tracing",
