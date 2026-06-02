@@ -6,6 +6,7 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { useTraceMetricsQuery } from '../experiment-overview/hooks/useTraceMetricsQuery';
 
 const getDatasetCodeSnippet = (experimentId: string, scorersDocLink?: string) => `import mlflow
+import os
 from mlflow.genai import evaluate
 from mlflow.genai.scorers import (
     Safety,
@@ -13,6 +14,7 @@ from mlflow.genai.scorers import (
     Guidelines,
 )
 
+os.environ["OPENAI_API_KEY"] = "your-api-key-here"  # Replace with your API key
 mlflow.set_experiment(experiment_id="${experimentId}")
 
 # Step 1: Define evaluation dataset
@@ -45,6 +47,7 @@ evaluate(
 # Results will appear back in this UI`;
 
 const getTraceCodeSnippet = (experimentId: string) => `import mlflow
+import os
 from mlflow.genai import evaluate
 from mlflow.genai.scorers import (
     Safety,
@@ -52,6 +55,8 @@ from mlflow.genai.scorers import (
     Guidelines,
 )
 
+os.environ["OPENAI_API_KEY"] = "your-api-key-here"  # Replace with your API key
+mlflow.set_tracking_uri("http://localhost:5000")
 mlflow.set_experiment(experiment_id="${experimentId}")
 
 # Step 1: Pull traces to evaluate.
