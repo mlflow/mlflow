@@ -1,6 +1,7 @@
 import { useQuery } from '@databricks/web-shared/query-client';
 import { fetchAPI, getAjaxUrl } from '../../../../common/utils/FetchUtils';
 import type { LabelSchema } from '../types';
+import { LABEL_SCHEMAS_API_BASE } from './constants';
 
 export const GET_LABEL_SCHEMA_QUERY_KEY = 'GET_LABEL_SCHEMA';
 
@@ -20,7 +21,7 @@ export const useGetLabelSchemaQuery = ({ schemaId, enabled = true }: { schemaId:
     queryKey: [GET_LABEL_SCHEMA_QUERY_KEY, schemaId],
     queryFn: async () => {
       const params = new URLSearchParams({ schema_id: schemaId });
-      return (await fetchAPI(getAjaxUrl(`ajax-api/3.0/mlflow/label-schemas/get?${params.toString()}`), {
+      return (await fetchAPI(getAjaxUrl(`${LABEL_SCHEMAS_API_BASE}/get?${params.toString()}`), {
         method: 'GET',
       })) as GetLabelSchemaResponse;
     },

@@ -46,14 +46,8 @@ export interface LabelSchemaInputRendererProps {
 }
 
 /**
- * Dispatch a `LabelSchemaInput` to the matching widget. The wrapper
- * carries exactly one of three oneof variants (the server rejects
- * an empty wrapper); the renderer surfaces a clear error if no variant
- * is set so the failure mode is named rather than blank-rendered.
- *
- * The dispatcher uses sequential `if` (not `else if`) for clarity; a
- * malformed wrapper with multiple variants set would be rejected by the
- * server before reaching the client, so first-match dispatch is safe.
+ * Dispatch a `LabelSchemaInput` to the matching widget. Exactly one oneof
+ * variant is set; render a named error if none is, rather than blank-rendering.
  */
 export const LabelSchemaInputRenderer = ({
   input,
@@ -78,24 +72,17 @@ export const LabelSchemaInputRenderer = ({
     );
   }
   if (input.categorical) {
-    // If the upstream schema was migrated single-select -> multi-select
-    // (or vice versa) after a value was stored, lift the value into the
-    // shape the categorical widget expects so the prior selection survives.
+    // multi_select is immutable after creation, so a stored value always
+    // matches the widget's shape; guard by type only (a value left over from
+    // a different variant resets to null, as the other widgets do).
     const isMultiSelect = input.categorical.multi_select === true;
-    let categoricalValue: string | string[] | null;
-    if (isMultiSelect) {
-      if (Array.isArray(value)) {
-        categoricalValue = value;
-      } else if (typeof value === 'string') {
-        categoricalValue = [value];
-      } else {
-        categoricalValue = null;
-      }
-    } else if (typeof value === 'string') {
-      categoricalValue = value;
-    } else {
-      categoricalValue = null;
-    }
+    const categoricalValue = isMultiSelect
+      ? Array.isArray(value)
+        ? value
+        : null
+      : typeof value === 'string'
+        ? value
+        : null;
     return (
       <LabelSchemaInputCategorical
         input={input.categorical}

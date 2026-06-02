@@ -1,6 +1,7 @@
 import { useQuery } from '@databricks/web-shared/query-client';
 import { fetchAPI, getAjaxUrl } from '../../../../common/utils/FetchUtils';
 import type { LabelSchema } from '../types';
+import { LABEL_SCHEMAS_API_BASE } from './constants';
 
 export const LIST_LABEL_SCHEMAS_QUERY_KEY = 'LIST_LABEL_SCHEMAS';
 
@@ -40,7 +41,7 @@ export const useListLabelSchemasQuery = ({
       if (pageToken) {
         params.set('page_token', pageToken);
       }
-      return (await fetchAPI(getAjaxUrl(`ajax-api/3.0/mlflow/label-schemas/list?${params.toString()}`), {
+      return (await fetchAPI(getAjaxUrl(`${LABEL_SCHEMAS_API_BASE}/list?${params.toString()}`), {
         method: 'GET',
       })) as ListLabelSchemasResponse;
     },
