@@ -12,7 +12,8 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import type { DatasetRecord } from '../hooks/useDatasetsQueries';
-import { getCoreRowModel, useReactTable } from '@tanstack/react-table';
+import { useReactTable_unverifiedWithReact18 as useReactTable } from '@databricks/web-shared/react-table';
+import { getCoreRowModel } from '@tanstack/react-table';
 import type { ColumnDef, ColumnSizingState, OnChangeFn } from '@tanstack/react-table';
 import {
   CreatedByCell,
@@ -299,21 +300,24 @@ export const DatasetRecordsTable = ({
     [columnWidthsForViewport],
   );
 
-  const table = useReactTable({
-    data: records,
-    columns: columns,
-    getCoreRowModel: CORE_ROW_MODEL_FACTORY,
-    enableColumnResizing: true,
-    columnResizeMode: 'onChange',
-    defaultColumn: {
-      minSize: COLUMN_MIN_WIDTH,
-      maxSize: COLUMN_MAX_WIDTH,
+  const table = useReactTable(
+    'mlflow/server/js/src/experiment-tracking/pages/experiment-evaluation-datasets-v2/components/DatasetRecordsTable.tsx',
+    {
+      data: records,
+      columns: columns,
+      getCoreRowModel: CORE_ROW_MODEL_FACTORY,
+      enableColumnResizing: true,
+      columnResizeMode: 'onChange',
+      defaultColumn: {
+        minSize: COLUMN_MIN_WIDTH,
+        maxSize: COLUMN_MAX_WIDTH,
+      },
+      state: {
+        columnSizing,
+      },
+      onColumnSizingChange: setColumnSizing,
     },
-    state: {
-      columnSizing,
-    },
-    onColumnSizingChange: setColumnSizing,
-  });
+  );
 
   // `table` is stable across renders for the same column set; memo prevents
   // the Object.fromEntries from running on every parent re-render.
