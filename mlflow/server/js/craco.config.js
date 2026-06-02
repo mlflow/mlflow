@@ -4,6 +4,7 @@ const fs = require('fs');
 const TsconfigPathsPlugin = require('tsconfig-paths-webpack-plugin');
 const webpack = require('webpack');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
+const MonacoWebpackPlugin = require('monaco-editor-webpack-plugin');
 
 const proxyTarget = process.env.MLFLOW_PROXY;
 const useProxyServer = !!proxyTarget && !process.env.MLFLOW_DEV_PROXY_MODE;
@@ -346,6 +347,19 @@ module.exports = function () {
     webpack: {
       configure: (webpackConfig, { env }) => {
         webpackConfig.output.publicPath = 'static-files/';
+        // monaco-editor ships vendored CSS (e.g. the hover widget's hover.css) that uses
+        // `justify-content: end`, which autoprefixer flags as "end value has mixed support".
+        // It is third-party CSS we cannot edit, and CRA's production build treats webpack
+        // warnings as errors under CI. Scope the suppression to monaco-editor so the same
+        // warning still surfaces for our own CSS.
+        webpackConfig.ignoreWarnings = [
+          ...(webpackConfig.ignoreWarnings || []),
+          (warning) => {
+            const message = warning?.message ?? '';
+            const resource = warning?.module?.resource ?? '';
+            return /autoprefixer:.*mixed support/.test(message) && resource.includes('monaco-editor');
+          },
+        ];
         webpackConfig = i18nOverrides(webpackConfig);
         webpackConfig = configureIframeCSSPublicPaths(webpackConfig, env);
         webpackConfig = enableOptionalTypescript(webpackConfig);
@@ -466,6 +480,14 @@ module.exports = function () {
         new webpack.EnvironmentPlugin({
           MLFLOW_SHOW_GDPR_PURGING_MESSAGES: process.env.MLFLOW_SHOW_GDPR_PURGING_MESSAGES ? 'true' : 'false',
           MLFLOW_USE_ABSOLUTE_AJAX_URLS: process.env.MLFLOW_USE_ABSOLUTE_AJAX_URLS ? 'true' : 'false',
+        }),
+        // Only the dataset record editor uses Monaco today, and only for JSON. Restricting
+        // languages + dropping the search/quickCommand features keeps the lazy chunk to ~1MB
+        // gz instead of the full ~3MB.
+        new MonacoWebpackPlugin({
+          languages: ['json'],
+          features: ['!gotoSymbol', '!documentSymbols'],
+          filename: 'static/js/monaco-[name].worker.[contenthash:8].js',
         }),
       ],
     },
