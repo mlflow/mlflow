@@ -6,6 +6,9 @@ from unittest import mock
 import httpx
 import openai
 import pytest
+from openai.resources.chat.completions import Completions as ChatCompletions
+from openai.resources.completions import Completions
+from openai.resources.embeddings import Embeddings
 from packaging.version import Version
 from pydantic import BaseModel
 
@@ -13,6 +16,7 @@ import mlflow
 from mlflow.entities import SpanLogLevel
 from mlflow.entities.span import SpanType
 from mlflow.exceptions import MlflowException
+from mlflow.openai.autolog import _get_span_type
 from mlflow.openai.utils.chat_schema import _parse_tools
 from mlflow.tracing.constant import (
     STREAM_CHUNK_EVENT_VALUE_KEY,
@@ -159,12 +163,6 @@ def test_get_span_type_resolves_subclasses():
     # third-party clients (e.g. DatabricksOpenAI) subclass the OpenAI resource
     # classes, so exact dict lookup misses and a previous fallback returned an
     # unhashable tuple, breaking span log-level resolution downstream.
-    from openai.resources.chat.completions import Completions as ChatCompletions
-    from openai.resources.completions import Completions
-    from openai.resources.embeddings import Embeddings
-
-    from mlflow.openai.autolog import _get_span_type
-
     class CustomChatCompletions(ChatCompletions):
         pass
 
