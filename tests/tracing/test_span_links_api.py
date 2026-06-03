@@ -2,6 +2,7 @@ import mlflow
 from mlflow.entities import Link
 from mlflow.entities.span import NoOpSpan
 from mlflow.tracing.fluent import start_span_no_context
+from mlflow.tracking.client import MlflowClient
 
 from tests.tracing.helper import get_traces
 
@@ -97,7 +98,7 @@ def test_trace_decorator_with_generator_and_links():
 
 
 def test_client_start_trace_with_links():
-    client = mlflow.MlflowClient()
+    client = MlflowClient()
     links = [
         Link(trace_id="tr-0123456789abcdef0123456789abcdef", span_id="0123456789abcdef"),
     ]
@@ -112,7 +113,7 @@ def test_client_start_trace_with_links():
 
 
 def test_client_start_span_with_links():
-    client = mlflow.MlflowClient()
+    client = MlflowClient()
 
     root = client.start_trace("my_trace")
 

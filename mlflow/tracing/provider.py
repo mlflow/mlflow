@@ -199,9 +199,7 @@ def get_current_otel_span() -> trace.Span | None:
     return trace.get_current_span(context=get_current_context())
 
 
-def start_span_in_context(
-    name: str, experiment_id: str | None = None
-) -> trace.Span:
+def start_span_in_context(name: str, experiment_id: str | None = None) -> trace.Span:
     """
     Start a new OpenTelemetry span in the current context.
 
