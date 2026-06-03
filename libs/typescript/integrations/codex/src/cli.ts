@@ -42,7 +42,7 @@ function printUsage(): void {
   );
   console.error(
     dim(
-      "                 --trace-location <loc> Databricks Unity Catalog trace location as\n" +
+      '                 --trace-location <loc> Databricks Unity Catalog trace location as\n' +
         "                                        'catalog.schema.table_prefix' (routes to UC ingestion)",
     ),
   );

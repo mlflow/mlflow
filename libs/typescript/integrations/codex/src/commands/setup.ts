@@ -276,7 +276,9 @@ function writeTracingConfigIfValid(
   console.error(`\n${bold('Next steps')}`);
   if (trackingUri.startsWith('databricks')) {
     const destination = traceLocation ? `UC location ${bold(traceLocation)}` : bold(trackingUri);
-    console.error(`  1. Launch ${cyan('codex')} - traces appear in ${destination} after each turn.`);
+    console.error(
+      `  1. Launch ${cyan('codex')} - traces appear in ${destination} after each turn.`,
+    );
   } else {
     const port = new URL(trackingUri).port || '5000';
     console.error('  1. Start the MLflow tracking server in a separate terminal:');

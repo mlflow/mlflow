@@ -51,11 +51,7 @@ describe('resolveTracingConfig', () => {
 
   function writeUserConfig(config: Record<string, string>): void {
     mkdirSync(join(tmpHome, '.codex'), { recursive: true });
-    writeFileSync(
-      join(tmpHome, '.codex', 'mlflow-tracing.json'),
-      JSON.stringify(config),
-      'utf-8',
-    );
+    writeFileSync(join(tmpHome, '.codex', 'mlflow-tracing.json'), JSON.stringify(config), 'utf-8');
   }
 
   it('reads the trace location from mlflow-tracing.json', () => {
