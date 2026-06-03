@@ -46,8 +46,7 @@ def _pass_fail_schema(schema_id="ls-1"):
 
 
 def test_create_label_schema_delegates_to_tracing_client():
-    with patch(f"{_BASE}._create_label_schema") as mock_create:
-        mock_create.return_value = _pass_fail_schema()
+    with patch(f"{_BASE}._create_label_schema", return_value=_pass_fail_schema()) as mock_create:
         result = create_label_schema(
             name="Is the answer correct?",
             type="feedback",
@@ -67,10 +66,9 @@ def test_create_label_schema_delegates_to_tracing_client():
 
 def test_create_label_schema_defaults_experiment_id_to_current():
     with (
-        patch(f"{_BASE}._create_label_schema") as mock_create,
+        patch(f"{_BASE}._create_label_schema", return_value=_pass_fail_schema()) as mock_create,
         patch("mlflow.tracking.fluent._get_experiment_id", return_value="7"),
     ):
-        mock_create.return_value = _pass_fail_schema()
         create_label_schema(
             name="x",
             type="feedback",
@@ -94,16 +92,14 @@ def test_create_label_schema_rejects_databricks_only_params(kwargs, match):
 
 
 def test_get_label_schema_by_id_delegates():
-    with patch(f"{_BASE}._get_label_schema") as mock_get:
-        mock_get.return_value = _pass_fail_schema()
+    with patch(f"{_BASE}._get_label_schema", return_value=_pass_fail_schema()) as mock_get:
         result = get_label_schema(schema_id="ls-1")
         assert result.schema_id == "ls-1"
         mock_get.assert_called_once_with("ls-1")
 
 
 def test_get_label_schema_by_name_delegates():
-    with patch(f"{_BASE}._get_label_schema_by_name") as mock_get:
-        mock_get.return_value = _pass_fail_schema()
+    with patch(f"{_BASE}._get_label_schema_by_name", return_value=_pass_fail_schema()) as mock_get:
         result = get_label_schema(name="Is the answer correct?", experiment_id="1")
         assert result.name == "Is the answer correct?"
         mock_get.assert_called_once_with("1", "Is the answer correct?")
@@ -124,8 +120,7 @@ def test_list_label_schemas_paginates():
 
 
 def test_update_label_schema_sparse_kwargs():
-    with patch(f"{_BASE}._update_label_schema") as mock_update:
-        mock_update.return_value = _pass_fail_schema()
+    with patch(f"{_BASE}._update_label_schema", return_value=_pass_fail_schema()) as mock_update:
         update_label_schema("ls-1", instruction="Updated instruction")
         kwargs = mock_update.call_args[1]
         # name/enable_comment/input default to None and are passed through; the
@@ -137,8 +132,7 @@ def test_update_label_schema_sparse_kwargs():
 
 
 def test_update_label_schema_replaces_input():
-    with patch(f"{_BASE}._update_label_schema") as mock_update:
-        mock_update.return_value = _pass_fail_schema()
+    with patch(f"{_BASE}._update_label_schema", return_value=_pass_fail_schema()) as mock_update:
         new_input = InputCategorical(options=["low", "high"])
         update_label_schema("ls-1", input=new_input)
         assert mock_update.call_args[1]["input"] is new_input
