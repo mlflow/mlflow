@@ -1,11 +1,3 @@
-"""Tests for the label-schema fluent SDK on a (non-Databricks) tracking store.
-
-The same functions route to the Databricks ReviewApp on a Databricks tracking
-URI; that path is exercised in ``test_label_schemas.py`` (which skips when
-``databricks-agents`` is unavailable). Here we force the tracking-store path
-and assert delegation to ``TracingClient``.
-"""
-
 from unittest.mock import patch
 
 import pytest
