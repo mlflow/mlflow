@@ -36,7 +36,9 @@ export function parseSetupArgs(args: string[]): ParsedSetupArgs {
     } else if (arg === '--experiment-name') {
       parsed.experimentName = args[++i];
     } else if (arg === '--trace-location') {
-      parsed.traceLocation = args[++i];
+      // Treat a missing value as empty (not undefined) so validation fails
+      // loudly instead of silently ignoring the flag.
+      parsed.traceLocation = args[++i] ?? '';
     }
   }
   return parsed;
@@ -101,7 +103,7 @@ export async function runSetup(args: string[], options: SetupOptions = {}): Prom
     return;
   }
 
-  if (merged.traceLocation && !parseTraceLocation(merged.traceLocation)) {
+  if (merged.traceLocation !== undefined && !parseTraceLocation(merged.traceLocation)) {
     console.error(
       `Error: invalid --trace-location: ${merged.traceLocation}. ` +
         "Must be in 'catalog.schema.table_prefix' format.",

@@ -159,6 +159,15 @@ describe('mlflow-claude-code setup', () => {
     });
   });
 
+  it('rejects --trace-location with a missing value instead of ignoring it', async () => {
+    await runSetup(
+      ['--user', '--tracking-uri', 'databricks', '--experiment-id', '42', '--trace-location'],
+      { home: tmpHome, cwd: tmpCwd },
+    );
+    expect(process.exitCode).toBe(1);
+    expect(existsSync(join(tmpHome, '.claude', 'settings.json'))).toBe(false);
+  });
+
   it('rejects an invalid --trace-location', async () => {
     await runSetup(
       [

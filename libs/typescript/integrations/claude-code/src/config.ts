@@ -275,7 +275,8 @@ export function writeTracingSettings(
   }
 
   if (hasConfigValue(config.traceLocation)) {
-    env[MLFLOW_TRACE_LOCATION] = config.traceLocation;
+    // Trim on write so stored settings match what parsing/init() will use.
+    env[MLFLOW_TRACE_LOCATION] = config.traceLocation.trim();
   } else {
     delete env[MLFLOW_TRACE_LOCATION];
   }

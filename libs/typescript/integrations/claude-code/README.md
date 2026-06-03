@@ -27,24 +27,9 @@ export MLFLOW_TRACKING_URI=http://localhost:5000
 export MLFLOW_EXPERIMENT_ID=<experiment-id>
 ```
 
-To send traces to a Databricks Unity Catalog trace location instead of an MLflow experiment, also set `MLFLOW_TRACE_LOCATION` to a `catalog.schema.table_prefix` value (the UC location must already be provisioned in the workspace):
-
-```bash
-export MLFLOW_TRACKING_URI=databricks
-export MLFLOW_EXPERIMENT_ID=<experiment-id>
-export MLFLOW_TRACE_LOCATION=my_catalog.my_schema.my_prefix
-```
-
 ### Tracing the Claude Code CLI
 
 Install the bundled Stop-hook plugin once; it will trace every CLI session automatically. See the [docs](https://mlflow.org/docs/latest/genai/tracing/integrations/claude-code) for plugin setup.
-
-You can also configure tracing (including the optional UC trace location) with the bundled CLI:
-
-```bash
-mlflow-claude-code setup --user --tracking-uri databricks \
-  --experiment-id <experiment-id> --trace-location my_catalog.my_schema.my_prefix
-```
 
 ### Tracing the Claude Agent SDK
 
