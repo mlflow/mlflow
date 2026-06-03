@@ -17,12 +17,20 @@ import { LOG_IMAGE_TAG_INDICATOR } from '../../constants';
 // Mock plot components, as they are not relevant to this test and would hog a lot of resources
 jest.mock('../runs-charts/components/cards/RunsChartsBarChartCard', () => ({
   RunsChartsBarChartCard: ({ config }: RunsChartsBarChartCardProps) => (
-    <div data-testid="test-bar-plot">Bar plot for {config.metricKey}</div>
+    <div data-testid="test-bar-plot">
+      <div>Bar plot for {config.metricKey}</div>
+      {config.displayName && <div>{config.displayName}</div>}
+    </div>
   ),
 }));
 jest.mock('../runs-charts/components/cards/RunsChartsLineChartCard', () => ({
   RunsChartsLineChartCard: ({ config }: RunsChartsLineChartCardProps) => {
-    return <div data-testid="test-line-plot">Line plot for {config.metricKey}</div>;
+    return (
+      <div data-testid="test-line-plot">
+        <div>Line plot for {config.metricKey}</div>
+        {config.displayName && <div>{config.displayName}</div>}
+      </div>
+    );
   },
 }));
 

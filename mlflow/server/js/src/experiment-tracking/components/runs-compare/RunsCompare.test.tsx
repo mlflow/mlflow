@@ -252,8 +252,13 @@ describe.each(testCases)('RunsCompare $description', ({ setup: testCaseSetup }) 
   };
 
   const getChartArea = (chartTitle: string) => {
-    const firstMetricHeading = screen.getByRole('heading', { name: chartTitle });
-    return firstMetricHeading.closest('[data-testid="experiment-view-compare-runs-card"]') as HTMLElement;
+    const displayTitle = chartTitle.split('/').pop() ?? chartTitle;
+    const chartPlot =
+      screen.queryByText(`[bar plot for ${chartTitle}]`) ??
+      screen.queryByText(`[line plot for ${chartTitle}]`) ??
+      screen.queryByRole('heading', { name: chartTitle }) ??
+      screen.getByRole('heading', { name: displayTitle });
+    return chartPlot.closest('[data-testid="experiment-view-compare-runs-card"]') as HTMLElement;
   };
 
   const getSectionArea = (sectionName: string) => {
