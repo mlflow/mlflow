@@ -22,9 +22,7 @@ function printUsage(): void {
   console.error(
     '                 --experiment-name <n>  Create or reuse an MLflow experiment by name.',
   );
-  console.error(
-    '                 --trace-location <loc> Optional Databricks Unity Catalog trace',
-  );
+  console.error('                 --trace-location <loc> Optional Databricks Unity Catalog trace');
   console.error(
     "                                        location as 'catalog.schema.table_prefix'.",
   );
@@ -44,9 +42,7 @@ function printUsage(): void {
   console.error(
     '                 $ mlflow-claude-code setup --user --tracking-uri databricks --experiment-id 12345',
   );
-  console.error(
-    '                 $ mlflow-claude-code setup --user --tracking-uri databricks \\',
-  );
+  console.error('                 $ mlflow-claude-code setup --user --tracking-uri databricks \\');
   console.error(
     '                     --experiment-id 12345 --trace-location my_catalog.my_schema.my_prefix',
   );
