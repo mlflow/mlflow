@@ -1,6 +1,8 @@
+import contextvars
 import logging
 import threading
 from collections import defaultdict
+from dataclasses import dataclass, field
 from typing import Sequence
 
 from opentelemetry.sdk.trace import ReadableSpan
@@ -29,6 +31,17 @@ from mlflow.utils.databricks_utils import is_in_databricks_notebook
 from mlflow.utils.uri import is_databricks_uri
 
 _logger = logging.getLogger(__name__)
+
+
+@dataclass
+class _SpanExportGroup:
+    """Spans bound for a single experiment, paired with the originating context."""
+
+    spans: list[Span] = field(default_factory=list)
+    # ContextVar snapshot from the originating thread of the first trace in the group.
+    # Workspaces partition experiment IDs, so all traces sharing an experiment_id share a
+    # workspace and any one of their captured contexts is equivalent for export-time use.
+    context: contextvars.Context | None = None
 
 
 class MlflowV3SpanExporter(SpanExporter):
@@ -87,21 +100,22 @@ class MlflowV3SpanExporter(SpanExporter):
             return
 
         mlflow_spans_by_experiment = self._collect_mlflow_spans_for_export(spans)
-        for experiment_id, spans_to_log in mlflow_spans_by_experiment.items():
+        for experiment_id, group in mlflow_spans_by_experiment.items():
             if self._should_log_async():
                 self._async_queue.put(
                     task=Task(
                         handler=self._log_spans,
-                        args=(experiment_id, spans_to_log),
+                        args=(experiment_id, group.spans),
                         error_msg="Failed to log spans to the trace server.",
+                        context=group.context,
                     )
                 )
             else:
-                self._log_spans(experiment_id, spans_to_log)
+                self._log_spans(experiment_id, group.spans)
 
     def _collect_mlflow_spans_for_export(
         self, spans: Sequence[ReadableSpan]
-    ) -> dict[str, list[Span]]:
+    ) -> dict[str, _SpanExportGroup]:
         """
         Collect MLflow spans from ReadableSpans for export, grouped by experiment_id.
 
@@ -113,10 +127,11 @@ class MlflowV3SpanExporter(SpanExporter):
             spans: Sequence of ReadableSpan objects.
 
         Returns:
-            Dictionary mapping experiment_id to list of MLflow Span objects.
+            Dictionary mapping experiment_id to an export group holding the spans and the
+            originating thread's captured context for that experiment.
         """
         manager = InMemoryTraceManager.get_instance()
-        spans_by_experiment = defaultdict(list)
+        groups: dict[str, _SpanExportGroup] = defaultdict(_SpanExportGroup)
 
         for span in spans:
             mlflow_trace_id = manager.get_mlflow_trace_id_from_otel_id(span.context.trace_id)
@@ -128,17 +143,23 @@ class MlflowV3SpanExporter(SpanExporter):
                 continue
             # Get experiment_id from trace info (resolved at on_start time in the
             # originating thread) to survive BatchSpanProcessor thread hops.
+            captured_context: contextvars.Context | None = None
             with manager.get_trace(mlflow_trace_id) as trace:
                 try:
                     experiment_id = trace.info.experiment_id if trace else None
                 except AttributeError:
                     # Remote/distributed traces may have trace_location=None
                     experiment_id = None
+                if trace is not None:
+                    captured_context = trace.context
             if experiment_id is None:
                 experiment_id = get_experiment_id_for_trace(span)
-            spans_by_experiment[experiment_id].append(mlflow_span)
+            group = groups[experiment_id]
+            group.spans.append(mlflow_span)
+            if group.context is None:
+                group.context = captured_context
 
-        return spans_by_experiment
+        return groups
 
     def _export_traces(self, spans: Sequence[ReadableSpan]) -> None:
         """
@@ -206,6 +227,7 @@ class MlflowV3SpanExporter(SpanExporter):
                     handler=self._log_trace,
                     args=(trace, manager_trace.prompts),
                     error_msg="Failed to log trace to the trace server.",
+                    context=manager_trace.context,
                 )
             )
         else:

@@ -114,6 +114,7 @@ class InferenceTableSpanExporter(SpanExporter):
                             handler=self._log_trace_to_mlflow_backend,
                             args=(trace, manager_trace.prompts),
                             error_msg=f"Failed to log trace {trace.info.trace_id}.",
+                            context=manager_trace.context,
                         )
                     )
                 except Exception as e:

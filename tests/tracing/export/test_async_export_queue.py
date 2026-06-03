@@ -1,3 +1,4 @@
+import contextvars
 import multiprocessing
 import threading
 import time
@@ -103,6 +104,49 @@ def test_put_after_terminate_executes_synchronously():
     queue.put(Task(handler=calls.append, args=(2,)))
 
     assert calls == [1, 2]
+
+
+def test_put_propagates_caller_contextvars_to_worker():
+    # ThreadPoolExecutor does not propagate ContextVars to worker threads.
+    # AsyncTraceExportQueue.put() must snapshot the caller's context so handlers
+    # see request-scoped state such as the active workspace set by the server
+    # middleware (regression test for https://github.com/mlflow/mlflow/issues/23748).
+    test_var: contextvars.ContextVar[str | None] = contextvars.ContextVar("test_var", default=None)
+    test_var.set("caller-value")
+
+    seen_in_worker: dict[str, str | None] = {}
+
+    def handler():
+        seen_in_worker["value"] = test_var.get()
+
+    queue = AsyncTraceExportQueue()
+    queue.put(Task(handler=handler, args=()))
+    queue.flush(terminate=True)
+
+    assert seen_in_worker["value"] == "caller-value"
+
+
+def test_put_honors_explicitly_attached_context():
+    test_var: contextvars.ContextVar[str | None] = contextvars.ContextVar("test_var", default=None)
+
+    def captured_context_factory() -> contextvars.Context:
+        ctx = contextvars.copy_context()
+        ctx.run(test_var.set, "from-explicit-context")
+        return ctx
+
+    explicit_context = captured_context_factory()
+    test_var.set("caller-thread-value")
+
+    seen_in_worker: dict[str, str | None] = {}
+
+    def handler():
+        seen_in_worker["value"] = test_var.get()
+
+    queue = AsyncTraceExportQueue()
+    queue.put(Task(handler=handler, args=(), context=explicit_context))
+    queue.flush(terminate=True)
+
+    assert seen_in_worker["value"] == "from-explicit-context"
 
 
 def test_async_queue_drop_task_when_full(monkeypatch):

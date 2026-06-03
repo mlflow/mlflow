@@ -21,6 +21,10 @@ from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
 from mlflow.tracing.provider import _get_trace_exporter
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import generate_trace_id_v3
+from mlflow.utils.workspace_context import (
+    ServerWorkspaceContext,
+    get_request_workspace,
+)
 
 from tests.tracing.helper import create_mock_otel_span, create_test_trace_info
 
@@ -189,6 +193,42 @@ def test_export_with_batch_span_processor(monkeypatch):
     assert trace_info is not None
     assert trace_info.trace_id is not None
     assert mlflow.get_last_active_trace_id() is not None
+
+
+@pytest.mark.timeout(20)
+@pytest.mark.parametrize("use_batch_processor", ["true", "false"], ids=["bsp", "no-bsp"])
+def test_export_propagates_workspace_context_through_async_pipeline(
+    use_batch_processor, monkeypatch
+):
+    # Regression test for https://github.com/mlflow/mlflow/issues/23748: when the
+    # workspace ContextVar is set in the originating thread (by the server middleware),
+    # async trace export must restore it on the worker thread that calls the store.
+    monkeypatch.setenv("DATABRICKS_HOST", "dummy-host")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "dummy-token")
+    monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", "true")
+    monkeypatch.setenv("MLFLOW_USE_BATCH_SPAN_PROCESSOR", use_batch_processor)
+
+    mlflow.set_tracking_uri("databricks")
+    mlflow.tracing.set_destination(MlflowExperimentLocation(experiment_id=_EXPERIMENT_ID))
+
+    workspace_seen_in_worker: list[str | None] = []
+
+    def fake_log_trace(self, trace, prompts):
+        workspace_seen_in_worker.append(get_request_workspace())
+
+    with mock.patch(
+        "mlflow.tracing.export.mlflow_v3.MlflowV3SpanExporter._log_trace",
+        new=fake_log_trace,
+    ):
+        with ServerWorkspaceContext("tenant-a"):
+            assert get_request_workspace() == "tenant-a"
+            _predict("hello")
+        # Exit the ContextVar scope before flushing so we prove the worker thread
+        # restores the snapshot rather than reading a still-live caller value.
+        assert get_request_workspace() is None
+        mlflow.flush_trace_async_logging(terminate=True)
+
+    assert workspace_seen_in_worker == ["tenant-a"]
 
 
 def test_async_logging_disabled_in_databricks_notebook(monkeypatch):

@@ -1,3 +1,4 @@
+import contextvars
 import json
 import logging
 import threading
@@ -197,6 +198,13 @@ class BaseMlflowSpanProcessor(OtelMetricsMixin, SimpleSpanProcessor):
             if trace_info is None:
                 return
             trace_id = trace_info.trace_id
+            # Snapshot the originating thread's ContextVars (e.g. server-resolved
+            # workspace). Export tasks dispatched via BatchSpanProcessor and
+            # AsyncTraceExportQueue run on worker threads where these would otherwise
+            # be lost.
+            with InMemoryTraceManager.get_instance().get_trace(trace_id) as trace:
+                if trace is not None:
+                    trace.context = contextvars.copy_context()
 
         InMemoryTraceManager.get_instance().register_span(create_mlflow_span(span, trace_id))
 

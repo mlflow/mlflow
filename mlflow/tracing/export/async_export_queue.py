@@ -1,4 +1,5 @@
 import atexit
+import contextvars
 import logging
 import threading
 import time
@@ -23,11 +24,18 @@ class Task:
     handler: Callable[..., Any]
     args: Sequence[Any]
     error_msg: str = ""
+    # Caller's ContextVar snapshot. ThreadPoolExecutor does not propagate ContextVars to
+    # worker threads, so handlers that depend on request-scoped state (e.g. the active
+    # workspace set by the server middleware) must run inside this captured context.
+    context: contextvars.Context | None = None
 
     def handle(self) -> None:
         """Handle the task execution. This method must not raise any exception."""
         try:
-            self.handler(*self.args)
+            if self.context is not None:
+                self.context.run(self.handler, *self.args)
+            else:
+                self.handler(*self.args)
         except Exception as e:
             _logger.warning(
                 f"{self.error_msg} Error: {e}.",
@@ -53,6 +61,12 @@ class AsyncTraceExportQueue:
 
     def put(self, task: Task):
         """Put a new task to the queue for processing."""
+        # Snapshot the caller's ContextVars so handlers run with the same
+        # request-scoped state (e.g. active workspace) on the worker thread.
+        # Honor any context already attached by the caller (e.g. captured at
+        # the originating thread by the span exporter).
+        if task.context is None:
+            task.context = contextvars.copy_context()
         if not self.is_active():
             if self._stop_event.is_set():
                 # Queue was terminated via flush(terminate=True); _stop_event will never be

@@ -1,4 +1,5 @@
 import contextlib
+import contextvars
 import logging
 import threading
 from dataclasses import dataclass, field
@@ -23,6 +24,10 @@ class _Trace:
     span_dict: dict[str, LiveSpan] = field(default_factory=dict)
     prompts: list[PromptVersion] = field(default_factory=list)
     is_remote_trace: bool = False
+    # ContextVar snapshot from the originating thread (set when the root span starts).
+    # Used to propagate request-scoped state (e.g. active workspace) across the
+    # BatchSpanProcessor and AsyncTraceExportQueue worker-thread hops.
+    context: contextvars.Context | None = None
 
     def to_mlflow_trace(self) -> Trace:
         trace_data = TraceData()
@@ -49,6 +54,9 @@ class ManagerTrace:
     trace: Trace
     prompts: Sequence[PromptVersion]
     is_remote_trace: bool = False
+    # ContextVar snapshot from the originating thread, forwarded from the in-memory
+    # _Trace at pop_trace() time so exporters can restore it on worker threads.
+    context: contextvars.Context | None = None
 
 
 class InMemoryTraceManager:
@@ -199,6 +207,7 @@ class InMemoryTraceManager:
                 trace=internal_trace.to_mlflow_trace(),
                 prompts=internal_trace.prompts,
                 is_remote_trace=internal_trace.is_remote_trace,
+                context=internal_trace.context,
             )
 
     def _check_timeout_update(self):
