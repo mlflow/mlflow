@@ -278,7 +278,7 @@ MLflow supports all agent frameworks, LLM providers, tools, and programming lang
   </tr>
 </table>
 
-## Hosting MLflow
+## Hosting MLflows
 
 MLflow can be used in a variety of environments, including your local environment, on-premises clusters, cloud platforms, and managed services. Being an open-source platform, MLflow is **vendor-neutral** — whether you're building AI agents, LLM applications, or ML models, you have access to MLflow's core capabilities.
 
