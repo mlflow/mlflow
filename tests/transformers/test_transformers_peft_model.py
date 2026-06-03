@@ -269,3 +269,14 @@ def test_load_base_model_path_override_rejects_non_checkpoint_dir(
 
     with pytest.raises(MlflowException, match="config.json"):
         mlflow.transformers.load_model(save_dir, base_model_path=str(empty_dir))
+
+
+
+def test_persist_pretrained_model_raises_for_peft(peft_pipeline):
+    # Log the provided PEFT pipeline fixture
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(peft_pipeline, name="model")
+
+    # Assert that our new guardrail catches it and raises the exact exception
+    with pytest.raises(MlflowException, match="Cannot use `persist_pretrained_model` on a PEFT/LoRA model"):
+        mlflow.transformers.persist_pretrained_model(model_info.model_uri)
