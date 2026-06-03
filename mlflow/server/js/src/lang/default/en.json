@@ -575,6 +575,10 @@
     "defaultMessage": "When the trace was created",
     "description": "Tooltip description for the Request Time column in the traces table"
   },
+  "1FNsrA": {
+    "defaultMessage": "Labeling schemas",
+    "description": "Label schemas page header title"
+  },
   "1Iq+NW": {
     "defaultMessage": "Copy",
     "description": "Button text for copy button"

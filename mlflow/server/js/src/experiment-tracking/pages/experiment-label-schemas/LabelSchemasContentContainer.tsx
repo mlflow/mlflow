@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Button, Empty, PlusIcon, Spacer, Spinner, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 
+import { PreviewBadge } from '@mlflow/mlflow/src/shared/building_blocks/PreviewBadge';
+
 import { useListLabelSchemasQuery } from '../../components/label-schemas/hooks/useListLabelSchemasQuery';
 import type { LabelSchema } from '../../components/label-schemas/types';
 import { DeleteLabelSchemaModal } from './DeleteLabelSchemaModal';
@@ -89,11 +91,17 @@ export const LabelSchemasContentContainer = ({ experimentId }: LabelSchemasConte
       <div
         css={{
           display: 'flex',
-          justifyContent: 'flex-end',
+          justifyContent: 'space-between',
           alignItems: 'center',
           padding: theme.spacing.sm,
         }}
       >
+        <div css={{ display: 'flex', alignItems: 'center' }}>
+          <Typography.Title level={4} withoutMargins>
+            <FormattedMessage defaultMessage="Labeling schemas" description="Label schemas page header title" />
+          </Typography.Title>
+          <PreviewBadge />
+        </div>
         <Button
           componentId="mlflow.experiment-label-schemas.create-button"
           icon={<PlusIcon />}
