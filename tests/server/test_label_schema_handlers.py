@@ -1,15 +1,9 @@
-"""Unit tests for the tracking-store label-schema REST handlers.
-
-These tests exercise the handler functions directly (mocking the tracking
-store and request-message parsing); the wire-format round-trip through
-``LabelSchema.to_proto`` / ``from_proto`` is covered separately.
-"""
-
 import json
 from unittest import mock
 
 import pytest
 
+from mlflow.exceptions import MlflowException
 from mlflow.genai.label_schemas.label_schemas import (
     InputCategorical,
     InputNumeric,
@@ -38,14 +32,18 @@ from mlflow.protos.label_schemas_pb2 import (
     InputPassFail as ProtoInputPassFail,
 )
 from mlflow.server.handlers import (
+    _assert_intlike,
+    _assert_intlike_within_range,
     _create_label_schema,
     _delete_label_schema,
     _get_label_schema,
     _get_label_schema_by_name,
     _list_label_schemas,
     _update_label_schema,
+    _validate_param_against_schema,
 )
 from mlflow.store.entities.paged_list import PagedList
+from mlflow.store.tracking import SEARCH_MAX_RESULTS_THRESHOLD
 
 _BASE_PATCH = "mlflow.server.handlers"
 
@@ -304,13 +302,6 @@ def test_list_label_schemas_max_results_bound_check(bad_max_results):
     # _assert_intlike_within_range; the dispatcher inside _get_request_message
     # converts an AssertionError into MlflowException(INVALID_PARAMETER_VALUE).
     # Hit the schema directly so we don't have to spin up a Flask app.
-    from mlflow.server.handlers import (
-        _assert_intlike,
-        _assert_intlike_within_range,
-        _validate_param_against_schema,
-    )
-    from mlflow.store.tracking import SEARCH_MAX_RESULTS_THRESHOLD
-
     schema_fns = [
         _assert_intlike,
         lambda x: _assert_intlike_within_range(
@@ -320,7 +311,6 @@ def test_list_label_schemas_max_results_bound_check(bad_max_results):
             message=f"max_results must be between 1 and {SEARCH_MAX_RESULTS_THRESHOLD}.",
         ),
     ]
-    from mlflow.exceptions import MlflowException
 
     with pytest.raises(MlflowException, match="max_results") as exc_info:
         _validate_param_against_schema(

@@ -929,11 +929,9 @@ class TracingClient:
         )
 
     def _get_label_schema(self, schema_id: str) -> "LabelSchema":
-        """Get a label schema by its server-generated ``schema_id``."""
         return self.store.get_label_schema(schema_id)
 
     def _get_label_schema_by_name(self, experiment_id: str, name: str) -> "LabelSchema":
-        """Get a label schema by ``(experiment_id, name)``."""
         return self.store.get_label_schema_by_name(experiment_id, name)
 
     def _list_label_schemas(
@@ -942,7 +940,6 @@ class TracingClient:
         max_results: int = 100,
         page_token: str | None = None,
     ) -> "PagedList[LabelSchema]":
-        """List label schemas for an experiment, paginated."""
         return self.store.list_label_schemas(
             experiment_id, max_results=max_results, page_token=page_token
         )
