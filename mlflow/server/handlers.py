@@ -2376,6 +2376,12 @@ def upload_artifact_handler():
             error_code=INVALID_PARAMETER_VALUE,
         )
 
+    if len(data) > 10 * 1024 * 1024:
+        raise MlflowException(
+            message="Artifact size is too large. Max size is 10MB.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
     run = _get_tracking_store().get_run(run_uuid)
     artifact_dir = run.info.artifact_uri
 
