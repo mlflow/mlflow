@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780475782574,
+  "lastUpdate": 1780506126694,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -7181,6 +7181,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 52.38815359999762,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "sanatbhargava18@gmail.com",
+            "name": "Sanat Bhargava",
+            "username": "sanatb187"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "432188861c4d60051da7749055c54d0b57d42d1e",
+          "message": "Add `run_id` support for trace APIs (#23629)\n\nSigned-off-by: sanatb187 <sanatbhargava18@gmail.com>\nSigned-off-by: B-Step62 <yuki.watanabe@databricks.com>\nCo-authored-by: B-Step62 <yuki.watanabe@databricks.com>\nCo-authored-by: Claude <noreply@anthropic.com>",
+          "timestamp": "2026-06-03T10:00:40-07:00",
+          "tree_id": "a8d71eb68ac9c22ea03d279e8347c247509bd54a",
+          "url": "https://github.com/mlflow/mlflow/commit/432188861c4d60051da7749055c54d0b57d42d1e"
+        },
+        "date": 1780506124969,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 45.033718350001095,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 22.783563999996975,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 21.23744051667226,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 22.718598236365942,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 24.485884448274685,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 43.18354899999122,
             "unit": "ms"
           }
         ]
