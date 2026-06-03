@@ -80,9 +80,7 @@ def _all_tables_exist(engine):
 def _is_empty_database(engine):
     # Alembic's bookkeeping table is ignored so a previously failed upgrade attempt
     # doesn't make the DB look populated.
-    return not any(
-        not t.startswith("alembic_") for t in sqlalchemy.inspect(engine).get_table_names()
-    )
+    return all(t.startswith("alembic_") for t in sqlalchemy.inspect(engine).get_table_names())
 
 
 def _initialize_tables(engine):
