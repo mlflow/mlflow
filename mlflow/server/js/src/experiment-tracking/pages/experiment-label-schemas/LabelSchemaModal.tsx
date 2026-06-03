@@ -165,9 +165,10 @@ export const LabelSchemaModal = ({ experimentId, editingSchema, visible, onClose
           css={{
             display: 'flex',
             // Grow with content between a sensible floor and a viewport cap;
-            // beyond the cap the form pane scrolls (see its `overflowY`).
+            // beyond the cap the form pane scrolls (see its `overflowY`). The
+            // cap leaves room for the modal header/footer within the viewport.
             minHeight: 320,
-            maxHeight: '65vh',
+            maxHeight: '80vh',
             overflow: 'hidden',
           }}
         >
