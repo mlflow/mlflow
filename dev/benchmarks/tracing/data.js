@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780443106567,
+  "lastUpdate": 1780450331059,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -7073,6 +7073,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 9.321264599998358,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "joshua.wong@databricks.com",
+            "name": "joshuawong-db",
+            "username": "joshuawong-db"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "581047002f6ae2eb2cf9441e708aa24a20c3285e",
+          "message": "Expose workspace on experiment response (#23593)\n\nSigned-off-by: Joshua Wong <joshua.wong@databricks.com>\nSigned-off-by: joshuawong-db <287905095+joshuawong-db@users.noreply.github.com>\nCo-authored-by: joshuawong-db <287905095+joshuawong-db@users.noreply.github.com>",
+          "timestamp": "2026-06-03T01:28:11Z",
+          "tree_id": "08919bdbf5ca27f7675dc9979863d2be30712cfe",
+          "url": "https://github.com/mlflow/mlflow/commit/581047002f6ae2eb2cf9441e708aa24a20c3285e"
+        },
+        "date": 1780450330327,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 42.66513525000022,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 24.825707499999794,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 22.911337550002507,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 23.98867019999991,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 23.892356018518196,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 10.078414200000907,
             "unit": "ms"
           }
         ]
