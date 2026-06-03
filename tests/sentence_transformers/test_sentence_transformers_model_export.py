@@ -75,24 +75,34 @@ def test_load_model_with_kwargs(model_path, basic_model):
     assert len(encoded) == 42
 
 
-def test_load_model_kwargs_override_defaults(model_path, basic_model):
+def test_load_model_rejects_unknown_kwargs(model_path, basic_model):
     mlflow.sentence_transformers.save_model(model=basic_model, path=model_path)
     with pytest.raises(TypeError, match="unexpected keyword argument"):
         mlflow.sentence_transformers.load_model(model_path, i_dont_exist="foo")
 
 
-def test_pyfunc_load_model_with_kwargs(basic_model, model_path):
-    import mlflow.pyfunc as pyfunc
+@pytest.mark.skipif(
+    Version(sentence_transformers.__version__) < Version("2.3.0"),
+    reason="`trust_remote_code` is not supported before Sentence Transformers 2.3.0",
+)
+def test_load_model_kwargs_take_precedence_over_defaults(model_path, basic_model):
+    mlflow.sentence_transformers.save_model(model=basic_model, path=model_path)
+    with mock.patch(
+        "sentence_transformers.SentenceTransformer", wraps=SentenceTransformer
+    ) as mock_st:
+        mlflow.sentence_transformers.load_model(model_path, trust_remote_code=False)
+        _, call_kwargs = mock_st.call_args
+        assert call_kwargs["trust_remote_code"] is False
 
+
+def test_pyfunc_load_model_with_kwargs(basic_model, model_path):
     mlflow.sentence_transformers.save_model(basic_model, model_path)
     loaded_pyfunc = pyfunc.load_model(model_uri=model_path, truncate_dim=42)
     embedding = loaded_pyfunc.predict("hello world")
     assert embedding.shape == (1, 42)
 
 
-def test_pyfunc_load_model_kwargs_override_defaults(basic_model, model_path):
-    import mlflow.pyfunc as pyfunc
-
+def test_pyfunc_load_model_rejects_unknown_kwargs(basic_model, model_path):
     mlflow.sentence_transformers.save_model(basic_model, model_path)
     with pytest.raises(TypeError, match="unexpected keyword argument"):
         pyfunc.load_model(model_uri=model_path, i_dont_exist="foo")
