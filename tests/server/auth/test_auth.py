@@ -1,8 +1,3 @@
-"""
-Integration test which starts a local Tracking Server on an ephemeral port,
-and ensures authentication is working.
-"""
-
 import base64
 import re
 import subprocess
@@ -32,6 +27,7 @@ from mlflow.protos.databricks_pb2 import (
     ErrorCode,
 )
 from mlflow.server import auth as auth_module
+from mlflow.server.asgi_utils import get_routed_asgi_path
 from mlflow.server.auth import _authenticate_fastapi_request, _re_compile_path
 from mlflow.server.auth.routes import (
     AJAX_LIST_USERS,
@@ -2975,8 +2971,9 @@ def enable_auth_cache():
         yield cache
 
 
-def _make_request(path, authorization=None):
+def _make_request(path, authorization=None, *, scope_path=None):
     request = mock.Mock()
+    request.scope = {"path": scope_path or path}
     request.url.path = path
     request.headers = {}
     if authorization:
@@ -2985,6 +2982,20 @@ def _make_request(path, authorization=None):
 
 
 # -- Basic auth with internal token (trusted internal requests) --
+
+
+def test_get_fastapi_request_path_prefers_scope_path():
+    request = _make_request("/reconstructed/path", scope_path="/routed/path")
+
+    assert get_routed_asgi_path(request) == "/routed/path"
+
+
+@pytest.mark.parametrize("scope", [None, {}, {"path": ""}, {"path": 123}])
+def test_get_fastapi_request_path_falls_back_to_url(scope):
+    request = _make_request("/reconstructed/path")
+    request.scope = scope
+
+    assert get_routed_asgi_path(request) == "/reconstructed/path"
 
 
 def test_basic_auth_with_internal_token_returns_user(
@@ -3012,6 +3023,42 @@ def test_basic_auth_with_internal_token_deleted_user_returns_none(
     user = _authenticate_fastapi_request(request)
 
     assert user is None
+
+
+def test_basic_auth_with_internal_token_uses_scope_path(
+    mock_auth_store, mock_auth_config, monkeypatch
+):
+    monkeypatch.setenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, "internal-secret")
+    credentials = base64.b64encode(b"alice:internal-secret").decode("ascii")
+    request = _make_request(
+        "/gateway/mlflow/v1/chat",
+        f"Basic {credentials}",
+        scope_path="/api/3.0/mlflow/experiments/list",
+    )
+
+    user = _authenticate_fastapi_request(request)
+
+    assert user.username == "alice"
+    mock_auth_store.authenticate_user.assert_called_once_with("alice", "internal-secret")
+    mock_auth_store.get_user.assert_called_once_with("alice")
+
+
+@pytest.mark.parametrize(
+    "fastapi_client",
+    [{"MLFLOW_SERVER_DISABLE_SECURITY_MIDDLEWARE": "true"}],
+    indirect=True,
+)
+def test_malformed_host_does_not_skip_fastapi_auth(fastapi_client, monkeypatch):
+    monkeypatch.delenv(MLFLOW_TRACKING_USERNAME.name, raising=False)
+    monkeypatch.delenv(MLFLOW_TRACKING_PASSWORD.name, raising=False)
+
+    response = requests.post(
+        url=fastapi_client.tracking_uri + "/ajax-api/3.0/jobs/search",
+        headers={"Host": "example.com/health?x="},
+        json={},
+    )
+
+    assert response.status_code == 401
 
 
 def test_basic_auth_with_wrong_password_falls_through_to_authenticate(
