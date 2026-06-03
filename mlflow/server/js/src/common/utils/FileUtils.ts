@@ -22,6 +22,7 @@ const MLMODEL_FILE_NAME = 'mlmodel';
 const MLFLOW_FILE_LANGUAGES = {
   [MLPROJECT_FILE_NAME.toLowerCase()]: 'yaml',
   [MLMODEL_FILE_NAME.toLowerCase()]: 'yaml',
+  jsonl: 'json',
 };
 
 export const IMAGE_EXTENSIONS = new Set(['jpg', 'bmp', 'jpeg', 'png', 'gif', 'svg']);
@@ -42,6 +43,7 @@ export const TEXT_EXTENSIONS = new Set([
   'yml',
   'xml',
   'json',
+  'jsonl',
   'js',
   'py',
   'py3',

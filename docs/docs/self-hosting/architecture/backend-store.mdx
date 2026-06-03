@@ -32,7 +32,7 @@ To use file-based storage, specify `--backend-store-uri ./mlruns` when starting 
 
 :::warning[TO BE DEPRECATED SOON]
 
-File system backend is in Keep-the-Light-On (KTLO) mode and is no longer receiving new feature updates. We strongly recommend using the database backend (now the default) for better performance and reliability. See [Migrate from File Store](/self-hosting/migrate-from-file-store) for how to migrate existing data.
+File system backend is in maintenance mode and will not receive further updates. We strongly recommend using the database backend (now the default) for better performance and reliability. See [Migrate from File Store](/self-hosting/migrate-from-file-store) for how to migrate existing data.
 
 :::
 
@@ -58,7 +58,7 @@ MLflow supports the following types of tracking URI for backend stores:
   Refer to Access the MLflow tracking server from outside Databricks [[AWS]](http://docs.databricks.com/applications/mlflow/access-hosted-tracking-server.html)
   [[Azure]](http://docs.microsoft.com/azure/databricks/applications/mlflow/access-hosted-tracking-server).
 
-:::warning database-requirements
+:::warning[database-requirements]
 **Database-Backed Store Requirements**
 
 When using database-backed stores, please note:
@@ -68,7 +68,7 @@ When using database-backed stores, please note:
 - **Schema Migrations**: `mlflow server` will fail against a database with an out-of-date schema. Always run `mlflow db upgrade [db_uri]` to upgrade your database schema before starting the server. Schema migrations can result in database downtime and may take longer on larger databases. **Always backup your database before running migrations.**
   :::
 
-:::note parameter-limits
+:::note[parameter-limits]
 In Sep 2023, we increased the max length for params recorded in a Run from 500 to 8k (but we limit param value max length to 6000 internally).
 [mlflow/2d6e25af4d3e_increase_max_param_val_length](https://github.com/mlflow/mlflow/blob/master/mlflow/store/db_migrations/versions/2d6e25af4d3e_increase_max_param_val_length.py)
 is a non-invertible migration script that increases the cap in existing database to 8k. Please be careful if you want to upgrade and backup your database before upgrading.

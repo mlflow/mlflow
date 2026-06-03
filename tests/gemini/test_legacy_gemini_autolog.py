@@ -1,7 +1,5 @@
-"""
-This file contains unit tests for the legacy Gemini Python SDK
-https://github.com/google-gemini/generative-ai-python
-"""
+# Tests for the legacy Gemini Python SDK:
+# https://github.com/google-gemini/generative-ai-python
 
 import base64
 from unittest.mock import patch
