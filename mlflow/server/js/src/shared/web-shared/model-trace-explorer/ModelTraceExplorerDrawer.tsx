@@ -15,6 +15,7 @@ import { FormattedMessage } from '@databricks/i18n';
 import { ModelTraceExplorerSkeleton } from './ModelTraceExplorerSkeleton';
 import { useModelTraceExplorerContext } from './ModelTraceExplorerContext';
 import type { ModelTraceInfoV3 } from './ModelTrace.types';
+import { copyToClipboard } from '../../../common/utils/copyToClipboard';
 
 export interface ModelTraceExplorerDrawerProps {
   children: React.ReactNode;
@@ -44,12 +45,18 @@ export const ModelTraceExplorerDrawer = ({
   const { theme } = useDesignSystemTheme();
   const [showDatasetModal, setShowDatasetModal] = useState(false);
   const [showCopiedNotification, setShowCopiedNotification] = useState(false);
+  const [showCopyError, setShowCopyError] = useState(false);
   const { renderExportTracesToDatasetsModal, DrawerComponent, drawerWidth = '60vw' } = useModelTraceExplorerContext();
 
-  const handleShareClick = useCallback(() => {
-    navigator.clipboard.writeText(window.location.href);
-    setShowCopiedNotification(true);
-    setTimeout(() => setShowCopiedNotification(false), 2000);
+  const handleShareClick = useCallback(async () => {
+    const success = await copyToClipboard(window.location.href);
+    if (success) {
+      setShowCopiedNotification(true);
+      setTimeout(() => setShowCopiedNotification(false), 2000);
+    } else {
+      setShowCopyError(true);
+      setTimeout(() => setShowCopyError(false), 2000);
+    }
   }, []);
 
   const handleKeyDown = useCallback(
@@ -174,6 +181,19 @@ export const ModelTraceExplorerDrawer = ({
               <FormattedMessage
                 defaultMessage="Copied to clipboard"
                 description="Success message after copying trace link"
+              />
+            </Notification.Title>
+          </Notification.Root>
+          <Notification.Viewport />
+        </Notification.Provider>
+      )}
+      {showCopyError && (
+        <Notification.Provider>
+          <Notification.Root severity="error" componentId="mlflow.evaluations_review.modal.share-error-notification">
+            <Notification.Title>
+              <FormattedMessage
+                defaultMessage="Failed to copy to clipboard"
+                description="Error message when clipboard copy fails"
               />
             </Notification.Title>
           </Notification.Root>

@@ -3227,3 +3227,230 @@ class SqlGatewayGuardrailConfig(Base):
             created_by=self.created_by,
             workspace=self.workspace,
         )
+
+
+class SqlLabelSchema(Base):
+    """
+    DB model for OSS-native label schemas.
+
+    Schemas are experiment-scoped UI rendering hints; they do not gate
+    or validate assessment writes. See
+    ``mlflow/genai/label_schemas/label_schemas.py`` for the entity
+    dataclass and ``mlflow/genai/label_schemas/validation.py`` for the
+    server-side validation rules.
+
+    The schema inherits its workspace from the parent experiment (the
+    workspace-aware store filters via a join to ``experiments``), so there
+    is no denormalized ``workspace`` column on this table.
+    """
+
+    __tablename__ = "label_schemas"
+
+    LABEL_SCHEMA_ID_PREFIX = "ls-"
+
+    schema_id = Column(String(36), primary_key=True)
+    """
+    Label schema ID: ``String`` (limit 36 characters). *Primary Key* for
+    ``label_schemas`` table.
+    """
+
+    experiment_id = Column(
+        Integer,
+        ForeignKey("experiments.experiment_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    """
+    Experiment ID the schema belongs to. *Foreign Key* into ``experiments``.
+    Cascade-deletes when the parent experiment is deleted.
+    """
+
+    name = Column(String(250), nullable=False)
+    """
+    Schema name: ``String`` (limit 250 characters, matching the assessment
+    key/name limit used elsewhere in the tracking store). Free text shown
+    to reviewers as the label prompt and used as the assessment key. Unique
+    within ``experiment_id``.
+    """
+
+    type = Column(String(16), nullable=False)
+    """
+    Schema type: ``String`` (limit 16). One of ``'feedback'`` or
+    ``'expectation'``. Immutable after create (enforced at update time
+    by the validation module).
+    """
+
+    instruction = Column(Text, nullable=True)
+    """
+    Optional detailed instructions: ``Text`` (≤ 1000 chars enforced by
+    validation, but stored as ``Text`` for flexibility).
+    """
+
+    enable_comment = Column(Boolean, nullable=False, default=False, server_default="0")
+    """
+    Whether the reviewer widget renders a free-form comment input alongside
+    the schema-typed value. UI-only hint; not consulted server-side.
+    """
+
+    input_type = Column(String(32), nullable=False)
+    """
+    Discriminator for the input config payload. One of ``'pass_fail'``,
+    ``'categorical'``, ``'numeric'``, ``'text'`` for OSS-native schemas. The
+    remaining Databricks-routed types (``'categorical_list'``,
+    ``'text_list'``) are not accepted by the OSS-native server.
+    """
+
+    input_config = Column(Text, nullable=False)
+    """
+    JSON payload carrying input-type-specific fields. Shape depends on
+    ``input_type``; see :py:func:`_input_to_dict` / :py:func:`_input_from_dict`
+    in this module for the round-trip.
+    """
+
+    created_by = Column(String(255), nullable=True)
+    """
+    User who created the schema.
+    """
+
+    created_time = Column(BigInteger, default=get_current_time_millis, nullable=False)
+    """
+    Creation time in milliseconds.
+    """
+
+    last_update_time = Column(BigInteger, default=get_current_time_millis, nullable=False)
+    """
+    Last update time in milliseconds.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("schema_id", name="label_schemas_pk"),
+        UniqueConstraint("experiment_id", "name", name="uq_label_schemas_exp_name"),
+        Index("index_label_schemas_experiment_id", "experiment_id"),
+    )
+
+    def to_mlflow_entity(self):
+        """Convert DB model to corresponding MLflow entity.
+
+        Returns:
+            :py:class:`mlflow.genai.label_schemas.label_schemas.LabelSchema`.
+        """
+        # Imported here to avoid a circular import at module load time:
+        # `mlflow.genai.label_schemas.label_schemas` transitively imports
+        # entities that import this module.
+        from mlflow.genai.label_schemas.label_schemas import LabelSchema, LabelSchemaType
+
+        return LabelSchema(
+            name=self.name,
+            type=LabelSchemaType(self.type),
+            input=_input_from_dict(self.input_type, json.loads(self.input_config)),
+            instruction=self.instruction,
+            enable_comment=self.enable_comment,
+            schema_id=self.schema_id,
+            experiment_id=str(self.experiment_id),
+            created_by=self.created_by,
+            created_at=self.created_time,
+            updated_at=self.last_update_time,
+        )
+
+    @classmethod
+    def from_mlflow_entity(cls, schema):
+        """Create a ``SqlLabelSchema`` from a LabelSchema entity.
+
+        The ``experiment_id`` is converted from a string to an int for the
+        underlying FK; the entity carries it as a string.
+
+        Args:
+            schema: :py:class:`mlflow.genai.label_schemas.label_schemas.LabelSchema`.
+        """
+        input_type, input_config = _input_to_dict(schema.input)
+        now = get_current_time_millis()
+        return cls(
+            schema_id=schema.schema_id,
+            experiment_id=int(schema.experiment_id),
+            name=schema.name,
+            type=str(schema.type),
+            instruction=schema.instruction,
+            enable_comment=schema.enable_comment,
+            input_type=input_type,
+            input_config=input_config,
+            created_by=schema.created_by,
+            created_time=schema.created_at or now,
+            last_update_time=schema.updated_at or now,
+        )
+
+
+def _input_to_dict(input_obj) -> tuple[str, str]:
+    """Serialize a LabelSchema input dataclass to (discriminator, JSON).
+
+    Returns a ``(input_type, input_config)`` pair suitable for direct
+    insertion into the ``input_type`` and ``input_config`` columns on
+    ``SqlLabelSchema``.
+
+    Raises:
+        ValueError: if ``input_obj`` is not one of the OSS-supported input types.
+    """
+    from mlflow.genai.label_schemas.label_schemas import (
+        InputCategorical,
+        InputNumeric,
+        InputPassFail,
+        InputText,
+    )
+
+    if isinstance(input_obj, InputPassFail):
+        config = {
+            "positive_label": input_obj.positive_label,
+            "negative_label": input_obj.negative_label,
+        }
+        return "pass_fail", json.dumps(config)
+    if isinstance(input_obj, InputCategorical):
+        config = {
+            "options": input_obj.options,
+            "multi_select": input_obj.multi_select,
+        }
+        return "categorical", json.dumps(config)
+    if isinstance(input_obj, InputNumeric):
+        config = {
+            "min_value": input_obj.min_value,
+            "max_value": input_obj.max_value,
+        }
+        return "numeric", json.dumps(config)
+    if isinstance(input_obj, InputText):
+        config = {"max_length": input_obj.max_length}
+        return "text", json.dumps(config)
+    raise ValueError(
+        f"Cannot persist label schema input of type {type(input_obj).__name__!r}; "
+        "OSS-supported types are InputPassFail, InputCategorical, InputNumeric, InputText."
+    )
+
+
+def _input_from_dict(input_type: str, config: dict[str, Any]):
+    """Reconstruct a LabelSchema input dataclass from a discriminator + dict."""
+    from mlflow.genai.label_schemas.label_schemas import (
+        InputCategorical,
+        InputNumeric,
+        InputPassFail,
+        InputText,
+    )
+
+    match input_type:
+        case "pass_fail":
+            return InputPassFail(
+                positive_label=config["positive_label"],
+                negative_label=config["negative_label"],
+            )
+        case "categorical":
+            return InputCategorical(
+                options=config["options"],
+                multi_select=config.get("multi_select", False),
+            )
+        case "text":
+            return InputText(max_length=config.get("max_length"))
+        case "numeric":
+            return InputNumeric(
+                min_value=config.get("min_value"),
+                max_value=config.get("max_value"),
+            )
+        case _:
+            raise ValueError(
+                f"Unknown label schema input_type {input_type!r}; expected one of "
+                "'pass_fail', 'categorical', 'numeric', 'text'."
+            )

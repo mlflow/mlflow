@@ -1,0 +1,214 @@
+// Proto definition for MLflow OSS-native label schemas.
+// Schemas are experiment-scoped UI rendering hints that drive the
+// reviewer-facing widgets in the labeling UI. They do not gate or validate assessment
+// writes; the entity is intentionally lightweight and the schema_id is
+// soft-referenced from assessments.
+syntax = "proto2";
+
+package mlflow.label_schemas;
+
+import "databricks.proto";
+import "scalapb/scalapb.proto";
+
+option java_package = "org.mlflow.api.proto";
+option py_generic_services = true;
+
+// Type of label schema. Mirrors mlflow.genai.label_schemas.LabelSchemaType.
+// The zero-value `LABEL_SCHEMA_TYPE_UNSPECIFIED` is a defensive sentinel;
+// the handler must reject it explicitly because `validate_required` on a
+// proto2 optional enum only enforces HasField, not value validity, so a
+// client can pass UNSPECIFIED past the wire-level required check.
+enum LabelSchemaType {
+  LABEL_SCHEMA_TYPE_UNSPECIFIED = 0;
+  // Feedback schema: bounded value space (pass/fail, options, min/max).
+  FEEDBACK = 1;
+  // Expectation schema: typically ground-truth labels supplied by reviewers.
+  EXPECTATION = 2;
+}
+
+// Pass/Fail input rendered as a thumbs-up / thumbs-down toggle.
+// OSS-only; Databricks-routed schemas should use InputCategorical instead.
+message InputPassFail {
+  // Label shown next to the thumbs-up button (e.g., "Correct", "Pass").
+  optional string positive_label = 1;
+  // Label shown next to the thumbs-down button (e.g., "Incorrect", "Fail").
+  optional string negative_label = 2;
+}
+
+// Categorical (single- or multi-select) input. Option ordering is
+// author-controlled, so there is no separate polarity hint.
+message InputCategorical {
+  // The available options.
+  repeated string options = 1;
+  // When true, the widget renders multi-select and the assessment value
+  // becomes a list of strings. Defaults to false (single-select).
+  optional bool multi_select = 3;
+
+  // Tag 2 previously held the now-removed `semantic_polarity` field.
+  reserved 2;
+  reserved "semantic_polarity";
+}
+
+// Numeric input bounded by min_value / max_value. Both bounds are
+// optional regardless of schema type.
+message InputNumeric {
+  optional double min_value = 1;
+  optional double max_value = 2;
+}
+
+// Free-form text input. Supported for both feedback and expectation
+// schemas (e.g., free-form rationale or ground-truth text).
+message InputText {
+  // Maximum character length. Unset means no limit.
+  optional int64 max_length = 1;
+}
+
+// Discriminated input wrapper. Exactly one input type is set per schema.
+//
+// NOTE on `validate_required`: when a request message uses
+// `LabelSchemaInput input = N [(validate_required) = true]`, the wire-level
+// check only verifies that the wrapper message is set. It does NOT enforce
+// that any oneof variant inside the wrapper is set, so a client can send
+// `{"input": {}}` and pass validation. Handlers must additionally check
+// `request.input.WhichOneof("input") is not None`.
+//
+// Tags 1-3 and 5 cover the OSS-supported input types. Tags 4 and 6 are
+// reserved for the Databricks-only input variants (InputCategoricalList,
+// InputTextList) in case hybrid scenarios ever need to round-trip them
+// through this proto; do not reuse these tags for new OSS variants.
+message LabelSchemaInput {
+  oneof input {
+    InputPassFail pass_fail = 1;
+    InputCategorical categorical = 2;
+    InputNumeric numeric = 3;
+    InputText text = 5;
+  }
+  reserved 4, 6;
+  reserved "categorical_list", "text_list";
+}
+
+// Full label schema entity.
+message LabelSchema {
+  // Server-generated identifier.
+  optional string schema_id = 1;
+  // Parent experiment ID.
+  optional string experiment_id = 2;
+  // Schema name (1-256 chars; unique within experiment). Free text shown
+  // to reviewers as the label prompt and used as the assessment key.
+  optional string name = 3;
+  optional LabelSchemaType type = 4;
+  // Optional supplementary guidance, <=1000 chars.
+  optional string instruction = 6;
+  // UI hint: whether the widget renders a free-form comment input.
+  optional bool enable_comment = 7;
+  optional LabelSchemaInput input = 8;
+  // User who created the schema (OSS-native).
+  optional string created_by = 9;
+  // Creation timestamp in milliseconds since epoch.
+  optional int64 created_at = 10;
+  // Last update timestamp in milliseconds since epoch.
+  optional int64 last_updated_at = 11;
+
+  // Tag 5 previously held the now-removed `title` field.
+  reserved 5;
+  reserved "title";
+}
+
+// Request to create a new label schema.
+message CreateLabelSchema {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  optional string experiment_id = 1 [(validate_required) = true];
+  optional string name = 2 [(validate_required) = true];
+  optional LabelSchemaType type = 3 [(validate_required) = true];
+  optional LabelSchemaInput input = 5 [(validate_required) = true];
+  optional string instruction = 6;
+  optional bool enable_comment = 7;
+
+  // Tag 4 previously held the now-removed `title` field.
+  reserved 4;
+  reserved "title";
+
+  message Response {
+    optional LabelSchema label_schema = 1;
+  }
+}
+
+// Request to get a label schema by ID. `schema_id` is the OSS-only
+// canonical primary key; Databricks-routed schemas (whose canonical
+// identity is `(review_app_id, name)`) do not round-trip through this
+// RPC. Use GetLabelSchemaByName for the (experiment_id, name) lookup.
+message GetLabelSchema {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  optional string schema_id = 1 [(validate_required) = true];
+
+  message Response {
+    optional LabelSchema label_schema = 1;
+  }
+}
+
+// Request to get a label schema by (experiment_id, name).
+message GetLabelSchemaByName {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  optional string experiment_id = 1 [(validate_required) = true];
+  optional string name = 2 [(validate_required) = true];
+
+  message Response {
+    optional LabelSchema label_schema = 1;
+  }
+}
+
+// Request to list label schemas for an experiment, paginated.
+message ListLabelSchemas {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  optional string experiment_id = 1 [(validate_required) = true];
+  // Defaults to 100 server-side when unset. Must be a positive integer
+  // not exceeding SEARCH_MAX_RESULTS_THRESHOLD; the handler rejects 0,
+  // negative values, and values above the threshold.
+  optional int32 max_results = 2;
+  optional string page_token = 3;
+
+  message Response {
+    repeated LabelSchema label_schemas = 1;
+    optional string next_page_token = 2;
+  }
+}
+
+// Request to sparse-update an existing label schema. `type` is immutable
+// and is intentionally omitted from this message. The handler treats an
+// absent field (HasField=false) as "unchanged" and a set field as the new
+// value; an empty string written for `instruction` will replace the
+// stored value with the empty string rather than clearing it.
+//
+// `name` may be renamed; existing assessment rows are NOT migrated (their
+// `name` continues to reference the prior schema name), matching the
+// store-layer contract documented on AbstractStore.update_label_schema.
+message UpdateLabelSchema {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  optional string schema_id = 1 [(validate_required) = true];
+  optional string name = 2;
+  optional string instruction = 4;
+  optional bool enable_comment = 5;
+  optional LabelSchemaInput input = 6;
+
+  // Tag 3 previously held the now-removed `title` field.
+  reserved 3;
+  reserved "title";
+
+  message Response {
+    optional LabelSchema label_schema = 1;
+  }
+}
+
+// Request to delete a label schema. No-op when the schema doesn't exist.
+message DeleteLabelSchema {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  optional string schema_id = 1 [(validate_required) = true];
+
+  message Response {}
+}
