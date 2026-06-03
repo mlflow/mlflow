@@ -1,4 +1,4 @@
-import { Button, ChartLineIcon, Modal, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { Button, ChartLineIcon, Modal, Spinner, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { CodeSnippet, SnippetCopyAction } from '@mlflow/mlflow/src/shared/web-shared/snippet';
 import { AggregationType, MetricViewType, TraceMetricKey } from '@databricks/web-shared/model-trace-explorer';
 import { useState } from 'react';
@@ -56,7 +56,6 @@ from mlflow.genai.scorers import (
 )
 
 os.environ["OPENAI_API_KEY"] = "your-api-key-here"  # Replace with your API key
-mlflow.set_tracking_uri("http://localhost:5000")
 mlflow.set_experiment(experiment_id="${experimentId}")
 
 # Step 1: Pull traces to evaluate.
@@ -87,7 +86,7 @@ export const RunEvaluationButton = ({ experimentId }: { experimentId: string }) 
       description="Instructions for running the evaluation code in OSS"
     />
   );
-  const { data: traceMetrics } = useTraceMetricsQuery({
+  const { data: traceMetrics, isSuccess: isTraceMetricsLoaded } = useTraceMetricsQuery({
     experimentIds: [experimentId],
     viewType: MetricViewType.TRACES,
     metricName: TraceMetricKey.TRACE_COUNT,
@@ -97,7 +96,7 @@ export const RunEvaluationButton = ({ experimentId }: { experimentId: string }) 
   const traceCount = Number(traceMetrics?.data_points?.[0]?.values?.[AggregationType.COUNT] ?? 0);
   const hasTraces = traceCount > 0;
   const codeSnippet = hasTraces ? getTraceCodeSnippet(experimentId) : getDatasetCodeSnippet(experimentId);
-  const evalCodeSnippet = (
+  const evalCodeSnippet = isTraceMetricsLoaded ? (
     <div css={{ position: 'relative' }}>
       <SnippetCopyAction
         componentId="mlflow.eval-runs.start-run-modal.copy-snippet"
@@ -107,6 +106,10 @@ export const RunEvaluationButton = ({ experimentId }: { experimentId: string }) 
       <CodeSnippet theme={theme.isDarkMode ? 'duotoneDark' : 'light'} language="python">
         {codeSnippet}
       </CodeSnippet>
+    </div>
+  ) : (
+    <div css={{ display: 'flex', justifyContent: 'center', padding: theme.spacing.lg }}>
+      <Spinner />
     </div>
   );
 

@@ -67,6 +67,7 @@ describe('RunEvaluationButton', () => {
   it('renders the dataset-based snippet and copies it when the experiment has no traces', async () => {
     mockUseTraceMetricsQuery.mockReturnValue({
       data: { data_points: [{ values: { [AggregationType.COUNT]: 0 } }] },
+      isSuccess: true,
     });
 
     renderButton('exp-1');
@@ -82,6 +83,7 @@ describe('RunEvaluationButton', () => {
   it('renders the trace-based snippet and copies it when the experiment has traces', async () => {
     mockUseTraceMetricsQuery.mockReturnValue({
       data: { data_points: [{ values: { [AggregationType.COUNT]: 5 } }] },
+      isSuccess: true,
     });
 
     renderButton('exp-7');
@@ -92,5 +94,20 @@ describe('RunEvaluationButton', () => {
     expect(copied).toContain('mlflow.search_traces(max_results=20)');
     expect(copied).not.toContain('eval_dataset');
     expect(copied).not.toContain('predict_fn=predict');
+  });
+
+  it('hides the snippet and copy button until the trace count query resolves', async () => {
+    // Simulate the trace count query still in flight after the modal opens.
+    mockUseTraceMetricsQuery.mockReturnValue({ data: undefined, isSuccess: false });
+
+    renderButton('exp-1');
+    await userEvent.click(screen.getByRole('button', { name: 'Run evaluation' }));
+
+    // Modal is open, but the snippet and its copy button must not be present yet —
+    // otherwise a fast click could capture the wrong (default-dataset) snippet for
+    // an experiment that actually has traces.
+    expect(document.querySelector(COPY_BUTTON_SELECTOR)).toBeNull();
+    expect(screen.queryByText(/eval_dataset = \[\{/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/mlflow\.search_traces/)).not.toBeInTheDocument();
   });
 });
