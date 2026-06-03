@@ -92,6 +92,13 @@ def test_running_migrations_generates_expected_schema(tmp_path, expected_schema_
     _assert_schema_files_equal(generated_schema_file, expected_schema_file)
 
 
+def test_db_upgrade_initializes_fresh_database(tmp_path, expected_schema_file, db_url):
+    invoke_cli_runner(mlflow.db.commands, ["upgrade", db_url])
+    generated_schema_file = tmp_path.joinpath("generated-schema.sql")
+    dump_db_schema(db_url, generated_schema_file)
+    _assert_schema_files_equal(generated_schema_file, expected_schema_file)
+
+
 def test_sqlalchemy_store_detects_schema_mismatch(db_url):
     def _assert_invalid_schema(engine):
         with pytest.raises(MlflowException, match="Detected out-of-date database schema."):
