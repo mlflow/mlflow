@@ -77,6 +77,7 @@ class GatewayEndpointConfig:
     fallback_config: FallbackConfig | None = None
     experiment_id: str | None = None
     usage_tracking: bool = False
+    calls_per_minute: int | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
