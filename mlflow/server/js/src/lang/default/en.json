@@ -1123,6 +1123,10 @@
     "defaultMessage": "API key name",
     "description": "Label for API key name input"
   },
+  "4D06Yc": {
+    "defaultMessage": "Add a comment... (⌘/Ctrl+Enter to post)",
+    "description": "Placeholder text in the comments section input"
+  },
   "4GPLHq": {
     "defaultMessage": "Aliases allow you to assign a mutable, named reference to a particular prompt version.",
     "description": "Description for the edit aliases modal on the registered prompt details page"
@@ -3346,6 +3350,10 @@
   "Gk9Z7W": {
     "defaultMessage": "Created by",
     "description": "Header for the dataset created-by column"
+  },
+  "Gkk5Jf": {
+    "defaultMessage": "Edit comment... (⌘/Ctrl+Enter to save)",
+    "description": "Placeholder text in the comments section edit input"
   },
   "Gm77Ws": {
     "defaultMessage": "Loading artifact failed",
@@ -7571,10 +7579,6 @@
     "defaultMessage": "500: Internal server error",
     "description": "Generic 500 user-friendly error for the MLflow UI"
   },
-  "deifbh": {
-    "defaultMessage": "Add a comment...",
-    "description": "Placeholder text in the comments section input"
-  },
   "dl0TeT": {
     "defaultMessage": "Save",
     "description": "Experiment tracking > experiment page > runs > save tags button"
@@ -11538,10 +11542,6 @@
   "ysF5gb": {
     "defaultMessage": "Default",
     "description": "Label for the default render mode in the model trace explorer inputs/outputs tab"
-  },
-  "yu5Us5": {
-    "defaultMessage": "Edit comment...",
-    "description": "Placeholder text in the comments section edit input"
   },
   "yv5FMp": {
     "defaultMessage": "Add custom feedback to this session.",

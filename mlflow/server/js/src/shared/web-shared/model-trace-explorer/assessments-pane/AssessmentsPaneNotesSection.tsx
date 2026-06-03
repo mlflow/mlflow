@@ -1,3 +1,4 @@
+import type React from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import {
@@ -21,6 +22,8 @@ import { useUpdateAssessment } from '../hooks/useUpdateAssessment';
 import { timeSinceStr } from './AssessmentsPane.utils';
 
 export const NOTES_ASSESSMENT_NAME = 'mlflow.notes';
+
+const isSubmitShortcut = (e: React.KeyboardEvent) => e.key === 'Enter' && (e.metaKey || e.ctrlKey);
 
 const NoteItem = ({ note, canEdit }: { note: FeedbackAssessment; canEdit: boolean }) => {
   const { theme } = useDesignSystemTheme();
@@ -132,10 +135,16 @@ const NoteItem = ({ note, canEdit }: { note: FeedbackAssessment; canEdit: boolea
             autoSize={{ minRows: 2, maxRows: 10 }}
             disabled={isUpdating}
             placeholder={intl.formatMessage({
-              defaultMessage: 'Edit comment...',
+              defaultMessage: 'Edit comment... (⌘/Ctrl+Enter to save)',
               description: 'Placeholder text in the comments section edit input',
             })}
-            onKeyDown={(e) => e.stopPropagation()}
+            onKeyDown={(e) => {
+              e.stopPropagation();
+              if (isSubmitShortcut(e) && editText.trim().length > 0 && !isUpdating) {
+                e.preventDefault();
+                saveEdit();
+              }
+            }}
             onChange={(e) => setEditText(e.target.value)}
           />
           <div css={{ display: 'flex', justifyContent: 'flex-end', gap: theme.spacing.xs }}>
@@ -294,10 +303,16 @@ export const AssessmentsPaneNotesSection = ({
           autoSize={{ minRows: 3, maxRows: 10 }}
           disabled={isCreating}
           placeholder={intl.formatMessage({
-            defaultMessage: 'Add a comment...',
+            defaultMessage: 'Add a comment... (⌘/Ctrl+Enter to post)',
             description: 'Placeholder text in the comments section input',
           })}
-          onKeyDown={(e) => e.stopPropagation()}
+          onKeyDown={(e) => {
+            e.stopPropagation();
+            if (isSubmitShortcut(e) && isDirty && !isCreating) {
+              e.preventDefault();
+              handlePost();
+            }
+          }}
           onChange={(e) => setDraftText(e.target.value)}
         />
       </div>
