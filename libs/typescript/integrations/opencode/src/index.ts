@@ -10,6 +10,8 @@
  *   3. Set environment variables:
  *      export MLFLOW_TRACKING_URI=http://localhost:5000
  *      export MLFLOW_EXPERIMENT_ID=123
+ *      # Optional: route traces to a Databricks Unity Catalog location
+ *      export MLFLOW_TRACE_LOCATION=catalog.schema.table_prefix
  *   4. Run opencode normally - tracing happens automatically
  */
 
@@ -101,9 +103,37 @@ interface Message {
   parts?: MessagePart[];
 }
 
+interface UnityCatalogTraceLocation {
+  catalogName: string;
+  schemaName: string;
+  tablePrefix: string;
+}
+
+/**
+ * Parse a `catalog.schema.table_prefix` string into a UC trace location.
+ * Returns null when the value is empty or not exactly three non-empty,
+ * dot-separated parts. All three parts are required because the SDK does not
+ * upsert UC trace locations.
+ */
+export function parseTraceLocation(value: string | undefined): UnityCatalogTraceLocation | null {
+  if (!value || value.trim().length === 0) {
+    return null;
+  }
+  const parts = value.trim().split('.');
+  if (parts.length !== 3 || parts.some((part) => part.trim().length === 0)) {
+    return null;
+  }
+  const [catalogName, schemaName, tablePrefix] = parts.map((part) => part.trim());
+  return { catalogName, schemaName, tablePrefix };
+}
+
 /**
  * Initialize the MLflow tracing SDK if not already initialized.
  * Requires MLFLOW_TRACKING_URI and MLFLOW_EXPERIMENT_ID environment variables.
+ * When MLFLOW_TRACE_LOCATION is set (in `catalog.schema.table_prefix` form),
+ * traces are routed to the Databricks Unity Catalog destination (V4) instead
+ * of the V3 experiment-backed path. The UC location must already be
+ * provisioned in the workspace; the SDK does not create it.
  */
 function ensureInitialized(): boolean {
   if (initialized) {
@@ -112,6 +142,7 @@ function ensureInitialized(): boolean {
 
   const trackingUri = process.env.MLFLOW_TRACKING_URI;
   const experimentId = process.env.MLFLOW_EXPERIMENT_ID;
+  const rawTraceLocation = process.env.MLFLOW_TRACE_LOCATION;
 
   if (!trackingUri) {
     if (DEBUG) {
@@ -127,8 +158,22 @@ function ensureInitialized(): boolean {
     return false;
   }
 
+  let traceLocation: UnityCatalogTraceLocation | null = null;
+  if (rawTraceLocation && rawTraceLocation.trim().length > 0) {
+    traceLocation = parseTraceLocation(rawTraceLocation);
+    if (!traceLocation) {
+      if (DEBUG) {
+        console.error(
+          `[mlflow] MLFLOW_TRACE_LOCATION must be in 'catalog.schema.table_prefix' format, ` +
+            `got '${rawTraceLocation}'`,
+        );
+      }
+      return false;
+    }
+  }
+
   try {
-    init({ trackingUri, experimentId });
+    init({ trackingUri, experimentId, ...(traceLocation ? { traceLocation } : {}) });
     initialized = true;
     if (DEBUG) {
       console.error('[mlflow] SDK initialized successfully');

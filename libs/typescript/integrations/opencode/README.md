@@ -38,11 +38,28 @@ export MLFLOW_EXPERIMENT_ID=123
 
 The plugin is configured via environment variables:
 
-| Variable                | Required | Description                                                |
-| ----------------------- | -------- | ---------------------------------------------------------- |
-| `MLFLOW_TRACKING_URI`   | Yes      | MLflow tracking server URI (e.g., `http://localhost:5000`) |
-| `MLFLOW_EXPERIMENT_ID`  | Yes      | MLflow experiment ID                                       |
-| `MLFLOW_OPENCODE_DEBUG` | No       | Set to `true` to enable debug logging                      |
+| Variable                | Required | Description                                                                          |
+| ----------------------- | -------- | ------------------------------------------------------------------------------------ |
+| `MLFLOW_TRACKING_URI`   | Yes      | MLflow tracking server URI (e.g., `http://localhost:5000`)                           |
+| `MLFLOW_EXPERIMENT_ID`  | Yes      | MLflow experiment ID                                                                 |
+| `MLFLOW_TRACE_LOCATION` | No       | Databricks Unity Catalog trace location as `catalog.schema.table_prefix` (see below) |
+| `MLFLOW_OPENCODE_DEBUG` | No       | Set to `true` to enable debug logging                                                |
+
+### Databricks Unity Catalog trace location
+
+To route traces to a Databricks Unity Catalog location instead of the default
+experiment-backed path, set `MLFLOW_TRACE_LOCATION` to a fully-qualified
+`catalog.schema.table_prefix`:
+
+```bash
+export MLFLOW_TRACKING_URI=databricks
+export MLFLOW_EXPERIMENT_ID=123
+export MLFLOW_TRACE_LOCATION=my_catalog.my_schema.my_prefix
+```
+
+All three parts are required. The UC trace location must already be provisioned
+in the workspace; the plugin does not create it. When set, traces are written
+via the Unity Catalog ingestion path (V4 trace IDs).
 
 ## Viewing Traces
 
