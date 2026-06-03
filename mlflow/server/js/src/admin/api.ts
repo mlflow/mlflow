@@ -13,7 +13,7 @@ import type {
   UpdateAdminRequest,
   UpdateRoleRequest,
 } from './types';
-import type { ListMyPermissionsResponse, UpdatePasswordRequest, UserResponse } from '../account/types';
+import type { UpdatePasswordRequest, UserResponse } from '../account/types';
 
 const defaultErrorHandler = async ({
   reject,
@@ -148,17 +148,6 @@ export const AdminApi = {
     }) as Promise<ListAssignmentsResponse>;
   },
 
-  // Direct permissions for an arbitrary user (admin / self / WP-admin-of-target).
-  // The response shape mirrors ``/users/current/permissions``.
-  listUserPermissions: (username: string) => {
-    const params = new URLSearchParams();
-    params.append('username', username);
-    return fetchEndpoint({
-      relativeUrl: `ajax-api/3.0/mlflow/users/permissions/list?${params.toString()}`,
-      error: defaultErrorHandler,
-    }) as Promise<ListMyPermissionsResponse>;
-  },
-
   // User CRUD (admin-only)
   listUsers: () => {
     return fetchEndpoint({
@@ -208,7 +197,13 @@ export const AdminApi = {
   // The server resolves ``(resource_type, resource_id)`` against the user's
   // synthetic ``__user_<id>__`` role; resource-type validation lives on the
   // store layer.
-  grantUserPermission: (resourceType: string, resourceId: string, username: string, permission: string) => {
+  grantUserPermission: (
+    resourceType: string,
+    resourceId: string,
+    username: string,
+    permission: string,
+    workspace?: string,
+  ) => {
     return fetchEndpoint({
       relativeUrl: 'ajax-api/3.0/mlflow/users/permissions/grant',
       method: 'POST',
@@ -219,10 +214,11 @@ export const AdminApi = {
         permission,
       }),
       error: defaultErrorHandler,
+      ...workspaceHeader(workspace),
     });
   },
 
-  revokeUserPermission: (resourceType: string, resourceId: string, username: string) => {
+  revokeUserPermission: (resourceType: string, resourceId: string, username: string, workspace?: string) => {
     return fetchEndpoint({
       relativeUrl: 'ajax-api/3.0/mlflow/users/permissions/revoke',
       method: 'POST',
@@ -232,47 +228,106 @@ export const AdminApi = {
         resource_id: resourceId,
       }),
       error: defaultErrorHandler,
+      ...workspaceHeader(workspace),
     });
   },
 
   // Lightweight resource lookups for populating the per-user grant form.
   // ``max_results=1000`` is enough for typical workspaces; if any deployment
-  // outgrows this we'd add pagination + server-side search. Each request
-  // honours the active workspace (via the ``X-MLFLOW-WORKSPACE`` header
-  // ``fetchEndpoint`` already attaches), so admins see resources in the
-  // workspace they're currently scoped to.
-  listExperimentsLite: () => {
+  // outgrows this we'd add pagination + server-side search. ``workspace``
+  // (when set) overrides the ``X-MLFLOW-WORKSPACE`` header for the request
+  // so the picker can fetch resources from a workspace other than the
+  // user's session-active one (used by the role / direct-grant flows when
+  // the admin is granting *into* a different workspace).
+  listExperimentsLite: (workspace?: string) => {
     return fetchEndpoint({
       relativeUrl: 'ajax-api/2.0/mlflow/experiments/search?max_results=1000',
       error: defaultErrorHandler,
+      ...workspaceHeader(workspace),
     }) as Promise<{ experiments?: { experiment_id: string; name: string }[] }>;
   },
 
-  listRegisteredModelsLite: () => {
+  listRegisteredModelsLite: (workspace?: string) => {
     return fetchEndpoint({
       relativeUrl: 'ajax-api/2.0/mlflow/registered-models/search?max_results=1000',
       error: defaultErrorHandler,
+      ...workspaceHeader(workspace),
     }) as Promise<{ registered_models?: { name: string }[] }>;
   },
 
-  listGatewaySecretsLite: () => {
+  listGatewaySecretsLite: (workspace?: string) => {
     return fetchEndpoint({
       relativeUrl: 'ajax-api/3.0/mlflow/gateway/secrets/list',
       error: defaultErrorHandler,
+      ...workspaceHeader(workspace),
     }) as Promise<{ secrets?: { secret_id: string; secret_name: string }[] }>;
   },
 
-  listGatewayEndpointsLite: () => {
+  listGatewayEndpointsLite: (workspace?: string) => {
     return fetchEndpoint({
       relativeUrl: 'ajax-api/3.0/mlflow/gateway/endpoints/list',
       error: defaultErrorHandler,
+      ...workspaceHeader(workspace),
     }) as Promise<{ endpoints?: { endpoint_id: string; name: string }[] }>;
   },
 
-  listGatewayModelDefinitionsLite: () => {
+  // Cross-experiment ``ListScorers``: omitting ``experiment_id`` returns every
+  // scorer in the active workspace. The auth-side ``filter_list_scorers``
+  // ``AFTER_REQUEST_PATH_HANDLERS`` entry filters the response by the caller's
+  // experiment + scorer read predicates. ``resource_pattern`` is computed
+  // client-side via ``scorerResourcePattern`` to match
+  // ``SqlAlchemyStore._scorer_pattern``.
+  listScorersLite: (workspace?: string) => {
     return fetchEndpoint({
-      relativeUrl: 'ajax-api/3.0/mlflow/gateway/model-definitions/list',
+      relativeUrl: 'ajax-api/3.0/mlflow/scorers/list',
       error: defaultErrorHandler,
-    }) as Promise<{ model_definitions?: { model_definition_id: string; name: string }[] }>;
+      ...workspaceHeader(workspace),
+    }) as Promise<{ scorers?: Scorer[] }>;
   },
+
+  // Prompts share the registered-models table (tagged with
+  // ``mlflow.prompt.is_prompt = 'true'``). The existing search endpoint with
+  // a tag filter is enough — ``filter_search_registered_models`` classifies
+  // each row by the same tag and applies ``_role_based_read_predicate('prompt')``,
+  // so a dedicated prompt list-lite handler isn't needed.
+  listPromptsLite: (workspace?: string) => {
+    const filter = encodeURIComponent("tag.mlflow.prompt.is_prompt = 'true'");
+    return fetchEndpoint({
+      relativeUrl: `ajax-api/2.0/mlflow/registered-models/search?max_results=1000&filter=${filter}`,
+      error: defaultErrorHandler,
+      ...workspaceHeader(workspace),
+    }) as Promise<{ registered_models?: { name: string }[] }>;
+  },
+};
+
+// Override ``X-MLFLOW-WORKSPACE`` per request; ``fetchEndpoint`` merges
+// ``headerOptions`` after the defaults. ``!== undefined`` (not truthy) so a
+// bogus ``''`` surfaces as a 4xx instead of inheriting the session workspace.
+const workspaceHeader = (workspace?: string): { headerOptions?: Record<string, string> } =>
+  workspace !== undefined ? { headerOptions: { 'X-MLFLOW-WORKSPACE': workspace } } : {};
+
+/** Shape of one scorer row from the generic ``ListScorers`` response. */
+export interface Scorer {
+  experiment_id: number;
+  scorer_name: string;
+  scorer_version?: number;
+  scorer_id?: string;
+}
+
+/**
+ * Composite RBAC resource pattern for a scorer. Mirrors the server's
+ * ``SqlAlchemyStore._scorer_pattern`` exactly so the picker's submitted id
+ * lines up byte-for-byte with persisted grants.
+ *
+ * Python's ``urllib.parse.quote(name, safe='')`` percent-encodes more
+ * characters than JS's ``encodeURIComponent`` — notably ``*'!()``, which JS
+ * preserves but Python escapes. Patch over the gap so a scorer name with any
+ * of those characters still resolves the grant on the server side.
+ */
+export const scorerResourcePattern = (experimentId: number | string, scorerName: string): string => {
+  const encoded = encodeURIComponent(scorerName).replace(
+    /[*'!()]/g,
+    (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`,
+  );
+  return `${experimentId}/${encoded}`;
 };

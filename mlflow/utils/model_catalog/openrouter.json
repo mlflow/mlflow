@@ -30,10 +30,7 @@
       },
       "pricing": {
         "input_per_million_tokens": 3.0,
-        "output_per_million_tokens": 15.0,
-        "tooling": {
-          "tool_use_system_prompt_tokens": 159
-        }
+        "output_per_million_tokens": 15.0
       },
       "capabilities": {
         "function_calling": true,
@@ -42,7 +39,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
     },
     "anthropic/claude-3.7-sonnet": {
       "mode": "chat",
@@ -53,10 +50,7 @@
       },
       "pricing": {
         "input_per_million_tokens": 3.0,
-        "output_per_million_tokens": 15.0,
-        "tooling": {
-          "tool_use_system_prompt_tokens": 159
-        }
+        "output_per_million_tokens": 15.0
       },
       "capabilities": {
         "function_calling": true,
@@ -65,7 +59,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
     },
     "anthropic/claude-haiku-4.5": {
       "mode": "chat",
@@ -78,10 +72,7 @@
         "input_per_million_tokens": 1.0,
         "output_per_million_tokens": 5.0,
         "cache_read_per_million_tokens": 0.1,
-        "cache_write_per_million_tokens": 1.25,
-        "tooling": {
-          "tool_use_system_prompt_tokens": 346
-        }
+        "cache_write_per_million_tokens": 1.25
       },
       "capabilities": {
         "function_calling": true,
@@ -90,7 +81,7 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
     },
     "anthropic/claude-opus-4": {
       "mode": "chat",
@@ -103,10 +94,7 @@
         "input_per_million_tokens": 15.0,
         "output_per_million_tokens": 75.0,
         "cache_read_per_million_tokens": 1.5,
-        "cache_write_per_million_tokens": 18.75,
-        "tooling": {
-          "tool_use_system_prompt_tokens": 159
-        }
+        "cache_write_per_million_tokens": 18.75
       },
       "capabilities": {
         "function_calling": true,
@@ -115,7 +103,7 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
     },
     "anthropic/claude-opus-4.1": {
       "mode": "chat",
@@ -128,10 +116,7 @@
         "input_per_million_tokens": 15.0,
         "output_per_million_tokens": 75.0,
         "cache_read_per_million_tokens": 1.5,
-        "cache_write_per_million_tokens": 18.75,
-        "tooling": {
-          "tool_use_system_prompt_tokens": 159
-        }
+        "cache_write_per_million_tokens": 18.75
       },
       "capabilities": {
         "function_calling": true,
@@ -140,7 +125,7 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
     },
     "anthropic/claude-opus-4.5": {
       "mode": "chat",
@@ -153,10 +138,7 @@
         "input_per_million_tokens": 5.0,
         "output_per_million_tokens": 25.0,
         "cache_read_per_million_tokens": 0.5,
-        "cache_write_per_million_tokens": 6.25,
-        "tooling": {
-          "tool_use_system_prompt_tokens": 159
-        }
+        "cache_write_per_million_tokens": 6.25
       },
       "capabilities": {
         "function_calling": true,
@@ -165,7 +147,7 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
     },
     "anthropic/claude-opus-4.6": {
       "mode": "chat",
@@ -178,10 +160,7 @@
         "input_per_million_tokens": 5.0,
         "output_per_million_tokens": 25.0,
         "cache_read_per_million_tokens": 0.5,
-        "cache_write_per_million_tokens": 6.25,
-        "tooling": {
-          "tool_use_system_prompt_tokens": 346
-        }
+        "cache_write_per_million_tokens": 6.25
       },
       "capabilities": {
         "function_calling": true,
@@ -190,7 +169,7 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
     },
     "anthropic/claude-opus-4.7": {
       "mode": "chat",
@@ -203,10 +182,7 @@
         "input_per_million_tokens": 5.0,
         "output_per_million_tokens": 25.0,
         "cache_read_per_million_tokens": 0.5,
-        "cache_write_per_million_tokens": 6.25,
-        "tooling": {
-          "tool_use_system_prompt_tokens": 346
-        }
+        "cache_write_per_million_tokens": 6.25
       },
       "capabilities": {
         "function_calling": true,
@@ -215,7 +191,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
     },
     "anthropic/claude-sonnet-4": {
       "mode": "chat",
@@ -237,10 +213,7 @@
             "input_per_million_tokens": 6.0,
             "output_per_million_tokens": 22.5
           }
-        ],
-        "tooling": {
-          "tool_use_system_prompt_tokens": 159
-        }
+        ]
       },
       "capabilities": {
         "function_calling": true,
@@ -249,7 +222,7 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
     },
     "anthropic/claude-sonnet-4.5": {
       "mode": "chat",
@@ -271,10 +244,7 @@
             "cache_write_per_million_tokens": 7.5,
             "cache_read_per_million_tokens": 0.6
           }
-        ],
-        "tooling": {
-          "tool_use_system_prompt_tokens": 159
-        }
+        ]
       },
       "capabilities": {
         "function_calling": true,
@@ -283,7 +253,7 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
     },
     "anthropic/claude-sonnet-4.6": {
       "mode": "chat",
@@ -305,10 +275,7 @@
             "input_per_million_tokens": 6.0,
             "output_per_million_tokens": 22.5
           }
-        ],
-        "tooling": {
-          "tool_use_system_prompt_tokens": 159
-        }
+        ]
       },
       "capabilities": {
         "function_calling": true,
@@ -317,7 +284,7 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
     },
     "bytedance/ui-tars-1.5-7b": {
       "mode": "chat",
@@ -616,6 +583,33 @@
         "response_schema": true
       },
       "last_updated_at": "2026-04-24"
+    },
+    "google/gemini-3.1-flash-lite": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 65536,
+        "max_tokens": 65536
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.25,
+        "output_per_million_tokens": 1.5,
+        "cache_read_per_million_tokens": 0.025,
+        "modality": {
+          "audio": {
+            "cache_read_per_million_tokens": 0.05,
+            "input_per_million_tokens": 0.5
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-05-27"
     },
     "google/gemini-3.1-flash-lite-preview": {
       "mode": "chat",
@@ -1881,19 +1875,63 @@
         "max_tokens": 16384
       },
       "pricing": {
-        "input_per_million_tokens": 0.09,
-        "output_per_million_tokens": 0.29,
-        "cache_read_per_million_tokens": 0.0,
+        "input_per_million_tokens": 0.1,
+        "output_per_million_tokens": 0.3,
+        "cache_read_per_million_tokens": 0.01,
         "cache_write_per_million_tokens": 0.0
       },
       "capabilities": {
         "function_calling": true,
         "vision": false,
         "reasoning": true,
-        "prompt_caching": false,
+        "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-05-27"
+    },
+    "xiaomi/mimo-v2.5": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 131072,
+        "max_tokens": 131072
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.4,
+        "output_per_million_tokens": 2.0,
+        "cache_read_per_million_tokens": 0.08,
+        "cache_write_per_million_tokens": 0.0
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-05-27"
+    },
+    "xiaomi/mimo-v2.5-pro": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 16384,
+        "max_tokens": 16384
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.0,
+        "output_per_million_tokens": 3.0,
+        "cache_read_per_million_tokens": 0.2,
+        "cache_write_per_million_tokens": 0.0
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-05-27"
     },
     "z-ai/glm-4.6": {
       "mode": "chat",

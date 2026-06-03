@@ -27,6 +27,8 @@ defaults:
 env:
   COMMENT_MARKER: "<!-- ui-preview -->"
 
+permissions: {}
+
 jobs:
   notify:
     if: >-

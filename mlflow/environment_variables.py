@@ -640,6 +640,14 @@ MLFLOW_GATEWAY_RATE_LIMITS_STORAGE_URI = _EnvironmentVariable(
     "MLFLOW_GATEWAY_RATE_LIMITS_STORAGE_URI", str, None
 )
 
+#: Timeout in seconds for Gateway provider requests before they are treated as timed out.
+#: This applies to both gateway provider proxy calls and GenAI judge requests routed through
+#: gateway-compatible providers.
+#: (default: ``300``)
+MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS = _EnvironmentVariable(
+    "MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS", int, 300
+)
+
 #: If True, the gateway will attempt to resolve API keys from environment variables
 #: (``$``-prefixed values). This is only enabled for the legacy YAML-config gateway
 #: (``mlflow gateway start``).
@@ -1552,9 +1560,10 @@ MLFLOW_UV_AUTO_DETECT = _BooleanEnvironmentVariable("MLFLOW_UV_AUTO_DETECT", Tru
 MLFLOW_LOG_UV_FILES = _BooleanEnvironmentVariable("MLFLOW_LOG_UV_FILES", True)
 
 
-#: Specifies whether to allow using the deprecated filesystem backend for tracking
-#: and model registry. Set to ``True`` to opt out of the error raised when
-#: instantiating the file-based stores.
+#: Specifies whether to allow using the filesystem backend for tracking and model
+#: registry, which is in maintenance mode (no further updates).
+#: Set to ``True`` to opt out of the error raised when instantiating the file-based
+#: stores and continue using the filesystem backend.
 #: (default: ``False``)
 MLFLOW_ALLOW_FILE_STORE = _BooleanEnvironmentVariable("MLFLOW_ALLOW_FILE_STORE", False)
 

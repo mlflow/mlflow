@@ -14,7 +14,7 @@ import {
 import { FormattedMessage, useIntl } from 'react-intl';
 import type { UseFormReturn } from 'react-hook-form';
 import { Controller } from 'react-hook-form';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import GatewayRoutes from '../../routes';
 import Routes from '../../../experiment-tracking/routes';
 import { SETTINGS_SECTION_LLM_CONNECTIONS } from '../../../settings/settingsSectionConstants';
@@ -34,6 +34,15 @@ import { TracesV3Logs } from '../../../experiment-tracking/components/experiment
 import { MonitoringConfigProvider } from '../../../experiment-tracking/hooks/useMonitoringConfig';
 import { useMonitoringFiltersTimeRange } from '../../../experiment-tracking/hooks/useMonitoringFilters';
 import { TracesV3DateSelector } from '../../../experiment-tracking/components/experiment-page/components/traces-v3/TracesV3DateSelector';
+import { ExperimentViewTracesStatusLabels } from '@databricks/web-shared/genai-traces-table';
+import { MetricsFilter } from '../../../common/components/MetricsFilter';
+import {
+  translateToMetricsFilters,
+  translateToTracesPageFilters,
+  TRACE_STATE_VALUES,
+  type MetricFilter,
+  type MetricFilterColumnOption,
+} from '../../../common/components/MetricsFilter.utils';
 
 /**
  * Returns the provider string to pass to StarterCodeCard.
@@ -139,6 +148,31 @@ export const EditEndpointFormRenderer = ({
   const isUsageTabDisabled = !experimentId && activeTab !== 'usage';
   const isTracesTabDisabled = !experimentId && activeTab !== 'traces';
 
+  // Kept as local component state (not URL-backed) to mirror the GatewayUsagePage
+  // pattern: filters affect charts immediately and propagate to the Logs tab only
+  // when the user clicks a chart-tooltip "View logs" link.
+  const [metricFilters, setMetricFilters] = useState<MetricFilter[]>([]);
+
+  const chartFilters = useMemo(() => translateToMetricsFilters(metricFilters), [metricFilters]);
+  const tracesNavigationFilters = useMemo(() => translateToTracesPageFilters(metricFilters), [metricFilters]);
+
+  const metricsFilterColumnOptions = useMemo<MetricFilterColumnOption[]>(
+    () => [
+      {
+        value: 'state',
+        label: intl.formatMessage({
+          defaultMessage: 'State',
+          description: 'Gateway endpoint usage > metrics filter > state column option label',
+        }),
+        valueOptions: TRACE_STATE_VALUES.map((value) => ({
+          value,
+          label: intl.formatMessage(ExperimentViewTracesStatusLabels[value]),
+        })),
+      },
+    ],
+    [intl],
+  );
+
   const tooltipLinkUrlBuilder = useMemo(() => {
     if (!endpoint) return undefined;
     return (_experimentId: string, timestampMs: number, timeIntervalSeconds: number) =>
@@ -146,8 +180,9 @@ export const EditEndpointFormRenderer = ({
         tab: 'traces',
         startTime: new Date(timestampMs).toISOString(),
         endTime: new Date(timestampMs + timeIntervalSeconds * 1000).toISOString(),
+        filters: tracesNavigationFilters,
       });
-  }, [endpoint]);
+  }, [endpoint, tracesNavigationFilters]);
 
   const totalWeight = trafficSplitModels.reduce((sum, m) => sum + m.weight, 0);
   const isValidTotal = Math.abs(totalWeight - 100) < 0.01;
@@ -416,7 +451,18 @@ export const EditEndpointFormRenderer = ({
 
             <Tabs.Content value="usage">
               {experimentId && (
-                <GatewayUsageSection experimentId={experimentId} tooltipLinkUrlBuilder={tooltipLinkUrlBuilder} />
+                <GatewayUsageSection
+                  experimentId={experimentId}
+                  tooltipLinkUrlBuilder={tooltipLinkUrlBuilder}
+                  additionalControls={
+                    <MetricsFilter
+                      filters={metricFilters}
+                      setFilters={setMetricFilters}
+                      columnOptions={metricsFilterColumnOptions}
+                    />
+                  }
+                  filters={chartFilters}
+                />
               )}
             </Tabs.Content>
 
