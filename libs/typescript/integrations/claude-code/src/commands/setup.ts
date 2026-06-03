@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs';
 import {
   getEffectiveTracingConfig,
   isValidTrackingUri,
+  parseTraceLocation,
   resolveExperiment,
   resolveSettingsPath,
   writeTracingSettings,
@@ -13,6 +14,7 @@ export interface SetupOptions extends ConfigPathOptions {
   trackingUri?: string;
   experimentId?: string;
   experimentName?: string;
+  traceLocation?: string;
 }
 
 export interface ParsedSetupArgs extends SetupOptions {
@@ -33,6 +35,8 @@ export function parseSetupArgs(args: string[]): ParsedSetupArgs {
       parsed.experimentId = args[++i];
     } else if (arg === '--experiment-name') {
       parsed.experimentName = args[++i];
+    } else if (arg === '--trace-location') {
+      parsed.traceLocation = args[++i];
     }
   }
   return parsed;
@@ -40,7 +44,12 @@ export function parseSetupArgs(args: string[]): ParsedSetupArgs {
 
 function printSummary(
   settingsPath: string,
-  config: { trackingUri: string; experimentId: string; experimentName?: string },
+  config: {
+    trackingUri: string;
+    experimentId: string;
+    experimentName?: string;
+    traceLocation?: string;
+  },
 ): void {
   console.error('\nCurrent configuration');
   console.error('  Tracing enabled: true');
@@ -49,6 +58,9 @@ function printSummary(
   console.error(`  Experiment ID: ${config.experimentId}`);
   if (config.experimentName) {
     console.error(`  Experiment name: ${config.experimentName}`);
+  }
+  if (config.traceLocation) {
+    console.error(`  Trace location: ${config.traceLocation}`);
   }
 }
 
@@ -89,6 +101,15 @@ export async function runSetup(args: string[], options: SetupOptions = {}): Prom
     return;
   }
 
+  if (merged.traceLocation && !parseTraceLocation(merged.traceLocation)) {
+    console.error(
+      `Error: invalid --trace-location: ${merged.traceLocation}. ` +
+        "Must be in 'catalog.schema.table_prefix' format.",
+    );
+    process.exitCode = 1;
+    return;
+  }
+
   const settingsPath = resolveSettingsPath(merged.projectLocal, merged);
 
   try {
@@ -102,6 +123,7 @@ export async function runSetup(args: string[], options: SetupOptions = {}): Prom
       trackingUri: merged.trackingUri,
       experimentId: resolved.experimentId,
       experimentName: resolved.experimentName,
+      traceLocation: merged.traceLocation,
     });
 
     console.error(`\n${settingsFileExisted ? 'Updated' : 'Created'} ${settingsPath}`);
@@ -117,6 +139,7 @@ export async function runSetup(args: string[], options: SetupOptions = {}): Prom
       trackingUri: merged.trackingUri,
       experimentId: resolved.experimentId,
       experimentName: resolved.experimentName,
+      traceLocation: merged.traceLocation,
     });
   } catch (error) {
     console.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
@@ -136,6 +159,9 @@ export function runStatus(options: ConfigPathOptions = {}): void {
   console.error(`  Tracking URI: ${config.trackingUri ?? 'not set'}`);
   console.error(`  Experiment ID: ${config.experimentId ?? 'not set'}`);
   console.error(`  Experiment name: ${config.experimentName ?? 'not set'}`);
+  if (config.traceLocation) {
+    console.error(`  Trace location: ${config.traceLocation}`);
+  }
 
   if (!config.enabled) {
     console.error('\nTracing is disabled. Run `mlflow-claude-code setup` to configure it.');
