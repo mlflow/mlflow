@@ -61,7 +61,7 @@ describe('RunEvaluationButton', () => {
     await userEvent.click(copyButton);
 
     expect(navigator.clipboard.writeText).toHaveBeenCalledTimes(1);
-    return (navigator.clipboard.writeText as jest.Mock).mock.calls[0][0] as string;
+    return jest.mocked(navigator.clipboard.writeText).mock.calls[0][0] as string;
   };
 
   it('renders the dataset-based snippet and copies it when the experiment has no traces', async () => {
