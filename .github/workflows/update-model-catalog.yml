@@ -2,8 +2,8 @@ name: Update Model Catalog
 
 on:
   schedule:
-    # Run every weekday (Mon-Fri) at 00:00 UTC
-    - cron: "0 0 * * 1-5"
+    # Run every weekday (Mon-Fri) at 00:00 and 12:00 UTC
+    - cron: "0 0,12 * * 1-5"
   workflow_dispatch:
 
 defaults:
@@ -32,6 +32,7 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: true
+          token: ${{ steps.app-token.outputs.token }}
 
       - uses: ./.github/actions/setup-python
         with:
@@ -68,6 +69,7 @@ jobs:
           git push -f origin refs/tags/model-catalog/latest
 
       - name: Create or update pull request
+        id: pr
         if: steps.diff.outputs.changed == 'true'
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
@@ -82,12 +84,28 @@ jobs:
           existing_pr=$(gh pr list --head "$branch" --state open --json number --jq '.[0].number // empty')
           if [ -n "$existing_pr" ]; then
             echo "Existing open PR #$existing_pr found for branch $branch — skipping PR creation."
+            echo "number=$existing_pr" >> "$GITHUB_OUTPUT"
+            echo "is_new_pr=false" >> "$GITHUB_OUTPUT"
           else
-            gh pr create \
+            pr_number=$(gh pr create \
               --title "Update model catalog from upstream sources" \
               --body "Daily refresh of model pricing and context window data from LiteLLM, transformed to MLflow-native schema." \
-              --reviewer "TomeHirata"
+              --reviewer "TomeHirata" \
+              --json number --jq '.number')
+            echo "number=$pr_number" >> "$GITHUB_OUTPUT"
+            echo "is_new_pr=true" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Enable auto-merge
+        if: steps.pr.outputs.is_new_pr == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+        run: |
+          output=$(gh pr merge "$PR_NUMBER" --auto --squash 2>&1) && exit 0
+          echo "$output" | grep -qi "auto-merge is already enabled" && exit 0
+          echo "$output" >&2
+          exit 1
 
       - name: Publish to GitHub Releases
         if: steps.diff.outputs.changed == 'true'

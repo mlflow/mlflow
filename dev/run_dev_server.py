@@ -98,6 +98,7 @@ def start_frontend(backend_port: int, frontend_port: int) -> subprocess.Popen[by
             "PORT": str(frontend_port),
             "MLFLOW_PROXY": f"http://localhost:{backend_port}",
             "MLFLOW_DEV_PROXY_MODE": "1",
+            "BROWSER": "none",
         },
         start_new_session=True,
     )
