@@ -1,7 +1,21 @@
-import { useState } from 'react';
-import { Button, Checkbox, FormUI, Input, PlusIcon, Radio, Tag, useDesignSystemTheme } from '@databricks/design-system';
+import { useRef, useState } from 'react';
+import {
+  Button,
+  Checkbox,
+  DragIcon,
+  FormUI,
+  Input,
+  PlusIcon,
+  Radio,
+  Tag,
+  Typography,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { Controller, type Control } from 'react-hook-form';
+import { useDrag, useDrop } from 'react-dnd';
+
+import { DragAndDropProvider } from '../../../common/hooks/useDragAndDropElement';
 
 import type { LabelSchemaType } from '../../components/label-schemas/types';
 import {
@@ -34,18 +48,26 @@ export const LabelSchemaFormRenderer = ({ control, isEdit, errors, watchedValues
   const { inputKind } = watchedValues;
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+      {isEdit && (
+        <Typography.Text color="error" css={{ marginBottom: -theme.spacing.sm }}>
+          <FormattedMessage
+            defaultMessage="Disabled fields are fixed after creation."
+            description="Label schema edit-mode notice explaining why some fields are disabled"
+          />
+        </Typography.Text>
+      )}
       <div css={{ display: 'flex', flexDirection: 'column' }}>
         <FormUI.Label
           htmlFor={`${COMPONENT_PREFIX}.name`}
           required
           infoPopoverContents={
             <FormattedMessage
-              defaultMessage="Shown to reviewers as the label prompt and used as the label's key on collected feedback. Up to 256 characters. Immutable after create."
+              defaultMessage="The prompt shown to the reviewer for this label."
               description="Label schema name hint"
             />
           }
         >
-          <FormattedMessage defaultMessage="Name" description="Label schema name input" />
+          <FormattedMessage defaultMessage="Prompt to reviewer" description="Label schema name input" />
         </FormUI.Label>
         <Controller
           name="name"
@@ -83,72 +105,7 @@ export const LabelSchemaFormRenderer = ({ control, isEdit, errors, watchedValues
         {errors.instruction && <FormUI.Message message={errors.instruction} type="error" />}
       </div>
 
-      <div css={{ display: 'flex', flexDirection: 'column' }}>
-        <FormUI.Label htmlFor={`${COMPONENT_PREFIX}.input-kind`} required>
-          <FormattedMessage defaultMessage="Input type" description="Label schema input variant selector" />
-        </FormUI.Label>
-        <Controller
-          name="inputKind"
-          control={control}
-          render={({ field }) => (
-            <Radio.Group
-              componentId={`${COMPONENT_PREFIX}.input-kind`}
-              name={`${COMPONENT_PREFIX}.input-kind`}
-              layout="horizontal"
-              value={field.value}
-              onChange={(e) => field.onChange(e.target.value as LabelSchemaInputKind)}
-              disabled={isEdit}
-            >
-              <Radio value="pass_fail">Pass / Fail</Radio>
-              <Radio value="categorical">Categorical</Radio>
-              <Radio value="numeric">Numeric</Radio>
-              <Radio value="text">Text</Radio>
-            </Radio.Group>
-          )}
-        />
-        {/* Per-input options live with the input-type selector: the rationale
-            toggle always, then multi-select when the type is categorical. */}
-        <Controller
-          name="enable_comment"
-          control={control}
-          render={({ field }) => (
-            <Checkbox
-              componentId={`${COMPONENT_PREFIX}.enable-comment`}
-              isChecked={field.value}
-              onChange={(checked) => field.onChange(checked)}
-              css={{ marginTop: theme.spacing.sm }}
-            >
-              <FormattedMessage
-                defaultMessage="Collect a free-form rationale alongside the input"
-                description="Enable rationale checkbox"
-              />
-            </Checkbox>
-          )}
-        />
-        {inputKind === 'categorical' && (
-          <Controller
-            name="categoricalMultiSelect"
-            control={control}
-            render={({ field }) => (
-              <Checkbox
-                componentId={`${COMPONENT_PREFIX}.categorical.multi-select`}
-                isChecked={field.value}
-                onChange={(checked) => field.onChange(checked)}
-                isDisabled={isEdit}
-                css={{ marginTop: theme.spacing.sm }}
-              >
-                <FormattedMessage
-                  defaultMessage="Allow multiple selections (multi-select)"
-                  description="Categorical multi-select checkbox"
-                />
-              </Checkbox>
-            )}
-          />
-        )}
-      </div>
-
-      {/* Feedback vs. expectation (ground truth): a horizontal radio group
-          mirroring the input-type selector above. Immutable on edit. */}
+      {/* Feedback vs. expectation (ground truth). Immutable on edit. */}
       <div css={{ display: 'flex', flexDirection: 'column' }}>
         <FormUI.Label htmlFor={`${COMPONENT_PREFIX}.type`} required>
           <FormattedMessage
@@ -175,10 +132,80 @@ export const LabelSchemaFormRenderer = ({ control, isEdit, errors, watchedValues
         />
       </div>
 
+      <div css={{ display: 'flex', flexDirection: 'column' }}>
+        <FormUI.Label htmlFor={`${COMPONENT_PREFIX}.input-kind`} required>
+          <FormattedMessage defaultMessage="Input type" description="Label schema input variant selector" />
+        </FormUI.Label>
+        <Controller
+          name="inputKind"
+          control={control}
+          render={({ field }) => (
+            <Radio.Group
+              componentId={`${COMPONENT_PREFIX}.input-kind`}
+              name={`${COMPONENT_PREFIX}.input-kind`}
+              layout="horizontal"
+              value={field.value}
+              onChange={(e) => field.onChange(e.target.value as LabelSchemaInputKind)}
+              disabled={isEdit}
+            >
+              <Radio value="pass_fail">Pass / Fail</Radio>
+              <Radio value="categorical">Categorical</Radio>
+              <Radio value="numeric">Numeric</Radio>
+              <Radio value="text">Text</Radio>
+            </Radio.Group>
+          )}
+        />
+        {/* Multi-select modifies the categorical input type, so it sits with
+            the input-type selector. Immutable on edit. */}
+        {inputKind === 'categorical' && (
+          <Controller
+            name="categoricalMultiSelect"
+            control={control}
+            render={({ field }) => (
+              <Checkbox
+                componentId={`${COMPONENT_PREFIX}.categorical.multi-select`}
+                isChecked={field.value}
+                onChange={(checked) => field.onChange(checked)}
+                isDisabled={isEdit}
+                css={{ marginTop: theme.spacing.sm }}
+              >
+                <FormattedMessage
+                  defaultMessage="Allow multiple selections (multi-select)"
+                  description="Categorical multi-select checkbox"
+                />
+              </Checkbox>
+            )}
+          />
+        )}
+      </div>
+
       {inputKind === 'pass_fail' && <PassFailFields control={control} errors={errors} />}
       {inputKind === 'categorical' && <CategoricalFields control={control} errors={errors} />}
       {inputKind === 'numeric' && <NumericFields control={control} errors={errors} />}
       {inputKind === 'text' && <TextFields control={control} errors={errors} />}
+
+      <div css={{ display: 'flex', flexDirection: 'column' }}>
+        <FormUI.Label htmlFor={`${COMPONENT_PREFIX}.enable-comment`}>
+          <FormattedMessage defaultMessage="Allow rationale" description="Label schema rationale section title" />
+        </FormUI.Label>
+        <Controller
+          name="enable_comment"
+          control={control}
+          render={({ field }) => (
+            <Checkbox
+              componentId={`${COMPONENT_PREFIX}.enable-comment`}
+              id={`${COMPONENT_PREFIX}.enable-comment`}
+              isChecked={field.value}
+              onChange={(checked) => field.onChange(checked)}
+            >
+              <FormattedMessage
+                defaultMessage="Collect a free-form rationale alongside the input"
+                description="Enable rationale checkbox"
+              />
+            </Checkbox>
+          )}
+        />
+      </div>
     </div>
   );
 };
@@ -228,16 +255,159 @@ const PassFailFields = ({ control, errors }: { control: Control<LabelSchemaFormD
   );
 };
 
+const OPTION_DRAG_TYPE = 'label-schema-categorical-option';
+
+interface OptionDragItem {
+  option: string;
+}
+
 /**
- * Editable options list: each existing option is an inline-editable row
- * with a remove button, and a trailing input adds a new option (Enter or
- * the Add button). Order is preserved; blanks and duplicates are dropped
- * on submit by `normalizeCategoricalOptions`.
+ * A categorical option chip, draggable by its grip handle to reorder. While
+ * another chip is dragged over it, a light insertion bar appears on the left
+ * or right edge — whichever half the cursor is in — marking where the held
+ * chip will land (before/after this one). Reorder fires on drop.
+ */
+const DraggableOptionChip = ({
+  option,
+  index,
+  onReorder,
+  onRemove,
+}: {
+  option: string;
+  index: number;
+  onReorder: (sourceKey: string, targetKey: string, edge: 'before' | 'after') => void;
+  onRemove: () => void;
+}) => {
+  const { theme } = useDesignSystemTheme();
+  const ref = useRef<HTMLDivElement>(null);
+  // Latest hovered edge, read at drop time (drop's closure mustn't go stale).
+  const edgeRef = useRef<'before' | 'after'>('before');
+  const [dropEdge, setDropEdge] = useState<'before' | 'after' | null>(null);
+
+  const [{ isDragging }, drag, preview] = useDrag(
+    () => ({
+      type: OPTION_DRAG_TYPE,
+      item: { option } as OptionDragItem,
+      collect: (monitor) => ({ isDragging: monitor.isDragging() }),
+    }),
+    [option],
+  );
+
+  const [{ isOver }, drop] = useDrop<OptionDragItem, void, { isOver: boolean }>(
+    () => ({
+      accept: OPTION_DRAG_TYPE,
+      collect: (monitor) => ({ isOver: monitor.isOver() && monitor.getItem()?.option !== option }),
+      hover: (item, monitor) => {
+        const node = ref.current;
+        const offset = monitor.getClientOffset();
+        if (item.option === option || !node || !offset) {
+          return;
+        }
+        const rect = node.getBoundingClientRect();
+        // The first chip is flush against the container's left edge, so widen
+        // its "before" zone (left ~60%) to make dropping at the very front easy.
+        const beforeFraction = index === 0 ? 0.6 : 0.5;
+        const edge = offset.x < rect.left + rect.width * beforeFraction ? 'before' : 'after';
+        edgeRef.current = edge;
+        setDropEdge(edge);
+      },
+      drop: (item) => {
+        if (item.option !== option) {
+          onReorder(item.option, option, edgeRef.current);
+        }
+        setDropEdge(null);
+      },
+    }),
+    [option, onReorder],
+  );
+  preview(drop(ref));
+
+  return (
+    <div ref={ref} css={{ position: 'relative', opacity: isDragging ? 0.5 : 1 }}>
+      {/* Insertion bar: which edge depends on the cursor half, so dropping on
+          the right half places the held chip after this one. */}
+      {isOver && dropEdge && (
+        <div
+          css={{
+            position: 'absolute',
+            // The first chip sits at the container's left edge (which clips
+            // overflow), so render its "before" bar at the edge itself rather
+            // than in the non-existent gap to its left.
+            [dropEdge === 'before' ? 'left' : 'right']:
+              dropEdge === 'before' && index === 0 ? 0 : -theme.spacing.xs / 2,
+            top: 0,
+            bottom: 0,
+            width: 2,
+            borderRadius: 1,
+            backgroundColor: theme.colors.actionPrimaryBackgroundDefault,
+          }}
+        />
+      )}
+      <Tag
+        componentId={`${COMPONENT_PREFIX}.categorical.option`}
+        closable
+        onClose={onRemove}
+        // Pull the close button toward the text (the Tag leaves a wide default gap).
+        closeButtonProps={{ style: { marginLeft: -theme.spacing.xs } }}
+        css={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          // margin 0 so between-chip spacing is the container gap alone. The
+          // grip<->text and text<->X gaps are set explicitly on the grip and
+          // close button respectively.
+          margin: 0,
+        }}
+      >
+        <span
+          ref={drag}
+          aria-label={`Drag to reorder ${option}`}
+          css={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            // Pull the grip toward the chip's left edge (the Tag has intrinsic
+            // content padding we can't reach from the wrapper css). The
+            // grip<->text gap is half the text<->X gap.
+            marginLeft: -theme.spacing.xs,
+            marginRight: theme.spacing.xs / 2,
+            color: theme.colors.textSecondary,
+            fontSize: theme.typography.fontSizeSm,
+            cursor: 'grab',
+            '&:active': { cursor: 'grabbing' },
+          }}
+        >
+          <DragIcon />
+        </span>
+        {option}
+      </Tag>
+    </div>
+  );
+};
+
+/**
+ * Editable options list: add via the input + button; options render below as
+ * draggable, removable tag chips. Order is meaningful and preserved; blanks
+ * and duplicates are dropped on submit by `normalizeCategoricalOptions`.
  */
 const CategoricalOptionsEditor = ({ value, onChange }: { value: string[]; onChange: (next: string[]) => void }) => {
   const { theme } = useDesignSystemTheme();
   const [draft, setDraft] = useState('');
   const atMax = value.length >= MAX_CATEGORICAL_OPTIONS;
+
+  // Reorder on drop: drop the dragged option before/after the target chip
+  // (per the hovered edge). Remove first, then insert relative to the target's
+  // post-removal index so dropping after the last chip lands at the end.
+  const reorderOption = (sourceKey: string, targetKey: string, edge: 'before' | 'after') => {
+    if (sourceKey === targetKey) {
+      return;
+    }
+    const next = value.filter((o) => o !== sourceKey);
+    const targetIndex = next.indexOf(targetKey);
+    if (targetIndex === -1) {
+      return;
+    }
+    next.splice(edge === 'after' ? targetIndex + 1 : targetIndex, 0, sourceKey);
+    onChange(next);
+  };
 
   const addDraft = () => {
     const trimmed = draft.trim();
@@ -279,36 +449,32 @@ const CategoricalOptionsEditor = ({ value, onChange }: { value: string[]; onChan
         </Button>
       </div>
       {value.length > 0 && (
-        // Render options as removable tag chips (mirroring the Add/Edit tags
-        // modal), shown below the add box. Chips flow horizontally and wrap;
-        // the list scrolls within its own window once it exceeds it. Options
-        // are unique (deduped on add), so the value is a stable key.
-        <div
-          css={{
-            display: 'flex',
-            flexDirection: 'row',
-            flexWrap: 'wrap',
-            gap: theme.spacing.xs,
-            maxHeight: theme.spacing.md * 9,
-            overflowY: 'auto',
-          }}
-        >
-          {value.map((option) => (
-            <Tag
-              key={option}
-              componentId={`${COMPONENT_PREFIX}.categorical.option`}
-              closable
-              onClose={() => onChange(value.filter((o) => o !== option))}
-              css={{
-                paddingTop: theme.spacing.xs,
-                paddingBottom: theme.spacing.xs,
-                paddingLeft: theme.spacing.sm,
-              }}
-            >
-              {option}
-            </Tag>
-          ))}
-        </div>
+        // Options render as draggable, removable chips below the add box. They
+        // flow horizontally and wrap; the list scrolls within its own window
+        // once it exceeds it. Options are unique (deduped on add), so the
+        // value is a stable key.
+        <DragAndDropProvider>
+          <div
+            css={{
+              display: 'flex',
+              flexDirection: 'row',
+              flexWrap: 'wrap',
+              gap: theme.spacing.xs,
+              maxHeight: theme.spacing.md * 9,
+              overflowY: 'auto',
+            }}
+          >
+            {value.map((option, index) => (
+              <DraggableOptionChip
+                key={option}
+                option={option}
+                index={index}
+                onReorder={reorderOption}
+                onRemove={() => onChange(value.filter((o) => o !== option))}
+              />
+            ))}
+          </div>
+        </DragAndDropProvider>
       )}
     </div>
   );
@@ -320,7 +486,7 @@ const CategoricalFields = ({ control, errors }: { control: Control<LabelSchemaFo
   return (
     <div css={{ display: 'flex', flexDirection: 'column' }}>
       <FormUI.Label htmlFor={`${COMPONENT_PREFIX}.categorical.new-option`} required>
-        <FormattedMessage defaultMessage="Options" description="Categorical options list label" />
+        <FormattedMessage defaultMessage="Category choices" description="Categorical options list label" />
       </FormUI.Label>
       <FormUI.Hint>
         <FormattedMessage

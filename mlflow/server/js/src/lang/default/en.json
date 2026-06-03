@@ -63,10 +63,6 @@
     "defaultMessage": "Source Run",
     "description": "Label name for source run metadata in model version page"
   },
-  "+M9wET": {
-    "defaultMessage": "Shown to reviewers as the label prompt and used as the label's key on collected feedback. Up to 256 characters. Immutable after create.",
-    "description": "Label schema name hint"
-  },
   "+Njd07": {
     "defaultMessage": "No sessions found",
     "description": "Title for the empty sessions list in the select sessions modal"
@@ -703,6 +699,10 @@
     "defaultMessage": "LLM judge",
     "description": "Section header for LLM judge selection"
   },
+  "26K5gq": {
+    "defaultMessage": "Prompt to reviewer",
+    "description": "Label schema name input"
+  },
   "26uApn": {
     "defaultMessage": "Trace archival retention updated",
     "description": "Partial save status message when experiment trace archival retention update succeeds"
@@ -958,10 +958,6 @@
   "3YddwH": {
     "defaultMessage": "Traffic split percentages must total 100%",
     "description": "Tooltip shown when save button is disabled due to invalid traffic split total"
-  },
-  "3ZAnw6": {
-    "defaultMessage": "Options",
-    "description": "Categorical options list label"
   },
   "3bagxW": {
     "defaultMessage": "<link>Learn more</link>",
@@ -5887,6 +5883,10 @@
     "defaultMessage": "Violates guidelines",
     "description": "Evaluation results > guidelines assessment > negative value label. Displayed if evaluation result does not adhere to the guidelines."
   },
+  "Wne4Y/": {
+    "defaultMessage": "Disabled fields are fixed after creation.",
+    "description": "Label schema edit-mode notice explaining why some fields are disabled"
+  },
   "Wp1PWT": {
     "defaultMessage": "Failed to delete webhook",
     "description": "Generic error message informing the user that webhook deletion failed"
@@ -6943,10 +6943,6 @@
     "defaultMessage": "baseline run",
     "description": "Placeholder text shown when no baseline run is selected for comparison"
   },
-  "chgiV+": {
-    "defaultMessage": "Name",
-    "description": "Label schema name input"
-  },
   "ckfi1K": {
     "defaultMessage": "Refresh evaluation runs",
     "description": "Tooltip for the refresh evaluation runs button in the evaluation runs table controls"
@@ -7243,6 +7239,10 @@
     "defaultMessage": "Key",
     "description": "Tag key label in unified trace tag assignment modal"
   },
+  "eLkD+y": {
+    "defaultMessage": "The prompt shown to the reviewer for this label.",
+    "description": "Label schema name hint"
+  },
   "eNHVjy": {
     "defaultMessage": "Name is required",
     "description": "Form validation error message informing the user that the webhook name is required"
@@ -7430,6 +7430,10 @@
   "fMxD0i": {
     "defaultMessage": "Admin",
     "description": "Tag content marking an admin role (single-tenant)"
+  },
+  "fSm3ue": {
+    "defaultMessage": "Category choices",
+    "description": "Categorical options list label"
   },
   "fUB5d7": {
     "defaultMessage": "Session ID",
@@ -9330,6 +9334,10 @@
   "pfyUes": {
     "defaultMessage": "See details",
     "description": "Evaluation review > assessments > see details button"
+  },
+  "pgksxr": {
+    "defaultMessage": "Allow rationale",
+    "description": "Label schema rationale section title"
   },
   "pjCmlG": {
     "defaultMessage": "Usage",
