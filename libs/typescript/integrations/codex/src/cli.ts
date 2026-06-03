@@ -40,6 +40,12 @@ function printUsage(): void {
   console.error(
     dim('                 --experiment-id <id>   Bypass the prompt for the experiment ID'),
   );
+  console.error(
+    dim(
+      "                 --trace-location <loc> Databricks Unity Catalog trace location as\n" +
+        "                                        'catalog.schema.table_prefix' (routes to UC ingestion)",
+    ),
+  );
   console.error('');
   console.error(
     `  ${bold('notify-hook')}  Run the Codex notify handler. Codex appends the turn JSON as`,

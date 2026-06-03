@@ -22,6 +22,7 @@ import { homedir } from 'node:os';
 import { dirname, resolve } from 'node:path';
 import { createInterface } from 'node:readline';
 
+import { parseTraceLocation } from '../config.js';
 import { FAIL, OK, WARN, bold, cyan, dim } from '../ui.js';
 import { selectPrompt } from '../ui-select.js';
 
@@ -37,6 +38,9 @@ const DEFAULT_EXPERIMENT_ID = '0';
  * interprets as a custom scheme with an empty port).
  */
 export function isValidTrackingUri(raw: string): boolean {
+  if (raw === 'databricks' || raw.startsWith('databricks://')) {
+    return true;
+  }
   let parsed: URL;
   try {
     parsed = new URL(raw);
@@ -55,6 +59,12 @@ export interface SetupOptions {
   trackingUri?: string;
   /** Pre-supplied experiment ID. Skips the interactive prompt. */
   experimentId?: string;
+  /**
+   * Optional Databricks Unity Catalog trace location as
+   * `catalog.schema.table_prefix`. When set, traces are routed to the UC
+   * table-prefix destination instead of the experiment-backed path.
+   */
+  traceLocation?: string;
   /** Suppress prompts entirely. Uses defaults for any unset values. */
   nonInteractive?: boolean;
 }
@@ -80,7 +90,7 @@ function writeConfigWithHook(path: string, original: string | null): void {
 
 function writeTracingConfig(
   path: string,
-  config: { trackingUri: string; experimentId: string },
+  config: { trackingUri: string; experimentId: string; traceLocation?: string },
 ): void {
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, JSON.stringify(config, null, 2) + '\n', 'utf-8');
@@ -92,6 +102,7 @@ function writeTracingConfig(
  *   --non-interactive / -y
  *   --tracking-uri <url>
  *   --experiment-id <id>
+ *   --trace-location <catalog.schema.table_prefix>
  *
  * `projectLocal` is left undefined when `--project` is not passed so the
  * caller can apply its own default (interactive prompts; non-interactive
@@ -111,6 +122,8 @@ export function parseSetupArgs(
       out.trackingUri = args[++i];
     } else if (arg === '--experiment-id') {
       out.experimentId = args[++i];
+    } else if (arg === '--trace-location') {
+      out.traceLocation = args[++i];
     }
   }
   return out;
@@ -224,7 +237,7 @@ export async function runSetup(args: string[], options: SetupOptions = {}): Prom
       merged.experimentId ??
       (rl ? await askOn(rl, 'MLflow experiment ID', DEFAULT_EXPERIMENT_ID) : DEFAULT_EXPERIMENT_ID);
 
-    writeTracingConfigIfValid(tracingConfigPath, trackingUri, experimentId);
+    writeTracingConfigIfValid(tracingConfigPath, trackingUri, experimentId, merged.traceLocation);
   } finally {
     rl?.close();
   }
@@ -234,25 +247,45 @@ function writeTracingConfigIfValid(
   tracingConfigPath: string,
   trackingUri: string,
   experimentId: string,
+  traceLocation?: string,
 ): void {
   if (!isValidTrackingUri(trackingUri)) {
     console.error(
-      `${FAIL} Invalid tracking URI: ${bold(trackingUri)} — must be an absolute http:// or https:// URL.`,
+      `${FAIL} Invalid tracking URI: ${bold(trackingUri)} - must be an absolute http:// or https:// URL, or a databricks URI.`,
     );
     process.exitCode = 1;
     return;
   }
-  writeTracingConfig(tracingConfigPath, { trackingUri, experimentId });
+  if (traceLocation && !parseTraceLocation(traceLocation)) {
+    console.error(
+      `${FAIL} Invalid trace location: ${bold(traceLocation)} - must be in 'catalog.schema.table_prefix' format.`,
+    );
+    process.exitCode = 1;
+    return;
+  }
+  writeTracingConfig(tracingConfigPath, {
+    trackingUri,
+    experimentId,
+    ...(traceLocation ? { traceLocation } : {}),
+  });
   console.error(`\n${OK} Wrote tracing config to ${cyan(tracingConfigPath)}`);
+  if (traceLocation) {
+    console.error(`  Trace location: ${bold(traceLocation)}`);
+  }
 
-  const port = new URL(trackingUri).port || '5000';
   console.error(`\n${bold('Next steps')}`);
-  console.error('  1. Start the MLflow tracking server in a separate terminal:');
-  console.error(`       ${cyan(`mlflow server --port ${port}`)}`);
+  if (trackingUri.startsWith('databricks')) {
+    const destination = traceLocation ? `UC location ${bold(traceLocation)}` : bold(trackingUri);
+    console.error(`  1. Launch ${cyan('codex')} - traces appear in ${destination} after each turn.`);
+  } else {
+    const port = new URL(trackingUri).port || '5000';
+    console.error('  1. Start the MLflow tracking server in a separate terminal:');
+    console.error(`       ${cyan(`mlflow server --port ${port}`)}`);
+    console.error(
+      `  2. Launch ${cyan('codex')} - traces appear at ${bold(trackingUri)} after each turn.`,
+    );
+  }
   console.error(
-    `  2. Launch ${cyan('codex')} — traces appear at ${bold(trackingUri)} after each turn.`,
-  );
-  console.error(
-    `\n${dim('Override per-shell with $MLFLOW_TRACKING_URI / $MLFLOW_EXPERIMENT_ID.')}`,
+    `\n${dim('Override per-shell with $MLFLOW_TRACKING_URI / $MLFLOW_EXPERIMENT_ID / $MLFLOW_TRACE_LOCATION.')}`,
   );
 }
