@@ -1291,40 +1291,26 @@ def persist_pretrained_model(model_uri: str) -> None:
 
     with TempDir() as tmp_dir:
         local_model_path = artifact_repo.download_artifacts(artifact_path, dst_path=tmp_dir.path())
-        pipeline = load_model(local_model_path, return_type="pipeline")
-
-        # Update MLModel flavor config
         mlmodel_path = os.path.join(local_model_path, MLMODEL_FILE_NAME)
         model_conf = Model.load(mlmodel_path)
-        updated_flavor_conf = update_flavor_conf_to_persist_pretrained_model(
-            model_conf.flavors[FLAVOR_NAME]
-        )
-        model_conf.add_flavor(FLAVOR_NAME, **updated_flavor_conf)
-        model_conf.save(mlmodel_path)
+        flavor_conf = model_conf.flavors.get(FLAVOR_NAME, {})
 
-        # Save pretrained weights
-        save_pipeline_pretrained_weights(
-            pathlib.Path(local_model_path), pipeline, updated_flavor_conf
-        )
-
-        # Upload updated local artifacts to MLflow
-        for dir_to_upload in (_MODEL_BINARY_FILE_NAME, _COMPONENTS_BINARY_DIR_NAME):
-            local_dir = os.path.join(local_model_path, dir_to_upload)
-            if not os.path.isdir(local_dir):
-                continue
-
-            try:
-                artifact_repo.log_artifacts(local_dir, os.path.join(artifact_path, dir_to_upload))
-            except Exception as e:
-                # NB: log_artifacts method doesn't support rollback for partial uploads,
-                raise MlflowException(
-                    f"Failed to upload {local_dir} to the existing model_uri due to {e}."
-                    "Some other files may have been uploaded."
-                ) from e
-
-        # Upload MLModel file
-        artifact_repo.log_artifact(mlmodel_path, artifact_path)
-
+        # --- OUR NEW FAIL-FAST GUARDRAIL ---
+        if "peft_adaptor" in flavor_conf:
+            from mlflow.exceptions import MlflowException
+            
+            raise MlflowException(
+                "Cannot use `persist_pretrained_model` on a PEFT/LoRA model. "
+                "Because PEFT models rely on dynamic adapter weights applied to a base model, "
+                "persisting the base weights from memory results in corrupted state dictionaries. "
+                "If you require a monolithic model artifact (e.g., for Unity Catalog registration "
+                "with saved weights), please call `model.merge_and_unload()` to bake the LoRA "
+                "weights into the base model prior to calling `mlflow.transformers.log_model()`."
+            )
+        # -----------------------------------
+        
+        # Now it is safe to do the heavy loading
+        pipeline = load_model(local_model_path, return_type="pipeline")
     _logger.info(f"The pretrained model has been successfully persisted in {model_uri}.")
 
 
