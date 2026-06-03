@@ -6,11 +6,9 @@ from aiohttp import ClientTimeout
 from fastapi.encoders import jsonable_encoder
 from pydantic import ValidationError
 
+from mlflow.environment_variables import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
 from mlflow.gateway.config import EndpointConfig, VertexAIConfig
-from mlflow.gateway.constants import (
-    MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS,
-    MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS,
-)
+from mlflow.gateway.constants import MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS
 from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.vertex_ai import VertexAIProvider
 from mlflow.gateway.schemas import chat, completions
@@ -251,7 +249,7 @@ async def test_claude_chat_uses_raw_predict_endpoint():
             "max_tokens": MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS,
             "anthropic_version": "vertex-2023-10-16",
         },
-        timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+        timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
     )
 
 
@@ -367,7 +365,7 @@ async def test_maas_chat_uses_openai_format():
             "n": 1,
             "messages": [{"role": "user", "content": "Hello"}],
         },
-        timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+        timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
     )
 
 

@@ -1,9 +1,3 @@
-"""Tests for the mlflow demo CLI command.
-
-Includes both quick help/registration tests and functional tests that
-invoke the actual CLI command with a mocked server.
-"""
-
 import socket
 import sys
 from unittest import mock

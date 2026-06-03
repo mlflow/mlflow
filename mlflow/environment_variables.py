@@ -640,6 +640,14 @@ MLFLOW_GATEWAY_RATE_LIMITS_STORAGE_URI = _EnvironmentVariable(
     "MLFLOW_GATEWAY_RATE_LIMITS_STORAGE_URI", str, None
 )
 
+#: Timeout in seconds for Gateway provider requests before they are treated as timed out.
+#: This applies to both gateway provider proxy calls and GenAI judge requests routed through
+#: gateway-compatible providers.
+#: (default: ``300``)
+MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS = _EnvironmentVariable(
+    "MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS", int, 300
+)
+
 #: If True, the gateway will attempt to resolve API keys from environment variables
 #: (``$``-prefixed values). This is only enabled for the legacy YAML-config gateway
 #: (``mlflow gateway start``).
