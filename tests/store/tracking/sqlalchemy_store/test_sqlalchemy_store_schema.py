@@ -8,6 +8,7 @@ from alembic import command
 from alembic.autogenerate import compare_metadata
 from alembic.migration import MigrationContext
 from alembic.script import ScriptDirectory
+from click.testing import CliRunner
 
 import mlflow.db
 
@@ -97,6 +98,20 @@ def test_db_upgrade_initializes_fresh_database(tmp_path, expected_schema_file, d
     generated_schema_file = tmp_path.joinpath("generated-schema.sql")
     dump_db_schema(db_url, generated_schema_file)
     _assert_schema_files_equal(generated_schema_file, expected_schema_file)
+
+
+def test_db_upgrade_does_not_bootstrap_non_empty_database(db_url):
+    # Guard against silently creating MLflow tables in a foreign DB. If any
+    # non-alembic table already exists, we should attempt migrations only
+    # (which surfaces the missing-table error) rather than bootstrap.
+    engine = sqlalchemy.create_engine(db_url)
+    with engine.begin() as conn:
+        conn.execute(sqlalchemy.text("CREATE TABLE foreign_table (id INTEGER PRIMARY KEY)"))
+    res = CliRunner().invoke(mlflow.db.commands, ["upgrade", db_url])
+    assert res.exit_code != 0
+    inspector = sqlalchemy.inspect(engine)
+    assert "foreign_table" in inspector.get_table_names()
+    assert "experiments" not in inspector.get_table_names()
 
 
 def test_sqlalchemy_store_detects_schema_mismatch(db_url):
