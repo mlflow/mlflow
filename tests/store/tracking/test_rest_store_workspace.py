@@ -3,6 +3,7 @@ from unittest import mock
 import pytest
 
 from mlflow.exceptions import MlflowException
+from mlflow.protos.service_pb2 import Experiment, GetExperiment
 from mlflow.store.tracking.rest_store import RestStore
 from mlflow.utils.rest_utils import MlflowHostCreds
 
@@ -108,3 +109,20 @@ def test_workspace_guard_blocks_log_spans(monkeypatch):
 
     with pytest.raises(MlflowException, match="does not support workspaces"):
         store.log_spans("exp-1", spans)
+
+
+def test_rest_store_get_experiment_has_workspace():
+    proto = Experiment(
+        experiment_id="1",
+        name="test",
+        artifact_location="/tmp",
+        workspace="other_workspace",
+    )
+    response = GetExperiment.Response(experiment=proto)
+
+    with mock.patch.object(RestStore, "_call_endpoint", return_value=response) as mock_call:
+        store = RestStore(lambda: MlflowHostCreds("https://hello"))
+        result = store.get_experiment("1")
+
+    assert result.workspace == "other_workspace"
+    mock_call.assert_called_once()
