@@ -76,7 +76,7 @@ def _reject_tracking_store_only_params(*, experiment_id: str | None, schema_id: 
         )
 
 
-@experimental(version="3.13.0")
+@experimental(version="3.14.0")
 def create_label_schema(
     name: str,
     *,
@@ -149,7 +149,7 @@ def create_label_schema(
     )
 
 
-@experimental(version="3.13.0")
+@experimental(version="3.14.0")
 def get_label_schema(
     name: str | None = None,
     *,
@@ -190,7 +190,7 @@ def get_label_schema(
     return client._get_label_schema_by_name(experiment_id, name)
 
 
-@experimental(version="3.13.0")
+@experimental(version="3.14.0")
 def delete_label_schema(name: str | None = None, *, schema_id: str | None = None):
     """
     Delete a label schema.
@@ -232,7 +232,7 @@ def delete_label_schema(name: str | None = None, *, schema_id: str | None = None
     return None
 
 
-@experimental(version="3.13.0")
+@experimental(version="3.14.0")
 def list_label_schemas(
     experiment_id: str | None = None,
     *,
@@ -261,7 +261,7 @@ def list_label_schemas(
     )
 
 
-@experimental(version="3.13.0")
+@experimental(version="3.14.0")
 def update_label_schema(
     schema_id: str,
     *,
