@@ -1,7 +1,5 @@
-"""
-This file contains unit tests for the new Gemini Python SDK
-https://github.com/googleapis/python-genai
-"""
+# Tests for the new Gemini Python SDK:
+# https://github.com/googleapis/python-genai
 
 import asyncio
 import base64

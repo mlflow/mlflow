@@ -26,7 +26,6 @@ from mlflow.types.llm import (
     ToolDefinition,
     ToolParamsSchema,
 )
-from mlflow.utils.annotations import experimental
 
 _logger = logging.getLogger(__name__)
 
@@ -105,7 +104,6 @@ def _get_experiment_id(trace: Trace) -> str:
     return trace.info.trace_location.mlflow_experiment.experiment_id
 
 
-@experimental(version="3.5.0")
 class SearchTracesTool(JudgeTool):
     """
     Tool for searching and retrieving traces from an MLflow experiment.

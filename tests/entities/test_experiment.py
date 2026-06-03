@@ -171,3 +171,28 @@ def test_trace_location_setter_overrides_lazy():
     override = UnityCatalog("other_cat", "other_sch", "other_pfx")
     exp.trace_location = override
     assert exp.trace_location is override
+
+
+def test_experiment_roundtrip_preserves_workspace():
+    exp_with_workspace = Experiment(
+        experiment_id="1",
+        name="test",
+        artifact_location="/tmp",
+        lifecycle_stage=LifecycleStage.ACTIVE,
+        workspace="other_workspace",
+    )
+    proto_with_workspace = exp_with_workspace.to_proto()
+    assert proto_with_workspace.workspace == "other_workspace"
+    recovered_with_workspace = Experiment.from_proto(proto_with_workspace)
+    assert recovered_with_workspace.workspace == "other_workspace"
+
+    exp_without_workspace = Experiment(
+        experiment_id="2",
+        name="test",
+        artifact_location="/tmp",
+        lifecycle_stage=LifecycleStage.ACTIVE,
+    )
+    proto_without_workspace = exp_without_workspace.to_proto()
+    assert proto_without_workspace.HasField("workspace")
+    recovered_without_workspace = Experiment.from_proto(proto_without_workspace)
+    assert recovered_without_workspace.workspace == DEFAULT_WORKSPACE_NAME
