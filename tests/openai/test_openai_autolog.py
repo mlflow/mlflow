@@ -154,6 +154,27 @@ async def test_chat_completions_autolog(client, mock_litellm_cost):
         }
 
 
+def test_get_span_type_resolves_subclasses():
+    # Regression test for https://github.com/mlflow/mlflow/issues/23754:
+    # third-party clients (e.g. DatabricksOpenAI) subclass the OpenAI resource
+    # classes, so exact dict lookup misses and a previous fallback returned an
+    # unhashable tuple, breaking span log-level resolution downstream.
+    from openai.resources.chat.completions import Completions as ChatCompletions
+    from openai.resources.completions import Completions
+    from openai.resources.embeddings import Embeddings
+
+    from mlflow.openai.autolog import _get_span_type
+
+    class CustomChatCompletions(ChatCompletions):
+        pass
+
+    assert _get_span_type(CustomChatCompletions) == SpanType.CHAT_MODEL
+    assert _get_span_type(ChatCompletions) == SpanType.CHAT_MODEL
+    assert _get_span_type(Completions) == SpanType.LLM
+    assert _get_span_type(Embeddings) == SpanType.EMBEDDING
+    assert _get_span_type(object) == SpanType.UNKNOWN
+
+
 @pytest.mark.asyncio
 @pytest.mark.skipif(
     Version(openai.__version__) < Version("1.66"), reason="Cost tracking does not work before 1.66"
