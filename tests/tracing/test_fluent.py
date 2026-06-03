@@ -51,7 +51,6 @@ from mlflow.tracing.provider import (
     safe_set_span_in_context,
     set_destination,
 )
-from mlflow.tracking import MlflowClient
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.version import IS_TRACING_SDK_ONLY
 
@@ -777,7 +776,12 @@ def test_start_span_context_manager(async_logging_enabled):
     assert child_span_2.start_time_ns <= child_span_2.end_time_ns - 0.1 * 1e6
 
 
+@pytest.mark.skipif(
+    IS_TRACING_SDK_ONLY, reason="Skipping test because mlflow or mlflow-skinny is not installed."
+)
 def test_start_span_with_run_id(async_logging_enabled):
+    from mlflow.tracking import MlflowClient
+
     client = MlflowClient()
     experiment_id = client.create_experiment(f"test_experiment_{uuid.uuid4().hex}")
     run = client.create_run(experiment_id=experiment_id)
@@ -802,7 +806,12 @@ def test_start_span_with_run_id(async_logging_enabled):
     assert trace_info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run.info.run_id
 
 
+@pytest.mark.skipif(
+    IS_TRACING_SDK_ONLY, reason="Skipping test because mlflow or mlflow-skinny is not installed."
+)
 def test_start_span_with_run_id_takes_precedence_over_active_run(async_logging_enabled):
+    from mlflow.tracking import MlflowClient
+
     client = MlflowClient()
     active_experiment_id = client.create_experiment(f"test_experiment_{uuid.uuid4().hex}")
     explicit_experiment_id = client.create_experiment(f"test_experiment_{uuid.uuid4().hex}")
@@ -830,7 +839,12 @@ def test_start_span_with_run_id_takes_precedence_over_active_run(async_logging_e
     assert trace_info.request_metadata[TraceMetadataKey.SOURCE_RUN] == explicit_run.info.run_id
 
 
+@pytest.mark.skipif(
+    IS_TRACING_SDK_ONLY, reason="Skipping test because mlflow or mlflow-skinny is not installed."
+)
 def test_start_span_with_run_id_warns_for_child_span(async_logging_enabled):
+    from mlflow.tracking import MlflowClient
+
     client = MlflowClient()
     experiment_id = client.create_experiment(f"test_experiment_{uuid.uuid4().hex}")
     run_1 = client.create_run(experiment_id=experiment_id)
