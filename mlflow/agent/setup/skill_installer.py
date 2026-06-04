@@ -1,5 +1,3 @@
-"""Install the bundled MLflow skills into a repo for the chosen agent."""
-
 from __future__ import annotations
 
 from importlib import resources
