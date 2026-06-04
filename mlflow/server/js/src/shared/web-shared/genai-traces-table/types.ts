@@ -318,6 +318,7 @@ export enum TracesTableColumnType {
 // This represents columns that are grouped together.
 // For example, each assessment is its own column, but they are all grouped under the "Assessments" column group.
 export enum TracesTableColumnGroup {
+  BASE = 'BASE',
   ASSESSMENT = 'ASSESSMENT',
   EXPECTATION = 'EXPECTATION',
   TAG = 'TAG',
@@ -328,7 +329,8 @@ export const TracesTableColumnGroupToLabelMap = {
   [TracesTableColumnGroup.ASSESSMENT]: 'Assessments',
   [TracesTableColumnGroup.EXPECTATION]: 'Expectations',
   [TracesTableColumnGroup.TAG]: 'Tags',
-  // We don't show a label for the info column group
+  // We don't show a label band for BASE (first/default) or INFO ("Other") in the table header
+  [TracesTableColumnGroup.BASE]: '\u00A0',
   [TracesTableColumnGroup.INFO]: '\u00A0',
 };
 

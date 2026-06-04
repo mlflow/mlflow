@@ -1,7 +1,13 @@
 import { describe, it, expect } from '@jest/globals';
 
-import { getSimulationColumnsToAdd } from './GenAiTracesTable.utils';
-import { SIMULATION_GOAL_COLUMN_ID, SIMULATION_PERSONA_COLUMN_ID } from './hooks/useTableColumns';
+import { getSimulationColumnsToAdd, sortGroupedColumns } from './GenAiTracesTable.utils';
+import {
+  RESPONSE_COLUMN_ID,
+  SIMULATION_GOAL_COLUMN_ID,
+  SIMULATION_PERSONA_COLUMN_ID,
+  createAssessmentColumnId,
+  createExpectationColumnId,
+} from './hooks/useTableColumns';
 import { SIMULATION_GOAL_KEY, SIMULATION_PERSONA_KEY } from './utils/SessionGroupingUtils';
 import type { TracesTableColumn } from './types';
 import { TracesTableColumnType, TracesTableColumnGroup } from './types';
@@ -57,5 +63,44 @@ describe('getSimulationColumnsToAdd', () => {
   it('returns only columns available in allColumns', () => {
     expect(getSimulationColumnsToAdd([createTrace(bothMetadata)], [goalColumn], [])).toEqual([goalColumn]);
     expect(getSimulationColumnsToAdd([createTrace(bothMetadata)], [], [])).toEqual([]);
+  });
+});
+
+describe('sortGroupedColumns — base / expectations / assessments / other ordering', () => {
+  const responseCol: TracesTableColumn = {
+    id: RESPONSE_COLUMN_ID,
+    label: 'Response',
+    type: TracesTableColumnType.TRACE_INFO,
+    group: TracesTableColumnGroup.BASE,
+  };
+  const expectedResponseCol: TracesTableColumn = {
+    id: createExpectationColumnId('expected_response'),
+    label: 'expected_response',
+    type: TracesTableColumnType.EXPECTATION,
+    group: TracesTableColumnGroup.EXPECTATION,
+    expectationName: 'expected_response',
+  };
+  const executionTimeCol: TracesTableColumn = {
+    id: 'execution_duration',
+    label: 'Execution time',
+    type: TracesTableColumnType.TRACE_INFO,
+    group: TracesTableColumnGroup.INFO,
+  };
+  const qualityCol: TracesTableColumn = {
+    id: createAssessmentColumnId('quality'),
+    label: 'quality',
+    type: TracesTableColumnType.ASSESSMENT,
+    group: TracesTableColumnGroup.ASSESSMENT,
+  };
+
+  it('orders columns as: BASE → EXPECTATION → ASSESSMENT → INFO', () => {
+    // Scramble the input so order in the array can't accidentally pass the test.
+    const sorted = sortGroupedColumns([executionTimeCol, qualityCol, expectedResponseCol, responseCol]);
+    expect(sorted.map((c) => c.id)).toEqual([
+      responseCol.id,
+      expectedResponseCol.id,
+      qualityCol.id,
+      executionTimeCol.id,
+    ]);
   });
 });

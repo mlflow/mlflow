@@ -31,14 +31,15 @@ import { SIMULATION_GOAL_KEY, SIMULATION_PERSONA_KEY } from './utils/SessionGrou
 import type { ModelTraceInfoV3 } from '../model-trace-explorer/ModelTrace.types';
 
 const GROUP_PRIORITY = [
-  TracesTableColumnGroup.INFO,
-  TracesTableColumnGroup.ASSESSMENT,
+  TracesTableColumnGroup.BASE,
   TracesTableColumnGroup.EXPECTATION,
+  TracesTableColumnGroup.ASSESSMENT,
+  TracesTableColumnGroup.INFO,
   TracesTableColumnGroup.TAG,
 ] as const;
 
-/** Preferred order *within* the INFO group by column ID */
-const INFO_COLUMN_PRIORITY = [
+/** Preferred within-group order by column ID, applied to BASE and INFO. */
+const COLUMN_PRIORITY = [
   TRACE_ID_COLUMN_ID,
   INPUTS_COLUMN_ID,
   RESPONSE_COLUMN_ID,
@@ -59,7 +60,7 @@ const groupRank: Record<TracesTableColumnGroup, number> = Object.fromEntries(
   GROUP_PRIORITY.map((grp, idx) => [grp, idx]),
 ) as any;
 
-const infoColumnRank: Record<string, number> = Object.fromEntries(INFO_COLUMN_PRIORITY.map((id, idx) => [id, idx]));
+const columnRank: Record<string, number> = Object.fromEntries(COLUMN_PRIORITY.map((id, idx) => [id, idx]));
 
 const assessmentColumnRank: Record<string, number> = Object.fromEntries(
   ASSESSMENT_COLUMN_PRIORITY.map((id, idx) => [id, idx]),
@@ -94,22 +95,22 @@ export function sortGroupedColumns(
       if (colB.id === INPUTS_COLUMN_ID) return 1;
     }
 
-    // 1) Compare their groups by precomputed rank
+    // 1) Compare their groups by precomputed rank.
     const groupA = colA.group ?? TracesTableColumnGroup.INFO;
     const groupB = colB.group ?? TracesTableColumnGroup.INFO;
     const groupComparison = groupRank[groupA] - groupRank[groupB];
     if (groupComparison !== 0) return groupComparison;
 
-    // 2) Same group: INFO
-    if (groupA === TracesTableColumnGroup.INFO) {
+    // 2) Same group: BASE or INFO (share the same column-priority map)
+    if (groupA === TracesTableColumnGroup.BASE || groupA === TracesTableColumnGroup.INFO) {
       // Columns in INFO_COLUMN_LAST should always appear at the end
       const isLastA = INFO_COLUMN_LAST.includes(colA.id as (typeof INFO_COLUMN_LAST)[number]);
       const isLastB = INFO_COLUMN_LAST.includes(colB.id as (typeof INFO_COLUMN_LAST)[number]);
       if (isLastA && !isLastB) return 1;
       if (!isLastA && isLastB) return -1;
 
-      const rankA = infoColumnRank[colA.id] ?? Infinity;
-      const rankB = infoColumnRank[colB.id] ?? Infinity;
+      const rankA = columnRank[colA.id] ?? Infinity;
+      const rankB = columnRank[colB.id] ?? Infinity;
       if (rankA !== rankB) return rankA - rankB;
       return colA.label.localeCompare(colB.label);
     }
