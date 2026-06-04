@@ -130,7 +130,8 @@ def setup(
 
     tracking_uri_input = click.prompt(
         click.style(
-            "Tracking URI (leave empty to let the agent start a local server)",
+            "Tracking URI (leave empty to let the agent start a local server, "
+            "or 'databricks' for a Databricks workspace)",
             fg="cyan",
             bold=True,
         ),
@@ -138,9 +139,24 @@ def setup(
         show_default=False,
         err=True,
     ).strip()
+    experiment_path: str | None = None
     if tracking_uri_input:
         tracking_uri = tracking_uri_input
         local_server_port: int | None = None
+        if tracking_uri == "databricks":
+            experiment_path = click.prompt(
+                click.style(
+                    "Workspace experiment path (e.g. /Users/you@example.com/my-app)",
+                    fg="cyan",
+                    bold=True,
+                ),
+                err=True,
+            ).strip()
+            if not experiment_path.startswith("/"):
+                raise click.ClickException(
+                    "Databricks experiment path must start with '/' "
+                    "(e.g. /Users/you@example.com/my-app)."
+                )
     else:
         local_server_port = _find_available_port()
         tracking_uri = f"http://127.0.0.1:{local_server_port}"
@@ -151,6 +167,7 @@ def setup(
         agent,
         tracking_uri,
         local_server_port=local_server_port,
+        experiment_path=experiment_path,
         skills_installed=skills_installed,
     )
 
