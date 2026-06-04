@@ -1,14 +1,27 @@
 from __future__ import annotations
 
+import re
 from importlib import resources
 from pathlib import Path
 
 import mlflow.assistant.skills as _skills_pkg
 from mlflow.agent.agents import AgentTool
 
+_PLACEHOLDER = re.compile(r"\{\{\s*(\w+)\s*\}\}")
+
 
 def _read_template(filename: str) -> str:
     return resources.files("mlflow.agent.setup.templates").joinpath(filename).read_text()
+
+
+def _render(template: str, **values: str) -> str:
+    def replace(m: re.Match[str]) -> str:
+        key = m.group(1)
+        if key not in values:
+            raise KeyError(f"Missing template value: {key!r}")
+        return values[key]
+
+    return _PLACEHOLDER.sub(replace, template)
 
 
 def _bundled_skills_root() -> Path:
@@ -28,15 +41,15 @@ def build_task(
     The shell (rules, execution requirements, verify, final summary) lives in
     ``instrument-task.md`` and is language-agnostic. The language-specific
     steps (install, tracking URI wiring, autolog snippet) come from
-    ``<language>.md`` and are interpolated via ``{language_steps}``.
+    ``<language>.md`` and are interpolated via ``{{ language_steps }}``.
 
     When ``started_local_server`` is ``True``, ``tracking_uri`` is a
     ``http://127.0.0.1:<port>`` URL picked by the CLI and the agent is
     instructed to start a local MLflow server bound to that URL.
 
-    When ``skills_installed`` is ``False``, ``{skills_dir}`` is redirected to
-    the bundled skill location inside the MLflow install so the agent can
-    still consult them without writing to the repo.
+    When ``skills_installed`` is ``False``, ``{{ skills_dir }}`` is
+    redirected to the bundled skill location inside the MLflow install so
+    the agent can still consult them without writing to the repo.
     """
     if skills_installed:
         skills_dir = agent.skills_dir
@@ -62,18 +75,22 @@ def build_task(
 
     if started_local_server:
         port = tracking_uri.rsplit(":", 1)[1]
-        server_setup = _read_template("local-server.md").format(
-            tracking_uri=tracking_uri, port=port
+        server_setup = _render(
+            _read_template("local-server.md"),
+            tracking_uri=tracking_uri,
+            port=port,
         )
     else:
         server_setup = ""
-    language_steps = _read_template("python.md").format(
+    language_steps = _render(
+        _read_template("python.md"),
         skills_dir=skills_dir,
         tracking_uri=tracking_uri,
         server_setup=server_setup,
     )
-    return _read_template("instrument-task.md").format(
-        repo_root=repo_root,
+    return _render(
+        _read_template("instrument-task.md"),
+        repo_root=str(repo_root),
         skills_intro=skills_intro,
         no_overwrite_bullet=no_overwrite_bullet,
         tracking_uri=f"`{tracking_uri}`",

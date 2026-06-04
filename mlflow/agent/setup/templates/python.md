@@ -9,14 +9,14 @@ if it is not already declared:
 
 Skip this step if `mlflow` is already a declared dependency.
 
-{server_setup}### 2. Configure tracking URI
+{{ server_setup }}### 2. Configure tracking URI
 
-Configure MLflow to log to `{tracking_uri}`. Pick whichever of these fits the
+Configure MLflow to log to `{{ tracking_uri }}`. Pick whichever of these fits the
 project's conventions:
 
-- Set `MLFLOW_TRACKING_URI={tracking_uri}` in the project's env file (`.env`,
+- Set `MLFLOW_TRACKING_URI={{ tracking_uri }}` in the project's env file (`.env`,
   `.env.example`, etc.).
-- Call `mlflow.set_tracking_uri("{tracking_uri}")` once during application
+- Call `mlflow.set_tracking_uri("{{ tracking_uri }}")` once during application
   startup, before any `mlflow.*` calls.
 
 Don't do both. If the project already sets a tracking URI, leave it alone and
@@ -24,7 +24,7 @@ note the existing value in the final summary.
 
 ### 3. Instrument with `mlflow.autolog`
 
-Consult the `instrumenting-with-mlflow-tracing` skill in `{skills_dir}/` for
+Consult the `instrumenting-with-mlflow-tracing` skill in `{{ skills_dir }}/` for
 the supported libraries and per-integration setup. That skill is the source
 of truth for what `mlflow.autolog()` covers.
 
@@ -33,7 +33,7 @@ For most applications, `mlflow.autolog()` is the recommended entry point:
 ```python
 import mlflow
 
-mlflow.set_tracking_uri("{tracking_uri}")
+mlflow.set_tracking_uri("{{ tracking_uri }}")
 mlflow.autolog()
 ```
 
