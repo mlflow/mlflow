@@ -23,6 +23,7 @@ import {
   ISSUES_COLUMN_ID,
   GIT_BRANCH_COLUMN_ID,
   GIT_COMMIT_COLUMN_ID,
+  createExpectationColumnId,
 } from './hooks/useTableColumns';
 import type { TracesTableColumn, EvalTraceComparisonEntry, RunEvaluationTracesDataEntry } from './types';
 import { TracesTableColumnGroup, TracesTableColumnType } from './types';
@@ -56,6 +57,9 @@ const INFO_COLUMN_LAST = [ISSUES_COLUMN_ID] as const;
 /** Preferred order *within* the ASSESSMENT group by column ID */
 const ASSESSMENT_COLUMN_PRIORITY = [KnownEvaluationResultAssessmentName.OVERALL_ASSESSMENT] as const;
 
+/** Preferred order *within* the EXPECTATION group by column ID */
+const EXPECTATION_COLUMN_PRIORITY = [createExpectationColumnId('expected_response')] as const;
+
 const groupRank: Record<TracesTableColumnGroup, number> = Object.fromEntries(
   GROUP_PRIORITY.map((grp, idx) => [grp, idx]),
 ) as any;
@@ -65,6 +69,9 @@ const infoColumnRank: Record<string, number> = Object.fromEntries(INFO_COLUMN_PR
 
 const assessmentColumnRank: Record<string, number> = Object.fromEntries(
   ASSESSMENT_COLUMN_PRIORITY.map((id, idx) => [id, idx]),
+);
+const expectationColumnRank: Record<string, number> = Object.fromEntries(
+  EXPECTATION_COLUMN_PRIORITY.map((id, idx) => [id, idx]),
 );
 
 export function sortGroupedColumns(
@@ -111,6 +118,9 @@ export function sortGroupedColumns(
     }
 
     if (groupA === TracesTableColumnGroup.EXPECTATION) {
+      const rankA = expectationColumnRank[colA.id] ?? Infinity;
+      const rankB = expectationColumnRank[colB.id] ?? Infinity;
+      if (rankA !== rankB) return rankA - rankB;
       return colA.label.localeCompare(colB.label);
     }
 

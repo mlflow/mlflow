@@ -80,6 +80,13 @@ describe('sortGroupedColumns — base / expectations / assessments / other order
     group: TracesTableColumnGroup.EXPECTATION,
     expectationName: 'expected_response',
   };
+  const expectedFactsCol: TracesTableColumn = {
+    id: createExpectationColumnId('expected_facts'),
+    label: 'expected_facts',
+    type: TracesTableColumnType.EXPECTATION,
+    group: TracesTableColumnGroup.EXPECTATION,
+    expectationName: 'expected_facts',
+  };
   const executionTimeCol: TracesTableColumn = {
     id: 'execution_duration',
     label: 'Execution time',
@@ -102,5 +109,12 @@ describe('sortGroupedColumns — base / expectations / assessments / other order
       qualityCol.id,
       executionTimeCol.id,
     ]);
+  });
+
+  it('puts expected_response first within the EXPECTATION group', () => {
+    // expected_facts < expected_response alphabetically, so without an explicit
+    // priority the sort would put expected_facts first.
+    const sorted = sortGroupedColumns([expectedFactsCol, expectedResponseCol]);
+    expect(sorted.map((c) => c.id)).toEqual([expectedResponseCol.id, expectedFactsCol.id]);
   });
 });
