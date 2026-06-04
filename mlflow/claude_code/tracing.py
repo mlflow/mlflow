@@ -439,6 +439,11 @@ def _create_llm_and_tool_spans(
     parent_span, transcript: list[dict[str, Any]], start_idx: int
 ) -> None:
     """Create LLM and tool spans for assistant responses with proper timing."""
+
+    # Keeps track of the active skill name as all child spans of active skills
+    # need to be tagged for cost attribution purposes
+    active_skill_name: str | None = None
+
     for i in range(start_idx, len(transcript)):
         entry = transcript[i]
         if entry.get(MESSAGE_FIELD_TYPE) != MESSAGE_TYPE_ASSISTANT:
@@ -476,6 +481,11 @@ def _create_llm_and_tool_spans(
                 attributes={
                     "model": msg.get("model", "unknown"),
                     SpanAttributeKey.MESSAGE_FORMAT: "anthropic",
+                    **(
+                        {SpanAttributeKey.SKILL_NAME: active_skill_name}
+                        if active_skill_name
+                        else {}
+                    ),
                 },
             )
 
@@ -500,6 +510,9 @@ def _create_llm_and_tool_spans(
                 tool_use_id = tool_use.get("id", "")
                 tool_result = tool_results.get(tool_use_id, None)
 
+                if tool_result and tool_result.command_name:
+                    active_skill_name = tool_result.command_name
+
                 tool_span = mlflow.start_span_no_context(
                     name=f"tool_{tool_use.get('name', 'unknown')}",
                     parent_span=parent_span,
@@ -510,8 +523,8 @@ def _create_llm_and_tool_spans(
                         "tool_name": tool_use.get("name", "unknown"),
                         "tool_id": tool_use_id,
                         **(
-                            {SpanAttributeKey.SKILL_NAME: tool_result.command_name}
-                            if tool_result and tool_result.command_name
+                            {SpanAttributeKey.SKILL_NAME: active_skill_name}
+                            if active_skill_name
                             else {}
                         ),
                     },
@@ -779,6 +792,7 @@ def _create_sdk_child_spans(
 
     final_response = None
     pending_messages: list[dict[str, Any]] = []
+    active_skill_name: str | None = None
 
     for msg in messages:
         if isinstance(msg, AssistantMessage) and msg.content:
@@ -801,6 +815,11 @@ def _create_sdk_child_spans(
                     attributes={
                         "model": getattr(msg, "model", "unknown"),
                         SpanAttributeKey.MESSAGE_FORMAT: "anthropic",
+                        **(
+                            {SpanAttributeKey.SKILL_NAME: active_skill_name}
+                            if active_skill_name
+                            else {}
+                        ),
                     },
                 )
                 llm_span.set_outputs({
@@ -825,9 +844,9 @@ def _create_sdk_child_spans(
                     "result": tool_result.content if tool_result else "No result found"
                 })
                 if tool_result and tool_result.command_name:
-                    tool_span.set_attributes({
-                        SpanAttributeKey.SKILL_NAME: tool_result.command_name
-                    })
+                    active_skill_name = tool_result.command_name
+                if active_skill_name:
+                    tool_span.set_attributes({SpanAttributeKey.SKILL_NAME: active_skill_name})
                 tool_span.end()
 
         if anthropic_msg := _serialize_sdk_message(msg):

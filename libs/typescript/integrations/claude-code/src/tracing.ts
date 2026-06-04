@@ -341,6 +341,7 @@ function createLlmAndToolSpans(
   transcriptPath?: string,
 ): void {
   const subagentGroups = collectSubagentGroups(transcript, startIdx);
+  let activeSkillName: string | undefined = undefined;
 
   for (let i = startIdx; i < transcript.length; i++) {
     const entry = transcript[i];
@@ -382,6 +383,7 @@ function createLlmAndToolSpans(
           model,
           'mlflow.llm.model': model,
           [SpanAttributeKey.MESSAGE_FORMAT]: 'anthropic',
+          ...(activeSkillName ? { [SpanAttributeKey.SKILL_NAME]: activeSkillName } : {}),
         },
       });
 
@@ -409,6 +411,10 @@ function createLlmAndToolSpans(
         const toolName = toolUse.name ?? 'unknown';
         const commandName = toolResultInfo?.commandName;
 
+        if (commandName) {
+          activeSkillName = commandName;
+        }
+
         const toolSpan = startSpan({
           name: `tool_${toolName}`,
           parent: parentSpan,
@@ -418,7 +424,7 @@ function createLlmAndToolSpans(
           attributes: {
             tool_name: toolName,
             tool_id: toolUseId,
-            ...(commandName && { [SpanAttributeKey.SKILL_NAME]: commandName }),
+            ...(activeSkillName ? { [SpanAttributeKey.SKILL_NAME]: activeSkillName } : {}),
           },
         });
 
