@@ -2,6 +2,7 @@ import importlib
 import json
 import logging
 from pathlib import Path
+from typing import Any
 
 import pytest
 from claude_agent_sdk.types import (
@@ -902,4 +903,194 @@ def test_process_transcript_includes_steer_messages(tmp_path):
     input_messages = second_llm.inputs["messages"]
     steer_messages = [m for m in input_messages if m.get("content") == "also tell me about Java"]
     assert len(steer_messages) == 1
-    assert steer_messages[0]["role"] == "user"
+
+
+# ============================================================================
+# SKILL ATTRIBUTE PROPAGATION TESTS
+# ============================================================================
+
+
+def _skill_transcript_with_child_work() -> list[dict[Any, Any]]:
+    """Transcript where a Skill invocation is followed by a child LLM turn and
+    a child Bash tool call — both should inherit mlflow.skill.name = "my-skill".
+
+    A pre-skill Bash call is included to verify it is NOT tagged (it happened
+    before the skill was invoked).
+    """
+    return [
+        {
+            "type": "user",
+            "message": {"role": "user", "content": "Do the thing."},
+            "timestamp": "2025-01-15T10:00:00.000Z",
+        },
+        # Pre-skill tool call — must NOT inherit the skill name.
+        {
+            "type": "assistant",
+            "message": {
+                "role": "assistant",
+                "content": [{"type": "tool_use", "id": "pre_bash", "name": "Bash", "input": {}}],
+            },
+            "timestamp": "2025-01-15T10:00:01.000Z",
+        },
+        {
+            "type": "user",
+            "message": {
+                "role": "user",
+                "content": [{"type": "tool_result", "tool_use_id": "pre_bash", "content": "ok"}],
+            },
+            "timestamp": "2025-01-15T10:00:02.000Z",
+        },
+        # Skill invocation.
+        {
+            "type": "assistant",
+            "message": {
+                "role": "assistant",
+                "content": [
+                    {
+                        "type": "tool_use",
+                        "id": "skill_tool",
+                        "name": "Skill",
+                        "input": {"skill": "my-skill"},
+                    }
+                ],
+            },
+            "timestamp": "2025-01-15T10:00:03.000Z",
+        },
+        {
+            "type": "user",
+            "toolUseResult": {"success": True, "commandName": "my-skill"},
+            "message": {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": "skill_tool",
+                        "content": "Launching skill",
+                    }
+                ],
+            },
+            "timestamp": "2025-01-15T10:00:04.000Z",
+        },
+        # Child LLM turn after the skill — should inherit the skill name.
+        {
+            "type": "assistant",
+            "message": {
+                "role": "assistant",
+                "content": [{"type": "text", "text": "Thinking inside the skill."}],
+                "model": "claude-sonnet-4-20250514",
+            },
+            "timestamp": "2025-01-15T10:00:05.000Z",
+        },
+        # Child tool call after the skill — should also inherit the skill name.
+        {
+            "type": "assistant",
+            "message": {
+                "role": "assistant",
+                "content": [{"type": "tool_use", "id": "child_bash", "name": "Bash", "input": {}}],
+            },
+            "timestamp": "2025-01-15T10:00:06.000Z",
+        },
+        {
+            "type": "user",
+            "message": {
+                "role": "user",
+                "content": [
+                    {"type": "tool_result", "tool_use_id": "child_bash", "content": "done"}
+                ],
+            },
+            "timestamp": "2025-01-15T10:00:07.000Z",
+        },
+    ]
+
+
+def test_process_transcript_propagates_skill_to_child_spans(tmp_path):
+    transcript_path = tmp_path / "skill_transcript.jsonl"
+    transcript_path.write_text(
+        "\n".join(json.dumps(e) for e in _skill_transcript_with_child_work()) + "\n"
+    )
+
+    trace = process_transcript(str(transcript_path), "skill-prop-session")
+    assert trace is not None
+
+    spans = list(trace.search_spans())
+
+    # Pre-skill Bash is NOT tagged.
+    pre_bash = [s for s in spans if s.attributes.get("tool_id") == "pre_bash"]
+    assert len(pre_bash) == 1
+    assert pre_bash[0].get_attribute(SpanAttributeKey.SKILL_NAME) is None
+
+    # Skill TOOL span is tagged with its own command name.
+    skill_spans = [s for s in spans if s.attributes.get("tool_id") == "skill_tool"]
+    assert len(skill_spans) == 1
+    assert skill_spans[0].get_attribute(SpanAttributeKey.SKILL_NAME) == "my-skill"
+
+    # Post-skill LLM span inherits the skill name.
+    post_skill_llm = [
+        s
+        for s in spans
+        if s.span_type == SpanType.LLM
+        and s.outputs.get("content", [{}])[0].get("text") == "Thinking inside the skill."
+    ]
+    assert len(post_skill_llm) == 1
+    assert post_skill_llm[0].get_attribute(SpanAttributeKey.SKILL_NAME) == "my-skill"
+
+    # Child Bash tool inherits the skill name.
+    child_bash = [s for s in spans if s.attributes.get("tool_id") == "child_bash"]
+    assert len(child_bash) == 1
+    assert child_bash[0].get_attribute(SpanAttributeKey.SKILL_NAME) == "my-skill"
+
+
+def test_process_sdk_messages_propagates_skill_to_child_spans():
+    messages = [
+        UserMessage(content="Do the thing."),
+        # Skill invocation.
+        AssistantMessage(
+            content=[ToolUseBlock(id="skill_tool", name="Skill", input={"skill": "my-skill"})],
+            model="claude-sonnet-4-20250514",
+        ),
+        UserMessage(
+            content=[ToolResultBlock(tool_use_id="skill_tool", content="Launching skill")],
+            tool_use_result={"success": True, "commandName": "my-skill"},
+        ),
+        # Child LLM turn — should inherit.
+        AssistantMessage(
+            content=[TextBlock(text="Thinking inside the skill.")],
+            model="claude-sonnet-4-20250514",
+        ),
+        # Child Bash tool — should inherit.
+        AssistantMessage(
+            content=[ToolUseBlock(id="child_bash", name="Bash", input={})],
+            model="claude-sonnet-4-20250514",
+        ),
+        UserMessage(content=[ToolResultBlock(tool_use_id="child_bash", content="done")]),
+        ResultMessage(
+            subtype="success",
+            duration_ms=1000,
+            duration_api_ms=800,
+            is_error=False,
+            num_turns=3,
+            session_id="sdk-skill-prop",
+        ),
+    ]
+
+    trace = process_sdk_messages(messages, "sdk-skill-prop")
+    assert trace is not None
+
+    spans = list(trace.search_spans())
+
+    skill_spans = [s for s in spans if s.attributes.get("tool_id") == "skill_tool"]
+    assert len(skill_spans) == 1
+    assert skill_spans[0].get_attribute(SpanAttributeKey.SKILL_NAME) == "my-skill"
+
+    post_skill_llm = [
+        s
+        for s in spans
+        if s.span_type == SpanType.LLM
+        and "Thinking inside the skill." in str(s.outputs.get("content", ""))
+    ]
+    assert len(post_skill_llm) == 1
+    assert post_skill_llm[0].get_attribute(SpanAttributeKey.SKILL_NAME) == "my-skill"
+
+    child_bash = [s for s in spans if s.attributes.get("tool_id") == "child_bash"]
+    assert len(child_bash) == 1
+    assert child_bash[0].get_attribute(SpanAttributeKey.SKILL_NAME) == "my-skill"

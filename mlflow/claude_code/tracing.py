@@ -318,7 +318,12 @@ def _find_tool_results(
             continue
 
         msg = entry.get(MESSAGE_FIELD_MESSAGE, {})
-        command_name = msg.get(MESSAGE_FIELD_COMMAND_NAME, None)
+        tool_use_result = entry.get(MESSAGE_FIELD_TOOL_USE_RESULT)
+        command_name = (
+            tool_use_result.get(MESSAGE_FIELD_COMMAND_NAME)
+            if isinstance(tool_use_result, dict)
+            else None
+        )
         content = msg.get(MESSAGE_FIELD_CONTENT, [])
 
         if isinstance(content, list):
@@ -728,12 +733,19 @@ def _build_tool_result_map(messages: list[Any]) -> dict[str, ToolUseResult]:
     """Map tool_use_id to its result content so tool spans can show outputs."""
     from claude_agent_sdk.types import ToolResultBlock, UserMessage
 
-    tool_result_map: dict[str, str] = {}
+    tool_result_map: dict[str, ToolUseResult] = {}
     for msg in messages:
         if isinstance(msg, UserMessage) and isinstance(msg.content, list):
+            # Skill metadata lives on the UserMessage's tool_use_result dict
+            # (verified via the SDK at claude_agent_sdk/types.py:1021 and the
+            # CLI stream-json wire format). It is NOT on ToolResultBlock.
+            command_name = (
+                msg.tool_use_result.get("commandName")
+                if isinstance(msg.tool_use_result, dict)
+                else None
+            )
             for block in msg.content:
                 if isinstance(block, ToolResultBlock):
-                    command_name = block.input.get("commandName", None)
                     result = block.content
                     if isinstance(result, list):
                         result = str(result)
