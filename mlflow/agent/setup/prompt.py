@@ -28,7 +28,7 @@ def _bundled_skills_root() -> Path:
     return Path(_skills_pkg.__path__[0])
 
 
-def build_task(
+def build_prompt(
     repo_root: Path,
     agent: AgentTool,
     tracking_uri: str,

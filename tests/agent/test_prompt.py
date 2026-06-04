@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from mlflow.agent.agents import AGENTS
-from mlflow.agent.setup.task import _render, build_task
+from mlflow.agent.setup.prompt import _render, build_prompt
 
 
 def test_render_substitutes_placeholder():
@@ -29,15 +29,15 @@ def test_render_raises_on_missing_key():
         _render("{{ missing }}", other="x")
 
 
-def test_build_task_with_user_uri_omits_local_server_section(tmp_path: Path):
-    out = build_task(tmp_path, AGENTS["claude"], "databricks")
+def test_build_prompt_with_user_uri_omits_local_server_section(tmp_path: Path):
+    out = build_prompt(tmp_path, AGENTS["claude"], "databricks")
     assert "Start a local MLflow tracking server" not in out
     assert "MLFLOW_TRACKING_URI=databricks" in out
     assert 'mlflow.set_tracking_uri("databricks")' in out
 
 
-def test_build_task_with_local_server_port_bakes_url(tmp_path: Path):
-    out = build_task(
+def test_build_prompt_with_local_server_port_bakes_url(tmp_path: Path):
+    out = build_prompt(
         tmp_path,
         AGENTS["claude"],
         "http://127.0.0.1:5050",
@@ -48,14 +48,14 @@ def test_build_task_with_local_server_port_bakes_url(tmp_path: Path):
     assert "http://127.0.0.1:5050" in out
 
 
-def test_build_task_skills_installed_uses_agent_skills_dir(tmp_path: Path):
-    out = build_task(tmp_path, AGENTS["claude"], "databricks", skills_installed=True)
+def test_build_prompt_skills_installed_uses_agent_skills_dir(tmp_path: Path):
+    out = build_prompt(tmp_path, AGENTS["claude"], "databricks", skills_installed=True)
     assert "has been installed at `.claude/skills/`" in out
     assert "are already installed; do not\n  overwrite them." in out
 
 
-def test_build_task_skills_declined_uses_bundled_path(tmp_path: Path):
-    out = build_task(tmp_path, AGENTS["claude"], "databricks", skills_installed=False)
+def test_build_prompt_skills_declined_uses_bundled_path(tmp_path: Path):
+    out = build_prompt(tmp_path, AGENTS["claude"], "databricks", skills_installed=False)
     assert "bundled at" in out
     assert "/mlflow/assistant/skills" in out
     assert "are already installed; do not\n  overwrite them." not in out
@@ -66,13 +66,13 @@ def test_build_task_skills_declined_uses_bundled_path(tmp_path: Path):
     ("tracking_uri", "local_server_port"),
     [("databricks", None), ("http://127.0.0.1:5050", 5050)],
 )
-def test_build_task_renders_all_placeholders(
+def test_build_prompt_renders_all_placeholders(
     tmp_path: Path,
     tracking_uri: str,
     local_server_port: int | None,
     skills_installed: bool,
 ):
-    out = build_task(
+    out = build_prompt(
         tmp_path,
         AGENTS["claude"],
         tracking_uri,

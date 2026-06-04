@@ -8,7 +8,7 @@ from pathlib import Path
 import click
 
 from mlflow.agent.agents import AGENTS, AgentName, AgentTool, detect_installed, get_agent
-from mlflow.agent.setup.task import build_task
+from mlflow.agent.setup.prompt import build_prompt
 from mlflow.assistant.skill_installer import install_skills
 from mlflow.telemetry.events import AgentSetupEvent
 from mlflow.telemetry.track import _record_event
@@ -146,7 +146,7 @@ def setup(
         tracking_uri = f"http://127.0.0.1:{local_server_port}"
         click.secho(f"Picked local tracking URI: {tracking_uri}", fg="green", err=True)
 
-    task = build_task(
+    prompt = build_prompt(
         repo_root,
         agent,
         tracking_uri,
@@ -155,10 +155,10 @@ def setup(
     )
 
     if print_prompt:
-        click.echo(task)
+        click.echo(prompt)
         return
 
-    cmd = [agent.binary, *agent.interactive_args, task]
+    cmd = [agent.binary, *agent.interactive_args, prompt]
     click.echo(err=True)
     click.secho(f"Launching {agent.display_name}...", fg="cyan", err=True)
     # Inherit stdio so the agent's TUI takes over until the user exits.
