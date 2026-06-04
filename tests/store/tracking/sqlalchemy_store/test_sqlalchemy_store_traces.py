@@ -4673,6 +4673,7 @@ def test_log_spans_creates_span_metrics(store: SqlAlchemyStore) -> None:
         }),
         SpanAttributeKey.MODEL: json.dumps("gpt-4-turbo"),
         SpanAttributeKey.MODEL_PROVIDER: json.dumps("openai"),
+        SpanAttributeKey.SKILL_NAME: json.dumps("skill1"),
     }
     span = create_mlflow_span(otel_span, trace_id, "LLM")
     store.log_spans(experiment_id, [span])
@@ -4701,6 +4702,7 @@ def test_log_spans_creates_span_metrics(store: SqlAlchemyStore) -> None:
         )
         assert sql_span.dimension_attributes[SpanAttributeKey.MODEL] == "gpt-4-turbo"
         assert sql_span.dimension_attributes[SpanAttributeKey.MODEL_PROVIDER] == "openai"
+        assert sql_span.dimension_attributes[SpanAttributeKey.SKILL_NAME] == "skill1"
 
 
 def test_log_spans_updates_trace_metrics_incrementally(store: SqlAlchemyStore) -> None:

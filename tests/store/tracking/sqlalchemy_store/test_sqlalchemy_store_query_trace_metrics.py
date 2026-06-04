@@ -4881,3 +4881,89 @@ def test_query_span_metrics_count_by_span_status_and_model_provider(store: SqlAl
         },
         "values": {"COUNT": 2},
     }
+
+
+def test_query_span_metrics_cost_by_skill_name(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_span_cost_by_skill_name")
+
+    trace_info = TraceInfo(
+        trace_id="trace1",
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+        request_time=get_current_time_millis(),
+        execution_duration=100,
+        state=TraceStatus.OK,
+        tags={TraceTagKey.TRACE_NAME: "test_trace"},
+    )
+    store.start_trace(trace_info)
+
+    spans = [
+        create_test_span(
+            "trace1",
+            "gpt4_call_1",
+            span_id=1,
+            span_type="LLM",
+            start_ns=1000000000,
+            attributes={
+                SpanAttributeKey.LLM_COST: {
+                    "input_cost": 0.01,
+                    "output_cost": 0.02,
+                    "total_cost": 0.03,
+                },
+                SpanAttributeKey.MODEL: "gpt-4",
+                SpanAttributeKey.SKILL_NAME: "skill1",
+            },
+        ),
+        create_test_span(
+            "trace1",
+            "gpt4_call_2",
+            span_id=2,
+            span_type="LLM",
+            start_ns=1100000000,
+            attributes={
+                SpanAttributeKey.LLM_COST: {
+                    "input_cost": 0.01,
+                    "output_cost": 0.02,
+                    "total_cost": 0.03,
+                },
+                SpanAttributeKey.MODEL: "gpt-4",
+                SpanAttributeKey.SKILL_NAME: "skill1",
+            },
+        ),
+        create_test_span(
+            "trace1",
+            "claude_call",
+            span_id=3,
+            span_type="LLM",
+            start_ns=1200000000,
+            attributes={
+                SpanAttributeKey.LLM_COST: {
+                    "input_cost": 0.005,
+                    "output_cost": 0.015,
+                    "total_cost": 0.02,
+                },
+                SpanAttributeKey.MODEL: "claude-3",
+                SpanAttributeKey.SKILL_NAME: "skill2",
+            },
+        ),
+    ]
+    store.log_spans(exp_id, spans)
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.SPANS,
+        metric_name=SpanMetricKey.TOTAL_COST,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.SUM)],
+        dimensions=[SpanMetricDimensionKey.SPAN_SKILL_NAME],
+    )
+
+    assert len(result) == 2
+    assert asdict(result[0]) == {
+        "metric_name": SpanMetricKey.TOTAL_COST,
+        "dimensions": {SpanMetricDimensionKey.SPAN_SKILL_NAME: "skill1"},
+        "values": {"SUM": 0.06},
+    }
+    assert asdict(result[1]) == {
+        "metric_name": SpanMetricKey.TOTAL_COST,
+        "dimensions": {SpanMetricDimensionKey.SPAN_SKILL_NAME: "skill2"},
+        "values": {"SUM": 0.02},
+    }
