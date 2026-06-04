@@ -63,6 +63,7 @@ CLAUDE_TRACING_LEVEL = logging.WARNING - 5
 class ToolUseResult:
     content: Any
     command_name: str | None
+    is_error: bool = False
 
 
 # ============================================================================
@@ -334,9 +335,12 @@ def _find_tool_results(
                 ):
                     tool_use_id = part.get("tool_use_id")
                     result_content = part.get("content", "")
+                    is_error = bool(part.get("is_error", False))
                     if tool_use_id:
                         tool_results[tool_use_id] = ToolUseResult(
-                            content=result_content, command_name=command_name
+                            content=result_content,
+                            command_name=command_name,
+                            is_error=is_error,
                         )
 
         # Stop looking once we hit the next assistant response
@@ -515,7 +519,9 @@ def _create_llm_and_tool_spans(
                 tool_use_id = tool_use.get("id", "")
                 tool_result = tool_results.get(tool_use_id, None)
 
-                if tool_result and tool_result.command_name:
+                # A failed Skill never injected its body, so subsequent spans
+                # should NOT inherit its name (would inflate cost attribution).
+                if tool_result and tool_result.command_name and not tool_result.is_error:
                     active_skill_name = tool_result.command_name
 
                 tool_span = mlflow.start_span_no_context(
@@ -739,10 +745,11 @@ def _build_tool_result_map(messages: list[Any]) -> dict[str, ToolUseResult]:
             # Skill metadata lives on the UserMessage's tool_use_result dict
             # (verified via the SDK at claude_agent_sdk/types.py:1021 and the
             # CLI stream-json wire format). It is NOT on ToolResultBlock.
+            # Use getattr to stay compatible with older SDK versions that
+            # predate the field.
+            tool_use_result = getattr(msg, "tool_use_result", None)
             command_name = (
-                msg.tool_use_result.get("commandName")
-                if isinstance(msg.tool_use_result, dict)
-                else None
+                tool_use_result.get("commandName") if isinstance(tool_use_result, dict) else None
             )
             for block in msg.content:
                 if isinstance(block, ToolResultBlock):
@@ -750,7 +757,9 @@ def _build_tool_result_map(messages: list[Any]) -> dict[str, ToolUseResult]:
                     if isinstance(result, list):
                         result = str(result)
                     tool_result_map[block.tool_use_id] = ToolUseResult(
-                        content=result or "", command_name=command_name
+                        content=result or "",
+                        command_name=command_name,
+                        is_error=bool(getattr(block, "is_error", False)),
                     )
     return tool_result_map
 
@@ -855,7 +864,9 @@ def _create_sdk_child_spans(
                 tool_span.set_outputs({
                     "result": tool_result.content if tool_result else "No result found"
                 })
-                if tool_result and tool_result.command_name:
+                # A failed Skill never injected its body, so subsequent spans
+                # should NOT inherit its name (would inflate cost attribution).
+                if tool_result and tool_result.command_name and not tool_result.is_error:
                     active_skill_name = tool_result.command_name
                 if active_skill_name:
                     tool_span.set_attributes({SpanAttributeKey.SKILL_NAME: active_skill_name})

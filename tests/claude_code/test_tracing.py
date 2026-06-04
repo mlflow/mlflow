@@ -1094,3 +1094,146 @@ def test_process_sdk_messages_propagates_skill_to_child_spans():
     child_bash = [s for s in spans if s.attributes.get("tool_id") == "child_bash"]
     assert len(child_bash) == 1
     assert child_bash[0].get_attribute(SpanAttributeKey.SKILL_NAME) == "my-skill"
+
+
+def _skill_transcript_with_failed_skill() -> list[dict[Any, Any]]:
+    """Transcript where a Skill invocation fails (is_error=True). Subsequent
+    spans should NOT inherit the skill name — a failed skill never injected
+    its body, so attributing later work to it inflates cost.
+    """
+    return [
+        {
+            "type": "user",
+            "message": {"role": "user", "content": "Do the thing."},
+            "timestamp": "2025-01-15T10:00:00.000Z",
+        },
+        {
+            "type": "assistant",
+            "message": {
+                "role": "assistant",
+                "content": [
+                    {
+                        "type": "tool_use",
+                        "id": "skill_tool",
+                        "name": "Skill",
+                        "input": {"skill": "broken-skill"},
+                    }
+                ],
+            },
+            "timestamp": "2025-01-15T10:00:01.000Z",
+        },
+        {
+            "type": "user",
+            "toolUseResult": {"success": False, "commandName": "broken-skill"},
+            "message": {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": "skill_tool",
+                        "content": "Skill failed to launch",
+                        "is_error": True,
+                    }
+                ],
+            },
+            "timestamp": "2025-01-15T10:00:02.000Z",
+        },
+        {
+            "type": "assistant",
+            "message": {
+                "role": "assistant",
+                "content": [{"type": "text", "text": "I'll try a different approach."}],
+                "model": "claude-sonnet-4-20250514",
+            },
+            "timestamp": "2025-01-15T10:00:03.000Z",
+        },
+        {
+            "type": "assistant",
+            "message": {
+                "role": "assistant",
+                "content": [{"type": "tool_use", "id": "post_bash", "name": "Bash", "input": {}}],
+            },
+            "timestamp": "2025-01-15T10:00:04.000Z",
+        },
+        {
+            "type": "user",
+            "message": {
+                "role": "user",
+                "content": [{"type": "tool_result", "tool_use_id": "post_bash", "content": "ok"}],
+            },
+            "timestamp": "2025-01-15T10:00:05.000Z",
+        },
+    ]
+
+
+def test_process_transcript_failed_skill_does_not_propagate(tmp_path):
+    transcript_path = tmp_path / "failed_skill_transcript.jsonl"
+    transcript_path.write_text(
+        "\n".join(json.dumps(e) for e in _skill_transcript_with_failed_skill()) + "\n"
+    )
+
+    trace = process_transcript(str(transcript_path), "failed-skill-session")
+    assert trace is not None
+    spans = list(trace.search_spans())
+
+    # Post-skill LLM and tool spans must NOT be tagged with broken-skill.
+    post_llm = [s for s in spans if s.span_type == SpanType.LLM]
+    for s in post_llm:
+        assert s.get_attribute(SpanAttributeKey.SKILL_NAME) is None
+
+    post_bash = [s for s in spans if s.attributes.get("tool_id") == "post_bash"]
+    assert len(post_bash) == 1
+    assert post_bash[0].get_attribute(SpanAttributeKey.SKILL_NAME) is None
+
+
+def test_process_sdk_messages_failed_skill_does_not_propagate():
+    messages = [
+        UserMessage(content="Do the thing."),
+        AssistantMessage(
+            content=[ToolUseBlock(id="skill_tool", name="Skill", input={"skill": "broken"})],
+            model="claude-sonnet-4-20250514",
+        ),
+        UserMessage(
+            content=[ToolResultBlock(tool_use_id="skill_tool", content="failed", is_error=True)],
+            tool_use_result={"success": False, "commandName": "broken"},
+        ),
+        AssistantMessage(
+            content=[TextBlock(text="trying again")],
+            model="claude-sonnet-4-20250514",
+        ),
+        ResultMessage(
+            subtype="success",
+            duration_ms=100,
+            duration_api_ms=80,
+            is_error=False,
+            num_turns=2,
+            session_id="failed-sdk-skill",
+        ),
+    ]
+
+    trace = process_sdk_messages(messages, "failed-sdk-skill")
+    assert trace is not None
+    spans = list(trace.search_spans())
+
+    # Post-failure LLM span must NOT be tagged with the failed skill name.
+    post_llm = [s for s in spans if s.span_type == SpanType.LLM]
+    assert len(post_llm) == 1
+    assert post_llm[0].get_attribute(SpanAttributeKey.SKILL_NAME) is None
+
+
+def test_build_tool_result_map_tolerates_missing_tool_use_result_attr():
+    # Older claude_agent_sdk versions did not expose UserMessage.tool_use_result.
+    # _build_tool_result_map uses getattr with a default so the function is
+    # safe regardless of whether the attribute exists on the class. We can't
+    # easily strip the attribute from the real UserMessage dataclass, so this
+    # test verifies the explicit-None case (the bulk of the real-world risk).
+    from mlflow.claude_code.tracing import _build_tool_result_map
+
+    msg = UserMessage(
+        content=[ToolResultBlock(tool_use_id="t1", content="ok")],
+        tool_use_result=None,
+    )
+    result = _build_tool_result_map([msg])
+    assert "t1" in result
+    assert result["t1"].command_name is None
+    assert result["t1"].is_error is False

@@ -151,7 +151,11 @@ export class LiveTracingContext {
     this.model = msg.model ?? this.model;
     this.permissionMode = msg.permissionMode ?? this.permissionMode;
     this.claudeCodeVersion = msg.claude_code_version ?? this.claudeCodeVersion;
+    // Reset both skill-scope state fields together: clearing activeSkillName
+    // without also clearing prevUserHadCommandName would leave the next user
+    // message classified as a skill body injection.
     this.activeSkillName = undefined;
+    this.prevUserHadCommandName = false;
   }
 
   /**
@@ -283,10 +287,11 @@ export class LiveTracingContext {
     // mlflow/claude_code/tracing.py:245-254.
     if (this.prevUserHadCommandName) {return false;}
 
-    // Empty / whitespace-only string content is never a prompt.
-    if (typeof msg.message.content === 'string' && !msg.message.content.trim()) {
-      return false;
-    }
+    // Empty / whitespace-only string content is never a prompt. Also treat
+    // an empty content array as empty (no text or blocks to act on).
+    const content = msg.message.content;
+    if (typeof content === 'string' && !content.trim()) {return false;}
+    if (Array.isArray(content) && content.length === 0) {return false;}
 
     return true;
   }
@@ -294,24 +299,26 @@ export class LiveTracingContext {
   /** Close any TOOL spans whose tool_use_id matches a tool_result block. */
   onUserMessage(msg: SDKUserLike): void {
     // A new human prompt arriving mid-stream (e.g. AsyncIterable prompts to
-    // query()) means any previously active skill scope is over. Clear before
-    // updating `prevUserHadCommandName` so the next message sees the right
-    // look-back state.
-    if (this.isRealUserPrompt(msg)) {
-      this.activeSkillName = undefined;
-    }
-    this.prevUserHadCommandName = !!msg.tool_use_result?.commandName;
+    // query()) means any previously active skill scope is over. Read
+    // hadCommandName from this message up-front, but defer mutating
+    // prevUserHadCommandName until after the tool-result loop runs so an
+    // exception there can't leave the look-back state inconsistent.
+    const hadCommandName = !!msg.tool_use_result?.commandName;
+    try {
+      if (this.isRealUserPrompt(msg)) {
+        this.activeSkillName = undefined;
+      }
 
-    const parentKey: ConversationKey = msg.parent_tool_use_id ?? null;
-    const conversation = this.getConversation(parentKey);
-    conversation.push({ role: 'user', content: msg.message.content });
+      const parentKey: ConversationKey = msg.parent_tool_use_id ?? null;
+      const conversation = this.getConversation(parentKey);
+      conversation.push({ role: 'user', content: msg.message.content });
 
-    const content = msg.message.content;
-    if (!Array.isArray(content)) {
-      return;
-    }
+      const content = msg.message.content;
+      if (!Array.isArray(content)) {
+        return;
+      }
 
-    for (const block of content) {
+      for (const block of content) {
       if (
         typeof block !== 'object' ||
         block == null ||
@@ -358,12 +365,21 @@ export class LiveTracingContext {
             : JSON.stringify(toolResult.content);
         toolSpan.setStatus(SpanStatusCode.ERROR, errorText || 'Tool execution failed');
       }
+      // A failed Skill never injected its body, so subsequent spans should
+      // NOT inherit its name (would inflate cost attribution). We still
+      // stamp the Skill TOOL span itself with its own commandName for
+      // identification — only the propagation to `activeSkillName` is gated.
       if (msg.tool_use_result?.commandName) {
         toolSpan.setAttribute(SpanAttributeKey.SKILL_NAME, msg.tool_use_result.commandName);
-        this.activeSkillName = msg.tool_use_result.commandName;
+        if (!toolResult.is_error) {
+          this.activeSkillName = msg.tool_use_result.commandName;
+        }
       }
       toolSpan.end();
       this.openToolSpans.delete(toolUseId);
+      }
+    } finally {
+      this.prevUserHadCommandName = hadCommandName;
     }
   }
 

@@ -110,18 +110,23 @@ const textMsg = (text: string) =>
 const toolResultMsg = (
   toolUseId: string,
   resultContent: string,
-  opts: { commandName?: string } = {},
+  opts: { commandName?: string; isError?: boolean } = {},
 ) => ({
   type: 'user' as const,
   parent_tool_use_id: null,
   message: {
     role: 'user' as const,
     content: [
-      { type: 'tool_result' as const, tool_use_id: toolUseId, content: resultContent },
+      {
+        type: 'tool_result' as const,
+        tool_use_id: toolUseId,
+        content: resultContent,
+        ...(opts.isError ? { is_error: true } : {}),
+      },
     ],
   },
   ...(opts.commandName
-    ? { tool_use_result: { success: true, commandName: opts.commandName } }
+    ? { tool_use_result: { success: !opts.isError, commandName: opts.commandName } }
     : {}),
 });
 
@@ -266,6 +271,84 @@ describe('LiveTracingContext — isRealUserPrompt clears skill scope', () => {
     ctx.onAssistantMessage(textMsg('inside other skill'));
 
     expect(llmSpans().slice(-1)[0].attributes[SKILL_NAME]).toBe('other-skill');
+  });
+});
+
+describe('LiveTracingContext — failed Skill should not propagate', () => {
+  beforeEach(() => resetMocks());
+
+  it('does NOT propagate skill name to subsequent spans when the Skill tool_result is_error=true', () => {
+    const ctx = new LiveTracingContext('start');
+    ctx.onAssistantMessage(toolUseMsg('skill_failed', 'Skill'));
+    ctx.onUserMessage(
+      toolResultMsg('skill_failed', 'launch failed', {
+        commandName: 'broken-skill',
+        isError: true,
+      }),
+    );
+    ctx.onAssistantMessage(textMsg('recovering after failure'));
+
+    // The Skill TOOL span itself is still stamped with its commandName for
+    // identification ("which skill failed?").
+    expect(findByToolId('skill_failed')?.attributes[SKILL_NAME]).toBe('broken-skill');
+    // But subsequent spans must NOT inherit the failed skill's name.
+    expect(llmSpans().slice(-1)[0].attributes[SKILL_NAME]).toBeUndefined();
+  });
+
+  it('successful skill after a failed one still propagates correctly', () => {
+    const ctx = new LiveTracingContext('start');
+    ctx.onAssistantMessage(toolUseMsg('skill_failed', 'Skill'));
+    ctx.onUserMessage(
+      toolResultMsg('skill_failed', 'failed', {
+        commandName: 'broken-skill',
+        isError: true,
+      }),
+    );
+    ctx.onAssistantMessage(toolUseMsg('skill_ok', 'Skill'));
+    ctx.onUserMessage(toolResultMsg('skill_ok', 'launched', { commandName: 'good-skill' }));
+    ctx.onAssistantMessage(textMsg('inside good skill'));
+
+    expect(llmSpans().slice(-1)[0].attributes[SKILL_NAME]).toBe('good-skill');
+  });
+});
+
+describe('LiveTracingContext — onSystemInit resets all skill-scope state', () => {
+  beforeEach(() => resetMocks());
+
+  it('clears prevUserHadCommandName in addition to activeSkillName', () => {
+    const ctx = new LiveTracingContext('start');
+    ctx.onAssistantMessage(toolUseMsg('skill_1', 'Skill'));
+    ctx.onUserMessage(toolResultMsg('skill_1', 'launched', { commandName: 'my-skill' }));
+    // Now prevUserHadCommandName=true, activeSkillName='my-skill'.
+    ctx.onSystemInit({ type: 'system', subtype: 'init' } as any);
+    // A plain user prompt right after init must NOT be misclassified as a
+    // skill body injection — both state fields must be reset.
+    ctx.onUserMessage({
+      type: 'user',
+      message: { role: 'user', content: 'fresh prompt' },
+    } as any);
+    ctx.onAssistantMessage(textMsg('responding fresh'));
+
+    expect(llmSpans().slice(-1)[0].attributes[SKILL_NAME]).toBeUndefined();
+  });
+});
+
+describe('LiveTracingContext — isRealUserPrompt empty content handling', () => {
+  beforeEach(() => resetMocks());
+
+  it('does NOT treat empty content array as a real prompt (preserves skill scope)', () => {
+    const ctx = new LiveTracingContext('start');
+    ctx.onAssistantMessage(toolUseMsg('skill_1', 'Skill'));
+    ctx.onUserMessage(toolResultMsg('skill_1', 'launched', { commandName: 'my-skill' }));
+    // An empty-array content message should not be classified as a real
+    // user prompt — i.e., it should not clear active skill scope.
+    ctx.onUserMessage({
+      type: 'user',
+      message: { role: 'user', content: [] },
+    } as any);
+    ctx.onAssistantMessage(textMsg('still in skill'));
+
+    expect(llmSpans().slice(-1)[0].attributes[SKILL_NAME]).toBe('my-skill');
   });
 });
 

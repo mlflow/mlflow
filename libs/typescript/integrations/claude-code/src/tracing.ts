@@ -411,7 +411,9 @@ function createLlmAndToolSpans(
         const toolName = toolUse.name ?? 'unknown';
         const commandName = toolResultInfo?.commandName;
 
-        if (commandName) {
+        // A failed Skill never injected its body, so subsequent spans should
+        // NOT inherit its name (would inflate cost attribution).
+        if (commandName && !toolResultInfo?.isError) {
           activeSkillName = commandName;
         }
 

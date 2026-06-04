@@ -87,6 +87,7 @@ jest.mock('@mlflow/core', () => {
     SpanAttributeKey: {
       TOKEN_USAGE: 'mlflow.chat.tokenUsage',
       MESSAGE_FORMAT: 'mlflow.message.format',
+      SKILL_NAME: 'mlflow.skill.name',
     },
     TraceMetadataKey: {
       TRACE_SESSION: 'mlflow.trace.session',
@@ -567,6 +568,149 @@ describe('processTranscript', () => {
       const steerMessages = inputMessages.filter((m) => m.content === 'also tell me about Java');
       expect(steerMessages).toHaveLength(1);
       expect(steerMessages[0].role).toBe('user');
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // Skill propagation (createLlmAndToolSpans + findToolResults)
+  // --------------------------------------------------------------------------
+
+  describe('skill propagation', () => {
+    function buildSkillTranscript(opts: { isError?: boolean } = {}) {
+      return [
+        {
+          type: 'user',
+          message: { role: 'user', content: 'do the thing' },
+          timestamp: '2025-01-15T10:00:00.000Z',
+        },
+        // Pre-skill bash — must NOT be tagged with the skill name.
+        {
+          type: 'assistant',
+          message: {
+            role: 'assistant',
+            content: [
+              { type: 'tool_use', id: 'pre_bash', name: 'Bash', input: {} },
+            ],
+          },
+          timestamp: '2025-01-15T10:00:01.000Z',
+        },
+        {
+          type: 'user',
+          message: {
+            role: 'user',
+            content: [{ type: 'tool_result', tool_use_id: 'pre_bash', content: 'ok' }],
+          },
+          timestamp: '2025-01-15T10:00:02.000Z',
+        },
+        // Skill invocation.
+        {
+          type: 'assistant',
+          message: {
+            role: 'assistant',
+            content: [
+              {
+                type: 'tool_use',
+                id: 'skill_tool',
+                name: 'Skill',
+                input: { skill: 'my-skill' },
+              },
+            ],
+          },
+          timestamp: '2025-01-15T10:00:03.000Z',
+        },
+        {
+          type: 'user',
+          toolUseResult: { success: !opts.isError, commandName: 'my-skill' },
+          message: {
+            role: 'user',
+            content: [
+              {
+                type: 'tool_result',
+                tool_use_id: 'skill_tool',
+                content: 'launched',
+                ...(opts.isError ? { is_error: true } : {}),
+              },
+            ],
+          },
+          timestamp: '2025-01-15T10:00:04.000Z',
+        },
+        // Post-skill LLM turn — should inherit (only if skill succeeded).
+        {
+          type: 'assistant',
+          message: {
+            role: 'assistant',
+            content: [{ type: 'text', text: 'inside the skill' }],
+            model: 'claude-test',
+          },
+          timestamp: '2025-01-15T10:00:05.000Z',
+        },
+        // Post-skill bash — should also inherit (only if skill succeeded).
+        {
+          type: 'assistant',
+          message: {
+            role: 'assistant',
+            content: [
+              { type: 'tool_use', id: 'child_bash', name: 'Bash', input: {} },
+            ],
+          },
+          timestamp: '2025-01-15T10:00:06.000Z',
+        },
+        {
+          type: 'user',
+          message: {
+            role: 'user',
+            content: [{ type: 'tool_result', tool_use_id: 'child_bash', content: 'done' }],
+          },
+          timestamp: '2025-01-15T10:00:07.000Z',
+        },
+      ];
+    }
+
+    async function writeAndProcess(entries: any[]): Promise<void> {
+      const tmpDir = mkdtempSync(resolve(tmpdir(), 'cc-skill-'));
+      const file = resolve(tmpDir, 't.jsonl');
+      writeFileSync(file, entries.map((e) => JSON.stringify(e)).join('\n') + '\n');
+      await processTranscript(file, `sess-${Date.now()}`);
+    }
+
+    const findByToolId = (id: string) =>
+      getSpans().find((s) => s.spanType === 'TOOL' && s.attributes.tool_id === id);
+
+    it('stamps SKILL_NAME on the Skill TOOL span itself', async () => {
+      await writeAndProcess(buildSkillTranscript());
+      expect(findByToolId('skill_tool')?.attributes['mlflow.skill.name']).toBe('my-skill');
+    });
+
+    it('propagates SKILL_NAME to post-skill LLM spans', async () => {
+      await writeAndProcess(buildSkillTranscript());
+      const llmSpans = getSpansByType('LLM');
+      const tagged = llmSpans.filter(
+        (s) => s.attributes['mlflow.skill.name'] === 'my-skill',
+      );
+      expect(tagged.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('propagates SKILL_NAME to post-skill child TOOL spans', async () => {
+      await writeAndProcess(buildSkillTranscript());
+      expect(findByToolId('child_bash')?.attributes['mlflow.skill.name']).toBe('my-skill');
+    });
+
+    it('does NOT tag pre-skill TOOL spans', async () => {
+      await writeAndProcess(buildSkillTranscript());
+      const preBash = findByToolId('pre_bash');
+      expect(preBash).toBeDefined();
+      expect(preBash?.attributes['mlflow.skill.name']).toBeUndefined();
+    });
+
+    it('does NOT propagate when the Skill tool_result is_error=true', async () => {
+      await writeAndProcess(buildSkillTranscript({ isError: true }));
+
+      // Post-skill spans must NOT inherit the failed skill name.
+      const llmSpans = getSpansByType('LLM');
+      for (const s of llmSpans) {
+        expect(s.attributes['mlflow.skill.name']).toBeUndefined();
+      }
+      expect(findByToolId('child_bash')?.attributes['mlflow.skill.name']).toBeUndefined();
     });
   });
 });
