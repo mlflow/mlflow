@@ -5,8 +5,6 @@ Before instrumenting the app, make sure the workspace is reachable:
 
 - `DATABRICKS_HOST` must be exported (e.g. `https://your-workspace.cloud.databricks.com`).
 - `DATABRICKS_TOKEN` must be exported (a Databricks personal access token).
-- `MLFLOW_REGISTRY_URI=databricks-uc` must be exported so the Unity Catalog
-  model registry is used.
 
 If any of those are missing, stop and ask the user. Have them `export` the
 values in their shell or add to the project's existing env file. Never write

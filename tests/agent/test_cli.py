@@ -82,7 +82,7 @@ def test_setup_databricks_prompts_for_workspace_path(tmp_git_repo: Path):
     assert "Workspace experiment path" in result.stderr
     assert "Configure the Databricks workspace" in result.stdout
     assert "MLFLOW_TRACKING_URI=databricks" in result.stdout
-    assert "MLFLOW_REGISTRY_URI=databricks-uc" in result.stdout
+    assert "DATABRICKS_HOST" in result.stdout
     assert 'mlflow.set_experiment("/Users/me@example.com/my-app")' in result.stdout
     assert "Start a local MLflow tracking server" not in result.stdout
     mock_which.assert_called()

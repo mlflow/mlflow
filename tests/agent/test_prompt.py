@@ -99,7 +99,6 @@ def test_build_prompt_databricks_injects_workspace_section(tmp_path: Path):
     assert "Configure the Databricks workspace" in out
     assert "DATABRICKS_HOST" in out
     assert "DATABRICKS_TOKEN" in out
-    assert "MLFLOW_REGISTRY_URI=databricks-uc" in out
     assert 'mlflow.set_experiment("/Users/me@example.com/my-app")' in out
     assert "Start a local MLflow tracking server" not in out
 
