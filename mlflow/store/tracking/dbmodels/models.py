@@ -3231,7 +3231,7 @@ class SqlGatewayGuardrailConfig(Base):
 
 class SqlLabelSchema(Base):
     """
-    DB model for OSS-native label schemas.
+    DB model for label schemas.
 
     Schemas are experiment-scoped UI rendering hints; they do not gate
     or validate assessment writes. See
@@ -3294,9 +3294,9 @@ class SqlLabelSchema(Base):
     input_type = Column(String(32), nullable=False)
     """
     Discriminator for the input config payload. One of ``'pass_fail'``,
-    ``'categorical'``, ``'numeric'``, ``'text'`` for OSS-native schemas. The
+    ``'categorical'``, ``'numeric'``, ``'text'`` for tracking-store schemas. The
     remaining Databricks-routed types (``'categorical_list'``,
-    ``'text_list'``) are not accepted by the OSS-native server.
+    ``'text_list'``) are not accepted by the server.
     """
 
     input_config = Column(Text, nullable=False)

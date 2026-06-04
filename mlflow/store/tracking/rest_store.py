@@ -58,6 +58,14 @@ from mlflow.protos.issues_pb2 import (
     SearchIssues,
     UpdateIssue,
 )
+from mlflow.protos.label_schemas_pb2 import (
+    CreateLabelSchema,
+    DeleteLabelSchema,
+    GetLabelSchema,
+    GetLabelSchemaByName,
+    ListLabelSchemas,
+    UpdateLabelSchema,
+)
 from mlflow.protos.service_pb2 import (
     AddDatasetToExperiments,
     BatchGetTraceInfos,
@@ -149,6 +157,7 @@ from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
     _REST_API_PATH_PREFIX,
     _V3_ISSUES_REST_API_PATH_PREFIX,
+    _V3_LABEL_SCHEMAS_REST_API_PATH_PREFIX,
     _V3_REST_API_PATH_PREFIX,
     _V3_TRACE_REST_API_PATH_PREFIX,
     MlflowHostCreds,
@@ -969,6 +978,115 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
         )
         issues = [Issue.from_proto(issue_proto) for issue_proto in response_proto.issues]
         return PagedList(issues, response_proto.next_page_token or None)
+
+    # ----- Label schemas (tracking-store CRUD) -----
+
+    def create_label_schema(
+        self,
+        experiment_id,
+        *,
+        name,
+        type,
+        input,
+        instruction=None,
+        enable_comment=False,
+    ):
+        # Lazy import — mlflow.genai.__init__ transitively imports the
+        # artifact-repo registry, which imports RestStore, so a top-level
+        # import here creates a circular load.
+        from mlflow.genai.label_schemas.label_schemas import (
+            LabelSchema,
+            LabelSchemaType,
+            _input_to_proto,
+        )
+
+        type_proto = LabelSchemaType(str(type)).to_proto()
+        req = CreateLabelSchema(
+            experiment_id=str(experiment_id),
+            name=name,
+            type=type_proto,
+            input=_input_to_proto(input),
+            enable_comment=enable_comment,
+        )
+        if instruction is not None:
+            req.instruction = instruction
+        response_proto = self._call_endpoint(
+            CreateLabelSchema,
+            message_to_json(req),
+            endpoint=f"{_V3_LABEL_SCHEMAS_REST_API_PATH_PREFIX}/create",
+        )
+        return LabelSchema.from_proto(response_proto.label_schema)
+
+    def get_label_schema(self, schema_id):
+        from mlflow.genai.label_schemas.label_schemas import LabelSchema
+
+        req = GetLabelSchema(schema_id=schema_id)
+        response_proto = self._call_endpoint(
+            GetLabelSchema,
+            message_to_json(req),
+            endpoint=f"{_V3_LABEL_SCHEMAS_REST_API_PATH_PREFIX}/get",
+        )
+        return LabelSchema.from_proto(response_proto.label_schema)
+
+    def get_label_schema_by_name(self, experiment_id, name):
+        from mlflow.genai.label_schemas.label_schemas import LabelSchema
+
+        req = GetLabelSchemaByName(experiment_id=str(experiment_id), name=name)
+        response_proto = self._call_endpoint(
+            GetLabelSchemaByName,
+            message_to_json(req),
+            endpoint=f"{_V3_LABEL_SCHEMAS_REST_API_PATH_PREFIX}/get-by-name",
+        )
+        return LabelSchema.from_proto(response_proto.label_schema)
+
+    def list_label_schemas(self, experiment_id, max_results=100, page_token=None):
+        from mlflow.genai.label_schemas.label_schemas import LabelSchema
+
+        req = ListLabelSchemas(experiment_id=str(experiment_id), max_results=max_results)
+        if page_token is not None:
+            req.page_token = page_token
+        response_proto = self._call_endpoint(
+            ListLabelSchemas,
+            message_to_json(req),
+            endpoint=f"{_V3_LABEL_SCHEMAS_REST_API_PATH_PREFIX}/list",
+        )
+        schemas = [LabelSchema.from_proto(s) for s in response_proto.label_schemas]
+        return PagedList(schemas, response_proto.next_page_token or None)
+
+    def update_label_schema(
+        self,
+        schema_id,
+        *,
+        name=None,
+        instruction=None,
+        enable_comment=None,
+        input=None,
+    ):
+        from mlflow.genai.label_schemas.label_schemas import LabelSchema, _input_to_proto
+
+        req = UpdateLabelSchema(schema_id=schema_id)
+        if name is not None:
+            req.name = name
+        if instruction is not None:
+            req.instruction = instruction
+        if enable_comment is not None:
+            req.enable_comment = enable_comment
+        if input is not None:
+            req.input.CopyFrom(_input_to_proto(input))
+        response_proto = self._call_endpoint(
+            UpdateLabelSchema,
+            message_to_json(req),
+            endpoint=f"{_V3_LABEL_SCHEMAS_REST_API_PATH_PREFIX}/update",
+        )
+        return LabelSchema.from_proto(response_proto.label_schema)
+
+    def delete_label_schema(self, schema_id):
+        req = DeleteLabelSchema(schema_id=schema_id)
+        self._call_endpoint(
+            DeleteLabelSchema,
+            message_to_json(req),
+            endpoint=f"{_V3_LABEL_SCHEMAS_REST_API_PATH_PREFIX}/delete",
+        )
 
     def log_metric(self, run_id: str, metric: Metric):
         """
