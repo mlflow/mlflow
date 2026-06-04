@@ -970,6 +970,31 @@ def test_start_and_end_trace(tracking_uri, with_active_run, async_logging_enable
     assert child_span_2.start_time_ns <= child_span_2.end_time_ns - 0.1 * 1e6
 
 
+def test_start_trace_with_run_id(tracking_uri, async_logging_enabled):
+    client = MlflowClient(tracking_uri)
+
+    experiment_id = client.create_experiment(f"test_experiment_{uuid.uuid4().hex}")
+    run = client.create_run(experiment_id=experiment_id)
+
+    root_span = client.start_trace(
+        name="test",
+        experiment_id=experiment_id,
+        run_id=run.info.run_id,
+    )
+    client.end_trace(root_span.trace_id)
+
+    traces = client.search_traces(
+        locations=[experiment_id],
+        include_spans=False,
+        flush=True,
+    )
+
+    assert len(traces) == 1
+    trace_info = traces[0].info
+    assert trace_info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run.info.run_id
+    assert trace_info.experiment_id == experiment_id
+
+
 def test_start_and_end_trace_capture_falsy_input_and_output(tracking_uri):
     # This test is to verify that falsy input and output values are correctly logged
     client = MlflowClient(tracking_uri)

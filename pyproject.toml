@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mlflow"
-version = "3.12.1.dev0"
+version = "3.13.1.dev0"
 description = "MLflow is an open source platform for the complete machine learning lifecycle"
 readme = "README.md"
 keywords = ["mlflow", "ai", "databricks"]
@@ -150,6 +150,7 @@ mlflow = [
   "models/notebook_resources/**/*",
   "ai_commands/**/*.md",
   "assistant/skills/**/*",
+  "agent/setup/templates/**/*.md",
   "models/container/**/*",
   "server/js/build/**/*",
   "utils/model_catalog/*.json",
@@ -248,9 +249,6 @@ constraint-dependencies = [
   "pyspark<4.1.0",
   # setuptools 82.0.0 removed pkg_resources, breaking packages that depend on it (e.g., sphinx)
   "setuptools<82",
-  # litellm 1.82.7 and 1.82.8 contain a malicious .pth file that steals credentials
-  # https://github.com/BerriAI/litellm/issues/24512
-  "litellm<=1.82.6",
 ]
 # Prevent third-party libraries from installing uv to avoid conflicts with uv installed
 # by the standalone installer

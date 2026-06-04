@@ -1,10 +1,3 @@
-"""Tests for the Ollama preset of OpenAICompatibleProvider.
-
-Covers the Ollama-specific bits: `/api/tags` listing and the OAI-compat
-chat path the preset is wired to call. The shared SSE/tool-call/think-block
-behavior is exercised in `test_openai_compatible_provider.py`.
-"""
-
 from unittest.mock import MagicMock, patch
 
 import pytest
