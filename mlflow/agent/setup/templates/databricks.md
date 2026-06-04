@@ -15,12 +15,12 @@ WorkspaceClient().current_user.me()
 
 If that call raises, stop and ask the user to configure auth (for example via `databricks auth login`, a `~/.databrickscfg` profile, or by exporting `DATABRICKS_HOST` and `DATABRICKS_TOKEN`). Never write secrets into files in the repo.
 
-Pin the active experiment to the workspace path picked at setup time:
+Pin the active experiment to the workspace path picked at setup time
+(tracking URI itself is wired in step 2 below, so don't repeat that here):
 
 ```python
 import mlflow
 
-mlflow.set_tracking_uri("{{ tracking_uri }}")
 mlflow.set_experiment("{{ experiment_path }}")
 ```
 
