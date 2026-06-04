@@ -1,8 +1,9 @@
 ### Configure the Databricks workspace
 
 You're sending traces to a Databricks workspace (`MLFLOW_TRACKING_URI={{ tracking_uri }}`).
-When installing MLflow in step 1, prefer `mlflow[databricks]` over plain
-`mlflow` so the Databricks SDK extras are pulled in.
+Plain `mlflow` is sufficient for the tracing path: `databricks-sdk` is
+already a required dependency, so the `[databricks]` extra is only needed
+for the optional UC-backed traces below.
 
 Before instrumenting the app, verify that Databricks auth is configured.
 The Databricks SDK resolves credentials from env vars, `~/.databrickscfg`
