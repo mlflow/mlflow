@@ -1,3 +1,4 @@
+import os
 import pathlib
 import uuid
 from typing import NamedTuple
@@ -239,19 +240,40 @@ def test_log_artifact_windows_path_with_hostname(text_artifact):
         "test_exp_d", experiment_test_1_artifact_location
     )
     with mlflow.start_run(experiment_id=experiment_test_1_id) as run:
+        artifact_dir = rf"{experiment_test_1_artifact_location}\{run.info.run_id}\artifacts"
+        temp_artifact_path = rf"{artifact_dir}\.artifact.uploading.mock"
+        destination_artifact_path = rf"{artifact_dir}\{text_artifact.artifact_name}"
+        real_exists = os.path.exists
+
+        def _exists(path):
+            if path == artifact_dir:
+                return False
+            return real_exists(path)
+
+        fdopen_mock = mock.MagicMock()
+        fdopen_mock.__enter__.return_value = fdopen_mock
         with (
-            mock.patch("shutil.copy2") as copyfile_mock,
-            mock.patch("os.path.exists", return_value=True) as exists_mock,
+            mock.patch("shutil.copyfileobj") as copyfileobj_mock,
+            mock.patch(
+                "mlflow.store.artifact.local_artifact_repo.os.path.exists", side_effect=_exists
+            ),
+            mock.patch("mlflow.store.artifact.local_artifact_repo.mkdir") as mkdir_mock,
+            mock.patch(
+                "mlflow.store.artifact.local_artifact_repo.tempfile.mkstemp",
+                return_value=(123, temp_artifact_path),
+            ) as mkstemp_mock,
+            mock.patch(
+                "mlflow.store.artifact.local_artifact_repo.os.fdopen", return_value=fdopen_mock
+            ) as fdopen_fn_mock,
+            mock.patch("mlflow.store.artifact.local_artifact_repo.os.replace") as replace_mock,
         ):
             mlflow.log_artifact(text_artifact.artifact_path)
-            exists_mock.assert_called_once()
-            copyfile_mock.assert_called_once_with(
-                text_artifact.artifact_path,
-                (
-                    rf"{experiment_test_1_artifact_location}\{run.info.run_id}"
-                    rf"\artifacts\{text_artifact.artifact_name}"
-                ),
-            )
+            mkdir_mock.assert_called_once_with(artifact_dir)
+            mkstemp_mock.assert_called_once_with(dir=artifact_dir, prefix=".artifact.uploading.")
+            fdopen_fn_mock.assert_called_once_with(123, "wb")
+            copyfileobj_mock.assert_called_once()
+            assert copyfileobj_mock.call_args.args[1] is fdopen_mock
+            replace_mock.assert_called_once_with(temp_artifact_path, destination_artifact_path)
 
 
 def test_list_artifacts_with_artifact_uri(run_with_artifacts):

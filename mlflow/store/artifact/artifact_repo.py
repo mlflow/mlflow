@@ -9,7 +9,7 @@ from abc import ABC, ABCMeta, abstractmethod
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, BinaryIO
 
 from mlflow.entities.file_info import FileInfo
 from mlflow.entities.multipart_upload import (
@@ -49,6 +49,8 @@ assert _NUM_MAX_THREADS_PER_CPU > 0
 # Default number of CPUs to assume on the machine if unavailable to fetch it using os.cpu_count()
 _NUM_DEFAULT_CPUS = _NUM_MAX_THREADS // _NUM_MAX_THREADS_PER_CPU
 _logger = logging.getLogger(__name__)
+# Chunk size for streaming artifact uploads and downloads (1 MB).
+ARTIFACT_STREAM_CHUNK_SIZE = 1024 * 1024
 
 
 def _truncate_error(err: str, max_length: int = 10_000) -> str:
@@ -641,6 +643,32 @@ class PresignedUploadMixin(ABC):
 
         Returns:
             CreatePresignedUploadResponse with presigned_url and headers.
+        """
+
+
+class StreamUploadMixin(ABC):
+    """
+    Mixin that defines the API for artifact repositories that support streaming
+    uploads directly from a binary stream, avoiding an intermediate temp-file copy
+    in the server handler.
+    """
+
+    @abstractmethod
+    def log_artifact_from_stream(
+        self,
+        stream: BinaryIO,
+        artifact_file_name: str,
+        artifact_path: str | None = None,
+    ) -> None:
+        """
+        Log artifact contents from a binary stream.
+
+        Args:
+            stream: Readable binary stream containing the artifact contents.
+            artifact_file_name: Artifact filename to log. Any directory components are
+                ignored; use ``artifact_path`` to specify the destination directory.
+            artifact_path: Directory within the run's artifact directory in which to log
+                the artifact.
         """
 
 
