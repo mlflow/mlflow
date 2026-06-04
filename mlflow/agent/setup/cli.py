@@ -8,8 +8,8 @@ from pathlib import Path
 import click
 
 from mlflow.agent.agents import AGENTS, AgentName, AgentTool, detect_installed, get_agent
-from mlflow.agent.setup.skill_installer import install_skills, skills_dest
 from mlflow.agent.setup.task import build_task
+from mlflow.assistant.skill_installer import install_skills
 from mlflow.telemetry.events import AgentSetupEvent
 from mlflow.telemetry.track import _record_event
 
@@ -109,15 +109,21 @@ def setup(
     agent = _choose_agent(agent_name)
     _record_event(AgentSetupEvent, {"agent": agent.name, "print_prompt": print_prompt})
 
-    dest = skills_dest(repo_root, agent).relative_to(repo_root)
+    skills_dest = repo_root / agent.skills_dir
     skills_installed = click.confirm(
-        click.style(f"Install MLflow skills at {dest}/ (this project)?", fg="cyan", bold=True),
+        click.style(
+            f"Install MLflow skills at {agent.skills_dir}/ (this project)?",
+            fg="cyan",
+            bold=True,
+        ),
         default=True,
         err=True,
     )
     if skills_installed:
-        installed = install_skills(repo_root, agent)
-        click.secho(f"Wrote {len(installed)} skill(s) to {dest}/:", fg="green", err=True)
+        installed = install_skills(skills_dest)
+        click.secho(
+            f"Wrote {len(installed)} skill(s) to {agent.skills_dir}/:", fg="green", err=True
+        )
         for name in installed:
             click.echo(f"  - {name}", err=True)
     else:
