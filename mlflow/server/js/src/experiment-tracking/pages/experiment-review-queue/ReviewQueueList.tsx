@@ -1,13 +1,25 @@
-import { Empty, SearchIcon, Tag, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { useMemo, useState } from 'react';
+
+import {
+  Empty,
+  SearchIcon,
+  Table,
+  TableCell,
+  TableHeader,
+  TableRow,
+  Tag,
+  Typography,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 
 import type { ReviewItem, ReviewStatus } from './mockData';
 
 const CID = 'mlflow.experiment-review-queue.list';
 
-const STATUS_META: Record<ReviewStatus, { label: string; color: 'turquoise' | 'lime' | 'charcoal' }> = {
-  PENDING: { label: 'Needs review', color: 'turquoise' },
-  COMPLETED: { label: 'Completed', color: 'lime' },
-  SKIPPED: { label: 'Skipped', color: 'charcoal' },
+const STATUS_META: Record<ReviewStatus, { label: string; color: 'turquoise' | 'lime' | 'charcoal'; rank: number }> = {
+  PENDING: { label: 'Needs review', color: 'turquoise', rank: 0 },
+  SKIPPED: { label: 'Skipped', color: 'charcoal', rank: 1 },
+  COMPLETED: { label: 'Completed', color: 'lime', rank: 2 },
 };
 
 export const StatusTag = ({ status }: { status: ReviewStatus }) => {
@@ -24,68 +36,19 @@ const formatAgo = (assignedAtMs: number, nowMs: number) => {
   return hours < 24 ? `${hours}h ago` : `${Math.round(hours / 24)}d ago`;
 };
 
-const ItemRow = ({ item, onOpen, nowMs }: { item: ReviewItem; onOpen: () => void; nowMs: number }) => {
-  const { theme } = useDesignSystemTheme();
-  return (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={onOpen}
-      onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onOpen()}
-      css={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: theme.spacing.md,
-        padding: theme.spacing.md,
-        border: `1px solid ${theme.colors.border}`,
-        borderRadius: theme.borders.borderRadiusMd,
-        cursor: 'pointer',
-        '&:hover': { backgroundColor: theme.colors.actionDefaultBackgroundHover },
-      }}
-    >
-      <div css={{ minWidth: 0 }}>
-        <Typography.Text bold>{item.traceId}</Typography.Text>
-        <Typography.Text color="secondary" css={{ display: 'block' }} ellipsis>
-          {item.requestPreview}
-        </Typography.Text>
-      </div>
-      <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.md, flexShrink: 0 }}>
-        <Typography.Hint>
-          assigned by {item.assigner} · {formatAgo(item.assignedAtMs, nowMs)}
-        </Typography.Hint>
-        <StatusTag status={item.status} />
-      </div>
-    </div>
-  );
-};
+type SortKey = 'traceId' | 'requestPreview' | 'assigner' | 'assignedAtMs' | 'status';
+type SortDirection = 'asc' | 'desc';
 
-const Section = ({
-  title,
-  items,
-  onOpen,
-  nowMs,
-}: {
-  title: string;
-  items: ReviewItem[];
-  onOpen: (item: ReviewItem) => void;
-  nowMs: number;
-}) => {
-  const { theme } = useDesignSystemTheme();
-  if (items.length === 0) {
-    return null;
-  }
-  return (
-    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
-      <Typography.Title level={4} withoutMargins>
-        {title} ({items.length})
-      </Typography.Title>
-      {items.map((item) => (
-        <ItemRow key={item.assignmentId} item={item} onOpen={() => onOpen(item)} nowMs={nowMs} />
-      ))}
-    </div>
-  );
-};
+const COLUMNS: { key: SortKey; label: string; flex: number }[] = [
+  { key: 'traceId', label: 'Trace', flex: 1.2 },
+  { key: 'requestPreview', label: 'Request', flex: 2.5 },
+  { key: 'assigner', label: 'Assigner', flex: 1.2 },
+  { key: 'assignedAtMs', label: 'Assigned', flex: 1 },
+  { key: 'status', label: 'Status', flex: 1 },
+];
+
+const sortValue = (item: ReviewItem, key: SortKey): string | number =>
+  key === 'status' ? STATUS_META[item.status].rank : item[key];
 
 export const ReviewQueueList = ({
   items,
@@ -97,7 +60,22 @@ export const ReviewQueueList = ({
   nowMs: number;
 }) => {
   const { theme } = useDesignSystemTheme();
-  const byStatus = (status: ReviewStatus) => items.filter((i) => i.status === status);
+  const [sort, setSort] = useState<{ key: SortKey; direction: SortDirection }>({ key: 'status', direction: 'asc' });
+
+  const toggleSort = (key: SortKey) =>
+    setSort((prev) =>
+      prev.key === key ? { key, direction: prev.direction === 'asc' ? 'desc' : 'asc' } : { key, direction: 'asc' },
+    );
+
+  const sortedItems = useMemo(() => {
+    const sorted = [...items].sort((a, b) => {
+      const av = sortValue(a, sort.key);
+      const bv = sortValue(b, sort.key);
+      const cmp = av < bv ? -1 : av > bv ? 1 : 0;
+      return sort.direction === 'asc' ? cmp : -cmp;
+    });
+    return sorted;
+  }, [items, sort]);
 
   if (items.length === 0) {
     return (
@@ -118,10 +96,42 @@ export const ReviewQueueList = ({
   }
 
   return (
-    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.lg }}>
-      <Section title="Needs review" items={byStatus('PENDING')} onOpen={onOpen} nowMs={nowMs} />
-      <Section title="Skipped" items={byStatus('SKIPPED')} onOpen={onOpen} nowMs={nowMs} />
-      <Section title="Completed" items={byStatus('COMPLETED')} onOpen={onOpen} nowMs={nowMs} />
-    </div>
+    <Table>
+      <TableRow isHeader>
+        {COLUMNS.map((col) => (
+          <TableHeader
+            key={col.key}
+            componentId={`${CID}.header`}
+            css={{ flex: col.flex }}
+            sortable
+            sortDirection={sort.key === col.key ? sort.direction : 'none'}
+            onToggleSort={() => toggleSort(col.key)}
+          >
+            {col.label}
+          </TableHeader>
+        ))}
+      </TableRow>
+      {sortedItems.map((item) => (
+        <TableRow
+          key={item.assignmentId}
+          onClick={() => onOpen(item)}
+          css={{ cursor: 'pointer', '&:hover': { backgroundColor: theme.colors.actionDefaultBackgroundHover } }}
+        >
+          <TableCell css={{ flex: COLUMNS[0].flex }}>
+            <Typography.Text bold>{item.traceId}</Typography.Text>
+          </TableCell>
+          <TableCell css={{ flex: COLUMNS[1].flex }}>
+            <Typography.Text color="secondary" ellipsis>
+              {item.requestPreview}
+            </Typography.Text>
+          </TableCell>
+          <TableCell css={{ flex: COLUMNS[2].flex }}>{item.assigner}</TableCell>
+          <TableCell css={{ flex: COLUMNS[3].flex }}>{formatAgo(item.assignedAtMs, nowMs)}</TableCell>
+          <TableCell css={{ flex: COLUMNS[4].flex }}>
+            <StatusTag status={item.status} />
+          </TableCell>
+        </TableRow>
+      ))}
+    </Table>
   );
 };
