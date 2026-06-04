@@ -141,17 +141,17 @@ def setup(
     ).strip()
     if tracking_uri_input:
         tracking_uri = tracking_uri_input
-        started_local_server = False
+        local_server_port: int | None = None
     else:
-        tracking_uri = f"http://127.0.0.1:{_find_available_port()}"
-        started_local_server = True
+        local_server_port = _find_available_port()
+        tracking_uri = f"http://127.0.0.1:{local_server_port}"
         click.secho(f"Picked local tracking URI: {tracking_uri}", fg="green", err=True)
 
     task = build_task(
         repo_root,
         agent,
         tracking_uri,
-        started_local_server=started_local_server,
+        local_server_port=local_server_port,
         skills_installed=skills_installed,
     )
 

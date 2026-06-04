@@ -33,7 +33,7 @@ def build_task(
     agent: AgentTool,
     tracking_uri: str,
     *,
-    started_local_server: bool = False,
+    local_server_port: int | None = None,
     skills_installed: bool = True,
 ) -> str:
     """Compose the first user message handed to the agent.
@@ -43,9 +43,9 @@ def build_task(
     steps (install, tracking URI wiring, autolog snippet) come from
     ``<language>.md`` and are interpolated via ``{{ language_steps }}``.
 
-    When ``started_local_server`` is ``True``, ``tracking_uri`` is a
-    ``http://127.0.0.1:<port>`` URL picked by the CLI and the agent is
-    instructed to start a local MLflow server bound to that URL.
+    When ``local_server_port`` is not ``None``, the CLI picked it and built
+    ``tracking_uri = http://127.0.0.1:<port>``; the agent is instructed to
+    start a local MLflow server on that port.
 
     When ``skills_installed`` is ``False``, ``{{ skills_dir }}`` is
     redirected to the bundled skill location inside the MLflow install so
@@ -73,12 +73,11 @@ def build_task(
             "  task files."
         )
 
-    if started_local_server:
-        port = tracking_uri.rsplit(":", 1)[1]
+    if local_server_port is not None:
         server_setup = _render(
             _read_template("local-server.md"),
             tracking_uri=tracking_uri,
-            port=port,
+            port=str(local_server_port),
         )
     else:
         server_setup = ""
