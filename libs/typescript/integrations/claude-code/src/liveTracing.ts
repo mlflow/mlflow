@@ -78,6 +78,7 @@ export interface SDKUserLike {
   type: 'user';
   message: { role: 'user'; content: string | ContentBlock[] };
   parent_tool_use_id?: string | null;
+  tool_use_result?: { commandName?: string };
 }
 
 export interface SDKResultLike {
@@ -264,6 +265,9 @@ export class LiveTracingContext {
             ? toolResult.content
             : JSON.stringify(toolResult.content);
         toolSpan.setStatus(SpanStatusCode.ERROR, errorText || 'Tool execution failed');
+      }
+      if (msg.tool_use_result?.commandName) {
+        toolSpan.setAttribute(SpanAttributeKey.SKILL_NAME, msg.tool_use_result.commandName);
       }
       toolSpan.end();
       this.openToolSpans.delete(toolUseId);

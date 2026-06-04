@@ -99,11 +99,13 @@ function findToolResults(
       // Check both entry-level and content-level toolUseResult for agentId
       const partToolUseResult = toolResult.toolUseResult ?? {};
       const agentId = entryToolUseResult.agentId ?? partToolUseResult.agentId;
+      const commandName = entryToolUseResult.commandName;
 
       results[toolUseId] = {
         content: toolResult.content ?? '',
         isError: toolResult.is_error ?? false,
         agentId,
+        ...(commandName && { commandName }),
       };
     }
   }
@@ -405,6 +407,7 @@ function createLlmAndToolSpans(
         const toolResultInfo = toolResults[toolUseId];
         const toolResult = toolResultInfo?.content ?? 'No result found';
         const toolName = toolUse.name ?? 'unknown';
+        const commandName = toolResultInfo?.commandName;
 
         const toolSpan = startSpan({
           name: `tool_${toolName}`,
@@ -415,6 +418,7 @@ function createLlmAndToolSpans(
           attributes: {
             tool_name: toolName,
             tool_id: toolUseId,
+            ...(commandName && { [SpanAttributeKey.SKILL_NAME]: commandName }),
           },
         });
 

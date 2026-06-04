@@ -57,6 +57,15 @@ CLAUDE_TRACING_LEVEL = logging.WARNING - 5
 
 
 # ============================================================================
+# CONSTANTS
+# ============================================================================
+@dataclasses.dataclass
+class ToolUseResult:
+    content: Any
+    command_name: str | None
+
+
+# ============================================================================
 # LOGGING AND SETUP
 # ============================================================================
 
@@ -293,7 +302,9 @@ def _extract_content_and_tools(content: list[dict[str, Any]]) -> tuple[str, list
     return text_content, tool_uses
 
 
-def _find_tool_results(transcript: list[dict[str, Any]], start_idx: int) -> dict[str, Any]:
+def _find_tool_results(
+    transcript: list[dict[str, Any]], start_idx: int
+) -> dict[str, ToolUseResult]:
     """Find tool results following the current assistant response.
 
     Returns a mapping from tool_use_id to tool result content.
@@ -307,6 +318,7 @@ def _find_tool_results(transcript: list[dict[str, Any]], start_idx: int) -> dict
             continue
 
         msg = entry.get(MESSAGE_FIELD_MESSAGE, {})
+        command_name = msg.get(MESSAGE_FIELD_COMMAND_NAME, None)
         content = msg.get(MESSAGE_FIELD_CONTENT, [])
 
         if isinstance(content, list):
@@ -318,7 +330,9 @@ def _find_tool_results(transcript: list[dict[str, Any]], start_idx: int) -> dict
                     tool_use_id = part.get("tool_use_id")
                     result_content = part.get("content", "")
                     if tool_use_id:
-                        tool_results[tool_use_id] = result_content
+                        tool_results[tool_use_id] = ToolUseResult(
+                            content=result_content, command_name=command_name
+                        )
 
         # Stop looking once we hit the next assistant response
         if entry.get(MESSAGE_FIELD_TYPE) == MESSAGE_TYPE_ASSISTANT:
@@ -484,7 +498,7 @@ def _create_llm_and_tool_spans(
             for idx, tool_use in enumerate(tool_uses):
                 tool_start_ns = timestamp_ns + (idx * tool_duration_ns)
                 tool_use_id = tool_use.get("id", "")
-                tool_result = tool_results.get(tool_use_id, "No result found")
+                tool_result = tool_results.get(tool_use_id, None)
 
                 tool_span = mlflow.start_span_no_context(
                     name=f"tool_{tool_use.get('name', 'unknown')}",
@@ -495,10 +509,17 @@ def _create_llm_and_tool_spans(
                     attributes={
                         "tool_name": tool_use.get("name", "unknown"),
                         "tool_id": tool_use_id,
+                        **(
+                            {SpanAttributeKey.SKILL_NAME: tool_result.command_name}
+                            if tool_result and tool_result.command_name
+                            else {}
+                        ),
                     },
                 )
 
-                tool_span.set_outputs({"result": tool_result})
+                tool_span.set_outputs({
+                    "result": tool_result.content if tool_result else "No result found"
+                })
                 tool_span.end(end_time_ns=tool_start_ns + tool_duration_ns)
 
 
@@ -690,7 +711,7 @@ def _find_sdk_user_prompt(messages: list[Any]) -> str | None:
     return None
 
 
-def _build_tool_result_map(messages: list[Any]) -> dict[str, str]:
+def _build_tool_result_map(messages: list[Any]) -> dict[str, ToolUseResult]:
     """Map tool_use_id to its result content so tool spans can show outputs."""
     from claude_agent_sdk.types import ToolResultBlock, UserMessage
 
@@ -699,10 +720,13 @@ def _build_tool_result_map(messages: list[Any]) -> dict[str, str]:
         if isinstance(msg, UserMessage) and isinstance(msg.content, list):
             for block in msg.content:
                 if isinstance(block, ToolResultBlock):
+                    command_name = block.input.get("commandName", None)
                     result = block.content
                     if isinstance(result, list):
                         result = str(result)
-                    tool_result_map[block.tool_use_id] = result or ""
+                    tool_result_map[block.tool_use_id] = ToolUseResult(
+                        content=result or "", command_name=command_name
+                    )
     return tool_result_map
 
 
@@ -748,7 +772,7 @@ def _serialize_sdk_message(msg) -> dict[str, Any] | None:
 def _create_sdk_child_spans(
     messages: list[Any],
     parent_span,
-    tool_result_map: dict[str, str],
+    tool_result_map: dict[str, ToolUseResult],
 ) -> str | None:
     """Create LLM and tool child spans under ``parent_span`` from SDK messages."""
     from claude_agent_sdk.types import AssistantMessage, TextBlock, ToolUseBlock
@@ -796,7 +820,14 @@ def _create_sdk_child_spans(
                     inputs=tool_block.input,
                     attributes={"tool_name": tool_block.name, "tool_id": tool_block.id},
                 )
-                tool_span.set_outputs({"result": tool_result_map.get(tool_block.id, "")})
+                tool_result = tool_result_map.get(tool_block.id)
+                tool_span.set_outputs({
+                    "result": tool_result.content if tool_result else "No result found"
+                })
+                if tool_result and tool_result.command_name:
+                    tool_span.set_attributes({
+                        SpanAttributeKey.SKILL_NAME: tool_result.command_name
+                    })
                 tool_span.end()
 
         if anthropic_msg := _serialize_sdk_message(msg):

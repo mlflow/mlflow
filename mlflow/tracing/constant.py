@@ -143,6 +143,8 @@ class SpanAttributeKey:
     # survive OTLP export and can be restored to SqlTraceTag rows on the server side.
     # Each attribute is keyed as "mlflow.traceTag.<tag_key>" with the plain string value.
     TRACE_TAG_PREFIX = "mlflow.traceTag."
+    # This attribute, if set, indicates that tool call is a skill and the skill name is the value.
+    SKILL_NAME = "mlflow.skill.name"
 
 
 class TraceExperimentTagKey:
@@ -278,6 +280,7 @@ class SpanMetricDimensionKey:
     SPAN_STATUS = "span_status"
     SPAN_MODEL_NAME = "span_model_name"
     SPAN_MODEL_PROVIDER = "span_model_provider"
+    SPAN_SKILL_NAME = "span_skill_name"
 
 
 class AssessmentMetricKey:
