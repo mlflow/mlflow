@@ -28,9 +28,10 @@ from mlflow.server.fastapi_security import init_fastapi_security
 from mlflow.server.gateway_api import gateway_router
 from mlflow.server.job_api import job_api_router
 from mlflow.server.mcp_server_api import (
-    _MCP_SERVER_API_PREFIX,
     _mlflow_error_response,
     _request_validation_error_response,
+    get_mcp_server_api_route_prefixes,
+    is_mcp_server_api_path,
     mcp_server_router,
 )
 from mlflow.server.otel_api import otel_router
@@ -161,14 +162,14 @@ def add_mcp_exception_handlers(fastapi_app: FastAPI) -> None:
     @fastapi_app.exception_handler(MlflowException)
     async def mcp_mlflow_exception_handler(request: Request, exc: MlflowException):
         path = get_routed_asgi_path(request)
-        if path == _MCP_SERVER_API_PREFIX or path.startswith(f"{_MCP_SERVER_API_PREFIX}/"):
+        if is_mcp_server_api_path(path):
             return _mlflow_error_response(exc)
         raise exc
 
     @fastapi_app.exception_handler(RequestValidationError)
     async def mcp_request_validation_error_handler(request: Request, exc: RequestValidationError):
         path = get_routed_asgi_path(request)
-        if path == _MCP_SERVER_API_PREFIX or path.startswith(f"{_MCP_SERVER_API_PREFIX}/"):
+        if is_mcp_server_api_path(path):
             return _request_validation_error_response(exc)
         return JSONResponse(status_code=422, content={"detail": exc.errors()})
 
@@ -215,7 +216,8 @@ def create_fastapi_app(flask_app: Flask = flask_app):
     fastapi_app.include_router(assistant_router)
 
     add_mcp_exception_handlers(fastapi_app)
-    fastapi_app.include_router(mcp_server_router, prefix=_MCP_SERVER_API_PREFIX)
+    for route_prefix in get_mcp_server_api_route_prefixes():
+        fastapi_app.include_router(mcp_server_router, prefix=route_prefix)
 
     # Mount the entire Flask application at the root path
     # This ensures compatibility with existing APIs

@@ -1368,6 +1368,9 @@ def _apply_mcp_server_version_filter(query, filter_string, dialect):
                 error_code=INVALID_PARAMETER_VALUE,
             )
         if key == "version":
+            # `version` is not treated as a generic string attribute: equality
+            # uses the stored raw version string, while ordering comparisons use
+            # SemVer precedence.
             query = query.filter(_get_semver_version_filter_expression(comparator, value))
         else:
             attr = getattr(SqlMCPServerVersion, key)
