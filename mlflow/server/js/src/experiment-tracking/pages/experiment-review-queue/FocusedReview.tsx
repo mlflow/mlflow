@@ -1,4 +1,4 @@
-import { Button, ChevronLeftIcon, Input, Tag, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { Button, ChevronLeftIcon, Input, Typography, useDesignSystemTheme } from '@databricks/design-system';
 
 import type { ReviewItem, ReviewQuestion, ReviewStatus } from './mockData';
 import { StatusTag } from './ReviewQueueList';
@@ -6,20 +6,27 @@ import { StatusTag } from './ReviewQueueList';
 const CID = 'mlflow.experiment-review-queue.focused-review';
 
 /**
- * POC focused-review surface: trace render (mocked) on the left,
- * schema-defined question widgets on the right, with the
- * mark-complete / skip / reopen actions.
+ * POC focused-review surface, three panels:
+ *   left   — condensed queue rail (switch which trace is in focus)
+ *   middle — trace render (mocked)
+ *   right  — schema-defined question widgets
+ * with the mark-complete / skip / reopen actions. "Back to queue"
+ * returns to the full queue list.
  */
 export const FocusedReview = ({
   item,
+  items,
   questions,
   onBack,
+  onSelect,
   onUpdate,
   onSetStatus,
 }: {
   item: ReviewItem;
+  items: ReviewItem[];
   questions: ReviewQuestion[];
   onBack: () => void;
+  onSelect: (assignmentId: string) => void;
   onUpdate: (patch: Partial<ReviewItem>) => void;
   onSetStatus: (status: ReviewStatus) => void;
 }) => {
@@ -38,10 +45,56 @@ export const FocusedReview = ({
       </div>
 
       <div css={{ display: 'flex', gap: theme.spacing.lg, flex: 1, minHeight: 0 }}>
+        {/* Condensed queue rail */}
+        <div
+          css={{
+            width: 240,
+            flexShrink: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: theme.spacing.xs,
+            borderRight: `1px solid ${theme.colors.border}`,
+            paddingRight: theme.spacing.md,
+            overflow: 'auto',
+          }}
+        >
+          <Typography.Text color="secondary" size="sm" css={{ marginBottom: theme.spacing.xs }}>
+            Queue ({items.length})
+          </Typography.Text>
+          {items.map((queued) => {
+            const isActive = queued.assignmentId === item.assignmentId;
+            return (
+              <div
+                key={queued.assignmentId}
+                role="button"
+                tabIndex={0}
+                onClick={() => onSelect(queued.assignmentId)}
+                onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onSelect(queued.assignmentId)}
+                css={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: theme.spacing.xs,
+                  padding: theme.spacing.sm,
+                  borderRadius: theme.borders.borderRadiusMd,
+                  cursor: 'pointer',
+                  backgroundColor: isActive ? theme.colors.actionDefaultBackgroundPress : undefined,
+                  '&:hover': { backgroundColor: theme.colors.actionDefaultBackgroundHover },
+                }}
+              >
+                <Typography.Text size="sm" bold={isActive} ellipsis>
+                  {queued.traceId}
+                </Typography.Text>
+                <StatusTag status={queued.status} />
+              </div>
+            );
+          })}
+        </div>
+
         {/* Trace render (mocked) */}
         <div
           css={{
             flex: 1,
+            minWidth: 0,
             border: `1px solid ${theme.colors.border}`,
             borderRadius: theme.borders.borderRadiusMd,
             padding: theme.spacing.md,
@@ -61,6 +114,7 @@ export const FocusedReview = ({
         <div
           css={{
             width: 360,
+            flexShrink: 0,
             display: 'flex',
             flexDirection: 'column',
             gap: theme.spacing.lg,

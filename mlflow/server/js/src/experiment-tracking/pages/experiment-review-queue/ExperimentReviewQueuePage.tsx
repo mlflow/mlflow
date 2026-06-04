@@ -51,12 +51,10 @@ const ExperimentReviewQueuePage = () => {
   };
 
   const setOpenStatus = (status: ReviewStatus) => {
+    // Stay in the focused view after a terminal action; the reviewer
+    // picks the next trace from the condensed queue rail. "Back to
+    // queue" is the explicit exit to the full list.
     patchOpenItem({ status });
-    // Returning to the queue after a terminal action mirrors working
-    // through a queue item-by-item.
-    if (status === 'COMPLETED' || status === 'SKIPPED') {
-      setOpenAssignmentId(null);
-    }
   };
 
   const pendingCount = items.filter((i) => i.status === 'PENDING').length;
@@ -107,8 +105,10 @@ const ExperimentReviewQueuePage = () => {
         {openItem ? (
           <FocusedReview
             item={openItem}
+            items={items}
             questions={MOCK_QUESTIONS}
             onBack={() => setOpenAssignmentId(null)}
+            onSelect={setOpenAssignmentId}
             onUpdate={patchOpenItem}
             onSetStatus={setOpenStatus}
           />
