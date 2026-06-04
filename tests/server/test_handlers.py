@@ -4041,6 +4041,34 @@ def test_download_artifact_streams_in_chunks(enable_serve_artifacts, tmp_path):
         assert streamed_data == test_data
 
 
+def test_download_artifact_returns_404_for_missing_azure_blob(enable_serve_artifacts):
+    from azure.core.exceptions import ResourceNotFoundError
+
+    artifact_repo = AzureBlobArtifactRepository(
+        "wasbs://container@account.blob.core.windows.net/root",
+        client=mock.MagicMock(),
+    )
+    artifact_repo.client.get_container_client().walk_blobs.return_value = []
+    artifact_repo.client.get_container_client().download_blob.side_effect = ResourceNotFoundError(
+        "Operation returned an invalid status: BlobNotFound"
+    )
+
+    with (
+        app.test_request_context(method="GET"),
+        mock.patch(
+            "mlflow.server.handlers._get_artifact_repo_mlflow_artifacts",
+            return_value=artifact_repo,
+        ),
+    ):
+        response = _download_artifact("missing.txt")
+    artifact_repo.thread_pool.shutdown()
+
+    assert response.status_code == 404
+    assert json.loads(response.get_data())["error_code"] == ErrorCode.Name(
+        RESOURCE_DOES_NOT_EXIST
+    )
+
+
 @pytest.mark.parametrize(
     ("file_path", "expected_simple", "expected_quoted"),
     [
