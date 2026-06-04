@@ -1,4 +1,4 @@
-### 1. Install MLflow
+{server_setup}### 1. Install MLflow
 
 Detect this project's Python package manager and add `mlflow` as a dependency
 if it is not already declared:

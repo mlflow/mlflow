@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import socket
 import subprocess
 import sys
 from pathlib import Path
@@ -12,6 +13,17 @@ from mlflow.agent.agents import AGENTS, AgentName, AgentTool, detect_installed, 
 from mlflow.agent.setup.skill_installer import build_task, install_skills, skills_dest
 from mlflow.telemetry.events import AgentSetupEvent
 from mlflow.telemetry.track import _record_event
+
+
+def _find_available_port(start: int = 5000, end: int = 5100) -> int:
+    for port in range(start, end):
+        with socket.socket() as s:
+            try:
+                s.bind(("", port))
+            except OSError:
+                continue
+            return port
+    raise click.ClickException(f"No available port found in {start}-{end - 1}.")
 
 
 def _git_root(start: Path) -> Path | None:
@@ -111,13 +123,25 @@ def setup(
     else:
         click.secho("Skipping skill installation.", fg="yellow", err=True)
 
-    tracking_uri = click.prompt(
-        click.style("Tracking URI", fg="cyan", bold=True),
-        default="http://localhost:5000",
+    tracking_uri_input = click.prompt(
+        click.style(
+            "Tracking URI (leave empty to let the agent start a local server)",
+            fg="cyan",
+            bold=True,
+        ),
+        default="",
+        show_default=False,
         err=True,
-    )
+    ).strip()
+    if tracking_uri_input:
+        tracking_uri = tracking_uri_input
+        started_local_server = False
+    else:
+        tracking_uri = f"http://127.0.0.1:{_find_available_port()}"
+        started_local_server = True
+        click.secho(f"Picked local tracking URI: {tracking_uri}", fg="green", err=True)
 
-    task = build_task(repo_root, agent, tracking_uri)
+    task = build_task(repo_root, agent, tracking_uri, started_local_server=started_local_server)
 
     if print_prompt:
         click.echo(task)
