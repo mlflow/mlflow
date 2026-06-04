@@ -134,4 +134,54 @@ describe('mlflow-claude-code setup', () => {
     });
     expect(process.exitCode).toBe(1);
   });
+
+  it('writes the trace location when --trace-location is passed', async () => {
+    await runSetup(
+      [
+        '--user',
+        '--tracking-uri',
+        'databricks',
+        '--experiment-id',
+        '42',
+        '--trace-location',
+        'my_catalog.my_schema.my_prefix',
+      ],
+      { home: tmpHome, cwd: tmpCwd },
+    );
+
+    const settingsPath = join(tmpHome, '.claude', 'settings.json');
+    expect(JSON.parse(readFileSync(settingsPath, 'utf-8'))).toMatchObject({
+      env: {
+        MLFLOW_TRACKING_URI: 'databricks',
+        MLFLOW_EXPERIMENT_ID: '42',
+        MLFLOW_TRACE_LOCATION: 'my_catalog.my_schema.my_prefix',
+      },
+    });
+  });
+
+  it('rejects --trace-location with a missing value instead of ignoring it', async () => {
+    await runSetup(
+      ['--user', '--tracking-uri', 'databricks', '--experiment-id', '42', '--trace-location'],
+      { home: tmpHome, cwd: tmpCwd },
+    );
+    expect(process.exitCode).toBe(1);
+    expect(existsSync(join(tmpHome, '.claude', 'settings.json'))).toBe(false);
+  });
+
+  it('rejects an invalid --trace-location', async () => {
+    await runSetup(
+      [
+        '--user',
+        '--tracking-uri',
+        'databricks',
+        '--experiment-id',
+        '42',
+        '--trace-location',
+        'not-valid',
+      ],
+      { home: tmpHome, cwd: tmpCwd },
+    );
+    expect(process.exitCode).toBe(1);
+    expect(existsSync(join(tmpHome, '.claude', 'settings.json'))).toBe(false);
+  });
 });

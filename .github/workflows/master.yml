@@ -97,6 +97,7 @@ jobs:
             -r requirements/test-requirements.txt \
             -r requirements/extra-ml-requirements.txt
       - uses: ./.github/actions/show-versions
+      - uses: ./.github/actions/cache-hf
       - name: Import check
         run: |
           # `-I` is used to avoid importing modules from user-specific site-packages
@@ -418,6 +419,7 @@ jobs:
             pyspark datasets tensorflow torch transformers openai \
             tests/resources/mlflow-test-plugin
       - uses: ./.github/actions/show-versions
+      - uses: ./.github/actions/cache-hf
       - name: Download Hadoop winutils for Spark
         run: |
           git clone https://github.com/cdarlint/winutils /tmp/winutils

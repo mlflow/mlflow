@@ -4,9 +4,7 @@ from contextvars import ContextVar
 from typing import Any, AsyncGenerator
 from urllib.parse import urlparse, urlunparse
 
-from mlflow.gateway.constants import (
-    MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS,
-)
+from mlflow.environment_variables import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
 from mlflow.utils.uri import append_to_uri_path
 
 # Accumulates the total time (ms) spent waiting for provider HTTP responses in the current
@@ -29,7 +27,7 @@ async def _aiohttp_post(headers: dict[str, str], base_url: str, path: str, paylo
     request_headers["Accept-Encoding"] = SUPPORTED_ACCEPT_ENCODING
     url = append_to_uri_path(base_url, path)
     async with aiohttp.ClientSession(headers=request_headers) as session:
-        timeout = aiohttp.ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS)
+        timeout = aiohttp.ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get())
         async with session.post(url, json=payload, timeout=timeout) as response:
             yield response
 
