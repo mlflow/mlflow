@@ -26,7 +26,9 @@ from mlflow.server.assistant.api import assistant_router
 from mlflow.server.fastapi_security import init_fastapi_security
 from mlflow.server.gateway_api import gateway_router
 from mlflow.server.job_api import job_api_router
+from mlflow.server.mcp_server_api import _MCP_SERVER_API_PREFIX
 from mlflow.server.otel_api import otel_router
+from mlflow.server.registry_fastapi_app import create_registry_fastapi_app
 from mlflow.server.workspace_helpers import (
     WORKSPACE_HEADER_NAME,
     resolve_workspace_for_request_if_enabled,
@@ -183,6 +185,13 @@ def create_fastapi_app(flask_app: Flask = flask_app):
     # Include Assistant API router for AI-powered trace analysis
     # This provides /ajax-api/3.0/mlflow/assistant/* endpoints (localhost only)
     fastapi_app.include_router(assistant_router)
+
+    # Mount MCP Server Registry as a dedicated sub-application so its
+    # validation handlers remain isolated from other FastAPI routes.
+    fastapi_app.mount(
+        _MCP_SERVER_API_PREFIX,
+        create_registry_fastapi_app(route_prefix=""),
+    )
 
     # Mount the entire Flask application at the root path
     # This ensures compatibility with existing APIs

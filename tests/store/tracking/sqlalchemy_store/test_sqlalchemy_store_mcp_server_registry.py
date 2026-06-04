@@ -47,6 +47,11 @@ def test_create_mcp_server_with_icons(store):
     assert server.icons == icons
 
 
+def test_create_mcp_server_version_with_slash_allowed(store):
+    version = store.create_mcp_server_version(_server_json("io.github.test/server", "a/b"))
+    assert version.version == "a/b"
+
+
 def test_get_mcp_server(store):
     store.create_mcp_server("io.github.test/server", description="desc")
     server = store.get_mcp_server("io.github.test/server")
@@ -1363,7 +1368,7 @@ def test_has_access_bindings_excludes_stale_bindings(store):
 
 def test_has_access_bindings_duplicate_rejected(store):
     store.create_mcp_server("s")
-    with pytest.raises(MlflowException, match="Invalid"):
+    with pytest.raises(MlflowException, match="has_access_bindings can only appear once"):
         store.search_mcp_servers(
-            filter_string="has_access_bindings = true AND has_access_bindings = false"
+            filter_string="has_access_bindings = 'true' AND has_access_bindings = 'false'"
         )
