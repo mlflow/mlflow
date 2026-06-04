@@ -103,9 +103,7 @@ def setup(
 
     repo_root = _git_root(Path.cwd())
     if repo_root is None:
-        raise click.ClickException(
-            "`mlflow agent setup` must be run inside a git repository (--local scope)."
-        )
+        raise click.ClickException("`mlflow agent setup` must be run inside a git working tree.")
 
     agent = _choose_agent(agent_name)
     _record_event(AgentSetupEvent, {"agent": agent.name, "print_prompt": print_prompt})
