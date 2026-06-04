@@ -339,9 +339,7 @@ const EvaluationsOverviewSortDropdownBodyGrouped = ({
           <React.Fragment key={groupName}>
             <DropdownMenu.Group>
               <DropdownMenu.Label>
-                {groupName === TracesTableColumnGroup.INFO
-                  ? 'Attributes'
-                  : TracesTableColumnGroupToLabelMap[groupName as TracesTableColumnGroup]}
+                {TracesTableColumnGroupToLabelMap[groupName as TracesTableColumnGroup]}
               </DropdownMenu.Label>
               {opts.map((opt, idx) => (
                 <DropdownMenu.CheckboxItem
