@@ -97,8 +97,7 @@ def test_build_prompt_databricks_injects_workspace_section(tmp_path: Path):
         experiment_path="/Users/me@example.com/my-app",
     )
     assert "Configure the Databricks workspace" in out
-    assert "DATABRICKS_HOST" in out
-    assert "DATABRICKS_TOKEN" in out
+    assert "WorkspaceClient().current_user.me()" in out
     assert 'mlflow.set_experiment("/Users/me@example.com/my-app")' in out
     assert "Start a local MLflow tracking server" not in out
 
@@ -111,4 +110,4 @@ def test_build_prompt_databricks_without_experiment_path_raises(tmp_path: Path):
 def test_build_prompt_with_user_uri_omits_databricks_section(tmp_path: Path):
     out = build_prompt(tmp_path, AGENTS["claude"], "http://127.0.0.1:5001")
     assert "Configure the Databricks workspace" not in out
-    assert "DATABRICKS_HOST" not in out
+    assert "WorkspaceClient" not in out

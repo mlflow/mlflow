@@ -1,17 +1,21 @@
 ### Configure the Databricks workspace
 
 You're sending traces to a Databricks workspace (`MLFLOW_TRACKING_URI={{ tracking_uri }}`).
-Before instrumenting the app, make sure the workspace is reachable:
-
-- `DATABRICKS_HOST` must be exported (e.g. `https://your-workspace.cloud.databricks.com`).
-- `DATABRICKS_TOKEN` must be exported (a Databricks personal access token).
-
-If any of those are missing, stop and ask the user. Have them `export` the
-values in their shell or add to the project's existing env file. Never write
-the token into a file that could be committed.
-
 When installing MLflow in step 1, prefer `mlflow[databricks]` over plain
 `mlflow` so the Databricks SDK extras are pulled in.
+
+Before instrumenting the app, verify that Databricks auth is configured.
+The Databricks SDK resolves credentials from env vars, `~/.databrickscfg`
+profiles, OAuth, and other sources, so don't hard-require any specific env
+var: just confirm the SDK can authenticate.
+
+```python
+from databricks.sdk import WorkspaceClient
+
+WorkspaceClient().current_user.me()
+```
+
+If that call raises, stop and ask the user to configure auth (for example via `databricks auth login`, a `~/.databrickscfg` profile, or by exporting `DATABRICKS_HOST` and `DATABRICKS_TOKEN`). Never write secrets into files in the repo.
 
 Pin the active experiment to the workspace path picked at setup time:
 
