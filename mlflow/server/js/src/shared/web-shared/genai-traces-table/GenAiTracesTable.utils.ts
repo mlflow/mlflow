@@ -102,7 +102,7 @@ export function sortGroupedColumns(
     const groupComparison = groupRank[groupA] - groupRank[groupB];
     if (groupComparison !== 0) return groupComparison;
 
-    // 2) Same group: BASE
+    // 2) Same group: within-group ordering, in GROUP_PRIORITY order
     if (groupA === TracesTableColumnGroup.BASE) {
       const rankA = baseColumnRank[colA.id] ?? Infinity;
       const rankB = baseColumnRank[colB.id] ?? Infinity;
@@ -110,7 +110,17 @@ export function sortGroupedColumns(
       return colA.label.localeCompare(colB.label);
     }
 
-    // 3) Same group: INFO ("Others")
+    if (groupA === TracesTableColumnGroup.EXPECTATION) {
+      return colA.label.localeCompare(colB.label);
+    }
+
+    if (groupA === TracesTableColumnGroup.ASSESSMENT) {
+      const rankA = assessmentColumnRank[colA.id] ?? Infinity;
+      const rankB = assessmentColumnRank[colB.id] ?? Infinity;
+      if (rankA !== rankB) return rankA - rankB;
+      return colA.label.localeCompare(colB.label);
+    }
+
     if (groupA === TracesTableColumnGroup.INFO) {
       // Columns in INFO_COLUMN_LAST should always appear at the end
       const isLastA = INFO_COLUMN_LAST.includes(colA.id as (typeof INFO_COLUMN_LAST)[number]);
@@ -124,20 +134,7 @@ export function sortGroupedColumns(
       return colA.label.localeCompare(colB.label);
     }
 
-    // 4) Same group: ASSESSMENT
-    if (groupA === TracesTableColumnGroup.ASSESSMENT) {
-      const rankA = assessmentColumnRank[colA.id] ?? Infinity;
-      const rankB = assessmentColumnRank[colB.id] ?? Infinity;
-      if (rankA !== rankB) return rankA - rankB;
-      return colA.label.localeCompare(colB.label);
-    }
-
-    // 5) Same group: EXPECTATION
-    if (groupA === TracesTableColumnGroup.EXPECTATION) {
-      return colA.label.localeCompare(colB.label);
-    }
-
-    // 6) Same group: TAG (or any other fallback)
+    // TAG (or any other fallback)
     return colA.label.localeCompare(colB.label);
   });
 }
