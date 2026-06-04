@@ -340,8 +340,10 @@ from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.mime_type_utils import _guess_mime_type
 from mlflow.utils.mlflow_tags import (
+    MLFLOW_GENAI_EVALUATE_JOB_ID,
     MLFLOW_ISSUE_DETECTION_JOB_ID,
     MLFLOW_RUN_TYPE,
+    MLFLOW_RUN_TYPE_GENAI_EVALUATE,
     MLFLOW_RUN_TYPE_ISSUE_DETECTION,
     MLFLOW_TRACE_ARCHIVAL_FAILURE,
     MLFLOW_TRACE_ARCHIVE_LOCATION,
@@ -4663,6 +4665,74 @@ def _invoke_issue_detection_handler():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+def _invoke_genai_evaluate_handler():
+    """
+    Run mlflow.genai.evaluate(...) against the chosen traces + scorers as an
+    async job, attached to a brand-new MLflow eval run.
+
+    This is a UI-only AJAX endpoint that backs the "Run evaluation" feature on
+    the Evaluation Runs page.
+    """
+    from mlflow.genai.evaluation.job import invoke_genai_evaluate_job
+    from mlflow.server.jobs import submit_job
+
+    _validate_content_type(request, ["application/json"])
+
+    request_json = _get_validated_flask_request_json(
+        schema={
+            "experiment_id": [_assert_required, _assert_string],
+            "trace_ids": [_assert_required, _assert_array],
+            "serialized_scorers": [_assert_required, _assert_array],
+        }
+    )
+
+    experiment_id = request_json["experiment_id"]
+    trace_ids = request_json["trace_ids"]
+    serialized_scorers = request_json["serialized_scorers"]
+
+    if not trace_ids:
+        raise MlflowException(
+            "Please select at least one trace to evaluate.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    if not serialized_scorers:
+        raise MlflowException(
+            "Please select at least one judge.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    # Create the run upfront so we can return run_id immediately. The same
+    # MLFLOW_RUN_TYPE tag that mlflow.genai.evaluate sets internally is set
+    # here too, so the run shows up on /evaluation-runs even before the job
+    # has produced any artifacts, and the eval-runs list-row dispatcher can
+    # tell our runs apart from Detect Issues / training runs.
+    tags = {MLFLOW_RUN_TYPE: MLFLOW_RUN_TYPE_GENAI_EVALUATE}
+    run = mlflow.start_run(experiment_id=experiment_id, tags=tags)
+    run_id = run.info.run_id
+
+    # Propagate user identity so judge LLM calls go through gateway auth as the
+    # caller, not the server admin (same as ``_invoke_scorer_handler``).
+    username = request.authorization.username if request.authorization else None
+
+    job = submit_job(
+        function=invoke_genai_evaluate_job,
+        params={
+            "experiment_id": experiment_id,
+            "trace_ids": trace_ids,
+            "serialized_scorers": serialized_scorers,
+            "run_id": run_id,
+            "username": username,
+        },
+    )
+
+    mlflow.set_tag(MLFLOW_GENAI_EVALUATE_JOB_ID, job.job_id)
+    mlflow.end_run(RunStatus.to_string(RunStatus.RUNNING))
+
+    return jsonify({"job_id": job.job_id, "run_id": run_id})
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
 def _get_job(job_id):
     from mlflow.server.jobs import get_job
 
@@ -6400,6 +6470,7 @@ def get_endpoints(get_handler=get_handler):
         + get_gateway_endpoints()
         + get_demo_endpoints()
         + get_issues_detection_endpoints()
+        + get_genai_evaluate_endpoints()
         + get_job_endpoints()
     )
 
@@ -6440,6 +6511,16 @@ def get_issues_detection_endpoints():
         (
             _get_ajax_path("/mlflow/issues/invoke", version=3),
             _invoke_issue_detection_handler,
+            ["POST"],
+        ),
+    ]
+
+
+def get_genai_evaluate_endpoints():
+    return [
+        (
+            _get_ajax_path("/mlflow/genai/evaluate/invoke", version=3),
+            _invoke_genai_evaluate_handler,
             ["POST"],
         ),
     ]
