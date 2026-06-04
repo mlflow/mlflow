@@ -39,7 +39,7 @@ def build_task(
     """Compose the first user message handed to the agent.
 
     The shell (rules, execution requirements, verify, final summary) lives in
-    ``instrument-task.md`` and is language-agnostic. The language-specific
+    ``instrument.md`` and is language-agnostic. The language-specific
     steps (install, tracking URI wiring, autolog snippet) come from
     ``<language>.md`` and are interpolated via ``{{ language_steps }}``.
 
@@ -88,7 +88,7 @@ def build_task(
         server_setup=server_setup,
     )
     return _render(
-        _read_template("instrument-task.md"),
+        _read_template("instrument.md"),
         repo_root=str(repo_root),
         skills_intro=skills_intro,
         no_overwrite_bullet=no_overwrite_bullet,
