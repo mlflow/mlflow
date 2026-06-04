@@ -32,7 +32,7 @@ interface Props {
 const OPTION_HEIGHT = 32;
 
 const getGroupLabel = (group: string): string => {
-  if (group === TracesTableColumnGroup.BASE) return 'Attributes';
+  if (group === TracesTableColumnGroup.BASE) return 'Base Attributes';
   return TracesTableColumnGroupToLabelMap[group as TracesTableColumnGroup];
 };
 
