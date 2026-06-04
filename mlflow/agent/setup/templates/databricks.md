@@ -49,3 +49,17 @@ mlflow.set_experiment(
 
 Also export `MLFLOW_TRACING_SQL_WAREHOUSE_ID=<warehouse-id>`. Skip this block
 entirely if the user does not ask for UC-backed traces.
+
+#### References
+
+If anything in this section is ambiguous, consult the authoritative Databricks
+docs before guessing:
+
+- MLflow tracing from a local IDE:
+  https://docs.databricks.com/aws/en/mlflow3/genai/getting-started/tracing/tracing-ide
+- Storing traces in Unity Catalog:
+  https://docs.databricks.com/aws/en/mlflow3/genai/tracing/trace-unity-catalog
+- Workspace experiment paths:
+  https://docs.databricks.com/aws/en/mlflow/experiments
+- Databricks SDK authentication:
+  https://docs.databricks.com/aws/en/dev-tools/auth/index.html
