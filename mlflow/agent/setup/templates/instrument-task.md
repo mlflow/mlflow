@@ -1,8 +1,7 @@
 # MLflow Tracing Setup (Agent Instructions)
 
 You are being launched by `mlflow agent setup` in repo `{repo_root}`.
-A set of MLflow skills has been installed at `{skills_dir}/`. Consult them for
-guidance.
+{skills_intro}
 
 ## Hard Rules
 
@@ -18,9 +17,7 @@ guidance.
 - **Do not add eval code** unless explicitly requested.
 - **If MLflow is already installed and configured, do not duplicate work.**
   Note the existing setup in the final summary.
-- **Do not create setup-only files in the repo.** No scratch dirs, no agent
-  task files. The skills at `{skills_dir}/` are already installed; do not
-  overwrite them.
+- {no_overwrite_bullet}
 
 ## Execution Requirements
 

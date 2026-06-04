@@ -110,11 +110,12 @@ def setup(
     _record_event(AgentSetupEvent, {"agent": agent.name, "print_prompt": print_prompt})
 
     dest = skills_dest(repo_root, agent).relative_to(repo_root)
-    if click.confirm(
+    skills_installed = click.confirm(
         click.style(f"Install MLflow skills at {dest}/ (this project)?", fg="cyan", bold=True),
         default=True,
         err=True,
-    ):
+    )
+    if skills_installed:
         installed = install_skills(repo_root, agent)
         click.secho(f"Wrote {len(installed)} skill(s) to {dest}/:", fg="green", err=True)
         for name in installed:
@@ -140,7 +141,13 @@ def setup(
         started_local_server = True
         click.secho(f"Picked local tracking URI: {tracking_uri}", fg="green", err=True)
 
-    task = build_task(repo_root, agent, tracking_uri, started_local_server=started_local_server)
+    task = build_task(
+        repo_root,
+        agent,
+        tracking_uri,
+        started_local_server=started_local_server,
+        skills_installed=skills_installed,
+    )
 
     if print_prompt:
         click.echo(task)
