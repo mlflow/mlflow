@@ -1,9 +1,6 @@
 ### Configure the Databricks workspace
 
 You're sending traces to a Databricks workspace (`MLFLOW_TRACKING_URI={{ tracking_uri }}`).
-Plain `mlflow` is sufficient for the tracing path: `databricks-sdk` is
-already a required dependency, so the `[databricks]` extra is only needed
-for the optional UC-backed traces below.
 
 Before instrumenting the app, verify that Databricks auth is configured.
 The Databricks SDK resolves credentials from env vars, `~/.databrickscfg`
@@ -31,8 +28,8 @@ The path must be a workspace path such as `/Users/<email>/<name>` or
 `/Shared/<team>/<name>`. MLflow creates it on first use.
 
 **Optional: store traces in Unity Catalog.** If the user wants traces backed
-by a UC Delta table (requires `mlflow[databricks]>=3.11` and a SQL warehouse),
-ask for the catalog, schema, table prefix, and SQL warehouse ID, then:
+by a UC Delta table (requires `mlflow>=3.11` and a SQL warehouse), ask for
+the catalog, schema, table prefix, and SQL warehouse ID, then:
 
 ```python
 import mlflow
