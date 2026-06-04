@@ -623,10 +623,6 @@
     "defaultMessage": "Demo data",
     "description": "Demo data settings title"
   },
-  "1Snmat": {
-    "defaultMessage": "Code Snippet",
-    "description": "Label for the code snippet tab in the run evaluation modal"
-  },
   "1T2RpQ": {
     "defaultMessage": "Prompts",
     "description": "Title for linked prompts table on logged model details page"
@@ -3047,10 +3043,6 @@
     "defaultMessage": "Edit tags",
     "description": "Run page > Overview > Tags cell > 'Edit' button label"
   },
-  "Ewa/aw": {
-    "defaultMessage": "Start an Evaluation",
-    "description": "Label for the trace-selection tab in the run evaluation modal"
-  },
   "Ey+oLI": {
     "defaultMessage": "Request",
     "description": "Column label for request"
@@ -4638,6 +4630,10 @@
   "ONIiUE": {
     "defaultMessage": "Show first 20",
     "description": "Menu option for showing only 10 first runs in the experiment view runs compare mode"
+  },
+  "ONnuab": {
+    "defaultMessage": "View code snippet",
+    "description": "Label for a button that opens a modal containing a runnable evaluation code snippet"
   },
   "OQsEJv": {
     "defaultMessage": "Value",
@@ -9918,6 +9914,10 @@
   "qan3yq": {
     "defaultMessage": "Add tag",
     "description": "Aria label for the add-tag button in the V2 dataset records table"
+  },
+  "qanCf5": {
+    "defaultMessage": "Evaluation code snippet",
+    "description": "Title for the evaluation code snippet modal dialog"
   },
   "qbtNJS": {
     "defaultMessage": "Block",

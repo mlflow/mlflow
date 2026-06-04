@@ -6,15 +6,11 @@ import {
   Modal,
   PillControl,
   SearchIcon,
-  Spinner,
   TableSkeleton,
-  Tabs,
   Typography,
   getShadowScrollStyles,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { CodeSnippet, SnippetCopyAction } from '@mlflow/mlflow/src/shared/web-shared/snippet';
-import { AggregationType, MetricViewType, TraceMetricKey } from '@databricks/web-shared/model-trace-explorer';
 import { createTraceLocationForExperiment, useSearchMlflowTraces } from '@databricks/web-shared/genai-traces-table';
 import { isEmpty } from 'lodash';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -22,93 +18,20 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { EndpointSelector } from '../../components/EndpointSelector';
 import { SelectTracesModal } from '../../components/SelectTracesModal';
 import { formatGatewayModelFromEndpoint, getEndpointNameFromGatewayModel } from '../../../gateway/utils/gatewayUtils';
-import { useTraceMetricsQuery } from '../experiment-overview/hooks/useTraceMetricsQuery';
 import { ScorerEvaluationScope } from '../experiment-scorers/constants';
 import { useGetScheduledScorers } from '../experiment-scorers/hooks/useGetScheduledScorers';
 import { useTemplateOptions } from '../experiment-scorers/llmScorerUtils';
-import { LLM_TEMPLATE, type LLMScorer } from '../experiment-scorers/types';
-
-const getDatasetCodeSnippet = (experimentId: string, scorersDocLink?: string) => `import mlflow
-import os
-from mlflow.genai import evaluate
-from mlflow.genai.scorers import (
-    Safety,
-    RelevanceToQuery,
-    Guidelines,
-)
-
-os.environ["OPENAI_API_KEY"] = "your-api-key-here"  # Replace with your API key
-mlflow.set_experiment(experiment_id="${experimentId}")
-
-# Step 1: Define evaluation dataset
-eval_dataset = [{
-  "inputs": {
-    "query": "What is MLflow?",
-  }
-}]
-
-# Step 2: Define predict_fn
-# predict_fn will be called for every row in your evaluation
-# dataset. Replace with your app's prediction function.
-# NOTE: The **kwargs to predict_fn are the same as the keys of
-# the \`inputs\` in your dataset.
-def predict(query):
-  return query + " an answer"
-
-# Step 3: Run evaluation
-# Select scorers relevant to your use case.${scorersDocLink ? `\n# See all available scorers: ${scorersDocLink}` : ''}
-evaluate(
-  data=eval_dataset,
-  predict_fn=predict,
-  scorers=[
-    Safety(),
-    RelevanceToQuery(),
-    Guidelines(name="conciseness", guidelines="Responses must be concise."),
-  ],
-)
-
-# Results will appear back in this UI`;
-
-const getTraceCodeSnippet = (experimentId: string) => `import mlflow
-import os
-from mlflow.genai import evaluate
-from mlflow.genai.scorers import (
-    Safety,
-    RelevanceToQuery,
-    Guidelines,
-)
-
-os.environ["OPENAI_API_KEY"] = "your-api-key-here"  # Replace with your API key
-mlflow.set_experiment(experiment_id="${experimentId}")
-
-# Step 1: Pull traces to evaluate.
-# Adjust max_results, or add a filter_string for time/status, etc.
-# See: https://mlflow.org/docs/latest/genai/eval-monitor/running-evaluation/traces/
-traces = mlflow.search_traces(max_results=20)
-
-# Step 2: Run evaluation. No predict_fn needed — inputs/outputs
-# are extracted from the trace objects automatically.
-evaluate(
-  data=traces,
-  scorers=[
-    Safety(),
-    RelevanceToQuery(),
-    Guidelines(name="conciseness", guidelines="Responses must be concise."),
-  ],
-)
-
-# Results will appear back in this UI`;
-
-const RUN_EVAL_MODAL_TAB_CODE_SNIPPET = 'code-snippet';
-const RUN_EVAL_MODAL_TAB_TRACES = 'traces';
+import { LLM_TEMPLATE, type LLMScorer, type ScheduledScorer } from '../experiment-scorers/types';
 
 type JudgeSelectionMode = 'llm' | 'template';
+
+const isTraceLevelLLMScorer = (scorer: ScheduledScorer): scorer is LLMScorer =>
+  scorer.type === 'llm' && !scorer.isSessionLevelScorer;
 
 export const RunEvaluationButton = ({ experimentId }: { experimentId: string }) => {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
   const [isOpen, setIsOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<string>(RUN_EVAL_MODAL_TAB_CODE_SNIPPET);
   const [selectedTraceIds, setSelectedTraceIds] = useState<string[]>([]);
   const [isSelectTracesModalOpen, setIsSelectTracesModalOpen] = useState(false);
   const [selectedScorers, setSelectedScorers] = useState<LLMScorer[]>([]);
@@ -116,7 +39,8 @@ export const RunEvaluationButton = ({ experimentId }: { experimentId: string }) 
   const [currentEndpointModel, setCurrentEndpointModel] = useState<string | undefined>(undefined);
   const hasSelectedTemplates = selectedTemplates.length > 0;
   const selectedJudgeCount = selectedScorers.length + selectedTemplates.length;
-  const runJudgeDisabled = selectedJudgeCount === 0 || (hasSelectedTemplates && !currentEndpointModel);
+  const runJudgeDisabled =
+    selectedTraceIds.length === 0 || selectedJudgeCount === 0 || (hasSelectedTemplates && !currentEndpointModel);
 
   const toggleScorer = (scorer: LLMScorer) => {
     setSelectedScorers((prev) => {
@@ -131,22 +55,6 @@ export const RunEvaluationButton = ({ experimentId }: { experimentId: string }) 
       return isSelected ? prev.filter((t) => t !== template) : [...prev, template];
     });
   };
-  const evalInstructions = (
-    <FormattedMessage
-      defaultMessage="Run the following code to start an evaluation."
-      description="Instructions for running the evaluation code in OSS"
-    />
-  );
-  const { data: traceMetrics, isSuccess: isTraceMetricsLoaded } = useTraceMetricsQuery({
-    experimentIds: [experimentId],
-    viewType: MetricViewType.TRACES,
-    metricName: TraceMetricKey.TRACE_COUNT,
-    aggregations: [{ aggregation_type: AggregationType.COUNT }],
-    enabled: isOpen,
-  });
-  const traceCount = Number(traceMetrics?.data_points?.[0]?.values?.[AggregationType.COUNT] ?? 0);
-  const hasTraces = traceCount > 0;
-  const codeSnippet = hasTraces ? getTraceCodeSnippet(experimentId) : getDatasetCodeSnippet(experimentId);
 
   const traceSearchLocations = useMemo(() => [createTraceLocationForExperiment(experimentId)], [experimentId]);
   const { data: traceInfos, isLoading: isLoadingTraces } = useSearchMlflowTraces({
@@ -156,38 +64,23 @@ export const RunEvaluationButton = ({ experimentId }: { experimentId: string }) 
 
   const hasSeededSelectionRef = useRef(false);
   useEffect(() => {
-    if (hasSeededSelectionRef.current || !isOpen || isLoadingTraces || !traceInfos) {
+    if (!isOpen) {
+      hasSeededSelectionRef.current = false;
+      return;
+    }
+    if (hasSeededSelectionRef.current || isLoadingTraces || !traceInfos) {
       return;
     }
     hasSeededSelectionRef.current = true;
     setSelectedTraceIds(traceInfos.map((trace) => trace.trace_id));
   }, [isOpen, isLoadingTraces, traceInfos]);
 
-  const hasSeededDefaultTabRef = useRef(false);
-  useEffect(() => {
-    if (!isOpen) {
-      hasSeededDefaultTabRef.current = false;
-      return;
-    }
-    if (hasSeededDefaultTabRef.current || !isTraceMetricsLoaded) {
-      return;
-    }
-    hasSeededDefaultTabRef.current = true;
-    setActiveTab(hasTraces ? RUN_EVAL_MODAL_TAB_TRACES : RUN_EVAL_MODAL_TAB_CODE_SNIPPET);
-  }, [isOpen, isTraceMetricsLoaded, hasTraces]);
-
-  const evalCodeSnippet = (
-    <div css={{ position: 'relative' }}>
-      <SnippetCopyAction
-        componentId="mlflow.eval-runs.start-run-modal.copy-snippet"
-        copyText={codeSnippet}
-        css={{ position: 'absolute', top: theme.spacing.xs, right: theme.spacing.xs }}
-      />
-      <CodeSnippet theme={theme.isDarkMode ? 'duotoneDark' : 'light'} language="python">
-        {codeSnippet}
-      </CodeSnippet>
-    </div>
-  );
+  const closeAndResetSelections = () => {
+    setIsOpen(false);
+    setSelectedScorers([]);
+    setSelectedTemplates([]);
+    setCurrentEndpointModel(undefined);
+  };
 
   return (
     <>
@@ -220,127 +113,89 @@ export const RunEvaluationButton = ({ experimentId }: { experimentId: string }) 
         }
         okButtonProps={{ disabled: runJudgeDisabled }}
         onOk={() => {}}
-        onCancel={() => setIsOpen(false)}
-        footer={activeTab === RUN_EVAL_MODAL_TAB_TRACES ? undefined : null}
+        onCancel={closeAndResetSelections}
       >
-        {!isTraceMetricsLoaded ? (
-          // Wait for the trace count before rendering the tabs — otherwise the user
-          // briefly sees only the Code Snippet tab and then watches it shift once the
-          // trace tab pops in and we auto-seed activeTab to it.
-          <div css={{ display: 'flex', justifyContent: 'center', padding: theme.spacing.lg }}>
-            <Spinner />
-          </div>
-        ) : (
-          <Tabs.Root componentId="mlflow.eval-runs.start-run-modal.tabs" value={activeTab} onValueChange={setActiveTab}>
-            <Tabs.List>
-              {hasTraces && (
-                <Tabs.Trigger value={RUN_EVAL_MODAL_TAB_TRACES}>
+        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.lg }}>
+          <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
+            <Typography.Text bold>
+              <FormattedMessage
+                defaultMessage="Traces"
+                description="Section header for trace selection in the run evaluation modal"
+              />
+            </Typography.Text>
+            <Typography.Text color="secondary">
+              <FormattedMessage
+                defaultMessage="Select the traces to evaluate."
+                description="Description for the trace selection section in the run evaluation modal"
+              />
+            </Typography.Text>
+            <div>
+              <Button
+                componentId="mlflow.eval-runs.start-run-modal.select-traces"
+                onClick={() => setIsSelectTracesModalOpen(true)}
+                loading={isLoadingTraces && !hasSeededSelectionRef.current}
+              >
+                {selectedTraceIds.length > 0 ? (
                   <FormattedMessage
-                    defaultMessage="Start an Evaluation"
-                    description="Label for the trace-selection tab in the run evaluation modal"
+                    defaultMessage="{count, plural, one {1 trace selected} other {# traces selected}}"
+                    description="Label showing number of traces selected in the run evaluation modal"
+                    values={{ count: selectedTraceIds.length }}
                   />
-                </Tabs.Trigger>
-              )}
-              <Tabs.Trigger value={RUN_EVAL_MODAL_TAB_CODE_SNIPPET}>
-                <FormattedMessage
-                  defaultMessage="Code Snippet"
-                  description="Label for the code snippet tab in the run evaluation modal"
+                ) : (
+                  <FormattedMessage
+                    defaultMessage="Select traces"
+                    description="Button to open the trace selection modal from the run evaluation modal"
+                  />
+                )}
+              </Button>
+            </div>
+          </div>
+          <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
+            <Typography.Text bold>
+              <FormattedMessage
+                defaultMessage="Judges"
+                description="Section header for judge selection in the run evaluation modal"
+              />
+            </Typography.Text>
+            <Typography.Text color="secondary">
+              <FormattedMessage
+                defaultMessage="Select the LLM-as-a-judge scorers to run on the selected traces."
+                description="Description for the judge selection section in the run evaluation modal"
+              />
+            </Typography.Text>
+            <JudgesSelectionSection
+              experimentId={experimentId}
+              enabled={isOpen}
+              selectedScorers={selectedScorers}
+              selectedTemplates={selectedTemplates}
+              onToggleScorer={toggleScorer}
+              onToggleTemplate={toggleTemplate}
+            />
+            {hasSelectedTemplates && (
+              <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+                <Typography.Text bold>
+                  <FormattedMessage
+                    defaultMessage="Endpoint"
+                    description="Label for the endpoint-selection section in the run evaluation modal"
+                  />
+                </Typography.Text>
+                <Typography.Text color="secondary">
+                  <FormattedMessage
+                    defaultMessage="Select the model endpoint that the pre-built LLM-as-a-judge scorers will run against."
+                    description="Description for the endpoint-selection section in the run evaluation modal"
+                  />
+                </Typography.Text>
+                <EndpointSelector
+                  currentEndpointName={getEndpointNameFromGatewayModel(currentEndpointModel)}
+                  onEndpointSelect={(endpointName) => {
+                    setCurrentEndpointModel(formatGatewayModelFromEndpoint(endpointName));
+                  }}
+                  autoSelectFirstEndpoint
                 />
-              </Tabs.Trigger>
-            </Tabs.List>
-            {hasTraces && (
-              <Tabs.Content value={RUN_EVAL_MODAL_TAB_TRACES}>
-                <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.lg }}>
-                  <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
-                    <Typography.Text bold>
-                      <FormattedMessage
-                        defaultMessage="Traces"
-                        description="Section header for trace selection in the run evaluation modal"
-                      />
-                    </Typography.Text>
-                    <Typography.Text color="secondary">
-                      <FormattedMessage
-                        defaultMessage="Select the traces to evaluate."
-                        description="Description for the trace selection section in the run evaluation modal"
-                      />
-                    </Typography.Text>
-                    <div>
-                      <Button
-                        componentId="mlflow.eval-runs.start-run-modal.select-traces"
-                        onClick={() => setIsSelectTracesModalOpen(true)}
-                        loading={isLoadingTraces && !hasSeededSelectionRef.current}
-                      >
-                        {selectedTraceIds.length > 0 ? (
-                          <FormattedMessage
-                            defaultMessage="{count, plural, one {1 trace selected} other {# traces selected}}"
-                            description="Label showing number of traces selected in the run evaluation modal"
-                            values={{ count: selectedTraceIds.length }}
-                          />
-                        ) : (
-                          <FormattedMessage
-                            defaultMessage="Select traces"
-                            description="Button to open the trace selection modal from the run evaluation modal"
-                          />
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-                  <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
-                    <Typography.Text bold>
-                      <FormattedMessage
-                        defaultMessage="Judges"
-                        description="Section header for judge selection in the run evaluation modal"
-                      />
-                    </Typography.Text>
-                    <Typography.Text color="secondary">
-                      <FormattedMessage
-                        defaultMessage="Select the LLM-as-a-judge scorers to run on the selected traces."
-                        description="Description for the judge selection section in the run evaluation modal"
-                      />
-                    </Typography.Text>
-                    <JudgesSelectionSection
-                      experimentId={experimentId}
-                      enabled={isOpen}
-                      selectedScorers={selectedScorers}
-                      selectedTemplates={selectedTemplates}
-                      onToggleScorer={toggleScorer}
-                      onToggleTemplate={toggleTemplate}
-                    />
-                    {hasSelectedTemplates && (
-                      <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-                        <Typography.Text bold>
-                          <FormattedMessage
-                            defaultMessage="Endpoint"
-                            description="Label for the endpoint-selection section in the run evaluation modal"
-                          />
-                        </Typography.Text>
-                        <Typography.Text color="secondary">
-                          <FormattedMessage
-                            defaultMessage="Select the model endpoint that the pre-built LLM-as-a-judge scorers will run against."
-                            description="Description for the endpoint-selection section in the run evaluation modal"
-                          />
-                        </Typography.Text>
-                        <EndpointSelector
-                          currentEndpointName={getEndpointNameFromGatewayModel(currentEndpointModel)}
-                          onEndpointSelect={(endpointName) => {
-                            setCurrentEndpointModel(formatGatewayModelFromEndpoint(endpointName));
-                          }}
-                          autoSelectFirstEndpoint
-                        />
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </Tabs.Content>
-            )}
-            <Tabs.Content value={RUN_EVAL_MODAL_TAB_CODE_SNIPPET}>
-              <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
-                <Typography.Text>{evalInstructions}</Typography.Text>
-                {evalCodeSnippet}
               </div>
-            </Tabs.Content>
-          </Tabs.Root>
-        )}
+            )}
+          </div>
+        </div>
       </Modal>
       {isSelectTracesModalOpen && (
         <SelectTracesModal
@@ -381,12 +236,11 @@ const JudgesSelectionSection = ({
   const { data, isLoading: loadingScorers } = useGetScheduledScorers(experimentId, { enabled });
   const { templateOptions } = useTemplateOptions(ScorerEvaluationScope.TRACES);
 
-  const displayedLLMScorers = useMemo<LLMScorer[]>(() => {
+  const displayedLLMScorers = useMemo(() => {
     const lowercased = searchValue.toLowerCase();
-    return ((data?.scheduledScorers ?? []) as LLMScorer[]).filter(
-      (scorer) =>
-        scorer.type === 'llm' && !scorer.isSessionLevelScorer && scorer.name.toLowerCase().includes(lowercased),
-    );
+    return (data?.scheduledScorers ?? [])
+      .filter(isTraceLevelLLMScorer)
+      .filter((scorer) => scorer.name.toLowerCase().includes(lowercased));
   }, [data?.scheduledScorers, searchValue]);
 
   const displayedTemplates = useMemo(() => {
@@ -459,7 +313,7 @@ const JudgesSelectionSection = ({
                 key={scorer.name}
                 scorer={scorer}
                 selected={selectedScorers.some((s) => s.name === scorer.name)}
-                onClick={() => onToggleScorer(scorer)}
+                onToggle={() => onToggleScorer(scorer)}
               />
             ))
           ))}
@@ -479,7 +333,7 @@ const JudgesSelectionSection = ({
                 key={template.value}
                 template={template}
                 selected={selectedTemplates.includes(template.value)}
-                onClick={() => onToggleTemplate(template.value)}
+                onToggle={() => onToggleTemplate(template.value)}
               />
             ))
           ))}
@@ -488,38 +342,42 @@ const JudgesSelectionSection = ({
   );
 };
 
-const visualCheckboxCss = { pointerEvents: 'none' } as const;
+const judgeRowWrapperStyle = {
+  width: '100%',
+  height: '100%',
+  display: 'flex',
+  alignItems: 'center',
+  cursor: 'pointer',
+} as const;
 
 const JudgeScorerOption = ({
   scorer,
   selected,
-  onClick,
+  onToggle,
 }: {
   scorer: LLMScorer;
   selected: boolean;
-  onClick: () => void;
+  onToggle: () => void;
 }) => {
   const { theme } = useDesignSystemTheme();
   return (
-    <div
-      role="checkbox"
-      aria-checked={selected}
-      css={{ cursor: 'pointer', height: 48, flexShrink: 0 }}
-      onClick={onClick}
-    >
-      <div css={visualCheckboxCss}>
-        <Checkbox componentId="mlflow.eval-runs.start-run-modal.judge-llm" isChecked={selected}>
-          <div css={{ display: 'flex', flexDirection: 'column', marginLeft: theme.spacing.xs }}>
-            <Typography.Text css={{ flex: 1 }}>{scorer.name}</Typography.Text>
-            <Typography.Hint>
-              <FormattedMessage
-                defaultMessage="Custom judge"
-                description="Sub-label for a custom LLM-as-a-judge row in the run evaluation modal"
-              />
-            </Typography.Hint>
-          </div>
-        </Checkbox>
-      </div>
+    <div css={{ height: 48, flexShrink: 0, display: 'flex' }}>
+      <Checkbox
+        componentId="mlflow.eval-runs.start-run-modal.judge-llm"
+        isChecked={selected}
+        onChange={onToggle}
+        wrapperStyle={judgeRowWrapperStyle}
+      >
+        <div css={{ display: 'flex', flexDirection: 'column', marginLeft: theme.spacing.xs }}>
+          <Typography.Text css={{ flex: 1 }}>{scorer.name}</Typography.Text>
+          <Typography.Hint>
+            <FormattedMessage
+              defaultMessage="Custom judge"
+              description="Sub-label for a custom LLM-as-a-judge row in the run evaluation modal"
+            />
+          </Typography.Hint>
+        </div>
+      </Checkbox>
     </div>
   );
 };
@@ -527,33 +385,31 @@ const JudgeScorerOption = ({
 const JudgeTemplateOption = ({
   template,
   selected,
-  onClick,
+  onToggle,
 }: {
   template: { value: LLM_TEMPLATE; label: string; hint: string };
   selected: boolean;
-  onClick: () => void;
+  onToggle: () => void;
 }) => {
   const { theme } = useDesignSystemTheme();
   return (
-    <div
-      role="checkbox"
-      aria-checked={selected}
-      css={{ cursor: 'pointer', height: 48, flexShrink: 0 }}
-      onClick={onClick}
-    >
-      <div css={visualCheckboxCss}>
-        <Checkbox componentId="mlflow.eval-runs.start-run-modal.judge-template" isChecked={selected}>
-          <div css={{ display: 'flex', flexDirection: 'column', marginLeft: theme.spacing.xs }}>
-            <Typography.Text css={{ flex: 1 }}>{template.label}</Typography.Text>
-            <Typography.Hint>
-              <FormattedMessage
-                defaultMessage="Pre-built LLM-as-a-judge"
-                description="Sub-label for a pre-built LLM-as-a-judge row in the run evaluation modal"
-              />
-            </Typography.Hint>
-          </div>
-        </Checkbox>
-      </div>
+    <div css={{ height: 48, flexShrink: 0, display: 'flex' }}>
+      <Checkbox
+        componentId="mlflow.eval-runs.start-run-modal.judge-template"
+        isChecked={selected}
+        onChange={onToggle}
+        wrapperStyle={judgeRowWrapperStyle}
+      >
+        <div css={{ display: 'flex', flexDirection: 'column', marginLeft: theme.spacing.xs }}>
+          <Typography.Text css={{ flex: 1 }}>{template.label}</Typography.Text>
+          <Typography.Hint>
+            <FormattedMessage
+              defaultMessage="Pre-built LLM-as-a-judge"
+              description="Sub-label for a pre-built LLM-as-a-judge row in the run evaluation modal"
+            />
+          </Typography.Hint>
+        </div>
+      </Checkbox>
     </div>
   );
 };
