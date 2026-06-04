@@ -63,7 +63,7 @@ def build_prompt(
             "  overwrite them."
         )
     else:
-        skills_dir = str(_bundled_skills_root())
+        skills_dir = _bundled_skills_root().as_posix()
         skills_intro = (
             f"MLflow skills are bundled at `{skills_dir}/`. Consult them in place. "
             "Do not\ncopy them into the repo."
