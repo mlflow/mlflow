@@ -175,6 +175,16 @@ const getExperimentPageRouteDefs = () => {
           } satisfies RouteHandle,
         },
         {
+          path: RoutePaths.experimentPageTabReviewQueue,
+          pageId: PageId.experimentPageTabReviewQueue,
+          element: createLazyRouteElement(
+            () => import('./pages/experiment-review-queue/ExperimentReviewQueuePage'),
+          ),
+          handle: {
+            getPageTitle: (params) => `Review Queue - Experiment ${params['experimentId']}`,
+          } satisfies RouteHandle,
+        },
+        {
           path: RoutePaths.experimentPageTabDatasets,
           pageId: PageId.experimentPageTabDatasets,
           element: createLazyRouteElement(() => {
