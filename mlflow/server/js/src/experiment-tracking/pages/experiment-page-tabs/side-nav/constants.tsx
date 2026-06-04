@@ -61,8 +61,8 @@ const ExperimentPageSideNavGenAIConfig = {
     {
       label: (
         <FormattedMessage
-          defaultMessage="Review Queue"
-          description="Label for the review queue tab in the MLflow experiment navbar"
+          defaultMessage="Review"
+          description="Label for the review tab in the MLflow experiment navbar"
         />
       ),
       icon: <UserGroupIcon />,

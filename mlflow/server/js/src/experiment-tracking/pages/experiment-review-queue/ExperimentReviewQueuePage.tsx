@@ -1,10 +1,18 @@
 import { useMemo, useState } from 'react';
 
-import { Button, Tag, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { Button, GearIcon, Tag, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
 
 import { FocusedReview } from './FocusedReview';
+import { ManageQuestionsModal } from './ManageQuestionsModal';
 import { ReviewQueueList } from './ReviewQueueList';
-import { MOCK_QUEUES, MOCK_QUESTIONS, MOCK_REVIEWERS, type ReviewItem, type ReviewStatus } from './mockData';
+import {
+  MOCK_QUEUES,
+  MOCK_QUESTIONS,
+  MOCK_REVIEWERS,
+  type ReviewItem,
+  type ReviewQuestion,
+  type ReviewStatus,
+} from './mockData';
 
 const CID = 'mlflow.experiment-review-queue.page';
 
@@ -32,6 +40,8 @@ const ExperimentReviewQueuePage = () => {
   const [queues, setQueues] = useState<Record<string, ReviewItem[]>>(() => cloneQueues(MOCK_QUEUES));
   const [reviewerId, setReviewerId] = useState(MOCK_REVIEWERS[0].id);
   const [openAssignmentId, setOpenAssignmentId] = useState<string | null>(null);
+  const [questions, setQuestions] = useState<ReviewQuestion[]>(MOCK_QUESTIONS);
+  const [manageOpen, setManageOpen] = useState(false);
 
   const nowMs = Date.now();
   const items = useMemo(() => queues[reviewerId] ?? [], [queues, reviewerId]);
@@ -71,8 +81,16 @@ const ExperimentReviewQueuePage = () => {
     >
       <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
         <Typography.Title level={2} withoutMargins>
-          Review Queue
+          Review
         </Typography.Title>
+        <Tooltip componentId={`${CID}.edit-questions-tooltip`} content="Edit review questions for this experiment">
+          <Button
+            componentId={`${CID}.edit-questions`}
+            icon={<GearIcon />}
+            aria-label="Edit review questions"
+            onClick={() => setManageOpen(true)}
+          />
+        </Tooltip>
         <Tag componentId={`${CID}.poc-tag`} color="lemon">
           Proof of concept · dummy data
         </Tag>
@@ -106,7 +124,7 @@ const ExperimentReviewQueuePage = () => {
           <FocusedReview
             item={openItem}
             items={items}
-            questions={MOCK_QUESTIONS}
+            questions={questions}
             onBack={() => setOpenAssignmentId(null)}
             onSelect={setOpenAssignmentId}
             onUpdate={patchOpenItem}
@@ -116,6 +134,10 @@ const ExperimentReviewQueuePage = () => {
           <ReviewQueueList items={items} onOpen={(item) => setOpenAssignmentId(item.assignmentId)} nowMs={nowMs} />
         )}
       </div>
+
+      {manageOpen && (
+        <ManageQuestionsModal questions={questions} onChange={setQuestions} onClose={() => setManageOpen(false)} />
+      )}
     </div>
   );
 };
