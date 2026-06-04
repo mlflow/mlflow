@@ -22,6 +22,7 @@ import {
   isV3ModelTraceInfo,
 } from './ModelTraceExplorer.utils';
 import { ModelTraceHeaderMetricSection } from './ModelTraceExplorerMetricSection';
+import { ReviewQueueAssignButton } from './ReviewQueueAssignButton';
 import { isTraceCostType, ModelTraceExplorerCostHoverCard, type TraceCost } from './ModelTraceExplorerCostHoverCard';
 import {
   isTokenUsageType,
@@ -196,6 +197,7 @@ export const ModelTraceHeaderDetails = ({ modelTraceInfo }: { modelTraceInfo: Mo
             </Overflow>
           </div>
         )}
+        <ReviewQueueAssignButton />
       </div>
       {showNotification && (
         <Notification.Provider>
