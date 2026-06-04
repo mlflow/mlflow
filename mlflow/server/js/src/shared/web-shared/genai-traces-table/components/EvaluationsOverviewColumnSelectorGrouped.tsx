@@ -33,7 +33,6 @@ const OPTION_HEIGHT = 32;
 
 const getGroupLabel = (group: string): string => {
   if (group === TracesTableColumnGroup.BASE) return 'Attributes';
-  if (group === TracesTableColumnGroup.INFO) return 'Other attributes';
   return TracesTableColumnGroupToLabelMap[group as TracesTableColumnGroup];
 };
 

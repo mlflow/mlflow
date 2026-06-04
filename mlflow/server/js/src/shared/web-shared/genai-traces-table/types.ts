@@ -329,9 +329,9 @@ export const TracesTableColumnGroupToLabelMap = {
   [TracesTableColumnGroup.ASSESSMENT]: 'Assessments',
   [TracesTableColumnGroup.EXPECTATION]: 'Expectations',
   [TracesTableColumnGroup.TAG]: 'Tags',
-  // We don't show a label band for BASE (first/default) or INFO ("Other") in the table header
+  [TracesTableColumnGroup.INFO]: 'Others',
+  // BASE is the leading section; we don't show a label band for it in the table header
   [TracesTableColumnGroup.BASE]: '\u00A0',
-  [TracesTableColumnGroup.INFO]: '\u00A0',
 };
 
 export interface TracesTableColumn {
