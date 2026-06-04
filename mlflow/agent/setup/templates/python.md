@@ -1,4 +1,4 @@
-{server_setup}### 1. Install MLflow
+### 1. Install MLflow
 
 Detect this project's Python package manager and add `mlflow` as a dependency
 if it is not already declared:
@@ -9,7 +9,7 @@ if it is not already declared:
 
 Skip this step if `mlflow` is already a declared dependency.
 
-### 2. Configure tracking URI
+{server_setup}### 2. Configure tracking URI
 
 Configure MLflow to log to `{tracking_uri}`. Pick whichever of these fits the
 project's conventions:

@@ -8,7 +8,8 @@ from pathlib import Path
 import click
 
 from mlflow.agent.agents import AGENTS, AgentName, AgentTool, detect_installed, get_agent
-from mlflow.agent.setup.skill_installer import build_task, install_skills, skills_dest
+from mlflow.agent.setup.skill_installer import install_skills, skills_dest
+from mlflow.agent.setup.task import build_task
 from mlflow.telemetry.events import AgentSetupEvent
 from mlflow.telemetry.track import _record_event
 

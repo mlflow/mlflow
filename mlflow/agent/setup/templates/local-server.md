@@ -3,10 +3,13 @@
 No tracking URI was provided. An available port was already picked: use
 `{tracking_uri}` as the tracking URI for the rest of this task.
 
-1. Add a short note to the README with the corresponding `mlflow server`
-   command so the user can restart the server later. Match the host and port
-   to `{tracking_uri}` and prefix with the project's package manager where
-   appropriate (e.g. `uv run mlflow server ...`).
-2. During verification (step 4), start the server in the background with logs
-   redirected to a temp file. Kill it once verification passes so no orphan
-   process is left behind.
+During verification (step 4), start the server in the background with logs
+redirected to a temp file:
+
+```
+mlflow server --host 127.0.0.1 --port {port} > /tmp/mlflow-server.log 2>&1 &
+```
+
+Leave it running afterward so the user can open the trace URL in the MLflow
+UI. Report the PID and the log file path in the final summary so the user
+knows how to stop it.
