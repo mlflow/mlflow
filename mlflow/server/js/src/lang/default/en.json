@@ -915,6 +915,10 @@
     "defaultMessage": "Source",
     "description": "Permissions table column header for the source (role name or 'Direct')"
   },
+  "2rfZ/+": {
+    "defaultMessage": "Endpoint",
+    "description": "Label for the endpoint-selection section in the run evaluation modal"
+  },
   "2tQXw0": {
     "defaultMessage": "Key name cannot be changed.",
     "description": "Tooltip explaining why key name field is disabled"
@@ -958,6 +962,10 @@
   "3D2Znf": {
     "defaultMessage": "Filter by {columnNames}",
     "description": "Experiment page > artifact compare view > search input placeholder"
+  },
+  "3FH3mQ": {
+    "defaultMessage": "Cancel",
+    "description": "Cancel button text in the run evaluation modal"
   },
   "3JAJtl": {
     "defaultMessage": "Current password",
@@ -1514,6 +1522,10 @@
   "6fV0+T": {
     "defaultMessage": "Total: {total}%",
     "description": "Total weight display"
+  },
+  "6hZXzG": {
+    "defaultMessage": "Search judges",
+    "description": "Placeholder for the judge search input in the run evaluation modal"
   },
   "6i/EoY": {
     "defaultMessage": "Save",
@@ -2303,9 +2315,17 @@
     "defaultMessage": "Apply filters",
     "description": "Usage overview > apply filters button"
   },
+  "AqmDon": {
+    "defaultMessage": "No custom LLM-as-a-judge scorers found",
+    "description": "Empty-state label when the experiment has no custom LLM-as-a-judge scorers"
+  },
   "Aqq08o": {
     "defaultMessage": "HTTP",
     "description": "Experiment dataset drawer > source type > HTTP source type label"
+  },
+  "Art7Ii": {
+    "defaultMessage": "Traces",
+    "description": "Section header for trace selection in the run evaluation modal"
   },
   "Arvaod": {
     "defaultMessage": "Showing data up to {date}.",
@@ -2955,6 +2975,10 @@
     "defaultMessage": "Text",
     "description": "Label for text prompt type in the prompt creation modal"
   },
+  "ES/pmW": {
+    "defaultMessage": "Select the traces to evaluate.",
+    "description": "Description for the trace selection section in the run evaluation modal"
+  },
   "ES952j": {
     "defaultMessage": "Not a number ({metricKey})",
     "description": "Label indicating \"not-a-number\" used as a hover text in a plot UI element"
@@ -3358,6 +3382,10 @@
   "HNQ9dM": {
     "defaultMessage": "Status",
     "description": "Label for the status section"
+  },
+  "HQXWk2": {
+    "defaultMessage": "Select the LLM-as-a-judge scorers to run on the selected traces.",
+    "description": "Description for the judge selection section in the run evaluation modal"
   },
   "HSMagB": {
     "defaultMessage": "Error evaluating \"{label}\"",
@@ -4603,6 +4631,10 @@
     "defaultMessage": "Show first 20",
     "description": "Menu option for showing only 10 first runs in the experiment view runs compare mode"
   },
+  "ONnuab": {
+    "defaultMessage": "View code snippet",
+    "description": "Label for a button that opens a modal containing a runnable evaluation code snippet"
+  },
   "OQsEJv": {
     "defaultMessage": "Value",
     "description": "Add new key-value tag modal > Value input label"
@@ -4907,6 +4939,10 @@
     "defaultMessage": "Not an issue",
     "description": "Issue severity tag label for not an issue"
   },
+  "Q1t+2P": {
+    "defaultMessage": "Run judge",
+    "description": "Button text for running a single judge from the run evaluation modal"
+  },
   "Q5CR/y": {
     "defaultMessage": "Create a new key if a different name is needed.",
     "description": "Tooltip suggestion to create new key for different name"
@@ -5135,6 +5171,10 @@
     "defaultMessage": "All {groupLabel}",
     "description": "Evaluation review > evaluations list > select all columns in group"
   },
+  "RZvsu5": {
+    "defaultMessage": "No pre-built LLM-as-a-judge scorers found",
+    "description": "Empty-state label when no pre-built LLM-as-a-judge templates match the search"
+  },
   "RaGnOQ": {
     "defaultMessage": "Compare",
     "description": "String for the compare button to compare experiment runs to find an ideal model"
@@ -5359,6 +5399,10 @@
     "defaultMessage": "Delete sessions",
     "description": "Delete sessions action"
   },
+  "SnoVcZ": {
+    "defaultMessage": "Select the model endpoint that the pre-built LLM-as-a-judge scorers will run against.",
+    "description": "Description for the endpoint-selection section in the run evaluation modal"
+  },
   "SojbzO": {
     "defaultMessage": "Evaluate entire sessions for conversation quality and outcomes.",
     "description": "Hint for the scorer evaluation scope selection for sessions"
@@ -5398,6 +5442,10 @@
   "SzvvXl": {
     "defaultMessage": "Failed to submit",
     "description": "Message text for failing to save changes in editable note in MLflow"
+  },
+  "T+dwu8": {
+    "defaultMessage": "Pre-built LLM-as-a-judge",
+    "description": "Sub-label for a pre-built LLM-as-a-judge row in the run evaluation modal"
   },
   "T/46y0": {
     "defaultMessage": "Machine learning",
@@ -5771,6 +5819,10 @@
     "defaultMessage": "Copy your MLflow models to another registered model for simple model promotion across environments. For more mature production-grade setups, we recommend setting up automated model training workflows to produce models in controlled environments. <link>Learn more</link>",
     "description": "Model registry > OSS Promote model modal > description paragraph body"
   },
+  "V6AwxC": {
+    "defaultMessage": "Run judges",
+    "description": "Button text for running multiple judges from the run evaluation modal"
+  },
   "V9FtFz": {
     "defaultMessage": "Use the parallel coordinates chart to compare how various parameters in model affect your model metrics.",
     "description": "Experiment page > compare runs > parallel coordinates chart > chart not configured warning > description"
@@ -5790,6 +5842,10 @@
   "VDkXRG": {
     "defaultMessage": "View model",
     "description": "Label for a button that opens a new tab to view the details of a logged ML model while registering a model version"
+  },
+  "VEuVfv": {
+    "defaultMessage": "{count, plural, one {1 trace selected} other {# traces selected}}",
+    "description": "Label showing number of traces selected in the run evaluation modal"
   },
   "VF2V6v": {
     "defaultMessage": "Issues identified from traces will appear here.",
@@ -6154,6 +6210,10 @@
   "X6P8tX": {
     "defaultMessage": "No models found",
     "description": "Empty state title displayed when all models are filtered out in the logged models list page"
+  },
+  "X7HKpv": {
+    "defaultMessage": "Custom LLM-as-a-judge ({llmCount})",
+    "description": "Label for the custom LLM-as-a-judge filter pill in the run evaluation modal"
   },
   "X8OaXU": {
     "defaultMessage": "Scheduled",
@@ -6903,6 +6963,10 @@
     "defaultMessage": "Add \"{label}\"",
     "description": "Evaluation review > assessments > add new custom value element"
   },
+  "bGHzui": {
+    "defaultMessage": "Custom judge",
+    "description": "Sub-label for a custom LLM-as-a-judge row in the run evaluation modal"
+  },
   "bHuphj": {
     "defaultMessage": "See the documents below to learn how to customize this model and deploy it for batch or real-time scoring using the pyfunc model flavor.",
     "description": "Subtext heading for a list of documents that describe how to customize the model using the mlflow.pyfunc module"
@@ -7106,6 +7170,10 @@
   "cBlZb0": {
     "defaultMessage": "Status",
     "description": "Column header for run status in the evaluation runs table"
+  },
+  "cC4HC1": {
+    "defaultMessage": "Pre-built LLM-as-a-judge ({templateCount})",
+    "description": "Label for the pre-built LLM-as-a-judge filter pill in the run evaluation modal"
   },
   "cEj56l": {
     "defaultMessage": "Step",
@@ -7967,6 +8035,10 @@
     "defaultMessage": "Edit",
     "description": "Trace actions dropdown group label"
   },
+  "ghgW69": {
+    "defaultMessage": "Select traces",
+    "description": "Button to open the trace selection modal from the run evaluation modal"
+  },
   "giZdtW": {
     "defaultMessage": "Model",
     "description": "Experiment page > runs table > models column > default label for no specific model"
@@ -8274,6 +8346,10 @@
   "iF1UfU": {
     "defaultMessage": "New run using notebook",
     "description": "Experiment page > new notebook run modal > modal title"
+  },
+  "iF6r1S": {
+    "defaultMessage": "Judges",
+    "description": "Section header for judge selection in the run evaluation modal"
   },
   "iLFoPb": {
     "defaultMessage": "State",
@@ -9838,6 +9914,10 @@
   "qan3yq": {
     "defaultMessage": "Add tag",
     "description": "Aria label for the add-tag button in the V2 dataset records table"
+  },
+  "qanCf5": {
+    "defaultMessage": "Evaluation code snippet",
+    "description": "Title for the evaluation code snippet modal dialog"
   },
   "qbtNJS": {
     "defaultMessage": "Block",
