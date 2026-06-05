@@ -612,6 +612,10 @@ class AiCommandRunEvent(Event):
     name: str = "ai_command_run"
 
 
+class AgentSetupEvent(Event):
+    name: str = "agent_setup"
+
+
 class TracingContextPropagation(Event):
     name: str = "tracing_context_propagation"
 
