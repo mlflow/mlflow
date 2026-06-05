@@ -543,6 +543,10 @@
     "defaultMessage": "Alerts",
     "description": "Tab label for budget alerts"
   },
+  "0v5pej": {
+    "defaultMessage": "Edit questions",
+    "description": "Edit review queue questions modal title"
+  },
   "0wxgDJ": {
     "defaultMessage": "Add tags",
     "description": "Add new prompt version tags button"
@@ -1298,6 +1302,10 @@
   "5B5dhT": {
     "defaultMessage": "Validate the model before deployment",
     "description": "Heading text for validating the model before deploying it for serving"
+  },
+  "5FH/xv": {
+    "defaultMessage": "Edit questions",
+    "description": "Review queue: edit-questions button aria label"
   },
   "5GCYzy": {
     "defaultMessage": "Experiment Runs - Databricks",
@@ -2470,6 +2478,10 @@
   "BFzsMn": {
     "defaultMessage": "No runs selected",
     "description": "Experiment page > artifact compare view > empty state for no runs selected > title"
+  },
+  "BLbjQg": {
+    "defaultMessage": "Save",
+    "description": "Edit review queue questions: confirm button"
   },
   "BMUd0e": {
     "defaultMessage": "Create evaluation datasets in order to iteratively evaluate and improve your app. For example, build a dataset from production traces with negative feedback. {learnMoreLink}",
@@ -4031,6 +4043,10 @@
     "defaultMessage": "Endpoint:",
     "description": "Endpoint selector label"
   },
+  "KcmUBW": {
+    "defaultMessage": "No questions defined for this experiment yet. Create label schemas first.",
+    "description": "Edit review queue questions: empty state"
+  },
   "KcnW3U": {
     "defaultMessage": "Tag",
     "description": "Button to open the tags filter popover in the experiments page"
@@ -4158,6 +4174,10 @@
   "LEiN8m": {
     "defaultMessage": "Tags",
     "description": "Experiment page > group by runs control > tags section label"
+  },
+  "LGyW/J": {
+    "defaultMessage": "Questions lock once traces are assigned to the queue.",
+    "description": "Review queue: edit-questions disabled reason"
   },
   "LIgbTd": {
     "defaultMessage": "Retrieval Relevance",
@@ -7011,6 +7031,10 @@
     "defaultMessage": "Please select metric",
     "description": "Placeholder text where one can select metrics from the list of available metrics to render on the graph"
   },
+  "aYavrv": {
+    "defaultMessage": "Choose which questions reviewers answer for traces in “{name}”.",
+    "description": "Edit review queue questions: hint"
+  },
   "aZKtr2": {
     "defaultMessage": "Field",
     "description": "Usage overview > filter row > field column label"
@@ -8671,6 +8695,10 @@
     "defaultMessage": "Failed to duplicate some endpoints. Please try again.",
     "description": "Gateway > Endpoints list > Duplicate error message"
   },
+  "ilPw89": {
+    "defaultMessage": "Select at least one question so reviewers have something to answer.",
+    "description": "Edit review queue questions: no-questions-selected warning"
+  },
   "imKpxw": {
     "defaultMessage": "ID",
     "description": "Label for the ID section"
@@ -9735,6 +9763,10 @@
     "defaultMessage": "The relevance_to_query LLM judge determines whether the response is relevant to the input request.",
     "description": "Evaluation results > known type of evaluation result assessment > description of relevance judge."
   },
+  "oF5jcp": {
+    "defaultMessage": "Cancel",
+    "description": "Edit review queue questions: cancel button"
+  },
   "oH2nPk": {
     "defaultMessage": "Please ensure you have a webhook configured to receive budget alert events. You can create one in the 'Budget alert webhooks' section on this page.",
     "description": "Info message when alert action is selected for budget policy"
@@ -9886,6 +9918,10 @@
   "oyQRYx": {
     "defaultMessage": "Describe what this guardrail should check for...",
     "description": "Guardrail instructions placeholder"
+  },
+  "ozeqAU": {
+    "defaultMessage": "Failed to update the queue questions.",
+    "description": "Edit review queue questions: error alert title"
   },
   "p/wUKB": {
     "defaultMessage": "MLflow Assistant",

@@ -2,14 +2,18 @@ import {
   Button,
   ChevronDownIcon,
   ChevronRightIcon,
+  PencilIcon,
   Tag,
   TableSkeleton,
+  Tooltip,
   TrashIcon,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
+import { useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 
+import { EditQueueQuestionsModal } from './EditQueueQuestionsModal';
 import { ReviewQueueList } from './ReviewQueueList';
 import { useListReviewQueueTracesQuery } from './hooks/useListReviewQueueTracesQuery';
 import { displayUser } from './hooks/useReviewer';
@@ -42,81 +46,126 @@ export const ReviewQueueSection = ({
   const intl = useIntl();
   const { items, isLoading } = useListReviewQueueTracesQuery({ queueId: queue.queue_id });
 
+  const [editOpen, setEditOpen] = useState(false);
   const pending = items.filter((i) => i.status === 'PENDING').length;
+  // Questions are editable only while the queue is empty (the server freezes
+  // them once traces are assigned).
+  const canEditQuestions = !isLoading && items.length === 0;
 
   return (
-    <div
-      css={{
-        border: `1px solid ${theme.colors.border}`,
-        borderRadius: theme.borders.borderRadiusMd,
-        overflow: 'hidden',
-      }}
-    >
+    <>
       <div
-        role="button"
-        tabIndex={0}
-        onClick={onToggle}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            onToggle();
-          }
-        }}
         css={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: theme.spacing.sm,
-          padding: theme.spacing.sm,
-          cursor: 'pointer',
-          backgroundColor: theme.colors.backgroundSecondary,
+          border: `1px solid ${theme.colors.border}`,
+          borderRadius: theme.borders.borderRadiusMd,
+          overflow: 'hidden',
         }}
       >
-        {expanded ? <ChevronDownIcon /> : <ChevronRightIcon />}
-        <Typography.Text bold css={{ flex: 1 }}>
-          {queue.queue_type === 'USER' ? displayUser(queue.name, intl) : queue.name}
-        </Typography.Text>
-        <Tag componentId={`${CID}.type-tag`} color={queue.queue_type === 'USER' ? 'turquoise' : 'lime'}>
-          {queue.queue_type === 'USER' ? (
-            <FormattedMessage defaultMessage="Personal" description="Review queue: USER queue type tag" />
-          ) : (
-            <FormattedMessage defaultMessage="Custom" description="Review queue: CUSTOM queue type tag" />
-          )}
-        </Tag>
-        {!isLoading && (
-          <Typography.Text color="secondary">
-            <FormattedMessage
-              defaultMessage="{pending} to review · {total} total"
-              description="Review queue: section trace count summary"
-              values={{ pending, total: items.length }}
-            />
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={onToggle}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              onToggle();
+            }
+          }}
+          css={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: theme.spacing.sm,
+            padding: theme.spacing.sm,
+            cursor: 'pointer',
+            backgroundColor: theme.colors.backgroundSecondary,
+          }}
+        >
+          {expanded ? <ChevronDownIcon /> : <ChevronRightIcon />}
+          <Typography.Text bold css={{ flex: 1 }}>
+            {queue.queue_type === 'USER' ? displayUser(queue.name, intl) : queue.name}
           </Typography.Text>
-        )}
-        {queue.queue_type === 'CUSTOM' && (
-          <Button
-            componentId={`${CID}.delete`}
-            size="small"
-            icon={<TrashIcon />}
-            aria-label={intl.formatMessage({
-              defaultMessage: 'Delete queue',
-              description: 'Review queue: delete-queue button aria label',
-            })}
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete();
-            }}
-          />
+          <Tag componentId={`${CID}.type-tag`} color={queue.queue_type === 'USER' ? 'turquoise' : 'lime'}>
+            {queue.queue_type === 'USER' ? (
+              <FormattedMessage defaultMessage="Personal" description="Review queue: USER queue type tag" />
+            ) : (
+              <FormattedMessage defaultMessage="Custom" description="Review queue: CUSTOM queue type tag" />
+            )}
+          </Tag>
+          {!isLoading && (
+            <Typography.Text color="secondary">
+              <FormattedMessage
+                defaultMessage="{pending} to review · {total} total"
+                description="Review queue: section trace count summary"
+                values={{ pending, total: items.length }}
+              />
+            </Typography.Text>
+          )}
+          {queue.queue_type === 'CUSTOM' &&
+            (canEditQuestions ? (
+              <Button
+                componentId={`${CID}.edit-questions`}
+                size="small"
+                icon={<PencilIcon />}
+                aria-label={intl.formatMessage({
+                  defaultMessage: 'Edit questions',
+                  description: 'Review queue: edit-questions button aria label',
+                })}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setEditOpen(true);
+                }}
+              />
+            ) : (
+              <Tooltip
+                componentId={`${CID}.edit-questions-locked-tooltip`}
+                content={intl.formatMessage({
+                  defaultMessage: 'Questions lock once traces are assigned to the queue.',
+                  description: 'Review queue: edit-questions disabled reason',
+                })}
+              >
+                <span onClick={(e) => e.stopPropagation()}>
+                  <Button
+                    componentId={`${CID}.edit-questions`}
+                    size="small"
+                    icon={<PencilIcon />}
+                    disabled
+                    aria-label={intl.formatMessage({
+                      defaultMessage: 'Edit questions',
+                      description: 'Review queue: edit-questions button aria label',
+                    })}
+                  />
+                </span>
+              </Tooltip>
+            ))}
+          {queue.queue_type === 'CUSTOM' && (
+            <Button
+              componentId={`${CID}.delete`}
+              size="small"
+              icon={<TrashIcon />}
+              aria-label={intl.formatMessage({
+                defaultMessage: 'Delete queue',
+                description: 'Review queue: delete-queue button aria label',
+              })}
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete();
+              }}
+            />
+          )}
+        </div>
+
+        {expanded && (
+          <div css={{ padding: theme.spacing.sm }}>
+            {isLoading ? (
+              <TableSkeleton lines={3} />
+            ) : (
+              <ReviewQueueList items={items} onOpen={onOpenTrace} nowMs={nowMs} />
+            )}
+          </div>
         )}
       </div>
 
-      {expanded && (
-        <div css={{ padding: theme.spacing.sm }}>
-          {isLoading ? (
-            <TableSkeleton lines={3} />
-          ) : (
-            <ReviewQueueList items={items} onOpen={onOpenTrace} nowMs={nowMs} />
-          )}
-        </div>
-      )}
-    </div>
+      {editOpen && <EditQueueQuestionsModal queue={queue} onClose={() => setEditOpen(false)} />}
+    </>
   );
 };
