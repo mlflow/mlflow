@@ -4701,17 +4701,12 @@ def _invoke_genai_evaluate_handler():
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    # Create the run upfront so we can return run_id immediately. The same
-    # MLFLOW_RUN_TYPE tag that mlflow.genai.evaluate sets internally is set
-    # here too, so the run shows up on /evaluation-runs even before the job
-    # has produced any artifacts, and the eval-runs list-row dispatcher can
-    # tell our runs apart from Detect Issues / training runs.
+    # Create the run upfront so we can return run_id immediately. So the run 
+    # shows up on /evaluation-runs even before the job has produced any artifacts.
     tags = {MLFLOW_RUN_TYPE: MLFLOW_RUN_TYPE_GENAI_EVALUATE}
     run = mlflow.start_run(experiment_id=experiment_id, tags=tags)
     run_id = run.info.run_id
 
-    # Propagate user identity so judge LLM calls go through gateway auth as the
-    # caller, not the server admin (same as ``_invoke_scorer_handler``).
     username = request.authorization.username if request.authorization else None
 
     job = submit_job(
