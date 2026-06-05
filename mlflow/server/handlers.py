@@ -9,6 +9,7 @@ import re
 import tempfile
 import threading
 import time
+import unicodedata
 import urllib
 from functools import partial, wraps
 from typing import Any, Callable
@@ -85,6 +86,7 @@ from mlflow.exceptions import (
 from mlflow.gateway.budget import maybe_refresh_budget_policies
 from mlflow.gateway.budget_tracker import _policy_applies, get_budget_tracker
 from mlflow.gateway.utils import is_valid_endpoint_name
+from mlflow.genai.label_schemas.label_schemas import LabelSchemaType, _input_from_proto
 from mlflow.genai.scorers.scorer_utils import DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR
 from mlflow.models import Model
 from mlflow.prompt.constants import PROMPT_TEXT_TAG_KEY, PROMPT_TYPE_TAG_KEY
@@ -104,6 +106,14 @@ from mlflow.protos.issues_pb2 import (
     UpdateIssue,
 )
 from mlflow.protos.jobs_pb2 import JobStatus
+from mlflow.protos.label_schemas_pb2 import (
+    CreateLabelSchema,
+    DeleteLabelSchema,
+    GetLabelSchema,
+    GetLabelSchemaByName,
+    ListLabelSchemas,
+    UpdateLabelSchema,
+)
 from mlflow.protos.mlflow_artifacts_pb2 import (
     AbortMultipartUpload,
     CompleteMultipartUpload,
@@ -295,7 +305,11 @@ from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.jobs.abstract_store import AbstractJobStore
 from mlflow.store.model_registry.abstract_store import AbstractStore as AbstractModelRegistryStore
 from mlflow.store.model_registry.rest_store import RestStore as ModelRegistryRestStore
-from mlflow.store.tracking import MAX_RESULTS_QUERY_TRACE_METRICS, SEARCH_MAX_RESULTS_DEFAULT
+from mlflow.store.tracking import (
+    MAX_RESULTS_QUERY_TRACE_METRICS,
+    SEARCH_MAX_RESULTS_DEFAULT,
+    SEARCH_MAX_RESULTS_THRESHOLD,
+)
 from mlflow.store.tracking.abstract_store import AbstractStore as AbstractTrackingStore
 from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
 from mlflow.store.workspace.abstract_store import WorkspaceNameValidator
@@ -1055,13 +1069,40 @@ def _get_validated_flask_request_json(
     return request_json
 
 
+def _content_disposition_attachment(filename: str) -> str:
+    """
+    Build an RFC 6266 / RFC 5987 ``Content-Disposition`` value for an attachment.
+
+    HTTP headers must be ASCII-encodable; ASGI adapters such as starlette's
+    ``WSGIMiddleware`` raise ``UnicodeEncodeError`` on raw non-ASCII bytes. For
+    filenames containing non-ASCII characters, emit an ASCII ``filename=``
+    fallback alongside a percent-encoded ``filename*=UTF-8''…`` parameter.
+    """
+    try:
+        filename.encode("ascii")
+    except UnicodeEncodeError:
+        # ``or "download"`` ensures a well-formed ``filename=<value>`` parameter
+        # even when normalization strips every character (e.g. ``日本語`` with no
+        # extension). Clients that ignore ``filename*`` still get a usable name.
+        ascii_fallback = (
+            unicodedata.normalize("NFKD", filename).encode("ascii", "ignore").decode("ascii")
+            or "download"
+        )
+        # safe = RFC 5987 attr-char
+        quoted = urllib.parse.quote(filename, safe="!#$&+-.^_`|~")
+        return f"attachment; filename={ascii_fallback}; filename*=UTF-8''{quoted}"
+    return f"attachment; filename={filename}"
+
+
 def _response_with_file_attachment_headers(file_path, response):
     mime_type = _guess_mime_type(file_path)
     filename = pathlib.Path(file_path).name
     response.mimetype = mime_type
     content_disposition_header_name = "Content-Disposition"
     if content_disposition_header_name not in response.headers:
-        response.headers[content_disposition_header_name] = f"attachment; filename={filename}"
+        response.headers[content_disposition_header_name] = _content_disposition_attachment(
+            filename
+        )
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["Content-Type"] = mime_type
     return response
@@ -2332,6 +2373,12 @@ def upload_artifact_handler():
     if not data:
         raise MlflowException(
             message="Request must specify data.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    if len(data) > 10 * 1024 * 1024:
+        raise MlflowException(
+            message="Artifact size is too large. Max size is 10MB.",
             error_code=INVALID_PARAMETER_VALUE,
         )
 
@@ -4416,6 +4463,125 @@ def _search_issues():
     return _wrap_response(response_message)
 
 
+# =============================================================================
+# Label Schema Handlers (tracking-store CRUD; see mlflow/genai/label_schemas/)
+# =============================================================================
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _create_label_schema():
+    request_message = _get_request_message(
+        CreateLabelSchema(),
+        schema={
+            "experiment_id": [_assert_required, _assert_string],
+            "name": [_assert_required, _assert_string],
+        },
+    )
+    schema_type = LabelSchemaType.from_proto(request_message.type)
+    input_obj = _input_from_proto(request_message.input)
+    kwargs: dict[str, object] = {
+        "experiment_id": request_message.experiment_id,
+        "name": request_message.name,
+        "type": schema_type,
+        "input": input_obj,
+    }
+    if request_message.HasField("instruction"):
+        kwargs["instruction"] = request_message.instruction
+    if request_message.HasField("enable_comment"):
+        kwargs["enable_comment"] = request_message.enable_comment
+    created = _get_tracking_store().create_label_schema(**kwargs)
+    return _wrap_response(CreateLabelSchema.Response(label_schema=created.to_proto()))
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _get_label_schema():
+    request_message = _get_request_message(
+        GetLabelSchema(),
+        schema={"schema_id": [_assert_required, _assert_string]},
+    )
+    schema = _get_tracking_store().get_label_schema(request_message.schema_id)
+    return _wrap_response(GetLabelSchema.Response(label_schema=schema.to_proto()))
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _get_label_schema_by_name():
+    request_message = _get_request_message(
+        GetLabelSchemaByName(),
+        schema={
+            "experiment_id": [_assert_required, _assert_string],
+            "name": [_assert_required, _assert_string],
+        },
+    )
+    schema = _get_tracking_store().get_label_schema_by_name(
+        request_message.experiment_id, request_message.name
+    )
+    return _wrap_response(GetLabelSchemaByName.Response(label_schema=schema.to_proto()))
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _list_label_schemas():
+    request_message = _get_request_message(
+        ListLabelSchemas(),
+        schema={
+            "experiment_id": [_assert_required, _assert_string],
+            "max_results": [
+                _assert_intlike,
+                lambda x: _assert_intlike_within_range(
+                    int(x),
+                    1,
+                    SEARCH_MAX_RESULTS_THRESHOLD,
+                    message=(f"max_results must be between 1 and {SEARCH_MAX_RESULTS_THRESHOLD}."),
+                ),
+            ],
+        },
+    )
+    max_results = request_message.max_results if request_message.HasField("max_results") else 100
+    page_token = request_message.page_token if request_message.HasField("page_token") else None
+    schemas = _get_tracking_store().list_label_schemas(
+        request_message.experiment_id, max_results=max_results, page_token=page_token
+    )
+    response = ListLabelSchemas.Response(
+        label_schemas=[s.to_proto() for s in schemas],
+        next_page_token=schemas.token or "",
+    )
+    return _wrap_response(response)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _update_label_schema():
+    request_message = _get_request_message(
+        UpdateLabelSchema(),
+        schema={"schema_id": [_assert_required, _assert_string]},
+    )
+    kwargs: dict[str, object] = {}
+    if request_message.HasField("name"):
+        kwargs["name"] = request_message.name
+    if request_message.HasField("instruction"):
+        kwargs["instruction"] = request_message.instruction
+    if request_message.HasField("enable_comment"):
+        kwargs["enable_comment"] = request_message.enable_comment
+    if request_message.HasField("input"):
+        kwargs["input"] = _input_from_proto(request_message.input)
+    updated = _get_tracking_store().update_label_schema(request_message.schema_id, **kwargs)
+    return _wrap_response(UpdateLabelSchema.Response(label_schema=updated.to_proto()))
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _delete_label_schema():
+    request_message = _get_request_message(
+        DeleteLabelSchema(),
+        schema={"schema_id": [_assert_required, _assert_string]},
+    )
+    _get_tracking_store().delete_label_schema(request_message.schema_id)
+    return _wrap_response(DeleteLabelSchema.Response())
+
+
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _invoke_issue_detection_handler():
@@ -4915,10 +5081,30 @@ def _register_scorer():
 def _list_scorers():
     request_message = _get_request_message(
         ListScorers(),
-        schema={"experiment_id": [_assert_required, _assert_string]},
+        schema={"experiment_id": [_assert_string]},
     )
     response_message = ListScorers.Response()
-    scorers = _get_tracking_store().list_scorers(request_message.experiment_id)
+    store = _get_tracking_store()
+    if request_message.experiment_id:
+        scorers = store.list_scorers(request_message.experiment_id)
+    else:
+        # Cross-experiment listing: walk the active workspace's experiments
+        # via the workspace-aware ``search_experiments`` pagination, then
+        # batch the scorer fetch through ``list_scorers_across_experiments``.
+        # Auth-side ``filter_list_scorers`` applies per-row RBAC filtering on
+        # the response.
+        experiment_ids: list[str] = []
+        page_token: str | None = None
+        while True:
+            page = store.search_experiments(
+                view_type=ViewType.ACTIVE_ONLY,
+                max_results=1000,
+                page_token=page_token,
+            )
+            experiment_ids.extend(e.experiment_id for e in page)
+            if not (page_token := page.token):
+                break
+        scorers = store.list_scorers_across_experiments(experiment_ids)
     response_message.scorers.extend([scorer.to_proto() for scorer in scorers])
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))
@@ -7164,6 +7350,13 @@ HANDLERS = {
     UpdateIssue: _update_issue,
     GetIssue: _get_issue,
     SearchIssues: _search_issues,
+    # Label Schema APIs
+    CreateLabelSchema: _create_label_schema,
+    GetLabelSchema: _get_label_schema,
+    GetLabelSchemaByName: _get_label_schema_by_name,
+    ListLabelSchemas: _list_label_schemas,
+    UpdateLabelSchema: _update_label_schema,
+    DeleteLabelSchema: _delete_label_schema,
     # Legacy MLflow Tracing V2 APIs. Kept for backward compatibility but do not use.
     StartTrace: _deprecated_start_trace_v2,
     EndTrace: _deprecated_end_trace_v2,

@@ -29,6 +29,14 @@ if not IS_DBX_AGENTS_INSTALLED:
     pytest.skip("Skipping Databricks only test.", allow_module_level=True)
 
 
+@pytest.fixture(autouse=True)
+def _force_databricks_path():
+    # These tests cover the Databricks ReviewApp routing of the fluent
+    # functions, which now dispatch on the tracking URI. Force that branch.
+    with patch("mlflow.genai.label_schemas.is_databricks_uri", return_value=True):
+        yield
+
+
 @pytest.fixture
 def mock_databricks_labeling_store():
     """
@@ -389,13 +397,11 @@ def test_label_schema_init_with_categorical_input():
     schema = LabelSchema(
         name="quality",
         type=LabelSchemaType.FEEDBACK,
-        title="Rate the quality",
         input=input_cat,
     )
 
     assert schema.name == "quality"
     assert schema.type == LabelSchemaType.FEEDBACK
-    assert schema.title == "Rate the quality"
     assert schema.input == input_cat
     assert schema.instruction is None
     assert schema.enable_comment is False
@@ -406,7 +412,6 @@ def test_label_schema_init_with_all_params():
     schema = LabelSchema(
         name="feedback_schema",
         type=LabelSchemaType.EXPECTATION,
-        title="Provide feedback",
         input=input_text,
         instruction="Please be detailed",
         enable_comment=True,
@@ -414,7 +419,6 @@ def test_label_schema_init_with_all_params():
 
     assert schema.name == "feedback_schema"
     assert schema.type == LabelSchemaType.EXPECTATION
-    assert schema.title == "Provide feedback"
     assert schema.input == input_text
     assert schema.instruction == "Please be detailed"
     assert schema.enable_comment is True
@@ -425,7 +429,6 @@ def test_label_schema_init_with_numeric_input():
     schema = LabelSchema(
         name="rating",
         type=LabelSchemaType.FEEDBACK,
-        title="Rate from 1 to 5",
         input=input_numeric,
     )
 
@@ -437,7 +440,6 @@ def test_label_schema_init_with_text_list_input():
     schema = LabelSchema(
         name="suggestions",
         type=LabelSchemaType.EXPECTATION,
-        title="Provide suggestions",
         input=input_text_list,
     )
 
@@ -449,7 +451,6 @@ def test_label_schema_init_with_categorical_list_input():
     schema = LabelSchema(
         name="tags",
         type=LabelSchemaType.FEEDBACK,
-        title="Select relevant tags",
         input=input_cat_list,
     )
 
@@ -461,7 +462,6 @@ def test_label_schema_frozen_dataclass():
     schema = LabelSchema(
         name="test",
         type=LabelSchemaType.FEEDBACK,
-        title="Test",
         input=input_cat,
     )
 
@@ -477,7 +477,6 @@ def test_label_schema_from_databricks_label_schema():
     mock_databricks_schema = MagicMock()
     mock_databricks_schema.name = "test_schema"
     mock_databricks_schema.type = LabelSchemaType.FEEDBACK
-    mock_databricks_schema.title = "Test Schema"
     mock_databricks_schema.instruction = "Test instruction"
     mock_databricks_schema.enable_comment = True
     mock_databricks_schema.input = mock_databricks_input
@@ -496,7 +495,6 @@ def test_label_schema_from_databricks_label_schema():
             assert isinstance(result, LabelSchema)
             assert result.name == "test_schema"
             assert result.type == LabelSchemaType.FEEDBACK
-            assert result.title == "Test Schema"
             assert result.instruction == "Test instruction"
             assert result.enable_comment is True
             assert result.input == expected_input
@@ -536,7 +534,6 @@ def test_from_databricks_label_schema_uses_convert_input():
     mock_schema = MagicMock()
     mock_schema.name = "test"
     mock_schema.type = LabelSchemaType.FEEDBACK
-    mock_schema.title = "Test"
 
     expected_input = InputTextList(max_count=3)
     with patch.object(
@@ -608,7 +605,6 @@ def test_integration_label_schema_with_different_input_types(input_type, schema_
     schema = LabelSchema(
         name=schema_name,
         type=LabelSchemaType.FEEDBACK,
-        title=f"Schema for {schema_name}",
         input=input_type,
     )
 
@@ -621,13 +617,11 @@ def test_edge_cases_empty_string_values():
     schema = LabelSchema(
         name="",
         type=LabelSchemaType.FEEDBACK,
-        title="",
         input=InputCategorical(options=[]),
         instruction="",
     )
 
     assert schema.name == ""
-    assert schema.title == ""
     assert schema.instruction == ""
 
 

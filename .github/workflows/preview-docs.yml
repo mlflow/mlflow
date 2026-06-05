@@ -12,6 +12,8 @@ defaults:
   run:
     shell: bash
 
+permissions: {}
+
 jobs:
   main:
     if: github.repository == 'mlflow/mlflow'
@@ -106,14 +108,16 @@ jobs:
             );
             await script({ context, github, env: process.env });
       - name: Delete Build Artifact
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
           RUN_ID: ${{ github.event.workflow_run.id }}
           ARTIFACT_NAME: docs-build-${{ github.event.workflow_run.id }}
-        with:
-          retries: 3
-          script: |
-            const script = require(
-              `${process.env.GITHUB_WORKSPACE}/.github/workflows/delete-artifact.js`
-            );
-            await script({ context, github, env: process.env });
+        run: |
+          ARTIFACT_ID=$(gh api "repos/$REPO/actions/runs/$RUN_ID/artifacts?name=$ARTIFACT_NAME" \
+            --jq '.artifacts[0].id // empty')
+          if [ -z "$ARTIFACT_ID" ]; then
+            echo "::error::Artifact $ARTIFACT_NAME not found for run $RUN_ID"
+            exit 1
+          fi
+          gh api -X DELETE "repos/$REPO/actions/artifacts/$ARTIFACT_ID"

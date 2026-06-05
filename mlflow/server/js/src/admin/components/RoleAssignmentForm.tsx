@@ -13,7 +13,8 @@ import {
 import { FieldLabel } from './FieldLabel';
 import { useCurrentUserIsAdmin, useRolesQuery } from '../hooks';
 import { useActiveWorkspace } from '../../workspaces/utils/WorkspaceUtils';
-import type { Role } from '../types';
+import { useWorkspaces } from '../../workspaces/hooks/useWorkspaces';
+import { DEFAULT_WORKSPACE_NAME, isSyntheticUserRole, type Role } from '../types';
 
 export interface RoleAssignmentValue {
   roleIds: number[];
@@ -29,8 +30,20 @@ export const ROLE_ASSIGNMENT_DEFAULT: RoleAssignmentValue = {
   roleIds: [],
 };
 
-const formatRoleLabel = (role: Role): string =>
-  role.description ? `${role.workspace}/${role.name} — ${role.description}` : `${role.workspace}/${role.name}`;
+// Cap the per-option label length so a long ``description`` doesn't blow
+// out the dropdown's intrinsic width. The ``workspace/name`` prefix stays
+// full; only the descriptive tail gets ellipsized.
+const ROLE_DESCRIPTION_MAX_CHARS = 60;
+
+const formatRoleLabel = (role: Role): string => {
+  const prefix = `${role.workspace}/${role.name}`;
+  if (!role.description) return prefix;
+  const desc =
+    role.description.length > ROLE_DESCRIPTION_MAX_CHARS
+      ? `${role.description.slice(0, ROLE_DESCRIPTION_MAX_CHARS - 1)}…`
+      : role.description;
+  return `${prefix} — ${desc}`;
+};
 
 /**
  * Multi-select picker for assigning one or more roles to a user. Roles
@@ -48,7 +61,35 @@ export const RoleAssignmentForm = ({ value, onChange, disabled }: RoleAssignment
   const queryWorkspace = isAdmin ? undefined : (activeWorkspace ?? undefined);
   const queryEnabled = isAdmin || Boolean(activeWorkspace);
   const { data: rolesData, isLoading, error } = useRolesQuery(queryWorkspace, { enabled: queryEnabled });
-  const roles = useMemo(() => rolesData?.roles ?? [], [rolesData]);
+  // Fetch the workspace list only when admin (the cross-workspace listing
+  // case). Used below to hide roles attached to deleted workspaces — the
+  // backend currently leaves orphan roles in place when a workspace is
+  // deleted (``_cleanup_workspace_permissions`` only removes per-user
+  // grants, not user-authored roles). A server-side cascade is the proper
+  // fix; this client-side filter is a stopgap so the picker doesn't show
+  // unselectable roles.
+  const { workspaces, isLoading: workspacesLoading } = useWorkspaces(isAdmin);
+  const knownWorkspaceNames = useMemo(() => {
+    const names = new Set<string>([DEFAULT_WORKSPACE_NAME]);
+    for (const w of workspaces) names.add(w.name);
+    return names;
+  }, [workspaces]);
+  // Synthetic ``__user_N__`` roles back per-user direct grants. They
+  // shouldn't appear in the role picker — picking them would assign a
+  // role tied to another user's direct grants.
+  const roles = useMemo(
+    () =>
+      (rolesData?.roles ?? [])
+        .filter((r) => !isSyntheticUserRole(r.name))
+        // Workspace managers see only their active workspace's roles, which
+        // the server already scoped; skip the orphan filter to avoid an
+        // unnecessary ``useWorkspaces`` dependency. Platform admins see the
+        // cross-workspace listing and need the orphan check. Skip the filter
+        // while the workspace list is still loading to avoid a transient flash
+        // where cross-workspace roles disappear until the query resolves.
+        .filter((r) => !isAdmin || workspacesLoading || knownWorkspaceNames.has(r.workspace)),
+    [rolesData, isAdmin, workspacesLoading, knownWorkspaceNames],
+  );
 
   // Pin "default" workspace's roles first; sort the rest alphabetically
   // by workspace then by role name, so the dropdown order is stable.

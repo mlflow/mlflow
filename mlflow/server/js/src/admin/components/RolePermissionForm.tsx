@@ -6,7 +6,6 @@ import {
   DialogComboboxOptionListSearch,
   DialogComboboxOptionListSelectItem,
   DialogComboboxTrigger,
-  Input,
   Radio,
   SimpleSelect,
   SimpleSelectOption,
@@ -15,8 +14,14 @@ import {
 } from '@databricks/design-system';
 import { FieldLabel } from './FieldLabel';
 import { useResourceOptionsQuery } from '../hooks';
-import { ALL_RESOURCE_PATTERN_LABEL, PERMISSIONS, RESOURCE_TYPES } from '../types';
-import { DIRECT_GRANT_RESOURCE_TYPES, type DirectGrantResourceType } from './DirectPermissionForm';
+import { useWorkspacesEnabled } from '../../experiment-tracking/hooks/useServerInfo';
+import {
+  ALL_RESOURCE_PATTERN_LABEL,
+  PERMISSIONS,
+  RESOURCE_TYPES,
+  getGrantablePermissions,
+  getResourceTypeLabel,
+} from '../types';
 
 export type RolePermissionScope = 'specific' | 'all';
 
@@ -30,11 +35,7 @@ export type RolePermissionScope = 'specific' | 'all';
 export interface RolePermissionDraft {
   resourceType: string;
   scope: RolePermissionScope;
-  /**
-   * Holds the chosen resource id when ``scope === 'specific'``, or the
-   * free-text pattern when ``resourceType === 'scorer'`` (which has no
-   * pre-built resource picker today).
-   */
+  /** Chosen resource id when ``scope === 'specific'``; empty for ``'all'``. */
   resourceId: string;
   permission: string;
 }
@@ -45,6 +46,11 @@ export interface RolePermissionFormProps {
   /** The role's workspace, displayed read-only when ``workspace`` resource type is picked. */
   workspace?: string;
   disabled?: boolean;
+  /** Render an inline reminder next to the resource picker. The parent
+   * passes ``true`` when the draft has been touched but isn't fillable
+   * yet (resource type changed but no specific resource picked) so the
+   * admin sees why the discard-confirm dialog is about to ask. */
+  showResourceRequiredError?: boolean;
 }
 
 export const ROLE_PERMISSION_DRAFT_DEFAULT: RolePermissionDraft = {
@@ -54,46 +60,37 @@ export const ROLE_PERMISSION_DRAFT_DEFAULT: RolePermissionDraft = {
   permission: PERMISSIONS[0],
 };
 
-const RESOURCE_TYPE_LABEL: Record<DirectGrantResourceType, string> = {
-  experiment: 'Experiment',
-  registered_model: 'Registered model',
-  gateway_secret: 'Gateway secret',
-  gateway_endpoint: 'Gateway endpoint',
-  gateway_model_definition: 'Gateway model definition',
-};
-
-const isPickableResourceType = (rt: string): rt is DirectGrantResourceType =>
-  (DIRECT_GRANT_RESOURCE_TYPES as readonly string[]).includes(rt);
-
 /**
- * Add a permission to a role. Mirrors ``DirectPermissionForm``'s
- * (resource type + scope radio + resource picker) shape so the
- * role-creation experience reads the same as user-creation's direct
- * permissions.
- *
- * Two role-only special cases:
- * - ``workspace``: the only valid pattern is ``*`` (the role's own
- *   workspace), so the scope radio is hidden and we render a static
- *   "Workspace: <name>" line.
- * - ``scorer``: no pre-built picker exists for composite scorer ids,
- *   so the scope radio is hidden and we fall back to a free-text
- *   pattern input. ``RolePermissionsSection`` reads the typed value
- *   off ``resourceId`` for this branch.
+ * Add a permission to a role. Mirrors ``DirectPermissionForm``'s shape
+ * (resource type + scope radio + resource picker) plus a ``workspace``
+ * special case: the only valid pattern is ``*`` (the role's own
+ * workspace), so the scope radio is hidden and we render a static
+ * "Workspace: <name>" line.
  */
-export const RolePermissionForm = ({ value, onChange, workspace, disabled }: RolePermissionFormProps) => {
+export const RolePermissionForm = ({
+  value,
+  onChange,
+  workspace,
+  disabled,
+  showResourceRequiredError = false,
+}: RolePermissionFormProps) => {
   const { theme } = useDesignSystemTheme();
   const [resourceSearch, setResourceSearch] = useState('');
+  // Hide ``workspace`` in single-tenant mode where the workspace concept
+  // collapses to the single ``default`` slot.
+  const { workspacesEnabled, loading: workspacesLoading } = useWorkspacesEnabled();
+  const resourceTypes = useMemo(
+    () => (workspacesEnabled || workspacesLoading ? RESOURCE_TYPES : RESOURCE_TYPES.filter((rt) => rt !== 'workspace')),
+    [workspacesEnabled, workspacesLoading],
+  );
 
-  const isPickable = isPickableResourceType(value.resourceType);
-  const typeLabel = isPickable
-    ? RESOURCE_TYPE_LABEL[value.resourceType as DirectGrantResourceType]
-    : value.resourceType;
+  const typeLabel = getResourceTypeLabel(value.resourceType);
 
   const {
     options: resourceOptions,
     isLoading: resourceOptionsLoading,
     error: resourceOptionsError,
-  } = useResourceOptionsQuery(value.resourceType);
+  } = useResourceOptionsQuery(value.resourceType, workspace);
 
   const filteredOptions = useMemo(() => {
     const trimmed = resourceSearch.trim().toLowerCase();
@@ -117,19 +114,24 @@ export const RolePermissionForm = ({ value, onChange, workspace, disabled }: Rol
           onChange={({ target }) => {
             const next = target.value;
             // Reset scope/resourceId when switching types so a stale
-            // resource id doesn't leak across resource types.
+            // resource id doesn't leak across resource types. Also coerce
+            // ``permission`` into the new type's grantable set — e.g.
+            // ``READ`` is invalid at workspace scope.
+            const nextGrantable = getGrantablePermissions(next);
+            const nextPermission = nextGrantable.includes(value.permission) ? value.permission : nextGrantable[0];
             onChange({
               ...value,
               resourceType: next,
               scope: 'all',
               resourceId: '',
+              permission: nextPermission,
             });
           }}
           disabled={disabled}
         >
-          {RESOURCE_TYPES.map((rt) => (
+          {resourceTypes.map((rt) => (
             <SimpleSelectOption key={rt} value={rt}>
-              {rt}
+              {getResourceTypeLabel(rt)}
             </SimpleSelectOption>
           ))}
         </SimpleSelect>
@@ -143,20 +145,6 @@ export const RolePermissionForm = ({ value, onChange, workspace, disabled }: Rol
             <Typography.Text color="secondary" size="sm">
               (this grant applies to the role's workspace)
             </Typography.Text>
-          </Typography.Text>
-        </div>
-      ) : value.resourceType === 'scorer' ? (
-        <div>
-          <FieldLabel>Resource Pattern</FieldLabel>
-          <Input
-            componentId="admin.role_permission_form.scorer_pattern"
-            value={value.resourceId}
-            onChange={(e) => onChange({ ...value, scope: 'specific', resourceId: e.target.value })}
-            placeholder='Specific scorer id, or "all" to apply to every scorer'
-            disabled={disabled}
-          />
-          <Typography.Text color="secondary" size="sm" css={{ display: 'block', marginTop: theme.spacing.xs }}>
-            Scorer resource ids are composite (experiment_id + scorer_name); the picker isn't available yet.
           </Typography.Text>
         </div>
       ) : (
@@ -183,6 +171,17 @@ export const RolePermissionForm = ({ value, onChange, workspace, disabled }: Rol
           {value.scope === 'specific' && (
             <div>
               <FieldLabel>{typeLabel}</FieldLabel>
+              {showResourceRequiredError && (
+                <Typography.Text
+                  color="error"
+                  size="sm"
+                  css={{ display: 'block', marginBottom: theme.spacing.xs }}
+                  data-testid="admin.role_permission_form.resource_required_error"
+                >
+                  Select a specific {typeLabel.toLowerCase()} or switch the scope to{' '}
+                  <strong>All {typeLabel.toLowerCase()}s</strong> before submitting.
+                </Typography.Text>
+              )}
               <DialogCombobox
                 componentId="admin.role_permission_form.resource_id"
                 label={typeLabel}
@@ -247,7 +246,7 @@ export const RolePermissionForm = ({ value, onChange, workspace, disabled }: Rol
           onChange={({ target }) => onChange({ ...value, permission: target.value })}
           disabled={disabled}
         >
-          {PERMISSIONS.map((p) => (
+          {getGrantablePermissions(value.resourceType).map((p) => (
             <SimpleSelectOption key={p} value={p}>
               {p}
             </SimpleSelectOption>
@@ -261,7 +260,6 @@ export const RolePermissionForm = ({ value, onChange, workspace, disabled }: Rol
 /** True when the draft is ready to be added to the staged list. */
 export const isRolePermissionDraftFillable = (draft: RolePermissionDraft): boolean => {
   if (draft.resourceType === 'workspace') return true;
-  if (draft.resourceType === 'scorer') return draft.resourceId.trim().length > 0;
   return draft.scope === 'all' || (draft.scope === 'specific' && draft.resourceId.trim().length > 0);
 };
 
@@ -273,6 +271,5 @@ export const isRolePermissionDraftFillable = (draft: RolePermissionDraft): boole
  */
 export const draftToResourcePattern = (draft: RolePermissionDraft): string => {
   if (draft.resourceType === 'workspace') return ALL_RESOURCE_PATTERN_LABEL;
-  if (draft.resourceType === 'scorer') return draft.resourceId.trim();
   return draft.scope === 'all' ? ALL_RESOURCE_PATTERN_LABEL : draft.resourceId.trim();
 };

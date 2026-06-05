@@ -16,7 +16,7 @@ def workspace(tmp_path):
 
 
 def _run(coro):
-    return asyncio.get_event_loop().run_until_complete(coro)
+    return asyncio.run(coro)
 
 
 def test_read_resolves_relative_path_against_cwd(workspace):
@@ -63,6 +63,12 @@ def test_path_containment_blocks_escape(workspace):
     )
     assert is_error
     assert "Permission denied" in result
+
+
+def test_bash_works_without_cwd():
+    result, is_error = _run(execute_tool("Bash", {"command": "python3 -c \"print('hello')\""}))
+    assert not is_error
+    assert "hello" in result
 
 
 def test_bash_blocks_non_mlflow_commands():
