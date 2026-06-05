@@ -12,6 +12,7 @@ import {
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
+import { useGetTracesById } from '@databricks/web-shared/model-trace-explorer';
 import { FormattedMessage, useIntl } from 'react-intl';
 
 import type { LabelSchema } from '../../components/label-schemas';
@@ -49,6 +50,16 @@ export const QueueSettingsModal = ({
     isRemovingTraces,
     error: removeError,
   } = useRemoveTracesFromReviewQueueMutation();
+
+  // The traces' input previews so the curator can tell what they're removing,
+  // not just an opaque id.
+  const { data: traces } = useGetTracesById(items.map((i) => i.target_id));
+  const requestPreviewById = new Map<string, string | undefined>();
+  (traces ?? []).forEach((t) => {
+    if (t?.info?.trace_id) {
+      requestPreviewById.set(t.info.trace_id, t.info.request_preview);
+    }
+  });
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set(queue.schema_ids ?? []));
 
@@ -227,9 +238,16 @@ export const QueueSettingsModal = ({
                     borderRadius: theme.borders.borderRadiusMd,
                   }}
                 >
-                  <Typography.Text bold css={{ flex: 1 }} ellipsis>
-                    {item.target_id}
-                  </Typography.Text>
+                  <div css={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+                    <Typography.Text bold ellipsis>
+                      {item.target_id}
+                    </Typography.Text>
+                    {requestPreviewById.get(item.target_id) && (
+                      <Typography.Text size="sm" color="secondary" ellipsis>
+                        {requestPreviewById.get(item.target_id)}
+                      </Typography.Text>
+                    )}
+                  </div>
                   <StatusTag status={item.status} />
                   <Button
                     componentId={`${CID}.remove-trace`}
