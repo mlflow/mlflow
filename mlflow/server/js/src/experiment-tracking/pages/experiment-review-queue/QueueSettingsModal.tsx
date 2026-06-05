@@ -82,6 +82,7 @@ export const QueueSettingsModal = ({
     <Modal
       componentId={`${CID}.modal`}
       visible
+      onCancel={onClose}
       title={
         <FormattedMessage
           defaultMessage='Queue settings — "{name}"'
