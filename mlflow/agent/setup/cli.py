@@ -10,6 +10,7 @@ import click
 
 from mlflow.agent.agents import AGENTS, AgentName, AgentTool, detect_installed, get_agent
 from mlflow.agent.setup.prompt import build_prompt
+from mlflow.agent.setup.select import arrow_select
 from mlflow.assistant.skill_installer import install_skills
 from mlflow.telemetry.events import AgentSetupEvent
 from mlflow.telemetry.track import _record_event
@@ -60,16 +61,11 @@ def _choose_agent(preferred: AgentName | None) -> AgentTool:
             click.echo(f"Using {only.display_name} (only installed agent detected).", err=True)
             return only
         case _:
-            click.secho("Multiple agents detected:", bold=True, err=True)
-            for i, a in enumerate(installed, 1):
-                click.echo(f"  {click.style(str(i), fg='cyan')}. {a.display_name}", err=True)
-            choice = click.prompt(
-                click.style("Select agent", fg="cyan", bold=True),
-                type=click.IntRange(1, len(installed)),
-                default=1,
-                err=True,
+            idx = arrow_select(
+                "Multiple agents detected. Select one:",
+                [a.display_name for a in installed],
             )
-            return installed[choice - 1]
+            return installed[idx]
 
 
 def _run_setup(
