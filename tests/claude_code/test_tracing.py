@@ -1272,12 +1272,10 @@ def test_process_sdk_messages_failed_skill_does_not_propagate():
     assert post_llm[0].get_attribute(SpanAttributeKey.SKILL_NAME) is None
 
 
-def test_build_tool_result_map_tolerates_missing_tool_use_result_attr():
-    # Older claude_agent_sdk versions did not expose UserMessage.tool_use_result.
-    # _build_tool_result_map uses getattr with a default so the function is
-    # safe regardless of whether the attribute exists on the class. We can't
-    # easily strip the attribute from the real UserMessage dataclass, so this
-    # test verifies the explicit-None case (the bulk of the real-world risk).
+def test_build_tool_result_map_handles_none_tool_use_result():
+    # When UserMessage.tool_use_result is None (the common case for non-Skill
+    # tool calls), _build_tool_result_map should still emit an entry with
+    # command_name=None and is_error=False.
     from mlflow.claude_code.tracing import _build_tool_result_map
 
     msg = UserMessage(

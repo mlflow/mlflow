@@ -35,7 +35,7 @@
  * stay wire-format-accurate; treat those as the canonical reference shape.
  */
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return */
 
 interface MockSpan {
   name: string;

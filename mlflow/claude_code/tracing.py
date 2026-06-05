@@ -897,32 +897,40 @@ def _create_sdk_child_spans(
                 continue
 
             for tool_block in tool_blocks:
+                tool_result = tool_result_map.get(tool_block.id)
+
+                # Stamp the Skill's own TOOL span with its own commandName for
+                # identification (failed Skills are still attributable).
+                # Propagation:
+                #   - success: active_skill_name = commandName (child spans inherit)
+                #   - failure: active_skill_name = None (prior skill must not
+                #     leak into recovery spans)
+                if tool_result and tool_result.command_name:
+                    span_skill_name = tool_result.command_name
+                    active_skill_name = (
+                        tool_result.command_name if not tool_result.is_error else None
+                    )
+                else:
+                    span_skill_name = active_skill_name
+
                 tool_span = mlflow.start_span_no_context(
                     name=f"tool_{tool_block.name}",
                     parent_span=parent_span,
                     span_type=SpanType.TOOL,
                     inputs=tool_block.input,
-                    attributes={"tool_name": tool_block.name, "tool_id": tool_block.id},
+                    attributes={
+                        "tool_name": tool_block.name,
+                        "tool_id": tool_block.id,
+                        **(
+                            {SpanAttributeKey.SKILL_NAME: span_skill_name}
+                            if span_skill_name
+                            else {}
+                        ),
+                    },
                 )
-                tool_result = tool_result_map.get(tool_block.id)
                 tool_span.set_outputs({
                     "result": tool_result.content if tool_result else "No result found"
                 })
-                # Stamp the Skill's own TOOL span with its own commandName for
-                # identification (failed Skills are still attributable).
-                # Propagation:
-                #   - success: active_skill_name = commandName
-                #   - failure: active_skill_name = None (prior skill must not
-                #     leak into recovery spans)
-                if tool_result and tool_result.command_name:
-                    tool_span.set_attributes({
-                        SpanAttributeKey.SKILL_NAME: tool_result.command_name
-                    })
-                    active_skill_name = (
-                        tool_result.command_name if not tool_result.is_error else None
-                    )
-                elif active_skill_name:
-                    tool_span.set_attributes({SpanAttributeKey.SKILL_NAME: active_skill_name})
                 tool_span.end()
 
         if anthropic_msg := _serialize_sdk_message(msg):
