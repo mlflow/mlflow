@@ -1,4 +1,4 @@
-"""OSS-native review queues for SME trace-review workflows.
+"""Review queues for SME trace-review workflows.
 
 A ``ReviewQueue`` is a named bundle of attached traces, a set of
 questions (label schemas), and a set of assigned users, scoped to an
@@ -15,10 +15,13 @@ who. Reviewers answer the queue's questions by writing ``Feedback``
 assessments against the trace (no new answer storage); the queue carries
 only the review *workflow*.
 
-The proto / REST / SDK surface lands in a later stack; this stack ships
-the entity, validation, and SQL store.
+This module exposes the entity types plus the fluent SDK for managing
+queues against the MLflow tracking store.
 """
 
+from typing import TYPE_CHECKING, Literal
+
+from mlflow.exceptions import MlflowException
 from mlflow.genai.review_queues.review_queues import (
     ReviewQueue,
     ReviewQueueItem,
@@ -26,6 +29,12 @@ from mlflow.genai.review_queues.review_queues import (
     ReviewStatus,
     ReviewTargetType,
 )
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.tracing.client import TracingClient
+from mlflow.utils.annotations import experimental
+
+if TYPE_CHECKING:
+    from mlflow.store.entities.paged_list import PagedList
 
 __all__ = [
     "ReviewQueue",
@@ -33,4 +42,229 @@ __all__ = [
     "ReviewQueueType",
     "ReviewStatus",
     "ReviewTargetType",
+    "add_traces_to_review_queue",
+    "create_review_queue",
+    "delete_review_queue",
+    "get_or_create_user_queue",
+    "get_review_queue",
+    "list_review_queue_traces",
+    "list_review_queues",
+    "remove_traces_from_review_queue",
+    "set_review_queue_trace_status",
+    "update_review_queue",
 ]
+
+
+def _resolve_experiment_id(experiment_id: str | None) -> str:
+    if experiment_id is not None:
+        return experiment_id
+    from mlflow.tracking.fluent import _get_experiment_id
+
+    return _get_experiment_id()
+
+
+@experimental(version="3.14.0")
+def create_review_queue(
+    name: str,
+    *,
+    queue_type: Literal["user", "custom"],
+    users: list[str] | None = None,
+    schema_ids: list[str] | None = None,
+    created_by: str | None = None,
+    experiment_id: str | None = None,
+) -> ReviewQueue:
+    """Create a review queue scoped to an experiment.
+
+    Args:
+        name: Queue name, unique within the experiment. For a ``"user"``
+            queue this is the user identifier; ``"default"`` is reserved for
+            the no-auth default user queue and rejected for custom queues.
+        queue_type: ``"user"`` (exactly one assigned user equal to ``name``,
+            inherits all of the experiment's label schemas) or ``"custom"``
+            (0..N users and an explicit subset of schemas).
+        users: Assigned users. Derived as ``[name]`` for a user queue when
+            omitted; 0..N for a custom queue.
+        schema_ids: Attached label-schema ids. Must be empty for a user
+            queue (it resolves to all of the experiment's schemas); the chosen
+            subset for a custom queue.
+        created_by: Audit identifier of the creator.
+        experiment_id: Parent experiment; defaults to the current experiment.
+
+    Returns:
+        The created :py:class:`ReviewQueue`.
+    """
+    return TracingClient()._create_review_queue(
+        _resolve_experiment_id(experiment_id),
+        name=name,
+        queue_type=queue_type,
+        users=users,
+        schema_ids=schema_ids,
+        created_by=created_by,
+    )
+
+
+@experimental(version="3.14.0")
+def get_or_create_user_queue(
+    user: str,
+    *,
+    created_by: str | None = None,
+    experiment_id: str | None = None,
+) -> ReviewQueue:
+    """Return a user's personal review queue, creating it if absent.
+
+    Idempotent: the backbone of "assign these traces to this person" — call
+    this, then :func:`add_traces_to_review_queue`.
+
+    Args:
+        user: The reviewer identifier (also the queue name).
+        created_by: Audit identifier of the creator (used only on create).
+        experiment_id: Parent experiment; defaults to the current experiment.
+
+    Returns:
+        The user's :py:class:`ReviewQueue`.
+    """
+    return TracingClient()._get_or_create_user_queue(
+        _resolve_experiment_id(experiment_id), user=user, created_by=created_by
+    )
+
+
+@experimental(version="3.14.0")
+def get_review_queue(
+    queue_id: str | None = None,
+    *,
+    name: str | None = None,
+    experiment_id: str | None = None,
+) -> ReviewQueue:
+    """Fetch a review queue by ``queue_id`` or by ``(experiment_id, name)``.
+
+    Provide exactly one of ``queue_id`` or ``name``. When ``name`` is given,
+    ``experiment_id`` defaults to the current experiment.
+
+    Returns:
+        The matching :py:class:`ReviewQueue`.
+    """
+    if (queue_id is None) == (name is None):
+        raise MlflowException(
+            "Provide exactly one of `queue_id` or `name`.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    client = TracingClient()
+    if queue_id is not None:
+        return client._get_review_queue(queue_id)
+    return client._get_review_queue_by_name(_resolve_experiment_id(experiment_id), name)
+
+
+@experimental(version="3.14.0")
+def list_review_queues(
+    *,
+    user: str | None = None,
+    experiment_id: str | None = None,
+    max_results: int | None = None,
+    page_token: str | None = None,
+) -> "PagedList[ReviewQueue]":
+    """List an experiment's review queues, newest first.
+
+    Args:
+        user: If set, return only queues this user is assigned to.
+        experiment_id: Parent experiment; defaults to the current experiment.
+        max_results: Page size.
+        page_token: Continuation token from a previous call.
+
+    Returns:
+        A :py:class:`PagedList` of :py:class:`ReviewQueue`.
+    """
+    return TracingClient()._list_review_queues(
+        _resolve_experiment_id(experiment_id),
+        user=user,
+        max_results=max_results,
+        page_token=page_token,
+    )
+
+
+@experimental(version="3.14.0")
+def update_review_queue(
+    queue_id: str,
+    *,
+    users: list[str] | None = None,
+    schema_ids: list[str] | None = None,
+) -> ReviewQueue:
+    """Replace a custom queue's assigned users and/or attached schemas.
+
+    ``None`` leaves that set untouched; a list (possibly empty) replaces it.
+    ``name`` and ``queue_type`` are immutable, and user queues reject this.
+
+    Returns:
+        The updated :py:class:`ReviewQueue`.
+    """
+    return TracingClient()._update_review_queue(queue_id, users=users, schema_ids=schema_ids)
+
+
+@experimental(version="3.14.0")
+def delete_review_queue(queue_id: str) -> None:
+    """Delete a queue and its associations. No-op if it doesn't exist.
+
+    Reviewer assessments on the queue's traces are unaffected.
+    """
+    TracingClient()._delete_review_queue(queue_id)
+
+
+@experimental(version="3.14.0")
+def add_traces_to_review_queue(queue_id: str, *, trace_ids: list[str]) -> list[ReviewQueueItem]:
+    """Attach traces to a queue, returning the resulting items.
+
+    Idempotent per trace (re-attaching preserves the existing status). The
+    returned list covers every requested ``trace_id``, in request order.
+    """
+    return TracingClient()._add_traces_to_review_queue(queue_id, target_ids=trace_ids)
+
+
+@experimental(version="3.14.0")
+def remove_traces_from_review_queue(queue_id: str, *, trace_ids: list[str]) -> None:
+    """Detach traces from a queue. No-op for traces not attached."""
+    TracingClient()._remove_traces_from_review_queue(queue_id, target_ids=trace_ids)
+
+
+@experimental(version="3.14.0")
+def list_review_queue_traces(
+    queue_id: str,
+    *,
+    status: Literal["pending", "complete", "declined"] | None = None,
+    max_results: int | None = None,
+    page_token: str | None = None,
+) -> "PagedList[ReviewQueueItem]":
+    """List a queue's attached traces, newest-attached first.
+
+    Args:
+        queue_id: The queue to list.
+        status: Optional filter on shared-pool status.
+        max_results: Page size.
+        page_token: Continuation token from a previous call.
+
+    Returns:
+        A :py:class:`PagedList` of :py:class:`ReviewQueueItem`.
+    """
+    return TracingClient()._list_review_queue_traces(
+        queue_id, status=status, max_results=max_results, page_token=page_token
+    )
+
+
+@experimental(version="3.14.0")
+def set_review_queue_trace_status(
+    queue_id: str,
+    *,
+    trace_id: str,
+    status: Literal["pending", "complete", "declined"],
+    completed_by: str | None = None,
+) -> ReviewQueueItem:
+    """Set the shared-pool status of an attached trace.
+
+    Moving to ``"complete"`` / ``"declined"`` records ``completed_by``;
+    moving back to ``"pending"`` (reopen) clears it. ``completed_by`` is
+    required for the terminal states and rejected for ``"pending"``.
+
+    Returns:
+        The updated :py:class:`ReviewQueueItem`.
+    """
+    return TracingClient()._set_review_queue_trace_status(
+        queue_id, target_id=trace_id, status=status, completed_by=completed_by
+    )

@@ -1,6 +1,10 @@
 from dataclasses import dataclass, field
 
+from mlflow.exceptions import MlflowException
 from mlflow.genai.utils.enum_utils import StrEnum
+from mlflow.protos import review_queues_pb2 as _rq_pb
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.utils.annotations import experimental
 
 
 class ReviewTargetType(StrEnum):
@@ -11,6 +15,18 @@ class ReviewTargetType(StrEnum):
     """
 
     TRACE = "trace"
+
+    def to_proto(self) -> int:
+        return _rq_pb.TRACE
+
+    @classmethod
+    def from_proto(cls, proto: int) -> "ReviewTargetType":
+        if proto == _rq_pb.TRACE:
+            return cls.TRACE
+        raise MlflowException(
+            f"`target_type` must be TRACE; got proto enum value {proto}.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
 
 
 class ReviewQueueType(StrEnum):
@@ -28,6 +44,22 @@ class ReviewQueueType(StrEnum):
 
     USER = "user"
     CUSTOM = "custom"
+
+    def to_proto(self) -> int:
+        if self is ReviewQueueType.USER:
+            return _rq_pb.USER
+        return _rq_pb.CUSTOM
+
+    @classmethod
+    def from_proto(cls, proto: int) -> "ReviewQueueType":
+        if proto == _rq_pb.USER:
+            return cls.USER
+        if proto == _rq_pb.CUSTOM:
+            return cls.CUSTOM
+        raise MlflowException(
+            f"`queue_type` must be one of USER or CUSTOM; got proto enum value {proto}.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
 
 
 class ReviewStatus(StrEnum):
@@ -55,7 +87,30 @@ class ReviewStatus(StrEnum):
     COMPLETE = "complete"
     DECLINED = "declined"
 
+    def to_proto(self) -> int:
+        return {
+            ReviewStatus.PENDING: _rq_pb.PENDING,
+            ReviewStatus.COMPLETE: _rq_pb.COMPLETE,
+            ReviewStatus.DECLINED: _rq_pb.DECLINED,
+        }[self]
 
+    @classmethod
+    def from_proto(cls, proto: int) -> "ReviewStatus":
+        mapping = {
+            _rq_pb.PENDING: cls.PENDING,
+            _rq_pb.COMPLETE: cls.COMPLETE,
+            _rq_pb.DECLINED: cls.DECLINED,
+        }
+        if proto not in mapping:
+            raise MlflowException(
+                f"`status` must be one of PENDING, COMPLETE, or DECLINED; "
+                f"got proto enum value {proto}.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        return mapping[proto]
+
+
+@experimental(version="3.14.0")
 @dataclass
 class ReviewQueueItem:
     """One trace attached to a queue plus its shared-pool workflow status.
@@ -78,7 +133,38 @@ class ReviewQueueItem:
     completed_by: str | None = None
     completed_time_ms: int | None = None
 
+    def to_proto(self) -> "_rq_pb.ReviewQueueItem":
+        proto = _rq_pb.ReviewQueueItem(
+            queue_id=self.queue_id,
+            target_type=self.target_type.to_proto(),
+            target_id=self.target_id,
+            status=self.status.to_proto(),
+            creation_time_ms=self.creation_time_ms,
+            last_update_time_ms=self.last_update_time_ms,
+        )
+        if self.completed_by is not None:
+            proto.completed_by = self.completed_by
+        if self.completed_time_ms is not None:
+            proto.completed_time_ms = self.completed_time_ms
+        return proto
 
+    @classmethod
+    def from_proto(cls, proto: "_rq_pb.ReviewQueueItem") -> "ReviewQueueItem":
+        return cls(
+            queue_id=proto.queue_id,
+            target_type=ReviewTargetType.from_proto(proto.target_type),
+            target_id=proto.target_id,
+            status=ReviewStatus.from_proto(proto.status),
+            creation_time_ms=proto.creation_time_ms,
+            last_update_time_ms=proto.last_update_time_ms,
+            completed_by=proto.completed_by if proto.HasField("completed_by") else None,
+            completed_time_ms=(
+                proto.completed_time_ms if proto.HasField("completed_time_ms") else None
+            ),
+        )
+
+
+@experimental(version="3.14.0")
 @dataclass
 class ReviewQueue:
     """A named bundle of attached traces, questions, and assigned users.
@@ -103,3 +189,32 @@ class ReviewQueue:
     last_update_time_ms: int
     users: list[str] = field(default_factory=list)
     schema_ids: list[str] = field(default_factory=list)
+
+    def to_proto(self) -> "_rq_pb.ReviewQueue":
+        proto = _rq_pb.ReviewQueue(
+            queue_id=self.queue_id,
+            experiment_id=self.experiment_id,
+            name=self.name,
+            queue_type=self.queue_type.to_proto(),
+            creation_time_ms=self.creation_time_ms,
+            last_update_time_ms=self.last_update_time_ms,
+            users=self.users,
+            schema_ids=self.schema_ids,
+        )
+        if self.created_by is not None:
+            proto.created_by = self.created_by
+        return proto
+
+    @classmethod
+    def from_proto(cls, proto: "_rq_pb.ReviewQueue") -> "ReviewQueue":
+        return cls(
+            queue_id=proto.queue_id,
+            experiment_id=proto.experiment_id,
+            name=proto.name,
+            queue_type=ReviewQueueType.from_proto(proto.queue_type),
+            created_by=proto.created_by if proto.HasField("created_by") else None,
+            creation_time_ms=proto.creation_time_ms,
+            last_update_time_ms=proto.last_update_time_ms,
+            users=list(proto.users),
+            schema_ids=list(proto.schema_ids),
+        )
