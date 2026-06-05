@@ -78,7 +78,7 @@ export const EvaluationsOverviewSortDropdown = React.memo(
               label: column.label,
               key: column.id,
               type: TracesTableColumnType.INPUT,
-              group: TracesTableColumnGroup.INFO,
+              group: column.group ?? TracesTableColumnGroup.INFO,
             });
           } else if (column.type === TracesTableColumnType.TRACE_INFO) {
             const label =
@@ -93,7 +93,7 @@ export const EvaluationsOverviewSortDropdown = React.memo(
                 label,
                 key: column.id,
                 type: TracesTableColumnType.TRACE_INFO,
-                group: TracesTableColumnGroup.INFO,
+                group: column.group ?? TracesTableColumnGroup.INFO,
               });
             }
           }
@@ -339,7 +339,9 @@ const EvaluationsOverviewSortDropdownBodyGrouped = ({
           <React.Fragment key={groupName}>
             <DropdownMenu.Group>
               <DropdownMenu.Label>
-                {TracesTableColumnGroupToLabelMap[groupName as TracesTableColumnGroup]}
+                {groupName === TracesTableColumnGroup.BASE
+                  ? 'Base Attributes'
+                  : TracesTableColumnGroupToLabelMap[groupName as TracesTableColumnGroup]}
               </DropdownMenu.Label>
               {opts.map((opt, idx) => (
                 <DropdownMenu.CheckboxItem
