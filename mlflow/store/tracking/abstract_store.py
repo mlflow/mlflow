@@ -1961,10 +1961,16 @@ class AbstractStore(GatewayStoreMixin):
         immutable. User queues reject both arguments (their user is fixed
         and their schemas resolve to all of the experiment's).
 
+        ``schema_ids`` (the questions) are frozen once the queue has any
+        attached traces: changing them after reviewers start would strand
+        answers or leave completed traces with never-seen questions. Detach
+        the traces first to edit questions. Assigned users stay editable.
+
         Raises:
             MlflowException(RESOURCE_DOES_NOT_EXIST): if the queue doesn't exist.
-            MlflowException(INVALID_PARAMETER_VALUE): on validation failure
-                or when called against a user queue.
+            MlflowException(INVALID_PARAMETER_VALUE): on validation failure,
+                when called against a user queue, or when changing
+                ``schema_ids`` on a queue that already has traces.
         """
         raise NotImplementedError(self.__class__.__name__)
 
