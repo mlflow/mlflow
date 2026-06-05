@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+import select
 import sys
 
 import click
@@ -15,9 +17,14 @@ def _read_key() -> str:
     old = termios.tcgetattr(fd)
     try:
         tty.setraw(fd)
-        ch = sys.stdin.read(1)
-        if ch == "\x1b":
-            ch += sys.stdin.read(2)
+        # `os.read` bypasses Python's stdin buffer; otherwise the BufferedReader
+        # would slurp the rest of an arrow-key sequence on the first read(1) and
+        # `select.select(fd)` would never see the pending bytes.
+        ch = os.read(fd, 1).decode("utf-8", errors="replace")
+        # Read the rest of the escape sequence only if more bytes are pending;
+        # a bare Esc keypress would otherwise block here waiting for two more chars.
+        if ch == "\x1b" and select.select([fd], [], [], 0.05)[0]:
+            ch += os.read(fd, 2).decode("utf-8", errors="replace")
         return ch
     finally:
         termios.tcsetattr(fd, termios.TCSADRAIN, old)

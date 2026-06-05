@@ -8,6 +8,7 @@ import click
 import pytest
 from click.testing import CliRunner
 
+from mlflow.agent.agents import AGENTS
 from mlflow.agent.setup.cli import setup
 from mlflow.telemetry.events import AgentSetupEvent
 
@@ -150,6 +151,37 @@ def test_setup_requested_agent_not_installed(tmp_git_repo: Path):
     assert result.exit_code != 0
     assert "not found on PATH" in result.stderr
     mock_which.assert_called()
+    mock_record.assert_called_once_with(
+        AgentSetupEvent,
+        {"agent": None, "print_prompt": True, "skills_install_confirmed": None},
+        success=False,
+    )
+
+
+def test_setup_multi_agent_numeric_fallback(tmp_git_repo: Path):
+    installed = [AGENTS["claude"], AGENTS["codex"]]
+    with (
+        mock.patch("mlflow.agent.setup.cli.detect_installed", return_value=installed),
+        mock.patch("mlflow.agent.setup.cli._record_event") as mock_record,
+    ):
+        result = CliRunner().invoke(setup, ["--print"], input="2\nn\nhttp://localhost:5001\n")
+    assert result.exit_code == 0, result.stderr
+    assert "Multiple agents detected" in result.stderr
+    mock_record.assert_called_once_with(
+        AgentSetupEvent,
+        {"agent": "codex", "print_prompt": True, "skills_install_confirmed": False},
+        success=True,
+    )
+
+
+def test_setup_no_agents_detected(tmp_git_repo: Path):
+    with (
+        mock.patch("mlflow.agent.setup.cli.detect_installed", return_value=[]),
+        mock.patch("mlflow.agent.setup.cli._record_event") as mock_record,
+    ):
+        result = CliRunner().invoke(setup, ["--print"])
+    assert result.exit_code != 0
+    assert "No supported agent CLI found on PATH" in result.stderr
     mock_record.assert_called_once_with(
         AgentSetupEvent,
         {"agent": None, "print_prompt": True, "skills_install_confirmed": None},
