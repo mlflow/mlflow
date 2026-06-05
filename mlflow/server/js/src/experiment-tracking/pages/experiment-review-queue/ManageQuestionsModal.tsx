@@ -3,7 +3,7 @@ import { useState } from 'react';
 import {
   Empty,
   Modal,
-  Spinner,
+  TableSkeleton,
   Tag,
   TrashIcon,
   Button,
@@ -56,7 +56,7 @@ export const ManageQuestionsModal = ({ experimentId, onClose }: { experimentId: 
         </Typography.Hint>
 
         {isLoading ? (
-          <Spinner />
+          <TableSkeleton lines={3} />
         ) : labelSchemas.length === 0 ? (
           <Empty
             description={

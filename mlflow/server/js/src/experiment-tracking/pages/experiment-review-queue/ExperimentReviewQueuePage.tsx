@@ -5,7 +5,7 @@ import {
   Empty,
   GearIcon,
   SearchIcon,
-  Spinner,
+  TableSkeleton,
   Tooltip,
   Typography,
   useDesignSystemTheme,
@@ -127,7 +127,7 @@ const ExperimentReviewQueuePage = () => {
       </div>
 
       {queuesLoading ? (
-        <Spinner />
+        <TableSkeleton lines={5} />
       ) : reviewQueues.length === 0 ? (
         <div
           css={{
@@ -189,7 +189,7 @@ const ExperimentReviewQueuePage = () => {
                 onSetStatus={setOpenStatus}
               />
             ) : tracesLoading ? (
-              <Spinner />
+              <TableSkeleton lines={5} />
             ) : (
               <ReviewQueueList items={items} onOpen={(item) => setOpenTargetId(item.target_id)} nowMs={nowMs} />
             )}
