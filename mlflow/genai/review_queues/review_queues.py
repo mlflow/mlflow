@@ -7,6 +7,7 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.annotations import experimental
 
 
+@experimental(version="3.14.0")
 class ReviewTargetType(StrEnum):
     """What kind of object a queue item points at.
 
@@ -29,6 +30,7 @@ class ReviewTargetType(StrEnum):
         )
 
 
+@experimental(version="3.14.0")
 class ReviewQueueType(StrEnum):
     """The flavor of a review queue.
 
@@ -62,6 +64,7 @@ class ReviewQueueType(StrEnum):
         )
 
 
+@experimental(version="3.14.0")
 class ReviewStatus(StrEnum):
     """Shared-pool workflow status of a single attached trace.
 
