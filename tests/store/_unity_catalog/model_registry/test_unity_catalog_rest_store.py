@@ -979,6 +979,11 @@ def test_get_logged_model_from_model_id_returns_none_for_none_input(store):
     assert result is None
 
 
+def test_get_logged_model_from_model_id_returns_none_for_empty_string_input(store):
+    result = store._get_logged_model_from_model_id("")
+    assert result is None
+
+
 def test_get_logged_model_from_model_id_reraises_other_exceptions(store):
     with mock.patch(
         "mlflow.get_logged_model",
@@ -1028,6 +1033,51 @@ def test_create_model_version_succeeds_when_logged_model_not_found(store, local_
         mock.patch.dict("sys.modules", {"boto3": {}}),
     ):
         store.create_model_version(name=model_name, source=source, model_id="nonexistent_model_id")
+        _assert_create_model_version_endpoints_called(
+            request_mock=request_mock,
+            name=model_name,
+            source=source,
+            version=version,
+            model_id=None,
+        )
+
+
+def test_create_model_version_succeeds_when_model_id_is_empty_string(store, local_model_dir):
+    access_key_id = "fake-key"
+    secret_access_key = "secret-key"
+    session_token = "session-token"
+    aws_temp_creds = TemporaryCredentials(
+        aws_temp_credentials=AwsCredentials(
+            access_key_id=access_key_id,
+            secret_access_key=secret_access_key,
+            session_token=session_token,
+        )
+    )
+    storage_location = "s3://blah"
+    source = str(local_model_dir)
+    model_name = "model_1"
+    version = "1"
+    mock_artifact_repo = mock.MagicMock(autospec=OptimizedS3ArtifactRepository)
+    with (
+        mock.patch("mlflow.get_logged_model") as mock_get_logged_model,
+        mock.patch(
+            "mlflow.utils.rest_utils.http_request",
+            side_effect=get_request_mock(
+                name=model_name,
+                version=version,
+                temp_credentials=aws_temp_creds,
+                storage_location=storage_location,
+                source=source,
+            ),
+        ) as request_mock,
+        mock.patch(
+            "mlflow.store.artifact.optimized_s3_artifact_repo.OptimizedS3ArtifactRepository",
+            return_value=mock_artifact_repo,
+        ),
+        mock.patch.dict("sys.modules", {"boto3": {}}),
+    ):
+        store.create_model_version(name=model_name, source=source, model_id="")
+        mock_get_logged_model.assert_not_called()
         _assert_create_model_version_endpoints_called(
             request_mock=request_mock,
             name=model_name,
