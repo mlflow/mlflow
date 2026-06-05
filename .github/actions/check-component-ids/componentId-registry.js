@@ -1212,6 +1212,10 @@ module.exports = {
   "mlflow.experiment-evaluation-monitoring.trace-info-hover-other-request-time": "",
   "mlflow.experiment-evaluation-monitoring.trace-info-hover-request-time": "",
 
+  // -- mlflow.experiment-label-schemas --
+  "mlflow.experiment-label-schemas.preview": "",
+  "mlflow.experiment-label-schemas.preview.comment": "",
+
   // -- mlflow.experiment-page --
   "mlflow.experiment-page.header.back-icon-button": "",
   "mlflow.experiment-page.header.docs-link": "",

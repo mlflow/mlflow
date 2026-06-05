@@ -3,6 +3,7 @@ import { useState } from 'react';
 import {
   Empty,
   Modal,
+  PlusIcon,
   TableSkeleton,
   Tag,
   TrashIcon,
@@ -12,17 +13,19 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 
-import { useDeleteLabelSchemaMutation, useListLabelSchemasQuery } from '../../components/label-schemas';
+import {
+  LabelSchemaFormDrawer,
+  useDeleteLabelSchemaMutation,
+  useListLabelSchemasQuery,
+} from '../../components/label-schemas';
 import type { LabelSchema } from '../../components/label-schemas';
 
 const CID = 'mlflow.experiment-review-queue.manage-questions';
 
 /**
- * Lightweight question manager opened from the Review tab's gear icon. The
- * questions are the experiment's label schemas, so this reuses the
- * label-schema hooks: it lists the current questions and supports deletion.
- * Full authoring (input-type config) stays in the Label Schemas tab until
- * that surface is folded in.
+ * Question manager opened from the Review tab's gear icon. The questions are
+ * the experiment's label schemas, so this reuses the label-schema hooks to
+ * list, delete, and — via the authoring drawer — create and edit them.
  */
 export const ManageQuestionsModal = ({ experimentId, onClose }: { experimentId: string; onClose: () => void }) => {
   const { theme } = useDesignSystemTheme();
@@ -34,6 +37,18 @@ export const ManageQuestionsModal = ({ experimentId, onClose }: { experimentId: 
   // experiment-wide (it removes the question from every queue), so it goes
   // through an explicit confirm rather than firing on the first click.
   const [pendingDelete, setPendingDelete] = useState<LabelSchema | null>(null);
+  // The authoring drawer: open with `null` to create, or a schema to edit.
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [editingSchema, setEditingSchema] = useState<LabelSchema | null>(null);
+
+  const openCreate = () => {
+    setEditingSchema(null);
+    setDrawerOpen(true);
+  };
+  const openEdit = (schema: LabelSchema) => {
+    setEditingSchema(schema);
+    setDrawerOpen(true);
+  };
 
   return (
     <>
@@ -43,14 +58,19 @@ export const ManageQuestionsModal = ({ experimentId, onClose }: { experimentId: 
         onCancel={onClose}
         title={<FormattedMessage defaultMessage="Review questions" description="Manage review questions modal title" />}
         footer={
-          <Button componentId={`${CID}.close`} onClick={onClose}>
-            <FormattedMessage defaultMessage="Close" description="Manage review questions: close button" />
-          </Button>
+          <div css={{ display: 'flex', justifyContent: 'space-between' }}>
+            <Button componentId={`${CID}.add`} icon={<PlusIcon />} onClick={openCreate}>
+              <FormattedMessage defaultMessage="Add question" description="Manage review questions: add button" />
+            </Button>
+            <Button componentId={`${CID}.close`} onClick={onClose}>
+              <FormattedMessage defaultMessage="Close" description="Manage review questions: close button" />
+            </Button>
+          </div>
         }
       >
         <Typography.Hint css={{ marginBottom: theme.spacing.md }}>
           <FormattedMessage
-            defaultMessage="Questions are the experiment's label schemas. Create new ones from the Label Schemas tab."
+            defaultMessage="Questions are the experiment's label schemas. Add a new one or click a question to edit it."
             description="Manage review questions: explanatory hint"
           />
         </Typography.Hint>
@@ -71,6 +91,15 @@ export const ManageQuestionsModal = ({ experimentId, onClose }: { experimentId: 
             {labelSchemas.map((schema) => (
               <div
                 key={schema.schema_id}
+                role="button"
+                tabIndex={0}
+                onClick={() => openEdit(schema)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    openEdit(schema);
+                  }
+                }}
                 css={{
                   display: 'flex',
                   alignItems: 'center',
@@ -78,6 +107,8 @@ export const ManageQuestionsModal = ({ experimentId, onClose }: { experimentId: 
                   padding: theme.spacing.sm,
                   border: `1px solid ${theme.colors.border}`,
                   borderRadius: theme.borders.borderRadiusMd,
+                  cursor: 'pointer',
+                  '&:hover': { backgroundColor: theme.colors.actionDefaultBackgroundHover },
                 }}
               >
                 <Typography.Text bold css={{ flex: 1 }}>
@@ -99,7 +130,10 @@ export const ManageQuestionsModal = ({ experimentId, onClose }: { experimentId: 
                     defaultMessage: 'Delete question',
                     description: 'Manage review questions: delete button aria label',
                   })}
-                  onClick={() => setPendingDelete(schema)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setPendingDelete(schema);
+                  }}
                 />
               </div>
             ))}
@@ -132,6 +166,13 @@ export const ManageQuestionsModal = ({ experimentId, onClose }: { experimentId: 
           />
         </Modal>
       )}
+
+      <LabelSchemaFormDrawer
+        experimentId={experimentId}
+        editingSchema={editingSchema}
+        visible={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+      />
     </>
   );
 };
