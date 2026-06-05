@@ -8479,6 +8479,23 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     session.add(SqlReviewQueueUser(queue_id=sql_queue.queue_id, user_id=user))
 
             if schema_ids is not None:
+                # A queue's questions are frozen once it has traces to review:
+                # changing the schema set after reviewers have started would
+                # strand their answers or leave completed traces with
+                # never-seen questions. Editing is allowed only while the queue
+                # is still empty (in setup). Assigned users stay editable.
+                attached_trace_count = (
+                    session
+                    .query(SqlReviewQueueTrace)
+                    .filter(SqlReviewQueueTrace.queue_id == sql_queue.queue_id)
+                    .count()
+                )
+                if attached_trace_count > 0:
+                    raise MlflowException(
+                        "A review queue's questions are locked once traces are assigned to it. "
+                        "Remove the traces before changing its questions.",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
                 normalized_schema_ids = normalize_schema_ids(schema_ids)
                 self._validate_schema_ids_exist(
                     session, str(sql_queue.experiment_id), normalized_schema_ids

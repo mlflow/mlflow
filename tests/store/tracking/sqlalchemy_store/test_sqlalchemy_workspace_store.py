@@ -2516,3 +2516,35 @@ def test_review_queues_are_workspace_scoped(workspace_tracking_store):
         # Cross-workspace get-by-id from workspace-a → workspace-b.
         with pytest.raises(MlflowException, match="not found"):
             workspace_tracking_store.get_review_queue(queue_b.queue_id)
+
+
+def test_review_queue_question_lock_holds_in_workspace_store(workspace_tracking_store):
+    from mlflow.genai.label_schemas.label_schemas import InputPassFail
+
+    with WorkspaceContext("team-a"):
+        exp_id = workspace_tracking_store.create_experiment("exp-lock")
+        ls1 = workspace_tracking_store.create_label_schema(
+            experiment_id=exp_id,
+            name="quality",
+            type="feedback",
+            input=InputPassFail(positive_label="Yes", negative_label="No"),
+        )
+        ls2 = workspace_tracking_store.create_label_schema(
+            experiment_id=exp_id,
+            name="safety",
+            type="feedback",
+            input=InputPassFail(positive_label="Yes", negative_label="No"),
+        )
+        queue = workspace_tracking_store.create_review_queue(
+            exp_id, name="triage", queue_type="custom", schema_ids=[ls1.schema_id]
+        )
+        # Questions are editable while the queue is empty.
+        workspace_tracking_store.update_review_queue(
+            queue.queue_id, schema_ids=[ls1.schema_id, ls2.schema_id]
+        )
+        # Once a trace is attached, questions lock but users stay editable.
+        workspace_tracking_store.add_traces_to_review_queue(queue.queue_id, target_ids=["tr-1"])
+        with pytest.raises(MlflowException, match="locked once traces are assigned"):
+            workspace_tracking_store.update_review_queue(queue.queue_id, schema_ids=[ls1.schema_id])
+        updated = workspace_tracking_store.update_review_queue(queue.queue_id, users=["alice"])
+        assert updated.users == ["alice"]
