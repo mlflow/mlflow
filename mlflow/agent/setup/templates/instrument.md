@@ -53,4 +53,3 @@ Summarize:
 - MLflow version installed
 - Files modified
 - Trace URL (required)
-- Whether the app still works without the tracking server reachable
