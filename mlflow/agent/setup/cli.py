@@ -122,7 +122,7 @@ def setup(
         {
             "agent": agent.name,
             "print_prompt": print_prompt,
-            "skills_installed": skills_installed,
+            "skills_install_confirmed": skills_installed,
         },
     )
     if skills_installed:

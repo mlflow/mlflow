@@ -62,10 +62,12 @@ def test_setup_declined_skills_uses_bundled_path(tmp_git_repo: Path):
 
 
 @pytest.mark.parametrize(
-    ("skills_input", "skills_installed"),
+    ("skills_input", "skills_install_confirmed"),
     [("y", True), ("n", False)],
 )
-def test_setup_records_telemetry(tmp_git_repo: Path, skills_input: str, skills_installed: bool):
+def test_setup_records_telemetry(
+    tmp_git_repo: Path, skills_input: str, skills_install_confirmed: bool
+):
     with (
         mock.patch("mlflow.agent.agents.shutil.which", return_value="/usr/local/bin/claude"),
         mock.patch("mlflow.agent.setup.cli._record_event") as mock_record,
@@ -81,7 +83,7 @@ def test_setup_records_telemetry(tmp_git_repo: Path, skills_input: str, skills_i
     assert payload == {
         "agent": "claude",
         "print_prompt": True,
-        "skills_installed": skills_installed,
+        "skills_install_confirmed": skills_install_confirmed,
     }
 
 
