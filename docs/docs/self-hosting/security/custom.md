@@ -1,7 +1,7 @@
-
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
 import TabsWrapper from "@site/src/components/TabsWrapper";
+
 # Custom Authentication
 
 MLflow's authentication system is designed to be extensible. You can use custom authentication methods through plugins or pluggable functions.

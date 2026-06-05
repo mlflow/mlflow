@@ -1,7 +1,7 @@
-
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
 import TabsWrapper from "@site/src/components/TabsWrapper";
+
 # Kubernetes Authentication
 
 MLflow includes built-in request auth providers for Kubernetes environments. These providers automatically add authorization headers to outgoing MLflow client requests using Kubernetes credentials.
