@@ -76,7 +76,8 @@ def _run_setup(
     agent_name: AgentName | None,
     print_prompt: bool,
     payload: dict[str, Any],
-) -> int:
+) -> tuple[list[str], Path] | None:
+    """Run the interactive setup flow and return the agent launch command, or None for --print."""
     repo_root = _git_root(Path.cwd())
     if repo_root is None:
         raise click.ClickException("`mlflow agent setup` must be run inside a git working tree.")
@@ -133,14 +134,12 @@ def _run_setup(
 
     if print_prompt:
         click.echo(prompt)
-        return 0
+        return None
 
     cmd = [agent.binary, *agent.interactive_args, prompt]
     click.echo(err=True)
     click.secho(f"Launching {agent.display_name}...", fg="cyan", err=True)
-    # Inherit stdio so the agent's TUI takes over until the user exits.
-    result = subprocess.run(cmd, cwd=repo_root)
-    return result.returncode
+    return cmd, repo_root
 
 
 @click.command("setup")
@@ -180,9 +179,17 @@ def setup(
         "skills_install_confirmed": None,
     }
     try:
-        exit_code = _run_setup(agent_name, print_prompt, payload)
-        success = exit_code == 0
+        launch = _run_setup(agent_name, print_prompt, payload)
+        success = True
     finally:
+        # Record before handing off to the agent's TUI so a force-aborted session
+        # (kill -9, terminal closed) doesn't drop the setup event.
         _record_event(AgentSetupEvent, payload, success=success)
 
-    sys.exit(exit_code)
+    if launch is None:
+        return
+
+    cmd, cwd = launch
+    # Inherit stdio so the agent's TUI takes over until the user exits.
+    result = subprocess.run(cmd, cwd=cwd)
+    sys.exit(result.returncode)
