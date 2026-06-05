@@ -74,6 +74,11 @@ export const CreateReviewQueueModal = ({
       name: trimmedName,
       queue_type: 'CUSTOM',
       created_by: createdBy,
+      // Assign the creator so the queue shows up as theirs on the Review tab
+      // (which scopes to the current reviewer). On a no-auth server everyone is
+      // the `default` user, so this makes created queues visible to all callers.
+      // A fuller user picker is a later iteration.
+      users: [createdBy],
       schema_ids: [...checkedIds],
     });
     onCreated?.(review_queue);

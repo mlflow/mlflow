@@ -10,7 +10,6 @@ import {
   SearchIcon,
   TableSkeleton,
   Tooltip,
-  TrashIcon,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
@@ -21,7 +20,7 @@ import { useParams } from '../../../common/utils/RoutingUtils';
 import { CreateReviewQueueModal } from './CreateReviewQueueModal';
 import { FocusedReview } from './FocusedReview';
 import { ManageQuestionsModal } from './ManageQuestionsModal';
-import { ReviewQueueList } from './ReviewQueueList';
+import { ReviewQueueSection } from './ReviewQueueSection';
 import { useDeleteReviewQueueMutation } from './hooks/useDeleteReviewQueueMutation';
 import { useListReviewQueueTracesQuery } from './hooks/useListReviewQueueTracesQuery';
 import { useListReviewQueuesQuery } from './hooks/useListReviewQueuesQuery';
@@ -32,12 +31,14 @@ import type { ReviewQueue, ReviewStatus } from './types';
 const CID = 'mlflow.experiment-review-queue.page';
 
 /**
- * Review tab — a reviewer works a queue's traces and answers its questions.
+ * Review tab — a reviewer works their queues' traces and answers the questions.
  *
- * Lists the experiment's review queues, shows the selected queue's traces in
- * a sortable table, and opens a focused 3-panel review (queue rail | trace |
- * question widgets). Answering writes Feedback/Expectation assessments; the
- * complete / decline / reopen actions drive the shared-pool status.
+ * Each queue the reviewer is assigned to renders as a collapsible section over
+ * its own trace table, so several queues show at once and can be collapsed to
+ * focus on one. Opening a trace takes over with a focused 3-panel review (queue
+ * rail | trace | question widgets); answering writes Feedback/Expectation
+ * assessments and the complete / decline / reopen actions drive the
+ * shared-pool status.
  */
 const ExperimentReviewQueuePage = () => {
   const { theme } = useDesignSystemTheme();
@@ -45,8 +46,10 @@ const ExperimentReviewQueuePage = () => {
   const { experimentId } = useParams<{ experimentId: string }>();
   const reviewer = useReviewer();
 
-  const [selectedQueueId, setSelectedQueueId] = useState<string | null>(null);
-  const [openTargetId, setOpenTargetId] = useState<string | null>(null);
+  // Collapsed (not expanded) queue ids. Empty == every section expanded.
+  const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
+  // The trace currently open in focused review, with the queue it belongs to.
+  const [openTrace, setOpenTrace] = useState<{ queueId: string; targetId: string } | null>(null);
   const [manageOpen, setManageOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   // The custom queue pending deletion confirmation.
@@ -54,7 +57,7 @@ const ExperimentReviewQueuePage = () => {
 
   const { reviewQueues, isLoading: queuesLoading } = useListReviewQueuesQuery({
     experimentId: experimentId ?? '',
-    // Scope to the current reviewer so the rail shows their queues (and the
+    // Scope to the current reviewer so the tab shows their queues (and the
     // single default queue on a no-auth server), not everyone's.
     user: reviewer,
   });
@@ -62,7 +65,49 @@ const ExperimentReviewQueuePage = () => {
   const { setReviewQueueTraceStatusAsync, isSettingStatus } = useSetReviewQueueTraceStatusMutation();
   const { deleteReviewQueue, isDeletingQueue, error: deleteError, reset: resetDelete } = useDeleteReviewQueueMutation();
 
-  // Clear any prior delete error and open the confirm dialog for `queue`.
+  // Traces for the queue whose trace is open in focused review. (Each section
+  // fetches its own list for the collapsed view; this drives the takeover.)
+  const { items: openItems, isLoading: openItemsLoading } = useListReviewQueueTracesQuery({
+    queueId: openTrace?.queueId ?? '',
+    enabled: Boolean(openTrace),
+  });
+
+  const openQueue = useMemo(
+    () => reviewQueues.find((q) => q.queue_id === openTrace?.queueId) ?? null,
+    [reviewQueues, openTrace],
+  );
+  const openItem = useMemo(
+    () => openItems.find((i) => i.target_id === openTrace?.targetId) ?? null,
+    [openItems, openTrace],
+  );
+
+  // A user queue inherits all of the experiment's schemas; a custom queue uses
+  // its explicit subset.
+  const questionSchemas = useMemo(() => {
+    if (!openQueue) {
+      return [];
+    }
+    if (openQueue.queue_type === 'USER') {
+      return labelSchemas;
+    }
+    const ids = new Set(openQueue.schema_ids ?? []);
+    return labelSchemas.filter((s) => ids.has(s.schema_id));
+  }, [openQueue, labelSchemas]);
+
+  const nowMs = Date.now();
+
+  const toggleQueue = (queueId: string) => {
+    setCollapsedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(queueId)) {
+        next.delete(queueId);
+      } else {
+        next.add(queueId);
+      }
+      return next;
+    });
+  };
+
   const promptDelete = (queue: ReviewQueue) => {
     resetDelete();
     setPendingDelete(queue);
@@ -73,39 +118,12 @@ const ExperimentReviewQueuePage = () => {
     setPendingDelete(null);
   };
 
-  const selectedQueue = useMemo(
-    () => reviewQueues.find((q) => q.queue_id === selectedQueueId) ?? reviewQueues[0] ?? null,
-    [reviewQueues, selectedQueueId],
-  );
-
-  const { items, isLoading: tracesLoading } = useListReviewQueueTracesQuery({
-    queueId: selectedQueue?.queue_id ?? '',
-    enabled: Boolean(selectedQueue),
-  });
-
-  // A user queue inherits all of the experiment's schemas; a custom queue
-  // uses its explicit subset.
-  const questionSchemas = useMemo(() => {
-    if (!selectedQueue) {
-      return [];
-    }
-    if (selectedQueue.queue_type === 'USER') {
-      return labelSchemas;
-    }
-    const ids = new Set(selectedQueue.schema_ids ?? []);
-    return labelSchemas.filter((s) => ids.has(s.schema_id));
-  }, [selectedQueue, labelSchemas]);
-
-  const openItem = useMemo(() => items.find((i) => i.target_id === openTargetId) ?? null, [items, openTargetId]);
-
-  const nowMs = Date.now();
-
   const setOpenStatus = async (status: ReviewStatus) => {
-    if (!selectedQueue || !openItem) {
+    if (!openTrace || !openItem) {
       return;
     }
     await setReviewQueueTraceStatusAsync({
-      queue_id: selectedQueue.queue_id,
+      queue_id: openTrace.queueId,
       target_id: openItem.target_id,
       status,
       // Attribution only applies to the terminal states; reopen clears it.
@@ -174,65 +192,48 @@ const ExperimentReviewQueuePage = () => {
             image={<SearchIcon />}
           />
         </div>
+      ) : openTrace ? (
+        <div css={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+          {openItem ? (
+            <FocusedReview
+              // Remount per trace so answer state never bleeds across traces.
+              key={openItem.target_id}
+              item={openItem}
+              items={openItems}
+              schemas={questionSchemas}
+              completedBy={reviewer}
+              isSettingStatus={isSettingStatus}
+              onBack={() => setOpenTrace(null)}
+              onSelect={(targetId) => setOpenTrace({ queueId: openTrace.queueId, targetId })}
+              onSetStatus={setOpenStatus}
+            />
+          ) : openItemsLoading ? (
+            <TableSkeleton lines={5} />
+          ) : null}
+        </div>
       ) : (
-        <>
-          {!openItem && (
-            <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
-              <Typography.Text color="secondary">
-                <FormattedMessage defaultMessage="Queue:" description="Review queue: queue selector label" />
-              </Typography.Text>
-              {reviewQueues.map((q) => (
-                <div key={q.queue_id} css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
-                  <Button
-                    componentId={`${CID}.select-queue`}
-                    size="small"
-                    type={q.queue_id === selectedQueue?.queue_id ? 'primary' : undefined}
-                    onClick={() => {
-                      setSelectedQueueId(q.queue_id);
-                      setOpenTargetId(null);
-                    }}
-                  >
-                    {q.name}
-                  </Button>
-                  {/* Personal USER queues stay put; only custom queues are deletable here. */}
-                  {q.queue_type === 'CUSTOM' && (
-                    <Button
-                      componentId={`${CID}.delete-queue`}
-                      size="small"
-                      icon={<TrashIcon />}
-                      aria-label={intl.formatMessage({
-                        defaultMessage: 'Delete queue',
-                        description: 'Review queue: delete-queue button aria label',
-                      })}
-                      onClick={() => promptDelete(q)}
-                    />
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-
-          <div css={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
-            {openItem ? (
-              <FocusedReview
-                // Remount per trace so answer state never bleeds across traces.
-                key={openItem.target_id}
-                item={openItem}
-                items={items}
-                schemas={questionSchemas}
-                completedBy={reviewer}
-                isSettingStatus={isSettingStatus}
-                onBack={() => setOpenTargetId(null)}
-                onSelect={setOpenTargetId}
-                onSetStatus={setOpenStatus}
-              />
-            ) : tracesLoading ? (
-              <TableSkeleton lines={5} />
-            ) : (
-              <ReviewQueueList items={items} onOpen={(item) => setOpenTargetId(item.target_id)} nowMs={nowMs} />
-            )}
-          </div>
-        </>
+        <div
+          css={{
+            flex: 1,
+            minHeight: 0,
+            overflow: 'auto',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: theme.spacing.sm,
+          }}
+        >
+          {reviewQueues.map((q) => (
+            <ReviewQueueSection
+              key={q.queue_id}
+              queue={q}
+              expanded={!collapsedIds.has(q.queue_id)}
+              onToggle={() => toggleQueue(q.queue_id)}
+              onOpenTrace={(item) => setOpenTrace({ queueId: q.queue_id, targetId: item.target_id })}
+              onDelete={() => promptDelete(q)}
+              nowMs={nowMs}
+            />
+          ))}
+        </div>
       )}
 
       {manageOpen && experimentId && (
@@ -240,11 +241,7 @@ const ExperimentReviewQueuePage = () => {
       )}
 
       {createOpen && experimentId && (
-        <CreateReviewQueueModal
-          experimentId={experimentId}
-          onClose={() => setCreateOpen(false)}
-          onCreated={(queue) => setSelectedQueueId(queue.queue_id)}
-        />
+        <CreateReviewQueueModal experimentId={experimentId} onClose={() => setCreateOpen(false)} />
       )}
 
       {pendingDelete && (
@@ -265,11 +262,9 @@ const ExperimentReviewQueuePage = () => {
                 // Close only on success; on failure keep the dialog open and
                 // surface the error below so the action isn't silently lost.
                 onSuccess: () => {
-                  // Drop the selection if we just deleted the active queue so
-                  // the page falls back to the first remaining queue.
-                  if (selectedQueueId === pendingDelete.queue_id) {
-                    setSelectedQueueId(null);
-                    setOpenTargetId(null);
+                  // Leave focused review if we just deleted the open trace's queue.
+                  if (openTrace?.queueId === pendingDelete.queue_id) {
+                    setOpenTrace(null);
                   }
                   setPendingDelete(null);
                 },

@@ -1,6 +1,17 @@
 import { useMemo, useState } from 'react';
 
-import { Alert, Button, ChevronLeftIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import {
+  Alert,
+  Button,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  Drawer,
+  Empty,
+  TableSkeleton,
+  Typography,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
+import { ModelTraceExplorer, useGetTracesById } from '@databricks/web-shared/model-trace-explorer';
 import { FormattedMessage, useIntl } from 'react-intl';
 
 import { LabelSchemaInputRenderer } from '../../components/label-schemas';
@@ -12,6 +23,15 @@ import { StatusTag } from './ReviewQueueList';
 import type { ReviewQueueItem, ReviewStatus } from './types';
 
 const CID = 'mlflow.experiment-review-queue.focused-review';
+
+/** Pretty-print a request/response preview as JSON, falling back to the raw string. */
+const formatPreview = (raw: string): string => {
+  try {
+    return JSON.stringify(JSON.parse(raw), null, 2);
+  } catch {
+    return raw;
+  }
+};
 
 /**
  * Focused-review surface, three panels:
@@ -50,6 +70,15 @@ export const FocusedReview = ({
   const intl = useIntl();
   const { createReviewAssessmentAsync, isCreatingAssessment } = useCreateReviewAssessmentMutation();
 
+  // The trace's input/output for the middle panel. The full trace (spans,
+  // timeline, etc.) is available on demand through the drawer.
+  const { data: traceData, isLoading: traceLoading } = useGetTracesById([item.target_id]);
+  const trace = traceData[0];
+  const [showFullTrace, setShowFullTrace] = useState(false);
+  const requestPreview = trace?.info?.request_preview;
+  const responsePreview = trace?.info?.response_preview;
+  const hasIO = Boolean(requestPreview || responsePreview);
+
   // Prefill the widgets from the trace's existing assessments; edits overlay
   // the prefill so the query result never clobbers what the reviewer typed.
   const { priorAnswers } = useTraceAssessmentsQuery({ traceId: item.target_id });
@@ -61,6 +90,23 @@ export const FocusedReview = ({
   const setAnswer = (name: string, value: LabelSchemaValue) => setEdited((prev) => ({ ...prev, [name]: value }));
 
   const isTerminal = item.status === 'COMPLETE' || item.status === 'DECLINED';
+
+  // Position in the queue + adjacent traces for prev/next navigation.
+  const currentIndex = items.findIndex((i) => i.target_id === item.target_id);
+  const prevTargetId = currentIndex > 0 ? items[currentIndex - 1].target_id : undefined;
+  const nextTargetId =
+    currentIndex !== -1 && currentIndex < items.length - 1 ? items[currentIndex + 1].target_id : undefined;
+
+  // Progress across the queue: terminal (complete/declined) traces are reviewed.
+  const reviewedCount = items.filter((i) => i.status === 'COMPLETE' || i.status === 'DECLINED').length;
+  const totalCount = items.length;
+  const percentage = totalCount > 0 ? Math.round((reviewedCount / totalCount) * 100) : 0;
+
+  // The next still-pending trace after the current one, wrapping around.
+  const nextPendingTargetId = items
+    .slice(currentIndex + 1)
+    .concat(items.slice(0, Math.max(currentIndex, 0)))
+    .find((i) => i.target_id !== item.target_id && i.status === 'PENDING')?.target_id;
 
   const submitAnswersAndComplete = async () => {
     setSubmitError(null);
@@ -83,6 +129,13 @@ export const FocusedReview = ({
         ),
       );
       await onSetStatus('COMPLETE');
+      // Keep the reviewer moving: jump to the next still-pending trace, or
+      // return to the queue list once everything has been reviewed.
+      if (nextPendingTargetId) {
+        onSelect(nextPendingTargetId);
+      } else {
+        onBack();
+      }
     } catch (e) {
       setSubmitError(e instanceof Error ? e.message : String(e));
     }
@@ -105,6 +158,56 @@ export const FocusedReview = ({
         </Button>
         <Typography.Text bold>{item.target_id}</Typography.Text>
         <StatusTag status={item.status} />
+        <div css={{ flex: 1 }} />
+        <Button
+          componentId={`${CID}.prev`}
+          icon={<ChevronLeftIcon />}
+          disabled={!prevTargetId}
+          aria-label={intl.formatMessage({
+            defaultMessage: 'Previous trace',
+            description: 'Review focused view: previous-trace button',
+          })}
+          onClick={() => prevTargetId && onSelect(prevTargetId)}
+        />
+        <Button
+          componentId={`${CID}.next`}
+          icon={<ChevronRightIcon />}
+          disabled={!nextTargetId}
+          aria-label={intl.formatMessage({
+            defaultMessage: 'Next trace',
+            description: 'Review focused view: next-trace button',
+          })}
+          onClick={() => nextTargetId && onSelect(nextTargetId)}
+        />
+      </div>
+
+      {/* Progress across the queue's traces */}
+      <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
+        <div
+          css={{
+            flex: 1,
+            height: theme.spacing.xs,
+            borderRadius: theme.borders.borderRadiusMd,
+            backgroundColor: theme.colors.backgroundSecondary,
+            overflow: 'hidden',
+          }}
+        >
+          <div
+            css={{
+              width: `${percentage}%`,
+              height: '100%',
+              backgroundColor: theme.colors.primary,
+              transition: 'width 0.2s ease',
+            }}
+          />
+        </div>
+        <Typography.Text color="secondary" size="sm">
+          <FormattedMessage
+            defaultMessage="{reviewed} of {total} reviewed ({percentage}%)"
+            description="Review focused view: queue progress summary"
+            values={{ reviewed: reviewedCount, total: totalCount, percentage }}
+          />
+        </Typography.Text>
       </div>
 
       <div css={{ display: 'flex', gap: theme.spacing.lg, flex: 1, minHeight: 0 }}>
@@ -123,8 +226,8 @@ export const FocusedReview = ({
         >
           <Typography.Text color="secondary" size="sm" css={{ marginBottom: theme.spacing.xs }}>
             <FormattedMessage
-              defaultMessage="Queue ({count})"
-              description="Review focused view: queue rail header with trace count"
+              defaultMessage="Trace ({count})"
+              description="Review focused view: trace rail header with trace count"
               values={{ count: items.length }}
             />
           </Typography.Text>
@@ -157,21 +260,102 @@ export const FocusedReview = ({
           })}
         </div>
 
-        {/* Trace summary */}
+        {/* Trace input / output (full trace available via the drawer) */}
         <div
           css={{
             flex: 1,
             minWidth: 0,
             border: `1px solid ${theme.colors.border}`,
             borderRadius: theme.borders.borderRadiusMd,
-            padding: theme.spacing.md,
-            overflow: 'auto',
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
           }}
         >
-          <Typography.Title level={4}>
-            <FormattedMessage defaultMessage="Trace" description="Review focused view: trace panel title" />
-          </Typography.Title>
-          <Typography.Text>{item.target_id}</Typography.Text>
+          <div
+            css={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: theme.spacing.sm,
+              padding: theme.spacing.sm,
+              borderBottom: `1px solid ${theme.colors.border}`,
+            }}
+          >
+            <Typography.Title level={4} withoutMargins>
+              <FormattedMessage defaultMessage="Trace" description="Review focused view: trace panel title" />
+            </Typography.Title>
+            <div css={{ flex: 1 }} />
+            <Typography.Link
+              componentId={`${CID}.view-full-trace`}
+              disabled={!trace}
+              onClick={() => setShowFullTrace(true)}
+            >
+              <FormattedMessage
+                defaultMessage="View full trace"
+                description="Review focused view: open the full trace explorer"
+              />
+            </Typography.Link>
+          </div>
+          <div
+            css={{
+              flex: 1,
+              overflow: 'auto',
+              padding: theme.spacing.md,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: theme.spacing.md,
+            }}
+          >
+            {traceLoading ? (
+              <TableSkeleton lines={8} />
+            ) : !hasIO ? (
+              <Empty
+                description={
+                  <FormattedMessage
+                    defaultMessage="No input or output recorded for this trace."
+                    description="Review focused view: trace panel empty state when there's no input/output"
+                  />
+                }
+              />
+            ) : (
+              [
+                requestPreview && {
+                  key: 'input',
+                  label: (
+                    <FormattedMessage defaultMessage="Input" description="Review focused view: trace input label" />
+                  ),
+                  value: formatPreview(requestPreview),
+                },
+                responsePreview && {
+                  key: 'output',
+                  label: (
+                    <FormattedMessage defaultMessage="Output" description="Review focused view: trace output label" />
+                  ),
+                  value: formatPreview(responsePreview),
+                },
+              ]
+                .filter((section): section is { key: string; label: JSX.Element; value: string } => Boolean(section))
+                .map((section) => (
+                  <div key={section.key} css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+                    <Typography.Text bold>{section.label}</Typography.Text>
+                    <pre
+                      css={{
+                        margin: 0,
+                        padding: theme.spacing.sm,
+                        backgroundColor: theme.colors.backgroundSecondary,
+                        borderRadius: theme.borders.borderRadiusMd,
+                        fontFamily: 'monospace',
+                        fontSize: theme.typography.fontSizeSm,
+                        whiteSpace: 'pre-wrap',
+                        wordBreak: 'break-word',
+                      }}
+                    >
+                      {section.value}
+                    </pre>
+                  </div>
+                ))
+            )}
+          </div>
         </div>
 
         {/* Question widgets driven by the queue's label schemas */}
@@ -267,12 +451,33 @@ export const FocusedReview = ({
             onClick={submitAnswersAndComplete}
           >
             <FormattedMessage
-              defaultMessage="Submit & mark complete"
+              defaultMessage="Submit"
               description="Review focused view: submit answers and mark the trace complete"
             />
           </Button>
         </div>
       </div>
+
+      {/* Full trace explorer, opened from "View full trace". */}
+      <Drawer.Root open={showFullTrace} onOpenChange={(open) => !open && setShowFullTrace(false)}>
+        <Drawer.Content
+          componentId={`${CID}.full-trace-drawer`}
+          title={
+            <Typography.Title level={3} withoutMargins>
+              {item.target_id}
+            </Typography.Title>
+          }
+          width="60vw"
+        >
+          {trace ? (
+            <div css={{ height: '100%' }} onWheel={(e) => e.stopPropagation()}>
+              <ModelTraceExplorer modelTrace={trace} initialActiveView="detail" />
+            </div>
+          ) : (
+            <TableSkeleton lines={8} />
+          )}
+        </Drawer.Content>
+      </Drawer.Root>
     </div>
   );
 };

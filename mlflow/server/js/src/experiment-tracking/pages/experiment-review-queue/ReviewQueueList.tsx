@@ -11,8 +11,9 @@ import {
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { FormattedMessage } from 'react-intl';
+import { FormattedMessage, useIntl } from 'react-intl';
 
+import { displayUser } from './hooks/useReviewer';
 import type { ReviewQueueItem, ReviewStatus } from './types';
 
 const CID = 'mlflow.experiment-review-queue.list';
@@ -87,6 +88,7 @@ export const ReviewQueueList = ({
   nowMs: number;
 }) => {
   const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
   const [sort, setSort] = useState<{ key: SortKey; direction: SortDirection }>({ key: 'status', direction: 'asc' });
 
   const toggleSort = (key: SortKey) =>
@@ -155,7 +157,9 @@ export const ReviewQueueList = ({
             <StatusTag status={item.status} />
           </TableCell>
           <TableCell css={{ flex: COLUMNS[2].flex }}>
-            <Typography.Text color="secondary">{item.completed_by ?? '—'}</Typography.Text>
+            <Typography.Text color="secondary">
+              {item.completed_by ? displayUser(item.completed_by, intl) : '—'}
+            </Typography.Text>
           </TableCell>
           <TableCell css={{ flex: COLUMNS[3].flex }}>{formatAgo(item.creation_time_ms, nowMs)}</TableCell>
         </TableRow>

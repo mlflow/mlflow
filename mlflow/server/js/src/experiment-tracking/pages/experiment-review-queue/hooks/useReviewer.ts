@@ -1,16 +1,22 @@
+import type { IntlShape } from 'react-intl';
+
 import { useCurrentUserQuery } from '../../../../account/hooks';
 
 /** Reserved fallback reviewer on a bare no-auth server (no authenticated user). */
 export const DEFAULT_REVIEWER = 'default';
 
 /**
- * Canonical form of a user identifier, mirroring the server's
- * `normalize_user` (`mlflow/genai/review_queues/validation.py`): the server
- * lowercases + strips assigned users and USER-queue names at write time. Use
- * this for any client-side comparison against a stored queue `name` / user,
- * so a reviewer whose raw username carries casing or whitespace still matches.
+ * Display label for a user identity. The reserved no-auth `default` user is
+ * shown as "Admin" (on a single-tenant no-auth server the sole caller is
+ * effectively the administrator); real usernames are shown as-is.
  */
-export const normalizeUser = (user: string): string => user.trim().toLowerCase();
+export const displayUser = (user: string, intl: IntlShape): string =>
+  user === DEFAULT_REVIEWER
+    ? intl.formatMessage({
+        defaultMessage: 'Admin',
+        description: 'Display name shown for the reserved no-auth default review user',
+      })
+    : user;
 
 /**
  * The current reviewer's identity. Authenticated deployments (basic-auth /
