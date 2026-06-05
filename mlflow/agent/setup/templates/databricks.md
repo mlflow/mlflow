@@ -45,8 +45,7 @@ mlflow.set_experiment(
 )
 ```
 
-Also export `MLFLOW_TRACING_SQL_WAREHOUSE_ID=<warehouse-id>`. Skip this block
-entirely if the user does not ask for UC-backed traces.
+Skip this block entirely if the user does not ask for UC-backed traces.
 
 #### References
 
