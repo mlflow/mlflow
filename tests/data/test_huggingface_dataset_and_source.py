@@ -4,6 +4,7 @@ import os
 import datasets
 import pandas as pd
 import pytest
+from huggingface_hub.errors import HfHubHTTPError
 
 import mlflow.data
 import mlflow.data.huggingface_dataset
@@ -26,23 +27,28 @@ pytestmark = skip_if_hf_hub_unhealthy()
 def prefetch_huggingface_datasets():
     """Pre-warm the HF cache so individual tests don't hit the Hub and risk HTTP 429s."""
 
-    datasets.load_dataset("cornell-movie-review-data/rotten_tomatoes", split="train")
-    datasets.load_dataset(
-        "cornell-movie-review-data/rotten_tomatoes",
-        split="train",
-        revision="aa13bc287fa6fcab6daf52f0dfb9994269ffea28",
-        trust_remote_code=True,
-    )
-    datasets.load_dataset(
-        "cornell-movie-review-data/rotten_tomatoes",
-        split="train",
-        revision="c33cbf965006dba64f134f7bef69c53d5d0d285d",
-    )
-    datasets.load_dataset(
-        "fka/awesome-chatgpt-prompts",
-        data_files={"train": "prompts.csv"},
-        split="train",
-    )
+    try:
+        datasets.load_dataset("cornell-movie-review-data/rotten_tomatoes", split="train")
+        datasets.load_dataset(
+            "cornell-movie-review-data/rotten_tomatoes",
+            split="train",
+            revision="aa13bc287fa6fcab6daf52f0dfb9994269ffea28",
+            trust_remote_code=True,
+        )
+        datasets.load_dataset(
+            "cornell-movie-review-data/rotten_tomatoes",
+            split="train",
+            revision="c33cbf965006dba64f134f7bef69c53d5d0d285d",
+        )
+        datasets.load_dataset(
+            "fka/awesome-chatgpt-prompts",
+            data_files={"train": "prompts.csv"},
+            split="train",
+        )
+    except HfHubHTTPError as e:
+        if e.response is not None and e.response.status_code == 429:
+            pytest.skip(f"HF Hub returned 429 while pre-warming the cache: {e}")
+        raise
 
 
 def test_from_huggingface_dataset_constructs_expected_dataset():
