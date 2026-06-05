@@ -118,7 +118,16 @@ export const QueueSettingsModal = ({
         </Tabs.List>
 
         <Tabs.Content value="questions">
-          <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm, paddingTop: theme.spacing.sm }}>
+          <div
+            css={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: theme.spacing.sm,
+              paddingTop: theme.spacing.sm,
+              maxHeight: '50vh',
+              overflowY: 'auto',
+            }}
+          >
             {isUser ? (
               <>
                 <Typography.Hint>
@@ -201,7 +210,16 @@ export const QueueSettingsModal = ({
         </Tabs.Content>
 
         <Tabs.Content value="traces">
-          <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm, paddingTop: theme.spacing.sm }}>
+          <div
+            css={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: theme.spacing.sm,
+              paddingTop: theme.spacing.sm,
+              maxHeight: '50vh',
+              overflowY: 'auto',
+            }}
+          >
             {removeError && (
               <Alert
                 componentId={`${CID}.remove-error`}
