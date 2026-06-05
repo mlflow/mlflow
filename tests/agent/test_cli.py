@@ -48,6 +48,53 @@ def test_setup_user_provided_uri(tmp_git_repo: Path):
     mock_which.assert_called()
 
 
+@pytest.mark.parametrize(
+    ("agent", "binary", "skills_dir"),
+    [
+        ("claude", "/usr/local/bin/claude", ".claude/skills"),
+        ("codex", "/usr/local/bin/codex", ".codex/skills"),
+        ("opencode", "/usr/local/bin/opencode", ".opencode/skills"),
+    ],
+)
+def test_setup_renders_per_agent_skills_dir(
+    tmp_git_repo: Path, agent: str, binary: str, skills_dir: str
+):
+    with mock.patch("mlflow.agent.agents.shutil.which", return_value=binary) as mock_which:
+        result = CliRunner().invoke(
+            setup, ["--agent", agent, "--print"], input="y\nhttp://localhost:5001\n"
+        )
+    assert result.exit_code == 0, result.stderr
+    assert f"Install MLflow skills at {skills_dir}/" in result.stderr
+    assert f"`{skills_dir}/`" in result.stdout
+    mock_which.assert_called()
+
+
+@pytest.mark.parametrize(
+    ("agent", "expected_args_before_prompt"),
+    [
+        ("claude", ["claude"]),
+        ("codex", ["codex"]),
+        ("opencode", ["opencode", "--prompt"]),
+    ],
+)
+def test_setup_launches_agent_with_correct_argv(
+    tmp_git_repo: Path, agent: str, expected_args_before_prompt: list[str]
+):
+    with (
+        mock.patch("mlflow.agent.agents.shutil.which", return_value=f"/usr/local/bin/{agent}"),
+        mock.patch("mlflow.agent.setup.cli._git_root", return_value=tmp_git_repo),
+        mock.patch(
+            "mlflow.agent.setup.cli.subprocess.run",
+            return_value=subprocess.CompletedProcess([], 0),
+        ) as mock_run,
+    ):
+        CliRunner().invoke(setup, ["--agent", agent], input="y\nhttp://localhost:5001\n")
+    mock_run.assert_called_once()
+    cmd = mock_run.call_args.args[0]
+    assert cmd[:-1] == expected_args_before_prompt
+    assert cmd[-1].startswith("# MLflow Tracing Setup")
+
+
 def test_setup_declined_skills_uses_bundled_path(tmp_git_repo: Path):
     with mock.patch(
         "mlflow.agent.agents.shutil.which", return_value="/usr/local/bin/claude"
