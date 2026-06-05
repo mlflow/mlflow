@@ -34,6 +34,10 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlLabelSchema,
     SqlLoggedModel,
     SqlOnlineScoringConfig,
+    SqlReviewQueue,
+    SqlReviewQueueLabelSchema,
+    SqlReviewQueueTrace,
+    SqlReviewQueueUser,
     SqlRun,
     SqlScorer,
     SqlTraceInfo,
@@ -115,6 +119,22 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
             return query.join(
                 SqlExperiment, SqlLabelSchema.experiment_id == SqlExperiment.experiment_id
             ).filter(SqlExperiment.workspace == workspace)
+
+        if model is SqlReviewQueue:
+            return query.join(
+                SqlExperiment, SqlReviewQueue.experiment_id == SqlExperiment.experiment_id
+            ).filter(SqlExperiment.workspace == workspace)
+
+        if model in (SqlReviewQueueUser, SqlReviewQueueTrace, SqlReviewQueueLabelSchema):
+            # Children inherit the queue's workspace; scope through the parent
+            # `review_queues` -> `experiments` even though the store always
+            # reaches them via an already workspace-validated queue_id.
+            return (
+                query
+                .join(SqlReviewQueue, model.queue_id == SqlReviewQueue.queue_id)
+                .join(SqlExperiment, SqlReviewQueue.experiment_id == SqlExperiment.experiment_id)
+                .filter(SqlExperiment.workspace == workspace)
+            )
 
         if model in (
             SqlGatewaySecret,

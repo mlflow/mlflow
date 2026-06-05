@@ -29,6 +29,7 @@ from mlflow.entities.trace_metrics import (
 if TYPE_CHECKING:
     from mlflow.entities import EvaluationDataset
     from mlflow.genai.label_schemas.label_schemas import InputType, LabelSchema
+    from mlflow.genai.review_queues import ReviewQueue, ReviewQueueItem
     from mlflow.genai.scorers.online.entities import (
         CompletedSession,
         OnlineScorer,
@@ -1834,5 +1835,229 @@ class AbstractStore(GatewayStoreMixin):
 
         Assessments whose ``name`` matches this schema retain their data
         but render as free-form values in the UI after deletion.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    # ------------------------------------------------------------------
+    # Review queues: named bundles of attached traces + questions (label
+    # schemas) + assigned users, scoped to an experiment. See
+    # mlflow/genai/review_queues/ for the entity dataclasses + validation.
+    # ------------------------------------------------------------------
+
+    @requires_sql_backend
+    def create_review_queue(
+        self,
+        experiment_id: str,
+        *,
+        name: str,
+        queue_type: Literal["user", "custom"],
+        created_by: str | None = None,
+        users: list[str] | None = None,
+        schema_ids: list[str] | None = None,
+    ) -> "ReviewQueue":
+        """Create a review queue scoped to an experiment.
+
+        Args:
+            experiment_id: Parent experiment ID.
+            name: Queue name, unique within the experiment. For a user
+                queue this is the user identifier; ``"default"`` is reserved
+                for the no-auth default user queue and rejected for custom
+                queues.
+            queue_type: ``"user"`` (exactly one assigned user equal to
+                ``name``, inherits all of the experiment's schemas) or
+                ``"custom"`` (0..N users, an explicit schema subset).
+            created_by: User who created the queue (audit).
+            users: Assigned users. For a user queue this must be ``[name]``
+                or omitted (derived); for a custom queue, 0..N users.
+            schema_ids: Attached label-schema ids. Must be empty/omitted for
+                a user queue (resolves to all schemas at read time); the
+                chosen subset for a custom queue.
+
+        Returns:
+            The created :py:class:`ReviewQueue` with backend-generated
+            ``queue_id`` and its hydrated ``users`` / ``schema_ids``.
+
+        Raises:
+            MlflowException(INVALID_PARAMETER_VALUE): on validation failure.
+            MlflowException(RESOURCE_ALREADY_EXISTS): on
+                ``(experiment_id, name)`` collision.
+            MlflowException(RESOURCE_DOES_NOT_EXIST): if the experiment
+                doesn't exist.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def get_or_create_user_queue(
+        self,
+        experiment_id: str,
+        *,
+        user: str,
+        created_by: str | None = None,
+    ) -> "ReviewQueue":
+        """Return the user's personal queue for an experiment, creating it
+        if absent.
+
+        Atomic and idempotent: concurrent callers converge on the single
+        ``(experiment_id, name=user)`` user queue. This is the backbone of
+        "assign these traces to this person" — get-or-create then attach.
+
+        Raises:
+            MlflowException(INVALID_PARAMETER_VALUE): on validation failure.
+            MlflowException(RESOURCE_DOES_NOT_EXIST): if the experiment
+                doesn't exist.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def get_review_queue(self, queue_id: str) -> "ReviewQueue":
+        """Fetch a review queue by its server-generated ID.
+
+        Raises:
+            MlflowException(RESOURCE_DOES_NOT_EXIST): if no queue has the given ID.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def get_review_queue_by_name(self, experiment_id: str, *, name: str) -> "ReviewQueue":
+        """Fetch a review queue by ``(experiment_id, name)``.
+
+        Raises:
+            MlflowException(RESOURCE_DOES_NOT_EXIST): if no queue matches.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def list_review_queues(
+        self,
+        experiment_id: str,
+        *,
+        user: str | None = None,
+        max_results: int | None = None,
+        page_token: str | None = None,
+    ) -> PagedList["ReviewQueue"]:
+        """List an experiment's review queues, newest first.
+
+        Args:
+            experiment_id: Parent experiment ID.
+            user: If set, return only queues this user is assigned to (their
+                user queue plus any custom queue they belong to).
+            max_results: Page size.
+            page_token: Opaque continuation token from a previous call.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def update_review_queue(
+        self,
+        queue_id: str,
+        *,
+        users: list[str] | None = None,
+        schema_ids: list[str] | None = None,
+    ) -> "ReviewQueue":
+        """Replace a custom queue's assigned users and/or attached schemas.
+
+        ``None`` leaves that association set untouched; a list (possibly
+        empty) replaces it wholesale. ``name`` and ``queue_type`` are
+        immutable. User queues reject both arguments (their user is fixed
+        and their schemas resolve to all of the experiment's).
+
+        Raises:
+            MlflowException(RESOURCE_DOES_NOT_EXIST): if the queue doesn't exist.
+            MlflowException(INVALID_PARAMETER_VALUE): on validation failure
+                or when called against a user queue.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def delete_review_queue(self, queue_id: str) -> None:
+        """Hard-delete a queue and its user / trace / schema associations.
+
+        No-op if the queue doesn't exist. Assessments written by reviewers
+        against the queue's traces are unaffected.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def add_traces_to_review_queue(
+        self,
+        queue_id: str,
+        *,
+        target_ids: list[str],
+        target_type: Literal["trace"] = "trace",
+    ) -> list["ReviewQueueItem"]:
+        """Attach traces to a queue, returning the resulting items.
+
+        Idempotent per trace: re-attaching an already-attached trace is a
+        no-op that preserves its existing status. Newly-attached traces
+        start ``pending``. The returned list covers every requested
+        ``target_id`` (newly-added and already-present), in the requested
+        order.
+
+        ``target_ids`` are stored as soft references — this store method
+        validates only their shape, NOT that each is a real trace in the
+        queue's experiment/workspace. Trace existence and workspace
+        membership are enforced at the handler/API layer that fronts this
+        method (the proto/REST stack), keeping attachment resilient to
+        archived traces.
+
+        Raises:
+            MlflowException(RESOURCE_DOES_NOT_EXIST): if the queue doesn't exist.
+            MlflowException(INVALID_PARAMETER_VALUE): on validation failure.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def remove_traces_from_review_queue(self, queue_id: str, *, target_ids: list[str]) -> None:
+        """Detach traces from a queue. No-op for traces not attached.
+
+        Raises:
+            MlflowException(RESOURCE_DOES_NOT_EXIST): if the queue doesn't exist.
+            MlflowException(INVALID_PARAMETER_VALUE): on validation failure.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def list_review_queue_traces(
+        self,
+        queue_id: str,
+        *,
+        status: Literal["pending", "complete", "declined"] | None = None,
+        max_results: int | None = None,
+        page_token: str | None = None,
+    ) -> PagedList["ReviewQueueItem"]:
+        """List a queue's attached traces, newest-attached first.
+
+        Args:
+            queue_id: The queue to list.
+            status: Optional filter on shared-pool status.
+            max_results: Page size.
+            page_token: Opaque continuation token from a previous call.
+
+        Raises:
+            MlflowException(RESOURCE_DOES_NOT_EXIST): if the queue doesn't exist.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def set_review_queue_trace_status(
+        self,
+        queue_id: str,
+        *,
+        target_id: str,
+        status: Literal["pending", "complete", "declined"],
+        completed_by: str | None = None,
+    ) -> "ReviewQueueItem":
+        """Set the shared-pool status of an attached trace.
+
+        Moving to ``complete`` / ``declined`` records ``completed_by`` and a
+        completion timestamp; moving back to ``pending`` (reopen) clears
+        both. ``completed_by`` is required for the terminal states and
+        rejected for ``pending``. This is an explicit reviewer action and is
+        never triggered by writing an assessment.
+
+        Raises:
+            MlflowException(RESOURCE_DOES_NOT_EXIST): if the queue or the
+                attached trace doesn't exist.
+            MlflowException(INVALID_PARAMETER_VALUE): on validation failure.
         """
         raise NotImplementedError(self.__class__.__name__)

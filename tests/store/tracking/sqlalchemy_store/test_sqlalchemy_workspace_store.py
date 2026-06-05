@@ -2462,3 +2462,57 @@ def test_label_schemas_are_workspace_scoped(workspace_tracking_store):
         # Cross-workspace get-by-id from workspace-a → workspace-b.
         with pytest.raises(MlflowException, match="not found"):
             workspace_tracking_store.get_label_schema(schema_b.schema_id)
+
+
+def test_review_queues_are_workspace_scoped(workspace_tracking_store):
+    with WorkspaceContext("team-a"):
+        exp_a_id = workspace_tracking_store.create_experiment("exp-a")
+        queue_a = workspace_tracking_store.create_review_queue(
+            exp_a_id, name="triage", queue_type="custom", users=["alice"]
+        )
+        workspace_tracking_store.add_traces_to_review_queue(queue_a.queue_id, target_ids=["tr-a"])
+
+    with WorkspaceContext("team-b"):
+        exp_b_id = workspace_tracking_store.create_experiment("exp-b")
+        queue_b = workspace_tracking_store.create_review_queue(
+            exp_b_id, name="triage", queue_type="custom"
+        )
+
+        # Cross-workspace get-by-id: workspace-b cannot resolve workspace-a's queue.
+        with pytest.raises(MlflowException, match="not found"):
+            workspace_tracking_store.get_review_queue(queue_a.queue_id)
+
+        # Cross-workspace get-by-name validates the parent experiment first, and
+        # workspace-a's experiment is invisible to workspace-b.
+        with pytest.raises(MlflowException, match="No Experiment with id"):
+            workspace_tracking_store.get_review_queue_by_name(exp_a_id, name="triage")
+
+        # Cross-workspace update / attach / status all fail to resolve the queue.
+        with pytest.raises(MlflowException, match="not found"):
+            workspace_tracking_store.update_review_queue(queue_a.queue_id, users=["mallory"])
+        with pytest.raises(MlflowException, match="not found"):
+            workspace_tracking_store.add_traces_to_review_queue(
+                queue_a.queue_id, target_ids=["tr-x"]
+            )
+        with pytest.raises(MlflowException, match="not found"):
+            workspace_tracking_store.list_review_queue_traces(queue_a.queue_id)
+
+        # Cross-workspace delete silently no-ops (the queue is invisible).
+        workspace_tracking_store.delete_review_queue(queue_a.queue_id)
+
+    with WorkspaceContext("team-a"):
+        # Queue A is intact: the cross-workspace mutations above were no-ops.
+        intact = workspace_tracking_store.get_review_queue(queue_a.queue_id)
+        assert intact.queue_id == queue_a.queue_id
+        assert intact.users == ["alice"]
+        assert {
+            i.target_id for i in workspace_tracking_store.list_review_queue_traces(queue_a.queue_id)
+        } == {"tr-a"}
+
+        # Within-workspace list resolves queue A via the experiment join only.
+        listed = workspace_tracking_store.list_review_queues(exp_a_id)
+        assert [q.queue_id for q in listed] == [queue_a.queue_id]
+
+        # Cross-workspace get-by-id from workspace-a → workspace-b.
+        with pytest.raises(MlflowException, match="not found"):
+            workspace_tracking_store.get_review_queue(queue_b.queue_id)
