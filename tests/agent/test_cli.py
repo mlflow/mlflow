@@ -89,12 +89,21 @@ def test_setup_records_telemetry(
             "print_prompt": True,
             "skills_install_confirmed": skills_install_confirmed,
         },
+        success=True,
     )
 
 
 def test_setup_requested_agent_not_installed(tmp_git_repo: Path):
-    with mock.patch("mlflow.agent.agents.shutil.which", return_value=None) as mock_which:
+    with (
+        mock.patch("mlflow.agent.agents.shutil.which", return_value=None) as mock_which,
+        mock.patch("mlflow.agent.setup.cli._record_event") as mock_record,
+    ):
         result = CliRunner().invoke(setup, ["--agent", "claude", "--print"])
     assert result.exit_code != 0
     assert "not found on PATH" in result.stderr
     mock_which.assert_called()
+    mock_record.assert_called_once_with(
+        AgentSetupEvent,
+        {"agent": None, "print_prompt": True, "skills_install_confirmed": None},
+        success=False,
+    )
