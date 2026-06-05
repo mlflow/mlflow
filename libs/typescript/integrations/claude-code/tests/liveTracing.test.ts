@@ -430,7 +430,7 @@ describe('LiveTracingContext — nested skills (KNOWN LIMITATION)', () => {
       type: 'user',
       parent_tool_use_id: null,
       message: { role: 'user', content: [{ type: 'text', text: 'A body' }] },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any);
     ctx.onAssistantMessage(textMsg('A reasoning'));
 
@@ -441,7 +441,7 @@ describe('LiveTracingContext — nested skills (KNOWN LIMITATION)', () => {
       type: 'user',
       parent_tool_use_id: null,
       message: { role: 'user', content: [{ type: 'text', text: 'B body' }] },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any);
     ctx.onAssistantMessage(textMsg('B reasoning'));
 
@@ -452,7 +452,7 @@ describe('LiveTracingContext — nested skills (KNOWN LIMITATION)', () => {
       type: 'user',
       parent_tool_use_id: null,
       message: { role: 'user', content: [{ type: 'text', text: 'C body' }] },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any);
     ctx.onAssistantMessage(textMsg('C reasoning (deepest)'));
 
@@ -472,9 +472,7 @@ describe('LiveTracingContext — nested skills (KNOWN LIMITATION)', () => {
     expect(findByToolId('tc')?.attributes[SKILL_NAME]).toBe('skill-C');
 
     const llmByText = (text: string) =>
-      llmSpans().find((s) =>
-        JSON.stringify(s.outputs?.content ?? '').includes(text),
-      );
+      llmSpans().find((s) => JSON.stringify(s.outputs?.content ?? '').includes(text));
 
     // Inside-A reasoning: tagged skill-A (correct).
     expect(llmByText('A reasoning')?.attributes[SKILL_NAME]).toBe('skill-A');

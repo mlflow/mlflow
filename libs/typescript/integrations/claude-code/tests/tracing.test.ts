@@ -640,9 +640,7 @@ describe('processTranscript', () => {
           toolUseResult: { success: true, commandName: 'my-skill' },
           message: {
             role: 'user',
-            content: [
-              { type: 'tool_result', tool_use_id: 'skill_tool', content: 'launched' },
-            ],
+            content: [{ type: 'tool_result', tool_use_id: 'skill_tool', content: 'launched' }],
           },
           timestamp: '2025-01-15T10:00:04.000Z',
         },
@@ -770,9 +768,7 @@ describe('processTranscript', () => {
     it('propagates SKILL_NAME to post-skill LLM spans', async () => {
       await writeAndProcess(buildHappySkillTranscript());
       const llmSpans = getSpansByType('LLM');
-      const tagged = llmSpans.filter(
-        (s) => s.attributes['mlflow.skill.name'] === 'my-skill',
-      );
+      const tagged = llmSpans.filter((s) => s.attributes['mlflow.skill.name'] === 'my-skill');
       expect(tagged.length).toBeGreaterThanOrEqual(1);
     });
 
@@ -879,9 +875,7 @@ describe('processTranscript', () => {
           type: 'assistant',
           message: {
             role: 'assistant',
-            content: [
-              { type: 'tool_use', id: 'recovery_bash', name: 'Bash', input: {} },
-            ],
+            content: [{ type: 'tool_use', id: 'recovery_bash', name: 'Bash', input: {} }],
           },
           timestamp: '2025-01-15T10:00:06.000Z',
         },
@@ -889,9 +883,7 @@ describe('processTranscript', () => {
           type: 'user',
           message: {
             role: 'user',
-            content: [
-              { type: 'tool_result', tool_use_id: 'recovery_bash', content: 'ok' },
-            ],
+            content: [{ type: 'tool_result', tool_use_id: 'recovery_bash', content: 'ok' }],
           },
           timestamp: '2025-01-15T10:00:07.000Z',
         },

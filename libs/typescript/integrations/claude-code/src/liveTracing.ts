@@ -183,9 +183,7 @@ export class LiveTracingContext {
           model,
           'mlflow.llm.model': model,
           [SpanAttributeKey.MESSAGE_FORMAT]: 'anthropic',
-          ...(this.activeSkillName
-            ? { [SpanAttributeKey.SKILL_NAME]: this.activeSkillName }
-            : {}),
+          ...(this.activeSkillName ? { [SpanAttributeKey.SKILL_NAME]: this.activeSkillName } : {}),
         },
       });
       if (msg.message.usage) {
@@ -208,9 +206,7 @@ export class LiveTracingContext {
         attributes: {
           tool_name: toolUse.name,
           tool_id: toolUse.id,
-          ...(this.activeSkillName
-            ? { [SpanAttributeKey.SKILL_NAME]: this.activeSkillName }
-            : {}),
+          ...(this.activeSkillName ? { [SpanAttributeKey.SKILL_NAME]: this.activeSkillName } : {}),
         },
       });
       this.openToolSpans.set(toolUse.id, toolSpan);
@@ -269,29 +265,47 @@ export class LiveTracingContext {
    */
   private isRealUserPrompt(msg: SDKUserLike): boolean {
     // Strong signal: SDK-stamped origin (sdk.d.ts:3664).
-    if (msg.origin?.kind === 'human') {return true;}
-    if (msg.origin?.kind != null) {return false;}
+    if (msg.origin?.kind === 'human') {
+      return true;
+    }
+    if (msg.origin?.kind != null) {
+      return false;
+    }
 
     // SDK metadata that explicitly says "not a real prompt".
-    if (msg.isSynthetic) {return false;}
-    if (msg.shouldQuery === false) {return false;}
+    if (msg.isSynthetic) {
+      return false;
+    }
+    if (msg.shouldQuery === false) {
+      return false;
+    }
 
     // Fallback heuristics for older emitters with no `origin`.
-    if (msg.tool_use_result != null) {return false;}
-    if (msg.parent_tool_use_id != null) {return false;}
+    if (msg.tool_use_result != null) {
+      return false;
+    }
+    if (msg.parent_tool_use_id != null) {
+      return false;
+    }
 
     // Skill content injection: Claude Code injects the skill body as a `user`
     // message immediately after a Skill tool_result. Structurally identical
     // to a real prompt — only position distinguishes it. Mirrors the
     // transcript-path heuristic at transcript.ts:109-121 and
     // mlflow/claude_code/tracing.py:245-254.
-    if (this.prevUserHadCommandName) {return false;}
+    if (this.prevUserHadCommandName) {
+      return false;
+    }
 
     // Empty / whitespace-only string content is never a prompt. Also treat
     // an empty content array as empty (no text or blocks to act on).
     const content = msg.message.content;
-    if (typeof content === 'string' && !content.trim()) {return false;}
-    if (Array.isArray(content) && content.length === 0) {return false;}
+    if (typeof content === 'string' && !content.trim()) {
+      return false;
+    }
+    if (Array.isArray(content) && content.length === 0) {
+      return false;
+    }
 
     return true;
   }
@@ -319,67 +333,65 @@ export class LiveTracingContext {
       }
 
       for (const block of content) {
-      if (
-        typeof block !== 'object' ||
-        block == null ||
-        !('type' in block) ||
-        block.type !== 'tool_result'
-      ) {
-        continue;
-      }
-      const toolResult = block as {
-        type: 'tool_result';
-        tool_use_id?: string;
-        content?: unknown;
-        is_error?: boolean;
-      };
-      const toolUseId = toolResult.tool_use_id;
-      if (!toolUseId) {
-        continue;
-      }
-
-      // If this tool result closes a Task/Agent call, finalize its sub-agent
-      // wrapper span first so it nests under the TOOL span correctly.
-      const subagentSpan = this.subagentSpans.get(toolUseId);
-      if (subagentSpan) {
-        const lastText = this.lastAssistantText.get(toolUseId);
-        if (lastText) {
-          subagentSpan.setOutputs({ response: lastText });
+        if (
+          typeof block !== 'object' ||
+          block == null ||
+          !('type' in block) ||
+          block.type !== 'tool_result'
+        ) {
+          continue;
         }
-        subagentSpan.end();
-        this.subagentSpans.delete(toolUseId);
-        this.conversations.delete(toolUseId);
-        this.lastAssistantText.delete(toolUseId);
-      }
+        const toolResult = block as {
+          type: 'tool_result';
+          tool_use_id?: string;
+          content?: unknown;
+          is_error?: boolean;
+        };
+        const toolUseId = toolResult.tool_use_id;
+        if (!toolUseId) {
+          continue;
+        }
 
-      const toolSpan = this.openToolSpans.get(toolUseId);
-      if (!toolSpan) {
-        continue;
-      }
+        // If this tool result closes a Task/Agent call, finalize its sub-agent
+        // wrapper span first so it nests under the TOOL span correctly.
+        const subagentSpan = this.subagentSpans.get(toolUseId);
+        if (subagentSpan) {
+          const lastText = this.lastAssistantText.get(toolUseId);
+          if (lastText) {
+            subagentSpan.setOutputs({ response: lastText });
+          }
+          subagentSpan.end();
+          this.subagentSpans.delete(toolUseId);
+          this.conversations.delete(toolUseId);
+          this.lastAssistantText.delete(toolUseId);
+        }
 
-      toolSpan.setOutputs({ result: toolResult.content ?? '' });
-      if (toolResult.is_error) {
-        const errorText =
-          typeof toolResult.content === 'string'
-            ? toolResult.content
-            : JSON.stringify(toolResult.content);
-        toolSpan.setStatus(SpanStatusCode.ERROR, errorText || 'Tool execution failed');
-      }
-      // Always stamp the Skill TOOL span with its own commandName for
-      // identification (failed Skills are still attributable).
-      // Propagation:
-      //   - success: activeSkillName = commandName (child spans inherit)
-      //   - failure: activeSkillName = undefined (prior skill must not leak
-      //     into recovery spans, and the failed skill never injected its body
-      //     so it shouldn't propagate either)
-      if (msg.tool_use_result?.commandName) {
-        toolSpan.setAttribute(SpanAttributeKey.SKILL_NAME, msg.tool_use_result.commandName);
-        this.activeSkillName = toolResult.is_error
-          ? undefined
-          : msg.tool_use_result.commandName;
-      }
-      toolSpan.end();
-      this.openToolSpans.delete(toolUseId);
+        const toolSpan = this.openToolSpans.get(toolUseId);
+        if (!toolSpan) {
+          continue;
+        }
+
+        toolSpan.setOutputs({ result: toolResult.content ?? '' });
+        if (toolResult.is_error) {
+          const errorText =
+            typeof toolResult.content === 'string'
+              ? toolResult.content
+              : JSON.stringify(toolResult.content);
+          toolSpan.setStatus(SpanStatusCode.ERROR, errorText || 'Tool execution failed');
+        }
+        // Always stamp the Skill TOOL span with its own commandName for
+        // identification (failed Skills are still attributable).
+        // Propagation:
+        //   - success: activeSkillName = commandName (child spans inherit)
+        //   - failure: activeSkillName = undefined (prior skill must not leak
+        //     into recovery spans, and the failed skill never injected its body
+        //     so it shouldn't propagate either)
+        if (msg.tool_use_result?.commandName) {
+          toolSpan.setAttribute(SpanAttributeKey.SKILL_NAME, msg.tool_use_result.commandName);
+          this.activeSkillName = toolResult.is_error ? undefined : msg.tool_use_result.commandName;
+        }
+        toolSpan.end();
+        this.openToolSpans.delete(toolUseId);
       }
     } finally {
       this.prevUserHadCommandName = hadCommandName;
