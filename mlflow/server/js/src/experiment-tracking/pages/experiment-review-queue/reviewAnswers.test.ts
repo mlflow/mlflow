@@ -39,6 +39,29 @@ describe('extractPriorAnswers', () => {
     ];
     expect(extractPriorAnswers(raw)).toEqual([{ name: 'tone', kind: 'feedback', value: 'terse', valid: false }]);
   });
+
+  it('keeps falsy-but-present values and drops empty ones', () => {
+    const raw: RawTraceAssessment[] = [
+      { assessment_name: 'flag', feedback: { value: false } },
+      { assessment_name: 'score', feedback: { value: 0 } },
+      { assessment_name: 'opts', feedback: { value: ['a', 'b'] } },
+      { assessment_name: 'empty-str', feedback: { value: '' } },
+      { assessment_name: 'empty-arr', feedback: { value: [] } },
+      { assessment_name: 'null-val', expectation: { value: null } },
+    ];
+    expect(extractPriorAnswers(raw)).toEqual([
+      { name: 'flag', kind: 'feedback', value: false, valid: true },
+      { name: 'score', kind: 'feedback', value: 0, valid: true },
+      { name: 'opts', kind: 'feedback', value: ['a', 'b'], valid: true },
+    ]);
+  });
+
+  it('falls back to serialized_value when expectation.value is undefined', () => {
+    const raw: RawTraceAssessment[] = [
+      { assessment_name: 'expected', expectation: { value: undefined, serialized_value: { value: 'x' } } },
+    ];
+    expect(extractPriorAnswers(raw)).toEqual([{ name: 'expected', kind: 'expectation', value: 'x', valid: true }]);
+  });
 });
 
 describe('buildPrefilledAnswers', () => {
@@ -73,5 +96,14 @@ describe('buildPrefilledAnswers', () => {
 
   it('leaves unmatched schemas unanswered', () => {
     expect(buildPrefilledAnswers([], schemas)).toEqual({});
+  });
+
+  it('prefills array and numeric values intact', () => {
+    const multiSchemas = [schema('opts', 'FEEDBACK'), schema('score', 'FEEDBACK')];
+    const priors = extractPriorAnswers([
+      { assessment_name: 'opts', feedback: { value: ['a', 'b'] } },
+      { assessment_name: 'score', feedback: { value: 4 } },
+    ]);
+    expect(buildPrefilledAnswers(priors, multiSchemas)).toEqual({ opts: ['a', 'b'], score: 4 });
   });
 });

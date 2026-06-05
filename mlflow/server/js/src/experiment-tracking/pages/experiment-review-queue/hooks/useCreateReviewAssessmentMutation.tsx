@@ -29,10 +29,10 @@ export interface CreateReviewAssessmentParams {
 export const useCreateReviewAssessmentMutation = () => {
   const queryClient = useQueryClient();
   const { mutate, mutateAsync, isLoading, error } = useMutation<unknown, Error, CreateReviewAssessmentParams>({
-    onSuccess: () => {
-      // Refresh the trace's prior answers so a reopened trace prefills the
-      // just-written assessment.
-      queryClient.invalidateQueries([REVIEW_QUEUE_TRACE_ASSESSMENTS_QUERY_KEY]);
+    onSuccess: (_data, variables) => {
+      // Refresh just this trace's prior answers so a reopen prefills the
+      // newly-written assessment (scoped by traceId, not all traces).
+      queryClient.invalidateQueries([REVIEW_QUEUE_TRACE_ASSESSMENTS_QUERY_KEY, variables.traceId]);
     },
     mutationFn: async ({ traceId, name, assessmentKind, value, sourceId }) => {
       const assessment = {

@@ -54,14 +54,16 @@ export const extractPriorAnswers = (assessments: RawTraceAssessment[]): PriorAns
     } else if (assessment.expectation) {
       kind = 'expectation';
       value =
-        'value' in assessment.expectation
+        assessment.expectation.value !== undefined
           ? assessment.expectation.value
           : assessment.expectation.serialized_value?.value;
     } else {
       // Neither feedback nor expectation (e.g. an issue reference) — not an answer.
       continue;
     }
-    if (value === undefined) {
+    // Mirror the focused-review submit's "answered" predicate so a prior that
+    // could never be re-submitted (empty) doesn't render as a phantom prefill.
+    if (value === undefined || value === null || value === '' || (Array.isArray(value) && value.length === 0)) {
       continue;
     }
     priors.push({
