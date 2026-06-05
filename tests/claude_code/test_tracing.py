@@ -908,6 +908,38 @@ def test_process_transcript_includes_steer_messages(tmp_path):
 # ============================================================================
 # SKILL ATTRIBUTE PROPAGATION TESTS
 # ============================================================================
+#
+# Canonical Skill wire format (used by every test below).
+#
+# When the user invokes a Skill, the Claude Code CLI emits TWO distinct
+# user-role stream entries on the happy path:
+#
+#   [assistant] tool_use(id=X, name="Skill", input={"skill": "<name>"})
+#   [user]      tool_result(tool_use_id=X)               ← success result
+#                 + toolUseResult.commandName = "<name>"
+#                 + toolUseResult.success    = True
+#   [user]      text "<skill body>"                      ← synthetic body injection
+#   [assistant] ... continuation (work inside the skill body) ...
+#
+# At the API layer the SDK merges the two user entries into one message with
+# two content blocks (tool_result + text) before sending. At the stream/
+# transcript layer they remain as two consecutive user entries, which is what
+# this file's test fixtures should reflect.
+#
+# On the FAILED path (is_error=True), the CLI does NOT emit a body injection
+# — the skill never bootstraps — so the failed fixtures stop at the
+# tool_result and the assistant's next turn is recovery work:
+#
+#   [assistant] tool_use(id=X, name="Skill", ...)
+#   [user]      tool_result(tool_use_id=X, is_error=True)
+#                 + toolUseResult.commandName = "<name>"
+#                 + toolUseResult.success    = False
+#   [assistant] "recovering..."                          ← NO body injection
+#
+# Tests below follow this convention. If you're adding a new happy-path
+# skill test and the body-injection user entry seems redundant for your
+# assertion, add it anyway — keeping every fixture wire-format-accurate
+# saves the next contributor from wondering whether they or the test is wrong.
 
 
 def _skill_transcript_with_child_work() -> list[dict[Any, Any]]:
@@ -970,6 +1002,12 @@ def _skill_transcript_with_child_work() -> list[dict[Any, Any]]:
                 ],
             },
             "timestamp": "2025-01-15T10:00:04.000Z",
+        },
+        # Synthetic body injection emitted by the CLI on the happy path.
+        {
+            "type": "user",
+            "message": {"role": "user", "content": [{"type": "text", "text": "<my-skill body>"}]},
+            "timestamp": "2025-01-15T10:00:04.500Z",
         },
         # Child LLM turn after the skill — should inherit the skill name.
         {
@@ -1052,6 +1090,8 @@ def test_process_sdk_messages_propagates_skill_to_child_spans():
             content=[ToolResultBlock(tool_use_id="skill_tool", content="Launching skill")],
             tool_use_result={"success": True, "commandName": "my-skill"},
         ),
+        # Synthetic body injection emitted by the CLI on the happy path.
+        UserMessage(content="<my-skill body>", tool_use_result=None),
         # Child LLM turn — should inherit.
         AssistantMessage(
             content=[TextBlock(text="Thinking inside the skill.")],
@@ -1176,7 +1216,7 @@ def test_process_transcript_failed_skill_does_not_propagate(tmp_path):
     assert trace is not None
     spans = list(trace.search_spans())
 
-    # The failed Skill's OWN span IS stamped with its commandName (M1) so
+    # The failed Skill's OWN span IS stamped with its commandName so
     # operators can attribute the failure to a specific skill.
     skill_spans = [s for s in spans if s.attributes.get("tool_id") == "skill_tool"]
     assert len(skill_spans) == 1
@@ -1221,7 +1261,7 @@ def test_process_sdk_messages_failed_skill_does_not_propagate():
     assert trace is not None
     spans = list(trace.search_spans())
 
-    # The failed Skill's OWN span IS stamped with its commandName (M1).
+    # The failed Skill's OWN span IS stamped with its commandName.
     skill_spans = [s for s in spans if s.attributes.get("tool_id") == "skill_tool"]
     assert len(skill_spans) == 1
     assert skill_spans[0].get_attribute(SpanAttributeKey.SKILL_NAME) == "broken"
@@ -1264,6 +1304,8 @@ def test_process_sdk_messages_skill_does_not_bleed_across_user_prompts():
             content=[ToolResultBlock(tool_use_id="skill_tool", content="Launching")],
             tool_use_result={"success": True, "commandName": "prd-writer"},
         ),
+        # Synthetic body injection emitted by the CLI on the happy path.
+        UserMessage(content="<prd-writer body>", tool_use_result=None),
         AssistantMessage(
             content=[TextBlock(text="PRD body produced under the skill.")],
             model="claude-sonnet-4-20250514",
@@ -1405,6 +1447,12 @@ def _skill_transcript_with_prior_skill_then_failed_skill() -> list[dict[Any, Any
             },
             "timestamp": "2025-01-15T10:00:02.000Z",
         },
+        # Synthetic body injection for skill-a's happy-path boot.
+        {
+            "type": "user",
+            "message": {"role": "user", "content": [{"type": "text", "text": "<skill-a body>"}]},
+            "timestamp": "2025-01-15T10:00:02.500Z",
+        },
         # Skill B — fails.
         {
             "type": "assistant",
@@ -1486,12 +1534,12 @@ def test_process_transcript_failed_skill_clears_prior_skill_scope(tmp_path):
     assert len(skill_a) == 1
     assert skill_a[0].get_attribute(SpanAttributeKey.SKILL_NAME) == "skill-a"
 
-    # Skill B's own span carries skill-b (M1).
+    # Skill B's own span carries skill-b.
     skill_b = [s for s in spans if s.attributes.get("tool_id") == "skill_b"]
     assert len(skill_b) == 1
     assert skill_b[0].get_attribute(SpanAttributeKey.SKILL_NAME) == "skill-b"
 
-    # Recovery work after the failure must NOT inherit either skill name (M2).
+    # Recovery work after the failure must NOT inherit either skill name.
     recovery_llm = [s for s in spans if s.span_type == SpanType.LLM]
     assert len(recovery_llm) == 1
     assert recovery_llm[0].get_attribute(SpanAttributeKey.SKILL_NAME) is None
@@ -1513,6 +1561,8 @@ def test_process_sdk_messages_failed_skill_clears_prior_skill_scope():
             content=[ToolResultBlock(tool_use_id="skill_a", content="launched")],
             tool_use_result={"success": True, "commandName": "skill-a"},
         ),
+        # Synthetic body injection for skill-a's happy-path boot.
+        UserMessage(content="<skill-a body>", tool_use_result=None),
         # Skill B — fails.
         AssistantMessage(
             content=[ToolUseBlock(id="skill_b", name="Skill", input={"skill": "skill-b"})],
@@ -1561,3 +1611,221 @@ def test_process_sdk_messages_failed_skill_clears_prior_skill_scope():
     recovery_bash = [s for s in spans if s.attributes.get("tool_id") == "recovery_bash"]
     assert len(recovery_bash) == 1
     assert recovery_bash[0].get_attribute(SpanAttributeKey.SKILL_NAME) is None
+
+
+def _nested_skill_transcript() -> list[dict[Any, Any]]:
+    """3-level nesting: Skill A's body invokes Skill B; B's body invokes Skill C.
+
+    The user-invoked skill is A. Ideally every span produced while A is running
+    (including B's and C's own TOOL spans and the LLM reasoning under them)
+    should be attributed to skill-A — B and C are implementation details of A.
+    The single-slot state machine doesn't preserve that outer scope, which is
+    what this test documents.
+    """
+    return [
+        {
+            "type": "user",
+            "message": {"role": "user", "content": "use skill A"},
+            "timestamp": "2026-06-05T10:00:00Z",
+        },
+        # Skill A
+        {
+            "type": "assistant",
+            "message": {
+                "role": "assistant",
+                "content": [
+                    {"type": "tool_use", "id": "ta", "name": "Skill", "input": {"skill": "A"}}
+                ],
+            },
+            "timestamp": "2026-06-05T10:00:01Z",
+        },
+        {
+            "type": "user",
+            "toolUseResult": {"success": True, "commandName": "skill-A"},
+            "message": {
+                "role": "user",
+                "content": [{"type": "tool_result", "tool_use_id": "ta", "content": "launch A"}],
+            },
+            "timestamp": "2026-06-05T10:00:02Z",
+        },
+        # A's body injection
+        {
+            "type": "user",
+            "message": {"role": "user", "content": [{"type": "text", "text": "A body"}]},
+            "timestamp": "2026-06-05T10:00:03Z",
+        },
+        # A reasoning
+        {
+            "type": "assistant",
+            "message": {
+                "role": "assistant",
+                "content": [{"type": "text", "text": "A reasoning"}],
+            },
+            "timestamp": "2026-06-05T10:00:04Z",
+        },
+        # Skill B (invoked from inside A)
+        {
+            "type": "assistant",
+            "message": {
+                "role": "assistant",
+                "content": [
+                    {"type": "tool_use", "id": "tb", "name": "Skill", "input": {"skill": "B"}}
+                ],
+            },
+            "timestamp": "2026-06-05T10:00:05Z",
+        },
+        {
+            "type": "user",
+            "toolUseResult": {"success": True, "commandName": "skill-B"},
+            "message": {
+                "role": "user",
+                "content": [{"type": "tool_result", "tool_use_id": "tb", "content": "launch B"}],
+            },
+            "timestamp": "2026-06-05T10:00:06Z",
+        },
+        # B's body injection
+        {
+            "type": "user",
+            "message": {"role": "user", "content": [{"type": "text", "text": "B body"}]},
+            "timestamp": "2026-06-05T10:00:07Z",
+        },
+        # B reasoning
+        {
+            "type": "assistant",
+            "message": {
+                "role": "assistant",
+                "content": [{"type": "text", "text": "B reasoning"}],
+            },
+            "timestamp": "2026-06-05T10:00:08Z",
+        },
+        # Skill C (invoked from inside B)
+        {
+            "type": "assistant",
+            "message": {
+                "role": "assistant",
+                "content": [
+                    {"type": "tool_use", "id": "tc", "name": "Skill", "input": {"skill": "C"}}
+                ],
+            },
+            "timestamp": "2026-06-05T10:00:09Z",
+        },
+        {
+            "type": "user",
+            "toolUseResult": {"success": True, "commandName": "skill-C"},
+            "message": {
+                "role": "user",
+                "content": [{"type": "tool_result", "tool_use_id": "tc", "content": "launch C"}],
+            },
+            "timestamp": "2026-06-05T10:00:10Z",
+        },
+        # C's body injection
+        {
+            "type": "user",
+            "message": {"role": "user", "content": [{"type": "text", "text": "C body"}]},
+            "timestamp": "2026-06-05T10:00:11Z",
+        },
+        # Deepest: C reasoning
+        {
+            "type": "assistant",
+            "message": {
+                "role": "assistant",
+                "content": [{"type": "text", "text": "C reasoning (deepest)"}],
+            },
+            "timestamp": "2026-06-05T10:00:12Z",
+        },
+        # Unwinding: C done, back to B's continuation (semantically)
+        {
+            "type": "assistant",
+            "message": {
+                "role": "assistant",
+                "content": [{"type": "text", "text": "back to B"}],
+            },
+            "timestamp": "2026-06-05T10:00:13Z",
+        },
+        # Unwinding: B done, back to A
+        {
+            "type": "assistant",
+            "message": {
+                "role": "assistant",
+                "content": [{"type": "text", "text": "back to A"}],
+            },
+            "timestamp": "2026-06-05T10:00:14Z",
+        },
+        # Unwinding: A done, final reply to user
+        {
+            "type": "assistant",
+            "message": {
+                "role": "assistant",
+                "content": [{"type": "text", "text": "final reply"}],
+            },
+            "timestamp": "2026-06-05T10:00:15Z",
+        },
+    ]
+
+
+def test_process_transcript_nested_skills_outer_scope_lost(tmp_path):
+    """KNOWN LIMITATION (documented): The single-slot state machine doesn't
+    preserve the outer skill's scope across nested invocations.
+
+    Ideal attribution: the user invoked skill-A, so every span produced while
+    A is running — B's TOOL span, C's TOOL span, and all of B/C's reasoning
+    LLMs — should be tagged skill-A. B and C are implementation details of A.
+
+    Actual behavior: each nested Skill overwrites the active scope, so B's
+    work is tagged skill-B, C's work is tagged skill-C, and the trailing
+    unwind LLMs keep skill-C because there's no stack to pop.
+
+    Set a breakpoint in `_create_llm_and_tool_spans` at the
+    `active_skill_name = ...` assignment to step through this.
+    """
+    transcript_path = tmp_path / "nested.jsonl"
+    transcript_path.write_text("\n".join(json.dumps(e) for e in _nested_skill_transcript()) + "\n")
+
+    trace = process_transcript(str(transcript_path), "nested-skill-test")
+    assert trace is not None
+    spans = list(trace.search_spans())
+
+    # Each Skill's OWN TOOL span is stamped with its own commandName via the
+    # own-span pass (identification). Ideally these should also report skill-A
+    # as the outer scope, but the single slot can only hold one value.
+    assert (
+        next(s for s in spans if s.attributes.get("tool_id") == "ta").get_attribute(
+            SpanAttributeKey.SKILL_NAME
+        )
+        == "skill-A"
+    )
+    # ↓ THE LIMITATION (own-span): tb/tc are tagged with themselves; the outer
+    #   skill-A scope is lost. Ideally both would be skill-A.
+    assert (
+        next(s for s in spans if s.attributes.get("tool_id") == "tb").get_attribute(
+            SpanAttributeKey.SKILL_NAME
+        )
+        == "skill-B"
+    )
+    assert (
+        next(s for s in spans if s.attributes.get("tool_id") == "tc").get_attribute(
+            SpanAttributeKey.SKILL_NAME
+        )
+        == "skill-C"
+    )
+
+    # LLM spans, ordered by their text content (proxy for chronological order).
+    def llm_with_text(text: str):
+        return next(
+            s
+            for s in spans
+            if s.span_type == SpanType.LLM and text in str(s.outputs.get("content", ""))
+        )
+
+    # Inside-A reasoning: tagged skill-A (correct).
+    assert llm_with_text("A reasoning").get_attribute(SpanAttributeKey.SKILL_NAME) == "skill-A"
+
+    # ↓ THE LIMITATION (propagation): once a nested skill is invoked, the slot
+    #   is overwritten and all descendants get the inner skill's name. Ideally
+    #   every LLM below should still be tagged skill-A — A is the user-invoked
+    #   skill and B/C are implementation details of A.
+    assert llm_with_text("B reasoning").get_attribute(SpanAttributeKey.SKILL_NAME) == "skill-B"
+    assert llm_with_text("C reasoning").get_attribute(SpanAttributeKey.SKILL_NAME) == "skill-C"
+    assert llm_with_text("back to B").get_attribute(SpanAttributeKey.SKILL_NAME) == "skill-C"
+    assert llm_with_text("back to A").get_attribute(SpanAttributeKey.SKILL_NAME) == "skill-C"
+    assert llm_with_text("final reply").get_attribute(SpanAttributeKey.SKILL_NAME) == "skill-C"
