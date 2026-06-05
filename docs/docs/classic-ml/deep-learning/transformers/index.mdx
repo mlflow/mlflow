@@ -2,6 +2,9 @@ import { CardGroup, PageCard } from "@site/src/components/Card";
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
 import { BookOpen, FileText } from "lucide-react";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import TabsWrapper from "@site/src/components/TabsWrapper";
 
 # MLflow Transformers Flavor
 
@@ -18,9 +21,20 @@ The MLflow Transformers flavor provides native integration with the [Hugging Fac
 
 ## Installation
 
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install mlflow transformers
+```
+</TabItem>
+<TabItem value="pip" label="pip">
 ```bash
 pip install mlflow transformers
 ```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 ## Basic Usage
 

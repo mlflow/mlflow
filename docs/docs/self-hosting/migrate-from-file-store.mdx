@@ -1,6 +1,9 @@
 ---
 title: Migrate from File Store
 ---
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import TabsWrapper from "@site/src/components/TabsWrapper";
 
 # Migrate from File Store to Database
 
@@ -10,9 +13,20 @@ If you have existing data in a file-based backend (`./mlruns`), you can migrate 
 
 You must have MLflow 3.10 or later installed. Run the following command to upgrade if needed:
 
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install 'mlflow>=3.10'
+```
+</TabItem>
+<TabItem value="pip" label="pip">
 ```bash
 pip install 'mlflow>=3.10'
 ```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 ## Quick Start
 

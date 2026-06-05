@@ -1,4 +1,7 @@
 import { APILink } from "@site/src/components/APILink";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import TabsWrapper from "@site/src/components/TabsWrapper";
 
 # System Metrics
 
@@ -12,21 +15,54 @@ To log system metrics in MLflow, please install `psutil`. We explicitly don't in
 dependencies because `psutil` wheel is not available for linux aarch64, and building from source fails intermittently.
 To install `psutil`, run the following command:
 
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install psutil
+```
+</TabItem>
+<TabItem value="pip" label="pip">
 ```bash
 pip install psutil
 ```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 If you want to catch Nvidia GPU metrics, you also need to install `nvidia-ml-py`:
 
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install nvidia-ml-py
+```
+</TabItem>
+<TabItem value="pip" label="pip">
 ```bash
 pip install nvidia-ml-py
 ```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 If you are using AMD/HIP GPUs, install [pyrsmi](https://github.com/ROCm/pyrsmi) instead of `nvidia-ml-py`:
 
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install pyrsmi
+```
+</TabItem>
+<TabItem value="pip" label="pip">
 ```bash
 pip install pyrsmi
 ```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 ## Turn on/off System Metrics Logging
 

@@ -11,6 +11,9 @@ import { APILink } from "@site/src/components/APILink";
 import StepHeader from "@site/src/components/StepHeader";
 import ServerSetup from "@site/src/content/setup_server_slim.mdx";
 import ImageBox from "@site/src/components/ImageBox";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import TabsWrapper from "@site/src/components/TabsWrapper";
 
 # Tracing Mistral
 
@@ -34,9 +37,20 @@ MLflow automatically captures the following information about Mistral calls:
 
 <StepHeader number={1} title="Install Dependencies" />
 
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install mlflow mistralai
+```
+</TabItem>
+<TabItem value="pip" label="pip">
 ```bash
 pip install mlflow mistralai
 ```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 <StepHeader number={2} title="Start MLflow Server" />
 

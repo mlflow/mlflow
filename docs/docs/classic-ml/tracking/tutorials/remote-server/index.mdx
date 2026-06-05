@@ -1,4 +1,7 @@
 import { APILink } from "@site/src/components/APILink";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import TabsWrapper from "@site/src/components/TabsWrapper";
 
 # Remote Experiment Tracking with MLflow Tracking Server
 
@@ -54,9 +57,20 @@ an S3-compatible object storage, as an artifact store so that you don't need to 
 MLflow is available on PyPI. Also [pyscopg2](https://pypi.org/project/psycopg2/) and [boto3](https://boto3.amazonaws.com/v1/documentation/api/latest/index.html) are required for accessing PostgreSQL and S3 with Python.
 If you don't already have them installed on your system, you can install them with:
 
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install mlflow psycopg2 boto3
+```
+</TabItem>
+<TabItem value="pip" label="pip">
 ```bash
 pip install mlflow psycopg2 boto3
 ```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 ### Step 2 - Set up remote data stores
 

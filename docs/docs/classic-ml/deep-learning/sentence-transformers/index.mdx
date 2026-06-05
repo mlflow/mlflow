@@ -9,6 +9,9 @@ import FeatureHighlights from "@site/src/components/FeatureHighlights";
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
 import { Package, Sparkles, Search, Box, GitBranch, BookOpen } from "lucide-react";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import TabsWrapper from "@site/src/components/TabsWrapper";
 
 # MLflow Sentence Transformers Flavor
 
@@ -43,9 +46,20 @@ The MLflow Sentence Transformers flavor provides integration with the [Sentence 
 
 ## Installation
 
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install 'mlflow[sentence-transformers]'
+```
+</TabItem>
+<TabItem value="pip" label="pip">
 ```bash
 pip install 'mlflow[sentence-transformers]'
 ```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 ## Basic Usage
 

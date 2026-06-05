@@ -3,6 +3,9 @@ import ImageBox from "@site/src/components/ImageBox";
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
 import { Code, Rocket, FileText } from "lucide-react";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import TabsWrapper from "@site/src/components/TabsWrapper";
 
 # End-to-End Workflow: Evaluation-Driven Development
 
@@ -19,9 +22,20 @@ This feature is **not available** with FileStore (local file system-based tracki
 
 ## Prerequisites
 
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install --upgrade 'mlflow>=3.4' openai
+```
+</TabItem>
+<TabItem value="pip" label="pip">
 ```bash
 pip install --upgrade 'mlflow>=3.4' openai
 ```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 ## Step 1: Build & Trace Your Application
 

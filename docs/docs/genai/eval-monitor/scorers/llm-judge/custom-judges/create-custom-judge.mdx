@@ -126,10 +126,22 @@ The MLflow UI provides a visual Judge Builder that lets you create custom LLM ju
 
 1. Install and start MLflow:
 
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install mlflow
+mlflow server
+```
+</TabItem>
+<TabItem value="pip" label="pip">
 ```bash
 pip install mlflow
 mlflow server
 ```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 2. Navigate to your experiment and select the **Judges** tab, then click **New LLM judge**
 

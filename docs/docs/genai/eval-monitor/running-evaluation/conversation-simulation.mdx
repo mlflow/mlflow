@@ -63,9 +63,20 @@ Conversation simulation addresses these challenges by programmatically generatin
 
 Install the required packages:
 
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install --upgrade 'mlflow>=3.10'
+```
+</TabItem>
+<TabItem value="pip" label="pip">
 ```bash
 pip install --upgrade 'mlflow>=3.10'
 ```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 MLflow stores evaluation results in a tracking server. Connect your local environment to the tracking server by one of the following methods.
 

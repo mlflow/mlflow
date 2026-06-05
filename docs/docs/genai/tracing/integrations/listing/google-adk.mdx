@@ -9,6 +9,9 @@ image: /images/llms/tracing/google-adk-tracing.png
 
 import ImageBox from "@site/src/components/ImageBox";
 import { APILink } from "@site/src/components/APILink";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import TabsWrapper from "@site/src/components/TabsWrapper";
 
 # Tracing Google Agent Development Kit (ADK)
 
@@ -18,9 +21,20 @@ import { APILink } from "@site/src/components/APILink";
 
 ## Step 1: Install libraries
 
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install 'mlflow>=3.6.0' google-adk opentelemetry-exporter-otlp-proto-http
+```
+</TabItem>
+<TabItem value="pip" label="pip">
 ```bash
 pip install 'mlflow>=3.6.0' google-adk opentelemetry-exporter-otlp-proto-http
 ```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 ## Step 2: Start the MLflow Tracking Server
 

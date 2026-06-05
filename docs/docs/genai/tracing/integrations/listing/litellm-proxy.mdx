@@ -46,9 +46,20 @@ This approach configures LiteLLM Proxy to send traces directly to MLflow, captur
 
 <StepHeader number={1} title="Install LiteLLM with MLflow Support" />
 
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install 'litellm[mlflow]'
+```
+</TabItem>
+<TabItem value="pip" label="pip">
 ```bash
 pip install 'litellm[mlflow]'
 ```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 <StepHeader number={2} title="Start MLflow Server" />
 
@@ -134,9 +145,18 @@ If you don't have access to configure the LiteLLM Proxy server, you can trace ca
 <TabsWrapper>
 <Tabs groupId="programming-language">
   <TabItem value="python" label="Python" default>
+<Tabs groupId="install">
+  <TabItem value="uv" label="uv" default>
+```bash
+uv pip install mlflow openai
+```
+  </TabItem>
+  <TabItem value="pip" label="pip">
 ```bash
 pip install mlflow openai
 ```
+  </TabItem>
+</Tabs>
   </TabItem>
   <TabItem value="typescript" label="TypeScript">
 ```bash

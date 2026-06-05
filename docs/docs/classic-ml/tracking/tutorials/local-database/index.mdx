@@ -1,3 +1,7 @@
+
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import TabsWrapper from "@site/src/components/TabsWrapper";
 # Tracking Experiments with Local Database
 
 In this tutorial, you will learn how to use a local database to track your experiment metadata with MLflow.
@@ -10,9 +14,20 @@ upon your local file system (e.g. `mlruns.db`) and has a built-in client `sqlite
 
 MLflow is available on PyPI. If you don't already have it installed on your local machine, you can install it with:
 
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install mlflow
+```
+</TabItem>
+<TabItem value="pip" label="pip">
 ```bash
 pip install mlflow
 ```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 ## Step 2. Configure MLflow to Log to SQLite Database
 

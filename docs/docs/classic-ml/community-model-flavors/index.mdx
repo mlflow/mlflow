@@ -5,6 +5,7 @@ description: Discover community-built MLflow model flavors for additional ML fra
 
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
+import TabsWrapper from "@site/src/components/TabsWrapper";
 
 # Community Model Flavors
 
@@ -16,6 +17,23 @@ MLflow's vibrant community has developed flavors for specialized ML frameworks a
 
 Most community flavors are available via PyPI:
 
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+# Time series forecasting
+uv pip install 'mlflow[sktime]'
+uv pip install mlflavors
+
+# Visualization and plotting
+uv pip install mlflow-vizmod
+
+# Big data and cloud platforms
+uv pip install bigmlflow
+uv pip install 'mlflow[aliyun-oss]'
+```
+</TabItem>
+<TabItem value="pip" label="pip">
 ```bash
 # Time series forecasting
 pip install 'mlflow[sktime]'
@@ -28,6 +46,9 @@ pip install mlflow-vizmod
 pip install bigmlflow
 pip install 'mlflow[aliyun-oss]'
 ```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 ### Basic Usage Pattern
 
@@ -59,9 +80,20 @@ predictions = loaded_model.predict(new_data)
 
 Unified interface for time series forecasting, classification, and transformation.
 
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install 'sktime[mlflow]'
+```
+</TabItem>
+<TabItem value="pip" label="pip">
 ```bash
 pip install 'sktime[mlflow]'
 ```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 ```python
 import pandas as pd
@@ -91,9 +123,20 @@ pyfunc_predictions = loaded_pyfunc.predict(pd.DataFrame())
 
 Support for multiple time series and ML frameworks in one package.
 
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install mlflavors
+```
+</TabItem>
+<TabItem value="pip" label="pip">
 ```bash
 pip install mlflavors
 ```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 **Supported Frameworks:**
 
@@ -156,9 +199,20 @@ anomaly_scores = loaded_pyfunc.predict(predict_conf)[0]
 
 Treat visualizations as models for versioning, tracking, and deployment.
 
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install mlflow-vizmod
+```
+</TabItem>
+<TabItem value="pip" label="pip">
 ```bash
 pip install mlflow-vizmod
 ```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 **Create and Log Interactive Visualizations:**
 
@@ -200,9 +254,20 @@ Version Control: Track visualization changes over time. Reproducibility: Recreat
 
 Deploy and manage BigML supervised models through MLflow.
 
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install bigmlflow
+```
+</TabItem>
+<TabItem value="pip" label="pip">
 ```bash
 pip install bigmlflow
 ```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 ```python
 import json
@@ -241,9 +306,20 @@ BigML Integration: Direct support for BigML's supervised models. PyFunc Compatib
 
 High-performance Go implementation of the MLflow tracking server for better scalability and performance.
 
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install mlflow-go-backend
+```
+</TabItem>
+<TabItem value="pip" label="pip">
 ```bash
 pip install mlflow-go-backend
 ```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 **Performance Benefits:**
 
@@ -359,9 +435,20 @@ Most MLflow REST API endpoints are implemented in Go. Missing endpoints automati
 
 **Step 1: Install Go Backend**
 
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install mlflow-go-backend
+```
+</TabItem>
+<TabItem value="pip" label="pip">
 ```bash
 pip install mlflow-go-backend
 ```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 **Step 2: Update Server Command**
 

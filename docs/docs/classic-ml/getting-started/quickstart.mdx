@@ -4,6 +4,9 @@ sidebar_label: "Quickstart"
 ---
 
 import ImageBox from "@site/src/components/ImageBox";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import TabsWrapper from "@site/src/components/TabsWrapper";
 
 # MLflow Tracking Quickstart
 
@@ -27,9 +30,20 @@ Welcome to MLflow! The purpose of this quickstart is to provide a quick guide to
 
 MLflow is available on PyPI. If you don't already have it installed on your system, you can install it with:
 
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install mlflow
+```
+</TabItem>
+<TabItem value="pip" label="pip">
 ```bash
 pip install mlflow
 ```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 :::info
 See [Secure Installs](/self-hosting/security/secure-installs) to learn how to pin dependencies to known good versions using hash checking and upload-time filtering.

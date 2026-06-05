@@ -1,3 +1,7 @@
+
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import TabsWrapper from "@site/src/components/TabsWrapper";
 # Custom Authentication
 
 MLflow's authentication system is designed to be extensible. You can use custom authentication methods through plugins or pluggable functions.
@@ -47,9 +51,20 @@ class MyAuthClient: ...
 
 Then, the plugin should be installed in your Python environment:
 
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install my_auth
+```
+</TabItem>
+<TabItem value="pip" label="pip">
 ```bash
 pip install my_auth
 ```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 Then, register your plugin in `mlflow/setup.py`:
 
@@ -80,9 +95,20 @@ You can configure the server to use a custom authentication function extending M
 
 First, install the auth extension:
 
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install 'mlflow[auth]'
+```
+</TabItem>
+<TabItem value="pip" label="pip">
 ```bash
 pip install 'mlflow[auth]'
 ```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 Create a custom authentication function. The function should return a `werkzeug.datastructures.Authorization` object if
 the request is authenticated, or a `Response` object (typically

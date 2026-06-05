@@ -5,6 +5,7 @@ description: Connect AI assistants and coding tools to MLflow using the Model Co
 
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
+import TabsWrapper from "@site/src/components/TabsWrapper";
 
 # MLflow MCP Server
 
@@ -36,9 +37,20 @@ This integration makes it easy to incorporate MLflow tracing capabilities into A
 
 To use the MLflow MCP server, install MLflow with the `mcp` extra:
 
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install 'mlflow[mcp]>=3.5.1'
+```
+</TabItem>
+<TabItem value="pip" label="pip">
 ```bash
 pip install 'mlflow[mcp]>=3.5.1'
 ```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 ## Set up
 

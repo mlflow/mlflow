@@ -5,6 +5,9 @@ sidebar_label: Pydantic AI Optimization
 
 import { APILink } from "@site/src/components/APILink";
 import useBaseUrl from '@docusaurus/useBaseUrl';
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import TabsWrapper from "@site/src/components/TabsWrapper";
 
 # Optimizing Prompts for Pydantic AI
 
@@ -16,9 +19,20 @@ This guide demonstrates how to leverage <APILink fn="mlflow.genai.optimize_promp
 
 ## Prerequisites
 
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install -U pydantic-ai mlflow gepa nest_asyncio
+```
+</TabItem>
+<TabItem value="pip" label="pip">
 ```bash
 pip install -U pydantic-ai mlflow gepa nest_asyncio
 ```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 Set your OpenAI API key:
 

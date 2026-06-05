@@ -56,9 +56,20 @@ Start the MLflow server following the [Self-Hosting Guide](/self-hosting), if yo
 
 ### 2. Install dependencies
 
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install langchain langchain-openai mlflow
+```
+</TabItem>
+<TabItem value="pip" label="pip">
 ```bash
 pip install langchain langchain-openai mlflow
 ```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 ### 3. Enable tracing
 

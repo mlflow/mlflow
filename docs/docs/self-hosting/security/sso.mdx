@@ -1,4 +1,7 @@
 import ImageBox from "@site/src/components/ImageBox";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import TabsWrapper from "@site/src/components/TabsWrapper";
 
 # SSO (Single Sign-On)
 
@@ -144,9 +147,20 @@ The plugin Python file will be used by the mlflow server's OIDC auth plugin, see
 
 Install mlflow OIDC auth plugin as follows:
 
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install 'mlflow-oidc-auth[full]'
+```
+</TabItem>
+<TabItem value="pip" label="pip">
 ```bash
 pip install 'mlflow-oidc-auth[full]'
 ```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 Before launching the mlflow server with the OIDC plugin, a couple of environment variables must be set.
 The following commands set the environment variables that are common for Okta Auth0 / Google Identity platform / AWS Cognito / Azure Entra ID:

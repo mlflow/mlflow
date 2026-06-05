@@ -7,6 +7,9 @@ sidebar_label: Hyperparameter Tuning
 ---
 
 import ImageBox from "@site/src/components/ImageBox";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import TabsWrapper from "@site/src/components/TabsWrapper";
 
 # Tracking Hyperparameter Tuning with MLflow
 
@@ -29,9 +32,20 @@ By the end of this tutorial, you'll know how to:
 
 MLflow is available on PyPI. Install MLflow and Optuna (Hyperparameter tuning library) with:
 
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install mlflow optuna
+```
+</TabItem>
+<TabItem value="pip" label="pip">
 ```bash
 pip install mlflow optuna
 ```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 Then, follow the instructions in the [Set Up MLflow](/ml/getting-started/running-notebooks) guide to set up MLflow.
 

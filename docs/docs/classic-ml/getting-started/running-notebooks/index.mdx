@@ -43,9 +43,20 @@ This guide shows you how to connect your development environment to an MLflow Ex
 
         #### Step 1: Install MLflow
 
+        <TabsWrapper>
+        <Tabs groupId="install">
+        <TabItem value="uv" label="uv" default>
+        ```bash
+        uv pip install --upgrade "mlflow>=3.1"
+        ```
+        </TabItem>
+        <TabItem value="pip" label="pip">
         ```bash
         pip install --upgrade "mlflow>=3.1"
         ```
+        </TabItem>
+        </Tabs>
+        </TabsWrapper>
 
         :::info
         See [Secure Installs](/self-hosting/security/secure-installs) to learn how to pin dependencies to known good versions using hash checking and upload-time filtering.
@@ -163,9 +174,20 @@ This guide shows you how to connect your development environment to an MLflow Ex
 
     Install MLflow with Databricks connectivity:
 
+    <TabsWrapper>
+    <Tabs groupId="install">
+    <TabItem value="uv" label="uv" default>
+    ```bash
+    uv pip install --upgrade 'mlflow[databricks]>=3.1'
+    ```
+    </TabItem>
+    <TabItem value="pip" label="pip">
     ```bash
     pip install --upgrade 'mlflow[databricks]>=3.1'
     ```
+    </TabItem>
+    </Tabs>
+    </TabsWrapper>
 
     <br/>
 
@@ -207,9 +229,20 @@ This guide shows you how to connect your development environment to an MLflow Ex
 
     3. Install the `python-dotenv` package:
 
+    <TabsWrapper>
+    <Tabs groupId="install">
+    <TabItem value="uv" label="uv" default>
+    ```bash
+    uv pip install python-dotenv
+    ```
+    </TabItem>
+    <TabItem value="pip" label="pip">
     ```bash
     pip install python-dotenv
     ```
+    </TabItem>
+    </Tabs>
+    </TabsWrapper>
 
     4. Load environment variables in your code:
 

@@ -1,4 +1,7 @@
 import { APILink } from "@site/src/components/APILink";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import TabsWrapper from "@site/src/components/TabsWrapper";
 
 # Redacting Sensitive Data from Traces
 
@@ -159,10 +162,22 @@ With MLflow, plugging in Presidio for filtering sensitive data from traces is st
 
 First, install Presidio and download the classifier:
 
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install presidio_analyzer presidio_anonymizer
+python -m spacy download en_core_web_lg
+```
+</TabItem>
+<TabItem value="pip" label="pip">
 ```bash
 pip install presidio_analyzer presidio_anonymizer
 python -m spacy download en_core_web_lg
 ```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 Then, define a filter function that runs Presidio's analyzer and anonymizer on the span input.
 

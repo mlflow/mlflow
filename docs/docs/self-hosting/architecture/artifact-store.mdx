@@ -143,8 +143,8 @@ The order of precedence is:
 3. `DefaultAzureCredential()`
 
 You must set one of these options on **both your client application and your MLflow tracking server**.
-Also, you must run `pip install azure-storage-blob` separately (on both your client and the server) to access Azure Blob Storage.
-Finally, if you want to use DefaultAzureCredential, you must `pip install azure-identity`;
+Also, you must run `uv pip install azure-storage-blob` (or `pip install azure-storage-blob`) separately (on both your client and the server) to access Azure Blob Storage.
+Finally, if you want to use DefaultAzureCredential, you must run `uv pip install azure-identity` or `pip install azure-identity`;
 MLflow does not declare a dependency on these packages by default.
 
 You may set an MLflow environment variable to configure the timeout for artifact uploads and downloads:
@@ -156,7 +156,7 @@ You may set an MLflow environment variable to configure the timeout for artifact
 To store artifacts in Google Cloud Storage, specify a URI of the form `gs://<bucket>/<path>`.
 You should configure credentials for accessing the GCS container on the client and server as described
 in the [GCS documentation](https://google-cloud.readthedocs.io/en/latest/core/auth.html).
-Finally, you must run `pip install google-cloud-storage` (on both your client and the server)
+Finally, you must run `uv pip install google-cloud-storage` or `pip install google-cloud-storage` (on both your client and the server)
 to access Google Cloud Storage; MLflow does not declare a dependency on this package by default.
 
 You may set some MLflow environment variables to troubleshoot GCS read-timeouts (eg. due to slow transfer speeds) using the following variables:
@@ -193,7 +193,7 @@ You should configure the client to be able to log in to the SFTP server without 
 
 The format `sftp://user:pass@host/` is supported for logging in. However, for safety reasons this is not recommended.
 
-When using this store, `pysftp` must be installed on both the server and the client. Run `pip install pysftp` to install the required package.
+When using this store, `pysftp` must be installed on both the server and the client. Run `uv pip install pysftp` or `pip install pysftp` to install the required package.
 
 ### NFS
 

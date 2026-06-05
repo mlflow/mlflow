@@ -49,9 +49,18 @@ To connect your LLM application or AI agent to the MLflow server, you will need 
 <TabsWrapper>
 <Tabs groupId="programming-language">
 <TabItem value="python" label="Python(OpenAI)" default>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install --upgrade mlflow 'openai>=1.0.0'
+```
+</TabItem>
+<TabItem value="pip" label="pip">
 ```bash
 pip install --upgrade mlflow openai>=1.0.0
 ```
+</TabItem>
+</Tabs>
 </TabItem>
 
 <TabItem value="typescript" label="TypeScript(OpenAI)" default>

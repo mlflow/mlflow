@@ -5,6 +5,7 @@ description: Get your MLflow AI Gateway running in minutes. Step-by-step guide t
 
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
+import TabsWrapper from "@site/src/components/TabsWrapper";
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
 import { Key, Server, GitBranch } from "lucide-react";
@@ -17,10 +18,22 @@ Get your AI Gateway running in minutes with this simple walkthrough.
 
 Install MLflow with the required dependencies and start the server:
 
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install 'mlflow[genai]'
+mlflow server --port 5000
+```
+</TabItem>
+<TabItem value="pip" label="pip">
 ```bash
 pip install 'mlflow[genai]'
 mlflow server --port 5000
 ```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 The AI Gateway is built into the MLflow Tracking Server and will be ready at `http://localhost:5000`.
 

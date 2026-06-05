@@ -3,6 +3,9 @@ import ImageBox from "@site/src/components/ImageBox";
 import TileCard from '@site/src/components/TileCard';
 import TilesGrid from '@site/src/components/TilesGrid';
 import { Hammer, Brain, Database} from "lucide-react";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import TabsWrapper from "@site/src/components/TabsWrapper";
 
 # Code-based scorer examples
 
@@ -22,9 +25,20 @@ The image below illustrates some custom scorers' outputs as metrics in the MLflo
 
 Update `mlflow` to the latest version for the best experience, and install `openai` since the example app below uses the OpenAI client.
 
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install --upgrade mlflow openai
+```
+</TabItem>
+<TabItem value="pip" label="pip">
 ```bash
 pip install --upgrade mlflow openai
 ```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 ### Define your app
 

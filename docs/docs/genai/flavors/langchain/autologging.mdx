@@ -1,6 +1,9 @@
 import { APILink } from "@site/src/components/APILink";
 import { Table } from "@site/src/components/Table";
 import ImageBox from "@site/src/components/ImageBox";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import TabsWrapper from "@site/src/components/TabsWrapper";
 
 # MLflow Langchain Autologging
 
@@ -10,9 +13,20 @@ MLflow LangChain flavor supports autologging, a powerful feature that allows you
 MLflow LangChain Autologging is verified to be compatible with LangChain versions between 0.1.0 and 0.2.3. Outside of this range, the feature may not work as expected. To install the compatible version of LangChain, please run the following command:
 :::
 
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install 'mlflow[genai,langchain]' --upgrade
 ```
+</TabItem>
+<TabItem value="pip" label="pip">
+```bash
 pip install 'mlflow[genai,langchain]' --upgrade
 ```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 ## Quickstart
 

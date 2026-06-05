@@ -8,6 +8,7 @@ import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
 import TOCInline from "@theme/TOCInline";
 import { APILink } from "@site/src/components/APILink";
+import TabsWrapper from "@site/src/components/TabsWrapper";
 
 # Managing Dependencies in MLflow Models
 
@@ -93,9 +94,20 @@ threadpoolctl==3.2.0
 :::tip
 Dependency locking requires `uv` to be installed. If `uv` is not available, MLflow will skip the locking step and use standard dependency inference. Install `uv` with:
 
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install uv
+```
+</TabItem>
+<TabItem value="pip" label="pip">
 ```bash
 pip install uv
 ```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 :::
 

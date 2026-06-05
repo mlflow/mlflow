@@ -6,6 +6,9 @@ import ConceptOverview from "@site/src/components/ConceptOverview";
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
 import ImageBox from "@site/src/components/ImageBox";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import TabsWrapper from "@site/src/components/TabsWrapper";
 import { Code2, BarChart3, Rocket, BookOpen, Target, Eye, GitBranch, Settings } from "lucide-react";
 
 # Version Tracking Quickstart
@@ -20,10 +23,20 @@ Build and track a LangChain-based chatbot with MLflow's version management capab
 This quickstart requires MLflow version 3.0 or higher for full LLM and AI agent functionality.
 :::
 
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
 ```bash
-pip install --upgrade mlflow
-pip install langchain-openai
+uv pip install --upgrade mlflow langchain-openai
 ```
+</TabItem>
+<TabItem value="pip" label="pip">
+```bash
+pip install --upgrade mlflow langchain-openai
+```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 ### Set OpenAI API Key
 

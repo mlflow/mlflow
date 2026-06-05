@@ -12,6 +12,9 @@ import { APILink } from "@site/src/components/APILink";
 import ImageBox from "@site/src/components/ImageBox";
 import StepHeader from "@site/src/components/StepHeader";
 import ServerSetup from "@site/src/content/setup_server_slim.mdx";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import TabsWrapper from "@site/src/components/TabsWrapper";
 
 # Tracing LangChain Deep Agent
 
@@ -31,9 +34,20 @@ mlflow.langchain.autolog()
 
 <StepHeader number={1} title="Install Dependencies" />
 
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install deepagents tavily-python mlflow
+```
+</TabItem>
+<TabItem value="pip" label="pip">
 ```bash
 pip install deepagents tavily-python mlflow
 ```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 <StepHeader number={2} title="Start MLflow Server" />
 

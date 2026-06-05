@@ -7,6 +7,7 @@ sidebar_label: Deep Learning
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
 import ImageBox from "@site/src/components/ImageBox";
+import TabsWrapper from "@site/src/components/TabsWrapper";
 
 # Deep Learning Quickstart
 
@@ -28,9 +29,20 @@ In this tutorial, we demonstrate how to use MLflow to track deep learning experi
 
 MLflow is available on PyPI. Install MLflow and Pytorch with:
 
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install mlflow torch torchvision
+```
+</TabItem>
+<TabItem value="pip" label="pip">
 ```bash
 pip install mlflow torch torchvision
 ```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 Then, follow the instructions in the [Set Up MLflow](/ml/getting-started/running-notebooks) guide to set up MLflow.
 

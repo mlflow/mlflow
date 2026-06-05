@@ -9,6 +9,9 @@ image: /images/llms/agno/agno-tracing-basic.png
 
 import { APILink } from "@site/src/components/APILink";
 import ImageBox from "@site/src/components/ImageBox";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import TabsWrapper from "@site/src/components/TabsWrapper";
 
 # Tracing Agno
 
@@ -38,9 +41,20 @@ MLflow trace automatically captures the following information about Agentic call
 
 Install the dependencies for the example:
 
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install 'mlflow>=3.3' agno anthropic yfinance
+```
+</TabItem>
+<TabItem value="pip" label="pip">
 ```bash
 pip install 'mlflow>=3.3' agno anthropic yfinance
 ```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 Run a simple agent with `mlflow.agno.autolog()` enabled:
 

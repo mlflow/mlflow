@@ -1,5 +1,8 @@
 import FeatureHighlights from "@site/src/components/FeatureHighlights"
 import { Brain, Target, Zap, DollarSign } from "lucide-react"
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import TabsWrapper from "@site/src/components/TabsWrapper";
 
 # MemAlign Optimizer (Experimental)
 
@@ -54,9 +57,20 @@ When evaluating new inputs, MemAlign constructs a dynamic context by gathering a
 
 MemAlign requires additional dependencies:
 
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install mlflow dspy jinja2 tqdm
+```
+</TabItem>
+<TabItem value="pip" label="pip">
 ```bash
 pip install mlflow dspy jinja2 tqdm
 ```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 ## Basic Usage
 

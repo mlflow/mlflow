@@ -14,6 +14,9 @@ import ImageBox from "@site/src/components/ImageBox";
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
 import { Users, BookOpen, Scale } from "lucide-react";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import TabsWrapper from "@site/src/components/TabsWrapper";
 
 # Tracing Amazon Bedrock with MLflow
 
@@ -38,9 +41,20 @@ MLflow trace automatically captures the following information about Amazon Bedro
 
 <StepHeader number={1} title="Install Dependencies" />
 
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install mlflow boto3
+```
+</TabItem>
+<TabItem value="pip" label="pip">
 ```bash
 pip install mlflow boto3
 ```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 <StepHeader number={2} title="Start MLflow Server" />
 

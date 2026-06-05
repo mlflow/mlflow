@@ -13,6 +13,9 @@ import ImageBox from "@site/src/components/ImageBox";
 import { APILink } from "@site/src/components/APILink";
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import TabsWrapper from "@site/src/components/TabsWrapper";
 
 # Tracing LiveKit Agents
 
@@ -34,9 +37,20 @@ LiveKit Agents is a framework for building real-time, multimodal AI applications
 
 Install the required packages for LiveKit Agents with OpenTelemetry support:
 
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install livekit-agents livekit-plugins-openai livekit-plugins-silero
+```
+</TabItem>
+<TabItem value="pip" label="pip">
 ```bash
 pip install livekit-agents livekit-plugins-openai livekit-plugins-silero
 ```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 ## Step 2: Start the MLflow Tracking Server
 

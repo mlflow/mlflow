@@ -8,6 +8,9 @@ keywords: [arize, phoenix, tracing, mlflow, opentelemetry, openinference, observ
 
 import StepHeader from "@site/src/components/StepHeader";
 import ServerSetup from "@site/src/content/setup_server_slim.mdx";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import TabsWrapper from "@site/src/components/TabsWrapper";
 
 # Tracing Arize / Phoenix
 
@@ -38,9 +41,20 @@ MLflow automatically captures the following information from OpenInference spans
 
 Install MLflow and the OpenInference instrumentor for your model provider. This example uses OpenAI:
 
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install mlflow openai openinference-instrumentation-openai opentelemetry-sdk
+```
+</TabItem>
+<TabItem value="pip" label="pip">
 ```bash
 pip install mlflow openai openinference-instrumentation-openai opentelemetry-sdk
 ```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 Other instrumentors are available for [LangChain](https://pypi.org/project/openinference-instrumentation-langchain/), [LlamaIndex](https://pypi.org/project/openinference-instrumentation-llama-index/), [Anthropic](https://pypi.org/project/openinference-instrumentation-anthropic/), and more. See the [OpenInference repository](https://github.com/Arize-ai/openinference) for the full list.
 

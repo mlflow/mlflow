@@ -5,6 +5,7 @@ sidebar_position: 4
 import { APILink } from "@site/src/components/APILink";
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
+import TabsWrapper from "@site/src/components/TabsWrapper";
 
 # Deploy MLflow Model to Modal
 
@@ -39,9 +40,20 @@ For Python API references and tutorials, see the [Useful links](#deployment-moda
 
 Ensure the installation of the following libraries:
 
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install mlflow mlflow-modal-deploy modal
+```
+</TabItem>
+<TabItem value="pip" label="pip">
 ```bash
 pip install mlflow mlflow-modal-deploy modal
 ```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 #### Authentication Setup
 

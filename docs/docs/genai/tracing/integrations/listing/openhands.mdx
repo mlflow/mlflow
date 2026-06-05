@@ -13,6 +13,7 @@ import TileCard from "@site/src/components/TileCard";
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
 import { Users, BookOpen, Scale } from "lucide-react";
+import TabsWrapper from "@site/src/components/TabsWrapper";
 
 # Tracing OpenHands
 
@@ -39,9 +40,20 @@ Install the OpenHands [SDK](https://docs.openhands.dev/sdk) or [CLI](https://doc
 <Tabs>
   <TabItem value="sdk" label="SDK" default>
 
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install openhands-sdk
+```
+</TabItem>
+<TabItem value="pip" label="pip">
 ```bash
 pip install openhands-sdk
 ```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
   </TabItem>
   <TabItem value="cli" label="CLI">

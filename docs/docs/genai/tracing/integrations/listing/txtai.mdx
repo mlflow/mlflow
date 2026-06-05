@@ -9,6 +9,7 @@ image: /images/llms/tracing/txtai-rag-tracing.png
 
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
+import TabsWrapper from "@site/src/components/TabsWrapper";
 
 # Tracing txtai
 
@@ -20,9 +21,20 @@ import TabItem from "@theme/TabItem";
 
 To get started, install the [MLflow txtai extension](https://github.com/neuml/mlflow-txtai/tree/master):
 
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install mlflow-txtai
+```
+</TabItem>
+<TabItem value="pip" label="pip">
 ```bash
 pip install mlflow-txtai
 ```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 Then, enable autologging in your Python code:
 

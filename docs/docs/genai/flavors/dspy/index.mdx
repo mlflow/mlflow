@@ -5,6 +5,9 @@ description: Use the MLflow DSPy flavor to track, log, and deploy DSPy models wi
 import { APILink } from "@site/src/components/APILink";
 import { CardGroup, PageCard } from "@site/src/components/Card";
 import useBaseUrl from '@docusaurus/useBaseUrl';
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import TabsWrapper from "@site/src/components/TabsWrapper";
 
 # MLflow DSPy Flavor
 
@@ -93,9 +96,20 @@ The [Module](https://dspy.ai/learn/programming/modules) object is the centerpiec
 the DSPy and MLflow integration. With DSPy, you can create complex agentic logic via a module or
 set of modules.
 
-```shell
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install mlflow dspy -U
+```
+</TabItem>
+<TabItem value="pip" label="pip">
+```bash
 pip install mlflow dspy -U
 ```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 ```python
 import dspy

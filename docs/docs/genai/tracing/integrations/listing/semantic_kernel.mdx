@@ -9,6 +9,9 @@ image: /images/llms/tracing/semantic-kernel-tracing.png
 
 import { APILink } from "@site/src/components/APILink";
 import ImageBox from "@site/src/components/ImageBox";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import TabsWrapper from "@site/src/components/TabsWrapper";
 
 # Tracing Semantic Kernel
 
@@ -35,9 +38,20 @@ Currently, tracing for streaming is not supported. If you want this feature, ple
 
 To get started, let's install the requisite libraries. Note that we will use OpenAI for demonstration purposes, but this tutorial extends to all providers supported by Semantic Kernel.
 
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install 'mlflow>=3.2.0' semantic_kernel openai
+```
+</TabItem>
+<TabItem value="pip" label="pip">
 ```bash
 pip install 'mlflow>=3.2.0' semantic_kernel openai
 ```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 Then, enable autologging in your Python code:
 

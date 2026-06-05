@@ -4,6 +4,9 @@ import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
 import { PenLine, LayoutDashboard, Search } from "lucide-react";
 import ImageBox from "@site/src/components/ImageBox";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import TabsWrapper from "@site/src/components/TabsWrapper";
 
 # Automatic Tracing
 
@@ -106,9 +109,20 @@ You can also combine different LLM providers in a single trace. For example:
 :::note
 This example requires installing LangChain in addition to the base requirements:
 
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install --upgrade langchain langchain-openai
+```
+</TabItem>
+<TabItem value="pip" label="pip">
 ```bash
 pip install --upgrade langchain langchain-openai
 ```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 :::
 

@@ -5,6 +5,9 @@ import TilesGrid from '@site/src/components/TilesGrid';
 import TileCard from '@site/src/components/TileCard';
 import { Bot, Database, Target, Play, Code, Activity, MessageSquare } from 'lucide-react';
 import ServerSetup from "@site/src/content/setup_server.mdx";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import TabsWrapper from "@site/src/components/TabsWrapper";
 
 # Evaluating Agents
 
@@ -45,9 +48,20 @@ AI Agents are an emerging pattern of LLM applications that can use tools, make d
 
 First, install the required packages by running the following command:
 
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install --upgrade 'mlflow>=3.3' openai
+```
+</TabItem>
+<TabItem value="pip" label="pip">
 ```bash
 pip install --upgrade 'mlflow>=3.3' openai
 ```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 MLflow stores evaluation results in a tracking server. Connect your local environment to the tracking server by one of the following methods.
 

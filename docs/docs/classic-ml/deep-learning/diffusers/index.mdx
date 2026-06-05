@@ -7,6 +7,9 @@ sidebar_label: Diffusers
 
 import FeatureHighlights from "@site/src/components/FeatureHighlights";
 import { GitBranch, Package, Layers, Zap } from "lucide-react";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import TabsWrapper from "@site/src/components/TabsWrapper";
 
 # MLflow Diffusers Integration
 
@@ -45,9 +48,20 @@ The `mlflow.diffusers` flavor lets you log, version, and serve LoRA adapters as 
 
 ## Prerequisites
 
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install "diffusers>=0.37.0" peft safetensors torch transformers
+```
+</TabItem>
+<TabItem value="pip" label="pip">
 ```bash
 pip install "diffusers>=0.37.0" peft safetensors torch transformers
 ```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 ## Getting Started
 

@@ -2,6 +2,9 @@ import { APILink } from "@site/src/components/APILink";
 import TileCard from '@site/src/components/TileCard';
 import TilesGrid from '@site/src/components/TilesGrid';
 import { Bot, GitBranch, Shield } from "lucide-react";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import TabsWrapper from "@site/src/components/TabsWrapper";
 
 # DeepEval
 
@@ -11,9 +14,20 @@ import { Bot, GitBranch, Shield } from "lucide-react";
 
 DeepEval scorers require the `deepeval` package:
 
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install deepeval
+```
+</TabItem>
+<TabItem value="pip" label="pip">
 ```bash
 pip install deepeval
 ```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 ## Quick Start
 

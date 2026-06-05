@@ -1,5 +1,8 @@
 import { APILink } from "@site/src/components/APILink";
 import ImageBox from '@site/src/components/ImageBox';
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import TabsWrapper from "@site/src/components/TabsWrapper";
 
 # Evaluate & Monitor FAQ
 
@@ -48,9 +51,20 @@ export MLFLOW_GENAI_EVAL_ASYNC_TIMEOUT=600  # 10 minutes
 
 **For Jupyter Notebooks:** Install `nest_asyncio` to use async functions in notebook environments:
 
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install nest_asyncio
+```
+</TabItem>
+<TabItem value="pip" label="pip">
 ```bash
 pip install nest_asyncio
 ```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 Example with an async predict function:
 

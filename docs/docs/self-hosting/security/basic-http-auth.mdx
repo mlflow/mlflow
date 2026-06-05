@@ -1,5 +1,8 @@
 import Link from "@docusaurus/Link";
 import { APILink } from "@site/src/components/APILink";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import TabsWrapper from "@site/src/components/TabsWrapper";
 
 # Authentication with Username and Password
 
@@ -18,9 +21,20 @@ MLflow Authentication provides Python and REST API for managing users and permis
 
 First, install all dependencies required for the basic auth app:
 
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install 'mlflow[auth]'
+```
+</TabItem>
+<TabItem value="pip" label="pip">
 ```bash
 pip install 'mlflow[auth]'
 ```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 :::note
 The basic auth app requires a secret key for CSRF protection. Please set the `MLFLOW_FLASK_SERVER_SECRET_KEY` environment

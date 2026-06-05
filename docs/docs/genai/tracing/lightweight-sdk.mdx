@@ -3,6 +3,7 @@ import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
 import NebiusLogo from '@site/static/images/logos/nebius-logo.png';
 import useBaseUrl from '@docusaurus/useBaseUrl';
+import TabsWrapper from "@site/src/components/TabsWrapper";
 
 # Production Tracing SDK
 
@@ -25,9 +26,20 @@ MLflow offers a Production Tracing SDK package called `mlflow-tracing` that incl
 
 Install the Production Tracing SDK using pip:
 
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install mlflow-tracing
+```
+</TabItem>
+<TabItem value="pip" label="pip">
 ```bash
 pip install mlflow-tracing
 ```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 :::warning
 Do not install the full `mlflow` package together with the `mlflow-tracing` package, as this may cause version conflicts and namespace resolution issues.

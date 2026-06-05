@@ -6,6 +6,9 @@ description: Automatically log metrics, parameters, models, and artifacts with M
 import TOCInline from "@theme/TOCInline";
 import { APILink } from "@site/src/components/APILink";
 import { Table } from "@site/src/components/Table";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import TabsWrapper from "@site/src/components/TabsWrapper";
 
 # Automatic Logging with MLflow Tracking
 
@@ -36,9 +39,20 @@ This will enable MLflow to automatically log various information about your run,
 
 MLflow is available on PyPI. If you don't already have it installed on your system, you can install it with:
 
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install mlflow
+```
+</TabItem>
+<TabItem value="pip" label="pip">
 ```bash
 pip install mlflow
 ```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 ### Step 2 - Insert `mlflow.autolog` in Your Code
 

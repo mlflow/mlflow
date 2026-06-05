@@ -37,17 +37,17 @@ This information is available at both the span level (individual LLM calls) and 
 To enable cost tracking, you need to start **MLflow Tracking Server** with the `[genai]` extra installed.
 
 <TabsWrapper>
-<Tabs>
-  <TabItem value="pip" label="pip" default>
+<Tabs groupId="install">
+  <TabItem value="uv" label="uv" default>
 ```bash
-pip install 'mlflow[genai]>=3.10.0'
+uv pip install 'mlflow[genai]>=3.10.0'
 mlflow server
 ```
   </TabItem>
-  <TabItem value="uv" label="uv">
+  <TabItem value="pip" label="pip">
 ```bash
-uv add 'mlflow[genai]>=3.10.0'
-uv run mlflow server
+pip install 'mlflow[genai]>=3.10.0'
+mlflow server
 ```
   </TabItem>
 </Tabs>

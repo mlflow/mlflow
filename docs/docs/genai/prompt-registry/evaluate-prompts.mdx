@@ -1,6 +1,7 @@
 import { APILink } from "@site/src/components/APILink";
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
+import TabsWrapper from "@site/src/components/TabsWrapper";
 
 # Evaluating Prompts
 
@@ -21,9 +22,20 @@ Combining [MLflow Prompt Registry](/genai/prompt-registry) with [MLflow LLM Eval
 
 First install MLflow and OpenAI SDK. If you use different LLM providers, install the corresponding SDK instead.
 
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install 'mlflow>=3.0.0' openai -qU
+```
+</TabItem>
+<TabItem value="pip" label="pip">
 ```bash
 pip install 'mlflow>=3.0.0' openai -qU
 ```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 Also set OpenAI API key (or any other LLM providers e.g. Anthropic).
 

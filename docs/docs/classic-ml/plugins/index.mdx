@@ -5,6 +5,7 @@ description: Extend MLflow with custom plugins for tracking backends, artifact s
 
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
+import TabsWrapper from "@site/src/components/TabsWrapper";
 
 # MLflow Plugins
 
@@ -494,9 +495,20 @@ class MyEvaluator(ModelEvaluator):
 
 Store artifacts directly in SQL Server databases:
 
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install 'mlflow[sqlserver]'
+```
+</TabItem>
+<TabItem value="pip" label="pip">
 ```bash
 pip install 'mlflow[sqlserver]'
 ```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 ```python
 import mlflow
@@ -513,9 +525,20 @@ with mlflow.start_run():
 
 Integrate with Aliyun Object Storage Service:
 
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install 'mlflow[aliyun-oss]'
+```
+</TabItem>
+<TabItem value="pip" label="pip">
 ```bash
 pip install 'mlflow[aliyun-oss]'
 ```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 ```python
 import os
@@ -534,9 +557,20 @@ mlflow.create_experiment("oss_experiment", artifact_location="oss://bucket/path"
 
 Use XetHub for versioned artifact storage:
 
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install 'mlflow[xethub]'
+```
+</TabItem>
+<TabItem value="pip" label="pip">
 ```bash
 pip install 'mlflow[xethub]'
 ```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 ```python
 import mlflow
@@ -549,9 +583,20 @@ mlflow.create_experiment("xet_experiment", artifact_location="xet://username/rep
 
 Use Elasticsearch for experiment tracking:
 
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install mlflow-elasticsearchstore
+```
+</TabItem>
+<TabItem value="pip" label="pip">
 ```bash
 pip install mlflow-elasticsearchstore
 ```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
   </TabItem>
   <TabItem value="deployment" label="Model Deployment">
@@ -582,9 +627,20 @@ client.create_deployment(name="my_model", model_uri="models:/MyModel/1", config=
 
 Comprehensive model validation and bias detection:
 
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install mlflow-giskard
+```
+</TabItem>
+<TabItem value="pip" label="pip">
 ```bash
 pip install mlflow-giskard
 ```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 ```python
 import mlflow
@@ -618,9 +674,20 @@ result = mlflow.models.evaluate(
 
 Advanced model validation framework:
 
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install trubrics-sdk
+```
+</TabItem>
+<TabItem value="pip" label="pip">
 ```bash
 pip install trubrics-sdk
 ```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
   </TabItem>
   <TabItem value="execution" label="Execution Backends">
@@ -644,9 +711,20 @@ mlflow run . --backend yarn --backend-config yarn-config.json
 
 Enterprise artifact governance:
 
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install 'mlflow[jfrog]'
+```
+</TabItem>
+<TabItem value="pip" label="pip">
 ```bash
 pip install 'mlflow[jfrog]'
 ```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 **Key Features:**
 

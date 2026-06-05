@@ -3,6 +3,9 @@ title: Self Hosting Overview
 description: Deploy and manage your own MLflow instance. Open-source, vendor-neutral MLOps and LLMOps platform for experiment tracking, model registry, and LLM observability.
 sidebar_position: 1
 ---
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import TabsWrapper from "@site/src/components/TabsWrapper";
 
 # Self-Hosting MLflow
 
@@ -28,9 +31,20 @@ The easiest way to start MLflow server is to run the `mlflow` CLI command in you
 
 First, install MLflow with:
 
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install mlflow
+```
+</TabItem>
+<TabItem value="pip" label="pip">
 ```bash
 pip install mlflow
 ```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 :::info
 See [Secure Installs](/self-hosting/security/secure-installs) to learn how to pin dependencies to known good versions using hash checking and upload-time filtering.

@@ -11,6 +11,9 @@ import { APILink } from "@site/src/components/APILink";
 import { GitBranch, GitCommit, Shield, Code2, Database, Settings, BarChart3, PlayCircle } from "lucide-react";
 import ImageBox from '@site/src/components/ImageBox';
 import GitVersioningImage from '@site/static/images/git-versioning.png';
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import TabsWrapper from "@site/src/components/TabsWrapper";
 
 # Track versions of Git-based applications with MLflow
 
@@ -92,9 +95,20 @@ With <APILink fn="mlflow.genai.enable_git_model_versioning" />, MLflow automatic
 
 Install MLflow and required packages:
 
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install 'mlflow>=3.4' openai
+```
+</TabItem>
+<TabItem value="pip" label="pip">
 ```bash
 pip install 'mlflow>=3.4' openai
 ```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 Set your OpenAI API key:
 

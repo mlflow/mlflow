@@ -2,6 +2,9 @@ import { APILink } from "@site/src/components/APILink";
 import TileCard from '@site/src/components/TileCard';
 import TilesGrid from '@site/src/components/TilesGrid';
 import { Bot, GitBranch, Shield } from "lucide-react";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import TabsWrapper from "@site/src/components/TabsWrapper";
 
 # RAGAS
 
@@ -11,9 +14,20 @@ import { Bot, GitBranch, Shield } from "lucide-react";
 
 RAGAS judges require the `ragas` package:
 
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install ragas
+```
+</TabItem>
+<TabItem value="pip" label="pip">
 ```bash
 pip install ragas
 ```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 ## Quick Start
 

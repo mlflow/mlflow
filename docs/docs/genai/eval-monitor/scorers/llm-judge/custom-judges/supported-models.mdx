@@ -42,7 +42,7 @@ MLflow supports calling model providers directly using the format `provider:/mod
 Judges configured with direct model providers require credentials to be available locally (typically via environment variables) and **cannot be run from the UI**. Use AI Gateway endpoints if you want to run the judges from the UI.
 :::
 
-For any models that are not supported natively, it is also possible to use LiteLLM. Since LiteLLM is not a dependency of MLflow, you'll need to install it separately by running `pip install litellm`. After this, simply specify the provider and model name in the same format as natively supported providers.
+For any models that are not supported natively, it is also possible to use LiteLLM. Since LiteLLM is not a dependency of MLflow, you'll need to install it separately by running `uv pip install litellm` or `pip install litellm`. After this, simply specify the provider and model name in the same format as natively supported providers.
 
 ## Databricks-Hosted Models
 

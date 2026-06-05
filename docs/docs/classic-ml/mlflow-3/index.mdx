@@ -6,6 +6,9 @@ description: Guide for migrating from MLflow 2.x to MLflow 3.x
 ---
 
 import { APILink } from "@site/src/components/APILink";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import TabsWrapper from "@site/src/components/TabsWrapper";
 
 # MLflow 3 Migration Guide
 
@@ -15,9 +18,20 @@ This guide covers breaking changes and API updates when migrating from MLflow 2.
 
 Install MLflow 3 by running:
 
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install "mlflow>=3.1"
+```
+</TabItem>
+<TabItem value="pip" label="pip">
 ```bash
 pip install "mlflow>=3.1"
 ```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 Resources: [Website](https://mlflow.org/) | [Documentation](https://mlflow.org/docs/latest/index.html) | [Release Notes](https://mlflow.org/releases/3)
 
@@ -250,9 +264,20 @@ mlflow.models.update_model_requirements(
 
 Pin MLflow to the latest 2.x version:
 
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install 'mlflow<3'
+```
+</TabItem>
+<TabItem value="pip" label="pip">
 ```bash
 pip install 'mlflow<3'
 ```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 ## Compatibility
 
