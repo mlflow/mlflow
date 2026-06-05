@@ -365,15 +365,18 @@ export class LiveTracingContext {
             : JSON.stringify(toolResult.content);
         toolSpan.setStatus(SpanStatusCode.ERROR, errorText || 'Tool execution failed');
       }
-      // A failed Skill never injected its body, so subsequent spans should
-      // NOT inherit its name (would inflate cost attribution). We still
-      // stamp the Skill TOOL span itself with its own commandName for
-      // identification — only the propagation to `activeSkillName` is gated.
+      // Always stamp the Skill TOOL span with its own commandName for
+      // identification (failed Skills are still attributable).
+      // Propagation:
+      //   - success: activeSkillName = commandName (child spans inherit)
+      //   - failure: activeSkillName = undefined (prior skill must not leak
+      //     into recovery spans, and the failed skill never injected its body
+      //     so it shouldn't propagate either)
       if (msg.tool_use_result?.commandName) {
         toolSpan.setAttribute(SpanAttributeKey.SKILL_NAME, msg.tool_use_result.commandName);
-        if (!toolResult.is_error) {
-          this.activeSkillName = msg.tool_use_result.commandName;
-        }
+        this.activeSkillName = toolResult.is_error
+          ? undefined
+          : msg.tool_use_result.commandName;
       }
       toolSpan.end();
       this.openToolSpans.delete(toolUseId);

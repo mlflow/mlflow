@@ -705,12 +705,114 @@ describe('processTranscript', () => {
     it('does NOT propagate when the Skill tool_result is_error=true', async () => {
       await writeAndProcess(buildSkillTranscript({ isError: true }));
 
+      // The failed Skill's OWN span IS stamped with its commandName (M1) so
+      // operators can attribute the failure to a specific skill.
+      expect(findByToolId('skill_tool')?.attributes['mlflow.skill.name']).toBe('my-skill');
+
       // Post-skill spans must NOT inherit the failed skill name.
       const llmSpans = getSpansByType('LLM');
       for (const s of llmSpans) {
         expect(s.attributes['mlflow.skill.name']).toBeUndefined();
       }
       expect(findByToolId('child_bash')?.attributes['mlflow.skill.name']).toBeUndefined();
+    });
+
+    it('a failed Skill clears the prior skill scope (no leak to recovery spans)', async () => {
+      // Skill A succeeds, then Skill B fails. Recovery work after B must NOT
+      // inherit Skill A's name (M2).
+      const transcript = [
+        {
+          type: 'user',
+          message: { role: 'user', content: 'do' },
+          timestamp: '2025-01-15T10:00:00.000Z',
+        },
+        {
+          type: 'assistant',
+          message: {
+            role: 'assistant',
+            content: [
+              { type: 'tool_use', id: 'skill_a', name: 'Skill', input: { skill: 'skill-a' } },
+            ],
+          },
+          timestamp: '2025-01-15T10:00:01.000Z',
+        },
+        {
+          type: 'user',
+          toolUseResult: { success: true, commandName: 'skill-a' },
+          message: {
+            role: 'user',
+            content: [{ type: 'tool_result', tool_use_id: 'skill_a', content: 'launched' }],
+          },
+          timestamp: '2025-01-15T10:00:02.000Z',
+        },
+        {
+          type: 'assistant',
+          message: {
+            role: 'assistant',
+            content: [
+              { type: 'tool_use', id: 'skill_b', name: 'Skill', input: { skill: 'skill-b' } },
+            ],
+          },
+          timestamp: '2025-01-15T10:00:03.000Z',
+        },
+        {
+          type: 'user',
+          toolUseResult: { success: false, commandName: 'skill-b' },
+          message: {
+            role: 'user',
+            content: [
+              {
+                type: 'tool_result',
+                tool_use_id: 'skill_b',
+                content: 'failed',
+                is_error: true,
+              },
+            ],
+          },
+          timestamp: '2025-01-15T10:00:04.000Z',
+        },
+        {
+          type: 'assistant',
+          message: {
+            role: 'assistant',
+            content: [{ type: 'text', text: 'recovering' }],
+            model: 'claude-test',
+          },
+          timestamp: '2025-01-15T10:00:05.000Z',
+        },
+        {
+          type: 'assistant',
+          message: {
+            role: 'assistant',
+            content: [
+              { type: 'tool_use', id: 'recovery_bash', name: 'Bash', input: {} },
+            ],
+          },
+          timestamp: '2025-01-15T10:00:06.000Z',
+        },
+        {
+          type: 'user',
+          message: {
+            role: 'user',
+            content: [
+              { type: 'tool_result', tool_use_id: 'recovery_bash', content: 'ok' },
+            ],
+          },
+          timestamp: '2025-01-15T10:00:07.000Z',
+        },
+      ];
+
+      await writeAndProcess(transcript);
+
+      expect(findByToolId('skill_a')?.attributes['mlflow.skill.name']).toBe('skill-a');
+      expect(findByToolId('skill_b')?.attributes['mlflow.skill.name']).toBe('skill-b');
+
+      // Recovery LLM must NOT carry skill-a (or skill-b).
+      const llmSpans = getSpansByType('LLM');
+      for (const s of llmSpans) {
+        expect(s.attributes['mlflow.skill.name']).toBeUndefined();
+      }
+      expect(findByToolId('recovery_bash')?.attributes['mlflow.skill.name']).toBeUndefined();
     });
   });
 });

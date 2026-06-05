@@ -310,6 +310,24 @@ describe('LiveTracingContext — failed Skill should not propagate', () => {
 
     expect(llmSpans().slice(-1)[0].attributes[SKILL_NAME]).toBe('good-skill');
   });
+
+  it('a failed Skill clears the prior skill scope (no leak to recovery spans)', () => {
+    // Skill A succeeds, then Skill B fails. Recovery work after B must NOT
+    // inherit Skill A's name (M2).
+    const ctx = new LiveTracingContext('start');
+    ctx.onAssistantMessage(toolUseMsg('skill_a', 'Skill'));
+    ctx.onUserMessage(toolResultMsg('skill_a', 'launched', { commandName: 'skill-a' }));
+    ctx.onAssistantMessage(toolUseMsg('skill_b', 'Skill'));
+    ctx.onUserMessage(
+      toolResultMsg('skill_b', 'failed', { commandName: 'skill-b', isError: true }),
+    );
+    ctx.onAssistantMessage(textMsg('recovering'));
+
+    expect(findByToolId('skill_a')?.attributes[SKILL_NAME]).toBe('skill-a');
+    expect(findByToolId('skill_b')?.attributes[SKILL_NAME]).toBe('skill-b');
+    // Recovery LLM span must NOT carry skill-a (the prior skill).
+    expect(llmSpans().slice(-1)[0].attributes[SKILL_NAME]).toBeUndefined();
+  });
 });
 
 describe('LiveTracingContext — onSystemInit resets all skill-scope state', () => {

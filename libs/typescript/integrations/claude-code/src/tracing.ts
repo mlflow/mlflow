@@ -411,10 +411,19 @@ function createLlmAndToolSpans(
         const toolName = toolUse.name ?? 'unknown';
         const commandName = toolResultInfo?.commandName;
 
-        // A failed Skill never injected its body, so subsequent spans should
-        // NOT inherit its name (would inflate cost attribution).
-        if (commandName && !toolResultInfo?.isError) {
-          activeSkillName = commandName;
+        // Stamp the Skill's own TOOL span with its own commandName for
+        // identification (failed Skills are still attributable).
+        // Propagation:
+        //   - success: activeSkillName = commandName (child spans inherit)
+        //   - failure: activeSkillName = undefined (prior skill must not leak
+        //     into recovery spans, and the failed skill itself never injected
+        //     its body so it shouldn't propagate either)
+        let spanSkillName: string | undefined;
+        if (commandName) {
+          spanSkillName = commandName;
+          activeSkillName = toolResultInfo?.isError ? undefined : commandName;
+        } else {
+          spanSkillName = activeSkillName;
         }
 
         const toolSpan = startSpan({
@@ -426,7 +435,7 @@ function createLlmAndToolSpans(
           attributes: {
             tool_name: toolName,
             tool_id: toolUseId,
-            ...(activeSkillName ? { [SpanAttributeKey.SKILL_NAME]: activeSkillName } : {}),
+            ...(spanSkillName ? { [SpanAttributeKey.SKILL_NAME]: spanSkillName } : {}),
           },
         });
 

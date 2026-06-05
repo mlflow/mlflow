@@ -519,10 +519,20 @@ def _create_llm_and_tool_spans(
                 tool_use_id = tool_use.get("id", "")
                 tool_result = tool_results.get(tool_use_id, None)
 
-                # A failed Skill never injected its body, so subsequent spans
-                # should NOT inherit its name (would inflate cost attribution).
-                if tool_result and tool_result.command_name and not tool_result.is_error:
-                    active_skill_name = tool_result.command_name
+                # Stamp the Skill's own TOOL span with its own commandName for
+                # identification (so a failed Skill is still attributable).
+                # Propagation rules:
+                #   - success: active_skill_name = commandName (child spans inherit)
+                #   - failure: active_skill_name = None (prior skill must not leak
+                #     into recovery spans, and the failed skill itself never
+                #     injected its body so it shouldn't propagate either)
+                if tool_result and tool_result.command_name:
+                    span_skill_name = tool_result.command_name
+                    active_skill_name = (
+                        tool_result.command_name if not tool_result.is_error else None
+                    )
+                else:
+                    span_skill_name = active_skill_name
 
                 tool_span = mlflow.start_span_no_context(
                     name=f"tool_{tool_use.get('name', 'unknown')}",
@@ -534,8 +544,8 @@ def _create_llm_and_tool_spans(
                         "tool_name": tool_use.get("name", "unknown"),
                         "tool_id": tool_use_id,
                         **(
-                            {SpanAttributeKey.SKILL_NAME: active_skill_name}
-                            if active_skill_name
+                            {SpanAttributeKey.SKILL_NAME: span_skill_name}
+                            if span_skill_name
                             else {}
                         ),
                     },
@@ -735,6 +745,37 @@ def _find_sdk_user_prompt(messages: list[Any]) -> str | None:
     return None
 
 
+def _is_real_sdk_user_prompt(messages: list[Any], idx: int) -> bool:
+    """True when messages[idx] is a fresh user prompt — not a tool-result echo,
+    not a skill body injection, not empty. Used to scope skill-name propagation
+    so a skill from a prior turn doesn't leak into a subsequent prompt's spans.
+    """
+    from claude_agent_sdk.types import TextBlock, UserMessage
+
+    msg = messages[idx]
+    if not isinstance(msg, UserMessage) or msg.tool_use_result is not None:
+        return False
+
+    content = msg.content
+    if isinstance(content, str):
+        text = content
+    elif isinstance(content, list):
+        text = "\n".join(b.text for b in content if isinstance(b, TextBlock))
+    else:
+        return False
+    if not text.strip():
+        return False
+
+    # A user message immediately following a Skill tool-result is the CLI
+    # injecting the skill's prompt body — keep skill scope, don't reset it.
+    if idx > 0:
+        prev_tur = getattr(messages[idx - 1], "tool_use_result", None)
+        if isinstance(prev_tur, dict) and prev_tur.get("commandName"):
+            return False
+
+    return True
+
+
 def _build_tool_result_map(messages: list[Any]) -> dict[str, ToolUseResult]:
     """Map tool_use_id to its result content so tool spans can show outputs."""
     from claude_agent_sdk.types import ToolResultBlock, UserMessage
@@ -815,7 +856,10 @@ def _create_sdk_child_spans(
     pending_messages: list[dict[str, Any]] = []
     active_skill_name: str | None = None
 
-    for msg in messages:
+    for idx, msg in enumerate(messages):
+        if _is_real_sdk_user_prompt(messages, idx):
+            active_skill_name = None
+
         if isinstance(msg, AssistantMessage) and msg.content:
             text_blocks = [block for block in msg.content if isinstance(block, TextBlock)]
             tool_blocks = [block for block in msg.content if isinstance(block, ToolUseBlock)]
@@ -864,11 +908,20 @@ def _create_sdk_child_spans(
                 tool_span.set_outputs({
                     "result": tool_result.content if tool_result else "No result found"
                 })
-                # A failed Skill never injected its body, so subsequent spans
-                # should NOT inherit its name (would inflate cost attribution).
-                if tool_result and tool_result.command_name and not tool_result.is_error:
-                    active_skill_name = tool_result.command_name
-                if active_skill_name:
+                # Stamp the Skill's own TOOL span with its own commandName for
+                # identification (failed Skills are still attributable).
+                # Propagation:
+                #   - success: active_skill_name = commandName
+                #   - failure: active_skill_name = None (prior skill must not
+                #     leak into recovery spans)
+                if tool_result and tool_result.command_name:
+                    tool_span.set_attributes({
+                        SpanAttributeKey.SKILL_NAME: tool_result.command_name
+                    })
+                    active_skill_name = (
+                        tool_result.command_name if not tool_result.is_error else None
+                    )
+                elif active_skill_name:
                     tool_span.set_attributes({SpanAttributeKey.SKILL_NAME: active_skill_name})
                 tool_span.end()
 
