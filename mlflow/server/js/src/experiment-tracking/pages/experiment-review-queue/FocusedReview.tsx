@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { Alert, Button, ChevronLeftIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
@@ -6,6 +6,8 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { LabelSchemaInputRenderer } from '../../components/label-schemas';
 import type { LabelSchema, LabelSchemaValue } from '../../components/label-schemas';
 import { useCreateReviewAssessmentMutation } from './hooks/useCreateReviewAssessmentMutation';
+import { useTraceAssessmentsQuery } from './hooks/useTraceAssessmentsQuery';
+import { buildPrefilledAnswers } from './reviewAnswers';
 import { StatusTag } from './ReviewQueueList';
 import type { ReviewQueueItem, ReviewStatus } from './types';
 
@@ -48,19 +50,22 @@ export const FocusedReview = ({
   const intl = useIntl();
   const { createReviewAssessmentAsync, isCreatingAssessment } = useCreateReviewAssessmentMutation();
 
-  // Answers are keyed by schema name; seeded empty (prefilling from existing
-  // assessments is a fast-follow, tracked in the resume notes).
-  const [answers, setAnswers] = useState<Record<string, LabelSchemaValue>>({});
+  // Prefill the widgets from the trace's existing assessments; edits overlay
+  // the prefill so the query result never clobbers what the reviewer typed.
+  const { priorAnswers } = useTraceAssessmentsQuery({ traceId: item.target_id });
+  const prefilled = useMemo(() => buildPrefilledAnswers(priorAnswers, schemas), [priorAnswers, schemas]);
+  const [edited, setEdited] = useState<Record<string, LabelSchemaValue>>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const setAnswer = (name: string, value: LabelSchemaValue) => setAnswers((prev) => ({ ...prev, [name]: value }));
+  const valueFor = (name: string): LabelSchemaValue => (name in edited ? edited[name] : prefilled[name]);
+  const setAnswer = (name: string, value: LabelSchemaValue) => setEdited((prev) => ({ ...prev, [name]: value }));
 
   const isTerminal = item.status === 'COMPLETE' || item.status === 'DECLINED';
 
   const submitAnswersAndComplete = async () => {
     setSubmitError(null);
     const answered = schemas.filter((s) => {
-      const v = answers[s.name];
+      const v = valueFor(s.name);
       return v !== undefined && v !== null && v !== '' && !(Array.isArray(v) && v.length === 0);
     });
     try {
@@ -72,7 +77,7 @@ export const FocusedReview = ({
             traceId: item.target_id,
             name: s.name,
             assessmentKind: s.type === 'EXPECTATION' ? 'expectation' : 'feedback',
-            value: answers[s.name] as Exclude<LabelSchemaValue, null | undefined>,
+            value: valueFor(s.name) as Exclude<LabelSchemaValue, null | undefined>,
             sourceId: completedBy,
           }),
         ),
@@ -202,7 +207,7 @@ export const FocusedReview = ({
                 )}
                 <LabelSchemaInputRenderer
                   input={schema.input}
-                  value={answers[schema.name]}
+                  value={valueFor(schema.name)}
                   onChange={(value) => setAnswer(schema.name, value)}
                   disabled={isTerminal}
                   componentId={`${CID}.question`}

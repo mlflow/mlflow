@@ -1,6 +1,7 @@
-import { useMutation } from '@databricks/web-shared/query-client';
+import { useMutation, useQueryClient } from '@databricks/web-shared/query-client';
 
 import { fetchAPI, getAjaxUrl } from '../../../../common/utils/FetchUtils';
+import { REVIEW_QUEUE_TRACE_ASSESSMENTS_QUERY_KEY } from './useTraceAssessmentsQuery';
 
 export type AssessmentValue = string | number | boolean | string[] | null;
 
@@ -26,7 +27,13 @@ export interface CreateReviewAssessmentParams {
  * the explorer's provider context.
  */
 export const useCreateReviewAssessmentMutation = () => {
+  const queryClient = useQueryClient();
   const { mutate, mutateAsync, isLoading, error } = useMutation<unknown, Error, CreateReviewAssessmentParams>({
+    onSuccess: () => {
+      // Refresh the trace's prior answers so a reopened trace prefills the
+      // just-written assessment.
+      queryClient.invalidateQueries([REVIEW_QUEUE_TRACE_ASSESSMENTS_QUERY_KEY]);
+    },
     mutationFn: async ({ traceId, name, assessmentKind, value, sourceId }) => {
       const assessment = {
         assessment_name: name,
