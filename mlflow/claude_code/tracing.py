@@ -57,7 +57,7 @@ CLAUDE_TRACING_LEVEL = logging.WARNING - 5
 
 
 # ============================================================================
-# CONSTANTS
+# TYPES
 # ============================================================================
 @dataclasses.dataclass
 class ToolUseResult:
@@ -731,7 +731,7 @@ def _find_sdk_user_prompt(messages: list[Any]) -> str | None:
     from claude_agent_sdk.types import TextBlock, UserMessage
 
     for msg in messages:
-        if not isinstance(msg, UserMessage) or msg.tool_use_result is not None:
+        if not isinstance(msg, UserMessage) or getattr(msg, "tool_use_result", None) is not None:
             continue
         content = msg.content
         if isinstance(content, str):
@@ -753,7 +753,7 @@ def _is_real_sdk_user_prompt(messages: list[Any], idx: int) -> bool:
     from claude_agent_sdk.types import TextBlock, UserMessage
 
     msg = messages[idx]
-    if not isinstance(msg, UserMessage) or msg.tool_use_result is not None:
+    if not isinstance(msg, UserMessage) or getattr(msg, "tool_use_result", None) is not None:
         return False
 
     content = msg.content
