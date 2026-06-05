@@ -8,6 +8,7 @@ import pytest
 from click.testing import CliRunner
 
 from mlflow.agent.setup.cli import setup
+from mlflow.telemetry.events import AgentSetupEvent
 
 
 @pytest.fixture
@@ -69,7 +70,9 @@ def test_setup_records_telemetry(
     tmp_git_repo: Path, skills_input: str, skills_install_confirmed: bool
 ):
     with (
-        mock.patch("mlflow.agent.agents.shutil.which", return_value="/usr/local/bin/claude"),
+        mock.patch(
+            "mlflow.agent.agents.shutil.which", return_value="/usr/local/bin/claude"
+        ) as mock_which,
         mock.patch("mlflow.agent.setup.cli._record_event") as mock_record,
     ):
         result = CliRunner().invoke(
@@ -78,13 +81,15 @@ def test_setup_records_telemetry(
             input=f"{skills_input}\nhttp://localhost:5001\n",
         )
     assert result.exit_code == 0, result.stderr
-    mock_record.assert_called_once()
-    _event, payload = mock_record.call_args.args
-    assert payload == {
-        "agent": "claude",
-        "print_prompt": True,
-        "skills_install_confirmed": skills_install_confirmed,
-    }
+    mock_which.assert_called()
+    mock_record.assert_called_once_with(
+        AgentSetupEvent,
+        {
+            "agent": "claude",
+            "print_prompt": True,
+            "skills_install_confirmed": skills_install_confirmed,
+        },
+    )
 
 
 def test_setup_requested_agent_not_installed(tmp_git_repo: Path):
