@@ -4,9 +4,19 @@ import time
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import nullcontext
-from typing import Sequence
+from typing import TYPE_CHECKING, Sequence
 
 import mlflow
+
+if TYPE_CHECKING:
+    from mlflow.genai.label_schemas.label_schemas import (
+        InputCategorical,
+        InputNumeric,
+        InputPassFail,
+        InputText,
+        LabelSchema,
+        LabelSchemaType,
+    )
 from mlflow.entities.assessment import Assessment
 from mlflow.entities.issue import Issue, IssueSeverity, IssueStatus
 from mlflow.entities.model_registry import PromptVersion
@@ -879,3 +889,87 @@ class TracingClient:
             The Issue entity.
         """
         return self.store.get_issue(issue_id)
+
+    # ----- Label schemas (tracking-store CRUD) -----
+
+    def _create_label_schema(
+        self,
+        experiment_id: str,
+        *,
+        name: str,
+        type: "LabelSchemaType | str",
+        input: "InputPassFail | InputCategorical | InputNumeric | InputText",
+        instruction: str | None = None,
+        enable_comment: bool = False,
+    ) -> "LabelSchema":
+        """Create a new label schema.
+
+        Args:
+            experiment_id: Parent experiment ID.
+            name: Schema name. Free text shown to reviewers as the label
+                prompt and used as the assessment key; unique within the
+                experiment.
+            type: ``"feedback"`` or ``"expectation"``.
+            input: One of :py:class:`InputPassFail` / :py:class:`InputCategorical`
+                / :py:class:`InputNumeric` / :py:class:`InputText`.
+            instruction: Optional supplementary guidance (<=1000 chars).
+            enable_comment: UI hint; persisted but not consumed server-side.
+
+        Returns:
+            The created :py:class:`LabelSchema` with backend-generated
+            ``schema_id`` and audit fields populated.
+        """
+        return self.store.create_label_schema(
+            experiment_id=experiment_id,
+            name=name,
+            type=type,
+            input=input,
+            instruction=instruction,
+            enable_comment=enable_comment,
+        )
+
+    def _get_label_schema(self, schema_id: str) -> "LabelSchema":
+        return self.store.get_label_schema(schema_id)
+
+    def _get_label_schema_by_name(self, experiment_id: str, name: str) -> "LabelSchema":
+        return self.store.get_label_schema_by_name(experiment_id, name)
+
+    def _list_label_schemas(
+        self,
+        experiment_id: str,
+        max_results: int = 100,
+        page_token: str | None = None,
+    ) -> "PagedList[LabelSchema]":
+        return self.store.list_label_schemas(
+            experiment_id, max_results=max_results, page_token=page_token
+        )
+
+    def _update_label_schema(
+        self,
+        schema_id: str,
+        *,
+        name: str | None = None,
+        instruction: str | None = None,
+        enable_comment: bool | None = None,
+        input: "InputPassFail | InputCategorical | InputNumeric | InputText | None" = None,
+    ) -> "LabelSchema":
+        """Sparse-update a label schema.
+
+        ``type`` is immutable post-create and is not accepted. Fields left as
+        ``None`` are unchanged on the server. ``enable_comment=None`` is
+        treated as "unchanged"; pass ``True`` or ``False`` to set explicitly.
+
+        Returns:
+            The updated :py:class:`LabelSchema`.
+        """
+        return self.store.update_label_schema(
+            schema_id,
+            name=name,
+            instruction=instruction,
+            enable_comment=enable_comment,
+            input=input,
+        )
+
+    def _delete_label_schema(self, schema_id: str) -> None:
+        """Delete a label schema. No-op when the schema doesn't exist."""
+        return self.store.delete_label_schema(schema_id)

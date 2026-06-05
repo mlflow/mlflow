@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import {
   ensureInitialized,
   getEffectiveTracingConfig,
+  parseTraceLocation,
   resolveSettingsPath,
   writeTracingSettings,
 } from '../src/config';
@@ -48,6 +49,7 @@ describe('Claude Code tracing config', () => {
     delete process.env.MLFLOW_TRACKING_URI;
     delete process.env.MLFLOW_EXPERIMENT_ID;
     delete process.env.MLFLOW_EXPERIMENT_NAME;
+    delete process.env.MLFLOW_TRACE_LOCATION;
     initMock.mockReset();
     getExperimentByNameMock.mockReset();
     createExperimentMock.mockReset();
@@ -143,5 +145,67 @@ describe('Claude Code tracing config', () => {
       trackingUri: 'http://localhost:5000',
       experimentId: '456',
     });
+  });
+
+  it('parses a catalog.schema.table_prefix trace location', () => {
+    expect(parseTraceLocation('cat.sch.pfx')).toEqual({
+      catalogName: 'cat',
+      schemaName: 'sch',
+      tablePrefix: 'pfx',
+    });
+    expect(parseTraceLocation('  cat.sch.pfx  ')).toEqual({
+      catalogName: 'cat',
+      schemaName: 'sch',
+      tablePrefix: 'pfx',
+    });
+    expect(parseTraceLocation(undefined)).toBeNull();
+    expect(parseTraceLocation('')).toBeNull();
+    expect(parseTraceLocation('cat.sch')).toBeNull();
+    expect(parseTraceLocation('cat.sch.pfx.extra')).toBeNull();
+    expect(parseTraceLocation('cat..pfx')).toBeNull();
+  });
+
+  it('persists and surfaces the trace location and passes it to init', async () => {
+    const settingsPath = resolveSettingsPath(true, { home: tmpHome, cwd: tmpCwd });
+    writeTracingSettings(settingsPath, {
+      trackingUri: 'databricks',
+      experimentId: '42',
+      traceLocation: 'my_catalog.my_schema.my_prefix',
+    });
+    process.chdir(tmpCwd);
+
+    const stored = JSON.parse(readFileSync(settingsPath, 'utf-8')) as {
+      env: Record<string, string>;
+    };
+    expect(stored.env.MLFLOW_TRACE_LOCATION).toBe('my_catalog.my_schema.my_prefix');
+
+    expect(getEffectiveTracingConfig({ home: tmpHome, cwd: tmpCwd })).toMatchObject({
+      trackingUri: 'databricks',
+      experimentId: '42',
+      traceLocation: 'my_catalog.my_schema.my_prefix',
+    });
+
+    await expect(ensureInitialized()).resolves.toBe(true);
+    expect(initMock).toHaveBeenCalledWith({
+      trackingUri: 'databricks',
+      experimentId: '42',
+      traceLocation: {
+        catalogName: 'my_catalog',
+        schemaName: 'my_schema',
+        tablePrefix: 'my_prefix',
+      },
+    });
+  });
+
+  it('refuses to initialize when the trace location is malformed', async () => {
+    writeTracingSettings(resolveSettingsPath(true, { home: tmpHome, cwd: tmpCwd }), {
+      trackingUri: 'databricks',
+      experimentId: '42',
+      traceLocation: 'not-a-valid-location',
+    });
+    process.chdir(tmpCwd);
+
+    await expect(ensureInitialized()).resolves.toBe(false);
+    expect(initMock).not.toHaveBeenCalled();
   });
 });
