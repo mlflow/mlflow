@@ -21,6 +21,7 @@ import { CreateReviewQueueModal } from './CreateReviewQueueModal';
 import { FocusedReview } from './FocusedReview';
 import { ManageQuestionsModal } from './ManageQuestionsModal';
 import { ReviewQueueSection } from './ReviewQueueSection';
+import { useCanManageReviews } from './hooks/useCanManageReviews';
 import { useDeleteReviewQueueMutation } from './hooks/useDeleteReviewQueueMutation';
 import { useListReviewQueueTracesQuery } from './hooks/useListReviewQueueTracesQuery';
 import { useListReviewQueuesQuery } from './hooks/useListReviewQueuesQuery';
@@ -45,6 +46,9 @@ const ExperimentReviewQueuePage = () => {
   const intl = useIntl();
   const { experimentId } = useParams<{ experimentId: string }>();
   const reviewer = useReviewer();
+  // Gate management controls (questions, create/edit/delete queue) on EDIT+;
+  // reviewing stays available to everyone assigned. See useCanManageReviews.
+  const canManage = useCanManageReviews(experimentId ?? '');
 
   // Collapsed (not expanded) queue ids. Empty == every section expanded.
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
@@ -145,27 +149,31 @@ const ExperimentReviewQueuePage = () => {
         <Typography.Title level={2} withoutMargins>
           <FormattedMessage defaultMessage="Review" description="Review queue tab title" />
         </Typography.Title>
-        <Tooltip
-          componentId={`${CID}.edit-questions-tooltip`}
-          content={intl.formatMessage({
-            defaultMessage: 'Edit review questions for this experiment',
-            description: 'Review queue: edit-questions gear tooltip',
-          })}
-        >
-          <Button
-            componentId={`${CID}.edit-questions`}
-            icon={<GearIcon />}
-            aria-label={intl.formatMessage({
-              defaultMessage: 'Edit review questions',
-              description: 'Review queue: edit-questions gear aria label',
+        {canManage && (
+          <Tooltip
+            componentId={`${CID}.edit-questions-tooltip`}
+            content={intl.formatMessage({
+              defaultMessage: 'Edit review questions for this experiment',
+              description: 'Review queue: edit-questions gear tooltip',
             })}
-            onClick={() => setManageOpen(true)}
-          />
-        </Tooltip>
+          >
+            <Button
+              componentId={`${CID}.edit-questions`}
+              icon={<GearIcon />}
+              aria-label={intl.formatMessage({
+                defaultMessage: 'Edit review questions',
+                description: 'Review queue: edit-questions gear aria label',
+              })}
+              onClick={() => setManageOpen(true)}
+            />
+          </Tooltip>
+        )}
         <div css={{ flex: 1 }} />
-        <Button componentId={`${CID}.new-queue`} icon={<PlusIcon />} onClick={() => setCreateOpen(true)}>
-          <FormattedMessage defaultMessage="New queue" description="Review queue: create-queue button" />
-        </Button>
+        {canManage && (
+          <Button componentId={`${CID}.new-queue`} icon={<PlusIcon />} onClick={() => setCreateOpen(true)}>
+            <FormattedMessage defaultMessage="New queue" description="Review queue: create-queue button" />
+          </Button>
+        )}
       </div>
 
       {queuesLoading ? (
@@ -227,6 +235,7 @@ const ExperimentReviewQueuePage = () => {
               key={q.queue_id}
               queue={q}
               labelSchemas={labelSchemas}
+              canManage={canManage}
               expanded={!collapsedIds.has(q.queue_id)}
               onToggle={() => toggleQueue(q.queue_id)}
               onOpenTrace={(item) => setOpenTrace({ queueId: q.queue_id, targetId: item.target_id })}

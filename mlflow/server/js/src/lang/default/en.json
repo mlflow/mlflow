@@ -415,6 +415,10 @@
     "defaultMessage": "Close guidance",
     "description": "Aria label for closing the detect issues guidance popover"
   },
+  "07Sdib": {
+    "defaultMessage": "Failed to update the queue questions.",
+    "description": "Queue settings: questions update error"
+  },
   "07nYAU": {
     "defaultMessage": "Compared IDs:",
     "description": "Label for the compared IDs section in the model trace explorer"
@@ -542,10 +546,6 @@
   "0uYJoi": {
     "defaultMessage": "Alerts",
     "description": "Tab label for budget alerts"
-  },
-  "0v5pej": {
-    "defaultMessage": "Edit questions",
-    "description": "Edit review queue questions modal title"
   },
   "0wxgDJ": {
     "defaultMessage": "Add tags",
@@ -1306,10 +1306,6 @@
   "5B5dhT": {
     "defaultMessage": "Validate the model before deployment",
     "description": "Heading text for validating the model before deploying it for serving"
-  },
-  "5FH/xv": {
-    "defaultMessage": "Edit questions",
-    "description": "Review queue: edit-questions button aria label"
   },
   "5GCYzy": {
     "defaultMessage": "Experiment Runs - Databricks",
@@ -2491,10 +2487,6 @@
     "defaultMessage": "No runs selected",
     "description": "Experiment page > artifact compare view > empty state for no runs selected > title"
   },
-  "BLbjQg": {
-    "defaultMessage": "Save",
-    "description": "Edit review queue questions: confirm button"
-  },
   "BMUd0e": {
     "defaultMessage": "Create evaluation datasets in order to iteratively evaluate and improve your app. For example, build a dataset from production traces with negative feedback. {learnMoreLink}",
     "description": "Description for a quickstart guide on MLflow evaluation datasets"
@@ -3039,6 +3031,10 @@
     "defaultMessage": "You have added rows with new input values, but you still need to evaluate the new data in order to save it.",
     "description": "Experiment page > artifact compare view > prompt lab artifact synchronization > unevaluated rows indicator"
   },
+  "EPt3nw": {
+    "defaultMessage": "Choose which questions reviewers answer for traces in this queue.",
+    "description": "Queue settings: editable questions hint"
+  },
   "ER3oVW": {
     "defaultMessage": "No metrics available",
     "description": "Text shown in a disabled metric selector when there are no selectable metrics."
@@ -3406,6 +3402,10 @@
   "Gs+blV": {
     "defaultMessage": "Last modified",
     "description": "Column title for last modified timestamp for a model in the registered model page"
+  },
+  "Gx/MGJ": {
+    "defaultMessage": "Questions are locked because this queue has traces. Remove its traces (Traces tab) to edit them.",
+    "description": "Queue settings: questions-locked note"
   },
   "GyGCX5": {
     "defaultMessage": "Create experiment",
@@ -4075,10 +4075,6 @@
     "defaultMessage": "Endpoint:",
     "description": "Endpoint selector label"
   },
-  "KcmUBW": {
-    "defaultMessage": "No questions defined for this experiment yet. Create label schemas first.",
-    "description": "Edit review queue questions: empty state"
-  },
   "KcnW3U": {
     "defaultMessage": "Tag",
     "description": "Button to open the tags filter popover in the experiments page"
@@ -4206,10 +4202,6 @@
   "LEiN8m": {
     "defaultMessage": "Tags",
     "description": "Experiment page > group by runs control > tags section label"
-  },
-  "LGyW/J": {
-    "defaultMessage": "Questions lock once traces are assigned to the queue.",
-    "description": "Review queue: edit-questions disabled reason"
   },
   "LIgbTd": {
     "defaultMessage": "Retrieval Relevance",
@@ -4371,6 +4363,10 @@
     "defaultMessage": "Year",
     "description": "Time unit: year"
   },
+  "MIz4r2": {
+    "defaultMessage": "No questions defined for this experiment yet.",
+    "description": "Queue settings: no schemas to attach"
+  },
   "MJGFlf": {
     "defaultMessage": "Loading endpoints...",
     "description": "Loading endpoints message"
@@ -4450,6 +4446,10 @@
   "MgfSs1": {
     "defaultMessage": "Budget amount (USD)",
     "description": "Budget amount label"
+  },
+  "Mh7jkl": {
+    "defaultMessage": "No traces in this queue.",
+    "description": "Queue settings: empty traces"
   },
   "MhF3mL": {
     "defaultMessage": "Create",
@@ -4550,6 +4550,10 @@
   "NDEhn/": {
     "defaultMessage": "Configure chart",
     "description": "Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > configure chart button"
+  },
+  "NDNgYu": {
+    "defaultMessage": "Close",
+    "description": "Queue settings: close button"
   },
   "NEQwMj": {
     "defaultMessage": "Evaluation runs",
@@ -5447,6 +5451,10 @@
     "defaultMessage": "Select sessions",
     "description": "Title for the select sessions modal"
   },
+  "S2Hz/O": {
+    "defaultMessage": "New questions",
+    "description": "Review queue: badge when a question was added after the trace was completed"
+  },
   "S3YY1P": {
     "defaultMessage": "Span: {spanName}",
     "description": "Label for the span name in assessment metadata"
@@ -5806,6 +5814,10 @@
   "TrYfRN": {
     "defaultMessage": "Dataset actions",
     "description": "Aria label for the V2 evaluation dataset detail page overflow-menu trigger"
+  },
+  "TuYclz": {
+    "defaultMessage": "Queue settings — \"{name}\"",
+    "description": "Queue settings modal title"
   },
   "Tune9y": {
     "defaultMessage": "Created dataset \"{name}\"",
@@ -6519,6 +6531,10 @@
     "defaultMessage": "Create prompt version",
     "description": "A header for the create prompt version modal in the prompt management UI"
   },
+  "XNgxUd": {
+    "defaultMessage": "Queue settings",
+    "description": "Review queue: queue-settings button aria label"
+  },
   "XOUsyq": {
     "defaultMessage": "Loading model definitions...",
     "description": "Loading message for model definitions"
@@ -7110,10 +7126,6 @@
   "aXw0NO": {
     "defaultMessage": "Please select metric",
     "description": "Placeholder text where one can select metrics from the list of available metrics to render on the graph"
-  },
-  "aYavrv": {
-    "defaultMessage": "Choose which questions reviewers answer for traces in “{name}”.",
-    "description": "Edit review queue questions: hint"
   },
   "aZKtr2": {
     "defaultMessage": "Field",
@@ -8403,6 +8415,10 @@
     "defaultMessage": "Failed to delete some endpoints. Please try again.",
     "description": "Gateway > Bulk delete endpoints modal > Error message"
   },
+  "grR2oj": {
+    "defaultMessage": "Remove trace from queue",
+    "description": "Queue settings: remove-trace button aria label"
+  },
   "grhPkj": {
     "defaultMessage": "New dataset record",
     "description": "Aria label for the dataset record create side panel"
@@ -8794,10 +8810,6 @@
   "ijHH2H": {
     "defaultMessage": "Failed to duplicate some endpoints. Please try again.",
     "description": "Gateway > Endpoints list > Duplicate error message"
-  },
-  "ilPw89": {
-    "defaultMessage": "Select at least one question so reviewers have something to answer.",
-    "description": "Edit review queue questions: no-questions-selected warning"
   },
   "imKpxw": {
     "defaultMessage": "ID",
@@ -9879,10 +9891,6 @@
     "defaultMessage": "The relevance_to_query LLM judge determines whether the response is relevant to the input request.",
     "description": "Evaluation results > known type of evaluation result assessment > description of relevance judge."
   },
-  "oF5jcp": {
-    "defaultMessage": "Cancel",
-    "description": "Edit review queue questions: cancel button"
-  },
   "oH2nPk": {
     "defaultMessage": "Please ensure you have a webhook configured to receive budget alert events. You can create one in the 'Budget alert webhooks' section on this page.",
     "description": "Info message when alert action is selected for budget policy"
@@ -10035,10 +10043,6 @@
     "defaultMessage": "Describe what this guardrail should check for...",
     "description": "Guardrail instructions placeholder"
   },
-  "ozeqAU": {
-    "defaultMessage": "Failed to update the queue questions.",
-    "description": "Edit review queue questions: error alert title"
-  },
   "p/wUKB": {
     "defaultMessage": "MLflow Assistant",
     "description": "Title for the global Assistant chat panel"
@@ -10182,6 +10186,10 @@
   "prRya4": {
     "defaultMessage": "Model",
     "description": "Gateway > Endpoint details > Section title for model configuration card"
+  },
+  "ptUslY": {
+    "defaultMessage": "Save questions",
+    "description": "Queue settings: save questions"
   },
   "ptcZpc": {
     "defaultMessage": "Table",
@@ -10558,6 +10566,10 @@
   "rgSaFx": {
     "defaultMessage": "Span type",
     "description": "Section label for span type filters in the trace explorer."
+  },
+  "rhE+CF": {
+    "defaultMessage": "Traces",
+    "description": "Queue settings: traces tab"
   },
   "rjZ8Tw": {
     "defaultMessage": "Save failed",
@@ -11539,6 +11551,10 @@
     "defaultMessage": "Reasoning",
     "description": "Label for the collapsible reasoning section in chat message"
   },
+  "xAUimJ": {
+    "defaultMessage": "Failed to remove the trace.",
+    "description": "Queue settings: remove trace error"
+  },
   "xBVMQz": {
     "defaultMessage": "LLM",
     "description": "Example text snippet for LLM"
@@ -11630,6 +11646,10 @@
   "xdFMIN": {
     "defaultMessage": "Dataset name",
     "description": "Dataset name label"
+  },
+  "xdz9MH": {
+    "defaultMessage": "Personal queues use all of the experiment's questions; they can't be edited here.",
+    "description": "Queue settings: user-queue questions note"
   },
   "xgbeVS": {
     "defaultMessage": "Large",
@@ -11882,6 +11902,10 @@
   "z6qX4/": {
     "defaultMessage": "This endpoint may have been deleted",
     "description": "Tooltip for deleted endpoint"
+  },
+  "z7SdAr": {
+    "defaultMessage": "Questions",
+    "description": "Queue settings: questions tab"
   },
   "z8srAp": {
     "defaultMessage": "Trace archival retention",

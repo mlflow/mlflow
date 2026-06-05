@@ -83,7 +83,7 @@ export const LabelSchemaPreview = ({ formData }: LabelSchemaPreviewProps) => {
     input = buildLabelSchemaInputFromForm(previewFormData);
   } catch {
     return (
-      <div css={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <div css={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%' }}>
         {header}
         <div
           css={{
@@ -127,7 +127,7 @@ export const LabelSchemaPreview = ({ formData }: LabelSchemaPreviewProps) => {
   const hasErrors = Object.keys(validationErrors).length > 0;
 
   return (
-    <div css={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+    <div css={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%' }}>
       {header}
       <div
         css={{

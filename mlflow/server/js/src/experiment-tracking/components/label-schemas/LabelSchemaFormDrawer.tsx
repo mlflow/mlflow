@@ -126,7 +126,7 @@ export const LabelSchemaFormDrawer = ({
     >
       <Drawer.Content
         componentId={`${CID}.content`}
-        width="70vw"
+        width="800px"
         title={
           isEdit ? (
             <FormattedMessage defaultMessage="Edit question" description="Edit review question drawer title" />
@@ -150,6 +150,7 @@ export const LabelSchemaFormDrawer = ({
                 <div
                   css={{
                     flex: 1,
+                    width: '100%',
                     overflowY: 'auto',
                     display: 'flex',
                     flexDirection: 'column',
@@ -172,7 +173,10 @@ export const LabelSchemaFormDrawer = ({
               rightChild={
                 <div
                   css={{
+                    display: 'flex',
+                    flexDirection: 'column',
                     height: '100%',
+                    width: '100%',
                     minHeight: 0,
                     overflow: 'hidden',
                     paddingLeft: theme.spacing.md,

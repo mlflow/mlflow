@@ -2,10 +2,9 @@ import {
   Button,
   ChevronDownIcon,
   ChevronRightIcon,
-  PencilIcon,
+  GearIcon,
   Tag,
   TableSkeleton,
-  Tooltip,
   TrashIcon,
   Typography,
   useDesignSystemTheme,
@@ -14,7 +13,7 @@ import { useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 
 import type { LabelSchema } from '../../components/label-schemas';
-import { EditQueueQuestionsModal } from './EditQueueQuestionsModal';
+import { QueueSettingsModal } from './QueueSettingsModal';
 import { ReviewQueueList } from './ReviewQueueList';
 import { useListReviewQueueTracesQuery } from './hooks/useListReviewQueueTracesQuery';
 import { displayUser } from './hooks/useReviewer';
@@ -31,6 +30,7 @@ const CID = 'mlflow.experiment-review-queue.section';
 export const ReviewQueueSection = ({
   queue,
   labelSchemas,
+  canManage,
   expanded,
   onToggle,
   onOpenTrace,
@@ -39,6 +39,8 @@ export const ReviewQueueSection = ({
 }: {
   queue: ReviewQueue;
   labelSchemas: LabelSchema[];
+  /** Whether the current user may manage this queue (settings, delete). */
+  canManage: boolean;
   expanded: boolean;
   onToggle: () => void;
   onOpenTrace: (item: ReviewQueueItem) => void;
@@ -49,18 +51,19 @@ export const ReviewQueueSection = ({
   const intl = useIntl();
   const { items, isLoading } = useListReviewQueueTracesQuery({ queueId: queue.queue_id });
 
-  const [editOpen, setEditOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const pending = items.filter((i) => i.status === 'PENDING').length;
-  // Questions are editable only while the queue is empty (the server freezes
-  // them once traces are assigned).
-  const canEditQuestions = !isLoading && items.length === 0;
 
   // A user queue inherits every experiment schema; a custom queue uses its
   // attached subset (resolved against existing schemas, dropping any dangling).
-  const questionNames =
+  const questions =
     queue.queue_type === 'USER'
-      ? labelSchemas.map((s) => s.name)
-      : labelSchemas.filter((s) => (queue.schema_ids ?? []).includes(s.schema_id)).map((s) => s.name);
+      ? labelSchemas
+      : labelSchemas.filter((s) => (queue.schema_ids ?? []).includes(s.schema_id));
+  const questionNames = questions.map((s) => s.name);
+  // Newest question's creation time. A completed trace whose `completed_time_ms`
+  // predates this had a question added after it was reviewed (see ReviewQueueList).
+  const latestQuestionCreatedAtMs = questions.reduce((max, s) => Math.max(max, s.created_at ?? 0), 0);
 
   return (
     <>
@@ -110,44 +113,22 @@ export const ReviewQueueSection = ({
               />
             </Typography.Text>
           )}
-          {queue.queue_type === 'CUSTOM' &&
-            (canEditQuestions ? (
-              <Button
-                componentId={`${CID}.edit-questions`}
-                size="small"
-                icon={<PencilIcon />}
-                aria-label={intl.formatMessage({
-                  defaultMessage: 'Edit questions',
-                  description: 'Review queue: edit-questions button aria label',
-                })}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setEditOpen(true);
-                }}
-              />
-            ) : (
-              <Tooltip
-                componentId={`${CID}.edit-questions-locked-tooltip`}
-                content={intl.formatMessage({
-                  defaultMessage: 'Questions lock once traces are assigned to the queue.',
-                  description: 'Review queue: edit-questions disabled reason',
-                })}
-              >
-                <span onClick={(e) => e.stopPropagation()}>
-                  <Button
-                    componentId={`${CID}.edit-questions`}
-                    size="small"
-                    icon={<PencilIcon />}
-                    disabled
-                    aria-label={intl.formatMessage({
-                      defaultMessage: 'Edit questions',
-                      description: 'Review queue: edit-questions button aria label',
-                    })}
-                  />
-                </span>
-              </Tooltip>
-            ))}
-          {queue.queue_type === 'CUSTOM' && (
+          {canManage && (
+            <Button
+              componentId={`${CID}.settings`}
+              size="small"
+              icon={<GearIcon />}
+              aria-label={intl.formatMessage({
+                defaultMessage: 'Queue settings',
+                description: 'Review queue: queue-settings button aria label',
+              })}
+              onClick={(e) => {
+                e.stopPropagation();
+                setSettingsOpen(true);
+              }}
+            />
+          )}
+          {canManage && queue.queue_type === 'CUSTOM' && (
             <Button
               componentId={`${CID}.delete`}
               size="small"
@@ -192,13 +173,20 @@ export const ReviewQueueSection = ({
             {isLoading ? (
               <TableSkeleton lines={3} />
             ) : (
-              <ReviewQueueList items={items} onOpen={onOpenTrace} nowMs={nowMs} />
+              <ReviewQueueList
+                items={items}
+                onOpen={onOpenTrace}
+                nowMs={nowMs}
+                latestQuestionCreatedAtMs={latestQuestionCreatedAtMs}
+              />
             )}
           </div>
         )}
       </div>
 
-      {editOpen && <EditQueueQuestionsModal queue={queue} onClose={() => setEditOpen(false)} />}
+      {settingsOpen && (
+        <QueueSettingsModal queue={queue} labelSchemas={labelSchemas} onClose={() => setSettingsOpen(false)} />
+      )}
     </>
   );
 };

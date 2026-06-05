@@ -82,10 +82,13 @@ export const ReviewQueueList = ({
   items,
   onOpen,
   nowMs,
+  latestQuestionCreatedAtMs,
 }: {
   items: ReviewQueueItem[];
   onOpen: (item: ReviewQueueItem) => void;
   nowMs: number;
+  /** Newest question's creation time; flags completed traces reviewed before it. */
+  latestQuestionCreatedAtMs?: number;
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -134,26 +137,45 @@ export const ReviewQueueList = ({
           </TableHeader>
         ))}
       </TableRow>
-      {sortedItems.map((item) => (
-        <TableRow
-          key={item.target_id}
-          onClick={() => onOpen(item)}
-          css={{ cursor: 'pointer', '&:hover': { backgroundColor: theme.colors.actionDefaultBackgroundHover } }}
-        >
-          <TableCell css={{ flex: COLUMNS[0].flex }}>
-            <Typography.Text bold>{item.target_id}</Typography.Text>
-          </TableCell>
-          <TableCell css={{ flex: COLUMNS[1].flex }}>
-            <StatusTag status={item.status} />
-          </TableCell>
-          <TableCell css={{ flex: COLUMNS[2].flex }}>
-            <Typography.Text color="secondary">
-              {item.completed_by ? displayUser(item.completed_by, intl) : '—'}
-            </Typography.Text>
-          </TableCell>
-          <TableCell css={{ flex: COLUMNS[3].flex }}>{formatAgo(item.creation_time_ms, nowMs)}</TableCell>
-        </TableRow>
-      ))}
+      {sortedItems.map((item) => {
+        // A question was added after this trace was completed: it was reviewed
+        // without ever seeing that question. (Personal queues track the live
+        // question set, so this can happen there even though the queue itself
+        // is "frozen" once it has traces — see ReviewQueueSection.)
+        const hasNewQuestions =
+          item.status === 'COMPLETE' &&
+          item.completed_time_ms != null &&
+          latestQuestionCreatedAtMs != null &&
+          latestQuestionCreatedAtMs > item.completed_time_ms;
+        return (
+          <TableRow
+            key={item.target_id}
+            onClick={() => onOpen(item)}
+            css={{ cursor: 'pointer', '&:hover': { backgroundColor: theme.colors.actionDefaultBackgroundHover } }}
+          >
+            <TableCell css={{ flex: COLUMNS[0].flex }}>
+              <Typography.Text bold>{item.target_id}</Typography.Text>
+            </TableCell>
+            <TableCell css={{ flex: COLUMNS[1].flex, display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
+              <StatusTag status={item.status} />
+              {hasNewQuestions && (
+                <Tag componentId={`${CID}.new-questions-tag`} color="lemon">
+                  <FormattedMessage
+                    defaultMessage="New questions"
+                    description="Review queue: badge when a question was added after the trace was completed"
+                  />
+                </Tag>
+              )}
+            </TableCell>
+            <TableCell css={{ flex: COLUMNS[2].flex }}>
+              <Typography.Text color="secondary">
+                {item.completed_by ? displayUser(item.completed_by, intl) : '—'}
+              </Typography.Text>
+            </TableCell>
+            <TableCell css={{ flex: COLUMNS[3].flex }}>{formatAgo(item.creation_time_ms, nowMs)}</TableCell>
+          </TableRow>
+        );
+      })}
     </Table>
   );
 };
