@@ -31,6 +31,7 @@ import {
   useCompareToRunUuid,
   COMPARE_TO_RUN_UUID_QUERY_PARAM,
 } from '../../components/evaluations/hooks/useCompareToRunUuid';
+import { EvaluationCodeSnippetButton } from './EvaluationCodeSnippetButton';
 import { RunEvaluationButton } from './RunEvaluationButton';
 import { isUserFacingTag } from '../../../common/utils/TagUtils';
 import { createEvalRunsTableKeyedColumnKey } from './ExperimentEvaluationRunsTable.utils';
@@ -445,6 +446,7 @@ const ExperimentEvaluationRunsPageImpl = () => {
       <img css={{ maxWidth: '100%', maxHeight: 200 }} src={evalRunsEmptyImg} alt="No runs found" />
       <div css={{ display: 'flex', gap: theme.spacing.sm, marginTop: theme.spacing.md }}>
         <RunEvaluationButton experimentId={experimentId} />
+        <EvaluationCodeSnippetButton experimentId={experimentId} />
       </div>
     </div>
   );

@@ -20,7 +20,7 @@ class AgentTool:
     binary: str
     # Repo-relative directory where this agent reads SKILL.md from.
     skills_dir: str
-    # Extra args appended before the task prompt in interactive launch.
+    # Args inserted between the binary and the prompt at launch.
     interactive_args: tuple[str, ...] = ()
 
     def is_installed(self) -> bool:
@@ -33,29 +33,19 @@ AGENTS: dict[AgentName, AgentTool] = {
         display_name="Claude Code",
         binary="claude",
         skills_dir=".claude/skills",
-        interactive_args=(
-            "--permission-mode",
-            "acceptEdits",
-            "--disallowedTools",
-            "ExitPlanMode,EnterPlanMode",
-            # `--disallowedTools` is variadic; `--` ends option parsing so the
-            # prompt isn't consumed as another tool name.
-            "--",
-        ),
     ),
     "codex": AgentTool(
         name="codex",
         display_name="OpenAI Codex",
         binary="codex",
-        skills_dir=".agents/skills",  # TBD: confirm codex picks up `.agents/skills`
-        interactive_args=(),  # TBD: interactive launch flags for codex
+        skills_dir=".codex/skills",
     ),
     "opencode": AgentTool(
         name="opencode",
         display_name="OpenCode",
         binary="opencode",
-        skills_dir=".agents/skills",  # TBD: confirm opencode picks up `.agents/skills`
-        interactive_args=(),  # TBD: interactive launch flags for opencode
+        skills_dir=".opencode/skills",
+        interactive_args=("--prompt",),
     ),
 }
 

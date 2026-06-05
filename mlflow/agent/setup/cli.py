@@ -4,6 +4,7 @@ import socket
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any
 
 import click
 
@@ -71,42 +72,18 @@ def _choose_agent(preferred: AgentName | None) -> AgentTool:
             return installed[choice - 1]
 
 
-@click.command("setup")
-@click.option(
-    "--agent",
-    "agent_name",
-    type=click.Choice(sorted(AGENTS)),
-    default=None,
-    help="Coding agent to set up. If omitted, picks from installed agents.",
-)
-@click.option(
-    "--print",
-    "print_prompt",
-    is_flag=True,
-    default=False,
-    help=(
-        "Print the composed task prompt to stdout and skip launching the agent. "
-        "Lets you pipe into a custom invocation, e.g. "
-        "`mlflow agent setup --print | claude --permission-mode auto`."
-    ),
-)
-def setup(
+def _run_setup(
     agent_name: AgentName | None,
     print_prompt: bool,
-):
-    """[Experimental] Install MLflow skills and launch a coding agent to instrument this repo."""
-    click.secho(
-        "[Experimental] `mlflow agent setup` is experimental and may change without notice.",
-        fg="yellow",
-        err=True,
-    )
-
+    payload: dict[str, Any],
+) -> tuple[list[str], Path] | None:
+    """Run the interactive setup flow and return the agent launch command, or None for --print."""
     repo_root = _git_root(Path.cwd())
     if repo_root is None:
         raise click.ClickException("`mlflow agent setup` must be run inside a git working tree.")
 
     agent = _choose_agent(agent_name)
-    _record_event(AgentSetupEvent, {"agent": agent.name, "print_prompt": print_prompt})
+    payload["agent"] = agent.name
 
     skills_dest = repo_root / agent.skills_dir
     skills_installed = click.confirm(
@@ -118,6 +95,7 @@ def setup(
         default=True,
         err=True,
     )
+    payload["skills_install_confirmed"] = skills_installed
     if skills_installed:
         installed = install_skills(skills_dest)
         click.secho(
@@ -173,11 +151,62 @@ def setup(
 
     if print_prompt:
         click.echo(prompt)
-        return
+        return None
 
     cmd = [agent.binary, *agent.interactive_args, prompt]
     click.echo(err=True)
     click.secho(f"Launching {agent.display_name}...", fg="cyan", err=True)
+    return cmd, repo_root
+
+
+@click.command("setup")
+@click.option(
+    "--agent",
+    "agent_name",
+    type=click.Choice(sorted(AGENTS)),
+    default=None,
+    help="Coding agent to set up. If omitted, picks from installed agents.",
+)
+@click.option(
+    "--print",
+    "print_prompt",
+    is_flag=True,
+    default=False,
+    help=(
+        "Print the composed task prompt to stdout and skip launching the agent. "
+        "Lets you pipe into a custom invocation, e.g. "
+        "`mlflow agent setup --print | claude --permission-mode auto`."
+    ),
+)
+def setup(
+    agent_name: AgentName | None,
+    print_prompt: bool,
+):
+    """[Experimental] Install MLflow skills and launch a coding agent to instrument this repo."""
+    click.secho(
+        "[Experimental] `mlflow agent setup` is experimental and may change without notice.",
+        fg="yellow",
+        err=True,
+    )
+
+    success = False
+    payload = {
+        "agent": None,
+        "print_prompt": print_prompt,
+        "skills_install_confirmed": None,
+    }
+    try:
+        launch = _run_setup(agent_name, print_prompt, payload)
+        success = True
+    finally:
+        # Record before handing off to the agent's TUI so a force-aborted session
+        # (kill -9, terminal closed) doesn't drop the setup event.
+        _record_event(AgentSetupEvent, payload, success=success)
+
+    if launch is None:
+        return
+
+    cmd, cwd = launch
     # Inherit stdio so the agent's TUI takes over until the user exits.
-    result = subprocess.run(cmd, cwd=repo_root)
+    result = subprocess.run(cmd, cwd=cwd)
     sys.exit(result.returncode)
