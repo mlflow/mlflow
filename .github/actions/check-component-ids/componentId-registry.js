@@ -1145,6 +1145,7 @@ module.exports = {
   "mlflow.evaluations_review.modal": "",
   "mlflow.evaluations_review.modal.add_to_dataset": "",
   "mlflow.evaluations_review.modal.add_to_evaluation_dataset": "",
+  "mlflow.evaluations_review.modal.flag_for_review": "",
   "mlflow.evaluations_review.modal.next_eval": "",
   "mlflow.evaluations_review.modal.previous_eval": "",
   "mlflow.evaluations_review.modal.share-button": "",
@@ -1650,6 +1651,7 @@ module.exports = {
   // -- mlflow.genai-traces-table --
   "mlflow.genai-traces-table.actions-disabled-tooltip": "",
   "mlflow.genai-traces-table.actions-dropdown": "",
+  "mlflow.genai-traces-table.add-to-review-queue": "",
   "mlflow.genai-traces-table.assessment-cell-judge-running": "",
   "mlflow.genai-traces-table.average-values-tag": "",
   "mlflow.genai-traces-table.chat_sessions_table.session_row_link": "",
