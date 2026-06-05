@@ -4,6 +4,7 @@ import socket
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any
 
 import click
 
@@ -74,7 +75,7 @@ def _choose_agent(preferred: AgentName | None) -> AgentTool:
 def _run_setup(
     agent_name: AgentName | None,
     print_prompt: bool,
-    payload,
+    payload: dict[str, Any],
 ) -> int:
     repo_root = _git_root(Path.cwd())
     if repo_root is None:
