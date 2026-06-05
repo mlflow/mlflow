@@ -80,22 +80,17 @@ def test_setup_renders_per_agent_skills_dir(
 def test_setup_launches_agent_with_correct_argv(
     tmp_git_repo: Path, agent: str, expected_args_before_prompt: list[str]
 ):
-    real_run = subprocess.run
-    captured: list[list[str]] = []
-
-    def fake_run(cmd, *args, **kwargs):
-        if cmd and cmd[0] == agent:
-            captured.append(cmd)
-            return subprocess.CompletedProcess(cmd, 0)
-        return real_run(cmd, *args, **kwargs)
-
     with (
         mock.patch("mlflow.agent.agents.shutil.which", return_value=f"/usr/local/bin/{agent}"),
-        mock.patch("mlflow.agent.setup.cli.subprocess.run", side_effect=fake_run),
+        mock.patch("mlflow.agent.setup.cli._git_root", return_value=tmp_git_repo),
+        mock.patch(
+            "mlflow.agent.setup.cli.subprocess.run",
+            return_value=subprocess.CompletedProcess([], 0),
+        ) as mock_run,
     ):
         CliRunner().invoke(setup, ["--agent", agent], input="y\nhttp://localhost:5001\n")
-    assert len(captured) == 1
-    cmd = captured[0]
+    mock_run.assert_called_once()
+    cmd = mock_run.call_args.args[0]
     assert cmd[:-1] == expected_args_before_prompt
     assert cmd[-1].startswith("# MLflow Tracing Setup")
 
