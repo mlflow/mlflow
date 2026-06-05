@@ -181,7 +181,7 @@ def setup(
     }
     try:
         exit_code = _run_setup(agent_name, print_prompt, payload)
-        success = True
+        success = exit_code == 0
     finally:
         _record_event(AgentSetupEvent, payload, success=success)
 

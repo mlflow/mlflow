@@ -4,6 +4,7 @@ import subprocess
 from pathlib import Path
 from unittest import mock
 
+import click
 import pytest
 from click.testing import CliRunner
 
@@ -105,5 +106,24 @@ def test_setup_requested_agent_not_installed(tmp_git_repo: Path):
     mock_record.assert_called_once_with(
         AgentSetupEvent,
         {"agent": None, "print_prompt": True, "skills_install_confirmed": None},
+        success=False,
+    )
+
+
+def test_setup_records_failure_on_abort(tmp_git_repo: Path):
+    with (
+        mock.patch(
+            "mlflow.agent.agents.shutil.which", return_value="/usr/local/bin/claude"
+        ) as mock_which,
+        mock.patch("mlflow.agent.setup.cli.click.confirm", side_effect=click.Abort) as mock_confirm,
+        mock.patch("mlflow.agent.setup.cli._record_event") as mock_record,
+    ):
+        result = CliRunner().invoke(setup, ["--agent", "claude", "--print"])
+    assert result.exit_code != 0
+    mock_which.assert_called()
+    mock_confirm.assert_called_once()
+    mock_record.assert_called_once_with(
+        AgentSetupEvent,
+        {"agent": "claude", "print_prompt": True, "skills_install_confirmed": None},
         success=False,
     )
