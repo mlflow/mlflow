@@ -320,6 +320,46 @@ def test_update_rejects_schema_from_other_experiment(store):
     _assert_error_code(exc, INVALID_PARAMETER_VALUE)
 
 
+def test_update_questions_locked_once_traces_assigned(store):
+    exp_id = _create_experiments(store, "update_locked")
+    ls1 = _pass_fail(store, exp_id, "quality")
+    ls2 = _pass_fail(store, exp_id, "safety")
+    queue = store.create_review_queue(
+        exp_id, name="q", queue_type="custom", schema_ids=[ls1.schema_id]
+    )
+    store.add_traces_to_review_queue(queue.queue_id, target_ids=["tr-1"])
+    with pytest.raises(MlflowException, match="locked once traces are assigned") as exc:
+        store.update_review_queue(queue.queue_id, schema_ids=[ls1.schema_id, ls2.schema_id])
+    _assert_error_code(exc, INVALID_PARAMETER_VALUE)
+
+
+def test_update_users_allowed_after_traces_assigned(store):
+    exp_id = _create_experiments(store, "update_users_with_traces")
+    ls = _pass_fail(store, exp_id, "quality")
+    queue = store.create_review_queue(
+        exp_id, name="q", queue_type="custom", users=["bob"], schema_ids=[ls.schema_id]
+    )
+    store.add_traces_to_review_queue(queue.queue_id, target_ids=["tr-1"])
+    # Questions are locked, but assigned users stay editable.
+    updated = store.update_review_queue(queue.queue_id, users=["dave"])
+    assert updated.users == ["dave"]
+    assert updated.schema_ids == [ls.schema_id]
+
+
+def test_update_questions_allowed_after_traces_detached(store):
+    exp_id = _create_experiments(store, "update_after_detach")
+    ls1 = _pass_fail(store, exp_id, "quality")
+    ls2 = _pass_fail(store, exp_id, "safety")
+    queue = store.create_review_queue(
+        exp_id, name="q", queue_type="custom", schema_ids=[ls1.schema_id]
+    )
+    store.add_traces_to_review_queue(queue.queue_id, target_ids=["tr-1"])
+    store.remove_traces_from_review_queue(queue.queue_id, target_ids=["tr-1"])
+    # With the queue empty again, questions can be edited.
+    updated = store.update_review_queue(queue.queue_id, schema_ids=[ls1.schema_id, ls2.schema_id])
+    assert sorted(updated.schema_ids) == sorted([ls1.schema_id, ls2.schema_id])
+
+
 # --------------------------------------------------------------------------
 # Delete
 # --------------------------------------------------------------------------
