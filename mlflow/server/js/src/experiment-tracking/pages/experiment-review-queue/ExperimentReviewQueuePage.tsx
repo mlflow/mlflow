@@ -12,6 +12,7 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 
+import { useCurrentUserQuery } from '../../../account/hooks';
 import { useListLabelSchemasQuery } from '../../components/label-schemas';
 import { useParams } from '../../../common/utils/RoutingUtils';
 import { FocusedReview } from './FocusedReview';
@@ -24,7 +25,7 @@ import type { ReviewStatus } from './types';
 
 const CID = 'mlflow.experiment-review-queue.page';
 
-/** No-auth OSS has no per-user identity; everyone is the reserved default user. */
+/** Fallback reviewer on a bare no-auth server (no authenticated user). */
 const DEFAULT_REVIEWER = 'default';
 
 /**
@@ -39,6 +40,11 @@ const ExperimentReviewQueuePage = () => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const { experimentId } = useParams<{ experimentId: string }>();
+  // Authenticated deployments (basic-auth / account plugin) stamp the real
+  // reviewer; a bare no-auth server has no `/users/current`, so the query
+  // misses and we fall back to the reserved default user.
+  const { data: currentUser } = useCurrentUserQuery();
+  const reviewer = currentUser?.user?.username || DEFAULT_REVIEWER;
 
   const [selectedQueueId, setSelectedQueueId] = useState<string | null>(null);
   const [openTargetId, setOpenTargetId] = useState<string | null>(null);
@@ -46,9 +52,9 @@ const ExperimentReviewQueuePage = () => {
 
   const { reviewQueues, isLoading: queuesLoading } = useListReviewQueuesQuery({
     experimentId: experimentId ?? '',
-    // No-auth OSS scopes to the single reserved default user; passing it keeps
-    // the rail from listing every reviewer's personal queue once auth exists.
-    user: DEFAULT_REVIEWER,
+    // Scope to the current reviewer so the rail shows their queues (and the
+    // single default queue on a no-auth server), not everyone's.
+    user: reviewer,
   });
   const { labelSchemas } = useListLabelSchemasQuery({ experimentId: experimentId ?? '' });
   const { setReviewQueueTraceStatusAsync, isSettingStatus } = useSetReviewQueueTraceStatusMutation();
@@ -89,7 +95,7 @@ const ExperimentReviewQueuePage = () => {
       target_id: openItem.target_id,
       status,
       // Attribution only applies to the terminal states; reopen clears it.
-      completed_by: status === 'PENDING' ? undefined : DEFAULT_REVIEWER,
+      completed_by: status === 'PENDING' ? undefined : reviewer,
     });
   };
 
@@ -182,7 +188,7 @@ const ExperimentReviewQueuePage = () => {
                 item={openItem}
                 items={items}
                 schemas={questionSchemas}
-                completedBy={DEFAULT_REVIEWER}
+                completedBy={reviewer}
                 isSettingStatus={isSettingStatus}
                 onBack={() => setOpenTargetId(null)}
                 onSelect={setOpenTargetId}
