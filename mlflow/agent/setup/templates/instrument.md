@@ -9,11 +9,6 @@ You are being launched by `mlflow agent setup` in repo `{{ repo_root }}`.
   ask the user which to instrument before starting.
 - **Install the latest MLflow.** Use the project's package manager's normal
   install. Do not hard-pin the version unless the user asks.
-- **Don't crash without the tracking server.** If {{ tracking_uri }} is
-  unreachable at runtime, traces should fail silently — the app must still
-  work. To verify quickly without waiting on long client timeouts, run the
-  app with `MLFLOW_HTTP_REQUEST_TIMEOUT=5` and an unreachable URI (e.g.
-  `MLFLOW_TRACKING_URI=http://localhost:1`).
 - **Do not add eval code** unless explicitly requested.
 - **If MLflow is already installed and configured, do not duplicate work.**
   Note the existing setup in the final summary.
@@ -36,7 +31,11 @@ Before writing any code:
 - Run the application end-to-end via its normal entry point.
 - Confirm at least one trace is emitted to {{ tracking_uri }}.
 - Confirm no runtime errors.
-- Confirm the app still runs if the tracking server is unreachable.
+
+If MLflow calls hang during verification (e.g. because the tracking server is
+slow or unreachable), set `MLFLOW_HTTP_REQUEST_MAX_RETRIES=0` and
+`MLFLOW_HTTP_REQUEST_TIMEOUT=5` to fail fast instead of waiting through the
+default retries.
 
 If you don't know how to run the app, ask the user and wait for a response
 before proceeding.
