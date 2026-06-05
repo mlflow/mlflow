@@ -1,32 +1,35 @@
 import { useMemo, useState } from 'react';
 
 import {
+  Alert,
   Button,
   Empty,
   GearIcon,
+  Modal,
+  PlusIcon,
   SearchIcon,
   TableSkeleton,
   Tooltip,
+  TrashIcon,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 
-import { useCurrentUserQuery } from '../../../account/hooks';
 import { useListLabelSchemasQuery } from '../../components/label-schemas';
 import { useParams } from '../../../common/utils/RoutingUtils';
+import { CreateReviewQueueModal } from './CreateReviewQueueModal';
 import { FocusedReview } from './FocusedReview';
 import { ManageQuestionsModal } from './ManageQuestionsModal';
 import { ReviewQueueList } from './ReviewQueueList';
+import { useDeleteReviewQueueMutation } from './hooks/useDeleteReviewQueueMutation';
 import { useListReviewQueueTracesQuery } from './hooks/useListReviewQueueTracesQuery';
 import { useListReviewQueuesQuery } from './hooks/useListReviewQueuesQuery';
+import { useReviewer } from './hooks/useReviewer';
 import { useSetReviewQueueTraceStatusMutation } from './hooks/useSetReviewQueueTraceStatusMutation';
-import type { ReviewStatus } from './types';
+import type { ReviewQueue, ReviewStatus } from './types';
 
 const CID = 'mlflow.experiment-review-queue.page';
-
-/** Fallback reviewer on a bare no-auth server (no authenticated user). */
-const DEFAULT_REVIEWER = 'default';
 
 /**
  * Review tab — a reviewer works a queue's traces and answers its questions.
@@ -40,15 +43,14 @@ const ExperimentReviewQueuePage = () => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const { experimentId } = useParams<{ experimentId: string }>();
-  // Authenticated deployments (basic-auth / account plugin) stamp the real
-  // reviewer; a bare no-auth server has no `/users/current`, so the query
-  // misses and we fall back to the reserved default user.
-  const { data: currentUser } = useCurrentUserQuery();
-  const reviewer = currentUser?.user?.username || DEFAULT_REVIEWER;
+  const reviewer = useReviewer();
 
   const [selectedQueueId, setSelectedQueueId] = useState<string | null>(null);
   const [openTargetId, setOpenTargetId] = useState<string | null>(null);
   const [manageOpen, setManageOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+  // The custom queue pending deletion confirmation.
+  const [pendingDelete, setPendingDelete] = useState<ReviewQueue | null>(null);
 
   const { reviewQueues, isLoading: queuesLoading } = useListReviewQueuesQuery({
     experimentId: experimentId ?? '',
@@ -58,6 +60,18 @@ const ExperimentReviewQueuePage = () => {
   });
   const { labelSchemas } = useListLabelSchemasQuery({ experimentId: experimentId ?? '' });
   const { setReviewQueueTraceStatusAsync, isSettingStatus } = useSetReviewQueueTraceStatusMutation();
+  const { deleteReviewQueue, isDeletingQueue, error: deleteError, reset: resetDelete } = useDeleteReviewQueueMutation();
+
+  // Clear any prior delete error and open the confirm dialog for `queue`.
+  const promptDelete = (queue: ReviewQueue) => {
+    resetDelete();
+    setPendingDelete(queue);
+  };
+
+  const cancelDelete = () => {
+    resetDelete();
+    setPendingDelete(null);
+  };
 
   const selectedQueue = useMemo(
     () => reviewQueues.find((q) => q.queue_id === selectedQueueId) ?? reviewQueues[0] ?? null,
@@ -130,6 +144,10 @@ const ExperimentReviewQueuePage = () => {
             onClick={() => setManageOpen(true)}
           />
         </Tooltip>
+        <div css={{ flex: 1 }} />
+        <Button componentId={`${CID}.new-queue`} icon={<PlusIcon />} onClick={() => setCreateOpen(true)}>
+          <FormattedMessage defaultMessage="New queue" description="Review queue: create-queue button" />
+        </Button>
       </div>
 
       {queuesLoading ? (
@@ -164,18 +182,32 @@ const ExperimentReviewQueuePage = () => {
                 <FormattedMessage defaultMessage="Queue:" description="Review queue: queue selector label" />
               </Typography.Text>
               {reviewQueues.map((q) => (
-                <Button
-                  key={q.queue_id}
-                  componentId={`${CID}.select-queue`}
-                  size="small"
-                  type={q.queue_id === selectedQueue?.queue_id ? 'primary' : undefined}
-                  onClick={() => {
-                    setSelectedQueueId(q.queue_id);
-                    setOpenTargetId(null);
-                  }}
-                >
-                  {q.name}
-                </Button>
+                <div key={q.queue_id} css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
+                  <Button
+                    componentId={`${CID}.select-queue`}
+                    size="small"
+                    type={q.queue_id === selectedQueue?.queue_id ? 'primary' : undefined}
+                    onClick={() => {
+                      setSelectedQueueId(q.queue_id);
+                      setOpenTargetId(null);
+                    }}
+                  >
+                    {q.name}
+                  </Button>
+                  {/* Personal USER queues stay put; only custom queues are deletable here. */}
+                  {q.queue_type === 'CUSTOM' && (
+                    <Button
+                      componentId={`${CID}.delete-queue`}
+                      size="small"
+                      icon={<TrashIcon />}
+                      aria-label={intl.formatMessage({
+                        defaultMessage: 'Delete queue',
+                        description: 'Review queue: delete-queue button aria label',
+                      })}
+                      onClick={() => promptDelete(q)}
+                    />
+                  )}
+                </div>
               ))}
             </div>
           )}
@@ -205,6 +237,65 @@ const ExperimentReviewQueuePage = () => {
 
       {manageOpen && experimentId && (
         <ManageQuestionsModal experimentId={experimentId} onClose={() => setManageOpen(false)} />
+      )}
+
+      {createOpen && experimentId && (
+        <CreateReviewQueueModal
+          experimentId={experimentId}
+          onClose={() => setCreateOpen(false)}
+          onCreated={(queue) => setSelectedQueueId(queue.queue_id)}
+        />
+      )}
+
+      {pendingDelete && (
+        <Modal
+          componentId={`${CID}.delete-queue-confirm`}
+          visible
+          title={
+            <FormattedMessage defaultMessage="Delete queue?" description="Review queue: delete confirmation title" />
+          }
+          okText={<FormattedMessage defaultMessage="Delete" description="Review queue: confirm delete" />}
+          okButtonProps={{ danger: true, loading: isDeletingQueue }}
+          cancelText={<FormattedMessage defaultMessage="Cancel" description="Review queue: cancel delete" />}
+          onCancel={cancelDelete}
+          onOk={() =>
+            deleteReviewQueue(
+              { queue_id: pendingDelete.queue_id },
+              {
+                // Close only on success; on failure keep the dialog open and
+                // surface the error below so the action isn't silently lost.
+                onSuccess: () => {
+                  // Drop the selection if we just deleted the active queue so
+                  // the page falls back to the first remaining queue.
+                  if (selectedQueueId === pendingDelete.queue_id) {
+                    setSelectedQueueId(null);
+                    setOpenTargetId(null);
+                  }
+                  setPendingDelete(null);
+                },
+              },
+            )
+          }
+        >
+          <FormattedMessage
+            defaultMessage='Deleting "{name}" removes the queue and its trace assignments. The traces and their assessments are not deleted. This cannot be undone.'
+            description="Review queue: delete confirmation body"
+            values={{ name: pendingDelete.name }}
+          />
+          {deleteError && (
+            <Alert
+              componentId={`${CID}.delete-queue-error`}
+              type="error"
+              closable={false}
+              css={{ marginTop: theme.spacing.sm }}
+              message={intl.formatMessage({
+                defaultMessage: 'Failed to delete the queue.',
+                description: 'Review queue: delete error alert title',
+              })}
+              description={deleteError.message}
+            />
+          )}
+        </Modal>
       )}
     </div>
   );
