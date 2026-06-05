@@ -13,6 +13,7 @@ import {
 import { useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 
+import type { LabelSchema } from '../../components/label-schemas';
 import { EditQueueQuestionsModal } from './EditQueueQuestionsModal';
 import { ReviewQueueList } from './ReviewQueueList';
 import { useListReviewQueueTracesQuery } from './hooks/useListReviewQueueTracesQuery';
@@ -29,6 +30,7 @@ const CID = 'mlflow.experiment-review-queue.section';
  */
 export const ReviewQueueSection = ({
   queue,
+  labelSchemas,
   expanded,
   onToggle,
   onOpenTrace,
@@ -36,6 +38,7 @@ export const ReviewQueueSection = ({
   nowMs,
 }: {
   queue: ReviewQueue;
+  labelSchemas: LabelSchema[];
   expanded: boolean;
   onToggle: () => void;
   onOpenTrace: (item: ReviewQueueItem) => void;
@@ -51,6 +54,13 @@ export const ReviewQueueSection = ({
   // Questions are editable only while the queue is empty (the server freezes
   // them once traces are assigned).
   const canEditQuestions = !isLoading && items.length === 0;
+
+  // A user queue inherits every experiment schema; a custom queue uses its
+  // attached subset (resolved against existing schemas, dropping any dangling).
+  const questionNames =
+    queue.queue_type === 'USER'
+      ? labelSchemas.map((s) => s.name)
+      : labelSchemas.filter((s) => (queue.schema_ids ?? []).includes(s.schema_id)).map((s) => s.name);
 
   return (
     <>
@@ -152,6 +162,29 @@ export const ReviewQueueSection = ({
               }}
             />
           )}
+        </div>
+
+        <div
+          css={{
+            paddingLeft: theme.spacing.lg,
+            paddingRight: theme.spacing.sm,
+            paddingBottom: theme.spacing.sm,
+          }}
+        >
+          <Typography.Hint css={{ display: 'block' }}>
+            {questionNames.length > 0 ? (
+              <FormattedMessage
+                defaultMessage="Questions: {names}"
+                description="Review queue: section questions summary"
+                values={{ names: questionNames.join(', ') }}
+              />
+            ) : (
+              <FormattedMessage
+                defaultMessage="No questions"
+                description="Review queue: section no-questions summary"
+              />
+            )}
+          </Typography.Hint>
         </div>
 
         {expanded && (

@@ -107,17 +107,7 @@ export const ReviewQueueList = ({
 
   if (items.length === 0) {
     return (
-      <div
-        css={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          height: '100%',
-          minHeight: 400,
-          width: '100%',
-          '& > div': { height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center' },
-        }}
-      >
+      <div css={{ display: 'flex', justifyContent: 'center', width: '100%', padding: theme.spacing.lg }}>
         <Empty
           description={
             <FormattedMessage defaultMessage="No traces in this queue yet." description="Review queue empty state" />

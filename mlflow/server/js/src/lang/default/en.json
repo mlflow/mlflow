@@ -3255,6 +3255,10 @@
     "defaultMessage": "Compare",
     "description": "Text for compare button to compare versions under details tab\n                       on the model view page"
   },
+  "Fq7Rxd": {
+    "defaultMessage": "No questions",
+    "description": "Review queue: section no-questions summary"
+  },
   "Fs6pF+": {
     "defaultMessage": "Create Role",
     "description": "Button to create a new role"
@@ -3298,6 +3302,10 @@
   "G6IQTa": {
     "defaultMessage": "You do not have permission to access this resource.",
     "description": "Generic message for a permission error (HTTP STATUS 403)"
+  },
+  "G73toY": {
+    "defaultMessage": "Questions: {names}",
+    "description": "Review queue: section questions summary"
   },
   "G7V4y3": {
     "defaultMessage": "Hide details",

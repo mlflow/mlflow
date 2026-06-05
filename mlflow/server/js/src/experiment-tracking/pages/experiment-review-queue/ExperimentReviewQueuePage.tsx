@@ -226,6 +226,7 @@ const ExperimentReviewQueuePage = () => {
             <ReviewQueueSection
               key={q.queue_id}
               queue={q}
+              labelSchemas={labelSchemas}
               expanded={!collapsedIds.has(q.queue_id)}
               onToggle={() => toggleQueue(q.queue_id)}
               onOpenTrace={(item) => setOpenTrace({ queueId: q.queue_id, targetId: item.target_id })}
