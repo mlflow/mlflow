@@ -40,22 +40,21 @@ def invoke_genai_evaluate_job(
             os.environ["MLFLOW_TRACKING_PASSWORD"] = internal_token
 
     client = MlflowClient()
+
     try:
         for i in range(0, len(trace_ids), MAX_TRACE_LINKS_PER_REQUEST):
             client.link_traces_to_run(trace_ids[i : i + MAX_TRACE_LINKS_PER_REQUEST], run_id)
-
         traces = client._tracing_client.batch_get_traces(trace_ids)
         scorers = [Scorer.model_validate_json(s) for s in serialized_scorers]
-
-        with mlflow.start_run(run_id=run_id):
-            mlflow.genai.evaluate(data=traces, scorers=scorers)
-
-        client.set_terminated(run_id, RunStatus.to_string(RunStatus.FINISHED))
-        return {
-            "run_id": run_id,
-            "total_traces": len(trace_ids),
-            "scorer_count": len(scorers),
-        }
     except Exception:
         client.set_terminated(run_id, RunStatus.to_string(RunStatus.FAILED))
         raise
+
+    with mlflow.start_run(run_id=run_id):
+        mlflow.genai.evaluate(data=traces, scorers=scorers)
+
+    return {
+        "run_id": run_id,
+        "total_traces": len(trace_ids),
+        "scorer_count": len(scorers),
+    }

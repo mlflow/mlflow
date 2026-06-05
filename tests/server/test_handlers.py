@@ -5762,8 +5762,6 @@ def test_invoke_genai_evaluate_handler_success(monkeypatch):
         tags = start_run_kwargs["tags"]
         assert tags["mlflow.runType"] == "genai_evaluate"
 
-        # The job must be invoked with all the params the job function expects;
-        # missing any of these would be a silent breakage on the worker side.
         mock_submit_job.assert_called_once()
         submit_kwargs = mock_submit_job.call_args.kwargs
         assert submit_kwargs["params"]["experiment_id"] == "exp-123"
@@ -5773,7 +5771,6 @@ def test_invoke_genai_evaluate_handler_success(monkeypatch):
         # No basic auth on the test client -> no username propagated.
         assert submit_kwargs["params"]["username"] is None
 
-        # job-id tag is what the UI uses to poll status from the run page.
         mock_set_tag.assert_called_once_with("mlflow.genaiEvaluate.jobId", "job-genai-1")
 
 
@@ -5874,6 +5871,79 @@ def test_invoke_genai_evaluate_handler_propagates_basic_auth_username(monkeypatc
         )
         assert resp.status_code == 200
         assert mock_submit_job.call_args.kwargs["params"]["username"] == "alice"
+
+
+def test_invoke_genai_evaluate_handler_marks_run_failed_when_submit_job_raises(monkeypatch):
+    """If submit_job raises after the run is created, the handler must flip the
+    run to FAILED itself — otherwise it'd be stuck in RUNNING forever because the
+    worker that would normally do that transition was never enqueued.
+    """
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+
+    mock_run = mock.MagicMock()
+    mock_run.info.run_id = "run-fail"
+
+    request_json = {
+        "experiment_id": "exp-123",
+        "trace_ids": ["trace-1"],
+        "serialized_scorers": ['{"name":"my-judge"}'],
+    }
+
+    submit_error = MlflowException(
+        "Mlflow server job execution feature is not enabled.",
+        error_code=INVALID_PARAMETER_VALUE,
+    )
+
+    with (
+        mock.patch("mlflow.server.jobs.submit_job", side_effect=submit_error),
+        mock.patch("mlflow.start_run", return_value=mock_run),
+        mock.patch("mlflow.set_tag") as mock_set_tag,
+        mock.patch("mlflow.end_run") as mock_end_run,
+        app.test_client() as c,
+    ):
+        resp = c.post("/ajax-api/3.0/mlflow/genai/evaluate/invoke", json=request_json)
+
+        # @catch_mlflow_exception turns the re-raised MlflowException into a 4xx.
+        assert resp.status_code != 200
+        assert "job execution feature is not enabled" in resp.get_json()["message"]
+
+        # Only one end_run call, and it must be FAILED (not RUNNING). RUNNING would
+        # mean we went down the happy path; a missing call would mean we leaked
+        # the active-run stack and left the run stuck in RUNNING in the store.
+        mock_end_run.assert_called_once_with("FAILED")
+
+        # The job-id tag must not have been written — the job never existed.
+        mock_set_tag.assert_not_called()
+
+
+def test_invoke_genai_evaluate_handler_marks_run_failed_when_set_tag_raises(monkeypatch):
+    """The same try/except must also cover the post-submit set_tag call. If the
+    tag write fails (e.g. transient store error) we'd otherwise still leave the
+    run in RUNNING even though we never reached end_run(RUNNING).
+    """
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+
+    mock_job = _make_genai_evaluate_job("job-tag-fail")
+    mock_run = mock.MagicMock()
+    mock_run.info.run_id = "run-tag-fail"
+
+    request_json = {
+        "experiment_id": "exp-123",
+        "trace_ids": ["trace-1"],
+        "serialized_scorers": ['{"name":"my-judge"}'],
+    }
+
+    with (
+        mock.patch("mlflow.server.jobs.submit_job", return_value=mock_job),
+        mock.patch("mlflow.start_run", return_value=mock_run),
+        mock.patch("mlflow.set_tag", side_effect=RuntimeError("store unavailable")),
+        mock.patch("mlflow.end_run") as mock_end_run,
+        app.test_client() as c,
+    ):
+        resp = c.post("/ajax-api/3.0/mlflow/genai/evaluate/invoke", json=request_json)
+
+        assert resp.status_code != 200
+        mock_end_run.assert_called_once_with("FAILED")
 
 
 def test_get_job_success(mock_job_store):

@@ -4701,7 +4701,7 @@ def _invoke_genai_evaluate_handler():
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    # Create the run upfront so we can return run_id immediately. So the run 
+    # Create the run upfront so we can return run_id immediately. So the run
     # shows up on /evaluation-runs even before the job has produced any artifacts.
     tags = {MLFLOW_RUN_TYPE: MLFLOW_RUN_TYPE_GENAI_EVALUATE}
     run = mlflow.start_run(experiment_id=experiment_id, tags=tags)
@@ -4709,18 +4709,22 @@ def _invoke_genai_evaluate_handler():
 
     username = request.authorization.username if request.authorization else None
 
-    job = submit_job(
-        function=invoke_genai_evaluate_job,
-        params={
-            "experiment_id": experiment_id,
-            "trace_ids": trace_ids,
-            "serialized_scorers": serialized_scorers,
-            "run_id": run_id,
-            "username": username,
-        },
-    )
+    try:
+        job = submit_job(
+            function=invoke_genai_evaluate_job,
+            params={
+                "experiment_id": experiment_id,
+                "trace_ids": trace_ids,
+                "serialized_scorers": serialized_scorers,
+                "run_id": run_id,
+                "username": username,
+            },
+        )
+        mlflow.set_tag(MLFLOW_GENAI_EVALUATE_JOB_ID, job.job_id)
+    except Exception:
+        mlflow.end_run(RunStatus.to_string(RunStatus.FAILED))
+        raise
 
-    mlflow.set_tag(MLFLOW_GENAI_EVALUATE_JOB_ID, job.job_id)
     mlflow.end_run(RunStatus.to_string(RunStatus.RUNNING))
 
     return jsonify({"job_id": job.job_id, "run_id": run_id})

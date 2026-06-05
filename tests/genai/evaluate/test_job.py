@@ -54,9 +54,11 @@ def test_invoke_genai_evaluate_job_success():
         assert evaluate_kwargs["data"] == [mock_trace, mock_trace]
         assert evaluate_kwargs["scorers"] == [mock_scorer, mock_scorer]
 
-        mock_client.set_terminated.assert_called_once_with(
-            "run-123", RunStatus.to_string(RunStatus.FINISHED)
-        )
+        # On the happy path the ActiveRun context manager's __exit__ writes
+        # FINISHED for us; the job must NOT also call set_terminated explicitly
+        # (that would be a duplicate write to the same run). End-to-end FINISHED
+        # transition is verified in tests/server/jobs/test_genai_evaluate_invocation.py.
+        mock_client.set_terminated.assert_not_called()
         assert result == {"run_id": "run-123", "total_traces": 2, "scorer_count": 2}
 
 
@@ -88,17 +90,19 @@ def test_invoke_genai_evaluate_job_batches_large_trace_list():
         assert batch_sizes == [100, 100, 50]
 
 
-def test_invoke_genai_evaluate_job_failure_marks_run_failed():
-    """The run must end up FAILED in the store even though the job re-raises
-    — otherwise it will show as RUNNING forever in /evaluation-runs.
+def test_invoke_genai_evaluate_job_setup_failure_marks_run_failed():
+    """If setup fails BEFORE the active-run context manager is entered (here:
+    ``batch_get_traces`` raising), the context manager's __exit__ never runs,
+    so the job itself must flip the run to FAILED — otherwise it'd stay
+    RUNNING forever in /evaluation-runs.
     """
     mock_client = mock.MagicMock()
     mock_client._tracing_client.batch_get_traces.side_effect = Exception("trace fetch failed")
 
     with (
         mock.patch("mlflow.genai.evaluation.job.MlflowClient", return_value=mock_client),
-        mock.patch("mlflow.start_run"),
-        mock.patch("mlflow.genai.evaluate"),
+        mock.patch("mlflow.start_run") as mock_start_run,
+        mock.patch("mlflow.genai.evaluate") as mock_evaluate,
     ):
         with pytest.raises(Exception, match="trace fetch failed"):
             invoke_genai_evaluate_job(
@@ -108,15 +112,26 @@ def test_invoke_genai_evaluate_job_failure_marks_run_failed():
                 run_id="run-123",
             )
 
+        # Setup blew up *before* we reached the with block, so neither
+        # mlflow.start_run nor mlflow.genai.evaluate should have been touched.
+        mock_start_run.assert_not_called()
+        mock_evaluate.assert_not_called()
+
+        # This is the only path where the job code itself writes the terminal
+        # status — the context manager can't help here because we never entered it.
         mock_client.set_terminated.assert_called_once_with(
             "run-123", RunStatus.to_string(RunStatus.FAILED)
         )
 
 
-def test_invoke_genai_evaluate_job_failure_when_evaluate_throws():
-    """``mlflow.genai.evaluate`` swallows per-row scorer errors, so a thrown
-    exception from inside means the harness itself failed — we must still
-    flip the run to FAILED.
+def test_invoke_genai_evaluate_job_evaluate_failure_defers_to_context_manager():
+    """When ``mlflow.genai.evaluate`` raises INSIDE the active-run context
+    manager, terminal status is owned by ``ActiveRun.__exit__`` (see
+    mlflow/tracking/fluent.py:380), so the job code itself must NOT also call
+    set_terminated. The exception must still propagate so huey records the
+    job as FAILED with the original traceback. End-to-end FAILED transition
+    is covered by tests/server/jobs/test_genai_evaluate_invocation.py
+    (``test_invoke_genai_evaluate_missing_trace_marks_run_failed``).
     """
     mock_client = mock.MagicMock()
     mock_client._tracing_client.batch_get_traces.return_value = [mock.MagicMock()]
@@ -135,9 +150,9 @@ def test_invoke_genai_evaluate_job_failure_when_evaluate_throws():
                 run_id="run-123",
             )
 
-        mock_client.set_terminated.assert_called_once_with(
-            "run-123", RunStatus.to_string(RunStatus.FAILED)
-        )
+        # Critical: must NOT call set_terminated explicitly here. Doing so
+        # would be a duplicate write on top of the context manager's __exit__.
+        mock_client.set_terminated.assert_not_called()
 
 
 def test_invoke_genai_evaluate_job_propagates_username_via_env(monkeypatch):
