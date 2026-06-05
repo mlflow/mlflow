@@ -1,4 +1,4 @@
-"""OSS-native review queues for SME trace-review workflows.
+"""Review queues for expert trace-review workflows.
 
 A ``ReviewQueue`` is a named bundle of attached traces, a set of
 questions (label schemas), and a set of assigned users, scoped to an
