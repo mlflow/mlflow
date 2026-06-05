@@ -106,7 +106,6 @@ def setup(
         raise click.ClickException("`mlflow agent setup` must be run inside a git working tree.")
 
     agent = _choose_agent(agent_name)
-    _record_event(AgentSetupEvent, {"agent": agent.name, "print_prompt": print_prompt})
 
     skills_dest = repo_root / agent.skills_dir
     skills_installed = click.confirm(
@@ -117,6 +116,14 @@ def setup(
         ),
         default=True,
         err=True,
+    )
+    _record_event(
+        AgentSetupEvent,
+        {
+            "agent": agent.name,
+            "print_prompt": print_prompt,
+            "skills_install_confirmed": skills_installed,
+        },
     )
     if skills_installed:
         installed = install_skills(skills_dest)

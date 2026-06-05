@@ -8,6 +8,7 @@ import pytest
 from click.testing import CliRunner
 
 from mlflow.agent.setup.cli import setup
+from mlflow.telemetry.events import AgentSetupEvent
 
 
 @pytest.fixture
@@ -59,6 +60,36 @@ def test_setup_declined_skills_uses_bundled_path(tmp_git_repo: Path):
     assert "/mlflow/assistant/skills" in result.stdout
     assert not (tmp_git_repo / ".claude").exists()
     mock_which.assert_called()
+
+
+@pytest.mark.parametrize(
+    ("skills_input", "skills_install_confirmed"),
+    [("y", True), ("n", False)],
+)
+def test_setup_records_telemetry(
+    tmp_git_repo: Path, skills_input: str, skills_install_confirmed: bool
+):
+    with (
+        mock.patch(
+            "mlflow.agent.agents.shutil.which", return_value="/usr/local/bin/claude"
+        ) as mock_which,
+        mock.patch("mlflow.agent.setup.cli._record_event") as mock_record,
+    ):
+        result = CliRunner().invoke(
+            setup,
+            ["--agent", "claude", "--print"],
+            input=f"{skills_input}\nhttp://localhost:5001\n",
+        )
+    assert result.exit_code == 0, result.stderr
+    mock_which.assert_called()
+    mock_record.assert_called_once_with(
+        AgentSetupEvent,
+        {
+            "agent": "claude",
+            "print_prompt": True,
+            "skills_install_confirmed": skills_install_confirmed,
+        },
+    )
 
 
 def test_setup_requested_agent_not_installed(tmp_git_repo: Path):
