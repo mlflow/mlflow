@@ -192,6 +192,9 @@ def update_review_queue(
 
     ``None`` leaves that set untouched; a list (possibly empty) replaces it.
     ``name`` and ``queue_type`` are immutable, and user queues reject this.
+    A queue's ``schema_ids`` (its questions) are also frozen once it has any
+    attached traces; detach the traces first to edit them. Assigned users
+    stay editable.
 
     Returns:
         The updated :py:class:`ReviewQueue`.
