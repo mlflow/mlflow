@@ -33,12 +33,12 @@ Install the `kubernetes` Python package:
 <Tabs groupId="install">
 <TabItem value="uv" label="uv" default>
 ```bash
-uv pip install mlflow[kubernetes]
+uv pip install 'mlflow[kubernetes]'
 ```
 </TabItem>
 <TabItem value="pip" label="pip">
 ```bash
-pip install mlflow[kubernetes]
+pip install 'mlflow[kubernetes]'
 ```
 </TabItem>
 </Tabs>

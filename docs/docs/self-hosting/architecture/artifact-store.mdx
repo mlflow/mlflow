@@ -143,7 +143,7 @@ The order of precedence is:
 3. `DefaultAzureCredential()`
 
 You must set one of these options on **both your client application and your MLflow tracking server**.
-Also, you must run `uv pip install azure-storage-blob` (or `pip install azure-storage-blob`) separately (on both your client and the server) to access Azure Blob Storage.
+Also, you must run `uv pip install azure-storage-blob` or `pip install azure-storage-blob` separately (on both your client and the server) to access Azure Blob Storage.
 Finally, if you want to use DefaultAzureCredential, you must run `uv pip install azure-identity` or `pip install azure-identity`;
 MLflow does not declare a dependency on these packages by default.
 
