@@ -21,24 +21,24 @@ import TabsWrapper from "@site/src/components/TabsWrapper";
 
 In this example, we'll use the openai-agents-sdk to define our Responses API compatible agent. See [the openai-agents-sdk quickstart](https://openai.github.io/openai-agents-python/quickstart/#create-your-first-agent) for more information.
 
-0. Install the openai-agents-sdk and mlflow, and set your OpenAI API key:
+First, install the openai-agents-sdk and mlflow, and set your OpenAI API key:
 
-   <TabsWrapper>
-     <Tabs groupId="install">
-       <TabItem value="uv" label="uv" default>
-         ```bash
-         uv pip install -U openai-agents 'mlflow>=3.6.0'
-         export OPENAI_API_KEY=sk-...
-         ```
-       </TabItem>
-       <TabItem value="pip" label="pip">
-         ```bash
-         pip install -U openai-agents 'mlflow>=3.6.0'
-         export OPENAI_API_KEY=sk-...
-         ```
-       </TabItem>
-     </Tabs>
-   </TabsWrapper>
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install -U openai-agents 'mlflow>=3.6.0'
+export OPENAI_API_KEY=sk-...
+```
+</TabItem>
+<TabItem value="pip" label="pip">
+```bash
+pip install -U openai-agents 'mlflow>=3.6.0'
+export OPENAI_API_KEY=sk-...
+```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 1. Define your agent in `agent.py` and create methods to annotate with `@invoke`:
 

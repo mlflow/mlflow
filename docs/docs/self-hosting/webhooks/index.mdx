@@ -514,24 +514,26 @@ if __name__ == "__main__":
 
 ### Running the Example
 
-1. **Install dependencies:**
+First, install the example dependencies:
 
-   <TabsWrapper>
-     <Tabs groupId="install">
-       <TabItem value="uv" label="uv" default>
-         ```bash
-         uv pip install fastapi uvicorn
-         ```
-       </TabItem>
-       <TabItem value="pip" label="pip">
-         ```bash
-         pip install fastapi uvicorn
-         ```
-       </TabItem>
-     </Tabs>
-   </TabsWrapper>
+<TabsWrapper>
+<Tabs groupId="install">
+<TabItem value="uv" label="uv" default>
+```bash
+uv pip install fastapi uvicorn
+```
+</TabItem>
+<TabItem value="pip" label="pip">
+```bash
+pip install fastapi uvicorn
+```
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
-2. **Set up MLflow server with webhook encryption:**
+Then:
+
+1. **Set up MLflow server with webhook encryption:**
 
    ```bash
    # Generate a secure encryption key for webhook secrets
@@ -541,13 +543,13 @@ if __name__ == "__main__":
    mlflow server --backend-store-uri sqlite:///mlflow.db
    ```
 
-3. **Start the webhook receiver:**
+2. **Start the webhook receiver:**
 
    ```bash
    python webhook_receiver.py
    ```
 
-4. **Configure MLflow webhook:**
+3. **Configure MLflow webhook:**
 
    ```python
    from mlflow import MlflowClient
@@ -563,7 +565,7 @@ if __name__ == "__main__":
    )
    ```
 
-5. **Test the webhook:**
+4. **Test the webhook:**
 
    ```python
    # Test webhook connectivity
