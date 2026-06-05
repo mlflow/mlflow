@@ -18,7 +18,7 @@ import { CreateReviewQueueModal } from './CreateReviewQueueModal';
 import { getQueueAssignability } from './queueAssignability';
 import { useAddTracesToReviewQueueMutation } from './hooks/useAddTracesToReviewQueueMutation';
 import { useListReviewQueuesQuery } from './hooks/useListReviewQueuesQuery';
-import { useReviewer } from './hooks/useReviewer';
+import { normalizeUser, useReviewer } from './hooks/useReviewer';
 import type { ReviewQueue } from './types';
 
 const CID = 'mlflow.experiment-review-queue.add-to-queue';
@@ -61,11 +61,13 @@ export const AddToReviewQueueModal = ({
 
   // A reviewer can route traces into any shared CUSTOM queue, but only into
   // their own personal USER queue, never someone else's. (The Review tab
-  // scopes its own list to `user: reviewer` for the same reason.)
-  const visibleQueues = useMemo(
-    () => reviewQueues.filter((q) => q.queue_type === 'CUSTOM' || q.name === reviewer),
-    [reviewQueues, reviewer],
-  );
+  // scopes its own list to `user: reviewer` for the same reason.) A USER
+  // queue's `name` is stored normalized server-side, so compare normalized
+  // forms or a reviewer with non-lowercase username loses their own queue.
+  const visibleQueues = useMemo(() => {
+    const normalizedReviewer = normalizeUser(reviewer);
+    return reviewQueues.filter((q) => q.queue_type === 'CUSTOM' || normalizeUser(q.name) === normalizedReviewer);
+  }, [reviewQueues, reviewer]);
 
   const targetIds = useMemo(
     () => selectedTraceInfos.map((info) => info.trace_id).filter((id): id is string => Boolean(id)),
