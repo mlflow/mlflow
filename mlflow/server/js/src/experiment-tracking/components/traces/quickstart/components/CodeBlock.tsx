@@ -31,7 +31,9 @@ export const CodeBlock = ({
       />
       <CodeSnippet
         showLineNumbers
-        language={language === 'bash' ? 'text' : language === 'typescript' ? 'javascript' : 'python'}
+        language={
+          language === 'bash' || language === 'text' ? 'text' : language === 'typescript' ? 'javascript' : 'python'
+        }
         theme={theme.isDarkMode ? 'duotoneDark' : 'light'}
         style={{
           fontSize: 12,

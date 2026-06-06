@@ -49,6 +49,24 @@ export const TS_INSTALL_CODE = 'npm install @mlflow/core';
 export const OTEL_INSTALL_CODE =
   'pip install opentelemetry-api opentelemetry-sdk opentelemetry-exporter-otlp-proto-http';
 
+export const AI_ASSISTANT_SKILLS_INSTALL_CODE = 'npx skills add mlflow/skills';
+
+export const getAiAssistantPrompt = ({
+  trackingUri,
+  experimentName,
+  workspace,
+}: {
+  trackingUri: string;
+  experimentName: string;
+  workspace?: string | null;
+}) => {
+  const workspaceInstruction = workspace ? ` Use workspace "${workspace}".` : '';
+  const trackingUriInstruction = trackingUri.includes('<port>')
+    ? `Use tracking URI "${trackingUri}" after replacing "<port>" with the backend port.`
+    : `Use tracking URI "${trackingUri}".`;
+  return `Add MLflow tracing to my app using the installed MLflow skills. ${trackingUriInstruction} Log traces to experiment "${experimentName}".${workspaceInstruction} Run a small smoke test and confirm a trace appears in MLflow.`;
+};
+
 export const getOtelEnvCode = (trackingUri: string, experimentId: string) =>
   `export OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=${trackingUri}/v1/traces
 export OTEL_EXPORTER_OTLP_TRACES_HEADERS=x-mlflow-experiment-id=${experimentId}`;

@@ -23,6 +23,7 @@ import {
 import { CodeBlock } from './components/CodeBlock';
 import { StepSection } from './components/StepSection';
 import { LanguageTab, type Language } from './components/LanguageTab';
+import { TraceTableAiAssistantQuickstart } from './TraceTableAiAssistantQuickstart';
 
 const TRACING_VIDEO_START_SEC = 24;
 const TRACING_VIDEO_URL = `https://mlflow.org/docs/latest/images/llms/tracing/tracing-top.mp4#t=${TRACING_VIDEO_START_SEC}`;
@@ -38,7 +39,7 @@ export const TracesViewTableNoTracesQuickstart = ({
   experimentId?: string;
 }) => {
   const { theme } = useDesignSystemTheme();
-  const [language, setLanguage] = useState<Language>('python');
+  const [language, setLanguage] = useState<Language>('ai-assistant');
   const [selectedPythonFramework, setSelectedPythonFramework] = useState<QUICKSTART_FLAVOR>('openai');
   const [selectedTsFramework, setSelectedTsFramework] = useState<string>('openai');
   const [videoFailed, setVideoFailed] = useState(false);
@@ -134,24 +135,34 @@ export const TracesViewTableNoTracesQuickstart = ({
       </div>
 
       {/* Steps */}
-      <div css={{ width: '100%', display: 'flex', flexDirection: 'column', gap: theme.spacing.lg * 1.5 }}>
-        <ConnectStep
-          theme={theme}
-          language={language}
-          pythonConnectCode={pythonConnectCode}
-          tsConnectCode={tsConnectCode}
-          otelEnvCode={otelEnvCode}
-        />
-        <InstrumentStep
-          theme={theme}
-          language={language}
-          frameworkOptions={frameworkOptions}
-          selectedFramework={selectedFramework}
-          onSelectFramework={handleFrameworkSelect}
-          pythonCode={pythonCode}
-          tsFramework={tsFramework}
-        />
-        <VerifyStep theme={theme} />
+      <div css={{ width: '100%' }}>
+        {language === 'ai-assistant' ? (
+          <TraceTableAiAssistantQuickstart
+            theme={theme}
+            trackingUri={trackingUri}
+            experimentName={experimentName || 'my-experiment'}
+          />
+        ) : (
+          <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.lg * 1.5 }}>
+            <ConnectStep
+              theme={theme}
+              language={language}
+              pythonConnectCode={pythonConnectCode}
+              tsConnectCode={tsConnectCode}
+              otelEnvCode={otelEnvCode}
+            />
+            <InstrumentStep
+              theme={theme}
+              language={language}
+              frameworkOptions={frameworkOptions}
+              selectedFramework={selectedFramework}
+              onSelectFramework={handleFrameworkSelect}
+              pythonCode={pythonCode}
+              tsFramework={tsFramework}
+            />
+            <VerifyStep theme={theme} />
+          </div>
+        )}
       </div>
     </div>
   );

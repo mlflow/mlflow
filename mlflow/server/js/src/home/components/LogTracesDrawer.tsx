@@ -9,9 +9,9 @@ import {
   WorkflowsIcon,
 } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
-import { QUICKSTART_CONTENT } from '@mlflow/mlflow/src/experiment-tracking/components/traces/quickstart/TraceTableQuickstart.utils';
 import { TraceTableGenericQuickstart } from '@mlflow/mlflow/src/experiment-tracking/components/traces/quickstart/TraceTableGenericQuickstart';
 import type { QUICKSTART_FLAVOR } from '@mlflow/mlflow/src/experiment-tracking/components/traces/quickstart/TraceTableQuickstart.utils';
+import { TraceTableAiAssistantQuickstart } from '@mlflow/mlflow/src/experiment-tracking/components/traces/quickstart/TraceTableAiAssistantQuickstart';
 import { CopyButton } from '@mlflow/mlflow/src/shared/building_blocks/CopyButton';
 import { CodeSnippet } from '@databricks/web-shared/snippet';
 import { Link, useSearchParams } from '../../common/utils/RoutingUtils';
@@ -33,7 +33,8 @@ import AutoGenLogo from '../../common/static/logos/autogen.png';
 import CrewAILogo from '../../common/static/logos/crewai.png';
 import { useHomePageViewState } from '../HomePageViewStateContext';
 
-type SupportedQuickstartFlavor = QUICKSTART_FLAVOR;
+type AgentQuickstartFlavor = 'ai-assistant';
+type SupportedQuickstartFlavor = QUICKSTART_FLAVOR | AgentQuickstartFlavor;
 
 type FrameworkDefinition = {
   id: SupportedQuickstartFlavor;
@@ -43,6 +44,10 @@ type FrameworkDefinition = {
 };
 
 const frameworks: FrameworkDefinition[] = [
+  {
+    id: 'ai-assistant',
+    message: 'AI assistants',
+  },
   {
     id: 'openai',
     message: 'OpenAI',
@@ -106,20 +111,22 @@ const frameworks: FrameworkDefinition[] = [
 const MORE_INTEGRATIONS_URL = 'https://mlflow.org/docs/latest/genai/tracing/#one-line-auto-tracing-integrations';
 
 const TRACING_DOCS_URL = 'https://mlflow.org/docs/latest/genai/tracing/';
+const TRACE_QUICKSTART_EXPERIMENT_NAME = 'traces-quickstart';
+const TRACE_QUICKSTART_TRACKING_URI = 'http://<tracking-server-host>:<port>';
 
 const getConfigureExperimentSnippet = (workspace?: string | null) => {
   const workspaceLine = workspace ? `mlflow.set_workspace("${workspace}")\n` : '';
   return `import mlflow
 
 # Specify the tracking server URI, e.g. http://localhost:5000
-mlflow.set_tracking_uri("http://<tracking-server-host>:<port>")
-${workspaceLine}# If the experiment with the name "traces-quickstart" doesn't exist, MLflow will create it
-mlflow.set_experiment("traces-quickstart")`;
+mlflow.set_tracking_uri("${TRACE_QUICKSTART_TRACKING_URI}")
+${workspaceLine}# If the experiment with the name "${TRACE_QUICKSTART_EXPERIMENT_NAME}" doesn't exist, MLflow will create it
+mlflow.set_experiment("${TRACE_QUICKSTART_EXPERIMENT_NAME}")`;
 };
 
 export const LogTracesDrawer = () => {
   const { theme } = useDesignSystemTheme();
-  const [selectedFramework, setSelectedFramework] = useState<SupportedQuickstartFlavor>('openai');
+  const [selectedFramework, setSelectedFramework] = useState<SupportedQuickstartFlavor>('ai-assistant');
   const { isLogTracesDrawerOpen, closeLogTracesDrawer } = useHomePageViewState();
   const [searchParams] = useSearchParams();
   const activeWorkspace = extractWorkspaceFromSearchParams(searchParams);
@@ -127,7 +134,7 @@ export const LogTracesDrawer = () => {
 
   const handleOpenChange = (open: boolean) => {
     if (!open) {
-      setSelectedFramework('openai');
+      setSelectedFramework('ai-assistant');
       closeLogTracesDrawer();
     }
   };
@@ -314,10 +321,19 @@ export const LogTracesDrawer = () => {
                   description="Section title introducing the tracing quickstart example"
                 />
               </Typography.Title>
-              <TraceTableGenericQuickstart
-                flavorName={selectedFramework}
-                baseComponentId={`mlflow.home.log_traces.drawer.${selectedFramework}`}
-              />
+              {selectedFramework === 'ai-assistant' ? (
+                <TraceTableAiAssistantQuickstart
+                  theme={theme}
+                  trackingUri={TRACE_QUICKSTART_TRACKING_URI}
+                  experimentName={TRACE_QUICKSTART_EXPERIMENT_NAME}
+                  workspace={activeWorkspace}
+                />
+              ) : (
+                <TraceTableGenericQuickstart
+                  flavorName={selectedFramework}
+                  baseComponentId={`mlflow.home.log_traces.drawer.${selectedFramework}`}
+                />
+              )}
             </section>
 
             <section

@@ -12,6 +12,28 @@ jest.mock('@mlflow/mlflow/src/experiment-tracking/components/traces/quickstart/T
   ),
 }));
 
+jest.mock(
+  '@mlflow/mlflow/src/experiment-tracking/components/traces/quickstart/TraceTableAiAssistantQuickstart',
+  () => ({
+    TraceTableAiAssistantQuickstart: ({
+      trackingUri,
+      experimentName,
+      workspace,
+    }: {
+      trackingUri: string;
+      experimentName: string;
+      workspace?: string | null;
+    }) => (
+      <div
+        data-testid="ai-assistant-quickstart"
+        data-tracking-uri={trackingUri}
+        data-experiment-name={experimentName}
+        data-workspace={workspace || ''}
+      />
+    ),
+  }),
+);
+
 const OpenOnMount = () => {
   const { openLogTracesDrawer } = useHomePageViewState();
   React.useEffect(() => {
@@ -21,7 +43,7 @@ const OpenOnMount = () => {
 };
 
 describe('LogTracesDrawer', () => {
-  it('renders the drawer with default framework selected', () => {
+  it('renders the drawer with AI assistant quickstart selected by default', () => {
     renderWithDesignSystem(
       <MemoryRouter>
         <OpenOnMount />
@@ -35,12 +57,12 @@ describe('LogTracesDrawer', () => {
       }),
     ).toBeInTheDocument();
 
-    const openAiButton = screen.getByRole('button', { name: 'OpenAI' });
-    expect(openAiButton).toHaveAttribute('aria-pressed', 'true');
+    const aiAssistantsButton = screen.getByRole('button', { name: 'AI assistants' });
+    expect(aiAssistantsButton).toHaveAttribute('aria-pressed', 'true');
 
-    const quickstart = screen.getByTestId('quickstart');
-    expect(quickstart).toHaveAttribute('data-flavor', 'openai');
-    expect(quickstart).toHaveAttribute('data-base', 'mlflow.home.log_traces.drawer.openai');
+    const quickstart = screen.getByTestId('ai-assistant-quickstart');
+    expect(quickstart).toHaveAttribute('data-tracking-uri', 'http://<tracking-server-host>:<port>');
+    expect(quickstart).toHaveAttribute('data-experiment-name', 'traces-quickstart');
   });
 
   it('updates quickstart content when selecting a different framework', async () => {
@@ -55,10 +77,29 @@ describe('LogTracesDrawer', () => {
     await userEvent.click(langChainButton);
 
     expect(langChainButton).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByRole('button', { name: 'OpenAI' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('button', { name: 'AI assistants' })).toHaveAttribute('aria-pressed', 'false');
 
     const quickstart = screen.getByTestId('quickstart');
     expect(quickstart).toHaveAttribute('data-flavor', 'langchain');
     expect(quickstart).toHaveAttribute('data-base', 'mlflow.home.log_traces.drawer.langchain');
+  });
+
+  it('renders the OpenAI quickstart after switching away from AI assistants', async () => {
+    renderWithDesignSystem(
+      <MemoryRouter>
+        <OpenOnMount />
+        <LogTracesDrawer />
+      </MemoryRouter>,
+    );
+
+    const openAiButton = screen.getByRole('button', { name: 'OpenAI' });
+    await userEvent.click(openAiButton);
+
+    expect(openAiButton).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'AI assistants' })).toHaveAttribute('aria-pressed', 'false');
+
+    const quickstart = screen.getByTestId('quickstart');
+    expect(quickstart).toHaveAttribute('data-flavor', 'openai');
+    expect(quickstart).toHaveAttribute('data-base', 'mlflow.home.log_traces.drawer.openai');
   });
 });
