@@ -8,9 +8,15 @@ interface DatasetRecordDetailFooterProps {
   status: SaveStatus;
   /** Error text shown when status = 'error'. */
   errorMessage?: string;
-  onSave: () => void;
-  onDiscard: () => void;
-  /** Primary-button label. Defaults to "Save"; create-mode callers pass "Add record". */
+  /**
+   * Autosave mode (OSS default): render the save-state indicator only — no Cancel/Save
+   * buttons, since edits persist automatically. When false (the Databricks/UC explicit-commit
+   * path), the Cancel + Save buttons are shown and `onSave`/`onDiscard` drive them.
+   */
+  autosave?: boolean;
+  onSave?: () => void;
+  onDiscard?: () => void;
+  /** Primary-button label (explicit mode). Defaults to "Save"; create callers pass "Add record". */
   saveLabel?: ReactNode;
 }
 
@@ -89,6 +95,7 @@ const StatusText = ({ status, errorMessage }: { status: SaveStatus; errorMessage
 export const DatasetRecordDetailFooter = ({
   status,
   errorMessage,
+  autosave = false,
   onSave,
   onDiscard,
   saveLabel,
@@ -119,32 +126,36 @@ export const DatasetRecordDetailFooter = ({
       <div role="status" aria-live="polite" aria-atomic="true">
         <StatusText status={status} errorMessage={errorMessage} />
       </div>
-      <div css={{ flex: 1 }} />
-      <Button
-        componentId="mlflow.eval-datasets-v2.drawer.discard"
-        onClick={onDiscard}
-        // `saving` already implies !canDiscard, so we only need the single check.
-        disabled={!canDiscard}
-      >
-        <FormattedMessage
-          defaultMessage="Cancel"
-          description="Cancel button on the dataset record side-panel footer — discards in-progress changes"
-        />
-      </Button>
-      <Button
-        componentId="mlflow.eval-datasets-v2.drawer.save"
-        type="primary"
-        onClick={onSave}
-        disabled={!canSave}
-        loading={status === 'saving'}
-      >
-        {saveLabel ?? (
-          <FormattedMessage
-            defaultMessage="Save"
-            description="Save-changes button on the dataset record drawer footer"
-          />
-        )}
-      </Button>
+      {!autosave && (
+        <>
+          <div css={{ flex: 1 }} />
+          <Button
+            componentId="mlflow.eval-datasets-v2.drawer.discard"
+            onClick={onDiscard}
+            // `saving` already implies !canDiscard, so we only need the single check.
+            disabled={!canDiscard}
+          >
+            <FormattedMessage
+              defaultMessage="Cancel"
+              description="Cancel button on the dataset record side-panel footer — discards in-progress changes"
+            />
+          </Button>
+          <Button
+            componentId="mlflow.eval-datasets-v2.drawer.save"
+            type="primary"
+            onClick={onSave}
+            disabled={!canSave}
+            loading={status === 'saving'}
+          >
+            {saveLabel ?? (
+              <FormattedMessage
+                defaultMessage="Save"
+                description="Save-changes button on the dataset record drawer footer"
+              />
+            )}
+          </Button>
+        </>
+      )}
     </div>
   );
 };

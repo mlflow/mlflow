@@ -131,6 +131,7 @@ from mlflow.protos.service_pb2 import (
     SetTraceTag,
     StartTrace,
     StartTraceV3,
+    UpdateDatasetRecords,
     UpdateGatewayEndpoint,
     UpdateGatewayModelDefinition,
     UpdateGatewaySecret,
@@ -1949,6 +1950,7 @@ def test_upsert_evaluation_dataset_records():
         response = UpsertDatasetRecords.Response()
         response.inserted_count = 2
         response.updated_count = 0
+        response.record_ids.extend(["dr-1", "dr-2"])
         mock_call.return_value = response
 
         result = store.upsert_dataset_records(
@@ -1956,7 +1958,7 @@ def test_upsert_evaluation_dataset_records():
             records=records,
         )
 
-        assert result == {"inserted": 2, "updated": 0}
+        assert result == {"inserted": 2, "updated": 0, "record_ids": ["dr-1", "dr-2"]}
 
         req = UpsertDatasetRecords(
             records=json.dumps(records),
@@ -1965,6 +1967,37 @@ def test_upsert_evaluation_dataset_records():
 
         mock_call.assert_called_once_with(
             UpsertDatasetRecords,
+            expected_json,
+            endpoint=f"/api/3.0/mlflow/datasets/{dataset_id}/records",
+        )
+
+
+def test_update_evaluation_dataset_records():
+    creds = MlflowHostCreds("https://test-server")
+    store = RestStore(lambda: creds)
+
+    dataset_id = "d-1234567890abcdef1234567890abcdef"
+    records = [{"dataset_record_id": "dr-1", "inputs": {"question": "What is MLflow tracing?"}}]
+
+    with mock.patch.object(store, "_call_endpoint") as mock_call:
+        response = UpdateDatasetRecords.Response()
+        response.updated_count = 1
+        mock_call.return_value = response
+
+        result = store.update_dataset_records(
+            dataset_id=dataset_id,
+            records=records,
+        )
+
+        assert result == {"updated": 1}
+
+        req = UpdateDatasetRecords(
+            records=json.dumps(records),
+        )
+        expected_json = message_to_json(req)
+
+        mock_call.assert_called_once_with(
+            UpdateDatasetRecords,
             expected_json,
             endpoint=f"/api/3.0/mlflow/datasets/{dataset_id}/records",
         )

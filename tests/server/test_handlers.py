@@ -205,6 +205,7 @@ from mlflow.server.handlers import (
     _set_trace_tag,
     _set_trace_tag_v3,
     _transition_stage,
+    _update_dataset_records_handler,
     _update_issue,
     _update_model_version,
     _update_registered_model,
@@ -1761,6 +1762,7 @@ def test_upsert_dataset_records(mock_tracking_store):
     mock_tracking_store.upsert_dataset_records.return_value = {
         "inserted": 2,
         "updated": 0,
+        "record_ids": ["dr-1", "dr-2"],
     }
 
     dataset_id = "d-1234567890abcdef1234567890abcdef"
@@ -1785,6 +1787,31 @@ def test_upsert_dataset_records(mock_tracking_store):
     response_data = json.loads(resp.get_data())
     assert response_data["inserted_count"] == 2
     assert response_data["updated_count"] == 0
+    # The server-assigned ids are echoed back so the UI can bind to a just-created record.
+    assert response_data["record_ids"] == ["dr-1", "dr-2"]
+
+
+def test_update_dataset_records(mock_tracking_store):
+    mock_tracking_store.update_dataset_records.return_value = {"updated": 1}
+
+    dataset_id = "d-1234567890abcdef1234567890abcdef"
+    records = [{"dataset_record_id": "dr-1", "inputs": {"q": "edited"}}]
+
+    with app.test_request_context(
+        method="PATCH",
+        json={
+            "records": json.dumps(records),
+        },
+    ):
+        resp = _update_dataset_records_handler(dataset_id)
+
+    mock_tracking_store.update_dataset_records.assert_called_once_with(
+        dataset_id=dataset_id,
+        records=records,
+    )
+
+    response_data = json.loads(resp.get_data())
+    assert response_data["updated_count"] == 1
 
 
 def test_get_dataset_experiment_ids(mock_tracking_store):

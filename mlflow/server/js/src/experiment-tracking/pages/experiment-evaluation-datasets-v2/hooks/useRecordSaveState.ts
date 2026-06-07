@@ -1,10 +1,35 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useDebouncedCallback } from 'use-debounce';
 import { useQueryClient } from '@databricks/web-shared/query-client';
 import type { DatasetRecord } from './useDatasetsQueries';
-import { listDatasetRecordsQueryKey, useUpsertDatasetRecordsMutation } from './useDatasetsQueries';
+import { listDatasetRecordsQueryKey, useUpdateDatasetRecordMutation } from './useDatasetsQueries';
 import type { SaveStatus } from '../components/DatasetRecordDetailFooter';
 import { validateSchemaConsistency } from '../utils/datasetSchemaUtils';
 import { useDatasetRecordEditorState } from './useDatasetRecordEditorState';
+
+/**
+ * How edits are committed:
+ * - `autosave` (OSS default): a valid, non-empty edit is persisted on a debounce; no button.
+ * - `explicit`: nothing is persisted until `save()` is called (e.g. a "Save" button). The
+ *   Databricks/UC port flips to this because UC writes aren't trivially undoable. Both modes
+ *   share the same commit + validation plumbing below.
+ */
+export type CommitMode = 'autosave' | 'explicit';
+
+/** Debounce window for autosave (ms). Long enough to coalesce a burst of keystrokes. */
+const DEFAULT_AUTOSAVE_DEBOUNCE_MS = 800;
+
+/** Stable key for an edit's content, used to suppress re-saving a value that just failed. */
+const signatureOf = (inputsText: string, expectationsText: string) => `${inputsText}\u0000${expectationsText}`;
+
+/** Everything a single commit needs, captured at schedule time so a flush-on-switch replays
+ * the *outgoing* record's edit rather than whatever the editor happens to hold post-switch. */
+interface CommitPayload {
+  recordId: string;
+  edits: Partial<DatasetRecord>;
+  inputsText: string;
+  expectationsText: string;
+}
 
 interface UseRecordSaveStateParams {
   datasetId: string;
@@ -17,8 +42,11 @@ interface UseRecordSaveStateParams {
    * schema (the evaluation runner rejects such datasets downstream).
    */
   existingRecords: DatasetRecord[];
-  onSaveSuccess?: () => void;
   onSaveError?: (error: Error) => void;
+  /** Commit trigger. Defaults to `autosave`. */
+  commitMode?: CommitMode;
+  /** Autosave debounce window (ms). Defaults to {@link DEFAULT_AUTOSAVE_DEBOUNCE_MS}. */
+  debounceMs?: number;
 }
 
 interface UseRecordSaveStateResult {
@@ -27,29 +55,36 @@ interface UseRecordSaveStateResult {
   status: SaveStatus;
   errorMessage: string | undefined;
   isDirty: boolean;
-  /**
-   * True when either editor has non-whitespace text. Distinct from `isDirty`: this is the
-   * signal the side panel's discard-guard uses to decide whether closing should silently
-   * drop state (`hasContent === false`) or prompt the user (`hasContent === true`).
-   */
+  /** True when either editor has non-whitespace text. */
   hasContent: boolean;
+  /** Commit any pending edit immediately (cancels the debounce). Used by Cmd/Ctrl-S and the
+   * explicit-mode Save button. */
   save: () => void;
+  /** Synchronously commit a pending autosave — call before a record-switch / close so the
+   * outgoing edit isn't dropped. No-op when nothing is pending. */
+  flush: () => void;
+  /** Revert both editors to the last-saved record values and drop any pending autosave. */
   discard: () => void;
-  /** Cmd/Ctrl-S save handler. Attach to the drawer container so the listener stays scoped. */
+  /** Cmd/Ctrl-S handler. Attach to the drawer container so the listener stays scoped. */
   onContainerKeyDown: (event: React.KeyboardEvent) => void;
 }
 
 /**
- * Owns the JSON editor state for inputs/expectations plus the save FSM for the records drawer.
- * Lifts the orchestration out of the drawer component so the drawer can focus on layout.
+ * Owns the JSON editor state for inputs/expectations plus the save lifecycle for an existing
+ * dataset record. In `autosave` mode a valid, non-empty edit is committed on a debounce via the
+ * update-by-id endpoint (which, unlike upsert, can change `inputs` in place without orphaning
+ * the row) — so there is no separate "Save" step. Invalid or empty-inputs edits are *deferred*:
+ * they are never persisted, the last valid value stays on the server, and the footer surfaces
+ * why. A pending edit is flushed on record-switch / unmount so it is never silently lost.
  */
 export const useRecordSaveState = ({
   datasetId,
   record,
   fallbackErrorMessage,
   existingRecords,
-  onSaveSuccess,
   onSaveError,
+  commitMode = 'autosave',
+  debounceMs = DEFAULT_AUTOSAVE_DEBOUNCE_MS,
 }: UseRecordSaveStateParams): UseRecordSaveStateResult => {
   const inputs = useDatasetRecordEditorState({
     recordId: record?.dataset_record_id,
@@ -60,121 +95,166 @@ export const useRecordSaveState = ({
     initialValue: record?.expectations,
   });
 
-  const upsertMutation = useUpsertDatasetRecordsMutation(datasetId);
+  const updateMutation = useUpdateDatasetRecordMutation(datasetId);
   const queryClient = useQueryClient();
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
   const [justSaved, setJustSaved] = useState(false);
-  // True from the moment the user clicks Save until the pre-save schema refetch + validate
-  // step resolves. Merged into the visible 'saving' status so the button shows a spinner
-  // immediately and the user gets feedback even when the refetch is slow.
+  // Signature of the last edit that failed to save. While the editor still holds exactly that
+  // value we don't re-attempt — otherwise a persistent error (e.g. a duplicate-inputs conflict)
+  // would have the debounce re-fire the identical doomed request every interval and spam errors.
+  // Editing to any other value clears the block (the signature stops matching).
+  const [failedSignature, setFailedSignature] = useState<string | null>(null);
+  // True from the moment a commit starts until its pre-save schema refetch + validate resolves,
+  // merged into the visible 'saving' status so feedback is immediate even on a slow refetch.
   const [isVerifying, setIsVerifying] = useState(false);
 
   const isDirty = inputs.isDirty || expectations.isDirty;
   const hasContent = inputs.text.trim() !== '' || expectations.text.trim() !== '';
   const anyInvalid = !inputs.isValid || !expectations.isValid;
-  // Guard against the empty-editor → empty-object → server-wipes-field data-loss path.
-  // `parseRecordObject('')` parses to `{}`, which `transformDatasetRecordForUpdate` turns into
-  // `inputs: []`; with `update_mask=inputs` the server then clears the field. Expectations
-  // are legitimately optional and may remain empty — only inputs are gated here, matching
-  // the create-flow rule that inputs must have at least one key.
+  // Empty inputs would round-trip as `inputs: {}` and wipe the field; gate it (expectations may
+  // legitimately be empty). Matches the create-flow rule that inputs need at least one key.
   const inputsEmpty = inputs.parsed !== undefined && Object.keys(inputs.parsed).length === 0;
+  // A commit is only allowed when there is a dirty, valid, non-empty-inputs edit on a real record.
+  const canCommit = Boolean(record) && isDirty && !anyInvalid && !inputsEmpty;
 
-  const status: SaveStatus = useMemo(() => {
-    if (upsertMutation.isLoading || isVerifying) return 'saving';
-    if (errorMessage) return 'error';
-    if (anyInvalid) return 'invalid';
-    if (inputsEmpty && isDirty) return 'empty-inputs';
-    if (isDirty) return 'dirty';
-    if (justSaved) return 'saved';
-    return 'clean';
-  }, [upsertMutation.isLoading, isVerifying, errorMessage, anyInvalid, inputsEmpty, isDirty, justSaved]);
+  // The actual write. Takes an explicit payload (not closure state) so a flush during a
+  // record-switch commits the record that was being edited, not the one being switched to.
+  const commit = useCallback(
+    (payload: CommitPayload) => {
+      setErrorMessage(undefined);
+      setIsVerifying(true);
+      const recordsKey = listDatasetRecordsQueryKey(datasetId);
+      queryClient
+        .refetchQueries({ queryKey: recordsKey })
+        .catch(() => undefined)
+        .then(() => {
+          const freshRecords = queryClient.getQueryData<DatasetRecord[]>(recordsKey) ?? existingRecords;
+          const signature = signatureOf(payload.inputsText, payload.expectationsText);
+          try {
+            validateSchemaConsistency(freshRecords, { [payload.recordId]: payload.edits });
+          } catch (validationErr) {
+            const error = validationErr instanceof Error ? validationErr : new Error(fallbackErrorMessage);
+            setIsVerifying(false);
+            setErrorMessage(error.message);
+            setFailedSignature(signature);
+            onSaveError?.(error);
+            return;
+          }
+
+          setIsVerifying(false);
+          updateMutation.mutate([{ recordId: payload.recordId, updates: payload.edits }], {
+            onSuccess: () => {
+              // Advance each editor's baseline to exactly what we submitted so isDirty clears
+              // without waiting for the optimistic cache re-render to flush.
+              inputs.reset(payload.inputsText);
+              expectations.reset(payload.expectationsText);
+              setFailedSignature(null);
+              setJustSaved(true);
+            },
+            onError: (err) => {
+              const error = err instanceof Error ? err : new Error(fallbackErrorMessage);
+              setErrorMessage(error.message);
+              // Block re-firing this exact value; editing to anything else clears it.
+              setFailedSignature(signature);
+              onSaveError?.(error);
+            },
+          });
+        });
+    },
+    [datasetId, existingRecords, fallbackErrorMessage, inputs, expectations, onSaveError, queryClient, updateMutation],
+  );
+
+  const debouncedCommit = useDebouncedCallback(commit, debounceMs);
+
+  // Build the payload from the *current* editor state. `edits` carries only the dirty fields.
+  const buildPayload = useCallback((): CommitPayload | null => {
+    if (!record) return null;
+    const edits: Partial<DatasetRecord> = {};
+    if (inputs.isDirty) edits.inputs = inputs.parsed;
+    if (expectations.isDirty) edits.expectations = expectations.parsed;
+    return {
+      recordId: record.dataset_record_id,
+      edits,
+      inputsText: inputs.text,
+      expectationsText: expectations.text,
+    };
+  }, [
+    record,
+    inputs.isDirty,
+    inputs.parsed,
+    inputs.text,
+    expectations.isDirty,
+    expectations.parsed,
+    expectations.text,
+  ]);
+
+  const currentSignature = signatureOf(inputs.text, expectations.text);
+
+  // Autosave trigger: schedule a debounced commit while the edit is valid; cancel (defer) while
+  // it is invalid or empty so nothing bad is ever persisted, and skip the exact value that just
+  // failed so a persistent error doesn't loop. Clear a stale error banner once the user edits
+  // away from the failed value.
+  useEffect(() => {
+    if (commitMode !== 'autosave') return;
+    if (!canCommit || currentSignature === failedSignature) {
+      debouncedCommit.cancel();
+      return;
+    }
+    if (failedSignature !== null) {
+      // The user changed the content after a failure — drop the stale error + block.
+      setFailedSignature(null);
+      setErrorMessage(undefined);
+    }
+    const payload = buildPayload();
+    if (payload) debouncedCommit(payload);
+  }, [commitMode, canCommit, currentSignature, failedSignature, buildPayload, debouncedCommit]);
+
+  // Flush a pending autosave when the record changes or the panel unmounts, so an in-flight
+  // debounce isn't dropped on the floor. The debounce replays the last *scheduled* payload, so
+  // this commits the outgoing record even though `record` is about to change.
+  useEffect(() => () => debouncedCommit.flush(), [record?.dataset_record_id, debouncedCommit]);
 
   // Stop saying "saved" the moment the user edits again.
   useEffect(() => {
     if (isDirty) setJustSaved(false);
   }, [isDirty]);
 
-  // Clear save banners whenever the drawer switches to a different record.
+  // Clear banners when the drawer switches to a different record.
   useEffect(() => {
     setErrorMessage(undefined);
     setJustSaved(false);
+    setFailedSignature(null);
   }, [record?.dataset_record_id]);
 
+  const status: SaveStatus = useMemo(() => {
+    if (updateMutation.isLoading || isVerifying) return 'saving';
+    if (errorMessage) return 'error';
+    if (anyInvalid) return 'invalid';
+    if (inputsEmpty && isDirty) return 'empty-inputs';
+    // In autosave mode a dirty edit is on its way to the server, so present it as 'saving'
+    // rather than 'dirty' (there is no manual save to prompt for). Explicit mode keeps 'dirty'.
+    if (isDirty) return commitMode === 'autosave' ? 'saving' : 'dirty';
+    if (justSaved) return 'saved';
+    return 'clean';
+  }, [updateMutation.isLoading, isVerifying, errorMessage, anyInvalid, inputsEmpty, isDirty, justSaved, commitMode]);
+
+  // Commit immediately (Cmd/Ctrl-S, or the explicit-mode Save button).
   const save = useCallback(() => {
-    if (!record || !isDirty || anyInvalid || inputsEmpty) return;
-    setErrorMessage(undefined);
+    if (!canCommit) return;
+    const payload = buildPayload();
+    if (!payload) return;
+    debouncedCommit.cancel();
+    commit(payload);
+  }, [canCommit, buildPayload, debouncedCommit, commit]);
 
-    // `parsed` is always defined for any dirty field — anyInvalid + inputsEmpty guards above
-    // would have returned otherwise. `updates` and `updateMask` carry the same partial: the
-    // mask tells the backend which fields to write, `updates` carries the values.
-    const edits: Partial<DatasetRecord> = {};
-    if (inputs.isDirty) edits.inputs = inputs.parsed;
-    if (expectations.isDirty) edits.expectations = expectations.parsed;
-
-    // Capture the text being submitted so onSuccess can advance the baseline to exactly what
-    // we just sent — independent of when the optimistic-cache re-render flushes the ref.
-    const submittedInputsText = inputs.text;
-    const submittedExpectationsText = expectations.text;
-
-    // Refetch the records list before running schema validation. Without this, a peer-tab
-    // edit (or an in-tab create) that hasn't yet propagated to this hook's `existingRecords`
-    // prop could let a mixed singleturn/multiturn save sneak past the client-side gate.
-    // We tolerate refetch failure: if the network is down we fall back to the in-memory
-    // `existingRecords` and let the mutation surface the server's own validation error.
-    setIsVerifying(true);
-    const recordsKey = listDatasetRecordsQueryKey(datasetId);
-    queryClient
-      .refetchQueries({ queryKey: recordsKey })
-      .catch(() => undefined)
-      .then(() => {
-        const freshRecords = queryClient.getQueryData<DatasetRecord[]>(recordsKey) ?? existingRecords;
-
-        try {
-          validateSchemaConsistency(freshRecords, { [record.dataset_record_id]: edits });
-        } catch (validationErr) {
-          const error = validationErr instanceof Error ? validationErr : new Error(fallbackErrorMessage);
-          setIsVerifying(false);
-          setErrorMessage(error.message);
-          onSaveError?.(error);
-          return;
-        }
-
-        setIsVerifying(false);
-        upsertMutation.mutate([{ recordId: record.dataset_record_id, updates: edits, updateMask: edits }], {
-          onSuccess: () => {
-            inputs.reset(submittedInputsText);
-            expectations.reset(submittedExpectationsText);
-            setJustSaved(true);
-            onSaveSuccess?.();
-          },
-          onError: (err) => {
-            const error = err instanceof Error ? err : new Error(fallbackErrorMessage);
-            setErrorMessage(error.message);
-            onSaveError?.(error);
-          },
-        });
-      });
-  }, [
-    anyInvalid,
-    datasetId,
-    existingRecords,
-    expectations,
-    fallbackErrorMessage,
-    inputs,
-    inputsEmpty,
-    isDirty,
-    onSaveError,
-    onSaveSuccess,
-    queryClient,
-    record,
-    upsertMutation,
-  ]);
+  const flush = useCallback(() => debouncedCommit.flush(), [debouncedCommit]);
 
   const discard = useCallback(() => {
+    debouncedCommit.cancel();
     inputs.reset();
     expectations.reset();
     setErrorMessage(undefined);
-  }, [inputs, expectations]);
+  }, [debouncedCommit, inputs, expectations]);
 
   const onContainerKeyDown = useCallback(
     (event: React.KeyboardEvent) => {
@@ -186,5 +266,5 @@ export const useRecordSaveState = ({
     [save],
   );
 
-  return { inputs, expectations, status, errorMessage, isDirty, hasContent, save, discard, onContainerKeyDown };
+  return { inputs, expectations, status, errorMessage, isDirty, hasContent, save, flush, discard, onContainerKeyDown };
 };

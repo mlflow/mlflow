@@ -7,9 +7,7 @@ import { DatasetRecordDetailFooter } from './DatasetRecordDetailFooter';
 import { DatasetRecordCollapsibleSection } from './DatasetRecordCollapsibleSection';
 import { DatasetRecordDetailHeader } from './DatasetRecordDetailHeader';
 import { TagsCell } from './TagsCell';
-import { DraftTagsField } from './DraftTagsField';
 import { useRecordSaveState } from '../hooks/useRecordSaveState';
-import { useRecordCreateState, type PendingNewRecord } from '../hooks/useRecordCreateState';
 // Tiny intl-based date formatter; replaces @databricks/web-shared/date-time which OSS lacks.
 const formatDateTime = (
   input: string | undefined,
@@ -24,8 +22,6 @@ const formatDateTime = (
     minute: '2-digit',
   });
 };
-
-type SidePanelMode = 'edit' | 'create';
 
 /**
  * Renders the metadata Source row value for a given record source. Trace-sourced records
@@ -61,55 +57,50 @@ const renderSourceValue = (
 };
 
 interface DatasetRecordSidePanelProps {
-  mode: SidePanelMode;
   datasetId: string;
-  /** Required when mode === 'edit'; ignored in create mode. */
+  /**
+   * The record being edited. Normally always present: "+ Add record" optimistically inserts the
+   * new record into the list cache before selecting it by id, and once records have loaded the
+   * page closes the panel if a selected id isn't found rather than render it empty. It is only
+   * `undefined` during the initial records load (e.g. deep-linking straight to a record URL),
+   * where the header shows a placeholder until the list resolves.
+   */
   record: DatasetRecord | undefined;
   /** Full record set for the dataset — gates save against mixed singleturn/multiturn schemas. */
   existingRecords: DatasetRecord[];
   open: boolean;
   onClose: () => void;
-  /** Toast helper — fired after a successful save. */
-  onSaveSuccess?: () => void;
   /** Receives `unknown` so the same handler covers save errors (always Error-shaped
-   * after the hooks' wrapping) and inline tag-edit errors (the upsert mutation surfaces
+   * after the hook's wrapping) and inline tag-edit errors (the upsert mutation surfaces
    * the raw rejection). */
   onSaveError?: (error: unknown) => void;
   /**
-   * Create-mode only: fires on every editor change so the parent can update the fake-row
-   * preview rendered at the top of the records table.
-   */
-  onPendingChange?: (next: PendingNewRecord) => void;
-  /**
-   * Notifies the parent whenever the panel's dirty/guard state flips. The page consolidates
-   * dirty state across record-switch, mode-switch, close, and in-app navigation so a single
-   * "discard unsaved changes?" modal can gate all four transitions consistently.
+   * Notifies the parent whenever the panel's dirty/guard state flips. With autosave this stays
+   * false (edits are flushed on record-switch / close), but the page keeps the hook wired so a
+   * future explicit-commit mode could re-arm the discard guard.
    */
   onDirtyChange?: (isDirty: boolean) => void;
   /**
-   * Edit-mode only: opens the trace explorer modal for a trace-sourced record. The parent
-   * owns the modal so it can overlay the entire dataset page (and so the side panel doesn't
-   * need to know about SQL warehouse / labeling-schemas plumbing the modal requires).
+   * Opens the trace explorer modal for a trace-sourced record. The parent owns the modal so it
+   * can overlay the entire dataset page (and so the side panel doesn't need to know about SQL
+   * warehouse / labeling-schemas plumbing the modal requires).
    */
   onOpenTraceModal?: (traceId: string) => void;
 }
 
 /**
- * Inline side panel for editing an existing dataset record OR composing a new one. Replaces
- * the prior overlay drawer + AddRecordModal pair so the page no longer has two competing
- * surfaces for record interaction — and so a partially-typed new record can preview live
- * in the table as a synthetic row alongside saved records.
+ * Inline side panel for editing a dataset record. New records are created up front by the page's
+ * "+ Add record" action (an immediate POST) and then opened here in edit mode, so this panel only
+ * ever edits an existing record: edits autosave by id (see `useRecordSaveState`), with no separate
+ * Save step.
  */
 export const DatasetRecordSidePanel = ({
-  mode,
   datasetId,
   record,
   existingRecords,
   open,
   onClose,
-  onSaveSuccess,
   onSaveError,
-  onPendingChange,
   onDirtyChange,
   onOpenTraceModal,
 }: DatasetRecordSidePanelProps) => {
@@ -118,51 +109,32 @@ export const DatasetRecordSidePanel = ({
 
   const editFallback = intl.formatMessage({
     defaultMessage: 'Failed to save record',
-    description: 'Generic fallback save-error text for the dataset record side panel (edit mode)',
-  });
-  const createFallback = intl.formatMessage({
-    defaultMessage: 'Failed to create record',
-    description: 'Generic fallback save-error text for the dataset record side panel (create mode)',
+    description: 'Generic fallback save-error text for the dataset record side panel',
   });
 
-  // Both hooks are called unconditionally to satisfy the rules of hooks. The unused one
-  // sits in `clean` status with no in-flight mutation, so the cost is a couple of memo'd
-  // values and the editor state for two un-rendered fields — cheap and trivially correct.
+  // Autosave (the OSS default). No per-save success toast — the footer's saved indicator is the
+  // feedback, and a toast on every debounced write would be noise. Errors still surface as toasts.
   const editState = useRecordSaveState({
     datasetId,
     record,
     fallbackErrorMessage: editFallback,
     existingRecords,
-    onSaveSuccess: mode === 'edit' ? onSaveSuccess : undefined,
-    onSaveError: mode === 'edit' ? onSaveError : undefined,
-  });
-  const createState = useRecordCreateState({
-    datasetId,
-    fallbackErrorMessage: createFallback,
-    existingRecords,
-    onSaveSuccess: mode === 'create' ? onSaveSuccess : undefined,
-    onSaveError: mode === 'create' ? onSaveError : undefined,
-    onPendingChange: mode === 'create' ? onPendingChange : undefined,
+    onSaveError,
   });
 
-  const active = mode === 'edit' ? editState : createState;
-  // Pull these out explicitly so the JSX below can stay narrative — the wide union type of
-  // `active` doesn't expose `tags`/`setTags`, which are only on the create-state branch.
-  const draftTags = createState.tags;
-  const setDraftTags = createState.setTags;
-  // `isDirty` distinguishes "user actually edited" from "panel just opened with seeded
-  // defaults", so closing a seeded-but-unedited create panel does not prompt.
-  const shouldGuard = active.isDirty;
+  // With autosave there is nothing to discard: a pending edit is flushed (committed) on
+  // record-switch / close by the hook itself, so closing never needs a confirmation prompt.
+  // Keeping this false disarms the page-level discard modal + beforeunload guard.
+  const shouldGuard = false;
 
-  // Surface dirty state up to the page so it can serialize close, record-switch, and
-  // in-app navigation through a single confirmation modal.
+  // Surface dirty state up to the page so it can serialize close / record-switch through a single
+  // confirmation modal (currently inert under autosave — shouldGuard is always false).
   useEffect(() => {
     onDirtyChange?.(open && shouldGuard);
   }, [open, shouldGuard, onDirtyChange]);
 
-  // Native browser prompt for tab-close / reload while dirty. The page-level router
-  // blocker handles in-app navigation; this covers `beforeunload`, which the router
-  // blocker doesn't see.
+  // Native browser prompt for tab-close / reload while dirty. Inert while autosave keeps
+  // shouldGuard false; retained for a future explicit-commit mode.
   useEffect(() => {
     if (!open || !shouldGuard) return;
     const handler = (event: BeforeUnloadEvent) => {
@@ -179,9 +151,7 @@ export const DatasetRecordSidePanel = ({
   // because Monaco swallows keydown events before they bubble to ancestor handlers
   // (see the matching note for Cmd+S in `JsonRecordEditor`), and an aside handler would
   // miss editor-focused presses. `defaultPrevented` defers to anything that legitimately
-  // wanted Esc first — Monaco's suggest/find widgets, an open DangerModal, the bulk-delete
-  // or trace modals. `onClose` routes through `useGuardedTransition`, so the discard
-  // prompt appears when dirty.
+  // wanted Esc first — Monaco's suggest/find widgets, the bulk-delete or trace modals.
   useEffect(() => {
     if (!open) return undefined;
     const handler = (event: KeyboardEvent) => {
@@ -207,18 +177,12 @@ export const DatasetRecordSidePanel = ({
     defaultMessage: 'Dataset record details',
     description: 'Aria label for the dataset record edit side panel',
   });
-  const createPanelLabel = intl.formatMessage({
-    defaultMessage: 'New dataset record',
-    description: 'Aria label for the dataset record create side panel',
-  });
 
   if (!open) return null;
 
-  const showRecordDetail = mode === 'edit' && record !== undefined;
-
   return (
     <aside
-      aria-label={mode === 'edit' ? editPanelLabel : createPanelLabel}
+      aria-label={editPanelLabel}
       css={{
         // `flex: 1` makes the aside fill the parent's height so the body's `overflowY: auto`
         // actually scrolls when content is tall. Without it, the aside sizes to content,
@@ -255,15 +219,8 @@ export const DatasetRecordSidePanel = ({
             borderBottom: `1px solid ${theme.colors.border}`,
           }}
         >
-          {showRecordDetail && record ? (
+          {record ? (
             <DatasetRecordDetailHeader recordId={record.dataset_record_id} />
-          ) : mode === 'create' ? (
-            <Typography.Text bold>
-              <FormattedMessage
-                defaultMessage="New record"
-                description="Heading at the top of the V2 dataset record side panel when composing a new record"
-              />
-            </Typography.Text>
           ) : (
             // Keeps the close button right-aligned while the record query resolves.
             <span />
@@ -277,7 +234,7 @@ export const DatasetRecordSidePanel = ({
         </div>
       </div>
       <div
-        onKeyDown={active.onContainerKeyDown}
+        onKeyDown={editState.onContainerKeyDown}
         css={{
           flex: 1,
           overflowY: 'auto',
@@ -295,14 +252,14 @@ export const DatasetRecordSidePanel = ({
           }
         >
           <LazyJsonRecordEditor
-            value={active.inputs.text}
-            onChange={active.inputs.setText}
+            value={editState.inputs.text}
+            onChange={editState.inputs.setText}
             ariaLabel={intl.formatMessage({
               defaultMessage: 'Dataset record inputs',
               description: 'Aria label for the dataset record inputs JSON editor',
             })}
-            errorMessage={active.inputs.isValid ? undefined : invalidJsonMessage}
-            onSaveShortcut={active.save}
+            errorMessage={editState.inputs.isValid ? undefined : invalidJsonMessage}
+            onSaveShortcut={editState.save}
           />
         </DatasetRecordCollapsibleSection>
 
@@ -315,14 +272,14 @@ export const DatasetRecordSidePanel = ({
           }
         >
           <LazyJsonRecordEditor
-            value={active.expectations.text}
-            onChange={active.expectations.setText}
+            value={editState.expectations.text}
+            onChange={editState.expectations.setText}
             ariaLabel={intl.formatMessage({
               defaultMessage: 'Dataset record expectations',
               description: 'Aria label for the dataset record expectations JSON editor',
             })}
-            errorMessage={active.expectations.isValid ? undefined : invalidJsonMessage}
-            onSaveShortcut={active.save}
+            errorMessage={editState.expectations.isValid ? undefined : invalidJsonMessage}
+            onSaveShortcut={editState.save}
           />
         </DatasetRecordCollapsibleSection>
 
@@ -334,20 +291,13 @@ export const DatasetRecordSidePanel = ({
             />
           }
         >
-          {mode === 'edit' ? (
-            // Edit-mode tags persist immediately via upsert. The TagsCell only renders once
-            // the saved record is in hand — until then the section is empty (matches the
-            // edit-mode behavior elsewhere on this panel where the saved record drives
-            // detail rendering).
-            record ? (
-              <TagsCell record={record} datasetId={datasetId} onSaveError={onSaveError} />
-            ) : null
-          ) : (
-            <DraftTagsField tags={draftTags} onChange={setDraftTags} />
-          )}
+          {/* Tags persist immediately via upsert. The TagsCell only renders once the saved
+              record is in hand — until then the section is empty (matches the rest of this panel,
+              where the saved record drives detail rendering). */}
+          {record ? <TagsCell record={record} datasetId={datasetId} onSaveError={onSaveError} /> : null}
         </DatasetRecordCollapsibleSection>
 
-        {showRecordDetail && record && (
+        {record && (
           <DatasetRecordCollapsibleSection
             title={
               <FormattedMessage
@@ -403,26 +353,13 @@ export const DatasetRecordSidePanel = ({
           // No paddingBottom here: the outer wrappers (PageWrapper +
           // ExperimentPageTabs content wrapper) already contribute ~24px of
           // bottom space on the experiment page, so adding more here makes
-          // the gap below Save read as visually empty.
+          // the gap below the indicator read as visually empty.
           paddingLeft: theme.spacing.lg,
           paddingRight: theme.spacing.lg,
           flexShrink: 0,
         }}
       >
-        <DatasetRecordDetailFooter
-          status={active.status}
-          errorMessage={active.errorMessage}
-          onSave={active.save}
-          onDiscard={active.discard}
-          saveLabel={
-            mode === 'create' ? (
-              <FormattedMessage
-                defaultMessage="Add record"
-                description="Primary-button label on the dataset record side panel in create mode"
-              />
-            ) : undefined
-          }
-        />
+        <DatasetRecordDetailFooter status={editState.status} errorMessage={editState.errorMessage} autosave />
       </div>
     </aside>
   );

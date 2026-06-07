@@ -1,3 +1,4 @@
+import { isEqual } from 'lodash';
 import type { DatasetRecord } from '../hooks/useDatasetsQueries';
 type DatasetSchemaType = 'singleturn' | 'multiturn';
 const REQUIRED_MULTITURN_INPUT_FIELDS = new Set(['goal']);
@@ -24,6 +25,45 @@ export function getDefaultRecord(
     inputs: { messages: [{ role: 'user', content: 'Hello' }] },
     expectations: { guidelines: ['The response must be professional'] },
   };
+}
+
+/**
+ * Append a suffix to the seed's natural "fill me in" field so a uniquified placeholder still
+ * reads as a template. Handles the two shapes {@link getDefaultRecord} emits (singleturn
+ * `messages`, multiturn `goal`); anything else gets a distinct marker key the user can delete.
+ */
+function withSeedSuffix(inputs: Record<string, unknown>, suffix: string): Record<string, unknown> {
+  const clone = JSON.parse(JSON.stringify(inputs)) as Record<string, unknown>;
+  const messages = clone['messages'];
+  if (Array.isArray(messages) && typeof messages[0]?.content === 'string') {
+    messages[0].content = `${messages[0].content}${suffix}`;
+    return clone;
+  }
+  if (typeof clone['goal'] === 'string') {
+    clone['goal'] = `${clone['goal']}${suffix}`;
+    return clone;
+  }
+  return { ...clone, _draft: suffix.trim() };
+}
+
+/**
+ * Returns `baseInputs` unchanged when no existing record already has identical inputs, otherwise
+ * a distinct clone. A dataset enforces unique inputs per record (a hash of the inputs), so
+ * creating with a seed identical to an existing row would dedup into that row — reopening it
+ * instead of adding a new record. This keeps "+ Add record" always adding while preserving the
+ * readable seed template. The loop guarantees the result collides with no existing record.
+ */
+export function makeDistinctInputs(
+  baseInputs: Record<string, unknown>,
+  existingRecords: DatasetRecord[],
+): Record<string, unknown> {
+  const collides = (inputs: Record<string, unknown>) =>
+    existingRecords.some((record) => isEqual(record.inputs, inputs));
+  if (!collides(baseInputs)) return baseInputs;
+  for (let n = 2; ; n++) {
+    const candidate = withSeedSuffix(baseInputs, ` ${n}`);
+    if (!collides(candidate)) return candidate;
+  }
 }
 
 /**

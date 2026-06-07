@@ -1,6 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
 import type { DatasetRecord } from '../hooks/useDatasetsQueries';
-import { getDefaultRecord, validateSchemaConsistency } from './datasetSchemaUtils';
+import { getDefaultRecord, makeDistinctInputs, validateSchemaConsistency } from './datasetSchemaUtils';
 
 const makeRecord = (id: string, inputs: Record<string, unknown>): DatasetRecord =>
   ({ dataset_record_id: id, inputs }) as DatasetRecord;
@@ -92,5 +92,42 @@ describe('getDefaultRecord', () => {
     const edited = { r1: { inputs: { goal: 'g1' } } };
     const result = getDefaultRecord(records, edited);
     expect(result.inputs).toEqual({ goal: 'Complete the user request', persona: 'Helpful assistant' });
+  });
+});
+
+describe('makeDistinctInputs', () => {
+  test('returns the base inputs unchanged when nothing collides', () => {
+    const base = { messages: [{ role: 'user', content: 'Hello' }] };
+    expect(makeDistinctInputs(base, [])).toBe(base);
+  });
+
+  test('suffixes the message content when an identical singleturn row exists', () => {
+    const base = { messages: [{ role: 'user', content: 'Hello' }] };
+    const existing = [makeRecord('dr-1', { messages: [{ role: 'user', content: 'Hello' }] })];
+    expect(makeDistinctInputs(base, existing)).toEqual({ messages: [{ role: 'user', content: 'Hello 2' }] });
+  });
+
+  test('bumps the suffix until distinct from every existing row', () => {
+    const base = { messages: [{ role: 'user', content: 'Hello' }] };
+    const existing = [
+      makeRecord('dr-1', { messages: [{ role: 'user', content: 'Hello' }] }),
+      makeRecord('dr-2', { messages: [{ role: 'user', content: 'Hello 2' }] }),
+    ];
+    expect(makeDistinctInputs(base, existing)).toEqual({ messages: [{ role: 'user', content: 'Hello 3' }] });
+  });
+
+  test('suffixes goal for a multiturn seed', () => {
+    const base = { goal: 'Complete the user request', persona: 'Helpful assistant' };
+    const existing = [makeRecord('dr-1', { goal: 'Complete the user request', persona: 'Helpful assistant' })];
+    expect(makeDistinctInputs(base, existing)).toEqual({
+      goal: 'Complete the user request 2',
+      persona: 'Helpful assistant',
+    });
+  });
+
+  test('does not mutate the base inputs', () => {
+    const base = { messages: [{ role: 'user', content: 'Hello' }] };
+    makeDistinctInputs(base, [makeRecord('dr-1', { messages: [{ role: 'user', content: 'Hello' }] })]);
+    expect(base).toEqual({ messages: [{ role: 'user', content: 'Hello' }] });
   });
 });

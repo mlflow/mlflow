@@ -1682,12 +1682,14 @@ class DeleteDatasetTag(_message.Message):
 class UpsertDatasetRecords(_message.Message):
     __slots__ = ("dataset_id", "records", "updated_by")
     class Response(_message.Message):
-        __slots__ = ("inserted_count", "updated_count")
+        __slots__ = ("inserted_count", "updated_count", "record_ids")
         INSERTED_COUNT_FIELD_NUMBER: _ClassVar[int]
         UPDATED_COUNT_FIELD_NUMBER: _ClassVar[int]
+        RECORD_IDS_FIELD_NUMBER: _ClassVar[int]
         inserted_count: int
         updated_count: int
-        def __init__(self, inserted_count: _Optional[int] = ..., updated_count: _Optional[int] = ...) -> None: ...
+        record_ids: _containers.RepeatedScalarFieldContainer[str]
+        def __init__(self, inserted_count: _Optional[int] = ..., updated_count: _Optional[int] = ..., record_ids: _Optional[_Iterable[str]] = ...) -> None: ...
     DATASET_ID_FIELD_NUMBER: _ClassVar[int]
     RECORDS_FIELD_NUMBER: _ClassVar[int]
     UPDATED_BY_FIELD_NUMBER: _ClassVar[int]
@@ -1736,6 +1738,21 @@ class DeleteDatasetRecords(_message.Message):
     dataset_id: str
     dataset_record_ids: _containers.RepeatedScalarFieldContainer[str]
     def __init__(self, dataset_id: _Optional[str] = ..., dataset_record_ids: _Optional[_Iterable[str]] = ...) -> None: ...
+
+class UpdateDatasetRecords(_message.Message):
+    __slots__ = ("dataset_id", "records", "updated_by")
+    class Response(_message.Message):
+        __slots__ = ("updated_count",)
+        UPDATED_COUNT_FIELD_NUMBER: _ClassVar[int]
+        updated_count: int
+        def __init__(self, updated_count: _Optional[int] = ...) -> None: ...
+    DATASET_ID_FIELD_NUMBER: _ClassVar[int]
+    RECORDS_FIELD_NUMBER: _ClassVar[int]
+    UPDATED_BY_FIELD_NUMBER: _ClassVar[int]
+    dataset_id: str
+    records: str
+    updated_by: str
+    def __init__(self, dataset_id: _Optional[str] = ..., records: _Optional[str] = ..., updated_by: _Optional[str] = ...) -> None: ...
 
 class AddDatasetToExperiments(_message.Message):
     __slots__ = ("dataset_id", "experiment_ids")

@@ -1953,6 +1953,45 @@ class SqlEvaluationDatasetRecord(Base):
         if new_tags and MLFLOW_USER in new_tags:
             self.last_updated_by = new_tags[MLFLOW_USER]
 
+    def apply_patch(self, patch: dict[str, Any], new_input_hash: str | None = None) -> None:
+        """
+        Overwrite the supplied fields in place (PATCH semantics), addressed by record id.
+
+        Unlike `merge` (which is reached via input-hash dedup and only ever merges
+        outputs/expectations/tags), this replaces each provided field outright and can
+        change `inputs`. The caller supplies `new_input_hash` whenever `inputs` is part of
+        the patch, since the hash recompute + uniqueness check live in the store layer.
+        Fields absent from `patch` are left untouched.
+
+        Args:
+            patch: Dict with any of 'inputs', 'expectations', 'tags', 'outputs' to overwrite.
+            new_input_hash: SHA256 hash of the new inputs; required when 'inputs' is in patch.
+        """
+        if "inputs" in patch:
+            self.inputs = patch["inputs"] or {}
+            if new_input_hash is not None:
+                self.input_hash = new_input_hash
+
+        if "expectations" in patch:
+            self.expectations = patch["expectations"]
+
+        if "tags" in patch:
+            self.tags = patch["tags"]
+
+        if "outputs" in patch:
+            new_outputs = patch["outputs"]
+            self.outputs = (
+                {DATASET_RECORD_WRAPPED_OUTPUT_KEY: new_outputs}
+                if new_outputs is not None
+                else None
+            )
+
+        self.last_update_time = get_current_time_millis()
+
+        new_tags = patch.get("tags")
+        if new_tags and MLFLOW_USER in new_tags:
+            self.last_updated_by = new_tags[MLFLOW_USER]
+
 
 class SqlSpan(Base):
     __tablename__ = "spans"
