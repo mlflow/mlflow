@@ -758,3 +758,101 @@ def test_deferred_root_span_export(monkeypatch):
         exporter.export([child_otel_span_closed])
         mock_start_trace.assert_called_once()
         mock_upload_trace_data.assert_called_once()
+
+
+def test_remote_trace_warns_once_when_backend_does_not_support_span_logging(monkeypatch):
+    """Regression test for #23778.
+
+    Spans created in a remote process are delivered to the backend only via log_spans().
+    When the backend does not support span-level (OTLP) ingestion (as with some managed
+    MLflow backends, e.g. AWS SageMaker AI), those spans are dropped. This previously failed
+    silently; the exporter must now surface a single, actionable warning.
+    """
+    monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", "false")
+
+    now_ns = int(time.time() * 1e9)
+    otel_trace_id = 0xABCDEF
+    otel_span = create_mock_otel_span(
+        name="remote-child",
+        trace_id=otel_trace_id,
+        span_id=2,
+        parent_id=1,
+        start_time=now_ns,
+        end_time=now_ns,
+    )
+    trace_id = generate_trace_id_v3(otel_span)
+    span = LiveSpan(otel_span, trace_id)
+
+    trace_manager = InMemoryTraceManager.get_instance()
+    trace_info = create_test_trace_info(trace_id, _EXPERIMENT_ID)
+    trace_manager.register_trace(otel_trace_id, trace_info, is_remote_trace=True)
+    trace_manager.register_span(span)
+
+    with (
+        mock.patch(
+            "mlflow.tracing.client.TracingClient.log_spans",
+            side_effect=NotImplementedError,
+        ),
+        mock.patch("mlflow.tracing.export.mlflow_v3._logger") as mock_logger,
+    ):
+        exporter = MlflowV3SpanExporter()
+        # Export twice to verify the warning is emitted only once.
+        exporter.export([otel_span])
+        exporter.export([otel_span])
+
+    assert exporter._store_supports_log_spans is False
+    assert exporter._warned_distributed_tracing_unsupported is True
+    warning_calls = [
+        c for c in mock_logger.warning.call_args_list if "distributed tracing" in c.args[0].lower()
+    ]
+    assert len(warning_calls) == 1
+    assert "does not support span-level" in warning_calls[0].args[0]
+
+
+def test_local_trace_does_not_warn_when_backend_does_not_support_span_logging(monkeypatch):
+    """A local (non-distributed) trace must not trigger the distributed-tracing warning.
+
+    For local traces the full trace is still exported via start_trace + artifact upload, so a
+    log_spans() failure is harmless and warning would be misleading noise.
+    """
+    monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", "false")
+
+    now_ns = int(time.time() * 1e9)
+    otel_trace_id = 0xBADF00D
+    otel_span = create_mock_otel_span(
+        name="root",
+        trace_id=otel_trace_id,
+        span_id=1,
+        parent_id=None,
+        start_time=now_ns,
+        end_time=now_ns,
+    )
+    trace_id = generate_trace_id_v3(otel_span)
+    span = LiveSpan(otel_span, trace_id)
+
+    trace_manager = InMemoryTraceManager.get_instance()
+    trace_info = create_test_trace_info(trace_id, _EXPERIMENT_ID)
+    trace_manager.register_trace(otel_trace_id, trace_info)  # local trace (not remote)
+    trace_manager.register_span(span)
+
+    with (
+        mock.patch(
+            "mlflow.tracing.client.TracingClient.log_spans",
+            side_effect=NotImplementedError,
+        ),
+        mock.patch(
+            "mlflow.tracing.client.TracingClient.start_trace",
+            return_value=trace_info,
+        ),
+        mock.patch("mlflow.tracing.client.TracingClient._upload_trace_data", return_value=None),
+        mock.patch("mlflow.tracing.export.mlflow_v3._logger") as mock_logger,
+    ):
+        exporter = MlflowV3SpanExporter()
+        exporter.export([otel_span])
+
+    assert exporter._store_supports_log_spans is False
+    assert exporter._warned_distributed_tracing_unsupported is False
+    warning_calls = [
+        c for c in mock_logger.warning.call_args_list if "distributed tracing" in c.args[0].lower()
+    ]
+    assert warning_calls == []

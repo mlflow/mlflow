@@ -50,6 +50,13 @@ class MlflowV3SpanExporter(SpanExporter):
         # if log_spans() raises NotImplementedError or returns a 501.
         self._store_supports_log_spans = True
 
+        # Whether we have already warned that cross-process distributed tracing is not
+        # functional because the backend does not support span-level (OTLP) ingestion.
+        # Spans created in a remote process can only be delivered via log_spans(), so when
+        # the backend lacks that support they are dropped. We surface a single, actionable
+        # warning instead of silently discarding them (see _log_spans).
+        self._warned_distributed_tracing_unsupported = False
+
         # Root spans deferred when background thread spans are still running at export time.
         # Keyed by OTel trace ID; popped and exported once all spans in the trace have ended.
         # Protected by _deferred_lock because SimpleSpanProcessor calls export() from the
@@ -68,6 +75,10 @@ class MlflowV3SpanExporter(SpanExporter):
 
         if self._store_supports_log_spans:
             self._export_spans_incrementally(spans)
+        elif not self._warned_distributed_tracing_unsupported and self._has_remote_trace_spans(
+            spans
+        ):
+            self._warn_distributed_tracing_unsupported()
 
         self._export_traces(spans)
 
@@ -86,22 +97,25 @@ class MlflowV3SpanExporter(SpanExporter):
             )
             return
 
-        mlflow_spans_by_experiment = self._collect_mlflow_spans_for_export(spans)
+        mlflow_spans_by_experiment, remote_experiment_ids = self._collect_mlflow_spans_for_export(
+            spans
+        )
         for experiment_id, spans_to_log in mlflow_spans_by_experiment.items():
+            is_remote_trace = experiment_id in remote_experiment_ids
             if self._should_log_async():
                 self._async_queue.put(
                     task=Task(
                         handler=self._log_spans,
-                        args=(experiment_id, spans_to_log),
+                        args=(experiment_id, spans_to_log, is_remote_trace),
                         error_msg="Failed to log spans to the trace server.",
                     )
                 )
             else:
-                self._log_spans(experiment_id, spans_to_log)
+                self._log_spans(experiment_id, spans_to_log, is_remote_trace)
 
     def _collect_mlflow_spans_for_export(
         self, spans: Sequence[ReadableSpan]
-    ) -> dict[str, list[Span]]:
+    ) -> tuple[dict[str, list[Span]], set[str]]:
         """
         Collect MLflow spans from ReadableSpans for export, grouped by experiment_id.
 
@@ -113,10 +127,15 @@ class MlflowV3SpanExporter(SpanExporter):
             spans: Sequence of ReadableSpan objects.
 
         Returns:
-            Dictionary mapping experiment_id to list of MLflow Span objects.
+            A tuple ``(spans_by_experiment, remote_experiment_ids)`` where
+            ``spans_by_experiment`` maps experiment_id to its list of MLflow Span objects, and
+            ``remote_experiment_ids`` is the subset of those experiment_ids that contain spans
+            belonging to a remote (distributed) trace. Spans of a remote trace can only reach
+            the backend via log_spans(), so this is used to warn when that path is unavailable.
         """
         manager = InMemoryTraceManager.get_instance()
         spans_by_experiment = defaultdict(list)
+        remote_experiment_ids: set[str] = set()
 
         for span in spans:
             mlflow_trace_id = manager.get_mlflow_trace_id_from_otel_id(span.context.trace_id)
@@ -128,7 +147,10 @@ class MlflowV3SpanExporter(SpanExporter):
                 continue
             # Get experiment_id from trace info (resolved at on_start time in the
             # originating thread) to survive BatchSpanProcessor thread hops.
+            is_remote_trace = False
             with manager.get_trace(mlflow_trace_id) as trace:
+                if trace is not None:
+                    is_remote_trace = trace.is_remote_trace
                 try:
                     experiment_id = trace.info.experiment_id if trace else None
                 except AttributeError:
@@ -137,8 +159,10 @@ class MlflowV3SpanExporter(SpanExporter):
             if experiment_id is None:
                 experiment_id = get_experiment_id_for_trace(span)
             spans_by_experiment[experiment_id].append(mlflow_span)
+            if is_remote_trace:
+                remote_experiment_ids.add(experiment_id)
 
-        return spans_by_experiment
+        return spans_by_experiment, remote_experiment_ids
 
     def _export_traces(self, spans: Sequence[ReadableSpan]) -> None:
         """
@@ -211,20 +235,30 @@ class MlflowV3SpanExporter(SpanExporter):
         else:
             self._log_trace(trace, prompts=manager_trace.prompts)
 
-    def _log_spans(self, experiment_id: str, spans: list[Span]) -> None:
+    def _log_spans(
+        self, experiment_id: str, spans: list[Span], is_remote_trace: bool = False
+    ) -> None:
         """
         Helper method to log spans with error handling.
 
         Args:
             experiment_id: The experiment ID to log spans to.
             spans: List of spans to log.
+            is_remote_trace: Whether these spans belong to a remote (distributed) trace. Such
+                spans can only be delivered to the backend via log_spans(), so if the backend
+                does not support it they are dropped and we surface a clear, one-time warning.
         """
         try:
             self._client.log_spans(experiment_id, spans)
         except NotImplementedError:
-            # Silently skip if the store doesn't support log_spans. This is expected for stores that
-            # don't implement span-level logging, and we don't want to spam warnings for every span.
+            # The store doesn't support log_spans. This is expected for stores that don't
+            # implement span-level logging, and we don't want to spam warnings for every span.
+            # For local (non-remote) traces this is harmless because the full trace is still
+            # exported via start_trace, but for remote traces these spans are the only carrier,
+            # so warn that distributed tracing is not functional with this backend.
             self._store_supports_log_spans = False
+            if is_remote_trace:
+                self._warn_distributed_tracing_unsupported()
         except RestException as e:
             # When the FileStore is behind the tracking server, it returns 501 exception.
             # However, the OTLP endpoint returns general HTTP error, not MlflowException, which does
@@ -232,10 +266,43 @@ class MlflowV3SpanExporter(SpanExporter):
             # we need to check the message to handle this case.
             if "REST OTLP span logging is not supported" in e.message:
                 self._store_supports_log_spans = False
+                if is_remote_trace:
+                    self._warn_distributed_tracing_unsupported()
             else:
                 _logger.debug(f"Failed to log span to MLflow backend: {e}")
         except Exception as e:
             _logger.debug(f"Failed to log span to MLflow backend: {e}")
+
+    def _has_remote_trace_spans(self, spans: Sequence[ReadableSpan]) -> bool:
+        """Return True if any of the given spans belong to a remote (distributed) trace."""
+        manager = InMemoryTraceManager.get_instance()
+        for span in spans:
+            mlflow_trace_id = manager.get_mlflow_trace_id_from_otel_id(span.context.trace_id)
+            if mlflow_trace_id is None:
+                continue
+            with manager.get_trace(mlflow_trace_id) as trace:
+                if trace is not None and trace.is_remote_trace:
+                    return True
+        return False
+
+    def _warn_distributed_tracing_unsupported(self) -> None:
+        """Emit a single, actionable warning that distributed tracing is not supported.
+
+        Spans created in a remote process are delivered to the backend only via the
+        span-level (OTLP) ingestion API. When the tracking backend does not support it,
+        those spans are dropped, which otherwise fails silently.
+        """
+        if self._warned_distributed_tracing_unsupported:
+            return
+        self._warned_distributed_tracing_unsupported = True
+        _logger.warning(
+            "Spans created in a remote process could not be logged because the current "
+            "MLflow tracking backend does not support span-level (OTLP) ingestion. "
+            "Cross-process distributed tracing requires an MLflow tracking server (version "
+            "3.4 or newer) backed by a SQL store. As a result, traces from the remote "
+            "service will not be linked into the distributed trace. See "
+            "https://mlflow.org/docs/latest/genai/tracing/ for supported backends."
+        )
 
     def _log_trace(self, trace: Trace, prompts: Sequence[PromptVersion]) -> None:
         """
