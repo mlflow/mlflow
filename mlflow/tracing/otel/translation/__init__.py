@@ -89,10 +89,16 @@ def translate_span_when_storing(span: Span) -> dict[str, Any]:
     ):
         attributes[SpanAttributeKey.INPUTS] = input_value
 
-    if SpanAttributeKey.OUTPUTS not in attributes and (
-        output_value := _get_output_value(attributes, events)
-    ):
-        attributes[SpanAttributeKey.OUTPUTS] = output_value
+    if SpanAttributeKey.OUTPUTS not in attributes:
+        # For retriever spans, prefer the structured per-document attributes (e.g. OpenInference's
+        # retrieval.documents.*) over the generic output.value blob, so retrieval-grounded scorers
+        # receive a list of documents instead of an opaque string.
+        span_type_raw = attributes.get(SpanAttributeKey.SPAN_TYPE)
+        span_type = try_json_loads(span_type_raw) if span_type_raw else None
+        if span_type == SpanType.RETRIEVER and (documents := _get_retrieval_documents(attributes)):
+            attributes[SpanAttributeKey.OUTPUTS] = documents
+        elif output_value := _get_output_value(attributes, events):
+            attributes[SpanAttributeKey.OUTPUTS] = output_value
 
     # Translate token usage
     if SpanAttributeKey.CHAT_USAGE not in attributes and (
@@ -264,6 +270,18 @@ def _get_output_value(
             if hasattr(translator, "get_output_value_from_events"):
                 if value := translator.get_output_value_from_events(events):
                     return value
+
+
+def _get_retrieval_documents(attributes: dict[str, Any]) -> Any:
+    """
+    Reassemble a retriever span's documents from convention-specific indexed attributes
+    (e.g. OpenInference's ``retrieval.documents.*``). Returns a JSON-serialized list of
+    document dicts, or None if no translator recognizes the attributes.
+    """
+    for translator in _TRANSLATORS:
+        if value := translator.get_retrieval_documents(attributes):
+            return value
+    return None
 
 
 def _get_message_format(attributes: dict[str, Any]) -> str | None:
