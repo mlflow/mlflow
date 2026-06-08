@@ -1371,6 +1371,10 @@
     "defaultMessage": "Click to pin the run",
     "description": "A tooltip for the pin icon button in the runs chart tooltip next to the not pinned run"
   },
+  "5AiU0Q": {
+    "defaultMessage": "Create your first prompt",
+    "description": "Title for the empty state on the prompts list page"
+  },
   "5B5dhT": {
     "defaultMessage": "Validate the model before deployment",
     "description": "Heading text for validating the model before deploying it for serving"
@@ -1418,6 +1422,10 @@
   "5UrahG": {
     "defaultMessage": "Viewing version {version}",
     "description": "Title of the prompt details page for a given version"
+  },
+  "5W05Ud": {
+    "defaultMessage": "Create with AI",
+    "description": "Button label for the agent CTA card on the prompts list empty state"
   },
   "5WxRTO": {
     "defaultMessage": "Define the acceptable range for numeric input values. Leave either bound blank for no limit.",
@@ -1827,6 +1835,10 @@
     "defaultMessage": "Instructions",
     "description": "Section header for judge instructions"
   },
+  "7hf/6q": {
+    "defaultMessage": "Or create a prompt manually",
+    "description": "CTA on the prompts empty state to create a prompt as an alternative to the agent path"
+  },
   "7jsqqe": {
     "defaultMessage": "{timeSince, plural, =1 {1 minute} other {# minutes}} ago",
     "description": "Text for time in minutes since given date for MLflow views"
@@ -2226,6 +2238,10 @@
   "9g0sMx": {
     "defaultMessage": "Show change from baseline",
     "description": "Runs charts > components > config > RunsChartsConfigureDifferenceChart > Show change from baseline toggle"
+  },
+  "9gQk+t": {
+    "defaultMessage": "Manage and version prompts using MLflow's Prompt Registry. <link>Learn more</link>",
+    "description": "Subtitle for the empty state on the prompts list page"
   },
   "9icYIV": {
     "defaultMessage": "Select Categories",
@@ -3991,6 +4007,10 @@
     "defaultMessage": "Run ID",
     "description": "Run page > Overview > Run ID section label"
   },
+  "JZZac2": {
+    "defaultMessage": "Let MLflow's AI assistant create your first prompt",
+    "description": "Headline for the agent CTA card on the prompts list empty state"
+  },
   "JaA2me": {
     "defaultMessage": "Failed to update issue: {error}",
     "description": "Error message when issue update fails"
@@ -4126,6 +4146,10 @@
   "KKE2/K": {
     "defaultMessage": "Aggregated input/output/total token usage across all spans in the trace",
     "description": "Tooltip description for the Tokens column in the traces table"
+  },
+  "KKlbCJ": {
+    "defaultMessage": "The assistant will ask about your use case, register the prompt, and help you test it end-to-end.",
+    "description": "Subline for the agent CTA card on the prompts list empty state"
   },
   "KLTGMn": {
     "defaultMessage": "Full conversation between a user and an assistant",
@@ -5219,10 +5243,6 @@
     "defaultMessage": "Chart view",
     "description": "Experiment page > control bar > chart view toggle button tooltip"
   },
-  "Q7/S7b": {
-    "defaultMessage": "Create and manage prompts using MLflow. <link>Learn more</link>",
-    "description": "Guidelines for the user on how to create a new prompt in the prompts list page"
-  },
   "Q73eXs": {
     "defaultMessage": "No params",
     "description": "Experiment page > group by runs control > no params to group by"
@@ -6094,10 +6114,6 @@
   "UpVskF": {
     "defaultMessage": "Expectations",
     "description": "Header for the dataset record expectations column"
-  },
-  "Uq6/bl": {
-    "defaultMessage": "Create prompt",
-    "description": "A header for the empty state in the prompts table"
   },
   "UqGOOx": {
     "defaultMessage": "No API keys created",
@@ -9138,10 +9154,6 @@
   "jSDxn3": {
     "defaultMessage": "AI Gateway",
     "description": "Home page quick action title for AI Gateway"
-  },
-  "jTQyFj": {
-    "defaultMessage": "Create prompt",
-    "description": "Prompts empty state CTA"
   },
   "jTqRO+": {
     "defaultMessage": "None",

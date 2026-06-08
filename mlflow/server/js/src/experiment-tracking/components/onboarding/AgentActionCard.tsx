@@ -13,12 +13,14 @@ export const AgentActionCard = ({
   buttonLabel,
   prompt,
   componentId,
+  showTerminalCommand = true,
 }: {
   title: ReactNode;
   description: ReactNode;
   buttonLabel: ReactNode;
   prompt: string;
   componentId: string;
+  showTerminalCommand?: boolean;
 }) => {
   const { theme } = useDesignSystemTheme();
   const { openPanel, reset, sendMessage, setupComplete } = useAssistant();
@@ -63,39 +65,41 @@ export const AgentActionCard = ({
         </Button>
       </div>
 
-      <div
-        css={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: theme.spacing.sm,
-          paddingLeft: theme.spacing.lg * 1.5,
-        }}
-      >
-        <Typography.Text color="secondary" css={{ fontSize: 12 }}>
-          <FormattedMessage
-            defaultMessage="Or run in your terminal:"
-            description="Label preceding the mlflow agent setup terminal command on the agent action card"
-          />
-        </Typography.Text>
-        <code
+      {showTerminalCommand && (
+        <div
           css={{
-            fontSize: 12,
-            padding: `2px ${theme.spacing.sm}px`,
-            borderRadius: theme.borders.borderRadiusSm,
-            backgroundColor: theme.colors.backgroundPrimary,
-            border: `1px solid ${theme.colors.border}`,
-            color: theme.colors.textPrimary,
+            display: 'flex',
+            alignItems: 'center',
+            gap: theme.spacing.sm,
+            paddingLeft: theme.spacing.lg * 1.5,
           }}
         >
-          {TERMINAL_COMMAND}
-        </code>
-        <CopyButton
-          componentId={`${componentId}.copy_agent_setup_command`}
-          copyText={TERMINAL_COMMAND}
-          showLabel={false}
-          icon={<CopyIcon />}
-        />
-      </div>
+          <Typography.Text color="secondary" css={{ fontSize: 12 }}>
+            <FormattedMessage
+              defaultMessage="Or run in your terminal:"
+              description="Label preceding the mlflow agent setup terminal command on the agent action card"
+            />
+          </Typography.Text>
+          <code
+            css={{
+              fontSize: 12,
+              padding: `2px ${theme.spacing.sm}px`,
+              borderRadius: theme.borders.borderRadiusSm,
+              backgroundColor: theme.colors.backgroundPrimary,
+              border: `1px solid ${theme.colors.border}`,
+              color: theme.colors.textPrimary,
+            }}
+          >
+            {TERMINAL_COMMAND}
+          </code>
+          <CopyButton
+            componentId={`${componentId}.copy_agent_setup_command`}
+            copyText={TERMINAL_COMMAND}
+            showLabel={false}
+            icon={<CopyIcon />}
+          />
+        </div>
+      )}
     </div>
   );
 };
