@@ -64,7 +64,10 @@ jobs:
       - name: Check package-lock.json is up-to-date
         run: |
           npm install --package-lock-only --no-audit --no-fund
-          git diff --exit-code package-lock.json
+          git diff --exit-code package-lock.json || {
+            echo "package-lock.json is out of date. Run 'npm install --package-lock-only' locally and commit the result."
+            exit 1
+          }
 
       - name: Run format check
         run: npm run format:check
