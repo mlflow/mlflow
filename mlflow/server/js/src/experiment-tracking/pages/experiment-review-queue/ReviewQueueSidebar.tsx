@@ -8,7 +8,6 @@ import {
   PlusIcon,
   Popover,
   Tag,
-  Tooltip,
   TrashIcon,
   Typography,
   useDesignSystemTheme,
@@ -283,23 +282,12 @@ export const ReviewQueueSidebar = ({
           <FormattedMessage defaultMessage="Review" description="Review queue tab title" />
         </Typography.Title>
         {canManage && (
-          <Tooltip
-            componentId={`${CID}.manage-questions-tooltip`}
-            content={intl.formatMessage({
-              defaultMessage: 'Edit review questions for this experiment',
-              description: 'Review queue sidebar: manage-questions tooltip',
-            })}
-          >
-            <Button
-              componentId={`${CID}.manage-questions`}
-              icon={<GearIcon />}
-              aria-label={intl.formatMessage({
-                defaultMessage: 'Edit review questions',
-                description: 'Review queue sidebar: manage-questions aria label',
-              })}
-              onClick={onManageQuestions}
+          <Button componentId={`${CID}.manage-questions`} icon={<GearIcon />} onClick={onManageQuestions}>
+            <FormattedMessage
+              defaultMessage="Manage questions"
+              description="Review queue sidebar: manage-questions button"
             />
-          </Tooltip>
+          </Button>
         )}
         {canManage && (
           <Button componentId={`${CID}.new-queue`} icon={<PlusIcon />} onClick={onNewQueue}>

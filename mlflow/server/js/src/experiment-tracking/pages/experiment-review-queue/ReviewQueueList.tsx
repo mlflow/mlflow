@@ -48,6 +48,12 @@ const formatAgo = (ms: number, nowMs: number) => {
   return hours < 24 ? `${hours}h` : `${Math.round(hours / 24)}d`;
 };
 
+// Sort items newest-added first, breaking ties (a bulk add shares one add-time)
+// by the trace's own creation time, newest first.
+const byAddedThenTrace = (traceTimeMsById: Map<string, number>) => (a: ReviewQueueItem, b: ReviewQueueItem) =>
+  b.creation_time_ms - a.creation_time_ms ||
+  (traceTimeMsById.get(b.target_id) ?? 0) - (traceTimeMsById.get(a.target_id) ?? 0);
+
 type ColumnKey = 'target_id' | 'status' | 'completed_by' | 'creation_time_ms';
 
 const COLUMNS: { key: ColumnKey; label: React.ReactNode; flex: number }[] = [
@@ -113,11 +119,31 @@ export const ReviewQueueList = ({
     });
     return map;
   }, [traces]);
+  // The trace's own creation time, used as a secondary sort key (a bulk add
+  // gives every item the same queue add-time, so that alone leaves ties).
+  const traceTimeMsById = useMemo(() => {
+    const map = new Map<string, number>();
+    (traces ?? []).forEach((t) => {
+      const id = t?.info?.trace_id;
+      const ms = t?.info?.request_time ? Date.parse(t.info.request_time) : NaN;
+      if (id && !Number.isNaN(ms)) {
+        map.set(id, ms);
+      }
+    });
+    return map;
+  }, [traces]);
 
-  // Split into still-to-review vs. resolved (complete/declined), newest first.
-  const byNewest = (a: ReviewQueueItem, b: ReviewQueueItem) => b.creation_time_ms - a.creation_time_ms;
-  const toDo = useMemo(() => items.filter((i) => i.status === 'PENDING').sort(byNewest), [items]);
-  const completed = useMemo(() => items.filter((i) => i.status !== 'PENDING').sort(byNewest), [items]);
+  // Split into still-to-review vs. resolved (complete/declined). Newest-added
+  // first; ties (e.g. a single bulk add) break by the trace's own creation
+  // time, newest first.
+  const toDo = useMemo(
+    () => items.filter((i) => i.status === 'PENDING').sort(byAddedThenTrace(traceTimeMsById)),
+    [items, traceTimeMsById],
+  );
+  const completed = useMemo(
+    () => items.filter((i) => i.status !== 'PENDING').sort(byAddedThenTrace(traceTimeMsById)),
+    [items, traceTimeMsById],
+  );
 
   // Select-all only covers the rows currently visible: "To do" always, plus
   // "Completed" only when that group is expanded.

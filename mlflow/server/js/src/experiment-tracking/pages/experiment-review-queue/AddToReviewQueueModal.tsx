@@ -437,7 +437,7 @@ export const AddToReviewQueueModal = ({
 
           <Typography.Link
             componentId={`${CID}.new-queue`}
-            css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs }}
+            css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs, alignSelf: 'flex-start' }}
             onClick={() => setCreateOpen(true)}
           >
             <PlusIcon />
