@@ -14,7 +14,7 @@ import {
 import { FormattedMessage, useIntl } from 'react-intl';
 
 import {
-  LabelSchemaFormDrawer,
+  LabelSchemaFormModal,
   useDeleteLabelSchemaMutation,
   useListLabelSchemasQuery,
 } from '../../components/label-schemas';
@@ -37,24 +37,26 @@ export const ManageQuestionsModal = ({ experimentId, onClose }: { experimentId: 
   // experiment-wide (it removes the question from every queue), so it goes
   // through an explicit confirm rather than firing on the first click.
   const [pendingDelete, setPendingDelete] = useState<LabelSchema | null>(null);
-  // The authoring drawer: open with `null` to create, or a schema to edit.
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  // The authoring modal: open with `null` to create, or a schema to edit.
+  const [formOpen, setFormOpen] = useState(false);
   const [editingSchema, setEditingSchema] = useState<LabelSchema | null>(null);
 
   const openCreate = () => {
     setEditingSchema(null);
-    setDrawerOpen(true);
+    setFormOpen(true);
   };
   const openEdit = (schema: LabelSchema) => {
     setEditingSchema(schema);
-    setDrawerOpen(true);
+    setFormOpen(true);
   };
 
   return (
     <>
       <Modal
         componentId={`${CID}.modal`}
-        visible
+        // Hide the question list while the add/edit form is open rather than
+        // stacking modals; it reappears when the form modal closes.
+        visible={!formOpen}
         onCancel={onClose}
         title={<FormattedMessage defaultMessage="Review questions" description="Manage review questions modal title" />}
         footer={
@@ -167,11 +169,11 @@ export const ManageQuestionsModal = ({ experimentId, onClose }: { experimentId: 
         </Modal>
       )}
 
-      <LabelSchemaFormDrawer
+      <LabelSchemaFormModal
         experimentId={experimentId}
         editingSchema={editingSchema}
-        visible={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
+        visible={formOpen}
+        onClose={() => setFormOpen(false)}
       />
     </>
   );

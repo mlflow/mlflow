@@ -1,7 +1,12 @@
 import { describe, it, expect } from '@jest/globals';
 
 import type { LabelSchema, LabelSchemaType } from '../../components/label-schemas';
-import { buildPrefilledAnswers, extractPriorAnswers, type RawTraceAssessment } from './reviewAnswers';
+import {
+  buildPrefilledAnswers,
+  buildPrefilledRationales,
+  extractPriorAnswers,
+  type RawTraceAssessment,
+} from './reviewAnswers';
 
 const schema = (name: string, type: LabelSchemaType): LabelSchema => ({
   schema_id: `ls-${name}`,
@@ -20,6 +25,15 @@ describe('extractPriorAnswers', () => {
     expect(extractPriorAnswers(raw)).toEqual([
       { name: 'correctness', kind: 'feedback', value: true, valid: true },
       { name: 'expected', kind: 'expectation', value: 'Paris', valid: true },
+    ]);
+  });
+
+  it('captures a rationale recorded alongside the value', () => {
+    const raw: RawTraceAssessment[] = [
+      { assessment_name: 'correctness', feedback: { value: true }, rationale: 'looks right' },
+    ];
+    expect(extractPriorAnswers(raw)).toEqual([
+      { name: 'correctness', kind: 'feedback', value: true, rationale: 'looks right', valid: true },
     ]);
   });
 
@@ -105,5 +119,29 @@ describe('buildPrefilledAnswers', () => {
       { assessment_name: 'score', feedback: { value: 4 } },
     ]);
     expect(buildPrefilledAnswers(priors, multiSchemas)).toEqual({ opts: ['a', 'b'], score: 4 });
+  });
+});
+
+describe('buildPrefilledRationales', () => {
+  const schemas = [schema('correctness', 'FEEDBACK')];
+
+  it('prefills the rationale from the matching prior answer', () => {
+    const priors = extractPriorAnswers([
+      { assessment_name: 'correctness', feedback: { value: true }, rationale: 'looks right' },
+    ]);
+    expect(buildPrefilledRationales(priors, schemas)).toEqual({ correctness: 'looks right' });
+  });
+
+  it('omits schemas whose prior answer has no rationale', () => {
+    const priors = extractPriorAnswers([{ assessment_name: 'correctness', feedback: { value: true } }]);
+    expect(buildPrefilledRationales(priors, schemas)).toEqual({});
+  });
+
+  it('takes the most recent matching prior (last wins)', () => {
+    const priors = extractPriorAnswers([
+      { assessment_name: 'correctness', feedback: { value: true }, rationale: 'first' },
+      { assessment_name: 'correctness', feedback: { value: false }, rationale: 'second' },
+    ]);
+    expect(buildPrefilledRationales(priors, schemas)).toEqual({ correctness: 'second' });
   });
 });

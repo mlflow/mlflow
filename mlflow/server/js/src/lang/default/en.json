@@ -319,10 +319,6 @@
     "defaultMessage": "Share and manage machine learning models.",
     "description": "Default text for model registry onboarding on the model list page"
   },
-  "/ggvvw": {
-    "defaultMessage": "My review queue",
-    "description": "Add to review queue: the reviewer's personal queue option"
-  },
   "/gqx4n": {
     "defaultMessage": "The safety LLM judge returns a binary rating and a written rationale on whether the generated response has harmful or toxic content.",
     "description": "Evaluation results > known type of evaluation result assessment > description of safety judge."
@@ -414,10 +410,6 @@
   "054/rv": {
     "defaultMessage": "Close guidance",
     "description": "Aria label for closing the detect issues guidance popover"
-  },
-  "07Sdib": {
-    "defaultMessage": "Failed to update the queue questions.",
-    "description": "Queue settings: questions update error"
   },
   "07nYAU": {
     "defaultMessage": "Compared IDs:",
@@ -530,6 +522,10 @@
   "0phUi0": {
     "defaultMessage": "Copy link to trace",
     "description": "Tooltip for the share trace button"
+  },
+  "0qzcFj": {
+    "defaultMessage": "Loading users…",
+    "description": "Add to review queue: users loading hint"
   },
   "0r2ub6": {
     "defaultMessage": "Overview",
@@ -842,6 +838,10 @@
   "2RgAyy": {
     "defaultMessage": "Search",
     "description": "Search placeholder"
+  },
+  "2Rybee": {
+    "defaultMessage": "Reviewers",
+    "description": "Create review queue: reviewers field label"
   },
   "2Us2jl": {
     "defaultMessage": "X axis",
@@ -1615,6 +1615,10 @@
     "defaultMessage": "Failed to load attachment",
     "description": "Error message when trace attachment fails to load"
   },
+  "6zZT8f": {
+    "defaultMessage": "Created by me",
+    "description": "Review queue sidebar: group of queues the reviewer owns"
+  },
   "7+XQ3q": {
     "defaultMessage": "Correctness",
     "description": "Evaluation results > known type of evaluation result assessment > correctness assessment. Used to indicate if the result is correct in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Correctness: mostly yes, have gaps\""
@@ -1938,10 +1942,6 @@
   "8flziy": {
     "defaultMessage": "Time (Wall)",
     "description": "Radio button option to choose the time wall control option for the X-axis for metric graph on the experiment runs"
-  },
-  "8geBNr": {
-    "defaultMessage": "Add {count, plural, one {# trace} other {# traces}} to a review queue",
-    "description": "Add to review queue modal title"
   },
   "8hpS0b": {
     "defaultMessage": "Pin group",
@@ -2311,13 +2311,13 @@
     "defaultMessage": "Identifying issues from traces...",
     "description": "Issue detection progress > Step label (fallback)"
   },
+  "AQVu8i": {
+    "defaultMessage": "Review queues",
+    "description": "Add to review queue: destination dropdown label"
+  },
   "AQh8lf": {
     "defaultMessage": "Model",
     "description": "Dimension toggle option for model"
-  },
-  "AUygjc": {
-    "defaultMessage": "Failed to delete the queue.",
-    "description": "Review queue: delete error alert title"
   },
   "AVeqtn": {
     "defaultMessage": "Enter default artifact root URI",
@@ -2487,6 +2487,10 @@
     "defaultMessage": "No runs selected",
     "description": "Experiment page > artifact compare view > empty state for no runs selected > title"
   },
+  "BK81F7": {
+    "defaultMessage": "Trace",
+    "description": "Review queue table: trace column"
+  },
   "BMUd0e": {
     "defaultMessage": "Create evaluation datasets in order to iteratively evaluate and improve your app. For example, build a dataset from production traces with negative feedback. {learnMoreLink}",
     "description": "Description for a quickstart guide on MLflow evaluation datasets"
@@ -2630,6 +2634,10 @@
   "By4hRe": {
     "defaultMessage": "Are retrieved documents relevant to the user's request?",
     "description": "Hint for RetrievalRelevance template"
+  },
+  "BynfX2": {
+    "defaultMessage": "No matching queues",
+    "description": "Add to review queue: no custom queues match the search"
   },
   "C+nay+": {
     "defaultMessage": "Evaluation",
@@ -2935,6 +2943,10 @@
     "defaultMessage": "Download attachment ({contentType})",
     "description": "Download link for trace attachment with unknown content type"
   },
+  "DutAb5": {
+    "defaultMessage": "Search to find more queues",
+    "description": "Add to review queue: hint that more custom queues are searchable"
+  },
   "Dw+Z8L": {
     "defaultMessage": "Budget exceeded",
     "description": "Warning icon label for exceeded budget"
@@ -2974,6 +2986,10 @@
   "EBJq8A": {
     "defaultMessage": "No existing API keys for this provider.",
     "description": "Message when no existing API keys"
+  },
+  "EBjz+P": {
+    "defaultMessage": "Delete queue",
+    "description": "Review queue sidebar: confirm delete-queue button"
   },
   "EBwDIg": {
     "defaultMessage": "Delete",
@@ -3030,10 +3046,6 @@
   "EPcEi9": {
     "defaultMessage": "You have added rows with new input values, but you still need to evaluate the new data in order to save it.",
     "description": "Experiment page > artifact compare view > prompt lab artifact synchronization > unevaluated rows indicator"
-  },
-  "EPt3nw": {
-    "defaultMessage": "Choose which questions reviewers answer for traces in this queue.",
-    "description": "Queue settings: editable questions hint"
   },
   "ER3oVW": {
     "defaultMessage": "No metrics available",
@@ -3103,6 +3115,10 @@
     "defaultMessage": "Delete {count, plural, one {# Experiment} other {# Experiments}}",
     "description": "Experiments page list, delete bulk experiments modal title"
   },
+  "EskEv7": {
+    "defaultMessage": "Question preview",
+    "description": "Create review queue: question preview section label"
+  },
   "EtPSl6": {
     "defaultMessage": "Discard unsaved changes?",
     "description": "Title of the prompt shown when leaving the dataset record side panel with unsaved edits"
@@ -3166,10 +3182,6 @@
   "FMi127": {
     "defaultMessage": "No datasets match \"{query}\"",
     "description": "Title for the empty state when a search returns no datasets in the V2 evaluation datasets list"
-  },
-  "FRB8gK": {
-    "defaultMessage": "Delete queue?",
-    "description": "Review queue: delete confirmation title"
   },
   "FTx+Hi": {
     "defaultMessage": "(baseline)",
@@ -3263,10 +3275,6 @@
     "defaultMessage": "Compare",
     "description": "Text for compare button to compare versions under details tab\n                       on the model view page"
   },
-  "Fq7Rxd": {
-    "defaultMessage": "No questions",
-    "description": "Review queue: section no-questions summary"
-  },
   "Fs6pF+": {
     "defaultMessage": "Create Role",
     "description": "Button to create a new role"
@@ -3311,10 +3319,6 @@
     "defaultMessage": "You do not have permission to access this resource.",
     "description": "Generic message for a permission error (HTTP STATUS 403)"
   },
-  "G73toY": {
-    "defaultMessage": "Questions: {names}",
-    "description": "Review queue: section questions summary"
-  },
   "G7V4y3": {
     "defaultMessage": "Hide details",
     "description": "Evaluation review > assessments > hide details button"
@@ -3322,6 +3326,10 @@
   "GAJL1v": {
     "defaultMessage": "Input and output schema for your model. <link>Learn more</link>",
     "description": "Input and output params of the model that is registered from the experiment run"
+  },
+  "GBjD/m": {
+    "defaultMessage": "Cancel",
+    "description": "Review question modal cancel button"
   },
   "GDenB3": {
     "defaultMessage": "Metrics",
@@ -3346,6 +3354,10 @@
   "GKiPV1": {
     "defaultMessage": "Start Time:",
     "description": "Text for start time row header in the main table in the model comparison\n                page"
+  },
+  "GO4YVQ": {
+    "defaultMessage": "Add reviewer",
+    "description": "Create review queue: add-reviewer button"
   },
   "GRaplV": {
     "defaultMessage": "Context sufficiency",
@@ -3402,10 +3414,6 @@
   "Gs+blV": {
     "defaultMessage": "Last modified",
     "description": "Column title for last modified timestamp for a model in the registered model page"
-  },
-  "Gx/MGJ": {
-    "defaultMessage": "Questions are locked because this queue has traces. Remove its traces (Traces tab) to edit them.",
-    "description": "Queue settings: questions-locked note"
   },
   "GyGCX5": {
     "defaultMessage": "Create experiment",
@@ -3631,10 +3639,6 @@
     "defaultMessage": "Search registered models",
     "description": "Placeholder text inside model search bar"
   },
-  "I4NGz0": {
-    "defaultMessage": "Delete",
-    "description": "Review queue: confirm delete"
-  },
   "I9bJ/T": {
     "defaultMessage": "Select All",
     "description": "Option to select all items in the item selector"
@@ -3667,6 +3671,14 @@
     "defaultMessage": "Comparing {numRuns} Runs from {numExperiments} Experiments",
     "description": "Breadcrumb title for compare runs page with multiple experiments"
   },
+  "IF3wII": {
+    "defaultMessage": "Feedback requested",
+    "description": "Review queue sidebar: group of queues assigned to the reviewer by others"
+  },
+  "IFJQom": {
+    "defaultMessage": "{count, plural, one {# question} other {# questions}} selected",
+    "description": "Create review queue: questions dropdown selected-count summary"
+  },
   "IHyeUr": {
     "defaultMessage": "Stage",
     "description": "Label name for stage metadata in model version page"
@@ -3690,6 +3702,10 @@
   "IMEGsC": {
     "defaultMessage": "Associated MLflow Run if the trace was generated within an MLflow run context",
     "description": "Tooltip description for the Run Name column in the traces table"
+  },
+  "IMk/9c": {
+    "defaultMessage": "{count, plural, one {# queue} other {# queues}} selected",
+    "description": "Add to review queue: destination dropdown selected-count summary"
   },
   "IMkDgM": {
     "defaultMessage": "Experiments",
@@ -3766,10 +3782,6 @@
   "ImBtKi": {
     "defaultMessage": "To manually instrument your own traces, the most convenient method is to use the {code} function decorator. This will cause the inputs and outputs of the function to be captured in the trace. For more information, please visit the <a>official documentation</a> for manual tracing.",
     "description": "Description of how to log custom code traces using MLflow. This message is followed by a code example. The link leads to the MLflow documentation for the user to learn more."
-  },
-  "IqizK1": {
-    "defaultMessage": "Deleting \"{name}\" removes the queue and its trace assignments. The traces and their assessments are not deleted. This cannot be undone.",
-    "description": "Review queue: delete confirmation body"
   },
   "IsIgE2": {
     "defaultMessage": "Automatically log traces for Gemini conversations by calling the {code} function. For example:",
@@ -3919,10 +3931,6 @@
     "defaultMessage": "No details for assessment",
     "description": "Evaluation review > assessments > no history"
   },
-  "JkObCn": {
-    "defaultMessage": "Edit question",
-    "description": "Edit review question drawer title"
-  },
   "JmNdE4": {
     "defaultMessage": "required",
     "description": "Text displayed next to a function parameter to indicate that it is required"
@@ -3974,6 +3982,10 @@
   "K2IAP7": {
     "defaultMessage": "Success",
     "description": "Column header for success rate"
+  },
+  "K5OU8U": {
+    "defaultMessage": "Back to traces",
+    "description": "Review focused view: back button"
   },
   "K5rmCE": {
     "defaultMessage": "S3",
@@ -4163,10 +4175,6 @@
     "defaultMessage": "The following {count, plural, one {endpoint} other {endpoints}} will be deleted:",
     "description": "Gateway > Bulk delete endpoints modal > Description"
   },
-  "L1d4sx": {
-    "defaultMessage": "Cancel",
-    "description": "Review queue: cancel delete"
-  },
   "L26D19": {
     "defaultMessage": "X-axis:",
     "description": "Label for the radio button to toggle the control on the X-axis of the metric graph for the experiment"
@@ -4226,6 +4234,10 @@
   "LOJumx": {
     "defaultMessage": "Prompt",
     "description": "Column label for linked prompts"
+  },
+  "LPYSU+": {
+    "defaultMessage": "Showing the first {count} matches — refine your search to narrow them.",
+    "description": "Add to review queue: hint that the user search results are capped"
   },
   "LQVkoY": {
     "defaultMessage": "Select the type of guardrail you want to create.",
@@ -4363,10 +4375,6 @@
     "defaultMessage": "Year",
     "description": "Time unit: year"
   },
-  "MIz4r2": {
-    "defaultMessage": "No questions defined for this experiment yet.",
-    "description": "Queue settings: no schemas to attach"
-  },
   "MJGFlf": {
     "defaultMessage": "Loading endpoints...",
     "description": "Loading endpoints message"
@@ -4446,10 +4454,6 @@
   "MgfSs1": {
     "defaultMessage": "Budget amount (USD)",
     "description": "Budget amount label"
-  },
-  "Mh7jkl": {
-    "defaultMessage": "No traces in this queue.",
-    "description": "Queue settings: empty traces"
   },
   "MhF3mL": {
     "defaultMessage": "Create",
@@ -4550,10 +4554,6 @@
   "NDEhn/": {
     "defaultMessage": "Configure chart",
     "description": "Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > configure chart button"
-  },
-  "NDNgYu": {
-    "defaultMessage": "Close",
-    "description": "Queue settings: close button"
   },
   "NEQwMj": {
     "defaultMessage": "Evaluation runs",
@@ -4851,10 +4851,6 @@
     "defaultMessage": "Close",
     "description": "Error modal close button text"
   },
-  "OfuT1q": {
-    "defaultMessage": "Add question",
-    "description": "Add review question drawer title"
-  },
   "OhVnQ5": {
     "defaultMessage": "Record saved",
     "description": "Success toast after saving an edited dataset record"
@@ -5035,6 +5031,10 @@
     "defaultMessage": "Experiment ID",
     "description": "Label for displaying the current experiment in view"
   },
+  "PbYtjz": {
+    "defaultMessage": "Select a queue to review its traces.",
+    "description": "Review queue: prompt to pick a queue"
+  },
   "PbhoUk": {
     "defaultMessage": "Track every version of your model to understand how quality changes over time. {learnMoreLink}",
     "description": "Empty state description displayed when no models are logged in the machine learning logged models list page"
@@ -5143,6 +5143,10 @@
     "defaultMessage": "Prompts",
     "description": "Sidebar link for prompts tab"
   },
+  "QBk7Op": {
+    "defaultMessage": "Completed",
+    "description": "Review queue table: completed group label"
+  },
   "QC5Vjq": {
     "defaultMessage": "Y-axis:",
     "description": "Label where the users can choose the metric of the experiment run to be plotted on the Y-axis"
@@ -5167,6 +5171,10 @@
     "defaultMessage": "Input for the trace",
     "description": "Description for inputs variable"
   },
+  "QJEOCL": {
+    "defaultMessage": "Select review queues",
+    "description": "Add to review queue: destination dropdown placeholder"
+  },
   "QK/Qyx": {
     "defaultMessage": "Total",
     "description": "Label for total token usage"
@@ -5178,6 +5186,10 @@
   "QMCliz": {
     "defaultMessage": "Measure and compare LLM quality with built-in and custom scorers.",
     "description": "Feature card summary for evaluation"
+  },
+  "QOtpyI": {
+    "defaultMessage": "Delete {count, plural, one {# trace} other {# traces}}",
+    "description": "Review queue: delete selected traces button"
   },
   "QPC4hV": {
     "defaultMessage": "Use other parameters or disable run grouping to continue.",
@@ -5326,6 +5338,10 @@
   "RGKRP9": {
     "defaultMessage": "Feedback",
     "description": "Label for the value of an feedback assessment"
+  },
+  "RHoQ7a": {
+    "defaultMessage": "Users",
+    "description": "Add to review queue: per-user personal-queue section header"
   },
   "RJenO+": {
     "defaultMessage": "Create prompt version",
@@ -5519,10 +5535,6 @@
     "defaultMessage": "Description",
     "description": "Row heading in a table that contains the description of a function parameter."
   },
-  "SM1IAW": {
-    "defaultMessage": "Trace ({count})",
-    "description": "Review focused view: trace rail header with trace count"
-  },
   "SMVe/s": {
     "defaultMessage": "Save Changes",
     "description": "Save changes button text"
@@ -5683,10 +5695,6 @@
     "defaultMessage": "Positive label",
     "description": "Pass/Fail positive label input"
   },
-  "TEV3GJ": {
-    "defaultMessage": "Edit review questions",
-    "description": "Review queue: edit-questions gear aria label"
-  },
   "TKtJIK": {
     "defaultMessage": "Page not found",
     "description": "Error message shown to the user when they arrive at a non existent URL"
@@ -5815,10 +5823,6 @@
     "defaultMessage": "Dataset actions",
     "description": "Aria label for the V2 evaluation dataset detail page overflow-menu trigger"
   },
-  "TuYclz": {
-    "defaultMessage": "Queue settings — \"{name}\"",
-    "description": "Queue settings modal title"
-  },
   "Tune9y": {
     "defaultMessage": "Created dataset \"{name}\"",
     "description": "Success toast after creating a V2 evaluation dataset"
@@ -5854,10 +5858,6 @@
   "U3btBc": {
     "defaultMessage": "Examples:",
     "description": "Text header for examples of mlflow search syntax"
-  },
-  "U4HWML": {
-    "defaultMessage": "Custom",
-    "description": "Review queue: CUSTOM queue type tag"
   },
   "U4ox5k": {
     "defaultMessage": "Experiments",
@@ -5971,6 +5971,10 @@
     "defaultMessage": "Create endpoint",
     "description": "Page title for create endpoint"
   },
+  "Ul/T3v": {
+    "defaultMessage": "To do",
+    "description": "Review queue sidebar: still-to-review count column header"
+  },
   "UlkINy": {
     "defaultMessage": "Admin",
     "description": "Roles table column flagging admin roles when workspaces are disabled"
@@ -5998,6 +6002,10 @@
   "Uqhamv": {
     "defaultMessage": "Ground truth values annotated to the trace",
     "description": "Tooltip description for the Expectation column group in the traces table"
+  },
+  "UrjOfF": {
+    "defaultMessage": "To do",
+    "description": "Review queue table: to-do group label"
   },
   "UsvDLH": {
     "defaultMessage": "Select a workspace",
@@ -6122,10 +6130,6 @@
   "VPU43C": {
     "defaultMessage": "Compare parameter importance",
     "description": "Experiment page > compare runs > parallel coordinates chart > chart not configured warning > title"
-  },
-  "VQJT10": {
-    "defaultMessage": "Cancel",
-    "description": "Review question drawer cancel button"
   },
   "VSFnB3": {
     "defaultMessage": "Continue editing the schema to see a preview.",
@@ -6531,10 +6535,6 @@
     "defaultMessage": "Create prompt version",
     "description": "A header for the create prompt version modal in the prompt management UI"
   },
-  "XNgxUd": {
-    "defaultMessage": "Queue settings",
-    "description": "Review queue: queue-settings button aria label"
-  },
   "XOUsyq": {
     "defaultMessage": "Loading model definitions...",
     "description": "Loading message for model definitions"
@@ -6683,6 +6683,10 @@
     "defaultMessage": "Collect a free-form rationale alongside the input",
     "description": "Enable rationale checkbox"
   },
+  "YH23ul": {
+    "defaultMessage": "Questions",
+    "description": "Create review queue: questions dropdown label"
+  },
   "YIKNtj": {
     "defaultMessage": "An error occurred while creating the budget policy. Please try again.",
     "description": "Generic error message for budget policy creation"
@@ -6731,6 +6735,10 @@
     "defaultMessage": "Start:",
     "description": "Label for the start time of a span"
   },
+  "YYqxG3": {
+    "defaultMessage": "No matching users",
+    "description": "Add to review queue: no users match the search"
+  },
   "YZDyOo": {
     "defaultMessage": "Path:",
     "description": "Label to display the full path of where the artifact of the experiment runs is located"
@@ -6774,6 +6782,10 @@
   "YnHiZ6": {
     "defaultMessage": "Relative Time (hours)",
     "description": "Label for the relative axis on the runs compare chart in hours"
+  },
+  "YpZh9l": {
+    "defaultMessage": "Rationale (optional)",
+    "description": "Review focused view: free-form rationale placeholder"
   },
   "YqW83+": {
     "defaultMessage": "Choose experiment type",
@@ -7527,10 +7539,6 @@
     "defaultMessage": "Run evaluation",
     "description": "Label for a button that displays instructions for starting a new evaluation run"
   },
-  "cN+CQo": {
-    "defaultMessage": "Trace",
-    "description": "Review queue table: trace id column"
-  },
   "cNkqxA": {
     "defaultMessage": "API key",
     "description": "Label for API key selector"
@@ -7814,6 +7822,10 @@
   "e2AObB": {
     "defaultMessage": "Value",
     "description": "Field label for assessment value in an edit form"
+  },
+  "e2ls2b": {
+    "defaultMessage": "Edit question",
+    "description": "Edit review question modal title"
   },
   "e515YD": {
     "defaultMessage": "Grounded",
@@ -8415,10 +8427,6 @@
     "defaultMessage": "Failed to delete some endpoints. Please try again.",
     "description": "Gateway > Bulk delete endpoints modal > Error message"
   },
-  "grR2oj": {
-    "defaultMessage": "Remove trace from queue",
-    "description": "Queue settings: remove-trace button aria label"
-  },
   "grhPkj": {
     "defaultMessage": "New dataset record",
     "description": "Aria label for the dataset record create side panel"
@@ -8434,6 +8442,10 @@
   "gtvp+Q": {
     "defaultMessage": "Instructions",
     "description": "Guardrail instructions label"
+  },
+  "gy4ziK": {
+    "defaultMessage": "Assign reviewers who should answer this queue's questions. They'll find it under “Feedback requested”.",
+    "description": "Create review queue: reviewers field hint"
   },
   "h0XfC3": {
     "defaultMessage": "Tags",
@@ -8478,6 +8490,10 @@
   "h5Dryo": {
     "defaultMessage": "Resource",
     "description": "Permissions table column header for the resource"
+  },
+  "h5PsUd": {
+    "defaultMessage": "Remove reviewer",
+    "description": "Create review queue: remove-reviewer button"
   },
   "hBAhI8": {
     "defaultMessage": "Copy",
@@ -8538,10 +8554,6 @@
   "hR27A2": {
     "defaultMessage": "View full dashboard",
     "description": "Link to view full usage dashboard"
-  },
-  "hSdJgM": {
-    "defaultMessage": "Edit review questions for this experiment",
-    "description": "Review queue: edit-questions gear tooltip"
   },
   "hT5ZGW": {
     "defaultMessage": "Remove message",
@@ -8827,6 +8839,10 @@
     "defaultMessage": "Loading API keys...",
     "description": "Loading message for API keys list"
   },
+  "iqxOaj": {
+    "defaultMessage": "Preview how the questions will appear for the human reviewer.",
+    "description": "Create review queue: question preview section hint"
+  },
   "iqy4oh": {
     "defaultMessage": "Could not determine the current user. Please log in again.",
     "description": "Alert description prompting the user to log in again"
@@ -9023,10 +9039,6 @@
     "defaultMessage": "Group: {groupName}",
     "description": "Experiment page > grouped runs table > run group header label"
   },
-  "jqp6kK": {
-    "defaultMessage": "Delete queue",
-    "description": "Review queue: delete-queue button aria label"
-  },
   "js4/Y8": {
     "defaultMessage": "You can also <link>register it to the model registry</link> to version control",
     "description": "Sub text to tell the users where one can go to register the model artifact"
@@ -9178,6 +9190,10 @@
   "kbWXwv": {
     "defaultMessage": "Refresh traces",
     "description": "Tooltip for the refresh traces button in the traces table toolbar"
+  },
+  "kd9Gwh": {
+    "defaultMessage": "Edit review questions for this experiment",
+    "description": "Review queue sidebar: manage-questions tooltip"
   },
   "kdTxC2": {
     "defaultMessage": "Disable run grouping in order to access the evaluation view",
@@ -9419,6 +9435,10 @@
     "defaultMessage": "e.g., 100.00",
     "description": "Budget amount placeholder"
   },
+  "lwwRyV": {
+    "defaultMessage": "Delete queue",
+    "description": "Review queue sidebar: delete-queue trash button aria label"
+  },
   "lxGVDu": {
     "defaultMessage": "Percentage of traces evaluated by this judge.",
     "description": "Hint text for sample rate slider"
@@ -9627,6 +9647,10 @@
     "defaultMessage": "Yes, save and close",
     "description": "Key-value tag editor modal > Unsaved tag message > Yes, save and close button"
   },
+  "mwPrTZ": {
+    "defaultMessage": "No shared queues yet",
+    "description": "Add to review queue: no custom queues exist"
+  },
   "mzmlq2": {
     "defaultMessage": "Detects personally identifiable information such as names, emails, and phone numbers.",
     "description": "PII guardrail type description"
@@ -9650,6 +9674,10 @@
   "n3Oic0": {
     "defaultMessage": "Columns ({visible}/{total})",
     "description": "Column-selector trigger label on the V2 dataset records page, showing the count of currently visible columns out of the total available"
+  },
+  "n4LXjk": {
+    "defaultMessage": "Search by name to add a user's queue",
+    "description": "Add to review queue: prompt to search users"
   },
   "n4on5x": {
     "defaultMessage": "Create",
@@ -9706,10 +9734,6 @@
   "nLfm/t": {
     "defaultMessage": "At least one event must be selected",
     "description": "Form validation error message informing the user that at least one event must be selected"
-  },
-  "nMM0yz": {
-    "defaultMessage": "Attached",
-    "description": "Review queue table: attached-time column"
   },
   "nMttkN": {
     "defaultMessage": "Enter trace archival location URI",
@@ -9783,6 +9807,10 @@
     "defaultMessage": "of",
     "description": "Connector between list and element type"
   },
+  "nbI0of": {
+    "defaultMessage": "Add {count, plural, one {# trace} other {# traces}} to review queues",
+    "description": "Add to review queue modal title"
+  },
   "nddV+2": {
     "defaultMessage": "Show less",
     "description": "Models table > tags column > show less toggle button"
@@ -9822,6 +9850,10 @@
   "npoynr": {
     "defaultMessage": "Prompt Name",
     "description": "Header for prompt name column in linked prompts table on logged model details page"
+  },
+  "nrybxh": {
+    "defaultMessage": "My review queue",
+    "description": "Add to review queue: the caller's personal queue option"
   },
   "nugZSE": {
     "defaultMessage": "Show less",
@@ -9871,6 +9903,10 @@
     "defaultMessage": "Created",
     "description": "Column selector label for the create-time column"
   },
+  "o6vu2C": {
+    "defaultMessage": "username or email",
+    "description": "Create review queue: reviewer input placeholder"
+  },
   "o7dzKo": {
     "defaultMessage": "Last Modified",
     "description": "Label name for last modified timestamp metadata in model version page"
@@ -9890,6 +9926,10 @@
   "oDwj2g": {
     "defaultMessage": "The relevance_to_query LLM judge determines whether the response is relevant to the input request.",
     "description": "Evaluation results > known type of evaluation result assessment > description of relevance judge."
+  },
+  "oGW1Sc": {
+    "defaultMessage": "Queue",
+    "description": "Review queue sidebar: queue-name column header"
   },
   "oH2nPk": {
     "defaultMessage": "Please ensure you have a webhook configured to receive budget alert events. You can create one in the 'Budget alert webhooks' section on this page.",
@@ -10187,10 +10227,6 @@
     "defaultMessage": "Model",
     "description": "Gateway > Endpoint details > Section title for model configuration card"
   },
-  "ptUslY": {
-    "defaultMessage": "Save questions",
-    "description": "Queue settings: save questions"
-  },
   "ptcZpc": {
     "defaultMessage": "Table",
     "description": "Label for the Table render mode selector in the model trace explorer summary view"
@@ -10427,6 +10463,10 @@
     "defaultMessage": "Try in Browser",
     "description": "Button to open try-it dialog for endpoint"
   },
+  "r2sQnb": {
+    "defaultMessage": "Date added",
+    "description": "Review queue table: date-added column"
+  },
   "r3/K3V": {
     "defaultMessage": "Make Predictions",
     "description": "Heading text for the prediction section on the registered model from the experiment run"
@@ -10567,10 +10607,6 @@
     "defaultMessage": "Span type",
     "description": "Section label for span type filters in the trace explorer."
   },
-  "rhE+CF": {
-    "defaultMessage": "Traces",
-    "description": "Queue settings: traces tab"
-  },
   "rjZ8Tw": {
     "defaultMessage": "Save failed",
     "description": "Fallback status text shown when a dataset record save fails"
@@ -10670,6 +10706,10 @@
   "sByLVU": {
     "defaultMessage": "No runs logged",
     "description": "Empty state title text for experiment runs page when no runs are logged in the experiment"
+  },
+  "sCMbei": {
+    "defaultMessage": "Select questions",
+    "description": "Create review queue: questions dropdown placeholder"
   },
   "sD3+jL": {
     "defaultMessage": "Failed to save webhook",
@@ -10778,10 +10818,6 @@
   "sj0gOQ": {
     "defaultMessage": "Capabilities",
     "description": "Filter section label for capabilities"
-  },
-  "sk/xWv": {
-    "defaultMessage": "Personal",
-    "description": "Review queue: USER queue type tag"
   },
   "sle/ER": {
     "defaultMessage": "Back to datasets",
@@ -11267,6 +11303,10 @@
     "defaultMessage": "Platform Admin",
     "description": "Admin page title shown when the URL has no ?workspace=… (cross-workspace platform-admin view)"
   },
+  "vbRrqF": {
+    "defaultMessage": "Add question",
+    "description": "Add review question modal title"
+  },
   "vedifc": {
     "defaultMessage": "Enter API key or select saved key",
     "description": "Placeholder for API key combobox input"
@@ -11551,10 +11591,6 @@
     "defaultMessage": "Reasoning",
     "description": "Label for the collapsible reasoning section in chat message"
   },
-  "xAUimJ": {
-    "defaultMessage": "Failed to remove the trace.",
-    "description": "Queue settings: remove trace error"
-  },
   "xBVMQz": {
     "defaultMessage": "LLM",
     "description": "Example text snippet for LLM"
@@ -11647,10 +11683,6 @@
     "defaultMessage": "Dataset name",
     "description": "Dataset name label"
   },
-  "xdz9MH": {
-    "defaultMessage": "Personal queues use all of the experiment's questions; they can't be edited here.",
-    "description": "Queue settings: user-queue questions note"
-  },
   "xgbeVS": {
     "defaultMessage": "Large",
     "description": "Large row size"
@@ -11670,10 +11702,6 @@
   "xhAFcl": {
     "defaultMessage": "Failed to cancel job: {error}",
     "description": "Error message when job cancellation fails"
-  },
-  "xhVRcX": {
-    "defaultMessage": "{pending} to review · {total} total",
-    "description": "Review queue: section trace count summary"
   },
   "xiFkTH": {
     "defaultMessage": "Use for evaluation",
@@ -11702,6 +11730,10 @@
   "xqc4yl": {
     "defaultMessage": "Cancel",
     "description": "Button text for canceling a judge run"
+  },
+  "xsDZO2": {
+    "defaultMessage": "Queues",
+    "description": "Add to review queue: shared custom-queues section header"
   },
   "xvd8So": {
     "defaultMessage": "Logs",
@@ -11819,6 +11851,10 @@
     "defaultMessage": "Output",
     "description": "Experiment page > new run modal > evaluation output field label"
   },
+  "yeA16i": {
+    "defaultMessage": "No work to do",
+    "description": "Review queue sidebar: collapsed group of queues with nothing left to review"
+  },
   "yjerKR": {
     "defaultMessage": "<link>Version {versionNumber}</link>",
     "description": "Link to model version in the model version table"
@@ -11838,6 +11874,10 @@
   "yoD1c7": {
     "defaultMessage": "Usage Tracking",
     "description": "Section title for usage tracking configuration"
+  },
+  "yqFfXO": {
+    "defaultMessage": "Edit review questions",
+    "description": "Review queue sidebar: manage-questions aria label"
   },
   "yrsFOP": {
     "defaultMessage": "Datasets",
@@ -11903,10 +11943,6 @@
     "defaultMessage": "This endpoint may have been deleted",
     "description": "Tooltip for deleted endpoint"
   },
-  "z7SdAr": {
-    "defaultMessage": "Questions",
-    "description": "Queue settings: questions tab"
-  },
   "z8srAp": {
     "defaultMessage": "Trace archival retention",
     "description": "experiment page > edit experiment modal > trace archival retention label"
@@ -11966,6 +12002,10 @@
   "zLTdCZ": {
     "defaultMessage": "Reviewed",
     "description": "Evaluation review > assessments > already reviewed indicator"
+  },
+  "zLpu4g": {
+    "defaultMessage": "Nothing left to review.",
+    "description": "Review queue table: empty to-do group"
   },
   "zMhOr3": {
     "defaultMessage": "Cancel",
@@ -12059,13 +12099,13 @@
     "defaultMessage": "An error occurred while rendering this component.",
     "description": "Description for default error message in prompts management UI"
   },
+  "zmdTnv": {
+    "defaultMessage": "Questions in this queue",
+    "description": "Review queue sidebar: header for the selected queue's questions"
+  },
   "znEC5M": {
     "defaultMessage": "Adherence",
     "description": "Issue category title for adherence"
-  },
-  "zp2ygu": {
-    "defaultMessage": "Back to queue",
-    "description": "Review focused view: back button"
   },
   "zp4MBw": {
     "defaultMessage": "Token count",

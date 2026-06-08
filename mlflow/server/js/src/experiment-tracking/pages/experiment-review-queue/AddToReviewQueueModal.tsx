@@ -2,9 +2,16 @@ import { useMemo, useState } from 'react';
 
 import {
   Alert,
+  DialogCombobox,
+  DialogComboboxContent,
+  DialogComboboxHintRow,
+  DialogComboboxOptionList,
+  DialogComboboxOptionListCheckboxItem,
+  DialogComboboxOptionListSearch,
+  DialogComboboxSectionHeader,
+  DialogComboboxTrigger,
   Modal,
   PlusIcon,
-  Radio,
   TableSkeleton,
   Typography,
   useDesignSystemTheme,
@@ -13,9 +20,12 @@ import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explor
 import { FormattedMessage, useIntl } from 'react-intl';
 
 import { useListLabelSchemasQuery } from '../../components/label-schemas';
+import { useCurrentUserIsAdmin, useCurrentUserIsWorkspaceAdmin, useIsAuthAvailable } from '../../../account/hooks';
 import { CreateReviewQueueModal } from './CreateReviewQueueModal';
 import { getQueueAssignability } from './queueAssignability';
+import { sameUser } from './queuePermissions';
 import { useAddTracesToReviewQueueMutation } from './hooks/useAddTracesToReviewQueueMutation';
+import { useAssignableUsersQuery } from './hooks/useAssignableUsersQuery';
 import { useGetOrCreateUserQueueMutation } from './hooks/useGetOrCreateUserQueueMutation';
 import { useListReviewQueuesQuery } from './hooks/useListReviewQueuesQuery';
 import { DEFAULT_REVIEWER, useReviewer } from './hooks/useReviewer';
@@ -23,24 +33,26 @@ import type { ReviewQueue } from './types';
 
 const CID = 'mlflow.experiment-review-queue.add-to-queue';
 
-const RadioGroup = Radio.Group;
-
-// Sentinel for the always-present "my personal queue" option. The queue is
-// resolved (get-or-create) only when the user confirms, so it works before
-// the queue exists.
-const MY_QUEUE = '__my_review_queue__';
+// Custom queues shown before the reviewer searches; the rest are reachable by
+// name through the dropdown's search box.
+const COLLAPSED_QUEUE_COUNT = 3;
+// Cap on user matches surfaced per search so a large roster can't flood the list.
+const MAX_USER_MATCHES = 20;
 
 /**
- * Picker for routing one or more traces into a review queue. Shown both from
- * the Traces table bulk action and the trace-detail "Flag for review" button
+ * Picker for routing one or more traces into review queues. Shown both from the
+ * Traces table bulk action and the trace-detail "Flag for review" button
  * (injected into the shared trace UI via the same render-prop mechanism as
  * "Add to evaluation dataset").
  *
- * The reviewer's own personal queue is pinned at the top and pre-selected, so
- * the common case is one click: it's resolved (created on first use) via
- * get-or-create on confirm. Shared CUSTOM queues are listed below; queues that
- * wouldn't present any questions are disabled (see `getQueueAssignability`),
- * and a new queue can be created inline.
+ * Destinations are multi-select via a searchable dropdown with two separate
+ * sections: shared CUSTOM "Queues" (the first few shown up front, the rest found
+ * by name) and, on an authenticated server where the caller can list users,
+ * "Users" — each routing into that reviewer's personal queue, resolved
+ * (get-or-create) on confirm. The caller's own personal queue is pinned at the
+ * top for convenience. Nothing is selected by default. Queues that wouldn't
+ * present any questions are disabled (see `getQueueAssignability`), and a new
+ * queue can be created inline.
  */
 export const AddToReviewQueueModal = ({
   experimentId,
@@ -56,9 +68,19 @@ export const AddToReviewQueueModal = ({
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const reviewer = useReviewer();
+  const authAvailable = useIsAuthAvailable();
+  const isAdmin = useCurrentUserIsAdmin();
+  const isWorkspaceAdmin = useCurrentUserIsWorkspaceAdmin();
+  // The user roster is workspace-admin gated server-side; only fetch it when the
+  // caller can actually list users (and the modal is open).
+  const canListUsers = authAvailable && (isAdmin || isWorkspaceAdmin);
 
-  // Default to the personal queue so flagging is a single click.
-  const [selectedQueueId, setSelectedQueueId] = useState<string>(MY_QUEUE);
+  const [search, setSearch] = useState('');
+  // The caller's own personal queue. Nothing is selected by default; the caller
+  // picks where to route the traces.
+  const [myQueueSelected, setMyQueueSelected] = useState(false);
+  const [selectedQueueIds, setSelectedQueueIds] = useState<Set<string>>(new Set());
+  const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
   const [createOpen, setCreateOpen] = useState(false);
 
   const {
@@ -67,6 +89,7 @@ export const AddToReviewQueueModal = ({
     error: queuesError,
   } = useListReviewQueuesQuery({ experimentId, enabled: visible });
   const { labelSchemas } = useListLabelSchemasQuery({ experimentId, enabled: visible });
+  const { users, isLoading: usersLoading } = useAssignableUsersQuery({ enabled: visible && canListUsers });
   const {
     addTracesToReviewQueueAsync,
     isAddingTraces,
@@ -85,12 +108,12 @@ export const AddToReviewQueueModal = ({
     [selectedTraceInfos],
   );
 
-  // Shared queues anyone can route into. The reviewer's own personal queue is
-  // surfaced through the pinned MY_QUEUE option instead of the list, and other
-  // users' personal queues are never shown.
+  // Shared queues anyone can route into. The caller's own personal queue is
+  // surfaced through the pinned option instead of the list; other users'
+  // personal queues are reached through the "Users" section.
   const customQueues = useMemo(() => reviewQueues.filter((q) => q.queue_type === 'CUSTOM'), [reviewQueues]);
 
-  // A USER queue presents every experiment schema, so the personal queue is
+  // A USER queue presents every experiment schema, so any personal queue is
   // assignable as soon as the experiment has at least one question.
   const myQueueAssignable = labelSchemas.length > 0;
 
@@ -100,14 +123,82 @@ export const AddToReviewQueueModal = ({
     return map;
   }, [customQueues, labelSchemas]);
 
-  const selectedAssignable =
-    selectedQueueId === MY_QUEUE ? myQueueAssignable : assignabilityById.get(selectedQueueId)?.assignable;
+  const query = search.trim().toLowerCase();
+
+  // No search: show the first few custom queues, plus any selected ones (e.g. a
+  // queue just created inline) so a checked queue is always visible. Searching:
+  // filter the full set.
+  const visibleQueues = useMemo(() => {
+    if (query) {
+      return customQueues.filter((q) => q.name.toLowerCase().includes(query));
+    }
+    const head = customQueues.slice(0, COLLAPSED_QUEUE_COUNT);
+    const headIds = new Set(head.map((q) => q.queue_id));
+    const selectedExtras = customQueues.filter((q) => selectedQueueIds.has(q.queue_id) && !headIds.has(q.queue_id));
+    return [...head, ...selectedExtras];
+  }, [customQueues, query, selectedQueueIds]);
+  const hasMoreQueues = !query && customQueues.length > visibleQueues.length;
+
+  // Users are search-driven, and the caller's own queue is the pinned option.
+  const visibleUsers = useMemo(() => {
+    if (!query) {
+      return [];
+    }
+    return users
+      .filter((u) => !sameUser(u.username, reviewer) && u.username.toLowerCase().includes(query))
+      .slice(0, MAX_USER_MATCHES);
+  }, [users, query, reviewer]);
+
+  const myQueueChecked = myQueueSelected && myQueueAssignable;
+  const selectedCount = (myQueueChecked ? 1 : 0) + selectedQueueIds.size + selectedUsers.size;
+
   const actionError = addError ?? resolveError;
   const isWorking = isAddingTraces || isResolvingUserQueue;
-  const canAdd = Boolean(selectedQueueId && selectedAssignable && targetIds.length > 0 && !isWorking);
+  const canAdd = selectedCount > 0 && targetIds.length > 0 && !isWorking;
+
+  const triggerValue = useMemo(
+    () =>
+      selectedCount > 0
+        ? [
+            intl.formatMessage(
+              {
+                defaultMessage: '{count, plural, one {# queue} other {# queues}} selected',
+                description: 'Add to review queue: destination dropdown selected-count summary',
+              },
+              { count: selectedCount },
+            ),
+          ]
+        : [],
+    [selectedCount, intl],
+  );
+
+  const toggleQueue = (queueId: string) =>
+    setSelectedQueueIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(queueId)) {
+        next.delete(queueId);
+      } else {
+        next.add(queueId);
+      }
+      return next;
+    });
+
+  const toggleUser = (username: string) =>
+    setSelectedUsers((prev) => {
+      const next = new Set(prev);
+      if (next.has(username)) {
+        next.delete(username);
+      } else {
+        next.add(username);
+      }
+      return next;
+    });
 
   const handleClose = () => {
-    setSelectedQueueId(MY_QUEUE);
+    setSearch('');
+    setMyQueueSelected(false);
+    setSelectedQueueIds(new Set());
+    setSelectedUsers(new Set());
     setCreateOpen(false);
     resetAdd();
     resetResolve();
@@ -115,23 +206,25 @@ export const AddToReviewQueueModal = ({
   };
 
   const handleCreated = (queue: ReviewQueue) => {
-    setSelectedQueueId(queue.queue_id);
+    setSelectedQueueIds((prev) => new Set(prev).add(queue.queue_id));
   };
 
   const handleAdd = async () => {
     if (!canAdd) {
       return;
     }
-    let queueId = selectedQueueId;
-    if (selectedQueueId === MY_QUEUE) {
-      const { review_queue } = await getOrCreateUserQueueAsync({
-        experiment_id: experimentId,
-        user: reviewer,
-        created_by: reviewer,
-      });
-      queueId = review_queue.queue_id;
-    }
-    await addTracesToReviewQueueAsync({ queue_id: queueId, target_ids: targetIds });
+    // Resolve every USER-queue destination (mine + any picked users) to a queue
+    // id via get-or-create, then attach the traces to each distinct destination.
+    const userTargets = [...(myQueueChecked ? [reviewer] : []), ...selectedUsers];
+    const resolvedUserQueueIds = await Promise.all(
+      userTargets.map((user) =>
+        getOrCreateUserQueueAsync({ experiment_id: experimentId, user, created_by: reviewer }).then(
+          (res) => res.review_queue.queue_id,
+        ),
+      ),
+    );
+    const queueIds = Array.from(new Set([...selectedQueueIds, ...resolvedUserQueueIds]));
+    await Promise.all(queueIds.map((queue_id) => addTracesToReviewQueueAsync({ queue_id, target_ids: targetIds })));
     handleClose();
   };
 
@@ -151,14 +244,29 @@ export const AddToReviewQueueModal = ({
     }
   };
 
+  // Two static formatMessage calls (not a ternary descriptor) so the build-time
+  // intl transformer can inject each message id.
+  const myQueueLabel =
+    reviewer === DEFAULT_REVIEWER
+      ? intl.formatMessage({
+          defaultMessage: 'Default review queue',
+          description: 'Add to review queue: personal queue option on a no-auth server',
+        })
+      : intl.formatMessage({
+          defaultMessage: 'My review queue',
+          description: "Add to review queue: the caller's personal queue option",
+        });
+
   return (
     <>
       <Modal
         componentId={`${CID}.modal`}
-        visible={visible}
+        // Hide while the create form is open rather than stacking two modals; it
+        // reopens with the new queue selected when the create modal closes.
+        visible={visible && !createOpen}
         title={
           <FormattedMessage
-            defaultMessage="Add {count, plural, one {# trace} other {# traces}} to a review queue"
+            defaultMessage="Add {count, plural, one {# trace} other {# traces}} to review queues"
             description="Add to review queue modal title"
             values={{ count: targetIds.length }}
           />
@@ -184,53 +292,147 @@ export const AddToReviewQueueModal = ({
           ) : queuesLoading ? (
             <TableSkeleton lines={4} />
           ) : (
-            <RadioGroup
+            <DialogCombobox
               componentId={`${CID}.queue-picker`}
-              name="add-to-review-queue"
-              value={selectedQueueId}
-              onChange={(e) => setSelectedQueueId(e.target.value)}
+              label={intl.formatMessage({
+                defaultMessage: 'Review queues',
+                description: 'Add to review queue: destination dropdown label',
+              })}
+              multiSelect
+              value={triggerValue}
             >
-              <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
-                {/* Pinned, pre-selected personal queue (resolved on confirm). */}
-                <div>
-                  <Radio value={MY_QUEUE} disabled={!myQueueAssignable} componentId={`${CID}.my-queue-option`}>
-                    {reviewer === DEFAULT_REVIEWER ? (
-                      <FormattedMessage
-                        defaultMessage="Default review queue"
-                        description="Add to review queue: personal queue option on a no-auth server"
-                      />
-                    ) : (
-                      <FormattedMessage
-                        defaultMessage="My review queue"
-                        description="Add to review queue: the reviewer's personal queue option"
-                      />
-                    )}
-                  </Radio>
-                  {!myQueueAssignable && (
-                    <Typography.Hint css={{ marginLeft: theme.spacing.lg, display: 'block' }}>
-                      {reasonText('no-experiment-schemas')}
-                    </Typography.Hint>
-                  )}
-                </div>
-
-                {customQueues.map((q) => {
-                  const assignability = assignabilityById.get(q.queue_id);
-                  const disabled = !assignability?.assignable;
-                  return (
-                    <div key={q.queue_id}>
-                      <Radio value={q.queue_id} disabled={disabled} componentId={`${CID}.queue-option`}>
-                        {q.name}
-                      </Radio>
-                      {disabled && (
-                        <Typography.Hint css={{ marginLeft: theme.spacing.lg, display: 'block' }}>
-                          {reasonText(assignability?.reason)}
-                        </Typography.Hint>
-                      )}
-                    </div>
-                  );
+              <DialogComboboxTrigger
+                allowClear={false}
+                placeholder={intl.formatMessage({
+                  defaultMessage: 'Select review queues',
+                  description: 'Add to review queue: destination dropdown placeholder',
                 })}
-              </div>
-            </RadioGroup>
+              />
+              <DialogComboboxContent
+                matchTriggerWidth
+                maxHeight={320}
+                style={{ zIndex: theme.options.zIndexBase + 100 }}
+              >
+                <DialogComboboxOptionList>
+                  <DialogComboboxOptionListSearch controlledValue={search} setControlledValue={setSearch}>
+                    {/* Pinned personal queue (resolved on confirm). */}
+                    <DialogComboboxOptionListCheckboxItem
+                      value={myQueueLabel}
+                      checked={myQueueChecked}
+                      disabled={!myQueueAssignable}
+                      disabledReason={myQueueAssignable ? undefined : reasonText('no-experiment-schemas')}
+                      onChange={() => setMyQueueSelected((prev) => !prev)}
+                    >
+                      {myQueueLabel}
+                    </DialogComboboxOptionListCheckboxItem>
+
+                    <DialogComboboxSectionHeader>
+                      <FormattedMessage
+                        defaultMessage="Queues"
+                        description="Add to review queue: shared custom-queues section header"
+                      />
+                    </DialogComboboxSectionHeader>
+                    {visibleQueues.length === 0 ? (
+                      <DialogComboboxHintRow>
+                        {query ? (
+                          <FormattedMessage
+                            defaultMessage="No matching queues"
+                            description="Add to review queue: no custom queues match the search"
+                          />
+                        ) : (
+                          <FormattedMessage
+                            defaultMessage="No shared queues yet"
+                            description="Add to review queue: no custom queues exist"
+                          />
+                        )}
+                      </DialogComboboxHintRow>
+                    ) : (
+                      visibleQueues.map((q) => {
+                        const assignability = assignabilityById.get(q.queue_id);
+                        const disabled = !assignability?.assignable;
+                        return (
+                          <DialogComboboxOptionListCheckboxItem
+                            key={q.queue_id}
+                            value={q.name}
+                            checked={selectedQueueIds.has(q.queue_id)}
+                            disabled={disabled}
+                            disabledReason={disabled ? reasonText(assignability?.reason) : undefined}
+                            onChange={() => toggleQueue(q.queue_id)}
+                          >
+                            {q.name}
+                          </DialogComboboxOptionListCheckboxItem>
+                        );
+                      })
+                    )}
+                    {hasMoreQueues && (
+                      <DialogComboboxHintRow>
+                        <FormattedMessage
+                          defaultMessage="Search to find more queues"
+                          description="Add to review queue: hint that more custom queues are searchable"
+                        />
+                      </DialogComboboxHintRow>
+                    )}
+
+                    {canListUsers && (
+                      <>
+                        <DialogComboboxSectionHeader>
+                          <FormattedMessage
+                            defaultMessage="Users"
+                            description="Add to review queue: per-user personal-queue section header"
+                          />
+                        </DialogComboboxSectionHeader>
+                        {!query ? (
+                          <DialogComboboxHintRow>
+                            <FormattedMessage
+                              defaultMessage="Search by name to add a user's queue"
+                              description="Add to review queue: prompt to search users"
+                            />
+                          </DialogComboboxHintRow>
+                        ) : usersLoading ? (
+                          <DialogComboboxHintRow>
+                            <FormattedMessage
+                              defaultMessage="Loading users…"
+                              description="Add to review queue: users loading hint"
+                            />
+                          </DialogComboboxHintRow>
+                        ) : visibleUsers.length === 0 ? (
+                          <DialogComboboxHintRow>
+                            <FormattedMessage
+                              defaultMessage="No matching users"
+                              description="Add to review queue: no users match the search"
+                            />
+                          </DialogComboboxHintRow>
+                        ) : (
+                          <>
+                            {visibleUsers.map((u) => (
+                              <DialogComboboxOptionListCheckboxItem
+                                key={u.username}
+                                value={u.username}
+                                checked={selectedUsers.has(u.username)}
+                                disabled={!myQueueAssignable}
+                                disabledReason={myQueueAssignable ? undefined : reasonText('no-experiment-schemas')}
+                                onChange={() => toggleUser(u.username)}
+                              >
+                                {u.username}
+                              </DialogComboboxOptionListCheckboxItem>
+                            ))}
+                            {visibleUsers.length === MAX_USER_MATCHES && (
+                              <DialogComboboxHintRow>
+                                <FormattedMessage
+                                  defaultMessage="Showing the first {count} matches — refine your search to narrow them."
+                                  description="Add to review queue: hint that the user search results are capped"
+                                  values={{ count: MAX_USER_MATCHES }}
+                                />
+                              </DialogComboboxHintRow>
+                            )}
+                          </>
+                        )}
+                      </>
+                    )}
+                  </DialogComboboxOptionListSearch>
+                </DialogComboboxOptionList>
+              </DialogComboboxContent>
+            </DialogCombobox>
           )}
 
           <Typography.Link

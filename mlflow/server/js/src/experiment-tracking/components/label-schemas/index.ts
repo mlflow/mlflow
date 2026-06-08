@@ -32,5 +32,5 @@ export type { LabelSchemaInputTextProps } from './widgets/LabelSchemaInputText';
 export { LabelSchemaInputRenderer } from './widgets/LabelSchemaInputRenderer';
 export type { LabelSchemaInputRendererProps, LabelSchemaValue } from './widgets/LabelSchemaInputRenderer';
 
-export { LabelSchemaFormDrawer } from './LabelSchemaFormDrawer';
-export type { LabelSchemaFormDrawerProps } from './LabelSchemaFormDrawer';
+export { LabelSchemaFormModal } from './LabelSchemaFormModal';
+export type { LabelSchemaFormModalProps } from './LabelSchemaFormModal';

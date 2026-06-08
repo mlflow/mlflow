@@ -7,6 +7,7 @@ import {
   ChevronRightIcon,
   Drawer,
   Empty,
+  Input,
   TableSkeleton,
   Typography,
   useDesignSystemTheme,
@@ -18,7 +19,7 @@ import { LabelSchemaInputRenderer } from '../../components/label-schemas';
 import type { LabelSchema, LabelSchemaValue } from '../../components/label-schemas';
 import { useCreateReviewAssessmentMutation } from './hooks/useCreateReviewAssessmentMutation';
 import { useTraceAssessmentsQuery } from './hooks/useTraceAssessmentsQuery';
-import { buildPrefilledAnswers } from './reviewAnswers';
+import { buildPrefilledAnswers, buildPrefilledRationales } from './reviewAnswers';
 import { StatusTag } from './ReviewQueueList';
 import type { ReviewQueueItem, ReviewStatus } from './types';
 
@@ -83,11 +84,16 @@ export const FocusedReview = ({
   // the prefill so the query result never clobbers what the reviewer typed.
   const { priorAnswers } = useTraceAssessmentsQuery({ traceId: item.target_id });
   const prefilled = useMemo(() => buildPrefilledAnswers(priorAnswers, schemas), [priorAnswers, schemas]);
+  const prefilledRationales = useMemo(() => buildPrefilledRationales(priorAnswers, schemas), [priorAnswers, schemas]);
   const [edited, setEdited] = useState<Record<string, LabelSchemaValue>>({});
+  const [editedRationales, setEditedRationales] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const valueFor = (name: string): LabelSchemaValue => (name in edited ? edited[name] : prefilled[name]);
   const setAnswer = (name: string, value: LabelSchemaValue) => setEdited((prev) => ({ ...prev, [name]: value }));
+  const rationaleFor = (name: string): string =>
+    name in editedRationales ? editedRationales[name] : (prefilledRationales[name] ?? '');
+  const setRationale = (name: string, value: string) => setEditedRationales((prev) => ({ ...prev, [name]: value }));
 
   const isTerminal = item.status === 'COMPLETE' || item.status === 'DECLINED';
 
@@ -125,6 +131,7 @@ export const FocusedReview = ({
             assessmentKind: s.type === 'EXPECTATION' ? 'expectation' : 'feedback',
             value: valueFor(s.name) as Exclude<LabelSchemaValue, null | undefined>,
             sourceId: completedBy,
+            rationale: s.enable_comment ? rationaleFor(s.name).trim() || undefined : undefined,
           }),
         ),
       );
@@ -154,7 +161,7 @@ export const FocusedReview = ({
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md, height: '100%' }}>
       <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
         <Button componentId={`${CID}.back`} icon={<ChevronLeftIcon />} onClick={onBack}>
-          <FormattedMessage defaultMessage="Back to queue" description="Review focused view: back button" />
+          <FormattedMessage defaultMessage="Back to traces" description="Review focused view: back button" />
         </Button>
         <Typography.Text bold>{item.target_id}</Typography.Text>
         <StatusTag status={item.status} />
@@ -182,11 +189,18 @@ export const FocusedReview = ({
       </div>
 
       {/* Progress across the queue's traces */}
-      <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
+      <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+        <Typography.Text bold size="lg">
+          <FormattedMessage
+            defaultMessage="{reviewed} of {total} reviewed ({percentage}%)"
+            description="Review focused view: queue progress summary"
+            values={{ reviewed: reviewedCount, total: totalCount, percentage }}
+          />
+        </Typography.Text>
         <div
           css={{
-            flex: 1,
-            height: theme.spacing.xs,
+            width: '100%',
+            height: theme.spacing.sm,
             borderRadius: theme.borders.borderRadiusMd,
             backgroundColor: theme.colors.backgroundSecondary,
             overflow: 'hidden',
@@ -201,65 +215,9 @@ export const FocusedReview = ({
             }}
           />
         </div>
-        <Typography.Text color="secondary" size="sm">
-          <FormattedMessage
-            defaultMessage="{reviewed} of {total} reviewed ({percentage}%)"
-            description="Review focused view: queue progress summary"
-            values={{ reviewed: reviewedCount, total: totalCount, percentage }}
-          />
-        </Typography.Text>
       </div>
 
       <div css={{ display: 'flex', gap: theme.spacing.lg, flex: 1, minHeight: 0 }}>
-        {/* Condensed queue rail */}
-        <div
-          css={{
-            width: 240,
-            flexShrink: 0,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: theme.spacing.xs,
-            borderRight: `1px solid ${theme.colors.border}`,
-            paddingRight: theme.spacing.md,
-            overflow: 'auto',
-          }}
-        >
-          <Typography.Text color="secondary" size="sm" css={{ marginBottom: theme.spacing.xs }}>
-            <FormattedMessage
-              defaultMessage="Trace ({count})"
-              description="Review focused view: trace rail header with trace count"
-              values={{ count: items.length }}
-            />
-          </Typography.Text>
-          {items.map((queued) => {
-            const isActive = queued.target_id === item.target_id;
-            return (
-              <div
-                key={queued.target_id}
-                role="button"
-                tabIndex={0}
-                onClick={() => onSelect(queued.target_id)}
-                onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onSelect(queued.target_id)}
-                css={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: theme.spacing.xs,
-                  padding: theme.spacing.sm,
-                  borderRadius: theme.borders.borderRadiusMd,
-                  cursor: 'pointer',
-                  backgroundColor: isActive ? theme.colors.actionDefaultBackgroundPress : undefined,
-                  '&:hover': { backgroundColor: theme.colors.actionDefaultBackgroundHover },
-                }}
-              >
-                <Typography.Text size="sm" bold={isActive} ellipsis>
-                  {queued.target_id}
-                </Typography.Text>
-                <StatusTag status={queued.status} />
-              </div>
-            );
-          })}
-        </div>
-
         {/* Trace input / output (full trace available via the drawer) */}
         <div
           css={{
@@ -398,6 +356,19 @@ export const FocusedReview = ({
                   label={schema.name}
                   instruction={schema.instruction}
                 />
+                {schema.enable_comment && (
+                  <Input.TextArea
+                    componentId={`${CID}.rationale`}
+                    rows={2}
+                    value={rationaleFor(schema.name)}
+                    onChange={(e) => setRationale(schema.name, e.target.value)}
+                    disabled={isTerminal}
+                    placeholder={intl.formatMessage({
+                      defaultMessage: 'Rationale (optional)',
+                      description: 'Review focused view: free-form rationale placeholder',
+                    })}
+                  />
+                )}
               </div>
             ))
           )}

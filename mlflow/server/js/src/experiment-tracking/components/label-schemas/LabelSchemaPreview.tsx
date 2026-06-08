@@ -141,14 +141,14 @@ export const LabelSchemaPreview = ({ formData }: LabelSchemaPreviewProps) => {
       >
         <div
           css={{
-            border: `1px dashed ${theme.colors.border}`,
+            border: `1px solid ${theme.colors.border}`,
             borderRadius: theme.borders.borderRadiusMd,
             padding: theme.spacing.lg,
             display: 'flex',
             flexDirection: 'column',
             gap: theme.spacing.sm,
             opacity: hasErrors ? 0.6 : 1,
-            backgroundColor: theme.colors.backgroundSecondary,
+            backgroundColor: theme.colors.backgroundPrimary,
           }}
         >
           {formData.name ? (

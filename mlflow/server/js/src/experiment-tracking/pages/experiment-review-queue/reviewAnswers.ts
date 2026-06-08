@@ -18,6 +18,8 @@ export interface PriorAnswer {
   name: string;
   kind: AssessmentKind;
   value: LabelSchemaValue;
+  /** Free-form rationale recorded alongside the value, if any. */
+  rationale?: string;
   /** A trace assessment is valid unless explicitly marked `valid: false`. */
   valid: boolean;
 }
@@ -30,6 +32,7 @@ export interface PriorAnswer {
 export interface RawTraceAssessment {
   assessment_name?: string;
   valid?: boolean;
+  rationale?: string;
   feedback?: { value?: LabelSchemaValue };
   expectation?: { value?: LabelSchemaValue; serialized_value?: { value?: string } };
 }
@@ -70,6 +73,7 @@ export const extractPriorAnswers = (assessments: RawTraceAssessment[]): PriorAns
       name: assessment.assessment_name,
       kind,
       value,
+      rationale: assessment.rationale,
       valid: assessment.valid !== false,
     });
   }
@@ -95,6 +99,23 @@ export const buildPrefilledAnswers = (
     const match = priors.filter((p) => p.valid && p.name === schema.name && p.kind === kind).at(-1);
     if (match) {
       prefilled[schema.name] = match.value;
+    }
+  }
+  return prefilled;
+};
+
+/**
+ * Seed the focused-review rationale boxes from a trace's existing answers, so a
+ * reopened trace shows the rationale recorded alongside each prior answer.
+ * Same name/kind/last-wins matching as {@link buildPrefilledAnswers}.
+ */
+export const buildPrefilledRationales = (priors: PriorAnswer[], schemas: LabelSchema[]): Record<string, string> => {
+  const prefilled: Record<string, string> = {};
+  for (const schema of schemas) {
+    const kind = schemaAssessmentKind(schema);
+    const match = priors.filter((p) => p.valid && p.name === schema.name && p.kind === kind).at(-1);
+    if (match?.rationale) {
+      prefilled[schema.name] = match.rationale;
     }
   }
   return prefilled;
