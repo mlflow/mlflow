@@ -66,6 +66,18 @@ def test_enum_from_proto_rejects_invalid(enum_cls, bad_proto):
             users=["bob", "carol"],
             schema_ids=["ls-1", "ls-2"],
         ),
+        ReviewQueue(
+            queue_id="rq-3",
+            experiment_id="7",
+            name="Default",
+            queue_type=ReviewQueueType.CUSTOM,
+            created_by=None,
+            creation_time_ms=10,
+            last_update_time_ms=10,
+            users=[],
+            schema_ids=[],
+            is_default=True,
+        ),
     ],
 )
 def test_review_queue_proto_round_trip(queue):

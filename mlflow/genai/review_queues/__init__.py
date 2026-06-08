@@ -77,8 +77,9 @@ def create_review_queue(
 
     Args:
         name: Queue name, unique within the experiment. For a ``"user"``
-            queue this is the user identifier; ``"default"`` is reserved for
-            the no-auth default user queue and rejected for custom queues.
+            queue this is the user identifier; ``"default"`` (the no-auth
+            default user queue) and ``"Default"`` (the experiment's default
+            review queue) are reserved and rejected for custom queues.
         queue_type: ``"user"`` (exactly one assigned user equal to ``name``,
             inherits all of the experiment's label schemas) or ``"custom"``
             (0..N users and an explicit subset of schemas).
