@@ -81,9 +81,9 @@ def arrow_select(prompt_text: str, options: list[str]) -> int:
                 case "\x03":
                     rewind()
                     raise click.Abort()
-                case "\x1b[A" | "k":
+                case "\x1b[A" | "\x1bOA" | "k":
                     idx = (idx - 1) % n
-                case "\x1b[B" | "j":
+                case "\x1b[B" | "\x1bOB" | "j":
                     idx = (idx + 1) % n
                 case _:
                     continue
