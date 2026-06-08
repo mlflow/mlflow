@@ -5322,6 +5322,10 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     for key, value in resource.attributes.items():
                         if not isinstance(value, str):
                             continue
+                        # Skip OTel SDK internal metadata attributes — these are
+                        # auto-added by the SDK and not user-meaningful resource info.
+                        if key.startswith("telemetry.sdk."):
+                            continue
                         # SqlTraceTag column limits: key=String(250), value=String(8000)
                         if len(key) <= 250 and len(value) <= 8000:
                             session.merge(
