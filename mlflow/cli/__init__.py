@@ -1352,6 +1352,11 @@ from mlflow.cli.demo import demo
 
 cli.add_command(demo)
 
+# Add Claude Code skill-installation command
+from mlflow.cli.claude_setup import claude_setup
+
+cli.add_command(claude_setup)
+
 # Add AI commands CLI
 cli.add_command(ai_commands.commands)
 
