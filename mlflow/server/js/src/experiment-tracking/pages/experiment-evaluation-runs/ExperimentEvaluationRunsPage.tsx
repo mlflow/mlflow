@@ -34,6 +34,7 @@ import {
 import { EvaluationCodeSnippetButton } from './EvaluationCodeSnippetButton';
 import { RunEvaluationButton } from './RunEvaluationButton';
 import { AskAssistantLink } from '../../components/onboarding/AskAssistantLink';
+import { EVAL_RUNS_ORIENTATION_PROMPT } from './evalRunsAgentPrompt';
 import { isUserFacingTag } from '../../../common/utils/TagUtils';
 import { createEvalRunsTableKeyedColumnKey } from './ExperimentEvaluationRunsTable.utils';
 import type { RunsGroupByConfig } from '../../components/experiment-page/utils/experimentPage.group-row-utils';
@@ -451,7 +452,7 @@ const ExperimentEvaluationRunsPageImpl = () => {
       </div>
       <AskAssistantLink
         componentId="mlflow.eval-runs.empty-state.ask-assistant"
-        prompt="I'm trying to evaluate a GenAI app in MLflow but I'm not sure where to start. Ask me about my app (what it does, what framework it uses, whether I already have traces), then recommend an evaluation approach — LLM-as-judge vs custom scorers, offline batch vs online monitoring — and walk me through the minimal setup."
+        prompt={EVAL_RUNS_ORIENTATION_PROMPT}
         label={
           <FormattedMessage
             defaultMessage="Not sure where to start? Ask MLflow's AI assistant"

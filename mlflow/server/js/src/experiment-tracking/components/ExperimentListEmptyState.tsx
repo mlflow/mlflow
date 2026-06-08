@@ -3,13 +3,10 @@ import { Button, PlusIcon, Typography, useDesignSystemTheme } from '@databricks/
 import { FormattedMessage } from 'react-intl';
 
 import { AgentActionCard } from './onboarding/AgentActionCard';
+import { buildCreateExperimentPrompt } from './experimentListAgentPrompt';
 
 const TRACING_VIDEO_START_SEC = 0;
 const TRACING_VIDEO_URL = `https://mlflow.org/docs/latest/images/llms/tracing/tracing-top.mp4#t=${TRACING_VIDEO_START_SEC}`;
-
-const buildCreateExperimentPrompt = (trackingUri: string): string => `Create a new MLflow experiment.
-
-MLflow is running at ${trackingUri}. Ask me what to name the experiment, then create it with \`mlflow.set_experiment(name)\` (which creates it if it doesn't exist and sets it as active). Report the experiment ID and URL once it's created.`;
 
 export const ExperimentListEmptyState = ({ onCreateExperiment }: { onCreateExperiment?: () => void }) => {
   const { theme } = useDesignSystemTheme();
