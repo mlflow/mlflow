@@ -5712,6 +5712,245 @@ def test_invoke_issue_detection_handler_missing_required_params(monkeypatch):
         )
 
 
+def _make_genai_evaluate_job(job_id: str = "job-genai-1") -> JobEntity:
+    return JobEntity(
+        job_id=job_id,
+        creation_time=1234567890000,
+        job_name="invoke_genai_evaluate",
+        params='{"experiment_id": "exp-123"}',
+        timeout=None,
+        status=JobStatus.PENDING,
+        result=None,
+        retry_count=0,
+        last_update_time=1234567890000,
+        status_details=None,
+    )
+
+
+def test_invoke_genai_evaluate_handler_success(monkeypatch):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+
+    mock_job = _make_genai_evaluate_job()
+    mock_run = mock.MagicMock()
+    mock_run.info.run_id = "run-genai-1"
+    mock_client = mock.MagicMock()
+    mock_client.create_run.return_value = mock_run
+
+    request_json = {
+        "experiment_id": "exp-123",
+        "trace_ids": ["trace-1", "trace-2"],
+        "serialized_scorers": ['{"name":"my-judge"}', '{"name":"safety"}'],
+    }
+
+    with (
+        mock.patch("mlflow.server.jobs.submit_job", return_value=mock_job) as mock_submit_job,
+        mock.patch("mlflow.server.handlers.MlflowClient", return_value=mock_client),
+        app.test_client() as c,
+    ):
+        resp = c.post("/ajax-api/3.0/mlflow/genai/evaluate/invoke", json=request_json)
+        assert resp.status_code == 200
+        json_response = resp.get_json()
+
+        assert json_response == {"job_id": "job-genai-1", "run_id": "run-genai-1"}
+
+        # The handler must create the run *upfront* with the right MLFLOW_RUN_TYPE tag
+        # so the run appears on /evaluation-runs immediately, before the job starts
+        # producing artifacts. We use MlflowClient (not mlflow.start_run) so the run
+        # is created directly in the store without touching the fluent active-run stack.
+        mock_client.create_run.assert_called_once_with(
+            experiment_id="exp-123",
+            tags={"mlflow.runType": "genai_evaluate"},
+        )
+
+        mock_submit_job.assert_called_once()
+        submit_kwargs = mock_submit_job.call_args.kwargs
+        assert submit_kwargs["params"]["trace_ids"] == ["trace-1", "trace-2"]
+        assert submit_kwargs["params"]["serialized_scorers"] == request_json["serialized_scorers"]
+        assert submit_kwargs["params"]["run_id"] == "run-genai-1"
+        # No basic auth on the test client -> no username propagated.
+        assert submit_kwargs["params"]["username"] is None
+
+        mock_client.set_tag.assert_called_once_with(
+            "run-genai-1", "mlflow.genaiEvaluate.jobId", "job-genai-1"
+        )
+        mock_client.set_terminated.assert_not_called()
+
+
+def test_invoke_genai_evaluate_handler_rejects_empty_trace_ids(monkeypatch):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+
+    mock_client = mock.MagicMock()
+
+    request_json = {
+        "experiment_id": "exp-123",
+        "trace_ids": [],
+        "serialized_scorers": ['{"name":"my-judge"}'],
+    }
+
+    with (
+        mock.patch("mlflow.server.handlers.MlflowClient", return_value=mock_client),
+        mock.patch("mlflow.server.jobs.submit_job") as mock_submit_job,
+        app.test_client() as c,
+    ):
+        resp = c.post("/ajax-api/3.0/mlflow/genai/evaluate/invoke", json=request_json)
+        assert resp.status_code == 400
+        assert "Please select at least one trace to evaluate." in resp.get_json()["message"]
+        # Guard against accidentally creating a run for an invalid request.
+        mock_client.create_run.assert_not_called()
+        mock_submit_job.assert_not_called()
+
+
+def test_invoke_genai_evaluate_handler_rejects_empty_serialized_scorers(monkeypatch):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+
+    mock_client = mock.MagicMock()
+
+    request_json = {
+        "experiment_id": "exp-123",
+        "trace_ids": ["trace-1"],
+        "serialized_scorers": [],
+    }
+
+    with (
+        mock.patch("mlflow.server.handlers.MlflowClient", return_value=mock_client),
+        mock.patch("mlflow.server.jobs.submit_job") as mock_submit_job,
+        app.test_client() as c,
+    ):
+        resp = c.post("/ajax-api/3.0/mlflow/genai/evaluate/invoke", json=request_json)
+        assert resp.status_code == 400
+        assert "Please select at least one judge." in resp.get_json()["message"]
+        mock_client.create_run.assert_not_called()
+        mock_submit_job.assert_not_called()
+
+
+def test_invoke_genai_evaluate_handler_missing_required_fields(monkeypatch):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+
+    # Each call drops one of the required fields; the schema validator
+    # should reject before we ever create a run.
+    base = {
+        "experiment_id": "exp-123",
+        "trace_ids": ["trace-1"],
+        "serialized_scorers": ['{"name":"my-judge"}'],
+    }
+    for missing in ("experiment_id", "trace_ids", "serialized_scorers"):
+        request_json = {k: v for k, v in base.items() if k != missing}
+        mock_client = mock.MagicMock()
+        with (
+            mock.patch("mlflow.server.handlers.MlflowClient", return_value=mock_client),
+            mock.patch("mlflow.server.jobs.submit_job") as mock_submit_job,
+            app.test_client() as c,
+        ):
+            resp = c.post("/ajax-api/3.0/mlflow/genai/evaluate/invoke", json=request_json)
+            assert resp.status_code == 400, f"missing={missing}: {resp.get_json()}"
+            mock_client.create_run.assert_not_called()
+            mock_submit_job.assert_not_called()
+
+
+def test_invoke_genai_evaluate_handler_propagates_basic_auth_username(monkeypatch):
+    """Username comes from HTTP Basic auth and feeds the job's gateway-auth
+    path so judge LLM calls are made *as* the user.
+    """
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+
+    mock_job = _make_genai_evaluate_job("job-auth")
+    mock_run = mock.MagicMock()
+    mock_run.info.run_id = "run-auth"
+    mock_client = mock.MagicMock()
+    mock_client.create_run.return_value = mock_run
+
+    request_json = {
+        "experiment_id": "exp-123",
+        "trace_ids": ["trace-1"],
+        "serialized_scorers": ['{"name":"my-judge"}'],
+    }
+
+    with (
+        mock.patch("mlflow.server.jobs.submit_job", return_value=mock_job) as mock_submit_job,
+        mock.patch("mlflow.server.handlers.MlflowClient", return_value=mock_client),
+        app.test_client() as c,
+    ):
+        # Encoded form of "alice:hunter2"
+        resp = c.post(
+            "/ajax-api/3.0/mlflow/genai/evaluate/invoke",
+            json=request_json,
+            headers={"Authorization": "Basic YWxpY2U6aHVudGVyMg=="},
+        )
+        assert resp.status_code == 200
+        assert mock_submit_job.call_args.kwargs["params"]["username"] == "alice"
+
+
+def test_invoke_genai_evaluate_handler_marks_run_failed_when_submit_job_raises(monkeypatch):
+    """If submit_job raises after the run is created, the handler must flip the
+    run to FAILED itself — otherwise it'd be stuck in RUNNING forever because the
+    worker that would normally do that transition was never enqueued.
+    """
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+
+    mock_run = mock.MagicMock()
+    mock_run.info.run_id = "run-fail"
+    mock_client = mock.MagicMock()
+    mock_client.create_run.return_value = mock_run
+
+    request_json = {
+        "experiment_id": "exp-123",
+        "trace_ids": ["trace-1"],
+        "serialized_scorers": ['{"name":"my-judge"}'],
+    }
+
+    submit_error = MlflowException(
+        "Mlflow server job execution feature is not enabled.",
+        error_code=INVALID_PARAMETER_VALUE,
+    )
+
+    with (
+        mock.patch("mlflow.server.jobs.submit_job", side_effect=submit_error),
+        mock.patch("mlflow.server.handlers.MlflowClient", return_value=mock_client),
+        app.test_client() as c,
+    ):
+        resp = c.post("/ajax-api/3.0/mlflow/genai/evaluate/invoke", json=request_json)
+
+        # @catch_mlflow_exception turns the re-raised MlflowException into a 4xx.
+        assert resp.status_code != 200
+        assert "job execution feature is not enabled" in resp.get_json()["message"]
+
+        mock_client.set_terminated.assert_called_once_with("run-fail", "FAILED")
+
+        # The job-id tag must not have been written — the job never existed.
+        mock_client.set_tag.assert_not_called()
+
+
+def test_invoke_genai_evaluate_handler_marks_run_failed_when_set_tag_raises(monkeypatch):
+    """The same try/except must also cover the post-submit set_tag call. If the
+    tag write fails (e.g. transient store error) we'd otherwise leave the run in
+    RUNNING because nothing else writes a terminal status from the handler.
+    """
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+
+    mock_job = _make_genai_evaluate_job("job-tag-fail")
+    mock_run = mock.MagicMock()
+    mock_run.info.run_id = "run-tag-fail"
+    mock_client = mock.MagicMock()
+    mock_client.create_run.return_value = mock_run
+    mock_client.set_tag.side_effect = RuntimeError("store unavailable")
+
+    request_json = {
+        "experiment_id": "exp-123",
+        "trace_ids": ["trace-1"],
+        "serialized_scorers": ['{"name":"my-judge"}'],
+    }
+
+    with (
+        mock.patch("mlflow.server.jobs.submit_job", return_value=mock_job),
+        mock.patch("mlflow.server.handlers.MlflowClient", return_value=mock_client),
+        app.test_client() as c,
+    ):
+        resp = c.post("/ajax-api/3.0/mlflow/genai/evaluate/invoke", json=request_json)
+
+        assert resp.status_code != 200
+        mock_client.set_terminated.assert_called_once_with("run-tag-fail", "FAILED")
+
+
 def test_get_job_success(mock_job_store):
     mock_job = JobEntity(
         job_id="job-123",
