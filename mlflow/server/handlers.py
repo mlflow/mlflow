@@ -161,6 +161,7 @@ from mlflow.protos.review_queues_pb2 import (
     AddTracesToReviewQueue,
     CreateReviewQueue,
     DeleteReviewQueue,
+    GetOrCreateDefaultQueue,
     GetOrCreateUserQueue,
     GetReviewQueue,
     GetReviewQueueByName,
@@ -4660,6 +4661,22 @@ def _get_or_create_user_queue():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+def _get_or_create_default_queue():
+    request_message = _get_request_message(
+        GetOrCreateDefaultQueue(),
+        schema={
+            "experiment_id": [_assert_required, _assert_string],
+        },
+    )
+    kwargs: dict[str, object] = {"experiment_id": request_message.experiment_id}
+    if request_message.HasField("created_by"):
+        kwargs["created_by"] = request_message.created_by
+    queue = _get_tracking_store().get_or_create_default_queue(**kwargs)
+    return _wrap_response(GetOrCreateDefaultQueue.Response(review_queue=queue.to_proto()))
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
 def _get_review_queue():
     request_message = _get_request_message(
         GetReviewQueue(),
@@ -7598,6 +7615,7 @@ HANDLERS = {
     DeleteLabelSchema: _delete_label_schema,
     CreateReviewQueue: _create_review_queue,
     GetOrCreateUserQueue: _get_or_create_user_queue,
+    GetOrCreateDefaultQueue: _get_or_create_default_queue,
     GetReviewQueue: _get_review_queue,
     GetReviewQueueByName: _get_review_queue_by_name,
     ListReviewQueues: _list_review_queues,

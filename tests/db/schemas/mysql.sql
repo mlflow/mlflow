@@ -319,6 +319,7 @@ CREATE TABLE review_queues (
 	experiment_id INTEGER NOT NULL,
 	name VARCHAR(250) NOT NULL,
 	queue_type VARCHAR(16) NOT NULL,
+	is_default TINYINT DEFAULT '0' NOT NULL,
 	created_by VARCHAR(255),
 	creation_time_ms BIGINT NOT NULL,
 	last_update_time_ms BIGINT NOT NULL,

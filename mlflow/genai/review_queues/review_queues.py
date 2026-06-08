@@ -207,6 +207,7 @@ class ReviewQueue:
             last_update_time_ms=self.last_update_time_ms,
             users=self.users,
             schema_ids=self.schema_ids,
+            is_default=self.is_default,
         )
         if self.created_by is not None:
             proto.created_by = self.created_by
@@ -224,4 +225,5 @@ class ReviewQueue:
             last_update_time_ms=proto.last_update_time_ms,
             users=list(proto.users),
             schema_ids=list(proto.schema_ids),
+            is_default=proto.is_default,
         )

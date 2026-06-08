@@ -36,7 +36,7 @@ COMPLETE: ReviewStatus
 DECLINED: ReviewStatus
 
 class ReviewQueue(_message.Message):
-    __slots__ = ("queue_id", "experiment_id", "name", "queue_type", "created_by", "creation_time_ms", "last_update_time_ms", "users", "schema_ids")
+    __slots__ = ("queue_id", "experiment_id", "name", "queue_type", "created_by", "creation_time_ms", "last_update_time_ms", "users", "schema_ids", "is_default")
     QUEUE_ID_FIELD_NUMBER: _ClassVar[int]
     EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
@@ -46,6 +46,7 @@ class ReviewQueue(_message.Message):
     LAST_UPDATE_TIME_MS_FIELD_NUMBER: _ClassVar[int]
     USERS_FIELD_NUMBER: _ClassVar[int]
     SCHEMA_IDS_FIELD_NUMBER: _ClassVar[int]
+    IS_DEFAULT_FIELD_NUMBER: _ClassVar[int]
     queue_id: str
     experiment_id: str
     name: str
@@ -55,7 +56,8 @@ class ReviewQueue(_message.Message):
     last_update_time_ms: int
     users: _containers.RepeatedScalarFieldContainer[str]
     schema_ids: _containers.RepeatedScalarFieldContainer[str]
-    def __init__(self, queue_id: _Optional[str] = ..., experiment_id: _Optional[str] = ..., name: _Optional[str] = ..., queue_type: _Optional[_Union[ReviewQueueType, str]] = ..., created_by: _Optional[str] = ..., creation_time_ms: _Optional[int] = ..., last_update_time_ms: _Optional[int] = ..., users: _Optional[_Iterable[str]] = ..., schema_ids: _Optional[_Iterable[str]] = ...) -> None: ...
+    is_default: bool
+    def __init__(self, queue_id: _Optional[str] = ..., experiment_id: _Optional[str] = ..., name: _Optional[str] = ..., queue_type: _Optional[_Union[ReviewQueueType, str]] = ..., created_by: _Optional[str] = ..., creation_time_ms: _Optional[int] = ..., last_update_time_ms: _Optional[int] = ..., users: _Optional[_Iterable[str]] = ..., schema_ids: _Optional[_Iterable[str]] = ..., is_default: bool = ...) -> None: ...
 
 class ReviewQueueItem(_message.Message):
     __slots__ = ("queue_id", "target_type", "target_id", "status", "completed_by", "completed_time_ms", "creation_time_ms", "last_update_time_ms")
@@ -112,6 +114,19 @@ class GetOrCreateUserQueue(_message.Message):
     user: str
     created_by: str
     def __init__(self, experiment_id: _Optional[str] = ..., user: _Optional[str] = ..., created_by: _Optional[str] = ...) -> None: ...
+
+class GetOrCreateDefaultQueue(_message.Message):
+    __slots__ = ("experiment_id", "created_by")
+    class Response(_message.Message):
+        __slots__ = ("review_queue",)
+        REVIEW_QUEUE_FIELD_NUMBER: _ClassVar[int]
+        review_queue: ReviewQueue
+        def __init__(self, review_queue: _Optional[_Union[ReviewQueue, _Mapping]] = ...) -> None: ...
+    EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    CREATED_BY_FIELD_NUMBER: _ClassVar[int]
+    experiment_id: str
+    created_by: str
+    def __init__(self, experiment_id: _Optional[str] = ..., created_by: _Optional[str] = ...) -> None: ...
 
 class GetReviewQueue(_message.Message):
     __slots__ = ("queue_id",)

@@ -70,6 +70,7 @@ from mlflow.protos.review_queues_pb2 import (
     AddTracesToReviewQueue,
     CreateReviewQueue,
     DeleteReviewQueue,
+    GetOrCreateDefaultQueue,
     GetOrCreateUserQueue,
     GetReviewQueue,
     GetReviewQueueByName,
@@ -1145,6 +1146,19 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
             GetOrCreateUserQueue,
             message_to_json(req),
             endpoint=f"{_V3_REVIEW_QUEUES_REST_API_PATH_PREFIX}/get-or-create-user",
+        )
+        return ReviewQueue.from_proto(response_proto.review_queue)
+
+    def get_or_create_default_queue(self, experiment_id, *, created_by=None):
+        from mlflow.genai.review_queues import ReviewQueue
+
+        req = GetOrCreateDefaultQueue(experiment_id=str(experiment_id))
+        if created_by is not None:
+            req.created_by = created_by
+        response_proto = self._call_endpoint(
+            GetOrCreateDefaultQueue,
+            message_to_json(req),
+            endpoint=f"{_V3_REVIEW_QUEUES_REST_API_PATH_PREFIX}/get-or-create-default",
         )
         return ReviewQueue.from_proto(response_proto.review_queue)
 

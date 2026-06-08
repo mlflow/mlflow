@@ -317,6 +317,7 @@ CREATE TABLE review_queues (
 	experiment_id INTEGER NOT NULL,
 	name VARCHAR(250) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	queue_type VARCHAR(16) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	is_default BIT DEFAULT ((0)) NOT NULL,
 	created_by VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	creation_time_ms BIGINT NOT NULL,
 	last_update_time_ms BIGINT NOT NULL,
