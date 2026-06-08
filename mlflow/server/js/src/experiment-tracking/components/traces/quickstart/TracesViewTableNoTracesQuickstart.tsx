@@ -23,7 +23,7 @@ import {
 import { CodeBlock } from './components/CodeBlock';
 import { StepSection } from './components/StepSection';
 import { LanguageTab, type Language } from './components/LanguageTab';
-import { AgentActionCard } from './AgentActionCard';
+import { AgentActionCard } from '../../onboarding/AgentActionCard';
 
 const TRACING_VIDEO_START_SEC = 24;
 const TRACING_VIDEO_URL = `https://mlflow.org/docs/latest/images/llms/tracing/tracing-top.mp4#t=${TRACING_VIDEO_START_SEC}`;

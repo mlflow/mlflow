@@ -4799,6 +4799,10 @@
     "defaultMessage": "Amount of time that has passed since the first metric value was logged",
     "description": "A tooltip line chart configuration for the step function of relative time"
   },
+  "Nx3aKz": {
+    "defaultMessage": "Not sure where to start? Ask MLflow's AI assistant",
+    "description": "Tertiary CTA on the eval runs empty state that opens the assistant with an orientation prompt"
+  },
   "NyzPHY": {
     "defaultMessage": "Expand description",
     "description": "Aria label for button that expands a collapsed long description"

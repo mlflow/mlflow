@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { Button, CopyIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 
-import { AssistantSparkleIcon, useAssistant } from '../../../../assistant';
+import { AssistantSparkleIcon, useAssistant } from '../../../assistant';
 import { CopyButton } from '@mlflow/mlflow/src/shared/building_blocks/CopyButton';
 
 const TERMINAL_COMMAND = 'mlflow agent setup';

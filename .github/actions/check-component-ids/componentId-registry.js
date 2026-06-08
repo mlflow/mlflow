@@ -1102,6 +1102,7 @@ module.exports = {
   "mlflow.eval-runs.compare-button.tooltip": "",
   "mlflow.eval-runs.dataset-cell": "",
   "mlflow.eval-runs.dataset-cell-tooltip": "",
+  "mlflow.eval-runs.empty-state.ask-assistant": "",
   "mlflow.eval-runs.empty-state.learn-more-link": "",
   "mlflow.eval-runs.group-expand-button": "",
   "mlflow.eval-runs.group-tag": "",

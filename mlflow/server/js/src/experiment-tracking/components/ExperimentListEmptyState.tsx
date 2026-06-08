@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Button, PlusIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 
-import { AgentActionCard } from './traces/quickstart/AgentActionCard';
+import { AgentActionCard } from './onboarding/AgentActionCard';
 
 const TRACING_VIDEO_START_SEC = 0;
 const TRACING_VIDEO_URL = `https://mlflow.org/docs/latest/images/llms/tracing/tracing-top.mp4#t=${TRACING_VIDEO_START_SEC}`;
