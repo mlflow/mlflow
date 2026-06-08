@@ -237,6 +237,19 @@ def test_list_review_queues_filtered_by_user(store):
     assert custom.users == ["alice", "bob"]
 
 
+def test_list_review_queues_always_includes_default(store):
+    exp_id = _create_experiments(store, "list_default")
+    default = store.get_or_create_default_queue(exp_id)
+    store.create_review_queue(exp_id, name="solo", queue_type="custom", users=["carol"])
+
+    # The default queue is everyone's, so it appears in any user's scoped list
+    # even though that user is not an assigned member; the 'solo' queue (which
+    # bob is not on) does not.
+    bob_queues = {q.name for q in store.list_review_queues(exp_id, user="bob")}
+    assert bob_queues == {"Default"}
+    assert default.users == []
+
+
 def test_list_review_queues_pagination(store):
     exp_id = _create_experiments(store, "list_paginate")
     for i in range(5):
