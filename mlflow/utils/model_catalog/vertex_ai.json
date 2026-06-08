@@ -1931,6 +1931,26 @@
       },
       "last_updated_at": "2026-04-24"
     },
+    "google/gemma-4-26b-a4b-it-maas": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 256000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.15,
+        "output_per_million_tokens": 0.6
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-06-09"
+    },
     "imagegeneration@006": {
       "mode": "image_generation",
       "capabilities": {
