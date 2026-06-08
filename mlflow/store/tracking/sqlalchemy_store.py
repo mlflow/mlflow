@@ -8412,7 +8412,12 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             if e.error_code != ErrorCode.Name(RESOURCE_ALREADY_EXISTS):
                 raise
             # Lost the create race (or it already existed): return the single
-            # existing default queue, keeping the call idempotent.
+            # existing default queue, keeping the call idempotent. Unlike
+            # get_or_create_user_queue, no "non-default queue squatting on this
+            # name" guard is needed: "Default" is unreachable for any
+            # non-default queue (validate_queue_for_create rejects it for custom
+            # queues and user names are lowercased), so any queue under that
+            # name is the default queue.
             return self.get_review_queue_by_name(experiment_id, name=DEFAULT_QUEUE_NAME)
 
     def get_review_queue(self, queue_id):

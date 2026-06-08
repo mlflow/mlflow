@@ -211,7 +211,7 @@ def validate_queue_for_create(
             raise _invalid(f"`name` must be a string; got {name!r}.")
         normalized_name = name.strip()
         _validate_non_empty_string(normalized_name, "name", QUEUE_NAME_MAX_LENGTH)
-        if normalized_name in (RESERVED_QUEUE_NAME, DEFAULT_QUEUE_NAME):
+        if normalized_name.lower() in (RESERVED_QUEUE_NAME, DEFAULT_QUEUE_NAME.lower()):
             raise _invalid(
                 f"`{normalized_name}` is a reserved queue name and cannot be used for a "
                 "custom queue."
