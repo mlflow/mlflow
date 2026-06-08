@@ -1854,7 +1854,6 @@ class AbstractStore(GatewayStoreMixin):
         created_by: str | None = None,
         users: list[str] | None = None,
         schema_ids: list[str] | None = None,
-        is_default: bool = False,
     ) -> "ReviewQueue":
         """Create a review queue scoped to an experiment.
 
@@ -1872,10 +1871,6 @@ class AbstractStore(GatewayStoreMixin):
             schema_ids: Attached label-schema ids. Must be empty/omitted for
                 a user queue (resolves to all schemas at read time); the
                 chosen subset for a custom queue.
-            is_default: Create the experiment's default queue — a custom queue
-                that inherits all schemas (no explicit ``schema_ids``), cannot
-                have its questions edited, and cannot be deleted. Prefer
-                :meth:`get_or_create_default_queue`.
 
         Returns:
             The created :py:class:`ReviewQueue` with backend-generated

@@ -21,6 +21,7 @@ from mlflow.protos.review_queues_pb2 import (
     AddTracesToReviewQueue,
     CreateReviewQueue,
     DeleteReviewQueue,
+    GetOrCreateDefaultQueue,
     GetOrCreateUserQueue,
     GetReviewQueue,
     GetReviewQueueByName,
@@ -34,6 +35,7 @@ from mlflow.server.handlers import (
     _add_traces_to_review_queue,
     _create_review_queue,
     _delete_review_queue,
+    _get_or_create_default_queue,
     _get_or_create_user_queue,
     _get_review_queue,
     _get_review_queue_by_name,
@@ -170,6 +172,30 @@ def test_get_or_create_user_queue_forwards_created_by():
         _queue_entity(),
     )
     assert store.get_or_create_user_queue.call_args[1]["created_by"] == "kris"
+
+
+def test_get_or_create_default_queue_routes():
+    request_message = GetOrCreateDefaultQueue(experiment_id="1")
+    store, response = _run_handler(
+        _get_or_create_default_queue,
+        request_message,
+        "get_or_create_default_queue",
+        _queue_entity(),
+    )
+    kwargs = store.get_or_create_default_queue.call_args[1]
+    assert kwargs == {"experiment_id": "1"}
+    assert json.loads(response.get_data())["review_queue"]["queue_id"] == "rq-1"
+
+
+def test_get_or_create_default_queue_forwards_created_by():
+    request_message = GetOrCreateDefaultQueue(experiment_id="1", created_by="kris")
+    store, _ = _run_handler(
+        _get_or_create_default_queue,
+        request_message,
+        "get_or_create_default_queue",
+        _queue_entity(),
+    )
+    assert store.get_or_create_default_queue.call_args[1]["created_by"] == "kris"
 
 
 def test_get_review_queue_routes():
