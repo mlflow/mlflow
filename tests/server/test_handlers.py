@@ -17,7 +17,6 @@ from mlflow.entities import (
     IssueSeverity,
     IssueStatus,
     RunStatus,
-    RunTag,
     ScorerVersion,
     Span,
     Trace,
@@ -5760,7 +5759,7 @@ def test_invoke_genai_evaluate_handler_success(monkeypatch):
         # is created directly in the store without touching the fluent active-run stack.
         mock_client.create_run.assert_called_once_with(
             experiment_id="exp-123",
-            tags=[RunTag("mlflow.runType", "genai_evaluate")],
+            tags={"mlflow.runType": "genai_evaluate"},
         )
 
         mock_submit_job.assert_called_once()

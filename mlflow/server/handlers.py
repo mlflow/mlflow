@@ -4704,7 +4704,7 @@ def _invoke_genai_evaluate_handler():
 
     # Create the run upfront so we can return run_id immediately, so the run
     # shows up on /evaluation-runs even before the job has produced artifacts.
-    tags = [RunTag(MLFLOW_RUN_TYPE, MLFLOW_RUN_TYPE_GENAI_EVALUATE)]
+    tags = {MLFLOW_RUN_TYPE: MLFLOW_RUN_TYPE_GENAI_EVALUATE}
     client = MlflowClient()
     run = client.create_run(experiment_id=experiment_id, tags=tags)
     run_id = run.info.run_id
