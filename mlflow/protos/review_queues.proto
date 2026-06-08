@@ -66,6 +66,10 @@ message ReviewQueue {
   // Attached label-schema ids (the chosen subset for a CUSTOM queue;
   // empty for a USER queue).
   repeated string schema_ids = 9;
+  // The experiment's single default queue: a CUSTOM queue that inherits all of
+  // the experiment's label schemas, whose questions cannot be edited and which
+  // cannot be deleted. At most one per experiment.
+  optional bool is_default = 10;
 }
 
 // One trace attached to a queue plus its shared-pool workflow status.
@@ -111,6 +115,21 @@ message GetOrCreateUserQueue {
   optional string experiment_id = 1 [(validate_required) = true];
   optional string user = 2 [(validate_required) = true];
   optional string created_by = 3;
+
+  message Response {
+    optional ReviewQueue review_queue = 1;
+  }
+}
+
+// Get-or-create the experiment's single default queue (a CUSTOM queue that
+// inherits all of the experiment's schemas, cannot have its questions edited,
+// and cannot be deleted). Idempotent: concurrent callers converge on the one
+// default queue.
+message GetOrCreateDefaultQueue {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  optional string experiment_id = 1 [(validate_required) = true];
+  optional string created_by = 2;
 
   message Response {
     optional ReviewQueue review_queue = 1;
