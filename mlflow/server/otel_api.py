@@ -214,7 +214,7 @@ async def export_traces(
         except NotImplementedError:
             store_name = store.__class__.__name__
             raise HTTPException(
-                status_code=501,
+                status_code=status.HTTP_501_NOT_IMPLEMENTED,
                 detail=f"REST OTLP span logging is not supported by {store_name}.",
             )
         except MlflowException as e:
@@ -231,7 +231,7 @@ async def export_traces(
             except NotImplementedError:
                 store_name = store.__class__.__name__
                 raise HTTPException(
-                    status_code=501,
+                    status_code=status.HTTP_501_NOT_IMPLEMENTED,
                     detail=f"REST OTLP trace-to-run linking is not supported by {store_name}.",
                 )
             except MlflowException as e:
