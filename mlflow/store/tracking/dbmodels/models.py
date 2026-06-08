@@ -3430,6 +3430,13 @@ class SqlReviewQueue(Base):
     Queue flavor: ``'user'`` or ``'custom'``. ``String`` (limit 16).
     """
 
+    is_default = Column(Boolean, nullable=False, default=False)
+    """
+    Whether this is the experiment's single default queue: a ``'custom'`` queue
+    that inherits all of the experiment's label schemas, whose questions cannot
+    be edited and which cannot be deleted. At most one per experiment.
+    """
+
     created_by = Column(String(255), nullable=True)
     """
     User who created the queue.
@@ -3486,6 +3493,7 @@ class SqlReviewQueue(Base):
             last_update_time_ms=self.last_update_time_ms,
             users=list(users) if users is not None else [],
             schema_ids=list(schema_ids) if schema_ids is not None else [],
+            is_default=bool(self.is_default),
         )
 
 

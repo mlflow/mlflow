@@ -596,3 +596,63 @@ def test_set_status_missing_queue_raises(store):
             "rq-missing", target_id="tr-1", status="complete", completed_by="bob"
         )
     _assert_error_code(exc, RESOURCE_DOES_NOT_EXIST)
+
+
+# --------------------------------------------------------------------------
+# Default queue
+# --------------------------------------------------------------------------
+
+
+def test_get_or_create_default_queue_creates_inheriting_custom_queue(store):
+    exp_id = _create_experiments(store, "default_queue")
+    queue = store.get_or_create_default_queue(exp_id, created_by="kris")
+
+    assert queue.is_default is True
+    assert queue.queue_type == ReviewQueueType.CUSTOM
+    assert queue.name == "Default"
+    assert queue.created_by == "kris"
+    # Like a user queue, the default queue attaches no schemas and resolves to
+    # all of the experiment's schemas at read time.
+    assert queue.schema_ids == []
+    assert queue.users == []
+
+
+def test_get_or_create_default_queue_is_idempotent(store):
+    exp_id = _create_experiments(store, "default_idempotent")
+    first = store.get_or_create_default_queue(exp_id)
+    second = store.get_or_create_default_queue(exp_id)
+
+    assert first.queue_id == second.queue_id
+    defaults = [q.queue_id for q in store.list_review_queues(exp_id) if q.is_default]
+    assert defaults == [first.queue_id]
+
+
+def test_default_queue_cannot_be_deleted(store):
+    exp_id = _create_experiments(store, "default_undeletable")
+    queue = store.get_or_create_default_queue(exp_id)
+
+    with pytest.raises(MlflowException, match="default queue cannot be deleted") as exc:
+        store.delete_review_queue(queue.queue_id)
+    _assert_error_code(exc, INVALID_PARAMETER_VALUE)
+    assert store.get_review_queue(queue.queue_id).queue_id == queue.queue_id
+
+
+def test_default_queue_questions_locked_but_users_editable(store):
+    exp_id = _create_experiments(store, "default_uneditable")
+    ls = _pass_fail(store, exp_id, "quality")
+    queue = store.get_or_create_default_queue(exp_id)
+
+    with pytest.raises(MlflowException, match="questions cannot be edited") as exc:
+        store.update_review_queue(queue.queue_id, schema_ids=[ls.schema_id])
+    _assert_error_code(exc, INVALID_PARAMETER_VALUE)
+
+    updated = store.update_review_queue(queue.queue_id, users=["Bob"])
+    assert updated.users == ["bob"]
+    assert updated.schema_ids == []
+
+
+def test_create_custom_queue_rejects_default_name(store):
+    exp_id = _create_experiments(store, "default_reserved")
+    with pytest.raises(MlflowException, match="reserved queue name") as exc:
+        store.create_review_queue(exp_id, name="Default", queue_type="custom")
+    _assert_error_code(exc, INVALID_PARAMETER_VALUE)

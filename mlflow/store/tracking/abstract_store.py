@@ -1854,15 +1854,15 @@ class AbstractStore(GatewayStoreMixin):
         created_by: str | None = None,
         users: list[str] | None = None,
         schema_ids: list[str] | None = None,
+        is_default: bool = False,
     ) -> "ReviewQueue":
         """Create a review queue scoped to an experiment.
 
         Args:
             experiment_id: Parent experiment ID.
             name: Queue name, unique within the experiment. For a user
-                queue this is the user identifier; ``"default"`` is reserved
-                for the no-auth default user queue and rejected for custom
-                queues.
+                queue this is the user identifier; ``"default"``/``"Default"``
+                are reserved and rejected for custom queues.
             queue_type: ``"user"`` (exactly one assigned user equal to
                 ``name``, inherits all of the experiment's schemas) or
                 ``"custom"`` (0..N users, an explicit schema subset).
@@ -1872,6 +1872,10 @@ class AbstractStore(GatewayStoreMixin):
             schema_ids: Attached label-schema ids. Must be empty/omitted for
                 a user queue (resolves to all schemas at read time); the
                 chosen subset for a custom queue.
+            is_default: Create the experiment's default queue — a custom queue
+                that inherits all schemas (no explicit ``schema_ids``), cannot
+                have its questions edited, and cannot be deleted. Prefer
+                :meth:`get_or_create_default_queue`.
 
         Returns:
             The created :py:class:`ReviewQueue` with backend-generated
@@ -1903,6 +1907,26 @@ class AbstractStore(GatewayStoreMixin):
 
         Raises:
             MlflowException(INVALID_PARAMETER_VALUE): on validation failure.
+            MlflowException(RESOURCE_DOES_NOT_EXIST): if the experiment
+                doesn't exist.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def get_or_create_default_queue(
+        self,
+        experiment_id: str,
+        *,
+        created_by: str | None = None,
+    ) -> "ReviewQueue":
+        """Return the experiment's single default queue, creating it if absent.
+
+        The default queue is a custom queue that inherits all of the
+        experiment's schemas, cannot have its questions edited, and cannot be
+        deleted. Atomic and idempotent: concurrent callers converge on the
+        single default queue.
+
+        Raises:
             MlflowException(RESOURCE_DOES_NOT_EXIST): if the experiment
                 doesn't exist.
         """
