@@ -35,8 +35,13 @@ SCHEMA_ID_MAX_LENGTH = 36
 # `target_id` mirrors `SqlReviewQueueTrace.target_id` (`String(50)`).
 TARGET_ID_MAX_LENGTH = 50
 
-# Reserved for the no-auth default user queue; custom queues may not use it.
+# Reserved for the legacy no-auth user queue; custom queues may not use it.
 RESERVED_QUEUE_NAME = "default"
+
+# Name of the experiment's single default queue (a special CUSTOM queue that
+# inherits all of the experiment's schemas and is undeletable). Reserved from
+# regular custom queues.
+DEFAULT_QUEUE_NAME = "Default"
 
 
 def _invalid(message: str) -> MlflowException:
@@ -147,6 +152,7 @@ class ValidatedQueue(NamedTuple):
     name: str
     users: list[str]
     schema_ids: list[str]
+    is_default: bool = False
 
 
 def validate_queue_for_create(
@@ -155,6 +161,7 @@ def validate_queue_for_create(
     queue_type: object,
     users: list[str] | None,
     schema_ids: list[str] | None,
+    is_default: bool = False,
 ) -> ValidatedQueue:
     """Validate + normalize a queue about to be created, enforcing the
     user-vs-custom invariants.
@@ -163,8 +170,10 @@ def validate_queue_for_create(
     set is exactly that one user (derived when ``users`` is omitted), and no
     schemas may be attached (a user queue resolves to all of the
     experiment's schemas at read time). Custom queue: ``name`` is stripped,
-    case-preserved, and may not be the reserved ``"default"``; users are
-    0..N and schemas are the chosen subset.
+    case-preserved, and may not be a reserved name; users are 0..N and schemas
+    are the chosen subset. Default queue (``is_default``): a CUSTOM queue named
+    :data:`DEFAULT_QUEUE_NAME` that, like a user queue, attaches no schemas and
+    resolves to all of the experiment's schemas at read time.
 
     ``experiment_id`` is intentionally NOT validated here — the store-layer
     existence check inside the write transaction owns that.
@@ -173,7 +182,16 @@ def validate_queue_for_create(
     normalized_users = normalize_users(users)
     normalized_schema_ids = normalize_schema_ids(schema_ids)
 
-    if coerced_type == ReviewQueueType.USER:
+    if is_default:
+        if coerced_type != ReviewQueueType.CUSTOM:
+            raise _invalid("The default queue must be a custom queue.")
+        if normalized_schema_ids:
+            raise _invalid(
+                "The default queue cannot have explicitly-attached schemas; it resolves to "
+                "all of the experiment's label schemas."
+            )
+        normalized_name = DEFAULT_QUEUE_NAME
+    elif coerced_type == ReviewQueueType.USER:
         normalized_name = normalize_user(name)
         _validate_non_empty_string(normalized_name, "name", QUEUE_NAME_MAX_LENGTH)
         if not normalized_users:
@@ -193,9 +211,9 @@ def validate_queue_for_create(
             raise _invalid(f"`name` must be a string; got {name!r}.")
         normalized_name = name.strip()
         _validate_non_empty_string(normalized_name, "name", QUEUE_NAME_MAX_LENGTH)
-        if normalized_name == RESERVED_QUEUE_NAME:
+        if normalized_name in (RESERVED_QUEUE_NAME, DEFAULT_QUEUE_NAME):
             raise _invalid(
-                f"`{RESERVED_QUEUE_NAME}` is a reserved queue name and cannot be used for a "
+                f"`{normalized_name}` is a reserved queue name and cannot be used for a "
                 "custom queue."
             )
 
@@ -204,6 +222,7 @@ def validate_queue_for_create(
         name=normalized_name,
         users=normalized_users,
         schema_ids=normalized_schema_ids,
+        is_default=is_default,
     )
 
 
