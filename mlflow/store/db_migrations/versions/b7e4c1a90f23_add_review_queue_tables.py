@@ -24,6 +24,7 @@ def upgrade():
         sa.Column("experiment_id", sa.Integer(), nullable=False),
         sa.Column("name", sa.String(length=250), nullable=False),
         sa.Column("queue_type", sa.String(length=16), nullable=False),
+        sa.Column("is_default", sa.Boolean(), nullable=False, server_default=sa.false()),
         sa.Column("created_by", sa.String(length=255), nullable=True),
         sa.Column("creation_time_ms", sa.BigInteger(), nullable=False),
         sa.Column("last_update_time_ms", sa.BigInteger(), nullable=False),

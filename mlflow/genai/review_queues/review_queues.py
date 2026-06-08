@@ -192,6 +192,10 @@ class ReviewQueue:
     last_update_time_ms: int
     users: list[str] = field(default_factory=list)
     schema_ids: list[str] = field(default_factory=list)
+    # The experiment's single default queue: a CUSTOM queue that inherits all of
+    # the experiment's label schemas (questions resolved live at read time, like
+    # a USER queue), whose questions cannot be edited and which cannot be deleted.
+    is_default: bool = False
 
     def to_proto(self) -> "_rq_pb.ReviewQueue":
         proto = _rq_pb.ReviewQueue(
