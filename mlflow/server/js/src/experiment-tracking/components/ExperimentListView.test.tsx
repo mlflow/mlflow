@@ -24,7 +24,6 @@ jest.mock('./experiment-page/hooks/useUpdateExperimentTags', () => ({
 
 jest.mock('./experiment-page/hooks/useTagsFilter', () => ({
   useTagsFilter: jest.fn(),
-  ExperimentListViewTagsFilter: () => null,
 }));
 
 const mountComponent = (props: { experiments: any[]; tagsFilter?: any[] }) => {
