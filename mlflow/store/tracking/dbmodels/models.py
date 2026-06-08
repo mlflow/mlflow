@@ -3421,8 +3421,9 @@ class SqlReviewQueue(Base):
     Queue name: ``String`` (limit 250, matching ``label_schemas.name``).
     For a user queue this equals the (normalized) user identifier; for a
     custom queue it is an arbitrary display name. Unique within
-    ``experiment_id``. ``'default'`` is reserved for the no-auth default
-    user queue.
+    ``experiment_id``. ``'default'`` (the no-auth default user queue) and
+    ``'Default'`` (the experiment's default review queue, ``is_default``)
+    are reserved and rejected for custom queues.
     """
 
     queue_type = Column(String(16), nullable=False)

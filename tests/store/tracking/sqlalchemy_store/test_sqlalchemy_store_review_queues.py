@@ -656,3 +656,17 @@ def test_create_custom_queue_rejects_default_name(store):
     with pytest.raises(MlflowException, match="reserved queue name") as exc:
         store.create_review_queue(exp_id, name="Default", queue_type="custom")
     _assert_error_code(exc, INVALID_PARAMETER_VALUE)
+
+
+@pytest.mark.parametrize("name", ["DEFAULT", "DeFault", "default", "  Default  "])
+def test_create_custom_queue_rejects_default_name_case_insensitive(store, name):
+    exp_id = _create_experiments(store, "default_reserved_ci")
+    with pytest.raises(MlflowException, match="reserved queue name") as exc:
+        store.create_review_queue(exp_id, name=name, queue_type="custom")
+    _assert_error_code(exc, INVALID_PARAMETER_VALUE)
+
+
+def test_get_or_create_default_queue_missing_experiment_raises(store):
+    with pytest.raises(MlflowException, match="No Experiment with id") as exc:
+        store.get_or_create_default_queue("999999")
+    _assert_error_code(exc, RESOURCE_DOES_NOT_EXIST)
