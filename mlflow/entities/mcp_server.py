@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING, Any
@@ -34,6 +35,41 @@ class MCPRemoteTransportType(str, Enum):
 
     def __str__(self):
         return self.value
+
+
+_MCP_SERVER_NAME_NAMESPACE_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$")
+
+
+def validate_mcp_server_name(name: str) -> None:
+    if not name:
+        raise MlflowException.invalid_parameter_value("MCP server name must not be empty")
+
+    try:
+        namespace, slug = name.split("/")
+    except ValueError:
+        raise MlflowException.invalid_parameter_value(
+            "Invalid MCP server name. Expected '<reverse-dns namespace>/<server slug>' "
+            "such as 'com.example/server-name'."
+        ) from None
+
+    if not namespace or not slug:
+        raise MlflowException.invalid_parameter_value(
+            "Invalid MCP server name. Expected '<reverse-dns namespace>/<server slug>' "
+            "such as 'com.example/server-name'."
+        )
+
+    labels = namespace.split(".")
+    if len(labels) < 2 or any(not label for label in labels):
+        raise MlflowException.invalid_parameter_value(
+            "Invalid MCP server name. Expected '<reverse-dns namespace>/<server slug>' "
+            "such as 'com.example/server-name'."
+        )
+
+    if any(_MCP_SERVER_NAME_NAMESPACE_RE.fullmatch(label) is None for label in labels):
+        raise MlflowException.invalid_parameter_value(
+            "Invalid MCP server name. Expected '<reverse-dns namespace>/<server slug>' "
+            "such as 'com.example/server-name'."
+        )
 
 
 @dataclass(frozen=True)

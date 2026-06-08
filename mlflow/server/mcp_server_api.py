@@ -1,19 +1,57 @@
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fastapi import APIRouter, Query
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_serializer
 
 from mlflow.entities.mcp_access_binding import MCPAccessBinding
-from mlflow.entities.mcp_server import MCPRemoteTransportType, MCPServer, MCPStatus, MCPTool
+from mlflow.entities.mcp_server import (
+    MCPRemoteTransportType,
+    MCPServer,
+    MCPStatus,
+    MCPTool,
+    validate_mcp_server_name,
+)
 from mlflow.entities.mcp_server_version import MCPServerVersion
 from mlflow.exceptions import MlflowException
 
+if TYPE_CHECKING:
+    from mlflow.store.tracking.mcp_server_registry.abstract_mixin import MCPIcon
+
 _MCP_SERVER_API_PREFIX = "/ajax-api/3.0/mlflow/mcp-servers"
+
+
+class MCPIconPayload(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+
+    src: str
+    sizes: list[str] | None = None
+    mimeType: str | None = None
+    theme: str | None = None
+
+    @model_serializer(mode="plain")
+    def serialize(self) -> dict[str, Any]:
+        icon: dict[str, Any] = {"src": self.src}
+        if self.sizes is not None:
+            icon["sizes"] = self.sizes
+        if self.mimeType is not None:
+            icon["mimeType"] = self.mimeType
+        if self.theme is not None:
+            icon["theme"] = self.theme
+        return icon
+
+
+class ServerJSONRepositoryPayload(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+
+    url: str
+    source: str
+    id: str | None = None
+    subfolder: str | None = None
 
 
 class ServerJSONPayload(BaseModel):
@@ -25,7 +63,7 @@ class ServerJSONPayload(BaseModel):
     description: str | None = None
     packages: list[ServerJSONPackagePayload] | None = None
     remotes: list[ServerJSONRemotePayload] | None = None
-    repository: str | None = None
+    repository: ServerJSONRepositoryPayload | None = None
     websiteUrl: str | None = None
     meta: dict[str, Any] | None = Field(None, alias="_meta")
 
@@ -64,20 +102,20 @@ class MCPToolPayload(BaseModel):
     inputSchema: dict[str, Any] | None = None
     outputSchema: dict[str, Any] | None = None
     annotations: dict[str, Any] | None = None
-    icons: list[dict[str, Any]] | None = None
+    icons: list[MCPIconPayload] | None = None
     execution: dict[str, Any] | None = None
 
 
 class CreateMCPServerRequest(BaseModel):
     name: str
     description: str | None = None
-    icons: list[dict[str, Any]] | None = None
+    icons: list[MCPIconPayload] | None = None
 
 
 class UpdateMCPServerRequest(BaseModel):
     display_name: str | None = None
     description: str | None = None
-    icons: list[dict[str, Any]] | None = None
+    icons: list[MCPIconPayload] | None = None
     latest_version: str | None = None
 
 
@@ -154,7 +192,7 @@ class MCPServerResponse(BaseModel):
     name: str
     display_name: str | None = None
     description: str | None = None
-    icons: list[dict[str, Any]] | None = None
+    icons: list[MCPIconPayload] | None = None
     status: str | None = None
     access_bindings: list[MCPAccessBindingSummaryResponse] = Field(default_factory=list)
     latest_version: str | None = None
@@ -326,12 +364,24 @@ def _tool_payloads_to_entities(tools: list[MCPToolPayload] | None) -> list[MCPTo
     return [MCPTool.from_dict(t.model_dump(exclude_none=True)) for t in tools]
 
 
+def _icon_payloads_to_entities(
+    icons: list[MCPIconPayload] | None,
+) -> list[MCPIcon] | None:
+    if icons is None:
+        return None
+    return [icon.model_dump(exclude_none=True) for icon in icons]
+
+
 def _update_mcp_server_kwargs(name: str, request: UpdateMCPServerRequest) -> dict[str, Any]:
     kwargs: dict[str, Any] = {"name": name}
     provided_fields = request.model_fields_set
     for field_name in ("description", "display_name", "icons", "latest_version"):
         if field_name in provided_fields:
-            kwargs[field_name] = getattr(request, field_name)
+            kwargs[field_name] = (
+                _icon_payloads_to_entities(request.icons)
+                if field_name == "icons"
+                else getattr(request, field_name)
+            )
     return kwargs
 
 
@@ -343,7 +393,11 @@ def _update_mcp_server_version_kwargs(
     if "display_name" in provided_fields:
         kwargs["display_name"] = request.display_name
     if "status" in provided_fields:
-        kwargs["status"] = None if request.status is None else _parse_status(request.status)
+        if request.status is None:
+            raise MlflowException.invalid_parameter_value(
+                "status cannot be null; omit the field to leave it unchanged"
+            )
+        kwargs["status"] = _parse_status(request.status)
     if "tools" in provided_fields:
         kwargs["tools"] = _tool_payloads_to_entities(request.tools)
     return kwargs
@@ -373,10 +427,11 @@ mcp_server_router = APIRouter(tags=["MCP Server Registry"])
 def create_mcp_server(request: CreateMCPServerRequest) -> MCPServerResponse:
     from mlflow.server.handlers import _get_tracking_store
 
+    validate_mcp_server_name(request.name)
     server = _get_tracking_store().create_mcp_server(
         name=request.name,
         description=request.description,
-        icons=request.icons,
+        icons=_icon_payloads_to_entities(request.icons),
     )
     return MCPServerResponse.from_entity(server)
 
@@ -487,6 +542,8 @@ def create_mcp_server_version(
 ) -> MCPServerVersionResponse:
     from mlflow.server.handlers import _get_tracking_store
 
+    validate_mcp_server_name(request.server_json.name)
+    validate_mcp_server_name(name)
     if request.server_json.name != name:
         raise MlflowException.invalid_parameter_value(
             f"server_json.name '{request.server_json.name}' does not match path parameter '{name}'"
