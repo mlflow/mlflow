@@ -1,7 +1,12 @@
 import { isNil } from 'lodash';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
-import type { ModelTrace, ModelTraceExplorerTab, ModelTraceSpanNode } from './ModelTrace.types';
+import type {
+  ModelTrace,
+  ModelTraceExplorerActiveView,
+  ModelTraceExplorerTab,
+  ModelTraceSpanNode,
+} from './ModelTrace.types';
 import {
   getDefaultActiveTab,
   parseModelTraceToTreeWithMultipleRoots,
@@ -32,8 +37,8 @@ const getDefaultPaneSizeRatios = (): PaneSizeRatios => ({
 export type ModelTraceExplorerViewState = {
   rootNode: ModelTraceSpanNode | null;
   nodeMap: Record<string, ModelTraceSpanNode>;
-  activeView: 'summary' | 'detail';
-  setActiveView: (view: 'summary' | 'detail') => void;
+  activeView: ModelTraceExplorerActiveView;
+  setActiveView: (view: ModelTraceExplorerActiveView) => void;
   selectedNode: ModelTraceSpanNode | undefined;
   setSelectedNode: (node: ModelTraceSpanNode | undefined) => void;
   activeTab: ModelTraceExplorerTab;
@@ -132,7 +137,7 @@ export const ModelTraceExplorerViewStateProvider = ({
     };
   }, []);
 
-  const [activeView, setActiveViewInternal] = useState<'summary' | 'detail'>(() => {
+  const [activeView, setActiveViewInternal] = useState<ModelTraceExplorerActiveView>(() => {
     if (preferences.activeView !== undefined) {
       return preferences.activeView;
     }
@@ -144,7 +149,7 @@ export const ModelTraceExplorerViewStateProvider = ({
   });
 
   const setActiveView = useCallback(
-    (view: 'summary' | 'detail') => {
+    (view: ModelTraceExplorerActiveView) => {
       setActiveViewInternal(view);
       preferences.setActiveView(view);
     },

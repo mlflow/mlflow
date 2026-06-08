@@ -1,14 +1,14 @@
 import { createContext, useCallback, useContext, useMemo, useState } from 'react';
 
-import type { ModelTraceExplorerRenderMode } from './ModelTrace.types';
+import type { ModelTraceExplorerActiveView, ModelTraceExplorerRenderMode } from './ModelTrace.types';
 
 export type ModelTraceExplorerPreferences = {
   renderMode: ModelTraceExplorerRenderMode;
   setRenderMode: (mode: ModelTraceExplorerRenderMode) => void;
   assessmentsPaneExpanded: boolean | undefined;
   setAssessmentsPaneExpanded: (expanded: boolean) => void;
-  activeView: 'summary' | 'detail' | undefined;
-  setActiveView: (view: 'summary' | 'detail') => void;
+  activeView: ModelTraceExplorerActiveView | undefined;
+  setActiveView: (view: ModelTraceExplorerActiveView) => void;
 };
 
 export const ModelTraceExplorerPreferencesContext = createContext<ModelTraceExplorerPreferences>({
@@ -33,13 +33,13 @@ export const ModelTraceExplorerPreferencesProvider = ({
 }) => {
   const [renderMode, setRenderMode] = useState<ModelTraceExplorerRenderMode>(initialRenderMode);
   const [assessmentsPaneExpanded, setAssessmentsPaneExpandedState] = useState<boolean | undefined>(undefined);
-  const [activeView, setActiveViewState] = useState<'summary' | 'detail' | undefined>(undefined);
+  const [activeView, setActiveViewState] = useState<ModelTraceExplorerActiveView | undefined>(undefined);
 
   const setAssessmentsPaneExpanded = useCallback((expanded: boolean) => {
     setAssessmentsPaneExpandedState(expanded);
   }, []);
 
-  const setActiveView = useCallback((view: 'summary' | 'detail') => {
+  const setActiveView = useCallback((view: ModelTraceExplorerActiveView) => {
     setActiveViewState(view);
   }, []);
 

@@ -8,6 +8,8 @@ export const INFERENCE_TABLE_TRACE_COLUMN_KEY = 'trace';
 
 export type ModelTraceExplorerRenderMode = 'default' | 'json' | 'table';
 
+export type ModelTraceExplorerActiveView = 'summary' | 'detail' | 'prompts' | 'custom';
+
 export enum ModelSpanType {
   LLM = 'LLM',
   CHAIN = 'CHAIN',
