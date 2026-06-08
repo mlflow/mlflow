@@ -8305,6 +8305,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         created_by=None,
         users=None,
         schema_ids=None,
+        is_default=False,
     ):
         from mlflow.genai.review_queues.validation import validate_queue_for_create
 
@@ -8313,6 +8314,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             queue_type=queue_type,
             users=users,
             schema_ids=schema_ids,
+            is_default=is_default,
         )
 
         with self.ManagedSessionMaker(read_only=False) as session:
@@ -8341,6 +8343,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 experiment_id=int(experiment_id),
                 name=validated.name,
                 queue_type=str(validated.queue_type),
+                is_default=validated.is_default,
                 created_by=created_by,
                 creation_time_ms=now_ms,
                 last_update_time_ms=now_ms,
@@ -8393,6 +8396,24 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     error_code=RESOURCE_ALREADY_EXISTS,
                 ) from e
             return existing
+
+    def get_or_create_default_queue(self, experiment_id, *, created_by=None):
+        from mlflow.genai.review_queues.validation import DEFAULT_QUEUE_NAME
+
+        try:
+            return self.create_review_queue(
+                experiment_id,
+                name=DEFAULT_QUEUE_NAME,
+                queue_type="custom",
+                created_by=created_by,
+                is_default=True,
+            )
+        except MlflowException as e:
+            if e.error_code != ErrorCode.Name(RESOURCE_ALREADY_EXISTS):
+                raise
+            # Lost the create race (or it already existed): return the single
+            # existing default queue, keeping the call idempotent.
+            return self.get_review_queue_by_name(experiment_id, name=DEFAULT_QUEUE_NAME)
 
     def get_review_queue(self, queue_id):
         with self.ManagedSessionMaker() as session:
@@ -8467,6 +8488,13 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     error_code=INVALID_PARAMETER_VALUE,
                 )
 
+            if sql_queue.is_default and schema_ids is not None:
+                raise MlflowException(
+                    "The default queue inherits all of the experiment's questions; its "
+                    "questions cannot be edited. Its assigned users can still be updated.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+
             if users is None and schema_ids is None:
                 return self._hydrate_review_queues(session, [sql_queue])[0]
 
@@ -8527,6 +8555,11 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             if sql_queue is None:
                 _logger.debug(f"Review queue with id '{queue_id}' not found; delete is a no-op.")
                 return
+            if sql_queue.is_default:
+                raise MlflowException(
+                    "The experiment's default queue cannot be deleted.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
             for child_model in (
                 SqlReviewQueueUser,
                 SqlReviewQueueTrace,
