@@ -77,6 +77,8 @@ jobs:
           key: mypy-${{ matrix.os }}-${{ hashFiles('uv.lock', 'pyproject.toml') }}
           restore-keys: mypy-${{ matrix.os }}-
       - name: Install pre-commit hooks
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           uv run --no-sync pre-commit install --install-hooks
           uv run --no-sync pre-commit run install-bin -a -v

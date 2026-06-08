@@ -7,6 +7,7 @@ import argparse
 import gzip
 import hashlib
 import http.client
+import os
 import platform
 import re
 import shutil
@@ -183,13 +184,22 @@ def get_platform_key() -> PlatformKey | None:
     return None
 
 
+def build_request(url: str) -> urllib.request.Request:
+    req = urllib.request.Request(url)
+    # Authenticated requests to github.com are routed differently and get higher
+    # rate limits, which helps when the anonymous release CDN is degraded.
+    if (token := os.environ.get("GH_TOKEN")) and "github.com" in url:
+        req.add_header("Authorization", f"Bearer {token}")
+    return req
+
+
 def urlopen_with_retry(
     url: str, max_retries: int = 7, base_delay: float = 1.0
 ) -> http.client.HTTPResponse:
     """Open a URL with retry logic for transient HTTP errors (e.g., 503)."""
     for attempt in range(max_retries):
         try:
-            return urllib.request.urlopen(url)
+            return urllib.request.urlopen(build_request(url))
         except HTTPError as e:
             if e.code in (502, 503, 504) and attempt < max_retries - 1:
                 delay = base_delay * (2**attempt)

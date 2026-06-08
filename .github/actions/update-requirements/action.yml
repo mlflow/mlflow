@@ -12,6 +12,8 @@ runs:
     - name: Update requirements
       id: update-requirements
       shell: bash --noprofile --norc -exo pipefail {0}
+      env:
+        GH_TOKEN: ${{ github.token }}
       run: |
         python bin/install.py
         python dev/update_requirements.py --requirements-yaml-location requirements

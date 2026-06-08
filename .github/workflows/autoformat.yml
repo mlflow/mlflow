@@ -123,7 +123,9 @@ jobs:
       # ************************************************************************
       # pre-commit
       # ************************************************************************
-      - run: |
+      - env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
           uv run --only-group lint pre-commit install --install-hooks
           uv run --only-group lint pre-commit run install-bin -a -v
           uv run --only-group lint pre-commit run --all-files --color=always || true

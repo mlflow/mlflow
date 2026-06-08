@@ -44,6 +44,8 @@ jobs:
         run: uv run python dev/update_model_catalog.py
 
       - name: Run pre-commit on generated files
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           uv sync --locked --only-group lint
           uv run --no-sync pre-commit install --install-hooks
