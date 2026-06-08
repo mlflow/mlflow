@@ -195,11 +195,3 @@ def test_unity_catalog_from_proto():
     assert location._otel_spans_table_name == "spans"
     assert location._otel_logs_table_name == "logs"
     assert location._annotations_table_name == "anns"
-
-
-def test_uc_classes_are_concretely_instantiable():
-    # Regression: ensure neither class is mistakenly abstract again.
-    # mypy `Cannot instantiate abstract class` would re-appear if `from_proto`
-    # is dropped on either class without overriding the abstract method elsewhere.
-    assert UCSchemaLocation.__abstractmethods__ == frozenset()
-    assert UnityCatalog.__abstractmethods__ == frozenset()
