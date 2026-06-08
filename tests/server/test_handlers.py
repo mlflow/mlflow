@@ -142,6 +142,7 @@ from mlflow.server.handlers import (
     _calculate_trace_filter_correlation,
     _cancel_prompt_optimization_job,
     _convert_path_parameter_to_flask_format,
+    _create_artifact_file_response,
     _create_dataset_handler,
     _create_experiment,
     _create_issue,
@@ -198,6 +199,7 @@ from mlflow.server.handlers import (
     _search_registered_models,
     _search_runs,
     _search_traces_v3,
+    _send_artifact,
     _set_dataset_tags_handler,
     _set_model_version_tag,
     _set_registered_model_alias,
@@ -3997,6 +3999,98 @@ def test_post_ui_telemetry_handler_telemetry_disabled_by_env(
         mock_get_client.assert_not_called()
 
 
+def test_send_artifact_prefers_local_path(tmp_path):
+    artifact_path = "test_model/model.pkl"
+    test_data = b"local artifact"
+    test_file = tmp_path / "model.pkl"
+    test_file.write_bytes(test_data)
+
+    mock_artifact_repo = mock.MagicMock()
+    mock_artifact_repo.get_local_path.return_value = str(test_file)
+
+    with (
+        app.test_request_context(method="GET"),
+        mock.patch("mlflow.server.handlers.tempfile.TemporaryDirectory") as mock_tmp_dir,
+    ):
+        response = _send_artifact(mock_artifact_repo, artifact_path)
+
+    response.direct_passthrough = False
+    assert response.get_data() == test_data
+    assert response.headers["Content-Disposition"] == "attachment; filename=model.pkl"
+    mock_artifact_repo.get_local_path.assert_called_once_with(artifact_path)
+    mock_artifact_repo.download_artifacts.assert_not_called()
+    mock_tmp_dir.assert_not_called()
+
+
+def test_send_artifact_falls_back_to_download_when_local_path_unavailable(tmp_path):
+    artifact_path = "test_model/model.pkl"
+    test_data = b"downloaded artifact"
+    test_file = tmp_path / "model.pkl"
+    test_file.write_bytes(test_data)
+
+    mock_artifact_repo = mock.MagicMock()
+    mock_artifact_repo.get_local_path.return_value = None
+    mock_artifact_repo.download_artifacts.return_value = str(test_file)
+
+    with app.test_request_context(method="GET"):
+        response = _send_artifact(mock_artifact_repo, artifact_path)
+
+    response.direct_passthrough = False
+    assert response.get_data() == test_data
+    assert response.headers["Content-Disposition"] == "attachment; filename=model.pkl"
+    mock_artifact_repo.get_local_path.assert_called_once_with(artifact_path)
+    mock_artifact_repo.download_artifacts.assert_called_once_with(artifact_path, dst_path=mock.ANY)
+
+
+def test_create_artifact_file_response_uses_local_path_mimetype_and_artifact_name(tmp_path):
+    test_file = tmp_path / "payload.html"
+    test_file.write_text("<html><body>ok</body></html>")
+
+    with app.test_request_context(method="GET"):
+        response = _create_artifact_file_response(str(test_file), "artifacts/model.txt")
+
+    assert response.mimetype == "text/html"
+    assert response.headers["Content-Disposition"] == "attachment; filename=model.txt"
+
+
+def test_create_artifact_file_response_quotes_token_unsafe_ascii_artifact_name(tmp_path):
+    test_file = tmp_path / "payload.html"
+    test_file.write_text("<html><body>ok</body></html>")
+
+    with app.test_request_context(method="GET"):
+        response = _create_artifact_file_response(str(test_file), "artifacts/my model;a.txt")
+
+    assert response.headers["Content-Disposition"] == 'attachment; filename="my model;a.txt"'
+
+
+def test_download_artifact_uses_local_path_fast_path(enable_serve_artifacts, tmp_path):
+    artifact_path = "test_model/model.pkl"
+    test_data = b"local artifact"
+    test_file = tmp_path / "model.pkl"
+    test_file.write_bytes(test_data)
+
+    with (
+        app.test_request_context(method="GET"),
+        mock.patch("mlflow.server.handlers._get_artifact_repo_mlflow_artifacts") as mock_repo,
+        mock.patch("mlflow.server.handlers.tempfile.TemporaryDirectory") as mock_tmp_dir,
+    ):
+        mock_tmp_dir_instance = mock.MagicMock()
+        mock_tmp_dir.return_value = mock_tmp_dir_instance
+
+        mock_artifact_repo = mock.MagicMock()
+        mock_artifact_repo.get_local_path.return_value = str(test_file)
+        mock_repo.return_value = mock_artifact_repo
+
+        response = _download_artifact(artifact_path)
+
+    response.direct_passthrough = False
+    assert response.get_data() == test_data
+    assert response.headers["Content-Disposition"] == "attachment; filename=model.pkl"
+    mock_artifact_repo.get_local_path.assert_called_once_with(artifact_path)
+    mock_artifact_repo.download_artifacts.assert_not_called()
+    mock_tmp_dir.assert_not_called()
+
+
 def test_download_artifact_streams_in_chunks(enable_serve_artifacts, tmp_path):
     # Create a test file with binary data larger than the chunk size (2MB + 1000 bytes)
     test_file_size = ARTIFACT_STREAM_CHUNK_SIZE * 2 + 1000
@@ -4017,6 +4111,7 @@ def test_download_artifact_streams_in_chunks(enable_serve_artifacts, tmp_path):
         mock_tmp_dir.return_value = mock_tmp_dir_instance
 
         mock_artifact_repo = mock.MagicMock()
+        mock_artifact_repo.get_local_path.return_value = None
         mock_artifact_repo.download_artifacts.return_value = str(test_file)
         mock_repo.return_value = mock_artifact_repo
 
@@ -4039,6 +4134,33 @@ def test_download_artifact_streams_in_chunks(enable_serve_artifacts, tmp_path):
         # Verify that all data is correctly streamed
         streamed_data = b"".join(response_chunks)
         assert streamed_data == test_data
+        mock_artifact_repo.get_local_path.assert_called_once_with(artifact_path)
+        mock_artifact_repo.download_artifacts.assert_called_once_with(artifact_path, str(tmp_path))
+
+
+def test_download_artifact_cleans_up_tmp_dir_when_download_fails(enable_serve_artifacts, tmp_path):
+    artifact_path = "test_model/model.pkl"
+
+    with (
+        app.test_request_context(method="GET"),
+        mock.patch("mlflow.server.handlers._get_artifact_repo_mlflow_artifacts") as mock_repo,
+        mock.patch("mlflow.server.handlers.tempfile.TemporaryDirectory") as mock_tmp_dir,
+    ):
+        mock_tmp_dir_instance = mock.MagicMock()
+        mock_tmp_dir_instance.name = str(tmp_path)
+        mock_tmp_dir.return_value = mock_tmp_dir_instance
+
+        mock_artifact_repo = mock.MagicMock()
+        mock_artifact_repo.get_local_path.return_value = None
+        mock_artifact_repo.download_artifacts.side_effect = RuntimeError("boom")
+        mock_repo.return_value = mock_artifact_repo
+
+        with pytest.raises(RuntimeError, match="boom"):
+            _download_artifact(artifact_path)
+
+    mock_artifact_repo.get_local_path.assert_called_once_with(artifact_path)
+    mock_artifact_repo.download_artifacts.assert_called_once_with(artifact_path, str(tmp_path))
+    mock_tmp_dir_instance.cleanup.assert_called_once()
 
 
 @pytest.mark.parametrize(
@@ -4071,11 +4193,20 @@ def test_response_with_file_attachment_headers_encodes_non_ascii_filename(
     assert header == f"attachment; filename={expected_simple}; filename*=UTF-8''{expected_quoted}"
 
 
-def test_response_with_file_attachment_headers_ascii_filename_unchanged():
+@pytest.mark.parametrize(
+    ("filename", "expected_header"),
+    [
+        ("model.pkl", "attachment; filename=model.pkl"),
+        ("my model;a.txt", 'attachment; filename="my model;a.txt"'),
+    ],
+)
+def test_response_with_file_attachment_headers_ascii_filename_preserves_werkzeug_quoting(
+    filename, expected_header
+):
     with app.test_request_context():
-        response = _response_with_file_attachment_headers("model.pkl", Response())
+        response = _response_with_file_attachment_headers(filename, Response())
 
-    assert response.headers["Content-Disposition"] == "attachment; filename=model.pkl"
+    assert response.headers["Content-Disposition"] == expected_header
 
 
 @pytest.mark.parametrize(

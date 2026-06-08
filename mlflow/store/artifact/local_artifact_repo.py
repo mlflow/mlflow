@@ -34,6 +34,17 @@ class LocalArtifactRepository(ArtifactRepository):
     def artifact_dir(self):
         return self._artifact_dir
 
+    def get_local_path(self, artifact_path: str) -> str:
+        artifact_path = validate_path_is_safe(artifact_path)
+        local_artifact_path = os.path.join(self.artifact_dir, os.path.normpath(artifact_path))
+        validate_path_within_directory(self.artifact_dir, local_artifact_path)
+        if not os.path.exists(local_artifact_path):
+            raise MlflowException(
+                f"No such artifact: '{artifact_path}'",
+                error_code=RESOURCE_DOES_NOT_EXIST,
+            )
+        return os.path.abspath(local_artifact_path)
+
     def log_artifact(self, local_file, artifact_path=None):
         verify_artifact_path(artifact_path)
         # NOTE: The artifact_path is expected to be in posix format.
@@ -88,15 +99,7 @@ class LocalArtifactRepository(ArtifactRepository):
         """
         if dst_path:
             return super().download_artifacts(artifact_path, dst_path)
-        artifact_path = validate_path_is_safe(artifact_path)
-        local_artifact_path = os.path.join(self.artifact_dir, os.path.normpath(artifact_path))
-        validate_path_within_directory(self.artifact_dir, local_artifact_path)
-        if not os.path.exists(local_artifact_path):
-            raise MlflowException(
-                f"No such artifact: '{artifact_path}'",
-                error_code=RESOURCE_DOES_NOT_EXIST,
-            )
-        return os.path.abspath(local_artifact_path)
+        return self.get_local_path(artifact_path)
 
     def list_artifacts(self, path=None):
         if path:
