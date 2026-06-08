@@ -8459,10 +8459,18 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 SqlReviewQueue.experiment_id == int(experiment_id)
             )
             if user is not None:
-                query = query.join(
-                    SqlReviewQueueUser,
-                    SqlReviewQueueUser.queue_id == SqlReviewQueue.queue_id,
-                ).filter(SqlReviewQueueUser.user_id == normalize_user(user))
+                # Scope to queues the user is assigned to, but always include the
+                # experiment's default queue (everyone's queue) even when it has
+                # no assigned members yet.
+                assigned_queue_ids = session.query(SqlReviewQueueUser.queue_id).filter(
+                    SqlReviewQueueUser.user_id == normalize_user(user)
+                )
+                query = query.filter(
+                    or_(
+                        SqlReviewQueue.is_default.is_(True),
+                        SqlReviewQueue.queue_id.in_(assigned_queue_ids),
+                    )
+                )
 
             results = (
                 query
