@@ -20,7 +20,7 @@ if Version(google.protobuf.__version__).major >= 5:
   from .scalapb import scalapb_pb2 as scalapb_dot_scalapb__pb2
 
 
-  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x13review_queues.proto\x12\x14mlflow.review_queues\x1a\x10\x64\x61tabricks.proto\x1a\x15scalapb/scalapb.proto\"\xed\x01\n\x0bReviewQueue\x12\x10\n\x08queue_id\x18\x01 \x01(\t\x12\x15\n\rexperiment_id\x18\x02 \x01(\t\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x39\n\nqueue_type\x18\x04 \x01(\x0e\x32%.mlflow.review_queues.ReviewQueueType\x12\x12\n\ncreated_by\x18\x05 \x01(\t\x12\x18\n\x10\x63reation_time_ms\x18\x06 \x01(\x03\x12\x1b\n\x13last_update_time_ms\x18\x07 \x01(\x03\x12\r\n\x05users\x18\x08 \x03(\t\x12\x12\n\nschema_ids\x18\t \x03(\t\"\x8f\x02\n\x0fReviewQueueItem\x12\x10\n\x08queue_id\x18\x01 \x01(\t\x12;\n\x0btarget_type\x18\x02 \x01(\x0e\x32&.mlflow.review_queues.ReviewTargetType\x12\x11\n\ttarget_id\x18\x03 \x01(\t\x12\x32\n\x06status\x18\x04 \x01(\x0e\x32\".mlflow.review_queues.ReviewStatus\x12\x14\n\x0c\x63ompleted_by\x18\x05 \x01(\t\x12\x19\n\x11\x63ompleted_time_ms\x18\x06 \x01(\x03\x12\x18\n\x10\x63reation_time_ms\x18\x07 \x01(\x03\x12\x1b\n\x13last_update_time_ms\x18\x08 \x01(\x03\"\xae\x02\n\x11\x43reateReviewQueue\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x12\n\x04name\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12?\n\nqueue_type\x18\x03 \x01(\x0e\x32%.mlflow.review_queues.ReviewQueueTypeB\x04\xf8\x86\x19\x01\x12\x12\n\ncreated_by\x18\x04 \x01(\t\x12\r\n\x05users\x18\x05 \x03(\t\x12\x12\n\nschema_ids\x18\x06 \x03(\t\x1a\x43\n\x08Response\x12\x37\n\x0creview_queue\x18\x01 \x01(\x0b\x32!.mlflow.review_queues.ReviewQueue:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xcd\x01\n\x14GetOrCreateUserQueue\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x12\n\x04user\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x12\n\ncreated_by\x18\x03 \x01(\t\x1a\x43\n\x08Response\x12\x37\n\x0creview_queue\x18\x01 \x01(\x0b\x32!.mlflow.review_queues.ReviewQueue:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x9a\x01\n\x0eGetReviewQueue\x12\x16\n\x08queue_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\x43\n\x08Response\x12\x37\n\x0creview_queue\x18\x01 \x01(\x0b\x32!.mlflow.review_queues.ReviewQueue:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xb9\x01\n\x14GetReviewQueueByName\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x12\n\x04name\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x1a\x43\n\x08Response\x12\x37\n\x0creview_queue\x18\x01 \x01(\x0b\x32!.mlflow.review_queues.ReviewQueue:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xf2\x01\n\x10ListReviewQueues\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0c\n\x04user\x18\x02 \x01(\t\x12\x13\n\x0bmax_results\x18\x03 \x01(\x05\x12\x12\n\npage_token\x18\x04 \x01(\t\x1a]\n\x08Response\x12\x38\n\rreview_queues\x18\x01 \x03(\x0b\x32!.mlflow.review_queues.ReviewQueue\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xf1\x01\n\x11UpdateReviewQueue\x12\x16\n\x08queue_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x14\n\x0cupdate_users\x18\x02 \x01(\x08\x12\r\n\x05users\x18\x03 \x03(\t\x12\x19\n\x11update_schema_ids\x18\x04 \x01(\x08\x12\x12\n\nschema_ids\x18\x05 \x03(\t\x1a\x43\n\x08Response\x12\x37\n\x0creview_queue\x18\x01 \x01(\x0b\x32!.mlflow.review_queues.ReviewQueue:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"d\n\x11\x44\x65leteReviewQueue\x12\x16\n\x08queue_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xf0\x01\n\x16\x41\x64\x64TracesToReviewQueue\x12\x16\n\x08queue_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12;\n\x0btarget_type\x18\x02 \x01(\x0e\x32&.mlflow.review_queues.ReviewTargetType\x12\x12\n\ntarget_ids\x18\x03 \x03(\t\x1a@\n\x08Response\x12\x34\n\x05items\x18\x01 \x03(\x0b\x32%.mlflow.review_queues.ReviewQueueItem:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x82\x01\n\x1bRemoveTracesFromReviewQueue\x12\x16\n\x08queue_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x12\n\ntarget_ids\x18\x02 \x03(\t\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x94\x02\n\x15ListReviewQueueTraces\x12\x16\n\x08queue_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x32\n\x06status\x18\x02 \x01(\x0e\x32\".mlflow.review_queues.ReviewStatus\x12\x13\n\x0bmax_results\x18\x03 \x01(\x05\x12\x12\n\npage_token\x18\x04 \x01(\t\x1aY\n\x08Response\x12\x34\n\x05items\x18\x01 \x03(\x0b\x32%.mlflow.review_queues.ReviewQueueItem\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x8a\x02\n\x19SetReviewQueueTraceStatus\x12\x16\n\x08queue_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x17\n\ttarget_id\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x38\n\x06status\x18\x03 \x01(\x0e\x32\".mlflow.review_queues.ReviewStatusB\x04\xf8\x86\x19\x01\x12\x14\n\x0c\x63ompleted_by\x18\x04 \x01(\t\x1a?\n\x08Response\x12\x33\n\x04item\x18\x01 \x01(\x0b\x32%.mlflow.review_queues.ReviewQueueItem:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]*A\n\x10ReviewTargetType\x12\"\n\x1eREVIEW_TARGET_TYPE_UNSPECIFIED\x10\x00\x12\t\n\x05TRACE\x10\x01*J\n\x0fReviewQueueType\x12!\n\x1dREVIEW_QUEUE_TYPE_UNSPECIFIED\x10\x00\x12\x08\n\x04USER\x10\x01\x12\n\n\x06\x43USTOM\x10\x02*V\n\x0cReviewStatus\x12\x1d\n\x19REVIEW_STATUS_UNSPECIFIED\x10\x00\x12\x0b\n\x07PENDING\x10\x01\x12\x0c\n\x08\x43OMPLETE\x10\x02\x12\x0c\n\x08\x44\x45\x43LINED\x10\x03\x42\x19\n\x14org.mlflow.api.proto\x90\x01\x01')
+  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x13review_queues.proto\x12\x14mlflow.review_queues\x1a\x10\x64\x61tabricks.proto\x1a\x15scalapb/scalapb.proto\"\x81\x02\n\x0bReviewQueue\x12\x10\n\x08queue_id\x18\x01 \x01(\t\x12\x15\n\rexperiment_id\x18\x02 \x01(\t\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x39\n\nqueue_type\x18\x04 \x01(\x0e\x32%.mlflow.review_queues.ReviewQueueType\x12\x12\n\ncreated_by\x18\x05 \x01(\t\x12\x18\n\x10\x63reation_time_ms\x18\x06 \x01(\x03\x12\x1b\n\x13last_update_time_ms\x18\x07 \x01(\x03\x12\r\n\x05users\x18\x08 \x03(\t\x12\x12\n\nschema_ids\x18\t \x03(\t\x12\x12\n\nis_default\x18\n \x01(\x08\"\x8f\x02\n\x0fReviewQueueItem\x12\x10\n\x08queue_id\x18\x01 \x01(\t\x12;\n\x0btarget_type\x18\x02 \x01(\x0e\x32&.mlflow.review_queues.ReviewTargetType\x12\x11\n\ttarget_id\x18\x03 \x01(\t\x12\x32\n\x06status\x18\x04 \x01(\x0e\x32\".mlflow.review_queues.ReviewStatus\x12\x14\n\x0c\x63ompleted_by\x18\x05 \x01(\t\x12\x19\n\x11\x63ompleted_time_ms\x18\x06 \x01(\x03\x12\x18\n\x10\x63reation_time_ms\x18\x07 \x01(\x03\x12\x1b\n\x13last_update_time_ms\x18\x08 \x01(\x03\"\xae\x02\n\x11\x43reateReviewQueue\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x12\n\x04name\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12?\n\nqueue_type\x18\x03 \x01(\x0e\x32%.mlflow.review_queues.ReviewQueueTypeB\x04\xf8\x86\x19\x01\x12\x12\n\ncreated_by\x18\x04 \x01(\t\x12\r\n\x05users\x18\x05 \x03(\t\x12\x12\n\nschema_ids\x18\x06 \x03(\t\x1a\x43\n\x08Response\x12\x37\n\x0creview_queue\x18\x01 \x01(\x0b\x32!.mlflow.review_queues.ReviewQueue:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xcd\x01\n\x14GetOrCreateUserQueue\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x12\n\x04user\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x12\n\ncreated_by\x18\x03 \x01(\t\x1a\x43\n\x08Response\x12\x37\n\x0creview_queue\x18\x01 \x01(\x0b\x32!.mlflow.review_queues.ReviewQueue:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xbc\x01\n\x17GetOrCreateDefaultQueue\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x12\n\ncreated_by\x18\x02 \x01(\t\x1a\x43\n\x08Response\x12\x37\n\x0creview_queue\x18\x01 \x01(\x0b\x32!.mlflow.review_queues.ReviewQueue:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x9a\x01\n\x0eGetReviewQueue\x12\x16\n\x08queue_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\x43\n\x08Response\x12\x37\n\x0creview_queue\x18\x01 \x01(\x0b\x32!.mlflow.review_queues.ReviewQueue:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xb9\x01\n\x14GetReviewQueueByName\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x12\n\x04name\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x1a\x43\n\x08Response\x12\x37\n\x0creview_queue\x18\x01 \x01(\x0b\x32!.mlflow.review_queues.ReviewQueue:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xf2\x01\n\x10ListReviewQueues\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0c\n\x04user\x18\x02 \x01(\t\x12\x13\n\x0bmax_results\x18\x03 \x01(\x05\x12\x12\n\npage_token\x18\x04 \x01(\t\x1a]\n\x08Response\x12\x38\n\rreview_queues\x18\x01 \x03(\x0b\x32!.mlflow.review_queues.ReviewQueue\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xf1\x01\n\x11UpdateReviewQueue\x12\x16\n\x08queue_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x14\n\x0cupdate_users\x18\x02 \x01(\x08\x12\r\n\x05users\x18\x03 \x03(\t\x12\x19\n\x11update_schema_ids\x18\x04 \x01(\x08\x12\x12\n\nschema_ids\x18\x05 \x03(\t\x1a\x43\n\x08Response\x12\x37\n\x0creview_queue\x18\x01 \x01(\x0b\x32!.mlflow.review_queues.ReviewQueue:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"d\n\x11\x44\x65leteReviewQueue\x12\x16\n\x08queue_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xf0\x01\n\x16\x41\x64\x64TracesToReviewQueue\x12\x16\n\x08queue_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12;\n\x0btarget_type\x18\x02 \x01(\x0e\x32&.mlflow.review_queues.ReviewTargetType\x12\x12\n\ntarget_ids\x18\x03 \x03(\t\x1a@\n\x08Response\x12\x34\n\x05items\x18\x01 \x03(\x0b\x32%.mlflow.review_queues.ReviewQueueItem:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x82\x01\n\x1bRemoveTracesFromReviewQueue\x12\x16\n\x08queue_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x12\n\ntarget_ids\x18\x02 \x03(\t\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x94\x02\n\x15ListReviewQueueTraces\x12\x16\n\x08queue_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x32\n\x06status\x18\x02 \x01(\x0e\x32\".mlflow.review_queues.ReviewStatus\x12\x13\n\x0bmax_results\x18\x03 \x01(\x05\x12\x12\n\npage_token\x18\x04 \x01(\t\x1aY\n\x08Response\x12\x34\n\x05items\x18\x01 \x03(\x0b\x32%.mlflow.review_queues.ReviewQueueItem\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x8a\x02\n\x19SetReviewQueueTraceStatus\x12\x16\n\x08queue_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x17\n\ttarget_id\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x38\n\x06status\x18\x03 \x01(\x0e\x32\".mlflow.review_queues.ReviewStatusB\x04\xf8\x86\x19\x01\x12\x14\n\x0c\x63ompleted_by\x18\x04 \x01(\t\x1a?\n\x08Response\x12\x33\n\x04item\x18\x01 \x01(\x0b\x32%.mlflow.review_queues.ReviewQueueItem:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]*A\n\x10ReviewTargetType\x12\"\n\x1eREVIEW_TARGET_TYPE_UNSPECIFIED\x10\x00\x12\t\n\x05TRACE\x10\x01*J\n\x0fReviewQueueType\x12!\n\x1dREVIEW_QUEUE_TYPE_UNSPECIFIED\x10\x00\x12\x08\n\x04USER\x10\x01\x12\n\n\x06\x43USTOM\x10\x02*V\n\x0cReviewStatus\x12\x1d\n\x19REVIEW_STATUS_UNSPECIFIED\x10\x00\x12\x0b\n\x07PENDING\x10\x01\x12\x0c\n\x08\x43OMPLETE\x10\x02\x12\x0c\n\x08\x44\x45\x43LINED\x10\x03\x42\x19\n\x14org.mlflow.api.proto\x90\x01\x01')
 
   _globals = globals()
   _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -42,6 +42,10 @@ if Version(google.protobuf.__version__).major >= 5:
     _globals['_GETORCREATEUSERQUEUE'].fields_by_name['user']._serialized_options = b'\370\206\031\001'
     _globals['_GETORCREATEUSERQUEUE']._loaded_options = None
     _globals['_GETORCREATEUSERQUEUE']._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _globals['_GETORCREATEDEFAULTQUEUE'].fields_by_name['experiment_id']._loaded_options = None
+    _globals['_GETORCREATEDEFAULTQUEUE'].fields_by_name['experiment_id']._serialized_options = b'\370\206\031\001'
+    _globals['_GETORCREATEDEFAULTQUEUE']._loaded_options = None
+    _globals['_GETORCREATEDEFAULTQUEUE']._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
     _globals['_GETREVIEWQUEUE'].fields_by_name['queue_id']._loaded_options = None
     _globals['_GETREVIEWQUEUE'].fields_by_name['queue_id']._serialized_options = b'\370\206\031\001'
     _globals['_GETREVIEWQUEUE']._loaded_options = None
@@ -84,60 +88,64 @@ if Version(google.protobuf.__version__).major >= 5:
     _globals['_SETREVIEWQUEUETRACESTATUS'].fields_by_name['status']._serialized_options = b'\370\206\031\001'
     _globals['_SETREVIEWQUEUETRACESTATUS']._loaded_options = None
     _globals['_SETREVIEWQUEUETRACESTATUS']._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
-    _globals['_REVIEWTARGETTYPE']._serialized_start=2973
-    _globals['_REVIEWTARGETTYPE']._serialized_end=3038
-    _globals['_REVIEWQUEUETYPE']._serialized_start=3040
-    _globals['_REVIEWQUEUETYPE']._serialized_end=3114
-    _globals['_REVIEWSTATUS']._serialized_start=3116
-    _globals['_REVIEWSTATUS']._serialized_end=3202
+    _globals['_REVIEWTARGETTYPE']._serialized_start=3184
+    _globals['_REVIEWTARGETTYPE']._serialized_end=3249
+    _globals['_REVIEWQUEUETYPE']._serialized_start=3251
+    _globals['_REVIEWQUEUETYPE']._serialized_end=3325
+    _globals['_REVIEWSTATUS']._serialized_start=3327
+    _globals['_REVIEWSTATUS']._serialized_end=3413
     _globals['_REVIEWQUEUE']._serialized_start=87
-    _globals['_REVIEWQUEUE']._serialized_end=324
-    _globals['_REVIEWQUEUEITEM']._serialized_start=327
-    _globals['_REVIEWQUEUEITEM']._serialized_end=598
-    _globals['_CREATEREVIEWQUEUE']._serialized_start=601
-    _globals['_CREATEREVIEWQUEUE']._serialized_end=903
-    _globals['_CREATEREVIEWQUEUE_RESPONSE']._serialized_start=791
-    _globals['_CREATEREVIEWQUEUE_RESPONSE']._serialized_end=858
-    _globals['_GETORCREATEUSERQUEUE']._serialized_start=906
-    _globals['_GETORCREATEUSERQUEUE']._serialized_end=1111
-    _globals['_GETORCREATEUSERQUEUE_RESPONSE']._serialized_start=791
-    _globals['_GETORCREATEUSERQUEUE_RESPONSE']._serialized_end=858
-    _globals['_GETREVIEWQUEUE']._serialized_start=1114
-    _globals['_GETREVIEWQUEUE']._serialized_end=1268
-    _globals['_GETREVIEWQUEUE_RESPONSE']._serialized_start=791
-    _globals['_GETREVIEWQUEUE_RESPONSE']._serialized_end=858
-    _globals['_GETREVIEWQUEUEBYNAME']._serialized_start=1271
-    _globals['_GETREVIEWQUEUEBYNAME']._serialized_end=1456
-    _globals['_GETREVIEWQUEUEBYNAME_RESPONSE']._serialized_start=791
-    _globals['_GETREVIEWQUEUEBYNAME_RESPONSE']._serialized_end=858
-    _globals['_LISTREVIEWQUEUES']._serialized_start=1459
-    _globals['_LISTREVIEWQUEUES']._serialized_end=1701
-    _globals['_LISTREVIEWQUEUES_RESPONSE']._serialized_start=1563
-    _globals['_LISTREVIEWQUEUES_RESPONSE']._serialized_end=1656
-    _globals['_UPDATEREVIEWQUEUE']._serialized_start=1704
-    _globals['_UPDATEREVIEWQUEUE']._serialized_end=1945
-    _globals['_UPDATEREVIEWQUEUE_RESPONSE']._serialized_start=791
-    _globals['_UPDATEREVIEWQUEUE_RESPONSE']._serialized_end=858
-    _globals['_DELETEREVIEWQUEUE']._serialized_start=1947
-    _globals['_DELETEREVIEWQUEUE']._serialized_end=2047
-    _globals['_DELETEREVIEWQUEUE_RESPONSE']._serialized_start=791
-    _globals['_DELETEREVIEWQUEUE_RESPONSE']._serialized_end=801
-    _globals['_ADDTRACESTOREVIEWQUEUE']._serialized_start=2050
-    _globals['_ADDTRACESTOREVIEWQUEUE']._serialized_end=2290
-    _globals['_ADDTRACESTOREVIEWQUEUE_RESPONSE']._serialized_start=2181
-    _globals['_ADDTRACESTOREVIEWQUEUE_RESPONSE']._serialized_end=2245
-    _globals['_REMOVETRACESFROMREVIEWQUEUE']._serialized_start=2293
-    _globals['_REMOVETRACESFROMREVIEWQUEUE']._serialized_end=2423
-    _globals['_REMOVETRACESFROMREVIEWQUEUE_RESPONSE']._serialized_start=791
-    _globals['_REMOVETRACESFROMREVIEWQUEUE_RESPONSE']._serialized_end=801
-    _globals['_LISTREVIEWQUEUETRACES']._serialized_start=2426
-    _globals['_LISTREVIEWQUEUETRACES']._serialized_end=2702
-    _globals['_LISTREVIEWQUEUETRACES_RESPONSE']._serialized_start=2568
-    _globals['_LISTREVIEWQUEUETRACES_RESPONSE']._serialized_end=2657
-    _globals['_SETREVIEWQUEUETRACESTATUS']._serialized_start=2705
-    _globals['_SETREVIEWQUEUETRACESTATUS']._serialized_end=2971
-    _globals['_SETREVIEWQUEUETRACESTATUS_RESPONSE']._serialized_start=2863
-    _globals['_SETREVIEWQUEUETRACESTATUS_RESPONSE']._serialized_end=2926
+    _globals['_REVIEWQUEUE']._serialized_end=344
+    _globals['_REVIEWQUEUEITEM']._serialized_start=347
+    _globals['_REVIEWQUEUEITEM']._serialized_end=618
+    _globals['_CREATEREVIEWQUEUE']._serialized_start=621
+    _globals['_CREATEREVIEWQUEUE']._serialized_end=923
+    _globals['_CREATEREVIEWQUEUE_RESPONSE']._serialized_start=811
+    _globals['_CREATEREVIEWQUEUE_RESPONSE']._serialized_end=878
+    _globals['_GETORCREATEUSERQUEUE']._serialized_start=926
+    _globals['_GETORCREATEUSERQUEUE']._serialized_end=1131
+    _globals['_GETORCREATEUSERQUEUE_RESPONSE']._serialized_start=811
+    _globals['_GETORCREATEUSERQUEUE_RESPONSE']._serialized_end=878
+    _globals['_GETORCREATEDEFAULTQUEUE']._serialized_start=1134
+    _globals['_GETORCREATEDEFAULTQUEUE']._serialized_end=1322
+    _globals['_GETORCREATEDEFAULTQUEUE_RESPONSE']._serialized_start=811
+    _globals['_GETORCREATEDEFAULTQUEUE_RESPONSE']._serialized_end=878
+    _globals['_GETREVIEWQUEUE']._serialized_start=1325
+    _globals['_GETREVIEWQUEUE']._serialized_end=1479
+    _globals['_GETREVIEWQUEUE_RESPONSE']._serialized_start=811
+    _globals['_GETREVIEWQUEUE_RESPONSE']._serialized_end=878
+    _globals['_GETREVIEWQUEUEBYNAME']._serialized_start=1482
+    _globals['_GETREVIEWQUEUEBYNAME']._serialized_end=1667
+    _globals['_GETREVIEWQUEUEBYNAME_RESPONSE']._serialized_start=811
+    _globals['_GETREVIEWQUEUEBYNAME_RESPONSE']._serialized_end=878
+    _globals['_LISTREVIEWQUEUES']._serialized_start=1670
+    _globals['_LISTREVIEWQUEUES']._serialized_end=1912
+    _globals['_LISTREVIEWQUEUES_RESPONSE']._serialized_start=1774
+    _globals['_LISTREVIEWQUEUES_RESPONSE']._serialized_end=1867
+    _globals['_UPDATEREVIEWQUEUE']._serialized_start=1915
+    _globals['_UPDATEREVIEWQUEUE']._serialized_end=2156
+    _globals['_UPDATEREVIEWQUEUE_RESPONSE']._serialized_start=811
+    _globals['_UPDATEREVIEWQUEUE_RESPONSE']._serialized_end=878
+    _globals['_DELETEREVIEWQUEUE']._serialized_start=2158
+    _globals['_DELETEREVIEWQUEUE']._serialized_end=2258
+    _globals['_DELETEREVIEWQUEUE_RESPONSE']._serialized_start=811
+    _globals['_DELETEREVIEWQUEUE_RESPONSE']._serialized_end=821
+    _globals['_ADDTRACESTOREVIEWQUEUE']._serialized_start=2261
+    _globals['_ADDTRACESTOREVIEWQUEUE']._serialized_end=2501
+    _globals['_ADDTRACESTOREVIEWQUEUE_RESPONSE']._serialized_start=2392
+    _globals['_ADDTRACESTOREVIEWQUEUE_RESPONSE']._serialized_end=2456
+    _globals['_REMOVETRACESFROMREVIEWQUEUE']._serialized_start=2504
+    _globals['_REMOVETRACESFROMREVIEWQUEUE']._serialized_end=2634
+    _globals['_REMOVETRACESFROMREVIEWQUEUE_RESPONSE']._serialized_start=811
+    _globals['_REMOVETRACESFROMREVIEWQUEUE_RESPONSE']._serialized_end=821
+    _globals['_LISTREVIEWQUEUETRACES']._serialized_start=2637
+    _globals['_LISTREVIEWQUEUETRACES']._serialized_end=2913
+    _globals['_LISTREVIEWQUEUETRACES_RESPONSE']._serialized_start=2779
+    _globals['_LISTREVIEWQUEUETRACES_RESPONSE']._serialized_end=2868
+    _globals['_SETREVIEWQUEUETRACESTATUS']._serialized_start=2916
+    _globals['_SETREVIEWQUEUETRACESTATUS']._serialized_end=3182
+    _globals['_SETREVIEWQUEUETRACESTATUS_RESPONSE']._serialized_start=3074
+    _globals['_SETREVIEWQUEUETRACESTATUS_RESPONSE']._serialized_end=3137
   # @@protoc_insertion_point(module_scope)
 
 else:
@@ -160,7 +168,7 @@ else:
   from .scalapb import scalapb_pb2 as scalapb_dot_scalapb__pb2
 
 
-  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x13review_queues.proto\x12\x14mlflow.review_queues\x1a\x10\x64\x61tabricks.proto\x1a\x15scalapb/scalapb.proto\"\xed\x01\n\x0bReviewQueue\x12\x10\n\x08queue_id\x18\x01 \x01(\t\x12\x15\n\rexperiment_id\x18\x02 \x01(\t\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x39\n\nqueue_type\x18\x04 \x01(\x0e\x32%.mlflow.review_queues.ReviewQueueType\x12\x12\n\ncreated_by\x18\x05 \x01(\t\x12\x18\n\x10\x63reation_time_ms\x18\x06 \x01(\x03\x12\x1b\n\x13last_update_time_ms\x18\x07 \x01(\x03\x12\r\n\x05users\x18\x08 \x03(\t\x12\x12\n\nschema_ids\x18\t \x03(\t\"\x8f\x02\n\x0fReviewQueueItem\x12\x10\n\x08queue_id\x18\x01 \x01(\t\x12;\n\x0btarget_type\x18\x02 \x01(\x0e\x32&.mlflow.review_queues.ReviewTargetType\x12\x11\n\ttarget_id\x18\x03 \x01(\t\x12\x32\n\x06status\x18\x04 \x01(\x0e\x32\".mlflow.review_queues.ReviewStatus\x12\x14\n\x0c\x63ompleted_by\x18\x05 \x01(\t\x12\x19\n\x11\x63ompleted_time_ms\x18\x06 \x01(\x03\x12\x18\n\x10\x63reation_time_ms\x18\x07 \x01(\x03\x12\x1b\n\x13last_update_time_ms\x18\x08 \x01(\x03\"\xae\x02\n\x11\x43reateReviewQueue\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x12\n\x04name\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12?\n\nqueue_type\x18\x03 \x01(\x0e\x32%.mlflow.review_queues.ReviewQueueTypeB\x04\xf8\x86\x19\x01\x12\x12\n\ncreated_by\x18\x04 \x01(\t\x12\r\n\x05users\x18\x05 \x03(\t\x12\x12\n\nschema_ids\x18\x06 \x03(\t\x1a\x43\n\x08Response\x12\x37\n\x0creview_queue\x18\x01 \x01(\x0b\x32!.mlflow.review_queues.ReviewQueue:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xcd\x01\n\x14GetOrCreateUserQueue\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x12\n\x04user\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x12\n\ncreated_by\x18\x03 \x01(\t\x1a\x43\n\x08Response\x12\x37\n\x0creview_queue\x18\x01 \x01(\x0b\x32!.mlflow.review_queues.ReviewQueue:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x9a\x01\n\x0eGetReviewQueue\x12\x16\n\x08queue_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\x43\n\x08Response\x12\x37\n\x0creview_queue\x18\x01 \x01(\x0b\x32!.mlflow.review_queues.ReviewQueue:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xb9\x01\n\x14GetReviewQueueByName\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x12\n\x04name\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x1a\x43\n\x08Response\x12\x37\n\x0creview_queue\x18\x01 \x01(\x0b\x32!.mlflow.review_queues.ReviewQueue:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xf2\x01\n\x10ListReviewQueues\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0c\n\x04user\x18\x02 \x01(\t\x12\x13\n\x0bmax_results\x18\x03 \x01(\x05\x12\x12\n\npage_token\x18\x04 \x01(\t\x1a]\n\x08Response\x12\x38\n\rreview_queues\x18\x01 \x03(\x0b\x32!.mlflow.review_queues.ReviewQueue\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xf1\x01\n\x11UpdateReviewQueue\x12\x16\n\x08queue_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x14\n\x0cupdate_users\x18\x02 \x01(\x08\x12\r\n\x05users\x18\x03 \x03(\t\x12\x19\n\x11update_schema_ids\x18\x04 \x01(\x08\x12\x12\n\nschema_ids\x18\x05 \x03(\t\x1a\x43\n\x08Response\x12\x37\n\x0creview_queue\x18\x01 \x01(\x0b\x32!.mlflow.review_queues.ReviewQueue:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"d\n\x11\x44\x65leteReviewQueue\x12\x16\n\x08queue_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xf0\x01\n\x16\x41\x64\x64TracesToReviewQueue\x12\x16\n\x08queue_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12;\n\x0btarget_type\x18\x02 \x01(\x0e\x32&.mlflow.review_queues.ReviewTargetType\x12\x12\n\ntarget_ids\x18\x03 \x03(\t\x1a@\n\x08Response\x12\x34\n\x05items\x18\x01 \x03(\x0b\x32%.mlflow.review_queues.ReviewQueueItem:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x82\x01\n\x1bRemoveTracesFromReviewQueue\x12\x16\n\x08queue_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x12\n\ntarget_ids\x18\x02 \x03(\t\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x94\x02\n\x15ListReviewQueueTraces\x12\x16\n\x08queue_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x32\n\x06status\x18\x02 \x01(\x0e\x32\".mlflow.review_queues.ReviewStatus\x12\x13\n\x0bmax_results\x18\x03 \x01(\x05\x12\x12\n\npage_token\x18\x04 \x01(\t\x1aY\n\x08Response\x12\x34\n\x05items\x18\x01 \x03(\x0b\x32%.mlflow.review_queues.ReviewQueueItem\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x8a\x02\n\x19SetReviewQueueTraceStatus\x12\x16\n\x08queue_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x17\n\ttarget_id\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x38\n\x06status\x18\x03 \x01(\x0e\x32\".mlflow.review_queues.ReviewStatusB\x04\xf8\x86\x19\x01\x12\x14\n\x0c\x63ompleted_by\x18\x04 \x01(\t\x1a?\n\x08Response\x12\x33\n\x04item\x18\x01 \x01(\x0b\x32%.mlflow.review_queues.ReviewQueueItem:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]*A\n\x10ReviewTargetType\x12\"\n\x1eREVIEW_TARGET_TYPE_UNSPECIFIED\x10\x00\x12\t\n\x05TRACE\x10\x01*J\n\x0fReviewQueueType\x12!\n\x1dREVIEW_QUEUE_TYPE_UNSPECIFIED\x10\x00\x12\x08\n\x04USER\x10\x01\x12\n\n\x06\x43USTOM\x10\x02*V\n\x0cReviewStatus\x12\x1d\n\x19REVIEW_STATUS_UNSPECIFIED\x10\x00\x12\x0b\n\x07PENDING\x10\x01\x12\x0c\n\x08\x43OMPLETE\x10\x02\x12\x0c\n\x08\x44\x45\x43LINED\x10\x03\x42\x19\n\x14org.mlflow.api.proto\x90\x01\x01')
+  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x13review_queues.proto\x12\x14mlflow.review_queues\x1a\x10\x64\x61tabricks.proto\x1a\x15scalapb/scalapb.proto\"\x81\x02\n\x0bReviewQueue\x12\x10\n\x08queue_id\x18\x01 \x01(\t\x12\x15\n\rexperiment_id\x18\x02 \x01(\t\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x39\n\nqueue_type\x18\x04 \x01(\x0e\x32%.mlflow.review_queues.ReviewQueueType\x12\x12\n\ncreated_by\x18\x05 \x01(\t\x12\x18\n\x10\x63reation_time_ms\x18\x06 \x01(\x03\x12\x1b\n\x13last_update_time_ms\x18\x07 \x01(\x03\x12\r\n\x05users\x18\x08 \x03(\t\x12\x12\n\nschema_ids\x18\t \x03(\t\x12\x12\n\nis_default\x18\n \x01(\x08\"\x8f\x02\n\x0fReviewQueueItem\x12\x10\n\x08queue_id\x18\x01 \x01(\t\x12;\n\x0btarget_type\x18\x02 \x01(\x0e\x32&.mlflow.review_queues.ReviewTargetType\x12\x11\n\ttarget_id\x18\x03 \x01(\t\x12\x32\n\x06status\x18\x04 \x01(\x0e\x32\".mlflow.review_queues.ReviewStatus\x12\x14\n\x0c\x63ompleted_by\x18\x05 \x01(\t\x12\x19\n\x11\x63ompleted_time_ms\x18\x06 \x01(\x03\x12\x18\n\x10\x63reation_time_ms\x18\x07 \x01(\x03\x12\x1b\n\x13last_update_time_ms\x18\x08 \x01(\x03\"\xae\x02\n\x11\x43reateReviewQueue\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x12\n\x04name\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12?\n\nqueue_type\x18\x03 \x01(\x0e\x32%.mlflow.review_queues.ReviewQueueTypeB\x04\xf8\x86\x19\x01\x12\x12\n\ncreated_by\x18\x04 \x01(\t\x12\r\n\x05users\x18\x05 \x03(\t\x12\x12\n\nschema_ids\x18\x06 \x03(\t\x1a\x43\n\x08Response\x12\x37\n\x0creview_queue\x18\x01 \x01(\x0b\x32!.mlflow.review_queues.ReviewQueue:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xcd\x01\n\x14GetOrCreateUserQueue\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x12\n\x04user\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x12\n\ncreated_by\x18\x03 \x01(\t\x1a\x43\n\x08Response\x12\x37\n\x0creview_queue\x18\x01 \x01(\x0b\x32!.mlflow.review_queues.ReviewQueue:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xbc\x01\n\x17GetOrCreateDefaultQueue\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x12\n\ncreated_by\x18\x02 \x01(\t\x1a\x43\n\x08Response\x12\x37\n\x0creview_queue\x18\x01 \x01(\x0b\x32!.mlflow.review_queues.ReviewQueue:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x9a\x01\n\x0eGetReviewQueue\x12\x16\n\x08queue_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\x43\n\x08Response\x12\x37\n\x0creview_queue\x18\x01 \x01(\x0b\x32!.mlflow.review_queues.ReviewQueue:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xb9\x01\n\x14GetReviewQueueByName\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x12\n\x04name\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x1a\x43\n\x08Response\x12\x37\n\x0creview_queue\x18\x01 \x01(\x0b\x32!.mlflow.review_queues.ReviewQueue:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xf2\x01\n\x10ListReviewQueues\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0c\n\x04user\x18\x02 \x01(\t\x12\x13\n\x0bmax_results\x18\x03 \x01(\x05\x12\x12\n\npage_token\x18\x04 \x01(\t\x1a]\n\x08Response\x12\x38\n\rreview_queues\x18\x01 \x03(\x0b\x32!.mlflow.review_queues.ReviewQueue\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xf1\x01\n\x11UpdateReviewQueue\x12\x16\n\x08queue_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x14\n\x0cupdate_users\x18\x02 \x01(\x08\x12\r\n\x05users\x18\x03 \x03(\t\x12\x19\n\x11update_schema_ids\x18\x04 \x01(\x08\x12\x12\n\nschema_ids\x18\x05 \x03(\t\x1a\x43\n\x08Response\x12\x37\n\x0creview_queue\x18\x01 \x01(\x0b\x32!.mlflow.review_queues.ReviewQueue:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"d\n\x11\x44\x65leteReviewQueue\x12\x16\n\x08queue_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xf0\x01\n\x16\x41\x64\x64TracesToReviewQueue\x12\x16\n\x08queue_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12;\n\x0btarget_type\x18\x02 \x01(\x0e\x32&.mlflow.review_queues.ReviewTargetType\x12\x12\n\ntarget_ids\x18\x03 \x03(\t\x1a@\n\x08Response\x12\x34\n\x05items\x18\x01 \x03(\x0b\x32%.mlflow.review_queues.ReviewQueueItem:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x82\x01\n\x1bRemoveTracesFromReviewQueue\x12\x16\n\x08queue_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x12\n\ntarget_ids\x18\x02 \x03(\t\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x94\x02\n\x15ListReviewQueueTraces\x12\x16\n\x08queue_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x32\n\x06status\x18\x02 \x01(\x0e\x32\".mlflow.review_queues.ReviewStatus\x12\x13\n\x0bmax_results\x18\x03 \x01(\x05\x12\x12\n\npage_token\x18\x04 \x01(\t\x1aY\n\x08Response\x12\x34\n\x05items\x18\x01 \x03(\x0b\x32%.mlflow.review_queues.ReviewQueueItem\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x8a\x02\n\x19SetReviewQueueTraceStatus\x12\x16\n\x08queue_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x17\n\ttarget_id\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x38\n\x06status\x18\x03 \x01(\x0e\x32\".mlflow.review_queues.ReviewStatusB\x04\xf8\x86\x19\x01\x12\x14\n\x0c\x63ompleted_by\x18\x04 \x01(\t\x1a?\n\x08Response\x12\x33\n\x04item\x18\x01 \x01(\x0b\x32%.mlflow.review_queues.ReviewQueueItem:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]*A\n\x10ReviewTargetType\x12\"\n\x1eREVIEW_TARGET_TYPE_UNSPECIFIED\x10\x00\x12\t\n\x05TRACE\x10\x01*J\n\x0fReviewQueueType\x12!\n\x1dREVIEW_QUEUE_TYPE_UNSPECIFIED\x10\x00\x12\x08\n\x04USER\x10\x01\x12\n\n\x06\x43USTOM\x10\x02*V\n\x0cReviewStatus\x12\x1d\n\x19REVIEW_STATUS_UNSPECIFIED\x10\x00\x12\x0b\n\x07PENDING\x10\x01\x12\x0c\n\x08\x43OMPLETE\x10\x02\x12\x0c\n\x08\x44\x45\x43LINED\x10\x03\x42\x19\n\x14org.mlflow.api.proto\x90\x01\x01')
 
   _REVIEWTARGETTYPE = DESCRIPTOR.enum_types_by_name['ReviewTargetType']
   ReviewTargetType = enum_type_wrapper.EnumTypeWrapper(_REVIEWTARGETTYPE)
@@ -185,6 +193,8 @@ else:
   _CREATEREVIEWQUEUE_RESPONSE = _CREATEREVIEWQUEUE.nested_types_by_name['Response']
   _GETORCREATEUSERQUEUE = DESCRIPTOR.message_types_by_name['GetOrCreateUserQueue']
   _GETORCREATEUSERQUEUE_RESPONSE = _GETORCREATEUSERQUEUE.nested_types_by_name['Response']
+  _GETORCREATEDEFAULTQUEUE = DESCRIPTOR.message_types_by_name['GetOrCreateDefaultQueue']
+  _GETORCREATEDEFAULTQUEUE_RESPONSE = _GETORCREATEDEFAULTQUEUE.nested_types_by_name['Response']
   _GETREVIEWQUEUE = DESCRIPTOR.message_types_by_name['GetReviewQueue']
   _GETREVIEWQUEUE_RESPONSE = _GETREVIEWQUEUE.nested_types_by_name['Response']
   _GETREVIEWQUEUEBYNAME = DESCRIPTOR.message_types_by_name['GetReviewQueueByName']
@@ -246,6 +256,21 @@ else:
     })
   _sym_db.RegisterMessage(GetOrCreateUserQueue)
   _sym_db.RegisterMessage(GetOrCreateUserQueue.Response)
+
+  GetOrCreateDefaultQueue = _reflection.GeneratedProtocolMessageType('GetOrCreateDefaultQueue', (_message.Message,), {
+
+    'Response' : _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), {
+      'DESCRIPTOR' : _GETORCREATEDEFAULTQUEUE_RESPONSE,
+      '__module__' : 'review_queues_pb2'
+      # @@protoc_insertion_point(class_scope:mlflow.review_queues.GetOrCreateDefaultQueue.Response)
+      })
+    ,
+    'DESCRIPTOR' : _GETORCREATEDEFAULTQUEUE,
+    '__module__' : 'review_queues_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.review_queues.GetOrCreateDefaultQueue)
+    })
+  _sym_db.RegisterMessage(GetOrCreateDefaultQueue)
+  _sym_db.RegisterMessage(GetOrCreateDefaultQueue.Response)
 
   GetReviewQueue = _reflection.GeneratedProtocolMessageType('GetReviewQueue', (_message.Message,), {
 
@@ -400,6 +425,10 @@ else:
     _GETORCREATEUSERQUEUE.fields_by_name['user']._serialized_options = b'\370\206\031\001'
     _GETORCREATEUSERQUEUE._options = None
     _GETORCREATEUSERQUEUE._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _GETORCREATEDEFAULTQUEUE.fields_by_name['experiment_id']._options = None
+    _GETORCREATEDEFAULTQUEUE.fields_by_name['experiment_id']._serialized_options = b'\370\206\031\001'
+    _GETORCREATEDEFAULTQUEUE._options = None
+    _GETORCREATEDEFAULTQUEUE._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
     _GETREVIEWQUEUE.fields_by_name['queue_id']._options = None
     _GETREVIEWQUEUE.fields_by_name['queue_id']._serialized_options = b'\370\206\031\001'
     _GETREVIEWQUEUE._options = None
@@ -442,59 +471,63 @@ else:
     _SETREVIEWQUEUETRACESTATUS.fields_by_name['status']._serialized_options = b'\370\206\031\001'
     _SETREVIEWQUEUETRACESTATUS._options = None
     _SETREVIEWQUEUETRACESTATUS._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
-    _REVIEWTARGETTYPE._serialized_start=2973
-    _REVIEWTARGETTYPE._serialized_end=3038
-    _REVIEWQUEUETYPE._serialized_start=3040
-    _REVIEWQUEUETYPE._serialized_end=3114
-    _REVIEWSTATUS._serialized_start=3116
-    _REVIEWSTATUS._serialized_end=3202
+    _REVIEWTARGETTYPE._serialized_start=3184
+    _REVIEWTARGETTYPE._serialized_end=3249
+    _REVIEWQUEUETYPE._serialized_start=3251
+    _REVIEWQUEUETYPE._serialized_end=3325
+    _REVIEWSTATUS._serialized_start=3327
+    _REVIEWSTATUS._serialized_end=3413
     _REVIEWQUEUE._serialized_start=87
-    _REVIEWQUEUE._serialized_end=324
-    _REVIEWQUEUEITEM._serialized_start=327
-    _REVIEWQUEUEITEM._serialized_end=598
-    _CREATEREVIEWQUEUE._serialized_start=601
-    _CREATEREVIEWQUEUE._serialized_end=903
-    _CREATEREVIEWQUEUE_RESPONSE._serialized_start=791
-    _CREATEREVIEWQUEUE_RESPONSE._serialized_end=858
-    _GETORCREATEUSERQUEUE._serialized_start=906
-    _GETORCREATEUSERQUEUE._serialized_end=1111
-    _GETORCREATEUSERQUEUE_RESPONSE._serialized_start=791
-    _GETORCREATEUSERQUEUE_RESPONSE._serialized_end=858
-    _GETREVIEWQUEUE._serialized_start=1114
-    _GETREVIEWQUEUE._serialized_end=1268
-    _GETREVIEWQUEUE_RESPONSE._serialized_start=791
-    _GETREVIEWQUEUE_RESPONSE._serialized_end=858
-    _GETREVIEWQUEUEBYNAME._serialized_start=1271
-    _GETREVIEWQUEUEBYNAME._serialized_end=1456
-    _GETREVIEWQUEUEBYNAME_RESPONSE._serialized_start=791
-    _GETREVIEWQUEUEBYNAME_RESPONSE._serialized_end=858
-    _LISTREVIEWQUEUES._serialized_start=1459
-    _LISTREVIEWQUEUES._serialized_end=1701
-    _LISTREVIEWQUEUES_RESPONSE._serialized_start=1563
-    _LISTREVIEWQUEUES_RESPONSE._serialized_end=1656
-    _UPDATEREVIEWQUEUE._serialized_start=1704
-    _UPDATEREVIEWQUEUE._serialized_end=1945
-    _UPDATEREVIEWQUEUE_RESPONSE._serialized_start=791
-    _UPDATEREVIEWQUEUE_RESPONSE._serialized_end=858
-    _DELETEREVIEWQUEUE._serialized_start=1947
-    _DELETEREVIEWQUEUE._serialized_end=2047
-    _DELETEREVIEWQUEUE_RESPONSE._serialized_start=791
-    _DELETEREVIEWQUEUE_RESPONSE._serialized_end=801
-    _ADDTRACESTOREVIEWQUEUE._serialized_start=2050
-    _ADDTRACESTOREVIEWQUEUE._serialized_end=2290
-    _ADDTRACESTOREVIEWQUEUE_RESPONSE._serialized_start=2181
-    _ADDTRACESTOREVIEWQUEUE_RESPONSE._serialized_end=2245
-    _REMOVETRACESFROMREVIEWQUEUE._serialized_start=2293
-    _REMOVETRACESFROMREVIEWQUEUE._serialized_end=2423
-    _REMOVETRACESFROMREVIEWQUEUE_RESPONSE._serialized_start=791
-    _REMOVETRACESFROMREVIEWQUEUE_RESPONSE._serialized_end=801
-    _LISTREVIEWQUEUETRACES._serialized_start=2426
-    _LISTREVIEWQUEUETRACES._serialized_end=2702
-    _LISTREVIEWQUEUETRACES_RESPONSE._serialized_start=2568
-    _LISTREVIEWQUEUETRACES_RESPONSE._serialized_end=2657
-    _SETREVIEWQUEUETRACESTATUS._serialized_start=2705
-    _SETREVIEWQUEUETRACESTATUS._serialized_end=2971
-    _SETREVIEWQUEUETRACESTATUS_RESPONSE._serialized_start=2863
-    _SETREVIEWQUEUETRACESTATUS_RESPONSE._serialized_end=2926
+    _REVIEWQUEUE._serialized_end=344
+    _REVIEWQUEUEITEM._serialized_start=347
+    _REVIEWQUEUEITEM._serialized_end=618
+    _CREATEREVIEWQUEUE._serialized_start=621
+    _CREATEREVIEWQUEUE._serialized_end=923
+    _CREATEREVIEWQUEUE_RESPONSE._serialized_start=811
+    _CREATEREVIEWQUEUE_RESPONSE._serialized_end=878
+    _GETORCREATEUSERQUEUE._serialized_start=926
+    _GETORCREATEUSERQUEUE._serialized_end=1131
+    _GETORCREATEUSERQUEUE_RESPONSE._serialized_start=811
+    _GETORCREATEUSERQUEUE_RESPONSE._serialized_end=878
+    _GETORCREATEDEFAULTQUEUE._serialized_start=1134
+    _GETORCREATEDEFAULTQUEUE._serialized_end=1322
+    _GETORCREATEDEFAULTQUEUE_RESPONSE._serialized_start=811
+    _GETORCREATEDEFAULTQUEUE_RESPONSE._serialized_end=878
+    _GETREVIEWQUEUE._serialized_start=1325
+    _GETREVIEWQUEUE._serialized_end=1479
+    _GETREVIEWQUEUE_RESPONSE._serialized_start=811
+    _GETREVIEWQUEUE_RESPONSE._serialized_end=878
+    _GETREVIEWQUEUEBYNAME._serialized_start=1482
+    _GETREVIEWQUEUEBYNAME._serialized_end=1667
+    _GETREVIEWQUEUEBYNAME_RESPONSE._serialized_start=811
+    _GETREVIEWQUEUEBYNAME_RESPONSE._serialized_end=878
+    _LISTREVIEWQUEUES._serialized_start=1670
+    _LISTREVIEWQUEUES._serialized_end=1912
+    _LISTREVIEWQUEUES_RESPONSE._serialized_start=1774
+    _LISTREVIEWQUEUES_RESPONSE._serialized_end=1867
+    _UPDATEREVIEWQUEUE._serialized_start=1915
+    _UPDATEREVIEWQUEUE._serialized_end=2156
+    _UPDATEREVIEWQUEUE_RESPONSE._serialized_start=811
+    _UPDATEREVIEWQUEUE_RESPONSE._serialized_end=878
+    _DELETEREVIEWQUEUE._serialized_start=2158
+    _DELETEREVIEWQUEUE._serialized_end=2258
+    _DELETEREVIEWQUEUE_RESPONSE._serialized_start=811
+    _DELETEREVIEWQUEUE_RESPONSE._serialized_end=821
+    _ADDTRACESTOREVIEWQUEUE._serialized_start=2261
+    _ADDTRACESTOREVIEWQUEUE._serialized_end=2501
+    _ADDTRACESTOREVIEWQUEUE_RESPONSE._serialized_start=2392
+    _ADDTRACESTOREVIEWQUEUE_RESPONSE._serialized_end=2456
+    _REMOVETRACESFROMREVIEWQUEUE._serialized_start=2504
+    _REMOVETRACESFROMREVIEWQUEUE._serialized_end=2634
+    _REMOVETRACESFROMREVIEWQUEUE_RESPONSE._serialized_start=811
+    _REMOVETRACESFROMREVIEWQUEUE_RESPONSE._serialized_end=821
+    _LISTREVIEWQUEUETRACES._serialized_start=2637
+    _LISTREVIEWQUEUETRACES._serialized_end=2913
+    _LISTREVIEWQUEUETRACES_RESPONSE._serialized_start=2779
+    _LISTREVIEWQUEUETRACES_RESPONSE._serialized_end=2868
+    _SETREVIEWQUEUETRACESTATUS._serialized_start=2916
+    _SETREVIEWQUEUETRACESTATUS._serialized_end=3182
+    _SETREVIEWQUEUETRACESTATUS_RESPONSE._serialized_start=3074
+    _SETREVIEWQUEUETRACESTATUS_RESPONSE._serialized_end=3137
   # @@protoc_insertion_point(module_scope)
 
