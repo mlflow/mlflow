@@ -1414,6 +1414,9 @@ module.exports = {
   // -- mlflow.experiment_view_runs_table --
   "mlflow.experiment_view_runs_table.column_header.models.tooltip": "",
 
+  // -- mlflow.experiments --
+  "mlflow.experiments.onboarding.create_with_agent": "",
+
   // -- mlflow.export-traces-to-dataset-modal --
   "mlflow.export-traces-to-dataset-modal": "",
   "mlflow.export-traces-to-dataset-modal.header-checkbox": "",
@@ -2141,6 +2144,7 @@ module.exports = {
   "mlflow.traces.issue-detection.view-traces-link": "",
   "mlflow.traces.onboarding.docs_link": "",
   "mlflow.traces.onboarding.framework_selector": "",
+  "mlflow.traces.onboarding.instrument_with_agent": "",
   "mlflow.traces.onboarding.integrations_link": "",
   "mlflow.traces.onboarding.language_selector": "",
   "mlflow.traces.onboarding.npm_link": "",
