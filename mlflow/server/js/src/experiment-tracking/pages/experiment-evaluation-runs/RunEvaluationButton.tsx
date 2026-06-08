@@ -23,6 +23,7 @@ import { ExperimentPageTabName } from '../../constants';
 import { SELECTED_RUN_UUID_QUERY_PARAM } from '../../components/evaluations/hooks/useSelectedRunUuid';
 import { EndpointSelector } from '../../components/EndpointSelector';
 import { SelectTracesModal } from '../../components/SelectTracesModal';
+import { useMonitoringFiltersTimeRange } from '../../hooks/useMonitoringFilters';
 import { formatGatewayModelFromEndpoint, getEndpointNameFromGatewayModel } from '../../../gateway/utils/gatewayUtils';
 import { ScorerEvaluationScope } from '../experiment-scorers/constants';
 import { useGetScheduledScorers } from '../experiment-scorers/hooks/useGetScheduledScorers';
@@ -76,8 +77,10 @@ export const RunEvaluationButton = ({ experimentId }: { experimentId: string }) 
   };
 
   const traceSearchLocations = useMemo(() => [createTraceLocationForExperiment(experimentId)], [experimentId]);
+  const timeRange = useMonitoringFiltersTimeRange();
   const { data: traceInfos, isLoading: isLoadingTraces } = useSearchMlflowTraces({
     locations: traceSearchLocations,
+    timeRange,
     disabled: !isOpen,
   });
 
