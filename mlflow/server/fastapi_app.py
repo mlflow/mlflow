@@ -12,6 +12,7 @@ import typing
 
 import anyio
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from flask import Flask
 from starlette.middleware.wsgi import WSGIResponder, build_environ
@@ -26,9 +27,13 @@ from mlflow.server.assistant.api import assistant_router
 from mlflow.server.fastapi_security import init_fastapi_security
 from mlflow.server.gateway_api import gateway_router
 from mlflow.server.job_api import job_api_router
-from mlflow.server.mcp_server_api import _MCP_SERVER_API_PREFIX
+from mlflow.server.mcp_server_api import (
+    _MCP_SERVER_API_PREFIX,
+    _mlflow_error_response,
+    _request_validation_error_response,
+    mcp_server_router,
+)
 from mlflow.server.otel_api import otel_router
-from mlflow.server.registry_fastapi_app import create_registry_fastapi_app
 from mlflow.server.workspace_helpers import (
     WORKSPACE_HEADER_NAME,
     resolve_workspace_for_request_if_enabled,
@@ -147,6 +152,29 @@ def add_gateway_timing_middleware(fastapi_app: FastAPI) -> None:
     fastapi_app.state.gateway_timing_middleware_added = True
 
 
+def add_mcp_exception_handlers(fastapi_app: FastAPI) -> None:
+    if getattr(fastapi_app.state, "mcp_exception_handlers_added", False):
+        return
+
+    # These handlers are registered on the shared FastAPI app, so keep them
+    # scoped to MCP routes to avoid changing response behavior for other APIs.
+    @fastapi_app.exception_handler(MlflowException)
+    async def mcp_mlflow_exception_handler(request: Request, exc: MlflowException):
+        path = get_routed_asgi_path(request)
+        if path == _MCP_SERVER_API_PREFIX or path.startswith(f"{_MCP_SERVER_API_PREFIX}/"):
+            return _mlflow_error_response(exc)
+        raise exc
+
+    @fastapi_app.exception_handler(RequestValidationError)
+    async def mcp_request_validation_error_handler(request: Request, exc: RequestValidationError):
+        path = get_routed_asgi_path(request)
+        if path == _MCP_SERVER_API_PREFIX or path.startswith(f"{_MCP_SERVER_API_PREFIX}/"):
+            return _request_validation_error_response(exc)
+        return JSONResponse(status_code=422, content={"detail": exc.errors()})
+
+    fastapi_app.state.mcp_exception_handlers_added = True
+
+
 def create_fastapi_app(flask_app: Flask = flask_app):
     """
     Create a FastAPI application that wraps the existing Flask app.
@@ -186,12 +214,8 @@ def create_fastapi_app(flask_app: Flask = flask_app):
     # This provides /ajax-api/3.0/mlflow/assistant/* endpoints (localhost only)
     fastapi_app.include_router(assistant_router)
 
-    # Mount MCP Server Registry as a dedicated sub-application so its
-    # validation handlers remain isolated from other FastAPI routes.
-    fastapi_app.mount(
-        _MCP_SERVER_API_PREFIX,
-        create_registry_fastapi_app(route_prefix=""),
-    )
+    add_mcp_exception_handlers(fastapi_app)
+    fastapi_app.include_router(mcp_server_router, prefix=_MCP_SERVER_API_PREFIX)
 
     # Mount the entire Flask application at the root path
     # This ensures compatibility with existing APIs

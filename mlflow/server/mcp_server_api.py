@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from fastapi import APIRouter, FastAPI, Query
+from fastapi import APIRouter, Query
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
@@ -318,21 +318,6 @@ def _request_validation_error_response(exc: RequestValidationError) -> JSONRespo
             f"Invalid request: {_format_validation_errors(exc)}"
         )
     )
-
-
-def add_mcp_server_exception_handlers(fastapi_app: FastAPI) -> None:
-    if getattr(fastapi_app.state, "mcp_server_exception_handlers_added", False):
-        return
-
-    @fastapi_app.exception_handler(MlflowException)
-    async def mlflow_exception_handler(_request, exc: MlflowException):
-        return _mlflow_error_response(exc)
-
-    @fastapi_app.exception_handler(RequestValidationError)
-    async def request_validation_error_handler(_request, exc: RequestValidationError):
-        return _request_validation_error_response(exc)
-
-    fastapi_app.state.mcp_server_exception_handlers_added = True
 
 
 def _tool_payloads_to_entities(tools: list[MCPToolPayload] | None) -> list[MCPTool] | None:
