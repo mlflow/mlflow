@@ -17,6 +17,7 @@ from mlflow.entities import (
     IssueSeverity,
     IssueStatus,
     RunStatus,
+    RunTag,
     ScorerVersion,
     Span,
     Trace,
@@ -5733,6 +5734,8 @@ def test_invoke_genai_evaluate_handler_success(monkeypatch):
     mock_job = _make_genai_evaluate_job()
     mock_run = mock.MagicMock()
     mock_run.info.run_id = "run-genai-1"
+    mock_client = mock.MagicMock()
+    mock_client.create_run.return_value = mock_run
 
     request_json = {
         "experiment_id": "exp-123",
@@ -5742,9 +5745,7 @@ def test_invoke_genai_evaluate_handler_success(monkeypatch):
 
     with (
         mock.patch("mlflow.server.jobs.submit_job", return_value=mock_job) as mock_submit_job,
-        mock.patch("mlflow.start_run", return_value=mock_run) as mock_start_run,
-        mock.patch("mlflow.set_tag") as mock_set_tag,
-        mock.patch("mlflow.end_run"),
+        mock.patch("mlflow.server.handlers.MlflowClient", return_value=mock_client),
         app.test_client() as c,
     ):
         resp = c.post("/ajax-api/3.0/mlflow/genai/evaluate/invoke", json=request_json)
@@ -5755,27 +5756,31 @@ def test_invoke_genai_evaluate_handler_success(monkeypatch):
 
         # The handler must create the run *upfront* with the right MLFLOW_RUN_TYPE tag
         # so the run appears on /evaluation-runs immediately, before the job starts
-        # producing artifacts.
-        mock_start_run.assert_called_once()
-        start_run_kwargs = mock_start_run.call_args.kwargs
-        assert start_run_kwargs["experiment_id"] == "exp-123"
-        tags = start_run_kwargs["tags"]
-        assert tags["mlflow.runType"] == "genai_evaluate"
+        # producing artifacts. We use MlflowClient (not mlflow.start_run) so the run
+        # is created directly in the store without touching the fluent active-run stack.
+        mock_client.create_run.assert_called_once_with(
+            experiment_id="exp-123",
+            tags=[RunTag("mlflow.runType", "genai_evaluate")],
+        )
 
         mock_submit_job.assert_called_once()
         submit_kwargs = mock_submit_job.call_args.kwargs
-        assert submit_kwargs["params"]["experiment_id"] == "exp-123"
         assert submit_kwargs["params"]["trace_ids"] == ["trace-1", "trace-2"]
         assert submit_kwargs["params"]["serialized_scorers"] == request_json["serialized_scorers"]
         assert submit_kwargs["params"]["run_id"] == "run-genai-1"
         # No basic auth on the test client -> no username propagated.
         assert submit_kwargs["params"]["username"] is None
 
-        mock_set_tag.assert_called_once_with("mlflow.genaiEvaluate.jobId", "job-genai-1")
+        mock_client.set_tag.assert_called_once_with(
+            "run-genai-1", "mlflow.genaiEvaluate.jobId", "job-genai-1"
+        )
+        mock_client.set_terminated.assert_not_called()
 
 
 def test_invoke_genai_evaluate_handler_rejects_empty_trace_ids(monkeypatch):
     monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+
+    mock_client = mock.MagicMock()
 
     request_json = {
         "experiment_id": "exp-123",
@@ -5784,20 +5789,22 @@ def test_invoke_genai_evaluate_handler_rejects_empty_trace_ids(monkeypatch):
     }
 
     with (
-        # Guard against accidentally creating a run for an invalid request.
-        mock.patch("mlflow.start_run") as mock_start_run,
+        mock.patch("mlflow.server.handlers.MlflowClient", return_value=mock_client),
         mock.patch("mlflow.server.jobs.submit_job") as mock_submit_job,
         app.test_client() as c,
     ):
         resp = c.post("/ajax-api/3.0/mlflow/genai/evaluate/invoke", json=request_json)
         assert resp.status_code == 400
         assert "Please select at least one trace to evaluate." in resp.get_json()["message"]
-        mock_start_run.assert_not_called()
+        # Guard against accidentally creating a run for an invalid request.
+        mock_client.create_run.assert_not_called()
         mock_submit_job.assert_not_called()
 
 
 def test_invoke_genai_evaluate_handler_rejects_empty_serialized_scorers(monkeypatch):
     monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+
+    mock_client = mock.MagicMock()
 
     request_json = {
         "experiment_id": "exp-123",
@@ -5806,14 +5813,14 @@ def test_invoke_genai_evaluate_handler_rejects_empty_serialized_scorers(monkeypa
     }
 
     with (
-        mock.patch("mlflow.start_run") as mock_start_run,
+        mock.patch("mlflow.server.handlers.MlflowClient", return_value=mock_client),
         mock.patch("mlflow.server.jobs.submit_job") as mock_submit_job,
         app.test_client() as c,
     ):
         resp = c.post("/ajax-api/3.0/mlflow/genai/evaluate/invoke", json=request_json)
         assert resp.status_code == 400
         assert "Please select at least one judge." in resp.get_json()["message"]
-        mock_start_run.assert_not_called()
+        mock_client.create_run.assert_not_called()
         mock_submit_job.assert_not_called()
 
 
@@ -5829,14 +5836,15 @@ def test_invoke_genai_evaluate_handler_missing_required_fields(monkeypatch):
     }
     for missing in ("experiment_id", "trace_ids", "serialized_scorers"):
         request_json = {k: v for k, v in base.items() if k != missing}
+        mock_client = mock.MagicMock()
         with (
-            mock.patch("mlflow.start_run") as mock_start_run,
+            mock.patch("mlflow.server.handlers.MlflowClient", return_value=mock_client),
             mock.patch("mlflow.server.jobs.submit_job") as mock_submit_job,
             app.test_client() as c,
         ):
             resp = c.post("/ajax-api/3.0/mlflow/genai/evaluate/invoke", json=request_json)
             assert resp.status_code == 400, f"missing={missing}: {resp.get_json()}"
-            mock_start_run.assert_not_called()
+            mock_client.create_run.assert_not_called()
             mock_submit_job.assert_not_called()
 
 
@@ -5849,6 +5857,8 @@ def test_invoke_genai_evaluate_handler_propagates_basic_auth_username(monkeypatc
     mock_job = _make_genai_evaluate_job("job-auth")
     mock_run = mock.MagicMock()
     mock_run.info.run_id = "run-auth"
+    mock_client = mock.MagicMock()
+    mock_client.create_run.return_value = mock_run
 
     request_json = {
         "experiment_id": "exp-123",
@@ -5858,9 +5868,7 @@ def test_invoke_genai_evaluate_handler_propagates_basic_auth_username(monkeypatc
 
     with (
         mock.patch("mlflow.server.jobs.submit_job", return_value=mock_job) as mock_submit_job,
-        mock.patch("mlflow.start_run", return_value=mock_run),
-        mock.patch("mlflow.set_tag"),
-        mock.patch("mlflow.end_run"),
+        mock.patch("mlflow.server.handlers.MlflowClient", return_value=mock_client),
         app.test_client() as c,
     ):
         # Encoded form of "alice:hunter2"
@@ -5882,6 +5890,8 @@ def test_invoke_genai_evaluate_handler_marks_run_failed_when_submit_job_raises(m
 
     mock_run = mock.MagicMock()
     mock_run.info.run_id = "run-fail"
+    mock_client = mock.MagicMock()
+    mock_client.create_run.return_value = mock_run
 
     request_json = {
         "experiment_id": "exp-123",
@@ -5896,9 +5906,7 @@ def test_invoke_genai_evaluate_handler_marks_run_failed_when_submit_job_raises(m
 
     with (
         mock.patch("mlflow.server.jobs.submit_job", side_effect=submit_error),
-        mock.patch("mlflow.start_run", return_value=mock_run),
-        mock.patch("mlflow.set_tag") as mock_set_tag,
-        mock.patch("mlflow.end_run") as mock_end_run,
+        mock.patch("mlflow.server.handlers.MlflowClient", return_value=mock_client),
         app.test_client() as c,
     ):
         resp = c.post("/ajax-api/3.0/mlflow/genai/evaluate/invoke", json=request_json)
@@ -5907,25 +5915,25 @@ def test_invoke_genai_evaluate_handler_marks_run_failed_when_submit_job_raises(m
         assert resp.status_code != 200
         assert "job execution feature is not enabled" in resp.get_json()["message"]
 
-        # Only one end_run call, and it must be FAILED (not RUNNING). RUNNING would
-        # mean we went down the happy path; a missing call would mean we leaked
-        # the active-run stack and left the run stuck in RUNNING in the store.
-        mock_end_run.assert_called_once_with("FAILED")
+        mock_client.set_terminated.assert_called_once_with("run-fail", "FAILED")
 
         # The job-id tag must not have been written — the job never existed.
-        mock_set_tag.assert_not_called()
+        mock_client.set_tag.assert_not_called()
 
 
 def test_invoke_genai_evaluate_handler_marks_run_failed_when_set_tag_raises(monkeypatch):
     """The same try/except must also cover the post-submit set_tag call. If the
-    tag write fails (e.g. transient store error) we'd otherwise still leave the
-    run in RUNNING even though we never reached end_run(RUNNING).
+    tag write fails (e.g. transient store error) we'd otherwise leave the run in
+    RUNNING because nothing else writes a terminal status from the handler.
     """
     monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
 
     mock_job = _make_genai_evaluate_job("job-tag-fail")
     mock_run = mock.MagicMock()
     mock_run.info.run_id = "run-tag-fail"
+    mock_client = mock.MagicMock()
+    mock_client.create_run.return_value = mock_run
+    mock_client.set_tag.side_effect = RuntimeError("store unavailable")
 
     request_json = {
         "experiment_id": "exp-123",
@@ -5935,15 +5943,13 @@ def test_invoke_genai_evaluate_handler_marks_run_failed_when_set_tag_raises(monk
 
     with (
         mock.patch("mlflow.server.jobs.submit_job", return_value=mock_job),
-        mock.patch("mlflow.start_run", return_value=mock_run),
-        mock.patch("mlflow.set_tag", side_effect=RuntimeError("store unavailable")),
-        mock.patch("mlflow.end_run") as mock_end_run,
+        mock.patch("mlflow.server.handlers.MlflowClient", return_value=mock_client),
         app.test_client() as c,
     ):
         resp = c.post("/ajax-api/3.0/mlflow/genai/evaluate/invoke", json=request_json)
 
         assert resp.status_code != 200
-        mock_end_run.assert_called_once_with("FAILED")
+        mock_client.set_terminated.assert_called_once_with("run-tag-fail", "FAILED")
 
 
 def test_get_job_success(mock_job_store):

@@ -34,7 +34,6 @@ def test_invoke_genai_evaluate_job_success():
         mock.patch("mlflow.genai.evaluate") as mock_evaluate,
     ):
         result = invoke_genai_evaluate_job(
-            experiment_id="exp-123",
             trace_ids=["trace-1", "trace-2"],
             serialized_scorers=[_serialized_scorer("a"), _serialized_scorer("b")],
             run_id="run-123",
@@ -78,7 +77,6 @@ def test_invoke_genai_evaluate_job_batches_large_trace_list():
         mock.patch("mlflow.genai.evaluate"),
     ):
         invoke_genai_evaluate_job(
-            experiment_id="exp-123",
             trace_ids=trace_ids,
             serialized_scorers=[_serialized_scorer()],
             run_id="run-123",
@@ -106,7 +104,6 @@ def test_invoke_genai_evaluate_job_setup_failure_marks_run_failed():
     ):
         with pytest.raises(Exception, match="trace fetch failed"):
             invoke_genai_evaluate_job(
-                experiment_id="exp-123",
                 trace_ids=["trace-1"],
                 serialized_scorers=[_serialized_scorer()],
                 run_id="run-123",
@@ -144,7 +141,6 @@ def test_invoke_genai_evaluate_job_evaluate_failure_defers_to_context_manager():
     ):
         with pytest.raises(Exception, match="harness boom"):
             invoke_genai_evaluate_job(
-                experiment_id="exp-123",
                 trace_ids=["trace-1"],
                 serialized_scorers=[_serialized_scorer()],
                 run_id="run-123",
@@ -175,7 +171,6 @@ def test_invoke_genai_evaluate_job_propagates_username_via_env(monkeypatch):
         mock.patch("mlflow.genai.evaluate", side_effect=_capture_env),
     ):
         invoke_genai_evaluate_job(
-            experiment_id="exp-123",
             trace_ids=["trace-1"],
             serialized_scorers=[_serialized_scorer()],
             run_id="run-123",
@@ -198,7 +193,6 @@ def test_invoke_genai_evaluate_job_skips_username_propagation_when_none(monkeypa
         mock.patch("mlflow.genai.evaluate"),
     ):
         invoke_genai_evaluate_job(
-            experiment_id="exp-123",
             trace_ids=["trace-1"],
             serialized_scorers=[_serialized_scorer()],
             run_id="run-123",

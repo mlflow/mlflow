@@ -23,7 +23,6 @@ _logger = logging.getLogger(__name__)
 
 @job(name="invoke_genai_evaluate", max_workers=MLFLOW_SERVER_JUDGE_INVOKE_MAX_WORKERS.get())
 def invoke_genai_evaluate_job(
-    experiment_id: str,
     trace_ids: list[str],
     serialized_scorers: list[str],
     run_id: str,

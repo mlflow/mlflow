@@ -22,6 +22,8 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_RUN_TYPE_GENAI_EVALUATE,
 )
 
+from tests.helper_functions import get_safe_port
+
 pytestmark = pytest.mark.skipif(
     os.name == "nt", reason="MLflow job execution is not supported on Windows"
 )
@@ -104,8 +106,6 @@ class Client:
 
 @pytest.fixture(scope="module")
 def mock_gateway_server():
-    from tests.helper_functions import get_safe_port
-
     port = get_safe_port()
     server = HTTPServer(("127.0.0.1", port), MockGatewayHandler)
     thread = threading.Thread(name="genai-evaluate-mock-gateway", target=server.serve_forever)
@@ -118,8 +118,6 @@ def mock_gateway_server():
 @pytest.fixture(scope="module")
 def client(tmp_path_factory: pytest.TempPathFactory, mock_gateway_server: str) -> Client:
     """Spin up an mlflow server with the new genai-evaluate job registered."""
-    from tests.helper_functions import get_safe_port
-
     tmp_path = tmp_path_factory.mktemp("genai_evaluate_server")
     backend_store_uri = f"sqlite:///{tmp_path / 'mlflow.db'}"
     port = get_safe_port()

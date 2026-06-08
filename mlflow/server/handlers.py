@@ -21,6 +21,7 @@ from google.protobuf import descriptor
 from google.protobuf.json_format import ParseError
 
 import mlflow
+from mlflow.client import MlflowClient
 from mlflow.entities import (
     Assessment,
     DatasetInput,
@@ -4701,10 +4702,11 @@ def _invoke_genai_evaluate_handler():
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    # Create the run upfront so we can return run_id immediately. So the run
-    # shows up on /evaluation-runs even before the job has produced any artifacts.
-    tags = {MLFLOW_RUN_TYPE: MLFLOW_RUN_TYPE_GENAI_EVALUATE}
-    run = mlflow.start_run(experiment_id=experiment_id, tags=tags)
+    # Create the run upfront so we can return run_id immediately, so the run
+    # shows up on /evaluation-runs even before the job has produced artifacts.
+    tags = [RunTag(MLFLOW_RUN_TYPE, MLFLOW_RUN_TYPE_GENAI_EVALUATE)]
+    client = MlflowClient()
+    run = client.create_run(experiment_id=experiment_id, tags=tags)
     run_id = run.info.run_id
 
     username = request.authorization.username if request.authorization else None
@@ -4713,19 +4715,16 @@ def _invoke_genai_evaluate_handler():
         job = submit_job(
             function=invoke_genai_evaluate_job,
             params={
-                "experiment_id": experiment_id,
                 "trace_ids": trace_ids,
                 "serialized_scorers": serialized_scorers,
                 "run_id": run_id,
                 "username": username,
             },
         )
-        mlflow.set_tag(MLFLOW_GENAI_EVALUATE_JOB_ID, job.job_id)
+        client.set_tag(run_id, MLFLOW_GENAI_EVALUATE_JOB_ID, job.job_id)
     except Exception:
-        mlflow.end_run(RunStatus.to_string(RunStatus.FAILED))
+        client.set_terminated(run_id, RunStatus.to_string(RunStatus.FAILED))
         raise
-
-    mlflow.end_run(RunStatus.to_string(RunStatus.RUNNING))
 
     return jsonify({"job_id": job.job_id, "run_id": run_id})
 
