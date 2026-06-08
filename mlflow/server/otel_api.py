@@ -180,10 +180,11 @@ async def export_traces(
                     service_names.add(resource_service_name)
                 break
 
+        resource = resource_span.resource
         for scope_span in resource_span.scope_spans:
             for otel_proto_span in scope_span.spans:
                 try:
-                    mlflow_span = Span.from_otel_proto(otel_proto_span)
+                    mlflow_span = Span.from_otel_proto(otel_proto_span, resource=resource)
 
                     # Propagate service.name onto root spans so it's visible
                     # in the UI. Per the OTel resource spec, resource attrs

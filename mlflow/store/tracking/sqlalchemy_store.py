@@ -5305,6 +5305,33 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 for tag_key, tag_value in agg.trace_tags.items():
                     session.merge(SqlTraceTag(request_id=trace_id, key=tag_key, value=tag_value))
 
+                # Persist OTel resource attributes (e.g., service.name) as trace tags so
+                # they are visible in the UI and available for filtering. Resource is attached
+                # to every span produced from the same OTLP ResourceSpans block; use any span
+                # in this trace so multi-trace batches are handled correctly.
+                resource = next(
+                    (
+                        getattr(span._span, "resource", None)
+                        for span in spans_by_trace[trace_id]
+                        if getattr(span._span, "resource", None) is not None
+                        and getattr(span._span, "resource", None).attributes
+                    ),
+                    None,
+                )
+                if resource is not None:
+                    for key, value in resource.attributes.items():
+                        if not isinstance(value, str):
+                            continue
+                        # SqlTraceTag column limits: key=String(250), value=String(8000)
+                        if len(key) <= 250 and len(value) <= 8000:
+                            session.merge(
+                                SqlTraceTag(
+                                    request_id=trace_id,
+                                    key=key,
+                                    value=value,
+                                )
+                            )
+
         return spans
 
     def _update_trace_info_attributes(
