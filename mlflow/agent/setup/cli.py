@@ -82,15 +82,11 @@ def _run_setup(
     payload["agent"] = agent.name
 
     skills_dest = repo_root / agent.skills_dir
-    skills_installed = click.confirm(
-        click.style(
-            f"Install MLflow skills at {agent.skills_dir}/ (this project)?",
-            fg="cyan",
-            bold=True,
-        ),
-        default=True,
-        err=True,
+    skills_choice = arrow_select(
+        f"Install MLflow skills at {agent.skills_dir}/ (this project)?",
+        ["Install", "Skip"],
     )
+    skills_installed = skills_choice == 0
     payload["skills_install_confirmed"] = skills_installed
     if skills_installed:
         installed = install_skills(skills_dest)
