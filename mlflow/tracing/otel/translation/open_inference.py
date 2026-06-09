@@ -76,7 +76,8 @@ class OpenInferenceTranslator(OtelSchemaTranslator):
         documents_by_index: dict[int, dict[str, Any]] = {}
         for key, value in attributes.items():
             if match := self._RETRIEVAL_DOCUMENT_ATTRIBUTE.match(key):
-                index, field = int(match.group(1)), match.group(2)
+                index = int(match.group(1))
+                field = match.group(2)
                 documents_by_index.setdefault(index, {})[field] = self._try_decode_if_json(value)
 
         if not documents_by_index:
