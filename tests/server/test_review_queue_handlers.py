@@ -4,11 +4,11 @@ from unittest import mock
 import pytest
 
 from mlflow.genai.review_queues import (
+    ReviewItemType,
     ReviewQueue,
     ReviewQueueItem,
     ReviewQueueType,
     ReviewStatus,
-    ReviewTargetType,
 )
 from mlflow.protos.review_queues_pb2 import (
     COMPLETE,
@@ -18,29 +18,29 @@ from mlflow.protos.review_queues_pb2 import (
     REVIEW_STATUS_UNSPECIFIED,
     TRACE,
     USER,
-    AddTracesToReviewQueue,
+    AddItemsToReviewQueue,
     CreateReviewQueue,
     DeleteReviewQueue,
     GetOrCreateUserQueue,
     GetReviewQueue,
     GetReviewQueueByName,
+    ListReviewQueueItems,
     ListReviewQueues,
-    ListReviewQueueTraces,
-    RemoveTracesFromReviewQueue,
-    SetReviewQueueTraceStatus,
+    RemoveItemsFromReviewQueue,
+    SetReviewQueueItemStatus,
     UpdateReviewQueue,
 )
 from mlflow.server.handlers import (
-    _add_traces_to_review_queue,
+    _add_items_to_review_queue,
     _create_review_queue,
     _delete_review_queue,
     _get_or_create_user_queue,
     _get_review_queue,
     _get_review_queue_by_name,
-    _list_review_queue_traces,
+    _list_review_queue_items,
     _list_review_queues,
-    _remove_traces_from_review_queue,
-    _set_review_queue_trace_status,
+    _remove_items_from_review_queue,
+    _set_review_queue_item_status,
     _update_review_queue,
 )
 from mlflow.store.entities.paged_list import PagedList
@@ -70,11 +70,11 @@ def _queue_entity(
     )
 
 
-def _item_entity(target_id="tr-1", status=ReviewStatus.PENDING, completed_by=None):
+def _item_entity(item_id="tr-1", status=ReviewStatus.PENDING, completed_by=None):
     return ReviewQueueItem(
         queue_id="rq-1",
-        target_type=ReviewTargetType.TRACE,
-        target_id=target_id,
+        item_type=ReviewItemType.TRACE,
+        item_id=item_id,
         status=status,
         creation_time_ms=1000,
         last_update_time_ms=1000,
@@ -172,26 +172,6 @@ def test_get_or_create_user_queue_forwards_created_by():
     assert store.get_or_create_user_queue.call_args[1]["created_by"] == "kris"
 
 
-def test_list_review_queues_forwards_ensure_default():
-    # The no-auth UI sets ensure_default to seed the default queue; the flag is
-    # forwarded to the store and defaults to False when unset.
-    store, _ = _run_handler(
-        _list_review_queues,
-        ListReviewQueues(experiment_id="1", ensure_default=True),
-        "list_review_queues",
-        PagedList([], token=None),
-    )
-    assert store.list_review_queues.call_args[1]["ensure_default"] is True
-
-    store, _ = _run_handler(
-        _list_review_queues,
-        ListReviewQueues(experiment_id="1"),
-        "list_review_queues",
-        PagedList([], token=None),
-    )
-    assert store.list_review_queues.call_args[1]["ensure_default"] is False
-
-
 def test_get_review_queue_routes():
     request_message = GetReviewQueue(queue_id="rq-1")
     store, response = _run_handler(
@@ -274,81 +254,79 @@ def test_delete_review_queue_routes():
     assert response.status_code == 200
 
 
-def test_add_traces_defaults_target_type_to_trace():
-    request_message = AddTracesToReviewQueue(queue_id="rq-1", target_ids=["tr-1", "tr-2"])
+def test_add_items_defaults_item_type_to_trace():
+    request_message = AddItemsToReviewQueue(queue_id="rq-1", item_ids=["tr-1", "tr-2"])
     items = [_item_entity("tr-1"), _item_entity("tr-2")]
     store, response = _run_handler(
-        _add_traces_to_review_queue, request_message, "add_traces_to_review_queue", items
+        _add_items_to_review_queue, request_message, "add_items_to_review_queue", items
     )
-    kwargs = store.add_traces_to_review_queue.call_args[1]
-    assert kwargs["target_ids"] == ["tr-1", "tr-2"]
-    # Unset target_type is not forwarded; the store applies its TRACE default.
-    assert "target_type" not in kwargs
+    kwargs = store.add_items_to_review_queue.call_args[1]
+    assert kwargs["item_ids"] == ["tr-1", "tr-2"]
+    # Unset item_type is not forwarded; the store applies its TRACE default.
+    assert "item_type" not in kwargs
     body = json.loads(response.get_data())
-    assert [i["target_id"] for i in body["items"]] == ["tr-1", "tr-2"]
+    assert [i["item_id"] for i in body["items"]] == ["tr-1", "tr-2"]
 
 
-def test_add_traces_forwards_explicit_target_type():
-    request_message = AddTracesToReviewQueue(
-        queue_id="rq-1", target_type=TRACE, target_ids=["tr-1"]
-    )
+def test_add_items_forwards_explicit_item_type():
+    request_message = AddItemsToReviewQueue(queue_id="rq-1", item_type=TRACE, item_ids=["tr-1"])
     store, _ = _run_handler(
-        _add_traces_to_review_queue,
+        _add_items_to_review_queue,
         request_message,
-        "add_traces_to_review_queue",
+        "add_items_to_review_queue",
         [_item_entity("tr-1")],
     )
-    assert store.add_traces_to_review_queue.call_args[1]["target_type"] == ReviewTargetType.TRACE
+    assert store.add_items_to_review_queue.call_args[1]["item_type"] == ReviewItemType.TRACE
 
 
-def test_remove_traces_routes():
-    request_message = RemoveTracesFromReviewQueue(queue_id="rq-1", target_ids=["tr-2"])
+def test_remove_items_routes():
+    request_message = RemoveItemsFromReviewQueue(queue_id="rq-1", item_ids=["tr-2"])
     store, response = _run_handler(
-        _remove_traces_from_review_queue,
+        _remove_items_from_review_queue,
         request_message,
-        "remove_traces_from_review_queue",
+        "remove_items_from_review_queue",
         None,
     )
-    store.remove_traces_from_review_queue.assert_called_once_with("rq-1", target_ids=["tr-2"])
+    store.remove_items_from_review_queue.assert_called_once_with("rq-1", item_ids=["tr-2"])
     assert response.status_code == 200
 
 
-def test_list_review_queue_traces_filters_status():
-    request_message = ListReviewQueueTraces(queue_id="rq-1", status=COMPLETE)
+def test_list_review_queue_items_filters_status():
+    request_message = ListReviewQueueItems(queue_id="rq-1", status=COMPLETE)
     paged = PagedList([_item_entity("tr-1", ReviewStatus.COMPLETE, "bob")], token=None)
     store, response = _run_handler(
-        _list_review_queue_traces, request_message, "list_review_queue_traces", paged
+        _list_review_queue_items, request_message, "list_review_queue_items", paged
     )
-    assert store.list_review_queue_traces.call_args[1]["status"] == ReviewStatus.COMPLETE
+    assert store.list_review_queue_items.call_args[1]["status"] == ReviewStatus.COMPLETE
     body = json.loads(response.get_data())
     assert body["items"][0]["status"] == "COMPLETE"
     assert body["items"][0]["completed_by"] == "bob"
 
 
-def test_list_review_queue_traces_no_status_filter():
-    request_message = ListReviewQueueTraces(queue_id="rq-1")
+def test_list_review_queue_items_no_status_filter():
+    request_message = ListReviewQueueItems(queue_id="rq-1")
     store, _ = _run_handler(
-        _list_review_queue_traces,
+        _list_review_queue_items,
         request_message,
-        "list_review_queue_traces",
+        "list_review_queue_items",
         PagedList([], token=None),
     )
-    assert store.list_review_queue_traces.call_args[1]["status"] is None
+    assert store.list_review_queue_items.call_args[1]["status"] is None
 
 
 def test_set_status_forwards_completed_by():
-    request_message = SetReviewQueueTraceStatus(
-        queue_id="rq-1", target_id="tr-1", status=COMPLETE, completed_by="bob"
+    request_message = SetReviewQueueItemStatus(
+        queue_id="rq-1", item_id="tr-1", status=COMPLETE, completed_by="bob"
     )
     entity = _item_entity("tr-1", ReviewStatus.COMPLETE, "bob")
     store, response = _run_handler(
-        _set_review_queue_trace_status,
+        _set_review_queue_item_status,
         request_message,
-        "set_review_queue_trace_status",
+        "set_review_queue_item_status",
         entity,
     )
-    kwargs = store.set_review_queue_trace_status.call_args[1]
-    assert kwargs["target_id"] == "tr-1"
+    kwargs = store.set_review_queue_item_status.call_args[1]
+    assert kwargs["item_id"] == "tr-1"
     assert kwargs["status"] == ReviewStatus.COMPLETE
     assert kwargs["completed_by"] == "bob"
     body = json.loads(response.get_data())
@@ -356,28 +334,28 @@ def test_set_status_forwards_completed_by():
 
 
 def test_set_status_reopen_omits_completed_by():
-    request_message = SetReviewQueueTraceStatus(queue_id="rq-1", target_id="tr-1", status=PENDING)
+    request_message = SetReviewQueueItemStatus(queue_id="rq-1", item_id="tr-1", status=PENDING)
     store, _ = _run_handler(
-        _set_review_queue_trace_status,
+        _set_review_queue_item_status,
         request_message,
-        "set_review_queue_trace_status",
+        "set_review_queue_item_status",
         _item_entity("tr-1", ReviewStatus.PENDING),
     )
-    assert store.set_review_queue_trace_status.call_args[1]["completed_by"] is None
+    assert store.set_review_queue_item_status.call_args[1]["completed_by"] is None
 
 
 def test_set_status_rejects_unspecified_status():
     # `status` is required in the proto but is intentionally absent from the
     # handler's input schema; rejection of the proto2 zero-value is delegated
     # to ReviewStatus.from_proto, so an absent/UNSPECIFIED status must 400.
-    request_message = SetReviewQueueTraceStatus(
-        queue_id="rq-1", target_id="tr-1", status=REVIEW_STATUS_UNSPECIFIED
+    request_message = SetReviewQueueItemStatus(
+        queue_id="rq-1", item_id="tr-1", status=REVIEW_STATUS_UNSPECIFIED
     )
     with (
         mock.patch(f"{_BASE_PATCH}._get_tracking_store") as mock_store,
         mock.patch(f"{_BASE_PATCH}._get_request_message", return_value=request_message),
     ):
-        response = _set_review_queue_trace_status()
+        response = _set_review_queue_item_status()
         assert response.status_code == 400
         assert json.loads(response.get_data())["error_code"] == "INVALID_PARAMETER_VALUE"
-        mock_store.return_value.set_review_queue_trace_status.assert_not_called()
+        mock_store.return_value.set_review_queue_item_status.assert_not_called()

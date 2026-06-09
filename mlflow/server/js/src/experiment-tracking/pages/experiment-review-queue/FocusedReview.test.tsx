@@ -36,8 +36,8 @@ const passFailSchema = (schemaId = 's1', name = 'Looks good?', enableComment = f
 
 const pendingItem: ReviewQueueItem = {
   queue_id: 'rq-1',
-  target_type: 'TRACE',
-  target_id: 'tr-1',
+  item_type: 'TRACE',
+  item_id: 'tr-1',
   status: 'PENDING',
   creation_time_ms: 1_780_000_000_000,
   last_update_time_ms: 1_780_000_000_000,

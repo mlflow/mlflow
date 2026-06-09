@@ -6,14 +6,13 @@ import { useCurrentUserQuery } from '../../../../account/hooks';
 export const DEFAULT_REVIEWER = 'default';
 
 /**
- * Display label for a user identity. The reserved no-auth `default` user is
- * shown as "Admin" (on a single-tenant no-auth server the sole caller is
- * effectively the administrator); real usernames are shown as-is.
+ * Display label for a user identity. The reserved no-auth `default` user
+ * queue is shown as "Default"; real usernames are shown as-is.
  */
 export const displayUser = (user: string, intl: IntlShape): string =>
   user === DEFAULT_REVIEWER
     ? intl.formatMessage({
-        defaultMessage: 'Admin',
+        defaultMessage: 'Default',
         description: 'Display name shown for the reserved no-auth default review user',
       })
     : user;

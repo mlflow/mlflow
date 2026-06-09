@@ -320,7 +320,6 @@ CREATE TABLE review_queues (
 	experiment_id INTEGER NOT NULL,
 	name VARCHAR(250) NOT NULL,
 	queue_type VARCHAR(16) NOT NULL,
-	is_default TINYINT DEFAULT '0' NOT NULL,
 	created_by VARCHAR(255),
 	creation_time_ms BIGINT NOT NULL,
 	last_update_time_ms BIGINT NOT NULL,
@@ -563,25 +562,25 @@ CREATE TABLE params (
 )
 
 
-CREATE TABLE review_queue_label_schemas (
+CREATE TABLE review_queue_items (
 	queue_id VARCHAR(36) NOT NULL,
-	schema_id VARCHAR(36) NOT NULL,
-	PRIMARY KEY (queue_id, schema_id),
-	CONSTRAINT fk_review_queue_label_schemas_queue_id FOREIGN KEY(queue_id) REFERENCES review_queues (queue_id) ON DELETE CASCADE
-)
-
-
-CREATE TABLE review_queue_traces (
-	queue_id VARCHAR(36) NOT NULL,
-	target_type VARCHAR(16) NOT NULL,
-	target_id VARCHAR(50) NOT NULL,
+	item_type VARCHAR(16) NOT NULL,
+	item_id VARCHAR(50) NOT NULL,
 	status VARCHAR(16) NOT NULL,
 	completed_by VARCHAR(250),
 	completed_time_ms BIGINT,
 	creation_time_ms BIGINT NOT NULL,
 	last_update_time_ms BIGINT NOT NULL,
-	PRIMARY KEY (queue_id, target_id),
-	CONSTRAINT fk_review_queue_traces_queue_id FOREIGN KEY(queue_id) REFERENCES review_queues (queue_id) ON DELETE CASCADE
+	PRIMARY KEY (queue_id, item_id),
+	CONSTRAINT fk_review_queue_items_queue_id FOREIGN KEY(queue_id) REFERENCES review_queues (queue_id) ON DELETE CASCADE
+)
+
+
+CREATE TABLE review_queue_label_schemas (
+	queue_id VARCHAR(36) NOT NULL,
+	schema_id VARCHAR(36) NOT NULL,
+	PRIMARY KEY (queue_id, schema_id),
+	CONSTRAINT fk_review_queue_label_schemas_queue_id FOREIGN KEY(queue_id) REFERENCES review_queues (queue_id) ON DELETE CASCADE
 )
 
 

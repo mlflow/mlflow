@@ -65,9 +65,9 @@ def test_management_validators_require_manage(monkeypatch, validator, permission
 @pytest.mark.parametrize(
     ("permission", "expected"), [("READ", False), ("EDIT", True), ("MANAGE", True)]
 )
-def test_add_traces_and_user_queue_require_edit(monkeypatch, permission, expected):
+def test_add_items_and_user_queue_require_edit(monkeypatch, permission, expected):
     _setup(monkeypatch, permission=permission)
-    assert auth.validate_can_add_traces_to_review_queue() is expected
+    assert auth.validate_can_add_items_to_review_queue() is expected
     assert auth.validate_can_get_or_create_user_queue() is expected
 
 
@@ -79,18 +79,18 @@ def test_read_label_schema_requires_read(monkeypatch, permission, expected):
     assert auth.validate_can_read_label_schema() is expected
 
 
-def test_review_queue_trace_requires_edit_and_membership(monkeypatch):
+def test_review_queue_item_requires_edit_and_membership(monkeypatch):
     # EDIT + assigned -> allowed.
     _setup(monkeypatch, permission="EDIT", queue_users=["alice"], username="alice")
-    assert auth.validate_can_review_queue_trace() is True
+    assert auth.validate_can_review_queue_item() is True
 
     # EDIT but not assigned -> denied (even a manager must self-assign first).
     _setup(monkeypatch, permission="MANAGE", queue_users=["bob"], username="alice")
-    assert auth.validate_can_review_queue_trace() is False
+    assert auth.validate_can_review_queue_item() is False
 
     # Assigned but only READ -> denied (reviewing needs EDIT).
     _setup(monkeypatch, permission="READ", queue_users=["alice"], username="alice")
-    assert auth.validate_can_review_queue_trace() is False
+    assert auth.validate_can_review_queue_item() is False
 
 
 def test_view_review_queue_manage_or_membership(monkeypatch):

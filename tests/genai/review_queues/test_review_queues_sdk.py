@@ -5,20 +5,20 @@ import pytest
 import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.genai.review_queues import (
+    ReviewItemType,
     ReviewQueue,
     ReviewQueueItem,
     ReviewQueueType,
     ReviewStatus,
-    ReviewTargetType,
-    add_traces_to_review_queue,
+    add_items_to_review_queue,
     create_review_queue,
     delete_review_queue,
     get_or_create_user_queue,
     get_review_queue,
-    list_review_queue_traces,
+    list_review_queue_items,
     list_review_queues,
-    remove_traces_from_review_queue,
-    set_review_queue_trace_status,
+    remove_items_from_review_queue,
+    set_review_queue_item_status,
     update_review_queue,
 )
 from mlflow.store.entities.paged_list import PagedList
@@ -40,11 +40,11 @@ def _queue(queue_id="rq-1", name="alice", queue_type=ReviewQueueType.USER):
     )
 
 
-def _item(target_id="tr-1", status=ReviewStatus.PENDING):
+def _item(item_id="tr-1", status=ReviewStatus.PENDING):
     return ReviewQueueItem(
         queue_id="rq-1",
-        target_type=ReviewTargetType.TRACE,
-        target_id=target_id,
+        item_type=ReviewItemType.TRACE,
+        item_id=item_id,
         status=status,
         creation_time_ms=1,
         last_update_time_ms=1,
@@ -137,30 +137,28 @@ def test_delete_review_queue_delegates():
     m.assert_called_once_with("rq-1")
 
 
-def test_add_traces_maps_trace_ids_to_target_ids():
-    with patch(f"{_BASE}._add_traces_to_review_queue", return_value=[_item()]) as m:
-        add_traces_to_review_queue("rq-1", trace_ids=["tr-1", "tr-2"])
-    m.assert_called_once_with("rq-1", target_ids=["tr-1", "tr-2"])
+def test_add_items_forwards_item_ids():
+    with patch(f"{_BASE}._add_items_to_review_queue", return_value=[_item()]) as m:
+        add_items_to_review_queue("rq-1", item_ids=["tr-1", "tr-2"])
+    m.assert_called_once_with("rq-1", item_ids=["tr-1", "tr-2"])
 
 
-def test_remove_traces_maps_trace_ids_to_target_ids():
-    with patch(f"{_BASE}._remove_traces_from_review_queue", return_value=None) as m:
-        remove_traces_from_review_queue("rq-1", trace_ids=["tr-2"])
-    m.assert_called_once_with("rq-1", target_ids=["tr-2"])
+def test_remove_items_forwards_item_ids():
+    with patch(f"{_BASE}._remove_items_from_review_queue", return_value=None) as m:
+        remove_items_from_review_queue("rq-1", item_ids=["tr-2"])
+    m.assert_called_once_with("rq-1", item_ids=["tr-2"])
 
 
-def test_list_review_queue_traces_delegates():
-    with patch(f"{_BASE}._list_review_queue_traces", return_value=PagedList([_item()], None)) as m:
-        list_review_queue_traces("rq-1", status="pending", max_results=3)
+def test_list_review_queue_items_delegates():
+    with patch(f"{_BASE}._list_review_queue_items", return_value=PagedList([_item()], None)) as m:
+        list_review_queue_items("rq-1", status="pending", max_results=3)
     m.assert_called_once_with("rq-1", status="pending", max_results=3, page_token=None)
 
 
-def test_set_status_maps_trace_id_to_target_id():
-    with patch(f"{_BASE}._set_review_queue_trace_status", return_value=_item()) as m:
-        set_review_queue_trace_status(
-            "rq-1", trace_id="tr-1", status="complete", completed_by="bob"
-        )
-    m.assert_called_once_with("rq-1", target_id="tr-1", status="complete", completed_by="bob")
+def test_set_status_forwards_item_id():
+    with patch(f"{_BASE}._set_review_queue_item_status", return_value=_item()) as m:
+        set_review_queue_item_status("rq-1", item_id="tr-1", status="complete", completed_by="bob")
+    m.assert_called_once_with("rq-1", item_id="tr-1", status="complete", completed_by="bob")
 
 
 # --------------------------------------------------------------------------
@@ -187,15 +185,15 @@ def test_sdk_end_to_end(sqlite_tracking):
     user_queue = get_or_create_user_queue("alice", experiment_id=exp_id)
     assert get_or_create_user_queue("alice", experiment_id=exp_id).queue_id == user_queue.queue_id
 
-    items = add_traces_to_review_queue(custom.queue_id, trace_ids=["tr-1", "tr-2"])
-    # The returned items cover every requested trace_id, in request order.
-    assert [i.target_id for i in items] == ["tr-1", "tr-2"]
+    items = add_items_to_review_queue(custom.queue_id, item_ids=["tr-1", "tr-2"])
+    # The returned items cover every requested item_id, in request order.
+    assert [i.item_id for i in items] == ["tr-1", "tr-2"]
 
-    set_review_queue_trace_status(
-        custom.queue_id, trace_id="tr-1", status="complete", completed_by="Bob"
+    set_review_queue_item_status(
+        custom.queue_id, item_id="tr-1", status="complete", completed_by="Bob"
     )
-    pending = list_review_queue_traces(custom.queue_id, status="pending")
-    assert {i.target_id for i in pending} == {"tr-2"}
+    pending = list_review_queue_items(custom.queue_id, status="pending")
+    assert {i.item_id for i in pending} == {"tr-2"}
 
     assert {q.name for q in list_review_queues(user="alice", experiment_id=exp_id)} == {"alice"}
 
@@ -203,7 +201,7 @@ def test_sdk_end_to_end(sqlite_tracking):
     assert get_review_queue(custom.queue_id).users == ["dave"]
     assert get_review_queue(name="Q3 review", experiment_id=exp_id).queue_id == custom.queue_id
 
-    remove_traces_from_review_queue(custom.queue_id, trace_ids=["tr-2"])
+    remove_items_from_review_queue(custom.queue_id, item_ids=["tr-2"])
     delete_review_queue(custom.queue_id)
     with pytest.raises(MlflowException, match="not found"):
         get_review_queue(custom.queue_id)
