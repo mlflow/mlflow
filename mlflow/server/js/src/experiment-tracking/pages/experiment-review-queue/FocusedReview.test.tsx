@@ -128,7 +128,11 @@ describe('FocusedReview view-only when not assigned', () => {
 
   it('offers an Assign myself action when provided', () => {
     const onAssignSelf = jest.fn();
-    renderFocused([passFailSchema()], jest.fn(() => Promise.resolve()), { canReview: false, onAssignSelf });
+    renderFocused(
+      [passFailSchema()],
+      jest.fn(() => Promise.resolve()),
+      { canReview: false, onAssignSelf },
+    );
 
     fireEvent.click(screen.getByText('Assign myself'));
     expect(onAssignSelf).toHaveBeenCalled();
