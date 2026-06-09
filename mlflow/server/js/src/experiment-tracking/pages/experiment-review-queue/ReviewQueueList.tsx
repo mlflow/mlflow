@@ -50,11 +50,11 @@ const formatAgo = (ms: number, nowMs: number) => {
   return hours < 24 ? `${hours}h` : `${Math.round(hours / 24)}d`;
 };
 
-type ColumnKey = 'target_id' | 'status' | 'completed_by' | 'creation_time_ms';
+type ColumnKey = 'item_id' | 'status' | 'completed_by' | 'creation_time_ms';
 
 const COLUMNS: { key: ColumnKey; label: React.ReactNode; flex: number }[] = [
   {
-    key: 'target_id',
+    key: 'item_id',
     label: <FormattedMessage defaultMessage="Trace" description="Review queue table: trace column" />,
     flex: 2,
   },
@@ -82,8 +82,8 @@ export const ReviewQueueList = ({
   onOpen,
   nowMs,
   latestQuestionCreatedAtMs,
-  onRemoveTraces,
-  isRemovingTraces,
+  onRemoveItems,
+  isRemovingItems,
   onManageQueue,
   onDeleteQueue,
 }: {
@@ -98,9 +98,9 @@ export const ReviewQueueList = ({
   latestQuestionCreatedAtMs?: number;
   /** When provided, rows become checkbox-selectable and a delete action appears
    *  so the queue's manager can remove traces from this view. */
-  onRemoveTraces?: (targetIds: string[]) => void;
-  isRemovingTraces?: boolean;
-  /** When provided (editable non-default custom queues only), a gear menu offers
+  onRemoveItems?: (itemIds: string[]) => void;
+  isRemovingItems?: boolean;
+  /** When provided (editable custom queues only), a gear menu offers
    *  "Manage queue"; `onDeleteQueue`, when also provided, adds "Delete queue". */
   onManageQueue?: () => void;
   onDeleteQueue?: () => void;
@@ -109,10 +109,10 @@ export const ReviewQueueList = ({
   const intl = useIntl();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [completedOpen, setCompletedOpen] = useState(false);
-  const selectable = Boolean(onRemoveTraces);
+  const selectable = Boolean(onRemoveItems);
 
   // The trace output preview keeps rows human-readable — the raw trace id isn't.
-  const { data: traces } = useGetTracesById(items.map((i) => i.target_id));
+  const { data: traces } = useGetTracesById(items.map((i) => i.item_id));
   const previewById = useMemo(() => {
     const map = new Map<string, string>();
     (traces ?? []).forEach((t) => {
@@ -133,22 +133,22 @@ export const ReviewQueueList = ({
   // Select-all only covers the rows currently visible: "To do" always, plus
   // "Completed" only when that group is expanded.
   const visibleItems = useMemo(() => [...toDo, ...(completedOpen ? completed : [])], [toDo, completed, completedOpen]);
-  const allSelected = visibleItems.length > 0 && visibleItems.every((i) => selected.has(i.target_id));
-  const toggleSelect = (targetId: string, checked: boolean) =>
+  const allSelected = visibleItems.length > 0 && visibleItems.every((i) => selected.has(i.item_id));
+  const toggleSelect = (itemId: string, checked: boolean) =>
     setSelected((prev) => {
       const next = new Set(prev);
       if (checked) {
-        next.add(targetId);
+        next.add(itemId);
       } else {
-        next.delete(targetId);
+        next.delete(itemId);
       }
       return next;
     });
   const toggleAll = (checked: boolean) =>
-    setSelected(checked ? new Set(visibleItems.map((i) => i.target_id)) : new Set());
+    setSelected(checked ? new Set(visibleItems.map((i) => i.item_id)) : new Set());
   const handleDelete = () => {
-    if (onRemoveTraces && selected.size > 0) {
-      onRemoveTraces([...selected]);
+    if (onRemoveItems && selected.size > 0) {
+      onRemoveItems([...selected]);
       setSelected(new Set());
     }
   };
@@ -177,10 +177,10 @@ export const ReviewQueueList = ({
       item.completed_time_ms != null &&
       latestQuestionCreatedAtMs != null &&
       latestQuestionCreatedAtMs > item.completed_time_ms;
-    const previewText = previewById.get(item.target_id) ?? item.target_id;
+    const previewText = previewById.get(item.item_id) ?? item.item_id;
     return (
       <TableRow
-        key={item.target_id}
+        key={item.item_id}
         onClick={() => onOpen(item)}
         css={{ cursor: 'pointer', '&:hover': { backgroundColor: theme.colors.actionDefaultBackgroundHover } }}
       >
@@ -188,8 +188,8 @@ export const ReviewQueueList = ({
           <TableCell css={{ flex: '0 0 36px' }} onClick={(e) => e.stopPropagation()}>
             <Checkbox
               componentId={`${CID}.select-row`}
-              isChecked={selected.has(item.target_id)}
-              onChange={(checked) => toggleSelect(item.target_id, checked)}
+              isChecked={selected.has(item.item_id)}
+              onChange={(checked) => toggleSelect(item.item_id, checked)}
             />
           </TableCell>
         )}
@@ -278,8 +278,8 @@ export const ReviewQueueList = ({
               componentId={`${CID}.delete-selected`}
               danger
               icon={<TrashIcon />}
-              disabled={selected.size === 0 || isRemovingTraces}
-              loading={isRemovingTraces}
+              disabled={selected.size === 0 || isRemovingItems}
+              loading={isRemovingItems}
               onClick={handleDelete}
             >
               <FormattedMessage

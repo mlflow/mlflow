@@ -11,7 +11,7 @@ export type ReviewQueueType = 'USER' | 'CUSTOM';
 
 export type ReviewStatus = 'PENDING' | 'COMPLETE' | 'DECLINED';
 
-export type ReviewTargetType = 'TRACE';
+export type ReviewItemType = 'TRACE';
 
 export interface ReviewQueue {
   queue_id: string;
@@ -25,18 +25,12 @@ export interface ReviewQueue {
   users?: string[];
   /** Attached label-schema ids; empty for a USER queue (resolves to all). */
   schema_ids?: string[];
-  /**
-   * The experiment's single default queue: a CUSTOM queue that inherits all of
-   * the experiment's questions (like a USER queue), whose questions cannot be
-   * edited and which cannot be deleted (members stay editable).
-   */
-  is_default?: boolean;
 }
 
 export interface ReviewQueueItem {
   queue_id: string;
-  target_type: ReviewTargetType;
-  target_id: string;
+  item_type: ReviewItemType;
+  item_id: string;
   status: ReviewStatus;
   /** Set only in the COMPLETE / DECLINED terminal states. */
   completed_by?: string;

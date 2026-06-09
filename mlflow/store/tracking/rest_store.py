@@ -67,16 +67,16 @@ from mlflow.protos.label_schemas_pb2 import (
     UpdateLabelSchema,
 )
 from mlflow.protos.review_queues_pb2 import (
-    AddTracesToReviewQueue,
+    AddItemsToReviewQueue,
     CreateReviewQueue,
     DeleteReviewQueue,
     GetOrCreateUserQueue,
     GetReviewQueue,
     GetReviewQueueByName,
+    ListReviewQueueItems,
     ListReviewQueues,
-    ListReviewQueueTraces,
-    RemoveTracesFromReviewQueue,
-    SetReviewQueueTraceStatus,
+    RemoveItemsFromReviewQueue,
+    SetReviewQueueItemStatus,
     UpdateReviewQueue,
 )
 from mlflow.protos.service_pb2 import (
@@ -1170,9 +1170,7 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
         )
         return ReviewQueue.from_proto(response_proto.review_queue)
 
-    def list_review_queues(
-        self, experiment_id, *, user=None, max_results=None, page_token=None, ensure_default=False
-    ):
+    def list_review_queues(self, experiment_id, *, user=None, max_results=None, page_token=None):
         from mlflow.genai.review_queues import ReviewQueue
 
         req = ListReviewQueues(experiment_id=str(experiment_id))
@@ -1182,8 +1180,6 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
             req.max_results = max_results
         if page_token is not None:
             req.page_token = page_token
-        if ensure_default:
-            req.ensure_default = True
         response_proto = self._call_endpoint(
             ListReviewQueues,
             message_to_json(req),
@@ -1217,33 +1213,33 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
             endpoint=f"{_V3_REVIEW_QUEUES_REST_API_PATH_PREFIX}/delete",
         )
 
-    def add_traces_to_review_queue(self, queue_id, *, target_ids, target_type="trace"):
-        from mlflow.genai.review_queues import ReviewQueueItem, ReviewTargetType
+    def add_items_to_review_queue(self, queue_id, *, item_ids, item_type="trace"):
+        from mlflow.genai.review_queues import ReviewItemType, ReviewQueueItem
 
-        req = AddTracesToReviewQueue(
+        req = AddItemsToReviewQueue(
             queue_id=queue_id,
-            target_type=ReviewTargetType(str(target_type)).to_proto(),
-            target_ids=list(target_ids),
+            item_type=ReviewItemType(str(item_type)).to_proto(),
+            item_ids=list(item_ids),
         )
         response_proto = self._call_endpoint(
-            AddTracesToReviewQueue,
+            AddItemsToReviewQueue,
             message_to_json(req),
-            endpoint=f"{_V3_REVIEW_QUEUES_REST_API_PATH_PREFIX}/traces/add",
+            endpoint=f"{_V3_REVIEW_QUEUES_REST_API_PATH_PREFIX}/items/add",
         )
         return [ReviewQueueItem.from_proto(i) for i in response_proto.items]
 
-    def remove_traces_from_review_queue(self, queue_id, *, target_ids):
-        req = RemoveTracesFromReviewQueue(queue_id=queue_id, target_ids=list(target_ids))
+    def remove_items_from_review_queue(self, queue_id, *, item_ids):
+        req = RemoveItemsFromReviewQueue(queue_id=queue_id, item_ids=list(item_ids))
         self._call_endpoint(
-            RemoveTracesFromReviewQueue,
+            RemoveItemsFromReviewQueue,
             message_to_json(req),
-            endpoint=f"{_V3_REVIEW_QUEUES_REST_API_PATH_PREFIX}/traces/remove",
+            endpoint=f"{_V3_REVIEW_QUEUES_REST_API_PATH_PREFIX}/items/remove",
         )
 
-    def list_review_queue_traces(self, queue_id, *, status=None, max_results=None, page_token=None):
+    def list_review_queue_items(self, queue_id, *, status=None, max_results=None, page_token=None):
         from mlflow.genai.review_queues import ReviewQueueItem, ReviewStatus
 
-        req = ListReviewQueueTraces(queue_id=queue_id)
+        req = ListReviewQueueItems(queue_id=queue_id)
         if status is not None:
             req.status = ReviewStatus(str(status)).to_proto()
         if max_results is not None:
@@ -1251,27 +1247,27 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
         if page_token is not None:
             req.page_token = page_token
         response_proto = self._call_endpoint(
-            ListReviewQueueTraces,
+            ListReviewQueueItems,
             message_to_json(req),
-            endpoint=f"{_V3_REVIEW_QUEUES_REST_API_PATH_PREFIX}/traces/list",
+            endpoint=f"{_V3_REVIEW_QUEUES_REST_API_PATH_PREFIX}/items/list",
         )
         items = [ReviewQueueItem.from_proto(i) for i in response_proto.items]
         return PagedList(items, response_proto.next_page_token or None)
 
-    def set_review_queue_trace_status(self, queue_id, *, target_id, status, completed_by=None):
+    def set_review_queue_item_status(self, queue_id, *, item_id, status, completed_by=None):
         from mlflow.genai.review_queues import ReviewQueueItem, ReviewStatus
 
-        req = SetReviewQueueTraceStatus(
+        req = SetReviewQueueItemStatus(
             queue_id=queue_id,
-            target_id=target_id,
+            item_id=item_id,
             status=ReviewStatus(str(status)).to_proto(),
         )
         if completed_by is not None:
             req.completed_by = completed_by
         response_proto = self._call_endpoint(
-            SetReviewQueueTraceStatus,
+            SetReviewQueueItemStatus,
             message_to_json(req),
-            endpoint=f"{_V3_REVIEW_QUEUES_REST_API_PATH_PREFIX}/traces/set-status",
+            endpoint=f"{_V3_REVIEW_QUEUES_REST_API_PATH_PREFIX}/items/set-status",
         )
         return ReviewQueueItem.from_proto(response_proto.item)
 

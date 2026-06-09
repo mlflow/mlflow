@@ -77,7 +77,7 @@ export const FocusedReview = ({
   onAssignSelf?: () => void;
   isAssigningSelf?: boolean;
   onBack: () => void;
-  onSelect: (targetId: string) => void;
+  onSelect: (itemId: string) => void;
   onSetStatus: (status: ReviewStatus) => Promise<void>;
 }) => {
   const { theme } = useDesignSystemTheme();
@@ -86,7 +86,7 @@ export const FocusedReview = ({
 
   // The trace's input/output for the middle panel. The full trace (spans,
   // timeline, etc.) is available on demand through the drawer.
-  const { data: traceData, isLoading: traceLoading } = useGetTracesById([item.target_id]);
+  const { data: traceData, isLoading: traceLoading } = useGetTracesById([item.item_id]);
   const trace = traceData[0];
   const [showFullTrace, setShowFullTrace] = useState(false);
   const requestPreview = trace?.info?.request_preview;
@@ -95,7 +95,7 @@ export const FocusedReview = ({
 
   // Prefill the widgets from the trace's existing assessments; edits overlay
   // the prefill so the query result never clobbers what the reviewer typed.
-  const { priorAnswers } = useTraceAssessmentsQuery({ traceId: item.target_id });
+  const { priorAnswers } = useTraceAssessmentsQuery({ traceId: item.item_id });
   const prefilled = useMemo(() => buildPrefilledAnswers(priorAnswers, schemas), [priorAnswers, schemas]);
   const prefilledRationales = useMemo(() => buildPrefilledRationales(priorAnswers, schemas), [priorAnswers, schemas]);
   const [edited, setEdited] = useState<Record<string, LabelSchemaValue>>({});
@@ -120,10 +120,10 @@ export const FocusedReview = ({
   const hideSubmit = autoSubmitSchema != null && (autoSubmitValue === undefined || autoSubmitValue === null);
 
   // Position in the queue + adjacent traces for prev/next navigation.
-  const currentIndex = items.findIndex((i) => i.target_id === item.target_id);
-  const prevTargetId = currentIndex > 0 ? items[currentIndex - 1].target_id : undefined;
-  const nextTargetId =
-    currentIndex !== -1 && currentIndex < items.length - 1 ? items[currentIndex + 1].target_id : undefined;
+  const currentIndex = items.findIndex((i) => i.item_id === item.item_id);
+  const prevItemId = currentIndex > 0 ? items[currentIndex - 1].item_id : undefined;
+  const nextItemId =
+    currentIndex !== -1 && currentIndex < items.length - 1 ? items[currentIndex + 1].item_id : undefined;
 
   // Progress across the queue: terminal (complete/declined) traces are reviewed.
   const reviewedCount = items.filter((i) => i.status === 'COMPLETE' || i.status === 'DECLINED').length;
@@ -142,10 +142,10 @@ export const FocusedReview = ({
   });
 
   // The next still-pending trace after the current one, wrapping around.
-  const nextPendingTargetId = items
+  const nextPendingItemId = items
     .slice(currentIndex + 1)
     .concat(items.slice(0, Math.max(currentIndex, 0)))
-    .find((i) => i.target_id !== item.target_id && i.status === 'PENDING')?.target_id;
+    .find((i) => i.item_id !== item.item_id && i.status === 'PENDING')?.item_id;
 
   const submitAnswersAndComplete = async (answerOverrides?: Record<string, LabelSchemaValue>) => {
     setSubmitError(null);
@@ -163,7 +163,7 @@ export const FocusedReview = ({
       await Promise.all(
         answered.map((s) =>
           createReviewAssessmentAsync({
-            traceId: item.target_id,
+            traceId: item.item_id,
             name: s.name,
             assessmentKind: s.type === 'EXPECTATION' ? 'expectation' : 'feedback',
             value: effectiveValue(s.name) as Exclude<LabelSchemaValue, null | undefined>,
@@ -175,8 +175,8 @@ export const FocusedReview = ({
       await onSetStatus('COMPLETE');
       // Keep the reviewer moving: jump to the next still-pending trace, or
       // return to the queue list once everything has been reviewed.
-      if (nextPendingTargetId) {
-        onSelect(nextPendingTargetId);
+      if (nextPendingItemId) {
+        onSelect(nextPendingItemId);
       } else {
         onBack();
       }
@@ -200,28 +200,28 @@ export const FocusedReview = ({
         <Button componentId={`${CID}.back`} icon={<ChevronLeftIcon />} onClick={onBack}>
           <FormattedMessage defaultMessage="Back" description="Review focused view: back button" />
         </Button>
-        <Typography.Text bold>{item.target_id}</Typography.Text>
+        <Typography.Text bold>{item.item_id}</Typography.Text>
         <StatusTag status={item.status} />
         <div css={{ flex: 1 }} />
         <Button
           componentId={`${CID}.prev`}
           icon={<ChevronLeftIcon />}
-          disabled={!prevTargetId}
+          disabled={!prevItemId}
           aria-label={intl.formatMessage({
             defaultMessage: 'Previous trace',
             description: 'Review focused view: previous-trace button',
           })}
-          onClick={() => prevTargetId && onSelect(prevTargetId)}
+          onClick={() => prevItemId && onSelect(prevItemId)}
         />
         <Button
           componentId={`${CID}.next`}
           icon={<ChevronRightIcon />}
-          disabled={!nextTargetId}
+          disabled={!nextItemId}
           aria-label={intl.formatMessage({
             defaultMessage: 'Next trace',
             description: 'Review focused view: next-trace button',
           })}
-          onClick={() => nextTargetId && onSelect(nextTargetId)}
+          onClick={() => nextItemId && onSelect(nextItemId)}
         />
       </div>
 
@@ -516,7 +516,7 @@ export const FocusedReview = ({
           componentId={`${CID}.full-trace-drawer`}
           title={
             <Typography.Title level={3} withoutMargins>
-              {item.target_id}
+              {item.item_id}
             </Typography.Title>
           }
           width="60vw"

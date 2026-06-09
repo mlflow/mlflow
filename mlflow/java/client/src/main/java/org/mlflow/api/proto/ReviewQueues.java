@@ -22,14 +22,14 @@ public final class ReviewQueues {
    * enforces HasField, not value validity.
    * </pre>
    *
-   * Protobuf enum {@code mlflow.review_queues.ReviewTargetType}
+   * Protobuf enum {@code mlflow.review_queues.ReviewItemType}
    */
-  public enum ReviewTargetType
+  public enum ReviewItemType
       implements com.google.protobuf.ProtocolMessageEnum {
     /**
-     * <code>REVIEW_TARGET_TYPE_UNSPECIFIED = 0;</code>
+     * <code>REVIEW_ITEM_TYPE_UNSPECIFIED = 0;</code>
      */
-    REVIEW_TARGET_TYPE_UNSPECIFIED(0),
+    REVIEW_ITEM_TYPE_UNSPECIFIED(0),
     /**
      * <code>TRACE = 1;</code>
      */
@@ -37,9 +37,9 @@ public final class ReviewQueues {
     ;
 
     /**
-     * <code>REVIEW_TARGET_TYPE_UNSPECIFIED = 0;</code>
+     * <code>REVIEW_ITEM_TYPE_UNSPECIFIED = 0;</code>
      */
-    public static final int REVIEW_TARGET_TYPE_UNSPECIFIED_VALUE = 0;
+    public static final int REVIEW_ITEM_TYPE_UNSPECIFIED_VALUE = 0;
     /**
      * <code>TRACE = 1;</code>
      */
@@ -56,7 +56,7 @@ public final class ReviewQueues {
      * @deprecated Use {@link #forNumber(int)} instead.
      */
     @java.lang.Deprecated
-    public static ReviewTargetType valueOf(int value) {
+    public static ReviewItemType valueOf(int value) {
       return forNumber(value);
     }
 
@@ -64,23 +64,23 @@ public final class ReviewQueues {
      * @param value The numeric wire value of the corresponding enum entry.
      * @return The enum associated with the given numeric wire value.
      */
-    public static ReviewTargetType forNumber(int value) {
+    public static ReviewItemType forNumber(int value) {
       switch (value) {
-        case 0: return REVIEW_TARGET_TYPE_UNSPECIFIED;
+        case 0: return REVIEW_ITEM_TYPE_UNSPECIFIED;
         case 1: return TRACE;
         default: return null;
       }
     }
 
-    public static com.google.protobuf.Internal.EnumLiteMap<ReviewTargetType>
+    public static com.google.protobuf.Internal.EnumLiteMap<ReviewItemType>
         internalGetValueMap() {
       return internalValueMap;
     }
     private static final com.google.protobuf.Internal.EnumLiteMap<
-        ReviewTargetType> internalValueMap =
-          new com.google.protobuf.Internal.EnumLiteMap<ReviewTargetType>() {
-            public ReviewTargetType findValueByNumber(int number) {
-              return ReviewTargetType.forNumber(number);
+        ReviewItemType> internalValueMap =
+          new com.google.protobuf.Internal.EnumLiteMap<ReviewItemType>() {
+            public ReviewItemType findValueByNumber(int number) {
+              return ReviewItemType.forNumber(number);
             }
           };
 
@@ -97,9 +97,9 @@ public final class ReviewQueues {
       return org.mlflow.api.proto.ReviewQueues.getDescriptor().getEnumTypes().get(0);
     }
 
-    private static final ReviewTargetType[] VALUES = values();
+    private static final ReviewItemType[] VALUES = values();
 
-    public static ReviewTargetType valueOf(
+    public static ReviewItemType valueOf(
         com.google.protobuf.Descriptors.EnumValueDescriptor desc) {
       if (desc.getType() != getDescriptor()) {
         throw new java.lang.IllegalArgumentException(
@@ -110,11 +110,11 @@ public final class ReviewQueues {
 
     private final int value;
 
-    private ReviewTargetType(int value) {
+    private ReviewItemType(int value) {
       this.value = value;
     }
 
-    // @@protoc_insertion_point(enum_scope:mlflow.review_queues.ReviewTargetType)
+    // @@protoc_insertion_point(enum_scope:mlflow.review_queues.ReviewItemType)
   }
 
   /**
@@ -123,7 +123,7 @@ public final class ReviewQueues {
    * personal worklist (name == the user, all experiment schemas); CUSTOM
    * queues are a curated, possibly collaborative task (arbitrary name,
    * 0..N users, a chosen schema subset). Same UNSPECIFIED caveat as
-   * ReviewTargetType.
+   * ReviewItemType.
    * </pre>
    *
    * Protobuf enum {@code mlflow.review_queues.ReviewQueueType}
@@ -232,8 +232,8 @@ public final class ReviewQueues {
 
   /**
    * <pre>
-   * Shared-pool workflow status of a single attached trace, per
-   * `(queue, trace)`. Any assigned user can move a trace to COMPLETE or
+   * Shared-pool workflow status of a single attached item, per
+   * `(queue, item)`. Any assigned user can move an item to COMPLETE or
    * DECLINED; reopening clears the attribution back to PENDING. Status
    * never changes as a side effect of writing an assessment. Same
    * UNSPECIFIED caveat as the other enums.
@@ -590,36 +590,13 @@ public final class ReviewQueues {
      */
     com.google.protobuf.ByteString
         getSchemaIdsBytes(int index);
-
-    /**
-     * <pre>
-     * The experiment's single default queue: a CUSTOM queue that inherits all of
-     * the experiment's label schemas, whose questions cannot be edited and which
-     * cannot be deleted. At most one per experiment.
-     * </pre>
-     *
-     * <code>optional bool is_default = 10;</code>
-     * @return Whether the isDefault field is set.
-     */
-    boolean hasIsDefault();
-    /**
-     * <pre>
-     * The experiment's single default queue: a CUSTOM queue that inherits all of
-     * the experiment's label schemas, whose questions cannot be edited and which
-     * cannot be deleted. At most one per experiment.
-     * </pre>
-     *
-     * <code>optional bool is_default = 10;</code>
-     * @return The isDefault.
-     */
-    boolean getIsDefault();
   }
   /**
    * <pre>
    * Full review-queue entity. `users` and `schema_ids` are the queue's
    * association sets; `schema_ids` is empty for a USER queue (it resolves
-   * to all of the experiment's schemas at read time). Attached traces are
-   * paged separately via ListReviewQueueTraces.
+   * to all of the experiment's schemas at read time). Attached items are
+   * paged separately via ListReviewQueueItems.
    * </pre>
    *
    * Protobuf type {@code mlflow.review_queues.ReviewQueue}
@@ -736,11 +713,6 @@ public final class ReviewQueues {
                 mutable_bitField0_ |= 0x00000100;
               }
               schemaIds_.add(bs);
-              break;
-            }
-            case 80: {
-              bitField0_ |= 0x00000080;
-              isDefault_ = input.readBool();
               break;
             }
             default: {
@@ -1185,37 +1157,6 @@ public final class ReviewQueues {
       return schemaIds_.getByteString(index);
     }
 
-    public static final int IS_DEFAULT_FIELD_NUMBER = 10;
-    private boolean isDefault_;
-    /**
-     * <pre>
-     * The experiment's single default queue: a CUSTOM queue that inherits all of
-     * the experiment's label schemas, whose questions cannot be edited and which
-     * cannot be deleted. At most one per experiment.
-     * </pre>
-     *
-     * <code>optional bool is_default = 10;</code>
-     * @return Whether the isDefault field is set.
-     */
-    @java.lang.Override
-    public boolean hasIsDefault() {
-      return ((bitField0_ & 0x00000080) != 0);
-    }
-    /**
-     * <pre>
-     * The experiment's single default queue: a CUSTOM queue that inherits all of
-     * the experiment's label schemas, whose questions cannot be edited and which
-     * cannot be deleted. At most one per experiment.
-     * </pre>
-     *
-     * <code>optional bool is_default = 10;</code>
-     * @return The isDefault.
-     */
-    @java.lang.Override
-    public boolean getIsDefault() {
-      return isDefault_;
-    }
-
     private byte memoizedIsInitialized = -1;
     @java.lang.Override
     public final boolean isInitialized() {
@@ -1256,9 +1197,6 @@ public final class ReviewQueues {
       }
       for (int i = 0; i < schemaIds_.size(); i++) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 9, schemaIds_.getRaw(i));
-      }
-      if (((bitField0_ & 0x00000080) != 0)) {
-        output.writeBool(10, isDefault_);
       }
       unknownFields.writeTo(output);
     }
@@ -1308,10 +1246,6 @@ public final class ReviewQueues {
         }
         size += dataSize;
         size += 1 * getSchemaIdsList().size();
-      }
-      if (((bitField0_ & 0x00000080) != 0)) {
-        size += com.google.protobuf.CodedOutputStream
-          .computeBoolSize(10, isDefault_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -1366,11 +1300,6 @@ public final class ReviewQueues {
           .equals(other.getUsersList())) return false;
       if (!getSchemaIdsList()
           .equals(other.getSchemaIdsList())) return false;
-      if (hasIsDefault() != other.hasIsDefault()) return false;
-      if (hasIsDefault()) {
-        if (getIsDefault()
-            != other.getIsDefault()) return false;
-      }
       if (!unknownFields.equals(other.unknownFields)) return false;
       return true;
     }
@@ -1419,11 +1348,6 @@ public final class ReviewQueues {
       if (getSchemaIdsCount() > 0) {
         hash = (37 * hash) + SCHEMA_IDS_FIELD_NUMBER;
         hash = (53 * hash) + getSchemaIdsList().hashCode();
-      }
-      if (hasIsDefault()) {
-        hash = (37 * hash) + IS_DEFAULT_FIELD_NUMBER;
-        hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
-            getIsDefault());
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
@@ -1524,8 +1448,8 @@ public final class ReviewQueues {
      * <pre>
      * Full review-queue entity. `users` and `schema_ids` are the queue's
      * association sets; `schema_ids` is empty for a USER queue (it resolves
-     * to all of the experiment's schemas at read time). Attached traces are
-     * paged separately via ListReviewQueueTraces.
+     * to all of the experiment's schemas at read time). Attached items are
+     * paged separately via ListReviewQueueItems.
      * </pre>
      *
      * Protobuf type {@code mlflow.review_queues.ReviewQueue}
@@ -1583,8 +1507,6 @@ public final class ReviewQueues {
         bitField0_ = (bitField0_ & ~0x00000080);
         schemaIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
         bitField0_ = (bitField0_ & ~0x00000100);
-        isDefault_ = false;
-        bitField0_ = (bitField0_ & ~0x00000200);
         return this;
       }
 
@@ -1651,10 +1573,6 @@ public final class ReviewQueues {
           bitField0_ = (bitField0_ & ~0x00000100);
         }
         result.schemaIds_ = schemaIds_;
-        if (((from_bitField0_ & 0x00000200) != 0)) {
-          result.isDefault_ = isDefault_;
-          to_bitField0_ |= 0x00000080;
-        }
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -1752,9 +1670,6 @@ public final class ReviewQueues {
             schemaIds_.addAll(other.schemaIds_);
           }
           onChanged();
-        }
-        if (other.hasIsDefault()) {
-          setIsDefault(other.getIsDefault());
         }
         this.mergeUnknownFields(other.unknownFields);
         onChanged();
@@ -2637,69 +2552,6 @@ public final class ReviewQueues {
         onChanged();
         return this;
       }
-
-      private boolean isDefault_ ;
-      /**
-       * <pre>
-       * The experiment's single default queue: a CUSTOM queue that inherits all of
-       * the experiment's label schemas, whose questions cannot be edited and which
-       * cannot be deleted. At most one per experiment.
-       * </pre>
-       *
-       * <code>optional bool is_default = 10;</code>
-       * @return Whether the isDefault field is set.
-       */
-      @java.lang.Override
-      public boolean hasIsDefault() {
-        return ((bitField0_ & 0x00000200) != 0);
-      }
-      /**
-       * <pre>
-       * The experiment's single default queue: a CUSTOM queue that inherits all of
-       * the experiment's label schemas, whose questions cannot be edited and which
-       * cannot be deleted. At most one per experiment.
-       * </pre>
-       *
-       * <code>optional bool is_default = 10;</code>
-       * @return The isDefault.
-       */
-      @java.lang.Override
-      public boolean getIsDefault() {
-        return isDefault_;
-      }
-      /**
-       * <pre>
-       * The experiment's single default queue: a CUSTOM queue that inherits all of
-       * the experiment's label schemas, whose questions cannot be edited and which
-       * cannot be deleted. At most one per experiment.
-       * </pre>
-       *
-       * <code>optional bool is_default = 10;</code>
-       * @param value The isDefault to set.
-       * @return This builder for chaining.
-       */
-      public Builder setIsDefault(boolean value) {
-        bitField0_ |= 0x00000200;
-        isDefault_ = value;
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * The experiment's single default queue: a CUSTOM queue that inherits all of
-       * the experiment's label schemas, whose questions cannot be edited and which
-       * cannot be deleted. At most one per experiment.
-       * </pre>
-       *
-       * <code>optional bool is_default = 10;</code>
-       * @return This builder for chaining.
-       */
-      public Builder clearIsDefault() {
-        bitField0_ = (bitField0_ & ~0x00000200);
-        isDefault_ = false;
-        onChanged();
-        return this;
-      }
       @java.lang.Override
       public final Builder setUnknownFields(
           final com.google.protobuf.UnknownFieldSet unknownFields) {
@@ -2775,44 +2627,44 @@ public final class ReviewQueues {
         getQueueIdBytes();
 
     /**
-     * <code>optional .mlflow.review_queues.ReviewTargetType target_type = 2;</code>
-     * @return Whether the targetType field is set.
+     * <code>optional .mlflow.review_queues.ReviewItemType item_type = 2;</code>
+     * @return Whether the itemType field is set.
      */
-    boolean hasTargetType();
+    boolean hasItemType();
     /**
-     * <code>optional .mlflow.review_queues.ReviewTargetType target_type = 2;</code>
-     * @return The targetType.
+     * <code>optional .mlflow.review_queues.ReviewItemType item_type = 2;</code>
+     * @return The itemType.
      */
-    org.mlflow.api.proto.ReviewQueues.ReviewTargetType getTargetType();
+    org.mlflow.api.proto.ReviewQueues.ReviewItemType getItemType();
 
     /**
      * <pre>
-     * Trace ID (UUID/hex; case-sensitive).
+     * Item ID (a trace ID in v1; UUID/hex, case-sensitive).
      * </pre>
      *
-     * <code>optional string target_id = 3;</code>
-     * @return Whether the targetId field is set.
+     * <code>optional string item_id = 3;</code>
+     * @return Whether the itemId field is set.
      */
-    boolean hasTargetId();
+    boolean hasItemId();
     /**
      * <pre>
-     * Trace ID (UUID/hex; case-sensitive).
+     * Item ID (a trace ID in v1; UUID/hex, case-sensitive).
      * </pre>
      *
-     * <code>optional string target_id = 3;</code>
-     * @return The targetId.
+     * <code>optional string item_id = 3;</code>
+     * @return The itemId.
      */
-    java.lang.String getTargetId();
+    java.lang.String getItemId();
     /**
      * <pre>
-     * Trace ID (UUID/hex; case-sensitive).
+     * Item ID (a trace ID in v1; UUID/hex, case-sensitive).
      * </pre>
      *
-     * <code>optional string target_id = 3;</code>
-     * @return The bytes for targetId.
+     * <code>optional string item_id = 3;</code>
+     * @return The bytes for itemId.
      */
     com.google.protobuf.ByteString
-        getTargetIdBytes();
+        getItemIdBytes();
 
     /**
      * <code>optional .mlflow.review_queues.ReviewStatus status = 4;</code>
@@ -2889,7 +2741,7 @@ public final class ReviewQueues {
   }
   /**
    * <pre>
-   * One trace attached to a queue plus its shared-pool workflow status.
+   * One item attached to a queue plus its shared-pool workflow status.
    * </pre>
    *
    * Protobuf type {@code mlflow.review_queues.ReviewQueueItem}
@@ -2905,8 +2757,8 @@ public final class ReviewQueues {
     }
     private ReviewQueueItem() {
       queueId_ = "";
-      targetType_ = 0;
-      targetId_ = "";
+      itemType_ = 0;
+      itemId_ = "";
       status_ = 0;
       completedBy_ = "";
     }
@@ -2951,19 +2803,19 @@ public final class ReviewQueues {
             case 16: {
               int rawValue = input.readEnum();
                 @SuppressWarnings("deprecation")
-              org.mlflow.api.proto.ReviewQueues.ReviewTargetType value = org.mlflow.api.proto.ReviewQueues.ReviewTargetType.valueOf(rawValue);
+              org.mlflow.api.proto.ReviewQueues.ReviewItemType value = org.mlflow.api.proto.ReviewQueues.ReviewItemType.valueOf(rawValue);
               if (value == null) {
                 unknownFields.mergeVarintField(2, rawValue);
               } else {
                 bitField0_ |= 0x00000002;
-                targetType_ = rawValue;
+                itemType_ = rawValue;
               }
               break;
             }
             case 26: {
               com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000004;
-              targetId_ = bs;
+              itemId_ = bs;
               break;
             }
             case 32: {
@@ -3080,50 +2932,50 @@ public final class ReviewQueues {
       }
     }
 
-    public static final int TARGET_TYPE_FIELD_NUMBER = 2;
-    private int targetType_;
+    public static final int ITEM_TYPE_FIELD_NUMBER = 2;
+    private int itemType_;
     /**
-     * <code>optional .mlflow.review_queues.ReviewTargetType target_type = 2;</code>
-     * @return Whether the targetType field is set.
+     * <code>optional .mlflow.review_queues.ReviewItemType item_type = 2;</code>
+     * @return Whether the itemType field is set.
      */
-    @java.lang.Override public boolean hasTargetType() {
+    @java.lang.Override public boolean hasItemType() {
       return ((bitField0_ & 0x00000002) != 0);
     }
     /**
-     * <code>optional .mlflow.review_queues.ReviewTargetType target_type = 2;</code>
-     * @return The targetType.
+     * <code>optional .mlflow.review_queues.ReviewItemType item_type = 2;</code>
+     * @return The itemType.
      */
-    @java.lang.Override public org.mlflow.api.proto.ReviewQueues.ReviewTargetType getTargetType() {
+    @java.lang.Override public org.mlflow.api.proto.ReviewQueues.ReviewItemType getItemType() {
       @SuppressWarnings("deprecation")
-      org.mlflow.api.proto.ReviewQueues.ReviewTargetType result = org.mlflow.api.proto.ReviewQueues.ReviewTargetType.valueOf(targetType_);
-      return result == null ? org.mlflow.api.proto.ReviewQueues.ReviewTargetType.REVIEW_TARGET_TYPE_UNSPECIFIED : result;
+      org.mlflow.api.proto.ReviewQueues.ReviewItemType result = org.mlflow.api.proto.ReviewQueues.ReviewItemType.valueOf(itemType_);
+      return result == null ? org.mlflow.api.proto.ReviewQueues.ReviewItemType.REVIEW_ITEM_TYPE_UNSPECIFIED : result;
     }
 
-    public static final int TARGET_ID_FIELD_NUMBER = 3;
-    private volatile java.lang.Object targetId_;
+    public static final int ITEM_ID_FIELD_NUMBER = 3;
+    private volatile java.lang.Object itemId_;
     /**
      * <pre>
-     * Trace ID (UUID/hex; case-sensitive).
+     * Item ID (a trace ID in v1; UUID/hex, case-sensitive).
      * </pre>
      *
-     * <code>optional string target_id = 3;</code>
-     * @return Whether the targetId field is set.
+     * <code>optional string item_id = 3;</code>
+     * @return Whether the itemId field is set.
      */
     @java.lang.Override
-    public boolean hasTargetId() {
+    public boolean hasItemId() {
       return ((bitField0_ & 0x00000004) != 0);
     }
     /**
      * <pre>
-     * Trace ID (UUID/hex; case-sensitive).
+     * Item ID (a trace ID in v1; UUID/hex, case-sensitive).
      * </pre>
      *
-     * <code>optional string target_id = 3;</code>
-     * @return The targetId.
+     * <code>optional string item_id = 3;</code>
+     * @return The itemId.
      */
     @java.lang.Override
-    public java.lang.String getTargetId() {
-      java.lang.Object ref = targetId_;
+    public java.lang.String getItemId() {
+      java.lang.Object ref = itemId_;
       if (ref instanceof java.lang.String) {
         return (java.lang.String) ref;
       } else {
@@ -3131,28 +2983,28 @@ public final class ReviewQueues {
             (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         if (bs.isValidUtf8()) {
-          targetId_ = s;
+          itemId_ = s;
         }
         return s;
       }
     }
     /**
      * <pre>
-     * Trace ID (UUID/hex; case-sensitive).
+     * Item ID (a trace ID in v1; UUID/hex, case-sensitive).
      * </pre>
      *
-     * <code>optional string target_id = 3;</code>
-     * @return The bytes for targetId.
+     * <code>optional string item_id = 3;</code>
+     * @return The bytes for itemId.
      */
     @java.lang.Override
     public com.google.protobuf.ByteString
-        getTargetIdBytes() {
-      java.lang.Object ref = targetId_;
+        getItemIdBytes() {
+      java.lang.Object ref = itemId_;
       if (ref instanceof java.lang.String) {
         com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
-        targetId_ = b;
+        itemId_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
@@ -3313,10 +3165,10 @@ public final class ReviewQueues {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 1, queueId_);
       }
       if (((bitField0_ & 0x00000002) != 0)) {
-        output.writeEnum(2, targetType_);
+        output.writeEnum(2, itemType_);
       }
       if (((bitField0_ & 0x00000004) != 0)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 3, targetId_);
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 3, itemId_);
       }
       if (((bitField0_ & 0x00000008) != 0)) {
         output.writeEnum(4, status_);
@@ -3347,10 +3199,10 @@ public final class ReviewQueues {
       }
       if (((bitField0_ & 0x00000002) != 0)) {
         size += com.google.protobuf.CodedOutputStream
-          .computeEnumSize(2, targetType_);
+          .computeEnumSize(2, itemType_);
       }
       if (((bitField0_ & 0x00000004) != 0)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, targetId_);
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, itemId_);
       }
       if (((bitField0_ & 0x00000008) != 0)) {
         size += com.google.protobuf.CodedOutputStream
@@ -3391,14 +3243,14 @@ public final class ReviewQueues {
         if (!getQueueId()
             .equals(other.getQueueId())) return false;
       }
-      if (hasTargetType() != other.hasTargetType()) return false;
-      if (hasTargetType()) {
-        if (targetType_ != other.targetType_) return false;
+      if (hasItemType() != other.hasItemType()) return false;
+      if (hasItemType()) {
+        if (itemType_ != other.itemType_) return false;
       }
-      if (hasTargetId() != other.hasTargetId()) return false;
-      if (hasTargetId()) {
-        if (!getTargetId()
-            .equals(other.getTargetId())) return false;
+      if (hasItemId() != other.hasItemId()) return false;
+      if (hasItemId()) {
+        if (!getItemId()
+            .equals(other.getItemId())) return false;
       }
       if (hasStatus() != other.hasStatus()) return false;
       if (hasStatus()) {
@@ -3439,13 +3291,13 @@ public final class ReviewQueues {
         hash = (37 * hash) + QUEUE_ID_FIELD_NUMBER;
         hash = (53 * hash) + getQueueId().hashCode();
       }
-      if (hasTargetType()) {
-        hash = (37 * hash) + TARGET_TYPE_FIELD_NUMBER;
-        hash = (53 * hash) + targetType_;
+      if (hasItemType()) {
+        hash = (37 * hash) + ITEM_TYPE_FIELD_NUMBER;
+        hash = (53 * hash) + itemType_;
       }
-      if (hasTargetId()) {
-        hash = (37 * hash) + TARGET_ID_FIELD_NUMBER;
-        hash = (53 * hash) + getTargetId().hashCode();
+      if (hasItemId()) {
+        hash = (37 * hash) + ITEM_ID_FIELD_NUMBER;
+        hash = (53 * hash) + getItemId().hashCode();
       }
       if (hasStatus()) {
         hash = (37 * hash) + STATUS_FIELD_NUMBER;
@@ -3567,7 +3419,7 @@ public final class ReviewQueues {
     }
     /**
      * <pre>
-     * One trace attached to a queue plus its shared-pool workflow status.
+     * One item attached to a queue plus its shared-pool workflow status.
      * </pre>
      *
      * Protobuf type {@code mlflow.review_queues.ReviewQueueItem}
@@ -3609,9 +3461,9 @@ public final class ReviewQueues {
         super.clear();
         queueId_ = "";
         bitField0_ = (bitField0_ & ~0x00000001);
-        targetType_ = 0;
+        itemType_ = 0;
         bitField0_ = (bitField0_ & ~0x00000002);
-        targetId_ = "";
+        itemId_ = "";
         bitField0_ = (bitField0_ & ~0x00000004);
         status_ = 0;
         bitField0_ = (bitField0_ & ~0x00000008);
@@ -3658,11 +3510,11 @@ public final class ReviewQueues {
         if (((from_bitField0_ & 0x00000002) != 0)) {
           to_bitField0_ |= 0x00000002;
         }
-        result.targetType_ = targetType_;
+        result.itemType_ = itemType_;
         if (((from_bitField0_ & 0x00000004) != 0)) {
           to_bitField0_ |= 0x00000004;
         }
-        result.targetId_ = targetId_;
+        result.itemId_ = itemId_;
         if (((from_bitField0_ & 0x00000008) != 0)) {
           to_bitField0_ |= 0x00000008;
         }
@@ -3737,12 +3589,12 @@ public final class ReviewQueues {
           queueId_ = other.queueId_;
           onChanged();
         }
-        if (other.hasTargetType()) {
-          setTargetType(other.getTargetType());
+        if (other.hasItemType()) {
+          setItemType(other.getItemType());
         }
-        if (other.hasTargetId()) {
+        if (other.hasItemId()) {
           bitField0_ |= 0x00000004;
-          targetId_ = other.targetId_;
+          itemId_ = other.itemId_;
           onChanged();
         }
         if (other.hasStatus()) {
@@ -3876,77 +3728,77 @@ public final class ReviewQueues {
         return this;
       }
 
-      private int targetType_ = 0;
+      private int itemType_ = 0;
       /**
-       * <code>optional .mlflow.review_queues.ReviewTargetType target_type = 2;</code>
-       * @return Whether the targetType field is set.
+       * <code>optional .mlflow.review_queues.ReviewItemType item_type = 2;</code>
+       * @return Whether the itemType field is set.
        */
-      @java.lang.Override public boolean hasTargetType() {
+      @java.lang.Override public boolean hasItemType() {
         return ((bitField0_ & 0x00000002) != 0);
       }
       /**
-       * <code>optional .mlflow.review_queues.ReviewTargetType target_type = 2;</code>
-       * @return The targetType.
+       * <code>optional .mlflow.review_queues.ReviewItemType item_type = 2;</code>
+       * @return The itemType.
        */
       @java.lang.Override
-      public org.mlflow.api.proto.ReviewQueues.ReviewTargetType getTargetType() {
+      public org.mlflow.api.proto.ReviewQueues.ReviewItemType getItemType() {
         @SuppressWarnings("deprecation")
-        org.mlflow.api.proto.ReviewQueues.ReviewTargetType result = org.mlflow.api.proto.ReviewQueues.ReviewTargetType.valueOf(targetType_);
-        return result == null ? org.mlflow.api.proto.ReviewQueues.ReviewTargetType.REVIEW_TARGET_TYPE_UNSPECIFIED : result;
+        org.mlflow.api.proto.ReviewQueues.ReviewItemType result = org.mlflow.api.proto.ReviewQueues.ReviewItemType.valueOf(itemType_);
+        return result == null ? org.mlflow.api.proto.ReviewQueues.ReviewItemType.REVIEW_ITEM_TYPE_UNSPECIFIED : result;
       }
       /**
-       * <code>optional .mlflow.review_queues.ReviewTargetType target_type = 2;</code>
-       * @param value The targetType to set.
+       * <code>optional .mlflow.review_queues.ReviewItemType item_type = 2;</code>
+       * @param value The itemType to set.
        * @return This builder for chaining.
        */
-      public Builder setTargetType(org.mlflow.api.proto.ReviewQueues.ReviewTargetType value) {
+      public Builder setItemType(org.mlflow.api.proto.ReviewQueues.ReviewItemType value) {
         if (value == null) {
           throw new NullPointerException();
         }
         bitField0_ |= 0x00000002;
-        targetType_ = value.getNumber();
+        itemType_ = value.getNumber();
         onChanged();
         return this;
       }
       /**
-       * <code>optional .mlflow.review_queues.ReviewTargetType target_type = 2;</code>
+       * <code>optional .mlflow.review_queues.ReviewItemType item_type = 2;</code>
        * @return This builder for chaining.
        */
-      public Builder clearTargetType() {
+      public Builder clearItemType() {
         bitField0_ = (bitField0_ & ~0x00000002);
-        targetType_ = 0;
+        itemType_ = 0;
         onChanged();
         return this;
       }
 
-      private java.lang.Object targetId_ = "";
+      private java.lang.Object itemId_ = "";
       /**
        * <pre>
-       * Trace ID (UUID/hex; case-sensitive).
+       * Item ID (a trace ID in v1; UUID/hex, case-sensitive).
        * </pre>
        *
-       * <code>optional string target_id = 3;</code>
-       * @return Whether the targetId field is set.
+       * <code>optional string item_id = 3;</code>
+       * @return Whether the itemId field is set.
        */
-      public boolean hasTargetId() {
+      public boolean hasItemId() {
         return ((bitField0_ & 0x00000004) != 0);
       }
       /**
        * <pre>
-       * Trace ID (UUID/hex; case-sensitive).
+       * Item ID (a trace ID in v1; UUID/hex, case-sensitive).
        * </pre>
        *
-       * <code>optional string target_id = 3;</code>
-       * @return The targetId.
+       * <code>optional string item_id = 3;</code>
+       * @return The itemId.
        */
-      public java.lang.String getTargetId() {
-        java.lang.Object ref = targetId_;
+      public java.lang.String getItemId() {
+        java.lang.Object ref = itemId_;
         if (!(ref instanceof java.lang.String)) {
           com.google.protobuf.ByteString bs =
               (com.google.protobuf.ByteString) ref;
           java.lang.String s = bs.toStringUtf8();
           if (bs.isValidUtf8()) {
-            targetId_ = s;
+            itemId_ = s;
           }
           return s;
         } else {
@@ -3955,20 +3807,20 @@ public final class ReviewQueues {
       }
       /**
        * <pre>
-       * Trace ID (UUID/hex; case-sensitive).
+       * Item ID (a trace ID in v1; UUID/hex, case-sensitive).
        * </pre>
        *
-       * <code>optional string target_id = 3;</code>
-       * @return The bytes for targetId.
+       * <code>optional string item_id = 3;</code>
+       * @return The bytes for itemId.
        */
       public com.google.protobuf.ByteString
-          getTargetIdBytes() {
-        java.lang.Object ref = targetId_;
+          getItemIdBytes() {
+        java.lang.Object ref = itemId_;
         if (ref instanceof String) {
           com.google.protobuf.ByteString b = 
               com.google.protobuf.ByteString.copyFromUtf8(
                   (java.lang.String) ref);
-          targetId_ = b;
+          itemId_ = b;
           return b;
         } else {
           return (com.google.protobuf.ByteString) ref;
@@ -3976,53 +3828,53 @@ public final class ReviewQueues {
       }
       /**
        * <pre>
-       * Trace ID (UUID/hex; case-sensitive).
+       * Item ID (a trace ID in v1; UUID/hex, case-sensitive).
        * </pre>
        *
-       * <code>optional string target_id = 3;</code>
-       * @param value The targetId to set.
+       * <code>optional string item_id = 3;</code>
+       * @param value The itemId to set.
        * @return This builder for chaining.
        */
-      public Builder setTargetId(
+      public Builder setItemId(
           java.lang.String value) {
         if (value == null) {
     throw new NullPointerException();
   }
   bitField0_ |= 0x00000004;
-        targetId_ = value;
+        itemId_ = value;
         onChanged();
         return this;
       }
       /**
        * <pre>
-       * Trace ID (UUID/hex; case-sensitive).
+       * Item ID (a trace ID in v1; UUID/hex, case-sensitive).
        * </pre>
        *
-       * <code>optional string target_id = 3;</code>
+       * <code>optional string item_id = 3;</code>
        * @return This builder for chaining.
        */
-      public Builder clearTargetId() {
+      public Builder clearItemId() {
         bitField0_ = (bitField0_ & ~0x00000004);
-        targetId_ = getDefaultInstance().getTargetId();
+        itemId_ = getDefaultInstance().getItemId();
         onChanged();
         return this;
       }
       /**
        * <pre>
-       * Trace ID (UUID/hex; case-sensitive).
+       * Item ID (a trace ID in v1; UUID/hex, case-sensitive).
        * </pre>
        *
-       * <code>optional string target_id = 3;</code>
-       * @param value The bytes for targetId to set.
+       * <code>optional string item_id = 3;</code>
+       * @param value The bytes for itemId to set.
        * @return This builder for chaining.
        */
-      public Builder setTargetIdBytes(
+      public Builder setItemIdBytes(
           com.google.protobuf.ByteString value) {
         if (value == null) {
     throw new NullPointerException();
   }
   bitField0_ |= 0x00000004;
-        targetId_ = value;
+        itemId_ = value;
         onChanged();
         return this;
       }
@@ -10860,31 +10712,6 @@ public final class ReviewQueues {
      */
     com.google.protobuf.ByteString
         getPageTokenBytes();
-
-    /**
-     * <pre>
-     * No-auth only: when true, the experiment's protected default queue is seeded
-     * (idempotently) before listing. Set by the no-auth UI; left false on
-     * authenticated servers and for SDK/API callers, so no default queue is
-     * created there.
-     * </pre>
-     *
-     * <code>optional bool ensure_default = 5;</code>
-     * @return Whether the ensureDefault field is set.
-     */
-    boolean hasEnsureDefault();
-    /**
-     * <pre>
-     * No-auth only: when true, the experiment's protected default queue is seeded
-     * (idempotently) before listing. Set by the no-auth UI; left false on
-     * authenticated servers and for SDK/API callers, so no default queue is
-     * created there.
-     * </pre>
-     *
-     * <code>optional bool ensure_default = 5;</code>
-     * @return The ensureDefault.
-     */
-    boolean getEnsureDefault();
   }
   /**
    * <pre>
@@ -10961,11 +10788,6 @@ public final class ReviewQueues {
               com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000008;
               pageToken_ = bs;
-              break;
-            }
-            case 40: {
-              bitField0_ |= 0x00000010;
-              ensureDefault_ = input.readBool();
               break;
             }
             default: {
@@ -12142,39 +11964,6 @@ public final class ReviewQueues {
       }
     }
 
-    public static final int ENSURE_DEFAULT_FIELD_NUMBER = 5;
-    private boolean ensureDefault_;
-    /**
-     * <pre>
-     * No-auth only: when true, the experiment's protected default queue is seeded
-     * (idempotently) before listing. Set by the no-auth UI; left false on
-     * authenticated servers and for SDK/API callers, so no default queue is
-     * created there.
-     * </pre>
-     *
-     * <code>optional bool ensure_default = 5;</code>
-     * @return Whether the ensureDefault field is set.
-     */
-    @java.lang.Override
-    public boolean hasEnsureDefault() {
-      return ((bitField0_ & 0x00000010) != 0);
-    }
-    /**
-     * <pre>
-     * No-auth only: when true, the experiment's protected default queue is seeded
-     * (idempotently) before listing. Set by the no-auth UI; left false on
-     * authenticated servers and for SDK/API callers, so no default queue is
-     * created there.
-     * </pre>
-     *
-     * <code>optional bool ensure_default = 5;</code>
-     * @return The ensureDefault.
-     */
-    @java.lang.Override
-    public boolean getEnsureDefault() {
-      return ensureDefault_;
-    }
-
     private byte memoizedIsInitialized = -1;
     @java.lang.Override
     public final boolean isInitialized() {
@@ -12201,9 +11990,6 @@ public final class ReviewQueues {
       if (((bitField0_ & 0x00000008) != 0)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 4, pageToken_);
       }
-      if (((bitField0_ & 0x00000010) != 0)) {
-        output.writeBool(5, ensureDefault_);
-      }
       unknownFields.writeTo(output);
     }
 
@@ -12225,10 +12011,6 @@ public final class ReviewQueues {
       }
       if (((bitField0_ & 0x00000008) != 0)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(4, pageToken_);
-      }
-      if (((bitField0_ & 0x00000010) != 0)) {
-        size += com.google.protobuf.CodedOutputStream
-          .computeBoolSize(5, ensureDefault_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -12265,11 +12047,6 @@ public final class ReviewQueues {
         if (!getPageToken()
             .equals(other.getPageToken())) return false;
       }
-      if (hasEnsureDefault() != other.hasEnsureDefault()) return false;
-      if (hasEnsureDefault()) {
-        if (getEnsureDefault()
-            != other.getEnsureDefault()) return false;
-      }
       if (!unknownFields.equals(other.unknownFields)) return false;
       return true;
     }
@@ -12296,11 +12073,6 @@ public final class ReviewQueues {
       if (hasPageToken()) {
         hash = (37 * hash) + PAGE_TOKEN_FIELD_NUMBER;
         hash = (53 * hash) + getPageToken().hashCode();
-      }
-      if (hasEnsureDefault()) {
-        hash = (37 * hash) + ENSURE_DEFAULT_FIELD_NUMBER;
-        hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
-            getEnsureDefault());
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
@@ -12448,8 +12220,6 @@ public final class ReviewQueues {
         bitField0_ = (bitField0_ & ~0x00000004);
         pageToken_ = "";
         bitField0_ = (bitField0_ & ~0x00000008);
-        ensureDefault_ = false;
-        bitField0_ = (bitField0_ & ~0x00000010);
         return this;
       }
 
@@ -12494,10 +12264,6 @@ public final class ReviewQueues {
           to_bitField0_ |= 0x00000008;
         }
         result.pageToken_ = pageToken_;
-        if (((from_bitField0_ & 0x00000010) != 0)) {
-          result.ensureDefault_ = ensureDefault_;
-          to_bitField0_ |= 0x00000010;
-        }
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -12564,9 +12330,6 @@ public final class ReviewQueues {
           bitField0_ |= 0x00000008;
           pageToken_ = other.pageToken_;
           onChanged();
-        }
-        if (other.hasEnsureDefault()) {
-          setEnsureDefault(other.getEnsureDefault());
         }
         this.mergeUnknownFields(other.unknownFields);
         onChanged();
@@ -12885,73 +12648,6 @@ public final class ReviewQueues {
   }
   bitField0_ |= 0x00000008;
         pageToken_ = value;
-        onChanged();
-        return this;
-      }
-
-      private boolean ensureDefault_ ;
-      /**
-       * <pre>
-       * No-auth only: when true, the experiment's protected default queue is seeded
-       * (idempotently) before listing. Set by the no-auth UI; left false on
-       * authenticated servers and for SDK/API callers, so no default queue is
-       * created there.
-       * </pre>
-       *
-       * <code>optional bool ensure_default = 5;</code>
-       * @return Whether the ensureDefault field is set.
-       */
-      @java.lang.Override
-      public boolean hasEnsureDefault() {
-        return ((bitField0_ & 0x00000010) != 0);
-      }
-      /**
-       * <pre>
-       * No-auth only: when true, the experiment's protected default queue is seeded
-       * (idempotently) before listing. Set by the no-auth UI; left false on
-       * authenticated servers and for SDK/API callers, so no default queue is
-       * created there.
-       * </pre>
-       *
-       * <code>optional bool ensure_default = 5;</code>
-       * @return The ensureDefault.
-       */
-      @java.lang.Override
-      public boolean getEnsureDefault() {
-        return ensureDefault_;
-      }
-      /**
-       * <pre>
-       * No-auth only: when true, the experiment's protected default queue is seeded
-       * (idempotently) before listing. Set by the no-auth UI; left false on
-       * authenticated servers and for SDK/API callers, so no default queue is
-       * created there.
-       * </pre>
-       *
-       * <code>optional bool ensure_default = 5;</code>
-       * @param value The ensureDefault to set.
-       * @return This builder for chaining.
-       */
-      public Builder setEnsureDefault(boolean value) {
-        bitField0_ |= 0x00000010;
-        ensureDefault_ = value;
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * No-auth only: when true, the experiment's protected default queue is seeded
-       * (idempotently) before listing. Set by the no-auth UI; left false on
-       * authenticated servers and for SDK/API callers, so no default queue is
-       * created there.
-       * </pre>
-       *
-       * <code>optional bool ensure_default = 5;</code>
-       * @return This builder for chaining.
-       */
-      public Builder clearEnsureDefault() {
-        bitField0_ = (bitField0_ & ~0x00000010);
-        ensureDefault_ = false;
         onChanged();
         return this;
       }
@@ -14921,7 +14617,7 @@ public final class ReviewQueues {
   }
   /**
    * <pre>
-   * Delete a queue and its user / trace / schema associations. No-op when
+   * Delete a queue and its user / item / schema associations. No-op when
    * the queue doesn't exist (idempotent).
    * </pre>
    *
@@ -15637,7 +15333,7 @@ public final class ReviewQueues {
     }
     /**
      * <pre>
-     * Delete a queue and its user / trace / schema associations. No-op when
+     * Delete a queue and its user / item / schema associations. No-op when
      * the queue doesn't exist (idempotent).
      * </pre>
      *
@@ -15932,8 +15628,8 @@ public final class ReviewQueues {
 
   }
 
-  public interface AddTracesToReviewQueueOrBuilder extends
-      // @@protoc_insertion_point(interface_extends:mlflow.review_queues.AddTracesToReviewQueue)
+  public interface AddItemsToReviewQueueOrBuilder extends
+      // @@protoc_insertion_point(interface_extends:mlflow.review_queues.AddItemsToReviewQueue)
       com.google.protobuf.MessageOrBuilder {
 
     /**
@@ -15954,70 +15650,70 @@ public final class ReviewQueues {
         getQueueIdBytes();
 
     /**
-     * <code>optional .mlflow.review_queues.ReviewTargetType target_type = 2;</code>
-     * @return Whether the targetType field is set.
+     * <code>optional .mlflow.review_queues.ReviewItemType item_type = 2;</code>
+     * @return Whether the itemType field is set.
      */
-    boolean hasTargetType();
+    boolean hasItemType();
     /**
-     * <code>optional .mlflow.review_queues.ReviewTargetType target_type = 2;</code>
-     * @return The targetType.
+     * <code>optional .mlflow.review_queues.ReviewItemType item_type = 2;</code>
+     * @return The itemType.
      */
-    org.mlflow.api.proto.ReviewQueues.ReviewTargetType getTargetType();
+    org.mlflow.api.proto.ReviewQueues.ReviewItemType getItemType();
 
     /**
-     * <code>repeated string target_ids = 3;</code>
-     * @return A list containing the targetIds.
+     * <code>repeated string item_ids = 3;</code>
+     * @return A list containing the itemIds.
      */
     java.util.List<java.lang.String>
-        getTargetIdsList();
+        getItemIdsList();
     /**
-     * <code>repeated string target_ids = 3;</code>
-     * @return The count of targetIds.
+     * <code>repeated string item_ids = 3;</code>
+     * @return The count of itemIds.
      */
-    int getTargetIdsCount();
+    int getItemIdsCount();
     /**
-     * <code>repeated string target_ids = 3;</code>
+     * <code>repeated string item_ids = 3;</code>
      * @param index The index of the element to return.
-     * @return The targetIds at the given index.
+     * @return The itemIds at the given index.
      */
-    java.lang.String getTargetIds(int index);
+    java.lang.String getItemIds(int index);
     /**
-     * <code>repeated string target_ids = 3;</code>
+     * <code>repeated string item_ids = 3;</code>
      * @param index The index of the value to return.
-     * @return The bytes of the targetIds at the given index.
+     * @return The bytes of the itemIds at the given index.
      */
     com.google.protobuf.ByteString
-        getTargetIdsBytes(int index);
+        getItemIdsBytes(int index);
   }
   /**
    * <pre>
-   * Attach traces to a queue. Idempotent per trace (re-attaching preserves
-   * the existing status). The response covers every requested target_id,
+   * Attach items to a queue. Idempotent per item (re-attaching preserves
+   * the existing status). The response covers every requested item_id,
    * in request order.
    * </pre>
    *
-   * Protobuf type {@code mlflow.review_queues.AddTracesToReviewQueue}
+   * Protobuf type {@code mlflow.review_queues.AddItemsToReviewQueue}
    */
-  public static final class AddTracesToReviewQueue extends
+  public static final class AddItemsToReviewQueue extends
       com.google.protobuf.GeneratedMessageV3 implements
-      // @@protoc_insertion_point(message_implements:mlflow.review_queues.AddTracesToReviewQueue)
-      AddTracesToReviewQueueOrBuilder {
+      // @@protoc_insertion_point(message_implements:mlflow.review_queues.AddItemsToReviewQueue)
+      AddItemsToReviewQueueOrBuilder {
   private static final long serialVersionUID = 0L;
-    // Use AddTracesToReviewQueue.newBuilder() to construct.
-    private AddTracesToReviewQueue(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+    // Use AddItemsToReviewQueue.newBuilder() to construct.
+    private AddItemsToReviewQueue(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
       super(builder);
     }
-    private AddTracesToReviewQueue() {
+    private AddItemsToReviewQueue() {
       queueId_ = "";
-      targetType_ = 0;
-      targetIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+      itemType_ = 0;
+      itemIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
     }
 
     @java.lang.Override
     @SuppressWarnings({"unused"})
     protected java.lang.Object newInstance(
         UnusedPrivateParameter unused) {
-      return new AddTracesToReviewQueue();
+      return new AddItemsToReviewQueue();
     }
 
     @java.lang.Override
@@ -16025,7 +15721,7 @@ public final class ReviewQueues {
     getUnknownFields() {
       return this.unknownFields;
     }
-    private AddTracesToReviewQueue(
+    private AddItemsToReviewQueue(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
@@ -16053,22 +15749,22 @@ public final class ReviewQueues {
             case 16: {
               int rawValue = input.readEnum();
                 @SuppressWarnings("deprecation")
-              org.mlflow.api.proto.ReviewQueues.ReviewTargetType value = org.mlflow.api.proto.ReviewQueues.ReviewTargetType.valueOf(rawValue);
+              org.mlflow.api.proto.ReviewQueues.ReviewItemType value = org.mlflow.api.proto.ReviewQueues.ReviewItemType.valueOf(rawValue);
               if (value == null) {
                 unknownFields.mergeVarintField(2, rawValue);
               } else {
                 bitField0_ |= 0x00000002;
-                targetType_ = rawValue;
+                itemType_ = rawValue;
               }
               break;
             }
             case 26: {
               com.google.protobuf.ByteString bs = input.readBytes();
               if (!((mutable_bitField0_ & 0x00000004) != 0)) {
-                targetIds_ = new com.google.protobuf.LazyStringArrayList();
+                itemIds_ = new com.google.protobuf.LazyStringArrayList();
                 mutable_bitField0_ |= 0x00000004;
               }
-              targetIds_.add(bs);
+              itemIds_.add(bs);
               break;
             }
             default: {
@@ -16087,7 +15783,7 @@ public final class ReviewQueues {
             e).setUnfinishedMessage(this);
       } finally {
         if (((mutable_bitField0_ & 0x00000004) != 0)) {
-          targetIds_ = targetIds_.getUnmodifiableView();
+          itemIds_ = itemIds_.getUnmodifiableView();
         }
         this.unknownFields = unknownFields.build();
         makeExtensionsImmutable();
@@ -16095,19 +15791,19 @@ public final class ReviewQueues {
     }
     public static final com.google.protobuf.Descriptors.Descriptor
         getDescriptor() {
-      return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_AddTracesToReviewQueue_descriptor;
+      return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_AddItemsToReviewQueue_descriptor;
     }
 
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_AddTracesToReviewQueue_fieldAccessorTable
+      return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_AddItemsToReviewQueue_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
-              org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue.class, org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue.Builder.class);
+              org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue.class, org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue.Builder.class);
     }
 
     public interface ResponseOrBuilder extends
-        // @@protoc_insertion_point(interface_extends:mlflow.review_queues.AddTracesToReviewQueue.Response)
+        // @@protoc_insertion_point(interface_extends:mlflow.review_queues.AddItemsToReviewQueue.Response)
         com.google.protobuf.MessageOrBuilder {
 
       /**
@@ -16135,11 +15831,11 @@ public final class ReviewQueues {
           int index);
     }
     /**
-     * Protobuf type {@code mlflow.review_queues.AddTracesToReviewQueue.Response}
+     * Protobuf type {@code mlflow.review_queues.AddItemsToReviewQueue.Response}
      */
     public static final class Response extends
         com.google.protobuf.GeneratedMessageV3 implements
-        // @@protoc_insertion_point(message_implements:mlflow.review_queues.AddTracesToReviewQueue.Response)
+        // @@protoc_insertion_point(message_implements:mlflow.review_queues.AddItemsToReviewQueue.Response)
         ResponseOrBuilder {
     private static final long serialVersionUID = 0L;
       // Use Response.newBuilder() to construct.
@@ -16214,15 +15910,15 @@ public final class ReviewQueues {
       }
       public static final com.google.protobuf.Descriptors.Descriptor
           getDescriptor() {
-        return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_AddTracesToReviewQueue_Response_descriptor;
+        return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_AddItemsToReviewQueue_Response_descriptor;
       }
 
       @java.lang.Override
       protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
           internalGetFieldAccessorTable() {
-        return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_AddTracesToReviewQueue_Response_fieldAccessorTable
+        return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_AddItemsToReviewQueue_Response_fieldAccessorTable
             .ensureFieldAccessorsInitialized(
-                org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue.Response.class, org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue.Response.Builder.class);
+                org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue.Response.class, org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue.Response.Builder.class);
       }
 
       public static final int ITEMS_FIELD_NUMBER = 1;
@@ -16305,10 +16001,10 @@ public final class ReviewQueues {
         if (obj == this) {
          return true;
         }
-        if (!(obj instanceof org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue.Response)) {
+        if (!(obj instanceof org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue.Response)) {
           return super.equals(obj);
         }
-        org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue.Response other = (org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue.Response) obj;
+        org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue.Response other = (org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue.Response) obj;
 
         if (!getItemsList()
             .equals(other.getItemsList())) return false;
@@ -16332,69 +16028,69 @@ public final class ReviewQueues {
         return hash;
       }
 
-      public static org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue.Response parseFrom(
+      public static org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue.Response parseFrom(
           java.nio.ByteBuffer data)
           throws com.google.protobuf.InvalidProtocolBufferException {
         return PARSER.parseFrom(data);
       }
-      public static org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue.Response parseFrom(
+      public static org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue.Response parseFrom(
           java.nio.ByteBuffer data,
           com.google.protobuf.ExtensionRegistryLite extensionRegistry)
           throws com.google.protobuf.InvalidProtocolBufferException {
         return PARSER.parseFrom(data, extensionRegistry);
       }
-      public static org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue.Response parseFrom(
+      public static org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue.Response parseFrom(
           com.google.protobuf.ByteString data)
           throws com.google.protobuf.InvalidProtocolBufferException {
         return PARSER.parseFrom(data);
       }
-      public static org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue.Response parseFrom(
+      public static org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue.Response parseFrom(
           com.google.protobuf.ByteString data,
           com.google.protobuf.ExtensionRegistryLite extensionRegistry)
           throws com.google.protobuf.InvalidProtocolBufferException {
         return PARSER.parseFrom(data, extensionRegistry);
       }
-      public static org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue.Response parseFrom(byte[] data)
+      public static org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue.Response parseFrom(byte[] data)
           throws com.google.protobuf.InvalidProtocolBufferException {
         return PARSER.parseFrom(data);
       }
-      public static org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue.Response parseFrom(
+      public static org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue.Response parseFrom(
           byte[] data,
           com.google.protobuf.ExtensionRegistryLite extensionRegistry)
           throws com.google.protobuf.InvalidProtocolBufferException {
         return PARSER.parseFrom(data, extensionRegistry);
       }
-      public static org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue.Response parseFrom(java.io.InputStream input)
+      public static org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue.Response parseFrom(java.io.InputStream input)
           throws java.io.IOException {
         return com.google.protobuf.GeneratedMessageV3
             .parseWithIOException(PARSER, input);
       }
-      public static org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue.Response parseFrom(
+      public static org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue.Response parseFrom(
           java.io.InputStream input,
           com.google.protobuf.ExtensionRegistryLite extensionRegistry)
           throws java.io.IOException {
         return com.google.protobuf.GeneratedMessageV3
             .parseWithIOException(PARSER, input, extensionRegistry);
       }
-      public static org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue.Response parseDelimitedFrom(java.io.InputStream input)
+      public static org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue.Response parseDelimitedFrom(java.io.InputStream input)
           throws java.io.IOException {
         return com.google.protobuf.GeneratedMessageV3
             .parseDelimitedWithIOException(PARSER, input);
       }
-      public static org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue.Response parseDelimitedFrom(
+      public static org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue.Response parseDelimitedFrom(
           java.io.InputStream input,
           com.google.protobuf.ExtensionRegistryLite extensionRegistry)
           throws java.io.IOException {
         return com.google.protobuf.GeneratedMessageV3
             .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
       }
-      public static org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue.Response parseFrom(
+      public static org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue.Response parseFrom(
           com.google.protobuf.CodedInputStream input)
           throws java.io.IOException {
         return com.google.protobuf.GeneratedMessageV3
             .parseWithIOException(PARSER, input);
       }
-      public static org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue.Response parseFrom(
+      public static org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue.Response parseFrom(
           com.google.protobuf.CodedInputStream input,
           com.google.protobuf.ExtensionRegistryLite extensionRegistry)
           throws java.io.IOException {
@@ -16407,7 +16103,7 @@ public final class ReviewQueues {
       public static Builder newBuilder() {
         return DEFAULT_INSTANCE.toBuilder();
       }
-      public static Builder newBuilder(org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue.Response prototype) {
+      public static Builder newBuilder(org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue.Response prototype) {
         return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
       }
       @java.lang.Override
@@ -16423,26 +16119,26 @@ public final class ReviewQueues {
         return builder;
       }
       /**
-       * Protobuf type {@code mlflow.review_queues.AddTracesToReviewQueue.Response}
+       * Protobuf type {@code mlflow.review_queues.AddItemsToReviewQueue.Response}
        */
       public static final class Builder extends
           com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
-          // @@protoc_insertion_point(builder_implements:mlflow.review_queues.AddTracesToReviewQueue.Response)
-          org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue.ResponseOrBuilder {
+          // @@protoc_insertion_point(builder_implements:mlflow.review_queues.AddItemsToReviewQueue.Response)
+          org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue.ResponseOrBuilder {
         public static final com.google.protobuf.Descriptors.Descriptor
             getDescriptor() {
-          return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_AddTracesToReviewQueue_Response_descriptor;
+          return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_AddItemsToReviewQueue_Response_descriptor;
         }
 
         @java.lang.Override
         protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
             internalGetFieldAccessorTable() {
-          return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_AddTracesToReviewQueue_Response_fieldAccessorTable
+          return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_AddItemsToReviewQueue_Response_fieldAccessorTable
               .ensureFieldAccessorsInitialized(
-                  org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue.Response.class, org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue.Response.Builder.class);
+                  org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue.Response.class, org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue.Response.Builder.class);
         }
 
-        // Construct using org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue.Response.newBuilder()
+        // Construct using org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue.Response.newBuilder()
         private Builder() {
           maybeForceBuilderInitialization();
         }
@@ -16473,17 +16169,17 @@ public final class ReviewQueues {
         @java.lang.Override
         public com.google.protobuf.Descriptors.Descriptor
             getDescriptorForType() {
-          return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_AddTracesToReviewQueue_Response_descriptor;
+          return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_AddItemsToReviewQueue_Response_descriptor;
         }
 
         @java.lang.Override
-        public org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue.Response getDefaultInstanceForType() {
-          return org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue.Response.getDefaultInstance();
+        public org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue.Response getDefaultInstanceForType() {
+          return org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue.Response.getDefaultInstance();
         }
 
         @java.lang.Override
-        public org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue.Response build() {
-          org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue.Response result = buildPartial();
+        public org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue.Response build() {
+          org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue.Response result = buildPartial();
           if (!result.isInitialized()) {
             throw newUninitializedMessageException(result);
           }
@@ -16491,8 +16187,8 @@ public final class ReviewQueues {
         }
 
         @java.lang.Override
-        public org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue.Response buildPartial() {
-          org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue.Response result = new org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue.Response(this);
+        public org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue.Response buildPartial() {
+          org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue.Response result = new org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue.Response(this);
           int from_bitField0_ = bitField0_;
           if (itemsBuilder_ == null) {
             if (((bitField0_ & 0x00000001) != 0)) {
@@ -16541,16 +16237,16 @@ public final class ReviewQueues {
         }
         @java.lang.Override
         public Builder mergeFrom(com.google.protobuf.Message other) {
-          if (other instanceof org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue.Response) {
-            return mergeFrom((org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue.Response)other);
+          if (other instanceof org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue.Response) {
+            return mergeFrom((org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue.Response)other);
           } else {
             super.mergeFrom(other);
             return this;
           }
         }
 
-        public Builder mergeFrom(org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue.Response other) {
-          if (other == org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue.Response.getDefaultInstance()) return this;
+        public Builder mergeFrom(org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue.Response other) {
+          if (other == org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue.Response.getDefaultInstance()) return this;
           if (itemsBuilder_ == null) {
             if (!other.items_.isEmpty()) {
               if (items_.isEmpty()) {
@@ -16592,11 +16288,11 @@ public final class ReviewQueues {
             com.google.protobuf.CodedInputStream input,
             com.google.protobuf.ExtensionRegistryLite extensionRegistry)
             throws java.io.IOException {
-          org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue.Response parsedMessage = null;
+          org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue.Response parsedMessage = null;
           try {
             parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
           } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-            parsedMessage = (org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue.Response) e.getUnfinishedMessage();
+            parsedMessage = (org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue.Response) e.getUnfinishedMessage();
             throw e.unwrapIOException();
           } finally {
             if (parsedMessage != null) {
@@ -16859,16 +16555,16 @@ public final class ReviewQueues {
         }
 
 
-        // @@protoc_insertion_point(builder_scope:mlflow.review_queues.AddTracesToReviewQueue.Response)
+        // @@protoc_insertion_point(builder_scope:mlflow.review_queues.AddItemsToReviewQueue.Response)
       }
 
-      // @@protoc_insertion_point(class_scope:mlflow.review_queues.AddTracesToReviewQueue.Response)
-      private static final org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue.Response DEFAULT_INSTANCE;
+      // @@protoc_insertion_point(class_scope:mlflow.review_queues.AddItemsToReviewQueue.Response)
+      private static final org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue.Response DEFAULT_INSTANCE;
       static {
-        DEFAULT_INSTANCE = new org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue.Response();
+        DEFAULT_INSTANCE = new org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue.Response();
       }
 
-      public static org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue.Response getDefaultInstance() {
+      public static org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue.Response getDefaultInstance() {
         return DEFAULT_INSTANCE;
       }
 
@@ -16893,7 +16589,7 @@ public final class ReviewQueues {
       }
 
       @java.lang.Override
-      public org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue.Response getDefaultInstanceForType() {
+      public org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue.Response getDefaultInstanceForType() {
         return DEFAULT_INSTANCE;
       }
 
@@ -16948,58 +16644,58 @@ public final class ReviewQueues {
       }
     }
 
-    public static final int TARGET_TYPE_FIELD_NUMBER = 2;
-    private int targetType_;
+    public static final int ITEM_TYPE_FIELD_NUMBER = 2;
+    private int itemType_;
     /**
-     * <code>optional .mlflow.review_queues.ReviewTargetType target_type = 2;</code>
-     * @return Whether the targetType field is set.
+     * <code>optional .mlflow.review_queues.ReviewItemType item_type = 2;</code>
+     * @return Whether the itemType field is set.
      */
-    @java.lang.Override public boolean hasTargetType() {
+    @java.lang.Override public boolean hasItemType() {
       return ((bitField0_ & 0x00000002) != 0);
     }
     /**
-     * <code>optional .mlflow.review_queues.ReviewTargetType target_type = 2;</code>
-     * @return The targetType.
+     * <code>optional .mlflow.review_queues.ReviewItemType item_type = 2;</code>
+     * @return The itemType.
      */
-    @java.lang.Override public org.mlflow.api.proto.ReviewQueues.ReviewTargetType getTargetType() {
+    @java.lang.Override public org.mlflow.api.proto.ReviewQueues.ReviewItemType getItemType() {
       @SuppressWarnings("deprecation")
-      org.mlflow.api.proto.ReviewQueues.ReviewTargetType result = org.mlflow.api.proto.ReviewQueues.ReviewTargetType.valueOf(targetType_);
-      return result == null ? org.mlflow.api.proto.ReviewQueues.ReviewTargetType.REVIEW_TARGET_TYPE_UNSPECIFIED : result;
+      org.mlflow.api.proto.ReviewQueues.ReviewItemType result = org.mlflow.api.proto.ReviewQueues.ReviewItemType.valueOf(itemType_);
+      return result == null ? org.mlflow.api.proto.ReviewQueues.ReviewItemType.REVIEW_ITEM_TYPE_UNSPECIFIED : result;
     }
 
-    public static final int TARGET_IDS_FIELD_NUMBER = 3;
-    private com.google.protobuf.LazyStringList targetIds_;
+    public static final int ITEM_IDS_FIELD_NUMBER = 3;
+    private com.google.protobuf.LazyStringList itemIds_;
     /**
-     * <code>repeated string target_ids = 3;</code>
-     * @return A list containing the targetIds.
+     * <code>repeated string item_ids = 3;</code>
+     * @return A list containing the itemIds.
      */
     public com.google.protobuf.ProtocolStringList
-        getTargetIdsList() {
-      return targetIds_;
+        getItemIdsList() {
+      return itemIds_;
     }
     /**
-     * <code>repeated string target_ids = 3;</code>
-     * @return The count of targetIds.
+     * <code>repeated string item_ids = 3;</code>
+     * @return The count of itemIds.
      */
-    public int getTargetIdsCount() {
-      return targetIds_.size();
+    public int getItemIdsCount() {
+      return itemIds_.size();
     }
     /**
-     * <code>repeated string target_ids = 3;</code>
+     * <code>repeated string item_ids = 3;</code>
      * @param index The index of the element to return.
-     * @return The targetIds at the given index.
+     * @return The itemIds at the given index.
      */
-    public java.lang.String getTargetIds(int index) {
-      return targetIds_.get(index);
+    public java.lang.String getItemIds(int index) {
+      return itemIds_.get(index);
     }
     /**
-     * <code>repeated string target_ids = 3;</code>
+     * <code>repeated string item_ids = 3;</code>
      * @param index The index of the value to return.
-     * @return The bytes of the targetIds at the given index.
+     * @return The bytes of the itemIds at the given index.
      */
     public com.google.protobuf.ByteString
-        getTargetIdsBytes(int index) {
-      return targetIds_.getByteString(index);
+        getItemIdsBytes(int index) {
+      return itemIds_.getByteString(index);
     }
 
     private byte memoizedIsInitialized = -1;
@@ -17020,10 +16716,10 @@ public final class ReviewQueues {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 1, queueId_);
       }
       if (((bitField0_ & 0x00000002) != 0)) {
-        output.writeEnum(2, targetType_);
+        output.writeEnum(2, itemType_);
       }
-      for (int i = 0; i < targetIds_.size(); i++) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 3, targetIds_.getRaw(i));
+      for (int i = 0; i < itemIds_.size(); i++) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 3, itemIds_.getRaw(i));
       }
       unknownFields.writeTo(output);
     }
@@ -17039,15 +16735,15 @@ public final class ReviewQueues {
       }
       if (((bitField0_ & 0x00000002) != 0)) {
         size += com.google.protobuf.CodedOutputStream
-          .computeEnumSize(2, targetType_);
+          .computeEnumSize(2, itemType_);
       }
       {
         int dataSize = 0;
-        for (int i = 0; i < targetIds_.size(); i++) {
-          dataSize += computeStringSizeNoTag(targetIds_.getRaw(i));
+        for (int i = 0; i < itemIds_.size(); i++) {
+          dataSize += computeStringSizeNoTag(itemIds_.getRaw(i));
         }
         size += dataSize;
-        size += 1 * getTargetIdsList().size();
+        size += 1 * getItemIdsList().size();
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -17059,22 +16755,22 @@ public final class ReviewQueues {
       if (obj == this) {
        return true;
       }
-      if (!(obj instanceof org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue)) {
+      if (!(obj instanceof org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue)) {
         return super.equals(obj);
       }
-      org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue other = (org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue) obj;
+      org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue other = (org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue) obj;
 
       if (hasQueueId() != other.hasQueueId()) return false;
       if (hasQueueId()) {
         if (!getQueueId()
             .equals(other.getQueueId())) return false;
       }
-      if (hasTargetType() != other.hasTargetType()) return false;
-      if (hasTargetType()) {
-        if (targetType_ != other.targetType_) return false;
+      if (hasItemType() != other.hasItemType()) return false;
+      if (hasItemType()) {
+        if (itemType_ != other.itemType_) return false;
       }
-      if (!getTargetIdsList()
-          .equals(other.getTargetIdsList())) return false;
+      if (!getItemIdsList()
+          .equals(other.getItemIdsList())) return false;
       if (!unknownFields.equals(other.unknownFields)) return false;
       return true;
     }
@@ -17090,82 +16786,82 @@ public final class ReviewQueues {
         hash = (37 * hash) + QUEUE_ID_FIELD_NUMBER;
         hash = (53 * hash) + getQueueId().hashCode();
       }
-      if (hasTargetType()) {
-        hash = (37 * hash) + TARGET_TYPE_FIELD_NUMBER;
-        hash = (53 * hash) + targetType_;
+      if (hasItemType()) {
+        hash = (37 * hash) + ITEM_TYPE_FIELD_NUMBER;
+        hash = (53 * hash) + itemType_;
       }
-      if (getTargetIdsCount() > 0) {
-        hash = (37 * hash) + TARGET_IDS_FIELD_NUMBER;
-        hash = (53 * hash) + getTargetIdsList().hashCode();
+      if (getItemIdsCount() > 0) {
+        hash = (37 * hash) + ITEM_IDS_FIELD_NUMBER;
+        hash = (53 * hash) + getItemIdsList().hashCode();
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
       return hash;
     }
 
-    public static org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue parseFrom(
+    public static org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue parseFrom(
         java.nio.ByteBuffer data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
-    public static org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue parseFrom(
+    public static org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue parseFrom(
         java.nio.ByteBuffer data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
-    public static org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue parseFrom(
+    public static org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue parseFrom(
         com.google.protobuf.ByteString data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
-    public static org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue parseFrom(
+    public static org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue parseFrom(
         com.google.protobuf.ByteString data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
-    public static org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue parseFrom(byte[] data)
+    public static org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue parseFrom(byte[] data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
-    public static org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue parseFrom(
+    public static org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue parseFrom(
         byte[] data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
-    public static org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue parseFrom(java.io.InputStream input)
+    public static org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue parseFrom(java.io.InputStream input)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3
           .parseWithIOException(PARSER, input);
     }
-    public static org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue parseFrom(
+    public static org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue parseFrom(
         java.io.InputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3
           .parseWithIOException(PARSER, input, extensionRegistry);
     }
-    public static org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue parseDelimitedFrom(java.io.InputStream input)
+    public static org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue parseDelimitedFrom(java.io.InputStream input)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3
           .parseDelimitedWithIOException(PARSER, input);
     }
-    public static org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue parseDelimitedFrom(
+    public static org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue parseDelimitedFrom(
         java.io.InputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3
           .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
     }
-    public static org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue parseFrom(
+    public static org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue parseFrom(
         com.google.protobuf.CodedInputStream input)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3
           .parseWithIOException(PARSER, input);
     }
-    public static org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue parseFrom(
+    public static org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue parseFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
@@ -17178,7 +16874,7 @@ public final class ReviewQueues {
     public static Builder newBuilder() {
       return DEFAULT_INSTANCE.toBuilder();
     }
-    public static Builder newBuilder(org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue prototype) {
+    public static Builder newBuilder(org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue prototype) {
       return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
     }
     @java.lang.Override
@@ -17195,31 +16891,31 @@ public final class ReviewQueues {
     }
     /**
      * <pre>
-     * Attach traces to a queue. Idempotent per trace (re-attaching preserves
-     * the existing status). The response covers every requested target_id,
+     * Attach items to a queue. Idempotent per item (re-attaching preserves
+     * the existing status). The response covers every requested item_id,
      * in request order.
      * </pre>
      *
-     * Protobuf type {@code mlflow.review_queues.AddTracesToReviewQueue}
+     * Protobuf type {@code mlflow.review_queues.AddItemsToReviewQueue}
      */
     public static final class Builder extends
         com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
-        // @@protoc_insertion_point(builder_implements:mlflow.review_queues.AddTracesToReviewQueue)
-        org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueueOrBuilder {
+        // @@protoc_insertion_point(builder_implements:mlflow.review_queues.AddItemsToReviewQueue)
+        org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueueOrBuilder {
       public static final com.google.protobuf.Descriptors.Descriptor
           getDescriptor() {
-        return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_AddTracesToReviewQueue_descriptor;
+        return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_AddItemsToReviewQueue_descriptor;
       }
 
       @java.lang.Override
       protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
           internalGetFieldAccessorTable() {
-        return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_AddTracesToReviewQueue_fieldAccessorTable
+        return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_AddItemsToReviewQueue_fieldAccessorTable
             .ensureFieldAccessorsInitialized(
-                org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue.class, org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue.Builder.class);
+                org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue.class, org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue.Builder.class);
       }
 
-      // Construct using org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue.newBuilder()
+      // Construct using org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue.newBuilder()
       private Builder() {
         maybeForceBuilderInitialization();
       }
@@ -17239,9 +16935,9 @@ public final class ReviewQueues {
         super.clear();
         queueId_ = "";
         bitField0_ = (bitField0_ & ~0x00000001);
-        targetType_ = 0;
+        itemType_ = 0;
         bitField0_ = (bitField0_ & ~0x00000002);
-        targetIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+        itemIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
         bitField0_ = (bitField0_ & ~0x00000004);
         return this;
       }
@@ -17249,17 +16945,17 @@ public final class ReviewQueues {
       @java.lang.Override
       public com.google.protobuf.Descriptors.Descriptor
           getDescriptorForType() {
-        return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_AddTracesToReviewQueue_descriptor;
+        return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_AddItemsToReviewQueue_descriptor;
       }
 
       @java.lang.Override
-      public org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue getDefaultInstanceForType() {
-        return org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue.getDefaultInstance();
+      public org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue getDefaultInstanceForType() {
+        return org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue.getDefaultInstance();
       }
 
       @java.lang.Override
-      public org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue build() {
-        org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue result = buildPartial();
+      public org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue build() {
+        org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue result = buildPartial();
         if (!result.isInitialized()) {
           throw newUninitializedMessageException(result);
         }
@@ -17267,8 +16963,8 @@ public final class ReviewQueues {
       }
 
       @java.lang.Override
-      public org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue buildPartial() {
-        org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue result = new org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue(this);
+      public org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue buildPartial() {
+        org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue result = new org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue(this);
         int from_bitField0_ = bitField0_;
         int to_bitField0_ = 0;
         if (((from_bitField0_ & 0x00000001) != 0)) {
@@ -17278,12 +16974,12 @@ public final class ReviewQueues {
         if (((from_bitField0_ & 0x00000002) != 0)) {
           to_bitField0_ |= 0x00000002;
         }
-        result.targetType_ = targetType_;
+        result.itemType_ = itemType_;
         if (((bitField0_ & 0x00000004) != 0)) {
-          targetIds_ = targetIds_.getUnmodifiableView();
+          itemIds_ = itemIds_.getUnmodifiableView();
           bitField0_ = (bitField0_ & ~0x00000004);
         }
-        result.targetIds_ = targetIds_;
+        result.itemIds_ = itemIds_;
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -17323,31 +17019,31 @@ public final class ReviewQueues {
       }
       @java.lang.Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
-        if (other instanceof org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue) {
-          return mergeFrom((org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue)other);
+        if (other instanceof org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue) {
+          return mergeFrom((org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue)other);
         } else {
           super.mergeFrom(other);
           return this;
         }
       }
 
-      public Builder mergeFrom(org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue other) {
-        if (other == org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue.getDefaultInstance()) return this;
+      public Builder mergeFrom(org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue other) {
+        if (other == org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue.getDefaultInstance()) return this;
         if (other.hasQueueId()) {
           bitField0_ |= 0x00000001;
           queueId_ = other.queueId_;
           onChanged();
         }
-        if (other.hasTargetType()) {
-          setTargetType(other.getTargetType());
+        if (other.hasItemType()) {
+          setItemType(other.getItemType());
         }
-        if (!other.targetIds_.isEmpty()) {
-          if (targetIds_.isEmpty()) {
-            targetIds_ = other.targetIds_;
+        if (!other.itemIds_.isEmpty()) {
+          if (itemIds_.isEmpty()) {
+            itemIds_ = other.itemIds_;
             bitField0_ = (bitField0_ & ~0x00000004);
           } else {
-            ensureTargetIdsIsMutable();
-            targetIds_.addAll(other.targetIds_);
+            ensureItemIdsIsMutable();
+            itemIds_.addAll(other.itemIds_);
           }
           onChanged();
         }
@@ -17366,11 +17062,11 @@ public final class ReviewQueues {
           com.google.protobuf.CodedInputStream input,
           com.google.protobuf.ExtensionRegistryLite extensionRegistry)
           throws java.io.IOException {
-        org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue parsedMessage = null;
+        org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue parsedMessage = null;
         try {
           parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
         } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-          parsedMessage = (org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue) e.getUnfinishedMessage();
+          parsedMessage = (org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue) e.getUnfinishedMessage();
           throw e.unwrapIOException();
         } finally {
           if (parsedMessage != null) {
@@ -17465,154 +17161,154 @@ public final class ReviewQueues {
         return this;
       }
 
-      private int targetType_ = 0;
+      private int itemType_ = 0;
       /**
-       * <code>optional .mlflow.review_queues.ReviewTargetType target_type = 2;</code>
-       * @return Whether the targetType field is set.
+       * <code>optional .mlflow.review_queues.ReviewItemType item_type = 2;</code>
+       * @return Whether the itemType field is set.
        */
-      @java.lang.Override public boolean hasTargetType() {
+      @java.lang.Override public boolean hasItemType() {
         return ((bitField0_ & 0x00000002) != 0);
       }
       /**
-       * <code>optional .mlflow.review_queues.ReviewTargetType target_type = 2;</code>
-       * @return The targetType.
+       * <code>optional .mlflow.review_queues.ReviewItemType item_type = 2;</code>
+       * @return The itemType.
        */
       @java.lang.Override
-      public org.mlflow.api.proto.ReviewQueues.ReviewTargetType getTargetType() {
+      public org.mlflow.api.proto.ReviewQueues.ReviewItemType getItemType() {
         @SuppressWarnings("deprecation")
-        org.mlflow.api.proto.ReviewQueues.ReviewTargetType result = org.mlflow.api.proto.ReviewQueues.ReviewTargetType.valueOf(targetType_);
-        return result == null ? org.mlflow.api.proto.ReviewQueues.ReviewTargetType.REVIEW_TARGET_TYPE_UNSPECIFIED : result;
+        org.mlflow.api.proto.ReviewQueues.ReviewItemType result = org.mlflow.api.proto.ReviewQueues.ReviewItemType.valueOf(itemType_);
+        return result == null ? org.mlflow.api.proto.ReviewQueues.ReviewItemType.REVIEW_ITEM_TYPE_UNSPECIFIED : result;
       }
       /**
-       * <code>optional .mlflow.review_queues.ReviewTargetType target_type = 2;</code>
-       * @param value The targetType to set.
+       * <code>optional .mlflow.review_queues.ReviewItemType item_type = 2;</code>
+       * @param value The itemType to set.
        * @return This builder for chaining.
        */
-      public Builder setTargetType(org.mlflow.api.proto.ReviewQueues.ReviewTargetType value) {
+      public Builder setItemType(org.mlflow.api.proto.ReviewQueues.ReviewItemType value) {
         if (value == null) {
           throw new NullPointerException();
         }
         bitField0_ |= 0x00000002;
-        targetType_ = value.getNumber();
+        itemType_ = value.getNumber();
         onChanged();
         return this;
       }
       /**
-       * <code>optional .mlflow.review_queues.ReviewTargetType target_type = 2;</code>
+       * <code>optional .mlflow.review_queues.ReviewItemType item_type = 2;</code>
        * @return This builder for chaining.
        */
-      public Builder clearTargetType() {
+      public Builder clearItemType() {
         bitField0_ = (bitField0_ & ~0x00000002);
-        targetType_ = 0;
+        itemType_ = 0;
         onChanged();
         return this;
       }
 
-      private com.google.protobuf.LazyStringList targetIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
-      private void ensureTargetIdsIsMutable() {
+      private com.google.protobuf.LazyStringList itemIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+      private void ensureItemIdsIsMutable() {
         if (!((bitField0_ & 0x00000004) != 0)) {
-          targetIds_ = new com.google.protobuf.LazyStringArrayList(targetIds_);
+          itemIds_ = new com.google.protobuf.LazyStringArrayList(itemIds_);
           bitField0_ |= 0x00000004;
          }
       }
       /**
-       * <code>repeated string target_ids = 3;</code>
-       * @return A list containing the targetIds.
+       * <code>repeated string item_ids = 3;</code>
+       * @return A list containing the itemIds.
        */
       public com.google.protobuf.ProtocolStringList
-          getTargetIdsList() {
-        return targetIds_.getUnmodifiableView();
+          getItemIdsList() {
+        return itemIds_.getUnmodifiableView();
       }
       /**
-       * <code>repeated string target_ids = 3;</code>
-       * @return The count of targetIds.
+       * <code>repeated string item_ids = 3;</code>
+       * @return The count of itemIds.
        */
-      public int getTargetIdsCount() {
-        return targetIds_.size();
+      public int getItemIdsCount() {
+        return itemIds_.size();
       }
       /**
-       * <code>repeated string target_ids = 3;</code>
+       * <code>repeated string item_ids = 3;</code>
        * @param index The index of the element to return.
-       * @return The targetIds at the given index.
+       * @return The itemIds at the given index.
        */
-      public java.lang.String getTargetIds(int index) {
-        return targetIds_.get(index);
+      public java.lang.String getItemIds(int index) {
+        return itemIds_.get(index);
       }
       /**
-       * <code>repeated string target_ids = 3;</code>
+       * <code>repeated string item_ids = 3;</code>
        * @param index The index of the value to return.
-       * @return The bytes of the targetIds at the given index.
+       * @return The bytes of the itemIds at the given index.
        */
       public com.google.protobuf.ByteString
-          getTargetIdsBytes(int index) {
-        return targetIds_.getByteString(index);
+          getItemIdsBytes(int index) {
+        return itemIds_.getByteString(index);
       }
       /**
-       * <code>repeated string target_ids = 3;</code>
+       * <code>repeated string item_ids = 3;</code>
        * @param index The index to set the value at.
-       * @param value The targetIds to set.
+       * @param value The itemIds to set.
        * @return This builder for chaining.
        */
-      public Builder setTargetIds(
+      public Builder setItemIds(
           int index, java.lang.String value) {
         if (value == null) {
     throw new NullPointerException();
   }
-  ensureTargetIdsIsMutable();
-        targetIds_.set(index, value);
+  ensureItemIdsIsMutable();
+        itemIds_.set(index, value);
         onChanged();
         return this;
       }
       /**
-       * <code>repeated string target_ids = 3;</code>
-       * @param value The targetIds to add.
+       * <code>repeated string item_ids = 3;</code>
+       * @param value The itemIds to add.
        * @return This builder for chaining.
        */
-      public Builder addTargetIds(
+      public Builder addItemIds(
           java.lang.String value) {
         if (value == null) {
     throw new NullPointerException();
   }
-  ensureTargetIdsIsMutable();
-        targetIds_.add(value);
+  ensureItemIdsIsMutable();
+        itemIds_.add(value);
         onChanged();
         return this;
       }
       /**
-       * <code>repeated string target_ids = 3;</code>
-       * @param values The targetIds to add.
+       * <code>repeated string item_ids = 3;</code>
+       * @param values The itemIds to add.
        * @return This builder for chaining.
        */
-      public Builder addAllTargetIds(
+      public Builder addAllItemIds(
           java.lang.Iterable<java.lang.String> values) {
-        ensureTargetIdsIsMutable();
+        ensureItemIdsIsMutable();
         com.google.protobuf.AbstractMessageLite.Builder.addAll(
-            values, targetIds_);
+            values, itemIds_);
         onChanged();
         return this;
       }
       /**
-       * <code>repeated string target_ids = 3;</code>
+       * <code>repeated string item_ids = 3;</code>
        * @return This builder for chaining.
        */
-      public Builder clearTargetIds() {
-        targetIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+      public Builder clearItemIds() {
+        itemIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
         bitField0_ = (bitField0_ & ~0x00000004);
         onChanged();
         return this;
       }
       /**
-       * <code>repeated string target_ids = 3;</code>
-       * @param value The bytes of the targetIds to add.
+       * <code>repeated string item_ids = 3;</code>
+       * @param value The bytes of the itemIds to add.
        * @return This builder for chaining.
        */
-      public Builder addTargetIdsBytes(
+      public Builder addItemIdsBytes(
           com.google.protobuf.ByteString value) {
         if (value == null) {
     throw new NullPointerException();
   }
-  ensureTargetIdsIsMutable();
-        targetIds_.add(value);
+  ensureItemIdsIsMutable();
+        itemIds_.add(value);
         onChanged();
         return this;
       }
@@ -17629,48 +17325,48 @@ public final class ReviewQueues {
       }
 
 
-      // @@protoc_insertion_point(builder_scope:mlflow.review_queues.AddTracesToReviewQueue)
+      // @@protoc_insertion_point(builder_scope:mlflow.review_queues.AddItemsToReviewQueue)
     }
 
-    // @@protoc_insertion_point(class_scope:mlflow.review_queues.AddTracesToReviewQueue)
-    private static final org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue DEFAULT_INSTANCE;
+    // @@protoc_insertion_point(class_scope:mlflow.review_queues.AddItemsToReviewQueue)
+    private static final org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue DEFAULT_INSTANCE;
     static {
-      DEFAULT_INSTANCE = new org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue();
+      DEFAULT_INSTANCE = new org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue();
     }
 
-    public static org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue getDefaultInstance() {
+    public static org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue getDefaultInstance() {
       return DEFAULT_INSTANCE;
     }
 
-    @java.lang.Deprecated public static final com.google.protobuf.Parser<AddTracesToReviewQueue>
-        PARSER = new com.google.protobuf.AbstractParser<AddTracesToReviewQueue>() {
+    @java.lang.Deprecated public static final com.google.protobuf.Parser<AddItemsToReviewQueue>
+        PARSER = new com.google.protobuf.AbstractParser<AddItemsToReviewQueue>() {
       @java.lang.Override
-      public AddTracesToReviewQueue parsePartialFrom(
+      public AddItemsToReviewQueue parsePartialFrom(
           com.google.protobuf.CodedInputStream input,
           com.google.protobuf.ExtensionRegistryLite extensionRegistry)
           throws com.google.protobuf.InvalidProtocolBufferException {
-        return new AddTracesToReviewQueue(input, extensionRegistry);
+        return new AddItemsToReviewQueue(input, extensionRegistry);
       }
     };
 
-    public static com.google.protobuf.Parser<AddTracesToReviewQueue> parser() {
+    public static com.google.protobuf.Parser<AddItemsToReviewQueue> parser() {
       return PARSER;
     }
 
     @java.lang.Override
-    public com.google.protobuf.Parser<AddTracesToReviewQueue> getParserForType() {
+    public com.google.protobuf.Parser<AddItemsToReviewQueue> getParserForType() {
       return PARSER;
     }
 
     @java.lang.Override
-    public org.mlflow.api.proto.ReviewQueues.AddTracesToReviewQueue getDefaultInstanceForType() {
+    public org.mlflow.api.proto.ReviewQueues.AddItemsToReviewQueue getDefaultInstanceForType() {
       return DEFAULT_INSTANCE;
     }
 
   }
 
-  public interface RemoveTracesFromReviewQueueOrBuilder extends
-      // @@protoc_insertion_point(interface_extends:mlflow.review_queues.RemoveTracesFromReviewQueue)
+  public interface RemoveItemsFromReviewQueueOrBuilder extends
+      // @@protoc_insertion_point(interface_extends:mlflow.review_queues.RemoveItemsFromReviewQueue)
       com.google.protobuf.MessageOrBuilder {
 
     /**
@@ -17691,56 +17387,56 @@ public final class ReviewQueues {
         getQueueIdBytes();
 
     /**
-     * <code>repeated string target_ids = 2;</code>
-     * @return A list containing the targetIds.
+     * <code>repeated string item_ids = 2;</code>
+     * @return A list containing the itemIds.
      */
     java.util.List<java.lang.String>
-        getTargetIdsList();
+        getItemIdsList();
     /**
-     * <code>repeated string target_ids = 2;</code>
-     * @return The count of targetIds.
+     * <code>repeated string item_ids = 2;</code>
+     * @return The count of itemIds.
      */
-    int getTargetIdsCount();
+    int getItemIdsCount();
     /**
-     * <code>repeated string target_ids = 2;</code>
+     * <code>repeated string item_ids = 2;</code>
      * @param index The index of the element to return.
-     * @return The targetIds at the given index.
+     * @return The itemIds at the given index.
      */
-    java.lang.String getTargetIds(int index);
+    java.lang.String getItemIds(int index);
     /**
-     * <code>repeated string target_ids = 2;</code>
+     * <code>repeated string item_ids = 2;</code>
      * @param index The index of the value to return.
-     * @return The bytes of the targetIds at the given index.
+     * @return The bytes of the itemIds at the given index.
      */
     com.google.protobuf.ByteString
-        getTargetIdsBytes(int index);
+        getItemIdsBytes(int index);
   }
   /**
    * <pre>
-   * Detach traces from a queue. No-op for traces not attached.
+   * Detach items from a queue. No-op for items not attached.
    * </pre>
    *
-   * Protobuf type {@code mlflow.review_queues.RemoveTracesFromReviewQueue}
+   * Protobuf type {@code mlflow.review_queues.RemoveItemsFromReviewQueue}
    */
-  public static final class RemoveTracesFromReviewQueue extends
+  public static final class RemoveItemsFromReviewQueue extends
       com.google.protobuf.GeneratedMessageV3 implements
-      // @@protoc_insertion_point(message_implements:mlflow.review_queues.RemoveTracesFromReviewQueue)
-      RemoveTracesFromReviewQueueOrBuilder {
+      // @@protoc_insertion_point(message_implements:mlflow.review_queues.RemoveItemsFromReviewQueue)
+      RemoveItemsFromReviewQueueOrBuilder {
   private static final long serialVersionUID = 0L;
-    // Use RemoveTracesFromReviewQueue.newBuilder() to construct.
-    private RemoveTracesFromReviewQueue(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+    // Use RemoveItemsFromReviewQueue.newBuilder() to construct.
+    private RemoveItemsFromReviewQueue(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
       super(builder);
     }
-    private RemoveTracesFromReviewQueue() {
+    private RemoveItemsFromReviewQueue() {
       queueId_ = "";
-      targetIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+      itemIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
     }
 
     @java.lang.Override
     @SuppressWarnings({"unused"})
     protected java.lang.Object newInstance(
         UnusedPrivateParameter unused) {
-      return new RemoveTracesFromReviewQueue();
+      return new RemoveItemsFromReviewQueue();
     }
 
     @java.lang.Override
@@ -17748,7 +17444,7 @@ public final class ReviewQueues {
     getUnknownFields() {
       return this.unknownFields;
     }
-    private RemoveTracesFromReviewQueue(
+    private RemoveItemsFromReviewQueue(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
@@ -17776,10 +17472,10 @@ public final class ReviewQueues {
             case 18: {
               com.google.protobuf.ByteString bs = input.readBytes();
               if (!((mutable_bitField0_ & 0x00000002) != 0)) {
-                targetIds_ = new com.google.protobuf.LazyStringArrayList();
+                itemIds_ = new com.google.protobuf.LazyStringArrayList();
                 mutable_bitField0_ |= 0x00000002;
               }
-              targetIds_.add(bs);
+              itemIds_.add(bs);
               break;
             }
             default: {
@@ -17798,7 +17494,7 @@ public final class ReviewQueues {
             e).setUnfinishedMessage(this);
       } finally {
         if (((mutable_bitField0_ & 0x00000002) != 0)) {
-          targetIds_ = targetIds_.getUnmodifiableView();
+          itemIds_ = itemIds_.getUnmodifiableView();
         }
         this.unknownFields = unknownFields.build();
         makeExtensionsImmutable();
@@ -17806,27 +17502,27 @@ public final class ReviewQueues {
     }
     public static final com.google.protobuf.Descriptors.Descriptor
         getDescriptor() {
-      return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_RemoveTracesFromReviewQueue_descriptor;
+      return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_RemoveItemsFromReviewQueue_descriptor;
     }
 
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_RemoveTracesFromReviewQueue_fieldAccessorTable
+      return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_RemoveItemsFromReviewQueue_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
-              org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue.class, org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue.Builder.class);
+              org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue.class, org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue.Builder.class);
     }
 
     public interface ResponseOrBuilder extends
-        // @@protoc_insertion_point(interface_extends:mlflow.review_queues.RemoveTracesFromReviewQueue.Response)
+        // @@protoc_insertion_point(interface_extends:mlflow.review_queues.RemoveItemsFromReviewQueue.Response)
         com.google.protobuf.MessageOrBuilder {
     }
     /**
-     * Protobuf type {@code mlflow.review_queues.RemoveTracesFromReviewQueue.Response}
+     * Protobuf type {@code mlflow.review_queues.RemoveItemsFromReviewQueue.Response}
      */
     public static final class Response extends
         com.google.protobuf.GeneratedMessageV3 implements
-        // @@protoc_insertion_point(message_implements:mlflow.review_queues.RemoveTracesFromReviewQueue.Response)
+        // @@protoc_insertion_point(message_implements:mlflow.review_queues.RemoveItemsFromReviewQueue.Response)
         ResponseOrBuilder {
     private static final long serialVersionUID = 0L;
       // Use Response.newBuilder() to construct.
@@ -17887,15 +17583,15 @@ public final class ReviewQueues {
       }
       public static final com.google.protobuf.Descriptors.Descriptor
           getDescriptor() {
-        return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_RemoveTracesFromReviewQueue_Response_descriptor;
+        return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_RemoveItemsFromReviewQueue_Response_descriptor;
       }
 
       @java.lang.Override
       protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
           internalGetFieldAccessorTable() {
-        return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_RemoveTracesFromReviewQueue_Response_fieldAccessorTable
+        return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_RemoveItemsFromReviewQueue_Response_fieldAccessorTable
             .ensureFieldAccessorsInitialized(
-                org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue.Response.class, org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue.Response.Builder.class);
+                org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue.Response.class, org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue.Response.Builder.class);
       }
 
       private byte memoizedIsInitialized = -1;
@@ -17931,10 +17627,10 @@ public final class ReviewQueues {
         if (obj == this) {
          return true;
         }
-        if (!(obj instanceof org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue.Response)) {
+        if (!(obj instanceof org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue.Response)) {
           return super.equals(obj);
         }
-        org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue.Response other = (org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue.Response) obj;
+        org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue.Response other = (org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue.Response) obj;
 
         if (!unknownFields.equals(other.unknownFields)) return false;
         return true;
@@ -17952,69 +17648,69 @@ public final class ReviewQueues {
         return hash;
       }
 
-      public static org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue.Response parseFrom(
+      public static org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue.Response parseFrom(
           java.nio.ByteBuffer data)
           throws com.google.protobuf.InvalidProtocolBufferException {
         return PARSER.parseFrom(data);
       }
-      public static org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue.Response parseFrom(
+      public static org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue.Response parseFrom(
           java.nio.ByteBuffer data,
           com.google.protobuf.ExtensionRegistryLite extensionRegistry)
           throws com.google.protobuf.InvalidProtocolBufferException {
         return PARSER.parseFrom(data, extensionRegistry);
       }
-      public static org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue.Response parseFrom(
+      public static org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue.Response parseFrom(
           com.google.protobuf.ByteString data)
           throws com.google.protobuf.InvalidProtocolBufferException {
         return PARSER.parseFrom(data);
       }
-      public static org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue.Response parseFrom(
+      public static org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue.Response parseFrom(
           com.google.protobuf.ByteString data,
           com.google.protobuf.ExtensionRegistryLite extensionRegistry)
           throws com.google.protobuf.InvalidProtocolBufferException {
         return PARSER.parseFrom(data, extensionRegistry);
       }
-      public static org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue.Response parseFrom(byte[] data)
+      public static org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue.Response parseFrom(byte[] data)
           throws com.google.protobuf.InvalidProtocolBufferException {
         return PARSER.parseFrom(data);
       }
-      public static org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue.Response parseFrom(
+      public static org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue.Response parseFrom(
           byte[] data,
           com.google.protobuf.ExtensionRegistryLite extensionRegistry)
           throws com.google.protobuf.InvalidProtocolBufferException {
         return PARSER.parseFrom(data, extensionRegistry);
       }
-      public static org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue.Response parseFrom(java.io.InputStream input)
+      public static org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue.Response parseFrom(java.io.InputStream input)
           throws java.io.IOException {
         return com.google.protobuf.GeneratedMessageV3
             .parseWithIOException(PARSER, input);
       }
-      public static org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue.Response parseFrom(
+      public static org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue.Response parseFrom(
           java.io.InputStream input,
           com.google.protobuf.ExtensionRegistryLite extensionRegistry)
           throws java.io.IOException {
         return com.google.protobuf.GeneratedMessageV3
             .parseWithIOException(PARSER, input, extensionRegistry);
       }
-      public static org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue.Response parseDelimitedFrom(java.io.InputStream input)
+      public static org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue.Response parseDelimitedFrom(java.io.InputStream input)
           throws java.io.IOException {
         return com.google.protobuf.GeneratedMessageV3
             .parseDelimitedWithIOException(PARSER, input);
       }
-      public static org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue.Response parseDelimitedFrom(
+      public static org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue.Response parseDelimitedFrom(
           java.io.InputStream input,
           com.google.protobuf.ExtensionRegistryLite extensionRegistry)
           throws java.io.IOException {
         return com.google.protobuf.GeneratedMessageV3
             .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
       }
-      public static org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue.Response parseFrom(
+      public static org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue.Response parseFrom(
           com.google.protobuf.CodedInputStream input)
           throws java.io.IOException {
         return com.google.protobuf.GeneratedMessageV3
             .parseWithIOException(PARSER, input);
       }
-      public static org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue.Response parseFrom(
+      public static org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue.Response parseFrom(
           com.google.protobuf.CodedInputStream input,
           com.google.protobuf.ExtensionRegistryLite extensionRegistry)
           throws java.io.IOException {
@@ -18027,7 +17723,7 @@ public final class ReviewQueues {
       public static Builder newBuilder() {
         return DEFAULT_INSTANCE.toBuilder();
       }
-      public static Builder newBuilder(org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue.Response prototype) {
+      public static Builder newBuilder(org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue.Response prototype) {
         return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
       }
       @java.lang.Override
@@ -18043,26 +17739,26 @@ public final class ReviewQueues {
         return builder;
       }
       /**
-       * Protobuf type {@code mlflow.review_queues.RemoveTracesFromReviewQueue.Response}
+       * Protobuf type {@code mlflow.review_queues.RemoveItemsFromReviewQueue.Response}
        */
       public static final class Builder extends
           com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
-          // @@protoc_insertion_point(builder_implements:mlflow.review_queues.RemoveTracesFromReviewQueue.Response)
-          org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue.ResponseOrBuilder {
+          // @@protoc_insertion_point(builder_implements:mlflow.review_queues.RemoveItemsFromReviewQueue.Response)
+          org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue.ResponseOrBuilder {
         public static final com.google.protobuf.Descriptors.Descriptor
             getDescriptor() {
-          return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_RemoveTracesFromReviewQueue_Response_descriptor;
+          return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_RemoveItemsFromReviewQueue_Response_descriptor;
         }
 
         @java.lang.Override
         protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
             internalGetFieldAccessorTable() {
-          return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_RemoveTracesFromReviewQueue_Response_fieldAccessorTable
+          return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_RemoveItemsFromReviewQueue_Response_fieldAccessorTable
               .ensureFieldAccessorsInitialized(
-                  org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue.Response.class, org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue.Response.Builder.class);
+                  org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue.Response.class, org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue.Response.Builder.class);
         }
 
-        // Construct using org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue.Response.newBuilder()
+        // Construct using org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue.Response.newBuilder()
         private Builder() {
           maybeForceBuilderInitialization();
         }
@@ -18086,17 +17782,17 @@ public final class ReviewQueues {
         @java.lang.Override
         public com.google.protobuf.Descriptors.Descriptor
             getDescriptorForType() {
-          return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_RemoveTracesFromReviewQueue_Response_descriptor;
+          return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_RemoveItemsFromReviewQueue_Response_descriptor;
         }
 
         @java.lang.Override
-        public org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue.Response getDefaultInstanceForType() {
-          return org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue.Response.getDefaultInstance();
+        public org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue.Response getDefaultInstanceForType() {
+          return org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue.Response.getDefaultInstance();
         }
 
         @java.lang.Override
-        public org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue.Response build() {
-          org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue.Response result = buildPartial();
+        public org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue.Response build() {
+          org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue.Response result = buildPartial();
           if (!result.isInitialized()) {
             throw newUninitializedMessageException(result);
           }
@@ -18104,8 +17800,8 @@ public final class ReviewQueues {
         }
 
         @java.lang.Override
-        public org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue.Response buildPartial() {
-          org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue.Response result = new org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue.Response(this);
+        public org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue.Response buildPartial() {
+          org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue.Response result = new org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue.Response(this);
           onBuilt();
           return result;
         }
@@ -18144,16 +17840,16 @@ public final class ReviewQueues {
         }
         @java.lang.Override
         public Builder mergeFrom(com.google.protobuf.Message other) {
-          if (other instanceof org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue.Response) {
-            return mergeFrom((org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue.Response)other);
+          if (other instanceof org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue.Response) {
+            return mergeFrom((org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue.Response)other);
           } else {
             super.mergeFrom(other);
             return this;
           }
         }
 
-        public Builder mergeFrom(org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue.Response other) {
-          if (other == org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue.Response.getDefaultInstance()) return this;
+        public Builder mergeFrom(org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue.Response other) {
+          if (other == org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue.Response.getDefaultInstance()) return this;
           this.mergeUnknownFields(other.unknownFields);
           onChanged();
           return this;
@@ -18169,11 +17865,11 @@ public final class ReviewQueues {
             com.google.protobuf.CodedInputStream input,
             com.google.protobuf.ExtensionRegistryLite extensionRegistry)
             throws java.io.IOException {
-          org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue.Response parsedMessage = null;
+          org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue.Response parsedMessage = null;
           try {
             parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
           } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-            parsedMessage = (org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue.Response) e.getUnfinishedMessage();
+            parsedMessage = (org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue.Response) e.getUnfinishedMessage();
             throw e.unwrapIOException();
           } finally {
             if (parsedMessage != null) {
@@ -18195,16 +17891,16 @@ public final class ReviewQueues {
         }
 
 
-        // @@protoc_insertion_point(builder_scope:mlflow.review_queues.RemoveTracesFromReviewQueue.Response)
+        // @@protoc_insertion_point(builder_scope:mlflow.review_queues.RemoveItemsFromReviewQueue.Response)
       }
 
-      // @@protoc_insertion_point(class_scope:mlflow.review_queues.RemoveTracesFromReviewQueue.Response)
-      private static final org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue.Response DEFAULT_INSTANCE;
+      // @@protoc_insertion_point(class_scope:mlflow.review_queues.RemoveItemsFromReviewQueue.Response)
+      private static final org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue.Response DEFAULT_INSTANCE;
       static {
-        DEFAULT_INSTANCE = new org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue.Response();
+        DEFAULT_INSTANCE = new org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue.Response();
       }
 
-      public static org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue.Response getDefaultInstance() {
+      public static org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue.Response getDefaultInstance() {
         return DEFAULT_INSTANCE;
       }
 
@@ -18229,7 +17925,7 @@ public final class ReviewQueues {
       }
 
       @java.lang.Override
-      public org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue.Response getDefaultInstanceForType() {
+      public org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue.Response getDefaultInstanceForType() {
         return DEFAULT_INSTANCE;
       }
 
@@ -18284,39 +17980,39 @@ public final class ReviewQueues {
       }
     }
 
-    public static final int TARGET_IDS_FIELD_NUMBER = 2;
-    private com.google.protobuf.LazyStringList targetIds_;
+    public static final int ITEM_IDS_FIELD_NUMBER = 2;
+    private com.google.protobuf.LazyStringList itemIds_;
     /**
-     * <code>repeated string target_ids = 2;</code>
-     * @return A list containing the targetIds.
+     * <code>repeated string item_ids = 2;</code>
+     * @return A list containing the itemIds.
      */
     public com.google.protobuf.ProtocolStringList
-        getTargetIdsList() {
-      return targetIds_;
+        getItemIdsList() {
+      return itemIds_;
     }
     /**
-     * <code>repeated string target_ids = 2;</code>
-     * @return The count of targetIds.
+     * <code>repeated string item_ids = 2;</code>
+     * @return The count of itemIds.
      */
-    public int getTargetIdsCount() {
-      return targetIds_.size();
+    public int getItemIdsCount() {
+      return itemIds_.size();
     }
     /**
-     * <code>repeated string target_ids = 2;</code>
+     * <code>repeated string item_ids = 2;</code>
      * @param index The index of the element to return.
-     * @return The targetIds at the given index.
+     * @return The itemIds at the given index.
      */
-    public java.lang.String getTargetIds(int index) {
-      return targetIds_.get(index);
+    public java.lang.String getItemIds(int index) {
+      return itemIds_.get(index);
     }
     /**
-     * <code>repeated string target_ids = 2;</code>
+     * <code>repeated string item_ids = 2;</code>
      * @param index The index of the value to return.
-     * @return The bytes of the targetIds at the given index.
+     * @return The bytes of the itemIds at the given index.
      */
     public com.google.protobuf.ByteString
-        getTargetIdsBytes(int index) {
-      return targetIds_.getByteString(index);
+        getItemIdsBytes(int index) {
+      return itemIds_.getByteString(index);
     }
 
     private byte memoizedIsInitialized = -1;
@@ -18336,8 +18032,8 @@ public final class ReviewQueues {
       if (((bitField0_ & 0x00000001) != 0)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 1, queueId_);
       }
-      for (int i = 0; i < targetIds_.size(); i++) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 2, targetIds_.getRaw(i));
+      for (int i = 0; i < itemIds_.size(); i++) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 2, itemIds_.getRaw(i));
       }
       unknownFields.writeTo(output);
     }
@@ -18353,11 +18049,11 @@ public final class ReviewQueues {
       }
       {
         int dataSize = 0;
-        for (int i = 0; i < targetIds_.size(); i++) {
-          dataSize += computeStringSizeNoTag(targetIds_.getRaw(i));
+        for (int i = 0; i < itemIds_.size(); i++) {
+          dataSize += computeStringSizeNoTag(itemIds_.getRaw(i));
         }
         size += dataSize;
-        size += 1 * getTargetIdsList().size();
+        size += 1 * getItemIdsList().size();
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -18369,18 +18065,18 @@ public final class ReviewQueues {
       if (obj == this) {
        return true;
       }
-      if (!(obj instanceof org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue)) {
+      if (!(obj instanceof org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue)) {
         return super.equals(obj);
       }
-      org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue other = (org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue) obj;
+      org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue other = (org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue) obj;
 
       if (hasQueueId() != other.hasQueueId()) return false;
       if (hasQueueId()) {
         if (!getQueueId()
             .equals(other.getQueueId())) return false;
       }
-      if (!getTargetIdsList()
-          .equals(other.getTargetIdsList())) return false;
+      if (!getItemIdsList()
+          .equals(other.getItemIdsList())) return false;
       if (!unknownFields.equals(other.unknownFields)) return false;
       return true;
     }
@@ -18396,78 +18092,78 @@ public final class ReviewQueues {
         hash = (37 * hash) + QUEUE_ID_FIELD_NUMBER;
         hash = (53 * hash) + getQueueId().hashCode();
       }
-      if (getTargetIdsCount() > 0) {
-        hash = (37 * hash) + TARGET_IDS_FIELD_NUMBER;
-        hash = (53 * hash) + getTargetIdsList().hashCode();
+      if (getItemIdsCount() > 0) {
+        hash = (37 * hash) + ITEM_IDS_FIELD_NUMBER;
+        hash = (53 * hash) + getItemIdsList().hashCode();
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
       return hash;
     }
 
-    public static org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue parseFrom(
+    public static org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue parseFrom(
         java.nio.ByteBuffer data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
-    public static org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue parseFrom(
+    public static org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue parseFrom(
         java.nio.ByteBuffer data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
-    public static org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue parseFrom(
+    public static org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue parseFrom(
         com.google.protobuf.ByteString data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
-    public static org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue parseFrom(
+    public static org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue parseFrom(
         com.google.protobuf.ByteString data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
-    public static org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue parseFrom(byte[] data)
+    public static org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue parseFrom(byte[] data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
-    public static org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue parseFrom(
+    public static org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue parseFrom(
         byte[] data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
-    public static org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue parseFrom(java.io.InputStream input)
+    public static org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue parseFrom(java.io.InputStream input)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3
           .parseWithIOException(PARSER, input);
     }
-    public static org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue parseFrom(
+    public static org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue parseFrom(
         java.io.InputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3
           .parseWithIOException(PARSER, input, extensionRegistry);
     }
-    public static org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue parseDelimitedFrom(java.io.InputStream input)
+    public static org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue parseDelimitedFrom(java.io.InputStream input)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3
           .parseDelimitedWithIOException(PARSER, input);
     }
-    public static org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue parseDelimitedFrom(
+    public static org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue parseDelimitedFrom(
         java.io.InputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3
           .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
     }
-    public static org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue parseFrom(
+    public static org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue parseFrom(
         com.google.protobuf.CodedInputStream input)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3
           .parseWithIOException(PARSER, input);
     }
-    public static org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue parseFrom(
+    public static org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue parseFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
@@ -18480,7 +18176,7 @@ public final class ReviewQueues {
     public static Builder newBuilder() {
       return DEFAULT_INSTANCE.toBuilder();
     }
-    public static Builder newBuilder(org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue prototype) {
+    public static Builder newBuilder(org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue prototype) {
       return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
     }
     @java.lang.Override
@@ -18497,29 +18193,29 @@ public final class ReviewQueues {
     }
     /**
      * <pre>
-     * Detach traces from a queue. No-op for traces not attached.
+     * Detach items from a queue. No-op for items not attached.
      * </pre>
      *
-     * Protobuf type {@code mlflow.review_queues.RemoveTracesFromReviewQueue}
+     * Protobuf type {@code mlflow.review_queues.RemoveItemsFromReviewQueue}
      */
     public static final class Builder extends
         com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
-        // @@protoc_insertion_point(builder_implements:mlflow.review_queues.RemoveTracesFromReviewQueue)
-        org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueueOrBuilder {
+        // @@protoc_insertion_point(builder_implements:mlflow.review_queues.RemoveItemsFromReviewQueue)
+        org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueueOrBuilder {
       public static final com.google.protobuf.Descriptors.Descriptor
           getDescriptor() {
-        return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_RemoveTracesFromReviewQueue_descriptor;
+        return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_RemoveItemsFromReviewQueue_descriptor;
       }
 
       @java.lang.Override
       protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
           internalGetFieldAccessorTable() {
-        return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_RemoveTracesFromReviewQueue_fieldAccessorTable
+        return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_RemoveItemsFromReviewQueue_fieldAccessorTable
             .ensureFieldAccessorsInitialized(
-                org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue.class, org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue.Builder.class);
+                org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue.class, org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue.Builder.class);
       }
 
-      // Construct using org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue.newBuilder()
+      // Construct using org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue.newBuilder()
       private Builder() {
         maybeForceBuilderInitialization();
       }
@@ -18539,7 +18235,7 @@ public final class ReviewQueues {
         super.clear();
         queueId_ = "";
         bitField0_ = (bitField0_ & ~0x00000001);
-        targetIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+        itemIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
         bitField0_ = (bitField0_ & ~0x00000002);
         return this;
       }
@@ -18547,17 +18243,17 @@ public final class ReviewQueues {
       @java.lang.Override
       public com.google.protobuf.Descriptors.Descriptor
           getDescriptorForType() {
-        return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_RemoveTracesFromReviewQueue_descriptor;
+        return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_RemoveItemsFromReviewQueue_descriptor;
       }
 
       @java.lang.Override
-      public org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue getDefaultInstanceForType() {
-        return org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue.getDefaultInstance();
+      public org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue getDefaultInstanceForType() {
+        return org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue.getDefaultInstance();
       }
 
       @java.lang.Override
-      public org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue build() {
-        org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue result = buildPartial();
+      public org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue build() {
+        org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue result = buildPartial();
         if (!result.isInitialized()) {
           throw newUninitializedMessageException(result);
         }
@@ -18565,8 +18261,8 @@ public final class ReviewQueues {
       }
 
       @java.lang.Override
-      public org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue buildPartial() {
-        org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue result = new org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue(this);
+      public org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue buildPartial() {
+        org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue result = new org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue(this);
         int from_bitField0_ = bitField0_;
         int to_bitField0_ = 0;
         if (((from_bitField0_ & 0x00000001) != 0)) {
@@ -18574,10 +18270,10 @@ public final class ReviewQueues {
         }
         result.queueId_ = queueId_;
         if (((bitField0_ & 0x00000002) != 0)) {
-          targetIds_ = targetIds_.getUnmodifiableView();
+          itemIds_ = itemIds_.getUnmodifiableView();
           bitField0_ = (bitField0_ & ~0x00000002);
         }
-        result.targetIds_ = targetIds_;
+        result.itemIds_ = itemIds_;
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -18617,28 +18313,28 @@ public final class ReviewQueues {
       }
       @java.lang.Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
-        if (other instanceof org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue) {
-          return mergeFrom((org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue)other);
+        if (other instanceof org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue) {
+          return mergeFrom((org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue)other);
         } else {
           super.mergeFrom(other);
           return this;
         }
       }
 
-      public Builder mergeFrom(org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue other) {
-        if (other == org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue.getDefaultInstance()) return this;
+      public Builder mergeFrom(org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue other) {
+        if (other == org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue.getDefaultInstance()) return this;
         if (other.hasQueueId()) {
           bitField0_ |= 0x00000001;
           queueId_ = other.queueId_;
           onChanged();
         }
-        if (!other.targetIds_.isEmpty()) {
-          if (targetIds_.isEmpty()) {
-            targetIds_ = other.targetIds_;
+        if (!other.itemIds_.isEmpty()) {
+          if (itemIds_.isEmpty()) {
+            itemIds_ = other.itemIds_;
             bitField0_ = (bitField0_ & ~0x00000002);
           } else {
-            ensureTargetIdsIsMutable();
-            targetIds_.addAll(other.targetIds_);
+            ensureItemIdsIsMutable();
+            itemIds_.addAll(other.itemIds_);
           }
           onChanged();
         }
@@ -18657,11 +18353,11 @@ public final class ReviewQueues {
           com.google.protobuf.CodedInputStream input,
           com.google.protobuf.ExtensionRegistryLite extensionRegistry)
           throws java.io.IOException {
-        org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue parsedMessage = null;
+        org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue parsedMessage = null;
         try {
           parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
         } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-          parsedMessage = (org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue) e.getUnfinishedMessage();
+          parsedMessage = (org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue) e.getUnfinishedMessage();
           throw e.unwrapIOException();
         } finally {
           if (parsedMessage != null) {
@@ -18756,111 +18452,111 @@ public final class ReviewQueues {
         return this;
       }
 
-      private com.google.protobuf.LazyStringList targetIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
-      private void ensureTargetIdsIsMutable() {
+      private com.google.protobuf.LazyStringList itemIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+      private void ensureItemIdsIsMutable() {
         if (!((bitField0_ & 0x00000002) != 0)) {
-          targetIds_ = new com.google.protobuf.LazyStringArrayList(targetIds_);
+          itemIds_ = new com.google.protobuf.LazyStringArrayList(itemIds_);
           bitField0_ |= 0x00000002;
          }
       }
       /**
-       * <code>repeated string target_ids = 2;</code>
-       * @return A list containing the targetIds.
+       * <code>repeated string item_ids = 2;</code>
+       * @return A list containing the itemIds.
        */
       public com.google.protobuf.ProtocolStringList
-          getTargetIdsList() {
-        return targetIds_.getUnmodifiableView();
+          getItemIdsList() {
+        return itemIds_.getUnmodifiableView();
       }
       /**
-       * <code>repeated string target_ids = 2;</code>
-       * @return The count of targetIds.
+       * <code>repeated string item_ids = 2;</code>
+       * @return The count of itemIds.
        */
-      public int getTargetIdsCount() {
-        return targetIds_.size();
+      public int getItemIdsCount() {
+        return itemIds_.size();
       }
       /**
-       * <code>repeated string target_ids = 2;</code>
+       * <code>repeated string item_ids = 2;</code>
        * @param index The index of the element to return.
-       * @return The targetIds at the given index.
+       * @return The itemIds at the given index.
        */
-      public java.lang.String getTargetIds(int index) {
-        return targetIds_.get(index);
+      public java.lang.String getItemIds(int index) {
+        return itemIds_.get(index);
       }
       /**
-       * <code>repeated string target_ids = 2;</code>
+       * <code>repeated string item_ids = 2;</code>
        * @param index The index of the value to return.
-       * @return The bytes of the targetIds at the given index.
+       * @return The bytes of the itemIds at the given index.
        */
       public com.google.protobuf.ByteString
-          getTargetIdsBytes(int index) {
-        return targetIds_.getByteString(index);
+          getItemIdsBytes(int index) {
+        return itemIds_.getByteString(index);
       }
       /**
-       * <code>repeated string target_ids = 2;</code>
+       * <code>repeated string item_ids = 2;</code>
        * @param index The index to set the value at.
-       * @param value The targetIds to set.
+       * @param value The itemIds to set.
        * @return This builder for chaining.
        */
-      public Builder setTargetIds(
+      public Builder setItemIds(
           int index, java.lang.String value) {
         if (value == null) {
     throw new NullPointerException();
   }
-  ensureTargetIdsIsMutable();
-        targetIds_.set(index, value);
+  ensureItemIdsIsMutable();
+        itemIds_.set(index, value);
         onChanged();
         return this;
       }
       /**
-       * <code>repeated string target_ids = 2;</code>
-       * @param value The targetIds to add.
+       * <code>repeated string item_ids = 2;</code>
+       * @param value The itemIds to add.
        * @return This builder for chaining.
        */
-      public Builder addTargetIds(
+      public Builder addItemIds(
           java.lang.String value) {
         if (value == null) {
     throw new NullPointerException();
   }
-  ensureTargetIdsIsMutable();
-        targetIds_.add(value);
+  ensureItemIdsIsMutable();
+        itemIds_.add(value);
         onChanged();
         return this;
       }
       /**
-       * <code>repeated string target_ids = 2;</code>
-       * @param values The targetIds to add.
+       * <code>repeated string item_ids = 2;</code>
+       * @param values The itemIds to add.
        * @return This builder for chaining.
        */
-      public Builder addAllTargetIds(
+      public Builder addAllItemIds(
           java.lang.Iterable<java.lang.String> values) {
-        ensureTargetIdsIsMutable();
+        ensureItemIdsIsMutable();
         com.google.protobuf.AbstractMessageLite.Builder.addAll(
-            values, targetIds_);
+            values, itemIds_);
         onChanged();
         return this;
       }
       /**
-       * <code>repeated string target_ids = 2;</code>
+       * <code>repeated string item_ids = 2;</code>
        * @return This builder for chaining.
        */
-      public Builder clearTargetIds() {
-        targetIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+      public Builder clearItemIds() {
+        itemIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
         bitField0_ = (bitField0_ & ~0x00000002);
         onChanged();
         return this;
       }
       /**
-       * <code>repeated string target_ids = 2;</code>
-       * @param value The bytes of the targetIds to add.
+       * <code>repeated string item_ids = 2;</code>
+       * @param value The bytes of the itemIds to add.
        * @return This builder for chaining.
        */
-      public Builder addTargetIdsBytes(
+      public Builder addItemIdsBytes(
           com.google.protobuf.ByteString value) {
         if (value == null) {
     throw new NullPointerException();
   }
-  ensureTargetIdsIsMutable();
-        targetIds_.add(value);
+  ensureItemIdsIsMutable();
+        itemIds_.add(value);
         onChanged();
         return this;
       }
@@ -18877,48 +18573,48 @@ public final class ReviewQueues {
       }
 
 
-      // @@protoc_insertion_point(builder_scope:mlflow.review_queues.RemoveTracesFromReviewQueue)
+      // @@protoc_insertion_point(builder_scope:mlflow.review_queues.RemoveItemsFromReviewQueue)
     }
 
-    // @@protoc_insertion_point(class_scope:mlflow.review_queues.RemoveTracesFromReviewQueue)
-    private static final org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue DEFAULT_INSTANCE;
+    // @@protoc_insertion_point(class_scope:mlflow.review_queues.RemoveItemsFromReviewQueue)
+    private static final org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue DEFAULT_INSTANCE;
     static {
-      DEFAULT_INSTANCE = new org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue();
+      DEFAULT_INSTANCE = new org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue();
     }
 
-    public static org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue getDefaultInstance() {
+    public static org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue getDefaultInstance() {
       return DEFAULT_INSTANCE;
     }
 
-    @java.lang.Deprecated public static final com.google.protobuf.Parser<RemoveTracesFromReviewQueue>
-        PARSER = new com.google.protobuf.AbstractParser<RemoveTracesFromReviewQueue>() {
+    @java.lang.Deprecated public static final com.google.protobuf.Parser<RemoveItemsFromReviewQueue>
+        PARSER = new com.google.protobuf.AbstractParser<RemoveItemsFromReviewQueue>() {
       @java.lang.Override
-      public RemoveTracesFromReviewQueue parsePartialFrom(
+      public RemoveItemsFromReviewQueue parsePartialFrom(
           com.google.protobuf.CodedInputStream input,
           com.google.protobuf.ExtensionRegistryLite extensionRegistry)
           throws com.google.protobuf.InvalidProtocolBufferException {
-        return new RemoveTracesFromReviewQueue(input, extensionRegistry);
+        return new RemoveItemsFromReviewQueue(input, extensionRegistry);
       }
     };
 
-    public static com.google.protobuf.Parser<RemoveTracesFromReviewQueue> parser() {
+    public static com.google.protobuf.Parser<RemoveItemsFromReviewQueue> parser() {
       return PARSER;
     }
 
     @java.lang.Override
-    public com.google.protobuf.Parser<RemoveTracesFromReviewQueue> getParserForType() {
+    public com.google.protobuf.Parser<RemoveItemsFromReviewQueue> getParserForType() {
       return PARSER;
     }
 
     @java.lang.Override
-    public org.mlflow.api.proto.ReviewQueues.RemoveTracesFromReviewQueue getDefaultInstanceForType() {
+    public org.mlflow.api.proto.ReviewQueues.RemoveItemsFromReviewQueue getDefaultInstanceForType() {
       return DEFAULT_INSTANCE;
     }
 
   }
 
-  public interface ListReviewQueueTracesOrBuilder extends
-      // @@protoc_insertion_point(interface_extends:mlflow.review_queues.ListReviewQueueTraces)
+  public interface ListReviewQueueItemsOrBuilder extends
+      // @@protoc_insertion_point(interface_extends:mlflow.review_queues.ListReviewQueueItems)
       com.google.protobuf.MessageOrBuilder {
 
     /**
@@ -18989,22 +18685,22 @@ public final class ReviewQueues {
   }
   /**
    * <pre>
-   * List a queue's attached traces, newest-attached first, optionally
+   * List a queue's attached items, newest-attached first, optionally
    * filtered by status.
    * </pre>
    *
-   * Protobuf type {@code mlflow.review_queues.ListReviewQueueTraces}
+   * Protobuf type {@code mlflow.review_queues.ListReviewQueueItems}
    */
-  public static final class ListReviewQueueTraces extends
+  public static final class ListReviewQueueItems extends
       com.google.protobuf.GeneratedMessageV3 implements
-      // @@protoc_insertion_point(message_implements:mlflow.review_queues.ListReviewQueueTraces)
-      ListReviewQueueTracesOrBuilder {
+      // @@protoc_insertion_point(message_implements:mlflow.review_queues.ListReviewQueueItems)
+      ListReviewQueueItemsOrBuilder {
   private static final long serialVersionUID = 0L;
-    // Use ListReviewQueueTraces.newBuilder() to construct.
-    private ListReviewQueueTraces(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+    // Use ListReviewQueueItems.newBuilder() to construct.
+    private ListReviewQueueItems(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
       super(builder);
     }
-    private ListReviewQueueTraces() {
+    private ListReviewQueueItems() {
       queueId_ = "";
       status_ = 0;
       pageToken_ = "";
@@ -19014,7 +18710,7 @@ public final class ReviewQueues {
     @SuppressWarnings({"unused"})
     protected java.lang.Object newInstance(
         UnusedPrivateParameter unused) {
-      return new ListReviewQueueTraces();
+      return new ListReviewQueueItems();
     }
 
     @java.lang.Override
@@ -19022,7 +18718,7 @@ public final class ReviewQueues {
     getUnknownFields() {
       return this.unknownFields;
     }
-    private ListReviewQueueTraces(
+    private ListReviewQueueItems(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
@@ -19091,19 +18787,19 @@ public final class ReviewQueues {
     }
     public static final com.google.protobuf.Descriptors.Descriptor
         getDescriptor() {
-      return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_ListReviewQueueTraces_descriptor;
+      return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_ListReviewQueueItems_descriptor;
     }
 
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_ListReviewQueueTraces_fieldAccessorTable
+      return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_ListReviewQueueItems_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
-              org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces.class, org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces.Builder.class);
+              org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems.class, org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems.Builder.class);
     }
 
     public interface ResponseOrBuilder extends
-        // @@protoc_insertion_point(interface_extends:mlflow.review_queues.ListReviewQueueTraces.Response)
+        // @@protoc_insertion_point(interface_extends:mlflow.review_queues.ListReviewQueueItems.Response)
         com.google.protobuf.MessageOrBuilder {
 
       /**
@@ -19148,11 +18844,11 @@ public final class ReviewQueues {
           getNextPageTokenBytes();
     }
     /**
-     * Protobuf type {@code mlflow.review_queues.ListReviewQueueTraces.Response}
+     * Protobuf type {@code mlflow.review_queues.ListReviewQueueItems.Response}
      */
     public static final class Response extends
         com.google.protobuf.GeneratedMessageV3 implements
-        // @@protoc_insertion_point(message_implements:mlflow.review_queues.ListReviewQueueTraces.Response)
+        // @@protoc_insertion_point(message_implements:mlflow.review_queues.ListReviewQueueItems.Response)
         ResponseOrBuilder {
     private static final long serialVersionUID = 0L;
       // Use Response.newBuilder() to construct.
@@ -19234,15 +18930,15 @@ public final class ReviewQueues {
       }
       public static final com.google.protobuf.Descriptors.Descriptor
           getDescriptor() {
-        return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_ListReviewQueueTraces_Response_descriptor;
+        return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_ListReviewQueueItems_Response_descriptor;
       }
 
       @java.lang.Override
       protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
           internalGetFieldAccessorTable() {
-        return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_ListReviewQueueTraces_Response_fieldAccessorTable
+        return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_ListReviewQueueItems_Response_fieldAccessorTable
             .ensureFieldAccessorsInitialized(
-                org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces.Response.class, org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces.Response.Builder.class);
+                org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems.Response.class, org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems.Response.Builder.class);
       }
 
       private int bitField0_;
@@ -19380,10 +19076,10 @@ public final class ReviewQueues {
         if (obj == this) {
          return true;
         }
-        if (!(obj instanceof org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces.Response)) {
+        if (!(obj instanceof org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems.Response)) {
           return super.equals(obj);
         }
-        org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces.Response other = (org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces.Response) obj;
+        org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems.Response other = (org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems.Response) obj;
 
         if (!getItemsList()
             .equals(other.getItemsList())) return false;
@@ -19416,69 +19112,69 @@ public final class ReviewQueues {
         return hash;
       }
 
-      public static org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces.Response parseFrom(
+      public static org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems.Response parseFrom(
           java.nio.ByteBuffer data)
           throws com.google.protobuf.InvalidProtocolBufferException {
         return PARSER.parseFrom(data);
       }
-      public static org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces.Response parseFrom(
+      public static org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems.Response parseFrom(
           java.nio.ByteBuffer data,
           com.google.protobuf.ExtensionRegistryLite extensionRegistry)
           throws com.google.protobuf.InvalidProtocolBufferException {
         return PARSER.parseFrom(data, extensionRegistry);
       }
-      public static org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces.Response parseFrom(
+      public static org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems.Response parseFrom(
           com.google.protobuf.ByteString data)
           throws com.google.protobuf.InvalidProtocolBufferException {
         return PARSER.parseFrom(data);
       }
-      public static org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces.Response parseFrom(
+      public static org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems.Response parseFrom(
           com.google.protobuf.ByteString data,
           com.google.protobuf.ExtensionRegistryLite extensionRegistry)
           throws com.google.protobuf.InvalidProtocolBufferException {
         return PARSER.parseFrom(data, extensionRegistry);
       }
-      public static org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces.Response parseFrom(byte[] data)
+      public static org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems.Response parseFrom(byte[] data)
           throws com.google.protobuf.InvalidProtocolBufferException {
         return PARSER.parseFrom(data);
       }
-      public static org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces.Response parseFrom(
+      public static org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems.Response parseFrom(
           byte[] data,
           com.google.protobuf.ExtensionRegistryLite extensionRegistry)
           throws com.google.protobuf.InvalidProtocolBufferException {
         return PARSER.parseFrom(data, extensionRegistry);
       }
-      public static org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces.Response parseFrom(java.io.InputStream input)
+      public static org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems.Response parseFrom(java.io.InputStream input)
           throws java.io.IOException {
         return com.google.protobuf.GeneratedMessageV3
             .parseWithIOException(PARSER, input);
       }
-      public static org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces.Response parseFrom(
+      public static org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems.Response parseFrom(
           java.io.InputStream input,
           com.google.protobuf.ExtensionRegistryLite extensionRegistry)
           throws java.io.IOException {
         return com.google.protobuf.GeneratedMessageV3
             .parseWithIOException(PARSER, input, extensionRegistry);
       }
-      public static org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces.Response parseDelimitedFrom(java.io.InputStream input)
+      public static org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems.Response parseDelimitedFrom(java.io.InputStream input)
           throws java.io.IOException {
         return com.google.protobuf.GeneratedMessageV3
             .parseDelimitedWithIOException(PARSER, input);
       }
-      public static org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces.Response parseDelimitedFrom(
+      public static org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems.Response parseDelimitedFrom(
           java.io.InputStream input,
           com.google.protobuf.ExtensionRegistryLite extensionRegistry)
           throws java.io.IOException {
         return com.google.protobuf.GeneratedMessageV3
             .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
       }
-      public static org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces.Response parseFrom(
+      public static org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems.Response parseFrom(
           com.google.protobuf.CodedInputStream input)
           throws java.io.IOException {
         return com.google.protobuf.GeneratedMessageV3
             .parseWithIOException(PARSER, input);
       }
-      public static org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces.Response parseFrom(
+      public static org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems.Response parseFrom(
           com.google.protobuf.CodedInputStream input,
           com.google.protobuf.ExtensionRegistryLite extensionRegistry)
           throws java.io.IOException {
@@ -19491,7 +19187,7 @@ public final class ReviewQueues {
       public static Builder newBuilder() {
         return DEFAULT_INSTANCE.toBuilder();
       }
-      public static Builder newBuilder(org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces.Response prototype) {
+      public static Builder newBuilder(org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems.Response prototype) {
         return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
       }
       @java.lang.Override
@@ -19507,26 +19203,26 @@ public final class ReviewQueues {
         return builder;
       }
       /**
-       * Protobuf type {@code mlflow.review_queues.ListReviewQueueTraces.Response}
+       * Protobuf type {@code mlflow.review_queues.ListReviewQueueItems.Response}
        */
       public static final class Builder extends
           com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
-          // @@protoc_insertion_point(builder_implements:mlflow.review_queues.ListReviewQueueTraces.Response)
-          org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces.ResponseOrBuilder {
+          // @@protoc_insertion_point(builder_implements:mlflow.review_queues.ListReviewQueueItems.Response)
+          org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems.ResponseOrBuilder {
         public static final com.google.protobuf.Descriptors.Descriptor
             getDescriptor() {
-          return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_ListReviewQueueTraces_Response_descriptor;
+          return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_ListReviewQueueItems_Response_descriptor;
         }
 
         @java.lang.Override
         protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
             internalGetFieldAccessorTable() {
-          return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_ListReviewQueueTraces_Response_fieldAccessorTable
+          return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_ListReviewQueueItems_Response_fieldAccessorTable
               .ensureFieldAccessorsInitialized(
-                  org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces.Response.class, org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces.Response.Builder.class);
+                  org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems.Response.class, org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems.Response.Builder.class);
         }
 
-        // Construct using org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces.Response.newBuilder()
+        // Construct using org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems.Response.newBuilder()
         private Builder() {
           maybeForceBuilderInitialization();
         }
@@ -19559,17 +19255,17 @@ public final class ReviewQueues {
         @java.lang.Override
         public com.google.protobuf.Descriptors.Descriptor
             getDescriptorForType() {
-          return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_ListReviewQueueTraces_Response_descriptor;
+          return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_ListReviewQueueItems_Response_descriptor;
         }
 
         @java.lang.Override
-        public org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces.Response getDefaultInstanceForType() {
-          return org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces.Response.getDefaultInstance();
+        public org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems.Response getDefaultInstanceForType() {
+          return org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems.Response.getDefaultInstance();
         }
 
         @java.lang.Override
-        public org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces.Response build() {
-          org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces.Response result = buildPartial();
+        public org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems.Response build() {
+          org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems.Response result = buildPartial();
           if (!result.isInitialized()) {
             throw newUninitializedMessageException(result);
           }
@@ -19577,8 +19273,8 @@ public final class ReviewQueues {
         }
 
         @java.lang.Override
-        public org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces.Response buildPartial() {
-          org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces.Response result = new org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces.Response(this);
+        public org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems.Response buildPartial() {
+          org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems.Response result = new org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems.Response(this);
           int from_bitField0_ = bitField0_;
           int to_bitField0_ = 0;
           if (itemsBuilder_ == null) {
@@ -19633,16 +19329,16 @@ public final class ReviewQueues {
         }
         @java.lang.Override
         public Builder mergeFrom(com.google.protobuf.Message other) {
-          if (other instanceof org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces.Response) {
-            return mergeFrom((org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces.Response)other);
+          if (other instanceof org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems.Response) {
+            return mergeFrom((org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems.Response)other);
           } else {
             super.mergeFrom(other);
             return this;
           }
         }
 
-        public Builder mergeFrom(org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces.Response other) {
-          if (other == org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces.Response.getDefaultInstance()) return this;
+        public Builder mergeFrom(org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems.Response other) {
+          if (other == org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems.Response.getDefaultInstance()) return this;
           if (itemsBuilder_ == null) {
             if (!other.items_.isEmpty()) {
               if (items_.isEmpty()) {
@@ -19689,11 +19385,11 @@ public final class ReviewQueues {
             com.google.protobuf.CodedInputStream input,
             com.google.protobuf.ExtensionRegistryLite extensionRegistry)
             throws java.io.IOException {
-          org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces.Response parsedMessage = null;
+          org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems.Response parsedMessage = null;
           try {
             parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
           } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-            parsedMessage = (org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces.Response) e.getUnfinishedMessage();
+            parsedMessage = (org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems.Response) e.getUnfinishedMessage();
             throw e.unwrapIOException();
           } finally {
             if (parsedMessage != null) {
@@ -20040,16 +19736,16 @@ public final class ReviewQueues {
         }
 
 
-        // @@protoc_insertion_point(builder_scope:mlflow.review_queues.ListReviewQueueTraces.Response)
+        // @@protoc_insertion_point(builder_scope:mlflow.review_queues.ListReviewQueueItems.Response)
       }
 
-      // @@protoc_insertion_point(class_scope:mlflow.review_queues.ListReviewQueueTraces.Response)
-      private static final org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces.Response DEFAULT_INSTANCE;
+      // @@protoc_insertion_point(class_scope:mlflow.review_queues.ListReviewQueueItems.Response)
+      private static final org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems.Response DEFAULT_INSTANCE;
       static {
-        DEFAULT_INSTANCE = new org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces.Response();
+        DEFAULT_INSTANCE = new org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems.Response();
       }
 
-      public static org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces.Response getDefaultInstance() {
+      public static org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems.Response getDefaultInstance() {
         return DEFAULT_INSTANCE;
       }
 
@@ -20074,7 +19770,7 @@ public final class ReviewQueues {
       }
 
       @java.lang.Override
-      public org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces.Response getDefaultInstanceForType() {
+      public org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems.Response getDefaultInstanceForType() {
         return DEFAULT_INSTANCE;
       }
 
@@ -20284,10 +19980,10 @@ public final class ReviewQueues {
       if (obj == this) {
        return true;
       }
-      if (!(obj instanceof org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces)) {
+      if (!(obj instanceof org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems)) {
         return super.equals(obj);
       }
-      org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces other = (org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces) obj;
+      org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems other = (org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems) obj;
 
       if (hasQueueId() != other.hasQueueId()) return false;
       if (hasQueueId()) {
@@ -20340,69 +20036,69 @@ public final class ReviewQueues {
       return hash;
     }
 
-    public static org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces parseFrom(
+    public static org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems parseFrom(
         java.nio.ByteBuffer data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
-    public static org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces parseFrom(
+    public static org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems parseFrom(
         java.nio.ByteBuffer data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
-    public static org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces parseFrom(
+    public static org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems parseFrom(
         com.google.protobuf.ByteString data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
-    public static org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces parseFrom(
+    public static org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems parseFrom(
         com.google.protobuf.ByteString data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
-    public static org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces parseFrom(byte[] data)
+    public static org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems parseFrom(byte[] data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
-    public static org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces parseFrom(
+    public static org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems parseFrom(
         byte[] data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
-    public static org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces parseFrom(java.io.InputStream input)
+    public static org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems parseFrom(java.io.InputStream input)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3
           .parseWithIOException(PARSER, input);
     }
-    public static org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces parseFrom(
+    public static org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems parseFrom(
         java.io.InputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3
           .parseWithIOException(PARSER, input, extensionRegistry);
     }
-    public static org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces parseDelimitedFrom(java.io.InputStream input)
+    public static org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems parseDelimitedFrom(java.io.InputStream input)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3
           .parseDelimitedWithIOException(PARSER, input);
     }
-    public static org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces parseDelimitedFrom(
+    public static org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems parseDelimitedFrom(
         java.io.InputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3
           .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
     }
-    public static org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces parseFrom(
+    public static org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems parseFrom(
         com.google.protobuf.CodedInputStream input)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3
           .parseWithIOException(PARSER, input);
     }
-    public static org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces parseFrom(
+    public static org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems parseFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
@@ -20415,7 +20111,7 @@ public final class ReviewQueues {
     public static Builder newBuilder() {
       return DEFAULT_INSTANCE.toBuilder();
     }
-    public static Builder newBuilder(org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces prototype) {
+    public static Builder newBuilder(org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems prototype) {
       return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
     }
     @java.lang.Override
@@ -20432,30 +20128,30 @@ public final class ReviewQueues {
     }
     /**
      * <pre>
-     * List a queue's attached traces, newest-attached first, optionally
+     * List a queue's attached items, newest-attached first, optionally
      * filtered by status.
      * </pre>
      *
-     * Protobuf type {@code mlflow.review_queues.ListReviewQueueTraces}
+     * Protobuf type {@code mlflow.review_queues.ListReviewQueueItems}
      */
     public static final class Builder extends
         com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
-        // @@protoc_insertion_point(builder_implements:mlflow.review_queues.ListReviewQueueTraces)
-        org.mlflow.api.proto.ReviewQueues.ListReviewQueueTracesOrBuilder {
+        // @@protoc_insertion_point(builder_implements:mlflow.review_queues.ListReviewQueueItems)
+        org.mlflow.api.proto.ReviewQueues.ListReviewQueueItemsOrBuilder {
       public static final com.google.protobuf.Descriptors.Descriptor
           getDescriptor() {
-        return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_ListReviewQueueTraces_descriptor;
+        return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_ListReviewQueueItems_descriptor;
       }
 
       @java.lang.Override
       protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
           internalGetFieldAccessorTable() {
-        return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_ListReviewQueueTraces_fieldAccessorTable
+        return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_ListReviewQueueItems_fieldAccessorTable
             .ensureFieldAccessorsInitialized(
-                org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces.class, org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces.Builder.class);
+                org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems.class, org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems.Builder.class);
       }
 
-      // Construct using org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces.newBuilder()
+      // Construct using org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems.newBuilder()
       private Builder() {
         maybeForceBuilderInitialization();
       }
@@ -20487,17 +20183,17 @@ public final class ReviewQueues {
       @java.lang.Override
       public com.google.protobuf.Descriptors.Descriptor
           getDescriptorForType() {
-        return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_ListReviewQueueTraces_descriptor;
+        return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_ListReviewQueueItems_descriptor;
       }
 
       @java.lang.Override
-      public org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces getDefaultInstanceForType() {
-        return org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces.getDefaultInstance();
+      public org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems getDefaultInstanceForType() {
+        return org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems.getDefaultInstance();
       }
 
       @java.lang.Override
-      public org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces build() {
-        org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces result = buildPartial();
+      public org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems build() {
+        org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems result = buildPartial();
         if (!result.isInitialized()) {
           throw newUninitializedMessageException(result);
         }
@@ -20505,8 +20201,8 @@ public final class ReviewQueues {
       }
 
       @java.lang.Override
-      public org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces buildPartial() {
-        org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces result = new org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces(this);
+      public org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems buildPartial() {
+        org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems result = new org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems(this);
         int from_bitField0_ = bitField0_;
         int to_bitField0_ = 0;
         if (((from_bitField0_ & 0x00000001) != 0)) {
@@ -20564,16 +20260,16 @@ public final class ReviewQueues {
       }
       @java.lang.Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
-        if (other instanceof org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces) {
-          return mergeFrom((org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces)other);
+        if (other instanceof org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems) {
+          return mergeFrom((org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems)other);
         } else {
           super.mergeFrom(other);
           return this;
         }
       }
 
-      public Builder mergeFrom(org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces other) {
-        if (other == org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces.getDefaultInstance()) return this;
+      public Builder mergeFrom(org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems other) {
+        if (other == org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems.getDefaultInstance()) return this;
         if (other.hasQueueId()) {
           bitField0_ |= 0x00000001;
           queueId_ = other.queueId_;
@@ -20605,11 +20301,11 @@ public final class ReviewQueues {
           com.google.protobuf.CodedInputStream input,
           com.google.protobuf.ExtensionRegistryLite extensionRegistry)
           throws java.io.IOException {
-        org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces parsedMessage = null;
+        org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems parsedMessage = null;
         try {
           parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
         } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-          parsedMessage = (org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces) e.getUnfinishedMessage();
+          parsedMessage = (org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems) e.getUnfinishedMessage();
           throw e.unwrapIOException();
         } finally {
           if (parsedMessage != null) {
@@ -20902,48 +20598,48 @@ public final class ReviewQueues {
       }
 
 
-      // @@protoc_insertion_point(builder_scope:mlflow.review_queues.ListReviewQueueTraces)
+      // @@protoc_insertion_point(builder_scope:mlflow.review_queues.ListReviewQueueItems)
     }
 
-    // @@protoc_insertion_point(class_scope:mlflow.review_queues.ListReviewQueueTraces)
-    private static final org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces DEFAULT_INSTANCE;
+    // @@protoc_insertion_point(class_scope:mlflow.review_queues.ListReviewQueueItems)
+    private static final org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems DEFAULT_INSTANCE;
     static {
-      DEFAULT_INSTANCE = new org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces();
+      DEFAULT_INSTANCE = new org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems();
     }
 
-    public static org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces getDefaultInstance() {
+    public static org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems getDefaultInstance() {
       return DEFAULT_INSTANCE;
     }
 
-    @java.lang.Deprecated public static final com.google.protobuf.Parser<ListReviewQueueTraces>
-        PARSER = new com.google.protobuf.AbstractParser<ListReviewQueueTraces>() {
+    @java.lang.Deprecated public static final com.google.protobuf.Parser<ListReviewQueueItems>
+        PARSER = new com.google.protobuf.AbstractParser<ListReviewQueueItems>() {
       @java.lang.Override
-      public ListReviewQueueTraces parsePartialFrom(
+      public ListReviewQueueItems parsePartialFrom(
           com.google.protobuf.CodedInputStream input,
           com.google.protobuf.ExtensionRegistryLite extensionRegistry)
           throws com.google.protobuf.InvalidProtocolBufferException {
-        return new ListReviewQueueTraces(input, extensionRegistry);
+        return new ListReviewQueueItems(input, extensionRegistry);
       }
     };
 
-    public static com.google.protobuf.Parser<ListReviewQueueTraces> parser() {
+    public static com.google.protobuf.Parser<ListReviewQueueItems> parser() {
       return PARSER;
     }
 
     @java.lang.Override
-    public com.google.protobuf.Parser<ListReviewQueueTraces> getParserForType() {
+    public com.google.protobuf.Parser<ListReviewQueueItems> getParserForType() {
       return PARSER;
     }
 
     @java.lang.Override
-    public org.mlflow.api.proto.ReviewQueues.ListReviewQueueTraces getDefaultInstanceForType() {
+    public org.mlflow.api.proto.ReviewQueues.ListReviewQueueItems getDefaultInstanceForType() {
       return DEFAULT_INSTANCE;
     }
 
   }
 
-  public interface SetReviewQueueTraceStatusOrBuilder extends
-      // @@protoc_insertion_point(interface_extends:mlflow.review_queues.SetReviewQueueTraceStatus)
+  public interface SetReviewQueueItemStatusOrBuilder extends
+      // @@protoc_insertion_point(interface_extends:mlflow.review_queues.SetReviewQueueItemStatus)
       com.google.protobuf.MessageOrBuilder {
 
     /**
@@ -20964,21 +20660,21 @@ public final class ReviewQueues {
         getQueueIdBytes();
 
     /**
-     * <code>optional string target_id = 2 [(.mlflow.validate_required) = true];</code>
-     * @return Whether the targetId field is set.
+     * <code>optional string item_id = 2 [(.mlflow.validate_required) = true];</code>
+     * @return Whether the itemId field is set.
      */
-    boolean hasTargetId();
+    boolean hasItemId();
     /**
-     * <code>optional string target_id = 2 [(.mlflow.validate_required) = true];</code>
-     * @return The targetId.
+     * <code>optional string item_id = 2 [(.mlflow.validate_required) = true];</code>
+     * @return The itemId.
      */
-    java.lang.String getTargetId();
+    java.lang.String getItemId();
     /**
-     * <code>optional string target_id = 2 [(.mlflow.validate_required) = true];</code>
-     * @return The bytes for targetId.
+     * <code>optional string item_id = 2 [(.mlflow.validate_required) = true];</code>
+     * @return The bytes for itemId.
      */
     com.google.protobuf.ByteString
-        getTargetIdBytes();
+        getItemIdBytes();
 
     /**
      * <code>optional .mlflow.review_queues.ReviewStatus status = 3 [(.mlflow.validate_required) = true];</code>
@@ -21010,25 +20706,25 @@ public final class ReviewQueues {
   }
   /**
    * <pre>
-   * Set the shared-pool status of an attached trace. `completed_by` is
+   * Set the shared-pool status of an attached item. `completed_by` is
    * required for COMPLETE / DECLINED and must be absent for PENDING
    * (reopen clears attribution).
    * </pre>
    *
-   * Protobuf type {@code mlflow.review_queues.SetReviewQueueTraceStatus}
+   * Protobuf type {@code mlflow.review_queues.SetReviewQueueItemStatus}
    */
-  public static final class SetReviewQueueTraceStatus extends
+  public static final class SetReviewQueueItemStatus extends
       com.google.protobuf.GeneratedMessageV3 implements
-      // @@protoc_insertion_point(message_implements:mlflow.review_queues.SetReviewQueueTraceStatus)
-      SetReviewQueueTraceStatusOrBuilder {
+      // @@protoc_insertion_point(message_implements:mlflow.review_queues.SetReviewQueueItemStatus)
+      SetReviewQueueItemStatusOrBuilder {
   private static final long serialVersionUID = 0L;
-    // Use SetReviewQueueTraceStatus.newBuilder() to construct.
-    private SetReviewQueueTraceStatus(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+    // Use SetReviewQueueItemStatus.newBuilder() to construct.
+    private SetReviewQueueItemStatus(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
       super(builder);
     }
-    private SetReviewQueueTraceStatus() {
+    private SetReviewQueueItemStatus() {
       queueId_ = "";
-      targetId_ = "";
+      itemId_ = "";
       status_ = 0;
       completedBy_ = "";
     }
@@ -21037,7 +20733,7 @@ public final class ReviewQueues {
     @SuppressWarnings({"unused"})
     protected java.lang.Object newInstance(
         UnusedPrivateParameter unused) {
-      return new SetReviewQueueTraceStatus();
+      return new SetReviewQueueItemStatus();
     }
 
     @java.lang.Override
@@ -21045,7 +20741,7 @@ public final class ReviewQueues {
     getUnknownFields() {
       return this.unknownFields;
     }
-    private SetReviewQueueTraceStatus(
+    private SetReviewQueueItemStatus(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
@@ -21073,7 +20769,7 @@ public final class ReviewQueues {
             case 18: {
               com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000002;
-              targetId_ = bs;
+              itemId_ = bs;
               break;
             }
             case 24: {
@@ -21115,19 +20811,19 @@ public final class ReviewQueues {
     }
     public static final com.google.protobuf.Descriptors.Descriptor
         getDescriptor() {
-      return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_SetReviewQueueTraceStatus_descriptor;
+      return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_SetReviewQueueItemStatus_descriptor;
     }
 
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_SetReviewQueueTraceStatus_fieldAccessorTable
+      return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_SetReviewQueueItemStatus_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
-              org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus.class, org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus.Builder.class);
+              org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus.class, org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus.Builder.class);
     }
 
     public interface ResponseOrBuilder extends
-        // @@protoc_insertion_point(interface_extends:mlflow.review_queues.SetReviewQueueTraceStatus.Response)
+        // @@protoc_insertion_point(interface_extends:mlflow.review_queues.SetReviewQueueItemStatus.Response)
         com.google.protobuf.MessageOrBuilder {
 
       /**
@@ -21146,11 +20842,11 @@ public final class ReviewQueues {
       org.mlflow.api.proto.ReviewQueues.ReviewQueueItemOrBuilder getItemOrBuilder();
     }
     /**
-     * Protobuf type {@code mlflow.review_queues.SetReviewQueueTraceStatus.Response}
+     * Protobuf type {@code mlflow.review_queues.SetReviewQueueItemStatus.Response}
      */
     public static final class Response extends
         com.google.protobuf.GeneratedMessageV3 implements
-        // @@protoc_insertion_point(message_implements:mlflow.review_queues.SetReviewQueueTraceStatus.Response)
+        // @@protoc_insertion_point(message_implements:mlflow.review_queues.SetReviewQueueItemStatus.Response)
         ResponseOrBuilder {
     private static final long serialVersionUID = 0L;
       // Use Response.newBuilder() to construct.
@@ -21225,15 +20921,15 @@ public final class ReviewQueues {
       }
       public static final com.google.protobuf.Descriptors.Descriptor
           getDescriptor() {
-        return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_SetReviewQueueTraceStatus_Response_descriptor;
+        return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_SetReviewQueueItemStatus_Response_descriptor;
       }
 
       @java.lang.Override
       protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
           internalGetFieldAccessorTable() {
-        return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_SetReviewQueueTraceStatus_Response_fieldAccessorTable
+        return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_SetReviewQueueItemStatus_Response_fieldAccessorTable
             .ensureFieldAccessorsInitialized(
-                org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus.Response.class, org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus.Response.Builder.class);
+                org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus.Response.class, org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus.Response.Builder.class);
       }
 
       private int bitField0_;
@@ -21303,10 +20999,10 @@ public final class ReviewQueues {
         if (obj == this) {
          return true;
         }
-        if (!(obj instanceof org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus.Response)) {
+        if (!(obj instanceof org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus.Response)) {
           return super.equals(obj);
         }
-        org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus.Response other = (org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus.Response) obj;
+        org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus.Response other = (org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus.Response) obj;
 
         if (hasItem() != other.hasItem()) return false;
         if (hasItem()) {
@@ -21333,69 +21029,69 @@ public final class ReviewQueues {
         return hash;
       }
 
-      public static org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus.Response parseFrom(
+      public static org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus.Response parseFrom(
           java.nio.ByteBuffer data)
           throws com.google.protobuf.InvalidProtocolBufferException {
         return PARSER.parseFrom(data);
       }
-      public static org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus.Response parseFrom(
+      public static org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus.Response parseFrom(
           java.nio.ByteBuffer data,
           com.google.protobuf.ExtensionRegistryLite extensionRegistry)
           throws com.google.protobuf.InvalidProtocolBufferException {
         return PARSER.parseFrom(data, extensionRegistry);
       }
-      public static org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus.Response parseFrom(
+      public static org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus.Response parseFrom(
           com.google.protobuf.ByteString data)
           throws com.google.protobuf.InvalidProtocolBufferException {
         return PARSER.parseFrom(data);
       }
-      public static org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus.Response parseFrom(
+      public static org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus.Response parseFrom(
           com.google.protobuf.ByteString data,
           com.google.protobuf.ExtensionRegistryLite extensionRegistry)
           throws com.google.protobuf.InvalidProtocolBufferException {
         return PARSER.parseFrom(data, extensionRegistry);
       }
-      public static org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus.Response parseFrom(byte[] data)
+      public static org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus.Response parseFrom(byte[] data)
           throws com.google.protobuf.InvalidProtocolBufferException {
         return PARSER.parseFrom(data);
       }
-      public static org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus.Response parseFrom(
+      public static org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus.Response parseFrom(
           byte[] data,
           com.google.protobuf.ExtensionRegistryLite extensionRegistry)
           throws com.google.protobuf.InvalidProtocolBufferException {
         return PARSER.parseFrom(data, extensionRegistry);
       }
-      public static org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus.Response parseFrom(java.io.InputStream input)
+      public static org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus.Response parseFrom(java.io.InputStream input)
           throws java.io.IOException {
         return com.google.protobuf.GeneratedMessageV3
             .parseWithIOException(PARSER, input);
       }
-      public static org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus.Response parseFrom(
+      public static org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus.Response parseFrom(
           java.io.InputStream input,
           com.google.protobuf.ExtensionRegistryLite extensionRegistry)
           throws java.io.IOException {
         return com.google.protobuf.GeneratedMessageV3
             .parseWithIOException(PARSER, input, extensionRegistry);
       }
-      public static org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus.Response parseDelimitedFrom(java.io.InputStream input)
+      public static org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus.Response parseDelimitedFrom(java.io.InputStream input)
           throws java.io.IOException {
         return com.google.protobuf.GeneratedMessageV3
             .parseDelimitedWithIOException(PARSER, input);
       }
-      public static org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus.Response parseDelimitedFrom(
+      public static org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus.Response parseDelimitedFrom(
           java.io.InputStream input,
           com.google.protobuf.ExtensionRegistryLite extensionRegistry)
           throws java.io.IOException {
         return com.google.protobuf.GeneratedMessageV3
             .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
       }
-      public static org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus.Response parseFrom(
+      public static org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus.Response parseFrom(
           com.google.protobuf.CodedInputStream input)
           throws java.io.IOException {
         return com.google.protobuf.GeneratedMessageV3
             .parseWithIOException(PARSER, input);
       }
-      public static org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus.Response parseFrom(
+      public static org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus.Response parseFrom(
           com.google.protobuf.CodedInputStream input,
           com.google.protobuf.ExtensionRegistryLite extensionRegistry)
           throws java.io.IOException {
@@ -21408,7 +21104,7 @@ public final class ReviewQueues {
       public static Builder newBuilder() {
         return DEFAULT_INSTANCE.toBuilder();
       }
-      public static Builder newBuilder(org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus.Response prototype) {
+      public static Builder newBuilder(org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus.Response prototype) {
         return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
       }
       @java.lang.Override
@@ -21424,26 +21120,26 @@ public final class ReviewQueues {
         return builder;
       }
       /**
-       * Protobuf type {@code mlflow.review_queues.SetReviewQueueTraceStatus.Response}
+       * Protobuf type {@code mlflow.review_queues.SetReviewQueueItemStatus.Response}
        */
       public static final class Builder extends
           com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
-          // @@protoc_insertion_point(builder_implements:mlflow.review_queues.SetReviewQueueTraceStatus.Response)
-          org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus.ResponseOrBuilder {
+          // @@protoc_insertion_point(builder_implements:mlflow.review_queues.SetReviewQueueItemStatus.Response)
+          org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus.ResponseOrBuilder {
         public static final com.google.protobuf.Descriptors.Descriptor
             getDescriptor() {
-          return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_SetReviewQueueTraceStatus_Response_descriptor;
+          return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_SetReviewQueueItemStatus_Response_descriptor;
         }
 
         @java.lang.Override
         protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
             internalGetFieldAccessorTable() {
-          return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_SetReviewQueueTraceStatus_Response_fieldAccessorTable
+          return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_SetReviewQueueItemStatus_Response_fieldAccessorTable
               .ensureFieldAccessorsInitialized(
-                  org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus.Response.class, org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus.Response.Builder.class);
+                  org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus.Response.class, org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus.Response.Builder.class);
         }
 
-        // Construct using org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus.Response.newBuilder()
+        // Construct using org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus.Response.newBuilder()
         private Builder() {
           maybeForceBuilderInitialization();
         }
@@ -21474,17 +21170,17 @@ public final class ReviewQueues {
         @java.lang.Override
         public com.google.protobuf.Descriptors.Descriptor
             getDescriptorForType() {
-          return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_SetReviewQueueTraceStatus_Response_descriptor;
+          return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_SetReviewQueueItemStatus_Response_descriptor;
         }
 
         @java.lang.Override
-        public org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus.Response getDefaultInstanceForType() {
-          return org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus.Response.getDefaultInstance();
+        public org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus.Response getDefaultInstanceForType() {
+          return org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus.Response.getDefaultInstance();
         }
 
         @java.lang.Override
-        public org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus.Response build() {
-          org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus.Response result = buildPartial();
+        public org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus.Response build() {
+          org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus.Response result = buildPartial();
           if (!result.isInitialized()) {
             throw newUninitializedMessageException(result);
           }
@@ -21492,8 +21188,8 @@ public final class ReviewQueues {
         }
 
         @java.lang.Override
-        public org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus.Response buildPartial() {
-          org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus.Response result = new org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus.Response(this);
+        public org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus.Response buildPartial() {
+          org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus.Response result = new org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus.Response(this);
           int from_bitField0_ = bitField0_;
           int to_bitField0_ = 0;
           if (((from_bitField0_ & 0x00000001) != 0)) {
@@ -21543,16 +21239,16 @@ public final class ReviewQueues {
         }
         @java.lang.Override
         public Builder mergeFrom(com.google.protobuf.Message other) {
-          if (other instanceof org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus.Response) {
-            return mergeFrom((org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus.Response)other);
+          if (other instanceof org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus.Response) {
+            return mergeFrom((org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus.Response)other);
           } else {
             super.mergeFrom(other);
             return this;
           }
         }
 
-        public Builder mergeFrom(org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus.Response other) {
-          if (other == org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus.Response.getDefaultInstance()) return this;
+        public Builder mergeFrom(org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus.Response other) {
+          if (other == org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus.Response.getDefaultInstance()) return this;
           if (other.hasItem()) {
             mergeItem(other.getItem());
           }
@@ -21571,11 +21267,11 @@ public final class ReviewQueues {
             com.google.protobuf.CodedInputStream input,
             com.google.protobuf.ExtensionRegistryLite extensionRegistry)
             throws java.io.IOException {
-          org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus.Response parsedMessage = null;
+          org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus.Response parsedMessage = null;
           try {
             parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
           } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-            parsedMessage = (org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus.Response) e.getUnfinishedMessage();
+            parsedMessage = (org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus.Response) e.getUnfinishedMessage();
             throw e.unwrapIOException();
           } finally {
             if (parsedMessage != null) {
@@ -21718,16 +21414,16 @@ public final class ReviewQueues {
         }
 
 
-        // @@protoc_insertion_point(builder_scope:mlflow.review_queues.SetReviewQueueTraceStatus.Response)
+        // @@protoc_insertion_point(builder_scope:mlflow.review_queues.SetReviewQueueItemStatus.Response)
       }
 
-      // @@protoc_insertion_point(class_scope:mlflow.review_queues.SetReviewQueueTraceStatus.Response)
-      private static final org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus.Response DEFAULT_INSTANCE;
+      // @@protoc_insertion_point(class_scope:mlflow.review_queues.SetReviewQueueItemStatus.Response)
+      private static final org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus.Response DEFAULT_INSTANCE;
       static {
-        DEFAULT_INSTANCE = new org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus.Response();
+        DEFAULT_INSTANCE = new org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus.Response();
       }
 
-      public static org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus.Response getDefaultInstance() {
+      public static org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus.Response getDefaultInstance() {
         return DEFAULT_INSTANCE;
       }
 
@@ -21752,7 +21448,7 @@ public final class ReviewQueues {
       }
 
       @java.lang.Override
-      public org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus.Response getDefaultInstanceForType() {
+      public org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus.Response getDefaultInstanceForType() {
         return DEFAULT_INSTANCE;
       }
 
@@ -21807,23 +21503,23 @@ public final class ReviewQueues {
       }
     }
 
-    public static final int TARGET_ID_FIELD_NUMBER = 2;
-    private volatile java.lang.Object targetId_;
+    public static final int ITEM_ID_FIELD_NUMBER = 2;
+    private volatile java.lang.Object itemId_;
     /**
-     * <code>optional string target_id = 2 [(.mlflow.validate_required) = true];</code>
-     * @return Whether the targetId field is set.
+     * <code>optional string item_id = 2 [(.mlflow.validate_required) = true];</code>
+     * @return Whether the itemId field is set.
      */
     @java.lang.Override
-    public boolean hasTargetId() {
+    public boolean hasItemId() {
       return ((bitField0_ & 0x00000002) != 0);
     }
     /**
-     * <code>optional string target_id = 2 [(.mlflow.validate_required) = true];</code>
-     * @return The targetId.
+     * <code>optional string item_id = 2 [(.mlflow.validate_required) = true];</code>
+     * @return The itemId.
      */
     @java.lang.Override
-    public java.lang.String getTargetId() {
-      java.lang.Object ref = targetId_;
+    public java.lang.String getItemId() {
+      java.lang.Object ref = itemId_;
       if (ref instanceof java.lang.String) {
         return (java.lang.String) ref;
       } else {
@@ -21831,24 +21527,24 @@ public final class ReviewQueues {
             (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         if (bs.isValidUtf8()) {
-          targetId_ = s;
+          itemId_ = s;
         }
         return s;
       }
     }
     /**
-     * <code>optional string target_id = 2 [(.mlflow.validate_required) = true];</code>
-     * @return The bytes for targetId.
+     * <code>optional string item_id = 2 [(.mlflow.validate_required) = true];</code>
+     * @return The bytes for itemId.
      */
     @java.lang.Override
     public com.google.protobuf.ByteString
-        getTargetIdBytes() {
-      java.lang.Object ref = targetId_;
+        getItemIdBytes() {
+      java.lang.Object ref = itemId_;
       if (ref instanceof java.lang.String) {
         com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
-        targetId_ = b;
+        itemId_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
@@ -21940,7 +21636,7 @@ public final class ReviewQueues {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 1, queueId_);
       }
       if (((bitField0_ & 0x00000002) != 0)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 2, targetId_);
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 2, itemId_);
       }
       if (((bitField0_ & 0x00000004) != 0)) {
         output.writeEnum(3, status_);
@@ -21961,7 +21657,7 @@ public final class ReviewQueues {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, queueId_);
       }
       if (((bitField0_ & 0x00000002) != 0)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, targetId_);
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, itemId_);
       }
       if (((bitField0_ & 0x00000004) != 0)) {
         size += com.google.protobuf.CodedOutputStream
@@ -21980,20 +21676,20 @@ public final class ReviewQueues {
       if (obj == this) {
        return true;
       }
-      if (!(obj instanceof org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus)) {
+      if (!(obj instanceof org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus)) {
         return super.equals(obj);
       }
-      org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus other = (org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus) obj;
+      org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus other = (org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus) obj;
 
       if (hasQueueId() != other.hasQueueId()) return false;
       if (hasQueueId()) {
         if (!getQueueId()
             .equals(other.getQueueId())) return false;
       }
-      if (hasTargetId() != other.hasTargetId()) return false;
-      if (hasTargetId()) {
-        if (!getTargetId()
-            .equals(other.getTargetId())) return false;
+      if (hasItemId() != other.hasItemId()) return false;
+      if (hasItemId()) {
+        if (!getItemId()
+            .equals(other.getItemId())) return false;
       }
       if (hasStatus() != other.hasStatus()) return false;
       if (hasStatus()) {
@@ -22019,9 +21715,9 @@ public final class ReviewQueues {
         hash = (37 * hash) + QUEUE_ID_FIELD_NUMBER;
         hash = (53 * hash) + getQueueId().hashCode();
       }
-      if (hasTargetId()) {
-        hash = (37 * hash) + TARGET_ID_FIELD_NUMBER;
-        hash = (53 * hash) + getTargetId().hashCode();
+      if (hasItemId()) {
+        hash = (37 * hash) + ITEM_ID_FIELD_NUMBER;
+        hash = (53 * hash) + getItemId().hashCode();
       }
       if (hasStatus()) {
         hash = (37 * hash) + STATUS_FIELD_NUMBER;
@@ -22036,69 +21732,69 @@ public final class ReviewQueues {
       return hash;
     }
 
-    public static org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus parseFrom(
+    public static org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus parseFrom(
         java.nio.ByteBuffer data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
-    public static org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus parseFrom(
+    public static org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus parseFrom(
         java.nio.ByteBuffer data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
-    public static org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus parseFrom(
+    public static org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus parseFrom(
         com.google.protobuf.ByteString data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
-    public static org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus parseFrom(
+    public static org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus parseFrom(
         com.google.protobuf.ByteString data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
-    public static org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus parseFrom(byte[] data)
+    public static org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus parseFrom(byte[] data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
-    public static org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus parseFrom(
+    public static org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus parseFrom(
         byte[] data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
-    public static org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus parseFrom(java.io.InputStream input)
+    public static org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus parseFrom(java.io.InputStream input)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3
           .parseWithIOException(PARSER, input);
     }
-    public static org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus parseFrom(
+    public static org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus parseFrom(
         java.io.InputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3
           .parseWithIOException(PARSER, input, extensionRegistry);
     }
-    public static org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus parseDelimitedFrom(java.io.InputStream input)
+    public static org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus parseDelimitedFrom(java.io.InputStream input)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3
           .parseDelimitedWithIOException(PARSER, input);
     }
-    public static org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus parseDelimitedFrom(
+    public static org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus parseDelimitedFrom(
         java.io.InputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3
           .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
     }
-    public static org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus parseFrom(
+    public static org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus parseFrom(
         com.google.protobuf.CodedInputStream input)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3
           .parseWithIOException(PARSER, input);
     }
-    public static org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus parseFrom(
+    public static org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus parseFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
@@ -22111,7 +21807,7 @@ public final class ReviewQueues {
     public static Builder newBuilder() {
       return DEFAULT_INSTANCE.toBuilder();
     }
-    public static Builder newBuilder(org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus prototype) {
+    public static Builder newBuilder(org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus prototype) {
       return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
     }
     @java.lang.Override
@@ -22128,31 +21824,31 @@ public final class ReviewQueues {
     }
     /**
      * <pre>
-     * Set the shared-pool status of an attached trace. `completed_by` is
+     * Set the shared-pool status of an attached item. `completed_by` is
      * required for COMPLETE / DECLINED and must be absent for PENDING
      * (reopen clears attribution).
      * </pre>
      *
-     * Protobuf type {@code mlflow.review_queues.SetReviewQueueTraceStatus}
+     * Protobuf type {@code mlflow.review_queues.SetReviewQueueItemStatus}
      */
     public static final class Builder extends
         com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
-        // @@protoc_insertion_point(builder_implements:mlflow.review_queues.SetReviewQueueTraceStatus)
-        org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatusOrBuilder {
+        // @@protoc_insertion_point(builder_implements:mlflow.review_queues.SetReviewQueueItemStatus)
+        org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatusOrBuilder {
       public static final com.google.protobuf.Descriptors.Descriptor
           getDescriptor() {
-        return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_SetReviewQueueTraceStatus_descriptor;
+        return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_SetReviewQueueItemStatus_descriptor;
       }
 
       @java.lang.Override
       protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
           internalGetFieldAccessorTable() {
-        return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_SetReviewQueueTraceStatus_fieldAccessorTable
+        return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_SetReviewQueueItemStatus_fieldAccessorTable
             .ensureFieldAccessorsInitialized(
-                org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus.class, org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus.Builder.class);
+                org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus.class, org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus.Builder.class);
       }
 
-      // Construct using org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus.newBuilder()
+      // Construct using org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus.newBuilder()
       private Builder() {
         maybeForceBuilderInitialization();
       }
@@ -22172,7 +21868,7 @@ public final class ReviewQueues {
         super.clear();
         queueId_ = "";
         bitField0_ = (bitField0_ & ~0x00000001);
-        targetId_ = "";
+        itemId_ = "";
         bitField0_ = (bitField0_ & ~0x00000002);
         status_ = 0;
         bitField0_ = (bitField0_ & ~0x00000004);
@@ -22184,17 +21880,17 @@ public final class ReviewQueues {
       @java.lang.Override
       public com.google.protobuf.Descriptors.Descriptor
           getDescriptorForType() {
-        return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_SetReviewQueueTraceStatus_descriptor;
+        return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_SetReviewQueueItemStatus_descriptor;
       }
 
       @java.lang.Override
-      public org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus getDefaultInstanceForType() {
-        return org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus.getDefaultInstance();
+      public org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus getDefaultInstanceForType() {
+        return org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus.getDefaultInstance();
       }
 
       @java.lang.Override
-      public org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus build() {
-        org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus result = buildPartial();
+      public org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus build() {
+        org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus result = buildPartial();
         if (!result.isInitialized()) {
           throw newUninitializedMessageException(result);
         }
@@ -22202,8 +21898,8 @@ public final class ReviewQueues {
       }
 
       @java.lang.Override
-      public org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus buildPartial() {
-        org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus result = new org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus(this);
+      public org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus buildPartial() {
+        org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus result = new org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus(this);
         int from_bitField0_ = bitField0_;
         int to_bitField0_ = 0;
         if (((from_bitField0_ & 0x00000001) != 0)) {
@@ -22213,7 +21909,7 @@ public final class ReviewQueues {
         if (((from_bitField0_ & 0x00000002) != 0)) {
           to_bitField0_ |= 0x00000002;
         }
-        result.targetId_ = targetId_;
+        result.itemId_ = itemId_;
         if (((from_bitField0_ & 0x00000004) != 0)) {
           to_bitField0_ |= 0x00000004;
         }
@@ -22261,24 +21957,24 @@ public final class ReviewQueues {
       }
       @java.lang.Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
-        if (other instanceof org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus) {
-          return mergeFrom((org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus)other);
+        if (other instanceof org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus) {
+          return mergeFrom((org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus)other);
         } else {
           super.mergeFrom(other);
           return this;
         }
       }
 
-      public Builder mergeFrom(org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus other) {
-        if (other == org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus.getDefaultInstance()) return this;
+      public Builder mergeFrom(org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus other) {
+        if (other == org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus.getDefaultInstance()) return this;
         if (other.hasQueueId()) {
           bitField0_ |= 0x00000001;
           queueId_ = other.queueId_;
           onChanged();
         }
-        if (other.hasTargetId()) {
+        if (other.hasItemId()) {
           bitField0_ |= 0x00000002;
-          targetId_ = other.targetId_;
+          itemId_ = other.itemId_;
           onChanged();
         }
         if (other.hasStatus()) {
@@ -22304,11 +22000,11 @@ public final class ReviewQueues {
           com.google.protobuf.CodedInputStream input,
           com.google.protobuf.ExtensionRegistryLite extensionRegistry)
           throws java.io.IOException {
-        org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus parsedMessage = null;
+        org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus parsedMessage = null;
         try {
           parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
         } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-          parsedMessage = (org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus) e.getUnfinishedMessage();
+          parsedMessage = (org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus) e.getUnfinishedMessage();
           throw e.unwrapIOException();
         } finally {
           if (parsedMessage != null) {
@@ -22403,26 +22099,26 @@ public final class ReviewQueues {
         return this;
       }
 
-      private java.lang.Object targetId_ = "";
+      private java.lang.Object itemId_ = "";
       /**
-       * <code>optional string target_id = 2 [(.mlflow.validate_required) = true];</code>
-       * @return Whether the targetId field is set.
+       * <code>optional string item_id = 2 [(.mlflow.validate_required) = true];</code>
+       * @return Whether the itemId field is set.
        */
-      public boolean hasTargetId() {
+      public boolean hasItemId() {
         return ((bitField0_ & 0x00000002) != 0);
       }
       /**
-       * <code>optional string target_id = 2 [(.mlflow.validate_required) = true];</code>
-       * @return The targetId.
+       * <code>optional string item_id = 2 [(.mlflow.validate_required) = true];</code>
+       * @return The itemId.
        */
-      public java.lang.String getTargetId() {
-        java.lang.Object ref = targetId_;
+      public java.lang.String getItemId() {
+        java.lang.Object ref = itemId_;
         if (!(ref instanceof java.lang.String)) {
           com.google.protobuf.ByteString bs =
               (com.google.protobuf.ByteString) ref;
           java.lang.String s = bs.toStringUtf8();
           if (bs.isValidUtf8()) {
-            targetId_ = s;
+            itemId_ = s;
           }
           return s;
         } else {
@@ -22430,59 +22126,59 @@ public final class ReviewQueues {
         }
       }
       /**
-       * <code>optional string target_id = 2 [(.mlflow.validate_required) = true];</code>
-       * @return The bytes for targetId.
+       * <code>optional string item_id = 2 [(.mlflow.validate_required) = true];</code>
+       * @return The bytes for itemId.
        */
       public com.google.protobuf.ByteString
-          getTargetIdBytes() {
-        java.lang.Object ref = targetId_;
+          getItemIdBytes() {
+        java.lang.Object ref = itemId_;
         if (ref instanceof String) {
           com.google.protobuf.ByteString b = 
               com.google.protobuf.ByteString.copyFromUtf8(
                   (java.lang.String) ref);
-          targetId_ = b;
+          itemId_ = b;
           return b;
         } else {
           return (com.google.protobuf.ByteString) ref;
         }
       }
       /**
-       * <code>optional string target_id = 2 [(.mlflow.validate_required) = true];</code>
-       * @param value The targetId to set.
+       * <code>optional string item_id = 2 [(.mlflow.validate_required) = true];</code>
+       * @param value The itemId to set.
        * @return This builder for chaining.
        */
-      public Builder setTargetId(
+      public Builder setItemId(
           java.lang.String value) {
         if (value == null) {
     throw new NullPointerException();
   }
   bitField0_ |= 0x00000002;
-        targetId_ = value;
+        itemId_ = value;
         onChanged();
         return this;
       }
       /**
-       * <code>optional string target_id = 2 [(.mlflow.validate_required) = true];</code>
+       * <code>optional string item_id = 2 [(.mlflow.validate_required) = true];</code>
        * @return This builder for chaining.
        */
-      public Builder clearTargetId() {
+      public Builder clearItemId() {
         bitField0_ = (bitField0_ & ~0x00000002);
-        targetId_ = getDefaultInstance().getTargetId();
+        itemId_ = getDefaultInstance().getItemId();
         onChanged();
         return this;
       }
       /**
-       * <code>optional string target_id = 2 [(.mlflow.validate_required) = true];</code>
-       * @param value The bytes for targetId to set.
+       * <code>optional string item_id = 2 [(.mlflow.validate_required) = true];</code>
+       * @param value The bytes for itemId to set.
        * @return This builder for chaining.
        */
-      public Builder setTargetIdBytes(
+      public Builder setItemIdBytes(
           com.google.protobuf.ByteString value) {
         if (value == null) {
     throw new NullPointerException();
   }
   bitField0_ |= 0x00000002;
-        targetId_ = value;
+        itemId_ = value;
         onChanged();
         return this;
       }
@@ -22626,41 +22322,41 @@ public final class ReviewQueues {
       }
 
 
-      // @@protoc_insertion_point(builder_scope:mlflow.review_queues.SetReviewQueueTraceStatus)
+      // @@protoc_insertion_point(builder_scope:mlflow.review_queues.SetReviewQueueItemStatus)
     }
 
-    // @@protoc_insertion_point(class_scope:mlflow.review_queues.SetReviewQueueTraceStatus)
-    private static final org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus DEFAULT_INSTANCE;
+    // @@protoc_insertion_point(class_scope:mlflow.review_queues.SetReviewQueueItemStatus)
+    private static final org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus DEFAULT_INSTANCE;
     static {
-      DEFAULT_INSTANCE = new org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus();
+      DEFAULT_INSTANCE = new org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus();
     }
 
-    public static org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus getDefaultInstance() {
+    public static org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus getDefaultInstance() {
       return DEFAULT_INSTANCE;
     }
 
-    @java.lang.Deprecated public static final com.google.protobuf.Parser<SetReviewQueueTraceStatus>
-        PARSER = new com.google.protobuf.AbstractParser<SetReviewQueueTraceStatus>() {
+    @java.lang.Deprecated public static final com.google.protobuf.Parser<SetReviewQueueItemStatus>
+        PARSER = new com.google.protobuf.AbstractParser<SetReviewQueueItemStatus>() {
       @java.lang.Override
-      public SetReviewQueueTraceStatus parsePartialFrom(
+      public SetReviewQueueItemStatus parsePartialFrom(
           com.google.protobuf.CodedInputStream input,
           com.google.protobuf.ExtensionRegistryLite extensionRegistry)
           throws com.google.protobuf.InvalidProtocolBufferException {
-        return new SetReviewQueueTraceStatus(input, extensionRegistry);
+        return new SetReviewQueueItemStatus(input, extensionRegistry);
       }
     };
 
-    public static com.google.protobuf.Parser<SetReviewQueueTraceStatus> parser() {
+    public static com.google.protobuf.Parser<SetReviewQueueItemStatus> parser() {
       return PARSER;
     }
 
     @java.lang.Override
-    public com.google.protobuf.Parser<SetReviewQueueTraceStatus> getParserForType() {
+    public com.google.protobuf.Parser<SetReviewQueueItemStatus> getParserForType() {
       return PARSER;
     }
 
     @java.lang.Override
-    public org.mlflow.api.proto.ReviewQueues.SetReviewQueueTraceStatus getDefaultInstanceForType() {
+    public org.mlflow.api.proto.ReviewQueues.SetReviewQueueItemStatus getDefaultInstanceForType() {
       return DEFAULT_INSTANCE;
     }
 
@@ -22747,45 +22443,45 @@ public final class ReviewQueues {
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_mlflow_review_queues_DeleteReviewQueue_Response_fieldAccessorTable;
   private static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_mlflow_review_queues_AddTracesToReviewQueue_descriptor;
+    internal_static_mlflow_review_queues_AddItemsToReviewQueue_descriptor;
   private static final 
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
-      internal_static_mlflow_review_queues_AddTracesToReviewQueue_fieldAccessorTable;
+      internal_static_mlflow_review_queues_AddItemsToReviewQueue_fieldAccessorTable;
   private static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_mlflow_review_queues_AddTracesToReviewQueue_Response_descriptor;
+    internal_static_mlflow_review_queues_AddItemsToReviewQueue_Response_descriptor;
   private static final 
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
-      internal_static_mlflow_review_queues_AddTracesToReviewQueue_Response_fieldAccessorTable;
+      internal_static_mlflow_review_queues_AddItemsToReviewQueue_Response_fieldAccessorTable;
   private static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_mlflow_review_queues_RemoveTracesFromReviewQueue_descriptor;
+    internal_static_mlflow_review_queues_RemoveItemsFromReviewQueue_descriptor;
   private static final 
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
-      internal_static_mlflow_review_queues_RemoveTracesFromReviewQueue_fieldAccessorTable;
+      internal_static_mlflow_review_queues_RemoveItemsFromReviewQueue_fieldAccessorTable;
   private static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_mlflow_review_queues_RemoveTracesFromReviewQueue_Response_descriptor;
+    internal_static_mlflow_review_queues_RemoveItemsFromReviewQueue_Response_descriptor;
   private static final 
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
-      internal_static_mlflow_review_queues_RemoveTracesFromReviewQueue_Response_fieldAccessorTable;
+      internal_static_mlflow_review_queues_RemoveItemsFromReviewQueue_Response_fieldAccessorTable;
   private static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_mlflow_review_queues_ListReviewQueueTraces_descriptor;
+    internal_static_mlflow_review_queues_ListReviewQueueItems_descriptor;
   private static final 
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
-      internal_static_mlflow_review_queues_ListReviewQueueTraces_fieldAccessorTable;
+      internal_static_mlflow_review_queues_ListReviewQueueItems_fieldAccessorTable;
   private static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_mlflow_review_queues_ListReviewQueueTraces_Response_descriptor;
+    internal_static_mlflow_review_queues_ListReviewQueueItems_Response_descriptor;
   private static final 
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
-      internal_static_mlflow_review_queues_ListReviewQueueTraces_Response_fieldAccessorTable;
+      internal_static_mlflow_review_queues_ListReviewQueueItems_Response_fieldAccessorTable;
   private static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_mlflow_review_queues_SetReviewQueueTraceStatus_descriptor;
+    internal_static_mlflow_review_queues_SetReviewQueueItemStatus_descriptor;
   private static final 
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
-      internal_static_mlflow_review_queues_SetReviewQueueTraceStatus_fieldAccessorTable;
+      internal_static_mlflow_review_queues_SetReviewQueueItemStatus_fieldAccessorTable;
   private static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_mlflow_review_queues_SetReviewQueueTraceStatus_Response_descriptor;
+    internal_static_mlflow_review_queues_SetReviewQueueItemStatus_Response_descriptor;
   private static final 
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
-      internal_static_mlflow_review_queues_SetReviewQueueTraceStatus_Response_fieldAccessorTable;
+      internal_static_mlflow_review_queues_SetReviewQueueItemStatus_Response_fieldAccessorTable;
 
   public static com.google.protobuf.Descriptors.FileDescriptor
       getDescriptor() {
@@ -22797,86 +22493,86 @@ public final class ReviewQueues {
     java.lang.String[] descriptorData = {
       "\n\023review_queues.proto\022\024mlflow.review_que" +
       "ues\032\020databricks.proto\032\025scalapb/scalapb.p" +
-      "roto\"\201\002\n\013ReviewQueue\022\020\n\010queue_id\030\001 \001(\t\022\025" +
+      "roto\"\377\001\n\013ReviewQueue\022\020\n\010queue_id\030\001 \001(\t\022\025" +
       "\n\rexperiment_id\030\002 \001(\t\022\014\n\004name\030\003 \001(\t\0229\n\nq" +
       "ueue_type\030\004 \001(\0162%.mlflow.review_queues.R" +
       "eviewQueueType\022\022\n\ncreated_by\030\005 \001(\t\022\030\n\020cr" +
       "eation_time_ms\030\006 \001(\003\022\033\n\023last_update_time" +
       "_ms\030\007 \001(\003\022\r\n\005users\030\010 \003(\t\022\022\n\nschema_ids\030\t" +
-      " \003(\t\022\022\n\nis_default\030\n \001(\010\"\217\002\n\017ReviewQueue" +
-      "Item\022\020\n\010queue_id\030\001 \001(\t\022;\n\013target_type\030\002 " +
-      "\001(\0162&.mlflow.review_queues.ReviewTargetT" +
-      "ype\022\021\n\ttarget_id\030\003 \001(\t\0222\n\006status\030\004 \001(\0162\"" +
-      ".mlflow.review_queues.ReviewStatus\022\024\n\014co" +
-      "mpleted_by\030\005 \001(\t\022\031\n\021completed_time_ms\030\006 " +
-      "\001(\003\022\030\n\020creation_time_ms\030\007 \001(\003\022\033\n\023last_up" +
-      "date_time_ms\030\010 \001(\003\"\256\002\n\021CreateReviewQueue" +
-      "\022\033\n\rexperiment_id\030\001 \001(\tB\004\370\206\031\001\022\022\n\004name\030\002 " +
-      "\001(\tB\004\370\206\031\001\022?\n\nqueue_type\030\003 \001(\0162%.mlflow.r" +
-      "eview_queues.ReviewQueueTypeB\004\370\206\031\001\022\022\n\ncr" +
-      "eated_by\030\004 \001(\t\022\r\n\005users\030\005 \003(\t\022\022\n\nschema_" +
-      "ids\030\006 \003(\t\032C\n\010Response\0227\n\014review_queue\030\001 " +
+      " \003(\tJ\004\010\n\020\013R\nis_default\"\211\002\n\017ReviewQueueIt" +
+      "em\022\020\n\010queue_id\030\001 \001(\t\0227\n\titem_type\030\002 \001(\0162" +
+      "$.mlflow.review_queues.ReviewItemType\022\017\n" +
+      "\007item_id\030\003 \001(\t\0222\n\006status\030\004 \001(\0162\".mlflow." +
+      "review_queues.ReviewStatus\022\024\n\014completed_" +
+      "by\030\005 \001(\t\022\031\n\021completed_time_ms\030\006 \001(\003\022\030\n\020c" +
+      "reation_time_ms\030\007 \001(\003\022\033\n\023last_update_tim" +
+      "e_ms\030\010 \001(\003\"\256\002\n\021CreateReviewQueue\022\033\n\rexpe" +
+      "riment_id\030\001 \001(\tB\004\370\206\031\001\022\022\n\004name\030\002 \001(\tB\004\370\206\031" +
+      "\001\022?\n\nqueue_type\030\003 \001(\0162%.mlflow.review_qu" +
+      "eues.ReviewQueueTypeB\004\370\206\031\001\022\022\n\ncreated_by" +
+      "\030\004 \001(\t\022\r\n\005users\030\005 \003(\t\022\022\n\nschema_ids\030\006 \003(" +
+      "\t\032C\n\010Response\0227\n\014review_queue\030\001 \001(\0132!.ml" +
+      "flow.review_queues.ReviewQueue:+\342?(\n&com" +
+      ".databricks.rpc.RPC[$this.Response]\"\315\001\n\024" +
+      "GetOrCreateUserQueue\022\033\n\rexperiment_id\030\001 " +
+      "\001(\tB\004\370\206\031\001\022\022\n\004user\030\002 \001(\tB\004\370\206\031\001\022\022\n\ncreated" +
+      "_by\030\003 \001(\t\032C\n\010Response\0227\n\014review_queue\030\001 " +
       "\001(\0132!.mlflow.review_queues.ReviewQueue:+" +
       "\342?(\n&com.databricks.rpc.RPC[$this.Respon" +
-      "se]\"\315\001\n\024GetOrCreateUserQueue\022\033\n\rexperime" +
-      "nt_id\030\001 \001(\tB\004\370\206\031\001\022\022\n\004user\030\002 \001(\tB\004\370\206\031\001\022\022\n" +
-      "\ncreated_by\030\003 \001(\t\032C\n\010Response\0227\n\014review_" +
-      "queue\030\001 \001(\0132!.mlflow.review_queues.Revie" +
-      "wQueue:+\342?(\n&com.databricks.rpc.RPC[$thi" +
-      "s.Response]\"\232\001\n\016GetReviewQueue\022\026\n\010queue_" +
-      "id\030\001 \001(\tB\004\370\206\031\001\032C\n\010Response\0227\n\014review_que" +
-      "ue\030\001 \001(\0132!.mlflow.review_queues.ReviewQu" +
-      "eue:+\342?(\n&com.databricks.rpc.RPC[$this.R" +
-      "esponse]\"\271\001\n\024GetReviewQueueByName\022\033\n\rexp" +
-      "eriment_id\030\001 \001(\tB\004\370\206\031\001\022\022\n\004name\030\002 \001(\tB\004\370\206" +
-      "\031\001\032C\n\010Response\0227\n\014review_queue\030\001 \001(\0132!.m" +
-      "lflow.review_queues.ReviewQueue:+\342?(\n&co" +
-      "m.databricks.rpc.RPC[$this.Response]\"\212\002\n" +
-      "\020ListReviewQueues\022\033\n\rexperiment_id\030\001 \001(\t" +
-      "B\004\370\206\031\001\022\014\n\004user\030\002 \001(\t\022\023\n\013max_results\030\003 \001(" +
-      "\005\022\022\n\npage_token\030\004 \001(\t\022\026\n\016ensure_default\030" +
-      "\005 \001(\010\032]\n\010Response\0228\n\rreview_queues\030\001 \003(\013" +
-      "2!.mlflow.review_queues.ReviewQueue\022\027\n\017n" +
-      "ext_page_token\030\002 \001(\t:+\342?(\n&com.databrick" +
-      "s.rpc.RPC[$this.Response]\"\361\001\n\021UpdateRevi" +
-      "ewQueue\022\026\n\010queue_id\030\001 \001(\tB\004\370\206\031\001\022\024\n\014updat" +
-      "e_users\030\002 \001(\010\022\r\n\005users\030\003 \003(\t\022\031\n\021update_s" +
-      "chema_ids\030\004 \001(\010\022\022\n\nschema_ids\030\005 \003(\t\032C\n\010R" +
-      "esponse\0227\n\014review_queue\030\001 \001(\0132!.mlflow.r" +
-      "eview_queues.ReviewQueue:+\342?(\n&com.datab" +
-      "ricks.rpc.RPC[$this.Response]\"d\n\021DeleteR" +
-      "eviewQueue\022\026\n\010queue_id\030\001 \001(\tB\004\370\206\031\001\032\n\n\010Re" +
-      "sponse:+\342?(\n&com.databricks.rpc.RPC[$thi" +
-      "s.Response]\"\360\001\n\026AddTracesToReviewQueue\022\026" +
-      "\n\010queue_id\030\001 \001(\tB\004\370\206\031\001\022;\n\013target_type\030\002 " +
-      "\001(\0162&.mlflow.review_queues.ReviewTargetT" +
-      "ype\022\022\n\ntarget_ids\030\003 \003(\t\032@\n\010Response\0224\n\005i" +
-      "tems\030\001 \003(\0132%.mlflow.review_queues.Review" +
-      "QueueItem:+\342?(\n&com.databricks.rpc.RPC[$" +
-      "this.Response]\"\202\001\n\033RemoveTracesFromRevie" +
-      "wQueue\022\026\n\010queue_id\030\001 \001(\tB\004\370\206\031\001\022\022\n\ntarget" +
-      "_ids\030\002 \003(\t\032\n\n\010Response:+\342?(\n&com.databri" +
-      "cks.rpc.RPC[$this.Response]\"\224\002\n\025ListRevi" +
-      "ewQueueTraces\022\026\n\010queue_id\030\001 \001(\tB\004\370\206\031\001\0222\n" +
-      "\006status\030\002 \001(\0162\".mlflow.review_queues.Rev" +
-      "iewStatus\022\023\n\013max_results\030\003 \001(\005\022\022\n\npage_t" +
-      "oken\030\004 \001(\t\032Y\n\010Response\0224\n\005items\030\001 \003(\0132%." +
-      "mlflow.review_queues.ReviewQueueItem\022\027\n\017" +
-      "next_page_token\030\002 \001(\t:+\342?(\n&com.databric" +
-      "ks.rpc.RPC[$this.Response]\"\212\002\n\031SetReview" +
-      "QueueTraceStatus\022\026\n\010queue_id\030\001 \001(\tB\004\370\206\031\001" +
-      "\022\027\n\ttarget_id\030\002 \001(\tB\004\370\206\031\001\0228\n\006status\030\003 \001(" +
-      "\0162\".mlflow.review_queues.ReviewStatusB\004\370" +
-      "\206\031\001\022\024\n\014completed_by\030\004 \001(\t\032?\n\010Response\0223\n" +
-      "\004item\030\001 \001(\0132%.mlflow.review_queues.Revie" +
-      "wQueueItem:+\342?(\n&com.databricks.rpc.RPC[" +
-      "$this.Response]*A\n\020ReviewTargetType\022\"\n\036R" +
-      "EVIEW_TARGET_TYPE_UNSPECIFIED\020\000\022\t\n\005TRACE" +
-      "\020\001*J\n\017ReviewQueueType\022!\n\035REVIEW_QUEUE_TY" +
-      "PE_UNSPECIFIED\020\000\022\010\n\004USER\020\001\022\n\n\006CUSTOM\020\002*V" +
-      "\n\014ReviewStatus\022\035\n\031REVIEW_STATUS_UNSPECIF" +
-      "IED\020\000\022\013\n\007PENDING\020\001\022\014\n\010COMPLETE\020\002\022\014\n\010DECL" +
-      "INED\020\003B\031\n\024org.mlflow.api.proto\220\001\001"
+      "se]\"\232\001\n\016GetReviewQueue\022\026\n\010queue_id\030\001 \001(\t" +
+      "B\004\370\206\031\001\032C\n\010Response\0227\n\014review_queue\030\001 \001(\013" +
+      "2!.mlflow.review_queues.ReviewQueue:+\342?(" +
+      "\n&com.databricks.rpc.RPC[$this.Response]" +
+      "\"\271\001\n\024GetReviewQueueByName\022\033\n\rexperiment_" +
+      "id\030\001 \001(\tB\004\370\206\031\001\022\022\n\004name\030\002 \001(\tB\004\370\206\031\001\032C\n\010Re" +
+      "sponse\0227\n\014review_queue\030\001 \001(\0132!.mlflow.re" +
+      "view_queues.ReviewQueue:+\342?(\n&com.databr" +
+      "icks.rpc.RPC[$this.Response]\"\210\002\n\020ListRev" +
+      "iewQueues\022\033\n\rexperiment_id\030\001 \001(\tB\004\370\206\031\001\022\014" +
+      "\n\004user\030\002 \001(\t\022\023\n\013max_results\030\003 \001(\005\022\022\n\npag" +
+      "e_token\030\004 \001(\t\032]\n\010Response\0228\n\rreview_queu" +
+      "es\030\001 \003(\0132!.mlflow.review_queues.ReviewQu" +
+      "eue\022\027\n\017next_page_token\030\002 \001(\t:+\342?(\n&com.d" +
+      "atabricks.rpc.RPC[$this.Response]J\004\010\005\020\006R" +
+      "\016ensure_default\"\361\001\n\021UpdateReviewQueue\022\026\n" +
+      "\010queue_id\030\001 \001(\tB\004\370\206\031\001\022\024\n\014update_users\030\002 " +
+      "\001(\010\022\r\n\005users\030\003 \003(\t\022\031\n\021update_schema_ids\030" +
+      "\004 \001(\010\022\022\n\nschema_ids\030\005 \003(\t\032C\n\010Response\0227\n" +
+      "\014review_queue\030\001 \001(\0132!.mlflow.review_queu" +
+      "es.ReviewQueue:+\342?(\n&com.databricks.rpc." +
+      "RPC[$this.Response]\"d\n\021DeleteReviewQueue" +
+      "\022\026\n\010queue_id\030\001 \001(\tB\004\370\206\031\001\032\n\n\010Response:+\342?" +
+      "(\n&com.databricks.rpc.RPC[$this.Response" +
+      "]\"\351\001\n\025AddItemsToReviewQueue\022\026\n\010queue_id\030" +
+      "\001 \001(\tB\004\370\206\031\001\0227\n\titem_type\030\002 \001(\0162$.mlflow." +
+      "review_queues.ReviewItemType\022\020\n\010item_ids" +
+      "\030\003 \003(\t\032@\n\010Response\0224\n\005items\030\001 \003(\0132%.mlfl" +
+      "ow.review_queues.ReviewQueueItem:+\342?(\n&c" +
+      "om.databricks.rpc.RPC[$this.Response]\"\177\n" +
+      "\032RemoveItemsFromReviewQueue\022\026\n\010queue_id\030" +
+      "\001 \001(\tB\004\370\206\031\001\022\020\n\010item_ids\030\002 \003(\t\032\n\n\010Respons" +
+      "e:+\342?(\n&com.databricks.rpc.RPC[$this.Res" +
+      "ponse]\"\223\002\n\024ListReviewQueueItems\022\026\n\010queue" +
+      "_id\030\001 \001(\tB\004\370\206\031\001\0222\n\006status\030\002 \001(\0162\".mlflow" +
+      ".review_queues.ReviewStatus\022\023\n\013max_resul" +
+      "ts\030\003 \001(\005\022\022\n\npage_token\030\004 \001(\t\032Y\n\010Response" +
+      "\0224\n\005items\030\001 \003(\0132%.mlflow.review_queues.R" +
+      "eviewQueueItem\022\027\n\017next_page_token\030\002 \001(\t:" +
+      "+\342?(\n&com.databricks.rpc.RPC[$this.Respo" +
+      "nse]\"\207\002\n\030SetReviewQueueItemStatus\022\026\n\010que" +
+      "ue_id\030\001 \001(\tB\004\370\206\031\001\022\025\n\007item_id\030\002 \001(\tB\004\370\206\031\001" +
+      "\0228\n\006status\030\003 \001(\0162\".mlflow.review_queues." +
+      "ReviewStatusB\004\370\206\031\001\022\024\n\014completed_by\030\004 \001(\t" +
+      "\032?\n\010Response\0223\n\004item\030\001 \001(\0132%.mlflow.revi" +
+      "ew_queues.ReviewQueueItem:+\342?(\n&com.data" +
+      "bricks.rpc.RPC[$this.Response]*=\n\016Review" +
+      "ItemType\022 \n\034REVIEW_ITEM_TYPE_UNSPECIFIED" +
+      "\020\000\022\t\n\005TRACE\020\001*J\n\017ReviewQueueType\022!\n\035REVI" +
+      "EW_QUEUE_TYPE_UNSPECIFIED\020\000\022\010\n\004USER\020\001\022\n\n" +
+      "\006CUSTOM\020\002*V\n\014ReviewStatus\022\035\n\031REVIEW_STAT" +
+      "US_UNSPECIFIED\020\000\022\013\n\007PENDING\020\001\022\014\n\010COMPLET" +
+      "E\020\002\022\014\n\010DECLINED\020\003B\031\n\024org.mlflow.api.prot" +
+      "o\220\001\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -22889,13 +22585,13 @@ public final class ReviewQueues {
     internal_static_mlflow_review_queues_ReviewQueue_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_review_queues_ReviewQueue_descriptor,
-        new java.lang.String[] { "QueueId", "ExperimentId", "Name", "QueueType", "CreatedBy", "CreationTimeMs", "LastUpdateTimeMs", "Users", "SchemaIds", "IsDefault", });
+        new java.lang.String[] { "QueueId", "ExperimentId", "Name", "QueueType", "CreatedBy", "CreationTimeMs", "LastUpdateTimeMs", "Users", "SchemaIds", });
     internal_static_mlflow_review_queues_ReviewQueueItem_descriptor =
       getDescriptor().getMessageTypes().get(1);
     internal_static_mlflow_review_queues_ReviewQueueItem_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_review_queues_ReviewQueueItem_descriptor,
-        new java.lang.String[] { "QueueId", "TargetType", "TargetId", "Status", "CompletedBy", "CompletedTimeMs", "CreationTimeMs", "LastUpdateTimeMs", });
+        new java.lang.String[] { "QueueId", "ItemType", "ItemId", "Status", "CompletedBy", "CompletedTimeMs", "CreationTimeMs", "LastUpdateTimeMs", });
     internal_static_mlflow_review_queues_CreateReviewQueue_descriptor =
       getDescriptor().getMessageTypes().get(2);
     internal_static_mlflow_review_queues_CreateReviewQueue_fieldAccessorTable = new
@@ -22949,7 +22645,7 @@ public final class ReviewQueues {
     internal_static_mlflow_review_queues_ListReviewQueues_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_review_queues_ListReviewQueues_descriptor,
-        new java.lang.String[] { "ExperimentId", "User", "MaxResults", "PageToken", "EnsureDefault", });
+        new java.lang.String[] { "ExperimentId", "User", "MaxResults", "PageToken", });
     internal_static_mlflow_review_queues_ListReviewQueues_Response_descriptor =
       internal_static_mlflow_review_queues_ListReviewQueues_descriptor.getNestedTypes().get(0);
     internal_static_mlflow_review_queues_ListReviewQueues_Response_fieldAccessorTable = new
@@ -22980,53 +22676,53 @@ public final class ReviewQueues {
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_review_queues_DeleteReviewQueue_Response_descriptor,
         new java.lang.String[] { });
-    internal_static_mlflow_review_queues_AddTracesToReviewQueue_descriptor =
+    internal_static_mlflow_review_queues_AddItemsToReviewQueue_descriptor =
       getDescriptor().getMessageTypes().get(9);
-    internal_static_mlflow_review_queues_AddTracesToReviewQueue_fieldAccessorTable = new
+    internal_static_mlflow_review_queues_AddItemsToReviewQueue_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
-        internal_static_mlflow_review_queues_AddTracesToReviewQueue_descriptor,
-        new java.lang.String[] { "QueueId", "TargetType", "TargetIds", });
-    internal_static_mlflow_review_queues_AddTracesToReviewQueue_Response_descriptor =
-      internal_static_mlflow_review_queues_AddTracesToReviewQueue_descriptor.getNestedTypes().get(0);
-    internal_static_mlflow_review_queues_AddTracesToReviewQueue_Response_fieldAccessorTable = new
+        internal_static_mlflow_review_queues_AddItemsToReviewQueue_descriptor,
+        new java.lang.String[] { "QueueId", "ItemType", "ItemIds", });
+    internal_static_mlflow_review_queues_AddItemsToReviewQueue_Response_descriptor =
+      internal_static_mlflow_review_queues_AddItemsToReviewQueue_descriptor.getNestedTypes().get(0);
+    internal_static_mlflow_review_queues_AddItemsToReviewQueue_Response_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
-        internal_static_mlflow_review_queues_AddTracesToReviewQueue_Response_descriptor,
+        internal_static_mlflow_review_queues_AddItemsToReviewQueue_Response_descriptor,
         new java.lang.String[] { "Items", });
-    internal_static_mlflow_review_queues_RemoveTracesFromReviewQueue_descriptor =
+    internal_static_mlflow_review_queues_RemoveItemsFromReviewQueue_descriptor =
       getDescriptor().getMessageTypes().get(10);
-    internal_static_mlflow_review_queues_RemoveTracesFromReviewQueue_fieldAccessorTable = new
+    internal_static_mlflow_review_queues_RemoveItemsFromReviewQueue_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
-        internal_static_mlflow_review_queues_RemoveTracesFromReviewQueue_descriptor,
-        new java.lang.String[] { "QueueId", "TargetIds", });
-    internal_static_mlflow_review_queues_RemoveTracesFromReviewQueue_Response_descriptor =
-      internal_static_mlflow_review_queues_RemoveTracesFromReviewQueue_descriptor.getNestedTypes().get(0);
-    internal_static_mlflow_review_queues_RemoveTracesFromReviewQueue_Response_fieldAccessorTable = new
+        internal_static_mlflow_review_queues_RemoveItemsFromReviewQueue_descriptor,
+        new java.lang.String[] { "QueueId", "ItemIds", });
+    internal_static_mlflow_review_queues_RemoveItemsFromReviewQueue_Response_descriptor =
+      internal_static_mlflow_review_queues_RemoveItemsFromReviewQueue_descriptor.getNestedTypes().get(0);
+    internal_static_mlflow_review_queues_RemoveItemsFromReviewQueue_Response_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
-        internal_static_mlflow_review_queues_RemoveTracesFromReviewQueue_Response_descriptor,
+        internal_static_mlflow_review_queues_RemoveItemsFromReviewQueue_Response_descriptor,
         new java.lang.String[] { });
-    internal_static_mlflow_review_queues_ListReviewQueueTraces_descriptor =
+    internal_static_mlflow_review_queues_ListReviewQueueItems_descriptor =
       getDescriptor().getMessageTypes().get(11);
-    internal_static_mlflow_review_queues_ListReviewQueueTraces_fieldAccessorTable = new
+    internal_static_mlflow_review_queues_ListReviewQueueItems_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
-        internal_static_mlflow_review_queues_ListReviewQueueTraces_descriptor,
+        internal_static_mlflow_review_queues_ListReviewQueueItems_descriptor,
         new java.lang.String[] { "QueueId", "Status", "MaxResults", "PageToken", });
-    internal_static_mlflow_review_queues_ListReviewQueueTraces_Response_descriptor =
-      internal_static_mlflow_review_queues_ListReviewQueueTraces_descriptor.getNestedTypes().get(0);
-    internal_static_mlflow_review_queues_ListReviewQueueTraces_Response_fieldAccessorTable = new
+    internal_static_mlflow_review_queues_ListReviewQueueItems_Response_descriptor =
+      internal_static_mlflow_review_queues_ListReviewQueueItems_descriptor.getNestedTypes().get(0);
+    internal_static_mlflow_review_queues_ListReviewQueueItems_Response_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
-        internal_static_mlflow_review_queues_ListReviewQueueTraces_Response_descriptor,
+        internal_static_mlflow_review_queues_ListReviewQueueItems_Response_descriptor,
         new java.lang.String[] { "Items", "NextPageToken", });
-    internal_static_mlflow_review_queues_SetReviewQueueTraceStatus_descriptor =
+    internal_static_mlflow_review_queues_SetReviewQueueItemStatus_descriptor =
       getDescriptor().getMessageTypes().get(12);
-    internal_static_mlflow_review_queues_SetReviewQueueTraceStatus_fieldAccessorTable = new
+    internal_static_mlflow_review_queues_SetReviewQueueItemStatus_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
-        internal_static_mlflow_review_queues_SetReviewQueueTraceStatus_descriptor,
-        new java.lang.String[] { "QueueId", "TargetId", "Status", "CompletedBy", });
-    internal_static_mlflow_review_queues_SetReviewQueueTraceStatus_Response_descriptor =
-      internal_static_mlflow_review_queues_SetReviewQueueTraceStatus_descriptor.getNestedTypes().get(0);
-    internal_static_mlflow_review_queues_SetReviewQueueTraceStatus_Response_fieldAccessorTable = new
+        internal_static_mlflow_review_queues_SetReviewQueueItemStatus_descriptor,
+        new java.lang.String[] { "QueueId", "ItemId", "Status", "CompletedBy", });
+    internal_static_mlflow_review_queues_SetReviewQueueItemStatus_Response_descriptor =
+      internal_static_mlflow_review_queues_SetReviewQueueItemStatus_descriptor.getNestedTypes().get(0);
+    internal_static_mlflow_review_queues_SetReviewQueueItemStatus_Response_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
-        internal_static_mlflow_review_queues_SetReviewQueueTraceStatus_Response_descriptor,
+        internal_static_mlflow_review_queues_SetReviewQueueItemStatus_Response_descriptor,
         new java.lang.String[] { "Item", });
     com.google.protobuf.ExtensionRegistry registry =
         com.google.protobuf.ExtensionRegistry.newInstance();

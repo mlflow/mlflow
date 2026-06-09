@@ -25,12 +25,12 @@ import Utils from '../../../common/utils/Utils';
 import { CreateReviewQueueModal } from './CreateReviewQueueModal';
 import { getQueueAssignability } from './queueAssignability';
 import { sameUser } from './queuePermissions';
-import { useAddTracesToReviewQueueMutation } from './hooks/useAddTracesToReviewQueueMutation';
+import { useAddItemsToReviewQueueMutation } from './hooks/useAddItemsToReviewQueueMutation';
 import { useAssignableUsersQuery } from './hooks/useAssignableUsersQuery';
 import { useGetOrCreateUserQueueMutation } from './hooks/useGetOrCreateUserQueueMutation';
 import { useListReviewQueuesQuery } from './hooks/useListReviewQueuesQuery';
 import { useCanManageReviews } from './hooks/useCanManageReviews';
-import { useReviewer } from './hooks/useReviewer';
+import { DEFAULT_REVIEWER, useReviewer } from './hooks/useReviewer';
 import type { ReviewQueue } from './types';
 
 const CID = 'mlflow.experiment-review-queue.add-to-queue';
@@ -51,7 +51,7 @@ const MAX_USER_MATCHES = 20;
  * sections: shared CUSTOM "Queues" (the first few shown up front, the rest found
  * by name) and, on an authenticated server where the caller can list users,
  * "Users" — each routing into that reviewer's personal queue, resolved
- * (get-or-create) on confirm. The experiment's default queue is pinned at the
+ * (get-or-create) on confirm. The no-auth default user queue is pinned at the
  * top. Nothing is selected by default. Queues that wouldn't
  * present any questions are disabled (see `getQueueAssignability`), and a new
  * queue can be created inline.
@@ -78,7 +78,7 @@ export const AddToReviewQueueModal = ({
   const canListUsers = authAvailable && canManage;
 
   const [search, setSearch] = useState('');
-  // The experiment's default queue. Nothing is selected by default; the caller
+  // The no-auth default user queue. Nothing is selected by default; the caller
   // picks where to route the traces.
   const [defaultQueueSelected, setDefaultQueueSelected] = useState(false);
   const [selectedQueueIds, setSelectedQueueIds] = useState<Set<string>>(new Set());
@@ -90,15 +90,15 @@ export const AddToReviewQueueModal = ({
     reviewQueues,
     isLoading: queuesLoading,
     error: queuesError,
-  } = useListReviewQueuesQuery({ experimentId, enabled: visible, ensureDefault: !authAvailable });
+  } = useListReviewQueuesQuery({ experimentId, enabled: visible });
   const { labelSchemas } = useListLabelSchemasQuery({ experimentId, enabled: visible });
   const { users, isLoading: usersLoading } = useAssignableUsersQuery({ enabled: visible && canListUsers });
   const {
-    addTracesToReviewQueueAsync,
-    isAddingTraces,
+    addItemsToReviewQueueAsync,
+    isAddingItems,
     error: addError,
     reset: resetAdd,
-  } = useAddTracesToReviewQueueMutation();
+  } = useAddItemsToReviewQueueMutation();
   const {
     getOrCreateUserQueueAsync,
     isResolvingUserQueue,
@@ -106,24 +106,18 @@ export const AddToReviewQueueModal = ({
     reset: resetResolve,
   } = useGetOrCreateUserQueueMutation();
 
-  const targetIds = useMemo(
+  const itemIds = useMemo(
     () => selectedTraceInfos.map((info) => info.trace_id).filter((id): id is string => Boolean(id)),
     [selectedTraceInfos],
   );
 
-  // Shared queues anyone can route into. The experiment's default queue is
-  // surfaced through the pinned option instead of the list; other users'
-  // personal queues are reached through the "Users" section.
-  const customQueues = useMemo(
-    () => reviewQueues.filter((q) => q.queue_type === 'CUSTOM' && !q.is_default),
-    [reviewQueues],
-  );
-  // The experiment's default queue, seeded by the list above (no-auth only) and
-  // surfaced through the pinned option rather than the custom-queue list.
-  const defaultQueue = useMemo(() => reviewQueues.find((q) => q.is_default), [reviewQueues]);
+  // Shared queues anyone can route into. The no-auth catch-all (the reserved
+  // `default` user queue) is surfaced through the pinned option instead of the
+  // list; other users' personal queues are reached through the "Users" section.
+  const customQueues = useMemo(() => reviewQueues.filter((q) => q.queue_type === 'CUSTOM'), [reviewQueues]);
 
-  // The default queue and USER queues present every experiment schema, so they
-  // are assignable as soon as the experiment has at least one question.
+  // USER queues (including the `default` catch-all) present every experiment
+  // schema, so they are assignable as soon as the experiment has a question.
   const inheritAllAssignable = labelSchemas.length > 0;
 
   const assignabilityById = useMemo(() => {
@@ -148,7 +142,7 @@ export const AddToReviewQueueModal = ({
   }, [customQueues, query, selectedQueueIds]);
   const hasMoreQueues = !query && customQueues.length > visibleQueues.length;
 
-  // Users are search-driven; the experiment default queue is the pinned option.
+  // Users are search-driven; the no-auth default user queue is the pinned option.
   const visibleUsers = useMemo(() => {
     if (!query) {
       return [];
@@ -160,12 +154,12 @@ export const AddToReviewQueueModal = ({
 
   // The default queue is a no-auth-only catch-all, so it's only offered here on
   // a no-auth server; authenticated MLflow routes via custom queues / users.
-  const defaultQueueChecked = !authAvailable && defaultQueueSelected && Boolean(defaultQueue) && inheritAllAssignable;
+  const defaultQueueChecked = !authAvailable && defaultQueueSelected && inheritAllAssignable;
   const selectedCount = (defaultQueueChecked ? 1 : 0) + selectedQueueIds.size + selectedUsers.size;
 
   const actionError = addError ?? resolveError;
-  const isWorking = isAddingTraces || isResolvingUserQueue;
-  const canAdd = selectedCount > 0 && targetIds.length > 0 && !isWorking;
+  const isWorking = isAddingItems || isResolvingUserQueue;
+  const canAdd = selectedCount > 0 && itemIds.length > 0 && !isWorking;
 
   const triggerValue = useMemo(
     () =>
@@ -225,10 +219,20 @@ export const AddToReviewQueueModal = ({
     if (!canAdd) {
       return;
     }
-    // The default queue is already seeded + listed (ensureDefault above), so we
-    // route to its id directly. Each selected user's personal queue is resolved
-    // via get-or-create. Then attach the traces to every distinct destination.
-    const resolvedDefaultQueueIds = defaultQueueChecked && defaultQueue ? [defaultQueue.queue_id] : [];
+    // The no-auth catch-all is the reserved `default` user queue, resolved via
+    // get-or-create just like each selected user's personal queue. Then attach
+    // the traces to every distinct destination.
+    const resolvedDefaultQueueIds = defaultQueueChecked
+      ? [
+          (
+            await getOrCreateUserQueueAsync({
+              experiment_id: experimentId,
+              user: DEFAULT_REVIEWER,
+              created_by: reviewer,
+            })
+          ).review_queue.queue_id,
+        ]
+      : [];
     const resolvedUserQueueIds = await Promise.all(
       [...selectedUsers].map((user) =>
         getOrCreateUserQueueAsync({ experiment_id: experimentId, user, created_by: reviewer }).then(
@@ -237,7 +241,7 @@ export const AddToReviewQueueModal = ({
       ),
     );
     const queueIds = Array.from(new Set([...selectedQueueIds, ...resolvedDefaultQueueIds, ...resolvedUserQueueIds]));
-    await Promise.all(queueIds.map((queue_id) => addTracesToReviewQueueAsync({ queue_id, target_ids: targetIds })));
+    await Promise.all(queueIds.map((queue_id) => addItemsToReviewQueueAsync({ queue_id, item_ids: itemIds })));
     // Confirm the add with a global toast — it must be global to survive this
     // modal unmounting on close.
     Utils.displayGlobalInfoNotification(
@@ -246,7 +250,7 @@ export const AddToReviewQueueModal = ({
           defaultMessage: 'Added {count, plural, one {# trace} other {# traces}} to review',
           description: 'Add to review queue: success toast after traces are added',
         },
-        { count: targetIds.length },
+        { count: itemIds.length },
       ),
     );
     handleClose();
@@ -270,7 +274,7 @@ export const AddToReviewQueueModal = ({
 
   const defaultQueueLabel = intl.formatMessage({
     defaultMessage: 'Default queue',
-    description: 'Add to review queue: the experiment default queue option',
+    description: 'Add to review queue: the no-auth default user queue option',
   });
 
   return (
@@ -285,7 +289,7 @@ export const AddToReviewQueueModal = ({
           <FormattedMessage
             defaultMessage="Add {count, plural, one {# trace} other {# traces}} to review queues"
             description="Add to review queue modal title"
-            values={{ count: targetIds.length }}
+            values={{ count: itemIds.length }}
           />
         }
         okText={<FormattedMessage defaultMessage="Add" description="Add to review queue: confirm button" />}
@@ -332,12 +336,12 @@ export const AddToReviewQueueModal = ({
               >
                 <DialogComboboxOptionList>
                   <DialogComboboxOptionListSearch controlledValue={search} setControlledValue={setSearch}>
-                    {/* Pinned default queue (no-auth only; seeded by the list). */}
+                    {/* Pinned default queue (no-auth only; the reserved `default` user queue). */}
                     {!authAvailable && (
                       <DialogComboboxOptionListCheckboxItem
                         value={defaultQueueLabel}
                         checked={defaultQueueChecked}
-                        disabled={!defaultQueue || !inheritAllAssignable}
+                        disabled={!inheritAllAssignable}
                         disabledReason={inheritAllAssignable ? undefined : reasonText('no-experiment-schemas')}
                         onChange={() => setDefaultQueueSelected((prev) => !prev)}
                       >

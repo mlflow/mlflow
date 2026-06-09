@@ -5775,10 +5775,6 @@
     "defaultMessage": "Create",
     "description": "A label for the confirm button in the create prompt modal in the prompt management UI"
   },
-  "TTDrsi": {
-    "defaultMessage": "Admin",
-    "description": "Display name shown for the reserved no-auth default review user"
-  },
   "TTQoG9": {
     "defaultMessage": "Source",
     "description": "Header for the dataset record source column"
@@ -7187,6 +7183,10 @@
     "defaultMessage": "Bound {date}",
     "description": "Gateway > Bindings using key drawer > Binding created date"
   },
+  "aWH7UT": {
+    "defaultMessage": "Default",
+    "description": "Display name shown for the reserved no-auth default review user"
+  },
   "aXw0NO": {
     "defaultMessage": "Please select metric",
     "description": "Placeholder text where one can select metrics from the list of available metrics to render on the graph"
@@ -7455,6 +7455,10 @@
     "defaultMessage": "Outputs",
     "description": "Table section name for schema outputs in the model comparison page"
   },
+  "bsIDLB": {
+    "defaultMessage": "Default queue",
+    "description": "Add to review queue: the no-auth default user queue option"
+  },
   "buAsCA": {
     "defaultMessage": "Filter by node",
     "description": "Filter button label"
@@ -7462,10 +7466,6 @@
   "buuQsF": {
     "defaultMessage": "A tag value is required",
     "description": "Key-value tag editor modal > Value required error message"
-  },
-  "bvA5jm": {
-    "defaultMessage": "Default queue",
-    "description": "Review queue sidebar: label for the experiment default queue"
   },
   "by+x8N": {
     "defaultMessage": "Type",
@@ -9530,10 +9530,6 @@
   "lxGVDu": {
     "defaultMessage": "Percentage of traces evaluated by this judge.",
     "description": "Hint text for sample rate slider"
-  },
-  "lyNyOH": {
-    "defaultMessage": "Default queue",
-    "description": "Add to review queue: the experiment default queue option"
   },
   "m1Nb7W": {
     "defaultMessage": "Save",

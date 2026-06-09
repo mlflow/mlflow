@@ -24,19 +24,19 @@ import { LabelSchemaInputRenderer, useListLabelSchemasQuery } from '../../compon
 import { QuestionChecklistCombobox } from './QuestionChecklistCombobox';
 import { useCurrentUserIsAdmin, useCurrentUserIsWorkspaceAdmin, useIsAuthAvailable } from '../../../account/hooks';
 import { useAssignableUsersQuery } from './hooks/useAssignableUsersQuery';
-import { useListReviewQueueTracesQuery } from './hooks/useListReviewQueueTracesQuery';
+import { useListReviewQueueItemsQuery } from './hooks/useListReviewQueueItemsQuery';
 import { useUpdateReviewQueueMutation } from './hooks/useUpdateReviewQueueMutation';
 import type { ReviewQueue } from './types';
 
 const CID = 'mlflow.experiment-review-queue.queue-settings';
 
 /**
- * "Manage queue" modal for a non-default CUSTOM queue (opened from the right-pane
+ * "Manage queue" modal for a CUSTOM queue (opened from the right-pane
  * gear). Edits the queue's questions (the experiment's label schemas it asks,
  * frozen once the queue has traces) and its assigned members (free-text input
  * autocompleting assignable users). The name is shown read-only for now — making
  * it editable needs an UpdateReviewQueue proto change. Deletion lives on the gear
- * menu, not here. Personal USER queues and the default queue aren't managed here.
+ * menu, not here. Personal USER queues aren't managed here.
  */
 export const QueueSettingsModal = ({ queue, onClose }: { queue: ReviewQueue; onClose: () => void }) => {
   const { theme } = useDesignSystemTheme();
@@ -49,14 +49,14 @@ export const QueueSettingsModal = ({ queue, onClose }: { queue: ReviewQueue; onC
   const canListUsers = authAvailable && (isAdmin || isWorkspaceAdmin);
 
   const { labelSchemas, isLoading: schemasLoading } = useListLabelSchemasQuery({ experimentId: queue.experiment_id });
-  const { items: traces, isLoading: tracesLoading } = useListReviewQueueTracesQuery({ queueId: queue.queue_id });
+  const { items: traces, isLoading: itemsLoading } = useListReviewQueueItemsQuery({ queueId: queue.queue_id });
   const { users: assignableUsers } = useAssignableUsersQuery({ enabled: canListUsers });
   const { updateReviewQueueAsync, isUpdatingQueue, error: updateError } = useUpdateReviewQueueMutation();
 
   // Questions freeze once the queue has traces (the backend rejects schema
   // changes then), so the picker is read-only in that case. Default to frozen
   // until the count loads, so it doesn't flash editable for a queue with traces.
-  const canEditQuestions = !tracesLoading && traces.length === 0;
+  const canEditQuestions = !itemsLoading && traces.length === 0;
 
   const [selectedSchemaIds, setSelectedSchemaIds] = useState<Set<string>>(new Set(queue.schema_ids ?? []));
   const [members, setMembers] = useState<string[]>(queue.users ?? []);

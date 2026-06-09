@@ -91,16 +91,16 @@ from mlflow.protos.model_registry_pb2 import (
     UpdateRegisteredModel,
 )
 from mlflow.protos.review_queues_pb2 import (
-    AddTracesToReviewQueue,
+    AddItemsToReviewQueue,
     CreateReviewQueue,
     DeleteReviewQueue,
     GetOrCreateUserQueue,
     GetReviewQueue,
     GetReviewQueueByName,
     ListReviewQueues,
-    ListReviewQueueTraces,
-    RemoveTracesFromReviewQueue,
-    SetReviewQueueTraceStatus,
+    ListReviewQueueItems,
+    RemoveItemsFromReviewQueue,
+    SetReviewQueueItemStatus,
     UpdateReviewQueue,
 )
 from mlflow.protos.service_pb2 import (
@@ -2203,7 +2203,7 @@ def validate_can_manage_review_queue():
     return _get_permission_from_review_queue_id().can_manage
 
 
-def validate_can_add_traces_to_review_queue():
+def validate_can_add_items_to_review_queue():
     # Routing work into a queue (flag-for-review) is allowed at experiment EDIT.
     return _get_permission_from_review_queue_id().can_update
 
@@ -2239,7 +2239,7 @@ def validate_can_view_review_queue_by_name():
     return _review_queue_has_member(queue, username)
 
 
-def validate_can_review_queue_trace():
+def validate_can_review_queue_item():
     # Submitting / reopening review work: experiment EDIT plus membership in the
     # queue's assigned-user pool (even a manager must assign themselves first).
     # Fetch the queue once and resolve the experiment permission from it.
@@ -2405,10 +2405,10 @@ BEFORE_REQUEST_HANDLERS = {
     ListReviewQueues: validate_can_read_experiment,
     UpdateReviewQueue: validate_can_manage_review_queue,
     DeleteReviewQueue: validate_can_manage_review_queue,
-    AddTracesToReviewQueue: validate_can_add_traces_to_review_queue,
-    RemoveTracesFromReviewQueue: validate_can_manage_review_queue,
-    ListReviewQueueTraces: validate_can_view_review_queue,
-    SetReviewQueueTraceStatus: validate_can_review_queue_trace,
+    AddItemsToReviewQueue: validate_can_add_items_to_review_queue,
+    RemoveItemsFromReviewQueue: validate_can_manage_review_queue,
+    ListReviewQueueItems: validate_can_view_review_queue,
+    SetReviewQueueItemStatus: validate_can_review_queue_item,
     # Routes for label schemas (review questions)
     CreateLabelSchema: validate_can_create_label_schema,
     GetLabelSchema: validate_can_read_label_schema,

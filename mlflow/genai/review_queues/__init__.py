@@ -1,6 +1,6 @@
 """Review queues for expert trace-review workflows.
 
-A ``ReviewQueue`` is a named bundle of attached traces, a set of
+A ``ReviewQueue`` is a named bundle of attached items, a set of
 questions (label schemas), and a set of assigned users, scoped to an
 experiment. Two flavors of the same entity:
 
@@ -9,10 +9,10 @@ experiment. Two flavors of the same entity:
 - a **custom queue** (arbitrary name, 0..N users, a chosen subset of
   schemas) is a curated, possibly collaborative review task.
 
-Assigned users form a *pool*: a trace is addressed when any one of them
-acts on it, and the per-``(queue, trace)`` :class:`ReviewStatus` records
+Assigned users form a *pool*: an item is addressed when any one of them
+acts on it, and the per-``(queue, item)`` :class:`ReviewStatus` records
 who. Reviewers answer the queue's questions by writing ``Feedback``
-assessments against the trace (no new answer storage); the queue carries
+assessments against the item (no new answer storage); the queue carries
 only the review *workflow*.
 
 This module exposes the entity types plus the fluent SDK for managing
@@ -23,11 +23,11 @@ from typing import TYPE_CHECKING, Literal
 
 from mlflow.exceptions import MlflowException
 from mlflow.genai.review_queues.review_queues import (
+    ReviewItemType,
     ReviewQueue,
     ReviewQueueItem,
     ReviewQueueType,
     ReviewStatus,
-    ReviewTargetType,
 )
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracing.client import TracingClient
@@ -37,20 +37,20 @@ if TYPE_CHECKING:
     from mlflow.store.entities.paged_list import PagedList
 
 __all__ = [
+    "ReviewItemType",
     "ReviewQueue",
     "ReviewQueueItem",
     "ReviewQueueType",
     "ReviewStatus",
-    "ReviewTargetType",
-    "add_traces_to_review_queue",
+    "add_items_to_review_queue",
     "create_review_queue",
     "delete_review_queue",
     "get_or_create_user_queue",
     "get_review_queue",
-    "list_review_queue_traces",
+    "list_review_queue_items",
     "list_review_queues",
-    "remove_traces_from_review_queue",
-    "set_review_queue_trace_status",
+    "remove_items_from_review_queue",
+    "set_review_queue_item_status",
     "update_review_queue",
 ]
 
@@ -77,14 +77,14 @@ def create_review_queue(
 
     Args:
         name: Queue name, unique within the experiment. For a ``"user"``
-            queue this is the user identifier; ``"default"`` (the no-auth
-            default user queue) and ``"Default"`` (the experiment's default
-            review queue) are reserved and rejected for custom queues.
+            queue this is the user identifier; ``"default"`` is reserved
+            case-insensitively (the no-auth default user queue) and rejected
+            for custom queues.
         queue_type: ``"user"`` (exactly one assigned user equal to ``name``,
             inherits all of the experiment's label schemas) or ``"custom"``
-            (0..N users and an explicit subset of schemas).
-        users: Assigned users. Derived as ``[name]`` for a user queue when
-            omitted; 0..N for a custom queue.
+            (0 to 4 users and an explicit subset of schemas).
+        users: Assigned users (at most 4). Derived as ``[name]`` for a user
+            queue when omitted; 0 to 4 for a custom queue.
         schema_ids: Attached label-schema ids. Must be empty for a user
             queue (it resolves to all of the experiment's schemas); the chosen
             subset for a custom queue.
@@ -113,8 +113,8 @@ def get_or_create_user_queue(
 ) -> ReviewQueue:
     """Return a user's personal review queue, creating it if absent.
 
-    Idempotent: the backbone of "assign these traces to this person" — call
-    this, then :func:`add_traces_to_review_queue`.
+    Idempotent: the backbone of "assign these items to this person" — call
+    this, then :func:`add_items_to_review_queue`.
 
     Args:
         user: The reviewer identifier (also the queue name).
@@ -194,7 +194,7 @@ def update_review_queue(
     ``None`` leaves that set untouched; a list (possibly empty) replaces it.
     ``name`` and ``queue_type`` are immutable, and user queues reject this.
     A queue's ``schema_ids`` (its questions) are also frozen once it has any
-    attached traces; detach the traces first to edit them. Assigned users
+    attached items; detach the items first to edit them. Assigned users
     stay editable.
 
     Returns:
@@ -207,36 +207,36 @@ def update_review_queue(
 def delete_review_queue(queue_id: str) -> None:
     """Delete a queue and its associations. No-op if it doesn't exist.
 
-    Reviewer assessments on the queue's traces are unaffected.
+    Reviewer assessments on the queue's items are unaffected.
     """
     TracingClient()._delete_review_queue(queue_id)
 
 
 @experimental(version="3.14.0")
-def add_traces_to_review_queue(queue_id: str, *, trace_ids: list[str]) -> list[ReviewQueueItem]:
-    """Attach traces to a queue, returning the resulting items.
+def add_items_to_review_queue(queue_id: str, *, item_ids: list[str]) -> list[ReviewQueueItem]:
+    """Attach items to a queue, returning the resulting queue items.
 
-    Idempotent per trace (re-attaching preserves the existing status). The
-    returned list covers every requested ``trace_id``, in request order.
+    Idempotent per item (re-attaching preserves the existing status). The
+    returned list covers every requested ``item_id``, in request order.
     """
-    return TracingClient()._add_traces_to_review_queue(queue_id, target_ids=trace_ids)
+    return TracingClient()._add_items_to_review_queue(queue_id, item_ids=item_ids)
 
 
 @experimental(version="3.14.0")
-def remove_traces_from_review_queue(queue_id: str, *, trace_ids: list[str]) -> None:
-    """Detach traces from a queue. No-op for traces not attached."""
-    TracingClient()._remove_traces_from_review_queue(queue_id, target_ids=trace_ids)
+def remove_items_from_review_queue(queue_id: str, *, item_ids: list[str]) -> None:
+    """Detach items from a queue. No-op for items not attached."""
+    TracingClient()._remove_items_from_review_queue(queue_id, item_ids=item_ids)
 
 
 @experimental(version="3.14.0")
-def list_review_queue_traces(
+def list_review_queue_items(
     queue_id: str,
     *,
     status: Literal["pending", "complete", "declined"] | None = None,
     max_results: int | None = None,
     page_token: str | None = None,
 ) -> "PagedList[ReviewQueueItem]":
-    """List a queue's attached traces, newest-attached first.
+    """List a queue's attached items, newest-attached first.
 
     Args:
         queue_id: The queue to list.
@@ -247,20 +247,20 @@ def list_review_queue_traces(
     Returns:
         A :py:class:`PagedList` of :py:class:`ReviewQueueItem`.
     """
-    return TracingClient()._list_review_queue_traces(
+    return TracingClient()._list_review_queue_items(
         queue_id, status=status, max_results=max_results, page_token=page_token
     )
 
 
 @experimental(version="3.14.0")
-def set_review_queue_trace_status(
+def set_review_queue_item_status(
     queue_id: str,
     *,
-    trace_id: str,
+    item_id: str,
     status: Literal["pending", "complete", "declined"],
     completed_by: str | None = None,
 ) -> ReviewQueueItem:
-    """Set the shared-pool status of an attached trace.
+    """Set the shared-pool status of an attached item.
 
     Moving to ``"complete"`` / ``"declined"`` records ``completed_by``;
     moving back to ``"pending"`` (reopen) clears it. ``completed_by`` is
@@ -269,6 +269,6 @@ def set_review_queue_trace_status(
     Returns:
         The updated :py:class:`ReviewQueueItem`.
     """
-    return TracingClient()._set_review_queue_trace_status(
-        queue_id, target_id=trace_id, status=status, completed_by=completed_by
+    return TracingClient()._set_review_queue_item_status(
+        queue_id, item_id=item_id, status=status, completed_by=completed_by
     )
