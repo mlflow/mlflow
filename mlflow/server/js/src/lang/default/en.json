@@ -1739,10 +1739,6 @@
     "defaultMessage": "Add traces from the Traces tab to start reviewing them with your team.",
     "description": "Review queue: empty queue description"
   },
-  "7GtBLr": {
-    "defaultMessage": "Evaluate traces",
-    "description": "Primary CTA in the eval-runs empty state — opens the trace selection + scorer picker modal"
-  },
   "7KKvmS": {
     "defaultMessage": "Created by",
     "description": "Run page > Overview > Run author section label"
@@ -7675,10 +7671,6 @@
     "defaultMessage": "Delete dataset",
     "description": "Delete evaluation dataset menu item"
   },
-  "cMa3hp": {
-    "defaultMessage": "Run evaluation",
-    "description": "Label for a button that displays instructions for starting a new evaluation run"
-  },
   "cNkqxA": {
     "defaultMessage": "API key",
     "description": "Label for API key selector"
@@ -9342,6 +9334,10 @@
   "kIlkgf": {
     "defaultMessage": "Search runs using a simplified version of the SQL {whereBold} clause.",
     "description": "Tooltip string to explain how to search runs from the experiments table"
+  },
+  "kMCvRi": {
+    "defaultMessage": "Evaluate traces",
+    "description": "Label for the primary button that opens the run-evaluation modal"
   },
   "kNTkr+": {
     "defaultMessage": "Discard",
