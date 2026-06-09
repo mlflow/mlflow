@@ -46,6 +46,8 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   // Setup state
   const [setupComplete, setSetupComplete] = useState(false);
   const [isLoadingConfig, setIsLoadingConfig] = useState(true);
+  // Message queued from outside the panel (e.g. an empty-state CTA) before setup is complete.
+  const pendingMessageRef = useRef<string | null>(null);
 
   // Use ref to track current streaming message
   const streamingMessageRef = useRef<string>('');
@@ -269,6 +271,28 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     ],
   );
 
+  const queueMessage = useCallback(
+    (message: string) => {
+      if (setupComplete) {
+        reset();
+        startChat(message);
+      } else {
+        pendingMessageRef.current = message;
+      }
+    },
+    [setupComplete, reset, startChat],
+  );
+
+  // When setup completes (wizard finishes), drain any queued message.
+  useEffect(() => {
+    if (setupComplete && pendingMessageRef.current) {
+      const queued = pendingMessageRef.current;
+      pendingMessageRef.current = null;
+      reset();
+      startChat(queued);
+    }
+  }, [setupComplete, reset, startChat]);
+
   const handleSendMessage = useCallback(
     async (message: string) => {
       if (!sessionId) {
@@ -461,6 +485,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     openPanel,
     closePanel,
     sendMessage: handleSendMessage,
+    queueMessage,
     regenerateLastMessage,
     reset,
     cancelSession: handleCancelSession,
@@ -486,6 +511,7 @@ const disabledAssistantContext: AssistantAgentContextType = {
   openPanel: () => {},
   closePanel: () => {},
   sendMessage: () => {},
+  queueMessage: () => {},
   regenerateLastMessage: () => {},
   reset: () => {},
   cancelSession: () => {},

@@ -83,6 +83,12 @@ export interface AssistantAgentActions {
   closePanel: () => void;
   /** Send a message to Assistant */
   sendMessage: (message: string) => void;
+  /**
+   * Queue a message to be sent once setup is complete.
+   * If setup is already complete, sends immediately (after `reset`).
+   * If setup is in progress, the message fires when `setupComplete` flips to true.
+   */
+  queueMessage: (message: string) => void;
   /** Regenerate the last assistant response */
   regenerateLastMessage: () => void;
   /** Reset the conversation */

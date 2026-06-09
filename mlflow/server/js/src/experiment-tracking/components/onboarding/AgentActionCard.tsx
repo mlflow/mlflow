@@ -23,16 +23,13 @@ export const AgentActionCard = ({
   showAgentSetupTab?: boolean;
 }) => {
   const { theme } = useDesignSystemTheme();
-  const { openPanel, reset, sendMessage, setupComplete } = useAssistant();
+  const { openPanel, queueMessage } = useAssistant();
   const defaultTab: TabKey = showAgentSetupTab ? 'agent-setup' : 'coding-agent';
   const [activeTab, setActiveTab] = useState<TabKey>(defaultTab);
 
   const handleAssistantClick = () => {
     openPanel();
-    if (setupComplete) {
-      reset();
-      sendMessage(assistantPrompt);
-    }
+    queueMessage(assistantPrompt);
   };
 
   return (

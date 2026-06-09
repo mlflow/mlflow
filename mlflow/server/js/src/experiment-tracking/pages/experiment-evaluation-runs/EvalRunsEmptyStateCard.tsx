@@ -96,17 +96,14 @@ const PythonCodeBlock = ({ content, componentId }: { content: string; componentI
 
 export const EvalRunsEmptyStateCard = ({ experimentId }: { experimentId: string }) => {
   const { theme } = useDesignSystemTheme();
-  const { openPanel, reset, sendMessage, setupComplete } = useAssistant();
+  const { openPanel, queueMessage } = useAssistant();
   const [activeTab, setActiveTab] = useState<TabKey>('coding-agent');
   const codingAgentPrompt = buildEvaluatePrompt(window.location.origin, experimentId);
   const assistantPrompt = buildEvaluateAssistantPrompt(window.location.origin, experimentId);
 
   const handleAssistantClick = () => {
     openPanel();
-    if (setupComplete) {
-      reset();
-      sendMessage(assistantPrompt);
-    }
+    queueMessage(assistantPrompt);
   };
 
   return (
