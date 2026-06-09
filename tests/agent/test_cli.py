@@ -53,8 +53,8 @@ def test_setup_user_provided_uri(tmp_git_repo: Path):
     ("agent", "binary", "skills_dir"),
     [
         ("claude", "/usr/local/bin/claude", ".claude/skills"),
-        ("codex", "/usr/local/bin/codex", ".codex/skills"),
-        ("opencode", "/usr/local/bin/opencode", ".opencode/skills"),
+        ("codex", "/usr/local/bin/codex", ".agents/skills"),
+        ("opencode", "/usr/local/bin/opencode", ".agents/skills"),
     ],
 )
 def test_setup_renders_per_agent_skills_dir(
