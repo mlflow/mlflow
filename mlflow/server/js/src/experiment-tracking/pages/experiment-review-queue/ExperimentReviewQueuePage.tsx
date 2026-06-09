@@ -57,8 +57,9 @@ const ExperimentReviewQueuePage = () => {
 
   const { reviewQueues, isLoading: queuesLoading } = useListReviewQueuesQuery({
     experimentId: experimentId ?? '',
-    // Scope to the current reviewer (the single default queue on a no-auth server).
-    user: reviewer,
+    // Don't scope by reviewer: a manager must see every queue, and the server's
+    // visibility filter (`filter_list_review_queues`) narrows the list to assigned
+    // queues for non-managers (admins / no-auth see all).
     // No-auth only: the server seeds the experiment's protected default queue
     // while listing. Authenticated MLflow has no default queue — reviewers use
     // their own user/custom queues.
@@ -85,16 +86,12 @@ const ExperimentReviewQueuePage = () => {
     () => (confirmDeleteQueueId ? (reviewQueues.find((q) => q.queue_id === confirmDeleteQueueId) ?? null) : null),
     [reviewQueues, confirmDeleteQueueId],
   );
-  // Whether the reviewer may manage the selected queue (remove traces) — a
-  // CUSTOM queue they created, or any on a no-auth server.
-  const canManageSelectedQueue = selectedQueue
-    ? canManageQueue(selectedQueue, reviewer, authAvailable, canManage)
-    : false;
+  // Whether the reviewer may manage the selected queue (settings / remove traces)
+  // — any CUSTOM queue when they can manage reviews (MANAGE).
+  const canManageSelectedQueue = selectedQueue ? canManageQueue(selectedQueue, canManage) : false;
   // Whether the right-pane gear (manage settings / delete) shows — editable
   // non-default custom queues only (never USER queues or the default queue).
-  const canEditSelectedQueue = selectedQueue
-    ? canDeleteQueue(selectedQueue, reviewer, authAvailable, canManage)
-    : false;
+  const canEditSelectedQueue = selectedQueue ? canDeleteQueue(selectedQueue, canManage) : false;
 
   const handleDeleteQueue = (queueId: string) =>
     deleteReviewQueue(

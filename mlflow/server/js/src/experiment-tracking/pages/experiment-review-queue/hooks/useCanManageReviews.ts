@@ -3,12 +3,11 @@ import { useIsAuthAvailable, useMyPermissionsQuery } from '../../../../account/h
 /**
  * Whether the current user may MANAGE reviews for an experiment — create / edit
  * / delete queues and add / edit / delete questions. Management requires
- * experiment EDIT (or MANAGE); reviewing (answering assigned queues) only needs
- * READ and is not gated by this.
+ * experiment MANAGE; reviewing (answering assigned queues) needs experiment EDIT
+ * plus queue membership and is not gated by this.
  *
- * This is a UX gate only — it hides controls the user can't use. The real
- * authorization is server-side (see [[project_review_queue_authz_model]],
- * planned as its own stack); until then these endpoints are ungated.
+ * This is a UX gate that hides controls the user can't use; the real
+ * authorization is enforced server-side by the basic-auth plugin.
  *
  * On a no-auth server there's no permission model, so everyone is effectively
  * the admin and management is always available.
@@ -32,6 +31,6 @@ export const useCanManageReviews = (experimentId: string): boolean => {
     (p) =>
       p.resource_type === 'experiment' &&
       (p.resource_pattern === experimentId || p.resource_pattern === '*') &&
-      (p.permission === 'EDIT' || p.permission === 'MANAGE'),
+      p.permission === 'MANAGE',
   );
 };

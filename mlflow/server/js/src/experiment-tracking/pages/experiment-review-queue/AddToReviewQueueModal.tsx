@@ -29,6 +29,7 @@ import { useAddTracesToReviewQueueMutation } from './hooks/useAddTracesToReviewQ
 import { useAssignableUsersQuery } from './hooks/useAssignableUsersQuery';
 import { useGetOrCreateUserQueueMutation } from './hooks/useGetOrCreateUserQueueMutation';
 import { useListReviewQueuesQuery } from './hooks/useListReviewQueuesQuery';
+import { useCanManageReviews } from './hooks/useCanManageReviews';
 import { useReviewer } from './hooks/useReviewer';
 import type { ReviewQueue } from './types';
 
@@ -70,6 +71,7 @@ export const AddToReviewQueueModal = ({
   const intl = useIntl();
   const reviewer = useReviewer();
   const authAvailable = useIsAuthAvailable();
+  const canManage = useCanManageReviews(experimentId);
   const isAdmin = useCurrentUserIsAdmin();
   const isWorkspaceAdmin = useCurrentUserIsWorkspaceAdmin();
   // The user roster is workspace-admin gated server-side; only fetch it when the
@@ -455,35 +457,39 @@ export const AddToReviewQueueModal = ({
             </DialogCombobox>
           )}
 
-          <div
-            css={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'flex-start',
-              gap: theme.spacing.sm,
-              alignSelf: 'flex-start',
-            }}
-          >
-            <Typography.Link
-              componentId={`${CID}.new-queue`}
-              css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs }}
-              onClick={() => setCreateOpen(true)}
+          {/* Creating a queue or question is experiment management (MANAGE);
+              reviewers who can only route work (EDIT) don't see these. */}
+          {canManage && (
+            <div
+              css={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'flex-start',
+                gap: theme.spacing.sm,
+                alignSelf: 'flex-start',
+              }}
             >
-              <PlusIcon />
-              <FormattedMessage defaultMessage="New queue" description="Add to review queue: create new queue link" />
-            </Typography.Link>
-            <Typography.Link
-              componentId={`${CID}.add-question`}
-              css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs }}
-              onClick={() => setAddQuestionOpen(true)}
-            >
-              <PlusIcon />
-              <FormattedMessage
-                defaultMessage="Add question"
-                description="Add to review queue: create new question link"
-              />
-            </Typography.Link>
-          </div>
+              <Typography.Link
+                componentId={`${CID}.new-queue`}
+                css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs }}
+                onClick={() => setCreateOpen(true)}
+              >
+                <PlusIcon />
+                <FormattedMessage defaultMessage="New queue" description="Add to review queue: create new queue link" />
+              </Typography.Link>
+              <Typography.Link
+                componentId={`${CID}.add-question`}
+                css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs }}
+                onClick={() => setAddQuestionOpen(true)}
+              >
+                <PlusIcon />
+                <FormattedMessage
+                  defaultMessage="Add question"
+                  description="Add to review queue: create new question link"
+                />
+              </Typography.Link>
+            </div>
+          )}
 
           {actionError && (
             <Alert

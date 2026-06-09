@@ -28,46 +28,37 @@ describe('sameUser', () => {
 });
 
 describe('canManageQueue', () => {
-  it('lets anyone who manages reviews manage CUSTOM queues on a no-auth server', () => {
-    expect(canManageQueue(queue({ created_by: 'someone-else' }), 'default', false, true)).toBe(true);
+  it('lets a review manager manage any CUSTOM queue, regardless of owner', () => {
+    expect(canManageQueue(queue({ created_by: 'someone-else' }), true)).toBe(true);
+    expect(canManageQueue(queue({ created_by: 'alice' }), true)).toBe(true);
   });
 
-  it('lets the owner manage their CUSTOM queue on an auth server', () => {
-    expect(canManageQueue(queue({ created_by: 'alice' }), 'alice', true, true)).toBe(true);
-  });
-
-  it('does not let a non-owner manage a CUSTOM queue on an auth server', () => {
-    expect(canManageQueue(queue({ created_by: 'alice' }), 'bob', true, true)).toBe(false);
+  it('lets a review manager manage the default queue', () => {
+    expect(canManageQueue(queue({ is_default: true, created_by: 'someone-else' }), true)).toBe(true);
   });
 
   it('never manages USER (personal) queues', () => {
-    expect(canManageQueue(queue({ queue_type: 'USER', created_by: 'alice' }), 'alice', true, true)).toBe(false);
-    expect(canManageQueue(queue({ queue_type: 'USER' }), 'default', false, true)).toBe(false);
+    expect(canManageQueue(queue({ queue_type: 'USER' }), true)).toBe(false);
   });
 
-  it('requires review-management permission', () => {
-    expect(canManageQueue(queue({ created_by: 'alice' }), 'alice', true, false)).toBe(false);
-  });
-
-  it('lets any manager manage the default queue, even a non-owner on an auth server', () => {
-    expect(canManageQueue(queue({ is_default: true, created_by: 'someone-else' }), 'bob', true, true)).toBe(true);
-    // still gated on review-management permission
-    expect(canManageQueue(queue({ is_default: true, created_by: 'someone-else' }), 'bob', true, false)).toBe(false);
+  it('requires review-management (MANAGE) permission', () => {
+    expect(canManageQueue(queue({ created_by: 'alice' }), false)).toBe(false);
+    expect(canManageQueue(queue({ is_default: true }), false)).toBe(false);
   });
 });
 
 describe('canDeleteQueue', () => {
-  it('lets a manager delete a custom queue they can manage', () => {
-    expect(canDeleteQueue(queue({ created_by: 'alice' }), 'alice', true, true)).toBe(true);
-    expect(canDeleteQueue(queue({ created_by: 'someone-else' }), 'default', false, true)).toBe(true);
+  it('lets a manager delete any CUSTOM queue they can manage', () => {
+    expect(canDeleteQueue(queue({ created_by: 'alice' }), true)).toBe(true);
+    expect(canDeleteQueue(queue({ created_by: 'someone-else' }), true)).toBe(true);
   });
 
-  it('never deletes the default queue, even for a manager who can otherwise manage it', () => {
-    expect(canDeleteQueue(queue({ is_default: true }), 'alice', true, true)).toBe(false);
-    expect(canDeleteQueue(queue({ is_default: true, created_by: 'alice' }), 'alice', false, true)).toBe(false);
+  it('never deletes the default queue, even for a manager', () => {
+    expect(canDeleteQueue(queue({ is_default: true }), true)).toBe(false);
   });
 
-  it('does not delete a queue the caller cannot manage', () => {
-    expect(canDeleteQueue(queue({ created_by: 'alice' }), 'bob', true, true)).toBe(false);
+  it('does not delete a queue without MANAGE permission', () => {
+    expect(canDeleteQueue(queue({ created_by: 'alice' }), false)).toBe(false);
+    expect(canDeleteQueue(queue({ queue_type: 'USER' }), true)).toBe(false);
   });
 });
