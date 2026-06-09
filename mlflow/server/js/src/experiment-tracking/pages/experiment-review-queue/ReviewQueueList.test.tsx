@@ -15,10 +15,10 @@ const renderWithProviders = (ui: React.ReactElement) =>
     </IntlProvider>,
   );
 
-const item = (targetId: string, status: ReviewStatus, completedBy?: string): ReviewQueueItem => ({
+const item = (itemId: string, status: ReviewStatus, completedBy?: string): ReviewQueueItem => ({
   queue_id: 'rq-1',
-  target_type: 'TRACE',
-  target_id: targetId,
+  item_type: 'TRACE',
+  item_id: itemId,
   status,
   completed_by: completedBy,
   creation_time_ms: 1_780_000_000_000,
@@ -53,7 +53,7 @@ describe('ReviewQueueList', () => {
     renderWithProviders(<ReviewQueueList items={[item('tr-1', 'PENDING')]} onOpen={onOpen} nowMs={NOW} />);
     fireEvent.click(screen.getByText('tr-1'));
     expect(onOpen).toHaveBeenCalledTimes(1);
-    expect(onOpen).toHaveBeenCalledWith(expect.objectContaining({ target_id: 'tr-1' }));
+    expect(onOpen).toHaveBeenCalledWith(expect.objectContaining({ item_id: 'tr-1' }));
   });
 
   it('renders the declined status label', () => {

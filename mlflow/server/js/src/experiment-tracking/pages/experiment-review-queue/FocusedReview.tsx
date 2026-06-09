@@ -52,7 +52,7 @@ export const FocusedReview = ({
 
   // Prefill the widgets from the trace's existing assessments; edits overlay
   // the prefill so the query result never clobbers what the reviewer typed.
-  const { priorAnswers } = useTraceAssessmentsQuery({ traceId: item.target_id });
+  const { priorAnswers } = useTraceAssessmentsQuery({ traceId: item.item_id });
   const prefilled = useMemo(() => buildPrefilledAnswers(priorAnswers, schemas), [priorAnswers, schemas]);
   const [edited, setEdited] = useState<Record<string, LabelSchemaValue>>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -74,7 +74,7 @@ export const FocusedReview = ({
       await Promise.all(
         answered.map((s) =>
           createReviewAssessmentAsync({
-            traceId: item.target_id,
+            traceId: item.item_id,
             name: s.name,
             assessmentKind: s.type === 'EXPECTATION' ? 'expectation' : 'feedback',
             value: valueFor(s.name) as Exclude<LabelSchemaValue, null | undefined>,
@@ -103,7 +103,7 @@ export const FocusedReview = ({
         <Button componentId={`${CID}.back`} icon={<ChevronLeftIcon />} onClick={onBack}>
           <FormattedMessage defaultMessage="Back to queue" description="Review focused view: back button" />
         </Button>
-        <Typography.Text bold>{item.target_id}</Typography.Text>
+        <Typography.Text bold>{item.item_id}</Typography.Text>
         <StatusTag status={item.status} />
       </div>
 
@@ -129,14 +129,14 @@ export const FocusedReview = ({
             />
           </Typography.Text>
           {items.map((queued) => {
-            const isActive = queued.target_id === item.target_id;
+            const isActive = queued.item_id === item.item_id;
             return (
               <div
-                key={queued.target_id}
+                key={queued.item_id}
                 role="button"
                 tabIndex={0}
-                onClick={() => onSelect(queued.target_id)}
-                onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onSelect(queued.target_id)}
+                onClick={() => onSelect(queued.item_id)}
+                onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onSelect(queued.item_id)}
                 css={{
                   display: 'flex',
                   flexDirection: 'column',
@@ -149,7 +149,7 @@ export const FocusedReview = ({
                 }}
               >
                 <Typography.Text size="sm" bold={isActive} ellipsis>
-                  {queued.target_id}
+                  {queued.item_id}
                 </Typography.Text>
                 <StatusTag status={queued.status} />
               </div>
@@ -171,7 +171,7 @@ export const FocusedReview = ({
           <Typography.Title level={4}>
             <FormattedMessage defaultMessage="Trace" description="Review focused view: trace panel title" />
           </Typography.Title>
-          <Typography.Text>{item.target_id}</Typography.Text>
+          <Typography.Text>{item.item_id}</Typography.Text>
         </div>
 
         {/* Question widgets driven by the queue's label schemas */}

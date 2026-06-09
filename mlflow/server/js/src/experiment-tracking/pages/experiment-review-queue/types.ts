@@ -11,7 +11,7 @@ export type ReviewQueueType = 'USER' | 'CUSTOM';
 
 export type ReviewStatus = 'PENDING' | 'COMPLETE' | 'DECLINED';
 
-export type ReviewTargetType = 'TRACE';
+export type ReviewItemType = 'TRACE';
 
 export interface ReviewQueue {
   queue_id: string;
@@ -29,8 +29,8 @@ export interface ReviewQueue {
 
 export interface ReviewQueueItem {
   queue_id: string;
-  target_type: ReviewTargetType;
-  target_id: string;
+  item_type: ReviewItemType;
+  item_id: string;
   status: ReviewStatus;
   /** Set only in the COMPLETE / DECLINED terminal states. */
   completed_by?: string;

@@ -41,12 +41,12 @@ const formatAgo = (ms: number, nowMs: number) => {
   return hours < 24 ? `${hours}h` : `${Math.round(hours / 24)}d`;
 };
 
-type SortKey = 'target_id' | 'status' | 'completed_by' | 'creation_time_ms';
+type SortKey = 'item_id' | 'status' | 'completed_by' | 'creation_time_ms';
 type SortDirection = 'asc' | 'desc';
 
 const COLUMNS: { key: SortKey; label: React.ReactNode; flex: number }[] = [
   {
-    key: 'target_id',
+    key: 'item_id',
     label: <FormattedMessage defaultMessage="Trace" description="Review queue table: trace id column" />,
     flex: 2,
   },
@@ -144,12 +144,12 @@ export const ReviewQueueList = ({
       </TableRow>
       {sortedItems.map((item) => (
         <TableRow
-          key={item.target_id}
+          key={item.item_id}
           onClick={() => onOpen(item)}
           css={{ cursor: 'pointer', '&:hover': { backgroundColor: theme.colors.actionDefaultBackgroundHover } }}
         >
           <TableCell css={{ flex: COLUMNS[0].flex }}>
-            <Typography.Text bold>{item.target_id}</Typography.Text>
+            <Typography.Text bold>{item.item_id}</Typography.Text>
           </TableCell>
           <TableCell css={{ flex: COLUMNS[1].flex }}>
             <StatusTag status={item.status} />

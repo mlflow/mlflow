@@ -18,9 +18,9 @@ import { useParams } from '../../../common/utils/RoutingUtils';
 import { FocusedReview } from './FocusedReview';
 import { ManageQuestionsModal } from './ManageQuestionsModal';
 import { ReviewQueueList } from './ReviewQueueList';
-import { useListReviewQueueTracesQuery } from './hooks/useListReviewQueueTracesQuery';
+import { useListReviewQueueItemsQuery } from './hooks/useListReviewQueueItemsQuery';
 import { useListReviewQueuesQuery } from './hooks/useListReviewQueuesQuery';
-import { useSetReviewQueueTraceStatusMutation } from './hooks/useSetReviewQueueTraceStatusMutation';
+import { useSetReviewQueueItemStatusMutation } from './hooks/useSetReviewQueueItemStatusMutation';
 import type { ReviewStatus } from './types';
 
 const CID = 'mlflow.experiment-review-queue.page';
@@ -47,7 +47,7 @@ const ExperimentReviewQueuePage = () => {
   const reviewer = currentUser?.user?.username || DEFAULT_REVIEWER;
 
   const [selectedQueueId, setSelectedQueueId] = useState<string | null>(null);
-  const [openTargetId, setOpenTargetId] = useState<string | null>(null);
+  const [openItemId, setOpenItemId] = useState<string | null>(null);
   const [manageOpen, setManageOpen] = useState(false);
 
   const { reviewQueues, isLoading: queuesLoading } = useListReviewQueuesQuery({
@@ -57,14 +57,14 @@ const ExperimentReviewQueuePage = () => {
     user: reviewer,
   });
   const { labelSchemas } = useListLabelSchemasQuery({ experimentId: experimentId ?? '' });
-  const { setReviewQueueTraceStatusAsync, isSettingStatus } = useSetReviewQueueTraceStatusMutation();
+  const { setReviewQueueItemStatusAsync, isSettingStatus } = useSetReviewQueueItemStatusMutation();
 
   const selectedQueue = useMemo(
     () => reviewQueues.find((q) => q.queue_id === selectedQueueId) ?? reviewQueues[0] ?? null,
     [reviewQueues, selectedQueueId],
   );
 
-  const { items, isLoading: tracesLoading } = useListReviewQueueTracesQuery({
+  const { items, isLoading: itemsLoading } = useListReviewQueueItemsQuery({
     queueId: selectedQueue?.queue_id ?? '',
     enabled: Boolean(selectedQueue),
   });
@@ -82,7 +82,7 @@ const ExperimentReviewQueuePage = () => {
     return labelSchemas.filter((s) => ids.has(s.schema_id));
   }, [selectedQueue, labelSchemas]);
 
-  const openItem = useMemo(() => items.find((i) => i.target_id === openTargetId) ?? null, [items, openTargetId]);
+  const openItem = useMemo(() => items.find((i) => i.item_id === openItemId) ?? null, [items, openItemId]);
 
   const nowMs = Date.now();
 
@@ -90,9 +90,9 @@ const ExperimentReviewQueuePage = () => {
     if (!selectedQueue || !openItem) {
       return;
     }
-    await setReviewQueueTraceStatusAsync({
+    await setReviewQueueItemStatusAsync({
       queue_id: selectedQueue.queue_id,
-      target_id: openItem.target_id,
+      item_id: openItem.item_id,
       status,
       // Attribution only applies to the terminal states; reopen clears it.
       completed_by: status === 'PENDING' ? undefined : reviewer,
@@ -171,7 +171,7 @@ const ExperimentReviewQueuePage = () => {
                   type={q.queue_id === selectedQueue?.queue_id ? 'primary' : undefined}
                   onClick={() => {
                     setSelectedQueueId(q.queue_id);
-                    setOpenTargetId(null);
+                    setOpenItemId(null);
                   }}
                 >
                   {q.name}
@@ -184,20 +184,20 @@ const ExperimentReviewQueuePage = () => {
             {openItem ? (
               <FocusedReview
                 // Remount per trace so answer state never bleeds across traces.
-                key={openItem.target_id}
+                key={openItem.item_id}
                 item={openItem}
                 items={items}
                 schemas={questionSchemas}
                 completedBy={reviewer}
                 isSettingStatus={isSettingStatus}
-                onBack={() => setOpenTargetId(null)}
-                onSelect={setOpenTargetId}
+                onBack={() => setOpenItemId(null)}
+                onSelect={setOpenItemId}
                 onSetStatus={setOpenStatus}
               />
-            ) : tracesLoading ? (
+            ) : itemsLoading ? (
               <TableSkeleton lines={5} />
             ) : (
-              <ReviewQueueList items={items} onOpen={(item) => setOpenTargetId(item.target_id)} nowMs={nowMs} />
+              <ReviewQueueList items={items} onOpen={(item) => setOpenItemId(item.item_id)} nowMs={nowMs} />
             )}
           </div>
         </>

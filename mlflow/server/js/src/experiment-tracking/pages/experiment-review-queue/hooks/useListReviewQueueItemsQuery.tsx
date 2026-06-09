@@ -4,18 +4,18 @@ import { fetchAPI, getAjaxUrl } from '../../../../common/utils/FetchUtils';
 import type { ReviewQueueItem, ReviewStatus } from '../types';
 import { REVIEW_QUEUES_API_BASE } from './constants';
 
-export const LIST_REVIEW_QUEUE_TRACES_QUERY_KEY = 'LIST_REVIEW_QUEUE_TRACES';
+export const LIST_REVIEW_QUEUE_ITEMS_QUERY_KEY = 'LIST_REVIEW_QUEUE_ITEMS';
 
-interface ListReviewQueueTracesResponse {
+interface ListReviewQueueItemsResponse {
   items?: ReviewQueueItem[];
   next_page_token?: string;
 }
 
 /**
- * Paginated list of a queue's attached traces, newest-attached first,
+ * Paginated list of a queue's attached items, newest-attached first,
  * optionally filtered by shared-pool status.
  */
-export const useListReviewQueueTracesQuery = ({
+export const useListReviewQueueItemsQuery = ({
   queueId,
   status,
   maxResults,
@@ -28,8 +28,8 @@ export const useListReviewQueueTracesQuery = ({
   pageToken?: string;
   enabled?: boolean;
 }) => {
-  const { data, isLoading, isFetching, refetch, error } = useQuery<ListReviewQueueTracesResponse, Error>({
-    queryKey: [LIST_REVIEW_QUEUE_TRACES_QUERY_KEY, queueId, status, maxResults, pageToken],
+  const { data, isLoading, isFetching, refetch, error } = useQuery<ListReviewQueueItemsResponse, Error>({
+    queryKey: [LIST_REVIEW_QUEUE_ITEMS_QUERY_KEY, queueId, status, maxResults, pageToken],
     queryFn: async () => {
       const params = new URLSearchParams({ queue_id: queueId });
       if (status) {
@@ -41,9 +41,9 @@ export const useListReviewQueueTracesQuery = ({
       if (pageToken) {
         params.set('page_token', pageToken);
       }
-      return (await fetchAPI(getAjaxUrl(`${REVIEW_QUEUES_API_BASE}/traces/list?${params.toString()}`), {
+      return (await fetchAPI(getAjaxUrl(`${REVIEW_QUEUES_API_BASE}/items/list?${params.toString()}`), {
         method: 'GET',
-      })) as ListReviewQueueTracesResponse;
+      })) as ListReviewQueueItemsResponse;
     },
     cacheTime: 0,
     refetchOnWindowFocus: false,
