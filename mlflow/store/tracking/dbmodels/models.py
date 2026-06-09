@@ -3669,10 +3669,11 @@ class SqlReviewQueueLabelSchema(Base):
     here (to ``label_schemas``) would converge with the ``queue_id`` ->
     ``review_queues`` -> ``experiments`` cascade on a single experiment
     delete, which MSSQL rejects as a multiple-cascade-path. The reference is
-    therefore soft (like an assessment's ``name`` -> schema link): a row
-    pointing at a since-deleted schema is dropped when the read path resolves
-    schema ids against ``label_schemas``, so orphans are harmless; a periodic
-    sweep to physically prune them is deferred.
+    therefore soft (like an assessment's ``name`` -> schema link): a row may
+    point at a since-deleted schema. The store read path returns the stored ids
+    as-is (no pruning); orphans are harmless because callers resolve a queue's
+    schema ids against the experiment's live label schemas, so a missing one is
+    simply not surfaced. A periodic sweep to physically prune orphans is deferred.
     """
 
     __table_args__ = (
