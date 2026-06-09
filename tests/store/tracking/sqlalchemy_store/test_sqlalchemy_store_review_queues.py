@@ -573,6 +573,38 @@ def test_reopen_clears_attribution(store):
     assert reopened.completed_time_ms is None
 
 
+def test_repeat_same_status_preserves_attribution(store):
+    exp_id = _create_experiments(store, "repeat_status")
+    queue = store.create_review_queue(exp_id, name="q", queue_type="custom")
+    store.add_traces_to_review_queue(queue.queue_id, target_ids=["tr-1"])
+    first = store.set_review_queue_trace_status(
+        queue.queue_id, target_id="tr-1", status="complete", completed_by="bob"
+    )
+    # Re-completing with the same status (a repeat or a concurrent second
+    # reviewer) is a no-op and must not overwrite the original completer.
+    again = store.set_review_queue_trace_status(
+        queue.queue_id, target_id="tr-1", status="complete", completed_by="carol"
+    )
+    assert again.completed_by == "bob"
+    assert again.completed_time_ms == first.completed_time_ms
+
+
+def test_terminal_status_change_reattributes(store):
+    exp_id = _create_experiments(store, "status_change")
+    queue = store.create_review_queue(exp_id, name="q", queue_type="custom")
+    store.add_traces_to_review_queue(queue.queue_id, target_ids=["tr-1"])
+    store.set_review_queue_trace_status(
+        queue.queue_id, target_id="tr-1", status="complete", completed_by="bob"
+    )
+    # A genuine status change (complete -> declined) is a real action and
+    # re-records the reviewer who made it.
+    changed = store.set_review_queue_trace_status(
+        queue.queue_id, target_id="tr-1", status="declined", completed_by="carol"
+    )
+    assert changed.status == ReviewStatus.DECLINED
+    assert changed.completed_by == "carol"
+
+
 def test_complete_requires_completed_by(store):
     exp_id = _create_experiments(store, "complete_requires")
     queue = store.create_review_queue(exp_id, name="q", queue_type="custom")

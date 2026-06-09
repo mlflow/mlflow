@@ -8737,17 +8737,25 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     error_code=RESOURCE_DOES_NOT_EXIST,
                 )
 
-            # No-op (and no timestamp churn) if nothing actually changes.
-            if row.status == str(new_status) and row.completed_by == normalized_completed_by:
+            # No-op (no timestamp churn) when the status doesn't change. Making a
+            # same-status write idempotent regardless of `completed_by` is what
+            # protects attribution: a repeat or concurrent re-completion by a
+            # different reviewer can no longer overwrite the original completer
+            # (the prior `status AND completed_by` guard let it through). A genuine
+            # status transition (e.g. complete -> declined, or a reopen) is a real
+            # change and still re-records the actor below.
+            if row.status == str(new_status):
                 return row.to_mlflow_entity()
 
             now_ms = get_current_time_millis()
             row.status = str(new_status)
             row.last_update_time_ms = now_ms
             if new_status == ReviewStatus.PENDING:
+                # Reopening clears attribution; the next completion re-records it.
                 row.completed_by = None
                 row.completed_time_ms = None
             else:
+                # The reviewer who set the current terminal status owns attribution.
                 row.completed_by = normalized_completed_by
                 row.completed_time_ms = now_ms
             session.flush()
