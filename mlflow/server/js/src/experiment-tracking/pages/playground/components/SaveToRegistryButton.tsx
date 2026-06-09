@@ -20,7 +20,7 @@ export const SaveToRegistryButton = ({ onOpen, disabled }: Props) => {
       })}
     >
       <FormattedMessage
-        defaultMessage="Save to registry"
+        defaultMessage="Save prompt to registry"
         description="Label for the playground top-bar button that opens the save-prompt-version drawer"
       />
     </Button>
