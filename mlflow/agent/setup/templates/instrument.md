@@ -42,7 +42,8 @@ before proceeding.
 ### 5. Report the trace URL
 
 After the app run, capture the experiment / trace URL printed by MLflow or
-constructable from the tracking URI + experiment ID.
+constructable from the tracking URI + experiment ID. Include this URL in the
+Final Summary below so the user can open the trace.
 
 ### 6. Final Summary
 
