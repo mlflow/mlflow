@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://mlflow.org/model-trace-explorer/custom-view/catalog.json",
   "title": "MLflow Custom View Catalog",
-  "description": "Custom A2UI catalog for the model trace explorer custom view. Extends the basic catalog's Text and Row components with MLflow-specific StatCard, DataTable, and TimelineChart components.",
+  "description": "Custom A2UI catalog for the model trace explorer custom view. Extends the basic catalog's Text, Row, and Column components with MLflow-specific StatCard, DataTable, TimelineChart, TreeView, Carousel, FeedbackForm, and ContentViewer components.",
   "catalogId": "https://mlflow.org/model-trace-explorer/custom-view/catalog.json",
   "components": {
     "allOf": [
@@ -11,6 +11,9 @@
       },
       {
         "$ref": "https://a2ui.org/specification/v0_10/catalogs/basic/catalog.json#/components/Row"
+      },
+      {
+        "$ref": "https://a2ui.org/specification/v0_10/catalogs/basic/catalog.json#/components/Column"
       },
       {
         "StatCard": {
@@ -164,7 +167,238 @@
           },
           "required": ["component", "rows"]
         }
+      },
+      {
+        "TreeView": {
+          "type": "object",
+          "description": "A collapsible, indented tree of nodes (mirroring the Details & Timeline span tree). Supports a structured filter over node attributes and a live execution-time-window slider. Works for any number of nodes and nesting depth.",
+          "properties": {
+            "component": {
+              "const": "TreeView"
+            },
+            "title": {
+              "$ref": "https://a2ui.org/specification/v0_10/common_types.json#/$defs/DynamicString",
+              "description": "Optional heading shown above the tree."
+            },
+            "nodes": {
+              "type": "array",
+              "description": "The root nodes of the tree, in display order.",
+              "items": {
+                "$ref": "#/$defs/TreeNode"
+              }
+            },
+            "filter": {
+              "$ref": "#/$defs/TreeFilter",
+              "description": "Optional structured filter applied to node attributes."
+            },
+            "emptyMessage": {
+              "$ref": "https://a2ui.org/specification/v0_10/common_types.json#/$defs/DynamicString",
+              "description": "Text shown when no nodes match."
+            }
+          },
+          "required": ["component", "nodes"]
+        }
+      },
+      {
+        "Carousel": {
+          "type": "object",
+          "description": "Renders one child component at a time with previous/next controls and a position indicator. Domain-agnostic: supply a list of child component ids to step through.",
+          "properties": {
+            "component": {
+              "const": "Carousel"
+            },
+            "children": {
+              "$ref": "https://a2ui.org/specification/v0_10/common_types.json#/$defs/ChildList",
+              "description": "The child component ids to step through, in order."
+            },
+            "emptyMessage": {
+              "$ref": "https://a2ui.org/specification/v0_10/common_types.json#/$defs/DynamicString",
+              "description": "Text shown when there are no children."
+            }
+          },
+          "required": ["component", "children"]
+        }
+      },
+      {
+        "FeedbackForm": {
+          "type": "object",
+          "description": "Wraps the trace explorer's real AssessmentCreateForm so feedback submitted here is persisted to the backend as a span-scoped assessment. Each instance targets one span.",
+          "properties": {
+            "component": {
+              "const": "FeedbackForm"
+            },
+            "traceId": {
+              "$ref": "https://a2ui.org/specification/v0_10/common_types.json#/$defs/DynamicString",
+              "description": "The id of the trace the span belongs to."
+            },
+            "spanId": {
+              "$ref": "https://a2ui.org/specification/v0_10/common_types.json#/$defs/DynamicString",
+              "description": "The id of the span the feedback is scoped to."
+            },
+            "spanName": {
+              "$ref": "https://a2ui.org/specification/v0_10/common_types.json#/$defs/DynamicString",
+              "description": "The display name of the span, shown in the header."
+            },
+            "inputs": {
+              "type": "array",
+              "description": "The span's input fields, revealed behind the 'Show span input / output' toggle.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "label": {
+                    "$ref": "https://a2ui.org/specification/v0_10/common_types.json#/$defs/DynamicString",
+                    "description": "The field key shown above its value."
+                  },
+                  "value": {
+                    "$ref": "https://a2ui.org/specification/v0_10/common_types.json#/$defs/DynamicString",
+                    "description": "JSON-encoded field value (object -> JSON, string -> text)."
+                  }
+                },
+                "required": ["value"]
+              }
+            },
+            "outputs": {
+              "type": "array",
+              "description": "The span's output fields, revealed behind the 'Show span input / output' toggle.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "label": {
+                    "$ref": "https://a2ui.org/specification/v0_10/common_types.json#/$defs/DynamicString",
+                    "description": "The field key shown above its value."
+                  },
+                  "value": {
+                    "$ref": "https://a2ui.org/specification/v0_10/common_types.json#/$defs/DynamicString",
+                    "description": "JSON-encoded field value (object -> JSON, string -> text)."
+                  }
+                },
+                "required": ["value"]
+              }
+            }
+          },
+          "required": ["component", "traceId", "spanId"]
+        }
+      },
+      {
+        "ContentViewer": {
+          "type": "object",
+          "description": "A single titled, optionally-collapsible content block that renders key/value fields with the same JSON/Text/Markdown/Table snippet renderer as the trace explorer's Details & Timeline view. Scoped to one payload (e.g. inputs OR outputs), so render it once per payload.",
+          "properties": {
+            "component": {
+              "const": "ContentViewer"
+            },
+            "title": {
+              "$ref": "https://a2ui.org/specification/v0_10/common_types.json#/$defs/DynamicString",
+              "description": "Heading for the block, e.g. \"Inputs\" or \"Outputs\"."
+            },
+            "icon": {
+              "type": "string",
+              "enum": ["list", "wrench", "clock", "hash", "checklist"],
+              "description": "Optional icon shown next to the title."
+            },
+            "fields": {
+              "type": "array",
+              "description": "The key/value entries to display.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "label": {
+                    "$ref": "https://a2ui.org/specification/v0_10/common_types.json#/$defs/DynamicString",
+                    "description": "The field key shown above its value."
+                  },
+                  "value": {
+                    "$ref": "https://a2ui.org/specification/v0_10/common_types.json#/$defs/DynamicString",
+                    "description": "JSON-encoded field value (object -> JSON, string -> text)."
+                  }
+                },
+                "required": ["value"]
+              }
+            },
+            "collapsible": {
+              "type": "boolean",
+              "description": "Whether the block is wrapped in a collapsible section."
+            },
+            "emptyMessage": {
+              "$ref": "https://a2ui.org/specification/v0_10/common_types.json#/$defs/DynamicString",
+              "description": "Text shown when there are no fields."
+            }
+          },
+          "required": ["component"]
+        }
       }
     ]
+  },
+  "$defs": {
+    "TreeNode": {
+      "type": "object",
+      "description": "A single tree node. Children are nested recursively.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Opaque node id reported to the host on selection (e.g. the span id)."
+        },
+        "label": {
+          "$ref": "https://a2ui.org/specification/v0_10/common_types.json#/$defs/DynamicString",
+          "description": "The node label (e.g. the span name)."
+        },
+        "icon": {
+          "type": "string",
+          "description": "The span icon type (matches the Details & Timeline icons)."
+        },
+        "hasException": {
+          "type": "boolean",
+          "description": "Renders the icon in the danger tone with an exception marker."
+        },
+        "isRootSpan": {
+          "type": "boolean",
+          "description": "Renders the icon in the root/AI tone."
+        },
+        "badge": {
+          "$ref": "https://a2ui.org/specification/v0_10/common_types.json#/$defs/DynamicString",
+          "description": "Optional trailing tag text (e.g. an assessment count)."
+        },
+        "attributes": {
+          "type": "object",
+          "description": "Opaque metadata used only for filtering (e.g. type, hasException, logLevel, durationMs, startOffsetMs, endOffsetMs).",
+          "additionalProperties": true
+        },
+        "children": {
+          "type": "array",
+          "description": "Child nodes.",
+          "items": {
+            "$ref": "#/$defs/TreeNode"
+          }
+        }
+      },
+      "required": ["label"]
+    },
+    "TreeFilter": {
+      "type": "object",
+      "description": "Structured predicate over node attributes. Mirrors the trace explorer's span-filter concepts so it can be produced by UI controls or hand-written JSON.",
+      "properties": {
+        "types": {
+          "type": "array",
+          "description": "Keep nodes whose attributes.type is in this list.",
+          "items": { "type": "string" }
+        },
+        "nameContains": {
+          "type": "string",
+          "description": "Keep nodes whose label contains this substring (case-insensitive)."
+        },
+        "hasException": {
+          "type": "boolean",
+          "description": "Keep only nodes whose attributes.hasException is true."
+        },
+        "minLogLevel": {
+          "type": "number",
+          "description": "Keep nodes whose attributes.logLevel is at least this value."
+        },
+        "minDurationMs": {
+          "type": "number",
+          "description": "Keep nodes whose attributes.durationMs is at least this value."
+        }
+      },
+      "additionalProperties": false
+    }
   }
 }
