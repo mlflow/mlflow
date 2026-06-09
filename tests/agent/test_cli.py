@@ -218,13 +218,49 @@ def test_setup_databricks_prompts_for_experiment_id(tmp_git_repo: Path):
             input="1\n2\n\n1234567890\n",
         )
     assert result.exit_code == 0, result.stderr
-    assert "Workspace experiment ID" in result.stderr
+    assert "Experiment ID, or path (auto-created if it doesn't exist)" in result.stderr
     assert "Configure the Databricks workspace" in result.stdout
     assert "MLFLOW_TRACKING_URI=databricks" in result.stdout
     assert "WorkspaceClient().current_user.me()" in result.stdout
     assert 'mlflow.set_experiment(experiment_id="1234567890")' in result.stdout
     assert "Start a local MLflow tracking server" not in result.stdout
     mock_which.assert_called()
+
+
+def test_setup_databricks_resolves_existing_path_to_id(tmp_git_repo: Path):
+    fake_exp = mock.Mock(experiment_id="9876543210")
+    with (
+        mock.patch("mlflow.agent.agents.shutil.which", return_value="/usr/local/bin/claude"),
+        mock.patch("mlflow.agent.setup.cli.MlflowClient") as mock_client_cls,
+    ):
+        mock_client_cls.return_value.get_experiment_by_name.return_value = fake_exp
+        result = CliRunner().invoke(
+            setup,
+            ["--agent", "claude", "--print"],
+            input="1\n2\n\n/Users/me/my-app\n",
+        )
+    assert result.exit_code == 0, result.stderr
+    mock_client_cls.return_value.get_experiment_by_name.assert_called_once_with("/Users/me/my-app")
+    mock_client_cls.return_value.create_experiment.assert_not_called()
+    assert 'mlflow.set_experiment(experiment_id="9876543210")' in result.stdout
+
+
+def test_setup_databricks_creates_missing_path(tmp_git_repo: Path):
+    with (
+        mock.patch("mlflow.agent.agents.shutil.which", return_value="/usr/local/bin/claude"),
+        mock.patch("mlflow.agent.setup.cli.MlflowClient") as mock_client_cls,
+    ):
+        mock_client_cls.return_value.get_experiment_by_name.return_value = None
+        mock_client_cls.return_value.create_experiment.return_value = "5555555555"
+        result = CliRunner().invoke(
+            setup,
+            ["--agent", "claude", "--print"],
+            input="1\n2\n\n/Users/me/new-app\n",
+        )
+    assert result.exit_code == 0, result.stderr
+    mock_client_cls.return_value.create_experiment.assert_called_once_with("/Users/me/new-app")
+    assert "Created experiment '/Users/me/new-app' (ID 5555555555)." in result.stderr
+    assert 'mlflow.set_experiment(experiment_id="5555555555")' in result.stdout
 
 
 def test_setup_databricks_threads_profile_into_tracking_uri(tmp_git_repo: Path):
