@@ -85,7 +85,7 @@ describe('PlaygroundPage', () => {
     expect(screen.getByPlaceholderText('Type a message')).toHaveValue('');
     expect(screen.getByRole('button', { name: /submit/i })).toBeDisabled();
     expect(screen.getByRole('button', { name: /clear conversation/i })).toBeDisabled();
-    expect(screen.getByRole('button', { name: /load prompt from registry/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /load prompt/i })).toBeInTheDocument();
   });
 
   it('keeps Submit disabled until both an endpoint and a non-empty message are present', async () => {
@@ -392,7 +392,7 @@ describe('PlaygroundPage', () => {
   };
 
   const openRegistryAndLoad = async (promptName: string) => {
-    await userEvent.click(screen.getByRole('button', { name: /load prompt from registry/i }));
+    await userEvent.click(screen.getByRole('button', { name: /load prompt/i }));
     await userEvent.click(await screen.findByRole('combobox', { name: /prompt/i }));
     await userEvent.click(await screen.findByText(promptName));
     await userEvent.click(await screen.findByRole('combobox', { name: /version/i }));
@@ -645,7 +645,7 @@ describe('PlaygroundPage', () => {
 
     // First save: nothing is loaded, so the drawer creates a brand-new prompt and
     // requires a name (no destination toggle is shown yet).
-    await userEvent.click(screen.getByRole('button', { name: /save prompt to registry/i }));
+    await userEvent.click(screen.getByRole('button', { name: /save prompt/i }));
     expect(screen.queryByText(/new version of/i)).not.toBeInTheDocument();
     await userEvent.type(await screen.findByPlaceholderText(/provide a unique prompt name/i), 'fresh');
     await userEvent.click(screen.getByRole('button', { name: /save version/i }));
@@ -659,7 +659,7 @@ describe('PlaygroundPage', () => {
 
     // Reopening the drawer now defaults to appending a new version of `fresh`
     // rather than creating another brand-new prompt.
-    await userEvent.click(screen.getByRole('button', { name: /save prompt to registry/i }));
+    await userEvent.click(screen.getByRole('button', { name: /save prompt/i }));
     expect(await screen.findByText(/new version of fresh/i)).toBeInTheDocument();
   });
 

@@ -17,7 +17,7 @@ import { PlaygroundTopBar } from './components/PlaygroundTopBar';
 import { PromptInputPanel } from './components/PromptInputPanel';
 import { PromptRegistryPicker } from './components/PromptRegistryPicker';
 import type { PromptLoadPayload } from './components/PromptRegistryPicker';
-import { SavePromptVersionDrawer } from './components/SavePromptVersionDrawer';
+import { SavePromptVersionModal } from './components/SavePromptVersionModal';
 import { useChatCompletionMutation } from './hooks/useChatCompletionMutation';
 import type {
   ConversationMessage,
@@ -43,9 +43,9 @@ const PlaygroundPage = () => {
   const [responseFormatType, setResponseFormatType] = useState<ResponseFormatType>('text');
   const [responseFormatSchemaText, setResponseFormatSchemaText] = useState<string>('');
   const [showRegistryPicker, setShowRegistryPicker] = useState(false);
-  const [showSaveDrawer, setShowSaveDrawer] = useState(false);
+  const [showSaveModal, setShowSaveModal] = useState(false);
   // The registry prompt currently loaded into the playground, if any. Lets the
-  // save drawer default to appending a new version of that prompt and preserve
+  // save modal default to appending a new version of that prompt and preserve
   // its type.
   const [loadedPrompt, setLoadedPrompt] = useState<{ name: string; version: string; promptType: PromptType } | null>(
     null,
@@ -88,7 +88,7 @@ const PlaygroundPage = () => {
   };
 
   const handleSaved = ({ name, version, promptType }: { name: string; version: string; promptType: PromptType }) => {
-    setShowSaveDrawer(false);
+    setShowSaveModal(false);
     // Chain subsequent saves onto the freshly created version.
     setLoadedPrompt({ name, version, promptType });
     setSavedToast({ name, version });
@@ -273,7 +273,7 @@ const PlaygroundPage = () => {
         variables={variables}
         onVariablesChange={setVariables}
         onOpenRegistry={() => setShowRegistryPicker(true)}
-        onOpenSave={() => setShowSaveDrawer(true)}
+        onOpenSave={() => setShowSaveModal(true)}
         saveDisabled={conversationIsEmpty}
       />
       <Spacer size="sm" shrinks={false} />
@@ -400,9 +400,9 @@ const PlaygroundPage = () => {
         onCancel={() => setShowRegistryPicker(false)}
         onLoad={handleRegistryLoad}
       />
-      <SavePromptVersionDrawer
-        visible={showSaveDrawer}
-        onCancel={() => setShowSaveDrawer(false)}
+      <SavePromptVersionModal
+        visible={showSaveModal}
+        onCancel={() => setShowSaveModal(false)}
         messages={messages}
         params={params}
         responseFormatType={responseFormatType}

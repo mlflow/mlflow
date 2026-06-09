@@ -66,12 +66,12 @@ describe('PlaygroundTopBar', () => {
     expect(screen.getByTestId('endpoint-selector-test-input')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /open model parameters/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /open variable values/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /load prompt from registry/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /load prompt/i })).toBeInTheDocument();
   });
 
   it('wires onOpenRegistry to the Load button', async () => {
     const { onOpenRegistry } = renderTopBar();
-    await userEvent.click(screen.getByRole('button', { name: /load prompt from registry/i }));
+    await userEvent.click(screen.getByRole('button', { name: /load prompt/i }));
     expect(onOpenRegistry).toHaveBeenCalledTimes(1);
   });
 });
