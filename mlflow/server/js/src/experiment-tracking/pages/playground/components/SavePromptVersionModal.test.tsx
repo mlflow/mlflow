@@ -6,7 +6,7 @@ import { IntlProvider } from 'react-intl';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { RegisteredPromptsApi } from '../../prompts/api';
-import { SavePromptVersionDrawer } from './SavePromptVersionDrawer';
+import { SavePromptVersionModal } from './SavePromptVersionModal';
 import type { ChatMessage } from '../types';
 
 const CONTENT_TAG = 'mlflow.prompt.text';
@@ -18,7 +18,7 @@ const DEFAULT_MESSAGES: ChatMessage[] = [
   { role: 'user', content: 'Summarize: {{ text }}' },
 ];
 
-const renderDrawer = (props: Partial<React.ComponentProps<typeof SavePromptVersionDrawer>> = {}) => {
+const renderDrawer = (props: Partial<React.ComponentProps<typeof SavePromptVersionModal>> = {}) => {
   const onCancel = jest.fn();
   const onSaved = jest.fn();
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -26,7 +26,7 @@ const renderDrawer = (props: Partial<React.ComponentProps<typeof SavePromptVersi
     <IntlProvider locale="en">
       <DesignSystemProvider>
         <QueryClientProvider client={queryClient}>
-          <SavePromptVersionDrawer
+          <SavePromptVersionModal
             visible
             onCancel={onCancel}
             messages={DEFAULT_MESSAGES}
@@ -43,7 +43,7 @@ const renderDrawer = (props: Partial<React.ComponentProps<typeof SavePromptVersi
   return { onCancel, onSaved };
 };
 
-describe('SavePromptVersionDrawer', () => {
+describe('SavePromptVersionModal', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest

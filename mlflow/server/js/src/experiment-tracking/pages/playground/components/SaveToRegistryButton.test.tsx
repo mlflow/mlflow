@@ -20,19 +20,19 @@ const renderButton = (props: Partial<React.ComponentProps<typeof SaveToRegistryB
 describe('SaveToRegistryButton', () => {
   it('renders the localized label', () => {
     renderButton();
-    expect(screen.getByRole('button', { name: /save prompt to registry/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /save prompt/i })).toBeInTheDocument();
   });
 
   it('calls onOpen when clicked', async () => {
     const { onOpen } = renderButton();
-    await userEvent.click(screen.getByRole('button', { name: /save prompt to registry/i }));
+    await userEvent.click(screen.getByRole('button', { name: /save prompt/i }));
     expect(onOpen).toHaveBeenCalledTimes(1);
   });
 
   it('does not call onOpen when disabled', async () => {
     const { onOpen } = renderButton({ disabled: true });
-    expect(screen.getByRole('button', { name: /save prompt to registry/i })).toBeDisabled();
-    await userEvent.click(screen.getByRole('button', { name: /save prompt to registry/i }));
+    expect(screen.getByRole('button', { name: /save prompt/i })).toBeDisabled();
+    await userEvent.click(screen.getByRole('button', { name: /save prompt/i }));
     expect(onOpen).not.toHaveBeenCalled();
   });
 });
