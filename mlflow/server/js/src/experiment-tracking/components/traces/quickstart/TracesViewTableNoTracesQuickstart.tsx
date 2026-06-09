@@ -24,7 +24,7 @@ import { CodeBlock } from './components/CodeBlock';
 import { StepSection } from './components/StepSection';
 import { LanguageTab, type Language } from './components/LanguageTab';
 import { AgentActionCard } from '../../onboarding/AgentActionCard';
-import { buildInstrumentPrompt } from './tracesAgentPrompt';
+import { buildInstrumentAssistantPrompt, buildInstrumentPrompt } from './tracesAgentPrompt';
 
 const TRACING_VIDEO_START_SEC = 24;
 const TRACING_VIDEO_URL = `https://mlflow.org/docs/latest/images/llms/tracing/tracing-top.mp4#t=${TRACING_VIDEO_START_SEC}`;
@@ -127,25 +127,15 @@ export const TracesViewTableNoTracesQuickstart = ({
       {/* Agent CTA */}
       <AgentActionCard
         componentId="mlflow.traces.onboarding.instrument_with_agent"
+        showAgentSetupTab
         title={
           <FormattedMessage
-            defaultMessage="Let MLflow's AI assistant instrument your app"
+            defaultMessage="Get help instrumenting your app"
             description="Headline for the agent CTA card in the traces empty state"
           />
         }
-        description={
-          <FormattedMessage
-            defaultMessage="Skip the manual setup — chat with your AI assistant to add tracing in seconds."
-            description="Subline for the agent CTA card in the traces empty state"
-          />
-        }
-        buttonLabel={
-          <FormattedMessage
-            defaultMessage="Instrument with AI"
-            description="Button label for the agent CTA card in the traces empty state"
-          />
-        }
-        prompt={buildInstrumentPrompt(window.location.origin, experimentName || 'my-experiment')}
+        codingAgentPrompt={buildInstrumentPrompt(window.location.origin, experimentName || 'my-experiment')}
+        assistantPrompt={buildInstrumentAssistantPrompt(window.location.origin, experimentName || 'my-experiment')}
       />
 
       {/* Language selector */}

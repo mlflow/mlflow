@@ -38,7 +38,15 @@ type JudgeSelectionMode = 'llm' | 'template';
 const isTraceLevelLLMScorer = (scorer: ScheduledScorer): scorer is LLMScorer =>
   scorer.type === 'llm' && !scorer.isSessionLevelScorer;
 
-export const RunEvaluationButton = ({ experimentId }: { experimentId: string }) => {
+export const RunEvaluationButton = ({
+  experimentId,
+  label,
+  type,
+}: {
+  experimentId: string;
+  label?: React.ReactNode;
+  type?: 'primary' | 'tertiary';
+}) => {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
   const navigate = useNavigate();
@@ -174,11 +182,18 @@ export const RunEvaluationButton = ({ experimentId }: { experimentId: string }) 
 
   return (
     <>
-      <Button componentId="mlflow.eval-runs.start-run-button" icon={<ChartLineIcon />} onClick={() => setIsOpen(true)}>
-        <FormattedMessage
-          defaultMessage="Run evaluation"
-          description="Label for a button that displays instructions for starting a new evaluation run"
-        />
+      <Button
+        componentId="mlflow.eval-runs.start-run-button"
+        icon={<ChartLineIcon />}
+        type={type}
+        onClick={() => setIsOpen(true)}
+      >
+        {label ?? (
+          <FormattedMessage
+            defaultMessage="Run evaluation"
+            description="Label for a button that displays instructions for starting a new evaluation run"
+          />
+        )}
       </Button>
       <Modal
         componentId="mlflow.eval-runs.start-run-modal"

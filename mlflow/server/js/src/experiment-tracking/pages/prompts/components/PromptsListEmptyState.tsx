@@ -2,7 +2,7 @@ import { Button, PlusIcon, Typography, useDesignSystemTheme } from '@databricks/
 import { FormattedMessage } from 'react-intl';
 
 import { AgentActionCard } from '../../../components/onboarding/AgentActionCard';
-import { buildCreatePromptPrompt } from './promptsAgentPrompt';
+import { buildCreatePromptAssistantPrompt, buildCreatePromptPrompt } from './promptsAgentPrompt';
 
 export const PromptsListEmptyState = ({ onCreatePrompt }: { onCreatePrompt: () => void }) => {
   const { theme } = useDesignSystemTheme();
@@ -48,26 +48,14 @@ export const PromptsListEmptyState = ({ onCreatePrompt }: { onCreatePrompt: () =
 
       <AgentActionCard
         componentId="mlflow.prompts.onboarding.create_with_agent"
-        showTerminalCommand={false}
         title={
           <FormattedMessage
-            defaultMessage="Let MLflow's AI assistant create your first prompt"
+            defaultMessage="Get help registering a prompt"
             description="Headline for the agent CTA card on the prompts list empty state"
           />
         }
-        description={
-          <FormattedMessage
-            defaultMessage="The assistant will ask about your use case, register the prompt, and help you test it end-to-end."
-            description="Subline for the agent CTA card on the prompts list empty state"
-          />
-        }
-        buttonLabel={
-          <FormattedMessage
-            defaultMessage="Create with AI"
-            description="Button label for the agent CTA card on the prompts list empty state"
-          />
-        }
-        prompt={buildCreatePromptPrompt(window.location.origin)}
+        codingAgentPrompt={buildCreatePromptPrompt(window.location.origin)}
+        assistantPrompt={buildCreatePromptAssistantPrompt(window.location.origin)}
       />
 
       <Button

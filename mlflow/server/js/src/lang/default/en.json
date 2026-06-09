@@ -63,6 +63,10 @@
     "defaultMessage": "Rename Run",
     "description": "Modal title to rename the experiment run name"
   },
+  "+EsyrU": {
+    "defaultMessage": "Python",
+    "description": "Tab label for the runnable Python code-snippet path in the eval-runs empty state"
+  },
   "+GVDd2": {
     "defaultMessage": "Assign reviewers by name. They'll find this queue under “Feedback requested”.",
     "description": "Queue settings: members field hint"
@@ -187,6 +191,10 @@
     "defaultMessage": "Expand graph",
     "description": "Tooltip for the button that expands the graph view"
   },
+  "+yyAGO": {
+    "defaultMessage": "Get help registering a prompt",
+    "description": "Headline for the agent CTA card on the prompts list empty state"
+  },
   "//EoiB": {
     "defaultMessage": "Search records by inputs or expectations",
     "description": "Aria label for the search input on the V2 dataset records page (placeholder is not a label per WCAG 1.3.1)"
@@ -218,10 +226,6 @@
   "/8w8Ea": {
     "defaultMessage": "Pass / Fail",
     "description": "Review question input type: pass/fail"
-  },
-  "/AqWzv": {
-    "defaultMessage": "Create with AI",
-    "description": "Button label for the agent CTA card on the experiments list empty state"
   },
   "/Aup8Q": {
     "defaultMessage": "Request time",
@@ -282,10 +286,6 @@
   "/QYbzP": {
     "defaultMessage": "Time (wall)",
     "description": "Experiment page > view controls > global settings for line chart view > settings for x-axis > label for setting to use wall time axis in all charts"
-  },
-  "/RcdVO": {
-    "defaultMessage": "Skip the manual setup — chat with your AI assistant to add tracing in seconds.",
-    "description": "Subline for the agent CTA card in the traces empty state"
   },
   "/SGMOh": {
     "defaultMessage": "Only an experiment manager can change a queue's questions.",
@@ -414,10 +414,6 @@
   "/zbm8T": {
     "defaultMessage": "Continue editing the question to see a preview.",
     "description": "Review question preview render-error empty description"
-  },
-  "0+ZVWh": {
-    "defaultMessage": "Instrument with AI",
-    "description": "Button label for the agent CTA card in the traces empty state"
   },
   "0+djpP": {
     "defaultMessage": "or",
@@ -590,6 +586,10 @@
   "0uYJoi": {
     "defaultMessage": "Alerts",
     "description": "Tab label for budget alerts"
+  },
+  "0vWAJY": {
+    "defaultMessage": "Open assistant",
+    "description": "Button label for opening the MLflow assistant from the eval-runs empty state"
   },
   "0wxgDJ": {
     "defaultMessage": "Add tags",
@@ -1191,10 +1191,6 @@
     "defaultMessage": "{fieldName} are empty",
     "description": "Default text in data table where items are empty in the model\n                  comparison page"
   },
-  "49lIDC": {
-    "defaultMessage": "Or run in your terminal:",
-    "description": "Label preceding the mlflow agent setup terminal command on the agent action card"
-  },
   "4AkzyD": {
     "defaultMessage": "Confirm",
     "description": "Button label to confirm the inferred experiment kind"
@@ -1422,10 +1418,6 @@
   "5UrahG": {
     "defaultMessage": "Viewing version {version}",
     "description": "Title of the prompt details page for a given version"
-  },
-  "5W05Ud": {
-    "defaultMessage": "Create with AI",
-    "description": "Button label for the agent CTA card on the prompts list empty state"
   },
   "5WxRTO": {
     "defaultMessage": "Define the acceptable range for numeric input values. Leave either bound blank for no limit.",
@@ -1754,6 +1746,10 @@
   "7GU2wd": {
     "defaultMessage": "Add traces from the Traces tab to start reviewing them with your team.",
     "description": "Review queue: empty queue description"
+  },
+  "7GtBLr": {
+    "defaultMessage": "Evaluate traces",
+    "description": "Primary CTA in the eval-runs empty state — opens the trace selection + scorer picker modal"
   },
   "7KKvmS": {
     "defaultMessage": "Created by",
@@ -2375,6 +2371,10 @@
     "defaultMessage": "Group by: {value}",
     "description": "Experiment page > group by runs control > trigger button label > with value"
   },
+  "AFpDrN": {
+    "defaultMessage": "MLflow assistant",
+    "description": "Tab label for the in-UI MLflow assistant path in the eval-runs empty state"
+  },
   "AFrm2A": {
     "defaultMessage": "Created {date}",
     "description": "Gateway > Endpoint bindings drawer > Created date"
@@ -2763,6 +2763,10 @@
     "defaultMessage": "New question",
     "description": "Review queue: create new question link in dropdown"
   },
+  "C6blcO": {
+    "defaultMessage": "Get help creating your first experiment",
+    "description": "Headline for the agent CTA card on the experiments list empty state"
+  },
   "C83vFj": {
     "defaultMessage": "Latency",
     "description": "Title for the latency chart"
@@ -3002,6 +3006,10 @@
   "DQ3XQT": {
     "defaultMessage": "Diff highlighting is not supported in Markdown view. Switch to Text view to see differences.",
     "description": "Warning message shown in prompt comparison view when markdown rendering is enabled"
+  },
+  "DR5rI6": {
+    "defaultMessage": "CLI",
+    "description": "Tab label for the mlflow agent setup CLI path in the agent action card"
   },
   "DUnrWL": {
     "defaultMessage": "Run Name:",
@@ -3290,6 +3298,10 @@
   "FHJ1NN": {
     "defaultMessage": "Endpoint Name",
     "description": "Label for endpoint name input"
+  },
+  "FKnUSV": {
+    "defaultMessage": "Open assistant",
+    "description": "Canonical button label for opening the MLflow assistant from an agent action card"
   },
   "FMi127": {
     "defaultMessage": "No datasets match \"{query}\"",
@@ -4007,10 +4019,6 @@
     "defaultMessage": "Run ID",
     "description": "Run page > Overview > Run ID section label"
   },
-  "JZZac2": {
-    "defaultMessage": "Let MLflow's AI assistant create your first prompt",
-    "description": "Headline for the agent CTA card on the prompts list empty state"
-  },
   "JaA2me": {
     "defaultMessage": "Failed to update issue: {error}",
     "description": "Error message when issue update fails"
@@ -4146,10 +4154,6 @@
   "KKE2/K": {
     "defaultMessage": "Aggregated input/output/total token usage across all spans in the trace",
     "description": "Tooltip description for the Tokens column in the traces table"
-  },
-  "KKlbCJ": {
-    "defaultMessage": "The assistant will ask about your use case, register the prompt, and help you test it end-to-end.",
-    "description": "Subline for the agent CTA card on the prompts list empty state"
   },
   "KLTGMn": {
     "defaultMessage": "Full conversation between a user and an assistant",
@@ -4519,6 +4523,10 @@
     "defaultMessage": "Created at",
     "description": "Label for the creation timestamp of a logged model on the logged model details page"
   },
+  "MX091Z": {
+    "defaultMessage": "Your coding agent",
+    "description": "Tab label for the copy-prompt-to-local-agent path in the agent action card"
+  },
   "MX4ypf": {
     "defaultMessage": "Save",
     "description": "Save button for the edit model config modal"
@@ -4687,6 +4695,10 @@
     "defaultMessage": "Description",
     "description": "Label for issue description section"
   },
+  "NI68JV": {
+    "defaultMessage": "Paste this prompt into Claude Code, Codex, Cursor, or any coding agent already running in your project.",
+    "description": "Description above the agent prompt in the eval-runs empty state"
+  },
   "NJ1bYP": {
     "defaultMessage": "{fieldName} are identical",
     "description": "Default text in data table where items are identical in the model comparison page"
@@ -4822,10 +4834,6 @@
   "NwNrl4": {
     "defaultMessage": "Amount of time that has passed since the first metric value was logged",
     "description": "A tooltip line chart configuration for the step function of relative time"
-  },
-  "Nx3aKz": {
-    "defaultMessage": "Not sure where to start? Ask MLflow's AI assistant",
-    "description": "Tertiary CTA on the eval runs empty state that opens the assistant with an orientation prompt"
   },
   "NyzPHY": {
     "defaultMessage": "Expand description",
@@ -5683,6 +5691,10 @@
     "defaultMessage": "Select a workspace to start experiments",
     "description": "Home page workspaces section subtitle"
   },
+  "SSxRdM": {
+    "defaultMessage": "Opens the MLflow assistant in this browser and starts the conversation.",
+    "description": "Description above the MLflow assistant button in the agent action card"
+  },
   "STEhnv": {
     "defaultMessage": "Description",
     "description": "Header for the description column in the experiments table"
@@ -5774,6 +5786,10 @@
   "SwvkMI": {
     "defaultMessage": "Is the summary faithful, complete, and concise?",
     "description": "Hint for Summarization template"
+  },
+  "Sz/6u1": {
+    "defaultMessage": "Get help instrumenting your app",
+    "description": "Headline for the agent CTA card in the traces empty state"
   },
   "SzapEm": {
     "defaultMessage": "Your models will appear here once you log them using newest version of MLflow. <link>Learn more</link>.",
@@ -5910,6 +5926,10 @@
   "TfuAgs": {
     "defaultMessage": "Hide group",
     "description": "A tooltip for the visibility icon button in the runs table next to the visible run group"
+  },
+  "ThRoFF": {
+    "defaultMessage": "Or use code",
+    "description": "Divider label separating the primary UI evaluation flow from the code-based alternatives"
   },
   "ThrXMh": {
     "defaultMessage": "Inputs",
@@ -6086,6 +6106,10 @@
   "Uf0z53": {
     "defaultMessage": "Cancel",
     "description": "Cancel button in unified trace tag assignment modal"
+  },
+  "UfbGGt": {
+    "defaultMessage": "Opens the MLflow assistant in this browser and starts the conversation.",
+    "description": "Description above the open-assistant button in the eval-runs empty state"
   },
   "UgF7ax": {
     "defaultMessage": "Status",
@@ -6602,6 +6626,10 @@
   "X6P8tX": {
     "defaultMessage": "No models found",
     "description": "Empty state title displayed when all models are filtered out in the logged models list page"
+  },
+  "X7EIlJ": {
+    "defaultMessage": "Your coding agent",
+    "description": "Tab label for the copy-prompt-to-local-agent path in the eval-runs empty state"
   },
   "X7HKpv": {
     "defaultMessage": "Custom LLM-as-a-judge ({llmCount})",
@@ -7155,6 +7183,10 @@
     "defaultMessage": "Step",
     "description": "Run page > Charts tab > Chart tooltip > Step label"
   },
+  "a0Bl/3": {
+    "defaultMessage": "Copy this snippet into your project, set your API key, and run it.",
+    "description": "Description above the Python evaluation snippet in the eval-runs empty state"
+  },
   "a0NgR8": {
     "defaultMessage": "Type",
     "description": "Header for \"type\" column in the UC table schema"
@@ -7274,10 +7306,6 @@
   "aWH7UT": {
     "defaultMessage": "Default",
     "description": "Display name shown for the reserved no-auth default review user"
-  },
-  "aXGaXo": {
-    "defaultMessage": "Let MLflow's AI assistant instrument your app",
-    "description": "Headline for the agent CTA card in the traces empty state"
   },
   "aXw0NO": {
     "defaultMessage": "Please select metric",
@@ -7727,10 +7755,6 @@
     "defaultMessage": "baseline run",
     "description": "Placeholder text shown when no baseline run is selected for comparison"
   },
-  "cjo+uJ": {
-    "defaultMessage": "Let MLflow's AI assistant create your first experiment",
-    "description": "Headline for the agent CTA card on the experiments list empty state"
-  },
   "ckfi1K": {
     "defaultMessage": "Refresh evaluation runs",
     "description": "Tooltip for the refresh evaluation runs button in the evaluation runs table controls"
@@ -8143,6 +8167,10 @@
     "defaultMessage": "Model version alias created",
     "description": "Webhook event label"
   },
+  "emRsOU": {
+    "defaultMessage": "Copy this prompt and paste into Claude Code, Codex, Cursor, or any coding agent already running in your project.",
+    "description": "Description above the copy-prompt block in the agent action card"
+  },
   "embiKN": {
     "defaultMessage": "JSON body sent to the endpoint. Edit the fields and click Send request.",
     "description": "Request body tooltip in starter code try-it modal"
@@ -8454,6 +8482,10 @@
   "gLj8lU": {
     "defaultMessage": "<strong>{length}</strong> matching {length, plural, =0 {runs} =1 {run} other {runs}}",
     "description": "Message for displaying how many runs match search criteria on experiment page"
+  },
+  "gMX8Zp": {
+    "defaultMessage": "MLflow assistant",
+    "description": "Tab label for the in-UI MLflow assistant path in the agent action card"
   },
   "gOH/XL": {
     "defaultMessage": "No additional metadata is available for this dataset.",
@@ -9319,6 +9351,10 @@
     "defaultMessage": "Edited {timeSince} by {source}. Original value: {value}",
     "description": "Evaluation review > assessments > tooltip > edited by human"
   },
+  "kHUTqR": {
+    "defaultMessage": "Run this in your terminal — it installs MLflow skills into your project and launches your coding agent (Claude Code, Codex, or opencode) with instructions to instrument your app.",
+    "description": "Description above the mlflow agent setup terminal command in the agent action card"
+  },
   "kICSro": {
     "defaultMessage": "JSON body for the {providerName} API. This payload is sent directly to the provider in its native format.",
     "description": "Request body tooltip for passthrough provider"
@@ -9766,10 +9802,6 @@
   "meoYKZ": {
     "defaultMessage": "Artifact Location",
     "description": "Label for create experiment modal to enter a artifact location"
-  },
-  "mfY9j7": {
-    "defaultMessage": "Chat with the assistant to name and create an experiment.",
-    "description": "Subline for the agent CTA card on the experiments list empty state"
   },
   "mgWd3Q": {
     "defaultMessage": "Minimum log level",

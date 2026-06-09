@@ -3,7 +3,7 @@ import { Button, PlusIcon, Typography, useDesignSystemTheme } from '@databricks/
 import { FormattedMessage } from 'react-intl';
 
 import { AgentActionCard } from './onboarding/AgentActionCard';
-import { buildCreateExperimentPrompt } from './experimentListAgentPrompt';
+import { buildCreateExperimentAssistantPrompt, buildCreateExperimentPrompt } from './experimentListAgentPrompt';
 
 const TRACING_VIDEO_START_SEC = 0;
 const TRACING_VIDEO_URL = `https://mlflow.org/docs/latest/images/llms/tracing/tracing-top.mp4#t=${TRACING_VIDEO_START_SEC}`;
@@ -72,25 +72,15 @@ export const ExperimentListEmptyState = ({ onCreateExperiment }: { onCreateExper
 
       <AgentActionCard
         componentId="mlflow.experiments.onboarding.create_with_agent"
+        showAgentSetupTab
         title={
           <FormattedMessage
-            defaultMessage="Let MLflow's AI assistant create your first experiment"
+            defaultMessage="Get help creating your first experiment"
             description="Headline for the agent CTA card on the experiments list empty state"
           />
         }
-        description={
-          <FormattedMessage
-            defaultMessage="Chat with the assistant to name and create an experiment."
-            description="Subline for the agent CTA card on the experiments list empty state"
-          />
-        }
-        buttonLabel={
-          <FormattedMessage
-            defaultMessage="Create with AI"
-            description="Button label for the agent CTA card on the experiments list empty state"
-          />
-        }
-        prompt={buildCreateExperimentPrompt(window.location.origin)}
+        codingAgentPrompt={buildCreateExperimentPrompt(window.location.origin)}
+        assistantPrompt={buildCreateExperimentAssistantPrompt(window.location.origin)}
       />
 
       {onCreateExperiment && (

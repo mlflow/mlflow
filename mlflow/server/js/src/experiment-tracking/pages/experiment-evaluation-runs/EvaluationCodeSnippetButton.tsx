@@ -46,7 +46,7 @@ evaluate(
 
 # Results will appear back in this UI`;
 
-const getTraceCodeSnippet = (experimentId: string) => `import mlflow
+export const getTraceCodeSnippet = (experimentId: string) => `import mlflow
 import os
 from mlflow.genai import evaluate
 from mlflow.genai.scorers import (

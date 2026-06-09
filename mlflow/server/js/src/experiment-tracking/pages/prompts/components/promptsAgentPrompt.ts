@@ -1,28 +1,31 @@
 export const buildCreatePromptPrompt = (
   trackingUri: string,
-): string => `Help me create my first MLflow registered prompt and walk me through testing it.
+): string => `Help me create my first MLflow registered prompt and test it. Tracking server: ${trackingUri}.
 
-MLflow is running at ${trackingUri}.
+One step at a time — don't dump everything at once:
+1. Ask what the prompt is for (e.g. "summarize an article", "extract action items from a meeting").
+2. Ask if it should be global or attached to an experiment.
+3. Suggest a kebab-case name and confirm.
+4. Draft a \`{{variable}}\` template and let me iterate before saving.
+5. Register it via MLflow's Prompt Registry API. Report the name, version, and UI URL.
+6. Help me test it — either swap \`mlflow.genai.load_prompt(name, version)\` into my existing app, or give me a copy-runnable Python snippet (default to OpenAI; check I have the API key first).
 
-Guide me through this end-to-end — one question at a time, don't dump everything at once:
-1. Ask what the prompt is for in plain language (e.g. "summarize an article", "extract action items from a meeting transcript").
-2. Ask if the prompt is global or attached to an experiment.
-3. Suggest a kebab-case name based on my answer and confirm it with me.
-4. Draft a prompt template using \`{{variable}}\` placeholders for the inputs. Show it to me and let me iterate before saving.
-5. Once I approve, register it via MLflow's Prompt Registry API. Report the prompt name, version, and a URL I can open in the MLflow UI.
-6. Help me test it — either:
-   - If I have an existing app in this repo, find the right place to swap in \`mlflow.genai.load_prompt(name, version)\` and offer to make the edit, OR
-   - If I don't have an app yet, give me a copy-runnable Python snippet that loads the prompt and runs it against an LLM (default to OpenAI; check that I have the API key first).
+Read the repo to infer the package manager, entry point, and LLM framework. Don't ask if you can figure it out. For MLflow API/usage questions, use the \`searching-mlflow-docs\` skill rather than guessing.
 
-Inference rules:
-- Read the repo first. Infer the package manager, entry point, and LLM framework from imports.
-- Only ask the user when there's genuine ambiguity.
-- Make changes, then report what you did and the URLs.
+If the skills aren't installed locally, refer to https://github.com/mlflow/skills/blob/main/searching-mlflow-docs/SKILL.md.
 
-If you get stuck — missing API key, permissions blocked, missing dependencies, or anything else you can't resolve — respond in this format and stop:
+If you get stuck — missing API key, blocked permissions, missing deps — stop and tell the user in plain language what you need and how to fix it.`;
 
-**I need:** <plain-language one-liner. Assume the user may not be a developer. Say "your OpenAI API key" not "OPENAI_API_KEY env var".>
+export const buildCreatePromptAssistantPrompt = (
+  trackingUri: string,
+): string => `Help me create my first MLflow registered prompt and test it. MLflow is running at ${trackingUri}.
 
-**How to fix:** <one specific step. If a terminal command is required, write "Open a terminal in your project folder and run:" then put the command on its own line in a code block. If it's getting an API key, link to where to get one (e.g. https://platform.openai.com/api-keys).>
+One step at a time — don't dump everything at once:
+1. Ask what the prompt is for (e.g. "summarize an article", "extract action items from a meeting").
+2. Ask if it should be global or attached to an experiment.
+3. Suggest a kebab-case name and confirm with me.
+4. Draft a \`{{variable}}\` template and let me iterate before saving.
+5. Register it via the Prompt Registry API and report the prompt name, version, and a URL.
+6. Give me a copy-runnable Python snippet to load the prompt and run it against an LLM (default to OpenAI; ask me to confirm I have the API key).
 
-Use plain language. One line each. Don't paste code snippets unless they need to be run.`;
+Use your built-in MLflow docs knowledge — don't guess at APIs.`;
