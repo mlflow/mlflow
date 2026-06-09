@@ -2809,30 +2809,6 @@ service MlflowService {
     };
   }
 
-  // Get or create the experiment's default review queue.
-  rpc getOrCreateDefaultQueue(mlflow.review_queues.GetOrCreateDefaultQueue) returns (mlflow.review_queues.GetOrCreateDefaultQueue.Response) {
-    option (rpc) = {
-      endpoints: [
-        {
-          method: "POST"
-          path: "/mlflow/review-queues/get-or-create-default"
-          since: {
-            major: 3
-            minor: 0
-          }
-        }
-      ]
-      error_codes: [
-        INVALID_PARAMETER_VALUE,
-        RESOURCE_DOES_NOT_EXIST,
-        RESOURCE_ALREADY_EXISTS,
-        INTERNAL_ERROR
-      ]
-      visibility: PUBLIC_UNDOCUMENTED
-      rpc_doc_title: "Get or create the default review queue"
-    };
-  }
-
   // Get a single queue by id.
   rpc getReviewQueue(mlflow.review_queues.GetReviewQueue) returns (mlflow.review_queues.GetReviewQueue.Response) {
     option (rpc) = {

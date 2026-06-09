@@ -161,7 +161,6 @@ from mlflow.protos.review_queues_pb2 import (
     AddTracesToReviewQueue,
     CreateReviewQueue,
     DeleteReviewQueue,
-    GetOrCreateDefaultQueue,
     GetOrCreateUserQueue,
     GetReviewQueue,
     GetReviewQueueByName,
@@ -4661,22 +4660,6 @@ def _get_or_create_user_queue():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
-def _get_or_create_default_queue():
-    request_message = _get_request_message(
-        GetOrCreateDefaultQueue(),
-        schema={
-            "experiment_id": [_assert_required, _assert_string],
-        },
-    )
-    kwargs: dict[str, object] = {"experiment_id": request_message.experiment_id}
-    if request_message.HasField("created_by"):
-        kwargs["created_by"] = request_message.created_by
-    queue = _get_tracking_store().get_or_create_default_queue(**kwargs)
-    return _wrap_response(GetOrCreateDefaultQueue.Response(review_queue=queue.to_proto()))
-
-
-@catch_mlflow_exception
-@_disable_if_artifacts_only
 def _get_review_queue():
     request_message = _get_request_message(
         GetReviewQueue(),
@@ -4715,11 +4698,17 @@ def _list_review_queues():
     max_results = request_message.max_results if request_message.HasField("max_results") else None
     page_token = request_message.page_token if request_message.HasField("page_token") else None
     user = request_message.user if request_message.HasField("user") else None
+    # No-auth UI sets ensure_default to seed the protected default queue lazily;
+    # left false on auth servers + SDK callers, so no default queue is created there.
+    ensure_default = (
+        request_message.ensure_default if request_message.HasField("ensure_default") else False
+    )
     queues = _get_tracking_store().list_review_queues(
         request_message.experiment_id,
         user=user,
         max_results=max_results,
         page_token=page_token,
+        ensure_default=ensure_default,
     )
     response = ListReviewQueues.Response(
         review_queues=[q.to_proto() for q in queues],
@@ -7615,7 +7604,6 @@ HANDLERS = {
     DeleteLabelSchema: _delete_label_schema,
     CreateReviewQueue: _create_review_queue,
     GetOrCreateUserQueue: _get_or_create_user_queue,
-    GetOrCreateDefaultQueue: _get_or_create_default_queue,
     GetReviewQueue: _get_review_queue,
     GetReviewQueueByName: _get_review_queue_by_name,
     ListReviewQueues: _list_review_queues,

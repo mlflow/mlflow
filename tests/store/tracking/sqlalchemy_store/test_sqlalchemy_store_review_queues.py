@@ -1,3 +1,5 @@
+import time
+
 import pytest
 
 from mlflow.exceptions import MlflowException
@@ -215,6 +217,10 @@ def test_get_review_queue_by_name_missing_raises(store):
 def test_list_review_queues_newest_first(store):
     exp_id = _create_experiments(store, "list_order")
     q1 = store.create_review_queue(exp_id, name="first", queue_type="custom")
+    # Sleep so creation_time_ms differs: SQLite's millisecond resolution can
+    # collide on back-to-back creates, leaving the queue_id tiebreaker to decide
+    # order and making the assertion flaky.
+    time.sleep(0.005)
     q2 = store.create_review_queue(exp_id, name="second", queue_type="custom")
     listed = store.list_review_queues(exp_id)
     assert [q.queue_id for q in listed] == [q2.queue_id, q1.queue_id]
@@ -239,7 +245,7 @@ def test_list_review_queues_filtered_by_user(store):
 
 def test_list_review_queues_always_includes_default(store):
     exp_id = _create_experiments(store, "list_default")
-    default = store.get_or_create_default_queue(exp_id)
+    default = store._get_or_create_default_queue(exp_id)
     store.create_review_queue(exp_id, name="solo", queue_type="custom", users=["carol"])
 
     # The default queue is everyone's, so it appears in any user's scoped list
@@ -573,6 +579,38 @@ def test_reopen_clears_attribution(store):
     assert reopened.completed_time_ms is None
 
 
+def test_repeat_same_status_preserves_attribution(store):
+    exp_id = _create_experiments(store, "repeat_status")
+    queue = store.create_review_queue(exp_id, name="q", queue_type="custom")
+    store.add_traces_to_review_queue(queue.queue_id, target_ids=["tr-1"])
+    first = store.set_review_queue_trace_status(
+        queue.queue_id, target_id="tr-1", status="complete", completed_by="bob"
+    )
+    # Re-completing with the same status (a repeat or a concurrent second
+    # reviewer) is a no-op and must not overwrite the original completer.
+    again = store.set_review_queue_trace_status(
+        queue.queue_id, target_id="tr-1", status="complete", completed_by="carol"
+    )
+    assert again.completed_by == "bob"
+    assert again.completed_time_ms == first.completed_time_ms
+
+
+def test_terminal_status_change_reattributes(store):
+    exp_id = _create_experiments(store, "status_change")
+    queue = store.create_review_queue(exp_id, name="q", queue_type="custom")
+    store.add_traces_to_review_queue(queue.queue_id, target_ids=["tr-1"])
+    store.set_review_queue_trace_status(
+        queue.queue_id, target_id="tr-1", status="complete", completed_by="bob"
+    )
+    # A genuine status change (complete -> declined) is a real action and
+    # re-records the reviewer who made it.
+    changed = store.set_review_queue_trace_status(
+        queue.queue_id, target_id="tr-1", status="declined", completed_by="carol"
+    )
+    assert changed.status == ReviewStatus.DECLINED
+    assert changed.completed_by == "carol"
+
+
 def test_complete_requires_completed_by(store):
     exp_id = _create_experiments(store, "complete_requires")
     queue = store.create_review_queue(exp_id, name="q", queue_type="custom")
@@ -618,7 +656,7 @@ def test_set_status_missing_queue_raises(store):
 
 def test_get_or_create_default_queue_creates_inheriting_custom_queue(store):
     exp_id = _create_experiments(store, "default_queue")
-    queue = store.get_or_create_default_queue(exp_id, created_by="kris")
+    queue = store._get_or_create_default_queue(exp_id, created_by="kris")
 
     assert queue.is_default is True
     assert queue.queue_type == ReviewQueueType.CUSTOM
@@ -632,8 +670,8 @@ def test_get_or_create_default_queue_creates_inheriting_custom_queue(store):
 
 def test_get_or_create_default_queue_is_idempotent(store):
     exp_id = _create_experiments(store, "default_idempotent")
-    first = store.get_or_create_default_queue(exp_id)
-    second = store.get_or_create_default_queue(exp_id)
+    first = store._get_or_create_default_queue(exp_id)
+    second = store._get_or_create_default_queue(exp_id)
 
     assert first.queue_id == second.queue_id
     defaults = [q.queue_id for q in store.list_review_queues(exp_id) if q.is_default]
@@ -642,7 +680,7 @@ def test_get_or_create_default_queue_is_idempotent(store):
 
 def test_default_queue_cannot_be_deleted(store):
     exp_id = _create_experiments(store, "default_undeletable")
-    queue = store.get_or_create_default_queue(exp_id)
+    queue = store._get_or_create_default_queue(exp_id)
 
     with pytest.raises(MlflowException, match="default queue cannot be deleted") as exc:
         store.delete_review_queue(queue.queue_id)
@@ -653,7 +691,7 @@ def test_default_queue_cannot_be_deleted(store):
 def test_default_queue_questions_locked_but_users_editable(store):
     exp_id = _create_experiments(store, "default_uneditable")
     ls = _pass_fail(store, exp_id, "quality")
-    queue = store.get_or_create_default_queue(exp_id)
+    queue = store._get_or_create_default_queue(exp_id)
 
     with pytest.raises(MlflowException, match="questions cannot be edited") as exc:
         store.update_review_queue(queue.queue_id, schema_ids=[ls.schema_id])
@@ -681,5 +719,18 @@ def test_create_custom_queue_rejects_default_name_case_insensitive(store, name):
 
 def test_get_or_create_default_queue_missing_experiment_raises(store):
     with pytest.raises(MlflowException, match="No Experiment with id") as exc:
-        store.get_or_create_default_queue("999999")
+        store._get_or_create_default_queue("999999")
     _assert_error_code(exc, RESOURCE_DOES_NOT_EXIST)
+
+
+def test_list_review_queues_seeds_default_only_when_ensure_default(store):
+    exp_id = _create_experiments(store, "ensure_default_list")
+    # Without the flag (auth servers + SDK callers), no default queue is created.
+    assert all(not q.is_default for q in store.list_review_queues(exp_id))
+    # With the flag (the no-auth UI), the protected default queue is seeded + listed.
+    defaults = [q for q in store.list_review_queues(exp_id, ensure_default=True) if q.is_default]
+    assert len(defaults) == 1
+    # Idempotent: a second ensure_default list doesn't create a second default.
+    again = [q for q in store.list_review_queues(exp_id, ensure_default=True) if q.is_default]
+    assert len(again) == 1
+    assert again[0].queue_id == defaults[0].queue_id
