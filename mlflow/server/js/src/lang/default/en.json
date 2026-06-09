@@ -471,6 +471,10 @@
     "defaultMessage": "MLflow documentation",
     "description": "Link to tracing documentation"
   },
+  "0W7Pi4": {
+    "defaultMessage": "Tag{count, plural, =0 {} other { · #}}",
+    "description": "Button to open the tags filter popover in the experiments page. Shows an interpunct (·) followed by the count of active tag filters when any are applied."
+  },
   "0WzWvy": {
     "defaultMessage": "Issues detected on the trace by automatic issue detection",
     "description": "Tooltip description for the Issues column in the traces table"
@@ -3954,10 +3958,6 @@
   "KcGozs": {
     "defaultMessage": "Endpoint:",
     "description": "Endpoint selector label"
-  },
-  "KcnW3U": {
-    "defaultMessage": "Tag",
-    "description": "Button to open the tags filter popover in the experiments page"
   },
   "KdsrPi": {
     "defaultMessage": "Assessments",
