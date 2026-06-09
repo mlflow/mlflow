@@ -24,7 +24,6 @@ def upgrade():
         sa.Column("experiment_id", sa.Integer(), nullable=False),
         sa.Column("name", sa.String(length=250), nullable=False),
         sa.Column("queue_type", sa.String(length=16), nullable=False),
-        sa.Column("is_default", sa.Boolean(), nullable=False, server_default=sa.false()),
         sa.Column("created_by", sa.String(length=255), nullable=True),
         sa.Column("creation_time_ms", sa.BigInteger(), nullable=False),
         sa.Column("last_update_time_ms", sa.BigInteger(), nullable=False),
@@ -68,10 +67,10 @@ def upgrade():
     )
 
     op.create_table(
-        "review_queue_traces",
+        "review_queue_items",
         sa.Column("queue_id", sa.String(length=36), nullable=False),
-        sa.Column("target_type", sa.String(length=16), nullable=False),
-        sa.Column("target_id", sa.String(length=50), nullable=False),
+        sa.Column("item_type", sa.String(length=16), nullable=False),
+        sa.Column("item_id", sa.String(length=50), nullable=False),
         sa.Column("status", sa.String(length=16), nullable=False),
         sa.Column("completed_by", sa.String(length=250), nullable=True),
         sa.Column("completed_time_ms", sa.BigInteger(), nullable=True),
@@ -80,21 +79,21 @@ def upgrade():
         sa.ForeignKeyConstraint(
             ["queue_id"],
             ["review_queues.queue_id"],
-            name="fk_review_queue_traces_queue_id",
+            name="fk_review_queue_items_queue_id",
             ondelete="CASCADE",
         ),
-        sa.PrimaryKeyConstraint("queue_id", "target_id", name="review_queue_traces_pk"),
+        sa.PrimaryKeyConstraint("queue_id", "item_id", name="review_queue_items_pk"),
     )
     op.create_index(
-        "index_review_queue_traces_queue_id_status",
-        "review_queue_traces",
+        "index_review_queue_items_queue_id_status",
+        "review_queue_items",
         ["queue_id", "status"],
         unique=False,
     )
     op.create_index(
-        "index_review_queue_traces_target_id",
-        "review_queue_traces",
-        ["target_id"],
+        "index_review_queue_items_item_id",
+        "review_queue_items",
+        ["item_id"],
         unique=False,
     )
 
@@ -131,14 +130,14 @@ def downgrade():
     op.drop_table("review_queue_label_schemas")
 
     op.drop_index(
-        "index_review_queue_traces_target_id",
-        table_name="review_queue_traces",
+        "index_review_queue_items_item_id",
+        table_name="review_queue_items",
     )
     op.drop_index(
-        "index_review_queue_traces_queue_id_status",
-        table_name="review_queue_traces",
+        "index_review_queue_items_queue_id_status",
+        table_name="review_queue_items",
     )
-    op.drop_table("review_queue_traces")
+    op.drop_table("review_queue_items")
 
     op.drop_index("index_review_queue_users_user_id", table_name="review_queue_users")
     op.drop_table("review_queue_users")

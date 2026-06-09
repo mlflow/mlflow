@@ -2924,13 +2924,13 @@ service MlflowService {
     };
   }
 
-  // Attach traces to a queue.
-  rpc addTracesToReviewQueue(mlflow.review_queues.AddTracesToReviewQueue) returns (mlflow.review_queues.AddTracesToReviewQueue.Response) {
+  // Attach items to a queue.
+  rpc addItemsToReviewQueue(mlflow.review_queues.AddItemsToReviewQueue) returns (mlflow.review_queues.AddItemsToReviewQueue.Response) {
     option (rpc) = {
       endpoints: [
         {
           method: "POST"
-          path: "/mlflow/review-queues/traces/add"
+          path: "/mlflow/review-queues/items/add"
           since: {
             major: 3
             minor: 0
@@ -2943,17 +2943,17 @@ service MlflowService {
         INTERNAL_ERROR
       ]
       visibility: PUBLIC_UNDOCUMENTED
-      rpc_doc_title: "Add traces to a review queue"
+      rpc_doc_title: "Add items to a review queue"
     };
   }
 
-  // Detach traces from a queue.
-  rpc removeTracesFromReviewQueue(mlflow.review_queues.RemoveTracesFromReviewQueue) returns (mlflow.review_queues.RemoveTracesFromReviewQueue.Response) {
+  // Detach items from a queue.
+  rpc removeItemsFromReviewQueue(mlflow.review_queues.RemoveItemsFromReviewQueue) returns (mlflow.review_queues.RemoveItemsFromReviewQueue.Response) {
     option (rpc) = {
       endpoints: [
         {
           method: "POST"
-          path: "/mlflow/review-queues/traces/remove"
+          path: "/mlflow/review-queues/items/remove"
           since: {
             major: 3
             minor: 0
@@ -2966,17 +2966,17 @@ service MlflowService {
         INTERNAL_ERROR
       ]
       visibility: PUBLIC_UNDOCUMENTED
-      rpc_doc_title: "Remove traces from a review queue"
+      rpc_doc_title: "Remove items from a review queue"
     };
   }
 
-  // List a queue's attached traces.
-  rpc listReviewQueueTraces(mlflow.review_queues.ListReviewQueueTraces) returns (mlflow.review_queues.ListReviewQueueTraces.Response) {
+  // List a queue's attached items.
+  rpc listReviewQueueItems(mlflow.review_queues.ListReviewQueueItems) returns (mlflow.review_queues.ListReviewQueueItems.Response) {
     option (rpc) = {
       endpoints: [
         {
           method: "GET"
-          path: "/mlflow/review-queues/traces/list"
+          path: "/mlflow/review-queues/items/list"
           since: {
             major: 3
             minor: 0
@@ -2989,17 +2989,17 @@ service MlflowService {
         INTERNAL_ERROR
       ]
       visibility: PUBLIC_UNDOCUMENTED
-      rpc_doc_title: "List review queue traces"
+      rpc_doc_title: "List review queue items"
     };
   }
 
-  // Set the shared-pool status of an attached trace.
-  rpc setReviewQueueTraceStatus(mlflow.review_queues.SetReviewQueueTraceStatus) returns (mlflow.review_queues.SetReviewQueueTraceStatus.Response) {
+  // Set the shared-pool status of an attached item.
+  rpc setReviewQueueItemStatus(mlflow.review_queues.SetReviewQueueItemStatus) returns (mlflow.review_queues.SetReviewQueueItemStatus.Response) {
     option (rpc) = {
       endpoints: [
         {
           method: "POST"
-          path: "/mlflow/review-queues/traces/set-status"
+          path: "/mlflow/review-queues/items/set-status"
           since: {
             major: 3
             minor: 0
@@ -3012,7 +3012,7 @@ service MlflowService {
         INTERNAL_ERROR
       ]
       visibility: PUBLIC_UNDOCUMENTED
-      rpc_doc_title: "Set review queue trace status"
+      rpc_doc_title: "Set review queue item status"
     };
   }
 }
