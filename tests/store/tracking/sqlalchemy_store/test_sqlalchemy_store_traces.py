@@ -3406,18 +3406,16 @@ def test_log_spans_multiple_traces(store: SqlAlchemyStore):
 def test_log_spans_persists_resource_attributes_as_tags(store: SqlAlchemyStore):
     experiment_id = store.create_experiment("test_resource_attrs")
 
-    resource = _OTelResource(
-        {
-            "service.name": "my-service",
-            "deployment.environment": "staging",
-            "host.arch": "amd64",
-            # telemetry.sdk.* should be filtered out
-            "telemetry.sdk.language": "python",
-            "telemetry.sdk.name": "opentelemetry",
-            # non-string value should be converted to str
-            "process.pid": 12345,
-        }
-    )
+    resource = _OTelResource({
+        "service.name": "my-service",
+        "deployment.environment": "staging",
+        "host.arch": "amd64",
+        # telemetry.sdk.* should be filtered out
+        "telemetry.sdk.language": "python",
+        "telemetry.sdk.name": "opentelemetry",
+        # non-string value should be converted to str
+        "process.pid": 12345,
+    })
 
     span = create_mlflow_span(
         OTelReadableSpan(
@@ -3444,7 +3442,8 @@ def test_log_spans_persists_resource_attributes_as_tags(store: SqlAlchemyStore):
     with store.ManagedSessionMaker() as session:
         tags = {
             row.key: row.value
-            for row in session.query(SqlTraceTag)
+            for row in session
+            .query(SqlTraceTag)
             .filter(SqlTraceTag.request_id == "tr-resource-test")
             .all()
         }
@@ -3492,7 +3491,8 @@ def test_log_spans_resource_tags_do_not_overwrite_user_tags(store: SqlAlchemySto
     with store.ManagedSessionMaker() as session:
         tags = {
             row.key: row.value
-            for row in session.query(SqlTraceTag)
+            for row in session
+            .query(SqlTraceTag)
             .filter(SqlTraceTag.request_id == "tr-tag-priority")
             .all()
         }
