@@ -618,6 +618,7 @@ describe('RunEvaluationButton', () => {
 
       renderButton('exp-1');
       await user.click(screen.getByRole('button', { name: 'Run evaluation' }));
+      await user.click(getJudgeCheckboxByName('My Custom Judge'));
 
       const okButton = document.querySelector<HTMLButtonElement>(
         '[data-component-id="mlflow.eval-runs.start-run-modal.footer.ok"]',

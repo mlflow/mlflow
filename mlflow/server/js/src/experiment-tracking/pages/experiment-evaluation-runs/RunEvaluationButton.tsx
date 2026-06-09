@@ -43,7 +43,7 @@ export const RunEvaluationButton = ({ experimentId }: { experimentId: string }) 
   const { theme } = useDesignSystemTheme();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { displayMap } = useTemplateOptions(ScorerEvaluationScope.TRACES);
+  const { displayMap, templateOptions } = useTemplateOptions(ScorerEvaluationScope.TRACES);
   const [isOpen, setIsOpen] = useState(false);
   const [selectedTraceIds, setSelectedTraceIds] = useState<string[]>([]);
   const [isSelectTracesModalOpen, setIsSelectTracesModalOpen] = useState(false);
@@ -249,6 +249,7 @@ export const RunEvaluationButton = ({ experimentId }: { experimentId: string }) 
             <JudgesSelectionSection
               experimentId={experimentId}
               enabled={isOpen}
+              templateOptions={templateOptions}
               selectedScorers={selectedScorers}
               selectedTemplates={selectedTemplates}
               onToggleScorer={toggleScorer}
@@ -299,6 +300,7 @@ const HIDDEN_PRE_BUILT_TEMPLATES = [LLM_TEMPLATE.CUSTOM, LLM_TEMPLATE.GUIDELINES
 const JudgesSelectionSection = ({
   experimentId,
   enabled,
+  templateOptions,
   selectedScorers,
   selectedTemplates,
   onToggleScorer,
@@ -306,6 +308,7 @@ const JudgesSelectionSection = ({
 }: {
   experimentId: string;
   enabled: boolean;
+  templateOptions: ReturnType<typeof useTemplateOptions>['templateOptions'];
   selectedScorers: LLMScorer[];
   selectedTemplates: LLM_TEMPLATE[];
   onToggleScorer: (scorer: LLMScorer) => void;
@@ -317,7 +320,6 @@ const JudgesSelectionSection = ({
   const [judgeSelectionMode, setJudgeSelectionMode] = useState<JudgeSelectionMode>('llm');
 
   const { data, isLoading: loadingScorers } = useGetScheduledScorers(experimentId, { enabled });
-  const { templateOptions } = useTemplateOptions(ScorerEvaluationScope.TRACES);
 
   const displayedLLMScorers = useMemo(() => {
     const lowercased = searchValue.toLowerCase();
