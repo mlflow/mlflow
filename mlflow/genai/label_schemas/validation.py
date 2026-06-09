@@ -52,6 +52,21 @@ TEXT_MAX_LENGTH_MIN = 1
 
 _SUPPORTED_INPUT_TYPE_NAMES = ("InputPassFail", "InputCategorical", "InputNumeric", "InputText")
 
+# The experiment's protected default question, seeded lazily by the store's list
+# path (see `_ensure_default_label_schema`). Its name is reserved so a user
+# schema can't masquerade as the default; it is undeletable and uneditable
+# (enforced in the store + `validate_schema_for_update`).
+DEFAULT_LABEL_SCHEMA_NAME = "Feedback"
+DEFAULT_LABEL_SCHEMA_INSTRUCTION = "Share any feedback on this trace."
+
+
+def _validate_not_reserved_name(name: str) -> None:
+    if name.strip().lower() == DEFAULT_LABEL_SCHEMA_NAME.lower():
+        raise MlflowException.invalid_parameter_value(
+            f"`{name}` is reserved for the experiment's default question and cannot be used "
+            "for another label schema."
+        )
+
 
 def _validate_name(name: str) -> None:
     if not isinstance(name, str) or len(name) < NAME_MIN_LENGTH:
@@ -238,6 +253,7 @@ def validate_schema_for_create(
         MlflowException(INVALID_PARAMETER_VALUE): if any field violates the rules.
     """
     _validate_name(name)
+    _validate_not_reserved_name(name)
     _validate_schema_type(type)
     _validate_instruction(instruction)
     _validate_enable_comment(enable_comment)
@@ -287,8 +303,13 @@ def validate_schema_for_update(
     Raises:
         MlflowException(INVALID_PARAMETER_VALUE): if any field violates the rules.
     """
+    if existing.is_default:
+        raise MlflowException.invalid_parameter_value(
+            "The experiment's default question cannot be edited."
+        )
     if name is not None:
         _validate_name(name)
+        _validate_not_reserved_name(name)
     if instruction is not None:
         _validate_instruction(instruction)
     if enable_comment is not None:

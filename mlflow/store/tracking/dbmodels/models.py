@@ -3321,6 +3321,12 @@ class SqlLabelSchema(Base):
     Last update time in milliseconds.
     """
 
+    is_default = Column(Boolean, nullable=False, default=False, server_default="0")
+    """
+    Whether this is the experiment's protected default question: server-seeded,
+    undeletable, and uneditable. At most one row per experiment is ``True``.
+    """
+
     __table_args__ = (
         PrimaryKeyConstraint("schema_id", name="label_schemas_pk"),
         UniqueConstraint("experiment_id", "name", name="uq_label_schemas_exp_name"),
@@ -3349,6 +3355,7 @@ class SqlLabelSchema(Base):
             created_by=self.created_by,
             created_at=self.created_time,
             updated_at=self.last_update_time,
+            is_default=self.is_default,
         )
 
     @classmethod
@@ -3375,6 +3382,7 @@ class SqlLabelSchema(Base):
             created_by=schema.created_by,
             created_time=schema.created_at or now,
             last_update_time=schema.updated_at or now,
+            is_default=schema.is_default,
         )
 
 

@@ -8085,8 +8085,13 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
     def list_label_schemas(self, experiment_id, max_results=100, page_token=None):
         self._validate_max_results_param(max_results)
         offset = SearchUtils.parse_start_offset_from_page_token(page_token) if page_token else 0
-        with self.ManagedSessionMaker() as session:
+        # Writable session: the protected default question is seeded lazily on
+        # first access (see `_ensure_default_label_schema`), so a list may create
+        # it. This is the SDK + REST chokepoint, so every experiment always has
+        # at least one question regardless of how it's first reached.
+        with self.ManagedSessionMaker(read_only=False) as session:
             self._validate_experiment_exists(session, experiment_id)
+            self._ensure_default_label_schema(session, experiment_id)
 
             results = (
                 self
@@ -8197,7 +8202,73 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             if sql_schema is None:
                 _logger.debug(f"Label schema with id '{schema_id}' not found; delete is a no-op.")
                 return
+            if sql_schema.is_default:
+                raise MlflowException(
+                    "The experiment's default question cannot be deleted.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
             session.delete(sql_schema)
+
+    def _ensure_default_label_schema(self, session, experiment_id):
+        """Seed the experiment's protected default question if it's absent.
+
+        The default question is a FEEDBACK free-text schema named
+        ``DEFAULT_LABEL_SCHEMA_NAME``, marked ``is_default`` so it is undeletable
+        and uneditable. It's created lazily from ``list_label_schemas`` (the SDK +
+        REST chokepoint) so every experiment always presents at least one question
+        on first access, without a dedicated endpoint. Idempotent: at most one row
+        per experiment carries the reserved name.
+        """
+        from mlflow.genai.label_schemas.label_schemas import (
+            InputText,
+            LabelSchema,
+            LabelSchemaType,
+        )
+        from mlflow.genai.label_schemas.validation import (
+            DEFAULT_LABEL_SCHEMA_INSTRUCTION,
+            DEFAULT_LABEL_SCHEMA_NAME,
+        )
+
+        # Key the idempotency check on the is_default flag (dialect-agnostic): a
+        # name `==` is case-sensitive on some backends. A pre-existing user schema
+        # literally named "Feedback" (only creatable before the reserved-name
+        # rule) collides on the (experiment_id, name) unique constraint below, is
+        # caught, and that experiment keeps its own "Feedback" with no separate
+        # protected default — an accepted edge for already-created data.
+        existing = (
+            self
+            ._label_schema_query(session)
+            .filter(
+                SqlLabelSchema.experiment_id == int(experiment_id),
+                SqlLabelSchema.is_default.is_(True),
+            )
+            .first()
+        )
+        if existing is not None:
+            return
+
+        entity = LabelSchema(
+            schema_id=f"{SqlLabelSchema.LABEL_SCHEMA_ID_PREFIX}{uuid.uuid4().hex}",
+            experiment_id=str(experiment_id),
+            name=DEFAULT_LABEL_SCHEMA_NAME,
+            type=LabelSchemaType.FEEDBACK,
+            input=InputText(),
+            instruction=DEFAULT_LABEL_SCHEMA_INSTRUCTION,
+            enable_comment=False,
+            is_default=True,
+        )
+        try:
+            # SAVEPOINT isolates this insert so a benign IntegrityError drops only
+            # it, not the caller's transaction (same pattern as
+            # add_traces_to_review_queue). Two cases are safe to swallow: a
+            # concurrent ensure won the (experiment_id, name) unique race (the
+            # existing row is the default), or the experiment vanished concurrently
+            # (a FK error, which the list's experiment validation then surfaces).
+            with session.begin_nested():
+                session.add(SqlLabelSchema.from_mlflow_entity(entity))
+                session.flush()
+        except IntegrityError:
+            pass
 
     # ------------------------------------------------------------------
     # Review queues: see mlflow/genai/review_queues/ for the entity
@@ -8397,7 +8468,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 ) from e
             return existing
 
-    def get_or_create_default_queue(self, experiment_id, *, created_by=None):
+    def _get_or_create_default_queue(self, experiment_id, *, created_by=None):
         from mlflow.genai.review_queues.validation import DEFAULT_QUEUE_NAME
 
         try:
@@ -8411,14 +8482,27 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         except MlflowException as e:
             if e.error_code != ErrorCode.Name(RESOURCE_ALREADY_EXISTS):
                 raise
-            # Lost the create race (or it already existed): return the single
-            # existing default queue, keeping the call idempotent. Unlike
-            # get_or_create_user_queue, no "non-default queue squatting on this
-            # name" guard is needed: "Default" is unreachable for any
-            # non-default queue (validate_queue_for_create rejects it for custom
-            # queues and user names are lowercased), so any queue under that
-            # name is the default queue.
-            return self.get_review_queue_by_name(experiment_id, name=DEFAULT_QUEUE_NAME)
+            # Lost the create race (or it already existed): return the existing
+            # default queue, resolved by the is_default flag rather than by name.
+            # A name lookup is unsafe on case-insensitive collations (e.g. MSSQL):
+            # a user queue named "default" shares the (experiment_id, name) key
+            # with "Default" and would be returned instead. If no is_default queue
+            # exists, the reserved name is held by a non-default queue (only
+            # reachable on such collations) — re-raise rather than return it.
+            with self.ManagedSessionMaker() as session:
+                self._validate_experiment_exists(session, experiment_id)
+                sql_queue = (
+                    self
+                    ._review_queue_query(session)
+                    .filter(
+                        SqlReviewQueue.experiment_id == int(experiment_id),
+                        SqlReviewQueue.is_default.is_(True),
+                    )
+                    .one_or_none()
+                )
+                if sql_queue is None:
+                    raise
+                return self._hydrate_review_queues(session, [sql_queue])[0]
 
     def get_review_queue(self, queue_id):
         with self.ManagedSessionMaker() as session:
@@ -8699,6 +8783,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
     def set_review_queue_trace_status(self, queue_id, *, target_id, status, completed_by=None):
         from mlflow.genai.review_queues import ReviewStatus
         from mlflow.genai.review_queues.validation import (
+            USER_MAX_LENGTH,
             coerce_status,
             normalize_target_id,
             normalize_user,
@@ -8719,6 +8804,14 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 f"`completed_by` is required when setting status to `{new_status}`.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+        if normalized_completed_by is not None and len(normalized_completed_by) > USER_MAX_LENGTH:
+            # Match the cap the assigned-user list enforces, so an over-long value
+            # raises a clear error rather than failing at the VARCHAR write.
+            raise MlflowException(
+                f"`completed_by` must be at most {USER_MAX_LENGTH} characters; "
+                f"got {len(normalized_completed_by)}.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
 
         with self.ManagedSessionMaker(read_only=False) as session:
             sql_queue = self._get_sql_review_queue(session, queue_id)
@@ -8737,17 +8830,25 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     error_code=RESOURCE_DOES_NOT_EXIST,
                 )
 
-            # No-op (and no timestamp churn) if nothing actually changes.
-            if row.status == str(new_status) and row.completed_by == normalized_completed_by:
+            # No-op (no timestamp churn) when the status doesn't change. Making a
+            # same-status write idempotent regardless of `completed_by` is what
+            # protects attribution: a repeat or concurrent re-completion by a
+            # different reviewer can no longer overwrite the original completer
+            # (the prior `status AND completed_by` guard let it through). A genuine
+            # status transition (e.g. complete -> declined, or a reopen) is a real
+            # change and still re-records the actor below.
+            if row.status == str(new_status):
                 return row.to_mlflow_entity()
 
             now_ms = get_current_time_millis()
             row.status = str(new_status)
             row.last_update_time_ms = now_ms
             if new_status == ReviewStatus.PENDING:
+                # Reopening clears attribution; the next completion re-records it.
                 row.completed_by = None
                 row.completed_time_ms = None
             else:
+                # The reviewer who set the current terminal status owns attribution.
                 row.completed_by = normalized_completed_by
                 row.completed_time_ms = now_ms
             session.flush()

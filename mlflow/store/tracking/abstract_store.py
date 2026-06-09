@@ -1908,7 +1908,7 @@ class AbstractStore(GatewayStoreMixin):
         raise NotImplementedError(self.__class__.__name__)
 
     @requires_sql_backend
-    def get_or_create_default_queue(
+    def _get_or_create_default_queue(
         self,
         experiment_id: str,
         *,
@@ -1916,10 +1916,11 @@ class AbstractStore(GatewayStoreMixin):
     ) -> "ReviewQueue":
         """Return the experiment's single default queue, creating it if absent.
 
-        The default queue is a custom queue that inherits all of the
-        experiment's schemas, cannot have its questions edited, and cannot be
-        deleted. Atomic and idempotent: concurrent callers converge on the
-        single default queue.
+        Internal: the default queue is seeded lazily from ``list_review_queues``
+        (no-auth only) rather than via a dedicated RPC. It's a custom queue that
+        inherits all of the experiment's schemas, cannot have its questions
+        edited, and cannot be deleted. Atomic and idempotent: concurrent callers
+        converge on the single default queue.
 
         Raises:
             MlflowException(RESOURCE_DOES_NOT_EXIST): if the experiment
