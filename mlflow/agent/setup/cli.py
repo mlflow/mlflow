@@ -188,7 +188,7 @@ def _run_setup(
     default=False,
     help=(
         "Print the composed task prompt to stdout and skip launching the agent. "
-        "Capture it for a custom invocation, e.g. "
+        "Capture the prompt for a custom invocation, e.g. "
         '`claude --dangerously-skip-permissions "$(mlflow agent setup --agent claude --print)"`.'
     ),
 )
