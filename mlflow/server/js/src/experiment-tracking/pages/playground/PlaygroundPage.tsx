@@ -21,7 +21,14 @@ import { PromptRegistryPicker } from './components/PromptRegistryPicker';
 import type { PromptLoadPayload } from './components/PromptRegistryPicker';
 import { SavePromptVersionDrawer } from './components/SavePromptVersionDrawer';
 import { useChatCompletionMutation } from './hooks/useChatCompletionMutation';
-import type { ConversationMessage, PlaygroundParams, ResponseFormat, ResponseFormatType, ToolChoice } from './types';
+import type {
+  ConversationMessage,
+  PlaygroundParams,
+  PromptType,
+  ResponseFormat,
+  ResponseFormatType,
+  ToolChoice,
+} from './types';
 import { getEmptyVariables, isToolsValueEmpty, substituteVariables } from './utils';
 
 const EMPTY_USER_MESSAGE: ConversationMessage = { role: 'user', content: '' };
@@ -40,8 +47,11 @@ const PlaygroundPage = () => {
   const [showRegistryPicker, setShowRegistryPicker] = useState(false);
   const [showSaveDrawer, setShowSaveDrawer] = useState(false);
   // The registry prompt currently loaded into the playground, if any. Lets the
-  // save drawer default to appending a new version of that prompt.
-  const [loadedPrompt, setLoadedPrompt] = useState<{ name: string; version: string } | null>(null);
+  // save drawer default to appending a new version of that prompt and preserve
+  // its type.
+  const [loadedPrompt, setLoadedPrompt] = useState<{ name: string; version: string; promptType: PromptType } | null>(
+    null,
+  );
   const [loadedToast, setLoadedToast] = useState<{
     name: string;
     version: string;
@@ -71,7 +81,7 @@ const PlaygroundPage = () => {
       setResponseFormatSchemaText(payload.settings.responseFormatSchemaText);
     }
     setShowRegistryPicker(false);
-    setLoadedPrompt({ name: payload.promptName, version: payload.versionLabel });
+    setLoadedPrompt({ name: payload.promptName, version: payload.versionLabel, promptType: payload.promptType });
     setLoadedToast({
       name: payload.promptName,
       version: payload.versionLabel,
@@ -79,10 +89,10 @@ const PlaygroundPage = () => {
     });
   };
 
-  const handleSaved = ({ name, version }: { name: string; version: string }) => {
+  const handleSaved = ({ name, version, promptType }: { name: string; version: string; promptType: PromptType }) => {
     setShowSaveDrawer(false);
     // Chain subsequent saves onto the freshly created version.
-    setLoadedPrompt({ name, version });
+    setLoadedPrompt({ name, version, promptType });
     setSavedToast({ name, version });
   };
 
@@ -415,6 +425,7 @@ const PlaygroundPage = () => {
         responseFormatType={responseFormatType}
         responseFormatSchemaText={responseFormatSchemaText}
         loadedPromptName={loadedPrompt?.name}
+        loadedPromptType={loadedPrompt?.promptType}
         onSaved={handleSaved}
       />
       {loadedToast && (

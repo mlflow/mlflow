@@ -83,7 +83,7 @@ describe('SavePromptVersionDrawer', () => {
     );
     // No new prompt entity is created when appending to an existing prompt.
     expect(RegisteredPromptsApi.createRegisteredPrompt).not.toHaveBeenCalled();
-    await waitFor(() => expect(onSaved).toHaveBeenCalledWith({ name: 'greeter', version: '2' }));
+    await waitFor(() => expect(onSaved).toHaveBeenCalledWith({ name: 'greeter', version: '2', promptType: 'chat' }));
   });
 
   it('requires a name and creates a brand-new prompt when none is loaded', async () => {
@@ -101,7 +101,7 @@ describe('SavePromptVersionDrawer', () => {
     expect(RegisteredPromptsApi.createRegisteredPromptVersion).toHaveBeenCalled();
     const [name] = jest.mocked(RegisteredPromptsApi.createRegisteredPromptVersion).mock.calls[0];
     expect(name).toBe('brand-new');
-    await waitFor(() => expect(onSaved).toHaveBeenCalledWith({ name: 'brand-new', version: '2' }));
+    await waitFor(() => expect(onSaved).toHaveBeenCalledWith({ name: 'brand-new', version: '2', promptType: 'chat' }));
   });
 
   it('omits model settings when the include-settings checkbox is unchecked', async () => {
@@ -126,5 +126,43 @@ describe('SavePromptVersionDrawer', () => {
     expect(tags).toEqual(
       expect.arrayContaining([{ key: MODEL_CONFIG_TAG, value: JSON.stringify({ temperature: 0.5 }) }]),
     );
+  });
+
+  it('keeps a loaded text prompt text-typed when it is still a single user message', async () => {
+    const { onSaved } = renderDrawer({
+      loadedPromptName: 'greeter',
+      loadedPromptType: 'text',
+      messages: [{ role: 'user', content: 'Translate to French: {{ text }}' }],
+    });
+
+    await userEvent.click(screen.getByRole('button', { name: /save version/i }));
+
+    await waitFor(() => expect(RegisteredPromptsApi.createRegisteredPromptVersion).toHaveBeenCalled());
+    const [, tags] = jest.mocked(RegisteredPromptsApi.createRegisteredPromptVersion).mock.calls[0];
+    // Text prompts store the raw string content, not a serialized message array.
+    expect(tags).toEqual(
+      expect.arrayContaining([
+        { key: CONTENT_TAG, value: 'Translate to French: {{ text }}' },
+        { key: TYPE_TAG, value: 'text' },
+      ]),
+    );
+    await waitFor(() => expect(onSaved).toHaveBeenCalledWith({ name: 'greeter', version: '2', promptType: 'text' }));
+  });
+
+  it('promotes a loaded text prompt to chat once it has multiple messages', async () => {
+    renderDrawer({
+      loadedPromptName: 'greeter',
+      loadedPromptType: 'text',
+      messages: [
+        { role: 'system', content: 'Be terse.' },
+        { role: 'user', content: 'Translate to French: {{ text }}' },
+      ],
+    });
+
+    await userEvent.click(screen.getByRole('button', { name: /save version/i }));
+
+    await waitFor(() => expect(RegisteredPromptsApi.createRegisteredPromptVersion).toHaveBeenCalled());
+    const [, tags] = jest.mocked(RegisteredPromptsApi.createRegisteredPromptVersion).mock.calls[0];
+    expect(tags).toEqual(expect.arrayContaining([{ key: TYPE_TAG, value: 'chat' }]));
   });
 });

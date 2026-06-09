@@ -17,8 +17,8 @@ import type { ChangeEvent } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { useCreateRegisteredPromptMutation } from '../../prompts/hooks/useCreateRegisteredPromptMutation';
-import { PROMPT_MODEL_CONFIG_TAG_KEY, PROMPT_TYPE_CHAT } from '../../prompts/utils';
-import type { ChatMessage, PlaygroundParams, ResponseFormatType } from '../types';
+import { PROMPT_MODEL_CONFIG_TAG_KEY, PROMPT_TYPE_CHAT, PROMPT_TYPE_TEXT } from '../../prompts/utils';
+import type { ChatMessage, PlaygroundParams, PromptType, ResponseFormatType } from '../types';
 import { getSaveableMessages, hasSaveableSettings, paramsToModelConfig } from '../promptVersionSave';
 
 interface Props {
@@ -31,7 +31,10 @@ interface Props {
   // Name of the prompt currently loaded into the playground, if any. When set,
   // the drawer defaults to appending a new version to it.
   loadedPromptName?: string;
-  onSaved: (result: { name: string; version: string }) => void;
+  // Registry type of the loaded prompt, so a text prompt that is still a single
+  // user message can be saved back as text instead of being promoted to chat.
+  loadedPromptType?: PromptType;
+  onSaved: (result: { name: string; version: string; promptType: PromptType }) => void;
 }
 
 type Target = 'existing' | 'new';
@@ -49,6 +52,7 @@ export const SavePromptVersionDrawer = ({
   responseFormatType,
   responseFormatSchemaText,
   loadedPromptName,
+  loadedPromptType,
   onSaved,
 }: Props) => {
   const { theme } = useDesignSystemTheme();
@@ -114,12 +118,21 @@ export const SavePromptVersionDrawer = ({
         ? responseFormatSchemaText.trim()
         : undefined;
 
+    // Keep a loaded text prompt text-typed while it stays a single user message;
+    // anything else (multiple turns, system/assistant roles) is saved as chat.
+    const isSingleUserMessage = saveableMessages.length === 1 && saveableMessages[0].role === 'user';
+    const promptType: PromptType =
+      effectiveTarget === 'existing' && loadedPromptType === PROMPT_TYPE_TEXT && isSingleUserMessage
+        ? PROMPT_TYPE_TEXT
+        : PROMPT_TYPE_CHAT;
+    const content = promptType === PROMPT_TYPE_TEXT ? saveableMessages[0].content : JSON.stringify(saveableMessages);
+
     mutate(
       {
         createPromptEntity: effectiveTarget === 'new',
         promptName: targetName,
-        promptType: PROMPT_TYPE_CHAT,
-        content: JSON.stringify(saveableMessages),
+        promptType,
+        content,
         commitMessage: commitMessage.trim() || undefined,
         tags: modelConfigTags,
         responseFormatJson,
@@ -128,7 +141,7 @@ export const SavePromptVersionDrawer = ({
         onSuccess: (data) => {
           queryClient.invalidateQueries({ queryKey: ['prompts_list'] });
           queryClient.invalidateQueries({ queryKey: ['prompt_details', { promptName: targetName }] });
-          onSaved({ name: targetName, version: data.version });
+          onSaved({ name: targetName, version: data.version, promptType });
         },
       },
     );
