@@ -43,7 +43,18 @@ def test_create_mcp_server_empty_name_raises(store):
 
 @pytest.mark.parametrize(
     "invalid_name",
-    ["my-server", "bindings", "com", "com/example/extra", "/server", "com.example/"],
+    [
+        "my-server",
+        "bindings",
+        "com",
+        "com/example/extra",
+        "/server",
+        "com.example/",
+        "com.example/aliases",
+        "com.example/bindings",
+        "com.example/tags",
+        "com.example/versions",
+    ],
 )
 def test_create_mcp_server_invalid_name_raises(store, invalid_name):
     with pytest.raises(
@@ -327,7 +338,18 @@ def test_create_mcp_server_version_missing_version_raises(store):
 
 @pytest.mark.parametrize(
     "invalid_name",
-    ["my-server", "bindings", "com", "com/example/extra", "/server", "com.example/"],
+    [
+        "my-server",
+        "bindings",
+        "com",
+        "com/example/extra",
+        "/server",
+        "com.example/",
+        "com.example/aliases",
+        "com.example/bindings",
+        "com.example/tags",
+        "com.example/versions",
+    ],
 )
 def test_create_mcp_server_version_invalid_name_raises(store, invalid_name):
     with pytest.raises(

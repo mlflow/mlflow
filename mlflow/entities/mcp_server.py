@@ -38,6 +38,7 @@ class MCPRemoteTransportType(str, Enum):
 
 
 _MCP_SERVER_NAME_NAMESPACE_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$")
+_MCP_SERVER_RESERVED_SLUGS = {"aliases", "bindings", "tags", "versions"}
 
 
 def validate_mcp_server_name(name: str) -> None:
@@ -53,6 +54,12 @@ def validate_mcp_server_name(name: str) -> None:
         ) from None
 
     if not namespace or not slug:
+        raise MlflowException.invalid_parameter_value(
+            "Invalid MCP server name. Expected '<reverse-dns namespace>/<server slug>' "
+            "such as 'com.example/server-name'."
+        )
+
+    if slug in _MCP_SERVER_RESERVED_SLUGS:
         raise MlflowException.invalid_parameter_value(
             "Invalid MCP server name. Expected '<reverse-dns namespace>/<server slug>' "
             "such as 'com.example/server-name'."

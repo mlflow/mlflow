@@ -56,6 +56,22 @@ def test_create_server_with_icons(client):
     assert r.json()["icons"] == icons
 
 
+def test_create_server_with_icons_preserves_extra_fields(client):
+    icons = [
+        {
+            "src": "https://example.com/icon.png",
+            "sizes": ["32x32"],
+            "purpose": "maskable",
+        }
+    ]
+    r = client.post(
+        PREFIX,
+        json={"name": "com.example/icon-extra-server", "icons": icons},
+    )
+    assert r.status_code == 200
+    assert r.json()["icons"] == icons
+
+
 def test_create_duplicate_server(client):
     client.post(PREFIX, json={"name": "com.example/dup"})
     r = client.post(PREFIX, json={"name": "com.example/dup"})
@@ -64,7 +80,18 @@ def test_create_duplicate_server(client):
 
 @pytest.mark.parametrize(
     "invalid_name",
-    ["my-server", "bindings", "com", "com/example/extra", "/server", "com.example/"],
+    [
+        "my-server",
+        "bindings",
+        "com",
+        "com/example/extra",
+        "/server",
+        "com.example/",
+        "com.example/aliases",
+        "com.example/bindings",
+        "com.example/tags",
+        "com.example/versions",
+    ],
 )
 def test_create_server_invalid_name_rejected(client, invalid_name):
     r = client.post(PREFIX, json={"name": invalid_name})
@@ -251,6 +278,26 @@ def test_create_version_invalid_server_name_rejected(client):
     assert "Expected '<reverse-dns namespace>/<server slug>'" in r.json()["message"]
 
 
+@pytest.mark.parametrize(
+    "invalid_name",
+    [
+        "com.example/aliases",
+        "com.example/bindings",
+        "com.example/tags",
+        "com.example/versions",
+    ],
+)
+def test_create_version_reserved_suffix_server_name_rejected(client, invalid_name):
+    encoded_name = _encode_path_param(invalid_name)
+    r = client.post(
+        f"{PREFIX}/{encoded_name}/versions",
+        json={"server_json": {"name": invalid_name, "version": "1.0"}},
+    )
+    assert r.status_code == 400
+    assert r.json()["error_code"] == "INVALID_PARAMETER_VALUE"
+    assert "Expected '<reverse-dns namespace>/<server slug>'" in r.json()["message"]
+
+
 def test_create_version_with_tools(client):
     sj = _server_json("com.example/tools-server", "1.0")
     tools = [{"name": "web_search", "description": "Search the web"}]
@@ -262,6 +309,29 @@ def test_create_version_with_tools(client):
     data = r.json()
     assert len(data["tools"]) == 1
     assert data["tools"][0]["name"] == "web_search"
+
+
+def test_create_version_with_tool_icons_preserves_extra_fields(client):
+    sj = _server_json("com.example/tool-icons-server", "1.0")
+    tools = [
+        {
+            "name": "web_search",
+            "icons": [
+                {
+                    "src": "https://example.com/icon.png",
+                    "sizes": ["32x32"],
+                    "purpose": "maskable",
+                }
+            ],
+        }
+    ]
+    r = client.post(
+        f"{PREFIX}/{_encode_path_param('com.example/tool-icons-server')}/versions",
+        json={"server_json": sj, "tools": tools, "status": "active"},
+    )
+    assert r.status_code == 200
+    assert r.json()["tools"][0]["name"] == "web_search"
+    assert r.json()["tools"][0]["icons"] == tools[0]["icons"]
 
 
 def test_create_version_preserves_empty_tools_list(client):

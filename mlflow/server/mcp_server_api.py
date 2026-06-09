@@ -35,7 +35,8 @@ class MCPIconPayload(BaseModel):
 
     @model_serializer(mode="plain")
     def serialize(self) -> dict[str, Any]:
-        icon: dict[str, Any] = {"src": self.src}
+        icon = dict(self.model_extra or {})
+        icon["src"] = self.src
         if self.sizes is not None:
             icon["sizes"] = self.sizes
         if self.mimeType is not None:
