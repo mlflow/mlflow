@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781016071991,
+  "lastUpdate": 1781016472343,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -8099,6 +8099,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 9.953134599993518,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "kishor.radhakrishnan@outlook.com",
+            "name": "kishor-rkrishnan",
+            "username": "kishor-rkrishnan"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2ed7f380a621ef5b0c7df190421268f6c75a58ca",
+          "message": "Fix `_stop_listen_for_spark_activity` hanging indefinitely on CLOSE_WAIT socket (#23839)\n\nSigned-off-by: kishor-rkrishnan <286408206+kishor-rkrishnan@users.noreply.github.com>\nCo-authored-by: kishor-rkrishnan <286408206+kishor-rkrishnan@users.noreply.github.com>\nCo-authored-by: Claude <noreply@anthropic.com>",
+          "timestamp": "2026-06-09T22:45:49+08:00",
+          "tree_id": "6ea4dc6e434c96c6e53f04da7193f7e96ce92efb",
+          "url": "https://github.com/mlflow/mlflow/commit/2ed7f380a621ef5b0c7df190421268f6c75a58ca"
+        },
+        "date": 1781016470840,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 44.32796834999948,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 27.15922467647277,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 23.841839728813294,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 26.472501559997568,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 27.49608919608044,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 9.750896999992165,
             "unit": "ms"
           }
         ]
