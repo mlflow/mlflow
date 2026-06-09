@@ -79,8 +79,8 @@ export const ExperimentListEmptyState = ({ onCreateExperiment }: { onCreateExper
             description="Headline for the agent CTA card on the experiments list empty state"
           />
         }
-        codingAgentPrompt={buildCreateExperimentPrompt(window.location.origin)}
-        assistantPrompt={buildCreateExperimentAssistantPrompt(window.location.origin)}
+        codingAgentPrompt={buildCreateExperimentPrompt()}
+        assistantPrompt={buildCreateExperimentAssistantPrompt()}
       />
 
       {onCreateExperiment && (

@@ -1,6 +1,4 @@
-export const buildCreatePromptPrompt = (
-  trackingUri: string,
-): string => `Help me create my first MLflow registered prompt and test it. Tracking server: ${trackingUri}.
+export const buildCreatePromptPrompt = (): string => `Help me create my first MLflow registered prompt and test it.
 
 One step at a time — don't dump everything at once:
 1. Ask what the prompt is for (e.g. "summarize an article", "extract action items from a meeting").
@@ -16,9 +14,8 @@ If the skills aren't installed locally, refer to https://github.com/mlflow/skill
 
 If you get stuck — missing API key, blocked permissions, missing deps — stop and tell the user in plain language what you need and how to fix it.`;
 
-export const buildCreatePromptAssistantPrompt = (
-  trackingUri: string,
-): string => `Help me create my first MLflow registered prompt and test it. MLflow is running at ${trackingUri}.
+export const buildCreatePromptAssistantPrompt =
+  (): string => `Help me create my first MLflow registered prompt and test it.
 
 One step at a time — don't dump everything at once:
 1. Ask what the prompt is for (e.g. "summarize an article", "extract action items from a meeting").

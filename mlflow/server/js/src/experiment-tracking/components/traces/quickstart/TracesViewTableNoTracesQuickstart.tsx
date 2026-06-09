@@ -134,8 +134,8 @@ export const TracesViewTableNoTracesQuickstart = ({
             description="Headline for the agent CTA card in the traces empty state"
           />
         }
-        codingAgentPrompt={buildInstrumentPrompt(window.location.origin, experimentName || 'my-experiment')}
-        assistantPrompt={buildInstrumentAssistantPrompt(window.location.origin, experimentName || 'my-experiment')}
+        codingAgentPrompt={buildInstrumentPrompt(experimentName || 'my-experiment')}
+        assistantPrompt={buildInstrumentAssistantPrompt(experimentName || 'my-experiment')}
       />
 
       {/* Language selector */}

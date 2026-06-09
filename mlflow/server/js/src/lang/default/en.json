@@ -4695,10 +4695,6 @@
     "defaultMessage": "Description",
     "description": "Label for issue description section"
   },
-  "NI68JV": {
-    "defaultMessage": "Paste this prompt into Claude Code, Codex, Cursor, or any coding agent already running in your project.",
-    "description": "Description above the agent prompt in the eval-runs empty state"
-  },
   "NJ1bYP": {
     "defaultMessage": "{fieldName} are identical",
     "description": "Default text in data table where items are identical in the model comparison page"
@@ -5030,6 +5026,10 @@
   "OxQK9l": {
     "defaultMessage": "Key name is required",
     "description": "Error message when key name is empty"
+  },
+  "OxqeMn": {
+    "defaultMessage": "Copy this prompt into Claude Code, Codex, Cursor, or any coding agent already running in your project.",
+    "description": "Description above the agent prompt in the eval-runs empty state"
   },
   "OzFBcd": {
     "defaultMessage": "Choose which questions reviewers answer for traces in this queue.",
@@ -5926,10 +5926,6 @@
   "TfuAgs": {
     "defaultMessage": "Hide group",
     "description": "A tooltip for the visibility icon button in the runs table next to the visible run group"
-  },
-  "ThRoFF": {
-    "defaultMessage": "Or use code",
-    "description": "Divider label separating the primary UI evaluation flow from the code-based alternatives"
   },
   "ThrXMh": {
     "defaultMessage": "Inputs",
@@ -7034,6 +7030,10 @@
   "ZMPAq5": {
     "defaultMessage": "Edit experiment",
     "description": "Text for edit experiment button on experiment view page header"
+  },
+  "ZMaqXx": {
+    "defaultMessage": "Or use coding agents/code snippets",
+    "description": "Divider label separating the primary UI evaluation flow from the code-based alternatives"
   },
   "ZNYFUr": {
     "defaultMessage": "Adheres to guidelines",

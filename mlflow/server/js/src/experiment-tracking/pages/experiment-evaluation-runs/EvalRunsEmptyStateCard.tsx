@@ -17,7 +17,15 @@ const BACKGROUND_DARK = '#1f2937';
 const TEXT_LIGHT = '#2b3441';
 const TEXT_DARK = '#d4d8de';
 
-const CopyableBlock = ({ content, componentId }: { content: string; componentId: string }) => {
+const CopyableBlock = ({
+  content,
+  componentId,
+  maxHeight = 480,
+}: {
+  content: string;
+  componentId: string;
+  maxHeight?: number;
+}) => {
   const { theme } = useDesignSystemTheme();
   return (
     <div
@@ -44,7 +52,7 @@ const CopyableBlock = ({ content, componentId }: { content: string; componentId:
           fontSize: 12,
           lineHeight: 1.55,
           color: theme.isDarkMode ? TEXT_DARK : TEXT_LIGHT,
-          maxHeight: 480,
+          maxHeight,
           overflow: 'auto',
           whiteSpace: 'pre-wrap',
           wordBreak: 'break-word',
@@ -56,7 +64,15 @@ const CopyableBlock = ({ content, componentId }: { content: string; componentId:
   );
 };
 
-const PythonCodeBlock = ({ content, componentId }: { content: string; componentId: string }) => {
+const PythonCodeBlock = ({
+  content,
+  componentId,
+  maxHeight = 480,
+}: {
+  content: string;
+  componentId: string;
+  maxHeight?: number;
+}) => {
   const { theme } = useDesignSystemTheme();
   const backgroundColor = theme.isDarkMode ? BACKGROUND_DARK : BACKGROUND_LIGHT;
   return (
@@ -66,7 +82,7 @@ const PythonCodeBlock = ({ content, componentId }: { content: string; componentI
         border: `1px solid ${theme.colors.border}`,
         borderRadius: theme.borders.borderRadiusSm,
         backgroundColor,
-        maxHeight: 480,
+        maxHeight,
         overflow: 'auto',
       }}
     >
@@ -98,8 +114,8 @@ export const EvalRunsEmptyStateCard = ({ experimentId }: { experimentId: string 
   const { theme } = useDesignSystemTheme();
   const { openPanel, queueMessage } = useAssistant();
   const [activeTab, setActiveTab] = useState<TabKey>('coding-agent');
-  const codingAgentPrompt = buildEvaluatePrompt(window.location.origin, experimentId);
-  const assistantPrompt = buildEvaluateAssistantPrompt(window.location.origin, experimentId);
+  const codingAgentPrompt = buildEvaluatePrompt(experimentId);
+  const assistantPrompt = buildEvaluateAssistantPrompt(experimentId);
 
   const handleAssistantClick = () => {
     openPanel();
@@ -145,7 +161,7 @@ export const EvalRunsEmptyStateCard = ({ experimentId }: { experimentId: string 
       >
         <div css={{ flex: 1, height: 1, backgroundColor: theme.colors.border }} />
         <FormattedMessage
-          defaultMessage="Or use code"
+          defaultMessage="Or use coding agents/code snippets"
           description="Divider label separating the primary UI evaluation flow from the code-based alternatives"
         />
         <div css={{ flex: 1, height: 1, backgroundColor: theme.colors.border }} />
@@ -187,11 +203,15 @@ export const EvalRunsEmptyStateCard = ({ experimentId }: { experimentId: string 
         <Tabs.Content value="coding-agent" css={{ paddingTop: 0 }}>
           <Typography.Text color="secondary" css={{ fontSize: 13, display: 'block', marginBottom: theme.spacing.sm }}>
             <FormattedMessage
-              defaultMessage="Paste this prompt into Claude Code, Codex, Cursor, or any coding agent already running in your project."
+              defaultMessage="Copy this prompt into Claude Code, Codex, Cursor, or any coding agent already running in your project."
               description="Description above the agent prompt in the eval-runs empty state"
             />
           </Typography.Text>
-          <CopyableBlock content={codingAgentPrompt} componentId="mlflow.eval-runs.empty-state.unified.copy_prompt" />
+          <CopyableBlock
+            content={codingAgentPrompt}
+            componentId="mlflow.eval-runs.empty-state.unified.copy_prompt"
+            maxHeight={160}
+          />
         </Tabs.Content>
 
         <Tabs.Content value="python" css={{ paddingTop: 0 }}>
@@ -204,6 +224,7 @@ export const EvalRunsEmptyStateCard = ({ experimentId }: { experimentId: string 
           <PythonCodeBlock
             content={getTraceCodeSnippet(experimentId)}
             componentId="mlflow.eval-runs.empty-state.unified.copy_snippet"
+            maxHeight={160}
           />
         </Tabs.Content>
 

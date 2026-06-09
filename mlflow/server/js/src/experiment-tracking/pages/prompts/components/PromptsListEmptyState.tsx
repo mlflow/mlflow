@@ -54,8 +54,8 @@ export const PromptsListEmptyState = ({ onCreatePrompt }: { onCreatePrompt: () =
             description="Headline for the agent CTA card on the prompts list empty state"
           />
         }
-        codingAgentPrompt={buildCreatePromptPrompt(window.location.origin)}
-        assistantPrompt={buildCreatePromptAssistantPrompt(window.location.origin)}
+        codingAgentPrompt={buildCreatePromptPrompt()}
+        assistantPrompt={buildCreatePromptAssistantPrompt()}
       />
 
       <Button

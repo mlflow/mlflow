@@ -88,6 +88,6 @@ describe('EvalRunsEmptyStateCard', () => {
 
     expect(mockOpenPanel).toHaveBeenCalledTimes(1);
     expect(mockQueueMessage).toHaveBeenCalledTimes(1);
-    expect(mockQueueMessage.mock.calls[0][0]).toContain('experiment ID: 42');
+    expect(mockQueueMessage.mock.calls[0][0]).toContain('Target experiment ID: 42');
   });
 });
