@@ -4,7 +4,7 @@ import { useDatasetRecordsPageQuery } from './useDatasetRecordsPageQuery';
 import { useDatasetRecordsUrlState } from './useDatasetRecordsUrlState';
 import { useBulkRecordSelection } from './useBulkRecordSelection';
 import { useDebouncedSearchInput } from './useDebouncedSearchInput';
-import { usePersistedTableColumns } from './usePersistedTableColumns';
+import { usePersistedTablePreferences } from './usePersistedTablePreferences';
 import {
   DEFAULT_RECORD_PAGE_SIZE,
   DEFAULT_VISIBLE_RECORD_COLUMNS,
@@ -13,7 +13,6 @@ import {
   type RecordColumnId,
 } from '../utils/constants';
 import { clampPageIndex } from '../utils/clampPageIndex';
-import { usePersistedTableColumnWidths } from './usePersistedTableColumnWidths';
 
 interface UseDatasetRecordsControllerParams {
   experimentId: string;
@@ -25,7 +24,7 @@ export interface UseDatasetRecordsControllerResult {
   records: ReturnType<typeof useDatasetRecordsPageQuery>;
   selectedRecord: DatasetRecord | undefined;
   bulk: ReturnType<typeof useBulkRecordSelection>;
-  columns: ReturnType<typeof usePersistedTableColumns<RecordColumnId>>;
+  tablePrefs: ReturnType<typeof usePersistedTablePreferences<RecordColumnId>>;
   /**
    * Debounced search input wired to URL state. The controller flushes any pending write
    * before a page-index transition so a mid-debounce keystroke doesn't clobber the
@@ -39,7 +38,6 @@ export interface UseDatasetRecordsControllerResult {
     hasNoRecordsAtAll: boolean;
     hasNoSearchResults: boolean;
   };
-  columnWidths: ReturnType<typeof usePersistedTableColumnWidths>;
 }
 
 /**
@@ -92,13 +90,12 @@ export const useDatasetRecordsController = ({
     }
   }, [records.isLoading, records.totalRecords, url.pageIndex, setPageIndex]);
 
-  const columns = usePersistedTableColumns({
+  const tablePrefs = usePersistedTablePreferences({
     experimentId,
     datasetId,
     allColumns: RECORD_COLUMN_IDS,
     defaultVisible: DEFAULT_VISIBLE_RECORD_COLUMNS,
   });
-  const columnWidths = usePersistedTableColumnWidths({ experimentId, datasetId });
 
   const visibleIds = useMemo(() => records.records.map((record) => record.dataset_record_id), [records.records]);
   const bulk = useBulkRecordSelection(visibleIds);
@@ -142,10 +139,9 @@ export const useDatasetRecordsController = ({
     records,
     selectedRecord,
     bulk,
-    columns,
+    tablePrefs,
     searchInput,
     setPageIndex,
     flags: { hasActiveSearch, hasNoRecordsAtAll, hasNoSearchResults },
-    columnWidths,
   };
 };

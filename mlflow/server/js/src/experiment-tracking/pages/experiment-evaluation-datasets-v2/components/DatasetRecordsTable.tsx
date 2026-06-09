@@ -27,7 +27,12 @@ import {
   TagsInlinePreviewBody,
   TagsPreviewCell,
 } from './DatasetRecordCell';
-import { SORTABLE_RECORD_COLUMNS, type RecordColumnId, type SortDirection } from '../utils/constants';
+import {
+  RECORD_COLUMN_IDS,
+  SORTABLE_RECORD_COLUMNS,
+  type RecordColumnId,
+  type SortDirection,
+} from '../utils/constants';
 import type { PendingNewRecord } from '../hooks/useRecordCreateState';
 
 interface DatasetRecordsTableProps {
@@ -141,31 +146,22 @@ const pickViewportBucket = (viewportWidth: number): ViewportBucket => {
   return 'small';
 };
 
-// Floor + ceiling for column resizing. Both set on `defaultColumn`, so
-// TanStack's `getSize()` clamps `columnSizing[id]` to this range on read —
-// even if DuBois's drag handle writes a value outside it we never render
-// outside the range. Ceiling prevents a runaway drag from making a column
-// thousands of pixels wide and breaking horizontal scroll UX.
 const COLUMN_MIN_WIDTH = 80;
 const COLUMN_MAX_WIDTH = 1200;
 
-// Floor for `window.innerWidth` reads. `window.innerWidth` is non-zero in
-// every realistic scenario, but inside an iframe with `display: none` on the
-// <iframe> element it can be 0 in some browsers. Clamping to 800 routes that
-// edge case (and any absurdly narrow window) into the small bucket cleanly.
+// `window.innerWidth` is non-zero in every realistic scenario,
+// but inside an iframe with `display: none` on the
+// <iframe> element it can be 0 in some browsers. Clamping to 800 as fallback
 const MIN_VIEWPORT_WIDTH = 800;
 
 // SSR-safe read. `window` is undefined during server-side rendering and in
-// some pre-paint test contexts; fall back to `MIN_VIEWPORT_WIDTH` (→ 'small'
-// bucket) rather than throwing.
+// some pre-paint test contexts
 const readViewportWidth = (): number => {
   if (typeof window === 'undefined') return MIN_VIEWPORT_WIDTH;
   return Math.max(window.innerWidth, MIN_VIEWPORT_WIDTH);
 };
 
-// `getCoreRowModel()` returns a row-model factory; calling it once at module
-// load gives a stable reference TanStack can identity-check against, instead
-// of allocating a new factory on every render.
+// Call it once instead of allocating a new factory on every render.
 const CORE_ROW_MODEL_FACTORY = getCoreRowModel();
 
 // Base cell styles — column width is supplied separately via flexStyleForColumn.
@@ -235,68 +231,17 @@ export const DatasetRecordsTable = ({
     [],
   );
 
-  // `header` strings are unused at render time — each `<TableHeader>` below
-  // renders its own `<FormattedMessage>`. They exist only to satisfy
-  // `ColumnDef`'s type and any fallback TanStack code path that calls
-  // `flexRender(header)`. Memoised so TanStack doesn't rebuild its column
-  // model on every parent render.
+  // `header` strings are unused at render — each `<TableHeader>` below renders
+  // its own `<FormattedMessage>`. The field exists only to satisfy `ColumnDef`'s
+  // type and any fallback TanStack code path that calls `flexRender(header)`.
   const columns = useMemo<ColumnDef<DatasetRecord>[]>(
-    () => [
-      {
-        id: 'dataset_record_id',
-        accessorKey: 'dataset_record_id',
-        header: 'Record ID',
-        size: columnWidthsForViewport[TIER_BY_COLUMN.dataset_record_id],
-      },
-      {
-        id: 'inputs',
-        accessorKey: 'inputs',
-        header: 'Inputs',
-        size: columnWidthsForViewport[TIER_BY_COLUMN.inputs],
-      },
-      {
-        id: 'expectations',
-        accessorKey: 'expectations',
-        header: 'Expectations',
-        size: columnWidthsForViewport[TIER_BY_COLUMN.expectations],
-      },
-      {
-        id: 'create_time',
-        accessorKey: 'create_time',
-        header: 'Created',
-        size: columnWidthsForViewport[TIER_BY_COLUMN.create_time],
-      },
-      {
-        id: 'created_by',
-        accessorKey: 'created_by',
-        header: 'Created by',
-        size: columnWidthsForViewport[TIER_BY_COLUMN.created_by],
-      },
-      {
-        id: 'source',
-        accessorKey: 'source',
-        header: 'Source',
-        size: columnWidthsForViewport[TIER_BY_COLUMN.source],
-      },
-      {
-        id: 'last_updated',
-        accessorKey: 'last_updated',
-        header: 'Last updated',
-        size: columnWidthsForViewport[TIER_BY_COLUMN.last_updated],
-      },
-      {
-        id: 'last_updated_by',
-        accessorKey: 'last_updated_by',
-        header: 'Last updated by',
-        size: columnWidthsForViewport[TIER_BY_COLUMN.last_updated_by],
-      },
-      {
-        id: 'tags',
-        accessorKey: 'tags',
-        header: 'Tags',
-        size: columnWidthsForViewport[TIER_BY_COLUMN.tags],
-      },
-    ],
+    () =>
+      RECORD_COLUMN_IDS.map((id) => ({
+        id,
+        accessorKey: id,
+        header: id,
+        size: columnWidthsForViewport[TIER_BY_COLUMN[id]],
+      })),
     [columnWidthsForViewport],
   );
 

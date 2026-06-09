@@ -82,7 +82,7 @@ export const DatasetDetailPageContent = ({ experimentId, datasetId, dataset }: D
   const searchInputRef = useRef<InputRef>(null);
   useSlashFocusSearch(searchInputRef);
 
-  const { url, records, selectedRecord, bulk, columns, flags, searchInput, setPageIndex, columnWidths } =
+  const { url, records, selectedRecord, bulk, tablePrefs, flags, searchInput, setPageIndex } =
     useDatasetRecordsController({ experimentId, datasetId });
 
   const deleteRecordsMutation = useDeleteDatasetRecordsMutation(datasetId);
@@ -347,15 +347,9 @@ export const DatasetDetailPageContent = ({ experimentId, datasetId, dataset }: D
                   panelOpen ? null : (
                     <>
                       <DatasetRecordsColumnSelector
-                        visibleColumns={columns.visibleColumns}
-                        onToggleColumn={columns.toggleColumn}
-                        onResetToDefaults={() => {
-                          // Resets both column visibility AND any dragged widths back to
-                          // the viewport-bucket defaults. This is the only in-app way for
-                          // users to recover from a width they no longer want.
-                          columns.resetToDefaults();
-                          columnWidths.setColumnSizing({});
-                        }}
+                        visibleColumns={tablePrefs.visibleColumns}
+                        onToggleColumn={tablePrefs.toggleColumn}
+                        onResetToDefaults={tablePrefs.resetToDefaults}
                       />
                       {records.allRecords.length > 0 && (
                         // 1px nudge on top of the toolbar's `sm` gap to give the count
@@ -405,9 +399,9 @@ export const DatasetDetailPageContent = ({ experimentId, datasetId, dataset }: D
                       isFetching={records.isFetching}
                       onRecordSelected={handleRecordSelected}
                       selectedRecordId={url.recordId}
-                      visibleColumns={columns.visibleColumns}
-                      columnSizing={columnWidths.columnSizing}
-                      setColumnSizing={columnWidths.setColumnSizing}
+                      visibleColumns={tablePrefs.visibleColumns}
+                      columnSizing={tablePrefs.columnSizing}
+                      setColumnSizing={tablePrefs.setColumnSizing}
                       selectedForBulk={bulk.selected}
                       isAllOnPageSelected={bulk.isAllVisibleChecked}
                       isSomeOnPageSelected={bulk.isSomeVisibleChecked}
