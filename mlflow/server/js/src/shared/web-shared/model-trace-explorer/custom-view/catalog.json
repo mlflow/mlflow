@@ -1,0 +1,170 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mlflow.org/model-trace-explorer/custom-view/catalog.json",
+  "title": "MLflow Custom View Catalog",
+  "description": "Custom A2UI catalog for the model trace explorer custom view. Extends the basic catalog's Text and Row components with MLflow-specific StatCard, DataTable, and TimelineChart components.",
+  "catalogId": "https://mlflow.org/model-trace-explorer/custom-view/catalog.json",
+  "components": {
+    "allOf": [
+      {
+        "$ref": "https://a2ui.org/specification/v0_10/catalogs/basic/catalog.json#/components/Text"
+      },
+      {
+        "$ref": "https://a2ui.org/specification/v0_10/catalogs/basic/catalog.json#/components/Row"
+      },
+      {
+        "StatCard": {
+          "type": "object",
+          "description": "A metric card displaying a value, a caption, and a tinted icon. Matches the tool-call statistics cards on the experiment overview page.",
+          "properties": {
+            "component": {
+              "const": "StatCard"
+            },
+            "value": {
+              "$ref": "https://a2ui.org/specification/v0_10/common_types.json#/$defs/DynamicString",
+              "description": "The metric value to display, e.g. \"14\" or \"275.71ms\"."
+            },
+            "label": {
+              "$ref": "https://a2ui.org/specification/v0_10/common_types.json#/$defs/DynamicString",
+              "description": "The caption describing the metric."
+            },
+            "icon": {
+              "type": "string",
+              "description": "The icon to display next to the value.",
+              "enum": ["wrench", "clock", "checkCircle", "xCircle", "hash", "checklist"]
+            },
+            "tone": {
+              "type": "string",
+              "description": "The color tone applied to the icon.",
+              "enum": ["info", "success", "warning", "danger"],
+              "default": "info"
+            }
+          },
+          "required": ["component", "value", "label"]
+        }
+      },
+      {
+        "DataTable": {
+          "type": "object",
+          "description": "A generic, domain-agnostic table. Callers describe the columns and supply rows whose cells are positionally aligned to the columns. An optional per-row color renders a leading indicator dot in the first cell.",
+          "properties": {
+            "component": {
+              "const": "DataTable"
+            },
+            "title": {
+              "$ref": "https://a2ui.org/specification/v0_10/common_types.json#/$defs/DynamicString",
+              "description": "Optional heading shown above the table."
+            },
+            "icon": {
+              "type": "string",
+              "description": "Optional icon shown next to the title.",
+              "enum": ["list", "wrench", "clock", "hash", "checklist"]
+            },
+            "columns": {
+              "type": "array",
+              "description": "The ordered column definitions.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "label": {
+                    "$ref": "https://a2ui.org/specification/v0_10/common_types.json#/$defs/DynamicString",
+                    "description": "The column header text."
+                  },
+                  "align": {
+                    "type": "string",
+                    "description": "Horizontal alignment of the column.",
+                    "enum": ["left", "center", "right"],
+                    "default": "left"
+                  }
+                },
+                "required": ["label"]
+              }
+            },
+            "rows": {
+              "type": "array",
+              "description": "The table rows.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "color": {
+                    "type": "string",
+                    "description": "Optional CSS color for a leading indicator dot."
+                  },
+                  "cells": {
+                    "type": "array",
+                    "description": "Cell values, positionally aligned to the columns.",
+                    "items": {
+                      "$ref": "https://a2ui.org/specification/v0_10/common_types.json#/$defs/DynamicString"
+                    }
+                  }
+                },
+                "required": ["cells"]
+              }
+            },
+            "emptyMessage": {
+              "$ref": "https://a2ui.org/specification/v0_10/common_types.json#/$defs/DynamicString",
+              "description": "Text shown when there are no rows."
+            }
+          },
+          "required": ["component", "columns", "rows"]
+        }
+      },
+      {
+        "TimelineChart": {
+          "type": "object",
+          "description": "A generic Gantt-style timeline. Each row is a horizontal bar positioned by its start/end offsets (in milliseconds, relative to a common origin). The component computes the axis, scaling, and duration labels, and works for any number of rows. Mirrors the Details & Timeline gantt view.",
+          "properties": {
+            "component": {
+              "const": "TimelineChart"
+            },
+            "title": {
+              "$ref": "https://a2ui.org/specification/v0_10/common_types.json#/$defs/DynamicString",
+              "description": "Optional heading shown above the chart."
+            },
+            "icon": {
+              "type": "string",
+              "description": "Optional icon shown next to the title.",
+              "enum": ["clock", "list", "wrench", "hash", "checklist"]
+            },
+            "rows": {
+              "type": "array",
+              "description": "The timeline rows, in display order.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "label": {
+                    "$ref": "https://a2ui.org/specification/v0_10/common_types.json#/$defs/DynamicString",
+                    "description": "The row label (e.g. the span name)."
+                  },
+                  "start": {
+                    "type": "number",
+                    "description": "Start offset in milliseconds."
+                  },
+                  "end": {
+                    "type": "number",
+                    "description": "End offset in milliseconds."
+                  },
+                  "depth": {
+                    "type": "number",
+                    "description": "Indentation level for hierarchy.",
+                    "default": 0
+                  },
+                  "color": {
+                    "type": "string",
+                    "description": "Optional CSS color for the bar."
+                  }
+                },
+                "required": ["label", "start", "end"]
+              }
+            },
+            "emptyMessage": {
+              "$ref": "https://a2ui.org/specification/v0_10/common_types.json#/$defs/DynamicString",
+              "description": "Text shown when there are no rows."
+            }
+          },
+          "required": ["component", "rows"]
+        }
+      }
+    ]
+  }
+}

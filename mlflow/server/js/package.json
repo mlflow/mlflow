@@ -23,6 +23,8 @@
     "graphql-codegen:clean": "find . -path '**/__generated__/*.ts' | xargs rm"
   },
   "dependencies": {
+    "@a2ui/react": "^0.10.0",
+    "@a2ui/web_core": "^0.10.0",
     "@ag-grid-community/client-side-row-model": "^27.2.1",
     "@ag-grid-community/core": "^27.2.1",
     "@ag-grid-community/react": "^27.2.1",
@@ -103,6 +105,7 @@
     "use-sync-external-store": "^1.2.0",
     "uuid": "^13.0.0",
     "wavesurfer.js": "^7.8.8",
+    "zod": "^3.23.8",
     "zustand": "^4.5.6"
   },
   "devDependencies": {
