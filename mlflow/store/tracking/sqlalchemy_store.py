@@ -8528,8 +8528,18 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 )
             return self._hydrate_review_queues(session, [sql_queue])[0]
 
-    def list_review_queues(self, experiment_id, *, user=None, max_results=None, page_token=None):
+    def list_review_queues(
+        self, experiment_id, *, user=None, max_results=None, page_token=None, ensure_default=False
+    ):
         from mlflow.genai.review_queues.validation import normalize_user
+
+        if ensure_default:
+            # No-auth UI opt-in: seed the protected default queue (idempotent, in
+            # its own session) so it's included below. Auth servers and SDK/API
+            # callers leave ensure_default false, so no default queue is created
+            # there. The backend can't tell no-auth from auth, so the no-auth
+            # client sets this flag.
+            self._get_or_create_default_queue(experiment_id, created_by=user)
 
         if max_results is None:
             max_results = SEARCH_MAX_RESULTS_DEFAULT

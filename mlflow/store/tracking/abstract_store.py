@@ -1954,6 +1954,7 @@ class AbstractStore(GatewayStoreMixin):
         user: str | None = None,
         max_results: int | None = None,
         page_token: str | None = None,
+        ensure_default: bool = False,
     ) -> PagedList["ReviewQueue"]:
         """List an experiment's review queues, newest first.
 
@@ -1963,6 +1964,10 @@ class AbstractStore(GatewayStoreMixin):
                 user queue plus any custom queue they belong to).
             max_results: Page size.
             page_token: Opaque continuation token from a previous call.
+            ensure_default: No-auth only. When true, seed the experiment's
+                protected default queue (idempotently) before listing. Set by the
+                no-auth UI; left false on authenticated servers and SDK/API
+                callers, so no default queue is created there.
         """
         raise NotImplementedError(self.__class__.__name__)
 

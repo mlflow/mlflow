@@ -70,7 +70,6 @@ from mlflow.protos.review_queues_pb2 import (
     AddTracesToReviewQueue,
     CreateReviewQueue,
     DeleteReviewQueue,
-    GetOrCreateDefaultQueue,
     GetOrCreateUserQueue,
     GetReviewQueue,
     GetReviewQueueByName,
@@ -1149,19 +1148,6 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
         )
         return ReviewQueue.from_proto(response_proto.review_queue)
 
-    def get_or_create_default_queue(self, experiment_id, *, created_by=None):
-        from mlflow.genai.review_queues import ReviewQueue
-
-        req = GetOrCreateDefaultQueue(experiment_id=str(experiment_id))
-        if created_by is not None:
-            req.created_by = created_by
-        response_proto = self._call_endpoint(
-            GetOrCreateDefaultQueue,
-            message_to_json(req),
-            endpoint=f"{_V3_REVIEW_QUEUES_REST_API_PATH_PREFIX}/get-or-create-default",
-        )
-        return ReviewQueue.from_proto(response_proto.review_queue)
-
     def get_review_queue(self, queue_id):
         from mlflow.genai.review_queues import ReviewQueue
 
@@ -1184,7 +1170,9 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
         )
         return ReviewQueue.from_proto(response_proto.review_queue)
 
-    def list_review_queues(self, experiment_id, *, user=None, max_results=None, page_token=None):
+    def list_review_queues(
+        self, experiment_id, *, user=None, max_results=None, page_token=None, ensure_default=False
+    ):
         from mlflow.genai.review_queues import ReviewQueue
 
         req = ListReviewQueues(experiment_id=str(experiment_id))
@@ -1194,6 +1182,8 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
             req.max_results = max_results
         if page_token is not None:
             req.page_token = page_token
+        if ensure_default:
+            req.ensure_default = True
         response_proto = self._call_endpoint(
             ListReviewQueues,
             message_to_json(req),

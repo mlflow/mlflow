@@ -721,3 +721,16 @@ def test_get_or_create_default_queue_missing_experiment_raises(store):
     with pytest.raises(MlflowException, match="No Experiment with id") as exc:
         store._get_or_create_default_queue("999999")
     _assert_error_code(exc, RESOURCE_DOES_NOT_EXIST)
+
+
+def test_list_review_queues_seeds_default_only_when_ensure_default(store):
+    exp_id = _create_experiments(store, "ensure_default_list")
+    # Without the flag (auth servers + SDK callers), no default queue is created.
+    assert all(not q.is_default for q in store.list_review_queues(exp_id))
+    # With the flag (the no-auth UI), the protected default queue is seeded + listed.
+    defaults = [q for q in store.list_review_queues(exp_id, ensure_default=True) if q.is_default]
+    assert len(defaults) == 1
+    # Idempotent: a second ensure_default list doesn't create a second default.
+    again = [q for q in store.list_review_queues(exp_id, ensure_default=True) if q.is_default]
+    assert len(again) == 1
+    assert again[0].queue_id == defaults[0].queue_id

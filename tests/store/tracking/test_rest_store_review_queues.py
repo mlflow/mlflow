@@ -66,19 +66,13 @@ def test_get_or_create_user_queue_endpoint():
     assert captured["body"]["user"] == "alice"
 
 
-def test_get_or_create_default_queue_endpoint():
-    resp = pb.GetOrCreateDefaultQueue.Response(
-        review_queue=pb.ReviewQueue(
-            queue_id="rq-1", name="Default", queue_type=pb.CUSTOM, is_default=True
-        )
-    )
+def test_list_review_queues_forwards_ensure_default():
+    resp = pb.ListReviewQueues.Response(review_queues=[])
     patcher, captured = _capture(resp)
     with patcher:
-        result = _store().get_or_create_default_queue("1", created_by="k")
-    assert captured["endpoint"] == "/api/3.0/mlflow/review-queues/get-or-create-default"
-    assert captured["body"]["experiment_id"] == "1"
-    assert captured["body"]["created_by"] == "k"
-    assert result.is_default is True
+        _store().list_review_queues("1", ensure_default=True)
+    assert captured["endpoint"] == "/api/3.0/mlflow/review-queues/list"
+    assert captured["body"]["ensure_default"] is True
 
 
 def test_update_review_queue_sets_flags():
