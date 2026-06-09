@@ -4563,6 +4563,10 @@
     "defaultMessage": "Delete dataset",
     "description": "Title for the V2 evaluation dataset delete confirmation modal on the detail page"
   },
+  "N2xn0p": {
+    "defaultMessage": "Add question",
+    "description": "Add to review queue: create new question link"
+  },
   "N53jAt": {
     "defaultMessage": "Create custom code judge",
     "description": "Title for new custom code judge modal"

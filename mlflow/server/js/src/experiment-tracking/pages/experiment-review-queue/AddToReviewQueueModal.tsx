@@ -19,7 +19,7 @@ import {
 import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
 import { FormattedMessage, useIntl } from 'react-intl';
 
-import { useListLabelSchemasQuery } from '../../components/label-schemas';
+import { LabelSchemaFormModal, useListLabelSchemasQuery } from '../../components/label-schemas';
 import { useCurrentUserIsAdmin, useCurrentUserIsWorkspaceAdmin, useIsAuthAvailable } from '../../../account/hooks';
 import Utils from '../../../common/utils/Utils';
 import { CreateReviewQueueModal } from './CreateReviewQueueModal';
@@ -83,6 +83,7 @@ export const AddToReviewQueueModal = ({
   const [selectedQueueIds, setSelectedQueueIds] = useState<Set<string>>(new Set());
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
   const [createOpen, setCreateOpen] = useState(false);
+  const [addQuestionOpen, setAddQuestionOpen] = useState(false);
 
   const {
     reviewQueues,
@@ -209,6 +210,7 @@ export const AddToReviewQueueModal = ({
     setSelectedQueueIds(new Set());
     setSelectedUsers(new Set());
     setCreateOpen(false);
+    setAddQuestionOpen(false);
     resetAdd();
     resetResolve();
     setVisible(false);
@@ -274,9 +276,10 @@ export const AddToReviewQueueModal = ({
     <>
       <Modal
         componentId={`${CID}.modal`}
-        // Hide while the create form is open rather than stacking two modals; it
-        // reopens with the new queue selected when the create modal closes.
-        visible={visible && !createOpen}
+        // Hide while a child form (new queue / add question) is open rather than
+        // stacking modals; it reopens when the child form closes (with the new
+        // queue selected, in the create-queue case).
+        visible={visible && !createOpen && !addQuestionOpen}
         title={
           <FormattedMessage
             defaultMessage="Add {count, plural, one {# trace} other {# traces}} to review queues"
@@ -381,10 +384,12 @@ export const AddToReviewQueueModal = ({
                     )}
                     {hasMoreQueues && (
                       <DialogComboboxHintRow>
-                        <FormattedMessage
-                          defaultMessage="Search to find more queues"
-                          description="Add to review queue: hint that more custom queues are searchable"
-                        />
+                        <span css={{ paddingLeft: theme.spacing.sm, paddingRight: theme.spacing.sm }}>
+                          <FormattedMessage
+                            defaultMessage="Search to find more queues"
+                            description="Add to review queue: hint that more custom queues are searchable"
+                          />
+                        </span>
                       </DialogComboboxHintRow>
                     )}
 
@@ -450,14 +455,35 @@ export const AddToReviewQueueModal = ({
             </DialogCombobox>
           )}
 
-          <Typography.Link
-            componentId={`${CID}.new-queue`}
-            css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs, alignSelf: 'flex-start' }}
-            onClick={() => setCreateOpen(true)}
+          <div
+            css={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'flex-start',
+              gap: theme.spacing.sm,
+              alignSelf: 'flex-start',
+            }}
           >
-            <PlusIcon />
-            <FormattedMessage defaultMessage="New queue" description="Add to review queue: create new queue link" />
-          </Typography.Link>
+            <Typography.Link
+              componentId={`${CID}.new-queue`}
+              css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs }}
+              onClick={() => setCreateOpen(true)}
+            >
+              <PlusIcon />
+              <FormattedMessage defaultMessage="New queue" description="Add to review queue: create new queue link" />
+            </Typography.Link>
+            <Typography.Link
+              componentId={`${CID}.add-question`}
+              css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs }}
+              onClick={() => setAddQuestionOpen(true)}
+            >
+              <PlusIcon />
+              <FormattedMessage
+                defaultMessage="Add question"
+                description="Add to review queue: create new question link"
+              />
+            </Typography.Link>
+          </div>
 
           {actionError && (
             <Alert
@@ -481,6 +507,15 @@ export const AddToReviewQueueModal = ({
           onCreated={handleCreated}
         />
       )}
+
+      {/* Inline question authoring; reuses the label-schema form, which
+          invalidates the schema list so the new question is picked up here. */}
+      <LabelSchemaFormModal
+        experimentId={experimentId}
+        editingSchema={null}
+        visible={addQuestionOpen}
+        onClose={() => setAddQuestionOpen(false)}
+      />
     </>
   );
 };
